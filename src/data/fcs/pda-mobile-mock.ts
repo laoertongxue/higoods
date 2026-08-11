@@ -9,6 +9,11 @@ import {
   listPdaGenericQuotedTenderMocks,
 } from './pda-task-mock-factory.ts'
 import { TEST_FACTORY_ID } from './factory-mock-data.ts'
+import {
+  listRuntimeTaskTenderRecords,
+  resolveRuntimeTaskTenderStatus,
+  runtimeTaskTenderStatusLabel,
+} from './runtime-task-tenders.ts'
 
 export interface PdaMobileBiddingTenderMock {
   tenderId: string
@@ -23,6 +28,10 @@ export interface PdaMobileBiddingTenderMock {
   standardPrice: number
   currency: string
   factoryId: string
+  skuCount?: number
+  minPrice?: number
+  maxPrice?: number
+  runtimeShared?: boolean
 }
 
 export interface PdaMobileQuotedTenderMock {
@@ -42,6 +51,8 @@ export interface PdaMobileQuotedTenderMock {
   tenderStatusLabel: string
   remark: string
   factoryId: string
+  skuCount?: number
+  runtimeShared?: boolean
 }
 
 export interface PdaMobileAwardedTenderNoticeMock {
@@ -194,13 +205,83 @@ export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[]
 ]
 
 export function listPdaBiddingTendersByFactoryId(factoryId: string): PdaMobileBiddingTenderMock[] {
-  return PDA_MOCK_BIDDING_TENDERS.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+  const runtimeRows: PdaMobileBiddingTenderMock[] = listRuntimeTaskTenderRecords()
+    .filter((record) => resolveRuntimeTaskTenderStatus(record) === 'BIDDING')
+    .filter((record) => record.factoryPool.some((factory) => factory.factoryId === factoryId))
+    .filter((record) => !record.quotes.some((quote) => quote.factoryId === factoryId))
+    .map((record) => ({
+      tenderId: record.tenderId,
+      taskId: record.taskId,
+      productionOrderId: record.taskSnapshot.productionOrderNo || record.taskSnapshot.productionOrderId,
+      processName: record.taskSnapshot.processName,
+      qty: record.taskSnapshot.qty,
+      qtyUnit: record.taskSnapshot.qtyUnit,
+      factoryPoolCount: record.factoryPool.length,
+      biddingDeadline: record.biddingDeadline,
+      taskDeadline: record.taskDeadline,
+      standardPrice: record.standardPrice,
+      currency: record.currency,
+      factoryId,
+      skuCount: record.taskSnapshot.skuLines.length,
+      minPrice: record.minPrice,
+      maxPrice: record.maxPrice,
+      runtimeShared: true,
+    }))
+  const rows = [
+    ...PDA_MOCK_BIDDING_TENDERS.filter((item) => item.factoryId === factoryId),
+    ...runtimeRows,
+  ]
+  return [...new Map(rows.map((item) => [item.tenderId, item] as const)).values()].map((item) => ({ ...item }))
 }
 
 export function listPdaQuotedTendersByFactoryId(factoryId: string): PdaMobileQuotedTenderMock[] {
-  return PDA_MOCK_QUOTED_TENDERS.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+  const runtimeRows: PdaMobileQuotedTenderMock[] = listRuntimeTaskTenderRecords().flatMap((record) => {
+    const quote = record.quotes.find((item) => item.factoryId === factoryId)
+    if (!quote) return []
+    const status = resolveRuntimeTaskTenderStatus(record)
+    return [{
+      tenderId: record.tenderId,
+      taskId: record.taskId,
+      productionOrderId: record.taskSnapshot.productionOrderNo || record.taskSnapshot.productionOrderId,
+      processName: record.taskSnapshot.processName,
+      qty: record.taskSnapshot.qty,
+      qtyUnit: record.taskSnapshot.qtyUnit,
+      quotedPrice: quote.quotePrice,
+      quotedAt: quote.quoteTime,
+      deliveryDays: quote.deliveryDays || 0,
+      currency: record.currency,
+      unit: record.unit,
+      biddingDeadline: record.biddingDeadline,
+      taskDeadline: record.taskDeadline,
+      tenderStatusLabel: runtimeTaskTenderStatusLabel[status],
+      remark: quote.remark || '',
+      factoryId,
+      skuCount: record.taskSnapshot.skuLines.length,
+      runtimeShared: true,
+    }]
+  })
+  const rows = [
+    ...PDA_MOCK_QUOTED_TENDERS.filter((item) => item.factoryId === factoryId),
+    ...runtimeRows,
+  ]
+  return [...new Map(rows.map((item) => [item.tenderId, item] as const)).values()].map((item) => ({ ...item }))
 }
 
 export function listPdaAwardedTenderNoticesByFactoryId(factoryId: string): PdaMobileAwardedTenderNoticeMock[] {
-  return PDA_MOCK_AWARDED_TENDER_NOTICES.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+  const runtimeRows: PdaMobileAwardedTenderNoticeMock[] = listRuntimeTaskTenderRecords()
+    .filter((record) => resolveRuntimeTaskTenderStatus(record) === 'AWARDED' && record.awardedFactoryId === factoryId)
+    .map((record) => ({
+      tenderId: record.tenderId,
+      taskId: record.taskId,
+      processName: record.taskSnapshot.processName,
+      qty: record.taskSnapshot.qty,
+      notifiedAt: record.awardedAt || record.assignmentOperatedAt,
+      productionOrderId: record.taskSnapshot.productionOrderNo || record.taskSnapshot.productionOrderId,
+      factoryId,
+    }))
+  const rows = [
+    ...PDA_MOCK_AWARDED_TENDER_NOTICES.filter((item) => item.factoryId === factoryId),
+    ...runtimeRows,
+  ]
+  return [...new Map(rows.map((item) => [item.tenderId, item] as const)).values()].map((item) => ({ ...item }))
 }

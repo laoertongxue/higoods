@@ -5,6 +5,7 @@ import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { listFutureMobileFactorySoonOverdueQcItems } from '../data/fcs/quality-deduction-selectors'
+import { getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   ensurePdaSessionForAction,
@@ -139,48 +140,6 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     href: '/fcs/pda/task-receive/PDA-RECV-003',
   },
   {
-    id: 'quote-TENDER-PDA-003',
-    category: '报价类',
-    subtype: '待报价',
-    tenderId: 'TENDER-PDA-003',
-    taskId: 'TENDER-PDA-003',
-    productionOrderId: 'PO-2024-0018',
-    processName: '车缝',
-    deadlineLabel: '竞价截止时间',
-    deadline: addHours(NOW, 6),
-    statusLabel: '待报价',
-    riskNote: '竞价窗口即将关闭，共 1600 件',
-    href: '/fcs/pda/task-receive?tab=pending-quote',
-  },
-  {
-    id: 'quote-TENDER-DUE-001',
-    category: '报价类',
-    subtype: '待报价',
-    tenderId: 'TENDER-DUE-001',
-    taskId: 'TENDER-DUE-001',
-    productionOrderId: 'PO-2024-0050',
-    processName: '整烫',
-    deadlineLabel: '竞价截止时间',
-    deadline: addHours(NOW, 4),
-    statusLabel: '待报价',
-    riskNote: '距竞价截止仅剩 8 小时，2200 件整烫单',
-    href: '/fcs/pda/task-receive?tab=pending-quote',
-  },
-  {
-    id: 'quote-TENDER-DUE-002',
-    category: '报价类',
-    subtype: '待报价',
-    tenderId: 'TENDER-DUE-002',
-    taskId: 'TENDER-DUE-002',
-    productionOrderId: 'PO-2024-0051',
-    processName: '包装',
-    deadlineLabel: '竞价截止时间',
-    deadline: addHours(NOW, 11),
-    statusLabel: '待报价',
-    riskNote: '包装工序竞价，共 3000 件',
-    href: '/fcs/pda/task-receive?tab=pending-quote',
-  },
-  {
     id: 'pickup-HOP-PDA-001',
     category: '交接类',
     subtype: '待接收',
@@ -306,6 +265,22 @@ function getAllItems(): DueSoonItem[] {
 
   const staticItems = DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
   const selectedFactoryId = getCurrentFactoryId()
+  const tenderQuoteDueItems: DueSoonItem[] = getFactoryMobileTodos(selectedFactoryId)
+    .filter((todo) => todo.todoType === '待报价' && Boolean(todo.dueAt) && isSoonDue(todo.dueAt as string))
+    .map((todo) => ({
+      id: `quote-due-${todo.todoId}`,
+      category: '报价类' as const,
+      subtype: '待报价' as const,
+      taskId: todo.relatedTaskId,
+      tenderId: todo.relatedTenderId,
+      processName: todo.todoTitle.replace('任务竞价邀请', ''),
+      currentFactory: todo.factoryName,
+      deadlineLabel: '竞价截止时间',
+      deadline: todo.dueAt as string,
+      statusLabel: '待报价',
+      riskNote: todo.todoSubtitle,
+      href: todo.detailRoute,
+    }))
   const startDueItems: DueSoonItem[] = processTasks
     .filter(
       (task) =>
@@ -382,7 +357,7 @@ function getAllItems(): DueSoonItem[] {
     href: `/fcs/pda/settlement?tab=quality&view=soon`,
   }))
 
-  return [...staticItems, ...execInProgressItems, ...startDueItems, ...qualityDueSoonItems]
+  return [...staticItems, ...tenderQuoteDueItems, ...execInProgressItems, ...startDueItems, ...qualityDueSoonItems]
 }
 
 function getCountByCategory(items: DueSoonItem[]): Record<string, number> {

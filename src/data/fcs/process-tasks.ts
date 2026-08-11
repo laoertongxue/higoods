@@ -42,7 +42,7 @@ import type {
 } from './process-work-order-domain.ts'
 import type { WoolAllowedAction } from './wool-domain/queries.ts'
 
-export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
+export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
 export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'

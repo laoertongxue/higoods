@@ -105,14 +105,30 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await dispatchDialog(page).getByRole('button', { name: '取消' }).click()
 })
 
-test('竞价预览保留业务分配日期，改派范围不可在页面手工改数量', async ({ page }) => {
+test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改派范围不可手工改数量', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
+  await page.clock.setFixedTime(new Date(2026, 7, 6, 10, 0, 0))
   await page.goto('/fcs/dispatch/workbench')
 
   await searchTask(page, 'PO-202603-0002')
   await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')
   let dialog = dispatchDialog(page)
   await expect(dialog.getByRole('heading', { name: /发起竞价/ })).toBeVisible()
+  await expect(dialog).toContainText('本次竞价为整个任务')
+  await expect(dialog).toContainText('不选择、不拆分 SKU')
+  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
+  const tenderPool = dialog.locator('[data-unified-tender-pool]')
+  await expect(tenderPool.getByRole('heading', { name: '竞价工厂池' })).toBeVisible()
+  await expect(tenderPool).toContainText('全部符合竞价条件的工厂')
+  await expect(tenderPool).toContainText('页面展示数量不会截断实际工厂池')
+  await tenderPool.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-factory-pool.png') })
+  await tenderPool.locator('[data-unified-field="tenderPoolMode"][value="MANUAL"]').check()
+  dialog = dispatchDialog(page)
+  await expect(dialog.locator('[data-unified-field="tenderFactoryKeyword"]')).toBeVisible()
+  await expect(dialog.locator('[data-unified-field="tenderFactoryType"]')).toBeVisible()
+  await expect(dialog.locator('[data-unified-action="select-visible-tender-factories"]')).toBeVisible()
+  await dialog.locator('[data-unified-field="tenderPoolMode"][value="ALL_ELIGIBLE"]').check()
+  dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-05T09:22')
   dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-06T18:00')
@@ -127,27 +143,67 @@ test('竞价预览保留业务分配日期，改派范围不可在页面手工�
 
   const tenderFact = await page.evaluate(async () => {
     const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
+    const pdaModule = await import('/src/data/fcs/store-domain-pda.ts')
     const taskId = 'TASKGEN-202603-0002-002__ORDER'
     const record = tenderModule.getRuntimeTaskTenderRecord(taskId)
     if (!record) throw new Error('任务分配未生成共享招标事实')
     const factory = record.factoryPool[0]
-    tenderModule.recordRuntimeTaskTenderQuote(taskId, {
-      factoryId: factory.factoryId,
-      factoryName: factory.factoryName,
-      quotePrice: record.standardPrice,
-      quoteTime: '2026-08-06 10:00:00',
-      deliveryDays: 9,
-    })
+    pdaModule.ensureFactoryPdaSeed(factory.factoryId, factory.factoryName)
+    const user = pdaModule.listFactoryPdaUsers(factory.factoryId).find((item) => item.roleId === 'ROLE_ADMIN')
+      || pdaModule.listFactoryPdaUsers(factory.factoryId)[0]
+    if (!user) throw new Error('候选工厂缺少可用于 PDA 验收的账号')
+    pdaModule.setPdaSession(pdaModule.createPdaSessionFromUser(user))
     return {
       tenderId: record.tenderId,
       taskId: record.taskId,
       businessAssignedAt: record.businessAssignedAt,
       factoryId: factory.factoryId,
+      factoryPoolCount: record.factoryPool.length,
+      skuCount: record.taskSnapshot.skuLines.length,
+      qty: record.taskSnapshot.qty,
+      standardPrice: record.standardPrice,
+      minPrice: record.minPrice,
+      maxPrice: record.maxPrice,
     }
   })
   expect(tenderFact.businessAssignedAt).toBe('2026-08-05 09:22:00')
+  expect(tenderFact.skuCount).toBe(4)
+  expect(tenderFact.qty).toBe(2500)
+  expect(tenderFact.factoryPoolCount).toBeGreaterThan(0)
 
-  await page.getByRole('button', { name: '招标单管理' }).click()
+  await page.evaluate(async () => {
+    const { appStore } = await import('/src/state/store.ts')
+    appStore.navigate('/fcs/pda/notify')
+  })
+  await expect(page.getByText('待办汇总', { exact: true }).first()).toBeVisible()
+  const tenderTodo = page.locator('[data-pda-todo-card-id]').filter({ hasText: '车缝任务竞价邀请' }).first()
+  await expect(tenderTodo).toContainText('去报价')
+  await expect(tenderTodo).toContainText('4 个 SKU')
+  await tenderTodo.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-pda-todo.png') })
+  await tenderTodo.getByRole('button', { name: '去报价' }).click()
+  const quoteDialog = page.getByRole('heading', { name: '立即报价' }).locator('xpath=ancestor::article[1]')
+  await expect(quoteDialog).toContainText('本次报价覆盖整个任务：4 个 SKU，共 2500 件，不支持拆分报价。')
+  await expect(quoteDialog).toContainText(`允许报价范围：${tenderFact.minPrice.toLocaleString()} 至 ${tenderFact.maxPrice.toLocaleString()} IDR/件`)
+  await quoteDialog.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-pda-quote.png') })
+  await quoteDialog.locator('[data-pda-tr-field="quoteAmount"]').fill(String(tenderFact.standardPrice))
+  await quoteDialog.locator('[data-pda-tr-field="deliveryDays"]').fill('9')
+  await quoteDialog.getByRole('button', { name: '确认提交报价' }).click()
+  await expect(page.locator('#pda-task-receive-toast-root')).toContainText('报价提交成功')
+  await page.getByRole('button', { name: /已报价招标单/ }).click()
+  await expect(page.locator('article').filter({ hasText: tenderFact.tenderId }).first()).toContainText(`${tenderFact.standardPrice.toLocaleString()} IDR/件`)
+
+  const sharedQuote = await page.evaluate(async ({ taskId, factoryId }) => {
+    const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
+    const record = tenderModule.getRuntimeTaskTenderRecord(taskId)
+    return record?.quotes.find((quote) => quote.factoryId === factoryId) || null
+  }, { taskId: tenderFact.taskId, factoryId: tenderFact.factoryId })
+  expect(sharedQuote?.quotePrice).toBe(tenderFact.standardPrice)
+  await page.clock.setFixedTime(new Date(2026, 7, 6, 19, 0, 0))
+
+  await page.evaluate(async () => {
+    const { appStore } = await import('/src/state/store.ts')
+    appStore.navigate('/fcs/dispatch/tenders')
+  })
   await expect(page.getByRole('heading', { name: '招标单管理' })).toBeVisible()
   const tenderRow = page.locator('tbody tr').filter({ hasText: tenderFact.tenderId }).first()
   await expect(tenderRow).toBeVisible()
@@ -216,4 +272,92 @@ test('竞价预览保留业务分配日期，改派范围不可在页面手工�
   await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
   await expect(dialog).toContainText('不在页面内另外勾选 SKU 或修改数量')
   await scope.screenshot({ path: path.join(evidenceDir, 'reassignment-readonly-scope.png') })
+})
+
+test('取消竞价必须二次确认，旧招标留痕且任务可重新发起整任务竞价', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.clock.setFixedTime(new Date(2026, 7, 7, 10, 0, 0))
+  await page.goto('/fcs/dispatch/workbench')
+
+  await searchTask(page, 'PO-202603-0002')
+  await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')
+  let dialog = dispatchDialog(page)
+  await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-07T09:00')
+  dialog = dispatchDialog(page)
+  await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-07T18:00')
+  dialog = dispatchDialog(page)
+  await dialog.getByRole('button', { name: '确认发起竞价' }).click()
+
+  const firstTender = await page.evaluate(async () => {
+    const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
+    const record = tenderModule.getRuntimeTaskTenderRecord('TASKGEN-202603-0002-002__ORDER')
+    if (!record) throw new Error('未生成待取消的共享招标事实')
+    return { tenderId: record.tenderId, taskId: record.taskId }
+  })
+
+  await page.evaluate(async () => {
+    const { appStore } = await import('/src/state/store.ts')
+    appStore.navigate('/fcs/dispatch/tenders')
+  })
+  const row = page.locator('tbody tr').filter({ hasText: firstTender.tenderId }).first()
+  await expect(row).toContainText('招标中')
+  await row.getByRole('button', { name: '查看', exact: true }).click()
+  let drawer = page.getByRole('heading', { name: '招标单详情' }).locator('xpath=ancestor::section[1]')
+  await drawer.locator('[data-tender-field="view.cancelReason"]').fill('工厂池范围需要重新确认')
+  await drawer.getByRole('button', { name: '取消本次竞价' }).click()
+  drawer = page.getByRole('heading', { name: '招标单详情' }).locator('xpath=ancestor::section[1]')
+  await expect(drawer).toContainText('已提交报价仅作为历史留痕')
+  await drawer.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-cancel-second-confirm.png') })
+  await drawer.getByRole('button', { name: '二次确认取消竞价' }).click()
+  await expect(page.locator('#dispatch-tender-toast-root')).toContainText('任务已返回待分配')
+  await expect(page.locator('tbody tr').filter({ hasText: firstTender.tenderId }).first()).toContainText('已取消')
+
+  const cancelledFacts = await page.evaluate(async ({ tenderId, taskId }) => {
+    const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
+    const taskModule = await import('/src/data/fcs/runtime-process-tasks.ts')
+    const record = tenderModule.getRuntimeTaskTenderRecordByTenderId(tenderId)
+    const task = taskModule.getRuntimeTaskById(taskId)
+    return {
+      tenderStatus: record ? tenderModule.resolveRuntimeTaskTenderStatus(record, '2026-08-07 10:01:00') : null,
+      taskAssignmentMode: task?.assignmentMode,
+      taskAssignmentStatus: task?.assignmentStatus,
+      activeTenderId: task?.tenderId || null,
+    }
+  }, firstTender)
+  expect(cancelledFacts).toEqual({
+    tenderStatus: 'CANCELLED',
+    taskAssignmentMode: 'DIRECT',
+    taskAssignmentStatus: 'UNASSIGNED',
+    activeTenderId: null,
+  })
+
+  await page.evaluate(async () => {
+    const { appStore } = await import('/src/state/store.ts')
+    appStore.navigate('/fcs/dispatch/workbench')
+  })
+  await searchTask(page, 'PO-202603-0002')
+  await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')
+  dialog = dispatchDialog(page)
+  await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-07T09:05')
+  dialog = dispatchDialog(page)
+  await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-07T19:00')
+  dialog = dispatchDialog(page)
+  await dialog.getByRole('button', { name: '确认发起竞价' }).click()
+
+  const relaunchedFacts = await page.evaluate(async ({ taskId, tenderId }) => {
+    const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
+    const records = tenderModule.listRuntimeTaskTenderRecords().filter((record) => record.taskId === taskId)
+    const latest = tenderModule.getRuntimeTaskTenderRecord(taskId)
+    const oldRecord = tenderModule.getRuntimeTaskTenderRecordByTenderId(tenderId)
+    return {
+      count: records.length,
+      latestTenderId: latest?.tenderId,
+      latestStatus: latest ? tenderModule.resolveRuntimeTaskTenderStatus(latest, '2026-08-07 10:01:00') : null,
+      oldStatus: oldRecord ? tenderModule.resolveRuntimeTaskTenderStatus(oldRecord, '2026-08-07 10:01:00') : null,
+    }
+  }, firstTender)
+  expect(relaunchedFacts.count).toBe(2)
+  expect(relaunchedFacts.latestTenderId).not.toBe(firstTender.tenderId)
+  expect(relaunchedFacts.latestStatus).toBe('BIDDING')
+  expect(relaunchedFacts.oldStatus).toBe('CANCELLED')
 })

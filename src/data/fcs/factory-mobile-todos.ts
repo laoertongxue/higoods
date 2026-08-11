@@ -23,8 +23,13 @@ import {
 } from './process-mobile-task-binding.ts'
 import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
 import { resolveFactoryMobileTodoActionRoute } from './factory-mobile-todo-routes.ts'
+import {
+  listRuntimeTaskTenderRecords,
+  resolveRuntimeTaskTenderStatus,
+} from './runtime-task-tenders.ts'
 
 export type FactoryMobileTodoType =
+  | '待报价'
   | '待接单'
   | '待接收'
   | '待开工'
@@ -49,6 +54,7 @@ export interface FactoryMobileTodo {
   factoryName: string
   relatedTaskId?: string
   relatedTaskNo?: string
+  relatedTenderId?: string
   relatedHandoverOrderId?: string
   relatedHandoverRecordId?: string
   relatedInboundRecordId?: string
@@ -60,7 +66,7 @@ export interface FactoryMobileTodo {
   dueAt?: string
   createdAt: string
   detailRoute: string
-  actionLabel: '去处理' | '查看' | '确认'
+  actionLabel: '去处理' | '去报价' | '查看' | '确认'
 }
 
 export interface FactoryMobileTodoSummary {
@@ -111,6 +117,34 @@ function getMobileTaskDisplayTitle(task: PdaTaskFlowMock, suffix: string): strin
         ? task.taskCategoryZh || task.processNameZh || '合并任务'
         : task.processNameZh || '工序'
   return `${taskUnitName}${suffix}`
+}
+
+function buildTenderQuoteTodos(factoryId: string): FactoryMobileTodo[] {
+  return listRuntimeTaskTenderRecords()
+    .filter((record) => resolveRuntimeTaskTenderStatus(record) === 'BIDDING')
+    .filter((record) => record.factoryPool.some((factory) => factory.factoryId === factoryId))
+    .filter((record) => !record.quotes.some((quote) => quote.factoryId === factoryId))
+    .map((record, index) => {
+      const factory = record.factoryPool.find((item) => item.factoryId === factoryId)
+      return {
+        todoId: `todo-tender-quote-${record.tenderId}-${factoryId}`,
+        todoNo: `TD-BID-${String(index + 1).padStart(3, '0')}`,
+        todoType: '待报价' as const,
+        todoTitle: `${record.taskSnapshot.processName}任务竞价邀请`,
+        todoSubtitle: `${record.taskSnapshot.productionOrderNo || record.taskSnapshot.productionOrderId} · ${record.taskSnapshot.skuLines.length} 个 SKU · ${record.taskSnapshot.qty} ${record.taskSnapshot.qtyUnit}`,
+        factoryId,
+        factoryName: factory?.factoryName || factoryId,
+        relatedTaskId: record.taskId,
+        relatedTaskNo: record.taskSnapshot.taskNo || record.taskId,
+        relatedTenderId: record.tenderId,
+        priority: resolvePriority(record.biddingDeadline),
+        status: '待处理' as const,
+        dueAt: record.biddingDeadline,
+        createdAt: record.assignmentOperatedAt,
+        detailRoute: `/fcs/pda/task-receive?tab=pending-quote&quoteTenderId=${encodeURIComponent(record.tenderId)}`,
+        actionLabel: '去报价' as const,
+      }
+    })
 }
 
 function isWholeOrderFiveStepTask(task: PdaTaskFlowMock): boolean {
@@ -528,6 +562,7 @@ export function getFactoryMobileTodoActionRoute(todo: FactoryMobileTodo): string
 export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {
   if (factoryId === FULL_CAPABILITY_FACTORY_ID) {
     return [
+      ...buildTenderQuoteTodos(factoryId),
       ...buildPostFinishingTaskReceiveTodos(factoryId),
       ...buildPostFinishingPickupTodos(factoryId),
       ...buildPostFinishingExecTodos(factoryId),
@@ -539,6 +574,7 @@ export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {
   }
 
   return [
+    ...buildTenderQuoteTodos(factoryId),
     ...buildTaskReceiveTodos(factoryId),
     ...buildPickupTodos(factoryId),
     ...buildExecTodos(factoryId),

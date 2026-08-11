@@ -68,6 +68,10 @@ import {
   classifySewingDeliverySla,
   formatOperationLocalWallClock,
 } from '../data/fcs/sewing-delivery-sla.ts'
+import {
+  getRuntimeTaskTenderRecordByTenderId,
+  recordRuntimeTaskTenderQuote,
+} from '../data/fcs/runtime-task-tenders.ts'
 import { formatProcessQuantityWithUnit } from '../data/fcs/process-quantity-labels.ts'
 import {
   ensurePdaSessionForAction,
@@ -91,6 +95,9 @@ interface BiddingTender {
   taskDeadline: string
   standardPrice: number
   currency: string
+  skuCount?: number
+  minPrice?: number
+  maxPrice?: number
 }
 
 interface QuotedTender {
@@ -279,7 +286,7 @@ function syncQuoteDialogWithQuery(activeBiddingTenders: BiddingTender[]): void {
 }
 
 function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+  return formatOperationLocalWallClock(date)
 }
 
 function parseDateMs(value: string): number {
@@ -476,7 +483,7 @@ function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const snapshot = submittedQuotes.get(tender.tenderId)
-      const qtyUnit = task?.qtyUnit || tender.qtyUnit || tender.unit
+      const qtyUnit = tender.runtimeShared ? tender.qtyUnit : (task?.qtyUnit || tender.qtyUnit || tender.unit)
       const currency = task?.standardPriceCurrency || task?.dispatchPriceCurrency || tender.currency
 
       return {
@@ -484,7 +491,7 @@ function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
         taskId: tender.taskId,
         productionOrderId: task?.productionOrderId || tender.productionOrderId,
         processName: task ? getTaskProcessDisplayName(task) : tender.processName,
-        qty: task?.qty ?? tender.qty,
+        qty: tender.runtimeShared ? tender.qty : (task?.qty ?? tender.qty),
         qtyUnit,
         quotedPrice: snapshot?.quotedPrice ?? tender.quotedPrice,
         quotedAt: snapshot?.quotedAt ?? tender.quotedAt,
@@ -507,7 +514,7 @@ function getActiveBiddingTenders(): BiddingTender[] {
   return filterReceiveActiveBiddingTenders(rawTenders, state.submittedTenderIds, getTaskFactById, selectedFactoryId)
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
-      const qtyUnit = task?.qtyUnit || tender.qtyUnit
+      const qtyUnit = tender.runtimeShared ? tender.qtyUnit : (task?.qtyUnit || tender.qtyUnit)
       const processName = task ? getTaskProcessDisplayName(task) : tender.processName
 
       return {
@@ -515,13 +522,16 @@ function getActiveBiddingTenders(): BiddingTender[] {
         taskId: tender.taskId,
         productionOrderId: task?.productionOrderId || tender.productionOrderId,
         processName,
-        qty: task?.qty ?? tender.qty,
+        qty: tender.runtimeShared ? tender.qty : (task?.qty ?? tender.qty),
         qtyUnit,
         factoryPoolCount: tender.factoryPoolCount,
         biddingDeadline: tender.biddingDeadline,
         taskDeadline: task?.taskDeadline || tender.taskDeadline,
         standardPrice: task?.standardPrice ?? tender.standardPrice,
         currency: task?.standardPriceCurrency || task?.dispatchPriceCurrency || tender.currency,
+        skuCount: tender.skuCount,
+        minPrice: tender.minPrice,
+        maxPrice: tender.maxPrice,
       } satisfies BiddingTender
     })
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))
@@ -883,6 +893,7 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
           ${renderFieldRow('原始任务', getTaskRootNo(task))}
           ${renderFieldRow('生产单号', tender.productionOrderId)}
           ${renderFieldRow('工序', processName)}
+          ${renderFieldRow('任务范围', `${tender.skuCount ?? '-'} 个 SKU（整任务）`)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.qtyUnit}`)}
           ${renderFieldRow('工厂池', `${tender.factoryPoolCount} 家`)}
           ${renderFieldRow('竞价截止', tender.biddingDeadline)}
@@ -1135,6 +1146,8 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
           <p class="text-xs text-muted-foreground">
             ${escapeHtml(quotingTender?.tenderId || '')} · ${escapeHtml(quotingProcessName)}
             <br />
+            <span class="font-medium text-blue-700">本次报价覆盖整个任务：${quotingTender?.skuCount ?? '-'} 个 SKU，共 ${quotingTender?.qty ?? 0} ${escapeHtml(quotingTender?.qtyUnit || '件')}，不支持拆分报价。</span>
+            <br />
             <span class="font-medium text-amber-600">同一招标单内只允许报价一次，提交后不可修改。</span>
           </p>
         </header>
@@ -1154,7 +1167,12 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
             />
             ${
               quotingTender
-                ? `<p class="text-xs text-muted-foreground">工序标准价参考：${quotingTender.standardPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>`
+                ? `<div class="space-y-1 text-xs text-muted-foreground">
+                    <p>工序标准价参考：${quotingTender.standardPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>
+                    ${quotingTender.minPrice != null && quotingTender.maxPrice != null
+                      ? `<p>允许报价范围：${quotingTender.minPrice.toLocaleString()} 至 ${quotingTender.maxPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>`
+                      : ''}
+                  </div>`
                 : ''
             }
           </div>
@@ -1546,18 +1564,35 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     }
 
     const quotingTenderId = state.quotingTenderId
-    if (quotingTenderId) {
-      state.submittedTenderIds = new Set([...state.submittedTenderIds, quotingTenderId])
-      submittedQuotes.set(quotingTenderId, {
-        quotedPrice: Number(state.quoteAmount),
-        quotedAt: nowTimestamp(),
-        deliveryDays: Number(state.deliveryDays || '0') || 0,
-        remark: state.quoteRemark.trim(),
-      })
+    if (!quotingTenderId) return true
+    const quotedAt = nowTimestamp()
+    const quoteSnapshot: SubmittedQuoteSnapshot = {
+      quotedPrice: Number(state.quoteAmount),
+      quotedAt,
+      deliveryDays: Number(state.deliveryDays || '0') || 0,
+      remark: state.quoteRemark.trim(),
     }
 
-    closeQuoteDialog()
-    showTaskReceiveToast('报价提交成功，同一招标单内只允许报价一次，不可修改。')
+    try {
+      const runtimeTender = getRuntimeTaskTenderRecordByTenderId(quotingTenderId)
+      if (runtimeTender) {
+        const factoryId = getCurrentFactoryId()
+        recordRuntimeTaskTenderQuote(runtimeTender.taskId, {
+          factoryId,
+          factoryName: getFactoryName(factoryId),
+          quotePrice: quoteSnapshot.quotedPrice,
+          quoteTime: quoteSnapshot.quotedAt,
+          deliveryDays: quoteSnapshot.deliveryDays,
+          remark: quoteSnapshot.remark,
+        })
+      }
+      state.submittedTenderIds = new Set([...state.submittedTenderIds, quotingTenderId])
+      submittedQuotes.set(quotingTenderId, quoteSnapshot)
+      closeQuoteDialog()
+      showTaskReceiveToast('报价提交成功，同一招标单内只允许报价一次，不可修改。')
+    } catch (error) {
+      showTaskReceiveToast(error instanceof Error ? error.message : '报价提交失败，请刷新后重试')
+    }
     return true
   }
 

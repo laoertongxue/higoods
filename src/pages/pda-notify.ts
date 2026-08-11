@@ -26,6 +26,7 @@ const state: NotifyState = {
 
 const FILTERS: Array<{ value: TodoFilter; label: string }> = [
   { value: '全部', label: '全部' },
+  { value: '待报价', label: '待报价' },
   { value: '待接单', label: '待接单' },
   { value: '待接收', label: '待接收' },
   { value: '待开工', label: '待开工' },
@@ -116,7 +117,7 @@ function renderTodoCard(todo: FactoryMobileTodo): string {
         </div>
       </div>
       <div class="mt-4 flex gap-2">
-        <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-nav="${escapeHtml(getFactoryMobileTodoActionRoute(todo))}">去处理</button>
+        <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-nav="${escapeHtml(getFactoryMobileTodoActionRoute(todo))}">${escapeHtml(todo.actionLabel)}</button>
         <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-nav="${escapeHtml(todo.detailRoute)}">查看详情</button>
       </div>
     </article>

@@ -1,5 +1,6 @@
 export interface FactoryMobileTodoRouteInput {
   todoType: string
+  detailRoute?: string
   executionProcessType?: 'WOOL'
   relatedTaskId?: string
   relatedHandoverOrderId?: string
@@ -9,6 +10,8 @@ export interface FactoryMobileTodoRouteInput {
 
 export function resolveFactoryMobileTodoActionRoute(todo: FactoryMobileTodoRouteInput): string {
   switch (todo.todoType) {
+    case '待报价':
+      return todo.detailRoute || '/fcs/pda/task-receive?tab=pending-quote'
     case '待接单':
       return todo.relatedTaskId ? `/fcs/pda/task-receive/${todo.relatedTaskId}` : '/fcs/pda/task-receive'
     case '待交出':
