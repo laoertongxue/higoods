@@ -6,7 +6,7 @@
 | --- | --- |
 | 记录日期 | 2026-08-11 |
 | 补充复核日期 | 2026-08-12 |
-| 相关需求 / 任务 | FCS 部位菲票手动建票、详情维护、辅助／特种工艺识别、白／黄热敏纸分流和正式标签模板 |
+| 相关需求 / 任务 | FCS 部位菲票手动建票、详情维护、普通／辅助／特种工艺 Mock 覆盖、白／黄热敏纸分流和正式标签模板 |
 | 记录模式 | 完整产品审查 |
 | 涉及系统 | PFOS（裁床厂管理）／FCS 共享打印能力 |
 | 涉及页面路径 | `/fcs/craft/cutting/fei-tickets`、手动批次详情、`/fcs/print/preview` |
@@ -16,7 +16,7 @@
 ## 2. 影响判定
 
 - 用户可见影响：有
-- 判定依据：列表新增“手动增加打印菲票”；手动批次详情新增普通／特殊工艺 Tab、新增、改量、删除、筛选、分页、选择、批量／全部打印、单条打印和补打门禁；普通菲票改用白色热敏纸提示并删除工艺字段；辅助／特种工艺菲票改用黄色热敏纸提示，并在模板显著展示生产单号（PO）、SPU、工艺和承接工厂；打印记录新增纸色、模板、尺寸、范围和原因。
+- 判定依据：列表新增“手动增加打印菲票”；手动批次详情新增普通／特殊工艺 Tab、新增、改量、删除、筛选、分页、选择、批量／全部打印、单条打印和补打门禁；系统演示数据补足 12 张普通白纸菲票；辅助／特种工艺菲票改用黄色热敏纸提示，票面主标题改为“特殊工艺菲票——具体特殊工艺名称”，并展示生产单号（PO）、SPU、工艺和承接工厂；打印记录新增纸色、模板、尺寸、范围和原因。
 
 审查基线：
 
@@ -48,6 +48,8 @@
 | 普通与辅助／特种工艺菲票无法从页面和纸张区分 | 选不对 | 打票员／主管 | 按票分 Tab、白／黄纸二次确认、禁止混批 | 否 |
 | 普通模板仍携带无意义工艺栏，特殊模板标识不突出 | 读不懂 | 现场打印人员 | 普通模板删除整行；特殊模板在标题与正文显著展示 | 否 |
 | 黄色特殊工艺菲票缺少生产单号和 SPU | 识别不全 | 打票员／特殊工艺工厂 | 在每张黄色菲票正文顶部增加独立、加粗的“生产单号（PO）”和“SPU”字段，复用同一打印投影 | 否 |
+| 系统生成 Mock 只有特殊工艺票，普通白纸票为 0 | 场景缺失 | 产品／研发／测试 | 增加 12 张普通票，分属 2 个生产单和 2 个铺布批次，覆盖前片／后片／袖片与 S／M／L／XL | 否 |
+| 特殊工艺票标题把“黄色热敏纸”当成业务名称 | 口径混淆 | 打票员／线下收票人员 | 主标题改为“特殊工艺菲票——具体特殊工艺名称”；纸色只保留在装纸确认与票面样式 | 否 |
 | 改量和补打缺少完整审计事实 | 追溯不足 | 主管／跟单 | 原因必填，并保存纸色、模板、尺寸和来源范围 | 否 |
 
 ## 6. 最终结论
@@ -86,18 +88,24 @@
 
 ### 验证命令
 
-- `npm run check:cutting-fei-ticket-paper-routing`：通过，5/5 场景。
+- `npm run check:cutting-fei-ticket-paper-routing`：通过，6/6 场景；新增普通 Mock 数量、批次及列表／详情可见性断言，特殊工艺首次打印和补打逐张校验业务标题。
 - `npm run check:cutting-fei-ticket-assembly`：通过，6 个菲票来源、归属、追溯和二维码维度。
 - `npm run check:cutting-binding-strip-flow`：通过，捆条 18 条明细、17 张加工单、20 张唯一菲票。
 - `PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43186 playwright test tests/cutting-fei-ticket-flow.spec.ts --workers=1 --reporter=line`：通过，2/2 场景。
 - `PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43189 npx playwright test tests/.tmp-fei-ticket-final-visual.spec.ts --workers=1 --reporter=line`：通过，1/1 视觉证据生成；临时测试已删除，未进入交付文件。
 - `PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43220 npx playwright test tests/.tmp-fei-ticket-yellow-identifiers-visual.spec.ts --workers=1 --reporter=line`：通过，1/1；复核每张黄色菲票的生产单号（PO）、SPU、工艺／工厂及二维码版式，临时测试已删除。
 - `PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43221 npx playwright test tests/cutting-fei-ticket-manual-paper-routing.spec.ts --workers=1 --reporter=line --grep '辅助工艺和特种工艺菲票只进黄纸 Tab'`：通过，1/1；首次／批量预览逐张检查非空 PO、SPU，并直达黄色补打预览检查补打原因、PO 和 SPU。
+- `npx playwright test tests/__tmp-fei-ticket-mock-title-visual.spec.ts --workers=1 --reporter=line`：通过，1/1；生成普通 Mock 列表／详情、普通白纸预览和“特殊工艺菲票——烫画”视觉回执；临时测试已删除，未进入交付文件。
 - `npm run build`：通过，2340 个模块完成生产构建。
 - `npm run check:prototype-design-governance -- --all`：通过，覆盖 10 个用户可见文件和 1 份关联审查记录。
-- `npm run workflow:verify -- --output /private/tmp/higoods-fei-receipt.bi6kTA/task-receipt.json --task-boundary "FCS 部位菲票手动建票与白黄热敏纸分流打印"`：失败，隔离工作树未初始化 CodeGraph，收据无法取得 `pendingChanges`；待用户许可初始化后重跑。
+- `npm run workflow:verify -- --output /private/tmp/higoods-fei-ticket-receipt.KAJPAE/task-receipt.json --task-boundary "FCS 部位菲票普通 Mock 覆盖与特殊工艺标题调整"`：失败，隔离工作树未初始化 CodeGraph，收据无法取得 `pendingChanges`；待用户许可初始化后重跑。
 
 ### 当前分支页面证据
+
+- `test-results/final-evidence/ordinary-mock-list.png`：列表出现 2 个无特殊工艺铺布批次。
+- `test-results/final-evidence/ordinary-mock-detail.png`：普通批次 6 张白纸票、黄色特殊工艺 Tab 为 0。
+- `test-results/final-evidence/ordinary-white-print.png`：普通白纸模板无特殊工艺栏，6 张二维码均已渲染。
+- `test-results/final-evidence/special-craft-title-print.png`：黄纸票面主标题为“特殊工艺菲票——烫画”，PO、SPU、工艺／工厂和二维码均可见。
 
 - `output/playwright/fei-ticket-list-manual-entry-final.png`：列表手动增加入口。
 - `output/playwright/fei-ticket-manual-create-modal-final.png`：唛架、成员、生产单、SPU、颜色、SKU、层数和尺码建票。

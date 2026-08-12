@@ -1,9 +1,9 @@
 # FCS 部位菲票手动建票与分纸打印需求追踪与交付矩阵
 
-确认版本：`main@e1232195`（实施基线）
+确认版本：`main@a9837eda`（本次实施基线）
 产品确认人：用户
-当前分支：`codex/fei-ticket-paper-routing`
-当前阶段：已实现并完成业务／页面／打印验证；CodeGraph 初始化与任务收据待产品授权后闭环
+当前分支：`codex/fei-ticket-mock-title`
+当前阶段：普通菲票 Mock 与特殊工艺标题已完成当前分支专项、页面和打印验证
 
 | 编号 | 来源 | 原子需求 | 工作包 | 实现位置 | 自动化验证 | 页面／打印验证 | 状态 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -30,6 +30,7 @@
 | CRAFT-004 | 总体设计 5.5 | 承接工厂来自有效工艺分配 | WP-01 | `getSpecialCraftReceiverFactory`、`buildManualTicketRecord` | 纸张专项场景 3 | 黄纸详情和模板显示实际承接工厂 | 已验证 | 黄纸截图 |
 | CRAFT-005 | 总体设计 5.6、9.11 | 工艺存在但工厂缺失时阻断打印 | WP-05 | `fei-tickets.ts`、`buildFeiTicketLabelPrintDocument` | 纸张专项场景 5 | 缺工厂请求被阻断并给出原因 | 已验证 | Playwright 场景 5 |
 | CRAFT-006 | 总体设计 2、3、9.15 | 捆条菲票保持独立链路 | WP-01 | `renderBindingStripFeiBusinessLabelItem`；原捆条路由 | 捆条流程专项通过 | 捆条模板／路由不改 | 已验证 | 18 条明细、17 张加工单、20 张唯一菲票 |
+| MOCK-001 | 总体设计 2、5.13、9.16 | 系统演示数据稳定提供普通白纸菲票 | WP-01 | `generated-fei-tickets.ts`：`buildOrdinaryFeiTicketMockRecords` | 纸张专项场景 1：数量、属性、批次和页面逐项断言 | 12 张普通票、2 个生产单、2 个铺布批次、3 类部位、4 个尺码；列表与白纸详情可见 | 已验证 | `ordinary-mock-list.png`、`ordinary-mock-detail.png`、`ordinary-white-print.png` |
 | PAPER-001 | 总体设计 4.3、9.4 | 普通菲票使用白色热敏纸 | WP-05 | `print-service.ts`；`print-template-registry.ts`；详情纸色投影 | 纸张专项场景 1 | 白色 Tab、白色确认、白色模板 | 已验证 | 白纸三类截图 |
 | PAPER-002 | 总体设计 4.3、9.5 | 特殊工艺菲票使用黄色热敏纸 | WP-05 | 同上，`FEI_TICKET_YELLOW_THERMAL` | 纸张专项场景 3 | 黄色 Tab、黄色确认、黄色模板 | 已验证 | 黄纸详情与模板截图 |
 | PAPER-003 | 总体设计 4.3 | 纸色和物理尺寸独立保存 | WP-05 | `PrintThermalPaperColor` 与 `PrintPaperType`；打印历史 | 纸张专项场景 1、3 | 纸色提示不改变标签尺寸 | 已验证 | 打印历史断言包含 `paperColor`、`labelSize` |
@@ -38,7 +39,7 @@
 | PAPER-006 | 总体设计 5.10、9.14 | 补打继承原纸张颜色 | WP-05 | `recordManualFeiTicketPrint`；补打确认与预览 | 纸张专项场景 1 | 白票补打仍要求白纸 | 已验证 | 补打确认／预览截图 |
 | TEMPLATE-001 | 总体设计 2、9.12 | 普通模板删除特殊工艺整行 | WP-06 | `renderFeiTicketBusinessLabelItem` | 纸张专项场景 1 | 普通预览不存在工艺字段 | 已验证 | `fei-ticket-print-white-template-final.png` |
 | TEMPLATE-002 | 总体设计 2、9.12 | 普通模板其他内容保持 | WP-06 | `buildFeiLabelItem`、`renderFeiTicketBusinessLabelItem` | 原菲票流程 2/2；组装专项通过 | 生产单、唛架、部位、尺码、SKU、数量、票号、二维码保留 | 已验证 | 白纸模板截图 |
-| TEMPLATE-003 | 总体设计 2、9.13 | 特殊模板标题显著展示工艺和工厂 | WP-06 | `renderFeiTicketBusinessLabelItem`、`print-styles.ts` | 纸张专项场景 3 | 标题与正文双重标识 | 已验证 | `fei-ticket-print-yellow-template-final.png` |
+| TEMPLATE-003 | 总体设计 2、5.12、9.13 | 特殊模板标题为“特殊工艺菲票——具体特殊工艺名称”，纸色不进入业务标题 | WP-06 | `label-print-template.ts`：`resolveFeiTicketSpecialCraftTitle`、`buildFeiLabelItem`、`renderFeiTicketBusinessLabelItem` | 纸张专项场景 3，首次打印与补打逐张标题断言 | 票面显示“特殊工艺菲票——烫画”；装纸提示仍显示黄色热敏纸，旧标题不存在 | 已验证 | `special-craft-title-print.png` |
 | TEMPLATE-004 | 实施计划 WP-06、总体设计 9.13 | 长工艺和工厂名称换行不截断 | WP-06 | `print-styles.ts`：特殊标题和业务单元格自适应 | 纸张专项模板断言 | 多项工艺在单元格换行展示 | 已验证 | 黄纸模板截图 |
 | TEMPLATE-005 | 总体设计 4.3 | 多张部位菲票仍使用热敏标签尺寸 | WP-06 | `buildBaseLabelDocument`：每票一张标签纸 | 纸张专项场景 1 | 12 张白票生成多张热敏标签，不改 A4 | 已验证 | `.print-label-paper` 数量断言 |
 | TEMPLATE-006 | 总体设计 3、9.15 | 捆条及其它标签模板不受影响 | WP-06 | 捆条专用 `renderBindingStripFeiBusinessLabelItem` 保留 | 捆条流程专项；生产构建 | 相邻模板无本次纸色分流 | 已验证 | 捆条专项通过 |
@@ -46,8 +47,8 @@
 | HISTORY-001 | 总体设计 2、5.10 | 打印记录保存纸色、模板、尺寸和来源范围 | WP-05 | `manualPrintHistory`、`recordManualFeiTicketPrint` | 纸张专项场景 1 | 单条详情显示打印历史 | 已验证 | `PRINT`／`REPRINT` 历史断言 |
 | HISTORY-002 | 总体设计 5.9、9.6 | 修改数量保存原因、操作人和同步结果 | WP-04 | `updateUnprintedManualFeiTicketQuantity`、操作日志 | 纸张专项场景 1 | 单条详情显示“修改数量”和原因 | 已验证 | 改量原因截图与日志断言 |
 | HISTORY-003 | 总体设计 5.9～5.10、9.7、9.14 | 删除和补打保留操作事实；既有作废状态／模板不被覆盖 | WP-04/WP-05 | `deleteUnprintedManualFeiTicket`、`recordManualFeiTicketPrint`；既有 `VOIDED` 投影 | 纸张专项场景 1、4；原菲票流程 2/2 | 删除／补打日志可查，作废模板相邻回归 | 已验证 | 操作日志、补打历史、原流程专项 |
-| VERIFY-001 | 总体设计 8 | 菲票专项检查通过 | WP-07 | `tests/cutting-fei-ticket-manual-paper-routing.spec.ts`、既有专项 | 5/5 + 6 维组装 + 捆条专项 + 2/2 原流程 | 不适用（自动化） | 已验证 | 全部命令退出码 0 |
-| VERIFY-002 | 总体设计 8 | 命名页面和打印场景通过 | WP-07 | Playwright 当前分支运行时 | 视觉证据脚本 1/1 | 列表、弹窗、双 Tab、改量、双模板、补打均已截图检查 | 已验证 | `output/playwright/fei-ticket-*-final.png` |
+| VERIFY-001 | 总体设计 8 | 菲票专项检查通过 | WP-07 | `tests/cutting-fei-ticket-manual-paper-routing.spec.ts`、既有专项 | 6/6 + 6 维组装 + 捆条专项 + 2/2 原流程 | 不适用（自动化） | 已验证 | 当前分支全部命令退出码 0 |
+| VERIFY-002 | 总体设计 8 | 命名页面和打印场景通过 | WP-07 | Playwright 当前分支运行时 | 视觉证据脚本 1/1 | 普通 Mock 列表、普通详情、白纸预览、特殊工艺标题预览均已截图检查 | 已验证 | `/private/tmp/higoods-fei-ticket-mock-title/test-results/final-evidence/*.png` |
 | VERIFY-003 | 总体设计 8 | 原型治理记录完整并通过检查 | WP-07 | `docs/prototype-review-records/2026-08-11-fcs-fei-ticket-manual-paper-routing.md` | 治理检查 `--all` 通过 | 不适用（治理） | 已验证 | 10 个用户可见文件、1 份关联记录 |
 | VERIFY-004 | 总体设计 8 | 构建、CodeGraph 和任务收据闭环 | WP-07 | 项目级验证 | 构建通过；CodeGraph／收据受阻 | 局域网命名路由 200 | 已阻塞 | 隔离 worktree 未初始化 CodeGraph；收据失败于缺少 `pendingChanges`，待用户许可 `codegraph init -i` |
 

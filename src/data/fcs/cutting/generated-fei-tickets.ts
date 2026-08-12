@@ -42,6 +42,8 @@ export const FEI_TICKET_SOURCE_BASIS_TYPE = 'ACTUAL_CUTTING_OUTPUT' as const
 export const FEI_TICKET_MANUAL_SOURCE_BASIS = '手动唛架建票' as const
 export const FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE = 'MANUAL_MARKER_PLAN' as const
 export const FEI_TICKET_WAITING_SOURCE_BASIS_TYPE = 'WAITING_ACTUAL_CUTTING_OUTPUT' as const
+export const FEI_TICKET_ORDINARY_MOCK_PREFIX = 'mock-fei-ticket-ordinary-' as const
+export const FEI_TICKET_ORDINARY_MOCK_COUNT = 12 as const
 
 export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS | typeof FEI_TICKET_MANUAL_SOURCE_BASIS
 export type FeiTicketSourceBasisType = typeof FEI_TICKET_SOURCE_BASIS_TYPE | typeof FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE
@@ -1879,6 +1881,268 @@ function buildFeiRecordsFromSpreadingSessions(
   })
 }
 
+interface OrdinaryFeiTicketMockBatch {
+  productionOrderId: string
+  productionOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  markerPlanId: string
+  markerPlanNo: string
+  markerNumber: string
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  fabricRollId: string
+  fabricRollNo: string
+  fabricColor: string
+  materialSku: string
+  materialName: string
+  materialAlias: string
+  spuCode: string
+  styleName: string
+  issuedAt: string
+  layerCount: number
+  sizeMap: Record<string, string>
+  qtyBySize: Record<string, number>
+}
+
+const ordinaryFeiTicketMockBatches: OrdinaryFeiTicketMockBatch[] = [
+  {
+    productionOrderId: 'po-202604-0201',
+    productionOrderNo: 'PO-202604-0201',
+    cutOrderId: 'cut-order-260412-201-01',
+    cutOrderNo: 'CUT-260412-201-01',
+    markerPlanId: 'marker-plan-260412-201-01',
+    markerPlanNo: 'MP-260412-201-01',
+    markerNumber: 'MK-260412-201-A',
+    spreadingSessionId: 'spreading-session-mock-ordinary-001',
+    spreadingSessionNo: 'PB-260412-201',
+    fabricRollId: 'fabric-roll-mock-ordinary-001',
+    fabricRollNo: 'ROLL-260412-NAVY-01',
+    fabricColor: '藏青色',
+    materialSku: 'MAT-NAVY-TWILL-201',
+    materialName: '藏青斜纹布',
+    materialAlias: '面料 A',
+    spuCode: 'SPU-2024-021',
+    styleName: '基础梭织衬衫',
+    issuedAt: '2026-08-12T08:30:00+07:00',
+    layerCount: 30,
+    sizeMap: { S: 'S', M: 'M' },
+    qtyBySize: { S: 180, M: 260 },
+  },
+  {
+    productionOrderId: 'po-202604-0202',
+    productionOrderNo: 'PO-202604-0202',
+    cutOrderId: 'cut-order-260412-202-01',
+    cutOrderNo: 'CUT-260412-202-01',
+    markerPlanId: 'marker-plan-260412-202-01',
+    markerPlanNo: 'MP-260412-202-01',
+    markerNumber: 'MK-260412-202-B',
+    spreadingSessionId: 'spreading-session-mock-ordinary-002',
+    spreadingSessionNo: 'PB-260412-202',
+    fabricRollId: 'fabric-roll-mock-ordinary-002',
+    fabricRollNo: 'ROLL-260412-WHITE-01',
+    fabricColor: '本白色',
+    materialSku: 'MAT-WHITE-POPLIN-202',
+    materialName: '本白府绸',
+    materialAlias: '面料 B',
+    spuCode: 'SPU-2024-022',
+    styleName: '基础府绸上衣',
+    issuedAt: '2026-08-12T09:10:00+07:00',
+    layerCount: 24,
+    sizeMap: { S: 'L', M: 'XL' },
+    qtyBySize: { L: 220, XL: 160 },
+  },
+]
+
+function buildOrdinaryFeiTicketMockRecords(
+  sourceRecords: GeneratedFeiTicketSourceRecord[],
+): GeneratedFeiTicketSourceRecord[] {
+  const templates = sourceRecords.slice(0, FEI_TICKET_ORDINARY_MOCK_COUNT / ordinaryFeiTicketMockBatches.length)
+  if (templates.length < FEI_TICKET_ORDINARY_MOCK_COUNT / ordinaryFeiTicketMockBatches.length) return []
+
+  const records = ordinaryFeiTicketMockBatches.flatMap((batch, batchIndex) => templates.map((template, templateIndex) => {
+    const sequence = batchIndex * templates.length + templateIndex + 1
+    const suffix = String(sequence).padStart(3, '0')
+    const originalSize = normalizeText(template.skuSize) || 'M'
+    const size = batch.sizeMap[originalSize] || originalSize
+    const qty = batch.qtyBySize[size] || Math.max(template.qty, 1)
+    const feiTicketId = `${FEI_TICKET_ORDINARY_MOCK_PREFIX}${suffix}`
+    const feiTicketNo = `FT-${batch.cutOrderNo}-${suffix}`
+    const sourceOutputLineId = `${feiTicketId}-actual-output`
+    const garmentSkuId = `${batch.spuCode}-${batch.fabricColor}-${size}`
+    const bundleNo = template.bundleNo || `BUNDLE-${String(templateIndex + 1).padStart(3, '0')}`
+    const pieceSequenceLabel = `001 - ${String(qty).padStart(3, '0')}`
+    const pieceScope = unique([batch.fabricRollNo, batch.fabricColor, size, template.partName])
+    const assemblyGroupKey = [batch.cutOrderNo, batch.fabricRollNo, batch.fabricColor, size, bundleNo].join('::')
+    const bundleScope = `${batch.fabricRollNo}-${batch.fabricColor}-${size}-${bundleNo}`
+    const pieceSequenceRange = template.pieceSequenceRange
+      ? {
+          ...template.pieceSequenceRange,
+          spreadingOrderId: batch.spreadingSessionId,
+          spreadingOrderNo: batch.spreadingSessionNo,
+          markerPlanId: batch.markerPlanId,
+          markerPlanNo: batch.markerPlanNo,
+          markerNumber: batch.markerNumber,
+          bedNo: batch.markerNumber,
+          size,
+          sizeGroupId: '整床',
+          startNo: 1,
+          endNo: qty,
+          rangeLabel: pieceSequenceLabel,
+          actualLayerCount: batch.layerCount,
+          actualPieceQty: qty,
+          generatedAt: batch.issuedAt,
+        }
+      : null
+    const qr = encodeFeiTicketQr({
+      ...template.qrPayload,
+      feiTicketId,
+      feiTicketNo,
+      cutOrderId: batch.cutOrderId,
+      cutOrderNo: batch.cutOrderNo,
+      productionOrderId: batch.productionOrderId,
+      productionOrderNo: batch.productionOrderNo,
+      markerPlanId: batch.markerPlanId,
+      markerPlanNo: batch.markerPlanNo,
+      markerNumber: batch.markerNumber,
+      bedNo: batch.markerNumber,
+      spreadingOrderId: batch.spreadingSessionId,
+      spreadingOrderNo: batch.spreadingSessionNo,
+      spuCode: batch.spuCode,
+      styleName: batch.styleName,
+      color: batch.fabricColor,
+      size,
+      sourceOutputLineId,
+      fabricRollId: batch.fabricRollId,
+      fabricRollNo: batch.fabricRollNo,
+      fabricColor: batch.fabricColor,
+      materialSku: batch.materialSku,
+      garmentSkuId,
+      garmentColor: batch.fabricColor,
+      applicableSkuCodes: [garmentSkuId],
+      applicableSkuLabel: garmentSkuId,
+      assemblyGroupKey,
+      siblingPartTicketNos: [],
+      pieceScope,
+      pieceGroup: template.partName,
+      bundleScope,
+      skuColor: batch.fabricColor,
+      skuSize: size,
+      partCode: template.partCode,
+      partName: template.partName,
+      garmentInstanceNo: 1,
+      layerCount: batch.layerCount,
+      businessSizeLabel: `${size} - 1 - ${qty}`,
+      pieceQty: qty,
+      garmentQty: qty,
+      pieceSequenceLabel,
+      pieceSequenceStartNo: 1,
+      pieceSequenceEndNo: qty,
+      bundleNo,
+      bundleQty: qty,
+      pieceSetNoStart: 1,
+      pieceSetNoEnd: qty,
+      pieceSetNoRange: `1-${qty}`,
+      actualCutPieceQty: qty,
+      qty,
+      hasSpecialCraft: false,
+      specialCrafts: [],
+      secondaryCrafts: [],
+      craftSequenceVersion: 'actual-output-special-craft:none',
+      currentCraftStage: '',
+      issuedAt: batch.issuedAt,
+    })
+
+    return {
+      ...template,
+      feiTicketId,
+      feiTicketNo,
+      sourceOutputLineId,
+      sourceSpreadingSessionId: batch.spreadingSessionId,
+      sourceSpreadingSessionNo: batch.spreadingSessionNo,
+      sourceMarkerId: batch.markerPlanId,
+      sourceMarkerNo: batch.markerNumber,
+      cutOrderId: batch.cutOrderId,
+      cutOrderNo: batch.cutOrderNo,
+      productionOrderId: batch.productionOrderId,
+      productionOrderNo: batch.productionOrderNo,
+      sourceMarkerPlanId: batch.markerPlanId,
+      sourceMarkerPlanNo: batch.markerPlanNo,
+      fabricRollId: batch.fabricRollId,
+      fabricRollNo: batch.fabricRollNo,
+      fabricColor: batch.fabricColor,
+      materialSku: batch.materialSku,
+      materialIdentity: {
+        ...template.materialIdentity,
+        materialSku: batch.materialSku,
+        materialName: batch.materialName,
+        materialAlias: batch.materialAlias,
+        materialColor: batch.fabricColor,
+      },
+      garmentSkuId,
+      garmentColor: batch.fabricColor,
+      applicableSkuCodes: [garmentSkuId],
+      applicableSkuLabel: garmentSkuId,
+      assemblyGroupKey,
+      siblingPartTicketNos: [],
+      pieceScope,
+      pieceGroup: template.partName,
+      bundleScope,
+      skuCode: garmentSkuId,
+      skuColor: batch.fabricColor,
+      skuSize: size,
+      garmentInstanceNo: 1,
+      layerCount: batch.layerCount,
+      businessSizeLabel: `${size} - 1 - ${qty}`,
+      bundleNo,
+      bundleQty: qty,
+      pieceSetNoStart: 1,
+      pieceSetNoEnd: qty,
+      pieceSetNoRange: `1-${qty}`,
+      actualCutPieceQty: qty,
+      printStatus: 'WAIT_PRINT',
+      qty,
+      garmentQty: qty,
+      secondaryCrafts: [],
+      craftSequenceVersion: 'actual-output-special-craft:none',
+      currentCraftStage: '',
+      hasSpecialCraft: false,
+      specialCrafts: [],
+      specialCraftDisplayLabel: '无',
+      pieceSequenceRange,
+      pieceSequenceLabel,
+      pieceSequenceCannotGenerateReason: '',
+      sourceTechPackSpuCode: batch.spuCode,
+      markerNumber: batch.markerNumber,
+      bedNo: batch.markerNumber,
+      spreadingOrderId: batch.spreadingSessionId,
+      spreadingOrderNo: batch.spreadingSessionNo,
+      issuedAt: batch.issuedAt,
+      qrPayload: qr.payload,
+      qrValue: qr.qrValue,
+    } satisfies GeneratedFeiTicketSourceRecord
+  }))
+
+  const ticketNosByAssemblyGroup = new Map<string, string[]>()
+  records.forEach((record) => {
+    const current = ticketNosByAssemblyGroup.get(record.assemblyGroupKey) || []
+    current.push(record.feiTicketNo)
+    ticketNosByAssemblyGroup.set(record.assemblyGroupKey, current)
+  })
+
+  return records.map((record) => {
+    const siblingPartTicketNos = (ticketNosByAssemblyGroup.get(record.assemblyGroupKey) || [])
+      .filter((ticketNo) => ticketNo !== record.feiTicketNo)
+    const encoded = encodeFeiTicketQr({ ...record.qrPayload, siblingPartTicketNos })
+    return {
+      ...record,
+      siblingPartTicketNos,
+      qrPayload: encoded.payload,
+      qrValue: encoded.qrValue,
+    }
+  })
+}
+
 interface GeneratedFeiTicketDataset {
   generatedFeiTickets: GeneratedFeiTicketSourceRecord[]
   feiTicketsById: Record<string, GeneratedFeiTicketSourceRecord>
@@ -1986,7 +2250,8 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    const dataset = buildGeneratedFeiTicketDataset(spreadingDrivenFeiTickets)
+    const ordinaryMockFeiTickets = buildOrdinaryFeiTicketMockRecords(spreadingDrivenFeiTickets)
+    const dataset = buildGeneratedFeiTicketDataset([...spreadingDrivenFeiTickets, ...ordinaryMockFeiTickets])
     generatedFeiTicketDatasetCache = { signature, dataset }
     return dataset
   } finally {
