@@ -332,10 +332,18 @@ export interface EngineeringIndependentColorMapping {
   sourceColor: string
   targetColor: string
   targetSkuIds: string[]
-  mappingType: '沿用颜色' | '改为新颜色' | 'B 款新增颜色'
+  targetSizeNames: string[]
+  mappingType: '参考 A 款颜色' | '无参考颜色' | '沿用颜色' | '改为新颜色' | 'B 款新增颜色'
   confirmedBy: string
   confirmedAt: string
 }
+
+export type EngineeringIndependentSamplingStep =
+  | 'BUYER_PREPARATION'
+  | 'WORK_PLAN'
+  | 'PROFESSIONAL_WORK'
+  | 'RESULT_CONFIRMATION'
+  | 'COMPLETED'
 
 export type EngineeringIndependentMaterialDecision =
   | '沿用'
@@ -401,6 +409,11 @@ export interface EngineeringIndependentSamplingRecord {
   bomConversionStatus: EngineeringIndependentBomConversionStatus
   bomConversionConfirmedBy: string
   bomConversionConfirmedAt: string
+  buyerPreparationConfirmedBy: string
+  buyerPreparationConfirmedAt: string
+  buyerPreparationReturnedBy: string
+  buyerPreparationReturnedAt: string
+  buyerPreparationReturnReason: string
   sourceResultVersionId: string
   reuseDecision: 'PENDING' | 'REUSE' | 'REDO' | 'IGNORE'
   operationLogs: EngineeringIndependentSamplingLog[]

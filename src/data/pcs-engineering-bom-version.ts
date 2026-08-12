@@ -115,8 +115,8 @@ export function copyEngineeringBomDraftVersion(input: {
   copiedAt: string
   copiedBy: string
 }): EngineeringBomDraft {
-  if (input.source.versionStatus !== 'COMPLETED_CONFIRMED') {
-    throw new Error('只能承接已完成且已确认的 BOM 与价格方案。')
+  if (!['COMPLETED_CONFIRMED', 'PUBLISHED_SNAPSHOT'].includes(input.source.versionStatus)) {
+    throw new Error('只能承接已完成确认或已形成正式技术包的 BOM 与价格方案。')
   }
   if (!input.source.bomDraftVersionId?.trim()) throw new Error('来源 BOM 版本缺少版本号。')
   if (!input.targetVersionId.trim() || !input.copiedAt.trim() || !input.copiedBy.trim()) {

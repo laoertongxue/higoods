@@ -86,6 +86,26 @@ function assertBuyer(role: EngineeringBomOperatorRole, userId: string, userName:
   if (role !== '买手' || !userId.trim() || !userName.trim()) throw new Error('只有买手可以维护 BOM 与价格。')
 }
 
+function assertBomEditable(record: EngineeringBomVersionRecord): void {
+  if (record.versionStatus !== 'DRAFT') throw new Error('只有草稿 BOM 与价格可以修改。')
+  if (record.editingLockedAt) throw new Error(`新款资料准备已完成，BOM 与价格已锁定。请先由跟单退回买手修改。`)
+}
+
+function remapCopiedMaterialLines(
+  lines: EngineeringBomMaterialLineDraft[],
+  styleCode: string,
+  productColor: string,
+  applicableSkuIds: string[],
+): EngineeringBomMaterialLineDraft[] {
+  return lines.map((line) => ({
+    ...line,
+    styleCode,
+    productColor,
+    applicableSkuIds: [...applicableSkuIds],
+    linkedPatternResultIds: [...(line.linkedPatternResultIds || [])],
+  }))
+}
+
 export function captureEngineeringBomRepositoryState(): EngineeringBomVersionStoreSnapshot {
   return readSnapshot()
 }
@@ -115,6 +135,9 @@ export function listEngineeringBomHistory(styleCode: string, productColor?: stri
     .filter((item) => item.styleCode === styleCode)
     .filter((item) => !productColor || item.productColor === productColor)
     .filter((item) => item.versionStatus === 'COMPLETED_CONFIRMED' || item.versionStatus === 'PUBLISHED_SNAPSHOT')
+    .sort((left, right) => (
+      right.completedConfirmedAt || right.updatedAt
+    ).localeCompare(left.completedConfirmedAt || left.updatedAt))
 }
 
 export interface CreateEngineeringBomVersionsForOwnerInput {
@@ -185,6 +208,121 @@ export function createEngineeringBomVersionsForOwner(
   return createdRecords.map(cloneRecord)
 }
 
+export interface ReconcileEngineeringBomTargetColorInput {
+  productColor: string
+  applicableSkuIds: string[]
+  sourceVersionId?: string
+}
+
+export interface ReconcileEngineeringBomVersionsForTargetColorsInput {
+  ownerStage: EngineeringBomOwnerStage
+  ownerId: string
+  ownerCode: string
+  styleId: string
+  colors: ReconcileEngineeringBomTargetColorInput[]
+  buyerId?: string
+  buyerName?: string
+  createdBy: string
+  createdAt?: string
+}
+
+// 独立打样的 BOM 颜色只能来自买手已经确认的“目标颜色”。
+// 这里不读取目标款历史 BOM，也不按目标款档案中的原有颜色提前建 BOM。
+export function reconcileEngineeringBomVersionsForTargetColors(
+  input: ReconcileEngineeringBomVersionsForTargetColorsInput,
+): EngineeringBomVersionRecord[] {
+  const style = getStyleArchiveById(input.styleId)
+  if (!style) throw new Error('未找到 BOM 所属商品／款式档案。')
+  if (!input.ownerId.trim() || !input.ownerCode.trim()) throw new Error('BOM 与价格缺少所属业务对象。')
+  if (!input.colors.length) throw new Error('请至少确认一个目标颜色。')
+
+  const normalizedColors = input.colors.map((item) => ({
+    productColor: item.productColor.trim(),
+    applicableSkuIds: item.applicableSkuIds.map((skuId) => skuId.trim()).filter(Boolean),
+    sourceVersionId: item.sourceVersionId?.trim() || '',
+  }))
+  if (normalizedColors.some((item) => !item.productColor)) throw new Error('目标颜色名称不能为空。')
+  if (normalizedColors.some((item) => item.applicableSkuIds.length === 0)) throw new Error('每个目标颜色必须至少包含一个目标 SKU。')
+  const colorKeys = normalizedColors.map((item) => item.productColor.toLocaleLowerCase())
+  if (new Set(colorKeys).size !== colorKeys.length) throw new Error('目标颜色不能重复。')
+
+  const snapshot = readSnapshot()
+  const existing = snapshot.records.filter((item) => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId)
+  const requestedKeys = new Set(colorKeys)
+  const obsolete = existing.filter((item) => !requestedKeys.has(item.productColor.trim().toLocaleLowerCase()))
+  if (obsolete.some((item) => item.versionStatus !== 'DRAFT')) {
+    throw new Error('已经生效的 BOM 颜色不能从当前打样任务中移除。')
+  }
+
+  const createdAt = input.createdAt || nowText()
+  const nextOwnerRecords: EngineeringBomVersionRecord[] = []
+  normalizedColors.forEach((color) => {
+    const current = existing.find((item) => item.productColor.trim().toLocaleLowerCase() === color.productColor.toLocaleLowerCase())
+    if (current) {
+      if (current.versionStatus !== 'DRAFT') throw new Error(`目标颜色“${color.productColor}”的 BOM 已生效，不能再修改颜色方案。`)
+      if (current.editingLockedAt) throw new Error('新款资料准备已完成，目标颜色与 BOM 已锁定。请先由跟单退回买手修改。')
+      nextOwnerRecords.push({
+        ...current,
+        productColor: color.productColor,
+        applicableSkuIds: [...color.applicableSkuIds],
+        updatedAt: createdAt,
+        updatedBy: input.createdBy,
+      })
+      return
+    }
+
+    const identity = nextIdentity([...snapshot.records, ...nextOwnerRecords])
+    const source = color.sourceVersionId
+      ? snapshot.records.find((item) => item.bomDraftVersionId === color.sourceVersionId)
+      : undefined
+    if (color.sourceVersionId && !source) throw new Error(`参考 BOM ${color.sourceVersionId} 不存在。`)
+    if (source && !['COMPLETED_CONFIRMED', 'PUBLISHED_SNAPSHOT'].includes(source.versionStatus)) {
+      throw new Error(`参考 BOM ${source.versionCode} 尚未完成确认。`)
+    }
+    const copied = source
+      ? copyEngineeringBomDraftVersion({ source, targetVersionId: identity.id, copiedAt: createdAt, copiedBy: input.createdBy })
+      : null
+    nextOwnerRecords.push({
+      ...(copied || { materialLines: [], customCosts: [] }),
+      bomDraftVersionId: identity.id,
+      versionCode: identity.code,
+      versionStatus: 'DRAFT',
+      ownerStage: input.ownerStage,
+      ownerId: input.ownerId,
+      ownerCode: input.ownerCode,
+      styleId: style.styleId,
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      styleImageUrl: style.mainImageUrl || style.galleryImageUrls[0] || '',
+      productColor: color.productColor,
+      applicableSkuIds: [...color.applicableSkuIds],
+      materialLines: remapCopiedMaterialLines(
+        copied?.materialLines || [],
+        style.styleCode,
+        color.productColor,
+        color.applicableSkuIds,
+      ),
+      sourceVersionId: source?.bomDraftVersionId || '',
+      buyerId: input.buyerId || '',
+      buyerName: input.buyerName || '待分配买手',
+      createdAt,
+      createdBy: input.createdBy,
+      updatedAt: createdAt,
+      updatedBy: input.createdBy,
+    })
+  })
+
+  const ownerRecordIds = new Set(existing.map((item) => item.bomDraftVersionId))
+  writeSnapshot({
+    ...snapshot,
+    records: [
+      ...snapshot.records.filter((item) => !ownerRecordIds.has(item.bomDraftVersionId)),
+      ...nextOwnerRecords,
+    ],
+  })
+  return nextOwnerRecords.map(cloneRecord)
+}
+
 export function saveEngineeringBomVersion(input: {
   versionId: string
   role: EngineeringBomOperatorRole
@@ -199,7 +337,7 @@ export function saveEngineeringBomVersion(input: {
   const index = snapshot.records.findIndex((item) => item.bomDraftVersionId === input.versionId)
   if (index < 0) throw new Error('BOM 与价格版本不存在。')
   const current = snapshot.records[index]
-  if (current.versionStatus !== 'DRAFT') throw new Error('只有草稿 BOM 与价格可以修改。')
+  assertBomEditable(current)
   input.materialLines.forEach((line) => resolveEngineeringBomMaterialLine(line))
   input.customCosts.forEach((item) => {
     if (!item.title.trim()) throw new Error('自定义费用名称不能为空。')
@@ -231,6 +369,79 @@ export function saveEngineeringBomVersion(input: {
   next.lineDiffs = source ? compareEngineeringBomDraftLines(source, next) : compareEngineeringBomDraftLines({ materialLines: [], customCosts: [] }, next)
   next.customCostDiffs = source ? compareEngineeringBomDraftCustomCosts(source, next) : compareEngineeringBomDraftCustomCosts({ materialLines: [], customCosts: [] }, next)
   snapshot.records[index] = next
+  writeSnapshot(snapshot)
+  return cloneRecord(next)
+}
+
+export function setEngineeringBomVersionsEditingLock(input: {
+  versionIds: string[]
+  locked: boolean
+  actorName: string
+  changedAt?: string
+  reason?: string
+}): EngineeringBomVersionRecord[] {
+  if (!input.versionIds.length) throw new Error('没有可锁定的 BOM 与价格草稿。')
+  if (!input.actorName.trim()) throw new Error('BOM 锁定操作缺少操作人。')
+  const snapshot = readSnapshot()
+  const versionIds = new Set(input.versionIds)
+  const records = snapshot.records.filter((record) => versionIds.has(record.bomDraftVersionId))
+  if (records.length !== versionIds.size) throw new Error('部分 BOM 与价格草稿不存在，不能完成资料交接。')
+  if (records.some((record) => record.versionStatus !== 'DRAFT')) throw new Error('只有草稿 BOM 与价格可以交接锁定。')
+  const changedAt = input.changedAt || nowText()
+  records.forEach((record) => {
+    record.editingLockedAt = input.locked ? changedAt : ''
+    record.editingLockedBy = input.locked ? input.actorName : ''
+    record.editingLockedReason = input.locked ? input.reason?.trim() || '买手已完成新款资料准备' : ''
+    record.updatedAt = changedAt
+    record.updatedBy = input.actorName
+  })
+  writeSnapshot(snapshot)
+  return records.map(cloneRecord)
+}
+
+export function regenerateEngineeringBomVersionFromSource(input: {
+  targetVersionId: string
+  sourceVersionId: string
+  role: EngineeringBomOperatorRole
+  userId: string
+  userName: string
+  regeneratedAt?: string
+}): EngineeringBomVersionRecord {
+  assertBuyer(input.role, input.userId, input.userName)
+  const snapshot = readSnapshot()
+  const targetIndex = snapshot.records.findIndex((record) => record.bomDraftVersionId === input.targetVersionId)
+  if (targetIndex < 0) throw new Error('目标 BOM 与价格草稿不存在。')
+  const target = snapshot.records[targetIndex]
+  assertBomEditable(target)
+  const source = snapshot.records.find((record) => record.bomDraftVersionId === input.sourceVersionId)
+  if (!source) throw new Error('参考 BOM 与价格版本不存在。')
+  const regeneratedAt = input.regeneratedAt || nowText()
+  const copied = copyEngineeringBomDraftVersion({
+    source,
+    targetVersionId: target.bomDraftVersionId,
+    copiedAt: regeneratedAt,
+    copiedBy: input.userName,
+  })
+  const next: EngineeringBomVersionRecord = {
+    ...target,
+    sourceVersionId: source.bomDraftVersionId,
+    copiedAt: regeneratedAt,
+    copiedBy: input.userName,
+    materialLines: remapCopiedMaterialLines(
+      copied.materialLines,
+      target.styleCode,
+      target.productColor,
+      target.applicableSkuIds,
+    ),
+    customCosts: copied.customCosts.map((item) => ({ ...item })),
+    updatedAt: regeneratedAt,
+    updatedBy: input.userName,
+    buyerId: input.userId,
+    buyerName: input.userName,
+  }
+  next.lineDiffs = compareEngineeringBomDraftLines(source, next)
+  next.customCostDiffs = compareEngineeringBomDraftCustomCosts(source, next)
+  snapshot.records[targetIndex] = next
   writeSnapshot(snapshot)
   return cloneRecord(next)
 }
