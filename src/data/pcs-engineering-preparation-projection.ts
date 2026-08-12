@@ -178,6 +178,23 @@ function createProjectedItem(
   const itemId = projectedItemId(master.masterOrderId, definition)
   const orderNo = task?.boundPurchaseOrderNos?.[0] || ''
   const applicable = reusedPriorResult || Boolean(task && task.status !== '未启用')
+  const latestActualOperator = (() => {
+    if (!task) return ''
+    if (definition.stageType === 'COLOR_REQUIREMENT_CONFIRMATION' && task.colorRequirementConfirmedAt) {
+      return task.colorRequirementConfirmedBy
+    }
+    if (definition.stageType === 'BUYER_REVIEW' && times.effective) {
+      return task.reviewedByName
+    }
+    if (times.effective) {
+      return task.reviewedByName || task.resultSubmittedBy || task.submittedByName
+    }
+    if (!actualStartAt) return ''
+    return [...task.operationLogs]
+      .filter((log) => log.operatorName && log.operationType !== '任务生成')
+      .sort((left, right) => left.operatedAt.localeCompare(right.operatedAt))
+      .at(-1)?.operatorName || task.assigneeName || ''
+  })()
   return {
     itemId,
     recordId: `engineering-preparation-${master.masterOrderId}`,
@@ -191,7 +208,7 @@ function createProjectedItem(
     parallelGroup: definition.taskType,
     status: applicable ? projectedStatus(task, reusedPriorResult, times.effective) : '无需',
     ownerTeam: definition.ownerTeamName,
-    ownerName: task?.assigneeName || '待分配',
+    ownerName: latestActualOperator,
     plannedStartAt: task?.plannedStartAt || '',
     plannedFinishAt: task?.plannedCompleteAt || '',
     actualFinishAt: times.effective,

@@ -7,12 +7,16 @@ import type {
   EngineeringTaskType,
 } from '../../data/pcs-engineering-master-types.ts'
 import {
+  getEngineeringMasterOrderById,
   listEngineeringMasterOrders,
   startEngineeringTask,
 } from '../../data/pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
 import { getMaterialArchiveById, getMaterialSkuRecordById } from '../../data/pcs-material-archive-repository.ts'
 import { getEngineeringTaskDefinition } from '../../data/pcs-engineering-dependency-policy.ts'
+import { getEngineeringTeamCurrentOperator } from '../../data/pcs-engineering-team-directory.ts'
+import { listEngineeringIndependentSamplingRecords } from '../../data/pcs-engineering-master-sampling.ts'
+import { listEngineeringChangeProfessionalTaskProjections } from '../../data/pcs-engineering-change-workspace.ts'
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import type { EngineeringLog, ModuleKey } from './shared.ts'
 import {
@@ -36,11 +40,109 @@ export const ENGINEERING_TASK_FILTER_STATUS_OPTIONS = [
   '因需求变更结束',
 ] as const
 
-// 按任务类型读取工程任务：从所有工程主单的任务记录中展开。
+const INDEPENDENT_TASK_TYPE_MAP = {
+  BASE_PATTERN: 'BASE_PATTERN_WOVEN',
+  PATTERN_ARTWORK: 'PATTERN_ARTWORK',
+  COLOR_YARN: 'COLOR_YARN',
+  COLOR_FABRIC: 'COLOR_FABRIC',
+} as const
+
+const INDEPENDENT_TASK_STATUS_MAP = {
+  WAIT_DEPENDENCY: '待前置',
+  WAIT_START: '待开始',
+  IN_PROGRESS: '进行中',
+  WAIT_REVIEW: '待审核',
+  REWORK: '返工中',
+  COMPLETED: '已完成',
+} as const
+
+function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
+  return listEngineeringIndependentSamplingRecords().flatMap((record) => record.professionalTasks.flatMap((task) => {
+    if (task.taskType === 'DISPLAY_SAMPLE') return []
+    const taskType = INDEPENDENT_TASK_TYPE_MAP[task.taskType]
+    const firstFile = task.results.flatMap((result) => result.files)[0]
+    const sourceLabel = record.samplingType === 'REVISION' ? '改款打样' : '设计打样'
+    const currentTeamName = task.status === 'COMPLETED'
+      ? ''
+      : task.status === 'WAIT_REVIEW'
+      ? '买手'
+      : (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && !task.colorRequirementConfirmedAt
+      ? '跟单'
+      : task.ownerTeamName
+    return [{
+      taskId: task.taskId,
+      masterOrderId: '',
+      taskType,
+      taskName: task.taskName,
+      sourceType: record.samplingType === 'REVISION' ? 'INDEPENDENT_REVISION_SAMPLING' : 'INDEPENDENT_DESIGN_SAMPLING',
+      sourceId: record.samplingTaskId,
+      targetStyleId: record.targetStyleId,
+      targetStyleCode: record.targetStyleCode,
+      targetStyleName: record.targetStyleName,
+      status: INDEPENDENT_TASK_STATUS_MAP[task.status],
+      dependsOnTaskIds: [...task.dependsOnTaskIds],
+      dependencySatisfaction: [],
+      ownerTeamName: currentTeamName,
+      assigneeId: '',
+      assigneeName: '',
+      assignedById: '',
+      assignedByName: '',
+      assignedAt: '',
+      currentRoundNo: Math.max(1, task.results.length),
+      plannedStartAt: '',
+      plannedCompleteAt: task.plannedCompleteAt,
+      resultSummary: task.results.map((result) => result.title).join('、'),
+      submittedById: firstFile?.uploadedById || '',
+      submittedByName: firstFile?.uploadedByName || '',
+      reviewedById: '',
+      reviewedByName: '',
+      events: {
+        generatedAt: record.taskPlanConfirmedAt || record.createdAt,
+        unlockedAt: '',
+        startedAt: task.startedAt,
+        submittedAt: task.submittedAt,
+        reviewedAt: task.completedAt,
+        firstCompletedAt: task.completedAt,
+        effectiveCompletedAt: task.completedAt,
+      },
+      operationLogs: [],
+      materialLines: [],
+      reworkRounds: [],
+      startedAt: task.startedAt,
+      submittedAt: task.submittedAt,
+      firstCompletedAt: task.completedAt,
+      effectiveCompletedAt: task.completedAt,
+      resultImageIds: task.results.map((result) => result.imageUrl).filter(Boolean),
+      resultQuantity: task.results.length,
+      resultSubmittedBy: firstFile?.uploadedByName || '',
+      materialReviewRounds: [],
+      colorRequirementConfirmedBy: task.colorRequirementConfirmedBy,
+      colorRequirementConfirmedAt: task.colorRequirementConfirmedAt,
+      colorResultCompletedAt: task.completedAt,
+      detailPath: `/pcs/engineering/sampling-professional/${task.taskId}`,
+      sourceBusinessCode: record.samplingTaskCode,
+      sourceBusinessName: sourceLabel,
+    } satisfies EngineeringTaskRecord]
+  }))
+}
+
+// 按任务类型读取统一专业任务列表：主单任务与独立打样任务共享一个列表，来源详情仍各自回到原业务单。
 export function listEngineeringTasksByType(taskTypes: readonly EngineeringTaskType[]): EngineeringTaskRecord[] {
-  return listEngineeringMasterOrders()
-    .flatMap((master) => master.tasks)
-    .filter((task) => taskTypes.includes(task.taskType))
+  return [
+    ...listEngineeringMasterOrders().flatMap((master) => master.tasks),
+    ...listIndependentProfessionalTaskProjections(),
+    ...listEngineeringChangeProfessionalTaskProjections(),
+  ].filter((task) => taskTypes.includes(task.taskType))
+}
+
+export function getEngineeringTaskListDetailPath(task: EngineeringTaskRecord, defaultPath: string): string {
+  return task.detailPath || `${defaultPath}/${task.taskId}`
+}
+
+export function getEngineeringTaskSourceSummary(task: EngineeringTaskRecord): { code: string; label: string } {
+  if (task.sourceBusinessCode) return { code: task.sourceBusinessCode, label: task.sourceBusinessName || taskSourceLabel(task) }
+  const master = task.masterOrderId ? getEngineeringMasterOrderById(task.masterOrderId) : null
+  return { code: master?.masterOrderCode || task.sourceId || '-', label: taskSourceLabel(task) }
 }
 
 export function getEngineeringTaskDetail(
@@ -65,7 +167,7 @@ function taskNextAction(task: EngineeringTaskRecord): string {
   if (task.status === '待前置') return '等待前置任务完成，完成后系统自动解锁'
   if (task.status === '待开始' && task.taskType === 'ACCESSORY_PURCHASE') return '在采购系统下单后直接绑定采购单号，绑定后系统自动开始任务'
   if (task.status === '待开始' && task.taskType === 'TECH_PACK_CONFIRMATION') return '生成技术包草稿，系统自动开始任务'
-  if (task.status === '待开始') return '前置条件已满足，由任务负责人开始执行'
+  if (task.status === '待开始') return `前置条件已满足，由${task.ownerTeamName}开始执行`
   if (task.status === '待审核') return '等待买手审核；未通过项将进入返工'
   if (task.status === '返工中') return '仅修改未通过项并重新提交'
   if (task.status === '已完成') return '成果已完成，并作为后续任务或技术包的输入'
@@ -104,7 +206,7 @@ export function renderTaskWorkbenchHeader(
     </div>
     <div class="grid gap-4 p-5 lg:grid-cols-[minmax(240px,1.4fr)_repeat(4,minmax(120px,1fr))]">
       ${renderStyleIdentity(master)}
-      <div><p class="text-xs text-slate-500">负责人</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(task.assigneeName || '待指派')}</p><p class="text-xs text-slate-400">${escapeHtml(task.ownerTeamName || '-')}</p></div>
+      <div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(task.ownerTeamName || '-')}</p>${task.assigneeName ? `<p class="text-xs text-slate-400">实际操作：${escapeHtml(task.assigneeName)}</p>` : '<p class="text-xs text-slate-400">开始处理后记录实际操作人</p>'}</div>
       <div><p class="text-xs text-slate-500">任务来源</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(taskSourceLabel(task))}</p><p class="text-xs text-slate-400">${escapeHtml(task.sourceId || master.masterOrderCode)}</p></div>
       <div><p class="text-xs text-slate-500">计划完成</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(task.plannedCompleteAt || '-')}</p><p class="text-xs text-slate-400">第 ${task.currentRoundNo || 1} 轮</p></div>
       <div><p class="text-xs text-slate-500">所属主单</p><a class="mt-1 block text-sm font-medium text-blue-700 hover:underline" href="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</a><p class="text-xs text-slate-400">跟单：${escapeHtml(master.merchandiserName || '-')}</p></div>
@@ -121,32 +223,33 @@ export function startEngineeringTaskFromDetail(taskId: string): void {
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) throw new Error('未找到工程任务。')
   const { task, master } = detail
+  const operator = getEngineeringTeamCurrentOperator(task.ownerTeamName)
   startEngineeringTask({
     masterOrderId: master.masterOrderId,
     taskId,
-    operatorId: task.assigneeId || `ROLE-${task.taskType}`,
-    operatorName: task.assigneeName || `${task.ownerTeamName}负责人`,
+    operatorId: operator.operatorId,
+    operatorName: operator.operatorName,
   })
 }
 
-// 负责团队下拉选项（按当前数据去重）。
+// 当前需处理团队下拉选项（按当前数据去重）。
 export function getEngineeringTaskTeamOptions(items: EngineeringTaskRecord[]): string[] {
-  return [...new Set(items.map((item) => item.ownerTeamName).filter(Boolean))].sort()
+  return [...new Set(items.filter((item) => item.status !== '已完成').map((item) => item.ownerTeamName).filter(Boolean))].sort()
 }
 
-// 来源下拉选项：任务类型中文名（如 调色任务（纱线））。
+// 来源下拉选项：工程主单、改款打样、设计打样或工程变更。
 export function getEngineeringTaskSourceOptions(items: EngineeringTaskRecord[]): string[] {
-  return [...new Set(items.map((item) => getEngineeringTaskDefinition(item.taskType).taskName))].sort()
+  return [...new Set(items.map((item) => getEngineeringTaskSourceSummary(item).label))].sort()
 }
 
-// 任务时间线日志：工程任务记录不维护人工操作字段，按固定时间线构造。
+// 任务时间线日志：没有实际动作时不虚构个人，动作发生后读取真实操作记录。
 export function buildEngineeringTaskLogs(task: EngineeringTaskRecord, master: EngineeringMasterOrderRecord): EngineeringLog[] {
   const definition = getEngineeringTaskDefinition(task.taskType)
   const logs: EngineeringLog[] = [
     { time: master.publishedAt, action: '任务生成', user: master.createdBy, detail: `工程主单 ${master.masterOrderCode} 发布时生成任务：${task.taskName}。` },
   ]
-  if (task.startedAt) logs.push({ time: task.startedAt, action: '开始执行', user: task.assigneeName || task.ownerTeamName, detail: `${task.taskName} 开始执行。` })
-  if (task.submittedAt) logs.push({ time: task.submittedAt, action: definition.reviewRequired ? '提交审核' : '提交成果', user: task.submittedByName || task.resultSubmittedBy || task.assigneeName || task.ownerTeamName, detail: `${task.taskName}${definition.reviewRequired ? '已提交审核' : '已提交成果'}。` })
+  if (task.startedAt) logs.push({ time: task.startedAt, action: '开始执行', user: task.assigneeName || '未记录实际操作人', detail: `${task.taskName} 开始执行。` })
+  if (task.submittedAt) logs.push({ time: task.submittedAt, action: definition.reviewRequired ? '提交审核' : '提交成果', user: task.submittedByName || task.resultSubmittedBy || task.assigneeName || '未记录实际操作人', detail: `${task.taskName}${definition.reviewRequired ? '已提交审核' : '已提交成果'}。` })
   if (task.firstCompletedAt) logs.push({ time: task.firstCompletedAt, action: '首次完成', user: master.merchandiserName, detail: `${task.taskName} 首次完成。` })
   if (task.effectiveCompletedAt) logs.push({ time: task.effectiveCompletedAt, action: '完成确认', user: master.merchandiserName, detail: `${task.taskName} 已生效完成（含返工轮次）。` })
   return logs.sort((left, right) => right.time.localeCompare(left.time))
@@ -159,7 +262,7 @@ export function renderTaskSummaryCard(task: EngineeringTaskRecord, master: Engin
     renderKeyValueGrid([
       { label: '任务类型', value: escapeHtml(definition.taskName) },
       { label: '任务编号', value: escapeHtml(task.taskId) },
-      { label: '负责团队', value: escapeHtml(task.ownerTeamName || '-') },
+      { label: '当前需处理的团队', value: escapeHtml(task.ownerTeamName || '-') },
       { label: '当前状态', value: renderStatusBadge(task.status) },
       { label: '开始时间', value: escapeHtml(task.startedAt ? formatDateTime(task.startedAt) : '-') },
       { label: '提交时间', value: escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-') },
@@ -251,7 +354,7 @@ export function renderTaskReworkRoundsCard(task: EngineeringTaskRecord): string 
 
 export function renderTaskDependencyCard(task: EngineeringTaskRecord): string {
   if (task.dependsOnTaskIds.length === 0) {
-    return renderSectionCard('前置依赖', '<p class="text-sm text-slate-500">无前置任务。</p>')
+    return renderSectionCard('需要先完成', '<p class="text-sm text-slate-500">无需先完成其他任务。</p>')
   }
   const body = `
     <div class="space-y-2">
@@ -270,7 +373,7 @@ export function renderTaskDependencyCard(task: EngineeringTaskRecord): string {
       }).join('')}
     </div>
   `
-  return renderSectionCard('前置依赖', body)
+  return renderSectionCard('需要先完成', body)
 }
 
 export function renderTaskLogsCard(task: EngineeringTaskRecord, master: EngineeringMasterOrderRecord, module: ModuleKey): string {

@@ -169,6 +169,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-engineering-color-tasks', title: '调色任务', icon: 'Droplets', href: '/pcs/engineering/color' },
             { key: 'pcs-engineering-purchase-tasks', title: '辅料下单任务', icon: 'ShoppingCart', href: '/pcs/engineering/purchase' },
             { key: 'pcs-engineering-tech-pack-tasks', title: '技术包确认任务', icon: 'FileCheck', href: '/pcs/engineering/tech-pack' },
+            { key: 'pcs-display-sample', title: '销售展示样衣任务', icon: 'Shirt', href: '/pcs/samples/display-sample' },
             { key: 'pcs-first-sample', title: '产前版样衣任务', icon: 'Droplet', href: '/pcs/samples/first-sample' },
           ],
         },

@@ -15,7 +15,10 @@ import {
   getEngineeringMasterOrderById,
   runEngineeringMasterRepositoryTransaction,
 } from './pcs-engineering-master-repository.ts'
-import { reopenEngineeringMaterialTaskForTechPackReview } from './pcs-engineering-task-review.ts'
+import {
+  reopenEngineeringDirectResultTaskForTechPackReview,
+  reopenEngineeringMaterialTaskForTechPackReview,
+} from './pcs-engineering-task-review.ts'
 import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
@@ -37,6 +40,7 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalModuleKey,
+  TechnicalReviewReturnTargetSnapshot,
   TechnicalReviewNode,
   TechnicalReviewNodeKey,
   TechnicalReviewNodeStatus,
@@ -126,8 +130,140 @@ export const TECH_PACK_REVIEW_REWORK_MODULES: TechnicalModuleKey[] = [
   'PROCESS',
   'SIZE',
   'DESIGN',
+  'ATTACHMENT',
   'QUALITY',
 ]
+
+function reviewReturnTarget(input: TechnicalReviewReturnTargetSnapshot): TechnicalReviewReturnTargetSnapshot {
+  return { ...input, sourceMaterialLineIds: [...input.sourceMaterialLineIds] }
+}
+
+export function listTechPackReviewReturnTargets(
+  technicalVersionId: string,
+): TechnicalReviewReturnTargetSnapshot[] {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!record || !content) return []
+  const targets: TechnicalReviewReturnTargetSnapshot[] = []
+  const add = (target: TechnicalReviewReturnTargetSnapshot) => targets.push(reviewReturnTarget(target))
+
+  content.bomItems.forEach((item) => add({
+    targetId: `BOM_LINE:${item.id}`,
+    moduleKey: 'BOM',
+    targetType: 'BOM_LINE',
+    label: `BOM 物料：${item.name}`,
+    detail: [item.materialCode || item.materialSkuId, item.spec, item.colorLabel].filter(Boolean).join(' · '),
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  ;(content.bomCustomCosts ?? []).forEach((item, index) => add({
+    targetId: `COST_LINE:${item.customCostId || `ROW-${index + 1}`}`,
+    moduleKey: 'COST',
+    targetType: 'COST_LINE',
+    label: `费用项：${item.title || item.customCostId}`,
+    detail: 'BOM 与价格中的自定义费用',
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+
+  const master = record.createdFromTaskType === 'ENGINEERING_MASTER'
+    ? getEngineeringMasterOrderById(record.sourceProjectId)
+    : null
+  master?.tasks.forEach((task) => {
+    if (task.status === '未启用' || task.status === '因需求变更结束' || task.taskType === 'TECH_PACK_CONFIRMATION' || task.taskType === 'ACCESSORY_PURCHASE') return
+    if (task.taskType === 'PATTERN_ARTWORK' || task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') {
+      task.materialLines
+        .filter((line) => line.status === '正常' && (task.taskType === 'PATTERN_ARTWORK' ? line.requirementType === '印花' : line.requirementType === '染色'))
+        .forEach((line) => add({
+          targetId: `${task.taskType === 'PATTERN_ARTWORK' ? 'ARTWORK_RESULT' : 'COLOR_RESULT'}:${task.taskId}:${line.materialLineId}`,
+          moduleKey: task.taskType === 'PATTERN_ARTWORK' ? 'DESIGN' : 'COLOR_MATERIAL_MAPPING',
+          targetType: task.taskType === 'PATTERN_ARTWORK' ? 'ARTWORK_RESULT' : 'COLOR_RESULT',
+          label: `${task.taskName}：${line.materialName}`,
+          detail: [line.materialSkuId, line.productColor, line.colorName, line.pantoneColorCode].filter(Boolean).join(' · '),
+          sourceTaskId: task.taskId,
+          sourceMaterialLineIds: [line.materialLineId],
+        }))
+      return
+    }
+    if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
+      add({
+        targetId: `PRE_PRODUCTION_SAMPLE_RESULT:${task.taskId}`,
+        moduleKey: 'ATTACHMENT',
+        targetType: 'PRE_PRODUCTION_SAMPLE_RESULT',
+        label: '产前版样衣成果',
+        detail: task.taskName,
+        sourceTaskId: task.taskId,
+        sourceMaterialLineIds: [],
+      })
+      return
+    }
+    add({
+      targetId: `PAPER_PATTERN_RESULT:${task.taskId}`,
+      moduleKey: 'PATTERN',
+      targetType: 'PAPER_PATTERN_RESULT',
+      label: `${task.taskName}成果`,
+      detail: '纸样源文件和对应资料',
+      sourceTaskId: task.taskId,
+      sourceMaterialLineIds: [],
+    })
+  })
+
+  content.colorMaterialMappings.forEach((item) => add({
+    targetId: `COLOR_MAPPING:${item.id}`,
+    moduleKey: 'COLOR_MATERIAL_MAPPING',
+    targetType: 'COLOR_MAPPING',
+    label: `款色用料：${item.colorName}`,
+    detail: `${item.lines.length} 条物料对应`,
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  content.processEntries.forEach((item) => add({
+    targetId: `PROCESS_ITEM:${item.id}`,
+    moduleKey: 'PROCESS',
+    targetType: 'PROCESS_ITEM',
+    label: `工艺：${item.craftName || item.processName}`,
+    detail: item.stageName,
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  content.sizeTable.forEach((item) => add({
+    targetId: `SIZE_ITEM:${item.id}`,
+    moduleKey: 'SIZE',
+    targetType: 'SIZE_ITEM',
+    label: `尺码资料：${item.part}`,
+    detail: `公差 ${item.tolerance}`,
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  content.patternDesigns.forEach((item) => add({
+    targetId: `DESIGN_ITEM:${item.id}`,
+    moduleKey: 'DESIGN',
+    targetType: 'DESIGN_ITEM',
+    label: `花型资料：${item.name}`,
+    detail: item.originalFileName || item.fileName || '花型预览与源文件',
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  content.attachments.forEach((item) => add({
+    targetId: `ATTACHMENT_ITEM:${item.id}`,
+    moduleKey: 'ATTACHMENT',
+    targetType: 'ATTACHMENT_ITEM',
+    label: `附件：${item.fileName}`,
+    detail: item.fileType,
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  content.qualityRules.forEach((item) => add({
+    targetId: `QUALITY_ITEM:${item.id}`,
+    moduleKey: 'QUALITY',
+    targetType: 'QUALITY_ITEM',
+    label: `质量要求：${item.checkItem}`,
+    detail: item.standardText,
+    sourceTaskId: '',
+    sourceMaterialLineIds: [],
+  }))
+  return targets
+}
 
 type ProcessRouteGate = Pick<
   TechnicalDataVersionContent,
@@ -695,6 +831,7 @@ export function submitTechPackFirstStageReview(
     reviewSubmittedBy: operator.name,
     returnedFromMerchandiserFlag: false,
     reviewUnlockedModuleKeys: [],
+    reviewReturnTargets: [],
     updatedAt: submittedAt,
     updatedBy: operator.name,
   })
@@ -836,12 +973,18 @@ export function approveTechPackReview(
       ? { patternMakerReview: node }
       : { merchandiserReview: node }),
     ...(nodeKey === 'MERCHANDISER'
-      ? { reviewStage: '待发布' as const, returnedFromMerchandiserFlag: false, reviewUnlockedModuleKeys: [] }
+      ? {
+          reviewStage: '待发布' as const,
+          returnedFromMerchandiserFlag: false,
+          reviewUnlockedModuleKeys: [],
+          reviewReturnTargets: [],
+        }
       : completesSelectivePriceReview
       ? {
           reviewStage: '待发布' as const,
           merchandiserReview: snapshot.merchandiserReview,
           reviewUnlockedModuleKeys: [],
+          reviewReturnTargets: [],
         }
       : firstStagePassed
       ? {
@@ -1047,6 +1190,7 @@ function sendReworkNotifications(input: {
 interface EngineeringTaskReworkTarget {
   masterOrderId: string
   taskId: string
+  materialLineIds: string[]
 }
 
 function assertEngineeringTaskCanReopen(input: {
@@ -1070,7 +1214,7 @@ function assertEngineeringTaskCanReopen(input: {
   if (!task.materialLines.some((line) => line.status === '正常' && line.requirementType === requirementType)) {
     throw new Error(`技术包绑定的原${input.taskLabel}没有可返工的有效物料行：${input.taskId}`)
   }
-  return { masterOrderId: masterOrder.masterOrderId, taskId: task.taskId }
+  return { masterOrderId: masterOrder.masterOrderId, taskId: task.taskId, materialLineIds: [] }
 }
 
 function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
@@ -1148,12 +1292,116 @@ function assertAllValidColorTasksCompletedForTechPackReview(record: TechnicalDat
 
 function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: TechnicalDataVersionRecord): void {
   if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
+  const returnedTaskIds = [...new Set((record.reviewReturnTargets ?? []).map((target) => target.sourceTaskId).filter(Boolean))]
+  if (returnedTaskIds.length > 0) {
+    const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
+    if (!masterOrder) throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+    returnedTaskIds.forEach((taskId) => {
+      const task = masterOrder.tasks.find((item) => item.taskId === taskId)
+      if (!task || task.status !== '已完成') throw new Error(`被退回的专业任务尚未重新完成：${taskId}`)
+    })
+    return
+  }
   if (record.reviewUnlockedModuleKeys.includes('DESIGN')) {
     resolveArtworkTasksForTechPackRework(record)
   }
   if (record.reviewUnlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
     assertAllValidColorTasksCompletedForTechPackReview(record)
   }
+}
+
+function returnTechPackReviewByResolvedTargets(input: {
+  record: TechnicalDataVersionRecord
+  targets: TechnicalReviewReturnTargetSnapshot[]
+  opinion: string
+  operator: TechPackReviewOperator
+}): TechnicalDataVersionRecord {
+  const snapshot = normalizeTechnicalReviewSnapshot(input.record)
+  if (snapshot.reviewStage !== '跟单复核') throw new Error('只有跟单复核阶段可以退回具体内容。')
+  assertAssignedReviewer(snapshot.merchandiserReview, input.operator)
+  if (input.targets.length === 0) throw new Error('请选择需要退回修改的具体内容。')
+  const unlockedModuleKeys = normalizeModuleKeys(input.targets.map((target) => target.moduleKey))
+  const returnedAt = nowText()
+  const targetNodeKeys = normalizeNodeKeys([
+    ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
+    'MERCHANDISER',
+  ])
+
+  const taskTargets = new Map<string, TechnicalReviewReturnTargetSnapshot>()
+  input.targets.filter((target) => target.sourceTaskId).forEach((target) => {
+    const current = taskTargets.get(target.sourceTaskId)
+    taskTargets.set(target.sourceTaskId, current
+      ? {
+          ...current,
+          sourceMaterialLineIds: [...new Set([...current.sourceMaterialLineIds, ...target.sourceMaterialLineIds])],
+        }
+      : reviewReturnTarget(target))
+  })
+
+  const nextRecord = runEngineeringMasterRepositoryTransaction(() =>
+    runTechnicalDataVersionRepositoryTransaction(() => {
+      for (const target of taskTargets.values()) {
+        if (target.targetType === 'ARTWORK_RESULT' || target.targetType === 'COLOR_RESULT') {
+          reopenEngineeringMaterialTaskForTechPackReview({
+            masterOrderId: input.record.sourceProjectId,
+            taskId: target.sourceTaskId,
+            reason: input.opinion,
+            materialLineIds: target.sourceMaterialLineIds,
+          })
+        } else {
+          reopenEngineeringDirectResultTaskForTechPackReview({
+            masterOrderId: input.record.sourceProjectId,
+            taskId: target.sourceTaskId,
+            reason: input.opinion,
+          })
+        }
+      }
+      const savedRecord = saveReviewPatch(input.record.technicalVersionId, {
+        ...buildReworkReviewPatch({
+          record: input.record,
+          snapshot,
+          targetNodeKeys,
+          unlockedModuleKeys,
+          returnedAt,
+          operatorName: input.operator.name,
+          opinion: input.opinion,
+        }),
+        reviewReturnTargets: input.targets.map(reviewReturnTarget),
+      })
+      appendReviewLog({
+        record: savedRecord,
+        logType: '跟单打回第一阶段',
+        changeText: `跟单复核退回具体内容：${input.targets.map((target) => target.label).join('、')}。原因：${input.opinion}`,
+        operatorName: input.operator.name,
+        createdAt: returnedAt,
+      })
+      sendReworkNotifications({
+        technicalVersionId: input.record.technicalVersionId,
+        createdBy: input.operator.name,
+        targetNodeKeys,
+        strict: true,
+      })
+      return savedRecord
+    }),
+  )
+  return getTechnicalDataVersionById(input.record.technicalVersionId) || nextRecord
+}
+
+export function returnTechPackReviewByTargets(
+  technicalVersionId: string,
+  targetIds: string[],
+  opinion = '',
+  operatorInput: string | TechPackReviewOperator = '当前用户',
+): TechnicalDataVersionRecord {
+  const record = requireDraftRecord(technicalVersionId)
+  const operator = normalizeOperator(operatorInput)
+  const reviewOpinion = assertOpinionRequired(opinion || '', '退回')
+  const availableTargets = listTechPackReviewReturnTargets(technicalVersionId)
+  const requestedIds = new Set(targetIds.map((item) => item.trim()).filter(Boolean))
+  const targets = availableTargets.filter((target) => requestedIds.has(target.targetId))
+  const unknownIds = [...requestedIds].filter((id) => !targets.some((target) => target.targetId === id))
+  if (unknownIds.length > 0) throw new Error(`所选退回内容已不存在，请刷新后重选：${unknownIds.join('、')}`)
+  return returnTechPackReviewByResolvedTargets({ record, targets, opinion: reviewOpinion, operator })
 }
 
 export function returnTechPackReviewByModules(
@@ -1165,62 +1413,12 @@ export function returnTechPackReviewByModules(
   const record = requireDraftRecord(technicalVersionId)
   const operator = normalizeOperator(operatorInput)
   const reviewOpinion = assertOpinionRequired(opinion || '', '打回')
-  const snapshot = normalizeTechnicalReviewSnapshot(record)
-  if (snapshot.reviewStage !== '跟单复核') throw new Error('只有跟单复核阶段可以按模块打回复审。')
-  assertAssignedReviewer(snapshot.merchandiserReview, operator)
   const unlockedModuleKeys = normalizeModuleKeys(moduleKeys)
   if (unlockedModuleKeys.length === 0) throw new Error('请选择需要重审的模块。')
-  const engineeringTaskTargets: EngineeringTaskReworkTarget[] = []
-  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
-    if (unlockedModuleKeys.includes('DESIGN')) {
-      engineeringTaskTargets.push(...resolveArtworkTasksForTechPackRework(record))
-    }
-    if (unlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
-      engineeringTaskTargets.push(...resolveColorTasksForTechPackRework(record))
-    }
-  }
-  const returnedAt = nowText()
-  const targetNodeKeys = normalizeNodeKeys([
-    ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
-    'MERCHANDISER',
-  ])
-  const nextRecord = runEngineeringMasterRepositoryTransaction(() =>
-    runTechnicalDataVersionRepositoryTransaction(() => {
-      const savedRecord = saveReviewPatch(technicalVersionId, {
-        ...buildReworkReviewPatch({
-          record,
-          snapshot,
-          targetNodeKeys,
-          unlockedModuleKeys,
-          returnedAt,
-          operatorName: operator.name,
-          opinion: reviewOpinion,
-        }),
-      })
-      for (const target of engineeringTaskTargets) {
-        reopenEngineeringMaterialTaskForTechPackReview({
-          masterOrderId: target.masterOrderId,
-          taskId: target.taskId,
-          reason: reviewOpinion,
-        })
-      }
-      appendReviewLog({
-        record: savedRecord,
-        logType: '跟单打回第一阶段',
-        changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
-        operatorName: operator.name,
-        createdAt: returnedAt,
-      })
-      sendReworkNotifications({
-        technicalVersionId,
-        createdBy: operator.name,
-        targetNodeKeys,
-        strict: true,
-      })
-      return savedRecord
-    }),
-  )
-  return getTechnicalDataVersionById(technicalVersionId) || nextRecord
+  const targets = listTechPackReviewReturnTargets(technicalVersionId)
+    .filter((target) => unlockedModuleKeys.includes(target.moduleKey))
+  if (targets.length === 0) throw new Error('所选栏目当前没有可退回的具体内容。')
+  return returnTechPackReviewByResolvedTargets({ record, targets, opinion: reviewOpinion, operator })
 }
 
 export function reopenTechPackReviewForRoles(

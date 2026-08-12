@@ -1,7 +1,7 @@
 // @page-pattern: detail
 
 // 工程主单详情：按任务逐行展示的执行表格。
-// 表格保留阶段、专业类型、固定前置、负责人、计划/实际时间与状态；点击任务进入对应专业任务详情。
+// 表格只展示业务执行所需的团队、动作、先后关系、去向、计划/实际与状态。
 
 import {
   ENGINEERING_LANES,
@@ -248,10 +248,10 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <div class="flex items-center gap-2">
-            <h2 class="text-base font-semibold text-slate-900">任务方案确认</h2>
-            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">系统建议</span>
+            <h2 class="text-base font-semibold text-slate-900">本次工作安排确认</h2>
+            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">建议安排</span>
           </div>
-          <p class="mt-1 text-xs text-slate-500">跟单确认适用任务；固定依赖关系不能调整。</p>
+          <p class="mt-1 text-xs text-slate-500">由跟单确认本次需要完成的工作；工作先后顺序按已确认规则自动带出。</p>
         </div>
         <div class="text-sm text-slate-600">${hasPreparationType ? `已选 ${selectedCount}/${selectableSuggestions.length} 项` : '待选择准备类型'}</div>
       </header>
@@ -284,7 +284,7 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
               />
               <span class="font-medium text-slate-900">${escapeHtml(item.taskName)}</span>
               <span class="text-slate-600">${escapeHtml(item.ownerTeamName)}</span>
-              <span class="text-xs text-slate-500">前置：${escapeHtml(item.dependencyText)}</span>
+              <span class="text-xs text-slate-500">需要先完成：${escapeHtml(item.dependencyText)}</span>
               <span class="flex items-center gap-2 text-xs">
                 <span class="rounded-full px-2 py-0.5 ${item.required ? 'bg-slate-200 text-slate-700' : item.notApplicable ? 'bg-slate-100 text-slate-500' : item.suggestedSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.required ? '必做' : item.notApplicable ? '不适用' : item.suggestedSelected ? '建议启用' : '按需启用'}</span>
                 <span class="text-slate-500">${escapeHtml(item.suggestionReason)}</span>
@@ -365,15 +365,15 @@ function renderTaskTable(model: EngineeringMasterDetailModel): string {
     <section class="overflow-hidden rounded-lg border bg-card" data-engineering-task-table>
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div><h2 class="text-base font-semibold text-slate-900">工程任务</h2><p class="mt-0.5 text-xs text-slate-500">共 ${rows.length} 项，按执行阶段排列</p></div>
-        <p class="text-xs text-slate-500">点击任务名称查看成果、物料和操作记录</p>
+        <p class="text-xs text-slate-500">并行工作分行展示；完成后由系统自动交给下一团队</p>
       </header>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1180px] border-collapse text-sm">
+        <table class="w-full min-w-[1320px] border-collapse text-sm">
           <thead class="bg-slate-50 text-left text-xs font-medium text-slate-500">
-            <tr><th class="w-12 px-3 py-3 text-center">序号</th><th class="min-w-44 px-3 py-3">任务</th><th class="min-w-28 px-3 py-3">阶段</th><th class="min-w-28 px-3 py-3">专业类型</th><th class="min-w-28 px-3 py-3">负责人</th><th class="min-w-44 px-3 py-3">固定前置</th><th class="min-w-36 px-3 py-3">当前节点</th><th class="min-w-40 px-3 py-3">计划／实际</th><th class="min-w-24 px-3 py-3">状态</th></tr>
+            <tr><th class="w-12 px-3 py-3 text-center">序号</th><th class="min-w-44 px-3 py-3">任务</th><th class="min-w-28 px-3 py-3">阶段</th><th class="min-w-32 px-3 py-3">当前处理团队</th><th class="min-w-52 px-3 py-3">当前动作</th><th class="min-w-44 px-3 py-3">需要先完成</th><th class="min-w-56 px-3 py-3">完成后去向</th><th class="min-w-44 px-3 py-3">计划／实际</th><th class="min-w-24 px-3 py-3">状态</th></tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            ${rows.map(({ task, phaseName, laneName }, index) => `<tr class="align-top hover:bg-slate-50/70" data-engineering-task-row="${escapeHtml(task.taskId)}"><td class="px-3 py-3 text-center text-slate-400">${index + 1}</td><td class="px-3 py-3">${renderTaskNameButton(task)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(phaseName)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(laneName)}</td><td class="px-3 py-3 text-slate-700">${escapeHtml(task.ownerTeamName)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.dependsOnLabels.join('、') || '无')}</td><td class="px-3 py-3"><p class="text-slate-700">${escapeHtml(task.currentNodeName)}</p>${task.riskText ? `<p class="mt-1 text-xs font-medium text-amber-700">${escapeHtml(task.riskText)}</p>` : ''}</td><td class="px-3 py-3 text-xs text-slate-600"><p>${escapeHtml(task.plannedTimeText)}</p><p class="mt-1">${escapeHtml(task.actualTimeText)}</p></td><td class="px-3 py-3">${renderTaskStatusBadge(task.status)}</td></tr>`).join('')}
+            ${rows.map(({ task, phaseName }, index) => `<tr class="align-top hover:bg-slate-50/70" data-engineering-task-row="${escapeHtml(task.taskId)}"><td class="px-3 py-3 text-center text-slate-400">${index + 1}</td><td class="px-3 py-3">${renderTaskNameButton(task)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(phaseName)}</td><td class="px-3 py-3 font-medium text-slate-700">${escapeHtml(task.currentTeamName)}</td><td class="px-3 py-3 text-slate-700">${escapeHtml(task.currentActionText)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.dependsOnLabels.join('、') || '无')}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.completionDestinationText)}</td><td class="px-3 py-3 text-xs text-slate-600"><p>${escapeHtml(task.plannedTimeText)}</p><p class="mt-1">${escapeHtml(task.actualTimeText)}</p></td><td class="px-3 py-3">${renderTaskStatusBadge(task.status)}</td></tr>`).join('')}
           </tbody>
         </table>
       </div>

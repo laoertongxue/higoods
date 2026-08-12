@@ -1,6 +1,5 @@
 // 工程专业任务入口：只负责路由兼容和列表轻交互；任务事实由各专业页或工程主单读取。
 
-import { resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
 import { clearListColumnPreferences } from '../components/ui/list-table-model.ts'
 import { escapeHtml } from '../utils.ts'
 import {
@@ -21,14 +20,6 @@ import {
   state,
 } from './pcs-engineering-tasks/shared.ts'
 import {
-  handleRevisionTaskEvent,
-  handleRevisionTaskInput,
-  isRevisionTaskDialogOpen,
-  renderPcsRevisionTaskDetailPage,
-  renderPcsRevisionTaskPage,
-  resetRevisionTaskPageState,
-} from './pcs-engineering-tasks/revision-task.ts'
-import {
   handleFirstSampleTaskEvent,
   handleFirstSampleTaskInput,
   renderPcsFirstSampleTaskDetailPage,
@@ -41,7 +32,6 @@ import { handlePurchaseTaskEvent, renderPcsPurchaseTaskDetailPage } from './pcs-
 import { handleTechPackTaskEvent, handleTechPackTaskInput, renderPcsTechPackTaskDetailPage } from './pcs-engineering-tasks/tech-pack-task.ts'
 import { startEngineeringTaskFromDetail } from './pcs-engineering-tasks/master-task-common.ts'
 
-export { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from './pcs-engineering-tasks/revision-task.ts'
 export { renderPcsPlateMakingTaskDetailPage, renderPcsPlateMakingTaskPage } from './pcs-engineering-tasks/plate-making-task.ts'
 export { renderPcsPatternTaskDetailPage, renderPcsPatternTaskPage } from './pcs-engineering-tasks/pattern-task.ts'
 export {
@@ -225,7 +215,6 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
     || handlePlateMakingTaskInput(target)
     || handleFirstSampleTaskInput(target)
     || handleTechPackTaskInput(target)
-    || handleRevisionTaskInput(target)
     || handleListInput(target)
 }
 
@@ -248,17 +237,19 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
   if (module && handleListAction(module, action, node, event)) return true
   if (action === 'close-notice') { clearNotice(); return true }
   if (action === 'refresh-page') { setNotice('已刷新当前任务页面。'); return true }
-  if (action === 'close-all-engineering-dialogs') { resetRevisionTaskPageState(); document.querySelector('[data-engineering-task-image-preview]')?.remove(); return true }
-  return handleRevisionTaskEvent(node)
+  if (action === 'close-all-engineering-dialogs') {
+    document.querySelector('[data-engineering-task-image-preview], [data-first-sample-preview], [data-plate-preview], [data-pattern-preview], [data-color-preview]')?.remove()
+    return true
+  }
+  return false
 }
 
 export function isPcsEngineeringTaskDialogOpen(): boolean {
-  return isRevisionTaskDialogOpen() || Boolean(document.querySelector('[data-engineering-task-image-preview]'))
+  return Boolean(document.querySelector('[data-engineering-task-image-preview], [data-first-sample-preview], [data-plate-preview], [data-pattern-preview], [data-color-preview]'))
 }
 
 export function resetPcsEngineeringTaskState(): void {
   clearNotice()
-  resetRevisionTaskPageState()
   for (const module of ['revision', 'plate', 'pattern', 'color', 'purchase', 'techPack', 'firstSample'] as const) {
     const list = state[`${module}List`] as Record<string, string | number>
     Object.assign(list, { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 })
@@ -266,5 +257,5 @@ export function resetPcsEngineeringTaskState(): void {
 }
 
 export function resetPcsEngineeringTaskRepositories(): void {
-  resetRevisionTaskRepository()
+  // 各专业任务的共享事实由工程主单、独立打样和工程变更仓库重置。
 }

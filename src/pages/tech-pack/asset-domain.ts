@@ -32,18 +32,21 @@ export function renderDesignTab(): string {
 
                     return `
                     <div class="rounded-lg border p-3">
-                      <button
-                        type="button"
-                        class="mb-3 flex aspect-square w-full items-center justify-center overflow-hidden rounded bg-muted transition hover:opacity-95"
-                        data-tech-action="preview-design-thumbnail"
-                        data-design-id="${item.id}"
-                      >
-                        ${
-                          previewUrl
-                            ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(item.name)}" class="h-full w-full object-cover" />`
-                            : '<i data-lucide="image" class="h-8 w-8 text-muted-foreground"></i>'
-                        }
-                      </button>
+                      ${
+                        previewUrl
+                          ? `<button
+                              type="button"
+                              class="mb-3 flex aspect-square w-full items-center justify-center overflow-hidden rounded bg-muted transition hover:opacity-95"
+                              data-tech-action="preview-design-thumbnail"
+                              data-design-id="${item.id}"
+                            >
+                              <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(item.name)}" class="h-full w-full object-cover" />
+                            </button>`
+                          : `<div class="mb-3 flex aspect-square w-full flex-col items-center justify-center gap-2 rounded bg-muted text-muted-foreground">
+                              <i data-lucide="file" class="h-8 w-8"></i>
+                              <span class="text-xs">非图片文件，无图片预览</span>
+                            </div>`
+                      }
                       <div class="space-y-1">
                         <div class="flex items-center justify-between gap-2">
                           <p class="truncate text-sm font-medium" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</p>
@@ -138,13 +141,16 @@ export function renderAddDesignDialog(): string {
                                 ${
                                   file.previewThumbnailDataUrl
                                     ? `<img src="${escapeHtml(file.previewThumbnailDataUrl)}" alt="${escapeHtml(file.fileName)}" class="h-full w-full object-cover" />`
-                                    : '<span class="text-sm text-muted-foreground">暂无预览</span>'
+                                    : `<span class="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                                        <i data-lucide="file" class="h-7 w-7"></i>
+                                        ${file.processing ? '正在读取文件' : '非图片文件，无图片预览'}
+                                      </span>`
                                 }
                               </div>
                               <div class="mt-2 space-y-1">
                                 <div class="min-w-0 truncate text-xs text-muted-foreground" title="${escapeHtml(file.fileName)}">原文件：${escapeHtml(file.fileName)}</div>
                                 <div class="text-xs text-muted-foreground">
-                                  缩略图：${file.previewThumbnailDataUrl ? '已生成' : '暂无数据'}
+                                  图片预览：${file.previewThumbnailDataUrl ? '已生成' : '不适用'}
                                 </div>
                                 <div class="text-xs ${file.processing ? 'text-amber-600' : 'text-emerald-600'}">${file.processing ? '处理中' : '已就绪'}</div>
                               </div>

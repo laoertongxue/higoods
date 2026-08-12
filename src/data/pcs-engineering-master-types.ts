@@ -1,6 +1,8 @@
 // 工程主单领域类型：主单、专业任务、任务物料行、返工轮次与前期成果复用。
 // 工程主单是 PCS 生产工程管理的唯一任务编排事实源。
 
+import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
+
 
 export type EngineeringMasterStatus =
   | '草稿'
@@ -200,6 +202,10 @@ export interface EngineeringTaskRecord {
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
   colorResultCompletedAt: string
+  // 统一专业任务列表的只读导航信息。工程主单任务不填写；独立打样与工程变更投影时填写。
+  detailPath?: string
+  sourceBusinessCode?: string
+  sourceBusinessName?: string
 }
 
 export interface EngineeringPriorResultReuseLine {
@@ -280,7 +286,15 @@ export type EngineeringIndependentProfessionalTaskStatus = 'WAIT_DEPENDENCY' | '
 export interface EngineeringIndependentProfessionalResult {
   resultId: string
   title: string
+  version: string
+  description: string
+  applicablePartOrSize: string
+  sampleQuantity: number
+  sampleColor: string
+  sampleSize: string
+  sourcePatternVersion: string
   imageUrl: string
+  files: EngineeringUploadedFile[]
   status: 'WAIT_REVIEW' | 'APPROVED' | 'REJECTED'
   rejectReason: string
 }
@@ -313,6 +327,50 @@ export interface EngineeringIndependentSamplingLog {
   detail: string
 }
 
+export interface EngineeringIndependentColorMapping {
+  mappingId: string
+  sourceColor: string
+  targetColor: string
+  targetSkuIds: string[]
+  mappingType: '沿用颜色' | '改为新颜色' | 'B 款新增颜色'
+  confirmedBy: string
+  confirmedAt: string
+}
+
+export type EngineeringIndependentMaterialDecision =
+  | '沿用'
+  | '替换'
+  | '重新染色'
+  | '重新印花'
+  | '不使用'
+  | '新增'
+
+export interface EngineeringIndependentMaterialConversionLine {
+  conversionLineId: string
+  sourceBomVersionId: string
+  sourceBomItemId: string
+  sourceProductColor: string
+  sourceMaterialSkuId: string
+  sourceMaterialName: string
+  sourceMaterialImageUrl: string
+  targetProductColor: string
+  decision: EngineeringIndependentMaterialDecision | ''
+  targetMaterialSkuId: string
+  targetMaterialName: string
+  targetMaterialImageUrl: string
+  dyeRequirement: '是' | '否'
+  printRequirement: '是' | '否'
+  note: string
+  confirmedBy: string
+  confirmedAt: string
+}
+
+export type EngineeringIndependentBomConversionStatus =
+  | 'NOT_REQUIRED'
+  | 'WAIT_COLOR_MAPPING'
+  | 'WAIT_MATERIAL_DECISION'
+  | 'CONFIRMED'
+
 export interface EngineeringIndependentSamplingRecord {
   samplingTaskId: string
   samplingTaskCode: string
@@ -323,6 +381,7 @@ export interface EngineeringIndependentSamplingRecord {
   targetStyleCode: string
   targetStyleName: string
   status: EngineeringIndependentSamplingStatus
+  creationReason: string
   merchandiserId: string
   merchandiserName: string
   relatedProfessionalTaskIds: string[]
@@ -334,6 +393,14 @@ export interface EngineeringIndependentSamplingRecord {
   confirmedBy: string
   confirmedAt: string
   selectedTaskTypes: EngineeringIndependentProfessionalTaskType[]
+  suggestedTaskTypes: EngineeringIndependentProfessionalTaskType[]
+  taskPlanConfirmedBy: string
+  taskPlanConfirmedAt: string
+  colorMappings: EngineeringIndependentColorMapping[]
+  materialConversionLines: EngineeringIndependentMaterialConversionLine[]
+  bomConversionStatus: EngineeringIndependentBomConversionStatus
+  bomConversionConfirmedBy: string
+  bomConversionConfirmedAt: string
   sourceResultVersionId: string
   reuseDecision: 'PENDING' | 'REUSE' | 'REDO' | 'IGNORE'
   operationLogs: EngineeringIndependentSamplingLog[]

@@ -10,7 +10,9 @@ import {
 } from '../src/data/pcs-engineering-master-repository.ts'
 import {
   approveTechPackReview,
+  listTechPackReviewReturnTargets,
   returnTechPackReviewByModules,
+  returnTechPackReviewByTargets,
   startTechPackReview,
 } from '../src/data/pcs-tech-pack-review.ts'
 import {
@@ -30,6 +32,7 @@ import type {
   TechnicalReviewNodeKey,
 } from '../src/data/pcs-technical-data-version-types.ts'
 import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { hasFormalProductionFact } from '../src/data/pcs-engineering-first-production-policy.ts'
 import {
   listPatternTasks,
   resetPatternTaskRepository,
@@ -73,12 +76,37 @@ function reviewNode(nodeKey: TechnicalReviewNodeKey): TechnicalReviewNode {
 
 resetEngineeringMasterRepository()
 resetPatternTaskRepository()
-const style = listStyleArchives()[0]
+const occupiedStyleIds = new Set(getEngineeringMasterOrderStoreSnapshot().records.filter((item) => !['已关闭', '已终止'].includes(item.status)).map((item) => item.styleId))
+const style = listStyleArchives().find((item) => !occupiedStyleIds.has(item.styleId) && !hasFormalProductionFact(item.styleCode))
 assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'MERCH-001',
   merchandiserName: '跟单C',
+  createdById: 'MERCH-001',
+  createdBy: '跟单C',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: {
+    styleCode: style.styleCode,
+    formalSaleStatus: 'NO_FORMAL_SALE',
+    formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+    formalSaleSource: '专项测试销售事实',
+    formalProductionSource: '专项测试生产事实',
+    checkedAt: '2026-08-02 08:00:00',
+  },
+  bulkProductionQualification: {
+    basisType: 'OTHER_CONFIRMED',
+    triggerBusinessObjectType: '专项验证',
+    triggerBusinessObjectId: 'TECH-PACK-REWORK-BRIDGE',
+    thresholdQuantity: null,
+    reachedQuantity: null,
+    reachedAt: '2026-08-02 08:00:00',
+    reason: '专项验证已确认做大货',
+    uniqueTriggerKey: 'TECH-PACK-REWORK-BRIDGE',
+  },
+  creationReason: '验证技术包退回与原专业任务返工衔接',
 }).masterOrderId)
 const patternTaskId = `${master.masterOrderId}-PATTERN_ARTWORK`
 updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
@@ -185,7 +213,7 @@ startTechPackReview(technicalVersionId, 'MERCHANDISER', {
 })
 assert.throws(
   () => approveTechPackReview(technicalVersionId, 'MERCHANDISER', '确认技术包返工完成', merchandiserOperator),
-  /原花型任务当前不是已完成状态/,
+  /被退回的专业任务尚未重新完成/,
   '原专业任务返工未完成前不得绕过工程闭环通过技术包复审',
 )
 
@@ -335,7 +363,7 @@ startTechPackReview(colorVersionId, 'MERCHANDISER', {
 })
 assert.throws(
   () => approveTechPackReview(colorVersionId, 'MERCHANDISER', '确认调色返工完成', colorMerchandiserOperator),
-  /原调色任务当前不是已完成状态/,
+  /被退回的专业任务尚未重新完成/,
   '两张有效调色任务仅一张重新完成时，另一张返工中必须阻断技术包复审',
 )
 
@@ -372,20 +400,25 @@ assert.equal(
   '历史无效任务不得阻断仍有效的调色任务返工',
 )
 
-const missingBindingVersionId = 'TDV-MISSING-ARTWORK-BINDING'
+updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
+  task.status = '已完成'
+})
+const concreteReturnVersionId = 'TDV-CONCRETE-DESIGN-RETURN'
 resetTechnicalDataVersionRepository()
 createTechnicalDataVersionDraft({
   ...version,
-  technicalVersionId: missingBindingVersionId,
-  technicalVersionCode: 'TP-MISSING-ARTWORK-BINDING',
-  linkedArtworkTaskIds: [],
-}, { ...seedContent, technicalVersionId: missingBindingVersionId })
-assert.throws(
-  () => returnTechPackReviewByModules(missingBindingVersionId, ['DESIGN'], '需要返工', '跟单C'),
-  /未绑定原花型任务/,
-  '缺少权威原任务绑定时必须中文报错，不能按款式猜测任务',
+  technicalVersionId: concreteReturnVersionId,
+  technicalVersionCode: 'TP-CONCRETE-DESIGN-RETURN',
+}, { ...seedContent, technicalVersionId: concreteReturnVersionId })
+const directDesignTarget = listTechPackReviewReturnTargets(concreteReturnVersionId).find((target) => target.targetType === 'DESIGN_ITEM')
+assert.ok(directDesignTarget, '技术包退回必须能选择具体花型资料，而不是只能选择整个设计栏目')
+const concreteReturned = returnTechPackReviewByTargets(concreteReturnVersionId, [directDesignTarget.targetId], '只退回这条花型资料', '跟单C')
+assert.deepEqual(concreteReturned.reviewReturnTargets?.map((target) => target.targetId), [directDesignTarget.targetId])
+assert.equal(
+  getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === patternTaskId)?.status,
+  '已完成',
+  '退回普通技术资料不得误重开专业任务',
 )
-assert.equal(getTechnicalDataVersionById(missingBindingVersionId)?.reviewStage, '跟单复核', '绑定校验失败不得提前改写技术包审核状态')
 
 updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
   task.status = '已完成'

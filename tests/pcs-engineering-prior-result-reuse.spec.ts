@@ -11,6 +11,15 @@ import {
   submitEngineeringIndependentProfessionalTask,
 } from '../src/data/pcs-engineering-master-sampling.ts'
 import {
+  confirmEngineeringBomVersion,
+  getEngineeringBomVersionById,
+  resetEngineeringBomRepository,
+  saveEngineeringBomVersion,
+} from '../src/data/pcs-engineering-bom-repository.ts'
+import { captureEngineeringUploadedFiles } from '../src/data/pcs-engineering-file-upload.ts'
+import { resetEngineeringTaskUploadRepository } from '../src/data/pcs-engineering-task-upload-repository.ts'
+import { listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../src/data/pcs-material-archive-repository.ts'
+import {
   confirmEngineeringMasterTaskPlan,
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
@@ -30,24 +39,74 @@ const buyer = { role: '买手', userId: 'BUYER-A6', userName: '买手-A6' }
 
 resetStyleArchiveRepository()
 resetEngineeringIndependentSamplingRepository(false)
+resetEngineeringBomRepository()
+resetEngineeringTaskUploadRepository()
 resetEngineeringMasterRepository()
 const [sourceStyle, targetStyle] = listStyleArchives().filter((style) => style.mainImageUrl)
 assert.ok(sourceStyle && targetStyle)
 
-function createSampling(
+const materialWithSku = listMaterialArchives().map((material) => ({
+  material,
+  sku: listMaterialSkuRecordsByMaterialId(material.materialId).find((item) => item.status === 'ACTIVE' && item.costPrice > 0),
+})).find((item) => item.sku)
+assert.ok(materialWithSku?.sku, '专项数据必须有可用于真实 BOM 的有效物料')
+
+function realFile(name: string, type: string): File {
+  return new File([`pcs-prior-result-${name}`], name, { type })
+}
+
+async function uploaded(
+  files: File[],
+  purpose: Parameters<typeof captureEngineeringUploadedFiles>[0]['purpose'],
+  actor: { userId: string; userName: string; teamName: string },
+) {
+  return captureEngineeringUploadedFiles({ files, purpose, actor, roundNo: 1, uploadedAt: '2026-07-01 12:00:00' })
+}
+
+function confirmSamplingBom(record: EngineeringIndependentSamplingRecord): void {
+  record.bomVersionIds.forEach((versionId, index) => {
+    const version = getEngineeringBomVersionById(versionId)!
+    saveEngineeringBomVersion({
+      versionId,
+      role: '买手',
+      userId: buyer.userId,
+      userName: buyer.userName,
+      materialLines: [{
+        bomItemId: `${versionId}-LINE-${index + 1}`,
+        materialSkuId: materialWithSku!.sku!.materialSkuId,
+        styleCode: version.styleCode,
+        productColor: version.productColor,
+        materialType: '面料',
+        materialImageUrl: materialWithSku!.sku!.skuImageUrl || materialWithSku!.material.mainImageUrl,
+        usage: 1,
+        sampleQuantity: 1,
+        usageUnit: materialWithSku!.sku!.pricingUnit,
+        lossRate: 0,
+        applicableSkuIds: version.applicableSkuIds,
+        printRequirement: '是',
+        dyeRequirement: '否',
+        purchaseRequirement: '否',
+        remark: '前期成果复用专项 BOM',
+      }],
+      customCosts: [],
+    })
+    confirmEngineeringBomVersion({ versionId, role: '买手', userId: buyer.userId, userName: buyer.userName })
+  })
+}
+
+async function createSampling(
   marker: string,
   taskTypes: EngineeringIndependentProfessionalTaskType[],
   confirmedAt?: string,
-): EngineeringIndependentSamplingRecord {
+): Promise<EngineeringIndependentSamplingRecord> {
   const created = createEngineeringIndependentSampling({
-    samplingType: 'REVISION',
-    sourceStyleId: sourceStyle.styleId,
+    samplingType: 'DESIGN',
     targetStyleId: targetStyle.styleId,
+    creationReason: `${marker} 前期成果复用专项`,
     merchandiser,
-    selectedTaskTypes: taskTypes,
-    bomDraftVersionId: `BOM-${marker}`,
     createdAt: `2026-07-${marker === 'OLD' ? '01' : marker === 'NEW' ? '10' : '20'} 09:00:00`,
   })
+  confirmSamplingBom(created)
   let current = confirmEngineeringIndependentSamplingPlan({
     samplingTaskId: created.samplingTaskId,
     actor: merchandiser,
@@ -63,11 +122,22 @@ function createSampling(
       userName: `${task.taskName}负责人`,
     }
     current = startEngineeringIndependentProfessionalTask({ taskId: task.taskId, actor: executor, startedAt: created.createdAt })
+    const files = taskType === 'BASE_PATTERN'
+      ? await uploaded([realFile(`${marker}-base.prj`, 'application/octet-stream')], 'PATTERN_SOURCE', { ...executor, teamName: '版师团队' })
+      : taskType === 'DISPLAY_SAMPLE'
+        ? await uploaded([realFile(`${marker}-display.jpg`, 'image/jpeg')], 'SAMPLE_RESULT', { ...executor, teamName: '制作团队' })
+        : await uploaded([realFile(`${marker}-artwork.ai`, 'application/postscript'), realFile(`${marker}-artwork.jpg`, 'image/jpeg')], 'PATTERN_ARTWORK', { ...executor, teamName: '花型团队' })
     current = submitEngineeringIndependentProfessionalTask({
       taskId: task.taskId,
       actor: executor,
-      resultTitles: [`${task.taskName}-${marker}`],
-      resultImageUrls: [targetStyle.mainImageUrl],
+      results: [{
+        title: `${task.taskName}-${marker}`,
+        version: `v-${marker}`,
+        description: `${marker} 专项真实成果`,
+        ...(taskType === 'BASE_PATTERN' ? { applicablePartOrSize: 'M 码' } : {}),
+        ...(taskType === 'DISPLAY_SAMPLE' ? { sampleQuantity: 1, sampleColor: '黑色', sampleSize: 'M', sourcePatternVersion: `v-${marker}` } : {}),
+        files,
+      }],
       submittedAt: created.createdAt,
     })
     const submitted = current.professionalTasks.find((item) => item.taskId === task.taskId)!
@@ -90,9 +160,9 @@ function createSampling(
   })
 }
 
-const oldResult = createSampling('OLD', ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], '2026-07-01 18:00:00')
-const newResult = createSampling('NEW', ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], '2026-07-10 18:00:00')
-const unconfirmed = createSampling('PENDING', ['BASE_PATTERN'])
+const oldResult = await createSampling('OLD', ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], '2026-07-01 18:00:00')
+const newResult = await createSampling('NEW', ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], '2026-07-10 18:00:00')
+const unconfirmed = await createSampling('PENDING', ['DISPLAY_SAMPLE'])
 
 const reusable = listReusableEngineeringIndependentProfessionalResults(targetStyle.styleCode)
 assert.ok(reusable.length >= 6, '两份已确认成果的专业任务必须可供工程主单逐项选择')

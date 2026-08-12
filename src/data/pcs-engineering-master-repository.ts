@@ -1006,11 +1006,10 @@ export function startEngineeringTask(input: {
     if (!input.operatorId.trim() || !input.operatorName.trim()) throw new Error('缺少当前登录用户身份。')
     if (task.status !== '待开始') throw new Error(`工程任务当前为${task.status}，不能开始。`)
     assertFixedTaskDependenciesSatisfied(master, task)
-    if (task.assigneeId && task.assigneeId !== input.operatorId) throw new Error('仅任务负责人可以开始任务。')
     const occurredAt = nowText()
     task.status = '进行中'
-    task.assigneeId = task.assigneeId || input.operatorId
-    task.assigneeName = task.assigneeName || input.operatorName
+    task.assigneeId = input.operatorId
+    task.assigneeName = input.operatorName
     task.startedAt = task.startedAt || occurredAt
     task.events.startedAt = task.events.startedAt || occurredAt
     task.operationLogs.push({
@@ -1352,7 +1351,6 @@ export function submitEngineeringTaskResult(
   if (task.status === '未启用') throw new Error('任务未启用，不能提交成果。')
   if (!task.startedAt || !task.events.startedAt) throw new Error('请先点击“开始任务”，再提交成果。')
   if (task.status === '待审核') throw new Error('任务已提交成果，等待审核。')
-  if (task.status === '返工中') throw new Error('任务处于返工中，不能提交成果。')
   if (task.status === '已完成') throw new Error('任务已完成，不能重复提交成果。')
   if (task.status === '因需求变更结束') throw new Error('任务已因需求变更结束，不能提交成果。')
   if (task.status === '待前置') {
@@ -1398,6 +1396,11 @@ export function submitEngineeringTaskResult(
     task.effectiveCompletedAt = submittedAt
     task.events.firstCompletedAt = task.events.firstCompletedAt || submittedAt
     task.events.effectiveCompletedAt = submittedAt
+    const activeReworkRound = task.reworkRounds.at(-1)
+    if (activeReworkRound && !activeReworkRound.passedAt) {
+      activeReworkRound.submittedAt = submittedAt
+      activeReworkRound.passedAt = submittedAt
+    }
   }
   task.operationLogs.push({
     operationType: '提交成果',

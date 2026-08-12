@@ -26,6 +26,8 @@ Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: s
 const bootstrap = createTechnicalDataVersionBootstrapSnapshot(5)
 const sourceContent = bootstrap.contents.find((content) => content.bomItems.length >= 2)
 assert.ok(sourceContent)
+assert.ok(sourceContent.patternFiles[0])
+const patternSourceDataUrl = 'data:application/octet-stream;base64,SElHT09ELVBSQg=='
 
 function makeBomItem(id: string, materialSkuId: string, usage: number): TechnicalBomItem {
   return {
@@ -92,9 +94,46 @@ const mappableBomItems = [makeBomItem('BOM-COMPAT-A', 'MAT-COMPAT-A', 1), makeBo
 const ambiguousBomItems = [makeBomItem('BOM-AMB-A', 'MAT-AMB', 1), makeBomItem('BOM-AMB-B', 'MAT-AMB', 1)]
 const storedSnapshot = {
   ...bootstrap,
+  records: bootstrap.records.map((record) => (
+    record.technicalVersionId === mappableVersionId
+      ? {
+          ...record,
+          versionStatus: 'PUBLISHED' as const,
+          merchandiserReview: { ...record.merchandiserReview, status: '审核-已通过' as const },
+        }
+      : record
+  )),
   contents: bootstrap.contents.map((content) => {
     if (content.technicalVersionId === mappableVersionId) {
-      return { ...content, bomItems: mappableBomItems, bomPricingSnapshot: makeLegacySnapshot(mappableBomItems) }
+      return {
+        ...content,
+        bomItems: mappableBomItems.map((item, index) => (
+          index === 0
+            ? {
+                ...item,
+                printRequirement: '正面印花',
+                printSideMode: 'SINGLE' as const,
+                frontPatternDesignId: undefined,
+                frontPatternDesignIds: undefined,
+              }
+            : item
+        )),
+        patternDesigns: [],
+        patternFiles: [
+          {
+            ...sourceContent.patternFiles[0]!,
+            prjFile: {
+              fileName: 'STYLE-COMPAT.prj',
+              fileType: '.prj',
+              fileSize: 16,
+              uploadedAt: '2026-08-01 09:00',
+              uploadedBy: '版师团队',
+              dataUrl: patternSourceDataUrl,
+            },
+          },
+        ],
+        bomPricingSnapshot: makeLegacySnapshot(mappableBomItems),
+      }
     }
     if (content.technicalVersionId === ambiguousVersionId) {
       return { ...content, bomItems: ambiguousBomItems, bomPricingSnapshot: makeLegacySnapshot(ambiguousBomItems) }
@@ -115,6 +154,19 @@ assert.equal(
   repository.getTechnicalDataVersionContent(ambiguousVersionId)?.bomPricingSnapshot,
   undefined,
   '无法唯一映射 bomItemId 的旧数据必须丢弃无效正式快照，不能伪造 materialPriceSnapshots',
+)
+assert.deepEqual(
+  repository.getTechnicalDataVersionContent(mappableVersionId)?.patternDesigns,
+  [],
+  '已发布的旧数据缺少设计稿时也不得自动生成假文件或假缩略图',
+)
+const firstPatternRead = repository.getTechnicalDataVersionContent(mappableVersionId)?.patternFiles[0]
+assert.equal(firstPatternRead?.prjFile?.dataUrl, patternSourceDataUrl)
+if (firstPatternRead?.prjFile) firstPatternRead.prjFile.dataUrl = 'tampered'
+assert.equal(
+  repository.getTechnicalDataVersionContent(mappableVersionId)?.patternFiles[0]?.prjFile?.dataUrl,
+  patternSourceDataUrl,
+  '正式技术包中的真实纸样文件必须按快照隔离，外部读取不得修改已保存原文件',
 )
 
 console.log('pcs-technical-data-version-snapshot-compat.spec.ts PASS')

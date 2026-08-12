@@ -35,6 +35,30 @@ export type TechnicalModuleKey =
   | 'ATTACHMENT'
   | 'QUALITY'
 
+export type TechnicalReviewReturnTargetType =
+  | 'BOM_LINE'
+  | 'COST_LINE'
+  | 'PAPER_PATTERN_RESULT'
+  | 'PRE_PRODUCTION_SAMPLE_RESULT'
+  | 'ARTWORK_RESULT'
+  | 'COLOR_RESULT'
+  | 'COLOR_MAPPING'
+  | 'PROCESS_ITEM'
+  | 'SIZE_ITEM'
+  | 'DESIGN_ITEM'
+  | 'ATTACHMENT_ITEM'
+  | 'QUALITY_ITEM'
+
+export interface TechnicalReviewReturnTargetSnapshot {
+  targetId: string
+  moduleKey: TechnicalModuleKey
+  targetType: TechnicalReviewReturnTargetType
+  label: string
+  detail: string
+  sourceTaskId: string
+  sourceMaterialLineIds: string[]
+}
+
 export interface TechnicalReviewNode {
   nodeKey: TechnicalReviewNodeKey
   nodeName: '买手审核' | '版师审核' | '跟单审核'
@@ -236,6 +260,7 @@ export interface TechnicalPatternManagedFile {
   fileSize: number
   uploadedAt: string
   uploadedBy: string
+  dataUrl?: string
   previewUrl?: string
 }
 
@@ -507,6 +532,7 @@ export interface TechnicalDataVersionRecord {
   reviewSubmittedBy?: string
   returnedFromMerchandiserFlag?: boolean
   reviewUnlockedModuleKeys?: TechnicalModuleKey[]
+  reviewReturnTargets?: TechnicalReviewReturnTargetSnapshot[]
   bomStatus: TechnicalDomainStatus
   patternStatus: TechnicalDomainStatus
   processStatus: TechnicalDomainStatus

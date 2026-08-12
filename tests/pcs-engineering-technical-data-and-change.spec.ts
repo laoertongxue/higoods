@@ -5,8 +5,9 @@ import {
   renderPcsTechnicalDataTechPackListPage,
   renderPcsTechnicalDataTemplateLibraryPage,
 } from '../src/pages/pcs-technical-data.ts'
-import { renderPcsEngineeringChangeListPage } from '../src/pages/pcs-engineering-change.ts'
+import { renderPcsEngineeringChangeDetailPage, renderPcsEngineeringChangeListPage } from '../src/pages/pcs-engineering-change.ts'
 import { listEngineeringMasterOrders } from '../src/data/pcs-engineering-master-repository.ts'
+import { listEngineeringChangeWorkspaceViews, resetEngineeringChangeWorkspace } from '../src/data/pcs-engineering-change-workspace.ts'
 
 const routeSource = readFileSync('src/router/routes-pcs.ts', 'utf8')
 const menuSource = readFileSync('src/data/app-shell-config.ts', 'utf8')
@@ -43,15 +44,29 @@ assert.ok(technicalDataSource.includes('data-tech-data-action="open-image"'), '�
 assert.ok(technicalDataSource.includes('1 CNY =') && technicalDataSource.includes('comprehensiveCostIdr'), 'BOM 与价格必须同时展示汇率及双币种')
 assert.ok(renderPcsTechnicalDataTemplateLibraryPage().includes('技术包模板库'))
 
-for (const expected of ['当前登录', '当前正式技术包', '受影响资料', '生成新技术包草稿']) {
+for (const expected of [
+  '当前使用的技术包', '本次要修改的内容', '当前需处理的团队',
+  '具体到用料行、专业成果或技术资料栏目', '这些是真实任务', '下一版技术包',
+]) {
   assert.ok(changeSource.includes(expected), `工程变更缺少：${expected}`)
+}
+for (const status of ['待确认修改内容', '修改中', '待汇总技术包', '技术包审核中', '已生效', '已完成']) {
+  assert.ok(changeSource.includes(status), `工程变更缺少业务状态：${status}`)
 }
 const masterStatuses = new Set(listEngineeringMasterOrders().map((master) => master.status))
 assert.ok(masterStatuses.has('待关闭'), '工程主单 Mock 必须覆盖待关闭')
 assert.ok(masterStatuses.has('已关闭'), '工程主单 Mock 必须覆盖已关闭')
+resetEngineeringChangeWorkspace()
 const changeListHtml = renderPcsEngineeringChangeListPage()
 assert.doesNotMatch(changeListHtml, /暂无工程变更/)
 assert.match(changeListHtml, /data-image-preview-url=/, '工程变更 Mock 必须展示目标款式真实缩略图')
 assert.match(changeListHtml, /data-engineering-change-region="image-preview"/, '工程变更列表应提供局部大图弹窗区域')
+const changeView = listEngineeringChangeWorkspaceViews()[0]
+assert.ok(changeView, '必须有可演示的工程变更')
+assert.ok(changeView.workspace.selectedItems.some((item) => item.treatment !== 'PROFESSIONAL_TASK'), 'Mock 必须包含直接修改的具体资料')
+assert.ok(changeView.workspace.taskLines.length > 0, 'Mock 必须包含真实专业任务')
+const changeDetailHtml = renderPcsEngineeringChangeDetailPage(changeView.change.engineeringChangeTaskId)
+assert.match(changeDetailHtml, /type="file"/, '工程变更专业任务必须使用真实本地文件选择器')
+assert.match(changeDetailHtml, /data-engineering-change-action="submit-line"/, '真实专业任务必须提供提交成果动作')
 
 console.log('pcs-engineering-technical-data-and-change.spec.ts PASS')

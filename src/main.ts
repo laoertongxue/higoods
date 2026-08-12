@@ -1882,6 +1882,9 @@ root.addEventListener('click', async (event) => {
 root.addEventListener('input', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
+  // input 与 change 竞争，导致文件控件被提前重绘或同一文件被保存两次。
+  if (target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')) return
   if (isComposingInputEvent(event)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -1975,6 +1978,13 @@ root.addEventListener('change', async (event) => {
   const skipChangeRerender = shouldSkipChangeRerender(target)
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
+
+  if (
+    target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')
+    && await dispatchPcsInputEvent(target)
+  ) {
+    return
+  }
 
   if (await dispatchPageEvent(target, event)) {
     if (skipChangeRerender) return

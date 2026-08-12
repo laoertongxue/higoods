@@ -69,7 +69,9 @@ updateEngineeringTaskRecord(master.masterOrderId, plateTask.taskId, (_task, stor
 startEngineeringTaskFromDetail(plateTask.taskId)
 const startedTask = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === plateTask.taskId)
 assert.equal(startedTask?.status, '进行中')
-assert.equal(startedTask?.assigneeName, '版师负责人')
+assert.equal(startedTask?.ownerTeamName, '版师', '任务开始后仍须保留当前负责团队')
+assert.equal(startedTask?.assigneeName, '周师傅', '任务开始后才记录实际操作人')
+assert.notEqual(startedTask?.assigneeName, '版师负责人', '不得再生成团队名称拼接的虚拟负责人')
 
 const afterStartHtml = renderPcsPlateMakingTaskDetailPage(plateTask.taskId)
 assert.match(afterStartHtml, /提交纸样成果/)

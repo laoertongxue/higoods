@@ -456,6 +456,7 @@ type PatternItem = {
   type: TechPackPatternCategory | string
   image: string
   file: string
+  fileUrl?: string
   remark: string
   linkedBomItemId: string
   linkedMaterialId: string
@@ -716,6 +717,7 @@ function createPatternManagedFile(input: {
   fileSize?: number
   uploadedAt?: string
   uploadedBy?: string
+  dataUrl?: string
   previewUrl?: string
 }): TechPackPatternManagedFile | null {
   const fileName = String(input.fileName || '').trim()
@@ -727,6 +729,7 @@ function createPatternManagedFile(input: {
     fileSize: Number.isFinite(input.fileSize) ? Number(input.fileSize) : 0,
     uploadedAt: input.uploadedAt || toTimestamp(),
     uploadedBy: input.uploadedBy || currentUser.name,
+    dataUrl: input.dataUrl,
     previewUrl: input.previewUrl,
   }
 }
@@ -764,6 +767,7 @@ function createEmptyPatternFormState(): PatternFormState {
     type: '主体片',
     image: '',
     file: '',
+    fileUrl: '',
     remark: '',
     linkedBomItemId: '',
     linkedMaterialId: '',
@@ -1893,7 +1897,7 @@ interface TechPackPageState {
   reviewActionNodeKey: TechnicalReviewNodeKey | null
   reviewActionType: 'start' | 'approve' | 'reject' | 'return' | 'return-modules' | 'reopen-role' | null
   reviewActionOpinion: string
-  reviewReturnModuleKeys: TechnicalModuleKey[]
+  reviewReturnTargetIds: string[]
   reviewReopenNodeKeys: TechnicalReviewNodeKey[]
   addPatternDialogOpen: boolean
   addBomDialogOpen: boolean
@@ -2021,7 +2025,7 @@ const state: TechPackPageState = {
   reviewActionNodeKey: null,
   reviewActionType: null,
   reviewActionOpinion: '',
-  reviewReturnModuleKeys: [],
+  reviewReturnTargetIds: [],
   reviewReopenNodeKeys: [],
   addPatternDialogOpen: false,
   addBomDialogOpen: false,
@@ -4299,37 +4303,10 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         : inferPatternFileMode(normalizedMaterialType)
     const parseStatus = normalizePatternParseStatus(item.parseStatus)
     const patternName = buildPatternName(item, index)
-    const hasLegacyTechnicalFiles = Boolean(
-      item.fileName
-      || item.dxfFileName
-      || item.rulFileName
-      || parseStatus === 'PARSED',
-    )
-    const prjFile = item.prjFile ?? createPatternManagedFile({
-      fileName: hasLegacyTechnicalFiles ? `${patternName}.prj` : '',
-      fileSize: 24576,
-      uploadedAt: item.uploadedAt,
-      uploadedBy: item.uploadedBy,
-    })
-    const markerImage = item.markerImage ?? createPatternManagedFile({
-      fileName: item.imageUrl || (hasLegacyTechnicalFiles ? `${patternName}-marker.png` : ''),
-      fileSize: item.imageUrl || hasLegacyTechnicalFiles ? 32768 : 0,
-      uploadedAt: item.uploadedAt,
-      uploadedBy: item.uploadedBy,
-      previewUrl: item.imageUrl || (hasLegacyTechnicalFiles ? `${patternName}-marker.png` : undefined),
-    })
-    const dxfFile = item.dxfFile ?? createPatternManagedFile({
-      fileName: item.dxfFileName,
-      fileSize: item.dxfFileSize,
-      uploadedAt: item.dxfLastModified || item.uploadedAt,
-      uploadedBy: item.uploadedBy,
-    })
-    const rulFile = item.rulFile ?? createPatternManagedFile({
-      fileName: item.rulFileName,
-      fileSize: item.rulFileSize,
-      uploadedAt: item.rulLastModified || item.uploadedAt,
-      uploadedBy: item.uploadedBy,
-    })
+    const prjFile = item.prjFile ? createPatternManagedFile(item.prjFile) : null
+    const markerImage = item.markerImage ? createPatternManagedFile(item.markerImage) : null
+    const dxfFile = item.dxfFile ? createPatternManagedFile(item.dxfFile) : null
+    const rulFile = item.rulFile ? createPatternManagedFile(item.rulFile) : null
     const bindingStrips = normalizePatternBindingStrips(item.bindingStrips)
     const pieceInstances = recordKind === 'PACKAGE'
       ? []
@@ -4359,6 +4336,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         singlePatternFileName: item.singlePatternFileName,
         fileName: item.fileName,
       }),
+      fileUrl: item.fileUrl || '',
       remark: item.remark || '',
       linkedBomItemId: recordKind === 'PACKAGE' ? '' : item.linkedBomItemId || linkedBom?.id || '',
       linkedMaterialId: recordKind === 'PACKAGE' ? '' : item.linkedMaterialId || item.linkedBomItemId || linkedBom?.id || '',
@@ -4902,7 +4880,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         internalStyleCode: item.patternMaterialType === 'WOOL' ? item.internalStyleCode.trim() || undefined : undefined,
         patternFileMode: item.patternFileMode,
         fileName: legacyFileName,
-        fileUrl: '#',
+        fileUrl: item.fileUrl || '',
         uploadedAt: state.techPack?.lastUpdatedAt || toTimestamp(),
         uploadedBy: currentUser.name,
         dxfFileName: item.dxfFileName || undefined,
@@ -5230,7 +5208,7 @@ function closeAllDialogs(): void {
   state.reviewActionNodeKey = null
   state.reviewActionType = null
   state.reviewActionOpinion = ''
-  state.reviewReturnModuleKeys = []
+  state.reviewReturnTargetIds = []
   state.reviewReopenNodeKeys = []
   state.addPatternDialogOpen = false
   state.addBomDialogOpen = false
@@ -5260,6 +5238,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     type: item.type,
     image: item.image,
     file: item.file,
+    fileUrl: item.fileUrl || '',
     remark: item.remark,
     linkedBomItemId: item.linkedBomItemId,
     linkedMaterialId: item.linkedMaterialId,
