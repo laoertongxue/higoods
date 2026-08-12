@@ -114,6 +114,24 @@ assert.ok(
   revisionSeeds.some((seed) => seed.colorMappings.some((mapping) => !mapping.sourceColor && mapping.mappingType === 'B 款新增颜色')),
   'Mock 必须覆盖 B 款无来源的新颜色',
 )
+const confirmedSeedVersionId = revisionSeeds[0]!.bomVersionIds[0]!
+confirmEngineeringBomVersion({
+  versionId: confirmedSeedVersionId,
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  confirmedAt: '2026-08-04 08:00:00',
+})
+const confirmedSeedVersionSnapshot = JSON.stringify(getEngineeringBomVersionById(confirmedSeedVersionId))
+assert.doesNotThrow(
+  () => resetEngineeringIndependentSamplingRepository(true),
+  '重新补种独立打样任务时不得尝试修改已有的已确认 BOM',
+)
+assert.equal(
+  JSON.stringify(getEngineeringBomVersionById(confirmedSeedVersionId)),
+  confirmedSeedVersionSnapshot,
+  '重新补种独立打样任务时不得覆盖已有 BOM 内容和状态',
+)
 resetEngineeringIndependentSamplingRepository(false)
 resetEngineeringBomRepository()
 const styles = listStyleArchives().filter((item) => item.mainImageUrl)

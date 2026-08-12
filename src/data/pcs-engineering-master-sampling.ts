@@ -23,6 +23,7 @@ import {
   createEngineeringBomVersionsForOwner,
   getEngineeringBomVersionById,
   listEngineeringBomHistory,
+  listEngineeringBomVersionsByOwner,
   restoreEngineeringBomRepositoryState,
   saveEngineeringBomVersion,
 } from './pcs-engineering-bom-repository.ts'
@@ -188,6 +189,12 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
     const selected: EngineeringIndependentProfessionalTaskType[] = index % 3 === 0
       ? ['BASE_PATTERN', 'DISPLAY_SAMPLE', 'PATTERN_ARTWORK']
       : ['PATTERN_ARTWORK', index % 2 ? 'COLOR_FABRIC' : 'COLOR_YARN']
+    const code = `ES-${type === 'REVISION' ? 'R' : 'D'}-${String(index + 1).padStart(3, '0')}`
+    const taskId = code.replace(/^ES-/, 'ES-ID-')
+    const existingBomVersionIds = new Set(
+      listEngineeringBomVersionsByOwner('INDEPENDENT_SAMPLING', taskId)
+        .map((version) => version.bomDraftVersionId),
+    )
     const record = buildRecord({
       samplingType: type,
       sourceStyleId: source?.styleId,
@@ -195,7 +202,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       creationReason: type === 'REVISION' ? '基于现有款式调整版型和颜色后制作销售展示样衣。' : '根据设计资料制作销售展示样衣。',
       merchandiser: actor,
       createdAt,
-    }, `ES-${type === 'REVISION' ? 'R' : 'D'}-${String(index + 1).padStart(3, '0')}`)
+    }, code)
     const defaultLines = createDefaultBomLines(target.styleCode).map((line) => ({
       ...line,
       printRequirement: index % 3 === 0 ? '是' as const : '否' as const,
@@ -205,7 +212,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
     }))
     record.bomVersionIds.forEach((versionId, versionIndex) => {
       const version = getEngineeringBomVersionById(versionId)
-      if (!version || !defaultLines.length) return
+      if (!version || version.versionStatus !== 'DRAFT' || !defaultLines.length || existingBomVersionIds.has(versionId)) return
       saveEngineeringBomVersion({
         versionId,
         role: '买手',
