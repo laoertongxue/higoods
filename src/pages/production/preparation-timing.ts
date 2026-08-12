@@ -231,7 +231,7 @@ function syncLedgerFilterContext(params: URLSearchParams, month: string): void {
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
   毛织基码纸样: '上传毛织基码纸样',
-  版衣制作: '上传版衣结果',
+  版衣制作: '查看产前版样衣成果',
   梭织齐码纸样: '上传梭织齐码纸样',
   毛织齐码纸样: '上传毛织齐码纸样',
   '数码印/DTF/DTG花型': '上传花型文件',
@@ -240,6 +240,10 @@ const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   '确认染色要求（面料）': '确认面料染色要求',
   '染色调色（面料）': '上传面料调色结果',
   辅料下单: '登记辅料下单',
+}
+
+function preparationItemDisplayName(itemType: PreparationItemType): string {
+  return itemType === '版衣制作' ? '产前版样衣' : itemType
 }
 
 interface StatsTableRow extends MonthlyPreparationStatRow {
@@ -580,6 +584,9 @@ function renderPreparationMultiSelect(config: {
       if (hidden) attributes.hidden = ''
       return attributes
     },
+    optionLabel: config.field === 'itemType'
+      ? (option) => preparationItemDisplayName(option as PreparationItemType)
+      : undefined,
   })
 }
 
@@ -709,7 +716,7 @@ function renderCompletionSituation(record: ProductionPreparationRecord): string 
         const classes = completed
           ? 'border-green-200 bg-green-50 text-green-700'
           : 'border-slate-200 bg-slate-50 text-slate-500'
-        return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${classes}">${escapeHtml(item.itemType)}</span>`
+        return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${classes}">${escapeHtml(preparationItemDisplayName(item.itemType))}</span>`
       }).join('')}
     </div>
   `
@@ -1431,7 +1438,7 @@ function renderPreparationSelection(record: ProductionPreparationRecord): string
   const renderSelectionItem = (item: ProductionPreparationItem) => `
     <div class="flex items-start justify-between gap-3 rounded-lg border bg-background p-3">
       <div>
-        <div class="font-medium">${escapeHtml(item.itemType)}</div>
+        <div class="font-medium">${escapeHtml(preparationItemDisplayName(item.itemType))}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sequenceGroup)}｜${escapeHtml(item.parallelGroup)}</div>
         <div class="mt-1 text-xs text-muted-foreground">确认时间：${escapeHtml(item.selectedAt ? formatDateTime(item.selectedAt) : '未选择')}</div>
       </div>
@@ -1468,7 +1475,7 @@ function renderTimeline(record: ProductionPreparationRecord): string {
               <div class="h-full ${hasCompletionEvidence(item) ? 'bg-green-500' : item.status === '已超时' || item.overdueHours > 0 || (item.status === '已完成' && !hasCompletionEvidence(item)) ? 'bg-red-500' : 'bg-blue-500'}" style="width:${hasCompletionEvidence(item) ? 100 : item.status === '无需' ? 0 : 56}%"></div>
             </div>
             <div class="flex min-w-[180px] items-center justify-between gap-2">
-              <span>${escapeHtml(item.itemType)}</span>
+              <span>${escapeHtml(preparationItemDisplayName(item.itemType))}</span>
               ${renderItemStatusBadge(item)}
             </div>
           </div>
@@ -1483,6 +1490,7 @@ function dependencyText(record: ProductionPreparationRecord, item: ProductionPre
   return item.dependsOnItemIds
     .map((depId) => record.items.find((candidate) => candidate.itemId === depId)?.itemType)
     .filter(Boolean)
+    .map((itemType) => preparationItemDisplayName(itemType as PreparationItemType))
     .join('、') || '无前置准备项'
 }
 
@@ -1497,8 +1505,8 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <div class="font-medium">${escapeHtml(item.itemType)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.ownerTeam)}｜${escapeHtml(item.ownerName)}</div>
+          <div class="font-medium">${escapeHtml(preparationItemDisplayName(item.itemType))}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.ownerTeam)}${item.ownerName ? `｜实际操作：${escapeHtml(item.ownerName)}` : ''}</div>
         </div>
         ${renderItemStatusBadge(item)}
       </div>
@@ -1677,7 +1685,7 @@ function renderPreparationTypeItem(
     <label class="flex items-start gap-2 rounded-lg border p-3 text-sm">
       ${input}
       <span>
-        <span class="font-medium">${escapeHtml(templateItem.itemType)}</span>
+        <span class="font-medium">${escapeHtml(preparationItemDisplayName(templateItem.itemType))}</span>
         <span class="mt-1 block text-xs text-muted-foreground">${escapeHtml(tagText)}｜${escapeHtml(detailText)}</span>
       </span>
     </label>
@@ -1767,7 +1775,7 @@ function renderDyeRequirementDialog(
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
         <h3 class="text-lg font-semibold">确认染色要求</h3>
-        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}｜${escapeHtml(item.itemType)}</p>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}｜${escapeHtml(preparationItemDisplayName(item.itemType))}</p>
         <form class="mt-4 space-y-4" data-prep-dye-requirement-form data-prep-action-context="${escapeHtml(preparationActionContextId('operate-item', record.recordId, item.itemId))}">
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
@@ -1812,7 +1820,7 @@ function renderOperateItemDialog(
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-10 w-[760px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
-        <h3 class="text-lg font-semibold">${escapeHtml(item.itemType)}</h3>
+        <h3 class="text-lg font-semibold">${escapeHtml(preparationItemDisplayName(item.itemType))}</h3>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
         <form class="mt-4 space-y-4" data-prep-operate-item-form data-skip-page-rerender="true" data-prep-action-context="${escapeHtml(preparationActionContextId('operate-item', record.recordId, item.itemId))}">
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
@@ -1914,7 +1922,7 @@ function renderPreparationOutputs(record: ProductionPreparationRecord): string {
         <h3 class="font-semibold">产出</h3>
         ${renderBadge(outputReady ? '已生成' : '待生成', outputReady ? 'green' : 'amber')}
       </div>
-      ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
+      ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => preparationItemDisplayName(item.itemType)).join('、'))}</p>` : ''}
       ${
         record.outputs.length
           ? `
@@ -1954,10 +1962,10 @@ function renderOperationLogs(record: ProductionPreparationRecord): string {
     [`${formatDateTime(record.enteredAt)}`, `${record.merchandiserName} 创建生产准备记录`],
     ...record.items
       .filter((item) => item.assignedAt)
-      .map((item) => [formatDateTime(item.assignedAt ?? ''), `${item.itemType} 分配给 ${item.ownerName}`]),
+      .map((item) => [formatDateTime(item.assignedAt ?? ''), `${preparationItemDisplayName(item.itemType)} 交由 ${item.ownerTeam}${item.ownerName ? `，实际操作：${item.ownerName}` : ''}`]),
     ...record.items
       .filter((item) => item.actualFinishAt)
-      .map((item) => [formatDateTime(item.actualFinishAt), `${item.itemType} 已完成：${item.evidenceSummary || item.evidenceType}`]),
+      .map((item) => [formatDateTime(item.actualFinishAt), `${preparationItemDisplayName(item.itemType)} 已完成：${item.evidenceSummary || item.evidenceType}`]),
   ].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 8)
 
   return `
@@ -2129,7 +2137,7 @@ function createMonthlyStatsColumns(month: string, params: URLSearchParams): Stan
       sortValue: () => month,
       render: () => `<button type="button" data-nav="${escapeHtml(detailHref)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(month)}</button>`,
     },
-    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(row.itemType) },
+    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(preparationItemDisplayName(row.itemType)) },
     {
       key: 'completedCount', title: '完成数量', width: 120, sortable: true, sortValue: (row) => row.completedCount,
       render: (row) => `<span data-prep-stats-completed-count="${escapeHtml(row.itemType)}">${row.completedCount}</span>`,
@@ -2153,10 +2161,10 @@ function createDetailStatsColumns(month: string): StandardListColumn<MonthlyPrep
     { key: 'confirmedProductPrepType', title: '商品类型', width: 180, sortable: true, sortValue: (row) => row.confirmedProductPrepType, render: (row) => escapeHtml(row.confirmedProductPrepType) },
     { key: 'buyerName', title: '买手', width: 110, sortable: true, sortValue: (row) => row.buyerName, render: (row) => escapeHtml(row.buyerName) },
     { key: 'merchandiserName', title: '跟单', width: 110, sortable: true, sortValue: (row) => row.merchandiserName, render: (row) => escapeHtml(row.merchandiserName) },
-    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(row.itemType) },
+    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(preparationItemDisplayName(row.itemType)) },
     { key: 'requiredKind', title: '必做/选填', width: 120, sortable: true, sortValue: (row) => row.requiredKind, render: (row) => escapeHtml(row.requiredKind) },
     { key: 'ownerTeam', title: '责任团队', width: 140, freezeable: true, sortable: true, sortValue: (row) => row.ownerTeam, render: (row) => escapeHtml(row.ownerTeam) },
-    { key: 'ownerName', title: '责任人', width: 120, sortable: true, sortValue: (row) => row.ownerName, render: (row) => escapeHtml(row.ownerName) },
+    { key: 'ownerName', title: '实际操作人', width: 120, sortable: true, sortValue: (row) => row.ownerName, render: (row) => escapeHtml(row.ownerName || '-') },
     { key: 'plannedFinishAt', title: '计划完成时间', width: 180, sortable: true, sortValue: (row) => row.plannedFinishAt, render: (row) => escapeHtml(formatDateTime(row.plannedFinishAt)) },
     { key: 'actualFinishAt', title: '实际完成时间', width: 180, required: true, freezeable: true, sortable: true, sortValue: (row) => row.actualFinishAt, render: (row) => escapeHtml(formatDateTime(row.actualFinishAt)) },
     { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.timingDataComplete ? (row.onTime ? 0 : 1) : 2, render: (row) => row.timingDataComplete ? renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') : '<span class="text-xs text-muted-foreground">数据缺失</span>' },
@@ -2602,14 +2610,14 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (invalidPatternCompletionImage || invalidPatternSourceFile) {
     const invalidInput = invalidPatternCompletionImage ? completionImageInput : patternFileInput
     const invalidFile = invalidPatternCompletionImage ?? invalidPatternSourceFile
-    invalidInput?.setCustomValidity(`${item.itemType} 不支持上传 ${invalidFile?.name ?? ''}`)
+    invalidInput?.setCustomValidity(`${preparationItemDisplayName(item.itemType)} 不支持上传 ${invalidFile?.name ?? ''}`)
     invalidInput?.reportValidity()
     return true
   }
   const invalidFile = files.find((file) => !isValidPreparationUploadFile(item.itemType, file))
   if (invalidFile) {
     const invalidInput = fileInput ?? completionImageInput ?? patternFileInput
-    invalidInput?.setCustomValidity(`${item.itemType} 不支持上传 ${invalidFile.name}`)
+    invalidInput?.setCustomValidity(`${preparationItemDisplayName(item.itemType)} 不支持上传 ${invalidFile.name}`)
     invalidInput?.reportValidity()
     return true
   }

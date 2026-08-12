@@ -166,6 +166,7 @@ export interface TechPackPatternManagedFile {
   fileSize: number
   uploadedAt: string
   uploadedBy: string
+  dataUrl?: string
   previewUrl?: string
 }
 

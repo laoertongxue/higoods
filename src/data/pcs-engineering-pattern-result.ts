@@ -2,6 +2,10 @@ import {
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
 } from './pcs-engineering-master-repository'
+import {
+  assertEngineeringUploadedFilesReady,
+  type EngineeringUploadedFile,
+} from './pcs-engineering-file-upload.ts'
 import type { EngineeringTaskType } from './pcs-engineering-master-types'
 
 const STORAGE_KEY = 'higood:pcs:engineering-pattern-results:v1'
@@ -21,7 +25,10 @@ export interface EngineeringPatternResultVersion {
   patternKind: '基码纸样' | '齐码纸样'
   materialKind: '梭织' | '毛织'
   applicableSizes: string[]
+  sourceFiles: EngineeringUploadedFile[]
+  previewFiles: EngineeringUploadedFile[]
   imageUrls: string[]
+  prjFiles: string[]
   pdfFiles: string[]
   dxfFiles: string[]
   rulFiles: string[]
@@ -36,10 +43,15 @@ function canUseStorage(): boolean {
 }
 
 function clone(item: EngineeringPatternResultVersion): EngineeringPatternResultVersion {
+  const sourceFiles = Array.isArray(item.sourceFiles) ? item.sourceFiles.map((file) => ({ ...file })) : []
+  const previewFiles = Array.isArray(item.previewFiles) ? item.previewFiles.map((file) => ({ ...file })) : []
   return {
     ...item,
     applicableSizes: [...item.applicableSizes],
-    imageUrls: [...item.imageUrls],
+    sourceFiles,
+    previewFiles,
+    imageUrls: [...(item.imageUrls || [])],
+    prjFiles: [...(item.prjFiles || [])],
     pdfFiles: [...item.pdfFiles],
     dxfFiles: [...item.dxfFiles],
     rulFiles: [...item.rulFiles],
@@ -80,10 +92,8 @@ export function submitEngineeringPatternResult(input: {
   masterOrderId: string
   taskId: string
   applicableSizes: string[]
-  imageUrls: string[]
-  pdfFiles: string[]
-  dxfFiles: string[]
-  rulFiles: string[]
+  sourceFiles: EngineeringUploadedFile[]
+  previewFiles: EngineeringUploadedFile[]
   note: string
   submittedBy: string
 }): EngineeringPatternResultVersion {
@@ -95,13 +105,17 @@ export function submitEngineeringPatternResult(input: {
   if (!submittedBy) throw new Error('请填写成果提交人。')
   const applicableSizes = splitValues(input.applicableSizes)
   if (applicableSizes.length === 0) throw new Error('请至少填写一个适用尺码。')
-  const imageUrls = splitValues(input.imageUrls)
-  const pdfFiles = splitValues(input.pdfFiles)
-  const dxfFiles = splitValues(input.dxfFiles)
-  const rulFiles = splitValues(input.rulFiles)
-  if (imageUrls.length + pdfFiles.length + dxfFiles.length + rulFiles.length === 0) {
-    throw new Error('请至少提交图片、PDF、DXF 或 RUL 中的一项成果。')
-  }
+  const sourceFiles = input.sourceFiles.map((file) => ({ ...file }))
+  const previewFiles = input.previewFiles.map((file) => ({ ...file }))
+  assertEngineeringUploadedFilesReady(sourceFiles, '纸样源文件')
+  assertEngineeringUploadedFilesReady(previewFiles, '纸样预览图')
+  const imageUrls = previewFiles.map((file) => file.dataUrl)
+  const prjFiles = sourceFiles.filter((file) => file.extension === 'prj').map((file) => file.fileName)
+  const pdfFiles = sourceFiles.filter((file) => file.extension === 'pdf').map((file) => file.fileName)
+  const dxfFiles = sourceFiles.filter((file) => file.extension === 'dxf').map((file) => file.fileName)
+  const rulFiles = sourceFiles.filter((file) => file.extension === 'rul').map((file) => file.fileName)
+  if (prjFiles.length === 0) throw new Error('请上传纸样 PRJ 源文件。')
+  if (imageUrls.length === 0) throw new Error('请上传纸样预览图。')
   const existing = listEngineeringPatternResultVersions(task.taskId)
   if (task.status !== '已完成') {
     submitEngineeringTaskResult(master.masterOrderId, task.taskId, {
@@ -120,7 +134,10 @@ export function submitEngineeringPatternResult(input: {
     patternKind: task.taskType.startsWith('BASE_PATTERN') ? '基码纸样' : '齐码纸样',
     materialKind: task.taskType.endsWith('KNIT') ? '毛织' : '梭织',
     applicableSizes,
+    sourceFiles,
+    previewFiles,
     imageUrls,
+    prjFiles,
     pdfFiles,
     dxfFiles,
     rulFiles,

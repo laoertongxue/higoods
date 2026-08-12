@@ -50,9 +50,9 @@ const draft = createEngineeringMasterOrder({
 })
 
 const draftHtml = renderPcsEngineeringMasterDetailPage(draft.masterOrderId)
-assert.match(draftHtml, /任务方案确认/, '草稿工程主单首屏必须是任务方案确认')
-assert.match(draftHtml, /系统建议/, '任务方案必须展示系统建议')
-assert.match(draftHtml, /固定依赖/, '任务方案必须说明固定依赖不可调整')
+assert.match(draftHtml, /本次工作安排确认/, '草稿工程主单首屏必须是本次工作安排确认')
+assert.match(draftHtml, /建议安排/, '工作安排必须展示系统建议')
+assert.match(draftHtml, /工作先后顺序按已确认规则自动带出/, '工作安排必须说明先后顺序由已确认规则自动带出')
 assert.doesNotMatch(draftHtml, /data-engineering-task-table/, '确认前不能进入正式任务表格')
 
 const originalWindow = globalThis.window

@@ -157,6 +157,7 @@ export function reopenEngineeringMaterialTaskForTechPackReview(input: {
   masterOrderId: string
   taskId: string
   reason: string
+  materialLineIds?: string[]
 }): EngineeringTaskRecord {
   const task = getReviewableTask(input.masterOrderId, input.taskId)
   const reason = input.reason.trim()
@@ -165,14 +166,19 @@ export function reopenEngineeringMaterialTaskForTechPackReview(input: {
     throw new Error(`原工程任务当前不是已完成状态，无法发起返工：${input.taskId}`)
   }
 
+  const requestedIds = new Set((input.materialLineIds ?? []).map((item) => item.trim()).filter(Boolean))
   const activeLines = listApplicableMaterialLines(task)
+    .filter((line) => requestedIds.size === 0 || requestedIds.has(line.materialLineId))
   if (activeLines.length === 0) {
     throw new Error(`原工程任务没有可返工的有效物料行：${input.taskId}`)
+  }
+  if (requestedIds.size > 0 && activeLines.length !== requestedIds.size) {
+    throw new Error(`退回内容包含不属于当前任务的成果项：${[...requestedIds].filter((id) => !activeLines.some((line) => line.materialLineId === id)).join('、')}`)
   }
 
   const startedAt = nowText()
   return updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (storedTask) => {
-    for (const line of listApplicableMaterialLines(storedTask)) {
+    for (const line of listApplicableMaterialLines(storedTask).filter((item) => requestedIds.size === 0 || requestedIds.has(item.materialLineId))) {
       line.reviewStatus = '未通过'
       line.reviewReason = reason
       line.reviewedBy = ''
@@ -189,6 +195,48 @@ export function reopenEngineeringMaterialTaskForTechPackReview(input: {
       startedAt,
       submittedAt: '',
       passedAt: '',
+    })
+  }).task
+}
+
+const DIRECT_RESULT_TASK_TYPES: EngineeringTaskType[] = [
+  'BASE_PATTERN_WOVEN',
+  'BASE_PATTERN_KNIT',
+  'PRE_PRODUCTION_SAMPLE',
+  'SIZE_PATTERN_WOVEN',
+  'SIZE_PATTERN_KNIT',
+]
+
+export function reopenEngineeringDirectResultTaskForTechPackReview(input: {
+  masterOrderId: string
+  taskId: string
+  reason: string
+}): EngineeringTaskRecord {
+  const master = getEngineeringMasterOrderById(input.masterOrderId)
+  if (!master) throw new Error(`工程主单不存在：${input.masterOrderId}`)
+  const task = master.tasks.find((item) => item.taskId === input.taskId)
+  if (!task) throw new Error(`工程任务不存在：${input.taskId}`)
+  if (!DIRECT_RESULT_TASK_TYPES.includes(task.taskType)) throw new Error('当前任务不是可由技术包退回的纸样或产前版样衣任务。')
+  if (task.status !== '已完成') throw new Error(`原工程任务当前不是已完成状态，无法发起返工：${input.taskId}`)
+  const reason = input.reason.trim()
+  if (!reason) throw new Error('请填写技术包退回原因。')
+  const startedAt = nowText()
+  return updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (storedTask) => {
+    const roundNo = Math.max(storedTask.currentRoundNo, ...storedTask.reworkRounds.map((round) => round.roundNo), 0) + 1
+    storedTask.currentRoundNo = roundNo
+    storedTask.status = '返工中'
+    storedTask.submittedAt = ''
+    storedTask.effectiveCompletedAt = ''
+    storedTask.events.submittedAt = ''
+    storedTask.events.effectiveCompletedAt = ''
+    storedTask.reworkRounds.push({ roundNo, reason, startedAt, submittedAt: '', passedAt: '' })
+    storedTask.operationLogs.push({
+      operationType: '技术包退回返工',
+      operatorId: '',
+      operatorName: '',
+      operatedAt: startedAt,
+      note: reason,
+      roundNo,
     })
   }).task
 }

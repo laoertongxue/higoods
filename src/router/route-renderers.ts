@@ -222,14 +222,6 @@ export const renderPcsProjectDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectDetailPage',
 )
-export const renderPcsRevisionTaskPage = createAsyncRenderer(
-  () => import('../pages/pcs-engineering-tasks'),
-  'renderPcsRevisionTaskPage',
-)
-export const renderPcsRevisionTaskDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-engineering-tasks'),
-  'renderPcsRevisionTaskDetailPage',
-)
 export const renderPcsRevisionSamplingListPage = createAsyncRenderer(
   () => import('../pages/pcs-independent-sampling'),
   'renderPcsRevisionSamplingListPage',
@@ -237,6 +229,10 @@ export const renderPcsRevisionSamplingListPage = createAsyncRenderer(
 export const renderPcsDesignSamplingListPage = createAsyncRenderer(
   () => import('../pages/pcs-independent-sampling'),
   'renderPcsDesignSamplingListPage',
+)
+export const renderPcsDisplaySampleTaskListPage = createAsyncRenderer(
+  () => import('../pages/pcs-independent-sampling'),
+  'renderPcsDisplaySampleTaskListPage',
 )
 export const renderPcsIndependentSamplingDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-independent-sampling'),

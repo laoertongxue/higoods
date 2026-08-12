@@ -29,7 +29,8 @@ import {
   approveTechPackReview,
   reopenTechPackReviewForRoles,
   rejectTechPackReview,
-  returnTechPackReviewByModules,
+  listTechPackReviewReturnTargets,
+  returnTechPackReviewByTargets,
   returnTechPackReviewToFirstStage,
   startTechPackReview,
   submitTechPackFirstStageReview,
@@ -649,6 +650,7 @@ function clearWoolFileState(): void {
   state.newPattern.singlePatternFileName = ''
   state.newPattern.singlePatternFileSize = 0
   state.newPattern.singlePatternFileLastModified = ''
+  state.newPattern.fileUrl = ''
   if (state.newPattern.patternFileMode === 'SINGLE_FILE') {
     state.newPattern.file = ''
   }
@@ -679,12 +681,6 @@ function resetDesignDraft(): void {
   state.designFileSelectionToken += 1
 }
 
-function buildDesignPlaceholderImage(fileName: string, sideType: 'FRONT' | 'INSIDE'): string {
-  const label = sideType === 'FRONT' ? '正面花型' : '里面花型'
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="#f3f4f6"/><rect x="24" y="24" width="272" height="272" rx="16" fill="#ffffff" stroke="#d1d5db"/><text x="160" y="138" text-anchor="middle" font-size="26" fill="#111827" font-family="Arial, sans-serif">${label}</text><text x="160" y="182" text-anchor="middle" font-size="16" fill="#6b7280" font-family="Arial, sans-serif">${fileName || '设计稿文件'}</text></svg>`
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
-
 function isImageDesignFile(file: File): boolean {
   if (file.type.startsWith('image/')) return true
   return /\.(png|jpe?g|webp|svg)$/i.test(file.name)
@@ -699,6 +695,29 @@ function readFileAsDataUrl(file: File): Promise<string> {
   })
 }
 
+function readPatternFileAsDataUrl(input: {
+  file: File
+  isCurrent: () => boolean
+  apply: (dataUrl: string) => void
+  clear: () => void
+  failureMessage: string
+}): void {
+  void readFileAsDataUrl(input.file)
+    .then((dataUrl) => {
+      if (!input.isCurrent()) return
+      if (!dataUrl.startsWith('data:')) throw new Error(input.failureMessage)
+      input.apply(dataUrl)
+      state.newPattern.parseError = ''
+      requestTechPackRender()
+    })
+    .catch(() => {
+      if (!input.isCurrent()) return
+      input.clear()
+      state.newPattern.parseError = input.failureMessage
+      requestTechPackRender()
+    })
+}
+
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
@@ -710,12 +729,8 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 
 async function buildDesignThumbnailDataUrl(
   originalFileDataUrl: string,
-  fileName: string,
-  sideType: 'FRONT' | 'INSIDE',
 ): Promise<string> {
-  if (!originalFileDataUrl.startsWith('data:image/')) {
-    return buildDesignPlaceholderImage(fileName, sideType)
-  }
+  if (!originalFileDataUrl.startsWith('data:image/')) return ''
 
   const image = await loadImage(originalFileDataUrl)
   const maxSize = 320
@@ -724,7 +739,7 @@ async function buildDesignThumbnailDataUrl(
   canvas.width = Math.max(1, Math.round(image.width * scale))
   canvas.height = Math.max(1, Math.round(image.height * scale))
   const context = canvas.getContext('2d')
-  if (!context) return buildDesignPlaceholderImage(fileName, sideType)
+  if (!context) return ''
   context.fillStyle = '#f8fafc'
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.drawImage(image, 0, 0, canvas.width, canvas.height)
@@ -749,7 +764,7 @@ async function applySelectedDesignFiles(files: File[]): Promise<void> {
     fileName: file.name,
     mimeType: file.type,
     originalFileDataUrl: '',
-    previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
+    previewThumbnailDataUrl: '',
     processing: true,
   }))
   syncPrimaryDesignDraftFile()
@@ -762,8 +777,8 @@ async function applySelectedDesignFiles(files: File[]): Promise<void> {
       try {
         const originalFileDataUrl = await readFileAsDataUrl(file)
         const previewThumbnailDataUrl = isImageDesignFile(file)
-          ? await buildDesignThumbnailDataUrl(originalFileDataUrl, file.name, state.newDesignSideType)
-          : buildDesignPlaceholderImage(file.name, state.newDesignSideType)
+          ? await buildDesignThumbnailDataUrl(originalFileDataUrl)
+          : ''
 
         return {
           id: `${selectionToken}-${index}-${file.name}`,
@@ -779,7 +794,7 @@ async function applySelectedDesignFiles(files: File[]): Promise<void> {
           fileName: file.name,
           mimeType: file.type,
           originalFileDataUrl: '',
-          previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
+          previewThumbnailDataUrl: '',
           processing: false,
         }
       }
@@ -1384,6 +1399,7 @@ function validatePatternPackage(): string | null {
   if (state.newPattern.patternMaterialType === 'WOOL') {
     if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return '请上传毛织纸样 Zip 文件'
     if (!hasFileExtension(state.newPattern.singlePatternFileName || state.newPattern.file, ['.zip'])) return '毛织纸样包只能上传 Zip 文件'
+    if (!state.newPattern.fileUrl?.startsWith('data:')) return 'Zip 文件尚未读取完成，请稍候或重新选择'
     if (state.newPattern.pieceRows.length === 0) return '请新增毛织部位明细'
     const invalidRow = state.newPattern.pieceRows.find(
       (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
@@ -1397,11 +1413,15 @@ function validatePatternPackage(): string | null {
   if (!hasFileExtension(state.newPattern.markerImage.fileName, ['.png', '.jpg', '.jpeg', '.webp'])) {
     return '文件格式不正确，请上传唛架图片'
   }
+  if (!state.newPattern.prjFile.dataUrl?.startsWith('data:')) return 'PRJ 文件尚未读取完成，请稍候或重新选择'
+  if (!state.newPattern.markerImage.dataUrl?.startsWith('data:image/')) return '唛架图片尚未读取完成，请稍候或重新选择'
   if (state.newPattern.patternMaterialType === 'WOVEN') {
     if (!state.newPattern.dxfFileName.trim()) return '请上传 DXF 文件'
     if (!state.newPattern.rulFileName.trim()) return '请上传 RUL 文件'
     if (!hasFileExtension(state.newPattern.dxfFileName, ['.dxf'])) return '文件格式不正确，请上传 DXF 文件'
     if (!hasFileExtension(state.newPattern.rulFileName, ['.rul'])) return '文件格式不正确，请上传 RUL 文件'
+    if (!state.newPattern.dxfFile?.dataUrl?.startsWith('data:')) return 'DXF 文件尚未读取完成，请稍候或重新选择'
+    if (!state.newPattern.rulFile?.dataUrl?.startsWith('data:')) return 'RUL 文件尚未读取完成，请稍候或重新选择'
     if (state.newPattern.parseStatus !== 'PARSED') return '布料纸样需先解析部位信息'
     if (state.newPattern.pieceRows.length === 0) return '布料纸样解析不到部位明细，不能保存'
     const invalidRow = state.newPattern.pieceRows.find(
@@ -1494,6 +1514,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
       singlePatternFileName: state.newPattern.singlePatternFileName,
       fileName: state.newPattern.file,
     }),
+    fileUrl: state.newPattern.fileUrl || '',
     remark: state.newPattern.remark,
     linkedBomItemId: isPatternPackage ? '' : state.newPattern.linkedBomItemId,
     linkedMaterialId: isPatternPackage ? '' : state.newPattern.linkedBomItemId,
@@ -1515,26 +1536,8 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
           : '未填写' as const,
     prjFile: state.newPattern.prjFile ? { ...state.newPattern.prjFile } : null,
     markerImage: state.newPattern.markerImage ? { ...state.newPattern.markerImage } : null,
-    dxfFile: state.newPattern.dxfFile
-      ? { ...state.newPattern.dxfFile }
-      : state.newPattern.dxfFileName.trim()
-        ? createPatternManagedFile({
-            fileName: state.newPattern.dxfFileName,
-            fileSize: state.newPattern.dxfFileSize,
-            uploadedAt: state.newPattern.dxfLastModified,
-            uploadedBy: currentUser.name,
-          })
-        : null,
-    rulFile: state.newPattern.rulFile
-      ? { ...state.newPattern.rulFile }
-      : state.newPattern.rulFileName.trim()
-        ? createPatternManagedFile({
-            fileName: state.newPattern.rulFileName,
-            fileSize: state.newPattern.rulFileSize,
-            uploadedAt: state.newPattern.rulLastModified,
-            uploadedBy: currentUser.name,
-          })
-        : null,
+    dxfFile: state.newPattern.dxfFile ? { ...state.newPattern.dxfFile } : null,
+    rulFile: state.newPattern.rulFile ? { ...state.newPattern.rulFile } : null,
     bindingStrips,
     pieceInstances,
     ...pieceInstanceSummary,
@@ -1844,18 +1847,17 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'review-return-module') {
-    const moduleKey = value as TechnicalModuleKey
-    const nextKeys = new Set(state.reviewReturnModuleKeys)
-    if (checked) nextKeys.add(moduleKey)
-    else nextKeys.delete(moduleKey)
-    state.reviewReturnModuleKeys = [...nextKeys]
+  if (field === 'review-return-target') {
+    const nextIds = new Set(state.reviewReturnTargetIds)
+    if (checked) nextIds.add(value)
+    else nextIds.delete(value)
+    state.reviewReturnTargetIds = [...nextIds]
     return true
   }
 
-  if (field === 'review-return-all-modules') {
-    state.reviewReturnModuleKeys = checked
-      ? ['BOM', 'COST', 'PATTERN', 'MATERIAL_PATTERN_LINK', 'COLOR_MATERIAL_MAPPING', 'PROCESS', 'SIZE', 'DESIGN', 'QUALITY']
+  if (field === 'review-return-all-targets') {
+    state.reviewReturnTargetIds = checked && state.currentTechnicalVersionId
+      ? listTechPackReviewReturnTargets(state.currentTechnicalVersionId).map((target) => target.targetId)
       : []
     return true
   }
@@ -1931,8 +1933,23 @@ function handleTechPackField(
           fileSize: file.size,
           uploadedAt: toFileLastModifiedText(file),
           uploadedBy: currentUser.name,
+          dataUrl: '',
         })
       : null
+    if (file) {
+      readPatternFileAsDataUrl({
+        file,
+        isCurrent: () => state.newPattern.selectedPrjFile === file,
+        apply: (dataUrl) => {
+          if (state.newPattern.prjFile) state.newPattern.prjFile.dataUrl = dataUrl
+        },
+        clear: () => {
+          state.newPattern.selectedPrjFile = null
+          state.newPattern.prjFile = null
+        },
+        failureMessage: 'PRJ 文件读取失败，请重新选择',
+      })
+    }
     state.newPattern.parseError = ''
     state.newPattern.duplicateConfirmed = false
     state.newPattern.duplicateWarningReasons = []
@@ -1953,10 +1970,29 @@ function handleTechPackField(
           fileSize: file.size,
           uploadedAt: toFileLastModifiedText(file),
           uploadedBy: currentUser.name,
-          previewUrl: file.name,
+          dataUrl: '',
+          previewUrl: '',
         })
       : null
-    state.newPattern.image = state.newPattern.markerImage?.previewUrl || ''
+    state.newPattern.image = ''
+    if (file) {
+      readPatternFileAsDataUrl({
+        file,
+        isCurrent: () => state.newPattern.selectedMarkerImageFile === file,
+        apply: (dataUrl) => {
+          if (!state.newPattern.markerImage) return
+          state.newPattern.markerImage.dataUrl = dataUrl
+          state.newPattern.markerImage.previewUrl = dataUrl
+          state.newPattern.image = dataUrl
+        },
+        clear: () => {
+          state.newPattern.selectedMarkerImageFile = null
+          state.newPattern.markerImage = null
+          state.newPattern.image = ''
+        },
+        failureMessage: '唛架图片读取失败，请重新选择',
+      })
+    }
     state.newPattern.parseError = ''
     state.newPattern.duplicateConfirmed = false
     state.newPattern.duplicateWarningReasons = []
@@ -1981,8 +2017,26 @@ function handleTechPackField(
           fileSize: file.size,
           uploadedAt: state.newPattern.dxfLastModified,
           uploadedBy: currentUser.name,
+          dataUrl: '',
         })
       : null
+    if (file) {
+      readPatternFileAsDataUrl({
+        file,
+        isCurrent: () => state.newPattern.selectedDxfFile === file,
+        apply: (dataUrl) => {
+          if (state.newPattern.dxfFile) state.newPattern.dxfFile.dataUrl = dataUrl
+        },
+        clear: () => {
+          state.newPattern.selectedDxfFile = null
+          state.newPattern.dxfFile = null
+          state.newPattern.dxfFileName = ''
+          state.newPattern.dxfFileSize = 0
+          state.newPattern.dxfLastModified = ''
+        },
+        failureMessage: 'DXF 文件读取失败，请重新选择',
+      })
+    }
     clearParsedPatternRows()
     clearPatternParseState('NOT_PARSED')
     state.newPattern.file = buildPatternDisplayFile({
@@ -2013,8 +2067,26 @@ function handleTechPackField(
           fileSize: file.size,
           uploadedAt: state.newPattern.rulLastModified,
           uploadedBy: currentUser.name,
+          dataUrl: '',
         })
       : null
+    if (file) {
+      readPatternFileAsDataUrl({
+        file,
+        isCurrent: () => state.newPattern.selectedRulFile === file,
+        apply: (dataUrl) => {
+          if (state.newPattern.rulFile) state.newPattern.rulFile.dataUrl = dataUrl
+        },
+        clear: () => {
+          state.newPattern.selectedRulFile = null
+          state.newPattern.rulFile = null
+          state.newPattern.rulFileName = ''
+          state.newPattern.rulFileSize = 0
+          state.newPattern.rulLastModified = ''
+        },
+        failureMessage: 'RUL 文件读取失败，请重新选择',
+      })
+    }
     clearParsedPatternRows()
     clearPatternParseState('NOT_PARSED')
     state.newPattern.file = buildPatternDisplayFile({
@@ -2040,16 +2112,36 @@ function handleTechPackField(
       state.newPattern.singlePatternFileSize = 0
       state.newPattern.singlePatternFileLastModified = ''
       state.newPattern.file = ''
+      state.newPattern.fileUrl = ''
       return true
     }
     state.newPattern.selectedSinglePatternFile = file
     state.newPattern.singlePatternFileName = file?.name || ''
     state.newPattern.singlePatternFileSize = file?.size || 0
     state.newPattern.singlePatternFileLastModified = file ? toFileLastModifiedText(file) : ''
+    state.newPattern.fileUrl = ''
     state.newPattern.file = buildPatternDisplayFile({
       patternFileMode: 'SINGLE_FILE',
       singlePatternFileName: state.newPattern.singlePatternFileName,
     })
+    if (file) {
+      readPatternFileAsDataUrl({
+        file,
+        isCurrent: () => state.newPattern.selectedSinglePatternFile === file,
+        apply: (dataUrl) => {
+          state.newPattern.fileUrl = dataUrl
+        },
+        clear: () => {
+          state.newPattern.selectedSinglePatternFile = null
+          state.newPattern.singlePatternFileName = ''
+          state.newPattern.singlePatternFileSize = 0
+          state.newPattern.singlePatternFileLastModified = ''
+          state.newPattern.file = ''
+          state.newPattern.fileUrl = ''
+        },
+        failureMessage: 'Zip 文件读取失败，请重新选择',
+      })
+    }
     return true
   }
   if (field === 'new-pattern-file') {
@@ -2945,17 +3037,6 @@ function handleTechPackField(
   }
   if (field === 'new-design-side-type') {
     state.newDesignSideType = value === 'INSIDE' ? 'INSIDE' : 'FRONT'
-    if (state.newDesignFiles.length > 0) {
-      state.newDesignFiles = state.newDesignFiles.map((draft, index) => {
-        const file = state.selectedDesignFiles[index] ?? null
-        if (!file || isImageDesignFile(file)) return draft
-        return {
-          ...draft,
-          previewThumbnailDataUrl: buildDesignPlaceholderImage(file.name, state.newDesignSideType),
-        }
-      })
-      syncPrimaryDesignDraftFile()
-    }
     return true
   }
   if (field === 'new-design-file') {
@@ -3228,22 +3309,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.compatibilityMessage = ''
     return true
   }
-  if (action === 'return-review-first-stage') {
-    if (!state.currentTechnicalVersionId) return true
-    state.reviewActionNodeKey = 'MERCHANDISER'
-    state.reviewActionType = 'return'
-    state.reviewActionOpinion = ''
-    state.reviewReturnModuleKeys = ['BOM', 'COST', 'PATTERN', 'MATERIAL_PATTERN_LINK', 'COLOR_MATERIAL_MAPPING', 'PROCESS', 'SIZE', 'DESIGN', 'QUALITY']
-    state.reviewActionDialogOpen = true
-    state.compatibilityMessage = ''
-    return true
-  }
   if (action === 'return-review-modules') {
     if (!state.currentTechnicalVersionId) return true
     state.reviewActionNodeKey = 'MERCHANDISER'
     state.reviewActionType = 'return-modules'
     state.reviewActionOpinion = ''
-    state.reviewReturnModuleKeys = []
+    state.reviewReturnTargetIds = []
     state.reviewActionDialogOpen = true
     state.compatibilityMessage = ''
     return true
@@ -3263,7 +3334,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.reviewActionNodeKey = null
     state.reviewActionType = null
     state.reviewActionOpinion = ''
-    state.reviewReturnModuleKeys = []
+    state.reviewReturnTargetIds = []
     state.reviewReopenNodeKeys = []
     return true
   }
@@ -3298,9 +3369,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           currentUser,
         )
       } else if (state.reviewActionType === 'return-modules') {
-        returnTechPackReviewByModules(
+        returnTechPackReviewByTargets(
           state.currentTechnicalVersionId,
-          state.reviewReturnModuleKeys,
+          state.reviewReturnTargetIds,
           state.reviewActionOpinion,
           currentUser,
         )
@@ -3322,7 +3393,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.reviewActionNodeKey = null
       state.reviewActionType = null
       state.reviewActionOpinion = ''
-      state.reviewReturnModuleKeys = []
+      state.reviewReturnTargetIds = []
       state.reviewReopenNodeKeys = []
       state.compatibilityMessage = ''
     } catch (error) {
@@ -4593,9 +4664,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const now = Date.now()
     const newPatternDesigns = state.newDesignFiles.map((file, index) => {
       const designName = state.newDesignFiles.length === 1 ? baseName : `${baseName}-${index + 1}`
-      const previewThumbnailDataUrl =
-        file.previewThumbnailDataUrl
-        || buildDesignPlaceholderImage(file.fileName, state.newDesignSideType)
+      const previewThumbnailDataUrl = file.previewThumbnailDataUrl
 
       return {
         id: `design-${now}-${index + 1}`,

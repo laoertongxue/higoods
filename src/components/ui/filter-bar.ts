@@ -79,6 +79,7 @@ export function renderMultiSelectFilter(config: {
   summaryAttributes?: HtmlAttributes
   inputAttributes?: HtmlAttributes
   optionAttributes?: (option: string) => HtmlAttributes
+  optionLabel?: (option: string) => string
   panelClass?: string
 }): string {
   const selected = new Set(config.selectedValues)
@@ -111,7 +112,7 @@ export function renderMultiSelectFilter(config: {
                 value="${escapeHtml(option)}"
                 ${selected.has(option) ? 'checked' : ''}
               >
-              <span>${escapeHtml(option)}</span>
+              <span>${escapeHtml(config.optionLabel?.(option) ?? option)}</span>
             </label>
           `
           })

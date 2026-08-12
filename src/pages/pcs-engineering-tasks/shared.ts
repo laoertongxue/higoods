@@ -610,7 +610,7 @@ export function styleArchiveLinkByProject(projectId: string): string {
 
 export function revisionTaskNewTabLink(revisionTaskId: string, revisionTaskCode: string): string {
   if (!revisionTaskId) return '<span class="text-slate-400">未创建改版任务</span>'
-  return `<a class="font-medium text-blue-700 hover:underline" href="/pcs/patterns/revision/${escapeHtml(revisionTaskId)}" target="_blank" rel="noreferrer">${escapeHtml(revisionTaskCode || '查看改版任务')}</a>`
+  return `<a class="font-medium text-blue-700 hover:underline" href="/pcs/engineering/revision-sampling/${escapeHtml(revisionTaskId)}" target="_blank" rel="noreferrer">${escapeHtml(revisionTaskCode || '查看改款打样')}</a>`
 }
 
 export function styleArchiveLink(
@@ -698,7 +698,7 @@ export function renderListFilters(input: {
           </select>
         </label>
         <label class="flex flex-col gap-2 text-sm text-slate-600">
-          <span>负责人</span>
+          <span>当前需处理的团队</span>
           <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.ownerField)}">
             <option value="all" ${listState.owner === 'all' ? 'selected' : ''}>全部</option>
             ${input.ownerOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.owner === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}

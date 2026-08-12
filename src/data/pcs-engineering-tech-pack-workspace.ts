@@ -13,8 +13,11 @@ import type {
   TechnicalDataVersionRecord,
   TechnicalDataVersionContent,
   TechnicalModuleKey,
+  TechnicalPatternFile,
+  TechnicalPatternManagedFile,
   TechnicalReviewNode,
 } from './pcs-technical-data-version-types'
+import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 import {
   captureEngineeringBomRepositoryState,
   confirmEngineeringBomVersion,
@@ -38,6 +41,80 @@ export const TECH_PACK_MODULE_LABELS: Record<TechnicalModuleKey, string> = {
   QUALITY: '质量要求',
 }
 
+function toManagedPatternFile(file?: EngineeringUploadedFile): TechnicalPatternManagedFile | undefined {
+  if (!file || file.status !== '已保存' || !file.dataUrl) return undefined
+  return {
+    fileName: file.fileName,
+    fileType: file.mimeType,
+    fileSize: file.sizeBytes,
+    uploadedAt: file.uploadedAt,
+    uploadedBy: file.uploadedByName,
+    dataUrl: file.dataUrl,
+    previewUrl: file.purpose === 'PATTERN_PREVIEW' ? file.dataUrl : undefined,
+  }
+}
+
+function buildPatternFilesFromResult(
+  result: ReturnType<typeof listEngineeringPatternResultVersions>[number],
+): TechnicalPatternFile[] {
+  const sourceFiles = (result.sourceFiles || []).filter((file) => file.status === '已保存' && Boolean(file.dataUrl))
+  if (sourceFiles.length === 0) return []
+  const preview = (result.previewFiles || []).find((file) => file.status === '已保存' && Boolean(file.dataUrl))
+  const prj = sourceFiles.find((file) => file.extension === 'prj')
+  const dxf = sourceFiles.find((file) => file.extension === 'dxf')
+  const rul = sourceFiles.find((file) => file.extension === 'rul')
+  const pdf = sourceFiles.find((file) => file.extension === 'pdf')
+  const primary = pdf || prj || sourceFiles[0]
+  const selectedIds = new Set([prj?.fileId, dxf?.fileId, rul?.fileId, pdf?.fileId].filter(Boolean))
+  const baseRecord = (file: EngineeringUploadedFile, index: number, supplemental = false): TechnicalPatternFile => ({
+    id: `${result.resultVersionId}-FILE-${index + 1}`,
+    recordKind: 'PACKAGE',
+    patternName: `${result.materialKind}${result.patternKind}${supplemental ? `补充文件 ${index}` : ''}`,
+    patternMaterialType: result.materialKind === '毛织' ? 'WOOL' : 'WOVEN',
+    patternMaterialTypeLabel: result.materialKind,
+    fileName: file.fileName,
+    fileUrl: file.dataUrl,
+    uploadedAt: result.submittedAt,
+    uploadedBy: result.submittedBy,
+    selectedSizeCodes: [...result.applicableSizes],
+    imageUrl: preview?.dataUrl || '',
+    markerImage: toManagedPatternFile(preview),
+    remark: result.note,
+  })
+  const main: TechnicalPatternFile = {
+    ...baseRecord(primary, 0),
+    prjFile: toManagedPatternFile(prj),
+    dxfFile: toManagedPatternFile(dxf),
+    dxfFileName: dxf?.fileName,
+    dxfFileSize: dxf?.sizeBytes,
+    dxfLastModified: dxf?.uploadedAt,
+    rulFile: toManagedPatternFile(rul),
+    rulFileName: rul?.fileName,
+    rulFileSize: rul?.sizeBytes,
+    rulLastModified: rul?.uploadedAt,
+  }
+  const extras = sourceFiles
+    .filter((file) => !selectedIds.has(file.fileId))
+    .map((file, index) => {
+      const record = baseRecord(file, index + 1, true)
+      if (file.extension === 'prj') record.prjFile = toManagedPatternFile(file)
+      if (file.extension === 'dxf') {
+        record.dxfFile = toManagedPatternFile(file)
+        record.dxfFileName = file.fileName
+        record.dxfFileSize = file.sizeBytes
+        record.dxfLastModified = file.uploadedAt
+      }
+      if (file.extension === 'rul') {
+        record.rulFile = toManagedPatternFile(file)
+        record.rulFileName = file.fileName
+        record.rulFileSize = file.sizeBytes
+        record.rulLastModified = file.uploadedAt
+      }
+      return record
+    })
+  return [main, ...extras]
+}
+
 function collectEngineeringOutputs(
   master: ReturnType<typeof getEngineeringMasterOrderById> extends infer T ? NonNullable<T> : never,
   technicalVersionId: string,
@@ -46,20 +123,7 @@ function collectEngineeringOutputs(
   const patternFiles = master.tasks.flatMap((task) => {
     const result = listEngineeringPatternResultVersions(task.taskId)[0]
     if (!result) return []
-    const files = [...result.dxfFiles, ...result.rulFiles, ...result.pdfFiles]
-    return files.map((fileUrl, index) => ({
-      id: `${result.resultVersionId}-FILE-${index + 1}`,
-      patternName: `${result.materialKind}${result.patternKind}`,
-      patternMaterialType: result.materialKind === '毛织' ? 'WOOL' as const : 'WOVEN' as const,
-      patternMaterialTypeLabel: result.materialKind,
-      fileName: fileUrl.split('/').pop() || fileUrl,
-      fileUrl,
-      uploadedAt: result.submittedAt,
-      uploadedBy: result.submittedBy,
-      selectedSizeCodes: result.applicableSizes,
-      imageUrl: result.imageUrls[0] || '',
-      remark: result.note,
-    }))
+    return buildPatternFilesFromResult(result)
   })
   const artworkLines = master.tasks
     .filter((task) => task.taskType === 'PATTERN_ARTWORK')

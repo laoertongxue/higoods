@@ -75,9 +75,9 @@ export interface ConfirmEngineeringColorRequirementsInput {
 export function confirmEngineeringColorRequirements(
   input: ConfirmEngineeringColorRequirementsInput,
 ): EngineeringTaskRecord {
-  const { merchandiserName, task } = getColorTask(input.masterOrderId, input.taskId)
+  const { task } = getColorTask(input.masterOrderId, input.taskId)
   const confirmedBy = input.confirmedBy.trim()
-  if (!confirmedBy || confirmedBy !== merchandiserName) throw new Error('仅主单跟单可以确认染色要求。')
+  if (!confirmedBy) throw new Error('缺少实际操作的跟单，不能确认染色要求。')
   if (task.status === '未启用') throw new Error('调色任务未启用，不能确认染色要求。')
   if (task.status !== '进行中') {
     throw new Error(task.status === '待开始' ? '请先点击“开始任务”，再确认染色要求。' : `调色任务处于${task.status}，不能确认染色要求。`)

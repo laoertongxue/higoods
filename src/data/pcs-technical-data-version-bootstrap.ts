@@ -48,11 +48,6 @@ function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   return 'DEFAULT'
 }
 
-function buildDemoDesignPreviewDataUrl(fileName: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="#f8fafc"/><rect x="22" y="22" width="276" height="156" rx="16" fill="#ffffff" stroke="#cbd5e1"/><text x="160" y="92" text-anchor="middle" font-size="22" fill="#334155" font-family="Arial, sans-serif">PRINT DESIGN</text><text x="160" y="124" text-anchor="middle" font-size="13" fill="#64748b" font-family="Arial, sans-serif">${fileName}</text></svg>`
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
-
 function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '已裁部位') {
   const supportsGarment = craftName === '直喷' || craftName === '烫画'
   return {
@@ -1095,8 +1090,8 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         designSideType: 'FRONT',
         fileName: frontDesignFileName,
         originalFileName: frontDesignFileName,
-        imageUrl: buildDemoDesignPreviewDataUrl(frontDesignFileName),
-        previewThumbnailDataUrl: buildDemoDesignPreviewDataUrl(frontDesignFileName),
+        imageUrl: '',
+        previewThumbnailDataUrl: '',
         uploadedAt: '2026-04-07 17:20',
       },
     ],

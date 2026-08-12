@@ -38,15 +38,15 @@ import {
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import {
+  confirmEngineeringChangeWork,
   createEngineeringChangeWorkspace,
+  listEngineeringChangeModificationOptions,
   listEngineeringChangeWorkspaceViews,
   startEngineeringChangeTaskLine,
 } from './pcs-engineering-change-workspace.ts'
 import { CURRENT_PCS_ENGINEERING_USER } from './pcs-engineering-current-user.ts'
-import {
-  buildEngineeringBomTaskRows,
-  listEngineeringBomVersionsByOwner,
-} from './pcs-engineering-bom-repository.ts'
+import { getEngineeringTeamCurrentOperator } from './pcs-engineering-team-directory.ts'
+import { buildEngineeringBomTaskRows } from './pcs-engineering-bom-repository.ts'
 
 // ============ 泳道与逻辑阶段（固定结构，只读） ============
 
@@ -73,7 +73,7 @@ export const ENGINEERING_LANES: readonly EngineeringLaneDefinition[] = [
 
 export const ENGINEERING_PHASES: readonly EngineeringPhaseDefinition[] = [
   { phaseKey: 'base-pattern', phaseName: '基码纸样', taskTypes: ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'] },
-  { phaseKey: 'sample-size', phaseName: '版衣与齐码', taskTypes: ['PRE_PRODUCTION_SAMPLE', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] },
+  { phaseKey: 'sample-size', phaseName: '产前版样衣与齐码', taskTypes: ['PRE_PRODUCTION_SAMPLE', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] },
   { phaseKey: 'artwork-color', phaseName: '花型与调色', taskTypes: ['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'] },
   { phaseKey: 'purchase', phaseName: '辅料采购', taskTypes: ['ACCESSORY_PURCHASE'] },
   { phaseKey: 'tech-pack', phaseName: '技术包确认', taskTypes: ['TECH_PACK_CONFIRMATION'] },
@@ -330,8 +330,9 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
     const startedAt = `${baseTime} ${String(9 + offset).padStart(2, '0')}:00:00`
     const completedAt = `${baseTime} ${String(10 + offset).padStart(2, '0')}:30:00`
     task.status = '已完成'
-    task.assigneeId = `USER-E-${offset + 1}`
-    task.assigneeName = `${task.ownerTeamName}-${offset + 1}`
+    const completedOperators = ['周师傅', 'Ayu', 'Lina', '陈敏', 'Rudi', '王丽', '林晓']
+    task.assigneeId = `PCS-DEMO-OPERATOR-${offset + 1}`
+    task.assigneeName = completedOperators[offset % completedOperators.length] || '周师傅'
     task.startedAt = startedAt
     task.submittedAt = completedAt
     task.firstCompletedAt = completedAt
@@ -355,8 +356,18 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
       const desiredStatus = scenarioNo % 5 === 0 ? '待审核' : scenarioNo % 5 === 1 ? '返工中' : '进行中'
       const reviewRequired = getEngineeringTaskDefinition(stored.taskType).reviewRequired
       stored.status = reviewRequired && stored.materialLines.length > 0 ? desiredStatus : '进行中'
-      stored.assigneeId = `USER-A-${scenarioNo}-${offset}`
-      stored.assigneeName = `${stored.ownerTeamName}负责人`
+      const activeOperators: Record<string, { id: string; name: string }> = {
+        版师: { id: 'PCS-PATTERN-MAKER-ZHOU', name: '周师傅' },
+        毛织团队: { id: 'PCS-KNIT-MAKER-AYU', name: 'Ayu' },
+        制作团队: { id: 'PCS-SAMPLE-MAKER-LINA', name: 'Lina' },
+        花型团队: { id: 'PCS-ARTWORK-MAKER-CHEN', name: '陈敏' },
+        染厂: { id: 'PCS-DYE-FACTORY-RUDI', name: 'Rudi' },
+        采购人员: { id: 'PCS-BUYER-PURCHASER-WANG', name: '王丽' },
+        跟单: { id: 'PCS-MERCHANDISER-LIN', name: '林晓' },
+      }
+      const activeOperator = activeOperators[stored.ownerTeamName]
+      stored.assigneeId = activeOperator?.id || ''
+      stored.assigneeName = activeOperator?.name || ''
       stored.startedAt = `${baseTime} 11:00:00`
       stored.events.startedAt = stored.startedAt
       if (stored.status === '待审核') {
@@ -431,14 +442,29 @@ function ensureEngineeringLifecycleDemoData(): void {
     seedEngineeringMasterDemoLifecycleStatus(closedMaster.masterOrderId, '已关闭')
   }
   if (listEngineeringChangeWorkspaceViews().length > 0) return
+  const modificationOptions = listEngineeringChangeModificationOptions(closedMaster.masterOrderId)
+  if (modificationOptions.length === 0) return
+  const preferredKinds = new Set(['BOM_ITEM', 'BASE_PATTERN', 'SIZE_PATTERN', 'PRE_PRODUCTION_SAMPLE', 'PATTERN_ARTWORK'])
+  const preferredOptions = modificationOptions.filter((item) => preferredKinds.has(item.itemKind))
+  const selectedOptions = [
+    preferredOptions.find((item) => item.treatment !== 'PROFESSIONAL_TASK'),
+    preferredOptions.find((item) => item.treatment === 'PROFESSIONAL_TASK'),
+  ].filter((item): item is (typeof modificationOptions)[number] => Boolean(item))
   const changeView = createEngineeringChangeWorkspace({
     sourceMasterOrderId: closedMaster.masterOrderId,
     changeReason: '直播反馈领口版型需要调整，同时更新齐码纸样。',
-    affectedModules: ['PATTERN', 'DESIGN'],
+    modificationOptionIds: (selectedOptions.length > 0 ? selectedOptions : modificationOptions.slice(0, 2)).map((item) => item.optionId),
     actor: CURRENT_PCS_ENGINEERING_USER,
   })
-  const firstLine = changeView.workspace.taskLines[0]
-  if (firstLine) startEngineeringChangeTaskLine(changeView.change.engineeringChangeTaskId, firstLine.lineId, CURRENT_PCS_ENGINEERING_USER)
+  const confirmedWorkspace = confirmEngineeringChangeWork(changeView.change.engineeringChangeTaskId, CURRENT_PCS_ENGINEERING_USER)
+  const firstLine = confirmedWorkspace.taskLines[0]
+  if (firstLine) {
+    startEngineeringChangeTaskLine(
+      changeView.change.engineeringChangeTaskId,
+      firstLine.lineId,
+      getEngineeringTeamCurrentOperator(firstLine.currentTeamName),
+    )
+  }
 }
 
 // ============ 列表视图模型 ============
@@ -523,6 +549,9 @@ export interface EngineeringTaskCardModel {
   ownerTeamName: string
   status: EngineeringTaskStatus
   currentNodeName: string
+  currentTeamName: string
+  currentActionText: string
+  completionDestinationText: string
   plannedTimeText: string
   actualTimeText: string
   riskText: string
@@ -665,6 +694,63 @@ function deriveCurrentNodeName(task: EngineeringTaskRecord, definition: Engineer
   return task.status
 }
 
+function deriveCurrentTeamName(task: EngineeringTaskRecord): string {
+  if (task.status === '未启用' || task.status === '待前置' || task.status === '已完成' || task.status === '因需求变更结束') {
+    return '—'
+  }
+  if (task.taskType === 'PATTERN_ARTWORK' && task.status === '待审核') return '买手'
+  if (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') {
+    if (!task.colorRequirementConfirmedAt) return '跟单'
+    if (task.status === '待审核') return '买手'
+    return '染厂'
+  }
+  return task.ownerTeamName
+}
+
+function taskWorkVerb(taskType: EngineeringTaskType): string {
+  if (taskType === 'BASE_PATTERN_WOVEN' || taskType === 'BASE_PATTERN_KNIT') return '制作并上传基码纸样'
+  if (taskType === 'PRE_PRODUCTION_SAMPLE') return '制作并上传产前版样衣'
+  if (taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT') return '制作并上传齐码纸样'
+  if (taskType === 'PATTERN_ARTWORK') return '制作并上传花型成果'
+  if (taskType === 'COLOR_YARN' || taskType === 'COLOR_FABRIC') return '制作并上传调色成果'
+  if (taskType === 'ACCESSORY_PURCHASE') return '绑定采购系统中的采购单'
+  return '汇总专业成果并生成待审核技术包'
+}
+
+function deriveCurrentActionText(task: EngineeringTaskRecord, dependsOnLabels: string[]): string {
+  if (task.status === '未启用') return '本次不需要处理'
+  if (task.status === '因需求变更结束') return '本轮工作已结束'
+  if (task.status === '已完成') return '本轮工作已完成'
+  if (task.status === '待前置') {
+    return dependsOnLabels.length > 0
+      ? `等待${dependsOnLabels.join('、')}完成`
+      : '等待前项工作完成'
+  }
+  if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && !task.colorRequirementConfirmedAt) {
+    return '填写颜色名称、潘通色号和染色说明'
+  }
+  if ((task.taskType === 'PATTERN_ARTWORK' || task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.status === '待审核') {
+    return task.taskType === 'PATTERN_ARTWORK' ? '审核花型成果' : '审核调色成果'
+  }
+  if (task.status === '返工中') return `按退回意见重新${taskWorkVerb(task.taskType).replace(/^制作并/, '')}`
+  return taskWorkVerb(task.taskType)
+}
+
+function deriveCompletionDestinationText(
+  task: EngineeringTaskRecord,
+  requiredByLabels: string[],
+): string {
+  if (task.status === '未启用' || task.status === '因需求变更结束') return '—'
+  if (task.taskType === 'PATTERN_ARTWORK' || task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') {
+    if (task.status !== '已完成') return '买手审核通过后进入技术包'
+  }
+  if (task.taskType === 'TECH_PACK_CONFIRMATION') return '进入技术包审核与发布'
+  if (requiredByLabels.length > 0) {
+    return `${task.status === '已完成' ? '已解锁' : '完成后解锁'}：${requiredByLabels.join('、')}`
+  }
+  return '汇入待审核技术包'
+}
+
 function deriveRiskText(
   task: EngineeringTaskRecord,
   dependsOnLabels: string[],
@@ -745,6 +831,9 @@ export function buildEngineeringMasterDetailModel(
           ownerTeamName: task.ownerTeamName,
           status: task.status,
           currentNodeName: deriveCurrentNodeName(task, definition),
+          currentTeamName: deriveCurrentTeamName(task),
+          currentActionText: deriveCurrentActionText(task, dependsOnLabels),
+          completionDestinationText: deriveCompletionDestinationText(task, requiredByLabels),
           plannedTimeText: record.publishedAt
             ? `计划 ${formatPlanDate(record.publishedAt, PLAN_OFFSET_DAYS[taskType])}`
             : '—',

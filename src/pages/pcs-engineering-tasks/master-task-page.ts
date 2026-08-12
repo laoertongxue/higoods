@@ -18,6 +18,8 @@ import {
 import {
   ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
   getEngineeringTaskDetail,
+  getEngineeringTaskListDetailPath,
+  getEngineeringTaskSourceSummary,
   getEngineeringTaskSourceOptions,
   getEngineeringTaskTeamOptions,
   listEngineeringTasksByType,
@@ -43,11 +45,11 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
 } {
   const columns = createEngineeringListColumns([
     { key: 'task', title: config.title, width: 230, required: true, freezeable: true, sortable: true },
-    { key: 'master', title: '工程主单', width: 150, required: true, freezeable: true, sortable: true },
+    { key: 'master', title: '任务来源', width: 170, required: true, freezeable: true, sortable: true },
     { key: 'style', title: '款式', width: 180, required: true, sortable: true },
     { key: 'status', title: '状态', width: 120, required: true, sortable: true },
-    { key: 'team', title: '负责团队', width: 120, sortable: true },
-    { key: 'dependency', title: '前置任务', width: 110, sortable: true },
+    { key: 'team', title: '当前需处理的团队', width: 150, sortable: true },
+    { key: 'dependency', title: '需要先完成', width: 120, sortable: true },
     { key: 'submitted', title: '提交时间', width: 170, sortable: true },
     { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true },
   ])
@@ -58,12 +60,15 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
     return allTasks().filter((task) => {
       const master = getEngineeringMasterOrderById(task.masterOrderId)
       const definition = getEngineeringTaskDefinition(task.taskType)
-      const text = [task.taskId, definition.taskName, master?.masterOrderCode, master?.styleCode, master?.styleName, task.ownerTeamName]
+      const source = getEngineeringTaskSourceSummary(task)
+      const text = [task.taskId, definition.taskName, source.code, source.label, master?.styleCode, master?.styleName, task.targetStyleCode, task.targetStyleName, task.ownerTeamName]
         .filter(Boolean).join(' ').toLowerCase()
       if (keyword && !text.includes(keyword)) return false
       if (config.listState.status !== 'all' && task.status !== config.listState.status) return false
-      if (config.listState.owner !== 'all' && task.ownerTeamName !== config.listState.owner) return false
-      if (config.listState.source !== 'all' && definition.taskName !== config.listState.source) return false
+      // “当前需处理的团队”只匹配当前尚未完成且确实轮到该团队的任务，
+      // 历史上由该团队处理但已经完成／转交的任务不得混入。
+      if (config.listState.owner !== 'all' && (task.status === '已完成' || task.ownerTeamName !== config.listState.owner)) return false
+      if (config.listState.source !== 'all' && source.label !== config.listState.source) return false
       if (config.listState.quickFilter !== 'all' && task.status !== config.listState.quickFilter) return false
       return true
     })
@@ -72,20 +77,22 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
   const rows = (): EngineeringListRow[] => filtered().map((task) => {
     const master = getEngineeringMasterOrderById(task.masterOrderId)
     const definition = getEngineeringTaskDefinition(task.taskType)
+    const source = getEngineeringTaskSourceSummary(task)
+    const detailPath = getEngineeringTaskListDetailPath(task, config.path)
     return {
       cells: {
-        task: `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${config.path}/${escapeHtml(task.taskId)}">${escapeHtml(definition.taskName)}</button><p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>`,
-        master: master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>` : '-',
-        style: escapeHtml(master ? `${master.styleCode} · ${master.styleName}` : '-'),
+        task: `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(definition.taskName)}</button><p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>`,
+        master: task.sourceType === 'ENGINEERING_MASTER' && master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>` : `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`,
+        style: escapeHtml(master ? `${master.styleCode} · ${master.styleName}` : `${task.targetStyleCode} · ${task.targetStyleName}`),
         status: renderStatusBadge(task.status),
-        team: escapeHtml(task.ownerTeamName || '-'),
-        dependency: escapeHtml(`${task.dependsOnTaskIds.length} 项`),
+        team: escapeHtml(task.status === '已完成' ? '-' : task.ownerTeamName || '-'),
+        dependency: escapeHtml(task.dependsOnTaskIds.length ? `${task.dependsOnTaskIds.length} 项` : '无'),
         submitted: escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-'),
-        actions: `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700" data-nav="${config.path}/${escapeHtml(task.taskId)}">查看</button>`,
+        actions: `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700" data-nav="${escapeHtml(detailPath)}">查看</button>`,
       },
       sortValues: {
         task: definition.taskName,
-        master: master?.masterOrderCode || '', style: master?.styleCode || '', status: task.status,
+        master: source.code, style: master?.styleCode || task.targetStyleCode, status: task.status,
         team: task.ownerTeamName, dependency: task.dependsOnTaskIds.length, submitted: task.submittedAt,
       },
     }
@@ -107,7 +114,7 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
     title: config.title,
     createLabel: '查看工程主单', createAction: 'nav:/pcs/engineering/masters',
     filtersHtml: renderListFilters({
-      searchPlaceholder: '搜索任务编号 / 主单编号 / 款式 / 负责团队', listState: config.listState,
+      searchPlaceholder: '搜索任务编号 / 任务来源 / 款式 / 当前团队', listState: config.listState,
       searchField: `${config.module}-search`, statusField: `${config.module}-status`, ownerField: `${config.module}-owner`, sourceField: `${config.module}-source`,
       statusOptions: ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
       ownerOptions: getEngineeringTaskTeamOptions(allTasks()), sourceOptions: getEngineeringTaskSourceOptions(allTasks()),

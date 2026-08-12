@@ -39,9 +39,9 @@ export const routes: RouteRegistry = {
     '/pcs/samples/ledger/stocktake': () => renderers.renderPcsSampleStocktakePage(),
     '/pcs/samples/view': () => renderers.renderPcsSampleViewPage(),
     '/pcs/samples/first-sample': () => renderers.renderPcsFirstSampleTaskPage(),
+    '/pcs/samples/display-sample': () => renderers.renderPcsDisplaySampleTaskListPage(),
     '/pcs/samples/first-order': () => renderers.renderPcsFirstOrderSampleTaskPage(),
     '/pcs/patterns/part-templates': () => renderers.renderPcsPartTemplateLibraryPage(),
-    '/pcs/patterns/revision': () => renderers.renderPcsRevisionTaskPage(),
     '/pcs/patterns/plate-making': () => renderers.renderPcsPlateMakingTaskPage(),
     '/pcs/patterns/artwork': () => renderers.renderPcsPatternTaskPage(),
     '/pcs/technical-data/tech-packs': () => renderers.renderPcsTechnicalDataTechPackListPage(),
@@ -130,10 +130,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
       render: (match) => renderers.renderPcsChannelStoreDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/patterns\/revision\/([^/]+)$/,
-      render: (match) => renderers.renderPcsRevisionTaskDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/patterns\/plate-making\/([^/]+)$/,

@@ -4,6 +4,14 @@
 // 制作团队提交图片与数量即完成，不设置任务级验收或二次确认。
 
 import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types'
+import { assertEngineeringUploadedFilesReady } from '../../data/pcs-engineering-file-upload'
+import { getEngineeringTeamCurrentOperator } from '../../data/pcs-engineering-team-directory'
+import {
+  listEngineeringTaskUploadedFiles,
+  removeEngineeringTaskUploadedFile,
+  uploadEngineeringTaskFiles,
+} from '../../data/pcs-engineering-task-upload-repository'
+import { renderEngineeringFileUpload } from '../../components/ui/engineering-file-upload'
 import {
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
@@ -35,15 +43,13 @@ import {
 
 const TASK_TYPES = ['PRE_PRODUCTION_SAMPLE'] as const
 const LIST_PATH = '/pcs/samples/first-sample'
-const resultDrafts = new Map<string, { imageIds: string; quantity: string; submittedBy: string; note: string }>()
+const resultDrafts = new Map<string, { quantity: string; note: string }>()
 
 function getResultDraft(task: EngineeringTaskRecord) {
   const current = resultDrafts.get(task.taskId)
   if (current) return current
   const created = {
-    imageIds: task.resultImageIds.join(', '),
     quantity: task.resultQuantity > 0 ? String(task.resultQuantity) : '',
-    submittedBy: task.resultSubmittedBy,
     note: '',
   }
   resultDrafts.set(task.taskId, created)
@@ -70,7 +76,7 @@ const COLUMNS = createEngineeringListColumns([
   { key: 'master', title: '工程主单', width: 150, required: true, freezeable: true, sortable: true },
   { key: 'style', title: '款式', width: 180, required: true, sortable: true },
   { key: 'status', title: '状态', width: 120, required: true, sortable: true },
-  { key: 'team', title: '负责团队', width: 120, sortable: true },
+  { key: 'team', title: '当前需处理的团队', width: 150, sortable: true },
   { key: 'result', title: '成果', width: 170, sortable: true },
   { key: 'submitted', title: '提交时间', width: 170, sortable: true },
   { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true },
@@ -118,24 +124,31 @@ function stats(): string {
 function renderResult(task: EngineeringTaskRecord): string {
   const draft = getResultDraft(task)
   const canSubmit = task.status === '进行中'
+  const uploadedFiles = listEngineeringTaskUploadedFiles(task.taskId, 'TASK', 'SAMPLE_RESULT')
+  const resultFiles = uploadedFiles.length ? uploadedFiles : task.resultImageIds.map((dataUrl, index) => ({
+    fileId: `${task.taskId}-LEGACY-SAMPLE-${index + 1}`, purpose: 'SAMPLE_RESULT' as const,
+    fileName: `样衣成果图-${index + 1}.jpg`, extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 1,
+    dataUrl, status: '已保存' as const, uploadedById: '', uploadedByName: task.resultSubmittedBy || '历史成果',
+    uploadedByTeam: task.ownerTeamName, uploadedAt: task.submittedAt || '-', roundNo: task.currentRoundNo || 1, errorMessage: '',
+  }))
   const resultSummary = `
     <div class="grid gap-3 md:grid-cols-4">
-      <div><p class="text-xs text-slate-500">结果图片</p><p class="mt-1 text-sm text-slate-900">${task.resultImageIds.length} 张</p></div>
+      <div><p class="text-xs text-slate-500">结果图片</p><p class="mt-1 text-sm text-slate-900">${resultFiles.length} 张</p></div>
       <div><p class="text-xs text-slate-500">制作数量</p><p class="mt-1 text-sm text-slate-900">${task.resultQuantity} 件</p></div>
       <div><p class="text-xs text-slate-500">提交人</p><p class="mt-1 text-sm text-slate-900">${escapeHtml(task.resultSubmittedBy || '-')}</p></div>
       <div><p class="text-xs text-slate-500">提交时间</p><p class="mt-1 text-sm text-slate-900">${escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-')}</p></div>
     </div>
-    ${task.resultImageIds.length > 0 ? `<div class="mt-4 grid gap-3 sm:grid-cols-3">${task.resultImageIds.map((imageUrl, index) => `<button type="button" class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left" data-first-sample-action="preview-image" data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}" class="h-36 w-full object-contain" loading="lazy"><span class="block px-3 py-2 text-xs text-slate-500">点击查看大图</span></button>`).join('')}</div>` : ''}`
+    ${resultFiles.length > 0 ? `<div class="mt-4 grid gap-3 sm:grid-cols-3">${resultFiles.map((file, index) => `<button type="button" class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left" data-skip-page-rerender="true" data-first-sample-action="preview-image" data-image-url="${escapeHtml(file.dataUrl)}" data-image-alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}"><img src="${escapeHtml(file.dataUrl)}" alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}" class="h-36 w-full object-contain" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="block px-3 py-2 text-xs text-red-600">图片加载失败，请重新上传</span><span class="block px-3 py-2 text-xs text-slate-500">点击查看大图</span></button>`).join('')}</div>` : ''}`
   if (!canSubmit) return renderSectionCard('样衣成果', resultSummary)
   return renderSectionCard('样衣成果', `${resultSummary}
     <div class="mt-5 border-t border-slate-100 pt-5" data-first-sample-form="${escapeHtml(task.taskId)}">
       <div data-first-sample-feedback class="mb-3 hidden rounded-md px-3 py-2 text-sm" role="alert"></div>
-      <div class="grid gap-4 md:grid-cols-2">
-        <label class="text-sm text-slate-600">成果图片地址（多个用逗号分隔）<input class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draft.imageIds)}" data-first-sample-field="imageIds" data-task-id="${escapeHtml(task.taskId)}" placeholder="https://..."></label>
+      ${renderEngineeringFileUpload({ taskId: task.taskId, purpose: 'SAMPLE_RESULT', files: uploadedFiles, eventPrefix: 'first-sample', label: '产前版样衣实拍图', requiredHint: '请从本地选择真实样衣图片；读取和保存成功后才能提交。' })}
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
         <label class="text-sm text-slate-600">制作数量（件）<input type="number" min="1" class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draft.quantity)}" data-first-sample-field="quantity" data-task-id="${escapeHtml(task.taskId)}"></label>
         <label class="text-sm text-slate-600">制作说明<input class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draft.note)}" data-first-sample-field="note" data-task-id="${escapeHtml(task.taskId)}"></label>
       </div>
-      <div class="mt-4 flex justify-end"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-first-sample-action="submit-result" data-task-id="${escapeHtml(task.taskId)}">提交成果并完成任务</button></div>
+      <div class="mt-4 flex justify-end"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-first-sample-action="submit-result" data-task-id="${escapeHtml(task.taskId)}">提交成果并完成任务</button></div>
     </div>`)
 }
 
@@ -196,6 +209,27 @@ export function submitEngineeringFirstSampleResult(
 }
 
 export function handleFirstSampleTaskInput(target: Element): boolean {
+  const uploadInput = target.closest<HTMLInputElement>('[data-first-sample-upload-input]')
+  if (uploadInput) {
+    const taskId = uploadInput.dataset.taskId || ''
+    const detail = getEngineeringTaskDetail(taskId)
+    if (!detail || !uploadInput.files?.length) return true
+    const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
+    void uploadEngineeringTaskFiles({
+      taskId,
+      purpose: 'SAMPLE_RESULT',
+      files: uploadInput.files,
+      actor: { userId: operator.operatorId, userName: operator.operatorName, teamName: operator.teamName },
+      roundNo: detail.task.currentRoundNo,
+    }).then(() => {
+      const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
+      if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
+    }).catch((error) => {
+      const feedback = document.querySelector<HTMLElement>(`[data-first-sample-form="${CSS.escape(taskId)}"] [data-first-sample-feedback]`)
+      if (feedback) { feedback.hidden = false; feedback.className = 'mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700'; feedback.textContent = error instanceof Error ? error.message : '上传失败，请重试。' }
+    })
+    return true
+  }
   const node = target.closest<HTMLInputElement>('[data-first-sample-field]')
   if (!node) return false
   const taskId = node.dataset.taskId || ''
@@ -209,6 +243,26 @@ export function handleFirstSampleTaskInput(target: Element): boolean {
 }
 
 export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
+  const uploadRemove = target.closest<HTMLElement>('[data-first-sample-upload-remove]')
+  if (uploadRemove) {
+    const taskId = uploadRemove.dataset.taskId || ''
+    removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' })
+    const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
+    if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
+    return true
+  }
+  const uploadPreview = target.closest<HTMLElement>('[data-first-sample-upload-preview]')
+  if (uploadPreview) {
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6'
+    overlay.dataset.firstSamplePreview = 'true'
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
+    overlay.setAttribute('aria-label', `${uploadPreview.dataset.fileName || '产前版样衣'}大图`)
+    overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-first-sample-action="close-preview">关闭</button><img src="${escapeHtml(uploadPreview.dataset.fileUrl || '')}" alt="${escapeHtml(uploadPreview.dataset.fileName || '产前版样衣大图')}" class="max-h-full max-w-full object-contain">`
+    document.body.appendChild(overlay)
+    return true
+  }
   const node = target.closest<HTMLElement>('[data-first-sample-action]')
   if (!node) return false
   const action = node.dataset.firstSampleAction || ''
@@ -216,7 +270,10 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
     const overlay = document.createElement('div')
     overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6'
     overlay.dataset.firstSamplePreview = 'true'
-    overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-first-sample-action="close-preview">关闭</button><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(node.dataset.imageAlt || '产前版样衣大图')}" class="max-h-full max-w-full object-contain">`
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
+    overlay.setAttribute('aria-label', node.dataset.imageAlt || '产前版样衣大图')
+    overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-first-sample-action="close-preview">关闭</button><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(node.dataset.imageAlt || '产前版样衣大图')}" class="max-h-full max-w-full object-contain">`
     document.body.appendChild(overlay)
     return true
   }
@@ -231,10 +288,13 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
   try {
     if (!detail) throw new Error('未找到产前版样衣任务。')
     const draft = getResultDraft(detail.task)
+    const files = listEngineeringTaskUploadedFiles(taskId, 'TASK', 'SAMPLE_RESULT')
+    assertEngineeringUploadedFilesReady(files, '产前版样衣实拍图')
+    const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
     submitEngineeringFirstSampleResult(taskId, {
-      resultImageIds: draft.imageIds.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean),
+      resultImageIds: files.map((file) => file.dataUrl),
       resultQuantity: Number(draft.quantity),
-      submittedBy: detail.task.assigneeName || detail.task.ownerTeamName,
+      submittedBy: operator.operatorName,
     })
     resultDrafts.delete(taskId)
     const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)

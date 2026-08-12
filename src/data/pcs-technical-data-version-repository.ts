@@ -13,7 +13,6 @@ import {
 } from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
-  hasTechPackPrintRequirement,
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
@@ -68,8 +67,7 @@ const CORE_MISSING_NAME_MAP: Record<string, string> = {
 
 function canUseStorage(): boolean {
   try {
-    if (typeof window === 'undefined') return false
-    const storage = window.localStorage
+    const storage = typeof window !== 'undefined' ? window.localStorage : globalThis.localStorage
     return (
       typeof storage?.getItem === 'function' &&
       typeof storage.setItem === 'function' &&
@@ -83,6 +81,11 @@ function canUseStorage(): boolean {
 function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[] {
   return items.map((item) => ({
     ...item,
+    prjFile: item.prjFile ? { ...item.prjFile } : undefined,
+    markerImage: item.markerImage ? { ...item.markerImage } : undefined,
+    dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
+    rulFile: item.rulFile ? { ...item.rulFile } : undefined,
+    bindingStrips: item.bindingStrips?.map((strip) => ({ ...strip })),
     patternTotalPieceQty: item.patternTotalPieceQty,
     pieceInstanceTotal: item.pieceInstanceTotal,
     specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
@@ -188,6 +191,10 @@ function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRe
     buyerReview: record.buyerReview ? { ...record.buyerReview } : undefined,
     patternMakerReview: record.patternMakerReview ? { ...record.patternMakerReview } : undefined,
     merchandiserReview: record.merchandiserReview ? { ...record.merchandiserReview } : undefined,
+    reviewReturnTargets: (record.reviewReturnTargets ?? []).map((target) => ({
+      ...target,
+      sourceMaterialLineIds: [...target.sourceMaterialLineIds],
+    })),
   }
 }
 
@@ -578,133 +585,6 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
   }
 }
 
-function normalizeIdSegment(input: string): string {
-  return input.trim().replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
-}
-
-function buildAutoRepairedDesignPreviewDataUrl(fileName: string, side: 'FRONT' | 'INSIDE'): string {
-  const title = side === 'FRONT' ? 'FRONT PRINT' : 'INSIDE PRINT'
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="#f8fafc"/><rect x="22" y="22" width="276" height="156" rx="16" fill="#ffffff" stroke="#cbd5e1"/><text x="160" y="92" text-anchor="middle" font-size="22" fill="#334155" font-family="Arial, sans-serif">${title}</text><text x="160" y="124" text-anchor="middle" font-size="13" fill="#64748b" font-family="Arial, sans-serif">${fileName}</text></svg>`
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
-
-function buildAutoRepairedPatternDesign(input: {
-  technicalVersionId: string
-  bomItemId: string
-  side: 'FRONT' | 'INSIDE'
-  uploadedAt: string
-}): TechnicalPatternDesign {
-  const sideText = input.side === 'FRONT' ? '正面' : '里面'
-  const fileSide = input.side === 'FRONT' ? 'front' : 'inside'
-  const id = `${input.technicalVersionId}-auto-design-${normalizeIdSegment(input.bomItemId)}-${fileSide}`
-  const fileName = `${input.technicalVersionId}-${normalizeIdSegment(input.bomItemId)}-${fileSide}-print.png`
-  const imageUrl = buildAutoRepairedDesignPreviewDataUrl(fileName, input.side)
-  return {
-    id,
-    name: `${sideText}印花设计图`,
-    designSideType: input.side,
-    fileName,
-    originalFileName: fileName,
-    imageUrl,
-    previewThumbnailDataUrl: imageUrl,
-    uploadedAt: input.uploadedAt,
-  }
-}
-
-function shouldRepairCompletedDesignRequirement(record: TechnicalDataVersionRecord): boolean {
-  const versionStatus = normalizeVersionStatus(record.versionStatus)
-  const merchandiserReview = normalizeReviewNode('MERCHANDISER', record.merchandiserReview)
-  return (
-    versionStatus === 'PUBLISHED' ||
-    versionStatus === 'ARCHIVED' ||
-    merchandiserReview.status === '审核-已通过'
-  )
-}
-
-function repairCompletedDesignRequirementContent(
-  content: TechnicalDataVersionContent,
-  record: TechnicalDataVersionRecord | undefined,
-): TechnicalDataVersionContent {
-  if (!record || !shouldRepairCompletedDesignRequirement(record)) return content
-
-  const validation = validateTechPackDesignRequirement({
-    bomItems: content.bomItems,
-    patternDesigns: content.patternDesigns,
-  })
-  if (!validation.required || validation.valid) return content
-
-  const uploadedAt = record.publishedAt || record.updatedAt || record.createdAt || nowText()
-  const designById = new Map(content.patternDesigns.map((item) => [item.id, item]))
-  const repairedDesigns = clonePatternDesigns(content.patternDesigns)
-  const repairedBomItems = content.bomItems.map((item, index) => {
-    if (!hasTechPackPrintRequirement(item.printRequirement)) return { ...item }
-
-    const bomItemId = item.id || `bom-${index + 1}`
-    const nextItem: TechnicalBomItem = {
-      ...item,
-      printSideMode: ['SINGLE', 'REVERSE', 'DOUBLE'].includes(item.printSideMode || '') ? item.printSideMode : 'SINGLE',
-    }
-
-    const normalizeDesignIds = (ids: unknown, legacyId: unknown): string[] => {
-      const source = Array.isArray(ids) ? ids : []
-      return Array.from(
-        new Set(
-          [...source, legacyId]
-            .map((value) => String(value ?? '').trim())
-            .filter((value) => value.length > 0),
-        ),
-      )
-    }
-
-    const ensureDesign = (side: 'FRONT' | 'INSIDE'): string[] => {
-      const currentIds = side === 'FRONT'
-        ? normalizeDesignIds(nextItem.frontPatternDesignIds, nextItem.frontPatternDesignId)
-        : normalizeDesignIds(nextItem.insidePatternDesignIds, nextItem.insidePatternDesignId)
-      const currentDesign = currentIds
-        .map((currentId) => designById.get(currentId))
-        .find((design) => design?.designSideType === side)
-      if (currentDesign) return currentIds
-
-      const repairedDesign = buildAutoRepairedPatternDesign({
-        technicalVersionId: content.technicalVersionId,
-        bomItemId,
-        side,
-        uploadedAt,
-      })
-      const existing = designById.get(repairedDesign.id)
-      if (!existing) {
-        repairedDesigns.push(repairedDesign)
-        designById.set(repairedDesign.id, repairedDesign)
-      }
-      return [repairedDesign.id]
-    }
-
-    if (nextItem.printSideMode !== 'REVERSE') {
-      const frontPatternDesignIds = ensureDesign('FRONT')
-      nextItem.frontPatternDesignId = frontPatternDesignIds[0]
-      nextItem.frontPatternDesignIds = frontPatternDesignIds
-    } else {
-      nextItem.frontPatternDesignId = undefined
-      nextItem.frontPatternDesignIds = undefined
-    }
-    if (nextItem.printSideMode === 'DOUBLE' || nextItem.printSideMode === 'REVERSE') {
-      const insidePatternDesignIds = ensureDesign('INSIDE')
-      nextItem.insidePatternDesignId = insidePatternDesignIds[0]
-      nextItem.insidePatternDesignIds = insidePatternDesignIds
-    } else {
-      nextItem.insidePatternDesignId = undefined
-      nextItem.insidePatternDesignIds = undefined
-    }
-    return nextItem
-  })
-
-  return {
-    ...content,
-    bomItems: repairedBomItems,
-    patternDesigns: repairedDesigns,
-  }
-}
-
 function getDomainStatus(count: number, versionStatus: TechnicalVersionStatus): TechnicalDomainStatus {
   if (count <= 0) return 'EMPTY'
   return versionStatus === 'PUBLISHED' ? 'COMPLETE' : 'DRAFT'
@@ -820,6 +700,10 @@ function applyDerivedFields(
     reviewSubmittedBy: record.reviewSubmittedBy || '',
     returnedFromMerchandiserFlag: Boolean(record.returnedFromMerchandiserFlag),
     reviewUnlockedModuleKeys: normalizeTechnicalModuleKeys(record.reviewUnlockedModuleKeys),
+    reviewReturnTargets: (record.reviewReturnTargets ?? []).map((target) => ({
+      ...target,
+      sourceMaterialLineIds: [...(target.sourceMaterialLineIds ?? [])],
+    })),
     ...derived,
     linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
     linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],
@@ -913,28 +797,24 @@ function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): Technical
 
   let records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
 
-  const recordById = new Map(records.map((record) => [record.technicalVersionId, record]))
-  const repairedContents = contents.map((content) =>
-    repairCompletedDesignRequirementContent(content, recordById.get(content.technicalVersionId)),
-  )
-  const repairedContentMap = new Map<string, TechnicalDataVersionContent>()
-  repairedContents.forEach((content) => {
-    repairedContentMap.set(content.technicalVersionId, content)
+  const contentMapById = new Map<string, TechnicalDataVersionContent>()
+  contents.forEach((content) => {
+    contentMapById.set(content.technicalVersionId, content)
   })
-  records = records.map((record) => normalizeRecord(record, repairedContentMap))
+  records = records.map((record) => normalizeRecord(record, contentMapById))
 
   records.forEach((record) => {
-    if (!repairedContentMap.has(record.technicalVersionId)) {
+    if (!contentMapById.has(record.technicalVersionId)) {
       const content = createEmptyContent(record.technicalVersionId)
-      repairedContentMap.set(record.technicalVersionId, content)
-      repairedContents.push(content)
+      contentMapById.set(record.technicalVersionId, content)
+      contents.push(content)
     }
   })
 
   return {
     version: TECHNICAL_VERSION_STORE_VERSION,
     records: records.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    contents: repairedContents,
+    contents,
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : [],
   }
 }
