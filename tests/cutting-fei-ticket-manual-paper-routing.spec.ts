@@ -1,11 +1,43 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { listGeneratedFeiTickets } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
+import {
+  FEI_TICKET_ORDINARY_MOCK_COUNT,
+  FEI_TICKET_ORDINARY_MOCK_PREFIX,
+  listGeneratedFeiTickets,
+} from '../src/data/fcs/cutting/generated-fei-tickets.ts'
 import { CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY } from '../src/data/fcs/cutting/storage/fei-tickets-storage.ts'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
 const LIST_PATH = '/fcs/craft/cutting/fei-tickets'
 const WHITE_MARKER_NO = 'MKP-20260403-008'
+
+test('系统演示数据稳定覆盖普通白纸菲票和多批次场景', async ({ page }) => {
+  const records = listGeneratedFeiTickets()
+  const ordinaryRecords = records.filter((record) => record.feiTicketId.startsWith(FEI_TICKET_ORDINARY_MOCK_PREFIX))
+
+  expect(ordinaryRecords).toHaveLength(FEI_TICKET_ORDINARY_MOCK_COUNT)
+  expect(ordinaryRecords.every((record) => !record.hasSpecialCraft)).toBe(true)
+  expect(ordinaryRecords.every((record) => record.specialCrafts.length === 0)).toBe(true)
+  expect(ordinaryRecords.every((record) => record.secondaryCrafts.length === 0)).toBe(true)
+  expect(new Set(ordinaryRecords.map((record) => record.sourceSpreadingSessionId)).size).toBe(2)
+  expect(new Set(ordinaryRecords.map((record) => record.productionOrderNo)).size).toBe(2)
+  expect(records.some((record) => record.hasSpecialCraft)).toBe(true)
+
+  const errors = collectPageErrors(page)
+  await page.goto(LIST_PATH, { waitUntil: 'domcontentloaded' })
+  const ordinaryBatchButton = page.getByRole('button', { name: 'PB-260412-201', exact: true })
+  await expect(ordinaryBatchButton).toBeVisible()
+  await expect(page.getByRole('button', { name: 'PB-260412-202', exact: true })).toBeVisible()
+  const detailPath = await ordinaryBatchButton.getAttribute('data-nav')
+  expect(detailPath).toBeTruthy()
+
+  await page.goto(detailPath!)
+  await expect(page.locator('[data-cutting-fei-action="set-detail-paper"][data-paper-color="WHITE"]')).toContainText('（6）')
+  await expect(page.locator('[data-cutting-fei-action="set-detail-paper"][data-paper-color="YELLOW"]')).toContainText('（0）')
+  await expect(page.locator('table').first()).toContainText('系统生成')
+  await expect(page.locator('table').first()).not.toContainText('特殊工艺 / 承接工厂')
+  expectNoPageErrors(errors)
+})
 
 async function clearTicketRuntime(page: Page): Promise<void> {
   await page.goto(LIST_PATH, { waitUntil: 'domcontentloaded' })
@@ -283,7 +315,9 @@ test('辅助工艺和特种工艺菲票只进黄纸 Tab，打印模板显著标�
   await expect(page.locator('body')).toContainText('请装入黄色热敏纸')
   await page.getByRole('button', { name: '已装入黄色热敏纸，进入预览' }).click()
 
-  await expect(page.locator('body')).toContainText('特殊工艺 · 黄色热敏纸')
+  await expect(page.locator('body')).toContainText('特殊工艺菲票——')
+  await expect(page.locator('.print-preview-root')).not.toContainText('特殊工艺菲票（黄色热敏纸）')
+  await expect(page.locator('.print-preview-root')).not.toContainText('特殊工艺 · 黄色热敏纸')
   await expect(page.locator('body')).toContainText('特殊工艺 / 承接工厂')
   const yellowLabels = page.locator('.print-label-paper')
   const yellowLabelCount = await yellowLabels.count()
@@ -291,6 +325,7 @@ test('辅助工艺和特种工艺菲票只进黄纸 Tab，打印模板显著标�
   for (let index = 0; index < yellowLabelCount; index += 1) {
     const yellowLabel = yellowLabels.nth(index)
     await expect(yellowLabel).toBeVisible()
+    await expect(yellowLabel.locator('.fei-ticket-business-title span')).toHaveText(/^特殊工艺菲票——\S+/)
     const productionOrderCell = yellowLabel.getByText('生产单号（PO）', { exact: true }).locator('..')
     const spuCell = yellowLabel.getByText('SPU', { exact: true }).locator('..')
     await expect(productionOrderCell).toHaveCount(1)
@@ -307,7 +342,9 @@ test('辅助工艺和特种工艺菲票只进黄纸 Tab，打印模板显著标�
       && craft.receiverFactoryId !== 'PENDING-SPECIAL-CRAFT-FACTORY'))
   expect(yellowReprintRecord, '未找到可用于黄色菲票补打验收的已绑定特殊工艺工厂记录').toBeTruthy()
   await page.goto(`/fcs/print/preview?documentType=FEI_TICKET_REPRINT_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(yellowReprintRecord!.feiTicketId)}&paperColor=YELLOW&reason=${encodeURIComponent('黄色特殊工艺菲票补打验收')}`)
-  await expect(page.locator('body')).toContainText('特殊工艺 · 黄色热敏纸')
+  const yellowReprintCraftNames = Array.from(new Set(yellowReprintRecord!.specialCrafts.map((craft) => craft.craftName || craft.craftType))).join('／')
+  await expect(page.locator('.fei-ticket-business-title span')).toHaveText(`特殊工艺菲票——${yellowReprintCraftNames}`)
+  await expect(page.locator('.print-preview-root')).not.toContainText('特殊工艺菲票补打（黄色热敏纸）')
   await expect(page.locator('body')).toContainText('补打原因：黄色特殊工艺菲票补打验收')
   const yellowReprintLabel = page.locator('.print-label-paper').first()
   await expect(yellowReprintLabel.getByText('生产单号（PO）', { exact: true }).locator('..').locator('strong')).not.toHaveText('—')
