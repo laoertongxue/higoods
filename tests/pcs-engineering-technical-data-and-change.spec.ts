@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs'
 import {
   renderPcsTechnicalDataBomPricingPage,
   renderPcsTechnicalDataTechPackListPage,
-  renderPcsTechnicalDataTemplateLibraryPage,
 } from '../src/pages/pcs-technical-data.ts'
 import { renderPcsEngineeringChangeDetailPage, renderPcsEngineeringChangeListPage } from '../src/pages/pcs-engineering-change.ts'
 import { listEngineeringMasterOrders } from '../src/data/pcs-engineering-master-repository.ts'
 import { listEngineeringChangeWorkspaceViews, resetEngineeringChangeWorkspace } from '../src/data/pcs-engineering-change-workspace.ts'
 
 const routeSource = readFileSync('src/router/routes-pcs.ts', 'utf8')
+const rendererSource = readFileSync('src/router/route-renderers.ts', 'utf8')
 const menuSource = readFileSync('src/data/app-shell-config.ts', 'utf8')
 const archiveSource = readFileSync('src/pages/pcs-product-archives.ts', 'utf8')
 const technicalDataSource = readFileSync('src/pages/pcs-technical-data.ts', 'utf8')
@@ -18,15 +18,19 @@ const changeSource = readFileSync('src/pages/pcs-engineering-change.ts', 'utf8')
 for (const route of [
   '/pcs/technical-data/tech-packs',
   '/pcs/technical-data/bom-pricing',
-  '/pcs/technical-data/tech-pack-templates',
   '/pcs/engineering/changes',
 ]) {
   assert.ok(routeSource.includes(route), `缺少正式路由：${route}`)
 }
 
-for (const title of ['技术资料', '技术包', 'BOM 与价格', '技术包模板库', '工程变更']) {
+for (const title of ['技术资料', '技术包', 'BOM 与价格', '花型库', '部位模板库', '工程变更']) {
   assert.ok(menuSource.includes(title), `菜单缺少：${title}`)
 }
+
+assert.doesNotMatch(menuSource, /技术包模板库|pcs-tech-pack-template-library/, '技术资料菜单不得出现技术包模板库')
+assert.doesNotMatch(routeSource, /tech-pack-templates|renderPcsTechnicalDataTemplateLibraryPage/, '技术包模板库路由必须删除')
+assert.doesNotMatch(rendererSource, /renderPcsTechnicalDataTemplateLibraryPage/, '技术包模板库渲染器必须删除')
+assert.doesNotMatch(technicalDataSource, /技术包模板库|TP-TPL-/, '技术资料页面不得保留技术包模板或静态 Mock')
 
 assert.doesNotMatch(archiveSource, /手动新增技术包|新增技术包版本|导入历史技术包/)
 assert.doesNotMatch(technicalDataSource, /新增技术包|导入历史技术包/)
@@ -42,7 +46,6 @@ for (const expected of [
 }
 assert.ok(technicalDataSource.includes('data-tech-data-action="open-image"'), '款式缩略图必须支持打开大图')
 assert.ok(technicalDataSource.includes('1 CNY =') && technicalDataSource.includes('comprehensiveCostIdr'), 'BOM 与价格必须同时展示汇率及双币种')
-assert.ok(renderPcsTechnicalDataTemplateLibraryPage().includes('技术包模板库'))
 
 for (const expected of [
   '当前使用的技术包', '本次要修改的内容', '当前需处理的团队',

@@ -140,7 +140,6 @@
 - /pcs/samples/first-sample
 - /pcs/technical-data/tech-packs
 - /pcs/technical-data/bom-pricing
-- /pcs/technical-data/tech-pack-templates
 - /pcs/pattern-library
 - /pcs/engineering/changes
 - /pcs/engineering/changes/new

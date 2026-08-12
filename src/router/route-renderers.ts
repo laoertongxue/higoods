@@ -210,10 +210,6 @@ export const renderPcsTechnicalDataBomPricingDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-technical-data'),
   'renderPcsTechnicalDataBomPricingDetailPage',
 )
-export const renderPcsTechnicalDataTemplateLibraryPage = createAsyncRenderer(
-  () => import('../pages/pcs-technical-data'),
-  'renderPcsTechnicalDataTemplateLibraryPage',
-)
 export const renderPcsProjectCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectCreatePage',

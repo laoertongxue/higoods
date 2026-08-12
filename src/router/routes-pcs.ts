@@ -46,7 +46,6 @@ export const routes: RouteRegistry = {
     '/pcs/patterns/artwork': () => renderers.renderPcsPatternTaskPage(),
     '/pcs/technical-data/tech-packs': () => renderers.renderPcsTechnicalDataTechPackListPage(),
     '/pcs/technical-data/bom-pricing': () => renderers.renderPcsTechnicalDataBomPricingPage(),
-    '/pcs/technical-data/tech-pack-templates': () => renderers.renderPcsTechnicalDataTemplateLibraryPage(),
     '/pcs/pattern-library': () => renderers.renderPcsPatternLibraryPage(),
     '/pcs/pattern-library/create': () => renderers.renderPcsPatternLibraryCreatePage(),
     '/pcs/pattern-library/config': () => renderers.renderPcsPatternLibraryConfigPage(),

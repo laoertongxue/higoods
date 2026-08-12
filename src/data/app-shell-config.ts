@@ -182,7 +182,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-bom-pricing', title: 'BOM 与价格', icon: 'Receipt', href: '/pcs/technical-data/bom-pricing' },
             { key: 'pcs-pattern-library', title: '花型库', icon: 'Image', href: '/pcs/pattern-library' },
             { key: 'pcs-part-template-library', title: '部位模板库', icon: 'Library', href: '/pcs/patterns/part-templates' },
-            { key: 'pcs-tech-pack-template-library', title: '技术包模板库', icon: 'Library', href: '/pcs/technical-data/tech-pack-templates' },
           ],
         },
         {

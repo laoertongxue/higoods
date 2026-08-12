@@ -23,16 +23,18 @@ for (const required of [
   assert.ok(menuSource.includes(required[0]) && menuSource.includes(required[1]), `生产工程菜单缺少 ${required[0]} 规范入口`)
 }
 
-for (const required of ['技术资料', '技术包', 'BOM 与价格', '花型库', '部位模板库', '技术包模板库']) {
+for (const required of ['技术资料', '技术包', 'BOM 与价格', '花型库', '部位模板库']) {
   assert.ok(menuSource.includes(required), `技术资料菜单缺少 ${required}`)
 }
 
 for (const route of [
   '/pcs/technical-data/tech-packs',
   '/pcs/technical-data/bom-pricing',
-  '/pcs/technical-data/tech-pack-templates',
 ]) {
   assert.ok(routeSource.includes(route), `技术资料入口缺少路由接线：${route}`)
 }
+
+assert.doesNotMatch(menuSource, /技术包模板库|pcs-tech-pack-template-library/, '不得保留误建的技术包模板库菜单')
+assert.doesNotMatch(routeSource, /\/pcs\/technical-data\/tech-pack-templates/, '不得保留误建的技术包模板库路由')
 
 console.log('pcs engineering navigation removal tests passed')

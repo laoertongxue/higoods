@@ -1,5 +1,5 @@
 // @page-pattern: list
-// 技术资料统一结果页：技术包、BOM 与价格、技术包模板库。
+// 技术资料统一结果页：技术包、BOM 与价格。
 
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
@@ -230,15 +230,6 @@ export function renderPcsTechnicalDataBomPricingDetailPage(versionId: string): s
     <section class="grid gap-3 md:grid-cols-5"><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">物料成本</p><p class="mt-2 font-semibold">${resolved ? `¥ ${resolved.cost.materialCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">自定义费用</p><p class="mt-2 font-semibold">${resolved ? `Rp ${resolved.cost.customCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">系统最新汇率</p><p class="mt-2 font-semibold">${resolved ? `1 CNY = ${resolved.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 CNY</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `¥ ${resolved.cost.comprehensiveCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 IDR</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `Rp ${resolved.cost.comprehensiveCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article></section>
     ${renderPreview()}
   </div>`
-}
-
-export function renderPcsTechnicalDataTemplateLibraryPage(): string {
-  const templates = [
-    ['TP-TPL-WOVEN-01', '纯梭织技术包模板', '梭织', 'BOM、纸样、工艺、尺码、质量'],
-    ['TP-TPL-KNIT-01', '毛织技术包模板', '毛织', 'BOM、毛织纸样、工艺、尺码、质量'],
-    ['TP-TPL-MIXED-01', '毛织与梭织组合模板', '毛织&梭织', '双纸样、BOM、工艺、尺码、质量'],
-  ]
-  return `<div class="space-y-4 p-4"><header><h1 class="text-xl font-semibold">技术包模板库</h1><p class="mt-1 text-sm text-slate-500">用于工程主单生成技术包时确定资料结构。</p></header><section class="overflow-hidden rounded-lg border bg-white"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">模板编号</th><th class="px-4 py-3">模板名称</th><th class="px-4 py-3">适用类型</th><th class="px-4 py-3">资料范围</th><th class="px-4 py-3">状态</th></tr></thead><tbody>${templates.map((row) => `<tr class="border-t"><td class="px-4 py-3">${row[0]}</td><td class="px-4 py-3 font-medium">${row[1]}</td><td class="px-4 py-3">${row[2]}</td><td class="px-4 py-3">${row[3]}</td><td class="px-4 py-3 text-emerald-700">启用</td></tr>`).join('')}</tbody></table></section></div>`
 }
 
 function rerender(): void {
