@@ -112,6 +112,9 @@ export interface EngineeringBomVersionRecord extends EngineeringBomDraft {
   createdBy: string
   updatedAt: string
   updatedBy: string
+  editingLockedAt?: string
+  editingLockedBy?: string
+  editingLockedReason?: string
   publishedSnapshotId?: string
 }
 

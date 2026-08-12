@@ -351,14 +351,16 @@ export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveS
   const snapshot = loadSnapshot()
   const index = snapshot.records.findIndex((item) => item.styleId === styleId)
   if (index < 0) return null
+  const currentRecord = snapshot.records[index]
   const nextRecord = normalizeRecord({
-    ...snapshot.records[index],
+    ...currentRecord,
     ...patch,
   })
-  if (snapshot.records.some((item, itemIndex) => itemIndex !== index && item.styleId === nextRecord.styleId)) {
+  if (nextRecord.styleId !== currentRecord.styleId && snapshot.records.some((item, itemIndex) => itemIndex !== index && item.styleId === nextRecord.styleId)) {
     throw new Error(`款式档案 ID ${nextRecord.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
   }
   if (
+    nextRecord.sourceProjectId !== currentRecord.sourceProjectId &&
     nextRecord.sourceProjectId &&
     snapshot.records.some(
       (item, itemIndex) => itemIndex !== index && item.sourceProjectId === nextRecord.sourceProjectId,
