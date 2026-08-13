@@ -1,4 +1,8 @@
-import type { EngineeringBomCustomCostDraft, EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
+import type {
+  EngineeringBomCustomCostDecision,
+  EngineeringBomCustomCostDraft,
+  EngineeringBomPricingSnapshot,
+} from './pcs-engineering-bom-types.ts'
 
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
@@ -577,6 +581,8 @@ export interface TechnicalDataVersionContent {
   sizeTable: TechnicalSizeRow[]
   bomItems: TechnicalBomItem[]
   bomCustomCosts?: EngineeringBomCustomCostDraft[]
+  /** 买手对整款自定义费用的明确决定；空费用不再等同于“已确认无费用”。 */
+  bomCustomCostDecision?: EngineeringBomCustomCostDecision
   bomPricingSnapshot?: EngineeringBomPricingSnapshot
   qualityRules: TechnicalQualityRule[]
   colorMaterialMappings: TechnicalColorMaterialMapping[]

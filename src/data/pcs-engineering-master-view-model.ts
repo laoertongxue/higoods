@@ -32,7 +32,13 @@ import type {
 } from './pcs-engineering-master-types.ts'
 import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { createEngineeringMasterTechPackDraft } from './pcs-engineering-tech-pack-workspace.ts'
-import { listEngineeringBomVersionsByOwner, markEngineeringBomVersionsPublished } from './pcs-engineering-bom-repository.ts'
+import {
+  confirmEngineeringBomPricingPlan,
+  getEngineeringBomPricingPlan,
+  getEngineeringBomVersionById,
+  listEngineeringBomVersionsByOwner,
+  markEngineeringBomVersionsPublished,
+} from './pcs-engineering-bom-repository.ts'
 import {
   listTechnicalDataVersionsByStyleId,
   updateTechnicalDataVersionRecord,
@@ -176,7 +182,7 @@ function ensureEngineeringDemoBomVersions(
   conditions: EngineeringBomTaskConditions,
 ): void {
   const versions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
-  versions.forEach((version) => {
+  versions.forEach((version, versionIndex) => {
     if (version.versionStatus !== 'DRAFT') return
     const base = {
       usage: 1,
@@ -236,21 +242,25 @@ function ensureEngineeringDemoBomVersions(
       userId: 'BUYER-DEMO',
       userName: '买手-阿乐',
       materialLines,
-      customCosts: [{ title: '车位费', amountIdr: 25000, note: '演示自定义费用' }],
+      customCosts: versionIndex === 0 ? [{ title: '车位费', amountIdr: 25000, note: '演示自定义费用' }] : [],
     })
+  })
+  const firstVersion = versions[0]
+  if (firstVersion && getEngineeringBomVersionById(firstVersion.bomDraftVersionId)?.versionStatus === 'DRAFT') {
     confirmEngineeringMasterBomVersion({
-      versionId: version.bomDraftVersionId,
+      versionId: firstVersion.bomDraftVersionId,
       role: '买手',
       userId: 'BUYER-DEMO',
       userName: '买手-阿乐',
     })
-  })
+  }
 }
 
 function ensureEngineeringDemoTaskMaterials(records: EngineeringMasterOrderRecord[]): void {
   for (const master of records) {
     if (!master.bulkProductionQualification.triggerBusinessObjectId.startsWith('BULK-DEMO-')) continue
     if (!['已发布', '进行中'].includes(master.status)) continue
+    if (getEngineeringBomPricingPlan('ENGINEERING_MASTER', master.masterOrderId)?.status !== 'COMPLETED_CONFIRMED') continue
     const emptyActiveTaskTypes = new Set(master.tasks
       .filter((task) => ['待开始', '进行中', '返工中'].includes(task.status) && task.materialLines.length === 0)
       .map((task) => task.taskType))
@@ -411,6 +421,17 @@ function ensureEngineeringLifecycleDemoData(): void {
   }
   const currentVersion = versions[0]
   if (currentVersion && currentVersion.versionStatus !== 'PUBLISHED') {
+    const pricingPlan = getEngineeringBomPricingPlan('TECH_PACK_DRAFT', currentVersion.technicalVersionId)
+    if (pricingPlan?.status === 'DRAFT') {
+      confirmEngineeringBomPricingPlan({
+        ownerStage: 'TECH_PACK_DRAFT',
+        ownerId: currentVersion.technicalVersionId,
+        role: '买手',
+        userId: pricingPlan.buyerId || 'U-BUYER-DEMO',
+        userName: pricingPlan.buyerName || '买手-阿乐',
+        confirmedAt: '2026-08-04 17:20:00',
+      })
+    }
     updateTechnicalDataVersionRecord(currentVersion.technicalVersionId, {
       versionStatus: 'PUBLISHED',
       reviewStage: '已发布',
@@ -596,12 +617,17 @@ export interface EngineeringMasterDetailModel {
   priorResultCandidateGroups: EngineeringPriorResultCandidateGroup[]
   taskPlanSuggestions: EngineeringTaskPlanSuggestion[]
   bomSummary: {
+    pricingPlanId: string
+    planStatus: 'DRAFT' | 'HANDED_OFF' | 'COMPLETED_CONFIRMED' | 'PUBLISHED_SNAPSHOT' | ''
     versionIds: string[]
     versionCodes: string[]
     colorCount: number
     materialLineCount: number
     sourceVersionCount: number
+    customCostCount: number
+    customCostDecisionText: string
     statusText: string
+    buyerId: string
     buyerName: string
     updatedAt: string
     conditions: EngineeringBomTaskConditions
@@ -633,9 +659,10 @@ function buildTaskPlanSuggestions(
   preparationType: EngineeringPreparationType | '' = record.preparationType,
 ): EngineeringTaskPlanSuggestion[] {
   if (!preparationType) return []
-  const bomRows = buildEngineeringBomTaskRows(
-    listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', record.masterOrderId),
-  )
+  const pricingPlan = getEngineeringBomPricingPlan('ENGINEERING_MASTER', record.masterOrderId)
+  const bomRows = pricingPlan?.status === 'COMPLETED_CONFIRMED'
+    ? buildEngineeringBomTaskRows(listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', record.masterOrderId))
+    : []
   const conditions: EngineeringBomTaskConditions = {
     hasPrintRequirement: bomRows.some((line) => line.printRequirement === '是'),
     hasYarnDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
@@ -855,7 +882,8 @@ export function buildEngineeringMasterDetailModel(
   })
 
   const bomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', record.masterOrderId)
-  const bomRows = buildEngineeringBomTaskRows(bomVersions)
+  const pricingPlan = getEngineeringBomPricingPlan('ENGINEERING_MASTER', record.masterOrderId)
+  const bomRows = pricingPlan?.status === 'COMPLETED_CONFIRMED' ? buildEngineeringBomTaskRows(bomVersions) : []
   const bomConditions: EngineeringBomTaskConditions = {
     hasPrintRequirement: bomRows.some((line) => line.printRequirement === '是'),
     hasYarnDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
@@ -880,16 +908,23 @@ export function buildEngineeringMasterDetailModel(
     priorResultCandidateGroups,
     taskPlanSuggestions: buildTaskPlanSuggestions(record, style, effectivePreparationType),
     bomSummary: {
+      pricingPlanId: pricingPlan?.pricingPlanId || '',
+      planStatus: pricingPlan?.status || '',
       versionIds: bomVersions.map((item) => item.bomDraftVersionId),
       versionCodes: bomVersions.map((item) => item.versionCode),
       colorCount: bomVersions.length,
       materialLineCount: bomVersions.reduce((sum, item) => sum + item.materialLines.length, 0),
       sourceVersionCount: bomVersions.filter((item) => Boolean(item.sourceVersionId)).length,
-      statusText: bomVersions.length === 0
+      customCostCount: pricingPlan?.customCosts.length || 0,
+      customCostDecisionText: pricingPlan?.customCostDecision === 'HAS_CUSTOM_COST'
+        ? `${pricingPlan.customCosts.length} 项整款费用`
+        : pricingPlan?.customCostDecision === 'NO_CUSTOM_COST' ? '本次无自定义费用' : '费用情况待买手确认',
+      statusText: bomVersions.length === 0 || !pricingPlan
         ? '未建立'
-        : bomVersions.every((item) => item.versionStatus === 'COMPLETED_CONFIRMED') ? '已完成且已确认' : '草稿',
-      buyerName: bomVersions.find((item) => item.buyerName && item.buyerName !== '待分配买手')?.buyerName || '待分配买手',
-      updatedAt: bomVersions.map((item) => item.updatedAt).sort().at(-1) || record.createdAt,
+        : pricingPlan.status === 'COMPLETED_CONFIRMED' ? '已完成且已确认' : '待买手确认',
+      buyerId: pricingPlan?.buyerId || '',
+      buyerName: pricingPlan?.buyerName || '待分配买手',
+      updatedAt: pricingPlan?.updatedAt || record.createdAt,
       conditions: bomConditions,
     },
   }

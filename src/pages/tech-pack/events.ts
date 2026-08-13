@@ -45,7 +45,10 @@ import {
   saveTechnicalDataVersionBomMaterialLine,
 } from '../../data/pcs-engineering-bom-pricing.ts'
 import { getTechnicalDataVersionContent } from '../../data/pcs-technical-data-version-repository.ts'
-import type { EngineeringBomOperatorRole } from '../../data/pcs-engineering-bom-types.ts'
+import type {
+  EngineeringBomCustomCostDecision,
+  EngineeringBomOperatorRole,
+} from '../../data/pcs-engineering-bom-types.ts'
 import type {
   TechnicalGarmentDifficultyGrade,
   TechnicalModuleKey,
@@ -1825,7 +1828,12 @@ function updateCurrentBomCustomCost(
   if (!content) return
   const customCosts = (content.bomCustomCosts ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
   try {
-    const workspace = saveTechnicalDataVersionBomCustomCosts(technicalVersionId, customCosts, getCurrentEngineeringBomRole())
+    const workspace = saveTechnicalDataVersionBomCustomCosts(
+      technicalVersionId,
+      customCosts,
+      getCurrentEngineeringBomRole(),
+      content.bomCustomCostDecision,
+    )
     const workspaceRoot = node.closest('[data-testid="bom-pricing-workspace"]')
     if (workspaceRoot) refreshBomPricingWorkspaceLocally({ root: workspaceRoot, workspace, technicalVersionId })
   } catch (error) {
@@ -2766,6 +2774,22 @@ function handleTechPackField(
   }
   if (field === 'bom-custom-cost-amount-idr') {
     updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) })
+    return true
+  }
+  if (field === 'bom-custom-cost-decision') {
+    const technicalVersionId = state.currentTechnicalVersionId
+    const content = technicalVersionId ? getTechnicalDataVersionContent(technicalVersionId) : null
+    if (!technicalVersionId || !content) return true
+    try {
+      saveTechnicalDataVersionBomCustomCosts(
+        technicalVersionId,
+        value === 'HAS_CUSTOM_COST' ? (content.bomCustomCosts ?? []) : [],
+        getCurrentEngineeringBomRole(),
+        value as EngineeringBomCustomCostDecision,
+      )
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '保存本次费用情况失败。')
+    }
     return true
   }
 
@@ -4205,6 +4229,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         technicalVersionId,
         [...(content.bomCustomCosts ?? []), { title: `自定义费用-${(content.bomCustomCosts?.length ?? 0) + 1}`, amountIdr: 0 }],
         getCurrentEngineeringBomRole(),
+        'HAS_CUSTOM_COST',
       )
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '添加自定义费用失败。')
@@ -4221,6 +4246,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         technicalVersionId,
         (content.bomCustomCosts ?? []).filter((_, index) => index !== costIndex),
         getCurrentEngineeringBomRole(),
+        (content.bomCustomCosts ?? []).length === 1 ? 'UNDECIDED' : 'HAS_CUSTOM_COST',
       )
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '删除自定义费用失败。')

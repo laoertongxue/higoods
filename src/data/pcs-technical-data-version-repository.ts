@@ -280,6 +280,8 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
     sizeTable: cloneSizeTable(content.sizeTable),
     bomItems: cloneBomItems(content.bomItems),
     bomCustomCosts: (content.bomCustomCosts ?? []).map((item) => ({ ...item })),
+    bomCustomCostDecision: content.bomCustomCostDecision
+      ?? ((content.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
     bomPricingSnapshot: normalizeBomPricingSnapshot(content),
     qualityRules: cloneQualityRules(content.qualityRules),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
@@ -503,6 +505,8 @@ function createEmptyContent(technicalVersionId: string): TechnicalDataVersionCon
     processEntries: [],
     sizeTable: [],
     bomItems: [],
+    bomCustomCosts: [],
+    bomCustomCostDecision: 'UNDECIDED',
     qualityRules: [],
     colorMaterialMappings: [],
     patternDesigns: [],
@@ -571,6 +575,8 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
     bomCustomCosts: Array.isArray(content.bomCustomCosts) ? content.bomCustomCosts.map((item) => ({ ...item })) : [],
+    bomCustomCostDecision: content.bomCustomCostDecision
+      ?? (Array.isArray(content.bomCustomCosts) && content.bomCustomCosts.length > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
     bomPricingSnapshot: normalizeBomPricingSnapshot(content),
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),
     colorMaterialMappings: cloneColorMappings(

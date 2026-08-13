@@ -20,8 +20,9 @@ import type {
 import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 import {
   captureEngineeringBomRepositoryState,
-  confirmEngineeringBomVersion,
+  copyEngineeringBomPricingPlan,
   createEngineeringBomVersionsForOwner,
+  getEngineeringBomPricingPlan,
   listEngineeringBomVersionsByOwner,
   restoreEngineeringBomRepositoryState,
 } from './pcs-engineering-bom-repository.ts'
@@ -171,7 +172,11 @@ function collectEngineeringOutputs(
     processEntries: [],
     sizeTable: [],
     bomItems,
-    bomCustomCosts: bomVersions.flatMap((version) => version.customCosts.map((item) => ({ ...item }))),
+    // 自定义费用属于整款方案，只汇总一次，不能按颜色重复计入。
+    bomCustomCosts: (getEngineeringBomPricingPlan('TECH_PACK_DRAFT', technicalVersionId)?.customCosts || [])
+      .map((item) => ({ ...item })),
+    bomCustomCostDecision: getEngineeringBomPricingPlan('TECH_PACK_DRAFT', technicalVersionId)?.customCostDecision
+      ?? 'UNDECIDED',
     qualityRules: [],
     patternDesigns: artworkLines.flatMap((line) => [...line.resultFileIds, ...line.effectImageIds].map((url, index) => ({
       id: `${line.materialLineId}-ART-${index + 1}`,
@@ -252,8 +257,11 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
     && task.status !== '已完成',
   )
   const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
-  const unfinishedBomVersions = engineeringBomVersions.filter((version) => version.versionStatus !== 'COMPLETED_CONFIRMED' || version.materialLines.length === 0)
-  const canGenerate = !latestVersion && pendingTasks.length === 0 && engineeringBomVersions.length > 0 && unfinishedBomVersions.length === 0
+  const engineeringPricingPlan = getEngineeringBomPricingPlan('ENGINEERING_MASTER', master.masterOrderId)
+  const hasCompleteBomPricing = engineeringPricingPlan?.status === 'COMPLETED_CONFIRMED'
+    && engineeringBomVersions.length > 0
+    && engineeringBomVersions.every((version) => version.materialLines.length > 0)
+  const canGenerate = !latestVersion && pendingTasks.length === 0 && hasCompleteBomPricing
   return {
     latestVersion,
     versions,
@@ -279,8 +287,8 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
         ? `以下任务尚未完成：${pendingTasks.map((task) => task.taskName).join('、')}`
         : engineeringBomVersions.length === 0
           ? '工程主单尚未建立 BOM 与价格版本。'
-          : unfinishedBomVersions.length > 0
-            ? `以下 BOM 与价格版本尚未由买手确认：${unfinishedBomVersions.map((version) => `${version.productColor} ${version.versionCode}`).join('、')}`
+          : !hasCompleteBomPricing
+            ? '工程整款 BOM 与价格尚未由买手确认。'
         : '',
   }
 }
@@ -304,7 +312,7 @@ export function createEngineeringMasterTechPackDraft(
   const bomSnapshot = captureEngineeringBomRepositoryState()
   const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
   const confirmedBuyer = engineeringBomVersions.find((item) => item.buyerId && item.buyerName)
-  const technicalBomVersions = createEngineeringBomVersionsForOwner({
+  createEngineeringBomVersionsForOwner({
     ownerStage: 'TECH_PACK_DRAFT',
     ownerId: identity.technicalVersionId,
     ownerCode: identity.technicalVersionCode,
@@ -314,15 +322,15 @@ export function createEngineeringMasterTechPackDraft(
     createdBy: operator,
     createdAt: identity.timestamp,
   })
-  technicalBomVersions.forEach((version) => {
-    confirmEngineeringBomVersion({
-      versionId: version.bomDraftVersionId,
-      role: '买手',
-      userId: confirmedBuyer?.buyerId || 'BUYER-SYSTEM',
-      userName: confirmedBuyer?.buyerName || '买手确认',
-      confirmedAt: identity.timestamp,
-    })
+  copyEngineeringBomPricingPlan({
+    sourceOwnerStage: 'ENGINEERING_MASTER',
+    sourceOwnerId: master.masterOrderId,
+    targetOwnerStage: 'TECH_PACK_DRAFT',
+    targetOwnerId: identity.technicalVersionId,
+    copiedBy: operator,
+    copiedAt: identity.timestamp,
   })
+  const technicalBomVersions = listEngineeringBomVersionsByOwner('TECH_PACK_DRAFT', identity.technicalVersionId)
   const content = collectEngineeringOutputs(master, identity.technicalVersionId, technicalBomVersions)
   const hasPattern = content.patternFiles.length > 0
   const missingItemCodes = [...(hasPattern ? [] : ['PATTERN']), 'PROCESS', 'SIZE', 'QUALITY']

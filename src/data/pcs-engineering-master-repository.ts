@@ -16,16 +16,22 @@ import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.t
 import {
   buildEngineeringBomTaskRows,
   captureEngineeringBomRepositoryState,
+  confirmEngineeringBomPricingPlan,
   confirmEngineeringBomVersion,
+  copyEngineeringBomPricingPlan,
   createEngineeringBomVersionsForOwner,
   getEngineeringBomVersionById,
+  listEngineeringBomVersionsByOwner,
   restoreEngineeringBomRepositoryState,
   saveEngineeringBomVersion,
 } from './pcs-engineering-bom-repository.ts'
 import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft, EngineeringBomOperatorRole } from './pcs-engineering-bom-types.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import { assertFirstProductionQualification } from './pcs-engineering-first-production-policy.ts'
-import { listReusableEngineeringIndependentProfessionalResults } from './pcs-engineering-master-sampling.ts'
+import {
+  listReusableEngineeringIndependentProfessionalResults,
+  listReusableEngineeringIndependentSamplingResults,
+} from './pcs-engineering-master-sampling.ts'
 import {
   getStyleArchiveById,
   findStyleArchiveByCode,
@@ -384,13 +390,31 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   const masterOrderId = `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`
   const masterOrderCode = nextMasterOrderCode(snapshot.records)
   const bomRepositoryState = captureEngineeringBomRepositoryState()
-  const bomVersions = createEngineeringBomVersionsForOwner({
-    ownerStage: 'ENGINEERING_MASTER',
-    ownerId: masterOrderId,
-    ownerCode: masterOrderCode,
-    styleId: style.styleId,
-    createdBy: input.createdBy,
-  })
+  let bomVersions: ReturnType<typeof listEngineeringBomVersionsByOwner>
+  try {
+    createEngineeringBomVersionsForOwner({
+      ownerStage: 'ENGINEERING_MASTER',
+      ownerId: masterOrderId,
+      ownerCode: masterOrderCode,
+      styleId: style.styleId,
+      createdBy: input.createdBy,
+    })
+    const reusableSampling = listReusableEngineeringIndependentSamplingResults(style.styleCode)[0]
+    if (reusableSampling) {
+      copyEngineeringBomPricingPlan({
+        sourceOwnerStage: 'INDEPENDENT_SAMPLING',
+        sourceOwnerId: reusableSampling.samplingTaskId,
+        targetOwnerStage: 'ENGINEERING_MASTER',
+        targetOwnerId: masterOrderId,
+        copiedBy: input.createdBy,
+        allowHandedOffSource: true,
+      })
+    }
+    bomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', masterOrderId)
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(bomRepositoryState)
+    throw error
+  }
 
   const record: EngineeringMasterOrderRecord = {
     masterOrderId,
@@ -1346,22 +1370,33 @@ export function saveEngineeringMasterBomVersion(input: {
   userId: string
   userName: string
   materialLines: EngineeringBomMaterialLineDraft[]
-  customCosts: EngineeringBomCustomCostDraft[]
+  /** @deprecated 自定义费用由整款 BOM 与价格方案统一维护。 */
+  customCosts?: EngineeringBomCustomCostDraft[]
 }): ReturnType<typeof saveEngineeringBomVersion> {
+  return saveEngineeringBomVersion(input)
+}
+
+export function confirmEngineeringMasterBomPricingPlan(input: {
+  masterOrderId: string
+  role: EngineeringBomOperatorRole
+  userId: string
+  userName: string
+}): ReturnType<typeof confirmEngineeringBomPricingPlan> {
+  const master = getEngineeringMasterOrderById(input.masterOrderId)
+  if (!master) throw new Error('工程主单不存在。')
   const beforeBom = captureEngineeringBomRepositoryState()
   const beforeMaster = readSnapshot()
   try {
-    const saved = saveEngineeringBomVersion(input)
-    if (saved.ownerStage === 'ENGINEERING_MASTER') {
-      const master = getEngineeringMasterOrderById(saved.ownerId)
-      if (master?.tasks.length) {
-        const versions = master.bomVersionIds
-          .map((versionId) => getEngineeringBomVersionById(versionId))
-          .filter((item): item is NonNullable<typeof item> => Boolean(item))
-        applyBomRequirementsToEngineeringTasks(master.masterOrderId, buildEngineeringBomTaskRows(versions))
-      }
-    }
-    return saved
+    const confirmed = confirmEngineeringBomPricingPlan({
+      ownerStage: 'ENGINEERING_MASTER',
+      ownerId: master.masterOrderId,
+      role: input.role,
+      userId: input.userId,
+      userName: input.userName,
+    })
+    const versions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
+    applyBomRequirementsToEngineeringTasks(master.masterOrderId, buildEngineeringBomTaskRows(versions))
+    return confirmed
   } catch (error) {
     restoreEngineeringBomRepositoryState(beforeBom)
     writeSnapshot(beforeMaster)
@@ -1375,7 +1410,15 @@ export function confirmEngineeringMasterBomVersion(input: {
   userId: string
   userName: string
 }): ReturnType<typeof confirmEngineeringBomVersion> {
-  return confirmEngineeringBomVersion(input)
+  const version = getEngineeringBomVersionById(input.versionId)
+  if (!version || version.ownerStage !== 'ENGINEERING_MASTER') throw new Error('工程主单 BOM 与价格版本不存在。')
+  confirmEngineeringMasterBomPricingPlan({
+    masterOrderId: version.ownerId,
+    role: input.role,
+    userId: input.userId,
+    userName: input.userName,
+  })
+  return getEngineeringBomVersionById(input.versionId)!
 }
 
 export interface SubmitEngineeringTaskResultInput {

@@ -16,8 +16,9 @@ import {
 } from '../../src/data/pcs-technical-data-version-repository.ts'
 import { activateTechPackVersionForStyle } from '../../src/data/pcs-tech-pack-version-activation.ts'
 import {
-  confirmEngineeringBomVersion,
+  confirmEngineeringBomPricingPlan,
   createEngineeringBomVersionsForOwner,
+  saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
 } from '../../src/data/pcs-engineering-bom-repository.ts'
 import type {
@@ -175,12 +176,22 @@ export function closeEngineeringMasterForFixture(masterOrderId: string, operator
       }],
       customCosts: [],
     })
-    confirmEngineeringBomVersion({
-      versionId: version.bomDraftVersionId,
-      role: '买手',
-      userId: 'BUYER-FIXTURE',
-      userName: '测试买手',
-    })
+  })
+  saveEngineeringBomPricingPlan({
+    ownerStage: 'TECH_PACK_DRAFT',
+    ownerId: versionId,
+    role: '买手',
+    userId: 'BUYER-FIXTURE',
+    userName: '测试买手',
+    customCostDecision: 'NO_CUSTOM_COST',
+    customCosts: [],
+  })
+  confirmEngineeringBomPricingPlan({
+    ownerStage: 'TECH_PACK_DRAFT',
+    ownerId: versionId,
+    role: '买手',
+    userId: 'BUYER-FIXTURE',
+    userName: '测试买手',
   })
   activateTechPackVersionForStyle(master.styleId, versionId, operatorName)
   closeEngineeringMasterOrder(masterOrderId, operatorName)

@@ -1,4 +1,7 @@
-import type { EngineeringBomResolvedDraft } from '../../data/pcs-engineering-bom-types.ts'
+import type {
+  EngineeringBomCustomCostDecision,
+  EngineeringBomResolvedDraft,
+} from '../../data/pcs-engineering-bom-types.ts'
 import { getTechnicalDataVersionBomWorkspace } from '../../data/pcs-engineering-bom-pricing.ts'
 import { getTechnicalDataVersionContent } from '../../data/pcs-technical-data-version-repository.ts'
 import { getTechPackReviewerById } from '../../data/pcs-tech-pack-reviewer-directory.ts'
@@ -101,6 +104,7 @@ export function renderBomPricingWorkspace(input: {
   customCostPage?: number
   pageSize?: number
   bomItemIds?: string[]
+  customCostDecision?: EngineeringBomCustomCostDecision
 }): string {
   const pageSize = input.pageSize ?? DEFAULT_PAGE_SIZE
   const materialTotalPages = Math.max(1, Math.ceil(input.workspace.materialLines.length / pageSize))
@@ -174,9 +178,18 @@ export function renderBomPricingWorkspace(input: {
       </section>
 
       <section class="rounded-lg border bg-card">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <h3 class="text-base font-semibold">自定义费用（IDR）</h3>
-          ${input.editable ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="add-bom-custom-cost">添加费用</button>' : ''}
+        <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <div><h3 class="text-base font-semibold">自定义费用（IDR）</h3><p class="mt-1 text-xs text-muted-foreground">费用与上方物料属于同一份 BOM 与价格，由买手在同一审核节点确认。</p></div>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-sm text-slate-600">本次费用情况
+              <select class="ml-2 h-9 rounded border px-3" data-tech-field="bom-custom-cost-decision" ${input.editable ? '' : 'disabled'}>
+                <option value="UNDECIDED" ${(input.customCostDecision ?? 'UNDECIDED') === 'UNDECIDED' ? 'selected' : ''}>请选择</option>
+                <option value="NO_CUSTOM_COST" ${input.customCostDecision === 'NO_CUSTOM_COST' ? 'selected' : ''}>本次无自定义费用</option>
+                <option value="HAS_CUSTOM_COST" ${input.customCostDecision === 'HAS_CUSTOM_COST' ? 'selected' : ''}>本次有自定义费用</option>
+              </select>
+            </label>
+            ${input.editable ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="add-bom-custom-cost">添加费用</button>' : ''}
+          </div>
         </header>
         <div class="overflow-x-auto">
           <table class="min-w-[720px] w-full text-sm">
@@ -226,6 +239,8 @@ export function renderCostTab(): string {
       customCostPage,
       pageSize: DEFAULT_PAGE_SIZE,
       bomItemIds: content?.bomItems.map((item) => item.id),
+      customCostDecision: content?.bomCustomCostDecision
+        ?? ((content?.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : '读取 BOM 与价格失败。'

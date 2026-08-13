@@ -13,8 +13,22 @@ import {
   getNextTechnicalVersionIdentity,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository'
+import {
+  captureEngineeringBomRepositoryState,
+  createEngineeringBomVersionsForOwner,
+  getEngineeringBomPricingPlan,
+  listEngineeringBomVersionsByOwner,
+  replaceEngineeringBomPricingPlanDraft,
+  resolveEngineeringBomPricingPlan,
+  restoreEngineeringBomRepositoryState,
+} from './pcs-engineering-bom-repository'
+import {
+  technicalBomItemToEngineeringLine,
+} from './pcs-engineering-bom-pricing'
+import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver'
 import { submitTechPackFirstStageReview } from './pcs-tech-pack-review'
 import {
   assertEngineeringUploadedFilesReady,
@@ -243,12 +257,21 @@ export function listEngineeringChangeModificationOptions(sourceMasterOrderId: st
   if (!current || current.versionStatus !== 'PUBLISHED' || !content) return []
 
   const options: EngineeringChangeModificationOption[] = []
-  content.bomItems.forEach((item) => options.push(option({
-    itemKind: 'BOM_ITEM', treatment: 'BOM_EDIT', moduleKey: 'BOM',
-    label: `用料：${item.name}${item.colorLabel ? `（${item.colorLabel}）` : ''}`,
-    sourceObjectId: item.id, sourceObjectLabel: item.materialCode || item.name,
-    sourceObjectSnapshot: JSON.stringify(item), executionTeamName: '买手',
-  })))
+  if (content.bomItems.length > 0 || (content.bomCustomCosts?.length ?? 0) > 0 || content.bomCustomCostDecision) {
+    const costDecision = content.bomCustomCostDecision
+      ?? ((content.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED')
+    options.push(option({
+      itemKind: 'BOM_ITEM', treatment: 'BOM_EDIT', moduleKey: 'BOM',
+      label: '用料与成本',
+      sourceObjectId: 'BOM_AND_PRICING', sourceObjectLabel: '整款用料与成本',
+      sourceObjectSnapshot: JSON.stringify({
+        bomItems: content.bomItems,
+        bomCustomCosts: content.bomCustomCosts ?? [],
+        bomCustomCostDecision: costDecision,
+      }),
+      executionTeamName: '买手',
+    }))
+  }
   content.patternFiles.forEach((item) => {
     const classified = classifyPatternTask(`${item.patternName || ''} ${item.patternCategory || ''} ${item.fileName || ''}`)
     options.push(option({
@@ -356,7 +379,48 @@ function createWorkingTechnicalDraft(
     createdAt: timestamp, createdBy: operatorName, updatedAt: timestamp, updatedBy: operatorName,
     note: `工程变更 ${change.engineeringChangeTaskCode} 的下一版资料`,
   }
-  return createTechnicalDataVersionDraft(record, copyTechnicalContent(baseContent, record.technicalVersionId))
+  const bomSnapshot = captureEngineeringBomRepositoryState()
+  try {
+    return runTechnicalDataVersionRepositoryTransaction(() => {
+      const created = createTechnicalDataVersionDraft(record, copyTechnicalContent(baseContent, record.technicalVersionId))
+      createEngineeringBomVersionsForOwner({
+        ownerStage: 'TECH_PACK_DRAFT',
+        ownerId: record.technicalVersionId,
+        ownerCode: record.technicalVersionCode,
+        styleId: record.styleId,
+        buyerName: record.buyerName,
+        createdBy: operatorName,
+        createdAt: timestamp,
+      })
+      if (baseContent.bomItems.length > 0) {
+        const groups = new Map<string, TechnicalDataVersionContent['bomItems']>()
+        baseContent.bomItems.forEach((item) => {
+          const color = item.colorLabel?.trim() || '默认颜色'
+          groups.set(color, [...(groups.get(color) || []), item])
+        })
+        replaceEngineeringBomPricingPlanDraft({
+          ownerStage: 'TECH_PACK_DRAFT',
+          ownerId: record.technicalVersionId,
+          role: '买手',
+          userId: `BUYER-${record.technicalVersionId}`,
+          userName: record.buyerName || '待分配买手',
+          colors: [...groups.entries()].map(([productColor, items]) => ({
+            productColor,
+            applicableSkuIds: [...new Set(items.flatMap((item) => item.applicableSkuCodes || []))],
+            materialLines: items.map((item) => technicalBomItemToEngineeringLine(item, record.styleCode)),
+          })),
+          customCostDecision: baseContent.bomCustomCostDecision
+            ?? ((baseContent.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
+          customCosts: baseContent.bomCustomCosts ?? [],
+          updatedAt: timestamp,
+        })
+      }
+      return created
+    })
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(bomSnapshot)
+    throw error
+  }
 }
 
 function deriveStatus(workspace: EngineeringChangeWorkspaceRecord): EngineeringChangeWorkspaceStatus {
@@ -648,13 +712,76 @@ export function reviewEngineeringChangeTaskLine(input: {
 }
 
 function currentDirectObject(content: TechnicalDataVersionContent, item: EngineeringChangeItem): unknown {
-  if (item.itemKind === 'BOM_ITEM') return content.bomItems.find((entry) => entry.id === item.sourceObjectId)
+  if (item.itemKind === 'BOM_ITEM') return {
+    bomItems: content.bomItems,
+    bomCustomCosts: content.bomCustomCosts ?? [],
+    bomCustomCostDecision: content.bomCustomCostDecision
+      ?? ((content.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
+  }
   if (item.itemKind === 'PROCESS') return content.processEntries.find((entry) => entry.id === item.sourceObjectId)
   if (item.itemKind === 'SIZE_DATA') return content.sizeTable.find((entry) => entry.id === item.sourceObjectId)
   if (item.itemKind === 'DESIGN') return content.patternDesc || ''
   if (item.itemKind === 'ATTACHMENT') return content.attachments.find((entry) => entry.id === item.sourceObjectId)
   if (item.itemKind === 'QUALITY') return content.qualityRules.find((entry) => entry.id === item.sourceObjectId)
   return undefined
+}
+
+function syncEngineeringChangeBomPricingToTechnicalContent(technicalVersionId: string): TechnicalDataVersionContent {
+  const plan = getEngineeringBomPricingPlan('TECH_PACK_DRAFT', technicalVersionId)
+  if (!plan) throw new Error('下一版技术包尚未建立用料与成本。')
+  if (plan.customCostDecision === 'UNDECIDED') {
+    throw new Error('请先由买手确认本次是否有自定义费用。没有费用时请选择“本次无自定义费用”。')
+  }
+  if (plan.customCostDecision === 'HAS_CUSTOM_COST' && plan.customCosts.length === 0) {
+    throw new Error('已选择“本次有自定义费用”，请至少填写一项费用。')
+  }
+  const versions = listEngineeringBomVersionsByOwner('TECH_PACK_DRAFT', technicalVersionId)
+  if (!versions.length) throw new Error('请先维护至少一个颜色的物料。')
+  const missingColors = versions.filter((version) => version.materialLines.length === 0).map((version) => version.productColor)
+  if (missingColors.length) throw new Error(`以下颜色尚未维护物料：${missingColors.join('、')}。`)
+  const resolved = resolveEngineeringBomPricingPlan('TECH_PACK_DRAFT', technicalVersionId)
+  const invalidMaterials = resolved.resolved.materialLines
+    .filter((line) => line.priceStatus === '标准单价失效')
+    .map((line) => line.materialSkuCode)
+  if (invalidMaterials.length) throw new Error(`以下物料标准单价失效：${[...new Set(invalidMaterials)].join('、')}。`)
+  const bomItems: TechnicalDataVersionContent['bomItems'] = versions.flatMap((version) => version.materialLines.map((line) => {
+    const material = resolveEngineeringBomMaterialLine(line)
+    const type = ['面料', '辅料', '包装材料', '成衣'].includes(material.materialType || '')
+      ? material.materialType as TechnicalDataVersionContent['bomItems'][number]['type']
+      : '其他'
+    return {
+      id: material.bomItemId || `${version.bomDraftVersionId}-${material.materialSkuId}`,
+      type,
+      name: material.materialName,
+      spec: material.specification || '',
+      materialCode: material.materialCode,
+      materialSkuId: material.materialSkuId,
+      unit: material.usageUnit,
+      colorLabel: version.productColor,
+      unitConsumption: material.usage,
+      sampleQuantity: material.sampleQuantity,
+      lossRate: material.lossRate,
+      supplier: '',
+      printRequirement: material.printRequirementText || material.printRequirement || '否',
+      dyeRequirement: material.dyeRequirementText || material.dyeRequirement || '否',
+      shrinkRequirement: material.shrinkRequirementText && material.shrinkRequirementText !== '无' ? '是' : '否',
+      washRequirement: material.washRequirementText && material.washRequirementText !== '无' ? '是' : '否',
+      waterSolubleRequirement: material.waterSolubleRequirementText && material.waterSolubleRequirementText !== '无' ? '是' : '否',
+      printSideMode: material.printSide === '双面' ? 'DOUBLE' : material.printSide === '反面' ? 'REVERSE' : material.printSide === '正面' ? 'SINGLE' : '',
+      applicableSkuCodes: [...version.applicableSkuIds],
+      linkedPatternIds: [...(material.linkedPatternResultIds || [])],
+      usageProcessCodes: material.processCode ? [material.processCode] : [],
+      remark: material.remark || '',
+    }
+  }))
+  updateTechnicalDataVersionContent(technicalVersionId, {
+    bomItems,
+    bomCustomCosts: plan.customCosts.map((item) => ({ ...item })),
+    bomCustomCostDecision: plan.customCostDecision,
+  })
+  const next = getTechnicalDataVersionContent(technicalVersionId)
+  if (!next) throw new Error('用料与成本已保存，但未能刷新下一版技术包。')
+  return next
 }
 
 export function completeEngineeringChangeDirectItem(changeId: string, itemId: string, actor: EngineeringTeamOperator): EngineeringChangeWorkspaceRecord {
@@ -664,8 +791,11 @@ export function completeEngineeringChangeDirectItem(changeId: string, itemId: st
   if (!item || item.treatment === 'PROFESSIONAL_TASK') throw new Error('未找到需要直接修改的内容。')
   assertTeam(actor, item.currentTeamName || item.executionTeamName || '跟单', '本项修改')
   if (item.status === '已完成') throw new Error('本项修改已经完成。')
-  const content = getTechnicalDataVersionContent(workspace.newTechnicalVersionId)
+  let content = getTechnicalDataVersionContent(workspace.newTechnicalVersionId)
   if (!content) throw new Error('未找到下一版技术包。')
+  if (item.itemKind === 'BOM_ITEM') {
+    content = syncEngineeringChangeBomPricingToTechnicalContent(workspace.newTechnicalVersionId)
+  }
   if (JSON.stringify(currentDirectObject(content, item)) === item.sourceObjectSnapshot) throw new Error('本项内容尚未发生修改，请先进入下一版技术包完成修改。')
   item.status = '已完成'
   item.currentTeamName = ''

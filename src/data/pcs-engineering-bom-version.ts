@@ -98,7 +98,7 @@ export function normalizeEngineeringBomDraftSkuScope(
   normalized.applicableSkuIds = [...applicableSkuIds]
   normalized.materialLines = normalized.materialLines.map((line) => {
     const lineColor = line.productColor?.trim() || productColor
-    if (lineColor !== productColor) throw new Error('同一 BOM 与价格草稿只能维护一个商品颜色。')
+    if (lineColor !== productColor) throw new Error('同一颜色物料方案只能维护一个商品颜色。')
     const lineRequestedSkuIds = (line.applicableSkuIds || []).map((item) => item.trim()).filter(Boolean)
     const lineSkuIds = lineRequestedSkuIds.length > 0 ? lineRequestedSkuIds : applicableSkuIds
     if (new Set(lineSkuIds).size !== lineSkuIds.length) throw new Error('BOM 物料行适用 SKU 范围存在重复项。')
@@ -114,8 +114,12 @@ export function copyEngineeringBomDraftVersion(input: {
   targetVersionId: string
   copiedAt: string
   copiedBy: string
+  /** 仅供已交接的独立打样整款方案承接到工程主单。 */
+  allowHandedOffSource?: boolean
 }): EngineeringBomDraft {
-  if (!['COMPLETED_CONFIRMED', 'PUBLISHED_SNAPSHOT'].includes(input.source.versionStatus)) {
+  const sourceIsReusable = ['COMPLETED_CONFIRMED', 'PUBLISHED_SNAPSHOT'].includes(input.source.versionStatus)
+    || (input.allowHandedOffSource === true && input.source.versionStatus === 'DRAFT')
+  if (!sourceIsReusable) {
     throw new Error('只能承接已完成确认或已形成正式技术包的 BOM 与价格方案。')
   }
   if (!input.source.bomDraftVersionId?.trim()) throw new Error('来源 BOM 版本缺少版本号。')

@@ -22,12 +22,15 @@ import {
   submitEngineeringIndependentProfessionalTask,
 } from '../src/data/pcs-engineering-master-sampling.ts'
 import {
-  confirmEngineeringBomVersion,
+  confirmEngineeringBomPricingPlan,
   createEngineeringBomVersionsForOwner,
   getEngineeringBomVersionById,
+  getEngineeringBomPricingPlan,
   listEngineeringBomHistory,
   listEngineeringBomVersions,
   resetEngineeringBomRepository,
+  resolveEngineeringBomPricingPlan,
+  saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
 } from '../src/data/pcs-engineering-bom-repository.ts'
 import { captureEngineeringUploadedFiles, validateEngineeringUploadFile } from '../src/data/pcs-engineering-file-upload.ts'
@@ -138,8 +141,19 @@ assert.equal(
   '独立打样记录重新初始化时不得覆盖已有 BOM 内容和状态',
 )
 const confirmedSeedVersionId = revisionSeeds[0]!.bomVersionIds[0]!
-confirmEngineeringBomVersion({
-  versionId: confirmedSeedVersionId,
+const confirmedSeedVersion = getEngineeringBomVersionById(confirmedSeedVersionId)!
+saveEngineeringBomPricingPlan({
+  ownerStage: confirmedSeedVersion.ownerStage,
+  ownerId: confirmedSeedVersion.ownerId,
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'NO_CUSTOM_COST',
+  customCosts: [],
+})
+confirmEngineeringBomPricingPlan({
+  ownerStage: confirmedSeedVersion.ownerStage,
+  ownerId: confirmedSeedVersion.ownerId,
   role: '买手',
   userId: buyer.userId,
   userName: buyer.userName,
@@ -189,7 +203,22 @@ sourceBomVersions.forEach((version, index) => {
     }],
     customCosts: [],
   })
-  confirmEngineeringBomVersion({ versionId: version.bomDraftVersionId, role: '买手', userId: buyer.userId, userName: buyer.userName })
+})
+saveEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: 'SOURCE-CONFIRMED-BOM',
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'NO_CUSTOM_COST',
+  customCosts: [],
+})
+confirmEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: 'SOURCE-CONFIRMED-BOM',
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
 })
 
 const latestSourceBomVersions = createEngineeringBomVersionsForOwner({
@@ -216,13 +245,23 @@ latestSourceBomVersions.forEach((version, index) => {
     customCosts: [],
     updatedAt: '2026-08-03 10:05:00',
   })
-  confirmEngineeringBomVersion({
-    versionId: version.bomDraftVersionId,
-    role: '买手',
-    userId: buyer.userId,
-    userName: buyer.userName,
-    confirmedAt: '2026-08-03 10:10:00',
-  })
+})
+saveEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: 'SOURCE-CONFIRMED-BOM-LATEST',
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'NO_CUSTOM_COST',
+  customCosts: [],
+})
+confirmEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: 'SOURCE-CONFIRMED-BOM-LATEST',
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  confirmedAt: '2026-08-03 10:10:00',
 })
 
 const record = createEngineeringIndependentSampling({
@@ -235,7 +274,7 @@ const record = createEngineeringIndependentSampling({
 })
 assert.equal(record.status, 'DRAFT')
 assert.equal(record.professionalTasks.length, 0, '创建打样单时不得提前生成专业任务')
-assert.equal(record.bomVersionIds.length, 0, '创建草稿时不得按目标款档案颜色提前生成 BOM')
+assert.equal(record.bomVersionIds.length, 0, '创建任务时不得按目标款档案颜色提前生成 BOM')
 assert.equal(getEngineeringIndependentSamplingStep(record), 'BUYER_PREPARATION')
 assert.throws(() => confirmEngineeringIndependentSamplingPlan({ samplingTaskId: record.samplingTaskId, actor: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['DISPLAY_SAMPLE'] }), /买手完成目标颜色/)
 
@@ -277,6 +316,15 @@ saveEngineeringBomVersion({
   userId: buyer.userId,
   userName: buyer.userName,
   materialLines: manuallyEditedTarget.materialLines.map((line) => ({ ...line, usage: 9 })),
+  customCosts: [],
+})
+saveEngineeringBomPricingPlan({
+  ownerStage: manuallyEditedTarget.ownerStage,
+  ownerId: manuallyEditedTarget.ownerId,
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'HAS_CUSTOM_COST',
   customCosts: [{ title: '手工试版费', amountIdr: 20_000 }],
 })
 confirmEngineeringIndependentColorMappings({
@@ -289,7 +337,8 @@ confirmEngineeringIndependentColorMappings({
   ],
 })
 assert.equal(getEngineeringBomVersionById(mapped.bomVersionIds[0])!.materialLines[0]?.usage, 9, '重新确认颜色对应不得静默覆盖买手已修改的 BOM')
-assert.equal(getEngineeringBomVersionById(mapped.bomVersionIds[0])!.customCosts[0]?.title, '手工试版费')
+assert.equal(getEngineeringBomPricingPlan(manuallyEditedTarget.ownerStage, manuallyEditedTarget.ownerId)?.customCosts[0]?.title, '手工试版费')
+const sharedCostsBeforeRegenerate = JSON.stringify(getEngineeringBomPricingPlan(manuallyEditedTarget.ownerStage, manuallyEditedTarget.ownerId)?.customCosts)
 const regenerated = regenerateEngineeringIndependentBomFromReference({
   samplingTaskId: record.samplingTaskId,
   targetColor: targetColors[0],
@@ -299,7 +348,11 @@ const regenerated = regenerateEngineeringIndependentBomFromReference({
 const regeneratedBom = getEngineeringBomVersionById(mapped.bomVersionIds[0])!
 const currentSourceBom = listEngineeringBomHistory(styles[0].styleCode, sourceColor)[0]!
 assert.equal(regeneratedBom.materialLines[0]?.usage, currentSourceBom.materialLines[0]?.usage, '明确确认重新生成后才允许重置为参考 BOM')
-assert.equal(regeneratedBom.customCosts.length, currentSourceBom.customCosts.length, '重新生成应同时重置该颜色的自定义费用')
+assert.equal(
+  JSON.stringify(getEngineeringBomPricingPlan(manuallyEditedTarget.ownerStage, manuallyEditedTarget.ownerId)?.customCosts),
+  sharedCostsBeforeRegenerate,
+  '重新生成单个颜色物料时不得改写整款共享费用',
+)
 assert.ok(regenerated.operationLogs.some((log) => log.action === '按参考色重新生成 BOM'))
 const converted = confirmEngineeringIndependentMaterialConversions({
   samplingTaskId: record.samplingTaskId,
@@ -327,6 +380,10 @@ assert.ok(resolvedBomLine.materialImageUrl, 'BOM 物料必须带真实对应图�
 const buyerReady = completeEngineeringIndependentBuyerPreparation({ samplingTaskId: record.samplingTaskId, actor: buyer, completedAt: '2026-08-04 09:08:00' })
 assert.equal(getEngineeringIndependentSamplingStep(buyerReady), 'WORK_PLAN')
 assert.equal(buyerReady.buyerPreparationConfirmedBy, buyer.userName)
+const handoffLogCount = buyerReady.operationLogs.filter((log) => log.action === '完成新款资料准备').length
+const repeatedBuyerReady = completeEngineeringIndependentBuyerPreparation({ samplingTaskId: record.samplingTaskId, actor: buyer, completedAt: '2026-08-04 09:08:01' })
+assert.equal(repeatedBuyerReady.buyerPreparationConfirmedAt, buyerReady.buyerPreparationConfirmedAt, '重复交接不得改写首次交接时间')
+assert.equal(repeatedBuyerReady.operationLogs.filter((log) => log.action === '完成新款资料准备').length, handoffLogCount, '重复交接不得新增重复日志')
 const lockedBom = getEngineeringBomVersionById(buyerReady.bomVersionIds[0])!
 assert.ok(lockedBom.editingLockedAt, '买手完成资料准备后必须锁定所有目标颜色 BOM')
 assert.throws(
@@ -535,6 +592,28 @@ const designMapped = confirmEngineeringIndependentColorMappings({
 })
 assert.equal(designMapped.bomVersionIds.length, 2)
 fillBomVersions(designMapped.bomVersionIds, materialSku.materialSkuId)
+saveEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: colorRecord.samplingTaskId,
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'HAS_CUSTOM_COST',
+  customCosts: [{
+    customCostId: '',
+    title: '车位费',
+    amountIdr: 15000,
+    note: '统一作用于整款',
+    displayOrder: 1,
+    maintainedBy: buyer.userName,
+    maintainedAt: '2026-08-04 19:05:00',
+  }],
+})
+assert.equal(
+  resolveEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', colorRecord.samplingTaskId).resolved.cost.customCostIdr,
+  15000,
+  '多个目标颜色共用一份整款费用，综合成本只能计入一次车位费',
+)
 completeEngineeringIndependentBuyerPreparation({ samplingTaskId: colorRecord.samplingTaskId, actor: buyer })
 const returnedToBuyer = returnEngineeringIndependentBuyerPreparation({
   samplingTaskId: colorRecord.samplingTaskId,
@@ -619,5 +698,40 @@ assert.ok(
   removedColorSkuIds.every((skuId) => listSkuArchivesByStyleId(styles[1].styleId).some((sku) => sku.skuId === skuId)),
   '删除目标颜色不得删除目标款式档案中已经建立的 SKU',
 )
+
+let preparationError = ''
+try {
+  completeEngineeringIndependentBuyerPreparation({ samplingTaskId: boundaryRecord.samplingTaskId, actor: buyer })
+} catch (error) {
+  preparationError = error instanceof Error ? error.message : String(error)
+}
+assert.match(preparationError, /目标颜色“保留色”尚未维护物料/, '买手交接必须指出缺少物料的具体目标颜色')
+assert.match(preparationError, /尚未确认本次是否有自定义费用/, '买手交接必须同时指出整款费用尚未决定')
+assert.equal(getEngineeringIndependentSamplingRecord(boundaryRecord.samplingTaskId)?.buyerPreparationConfirmedAt, '', '任一资料不完整时不得推进打样任务')
+assert.ok(!getEngineeringBomVersionById(afterRemoval.bomVersionIds[0])?.editingLockedAt, '任一资料不完整时不得留下部分锁定')
+
+fillBomVersions(afterRemoval.bomVersionIds, materialSku.materialSkuId)
+saveEngineeringBomPricingPlan({
+  ownerStage: 'INDEPENDENT_SAMPLING',
+  ownerId: boundaryRecord.samplingTaskId,
+  role: '买手',
+  userId: buyer.userId,
+  userName: buyer.userName,
+  customCostDecision: 'HAS_CUSTOM_COST',
+  customCosts: [],
+})
+assert.throws(
+  () => confirmEngineeringBomPricingPlan({
+    ownerStage: 'INDEPENDENT_SAMPLING',
+    ownerId: boundaryRecord.samplingTaskId,
+    role: '买手',
+    userId: buyer.userId,
+    userName: buyer.userName,
+  }),
+  /至少填写一项费用/,
+  '所有共用的整款确认入口都必须阻断“选择有费用但没有费用明细”',
+)
+assert.equal(getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', boundaryRecord.samplingTaskId)?.status, 'DRAFT', '确认失败后整款方案必须保持可编辑')
+assert.ok(afterRemoval.bomVersionIds.every((versionId) => getEngineeringBomVersionById(versionId)?.versionStatus === 'DRAFT'), '确认失败后所有颜色物料方案必须保持草稿，不得部分确认')
 
 console.log('pcs-independent-sampling.spec PASS')

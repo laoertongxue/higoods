@@ -13,6 +13,7 @@ import {
 } from './pcs-tech-pack-bom-price-review-invalidation.ts'
 import type { TechnicalDataVersionContent } from './pcs-technical-data-version-types.ts'
 import type {
+  EngineeringBomCustomCostDecision,
   EngineeringBomCostResult,
   EngineeringBomDraft,
   EngineeringBomMaterialLineDraft,
@@ -84,7 +85,7 @@ function requirementTextToTechnicalFlag(value: string | undefined): '是' | '否
   return requirementFlag(value) === '是' ? '是' : '否'
 }
 
-function technicalBomItemToEngineeringLine(
+export function technicalBomItemToEngineeringLine(
   item: TechnicalDataVersionContent['bomItems'][number],
   styleCode = '',
 ): EngineeringBomMaterialLineDraft {
@@ -125,8 +126,8 @@ function technicalBomItemToEngineeringLine(
 }
 
 export function compareBomPriceChanges(
-  beforeContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts'>,
-  afterContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts'>,
+  beforeContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts' | 'bomCustomCostDecision'>,
+  afterContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts' | 'bomCustomCostDecision'>,
 ): BomPriceReviewChange[] {
   const changes: BomPriceReviewChange[] = []
   const beforeItems = new Map(beforeContent.bomItems.map((item) => [item.id, item]))
@@ -191,6 +192,18 @@ export function compareBomPriceChanges(
     changes.push({
       changeSource: 'CUSTOM_COST_IDR',
       targetId: 'BOM-CUSTOM-COST',
+      beforeValue: beforeCustomCostIdr,
+      afterValue: afterCustomCostIdr,
+    })
+  }
+  const beforeDecision = beforeContent.bomCustomCostDecision
+    ?? ((beforeContent.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED')
+  const afterDecision = afterContent.bomCustomCostDecision
+    ?? ((afterContent.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED')
+  if (beforeDecision !== afterDecision && beforeCustomCostIdr === afterCustomCostIdr) {
+    changes.push({
+      changeSource: 'CUSTOM_COST_IDR',
+      targetId: 'BOM-CUSTOM-COST-DECISION',
       beforeValue: beforeCustomCostIdr,
       afterValue: afterCustomCostIdr,
     })
@@ -420,6 +433,7 @@ export function saveTechnicalDataVersionBomCustomCosts(
   technicalVersionId: string,
   customCosts: EngineeringBomDraft['customCosts'],
   role: EngineeringBomOperatorRole,
+  decision?: EngineeringBomCustomCostDecision,
 ): EngineeringBomResolvedDraft {
   return runTechnicalDataVersionRepositoryTransaction(() => {
     requireBuyer(role)
@@ -440,9 +454,36 @@ export function saveTechnicalDataVersionBomCustomCosts(
       maintainedBy: item.maintainedBy?.trim() || '',
       maintainedAt: item.maintainedAt?.trim() || '',
     }))
-    const contentChanged = JSON.stringify(nextCustomCosts) !== JSON.stringify(beforeContent.bomCustomCosts ?? [])
-    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomCustomCosts: nextCustomCosts })
-    const changes = compareBomPriceChanges(beforeContent, { ...beforeContent, bomCustomCosts: nextCustomCosts })
+    const nextDecision = decision
+      ?? (nextCustomCosts.length > 0 ? 'HAS_CUSTOM_COST' : beforeContent.bomCustomCostDecision ?? 'UNDECIDED')
+    if (nextDecision === 'HAS_CUSTOM_COST' && nextCustomCosts.length === 0) {
+      throw new Error('已选择“本次有自定义费用”，请至少填写一项费用。')
+    }
+    if (nextDecision !== 'HAS_CUSTOM_COST' && nextCustomCosts.length > 0) {
+      throw new Error('已有自定义费用明细，请选择“本次有自定义费用”。')
+    }
+    const semanticCosts = (items: EngineeringBomDraft['customCosts']) => items.map((item) => ({
+      title: item.title.trim(),
+      amountIdr: item.amountIdr,
+      note: item.note?.trim() || '',
+    }))
+    const nextContent = {
+      ...beforeContent,
+      bomCustomCosts: nextCustomCosts,
+      bomCustomCostDecision: nextDecision,
+    }
+    const contentChanged = JSON.stringify({
+      costs: semanticCosts(nextCustomCosts),
+      decision: nextDecision,
+    }) !== JSON.stringify({
+      costs: semanticCosts(beforeContent.bomCustomCosts ?? []),
+      decision: beforeContent.bomCustomCostDecision ?? 'UNDECIDED',
+    })
+    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, {
+      bomCustomCosts: nextCustomCosts,
+      bomCustomCostDecision: nextDecision,
+    })
+    const changes = compareBomPriceChanges(beforeContent, nextContent)
     if (changes.length > 0) {
       invalidateReviewForBomPriceChange(technicalVersionId, {
         changes,
@@ -454,6 +495,16 @@ export function saveTechnicalDataVersionBomCustomCosts(
 }
 
 export function assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId: string): void {
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) return
+  const decision = content.bomCustomCostDecision
+    ?? ((content.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED')
+  if (decision === 'UNDECIDED') {
+    throw new Error('请先由买手确认本次是否有自定义费用。没有费用时请选择“本次无自定义费用”。')
+  }
+  if (decision === 'HAS_CUSTOM_COST' && (content.bomCustomCosts?.length ?? 0) === 0) {
+    throw new Error('已选择“本次有自定义费用”，请至少填写一项费用。')
+  }
   const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
   if (!draft) return
   assertEngineeringBomCanSubmitForReview(resolveEngineeringBomDraft(draft), '买手')

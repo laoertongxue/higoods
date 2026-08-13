@@ -10,7 +10,18 @@ export {
   type BomPriceReviewChangeSource,
   type InvalidateReviewForBomPriceChangeInput,
 } from './pcs-tech-pack-bom-price-review-invalidation.ts'
-import { assertTechnicalDataVersionBomCanSubmitForReview } from './pcs-engineering-bom-pricing.ts'
+import {
+  assertTechnicalDataVersionBomCanSubmitForReview,
+  technicalBomItemToEngineeringLine,
+} from './pcs-engineering-bom-pricing.ts'
+import {
+  captureEngineeringBomRepositoryState,
+  confirmEngineeringBomPricingPlan,
+  getEngineeringBomPricingPlan,
+  reopenEngineeringBomPricingPlanForEditing,
+  replaceEngineeringBomPricingPlanDraft,
+  restoreEngineeringBomRepositoryState,
+} from './pcs-engineering-bom-repository.ts'
 import {
   getEngineeringMasterOrderById,
   runEngineeringMasterRepositoryTransaction,
@@ -966,7 +977,60 @@ export function approveTechPackReview(
     snapshot.reviewUnlockedModuleKeys.length > 0 &&
     snapshot.reviewUnlockedModuleKeys.every((moduleKey) => moduleKey === 'BOM' || moduleKey === 'COST')
 
-  const nextRecord = saveReviewPatch(technicalVersionId, {
+  const bomSnapshot = nodeKey === 'BUYER' ? captureEngineeringBomRepositoryState() : null
+  try {
+    const pricingPlan = nodeKey === 'BUYER'
+      ? getEngineeringBomPricingPlan('TECH_PACK_DRAFT', technicalVersionId)
+      : null
+    if (pricingPlan) {
+      const content = getTechnicalDataVersionContent(technicalVersionId)
+      if (!content) throw new Error('未找到技术包用料与费用，买手不能审核通过。')
+      if (pricingPlan.status !== 'DRAFT') {
+        reopenEngineeringBomPricingPlanForEditing({
+          ownerStage: 'TECH_PACK_DRAFT',
+          ownerId: technicalVersionId,
+          actorName: operator.name,
+          reopenedAt: reviewedAt,
+        })
+      }
+      const grouped = new Map<string, TechnicalDataVersionContent['bomItems']>()
+      content.bomItems.forEach((item) => {
+        const color = item.colorLabel?.trim() || '默认颜色'
+        grouped.set(color, [...(grouped.get(color) || []), item])
+      })
+      replaceEngineeringBomPricingPlanDraft({
+        ownerStage: 'TECH_PACK_DRAFT',
+        ownerId: technicalVersionId,
+        role: '买手',
+        userId: operator.id || `BUYER-${technicalVersionId}`,
+        userName: operator.name,
+        colors: [...grouped.entries()].map(([productColor, items]) => ({
+          productColor,
+          applicableSkuIds: [...new Set(items.flatMap((item) => item.applicableSkuCodes || []))],
+          materialLines: items.map((item) => technicalBomItemToEngineeringLine(item, record.styleCode)),
+        })),
+        customCostDecision: content.bomCustomCostDecision
+          ?? ((content.bomCustomCosts?.length ?? 0) > 0 ? 'HAS_CUSTOM_COST' : 'UNDECIDED'),
+        customCosts: content.bomCustomCosts ?? [],
+        updatedAt: reviewedAt,
+      })
+      confirmEngineeringBomPricingPlan({
+        ownerStage: 'TECH_PACK_DRAFT',
+        ownerId: technicalVersionId,
+        role: '买手',
+        userId: operator.id || `BUYER-${technicalVersionId}`,
+        userName: operator.name,
+        confirmedAt: reviewedAt,
+      })
+    }
+  } catch (error) {
+    if (bomSnapshot) restoreEngineeringBomRepositoryState(bomSnapshot)
+    throw error
+  }
+
+  let nextRecord: TechnicalDataVersionRecord
+  try {
+    nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
       ? { buyerReview: node }
       : nodeKey === 'PATTERN_MAKER'
@@ -1001,7 +1065,11 @@ export function approveTechPackReview(
       : { reviewStage: '第一阶段并行审核' as const }),
     updatedAt: reviewedAt,
     updatedBy: operator.name,
-  })
+    })
+  } catch (error) {
+    if (bomSnapshot) restoreEngineeringBomRepositoryState(bomSnapshot)
+    throw error
+  }
   appendReviewLog({
     record: nextRecord,
     logType: '技术包审核通过',

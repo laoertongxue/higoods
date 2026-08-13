@@ -138,7 +138,7 @@ function rerenderCreatePage(): void {
 
 function directItemTarget(item: EngineeringChangeItem, styleId: string, versionId: string): string {
   return item.treatment === 'BOM_EDIT'
-    ? `/pcs/technical-data/bom-pricing/${versionId}`
+    ? `/pcs/technical-data/bom-pricing/owner/TECH_PACK_DRAFT/${versionId}`
     : `/pcs/products/styles/${styleId}/technical-data/${versionId}`
 }
 

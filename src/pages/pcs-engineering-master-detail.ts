@@ -12,6 +12,7 @@ import {
 } from '../data/pcs-engineering-master-view-model.ts'
 import {
   closeEngineeringMasterOrder,
+  confirmEngineeringMasterBomPricingPlan,
   confirmEngineeringMasterTaskPlan,
   getEngineeringMasterOrderById,
   validateEngineeringMasterOrderClose,
@@ -24,7 +25,6 @@ import type {
   EngineeringTaskType,
 } from '../data/pcs-engineering-master-types.ts'
 import { engineeringTaskHref } from '../data/pcs-engineering-preparation-projection.ts'
-import { buildEngineeringBomTaskRows, listEngineeringBomVersionsByOwner } from '../data/pcs-engineering-bom-repository.ts'
 import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
 import { escapeHtml } from '../utils.ts'
 
@@ -336,7 +336,7 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
         }).join('')}
       </div>${renderPreProductionSampleRequirementEditor(model)}` : `<div class="px-4 py-8 text-center text-sm text-slate-500">选择生产准备类型后，系统将展示必做任务、条件任务和固定前置。</div>`}
       <footer class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3">
-        <p class="text-xs text-slate-500">确认后生成固定任务；条件任务根据当前工程 BOM 与价格草稿自动启用。</p>
+        <p class="text-xs text-slate-500">确认后生成固定任务；条件任务根据当前工程 BOM 与价格方案自动启用。</p>
         <button
           type="button"
           class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
@@ -350,7 +350,6 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
 
 function renderBomSummary(model: EngineeringMasterDetailModel): string {
   const summary = model.bomSummary
-  const firstVersionId = summary.versionIds[0] || ''
   const conditionLabels = [
     summary.conditions.hasPrintRequirement ? '印花' : '',
     summary.conditions.hasYarnDyeRequirement ? '纱线染色' : '',
@@ -360,13 +359,17 @@ function renderBomSummary(model: EngineeringMasterDetailModel): string {
   return `<section class="rounded-lg border bg-card p-4" data-engineering-bom-summary>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div><div class="flex items-center gap-2"><h2 class="font-semibold">工程 BOM 与价格</h2><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(summary.statusText)}</span></div><p class="mt-1 text-xs text-slate-500">${escapeHtml(summary.versionCodes.join('、') || '随工程主单自动建立')}</p></div>
-      <a class="rounded border px-3 py-2 text-sm text-blue-700" href="${firstVersionId ? `/pcs/technical-data/bom-pricing/${escapeHtml(firstVersionId)}` : '/pcs/technical-data/bom-pricing'}">${firstVersionId ? '查看／维护' : '查看 BOM 列表'}</a>
+      <div class="flex flex-wrap items-center gap-2">
+        <a class="rounded border px-3 py-2 text-sm text-blue-700" href="${summary.pricingPlanId ? `/pcs/technical-data/bom-pricing/owner/ENGINEERING_MASTER/${escapeHtml(model.masterOrderId)}` : '/pcs/technical-data/bom-pricing'}">${summary.pricingPlanId ? '查看／维护整款方案' : '查看 BOM 列表'}</a>
+        ${summary.planStatus === 'DRAFT' ? `<button type="button" class="rounded bg-blue-600 px-3 py-2 text-sm text-white" data-${DETAIL_EVENT_PREFIX}-action="confirm-bom-pricing-plan">确认工程 BOM 与价格</button>` : ''}
+      </div>
     </div>
     <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
       <div><p class="text-xs text-slate-500">颜色版本</p><p class="mt-1 font-medium">${summary.colorCount} 个</p></div>
       <div><p class="text-xs text-slate-500">物料行</p><p class="mt-1 font-medium">${summary.materialLineCount} 行</p></div>
-      <div><p class="text-xs text-slate-500">承接来源</p><p class="mt-1 font-medium">${summary.sourceVersionCount ? `${summary.sourceVersionCount} 个历史版本` : '空白创建'}</p></div>
+      <div><p class="text-xs text-slate-500">承接来源</p><p class="mt-1 font-medium">${summary.sourceVersionCount ? `${summary.sourceVersionCount} 个前期颜色方案` : '空白创建'}</p></div>
       <div><p class="text-xs text-slate-500">条件要求</p><p class="mt-1 font-medium">${escapeHtml(conditionLabels.join('、') || '暂无')}</p></div>
+      <div><p class="text-xs text-slate-500">整款费用</p><p class="mt-1 font-medium">${escapeHtml(summary.customCostDecisionText)}</p></div>
       <div><p class="text-xs text-slate-500">买手／更新</p><p class="mt-1 font-medium">${escapeHtml(summary.buyerName)}</p><p class="text-xs text-slate-500">${escapeHtml(summary.updatedAt)}</p></div>
     </div>
   </section>`
@@ -601,17 +604,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
         confirmedByRole: '跟单',
         preparationType: detailUiState.selectedPreparationType || undefined,
         selectedConditionalTaskTypes: detailUiState.selectedConditionalTaskTypes,
-        bomConditions: (() => {
-          const rows = buildEngineeringBomTaskRows(
-            listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', masterKey),
-          )
-          return {
-            hasPrintRequirement: rows.some((line) => line.printRequirement === '是'),
-            hasYarnDyeRequirement: rows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
-            hasFabricDyeRequirement: rows.some((line) => line.dyeRequirement === '是' && line.materialType === '面料'),
-            hasAccessoryPurchaseRequirement: rows.some((line) => line.purchaseRequirement === '是'),
-          }
-        })(),
+        bomConditions: model.bomSummary.conditions,
         priorResultDecisions,
         preProductionSampleRequirements: detailUiState.preProductionSampleRequirements.map((line) => ({
           requirementLineId: line.draftId,
@@ -627,6 +620,26 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       detailUiState.taskPlanError = error instanceof Error ? error.message : '确认任务方案失败。'
       const refreshedModel = buildEngineeringMasterDetailModel(masterKey, detailUiState.selectedPreparationType)
       if (refreshedModel) refreshLanesRegion(refreshedModel)
+    }
+    return true
+  }
+
+  if (action === 'confirm-bom-pricing-plan') {
+    const masterKey = currentMasterKey()
+    try {
+      const model = buildEngineeringMasterDetailModel(masterKey)
+      if (!model) throw new Error('工程主单不存在。')
+      if (!model.bomSummary.buyerId || !model.bomSummary.buyerName) throw new Error('请先为工程 BOM 与价格分配买手。')
+      confirmEngineeringMasterBomPricingPlan({
+        masterOrderId: masterKey,
+        role: '买手',
+        userId: model.bomSummary.buyerId,
+        userName: model.bomSummary.buyerName,
+      })
+      showDetailFeedback('工程 BOM 与价格已整款确认，条件任务建议已同步更新。', true)
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
+    } catch (error) {
+      showDetailFeedback(error instanceof Error ? error.message : '确认工程 BOM 与价格失败。', false)
     }
     return true
   }

@@ -12,13 +12,15 @@ import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
 import { getTechnicalDataVersionContent, listTechnicalDataVersions } from '../data/pcs-technical-data-version-repository.ts'
 import type { TechnicalDataVersionRecord } from '../data/pcs-technical-data-version-types.ts'
 import {
-  confirmEngineeringBomVersion,
+  getEngineeringBomPricingPlan,
   getEngineeringBomVersionById,
+  listEngineeringBomPricingPlans,
   listEngineeringBomVersions,
+  resolveEngineeringBomPricingPlan,
+  saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
 } from '../data/pcs-engineering-bom-repository.ts'
 import {
-  confirmEngineeringMasterBomVersion,
   saveEngineeringMasterBomVersion,
 } from '../data/pcs-engineering-master-repository.ts'
 import {
@@ -26,7 +28,14 @@ import {
   listMaterialSkuRecordsByMaterialId,
 } from '../data/pcs-material-archive-repository.ts'
 import { resolveEngineeringBomDraft } from '../data/pcs-engineering-bom-pricing.ts'
-import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft, EngineeringBomVersionRecord } from '../data/pcs-engineering-bom-types.ts'
+import type {
+  EngineeringBomCustomCostDecision,
+  EngineeringBomCustomCostDraft,
+  EngineeringBomMaterialLineDraft,
+  EngineeringBomOwnerStage,
+  EngineeringBomPricingPlanRecord,
+  EngineeringBomVersionRecord,
+} from '../data/pcs-engineering-bom-types.ts'
 import { escapeHtml } from '../utils.ts'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -150,12 +159,11 @@ export function renderPcsTechnicalDataTechPackListPage(): string {
 
 export function renderPcsTechnicalDataBomPricingPage(): string {
   ensureEngineeringMasterDemoData()
-  const rows = listEngineeringBomVersions()
+  const rows = listEngineeringBomPricingPlans()
   const paging = paginateStandardListRows(rows, bomListState.currentPage, bomListState.pageSize)
   bomListState.currentPage = paging.currentPage
-  const statusText = (status: EngineeringBomVersionRecord['versionStatus']) => status === 'DRAFT' ? '草稿' : status === 'COMPLETED_CONFIRMED' ? '已完成且已确认' : '正式快照'
-  const stageText = (stage: EngineeringBomVersionRecord['ownerStage']) => ({ INDEPENDENT_SAMPLING: '独立打样', ENGINEERING_MASTER: '工程主单', TECH_PACK_DRAFT: '技术包草稿', ENGINEERING_CHANGE: '工程变更' })[stage]
-  return `<div class="space-y-4 p-4" data-pcs-technical-data-page data-bom-version-list><header><h1 class="text-xl font-semibold">BOM 与价格</h1><p class="mt-1 text-sm text-slate-500">统一查看打样、工程与技术包阶段版本；BOM 随业务对象自动创建，不提供独立新增。</p></header><section class="overflow-hidden rounded-lg border bg-white"><div class="overflow-x-auto"><table class="w-full min-w-[1280px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">款式</th><th class="px-4 py-3">颜色</th><th class="px-4 py-3">版本</th><th class="px-4 py-3">阶段／来源</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">物料行</th><th class="px-4 py-3">条件要求</th><th class="px-4 py-3">买手</th><th class="px-4 py-3">更新时间</th><th class="px-4 py-3">操作</th></tr></thead><tbody>${paging.rows.length ? paging.rows.map((record) => { const flags = [record.materialLines.some((line) => line.printRequirement === '是') ? '印花' : '', record.materialLines.some((line) => line.dyeRequirement === '是') ? '染色' : '', record.materialLines.some((line) => line.purchaseRequirement === '是') ? '辅料采购' : ''].filter(Boolean).join('、') || '暂无'; return `<tr class="border-t"><td class="px-4 py-3"><div class="flex items-center gap-3"><button type="button" class="h-12 w-12 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(record.styleImageUrl)}" data-image-title="${escapeHtml(record.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(record.styleImageUrl)}" alt="${escapeHtml(record.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(record.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(record.styleCode)}</p></div></div></td><td class="px-4 py-3">${escapeHtml(record.productColor)}</td><td class="px-4 py-3">${escapeHtml(record.versionCode)}</td><td class="px-4 py-3"><p>${stageText(record.ownerStage)}</p><p class="text-xs text-slate-500">${escapeHtml(record.ownerCode)}</p></td><td class="px-4 py-3">${statusText(record.versionStatus)}</td><td class="px-4 py-3">${record.materialLines.length}</td><td class="px-4 py-3">${escapeHtml(flags)}</td><td class="px-4 py-3">${escapeHtml(record.buyerName)}</td><td class="px-4 py-3">${escapeHtml(record.updatedAt)}</td><td class="px-4 py-3"><a class="text-blue-700" href="/pcs/technical-data/bom-pricing/${escapeHtml(record.bomDraftVersionId)}">查看／维护</a></td></tr>` }).join('') : '<tr><td colspan="10" class="px-4 py-12 text-center text-slate-500">暂无 BOM 与价格版本；创建工程主单或独立打样后自动建立。</td></tr>'}</tbody></table></div><div class="border-t p-3">${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'tech-data', pageSizeOptions: PAGE_SIZE_OPTIONS })}</div></section>${renderPreview()}</div>`
+  const versions = listEngineeringBomVersions()
+  return `<div class="space-y-4 p-4" data-pcs-technical-data-page data-bom-plan-list><header><h1 class="text-xl font-semibold">BOM 与价格</h1><p class="mt-1 text-sm text-slate-500">一张业务单据对应一份整款方案；各颜色分别维护物料，自定义费用只在整款方案中维护一次。</p></header><section class="overflow-hidden rounded-lg border bg-white"><div class="overflow-x-auto"><table class="w-full min-w-[1180px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">款式</th><th class="px-4 py-3">业务来源</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">颜色物料方案</th><th class="px-4 py-3">物料行</th><th class="px-4 py-3">整款费用</th><th class="px-4 py-3">买手</th><th class="px-4 py-3">更新时间</th><th class="px-4 py-3">操作</th></tr></thead><tbody>${paging.rows.length ? paging.rows.map((plan) => { const ownerVersions = versions.filter((item) => item.ownerStage === plan.ownerStage && item.ownerId === plan.ownerId); const materialCount = ownerVersions.reduce((total, item) => total + item.materialLines.length, 0); return `<tr class="border-t"><td class="px-4 py-3"><div class="flex items-center gap-3"><button type="button" class="h-12 w-12 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(plan.styleImageUrl)}" data-image-title="${escapeHtml(plan.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(plan.styleImageUrl)}" alt="${escapeHtml(plan.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(plan.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.styleCode)}</p></div></div></td><td class="px-4 py-3"><p>${ownerStageText(plan.ownerStage)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.ownerCode)}</p></td><td class="px-4 py-3">${pricingPlanStatusText(plan.status)}</td><td class="px-4 py-3">${ownerVersions.length} 个颜色</td><td class="px-4 py-3">${materialCount}</td><td class="px-4 py-3">${customCostDecisionText(plan)}</td><td class="px-4 py-3">${escapeHtml(plan.buyerName)}</td><td class="px-4 py-3">${escapeHtml(plan.updatedAt)}</td><td class="px-4 py-3"><a class="text-blue-700" href="${pricingPlanHref(plan.ownerStage, plan.ownerId)}">查看整款方案</a></td></tr>` }).join('') : '<tr><td colspan="9" class="px-4 py-12 text-center text-slate-500">暂无 BOM 与价格方案；创建工程主单或改款／设计打样任务后自动建立。</td></tr>'}</tbody></table></div><div class="border-t p-3">${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'tech-data', pageSizeOptions: PAGE_SIZE_OPTIONS })}</div></section>${renderPreview()}</div>`
 }
 
 function allMaterialSkuOptions() {
@@ -166,8 +174,27 @@ function allMaterialSkuOptions() {
   )
 }
 
-function ownerStageText(stage: EngineeringBomVersionRecord['ownerStage']): string {
+function ownerStageText(stage: EngineeringBomOwnerStage): string {
   return ({ INDEPENDENT_SAMPLING: '独立打样', ENGINEERING_MASTER: '工程主单', TECH_PACK_DRAFT: '技术包草稿', ENGINEERING_CHANGE: '工程变更' })[stage]
+}
+
+function pricingPlanStatusText(status: EngineeringBomPricingPlanRecord['status']): string {
+  return ({
+    DRAFT: '资料准备中',
+    HANDED_OFF: '已交给跟单',
+    COMPLETED_CONFIRMED: '已完成确认',
+    PUBLISHED_SNAPSHOT: '已形成正式快照',
+  })[status]
+}
+
+function customCostDecisionText(plan: EngineeringBomPricingPlanRecord): string {
+  if (plan.customCostDecision === 'UNDECIDED') return '待买手确认'
+  if (plan.customCostDecision === 'NO_CUSTOM_COST') return '本次无自定义费用'
+  return `${plan.customCosts.length} 项 · Rp ${plan.customCosts.reduce((total, item) => total + item.amountIdr, 0).toLocaleString('id-ID')}`
+}
+
+function pricingPlanHref(ownerStage: EngineeringBomOwnerStage, ownerId: string): string {
+  return `/pcs/technical-data/bom-pricing/owner/${encodeURIComponent(ownerStage)}/${encodeURIComponent(ownerId)}`
 }
 
 function renderBomMaterialRows(
@@ -209,36 +236,60 @@ function renderBomMaterialRows(
   }).join('')
 }
 
+export function renderPcsTechnicalDataBomPricingPlanPage(ownerStage: EngineeringBomOwnerStage, ownerId: string): string {
+  const plan = getEngineeringBomPricingPlan(ownerStage, ownerId)
+  if (!plan) return '<div class="p-6 text-sm text-slate-500">未找到整款 BOM 与价格方案。</div>'
+  const versions = listEngineeringBomVersions().filter((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
+  const editable = plan.status === 'DRAFT' && !plan.editingLockedAt
+  let resolved: ReturnType<typeof resolveEngineeringBomPricingPlan> | null = null
+  try { resolved = resolveEngineeringBomPricingPlan(ownerStage, ownerId) } catch { resolved = null }
+  return `<div class="space-y-4 p-4" data-pcs-technical-data-page data-bom-plan-detail="${escapeHtml(plan.pricingPlanId)}">
+    <header class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-white p-4"><div class="flex items-center gap-3"><button type="button" class="h-16 w-16 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(plan.styleImageUrl)}" data-image-title="${escapeHtml(plan.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(plan.styleImageUrl)}" alt="${escapeHtml(plan.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><h1 class="text-xl font-semibold">${escapeHtml(plan.styleName)} · 整款 BOM 与价格</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(plan.styleCode)} · ${ownerStageText(plan.ownerStage)} ${escapeHtml(plan.ownerCode)}</p><p class="mt-1 text-xs text-slate-500">${pricingPlanStatusText(plan.status)} · 买手：${escapeHtml(plan.buyerName)}</p></div></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/technical-data/bom-pricing">返回列表</a></header>
+    ${bomFeedback.message ? `<p class="rounded border px-3 py-2 text-sm ${bomFeedback.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(bomFeedback.message)}</p>` : ''}
+    <section class="rounded-lg border bg-white"><header class="border-b p-4"><h2 class="font-semibold">颜色物料方案</h2><p class="mt-1 text-xs text-slate-500">每个目标颜色单独维护物料；颜色物料页只保存物料，不单独确认。</p></header><div class="overflow-x-auto"><table class="w-full min-w-[800px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="p-3">目标颜色</th><th class="p-3">颜色版本</th><th class="p-3">物料行</th><th class="p-3">标准单价状态</th><th class="p-3">操作</th></tr></thead><tbody>${versions.map((version) => { let priceState = '待维护'; try { const colorResolved = resolveEngineeringBomDraft({ materialLines: version.materialLines, customCosts: [] }); priceState = colorResolved.materialLines.some((line) => line.priceStatus === '标准单价失效') ? '标准单价失效' : version.materialLines.length ? '有效' : '待维护' } catch { priceState = '标准单价失效' } return `<tr class="border-t"><td class="p-3 font-medium">${escapeHtml(version.productColor)}</td><td class="p-3">${escapeHtml(version.versionCode)}</td><td class="p-3">${version.materialLines.length}</td><td class="p-3 ${priceState === '标准单价失效' ? 'text-red-600' : ''}">${priceState}</td><td class="p-3"><a class="text-blue-700" href="/pcs/technical-data/bom-pricing/${escapeHtml(version.bomDraftVersionId)}">维护该颜色物料</a></td></tr>` }).join('')}</tbody></table></div></section>
+    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">整款自定义费用（IDR）</h2><p class="mt-1 text-xs text-slate-500">例如车位费；统一作用于整个 SPU，只维护、计算一次。</p></div>${editable ? '<button class="rounded border px-4 py-2 text-sm text-blue-700" data-tech-data-action="bom-plan-add-cost">新增费用</button>' : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header><div class="p-4"><label class="mb-4 block max-w-md text-sm"><span class="mb-1 block text-slate-600">本次费用情况</span><select class="h-9 w-full rounded border px-3" data-tech-data-field="bom-custom-cost-decision" ${editable ? '' : 'disabled'}><option value="UNDECIDED" ${plan.customCostDecision === 'UNDECIDED' ? 'selected' : ''}>请选择</option><option value="NO_CUSTOM_COST" ${plan.customCostDecision === 'NO_CUSTOM_COST' ? 'selected' : ''}>本次无自定义费用</option><option value="HAS_CUSTOM_COST" ${plan.customCostDecision === 'HAS_CUSTOM_COST' ? 'selected' : ''}>本次有自定义费用</option></select></label><div class="divide-y rounded border">${plan.customCosts.length ? plan.customCosts.map((cost) => `<div class="grid gap-3 p-3 md:grid-cols-[1fr_220px_1fr_80px]" data-bom-plan-cost="${escapeHtml(cost.customCostId || '')}"><input class="h-9 rounded border px-3" value="${escapeHtml(cost.title)}" placeholder="费用名称" data-bom-plan-cost-field="title" ${editable ? '' : 'disabled'}><div class="flex items-center gap-2"><span>Rp</span><input class="h-9 w-full rounded border px-3" type="number" min="1" step="1" value="${cost.amountIdr}" data-bom-plan-cost-field="amountIdr" ${editable ? '' : 'disabled'}></div><input class="h-9 rounded border px-3" value="${escapeHtml(cost.note || '')}" placeholder="备注" data-bom-plan-cost-field="note" ${editable ? '' : 'disabled'}>${editable ? '<button class="text-sm text-red-600" data-tech-data-action="bom-plan-remove-cost">删除</button>' : '<span class="text-sm text-slate-500">已锁定</span>'}</div>`).join('') : '<p class="p-6 text-center text-sm text-slate-500">暂无自定义费用明细。</p>'}</div></div></section>
+    <section class="grid gap-3 md:grid-cols-5"><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">整款物料成本</p><p class="mt-2 font-semibold">${resolved ? `¥ ${resolved.resolved.cost.materialCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">整款自定义费用</p><p class="mt-2 font-semibold">${resolved ? `Rp ${resolved.resolved.cost.customCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">系统最新汇率</p><p class="mt-2 font-semibold">${resolved ? `1 CNY = ${resolved.resolved.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 CNY</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `¥ ${resolved.resolved.cost.comprehensiveCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 IDR</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `Rp ${resolved.resolved.cost.comprehensiveCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article></section>
+    ${editable ? '<div class="flex justify-end rounded-lg border bg-white p-4"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-plan-save-costs">保存整款费用情况</button></div>' : ''}
+    <p class="rounded bg-blue-50 px-3 py-2 text-sm text-blue-700">整款确认仍在所属改款／设计打样、工程主单或技术包审核流程中完成；本页不提供绕过业务流程的确认入口。</p>${renderPreview()}
+  </div>`
+}
+
 export function renderPcsTechnicalDataBomPricingDetailPage(versionId: string): string {
   const record = getEngineeringBomVersionById(versionId)
-  if (!record) return '<div class="p-6 text-sm text-slate-500">未找到 BOM 与价格版本。</div>'
-  const editable = record.versionStatus === 'DRAFT'
+  if (!record) return '<div class="p-6 text-sm text-slate-500">未找到颜色物料方案。</div>'
+  const editable = record.versionStatus === 'DRAFT' && !record.editingLockedAt
   let resolved: ReturnType<typeof resolveEngineeringBomDraft> | null = null
-  try { resolved = resolveEngineeringBomDraft(record) } catch { resolved = null }
+  try { resolved = resolveEngineeringBomDraft({ materialLines: record.materialLines, customCosts: [] }) } catch { resolved = null }
   const resolvedById = new Map((resolved?.materialLines || []).map((line) => [line.bomItemId || line.materialSkuId, line]))
   const options = allMaterialSkuOptions()
   const siblingVersions = listEngineeringBomVersions().filter((item) => item.ownerStage === record.ownerStage && item.ownerId === record.ownerId)
   return `<div class="space-y-4 p-4" data-pcs-technical-data-page data-bom-version-detail="${escapeHtml(record.bomDraftVersionId)}">
-    <header class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-white p-4"><div class="flex items-center gap-3"><button type="button" class="h-16 w-16 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(record.styleImageUrl)}" data-image-title="${escapeHtml(record.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(record.styleImageUrl)}" alt="${escapeHtml(record.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><h1 class="text-xl font-semibold">${escapeHtml(record.styleName)} · ${escapeHtml(record.productColor)}</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.styleCode)} · ${escapeHtml(record.versionCode)} · ${ownerStageText(record.ownerStage)} ${escapeHtml(record.ownerCode)}</p><p class="mt-1 text-xs text-slate-500">来源版本：${escapeHtml(record.sourceVersionId || '空白创建')} · 买手：${escapeHtml(record.buyerName)}</p></div></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/technical-data/bom-pricing">返回列表</a></header>
-    ${siblingVersions.length > 1 ? `<nav class="flex flex-wrap gap-2 rounded-lg border bg-white p-3" aria-label="同一业务对象颜色版本">${siblingVersions.map((item) => `<a class="rounded-full border px-3 py-1 text-sm ${item.bomDraftVersionId === record.bomDraftVersionId ? 'border-blue-600 bg-blue-50 text-blue-700' : 'text-slate-600'}" href="/pcs/technical-data/bom-pricing/${escapeHtml(item.bomDraftVersionId)}">${escapeHtml(item.productColor)} · ${escapeHtml(item.versionCode)}</a>`).join('')}</nav>` : ''}
+    <header class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-white p-4"><div class="flex items-center gap-3"><button type="button" class="h-16 w-16 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(record.styleImageUrl)}" data-image-title="${escapeHtml(record.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(record.styleImageUrl)}" alt="${escapeHtml(record.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><h1 class="text-xl font-semibold">${escapeHtml(record.styleName)} · ${escapeHtml(record.productColor)}</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.styleCode)} · ${escapeHtml(record.versionCode)} · ${ownerStageText(record.ownerStage)} ${escapeHtml(record.ownerCode)}</p><p class="mt-1 text-xs text-slate-500">颜色物料方案 · 买手：${escapeHtml(record.buyerName)}</p></div></div><a class="rounded border px-4 py-2 text-sm" href="${pricingPlanHref(record.ownerStage, record.ownerId)}">返回整款方案</a></header>
+    <nav class="flex flex-wrap gap-2 rounded-lg border bg-white p-3" aria-label="同一整款方案的颜色物料">${siblingVersions.map((item) => `<a class="rounded-full border px-3 py-1 text-sm ${item.bomDraftVersionId === record.bomDraftVersionId ? 'border-blue-600 bg-blue-50 text-blue-700' : 'text-slate-600'}" href="/pcs/technical-data/bom-pricing/${escapeHtml(item.bomDraftVersionId)}">${escapeHtml(item.productColor)} · ${escapeHtml(item.versionCode)}</a>`).join('')}</nav>
     ${bomFeedback.message ? `<p class="rounded border px-3 py-2 text-sm ${bomFeedback.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(bomFeedback.message)}</p>` : ''}
-    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">物料方案</h2><p class="mt-1 text-xs text-slate-500">只有买手可以维护；标准单价和单位换算来自物料档案。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.materialSkuCode)} · ¥${sku.costPrice.toFixed(4)}/${escapeHtml(sku.pricingUnit)}</option>`).join('')}</select><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
+    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${escapeHtml(record.productColor)} · 物料方案</h2><p class="mt-1 text-xs text-slate-500">本页只维护该颜色的物料、用量、打样数量、损耗及工艺要求；整款费用在上一级方案维护。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.materialSkuCode)} · ¥${sku.costPrice.toFixed(4)}/${escapeHtml(sku.pricingUnit)}</option>`).join('')}</select><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
       <div class="overflow-x-auto"><table class="w-full min-w-[1500px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="p-3">物料</th><th class="p-3">单位用量</th><th class="p-3">打样数量</th><th class="p-3">损耗率</th><th class="p-3">总需求量</th><th class="p-3">标准单价</th><th class="p-3">印花</th><th class="p-3">染色</th><th class="p-3">需采购</th><th class="p-3">适用 SKU</th><th class="p-3">操作</th></tr></thead><tbody>${record.materialLines.length ? renderBomMaterialRows(record, resolvedById, options, editable) : '<tr><td colspan="11" class="p-10 text-center text-slate-500">暂无物料。买手可从物料档案选择有有效标准单价的 SKU。</td></tr>'}</tbody></table></div>
-      ${editable ? `<footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-tech-data-action="bom-save">保存草稿</button><button class="rounded bg-emerald-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-confirm">确认当前物料方案</button></footer>` : ''}
+      ${editable ? '<footer class="flex justify-end border-t p-4"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-save">保存该颜色物料</button></footer>' : ''}
     </section>
-    <section class="rounded-lg border bg-white"><header class="flex items-center justify-between border-b p-4"><div><h2 class="font-semibold">自定义费用（IDR）</h2><p class="mt-1 text-xs text-slate-500">统一作用于整个 SPU，例如车位费；仅买手维护。</p></div>${editable ? '<button class="rounded border px-4 py-2 text-sm text-blue-700" data-tech-data-action="bom-add-custom-cost">新增费用</button>' : ''}</header><div class="divide-y">${record.customCosts.length ? record.customCosts.map((cost) => `<div class="grid gap-3 p-4 md:grid-cols-[1fr_220px_1fr_80px]" data-bom-custom-cost="${escapeHtml(cost.customCostId || '')}"><input class="h-9 rounded border px-3" value="${escapeHtml(cost.title)}" placeholder="费用名称" data-bom-custom-cost-field="title" ${editable ? '' : 'disabled'}><div class="flex items-center gap-2"><span>Rp</span><input class="h-9 w-full rounded border px-3" type="number" min="1" step="1" value="${cost.amountIdr}" data-bom-custom-cost-field="amountIdr" ${editable ? '' : 'disabled'}></div><input class="h-9 rounded border px-3" value="${escapeHtml(cost.note || '')}" placeholder="备注" data-bom-custom-cost-field="note" ${editable ? '' : 'disabled'}>${editable ? '<button class="text-sm text-red-600" data-tech-data-action="bom-remove-custom-cost">删除</button>' : '<span class="text-sm text-slate-500">已锁定</span>'}</div>`).join('') : '<p class="p-6 text-center text-sm text-slate-500">暂无自定义费用。</p>'}</div></section>
-    <section class="grid gap-3 md:grid-cols-5"><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">物料成本</p><p class="mt-2 font-semibold">${resolved ? `¥ ${resolved.cost.materialCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">自定义费用</p><p class="mt-2 font-semibold">${resolved ? `Rp ${resolved.cost.customCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">系统最新汇率</p><p class="mt-2 font-semibold">${resolved ? `1 CNY = ${resolved.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 CNY</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `¥ ${resolved.cost.comprehensiveCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">综合成本 IDR</p><p class="mt-2 font-semibold text-blue-700">${resolved ? `Rp ${resolved.cost.comprehensiveCostIdr.toLocaleString('id-ID')}` : '待校验'}</p></article></section>
-    ${renderPreview()}
+    <section class="grid gap-3 md:grid-cols-3"><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">该颜色物料成本</p><p class="mt-2 font-semibold">${resolved ? `¥ ${resolved.cost.materialCostCny.toFixed(2)}` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">系统最新汇率</p><p class="mt-2 font-semibold">${resolved ? `1 CNY = ${resolved.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR` : '待校验'}</p></article><article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">整款费用</p><p class="mt-2"><a class="text-blue-700" href="${pricingPlanHref(record.ownerStage, record.ownerId)}">返回整款方案统一维护</a></p></article></section>${renderPreview()}
   </div>`
 }
 
 function rerender(): void {
   const host = document.querySelector<HTMLElement>('[data-pcs-technical-data-page]')
   if (!host) return
+  const planMatch = /^\/pcs\/technical-data\/bom-pricing\/owner\/([^/]+)\/([^/]+)$/.exec(window.location.pathname)
   const bomMatch = /^\/pcs\/technical-data\/bom-pricing\/([^/]+)$/.exec(window.location.pathname)
-  if (bomMatch) host.outerHTML = renderPcsTechnicalDataBomPricingDetailPage(bomMatch[1])
+  if (planMatch) host.outerHTML = renderPcsTechnicalDataBomPricingPlanPage(decodeURIComponent(planMatch[1]) as EngineeringBomOwnerStage, decodeURIComponent(planMatch[2]))
+  else if (bomMatch) host.outerHTML = renderPcsTechnicalDataBomPricingDetailPage(bomMatch[1])
   else if (window.location.pathname === '/pcs/technical-data/bom-pricing') host.outerHTML = renderPcsTechnicalDataBomPricingPage()
   else host.outerHTML = renderPcsTechnicalDataTechPackListPage()
+}
+
+function currentBomPlanRoute(): { ownerStage: EngineeringBomOwnerStage; ownerId: string } | null {
+  if (typeof window === 'undefined') return null
+  const match = /^\/pcs\/technical-data\/bom-pricing\/owner\/([^/]+)\/([^/]+)$/.exec(window.location.pathname)
+  return match ? { ownerStage: decodeURIComponent(match[1]) as EngineeringBomOwnerStage, ownerId: decodeURIComponent(match[2]) } : null
 }
 
 function currentBomVersionId(): string {
@@ -279,11 +330,11 @@ function collectBomLines(record: EngineeringBomVersionRecord): EngineeringBomMat
   })
 }
 
-function collectBomCustomCosts(record: EngineeringBomVersionRecord): EngineeringBomCustomCostDraft[] {
-  return Array.from(document.querySelectorAll<HTMLElement>('[data-bom-custom-cost]')).map((row, index) => {
-    const customCostId = row.dataset.bomCustomCost || ''
-    const current = record.customCosts.find((item) => item.customCostId === customCostId)
-    const input = (field: string) => row.querySelector<HTMLInputElement>(`[data-bom-custom-cost-field="${field}"]`)
+function collectBomPlanCosts(plan: EngineeringBomPricingPlanRecord): EngineeringBomCustomCostDraft[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-bom-plan-cost]')).map((row, index) => {
+    const customCostId = row.dataset.bomPlanCost || ''
+    const current = plan.customCosts.find((item) => item.customCostId === customCostId)
+    const input = (field: string) => row.querySelector<HTMLInputElement>(`[data-bom-plan-cost-field="${field}"]`)
     return {
       ...current,
       customCostId,
@@ -295,14 +346,13 @@ function collectBomCustomCosts(record: EngineeringBomVersionRecord): Engineering
   })
 }
 
-function saveCurrentBom(record: EngineeringBomVersionRecord, lines: EngineeringBomMaterialLineDraft[], customCosts = record.customCosts): void {
+function saveCurrentBom(record: EngineeringBomVersionRecord, lines: EngineeringBomMaterialLineDraft[]): void {
   const input = {
     versionId: record.bomDraftVersionId,
     role: '买手' as const,
     userId: 'BUYER-DEMO',
     userName: '买手-阿乐',
     materialLines: lines,
-    customCosts,
   }
   if (record.ownerStage === 'ENGINEERING_MASTER') saveEngineeringMasterBomVersion(input)
   else saveEngineeringBomVersion(input)
@@ -338,6 +388,56 @@ export function handlePcsTechnicalDataEvent(target: HTMLElement, event?: Event):
   if (action === 'prev-page') { if (isBomList) bomListState.currentPage = Math.max(1, bomListState.currentPage - 1); else listState.currentPage = Math.max(1, listState.currentPage - 1); rerender(); return true }
   if (action === 'next-page') { if (isBomList) bomListState.currentPage += 1; else listState.currentPage += 1; rerender(); return true }
   if (node?.dataset.techDataField === 'pageSize') { if (isBomList) { bomListState.pageSize = Number((node as HTMLSelectElement).value) || 10; bomListState.currentPage = 1 } else { listState.pageSize = Number((node as HTMLSelectElement).value) || 20; listState.currentPage = 1 } rerender(); return true }
+  const planRoute = currentBomPlanRoute()
+  const plan = planRoute ? getEngineeringBomPricingPlan(planRoute.ownerStage, planRoute.ownerId) : null
+  if (plan && action === 'bom-plan-add-cost') {
+    try {
+      saveEngineeringBomPricingPlan({
+        ownerStage: plan.ownerStage,
+        ownerId: plan.ownerId,
+        role: '买手',
+        userId: 'BUYER-DEMO',
+        userName: '买手-阿乐',
+        customCostDecision: 'HAS_CUSTOM_COST',
+        customCosts: [...plan.customCosts, { title: '车位费', amountIdr: 1, note: '' }],
+      })
+      bomFeedback = { message: '已新增一项整款费用，请填写实际金额后保存。', ok: true }
+    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '新增费用失败。', ok: false } }
+    rerender(); return true
+  }
+  if (plan && action === 'bom-plan-remove-cost') {
+    const row = node?.closest<HTMLElement>('[data-bom-plan-cost]')
+    try {
+      const nextCosts = plan.customCosts.filter((item) => item.customCostId !== row?.dataset.bomPlanCost)
+      saveEngineeringBomPricingPlan({
+        ownerStage: plan.ownerStage,
+        ownerId: plan.ownerId,
+        role: '买手',
+        userId: 'BUYER-DEMO',
+        userName: '买手-阿乐',
+        customCostDecision: nextCosts.length ? 'HAS_CUSTOM_COST' : 'UNDECIDED',
+        customCosts: nextCosts,
+      })
+      bomFeedback = { message: nextCosts.length ? '整款费用已删除。' : '最后一项费用已删除。请重新确认“本次无自定义费用”或新增费用。', ok: true }
+    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '删除费用失败。', ok: false } }
+    rerender(); return true
+  }
+  if (plan && action === 'bom-plan-save-costs') {
+    try {
+      const decision = (document.querySelector<HTMLSelectElement>('[data-tech-data-field="bom-custom-cost-decision"]')?.value || 'UNDECIDED') as EngineeringBomCustomCostDecision
+      saveEngineeringBomPricingPlan({
+        ownerStage: plan.ownerStage,
+        ownerId: plan.ownerId,
+        role: '买手',
+        userId: 'BUYER-DEMO',
+        userName: '买手-阿乐',
+        customCostDecision: decision,
+        customCosts: decision === 'NO_CUSTOM_COST' ? [] : collectBomPlanCosts(plan),
+      })
+      bomFeedback = { message: '整款自定义费用已保存。', ok: true }
+    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '保存整款费用失败。', ok: false } }
+    rerender(); return true
+  }
   const versionId = currentBomVersionId()
   const record = versionId ? getEngineeringBomVersionById(versionId) : null
   if (record && action === 'bom-add-material') {
@@ -372,44 +472,13 @@ export function handlePcsTechnicalDataEvent(target: HTMLElement, event?: Event):
     const row = node?.closest<HTMLElement>('[data-bom-line]')
     try {
       saveCurrentBom(record, record.materialLines.filter((line) => line.bomItemId !== row?.dataset.bomLine))
-      bomFeedback = { message: '物料行已删除，条件任务已重新计算。', ok: true }
+      bomFeedback = { message: '物料行已删除并保存；保存不会推进任务或完成确认。', ok: true }
     } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '删除物料失败。', ok: false } }
     rerender(); return true
   }
-  if (record && action === 'bom-add-custom-cost') {
-    try {
-      saveCurrentBom(record, collectBomLines(record), [...record.customCosts, {
-        customCostId: `${record.bomDraftVersionId}-COST-${record.customCosts.length + 1}`,
-        title: '车位费',
-        amountIdr: 1,
-        note: '',
-        displayOrder: record.customCosts.length + 1,
-      }])
-      bomFeedback = { message: '自定义费用已新增，请填写金额后保存。', ok: true }
-    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '新增费用失败。', ok: false } }
-    rerender(); return true
-  }
-  if (record && action === 'bom-remove-custom-cost') {
-    const row = node?.closest<HTMLElement>('[data-bom-custom-cost]')
-    try {
-      saveCurrentBom(record, collectBomLines(record), record.customCosts.filter((item) => item.customCostId !== row?.dataset.bomCustomCost))
-      bomFeedback = { message: '自定义费用已删除。', ok: true }
-    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '删除费用失败。', ok: false } }
-    rerender(); return true
-  }
   if (record && action === 'bom-save') {
-    try { saveCurrentBom(record, collectBomLines(record), collectBomCustomCosts(record)); bomFeedback = { message: 'BOM 与价格草稿已保存，条件任务已同步。', ok: true } }
+    try { saveCurrentBom(record, collectBomLines(record)); bomFeedback = { message: '该颜色物料已保存；请在所属业务单据完成整款确认。', ok: true } }
     catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '保存失败。', ok: false } }
-    rerender(); return true
-  }
-  if (record && action === 'bom-confirm') {
-    try {
-      saveCurrentBom(record, collectBomLines(record), collectBomCustomCosts(record))
-      const confirmInput = { versionId: record.bomDraftVersionId, role: '买手' as const, userId: 'BUYER-DEMO', userName: '买手-阿乐' }
-      if (record.ownerStage === 'ENGINEERING_MASTER') confirmEngineeringMasterBomVersion(confirmInput)
-      else confirmEngineeringBomVersion(confirmInput)
-      bomFeedback = { message: '当前物料方案已完成并确认。', ok: true }
-    } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '确认失败。', ok: false } }
     rerender(); return true
   }
   return false

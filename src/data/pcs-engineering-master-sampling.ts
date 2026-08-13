@@ -29,11 +29,13 @@ import {
   captureEngineeringBomRepositoryState,
   confirmEngineeringBomVersion,
   createEngineeringBomVersionsForOwner,
+  getEngineeringBomPricingPlan,
   getEngineeringBomVersionById,
   listEngineeringBomHistory,
   listEngineeringBomVersionsByOwner,
   reconcileEngineeringBomVersionsForTargetColors,
   regenerateEngineeringBomVersionFromSource,
+  resolveEngineeringBomPricingPlan,
   restoreEngineeringBomRepositoryState,
   saveEngineeringBomVersion,
   setEngineeringBomVersionsEditingLock,
@@ -235,14 +237,17 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
         customCosts: versionIndex === 0 ? [{ title: '车位费', amountIdr: 15_000, note: '历史方案演示费用' }] : [],
         updatedAt: '2026-06-30 09:00:00',
       })
+    })
+    const firstVersion = versions[0]
+    if (firstVersion) {
       confirmEngineeringBomVersion({
-        versionId: version.bomDraftVersionId,
+        versionId: firstVersion.bomDraftVersionId,
         role: '买手',
         userId: buyer.userId,
         userName: buyer.userName,
         confirmedAt: '2026-06-30 10:00:00',
       })
-    })
+    }
   })
   const statuses = ['DRAFT', 'IN_PROGRESS', 'WAIT_CONFIRMATION', 'COMPLETED', 'IN_PROGRESS', 'COMPLETED'] as const
   return Array.from({ length: 24 }, (_, index) => {
@@ -355,7 +360,12 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       record.buyerPreparationConfirmedAt = createdAt
       record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
       const lockableVersionIds = record.bomVersionIds.filter((versionId) => getEngineeringBomVersionById(versionId)?.versionStatus === 'DRAFT')
-      if (lockableVersionIds.length === record.bomVersionIds.length && lockableVersionIds.length) {
+      const pricingPlan = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', record.samplingTaskId)
+      if (
+        pricingPlan?.status === 'DRAFT'
+        && lockableVersionIds.length === record.bomVersionIds.length
+        && lockableVersionIds.length
+      ) {
         setEngineeringBomVersionsEditingLock({
           versionIds: lockableVersionIds,
           locked: true,
@@ -766,7 +776,7 @@ export function confirmEngineeringIndependentColorMappings(input: {
   const recordSnapshot = cloneRecord(record)
   try {
     applyEngineeringIndependentColorMappings({ record, actor: input.actor, mappings: input.mappings, confirmedAt: at })
-    addLog(record, '确认目标颜色', input.actor, `已确认 ${record.colorMappings.length} 个目标颜色，并生成同数量的 BOM 与价格草稿。`, at)
+    addLog(record, '确认目标颜色', input.actor, `已确认 ${record.colorMappings.length} 个目标颜色，并生成同数量的颜色物料方案。`, at)
     writeRecords(records)
     return cloneRecord(record)
   } catch (error) {
@@ -832,7 +842,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
   try {
     const targetVersions = record.bomVersionIds.map((versionId) => {
       const targetVersion = getEngineeringBomVersionById(versionId)
-      if (!targetVersion) throw new Error('B 款 BOM 与价格草稿不存在，请重新创建打样任务。')
+      if (!targetVersion) throw new Error('B 款颜色物料方案不存在，请重新创建打样任务。')
       const converted = record.materialConversionLines
         .filter((line) => line.targetProductColor === targetVersion.productColor && line.decision !== '不使用')
         .map((line, index) => {
@@ -871,7 +881,6 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
       userId: input.actor.userId,
       userName: input.actor.userName,
       materialLines,
-      customCosts: targetVersion.customCosts,
       updatedAt: at,
     }))
 
@@ -879,7 +888,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
     record.bomConversionConfirmedBy = input.actor.userName
     record.bomConversionConfirmedAt = at
     record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
-    addLog(record, '应用参考物料', input.actor, `已将确认后的参考物料处理结果应用到 ${record.targetStyleCode} 的 BOM 与价格草稿。`, at)
+    addLog(record, '应用参考物料', input.actor, `已将确认后的参考物料处理结果应用到 ${record.targetStyleCode} 的颜色物料方案。`, at)
     writeRecords(records)
     return cloneRecord(record)
   } catch (error) {
@@ -900,19 +909,56 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
   if (!record) throw new Error('独立打样任务不存在。')
+  // 浏览器重复点击或重复提交同一交接动作时直接返回既有事实，避免重复日志、
+  // 重复锁定或把第一次成功反馈覆盖成“已经交接”的失败提示。
+  if (record.status === 'DRAFT' && record.buyerPreparationConfirmedAt && !record.taskPlanConfirmedAt) {
+    return cloneRecord(record)
+  }
   if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt) throw new Error('工作安排确认后不能再完成新款资料准备。')
-  if (!record.colorMappings.length) throw new Error('请先确认目标颜色。')
-  if (record.bomVersionIds.length !== record.colorMappings.length) throw new Error('目标颜色与 BOM 与价格草稿数量不一致，请重新确认目标颜色。')
-  if (record.materialConversionLines.some((line) => !line.confirmedAt || !line.decision)) {
-    throw new Error('请先逐项确认所有参考物料如何用于新款。')
+  const issues: string[] = []
+  if (!record.colorMappings.length) issues.push('尚未确认目标颜色。')
+  if (record.bomVersionIds.length !== record.colorMappings.length) issues.push('目标颜色与颜色物料方案数量不一致，请重新确认目标颜色。')
+  record.materialConversionLines
+    .filter((line) => !line.confirmedAt || !line.decision)
+    .forEach((line) => issues.push(`新款颜色“${line.targetProductColor}”的参考物料“${line.sourceMaterialName}”尚未确认处理方式。`))
+  const pricingPlan = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', record.samplingTaskId)
+  if (!pricingPlan) {
+    issues.push('整款 BOM 与价格方案不存在，请重新确认目标颜色。')
+  } else {
+    if (pricingPlan.customCostDecision === 'UNDECIDED') issues.push('尚未确认本次是否有自定义费用；没有费用时请选择“本次无自定义费用”。')
+    if (pricingPlan.customCostDecision === 'HAS_CUSTOM_COST' && !pricingPlan.customCosts.length) issues.push('已选择“本次有自定义费用”，但尚未维护费用明细。')
+    if (pricingPlan.customCostDecision === 'NO_CUSTOM_COST' && pricingPlan.customCosts.length) issues.push('已选择“本次无自定义费用”，但仍存在费用明细。')
+    pricingPlan.customCosts.forEach((cost, index) => {
+      if (!cost.title.trim()) issues.push(`第 ${index + 1} 项自定义费用尚未填写费用名称。`)
+      if (!Number.isFinite(cost.amountIdr) || cost.amountIdr <= 0) issues.push(`自定义费用“${cost.title || `第 ${index + 1} 项`}”的金额必须大于 0 IDR。`)
+    })
   }
   record.bomVersionIds.forEach((versionId) => {
     const version = getEngineeringBomVersionById(versionId)
-    if (!version) throw new Error('BOM 与价格草稿不存在，请重新确认目标颜色。')
-    if (version.versionStatus !== 'DRAFT') throw new Error(`BOM 与价格 ${version.versionCode} 已生效，不能作为当前资料准备草稿。`)
-    if (!version.materialLines.length) throw new Error(`目标颜色“${version.productColor}”尚未维护物料。`)
+    if (!version) {
+      issues.push(`颜色物料方案 ${versionId} 不存在，请重新确认目标颜色。`)
+      return
+    }
+    if (version.versionStatus !== 'DRAFT') issues.push(`颜色“${version.productColor}”的物料方案已交接或确认，请刷新任务状态。`)
+    if (version.editingLockedAt) issues.push(`颜色“${version.productColor}”的物料方案已经锁定，请刷新任务状态。`)
+    if (!version.materialLines.length) issues.push(`目标颜色“${version.productColor}”尚未维护物料。`)
+    version.materialLines.forEach((line, index) => {
+      try {
+        const resolved = resolveEngineeringBomMaterialLine(line)
+        if (resolved.priceStatus === '标准单价失效') issues.push(`颜色“${version.productColor}”第 ${index + 1} 行物料 ${resolved.materialSkuCode} 标准单价失效。`)
+      } catch (error) {
+        issues.push(`颜色“${version.productColor}”第 ${index + 1} 行物料不完整：${error instanceof Error ? error.message : '请检查物料、用量、打样数量、损耗率和单位。'}`)
+      }
+    })
   })
-  resolveEngineeringIndependentSamplingBomLines(record)
+  if (!issues.length) {
+    try {
+      resolveEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', record.samplingTaskId)
+    } catch (error) {
+      issues.push(`综合成本暂时无法计算：${error instanceof Error ? error.message : '请检查物料、费用及系统汇率。'}`)
+    }
+  }
+  if (issues.length) throw new Error(`新款资料尚未完整：\n${issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}`)
   const at = input.completedAt || nowText()
   const bomSnapshot = captureEngineeringBomRepositoryState()
   const recordSnapshot = cloneRecord(record)
@@ -933,7 +979,7 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
     record.buyerPreparationReturnedAt = ''
     record.buyerPreparationReturnReason = ''
     record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
-    addLog(record, '完成新款资料准备', input.actor, `已完成 ${record.colorMappings.length} 个目标颜色及其 BOM 与价格草稿，资料已锁定并交给跟单。`, at)
+    addLog(record, '完成新款资料准备', input.actor, `已一次确认 ${record.colorMappings.length} 个目标颜色、全部颜色物料及整款费用，资料已锁定并交给跟单。`, at)
     writeRecords(records)
     return cloneRecord(record)
   } catch (error) {
@@ -1011,7 +1057,7 @@ export function regenerateEngineeringIndependentBomFromReference(input: {
   const targetVersion = record.bomVersionIds
     .map(getEngineeringBomVersionById)
     .find((version) => version && normalizeColorKey(version.productColor) === normalizeColorKey(mapping.targetColor))
-  if (!targetVersion) throw new Error('新款颜色对应的 BOM 草稿不存在。')
+  if (!targetVersion) throw new Error('新款颜色对应的物料方案不存在。')
   const at = input.regeneratedAt || nowText()
   const bomSnapshot = captureEngineeringBomRepositoryState()
   const recordSnapshot = cloneRecord(record)
@@ -1192,7 +1238,7 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
   if (!record) throw new Error('独立打样任务不存在。')
   if (record.merchandiserId !== input.actor.userId) throw new Error('只有任务跟单本人可以确认任务方案。')
   if (record.status !== 'DRAFT') throw new Error('只有草稿任务可以确认任务方案。')
-  if (!record.buyerPreparationConfirmedAt || record.bomConversionStatus !== 'CONFIRMED') throw new Error('请先由买手完成目标颜色与 BOM 与价格草稿。')
+  if (!record.buyerPreparationConfirmedAt || record.bomConversionStatus !== 'CONFIRMED') throw new Error('请先由买手完成目标颜色及整款 BOM 与价格方案。')
   const incompleteBom = record.bomVersionIds.map(getEngineeringBomVersionById).find((version) => version && version.materialLines.length === 0)
   if (incompleteBom) throw new Error(`B 款颜色“${incompleteBom.productColor}”尚未维护物料，不能确认本次工作安排。`)
   if (!input.selectedTaskTypes.length) throw new Error('请至少选择一个专业任务。')

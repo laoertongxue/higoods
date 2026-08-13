@@ -118,9 +118,56 @@ export interface EngineeringBomVersionRecord extends EngineeringBomDraft {
   publishedSnapshotId?: string
 }
 
+// 一张业务单据只有一份“BOM 与价格方案”：
+// - 颜色物料仍由 EngineeringBomVersionRecord 分颜色维护；
+// - 自定义费用统一保存在本记录中，只计算一次、只确认一次。
+export type EngineeringBomPricingPlanStatus =
+  | 'DRAFT'
+  | 'HANDED_OFF'
+  | 'COMPLETED_CONFIRMED'
+  | 'PUBLISHED_SNAPSHOT'
+
+export type EngineeringBomCustomCostDecision =
+  | 'UNDECIDED'
+  | 'NO_CUSTOM_COST'
+  | 'HAS_CUSTOM_COST'
+
+export interface EngineeringBomPricingPlanRecord {
+  pricingPlanId: string
+  ownerStage: EngineeringBomOwnerStage
+  ownerId: string
+  ownerCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  styleImageUrl: string
+  status: EngineeringBomPricingPlanStatus
+  customCostDecision: EngineeringBomCustomCostDecision
+  customCosts: EngineeringBomCustomCostDraft[]
+  buyerId: string
+  buyerName: string
+  createdAt: string
+  createdBy: string
+  updatedAt: string
+  updatedBy: string
+  editingLockedAt?: string
+  editingLockedBy?: string
+  editingLockedReason?: string
+  completedConfirmedAt?: string
+  completedConfirmedBy?: string
+  publishedSnapshotId?: string
+}
+
 export interface EngineeringBomVersionStoreSnapshot {
   version: number
   records: EngineeringBomVersionRecord[]
+  plans: EngineeringBomPricingPlanRecord[]
+}
+
+export interface EngineeringBomResolvedPricingPlan {
+  plan: EngineeringBomPricingPlanRecord
+  versions: EngineeringBomVersionRecord[]
+  resolved: EngineeringBomResolvedDraft
 }
 
 export interface EngineeringBomSkuScopeCatalog {
