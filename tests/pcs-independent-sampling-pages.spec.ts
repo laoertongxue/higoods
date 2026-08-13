@@ -55,7 +55,8 @@ assert.match(detailHtml, /工作安排/)
 assert.match(detailHtml, /专业工作/)
 assert.match(detailHtml, /整单确认/)
 assert.match(detailHtml, /本次需要完成的工作/)
-assert.match(detailHtml, /\/pcs\/engineering\/sampling-professional\//)
+assert.match(detailHtml, /\/pcs\/(patterns\/(plate-making|artwork)|engineering\/color|samples\/display-sample)\//)
+assert.doesNotMatch(detailHtml, /\/pcs\/engineering\/sampling-professional\//, '进入任务必须跳到对应专业任务详情，不再生成通用中转链接')
 
 const designRecord = listEngineeringIndependentSamplingRecords('DESIGN').find((item) => getEngineeringIndependentSamplingStep(item) === 'PROFESSIONAL_WORK')!
 const designDetailHtml = renderPcsIndependentSamplingDetailPage('DESIGN', designRecord.samplingTaskId)

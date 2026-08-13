@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   confirmEngineeringIndependentSamplingPlan,
   confirmEngineeringIndependentSamplingResult,
+  confirmEngineeringIndependentColorMappings,
+  completeEngineeringIndependentBuyerPreparation,
   createEngineeringIndependentSampling,
   listReusableEngineeringIndependentProfessionalResults,
   resetEngineeringIndependentSamplingRepository,
@@ -11,7 +13,6 @@ import {
   submitEngineeringIndependentProfessionalTask,
 } from '../src/data/pcs-engineering-master-sampling.ts'
 import {
-  confirmEngineeringBomVersion,
   getEngineeringBomVersionById,
   resetEngineeringBomRepository,
   saveEngineeringBomVersion,
@@ -32,6 +33,7 @@ import type {
   EngineeringIndependentSamplingRecord,
 } from '../src/data/pcs-engineering-master-types.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { listSkuArchivesByStyleId } from '../src/data/pcs-sku-archive-repository.ts'
 import { renderPcsEngineeringMasterDetailPage } from '../src/pages/pcs-engineering-master-detail.ts'
 
 const merchandiser = { role: '跟单', userId: 'MERCH-A6', userName: '跟单-A6' }
@@ -90,7 +92,11 @@ function confirmSamplingBom(record: EngineeringIndependentSamplingRecord): void 
       }],
       customCosts: [],
     })
-    confirmEngineeringBomVersion({ versionId, role: '买手', userId: buyer.userId, userName: buyer.userName })
+  })
+  completeEngineeringIndependentBuyerPreparation({
+    samplingTaskId: record.samplingTaskId,
+    actor: buyer,
+    completedAt: record.createdAt,
   })
 }
 
@@ -106,7 +112,18 @@ async function createSampling(
     merchandiser,
     createdAt: `2026-07-${marker === 'OLD' ? '01' : marker === 'NEW' ? '10' : '20'} 09:00:00`,
   })
-  confirmSamplingBom(created)
+  const targetSkus = listSkuArchivesByStyleId(targetStyle.styleId).filter((sku) => sku.archiveStatus === 'ACTIVE')
+  const targetSizes = [...new Set(targetSkus.map((sku) => sku.sizeName))]
+  const prepared = confirmEngineeringIndependentColorMappings({
+    samplingTaskId: created.samplingTaskId,
+    actor: buyer,
+    mappings: [...new Set(targetSkus.map((sku) => sku.colorName))].map((targetColor) => ({
+      targetColor,
+      sourceColor: '',
+      targetSizeNames: targetSizes,
+    })),
+  })
+  confirmSamplingBom(prepared)
   let current = confirmEngineeringIndependentSamplingPlan({
     samplingTaskId: created.samplingTaskId,
     actor: merchandiser,
@@ -127,17 +144,29 @@ async function createSampling(
       : taskType === 'DISPLAY_SAMPLE'
         ? await uploaded([realFile(`${marker}-display.jpg`, 'image/jpeg')], 'SAMPLE_RESULT', { ...executor, teamName: '制作团队' })
         : await uploaded([realFile(`${marker}-artwork.ai`, 'application/postscript'), realFile(`${marker}-artwork.jpg`, 'image/jpeg')], 'PATTERN_ARTWORK', { ...executor, teamName: '花型团队' })
-    current = submitEngineeringIndependentProfessionalTask({
-      taskId: task.taskId,
-      actor: executor,
-      results: [{
+    const results = taskType === 'DISPLAY_SAMPLE'
+      ? (task.sampleRequirements || []).map((requirement, index) => ({
+        title: `${task.taskName}-${marker}-${index + 1}`,
+        version: `v-${marker}`,
+        description: `${marker} 专项真实成果`,
+        requirementLineId: requirement.requirementLineId,
+        sampleQuantity: requirement.requiredQuantity,
+        sampleColor: requirement.targetColor,
+        sampleSize: requirement.targetSize,
+        sourcePatternVersion: `v-${marker}`,
+        files,
+      }))
+      : [{
         title: `${task.taskName}-${marker}`,
         version: `v-${marker}`,
         description: `${marker} 专项真实成果`,
         ...(taskType === 'BASE_PATTERN' ? { applicablePartOrSize: 'M 码' } : {}),
-        ...(taskType === 'DISPLAY_SAMPLE' ? { sampleQuantity: 1, sampleColor: '黑色', sampleSize: 'M', sourcePatternVersion: `v-${marker}` } : {}),
         files,
-      }],
+      }]
+    current = submitEngineeringIndependentProfessionalTask({
+      taskId: task.taskId,
+      actor: executor,
+      results,
       submittedAt: created.createdAt,
     })
     const submitted = current.professionalTasks.find((item) => item.taskId === task.taskId)!
@@ -232,11 +261,10 @@ const confirmed = confirmEngineeringMasterTaskPlan(draft.masterOrderId, {
   selectedConditionalTaskTypes: [],
   priorResultDecisions: [
     decision('BASE_PATTERN_WOVEN', oldResult, 'BASE_PATTERN', '复用'),
-    decision('PRE_PRODUCTION_SAMPLE', newResult, 'DISPLAY_SAMPLE', '重新执行'),
     decision('PATTERN_ARTWORK', newResult, 'PATTERN_ARTWORK', '不采用'),
   ],
 })
-assert.equal(confirmed.priorResultReuseLines.length, 3)
+assert.equal(confirmed.priorResultReuseLines.length, 2)
 const reusedLine = confirmed.priorResultReuseLines.find((line) => line.resultType === 'BASE_PATTERN_WOVEN')!
 assert.equal(reusedLine.sourceSamplingTaskId, oldResult.samplingTaskId, '必须保留跟单改选的历史来源')
 assert.equal(reusedLine.sourceResultVersion, oldResult.resultVersion)
@@ -271,7 +299,6 @@ assert.throws(() => confirmEngineeringMasterTaskPlan(blockedDraft.masterOrderId,
   selectedConditionalTaskTypes: [],
   priorResultDecisions: [
     decision('BASE_PATTERN_WOVEN', unconfirmed, 'BASE_PATTERN', '复用'),
-    decision('PRE_PRODUCTION_SAMPLE', newResult, 'DISPLAY_SAMPLE', '重新执行'),
     decision('PATTERN_ARTWORK', newResult, 'PATTERN_ARTWORK', '不采用'),
   ],
 }), /未完成整单确认|不能采用/, '未确认成果必须由领域层阻断')
@@ -285,7 +312,6 @@ assert.throws(() => confirmEngineeringMasterTaskPlan(dependencyDraft.masterOrder
   selectedConditionalTaskTypes: [],
   priorResultDecisions: [
     decision('BASE_PATTERN_WOVEN', newResult, 'BASE_PATTERN', '不采用'),
-    decision('PRE_PRODUCTION_SAMPLE', newResult, 'DISPLAY_SAMPLE', '复用'),
     decision('PATTERN_ARTWORK', newResult, 'PATTERN_ARTWORK', '不采用'),
   ],
 }), /不能选择不采用/, '不采用不能满足必做任务或下游依赖')

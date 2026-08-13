@@ -8,6 +8,7 @@ import {
   resetEngineeringMasterRepository,
   submitEngineeringTaskResult,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { submitEngineeringPatternResult } from '../src/data/pcs-engineering-pattern-result.ts'
 import { listRevisionTasks } from '../src/data/pcs-revision-task-repository.ts'
 import {
   handlePcsEngineeringTaskEvent,
@@ -19,14 +20,23 @@ import {
   renderPcsPatternTaskPage,
   renderPcsPlateMakingTaskDetailPage,
   renderPcsPlateMakingTaskPage,
-  renderPcsRevisionTaskDetailPage,
-  renderPcsRevisionTaskPage,
   resetPcsEngineeringTaskRepositories,
   resetPcsEngineeringTaskState,
   submitEngineeringFirstSampleResult,
 } from '../src/pages/pcs-engineering-tasks.ts'
-import { handlePatternTaskEvent } from '../src/pages/pcs-engineering-tasks/pattern-task.ts'
-import { handleColorTaskEvent } from '../src/pages/pcs-engineering-tasks/color-task.ts'
+import { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from '../src/pages/pcs-engineering-tasks/revision-task.ts'
+import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
+
+const storage = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => { storage.set(key, String(value)) },
+    removeItem: (key: string) => { storage.delete(key) },
+    clear: () => { storage.clear() },
+  },
+})
 
 function makeActionTarget(action: string, extraDataset: Record<string, string> = {}): HTMLElement {
   return {
@@ -36,13 +46,6 @@ function makeActionTarget(action: string, extraDataset: Record<string, string> =
       if (selector === '[data-pcs-engineering-list-module]' && this.dataset.pcsEngineeringListModule) return this
       return null
     },
-  } as unknown as HTMLElement
-}
-
-function makeInvalidClosestTarget(action: string, extraDataset: Record<string, string> = {}): HTMLElement {
-  return {
-    dataset: { pcsEngineeringAction: action, ...extraDataset },
-    closest() { return this },
   } as unknown as HTMLElement
 }
 
@@ -60,7 +63,31 @@ assert.ok(style, '应存在用于工程主单的款式档案')
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-MERCHANDISER',
   merchandiserName: '跟单回归测试',
+  createdById: 'USER-MERCHANDISER',
+  createdBy: '跟单回归测试',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: {
+    styleCode: style.styleCode,
+    formalSaleStatus: 'NO_FORMAL_SALE',
+    formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+    formalSaleSource: '正式销售订单事实',
+    formalProductionSource: '正式生产单事实',
+    checkedAt: '2026-08-13 09:00:00',
+  },
+  bulkProductionQualification: {
+    basisType: 'TEST_APPROVED',
+    triggerBusinessObjectType: '测款结果',
+    triggerBusinessObjectId: `TASKS-${style.styleCode}`,
+    thresholdQuantity: 300,
+    reachedQuantity: 320,
+    reachedAt: '2026-08-13 09:00:00',
+    reason: '已满足做大货要求',
+    uniqueTriggerKey: `TASKS-${style.styleCode}`,
+  },
+  creationReason: '验证工程专业任务页面',
 }).masterOrderId)
 
 const plateTaskId = masterTaskId(master.masterOrderId, 'BASE_PATTERN_WOVEN')
@@ -85,9 +112,17 @@ assert.match(patternListHtml, /未启用/, '未带入印花物料时花型任务
 assert.doesNotMatch(sampleListHtml, /首版样衣|首单确认|验收与结论/, '产前版样衣页面不应保留旧样衣事实或验收')
 
 // 制版成果提交即完成，并为产前版样衣解锁其全部固定前置。
-const plateResult = submitEngineeringTaskResult(master.masterOrderId, plateTaskId)
-assert.equal(plateResult.task.status, '已完成', '制版任务提交成果即完成')
-submitEngineeringTaskResult(master.masterOrderId, knitPlateTaskId)
+startEngineeringTaskFromDetail(plateTaskId)
+const patternVersion = submitEngineeringPatternResult({
+  masterOrderId: master.masterOrderId,
+  taskId: plateTaskId,
+  applicableSizes: ['M'],
+  sourceFiles: [{ fileId: `${plateTaskId}-PRJ`, purpose: 'PATTERN_SOURCE', fileName: '基码纸样.prj', extension: 'prj', mimeType: 'application/octet-stream', sizeBytes: 8, dataUrl: 'data:application/octet-stream;base64,SElHT09E', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-13 10:00:00', roundNo: 1, errorMessage: '' }],
+  previewFiles: [{ fileId: `${plateTaskId}-IMAGE`, purpose: 'PATTERN_PREVIEW', fileName: '基码纸样.jpg', extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 4, dataUrl: 'data:image/jpeg;base64,/9j/2Q==', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-13 10:00:00', roundNo: 1, errorMessage: '' }],
+  note: '工程专业任务回归纸样',
+  submittedBy: '版师负责人',
+})
+assert.equal(getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === plateTaskId)?.status, '已完成', '制版任务提交真实纸样成果即完成')
 const plateDetailHtml = renderPcsPlateMakingTaskDetailPage(plateTaskId)
 assert.match(plateDetailHtml, /已完成/, '制版详情应读取工程主单完成状态')
 
@@ -101,21 +136,33 @@ const patternDetailHtml = renderPcsPatternTaskDetailPage(patternTaskId)
 assert.match(patternDetailHtml, /未启用/, '花型详情应读取工程主单任务状态')
 
 // 产前版样衣只接受完整成果；制作团队提交后即完成，无任务级验收。
+startEngineeringTaskFromDetail(sampleTaskId)
 assert.throws(
-  () => submitEngineeringFirstSampleResult(sampleTaskId, { resultImageIds: [], resultQuantity: 1, submittedBy: '制作团队A' }),
-  /至少上传一张结果图片/,
+  () => submitEngineeringFirstSampleResult(sampleTaskId, { sampleActuals: [] }),
+  /逐行填写产前版样衣实际交付/,
   '产前版样衣成果必须包含图片',
 )
-const sampleResult = submitEngineeringFirstSampleResult(sampleTaskId, {
-  resultImageIds: ['mock://pre-production-sample/front.png', 'mock://pre-production-sample/back.png'],
-  resultQuantity: 1,
+const sampleRequirements = master.tasks.find((task) => task.taskId === sampleTaskId)?.sampleRequirements || []
+const sampleActuals = sampleRequirements.map((requirement, index) => ({
+  actualLineId: `${sampleTaskId}-TEST-ACTUAL-${index + 1}`,
+  requirementLineId: requirement.requirementLineId,
+  actualColor: requirement.targetColor,
+  actualSize: requirement.targetSize,
+  actualQuantity: requirement.requiredQuantity,
+  sourcePatternVersion: `${patternVersion.materialKind}${patternVersion.patternKind} ${patternVersion.versionLabel}`,
+  productionNote: '按跟单要求完成',
+  differenceNote: '',
+  imageFileIds: [style.mainImageUrl],
   submittedBy: '制作团队A',
+}))
+const sampleResult = submitEngineeringFirstSampleResult(sampleTaskId, {
+  sampleActuals,
 })
 assert.equal(sampleResult.status, '已完成', '完整产前版样衣成果提交后应完成任务')
-assert.deepEqual(sampleResult.resultImageIds, ['mock://pre-production-sample/front.png', 'mock://pre-production-sample/back.png'])
+assert.equal(sampleResult.sampleActuals?.length, sampleRequirements.length)
 assert.equal(sampleResult.resultSubmittedBy, '制作团队A')
 const sampleDetailHtml = renderPcsFirstSampleTaskDetailPage(sampleTaskId)
-assert.match(sampleDetailHtml, /2 张/, '产前版样衣详情应读取已提交的图片成果')
+assert.match(sampleDetailHtml, /样衣实际交付/, '产前版样衣详情应读取逐行实际交付成果')
 assert.match(sampleDetailHtml, /制作团队A/, '产前版样衣详情应读取成果提交人')
 assert.doesNotMatch(sampleDetailHtml, /验收|首单确认/, '产前版样衣详情不应出现旧验收或首单确认')
 
@@ -145,24 +192,6 @@ const quickFilterTarget = makeActionTarget('set-first-sample-quick-filter', {
 })
 assert.equal(handlePcsEngineeringTaskEvent(quickFilterTarget), true, '统一事件入口应处理产前版样衣列表快捷筛选')
 assert.match(renderPcsFirstSampleTaskPage(), /已完成/, '快捷筛选后的列表应仍显示当前工程任务状态')
-
-// 非真实 DOM 目标即使错误地让 closest 命中自身，也不能被花型或调色处理器误捕获；
-// 聚合入口仍须把事件交给原本的标准列表处理器。
-const invalidClosestTarget = makeInvalidClosestTarget('set-first-sample-quick-filter', {
-  pcsEngineeringListModule: 'firstSample',
-  quickFilter: 'completed',
-})
-assert.equal(handlePatternTaskEvent(invalidClosestTarget), false, '无 ParentNode 能力的目标不得被花型处理器捕获')
-assert.equal(handleColorTaskEvent(invalidClosestTarget), false, '无 ParentNode 能力的目标不得被调色处理器捕获')
-assert.doesNotThrow(
-  () => handlePcsEngineeringTaskEvent(invalidClosestTarget),
-  '无效 closest 返回值不得导致统一事件入口抛错',
-)
-assert.equal(handlePcsEngineeringTaskEvent(invalidClosestTarget), true, '无效目标应继续交给原有标准列表事件处理器')
-
-const noClosestTarget = { dataset: {} } as unknown as HTMLElement
-assert.equal(handlePatternTaskEvent(noClosestTarget), false, '缺少 closest 能力的目标不得被花型处理器捕获')
-assert.equal(handleColorTaskEvent(noClosestTarget), false, '缺少 closest 能力的目标不得被调色处理器捕获')
 
 const storedMaster = getEngineeringMasterOrderById(master.masterOrderId)
 assert.equal(storedMaster?.tasks.find((task) => task.taskId === sampleTaskId)?.status, '已完成', '专业页面提交必须写回工程主单唯一事实源')

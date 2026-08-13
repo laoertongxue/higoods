@@ -15,6 +15,7 @@ import type {
   EngineeringIndependentSamplingRecord,
   EngineeringIndependentSamplingStep,
   EngineeringIndependentSamplingType,
+  EngineeringSampleRequirementLine,
 } from './pcs-engineering-master-types.ts'
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
 import {
@@ -55,6 +56,10 @@ function nowText(): string {
   return new Date().toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function cloneSampleRequirement(line: EngineeringSampleRequirementLine): EngineeringSampleRequirementLine {
+  return { ...line }
+}
+
 function canUseStorage(): boolean {
   return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
 }
@@ -69,6 +74,8 @@ function cloneResult(result: EngineeringIndependentProfessionalResult): Engineer
     sampleColor: result.sampleColor || '',
     sampleSize: result.sampleSize || '',
     sourcePatternVersion: result.sourcePatternVersion || '',
+    requirementLineId: result.requirementLineId || '',
+    differenceNote: result.differenceNote || '',
     files: (result.files || []).map((file) => ({ ...file })),
   }
 }
@@ -79,6 +86,7 @@ function cloneTask(task: EngineeringIndependentProfessionalTask): EngineeringInd
     colorRequirementConfirmedBy: task.colorRequirementConfirmedBy || '',
     colorRequirementConfirmedAt: task.colorRequirementConfirmedAt || '',
     dependsOnTaskIds: [...task.dependsOnTaskIds],
+    sampleRequirements: (task.sampleRequirements || []).map(cloneSampleRequirement),
     results: task.results.map(cloneResult),
   }
 }
@@ -361,13 +369,34 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       record.selectedTaskTypes = [...selected]
       record.taskPlanConfirmedBy = actor.userName
       record.taskPlanConfirmedAt = createdAt
-      record.professionalTasks = createProfessionalTasks(record, selected, createdAt)
+      const seededSampleRequirements = selected.includes('DISPLAY_SAMPLE')
+        ? normalizeIndependentSampleRequirements(record, undefined, actor.userName, createdAt)
+        : []
+      record.professionalTasks = createProfessionalTasks(record, selected, createdAt, seededSampleRequirements)
       record.relatedProfessionalTaskIds = record.professionalTasks.map((task) => task.taskId)
       record.status = seedStatus
       if (record.status === 'WAIT_CONFIRMATION' || record.status === 'COMPLETED') {
         record.professionalTasks.forEach((task) => {
           task.status = 'COMPLETED'; task.startedAt = createdAt; task.submittedAt = createdAt; task.completedAt = createdAt
-          task.results = [{
+          task.results = task.taskType === 'DISPLAY_SAMPLE'
+            ? (task.sampleRequirements || []).map((requirement, resultIndex) => ({
+                resultId: `${task.taskId}-R${resultIndex + 1}`,
+                title: `${requirement.targetColor} / ${requirement.targetSize} 销售展示样衣`,
+                version: 'v1.0',
+                description: '已按跟单下达的颜色、尺码和数量完成销售展示样衣。',
+                applicablePartOrSize: '',
+                sampleQuantity: requirement.requiredQuantity,
+                sampleColor: requirement.targetColor,
+                sampleSize: requirement.targetSize,
+                sourcePatternVersion: '基码纸样 v1.0',
+                requirementLineId: requirement.requirementLineId,
+                differenceNote: '',
+                imageUrl: target.mainImageUrl,
+                files: [createSeedUploadedFile(`${task.taskId}-${resultIndex + 1}`, 'SAMPLE_RESULT', target.mainImageUrl, createdAt)],
+                status: 'APPROVED' as const,
+                rejectReason: '',
+              }))
+            : [{
             resultId: `${task.taskId}-R1`,
             title: `${task.taskName}成果`,
             version: 'v1.0',
@@ -1088,7 +1117,53 @@ export function getEngineeringIndependentSamplingStep(
   return 'PROFESSIONAL_WORK'
 }
 
-function createProfessionalTasks(record: EngineeringIndependentSamplingRecord, selected: EngineeringIndependentProfessionalTaskType[], createdAt: string): EngineeringIndependentProfessionalTask[] {
+function normalizeIndependentSampleRequirements(
+  record: EngineeringIndependentSamplingRecord,
+  requirements: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'> & { requirementLineId?: string }> | undefined,
+  issuedBy: string,
+  issuedAt: string,
+): EngineeringSampleRequirementLine[] {
+  const source = requirements?.length
+    ? requirements
+    : record.colorMappings.flatMap((mapping) => mapping.targetSizeNames.map((targetSize) => ({
+      targetColor: mapping.targetColor,
+      targetSize,
+      requiredQuantity: 1,
+      requirementNote: '',
+    })))
+  if (!source.length) throw new Error('请先下达销售展示样衣的颜色、尺码和要求数量。')
+  const allowed = new Set(record.colorMappings.flatMap((mapping) =>
+    mapping.targetSizeNames.map((size) => `${mapping.targetColor}\u0000${size}`),
+  ))
+  const seen = new Set<string>()
+  return source.map((line, index) => {
+    const targetColor = line.targetColor.trim()
+    const targetSize = line.targetSize.trim()
+    const quantity = Number(line.requiredQuantity)
+    const key = `${targetColor}\u0000${targetSize}`
+    if (!targetColor || !targetSize) throw new Error('请完整填写销售展示样衣的颜色和尺码。')
+    if (!allowed.has(key)) throw new Error(`“${targetColor} / ${targetSize}”不属于买手已确认的新款颜色与尺码。`)
+    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('销售展示样衣要求数量必须为大于 0 的整数。')
+    if (seen.has(key)) throw new Error(`销售展示样衣制作要求重复：${targetColor} / ${targetSize}。`)
+    seen.add(key)
+    return {
+      requirementLineId: line.requirementLineId?.trim() || `${record.samplingTaskId}-DISPLAY-REQ-${index + 1}`,
+      targetColor,
+      targetSize,
+      requiredQuantity: quantity,
+      requirementNote: line.requirementNote.trim(),
+      issuedBy,
+      issuedAt,
+    }
+  })
+}
+
+function createProfessionalTasks(
+  record: EngineeringIndependentSamplingRecord,
+  selected: EngineeringIndependentProfessionalTaskType[],
+  createdAt: string,
+  sampleRequirements: EngineeringSampleRequirementLine[] = [],
+): EngineeringIndependentProfessionalTask[] {
   const selectedSet = new Set(selected)
   if (selectedSet.has('DISPLAY_SAMPLE')) selectedSet.add('BASE_PATTERN')
   return [...selectedSet].map((taskType) => {
@@ -1100,11 +1175,18 @@ function createProfessionalTasks(record: EngineeringIndependentSamplingRecord, s
       plannedCompleteAt: createdAt.slice(0, 10), startedAt: '', submittedAt: '', completedAt: '',
       pantoneColorCode: '', colorName: '', dyeColorCode: '', results: [],
       colorRequirementConfirmedBy: '', colorRequirementConfirmedAt: '',
+      sampleRequirements: taskType === 'DISPLAY_SAMPLE' ? sampleRequirements.map(cloneSampleRequirement) : [],
     }
   })
 }
 
-export function confirmEngineeringIndependentSamplingPlan(input: { samplingTaskId: string; actor: { role: string; userId: string; userName: string }; selectedTaskTypes: EngineeringIndependentProfessionalTaskType[]; confirmedAt?: string }): EngineeringIndependentSamplingRecord {
+export function confirmEngineeringIndependentSamplingPlan(input: {
+  samplingTaskId: string
+  actor: { role: string; userId: string; userName: string }
+  selectedTaskTypes: EngineeringIndependentProfessionalTaskType[]
+  sampleRequirements?: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'> & { requirementLineId?: string }>
+  confirmedAt?: string
+}): EngineeringIndependentSamplingRecord {
   requireMerchandiser(input.actor)
   const records = readRecords(); const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
   if (!record) throw new Error('独立打样任务不存在。')
@@ -1116,14 +1198,15 @@ export function confirmEngineeringIndependentSamplingPlan(input: { samplingTaskI
   if (!input.selectedTaskTypes.length) throw new Error('请至少选择一个专业任务。')
   if (!input.selectedTaskTypes.includes('DISPLAY_SAMPLE')) throw new Error('独立打样必须包含销售展示样衣任务。')
   const at = input.confirmedAt || nowText()
+  const sampleRequirements = normalizeIndependentSampleRequirements(record, input.sampleRequirements, input.actor.userName, at)
   record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
   record.selectedTaskTypes = [...new Set(input.selectedTaskTypes)]
-  record.professionalTasks = createProfessionalTasks(record, record.selectedTaskTypes, at)
+  record.professionalTasks = createProfessionalTasks(record, record.selectedTaskTypes, at, sampleRequirements)
   record.relatedProfessionalTaskIds = record.professionalTasks.map((task) => task.taskId)
   record.taskPlanConfirmedBy = input.actor.userName
   record.taskPlanConfirmedAt = at
   record.status = 'IN_PROGRESS'
-  addLog(record, '确认本次工作安排', input.actor, `已一次生成 ${record.professionalTasks.length} 个专业任务。`, at)
+  addLog(record, '确认本次工作安排', input.actor, `已一次生成 ${record.professionalTasks.length} 个专业任务，并下达 ${sampleRequirements.length} 行销售展示样衣制作要求。`, at)
   writeRecords(records); return cloneRecord(record)
 }
 
@@ -1210,10 +1293,12 @@ export function submitEngineeringIndependentProfessionalTask(input: {
     version?: string
     description?: string
     applicablePartOrSize?: string
+    requirementLineId?: string
     sampleQuantity?: number
     sampleColor?: string
     sampleSize?: string
     sourcePatternVersion?: string
+    differenceNote?: string
     files: EngineeringUploadedFile[]
   }>
   dyeColorCode?: string
@@ -1230,6 +1315,40 @@ export function submitEngineeringIndependentProfessionalTask(input: {
   if (task.taskType === 'DISPLAY_SAMPLE' && input.results.some((result) => !Number.isFinite(result.sampleQuantity) || Number(result.sampleQuantity) <= 0 || !result.sampleColor?.trim() || !result.sampleSize?.trim() || !result.sourcePatternVersion?.trim() || !result.description?.trim())) {
     throw new Error('请完整填写样衣数量、颜色、尺码、使用的纸样版本和制作说明。')
   }
+  if (task.taskType === 'DISPLAY_SAMPLE') {
+    const requirements = task.sampleRequirements || []
+    if (!requirements.length) throw new Error('销售展示样衣尚未下达制作要求，不能提交成果。')
+    const availablePatternVersions = new Set(record.professionalTasks
+      .filter((item) => task.dependsOnTaskIds.includes(item.taskId) && item.taskType === 'BASE_PATTERN' && item.status === 'COMPLETED')
+      .flatMap((item) => item.results.filter((result) => result.status === 'APPROVED').map((result) => result.version.trim()))
+      .filter(Boolean))
+    if (!availablePatternVersions.size) throw new Error('尚无可用的已完成基码纸样版本，不能提交销售展示样衣成果。')
+    if (input.results.some((result) => !availablePatternVersions.has(result.sourcePatternVersion?.trim() || ''))) {
+      throw new Error('销售展示样衣只能选择已完成的基码纸样版本。')
+    }
+    const requirementMap = new Map(requirements.map((line) => [line.requirementLineId, line]))
+    const resultsByRequirement = new Map<string, typeof input.results>()
+    input.results.forEach((result) => {
+      const requirementLineId = result.requirementLineId?.trim() || ''
+      if (!requirementMap.has(requirementLineId)) throw new Error('每行实际样衣必须对应一行已下达的制作要求。')
+      if (!Number.isInteger(Number(result.sampleQuantity))) throw new Error('销售展示样衣实际数量必须为大于 0 的整数。')
+      const rows = resultsByRequirement.get(requirementLineId) || []
+      rows.push(result)
+      resultsByRequirement.set(requirementLineId, rows)
+    })
+    requirements.forEach((requirement) => {
+      const rows = resultsByRequirement.get(requirement.requirementLineId) || []
+      if (!rows.length) throw new Error(`请提交“${requirement.targetColor} / ${requirement.targetSize}”的实际样衣成果。`)
+      const actualQuantity = rows.reduce((sum, result) => sum + Number(result.sampleQuantity || 0), 0)
+      const actualMismatch = rows.some((result) =>
+        result.sampleColor?.trim() !== requirement.targetColor
+        || result.sampleSize?.trim() !== requirement.targetSize,
+      )
+      if ((actualQuantity !== requirement.requiredQuantity || actualMismatch) && !rows.some((result) => result.differenceNote?.trim())) {
+        throw new Error(`“${requirement.targetColor} / ${requirement.targetSize}”的实际交付与制作要求不一致，请填写差异说明。`)
+      }
+    })
+  }
   if (task.taskType === 'PATTERN_ARTWORK' && input.results.some((result) => !result.version?.trim() || !result.description?.trim())) {
     throw new Error('请完整填写花型版本和花型说明。')
   }
@@ -1245,10 +1364,12 @@ export function submitEngineeringIndependentProfessionalTask(input: {
     version: result.version?.trim() || '',
     description: result.description?.trim() || '',
     applicablePartOrSize: result.applicablePartOrSize?.trim() || '',
+    requirementLineId: result.requirementLineId?.trim() || '',
     sampleQuantity: Number(result.sampleQuantity) || 0,
     sampleColor: result.sampleColor?.trim() || '',
     sampleSize: result.sampleSize?.trim() || '',
     sourcePatternVersion: result.sourcePatternVersion?.trim() || '',
+    differenceNote: result.differenceNote?.trim() || '',
     imageUrl: result.files.find((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension))?.dataUrl || '',
     files: result.files.map((file) => ({ ...file, roundNo: task.status === 'REWORK' ? Math.max(2, file.roundNo) : file.roundNo })),
     status: task.taskType === 'BASE_PATTERN' || task.taskType === 'DISPLAY_SAMPLE' ? 'APPROVED' as const : 'WAIT_REVIEW' as const,

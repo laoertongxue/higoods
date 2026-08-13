@@ -1,3 +1,5 @@
+import { listEngineeringIndependentSamplingRecords } from '../data/pcs-engineering-master-sampling'
+
 type HandlerModule = Record<string, unknown>
 
 interface PcsCloseAction {
@@ -23,6 +25,19 @@ function isExactOrNestedPath(pathname: string, basePath: string): boolean {
 
 function isAnyExactOrNestedPath(pathname: string, basePaths: string[]): boolean {
   return basePaths.some((basePath) => isExactOrNestedPath(pathname, basePath))
+}
+
+function independentProfessionalTaskIdFromPath(pathname: string): string {
+  const match = pathname.match(/^\/pcs\/(?:patterns\/(?:plate-making|artwork)|engineering\/color|samples\/display-sample)\/([^/]+)$/)
+  return match ? decodeURIComponent(match[1]) : ''
+}
+
+function isIndependentProfessionalTaskPath(pathname: string): boolean {
+  const taskId = independentProfessionalTaskIdFromPath(pathname)
+  if (!taskId) return false
+  return listEngineeringIndependentSamplingRecords().some((record) =>
+    record.professionalTasks.some((task) => task.taskId === taskId),
+  )
 }
 
 function getCurrentPathname(): string {
@@ -188,7 +203,11 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     cacheKey: 'pcs-sample-management',
     matches: (pathname) =>
       isExactOrNestedPath(pathname, '/pcs/samples') &&
-      !isAnyExactOrNestedPath(pathname, ['/pcs/samples/first-sample', '/pcs/samples/first-order']),
+      !isAnyExactOrNestedPath(pathname, [
+        '/pcs/samples/first-sample',
+        '/pcs/samples/first-order',
+        '/pcs/samples/display-sample',
+      ]),
     importModule: () => import('../pages/pcs-sample-management'),
     eventExport: 'handlePcsSampleManagementEvent',
     inputExport: 'handlePcsSampleManagementInput',
@@ -213,6 +232,7 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     matches: (pathname) => /^\/pcs\/engineering\/masters\/[^/]+$/.test(pathname),
     importModule: () => import('../pages/pcs-engineering-master-detail'),
     eventExport: 'handlePcsEngineeringMasterDetailEvent',
+    inputExport: 'handlePcsEngineeringMasterDetailInput',
     dialogExport: 'isPcsEngineeringMasterDetailDialogOpen',
     closeActions: [
       { datasetKey: 'pcsEngineeringMasterAction', value: 'close-style-image-preview' },
@@ -234,7 +254,7 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
       '/pcs/engineering/design-sampling',
       '/pcs/engineering/sampling-professional',
       '/pcs/samples/display-sample',
-    ]),
+    ]) || isIndependentProfessionalTaskPath(pathname),
     importModule: () => import('../pages/pcs-independent-sampling'),
     eventExport: 'handlePcsIndependentSamplingEvent',
     inputExport: 'handlePcsIndependentSamplingInput',

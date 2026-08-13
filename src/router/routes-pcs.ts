@@ -1,9 +1,25 @@
 import type { RouteRegistry } from './route-types'
 import { renderRouteRedirect } from './route-utils'
 import * as renderers from './route-renderers'
+import { listEngineeringIndependentSamplingRecords } from '../data/pcs-engineering-master-sampling'
 
 function renderClearedPcsPage(title: string) {
   return () => renderers.renderPcsResetPlaceholderPage(title)
+}
+
+function isIndependentSamplingProfessionalTask(taskId: string): boolean {
+  return listEngineeringIndependentSamplingRecords().some((record) =>
+    record.professionalTasks.some((task) => task.taskId === taskId),
+  )
+}
+
+function renderIndependentProfessionalTaskOr(
+  taskId: string,
+  fallback: (id: string) => ReturnType<typeof renderers.renderPcsPlateMakingTaskDetailPage>,
+) {
+  return isIndependentSamplingProfessionalTask(taskId)
+    ? renderers.renderPcsIndependentSamplingProfessionalTaskPage(taskId)
+    : fallback(taskId)
 }
 
 export const routes: RouteRegistry = {
@@ -96,7 +112,7 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/pcs\/engineering\/color\/([^/]+)$/,
-      render: (match) => renderers.renderPcsColorTaskDetailPage(match[1]),
+      render: (match) => renderIndependentProfessionalTaskOr(match[1], renderers.renderPcsColorTaskDetailPage),
     },
     {
       pattern: /^\/pcs\/engineering\/purchase\/([^/]+)$/,
@@ -132,11 +148,15 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/pcs\/patterns\/plate-making\/([^/]+)$/,
-      render: (match) => renderers.renderPcsPlateMakingTaskDetailPage(match[1]),
+      render: (match) => renderIndependentProfessionalTaskOr(match[1], renderers.renderPcsPlateMakingTaskDetailPage),
     },
     {
       pattern: /^\/pcs\/patterns\/artwork\/([^/]+)$/,
-      render: (match) => renderers.renderPcsPatternTaskDetailPage(match[1]),
+      render: (match) => renderIndependentProfessionalTaskOr(match[1], renderers.renderPcsPatternTaskDetailPage),
+    },
+    {
+      pattern: /^\/pcs\/samples\/display-sample\/([^/]+)$/,
+      render: (match) => renderers.renderPcsIndependentSamplingProfessionalTaskPage(match[1]),
     },
     {
       pattern: /^\/pcs\/samples\/first-sample\/([^/]+)$/,

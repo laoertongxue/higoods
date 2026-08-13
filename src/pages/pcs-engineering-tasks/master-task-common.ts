@@ -56,6 +56,12 @@ const INDEPENDENT_TASK_STATUS_MAP = {
   COMPLETED: '已完成',
 } as const
 
+function independentProfessionalTaskDetailPath(task: { taskId: string; taskType: keyof typeof INDEPENDENT_TASK_TYPE_MAP }): string {
+  if (task.taskType === 'BASE_PATTERN') return `/pcs/patterns/plate-making/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'PATTERN_ARTWORK') return `/pcs/patterns/artwork/${encodeURIComponent(task.taskId)}`
+  return `/pcs/engineering/color/${encodeURIComponent(task.taskId)}`
+}
+
 function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
   return listEngineeringIndependentSamplingRecords().flatMap((record) => record.professionalTasks.flatMap((task) => {
     if (task.taskType === 'DISPLAY_SAMPLE') return []
@@ -113,13 +119,13 @@ function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
       firstCompletedAt: task.completedAt,
       effectiveCompletedAt: task.completedAt,
       resultImageIds: task.results.map((result) => result.imageUrl).filter(Boolean),
-      resultQuantity: task.results.length,
+      resultQuantity: task.results.reduce((sum, result) => sum + Math.max(0, Number(result.sampleQuantity || 0)), 0),
       resultSubmittedBy: firstFile?.uploadedByName || '',
       materialReviewRounds: [],
       colorRequirementConfirmedBy: task.colorRequirementConfirmedBy,
       colorRequirementConfirmedAt: task.colorRequirementConfirmedAt,
       colorResultCompletedAt: task.completedAt,
-      detailPath: `/pcs/engineering/sampling-professional/${task.taskId}`,
+      detailPath: independentProfessionalTaskDetailPath(task),
       sourceBusinessCode: record.samplingTaskCode,
       sourceBusinessName: sourceLabel,
     } satisfies EngineeringTaskRecord]

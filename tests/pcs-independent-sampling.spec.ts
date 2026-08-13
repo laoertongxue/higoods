@@ -355,6 +355,10 @@ const planned = confirmEngineeringIndependentSamplingPlan({
   samplingTaskId: record.samplingTaskId,
   actor: CURRENT_PCS_ENGINEERING_USER,
   selectedTaskTypes: ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'],
+  sampleRequirements: [
+    { targetColor: targetColors[0], targetSize: targetSizes[0], requiredQuantity: 2, requirementNote: '直播主推色，制作 2 件' },
+    { targetColor: targetColors[1], targetSize: targetSizes[0], requiredQuantity: 1, requirementNote: '直播辅助色，制作 1 件' },
+  ],
   confirmedAt: '2026-08-04 09:10:00',
 })
 assert.throws(
@@ -389,11 +393,85 @@ const sampleFiles = await uploaded(
   { userId: sampleMaker.userId, userName: sampleMaker.userName, teamName: '制作团队' },
 )
 startEngineeringIndependentProfessionalTask({ taskId: sample.taskId, actor: sampleMaker })
+const firstSampleRequirement = sample.sampleRequirements?.[0]
+assert.ok(firstSampleRequirement)
+assert.throws(
+  () => submitEngineeringIndependentProfessionalTask({
+    taskId: sample.taskId,
+    actor: sampleMaker,
+    results: (sample.sampleRequirements || []).map((requirement, index) => ({
+      title: `B 款销售展示样衣纸样版本测试 ${index + 1}`,
+      description: requirement.requirementNote || '直播销售展示样衣',
+      requirementLineId: requirement.requirementLineId,
+      sampleQuantity: requirement.requiredQuantity,
+      sampleColor: requirement.targetColor,
+      sampleSize: requirement.targetSize,
+      sourcePatternVersion: '不存在的纸样版本',
+      files: sampleFiles,
+    })),
+  }),
+  /只能选择已完成的基码纸样版本/,
+  '销售展示样衣不得手填或引用不存在的纸样版本',
+)
+assert.throws(
+  () => submitEngineeringIndependentProfessionalTask({
+    taskId: sample.taskId,
+    actor: sampleMaker,
+    results: (sample.sampleRequirements || []).map((requirement, index) => ({
+      title: `B 款销售展示样衣差异测试 ${index + 1}`,
+      description: requirement.requirementNote || '直播销售展示样衣',
+      requirementLineId: requirement.requirementLineId,
+      sampleQuantity: requirement.requiredQuantity,
+      sampleColor: index === 0 ? '实际改色' : requirement.targetColor,
+      sampleSize: requirement.targetSize,
+      sourcePatternVersion: 'v1.0',
+      files: sampleFiles,
+    })),
+  }),
+  /实际交付与制作要求不一致，请填写差异说明/,
+  '销售展示样衣与跟单要求不一致时必须填写差异说明',
+)
 submitEngineeringIndependentProfessionalTask({
   taskId: sample.taskId,
   actor: sampleMaker,
-  results: [{ title: 'B 款销售展示样衣', description: '直播销售展示样衣', sampleQuantity: 1, sampleColor: targetColors[0], sampleSize: targetSizes[0], sourcePatternVersion: 'v1.0', files: sampleFiles }],
+  results: [
+    {
+      title: 'B 款销售展示样衣 1-1',
+      description: firstSampleRequirement.requirementNote,
+      requirementLineId: firstSampleRequirement.requirementLineId,
+      sampleQuantity: 1,
+      sampleColor: firstSampleRequirement.targetColor,
+      sampleSize: firstSampleRequirement.targetSize,
+      sourcePatternVersion: 'v1.0',
+      files: sampleFiles,
+    },
+    {
+      title: 'B 款销售展示样衣 1-2',
+      description: firstSampleRequirement.requirementNote,
+      requirementLineId: firstSampleRequirement.requirementLineId,
+      sampleQuantity: 1,
+      sampleColor: firstSampleRequirement.targetColor,
+      sampleSize: firstSampleRequirement.targetSize,
+      sourcePatternVersion: 'v1.0',
+      files: sampleFiles,
+    },
+    ...(sample.sampleRequirements || []).slice(1).map((requirement, index) => ({
+      title: `B 款销售展示样衣 ${index + 2}`,
+      description: requirement.requirementNote,
+      requirementLineId: requirement.requirementLineId,
+      sampleQuantity: requirement.requiredQuantity,
+      sampleColor: requirement.targetColor,
+      sampleSize: requirement.targetSize,
+      sourcePatternVersion: 'v1.0',
+      files: sampleFiles,
+    })),
+  ],
 })
+assert.equal(
+  getEngineeringIndependentSamplingRecord(record.samplingTaskId)!.professionalTasks.find((task) => task.taskId === sample.taskId)!.results.length,
+  3,
+  '同一制作要求必须允许制作团队分多行提交多件实际样衣',
+)
 
 const artworkFilesA = await uploaded(
   [realFile('artwork-a.jpg', 'image/jpeg'), realFile('artwork-a.ai', 'application/postscript')],
@@ -480,6 +558,10 @@ assert.doesNotThrow(() => saveEngineeringBomVersion({
 completeEngineeringIndependentBuyerPreparation({ samplingTaskId: colorRecord.samplingTaskId, actor: buyer })
 const colorPlan = confirmEngineeringIndependentSamplingPlan({ samplingTaskId: colorRecord.samplingTaskId, actor: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['DISPLAY_SAMPLE', 'COLOR_FABRIC'] })
 const colorTask = colorPlan.professionalTasks.find((task) => task.taskType === 'COLOR_FABRIC')!
+assert.ok(
+  colorPlan.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')?.sampleRequirements?.length,
+  '设计打样也必须由跟单下达销售展示样衣制作要求',
+)
 assert.throws(() => startEngineeringIndependentProfessionalTask({ taskId: colorTask.taskId, actor: dyeFactory }), /先由跟单/)
 confirmEngineeringIndependentColorRequirement({ taskId: colorTask.taskId, actor: CURRENT_PCS_ENGINEERING_USER, pantoneColorCode: '18-1664 TCX', colorName: '火焰红' })
 startEngineeringIndependentProfessionalTask({ taskId: colorTask.taskId, actor: dyeFactory })

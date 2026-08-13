@@ -153,6 +153,32 @@ export interface EngineeringTaskReworkRound {
   passedAt: string
 }
 
+// 样衣制作要求由跟单在生成任务前下达；实际制作结果由制作团队逐行提交。
+// 两者必须分开保存，不能用一个“制作数量”同时表达要求和实际。
+export interface EngineeringSampleRequirementLine {
+  requirementLineId: string
+  targetColor: string
+  targetSize: string
+  requiredQuantity: number
+  requirementNote: string
+  issuedBy: string
+  issuedAt: string
+}
+
+export interface EngineeringSampleActualLine {
+  actualLineId: string
+  requirementLineId: string
+  actualColor: string
+  actualSize: string
+  actualQuantity: number
+  sourcePatternVersion: string
+  productionNote: string
+  differenceNote: string
+  imageFileIds: string[]
+  submittedBy: string
+  submittedAt: string
+}
+
 export interface EngineeringTaskRecord {
   taskId: string
   masterOrderId: string
@@ -198,6 +224,8 @@ export interface EngineeringTaskRecord {
   resultImageIds: string[]
   resultQuantity: number
   resultSubmittedBy: string
+  sampleRequirements?: EngineeringSampleRequirementLine[]
+  sampleActuals?: EngineeringSampleActualLine[]
   materialReviewRounds: EngineeringTaskMaterialReviewRound[]
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
@@ -293,6 +321,8 @@ export interface EngineeringIndependentProfessionalResult {
   sampleColor: string
   sampleSize: string
   sourcePatternVersion: string
+  requirementLineId?: string
+  differenceNote?: string
   imageUrl: string
   files: EngineeringUploadedFile[]
   status: 'WAIT_REVIEW' | 'APPROVED' | 'REJECTED'
@@ -315,6 +345,7 @@ export interface EngineeringIndependentProfessionalTask {
   dyeColorCode: string
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
+  sampleRequirements?: EngineeringSampleRequirementLine[]
   results: EngineeringIndependentProfessionalResult[]
 }
 

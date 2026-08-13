@@ -1,9 +1,9 @@
 // @page-pattern: list
 // 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 产前版样衣任务：任务骨架、状态、依赖、负责人和时间只读工程主单任务事实。
-// 制作团队提交图片与数量即完成，不设置任务级验收或二次确认。
+// 跟单在工作安排中下达多行制作要求；制作团队逐行提交真实图片、实际数量和制作事实后完成，不设置二次审核。
 
-import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types'
+import type { EngineeringSampleActualLine, EngineeringTaskRecord } from '../../data/pcs-engineering-master-types'
 import { assertEngineeringUploadedFilesReady } from '../../data/pcs-engineering-file-upload'
 import { getEngineeringTeamCurrentOperator } from '../../data/pcs-engineering-team-directory'
 import {
@@ -16,6 +16,7 @@ import {
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
 } from '../../data/pcs-engineering-master-repository'
+import { listEngineeringPatternResultVersions } from '../../data/pcs-engineering-pattern-result'
 import { escapeHtml, formatDateTime } from '../../utils'
 import {
   type EngineeringListRow,
@@ -43,15 +44,44 @@ import {
 
 const TASK_TYPES = ['PRE_PRODUCTION_SAMPLE'] as const
 const LIST_PATH = '/pcs/samples/first-sample'
-const resultDrafts = new Map<string, { quantity: string; note: string }>()
+interface SampleResultDraft {
+  draftId: string
+  requirementLineId: string
+  actualColor: string
+  actualSize: string
+  actualQuantity: string
+  sourcePatternVersion: string
+  productionNote: string
+  differenceNote: string
+}
 
-function getResultDraft(task: EngineeringTaskRecord) {
+const resultDrafts = new Map<string, SampleResultDraft[]>()
+
+function getResultDrafts(task: EngineeringTaskRecord): SampleResultDraft[] {
   const current = resultDrafts.get(task.taskId)
   if (current) return current
-  const created = {
-    quantity: task.resultQuantity > 0 ? String(task.resultQuantity) : '',
-    note: '',
-  }
+  const created = (task.sampleActuals?.length ? task.sampleActuals : (task.sampleRequirements || []).map((requirement) => ({
+    actualLineId: '',
+    requirementLineId: requirement.requirementLineId,
+    actualColor: requirement.targetColor,
+    actualSize: requirement.targetSize,
+    actualQuantity: requirement.requiredQuantity,
+    sourcePatternVersion: '',
+    productionNote: requirement.requirementNote,
+    differenceNote: '',
+    imageFileIds: [],
+    submittedBy: '',
+    submittedAt: '',
+  }))).map((line, index) => ({
+    draftId: line.actualLineId || `${task.taskId}-ACTUAL-DRAFT-${index + 1}`,
+    requirementLineId: line.requirementLineId,
+    actualColor: line.actualColor,
+    actualSize: line.actualSize,
+    actualQuantity: String(line.actualQuantity),
+    sourcePatternVersion: line.sourcePatternVersion,
+    productionNote: line.productionNote,
+    differenceNote: line.differenceNote,
+  }))
   resultDrafts.set(task.taskId, created)
   return created
 }
@@ -121,35 +151,42 @@ function stats(): string {
   </section>`
 }
 
+function renderRequirementSummary(task: EngineeringTaskRecord): string {
+  const requirements = task.sampleRequirements || []
+  const expectedTotal = requirements.reduce((sum, line) => sum + line.requiredQuantity, 0)
+  return renderSectionCard('跟单下达的制作要求', `<div class="mb-3 flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-slate-500">任务开始后制作要求锁定。</p><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">合计 ${expectedTotal} 件</span></div><div class="overflow-x-auto"><table class="w-full min-w-[720px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">颜色</th><th class="p-3">尺码</th><th class="p-3">要求数量</th><th class="p-3">制作要求</th><th class="p-3">下达人</th></tr></thead><tbody>${requirements.map((line) => `<tr class="border-b"><td class="p-3">${escapeHtml(line.targetColor)}</td><td class="p-3">${escapeHtml(line.targetSize)}</td><td class="p-3">${line.requiredQuantity} 件</td><td class="p-3">${escapeHtml(line.requirementNote || '-')}</td><td class="p-3">${escapeHtml(line.issuedBy)}<small class="block text-slate-500">${escapeHtml(line.issuedAt)}</small></td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-red-600">尚未下达制作要求</td></tr>'}</tbody></table></div>`)
+}
+
+function renderCompletedActuals(task: EngineeringTaskRecord): string {
+  const actuals = task.sampleActuals || []
+  const requirements = task.sampleRequirements || []
+  const expectedTotal = requirements.reduce((sum, line) => sum + line.requiredQuantity, 0)
+  const actualTotal = actuals.reduce((sum, line) => sum + line.actualQuantity, 0)
+  return renderSectionCard('样衣实际交付', `<div class="mb-3 flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-slate-500">提交人：${escapeHtml(task.resultSubmittedBy || '-')} · ${escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-')}</p><span class="rounded-full ${actualTotal === expectedTotal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} px-2 py-1 text-xs">要求 ${expectedTotal} 件 · 实际 ${actualTotal} 件 · ${actualTotal === expectedTotal ? '一致' : `相差 ${actualTotal - expectedTotal} 件`}</span></div><div class="overflow-x-auto"><table class="w-full min-w-[980px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">对应要求</th><th class="p-3">实际颜色</th><th class="p-3">实际尺码</th><th class="p-3">实际数量</th><th class="p-3">使用纸样</th><th class="p-3">制作说明</th><th class="p-3">差异说明</th></tr></thead><tbody>${actuals.map((line) => { const requirement = requirements.find((item) => item.requirementLineId === line.requirementLineId); return `<tr class="border-b"><td class="p-3">${requirement ? `${escapeHtml(requirement.targetColor)} / ${escapeHtml(requirement.targetSize)} / ${requirement.requiredQuantity} 件` : '-'}</td><td class="p-3">${escapeHtml(line.actualColor)}</td><td class="p-3">${escapeHtml(line.actualSize)}</td><td class="p-3">${line.actualQuantity} 件</td><td class="p-3">${escapeHtml(line.sourcePatternVersion)}</td><td class="p-3">${escapeHtml(line.productionNote)}</td><td class="p-3">${escapeHtml(line.differenceNote || '-')}</td></tr>` }).join('') || '<tr><td colspan="7" class="p-6 text-center text-slate-500">尚未提交实际交付</td></tr>'}</tbody></table></div>${actuals.flatMap((line) => line.imageFileIds).length ? `<div class="mt-4 grid gap-3 sm:grid-cols-3">${actuals.flatMap((line) => line.imageFileIds).map((url, index) => `<button type="button" class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left" data-skip-page-rerender="true" data-first-sample-action="preview-image" data-image-url="${escapeHtml(url)}" data-image-alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}"><img src="${escapeHtml(url)}" alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}" class="h-36 w-full object-contain" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="block px-3 py-2 text-xs text-red-600">图片加载失败，请重新上传</span><span class="block px-3 py-2 text-xs text-slate-500">点击查看大图</span></button>`).join('')}</div>` : ''}`)
+}
+
+function availablePatternVersions(task: EngineeringTaskRecord): Array<{ value: string; label: string }> {
+  const master = getEngineeringMasterOrderById(task.masterOrderId)
+  return task.dependsOnTaskIds.flatMap((dependencyId) => {
+    const dependency = master?.tasks.find((item) => item.taskId === dependencyId)
+    return listEngineeringPatternResultVersions(dependencyId).map((version) => ({
+      value: `${version.materialKind}${version.patternKind} ${version.versionLabel}`,
+      label: `${dependency?.taskName || `${version.materialKind}${version.patternKind}`} · ${version.versionLabel}`,
+    }))
+  })
+}
+
 function renderResult(task: EngineeringTaskRecord): string {
-  const draft = getResultDraft(task)
-  const canSubmit = task.status === '进行中'
-  const uploadedFiles = listEngineeringTaskUploadedFiles(task.taskId, 'TASK', 'SAMPLE_RESULT')
-  const resultFiles = uploadedFiles.length ? uploadedFiles : task.resultImageIds.map((dataUrl, index) => ({
-    fileId: `${task.taskId}-LEGACY-SAMPLE-${index + 1}`, purpose: 'SAMPLE_RESULT' as const,
-    fileName: `样衣成果图-${index + 1}.jpg`, extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 1,
-    dataUrl, status: '已保存' as const, uploadedById: '', uploadedByName: task.resultSubmittedBy || '历史成果',
-    uploadedByTeam: task.ownerTeamName, uploadedAt: task.submittedAt || '-', roundNo: task.currentRoundNo || 1, errorMessage: '',
-  }))
-  const resultSummary = `
-    <div class="grid gap-3 md:grid-cols-4">
-      <div><p class="text-xs text-slate-500">结果图片</p><p class="mt-1 text-sm text-slate-900">${resultFiles.length} 张</p></div>
-      <div><p class="text-xs text-slate-500">制作数量</p><p class="mt-1 text-sm text-slate-900">${task.resultQuantity} 件</p></div>
-      <div><p class="text-xs text-slate-500">提交人</p><p class="mt-1 text-sm text-slate-900">${escapeHtml(task.resultSubmittedBy || '-')}</p></div>
-      <div><p class="text-xs text-slate-500">提交时间</p><p class="mt-1 text-sm text-slate-900">${escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-')}</p></div>
-    </div>
-    ${resultFiles.length > 0 ? `<div class="mt-4 grid gap-3 sm:grid-cols-3">${resultFiles.map((file, index) => `<button type="button" class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left" data-skip-page-rerender="true" data-first-sample-action="preview-image" data-image-url="${escapeHtml(file.dataUrl)}" data-image-alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}"><img src="${escapeHtml(file.dataUrl)}" alt="${escapeHtml(`产前版样衣成果图 ${index + 1}`)}" class="h-36 w-full object-contain" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="block px-3 py-2 text-xs text-red-600">图片加载失败，请重新上传</span><span class="block px-3 py-2 text-xs text-slate-500">点击查看大图</span></button>`).join('')}</div>` : ''}`
-  if (!canSubmit) return renderSectionCard('样衣成果', resultSummary)
-  return renderSectionCard('样衣成果', `${resultSummary}
-    <div class="mt-5 border-t border-slate-100 pt-5" data-first-sample-form="${escapeHtml(task.taskId)}">
-      <div data-first-sample-feedback class="mb-3 hidden rounded-md px-3 py-2 text-sm" role="alert"></div>
-      ${renderEngineeringFileUpload({ taskId: task.taskId, purpose: 'SAMPLE_RESULT', files: uploadedFiles, eventPrefix: 'first-sample', label: '产前版样衣实拍图', requiredHint: '请从本地选择真实样衣图片；读取和保存成功后才能提交。' })}
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        <label class="text-sm text-slate-600">制作数量（件）<input type="number" min="1" class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draft.quantity)}" data-first-sample-field="quantity" data-task-id="${escapeHtml(task.taskId)}"></label>
-        <label class="text-sm text-slate-600">制作说明<input class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draft.note)}" data-first-sample-field="note" data-task-id="${escapeHtml(task.taskId)}"></label>
-      </div>
-      <div class="mt-4 flex justify-end"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-first-sample-action="submit-result" data-task-id="${escapeHtml(task.taskId)}">提交成果并完成任务</button></div>
-    </div>`)
+  if (task.status !== '进行中') return `${renderRequirementSummary(task)}${renderCompletedActuals(task)}`
+  const drafts = getResultDrafts(task)
+  const requirements = task.sampleRequirements || []
+  const patternVersions = availablePatternVersions(task)
+  const rows = drafts.map((draft, index) => {
+    const requirement = requirements.find((line) => line.requirementLineId === draft.requirementLineId)
+    const uploadedFiles = listEngineeringTaskUploadedFiles(task.taskId, draft.draftId, 'SAMPLE_RESULT')
+    return `<article class="space-y-3 rounded-lg border p-4" data-first-sample-result-row="${escapeHtml(draft.draftId)}"><div class="flex items-center justify-between gap-3"><strong>实际交付 ${index + 1}</strong>${drafts.length > requirements.length ? `<button type="button" class="text-sm text-red-600" data-first-sample-action="remove-result-row" data-task-id="${escapeHtml(task.taskId)}" data-draft-id="${escapeHtml(draft.draftId)}">删除</button>` : ''}</div><div class="grid gap-3 md:grid-cols-4"><label class="text-sm text-slate-600">对应制作要求<select class="mt-1 h-10 w-full rounded border px-2" data-first-sample-field="requirementLineId">${requirements.map((line) => `<option value="${escapeHtml(line.requirementLineId)}" ${line.requirementLineId === draft.requirementLineId ? 'selected' : ''}>${escapeHtml(line.targetColor)} / ${escapeHtml(line.targetSize)} / ${line.requiredQuantity} 件</option>`).join('')}</select></label><label class="text-sm text-slate-600">实际颜色<input class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="actualColor" value="${escapeHtml(draft.actualColor)}"></label><label class="text-sm text-slate-600">实际尺码<input class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="actualSize" value="${escapeHtml(draft.actualSize)}"></label><label class="text-sm text-slate-600">实际数量<input type="number" min="1" step="1" class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="actualQuantity" value="${escapeHtml(draft.actualQuantity)}"></label></div><div class="grid gap-3 md:grid-cols-3"><label class="text-sm text-slate-600">使用的纸样版本<select class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="sourcePatternVersion"><option value="">请选择已完成纸样版本</option>${patternVersions.map((version) => `<option value="${escapeHtml(version.value)}" ${version.value === draft.sourcePatternVersion ? 'selected' : ''}>${escapeHtml(version.label)}</option>`).join('')}</select></label><label class="text-sm text-slate-600">制作说明<input class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="productionNote" value="${escapeHtml(draft.productionNote)}"></label><label class="text-sm text-slate-600">差异说明<input class="mt-1 h-10 w-full rounded border px-3" data-first-sample-field="differenceNote" value="${escapeHtml(draft.differenceNote)}" placeholder="仅实际与要求不一致时必填"></label></div>${patternVersions.length ? '' : '<p class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">尚无可用的已完成基码纸样版本，不能提交样衣成果。</p>'}${requirement ? `<p class="rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">要求：${escapeHtml(requirement.targetColor)} / ${escapeHtml(requirement.targetSize)} / ${requirement.requiredQuantity} 件${requirement.requirementNote ? ` · ${escapeHtml(requirement.requirementNote)}` : ''}</p>` : ''}${renderEngineeringFileUpload({ taskId: task.taskId, itemId: draft.draftId, purpose: 'SAMPLE_RESULT', files: uploadedFiles, eventPrefix: 'first-sample', label: '本行产前版样衣实拍图', requiredHint: '请从本地选择并真实读取与本行实际样衣对应的图片。' })}</article>`
+  }).join('')
+  return `${renderRequirementSummary(task)}${renderSectionCard('提交本次实际交付', `<div data-first-sample-form="${escapeHtml(task.taskId)}"><div data-first-sample-feedback class="mb-3 hidden rounded-md px-3 py-2 text-sm" role="alert"></div><div class="mb-3 flex justify-end"><button type="button" class="rounded border px-3 py-2 text-sm" data-first-sample-action="add-result-row" data-task-id="${escapeHtml(task.taskId)}">新增实际交付</button></div><div class="space-y-4">${rows}</div><div class="mt-4 flex justify-end"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-first-sample-action="submit-result" data-task-id="${escapeHtml(task.taskId)}">提交成果并完成任务</button></div></div>`)}`
 }
 
 registerEngineeringListModule('firstSample', {
@@ -198,14 +235,33 @@ export function renderPcsFirstSampleTaskDetailPage(taskId: string): string {
 
 export function submitEngineeringFirstSampleResult(
   taskId: string,
-  input: { resultImageIds: string[]; resultQuantity: number; submittedBy: string },
+  input: {
+    sampleActuals: Array<Omit<EngineeringSampleActualLine, 'actualLineId' | 'submittedAt'> & {
+      actualLineId?: string
+      submittedAt?: string
+    }>
+  },
 ): EngineeringTaskRecord {
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail || detail.task.taskType !== 'PRE_PRODUCTION_SAMPLE') throw new Error('未找到产前版样衣任务。')
-  if (input.resultImageIds.length === 0) throw new Error('请至少上传一张结果图片。')
-  if (!Number.isFinite(input.resultQuantity) || input.resultQuantity <= 0) throw new Error('制作数量必须大于 0。')
-  if (!input.submittedBy.trim()) throw new Error('请填写提交人。')
+  const permittedVersions = new Set(availablePatternVersions(detail.task).map((version) => version.value))
+  if (!permittedVersions.size) throw new Error('尚无可用的已完成基码纸样版本，不能提交产前版样衣成果。')
+  if (input.sampleActuals.some((actual) => !permittedVersions.has(actual.sourcePatternVersion.trim()))) {
+    throw new Error('产前版样衣只能选择已完成的基码纸样版本。')
+  }
   return submitEngineeringTaskResult(detail.master.masterOrderId, taskId, input).task
+}
+
+function syncResultDraftsFromDom(task: EngineeringTaskRecord): void {
+  const drafts = getResultDrafts(task)
+  document.querySelectorAll<HTMLElement>(`[data-first-sample-detail="${CSS.escape(task.taskId)}"] [data-first-sample-result-row]`).forEach((row) => {
+    const draft = drafts.find((item) => item.draftId === row.dataset.firstSampleResultRow)
+    if (!draft) return
+    row.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-first-sample-field]').forEach((field) => {
+      const key = field.dataset.firstSampleField as keyof SampleResultDraft
+      if (key in draft) draft[key] = field.value
+    })
+  })
 }
 
 export function handleFirstSampleTaskInput(target: Element): boolean {
@@ -214,9 +270,11 @@ export function handleFirstSampleTaskInput(target: Element): boolean {
     const taskId = uploadInput.dataset.taskId || ''
     const detail = getEngineeringTaskDetail(taskId)
     if (!detail || !uploadInput.files?.length) return true
+    syncResultDraftsFromDom(detail.task)
     const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
     void uploadEngineeringTaskFiles({
       taskId,
+      itemId: uploadInput.dataset.itemId || 'TASK',
       purpose: 'SAMPLE_RESULT',
       files: uploadInput.files,
       actor: { userId: operator.operatorId, userName: operator.operatorName, teamName: operator.teamName },
@@ -230,13 +288,15 @@ export function handleFirstSampleTaskInput(target: Element): boolean {
     })
     return true
   }
-  const node = target.closest<HTMLInputElement>('[data-first-sample-field]')
+  const node = target.closest<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-first-sample-field]')
   if (!node) return false
-  const taskId = node.dataset.taskId || ''
+  const taskId = node.closest<HTMLElement>('[data-first-sample-detail]')?.dataset.firstSampleDetail || ''
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) return false
-  const draft = getResultDraft(detail.task)
-  const field = node.dataset.firstSampleField as keyof typeof draft
+  const draftId = node.closest<HTMLElement>('[data-first-sample-result-row]')?.dataset.firstSampleResultRow || ''
+  const draft = getResultDrafts(detail.task).find((item) => item.draftId === draftId)
+  if (!draft) return false
+  const field = node.dataset.firstSampleField as keyof SampleResultDraft
   if (!(field in draft)) return false
   draft[field] = node.value
   return true
@@ -246,6 +306,8 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
   const uploadRemove = target.closest<HTMLElement>('[data-first-sample-upload-remove]')
   if (uploadRemove) {
     const taskId = uploadRemove.dataset.taskId || ''
+    const detail = getEngineeringTaskDetail(taskId)
+    if (detail) syncResultDraftsFromDom(detail.task)
     removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' })
     const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
     if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
@@ -281,20 +343,69 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
     node.closest<HTMLElement>('[data-first-sample-preview]')?.remove()
     return true
   }
+  if (action === 'add-result-row') {
+    const taskId = node.dataset.taskId || ''
+    const detail = getEngineeringTaskDetail(taskId)
+    if (!detail) return true
+    syncResultDraftsFromDom(detail.task)
+    const requirement = detail.task.sampleRequirements?.[0]
+    if (!requirement) return true
+    getResultDrafts(detail.task).push({
+      draftId: `${taskId}-ACTUAL-DRAFT-${Date.now()}`,
+      requirementLineId: requirement.requirementLineId,
+      actualColor: requirement.targetColor,
+      actualSize: requirement.targetSize,
+      actualQuantity: String(requirement.requiredQuantity),
+      sourcePatternVersion: '',
+      productionNote: requirement.requirementNote,
+      differenceNote: '',
+    })
+    const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
+    if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
+    return true
+  }
+  if (action === 'remove-result-row') {
+    const taskId = node.dataset.taskId || ''
+    const detail = getEngineeringTaskDetail(taskId)
+    if (!detail) return true
+    syncResultDraftsFromDom(detail.task)
+    const draftId = node.dataset.draftId || ''
+    const drafts = getResultDrafts(detail.task)
+    if (drafts.length <= (detail.task.sampleRequirements?.length || 1)) return true
+    listEngineeringTaskUploadedFiles(taskId, draftId, 'SAMPLE_RESULT').forEach((file) => {
+      removeEngineeringTaskUploadedFile({ taskId, itemId: draftId, fileId: file.fileId })
+    })
+    resultDrafts.set(taskId, drafts.filter((draft) => draft.draftId !== draftId))
+    const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
+    if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
+    return true
+  }
   if (action !== 'submit-result') return false
   const taskId = node.dataset.taskId || ''
   const detail = getEngineeringTaskDetail(taskId)
   const feedback = document.querySelector<HTMLElement>(`[data-first-sample-form="${CSS.escape(taskId)}"] [data-first-sample-feedback]`)
   try {
     if (!detail) throw new Error('未找到产前版样衣任务。')
-    const draft = getResultDraft(detail.task)
-    const files = listEngineeringTaskUploadedFiles(taskId, 'TASK', 'SAMPLE_RESULT')
-    assertEngineeringUploadedFilesReady(files, '产前版样衣实拍图')
+    syncResultDraftsFromDom(detail.task)
     const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
+    const sampleActuals = getResultDrafts(detail.task).map((draft) => {
+      const files = listEngineeringTaskUploadedFiles(taskId, draft.draftId, 'SAMPLE_RESULT')
+      assertEngineeringUploadedFilesReady(files, `产前版样衣实拍图（${draft.actualColor || '未填颜色'} / ${draft.actualSize || '未填尺码'}）`)
+      return {
+        actualLineId: draft.draftId,
+        requirementLineId: draft.requirementLineId,
+        actualColor: draft.actualColor,
+        actualSize: draft.actualSize,
+        actualQuantity: Number(draft.actualQuantity),
+        sourcePatternVersion: draft.sourcePatternVersion,
+        productionNote: draft.productionNote,
+        differenceNote: draft.differenceNote,
+        imageFileIds: files.map((file) => file.dataUrl),
+        submittedBy: operator.operatorName,
+      }
+    })
     submitEngineeringFirstSampleResult(taskId, {
-      resultImageIds: files.map((file) => file.dataUrl),
-      resultQuantity: Number(draft.quantity),
-      submittedBy: operator.operatorName,
+      sampleActuals,
     })
     resultDrafts.delete(taskId)
     const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)

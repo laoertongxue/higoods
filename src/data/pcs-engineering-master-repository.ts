@@ -30,6 +30,7 @@ import {
   getStyleArchiveById,
   findStyleArchiveByCode,
 } from './pcs-style-archive-repository.ts'
+import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import type {
   EngineeringChangeTaskRecord,
   EngineeringMasterOrderRecord,
@@ -41,6 +42,8 @@ import type {
   EngineeringPreparationType,
   EngineeringIndependentProfessionalTaskType,
   EngineeringIndependentReusableProfessionalResult,
+  EngineeringSampleActualLine,
+  EngineeringSampleRequirementLine,
 } from './pcs-engineering-master-types.ts'
 import {
   getTechnicalDataVersionById,
@@ -87,6 +90,8 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
       decisions: round.decisions.map((decision) => ({ ...decision })),
     })),
     resultImageIds: [...(task.resultImageIds || [])],
+    sampleRequirements: (task.sampleRequirements || []).map((line) => ({ ...line })),
+    sampleActuals: (task.sampleActuals || []).map((line) => ({ ...line, imageFileIds: [...line.imageFileIds] })),
     boundPurchaseOrderNos: [...(task.boundPurchaseOrderNos || [])],
   }
 }
@@ -512,6 +517,8 @@ function createConfirmedTaskSkeletons(
       resultImageIds: [],
       resultQuantity: 0,
       resultSubmittedBy: '',
+      sampleRequirements: [],
+      sampleActuals: [],
       materialReviewRounds: [],
       colorRequirementConfirmedBy: '',
       colorRequirementConfirmedAt: '',
@@ -528,6 +535,7 @@ export interface ConfirmEngineeringMasterTaskPlanInput {
   bomConditions?: EngineeringBomTaskConditions
   selectedConditionalTaskTypes: EngineeringTaskType[]
   priorResultDecisions?: EngineeringMasterPriorResultDecisionInput[]
+  preProductionSampleRequirements?: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'> & { requirementLineId?: string }>
 }
 
 export interface EngineeringMasterPriorResultDecisionInput {
@@ -538,11 +546,10 @@ export interface EngineeringMasterPriorResultDecisionInput {
   decision: '复用' | '重新执行' | '不采用'
 }
 
-const INDEPENDENT_TO_ENGINEERING_TASK: Record<
+const INDEPENDENT_TO_ENGINEERING_TASK: Partial<Record<
   Exclude<EngineeringIndependentProfessionalTaskType, 'BASE_PATTERN'>,
   EngineeringTaskType
-> = {
-  DISPLAY_SAMPLE: 'PRE_PRODUCTION_SAMPLE',
+>> = {
   PATTERN_ARTWORK: 'PATTERN_ARTWORK',
   COLOR_YARN: 'COLOR_YARN',
   COLOR_FABRIC: 'COLOR_FABRIC',
@@ -553,7 +560,8 @@ function candidateEngineeringTaskTypes(
   preparationType: EngineeringPreparationType,
 ): EngineeringTaskType[] {
   if (candidate.professionalTaskType !== 'BASE_PATTERN') {
-    return [INDEPENDENT_TO_ENGINEERING_TASK[candidate.professionalTaskType]]
+    const engineeringTaskType = INDEPENDENT_TO_ENGINEERING_TASK[candidate.professionalTaskType]
+    return engineeringTaskType ? [engineeringTaskType] : []
   }
   if (preparationType === 'PURE_WOVEN') return ['BASE_PATTERN_WOVEN']
   if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
@@ -678,6 +686,45 @@ function applyPriorResultDecisions(
   })
 }
 
+function normalizePreProductionSampleRequirements(
+  record: EngineeringMasterOrderRecord,
+  input: ConfirmEngineeringMasterTaskPlanInput['preProductionSampleRequirements'],
+  issuedBy: string,
+  issuedAt: string,
+): EngineeringSampleRequirementLine[] {
+  const drafts = input === undefined
+    ? listSkuArchivesByStyleId(record.styleId)
+      .filter((sku) => sku.archiveStatus === 'ACTIVE')
+      .map((sku) => ({
+        targetColor: sku.colorName,
+        targetSize: sku.sizeName,
+        requiredQuantity: 1,
+        requirementNote: '',
+      }))
+    : input
+  if (!drafts.length) throw new Error('请跟单下达产前版样衣的颜色、尺码和要求数量。')
+  const seen = new Set<string>()
+  return drafts.map((draft, index) => {
+    const targetColor = draft.targetColor.trim()
+    const targetSize = draft.targetSize.trim()
+    const requiredQuantity = Number(draft.requiredQuantity)
+    const key = `${targetColor}\u0000${targetSize}`
+    if (!targetColor || !targetSize) throw new Error('请完整填写产前版样衣的颜色和尺码。')
+    if (!Number.isInteger(requiredQuantity) || requiredQuantity <= 0) throw new Error('产前版样衣要求数量必须为大于 0 的整数。')
+    if (seen.has(key)) throw new Error(`产前版样衣制作要求重复：${targetColor} / ${targetSize}。`)
+    seen.add(key)
+    return {
+      requirementLineId: draft.requirementLineId?.trim() || `${record.masterOrderId}-PRE-SAMPLE-REQ-${index + 1}`,
+      targetColor,
+      targetSize,
+      requiredQuantity,
+      requirementNote: draft.requirementNote.trim(),
+      issuedBy,
+      issuedAt,
+    }
+  })
+}
+
 // 跟单确认系统建议后，一次性生成完整任务骨架；固定依赖不可调整。
 export function confirmEngineeringMasterTaskPlan(
   masterOrderId: string,
@@ -721,6 +768,14 @@ export function confirmEngineeringMasterTaskPlan(
   record.confirmedTaskTypes = confirmedTaskTypes
   record.taskPlanConfirmedBy = confirmedBy
   record.taskPlanConfirmedAt = nowText()
+  const preProductionSampleTask = record.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
+  if (!preProductionSampleTask) throw new Error('工程任务方案缺少产前版样衣任务。')
+  preProductionSampleTask.sampleRequirements = normalizePreProductionSampleRequirements(
+    record,
+    input.preProductionSampleRequirements,
+    confirmedBy,
+    record.taskPlanConfirmedAt,
+  )
   applyPriorResultDecisions(
     record,
     priorResultDecisions,
@@ -1327,6 +1382,7 @@ export interface SubmitEngineeringTaskResultInput {
   resultImageIds?: string[]
   resultQuantity?: number
   submittedBy?: string
+  sampleActuals?: Array<Omit<EngineeringSampleActualLine, 'actualLineId' | 'submittedAt'> & { actualLineId?: string; submittedAt?: string }>
 }
 
 // 提交任务成果：制版与产前版样衣提交即完成；花型和调色进入待审核。
@@ -1363,22 +1419,59 @@ export function submitEngineeringTaskResult(
     }
   }
 
+  let normalizedSampleActuals: EngineeringSampleActualLine[] = []
   if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
-    const resultImageIds = (input.resultImageIds ?? []).map((item) => item.trim()).filter(Boolean)
-    if (resultImageIds.length === 0) {
-      throw new Error('请至少上传 1 张产前版样衣成果图片。')
-    }
-    if (!Number.isFinite(input.resultQuantity) || Number(input.resultQuantity) <= 0) {
-      throw new Error('产前版样衣制作数量必须大于 0。')
-    }
-    if (!input.submittedBy?.trim()) {
-      throw new Error('请填写产前版样衣成果提交人。')
-    }
+    const requirements = task.sampleRequirements || []
+    if (!requirements.length) throw new Error('产前版样衣尚未下达制作要求，不能提交成果。')
+    if (!input.sampleActuals?.length) throw new Error('请按制作要求逐行填写产前版样衣实际交付。')
+    const requirementMap = new Map(requirements.map((line) => [line.requirementLineId, line]))
+    const actualsByRequirement = new Map<string, EngineeringSampleActualLine[]>()
+    normalizedSampleActuals = input.sampleActuals.map((actual, index) => {
+      const requirementLineId = actual.requirementLineId.trim()
+      if (!requirementMap.has(requirementLineId)) throw new Error('每行实际样衣必须对应一行已下达的制作要求。')
+      const actualQuantity = Number(actual.actualQuantity)
+      if (!actual.actualColor.trim() || !actual.actualSize.trim()) throw new Error('请完整填写产前版样衣实际颜色和尺码。')
+      if (!Number.isInteger(actualQuantity) || actualQuantity <= 0) throw new Error('产前版样衣实际数量必须为大于 0 的整数。')
+      if (!actual.sourcePatternVersion.trim()) throw new Error('请填写产前版样衣使用的纸样版本。')
+      if (!actual.productionNote.trim()) throw new Error('请填写产前版样衣制作说明。')
+      if (!actual.submittedBy.trim()) throw new Error('请填写产前版样衣成果提交人。')
+      const imageFileIds = actual.imageFileIds.map((item) => item.trim()).filter(Boolean)
+      if (!imageFileIds.length) throw new Error('每行产前版样衣实际交付必须上传真实样衣图片。')
+      const line: EngineeringSampleActualLine = {
+        actualLineId: actual.actualLineId?.trim() || `${task.taskId}-ACTUAL-${index + 1}`,
+        requirementLineId,
+        actualColor: actual.actualColor.trim(),
+        actualSize: actual.actualSize.trim(),
+        actualQuantity,
+        sourcePatternVersion: actual.sourcePatternVersion.trim(),
+        productionNote: actual.productionNote.trim(),
+        differenceNote: actual.differenceNote.trim(),
+        imageFileIds,
+        submittedBy: actual.submittedBy.trim(),
+        submittedAt: actual.submittedAt?.trim() || '',
+      }
+      const rows = actualsByRequirement.get(requirementLineId) || []
+      rows.push(line)
+      actualsByRequirement.set(requirementLineId, rows)
+      return line
+    })
+    requirements.forEach((requirement) => {
+      const rows = actualsByRequirement.get(requirement.requirementLineId) || []
+      if (!rows.length) throw new Error(`请提交“${requirement.targetColor} / ${requirement.targetSize}”的实际样衣成果。`)
+      const actualQuantity = rows.reduce((sum, row) => sum + row.actualQuantity, 0)
+      const actualMismatch = rows.some((row) => row.actualColor !== requirement.targetColor || row.actualSize !== requirement.targetSize)
+      if ((actualQuantity !== requirement.requiredQuantity || actualMismatch) && !rows.some((row) => row.differenceNote)) {
+        throw new Error(`“${requirement.targetColor} / ${requirement.targetSize}”的实际交付与制作要求不一致，请填写差异说明。`)
+      }
+    })
+    const resultImageIds = normalizedSampleActuals.flatMap((line) => line.imageFileIds)
+    const resultQuantity = normalizedSampleActuals.reduce((sum, line) => sum + line.actualQuantity, 0)
+    const submittedBy = [...new Set(normalizedSampleActuals.map((line) => line.submittedBy))].join('、')
     input = {
       ...input,
       resultImageIds,
-      resultQuantity: Number(input.resultQuantity),
-      submittedBy: input.submittedBy.trim(),
+      resultQuantity,
+      submittedBy,
     }
   }
 
@@ -1390,6 +1483,9 @@ export function submitEngineeringTaskResult(
   if (input.resultImageIds) task.resultImageIds = [...input.resultImageIds]
   if (input.resultQuantity !== undefined) task.resultQuantity = Math.max(0, Number(input.resultQuantity || 0))
   if (input.submittedBy !== undefined) task.resultSubmittedBy = input.submittedBy.trim()
+  if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
+    task.sampleActuals = normalizedSampleActuals.map((line) => ({ ...line, submittedAt }))
+  }
   task.submittedByName = input.submittedBy?.trim() || task.assigneeName
   if (targetStatus === '已完成') {
     task.firstCompletedAt = task.firstCompletedAt || submittedAt

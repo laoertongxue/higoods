@@ -117,13 +117,24 @@ for (const [index, status] of (['技术包审核中', '待关闭'] as const).ent
 
 // 前置完成后待前置任务可提交：产前版样衣提交即完成
 startEngineeringTaskFromDetail(taskId('PRE_PRODUCTION_SAMPLE'))
+const sampleTask = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')!
+const sampleActuals = (sampleTask.sampleRequirements || []).map((requirement, index) => ({
+  actualLineId: `${sampleTask.taskId}-TEST-ACTUAL-${index + 1}`,
+  requirementLineId: requirement.requirementLineId,
+  actualColor: requirement.targetColor,
+  actualSize: requirement.targetSize,
+  actualQuantity: requirement.requiredQuantity,
+  sourcePatternVersion: '基码纸样 v1.0',
+  productionNote: '按跟单要求完成',
+  differenceNote: '',
+  imageFileIds: [freshStyle.mainImageUrl],
+  submittedBy: '制作团队A',
+}))
 const sampleResult = submitEngineeringTaskResult(
   master.masterOrderId,
   taskId('PRE_PRODUCTION_SAMPLE'),
   {
-    resultImageIds: ['mock://sample/front'],
-    resultQuantity: 1,
-    submittedBy: '制作团队A',
+    sampleActuals,
   },
 )
 assert.equal(sampleResult.task.status, '已完成')

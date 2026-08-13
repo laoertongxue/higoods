@@ -34,6 +34,7 @@ import type {
   EngineeringIndependentSamplingRecord,
   EngineeringIndependentSamplingStep,
   EngineeringIndependentSamplingType,
+  EngineeringSampleRequirementLine,
 } from '../data/pcs-engineering-master-types.ts'
 import {
   listEngineeringTaskUploadedFiles,
@@ -77,6 +78,8 @@ const ui = {
   detailStepByTask: {} as Record<string, number>,
   buyerTabByTask: {} as Record<string, 'colors' | 'bom'>,
   colorDraftsByTask: {} as Record<string, Array<{ draftId: string; targetColor: string; sourceColor: string; targetSizeNames: string[] }>>,
+  sampleRequirementDraftsByTask: {} as Record<string, Array<{ draftId: string; targetColor: string; targetSize: string; requiredQuantity: number; requirementNote: string }>>,
+  sampleResultDraftsByTask: {} as Record<string, Array<{ draftId: string; requirementLineId: string; title: string; actualColor: string; actualSize: string; actualQuantity: number; sourcePatternVersion: string; productionNote: string; differenceNote: string }>>,
   returnReasonByTask: {} as Record<string, string>,
 }
 
@@ -95,6 +98,13 @@ function value(field: string, scope: ParentNode = document): string { return sco
 function checkedTaskTypes(): EngineeringIndependentProfessionalTaskType[] { return [...document.querySelectorAll<HTMLInputElement>(`[data-${PREFIX}-field="planTaskType"]:checked`)].map((node) => node.value as EngineeringIndependentProfessionalTaskType) }
 function currentListType(): EngineeringIndependentSamplingType { return location.pathname.includes('revision') ? 'REVISION' : 'DESIGN' }
 function isDisplaySampleListPath(): boolean { return location.pathname === '/pcs/samples/display-sample' }
+
+export function getIndependentProfessionalTaskDetailPath(task: Pick<EngineeringIndependentProfessionalTask, 'taskId' | 'taskType'>): string {
+  if (task.taskType === 'BASE_PATTERN') return `/pcs/patterns/plate-making/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'PATTERN_ARTWORK') return `/pcs/patterns/artwork/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') return `/pcs/engineering/color/${encodeURIComponent(task.taskId)}`
+  return `/pcs/samples/display-sample/${encodeURIComponent(task.taskId)}`
+}
 
 function imageButton(url: string, alt: string, body = ''): string {
   return `<button type="button" class="flex items-center gap-2 text-left" data-${PREFIX}-action="open-image" data-image-url="${escapeHtml(url)}" data-image-alt="${escapeHtml(alt)}"><span class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-slate-50"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="h-full w-full object-cover" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-600">图片加载失败</span></span><span>${body}</span></button>`
@@ -169,7 +179,7 @@ function independentTaskCurrentAction(task: EngineeringIndependentProfessionalTa
 }
 
 const displaySampleColumns: StandardListColumn<DisplaySampleListRow>[] = [
-  { key: 'task', title: '任务号', width: 230, required: true, freezeable: true, sortable: true, sortValue: ({ task }) => task.taskId, render: ({ task }) => `<a class="font-medium text-blue-700" href="/pcs/engineering/sampling-professional/${escapeHtml(task.taskId)}">${escapeHtml(task.taskId)}</a>` },
+  { key: 'task', title: '任务号', width: 230, required: true, freezeable: true, sortable: true, sortValue: ({ task }) => task.taskId, render: ({ task }) => `<a class="font-medium text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a>` },
   { key: 'source', title: '由哪张单发起', width: 160, sortable: true, sortValue: ({ record }) => record.samplingTaskCode, render: ({ record }) => `<p class="font-medium">${escapeHtml(record.samplingTaskCode)}</p><p class="text-xs text-slate-500">${TYPE_TEXT[record.samplingType]}</p>` },
   { key: 'style', title: '目标款式', width: 300, required: true, render: ({ record }) => { const style = getStyleArchiveById(record.targetStyleId); return style ? imageButton(style.mainImageUrl, style.styleName, `<span class="block"><strong>${escapeHtml(style.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(style.styleName)}</small></span>`) : escapeHtml(record.targetStyleCode) } },
   { key: 'team', title: '当前需处理的团队', width: 160, render: ({ task }) => escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-') },
@@ -177,7 +187,7 @@ const displaySampleColumns: StandardListColumn<DisplaySampleListRow>[] = [
   { key: 'status', title: '状态', width: 120, sortable: true, sortValue: ({ task }) => TASK_STATUS_TEXT[task.status], render: ({ task }) => `<span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(TASK_STATUS_TEXT[task.status])}</span>` },
   { key: 'plan', title: '计划完成', width: 130, sortable: true, sortValue: ({ task }) => task.plannedCompleteAt, render: ({ task }) => escapeHtml(task.plannedCompleteAt || '-') },
   { key: 'updated', title: '最后更新', width: 170, sortable: true, sortValue: ({ record }) => record.updatedAt, render: ({ record }) => escapeHtml(record.updatedAt) },
-  { key: 'action', title: '操作', width: 100, actionColumn: true, render: ({ task }) => `<a class="inline-flex h-8 items-center rounded border px-3 text-xs" href="/pcs/engineering/sampling-professional/${escapeHtml(task.taskId)}">查看详情</a>` },
+  { key: 'action', title: '操作', width: 100, actionColumn: true, render: ({ task }) => `<a class="inline-flex h-8 items-center rounded border px-3 text-xs" href="${getIndependentProfessionalTaskDetailPath(task)}">查看详情</a>` },
 ]
 
 const displaySampleListController = createProcessOrderListController({
@@ -304,12 +314,47 @@ function nextTeam(record: EngineeringIndependentSamplingRecord, task: Engineerin
   return record.professionalTasks.every((item) => item.taskId === task.taskId || item.status === 'COMPLETED') ? '跟单团队确认整单成果' : '其他并行团队继续处理'
 }
 
+function ensureSampleRequirementDrafts(record: EngineeringIndependentSamplingRecord): typeof ui.sampleRequirementDraftsByTask[string] {
+  if (ui.sampleRequirementDraftsByTask[record.samplingTaskId]) return ui.sampleRequirementDraftsByTask[record.samplingTaskId]
+  const saved = record.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')?.sampleRequirements || []
+  ui.sampleRequirementDraftsByTask[record.samplingTaskId] = saved.length
+    ? saved.map((line) => ({
+      draftId: line.requirementLineId,
+      targetColor: line.targetColor,
+      targetSize: line.targetSize,
+      requiredQuantity: line.requiredQuantity,
+      requirementNote: line.requirementNote,
+    }))
+    : record.colorMappings.flatMap((mapping) => mapping.targetSizeNames.map((targetSize, index) => ({
+      draftId: `${record.samplingTaskId}-DISPLAY-REQ-DRAFT-${mapping.mappingId}-${index + 1}`,
+      targetColor: mapping.targetColor,
+      targetSize,
+      requiredQuantity: 1,
+      requirementNote: '',
+    })))
+  return ui.sampleRequirementDraftsByTask[record.samplingTaskId]
+}
+
+function renderSampleRequirementTable(record: EngineeringIndependentSamplingRecord, locked: boolean): string {
+  const drafts = ensureSampleRequirementDrafts(record)
+  const colorOptions = record.colorMappings.map((mapping) => mapping.targetColor)
+  const sizeOptions = [...new Set(record.colorMappings.flatMap((mapping) => mapping.targetSizeNames))]
+  const rows = drafts.map((draft) => `<tr class="border-b" data-sample-requirement-row="${escapeHtml(draft.draftId)}">
+    <td class="p-3">${locked ? escapeHtml(draft.targetColor) : `<select class="h-9 min-w-36 rounded border px-2" data-${PREFIX}-field="sampleRequirementColor">${colorOptions.map((color) => `<option ${color === draft.targetColor ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}</select>`}</td>
+    <td class="p-3">${locked ? escapeHtml(draft.targetSize) : `<select class="h-9 min-w-28 rounded border px-2" data-${PREFIX}-field="sampleRequirementSize">${sizeOptions.map((size) => `<option ${size === draft.targetSize ? 'selected' : ''}>${escapeHtml(size)}</option>`).join('')}</select>`}</td>
+    <td class="p-3">${locked ? `${draft.requiredQuantity} 件` : `<input type="number" min="1" step="1" class="h-9 w-24 rounded border px-2" data-${PREFIX}-field="sampleRequirementQuantity" value="${draft.requiredQuantity}">`}</td>
+    <td class="p-3">${locked ? escapeHtml(draft.requirementNote || '-') : `<input class="h-9 min-w-64 rounded border px-2" data-${PREFIX}-field="sampleRequirementNote" value="${escapeHtml(draft.requirementNote)}" placeholder="可填写面辅料、工艺或制作注意事项">`}</td>
+    ${locked ? '' : `<td class="p-3 text-right"><button class="text-red-600" data-${PREFIX}-action="remove-sample-requirement" data-sampling-id="${escapeHtml(record.samplingTaskId)}" data-draft-id="${escapeHtml(draft.draftId)}">删除</button></td>`}
+  </tr>`).join('')
+  return `<section class="mt-4 overflow-hidden rounded-lg border bg-white"><div class="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3"><div><h3 class="font-semibold">销售展示样衣制作要求</h3><p class="mt-1 text-sm text-slate-500">跟单按颜色和尺码下达要求数量；制作团队进入任务后逐行填写实际交付。</p></div>${locked ? '<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">已下达</span>' : `<button class="rounded border px-3 py-2 text-sm" data-${PREFIX}-action="add-sample-requirement" data-sampling-id="${escapeHtml(record.samplingTaskId)}">新增一行</button>`}</div><div class="overflow-x-auto"><table class="w-full min-w-[820px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">颜色</th><th class="p-3">尺码</th><th class="p-3">要求数量</th><th class="p-3">制作要求</th>${locked ? '' : '<th class="p-3 text-right">操作</th>'}</tr></thead><tbody>${rows || `<tr><td colspan="5" class="p-6 text-center text-slate-500">请至少新增一行制作要求</td></tr>`}</tbody></table></div></section>`
+}
+
 function renderWorkPlan(record: EngineeringIndependentSamplingRecord): string {
   if (record.status === 'DRAFT') {
     const suggested = suggestEngineeringIndependentTaskTypes(record)
-    return `<section class="rounded-lg border bg-white p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="font-semibold">本次工作安排</h2><p class="mt-1 text-sm text-slate-500">系统根据打样目的和 B 款 BOM 建议，跟单确认后一次生成；销售展示样衣为必做。</p></div><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-${PREFIX}-action="confirm-plan" data-sampling-id="${escapeHtml(record.samplingTaskId)}">确认并生成工作</button></div><div class="mt-3 grid gap-2 md:grid-cols-3">${TASK_OPTIONS.map((item) => `<label class="flex items-center gap-2 rounded border p-3 text-sm"><input type="checkbox" data-${PREFIX}-field="planTaskType" value="${item.value}" ${suggested.includes(item.value) ? 'checked' : ''}>${item.label}${suggested.includes(item.value) ? '<span class="ml-auto rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">建议</span>' : ''}</label>`).join('')}</div></section>`
+    return `<section class="rounded-lg border bg-white p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="font-semibold">本次工作安排</h2><p class="mt-1 text-sm text-slate-500">系统根据打样目的和 B 款 BOM 建议，跟单确认后一次生成；销售展示样衣为必做。</p></div><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-${PREFIX}-action="confirm-plan" data-sampling-id="${escapeHtml(record.samplingTaskId)}">确认并生成工作</button></div><div class="mt-3 grid gap-2 md:grid-cols-3">${TASK_OPTIONS.map((item) => `<label class="flex items-center gap-2 rounded border p-3 text-sm"><input type="checkbox" data-${PREFIX}-field="planTaskType" value="${item.value}" ${suggested.includes(item.value) ? 'checked' : ''}>${item.label}${suggested.includes(item.value) ? '<span class="ml-auto rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">建议</span>' : ''}</label>`).join('')}</div>${renderSampleRequirementTable(record, false)}</section>`
   }
-  return `<section class="overflow-hidden rounded-lg border bg-white"><div class="border-b px-4 py-3"><h2 class="font-semibold">本次需要完成的工作</h2></div><div class="overflow-x-auto"><table class="w-full min-w-[1080px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">任务</th><th class="p-3">当前团队</th><th class="p-3">当前动作</th><th class="p-3">需要先完成</th><th class="p-3">完成后去向</th><th class="p-3">状态</th><th class="p-3">操作</th></tr></thead><tbody>${record.professionalTasks.map((task) => `<tr class="border-b"><td class="p-3 font-medium">${escapeHtml(task.taskName)}</td><td class="p-3">${escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-')}</td><td class="p-3">${escapeHtml(task.status === 'WAIT_DEPENDENCY' ? '等待前面工作完成' : task.status === 'WAIT_REVIEW' ? '审核本次成果' : task.status === 'REWORK' ? '根据未通过项重做' : task.status === 'COMPLETED' ? '无' : (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && !task.colorRequirementConfirmedAt ? '填写潘通色号和颜色名称' : task.status === 'IN_PROGRESS' ? '制作并提交成果' : '开始本项工作')}</td><td class="p-3">${escapeHtml(dependencyNames(record, task))}</td><td class="p-3">${escapeHtml(nextTeam(record, task))}</td><td class="p-3">${escapeHtml(TASK_STATUS_TEXT[task.status])}</td><td class="p-3"><a class="text-blue-700" href="/pcs/engineering/sampling-professional/${escapeHtml(task.taskId)}">进入任务</a></td></tr>`).join('')}</tbody></table></div></section>`
+  return `<section class="space-y-4"><section class="overflow-hidden rounded-lg border bg-white"><div class="border-b px-4 py-3"><h2 class="font-semibold">本次需要完成的工作</h2></div><div class="overflow-x-auto"><table class="w-full min-w-[1080px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">任务</th><th class="p-3">当前团队</th><th class="p-3">当前动作</th><th class="p-3">需要先完成</th><th class="p-3">完成后去向</th><th class="p-3">状态</th><th class="p-3">操作</th></tr></thead><tbody>${record.professionalTasks.map((task) => `<tr class="border-b"><td class="p-3 font-medium">${escapeHtml(task.taskName)}</td><td class="p-3">${escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-')}</td><td class="p-3">${escapeHtml(task.status === 'WAIT_DEPENDENCY' ? '等待前面工作完成' : task.status === 'WAIT_REVIEW' ? '审核本次成果' : task.status === 'REWORK' ? '根据未通过项重做' : task.status === 'COMPLETED' ? '无' : (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && !task.colorRequirementConfirmedAt ? '填写潘通色号和颜色名称' : task.status === 'IN_PROGRESS' ? '制作并提交成果' : '开始本项工作')}</td><td class="p-3">${escapeHtml(dependencyNames(record, task))}</td><td class="p-3">${escapeHtml(nextTeam(record, task))}</td><td class="p-3">${escapeHtml(TASK_STATUS_TEXT[task.status])}</td><td class="p-3"><a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">进入任务</a></td></tr>`).join('')}</tbody></table></div></section>${renderSampleRequirementTable(record, true)}</section>`
 }
 
 const SAMPLING_STEPS: Array<{ key: Exclude<EngineeringIndependentSamplingStep, 'COMPLETED'>; title: string; team: string }> = [
@@ -401,13 +446,57 @@ function taskDraftValue(task: EngineeringIndependentProfessionalTask, field: str
   return ui.taskDrafts[task.taskId]?.[field] ?? fallback
 }
 
+function ensureSampleResultDrafts(task: EngineeringIndependentProfessionalTask): typeof ui.sampleResultDraftsByTask[string] {
+  if (ui.sampleResultDraftsByTask[task.taskId]) return ui.sampleResultDraftsByTask[task.taskId]
+  ui.sampleResultDraftsByTask[task.taskId] = (task.sampleRequirements || []).map((requirement, index) => ({
+    draftId: `${task.taskId}-DISPLAY-ACTUAL-DRAFT-${index + 1}`,
+    requirementLineId: requirement.requirementLineId,
+    title: `${requirement.targetColor} / ${requirement.targetSize} 销售展示样衣`,
+    actualColor: requirement.targetColor,
+    actualSize: requirement.targetSize,
+    actualQuantity: requirement.requiredQuantity,
+    sourcePatternVersion: '',
+    productionNote: requirement.requirementNote,
+    differenceNote: '',
+  }))
+  return ui.sampleResultDraftsByTask[task.taskId]
+}
+
+function sampleRequirementById(task: EngineeringIndependentProfessionalTask, requirementLineId: string): EngineeringSampleRequirementLine | undefined {
+  return (task.sampleRequirements || []).find((line) => line.requirementLineId === requirementLineId)
+}
+
+function availableIndependentPatternVersions(task: EngineeringIndependentProfessionalTask): string[] {
+  const found = findProfessional(task.taskId)
+  if (!found) return []
+  return [...new Set(found.record.professionalTasks
+    .filter((item) => task.dependsOnTaskIds.includes(item.taskId) && item.taskType === 'BASE_PATTERN' && item.status === 'COMPLETED')
+    .flatMap((item) => item.results.filter((result) => result.status === 'APPROVED').map((result) => result.version.trim()))
+    .filter(Boolean))]
+}
+
+function renderDisplaySampleRequirementSummary(task: EngineeringIndependentProfessionalTask): string {
+  const requirements = task.sampleRequirements || []
+  const expectedTotal = requirements.reduce((sum, line) => sum + line.requiredQuantity, 0)
+  const actualTotal = task.results.reduce((sum, result) => sum + Number(result.sampleQuantity || 0), 0)
+  return `<section class="overflow-hidden rounded-lg border bg-white"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><div><h2 class="font-semibold">跟单下达的制作要求</h2><p class="mt-1 text-sm text-slate-500">要求合计 ${expectedTotal} 件；制作开始后要求锁定。</p></div>${task.results.length ? `<span class="rounded-full ${actualTotal === expectedTotal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} px-2 py-1 text-xs">实际 ${actualTotal} 件 · ${actualTotal === expectedTotal ? '数量一致' : `相差 ${actualTotal - expectedTotal} 件`}</span>` : ''}</div><div class="overflow-x-auto"><table class="w-full min-w-[720px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">颜色</th><th class="p-3">尺码</th><th class="p-3">要求数量</th><th class="p-3">制作要求</th><th class="p-3">下达人</th></tr></thead><tbody>${requirements.map((line) => `<tr class="border-b"><td class="p-3">${escapeHtml(line.targetColor)}</td><td class="p-3">${escapeHtml(line.targetSize)}</td><td class="p-3">${line.requiredQuantity} 件</td><td class="p-3">${escapeHtml(line.requirementNote || '-')}</td><td class="p-3">${escapeHtml(line.issuedBy)}<small class="block text-slate-500">${escapeHtml(line.issuedAt)}</small></td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-red-600">尚未下达制作要求</td></tr>'}</tbody></table></div></section>`
+}
+
+function renderDisplaySampleSubmission(task: EngineeringIndependentProfessionalTask): string {
+  const drafts = ensureSampleResultDrafts(task)
+  const requirements = task.sampleRequirements || []
+  const patternVersions = availableIndependentPatternVersions(task)
+  return `<div class="space-y-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="font-semibold">提交本次实际交付</h2><p class="mt-1 text-sm text-slate-500">每行对应一项制作要求；同一要求可拆成多行实际交付。实际与要求不一致时必须填写差异说明。</p></div><button class="rounded border px-3 py-2 text-sm" data-${PREFIX}-action="add-sample-result" data-task-id="${escapeHtml(task.taskId)}">新增实际交付</button></div>${drafts.map((draft, index) => {
+    const requirement = sampleRequirementById(task, draft.requirementLineId)
+    const files = listEngineeringTaskUploadedFiles(task.taskId, draft.draftId, 'SAMPLE_RESULT')
+    return `<article class="space-y-3 rounded-lg border p-4" data-sample-result-row="${escapeHtml(draft.draftId)}"><div class="flex items-center justify-between gap-3"><strong>实际交付 ${index + 1}</strong>${drafts.length > requirements.length ? `<button class="text-sm text-red-600" data-${PREFIX}-action="remove-sample-result" data-task-id="${escapeHtml(task.taskId)}" data-draft-id="${escapeHtml(draft.draftId)}">删除</button>` : ''}</div><div class="grid gap-3 md:grid-cols-4"><label class="text-sm text-slate-600">对应制作要求<select class="mt-1 h-10 w-full rounded border px-2" data-${PREFIX}-field="sampleResultRequirement">${requirements.map((line) => `<option value="${escapeHtml(line.requirementLineId)}" ${line.requirementLineId === draft.requirementLineId ? 'selected' : ''}>${escapeHtml(line.targetColor)} / ${escapeHtml(line.targetSize)} / ${line.requiredQuantity} 件</option>`).join('')}</select></label><label class="text-sm text-slate-600">实际颜色<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultColor" value="${escapeHtml(draft.actualColor)}"></label><label class="text-sm text-slate-600">实际尺码<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultSize" value="${escapeHtml(draft.actualSize)}"></label><label class="text-sm text-slate-600">实际数量<input type="number" min="1" step="1" class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultQuantity" value="${draft.actualQuantity}"></label></div><div class="grid gap-3 md:grid-cols-3"><label class="text-sm text-slate-600">使用的纸样版本<select class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultPattern"><option value="">请选择已完成纸样版本</option>${patternVersions.map((version) => `<option value="${escapeHtml(version)}" ${version === draft.sourcePatternVersion ? 'selected' : ''}>${escapeHtml(version)}</option>`).join('')}</select></label><label class="text-sm text-slate-600">制作说明<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultNote" value="${escapeHtml(draft.productionNote)}" placeholder="本行实际制作情况"></label><label class="text-sm text-slate-600">差异说明<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleResultDifference" value="${escapeHtml(draft.differenceNote)}" placeholder="仅实际与要求不一致时必填"></label></div>${patternVersions.length ? '' : '<p class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">尚无可用的已完成基码纸样版本，不能提交样衣成果。</p>'}${requirement ? `<p class="rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">要求：${escapeHtml(requirement.targetColor)} / ${escapeHtml(requirement.targetSize)} / ${requirement.requiredQuantity} 件${requirement.requirementNote ? ` · ${escapeHtml(requirement.requirementNote)}` : ''}</p>` : ''}${renderEngineeringFileUpload({ taskId: task.taskId, itemId: draft.draftId, purpose: 'SAMPLE_RESULT', files, label: '本行销售展示样衣图片', requiredHint: '必须选择并真实读取与本行实际样衣对应的图片。', eventPrefix: PREFIX })}</article>`
+  }).join('')}</div>`
+}
+
 function renderProfessionalResultFields(task: EngineeringIndependentProfessionalTask): string {
   const common = `<label class="text-sm text-slate-600">成果名称<input class="mt-1 h-10 w-full rounded border px-3" data-pcs-independent-sampling-field="resultTitle" value="${escapeHtml(taskDraftValue(task, 'resultTitle'))}" placeholder="请填写这次实际交付的成果名称"></label>`
   if (task.taskType === 'BASE_PATTERN') {
     return `${common}<div class="grid gap-3 md:grid-cols-2"><label class="text-sm text-slate-600">纸样版本<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="resultVersion" value="${escapeHtml(taskDraftValue(task, 'resultVersion'))}" placeholder="如 v1.0"></label><label class="text-sm text-slate-600">适用部位／尺码<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="applicablePartOrSize" value="${escapeHtml(taskDraftValue(task, 'applicablePartOrSize'))}" placeholder="如基码 / M 码"></label></div><label class="text-sm text-slate-600">纸样说明<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-${PREFIX}-field="resultDescription" placeholder="说明纸样范围和本轮调整">${escapeHtml(taskDraftValue(task, 'resultDescription'))}</textarea></label>`
-  }
-  if (task.taskType === 'DISPLAY_SAMPLE') {
-    return `${common}<div class="grid gap-3 md:grid-cols-4"><label class="text-sm text-slate-600">制作数量<input type="number" min="1" class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleQuantity" value="${escapeHtml(taskDraftValue(task, 'sampleQuantity', '1'))}"></label><label class="text-sm text-slate-600">颜色<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleColor" value="${escapeHtml(taskDraftValue(task, 'sampleColor'))}"></label><label class="text-sm text-slate-600">尺码<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleSize" value="${escapeHtml(taskDraftValue(task, 'sampleSize'))}"></label><label class="text-sm text-slate-600">使用的纸样版本<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sourcePatternVersion" value="${escapeHtml(taskDraftValue(task, 'sourcePatternVersion'))}"></label></div><label class="text-sm text-slate-600">制作说明<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-${PREFIX}-field="resultDescription">${escapeHtml(taskDraftValue(task, 'resultDescription'))}</textarea></label>`
   }
   if (task.taskType === 'PATTERN_ARTWORK') {
     return `${common}<div class="grid gap-3 md:grid-cols-2"><label class="text-sm text-slate-600">花型版本<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="resultVersion" value="${escapeHtml(taskDraftValue(task, 'resultVersion'))}" placeholder="如 v1.0"></label><label class="text-sm text-slate-600">花型说明<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-${PREFIX}-field="resultDescription">${escapeHtml(taskDraftValue(task, 'resultDescription'))}</textarea></label></div>`
@@ -423,6 +512,11 @@ function renderProfessionalResultDetails(task: EngineeringIndependentProfessiona
   if (result.sampleColor) details.push(['颜色', result.sampleColor])
   if (result.sampleSize) details.push(['尺码', result.sampleSize])
   if (result.sourcePatternVersion) details.push(['使用纸样', result.sourcePatternVersion])
+  if (result.requirementLineId) {
+    const requirement = sampleRequirementById(task, result.requirementLineId)
+    if (requirement) details.push(['对应制作要求', `${requirement.targetColor} / ${requirement.targetSize} / ${requirement.requiredQuantity} 件`])
+  }
+  if (result.differenceNote) details.push(['差异说明', result.differenceNote])
   if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.dyeColorCode) details.push(['染厂色号', task.dyeColorCode])
   if (result.description) details.push(['说明', result.description])
   return details.length ? `<dl class="mt-3 grid gap-2 rounded bg-slate-50 p-3 text-sm md:grid-cols-2">${details.map(([label, content]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-slate-800">${escapeHtml(content)}</dd></div>`).join('')}</dl>` : ''
@@ -436,9 +530,23 @@ export function renderPcsIndependentSamplingProfessionalTaskPage(taskId: string)
   const isColor = task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC'
   const canSubmit = ['IN_PROGRESS', 'REWORK'].includes(task.status)
   const currentTeam = getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-'
-  const files = professionalFiles(task)
   const waitingColorRequirement = isColor && !task.colorRequirementConfirmedAt && ['WAIT_START', 'IN_PROGRESS', 'REWORK'].includes(task.status)
-  return `<section class="space-y-4 p-4"><header class="rounded-lg border bg-white"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(task.taskName)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(TASK_STATUS_TEXT[task.status])}</span></div><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.samplingTaskCode)} · 目标款式 ${escapeHtml(record.targetStyleCode)} · 来源：${TYPE_TEXT[record.samplingType]}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/engineering/${record.samplingType === 'REVISION' ? 'revision' : 'design'}-sampling/${escapeHtml(record.samplingTaskId)}">返回主任务</a></div><div class="grid gap-4 px-5 py-4 md:grid-cols-[2fr_1fr_1fr_1fr]">${style ? `<div class="flex items-center gap-3">${imageButton(style.mainImageUrl, style.styleName)}<div><p class="font-medium">${escapeHtml(style.styleName)}</p><p class="text-sm text-slate-500">${escapeHtml(style.styleCode)}</p></div></div>` : '<div>-</div>'}<div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(currentTeam)}</p></div><div><p class="text-xs text-slate-500">需要先完成</p><p class="mt-1 font-medium">${escapeHtml(dependencyNames(record, task))}</p></div><div><p class="text-xs text-slate-500">完成后去向</p><p class="mt-1 font-medium">${escapeHtml(nextTeam(record, task))}</p></div></div><div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-4"><div><p class="text-xs text-slate-500">当前动作</p><p class="mt-1 text-sm">${escapeHtml(waitingColorRequirement ? '由跟单填写潘通色号和颜色名称' : task.status === 'WAIT_START' ? '由当前团队开始制作' : task.status === 'IN_PROGRESS' ? '上传并提交本次真实成果' : task.status === 'WAIT_REVIEW' ? '由买手逐项审核成果' : task.status === 'REWORK' ? '只重做未通过的成果' : task.status === 'COMPLETED' ? '本项工作已完成' : '等待需要先完成的工作')}</p></div>${task.status === 'WAIT_START' && !waitingColorRequirement ? `<button class="rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="start-task" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}</div></header>${feedbackHtml()}${isColor ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">颜色要求</h2><div class="mt-3 grid gap-3 md:grid-cols-3"><label class="text-sm text-slate-600">潘通色号<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="pantoneColorCode" value="${escapeHtml(task.pantoneColorCode)}" ${task.colorRequirementConfirmedAt ? 'readonly' : ''}></label><label class="text-sm text-slate-600">颜色名称<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="colorName" value="${escapeHtml(task.colorName)}" ${task.colorRequirementConfirmedAt ? 'readonly' : ''}></label><div class="self-end text-sm text-slate-500">${task.colorRequirementConfirmedAt ? `跟单已确认 · ${escapeHtml(task.colorRequirementConfirmedBy)} · ${escapeHtml(task.colorRequirementConfirmedAt)}` : '待跟单确认'}</div></div>${!task.colorRequirementConfirmedAt && ['WAIT_START', 'IN_PROGRESS', 'REWORK'].includes(task.status) ? `<button class="mt-4 rounded border border-blue-200 px-4 py-2 text-blue-700" data-${PREFIX}-action="confirm-color-requirement" data-task-id="${escapeHtml(task.taskId)}">跟单确认颜色要求</button>` : ''}</section>` : ''}${canSubmit ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">提交本次成果</h2><div class="mt-3 grid gap-3">${renderProfessionalResultFields(task)}${uploadPurposes(task).map(({ purpose, label, requiredHint }) => renderEngineeringFileUpload({ taskId: task.taskId, purpose, files: listEngineeringTaskUploadedFiles(task.taskId, 'TASK', purpose), label, requiredHint, eventPrefix: PREFIX })).join('')}</div><button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="submit-task" data-task-id="${escapeHtml(task.taskId)}">提交本次工作</button></section>` : ''}<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">成果记录</h2><div class="mt-3 grid gap-3 md:grid-cols-2">${task.results.length ? task.results.map((result) => `<article class="rounded border p-3"><div class="flex items-center justify-between gap-2"><strong>${escapeHtml(result.title)}</strong><span class="text-xs ${result.status === 'REJECTED' ? 'text-red-600' : result.status === 'APPROVED' ? 'text-emerald-700' : 'text-amber-700'}">${result.status === 'APPROVED' ? '已通过' : result.status === 'REJECTED' ? '未通过' : '待审核'}</span></div>${renderProfessionalResultDetails(task, result)}<div class="mt-3 space-y-2">${result.files.map((file) => `<div class="flex items-center justify-between gap-2 rounded bg-slate-50 px-3 py-2 text-sm"><span class="truncate">${escapeHtml(file.fileName)} · ${(file.sizeBytes / 1024).toFixed(0)} KB · 第 ${file.roundNo} 轮</span><div class="flex gap-2">${['jpg','jpeg','png','webp'].includes(file.extension) ? `<button class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看大图</button>` : ''}<a class="text-blue-700" href="${escapeHtml(file.dataUrl)}" download="${escapeHtml(file.fileName)}">下载</a></div></div>`).join('')}</div>${task.status === 'WAIT_REVIEW' ? `<div class="mt-3 grid gap-2"><label class="text-sm"><input type="radio" name="review-${escapeHtml(result.resultId)}" value="approve" checked data-${PREFIX}-review-result="${escapeHtml(result.resultId)}"> 通过</label><label class="text-sm"><input type="radio" name="review-${escapeHtml(result.resultId)}" value="reject" data-${PREFIX}-review-result="${escapeHtml(result.resultId)}"> 不通过</label><input class="h-9 rounded border px-2 text-sm" data-${PREFIX}-review-reason="${escapeHtml(result.resultId)}" placeholder="不通过原因"></div>` : result.rejectReason ? `<p class="mt-2 text-sm text-red-600">${escapeHtml(result.rejectReason)}</p>` : ''}</article>`).join('') : '<p class="text-sm text-slate-500">尚未提交成果</p>'}</div>${task.status === 'WAIT_REVIEW' ? `<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="review-task" data-task-id="${escapeHtml(task.taskId)}">买手提交整张审核</button>` : ''}</section><section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">操作记录</h2><div class="mt-3 space-y-2">${record.operationLogs.filter((log) => log.detail.includes(task.taskName) || log.action === '创建任务').map((log) => `<p class="border-b pb-2 text-sm"><span class="text-slate-500">${escapeHtml(log.occurredAt)}</span> · ${escapeHtml(log.operatorName)} · ${escapeHtml(log.action)} · ${escapeHtml(log.detail)}</p>`).join('') || '<p class="text-sm text-slate-500">暂无操作记录</p>'}</div></section>${renderDialogHost()}</section>`
+  const currentAction = waitingColorRequirement
+    ? '由跟单填写潘通色号和颜色名称'
+    : task.status === 'WAIT_START' ? '由当前团队开始制作'
+      : task.status === 'IN_PROGRESS' ? '上传并提交本次真实成果'
+        : task.status === 'WAIT_REVIEW' ? '由买手逐项审核成果'
+          : task.status === 'REWORK' ? '只重做未通过的成果'
+            : task.status === 'COMPLETED' ? '本项工作已完成' : '等待需要先完成的工作'
+  const resultCards = task.results.length
+    ? task.results.map((result) => `<article class="rounded border p-3"><div class="flex items-center justify-between gap-2"><strong>${escapeHtml(result.title)}</strong><span class="text-xs ${result.status === 'REJECTED' ? 'text-red-600' : result.status === 'APPROVED' ? 'text-emerald-700' : 'text-amber-700'}">${result.status === 'APPROVED' ? '已通过' : result.status === 'REJECTED' ? '未通过' : '待审核'}</span></div>${renderProfessionalResultDetails(task, result)}<div class="mt-3 space-y-2">${result.files.map((file) => `<div class="flex items-center justify-between gap-2 rounded bg-slate-50 px-3 py-2 text-sm"><span class="truncate">${escapeHtml(file.fileName)} · ${(file.sizeBytes / 1024).toFixed(0)} KB · 第 ${file.roundNo} 轮</span><div class="flex gap-2">${['jpg','jpeg','png','webp'].includes(file.extension) ? `<button class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看大图</button>` : ''}<a class="text-blue-700" href="${escapeHtml(file.dataUrl)}" download="${escapeHtml(file.fileName)}">下载</a></div></div>`).join('')}</div>${task.status === 'WAIT_REVIEW' ? `<div class="mt-3 grid gap-2"><label class="text-sm"><input type="radio" name="review-${escapeHtml(result.resultId)}" value="approve" checked data-${PREFIX}-review-result="${escapeHtml(result.resultId)}"> 通过</label><label class="text-sm"><input type="radio" name="review-${escapeHtml(result.resultId)}" value="reject" data-${PREFIX}-review-result="${escapeHtml(result.resultId)}"> 不通过</label><input class="h-9 rounded border px-2 text-sm" data-${PREFIX}-review-reason="${escapeHtml(result.resultId)}" placeholder="不通过原因"></div>` : result.rejectReason ? `<p class="mt-2 text-sm text-red-600">${escapeHtml(result.rejectReason)}</p>` : ''}</article>`).join('')
+    : '<p class="text-sm text-slate-500">尚未提交成果</p>'
+  const submitSection = canSubmit
+    ? task.taskType === 'DISPLAY_SAMPLE'
+      ? `<section class="rounded-lg border bg-white p-4">${renderDisplaySampleSubmission(task)}<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="submit-task" data-task-id="${escapeHtml(task.taskId)}">提交本次工作</button></section>`
+      : `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">提交本次成果</h2><div class="mt-3 grid gap-3">${renderProfessionalResultFields(task)}${uploadPurposes(task).map(({ purpose, label, requiredHint }) => renderEngineeringFileUpload({ taskId: task.taskId, purpose, files: listEngineeringTaskUploadedFiles(task.taskId, 'TASK', purpose), label, requiredHint, eventPrefix: PREFIX })).join('')}</div><button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="submit-task" data-task-id="${escapeHtml(task.taskId)}">提交本次工作</button></section>`
+    : ''
+  return `<section class="space-y-4 p-4"><header class="rounded-lg border bg-white"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(task.taskName)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(TASK_STATUS_TEXT[task.status])}</span></div><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.samplingTaskCode)} · 目标款式 ${escapeHtml(record.targetStyleCode)} · 来源：${TYPE_TEXT[record.samplingType]}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/engineering/${record.samplingType === 'REVISION' ? 'revision' : 'design'}-sampling/${escapeHtml(record.samplingTaskId)}">返回主任务</a></div><div class="grid gap-4 px-5 py-4 md:grid-cols-[2fr_1fr_1fr_1fr]">${style ? `<div class="flex items-center gap-3">${imageButton(style.mainImageUrl, style.styleName)}<div><p class="font-medium">${escapeHtml(style.styleName)}</p><p class="text-sm text-slate-500">${escapeHtml(style.styleCode)}</p></div></div>` : '<div>-</div>'}<div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(currentTeam)}</p></div><div><p class="text-xs text-slate-500">需要先完成</p><p class="mt-1 font-medium">${escapeHtml(dependencyNames(record, task))}</p></div><div><p class="text-xs text-slate-500">完成后去向</p><p class="mt-1 font-medium">${escapeHtml(nextTeam(record, task))}</p></div></div><div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-4"><div><p class="text-xs text-slate-500">当前动作</p><p class="mt-1 text-sm">${escapeHtml(currentAction)}</p></div>${task.status === 'WAIT_START' && !waitingColorRequirement ? `<button class="rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="start-task" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}</div></header>${feedbackHtml()}${task.taskType === 'DISPLAY_SAMPLE' ? renderDisplaySampleRequirementSummary(task) : ''}${isColor ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">颜色要求</h2><div class="mt-3 grid gap-3 md:grid-cols-3"><label class="text-sm text-slate-600">潘通色号<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="pantoneColorCode" value="${escapeHtml(task.pantoneColorCode)}" ${task.colorRequirementConfirmedAt ? 'readonly' : ''}></label><label class="text-sm text-slate-600">颜色名称<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="colorName" value="${escapeHtml(task.colorName)}" ${task.colorRequirementConfirmedAt ? 'readonly' : ''}></label><div class="self-end text-sm text-slate-500">${task.colorRequirementConfirmedAt ? `跟单已确认 · ${escapeHtml(task.colorRequirementConfirmedBy)} · ${escapeHtml(task.colorRequirementConfirmedAt)}` : '待跟单确认'}</div></div>${!task.colorRequirementConfirmedAt && ['WAIT_START', 'IN_PROGRESS', 'REWORK'].includes(task.status) ? `<button class="mt-4 rounded border border-blue-200 px-4 py-2 text-blue-700" data-${PREFIX}-action="confirm-color-requirement" data-task-id="${escapeHtml(task.taskId)}">跟单确认颜色要求</button>` : ''}</section>` : ''}${submitSection}<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">成果记录</h2><div class="mt-3 grid gap-3 md:grid-cols-2">${resultCards}</div>${task.status === 'WAIT_REVIEW' ? `<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="review-task" data-task-id="${escapeHtml(task.taskId)}">买手提交整张审核</button>` : ''}</section><section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">操作记录</h2><div class="mt-3 space-y-2">${record.operationLogs.filter((log) => log.detail.includes(task.taskName) || log.action === '创建任务').map((log) => `<p class="border-b pb-2 text-sm"><span class="text-slate-500">${escapeHtml(log.occurredAt)}</span> · ${escapeHtml(log.operatorName)} · ${escapeHtml(log.action)} · ${escapeHtml(log.detail)}</p>`).join('') || '<p class="text-sm text-slate-500">暂无操作记录</p>'}</div></section>${renderDialogHost()}</section>`
 }
 
 function readColorMappings() {
@@ -447,6 +555,54 @@ function readColorMappings() {
     mappingType: value('sourceColor', row) ? '参考 A 款颜色' as const : '无参考颜色' as const,
     sourceColor: value('sourceColor', row),
     targetSizeNames: [...row.querySelectorAll<HTMLInputElement>(`[data-${PREFIX}-field="targetSizeName"]:checked`)].map((item) => item.value),
+  }))
+}
+
+function syncSampleRequirementsFromDom(samplingTaskId: string): void {
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-sample-requirement-row]')]
+  if (!rows.length) return
+  ui.sampleRequirementDraftsByTask[samplingTaskId] = rows.map((row) => ({
+    draftId: row.dataset.sampleRequirementRow || `${samplingTaskId}-DISPLAY-REQ-DRAFT-${Date.now().toString(36)}`,
+    targetColor: value('sampleRequirementColor', row),
+    targetSize: value('sampleRequirementSize', row),
+    requiredQuantity: Number(value('sampleRequirementQuantity', row)) || 0,
+    requirementNote: value('sampleRequirementNote', row),
+  }))
+}
+
+function readSampleRequirements(samplingTaskId: string): typeof ui.sampleRequirementDraftsByTask[string] {
+  syncSampleRequirementsFromDom(samplingTaskId)
+  return ui.sampleRequirementDraftsByTask[samplingTaskId] || []
+}
+
+function syncSampleResultsFromDom(task: EngineeringIndependentProfessionalTask): void {
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-sample-result-row]')]
+  if (!rows.length) return
+  ui.sampleResultDraftsByTask[task.taskId] = rows.map((row, index) => ({
+    draftId: row.dataset.sampleResultRow || `${task.taskId}-DISPLAY-ACTUAL-DRAFT-${Date.now().toString(36)}-${index}`,
+    requirementLineId: value('sampleResultRequirement', row),
+    title: `${value('sampleResultColor', row)} / ${value('sampleResultSize', row)} 销售展示样衣`,
+    actualColor: value('sampleResultColor', row),
+    actualSize: value('sampleResultSize', row),
+    actualQuantity: Number(value('sampleResultQuantity', row)) || 0,
+    sourcePatternVersion: value('sampleResultPattern', row),
+    productionNote: value('sampleResultNote', row),
+    differenceNote: value('sampleResultDifference', row),
+  }))
+}
+
+function readDisplaySampleResults(task: EngineeringIndependentProfessionalTask) {
+  syncSampleResultsFromDom(task)
+  return (ui.sampleResultDraftsByTask[task.taskId] || []).map((draft) => ({
+    title: draft.title,
+    requirementLineId: draft.requirementLineId,
+    description: draft.productionNote,
+    sampleQuantity: draft.actualQuantity,
+    sampleColor: draft.actualColor,
+    sampleSize: draft.actualSize,
+    sourcePatternVersion: draft.sourcePatternVersion,
+    differenceNote: draft.differenceNote,
+    files: listEngineeringTaskUploadedFiles(task.taskId, draft.draftId, 'SAMPLE_RESULT'),
   }))
 }
 
@@ -500,10 +656,14 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if (action === 'confirm-material-conversions') { run(() => confirmEngineeringIndependentMaterialConversions({ samplingTaskId: node.dataset.samplingId || '', actor: BUYER, decisions: readMaterialDecisions() }), 'B 款用料已确认并归入 B 款 BOM。'); return true }
   if (action === 'complete-buyer-preparation') { const samplingId = node.dataset.samplingId || ''; run(() => { completeEngineeringIndependentBuyerPreparation({ samplingTaskId: samplingId, actor: BUYER }); selectCurrentSamplingStep(samplingId) }, '新款资料准备已完成，已交给跟单安排工作。'); return true }
   if (action === 'return-buyer-preparation') { const samplingId = node.dataset.samplingId || ''; run(() => { returnEngineeringIndependentBuyerPreparation({ samplingTaskId: samplingId, actor: CURRENT_PCS_ENGINEERING_USER, reason: ui.returnReasonByTask[samplingId] || value('buyerReturnReason') }); ui.detailStepByTask[samplingId] = 0; ui.buyerTabByTask[samplingId] = 'colors' }, '已退回买手修改新款资料。'); return true }
-  if (action === 'confirm-plan') { const samplingId = node.dataset.samplingId || ''; run(() => { confirmEngineeringIndependentSamplingPlan({ samplingTaskId: samplingId, actor: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: checkedTaskTypes() }); selectCurrentSamplingStep(samplingId) }, '本次工作安排已确认，专业任务已一次生成。'); return true }
+  if (action === 'add-sample-requirement') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncSampleRequirementsFromDom(samplingId); const firstMapping = record.colorMappings[0]; (ui.sampleRequirementDraftsByTask[samplingId] ||= []).push({ draftId: `${samplingId}-DISPLAY-REQ-DRAFT-${Date.now().toString(36)}`, targetColor: firstMapping?.targetColor || '', targetSize: firstMapping?.targetSizeNames[0] || '', requiredQuantity: 1, requirementNote: '' }); rerender(); return true }
+  if (action === 'remove-sample-requirement') { const samplingId = node.dataset.samplingId || ''; syncSampleRequirementsFromDom(samplingId); ui.sampleRequirementDraftsByTask[samplingId] = (ui.sampleRequirementDraftsByTask[samplingId] || []).filter((draft) => draft.draftId !== node.dataset.draftId); rerender(); return true }
+  if (action === 'confirm-plan') { const samplingId = node.dataset.samplingId || ''; run(() => { confirmEngineeringIndependentSamplingPlan({ samplingTaskId: samplingId, actor: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: checkedTaskTypes(), sampleRequirements: readSampleRequirements(samplingId).map((draft) => ({ requirementLineId: draft.draftId, targetColor: draft.targetColor, targetSize: draft.targetSize, requiredQuantity: draft.requiredQuantity, requirementNote: draft.requirementNote })) }); selectCurrentSamplingStep(samplingId) }, '本次工作安排已确认，专业任务与销售展示样衣制作要求已一次生成。'); return true }
   if (action === 'start-task') { const found = findProfessional(node.dataset.taskId || ''); run(() => { if (!found) throw new Error('任务不存在。'); startEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: EXECUTORS[found.task.taskType] }) }, '任务已开始。'); return true }
   if (action === 'confirm-color-requirement') { run(() => confirmEngineeringIndependentColorRequirement({ taskId: node.dataset.taskId || '', actor: CURRENT_PCS_ENGINEERING_USER, pantoneColorCode: value('pantoneColorCode'), colorName: value('colorName') }), '颜色要求已确认。'); return true }
-  if (action === 'submit-task') { const found = findProfessional(node.dataset.taskId || ''); run(() => { if (!found) throw new Error('任务不存在。'); submitEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: EXECUTORS[found.task.taskType], results: [{ title: value('resultTitle'), version: value('resultVersion'), description: value('resultDescription'), applicablePartOrSize: value('applicablePartOrSize'), sampleQuantity: Number(value('sampleQuantity')) || 0, sampleColor: value('sampleColor'), sampleSize: value('sampleSize'), sourcePatternVersion: value('sourcePatternVersion'), files: professionalFiles(found.task) }], dyeColorCode: value('dyeColorCode') }); selectCurrentSamplingStep(found.record.samplingTaskId) }, '本次工作已提交。'); return true }
+  if (action === 'add-sample-result') { const found = findProfessional(node.dataset.taskId || ''); if (!found) return true; syncSampleResultsFromDom(found.task); const requirement = found.task.sampleRequirements?.[0]; if (!requirement) { setFeedback('尚未下达销售展示样衣制作要求。', false); rerender(); return true } (ui.sampleResultDraftsByTask[found.task.taskId] ||= []).push({ draftId: `${found.task.taskId}-DISPLAY-ACTUAL-DRAFT-${Date.now().toString(36)}`, requirementLineId: requirement.requirementLineId, title: `${requirement.targetColor} / ${requirement.targetSize} 销售展示样衣`, actualColor: requirement.targetColor, actualSize: requirement.targetSize, actualQuantity: 1, sourcePatternVersion: '', productionNote: '', differenceNote: '' }); rerender(); return true }
+  if (action === 'remove-sample-result') { const found = findProfessional(node.dataset.taskId || ''); if (!found) return true; syncSampleResultsFromDom(found.task); ui.sampleResultDraftsByTask[found.task.taskId] = (ui.sampleResultDraftsByTask[found.task.taskId] || []).filter((draft) => draft.draftId !== node.dataset.draftId); rerender(); return true }
+  if (action === 'submit-task') { const found = findProfessional(node.dataset.taskId || ''); run(() => { if (!found) throw new Error('任务不存在。'); const results = found.task.taskType === 'DISPLAY_SAMPLE' ? readDisplaySampleResults(found.task) : [{ title: value('resultTitle'), version: value('resultVersion'), description: value('resultDescription'), applicablePartOrSize: value('applicablePartOrSize'), sampleQuantity: Number(value('sampleQuantity')) || 0, sampleColor: value('sampleColor'), sampleSize: value('sampleSize'), sourcePatternVersion: value('sourcePatternVersion'), files: professionalFiles(found.task) }]; submitEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: EXECUTORS[found.task.taskType], results, dyeColorCode: value('dyeColorCode') }); delete ui.sampleResultDraftsByTask[found.task.taskId]; selectCurrentSamplingStep(found.record.samplingTaskId) }, '本次工作已提交。'); return true }
   if (action === 'review-task') { const taskId = node.dataset.taskId || ''; const found = findProfessional(taskId); run(() => { if (!found) throw new Error('任务不存在。'); const decisions = found.task.results.map((result) => { const selected = document.querySelector<HTMLInputElement>(`[data-${PREFIX}-review-result="${result.resultId}"]:checked`); return { resultId: result.resultId, approved: selected?.value === 'approve', reason: document.querySelector<HTMLInputElement>(`[data-${PREFIX}-review-reason="${result.resultId}"]`)?.value || '' } }); reviewEngineeringIndependentProfessionalTask({ taskId, actor: BUYER, decisions }); selectCurrentSamplingStep(found.record.samplingTaskId) }, '买手审核结果已提交。'); return true }
   if (action === 'confirm-result') { run(() => confirmEngineeringIndependentSamplingResult({ samplingTaskId: node.dataset.samplingId || '', actor: CURRENT_PCS_ENGINEERING_USER, resultVersion: value('resultVersion'), resultSummary: value('resultSummary'), confirmedAt: nowText() }), '整张任务成果已确认。'); return true }
   return false
@@ -518,6 +678,7 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
     const found = findProfessional(upload.dataset.taskId || '')
     const files = Array.from(upload.files || [])
     if (!found || !files.length) return true
+    if (found.task.taskType === 'DISPLAY_SAMPLE') syncSampleResultsFromDom(found.task)
     setFeedback('正在读取并保存文件…'); rerender()
     void uploadEngineeringTaskFiles({ taskId: found.task.taskId, itemId: upload.dataset.itemId, purpose: upload.dataset.uploadPurpose as EngineeringUploadPurpose, files, actor: { ...EXECUTORS[found.task.taskType], teamName: found.task.ownerTeamName } }).then(() => { setFeedback('文件已真实读取并保存。'); rerender() }).catch((error) => { setFeedback(error instanceof Error ? error.message : '文件上传失败。', false); rerender() })
     return true
@@ -530,6 +691,8 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   if (target.matches(`[data-${PREFIX}-field="creationReason"]`)) { ui.createDraft.creationReason = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="buyerReturnReason"]`)) { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); ui.returnReasonByTask[samplingId] = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="targetColor"], [data-${PREFIX}-field="sourceColor"], [data-${PREFIX}-field="targetSizeName"]`)) { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); syncColorDraftsFromDom(samplingId); return true }
+  if (target.closest('[data-sample-requirement-row]')) { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); syncSampleRequirementsFromDom(samplingId); return true }
+  if (target.closest('[data-sample-result-row]')) { const taskId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); const found = findProfessional(taskId); if (found) syncSampleResultsFromDom(found.task); return true }
   const taskField = target.dataset.pcsIndependentSamplingField
   if (taskField) {
     const taskId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '')

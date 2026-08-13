@@ -25,6 +25,7 @@ import type {
 } from '../data/pcs-engineering-master-types.ts'
 import { engineeringTaskHref } from '../data/pcs-engineering-preparation-projection.ts'
 import { buildEngineeringBomTaskRows, listEngineeringBomVersionsByOwner } from '../data/pcs-engineering-bom-repository.ts'
+import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
 import { escapeHtml } from '../utils.ts'
 
 const DETAIL_EVENT_PREFIX = 'pcs-engineering-master'
@@ -65,6 +66,7 @@ interface DetailUiState {
   selectedPreparationType: EngineeringPreparationType | ''
   selectedConditionalTaskTypes: EngineeringTaskType[]
   taskPlanError: string
+  preProductionSampleRequirements: Array<{ draftId: string; targetColor: string; targetSize: string; requiredQuantity: number; requirementNote: string }>
   priorResultSelections: Record<string, {
     sourceSamplingTaskId: string
     sourceProfessionalTaskId: string
@@ -80,6 +82,7 @@ const detailUiState: DetailUiState = {
   selectedPreparationType: '',
   selectedConditionalTaskTypes: [],
   taskPlanError: '',
+  preProductionSampleRequirements: [],
   priorResultSelections: {},
 }
 
@@ -191,6 +194,25 @@ function applyTaskPlanState(model: EngineeringMasterDetailModel): void {
     .filter((item) => !item.required && !item.notApplicable && item.suggestedSelected)
     .map((item) => item.taskType)
   detailUiState.taskPlanError = ''
+  const master = getEngineeringMasterOrderById(model.masterOrderId)
+  const seen = new Set<string>()
+  detailUiState.preProductionSampleRequirements = master
+    ? listSkuArchivesByStyleId(master.styleId)
+      .filter((sku) => sku.archiveStatus === 'ACTIVE')
+      .filter((sku) => {
+        const key = `${sku.colorName}\u0000${sku.sizeName}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .map((sku, index) => ({
+        draftId: `${model.masterOrderId}-PRE-SAMPLE-REQ-DRAFT-${index + 1}`,
+        targetColor: sku.colorName,
+        targetSize: sku.sizeName,
+        requiredQuantity: 1,
+        requirementNote: '',
+      }))
+    : []
   detailUiState.priorResultSelections = Object.fromEntries(model.priorResultCandidateGroups.map((group) => {
     const recommended = group.candidates.find((candidate) => candidate.recommended) || group.candidates[0]
     return [group.engineeringTaskType, {
@@ -236,6 +258,26 @@ function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
       </div>
     </section>
   `
+}
+
+function syncPreProductionSampleRequirementsFromDom(): void {
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-pre-production-requirement-row]')]
+  if (!rows.length) return
+  detailUiState.preProductionSampleRequirements = rows.map((row, index) => ({
+    draftId: row.dataset.preProductionRequirementRow || `${detailUiState.taskPlanMasterId}-PRE-SAMPLE-REQ-DRAFT-${index + 1}`,
+    targetColor: row.querySelector<HTMLSelectElement>('[data-pre-production-requirement-field="color"]')?.value.trim() || '',
+    targetSize: row.querySelector<HTMLSelectElement>('[data-pre-production-requirement-field="size"]')?.value.trim() || '',
+    requiredQuantity: Number(row.querySelector<HTMLInputElement>('[data-pre-production-requirement-field="quantity"]')?.value || 0),
+    requirementNote: row.querySelector<HTMLInputElement>('[data-pre-production-requirement-field="note"]')?.value.trim() || '',
+  }))
+}
+
+function renderPreProductionSampleRequirementEditor(model: EngineeringMasterDetailModel): string {
+  const master = getEngineeringMasterOrderById(model.masterOrderId)
+  const skus = master ? listSkuArchivesByStyleId(master.styleId).filter((sku) => sku.archiveStatus === 'ACTIVE') : []
+  const colors = [...new Set(skus.map((sku) => sku.colorName).filter(Boolean))]
+  const sizes = [...new Set(skus.map((sku) => sku.sizeName).filter(Boolean))]
+  return `<section class="border-t bg-blue-50/20 px-4 py-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="text-sm font-semibold text-slate-800">产前版样衣制作要求</h3><p class="mt-1 text-xs text-slate-500">跟单在生成任务前按颜色和尺码下达要求数量；制作团队进入任务后填写实际交付。</p></div><button type="button" class="rounded-md border bg-white px-3 py-2 text-sm" data-${DETAIL_EVENT_PREFIX}-action="add-pre-production-requirement">新增一行</button></div><div class="mt-3 overflow-x-auto rounded-md border bg-white"><table class="w-full min-w-[820px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-3">颜色</th><th class="p-3">尺码</th><th class="p-3">要求数量</th><th class="p-3">制作要求</th><th class="p-3 text-right">操作</th></tr></thead><tbody>${detailUiState.preProductionSampleRequirements.map((line) => `<tr class="border-b" data-pre-production-requirement-row="${escapeHtml(line.draftId)}"><td class="p-3"><select class="h-9 min-w-36 rounded border px-2" data-pre-production-requirement-field="color">${colors.map((color) => `<option ${color === line.targetColor ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}</select></td><td class="p-3"><select class="h-9 min-w-28 rounded border px-2" data-pre-production-requirement-field="size">${sizes.map((size) => `<option ${size === line.targetSize ? 'selected' : ''}>${escapeHtml(size)}</option>`).join('')}</select></td><td class="p-3"><input type="number" min="1" step="1" class="h-9 w-24 rounded border px-2" data-pre-production-requirement-field="quantity" value="${line.requiredQuantity}"></td><td class="p-3"><input class="h-9 min-w-64 rounded border px-2" data-pre-production-requirement-field="note" value="${escapeHtml(line.requirementNote)}" placeholder="可填写面辅料、工艺或制作注意事项"></td><td class="p-3 text-right"><button type="button" class="text-red-600" data-${DETAIL_EVENT_PREFIX}-action="remove-pre-production-requirement" data-draft-id="${escapeHtml(line.draftId)}">删除</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-red-600">请至少新增一行产前版样衣制作要求</td></tr>'}</tbody></table></div></section>`
 }
 
 function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string {
@@ -292,7 +334,7 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
             </label>
           `
         }).join('')}
-      </div>` : `<div class="px-4 py-8 text-center text-sm text-slate-500">选择生产准备类型后，系统将展示必做任务、条件任务和固定前置。</div>`}
+      </div>${renderPreProductionSampleRequirementEditor(model)}` : `<div class="px-4 py-8 text-center text-sm text-slate-500">选择生产准备类型后，系统将展示必做任务、条件任务和固定前置。</div>`}
       <footer class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3">
         <p class="text-xs text-slate-500">确认后生成固定任务；条件任务根据当前工程 BOM 与价格草稿自动启用。</p>
         <button
@@ -514,6 +556,26 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     detailUiState.taskPlanError = ''
     return true
   }
+  if (action === 'add-pre-production-requirement') {
+    syncPreProductionSampleRequirementsFromDom()
+    const master = getEngineeringMasterOrderById(currentMasterKey())
+    const firstSku = master ? listSkuArchivesByStyleId(master.styleId).find((sku) => sku.archiveStatus === 'ACTIVE') : undefined
+    detailUiState.preProductionSampleRequirements.push({
+      draftId: `${currentMasterKey()}-PRE-SAMPLE-REQ-DRAFT-${Date.now().toString(36)}`,
+      targetColor: firstSku?.colorName || '',
+      targetSize: firstSku?.sizeName || '',
+      requiredQuantity: 1,
+      requirementNote: '',
+    })
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
+    return true
+  }
+  if (action === 'remove-pre-production-requirement') {
+    syncPreProductionSampleRequirementsFromDom()
+    detailUiState.preProductionSampleRequirements = detailUiState.preProductionSampleRequirements.filter((line) => line.draftId !== actionNode.dataset.draftId)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
+    return true
+  }
   if (action === 'confirm-task-plan') {
     const masterKey = currentMasterKey()
     const model = buildEngineeringMasterDetailModel(masterKey, detailUiState.selectedPreparationType)
@@ -532,6 +594,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
           decision: selection.decision,
         }
       })
+      syncPreProductionSampleRequirementsFromDom()
       confirmEngineeringMasterTaskPlan(masterKey, {
         confirmedBy: resolveEngineeringMasterDemoOperatorName(model),
         confirmedById: master.merchandiserId,
@@ -550,6 +613,13 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
           }
         })(),
         priorResultDecisions,
+        preProductionSampleRequirements: detailUiState.preProductionSampleRequirements.map((line) => ({
+          requirementLineId: line.draftId,
+          targetColor: line.targetColor,
+          targetSize: line.targetSize,
+          requiredQuantity: line.requiredQuantity,
+          requirementNote: line.requirementNote,
+        })),
       })
       detailUiState.taskPlanError = ''
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
@@ -581,6 +651,13 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     return true
   }
   return false
+}
+
+export function handlePcsEngineeringMasterDetailInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): boolean {
+  if (!target.closest('[data-pre-production-requirement-row]')) return false
+  target.dataset.skipPageRerender = 'true'
+  syncPreProductionSampleRequirementsFromDom()
+  return true
 }
 
 function currentMasterKey(): string {
