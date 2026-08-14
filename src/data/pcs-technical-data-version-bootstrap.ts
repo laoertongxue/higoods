@@ -147,7 +147,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       count: 1,
       specialCrafts: [
         ...getPieceSpecialCrafts('前片'),
-        ...(demand.spuCode === 'SPU-2024-010' ? [buildSpecialCraftConfig('CRAFT_3000006', '模板工序')] : []),
+        ...(demand.spuCode === 'SPU-2024-010'
+          ? [
+              buildSpecialCraftConfig('CRAFT_3000006', '模板工序'),
+              buildSpecialCraftConfig('CRAFT_3000010', '手工钉珠'),
+            ]
+          : []),
       ],
     },
     {

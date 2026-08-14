@@ -290,11 +290,6 @@ function resolveFeiSpreadingSessionNo(record: AnyFeiTicket): string {
   )
 }
 
-function needsWideFeiLabel(item: PrintLabelItem): boolean {
-  return item.labelFields.some((field) => String(field.value || '').length > 34)
-    || item.labelFields.some((field) => field.label === '承接工厂' && String(field.value || '').includes('；'))
-}
-
 function resolveFeiTicketSpecialCraftTitle(record: AnyFeiTicket, craftLines: string[]): string {
   const recordCraftNames = uniqueBy(
     (Array.isArray(record.specialCrafts) ? record.specialCrafts : [])
@@ -319,7 +314,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
   const printProjection = buildFeiTicketLabelPrintProjection(record)
   const version = resolveFeiPrintVersion(record, mode)
-  const maxCraftPrintLines = printProjection.templateSize === '15cm x 10cm' ? 4 : 2
+  const maxCraftPrintLines = 2
   const craftLines = printProjection.specialCraftDisplayLines.filter((line) => line && line !== '无')
   const craftPrintValue = craftLines.length
     ? `${printProjection.hasSpecialCraftLabel}：${joinLabelLines(craftLines, maxCraftPrintLines)}`
@@ -367,6 +362,8 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '裁片单', value: printProjection.cutOrderNo, emphasis: true },
         { label: 'SPU', value: printProjection.spuCode },
         { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
+        { label: '面料名称', value: printProjection.materialNameLabel, emphasis: true },
+        { label: '面料别名', value: printProjection.materialAliasLabel },
         { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
         { label: '颜色', value: printProjection.color },
         { label: '尺码', value: printProjection.businessSizeLabel, emphasis: true },
@@ -376,6 +373,8 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '编号区间', value: stripFeiTicketLabelPrefix(printProjection.pieceSequenceLabel), emphasis: true },
         { label: '适用SKU', value: printProjection.applicableSkuLabel, emphasis: true },
         { label: '唛架方案', value: printProjection.markerPlanNo },
+        { label: '唛架编号', value: printProjection.markerNumber, emphasis: true },
+        { label: '铺布单号', value: printProjection.spreadingOrderNo, emphasis: true },
         { label: '唛架编号+铺布单号', value: printProjection.markerSpreadingLabel, emphasis: true },
         { label: '版本', value: version },
         ...(hasSpecialCraft ? [
@@ -499,9 +498,7 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
   const items = records.map((record) => buildFeiLabelItem(record, input, mode))
   const paperType: PrintPaperType = isBindingTicket && items.length > 1
     ? 'A4_LABEL_GRID'
-    : items.some(needsWideFeiLabel)
-      ? 'LABEL_150_100'
-      : 'LABEL_100_100'
+    : 'LABEL_100_100'
   const thermalPaperColor = actualPaperColors[0]
   const bindingOrderId = toText(records.find((record) => record.ticketSourceType === 'BINDING_STRIP')?.bindingOrderId, '')
   const bindingRouteToken = bindingOrderId.startsWith('binding:') ? bindingOrderId : `binding:${bindingOrderId}`
@@ -712,6 +709,19 @@ function renderFeiBusinessCell(label: string, value: string, options: { classNam
   `
 }
 
+function renderFeiBusinessLinePairCell(
+  first: { label: string; value: string },
+  second: { label: string; value: string },
+  options: { className?: string; emphasis?: boolean } = {},
+): string {
+  return `
+    <div class="fei-ticket-business-cell fei-ticket-business-line-pair ${options.className || ''}">
+      <div><span>${escapeHtml(first.label)}</span><strong class="${options.emphasis ? 'fei-ticket-business-emphasis' : ''}">${escapeHtml(first.value || '—')}</strong></div>
+      <div><span>${escapeHtml(second.label)}</span><strong>${escapeHtml(second.value || '—')}</strong></div>
+    </div>
+  `
+}
+
 function isBindingStripFeiLabelItem(item: PrintLabelItem): boolean {
   return item.labelTitle === '捆条菲票'
     || getLabelFieldValue(item, '菲票标题', item.labelTitle) === '捆条菲票'
@@ -778,8 +788,19 @@ function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: Print
         <div class="fei-ticket-business-grid">
           ${isSpecialCraftTicket ? renderFeiBusinessCell('生产单号（PO）', getLabelFieldValue(item, '生产单'), { emphasis: true }) : ''}
           ${isSpecialCraftTicket ? renderFeiBusinessCell('SPU', getLabelFieldValue(item, 'SPU'), { emphasis: true }) : ''}
-          ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色', getLabelFieldValue(item, '面料')), { emphasis: true })}
-          ${renderFeiBusinessCell('唛架编号+铺布单号', getLabelFieldValue(item, '唛架编号+铺布单号'), { emphasis: true })}
+          ${renderFeiBusinessLinePairCell(
+            {
+              label: '面料',
+              value: `${getLabelFieldValue(item, '面料名称', getLabelFieldValue(item, '面料'))}${getLabelFieldValue(item, '面料别名', '—') === '—' ? '' : `（${getLabelFieldValue(item, '面料别名')}）`}`,
+            },
+            { label: '颜色', value: getLabelFieldValue(item, '颜色') },
+            { emphasis: true },
+          )}
+          ${renderFeiBusinessLinePairCell(
+            { label: '唛架编号', value: getLabelFieldValue(item, '唛架编号', getLabelFieldValue(item, '唛架方案')) },
+            { label: '铺布单号', value: getLabelFieldValue(item, '铺布单号') },
+            { emphasis: true },
+          )}
           ${renderFeiBusinessCell('部位', getLabelFieldValue(item, '部位'), { emphasis: true })}
           ${renderFeiBusinessCell('尺码', getLabelFieldValue(item, '尺码'), { emphasis: true })}
           ${renderFeiBusinessCell('部位数量', getLabelFieldValue(item, '部位数量'), { emphasis: true })}
@@ -852,10 +873,10 @@ export function renderLabelPrintTemplate(doc: PrintDocument): string {
     `).join('')
   }
   return `
-    <article class="${isGrid ? 'print-paper-a4 print-label-grid-a4' : `print-label-paper label-paper-${paperType.toLowerCase().replace(/_/g, '-')}`}">
-      <div class="${isGrid ? 'print-label-grid-sheet' : 'print-label-single-sheet'}">
-        ${isGrid ? `<div class="print-label-grid-meta print-hidden">${escapeHtml(doc.documentTitle)} · ${escapeHtml(doc.printMeta.generatedAt)}</div>` : ''}
-        ${items.map((item) => renderLabelItem(item, paperType)).join('')}
+    <article class="print-paper-a4 print-label-grid-a4">
+      <div class="print-label-grid-sheet">
+        <div class="print-label-grid-meta print-hidden">${escapeHtml(doc.documentTitle)} · ${escapeHtml(doc.printMeta.generatedAt)}</div>
+        ${items.map((item) => renderLabelItem(item, 'A4_LABEL_GRID')).join('')}
       </div>
     </article>
   `

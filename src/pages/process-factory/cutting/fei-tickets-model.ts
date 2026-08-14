@@ -1446,10 +1446,12 @@ export function buildSystemSeedFeiTicketLedger(options: {
     }
   }
 
-  const firstOwner = owners[0]
-  const secondOwner = owners[1]
-  const thirdOwner = owners[2]
-  const fourthOwner = owners[3]
+  // 该稳定样本专用于首次打印回归；演示打印种子不得提前为它写入打印记录。
+  const printedSeedOwners = owners.filter((owner) => owner.cutOrderNo !== 'CUT-260307-102-03')
+  const firstOwner = printedSeedOwners[0]
+  const secondOwner = printedSeedOwners[1]
+  const thirdOwner = printedSeedOwners[2]
+  const fourthOwner = printedSeedOwners[3]
 
   if (firstOwner) {
     const scope = resolveScope(firstOwner)

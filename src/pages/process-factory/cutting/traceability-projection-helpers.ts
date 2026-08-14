@@ -159,6 +159,7 @@ function ensureTraceabilityTicketRecords(options: {
   options.spreadingStore.sessions
     .filter((item) => item.status === 'DONE')
     .forEach((session, sessionIndex) => {
+      if (session.prototypeLifecycleOverrides?.feiTicketStatusLabel === '待打印菲票') return
       const existingTickets = tickets.filter((item) => session.cutOrderIds.includes(item.cutOrderId))
       if (existingTickets.length) return
 

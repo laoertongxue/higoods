@@ -44,6 +44,7 @@ export type CuttingCanonicalPageKey =
   | 'sewing-dispatch'
   | 'special-processes'
   | 'summary'
+  | 'cut-piece-return-processing'
   | 'supplement-management'
   | 'statistics-daily-production'
   | 'statistics-ab-material'
@@ -442,6 +443,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '聚合裁床主链路待处理问题，支持快速定位来源对象。',
+  },
+  'cut-piece-return-processing': {
+    key: 'cut-piece-return-processing',
+    canonicalPath: '/fcs/craft/cutting/cut-piece-return-processing',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '裁片退仓处理',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '接收三方车缝工厂退回裁片，清点后进入退裁片库区，并衔接报废、补料、重新齐套和再次交出。',
   },
   'supplement-management': {
     key: 'supplement-management',

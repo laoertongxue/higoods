@@ -908,6 +908,7 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     .map((cutOrderNo) => sourceRecords.find((record) => record.cutOrderNo === cutOrderNo || record.cutOrderId === cutOrderNo))
     .filter((record): record is GeneratedCutOrderSourceRecord => Boolean(record))
   if (!seedRecords.length) return createEmptyStore()
+  const waitingPrintRecord = sourceRecords.find((record) => record.cutOrderNo === 'CUT-260307-102-03') || null
 
   const sessionId = 'spreading-session-marker-plan-marker-plan-mb-030102-02-planned-100-actual-80-c'
   const sessionNo = 'PB-2440'
@@ -1084,9 +1085,101 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     updatedBy: '裁剪组长',
   } as unknown as SpreadingSession
 
+  const waitingPrintSession = waitingPrintRecord
+    ? {
+        spreadingSessionId: 'spreading-session-fei-waiting-print-001',
+        sessionNo: 'PB-2451',
+        status: 'DONE',
+        cuttingStatus: 'CUTTING_DONE',
+        cutOrderIds: [waitingPrintRecord.cutOrderId],
+        cutOrderNos: [waitingPrintRecord.cutOrderNo],
+        contextType: 'cut-order',
+        markerPlanId: 'marker-plan:MB-030102-03',
+        markerPlanNo: 'MB-030102-03',
+        sourceMarkerId: 'seed-marker-fei-waiting-print-bed-C-1',
+        sourceMarkerNo: 'C-1',
+        markerId: 'seed-marker-fei-waiting-print-bed-C-1',
+        markerNo: 'C-1',
+        plannedLayers: 70,
+        actualLayers: 70,
+        actualCutPieceQty: 560,
+        actualCutGarmentQty: 560,
+        totalActualLength: 64,
+        theoreticalSpreadTotalLength: 64,
+        planUnits: [
+          {
+            planUnitId: `plan-unit-fei-waiting-print-${waitingPrintRecord.cutOrderId}`,
+            materialSku: waitingPrintRecord.materialSku,
+            color: waitingPrintRecord.colorScope[0] || 'Khaki',
+            garmentQtyPerUnit: 8,
+            plannedRepeatCount: 70,
+            plannedCutGarmentQty: 560,
+          },
+        ],
+        rolls: [
+          {
+            rollRecordId: `roll-fei-waiting-print-${waitingPrintRecord.cutOrderId}`,
+            rollNo: 'ROLL-FEI-WAITING-1',
+            materialSku: waitingPrintRecord.materialSku,
+            color: waitingPrintRecord.colorScope[0] || 'Khaki',
+            planUnitId: `plan-unit-fei-waiting-print-${waitingPrintRecord.cutOrderId}`,
+            layerCount: 70,
+            actualCutGarmentQty: 560,
+            actualCutPieceQty: 560,
+            actualLength: 64,
+          },
+        ],
+        completionLinkage: {
+          linkedCutOrderIds: [waitingPrintRecord.cutOrderId],
+          linkedCutOrderNos: [waitingPrintRecord.cutOrderNo],
+          completedAt: '2026-03-20 18:10',
+          completedBy: '裁剪组长',
+          generatedWarning: false,
+        },
+        varianceWarning: {
+          warningId: 'warning-spreading-session-fei-waiting-print-001',
+          spreadingSessionId: 'spreading-session-fei-waiting-print-001',
+          sessionNo: 'PB-2451',
+          cutOrderNos: [waitingPrintRecord.cutOrderNo],
+          productionOrderNos: [waitingPrintRecord.productionOrderNo],
+          materialSku: waitingPrintRecord.materialSku,
+          materialAttr: '',
+          requiredQty: 560,
+          actualCutQty: 560,
+          actualCutGarmentQty: 560,
+          shortageQty: 0,
+          varianceLength: 0,
+          warningLevel: '低',
+          suggestedAction: '无需处理',
+          handled: true,
+          lines: [
+            {
+              lineId: 'spread-warning-line-fei-waiting-print-001',
+              cutOrderId: waitingPrintRecord.cutOrderId,
+              cutOrderNo: waitingPrintRecord.cutOrderNo,
+              materialSku: waitingPrintRecord.materialSku,
+              color: waitingPrintRecord.colorScope[0] || 'Khaki',
+              actualCutGarmentQty: 560,
+            },
+          ],
+          createdAt: '2026-03-20 18:10',
+          note: 'prototype：实际裁剪产出已确认，等待首次打印菲票。',
+        },
+        prototypeLifecycleOverrides: {
+          feiTicketStatusLabel: '待打印菲票',
+          baggingStatusLabel: '待装袋',
+          warehouseStatusLabel: '待入仓',
+        },
+        completedAt: '2026-03-20 18:10',
+        completedBy: '裁剪组长',
+        updatedAt: '2026-03-20 18:10',
+        updatedBy: '裁剪组长',
+      } as unknown as SpreadingSession
+    : null
+
   return {
     markers: [],
-    sessions: [session, cleanSession],
+    sessions: [session, cleanSession, ...(waitingPrintSession ? [waitingPrintSession] : [])],
   }
 }
 

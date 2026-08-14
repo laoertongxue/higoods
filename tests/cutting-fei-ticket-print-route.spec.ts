@@ -5,7 +5,10 @@ import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-ru
 
 test('菲票首次打印路由命中首次打印页而不是已打印页', async ({ page }) => {
   const errors = collectPageErrors(page)
-  const unit = buildFeiTicketPrintProjection().printableViewModel.units.find(
+  const projection = buildFeiTicketPrintProjection()
+  const statuses = new Set(projection.printableViewModel.units.map((item) => item.printableUnitStatus))
+  expect(statuses).toEqual(new Set(['WAITING_PRINT', 'PRINTED', 'NEED_REPRINT']))
+  const unit = projection.printableViewModel.units.find(
     (item) => item.printableUnitStatus === 'WAITING_PRINT',
   )
 

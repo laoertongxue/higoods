@@ -29,7 +29,7 @@ import {
 } from '../../../data/fcs/cutting/qr-codes.ts'
 
 interface ReturnDecisionMeta {
-  reusableDecision: 'REUSABLE'
+  reusableDecision: TransferBagConditionRecord['reusableDecision']
   nextBagStatus: TransferBagMasterStatusKey
   label: string
   className: string
@@ -56,6 +56,12 @@ export interface TransferBagReuseCycleItem extends TransferBagReuseCycleSummary 
   bagStatusMeta: TransferBagSummaryMeta<TransferBagMasterStatusKey>
 }
 
+export interface TransferBagConditionDecisionItem extends TransferBagConditionRecord {
+  usageNo: string
+  latestUsage: TransferBagUsageItem | null
+  decisionMeta: ReturnDecisionMeta
+}
+
 export interface TransferBagReturnViewModel {
   summary: {
     waitingReturnUsageCount: number
@@ -68,6 +74,7 @@ export interface TransferBagReturnViewModel {
   closureResultsByUsageId: Record<string, TransferBagUsageClosureResult[]>
   returnAuditTrailByUsageId: Record<string, TransferBagReturnAuditTrail[]>
   reuseCycles: TransferBagReuseCycleItem[]
+  conditionItems: TransferBagConditionDecisionItem[]
 }
 
 const discrepancyMetaMap: Record<TransferBagDiscrepancyType, ReturnDiscrepancyMeta | null> = {
@@ -164,7 +171,16 @@ export function validateReturnReceiptPayload(options: {
   return { ok: true, reason: '' }
 }
 
-export function deriveBagConditionDecision(_options: Record<string, unknown> = {}): ReturnDecisionMeta {
+export function deriveBagConditionDecision(options: { condition?: TransferBagConditionRecord } = {}): ReturnDecisionMeta {
+  if (options.condition?.reusableDecision === 'DISABLED') {
+    return {
+      reusableDecision: 'DISABLED',
+      nextBagStatus: 'DISABLED',
+      label: '已报废',
+      className: 'bg-rose-100 text-rose-700 border border-rose-200',
+      detailText: `${options.condition.bagCode} 验收判定不可继续使用；${options.condition.damageType || options.condition.note || '袋况异常已留痕'}。`,
+    }
+  }
   return {
     reusableDecision: 'REUSABLE',
     nextBagStatus: 'REUSABLE',
@@ -334,6 +350,20 @@ export function buildTransferBagReturnViewModel(options: {
     })
     .sort((left, right) => left.carrierCode.localeCompare(right.carrierCode, 'zh-CN'))
 
+  const conditionItems = options.store.conditionRecords
+    .map((condition) => {
+      const latestUsage = options.baseViewModel.usages.find((usage) =>
+        usage.usageId === condition.usageId || usage.cycleId === condition.cycleId,
+      ) || null
+      return {
+        ...condition,
+        usageNo: latestUsage?.usageNo || latestUsage?.cycleNo || condition.cycleId,
+        latestUsage,
+        decisionMeta: deriveBagConditionDecision({ condition }),
+      }
+    })
+    .sort((left, right) => right.inspectedAt.localeCompare(left.inspectedAt, 'zh-CN'))
+
   return {
     summary: {
       waitingReturnUsageCount: waitingReturnUsages.filter((item) => ['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN'].includes(item.usageStatus)).length,
@@ -346,5 +376,6 @@ export function buildTransferBagReturnViewModel(options: {
     closureResultsByUsageId,
     returnAuditTrailByUsageId,
     reuseCycles,
+    conditionItems,
   }
 }

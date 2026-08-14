@@ -442,6 +442,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
             { key: 'pfos-cutting-summary', title: '裁剪结果核查', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
             { key: 'pfos-cutting-cut-piece-release', title: '裁片放行管理', icon: 'ClipboardCheck', href: '/fcs/craft/cutting/cut-piece-release' },
+            { key: 'pfos-cutting-cut-piece-return-processing', title: '裁片退仓处理', icon: 'ArchiveRestore', href: '/fcs/craft/cutting/cut-piece-return-processing' },
             { key: 'pfos-cutting-supplement-management', title: '补料管理', icon: 'RefreshCw', href: '/fcs/craft/cutting/supplement-management' },
           ],
         },

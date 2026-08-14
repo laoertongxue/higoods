@@ -309,9 +309,13 @@ test('辅助工艺和特种工艺菲票只进黄纸 Tab，打印模板显著标�
   await expect(page.getByRole('button', { name: '修改数量' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '删除' })).toHaveCount(0)
 
-  const firstPrint = page.locator('[data-cutting-fei-action="request-detail-all-print"]:not([disabled]), [data-cutting-fei-action="request-detail-all-reprint"]:not([disabled])').first()
-  await expect(firstPrint).toBeVisible()
-  await firstPrint.click()
+  const printableRows = page.locator('tbody tr').filter({ hasText: '未打印', hasNotText: '禁止打印' })
+  expect(await printableRows.count()).toBeGreaterThanOrEqual(2)
+  await printableRows.nth(0).locator('input[type="checkbox"]').check()
+  await printableRows.nth(1).locator('input[type="checkbox"]').check()
+  const batchPrint = page.locator('[data-cutting-fei-action="request-detail-selected-print"]')
+  await expect(batchPrint).toContainText('批量打印（2）')
+  await batchPrint.click()
   await expect(page.locator('body')).toContainText('请装入黄色热敏纸')
   await page.getByRole('button', { name: '已装入黄色热敏纸，进入预览' }).click()
 

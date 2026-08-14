@@ -15,6 +15,7 @@ import {
   type CuttingTaskExecutionRoute,
 } from './cutting-task-routing.ts'
 import type { CuttingMaterialIdentity, CuttingMaterialType, CuttingPatternIdentity } from './types.ts'
+import { resolveProductionMaterialImageUrl } from '../production-material-image-assets.ts'
 
 export interface GeneratedCutOrderPieceRow {
   partCode: string
@@ -190,9 +191,12 @@ function resolveMaterialImageUrl(
   line: TechnicalColorMaterialMappingLine,
   bomItem: TechPackBomItemSnapshot | null,
   materialSku: string,
+  materialName: string,
+  materialColor: string,
 ): string {
   return (
-    normalizeText(bomItem?.materialImageUrl)
+    resolveProductionMaterialImageUrl({ materialSku, materialName, materialColor })
+    || normalizeText(bomItem?.materialImageUrl)
     || findLinkedPatternFiles(techPack, line, bomItem, materialSku)
       .map((pattern) => normalizeText(pattern.imageUrl))
       .find(Boolean)
@@ -431,7 +435,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
         const materialColor = normalizeText(skuLine.color) || '待补颜色'
         const materialUnit = normalizeText(mappingLine.unit) || '米'
         const materialAlias = resolveMaterialAlias(techPack, mappingLine, bomItem, materialSku)
-        const materialImageUrl = resolveMaterialImageUrl(techPack, mappingLine, bomItem, materialSku)
+        const materialImageUrl = resolveMaterialImageUrl(techPack, mappingLine, bomItem, materialSku, materialName, materialColor)
         const pieceRows = resolvePieceRows(techPack, mappingLine, skuLine.skuCode)
         const materialIdentity: CuttingMaterialIdentity = {
           materialSku,

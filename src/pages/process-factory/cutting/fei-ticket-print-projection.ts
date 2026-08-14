@@ -15,7 +15,7 @@ import {
 
 type FeiTicketPrintRecordLike = Record<string, any>
 
-export type FeiTicketTemplateSize = '10cm x 10cm' | '15cm x 10cm'
+export type FeiTicketTemplateSize = '10cm x 10cm'
 
 export interface FeiTicketLabelPrintProjection {
   qrPayload: FeiTicketQrPayload
@@ -25,6 +25,8 @@ export interface FeiTicketLabelPrintProjection {
   productionOrderNo: string
   cutOrderNo: string
   spuCode: string
+  materialNameLabel: string
+  materialAliasLabel: string
   materialDisplayLabel: string
   materialWithColorLabel: string
   color: string
@@ -99,19 +101,6 @@ function resolvePieceSequenceRange(record: FeiTicketPrintRecordLike): {
   }
 }
 
-function shouldUseWideTemplate(projection: Omit<FeiTicketLabelPrintProjection, 'templateSize'>): boolean {
-  const longText = [
-    projection.feiTicketNo,
-    projection.productionOrderNo,
-    projection.cutOrderNo,
-    projection.spuCode,
-    projection.partName,
-    ...projection.specialCraftDisplayLines,
-    ...projection.receiverFactoryDisplayLines,
-  ].some((value) => value.length > 36)
-  return longText || projection.specialCraftDisplayLines.length > 3 || projection.receiverFactoryDisplayLines.length > 3
-}
-
 function normalizeTextList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.map((item) => normalizeText(item)).filter(Boolean)
@@ -122,11 +111,21 @@ function joinDisplayLines(lines: string[], fallback = '无'): string {
   return values.length ? values.join(' / ') : fallback
 }
 
-function resolveMaterialDisplayLabel(record: FeiTicketPrintRecordLike, qrPayload: FeiTicketQrPayload): string {
+function resolveMaterialIdentity(record: FeiTicketPrintRecordLike, qrPayload: FeiTicketQrPayload): {
+  materialName: string
+  materialAlias: string
+  materialDisplayLabel: string
+} {
   const identity = record.materialIdentity || {}
-  const materialName = normalizeText(identity.materialName || identity.materialAlias || record.materialName || record.materialSku || qrPayload.materialSku, '面料')
-  const materialColor = normalizeText(identity.materialColor || record.fabricColor || qrPayload.fabricColor || qrPayload.color)
-  return materialColor ? `${materialName}--${materialColor}` : materialName
+  const materialName = normalizeText(identity.materialName || record.materialName || record.materialSku || qrPayload.materialSku, '面料待补')
+  const materialAlias = normalizeText(identity.materialAlias || record.materialAlias)
+  return {
+    materialName,
+    materialAlias,
+    materialDisplayLabel: materialAlias && materialAlias !== materialName
+      ? `${materialName}（${materialAlias}）`
+      : materialName,
+  }
 }
 
 function appendMaterialColorLabel(materialLabel: string, colorLabel: string): string {
@@ -231,7 +230,8 @@ export function buildFeiTicketLabelPrintProjection(
     issuedAt: normalizeText(record.issuedAt || record.createdAt || record.printedAt, new Date().toISOString()),
     currentCraftStage: normalizeText(record.currentCraftStage || specialCrafts[0]?.craftType),
   })
-  const materialDisplayLabel = resolveMaterialDisplayLabel(record, qrPayload)
+  const materialIdentity = resolveMaterialIdentity(record, qrPayload)
+  const materialDisplayLabel = materialIdentity.materialDisplayLabel
   const materialWithColorLabel = appendMaterialColorLabel(materialDisplayLabel, qrPayload.fabricColor || qrPayload.color)
   const baseProjection = {
     qrPayload,
@@ -241,6 +241,8 @@ export function buildFeiTicketLabelPrintProjection(
     productionOrderNo: qrPayload.productionOrderNo,
     cutOrderNo: qrPayload.cutOrderNo,
     spuCode: qrPayload.spuCode,
+    materialNameLabel: materialIdentity.materialName,
+    materialAliasLabel: materialIdentity.materialAlias,
     materialDisplayLabel,
     materialWithColorLabel,
     color: qrPayload.color,
@@ -264,7 +266,8 @@ export function buildFeiTicketLabelPrintProjection(
   }
   return {
     ...baseProjection,
-    templateSize: options.templateSize || (shouldUseWideTemplate(baseProjection) ? '15cm x 10cm' : '10cm x 10cm'),
+    // 线上非特殊工艺菲票的 100mm × 100mm 为物理基准；特殊工艺只改变纸色和字段，不改变尺寸。
+    templateSize: '10cm x 10cm',
   }
 }
 

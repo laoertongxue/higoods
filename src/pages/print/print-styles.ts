@@ -512,6 +512,27 @@ export function renderUnifiedPrintStyles(): string {
         font-weight: 900;
       }
 
+      .fei-ticket-business-line-pair {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1mm;
+      }
+
+      .fei-ticket-business-line-pair > div {
+        min-width: 0;
+      }
+
+      .fei-ticket-business-line-pair > div span,
+      .fei-ticket-business-line-pair > div strong {
+        display: block;
+        margin-left: 0;
+      }
+
+      .fei-ticket-business-line-pair > div + div strong {
+        font-size: 9px;
+      }
+
       .fei-ticket-business-qr-panel {
         display: flex;
         flex-direction: column;
