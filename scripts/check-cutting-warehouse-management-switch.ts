@@ -45,8 +45,8 @@ const pdaCuttingWaitHandoverActionsSource = read(pdaCuttingWaitHandoverActionsPa
 const pdaWaitHandoverRedirectSource = read('src/pages/pda-warehouse-wait-handover.ts')
 assert.deepEqual(
   [...pdaCuttingWaitHandoverActionsSource.matchAll(/title:\s*'([^']+)'/g)].map((match) => match[1]),
-  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '中转袋回收', '中转袋报废'],
-  'PDA 裁床待交出仓动作必须正好为指定 6 项并保持顺序',
+  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号', '中转袋回收', '中转袋报废'],
+  'PDA 裁床待交出仓动作必须正好为指定 7 项并保持顺序',
 )
 ;['desc:', 'subtitle:', 'pendingCount:'].forEach((item) =>
   assertNotIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓动作配置不得包含：${item}`),
@@ -55,8 +55,9 @@ assert.deepEqual(
   '`/fcs/pda/cutting/inbound/${firstTaskId}`',
   '`/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`',
   "'/fcs/pda/cutting/transfer-bag/repack'",
+  "'/fcs/pda/cutting/fei-ticket-numbering'",
 ].forEach((item) =>
-  assertIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓前三个动作未直达操作页：${item}`),
+  assertIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓动作未直达操作页：${item}`),
 )
 ;[
   'resolvePdaCuttingWaitHandoverLegacyActionRoute',

@@ -11,6 +11,7 @@ import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import { listCutPieceReturnCases } from '../../../data/fcs/cutting/cut-piece-return-domain.ts'
 import {
   getFeiTicketNumberingStatus,
   validateFeiTicketNumberingBeforeBagging,
@@ -4598,10 +4599,49 @@ function renderSewingAllocationArea(projection: SewingTaskAllocationProjection):
   `
 }
 
+function renderCutPieceReturnWaitHandoverArea(): string {
+  const cases = listCutPieceReturnCases()
+  const returnZoneRows = cases.filter((record) => record.returnZoneAvailablePieceQty > 0)
+  const rows = cases.flatMap((record) => record.rekitBatches
+    .filter((batch) => batch.stage === '待交出仓')
+    .map((batch) => ({ record, batch })))
+  return `
+    <section class="rounded-lg border border-teal-200 bg-teal-50/40 p-4" data-section="cut-piece-return-wait-handover">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold text-teal-950">退裁片库区与重新齐套待交出</h3>
+          <p class="mt-1 text-xs text-teal-800">三方车缝工厂退回裁片先进入本仓内独立的退裁片库区；完成报废或与补料裁片重新齐套后，装入同一新中转袋转为正常待交出库存。</p>
+        </div>
+        <div class="flex gap-2"><span class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-medium text-teal-800">退裁片 ${returnZoneRows.reduce((sum, record) => sum + record.returnZoneAvailablePieceQty, 0)} 片</span><span class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-medium text-teal-800">待交出 ${rows.length} 袋</span></div>
+      </div>
+      <div class="mt-4 rounded-lg border bg-background p-3">
+        <div class="flex items-center justify-between gap-2"><strong class="text-sm">退裁片库区</strong><span class="text-xs text-muted-foreground">未齐套裁片不得混入正常待交出中转袋</span></div>
+        <div class="mt-2 grid gap-2 lg:grid-cols-3">${returnZoneRows.length ? returnZoneRows.map((record) => `<div class="rounded border bg-muted/20 p-2 text-xs"><div class="flex items-center justify-between gap-2"><strong>${escapeHtml(record.returnOrderNo)}</strong><span>${record.returnZoneAvailablePieceQty} 片</span></div><p class="mt-1 text-muted-foreground">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.garmentColor)} / ${escapeHtml(record.size)}</p><button type="button" class="mt-2 text-teal-800 hover:underline" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(record.caseId)}">去报废 / 补料 / 齐套</button></div>`).join('') : '<div class="text-sm text-muted-foreground">退裁片库区暂无可用裁片。</div>'}</div>
+      </div>
+      <div class="mt-4 flex items-center justify-between gap-2"><strong class="text-sm">重新齐套待正式交出</strong><span class="text-xs text-muted-foreground">正式交出前不增加车缝工厂应回责任</span></div>
+      <div class="mt-4 grid gap-3 xl:grid-cols-2">
+        ${rows.length ? rows.map(({ record, batch }) => `
+          <article class="rounded-lg border bg-background p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(batch.transferBagCode)}</strong><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.returnOrderNo)} · ${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.garmentColor)} / ${escapeHtml(record.size)}</p></div><span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">待正式交出</span></div>
+            <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div><span class="text-muted-foreground">最终齐套：</span><strong>${batch.finalGarmentQty} 件 / ${batch.partCounts.reduce((sum, item) => sum + item.pieceQty, 0)} 片</strong></div>
+              <div><span class="text-muted-foreground">接收工厂：</span>${escapeHtml(record.sourceFactoryName)}</div>
+              <div><span class="text-muted-foreground">当前应回：</span>${record.responsibility.currentExpectedReturnQty} 件（本袋尚未加回）</div>
+              <div><span class="text-muted-foreground">齐套人：</span>${escapeHtml(batch.createdBy)} · ${escapeHtml(batch.createdAt)}</div>
+            </div>
+            <div class="mt-3 flex justify-end"><button type="button" class="rounded-md border border-teal-700 bg-teal-700 px-3 py-1.5 text-xs font-medium text-white" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(record.caseId)}">去确认正式交出</button></div>
+          </article>
+        `).join('') : '<div class="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground xl:col-span-2">暂无退仓重新齐套待交出中转袋。</div>'}
+      </div>
+    </section>
+  `
+}
+
 function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection): string {
   return `
     <section class="space-y-4">
       ${renderWaitHandoverSnapshot(projection)}
+      ${renderCutPieceReturnWaitHandoverArea()}
       ${renderInboundTempBagArea(projection.inboundTempBags, projection.inboundInventoryRecords)}
       ${renderSewingAllocationArea(projection.sewingAllocationProjection)}
       ${renderSpecialCraftHandoverArea(projection.specialCraftHandoverGroups)}
@@ -5555,6 +5595,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   }
   const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
   const inventoryContent = `<section class="space-y-4">
+    ${renderCutPieceReturnWaitHandoverArea()}
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
     ${waitHandoverStats}
     ${renderWaitHandoverSpecialCraftInventorySummary(filteredInventoryRecords)}

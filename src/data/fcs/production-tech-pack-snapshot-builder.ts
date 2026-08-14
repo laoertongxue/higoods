@@ -27,6 +27,7 @@ import type {
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
+import { resolveProductionMaterialImageUrl } from './production-material-image-assets.ts'
 
 export interface DemandCurrentTechPackInfo {
   styleId: string
@@ -350,9 +351,14 @@ function enrichBomItemsWithMaterialAssets(
       ...linkedPatterns.map((pattern) => pattern.linkedMaterialAlias),
     ])
     const linkedImage = linkedPatterns.map((pattern) => normalizeText(pattern.imageUrl)).find(isAllowedSnapshotImage)
-    const materialImageUrl = isAllowedSnapshotImage(item.materialImageUrl)
+    const formalMaterialImage = resolveProductionMaterialImageUrl({
+      materialSku: getBomDisplayCode(item, index),
+      materialName: item.name,
+      materialColor: normalizeText((item as { colorLabel?: string }).colorLabel) || item.spec,
+    })
+    const materialImageUrl = formalMaterialImage || (isAllowedSnapshotImage(item.materialImageUrl)
       ? normalizeText(item.materialImageUrl)
-      : linkedImage || buildMaterialSwatchImageUrl(item, index)
+      : linkedImage || buildMaterialSwatchImageUrl(item, index))
 
     return {
       ...item,

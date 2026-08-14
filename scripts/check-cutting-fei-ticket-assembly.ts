@@ -98,7 +98,8 @@ function main(): void {
     '适用SKU',
     '部位数量',
     '编号区间',
-    '唛架编号+铺布单号',
+    '唛架编号',
+    '铺布单号',
     '面料卷号',
     '布料颜色',
     '裁片部位',
@@ -131,6 +132,18 @@ function main(): void {
   ].forEach((token) => {
     assert(feiPage.includes(token), `菲票页面缺少业务文案或校验：${token}`)
   })
+
+  assertIncludes(
+    feiPage,
+    '\\n颜色：${projection.color}',
+    '面料 / 颜色与唛架编号 / 铺布单号必须按两行结构展示，不能退回旧合并文案',
+  )
+  assertIncludes(
+    feiPage,
+    "\\n铺布单号：${projection.spreadingOrderNo || '—'}",
+    '唛架编号与铺布单号必须按两行结构展示，不能退回旧合并文案',
+  )
+  assert(!feiPage.includes('唛架编号+铺布单号'), '菲票页面不得恢复旧的合并字段文案')
 
   assertIncludes(feiPage, 'buildFeiTicketFiveDimTitle', '菲票页面缺少五维打印标题构造')
   assertIncludes(feiPage, '打印菲票', '菲票打印入口必须保留')

@@ -401,6 +401,10 @@ export const renderCraftCuttingCutPieceReleasePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-piece-release'),
   'renderCraftCuttingCutPieceReleasePage',
 )
+export const renderCraftCuttingCutPieceReturnProcessingPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/cut-piece-return-processing'),
+  'renderCraftCuttingCutPieceReturnProcessingPage',
+)
 export const renderCraftCuttingSupplementManagementPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/supplement-management'),
   'renderCraftCuttingSupplementManagementPage',

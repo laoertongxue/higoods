@@ -75,7 +75,7 @@ const WEB_PAGES: Array<{ path: string; title: string; required: string[]; forbid
   {
     path: '/fcs/craft/cutting/transfer-bags',
     title: '中转袋流转',
-    required: ['中转袋档案', '中转袋二维码', '中转袋状态', '当前流转阶段', '当前所在', '当前装载', '最近记录', '报废记录', '查看使用周期'],
+    required: ['中转袋档案', '中转袋二维码', '中转袋状态', '当前流转阶段', '当前所在', '当前装载', '最近记录', '报废记录', '查看详情'],
     forbidden: ['车缝中转袋', '特殊工艺中转袋'],
   },
   {
@@ -192,7 +192,11 @@ async function openFirstStandaloneFeiTicket(page: Page): Promise<string> {
   await gotoWithRecovery(page, '/fcs/craft/cutting/fei-tickets')
   const spreadingDetailPath = await readDataNav(page, 'button[data-nav*="/fcs/craft/cutting/fei-tickets/spreading%3A"]')
   await gotoWithRecovery(page, spreadingDetailPath)
-  const ticketDetailPath = await readDataNav(page, 'button[data-nav*="/fcs/craft/cutting/fei-tickets/"]:has-text("单条详情")')
+  const detailButton = page.locator('button[data-cutting-fei-action="open-detail-single"][data-ticket-id]').first()
+  await expect(detailButton).toBeVisible()
+  const ticketId = await detailButton.getAttribute('data-ticket-id')
+  expect(ticketId, '单条详情缺少 data-ticket-id').toBeTruthy()
+  const ticketDetailPath = `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(ticketId!)}`
   await gotoWithRecovery(page, ticketDetailPath)
   await expect(page.locator('body')).toContainText('菲票详情')
   return ticketDetailPath
@@ -277,7 +281,7 @@ test('阶段 8 菲票详情使用独立页面并按铺布单展开明细', async
   )
   await gotoWithRecovery(page, spreadingDetailPath)
   await expect(page.locator('body')).toContainText('铺布单菲票明细')
-  for (const text of ['铺布单菲票概况', '来源与特殊工艺', '该铺布单下全部部位明细', '部位裁片编号范围', '单条详情']) {
+  for (const text of ['铺布单菲票概况', '来源与工艺概况', '该铺布单下全部部位明细', '部位裁片编号范围', '单条详情']) {
     await expect(page.locator('body')).toContainText(text)
   }
   await expectNoOldVisibleText(page)
@@ -290,9 +294,10 @@ test('阶段 8 菲票打印页保留打印投影字段', async ({ page }) => {
   const ticketDetailPath = await openFirstStandaloneFeiTicket(page)
   await gotoWithRecovery(page, `${ticketDetailPath}/print`)
   await expect(page.locator('h1').filter({ hasText: '菲票打印' }).first()).toBeVisible()
-  for (const text of ['10cm x 10cm', '15cm x 10cm', '二维码', '编号范围', '特殊工艺', '承接工厂']) {
+  for (const text of ['固定 10cm × 10cm', '二维码', '编号范围', '特殊工艺', '承接工厂']) {
     await expect(page.locator('body')).toContainText(text)
   }
+  await expect(page.locator('body')).not.toContainText('15cm x 10cm')
   for (const text of ['交出单号', '车缝任务号', '齐套说明', '长备注']) {
     await expect(page.locator('body')).not.toContainText(text)
   }
@@ -329,7 +334,7 @@ test('阶段 8 独立详情页覆盖中转袋和捆条，不使用侧边栏承�
   await page.setViewportSize({ width: 1440, height: 1000 })
 
   await page.goto('/fcs/craft/cutting/transfer-bags')
-  await page.getByRole('button', { name: '查看详情' }).first().click()
+  await page.locator('button[data-nav*="/fcs/craft/cutting/transfer-bag-detail"]').first().click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/transfer-bag-detail/)
   await expect(page.locator('body')).toContainText('中转袋详情')
   await expect(page.locator('body')).toContainText('使用周期')

@@ -1,0 +1,20 @@
+{
+  "usage": "HiGood prototype formal material effect images for named material identities",
+  "generatedAt": "2026-08-12",
+  "generator": "OpenAI image generation",
+  "assets": {
+    "black-stretch-twill.png": "SPU-2024-010 Black stretch twill main fabric",
+    "black-splice-fabric.png": "MAT-SUPPLEMENT-SECONDARY-010 Black splice fabric",
+    "charcoal-stretch-twill.png": "SPU-2024-010 Charcoal stretch twill main fabric",
+    "charcoal-splice-fabric.png": "MAT-SUPPLEMENT-SECONDARY-010 Charcoal splice fabric",
+    "navy-splice-fabric.png": "MAT-SUPPLEMENT-SECONDARY-010 Navy splice fabric",
+    "khaki-splice-fabric.png": "MAT-SUPPLEMENT-SECONDARY-010 Khaki splice fabric",
+    "grey-main-fabric.png": "SPU-2024-005 Grey main fabric",
+    "white-poplin.png": "SPU-2024-009 White poplin main fabric",
+    "navy-main-fabric.png": "SPU-2024-017 Navy main fabric",
+    "fog-grey-sweatshirt-fleece.png": "SPU-HOODIE-082 fog-grey sweatshirt fleece",
+    "red-dress-crepe.png": "SPU-DRESS-083 red dress crepe",
+    "blue-white-print-cotton.png": "SPU-SHIRT-086 blue-white printed cotton",
+    "khaki-canvas.png": "SPU-2024-010 Khaki canvas main fabric"
+  }
+}

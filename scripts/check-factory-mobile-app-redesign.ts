@@ -190,8 +190,8 @@ assertContains(warehouseSource, '仓管', '缺少仓管首页')
 })
 assert.deepEqual(
   [...cuttingWaitHandoverActionsSource.matchAll(/title:\s*'([^']+)'/g)].map((match) => match[1]),
-  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号'],
-  '裁床待交出仓必须正好按指定顺序提供 5 个动作',
+  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号', '中转袋回收', '中转袋报废'],
+  '裁床待交出仓必须正好按指定顺序提供 7 个动作',
 )
 ;['desc:', 'subtitle:', 'pendingCount:'].forEach((token) => {
   assertNotContains(cuttingWaitHandoverActionsSource, token, `裁床待交出仓动作配置不得包含 ${token}`)
@@ -199,9 +199,10 @@ assert.deepEqual(
 ;[
   '`/fcs/pda/cutting/inbound/${firstTaskId}`',
   '`/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`',
-  '`/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`',
+  "'/fcs/pda/cutting/transfer-bag/repack'",
+  "'/fcs/pda/cutting/fei-ticket-numbering'",
 ].forEach((token) => {
-  assertContains(cuttingWaitHandoverActionsSource, token, `裁床待交出仓前三个动作未直达操作页：${token}`)
+  assertContains(cuttingWaitHandoverActionsSource, token, `裁床待交出仓动作未直达操作页：${token}`)
 })
 assertNotContains(warehouseSource + waitHandoverSource + cuttingWaitHandoverActionsSource, '菲票装袋 / 中转袋入仓', '裁床待交出仓不得保留合并动作标题')
 assertNotContains(warehouseSource + waitHandoverSource + cuttingWaitHandoverActionsSource, "title: '交出装袋确认'", '裁床待交出仓不得保留“交出装袋确认”入口标题')
@@ -376,7 +377,8 @@ assertNotContains(waitProcessSource, buildToken('新增', '库存'), `待加工�
 assertNotContains(waitHandoverSource, buildToken('新增', '库存'), `待交出仓页面不应允许${buildToken('手动', '新增', '库存')}`)
 assertNotContains(inboundSource, buildToken('新增', '入库记录'), '入库记录页面不应出现手动新增主入口')
 assertNotContains(outboundSource, buildToken('新增', '出库记录'), '出库记录页面不应出现手动新增主入口')
-assertContains(waitProcessSource, '确认中转仓接收', '待加工仓页面必须承接中转仓接收确认能力')
+assertContains(waitProcessSource, 'data-pda-warehouse-action="confirm-cutting-wp-pickup"', '待加工仓页面必须承接中转仓接收确认动作')
+assertContains(waitProcessSource, '确认全部接收', '待加工仓页面必须明确中转仓实物全部接收口径')
 assertNotContains(waitProcessSource, buildToken('手动', '入库'), `待加工仓页面不应承接${buildToken('手动', '入库')}主流程`)
 assertNotContains(waitHandoverSource, buildToken('新增', '交出记录'), '待交出仓页面不应承接新增交出记录主流程')
 assertNotContains(waitHandoverSource, buildToken('手动', '出库'), `待交出仓页面不应承接${buildToken('手动', '出库')}主流程`)

@@ -637,6 +637,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
     return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
   }
+  if (pathname.startsWith('/fcs/craft/cutting/cut-piece-return-processing')) {
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-processing')
+    return cutPieceReturnPage.handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
       const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()
@@ -869,6 +873,7 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
 }
 
 const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+const cutPieceReturnProcessingRoutePath = '/fcs/craft/cutting/cut-piece-return-processing'
 const productionPreparationTimingRoutePath = '/fcs/production/preparation-timing'
 const productionPreparationTimingStatisticsRoutePath = '/fcs/production/preparation-timing-statistics'
 let previousRenderedPagePathname = ''
@@ -876,6 +881,8 @@ let previousRenderedPagePathname = ''
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
     && previousRenderedPagePathname !== supplementManagementRoutePath
+  const isCutPieceReturnProcessingEntry = normalizedPathname === cutPieceReturnProcessingRoutePath
+    && previousRenderedPagePathname !== cutPieceReturnProcessingRoutePath
   const isProductionPreparationTimingEntry = normalizedPathname === productionPreparationTimingRoutePath
     && previousRenderedPagePathname !== productionPreparationTimingRoutePath
   const isProductionPreparationTimingStatisticsEntry = normalizedPathname === productionPreparationTimingStatisticsRoutePath
@@ -884,6 +891,10 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   if (isSupplementManagementEntry) {
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
     supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  }
+  if (isCutPieceReturnProcessingEntry) {
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-processing')
+    cutPieceReturnPage.enterCraftCuttingCutPieceReturnProcessingRoute()
   }
   if (!isProductionPreparationTimingEntry && !isProductionPreparationTimingStatisticsEntry) return
 
