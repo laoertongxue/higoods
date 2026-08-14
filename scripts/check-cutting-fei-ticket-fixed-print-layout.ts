@@ -76,7 +76,20 @@ assert.match(templateSource, /label: '面料别名'/)
 assert.match(templateSource, /label: '唛架编号'/)
 assert.match(templateSource, /label: '铺布单号'/)
 assert.match(templateSource, /renderFeiBusinessLinePairCell/, '面料/颜色与唛架/铺布应采用两行单元格')
+assert.match(templateSource, /binding-strip-fei-ticket-business-card/, '捆条菲票必须使用独立的固定纸张布局')
+assert.match(templateSource, /binding-strip-fei-ticket-business-grid/, '捆条菲票必须使用独立的紧凑信息网格')
+assert.match(templateSource, /binding-strip-fei-ticket-business-qr-panel/, '捆条菲票二维码必须使用独立的底部区域')
 assert.match(printStylesSource, /\.label-paper-label-100-100\s*\{[\s\S]*?width:\s*100mm;[\s\S]*?height:\s*100mm;/)
+assert.match(
+  printStylesSource,
+  /\.binding-strip-fei-ticket-business-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/,
+  '捆条菲票信息区必须使用三列网格，避免两列字段把 100mm 纸张撑高',
+)
+assert.match(
+  printStylesSource,
+  /\.binding-strip-fei-ticket-business-card\s+\.fei-ticket-business-body\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+22mm;/,
+  '捆条菲票正文必须为二维码预留固定底部空间',
+)
 assert.match(feiPageSource, /固定 10cm × 10cm/)
 assert.doesNotMatch(feiPageSource, /特殊工艺菲票建议使用 15cm/)
 

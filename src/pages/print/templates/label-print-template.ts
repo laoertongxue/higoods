@@ -731,35 +731,37 @@ function isBindingStripFeiLabelItem(item: PrintLabelItem): boolean {
 function renderBindingStripFeiBusinessLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
   const qr = item.qrCode
   return `
-    <section class="print-label-card fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
+    <section class="print-label-card fei-ticket-business-card binding-strip-fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}" data-testid="binding-strip-fei-ticket-label">
       <div class="fei-ticket-business-title">${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</div>
       <div class="fei-ticket-business-body">
-        <div class="fei-ticket-business-grid">
-          ${renderFeiBusinessCell('捆条加工单', getLabelFieldValue(item, '捆条加工单'), { emphasis: true })}
+        <div class="fei-ticket-business-grid binding-strip-fei-ticket-business-grid" data-testid="binding-strip-fei-ticket-grid">
+          ${renderFeiBusinessCell('捆条加工单', getLabelFieldValue(item, '捆条加工单'), { className: 'fei-ticket-business-span-2', emphasis: true })}
           ${renderFeiBusinessCell('生产单', getLabelFieldValue(item, '生产单'))}
           ${renderFeiBusinessCell('裁片单', getLabelFieldValue(item, '裁片单'), { emphasis: true })}
-          ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色'), { className: 'fei-ticket-business-span-2', emphasis: true })}
+          ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
+          ${renderFeiBusinessCell('捆条宽度', getLabelFieldValue(item, '捆条宽度'), { emphasis: true })}
+          ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色'), { className: 'fei-ticket-business-span-3', emphasis: true })}
           ${renderFeiBusinessCell('捆条名称', getLabelFieldValue(item, '捆条名称'), { emphasis: true })}
           ${renderFeiBusinessCell('切割方式', getLabelFieldValue(item, '切割方式'), { emphasis: true })}
-          ${renderFeiBusinessCell('捆条宽度', getLabelFieldValue(item, '捆条宽度'), { emphasis: true })}
           ${renderFeiBusinessCell('捆条需要长度', getLabelFieldValue(item, '捆条需要长度'), { emphasis: true })}
           ${renderFeiBusinessCell('需要布料长度', getLabelFieldValue(item, '需要布料长度'), { emphasis: true })}
           ${renderFeiBusinessCell('接收布料长度', getLabelFieldValue(item, '接收布料长度'))}
           ${renderFeiBusinessCell('实际完成总长度', getLabelFieldValue(item, '实际完成总长度'), { emphasis: true })}
           ${renderFeiBusinessCell('每卷长度', getLabelFieldValue(item, '每卷长度'))}
-          ${renderFeiBusinessCell('切割公式', getLabelFieldValue(item, '切割公式'))}
-          ${renderFeiBusinessCell('切割长度', getLabelFieldValue(item, '切割长度'))}
           ${renderFeiBusinessCell('实切卷数', getLabelFieldValue(item, '实切卷数'))}
+          ${renderFeiBusinessCell('切割长度', getLabelFieldValue(item, '切割长度'))}
+          ${renderFeiBusinessCell('切割公式', getLabelFieldValue(item, '切割公式'), { className: 'fei-ticket-business-span-2' })}
           ${renderFeiBusinessCell('记录时间', getLabelFieldValue(item, '记录时间'))}
-          ${renderFeiBusinessCell('纸样', getLabelFieldValue(item, '纸样'), { className: 'fei-ticket-business-span-2' })}
-          ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
+          ${renderFeiBusinessCell('纸样', getLabelFieldValue(item, '纸样'), { className: 'fei-ticket-business-span-3' })}
         </div>
-        <aside class="fei-ticket-business-qr-panel">
+        <aside class="fei-ticket-business-qr-panel binding-strip-fei-ticket-business-qr-panel" data-testid="binding-strip-fei-ticket-qr-panel">
           <div class="fei-ticket-business-qr">
-            ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 112, title: qr.title, label: qr.title }) : ''}
+            ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 80, title: qr.title, label: qr.title }) : ''}
           </div>
-          <div class="fei-ticket-business-qr-title">捆条菲票二维码</div>
-          <div class="fei-ticket-business-qr-desc">${escapeHtml(getLabelFieldValue(item, '版本', 'V1'))} / 扫码查看捆条菲票</div>
+          <div class="binding-strip-fei-ticket-qr-copy">
+            <div class="fei-ticket-business-qr-title">捆条菲票二维码</div>
+            <div class="fei-ticket-business-qr-desc">${escapeHtml(getLabelFieldValue(item, '版本', 'V1'))} / 扫码查看捆条菲票</div>
+          </div>
         </aside>
       </div>
     </section>
