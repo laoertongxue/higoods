@@ -491,6 +491,10 @@ export function renderUnifiedPrintStyles(): string {
         grid-column: span 2;
       }
 
+      .fei-ticket-business-span-3 {
+        grid-column: span 3;
+      }
+
       .fei-ticket-business-cell span {
         color: #374151;
         font-size: 8px;
@@ -572,6 +576,90 @@ export function renderUnifiedPrintStyles(): string {
         color: #64748b;
         font-size: 7px;
         line-height: 1.15;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-title {
+        overflow: hidden;
+        padding: 1.6mm 1.8mm;
+        font-size: 17px;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-body {
+        display: grid;
+        flex: 1 1 auto;
+        min-height: 0;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) 22mm;
+        overflow: hidden;
+      }
+
+      .binding-strip-fei-ticket-business-grid {
+        min-height: 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(8, minmax(0, 1fr));
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-cell {
+        display: flex;
+        min-height: 0;
+        align-items: center;
+        gap: 0.8mm;
+        padding: 0.7mm 1mm;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-cell span {
+        flex: 0 0 auto;
+        font-size: 6.5px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-cell strong,
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-cell strong.fei-ticket-business-emphasis {
+        min-width: 0;
+        margin-left: 0;
+        font-size: 8.5px;
+        line-height: 1.05;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-cell strong.fei-ticket-business-emphasis {
+        font-size: 9.5px;
+      }
+
+      .binding-strip-fei-ticket-business-card .binding-strip-fei-ticket-business-qr-panel {
+        flex-direction: row;
+        justify-content: center;
+        gap: 2mm;
+        border-top: 1px solid #111827;
+        padding: 0.8mm 1.2mm;
+        text-align: left;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-qr {
+        min-height: 19mm;
+        width: 19mm;
+        flex: 0 0 19mm;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-qr svg {
+        height: 18mm;
+        width: 18mm;
+      }
+
+      .binding-strip-fei-ticket-qr-copy {
+        min-width: 0;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-qr-title {
+        font-size: 9px;
+      }
+
+      .binding-strip-fei-ticket-business-card .fei-ticket-business-qr-desc {
+        margin-top: 1mm;
+        font-size: 7.5px;
       }
 
       .print-label-header {
