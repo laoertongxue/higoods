@@ -171,6 +171,12 @@ export interface HandoverSpecialCraftItem {
   feiTicketId: string
 }
 
+export interface CutPieceReturnResponsibilitySnapshot {
+  completeKitQtyByColorSize: Record<string, number>
+  frozenAt: string
+  basisText: string
+}
+
 export interface HandoverRecord {
   handoverRecordId: string
   handoverRecordNo: string
@@ -189,6 +195,8 @@ export interface HandoverRecord {
   relatedSewingTaskId?: string
   relatedSpecialCraftTaskId?: string
   relatedPickingTaskId?: string
+  /** 退仓按精确车缝任务冻结的齐套责任，不得用交出单汇总代替。 */
+  cutPieceReturnResponsibilitySnapshot?: CutPieceReturnResponsibilitySnapshot
   transferBagUses: HandoverTransferBagUse[]
   feiTicketItems: HandoverFeiTicketItem[]
   specialCraftItems?: HandoverSpecialCraftItem[]
@@ -821,6 +829,11 @@ export const handoverRecords: HandoverRecord[] = [
     relatedCutOrderIds: ['CUT-260325-14672-01'],
     relatedSewingTaskId: 'TASKGEN-202603-083-004',
     relatedPickingTaskId: 'PK-260325-14672-001',
+    cutPieceReturnResponsibilitySnapshot: {
+      completeKitQtyByColorSize: { '雾蓝色::M': 1052 },
+      frozenAt: '2026-03-25 09:55',
+      basisText: '车缝任务 TASKGEN-202603-083-004 首次正式交出齐套责任。',
+    },
     transferBagUses: [
       {
         bagUseId: 'BU-HO-14672-A',
@@ -964,6 +977,11 @@ export const handoverRecords: HandoverRecord[] = [
     relatedCutOrderIds: ['CUT-260306-101-01'],
     relatedSewingTaskId: 'ST-260324-001',
     relatedPickingTaskId: 'PK-260324-001',
+    cutPieceReturnResponsibilitySnapshot: {
+      completeKitQtyByColorSize: { 'Black::M': 200 },
+      frozenAt: '2026-04-24 09:45',
+      basisText: '车缝任务 ST-260324-001 首次正式交出齐套责任。',
+    },
     transferBagUses: [
       {
         bagUseId: 'BU-HO-001-A',

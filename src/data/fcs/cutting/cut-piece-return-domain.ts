@@ -24,6 +24,7 @@ export type CutPieceReturnTicketPrintStatus = '待打印' | '已打印'
 export type CutPieceReturnIdentificationMode = 'SCAN_OLD_TICKET' | 'MANUAL_PART_SELECTION'
 export type CutPieceReturnPhysicalTicketStatus = 'PRESENT_AND_SCANNED' | 'MISSING' | 'UNREADABLE'
 export type CutPieceReturnSettlementType = 'SUPPLEMENT_CREATED' | 'SCRAPPED' | ''
+export type CutPieceReturnLookupMode = 'SEWING_TASK' | 'PRODUCTION_FACTORY' | 'FEI_TICKET'
 
 export interface CutPieceReturnPartDefinition {
   partCode: string
@@ -32,7 +33,9 @@ export interface CutPieceReturnPartDefinition {
   sourceCutOrderId: string
   sourceCutOrderNo: string
   oldFeiTicketNo: string
+  historicalTicketNos: string[]
   historicalTicketExists: boolean
+  effectiveHandedPieceQty: number
   sourceMaterialSku: string
   sourceMaterialName: string
   sourceMaterialAlias: string
@@ -228,16 +231,33 @@ export interface CutPieceReturnInitiationCandidate {
   frozenReleaseSnapshotId: string
   frozenMinimumReturnQty: number
   currentExpectedReturnQty: number
-  parts: CutPieceReturnPartDefinition[]
+  parts: CutPieceReturnInitiationPartCandidate[]
   eligible: boolean
   blockedReasons: string[]
+  matchedFeiTicketNo?: string
 }
+
+export interface CutPieceReturnInitiationPartCandidate extends CutPieceReturnPartDefinition {
+  confirmedReturnedPieceQty: number
+  currentReturnablePieceQty: number
+}
+
+export interface CutPieceReturnSourceFactoryOption {
+  factoryId: string
+  factoryName: string
+}
+
+export type CutPieceReturnSourceQuery =
+  | { mode: 'SEWING_TASK'; sewingTaskNo: string }
+  | { mode: 'PRODUCTION_FACTORY'; productionOrderNo: string; factoryId: string }
+  | { mode: 'FEI_TICKET'; feiTicketNo: string }
 
 interface CutPieceReturnStore {
   cases: CutPieceReturnCase[]
 }
 
-const CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v2'
+const CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v3'
+const LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v2'
 const LEGACY_CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v1'
 let store: CutPieceReturnStore = { cases: [] }
 
@@ -281,14 +301,32 @@ function resolveStyleImageUrl(spuCode: string, styleName: string): string {
   return ''
 }
 
-function buildResponsibilityScopeKey(orderId: string, productionOrderNo: string, color: string, size: string): string {
-  return [orderId, productionOrderNo, color, size].join('::')
+function buildResponsibilityScopeKey(input: {
+  sewingTaskId: string
+  sourceFactoryId: string
+  productionOrderNo: string
+  color: string
+  size: string
+  sourceCutOrderNos: string[]
+}): string {
+  return [
+    input.sewingTaskId,
+    input.sourceFactoryId,
+    input.productionOrderNo,
+    input.color,
+    input.size,
+    [...new Set(input.sourceCutOrderNos)].sort().join(','),
+  ].join('::')
 }
 
 function groupFormalSewingTickets(): Array<{
   order: HandoverOrder
   records: HandoverRecord[]
   tickets: HandoverFeiTicketItem[]
+  receivedItems: HandoverRecord['receivedItems']
+  sewingTaskId: string
+  sourceFactoryId: string
+  sourceFactoryName: string
   productionOrderNo: string
   spuCode: string
   color: string
@@ -301,12 +339,17 @@ function groupFormalSewingTickets(): Array<{
   )
   const records = listHandoverRecords().filter((record) =>
     record.receiverType === '车缝厂'
-    && !['待提交', '已取消'].includes(record.recordStatus)
+    && ['已接收', '差异处理中', '已关闭'].includes(record.recordStatus)
+    && record.receivedItems.some((item) => item.pieceQty > 0)
   )
   const groups = new Map<string, {
     order: HandoverOrder
     records: HandoverRecord[]
     tickets: HandoverFeiTicketItem[]
+    receivedItems: HandoverRecord['receivedItems']
+    sewingTaskId: string
+    sourceFactoryId: string
+    sourceFactoryName: string
     productionOrderNo: string
     spuCode: string
     color: string
@@ -314,19 +357,36 @@ function groupFormalSewingTickets(): Array<{
   }>()
   orders.forEach((order) => {
     records.filter((record) => record.handoverOrderId === order.handoverOrderId).forEach((record) => {
-      record.feiTicketItems.forEach((ticket) => {
-        const key = [order.handoverOrderId, ticket.productionOrderNo, ticket.spuCode, ticket.color, ticket.size].join('::')
+      record.receivedItems.forEach((receivedItem) => {
+        const matchingTickets = record.feiTicketItems.filter((ticket) =>
+          ticket.productionOrderNo === receivedItem.productionOrderNo
+          && ticket.cutOrderNo === receivedItem.cutOrderNo
+          && ticket.color === receivedItem.color
+          && ticket.size === receivedItem.size
+          && ticket.partCode === receivedItem.partCode
+        )
+        const ticket = matchingTickets[0]
+        if (!ticket) return
+        const sewingTaskId = record.relatedSewingTaskId ?? ''
+        const key = [sewingTaskId, record.receiverId, ticket.productionOrderNo, ticket.spuCode, ticket.color, ticket.size].join('::')
         const group = groups.get(key) ?? {
           order,
           records: [],
           tickets: [],
+          receivedItems: [],
+          sewingTaskId,
+          sourceFactoryId: record.receiverId,
+          sourceFactoryName: record.receiverName,
           productionOrderNo: ticket.productionOrderNo,
           spuCode: ticket.spuCode,
           color: ticket.color,
           size: ticket.size,
         }
         if (!group.records.some((item) => item.handoverRecordId === record.handoverRecordId)) group.records.push(record)
-        if (!group.tickets.some((item) => item.feiTicketId === ticket.feiTicketId)) group.tickets.push(ticket)
+        matchingTickets.forEach((matchedTicket) => {
+          if (!group.tickets.some((item) => item.feiTicketId === matchedTicket.feiTicketId)) group.tickets.push(matchedTicket)
+        })
+        group.receivedItems.push({ ...receivedItem })
         groups.set(key, group)
       })
     })
@@ -338,10 +398,12 @@ function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
   return groupFormalSewingTickets().map((group) => {
     const blockedReasons: string[] = []
     const minimumKey = group.color + '::' + group.size
-    const snapshot = group.order.cutPieceReleaseSnapshot
-    const frozenMinimumReturnQty = Number(snapshot?.minimumReturnQtyByColorSize?.[minimumKey] ?? 0)
-    if (!snapshot) blockedReasons.push('来源交出单没有冻结的裁片放行快照')
-    if (frozenMinimumReturnQty <= 0) blockedReasons.push('冻结快照没有该颜色尺码的首次正式交出齐套责任')
+    const frozenMinimumReturnQty = group.records.reduce((maximum, record) => Math.max(
+      maximum,
+      Number(record.cutPieceReturnResponsibilitySnapshot?.completeKitQtyByColorSize?.[minimumKey] ?? 0),
+    ), 0)
+    if (!group.sewingTaskId) blockedReasons.push('有效交出记录缺少车缝任务号')
+    if (frozenMinimumReturnQty <= 0) blockedReasons.push('缺少该车缝任务颜色尺码的首次正式交出齐套责任快照')
     const sourceRecords = new Map<string, ReturnType<typeof getGeneratedCutOrderSourceRecordById>>()
     group.tickets.forEach((ticket) => {
       if (!sourceRecords.has(ticket.cutOrderNo)) sourceRecords.set(ticket.cutOrderNo, getGeneratedCutOrderSourceRecordById(ticket.cutOrderNo))
@@ -355,20 +417,32 @@ function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
     const styleImageUrl = resolveStyleImageUrl(group.spuCode, styleName)
     if (!styleImageUrl) blockedReasons.push('来源款式缺少正式款式图')
     const partMap = new Map<string, CutPieceReturnPartDefinition>()
-    group.tickets.forEach((ticket) => {
-      const source = sourceRecords.get(ticket.cutOrderNo)
+    group.receivedItems.forEach((receivedItem) => {
+      const matchingTickets = group.tickets.filter((ticket) =>
+        ticket.productionOrderNo === receivedItem.productionOrderNo
+        && ticket.cutOrderNo === receivedItem.cutOrderNo
+        && ticket.color === receivedItem.color
+        && ticket.size === receivedItem.size
+        && ticket.partCode === receivedItem.partCode
+      )
+      const ticket = matchingTickets[0]
+      if (!ticket) return
+      const source = sourceRecords.get(receivedItem.cutOrderNo)
       if (!source) return
-      const pieceRow = source.pieceRows.find((row) => row.partCode === ticket.partCode)
-      const key = ticket.cutOrderNo + '::' + ticket.partCode
-      if (partMap.has(key)) return
+      const pieceRow = source.pieceRows.find((row) => row.partCode === receivedItem.partCode)
+      const key = receivedItem.cutOrderNo + '::' + receivedItem.partCode
+      const previous = partMap.get(key)
+      const historicalTicketNos = [...new Set([...(previous?.historicalTicketNos ?? []), ...matchingTickets.map((item) => item.feiTicketNo)])]
       partMap.set(key, {
-        partCode: ticket.partCode,
-        partName: ticket.partName,
+        partCode: receivedItem.partCode,
+        partName: receivedItem.partName,
         piecesPerGarment: Math.max(Number(pieceRow?.pieceCountPerUnit ?? 1), 1),
         sourceCutOrderId: source.cutOrderId,
         sourceCutOrderNo: source.cutOrderNo,
-        oldFeiTicketNo: ticket.feiTicketNo,
-        historicalTicketExists: true,
+        oldFeiTicketNo: historicalTicketNos[0] ?? '',
+        historicalTicketNos,
+        historicalTicketExists: historicalTicketNos.length > 0,
+        effectiveHandedPieceQty: (previous?.effectiveHandedPieceQty ?? 0) + Math.max(Number(receivedItem.pieceQty), 0),
         sourceMaterialSku: source.materialSku,
         sourceMaterialName: source.materialName,
         sourceMaterialAlias: source.materialAlias,
@@ -382,7 +456,14 @@ function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
     if (!partMap.size) blockedReasons.push('来源交出记录没有可识别的裁片部位')
     const firstRecord = group.records[0]
     const productionOrderId = firstSource?.productionOrderId ?? firstRecord?.relatedProductionOrderIds[0] ?? group.productionOrderNo
-    const responsibilityScopeKey = buildResponsibilityScopeKey(group.order.handoverOrderId, group.productionOrderNo, group.color, group.size)
+    const responsibilityScopeKey = buildResponsibilityScopeKey({
+      sewingTaskId: group.sewingTaskId,
+      sourceFactoryId: group.sourceFactoryId,
+      productionOrderNo: group.productionOrderNo,
+      color: group.color,
+      size: group.size,
+      sourceCutOrderNos: [...partMap.values()].map((part) => part.sourceCutOrderNo),
+    })
     return {
       candidateId: 'RETURN-SOURCE-' + stableToken(responsibilityScopeKey),
       responsibilityScopeKey,
@@ -390,21 +471,25 @@ function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
       sourceHandoverOrderNo: group.order.handoverOrderNo,
       sourceHandoverRecordIds: group.records.map((record) => record.handoverRecordId),
       sourceHandoverRecordNos: group.records.map((record) => record.handoverRecordNo),
-      sourceFactoryId: group.order.receiverId,
-      sourceFactoryName: group.order.receiverName,
+      sourceFactoryId: group.sourceFactoryId,
+      sourceFactoryName: group.sourceFactoryName,
       productionOrderId,
       productionOrderNo: group.productionOrderNo,
-      sewingTaskId: firstRecord?.relatedSewingTaskId ?? group.order.relatedSewingTaskId ?? '',
+      sewingTaskId: group.sewingTaskId,
       spuCode: group.spuCode,
       styleName,
       styleImageUrl,
       styleImageAlt: group.spuCode + ' ' + styleName + '款式图',
       garmentColor: group.color,
       size: group.size,
-      frozenReleaseSnapshotId: snapshot?.releaseTargetSnapshotId ?? '',
+      frozenReleaseSnapshotId: group.order.cutPieceReleaseSnapshot?.releaseTargetSnapshotId ?? '',
       frozenMinimumReturnQty,
       currentExpectedReturnQty: frozenMinimumReturnQty,
-      parts: [...partMap.values()],
+      parts: [...partMap.values()].map((part) => ({
+        ...part,
+        confirmedReturnedPieceQty: 0,
+        currentReturnablePieceQty: part.effectiveHandedPieceQty,
+      })),
       eligible: blockedReasons.length === 0,
       blockedReasons,
     }
@@ -475,7 +560,7 @@ function createCaseFromCandidate(input: {
   appendOperationLog(record, {
     action: '发起退仓',
     businessNo: input.returnOrderNo,
-    quantityText: '待接收',
+    quantityText: '来源已冻结',
     operatedAt: input.createdAt,
     operatedBy: input.createdBy,
     note: '从正式车缝交出记录发起，冻结工厂、生产单、颜色尺码、部位、裁片单和首次齐套责任。',
@@ -601,9 +686,24 @@ function migrateLegacyStore(raw: string): CutPieceReturnStore | null {
     const parsed = JSON.parse(raw) as { cases?: Array<Record<string, any>> }
     if (!Array.isArray(parsed.cases)) return null
     const cases = parsed.cases.map((legacy, caseIndex): CutPieceReturnCase => {
+      const liveCandidate = buildRawInitiationCandidates().find((candidate) =>
+        candidate.sewingTaskId === String(legacy.sewingTaskId || '')
+        && candidate.sourceFactoryId === String(legacy.sourceFactoryId || '')
+        && candidate.productionOrderNo === String(legacy.productionOrderNo || '')
+        && candidate.garmentColor === String(legacy.garmentColor || legacy.materialColor || '')
+        && candidate.size === String(legacy.size || '')
+      )
       const rawParts = Array.isArray(legacy.parts) ? legacy.parts : []
       const parts = rawParts.map((item: Record<string, any>): CutPieceReturnPartDefinition => {
         const source = getGeneratedCutOrderSourceRecordById(String(item.sourceCutOrderId || item.sourceCutOrderNo || ''))
+        const livePart = liveCandidate?.parts.find((part) =>
+          part.partCode === String(item.partCode || '')
+          && (part.sourceCutOrderId === String(source?.cutOrderId || item.sourceCutOrderId || '')
+            || part.sourceCutOrderNo === String(source?.cutOrderNo || item.sourceCutOrderNo || ''))
+        )
+        const historicalTicketNos = Array.isArray(item.historicalTicketNos)
+          ? item.historicalTicketNos.map(String).filter(Boolean)
+          : [String(item.oldFeiTicketNo || '')].filter(Boolean)
         return {
           partCode: String(item.partCode || ''),
           partName: String(item.partName || item.partCode || ''),
@@ -611,7 +711,9 @@ function migrateLegacyStore(raw: string): CutPieceReturnStore | null {
           sourceCutOrderId: String(source?.cutOrderId || item.sourceCutOrderId || ''),
           sourceCutOrderNo: String(source?.cutOrderNo || item.sourceCutOrderNo || ''),
           oldFeiTicketNo: String(item.oldFeiTicketNo || ''),
-          historicalTicketExists: Boolean(item.oldFeiTicketNo),
+          historicalTicketNos: livePart?.historicalTicketNos ?? historicalTicketNos,
+          historicalTicketExists: Boolean(livePart?.historicalTicketExists ?? historicalTicketNos.length),
+          effectiveHandedPieceQty: Number(livePart?.effectiveHandedPieceQty ?? item.effectiveHandedPieceQty ?? 0),
           sourceMaterialSku: String(source?.materialSku || legacy.materialSku || ''),
           sourceMaterialName: String(source?.materialName || legacy.materialName || ''),
           sourceMaterialAlias: String(source?.materialAlias || legacy.materialAlias || ''),
@@ -689,12 +791,14 @@ function migrateLegacyStore(raw: string): CutPieceReturnStore | null {
         createdAt: String(plan.createdAt || legacy.updatedAt || ''),
         createdBy: String(plan.createdBy || '裁床主管'),
       }))
-      const responsibilityScopeKey = buildResponsibilityScopeKey(
-        String(legacy.sourceHandoverOrderId || ''),
-        String(legacy.productionOrderNo || ''),
-        String(legacy.garmentColor || legacy.materialColor || ''),
-        String(legacy.size || ''),
-      )
+      const responsibilityScopeKey = liveCandidate?.responsibilityScopeKey ?? buildResponsibilityScopeKey({
+        sewingTaskId: String(legacy.sewingTaskId || ''),
+        sourceFactoryId: String(legacy.sourceFactoryId || ''),
+        productionOrderNo: String(legacy.productionOrderNo || ''),
+        color: String(legacy.garmentColor || legacy.materialColor || ''),
+        size: String(legacy.size || ''),
+        sourceCutOrderNos: parts.map((part) => part.sourceCutOrderNo),
+      })
       const allScrapped = inventoryLots.length > 0 && inventoryLots.every((lot) => lot.scrappedPieceQty >= lot.pieceQty)
       const sourceRecordNo = String(legacy.sourceHandoverRecordNo || '')
       return {
@@ -765,6 +869,9 @@ function readStore(): CutPieceReturnStore {
       const parsed = JSON.parse(raw) as Partial<CutPieceReturnStore>
       if (Array.isArray(parsed.cases)) return { cases: parsed.cases }
     }
+    const legacyV2Raw = globalThis.localStorage?.getItem(LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY)
+    const migratedV2 = legacyV2Raw ? migrateLegacyStore(legacyV2Raw) : null
+    if (migratedV2) return migratedV2
     const legacyRaw = globalThis.localStorage?.getItem(LEGACY_CUT_PIECE_RETURN_STORAGE_KEY)
     const migrated = legacyRaw ? migrateLegacyStore(legacyRaw) : null
     return migrated ?? seedStore()
@@ -830,6 +937,19 @@ function projectCase(record: CutPieceReturnCase): CutPieceReturnCaseProjection {
   }
 }
 
+function getConfirmedReturnedPartQty(
+  responsibilityScopeKey: string,
+  sourceCutOrderId: string,
+  partCode: string,
+): number {
+  return store.cases
+    .filter((record) => record.responsibilityScopeKey === responsibilityScopeKey)
+    .flatMap((record) => record.receipts)
+    .flatMap((receipt) => receipt.partCounts)
+    .filter((item) => item.sourceCutOrderId === sourceCutOrderId && item.partCode === partCode)
+    .reduce((sum, item) => sum + item.pieceQty, 0)
+}
+
 export function listCutPieceReturnInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
   return buildRawInitiationCandidates().map((candidate) => {
     const scopeCases = store.cases.filter((record) => record.responsibilityScopeKey === candidate.responsibilityScopeKey)
@@ -843,13 +963,76 @@ export function listCutPieceReturnInitiationCandidates(): CutPieceReturnInitiati
     const blockedReasons = [...candidate.blockedReasons]
     if (scopeCases.some((record) => !record.settlementType)) blockedReasons.push('该责任范围已有未结算退仓单')
     if (currentExpectedReturnQty <= 0) blockedReasons.push('该责任范围当前应回已结清')
+    const parts = candidate.parts.map((part) => {
+      const confirmedReturnedPieceQty = getConfirmedReturnedPartQty(
+        candidate.responsibilityScopeKey,
+        part.sourceCutOrderId,
+        part.partCode,
+      )
+      return {
+        ...part,
+        confirmedReturnedPieceQty,
+        currentReturnablePieceQty: Math.max(part.effectiveHandedPieceQty - confirmedReturnedPieceQty, 0),
+      }
+    })
+    if (!parts.some((part) => part.currentReturnablePieceQty > 0)) blockedReasons.push('该责任范围的部位裁片已全部退清')
     return {
       ...clone(candidate),
       currentExpectedReturnQty,
+      parts,
       eligible: blockedReasons.length === 0,
       blockedReasons,
     }
   })
+}
+
+function exactMatch(left: string, right: string): boolean {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase()
+}
+
+export function listCutPieceReturnFactoriesByProductionOrder(productionOrderNo: string): CutPieceReturnSourceFactoryOption[] {
+  const normalized = productionOrderNo.trim()
+  if (!normalized) return []
+  const factories = new Map<string, CutPieceReturnSourceFactoryOption>()
+  buildRawInitiationCandidates()
+    .filter((candidate) => exactMatch(candidate.productionOrderNo, normalized))
+    .forEach((candidate) => factories.set(candidate.sourceFactoryId, {
+      factoryId: candidate.sourceFactoryId,
+      factoryName: candidate.sourceFactoryName,
+    }))
+  return [...factories.values()].sort((left, right) => left.factoryName.localeCompare(right.factoryName))
+}
+
+export function findCutPieceReturnSources(query: CutPieceReturnSourceQuery): CutPieceReturnInitiationCandidate[] {
+  const candidates = listCutPieceReturnInitiationCandidates()
+  if (query.mode === 'SEWING_TASK') {
+    const sewingTaskNo = query.sewingTaskNo.trim()
+    if (!sewingTaskNo) throw new Error('请输入车缝任务单号。')
+    return candidates.filter((candidate) => exactMatch(candidate.sewingTaskId, sewingTaskNo))
+  }
+  if (query.mode === 'PRODUCTION_FACTORY') {
+    const productionOrderNo = query.productionOrderNo.trim()
+    if (!productionOrderNo) throw new Error('请输入生产单号。')
+    if (!query.factoryId.trim()) throw new Error('请选择该生产单实际承接的车缝工厂。')
+    return candidates.filter((candidate) =>
+      exactMatch(candidate.productionOrderNo, productionOrderNo)
+      && candidate.sourceFactoryId === query.factoryId
+    )
+  }
+  const feiTicketNo = query.feiTicketNo.trim()
+  if (!feiTicketNo) throw new Error('请输入菲票号。')
+  const matched = candidates.filter((candidate) => candidate.parts.some((part) =>
+    part.historicalTicketNos.some((ticketNo) => exactMatch(ticketNo, feiTicketNo))
+  ))
+  if (matched.length > 1) {
+    return matched.map((candidate) => ({
+      ...candidate,
+      matchedFeiTicketNo: feiTicketNo,
+      eligible: false,
+      blockedReasons: [...candidate.blockedReasons, '该菲票同时匹配多个车缝任务责任范围，请由主管处理'],
+    }))
+  }
+  return matched.map((candidate) => ({ ...candidate, matchedFeiTicketNo: feiTicketNo }))
 }
 
 function nextReturnOrderNo(createdAt: string): string {
@@ -864,28 +1047,6 @@ function nextReturnOrderNo(createdAt: string): string {
   return prefix + String(next).padStart(3, '0')
 }
 
-export function createCutPieceReturnCase(input: {
-  candidateId: string
-  createdBy: string
-  createdAt?: string
-}): CutPieceReturnCaseProjection {
-  const candidate = listCutPieceReturnInitiationCandidates().find((item) => item.candidateId === input.candidateId)
-  if (!candidate) throw new Error('未找到可发起退仓的正式车缝交出来源。')
-  if (!candidate.eligible) throw new Error('该来源暂不能发起退仓：' + candidate.blockedReasons.join('；') + '。')
-  const createdAt = input.createdAt || nowText()
-  const returnOrderNo = nextReturnOrderNo(createdAt)
-  const record = createCaseFromCandidate({
-    candidate,
-    caseId: 'cut-return-' + stableToken(returnOrderNo + ':' + candidate.candidateId),
-    returnOrderNo,
-    createdAt,
-    createdBy: input.createdBy.trim() || '裁床退仓员',
-  })
-  store.cases.push(record)
-  persistStore()
-  return projectCase(record)
-}
-
 export function listCutPieceReturnCases(): CutPieceReturnCaseProjection[] {
   store.cases.forEach(ensureSupplementRegistryLinks)
   return store.cases.map(projectCase).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
@@ -897,7 +1058,7 @@ export function getCutPieceReturnCase(caseId: string): CutPieceReturnCaseProject
   return record ? projectCase(record) : null
 }
 
-export function confirmCutPieceReturnReceipt(input: {
+export interface CutPieceReturnReceiptConfirmationInput {
   caseId: string
   returnedGarmentQty: number
   partCounts: Array<{
@@ -910,8 +1071,12 @@ export function confirmCutPieceReturnReceipt(input: {
   }>
   confirmedBy: string
   confirmedAt?: string
-}): CutPieceReturnCaseProjection {
-  const record = findCaseMutable(input.caseId)
+}
+
+function applyCutPieceReturnReceipt(
+  record: CutPieceReturnCase,
+  input: Omit<CutPieceReturnReceiptConfirmationInput, 'caseId'>,
+): void {
   if (record.settlementType) throw new Error('该退仓单已结算，不能再次确认退件。')
   if (record.receipts.length) throw new Error('该退仓单已经确认过退件，不能重复确认。')
   const returnedGarmentQty = positiveInteger(input.returnedGarmentQty, '确认退件数量')
@@ -939,7 +1104,9 @@ export function confirmCutPieceReturnReceipt(input: {
     if (item.identificationMode === 'SCAN_OLD_TICKET') {
       if (!part.historicalTicketExists) throw new Error(part.partName + '没有可供匹配的历史来源菲票。')
       if (item.physicalTicketStatus !== 'PRESENT_AND_SCANNED') throw new Error(part.partName + '扫码识别必须记录为“实物票在场且已扫码”。')
-      if (!scannedTicketNo || scannedTicketNo !== part.oldFeiTicketNo) throw new Error(part.partName + '扫描的菲票与冻结来源不匹配。')
+      if (!scannedTicketNo || !part.historicalTicketNos.some((ticketNo) => exactMatch(ticketNo, scannedTicketNo))) {
+        throw new Error(part.partName + '扫描的菲票与冻结来源不匹配。')
+      }
       if (usedScannedTickets.has(scannedTicketNo)) throw new Error('菲票 ' + scannedTicketNo + ' 已用于其他退仓清点，禁止重复扫描。')
       usedScannedTickets.add(scannedTicketNo)
     } else {
@@ -947,12 +1114,23 @@ export function confirmCutPieceReturnReceipt(input: {
         throw new Error(part.partName + '选择手动部位时，实物票状态只能是“缺失”或“无法识别”。')
       }
     }
+    const pieceQty = nonNegativeInteger(item.pieceQty, part.partName + '清点数量')
+    const confirmedReturnedPieceQty = getConfirmedReturnedPartQty(
+      record.responsibilityScopeKey,
+      part.sourceCutOrderId,
+      part.partCode,
+    )
+    const currentReturnablePieceQty = Math.max(part.effectiveHandedPieceQty - confirmedReturnedPieceQty, 0)
+    if (pieceQty > currentReturnablePieceQty) {
+      throw new Error(part.sourceCutOrderNo + ' / ' + part.partName + '本次退回 ' + pieceQty
+        + ' 片，超过当前可退 ' + currentReturnablePieceQty + ' 片。')
+    }
     return {
       partCode: part.partCode,
       partName: part.partName,
       sourceCutOrderId: part.sourceCutOrderId,
       sourceCutOrderNo: part.sourceCutOrderNo,
-      pieceQty: nonNegativeInteger(item.pieceQty, part.partName + '清点数量'),
+      pieceQty,
       unit: '片',
       identificationMode: item.identificationMode,
       physicalTicketStatus: item.physicalTicketStatus,
@@ -1022,6 +1200,42 @@ export function confirmCutPieceReturnReceipt(input: {
   record.receiptStatus = '已确认退件'
   record.dispositionStatus = '待处理'
   record.updatedAt = confirmedAt
+}
+
+export function confirmCutPieceReturnReceipt(input: CutPieceReturnReceiptConfirmationInput): CutPieceReturnCaseProjection {
+  const record = findCaseMutable(input.caseId)
+  applyCutPieceReturnReceipt(record, input)
+  persistStore()
+  return projectCase(record)
+}
+
+export function createAndConfirmCutPieceReturn(input: {
+  candidateId: string
+  returnedGarmentQty: number
+  partCounts: CutPieceReturnReceiptConfirmationInput['partCounts']
+  confirmedBy: string
+  confirmedAt?: string
+}): CutPieceReturnCaseProjection {
+  const candidate = listCutPieceReturnInitiationCandidates().find((item) => item.candidateId === input.candidateId)
+  if (!candidate) throw new Error('未找到已选的车缝任务退仓责任范围。')
+  if (!candidate.eligible) throw new Error('该责任范围暂不能退仓：' + candidate.blockedReasons.join('；') + '。')
+  const confirmedAt = input.confirmedAt || nowText()
+  const confirmedBy = input.confirmedBy.trim() || '裁床退仓员'
+  const returnOrderNo = nextReturnOrderNo(confirmedAt)
+  const record = createCaseFromCandidate({
+    candidate,
+    caseId: 'cut-return-' + stableToken(returnOrderNo + ':' + candidate.candidateId),
+    returnOrderNo,
+    createdAt: confirmedAt,
+    createdBy: confirmedBy,
+  })
+  applyCutPieceReturnReceipt(record, {
+    returnedGarmentQty: input.returnedGarmentQty,
+    partCounts: input.partCounts,
+    confirmedBy,
+    confirmedAt,
+  })
+  store.cases.push(record)
   persistStore()
   return projectCase(record)
 }
@@ -1398,6 +1612,7 @@ export function resetCutPieceReturnDomainForTesting(): void {
   store = seedStore()
   try {
     globalThis.localStorage?.removeItem(CUT_PIECE_RETURN_STORAGE_KEY)
+    globalThis.localStorage?.removeItem(LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY)
     globalThis.localStorage?.removeItem(LEGACY_CUT_PIECE_RETURN_STORAGE_KEY)
   } catch {
     // ignore
