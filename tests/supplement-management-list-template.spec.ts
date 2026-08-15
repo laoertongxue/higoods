@@ -436,7 +436,7 @@ test('补料管理筛选条件连同筛选重置在标准分辨率固定为两�
     await openList(page)
     const rows = page.locator('[data-supplement-filter-row]')
     await expect(rows).toHaveCount(2)
-    await expect(rows.nth(0).locator(':scope > *')).toHaveCount(7)
+    await expect(rows.nth(0).locator(':scope > *')).toHaveCount(8)
     await expect(rows.nth(1).locator(':scope > *')).toHaveCount(7)
     const layout = await rows.evaluateAll((elements) => elements.map((element) => {
       const childBottoms = [...element.children].map((child) => Math.round(child.getBoundingClientRect().bottom))
@@ -926,7 +926,7 @@ test('筛选与重置改变结果并回到第 1 页，且不刷新无关覆盖�
   await page.getByRole('button', { name: '下一页' }).click()
   await expect(page.getByText(`2 / ${defaultTotalPages}`, { exact: true })).toBeVisible()
   const targetRecordNo = (await rows.first().locator('td').first().innerText()).trim()
-  const targetSourceType = (await rows.first().locator('td').nth(1).innerText()).includes('裁片单')
+  const targetSourceType = (await rows.first().locator('td').nth(2).innerText()).includes('裁片单')
     ? 'cut-order'
     : 'production-order'
 
@@ -977,7 +977,7 @@ test('列显示、顺序、冻结和每页条数持久化，且列操作只刷�
   })
 
   await settingRow(page, 'created').dragTo(settingRow(page, 'supplementQty'))
-  expect((await headerOrder(page)).slice(0, 4)).toEqual(['recordNo', 'target', 'created', 'supplementQty'])
+  expect((await headerOrder(page)).slice(0, 5)).toEqual(['recordNo', 'businessSource', 'target', 'created', 'supplementQty'])
   stability = await stableRegionResult(page)
   expect(stability).toEqual({
     mainSame: true,
@@ -1009,7 +1009,7 @@ test('列显示、顺序、冻结和每页条数持久化，且列操作只刷�
   await page.reload()
   await waitForList(page)
   await expect(page.locator('th[data-column-key="purchase"]')).toHaveCount(0)
-  expect((await headerOrder(page)).slice(0, 4)).toEqual(['recordNo', 'target', 'created', 'supplementQty'])
+  expect((await headerOrder(page)).slice(0, 5)).toEqual(['recordNo', 'businessSource', 'target', 'created', 'supplementQty'])
   await expect(page.locator('th[data-column-key="recordNo"]')).toHaveClass(/sticky/)
   const reloadedPreferences = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}'), storageKey)
   expect(reloadedPreferences.order.indexOf('created')).toBeLessThan(reloadedPreferences.order.indexOf('supplementQty'))
@@ -1145,7 +1145,7 @@ test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取�
   await page.getByRole('button', { name: '关闭', exact: true }).click()
 
   expect(await headerOrder(page)).toEqual([
-    'supplementQty', 'recordNo', 'target', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
+    'supplementQty', 'recordNo', 'businessSource', 'target', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
 
   const scroll = page.locator('[data-standard-list-scroll]')
@@ -1175,7 +1175,7 @@ test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取�
   await settingRow(page, 'supplementQty').getByLabel('冻结').uncheck()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   expect(await headerOrder(page)).toEqual([
-    'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
+    'recordNo', 'businessSource', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
 })
 
@@ -1193,7 +1193,7 @@ test('恢复默认清除列偏好并保持 main 节点', async ({ page }) => {
   await page.getByRole('button', { name: '恢复默认' }).click()
   await expect(page.locator('th[data-column-key="inventory"]')).toBeVisible()
   expect(await headerOrder(page)).toEqual([
-    'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
+    'recordNo', 'businessSource', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
   await expect(page.locator('th[data-column-key="recordNo"]')).not.toHaveClass(/sticky/)
   await expect(page.locator('[data-cutting-supplement-field="pageSize"]')).toHaveValue('10')

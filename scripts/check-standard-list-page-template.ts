@@ -1279,7 +1279,7 @@ assert.equal(drop.wasPrevented(), true, '合法放置必须阻止浏览器默认
 let draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert.deepEqual(
   draggedPreferences.order,
-  ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'actions'],
+  ['created', 'recordNo', 'businessSource', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'actions'],
   'drop 必须把源列移动到目标列之前并保持操作列最后',
 )
 assert(
@@ -1611,9 +1611,9 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
       })
     })
 
-    const createdColumn = page.locator('[data-standard-list-column-key="created"]')
+    const businessSourceColumn = page.locator('[data-standard-list-column-key="businessSource"]')
     const recordNoColumn = page.locator('[data-standard-list-column-key="recordNo"]')
-    await createdColumn.dragTo(recordNoColumn)
+    await businessSourceColumn.dragTo(recordNoColumn)
 
     assert.equal(
       await page.evaluate(() => (window as typeof window & { __standardListDropCount?: number }).__standardListDropCount ?? 0),
@@ -1630,7 +1630,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
     )
     assert.deepEqual(
       browserHeaderOrder,
-      ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'actions'],
+      ['businessSource', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions'],
       '真实 Chromium drop 必须局部更新列顺序并保持操作列最后',
     )
     const browserPreferences = await page.evaluate(

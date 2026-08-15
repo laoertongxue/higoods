@@ -816,7 +816,8 @@ function renderSupplementTags(row: CutOrderRow): string {
   return `
     <div class="flex flex-wrap gap-1 pt-1" aria-label="${escapeHtml(`${row.cutOrderNo} 关联补料单`)}">
       ${orders.map((order) => {
-        const label = `补 · 第 ${order.sequenceNo} 次 · ${order.status}`
+        const sourceLabel = order.businessSourceType === 'SEWING_RETURN' ? '车缝退仓补料' : '人工补料'
+        const label = `${sourceLabel} · 第 ${order.sequenceNo} 次 · ${order.status}`
         const className = order.status === '已完成'
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
           : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
@@ -1410,12 +1411,14 @@ function renderSupplementDetail(order: SupplementOrderLifecycle): string {
           <div class="sm:row-span-3">${renderImage(order.draftMeta.styleImageUrl, order.draftMeta.styleImageAlt, 'h-24 w-24')}</div>
           ${[
             ['补料单号', order.recordNo], ['裁片单', order.cutOrderNo], ['生产单', order.productionOrderNo],
+            ['业务来源', order.businessSourceType === 'SEWING_RETURN' ? '车缝退仓' : '人工发起'],
             ['补料次数', `第 ${order.sequenceNo} 次`], ['状态', order.status], ['原因', order.reason],
             ['原因说明', order.reasonDetail], ['明细摘要', order.lineSummary], ['总补料数量', `${order.totalQty} 件`],
             ['创建人', order.createdBy], ['创建时间', order.createdAt],
           ].map(([label, value]) => `<div><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 font-medium">${escapeHtml(value)}</div></div>`).join('')}
           <div class="sm:col-span-2"><div class="text-xs text-muted-foreground">完成信息</div><div class="mt-1 font-medium">${order.status === '已完成' ? `${escapeHtml(order.completedBy)} · ${escapeHtml(order.completedAt)}` : '尚未完成'}</div></div>
           </div>
+          ${order.businessSourceType === 'SEWING_RETURN' ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>来源退仓单 ${escapeHtml(order.sourceReturnOrderNo)}</strong><p class="mt-1 text-xs">来源交出记录 ${order.sourceHandoverRecordIds.map(escapeHtml).join('、')} · 可复用退裁片 ${order.sourceReturnPieceSnapshot.reduce((sum, line) => sum + line.reusablePieceQty, 0)} 片</p></div><a class="text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(order.sourceReturnCaseId)}">查看退仓处理</a></div></section>` : ''}
           <section>
             <h3 class="text-sm font-semibold">完整补料明细</h3>
             <div class="mt-2 max-h-64 overflow-auto rounded-lg border">

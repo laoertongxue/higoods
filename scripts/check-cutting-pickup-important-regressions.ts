@@ -121,7 +121,8 @@ function verifyPickupThreeListSceneStoreMigration(): void {
   )
 
   const storage = createStorage(migrated)
-  const upgradedNode = listActivePickupNodes(storage).find((node) =>
+  const migratedActiveNodes = listActivePickupNodes(storage)
+  const upgradedNode = migratedActiveNodes.find((node) =>
     node.prepOrderId === 'prep-order-po-202603-1103'
   )
   assert(
@@ -136,8 +137,19 @@ function verifyPickupThreeListSceneStoreMigration(): void {
   const po0002Current = listPickupOrderGroups('READY', storage as Storage).find((group) =>
     group.productionOrderNo === 'PO-202603-0002'
   )
+  const po0002Incomplete = listPickupOrderGroups('INCOMPLETE', storage as Storage).find((group) =>
+    group.productionOrderNo === 'PO-202603-0002'
+  )
+  const po0002Node = migratedActiveNodes.find((node) => node.prepOrderId === 'prep-order-po-202603-0002')
   assert(po0002History?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP', '旧 Store 迁移后 PO0002 历史必须标记新增补料待领')
-  assert(po0002Current?.pickupNodeId === 'pickup-node:prep-order-po-202603-0002:9', '旧 Store 迁移后 PO0002 当前待领节点必须正确')
+  assert(
+    po0002Current?.pickupNodeId === 'pickup-node:prep-order-po-202603-0002:9',
+    `旧 Store 迁移后 PO0002 当前待领节点必须正确，实际：${JSON.stringify({
+      activeNode: po0002Node && { nodeId: po0002Node.nodeId, nodeType: po0002Node.nodeType, itemCount: po0002Node.itemCount },
+      readyGroup: po0002Current?.pickupNodeId,
+      incompleteGroup: po0002Incomplete?.pickupNodeId,
+    })}`,
+  )
 
   const migratedOnce = hydrateProductionMaterialPrepStore(storage)
   const migratedTwice = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(migratedOnce))

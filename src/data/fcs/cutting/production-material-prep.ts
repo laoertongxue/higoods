@@ -4459,9 +4459,10 @@ export function buildPickupDemandFactsFromProjections(
     printResults: input.printResults,
   }).map((fact) => ({
     ...fact,
-    prepOrderId: fact.prepOrderId
-      || prepOrderIdByProductionOrder.get(fact.productionOrderId)
-      || '',
+    // 补料单拥有独立的配料需求身份，但实际到仓、接收和节点仍挂在生产单的
+    // 裁床配料单上。这里统一到同一物理配料单，后续仍以 demandLineId 精确
+    // 区分每张补料单，避免相同 SKU 之间借量。
+    prepOrderId: prepOrderIdByProductionOrder.get(fact.productionOrderId) || fact.prepOrderId || '',
   }))
 }
 

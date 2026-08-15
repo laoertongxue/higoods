@@ -3938,14 +3938,15 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
   return Array.from(headsById.values())
 }
 
-function buildHeadsInternal(): PdaHandoverHead[] {
+function buildNonWoolHeadsInternal(): PdaHandoverHead[] {
   if (!cachedBuiltHeads) {
     cachedBuiltHeads = recomputeHeadsInternal()
   }
-  return [
-    ...cachedBuiltHeads.filter((head) => head.processBusinessCode !== 'WOOL'),
-    ...listWoolFactHandoverHeads(),
-  ]
+  return cachedBuiltHeads.filter((head) => head.processBusinessCode !== 'WOOL')
+}
+
+function buildHeadsInternal(): PdaHandoverHead[] {
+  return [...buildNonWoolHeadsInternal(), ...listWoolFactHandoverHeads()]
 }
 
 export function canPdaFactoryAccessHandoverHead(head: PdaHandoverHead, factoryId: string): boolean {
@@ -4007,7 +4008,9 @@ function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
 }
 
 function findHead(handoverId: string): PdaHandoverHead | undefined {
-  return buildHeadsInternal().find((item) => item.handoverId === handoverId)
+  const nonWoolHead = buildNonWoolHeadsInternal().find((item) => item.handoverId === handoverId)
+  if (nonWoolHead) return nonWoolHead
+  return listWoolFactHandoverHeads().find((item) => item.handoverId === handoverId)
 }
 
 function findRecord(recordId: string): PdaHandoverRecord | undefined {
@@ -4463,7 +4466,20 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
 }
 
 export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
-  return listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
+  const matches = [
+    ...buildNonWoolHeadsInternal()
+      .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
+    ...listWoolFactHandoverHeads()
+      .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
+  ]
+  return matches
+    .slice()
+    .sort((a, b) => {
+      const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
+      const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0)
+    })
+    .map(cloneHead)
 }
 
 const disposeCompleteHandoutReaders = installCompleteHandoutReaders(
@@ -4474,9 +4490,12 @@ const disposeCompleteHandoutReaders = installCompleteHandoutReaders(
 import.meta.hot?.dispose(disposeCompleteHandoutReaders)
 
 export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
-  return listPdaHandoverHeads().find(
-    (head) => head.headType === 'HANDOUT' && (head.handoverOrderId || head.handoverId) === handoverOrderId,
-  )
+  const matchHead = (head: PdaHandoverHead) =>
+    head.headType === 'HANDOUT' && (head.handoverOrderId || head.handoverId) === handoverOrderId
+  const nonWoolHead = buildNonWoolHeadsInternal().find(matchHead)
+  if (nonWoolHead) return cloneHead(nonWoolHead)
+  const woolHead = listWoolFactHandoverHeads().find(matchHead)
+  return woolHead ? cloneHead(woolHead) : undefined
 }
 
 export function listReceiverWritebacks(): ReceiverWriteback[] {

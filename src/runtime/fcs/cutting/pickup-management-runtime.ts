@@ -34,7 +34,7 @@ import {
   listPlatformPrintResultViews,
 } from '../../../data/fcs/platform-process-result-view.ts'
 import {
-  ensureFixedSupplementOrderFixturesRegistered,
+  ensurePickupSeedSupplementFixturesRegistered,
 } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import {
   listSupplementOrders,
@@ -92,7 +92,7 @@ export interface PickupRuntimeContext {
 }
 
 export function bootstrapPickupManagementRuntimeMockData(): SupplementOrderLifecycle[] {
-  ensureFixedSupplementOrderFixturesRegistered()
+  ensurePickupSeedSupplementFixturesRegistered()
   return listSupplementOrders()
 }
 

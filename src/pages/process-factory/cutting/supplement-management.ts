@@ -52,6 +52,7 @@ import {
   removeSupplementOrderForRollback,
   registerSupplementOrder,
   resetSupplementOrderRegistryForTesting,
+  type SupplementBusinessSourceType,
   type SupplementMaterialDemand,
   type SupplementOrderLifecycle,
   type SupplementProcessWorkOrderRef,
@@ -92,6 +93,7 @@ import {
 } from '../../../components/ui/list-table.ts'
 
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
+type SupplementBusinessSourceFilter = 'ALL' | SupplementBusinessSourceType
 type SupplementProcessKind = '印花' | '染色'
 
 export type SupplementManualSourceType = 'production-order' | 'cut-order'
@@ -184,6 +186,7 @@ export interface SupplementDraft {
 }
 
 interface SupplementFilters {
+  businessSourceType: SupplementBusinessSourceFilter
   sourceType: SupplementFilterSourceType
   keyword: string
   recordNo: string
@@ -268,6 +271,7 @@ interface SupplementManagementState {
   columnSettingsOpen: boolean
   draggedColumnKey: string
   imagePreview: { src: string; alt: string } | null
+  requestedRecordNoHandled: boolean
 }
 
 const supplementListPageSizes = [10, 20, 50]
@@ -275,6 +279,7 @@ const supplementListStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement
 const supplementListMaxFrozenWidth = 520
 const supplementListColumnRules: StandardListColumnRule[] = [
   { key: 'recordNo', required: true, freezeable: true },
+  { key: 'businessSource', required: true, freezeable: true },
   { key: 'target', required: true, freezeable: true },
   { key: 'supplementQty', freezeable: true },
   { key: 'materialDemand' },
@@ -296,6 +301,7 @@ const defaultSupplementListColumnPreferences: StandardListColumnPreferences = {
 
 const state: SupplementManagementState = {
   filters: {
+    businessSourceType: 'ALL',
     sourceType: 'ALL',
     keyword: '',
     recordNo: '', productionOrderNo: '', cutOrderNo: '', styleKeyword: '',
@@ -325,6 +331,7 @@ const state: SupplementManagementState = {
   columnSettingsOpen: false,
   draggedColumnKey: '',
   imagePreview: null,
+  requestedRecordNoHandled: false,
 }
 
 let mockSupplementOrdersSeeded = false
@@ -347,6 +354,11 @@ const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
   'cut-order': '裁片单',
   'release-snapshot': '裁片放行目标快照',
+}
+
+const supplementBusinessSourceLabels: Record<SupplementBusinessSourceType, string> = {
+  MANUAL: '人工发起',
+  SEWING_RETURN: '车缝退仓',
 }
 
 const supplementManagementPath = '/fcs/craft/cutting/supplement-management'
@@ -1307,6 +1319,7 @@ function prepareReleaseSnapshotCreateState(): void {
 function getFilteredRecords(): SupplementOrderLifecycle[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
   return state.records
+    .filter((record) => state.filters.businessSourceType === 'ALL' || record.businessSourceType === state.filters.businessSourceType)
     .filter((record) => state.filters.sourceType === 'ALL' || record.draftMeta.sourceType === state.filters.sourceType)
     .filter((record) => state.filters.status === 'ALL' || record.status === state.filters.status)
     .filter((record) => state.filters.purchase === 'ALL' || (getSupplementNodeOverview(record).purchase === '不需要') !== (state.filters.purchase === '需要'))
@@ -1328,6 +1341,8 @@ function getFilteredRecords(): SupplementOrderLifecycle[] {
         record.draftMeta.spuCode,
         record.reason,
         record.reasonDetail,
+        supplementBusinessSourceLabels[record.businessSourceType],
+        record.sourceReturnOrderNo,
         record.materialDemands.map((item) => item.materialSku).join(' '),
       ].join(' ').toLowerCase().includes(keyword)
     })
@@ -1449,7 +1464,15 @@ function renderStatChip(label: string, value: number): string {
 function renderFilterControls(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7 lg:items-end" data-supplement-filter-row="primary">
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8 lg:items-end" data-supplement-filter-row="primary">
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">业务来源</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="businessSourceType">
+            <option value="ALL"${state.filters.businessSourceType === 'ALL' ? ' selected' : ''}>全部</option>
+            <option value="MANUAL"${state.filters.businessSourceType === 'MANUAL' ? ' selected' : ''}>人工发起</option>
+            <option value="SEWING_RETURN"${state.filters.businessSourceType === 'SEWING_RETURN' ? ' selected' : ''}>车缝退仓</option>
+          </select>
+        </label>
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">补料对象</span>
           <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourceType">
@@ -2040,6 +2063,18 @@ const supplementListColumns: StandardListColumn<SupplementOrderLifecycle>[] = [
     sortValue: (record) => record.recordNo,
   },
   {
+    key: 'businessSource',
+    title: '业务来源',
+    width: 170,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => record.businessSourceType === 'SEWING_RETURN'
+      ? `<div class="space-y-1"><span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">车缝退仓</span><a class="block text-xs text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(record.sourceReturnCaseId)}">${escapeHtml(record.sourceReturnOrderNo)}</a></div>`
+      : '<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">人工发起</span>',
+    sortValue: (record) => record.businessSourceType,
+  },
+  {
     key: 'target',
     title: '补料对象',
     width: 250,
@@ -2197,6 +2232,7 @@ export function enterCraftCuttingSupplementManagementRoute(): void {
   state.activeRecordId = ''
   state.columnSettingsOpen = false
   state.creationSourceKey = ''
+  state.requestedRecordNoHandled = false
 }
 
 function saveSupplementListPreferences(): void {
@@ -2445,6 +2481,7 @@ function renderSupplementMaterialNodeTable(record: SupplementOrderLifecycle): st
 function renderSupplementDetailDialog(record: SupplementOrderLifecycle | undefined): string {
   if (!record) return ''
   const totalQty = record.lines.reduce((sum, line) => sum + line.supplementQty, 0)
+  const reusableReturnPieceQty = record.sourceReturnPieceSnapshot.reduce((sum, line) => sum + line.reusablePieceQty, 0)
   const spuImageUrl = record.draftMeta.styleImageUrl
   const snapshotTraceDraft = {
     releaseSnapshotId: record.draftMeta.releaseSnapshotId,
@@ -2474,6 +2511,7 @@ function renderSupplementDetailDialog(record: SupplementOrderLifecycle | undefin
                 <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(record.recordNo)}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料次数</div><div class="mt-1 font-semibold">第 ${formatInteger(record.sequenceNo)} 次</div></div>
                 <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></div></div>
+                <div><div class="text-xs text-muted-foreground">业务来源</div><div class="mt-1 font-semibold">${escapeHtml(supplementBusinessSourceLabels[record.businessSourceType])}</div>${record.businessSourceType === 'SEWING_RETURN' ? `<a class="mt-1 block text-xs text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(record.sourceReturnCaseId)}">${escapeHtml(record.sourceReturnOrderNo)}</a>` : ''}</div>
                 <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draftMeta.sourceType])} ${escapeHtml(record.draftMeta.sourceNo)}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(totalQty)} 件</div></div>
                 <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.productionOrderNo)}</div></div>
@@ -2489,6 +2527,8 @@ function renderSupplementDetailDialog(record: SupplementOrderLifecycle | undefin
               <span class="ml-3 text-muted-foreground">${escapeHtml(record.reasonDetail)}</span>
             </div>
 	          </section>
+
+          ${record.businessSourceType === 'SEWING_RETURN' ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-semibold text-blue-950">车缝退仓来源</h3><p class="mt-1 text-sm text-blue-900">退仓单 ${escapeHtml(record.sourceReturnOrderNo)} · 来源交出记录 ${record.sourceHandoverRecordIds.map(escapeHtml).join('、')}</p></div><a class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/cut-piece-return-processing?caseId=${encodeURIComponent(record.sourceReturnCaseId)}">查看退仓处理</a></div><p class="mt-2 text-sm text-blue-900">本补料单绑定原裁片单 <strong>${escapeHtml(record.cutOrderNo)}</strong>；从退裁片库区转入可复用裁片 ${formatInteger(reusableReturnPieceQty)} 片，新补裁部位和数量以本补料单明细为准。</p><div class="mt-3 flex flex-wrap gap-2">${record.sourceReturnPieceSnapshot.map((line) => `<span class="rounded border border-blue-200 bg-white px-2 py-1 text-xs">${escapeHtml(line.partName)} ${formatInteger(line.reusablePieceQty)} 片</span>`).join('')}</div></section>` : ''}
 
           <section>
             <h3 class="mb-2 font-semibold">各节点当前情况</h3>
@@ -2829,6 +2869,7 @@ function saveConfirmedSupplementRecord(input: {
     cutOrderNo: originalCutOrderNo || input.draft.sourceNo || '',
     productionOrderId: input.draft.productionOrderId,
     productionOrderNo: input.draft.productionOrderNo,
+    businessSourceType: 'MANUAL',
     reason: input.draft.reason,
     reasonDetail: input.draft.reasonDetail,
     totalQty: input.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0),
@@ -3341,9 +3382,11 @@ export function resetSupplementManagementMockDataForTest(): void {
 
 function setFiltersFromDom(): void {
   const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
+  const businessSourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="businessSourceType"]')?.value
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
   const value = (field: string) => document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-cutting-supplement-field="${field}"]`)?.value || ''
   state.filters = {
+    businessSourceType: businessSourceType === 'MANUAL' || businessSourceType === 'SEWING_RETURN' ? businessSourceType : 'ALL',
     sourceType: sourceType === 'production-order' || sourceType === 'cut-order' || sourceType === 'release-snapshot' ? sourceType : 'ALL',
     keyword: normalizeText(keyword),
     recordNo: normalizeText(value('recordNo')),
@@ -3505,7 +3548,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'reset-filters') {
-    state.filters = { sourceType: 'ALL', keyword: '', recordNo: '', productionOrderNo: '', cutOrderNo: '', styleKeyword: '', status: 'ALL', purchase: 'ALL', dye: 'ALL', print: 'ALL', currentNode: '', createdDate: '' }
+    state.filters = { businessSourceType: 'ALL', sourceType: 'ALL', keyword: '', recordNo: '', productionOrderNo: '', cutOrderNo: '', styleKeyword: '', status: 'ALL', purchase: 'ALL', dye: 'ALL', print: 'ALL', currentNode: '', createdDate: '' }
     state.page = 1
     state.feedback = null
     refreshSupplementFeedback()
@@ -3856,6 +3899,11 @@ export function renderCraftCuttingSupplementManagementPage(): string {
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
+  }
+  if (!state.requestedRecordNoHandled) {
+    state.requestedRecordNoHandled = true
+    const requestedRecordNo = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('recordNo') || ''
+    if (requestedRecordNo) state.activeRecordId = state.records.find((record) => record.recordNo === requestedRecordNo)?.id || ''
   }
 
   const view = getSupplementListView()

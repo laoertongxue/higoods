@@ -259,9 +259,12 @@ function scopeMaterialRows(
   productionOrderId: string,
   rows: PickupMaterialDemandRow[],
 ): PickupMaterialDemandRow[] {
-  return rows.map((row) => ({
+  return rows.map((row, index) => ({
     ...row,
     rowKey: `${listKind}:${productionOrderId}:${row.demandLineId}`,
+    // demandSequence 是当前需求组内的展示顺序。已到仓补料会并入生产单
+    // 当前节点，过滤掉仍独立配料的补料后必须重新连续编号。
+    demandSequence: index + 1,
   }))
 }
 

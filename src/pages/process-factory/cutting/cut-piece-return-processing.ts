@@ -5,22 +5,23 @@ import { createProcessOrderListController, type ProcessOrderListControllerState 
 import { normalizeListColumnPreferences } from '../../../components/ui/list-table-model.ts'
 import type { StandardListColumn } from '../../../components/ui/list-table.ts'
 import {
-  completeCutPieceReturnSupplement,
   confirmCutPieceReturnReceipt,
-  confirmCutPieceReturnRehandover,
+  createCutPieceReturnCase,
   createCutPieceReturnLargeTicket,
-  createCutPieceReturnRekitBatch,
   createCutPieceReturnSupplementPlan,
   getCutPieceReturnCase,
+  listCutPieceReturnInitiationCandidates,
   listCutPieceReturnCases,
   markCutPieceReturnLargeTicketPrinted,
   scrapCutPieceReturnInventory,
   type CutPieceReturnCaseProjection,
+  type CutPieceReturnIdentificationMode,
   type CutPieceReturnLargeTicket,
+  type CutPieceReturnPhysicalTicketStatus,
 } from '../../../data/fcs/cutting/cut-piece-return-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 
-type DialogMode = 'detail' | 'receive' | 'scrap' | 'supplement' | 'rekit' | 'ticket' | 'ticket-print' | null
+type DialogMode = 'create' | 'detail' | 'receive' | 'scrap' | 'supplement' | 'ticket' | 'ticket-print' | null
 
 interface CutPieceReturnPageState {
   filters: {
@@ -32,7 +33,7 @@ interface CutPieceReturnPageState {
   activeCaseId: string
   dialogMode: DialogMode
   activeTicketId: string
-  recognizedPartCodes: string[]
+  recognizedPartKeys: string[]
   feedback: { tone: 'success' | 'warning' | 'error'; message: string } | null
   imagePreview: { src: string; alt: string } | null
 }
@@ -55,7 +56,7 @@ const state: CutPieceReturnPageState = {
   activeCaseId: '',
   dialogMode: null,
   activeTicketId: '',
-  recognizedPartCodes: [],
+  recognizedPartKeys: [],
   feedback: null,
   imagePreview: null,
 }
@@ -67,8 +68,8 @@ function formatQty(value: number): string {
 }
 
 function toneClass(status: string): string {
-  if (/已关闭|已正式交出|已确认|已完成/.test(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-800'
-  if (/待|进行中|补料中/.test(status)) return 'border-amber-200 bg-amber-50 text-amber-800'
+  if (/已报废关闭|已转补料|已确认|已完成/.test(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-800'
+  if (/待|未完成/.test(status)) return 'border-amber-200 bg-amber-50 text-amber-800'
   return 'border-slate-200 bg-slate-50 text-slate-700'
 }
 
@@ -80,7 +81,7 @@ function renderImageThumb(src: string, alt: string, label: string): string {
   return `
     <button type="button" class="group relative h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-slate-100" data-skip-page-rerender="true" data-cut-piece-return-action="preview-image" data-image-src="${escapeHtml(src)}" data-image-alt="${escapeHtml(alt)}" aria-label="查看${escapeHtml(label)}大图">
       <span class="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500" data-image-loading>加载中</span>
-      <img class="relative h-full w-full object-cover" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" onload="this.previousElementSibling?.remove()" onerror="this.classList.add('hidden');this.previousElementSibling.textContent='图片加载失败'" />
+      <img class="relative h-full w-full object-cover" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" onload="this.previousElementSibling?.classList.add('hidden')" onerror="this.classList.add('hidden');if(this.previousElementSibling){this.previousElementSibling.classList.remove('hidden');this.previousElementSibling.textContent='图片加载失败'}" />
     </button>
   `
 }
@@ -103,7 +104,7 @@ function renderResponsibilityCell(row: CutPieceReturnCaseProjection): string {
   return `
     <div class="space-y-0.5 text-xs leading-5">
       <strong class="block text-sm">当前应回 ${formatQty(row.responsibility.currentExpectedReturnQty)} 件</strong>
-      <span class="block text-muted-foreground">首次 ${formatQty(row.responsibility.frozenMinimumReturnQty)} + 再交出 ${formatQty(row.responsibility.rehandedOverGarmentQty)}</span>
+      <span class="block text-muted-foreground">首次 ${formatQty(row.responsibility.frozenMinimumReturnQty)} + 后续正式交出 ${formatQty(row.responsibility.laterFormalHandoverGarmentQty)}</span>
       <span class="block text-muted-foreground">− 已确认退件 ${formatQty(row.responsibility.confirmedReturnedGarmentQty)}</span>
     </div>
   `
@@ -113,18 +114,19 @@ function renderInventoryCell(row: CutPieceReturnCaseProjection): string {
   return `
     <div class="text-xs leading-5">
       <strong class="block">退裁片库区 ${formatQty(row.returnZoneAvailablePieceQty)} 片</strong>
-      <span class="block text-muted-foreground">待交出仓 ${formatQty(row.waitHandoverPieceQty)} 片</span>
+      <span class="block text-muted-foreground">已转补料 ${formatQty(row.transferredToSupplementPieceQty)} 片</span>
       <span class="block text-muted-foreground">已报废 ${formatQty(row.scrappedPieceQty)} 片</span>
     </div>
   `
 }
 
 function renderActions(row: CutPieceReturnCaseProjection): string {
+  const canDispose = row.receiptStatus === '已确认退件' && !row.settlementType && row.returnZoneAvailablePieceQty > 0
   return `
     <div class="flex flex-wrap justify-end gap-1.5">
       <button type="button" class="rounded border px-2 py-1 text-xs hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-return-action="open-detail" data-case-id="${escapeHtml(row.caseId)}">详情</button>
       ${row.receiptStatus !== '已确认退件' ? `<button type="button" class="rounded border border-blue-600 bg-blue-600 px-2 py-1 text-xs text-white" data-skip-page-rerender="true" data-cut-piece-return-action="open-receive" data-case-id="${escapeHtml(row.caseId)}">接收清点</button>` : ''}
-      ${row.receiptStatus === '已确认退件' && row.returnZoneAvailablePieceQty > 0 ? `<button type="button" class="rounded border px-2 py-1 text-xs hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-return-action="open-ticket" data-case-id="${escapeHtml(row.caseId)}">快速打大菲票</button>` : ''}
+      ${canDispose ? `<button type="button" class="rounded border px-2 py-1 text-xs hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-return-action="open-ticket" data-case-id="${escapeHtml(row.caseId)}">快速打大菲票</button>` : ''}
     </div>
   `
 }
@@ -143,7 +145,7 @@ const columns: StandardListColumn<CutPieceReturnCaseProjection>[] = [
   { key: 'receipt', title: '接收与清点', width: 180, sortable: true, sortValue: (row) => row.receiptStatus, render: (row) => `<div class="space-y-1">${badge(row.receiptStatus)}<span class="block text-xs text-muted-foreground">已确认 ${formatQty(row.responsibility.confirmedReturnedGarmentQty)} 件</span></div>` },
   { key: 'responsibility', title: '工厂当前应回', width: 260, required: true, freezeable: true, sortable: true, sortValue: (row) => row.responsibility.currentExpectedReturnQty, render: renderResponsibilityCell },
   { key: 'inventory', title: '退裁片库存', width: 210, sortable: true, sortValue: (row) => row.returnZoneAvailablePieceQty, render: renderInventoryCell },
-  { key: 'supplement', title: '补料关联', width: 230, render: (row) => row.latestSupplementOrderNos.length ? `<div>${row.latestSupplementOrderNos.map((no) => `<a class="block text-xs text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/supplement-management?recordNo=${encodeURIComponent(no)}">${escapeHtml(no)}</a>`).join('')}</div>` : '<span class="text-xs text-muted-foreground">尚未创建</span>' },
+  { key: 'supplement', title: '补料关联', width: 250, render: (row) => row.latestSupplementStatuses.length ? `<div class="space-y-1">${row.latestSupplementStatuses.map((item) => `<a class="flex items-center justify-between gap-2 text-xs text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/supplement-management?recordNo=${encodeURIComponent(item.supplementOrderNo)}"><span>${escapeHtml(item.supplementOrderNo)}</span>${badge(item.status)}</a>`).join('')}</div>` : '<span class="text-xs text-muted-foreground">尚未创建</span>' },
   { key: 'status', title: '后续处理', width: 180, sortable: true, sortValue: (row) => row.dispositionStatus, render: (row) => badge(row.dispositionStatus) },
   { key: 'updatedAt', title: '最近更新', width: 170, sortable: true, sortValue: (row) => row.updatedAt, render: (row) => `<span class="text-xs">${escapeHtml(row.updatedAt)}</span>` },
   { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true, align: 'right', render: renderActions },
@@ -199,8 +201,8 @@ function renderFilters(): string {
   return `
     <div data-cut-piece-return-filters class="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
       <label class="min-w-[300px] flex-1 space-y-1"><span class="block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cut-piece-return-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="退仓单 / 交出单 / 生产单 / SPU / 工厂" /></label>
-      <label class="space-y-1"><span class="block text-xs text-muted-foreground">接收状态</span><select class="h-9 min-w-40 rounded-md border bg-background px-2 text-sm" data-skip-page-rerender="true" data-cut-piece-return-field="receiptStatus"><option value="ALL">全部</option>${['待接收', '已接收待清点', '已确认退件'].map((value) => `<option value="${value}" ${state.filters.receiptStatus === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
-      <label class="space-y-1"><span class="block text-xs text-muted-foreground">后续处理</span><select class="h-9 min-w-44 rounded-md border bg-background px-2 text-sm" data-skip-page-rerender="true" data-cut-piece-return-field="dispositionStatus"><option value="ALL">全部</option>${['待处理', '补料中', '待重新齐套', '已进入待交出仓', '已关闭'].map((value) => `<option value="${value}" ${state.filters.dispositionStatus === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+      <label class="space-y-1"><span class="block text-xs text-muted-foreground">接收状态</span><select class="h-9 min-w-40 rounded-md border bg-background px-2 text-sm" data-skip-page-rerender="true" data-cut-piece-return-field="receiptStatus"><option value="ALL">全部</option>${['待接收', '已确认退件'].map((value) => `<option value="${value}" ${state.filters.receiptStatus === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+      <label class="space-y-1"><span class="block text-xs text-muted-foreground">后续处理</span><select class="h-9 min-w-44 rounded-md border bg-background px-2 text-sm" data-skip-page-rerender="true" data-cut-piece-return-field="dispositionStatus"><option value="ALL">全部</option>${['待处理', '已转补料', '已报废关闭'].map((value) => `<option value="${value}" ${state.filters.dispositionStatus === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <button type="button" class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-return-action="reset-filters">重置</button>
     </div>
   `
@@ -211,19 +213,27 @@ function renderStats(rows: CutPieceReturnCaseProjection[]): string {
     { label: '退仓单', value: `${rows.length} 单` },
     { label: '当前应回', value: `${formatQty(rows.reduce((sum, row) => sum + row.responsibility.currentExpectedReturnQty, 0))} 件` },
     { label: '退裁片库区', value: `${formatQty(rows.reduce((sum, row) => sum + row.returnZoneAvailablePieceQty, 0))} 片` },
-    { label: '待重新齐套 / 待交出', value: `${rows.filter((row) => ['待重新齐套', '已进入待交出仓'].includes(row.dispositionStatus)).length} 单` },
+    { label: '待处理', value: `${rows.filter((row) => row.dispositionStatus === '待处理').length} 单` },
   ])}</div>`
 }
 
 function renderPartTable(record: CutPieceReturnCaseProjection): string {
   return `
     <div class="overflow-x-auto rounded-lg border">
-      <table class="w-full min-w-[760px] text-sm">
-        <thead class="bg-muted/40 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">部位</th><th class="px-3 py-2 text-left">原裁片单</th><th class="px-3 py-2 text-left">旧实物菲票</th><th class="px-3 py-2 text-right">退裁片可用</th><th class="px-3 py-2 text-right">补料到齐</th></tr></thead>
+      <table class="w-full min-w-[860px] text-sm">
+        <thead class="bg-muted/40 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">部位</th><th class="px-3 py-2 text-left">原裁片单</th><th class="px-3 py-2 text-left">历史来源菲票</th><th class="px-3 py-2 text-left">本次实物票证据</th><th class="px-3 py-2 text-right">退裁片可用</th><th class="px-3 py-2 text-right">已转补料</th><th class="px-3 py-2 text-right">已报废</th></tr></thead>
         <tbody>${record.parts.map((part) => {
-          const returned = record.inventoryLots.filter((lot) => lot.partCode === part.partCode && lot.sourceType === '三方工厂退回' && lot.warehouseArea === '退裁片库区').reduce((sum, lot) => sum + Math.max(lot.pieceQty - lot.allocatedPieceQty - lot.scrappedPieceQty, 0), 0)
-          const supplied = record.inventoryLots.filter((lot) => lot.partCode === part.partCode && lot.sourceType === '补料裁片' && lot.warehouseArea === '退裁片库区').reduce((sum, lot) => sum + Math.max(lot.pieceQty - lot.allocatedPieceQty - lot.scrappedPieceQty, 0), 0)
-          return `<tr class="border-t"><td class="px-3 py-2"><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.partCode)}</span></td><td class="px-3 py-2 text-xs">${escapeHtml(part.sourceCutOrderNo)}</td><td class="px-3 py-2">${badge(part.oldPhysicalTicketStatus)}</td><td class="px-3 py-2 text-right tabular-nums">${formatQty(returned)} 片</td><td class="px-3 py-2 text-right tabular-nums">${formatQty(supplied)} 片</td></tr>`
+          const lots = record.inventoryLots.filter((lot) => lot.partCode === part.partCode && lot.sourceCutOrderId === part.sourceCutOrderId)
+          const available = lots.reduce((sum, lot) => sum + Math.max(lot.pieceQty - lot.transferredPieceQty - lot.scrappedPieceQty, 0), 0)
+          const transferred = lots.reduce((sum, lot) => sum + lot.transferredPieceQty, 0)
+          const scrapped = lots.reduce((sum, lot) => sum + lot.scrappedPieceQty, 0)
+          const receiptEvidence = record.receipts.flatMap((receipt) => receipt.partCounts).find((item) => item.partCode === part.partCode && item.sourceCutOrderId === part.sourceCutOrderId)
+          const evidenceText = !receiptEvidence
+            ? '尚未清点'
+            : receiptEvidence.identificationMode === 'SCAN_OLD_TICKET'
+              ? `已扫码 · ${receiptEvidence.scannedTicketNo}`
+              : receiptEvidence.physicalTicketStatus === 'UNREADABLE' ? '票据不可识别 · 手动选部位' : '未带实物票 · 手动选部位'
+          return `<tr class="border-t"><td class="px-3 py-2"><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.partCode)}</span></td><td class="px-3 py-2 text-xs">${escapeHtml(part.sourceCutOrderNo)}</td><td class="px-3 py-2 text-xs">${part.historicalTicketExists ? `系统有记录 · ${escapeHtml(part.oldFeiTicketNo)}` : '系统无历史票号'}</td><td class="px-3 py-2 text-xs">${escapeHtml(evidenceText)}</td><td class="px-3 py-2 text-right tabular-nums">${formatQty(available)} 片</td><td class="px-3 py-2 text-right tabular-nums">${formatQty(transferred)} 片</td><td class="px-3 py-2 text-right tabular-nums">${formatQty(scrapped)} 片</td></tr>`
         }).join('')}</tbody>
       </table>
     </div>
@@ -234,7 +244,7 @@ function renderResponsibilityPanel(record: CutPieceReturnCaseProjection): string
   return `
     <section class="rounded-lg border border-blue-200 bg-blue-50 p-4">
       <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="font-semibold text-blue-950">车缝工厂当前应回责任</h3><p class="mt-1 text-sm text-blue-900">${escapeHtml(record.responsibility.formulaText)}</p></div><strong class="text-xl text-blue-950">${formatQty(record.responsibility.currentExpectedReturnQty)} 件</strong></div>
-      <p class="mt-2 text-xs text-blue-800">部位清点差异只进入报废 / 补料 / 重新齐套处理，不二次扣减工厂应回责任；重新齐套放入待交出仓也不增加责任，只有正式交出后才增加。</p>
+      <p class="mt-2 text-xs text-blue-800">部位清点差异只进入报废或补料处理，不二次扣减工厂应回责任；创建退仓、报废、创建或完成补料都不增加责任，只有普通交出流程形成新的正式交出后才增加。</p>
     </section>
   `
 }
@@ -252,49 +262,59 @@ function renderDialogShell(title: string, subtitle: string, body: string, footer
   `
 }
 
+function partKey(part: CutPieceReturnCaseProjection['parts'][number]): string {
+  return `${part.sourceCutOrderId}::${part.partCode}`
+}
+
+function partAvailableQty(record: CutPieceReturnCaseProjection, sourceCutOrderId: string, partCode: string): number {
+  return record.inventoryLots
+    .filter((lot) => lot.sourceCutOrderId === sourceCutOrderId && lot.partCode === partCode && lot.warehouseArea === '退裁片库区')
+    .reduce((sum, lot) => sum + Math.max(lot.pieceQty - lot.transferredPieceQty - lot.scrappedPieceQty, 0), 0)
+}
+
+function renderCreateDialog(): string {
+  const candidates = listCutPieceReturnInitiationCandidates()
+  const firstEligible = candidates.find((candidate) => candidate.eligible)?.candidateId || ''
+  return renderDialogShell(
+    '新增裁片退仓',
+    '从已正式交给车缝工厂的齐套责任中发起；发起只冻结来源，不改变工厂当前应回数量。',
+    `<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">系统冻结交出单、交出记录、车缝工厂、生产单、颜色尺码、原裁片单和部位。每个责任范围同时只能有一张未结算退仓单。</div><div class="space-y-3">${candidates.map((candidate) => `<label class="block rounded-lg border p-4 ${candidate.eligible ? 'cursor-pointer hover:border-blue-400' : 'bg-muted/30 opacity-75'}"><div class="flex items-start gap-3"><input type="radio" name="cut-piece-return-candidate" value="${escapeHtml(candidate.candidateId)}" class="mt-1" ${candidate.candidateId === firstEligible ? 'checked' : ''} ${candidate.eligible ? '' : 'disabled'} /><div class="flex min-w-0 flex-1 gap-3">${renderImageThumb(candidate.styleImageUrl, candidate.styleImageAlt, `${candidate.spuCode} 款式`)}${candidate.parts[0] ? renderImageThumb(candidate.parts[0].sourceMaterialImageUrl, candidate.parts[0].sourceMaterialImageAlt, `${candidate.parts[0].sourceMaterialSku} 物料`) : ''}<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><strong>${escapeHtml(candidate.sourceHandoverOrderNo)} · ${escapeHtml(candidate.productionOrderNo)}</strong>${candidate.eligible ? badge('可发起') : badge('已阻断')}</div><p class="mt-1 text-sm">${escapeHtml(candidate.spuCode)} · ${escapeHtml(candidate.styleName)} · ${escapeHtml(candidate.garmentColor)} / ${escapeHtml(candidate.size)}</p><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.sourceFactoryName)} · 交出记录 ${candidate.sourceHandoverRecordNos.map(escapeHtml).join('、')} · 原裁片单 ${[...new Set(candidate.parts.map((part) => part.sourceCutOrderNo))].map(escapeHtml).join('、')}</p><p class="mt-1 text-xs">首次责任 ${formatQty(candidate.frozenMinimumReturnQty)} 件 · 当前应回 ${formatQty(candidate.currentExpectedReturnQty)} 件 · ${candidate.parts.length} 个部位</p>${candidate.blockedReasons.length ? `<p class="mt-2 text-xs text-red-700">${candidate.blockedReasons.map(escapeHtml).join('；')}</p>` : ''}</div></div></div></label>`).join('')}</div><label class="block space-y-1"><span class="text-sm font-medium">发起人</span><input value="裁床退仓员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label>`,
+    '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-create-return">确认发起退仓</button>',
+  )
+}
+
 function renderDetailDialog(record: CutPieceReturnCaseProjection): string {
   const latestPlan = record.supplementPlans.at(-1)
-  const waitBatch = record.rekitBatches.find((batch) => batch.stage === '待交出仓')
+  const canDispose = record.receiptStatus === '已确认退件' && !record.settlementType && record.returnZoneAvailablePieceQty > 0
   return renderDialogShell(
     `${record.returnOrderNo} · 裁片退仓处理`,
     `${record.productionOrderNo} / ${record.garmentColor} / ${record.size}`,
-    `
-      ${renderResponsibilityPanel(record)}
-      <section class="grid gap-3 md:grid-cols-2"><div class="rounded-lg border p-4"><h3 class="font-semibold">来源交出事实</h3><dl class="mt-3 grid grid-cols-[120px_1fr] gap-2 text-sm"><dt class="text-muted-foreground">交出单</dt><dd>${escapeHtml(record.sourceHandoverOrderNo)}</dd><dt class="text-muted-foreground">交出记录</dt><dd>${escapeHtml(record.sourceHandoverRecordNo)}</dd><dt class="text-muted-foreground">冻结放行快照</dt><dd>${escapeHtml(record.frozenReleaseSnapshotId)}</dd><dt class="text-muted-foreground">来源工厂</dt><dd>${escapeHtml(record.sourceFactoryName)}</dd></dl></div><div class="rounded-lg border p-4"><h3 class="font-semibold">库区边界</h3><p class="mt-2 text-sm">退回裁片先进入<strong>裁床待交出仓内独立的退裁片库区</strong>；报废从这里核销。退回裁片与补料裁片完成部位齐套并装入同一新中转袋后，才转为<strong>正常裁床待交出仓库存</strong>。</p></div></section>
-      ${renderPartTable(record)}
-      <section class="rounded-lg border p-4"><h3 class="font-semibold">接收记录</h3>${record.receipts.length ? record.receipts.map((receipt) => `<div class="mt-3 rounded-md bg-muted/30 p-3 text-sm"><strong>${formatQty(receipt.returnedGarmentQty)} 件</strong><span class="ml-2 text-muted-foreground">${escapeHtml(receipt.confirmedAt)} · ${escapeHtml(receipt.confirmedBy)}</span><p class="mt-1">${escapeHtml(receipt.differenceSummary)}</p></div>`).join('') : '<p class="mt-2 text-sm text-muted-foreground">尚未确认退件。</p>'}</section>
-      <section class="rounded-lg border p-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-semibold">补料与重新齐套</h3><p class="mt-1 text-xs text-muted-foreground">补哪些部位、各补多少片可手动调整；最终补齐件数单独确认。</p></div><a class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/supplement-management">查看补料管理</a></div>${latestPlan ? `<div class="mt-3 text-sm"><p><strong>最终补齐：</strong>${latestPlan.finalMakeupGarmentQty} 件</p><p class="mt-1"><strong>部位：</strong>${latestPlan.partLines.map((line) => `${line.partName} ${line.supplementPieceQty} 片`).join('、')}</p><p class="mt-1"><strong>补料单：</strong>${latestPlan.supplementLinks.map((link) => `${link.supplementOrderNo}（${link.status}）`).join('、')}</p></div>` : '<p class="mt-2 text-sm text-muted-foreground">尚未创建补料计划。</p>'}</section>
-      ${waitBatch ? `<section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"><h3 class="font-semibold">已进入裁床待交出仓</h3><p class="mt-1">中转袋 ${escapeHtml(waitBatch.transferBagCode)} · ${waitBatch.finalGarmentQty} 件 · ${waitBatch.partCounts.reduce((sum, item) => sum + item.pieceQty, 0)} 片。正式交出后才会把 ${waitBatch.finalGarmentQty} 件加回车缝工厂应回责任。</p></section>` : ''}
-      <section class="rounded-lg border p-4"><h3 class="font-semibold">操作追溯</h3><div class="mt-3 space-y-2">${record.operationLogs.length ? record.operationLogs.slice().reverse().map((log) => `<div class="grid gap-1 rounded-md bg-muted/30 p-3 text-xs md:grid-cols-[150px_1fr_180px]"><strong>${escapeHtml(log.action)}</strong><div><span class="font-medium">${escapeHtml(log.businessNo)}</span><span class="ml-2">${escapeHtml(log.quantityText)}</span><p class="mt-1 text-muted-foreground">${escapeHtml(log.note)}</p></div><span class="text-muted-foreground">${escapeHtml(log.operatedAt)} · ${escapeHtml(log.operatedBy)}</span></div>`).join('') : '<p class="text-sm text-muted-foreground">暂无操作记录。</p>'}</div></section>
-    `,
-    `<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="open-scrap" data-case-id="${escapeHtml(record.caseId)}">报废退裁片</button><button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="open-supplement" data-case-id="${escapeHtml(record.caseId)}">创建补料</button>${latestPlan && !latestPlan.completedAt ? `<button type="button" class="rounded border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="complete-supplement" data-case-id="${escapeHtml(record.caseId)}" data-plan-id="${escapeHtml(latestPlan.planId)}">模拟补料完成入库</button>` : ''}${record.dispositionStatus === '待重新齐套' ? `<button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="open-rekit" data-case-id="${escapeHtml(record.caseId)}">重新齐套装袋</button>` : ''}${waitBatch ? `<button type="button" class="rounded border border-blue-700 bg-blue-700 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-rehandover" data-case-id="${escapeHtml(record.caseId)}" data-rekit-id="${escapeHtml(waitBatch.rekitBatchId)}">确认正式交出</button>` : ''}`,
+    `${renderResponsibilityPanel(record)}<section class="grid gap-3 md:grid-cols-2"><div class="rounded-lg border p-4"><h3 class="font-semibold">来源交出事实</h3><dl class="mt-3 grid grid-cols-[120px_1fr] gap-2 text-sm"><dt class="text-muted-foreground">交出单</dt><dd>${escapeHtml(record.sourceHandoverOrderNo)}</dd><dt class="text-muted-foreground">交出记录</dt><dd>${record.sourceHandoverRecordNos.map(escapeHtml).join('、')}</dd><dt class="text-muted-foreground">冻结放行快照</dt><dd>${escapeHtml(record.frozenReleaseSnapshotId)}</dd><dt class="text-muted-foreground">来源工厂</dt><dd>${escapeHtml(record.sourceFactoryName)}</dd></dl></div><div class="rounded-lg border p-4"><h3 class="font-semibold">退仓结算边界</h3><p class="mt-2 text-sm">确认退件后，各部位实际片数进入<strong>退裁片库区</strong>。报废从该库区核销；非报废裁片在创建关联补料单时整体转入补料业务，本退仓单即结算。后续裁剪、齐套、装袋和交出统一由普通补料与交出流程处理。</p></div></section>${renderPartTable(record)}<section class="rounded-lg border p-4"><h3 class="font-semibold">接收记录</h3>${record.receipts.length ? record.receipts.map((receipt) => `<div class="mt-3 rounded-md bg-muted/30 p-3 text-sm"><strong>${formatQty(receipt.returnedGarmentQty)} 件</strong><span class="ml-2 text-muted-foreground">${escapeHtml(receipt.confirmedAt)} · ${escapeHtml(receipt.confirmedBy)}</span><p class="mt-1">${escapeHtml(receipt.differenceSummary)}</p></div>`).join('') : '<p class="mt-2 text-sm text-muted-foreground">尚未确认退件。</p>'}</section><section class="rounded-lg border p-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-semibold">补料关联</h3><p class="mt-1 text-xs text-muted-foreground">按原裁片单拆单；创建成功即完成退仓侧结算，后续仅跟踪补料单状态。</p></div><a class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/cutting/supplement-management">查看补料管理</a></div>${latestPlan ? `<div class="mt-3 text-sm"><p><strong>最终补：</strong>${latestPlan.finalMakeupGarmentQty} 件</p><p class="mt-1"><strong>新补裁：</strong>${latestPlan.partLines.map((line) => `${escapeHtml(line.partName)} ${line.supplementPieceQty} 片`).join('、')}</p><div class="mt-2 flex flex-wrap gap-2">${record.latestSupplementStatuses.map((item) => `<a class="inline-flex items-center gap-2 rounded border px-2 py-1 text-blue-700" data-nav="/fcs/craft/cutting/supplement-management?recordNo=${encodeURIComponent(item.supplementOrderNo)}"><span>${escapeHtml(item.supplementOrderNo)}</span>${badge(item.status)}</a>`).join('')}</div></div>` : '<p class="mt-2 text-sm text-muted-foreground">尚未创建补料单。</p>'}</section>${record.settlementType ? `<section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"><h3 class="font-semibold">退仓处理已结算</h3><p class="mt-1">${record.settlementType === 'SUPPLEMENT_CREATED' ? '非报废裁片已转入补料业务并建立原裁片单关联。' : '退裁片库区库存已全部报废核销。'} ${escapeHtml(record.settledAt)} · ${escapeHtml(record.settledBy)}</p></section>` : ''}<section class="rounded-lg border p-4"><h3 class="font-semibold">操作追溯</h3><div class="mt-3 space-y-2">${record.operationLogs.length ? record.operationLogs.slice().reverse().map((log) => `<div class="grid gap-1 rounded-md bg-muted/30 p-3 text-xs md:grid-cols-[150px_1fr_180px]"><strong>${escapeHtml(log.action)}</strong><div><span class="font-medium">${escapeHtml(log.businessNo)}</span><span class="ml-2">${escapeHtml(log.quantityText)}</span><p class="mt-1 text-muted-foreground">${escapeHtml(log.note)}</p></div><span class="text-muted-foreground">${escapeHtml(log.operatedAt)} · ${escapeHtml(log.operatedBy)}</span></div>`).join('') : '<p class="text-sm text-muted-foreground">暂无操作记录。</p>'}</div></section>`,
+    canDispose ? `<button type="button" class="rounded border border-red-200 px-4 py-2 text-sm text-red-700" data-cut-piece-return-action="open-scrap" data-case-id="${escapeHtml(record.caseId)}">报废退裁片</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="open-supplement" data-case-id="${escapeHtml(record.caseId)}">创建补料并结算</button>` : '',
   )
 }
 
 function renderReceiveDialog(record: CutPieceReturnCaseProjection): string {
   return renderDialogShell(
     '接收、清点并确认退件',
-    '先按件接收，再按部位清点，最终按件确认；部位差异不反向修改确认退件数。',
-    `${renderResponsibilityPanel(record)}<section class="rounded-lg border p-4"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">1</span><div><strong>按件接收</strong><p class="mt-1 text-xs text-muted-foreground">登记三方车缝工厂本次送回的件数，作为现场接收对象。</p></div></div><div class="mt-3 grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">本次接收并最终确认退件（件）</span><input type="number" min="1" max="${record.responsibility.currentExpectedReturnQty}" value="12" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="returnedGarmentQty" /></label><label class="space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床退仓员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label></div></section><section class="rounded-lg border"><div class="border-b bg-muted/30 px-4 py-3"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">2</span><div><strong>按部位清点（片）</strong><p class="mt-1 text-xs text-muted-foreground">可以扫描旧菲票；实物票缺失时直接按系统已知部位手填数量。部位差异保留，不反向改写件数。</p></div></div></div>${record.parts.map((part) => `<label class="grid grid-cols-[1fr_140px] items-center gap-3 border-b px-4 py-3 last:border-b-0"><span><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.partCode)} · ${escapeHtml(part.oldPhysicalTicketStatus)}</span></span><input type="number" min="0" value="12" class="h-9 rounded-md border px-3 text-right" data-cut-piece-return-part-count="${escapeHtml(part.partCode)}" /></label>`).join('')}</section><section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-sm font-semibold text-white">3</span><div><strong>最终按件确认</strong><p class="mt-1 text-xs text-emerald-900">确认后按件数扣减车缝工厂应回责任；各部位按实际片数进入退裁片库区。</p></div></div></section>`,
+    '先按件接收，再逐个部位记录识别依据和实际片数，最终按件确认。',
+    `${renderResponsibilityPanel(record)}<section class="rounded-lg border p-4"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">1</span><div><strong>按件接收</strong><p class="mt-1 text-xs text-muted-foreground">本次确认退件数不得超过当前应回；创建退仓本身不扣减。</p></div></div><div class="mt-3 grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">本次接收并最终确认退件（件）</span><input type="number" min="1" max="${record.responsibility.currentExpectedReturnQty}" value="1" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="returnedGarmentQty" /></label><label class="space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床退仓员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label></div></section><section class="rounded-lg border"><div class="border-b bg-muted/30 px-4 py-3"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">2</span><div><strong>按部位清点（片）</strong><p class="mt-1 text-xs text-muted-foreground">“有实物票”只在旧菲票成功扫描并匹配本单时成立；未带票或票据不可识别时，按冻结部位手动选择并录入实际片数。</p></div></div></div>${record.parts.map((part, index) => `<div class="grid gap-3 border-b px-4 py-3 last:border-b-0 md:grid-cols-[1fr_190px_210px_120px] md:items-end" data-cut-piece-return-receive-row="${index}"><div><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.partCode)}</span><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(part.sourceCutOrderNo)} · ${part.historicalTicketExists ? `系统历史票号 ${escapeHtml(part.oldFeiTicketNo)}` : '系统无历史票号'}</p></div><label class="space-y-1"><span class="block text-xs text-muted-foreground">本次识别方式</span><select class="h-9 w-full rounded-md border px-2 text-sm" data-cut-piece-return-evidence-mode><option value="MANUAL_MISSING">未带实物票，手动选部位</option><option value="MANUAL_UNREADABLE">实物票不可识别，手动选部位</option><option value="SCAN">扫描旧菲票并匹配</option></select></label><label class="space-y-1"><span class="block text-xs text-muted-foreground">扫描票号（仅扫码时填写）</span><input class="h-9 w-full rounded-md border px-3 text-sm" data-cut-piece-return-scanned-ticket placeholder="${escapeHtml(part.oldFeiTicketNo)}" /></label><label class="space-y-1"><span class="block text-xs text-muted-foreground">实际清点（片）</span><input type="number" min="0" value="0" class="h-9 w-full rounded-md border px-3 text-right" data-cut-piece-return-part-count /></label></div>`).join('')}</section><section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4"><div class="flex items-start gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-sm font-semibold text-white">3</span><div><strong>最终按件确认</strong><p class="mt-1 text-xs text-emerald-900">确认后按件数扣减车缝工厂应回责任；各部位按实际片数进入退裁片库区。部位差异不反向改写件数。</p></div></div></section>`,
     '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-receive">确认退件并入退裁片库区</button>',
   )
 }
 
 function renderScrapDialog(record: CutPieceReturnCaseProjection): string {
-  return renderDialogShell('报废退裁片', '报废只核销退裁片库区库存，不再次改变车缝工厂应回责任。', `<div class="grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">部位</span><select class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="scrapPartCode">${record.parts.map((part) => `<option value="${escapeHtml(part.partCode)}">${escapeHtml(part.partName)}</option>`).join('')}</select></label><label class="space-y-1"><span class="text-sm font-medium">报废数量（片）</span><input type="number" min="1" value="1" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="scrapQty" /></label></div><label class="block space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床主管" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label><div class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">报废不可撤销，提交前必须确认部位和数量。</div>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-scrap">确认报废</button>')
+  const parts = record.parts.filter((part) => partAvailableQty(record, part.sourceCutOrderId, part.partCode) > 0)
+  return renderDialogShell('报废退裁片', '报废从退裁片库区永久核销，不再次改变车缝工厂应回责任。', `<div class="grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">原裁片单 / 部位</span><select class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="scrapPartKey">${parts.map((part) => `<option value="${escapeHtml(partKey(part))}">${escapeHtml(part.sourceCutOrderNo)} · ${escapeHtml(part.partName)}（可用 ${formatQty(partAvailableQty(record, part.sourceCutOrderId, part.partCode))} 片）</option>`).join('')}</select></label><label class="space-y-1"><span class="text-sm font-medium">报废数量（片）</span><input type="number" min="1" value="1" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="scrapQty" /></label></div><label class="block space-y-1"><span class="text-sm font-medium">报废原因</span><textarea class="min-h-20 w-full rounded-md border px-3 py-2 text-sm" data-cut-piece-return-form="scrapReason" placeholder="必填：污染、破损、缺片无法使用等"></textarea></label><label class="block space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床主管" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label><div class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">报废不可撤销；全部可用退裁片报废后，本退仓单按“已报废关闭”结算。</div>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-scrap">确认报废</button>')
 }
 
 function renderSupplementDialog(record: CutPieceReturnCaseProjection): string {
-  return renderDialogShell('创建退仓补料计划', '补哪些部位、补多少片均可手动调整，不受本次退回部位清点数量上限约束；最终补齐件数必须单独明确。', `<div class="grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">最终补齐件数（件）</span><input type="number" min="1" value="12" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="finalMakeupGarmentQty" /></label><label class="space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床主管" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label></div><div class="rounded-lg border"><div class="border-b bg-muted/30 px-4 py-3"><strong>手动补裁部位（片）</strong></div>${record.parts.map((part) => `<label class="grid grid-cols-[1fr_140px] items-center gap-3 border-b px-4 py-3 last:border-b-0"><span><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">拆分到 ${escapeHtml(part.sourceCutOrderNo)}</span></span><input type="number" min="0" value="${part.partCode === 'BACK' ? '2' : '0'}" class="h-9 rounded-md border px-3 text-right" data-cut-piece-return-supplement-count="${escapeHtml(part.partCode)}" /></label>`).join('')}</div><p class="text-xs text-muted-foreground">如部位来自不同原裁片单，系统会按原裁片单拆成多张补料单，但仍归属于同一退仓补料计划。</p>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-supplement">创建并关联补料单</button>')
-}
-
-function renderRekitDialog(record: CutPieceReturnCaseProjection): string {
-  const latestPlan = record.supplementPlans.at(-1)
-  return renderDialogShell('重新齐套并装入新中转袋', '系统按最终件数校验每个必需部位；退裁片与补料裁片可混合齐套，但只能整体移入正常待交出仓。', `${renderPartTable(record)}<div class="grid gap-4 md:grid-cols-3"><label class="space-y-1"><span class="text-sm font-medium">本次最终齐套（件）</span><input type="number" min="1" value="${latestPlan?.finalMakeupGarmentQty || 1}" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="rekitGarmentQty" /></label><label class="space-y-1"><span class="text-sm font-medium">新中转袋</span><input value="BAG-RETURN-${escapeHtml(record.returnOrderNo.slice(-3))}" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="transferBagCode" /></label><label class="space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁片齐套员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label></div><div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">提交后只形成“裁床待交出仓”库存和新中转袋，不增加工厂应回责任；必须在待交出仓正式交出后才增加。</div>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-rekit">确认齐套并转待交出仓</button>')
+  return renderDialogShell('创建车缝退仓补料', '手动确认新补裁部位和片数，不受之前清点数量限制；同时明确最终补多少件。', `<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">提交后按原裁片单原子拆分补料单，业务来源标记为“车缝退仓”；剩余退裁片整体转入对应补料业务，本退仓单立即结算。后续齐套、装袋与交出统一由普通补料和交出流程办理。</div><div class="grid gap-4 md:grid-cols-2"><label class="space-y-1"><span class="text-sm font-medium">最终补多少件（件）</span><input type="number" min="1" value="1" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="finalMakeupGarmentQty" /></label><label class="space-y-1"><span class="text-sm font-medium">操作人</span><input value="裁床主管" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label></div><div class="rounded-lg border"><div class="border-b bg-muted/30 px-4 py-3"><strong>手动确认新补裁部位（片）</strong><p class="mt-1 text-xs text-muted-foreground">每个仍有退裁片的原裁片单至少填写一个正数部位；否则请先报废该原裁片单下的剩余退裁片。</p></div>${record.parts.map((part, index) => `<label class="grid grid-cols-[1fr_140px] items-center gap-3 border-b px-4 py-3 last:border-b-0" data-cut-piece-return-supplement-row="${index}"><span><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.partCode)}</span><span class="block text-xs text-muted-foreground">原裁片单 ${escapeHtml(part.sourceCutOrderNo)} · 可复用退裁片 ${formatQty(partAvailableQty(record, part.sourceCutOrderId, part.partCode))} 片</span></span><input type="number" min="0" value="0" class="h-9 rounded-md border px-3 text-right" data-cut-piece-return-supplement-count /></label>`).join('')}</div>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="confirm-supplement">创建补料单并结算退仓</button>')
 }
 
 function renderTicketDialog(record: CutPieceReturnCaseProjection): string {
-  return renderDialogShell('快速确认部位并生成退裁片大菲票', '有旧票先扫描；旧票缺失时可按系统已知部位快速选择。大菲票一次覆盖当前选择的多个部位。', `<div class="flex gap-2"><input class="h-10 flex-1 rounded-md border px-3" data-cut-piece-return-form="partScan" placeholder="扫描旧菲票号 / 输入部位码或部位名称" /><button type="button" class="rounded border px-4 text-sm" data-cut-piece-return-action="recognize-part">识别部位</button><button type="button" class="rounded border px-4 text-sm" data-cut-piece-return-action="select-all-parts">全选可用部位</button></div><div class="rounded-lg border">${record.parts.map((part) => { const checked = state.recognizedPartCodes.includes(part.partCode); return `<label class="flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"><span><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.oldFeiTicketNo)} · ${escapeHtml(part.oldPhysicalTicketStatus)}</span></span><input type="checkbox" value="${escapeHtml(part.partCode)}" data-cut-piece-return-ticket-part ${checked ? 'checked' : ''} /></label>` }).join('')}</div><label class="block space-y-1"><span class="text-sm font-medium">制票人</span><input value="裁床退仓员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="create-large-ticket">生成大菲票</button>')
+  const availableParts = record.parts.filter((part) => partAvailableQty(record, part.sourceCutOrderId, part.partCode) > 0)
+  return renderDialogShell('快速确认部位并生成退裁片大菲票', '旧实物菲票缺失是正常现场场景；可扫描历史票号，也可直接按原裁片单和部位快速选择。', `<div class="flex flex-wrap gap-2"><input class="h-10 min-w-[260px] flex-1 rounded-md border px-3" data-cut-piece-return-form="partScan" placeholder="扫描旧菲票号 / 输入裁片单、部位码或名称" /><button type="button" class="rounded border px-4 text-sm" data-cut-piece-return-action="recognize-part">识别部位</button><button type="button" class="rounded border px-4 text-sm" data-cut-piece-return-action="select-all-parts">全选可用部位</button></div><div class="rounded-lg border">${availableParts.map((part) => { const key = partKey(part); const checked = state.recognizedPartKeys.includes(key); const evidence = record.receipts.flatMap((receipt) => receipt.partCounts).find((item) => item.sourceCutOrderId === part.sourceCutOrderId && item.partCode === part.partCode); return `<label class="flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"><span><strong>${escapeHtml(part.partName)}</strong><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(part.sourceCutOrderNo)} · 可用 ${formatQty(partAvailableQty(record, part.sourceCutOrderId, part.partCode))} 片</span><span class="block text-xs text-muted-foreground">历史来源票：${part.historicalTicketExists ? escapeHtml(part.oldFeiTicketNo) : '无'}；本次证据：${evidence?.identificationMode === 'SCAN_OLD_TICKET' ? `已扫码 ${escapeHtml(evidence.scannedTicketNo)}` : evidence ? '手动选部位' : '尚未记录'}</span></span><input type="checkbox" value="${escapeHtml(key)}" data-cut-piece-return-ticket-part ${checked ? 'checked' : ''} /></label>` }).join('')}</div><label class="block space-y-1"><span class="text-sm font-medium">制票人</span><input value="裁床退仓员" class="h-10 w-full rounded-md border px-3" data-cut-piece-return-form="operator" /></label>`, '<button type="button" class="rounded border px-4 py-2 text-sm" data-cut-piece-return-action="close-dialog">取消</button><button type="button" class="rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm text-white" data-cut-piece-return-action="create-large-ticket">生成大菲票</button>')
 }
 
 function renderLargeTicketPrint(record: CutPieceReturnCaseProjection, ticket: CutPieceReturnLargeTicket): string {
@@ -304,17 +324,18 @@ function renderLargeTicketPrint(record: CutPieceReturnCaseProjection, ticket: Cu
 
 function renderOverlays(): string {
   const record = selectedCase()
-  const dialog = !record || !state.dialogMode
+  const dialog = !state.dialogMode
     ? ''
-    : state.dialogMode === 'detail' ? renderDetailDialog(record)
+    : state.dialogMode === 'create' ? renderCreateDialog()
+      : !record ? ''
+      : state.dialogMode === 'detail' ? renderDetailDialog(record)
       : state.dialogMode === 'receive' ? renderReceiveDialog(record)
         : state.dialogMode === 'scrap' ? renderScrapDialog(record)
           : state.dialogMode === 'supplement' ? renderSupplementDialog(record)
-            : state.dialogMode === 'rekit' ? renderRekitDialog(record)
-              : state.dialogMode === 'ticket' ? renderTicketDialog(record)
-                : state.dialogMode === 'ticket-print'
-                  ? (() => { const ticket = record.largeTickets.find((item) => item.ticketId === state.activeTicketId); return ticket ? renderLargeTicketPrint(record, ticket) : '' })()
-                  : ''
+            : state.dialogMode === 'ticket' ? renderTicketDialog(record)
+              : state.dialogMode === 'ticket-print'
+                ? (() => { const ticket = record.largeTickets.find((item) => item.ticketId === state.activeTicketId); return ticket ? renderLargeTicketPrint(record, ticket) : '' })()
+                : ''
   const image = state.imagePreview ? `<div class="fixed inset-0 z-[170] flex items-center justify-center bg-black/75 p-4" data-skip-page-rerender="true" data-cut-piece-return-image-preview><button type="button" class="absolute inset-0" data-cut-piece-return-action="close-image-preview" aria-label="关闭大图"></button><div class="relative max-h-[92vh] max-w-[92vw]"><img src="${escapeHtml(state.imagePreview.src)}" alt="${escapeHtml(state.imagePreview.alt)}" class="max-h-[88vh] max-w-[88vw] object-contain" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')" /><div class="hidden rounded bg-white p-8 text-sm text-red-700">图片加载失败，请关闭后核对素材。</div><button type="button" class="absolute -right-3 -top-3 h-9 w-9 rounded-full bg-white text-xl shadow" data-cut-piece-return-action="close-image-preview" aria-label="关闭大图">×</button></div></div>` : ''
   return `${listController.renderColumnSettings()}${dialog}${image}`
 }
@@ -328,7 +349,7 @@ export function renderCraftCuttingCutPieceReturnProcessingPage(): string {
   })
   return `<div data-cut-piece-return-page>${renderStandardListPage({
     title: '裁片退仓处理',
-    primaryActionsHtml: '<a class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover">查看裁床待交出仓</a>',
+    primaryActionsHtml: '<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-600 bg-blue-600 px-3 text-sm text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cut-piece-return-action="open-create">新增退仓</button><a class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover">查看退裁片库区</a>',
     feedbackHtml: renderFeedback(),
     filtersHtml: renderFilters(),
     statsHtml: renderStats(rows),
@@ -391,7 +412,7 @@ function openDialog(caseId: string, mode: Exclude<DialogMode, null>): void {
   state.activeCaseId = caseId
   state.dialogMode = mode
   state.activeTicketId = ''
-  state.recognizedPartCodes = []
+  state.recognizedPartKeys = []
   state.feedback = null
 }
 
@@ -439,24 +460,55 @@ export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: Eve
   if (action === 'close-dialog') { state.dialogMode = null; state.activeTicketId = ''; refreshCutPieceReturnOverlays(); return true }
   if (action === 'preview-image') { state.imagePreview = { src: actionNode.dataset.imageSrc || '', alt: actionNode.dataset.imageAlt || '业务图片' }; refreshCutPieceReturnOverlays(); return true }
   if (action === 'close-image-preview') { state.imagePreview = null; refreshCutPieceReturnOverlays(); return true }
+  if (action === 'open-create') { openDialog('', 'create'); refreshCutPieceReturnOverlays(); return true }
   if (action === 'open-detail') { openDialog(caseId, 'detail'); refreshCutPieceReturnOverlays(); return true }
   if (action === 'open-receive') { openDialog(caseId, 'receive'); refreshCutPieceReturnOverlays(); return true }
   if (action === 'open-scrap') { openDialog(caseId, 'scrap'); refreshCutPieceReturnOverlays(); return true }
   if (action === 'open-supplement') { openDialog(caseId, 'supplement'); refreshCutPieceReturnOverlays(); return true }
-  if (action === 'open-rekit') { openDialog(caseId, 'rekit'); refreshCutPieceReturnOverlays(); return true }
   if (action === 'open-ticket') { openDialog(caseId, 'ticket'); refreshCutPieceReturnOverlays(); return true }
   try {
+    if (action === 'confirm-create-return') {
+      const candidateId = document.querySelector<HTMLInputElement>('input[name="cut-piece-return-candidate"]:checked')?.value || ''
+      if (!candidateId) throw new Error('当前没有可发起退仓的正式车缝交出来源。')
+      const created = createCutPieceReturnCase({ candidateId, createdBy: formValue('operator') })
+      state.activeCaseId = created.caseId
+      state.dialogMode = 'detail'
+      state.feedback = { tone: 'success', message: `已发起退仓单 ${created.returnOrderNo}；来源责任已冻结，工厂当前应回数量尚未改变。` }
+      refreshAfterBusinessMutation()
+      return true
+    }
     if (action === 'confirm-receive') {
       const record = selectedCase()!
-      confirmCutPieceReturnReceipt({ caseId: record.caseId, returnedGarmentQty: Number(formValue('returnedGarmentQty')), partCounts: record.parts.map((part) => ({ partCode: part.partCode, pieceQty: Number(document.querySelector<HTMLInputElement>(`[data-cut-piece-return-part-count="${part.partCode}"]`)?.value || 0) })), confirmedBy: formValue('operator') })
+      const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-piece-return-receive-row]'))
+      const partCounts = rows.map((row) => {
+        const index = Number(row.dataset.cutPieceReturnReceiveRow)
+        const part = record.parts[index]
+        const evidenceMode = row.querySelector<HTMLSelectElement>('[data-cut-piece-return-evidence-mode]')?.value || 'MANUAL_MISSING'
+        const identificationMode: CutPieceReturnIdentificationMode = evidenceMode === 'SCAN' ? 'SCAN_OLD_TICKET' : 'MANUAL_PART_SELECTION'
+        const physicalTicketStatus: CutPieceReturnPhysicalTicketStatus = evidenceMode === 'SCAN'
+          ? 'PRESENT_AND_SCANNED'
+          : evidenceMode === 'MANUAL_UNREADABLE' ? 'UNREADABLE' : 'MISSING'
+        return {
+          partCode: part.partCode,
+          sourceCutOrderId: part.sourceCutOrderId,
+          pieceQty: Number(row.querySelector<HTMLInputElement>('[data-cut-piece-return-part-count]')?.value || 0),
+          identificationMode,
+          physicalTicketStatus,
+          scannedTicketNo: row.querySelector<HTMLInputElement>('[data-cut-piece-return-scanned-ticket]')?.value.trim() || '',
+        }
+      })
+      confirmCutPieceReturnReceipt({ caseId: record.caseId, returnedGarmentQty: Number(formValue('returnedGarmentQty')), partCounts, confirmedBy: formValue('operator') })
       state.dialogMode = 'detail'
-      state.feedback = { tone: 'success', message: '已按件确认退件，并按部位片数写入退裁片库区；部位差异已保留。' }
+      state.feedback = { tone: 'success', message: '已按件确认退件，并按部位实际片数和识别证据写入退裁片库区；部位差异已保留。' }
       refreshAfterBusinessMutation()
       return true
     }
     if (action === 'confirm-scrap') {
       if (typeof window !== 'undefined' && !window.confirm('确认从退裁片库区报废并永久核销该数量吗？')) return true
-      scrapCutPieceReturnInventory({ caseId: state.activeCaseId, partCode: formValue('scrapPartCode'), pieceQty: Number(formValue('scrapQty')), operatedBy: formValue('operator') })
+      const key = formValue('scrapPartKey')
+      const separatorIndex = key.lastIndexOf('::')
+      if (separatorIndex < 0) throw new Error('请选择要报废的原裁片单和部位。')
+      scrapCutPieceReturnInventory({ caseId: state.activeCaseId, sourceCutOrderId: key.slice(0, separatorIndex), partCode: key.slice(separatorIndex + 2), pieceQty: Number(formValue('scrapQty')), reason: formValue('scrapReason'), operatedBy: formValue('operator') })
       state.dialogMode = 'detail'
       state.feedback = { tone: 'success', message: '报废数量已从退裁片库区核销，车缝工厂应回责任未被二次扣减。' }
       refreshAfterBusinessMutation()
@@ -464,53 +516,36 @@ export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: Eve
     }
     if (action === 'confirm-supplement') {
       const record = selectedCase()!
-      createCutPieceReturnSupplementPlan({ caseId: record.caseId, finalMakeupGarmentQty: Number(formValue('finalMakeupGarmentQty')), partLines: record.parts.map((part) => ({ partCode: part.partCode, supplementPieceQty: Number(document.querySelector<HTMLInputElement>(`[data-cut-piece-return-supplement-count="${part.partCode}"]`)?.value || 0) })), createdBy: formValue('operator') })
+      const partLines = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-piece-return-supplement-row]')).map((row) => {
+        const part = record.parts[Number(row.dataset.cutPieceReturnSupplementRow)]
+        return { partCode: part.partCode, sourceCutOrderId: part.sourceCutOrderId, supplementPieceQty: Number(row.querySelector<HTMLInputElement>('[data-cut-piece-return-supplement-count]')?.value || 0) }
+      })
+      createCutPieceReturnSupplementPlan({ caseId: record.caseId, finalMakeupGarmentQty: Number(formValue('finalMakeupGarmentQty')), partLines, createdBy: formValue('operator') })
       state.dialogMode = 'detail'
-      state.feedback = { tone: 'success', message: '已按原裁片单拆分并关联补料单；补裁部位和数量采用本次手动确认值。' }
-      refreshAfterBusinessMutation()
-      return true
-    }
-    if (action === 'complete-supplement') {
-      completeCutPieceReturnSupplement({ caseId, planId: actionNode.dataset.planId || '', completedBy: '补料完成员' })
-      state.dialogMode = 'detail'
-      state.feedback = { tone: 'success', message: '补料裁片已完成并进入退裁片库区，现可与原退回裁片重新齐套。' }
-      refreshAfterBusinessMutation()
-      return true
-    }
-    if (action === 'confirm-rekit') {
-      createCutPieceReturnRekitBatch({ caseId: state.activeCaseId, finalGarmentQty: Number(formValue('rekitGarmentQty')), transferBagCode: formValue('transferBagCode'), createdBy: formValue('operator') })
-      state.dialogMode = 'detail'
-      state.feedback = { tone: 'success', message: '退回裁片与补料裁片已按部位齐套装入新中转袋并转入裁床待交出仓。' }
-      refreshAfterBusinessMutation()
-      return true
-    }
-    if (action === 'confirm-rehandover') {
-      if (typeof window !== 'undefined' && !window.confirm('确认该中转袋已从裁床待交出仓正式交给车缝工厂吗？正式交出后将增加工厂应回责任。')) return true
-      confirmCutPieceReturnRehandover({ caseId, rekitBatchId: actionNode.dataset.rekitId || '', handedOverBy: '交出仓管' })
-      state.dialogMode = 'detail'
-      state.feedback = { tone: 'success', message: '已形成正式再交出记录，本次齐套件数已加回车缝工厂当前应回责任。' }
+      state.feedback = { tone: 'success', message: '已按原裁片单拆分车缝退仓补料单；剩余退裁片已转入补料业务，本退仓单已结算。' }
       refreshAfterBusinessMutation()
       return true
     }
     if (action === 'recognize-part') {
       const record = selectedCase()!
       const keyword = formValue('partScan').toLowerCase()
-      const part = record.parts.find((item) => [item.partCode, item.partName, item.oldFeiTicketNo].some((value) => value.toLowerCase().includes(keyword)))
+      const part = record.parts.find((item) => partAvailableQty(record, item.sourceCutOrderId, item.partCode) > 0 && [item.partCode, item.partName, item.oldFeiTicketNo, item.sourceCutOrderNo].some((value) => value.toLowerCase().includes(keyword)))
       if (!part || !keyword) throw new Error('未识别到本退仓单部位，请检查菲票号或直接点选部位。')
-      state.recognizedPartCodes = [...new Set([...state.recognizedPartCodes, part.partCode])]
+      state.recognizedPartKeys = [...new Set([...state.recognizedPartKeys, partKey(part)])]
       state.feedback = { tone: 'success', message: `已识别部位：${part.partName}。` }
       refreshCutPieceReturnFeedback()
       refreshCutPieceReturnOverlays()
       return true
     }
     if (action === 'select-all-parts') {
-      state.recognizedPartCodes = selectedCase()!.parts.map((part) => part.partCode)
+      const record = selectedCase()!
+      state.recognizedPartKeys = record.parts.filter((part) => partAvailableQty(record, part.sourceCutOrderId, part.partCode) > 0).map(partKey)
       refreshCutPieceReturnOverlays()
       return true
     }
     if (action === 'create-large-ticket') {
       const selected = Array.from(document.querySelectorAll<HTMLInputElement>('[data-cut-piece-return-ticket-part]:checked')).map((item) => item.value)
-      const updated = createCutPieceReturnLargeTicket({ caseId: state.activeCaseId, partCodes: selected, createdBy: formValue('operator') })
+      const updated = createCutPieceReturnLargeTicket({ caseId: state.activeCaseId, partKeys: selected, createdBy: formValue('operator') })
       const ticket = updated.largeTickets.at(-1)!
       state.activeTicketId = ticket.ticketId
       state.dialogMode = 'ticket-print'
@@ -527,7 +562,6 @@ export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: Eve
   } catch (error) {
     setError(error)
     refreshCutPieceReturnFeedback()
-    refreshCutPieceReturnOverlays()
     return true
   }
   return false

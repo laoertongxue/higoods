@@ -46,9 +46,8 @@ import {
   listDyeWorkOrderOnlineRows,
 } from '../src/data/fcs/dye-work-order-online-view.ts'
 import {
-  bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
-  listSupplementRecords,
+  listSupplementDraftsForTesting,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
 import { renderProcessDyeOrdersPage } from '../src/pages/process-dye-orders.ts'
 import { renderCraftDyeingWorkOrdersPage } from '../src/pages/process-factory/dyeing/work-orders.ts'
@@ -169,17 +168,16 @@ function main(): void {
       stockMaterialName: task.stockMaterialName,
     }))
   let orders = listDyeWorkOrders()
-  bootstrapSupplementManagementMockData()
-  const supplementSeed = listSupplementRecords().find((record) =>
-    record.draft.sourceType === 'cut-order'
-    && record.draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),
+  const supplementSeed = listSupplementDraftsForTesting().find((draft) =>
+    draft.sourceType === 'cut-order'
+    && draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),
   )
   assert(supplementSeed, '缺少真实印染补料场景')
-  const supplementDraft = structuredClone(supplementSeed.draft)
+  const supplementDraft = structuredClone(supplementSeed)
   supplementDraft.confirmationIdentity = 'task9-dye-source-display'
+  supplementDraft.supplyRiskConfirmed = true
   const supplementResult = confirmSupplementAndGenerateProcessWorkOrders(supplementDraft, '任务9来源检查')
-  assert.equal(supplementResult.ok, true, '真实补料确认必须成功')
-  if (!supplementResult.ok) throw new Error(supplementResult.message)
+  if (!supplementResult.ok) throw new Error(`真实补料确认必须成功：${supplementResult.message}`)
   orders = listDyeWorkOrders()
   const supplementDyeRef = supplementResult.record.processWorkOrderRefs.find((item) => item.processType === 'DYE')
   assert(supplementDyeRef, '真实补料必须生成染色加工单')

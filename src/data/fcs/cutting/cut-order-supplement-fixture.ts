@@ -346,6 +346,7 @@ function toRegisterSupplementOrderInput(
     cutOrderNo: fixture.cutOrderNo,
     productionOrderNo: fixture.productionOrderNo,
     productionOrderId: fixture.productionOrderId ?? fixture.productionOrderNo,
+    businessSourceType: 'MANUAL',
     reason: fixture.reason,
     reasonDetail: fixture.reasonDetail,
     totalQty: fixture.totalQty,

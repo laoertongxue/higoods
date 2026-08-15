@@ -1,3 +1,9 @@
+/*
+ * Historical contract retained for review. The executable contract moved to
+ * check-cut-piece-return-processing-v2.ts when the product flow was simplified
+ * from "return -> supplement -> rekit -> re-handover" to "return -> supplement
+ * order created -> return settled".
+ *
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -190,3 +196,6 @@ assert.match(
 )
 
 console.log('cut-piece return processing contract passed')
+*/
+
+import './check-cut-piece-return-processing-v2.ts'

@@ -263,7 +263,7 @@ test('放行快照创建真实补料后同一 SPA 的裁片单行与详情读取
   const row = await findCutOrderRow(page, created.cutOrderNo)
   const tag = row.locator(`[data-supplement-id="${created.id}"]`)
   await expect(tag).toBeVisible()
-  await expect(tag).toHaveAccessibleName(/补 · 第 \d+ 次 · 未完成/)
+  await expect(tag).toHaveAccessibleName(/人工补料 · 第 \d+ 次 · 未完成/)
   await tag.click()
   const detail = page.locator('[data-cutting-piece-supplement-detail]')
   await expect(detail).toContainText(created.recordNo)
@@ -591,7 +591,7 @@ test('操作栏补料选择层取消、完成及末单完成均有可靠焦点�
   await trigger.click()
   await confirmSupplementFromOperation(page, 3)
   await expect(trigger).toHaveCount(0)
-  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 已完成', exact: true })).toBeFocused()
+  await expect(row.getByRole('button', { name: '人工补料 · 第 3 次 · 已完成', exact: true })).toBeFocused()
   await expect(page.locator('body')).not.toBeFocused()
 })
 
@@ -628,7 +628,7 @@ test('同值 change 不吞补料点击且单一事件通道只打开一次', asy
     let mutations = 0
     const observer = new MutationObserver((records) => { mutations += records.length })
     observer.observe(region, { childList: true })
-    document.querySelector<HTMLButtonElement>('[aria-label="补 · 第 2 次 · 未完成"]')!.click()
+    document.querySelector<HTMLButtonElement>('[aria-label="人工补料 · 第 2 次 · 未完成"]')!.click()
     requestAnimationFrame(() => {
       observer.disconnect()
       resolve(mutations)
@@ -710,7 +710,7 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
     const finishIfUpdated = () => {
       const tableText = table.textContent || ''
       if (tableMutations === 0 || statsMutations === 0) return
-      if (!tableText.includes('补 · 第 2 次 · 已完成') || !tableText.includes('补 · 第 3 次 · 未完成')) return
+      if (!tableText.includes('人工补料 · 第 2 次 · 已完成') || !tableText.includes('人工补料 · 第 3 次 · 未完成')) return
       tableObserver.disconnect()
       statsObserver.disconnect()
       resolve({ elapsed: performance.now() - startedAt, tableMutations, statsMutations })
@@ -736,8 +736,8 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
   expect(completionEvidence.elapsed).toBeLessThan(200)
   expect(completionEvidence.tableMutations).toBeGreaterThan(0)
   expect(completionEvidence.statsMutations).toBeGreaterThan(0)
-  await expect(row.getByRole('button', { name: '补 · 第 2 次 · 已完成', exact: true })).toBeVisible()
-  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '人工补料 · 第 2 次 · 已完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '人工补料 · 第 3 次 · 未完成', exact: true })).toBeVisible()
   expect(await page.evaluate(() => {
     const win = window as typeof window & { __supplementActionStableRegions?: Record<string, Element | null> }
     return Object.fromEntries(Object.entries(win.__supplementActionStableRegions || {}).map(([name, node]) => [
@@ -859,7 +859,7 @@ test('补料存在性和完成状态筛选遵守无补料边界并局部刷新',
   await expect(completion).toBeDisabled()
   await expect(cutOrderRow(page, 'CUT14671-B')).toHaveCount(0)
   for (const row of await page.locator('[data-standard-list-table] tbody tr').all()) {
-    await expect(row.getByRole('button', { name: /^补 ·/ })).toHaveCount(0)
+    await expect(row.getByRole('button', { name: /^人工补料 ·/ })).toHaveCount(0)
   }
 
   await hasSupplement.selectOption('YES')

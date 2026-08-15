@@ -2,6 +2,14 @@ import type { SupplementCreatedPurchaseOrderRef } from './supplement-purchase-or
 import type { SupplementMaterialSupplyDecisionSnapshot } from './supplement-supply-domain.ts'
 
 export type SupplementOrderStatus = '未完成' | '已完成'
+export type SupplementBusinessSourceType = 'MANUAL' | 'SEWING_RETURN'
+
+export interface SupplementReturnPieceSnapshot {
+  readonly inventoryLotId: string
+  readonly partCode: string
+  readonly partName: string
+  readonly reusablePieceQty: number
+}
 
 export interface SupplementOrderLineFact {
   readonly color: string
@@ -69,6 +77,12 @@ export interface SupplementOrderLifecycle {
   readonly cutOrderNo: string
   readonly productionOrderId: string
   readonly productionOrderNo: string
+  readonly businessSourceType: SupplementBusinessSourceType
+  readonly sourceReturnCaseId: string
+  readonly sourceReturnOrderNo: string
+  readonly sourceHandoverRecordId: string
+  readonly sourceHandoverRecordIds: ReadonlyArray<string>
+  readonly sourceReturnPieceSnapshot: ReadonlyArray<SupplementReturnPieceSnapshot>
   readonly sequenceNo: number
   readonly status: SupplementOrderStatus
   readonly reason: string
@@ -108,6 +122,12 @@ export type RegisterSupplementOrderInput = Omit<
   | 'confirmationKey'
   | 'requestFingerprint'
   | 'draftMeta'
+  | 'businessSourceType'
+  | 'sourceReturnCaseId'
+  | 'sourceReturnOrderNo'
+  | 'sourceHandoverRecordId'
+  | 'sourceHandoverRecordIds'
+  | 'sourceReturnPieceSnapshot'
 > & Partial<Pick<
   SupplementOrderLifecycle,
   | 'productionOrderId'
@@ -118,6 +138,12 @@ export type RegisterSupplementOrderInput = Omit<
   | 'confirmationKey'
   | 'requestFingerprint'
   | 'draftMeta'
+  | 'businessSourceType'
+  | 'sourceReturnCaseId'
+  | 'sourceReturnOrderNo'
+  | 'sourceHandoverRecordId'
+  | 'sourceHandoverRecordIds'
+  | 'sourceReturnPieceSnapshot'
 >>
 
 const supplementOrders = new Map<string, MutableSupplementOrderLifecycle>()
@@ -138,6 +164,8 @@ function cloneSupplementOrder(
     })),
     processWorkOrderRefs: order.processWorkOrderRefs.map((ref) => ({ ...ref, materialDemandIds: [...ref.materialDemandIds] })),
     createdPurchaseOrderRefs: order.createdPurchaseOrderRefs.map((ref) => ({ ...ref })),
+    sourceHandoverRecordIds: [...order.sourceHandoverRecordIds],
+    sourceReturnPieceSnapshot: order.sourceReturnPieceSnapshot.map((item) => ({ ...item })),
     draftMeta: { ...order.draftMeta },
   }
 }
@@ -146,11 +174,18 @@ function hasSameBusinessIdentity(
   existing: MutableSupplementOrderLifecycle,
   input: RegisterSupplementOrderInput,
 ): boolean {
+  const handoverRecordIds = input.sourceHandoverRecordIds ?? (input.sourceHandoverRecordId ? [input.sourceHandoverRecordId] : [])
+  const primaryHandoverRecordId = input.sourceHandoverRecordId ?? handoverRecordIds[0] ?? ''
   return existing.id === input.id
     && existing.recordNo === input.recordNo
     && existing.cutOrderId === input.cutOrderId
     && existing.cutOrderNo === input.cutOrderNo
     && existing.productionOrderNo === input.productionOrderNo
+    && existing.businessSourceType === (input.businessSourceType ?? 'MANUAL')
+    && existing.sourceReturnCaseId === (input.sourceReturnCaseId ?? '')
+    && existing.sourceReturnOrderNo === (input.sourceReturnOrderNo ?? '')
+    && existing.sourceHandoverRecordId === primaryHandoverRecordId
+    && JSON.stringify(existing.sourceHandoverRecordIds) === JSON.stringify(handoverRecordIds)
 }
 
 export function listSupplementOrdersByCutOrder(
@@ -184,6 +219,19 @@ export function getSupplementOrder(id: string): SupplementOrderLifecycle | undef
 export function registerSupplementOrder(
   input: RegisterSupplementOrderInput,
 ): SupplementOrderLifecycle {
+  const businessSourceType = input.businessSourceType ?? 'MANUAL'
+  const sourceReturnCaseId = input.sourceReturnCaseId?.trim() ?? ''
+  const sourceReturnOrderNo = input.sourceReturnOrderNo?.trim() ?? ''
+  const sourceHandoverRecordId = input.sourceHandoverRecordId?.trim() ?? ''
+  const sourceHandoverRecordIds = [...new Set((input.sourceHandoverRecordIds ?? (sourceHandoverRecordId ? [sourceHandoverRecordId] : [])).map((item) => item.trim()).filter(Boolean))]
+  const sourceReturnPieceSnapshot = input.sourceReturnPieceSnapshot ?? []
+  if (businessSourceType === 'SEWING_RETURN') {
+    if (!sourceReturnCaseId || !sourceReturnOrderNo || !sourceHandoverRecordIds.length) {
+      throw new Error('车缝退仓补料必须关联退仓单、退仓单号和来源交出记录。')
+    }
+  } else if (sourceReturnCaseId || sourceReturnOrderNo || sourceHandoverRecordId || sourceHandoverRecordIds.length || sourceReturnPieceSnapshot.length) {
+    throw new Error('人工发起补料不能写入车缝退仓来源事实。')
+  }
   const existing = supplementOrders.get(input.id)
   if (existing) {
     if (!hasSameBusinessIdentity(existing, input)) {
@@ -213,6 +261,12 @@ export function registerSupplementOrder(
       materialDemandIds: [...(ref.materialDemandIds ?? [])],
     })),
     createdPurchaseOrderRefs: (input.createdPurchaseOrderRefs ?? []).map((ref) => ({ ...ref })),
+    businessSourceType,
+    sourceReturnCaseId,
+    sourceReturnOrderNo,
+    sourceHandoverRecordId: sourceHandoverRecordId || sourceHandoverRecordIds[0] || '',
+    sourceHandoverRecordIds,
+    sourceReturnPieceSnapshot: sourceReturnPieceSnapshot.map((item) => ({ ...item })),
     materialPrepDemandId: input.materialPrepDemandId ?? `SUP-PREP:${input.id}`,
     draftMeta: input.draftMeta
       ? { ...input.draftMeta }

@@ -452,7 +452,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁片退仓处理',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '接收三方车缝工厂退回裁片，清点后进入退裁片库区，并衔接报废、补料、重新齐套和再次交出。',
+    shortDescription: '从正式车缝交出责任发起退仓，按件确认、按部位清点后进入退裁片库区，并以报废或创建关联补料单完成退仓结算。',
   },
   'supplement-management': {
     key: 'supplement-management',

@@ -775,11 +775,27 @@ unifiedFactStorage.setItem(
 )
 const po0002SupplementGroups = listPickupOrderGroups('INCOMPLETE', unifiedFactStorage)
   .filter((group) => group.groupKey.startsWith('INCOMPLETE:SUPPLEMENT:') && group.productionOrderId === 'PO-202603-0002')
+const po0002PhysicalNode = listActivePickupNodes(unifiedFactStorage)
+  .find((node) => node.productionOrderId === 'PO-202603-0002')
+assert(
+  po0002PhysicalNode
+    && authoritativePickupSupplementIds.every((supplementId) =>
+      po0002PhysicalNode.items.some((item) => item.prepLineId.startsWith(`SUPPLEMENT:${supplementId}:`))
+    ),
+  `已经确认到仓的四张 PO0002 补料单必须进入同一当前物理待领节点，实际：${JSON.stringify({
+    authoritativePickupSupplementIds,
+    pickupNodeId: po0002PhysicalNode?.nodeId,
+    nodeSupplementLineIds: po0002PhysicalNode?.items
+      .map((item) => item.prepLineId)
+      .filter((prepLineId) => prepLineId.startsWith('SUPPLEMENT:')),
+    groupKeys: po0002SupplementGroups.map((group) => group.groupKey),
+  })}`,
+)
 assert(
   authoritativePickupSupplementIds.every((supplementId) =>
-    po0002SupplementGroups.some((group) => group.groupKey === `INCOMPLETE:SUPPLEMENT:${supplementId}`)
+    !po0002SupplementGroups.some((group) => group.groupKey === `INCOMPLETE:SUPPLEMENT:${supplementId}`)
   ),
-  '同一生产单的每张补料单必须形成独立中转仓需求组',
+  '已经进入当前物理待领节点的补料单不得同时重复形成独立中转仓需求组',
 )
 const po0002SupplementCards = buildPickupOrderCards(po0002SupplementGroups)
 assert(po0002SupplementCards.length === 1, '同一生产单的多张补料单必须归入同一外层生产单卡片')
@@ -790,9 +806,9 @@ assert(
 assert(po0002SupplementGroups.every((group) => group.materialRows.every((row) =>
   row.requiredQty > 0 && row.currentAvailableQty === 0 && row.currentLocations.length === 0
 )), '尚未形成物理可领事实的补料需求必须展示批准量，但不得伪造可领数量或库位')
-assert(listActivePickupNodes(unifiedFactStorage).every((node) =>
-  node.items.every((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))
-), '补料物料未实际可领前不得提前进入 PDA 活动节点')
+assert(po0002SupplementGroups.every((group) =>
+  !po0002PhysicalNode?.items.some((item) => item.prepLineId.startsWith(`${group.groupKey.replace('INCOMPLETE:', '')}:`))
+), '尚未确认到仓的独立补料需求不得提前进入 PDA 活动节点')
 const versionStorage = new MemoryStorage()
 versionStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
