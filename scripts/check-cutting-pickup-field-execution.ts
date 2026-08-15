@@ -146,14 +146,15 @@ assert(pda.includes("node.carrierType === 'PALLET'"), 'PDA 必须按承载方式
 const listPage = readFileSync(new URL('../src/pages/process-factory/cutting/pickup-management-list.ts', import.meta.url), 'utf8')
 for (const text of [
   '款式 / SPU',
-  '最近接收人',
   '当前节点状态',
-  '本轮可领',
-  '领后仍缺',
-  '查看接收记录',
+  '本轮可接收',
+  '接收后仍缺',
+  '位置 / 载体',
+  '当前配料',
+  '累计接收',
   '上报接收差异',
   '接收记录',
-  '去处理当前待领',
+  '确认接收',
   '异常证据',
   '主管处理完成',
   '需求来源',
@@ -177,14 +178,21 @@ for (const text of [
   '未配齐先领',
   '尚未全部领完',
   '新增补料待领',
-  '可领物料种数',
-  '领后仍缺摘要',
-  '颜色 / 规格',
+  'data-pickup-card-header',
+  'data-pickup-card-summary-band',
+  'data-pickup-receipt-readonly-items',
+  'buildCuttingWarehouseMapProjectionForWarehouse',
+  'confirmPickupNodeReceiptRuntime',
+  "eventSource: 'WEB'",
 ]) {
   assert(listPage.includes(text), `三列表必须直接展示或提供：${text}`)
 }
-for (const key of ['readyStyle', 'incompleteStyle', 'historyStyle']) {
-  assert(listPage.includes(`key: '${key}'`), `列表列键必须唯一：${key}`)
+const materialColumns = listPage.match(/function materialColumnsFor[\s\S]*?\n}\n/)?.[0] || ''
+for (const text of ['加工状态', '加工可供', '已到仓', '超配异常']) {
+  assert(!materialColumns.includes(text), `物料明细不得保留已删除列：${text}`)
 }
+assert(materialColumns.includes("title: '位置 / 载体', width: 180"), '位置 / 载体必须收窄为 180px')
+assert(!listPage.includes('一次接收本节点全部物料'), '卡片不得保留重复的一次接收说明')
+assert(!listPage.includes('>生产单信息<'), '卡头不得保留重复的生产单信息标题')
 
-console.log('✓ 接收现场差异、PDA 承载方式、列表字段与接收记录检查通过')
+console.log('✓ 接收现场差异、Web/PDA 共用接收、紧凑字段与接收记录检查通过')

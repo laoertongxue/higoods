@@ -5,14 +5,21 @@ import {
 import {
   appendPickupSessionFromNode,
   buildPickupDemandFactsFromProjections,
+  getPickupSessionByNodeId,
   invalidateMaterialPrepProjectionCache,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  recordPickupSessionWarehouseSyncResult,
   type MaterialPrepOrderProjection,
   type PickupSupplementRecordFactInput,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
-import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  appendCuttingRuntimeEventIdempotent,
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+  type CuttingRuntimeEventSource,
+  type CuttingRuntimeQtyUnit,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import type {
   PickupDemandFact,
   PickupProcessResultFact,
@@ -20,6 +27,7 @@ import type {
 import type {
   PickupNodeProjection,
   PickupSession,
+  PickupStorageLocationRef,
 } from '../../../data/fcs/cutting/pickup-node-domain.ts'
 import {
   listPlatformDyeResultViews,
@@ -224,4 +232,139 @@ export function appendPickupSessionWithWarehouseFactsRuntime(
     invalidateMaterialPrepProjectionCache()
     throw error
   }
+}
+
+export interface ConfirmPickupNodeReceiptRuntimeInput {
+  pickupNodeId: string
+  pickupNodeVersion: number
+  receiverName: string
+  eventSource: Extract<CuttingRuntimeEventSource, 'WEB' | 'PDA'>
+  operatorRole: string
+  toLocationRefs: PickupStorageLocationRef[]
+}
+
+function normalizePickupRuntimeQtyUnit(unit: string): CuttingRuntimeQtyUnit {
+  return (['yard', '片', '件', '条', '粒', '卷', '公斤'].includes(unit) ? unit : '件') as CuttingRuntimeQtyUnit
+}
+
+export function syncCuttingPickupSessionWarehouseFactsRuntime(
+  session: PickupSession,
+  options: {
+    eventSource: Extract<CuttingRuntimeEventSource, 'WEB' | 'PDA'>
+    operatorRole: string
+  } = { eventSource: 'PDA', operatorRole: 'PDA 仓管' },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
+  const nodeSnapshot = session.pickupNodeSnapshot
+  if (!nodeSnapshot) throw new Error('接收节点快照缺失，无法写入待加工仓流水。')
+  nodeSnapshot.items.forEach((item, index) => {
+    const runtimeUnit = normalizePickupRuntimeQtyUnit(item.unit)
+    const pickupRecordId = session.pickupRecordIds[index] || ''
+    appendCuttingRuntimeEventIdempotent({
+      idempotencyKey: `cutting-pickup-inbound:${session.pickupSessionId}:${item.prepLineId}`,
+      eventType: '中转仓接收',
+      eventSource: options.eventSource,
+      operatorName: session.receiverName,
+      operatorRole: options.operatorRole,
+      occurredAt: session.pickedAt,
+      refs: {
+        productionOrderId: nodeSnapshot.productionOrderId,
+        productionOrderNo: nodeSnapshot.productionOrderNo,
+        cutOrderNo: nodeSnapshot.productionOrderNo,
+        handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
+      },
+      material: {
+        materialSku: item.materialSku,
+        materialName: item.materialName,
+        materialColor: item.color,
+        materialSpec: item.spec,
+        materialAlias: item.materialName,
+        unit: runtimeUnit,
+      },
+      inventoryEffect: {
+        inventoryScope: '裁床待加工仓',
+        direction: 'IN',
+        qty: item.currentAvailableQty,
+        unit: runtimeUnit,
+        rollCount: item.rollCount,
+        toWarehouseArea: session.toWarehouseArea,
+        toLocationCode: session.toLocationCode,
+      },
+      payload: {
+        pickupSessionId: session.pickupSessionId,
+        pickupSessionNo: session.pickupSessionNo,
+        pickupNodeId: session.pickupNodeId,
+        pickupNodeVersion: session.pickupNodeVersion,
+        pickupRecordId,
+        pickupRecordIds: session.pickupRecordIds,
+        prepOrderId: nodeSnapshot.prepOrderId,
+        prepLineId: item.prepLineId,
+        materialSku: item.materialSku,
+        pickupQty: item.currentAvailableQty,
+        unit: runtimeUnit,
+        rollCount: item.rollCount,
+        sourceLocations: item.sourceLocations,
+        warehouseArea: session.toWarehouseArea,
+        locationCode: session.toLocationCode,
+        warehouseLocations: session.toLocationRefs,
+        storageFootprint: session.storageFootprint,
+        pickupBy: session.receiverName,
+        pickupAt: session.pickedAt,
+        warehouseSyncStatus: '已回写',
+      },
+    }, storage)
+  })
+}
+
+/** Web 与 PDA 的唯一接收确认入口。两端只传操作来源，节点、数量、库位、幂等与原子写入规则完全共用。 */
+export function confirmPickupNodeReceiptRuntime(
+  input: ConfirmPickupNodeReceiptRuntimeInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  overrides: PickupRuntimeOverrides = {},
+): PickupSession {
+  const receiverName = input.receiverName.trim()
+  if (!receiverName) throw new Error('请填写接收人。')
+  const locationRefs = Array.from(new Map(input.toLocationRefs.map((ref) => [ref.locationId, structuredClone(ref)])).values())
+  if (!locationRefs.length) throw new Error('请选择裁床待加工仓库位。')
+  if (locationRefs.some((ref) => ref.warehouseKind !== 'WAIT_PROCESS')) {
+    throw new Error('所选位置不是裁床待加工仓库位。')
+  }
+  const warehouseScopes = new Set(locationRefs.map((ref) => `${ref.factoryId}:${ref.warehouseId}:${ref.warehouseKind}`))
+  if (warehouseScopes.size !== 1) throw new Error('一次接收只能选择同一个裁床待加工仓的库位。')
+
+  const existing = getPickupSessionByNodeId(input.pickupNodeId, storage)
+  if (existing) {
+    if (existing.pickupNodeVersion !== input.pickupNodeVersion) {
+      throw new Error('当前接收节点版本已变化，请重新核对。')
+    }
+    syncCuttingPickupSessionWarehouseFactsRuntime(existing, {
+      eventSource: input.eventSource,
+      operatorRole: input.operatorRole,
+    }, storage)
+    if (existing.warehouseSyncStatus !== '已回写') {
+      recordPickupSessionWarehouseSyncResult(existing.pickupSessionId, { status: '已回写' }, storage)
+    }
+    return existing
+  }
+
+  const context = buildPickupRuntimeContext(storage, overrides)
+  const node = context.activeNodes.find((candidate) => candidate.nodeId === input.pickupNodeId)
+  if (!node || node.version !== input.pickupNodeVersion) {
+    throw new Error('当前待接收物料已更新，请重新核对全部物料后再确认接收。')
+  }
+  const firstLocation = locationRefs[0]
+  const idempotencyKey = `cutting-pickup:${input.pickupNodeId}:v${input.pickupNodeVersion}`
+  return appendPickupSessionWithWarehouseFactsRuntime({
+    pickupNodeId: input.pickupNodeId,
+    pickupNodeVersion: input.pickupNodeVersion,
+    receiverName,
+    warehouseArea: firstLocation.areaName,
+    locationCode: firstLocation.locationNo,
+    waitProcessLedgerEventId: idempotencyKey,
+    idempotencyKey,
+    toLocationRefs: locationRefs,
+  }, (session, transactionStorage) => syncCuttingPickupSessionWarehouseFactsRuntime(session, {
+    eventSource: input.eventSource,
+    operatorRole: input.operatorRole,
+  }, transactionStorage), storage, overrides)
 }

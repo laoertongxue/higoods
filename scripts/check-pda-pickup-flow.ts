@@ -28,11 +28,15 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const pdaSource = fs.readFileSync('src/pages/pda-warehouse-wait-process.ts', 'utf8')
-assert(pdaSource.includes('syncCuttingPickupSessionRuntimeFacts'), 'PDA 必须按 Session 快照补写待加工仓流水')
-assert(pdaSource.includes('appendPickupSessionWithWarehouseFactsRuntime'), 'PDA 必须原子形成 Session/Detail 与待加工仓流水')
+const webSource = fs.readFileSync('src/pages/process-factory/cutting/pickup-management-list.ts', 'utf8')
+assert(pdaSource.includes('syncCuttingPickupSessionWarehouseFactsRuntime'), 'PDA 历史失败 Session 必须通过共享入口补写待加工仓流水')
+assert(pdaSource.includes('confirmPickupNodeReceiptRuntime({'), 'PDA 必须通过 Web／PDA 共用确认入口形成 Session/Detail 与待加工仓流水')
+assert(pdaSource.includes("eventSource: 'PDA'"), 'PDA 接收必须保留 PDA 操作来源')
+assert(webSource.includes('confirmPickupNodeReceiptRuntime({'), 'Web 必须通过 Web／PDA 共用确认入口形成 Session/Detail 与待加工仓流水')
+assert(webSource.includes("eventSource: 'WEB'"), 'Web 接收必须保留 Web 操作来源')
 assert(!pdaSource.includes('warehouseSyncDeferred: true'), 'PDA 新确认不得再制造先保存接收、后补写流水的中间态')
 assert(!pdaSource.includes('接收已保存，待加工仓流水写入失败'), 'PDA 不得在流水失败后保留接收事实')
-assert(pdaSource.includes('getPickupSessionByNodeId(pickupNodeId)'), 'PDA 重复确认必须优先返回历史 Session')
+assert(webSource.includes('open-web-receipt'), 'Web 列表必须提供站内接收入口，不得只跳转 PDA')
 assert(pdaSource.includes('retry-cutting-pickup-sync'), 'PDA 必须提供仓储回写重试')
 assert(!pdaSource.includes('确认按裁片任务从中转仓领回的数量'), 'PDA 不得再使用裁片任务和可编辑数量口径')
 

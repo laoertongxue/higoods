@@ -492,10 +492,13 @@ test('PDA 中转仓接收按待领节点选位确认，并在 Web 裁床待加�
   })
 
   await page.goto('/fcs/craft/cutting/pickup-management/ready')
-  const pickupLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
-    .getByRole('link', { name: '去接收', exact: true })
-  const pickupHref = await pickupLink.getAttribute('href')
-  expect(pickupHref).toBeTruthy()
+  const pickupNode = await page.evaluate(async () => {
+    const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
+    const node = pickup.listActivePickupNodesRuntime().find((candidate) => candidate.nodeType === 'READY_TO_PICKUP')
+    return node ? { nodeId: node.nodeId, version: node.version } : null
+  })
+  expect(pickupNode).toBeTruthy()
+  const pickupHref = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(pickupNode!.nodeId)}&version=${pickupNode!.version}`
   await page.evaluate(async () => {
     await import('/src/pages/pda-warehouse-wait-process.ts')
   })

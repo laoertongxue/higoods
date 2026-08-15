@@ -145,7 +145,7 @@ assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandover
 assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
 assert.match(pdaWaitProcessSource, /revalidatePdaCuttingFootprintAdjustmentSelection/, '剩余存放调整确认必须走最新投影整组重校验')
 assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位文案不得继续使用范围摘要表达')
-assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '接收必须通过原子运行时入口写共享事件与本地会话')
+assert.match(pdaWaitProcessSource, /confirmPickupNodeReceiptRuntime\(\{[\s\S]*eventSource: 'PDA'/, 'PDA 接收必须通过 Web／PDA 共用确认入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
 assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
 assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationIds/, 'PDA 中转袋入仓地图必须直接投影数组选位事实')

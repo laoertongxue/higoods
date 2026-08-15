@@ -42,52 +42,78 @@ async function navigateWithinApp(page: Page, path: string): Promise<void> {
   }, path)
 }
 
-test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻断确认并留下主管证据', async ({ page }, testInfo) => {
+async function chooseFirstAvailableWebReceiptLocation(page: Page): Promise<void> {
+  const receipt = page.locator('[data-pickup-receipt-modal]')
+  const warehouseSelect = receipt.locator('select[data-pickup-receive-field="warehouseId"]')
+  const warehouseIds = await warehouseSelect.locator('option').evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
+  )
+  for (const warehouseId of warehouseIds) {
+    await warehouseSelect.selectOption(warehouseId)
+    const location = receipt.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first()
+    if (await location.count()) {
+      await location.click()
+      await expect(receipt.locator('[data-warehouse-map-selected-item]')).toHaveCount(1)
+      return
+    }
+  }
+  throw new Error('没有可用于 Web 接收验收的空闲待加工仓库位')
+}
+
+test('Web 接收核对 READY 托盘与 INCOMPLETE 库位，差异阻断并可由主管恢复', async ({ page }, testInfo) => {
   testInfo.setTimeout(300_000)
   await page.goto(readyPath)
-  const readyLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
-    .getByRole('link', { name: '去接收', exact: true })
-  const readyHref = await readyLink.getAttribute('href')
-  expect(readyHref).toBeTruthy()
-  await warmPickupExecutionModule(page)
-  await navigateWithinApp(page, readyHref!)
-  const readyTask = page.locator('[data-cutting-pickup-node-id]')
-  await expect(readyTask).toContainText('待领托盘（暂未编号）', { timeout: 60_000 })
-  await expect(readyTask).not.toContainText('来源库位：')
+  await page.getByRole('button', { name: '接收', exact: true }).first().click()
+  let receipt = page.locator('[data-pickup-receipt-modal]')
+  await expect(receipt).toBeVisible({ timeout: 60_000 })
+  await expect(receipt).toContainText('待接收托盘（暂未编号）')
+  await expect(receipt.locator('[data-pickup-receipt-readonly-items]')).toBeVisible()
+  await expect(receipt.locator('select[data-pickup-receive-field="warehouseId"]')).toHaveValue('')
+  await expect(receipt.locator('input[type="checkbox"]')).toHaveCount(0)
+  await expect(receipt.locator('input[type="number"]')).toHaveCount(0)
+  await receipt.getByRole('button', { name: '关闭', exact: true }).click()
 
   await page.goto(incompletePath)
-  const incompleteLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
-    .getByRole('link', { name: '去接收', exact: true })
-  const incompleteHref = await incompleteLink.getAttribute('href')
-  expect(incompleteHref).toBeTruthy()
-  await navigateWithinApp(page, `${incompleteHref!}&difference=1`)
-  const task = page.locator('[data-cutting-pickup-node-id]')
-  await expect(task).toContainText('来源库位：', { timeout: 60_000 })
-  const taskHandle = await task.elementHandle()
-  expect(taskHandle).not.toBeNull()
-  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-qty"]').fill('2')
-  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-note"]').fill('实物少 2 yard')
-  const differencePhotoInput = task.locator('[data-pda-warehouse-field="cutting-pickup-difference-photo"]')
-  const differencePhotoHandle = await differencePhotoInput.elementHandle()
-  expect(differencePhotoHandle).not.toBeNull()
-  const photoFeedbackStartedAt = await page.evaluate(() => performance.now())
+  const sourceCard = page.locator('[data-pickup-order-card]').filter({ hasText: 'TR-A-' }).first()
+  await sourceCard.getByRole('button', { name: '接收', exact: true }).first().click()
+  receipt = page.locator('[data-pickup-receipt-modal]')
+  await expect(receipt).toContainText('中转仓', { timeout: 60_000 })
+  await receipt.locator('button[data-pickup-list-action="toggle-web-receipt-difference"]').click()
+  await receipt.locator('[data-pickup-receive-field="differenceQty"]').fill('2')
+  await receipt.locator('[data-pickup-receive-field="differenceNote"]').fill('实物少 2 yard')
+  const differencePhotoInput = receipt.locator('[data-pickup-receive-field="differencePhoto"]')
+  await differencePhotoInput.evaluate((input) => {
+    const state = window as typeof window & {
+      __pickupPhotoFeedbackStartedAt?: number
+      __pickupPhotoFeedbackDuration?: number
+    }
+    input.addEventListener('change', () => {
+      state.__pickupPhotoFeedbackStartedAt = performance.now()
+      const observer = new MutationObserver(() => {
+        if (document.querySelector('[data-pickup-receive-photo-name]')?.textContent?.includes('现场差异.jpg')) {
+          state.__pickupPhotoFeedbackDuration = performance.now() - (state.__pickupPhotoFeedbackStartedAt || performance.now())
+          observer.disconnect()
+        }
+      })
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+    }, { once: true })
+  })
   await differencePhotoInput.setInputFiles({
     name: '现场差异.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.from('prototype-photo'),
   })
-  await expect(task).toContainText('已选择：现场差异.jpg')
-  const photoFeedbackDuration = await page.evaluate((startedAt) => performance.now() - startedAt, photoFeedbackStartedAt)
-  console.log(`接收差异照片反馈耗时：${photoFeedbackDuration.toFixed(1)}ms`)
+  await expect(receipt).toContainText('现场差异.jpg')
+  const photoFeedbackDuration = await expect.poll(() => page.evaluate(() => (
+    (window as typeof window & { __pickupPhotoFeedbackDuration?: number }).__pickupPhotoFeedbackDuration || 0
+  ))).toBeGreaterThan(0).then(() => page.evaluate(() => (
+    (window as typeof window & { __pickupPhotoFeedbackDuration?: number }).__pickupPhotoFeedbackDuration || 0
+  )))
+  console.log(`Web 接收差异照片反馈耗时：${photoFeedbackDuration.toFixed(1)}ms`)
   expect(photoFeedbackDuration).toBeLessThan(200)
-  expect(await taskHandle!.evaluate((node) => node.isConnected)).toBe(true)
-  expect(await differencePhotoHandle!.evaluate((node) => node.isConnected)).toBe(true)
-  page.once('dialog', (dialog) => dialog.accept())
-  await task.locator('[data-pda-warehouse-action="report-cutting-pickup-difference"]').click()
-  await expect(task).toContainText('差异待主管处理，已阻断接收确认')
-  await expect(task.locator('[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toBeDisabled()
-  page.once('dialog', (dialog) => dialog.accept())
-  await task.locator('[data-pda-warehouse-action="call-cutting-pickup-supervisor"]').click()
+  await receipt.locator('button[data-pickup-list-action="report-web-receipt-difference"]').click()
+  await expect(receipt).toContainText('当前节点已阻断接收')
+  await expect(receipt.locator('button[data-pickup-list-action="confirm-web-receipt"]')).toBeDisabled()
   const evidence = await page.evaluate(() => {
     const records = JSON.parse(localStorage.getItem('higood.fcs.cutting.pickup-discrepancies.v1') || '[]')
     return records[0]
@@ -98,85 +124,80 @@ test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻
     photoName: '现场差异.jpg',
     note: '实物少 2 yard',
     status: '待主管处理',
-    supervisorRequestedBy: '裁床仓管',
   })
   expect(evidence.pickupNodeVersion).toBeGreaterThan(0)
   expect(evidence.carrierLabel).toBeTruthy()
+
+  await receipt.getByRole('button', { name: '关闭', exact: true }).click()
+  await sourceCard.getByRole('button', { name: '接收记录', exact: true }).click()
+  await expect(page.getByText('接收差异与主管处理', { exact: true })).toBeVisible()
+  page.once('dialog', (dialog) => dialog.accept('已现场复核并处理差异'))
+  await page.getByRole('button', { name: '主管处理完成', exact: true }).click()
+  await expect(page.getByText(/已处理：/).first()).toBeVisible()
 })
 
 for (const [label, path] of [
   ['已配齐', readyPath],
   ['未配齐', incompletePath],
 ] as const) {
-  test(`${label}列表与 PDA 实际消费同一节点 ID 和版本，并明确确认全部接收`, async ({ page }) => {
+  test(`${label}列表与 Web 接收弹窗消费同一节点 ID 和版本，并只读展示全部物料`, async ({ page }) => {
     await page.goto(path)
-    const row = page.getByRole('row').filter({ hasText: '去接收' }).first()
-    await expect(row).toBeVisible({ timeout: 60_000 })
-    const productionOrderNo = (await row.textContent())?.match(/PO-\d{6}-\d{4}/)?.[0]
+    const card = page.locator('[data-pickup-order-card]').filter({ has: page.getByRole('button', { name: '接收', exact: true }) }).first()
+    await expect(card).toBeVisible({ timeout: 60_000 })
+    const productionOrderNo = await card.getAttribute('data-production-order-no')
     expect(productionOrderNo).toBeTruthy()
-    const pickupLink = row.getByRole('link', { name: '去接收', exact: true })
-    const href = await pickupLink.getAttribute('href')
-    expect(href).toBeTruthy()
-    const target = new URL(href!, 'http://127.0.0.1')
+    await card.getByRole('button', { name: '接收', exact: true }).first().click()
+    const receipt = page.locator('[data-pickup-receipt-modal]')
+    await expect(receipt).toBeVisible()
     const linkedNode = {
-      nodeId: target.searchParams.get('pickupNodeId'),
-      version: Number(target.searchParams.get('version')),
+      nodeId: await receipt.getAttribute('data-pickup-node-id'),
+      version: Number(await receipt.getAttribute('data-pickup-node-version')),
     }
     const activeNode = await page.evaluate(async (orderNo) => {
       const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
       const node = pickup.listActivePickupNodesRuntime().find((candidate) => candidate.productionOrderNo === orderNo)
-      return node ? { nodeId: node.nodeId, version: node.version } : null
+      return node ? { nodeId: node.nodeId, version: node.version, itemCount: node.itemCount } : null
     }, productionOrderNo)
-    expect(linkedNode).toEqual(activeNode)
-
-    await warmPickupExecutionModule(page)
-    await navigateWithinApp(page, href!)
-    const pdaTask = page.locator('[data-cutting-pickup-node-id]')
-    await expect(pdaTask).toBeVisible({ timeout: 60_000 })
-    await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-id', linkedNode.nodeId!)
-    await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-version', String(linkedNode.version))
-    await expect(pdaTask).toContainText(`节点版本：V${linkedNode.version}`)
-    await expect(pdaTask.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toContainText(
-      '确认全部接收',
-    )
+    expect(linkedNode).toEqual({ nodeId: activeNode?.nodeId, version: activeNode?.version })
+    await expect(receipt.locator('[data-pickup-receipt-item]')).toHaveCount(activeNode!.itemCount)
+    await expect(receipt.locator('input[type="checkbox"]')).toHaveCount(0)
+    await expect(receipt.locator('input[type="number"]')).toHaveCount(0)
   })
 }
 
-test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', async ({ page }) => {
+test('Web 混合单位确认形成 1 Session + N Detail + N 入仓事件，跨端幂等不重复', async ({ page }) => {
   await page.goto(incompletePath)
-  const pickupLink = page.getByRole('row').filter({ hasText: 'PO-202603-0101' })
-    .getByRole('link', { name: '去接收', exact: true })
-  const href = await pickupLink.getAttribute('href')
-  expect(href).toBeTruthy()
-  await warmPickupExecutionModule(page)
-  await navigateWithinApp(page, href!)
-  const confirmButton = page.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')
-  await expect(confirmButton).toBeVisible({ timeout: 60_000 })
-  await expect(page.locator('body')).toContainText('yard')
-  await expect(page.locator('body')).toContainText('粒')
-  const emptyLocation = page.locator(
-    '[data-pda-cutting-pickup-location-map] [data-warehouse-map-action="toggle-location"]:not([disabled])',
-  ).first()
-  await emptyLocation.click()
-  await expect(page.locator('[data-pda-cutting-pickup-location-map] [aria-pressed="true"]')).toHaveCount(1)
-  await confirmButton.click()
-  await expect(page).toHaveURL(/scope=cutting&action=pickup$/)
+  const card = page.locator('[data-pickup-order-card][data-production-order-no="PO-202603-0101"]')
+  await expect(card).toBeVisible({ timeout: 60_000 })
+  await card.getByRole('button', { name: '接收', exact: true }).first().click()
+  const receipt = page.locator('[data-pickup-receipt-modal]')
+  await expect(receipt).toContainText('yard')
+  await expect(receipt).toContainText('粒')
+  const nodeId = await receipt.getAttribute('data-pickup-node-id')
+  expect(nodeId).toBeTruthy()
+  await chooseFirstAvailableWebReceiptLocation(page)
+  page.once('dialog', (dialog) => dialog.accept())
+  await receipt.locator('button[data-pickup-list-action="confirm-web-receipt"]').click()
+  await expect(receipt).toHaveCount(0)
+  await expect(page).toHaveURL(incompletePath)
 
-  const facts = await page.evaluate(async () => {
+  const facts = await page.evaluate(async (confirmedNodeId) => {
     const prep = await import('/src/data/fcs/cutting/production-material-prep.ts')
     const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
     const runtime = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
     const projections = prep.listMaterialPrepOrderProjections()
-    const session = projections.flatMap((item) => item.pickupSessions).find((item) => item.receiverName === '裁床仓管')!
+    const session = projections.flatMap((item) => item.pickupSessions).find((item) => item.pickupNodeId === confirmedNodeId)!
     const details = projections.flatMap((item) => item.pickupRecords).filter((item) => item.pickupSessionId === session.pickupSessionId)
-    const duplicate = pickup.appendPickupSessionFromNodeRuntime({
+    const beforeEvents = runtime.listCuttingRuntimeEventsByType('中转仓接收').filter((event) =>
+      (event.payload as Record<string, unknown>).pickupSessionId === session.pickupSessionId
+    )
+    const duplicate = pickup.confirmPickupNodeReceiptRuntime({
       pickupNodeId: session.pickupNodeId,
-      pickupNodeVersion: 0,
-      receiverName: '重复提交',
-      warehouseArea: '错误库区',
-      locationCode: 'ERROR',
-      waitProcessLedgerEventId: 'duplicate',
-      idempotencyKey: session.idempotencyKey,
+      pickupNodeVersion: session.pickupNodeVersion,
+      receiverName: session.receiverName,
+      eventSource: 'PDA',
+      operatorRole: 'PDA 仓管',
+      toLocationRefs: session.toLocationRefs || [],
     })
     const events = runtime.listCuttingRuntimeEventsByType('中转仓接收').filter((event) =>
       (event.payload as Record<string, unknown>).pickupSessionId === session.pickupSessionId
@@ -186,17 +207,78 @@ test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', as
       duplicateId: duplicate.pickupSessionId,
       detailCount: details.length,
       snapshotCount: session.pickupNodeSnapshot?.items.length,
-      events: events.map((event) => ({ qty: event.inventoryEffect?.qty, unit: event.inventoryEffect?.unit })),
+      beforeEventCount: beforeEvents.length,
+      events: events.map((event) => ({ qty: event.inventoryEffect?.qty, unit: event.inventoryEffect?.unit, source: event.eventSource, role: event.operatorRole })),
       activeUnique: new Set(pickup.listActivePickupNodesRuntime().map((node) => node.prepOrderId)).size === pickup.listActivePickupNodesRuntime().length,
       nodeTypes: Array.from(new Set(projections.flatMap((item) => item.pickupSessions).map((item) => item.nodeType))),
     }
-  })
+  }, nodeId)
   expect(facts.duplicateId).toBe(facts.sessionId)
   expect(facts.detailCount).toBe(facts.snapshotCount)
+  expect(facts.events).toHaveLength(facts.beforeEventCount)
   expect(facts.events.every((event) => Number(event.qty) > 0)).toBe(true)
+  expect(facts.events.every((event) => event.source === 'WEB' && event.role === 'Web 裁床仓管')).toBe(true)
   expect(new Set(facts.events.map((event) => event.unit))).toEqual(new Set(['yard', '粒']))
   expect(facts.activeUnique).toBe(true)
   expect(facts.nodeTypes).toEqual(expect.arrayContaining(['INCOMPLETE_PICKABLE', 'READY_TO_PICKUP']))
+})
+
+test('共享确认入口阻断空库位、跨仓库位和过期节点版本', async ({ page }) => {
+  await page.goto(readyPath)
+  const failures = await page.evaluate(async () => {
+    const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
+    const node = pickup.listActivePickupNodesRuntime()[0]
+    if (!node) throw new Error('缺少待接收节点')
+    const baseRef = {
+      factoryId: 'ID-F004',
+      warehouseId: 'FIW-ID-F004-WAIT_PROCESS-A',
+      warehouseKind: 'WAIT_PROCESS' as const,
+      areaId: 'AREA-A',
+      areaName: 'A 区',
+      shelfId: 'SHELF-A-01',
+      shelfNo: 'A-01',
+      locationId: 'LOC-A-01-01',
+      locationNo: 'A-01-01',
+    }
+    const capture = (run: () => unknown): string => {
+      try {
+        run()
+        return ''
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      }
+    }
+    const common = {
+      pickupNodeId: node.nodeId,
+      pickupNodeVersion: node.version,
+      receiverName: 'Web 裁床仓管',
+      eventSource: 'WEB' as const,
+      operatorRole: 'Web 裁床仓管',
+    }
+    return {
+      empty: capture(() => pickup.confirmPickupNodeReceiptRuntime({ ...common, toLocationRefs: [] })),
+      crossWarehouse: capture(() => pickup.confirmPickupNodeReceiptRuntime({
+        ...common,
+        toLocationRefs: [
+          baseRef,
+          {
+            ...baseRef,
+            warehouseId: 'FIW-ID-F004-WAIT_PROCESS-B',
+            locationId: 'LOC-B-01-01',
+            locationNo: 'B-01-01',
+          },
+        ],
+      })),
+      staleVersion: capture(() => pickup.confirmPickupNodeReceiptRuntime({
+        ...common,
+        pickupNodeVersion: node.version + 1,
+        toLocationRefs: [baseRef],
+      })),
+    }
+  })
+  expect(failures.empty).toContain('请选择裁床待加工仓库位')
+  expect(failures.crossWarehouse).toContain('同一个裁床待加工仓')
+  expect(failures.staleVersion).toContain('已更新')
 })
 
 test('同步失败 Session 可从 PDA 补写且不重复主明细和流水', async ({ page }) => {

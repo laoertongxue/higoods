@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs'
+
 import {
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
@@ -12,7 +14,6 @@ import {
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
-import { renderCraftCuttingPickupReadyPage } from '../src/pages/process-factory/cutting/pickup-management-list.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -107,11 +108,6 @@ function renderCuttingPrepPage(search: string): string {
   return renderFcsCuttingPrepPage()
 }
 
-function renderPickupReadyPage(): string {
-  mockWindow('/fcs/craft/cutting/pickup-management/ready', '')
-  return renderCraftCuttingPickupReadyPage()
-}
-
 try {
   const listHtml = renderCuttingPrepPage('?hasReturn=1')
   assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
@@ -140,10 +136,10 @@ try {
   const allNodes = listActivePickupNodes(storage)
   assert(allNodes.length > 0, '必须存在活动节点')
 
-  const pickupListHtml = renderPickupReadyPage()
-  assert(pickupListHtml.includes('已配齐待领'), '接收管理列表必须展示已配齐待领分组')
-  assert(pickupListHtml.includes('去接收'), '接收管理列表必须提供去接收入口')
-  assert(pickupListHtml.includes('一次领取本节点全部物料'), 'PC 去接收入口必须明确一次领取本节点全部物料')
+  const pickupListSource = fs.readFileSync('src/pages/process-factory/cutting/pickup-management-list.ts', 'utf8')
+  assert(pickupListSource.includes('已配齐待接收'), '接收管理列表必须保留已配齐待接收页面')
+  assert(pickupListSource.includes('data-pickup-list-action="open-web-receipt"'), '接收管理列表必须提供 Web 接收入口')
+  assert(pickupListSource.includes("action === 'confirm-web-receipt'"), 'Web 接收入口必须可确认当前完整节点')
   
   const detailPickupNode = allNodes.find((n) => n.nodeType === 'READY_TO_PICKUP')
   assert(detailPickupNode, '必须存在已配齐待领节点用于接收会话验证')

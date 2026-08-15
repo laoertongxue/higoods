@@ -45,6 +45,9 @@ import {
   type PickupOrderGroup,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
 import {
+  buildPickupOrderCards,
+} from '../src/pages/process-factory/cutting/pickup-management-card-model.ts'
+import {
   bootstrapSupplementManagementMockData,
   listSupplementRecords,
   resetSupplementManagementMockDataForTest,
@@ -70,6 +73,7 @@ function assertThreeListRouteAndMenuContract(): void {
   const menuSource = readSource('src/data/app-shell-config.ts')
   const rendererSource = readSource('src/router/route-renderers-fcs.ts')
   const routeSource = readSource('src/router/routes-fcs.ts')
+  const fcsHandlersSource = readSource('src/main-handlers/fcs-handlers.ts')
 
   assert(listSource.startsWith('// @page-pattern: list'), '三列表页面必须声明标准列表页模式')
   assert(
@@ -92,6 +96,56 @@ function assertThreeListRouteAndMenuContract(): void {
   ]) {
     assert(listSource.includes(helper), `三列表页面必须复用 ${helper}`)
   }
+  for (const cardContract of [
+    'buildPickupOrderCards',
+    'renderPickupOrderCard',
+    'data-pickup-order-card',
+    'data-pickup-style-summary',
+    'data-pickup-demand-segment',
+    'data-pickup-card-summary',
+    '物料明细列设置',
+  ]) {
+    assert(listSource.includes(cardContract), `三列表页面缺少生产单卡片契约：${cardContract}`)
+  }
+  assert(
+    listSource.includes('view.paging.rows.map((card) => renderPickupOrderCard(kind, card, state))'),
+    '分页结果必须直接渲染为生产单卡片，不得回退为生产单扁平行',
+  )
+  assert(
+    listSource.includes('renderStyleImage(group)')
+      && listSource.includes('renderPickupMaterialImage(row)')
+      && listSource.includes('data-pickup-list-action="open-image-preview"'),
+    '款式与物料必须共用可点击大图能力',
+  )
+  assert(
+    listSource.includes('export function closeCraftCuttingPickupListImagePreview()')
+      && listSource.includes('export function closeCraftCuttingPickupListOverlay()')
+      && fcsHandlersSource.includes('closeCraftCuttingPickupListOverlay()'),
+    '款式、物料大图与 Web 接收浮层必须接入全局 Esc 关闭入口',
+  )
+  const materialColumnsSource = listSource.match(/function materialColumnsFor[\s\S]*?\n}\n/)?.[0] || ''
+  for (const removedColumn of ['加工状态', '加工可供', '已到仓', '超配异常']) {
+    assert(!materialColumnsSource.includes(removedColumn), `物料明细必须删除非核心列：${removedColumn}`)
+  }
+  assert(
+    materialColumnsSource.includes("title: '位置 / 载体', width: 180")
+      && listSource.includes('data-pickup-list-action="open-web-receipt"')
+      && listSource.includes("action === 'confirm-web-receipt'")
+      && listSource.includes("eventSource: 'WEB'"),
+    '三列表必须使用 180px 紧凑位置列，并可在 Web 端完成接收',
+  )
+  const statsSource = listSource.match(/function renderStats[\s\S]*?\n}\n/)?.[0] || ''
+  const filtersSource = listSource.match(/function renderFilters[\s\S]*?\n}\n/)?.[0] || ''
+  assert(!statsSource.includes('buildPickupOrderCards'), '上方统计卡必须保留原分组指标和计算口径')
+  for (const label of [
+    '待领生产单', '一次直接配齐', '从未配齐升级', '当前未编号托盘',
+    '未配齐生产单', '当前占用库位', '可整批接收生产单', '含补料生产单',
+    '有接收记录生产单', '已配齐后接收', '未配齐先领', '尚未全部领完', '新增补料待领',
+  ]) assert(statsSource.includes(label), `上方统计卡不得遗漏既有指标：${label}`)
+  for (const label of [
+    '生产单 / 配料单', '物料', '需求来源', '加工路线', '配齐方式', '托盘是否编号',
+    '最近配齐时间', '库区 / 库位', '仍缺物料', '最近配料时间', '接收路径', '最终结果', '最近接收时间',
+  ]) assert(filtersSource.includes(label), `上方筛选区不得遗漏既有字段：${label}`)
   for (const renderer of [
     'renderCraftCuttingPickupReadyPage',
     'renderCraftCuttingPickupIncompletePage',
@@ -727,6 +781,12 @@ assert(
   ),
   '同一生产单的每张补料单必须形成独立中转仓需求组',
 )
+const po0002SupplementCards = buildPickupOrderCards(po0002SupplementGroups)
+assert(po0002SupplementCards.length === 1, '同一生产单的多张补料单必须归入同一外层生产单卡片')
+assert(
+  po0002SupplementCards[0]?.groups.length === po0002SupplementGroups.length,
+  '生产单卡片聚合不得合并或遗漏独立补料需求组',
+)
 assert(po0002SupplementGroups.every((group) => group.materialRows.every((row) =>
   row.requiredQty > 0 && row.currentAvailableQty === 0 && row.currentLocations.length === 0
 )), '尚未形成物理可领事实的补料需求必须展示批准量，但不得伪造可领数量或库位')
@@ -991,6 +1051,24 @@ for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {
     `${listKind} 列表内分组身份必须唯一；补料组不得按生产单合并`,
   )
   groups.forEach((group) => assertGroupContract(group, listKind))
+  const missingImages = groups.flatMap((group) => [
+    ...(!group.spuImageUrl ? [`${group.productionOrderNo}/款式 ${group.styleNo || group.spu}`] : []),
+    ...group.materialRows.filter((row) => !row.materialImageUrl).map((row) => `${group.productionOrderNo}/物料 ${row.materialSku}`),
+  ])
+  assert(
+    missingImages.length === 0,
+    `${listKind} 卡片中的每个款式和每种物料必须具备稳定真实图片：${missingImages.join('；')}`,
+  )
+  const cards = buildPickupOrderCards(groups)
+  assert(
+    cards.length === new Set(groups.map((group) => group.productionOrderId)).size,
+    `${listKind} 必须严格按生产单生成唯一外层卡片`,
+  )
+  assert(
+    cards.flatMap((card) => card.groups.map((group) => group.groupKey)).sort().join('|')
+      === groups.map((group) => group.groupKey).sort().join('|'),
+    `${listKind} 卡片适配不得遗漏、重复或合并原需求组`,
+  )
   assert(
     groups
       .filter((group) => group.carrierType === 'PALLET')
@@ -1732,6 +1810,7 @@ assert(
 )
 
 console.log(JSON.stringify({
+  GROUPED_CARDS: '三页共用生产单卡片、生产单唯一性、补料分段、真实图片与底部分页已覆盖',
   READY: '节点分类、未编号托盘、空库位与配齐来源已覆盖',
   INCOMPLETE: '节点分类、库位载体与完整来源位置事实已覆盖',
   MATERIAL_ROWS: 'prepLineId、需求/已配/有效已领/待领/当前可领数量已覆盖',

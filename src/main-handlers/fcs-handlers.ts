@@ -186,7 +186,10 @@ import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
 } from '../pages/process-factory/cutting/warehouse-hub'
-import { handleCraftCuttingPickupListEvent } from '../pages/process-factory/cutting/pickup-management-list'
+import {
+  closeCraftCuttingPickupListOverlay,
+  handleCraftCuttingPickupListEvent,
+} from '../pages/process-factory/cutting/pickup-management-list'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
 import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import {
@@ -495,6 +498,10 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeCraftCuttingPickupListOverlay()) {
+    return true
+  }
+
   if (isProcessWaterSolubleOrdersOverlayOpen()) {
     closeProcessWaterSolubleOrdersOverlay()
     return true

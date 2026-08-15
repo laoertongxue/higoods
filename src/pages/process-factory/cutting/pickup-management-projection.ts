@@ -78,6 +78,7 @@ export interface PickupOrderGroup {
   styleNo: string
   styleName: string
   spu: string
+  spuImageUrl: string
   listKind: PickupListKind
   materialRows: PickupMaterialDemandRow[]
   carrierType: PickupCarrierType
@@ -622,6 +623,7 @@ export function buildPickupOrderGroups(
           styleNo: projection.order.styleNo,
           styleName: projection.order.styleName,
           spu: projection.order.spu,
+          spuImageUrl: projection.order.spuImageUrl,
           listKind,
           materialRows: scopeMaterialRows(
             listKind,
@@ -698,6 +700,7 @@ export function buildPickupOrderGroups(
           styleNo: record.draftMeta.spuCode,
           styleName: record.draftMeta.styleName,
           spu: record.draftMeta.spuCode,
+          spuImageUrl: projection?.order.spuImageUrl || record.draftMeta.styleImageUrl,
           listKind,
           materialRows: rows,
           carrierType: 'WAREHOUSE_LOCATIONS',
@@ -758,6 +761,7 @@ export function buildPickupOrderGroups(
       styleNo: firstProjection.order.styleNo,
       styleName: firstProjection.order.styleName,
       spu: firstProjection.order.spu,
+      spuImageUrl: firstProjection.order.spuImageUrl,
       listKind,
       materialRows,
       carrierType,

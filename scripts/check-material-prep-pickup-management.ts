@@ -103,14 +103,40 @@ assert(routeRenderersFcs.includes('renderCraftCuttingPickupIncompletePage'), 'PF
 assert(routeRenderersFcs.includes('renderCraftCuttingPickupHistoryPage'), 'PFOS 已接收 renderer 缺失')
 assert(pickupManagementListSource.includes('// @page-pattern: list'), '接收管理 三列表必须声明标准列表页模式')
 assert(pickupManagementListSource.includes('renderStandardListPage'), '接收管理三列表必须使用标准列表页骨架')
-assert(pickupManagementListSource.includes('renderStandardListTable'), '接收管理三列表必须使用标准列表表格')
+assert(
+  pickupManagementListSource.includes('renderPickupOrderCard')
+    && pickupManagementListSource.includes('data-pickup-order-card')
+    && pickupManagementListSource.includes('data-pickup-demand-segment'),
+  '接收管理三列表必须共用生产单分组卡片骨架',
+)
+assert(
+  pickupManagementListSource.includes('renderStandardListTable')
+    && pickupManagementListSource.includes('materialColumnsFor(kind)'),
+  '生产单卡片内必须使用标准物料明细表格',
+)
 assert(pickupManagementListSource.includes('renderTablePagination'), '接收管理三列表必须保留分页')
+assert(
+  pickupManagementListSource.includes('renderStyleImage(group)')
+    && pickupManagementListSource.includes('renderPickupMaterialImage(row)')
+    && pickupManagementListSource.includes('open-image-preview'),
+  '款式和物料缩略图必须支持共用大图预览',
+)
+assert(
+  pickupManagementProjectionSource.includes('spuImageUrl: string')
+    && pickupManagementProjectionSource.includes('spuImageUrl: projection.order.spuImageUrl'),
+  '生产单分组必须从现有配料投影带出真实款式图',
+)
 assert(pickupManagementProjectionSource.includes('listPickupOrderGroups') && pickupManagementProjectionSource.includes('buildPickupRuntimeContext'), '接收管理必须以活动待领节点事实构建生产单分组')
 assert(fcsHandlersSource.includes('handleCraftCuttingPickupListEvent'), 'FCS handler 必须承接接收管理三列表交互')
+assert(
+  fcsHandlersSource.includes('closeCraftCuttingPickupListOverlay()'),
+  'FCS 全局 Esc 必须关闭接收管理 Web 接收、记录及款式/物料大图',
+)
 assert(pdaWaitProcessSource.includes('listActivePickupNodes'), 'PDA 必须读取与 PC 同源的活动待领节点')
 assert(
-  pdaWaitProcessSource.includes('appendPickupSessionWithWarehouseFactsRuntime'),
-  'PDA 确认必须调用统一原子接收入口',
+  pdaWaitProcessSource.includes('confirmPickupNodeReceiptRuntime')
+    && pickupManagementRuntimeSource.includes('export function confirmPickupNodeReceiptRuntime'),
+  'Web 与 PDA 确认必须调用统一原子接收入口',
 )
 assert(
   !dataSource.includes("pages/process-factory/cutting/supplement-management"),
@@ -263,6 +289,14 @@ const activeNodes = listActivePickupNodesRuntime(null)
 const incompleteGroups = listPickupOrderGroups('INCOMPLETE', null)
 const readyGroups = listPickupOrderGroups('READY', null)
 assert(incompleteGroups.length > 0, 'Mock 缺少未配齐接收分组')
+const missingPickupCardImages = [...incompleteGroups, ...readyGroups].flatMap((group) => [
+  ...(!group.spuImageUrl ? [`${group.productionOrderNo}/款式 ${group.styleNo || group.spu}`] : []),
+  ...group.materialRows.filter((row) => !row.materialImageUrl).map((row) => `${group.productionOrderNo}/物料 ${row.materialSku}`),
+])
+assert(
+  missingPickupCardImages.length === 0,
+  `接收卡片中的每个款式和每种物料必须具备稳定真实图片：${missingPickupCardImages.join('；')}`,
+)
 assert(incompleteGroups.every((group) =>
   group.carrierType === 'WAREHOUSE_LOCATIONS' &&
   (group.materialRows.every((row) => row.demandSource === 'SUPPLEMENT')
@@ -479,6 +513,7 @@ console.log(
   JSON.stringify({
     PFOS接收路由: '通过',
     PFOS列表详情与PDA同源: '通过',
+    PFOS生产单分组卡片与图片: '通过',
     一生产单一配料单: '通过',
     每单最多一活动节点: '通过',
     配料记录生命周期: 'DRAFT → PICKED → STAGED → CONFIRMED',

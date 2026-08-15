@@ -64,7 +64,7 @@ function getSearchParams(): URLSearchParams {
   return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
 }
 
-function listCuttingWarehouses(kind: CuttingWarehouseMapKind): FactoryInternalWarehouse[] {
+export function listCuttingWarehouses(kind: CuttingWarehouseMapKind): FactoryInternalWarehouse[] {
   return Array.from(new Map(listFactoryInternalWarehouses()
     .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING' && warehouse.warehouseKind === kind && warehouse.isEnabled)
     .map((warehouse) => [warehouse.warehouseId, warehouse])).values())
@@ -454,11 +454,13 @@ function buildWaitProcessOccupancies(
   warehouse: FactoryInternalWarehouse,
   snapshot: FactoryWarehouseLayoutSnapshot,
   includeDemoOccupancies: boolean,
+  options: { excludePickupSessionId?: string } = {},
 ): WarehouseLocationOccupancy[] {
   const runtimeOccupancies = buildWaitProcessRuntimeOccupancies(
     warehouse,
     snapshot,
     listCuttingRuntimeEventsByInventoryScope('裁床待加工仓'),
+    options,
   )
   const runtimeKeys = new Set(runtimeOccupancies.map((item) =>
     `${item.productionOrderNo}:${item.objectNo}:${item.locationId}`))
@@ -652,9 +654,10 @@ function buildWaitHandoverDemoOccupancies(
   })
 }
 
-export function buildCurrentCuttingWarehouseMapProjection(
+export function buildCuttingWarehouseMapProjectionForWarehouse(
   kind: CuttingWarehouseMapKind,
-  options: { includeDemoOccupancies?: boolean } = {},
+  warehouseId: string,
+  options: { includeDemoOccupancies?: boolean; excludePickupSessionId?: string } = {},
 ): {
   warehouse: FactoryInternalWarehouse
   snapshot: FactoryWarehouseLayoutSnapshot
@@ -662,12 +665,12 @@ export function buildCurrentCuttingWarehouseMapProjection(
   warningMessage: string
   persistenceAvailable: boolean
 } | null {
-  const warehouse = getCurrentWarehouse(kind)
+  const warehouse = listCuttingWarehouses(kind).find((candidate) => candidate.warehouseId === warehouseId) ?? null
   if (!warehouse) return null
   const loaded = loadWarehouseLayoutSnapshot(warehouse)
   const includeDemoOccupancies = options.includeDemoOccupancies === true
   const occupancies = kind === 'WAIT_PROCESS'
-    ? buildWaitProcessOccupancies(warehouse, loaded.snapshot, includeDemoOccupancies)
+    ? buildWaitProcessOccupancies(warehouse, loaded.snapshot, includeDemoOccupancies, options)
     : buildWaitHandoverOccupancies(warehouse, loaded.snapshot, includeDemoOccupancies)
   const applied = applyWarehouseLayoutSnapshot(warehouse, loaded.snapshot)
   return {
@@ -677,6 +680,15 @@ export function buildCurrentCuttingWarehouseMapProjection(
     warningMessage: [loaded.warningMessage, ...applied.warningMessages].filter(Boolean).join('；'),
     persistenceAvailable: loaded.persistenceAvailable,
   }
+}
+
+export function buildCurrentCuttingWarehouseMapProjection(
+  kind: CuttingWarehouseMapKind,
+  options: { includeDemoOccupancies?: boolean; excludePickupSessionId?: string } = {},
+): ReturnType<typeof buildCuttingWarehouseMapProjectionForWarehouse> {
+  const warehouse = getCurrentWarehouse(kind)
+  if (!warehouse) return null
+  return buildCuttingWarehouseMapProjectionForWarehouse(kind, warehouse.warehouseId, options)
 }
 
 export function renderCuttingWarehouseLocationMapSection(
