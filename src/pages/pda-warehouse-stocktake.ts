@@ -26,7 +26,12 @@ import {
   renderSectionFilterChips,
   renderStatusPill,
 } from './pda-warehouse-shared'
+import { getProductionOrderTechPackSnapshot } from '../data/fcs/production-order-tech-pack-runtime'
+import { productionDemands } from '../data/fcs/production-demands'
+import { productionOrders } from '../data/fcs/production-orders'
+import { listWoolWorkOrders } from '../data/fcs/wool-task-domain'
 import { escapeHtml } from '../utils'
+import { matchesWarehouseInventoryQueryCode } from './pda-warehouse-query-code'
 
 type StocktakeFilter = '全部' | '盘点中' | '待确认' | '已完成' | '已取消'
 type WarehouseToolMode = 'search' | 'scan' | 'stocktake'
@@ -35,7 +40,9 @@ type StocktakeView = '盘点记录' | '盘盈单' | '盘亏单'
 interface StocktakeState {
   status: StocktakeFilter
   view: StocktakeView
+  inventoryQueryDraft: string
   inventoryQuery: string
+  inventoryQueryOrigin: 'manual' | 'scan' | null
   selectedInventoryId: string | null
   selectedOrderId: string | null
   createDialogOpen: boolean
@@ -48,7 +55,9 @@ interface StocktakeState {
 const state: StocktakeState = {
   status: '全部',
   view: '盘点记录',
+  inventoryQueryDraft: '',
   inventoryQuery: '',
+  inventoryQueryOrigin: null,
   selectedInventoryId: null,
   selectedOrderId: null,
   createDialogOpen: false,
@@ -75,8 +84,8 @@ const STOCKTAKE_VIEWS: Array<{ value: StocktakeView; label: string }> = [
 const STOCKTAKE_OWNER_OPTIONS = ['申请人3', '仓库主管', '裁床仓管']
 
 const MODE_OPTIONS: Array<{ value: WarehouseToolMode; label: string; title: string; description: string }> = [
-  { value: 'search', label: '查库存', title: '查库存', description: '按物料、菲票、载具或库位查看当前仓内记录。' },
-  { value: 'scan', label: '扫码查询', title: '扫码查询', description: '现场扫码后查看物料、菲票、载具或库位信息。' },
+  { value: 'search', label: '查库存', title: '查库存', description: '' },
+  { value: 'scan', label: '扫码查询', title: '扫码查询', description: '' },
   { value: 'stocktake', label: '库存盘点', title: '库存盘点', description: '按库位核对实物数量，记录盘盈盘亏并提交差异。' },
 ]
 
@@ -111,11 +120,72 @@ type InventoryQueryRow = {
   itemName: string
   itemKind: string
   code: string
+  searchCodes: string[]
+  imageUrl: string
   sourceText: string
   qty: number
   unit: string
   locationText: string
   status: string
+}
+
+type InventoryQueryCodeSource = {
+  factoryId: string
+  taskId?: string
+  taskNo?: string
+  productionOrderId?: string
+  productionOrderNo?: string
+  materialSku?: string
+  feiTicketNo?: string
+  transferBagNo?: string
+  locationNo?: string
+  photoList?: string[]
+}
+
+function resolveRelatedWoolOrder(item: InventoryQueryCodeSource) {
+  return listWoolWorkOrders().find((order) =>
+    order.factoryId === item.factoryId
+    && (
+      order.taskId === item.taskId
+      || order.taskNo === item.taskNo
+      || order.productionOrderId === item.productionOrderId
+      || order.productionOrderNo === item.productionOrderNo
+    ),
+  )
+}
+
+function buildInventorySearchCodes(item: InventoryQueryCodeSource): string[] {
+  const woolOrder = resolveRelatedWoolOrder(item)
+  return [
+    item.materialSku,
+    item.productionOrderNo,
+    item.transferBagNo,
+    item.feiTicketNo,
+    item.locationNo,
+    item.taskNo,
+    woolOrder?.woolOrderNo,
+  ].filter((code): code is string => Boolean(code?.trim()))
+}
+
+function resolveInventoryImageUrl(item: InventoryQueryCodeSource): string {
+  const directImage = item.photoList?.find((url) => /^(?:https?:\/\/|\/|data:image\/)/i.test(url.trim()))
+  if (directImage) return directImage
+  const woolImage = resolveRelatedWoolOrder(item)?.styleImageUrl
+  if (woolImage) return woolImage
+  const productionOrder = productionOrders.find((order) =>
+    order.productionOrderId === item.productionOrderId || order.productionOrderNo === item.productionOrderNo,
+  )
+  const demand = productionDemands.find((candidate) =>
+    candidate.demandId === productionOrder?.demandId || candidate.productionOrderId === item.productionOrderId,
+  )
+  const imageSnapshot = item.productionOrderId
+    ? getProductionOrderTechPackSnapshot(item.productionOrderId)?.imageSnapshot
+    : undefined
+  return [
+    ...(imageSnapshot?.styleImages || []),
+    ...(imageSnapshot?.productImages || []),
+    demand?.imageUrl || '',
+  ].find((url) => /^(?:https?:\/\/|\/|data:image\/)/i.test(url.trim())) || ''
 }
 
 type InventoryFlowRow = {
@@ -136,7 +206,7 @@ function renderWarehouseQueryPageHeader(title: string, description: string): str
     <div class="flex items-start justify-between gap-3 px-1 pb-1 pt-1">
       <div class="min-w-0">
         <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(title)}</div>
-        <div class="mt-1 max-w-[260px] text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</div>
+        ${description ? `<div class="mt-1 max-w-[260px] text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</div>` : ''}
       </div>
       <button
         type="button"
@@ -190,6 +260,8 @@ function buildInventoryQueryRows(): InventoryQueryRow[] {
       itemName: item.itemName,
       itemKind: item.itemKind,
       code: item.materialSku || item.feiTicketNo || item.transferBagNo || item.fabricRollNo || item.sourceRecordNo || '-',
+      searchCodes: buildInventorySearchCodes(item),
+      imageUrl: resolveInventoryImageUrl(item),
       sourceText: getWaitProcessSourceText(item),
       qty: item.receivedQty,
       unit: item.unit,
@@ -206,45 +278,36 @@ function buildInventoryQueryRows(): InventoryQueryRow[] {
       itemName: item.itemName,
       itemKind: item.itemKind,
       code: item.feiTicketNo || item.transferBagNo || item.materialSku || item.fabricRollNo || item.handoverRecordNo || '-',
+      searchCodes: buildInventorySearchCodes(item),
+      imageUrl: resolveInventoryImageUrl(item),
       sourceText: getWaitHandoverSourceText(item),
       qty: item.waitHandoverQty || item.completedQty,
       unit: item.unit,
       locationText: item.locationText,
       status: item.status,
     }))
-  return [...waitProcessItems, ...waitHandoverItems].slice(0, 8)
+  return [...waitProcessItems, ...waitHandoverItems]
 }
 
 function filterInventoryQueryRows(rows: InventoryQueryRow[], keyword: string): InventoryQueryRow[] {
-  const normalized = keyword.trim().toLowerCase()
-  if (!normalized) return rows
-  return rows.filter((row) => [
-    row.warehouseName,
-    row.warehouseShortName,
-    row.itemName,
-    row.itemKind,
-    row.code,
-    row.sourceText,
-    row.locationText,
-    row.status,
-    `${row.qty}`,
-    row.unit,
-  ].some((value) => String(value || '').toLowerCase().includes(normalized)))
+  if (!keyword.trim()) return []
+  return rows.filter((row) => matchesWarehouseInventoryQueryCode(row.searchCodes, keyword))
 }
 
-function renderInventoryQueryResultCard(row: InventoryQueryRow, mode: WarehouseToolMode, index: number): string {
-  const scanLabel = mode === 'scan' && index === 0 ? '<span class="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">本次扫码</span>' : ''
+function renderInventoryQueryResultCard(row: InventoryQueryRow): string {
   return `
     <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start gap-3">
+        ${row.imageUrl
+          ? `<button type="button" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/30" data-pda-image-preview-url="${escapeAttr(row.imageUrl)}" data-pda-image-preview-title="${escapeAttr(row.itemName)}" data-skip-page-rerender="true" aria-label="查看${escapeAttr(row.itemName)}大图"><img class="h-full w-full object-cover" src="${escapeAttr(row.imageUrl)}" alt="${escapeAttr(row.itemName)}实物图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+          : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border bg-muted/30 px-1 text-center text-[10px] text-muted-foreground">图片缺失</div>'}
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(row.itemName)}</div>
-            ${scanLabel}
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">${escapeHtml(row.itemName)}</div>
+            ${renderStatusPill(row.status)}
           </div>
           <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(row.code)}</div>
         </div>
-        ${renderStatusPill(row.status)}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
         <div>仓别：${escapeHtml(row.warehouseShortName)}</div>
@@ -377,43 +440,45 @@ function renderInventoryFlowDialog(rows: InventoryQueryRow[]): string {
 }
 
 function renderInventorySearchPanel(mode: WarehouseToolMode): string {
-  const rows = filterInventoryQueryRows(buildInventoryQueryRows(), state.inventoryQuery)
-  const inputLabel = mode === 'scan' ? '扫描码' : '关键词'
-  const inputPlaceholder = mode === 'scan' ? '扫描物料码 / 菲票码 / 载具码 / 库位码' : '输入物料、菲票、载具、库位'
-  const resultTitle = mode === 'scan' ? '扫码结果' : '查询结果'
-  const resultDescription = state.inventoryQuery.trim()
-    ? `已按“${state.inventoryQuery.trim()}”筛选当前库存。`
-    : mode === 'scan'
-      ? '扫描后展示匹配到的当前库存对象。'
-      : '输入关键词后展示匹配到的当前库存对象。'
+  const submittedQuery = state.inventoryQuery.trim()
+  const rows = submittedQuery ? filterInventoryQueryRows(buildInventoryQueryRows(), submittedQuery) : []
+  const inputPlaceholder = '物料码 / 生产单 / 中转袋 / 菲票码 / 库位码 / 加工单号'
+  const resultTitle = state.inventoryQueryOrigin === 'scan' ? '扫码结果' : '查询结果'
   return `
-    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <label class="text-xs font-medium text-muted-foreground">
-        ${escapeHtml(inputLabel)}
+    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+      <div class="flex items-center gap-2">
         <input
-          class="mt-2 h-11 w-full rounded-xl border bg-background px-3 text-sm"
+          class="h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-sm"
           placeholder="${escapeAttr(inputPlaceholder)}"
-          value="${escapeAttr(state.inventoryQuery)}"
+          aria-label="输入或扫描物料码、生产单、中转袋、菲票码、库位码、加工单号"
+          autocomplete="off"
+          value="${escapeAttr(state.inventoryQueryDraft)}"
           data-pda-warehouse-field="inventory-query"
+          data-skip-page-rerender="true"
+          ${mode === 'scan' ? 'data-pda-scan-enter="true" autofocus' : ''}
         />
-      </label>
-      <button type="button" class="mt-3 h-11 w-full rounded-xl bg-primary text-sm font-medium text-primary-foreground">${mode === 'scan' ? '确认扫码查询' : '查询'}</button>
-    </section>
-    <section class="space-y-3">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <div class="text-sm font-semibold text-foreground">${escapeHtml(resultTitle)}</div>
-          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(resultDescription)}</div>
-        </div>
-        <span class="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">${rows.length} 条</span>
+        <button
+          type="button"
+          class="h-12 shrink-0 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+          data-pda-warehouse-action="run-inventory-query"
+        >查询</button>
       </div>
-      ${
-        rows.length
-          ? rows.map((row, index) => renderInventoryQueryResultCard(row, mode, index)).join('')
-          : renderMobilePageEmptyState('暂无库存记录', '中转仓接收、回收入仓或交出装袋确认后会在这里显示。')
-      }
     </section>
-    ${renderInventoryFlowDialog(rows)}
+    ${submittedQuery ? `
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-foreground">${escapeHtml(resultTitle)}</div>
+            <div class="mt-0.5 truncate text-xs text-muted-foreground">${escapeHtml(submittedQuery)}</div>
+          </div>
+          <span class="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">${rows.length} 条</span>
+        </div>
+        ${rows.length
+          ? rows.map(renderInventoryQueryResultCard).join('')
+          : '<div class="rounded-2xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">未找到匹配库存，请核对编码。</div>'}
+      </section>
+      ${renderInventoryFlowDialog(rows)}
+    ` : ''}
   `
 }
 
@@ -795,9 +860,24 @@ export function renderPdaWarehouseStocktakePage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: modeMeta.title })
 }
 
-export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {
+function submitInventoryQuery(rawQuery: string, origin: 'manual' | 'scan'): void {
+  const query = rawQuery.trim()
+  state.inventoryQuery = query
+  state.inventoryQueryOrigin = query ? origin : null
+  state.inventoryQueryDraft = origin === 'scan' && query ? '' : rawQuery
+  state.selectedInventoryId = null
+}
+
+export function handlePdaWarehouseStocktakeEvent(target: HTMLElement, event?: Event): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'run-inventory-query') {
+    const inputNode = actionNode
+      ?.closest<HTMLElement>('section')
+      ?.querySelector<HTMLInputElement>('[data-pda-warehouse-field="inventory-query"]')
+    submitInventoryQuery(inputNode?.value ?? state.inventoryQueryDraft, 'manual')
+    return true
+  }
   if (action === 'open-create-stocktake') {
     state.createDialogOpen = true
     return true
@@ -885,8 +965,11 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement): boolean {
     return true
   }
   if (field === 'inventory-query') {
-    state.inventoryQuery = value
-    return true
+    if (getWarehouseToolMode() === 'scan' && event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+      submitInventoryQuery(value, 'scan')
+      return true
+    }
+    return false
   }
   if ((field === 'stocktake-counted-qty' || field === 'stocktake-difference-reason') && fieldNode) {
     const orderId = fieldNode.dataset.orderId

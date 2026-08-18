@@ -109,6 +109,7 @@ function buildPendingTone(count: number, tone: WarehouseActionTone = 'primary'):
 }
 
 function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
+  if (isWoolWarehouseRuntime(runtime) || isCraftWarehouseRuntime(runtime)) return ''
   const pickupCount = getActiveTodoCount(runtime, ['待接收'])
   let waitProcessActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
@@ -130,50 +131,6 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
           route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
         },
       ]
-  } else if (isCraftWarehouseRuntime(runtime)) {
-    waitProcessActions = [
-      {
-        title: '接收入仓',
-        subtitle: '扫交接单或加工单，确认数量和库位。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'receive' }),
-        ...buildPendingTone(pickupCount),
-      },
-      {
-        title: '加工接收',
-        subtitle: '从待加工仓领出给工序使用。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
-      },
-      {
-        title: '回收入仓',
-        subtitle: '未加工完或退回物回到库位。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
-      },
-    ]
-  } else if (isWoolWarehouseRuntime(runtime)) {
-    waitProcessActions = [
-      {
-        title: '纱线确认接收',
-        subtitle: '按加工单确认实际收到的纱线。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'receive' }),
-        ...buildPendingTone(pickupCount),
-      },
-      {
-        title: '纱线领用',
-        subtitle: '从默认纱线库位领出实际用量。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
-      },
-      {
-        title: '纱线退回',
-        subtitle: '将未使用纱线退回默认纱线库位。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
-      },
-      {
-        title: '库存调整',
-        subtitle: '二次确认后修正纱线账面库存。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'adjust' }),
-        tone: 'warning',
-      },
-    ]
   } else {
     waitProcessActions = [
         {
@@ -187,38 +144,11 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
 }
 
 function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
+  if (isWoolWarehouseRuntime(runtime) || isCraftWarehouseRuntime(runtime)) return ''
   const handoverCount = getActiveTodoCount(runtime, ['待交出'])
   let waitHandoverActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
     waitHandoverActions = getPdaCuttingWaitHandoverActions()
-  } else if (isCraftWarehouseRuntime(runtime)) {
-    waitHandoverActions = [
-      {
-        title: '完工入仓',
-        subtitle: '加工完成后确认数量和库位。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'finish-inbound' }),
-      },
-      {
-        title: '交出确认',
-        subtitle: '确认接收方和数量，形成交出记录。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-confirm' }),
-        ...buildPendingTone(handoverCount),
-      },
-    ]
-  } else if (isWoolWarehouseRuntime(runtime)) {
-    waitHandoverActions = [
-      {
-        title: '查看待交出库存',
-        subtitle: '查看加工填报入库后的裁片、成衣库存。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime),
-      },
-      {
-        title: '查看交出记录',
-        subtitle: '查看每次发起交出形成的独立交接记录。',
-        route: '/fcs/pda/handover?tab=handout',
-        ...buildPendingTone(handoverCount),
-      },
-    ]
   } else {
     waitHandoverActions = [
     {
@@ -236,12 +166,12 @@ function renderInventoryActions(runtime: NonNullable<ReturnType<typeof getMobile
   const actions: WarehouseShortcut[] = [
     {
       title: '查库存',
-      subtitle: '按物料、菲票、载具或库位查询。',
+      subtitle: '按物料码、生产单、中转袋、菲票码、库位码或加工单号查询。',
       route: resolveWarehouseRoute('/fcs/pda/warehouse/stocktake', runtime, { mode: 'search' }),
     },
     {
       title: '扫码查询',
-      subtitle: '扫物料码、菲票码、载具码、库位码。',
+      subtitle: '扫物料码、生产单、中转袋、菲票码、库位码或加工单号。',
       route: resolveWarehouseRoute('/fcs/pda/warehouse/stocktake', runtime, { mode: 'scan' }),
     },
     {

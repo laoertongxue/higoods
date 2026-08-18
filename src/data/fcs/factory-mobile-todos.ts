@@ -27,6 +27,7 @@ import {
   listRuntimeTaskTenderRecords,
   resolveRuntimeTaskTenderStatus,
 } from './runtime-task-tenders.ts'
+import { getSpecialCraftPdaCandidateByTaskId } from './special-craft-pda-scan.ts'
 
 export type FactoryMobileTodoType =
   | '待报价'
@@ -60,7 +61,7 @@ export interface FactoryMobileTodo {
   relatedInboundRecordId?: string
   relatedOutboundRecordId?: string
   relatedSettlementId?: string
-  executionProcessType?: 'WOOL'
+  executionProcessType?: 'WOOL' | 'SPECIAL_CRAFT'
   priority: FactoryMobileTodoPriority
   status: FactoryMobileTodoStatus
   dueAt?: string
@@ -170,6 +171,25 @@ function getWoolTodoMeta(task: PdaTaskFlowMock): {
   return { todoType: '待确认接收', title: '毛织加工单待确认接收纱线' }
 }
 
+function getSpecialCraftTodoMeta(task: PdaTaskFlowMock): {
+  todoType: '待确认接收' | '待加工填报' | '待交出' | '待完工'
+  title: string
+} | null {
+  const workOrder = getSpecialCraftPdaCandidateByTaskId(task.taskId)?.order
+  if (!workOrder) return null
+  if (workOrder.status === '待接收') {
+    return { todoType: '待确认接收', title: `${workOrder.operationName}加工单待确认接收` }
+  }
+  if (workOrder.status !== '加工中') return null
+  if (workOrder.completedQty > (workOrder.returnedQty || 0)) {
+    return { todoType: '待交出', title: `${workOrder.operationName}加工单待发起交出` }
+  }
+  if (workOrder.completedQty >= workOrder.planQty) {
+    return { todoType: '待完工', title: `${workOrder.operationName}加工单待确认完成` }
+  }
+  return { todoType: '待加工填报', title: `${workOrder.operationName}加工单可加工填报` }
+}
+
 function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
   applyPendingDispatchAutoAcceptance()
   return listPdaTaskFlowTasks()
@@ -232,22 +252,24 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
     .filter((task) => task.status === 'NOT_STARTED')
     .map((task, index) => {
       const woolMeta = isWoolTask(task) ? getWoolTodoMeta(task) : null
+      const specialCraftMeta = woolMeta ? null : getSpecialCraftTodoMeta(task)
+      const executionMeta = woolMeta || specialCraftMeta
       return {
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
-      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待接收' as const : '待开工' as const),
-      todoTitle: woolMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待接收' : '待开工'),
+      todoType: executionMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待接收' as const : '待开工' as const),
+      todoTitle: executionMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待接收' : '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
       relatedTaskId: task.taskId,
       relatedTaskNo: task.taskNo || task.taskId,
-      executionProcessType: woolMeta ? 'WOOL' as const : undefined,
+      executionProcessType: woolMeta ? 'WOOL' as const : specialCraftMeta ? 'SPECIAL_CRAFT' as const : undefined,
       priority: resolvePriority(task.taskDeadline),
       status: resolveTodoStatus(task),
       dueAt: task.taskDeadline,
       createdAt: task.acceptedAt || task.createdAt || task.taskDeadline || '',
-      detailRoute: woolMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-start-${task.taskId}`,
+      detailRoute: executionMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-start-${task.taskId}`,
       actionLabel: '去处理' as const,
       }
     })
@@ -256,11 +278,13 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
     .filter((task) => task.status === 'IN_PROGRESS')
     .map((task, index) => {
       const woolMeta = isWoolTask(task) ? getWoolTodoMeta(task) : null
+      const specialCraftMeta = woolMeta ? null : getSpecialCraftTodoMeta(task)
+      const executionMeta = woolMeta || specialCraftMeta
       return {
       todoId: `todo-finish-${task.taskId}`,
       todoNo: `TD-FN-${String(index + 1).padStart(3, '0')}`,
-      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) || isFixedMergedTask(task) ? '待交出' as const : '待完工' as const),
-      todoTitle: woolMeta?.title || (isWholeOrderFiveStepTask(task)
+      todoType: executionMeta?.todoType || (isWholeOrderFiveStepTask(task) || isFixedMergedTask(task) ? '待交出' as const : '待完工' as const),
+      todoTitle: executionMeta?.title || (isWholeOrderFiveStepTask(task)
         ? `${getMobileTaskDisplayTitle(task, '上传进度')}，交给${task.handoverReceiverName || '仓库'}后进入仓库待确认`
         : isFixedMergedTask(task)
           ? `${getMobileTaskDisplayTitle(task, '待交出')}，交出即结束本次合并任务`
@@ -270,12 +294,12 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
       relatedTaskId: task.taskId,
       relatedTaskNo: task.taskNo || task.taskId,
-      executionProcessType: woolMeta ? 'WOOL' as const : undefined,
+      executionProcessType: woolMeta ? 'WOOL' as const : specialCraftMeta ? 'SPECIAL_CRAFT' as const : undefined,
       priority: resolvePriority(task.taskDeadline, '处理中'),
       status: '处理中' as const,
       dueAt: task.taskDeadline,
       createdAt: task.startedAt || task.acceptedAt || task.taskDeadline || '',
-      detailRoute: woolMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-finish-${task.taskId}`,
+      detailRoute: executionMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-finish-${task.taskId}`,
       actionLabel: '去处理' as const,
       }
     })

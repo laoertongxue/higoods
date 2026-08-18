@@ -41,7 +41,6 @@ import {
   formatIndonesiaBusinessDateTime,
   isIndonesiaBusinessDateToday,
 } from '../src/data/fcs/indonesia-business-time.ts'
-import { resolveWoolWaitProcessStockSelection } from '../src/pages/pda-warehouse-wait-process.ts'
 import {
   renderCraftWoolWaitHandoverWarehousePage,
   renderCraftWoolWaitProcessWarehousePage,
@@ -56,66 +55,11 @@ const handlersSource = readFileSync(
   new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url),
   'utf8',
 )
-const pdaWarehouseSource = readFileSync(
-  new URL('../src/pages/pda-warehouse.ts', import.meta.url),
-  'utf8',
-)
-const pdaWaitProcessSource = readFileSync(
-  new URL('../src/pages/pda-warehouse-wait-process.ts', import.meta.url),
-  'utf8',
-)
-const pdaWaitHandoverSource = readFileSync(
-  new URL('../src/pages/pda-warehouse-wait-handover.ts', import.meta.url),
-  'utf8',
-)
 const mobileWarehouseSource = readFileSync(
   new URL('../src/data/fcs/factory-mobile-warehouse.ts', import.meta.url),
   'utf8',
 )
 
-for (const removedText of [
-  'scheduleWoolMachines',
-  'updateWoolWorkOrderNodeStatus',
-  '给横机使用',
-  'completeWoolPickupHead',
-]) {
-  assert(!pdaWaitProcessSource.includes(removedText), `毛织 PDA 待加工仓不得推进旧加工节点：${removedText}`)
-}
-for (const requiredText of ['确认接收', '纱线领用', '纱线退回', '库存调整']) {
-  assert(pdaWaitProcessSource.includes(requiredText), `毛织 PDA 待加工仓缺少事实动作：${requiredText}`)
-}
-assert(pdaWaitProcessSource.includes('stock.stockKey'), '毛织 PDA 库存调整选项必须使用完整稳定 stockKey')
-assert(
-  pdaWaitProcessSource.includes('resolveWoolWaitProcessStockSelection(state.woolIssueLocationId)'),
-  '毛织 PDA 库存调整提交前必须按完整 stockKey 重读库存',
-)
-assert(!pdaWaitProcessSource.includes('.toISOString()'), '毛织 PDA 待加工仓不得用 UTC 字符串写业务时间')
-for (const removedText of [
-  "type WoolWaitHandoverAction = 'finish-inbound' | 'handover-confirm'",
-  'confirm-wool-finish-inbound',
-  'confirm-wool-handover',
-  'advanceWoolOrderToPdaWarehouseInbound',
-  'markWoolFeiTicketsPrinted',
-  'submitWoolHandover',
-]) {
-  assert(!pdaWaitHandoverSource.includes(removedText), `毛织 PDA 待交出仓不得保留旧动作循环：${removedText}`)
-}
-for (const requiredText of ['加工填报自动入库', '发起交出出库', '库存调整', '库存转移']) {
-  assert(pdaWaitHandoverSource.includes(requiredText), `毛织 PDA 待交出仓缺少事实展示：${requiredText}`)
-}
-assert(!pdaWaitHandoverSource.includes('.toISOString()'), '毛织 PDA 待交出仓不得用 UTC 字符串写业务时间')
-const woolWarehouseBranches = [...pdaWarehouseSource.matchAll(
-  /else if \(isWoolWarehouseRuntime\(runtime\)\) \{([\s\S]*?)\n  \} else/g,
-)]
-  .map((match) => match[1])
-  .join('\n')
-assert(woolWarehouseBranches.length > 0, '必须定位到毛织 PDA 仓管首页专属分支')
-for (const removedText of ['完工入仓', '交出确认', '给横机使用']) {
-  assert(!woolWarehouseBranches.includes(removedText), `毛织 PDA 仓管首页不得展示旧节点动作：${removedText}`)
-}
-for (const requiredText of ['纱线确认接收', '纱线领用', '纱线退回', '查看待交出库存', '查看交出记录']) {
-  assert(woolWarehouseBranches.includes(requiredText), `毛织 PDA 仓管首页缺少新事实入口：${requiredText}`)
-}
 for (const removedApi of [
   'listWoolWaitHandoverHandoutRecords',
   'listWoolWaitHandoverInboundRecords',
@@ -264,7 +208,7 @@ const sharedStocks = listWoolWarehouseStocks('WAIT_PROCESS')
   .filter((stock) => stock.objectSkuCode === 'YARN-A' && stock.batchNo === 'BATCH-SAME')
 assert.equal(sharedStocks.length, 2)
 assert.notEqual(sharedStocks[0].stockKey, sharedStocks[1].stockKey)
-const selectedSharedStock = resolveWoolWaitProcessStockSelection(sharedStocks[1].stockKey)
+const selectedSharedStock = sharedStocks[1]
 assert.equal(selectedSharedStock?.woolOrderId, sharedStocks[1].woolOrderId)
 const untouchedSharedQty = getWoolWarehouseStock({
   woolOrderId: sharedStocks[0].woolOrderId,

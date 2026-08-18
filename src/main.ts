@@ -2,6 +2,7 @@ import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
+import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
 import { appStore } from './state/store'
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
@@ -1765,6 +1766,12 @@ root.addEventListener('click', async (event) => {
 
   if (shouldBypassClickDispatch(target)) return
 
+  if (handlePdaImagePreviewEvent(target)) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
   if (productionObjectActionNode) {
     if (handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
@@ -2042,7 +2049,23 @@ document.addEventListener('keydown', async (event) => {
     if (scanResult) event.preventDefault()
     return
   }
+  const pdaOrderScanTarget = event.key === 'Enter'
+    ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"]')
+    : null
+  if (pdaOrderScanTarget) {
+    const focusSnapshot = captureFocusSnapshot()
+    if (await dispatchPageEvent(pdaOrderScanTarget, event)) {
+      event.preventDefault()
+      await renderWithFocusRestore(focusSnapshot)
+    }
+    return
+  }
   if (event.key !== 'Escape') return
+
+  if (closePdaImagePreview()) {
+    event.preventDefault()
+    return
+  }
 
   const shouldUseScopedRender = isTechPackPageMounted()
   if (await closeDialogsOnEscape()) {

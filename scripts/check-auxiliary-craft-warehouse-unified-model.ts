@@ -92,12 +92,15 @@ for (const [action, label] of [
 }
 
 const pdaWarehouseSource = src('src/pages/pda-warehouse.ts')
-for (const label of ['isCraftWarehouseRuntime', 'CENTRAL_AUX', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
-  assert.ok(pdaWarehouseSource.includes(label), `PDA 仓管首页缺少辅助工艺入口：${label}`)
-}
+assert.ok(pdaWarehouseSource.includes('CENTRAL_AUX'), 'PDA 仓管首页必须识别辅助工艺工厂')
+assert.equal(
+  pdaWarehouseSource.match(/if \(isWoolWarehouseRuntime\(runtime\) \|\| isCraftWarehouseRuntime\(runtime\)\) return ''/g)?.length,
+  2,
+  'PDA 辅助工艺仓管首页必须隐藏待加工仓和待交出仓第二套操作入口',
+)
 
 const pdaWaitProcessSource = src('src/pages/pda-warehouse-wait-process.ts')
-for (const label of [
+for (const removedLabel of [
   'renderAuxiliaryWaitProcessPage',
   'confirm-auxiliary-receive',
   'confirm-auxiliary-issue',
@@ -106,11 +109,12 @@ for (const label of [
   'auxiliary-issue-area',
   'auxiliary-return-area',
 ]) {
-  assert.ok(pdaWaitProcessSource.includes(label), `PDA 辅助工艺待加工仓缺少：${label}`)
+  assert.ok(!pdaWaitProcessSource.includes(removedLabel), `PDA 辅助工艺待加工仓旧逻辑必须删除：${removedLabel}`)
 }
+assert.ok(pdaWaitProcessSource.includes("renderRouteRedirect('/fcs/pda/handover?tab=pickup'"), 'PDA 辅助工艺待加工仓旧 URL 必须跳到交接确认接收')
 
 const pdaWaitHandoverSource = src('src/pages/pda-warehouse-wait-handover.ts')
-for (const label of [
+for (const removedLabel of [
   'renderAuxiliaryWaitHandoverPage',
   'confirm-auxiliary-finish',
   'confirm-auxiliary-handover',
@@ -118,8 +122,9 @@ for (const label of [
   'auxiliary-handover-area',
   'auxiliary-handover-receiver',
 ]) {
-  assert.ok(pdaWaitHandoverSource.includes(label), `PDA 辅助工艺待交出仓缺少：${label}`)
+  assert.ok(!pdaWaitHandoverSource.includes(removedLabel), `PDA 辅助工艺待交出仓旧逻辑必须删除：${removedLabel}`)
 }
+assert.ok(pdaWaitHandoverSource.includes("renderRouteRedirect('/fcs/pda/handover?tab=handout'"), 'PDA 辅助工艺待交出仓旧 URL 必须跳到交接发起交出')
 
 const storage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {

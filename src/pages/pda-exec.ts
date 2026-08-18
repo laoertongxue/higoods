@@ -34,6 +34,17 @@ import {
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
+import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
+import {
+  resolveWoolPdaScan,
+  type WoolPdaScanCandidate,
+} from '../data/fcs/wool-pda-scan.ts'
+import {
+  getSpecialCraftPdaCandidateByTaskId,
+  hasSpecialCraftOrdersForFactory,
+  resolveSpecialCraftPdaScan,
+  type SpecialCraftPdaScanCandidate,
+} from '../data/fcs/special-craft-pda-scan.ts'
 import {
   getPostFinishingTaskById,
   getPostFinishingWorkOrderBySourceTaskId,
@@ -74,6 +85,14 @@ interface PdaExecState {
   searchKeyword: string
   riskParam: string
   page: number
+  woolScanMessage: string
+  woolScanTone: 'info' | 'error'
+  woolScanCandidates: WoolPdaScanCandidate[]
+  woolLastResolvedCode: string
+  specialCraftScanMessage: string
+  specialCraftScanTone: 'info' | 'error'
+  specialCraftScanCandidates: SpecialCraftPdaScanCandidate[]
+  specialCraftLastResolvedCode: string
 }
 
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
@@ -89,6 +108,14 @@ const state: PdaExecState = {
   searchKeyword: '',
   riskParam: '',
   page: 1,
+  woolScanMessage: '',
+  woolScanTone: 'info',
+  woolScanCandidates: [],
+  woolLastResolvedCode: '',
+  specialCraftScanMessage: '',
+  specialCraftScanTone: 'info',
+  specialCraftScanCandidates: [],
+  specialCraftLastResolvedCode: '',
 }
 
 const PDA_EXEC_PAGE_SIZE = 10
@@ -369,7 +396,18 @@ function mutateFinishTask(taskId: string, by: string): void {
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
   return listMobileExecutionTasks({
     currentFactoryId: factoryId,
-  }).filter((task) => canFactoryAccessSpecialCraftPdaTask(factoryId, task))
+  })
+    .filter((task) => canFactoryAccessSpecialCraftPdaTask(factoryId, task))
+    .filter((task) => {
+      const processType = getMobileTaskProcessType(task)
+      if (processType === 'SPECIAL_CRAFT') {
+        return getSpecialCraftPdaCandidateByTaskId(task.taskId)?.order.status !== '待接收'
+      }
+      if (processType !== 'WOOL') return true
+      if (task.woolProcessingStatus === 'COMPLETED') return true
+      return ['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE']
+        .some((action) => task.woolAllowedActions?.includes(action))
+    })
 }
 
 function getFilteredTasks(
@@ -591,17 +629,15 @@ function getPdaExecEmptyStateText(acceptedTasks: ProcessTask[]): string {
 }
 
 function renderWoolFactCard(task: ProcessTask): string {
-  const primaryAction = (['COMPLETE', 'HANDOVER', 'REPORT_PROCESS', 'RECEIVE_YARN'] as const)
+  const primaryAction = (['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'] as const)
     .find((action) => task.woolAllowedActions?.includes(action))
-  const actionLabel = primaryAction === 'RECEIVE_YARN'
-    ? '确认接收'
-    : primaryAction === 'REPORT_PROCESS'
-      ? '加工填报'
-      : primaryAction === 'HANDOVER'
-        ? '发起交出'
-        : primaryAction === 'COMPLETE'
-          ? '完成加工单'
-          : '查看事实'
+  const actionLabel = primaryAction === 'REPORT_PROCESS'
+    ? '加工填报'
+    : primaryAction === 'ASSOCIATE_MACHINE'
+      ? '关联横机设备'
+      : primaryAction === 'COMPLETE'
+        ? '完成加工单'
+        : '查看加工单'
   const readyOutputSkuCodes = task.woolReadyOutputSkuCodes || []
   const missingYarnSkus = task.woolMissingYarnSkus || []
   const yarnText = readyOutputSkuCodes.length
@@ -612,13 +648,12 @@ function renderWoolFactCard(task: ProcessTask): string {
   const styleImageUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(task.woolStyleImageUrl?.trim() || '')
     ? task.woolStyleImageUrl!.trim()
     : ''
+  const styleImageTitle = task.woolStyleNo || '毛织款式'
 
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="flex gap-3 p-3">
-        <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
-          ${styleImageUrl ? `<img class="h-full w-full object-cover" src="${escapeHtml(styleImageUrl)}" alt="${escapeHtml(task.woolStyleNo || '')}款式图">` : '<span class="text-xs text-muted-foreground">暂无款式图</span>'}
-        </div>
+        ${styleImageUrl ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30" data-pda-image-preview-url="${escapeHtml(styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(styleImageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(styleImageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(styleImageUrl)}" alt="${escapeHtml(task.woolStyleNo || '')}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border bg-muted/30"><span class="text-xs text-muted-foreground">暂无款式图</span></div>'}
         <div class="min-w-0 flex-1 space-y-2">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
@@ -636,12 +671,40 @@ function renderWoolFactCard(task: ProcessTask): string {
   `
 }
 
+function renderSpecialCraftFactCard(task: ProcessTask): string {
+  const candidate = getSpecialCraftPdaCandidateByTaskId(task.taskId)
+  if (!candidate) return ''
+  const { order } = candidate
+  const imageTitle = `${candidate.styleNo} · ${candidate.styleName}`
+  const actionLabel = order.status === '加工中' ? '加工填报' : '查看加工记录'
+  return `
+    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+      <div class="flex gap-3 p-3">
+        ${candidate.styleImageUrl ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30" data-pda-image-preview-url="${escapeHtml(candidate.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(candidate.styleImageUrl)}" alt="${escapeHtml(imageTitle)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border bg-muted/30"><span class="text-xs text-muted-foreground">款式图缺失</span></div>'}
+        <div class="min-w-0 flex-1 space-y-2">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="truncate text-sm font-semibold">${escapeHtml(order.taskOrderNo)}</div>
+              <div class="mt-0.5 truncate text-[11px] text-muted-foreground">${escapeHtml(candidate.styleNo)} · ${escapeHtml(order.productionOrderNo)}</div>
+            </div>
+            <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">${escapeHtml(order.status)}</span>
+          </div>
+          <div class="text-xs">${escapeHtml(order.operationName)} · ${escapeHtml(order.targetObject)}</div>
+          <div class="rounded-md border bg-muted/20 px-2 py-1.5 text-xs">已接收 ${order.receivedQty} / 已完成 ${order.completedQty} ${escapeHtml(order.unit)}</div>
+          <button type="button" class="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">${escapeHtml(actionLabel)}</button>
+        </div>
+      </div>
+    </article>
+  `
+}
+
 function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: string): string {
   const page = buildPdaExecPageSlice(filteredTasks, state.page, PDA_EXEC_PAGE_SIZE)
   state.page = page.currentPage
   const cards = page.rows.length
     ? page.rows.map((task) => {
       if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
+      if (getMobileTaskProcessType(task) === 'SPECIAL_CRAFT') return renderSpecialCraftFactCard(task)
       if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
       if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
       if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
@@ -1188,6 +1251,145 @@ function renderDoneCard(task: ProcessTask): string {
   `
 }
 
+function hasWoolOrdersForFactory(factoryId: string): boolean {
+  return listWoolWorkOrders().some((order) => order.factoryId === factoryId)
+}
+
+function renderWoolScanCandidate(candidate: WoolPdaScanCandidate): string {
+  const order = candidate.order
+  const imageUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(order.styleImageUrl?.trim() || '')
+    ? order.styleImageUrl!.trim()
+    : ''
+  const outputSummary = order.outputPlanLines
+    .map((line) => [line.colorName, line.sizeCode, line.woolPartName].filter(Boolean).join('/'))
+    .filter(Boolean)
+    .join('、') || '待核对加工对象'
+  const imageTitle = `${order.styleNo} · ${order.styleName}`
+  return `<article class="rounded-lg border bg-background p-3" data-pda-wool-scan-candidate>
+    <div class="flex gap-3">
+      ${imageUrl ? `<button type="button" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-muted/30"><span class="px-1 text-center text-[10px] text-muted-foreground">暂无款式图</span></div>'}
+      <div class="min-w-0 flex-1 text-xs">
+        <div class="font-semibold">${escapeHtml(order.woolOrderNo)}</div>
+        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.productionOrderNo)}</div>
+        <div class="mt-1">${escapeHtml(order.styleNo)} · ${escapeHtml(outputSummary)}</div>
+      </div>
+    </div>
+    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(order.taskId)}">选择此加工单</button>
+  </article>`
+}
+
+function renderWoolExecutionScanFeedback(): string {
+  const message = state.woolScanMessage
+    ? `<div class="rounded border px-3 py-2 text-xs ${state.woolScanTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-800'}">${escapeHtml(state.woolScanMessage)}</div>`
+    : ''
+  const candidates = state.woolScanCandidates.length > 0
+    ? `<div class="space-y-2">${state.woolScanCandidates.map(renderWoolScanCandidate).join('')}</div>`
+    : ''
+  return `<div class="mt-3 space-y-2" data-pda-exec-wool-scan-feedback>${message}${candidates}</div>`
+}
+
+function renderWoolExecutionScanHeader(): string {
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-exec-wool-scan>
+    <div class="flex items-start gap-2">
+      <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
+      <div><div class="text-sm font-semibold text-blue-950">扫码进入加工填报</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或毛织加工单码；一个生产单有多张加工单时再选择。</div></div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <input
+        class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+        placeholder="扫描生产单 / 加工单"
+        data-pda-exec-field="searchKeyword"
+        data-pda-scan-enter="true"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.searchKeyword)}"
+      />
+      <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-exec-action="scan-wool-order">识别加工单</button>
+    </div>
+    <div class="mt-2 text-[11px] text-blue-700">“执行”只处理加工填报、关联横机设备、完成加工单。</div>
+    ${renderWoolExecutionScanFeedback()}
+  </section>`
+}
+
+function runWoolExecutionScan(rawCode: string): void {
+  state.woolLastResolvedCode = rawCode.trim()
+  const result = resolveWoolPdaScan(rawCode, getCurrentFactoryId(), 'EXECUTION')
+  state.woolScanMessage = result.message
+  state.woolScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
+  state.woolScanCandidates = result.candidates
+  if (result.status === 'MATCH') {
+    appStore.navigate(resolvePdaExecCardDetailPath(result.candidates[0].order.taskId))
+  }
+}
+
+function updateWoolExecutionScanFeedbackInPlace(): void {
+  const target = document.querySelector<HTMLElement>('[data-pda-exec-wool-scan-feedback]')
+  if (target) target.outerHTML = renderWoolExecutionScanFeedback()
+}
+
+function renderSpecialCraftScanCandidate(candidate: SpecialCraftPdaScanCandidate): string {
+  const { order } = candidate
+  const imageTitle = `${candidate.styleNo} · ${candidate.styleName}`
+  return `<article class="rounded-lg border bg-background p-3" data-pda-special-craft-scan-candidate>
+    <div class="flex gap-3">
+      ${candidate.styleImageUrl ? `<button type="button" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted/30" data-pda-image-preview-url="${escapeHtml(candidate.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(candidate.styleImageUrl)}" alt="${escapeHtml(imageTitle)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-muted/30"><span class="px-1 text-center text-[10px] text-muted-foreground">款式图缺失</span></div>'}
+      <div class="min-w-0 flex-1 text-xs">
+        <div class="font-semibold">${escapeHtml(order.taskOrderNo)}</div>
+        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.productionOrderNo)}</div>
+        <div class="mt-1">${escapeHtml(order.operationName)} · ${escapeHtml(order.targetObject)} · ${order.planQty} ${escapeHtml(order.unit)}</div>
+      </div>
+    </div>
+    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="select-special-craft-order" data-task-id="${escapeHtml(candidate.taskId)}">选择此加工单</button>
+  </article>`
+}
+
+function renderSpecialCraftExecutionScanFeedback(): string {
+  const message = state.specialCraftScanMessage
+    ? `<div class="rounded border px-3 py-2 text-xs ${state.specialCraftScanTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-800'}">${escapeHtml(state.specialCraftScanMessage)}</div>`
+    : ''
+  const candidates = state.specialCraftScanCandidates.length > 0
+    ? `<div class="space-y-2">${state.specialCraftScanCandidates.map(renderSpecialCraftScanCandidate).join('')}</div>`
+    : ''
+  return `<div class="mt-3 space-y-2" data-pda-exec-special-craft-scan-feedback>${message}${candidates}</div>`
+}
+
+function renderSpecialCraftExecutionScanHeader(): string {
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-exec-special-craft-scan>
+    <div class="flex items-start gap-2">
+      <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
+      <div><div class="text-sm font-semibold text-blue-950">扫码进入加工填报</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或加工单码；一个生产单有多张加工单时再选择。</div></div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <input
+        class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+        placeholder="扫描生产单 / 加工单"
+        data-pda-exec-field="searchKeyword"
+        data-pda-scan-enter="true"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.searchKeyword)}"
+      />
+      <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-exec-action="scan-special-craft-order">识别加工单</button>
+    </div>
+    <div class="mt-2 text-[11px] text-blue-700">“执行”只处理加工填报和完成加工单。</div>
+    ${renderSpecialCraftExecutionScanFeedback()}
+  </section>`
+}
+
+function runSpecialCraftExecutionScan(rawCode: string): void {
+  state.specialCraftLastResolvedCode = rawCode.trim()
+  const result = resolveSpecialCraftPdaScan(rawCode, getCurrentFactoryId(), 'EXECUTION')
+  state.specialCraftScanMessage = result.message
+  state.specialCraftScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
+  state.specialCraftScanCandidates = result.candidates
+  if (result.status === 'MATCH') {
+    appStore.navigate(resolvePdaExecCardDetailPath(result.candidates[0].taskId))
+  }
+}
+
+function updateSpecialCraftExecutionScanFeedbackInPlace(): void {
+  const target = document.querySelector<HTMLElement>('[data-pda-exec-special-craft-scan-feedback]')
+  if (target) target.outerHTML = renderSpecialCraftExecutionScanFeedback()
+}
+
 export function renderPdaExecPage(): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) {
@@ -1202,6 +1404,8 @@ export function renderPdaExecPage(): string {
 
   const selectedFactoryId = getCurrentFactoryId()
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+  const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
+  const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
 
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
     NOT_STARTED: [],
@@ -1221,7 +1425,7 @@ export function renderPdaExecPage(): string {
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
       <header class="sticky top-0 z-30 border-b bg-background p-4">
-        <div class="relative">
+        ${hasWoolOrders ? renderWoolExecutionScanHeader() : hasSpecialCraftOrders ? renderSpecialCraftExecutionScanHeader() : `<div class="relative">
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
@@ -1230,7 +1434,7 @@ export function renderPdaExecPage(): string {
             data-skip-page-rerender="true"
             value="${escapeHtml(state.searchKeyword)}"
           />
-        </div>
+        </div>`}
       </header>
 
       <div class="z-20 grid grid-cols-4 border-b bg-background" data-testid="pda-exec-tabs">
@@ -1260,7 +1464,7 @@ export function renderPdaExecPage(): string {
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
-export function handlePdaExecEvent(target: HTMLElement): boolean {
+export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean {
   if (!ensurePdaSessionForAction()) return true
 
   const fieldNode = target.closest<HTMLElement>('[data-pda-exec-field]')
@@ -1271,7 +1475,24 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value
       state.page = 1
+      if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+        const factoryId = getCurrentFactoryId()
+        if (hasWoolOrdersForFactory(factoryId)) runWoolExecutionScan(fieldNode.value)
+        else if (hasSpecialCraftOrdersForFactory(factoryId)) runSpecialCraftExecutionScan(fieldNode.value)
+        else updatePdaExecCardListInPlace()
+        return true
+      }
+      if (fieldNode.value.trim() !== state.woolLastResolvedCode) {
+        state.woolScanMessage = ''
+        state.woolScanCandidates = []
+      }
+      if (fieldNode.value.trim() !== state.specialCraftLastResolvedCode) {
+        state.specialCraftScanMessage = ''
+        state.specialCraftScanCandidates = []
+      }
       updatePdaExecCardListInPlace()
+      updateWoolExecutionScanFeedbackInPlace()
+      updateSpecialCraftExecutionScanFeedbackInPlace()
       return true
     }
   }
@@ -1281,6 +1502,26 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.pdaExecAction
   if (!action) return false
+
+  if (action === 'scan-wool-order') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-exec-wool-scan] [data-pda-exec-field="searchKeyword"]')
+    state.searchKeyword = input?.value || state.searchKeyword
+    runWoolExecutionScan(state.searchKeyword)
+    return true
+  }
+
+  if (action === 'scan-special-craft-order') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-exec-special-craft-scan] [data-pda-exec-field="searchKeyword"]')
+    state.searchKeyword = input?.value || state.searchKeyword
+    runSpecialCraftExecutionScan(state.searchKeyword)
+    return true
+  }
+
+  if (action === 'select-special-craft-order') {
+    const taskId = actionNode.dataset.taskId
+    if (taskId) appStore.navigate(resolvePdaExecCardDetailPath(taskId))
+    return true
+  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined

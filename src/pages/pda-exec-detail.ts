@@ -26,6 +26,7 @@ import {
 import {
   getSpecialCraftTaskOrderById,
 } from '../data/fcs/special-craft-task-orders.ts'
+import { getSpecialCraftPdaCandidateByTaskId } from '../data/fcs/special-craft-pda-scan.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -1034,10 +1035,18 @@ function getExecDetailSearchParams(): URLSearchParams {
   return new URLSearchParams(queryString)
 }
 
+type SpecialCraftPdaSurface = 'EXECUTION' | 'HANDOVER_RECEIVE' | 'HANDOVER_HANDOUT'
+
+function getSpecialCraftPdaSurface(): SpecialCraftPdaSurface {
+  const searchParams = getExecDetailSearchParams()
+  if (searchParams.get('surface') !== 'handover') return 'EXECUTION'
+  return searchParams.get('handoverAction') === 'handout' ? 'HANDOVER_HANDOUT' : 'HANDOVER_RECEIVE'
+}
+
 function resolveExecDetailBackHref(task?: ProcessTask | null): string {
   const searchParams = getExecDetailSearchParams()
   const returnTo = searchParams.get('returnTo')
-  if (returnTo && returnTo.startsWith('/fcs/pda/exec')) {
+  if (returnTo && (returnTo.startsWith('/fcs/pda/exec') || returnTo.startsWith('/fcs/pda/handover'))) {
     return returnTo
   }
 
@@ -2126,38 +2135,40 @@ function getSpecialCraftPdaAllowedActions(input: {
   requiresFeiTicket: boolean
   bindingCount: number
   canGarmentWarehouseOutbound?: boolean
+  surface: SpecialCraftPdaSurface
 }): Array<{ action: string; label: string; primary?: boolean }> {
   const currentStatus = input.workOrderStatus || input.status
   const actions: Array<{ action: string; label: string; primary?: boolean }> = []
   if (input.requiresFeiTicket && input.bindingCount === 0) {
     actions.push({ action: 'special-confirm-receive', label: '确认接收', primary: true })
-    return actions
-  }
-  if (['WAITING', 'TODO', '待接收', '待接收'].includes(currentStatus)) {
+  } else if (['WAITING', 'TODO', '待接收'].includes(currentStatus)) {
     if (input.objectLabel === '成衣' && currentStatus === '待接收') {
       if (input.canGarmentWarehouseOutbound) {
         actions.push({ action: 'special-confirm-receive', label: '逐 SKU 确认接收', primary: true })
       }
-      return actions
+    } else {
+      actions.push({ action: 'special-confirm-receive', label: `确认接收${input.objectLabel}`, primary: true })
     }
-    actions.push({ action: 'special-confirm-receive', label: `确认接收${input.objectLabel}`, primary: true })
-    return actions
-  }
-  if (currentStatus === '成衣仓已出库待收货') {
+  } else if (currentStatus === '成衣仓已出库待收货') {
     actions.push({ action: 'special-confirm-receive', label: '逐 SKU 确认接收成衣', primary: true })
-    return actions
-  }
-  if (['已接收', '待加工', '已入待加工仓'].includes(currentStatus)) {
+  } else if (['已接收', '待加工', '已入待加工仓'].includes(currentStatus)) {
     actions.push({ action: 'special-confirm-receive', label: '确认接收', primary: true })
-    return actions
-  }
-  if (currentStatus === 'IN_PROGRESS' || currentStatus === '加工中') {
+  } else if (currentStatus === 'IN_PROGRESS' || currentStatus === '加工中') {
     actions.push({ action: 'special-process-report', label: '加工填报', primary: true })
     actions.push({ action: 'special-submit-handover', label: '发起交出' })
     actions.push({ action: 'special-complete-order', label: '完成加工单' })
-    return actions
   }
-  return actions
+
+  if (input.canGarmentWarehouseOutbound && input.surface === 'EXECUTION') return actions
+  if (input.surface === 'HANDOVER_RECEIVE') {
+    return actions.filter((action) => action.action === 'special-confirm-receive')
+  }
+  if (input.surface === 'HANDOVER_HANDOUT') {
+    return actions.filter((action) => action.action === 'special-submit-handover')
+  }
+  return actions.filter((action) =>
+    action.action === 'special-process-report' || action.action === 'special-complete-order',
+  )
 }
 
 function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask): boolean {
@@ -2172,6 +2183,14 @@ function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask):
     && role.permissionKeys.includes('HANDOUT_CREATE')
     && workOrder?.targetObject === '成衣'
     && workOrder.status === '待接收'
+}
+
+function isSpecialCraftActionAllowedOnCurrentSurface(action: string, allowGarmentWarehouseOutbound: boolean): boolean {
+  if (allowGarmentWarehouseOutbound && getSpecialCraftPdaSurface() === 'EXECUTION') return true
+  const surface = getSpecialCraftPdaSurface()
+  if (surface === 'HANDOVER_RECEIVE') return action === 'special-confirm-receive'
+  if (surface === 'HANDOVER_HANDOUT') return action === 'special-submit-handover'
+  return action === 'special-process-report' || action === 'special-complete-order'
 }
 
 function getCurrentPdaProcessActionAudit() {
@@ -2377,6 +2396,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     ? handoverRecords.map((record) => `${record.handoverRecordNo}：${record.handoverObjectQty}${record.qtyUnit}`).join('；')
     : '暂无交出记录'
   const canGarmentWarehouseOutbound = canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
+  const surface = getSpecialCraftPdaSurface()
   const allowedActions = getSpecialCraftPdaAllowedActions({
     status,
     workOrderStatus: workOrder?.status,
@@ -2384,6 +2404,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     requiresFeiTicket: objectMeta.requiresFeiTicket,
     bindingCount: bindings.length,
     canGarmentWarehouseOutbound,
+    surface,
   })
   const garmentSkuExecution = objectMeta.objectType === '成衣' && workOrderId
     ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status, canGarmentWarehouseOutbound)
@@ -2395,7 +2416,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       <header class="border-b px-4 py-3">
         <h2 class="flex items-center gap-2 text-sm font-semibold">
           <i data-lucide="scan-line" class="h-4 w-4"></i>
-          特殊工艺${objectMeta.requiresFeiTicket ? '菲票' : '执行'}
+          ${surface === 'HANDOVER_RECEIVE' ? '交接 · 确认接收' : surface === 'HANDOVER_HANDOUT' ? '交接 · 发起交出' : `执行 · ${objectMeta.requiresFeiTicket ? '加工填报' : '加工单'}`}
         </h2>
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
@@ -3342,6 +3363,53 @@ function renderPdaFixedMergedTaskPage(task: FixedMergedPdaTask, currentFactoryId
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
+function renderSpecialCraftFocusedDetailPage(task: ProcessTask): string {
+  const session = getPdaSession()
+  const candidate = getSpecialCraftPdaCandidateByTaskId(task.taskId)
+  const surface = getSpecialCraftPdaSurface()
+  const canGarmentWarehouseOutbound = surface === 'EXECUTION' && canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
+  const canOpen = Boolean(
+    session
+    && candidate
+    && (
+      (candidate.order.factoryId === session.factoryId && canFactoryAccessSpecialCraftPdaTask(session.factoryId, task))
+      || canGarmentWarehouseOutbound
+    ),
+  )
+  const isExecution = surface === 'EXECUTION'
+  const actionLabel = surface === 'HANDOVER_HANDOUT' ? '发起交出' : surface === 'HANDOVER_RECEIVE' ? '确认接收' : '加工单执行'
+  const backLabel = isExecution ? '返回执行' : '返回交接'
+  const imageTitle = candidate ? `${candidate.styleNo} · ${candidate.styleName}` : '款式图片'
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6" data-pda-special-craft-detail>
+      <div class="flex items-center gap-2">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          ${escapeHtml(backLabel)}
+        </button>
+        <h1 class="text-base font-semibold">${escapeHtml(actionLabel)}</h1>
+      </div>
+      ${candidate ? `
+        <article class="rounded-lg border bg-card p-3">
+          <div class="flex gap-3">
+            ${candidate.styleImageUrl ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30" data-pda-image-preview-url="${escapeHtml(candidate.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(candidate.styleImageUrl)}" alt="${escapeHtml(imageTitle)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border bg-muted/30"><span class="px-1 text-center text-xs text-muted-foreground">款式图缺失</span></div>'}
+            <div class="min-w-0 flex-1 text-xs">
+              <div class="text-sm font-semibold">${escapeHtml(candidate.order.taskOrderNo)}</div>
+              <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(candidate.order.productionOrderNo)}</div>
+              <div class="mt-1">${escapeHtml(candidate.styleNo)} · ${escapeHtml(candidate.styleName)}</div>
+              <div class="mt-1">${escapeHtml(candidate.order.operationName)} · ${escapeHtml(candidate.order.targetObject)}</div>
+            </div>
+          </div>
+        </article>
+      ` : ''}
+      ${canOpen
+        ? renderSpecialCraftExecutionPanel(task, task.status || 'NOT_STARTED', getTaskProcessDisplayName(task))
+        : '<section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">该加工单不属于当前登录工厂，不能操作。</section>'}
+    </div>
+  `
+  return renderPdaFrame(content, isExecution ? 'exec' : 'handover', { headerTitle: actionLabel, disableTodoAutoOpen: true })
+}
+
 export function renderPdaExecDetailPage(taskId: string): string {
   syncWaterActionScope(taskId)
   syncPdaStartRiskAndExceptions()
@@ -3359,6 +3427,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
       'exec',
       { disableTodoAutoOpen: true },
     )
+  }
+
+  if (task && getMobileTaskProcessType(task) === 'SPECIAL_CRAFT') {
+    return renderSpecialCraftFocusedDetailPage(task)
   }
 
   const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
@@ -4029,7 +4101,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       }
       ${isStartDialogOpen ? renderStartInfoDialog() : ''}
 
-      <article class="rounded-lg border bg-card">
+      <article class="${isSpecialCraftTaskForPda ? 'hidden' : ''} rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h2 class="text-sm font-semibold">操作</h2>
         </header>
@@ -4043,6 +4115,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
           ${
             mobileTaskAccess.canOpenMobileExecution
               && !isPreparationExecutionTask
+              && !isSpecialCraftTaskForPda
               ? renderDetailAuxiliaryButtons()
               : ''
           }
@@ -5435,6 +5508,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           )
       if (!canExecuteCurrentAction) {
         throw new Error('当前账号无权执行该特殊工艺加工单。')
+      }
+      if (!isSpecialCraftActionAllowedOnCurrentSurface(action, canGarmentWarehouseOperate)) {
+        throw new Error('该动作不属于当前页，请从“执行”或“交接”对应入口操作。')
       }
       const actionAudit = getCurrentPdaProcessActionAudit()
 

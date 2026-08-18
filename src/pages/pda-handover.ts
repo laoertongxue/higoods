@@ -33,17 +33,55 @@ import {
   ensurePostFinishingSewingSelfReturnMockRecords,
   listPostFinishingSewingSelfReturnRecords,
 } from '../data/fcs/post-finishing-domain.ts'
+import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
+import {
+  resolveWoolPdaScan,
+  type WoolPdaScanCandidate,
+  type WoolPdaScanPurpose,
+} from '../data/fcs/wool-pda-scan.ts'
+import {
+  hasSpecialCraftOrdersForFactory,
+  resolveSpecialCraftPdaScan,
+  type SpecialCraftPdaScanCandidate,
+  type SpecialCraftPdaScanPurpose,
+} from '../data/fcs/special-craft-pda-scan.ts'
+import {
+  handlePdaWoolExecutionEvent,
+  renderPdaWoolHandoverContent,
+} from './pda-wool-fact-execution.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
 interface PdaHandoverState {
   selectedFactoryId: string
   activeTab: HandoverTab
+  woolScanKeyword: string
+  woolScanMessage: string
+  woolScanTone: 'info' | 'error'
+  woolScanCandidates: WoolPdaScanCandidate[]
+  woolLastResolvedCode: string
+  selectedWoolTaskId: string
+  specialCraftScanKeyword: string
+  specialCraftScanMessage: string
+  specialCraftScanTone: 'info' | 'error'
+  specialCraftScanCandidates: SpecialCraftPdaScanCandidate[]
+  specialCraftLastResolvedCode: string
 }
 
 const state: PdaHandoverState = {
   selectedFactoryId: '',
   activeTab: 'pickup',
+  woolScanKeyword: '',
+  woolScanMessage: '',
+  woolScanTone: 'info',
+  woolScanCandidates: [],
+  woolLastResolvedCode: '',
+  selectedWoolTaskId: '',
+  specialCraftScanKeyword: '',
+  specialCraftScanMessage: '',
+  specialCraftScanTone: 'info',
+  specialCraftScanCandidates: [],
+  specialCraftLastResolvedCode: '',
 }
 
 let specialCraftSeedScheduled = false
@@ -65,14 +103,24 @@ function getCurrentSearchParams(): URLSearchParams {
 }
 
 function syncTabWithQuery(): void {
+  const previousTab = state.activeTab
   const tab = getCurrentSearchParams().get('tab')
   if (!tab) {
     state.activeTab = 'pickup'
-    return
-  }
-  if (TAB_CONFIG.some((item) => item.key === tab)) {
+  } else if (TAB_CONFIG.some((item) => item.key === tab)) {
     state.activeTab = tab as HandoverTab
   }
+  if (state.activeTab !== previousTab) {
+    state.woolScanKeyword = ''
+    state.woolScanMessage = ''
+    state.woolScanCandidates = []
+    state.woolLastResolvedCode = ''
+    state.specialCraftScanKeyword = ''
+    state.specialCraftScanMessage = ''
+    state.specialCraftScanCandidates = []
+    state.specialCraftLastResolvedCode = ''
+  }
+  state.selectedWoolTaskId = getCurrentSearchParams().get('taskId') || ''
 }
 
 function getCurrentFactoryId(): string {
@@ -553,6 +601,187 @@ function renderPostFinishingSewingSelfReturnPanel(): string {
   `
 }
 
+function getWoolScanPurpose(tab: HandoverTab): WoolPdaScanPurpose | null {
+  if (tab === 'pickup') return 'RECEIVE'
+  if (tab === 'handout') return 'HANDOVER'
+  return null
+}
+
+function hasWoolOrdersForFactory(factoryId: string): boolean {
+  return listWoolWorkOrders().some((order) => order.factoryId === factoryId)
+}
+
+function renderWoolScanCandidate(candidate: WoolPdaScanCandidate): string {
+  const order = candidate.order
+  const imageUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(order.styleImageUrl?.trim() || '')
+    ? order.styleImageUrl!.trim()
+    : ''
+  const outputSummary = order.outputPlanLines
+    .map((line) => [line.colorName, line.sizeCode, line.woolPartName].filter(Boolean).join('/'))
+    .filter(Boolean)
+    .join('、') || '待核对加工对象'
+  const imageTitle = `${order.styleNo} · ${order.styleName}`
+  return `<article class="rounded-lg border bg-background p-3" data-pda-wool-scan-candidate>
+    <div class="flex gap-3">
+      ${imageUrl ? `<button type="button" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-muted/30"><span class="px-1 text-center text-[10px] text-muted-foreground">暂无款式图</span></div>'}
+      <div class="min-w-0 flex-1 text-xs">
+        <div class="font-semibold">${escapeHtml(order.woolOrderNo)}</div>
+        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.productionOrderNo)}</div>
+        <div class="mt-1">${escapeHtml(order.styleNo)} · ${escapeHtml(outputSummary)}</div>
+      </div>
+    </div>
+    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-wool-order" data-task-id="${escapeHtml(order.taskId)}">选择此加工单</button>
+  </article>`
+}
+
+function renderWoolHandoverScanFeedback(): string {
+  const message = state.woolScanMessage
+    ? `<div class="rounded border px-3 py-2 text-xs ${state.woolScanTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-800'}">${escapeHtml(state.woolScanMessage)}</div>`
+    : ''
+  const candidates = state.woolScanCandidates.length > 0
+    ? `<div class="space-y-2">${state.woolScanCandidates.map(renderWoolScanCandidate).join('')}</div>`
+    : ''
+  return `<div class="mt-3 space-y-2" data-pda-handover-wool-scan-feedback>${message}${candidates}</div>`
+}
+
+function renderWoolHandoverScanPanel(): string {
+  const purpose = getWoolScanPurpose(state.activeTab)
+  if (!purpose) return ''
+  const isReceive = purpose === 'RECEIVE'
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-wool-scan>
+    <div class="flex items-start gap-2">
+      <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
+      <div><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '确认接收' : '发起交出'}</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或毛织加工单码；一个生产单有多张加工单时再选择。</div></div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <input
+        class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+        placeholder="扫描生产单 / 加工单"
+        data-pda-handover-field="woolScanKeyword"
+        data-pda-scan-enter="true"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.woolScanKeyword)}"
+      />
+      <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-wool-order">识别加工单</button>
+    </div>
+    <div class="mt-2 text-[11px] text-blue-700">“交接”只处理毛织确认接收和发起交出。</div>
+    ${renderWoolHandoverScanFeedback()}
+  </section>`
+}
+
+function renderSelectedWoolHandoverOrder(): string {
+  if (!state.selectedWoolTaskId) return ''
+  const mode = state.activeTab === 'pickup' ? 'RECEIVE' : 'HANDOVER'
+  return `<section class="overflow-hidden rounded-xl border bg-background" data-pda-selected-wool-order>
+    <div class="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
+      <span class="text-sm font-semibold">已识别加工单</span>
+      <button type="button" class="rounded border px-3 py-1 text-xs" data-pda-handover-action="clear-wool-order">重新扫码</button>
+    </div>
+    ${renderPdaWoolHandoverContent(state.selectedWoolTaskId, mode)}
+  </section>`
+}
+
+function runWoolHandoverScan(rawCode: string): void {
+  const purpose = getWoolScanPurpose(state.activeTab)
+  if (!purpose) return
+  state.woolLastResolvedCode = rawCode.trim()
+  const result = resolveWoolPdaScan(rawCode, getCurrentFactoryId(), purpose)
+  state.woolScanMessage = result.message
+  state.woolScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
+  state.woolScanCandidates = result.candidates
+  if (result.status === 'MATCH') {
+    state.woolScanMessage = ''
+    state.woolScanCandidates = []
+    appStore.navigate(`/fcs/pda/handover?tab=${state.activeTab}&taskId=${encodeURIComponent(result.candidates[0].order.taskId)}`)
+  }
+}
+
+function updateWoolHandoverScanFeedbackInPlace(): void {
+  const target = document.querySelector<HTMLElement>('[data-pda-handover-wool-scan-feedback]')
+  if (target) target.outerHTML = renderWoolHandoverScanFeedback()
+}
+
+function getSpecialCraftScanPurpose(tab: HandoverTab): SpecialCraftPdaScanPurpose | null {
+  if (tab === 'pickup') return 'RECEIVE'
+  if (tab === 'handout') return 'HANDOVER'
+  return null
+}
+
+function buildSpecialCraftHandoverTaskPath(taskId: string): string {
+  const handoverAction = state.activeTab === 'pickup' ? 'receive' : 'handout'
+  const returnTo = `/fcs/pda/handover?tab=${state.activeTab}`
+  return `/fcs/pda/exec/${encodeURIComponent(taskId)}?surface=handover&handoverAction=${handoverAction}&returnTo=${encodeURIComponent(returnTo)}`
+}
+
+function renderSpecialCraftScanCandidate(candidate: SpecialCraftPdaScanCandidate): string {
+  const { order } = candidate
+  const imageTitle = `${candidate.styleNo} · ${candidate.styleName}`
+  return `<article class="rounded-lg border bg-background p-3" data-pda-special-craft-scan-candidate>
+    <div class="flex gap-3">
+      ${candidate.styleImageUrl ? `<button type="button" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted/30" data-pda-image-preview-url="${escapeHtml(candidate.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(candidate.styleImageUrl)}" alt="${escapeHtml(imageTitle)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-muted/30"><span class="px-1 text-center text-[10px] text-muted-foreground">款式图缺失</span></div>'}
+      <div class="min-w-0 flex-1 text-xs">
+        <div class="font-semibold">${escapeHtml(order.taskOrderNo)}</div>
+        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.productionOrderNo)}</div>
+        <div class="mt-1">${escapeHtml(order.operationName)} · ${escapeHtml(order.targetObject)} · ${order.planQty} ${escapeHtml(order.unit)}</div>
+      </div>
+    </div>
+    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-special-craft-order" data-task-id="${escapeHtml(candidate.taskId)}">选择此加工单</button>
+  </article>`
+}
+
+function renderSpecialCraftHandoverScanFeedback(): string {
+  const message = state.specialCraftScanMessage
+    ? `<div class="rounded border px-3 py-2 text-xs ${state.specialCraftScanTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-800'}">${escapeHtml(state.specialCraftScanMessage)}</div>`
+    : ''
+  const candidates = state.specialCraftScanCandidates.length > 0
+    ? `<div class="space-y-2">${state.specialCraftScanCandidates.map(renderSpecialCraftScanCandidate).join('')}</div>`
+    : ''
+  return `<div class="mt-3 space-y-2" data-pda-handover-special-craft-scan-feedback>${message}${candidates}</div>`
+}
+
+function renderSpecialCraftHandoverScanPanel(): string {
+  const purpose = getSpecialCraftScanPurpose(state.activeTab)
+  if (!purpose) return ''
+  const isReceive = purpose === 'RECEIVE'
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-special-craft-scan>
+    <div class="flex items-start gap-2">
+      <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
+      <div><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '确认接收' : '发起交出'}</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或加工单码；一个生产单有多张加工单时再选择。</div></div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <input
+        class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+        placeholder="扫描生产单 / 加工单"
+        data-pda-handover-field="specialCraftScanKeyword"
+        data-pda-scan-enter="true"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.specialCraftScanKeyword)}"
+      />
+      <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-special-craft-order">识别加工单</button>
+    </div>
+    <div class="mt-2 text-[11px] text-blue-700">“交接”只处理确认接收和发起交出。</div>
+    ${renderSpecialCraftHandoverScanFeedback()}
+  </section>`
+}
+
+function runSpecialCraftHandoverScan(rawCode: string): void {
+  const purpose = getSpecialCraftScanPurpose(state.activeTab)
+  if (!purpose) return
+  state.specialCraftLastResolvedCode = rawCode.trim()
+  const result = resolveSpecialCraftPdaScan(rawCode, getCurrentFactoryId(), purpose)
+  state.specialCraftScanMessage = result.message
+  state.specialCraftScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
+  state.specialCraftScanCandidates = result.candidates
+  if (result.status === 'MATCH') {
+    appStore.navigate(buildSpecialCraftHandoverTaskPath(result.candidates[0].taskId))
+  }
+}
+
+function updateSpecialCraftHandoverScanFeedbackInPlace(): void {
+  const target = document.querySelector<HTMLElement>('[data-pda-handover-special-craft-scan-feedback]')
+  if (target) target.outerHTML = renderSpecialCraftHandoverScanFeedback()
+}
+
 export function renderPdaHandoverPage(): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) {
@@ -561,6 +790,8 @@ export function renderPdaHandoverPage(): string {
 
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
+  const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
+  const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
   if (!isPostFinishingFactory) {
@@ -616,13 +847,16 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
+        ${hasWoolOrders && state.activeTab !== 'done' ? renderWoolHandoverScanPanel() : ''}
+        ${hasWoolOrders && state.activeTab !== 'done' ? renderSelectedWoolHandoverOrder() : ''}
+        ${hasSpecialCraftOrders && state.activeTab !== 'done' ? renderSpecialCraftHandoverScanPanel() : ''}
         ${canManageSewingSelfReturnMode && state.activeTab === 'pickup' ? renderPostFinishingSewingSelfReturnPanel() : ''}
         ${
           state.activeTab === 'pickup'
             ? `
               ${
                 pickupHeads.length === 0
-                  ? renderEmptyState('暂无待处理接收单')
+                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders ? '可先扫码确认接收；暂无其他待处理接收单' : '暂无待处理接收单')
                   : pickupHeads.map((head) => renderOpenHeadCard(head)).join('')
               }
             `
@@ -634,7 +868,7 @@ export function renderPdaHandoverPage(): string {
             ? `
               ${
                 handoutHeads.length === 0
-                  ? renderEmptyState('暂无待处理交出单')
+                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
                   : handoutHeads.map((head) => renderOpenHeadCard(head)).join('')
               }
             `
@@ -659,8 +893,39 @@ export function renderPdaHandoverPage(): string {
   return renderPdaFrame(content, 'handover')
 }
 
-export function handlePdaHandoverEvent(target: HTMLElement): boolean {
+export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): boolean {
   if (!ensurePdaSessionForAction()) return true
+  if (handlePdaWoolExecutionEvent(target)) return true
+
+  const specialCraftFieldNode = target.closest<HTMLInputElement>('[data-pda-handover-field="specialCraftScanKeyword"]')
+  if (specialCraftFieldNode) {
+    state.specialCraftScanKeyword = specialCraftFieldNode.value
+    if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+      runSpecialCraftHandoverScan(specialCraftFieldNode.value)
+      return true
+    }
+    if (specialCraftFieldNode.value.trim() !== state.specialCraftLastResolvedCode) {
+      state.specialCraftScanMessage = ''
+      state.specialCraftScanCandidates = []
+      updateSpecialCraftHandoverScanFeedbackInPlace()
+    }
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLInputElement>('[data-pda-handover-field="woolScanKeyword"]')
+  if (fieldNode) {
+    state.woolScanKeyword = fieldNode.value
+    if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+      runWoolHandoverScan(fieldNode.value)
+      return true
+    }
+    if (fieldNode.value.trim() !== state.woolLastResolvedCode) {
+      state.woolScanMessage = ''
+      state.woolScanCandidates = []
+      updateWoolHandoverScanFeedbackInPlace()
+    }
+    return true
+  }
 
   const actionNode = target.closest<HTMLElement>('[data-pda-handover-action]')
   if (!actionNode) return false
@@ -668,10 +933,59 @@ export function handlePdaHandoverEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaHandoverAction
   if (!action) return false
 
+  if (action === 'scan-wool-order') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-handover-wool-scan] [data-pda-handover-field="woolScanKeyword"]')
+    state.woolScanKeyword = input?.value || state.woolScanKeyword
+    runWoolHandoverScan(state.woolScanKeyword)
+    return true
+  }
+
+  if (action === 'scan-special-craft-order') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-handover-special-craft-scan] [data-pda-handover-field="specialCraftScanKeyword"]')
+    state.specialCraftScanKeyword = input?.value || state.specialCraftScanKeyword
+    runSpecialCraftHandoverScan(state.specialCraftScanKeyword)
+    return true
+  }
+
+  if (action === 'select-special-craft-order') {
+    const taskId = actionNode.dataset.taskId
+    if (taskId) appStore.navigate(buildSpecialCraftHandoverTaskPath(taskId))
+    return true
+  }
+
+  if (action === 'select-wool-order') {
+    const taskId = actionNode.dataset.taskId
+    if (taskId) {
+      state.woolScanKeyword = ''
+      state.woolScanMessage = ''
+      state.woolScanCandidates = []
+      state.woolLastResolvedCode = ''
+      appStore.navigate(`/fcs/pda/handover?tab=${state.activeTab}&taskId=${encodeURIComponent(taskId)}`)
+    }
+    return true
+  }
+
+  if (action === 'clear-wool-order') {
+    state.woolScanKeyword = ''
+    state.woolScanMessage = ''
+    state.woolScanCandidates = []
+    state.woolLastResolvedCode = ''
+    appStore.navigate(`/fcs/pda/handover?tab=${state.activeTab}`)
+    return true
+  }
+
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as HandoverTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
+      state.woolScanKeyword = ''
+      state.woolScanMessage = ''
+      state.woolScanCandidates = []
+      state.woolLastResolvedCode = ''
+      state.specialCraftScanKeyword = ''
+      state.specialCraftScanMessage = ''
+      state.specialCraftScanCandidates = []
+      state.specialCraftLastResolvedCode = ''
       appStore.navigate(`/fcs/pda/handover?tab=${tab}`)
     }
     return true

@@ -4,6 +4,9 @@ import {
   addWoolYarnReceipt,
   completeWoolWorkOrder,
   getWoolAllowedActions,
+  listWoolMachineViews,
+  readWoolStore,
+  replaceWoolMachineAssociations,
   type WoolAllowedAction,
   type WoolWorkOrder,
 } from '../data/fcs/wool-task-domain.ts'
@@ -22,12 +25,14 @@ import { escapeHtml } from '../utils.ts'
 
 type WoolFactAction = Extract<
   WoolAllowedAction,
-  'RECEIVE_YARN' | 'REPORT_PROCESS' | 'HANDOVER' | 'COMPLETE'
+  'RECEIVE_YARN' | 'REPORT_PROCESS' | 'HANDOVER' | 'ASSOCIATE_MACHINE' | 'COMPLETE'
 >
+export type WoolPdaFactSurface = 'EXECUTION' | 'HANDOVER_RECEIVE' | 'HANDOVER_HANDOUT'
 type CompletionSection = keyof WoolMobileCompletionFacts
 
 interface WoolActionDraft {
   selectedYarnSkus: string[]
+  selectedMachineIds: string[]
   quantities: Record<string, string>
   differenceNotes: Record<string, string>
   outputSkuCode: string
@@ -43,7 +48,14 @@ const ACTION_LABELS: Record<WoolFactAction, string> = {
   RECEIVE_YARN: '确认接收',
   REPORT_PROCESS: '加工填报',
   HANDOVER: '发起交出',
+  ASSOCIATE_MACHINE: '关联横机设备',
   COMPLETE: '完成加工单',
+}
+
+const SURFACE_ACTIONS: Record<WoolPdaFactSurface, WoolFactAction[]> = {
+  EXECUTION: ['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'],
+  HANDOVER_RECEIVE: ['RECEIVE_YARN'],
+  HANDOVER_HANDOUT: ['HANDOVER'],
 }
 
 const FACT_LABELS: Record<WoolMobileFactRecord['recordType'], string> = {
@@ -57,6 +69,7 @@ const FACT_LABELS: Record<WoolMobileFactRecord['recordType'], string> = {
 const state: {
   taskId: string
   userId: string
+  surface: WoolPdaFactSurface
   overlay: null | { action: WoolFactAction; woolOrderId: string; commandId: string }
   draftsByAction: Partial<Record<WoolFactAction, WoolActionDraft>>
   factPage: number
@@ -65,6 +78,7 @@ const state: {
 } = {
   taskId: '',
   userId: '',
+  surface: 'EXECUTION',
   overlay: null,
   draftsByAction: {},
   factPage: 1,
@@ -77,6 +91,7 @@ let commandSequence = 0
 export function resetPdaWoolExecutionState(): void {
   state.taskId = ''
   state.userId = ''
+  state.surface = 'EXECUTION'
   state.overlay = null
   state.draftsByAction = {}
   state.factPage = 1
@@ -87,6 +102,7 @@ export function resetPdaWoolExecutionState(): void {
 export function capturePdaWoolExecutionStateForDiagnostics(): {
   taskId: string
   userId: string
+  surface: WoolPdaFactSurface
   overlayAction: WoolFactAction | null
   commandId: string
   draftActions: WoolFactAction[]
@@ -94,16 +110,18 @@ export function capturePdaWoolExecutionStateForDiagnostics(): {
   return {
     taskId: state.taskId,
     userId: state.userId,
+    surface: state.surface,
     overlayAction: state.overlay?.action || null,
     commandId: state.overlay?.commandId || '',
     draftActions: Object.keys(state.draftsByAction) as WoolFactAction[],
   }
 }
 
-function syncTask(taskId: string, userId: string): void {
-  if (state.taskId === taskId && state.userId === userId) return
+function syncTask(taskId: string, userId: string, surface: WoolPdaFactSurface): void {
+  if (state.taskId === taskId && state.userId === userId && state.surface === surface) return
   state.taskId = taskId
   state.userId = userId
+  state.surface = surface
   state.overlay = null
   state.draftsByAction = {}
   state.factPage = 1
@@ -133,14 +151,14 @@ function getCurrentAccess(taskId: string, woolOrderId?: string): WoolPdaTaskAcce
   })
 }
 
-function renderAccessBlocked(access: WoolPdaTaskAccessResult): string {
+function renderAccessBlocked(access: WoolPdaTaskAccessResult, showBack = true): string {
   return `
     <div class="space-y-3 p-4" data-pda-wool-access-blocked>
-      <button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back">← 返回</button>
+      ${showBack ? '<button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back">← 返回</button>' : ''}
       <section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
         <h2 class="font-semibold">当前任务不可操作</h2>
         <p class="mt-2">${escapeHtml(access.reasonLabel)}</p>
-        <p class="mt-2 text-xs">页面已进入只读阻断状态，不会执行确认接收、加工填报、发起交出或完成加工单。</p>
+        <p class="mt-2 text-xs">页面已进入只读阻断状态，不会写入任何毛织加工单事实。</p>
       </section>
     </div>
   `
@@ -161,6 +179,7 @@ function safeStyleImageUrl(value?: string): string {
 function emptyDraft(outputSkuCode = ''): WoolActionDraft {
   return {
     selectedYarnSkus: [],
+    selectedMachineIds: [],
     quantities: {},
     differenceNotes: {},
     outputSkuCode,
@@ -182,6 +201,9 @@ function draftFor(action: WoolFactAction, projection: WoolMobileTaskProjection):
       ? projection.completionFacts.waitHandoverStocks.find((item) => item.availableHandoverQty > 0)?.outputSkuCode || ''
       : ''
   const draft = emptyDraft(outputSkuCode)
+  if (action === 'ASSOCIATE_MACHINE') {
+    draft.selectedMachineIds = projection.completionFacts.currentMachines.map((item) => item.machineId)
+  }
   state.draftsByAction[action] = draft
   return draft
 }
@@ -190,8 +212,12 @@ function parseProofFiles(value: string): string[] {
   return [...new Set(value.split(/[\n,，]+/).map((item) => item.trim()).filter(Boolean))]
 }
 
-function primaryAction(actions: WoolAllowedAction[]): WoolFactAction | null {
-  for (const action of ['COMPLETE', 'HANDOVER', 'REPORT_PROCESS', 'RECEIVE_YARN'] as const) {
+function surfaceActions(actions: WoolAllowedAction[], surface: WoolPdaFactSurface): WoolFactAction[] {
+  return SURFACE_ACTIONS[surface].filter((action) => actions.includes(action))
+}
+
+function primaryAction(actions: WoolAllowedAction[], surface: WoolPdaFactSurface): WoolFactAction | null {
+  for (const action of SURFACE_ACTIONS[surface]) {
     if (actions.includes(action)) return action
   }
   return null
@@ -199,11 +225,12 @@ function primaryAction(actions: WoolAllowedAction[]): WoolFactAction | null {
 
 function renderStyleIdentity(order: WoolWorkOrder): string {
   const imageUrl = safeStyleImageUrl(order.styleImageUrl)
+  const imageTitle = `${order.styleNo} · ${order.styleName}`
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="flex gap-3">
         ${imageUrl
-          ? `<img class="h-24 w-24 shrink-0 rounded-lg border object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}">`
+          ? `<button type="button" class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${order.styleName}款式图片`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
           : '<div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">暂无款式图片</div>'}
         <div class="min-w-0 flex-1 space-y-1 text-sm">
           <div class="font-semibold">${escapeHtml(order.woolOrderNo)}</div>
@@ -345,6 +372,45 @@ function renderQtyDialog(
   </div>`
 }
 
+function renderMachineDialog(
+  order: WoolWorkOrder,
+  projection: WoolMobileTaskProjection,
+  draft: WoolActionDraft,
+): string {
+  const store = readWoolStore()
+  const currentMachineIds = new Set(projection.completionFacts.currentMachines.map((item) => item.machineId))
+  const associations = new Map(store.machineAssociations.map((item) => [item.machineId, item]))
+  const machines = listWoolMachineViews()
+  return `<div class="space-y-3 p-4">
+    <div class="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+      勾选本加工单当前使用的横机。保存的是整组最终关联；取消勾选会解除关联，选择其他加工单正在使用的横机会转移关联。
+    </div>
+    <div class="space-y-2">${machines.map((machine) => {
+      const association = associations.get(machine.machineId)
+      const belongsToCurrent = currentMachineIds.has(machine.machineId)
+      const otherOrder = association && !belongsToCurrent
+        ? store.workOrders[association.woolOrderId]
+        : undefined
+      const unavailable = machine.status === 'REPAIR' || machine.status === 'DISABLED'
+      const statusLabel = machine.status === 'IDLE'
+        ? '空闲'
+        : machine.status === 'PRODUCING'
+          ? belongsToCurrent ? '本单使用中' : '其他加工单使用中'
+          : machine.status === 'REPAIR'
+            ? '维修中'
+            : '已停用'
+      return `<label class="flex items-start gap-3 rounded border p-3 text-sm ${unavailable ? 'bg-muted/40 text-muted-foreground' : ''}">
+        <input type="checkbox" class="mt-1" ${draftAttrs('selectedMachineIds', machine.machineId)} ${draft.selectedMachineIds.includes(machine.machineId) ? 'checked' : ''} ${unavailable ? 'disabled' : ''}>
+        <span class="min-w-0 flex-1">
+          <span class="block font-medium">${escapeHtml(machine.machineNo)} / ${escapeHtml(machine.machineName)}</span>
+          <span class="mt-1 block text-xs">${escapeHtml(machine.machineModel)} · ${escapeHtml(machine.needleType)} · ${escapeHtml(statusLabel)}</span>
+          ${otherOrder ? `<span class="mt-1 block text-xs text-amber-700">当前关联 ${escapeHtml(otherOrder.woolOrderNo)}；保存后将转移到本单</span>` : ''}
+        </span>
+      </label>`
+    }).join('') || '<div class="rounded border p-3 text-sm text-muted-foreground">暂无横机设备</div>'}</div>
+  </div>`
+}
+
 function pagedSection(
   key: CompletionSection,
   title: string,
@@ -410,7 +476,9 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
     ? renderReceiptDialog(order, projection, draft)
     : action === 'REPORT_PROCESS' || action === 'HANDOVER'
       ? renderQtyDialog(order, projection, draft, action)
-      : renderCompleteDialog(projection, draft)
+      : action === 'ASSOCIATE_MACHINE'
+        ? renderMachineDialog(order, projection, draft)
+        : renderCompleteDialog(projection, draft)
   return `<div class="fixed inset-0 z-[140] flex items-end bg-black/40 sm:items-center sm:p-4">
     <section class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-background sm:mx-auto sm:max-w-lg sm:rounded-lg">
       <header class="sticky top-0 flex items-center justify-between border-b bg-background px-4 py-3"><h2 class="font-semibold">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="rounded border px-3 py-1 text-sm" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">关闭</button></header>
@@ -421,36 +489,74 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
   </div>`
 }
 
-export function renderPdaWoolExecutionContent(
+function getSurfaceTitle(surface: WoolPdaFactSurface): string {
+  if (surface === 'HANDOVER_RECEIVE') return '交接 · 确认接收'
+  if (surface === 'HANDOVER_HANDOUT') return '交接 · 发起交出'
+  return '执行加工单'
+}
+
+function getSurfaceEmptyText(surface: WoolPdaFactSurface, projection: WoolMobileTaskProjection): string {
+  if (projection.processingStatus === 'COMPLETED') return '加工单已完成，只能查看事实记录。'
+  if (surface === 'HANDOVER_HANDOUT') return '当前没有可交出的加工成品，请先到“执行”完成加工填报。'
+  if (surface === 'HANDOVER_RECEIVE') return '当前不能确认接收，请刷新后核对加工单状态。'
+  return '当前没有可执行动作，请先到“交接”确认接收必需纱线。'
+}
+
+export function renderPdaWoolFactContent(
   taskId: string,
+  surface: WoolPdaFactSurface,
   initialAccess?: WoolPdaTaskAccessResult,
+  showBack = false,
 ): string {
   const session = getPdaSession()
-  syncTask(taskId, session?.userId || '')
+  syncTask(taskId, session?.userId || '', surface)
   const access = initialAccess ?? getCurrentAccess(taskId)
-  if (!access.canAccess || !access.order) return renderAccessBlocked(access)
+  if (!access.canAccess || !access.order) return renderAccessBlocked(access, showBack)
   const order = access.order
   const projection = buildWoolMobileTaskProjection(order.woolOrderId)
-  const primary = primaryAction(projection.allowedActions)
-  const secondary = projection.allowedActions.filter((action): action is WoolFactAction =>
-    action !== 'DETAIL' && action !== 'ASSOCIATE_MACHINE' && action !== primary)
-  return `<div class="space-y-3 p-4" data-pda-wool-root data-task-id="${escapeHtml(taskId)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">
-    <button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back" data-skip-page-rerender="true">← 返回</button>
+  const availableSurfaceActions = surfaceActions(projection.allowedActions, surface)
+  const primary = primaryAction(projection.allowedActions, surface)
+  const secondary = availableSurfaceActions.filter((action) => action !== primary)
+  return `<div class="space-y-3 p-4" data-pda-wool-root data-task-id="${escapeHtml(taskId)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}" data-wool-surface="${surface}" data-wool-show-back="${showBack ? 'true' : 'false'}">
+    ${showBack ? '<button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back" data-skip-page-rerender="true">← 返回</button>' : ''}
     ${state.error && !state.overlay ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
     ${state.feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">${escapeHtml(state.feedback)}</div>` : ''}
     ${renderStyleIdentity(order)}
     <section class="rounded-lg border bg-card p-4"><div class="flex items-center justify-between"><h2 class="font-semibold">可填报 SKU 与纱线</h2><span class="rounded border px-2 py-1 text-xs">${projection.processingStatusLabel}</span></div><div class="mt-3 space-y-2">${renderOutputReadiness(order, projection)}</div></section>
     ${renderFactList(projection)}
-    <section class="rounded-lg border bg-card p-4"><h2 class="text-sm font-semibold">当前操作</h2>
-      ${primary ? `<button type="button" class="mt-3 h-12 w-full rounded-lg bg-primary text-base font-semibold text-primary-foreground" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>` : '<div class="mt-3 rounded border bg-muted/30 p-3 text-sm text-muted-foreground">加工单已完成，只能查看事实记录。</div>'}
+    <section class="rounded-lg border bg-card p-4"><h2 class="text-sm font-semibold">${escapeHtml(getSurfaceTitle(surface))}</h2>
+      ${primary ? `<button type="button" class="mt-3 h-12 w-full rounded-lg bg-primary text-base font-semibold text-primary-foreground" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>` : `<div class="mt-3 rounded border bg-muted/30 p-3 text-sm text-muted-foreground">${escapeHtml(getSurfaceEmptyText(surface, projection))}</div>`}
       ${secondary.length ? `<details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">其他可操作</summary><div class="mt-2 grid grid-cols-2 gap-2">${secondary.map((action) => `<button type="button" class="h-9 rounded border text-sm" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${action}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[action]}</button>`).join('')}</div></details>` : ''}
     </section>
     <div data-pda-wool-overlay-root>${renderOverlay(order, projection)}</div>
   </div>`
 }
 
+export function renderPdaWoolExecutionContent(
+  taskId: string,
+  initialAccess?: WoolPdaTaskAccessResult,
+): string {
+  return renderPdaWoolFactContent(taskId, 'EXECUTION', initialAccess, true)
+}
+
+export function renderPdaWoolHandoverContent(
+  taskId: string,
+  mode: 'RECEIVE' | 'HANDOVER',
+): string {
+  return renderPdaWoolFactContent(
+    taskId,
+    mode === 'RECEIVE' ? 'HANDOVER_RECEIVE' : 'HANDOVER_HANDOUT',
+  )
+}
+
 function refreshRoot(root: HTMLElement, taskId: string): void {
-  root.outerHTML = renderPdaWoolExecutionContent(taskId)
+  const surface = (root.dataset.woolSurface || 'EXECUTION') as WoolPdaFactSurface
+  root.outerHTML = renderPdaWoolFactContent(
+    taskId,
+    surface,
+    undefined,
+    root.dataset.woolShowBack === 'true',
+  )
 }
 
 function refreshOverlay(root: HTMLElement, order: WoolWorkOrder): void {
@@ -487,6 +593,10 @@ function syncDraft(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaEl
     draft.selectedYarnSkus = target.checked
       ? [...new Set([...draft.selectedYarnSkus, sku])]
       : draft.selectedYarnSkus.filter((item) => item !== sku)
+  } else if (field === 'selectedMachineIds' && target instanceof HTMLInputElement) {
+    draft.selectedMachineIds = target.checked
+      ? [...new Set([...draft.selectedMachineIds, sku])]
+      : draft.selectedMachineIds.filter((item) => item !== sku)
   } else if (field === 'quantities' || field === 'differenceNotes') {
     draft[field][sku] = target.value
   } else if (
@@ -521,9 +631,10 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
   if (!actionNode || !action) return false
   const taskId = root.dataset.taskId || ''
   const woolOrderId = root.dataset.woolOrderId || ''
+  const surface = (root.dataset.woolSurface || 'EXECUTION') as WoolPdaFactSurface
   const access = getCurrentAccess(taskId, woolOrderId)
   if (!access.canAccess || !access.order) {
-    root.outerHTML = renderAccessBlocked(access)
+    root.outerHTML = renderAccessBlocked(access, root.dataset.woolShowBack === 'true')
     return true
   }
   const order = access.order
@@ -532,6 +643,8 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
   if (action === 'open-fact') {
     const factAction = actionNode.dataset.woolFactAction as WoolFactAction
     if (
+      !SURFACE_ACTIONS[surface].includes(factAction)
+      ||
       !projection.allowedActions.includes(factAction)
       || !getWoolAllowedActions(order.woolOrderId).includes(factAction)
     ) {
@@ -617,6 +730,11 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
         handedOverBy: operatedBy,
         proofFiles: parseProofFiles(draft.proofText),
         remark: draft.remark,
+      })
+    } else if (currentAction === 'ASSOCIATE_MACHINE') {
+      replaceWoolMachineAssociations(order.woolOrderId, draft.selectedMachineIds, {
+        operatedAt,
+        operatedBy,
       })
     } else {
       completeWoolWorkOrder(order.woolOrderId, {
