@@ -28,6 +28,13 @@ import {
   type SettlementVersionRecord,
 } from './settlement-change-requests.ts'
 import { isThirdPartyFactorySettlementBlocked } from './third-party-factory-rating.ts'
+import {
+  KOL_GOTO_SALE_TYPES,
+  KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
+  KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+  KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+  isKolGotoFactory,
+} from './kol-goto-special-flow.ts'
 import { deriveSettlementCycleFields } from './store-domain-statement-grain.ts'
 import type {
   DeductionBasisSourceType,
@@ -167,8 +174,9 @@ interface LinkedTaskContext {
   productionOrder: ProductionOrder
   task: ProcessTask
   taskIndex: number
-  unitPrice: number
-  pricingSourceType: 'DISPATCH' | 'BIDDING'
+  unitPrice?: number
+  fixedTotalPrice?: number
+  pricingSourceType: 'DISPATCH' | 'BIDDING' | 'FIXED_TOTAL'
 }
 
 interface LinkedReturnBatchContext {
@@ -239,7 +247,6 @@ const LINKED_FACTORY_CODES = [
   'ID-FAC-0003',
   'ID-FAC-0004',
   'ID-FAC-0005',
-  'KOL-GOTO',
   'ID-FAC-0021',
   'ID-FAC-0022',
   'ID-FAC-0023',
@@ -250,6 +257,7 @@ const LINKED_FACTORY_CODES = [
   'ID-FAC-0028',
   'ID-FAC-0029',
   'ID-FAC-0030',
+  'KOL-GOTO',
 ] as const
 
 const CYCLE_REFERENCE_DATES = [
@@ -315,13 +323,20 @@ function createAuditLog(id: string, action: string, detail: string, at: string, 
   return { id, action, detail, at, by }
 }
 
-function buildDemandSnapshot(factoryIndex: number, orderIndex: number, totalQty: number, requiredDeliveryDate: string): DemandSnapshot {
+function buildDemandSnapshot(
+  factoryIndex: number,
+  orderIndex: number,
+  totalQty: number,
+  requiredDeliveryDate: string,
+  saleType: DemandSnapshot['saleType'] = '备货',
+): DemandSnapshot {
   return {
     demandId: `DEM-LINK-2026-${String(factoryIndex * 10 + orderIndex + 1).padStart(4, '0')}`,
     spuCode: `SPU-LINK-${String(factoryIndex + 1).padStart(2, '0')}${String(orderIndex + 1).padStart(2, '0')}`,
     spuName: `联动对账款式-${factoryIndex + 1}-${orderIndex + 1}`,
     buyerName: factoryIndex % 2 === 0 ? '宋雨' : '何佳',
     merchandiserName: orderIndex % 2 === 0 ? '陈静' : '林晓',
+    saleType,
     priority: orderIndex % 2 === 0 ? 'HIGH' : 'NORMAL',
     requiredDeliveryDate,
     constraintsNote: '用于对账与结算链路串联演示',
@@ -508,21 +523,32 @@ function buildSettlementSnapshotForFactoryAt(factory: IndonesiaFactory, referenc
 function createProductionOrders(factories: IndonesiaFactory[]): ProductionOrder[] {
   const orders: ProductionOrder[] = []
   for (const [factoryIndex, factory] of factories.entries()) {
-    for (let orderSeq = 0; orderSeq < 2; orderSeq += 1) {
+    const kolGotoFactory = isKolGotoFactory(factory.id) || isKolGotoFactory(factory.code)
+    const orderCount = kolGotoFactory ? 1 : 2
+    for (let orderSeq = 0; orderSeq < orderCount; orderSeq += 1) {
       const orderIndex = factoryIndex * 2 + orderSeq
       const createdAt = addDays('2026-01-02 09:00:00', orderIndex * 4 + factoryIndex, 9)
       const requiredDeliveryDate = formatDateOnly(addDays(createdAt, 40 + orderSeq * 5))
       const totalQty = 5400 + factoryIndex * 350 + orderSeq * 280
       const productionOrderId = `PO-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`
-      const demandSnapshot = buildDemandSnapshot(factoryIndex, orderSeq, totalQty, requiredDeliveryDate)
+      const kolGotoOrder = kolGotoFactory
+      const saleType = kolGotoOrder ? KOL_GOTO_SALE_TYPES[orderSeq % KOL_GOTO_SALE_TYPES.length] : '备货'
+      const demandSnapshot = buildDemandSnapshot(factoryIndex, orderSeq, totalQty, requiredDeliveryDate, saleType)
+      const demandId = `DEM-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`
       orders.push({
         productionOrderId,
-        demandId: `DEM-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`,
+        productionOrderNo: productionOrderId,
+        demandId,
+        sourceDemandIds: [demandId],
         legacyOrderNo: `26${String(7000 + orderIndex + 1)}`,
         status: 'EXECUTING',
         lockedLegacy: true,
         mainFactoryId: factory.id,
         mainFactorySnapshot: createFactorySnapshot(factory),
+        mainFactoryStatus: 'CONFIRMED',
+        mainFactorySource: 'ORDER_CREATE',
+        mainFactoryConfirmedAt: createdAt,
+        mainFactoryConfirmedBy: '系统',
         ownerPartyType: 'LEGAL_ENTITY',
         ownerPartyId: 'LE-001',
         techPackSnapshot: buildTechPackSnapshot({
@@ -532,11 +558,32 @@ function createProductionOrders(factories: IndonesiaFactory[]): ProductionOrder[
           createdAt,
         }),
         demandSnapshot,
-        assignmentSummary: buildAssignmentSummary(),
-        assignmentProgress: buildAssignmentProgress(),
+        sourceDemandSnapshots: [demandSnapshot],
+        assignmentSummary: kolGotoOrder
+          ? { directCount: 1, biddingCount: 0, totalTasks: 1, unassignedCount: 0 }
+          : buildAssignmentSummary(),
+        assignmentProgress: kolGotoOrder
+          ? { status: 'DONE', directAssignedCount: 1, biddingLaunchedCount: 0, biddingAwardedCount: 0 }
+          : buildAssignmentProgress(),
         biddingSummary: buildBiddingSummary(),
         directDispatchSummary: buildDispatchSummary(),
-        taskBreakdownSummary: buildTaskBreakdownSummary(createdAt),
+        taskBreakdownSummary: kolGotoOrder
+          ? {
+              isBrokenDown: true,
+              taskTypesTop3: [KOL_GOTO_WHOLE_ORDER_TASK_NAME],
+              lastBreakdownAt: createdAt,
+              lastBreakdownBy: '系统',
+              generatedTaskUnitCount: 1,
+              wholeOrderTaskCount: 1,
+              coveredProcessNames: [KOL_GOTO_WHOLE_ORDER_TASK_NAME],
+            }
+          : buildTaskBreakdownSummary(createdAt),
+        ledgerDetails: {
+          materialIssues: [],
+          taskFactories: [],
+          keyTimes: [],
+          quantityQuality: [],
+        },
         riskFlags: [],
         auditLogs: [
           createAuditLog(`AL-PO-LINK-${orderIndex + 1}-01`, 'CREATED', '联动结算 mock 生产单已创建', createdAt, '系统'),
@@ -556,6 +603,67 @@ function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
 
   for (const [orderIndex, order] of orders.entries()) {
     const factory = mapFactoryByCode(order.mainFactorySnapshot.code)
+    if (isKolGotoFactory(factory.id) || isKolGotoFactory(factory.code)) {
+      const taskId = `TASK-LINK-2026-${String(taskSeq).padStart(4, '0')}`
+      const createdAt = addDays(order.createdAt, 0, 10)
+      const qty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+      const task: ProcessTask = {
+        taskId,
+        taskNo: `TK-LINK-${String(taskSeq).padStart(4, '0')}`,
+        productionOrderId: order.productionOrderId,
+        productionOrderNo: order.productionOrderNo,
+        seq: 1,
+        processCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+        processNameZh: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+        processBusinessCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+        processBusinessName: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+        taskUnitType: 'WHOLE_ORDER_TASK',
+        taskScope: 'EXTERNAL_TASK',
+        saleTypeSnapshot: order.demandSnapshot.saleType,
+        qty,
+        qtyUnit: 'PIECE',
+        assignmentMode: 'DIRECT',
+        assignmentStatus: 'ASSIGNED',
+        ownerSuggestion: { kind: 'MAIN_FACTORY' },
+        assignedFactoryId: factory.id,
+        assignedFactoryName: factory.name,
+        qcPoints: [],
+        attachments: [],
+        status: 'DONE',
+        pricingMode: 'FIXED_TOTAL',
+        fixedTotalPrice: KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
+        fixedTotalPriceCurrency: 'IDR',
+        fixedTotalPriceUnit: '整单',
+        acceptanceStatus: 'ACCEPTED',
+        acceptedAt: createdAt,
+        acceptedBy: '系统自动接收',
+        startedAt: addDays(createdAt, 1, 9),
+        finishedAt: addDays(createdAt, 12, 18),
+        createdAt,
+        updatedAt: addDays(createdAt, 12, 18),
+        auditLogs: [
+          {
+            id: `AL-${taskId}-01`,
+            action: 'CREATED',
+            detail: 'KOL 整单任务由系统自动拆解、分配并接收',
+            at: createdAt,
+            by: '系统',
+          },
+        ],
+      }
+
+      taskContexts.push({
+        factory,
+        productionOrder: order,
+        task,
+        taskIndex: taskSeq - 1,
+        fixedTotalPrice: KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
+        pricingSourceType: 'FIXED_TOTAL',
+      })
+      taskSeq += 1
+      continue
+    }
+
     for (let localSeq = 0; localSeq < 5; localSeq += 1) {
       const taskId = `TASK-LINK-2026-${String(taskSeq).padStart(4, '0')}`
       const createdAt = addDays(order.createdAt, localSeq, 10)
@@ -630,6 +738,7 @@ function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
 }
 
 function buildBatchQtyPlan(totalQty: number, batchCount: number): number[] {
+  if (batchCount === 1) return [totalQty]
   const ratios = batchCount === 4 ? [0.28, 0.24, 0.22, 0.26] : [0.42, 0.33, 0.25]
   let remaining = totalQty
   return ratios.map((ratio, index) => {
@@ -645,10 +754,11 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
   let batchSeq = 1
 
   for (const taskContext of taskContexts) {
+    if (taskContext.pricingSourceType === 'FIXED_TOTAL') continue
     const batchCount = taskContext.taskIndex % 2 === 0 ? 3 : 4
     const qtyPlan = buildBatchQtyPlan(taskContext.task.qty, batchCount)
     const startCycleIndex = (taskContext.taskIndex + taskContext.factory.id.charCodeAt(taskContext.factory.id.length - 1)) % 4
-    const cycleOffsets = batchCount === 4 ? [0, 0, 1, 2] : [0, 0, 1]
+    const cycleOffsets = batchCount === 1 ? [0] : batchCount === 4 ? [0, 0, 1, 2] : [0, 0, 1]
 
     for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
       const cycleIndex = Math.min(CYCLE_REFERENCE_DATES.length - 1, startCycleIndex + cycleOffsets[batchIndex])
@@ -678,10 +788,12 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
           qcStatus: 'PASS_CLOSED',
           sourceType: 'TASK',
           sourceId: taskContext.task.taskId,
-          sewPostProcessMode:
-            batchIndex % 2 === 0 ? 'SEW_FACTORY_INCLUDES_POST' : 'MANAGED_POST_FACTORY_EXECUTES',
-          postExecutionMode:
-            batchIndex % 2 === 0 ? 'SEW_FACTORY_INCLUDES_POST' : 'MANAGED_POST_FACTORY_EXECUTES',
+          sewPostProcessMode: batchIndex % 2 === 0
+            ? 'SEW_FACTORY_INCLUDES_POST'
+            : 'MANAGED_POST_FACTORY_EXECUTES',
+          postExecutionMode: batchIndex % 2 === 0
+            ? 'SEW_FACTORY_INCLUDES_POST'
+            : 'MANAGED_POST_FACTORY_EXECUTES',
           receiverKind: 'MANAGED_POST_FACTORY',
           receiverId: 'POST-FACTORY-OWN',
           receiverName: '我方后道工厂',
@@ -1056,6 +1168,7 @@ function buildOtherAdjustments(factories: IndonesiaFactory[], cycleOrder: string
   let adjustmentSeq = 2001
 
   for (const [factoryIndex, factory] of factories.entries()) {
+    if (isKolGotoFactory(factory.id) || isKolGotoFactory(factory.code)) continue
     for (let cycleIndex = 0; cycleIndex < cycleOrder.length; cycleIndex += 2) {
       const [, cycleStartAt] = cycleOrder[cycleIndex].split('|')
       adjustments.push({
@@ -1085,11 +1198,12 @@ function buildStatementLineFromBatch(
   batchContext: LinkedReturnBatchContext,
   lineIndex: number,
 ): LinkedStatementLineBuild {
-  const grossEarningAmount = roundAmount(batchContext.taskContext.unitPrice * batchContext.batch.returnedQty)
+  const unitPrice = batchContext.taskContext.unitPrice ?? 0
+  const grossEarningAmount = roundAmount(unitPrice * batchContext.batch.returnedQty)
   const reworkAdjustment = resolveTaskReworkEarningAdjustment({
     lineIndex,
     returnedQty: batchContext.batch.returnedQty,
-    unitPrice: batchContext.taskContext.unitPrice,
+    unitPrice,
     fxRate: 1,
     settlementCurrency: 'IDR',
   })
@@ -1134,12 +1248,58 @@ function buildStatementLineFromBatch(
       processLabel: batchContext.batch.processLabel,
       pricingSourceType: batchContext.taskContext.pricingSourceType,
       pricingSourceRefId: batchContext.taskContext.task.taskId,
-      settlementUnitPrice: batchContext.taskContext.unitPrice,
+      settlementUnitPrice: unitPrice,
       earningAmount,
       qualityDeductionAmount: 0,
       carryOverAdjustmentAmount: 0,
       otherAdjustmentAmount: 0,
       netAmount: earningAmount,
+    },
+    sourceIds: [sourceItemId],
+    basisIds: [],
+  }
+}
+
+function buildStatementLineFromFixedTotalTask(taskContext: LinkedTaskContext): LinkedStatementLineBuild {
+  const completedAt = taskContext.task.finishedAt
+  const fixedTotalPrice = roundAmount(taskContext.fixedTotalPrice ?? taskContext.task.fixedTotalPrice ?? 0)
+  if (!completedAt || fixedTotalPrice <= 0) {
+    throw new Error(`KOL 整单任务 ${taskContext.task.taskId} 缺少完成时间或冻结固定总价`)
+  }
+  const cycle = deriveSettlementCycleFields(taskContext.factory.id, completedAt)
+  const sourceItemId = `PSL-KOL-${taskContext.task.taskId}`
+  const currency = taskContext.task.fixedTotalPriceCurrency ?? 'IDR'
+  return {
+    item: {
+      sourceItemId,
+      sourceItemType: 'TASK_EARNING',
+      sourceLabelZh: '任务收入流水',
+      sourceRefLabel: taskContext.task.taskNo ?? taskContext.task.taskId,
+      routeToSource: `/fcs/pda/task-receive/${taskContext.task.taskId}`,
+      settlementPartyType: 'FACTORY',
+      settlementPartyId: taskContext.factory.id,
+      basisId: `TASK_COMPLETION:${taskContext.task.taskId}`,
+      deductionQty: 1,
+      deductionAmount: fixedTotalPrice,
+      currency,
+      remark: `整单任务 ${taskContext.task.taskNo ?? taskContext.task.taskId} 完成，按冻结固定总价形成收入流水`,
+      sourceProcessType: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+      sourceType: 'TASK_EARNING',
+      productionOrderId: taskContext.productionOrder.productionOrderId,
+      productionOrderNo: taskContext.productionOrder.productionOrderNo,
+      taskId: taskContext.task.taskId,
+      taskNo: taskContext.task.taskNo,
+      ...cycle,
+      statementLineGrainType: 'TASK_COMPLETION',
+      processLabel: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+      pricingSourceType: 'FIXED_TOTAL',
+      pricingSourceRefId: taskContext.task.taskId,
+      earningAmount: fixedTotalPrice,
+      qualityDeductionAmount: 0,
+      carryOverAdjustmentAmount: 0,
+      otherAdjustmentAmount: 0,
+      netAmount: fixedTotalPrice,
+      occurredAt: completedAt,
     },
     sourceIds: [sourceItemId],
     basisIds: [],
@@ -1334,6 +1494,7 @@ function createStatementSourceRows(
 function createStatementDrafts(
   factories: IndonesiaFactory[],
   batchContexts: LinkedReturnBatchContext[],
+  taskContexts: LinkedTaskContext[],
   qualityLedgers: ReturnType<typeof listFormalQualityDeductionLedgers>,
 ): StatementDraft[] {
   const linesByFactoryCycle = new Map<string, LinkedStatementLineBuild[]>()
@@ -1341,6 +1502,14 @@ function createStatementDrafts(
   for (const [batchIndex, batchContext] of batchContexts.entries()) {
     const build = buildStatementLineFromBatch(batchContext, batchIndex)
     const key = `${batchContext.taskContext.factory.id}__${batchContext.cycleId}`
+    const existed = linesByFactoryCycle.get(key) ?? []
+    existed.push(build)
+    linesByFactoryCycle.set(key, existed)
+  }
+
+  for (const taskContext of taskContexts.filter((item) => item.pricingSourceType === 'FIXED_TOTAL')) {
+    const build = buildStatementLineFromFixedTotalTask(taskContext)
+    const key = `${taskContext.factory.id}__${build.item.settlementCycleId}`
     const existed = linesByFactoryCycle.get(key) ?? []
     existed.push(build)
     linesByFactoryCycle.set(key, existed)
@@ -1790,32 +1959,32 @@ function getMockFxRate(originalCurrency: string, settlementCurrency: string): nu
 
 function createTaskEarningLedgers(
   batchContexts: LinkedReturnBatchContext[],
+  taskContexts: LinkedTaskContext[],
 ): PreSettlementLedger[] {
-  return batchContexts.map((batchContext, index) => {
+  const batchLedgers = batchContexts.map((batchContext, index) => {
+    const unitPrice = batchContext.taskContext.unitPrice ?? 0
     const settlementInfo = getSettlementEffectiveInfoByFactoryAt(
       batchContext.taskContext.factory.code,
       batchContext.batch.inboundAt,
     ) ?? getSettlementEffectiveInfoByFactory(batchContext.taskContext.factory.code)
-    const originalCurrency =
-      batchContext.taskContext.task.dispatchPriceCurrency ??
-      batchContext.taskContext.task.standardPriceCurrency ??
-      batchContext.taskContext.factory.currency
+    const originalCurrency = batchContext.taskContext.task.dispatchPriceCurrency
+      ?? batchContext.taskContext.task.standardPriceCurrency
+      ?? batchContext.taskContext.factory.currency
     const settlementCurrency = settlementInfo?.settlementConfigSnapshot.currency ?? originalCurrency
-    const originalAmount = roundAmount(batchContext.taskContext.unitPrice * batchContext.batch.returnedQty)
+    const originalAmount = roundAmount(unitPrice * batchContext.batch.returnedQty)
     const fxRate = getMockFxRate(originalCurrency, settlementCurrency)
     const grossSettlementAmount = roundAmount(originalAmount * fxRate)
     const reworkAdjustment = resolveTaskReworkEarningAdjustment({
       lineIndex: index,
       returnedQty: batchContext.batch.returnedQty,
-      unitPrice: batchContext.taskContext.unitPrice,
+      unitPrice,
       fxRate,
       settlementCurrency,
     })
     const settlementAmount = roundAmount(Math.max(grossSettlementAmount - (reworkAdjustment?.totalDeductionAmount ?? 0), 0))
-    const baseSourceReason =
-      batchContext.taskContext.pricingSourceType === 'BIDDING'
-        ? '竞价中标价 × 回货数量'
-        : '派单价 × 回货数量'
+    const baseSourceReason = batchContext.taskContext.pricingSourceType === 'BIDDING'
+      ? '竞价中标价 × 回货数量'
+      : '派单价 × 回货数量'
     return {
       ledgerId: `PSL-TASK-${String(index + 1).padStart(5, '0')}`,
       ledgerNo: `PSL-TASK-${String(index + 1).padStart(5, '0')}`,
@@ -1832,7 +2001,7 @@ function createTaskEarningLedgers(
       returnInboundBatchId: batchContext.batch.batchId,
       returnInboundBatchNo: batchContext.batch.batchId,
       priceSourceType: batchContext.taskContext.pricingSourceType === 'BIDDING' ? 'BID' : 'DISPATCH',
-      unitPrice: batchContext.taskContext.unitPrice,
+      unitPrice,
       qty: batchContext.batch.returnedQty,
       originalCurrency,
       originalAmount,
@@ -1858,6 +2027,54 @@ function createTaskEarningLedgers(
       ].filter(Boolean).join('；'),
     }
   })
+
+  const fixedTotalLedgers = taskContexts
+    .filter((taskContext) => taskContext.pricingSourceType === 'FIXED_TOTAL')
+    .map((taskContext): PreSettlementLedger => {
+      const completedAt = taskContext.task.finishedAt
+      const fixedTotalPrice = roundAmount(taskContext.fixedTotalPrice ?? taskContext.task.fixedTotalPrice ?? 0)
+      if (!completedAt || fixedTotalPrice <= 0) {
+        throw new Error(`KOL 整单任务 ${taskContext.task.taskId} 缺少完成时间或冻结固定总价`)
+      }
+      const originalCurrency = taskContext.task.fixedTotalPriceCurrency ?? 'IDR'
+      const settlementInfo = getSettlementEffectiveInfoByFactoryAt(taskContext.factory.code, completedAt)
+        ?? getSettlementEffectiveInfoByFactory(taskContext.factory.code)
+      const settlementCurrency = settlementInfo?.settlementConfigSnapshot.currency ?? originalCurrency
+      const fxRate = getMockFxRate(originalCurrency, settlementCurrency)
+      const settlementAmount = roundAmount(fixedTotalPrice * fxRate)
+      const cycle = deriveSettlementCycleFields(taskContext.factory.id, completedAt)
+      const ledgerId = `PSL-KOL-${taskContext.task.taskId}`
+      return {
+        ledgerId,
+        ledgerNo: ledgerId,
+        ledgerType: 'TASK_EARNING',
+        direction: 'INCOME',
+        sourceType: 'TASK_COMPLETION',
+        sourceRefId: `TASK_COMPLETION:${taskContext.task.taskId}`,
+        factoryId: taskContext.factory.id,
+        factoryName: taskContext.factory.name,
+        taskId: taskContext.task.taskId,
+        taskNo: taskContext.task.taskNo ?? taskContext.task.taskId,
+        productionOrderId: taskContext.productionOrder.productionOrderId,
+        productionOrderNo: taskContext.productionOrder.productionOrderNo,
+        priceSourceType: 'TASK_FIXED_TOTAL',
+        qty: 1,
+        originalCurrency,
+        originalAmount: fixedTotalPrice,
+        settlementCurrency,
+        settlementAmount,
+        fxRate,
+        fxAppliedAt: completedAt,
+        occurredAt: completedAt,
+        ...cycle,
+        settlementProfileVersionNo: settlementInfo?.versionNo,
+        status: 'OPEN',
+        sourceReason: 'KOL 整单任务完成，按冻结固定总价计入预结算',
+        remark: `整单任务 ${taskContext.task.taskNo ?? taskContext.task.taskId} 固定总价 ${fixedTotalPrice.toLocaleString('zh-CN')} ${originalCurrency}`,
+      }
+    })
+
+  return [...batchLedgers, ...fixedTotalLedgers]
 }
 
 function syncStatementsWithPrepaymentBatches(
@@ -1940,10 +2157,10 @@ function buildSettlementLinkedMockFactory(): SettlementLinkedMockFactoryOutput {
   const otherAdjustments = buildOtherAdjustments(factories, cycleOrder)
   const payableAdjustments = [...carryOverAdjustments, ...otherAdjustments]
   const qualityLedgers = listFormalQualityDeductionLedgers({ includeLegacy: false })
-  const taskEarningLedgers = createTaskEarningLedgers(returnInboundBatchContexts)
+  const taskEarningLedgers = createTaskEarningLedgers(returnInboundBatchContexts, taskContexts)
   const statementSourceRows = createStatementSourceRows(taskEarningLedgers, qualityLedgers)
   const statementDrafts = reserveStatementBuildScope(
-    createStatementDrafts(factories, returnInboundBatchContexts, qualityLedgers),
+    createStatementDrafts(factories, returnInboundBatchContexts, taskContexts, qualityLedgers),
   )
   const { batches: settlementBatches, approvals: feishuPaymentApprovals, writebacks: paymentWritebacks } =
     createPrepaymentChain(statementDrafts)

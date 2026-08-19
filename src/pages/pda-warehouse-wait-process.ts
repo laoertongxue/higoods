@@ -4,7 +4,9 @@ import {
   updateWaitProcessStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
-import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID, OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -143,6 +145,8 @@ interface WaitProcessState {
   postFinishingConfirmRecordId: string | null
   postFinishingConfirmQty: string
   postFinishingConfirmRemark: string
+  kolImageUrl: string
+  kolImageAlt: string
 }
 
 const state: WaitProcessState = {
@@ -182,6 +186,15 @@ const state: WaitProcessState = {
   postFinishingConfirmRecordId: null,
   postFinishingConfirmQty: '',
   postFinishingConfirmRemark: '',
+  kolImageUrl: '',
+  kolImageAlt: '',
+}
+
+export function closePdaWarehouseWaitProcessDialogsOnEscape(): boolean {
+  if (!state.kolImageUrl) return false
+  state.kolImageUrl = ''
+  state.kolImageAlt = ''
+  return true
 }
 
 let cuttingPickupNodeSnapshot: PickupNodeProjection | null = null
@@ -1763,9 +1776,39 @@ function renderPostFinishingWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
 }
 
+function renderKolGotoWaitProcessPage(): string {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
+  const area = warehouse?.areaList[0]
+  const shelf = area?.shelfList[0]
+  const location = shelf?.locationList[0]
+  const rows = listFactoryWaitProcessStockItems()
+    .filter((item) => item.factoryId === KOL_GOTO_FACTORY_ID)
+    .sort((left, right) => right.receivedAt.localeCompare(left.receivedAt))
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900"><div class="flex items-start justify-between gap-3"><div><h1 class="font-semibold">KOL-GOTO 待加工仓</h1><p class="mt-1 text-xs text-blue-700">加工领料按冻结 BOM 自动接收并立即领出，不设置手工接收、领用、退回或位置调整。</p></div><span class="rounded-full bg-white px-2 py-1 text-xs text-blue-700">唯一库位</span></div><div class="mt-3 rounded-xl bg-white/80 p-3 text-xs">${escapeHtml([area?.areaName, shelf?.shelfNo, location?.locationNo].filter(Boolean).join(' / ') || '默认库位未配置')}</div></section>
+      <section class="grid grid-cols-2 gap-3"><button class="rounded-xl border bg-card p-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/inbound-records">查看入库记录</button><button class="rounded-xl border bg-card p-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/outbound-records">查看出库记录</button></section>
+      <section class="space-y-3">
+        ${rows.length === 0
+          ? renderMobilePageEmptyState('暂无加工领料流水', '在执行任务中提交加工领料后，这里会同步显示自动入库与自动出库结果。')
+          : rows.map((row) => {
+              const imageUrl = row.photoList?.[0] || ''
+              const imageAlt = `${row.itemName}（${row.materialSku || row.stockItemId}）实物图`
+              return `<article class="rounded-2xl border bg-card p-4 shadow-sm"><div class="flex gap-3">${imageUrl ? `<button class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted" data-pda-warehouse-action="kol-open-image" data-image-url="${escapeAttr(imageUrl)}" data-image-alt="${escapeAttr(imageAlt)}"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(imageAlt)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 p-2 text-center text-[11px] text-red-700">缺少对应物料图</div>'}<div class="min-w-0 flex-1"><div class="flex items-center justify-between gap-2"><div class="truncate text-sm font-semibold">${escapeHtml(row.itemName)}</div>${renderStatusPill(row.status)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.materialSku || row.stockItemId)}</div><div class="mt-3 grid grid-cols-2 gap-1 text-xs"><div>本次领料：<b>${row.issuedQty} ${escapeHtml(row.unit)}</b></div><div>库存余额：<b>${row.availableQty} ${escapeHtml(row.unit)}</b></div><div class="col-span-2">位置：${escapeHtml(row.locationText || `${row.areaName} / ${row.shelfNo} / ${row.locationNo}`)}</div></div></div></div><div class="mt-3 rounded-lg bg-green-50 p-2 text-xs text-green-700">${escapeHtml(row.sourceRecordNo)}：已自动入库并自动出库</div></article>`
+            }).join('')}
+      </section>
+      ${state.kolImageUrl ? `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4" data-pda-warehouse-action="kol-close-image"><button class="absolute right-4 top-4 rounded-full bg-white px-3 py-2 text-sm" data-pda-warehouse-action="kol-close-image">关闭</button><img src="${escapeAttr(state.kolImageUrl)}" alt="${escapeAttr(state.kolImageAlt)}" class="max-h-[85vh] max-w-full rounded-xl object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><div hidden class="rounded-xl bg-white p-8 text-sm text-red-700">图片加载失败，请核对原图素材。</div></div>` : ''}
+    </div>`
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '待加工仓', disableTodoAutoOpen: true })
+}
+
 export function renderPdaWarehouseWaitProcessPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (isKolGotoFactory(runtime.factoryId)) {
+    ensureKolGotoPdaScenarios()
+    return renderKolGotoWaitProcessPage()
+  }
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderRouteRedirect('/fcs/pda/handover?tab=pickup', '毛织确认接收已统一到交接')
   const runtimeFactory = getFactoryMasterRecordById(runtime.factoryId)
   if (runtimeFactory?.factoryType === 'CENTRAL_AUX' || runtimeFactory?.factoryType === 'CENTRAL_SPECIAL') {
@@ -1848,6 +1891,26 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 }
 
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
+  const runtime = getMobileWarehouseRuntimeContext()
+  if (isKolGotoFactory(runtime?.factoryId)) {
+    const kolActionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
+    const kolAction = kolActionNode?.dataset.pdaWarehouseAction
+    if (kolAction === 'kol-open-image') {
+      state.kolImageUrl = kolActionNode?.dataset.imageUrl || ''
+      state.kolImageAlt = kolActionNode?.dataset.imageAlt || ''
+      return true
+    }
+    if (kolAction === 'kol-close-image') {
+      state.kolImageUrl = ''
+      state.kolImageAlt = ''
+      return true
+    }
+    return Boolean(
+      kolActionNode
+      || target.closest('[data-pda-warehouse-field]')
+      || target.closest('[data-warehouse-map-action]'),
+    )
+  }
   const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
   if (warehouseMapNode && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId || state.cuttingReturnSourceNo)) {
     const projection = buildCuttingPickupMapProjection(

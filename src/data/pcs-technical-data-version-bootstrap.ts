@@ -341,6 +341,20 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const waterSolubleDyeProcessEntries = isWaterSolubleDyeDemo
     ? [
         {
+          id: `${seed.technicalVersionId}-process-print`,
+          entryType: 'PROCESS_BASELINE' as const,
+          stageCode: 'PREP' as const,
+          stageName: '准备阶段',
+          processCode: 'PRINT',
+          processName: '数码印花',
+          assignmentGranularity: 'ORDER' as const,
+          defaultDocType: 'TASK' as const,
+          taskTypeMode: 'PROCESS' as const,
+          isSpecialCraft: false,
+          linkedBomItemIds: [bomItemId],
+          remark: '主面料按已确认图稿完成数码印花后进入后续生产。',
+        },
+        {
           id: `${seed.technicalVersionId}-process-water-soluble`,
           entryType: 'PROCESS_BASELINE' as const,
           stageCode: 'PREP' as const,
@@ -626,17 +640,19 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
-        materialCode: mainBomMaterialCode,
-        unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : demand.spuCode === 'SPU-2024-010' ? '米' : undefined,
+        materialCode: isWaterSolubleDyeDemo ? 'FABRIC-SPU-TSHIRT-081-MAIN' : mainBomMaterialCode,
+        unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : demand.spuCode === 'SPU-2024-010' || isWaterSolubleDyeDemo ? '米' : undefined,
         ...(demand.spuCode === 'SPU-2024-010'
           ? { printRequirement: '数码印花', dyeRequirement: '匹染' }
+          : isWaterSolubleDyeDemo
+            ? { printRequirement: '数码印花' }
           : {}),
         unitConsumption: scenario === 'GARMENT_HEAT_TRANSFER' ? 1 : isWoolScenario ? 0.48 : 1.2,
         lossRate: scenario === 'GARMENT_HEAT_TRANSFER' ? 0 : isWoolScenario ? 0.05 : 0.03,
         supplier: '生产需求单指定',
         applicableSkuCodes: [...allSkuCodes],
         linkedPatternIds: scenario === 'GARMENT_HEAT_TRANSFER' ? [] : [patternId],
-        usageProcessCodes: mainUsageProcessCodes,
+        usageProcessCodes: isWaterSolubleDyeDemo ? [...mainUsageProcessCodes, 'PRINT'] : mainUsageProcessCodes,
       },
       ...(demand.spuCode === 'SPU-2024-005'
         ? [{

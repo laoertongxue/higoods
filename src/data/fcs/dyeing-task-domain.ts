@@ -1111,7 +1111,32 @@ function addSeedWorkOrder(input: Omit<
   dyeProcessName?: string
   materialId?: string
 }): void {
-  const task = getDyeingTaskById(input.taskId)
+  let task = getDyeingTaskById(input.taskId)
+  if (!task) {
+    task = buildFreshDyeMobileTask({
+      taskId: input.taskId,
+      taskNo: input.taskNo,
+      sourceType: input.sourceType,
+      sourceSnapshot: input.sourceSnapshot,
+      productionOrderId: input.sourceProductionOrderId || input.productionOrderIds?.[0],
+      productionOrderNo: input.sourceProductionOrderNo,
+      stockMaterialId: input.stockMaterialId,
+      stockMaterialName: input.stockMaterialName,
+      spuCode: input.rawMaterialSku,
+      spuName: `${input.targetColor}染色`,
+      factoryId: input.dyeFactoryId,
+      factoryName: input.dyeFactoryName,
+      qty: input.plannedQty,
+      qtyDisplayUnit: input.qtyUnit,
+      processName: input.dyeProcessName || '染色',
+      createdAt: input.createdAt,
+      dispatchedBy: '平台派单',
+      receiveSummary: input.dyeFactoryId ? '染色加工单已分配，待工厂接单。' : '染色加工单待分配工厂。',
+      executionSummary: '按染色加工单当前节点执行。',
+      handoverSummary: '完成染色及后处理后统一交出。',
+    })
+    registerPdaGenericProcessTask(task)
+  }
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
   if (task) {
     const hasFactory = Boolean(input.dyeFactoryId)

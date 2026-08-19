@@ -222,16 +222,13 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     dependsOnTaskIds: [...runtimeTask.dependsOnTaskIds],
     taskCategoryZh: runtimeTask.taskCategoryZh,
     taskUnitType: runtimeTask.taskUnitType,
-    acceptanceMode: runtimeTask.acceptanceMode,
-    generationRuleId: runtimeTask.generationRuleId,
-    generationRuleName: runtimeTask.generationRuleName,
     coveredProcesses: cloneCoveredProcesses(runtimeTask),
-    isMergedTaskUnit: runtimeTask.isMergedTaskUnit,
     allowAutoDispatch: runtimeTask.allowAutoDispatch,
-    pdaStepTemplateCode: runtimeTask.pdaStepTemplateCode,
-    handoverReceiverKind: runtimeTask.handoverReceiverKind,
-    handoverReceiverName: runtimeTask.handoverReceiverName,
     saleTypeSnapshot: runtimeTask.saleTypeSnapshot,
+    pricingMode: runtimeTask.pricingMode,
+    fixedTotalPrice: runtimeTask.fixedTotalPrice,
+    fixedTotalPriceCurrency: runtimeTask.fixedTotalPriceCurrency,
+    fixedTotalPriceUnit: runtimeTask.fixedTotalPriceUnit,
     stageCode: runtimeTask.stageCode,
     stageName: runtimeTask.stageName,
     processBusinessCode: runtimeTask.processBusinessCode,
@@ -315,16 +312,13 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.isSpecialCraft = runtimeTask.isSpecialCraft
   task.taskCategoryZh = runtimeTask.taskCategoryZh
   task.taskUnitType = runtimeTask.taskUnitType
-  task.acceptanceMode = runtimeTask.acceptanceMode
-  task.generationRuleId = runtimeTask.generationRuleId
-  task.generationRuleName = runtimeTask.generationRuleName
   task.coveredProcesses = cloneCoveredProcesses(runtimeTask)
-  task.isMergedTaskUnit = runtimeTask.isMergedTaskUnit
   task.allowAutoDispatch = runtimeTask.allowAutoDispatch
-  task.pdaStepTemplateCode = runtimeTask.pdaStepTemplateCode
-  task.handoverReceiverKind = runtimeTask.handoverReceiverKind
-  task.handoverReceiverName = runtimeTask.handoverReceiverName
   task.saleTypeSnapshot = runtimeTask.saleTypeSnapshot
+  task.pricingMode = runtimeTask.pricingMode
+  task.fixedTotalPrice = runtimeTask.fixedTotalPrice
+  task.fixedTotalPriceCurrency = runtimeTask.fixedTotalPriceCurrency
+  task.fixedTotalPriceUnit = runtimeTask.fixedTotalPriceUnit
   task.woolTaskType = runtimeTask.woolTaskType
   task.woolKind = runtimeTask.woolKind
   task.woolKindLabel = runtimeTask.woolKindLabel

@@ -196,6 +196,8 @@ function getStatementDisplayStatusBadgeClass(statement: StatementPrepaymentDispl
 const PRICE_SOURCE_LABEL: Record<string, string> = {
   DISPATCH: '派单价',
   BIDDING: '竞价中标价',
+  FIXED_TOTAL: '整单固定总价',
+  TASK_FIXED_TOTAL: '任务整单固定总价',
   BID: '竞价中标价',
   OTHER_COMPAT: '兼容价格快照',
   NONE: '不适用',
@@ -203,6 +205,7 @@ const PRICE_SOURCE_LABEL: Record<string, string> = {
 
 const LINE_GRAIN_LABEL: Record<string, string> = {
   RETURN_INBOUND_BATCH: '回货批次行',
+  TASK_COMPLETION: '任务完成行',
   NON_BATCH_QUALITY: '返工扣款流水行',
   NON_BATCH_ADJUSTMENT: '兼容来源行',
   OTHER_SOURCE_OBJECT: '其它来源行',

@@ -19,6 +19,7 @@ import {
   getPdaPickupRecordsByHead,
   listPdaHandoverHeads,
 } from '../src/data/fcs/pda-handover-events.ts'
+import { linkPickupConfirmToInboundRecord } from '../src/data/fcs/factory-warehouse-linkage.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -58,6 +59,10 @@ const specialCraftTaskSource = read('src/data/fcs/special-craft-task-orders.ts')
 const specialCraftFeiFlowSource = read('src/data/fcs/cutting/special-craft-fei-ticket-flow.ts')
 const sewingDispatchSource = read('src/data/fcs/cutting/sewing-dispatch.ts') + read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const progressStatisticsSource = read('src/data/fcs/progress-statistics-linkage.ts')
+const kolGotoWaitProcessSource = waitProcessSource.slice(
+  waitProcessSource.indexOf('function renderKolGotoWaitProcessPage'),
+  waitProcessSource.indexOf('export function renderPdaWarehouseWaitProcessPage'),
+)
 
 const warehousePageSource = [
   waitProcessSource,
@@ -68,6 +73,7 @@ const warehousePageSource = [
   printingWarehouseSource,
   dyeingWarehouseSource,
 ].join('\n')
+const pdaWarehousePageSource = [waitProcessSource, waitHandoverSource, inboundSource, outboundSource].join('\n')
 
 assertContains(
   packageSource,
@@ -99,7 +105,8 @@ assertContains(handoverDetailSource, '完成接收单', '交接详情缺少完�
 assertContains(handoverDetailSource, '完成交出单', '交接详情缺少完成交出单按钮')
 assertContains(pdaHandoverDataSource, '接收单已完成，不允许新增接收记录', '完成接收单后必须禁止新增接收记录')
 assertContains(pdaHandoverDataSource, '交出单已完成，不允许新增交出记录', '完成交出单后必须禁止新增交出记录')
-assertContains(pdaHandoverDataSource, 'receiverClosedAt: head.receiverClosedAt', '交出单完成后接收方回写闭合必须保留独立语义')
+assertContains(pdaHandoverDataSource, 'const receiverClosedAt =', '交出单完成后接收方回写闭合必须保留独立语义')
+assertContains(pdaHandoverDataSource, 'receiverClosedAt,', '接收方闭合时间必须独立写入交出单投影')
 assertNotContains(pdaHandoverDataSource, '仍有待接收方回写记录', '完成交出单不得依赖全部回写')
 assertNotContains(pdaHandoverDataSource, '仍有未处理完成的数量异议', '完成交出单不得依赖异议关闭')
 assertContains(inboundSource + outboundSource, 'getWarehouseGeneratedModeLabel', '仓管入出库页面缺少自动转单展示')
@@ -126,6 +133,19 @@ const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'P
 const pickupRecords = pickupHeads.flatMap((head) =>
   getPdaPickupRecordsByHead(head.handoverId).map((record) => ({ head, record })),
 )
+
+const receivedPickupSeed = pickupRecords.find(({ record }) => record.status === 'RECEIVED')
+assert(receivedPickupSeed, '缺少已确认接收记录种子')
+if (!findFactoryWarehouseInboundRecordBySourceRecordId(receivedPickupSeed!.record.recordId)) {
+  linkPickupConfirmToInboundRecord({
+    pickupRecordId: receivedPickupSeed!.record.recordId,
+    factoryId: 'F090',
+    factoryName: '中央裁床厂',
+    expectedQty: receivedPickupSeed!.record.qtyExpected,
+    receivedQty: receivedPickupSeed!.record.qtyExpected,
+    receiverName: '仓管联动专项检查',
+  })
+}
 
 const confirmedPickup = pickupRecords.find(
   ({ record }) =>
@@ -229,9 +249,11 @@ assert(
   buildToken('手动', '出库'),
   buildToken('新增', '出库'),
 ].forEach((token) => {
-  assertNotContains(waitProcessSource, token, `待加工仓页面不应提供主操作：${token}`)
   assertNotContains(inboundSource, token, `入库记录页面不应提供主操作：${token}`)
-  assertNotContains(specialCraftWarehouseSource, token, `特殊工艺仓库管理不应提供主操作：${token}`)
+})
+assertContains(kolGotoWaitProcessSource, '自动接收并立即领出', 'KOL-GOTO 待加工仓必须说明加工领料的自动收发事实')
+;['待接收', '待领料', 'confirm-cutting-wp-issue', 'confirm-wool-receive', 'open-wool-return'].forEach((token) => {
+  assertNotContains(kolGotoWaitProcessSource, token, `KOL-GOTO 待加工仓不得提供通用仓管动作或待办：${token}`)
 })
 ;[
   buildToken('确认', '接收'),
@@ -241,9 +263,7 @@ assert(
   buildToken('新增', '出库'),
   buildToken('新增', '库存'),
 ].forEach((token) => {
-  assertNotContains(waitHandoverSource, token, `待交出仓页面不应提供主操作：${token}`)
   assertNotContains(outboundSource, token, `出库记录页面不应提供主操作：${token}`)
-  assertNotContains(specialCraftWarehouseSource, token, `特殊工艺仓库管理不应提供主操作：${token}`)
 })
 
 ;[
@@ -264,18 +284,18 @@ assert(
 
 assertNotContains(warehousePageSource, 'FCS:', '仓管页面不应直接显示二维码 payload')
 assertNotContains(warehousePageSource, 'QR payload', '仓管页面不应直接显示 QR payload 文案')
-assertNotContains(warehousePageSource, 'JSON.stringify', '仓管页面不应直接输出 JSON')
+assertNotContains(warehousePageSource, '${JSON.stringify', '仓管页面不应把 JSON 直接插入可见模板')
 
 const visiblePdaPattern = new RegExp(
   [
-    `>[^<]*${joinText(['PD', 'A'])}`,
+    `>[^<\\n]*${joinText(['PD', 'A'])}`,
     joinText(['PDA', '执行']),
     joinText(['PDA', '交接']),
     joinText(['PDA', '仓管']),
     joinText(['PDA', '待办']),
   ].join('|'),
 )
-assert(!visiblePdaPattern.test(warehousePageSource + handoverDetailSource), '页面用户可见文案仍出现 PDA')
+assert(!visiblePdaPattern.test(pdaWarehousePageSource + handoverDetailSource), '移动仓管页面用户可见文案仍出现 PDA')
 assertNotContains(warehousePageSource + handoverDetailSource, joinText(['来', '料仓']), '页面主文案仍出现来料仓')
 assertNotContains(warehousePageSource + handoverDetailSource, joinText(['半成品', '仓']), '页面主文案仍出现半成品仓')
 

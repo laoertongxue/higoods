@@ -3,6 +3,7 @@ import {
   state,
   renderBadge,
   renderEmptyRow,
+  renderStatCard,
   renderConfirmDialog,
   renderFormDialog,
   safeText,
@@ -69,6 +70,13 @@ import {
   getPostFinishingTaskByProductionOrder,
   type PostFinishingTaskView,
 } from '../../data/fcs/post-finishing-domain.ts'
+import {
+  isKolGotoProductionOrder,
+  isKolGotoWholeOrderTask,
+} from '../../data/fcs/kol-goto-special-flow.ts'
+import {
+  getTasksByOrderId,
+} from '../../data/fcs/process-tasks.ts'
 
 function getDetailConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -77,6 +85,20 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
   statusLabel: string
 } {
   const href = buildProductionConfirmationPrintLink(order.productionOrderId)
+  if (isKolGotoProductionOrder(order)) {
+    const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
+    const printable = isProductionConfirmationPrintable(order.productionOrderId)
+    return {
+      available: Boolean(confirmation) || printable.printable,
+      href,
+      buttonTitle: confirmation || printable.printable
+        ? '打印预览'
+        : 'KOL 整单任务已自动拆解；当前没有可打印确认单',
+      statusLabel: confirmation
+        ? productionConfirmationStatusLabels[confirmation.status]
+        : 'KOL 整单任务已自动拆解',
+    }
+  }
   if (!order.taskBreakdownSummary.isBrokenDown || order.status === 'READY_FOR_BREAKDOWN') {
     return {
       available: false,
@@ -218,6 +240,50 @@ function getAssignmentDeadlineText(task: RuntimeProcessTask): string {
 }
 
 function renderOrderAssignmentFactoryDetailTable(order: ProductionOrder): string {
+  if (isKolGotoProductionOrder(order)) {
+    const tasks = getTasksByOrderId(order.productionOrderId)
+      .filter((task) => isKolGotoWholeOrderTask(task, order))
+      .sort((left, right) => left.seq - right.seq)
+    return `
+      <section class="rounded-lg border bg-card p-4 space-y-3">
+        <div>
+          <h3 class="text-base font-semibold">KOL 整单任务</h3>
+          <p class="mt-1 text-xs text-muted-foreground">转单时由系统固定分配给 KOL-GOTO 并自动接收；不进入接单、竞价、改派或接收草稿流程。</p>
+        </div>
+        <div class="overflow-x-auto rounded-md border">
+          <table class="min-w-[900px] w-full text-sm">
+            <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">整单任务</th>
+                <th class="px-3 py-2 text-left font-medium">承接工厂</th>
+                <th class="px-3 py-2 text-left font-medium">接收</th>
+                <th class="px-3 py-2 text-left font-medium">数量</th>
+                <th class="px-3 py-2 text-left font-medium">固定总价</th>
+                <th class="px-3 py-2 text-left font-medium">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                tasks.length === 0
+                  ? renderEmptyRow(6, 'KOL 整单任务缺失，请检查自动拆解结果')
+                  : tasks.map((task) => `
+                      <tr class="border-b last:border-0">
+                        <td class="px-3 py-3"><div class="font-medium">${escapeHtml(task.processBusinessName || task.processNameZh)}</div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div></td>
+                        <td class="px-3 py-3">${escapeHtml(task.assignedFactoryName || task.assignedFactoryId || 'KOL-GOTO')}</td>
+                        <td class="px-3 py-3"><div>${renderBadge('系统自动接收', 'bg-green-100 text-green-700')}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.acceptedAt || task.createdAt)}</div></td>
+                        <td class="px-3 py-3">${task.qty.toLocaleString('zh-CN')} 件</td>
+                        <td class="px-3 py-3">${(task.fixedTotalPrice ?? 0).toLocaleString('zh-CN')} ${escapeHtml(task.fixedTotalPriceCurrency || 'IDR')}/整单</td>
+                        <td class="px-3 py-3">${renderBadge(taskStatusLabel[task.status], taskStatusClass[task.status])}</td>
+                      </tr>
+                    `).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `
+  }
+
   applyPendingDispatchAutoAcceptance()
   const tasks = listRuntimeExecutionTasksByOrder(order.productionOrderId)
     .sort((a, b) => {
@@ -495,13 +561,17 @@ function renderDetailSimulateConfirmDialog(order: ProductionOrder): string {
   )
 }
 
-function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {
+function renderOrderDetailTabButtons(activeTab: OrderDetailTab, order: ProductionOrder): string {
   const tabs: Array<{ key: OrderDetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
     { key: 'demand-snapshot', label: '需求快照' },
     { key: 'tech-pack', label: '技术包快照' },
     { key: 'assignment', label: '分配概览' },
-    { key: 'post-finishing', label: '后道阶段处理' },
+    ...(
+      isKolGotoProductionOrder(order)
+        ? []
+        : [{ key: 'post-finishing' as const, label: '后道阶段处理' }]
+    ),
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },
   ]
@@ -577,6 +647,29 @@ function getOrderMaterialStatusDisplay(order: ProductionOrder): {
 }
 
 function renderOrderMaterialInfoSection(order: ProductionOrder): string {
+  if (isKolGotoProductionOrder(order)) {
+    const bomItems = order.techPackSnapshot?.bomItems
+      .filter((item) => item.type === '面料' || item.type === '辅料') ?? []
+    const fabricCount = bomItems.filter((item) => item.type === '面料').length
+    const accessoryCount = bomItems.filter((item) => item.type === '辅料').length
+    return `
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold">加工领料</h3>
+            <p class="mt-1 text-sm text-muted-foreground">KOL-GOTO 在 PDA 执行端按生产单冻结 BOM 多次加工领料；不创建接收草稿，也不存在待领料状态。</p>
+          </div>
+          ${renderBadge('按冻结 BOM', 'bg-blue-100 text-blue-700')}
+        </div>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+          ${renderStatCard('面料', `${fabricCount} 项`)}
+          ${renderStatCard('辅料', `${accessoryCount} 项`)}
+          ${renderStatCard('默认位置', '待加工仓 / 默认库位')}
+        </div>
+      </section>
+    `
+  }
+
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
   const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
   const statusDisplay = getOrderMaterialStatusDisplay(order)
@@ -907,6 +1000,30 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
   if (state.detailTab === 'assignment') {
     const runtime = getOrderRuntimeAssignmentSnapshot(order)
     const breakdown = getOrderTaskBreakdownSnapshot(order)
+    if (isKolGotoProductionOrder(order)) {
+      return `
+        <div class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <section class="rounded-lg border bg-card p-4 space-y-2">
+              <h3 class="text-base font-semibold">自动承接结果</h3>
+              <p class="text-sm">KOL 整单任务: ${runtime.assignmentSummary.totalTasks}</p>
+              <p class="text-sm">系统固定分配: ${runtime.assignmentSummary.directCount}</p>
+              <p class="text-sm">系统自动接收: ${runtime.assignmentProgress.directAssignedCount}</p>
+              <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
+              <p class="text-sm text-muted-foreground">任务数量: ${breakdown.detailRowCount} 张 · ${breakdown.detailRowTotalQty.toLocaleString('zh-CN')} 件</p>
+            </section>
+            <section class="rounded-lg border bg-card p-4 space-y-2">
+              <h3 class="text-base font-semibold">特殊边界</h3>
+              <p class="text-sm">承接工厂: KOL-GOTO</p>
+              <p class="text-sm">接单: 系统自动接收，仅查看</p>
+              <p class="text-sm">竞价 / 改派: 不适用</p>
+              <p class="text-sm">领料: PDA 执行端加工领料</p>
+            </section>
+          </div>
+          ${renderOrderAssignmentFactoryDetailTable(order)}
+        </div>
+      `
+    }
     return `
       <div class="space-y-4">
         <div class="grid gap-4 md:grid-cols-3">
@@ -1043,6 +1160,8 @@ export function renderProductionOrderDetailPage(orderId: string): string {
     `
   }
 
+  const isKolGotoOrder = isKolGotoProductionOrder(order)
+
   const techPack = getOrderTechPackInfo(order)
   const runtime = getOrderRuntimeAssignmentSnapshot(order)
   const breakdown = getOrderTaskBreakdownSnapshot(order)
@@ -1074,14 +1193,22 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <button class="rounded-md border px-3 py-2 text-sm ${
-            canBreakdown ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(breakdownDisabledReason)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(
-            order.productionOrderId,
-          )}">拆解任务</button>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-breakdown-readiness" data-order-id="${escapeHtml(
-            order.productionOrderId,
-          )}">查看物料检查</button>
+          ${
+            isKolGotoOrder
+              ? ''
+              : `<button class="rounded-md border px-3 py-2 text-sm ${
+                  canBreakdown ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+                }" title="${escapeHtml(breakdownDisabledReason)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(
+                  order.productionOrderId,
+                )}">拆解任务</button>`
+          }
+          ${
+            isKolGotoOrder
+              ? ''
+              : `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-breakdown-readiness" data-order-id="${escapeHtml(
+                  order.productionOrderId,
+                )}">查看物料检查</button>`
+          }
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">查看技术包快照</button>
@@ -1174,41 +1301,72 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           }
         </article>
 
-        <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配情况</h3>
-          <p class="text-sm">派单: ${runtime.assignmentSummary.directCount}</p>
-          <p class="text-sm">竞价: ${runtime.assignmentSummary.biddingCount}</p>
-          <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
-          <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
-        </article>
+        ${
+          isKolGotoOrder
+            ? `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">任务承接</h3>
+                 <p class="text-sm">系统固定分配: ${runtime.assignmentSummary.directCount}</p>
+                 <p class="text-sm">系统自动接收: ${runtime.assignmentProgress.directAssignedCount}</p>
+                 <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
+                 <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
+               </article>`
+            : `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配情况</h3>
+                 <p class="text-sm">派单: ${runtime.assignmentSummary.directCount}</p>
+                 <p class="text-sm">竞价: ${runtime.assignmentSummary.biddingCount}</p>
+                 <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
+                 <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
+               </article>`
+        }
 
-        ${renderOrderPostFinishingMetricCard(order)}
+        ${isKolGotoOrder ? '' : renderOrderPostFinishingMetricCard(order)}
 
-        <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配进度</h3>
-          ${renderBadge(
-            assignmentProgressStatusConfig[runtime.assignmentProgress.status].label,
-            assignmentProgressStatusConfig[runtime.assignmentProgress.status].color,
-          )}
-          <p class="mt-2 text-xs text-muted-foreground">已派单: ${runtime.assignmentProgress.directAssignedCount}</p>
-          <p class="text-xs text-muted-foreground">已发起竞价: ${runtime.assignmentProgress.biddingLaunchedCount}</p>
-          <p class="text-xs text-muted-foreground">已中标: ${runtime.assignmentProgress.biddingAwardedCount}</p>
-        </article>
+        ${
+          isKolGotoOrder
+            ? `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">自动分配进度</h3>
+                 ${renderBadge(
+                   assignmentProgressStatusConfig[runtime.assignmentProgress.status].label,
+                   assignmentProgressStatusConfig[runtime.assignmentProgress.status].color,
+                 )}
+                 <p class="mt-2 text-xs text-muted-foreground">固定工厂：KOL-GOTO</p>
+                 <p class="text-xs text-muted-foreground">无接单操作 · 无竞价流程</p>
+               </article>`
+            : `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配进度</h3>
+                 ${renderBadge(
+                   assignmentProgressStatusConfig[runtime.assignmentProgress.status].label,
+                   assignmentProgressStatusConfig[runtime.assignmentProgress.status].color,
+                 )}
+                 <p class="mt-2 text-xs text-muted-foreground">已派单: ${runtime.assignmentProgress.directAssignedCount}</p>
+                 <p class="text-xs text-muted-foreground">已发起竞价: ${runtime.assignmentProgress.biddingLaunchedCount}</p>
+                 <p class="text-xs text-muted-foreground">已中标: ${runtime.assignmentProgress.biddingAwardedCount}</p>
+               </article>`
+        }
 
-        <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">接收状态</h3>
-          ${renderBadge(detailMaterialStatus.label, detailMaterialStatus.badgeClass)}
-          <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(detailMaterialStatus.hint)}</p>
-          <p class="text-xs text-muted-foreground">草稿 ${detailMaterialSummary.totalDraftCount} · 已确认 ${detailMaterialSummary.createdCount}</p>
-          <button
-            class="mt-2 inline-flex h-7 items-center rounded-md border px-2.5 text-xs hover:bg-muted"
-            data-prod-action="open-material-draft-drawer"
-            data-order-id="${escapeHtml(order.productionOrderId)}"
-          >${detailMaterialSummary.pendingCount > 0 ? '去确认接收' : '查看接收草稿'}</button>
-        </article>
+        ${
+          isKolGotoOrder
+            ? `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">加工领料</h3>
+                 ${renderBadge('按冻结 BOM', 'bg-blue-100 text-blue-700')}
+                 <p class="mt-2 text-xs text-muted-foreground">PDA 执行端多次领取；首次成功领料自动开工。</p>
+                 <p class="text-xs text-muted-foreground">无接收草稿 · 无待领料状态</p>
+               </article>`
+            : `<article class="rounded-lg border bg-card p-4">
+                 <h3 class="mb-2 text-sm font-medium text-muted-foreground">接收状态</h3>
+                 ${renderBadge(detailMaterialStatus.label, detailMaterialStatus.badgeClass)}
+                 <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(detailMaterialStatus.hint)}</p>
+                 <p class="text-xs text-muted-foreground">草稿 ${detailMaterialSummary.totalDraftCount} · 已确认 ${detailMaterialSummary.createdCount}</p>
+                 <button
+                   class="mt-2 inline-flex h-7 items-center rounded-md border px-2.5 text-xs hover:bg-muted"
+                   data-prod-action="open-material-draft-drawer"
+                   data-order-id="${escapeHtml(order.productionOrderId)}"
+                 >${detailMaterialSummary.pendingCount > 0 ? '去确认接收' : '查看接收草稿'}</button>
+               </article>`
+        }
       </section>
 
-      ${renderOrderDetailTabButtons(state.detailTab)}
+      ${renderOrderDetailTabButtons(state.detailTab, order)}
       ${renderOrderDetailTabContent(order)}
 
       ${renderMaterialDraftDrawer()}

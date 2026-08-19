@@ -7,7 +7,6 @@ import type {
   FactoryTypeMatchResult,
 } from './factory-onboarding-domain'
 import type { FactorySampleReferenceFile } from './factory-sample-verification-domain'
-import type { PdaStepTemplateCode } from './production-task-generation-rules.ts'
 
 // 工厂状态
 export type FactoryStatus = 'active' | 'paused' | 'blacklist' | 'inactive'
@@ -71,18 +70,6 @@ export interface FactoryTaskAcceptanceConfig {
   singleProcessEnabled: boolean
   canAcceptSewingIronPack: boolean
   canAcceptCuttingSewingIronPack: boolean
-  wholeOrderEnabled: boolean
-  wholeOrderRule?: {
-    enabled: boolean
-    applicableSaleTypes: string[]
-    excludedProcessCodes: string[]
-    defaultTaskName: string
-    allowRuleRecommendation: boolean
-    handoverReceiverKind: 'WAREHOUSE'
-    handoverReceiverName: string
-    pdaStepTemplateCode: PdaStepTemplateCode
-    remark?: string
-  }
 }
 
 // 工厂档案

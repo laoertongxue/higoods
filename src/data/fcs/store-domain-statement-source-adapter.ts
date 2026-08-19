@@ -1,4 +1,6 @@
 import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
+import { KOL_GOTO_FACTORY_NAME } from './factory-mock-data.ts'
+import { normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import { buildDeductionEntryHrefByBasisId } from './quality-chain-adapter.ts'
 import {
   getPreSettlementLedgerById,
@@ -68,6 +70,7 @@ export interface StatementSourceItemViewModel {
   plannedPrepaymentAt?: string
   statementLineGrainType:
     | 'RETURN_INBOUND_BATCH'
+    | 'TASK_COMPLETION'
     | 'NON_BATCH_QUALITY'
     | 'NON_BATCH_ADJUSTMENT'
     | 'OTHER_SOURCE_OBJECT'
@@ -79,7 +82,7 @@ export interface StatementSourceItemViewModel {
   basisId?: string
   disputeId?: string
   processLabel?: string
-  pricingSourceType: 'DISPATCH' | 'BIDDING' | 'OTHER_COMPAT' | 'NONE'
+  pricingSourceType: 'DISPATCH' | 'BIDDING' | 'FIXED_TOTAL' | 'OTHER_COMPAT' | 'NONE'
   pricingSourceRefId?: string
   settlementUnitPrice?: number
   earningAmount: number
@@ -215,6 +218,7 @@ const PARTY_TYPE_ZH: Record<string, string> = {
 function buildPartyLabel(type?: string, id?: string): string {
   if (!type || !id) return '-'
   if (type === 'FACTORY') {
+    if (normalizeKolGotoFactoryId(id)) return KOL_GOTO_FACTORY_NAME
     const factory = getFactoryById(id) ?? getFactoryByCode(id)
     if (factory) return factory.name
   }
@@ -291,6 +295,8 @@ function resolvePostFinishingDefectReasonLines(_productionOrderNo: string): Sett
 }
 
 function normalizeSettlementPartyId(partyId: string): string {
+  const kolGotoFactoryId = normalizeKolGotoFactoryId(partyId)
+  if (kolGotoFactoryId) return kolGotoFactoryId
   const factory = getFactoryById(partyId) ?? getFactoryByCode(partyId)
   return factory?.id ?? partyId
 }
@@ -304,6 +310,7 @@ function normalizeLedgerPriceSource(
 ): StatementSourceItemViewModel['pricingSourceType'] {
   if (priceSourceType === 'BID') return 'BIDDING'
   if (priceSourceType === 'DISPATCH') return 'DISPATCH'
+  if (priceSourceType === 'TASK_FIXED_TOTAL') return 'FIXED_TOTAL'
   return 'OTHER_COMPAT'
 }
 
@@ -365,6 +372,8 @@ function mapLedgerToStatementSourceItem(
   const canEnterStatement = ledger.status === 'OPEN' && !alreadyBoundStatementId
 
   if (ledger.ledgerType === 'TASK_EARNING') {
+    const isFixedTotalCompletion = ledger.sourceType === 'TASK_COMPLETION'
+      && ledger.priceSourceType === 'TASK_FIXED_TOTAL'
     return {
       sourceItemId: ledger.ledgerId,
       ledgerNo: ledger.ledgerNo,
@@ -389,17 +398,19 @@ function mapLedgerToStatementSourceItem(
       routeToSource: buildTaskLedgerHref(ledger),
       canEnterStatement,
       alreadyBoundStatementId,
-      sourceReason: ledger.sourceReason ?? '按派单价或竞价中标价与回货数量生成正式任务收入流水',
+      sourceReason: ledger.sourceReason ?? (isFixedTotalCompletion
+        ? '整单任务完成后按冻结固定总价生成正式任务收入流水'
+        : '按派单价或竞价中标价与回货数量生成正式任务收入流水'),
       remark: ledger.remark,
       settlementCycleId: ledger.settlementCycleId,
       settlementCycleLabel: ledger.settlementCycleLabel,
       settlementCycleStartAt: ledger.settlementCycleStartAt,
       settlementCycleEndAt: ledger.settlementCycleEndAt,
       plannedPrepaymentAt: ledger.plannedPrepaymentAt,
-      statementLineGrainType: 'RETURN_INBOUND_BATCH',
-      returnInboundBatchId: ledger.returnInboundBatchId,
-      returnInboundBatchNo: ledger.returnInboundBatchNo,
-      returnInboundQty: ledger.qty,
+      statementLineGrainType: isFixedTotalCompletion ? 'TASK_COMPLETION' : 'RETURN_INBOUND_BATCH',
+      returnInboundBatchId: isFixedTotalCompletion ? undefined : ledger.returnInboundBatchId,
+      returnInboundBatchNo: isFixedTotalCompletion ? undefined : ledger.returnInboundBatchNo,
+      returnInboundQty: isFixedTotalCompletion ? undefined : ledger.qty,
       qcRecordId: undefined,
       pendingDeductionRecordId: undefined,
       disputeId: undefined,
@@ -506,6 +517,7 @@ function getStatementSourceTypeSummary(items: StatementDraftItem[]): string {
 
 function getStatementLineTypeZh(item: StatementDraftItem): string {
   if (item.statementLineGrainType === 'RETURN_INBOUND_BATCH') return '回货批次行'
+  if (item.statementLineGrainType === 'TASK_COMPLETION') return '任务完成行'
   if (item.statementLineGrainType === 'NON_BATCH_QUALITY') return '返工扣款流水行'
   if (item.statementLineGrainType === 'NON_BATCH_ADJUSTMENT') return '兼容来源行'
   return '其它来源行'

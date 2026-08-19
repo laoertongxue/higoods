@@ -9,6 +9,8 @@ import {
   listRuntimeProcessTasks,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
+import { processTasks, type ProcessTask } from '../data/fcs/process-tasks.ts'
+import { isKolGotoWholeOrderTask } from '../data/fcs/kol-goto-special-flow.ts'
 import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
 import { isAssignableProductionExecutionTask } from '../data/fcs/merged-production-task.ts'
 import { escapeHtml } from '../utils.ts'
@@ -47,6 +49,7 @@ function taskType(task: RuntimeProcessTask): Exclude<TaskListType, 'ALL'> {
 }
 
 function taskTypeLabel(task: RuntimeProcessTask): string {
+  if (isKolGotoWholeOrderTask(task)) return 'KOL整单任务'
   if (task.taskUnitType === 'WHOLE_ORDER_TASK') return '整单任务'
   return classifyTaskFulfillmentPolicy(task).taskTypeLabel
 }
@@ -69,10 +72,41 @@ function processNames(task: RuntimeProcessTask): string[] {
   return Array.from(new Set(names))
 }
 
-function listRows(): RuntimeProcessTask[] {
-  const keyword = state.keyword.trim().toLowerCase()
-  return listRuntimeProcessTasks()
-    .filter(isAssignableProductionExecutionTask)
+function adaptKolGotoTask(task: ProcessTask): RuntimeProcessTask {
+  return {
+    ...task,
+    baseTaskId: task.taskId,
+    baseQty: task.qty,
+    baseDependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
+    dependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
+    scopeType: 'ORDER',
+    scopeKey: task.productionOrderId || task.taskId,
+    scopeLabel: '整张生产单',
+    scopeQty: task.qty,
+    scopeSkuLines: [],
+    scopeDetailRows: [...(task.detailRows ?? [])],
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'NOT_APPLICABLE',
+    transitionToNext: 'NOT_APPLICABLE',
+  }
+}
+
+function listTaskFacts(): RuntimeProcessTask[] {
+  const ordinaryTasks = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+  const ordinaryTaskIds = new Set(ordinaryTasks.map((task) => task.taskId))
+  const kolGotoTasks = processTasks
+    .filter((task) => isKolGotoWholeOrderTask(task) && !ordinaryTaskIds.has(task.taskId))
+    .map(adaptKolGotoTask)
+  return [...ordinaryTasks, ...kolGotoTasks]
+}
+
+function getTaskFactById(taskId: string): RuntimeProcessTask | null {
+  return getRuntimeTaskById(taskId) ?? listTaskFacts().find((task) => task.taskId === taskId) ?? null
+}
+
+function listRows(keywordValue = state.keyword): RuntimeProcessTask[] {
+  const keyword = keywordValue.trim().toLowerCase()
+  return listTaskFacts()
     .filter((task) => state.type === 'ALL' || taskType(task) === state.type)
     .filter((task) => state.status === 'ALL' || task.assignmentStatus === state.status)
     .filter((task) => !keyword || [
@@ -114,13 +148,17 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
     key: 'status',
     title: '状态 / 工厂',
     width: 190,
-    render: (task) => `<b>${escapeHtml(assignmentStatusLabel(task.assignmentStatus))}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p>`,
+    render: (task) => isKolGotoWholeOrderTask(task)
+      ? `<b>系统固定分配并自动接收</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || 'KOL-GOTO')}</p>`
+      : `<b>${escapeHtml(assignmentStatusLabel(task.assignmentStatus))}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p>`,
   },
   {
     key: 'lineage',
     title: '来源关系',
     width: 220,
-    render: (task) => task.mergeSourceTaskIds?.length
+    render: (task) => isKolGotoWholeOrderTask(task)
+      ? '<span class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">生产单自动拆解</span><p class="mt-2 text-xs text-muted-foreground">仅供查看，不参与普通派工</p>'
+      : task.mergeSourceTaskIds?.length
       ? `<span class="rounded bg-violet-50 px-2 py-1 text-xs text-violet-700">由${task.mergeSourceTaskIds.length}张源任务合并</span><p class="mt-2 text-xs text-muted-foreground">源任务保留历史，不能再单独分配</p>`
       : '<span class="text-sm text-muted-foreground">独立生成</span>',
   },
@@ -130,7 +168,9 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
     width: 150,
     required: true,
     actionColumn: true,
-    render: (task) => `<div class="flex gap-3"><button class="text-blue-600" data-task-list-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button><a class="text-blue-600" href="/fcs/dispatch/workbench?keyword=${encodeURIComponent(task.taskNo || task.taskId)}">去分配</a></div>`,
+    render: (task) => isKolGotoWholeOrderTask(task)
+      ? `<div class="flex items-center gap-3"><button class="text-blue-600" data-task-list-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button><span class="text-xs text-muted-foreground">无需分配</span></div>`
+      : `<div class="flex gap-3"><button class="text-blue-600" data-task-list-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button><a class="text-blue-600" href="/fcs/dispatch/workbench?keyword=${encodeURIComponent(task.taskNo || task.taskId)}">去分配</a></div>`,
   },
 ]
 
@@ -142,33 +182,35 @@ const preferences: StandardListColumnPreferences = {
 }
 
 function renderDetail(): string {
-  const task = state.detailTaskId ? getRuntimeTaskById(state.detailTaskId) : null
+  const task = state.detailTaskId ? getTaskFactById(state.detailTaskId) : null
   if (!task) return ''
   const policy = classifyTaskFulfillmentPolicy(task)
-  const sourceTasks = (task.mergeSourceTaskIds ?? []).map((id) => getRuntimeTaskById(id)).filter((item): item is RuntimeProcessTask => Boolean(item))
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-task-list-action="close-detail"></button><section class="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-start justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${escapeHtml(taskTypeLabel(task))}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></div><button data-task-list-action="close-detail">关闭</button></header><div class="grid gap-4 p-5 md:grid-cols-2"><section class="rounded border p-4"><h3 class="font-semibold">任务范围</h3><dl class="mt-3 space-y-2 text-sm"><div><dt class="text-muted-foreground">生产单</dt><dd>${escapeHtml(task.productionOrderNo || task.productionOrderId)}</dd></div><div><dt class="text-muted-foreground">工序责任</dt><dd>${escapeHtml(processNames(task).join(' + '))}</dd></div><div><dt class="text-muted-foreground">分配颗粒度</dt><dd>${policy.assignmentGranularity === 'SKU' ? '完整SKU' : '整张任务'}</dd></div><div><dt class="text-muted-foreground">目标数量</dt><dd>${task.scopeQty.toLocaleString()}件</dd></div></dl></section><section class="rounded border p-4"><h3 class="font-semibold">当前状态</h3><p class="mt-3 text-sm">${escapeHtml(assignmentStatusLabel(task.assignmentStatus))}</p><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p></section>${sourceTasks.length ? `<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">源任务留痕</h3><ul class="mt-3 divide-y text-sm">${sourceTasks.map((source) => `<li class="py-2">${escapeHtml(source.taskNo || source.taskId)} · ${escapeHtml(source.processNameZh)} · 已并入当前合并任务</li>`).join('')}</ul></section>` : ''}<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">操作记录</h3><ul class="mt-3 space-y-2 text-sm">${task.auditLogs.slice().reverse().map((log) => `<li><span class="text-muted-foreground">${escapeHtml(log.at)}</span> · ${escapeHtml(log.detail)}</li>`).join('')}</ul></section></div></section></div>`
+  const sourceTasks = (task.mergeSourceTaskIds ?? []).map(getTaskFactById).filter((item): item is RuntimeProcessTask => Boolean(item))
+  const statusLabel = isKolGotoWholeOrderTask(task) ? '系统固定分配并自动接收' : assignmentStatusLabel(task.assignmentStatus)
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-task-list-action="close-detail"></button><section class="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-start justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${escapeHtml(taskTypeLabel(task))}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></div><button data-task-list-action="close-detail">关闭</button></header><div class="grid gap-4 p-5 md:grid-cols-2"><section class="rounded border p-4"><h3 class="font-semibold">任务范围</h3><dl class="mt-3 space-y-2 text-sm"><div><dt class="text-muted-foreground">生产单</dt><dd>${escapeHtml(task.productionOrderNo || task.productionOrderId)}</dd></div><div><dt class="text-muted-foreground">工序责任</dt><dd>${escapeHtml(processNames(task).join(' + '))}</dd></div><div><dt class="text-muted-foreground">分配颗粒度</dt><dd>${policy.assignmentGranularity === 'SKU' ? '完整SKU' : '整张任务'}</dd></div><div><dt class="text-muted-foreground">目标数量</dt><dd>${task.scopeQty.toLocaleString()}件</dd></div></dl></section><section class="rounded border p-4"><h3 class="font-semibold">当前状态</h3><p class="mt-3 text-sm">${escapeHtml(statusLabel)}</p><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p></section>${sourceTasks.length ? `<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">源任务留痕</h3><ul class="mt-3 divide-y text-sm">${sourceTasks.map((source) => `<li class="py-2">${escapeHtml(source.taskNo || source.taskId)} · ${escapeHtml(source.processNameZh)} · 已并入当前合并任务</li>`).join('')}</ul></section>` : ''}<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">操作记录</h3><ul class="mt-3 space-y-2 text-sm">${task.auditLogs.slice().reverse().map((log) => `<li><span class="text-muted-foreground">${escapeHtml(log.at)}</span> · ${escapeHtml(log.detail)}</li>`).join('')}</ul></section></div></section></div>`
 }
 
 function renderImagePreview(): string {
   return '<div data-task-list-image-preview></div>'
 }
 
-export function renderTaskBreakdownPage(): string {
-  const rows = listRows()
-  const all = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+export function renderTaskBreakdownPage(keywordOverride?: string): string {
+  const rows = listRows(keywordOverride)
+  const all = listTaskFacts()
   const pageSize = 20
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
   state.page = Math.min(Math.max(1, state.page), totalPages)
   const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
   const content = renderStandardListPage({
     title: '任务清单',
-    description: '仅展示可执行生产任务。生产准备工序不进入任务清单，合并任务统一前往任务分配页面创建。',
+    description: '展示全部可执行生产任务；KOL-GOTO 整单任务由生产单自动拆解，只供查看，不参与普通分配或竞价。',
     primaryActionsHtml: '<a class="rounded bg-blue-600 px-4 py-2 text-sm text-white" href="/fcs/dispatch/workbench">前往任务分配</a>',
     filtersHtml: `<div class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3"><input class="h-9 rounded border px-3 text-sm" placeholder="生产单 / 任务号 / 工序 / 工厂" data-task-list-field="keyword" value="${escapeHtml(state.keyword)}"/><select class="h-9 rounded border px-3 text-sm" data-task-list-field="type"><option value="ALL">全部任务</option><option value="SEWING" ${state.type === 'SEWING' ? 'selected' : ''}>独立车缝</option><option value="NON_SEWING" ${state.type === 'NON_SEWING' ? 'selected' : ''}>非车缝独立生产任务</option><option value="MERGED" ${state.type === 'MERGED' ? 'selected' : ''}>合并任务</option><option value="WHOLE_ORDER" ${state.type === 'WHOLE_ORDER' ? 'selected' : ''}>整单任务</option></select><select class="h-9 rounded border px-3 text-sm" data-task-list-field="status"><option value="ALL">全部分配状态</option><option value="UNASSIGNED" ${state.status === 'UNASSIGNED' ? 'selected' : ''}>待分配</option><option value="BIDDING" ${state.status === 'BIDDING' ? 'selected' : ''}>竞价中</option><option value="ASSIGNED" ${state.status === 'ASSIGNED' ? 'selected' : ''}>已分配</option><option value="AWARDED" ${state.status === 'AWARDED' ? 'selected' : ''}>已定标</option></select></div>`,
     statsHtml: renderStandardListStats([
       { label: '可执行任务', value: all.length },
       { label: '独立车缝', value: all.filter((task) => taskType(task) === 'SEWING').length },
       { label: '合并任务', value: all.filter((task) => taskType(task) === 'MERGED').length },
+      { label: 'KOL整单', value: all.filter((task) => isKolGotoWholeOrderTask(task)).length },
       { label: '待分配', value: all.filter((task) => task.assignmentStatus === 'UNASSIGNED').length },
     ]),
     listTitle: '生产任务',

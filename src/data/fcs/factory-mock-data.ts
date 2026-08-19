@@ -366,7 +366,7 @@ const kolGotoFactory: Factory = {
     .map(normalizeKolGotoProcessAbility)
     .map((item) => ({
       ...item,
-      canReceiveTask: true,
+      canReceiveTask: false,
       status: 'ACTIVE',
     })),
   qualityScore: 96,
@@ -381,27 +381,15 @@ const kolGotoFactory: Factory = {
   machineTotalCount: thirdPartySewingSeatCountByFactoryId[KOL_GOTO_FACTORY_ID],
   effectiveWorkerCount: thirdPartySewingSeatCountByFactoryId[KOL_GOTO_FACTORY_ID],
   eligibility: {
-    allowDispatch: true,
+    allowDispatch: false,
     allowBid: false,
     allowExecute: true,
     allowSettle: true,
   },
   taskAcceptanceConfig: {
-    singleProcessEnabled: true,
-    canAcceptSewingIronPack: true,
+    singleProcessEnabled: false,
+    canAcceptSewingIronPack: false,
     canAcceptCuttingSewingIronPack: false,
-    wholeOrderEnabled: true,
-    wholeOrderRule: {
-      enabled: true,
-      applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
-      excludedProcessCodes: ['PRINT', 'DYE'],
-      defaultTaskName: 'KOL整单任务',
-      allowRuleRecommendation: true,
-      handoverReceiverKind: 'WAREHOUSE',
-      handoverReceiverName: '仓库',
-      pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
-      remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
-    },
   },
 }
 

@@ -73,6 +73,10 @@ import {
   restoreSpecialCraftTaskOrdersAfterMergedTaskCancellation,
 } from '../data/fcs/special-craft-task-orders.ts'
 import { escapeHtml } from '../utils.ts'
+import {
+  isKolGotoFactory,
+  isKolGotoWholeOrderTask,
+} from '../data/fcs/kol-goto-special-flow.ts'
 
 type WorkbenchTaskType = 'ALL' | 'SEWING' | 'NON_SEWING' | 'MERGED'
 type DistributionMode = 'BAG_AWARE' | 'FREE'
@@ -212,6 +216,7 @@ function typeLabel(type: WorkbenchTaskType): string {
 }
 
 function factoryCanAcceptTask(factory: Factory, task: RuntimeProcessTask): boolean {
+  if (isKolGotoFactory(factory.id) || isKolGotoWholeOrderTask(task)) return false
   const policy = classifyTaskFulfillmentPolicy(task)
   const config = factory.taskAcceptanceConfig
   if (!config || factory.status !== 'active' || !factory.eligibility.allowDispatch) return false
@@ -476,6 +481,9 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
     key: 'taskObject', title: '任务对象', width: 300, required: true, freezeable: true,
     render: (task) => {
+      if (isKolGotoWholeOrderTask(task)) {
+        return '<b>系统固定分配</b><p class="mt-1 text-xs">KOL 整单任务</p><p class="text-xs text-muted-foreground">KOL-GOTO · 已自动接收</p>'
+      }
       const context = taskListContext(task)
       return `<div class="flex gap-3"><button class="relative flex h-16 w-14 shrink-0 items-center justify-center overflow-hidden rounded border bg-slate-50" aria-label="查看${escapeHtml(context.spuCode)}高清款式图" data-unified-action="preview-image" data-image="${escapeHtml(taskImage(task))}" data-label="${escapeHtml(context.spuCode)}"><img src="${escapeHtml(taskImage(task))}" alt="${escapeHtml(context.spuCode)}款式实拍图" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[10px] text-red-600">图片加载失败</span></button><div class="min-w-0"><b>${escapeHtml(context.spuCode)}</b><p class="max-w-[190px] truncate text-xs text-muted-foreground">${escapeHtml(context.spuName)}</p><p class="mt-1 text-xs">生产单：${escapeHtml(task.productionOrderNo || task.productionOrderId || '未关联')}</p><p class="text-xs text-muted-foreground">任务：${escapeHtml(task.taskNo || task.taskId)}</p></div></div>`
     },
@@ -483,6 +491,9 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
     key: 'taskContent', title: '任务内容', width: 250, required: true,
     render: (task) => {
+      if (isKolGotoWholeOrderTask(task)) {
+        return `<p class="font-medium">固定总价：${Number(task.fixedTotalPrice || 0).toLocaleString()} ${escapeHtml(task.fixedTotalPriceCurrency || 'IDR')}/${escapeHtml(task.fixedTotalPriceUnit || '整单')}</p><span class="mt-1 inline-flex rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">生成时冻结</span>`
+      }
       const context = taskListContext(task)
       const responsibility = task.mergedTaskType ? getMergedProductionTaskDefinition(task.mergedTaskType).label : ''
       return `<b>${escapeHtml(typeLabel(getTaskType(task)))}</b><p class="mt-1 text-xs">工序：${escapeHtml(processNames(task).join(' + '))}</p><p class="text-xs text-muted-foreground">工艺：${escapeHtml(context.craftLabel)}</p>${responsibility ? `<span class="mt-1 inline-flex rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-700">固定责任范围：${escapeHtml(responsibility)}</span>` : ''}`
@@ -528,11 +539,12 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
     key: 'actions', title: '操作', width: 250, required: true, actionColumn: true,
     render: (task) => {
       const contract = currentContract(task.taskId)
+      const kolGotoWholeOrder = isKolGotoWholeOrderTask(task)
       return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
         <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button>
-        ${task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
-        ${task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
-        ${['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).startsWithSewing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
+        ${!kolGotoWholeOrder && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
+        ${!kolGotoWholeOrder && task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
+        ${!kolGotoWholeOrder && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).startsWithSewing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
         ${task.mergeSourceTaskIds?.length && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-red-600" data-unified-action="open-cancel-merge" data-task-id="${escapeHtml(task.taskId)}">撤销合并</button>` : ''}
         ${contract ? `<button class="text-blue-600" data-unified-action="open-contract" data-contract-id="${escapeHtml(contract.contractId)}">合同</button>` : ''}
         <button class="text-slate-600" data-unified-action="open-log" data-task-id="${escapeHtml(task.taskId)}">日志</button>
@@ -1058,6 +1070,10 @@ function refreshTenderFactoryPool(focusField = ''): void {
 function openDispatch(taskId: string, mode: AssignMode): void {
   const task = getRuntimeTaskById(taskId)
   if (!task) return
+  if (isKolGotoWholeOrderTask(task)) {
+    state.feedback = 'KOL-GOTO 整单任务已由系统固定分配并自动接收，仅可查看。'
+    return
+  }
   const nowDate = new Date()
   const now = formatOperationLocalWallClock(nowDate)
   const tenderDeadlineDate = new Date(nowDate)

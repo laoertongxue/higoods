@@ -28,10 +28,6 @@ import {
   renderProductionChangesPage,
   renderProductionCraftDictPage,
   renderProductionDemandInboxPage,
-  renderProductionTaskGenerationRuleCreatePage,
-  renderProductionTaskGenerationRuleDetailPage,
-  renderProductionTaskGenerationRuleEditPage,
-  renderProductionTaskGenerationRulesPage,
   renderProductionConfirmationPrintPage,
   renderTaskDeliveryCardPrintPage,
   renderTaskRouteCardPrintPage,
@@ -212,8 +208,6 @@ export const routes: RouteRegistry = {
     '/fcs/factories/settlement/new': () => renderSettlementListPage(),
     '/fcs/workbench/overview': () => renderOverviewPage(),
     '/fcs/workbench/todos': () => renderTodosPage(),
-    '/fcs/production/task-generation-rules': () => renderProductionTaskGenerationRulesPage(),
-    '/fcs/production/task-generation-rules/new': () => renderProductionTaskGenerationRuleCreatePage(),
     '/fcs/production/demand-inbox': () => renderProductionDemandInboxPage(),
     '/fcs/production/orders': () => renderProductionOrdersPage(),
     '/fcs/production/preparation-timing': () => renderProductionPreparationTimingPage(),
@@ -504,14 +498,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
       render: (match) => renderProductionOrderDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/fcs\/production\/task-generation-rules\/([^/]+)\/edit$/,
-      render: (match) => renderProductionTaskGenerationRuleEditPage(decodeURIComponent(match[1])),
-    },
-    {
-      pattern: /^\/fcs\/production\/task-generation-rules\/([^/]+)$/,
-      render: (match) => renderProductionTaskGenerationRuleDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/progress\/cutting-overview\/([^/]+)$/,

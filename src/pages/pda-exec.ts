@@ -49,6 +49,8 @@ import {
   getPostFinishingTaskById,
   getPostFinishingWorkOrderBySourceTaskId,
 } from '../data/fcs/post-finishing-domain.ts'
+import { getKolGotoHandoutQty } from '../data/fcs/kol-goto-pda-domain.ts'
+import { isKolGotoFactory, isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from '../data/fcs/kol-goto-special-flow.ts'
 import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
@@ -394,10 +396,11 @@ function mutateFinishTask(taskId: string, by: string): void {
 }
 
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
+  const resolvedFactoryId = normalizeKolGotoFactoryId(factoryId) ?? factoryId
   return listMobileExecutionTasks({
-    currentFactoryId: factoryId,
+    currentFactoryId: resolvedFactoryId,
   })
-    .filter((task) => canFactoryAccessSpecialCraftPdaTask(factoryId, task))
+    .filter((task) => canFactoryAccessSpecialCraftPdaTask(resolvedFactoryId, task))
     .filter((task) => {
       const processType = getMobileTaskProcessType(task)
       if (processType === 'SPECIAL_CRAFT') {
@@ -465,10 +468,6 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
     .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
     .join('、')
   return `<div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">覆盖工序：${escapeHtml(text)}</div>`
-}
-
-function isWholeOrderFiveStepTask(task: ProcessTask): boolean {
-  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
 }
 
 function getTaskStatusLabel(task: ProcessTask): string {
@@ -542,11 +541,18 @@ function getNotStartedPrimaryAction(
   task: ProcessTask,
   prereq: ReturnType<typeof getStartPrerequisite>,
 ): { label: string; icon: string; action: 'go-start' | 'go-prerequisite' | 'go-handover'; className: string } {
+  if (isKolGotoWholeOrderTask(task)) {
+    return {
+      label: '去加工领料',
+      icon: 'package-open',
+      action: 'go-prerequisite',
+      className: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    }
+  }
+
   if (prereq.met) {
     return {
-      label: isWholeOrderFiveStepTask(task)
-        ? '确认接收 / 开始做'
-        : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
+      label: isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
       icon: 'play',
       action: 'go-start',
       className: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -558,15 +564,6 @@ function getNotStartedPrimaryAction(
       label: '去交接确认',
       icon: 'arrow-left-right',
       action: 'go-prerequisite',
-      className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
-    }
-  }
-
-  if (isWholeOrderFiveStepTask(task) && /接收|收货|入仓|来料/.test(prereq.blocker)) {
-    return {
-      label: '去交接确认',
-      icon: 'arrow-left-right',
-      action: 'go-handover',
       className: 'border border-amber-300 text-amber-700 hover:bg-amber-50',
     }
   }
@@ -773,9 +770,71 @@ function updatePdaExecCardListInPlace(): void {
 
   const selectedFactoryId = getCurrentFactoryId()
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+  if (isKolGotoFactory(selectedFactoryId)) {
+    listNode.innerHTML = renderKolGotoExecCardList(acceptedTasks)
+    return
+  }
   const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
   listNode.innerHTML = renderPdaExecCardList(filteredTasks, getPdaExecEmptyStateText(acceptedTasks))
+}
+
+function renderKolGotoExecCardList(acceptedTasks: ProcessTask[]): string {
+  const uniqueTasks = Array.from(
+    new Map(
+      acceptedTasks
+        .filter((task) => isKolGotoWholeOrderTask(task))
+        .map((task) => [task.taskId, task]),
+    ).values(),
+  )
+  const keyword = state.searchKeyword.trim()
+  const tasks = keyword
+    ? uniqueTasks.filter((task) => matchMobileTaskKeyword(task, keyword))
+    : uniqueTasks
+  if (tasks.length === 0) {
+    return `<div class="py-12 text-center text-sm text-muted-foreground">${keyword ? '当前关键词未找到 KOL 整单任务' : '当前暂无 KOL 整单任务'}</div>`
+  }
+
+  return tasks.map((task) => {
+    const handedQty = getKolGotoHandoutQty(task.taskId)
+    const remainingQty = Math.max(task.qty - handedQty, 0)
+    const canHandout = task.status === 'IN_PROGRESS' && remainingQty > 0
+    const canComplete = task.status !== 'DONE' && handedQty === task.qty
+    const statusLabel = task.status === 'DONE' ? '已完成' : task.status === 'IN_PROGRESS' ? '加工中' : '未开工'
+    return `
+      <article class="rounded-xl border bg-card p-4" data-testid="pda-exec-task-card">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0"><div class="truncate text-sm font-semibold">KOL 整单任务</div><div class="mt-1 truncate font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div></div>
+          <span class="shrink-0 rounded-full px-2 py-1 text-[11px] ${task.status === 'DONE' ? 'bg-green-50 text-green-700' : task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}">${statusLabel}</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+          <div class="text-muted-foreground">生产单</div><div class="truncate font-medium">${escapeHtml(task.productionOrderNo || task.productionOrderId || '-')}</div>
+          <div class="text-muted-foreground">售卖类型</div><div class="font-medium">${escapeHtml(task.saleTypeSnapshot || '-')}</div>
+          <div class="text-muted-foreground">任务数量</div><div class="font-medium">${task.qty} 件</div>
+          <div class="text-muted-foreground">已加工 / 已交出</div><div class="font-medium">${handedQty} 件</div>
+          <div class="text-muted-foreground">固定总价</div><div class="font-medium">${Number(task.fixedTotalPrice || 0).toLocaleString('id-ID')} ${escapeHtml(task.fixedTotalPriceCurrency || 'IDR')} / 整单</div>
+        </div>
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <button class="min-h-11 rounded-xl border px-2 text-xs font-semibold ${task.status === 'DONE' ? 'opacity-40' : ''}" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}" ${task.status === 'DONE' ? 'disabled' : ''}>去加工领料</button>
+          <button class="min-h-11 rounded-xl border px-2 text-xs font-semibold ${canHandout ? 'border-blue-300 text-blue-700' : 'opacity-40'}" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}" ${canHandout ? '' : 'disabled'}>发起交出</button>
+          <button class="min-h-11 rounded-xl bg-primary px-2 text-xs font-semibold text-primary-foreground ${canComplete ? '' : task.status === 'DONE' ? 'bg-green-600' : 'opacity-40'}" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}" ${canComplete ? '' : 'disabled'}>${task.status === 'DONE' ? '已完成' : '完成'}</button>
+        </div>
+      </article>
+    `
+  }).join('')
+}
+
+function renderKolGotoExecListPage(acceptedTasks: ProcessTask[]): string {
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page" data-kol-exec-list>
+      <header class="sticky top-0 z-30 space-y-3 border-b bg-background p-4">
+        <div><h1 class="text-base font-semibold">执行</h1><p class="mt-1 text-xs text-muted-foreground">仅保留加工领料、发起交出和完成；加工领料与发起交出均可多次。</p></div>
+        <div class="relative"><i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i><input class="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm" placeholder="搜索任务号 / 生产单号" data-pda-exec-field="searchKeyword" data-skip-page-rerender="true" value="${escapeHtml(state.searchKeyword)}" /></div>
+      </header>
+      <main class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">${renderKolGotoExecCardList(acceptedTasks)}</main>
+    </div>
+  `
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
 function resolvePdaExecCardDetailPath(taskId: string): string {
@@ -958,6 +1017,7 @@ function renderInProgressCard(task: ProcessTask): string {
       ? '<span class="inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">已上报关键节点</span>'
       : `<span class="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">待上报关键节点</span>`
     : ''
+  const isKolGotoTask = isKolGotoWholeOrderTask(task)
 
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
@@ -967,7 +1027,7 @@ function renderInProgressCard(task: ProcessTask): string {
           <div class="flex items-center gap-1.5">
             ${renderTaskStatusBadge(task)}
             ${renderSourceBadge(task.assignmentMode)}
-            ${milestoneTag}
+            ${isKolGotoTask ? '' : milestoneTag}
           </div>
         </div>
 
@@ -1027,7 +1087,7 @@ function renderInProgressCard(task: ProcessTask): string {
         }
 
         ${
-          milestone.required && milestone.status !== 'REPORTED' && milestoneWarningText
+          !isKolGotoTask && milestone.required && milestone.status !== 'REPORTED' && milestoneWarningText
             ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">需${escapeHtml(milestoneWarningText)}</div>`
             : ''
         }
@@ -1044,15 +1104,17 @@ function renderInProgressCard(task: ProcessTask): string {
         }
 
         <div class="flex gap-2 pt-1">
-          <button
-            class="inline-flex h-7 items-center rounded-md border px-3 text-xs hover:bg-muted"
-            data-pda-exec-action="open-detail-action"
-            data-task-id="${escapeHtml(task.taskId)}"
-            data-action="pause"
-          >
-            <i data-lucide="alert-triangle" class="mr-1 h-3 w-3"></i>
-            上报暂停
-          </button>
+          ${isKolGotoTask ? '' : `
+            <button
+              class="inline-flex h-7 items-center rounded-md border px-3 text-xs hover:bg-muted"
+              data-pda-exec-action="open-detail-action"
+              data-task-id="${escapeHtml(task.taskId)}"
+              data-action="pause"
+            >
+              <i data-lucide="alert-triangle" class="mr-1 h-3 w-3"></i>
+              上报暂停
+            </button>
+          `}
 
           ${
             cuttingDetail
@@ -1066,24 +1128,15 @@ function renderInProgressCard(task: ProcessTask): string {
                     进入裁片
                   </button>
                 `
-              : isWholeOrderFiveStepTask(task)
+              : isKolGotoTask
                 ? `
                   <button
-                    class="inline-flex h-7 items-center rounded-md border border-blue-200 px-3 text-xs text-blue-700 hover:bg-blue-50"
-                    data-pda-exec-action="open-detail-action"
-                    data-task-id="${escapeHtml(task.taskId)}"
-                    data-action="milestone"
-                  >
-                    <i data-lucide="upload" class="mr-1 h-3 w-3"></i>
-                    上传进度
-                  </button>
-                  <button
                     class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
-                    data-pda-exec-action="go-handover"
-                    data-tab="handout"
+                    data-pda-exec-action="open-detail"
+                    data-task-id="${escapeHtml(task.taskId)}"
                   >
-                    <i data-lucide="arrow-left-right" class="mr-1 h-3 w-3"></i>
-                    去交接交出
+                    <i data-lucide="play" class="mr-1 h-3 w-3"></i>
+                    继续处理
                   </button>
                 `
               : isProcessDomainTask
@@ -1396,14 +1449,18 @@ export function renderPdaExecPage(): string {
     return renderPdaLoginRedirect()
   }
 
-  queueMicrotask(() => {
-    syncPdaStartRiskAndExceptions()
-    syncMilestoneOverdueExceptions()
-  })
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+  if (isKolGotoFactory(selectedFactoryId)) {
+    return renderKolGotoExecListPage(acceptedTasks)
+  }
+
+  queueMicrotask(() => {
+    syncPdaStartRiskAndExceptions()
+    syncMilestoneOverdueExceptions()
+  })
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
 
@@ -1595,8 +1652,8 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
       showPdaExecToast('请进入任务详情按当前节点操作')
       return true
     }
-    if (isWholeOrderFiveStepTask(task)) {
-      showPdaExecToast(`请先上传进度并交给${task.handoverReceiverName || '仓库'}，仓库待确认后才能完工`)
+    if (isKolGotoWholeOrderTask(task)) {
+      showPdaExecToast('请进入任务详情，通过“完成”按钮结束整单任务')
       appStore.navigate(resolvePdaExecCardDetailPath(taskId))
       return true
     }

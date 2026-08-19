@@ -49,6 +49,10 @@ import {
   handlePdaWoolExecutionEvent,
   renderPdaWoolHandoverContent,
 } from './pda-wool-fact-execution.ts'
+import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { isKolGotoFactory, isKolGotoWholeOrderTask } from '../data/fcs/kol-goto-special-flow.ts'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
+import { processTasks } from '../data/fcs/process-tasks.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -565,6 +569,40 @@ function renderEmptyState(message: string): string {
   return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(message)}</div>`
 }
 
+function getKolGotoTaskByHead(head: PdaHandoverHead) {
+  const task = processTasks.find((item) => item.taskId === (head.sourceTaskId || head.taskId))
+  return isKolGotoWholeOrderTask(task) ? task : null
+}
+
+function renderKolGotoHandoverPage(): string {
+  if (state.activeTab === 'pickup') state.activeTab = 'handout'
+  const openHeads = getPdaHandoutHeads(KOL_GOTO_FACTORY_ID).filter((head) => Boolean(getKolGotoTaskByHead(head)))
+  const doneHeads = getPdaCompletedHeads(KOL_GOTO_FACTORY_ID).filter((head) => Boolean(getKolGotoTaskByHead(head)))
+  const current = state.activeTab === 'done' ? doneHeads : openHeads
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background">
+      <header class="border-b bg-blue-50 px-4 py-3"><h1 class="font-semibold text-blue-950">KOL 整单交接</h1><p class="mt-1 text-xs text-blue-700">这里只查看每次发起交出的现场事实。</p></header>
+      <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-handover-tabs">
+        ${[
+          { key: 'handout' as const, label: '待交出', count: openHeads.length },
+          { key: 'done' as const, label: '已完成', count: doneHeads.length },
+        ].map((tab) => `<button class="border-b-2 py-3 text-sm font-medium ${state.activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-handover-action="switch-tab" data-tab="${tab.key}">${tab.label}${tab.count ? ` <span class="rounded-full bg-muted px-1.5 text-[10px]">${tab.count}</span>` : ''}</button>`).join('')}
+      </div>
+      <main class="flex-1 space-y-3 p-4">
+        ${current.length === 0
+          ? renderEmptyState(state.activeTab === 'done' ? '暂无已完成交出单' : '尚未发起交出，请在执行任务中操作')
+          : current.map((head) => {
+              const task = getKolGotoTaskByHead(head)!
+              const records = getPdaHandoverRecordsByHead(head.handoverId)
+              const effectiveRecords = records.filter((record) => record.handoverRecordStatus !== 'VOIDED')
+              const handedQty = effectiveRecords.reduce((sum, record) => sum + Number(record.submittedQty || 0), 0)
+              return `<article class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-2"><div class="font-mono text-sm font-semibold">${escapeHtml(head.handoverOrderNo || head.handoverId)}</div><span class="rounded-full ${task.status === 'DONE' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'} px-2 py-1 text-[11px]">${task.status === 'DONE' ? '已完成' : '可继续交出'}</span></div><div class="mt-3 grid grid-cols-2 gap-2 text-xs"><div>生产单：<b>${escapeHtml(task.productionOrderNo || task.productionOrderId)}</b></div><div>有效交出：<b>${effectiveRecords.length} 次</b>${records.length !== effectiveRecords.length ? ` <span class="text-muted-foreground">（历史 ${records.length} 次）</span>` : ''}</div><div>任务数量：<b>${task.qty} ${escapeHtml(task.qtyDisplayUnit || '件')}</b></div><div>累计交出：<b>${handedQty} ${escapeHtml(task.qtyDisplayUnit || '件')}</b></div></div><div class="mt-3 space-y-1 rounded-lg bg-muted/50 p-3 text-xs">${records.map((record) => `<div class="${record.handoverRecordStatus === 'VOIDED' ? 'text-muted-foreground line-through' : ''}">第 ${record.sequenceNo} 次：${record.submittedQty} ${escapeHtml(record.qtyUnit || '件')} · ${escapeHtml(record.factorySubmittedAt)}${record.handoverRecordStatus === 'VOIDED' ? ' · 已作废（不计入累计）' : ''}</div>`).join('')}</div><button class="mt-3 h-10 w-full rounded-xl border text-sm font-medium" data-nav="/fcs/pda/exec/${escapeHtml(task.taskId)}">${task.status === 'DONE' ? '查看任务' : '返回任务继续处理'}</button></article>`
+            }).join('')}
+      </main>
+    </div>`
+  return renderPdaFrame(content, 'handover', { disableTodoAutoOpen: true })
+}
+
 function renderPostFinishingSewingSelfReturnPanel(): string {
   const records = listPostFinishingSewingSelfReturnRecords()
   const pendingCount = records.filter((record) => record.status === '待后道确认').length
@@ -790,6 +828,10 @@ export function renderPdaHandoverPage(): string {
 
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
+  if (isKolGotoFactory(selectedFactoryId)) {
+    ensureKolGotoPdaScenarios()
+    return renderKolGotoHandoverPage()
+  }
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
@@ -976,6 +1018,7 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as HandoverTab | undefined
+    if (isKolGotoFactory(getCurrentFactoryId()) && tab === 'pickup') return true
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
       state.woolScanKeyword = ''
@@ -1003,6 +1046,12 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
   if (action === 'open-detail') {
     const eventId = actionNode.dataset.eventId
     if (eventId) {
+      const head = findPdaHandoverHead(eventId)
+      const kolTask = head ? getKolGotoTaskByHead(head) : null
+      if (kolTask) {
+        appStore.navigate(`/fcs/pda/exec/${kolTask.taskId}`)
+        return true
+      }
       appStore.navigate(resolvePdaHandoverDetailPath(eventId, appStore.getState().pathname))
     }
     return true
@@ -1012,6 +1061,10 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
     const eventId = actionNode.dataset.eventId
     if (eventId) {
       const head = findPdaHandoverHead(eventId)
+      if (head && getKolGotoTaskByHead(head)) {
+        appStore.navigate(`/fcs/pda/exec/${head.sourceTaskId || head.taskId}`)
+        return true
+      }
       if (head?.processBusinessCode === 'WOOL') {
         appStore.navigate(resolvePdaHandoverDetailPath(eventId, appStore.getState().pathname))
         return true

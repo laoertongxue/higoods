@@ -13,6 +13,7 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 
 type TodoFilter = '全部' | FactoryMobileTodoType
 
@@ -37,16 +38,29 @@ const FILTERS: Array<{ value: TodoFilter; label: string }> = [
   { value: '对账待确认', label: '对账待确认' },
 ]
 
+const KOL_GOTO_OPERATOR_FILTERS: Array<{ value: TodoFilter; label: string }> = [
+  { value: '全部', label: '全部' },
+  { value: '加工领料', label: '加工领料' },
+  { value: '待交出', label: '待交出 / 待完成' },
+]
+
+function getVisibleFilters(factoryId: string, roleId: string): Array<{ value: TodoFilter; label: string }> {
+  if (!isKolGotoFactory(factoryId)) return FILTERS
+  return roleId === 'ROLE_ADMIN'
+    ? [...KOL_GOTO_OPERATOR_FILTERS, { value: '对账待确认', label: '对账待确认' }]
+    : KOL_GOTO_OPERATOR_FILTERS
+}
+
 function getCurrentFactoryTodos(): FactoryMobileTodo[] {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return []
-  return getFactoryMobileTodos(runtime.factoryId).filter((item) => (state.filter === '全部' ? true : item.todoType === state.filter))
+  return getFactoryMobileTodos(runtime.factoryId, runtime.roleId).filter((item) => (state.filter === '全部' ? true : item.todoType === state.filter))
 }
 
-function renderFilterChips(): string {
+function renderFilterChips(filters: Array<{ value: TodoFilter; label: string }>): string {
   return `
     <div class="flex gap-2 overflow-x-auto pb-1">
-      ${FILTERS.map(
+      ${filters.map(
         (item) => `
           <button
             type="button"
@@ -64,17 +78,27 @@ function renderFilterChips(): string {
   `
 }
 
-function renderSummaryCards(factoryId: string): string {
-  const summary = getFactoryMobileTodoSummary(factoryId)
-  return `
-    <section class="grid grid-cols-2 gap-3">
-      ${[
+function renderSummaryCards(factoryId: string, roleId: string): string {
+  const summary = getFactoryMobileTodoSummary(factoryId, roleId)
+  const cards = isKolGotoFactory(factoryId)
+    ? [
+        { label: '全部待办', value: summary.total, tone: 'text-foreground' },
+        { label: '紧急', value: summary.urgent, tone: 'text-destructive' },
+        { label: '今日到期', value: summary.dueToday, tone: 'text-amber-700' },
+        ...(roleId === 'ROLE_ADMIN'
+          ? [{ label: '对账', value: summary.settlement, tone: 'text-primary' }]
+          : []),
+      ]
+    : [
         { label: '全部待办', value: summary.total, tone: 'text-foreground' },
         { label: '紧急', value: summary.urgent, tone: 'text-destructive' },
         { label: '今日到期', value: summary.dueToday, tone: 'text-amber-700' },
         { label: '差异', value: summary.difference, tone: 'text-destructive' },
         { label: '对账', value: summary.settlement, tone: 'text-primary' },
       ]
+  return `
+    <section class="grid grid-cols-2 gap-3">
+      ${cards
         .map(
           (card) => `
             <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
@@ -128,16 +152,21 @@ export function renderPdaNotifyPage(): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return renderPdaLoginRedirect()
 
+  const visibleFilters = getVisibleFilters(runtime.factoryId, runtime.roleId)
+  if (!visibleFilters.some((item) => item.value === state.filter)) state.filter = '全部'
   const todos = getCurrentFactoryTodos()
+  const kolGotoFactory = isKolGotoFactory(runtime.factoryId)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-lg font-semibold text-foreground">待办汇总</div>
-        <div class="mt-1 text-xs text-muted-foreground">按待办类型汇总接单、执行、交接、仓管和结算处理项。</div>
+        <div class="mt-1 text-xs text-muted-foreground">${kolGotoFactory
+          ? '只汇总加工领料、交出/完成，以及管理员可处理的结算事项。'
+          : '按待办类型汇总接单、执行、交接、仓管和结算处理项。'}</div>
       </section>
-      ${renderSummaryCards(runtime.factoryId)}
+      ${renderSummaryCards(runtime.factoryId, runtime.roleId)}
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-        ${renderFilterChips()}
+        ${renderFilterChips(visibleFilters)}
       </section>
       <section class="space-y-3">
         ${

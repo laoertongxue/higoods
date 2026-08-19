@@ -1,9 +1,14 @@
 import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress.ts'
-import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoById } from '../data/fcs/factory-mobile-todos.ts'
+import {
+  getFactoryMobileTodoActionRoute,
+  getFactoryMobileTodoById,
+  getFactoryMobileTodos,
+} from '../data/fcs/factory-mobile-todos.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { renderPdaFrame } from './pda-shell'
-import { ensurePdaSessionForAction, renderPdaLoginRedirect } from './pda-runtime'
+import { ensurePdaSessionForAction, getPdaRuntimeContext, renderPdaLoginRedirect } from './pda-runtime'
 
 const TYPE_LABELS: Record<string, string> = {
   NEW_TASK: '新派单通知',
@@ -38,7 +43,10 @@ function markNotificationRead(notificationId: string): void {
 }
 
 function renderTodoDetail(todoId: string): string {
-  const todo = getFactoryMobileTodoById(todoId)
+  const runtime = getPdaRuntimeContext()
+  const todo = runtime && isKolGotoFactory(runtime.factoryId)
+    ? getFactoryMobileTodos(runtime.factoryId, runtime.roleId).find((item) => item.todoId === todoId) ?? null
+    : getFactoryMobileTodoById(todoId)
   if (!todo) {
     return renderPdaFrame(
       `

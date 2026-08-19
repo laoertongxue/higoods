@@ -3,6 +3,7 @@ import { factoryTypeConfig } from './factory-types.ts'
 import {
   DEDICATED_POST_FACTORY_ID,
   DEDICATED_POST_FACTORY_NAME,
+  KOL_GOTO_FACTORY_ID,
   mockFactories,
 } from './factory-mock-data.ts'
 import { getProcessDefinitionByCode } from './process-craft-dict.ts'
@@ -50,7 +51,12 @@ export type {
   FactoryWarehouseShelf,
 } from './factory-internal-warehouse-locations.ts'
 
-export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE' | 'STOCKTAKE_ADJUSTMENT'
+export type FactoryWarehouseSourceRecordType =
+  | 'MATERIAL_PICKUP'
+  | 'KOL_PROCESSING_PICKUP'
+  | 'HANDOVER_RECEIVE'
+  | 'TRANSFER_RECEIVE'
+  | 'STOCKTAKE_ADJUSTMENT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
   | '成衣仓'
@@ -73,6 +79,7 @@ export type FactoryWarehouseReceiverKind =
   | '特殊工艺厂'
   | '后道工厂'
   | '成衣仓'
+  | '加工任务'
   | '其他接收方'
 export type FactoryWarehouseStocktakeScope = '全盘'
 export type FactoryWarehouseStocktakeStatus = '盘点中' | '待确认' | '已完成' | '已取消'
@@ -230,6 +237,10 @@ export interface FactoryWarehouseOutboundRecord {
   craftName?: string
   sourceTaskId?: string
   sourceTaskNo?: string
+  sourceRecordId?: string
+  sourceRecordNo?: string
+  sourceRecordType?: FactoryWarehouseSourceRecordType
+  sourceObjectName?: string
   sourceType?: ProcessWorkOrderSourceType
   sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
@@ -400,7 +411,9 @@ interface FactoryInternalWarehouseStore {
 
 export interface FactoryInternalWarehouseMutationSnapshot {
   waitProcessStockItems: FactoryWaitProcessStockItem[]
+  waitHandoverStockItems: FactoryWaitHandoverStockItem[]
   inboundRecords: FactoryWarehouseInboundRecord[]
+  outboundRecords: FactoryWarehouseOutboundRecord[]
 }
 
 const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
@@ -2535,7 +2548,7 @@ export function listFactoryInternalWarehouses(): FactoryInternalWarehouse[] {
 }
 
 export function listFactoryInternalWarehouseFactoryOptions(): Factory[] {
-  return cloneValue(mockFactories.filter((factory) => isNonSewingFactory(factory)))
+  return cloneValue(mockFactories.filter((factory) => factory.id === KOL_GOTO_FACTORY_ID || isNonSewingFactory(factory)))
 }
 
 export function listFactoryWaitProcessStockItems(): FactoryWaitProcessStockItem[] {
@@ -2558,14 +2571,18 @@ export function createFactoryInternalWarehouseMutationSnapshot(): FactoryInterna
   const store = ensureFactoryInternalWarehouseStore()
   return {
     waitProcessStockItems: cloneValue(store.waitProcessStockItems),
+    waitHandoverStockItems: cloneValue(store.waitHandoverStockItems),
     inboundRecords: cloneValue(store.inboundRecords),
+    outboundRecords: cloneValue(store.outboundRecords),
   }
 }
 
 export function restoreFactoryInternalWarehouseMutationSnapshot(snapshot: FactoryInternalWarehouseMutationSnapshot): void {
   const store = ensureFactoryInternalWarehouseStore()
   store.waitProcessStockItems.splice(0, store.waitProcessStockItems.length, ...cloneValue(snapshot.waitProcessStockItems))
+  store.waitHandoverStockItems.splice(0, store.waitHandoverStockItems.length, ...cloneValue(snapshot.waitHandoverStockItems))
   store.inboundRecords.splice(0, store.inboundRecords.length, ...cloneValue(snapshot.inboundRecords))
+  store.outboundRecords.splice(0, store.outboundRecords.length, ...cloneValue(snapshot.outboundRecords))
 }
 
 export function listFactoryWarehouseStocktakeOrders(): FactoryWarehouseStocktakeOrder[] {
@@ -2599,6 +2616,7 @@ export function getFactoryWarehouseAdjustmentOrder(adjustmentOrderId: string): F
 }
 
 export function getFactoryWarehouseSourceRecordTypeLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
+  if (sourceRecordType === 'KOL_PROCESSING_PICKUP') return '加工领料'
   if (sourceRecordType === 'MATERIAL_PICKUP') return '接收记录'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '交出接收'
   if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整'
@@ -2606,13 +2624,15 @@ export function getFactoryWarehouseSourceRecordTypeLabel(sourceRecordType: Facto
 }
 
 export function getFactoryWarehouseInboundSourceLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
+  if (sourceRecordType === 'KOL_PROCESSING_PICKUP') return '由加工领料生成'
   if (sourceRecordType === 'MATERIAL_PICKUP') return '由接收记录生成'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '由交出接收生成'
   if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '由盘点调整生成'
   return '由转入接收生成'
 }
 
-export function getFactoryWarehouseOutboundSourceLabel(): string {
+export function getFactoryWarehouseOutboundSourceLabel(sourceRecordType?: FactoryWarehouseSourceRecordType): string {
+  if (sourceRecordType === 'KOL_PROCESSING_PICKUP') return '由加工领料生成'
   return '由交出记录生成'
 }
 

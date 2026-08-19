@@ -42,10 +42,33 @@ import {
 } from '../../data/fcs/production-order-identity'
 import {
   buildFormalProductionOrderProcessSnapshots,
-  ensureProcessWorkOrdersForFormalProductionOrder,
+  prepareProcessWorkOrdersForFormalProductionOrders,
 } from '../../data/fcs/production-process-work-order-service.ts'
+import {
+  captureProcessTaskStore,
+  restoreProcessTaskStore,
+  upsertKolGotoWholeOrderTask,
+} from '../../data/fcs/process-tasks.ts'
+import {
+  KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+  isKolGotoProductionOrder,
+  isKolGotoSaleType,
+} from '../../data/fcs/kol-goto-special-flow.ts'
+import {
+  KOL_GOTO_FACTORY_ID,
+  KOL_GOTO_FACTORY_NAME,
+} from '../../data/fcs/factory-mock-data.ts'
 
 const PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE = '需求单号 / ID商品采购单单号 / 售卖类型'
+
+function describeDemandBreakdownMode(demands: ProductionDemand[]): string {
+  const kolGotoDemandCount = demands.filter((demand) => isKolGotoSaleType(demand.saleType)).length
+  if (kolGotoDemandCount === 0) return '生成后需手动拆解任务'
+  if (kolGotoDemandCount === demands.length) {
+    return `生成后系统自动拆解 ${KOL_GOTO_WHOLE_ORDER_TASK_NAME}，并自动分配、接收`
+  }
+  return `其中 KOL样衣、KOL样品小单自动拆解 ${KOL_GOTO_WHOLE_ORDER_TASK_NAME}并自动分配、接收，其他生产单仍需手动拆解任务`
+}
 
 function renderDemandCodeButton(demand: ProductionDemand, className = 'font-mono text-blue-600 hover:underline'): string {
   return `<span data-object-type="DEMAND">${renderProductionObjectCodeButton({
@@ -264,6 +287,15 @@ function getDemandMergeGenerateValidation(targetDemands: ProductionDemand[]): {
     }
   }
 
+  const kolDemandCount = targetDemands.filter((demand) => isKolGotoSaleType(demand.saleType)).length
+  if (kolDemandCount > 0 && kolDemandCount !== targetDemands.length) {
+    return {
+      canGenerate: false,
+      reason: 'KOL样衣 / KOL样品小单不能与其他售卖类型合并生成生产单。',
+      generatableIds: baseValidation.generatableIds,
+    }
+  }
+
   const firstSpuCode = targetDemands[0]?.spuCode || ''
   const sameSpu = targetDemands.every((demand) => demand.spuCode === firstSpuCode)
   if (!sameSpu) {
@@ -475,9 +507,10 @@ function renderDemandBatchGenerateDialog(): string {
     versionSelections.length > 0 &&
     versionSelections.every((selection) => selection.canGenerate && Boolean(selection.selectedOption))
   const title = isMergeMode ? '合并生成生产单' : '批量生成生产单'
+  const breakdownDescription = describeDemandBreakdownMode(targetDemands)
   const description = isMergeMode
-    ? `当前列表已选 ${selectedDemandIds.length} 条同 SPU 需求，将合并生成 1 张生产单，生成后需手动拆解任务。`
-    : `当前列表已选 ${selectedDemandIds.length} 条需求，将分别生成 ${selectedDemandIds.length} 张生产单，生成后需手动拆解任务。`
+    ? `当前列表已选 ${selectedDemandIds.length} 条同 SPU 需求，将合并生成 1 张生产单，${breakdownDescription}。`
+    : `当前列表已选 ${selectedDemandIds.length} 条需求，将分别生成 ${selectedDemandIds.length} 张生产单，${breakdownDescription}。`
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-prod-action="close-demand-generate" aria-label="关闭"></button>
@@ -576,6 +609,7 @@ function renderDemandBatchGenerateDialog(): string {
 function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null): string {
   if (!singleDemand) return ''
   const versionSelection = syncDemandGenerateTechPackSelection([singleDemand])
+  const breakdownDescription = describeDemandBreakdownMode([singleDemand])
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -583,7 +617,7 @@ function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null)
       <section class="absolute left-1/2 top-1/2 w-full max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">生成生产单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">为需求 ${renderDemandCodeButton(singleDemand)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单，生成后需手动拆解任务。</p>
+          <p class="mt-1 text-sm text-muted-foreground">为需求 ${renderDemandCodeButton(singleDemand)} (${escapeHtml(singleDemand.spuCode)}) 生成生产单，${breakdownDescription}。</p>
         </header>
         <div class="px-6 py-5">
           ${renderDemandGenerateTechPackVersionSelector([singleDemand])}
@@ -621,7 +655,7 @@ function renderOrdersFromDemandDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">从需求批量生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">每条需求将生成独立生产单，生成后不自动拆解任务。</p>
+          <p class="mt-1 text-sm text-muted-foreground">每条需求将生成独立生产单，${describeDemandBreakdownMode(selectedTargetDemands)}。</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
@@ -1052,26 +1086,31 @@ function createProductionOrdersForDemands(
       ...state.orders,
       ...created.map((item) => item.order),
     ])
+    const isKolGotoDemand = isKolGotoSaleType(demand.saleType)
     const createdOrder = buildProductionOrderFromDemand({
       productionOrderId,
       demandId: demand.demandId,
       sourceDemandIds: [demand.demandId],
-      status: 'READY_FOR_BREAKDOWN',
-      mainFactoryId: PENDING_MAIN_FACTORY_ID,
-      mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT',
-      mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
+      status: isKolGotoDemand ? 'EXECUTING' : 'READY_FOR_BREAKDOWN',
+      mainFactoryId: isKolGotoDemand ? KOL_GOTO_FACTORY_ID : PENDING_MAIN_FACTORY_ID,
+      mainFactoryStatus: isKolGotoDemand ? 'CONFIRMED' : 'PENDING_SEWING_ASSIGNMENT',
+      mainFactorySource: isKolGotoDemand ? 'ORDER_CREATE' : 'SEWING_TASK_ASSIGNMENT',
+      mainFactoryConfirmedAt: isKolGotoDemand ? now : undefined,
+      mainFactoryConfirmedBy: isKolGotoDemand ? '系统' : undefined,
       ownerPartyType: 'FACTORY',
-      ownerPartyId: PENDING_MAIN_FACTORY_ID,
-      ownerReason: '待车缝任务分配确认主工厂。',
+      ownerPartyId: isKolGotoDemand ? KOL_GOTO_FACTORY_ID : PENDING_MAIN_FACTORY_ID,
+      ownerReason: isKolGotoDemand
+        ? `${KOL_GOTO_WHOLE_ORDER_TASK_NAME}固定由 ${KOL_GOTO_FACTORY_NAME} 承接。`
+        : '待车缝任务分配确认主工厂。',
       assignmentSummary: {
-        directCount: 0,
+        directCount: isKolGotoDemand ? 1 : 0,
         biddingCount: 0,
-        totalTasks: 0,
+        totalTasks: isKolGotoDemand ? 1 : 0,
         unassignedCount: 0,
       },
       assignmentProgress: {
-        status: 'NOT_READY',
-        directAssignedCount: 0,
+        status: isKolGotoDemand ? 'DONE' : 'NOT_READY',
+        directAssignedCount: isKolGotoDemand ? 1 : 0,
         biddingLaunchedCount: 0,
         biddingAwardedCount: 0,
       },
@@ -1080,20 +1119,30 @@ function createProductionOrdersForDemands(
         overdueTenderCount: 0,
       },
       directDispatchSummary: {
-        assignedFactoryCount: 0,
+        assignedFactoryCount: isKolGotoDemand ? 1 : 0,
         rejectedCount: 0,
         overdueAckCount: 0,
       },
       taskBreakdownSummary: {
-        isBrokenDown: false,
-        taskTypesTop3: [],
+        isBrokenDown: isKolGotoDemand,
+        taskTypesTop3: isKolGotoDemand ? [KOL_GOTO_WHOLE_ORDER_TASK_NAME] : [],
+        lastBreakdownAt: isKolGotoDemand ? now : undefined,
+        lastBreakdownBy: isKolGotoDemand ? '系统' : undefined,
+        generatedTaskUnitCount: isKolGotoDemand ? 1 : undefined,
+        singleProcessTaskCount: isKolGotoDemand ? 0 : undefined,
+        independentWorkOrderTaskCount: isKolGotoDemand ? 0 : undefined,
+        mergedProductionTaskCount: isKolGotoDemand ? 0 : undefined,
+        wholeOrderTaskCount: isKolGotoDemand ? 1 : undefined,
+        coveredProcessNames: isKolGotoDemand ? [KOL_GOTO_WHOLE_ORDER_TASK_NAME] : undefined,
       },
       riskFlags: [],
       auditLogs: [
         {
           id: nextLocalEntityId('LOG'),
           action: 'CREATE',
-          detail: `从需求 ${demand.demandId} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
+          detail: isKolGotoDemand
+            ? `从需求 ${demand.demandId} 生成生产单并自动拆解 ${KOL_GOTO_WHOLE_ORDER_TASK_NAME}，固定分配 ${KOL_GOTO_FACTORY_NAME} 并自动接收；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`
+            : `从需求 ${demand.demandId} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
           at: now,
           by: currentUser.name,
         },
@@ -1131,26 +1180,31 @@ function createMergedProductionOrderForDemands(
   if (!selection?.canGenerate || !selection.selectedOption) return null
 
   const productionOrderId = nextProductionOrderId(state.orders)
+  const isKolGotoDemandGroup = targetDemands.every((demand) => isKolGotoSaleType(demand.saleType))
   const createdOrder = buildProductionOrderFromDemands({
     productionOrderId,
     demandId: primaryDemand.demandId,
     sourceDemandIds: targetDemands.map((demand) => demand.demandId),
-    status: 'READY_FOR_BREAKDOWN',
-    mainFactoryId: PENDING_MAIN_FACTORY_ID,
-    mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT',
-    mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
+    status: isKolGotoDemandGroup ? 'EXECUTING' : 'READY_FOR_BREAKDOWN',
+    mainFactoryId: isKolGotoDemandGroup ? KOL_GOTO_FACTORY_ID : PENDING_MAIN_FACTORY_ID,
+    mainFactoryStatus: isKolGotoDemandGroup ? 'CONFIRMED' : 'PENDING_SEWING_ASSIGNMENT',
+    mainFactorySource: isKolGotoDemandGroup ? 'ORDER_CREATE' : 'SEWING_TASK_ASSIGNMENT',
+    mainFactoryConfirmedAt: isKolGotoDemandGroup ? now : undefined,
+    mainFactoryConfirmedBy: isKolGotoDemandGroup ? '系统' : undefined,
     ownerPartyType: 'FACTORY',
-    ownerPartyId: PENDING_MAIN_FACTORY_ID,
-    ownerReason: '待车缝任务分配确认主工厂。',
+    ownerPartyId: isKolGotoDemandGroup ? KOL_GOTO_FACTORY_ID : PENDING_MAIN_FACTORY_ID,
+    ownerReason: isKolGotoDemandGroup
+      ? `${KOL_GOTO_WHOLE_ORDER_TASK_NAME}固定由 ${KOL_GOTO_FACTORY_NAME} 承接。`
+      : '待车缝任务分配确认主工厂。',
     assignmentSummary: {
-      directCount: 0,
+      directCount: isKolGotoDemandGroup ? 1 : 0,
       biddingCount: 0,
-      totalTasks: 0,
+      totalTasks: isKolGotoDemandGroup ? 1 : 0,
       unassignedCount: 0,
     },
     assignmentProgress: {
-      status: 'NOT_READY',
-      directAssignedCount: 0,
+      status: isKolGotoDemandGroup ? 'DONE' : 'NOT_READY',
+      directAssignedCount: isKolGotoDemandGroup ? 1 : 0,
       biddingLaunchedCount: 0,
       biddingAwardedCount: 0,
     },
@@ -1159,20 +1213,30 @@ function createMergedProductionOrderForDemands(
       overdueTenderCount: 0,
     },
     directDispatchSummary: {
-      assignedFactoryCount: 0,
+      assignedFactoryCount: isKolGotoDemandGroup ? 1 : 0,
       rejectedCount: 0,
       overdueAckCount: 0,
     },
     taskBreakdownSummary: {
-      isBrokenDown: false,
-      taskTypesTop3: [],
+      isBrokenDown: isKolGotoDemandGroup,
+      taskTypesTop3: isKolGotoDemandGroup ? [KOL_GOTO_WHOLE_ORDER_TASK_NAME] : [],
+      lastBreakdownAt: isKolGotoDemandGroup ? now : undefined,
+      lastBreakdownBy: isKolGotoDemandGroup ? '系统' : undefined,
+      generatedTaskUnitCount: isKolGotoDemandGroup ? 1 : undefined,
+      singleProcessTaskCount: isKolGotoDemandGroup ? 0 : undefined,
+      independentWorkOrderTaskCount: isKolGotoDemandGroup ? 0 : undefined,
+      mergedProductionTaskCount: isKolGotoDemandGroup ? 0 : undefined,
+      wholeOrderTaskCount: isKolGotoDemandGroup ? 1 : undefined,
+      coveredProcessNames: isKolGotoDemandGroup ? [KOL_GOTO_WHOLE_ORDER_TASK_NAME] : undefined,
     },
     riskFlags: [],
     auditLogs: [
       {
         id: nextLocalEntityId('LOG'),
         action: 'CREATE',
-        detail: `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
+        detail: isKolGotoDemandGroup
+          ? `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单并自动拆解 ${KOL_GOTO_WHOLE_ORDER_TASK_NAME}，固定分配 ${KOL_GOTO_FACTORY_NAME} 并自动接收；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`
+          : `合并需求 ${targetDemands.map((demand) => demand.demandId).join('、')} 生成生产单，待手动拆解任务，主工厂待车缝任务分配确定；技术包版本 ${selection.selectedOption.technicalVersionCode} ${selection.selectedOption.versionLabel}`,
         at: now,
         by: currentUser.name,
       },
@@ -1199,27 +1263,72 @@ function closeDemandGenerateFlow(): void {
 export function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
   if (created.length === 0) return
 
-  const preparedSnapshots = created.map((item) => buildFormalProductionOrderProcessSnapshots(item.order))
+  const preparedSnapshots = created.flatMap((item) => buildFormalProductionOrderProcessSnapshots(item.order))
+  const preparedWorkOrders = prepareProcessWorkOrdersForFormalProductionOrders(preparedSnapshots)
+  const previousOrders = structuredClone(state.orders)
+  const previousDemands = state.demands
+  const previousTasks = captureProcessTaskStore()
+  const existingOrderIds = new Set(state.orders.map((order) => order.productionOrderId))
+  const newlyAddedOrderIds = new Set<string>()
+  const ordersToAdd = created.flatMap((item) => {
+    const productionOrderId = item.order.productionOrderId
+    if (existingOrderIds.has(productionOrderId) || newlyAddedOrderIds.has(productionOrderId)) return []
+    newlyAddedOrderIds.add(productionOrderId)
+    return [item.order]
+  })
   const orderIdByDemandId = new Map<string, string>()
   for (const item of created) {
     for (const demand of item.demands) {
       orderIdByDemandId.set(demand.demandId, item.order.productionOrderId)
     }
   }
-  state.orders.push(...created.map((item) => item.order))
-  state.demands = state.demands.map((demand) => {
-    const productionOrderId = orderIdByDemandId.get(demand.demandId)
-    if (!productionOrderId) return demand
-    return {
-      ...demand,
-      hasProductionOrder: true,
-      productionOrderId,
-      demandStatus: 'CONVERTED',
-      updatedAt: now,
-    }
-  })
-  for (const snapshots of preparedSnapshots) {
-    for (const snapshot of snapshots) ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
+  try {
+    state.orders.push(...ordersToAdd)
+    state.demands = state.demands.map((demand) => {
+      const productionOrderId = orderIdByDemandId.get(demand.demandId)
+      if (!productionOrderId) return demand
+      return {
+        ...demand,
+        hasProductionOrder: true,
+        productionOrderId,
+        demandStatus: 'CONVERTED',
+        updatedAt: now,
+      }
+    })
+
+    const autoBreakdownOrderIds = new Set<string>()
+    const autoBreakdownResults = created.flatMap((item) => {
+      const targetOrder = state.orders.find(
+        (order) => order.productionOrderId === item.order.productionOrderId,
+      )
+      if (!targetOrder || !isKolGotoProductionOrder(targetOrder)) return []
+      const task = upsertKolGotoWholeOrderTask(targetOrder, now, '系统')
+      targetOrder.taskBreakdownSummary.coveredProcessNames = (task.coveredProcesses ?? [])
+        .map((process) => process.craftName || process.processName)
+      const shouldAppendAudit = newlyAddedOrderIds.has(targetOrder.productionOrderId)
+        && !autoBreakdownOrderIds.has(targetOrder.productionOrderId)
+      autoBreakdownOrderIds.add(targetOrder.productionOrderId)
+      return shouldAppendAudit
+        ? [{ order: targetOrder, task }]
+        : []
+    })
+
+    preparedWorkOrders.commit()
+    autoBreakdownResults.forEach(({ order, task }) => {
+      order.auditLogs.push({
+        id: nextLocalEntityId('LOG'),
+        action: 'AUTO_BREAKDOWN',
+        detail: `已自动生成 ${task.processNameZh}，固定总价 ${task.fixedTotalPrice?.toLocaleString('id-ID')} ${task.fixedTotalPriceCurrency}。`,
+        at: now,
+        by: '系统',
+      })
+    })
+  } catch (error) {
+    preparedWorkOrders.rollback()
+    state.orders.splice(0, state.orders.length, ...previousOrders)
+    state.demands = previousDemands
+    restoreProcessTaskStore(previousTasks)
+    throw error
   }
 }
 

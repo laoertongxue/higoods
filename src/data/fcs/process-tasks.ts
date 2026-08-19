@@ -10,16 +10,6 @@ import {
   generateTaskArtifactsForAllOrders,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
-import {
-  buildTaskGenerationUnits,
-  matchProductionTaskGenerationRule,
-  type CoveredProcessScope,
-  type FactoryAcceptanceMode,
-  type GeneratedTaskUnitPreview,
-  type PdaStepTemplateCode,
-  type ProductionTaskGenerationPreview,
-  type ProductionTaskUnitType,
-} from './production-task-generation-rules.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import type {
   DetailSplitDimension,
@@ -31,9 +21,18 @@ import {
   type TaskDetailRow,
 } from './task-detail-rows.ts'
 import {
+  KOL_GOTO_FACTORY_ID,
+  KOL_GOTO_FACTORY_NAME,
   OWN_WOOL_FACTORY_ID,
   OWN_WOOL_FACTORY_NAME,
 } from './factory-mock-data.ts'
+import {
+  KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
+  KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+  KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+  isKolGotoProductionOrder,
+  isKolGotoWholeOrderTask,
+} from './kol-goto-special-flow.ts'
 import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
 import type {
@@ -45,6 +44,14 @@ import type { WoolAllowedAction } from './wool-domain/queries.ts'
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
 export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
+export type ProductionTaskUnitType = 'SINGLE_PROCESS_TASK' | 'MERGED_PRODUCTION_TASK' | 'WHOLE_ORDER_TASK'
+export interface CoveredProcessScope {
+  processCode: string
+  processName: string
+  craftCode?: string
+  craftName?: string
+  sourceArtifactIds: string[]
+}
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
 export type BlockReason = 'MATERIAL' | 'CAPACITY' | 'QUALITY' | 'TECH' | 'EQUIPMENT' | 'OTHER' | 'ALLOCATION_GATE'
 export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
@@ -210,18 +217,15 @@ export interface ProcessTask {
   sourceProductionOrderId?: string   // 来源生产单ID
   taskKind?: 'NORMAL'
   taskCategoryZh?: string            // 任务分类展示
-  // 生产单任务生成规则追溯字段
+  // 生产任务结构与实际责任范围
   taskUnitType?: ProductionTaskUnitType
-  acceptanceMode?: FactoryAcceptanceMode
-  generationRuleId?: string
-  generationRuleName?: string
   coveredProcesses?: CoveredProcessScope[]
-  isMergedTaskUnit?: boolean
   allowAutoDispatch?: boolean
-  pdaStepTemplateCode?: PdaStepTemplateCode
-  handoverReceiverKind?: 'WAREHOUSE'
-  handoverReceiverName?: string
   saleTypeSnapshot?: string
+  pricingMode?: 'FIXED_TOTAL'
+  fixedTotalPrice?: number
+  fixedTotalPriceCurrency?: 'IDR'
+  fixedTotalPriceUnit?: '整单'
   // 第3步统一生成引擎追溯字段
   sourceEntryId?: string
   sourceEntryType?: 'PROCESS_BASELINE' | 'CRAFT'
@@ -372,16 +376,6 @@ export function buildRouteTaskDependencyIds<T extends {
 }
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
 
-export interface TaskGenerationRuntimeRecord {
-  productionOrderId: string
-  preview: ProductionTaskGenerationPreview
-  taskIds: string[]
-  independentWorkOrderCount: number
-  recordedAt: string
-}
-
-const taskGenerationRuntimeRecords = new Map<string, TaskGenerationRuntimeRecord>()
-
 function pickProcessTaskMocks(tasks: ProcessTask[]): ProcessTask[] {
   const preferredOrder = new Map(PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS.map((orderId, index) => [orderId, index]))
   const pickedTasks = tasks.filter((task) => preferredOrder.has(task.productionOrderId))
@@ -497,23 +491,6 @@ function resolveWoolTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' |
   return 'WHOLE_GARMENT'
 }
 
-function isMergedTaskUnit(unit: GeneratedTaskUnitPreview | undefined): boolean {
-  return unit?.taskUnitType === 'MERGED_PRODUCTION_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
-}
-
-function resolveTaskUnitAcceptanceMode(unitType: ProductionTaskUnitType): FactoryAcceptanceMode {
-  if (unitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER'
-  if (unitType === 'MERGED_PRODUCTION_TASK') return 'MERGED_PRODUCTION_TASK'
-  return 'SINGLE_PROCESS'
-}
-
-function cloneCoveredProcesses(processes: CoveredProcessScope[]): CoveredProcessScope[] {
-  return processes.map((item) => ({
-    ...item,
-    sourceArtifactIds: [...item.sourceArtifactIds],
-  }))
-}
-
 function buildCoveredProcessesFromArtifact(artifact: GeneratedTaskArtifact): CoveredProcessScope[] {
   return [
     {
@@ -539,52 +516,14 @@ function buildTaskUnitDetailRows(taskId: string, artifacts: GeneratedTaskArtifac
   )
 }
 
-function getMergedTaskUnitPlannedQty(orderId: string, artifacts: GeneratedTaskArtifact[]): number {
-  const orderQty = getOrderQty(orderId)
-  if (orderQty > 0) return orderQty
-  return Math.max(...artifacts.map((artifact) => Math.max(artifact.orderQty, 0)), 0)
-}
-
-function getMergedTaskUnitStageName(unit: GeneratedTaskUnitPreview | undefined, artifactStageName?: string): string | undefined {
-  if (unit?.taskUnitType === 'WHOLE_ORDER_TASK') return '整单任务'
-  if (unit?.taskUnitType === 'MERGED_PRODUCTION_TASK') return '合并任务'
-  return artifactStageName
-}
-
-function resolveTaskUnitProcessCode(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): string {
-  if (unit?.taskUnitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER_TASK'
-  if (unit?.taskUnitType === 'MERGED_PRODUCTION_TASK') return 'MERGED_PRODUCTION_TASK'
-  return artifact.systemProcessCode
-}
-
-function resolveTaskUnitProcessName(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): string {
-  return unit?.taskName || artifact.processName
-}
-
-function resolveTaskUnitStage(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): ProcessStage {
-  if (isMergedTaskUnit(unit)) return 'SEWING'
-  return mapArtifactToTaskStage(artifact)
-}
-
-function resolveTaskUnitReceiver(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): Pick<
-  ProcessTask,
-  'receiverKind' | 'receiverId' | 'receiverName'
-> {
-  if (isMergedTaskUnit(unit)) {
-    return {
-      receiverKind: 'WAREHOUSE',
-      receiverId: 'WH-TASK-GENERATION-HANDOVER',
-      receiverName: unit.handoverReceiverName,
-    }
-  }
-
-  return resolveGeneratedTaskReceiver(artifact)
-}
-
 type TaskEmissionArtifactLike = Pick<GeneratedTaskArtifact, 'artifactId' | 'generationSortKey' | 'sortKey'>
   & Partial<Pick<GeneratedTaskArtifact, 'artifactType' | 'defaultDocType' | 'processCode'>>
-type TaskEmissionUnitLike = Pick<GeneratedTaskUnitPreview, 'previewUnitId' | 'sourceArtifactIds' | 'taskUnitType'>
-  & Partial<Pick<GeneratedTaskUnitPreview, 'coveredProcesses'>>
+type TaskEmissionUnitLike = {
+  previewUnitId: string
+  sourceArtifactIds: string[]
+  taskUnitType: ProductionTaskUnitType
+  coveredProcesses?: CoveredProcessScope[]
+}
 
 function getTaskGenerationSortKey(artifact: TaskEmissionArtifactLike): string {
   return artifact.generationSortKey ?? artifact.sortKey
@@ -592,7 +531,7 @@ function getTaskGenerationSortKey(artifact: TaskEmissionArtifactLike): string {
 
 export interface GeneratedTaskEmissionPlan<
   TArtifact extends TaskEmissionArtifactLike = GeneratedTaskArtifact,
-  TUnit extends TaskEmissionUnitLike = GeneratedTaskUnitPreview,
+  TUnit extends TaskEmissionUnitLike = TaskEmissionUnitLike,
 > {
   artifact: TArtifact
   unit?: TUnit
@@ -714,7 +653,132 @@ export function buildGeneratedTaskEmissionPlans<
   return plans
 }
 
-function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
+function buildKolGotoCoveredProcesses(orderArtifacts: GeneratedTaskArtifact[]): CoveredProcessScope[] {
+  const coveredByKey = new Map<string, CoveredProcessScope>()
+  orderArtifacts
+    .filter((artifact) => artifact.processCode !== 'PRINT' && artifact.processCode !== 'DYE')
+    .forEach((artifact) => {
+      const key = `${artifact.processCode}::${artifact.craftCode || ''}`
+      const current = coveredByKey.get(key)
+      if (current) {
+        current.sourceArtifactIds.push(artifact.artifactId)
+        return
+      }
+      coveredByKey.set(key, {
+        processCode: artifact.processCode,
+        processName: artifact.processName,
+        craftCode: artifact.craftCode,
+        craftName: artifact.craftName,
+        sourceArtifactIds: [artifact.artifactId],
+      })
+    })
+  return [...coveredByKey.values()]
+}
+
+export function buildKolGotoWholeOrderTask(
+  productionOrder: (typeof productionOrders)[number],
+  createdAt = productionOrder.createdAt,
+  createdBy = '系统',
+): ProcessTask {
+  if (!isKolGotoProductionOrder(productionOrder)) {
+    throw new Error(`生产单 ${productionOrder.productionOrderId} 不是 KOL 样衣/样品小单，不能生成 KOL 整单任务`)
+  }
+  const orderArtifacts = generateTaskArtifactsForAllOrders()
+    .filter((artifact) => artifact.orderId === productionOrder.productionOrderId)
+  const wholeOrderArtifacts = orderArtifacts.filter(
+    (artifact) => artifact.processCode !== 'PRINT' && artifact.processCode !== 'DYE',
+  )
+  const coveredProcesses = buildKolGotoCoveredProcesses(wholeOrderArtifacts)
+  const taskId = `TASK-KOL-${productionOrder.productionOrderId.replace(/^PO-/, '')}`
+  const detailRows = buildTaskUnitDetailRows(taskId, wholeOrderArtifacts)
+  const qty = productionOrder.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  if (!Number.isFinite(qty) || qty <= 0) {
+    throw new Error(`生产单 ${productionOrder.productionOrderId} 的 KOL 整单任务数量必须大于 0`)
+  }
+  const saleTypeSnapshot = [...new Set(productionOrder.sourceDemandSnapshots.map((snapshot) => snapshot.saleType))].join('、')
+
+  return {
+    taskId,
+    taskNo: taskId,
+    productionOrderId: productionOrder.productionOrderId,
+    productionOrderNo: productionOrder.productionOrderNo,
+    seq: 1,
+    processCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+    processNameZh: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+    stage: 'SEWING',
+    qty,
+    qtyUnit: 'PIECE',
+    qtyDisplayUnit: '件',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: { kind: 'MAIN_FACTORY' },
+    assignedFactoryId: KOL_GOTO_FACTORY_ID,
+    assignedFactoryName: KOL_GOTO_FACTORY_NAME,
+    qcPoints: [],
+    difficulty: 'MEDIUM',
+    attachments: [],
+    status: 'NOT_STARTED',
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: createdAt,
+    acceptedBy: '系统',
+    dispatchedAt: createdAt,
+    dispatchedBy: '系统',
+    businessAssignedAt: createdAt,
+    assignmentOperatedAt: createdAt,
+    taskDeadline: productionOrder.demandSnapshot.requiredDeliveryDate || undefined,
+    dispatchRemark: 'KOL 样衣/样品小单生成生产单时自动分配并自动接收，仅 KOL-GOTO 可执行。',
+    taskQrValue: buildTaskQrValue(taskId),
+    taskQrStatus: 'ACTIVE',
+    handoverStatus: 'NOT_CREATED',
+    dependsOnTaskIds: [],
+    taskKind: 'NORMAL',
+    taskCategoryZh: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+    taskUnitType: 'WHOLE_ORDER_TASK',
+    coveredProcesses,
+    allowAutoDispatch: false,
+    saleTypeSnapshot,
+    pricingMode: 'FIXED_TOTAL',
+    fixedTotalPrice: KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
+    fixedTotalPriceCurrency: 'IDR',
+    fixedTotalPriceUnit: '整单',
+    stageCode: 'PROD',
+    stageName: '整单任务',
+    processBusinessCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
+    processBusinessName: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+    selectedTargetObject: '整张生产单',
+    assignmentGranularity: 'ORDER',
+    detailSplitDimensions: [],
+    detailRows,
+    rootTaskNo: taskId,
+    detailRowKeys: detailRows.map((row) => row.rowKey),
+    isSplitResult: false,
+    isSplitSource: false,
+    executionEnabled: true,
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'KOL-GARMENT-RECEIVER',
+    receiverName: '成衣接收方',
+    mockReceiveSummary: '系统已自动分配并接收，接单模块仅供查看。',
+    mockExecutionSummary: '仅支持去加工领料、发起交出和完成；首次领料自动开工。',
+    mockHandoverSummary: '可多次发起交出，交出数量即加工完成数量。',
+    createdAt,
+    updatedAt: createdAt,
+    auditLogs: [
+      {
+        id: `GAL-${taskId}-001`,
+        action: 'AUTO_BREAKDOWN',
+        detail: `生产单自动拆解为 1 张 KOL 整单任务，固定分配 ${KOL_GOTO_FACTORY_NAME} 并自动接收。`,
+        at: createdAt,
+        by: createdBy,
+      },
+    ],
+  }
+}
+
+export function buildGeneratedProcessTasksFromArtifacts(
+  includeOrderIds: ReadonlySet<string> = new Set(),
+): ProcessTask[] {
   const artifacts = generateTaskArtifactsForAllOrders()
   if (!artifacts.length) return []
 
@@ -722,56 +786,59 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   const artifactsByOrder = new Map<string, GeneratedTaskArtifact[]>()
 
   for (const artifact of artifacts) {
-    if (!canOrderEnterGeneratedTaskFacts(artifact.orderId)) continue
+    const productionOrder = productionOrders.find((order) => order.productionOrderId === artifact.orderId)
+    if (!productionOrder) continue
+    if (
+      !canOrderEnterGeneratedTaskFacts(artifact.orderId)
+      && !isKolGotoProductionOrder(productionOrder)
+      && !includeOrderIds.has(artifact.orderId)
+    ) continue
     const current = artifactsByOrder.get(artifact.orderId) ?? []
     current.push(artifact)
     artifactsByOrder.set(artifact.orderId, current)
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    const generatedUnits = buildTaskGenerationUnits(orderId)
-    const matchedRule = matchProductionTaskGenerationRule(orderId)
     const productionOrder = productionOrders.find((order) => order.productionOrderId === orderId)
-    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, generatedUnits)
-    const currentOrderTasks: ProcessTask[] = []
+    if (!productionOrder) continue
+    if (isKolGotoProductionOrder(productionOrder)) {
+      tasks.push(buildKolGotoWholeOrderTask(productionOrder, productionOrder.createdAt, '系统'))
+      continue
+    }
 
-    emissionPlans.forEach(({ artifact, unit, unitSourceArtifacts, taskId, seq }) => {
-      const taskUnitType: ProductionTaskUnitType = unit?.taskUnitType ?? 'SINGLE_PROCESS_TASK'
-      const coveredProcesses = unit ? cloneCoveredProcesses(unit.coveredProcesses) : buildCoveredProcessesFromArtifact(artifact)
-      const directFactoryAssigned = Boolean(unit && !unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
+    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, [])
+    const currentOrderTasks: ProcessTask[] = []
+    emissionPlans.forEach(({ artifact, unitSourceArtifacts, taskId, seq }) => {
+      const coveredProcesses = buildCoveredProcessesFromArtifact(artifact)
       const detailRows = buildTaskUnitDetailRows(taskId, unitSourceArtifacts)
-      const isMerged = isMergedTaskUnit(unit)
-      const qty = isMerged ? getMergedTaskUnitPlannedQty(orderId, unitSourceArtifacts) : Math.max(artifact.orderQty, 0)
+      const qty = Math.max(artifact.orderQty, 0)
       const isWool = artifact.processCode === 'WOOL'
       const woolTaskType = isWool ? resolveWoolTaskType(artifact) : undefined
       const woolKindLabel = woolTaskType === 'PART_PANEL' ? '部位毛织' : woolTaskType === 'WHOLE_GARMENT' ? '整件毛织' : undefined
       const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
-      const assignmentMode: AssignmentMode = unit && !unit.allowAutoDispatch
-        ? 'DIRECT'
-        : artifact.isSpecialCraft
-          ? 'BIDDING'
-          : 'DIRECT'
-      const receiver = resolveTaskUnitReceiver(unit, artifact)
-      const processName = resolveTaskUnitProcessName(unit, artifact)
-      const processCode = resolveTaskUnitProcessCode(unit, artifact)
+      const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
+      const receiver = resolveGeneratedTaskReceiver(artifact)
+      const processName = artifact.processName
+      const processCode = artifact.systemProcessCode
       const standardPrice = resolveGeneratedTaskStandardPrice(processCode)
 
       const task: ProcessTask = {
         taskId,
         taskNo: taskId,
         productionOrderId: orderId,
+        productionOrderNo: productionOrder.productionOrderNo,
         seq,
         processCode,
         processNameZh: processName,
-        stage: resolveTaskUnitStage(unit, artifact),
+        stage: mapArtifactToTaskStage(artifact),
         qty,
         qtyUnit: 'PIECE',
         assignmentMode,
-        assignmentStatus: directFactoryAssigned || isWool ? 'ASSIGNED' : 'UNASSIGNED',
+        assignmentStatus: isWool ? 'ASSIGNED' : 'UNASSIGNED',
         ownerSuggestion: toGeneratedOwnerSuggestion(artifact),
-        assignedFactoryId: directFactoryAssigned ? unit?.assignmentTargetFactoryId : isWool ? OWN_WOOL_FACTORY_ID : undefined,
-        assignedFactoryName: directFactoryAssigned ? unit?.assignmentTargetFactoryName : isWool ? OWN_WOOL_FACTORY_NAME : undefined,
+        assignedFactoryId: isWool ? OWN_WOOL_FACTORY_ID : undefined,
+        assignedFactoryName: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
         qcPoints: [],
         difficulty: 'MEDIUM',
         attachments: [],
@@ -779,18 +846,16 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         standardPrice,
         standardPriceCurrency: 'IDR',
         standardPriceUnit: '件',
-        acceptanceStatus: directFactoryAssigned ? 'PENDING' : isWool ? 'ACCEPTED' : undefined,
+        acceptanceStatus: isWool ? 'ACCEPTED' : undefined,
         acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
         acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
-        acceptDeadline: directFactoryAssigned ? '2026-07-01 18:00' : isWool ? '2026-05-09 10:00' : undefined,
-        taskDeadline: directFactoryAssigned ? '2026-07-08 18:00' : isWool ? '2026-05-12 20:00' : undefined,
-        dispatchRemark: directFactoryAssigned
-          ? `${unit?.taskName || processName}由任务生成规则指定${unit?.assignmentTargetFactoryName || '承接工厂'}接单；不进入独立任务自动分配。`
-          : isWool
-            ? `${woolKindLabel}已分配至毛织工厂；上游任务接单仅用于协作，执行进度以毛织加工单事实为准。`
-            : undefined,
-        dispatchedAt: directFactoryAssigned ? '2026-06-29 09:00' : isWool ? '2026-05-09 08:00' : undefined,
-        dispatchedBy: directFactoryAssigned || isWool ? '系统' : undefined,
+        acceptDeadline: isWool ? '2026-05-09 10:00' : undefined,
+        taskDeadline: isWool ? '2026-05-12 20:00' : undefined,
+        dispatchRemark: isWool
+          ? `${woolKindLabel}已分配至毛织工厂；上游任务接单仅用于协作，执行进度以毛织加工单事实为准。`
+          : undefined,
+        dispatchedAt: isWool ? '2026-05-09 08:00' : undefined,
+        dispatchedBy: isWool ? '系统' : undefined,
         taskQrValue: buildTaskQrValue(taskId),
         taskQrStatus: 'ACTIVE',
         handoverAutoCreatePolicy: isWool ? undefined : 'CREATE_ON_START',
@@ -801,23 +866,16 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         routeParallelGroupId: artifact.routeParallelGroupId,
         routeParallelGroupName: artifact.routeParallelGroupName,
         taskKind: 'NORMAL',
-        taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
-        taskUnitType,
-        acceptanceMode: resolveTaskUnitAcceptanceMode(taskUnitType),
-        generationRuleId: matchedRule?.ruleId,
-        generationRuleName: matchedRule?.ruleName,
+        taskCategoryZh: artifact.taskTypeLabel,
+        taskUnitType: 'SINGLE_PROCESS_TASK',
         coveredProcesses,
-        isMergedTaskUnit: isMerged,
-        allowAutoDispatch: unit?.allowAutoDispatch ?? true,
-        pdaStepTemplateCode: isMerged ? 'WHOLE_ORDER_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
-        handoverReceiverKind: unit?.handoverReceiverKind,
-        handoverReceiverName: unit?.handoverReceiverName,
-        saleTypeSnapshot: productionOrder?.demandSnapshot.saleType || '',
+        allowAutoDispatch: true,
+        saleTypeSnapshot: productionOrder.demandSnapshot.saleType || '',
         sourceEntryId: artifact.sourceEntryId,
         sourceEntryType: artifact.sourceEntryType,
         stageCode: artifact.stageCode,
-        stageName: getMergedTaskUnitStageName(unit, artifact.stageName),
-        processBusinessCode: isMerged ? taskUnitType : artifact.processCode,
+        stageName: artifact.stageName,
+        processBusinessCode: artifact.processCode,
         processBusinessName: processName,
         craftCode: artifact.craftCode,
         craftName: artifact.craftName,
@@ -851,10 +909,8 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         yarnPlannedWeightKg: undefined,
         yarnReceivedWeightKg: undefined,
         mockReceiveSummary: undefined,
-        mockExecutionSummary: isMerged
-          ? `整单承接范围：${coveredProcesses.map((item) => item.processName).join('、')}；PDA 按整单任务既有流程执行。`
-          : undefined,
-        mockHandoverSummary: isWool ? undefined : unit ? `完成后交${unit.handoverReceiverName}` : undefined,
+        mockExecutionSummary: undefined,
+        mockHandoverSummary: undefined,
         mockStartPrerequisiteMet: undefined,
         ...receiver,
         createdAt: GENERATED_TASK_CREATED_AT,
@@ -863,7 +919,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
           {
             id: `GAL-${taskId}-001`,
             action: 'GENERATE',
-            detail: `按${matchedRule?.ruleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
+            detail: `从统一 TASK 产物生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
             at: GENERATED_TASK_CREATED_AT,
             by: '系统',
           },
@@ -882,7 +938,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
 }
 
 function createInitialProcessTasks(): ProcessTask[] {
-  const generatedTasks = createGeneratedProcessTasksFromArtifacts()
+  const generatedTasks = buildGeneratedProcessTasksFromArtifacts()
   // processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
   // 字典中每个活跃工艺至少保留 3 条由生产单 + 技术包快照派生的 mock。
   if (!generatedTasks.length) return []
@@ -890,6 +946,101 @@ function createInitialProcessTasks(): ProcessTask[] {
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
+
+export type ProcessTaskStoreSnapshot = ProcessTask[]
+
+export function captureProcessTaskStore(): ProcessTaskStoreSnapshot {
+  return structuredClone(processTasks)
+}
+
+export function restoreProcessTaskStore(snapshot: ProcessTaskStoreSnapshot): void {
+  processTasks.splice(0, processTasks.length, ...structuredClone(snapshot))
+  notifyProcessTasksMutated()
+}
+
+export function upsertKolGotoWholeOrderTask(
+  productionOrder: (typeof productionOrders)[number],
+  createdAt: string,
+  createdBy = '系统',
+): ProcessTask {
+  const expectedTaskId = `TASK-KOL-${productionOrder.productionOrderId.replace(/^PO-/, '')}`
+  const existing = processTasks.find((task) => task.taskId === expectedTaskId)
+    ?? processTasks.find((task) =>
+      task.productionOrderId === productionOrder.productionOrderId
+      && task.taskUnitType === 'WHOLE_ORDER_TASK',
+    )
+  if (existing) {
+    if (!isKolGotoWholeOrderTask(existing, productionOrder)) {
+      throw new Error(`生产单 ${productionOrder.productionOrderId} 已存在不符合 KOL 整单结构的任务 ${existing.taskId}`)
+    }
+    return existing
+  }
+
+  const task = buildKolGotoWholeOrderTask(productionOrder, createdAt, createdBy)
+  processTasks.push(task)
+  notifyProcessTasksMutated()
+  return task
+}
+
+export function buildProcessTasksForProductionOrder(
+  productionOrder: (typeof productionOrders)[number],
+  createdAt: string,
+  createdBy = '系统',
+): ProcessTask[] {
+  if (isKolGotoProductionOrder(productionOrder)) {
+    return [buildKolGotoWholeOrderTask(productionOrder, createdAt, createdBy)]
+  }
+
+  return buildGeneratedProcessTasksFromArtifacts(new Set([productionOrder.productionOrderId]))
+    .filter((task) => task.productionOrderId === productionOrder.productionOrderId)
+    .map((task) => ({
+      ...task,
+      createdAt,
+      updatedAt: createdAt,
+      auditLogs: task.auditLogs.map((log, index) => index === 0
+        ? { ...log, at: createdAt, by: createdBy }
+        : log),
+    }))
+}
+
+export function upsertProcessTasksForProductionOrder(
+  productionOrder: (typeof productionOrders)[number],
+  createdAt: string,
+  createdBy = '系统',
+): ProcessTask[] {
+  if (isKolGotoProductionOrder(productionOrder)) {
+    return [upsertKolGotoWholeOrderTask(productionOrder, createdAt, createdBy)]
+  }
+  const existing = processTasks.filter((task) => task.productionOrderId === productionOrder.productionOrderId)
+  if (existing.length > 0) return existing
+
+  const tasks = buildProcessTasksForProductionOrder(productionOrder, createdAt, createdBy)
+  if (tasks.length === 0) return []
+  processTasks.push(...tasks)
+  notifyProcessTasksMutated()
+  return tasks
+}
+
+export function updateKolGotoWholeOrderTaskExecution(
+  taskId: string,
+  patch: Partial<Pick<ProcessTask, 'status' | 'startedAt' | 'finishedAt' | 'handoverOrderId' | 'handoverStatus'>>,
+  audit: { action: string; detail: string; at: string; by: string },
+): ProcessTask {
+  const task = processTasks.find((item) => item.taskId === taskId)
+  if (!isKolGotoWholeOrderTask(task)) {
+    throw new Error(`任务 ${taskId} 不是可更新的 KOL-GOTO 整单任务`)
+  }
+  Object.assign(task, patch, { updatedAt: audit.at })
+  task.auditLogs = [
+    ...task.auditLogs,
+    {
+      id: `AL-${taskId}-${audit.action}-${task.auditLogs.length + 1}`,
+      ...audit,
+    },
+  ]
+  notifyProcessTasksMutated()
+  return structuredClone(task)
+}
 
 let processTasksMutatedListener: (() => void) | null = null
 
@@ -899,11 +1050,6 @@ export function setProcessTasksMutatedListener(listener: (() => void) | null): v
 
 function notifyProcessTasksMutated(): void {
   processTasksMutatedListener?.()
-}
-
-function getOrderQty(orderId: string): number {
-  const order = productionOrders.find((item) => item.productionOrderId === orderId)
-  return order?.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0) ?? 0
 }
 
 function resolveGeneratedTaskStandardPrice(processCode: string): number | undefined {
@@ -924,182 +1070,6 @@ function resolveGeneratedTaskStandardPrice(processCode: string): number | undefi
     PROC_WOOL: 3000,
   }
   return prices[processCode]
-}
-
-function buildTaskFromRuntimePreviewUnit(
-  preview: ProductionTaskGenerationPreview,
-  unit: GeneratedTaskUnitPreview,
-  index: number,
-): ProcessTask {
-  const artifacts = generateTaskArtifactsForAllOrders().filter((artifact) => unit.sourceArtifactIds.includes(artifact.artifactId))
-  const primaryArtifact = artifacts[0]
-  const taskId = `TASKGEN-RUNTIME-${preview.productionOrderId.replace('PO-', '')}-${String(index + 1).padStart(3, '0')}`
-  const detailRows = artifacts.length ? buildTaskUnitDetailRows(taskId, artifacts) : []
-  const isMerged = isMergedTaskUnit(unit)
-  const assignmentMode: AssignmentMode = unit.allowAutoDispatch ? 'DIRECT' : 'DIRECT'
-  const directFactoryAssigned = Boolean(!unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
-  const qty = isMerged ? getMergedTaskUnitPlannedQty(preview.productionOrderId, artifacts) : Math.max(primaryArtifact?.orderQty ?? getOrderQty(preview.productionOrderId), 0)
-  const receiver = resolveTaskUnitReceiver(unit, primaryArtifact ?? {
-    processCode: unit.taskUnitType,
-    processName: unit.taskName,
-  } as GeneratedTaskArtifact)
-  const processCode = resolveTaskUnitProcessCode(unit, primaryArtifact ?? {
-    systemProcessCode: unit.taskUnitType,
-  } as GeneratedTaskArtifact)
-
-  return {
-    taskId,
-    taskNo: taskId,
-    productionOrderId: preview.productionOrderId,
-    seq: index + 1,
-    processCode,
-    processNameZh: unit.taskName,
-    stage: resolveTaskUnitStage(unit, primaryArtifact ?? {
-      processCode: unit.taskUnitType,
-      stageCode: 'PROD',
-      isSpecialCraft: false,
-    } as GeneratedTaskArtifact),
-    qty,
-    qtyUnit: 'PIECE',
-    assignmentMode,
-    assignmentStatus: directFactoryAssigned ? 'ASSIGNED' : 'UNASSIGNED',
-    ownerSuggestion: { kind: 'MAIN_FACTORY' },
-    assignedFactoryId: directFactoryAssigned ? unit.assignmentTargetFactoryId : undefined,
-    assignedFactoryName: directFactoryAssigned ? unit.assignmentTargetFactoryName : undefined,
-    qcPoints: [],
-    difficulty: 'MEDIUM',
-    attachments: [],
-    status: 'NOT_STARTED',
-    standardPrice: resolveGeneratedTaskStandardPrice(processCode),
-    standardPriceCurrency: 'IDR',
-    standardPriceUnit: '件',
-    acceptanceStatus: directFactoryAssigned ? 'PENDING' : undefined,
-    acceptDeadline: directFactoryAssigned ? '2026-07-01 18:00' : undefined,
-    taskDeadline: directFactoryAssigned ? '2026-07-08 18:00' : undefined,
-    dispatchRemark: `${unit.taskName}由生产单任务生成规则生成；${unit.allowAutoDispatch ? '进入独立任务自动分配' : '由指定承接工厂处理，不进入独立任务自动分配'}。`,
-    dispatchedAt: directFactoryAssigned ? '2026-06-30 09:00' : undefined,
-    dispatchedBy: directFactoryAssigned ? '系统' : undefined,
-    taskQrValue: buildTaskQrValue(taskId),
-    taskQrStatus: 'ACTIVE',
-    handoverAutoCreatePolicy: 'CREATE_ON_START',
-    handoverStatus: 'NOT_CREATED',
-    dependsOnTaskIds: [],
-    routeStepNo: primaryArtifact?.routeStepNo,
-    routeLaneNo: primaryArtifact?.routeLaneNo,
-    routeParallelGroupId: primaryArtifact?.routeParallelGroupId,
-    routeParallelGroupName: primaryArtifact?.routeParallelGroupName,
-    taskKind: 'NORMAL',
-    taskCategoryZh: unit.taskName,
-    taskUnitType: unit.taskUnitType,
-    acceptanceMode: resolveTaskUnitAcceptanceMode(unit.taskUnitType),
-    generationRuleId: preview.matchedRuleId,
-    generationRuleName: preview.matchedRuleName,
-    coveredProcesses: cloneCoveredProcesses(unit.coveredProcesses),
-    isMergedTaskUnit: isMerged,
-    allowAutoDispatch: unit.allowAutoDispatch,
-    pdaStepTemplateCode: isMerged ? 'WHOLE_ORDER_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
-    handoverReceiverKind: unit.handoverReceiverKind,
-    handoverReceiverName: unit.handoverReceiverName,
-    saleTypeSnapshot: preview.saleType,
-    sourceEntryId: primaryArtifact?.sourceEntryId,
-    sourceEntryType: primaryArtifact?.sourceEntryType,
-    stageCode: primaryArtifact?.stageCode,
-    stageName: getMergedTaskUnitStageName(unit, primaryArtifact?.stageName),
-    processBusinessCode: isMerged ? unit.taskUnitType : primaryArtifact?.processCode,
-    processBusinessName: unit.taskName,
-    craftCode: primaryArtifact?.craftCode,
-    craftName: primaryArtifact?.craftName,
-    selectedTargetObject: primaryArtifact?.selectedTargetObject,
-    taskScope: primaryArtifact?.taskScope,
-    rolledUpChildProcessCodes: primaryArtifact?.rolledUpChildProcessCodes ? [...primaryArtifact.rolledUpChildProcessCodes] : undefined,
-    rolledUpChildProcessNames: primaryArtifact?.rolledUpChildProcessNames ? [...primaryArtifact.rolledUpChildProcessNames] : undefined,
-    assignmentGranularity: primaryArtifact?.assignmentGranularity,
-    ruleSource: primaryArtifact?.ruleSource,
-    detailSplitMode: primaryArtifact?.detailSplitMode,
-    detailSplitDimensions: primaryArtifact?.detailSplitDimensions ? [...primaryArtifact.detailSplitDimensions] : [],
-    detailRows,
-    rootTaskNo: taskId,
-    detailRowKeys: detailRows.map((row) => row.rowKey),
-    isSplitResult: false,
-    isSplitSource: false,
-    executionEnabled: true,
-    defaultDocType: 'TASK',
-    taskTypeMode: primaryArtifact?.taskTypeMode,
-    isSpecialCraft: primaryArtifact?.isSpecialCraft,
-    mockReceiveSummary: isMerged ? `${unit.taskName}已生成，覆盖工序只展示不拆分。` : undefined,
-    mockExecutionSummary: isMerged ? '按整单任务既有流程执行。' : undefined,
-    mockHandoverSummary: `完成后交${unit.handoverReceiverName}`,
-    mockStartPrerequisiteMet: isMerged,
-    ...receiver,
-    createdAt: GENERATED_TASK_CREATED_AT,
-    updatedAt: GENERATED_TASK_CREATED_AT,
-    auditLogs: [
-      {
-        id: `GAL-${taskId}-001`,
-        action: 'GENERATE',
-        detail: `确认拆解后生成${unit.taskName}，覆盖工序：${unit.coveredProcesses.map((item) => item.processName).join('、')}`,
-        at: GENERATED_TASK_CREATED_AT,
-        by: '系统',
-      },
-    ],
-  }
-}
-
-export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPreview): TaskGenerationRuntimeRecord {
-  const existing = taskGenerationRuntimeRecords.get(preview.productionOrderId)
-  if (existing) return existing
-
-  const existingTasks = processTasks.filter((task) =>
-    task.productionOrderId === preview.productionOrderId
-    && task.generationRuleId === preview.matchedRuleId,
-  )
-  if (existingTasks.length > 0) {
-    const record: TaskGenerationRuntimeRecord = {
-      productionOrderId: preview.productionOrderId,
-      preview,
-      taskIds: existingTasks.map((task) => task.taskId),
-      independentWorkOrderCount: preview.independentWorkOrders.length,
-      recordedAt: GENERATED_TASK_CREATED_AT,
-    }
-    taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
-    return record
-  }
-
-  const tasks = preview.generatedUnits.map((unit, index) => buildTaskFromRuntimePreviewUnit(preview, unit, index))
-  processTasks.push(...tasks)
-  notifyProcessTasksMutated()
-  const record: TaskGenerationRuntimeRecord = {
-    productionOrderId: preview.productionOrderId,
-    preview,
-    taskIds: tasks.map((task) => task.taskId),
-    independentWorkOrderCount: preview.independentWorkOrders.length,
-    recordedAt: GENERATED_TASK_CREATED_AT,
-  }
-  taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
-  return record
-}
-
-export function listTaskGenerationRuntimeRecords(): TaskGenerationRuntimeRecord[] {
-  return Array.from(taskGenerationRuntimeRecords.values()).map((record) => ({
-    ...record,
-    taskIds: [...record.taskIds],
-    preview: {
-      ...record.preview,
-      generatedUnits: record.preview.generatedUnits.map((unit) => ({
-        ...unit,
-        coveredProcesses: cloneCoveredProcesses(unit.coveredProcesses),
-        sourceArtifactIds: [...unit.sourceArtifactIds],
-        independentProcessCodes: [...unit.independentProcessCodes],
-        pdaSteps: [...unit.pdaSteps],
-      })),
-      independentWorkOrders: record.preview.independentWorkOrders.map((item) => ({
-        ...item,
-        sourceArtifactIds: [...item.sourceArtifactIds],
-      })),
-      blockedReasons: [...record.preview.blockedReasons],
-      warnings: [...record.preview.warnings],
-    },
-  }))
 }
 
 // 根据生产单ID获取任务列表

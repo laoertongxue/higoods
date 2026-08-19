@@ -37,9 +37,14 @@ function main(): void {
 
   for (const ledger of reworkDeductionLedgers) {
     const trace = tracePreSettlementLedgerSource(ledger.ledgerId)
-    assert(Boolean(trace?.formalQualityLedger), `${ledger.ledgerId} 未关联正式返工扣款流水`)
-    assert(Boolean(trace?.qcRecord), `${ledger.ledgerId} 未关联质检记录`)
-    assert(Boolean(trace?.pendingDeductionRecord), `${ledger.ledgerId} 未关联待确认质量扣款记录`)
+    if (ledger.sourceType === 'QC_REWORK_CHARGEBACK') {
+      assert(Boolean(ledger.qcRecordId), `${ledger.ledgerId} 返工反扣流水未关联质检记录 ID`)
+      assert(Boolean(ledger.sourceRefId), `${ledger.ledgerId} 返工反扣流水未保留来源引用`)
+    } else {
+      assert(Boolean(trace?.qcRecord), `${ledger.ledgerId} 未关联质检记录`)
+      assert(Boolean(trace?.formalQualityLedger), `${ledger.ledgerId} 未关联正式返工扣款流水`)
+      assert(Boolean(trace?.pendingDeductionRecord), `${ledger.ledgerId} 未关联待确认质量扣款记录`)
+    }
     if (trace?.disputeCase) {
       assert(Boolean(trace.disputeCase.adjudicationResult), `${ledger.ledgerId} 关联了未最终裁决的质量异议单`)
     }
@@ -49,8 +54,14 @@ function main(): void {
     const trace = tracePreSettlementLedgerSource(ledger.ledgerId)
     assert(Boolean(trace?.task), `${ledger.ledgerId} 未关联任务`)
     assert(Boolean(trace?.productionOrder), `${ledger.ledgerId} 未关联生产单`)
-    assert(Boolean(ledger.returnInboundBatchId), `${ledger.ledgerId} 未关联回货批次`)
-    assert(Boolean(ledger.priceSourceType === 'DISPATCH' || ledger.priceSourceType === 'BID'), `${ledger.ledgerId} 价格来源异常`)
+    if (ledger.sourceType === 'TASK_COMPLETION') {
+      assert(!ledger.returnInboundBatchId, `${ledger.ledgerId} 整单完成流水不应关联回货批次`)
+      assert(ledger.priceSourceType === 'TASK_FIXED_TOTAL', `${ledger.ledgerId} 整单完成流水价格来源异常`)
+      assert(ledger.qty === 1, `${ledger.ledgerId} 整单完成流水数量必须为 1`)
+    } else {
+      assert(Boolean(ledger.returnInboundBatchId), `${ledger.ledgerId} 未关联回货批次`)
+      assert(Boolean(ledger.priceSourceType === 'DISPATCH' || ledger.priceSourceType === 'BID'), `${ledger.ledgerId} 价格来源异常`)
+    }
   }
 
   const pageHtml = renderAdjustmentsPage()

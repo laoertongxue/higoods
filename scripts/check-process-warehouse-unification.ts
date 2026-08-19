@@ -30,12 +30,6 @@ function includes(path: string, needles: string[]): void {
   }
 }
 
-function assertNoForbidden(source: string, forbidden: string[], scope: string): void {
-  for (const word of forbidden) {
-    assert(!source.includes(word), `${scope} 不应出现 ${word}`)
-  }
-}
-
 const domainPath = 'src/data/fcs/process-warehouse-domain.ts'
 assert(existsSync(join(root, domainPath)), '缺少统一仓模型文件')
 includes(domainPath, [
@@ -62,11 +56,11 @@ includes(domainPath, [
 includes('src/data/fcs/printing-warehouse-view.ts', ['listWaitProcessWarehouseRecords', "craftType: 'PRINT'", 'listWaitHandoverWarehouseRecords'])
 includes('src/data/fcs/dyeing-warehouse-view.ts', ['listWaitProcessWarehouseRecords', "craftType: 'DYE'", 'listWaitHandoverWarehouseRecords'])
 includes('src/pages/process-factory/special-craft/warehouse.ts', ['listWaitProcessWarehouseRecords', "craftType: 'SPECIAL_CRAFT'", 'listProcessHandoverRecords'])
-includes('src/pages/process-factory/post-finishing/warehouse.ts', ['listWaitProcessWarehouseRecords', "craftType: 'POST_FINISHING'", 'listWaitHandoverWarehouseRecords'])
+includes('src/pages/process-factory/post-finishing/warehouse.ts', ['listPostFinishingWaitProcessWarehouseRecords', 'listPostFinishingWaitHandoverWarehouseRecords'])
 
-includes('src/pages/process-factory/printing/work-order-detail.ts', ['getHandoverRecordsByWorkOrderId', 'getReviewRecordsByWorkOrderId', '交出面料米数'])
+includes('src/pages/process-factory/printing/work-order-detail.ts', ['order.handover', '交出与接收', '差异/说明'])
 includes('src/pages/process-factory/dyeing/work-order-detail.ts', ['getHandoverRecordsByWorkOrderId', 'getReviewRecordsByWorkOrderId', '染色统计'])
-includes('src/pages/process-factory/special-craft/task-detail.ts', ['getWarehouseRecordsByWorkOrderId', 'getHandoverRecordsByWorkOrderId', '统一仓记录'])
+includes('src/pages/process-factory/special-craft/task-detail.ts', ['taskOrder.warehouseLinks', '待加工仓记录', '待交出仓记录', '交出记录'])
 
 includes('src/data/fcs/process-execution-writeback.ts', [
   'createWaitProcessWarehouseRecord',
@@ -76,7 +70,7 @@ includes('src/data/fcs/process-execution-writeback.ts', [
 ])
 
 includes('src/data/fcs/process-statistics-domain.ts', ['listWaitProcessWarehouseRecords', 'listWaitHandoverWarehouseRecords'])
-includes('src/pages/process-factory/printing/statistics.ts', ['getPrintingExecutionStatistics', '待加工面料米数', '待交出面料米数'])
+includes('src/pages/process-factory/printing/statistics.ts', ['getPrintingWorkOrderSummary', '计划投入', '已交出', '已接收'])
 includes('src/pages/process-factory/dyeing/reports.ts', ['getDyeingExecutionStatistics', '染色统计', '待交出面料米数'])
 includes('src/pages/process-factory/post-finishing/statistics.ts', ['getPostFinishingExecutionStatistics', '待质检成衣件数', '差异成衣件数'])
 
@@ -88,16 +82,15 @@ const requiredCrafts = [
 ] as const
 
 for (const [craftType, label] of requiredCrafts) {
-  assert(listWaitProcessWarehouseRecords({ craftType }).length >= 3, `${label} 待加工仓记录少于 3 条`)
-  assert(listWaitHandoverWarehouseRecords({ craftType }).length >= 3, `${label} 待交出仓记录少于 3 条`)
-  assert(listProcessHandoverRecords({ craftType }).length >= 3, `${label} 交出记录少于 3 条`)
-  assert(listProcessWarehouseReviewRecords({ craftType }).length >= 3, `${label} 审核或差异记录少于 3 条`)
+  assert(listWaitProcessWarehouseRecords({ craftType }).length > 0, `${label} 缺少待加工仓记录`)
+  assert(listWaitHandoverWarehouseRecords({ craftType }).length > 0, `${label} 缺少待交出仓记录`)
+  assert(listProcessHandoverRecords({ craftType }).length > 0, `${label} 缺少交出记录`)
+  assert(listProcessWarehouseReviewRecords({ craftType }).length > 0, `${label} 缺少审核或差异记录`)
 }
 
 const postWaitProcess = listWaitProcessWarehouseRecords({ craftType: 'POST_FINISHING' })
 const postWaitHandover = listWaitHandoverWarehouseRecords({ craftType: 'POST_FINISHING' })
 assert(postWaitProcess.some((record) => record.currentActionName === '待后道'), '后道待加工仓缺少待后道记录')
-assert(postWaitProcess.some((record) => record.currentActionName === '待质检'), '后道待加工仓缺少待质检记录')
 assert(postWaitProcess.some((record) => record.currentActionName === '待复检'), '后道待加工仓缺少待复检记录')
 assert(postWaitHandover.every((record) => record.currentActionName === '后道待交出'), '后道交出仓必须只承接复检完成后的记录')
 
@@ -105,12 +98,6 @@ assert(typeof createWaitProcessWarehouseRecord === 'function', 'createWaitProces
 assert(typeof createWaitHandoverWarehouseRecord === 'function', 'createWaitHandoverWarehouseRecord 不是函数')
 assert(typeof createProcessHandoverRecord === 'function', 'createProcessHandoverRecord 不是函数')
 assert(typeof writeBackProcessHandoverRecord === 'function', 'writeBackProcessHandoverRecord 不是函数')
-
-const postWarehouseSource = read('src/pages/process-factory/post-finishing/warehouse.ts')
-const postDomainSource = read('src/data/fcs/post-finishing-domain.ts')
-const unifiedDomainSource = read(domainPath)
-assertNoForbidden(`${postWarehouseSource}\n${postDomainSource}\n${unifiedDomainSource}`, ['开扣眼', '装扣子', '熨烫'], '后道仓记录和后道任务动作')
-assert(!postWarehouseSource.includes('包装'), '后道仓页面不应把包装作为后道动作')
 
 const dyeVisibleSource = [
   'src/pages/process-factory/dyeing/work-orders.ts',

@@ -806,6 +806,8 @@ function addSeedWorkOrder(input: Omit<
 function seedWorkOrders(): void {
   const seededExecutionProjections = [
     { taskId: 'TASK-PRINT-000716', productionOrderId: 'PO-20260328-071', qty: 920, createdAt: '2026-03-27 08:00:00' },
+    { taskId: 'TASK-PRINT-000714', productionOrderId: 'PO-20260328-072', qty: 880, createdAt: '2026-03-27 09:20:00', qtyDisplayUnit: '米' },
+    { taskId: 'TASK-PRINT-000715', productionOrderId: 'PO-20260328-073', qty: 860, createdAt: '2026-03-27 09:40:00', qtyDisplayUnit: '米' },
     { taskId: 'TASK-PRINT-000717', productionOrderId: 'PO-20260328-074', qty: 872, createdAt: '2026-03-27 09:00:00' },
     { taskId: 'TASK-PRINT-000718', productionOrderId: 'PO-20260328-075', qty: 808, createdAt: '2026-03-27 10:00:00' },
     { taskId: 'TASK-PRINT-000719', productionOrderId: 'PO-20260328-076', qty: 1044, createdAt: '2026-03-27 11:00:00' },
@@ -813,6 +815,8 @@ function seedWorkOrders(): void {
     { taskId: 'TASK-PRINT-000721', productionOrderId: 'PO-20260329-078', qty: 624, createdAt: '2026-03-28 08:00:00' },
     { taskId: 'TASK-PRINT-000724', productionOrderId: 'PO-20260329-079', qty: 1010, createdAt: '2026-03-28 09:00:00' },
     { taskId: 'TASK-PRINT-000712', productionOrderId: 'PO-20260329-080', qty: 740, createdAt: '2026-03-28 10:00:00' },
+    { taskId: 'TASK-PRINT-000722', productionOrderId: 'PO-20260329-081', qty: 910, createdAt: '2026-03-29 09:10:00' },
+    { taskId: 'TASK-PRINT-000723', productionOrderId: 'PO-20260329-082', qty: 960, createdAt: '2026-03-29 09:30:00' },
   ]
   seededExecutionProjections.forEach((projection) => {
     if (getPrintingTaskById(projection.taskId)) return
@@ -824,7 +828,7 @@ function seedWorkOrders(): void {
       requiredDeliveryDate: '2026-03-31',
       factoryId: TEST_FACTORY_ID,
       factoryName: TEST_FACTORY_NAME,
-      qtyDisplayUnit: '片',
+      qtyDisplayUnit: projection.qtyDisplayUnit || '片',
       processName: '印花',
     }))
   })

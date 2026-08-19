@@ -19,13 +19,15 @@ import {
 } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import {
-  KOL_GOTO_FACTORY_ID,
-  KOL_GOTO_FACTORY_NAME,
   specialCraftDedicatedFactories,
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
+import {
+  isKolGotoFactory,
+  isKolGotoWholeOrderTask,
+} from './kol-goto-special-flow.ts'
 import { installRuntimeTaskReadResolver } from './runtime-task-read-bridge.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from './sewing-delivery-receipt-facts.ts'
 import {
@@ -533,7 +535,7 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
 
 type RuntimeSewingTaskLike =
   Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>
-  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode' | 'taskUnitType' | 'mergedTaskType'>>
+  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'taskUnitType' | 'mergedTaskType'>>
 
 export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (task.processCode === 'SEW' || task.processBusinessCode === 'SEW' || task.processNameZh === '车缝') return true
@@ -572,10 +574,52 @@ function isUrgentTenderAwardOrder(task: RuntimeProcessTask): boolean {
   return order?.demandSnapshot.priority === 'URGENT'
 }
 
+function assertOrdinaryAssignmentBoundary(
+  task: RuntimeProcessTask,
+  actionLabel: string,
+  targetFactoryId?: string,
+): void {
+  if (isKolGotoWholeOrderTask(task)) {
+    throw new Error(`${actionLabel}不适用于 KOL-GOTO 整单任务；该任务已由系统固定分配并自动接收。`)
+  }
+  if (targetFactoryId && isKolGotoFactory(targetFactoryId)) {
+    throw new Error(`${actionLabel}不能选择 KOL-GOTO；该工厂只承接系统自动生成的 KOL 整单任务。`)
+  }
+}
+
+function isKolGotoBaseTaskId(taskId: string): boolean {
+  return isKolGotoWholeOrderTask(processTasks.find((task) => task.taskId === taskId))
+}
+
+function assertOrdinaryAssignmentTaskId(
+  taskId: string,
+  actionLabel: string,
+  targetFactoryId?: string,
+): void {
+  if (isKolGotoBaseTaskId(taskId)) {
+    throw new Error(`${actionLabel}不适用于 KOL-GOTO 整单任务；该任务已由系统固定分配并自动接收。`)
+  }
+  if (targetFactoryId && isKolGotoFactory(targetFactoryId)) {
+    throw new Error(`${actionLabel}不能选择 KOL-GOTO；该工厂只承接系统自动生成的 KOL 整单任务。`)
+  }
+}
+
 export function evaluateRuntimeTenderAwardDispatchPolicy(
   input: RuntimeTaskTenderAwardInput,
 ): DispatchPolicyDecision | null {
   const task = getRuntimeTaskById(input.taskId)
+  if (isKolGotoBaseTaskId(input.taskId) || isKolGotoFactory(input.factoryId) || (task && isKolGotoWholeOrderTask(task))) {
+    return {
+      allowed: false,
+      severity: 'BLOCK',
+      reason: isKolGotoBaseTaskId(input.taskId) || isKolGotoWholeOrderTask(task)
+        ? 'KOL-GOTO 整单任务不参与竞价。'
+        : 'KOL-GOTO 不能参与普通任务竞价。',
+      displayBadges: ['KOL-GOTO 专用', '禁止竞价'],
+      requiresConfirm: false,
+      sortPriority: 0,
+    }
+  }
   if (!task || !isRuntimeSewingTask(task)) return null
   if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return null
   if (!getThirdPartyFactoryRatingSnapshot(input.factoryId)) {
@@ -983,6 +1027,9 @@ function evaluateFixedMergedTaskWithTasks(
   if (sourceTasks.length !== selectedIds.length) {
     return { ok: false, message: '所选任务已变化，请刷新后重新选择。', tasks: sourceTasks, mergedTaskType: null }
   }
+  if (sourceTasks.some((task) => isKolGotoWholeOrderTask(task))) {
+    return { ok: false, message: 'KOL-GOTO 整单任务不能参与普通任务合并。', tasks: sourceTasks, mergedTaskType: null }
+  }
   if (sourceTasks.length !== 2 && sourceTasks.length !== 3) {
     return { ok: false, message: '只能选择“车缝+烫包”或“裁剪+车缝+烫包”对应的完整源任务。', tasks: sourceTasks, mergedTaskType: null }
   }
@@ -1039,7 +1086,6 @@ function buildFixedMergedTask(
     stageName: source.stageName,
     taskCategoryZh: processName,
     taskUnitType: 'MERGED_PRODUCTION_TASK',
-    acceptanceMode: 'MERGED_PRODUCTION_TASK',
     assignmentGranularity: definition.assignmentGranularity,
     detailSplitMode: undefined,
     detailSplitDimensions: [],
@@ -1050,16 +1096,12 @@ function buildFixedMergedTask(
     routeLaneNo: source.routeLaneNo,
     routeParallelGroupId: source.routeParallelGroupId,
     routeParallelGroupName: source.routeParallelGroupName,
-    generationRuleId: undefined,
-    generationRuleName: '任务分配固定模式人工合并',
     coveredProcesses: sourceTasks.map((task) => ({
       processCode: normalizeProductionExecutionProcessCode(task.processBusinessCode || task.processCode, task.processNameZh),
       processName: task.processNameZh,
       sourceArtifactIds: [task.sourceArtifactId || task.taskId],
     })),
-    isMergedTaskUnit: true,
     allowAutoDispatch: false,
-    pdaStepTemplateCode: 'MERGED_TASK_START_HANDOVER',
     detailRows: sourceTasks.flatMap((task) => task.detailRows ?? []),
     scopeDetailRows: sourceTasks.flatMap((task) => task.scopeDetailRows ?? []),
     dependsOnTaskIds: [...source.dependsOnTaskIds],
@@ -1070,7 +1112,7 @@ function buildFixedMergedTask(
     mergeCreatedAt: createdAt,
     mergeCreatedBy: createdBy,
     mockExecutionSummary: `${definition.responsibilityLabel}；PDA仅接受、开始和交出。`,
-    mockHandoverSummary: target.handoverReceiverName ? `完成后交${target.handoverReceiverName}` : target.mockHandoverSummary,
+    mockHandoverSummary: target.receiverName ? `完成后交${target.receiverName}` : target.mockHandoverSummary,
     auditLogs: [
       ...target.auditLogs,
       buildSeedAuditLog(mergedTaskId, 'CREATE_FIXED_MERGED_TASK', `创建${definition.label}：${sourceTaskNos.join('、')}`, createdBy, createdAt),
@@ -1241,7 +1283,7 @@ function compareRuntimeTask(a: RuntimeProcessTask, b: RuntimeProcessTask): numbe
 function buildRuntimeBaseTasksFromTaskFacts(): ProcessTask[] {
   // 第二轮整改：runtime 层不再重复构建基础任务事实，统一从 processTasks 兼容层派生。
   return processTasks
-    .filter((task) => task.defaultDocType === 'TASK')
+    .filter((task) => task.defaultDocType === 'TASK' && !isKolGotoWholeOrderTask(task))
     .map((task) => ({
       ...task,
       dependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
@@ -1366,34 +1408,10 @@ function ensureDispatchBoardSeedData(): void {
   const directFactorySeeds = {
     cut: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     sew: { id: 'ID-F003', name: '万隆车缝厂' },
-    kolGoto: { id: KOL_GOTO_FACTORY_ID, name: KOL_GOTO_FACTORY_NAME },
     button: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     special: { id: centralSpecialFactory.id, name: centralSpecialFactory.name },
     wash: { id: 'ID-F007', name: '玛琅精工车缝' },
   } as const
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0001-001__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.kolGoto.id,
-      assignedFactoryName: directFactorySeeds.kolGoto.name,
-      acceptDeadline: '2026-03-19 12:00:00',
-      taskDeadline: '2026-04-02 18:00:00',
-      dispatchedAt: '2026-03-18 09:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 15200,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'PENDING',
-      dispatchRemark: '待工厂确认',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0001-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0001-001__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单，待 kol goto 确认', '跟单A', '2026-03-18 09:00:00'),
-    ],
-  )
 
   seedRuntimeTaskOverride(
     'TASKGEN-202603-0002-001__ORDER',
@@ -1498,98 +1516,6 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0004-001__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.kolGoto.id,
-      assignedFactoryName: directFactorySeeds.kolGoto.name,
-      acceptDeadline: '2026-03-18 18:00:00',
-      taskDeadline: '2026-04-06 18:00:00',
-      dispatchedAt: '2026-03-18 09:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 13800,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'ACCEPTED',
-      acceptedAt: '2026-03-18 11:00:00',
-      acceptedBy: directFactorySeeds.kolGoto.name,
-      status: 'DONE',
-      startedAt: '2026-03-19 08:40:00',
-      finishedAt: '2026-03-25 17:30:00',
-      dispatchRemark: 'KOL 小单整单直派',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 11:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-25 17:30:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0003-006__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.kolGoto.id,
-      assignedFactoryName: directFactorySeeds.kolGoto.name,
-      acceptDeadline: '2026-03-20 12:00:00',
-      taskDeadline: '2026-04-08 18:00:00',
-      dispatchedAt: '2026-03-20 09:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 14600,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'ACCEPTED',
-      acceptedAt: '2026-03-20 11:00:00',
-      acceptedBy: directFactorySeeds.kolGoto.name,
-      status: 'BLOCKED',
-      startedAt: '2026-03-21 08:30:00',
-      blockedAt: '2026-03-21 15:10:00',
-      blockReason: 'MATERIAL',
-      blockRemark: '待补辅料到厂',
-      dispatchRemark: 'KOL 小单整单直派',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0003-006__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-20 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-20 11:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0003-006__ORDER', 'BLOCK', '生产暂停：待补辅料到厂', directFactorySeeds.kolGoto.name, '2026-03-21 15:10:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0004-007__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.kolGoto.id,
-      assignedFactoryName: directFactorySeeds.kolGoto.name,
-      acceptDeadline: '2026-03-18 20:00:00',
-      taskDeadline: '2026-04-11 18:00:00',
-      dispatchedAt: '2026-03-18 12:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 14200,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'ACCEPTED',
-      acceptedAt: '2026-03-18 14:00:00',
-      acceptedBy: directFactorySeeds.kolGoto.name,
-      status: 'DONE',
-      startedAt: '2026-03-19 09:15:00',
-      finishedAt: '2026-03-27 16:50:00',
-      dispatchRemark: 'KOL 小单整单直派',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-007__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 12:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 14:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-27 16:50:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
     'TASKGEN-202603-0009-001__ORDER',
     {
       assignmentMode: 'BIDDING',
@@ -1630,38 +1556,6 @@ function ensureDispatchBoardSeedData(): void {
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0015-002__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-0015-002__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-20 09:40:00'),
-    ],
-  )
-
-  seedRuntimeTaskOverride(
-    'TASKGEN-202603-0015-005__ORDER',
-    {
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.kolGoto.id,
-      assignedFactoryName: directFactorySeeds.kolGoto.name,
-      acceptDeadline: '2026-03-18 12:00:00',
-      taskDeadline: '2026-04-09 18:00:00',
-      dispatchedAt: '2026-03-17 09:00:00',
-      dispatchedBy: '跟单A',
-      dispatchPrice: 12400,
-      dispatchPriceCurrency: 'IDR',
-      dispatchPriceUnit: '件',
-      acceptanceStatus: 'ACCEPTED',
-      acceptedAt: '2026-03-17 10:00:00',
-      acceptedBy: directFactorySeeds.kolGoto.name,
-      status: 'BLOCKED',
-      startedAt: '2026-03-18 09:00:00',
-      blockedAt: '2026-03-18 16:20:00',
-      blockReason: 'TECH',
-      blockRemark: '待确认工艺变更',
-      dispatchRemark: 'KOL 小单整单直派',
-    },
-    [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-005__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-17 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-17 10:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'BLOCK', '生产暂停：待确认工艺变更', directFactorySeeds.kolGoto.name, '2026-03-18 16:20:00'),
     ],
   )
 
@@ -2067,6 +1961,12 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     detailRowKeys?: string[]
   }>
 } {
+  if (isKolGotoBaseTaskId(input.taskId)) {
+    return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不允许按明细重新分配' }
+  }
+  if (input.assignments.some((assignment) => isKolGotoFactory(assignment.factoryId))) {
+    return { ok: false, message: 'KOL-GOTO 只承接系统自动生成的 KOL 整单任务，不能作为普通分配目标' }
+  }
   const task = getRuntimeTaskById(input.taskId)
   if (!task) return { ok: false, message: '任务不存在或已被移除' }
   if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细分配，请对来源任务操作' }
@@ -2248,8 +2148,10 @@ export interface RuntimeSewingScopeAllocationInput {
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
 export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocationInput): RuntimeProcessTask {
+  assertOrdinaryAssignmentTaskId(input.taskId, '按 SKU 分配')
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  assertOrdinaryAssignmentBoundary(task, '按 SKU 分配')
   const policy = classifyTaskFulfillmentPolicy(task)
   if (!isRuntimeTaskExecutionTask(task) || !policy.startsWithSewing) {
     throw new Error(`任务 ${input.taskId} 不是可按SKU分配的车缝或固定合并任务`)
@@ -2394,6 +2296,9 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
   message?: string
   createdTaskIds?: string[]
 } {
+  if (isKolGotoBaseTaskId(input.taskId)) {
+    return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不参与竞价' }
+  }
   const task = getRuntimeTaskById(input.taskId)
   if (!task) return { ok: false, message: '任务不存在或已被移除' }
   if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细创建招标单，请对来源任务操作' }
@@ -2485,8 +2390,10 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
 }
 
 export function setRuntimeTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
+  assertOrdinaryAssignmentTaskId(taskId, mode === 'BIDDING' ? '发起竞价' : '调整分配方式')
   const task = getRuntimeTaskById(taskId)
   if (!task) return
+  assertOrdinaryAssignmentBoundary(task, mode === 'BIDDING' ? '发起竞价' : '调整分配方式')
 
   if (mode === 'BIDDING') {
     const patch: RuntimeTaskOverride = {
@@ -2534,8 +2441,10 @@ export function upsertRuntimeTaskTender(
   },
   by: string,
 ): RuntimeProcessTask | null {
+  assertOrdinaryAssignmentTaskId(taskId, '发起竞价')
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
+  assertOrdinaryAssignmentBoundary(task, '发起竞价')
   const sewingDeliverySlaKind = classifySewingDeliverySla(task)
   const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(taskId) : null
   const isCleanUnassigned = task.assignmentStatus === 'UNASSIGNED'
@@ -2592,6 +2501,7 @@ export function cancelRuntimeTaskTender(input: {
   cancelledBy: string
   reason: string
 }): RuntimeProcessTask {
+  assertOrdinaryAssignmentTaskId(input.taskId, '取消竞价')
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
   if (task.assignmentMode !== 'BIDDING' || !task.tenderId) {
@@ -2643,8 +2553,10 @@ export function cancelRuntimeTaskTender(input: {
 export function prepareRuntimeTaskTenderAward(
   input: RuntimeTaskTenderAwardInput,
 ): PreparedRuntimeTaskTenderAward {
+  assertOrdinaryAssignmentTaskId(input.taskId, '竞价定标', input.factoryId)
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  assertOrdinaryAssignmentBoundary(task, '竞价定标', input.factoryId)
   if (task.assignmentMode !== 'BIDDING' || !task.tenderId) {
     throw new Error(`任务 ${input.taskId} 尚未发起竞价，不可定标`)
   }
@@ -2733,8 +2645,10 @@ export function acceptRuntimeTaskAssignment(
   taskId: string,
   input: RuntimeTaskAssignmentAcceptanceInput,
 ): RuntimeProcessTask {
+  assertOrdinaryAssignmentTaskId(taskId, '手工接单', input.factoryId)
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
+  assertOrdinaryAssignmentBoundary(task, '手工接单')
   if (!input.factoryId.trim()) throw new Error(`任务 ${taskId} 缺少当前操作工厂`)
   if (!task.assignedFactoryId || !task.assignedFactoryName) {
     throw new Error(`任务 ${taskId} 尚未确定承接工厂，不可接单`)
@@ -2828,8 +2742,10 @@ export function rejectRuntimeTaskAssignment(
   taskId: string,
   input: RuntimeTaskAssignmentRejectionInput,
 ): RuntimeProcessTask {
+  assertOrdinaryAssignmentTaskId(taskId, '拒单', input.factoryId)
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
+  assertOrdinaryAssignmentBoundary(task, '拒单')
   if (task.acceptanceStatus === 'REJECTED') throw new Error(`任务 ${taskId} 已拒单，不可重复拒单`)
   if (task.acceptanceStatus !== 'PENDING' || (task.assignmentStatus !== 'ASSIGNED' && task.assignmentStatus !== 'AWARDED')) {
     throw new Error(`任务 ${taskId} 不是待接单状态，不可拒单`)
@@ -2881,6 +2797,9 @@ export function rejectRuntimeTaskAssignment(
 }
 
 export function validateRuntimeBatchDispatchSelection(taskIds: string[]): RuntimeBatchDispatchSelectionValidation {
+  if (taskIds.some(isKolGotoBaseTaskId)) {
+    return { valid: false, reason: 'KOL-GOTO 整单任务已固定承接，不允许通过普通入口派单' }
+  }
   const selected = taskIds
     .map((taskId) => getRuntimeTaskById(taskId))
     .filter((task): task is RuntimeProcessTask => Boolean(task))
@@ -2930,11 +2849,34 @@ export function validateRuntimeFactoryAssignment(input: {
   taskIds: string[]
   factoryId: string
 }): RuntimeFactoryAssignmentValidation {
+  const rawKolGotoTaskIds = input.taskIds.filter(isKolGotoBaseTaskId)
+  if (rawKolGotoTaskIds.length > 0) {
+    return {
+      valid: false,
+      reason: 'KOL-GOTO 整单任务已固定承接，不允许通过普通入口重新分配',
+      conflictedTaskIds: rawKolGotoTaskIds,
+    }
+  }
   const targetTasks = input.taskIds
     .map((taskId) => getRuntimeTaskById(taskId))
     .filter((task): task is RuntimeProcessTask => Boolean(task))
 
   if (targetTasks.length === 0) return { valid: true }
+  if (isKolGotoFactory(input.factoryId)) {
+    return {
+      valid: false,
+      reason: 'KOL-GOTO 只承接系统自动生成的 KOL 整单任务，不能作为普通派单目标',
+      conflictedTaskIds: targetTasks.map((task) => task.taskId),
+    }
+  }
+  const kolGotoTasks = targetTasks.filter((task) => isKolGotoWholeOrderTask(task))
+  if (kolGotoTasks.length > 0) {
+    return {
+      valid: false,
+      reason: 'KOL-GOTO 整单任务已固定承接，不允许通过普通入口重新分配',
+      conflictedTaskIds: kolGotoTasks.map((task) => task.taskId),
+    }
+  }
 
   const affectedOrders = new Set(targetTasks.map((task) => task.productionOrderId))
   for (const orderId of affectedOrders) {
@@ -3031,8 +2973,10 @@ export function prepareRuntimeDirectDispatchMeta(
   input: RuntimeDirectDispatchMetaInput,
   target: RuntimeDirectDispatchPreparationTarget = {},
 ): PreparedRuntimeDirectDispatchMeta {
+  assertOrdinaryAssignmentTaskId(input.taskId, '直接派单', input.factoryId)
   const originalTask = target.task ?? getRuntimeTaskById(input.taskId)
   if (!originalTask) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  assertOrdinaryAssignmentBoundary(originalTask, '直接派单', input.factoryId)
   const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
   const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(originalTask.taskId) : null
   if (
@@ -3239,11 +3183,14 @@ export function reassignRuntimeSewingTask(
     restoreSewingDeliverySlaSnapshotStore(slaState)
     return { ok: false, message }
   }
+  if (isKolGotoBaseTaskId(input.sourceTaskId)) return reject('KOL-GOTO 整单任务固定承接，不允许改派')
   const source = getRuntimeTaskById(input.sourceTaskId)
   const snapshot = getSewingDeliverySlaSnapshot(input.sourceTaskId)
   if (!source || classifySewingDeliverySla(source) === null || !snapshot?.active) {
     return reject('原任务没有生效中的含车缝分配，不可改派')
   }
+  if (isKolGotoWholeOrderTask(source)) return reject('KOL-GOTO 整单任务固定承接，不允许改派')
+  if (isKolGotoFactory(input.targetFactoryId)) return reject('KOL-GOTO 只承接系统自动生成的 KOL 整单任务，不能作为改派目标')
   if (!input.targetFactoryId.trim() || !input.targetFactoryName.trim()) {
     return reject('请选择目标工厂')
   }

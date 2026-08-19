@@ -8,6 +8,8 @@ import {
   initialTaskEarningLedgers,
 } from '../src/data/fcs/store-domain-settlement-seeds.ts'
 import { listStatementSourceItems } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
+import { isKolGotoFactory, isKolGotoProductionOrder, isKolGotoWholeOrderTask } from '../src/data/fcs/kol-goto-special-flow.ts'
+import { isThirdPartyFactorySettlementBlocked } from '../src/data/fcs/third-party-factory-rating.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -59,7 +61,12 @@ function main(): void {
         .map((item) => item.settlementCycleId)
         .filter((item): item is string => Boolean(item)),
     )
-    assert(factoryCycles.size >= 2, `${factory.name} 的结算周期覆盖不足，当前 ${factoryCycles.size}`)
+    if (isThirdPartyFactorySettlementBlocked(factory.id) || isThirdPartyFactorySettlementBlocked(factory.code)) {
+      assert(factoryCycles.size === 0, `${factory.name} 已被结算门禁阻断，不应生成对账周期`)
+      continue
+    }
+    const minimumCycleCount = isKolGotoFactory(factory.id) ? 1 : 2
+    assert(factoryCycles.size >= minimumCycleCount, `${factory.name} 的结算周期覆盖不足，当前 ${factoryCycles.size}`)
   }
 
   const activeSourceTypes = Array.from(new Set(listStatementSourceItems().map((item) => item.sourceType))).sort()
@@ -81,6 +88,7 @@ function main(): void {
     statementDraftLines.map((item) => item.statementLineGrainType),
   )
   assert(lineGrainTypes.has('RETURN_INBOUND_BATCH'), '缺少回货批次型对账明细行')
+  assert(lineGrainTypes.has('TASK_COMPLETION'), '缺少 KOL 整单任务完成型对账明细行')
   assert(
     statementDraftLines.some(
       (item) =>
@@ -108,6 +116,22 @@ function main(): void {
   const pricingTypes = new Set(processTasks.map((item) => item.assignmentMode))
   assert(pricingTypes.has('DIRECT'), '缺少派单任务')
   assert(pricingTypes.has('BIDDING'), '缺少竞价任务')
+
+  const kolOrders = productionOrders.filter(isKolGotoProductionOrder)
+  const kolTasks = processTasks.filter((task) => isKolGotoWholeOrderTask(
+    task,
+    kolOrders.find((order) => order.productionOrderId === task.productionOrderId),
+  ))
+  const kolLedgers = taskEarningLedgers.filter((ledger) => isKolGotoFactory(ledger.factoryId))
+  const kolLines = statementDraftLines.filter((line) => isKolGotoFactory(line.settlementPartyId))
+  assert(kolOrders.length === 1, `KOL 联动 Mock 应只有 1 张生产单，当前 ${kolOrders.length}`)
+  assert(kolTasks.length === 1, `KOL 联动 Mock 应只有 1 张整单任务，当前 ${kolTasks.length}`)
+  assert(kolTasks[0].assignmentMode === 'DIRECT' && kolTasks[0].pricingMode === 'FIXED_TOTAL', 'KOL 联动任务不应出现竞价或按件计价')
+  assert(!returnInboundBatches.some((batch) => isKolGotoFactory(batch.returnFactoryId)), 'KOL 固定总价结算不应伪造回货批次')
+  assert(kolLedgers.length === 1, `KOL 联动 Mock 应只有 1 条任务收入流水，当前 ${kolLedgers.length}`)
+  assert(kolLedgers[0].sourceType === 'TASK_COMPLETION' && kolLedgers[0].priceSourceType === 'TASK_FIXED_TOTAL', 'KOL 流水必须由任务完成和固定总价驱动')
+  assert(kolLedgers[0].qty === 1 && !kolLedgers[0].returnInboundBatchId, 'KOL 流水数量必须为 1 且不绑定回货批次')
+  assert(kolLines.length === 1 && kolLines[0].statementLineGrainType === 'TASK_COMPLETION', 'KOL 对账明细必须是一条任务完成行')
 
   assert(taskEarningLedgers.length >= 150, `任务收入流水数量不足，当前 ${taskEarningLedgers.length}`)
   assert(initialTaskEarningLedgers.length === taskEarningLedgers.length, '任务收入流水种子未完全接管工厂输出')

@@ -16,6 +16,13 @@ export type ProductionSaleType =
   | '预售备货'
   | 'KOL样品小单'
 
+export const KOL_GOTO_SALE_TYPES = ['KOL样衣', 'KOL样品小单'] as const satisfies readonly ProductionSaleType[]
+export type KolGotoSaleType = (typeof KOL_GOTO_SALE_TYPES)[number]
+
+export function isKolGotoSaleType(value: unknown): value is KolGotoSaleType {
+  return typeof value === 'string' && KOL_GOTO_SALE_TYPES.includes(value as KolGotoSaleType)
+}
+
 export const PRODUCTION_SALE_TYPES: ProductionSaleType[] = [
   '预售',
   '备货',

@@ -77,6 +77,9 @@ import {
   renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity.ts'
+import {
+  isKolGotoProductionOrder,
+} from '../../data/fcs/kol-goto-special-flow.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -569,20 +572,20 @@ function renderOrderTaskGenerationSummary(order: ProductionOrder): string {
   if (!summary.isBrokenDown) {
     return `
       <div class="space-y-1 text-xs">
-        ${renderBadge('待确认生成', 'bg-gray-100 text-gray-700')}
-        <p class="text-muted-foreground">确认拆解后生成任务单元</p>
+        ${renderBadge('待拆解', 'bg-gray-100 text-gray-700')}
+        <p class="text-muted-foreground">确认后按技术包生成生产任务</p>
       </div>
     `
   }
 
   const method =
     (summary.wholeOrderTaskCount ?? 0) > 0
-      ? '整单承接'
+      ? 'KOL 整单任务'
       : (summary.mergedProductionTaskCount ?? 0) > 0
-        ? '固定模式合并承接'
+        ? '合并生产任务'
         : (summary.independentWorkOrderTaskCount ?? 0) > 0
-          ? '独立工艺单 + 单工序'
-          : '单工序承接'
+          ? '加工单 + 生产任务'
+          : '按工序生成'
   const taskUnitCount =
     summary.generatedTaskUnitCount ??
     Math.max(0, summary.singleProcessTaskCount ?? 0) +
@@ -595,9 +598,8 @@ function renderOrderTaskGenerationSummary(order: ProductionOrder): string {
 
   return `
     <div class="space-y-1 text-xs">
-      <div class="font-medium text-foreground">任务生成规则：${escapeHtml(summary.generationRuleName || '默认按工序生成规则')}</div>
-      <p>任务生成方式：${escapeHtml(method)}</p>
-      <p>任务单元数：${taskUnitCount}</p>
+      <div class="font-medium text-foreground">任务拆解结果：${escapeHtml(method)}</div>
+      <p>生产任务：${taskUnitCount} 张</p>
       <p class="max-w-[220px] truncate text-muted-foreground" title="${escapeHtml(coveredText)}">覆盖：${escapeHtml(coveredText)}</p>
     </div>
   `
@@ -607,9 +609,7 @@ function renderTaskGenerationPreviewDialog(): string {
   const previewState = state.taskGenerationPreview
   if (!previewState) return ''
   const title = previewState.mode === 'batch' ? '批量任务拆解预览' : '任务拆解预览'
-  const canConfirm = previewState.previews.some((preview) =>
-    preview.status === 'READY' || preview.status === 'NEED_CONFIRM' || preview.status === 'NO_MATCH_USE_DEFAULT',
-  )
+  const canConfirm = previewState.previews.some((preview) => preview.status === 'READY')
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -618,7 +618,7 @@ function renderTaskGenerationPreviewDialog(): string {
         <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">${title}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">先按生产单任务生成规则预览，确认后才正式生成任务单元。</p>
+            <p class="mt-1 text-sm text-muted-foreground">根据生产单技术包预览实际生产任务；确认后正式拆解。</p>
           </div>
           <button class="rounded-md p-1 text-muted-foreground hover:bg-muted" data-prod-action="close-task-generation-preview" aria-label="关闭">
             <i data-lucide="x" class="h-4 w-4"></i>
@@ -630,14 +630,12 @@ function renderTaskGenerationPreviewDialog(): string {
               <div class="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
                 <div>
                   <div class="font-medium">${escapeHtml(preview.productionOrderNo)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">售卖类型：${escapeHtml(preview.saleType)} / 命中规则：${escapeHtml(preview.matchedRuleName || '未命中')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">售卖类型：${escapeHtml(preview.saleType)}</div>
                 </div>
                 <span class="inline-flex rounded border px-2 py-0.5 text-xs ${
                   preview.status === 'BLOCKED'
                     ? 'border-red-200 bg-red-50 text-red-700'
-                    : preview.status === 'NO_MATCH_USE_DEFAULT'
-                      ? 'border-amber-200 bg-amber-50 text-amber-700'
-                      : 'border-green-200 bg-green-50 text-green-700'
+                    : 'border-green-200 bg-green-50 text-green-700'
                 }">${escapeHtml(preview.statusReason)}</span>
               </div>
               <div class="overflow-x-auto">
@@ -649,33 +647,33 @@ function renderTaskGenerationPreviewDialog(): string {
                       <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
                       <th class="px-3 py-2 text-left font-medium">承接工厂</th>
                       <th class="px-3 py-2 text-left font-medium">自动分配</th>
-                      <th class="px-3 py-2 text-left font-medium">PDA步骤</th>
+                      <th class="px-3 py-2 text-left font-medium">分配状态</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${[
-                      ...preview.independentWorkOrders.map((item) => `
+                      ...preview.processWorkOrders.map((item) => `
                         <tr class="border-b">
                           <td class="px-3 py-2 font-medium">${escapeHtml(item.workOrderNo)}</td>
                           <td class="px-3 py-2">独立加工单</td>
-                          <td class="px-3 py-2">${escapeHtml(item.processCode === 'PRINT' ? '印花' : '染色')}</td>
+                          <td class="px-3 py-2">${escapeHtml(item.processCode === 'PRINT' ? '印花加工单' : '染色加工单')}</td>
                           <td class="px-3 py-2">${escapeHtml(item.factoryName || '待分配工厂')}</td>
                           <td class="px-3 py-2">已生成</td>
                           <td class="px-3 py-2">${escapeHtml(item.statusLabel)}</td>
                         </tr>
                       `),
-                      ...preview.generatedUnits.map((unit) => `
+                      ...preview.generatedTasks.map((task) => `
                         <tr class="border-b last:border-b-0">
-                          <td class="px-3 py-2 font-medium">${escapeHtml(unit.taskName)}</td>
-                          <td class="px-3 py-2">${escapeHtml(unit.taskUnitType)}</td>
-                          <td class="px-3 py-2">${escapeHtml(unit.coveredProcesses.map((item) => item.craftName || item.processName).join('、') || '—')}</td>
-                          <td class="px-3 py-2">${escapeHtml(unit.assignmentTargetFactoryName || '后续分配')}</td>
-                          <td class="px-3 py-2">${escapeHtml(unit.allowAutoDispatch ? '进入' : '不进入')}</td>
-                          <td class="px-3 py-2">${escapeHtml(unit.pdaSteps.join(' → '))}</td>
+                          <td class="px-3 py-2 font-medium">${escapeHtml(task.taskName)}</td>
+                          <td class="px-3 py-2">${escapeHtml(task.taskUnitType)}</td>
+                          <td class="px-3 py-2">${escapeHtml(task.coveredProcesses.map((item) => item.craftName || item.processName).join('、') || '—')}</td>
+                          <td class="px-3 py-2">${escapeHtml(task.assignedFactoryName || '后续分配')}</td>
+                          <td class="px-3 py-2">${escapeHtml(task.allowAutoDispatch ? '可分配' : '固定分配')}</td>
+                          <td class="px-3 py-2">${escapeHtml(task.assignedFactoryName ? '已分配' : '待分配')}</td>
                         </tr>
                       `),
                     ].join('')}
-                    ${preview.generatedUnits.length === 0 && preview.independentWorkOrders.length === 0
+                    ${preview.generatedTasks.length === 0 && preview.processWorkOrders.length === 0
                       ? `<tr><td colspan="6" class="px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(preview.blockedReasons.join('、') || '暂无可生成对象')}</td></tr>`
                       : ''}
                   </tbody>
@@ -1719,11 +1717,13 @@ export function renderProductionOrdersPage(): string {
                             action: 'open-orders-logs',
                             orderId: order.productionOrderId,
                           }),
-                          renderOrderTextActionButton({
-                            label: '物料检查',
-                            action: 'open-breakdown-readiness',
-                            orderId: order.productionOrderId,
-                          }),
+                          isKolGotoProductionOrder(order)
+                            ? ''
+                            : renderOrderTextActionButton({
+                                label: '物料检查',
+                                action: 'open-breakdown-readiness',
+                                orderId: order.productionOrderId,
+                              }),
                           renderOrderTextActionButton({
                             label: '拆解任务',
                             action: 'breakdown-order',
@@ -1737,11 +1737,13 @@ export function renderProductionOrdersPage(): string {
                             disabled: !confirmationPreviewState.available,
                             title: confirmationPreviewState.title,
                           }),
-                          renderOrderTextActionButton({
-                            label: '接收草稿',
-                            action: 'open-material-draft-drawer',
-                            orderId: order.productionOrderId,
-                          }),
+                          isKolGotoProductionOrder(order)
+                            ? ''
+                            : renderOrderTextActionButton({
+                                label: '接收草稿',
+                                action: 'open-material-draft-drawer',
+                                orderId: order.productionOrderId,
+                              }),
                         ].join('')
 
                         return `

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID, mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 import {
   approveFactoryWarehouseStocktakeDifferenceReview,
   buildDefaultFactoryInternalWarehouses,
@@ -115,7 +115,8 @@ assertNotIncludes(dataSource, '仍有待接收方回写记录', '交出单完成
 assertNotIncludes(dataSource, '仍有未处理完成的数量异议', '交出单完成不应依赖异议关闭')
 assertIncludes(dataSource, '接收单已完成，不允许新增接收记录', '完成接收单后缺少新增接收记录拦截')
 assertIncludes(dataSource, '交出单已完成，不允许新增交出记录', '完成交出单后缺少新增交出记录拦截')
-assertIncludes(dataSource, 'receiverClosedAt: head.receiverClosedAt', '交出单完成语义不能直接覆盖接收方闭合时间')
+assertIncludes(dataSource, 'const receiverClosedAt =', '交出单完成语义不能直接覆盖接收方闭合时间')
+assertIncludes(dataSource, 'receiverClosedAt,', '接收方闭合时间必须作为独立投影字段写回')
 
 const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'PICKUP')
 const handoutHeads = listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT')
@@ -133,24 +134,37 @@ assertNotIncludes(read('src/pages/pda-handover.ts'), '目标工厂', '接收记�
   assertIncludes(warehouseSource, areaName, `默认库区缺少 ${areaName}`)
 })
 const defaultWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
-const nonSewingFactories = mockFactories.filter((factory) => !SEWING_FACTORY_TYPES.has(factory.factoryType))
-const sewingFactories = mockFactories.filter((factory) => SEWING_FACTORY_TYPES.has(factory.factoryType))
+const nonSewingFactories = mockFactories.filter(
+  (factory) => factory.id !== KOL_GOTO_FACTORY_ID && !SEWING_FACTORY_TYPES.has(factory.factoryType),
+)
+const sewingFactories = mockFactories.filter(
+  (factory) => factory.id !== KOL_GOTO_FACTORY_ID && SEWING_FACTORY_TYPES.has(factory.factoryType),
+)
 nonSewingFactories.forEach((factory) => {
   const rows = defaultWarehouses.filter((warehouse) => warehouse.factoryId === factory.id)
   assert(rows.length >= 2, `${factory.name} 缺少默认待加工仓或待交出仓`)
-  rows.forEach((warehouse) => assert(warehouse.areaList.length >= 8, `${warehouse.warehouseName} 默认库区不足 8 个`))
+  rows
+    .filter((warehouse) => warehouse.factoryKind !== 'CENTRAL_CUTTING')
+    .filter((warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'].includes(warehouse.factoryId))
+    .forEach((warehouse) => assert(warehouse.areaList.length >= 8, `${warehouse.warehouseName} 默认库区不足 8 个`))
 })
 sewingFactories.forEach((factory) => {
   assert(!defaultWarehouses.some((warehouse) => warehouse.factoryId === factory.id), `${factory.name} 不应生成工厂内部仓`)
   assert(!listFactoryInternalWarehouses().some((warehouse) => warehouse.factoryId === factory.id), `${factory.name} 不应存在工厂内部仓种子数据`)
 })
+const kolGotoWarehouses = defaultWarehouses.filter((warehouse) => warehouse.factoryId === KOL_GOTO_FACTORY_ID)
+assert.equal(kolGotoWarehouses.length, 1, 'KOL-GOTO 必须且只能保留一个内部仓')
+assert.equal(kolGotoWarehouses[0]?.warehouseKind, 'WAIT_PROCESS', 'KOL-GOTO 唯一内部仓必须是待加工仓')
+assert.equal(kolGotoWarehouses[0]?.areaList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认库区')
+assert.equal(kolGotoWarehouses[0]?.areaList[0]?.shelfList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认货架')
+assert.equal(kolGotoWarehouses[0]?.areaList[0]?.shelfList[0]?.locationList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认库位')
 
 assertIncludes(warehouseSource, 'FactoryWarehouseStocktakeDifferenceReview', '缺少盘点差异审核模型')
 assertIncludes(warehouseSource, 'FactoryWarehouseAdjustmentOrder', '缺少调整单模型')
 assertIncludes(warehouseSource, 'approveFactoryWarehouseStocktakeDifferenceReview', '缺少审核通过 helper')
 assertIncludes(warehouseSource, 'rejectFactoryWarehouseStocktakeDifferenceReview', '缺少审核驳回 helper')
 assertIncludes(warehouseSource, 'executeFactoryWarehouseAdjustmentOrder', '缺少执行调整单 helper')
-assertIncludes(stocktakePageSource, '盘点差异需提交审核', '移动端盘点页缺少新口径')
+assertIncludes(stocktakePageSource, '确认差异并调整库存', '移动端盘点页缺少当前差异确认动作')
 assertNotIncludes(stocktakePageSource, joinText(['只记录差异，', '不生成完整库存调整单']), '移动端盘点页仍保留旧口径')
 assert(!stocktakePageSource.includes('approveFactoryWarehouseStocktakeDifferenceReview'), '移动端盘点页不应做审核')
 assert(!stocktakePageSource.includes('executeFactoryWarehouseAdjustmentOrder'), '移动端盘点页不应做调整')

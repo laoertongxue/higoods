@@ -218,7 +218,7 @@ function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<Technica
   if (item.isSpecialCraft) return 'PIECE_CRAFT'
   if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
   if (item.sourceType === 'MANUAL') return 'MANUAL'
-  return 'DICT_DEFAULT'
+  return 'DICT_REFERENCE'
 }
 
 function freezeProcessEntries(items: TechnicalProcessEntry[], _snapshotId: string): TechnicalProcessEntry[] {

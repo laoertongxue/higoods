@@ -1,6 +1,7 @@
 import { penaltyRules, settlementProfiles } from './settlement-mock-data.ts'
 import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import type {
   CycleType,
   PricingMode,
@@ -192,10 +193,21 @@ function cloneDeductionRuleSnapshots(
   return snapshots.map((item) => ({ ...item }))
 }
 
+function normalizeSettlementFactoryIdentity(factoryId: string): string {
+  const kolGotoFactoryId = normalizeKolGotoFactoryId(factoryId)
+  if (kolGotoFactoryId) return kolGotoFactoryId
+  const factory = getFactoryById(factoryId) ?? getFactoryByCode(factoryId)
+  return factory?.id ?? factoryId
+}
+
+function isSameSettlementFactory(left: string, right: string): boolean {
+  return normalizeSettlementFactoryIdentity(left) === normalizeSettlementFactoryIdentity(right)
+}
+
 function resolveSettlementConfigSnapshot(factoryId: string): SettlementConfigSnapshot {
   const activeProfile =
-    settlementProfiles.find((item) => item.factoryId === factoryId && item.isActive) ??
-    settlementProfiles.find((item) => item.factoryId === factoryId)
+    settlementProfiles.find((item) => isSameSettlementFactory(item.factoryId, factoryId) && item.isActive) ??
+    settlementProfiles.find((item) => isSameSettlementFactory(item.factoryId, factoryId))
 
   if (!activeProfile) {
     const factory = getFactoryByCode(factoryId) ?? getFactoryById(factoryId)
@@ -224,7 +236,7 @@ function resolveSettlementConfigSnapshot(factoryId: string): SettlementConfigSna
 }
 
 function resolveDeductionRuleSnapshots(factoryId: string): SettlementDefaultDeductionRuleSnapshot[] {
-  const factoryRules = penaltyRules.filter((item) => item.factoryId === factoryId)
+  const factoryRules = penaltyRules.filter((item) => isSameSettlementFactory(item.factoryId, factoryId))
   if (factoryRules.length === 0) {
     return [
       {
@@ -977,7 +989,7 @@ function calcNextVersionNo(versionNo: string): string {
 }
 
 function getLatestVersionRecordByFactory(factoryId: string): SettlementVersionRecord | null {
-  const records = settlementVersionHistory.filter((item) => item.factoryId === factoryId)
+  const records = settlementVersionHistory.filter((item) => isSameSettlementFactory(item.factoryId, factoryId))
   if (records.length === 0) return null
   return records.reduce((latest, item) =>
     parseVersionNo(item.versionNo) > parseVersionNo(latest.versionNo) ? item : latest,
@@ -986,7 +998,7 @@ function getLatestVersionRecordByFactory(factoryId: string): SettlementVersionRe
 
 function normalizeFactoryVersionHistory(factoryId: string): void {
   const records = settlementVersionHistory
-    .filter((item) => item.factoryId === factoryId)
+    .filter((item) => isSameSettlementFactory(item.factoryId, factoryId))
     .sort((a, b) => parseVersionNo(a.versionNo) - parseVersionNo(b.versionNo))
 
   records.forEach((record, index) => {
@@ -1022,7 +1034,7 @@ function getRequestByIdOrNull(requestId: string): SettlementChangeRequest | null
 }
 
 function getEffectiveInfoByFactoryOrNull(factoryId: string): SettlementEffectiveInfo | null {
-  return settlementEffectiveInfos.find((item) => item.factoryId === factoryId) ?? null
+  return settlementEffectiveInfos.find((item) => isSameSettlementFactory(item.factoryId, factoryId)) ?? null
 }
 
 function pushRequestLog(request: SettlementChangeRequest, actor: string, action: string, remark: string): void {
@@ -1054,7 +1066,7 @@ export function getSettlementEffectiveInfos(): SettlementEffectiveInfo[] {
 
 export function getSettlementVersionHistory(factoryId?: string): SettlementVersionRecord[] {
   if (!factoryId) return settlementVersionHistory
-  return settlementVersionHistory.filter((item) => item.factoryId === factoryId)
+  return settlementVersionHistory.filter((item) => isSameSettlementFactory(item.factoryId, factoryId))
 }
 
 export function getSettlementChangeRequests(): SettlementChangeRequest[] {
@@ -1063,7 +1075,7 @@ export function getSettlementChangeRequests(): SettlementChangeRequest[] {
 
 export function listSettlementRequestsByFactory(factoryId: string): SettlementChangeRequest[] {
   return settlementChangeRequests
-    .filter((item) => item.factoryId === factoryId)
+    .filter((item) => isSameSettlementFactory(item.factoryId, factoryId))
     .slice()
     .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 }
@@ -1141,7 +1153,7 @@ export function getSettlementRequestById(requestId: string): SettlementChangeReq
 }
 
 export function getSettlementInitDraftByFactory(factoryId: string): SettlementInitDraft | null {
-  return settlementInitDrafts.find((item) => item.factoryId === factoryId) ?? null
+  return settlementInitDrafts.find((item) => isSameSettlementFactory(item.factoryId, factoryId)) ?? null
 }
 
 export function getSettlementLatestRequestByFactory(factoryId: string): SettlementChangeRequest | null {
@@ -1149,7 +1161,7 @@ export function getSettlementLatestRequestByFactory(factoryId: string): Settleme
 }
 
 export function getSettlementActiveRequestByFactory(factoryId: string): SettlementChangeRequest | null {
-  return settlementChangeRequests.find((item) => item.factoryId === factoryId && isOpenRequest(item.status)) ?? null
+  return settlementChangeRequests.find((item) => isSameSettlementFactory(item.factoryId, factoryId) && isOpenRequest(item.status)) ?? null
 }
 
 export function saveSettlementInitDraft(payload: {
@@ -1192,7 +1204,7 @@ export function saveSettlementInitDraft(payload: {
 }
 
 export function clearSettlementInitDraft(factoryId: string): void {
-  const index = settlementInitDrafts.findIndex((item) => item.factoryId === factoryId)
+  const index = settlementInitDrafts.findIndex((item) => isSameSettlementFactory(item.factoryId, factoryId))
   if (index >= 0) settlementInitDrafts.splice(index, 1)
 }
 

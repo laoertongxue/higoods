@@ -47,6 +47,12 @@ export function installPdaContractRuntime() {
     }
   }
   const body = new ContractDomElement()
+  const contractStorage = {
+    getItem: (key: string) => storageValues.get(key) ?? null,
+    setItem: (key: string, value: string) => storageValues.set(key, value),
+    removeItem: (key: string) => storageValues.delete(key),
+    clear: () => storageValues.clear(),
+  }
   Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: ContractHtmlInputElement })
   for (const constructorName of ['HTMLSelectElement', 'HTMLTextAreaElement'] as const) {
     if (!(globalThis as Record<string, unknown>)[constructorName]) {
@@ -55,12 +61,7 @@ export function installPdaContractRuntime() {
   }
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
-    value: {
-      getItem: (key: string) => storageValues.get(key) ?? null,
-      setItem: (key: string, value: string) => storageValues.set(key, value),
-      removeItem: (key: string) => storageValues.delete(key),
-      clear: () => storageValues.clear(),
-    },
+    value: contractStorage,
   })
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
@@ -73,6 +74,7 @@ export function installPdaContractRuntime() {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
+      localStorage: contractStorage,
       location: { pathname: '/fcs/pda/warehouse/wait-process', search: '', href: '' },
       requestAnimationFrame: (callback: () => void) => callback(),
       setTimeout: () => 0,

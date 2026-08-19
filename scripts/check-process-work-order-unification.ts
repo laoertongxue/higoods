@@ -488,7 +488,7 @@ assertNotIncludes(platformDyeSource, '/fcs/pda/exec', '平台染色列表')
 assertNotIncludes(platformPrintSource, '/fcs/pda/handover', '平台印花列表')
 assertNotIncludes(platformDyeSource, '/fcs/pda/handover', '平台染色列表')
 
-assertIncludes(pfosPrintSource, 'buildPrintingWorkOrderDetailLink(order.printOrderId)', '工厂端印花详情入口')
+assertIncludes(pfosPrintSource, 'buildPrintingWorkOrderDetailLink(order.workOrderId)', '工厂端印花详情入口')
 ;['renderDyeWorkOrderOverlay', "renderSecondaryButton('查看'", "renderPrimaryButton('编辑'", "renderSecondaryButton('日志'", "renderSecondaryButton('打印流程卡'"]
   .forEach((token) => assertIncludes(pfosDyeSource, token, '工厂端染色列表内操作'))
 assertNotIncludes(pfosDyeSource, 'buildDyeingWorkOrderDetailLink(order.dyeOrderId)', '工厂端染色列表')
@@ -498,22 +498,26 @@ assertNotIncludes(pfosPrintSource, '/fcs/pda/handover', '工厂端印花加工�
 assertNotIncludes(pfosDyeSource, '/fcs/pda/handover', '工厂端染色加工单列表')
 
 ;[
-  '基本信息',
-  '花型与调色',
-  '打印转印',
-  '交出记录',
-  '收货确认',
-  '执行进度',
-  '异常与结算',
-  '打开移动端执行页',
-  '打开移动端交出页',
+  '需求来源',
+  '用量依据',
+  '计划加工投入与实际加工投入',
+  '投入调整历史',
+  '印花要求',
+  '固定加工产出',
+  '数量与卷数',
+  '加工厂与执行时间',
+  '交出与接收',
+  '加工产出卷条码',
+  '打印历史',
+  '操作日志与备注',
 ].forEach((token) => assertIncludes(printDetailSource, token, '印花 Web 详情页'))
+assertNotIncludes(printDetailSource, '/fcs/pda/', '印花 Web 详情页不得混入移动端执行入口')
 
 assertIncludes(routesSource, '^\\/fcs\\/craft\\/printing\\/work-orders\\/([^/]+)$', '印花 Web 详情路由')
 assertIncludes(routesSource, '^\\/fcs\\/craft\\/dyeing\\/work-orders\\/([^/]+)$', '染色 Web 详情路由')
 assert(routes.dynamicRoutes.some((route) => String(route.pattern).includes('printing\\/work-orders')), '印花动态详情路由不可达')
 assert(routes.dynamicRoutes.some((route) => String(route.pattern).includes('dyeing\\/work-orders')), '染色动态详情路由不可达')
-assertIncludes(routesSource, '`/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(decodeURIComponent(match[1]))}`', '染色旧详情路由必须兼容跳转到列表查看弹窗')
+assertIncludes(routesSource, 'renderCraftDyeingWorkOrderDetailPage(decodeURIComponent(match[1]))', '染色详情路由必须直接打开当前 Web 详情页')
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/printing/work-orders?tab=progress'", '印花进度兼容跳转')
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula'", '染色配方兼容跳转')
 

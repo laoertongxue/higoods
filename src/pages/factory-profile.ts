@@ -1,4 +1,4 @@
-import { generateFactoryCode } from '../data/fcs/factory-mock-data'
+import { generateFactoryCode, KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data'
 import {
   listFactoryMasterRecords,
   removeFactoryMasterRecord,
@@ -146,7 +146,6 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
     singleProcessEnabled: true,
     canAcceptSewingIronPack: false,
     canAcceptCuttingSewingIronPack: false,
-    wholeOrderEnabled: false,
   },
 }
 
@@ -255,21 +254,12 @@ function cloneTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefin
       singleProcessEnabled: true,
       canAcceptSewingIronPack: false,
       canAcceptCuttingSewingIronPack: false,
-      wholeOrderEnabled: false,
     }
   }
   return {
     singleProcessEnabled: config.singleProcessEnabled,
     canAcceptSewingIronPack: config.canAcceptSewingIronPack,
     canAcceptCuttingSewingIronPack: config.canAcceptCuttingSewingIronPack,
-    wholeOrderEnabled: config.wholeOrderEnabled,
-    wholeOrderRule: config.wholeOrderRule
-      ? {
-          ...config.wholeOrderRule,
-          applicableSaleTypes: [...config.wholeOrderRule.applicableSaleTypes],
-          excludedProcessCodes: [...config.wholeOrderRule.excludedProcessCodes],
-        }
-      : undefined,
   }
 }
 
@@ -361,23 +351,23 @@ function ensureTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefi
   return cloneTaskAcceptanceConfig(config)
 }
 
-function getWholeOrderRule(config: FactoryTaskAcceptanceConfig): NonNullable<FactoryTaskAcceptanceConfig['wholeOrderRule']> {
-  return config.wholeOrderRule ?? {
-    enabled: true,
-    applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
-    excludedProcessCodes: ['PRINT', 'DYE'],
-    defaultTaskName: 'KOL整单任务',
-    allowRuleRecommendation: true,
-    handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
-    remark: '',
-  }
-}
-
 function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
   const config = ensureTaskAcceptanceConfig(draft.taskAcceptanceConfig)
-  const wholeOrderRule = getWholeOrderRule(config)
+  const isKolGoto = state.dialog.type === 'edit' && state.dialog.factoryId === KOL_GOTO_FACTORY_ID
+
+  if (isKolGoto) {
+    return `
+      <section class="space-y-3">
+        <div>
+          <h4 class="text-sm font-semibold">任务承接方式</h4>
+          <p class="mt-1 text-xs text-muted-foreground">KOL-GOTO 仅承接系统自动生成的 KOL 整单任务，不进入普通任务候选、竞价或改派。</p>
+        </div>
+        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          此特殊能力由售卖类型和固定工厂共同判断，不提供可编辑开关。
+        </div>
+      </section>
+    `
+  }
 
   return `
     <section class="space-y-4">
@@ -390,7 +380,6 @@ function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
           ['singleProcessEnabled', '单工序承接', config.singleProcessEnabled],
           ['canAcceptSewingIronPack', '可承接车缝+烫包', config.canAcceptSewingIronPack],
           ['canAcceptCuttingSewingIronPack', '可承接裁剪+车缝+烫包', config.canAcceptCuttingSewingIronPack],
-          ['wholeOrderEnabled', '整单承接', config.wholeOrderEnabled],
         ].map(([field, label, checked]) => `
           <label class="flex items-center gap-3 rounded-md border bg-muted/10 px-3 py-2">
             <input type="checkbox" data-factory-task-acceptance="${field}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border" />
@@ -398,43 +387,8 @@ function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
           </label>
         `).join('')}
       </div>
-
-      ${config.wholeOrderEnabled ? `
-        <div class="rounded-lg border bg-muted/10 p-4">
-          <div class="mb-3 text-sm font-medium">整单承接配置</div>
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">适用售卖类型</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.applicableSaleTypes" value="${escapeHtml(wholeOrderRule.applicableSaleTypes.join('、'))}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">不并入整单的工序</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.excludedProcessCodes" value="${escapeHtml(wholeOrderRule.excludedProcessCodes.join('、'))}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">默认整单任务名称</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.defaultTaskName" value="${escapeHtml(wholeOrderRule.defaultTaskName)}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">交出对象 / PDA步骤</span>
-              <input class="w-full rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground" disabled value="仓库 / 简化5步" />
-            </label>
-            <label class="space-y-1.5 md:col-span-2">
-              <span class="text-xs text-muted-foreground">备注</span>
-              <textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="whole.remark">${escapeHtml(wholeOrderRule.remark || '')}</textarea>
-            </label>
-          </div>
-        </div>
-      ` : ''}
     </section>
   `
-}
-
-function splitConfigText(value: string): string[] {
-  return value
-    .split(/[、,，\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
 }
 
 function openCreateDialog(): void {
@@ -1267,15 +1221,16 @@ function renderPdaRolesSection(factoryId: string, pdaEnabled: boolean): string {
 
   const roles = getFactoryPdaRoles(factoryId)
   const users = getFactoryPdaUsers(factoryId)
+  const isKolGoto = factoryId === KOL_GOTO_FACTORY_ID
 
   return `
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <p class="text-xs text-muted-foreground">管理当前工厂端移动应用角色、权限与可用状态</p>
-        <button type="button" data-factory-action="open-role-form-create" class="rounded border px-3 py-1.5 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">新建角色</button>
+        <p class="text-xs text-muted-foreground">${isKolGoto ? 'KOL-GOTO 只保留管理员和操作工两个固定角色，权限不可编辑。' : '管理当前工厂端移动应用角色、权限与可用状态'}</p>
+        ${isKolGoto ? '' : `<button type="button" data-factory-action="open-role-form-create" class="rounded border px-3 py-1.5 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">新建角色</button>`}
       </div>
 
-      ${renderPdaRoleForm(factoryId, pdaEnabled)}
+      ${isKolGoto ? '' : renderPdaRoleForm(factoryId, pdaEnabled)}
 
       ${
         roles.length === 0
@@ -1314,12 +1269,14 @@ function renderPdaRolesSection(factoryId: string, pdaEnabled: boolean): string {
                           <td class="px-3 py-2 text-center text-sm tabular-nums">${role.permissionKeys.length}</td>
                           <td class="px-3 py-2 text-center text-sm tabular-nums">${userCount}</td>
                           <td class="px-3 py-2">
-                            <div class="flex gap-1">
-                              <button type="button" data-factory-action="open-role-form-edit" data-role-id="${role.roleId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">编辑</button>
-                              <button type="button" data-factory-action="toggle-role-status" data-role-id="${role.roleId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
-                                ${role.status === 'ACTIVE' ? '禁用' : '启用'}
-                              </button>
-                            </div>
+                            ${isKolGoto
+                              ? '<span class="text-xs text-muted-foreground">系统固定</span>'
+                              : `<div class="flex gap-1">
+                                  <button type="button" data-factory-action="open-role-form-edit" data-role-id="${role.roleId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">编辑</button>
+                                  <button type="button" data-factory-action="toggle-role-status" data-role-id="${role.roleId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
+                                    ${role.status === 'ACTIVE' ? '禁用' : '启用'}
+                                  </button>
+                                </div>`}
                           </td>
                         </tr>
                       `
@@ -1334,8 +1291,13 @@ function renderPdaRolesSection(factoryId: string, pdaEnabled: boolean): string {
   `
 }
 
-function renderPdaPermissionsSection(): string {
-  const groups = permissionCatalog.reduce<Record<string, typeof permissionCatalog>>((acc, permission) => {
+function renderPdaPermissionsSection(factoryId: string): string {
+  const visiblePermissions = factoryId === KOL_GOTO_FACTORY_ID
+    ? permissionCatalog.filter((permission) =>
+        ['PICKUP_CONFIRM', 'HANDOUT_CREATE', 'TASK_FINISH', 'SETTLEMENT_VIEW', 'SETTLEMENT_CONFIRM', 'SETTLEMENT_DISPUTE', 'SETTLEMENT_CHANGE_REQUEST'].includes(permission.key),
+      )
+    : permissionCatalog
+  const groups = visiblePermissions.reduce<Record<string, typeof permissionCatalog>>((acc, permission) => {
     if (!acc[permission.group]) acc[permission.group] = []
     acc[permission.group].push(permission)
     return acc
@@ -1343,7 +1305,7 @@ function renderPdaPermissionsSection(): string {
 
   return `
     <div class="space-y-3">
-      <p class="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">权限矩阵按当前工厂端移动应用真实功能整理，实际授权请在“角色管理”中配置。</p>
+      <p class="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">${factoryId === KOL_GOTO_FACTORY_ID ? 'KOL-GOTO 权限矩阵固定：操作工仅加工领料、发起交出、完成；管理员另含结算权限。' : '权限矩阵按当前工厂端移动应用真实功能整理，实际授权请在“角色管理”中配置。'}</p>
       ${Object.entries(groups)
         .map(
           ([group, items]) => `
@@ -1391,6 +1353,7 @@ function renderFactoryDrawer(): string {
 
   const editingFactory = getEditingFactory()
   const factoryId = editingFactory?.id ?? ''
+  const isKolGoto = factoryId === KOL_GOTO_FACTORY_ID
   const availableTypes = typesByTier[draft.factoryTier] ?? []
   const parentCandidates = state.factories.filter(
     (factory) => factory.factoryTier === 'CENTRAL' && (!editingFactory || factory.id !== editingFactory.id),
@@ -1529,25 +1492,31 @@ function renderFactoryDrawer(): string {
 
             <section class="space-y-4">
               <h4 class="${sectionTitleClass}">生产流程开始条件</h4>
-              <div class="grid grid-cols-2 gap-3">
-                ${[
-                  { key: 'allowDispatch', label: '允许派单' },
-                  { key: 'allowBid', label: '允许竞价' },
-                  { key: 'allowExecute', label: '允许执行' },
-                  { key: 'allowSettle', label: '允许结算' },
-                ]
-                  .map((item) => {
-                    const checked = draft.eligibility[item.key as keyof typeof draft.eligibility]
-                    return `
-                      <label class="flex items-center gap-3">
-                        <input type="checkbox" data-factory-field="${item.key}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border" />
-                        <span class="text-sm">${item.label}</span>
-                      </label>
-                    `
-                  })
-                  .join('')}
-              </div>
-              <p class="text-xs text-muted-foreground">关闭开始条件会影响对应业务流转，请谨慎操作。</p>
+              ${isKolGoto
+                ? `<div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="rounded-md border bg-muted/30 px-3 py-2">普通派单：关闭</div>
+                    <div class="rounded-md border bg-muted/30 px-3 py-2">竞价：关闭</div>
+                    <div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700">整单执行：开启</div>
+                    <div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700">固定总价结算：开启</div>
+                  </div><p class="text-xs text-muted-foreground">KOL-GOTO 的开始条件由特殊流程固定，不提供可编辑开关。</p>`
+                : `<div class="grid grid-cols-2 gap-3">
+                    ${[
+                      { key: 'allowDispatch', label: '允许派单' },
+                      { key: 'allowBid', label: '允许竞价' },
+                      { key: 'allowExecute', label: '允许执行' },
+                      { key: 'allowSettle', label: '允许结算' },
+                    ]
+                      .map((item) => {
+                        const checked = draft.eligibility[item.key as keyof typeof draft.eligibility]
+                        return `
+                          <label class="flex items-center gap-3">
+                            <input type="checkbox" data-factory-field="${item.key}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border" />
+                            <span class="text-sm">${item.label}</span>
+                          </label>
+                        `
+                      })
+                      .join('')}
+                  </div><p class="text-xs text-muted-foreground">关闭开始条件会影响对应业务流转，请谨慎操作。</p>`}
             </section>
 
             <section class="space-y-4">
@@ -1657,7 +1626,7 @@ function renderFactoryDrawer(): string {
                   ? renderPdaUsersSection(factoryId, draft.pdaEnabled)
                   : state.pdaTab === 'roles'
                     ? renderPdaRolesSection(factoryId, draft.pdaEnabled)
-                    : renderPdaPermissionsSection()
+                    : renderPdaPermissionsSection(factoryId)
               }
             </section>
           </div>
@@ -1980,7 +1949,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
   if (taskAcceptanceToggle instanceof HTMLInputElement && state.formDraft) {
     const field = taskAcceptanceToggle.dataset.factoryTaskAcceptance as keyof Pick<
       FactoryTaskAcceptanceConfig,
-      'singleProcessEnabled' | 'canAcceptSewingIronPack' | 'canAcceptCuttingSewingIronPack' | 'wholeOrderEnabled'
+      'singleProcessEnabled' | 'canAcceptSewingIronPack' | 'canAcceptCuttingSewingIronPack'
     > | undefined
     if (!field) return true
 
@@ -1989,34 +1958,8 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       const nextConfig: FactoryTaskAcceptanceConfig = {
         ...config,
         [field]: taskAcceptanceToggle.checked,
-        wholeOrderRule: getWholeOrderRule(config),
       }
       return { ...prev, taskAcceptanceConfig: nextConfig }
-    })
-    return true
-  }
-
-  const taskAcceptanceInput = target.closest<HTMLElement>('[data-factory-task-acceptance-input]')
-  if ((taskAcceptanceInput instanceof HTMLInputElement || taskAcceptanceInput instanceof HTMLTextAreaElement) && state.formDraft) {
-    const field = taskAcceptanceInput.dataset.factoryTaskAcceptanceInput
-    if (!field) return true
-
-    setDraft((prev) => {
-      const config = ensureTaskAcceptanceConfig(prev.taskAcceptanceConfig)
-      const wholeOrderRule = getWholeOrderRule(config)
-
-      if (field === 'whole.applicableSaleTypes') wholeOrderRule.applicableSaleTypes = splitConfigText(taskAcceptanceInput.value)
-      if (field === 'whole.excludedProcessCodes') wholeOrderRule.excludedProcessCodes = splitConfigText(taskAcceptanceInput.value)
-      if (field === 'whole.defaultTaskName') wholeOrderRule.defaultTaskName = taskAcceptanceInput.value
-      if (field === 'whole.remark') wholeOrderRule.remark = taskAcceptanceInput.value
-
-      return {
-        ...prev,
-        taskAcceptanceConfig: {
-          ...config,
-          wholeOrderRule,
-        },
-      }
     })
     return true
   }

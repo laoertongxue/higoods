@@ -3,8 +3,9 @@ import { processTasks } from './process-tasks.ts'
 import { getSettlementEffectiveInfoByFactory } from './settlement-change-requests.ts'
 import { cycleTypeConfig, type CycleType } from './settlement-types.ts'
 import { listCurrentEffectiveTaskAssignments } from './effective-task-assignments.ts'
+import { isKolGotoWholeOrderTask } from './kol-goto-special-flow.ts'
 
-export type StatementPricingSourceType = 'DISPATCH' | 'BIDDING' | 'NONE'
+export type StatementPricingSourceType = 'DISPATCH' | 'BIDDING' | 'FIXED_TOTAL' | 'NONE'
 
 export interface StatementCycleFields {
   settlementCycleId: string
@@ -138,6 +139,20 @@ export function deriveTaskPricingFields(taskId: string | undefined, qty: number)
     }
   }
 
+  const task = processTasks.find((item) => item.taskId === taskId)
+  if (
+    task
+    && isKolGotoWholeOrderTask(task)
+    && task.pricingMode === 'FIXED_TOTAL'
+    && typeof task.fixedTotalPrice === 'number'
+  ) {
+    return {
+      pricingSourceType: 'FIXED_TOTAL',
+      pricingSourceRefId: task.taskId,
+      earningAmount: Number(task.fixedTotalPrice.toFixed(2)),
+    }
+  }
+
   const effectiveAssignments = listCurrentEffectiveTaskAssignments(taskId)
   if (effectiveAssignments.length === 1) {
     const assignment = effectiveAssignments[0]
@@ -149,7 +164,6 @@ export function deriveTaskPricingFields(taskId: string | undefined, qty: number)
     }
   }
 
-  const task = processTasks.find((item) => item.taskId === taskId)
   if (!task) {
     return {
       pricingSourceType: 'NONE',

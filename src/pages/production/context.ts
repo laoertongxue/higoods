@@ -44,8 +44,13 @@ import {
   type RuntimeTaskSplitGroupSnapshot,
 } from '../../data/fcs/runtime-process-tasks'
 import {
-  recordTaskGenerationPreview,
+  getTasksByOrderId,
+  upsertProcessTasksForProductionOrder,
 } from '../../data/fcs/process-tasks'
+import {
+  isKolGotoProductionOrder,
+  isKolGotoWholeOrderTask,
+} from '../../data/fcs/kol-goto-special-flow.ts'
 import { summarizeTaskDetailRows } from '../../data/fcs/task-detail-rows'
 import {
   applyQualitySeedBootstrap,
@@ -87,10 +92,9 @@ import {
   type MaterialPrepBreakdownReadiness,
 } from '../../data/fcs/cutting/production-material-prep'
 import {
-  buildBatchTaskGenerationPreview,
-  type ProductionTaskGenerationPreview,
-} from '../../data/fcs/production-task-generation-rules.ts'
-import { listProcessWorkOrders } from '../../data/fcs/process-work-order-domain.ts'
+  buildProductionTaskBreakdownPreviews,
+  type ProductionTaskBreakdownPreview,
+} from '../../data/fcs/production-task-breakdown.ts'
 import {
   createEmptyMaterialReplacementDraft,
   type MaterialReplacementDraft,
@@ -114,7 +118,7 @@ type DemandOwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
 interface TaskGenerationPreviewState {
   mode: 'single' | 'batch'
   orderIds: string[]
-  previews: ProductionTaskGenerationPreview[]
+  previews: ProductionTaskBreakdownPreview[]
 }
 
 type TechPackChangeDetailTab =
@@ -608,6 +612,36 @@ function getOrderRuntimeAssignmentSnapshot(order: ProductionOrder): {
   biddingSummary: ProductionOrder['biddingSummary']
   directDispatchSummary: ProductionOrder['directDispatchSummary']
 } {
+  if (isKolGotoProductionOrder(order)) {
+    const tasks = getTasksByOrderId(order.productionOrderId)
+      .filter((task) => isKolGotoWholeOrderTask(task, order))
+    const totalTasks = tasks.length
+    return {
+      assignmentSummary: {
+        directCount: totalTasks,
+        biddingCount: 0,
+        totalTasks,
+        unassignedCount: 0,
+      },
+      assignmentProgress: {
+        directAssignedCount: totalTasks,
+        biddingLaunchedCount: 0,
+        biddingAwardedCount: 0,
+        status: totalTasks > 0 ? 'DONE' : 'NOT_READY',
+      },
+      biddingSummary: {
+        activeTenderCount: 0,
+        nearestDeadline: undefined,
+        overdueTenderCount: 0,
+      },
+      directDispatchSummary: {
+        assignedFactoryCount: totalTasks > 0 ? 1 : 0,
+        rejectedCount: 0,
+        overdueAckCount: 0,
+      },
+    }
+  }
+
   const runtimeTaskCount = getRuntimeTaskCountByOrder(order.productionOrderId)
   if (runtimeTaskCount === 0) {
     const emptySummary = {
@@ -710,6 +744,32 @@ function getTaskDetailRows(task: RuntimeProcessTask) {
 }
 
 function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdownSnapshot {
+  if (isKolGotoProductionOrder(order)) {
+    const tasks = getTasksByOrderId(order.productionOrderId)
+      .filter((task) => isKolGotoWholeOrderTask(task, order))
+    if (tasks.length > 0) {
+      const lastTask = [...tasks].sort((left, right) =>
+        (right.updatedAt || right.createdAt).localeCompare(left.updatedAt || left.createdAt),
+      )[0]
+      const totalQty = tasks.reduce((sum, task) => sum + task.qty, 0)
+      return {
+        isBrokenDown: true,
+        taskTypesTop3: Array.from(new Set(tasks.map((task) => task.processBusinessName || task.processNameZh))),
+        detailRowCount: tasks.length,
+        detailRowTotalQty: totalQty,
+        detailRowPreview: `整单任务 ${totalQty.toLocaleString('zh-CN')}件`,
+        sourceTaskCount: tasks.length,
+        splitSourceCount: 0,
+        splitResultCount: 0,
+        executionTaskCount: tasks.length,
+        splitGroupCount: 0,
+        splitEvents: [],
+        lastBreakdownAt: lastTask.updatedAt || lastTask.createdAt,
+        lastBreakdownBy: lastTask.auditLogs[lastTask.auditLogs.length - 1]?.by ?? '系统',
+      }
+    }
+  }
+
   const runtimeTasks = listRuntimeTasksByOrder(order.productionOrderId)
   const splitEvents = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId)
   if (runtimeTasks.length === 0) {
@@ -855,6 +915,7 @@ function getOrderBusinessTechPackStatus(
 }
 
 function canOrderStartTaskBreakdown(order: ProductionOrder): boolean {
+  if (isKolGotoProductionOrder(order)) return false
   const statusAllowsBreakdown = order.status === 'READY_FOR_BREAKDOWN' || order.status === 'WAIT_ASSIGNMENT'
   return (
     getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
@@ -865,6 +926,7 @@ function canOrderStartTaskBreakdown(order: ProductionOrder): boolean {
 }
 
 function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
+  if (isKolGotoProductionOrder(order)) return 'KOL 生产单已在转单时自动拆解'
   if (getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED') {
     return '技术包快照缺失，无法拆解'
   }
@@ -876,8 +938,8 @@ function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
 }
 
 function openTaskGenerationPreview(orderIds: string[]): number {
-  const previews = buildBatchTaskGenerationPreview(orderIds, listProcessWorkOrders())
-  const visiblePreviews = previews.filter((preview) => preview.status !== 'BLOCKED' || preview.blockedReasons.length > 0)
+  const previews = buildProductionTaskBreakdownPreviews(orderIds)
+  const visiblePreviews = previews.filter((preview) => preview.status === 'READY' || preview.blockedReasons.length > 0)
   if (visiblePreviews.length === 0) return 0
   state.taskGenerationPreview = {
     mode: orderIds.length > 1 ? 'batch' : 'single',
@@ -898,7 +960,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
   const now = toTimestamp()
   let changedCount = 0
   const previewByOrderId = new Map(
-    buildBatchTaskGenerationPreview([...targetIds], listProcessWorkOrders()).map((preview) => [preview.productionOrderId, preview]),
+    buildProductionTaskBreakdownPreviews([...targetIds]).map((preview) => [preview.productionOrderId, preview]),
   )
 
   const nextOrders = state.orders.map((order) => {
@@ -908,12 +970,16 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     const preview = previewByOrderId.get(order.productionOrderId)
     if (!preview || preview.status === 'BLOCKED') return order
 
-    const runtimeRecord = recordTaskGenerationPreview(preview)
+    const generatedTasks = upsertProcessTasksForProductionOrder(order, now, currentUser.name)
+    if (generatedTasks.length === 0) return order
     changedCount += 1
-    const totalTasks = preview.generatedUnits.length
-    const directCount = preview.generatedUnits.filter((unit) => !unit.allowAutoDispatch || unit.taskUnitType === 'SINGLE_PROCESS_TASK').length
-    const biddingCount = Math.max(0, totalTasks - directCount)
-    const coveredProcessNames = Array.from(new Set(preview.generatedUnits.flatMap((unit) => unit.coveredProcesses.map((item) => item.craftName || item.processName))))
+    const totalTasks = generatedTasks.length
+    const directCount = generatedTasks.filter((task) => task.assignmentMode === 'DIRECT').length
+    const biddingCount = generatedTasks.filter((task) => task.assignmentMode === 'BIDDING').length
+    const unassignedCount = generatedTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length
+    const coveredProcessNames = Array.from(new Set(generatedTasks.flatMap((task) =>
+      (task.coveredProcesses ?? []).map((item) => item.craftName || item.processName),
+    )))
 
     return {
       ...order,
@@ -922,7 +988,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
         directCount,
         biddingCount,
         totalTasks,
-        unassignedCount: totalTasks,
+        unassignedCount,
       },
       assignmentProgress: {
         status: 'PENDING',
@@ -941,26 +1007,22 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
       },
       taskBreakdownSummary: {
         isBrokenDown: true,
-        taskTypesTop3: preview.generatedUnits.slice(0, 3).map((unit) => unit.taskName),
+        taskTypesTop3: generatedTasks.slice(0, 3).map((task) => task.processNameZh),
         lastBreakdownAt: now,
         lastBreakdownBy: currentUser.name,
-        generationRuleId: preview.matchedRuleId,
-        generationRuleName: preview.matchedRuleName,
-        generatedTaskUnitCount: preview.generatedUnits.length,
-        singleProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'SINGLE_PROCESS_TASK').length,
-        independentWorkOrderTaskCount: runtimeRecord.independentWorkOrderCount,
-        independentWorkOrderCount: runtimeRecord.independentWorkOrderCount,
-        mergedProductionTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'MERGED_PRODUCTION_TASK').length,
-        wholeOrderTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK').length,
+        generatedTaskUnitCount: generatedTasks.length,
+        singleProcessTaskCount: generatedTasks.filter((task) => task.taskUnitType === 'SINGLE_PROCESS_TASK').length,
+        independentWorkOrderTaskCount: preview.processWorkOrders.length,
+        mergedProductionTaskCount: generatedTasks.filter((task) => task.taskUnitType === 'MERGED_PRODUCTION_TASK').length,
+        wholeOrderTaskCount: generatedTasks.filter((task) => task.taskUnitType === 'WHOLE_ORDER_TASK').length,
         coveredProcessNames,
-        previewStatus: preview.status,
       },
       auditLogs: [
         ...order.auditLogs,
         {
           id: nextLocalEntityId('LOG'),
           action: 'TASK_BREAKDOWN',
-          detail: `按${preview.matchedRuleName || '默认规则'}确认拆解任务，生成 ${preview.generatedUnits.length} 条任务单元、关联 ${preview.independentWorkOrders.length} 张独立加工单`,
+          detail: `确认拆解任务，生成 ${generatedTasks.length} 张生产任务、关联 ${preview.processWorkOrders.length} 张印花/染色加工单`,
           at: now,
           by: currentUser.name,
         },
@@ -975,7 +1037,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
 
 function confirmTaskGenerationPreview(): number {
   const orderIds = state.taskGenerationPreview?.previews
-    .filter((preview) => preview.status === 'READY' || preview.status === 'NEED_CONFIRM' || preview.status === 'NO_MATCH_USE_DEFAULT')
+    .filter((preview) => preview.status === 'READY')
     .map((preview) => preview.productionOrderId) ?? []
   const changed = applyOrderTaskBreakdown(orderIds)
   if (changed > 0) closeTaskGenerationPreview()

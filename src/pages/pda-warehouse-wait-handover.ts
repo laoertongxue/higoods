@@ -38,6 +38,7 @@ import {
   type PdaCuttingWaitHandoverAction,
 } from './pda-cutting-wait-handover-actions.ts'
 import { renderRouteRedirect } from '../router/route-utils.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 
@@ -384,6 +385,17 @@ function renderPostFinishingWaitHandoverPage(): string {
 export function renderPdaWarehouseWaitHandoverPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (isKolGotoFactory(runtime.factoryId)) {
+    return renderPdaFrame(`
+      <div class="space-y-4 p-4">
+        <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <h1 class="font-semibold">KOL-GOTO 不使用待交出仓</h1>
+          <p class="mt-2 text-sm leading-6">成衣交出由“执行 → 发起交出”直接记录，不生成待交出仓库存，也不等待仓管确认。</p>
+        </section>
+        <button class="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process">返回待加工仓</button>
+      </div>
+    `, 'warehouse', { headerTitle: '仓库', disableTodoAutoOpen: true })
+  }
   if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderRouteRedirect('/fcs/pda/handover?tab=handout', '毛织发起交出已统一到交接')
   const factoryType = getFactoryMasterRecordById(runtime.factoryId)?.factoryType
   if (factoryType === 'CENTRAL_AUX' || factoryType === 'CENTRAL_SPECIAL') {
@@ -468,6 +480,9 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
 }
 
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
+  if (isKolGotoFactory(getMobileWarehouseRuntimeContext()?.factoryId)) {
+    return Boolean(target.closest('[data-pda-warehouse-action],[data-pda-warehouse-field],[data-warehouse-map-action]'))
+  }
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
   if (action === 'open-wait-handover-detail' && actionNode.dataset.stockItemId) {

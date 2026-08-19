@@ -26,6 +26,7 @@ import {
   type PostFinishingTaskView,
 } from './post-finishing-domain.ts'
 import type { ProcessTask } from './process-tasks.ts'
+import { isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import {
   getPrintWorkOrderById,
   getPrintWorkOrderByTaskId,
@@ -484,6 +485,7 @@ function classifyCoveredProcesses(task: ProcessTask): MobileTaskProcessType | nu
 
 export function getMobileTaskProcessType(task: ProcessTask | null | undefined): MobileTaskProcessType {
   if (!task) return 'UNKNOWN'
+  if (isKolGotoWholeOrderTask(task)) return 'SEWING'
   const explicitType = classifyStructuredProcessCode(task.processBusinessCode)
     || classifyStructuredProcessCode(task.processCode)
   if (explicitType) return explicitType
@@ -532,7 +534,10 @@ export function isMobileTaskFactoryMatched(
   if (!task) return false
   const taskFactoryId = getMobileTaskFactoryId(task)
   const expected = expectedFactoryId || currentFactoryId
-  if (taskFactoryId === expected && taskFactoryId === currentFactoryId) return true
+  const normalizedTaskFactoryId = normalizeKolGotoFactoryId(taskFactoryId) ?? taskFactoryId
+  const normalizedExpected = normalizeKolGotoFactoryId(expected) ?? expected
+  const normalizedCurrentFactoryId = normalizeKolGotoFactoryId(currentFactoryId) ?? currentFactoryId
+  if (normalizedTaskFactoryId === normalizedExpected && normalizedTaskFactoryId === normalizedCurrentFactoryId) return true
   return isOnboardingCuttingDemoFactory(currentFactoryId)
     && taskFactoryId === TEST_FACTORY_ID
     && (!expectedFactoryId || expectedFactoryId === TEST_FACTORY_ID || expectedFactoryId === currentFactoryId)

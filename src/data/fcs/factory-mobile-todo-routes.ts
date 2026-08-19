@@ -24,6 +24,7 @@ export function resolveFactoryMobileTodoActionRoute(todo: FactoryMobileTodoRoute
     case '待开工':
     case '待完工':
     case '待加工填报':
+    case '加工领料':
     case '异常待处理':
       return todo.relatedTaskId ? `/fcs/pda/exec/${todo.relatedTaskId}` : '/fcs/pda/exec'
     case '待确认接收':

@@ -93,6 +93,26 @@ export const operatorFactoryMobileAppPermissionKeys: PermissionKey[] =
       permissionKey !== 'SETTLEMENT_CHANGE_REQUEST',
   )
 
+export const kolGotoOperatorPermissionKeys: PermissionKey[] = [
+  'PICKUP_CONFIRM',
+  'HANDOUT_CREATE',
+  'TASK_FINISH',
+]
+
+export const kolGotoAdminPermissionKeys: PermissionKey[] = [
+  ...kolGotoOperatorPermissionKeys,
+  'SETTLEMENT_VIEW',
+  'SETTLEMENT_CONFIRM',
+  'SETTLEMENT_DISPUTE',
+  'SETTLEMENT_CHANGE_REQUEST',
+]
+
+const KOL_GOTO_ROLE_IDS = new Set(['ROLE_ADMIN', 'ROLE_OPERATOR'])
+
+function isKolGotoRoleId(roleId: string): boolean {
+  return KOL_GOTO_ROLE_IDS.has(roleId)
+}
+
 // =============================================
 // FactoryRole / FactoryUser（旧版简单模型）
 // =============================================
@@ -393,6 +413,15 @@ const PRESET_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
   ROLE_OPERATOR: [...operatorFactoryMobileAppPermissionKeys],
 }
 
+function getPresetRolePermissions(factoryId: string, roleId: string): PermissionKey[] {
+  if (factoryId !== KOL_GOTO_FACTORY_ID) {
+    return [...(PRESET_ROLE_PERMISSIONS[roleId] ?? [])]
+  }
+  return roleId === 'ROLE_ADMIN'
+    ? [...kolGotoAdminPermissionKeys]
+    : [...kolGotoOperatorPermissionKeys]
+}
+
 const PRESET_ROLE_NAMES: Record<string, string> = {
   ROLE_ADMIN: '管理员',
   ROLE_OPERATOR: '操作工',
@@ -417,12 +446,31 @@ export function generatePresetRolesForFactory(factoryId: string, now: string): F
     factoryId,
     roleName: PRESET_ROLE_NAMES[roleId],
     status: 'ACTIVE' as const,
-    permissionKeys: PRESET_ROLE_PERMISSIONS[roleId],
+    permissionKeys: getPresetRolePermissions(factoryId, roleId),
     isSystemPreset: true,
     createdAt: now,
     createdBy: 'SYSTEM',
     auditLogs: [],
   }))
+}
+
+function normalizeKolGotoPdaRoles(roles: FactoryPdaRole[]): FactoryPdaRole[] {
+  const ordinaryRoles = roles.filter((role) => role.factoryId !== KOL_GOTO_FACTORY_ID)
+  const existingRoles = roles.filter(
+    (role) => role.factoryId === KOL_GOTO_FACTORY_ID && isKolGotoRoleId(role.roleId),
+  )
+  const fixedRoles = generatePresetRolesForFactory(KOL_GOTO_FACTORY_ID, INIT_NOW).map((preset) => {
+    const existing = existingRoles.find((role) => role.roleId === preset.roleId)
+    return {
+      ...preset,
+      createdAt: existing?.createdAt ?? preset.createdAt,
+      createdBy: existing?.createdBy ?? preset.createdBy,
+      updatedAt: existing?.updatedAt,
+      updatedBy: existing?.updatedBy,
+      auditLogs: existing?.auditLogs.map((item) => ({ ...item })) ?? [],
+    }
+  })
+  return [...ordinaryRoles, ...fixedRoles]
 }
 
 const INIT_NOW = '2024-01-01 00:00:00'
@@ -683,13 +731,18 @@ function ensurePdaRoleStore(): FactoryPdaRole[] {
 
   const stored = readStoredJson<FactoryPdaRole[]>(PDA_ROLE_STORE_KEY)
   if (Array.isArray(stored) && stored.length > 0) {
-    cachedPdaRoles = stored
+    const storedRoles = stored
       .map((item) => normalizeStoredPdaRole(item))
       .filter((item): item is FactoryPdaRole => Boolean(item))
+    cachedPdaRoles = normalizeKolGotoPdaRoles(storedRoles)
+    let needsMigration = JSON.stringify(cachedPdaRoles) !== JSON.stringify(storedRoles)
     const roleKeys = new Set(cachedPdaRoles.map((item) => `${item.factoryId}:${item.roleId}`))
     const missingSeedRoles = initialFactoryPdaRoles.filter((item) => !roleKeys.has(`${item.factoryId}:${item.roleId}`)).map(clonePdaRole)
     if (missingSeedRoles.length > 0) {
       cachedPdaRoles = [...cachedPdaRoles, ...missingSeedRoles]
+      needsMigration = true
+    }
+    if (needsMigration) {
       writeStoredJson(PDA_ROLE_STORE_KEY, cachedPdaRoles)
     }
     return cachedPdaRoles
@@ -788,6 +841,10 @@ export function findFactoryPdaRoleById(roleId: string, factoryId?: string): Fact
 
 export function replaceFactoryPdaRoles(factoryId: string, roles: FactoryPdaRole[]): void {
   const current = ensurePdaRoleStore().filter((item) => item.factoryId !== factoryId)
+  if (factoryId === KOL_GOTO_FACTORY_ID) {
+    persistPdaRoles(normalizeKolGotoPdaRoles(current))
+    return
+  }
   persistPdaRoles([...current, ...roles.map(clonePdaRole)])
 }
 
@@ -832,6 +889,9 @@ export function createFactoryPdaUser(input: {
 
   if (!factoryId || !name || !loginId || !password || !roleId) {
     throw new Error('新增账号需要填写姓名和登录账户。')
+  }
+  if (factoryId === KOL_GOTO_FACTORY_ID && !isKolGotoRoleId(roleId)) {
+    throw new Error('KOL-GOTO 账号只能使用管理员或操作工固定角色。')
   }
 
   validateGlobalUniqueLoginId(loginId)
@@ -902,6 +962,13 @@ export function updateFactoryPdaUser(
     throw new Error('登录账户不能为空。')
   }
   validateGlobalUniqueLoginId(nextLoginId, current.userId)
+  if (
+    current.factoryId === KOL_GOTO_FACTORY_ID &&
+    patch.roleId !== undefined &&
+    !isKolGotoRoleId(String(patch.roleId))
+  ) {
+    throw new Error('KOL-GOTO 账号只能使用管理员或操作工固定角色。')
+  }
 
   const updated: FactoryPdaUser = {
     ...current,

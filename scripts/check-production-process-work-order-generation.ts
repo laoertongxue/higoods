@@ -45,6 +45,7 @@ import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/pro
 import { generateTaskArtifactsForAllOrders } from '../src/data/fcs/production-artifact-generation.ts'
 import { processTasks } from '../src/data/fcs/process-tasks.ts'
 import { listMilestoneConfigs } from '../src/data/fcs/milestone-configs.ts'
+import { isKolGotoProductionOrder, isKolGotoSaleType } from '../src/data/fcs/kol-goto-special-flow.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -89,7 +90,8 @@ const dyeAndPrint: FormalProductionOrderProcessSnapshot = {
 }
 
 const sourceOrder = productionOrders.find((order) => (
-  order.techPackSnapshot
+  !isKolGotoProductionOrder(order)
+  && order.techPackSnapshot
   && order.techPackSnapshot.bomItems.length > 0
   && order.techPackSnapshot.processEntries.length > 0
 ))
@@ -449,7 +451,7 @@ const mixedWaterDyeOrder: ProductionOrder = {
 }
 assert.throws(
   () => buildFormalProductionOrderProcessSnapshots(mixedWaterDyeOrder),
-  /染色工艺绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
+  /染色工序绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
   '同一染色快照混合需水溶与不需水溶 BOM 时必须明确阻断，不能整单升级或拆单',
 )
 assert.throws(
@@ -663,7 +665,7 @@ assertFailedBatchLeavesStateUnchanged(zeroPlannedQtyOrder, /正式生产单加�
 assertFailedBatchLeavesStateUnchanged(emptyTechPackVersionOrder, /正式生产单必须携带已发布技术包版本快照/)
 assertFailedBatchLeavesStateUnchanged(emptyMaterialNameOrder, /正式生产单必须携带 BOM 面料快照/)
 assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
-assertFailedBatchLeavesStateUnchanged(mixedWaterDyeOrder, /染色工艺绑定的 BOM 水溶属性不一致/)
+assertFailedBatchLeavesStateUnchanged(mixedWaterDyeOrder, /染色工序绑定的 BOM 水溶属性不一致/)
 
 applyCreatedProductionOrderGroups([transactionGroup], transactionNow)
 assert.equal(
@@ -680,7 +682,9 @@ assert.deepEqual(
 assert.equal(listProcessWorkOrders('DYE').length, transactionDyeCountBefore + 1, '修正重试后应新增一张染色加工单')
 assert.equal(listProcessWorkOrders('PRINT').length, transactionPrintCountBefore + 1, '修正重试后应新增一张印花加工单')
 
-const mixedRetryDemand = state.demands.find((demand) => !demand.hasProductionOrder)
+const mixedRetryDemand = state.demands.find((demand) => (
+  !demand.hasProductionOrder && !isKolGotoSaleType(demand.saleType)
+))
 assert(mixedRetryDemand, '缺少可用于混合水溶属性原子性重试的未转换需求')
 const mixedRetryOrder: ProductionOrder = {
   ...mixedWaterDyeOrder,
@@ -690,6 +694,7 @@ const mixedRetryOrder: ProductionOrder = {
   sourceDemandIds: [mixedRetryDemand.demandId],
 }
 const mixedRetryGroup: CreatedProductionOrderGroup = { demands: [mixedRetryDemand], order: mixedRetryOrder }
+const mixedRetryPdaTaskIdsBefore = new Set(listPdaGenericProcessTasks().map((task) => task.taskId))
 const mixedRetryBefore = {
   orderCount: state.orders.length,
   dyeCount: listProcessWorkOrders('DYE').length,
@@ -704,7 +709,7 @@ const mixedRetryBefore = {
 }
 assert.throws(
   () => applyCreatedProductionOrderGroups([mixedRetryGroup], transactionNow),
-  /染色工艺绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
+  /染色工序绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
   '混合水溶属性必须在生产单和加工单写入前整批阻断',
 )
 assert.deepEqual({
@@ -733,7 +738,14 @@ const correctedMixedRetryDyeOrders = listProcessWorkOrders('DYE')
 assert.equal(correctedMixedRetryDyeOrders.length, 1, '修正为全部需水溶后重试必须只生成一张染色加工单')
 assert.equal(getDyeWorkOrderById(correctedMixedRetryDyeOrders[0]!.workOrderId)?.requiresWaterSoluble, true, '修正重试生成的唯一染色加工单必须包含联合水溶')
 assert.equal(listProcessWorkOrders('PRINT').length, mixedRetryBefore.printCount, '纯染色重试不得生成印花加工单')
-assert.equal(listPdaGenericProcessTasks().length, mixedRetryBefore.pdaCount + 1, '修正重试只允许新增一个染色 PDA 任务')
+const mixedRetryAddedPdaTaskIds = listPdaGenericProcessTasks()
+  .map((task) => task.taskId)
+  .filter((taskId) => !mixedRetryPdaTaskIdsBefore.has(taskId))
+assert.equal(
+  mixedRetryAddedPdaTaskIds.length,
+  1,
+  `修正重试只允许新增一个染色 PDA 任务；实际新增：${mixedRetryAddedPdaTaskIds.join('、')}`,
+)
 
 const ordinaryDyeBefore = listProcessWorkOrders('DYE').length
 const ordinaryDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(aggregatedDyeSnapshots[0]!)
@@ -1115,12 +1127,16 @@ assert(
 const applyCreatedStart = demandDomainSource.indexOf('function applyCreatedProductionOrderGroups')
 const openCreatedStart = demandDomainSource.indexOf('function openCreatedProductionOrders', applyCreatedStart)
 const applyCreatedSource = demandDomainSource.slice(applyCreatedStart, openCreatedStart)
-const writeOrdersAt = applyCreatedSource.indexOf('state.orders =')
-const ensureOrdersAt = applyCreatedSource.indexOf('ensureProcessWorkOrdersForFormalProductionOrder')
-assert(writeOrdersAt >= 0 && ensureOrdersAt > writeOrdersAt, '必须先写入生产单，再自动生成加工单')
+const prepareWorkOrdersAt = applyCreatedSource.indexOf('prepareProcessWorkOrdersForFormalProductionOrders')
+const writeOrdersAt = applyCreatedSource.indexOf('state.orders.push(')
+const commitWorkOrdersAt = applyCreatedSource.indexOf('preparedWorkOrders.commit()')
+assert(
+  prepareWorkOrdersAt >= 0 && writeOrdersAt > prepareWorkOrdersAt && commitWorkOrdersAt > writeOrdersAt,
+  '加工单必须先完成无副作用预校验，写入生产单后才统一提交加工单',
+)
 assert(
   applyCreatedSource.includes('buildFormalProductionOrderProcessSnapshots(item.order)'),
-  '生产单写入后必须通过已验证的纯转换函数生成各工艺快照',
+  '生产单落库前必须通过已验证的纯转换函数预生成各工艺快照，失败时不得留下半成品',
 )
 assert(
   dyeingTaskDomainSource.includes('deriveFormalProductionOrderProcessSnapshots'),

@@ -15,27 +15,6 @@ function cloneTaskAcceptanceConfig(config: Factory['taskAcceptanceConfig']): Fac
     singleProcessEnabled: config.singleProcessEnabled,
     canAcceptSewingIronPack: config.canAcceptSewingIronPack,
     canAcceptCuttingSewingIronPack: config.canAcceptCuttingSewingIronPack,
-    wholeOrderEnabled: config.wholeOrderEnabled,
-    wholeOrderRule: config.wholeOrderRule
-      ? {
-          ...config.wholeOrderRule,
-          applicableSaleTypes: [...config.wholeOrderRule.applicableSaleTypes],
-          excludedProcessCodes: [...config.wholeOrderRule.excludedProcessCodes],
-        }
-      : undefined,
-  }
-}
-
-function stripLegacyWholeOrderConfig(factory: Factory): Factory {
-  if (!factory.taskAcceptanceConfig) return factory
-  if (!['ID-F002', 'ID-F005', 'ID-F011'].includes(factory.id)) return factory
-  return {
-    ...factory,
-    taskAcceptanceConfig: {
-      ...factory.taskAcceptanceConfig,
-      wholeOrderEnabled: false,
-      wholeOrderRule: undefined,
-    },
   }
 }
 
@@ -46,34 +25,32 @@ function normalizeKolGotoFactoryProfile(factory: Factory): Factory {
     cooperationMode: 'general',
     factoryTier: 'THIRD_PARTY',
     factoryType: 'THIRD_SEWING',
+    eligibility: {
+      allowDispatch: false,
+      allowBid: false,
+      allowExecute: true,
+      allowSettle: true,
+    },
   }
 }
 
 function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
-  factory = stripLegacyWholeOrderConfig(normalizeKolGotoFactoryProfile(factory))
-  if (factory.taskAcceptanceConfig) return factory
+  factory = normalizeKolGotoFactoryProfile(factory)
   if (factory.id === KOL_GOTO_FACTORY_ID) {
     return {
       ...factory,
+      processAbilities: factory.processAbilities.map((ability) => ({
+        ...ability,
+        canReceiveTask: false,
+      })),
       taskAcceptanceConfig: {
-        singleProcessEnabled: true,
+        singleProcessEnabled: false,
         canAcceptSewingIronPack: false,
         canAcceptCuttingSewingIronPack: false,
-        wholeOrderEnabled: true,
-        wholeOrderRule: {
-          enabled: true,
-          applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
-          excludedProcessCodes: ['PRINT', 'DYE'],
-          defaultTaskName: 'KOL整单任务',
-          allowRuleRecommendation: true,
-          handoverReceiverKind: 'WAREHOUSE',
-          handoverReceiverName: '仓库',
-          pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
-          remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
-        },
       },
     }
   }
+  if (factory.taskAcceptanceConfig) return factory
   if (factory.id === 'ID-F014') {
     return {
       ...factory,
@@ -81,7 +58,6 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
         singleProcessEnabled: true,
         canAcceptSewingIronPack: true,
         canAcceptCuttingSewingIronPack: true,
-        wholeOrderEnabled: false,
       },
     }
   }
@@ -91,7 +67,6 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
       singleProcessEnabled: true,
       canAcceptSewingIronPack: false,
       canAcceptCuttingSewingIronPack: false,
-      wholeOrderEnabled: false,
     },
   }
 }

@@ -32,6 +32,7 @@ import { productionOrders } from '../data/fcs/production-orders'
 import { listWoolWorkOrders } from '../data/fcs/wool-task-domain'
 import { escapeHtml } from '../utils'
 import { matchesWarehouseInventoryQueryCode } from './pda-warehouse-query-code'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 
 type StocktakeFilter = '全部' | '盘点中' | '待确认' | '已完成' | '已取消'
 type WarehouseToolMode = 'search' | 'scan' | 'stocktake'
@@ -848,6 +849,17 @@ function renderStocktakeDetailPage(order: ReturnType<typeof getRows>[number]): s
 export function renderPdaWarehouseStocktakePage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
+  if (isKolGotoFactory(runtime.factoryId)) {
+    return renderPdaFrame(`
+      <div class="space-y-4 p-4">
+        <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <h1 class="font-semibold">KOL-GOTO 不开放盘点与库存调整</h1>
+          <p class="mt-2 text-sm leading-6">这里仅保留加工领料自动形成的入库、出库流水；不维护盘点、退回或位置调整。</p>
+        </section>
+        <button class="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process">返回待加工仓</button>
+      </div>
+    `, 'warehouse', { headerTitle: '仓库', disableTodoAutoOpen: true })
+  }
   const mode = getWarehouseToolMode()
   const modeMeta = MODE_OPTIONS.find((item) => item.value === mode) || MODE_OPTIONS[0]
   const isStocktakeDetail = mode === 'stocktake' && Boolean(state.selectedOrderId)
@@ -869,6 +881,9 @@ function submitInventoryQuery(rawQuery: string, origin: 'manual' | 'scan'): void
 }
 
 export function handlePdaWarehouseStocktakeEvent(target: HTMLElement, event?: Event): boolean {
+  if (isKolGotoFactory(getMobileWarehouseRuntimeContext()?.factoryId)) {
+    return Boolean(target.closest('[data-pda-warehouse-action],[data-pda-warehouse-field]'))
+  }
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
   if (action === 'run-inventory-query') {

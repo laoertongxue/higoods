@@ -1,6 +1,7 @@
 import { appStore } from '../state/store'
 import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
+import { productionOrders } from '../data/fcs/production-orders.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
 import {
@@ -78,6 +79,11 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
+import {
+  isKolGotoFactory,
+  isKolGotoWholeOrderTask,
+} from '../data/fcs/kol-goto-special-flow.ts'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
 
@@ -154,6 +160,8 @@ interface TaskReceiveState {
   rejectReason: string
   acceptDialogTaskId: string
   acceptDialogAcceptedAt: string
+  kolImageUrl: string
+  kolImageAlt: string
 }
 
 const TABS: Array<{ key: TabKey; label: string }> = [
@@ -179,6 +187,15 @@ const state: TaskReceiveState = {
   rejectReason: '',
   acceptDialogTaskId: '',
   acceptDialogAcceptedAt: '',
+  kolImageUrl: '',
+  kolImageAlt: '',
+}
+
+export function closePdaTaskReceiveDialogsOnEscape(): boolean {
+  if (!state.kolImageUrl) return false
+  state.kolImageUrl = ''
+  state.kolImageAlt = ''
+  return true
 }
 
 const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
@@ -625,19 +642,6 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
   `
 }
 
-function isWholeOrderFiveStepTask(task: ProcessTask): boolean {
-  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
-}
-
-function renderWholeOrderFiveStepHint(task: ProcessTask): string {
-  if (!isWholeOrderFiveStepTask(task)) return ''
-  return `
-    <div class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">
-      接单后按确认接收 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认执行，不直接完工。
-    </div>
-  `
-}
-
 function renderEmptyState(label: string): string {
   return `
     <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -779,7 +783,6 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
 
         ${renderPendingAcceptFieldGrid(task)}
         ${renderCoveredProcessSummary(task)}
-        ${renderWholeOrderFiveStepHint(task)}
         <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
         </div>
@@ -1237,6 +1240,70 @@ function renderRejectDialog(): string {
   `
 }
 
+function renderKolGotoReceiveReadOnlyPage(factoryName: string): string {
+  const tasks = listPdaMobileExecutionTasks()
+    .filter((task) => isKolGotoWholeOrderTask(task))
+    .filter((task) => task.assignedFactoryId && isKolGotoFactory(task.assignedFactoryId))
+    .filter((task) => {
+      const keyword = state.keyword.trim().toLowerCase()
+      if (!keyword) return true
+      return [task.taskId, task.taskNo, task.productionOrderId, getTaskProductionOrderNo(task), task.saleTypeSnapshot]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))
+    })
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background">
+      <header class="sticky top-0 z-20 space-y-3 border-b bg-background px-4 py-3">
+        <div>
+          <h1 class="text-base font-semibold">接单查看</h1>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(factoryName)} 的 KOL 整单任务由系统固定分配并自动接收；本页仅供查看。</p>
+        </div>
+        <div class="relative">
+          <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
+          <input class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm" placeholder="搜索任务号 / 生产单号" data-pda-tr-field="keyword" value="${escapeHtml(state.keyword)}" />
+        </div>
+      </header>
+      <main class="flex-1 space-y-3 p-4">
+        ${tasks.length === 0 ? renderEmptyState('暂无 KOL 整单任务') : tasks.map((task) => {
+          const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+          const imageUrl = order?.techPackSnapshot?.imageSnapshot.styleImages[0]
+            || order?.techPackSnapshot?.imageSnapshot.productImages[0]
+            || order?.techPackSnapshot?.imageSnapshot.sampleImages[0]
+            || ''
+          const imageAlt = `${order?.techPackSnapshot?.styleName || order?.demandSnapshot.spuName || 'KOL样衣'}款式图`
+          return `
+          <article class="overflow-hidden rounded-lg border border-blue-200 bg-card">
+            <div class="space-y-3 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-mono text-sm font-semibold">${escapeHtml(task.taskNo || task.taskId)}</span>
+                <span class="rounded bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">已自动接收</span>
+              </div>
+              <div class="flex gap-3">
+                ${imageUrl
+                  ? `<button class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted" data-pda-tr-action="open-kol-image" data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(imageAlt)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageAlt)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+                  : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 p-2 text-center text-[11px] text-red-700">缺少对应款式图</div>'}
+                <div class="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
+                ${renderFieldRow('售卖类型', task.saleTypeSnapshot || '-')}
+                ${renderFieldRow('任务', getTaskProcessDisplayName(task))}
+                ${renderFieldRow('数量', `${task.qty} ${task.qtyDisplayUnit || '件'}`)}
+                ${renderFieldRow('固定总价', `${Number(task.fixedTotalPrice || 0).toLocaleString()} ${task.fixedTotalPriceCurrency || 'IDR'}/${task.fixedTotalPriceUnit || '整单'}`, true)}
+                ${renderFieldRow('任务截止', task.taskDeadline || '-')}
+                </div>
+              </div>
+              ${renderCoveredProcessSummary(task)}
+            </div>
+            <div class="border-t px-3 py-2">
+              <button class="inline-flex h-8 w-full items-center justify-center rounded-md border px-3 text-xs" data-pda-tr-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">查看任务详情</button>
+            </div>
+          </article>
+        `}).join('')}
+      </main>
+      ${state.kolImageUrl ? `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4" data-pda-tr-action="close-kol-image"><button class="absolute right-4 top-4 rounded-full bg-white px-3 py-2 text-sm" data-pda-tr-action="close-kol-image">关闭</button><img src="${escapeHtml(state.kolImageUrl)}" alt="${escapeHtml(state.kolImageAlt)}" class="max-h-[85vh] max-w-full rounded-xl object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><div hidden class="rounded-xl bg-white p-8 text-sm text-red-700">图片加载失败，请核对原图素材。</div></div>` : ''}
+    </div>
+  `
+  return renderPdaFrame(content, 'task-receive')
+}
+
 export function renderPdaTaskReceivePage(): string {
   if (!getPdaRuntimeContext()) {
     return renderPdaLoginRedirect()
@@ -1247,6 +1314,10 @@ export function renderPdaTaskReceivePage(): string {
   const selectedFactoryId = getCurrentFactoryId()
   const factoryName = getFactoryName(selectedFactoryId)
   scheduleTaskFocus(getFocusedTaskId())
+  if (isKolGotoFactory(selectedFactoryId)) {
+    ensureKolGotoPdaScenarios()
+    return renderKolGotoReceiveReadOnlyPage(factoryName)
+  }
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
   const activeBiddingTenders = getActiveBiddingTenders()
@@ -1430,6 +1501,24 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.pdaTrAction
   if (!action) return false
+
+  if (action === 'open-kol-image') {
+    state.kolImageUrl = actionNode.dataset.imageUrl || ''
+    state.kolImageAlt = actionNode.dataset.imageAlt || ''
+    return true
+  }
+  if (action === 'close-kol-image') {
+    state.kolImageUrl = ''
+    state.kolImageAlt = ''
+    return true
+  }
+  if (
+    isKolGotoFactory(getCurrentFactoryId())
+    && ['open-reject', 'confirm-reject', 'accept-task', 'confirm-accept-task', 'open-quote', 'submit-quote'].includes(action)
+  ) {
+    showTaskReceiveToast('KOL-GOTO 接单页仅支持查看')
+    return true
+  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TabKey | undefined

@@ -1,6 +1,9 @@
 import { appStore } from '../state/store'
 import { renderPdaFrame } from './pda-shell'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
+import { isKolGotoFactory, normalizeKolGotoFactoryId } from '../data/fcs/kol-goto-special-flow'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import {
   createSettlementChangeRequest,
@@ -124,6 +127,7 @@ function hasPdaSettlementPermission(permissionKey: PermissionKey): boolean {
   if (!runtime) return false
   const currentUser = getCurrentPdaUser()
   const roleId = currentUser?.roleId || runtime.roleId
+  if (isKolGotoFactory(runtime.factoryId) && roleId !== 'ROLE_ADMIN') return false
   const role = listFactoryPdaRoles(runtime.factoryId).find(
     (item) => item.roleId === roleId && item.status === 'ACTIVE',
   )
@@ -151,17 +155,19 @@ function parseDateMs(value?: string): number {
 function getCurrentFactoryContext(): FactoryContext {
   const runtime = getPdaRuntimeContext()
   const currentFactoryId = runtime?.factoryId || ''
-  const matchedFactory =
-    indonesiaFactories.find((item) => item.id === currentFactoryId || item.code === currentFactoryId) ??
-    indonesiaFactories[0]
+  const normalizedKolGotoFactoryId = normalizeKolGotoFactoryId(currentFactoryId)
+  const matchedFactory = indonesiaFactories.find(
+    (item) => item.id === currentFactoryId || item.code === currentFactoryId,
+  )
+  const masterFactory = getFactoryMasterRecordById(normalizedKolGotoFactoryId ?? currentFactoryId)
 
   const operatorName = runtime?.userName || '工厂处理人'
 
   return {
-    factoryId: matchedFactory.id,
-    factoryCode: matchedFactory.code,
-    factoryName: matchedFactory.name,
-    settlementPartyId: matchedFactory.id,
+    factoryId: normalizedKolGotoFactoryId ?? matchedFactory?.id ?? masterFactory?.id ?? currentFactoryId,
+    factoryCode: matchedFactory?.code ?? masterFactory?.code ?? currentFactoryId,
+    factoryName: (matchedFactory?.name ?? masterFactory?.name ?? currentFactoryId) || '未知工厂',
+    settlementPartyId: normalizedKolGotoFactoryId ?? matchedFactory?.id ?? masterFactory?.id ?? currentFactoryId,
     operatorName,
   }
 }
@@ -187,6 +193,7 @@ interface SettlementHomeViewModel {
   paidAmount: number
   unpaidAmount: number
   unsettledReferenceAmount: number
+  openLedgers: PreSettlementLedger[]
   statements: Array<{ statement: StatementDraft; summary: SettlementCycleSummary }>
   qcRows: QcFactRow[]
 }
@@ -316,6 +323,7 @@ function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeVi
     paidAmount: statements.filter((item) => isStatementPaid(item.statement)).reduce((sum, item) => sum + getStatementNetAmount(item.statement), 0),
     unpaidAmount: statements.filter((item) => !isStatementPaid(item.statement)).reduce((sum, item) => sum + getStatementNetAmount(item.statement), 0),
     unsettledReferenceAmount: openLedgers.reduce((sum, ledger) => sum + (ledger.direction === 'DEDUCTION' ? -ledger.settlementAmount : ledger.settlementAmount), 0),
+    openLedgers,
     statements,
     qcRows,
   }
@@ -1396,6 +1404,13 @@ function renderSettlementHomePage(): string {
   const notInStatementQcRows = vm.qcRows.filter((row) => row.settlementTrace.statusLabel !== '已进入对账')
   const reworkQcRows = vm.qcRows.filter((row) => row.reworkQty > 0)
   const deductedQcRows = vm.qcRows.filter((row) => row.reworkChargebackAmountText !== '—')
+  const kolGotoOpenTaskLedgers = isKolGotoFactory(context.factoryId)
+    ? vm.openLedgers.filter((ledger) => (
+        ledger.sourceType === 'TASK_COMPLETION'
+        && ledger.priceSourceType === 'TASK_FIXED_TOTAL'
+        && ledger.direction === 'INCOME'
+      ))
+    : []
 
   return `
     <div class="space-y-3 px-4 py-4">
@@ -1410,6 +1425,27 @@ function renderSettlementHomePage(): string {
           ${renderHomeMetricLink('未结算参考金额', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
         </div>
       </section>
+      ${isKolGotoFactory(context.factoryId) ? `
+        <section class="bg-card px-4 py-4" data-kol-unsettled-ledgers>
+          <div class="flex items-start justify-between gap-3">
+            <div><h2 class="text-sm font-semibold">未结算收入流水</h2><p class="mt-1 text-[11px] text-muted-foreground">每张已完成整单任务按冻结总价计一次，进入对账单后从这里移除。</p></div>
+            <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] text-blue-700">${kolGotoOpenTaskLedgers.length} 笔</span>
+          </div>
+          ${kolGotoOpenTaskLedgers.length ? `
+            <div class="mt-3 space-y-2">
+              ${kolGotoOpenTaskLedgers.map((ledger) => `
+                <article class="rounded-lg border bg-background px-3 py-3" data-kol-unsettled-ledger="${escapeHtml(ledger.ledgerId)}">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0"><div class="truncate text-xs font-semibold">${escapeHtml(ledger.productionOrderNo || ledger.productionOrderId || '-')}</div><div class="mt-1 truncate font-mono text-[11px] text-muted-foreground">${escapeHtml(ledger.taskNo || ledger.taskId || '-')}</div></div>
+                    <div class="shrink-0 text-right"><div class="text-sm font-bold text-blue-700">${escapeHtml(formatAmount(ledger.settlementAmount, ledger.settlementCurrency))}</div><div class="mt-1 text-[10px] text-muted-foreground">整单固定总价</div></div>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3 text-[10px] text-muted-foreground"><span>${escapeHtml(formatDateTime(ledger.occurredAt))}</span><span>待进入对账单</span></div>
+                </article>
+              `).join('')}
+            </div>
+          ` : '<div class="mt-3 rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">暂无未结算整单任务收入。</div>'}
+        </section>
+      ` : ''}
       <section class="bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">对账单</h2>
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1539,9 +1575,11 @@ function renderSettlementContent(): string {
 }
 
 export function renderPdaSettlementPage(): string {
-  if (!getPdaRuntimeContext()) {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) {
     return renderPdaLoginRedirect()
   }
+  if (isKolGotoFactory(runtime.factoryId)) ensureKolGotoPdaScenarios()
   if (!hasPdaSettlementPermission('SETTLEMENT_VIEW')) {
     return renderPdaFrame(renderSettlementNoPermission(), 'settlement')
   }

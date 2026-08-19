@@ -1,4 +1,4 @@
-import { mockFactories } from './factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
 
@@ -182,6 +182,28 @@ function buildFactoryAreaList(
   factoryType: FactoryType,
   warehouseKind: FactoryInternalWarehouseKind,
 ): FactoryWarehouseArea[] {
+  if (factoryId === KOL_GOTO_FACTORY_ID) {
+    return [{
+      areaId: 'KOL-GOTO-DEFAULT-AREA',
+      areaName: '默认库区',
+      status: 'AVAILABLE',
+      remark: 'KOL-GOTO 加工领料固定库区',
+      shelfList: [{
+        shelfId: 'KOL-GOTO-DEFAULT-SHELF',
+        shelfNo: '默认货架',
+        shelfName: '默认货架',
+        status: 'AVAILABLE',
+        remark: 'KOL-GOTO 加工领料固定货架',
+        locationList: [{
+          locationId: 'KOL-GOTO-DEFAULT-LOCATION',
+          locationNo: '默认库位',
+          locationName: '默认库位',
+          status: 'AVAILABLE',
+          remark: '加工领料自动入库并出库',
+        }],
+      }],
+    }]
+  }
   if (factoryId === 'FAC-AUX-CRAFT') {
     return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
   }
@@ -197,7 +219,7 @@ function buildFactoryAreaList(
 export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = mockFactories): FactoryInternalWarehouse[] {
   const seenIds = new Set<string>()
   return factories
-    .filter((factory) => !SEWING_FACTORY_TYPES.has(factory.factoryType))
+    .filter((factory) => factory.id === KOL_GOTO_FACTORY_ID || !SEWING_FACTORY_TYPES.has(factory.factoryType))
     .filter((factory) => {
       if (seenIds.has(factory.id)) return false
       seenIds.add(factory.id)
@@ -206,7 +228,10 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
     .flatMap((factory) => {
       const createdAt = factory.createdAt || '2026-04-01 08:00:00'
       const updatedAt = factory.updatedAt || createdAt
-      return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
+      const warehouseKinds = factory.id === KOL_GOTO_FACTORY_ID
+        ? (['WAIT_PROCESS'] as const)
+        : (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const)
+      return warehouseKinds.map((warehouseKind) => {
         const warehouseShortName = getWarehouseShortName(warehouseKind)
         return {
           warehouseId: `FIW-${factory.id}-${warehouseKind}`,

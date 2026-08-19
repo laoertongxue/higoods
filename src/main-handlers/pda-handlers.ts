@@ -8,6 +8,7 @@ interface PdaRouteHandler {
   matches: (pathname: string) => boolean
   load: () => Promise<Record<string, unknown>>
   exportName: string
+  closeExportName?: string
 }
 
 const exact = (path: string) => (pathname: string) => pathname === path
@@ -21,14 +22,14 @@ const pdaRouteHandlers: PdaRouteHandler[] = [
   { matches: exact('/fcs/pda/notify'), load: () => import('../pages/pda-notify'), exportName: 'handlePdaNotifyEvent' },
   { matches: startsWith('/fcs/pda/quality/'), load: () => import('../pages/pda-quality'), exportName: 'handlePdaQualityDetailEvent' },
   { matches: exact('/fcs/pda/quality'), load: () => import('../pages/pda-quality'), exportName: 'handlePdaQualityEvent' },
-  { matches: startsWith('/fcs/pda/task-receive/'), load: () => import('../pages/pda-task-receive-detail'), exportName: 'handlePdaTaskReceiveDetailEvent' },
-  { matches: exact('/fcs/pda/task-receive'), load: () => import('../pages/pda-task-receive'), exportName: 'handlePdaTaskReceiveEvent' },
-  { matches: startsWith('/fcs/pda/exec/'), load: () => import('../pages/pda-exec-detail'), exportName: 'handlePdaExecDetailEvent' },
+  { matches: startsWith('/fcs/pda/task-receive/'), load: () => import('../pages/pda-task-receive-detail'), exportName: 'handlePdaTaskReceiveDetailEvent', closeExportName: 'closePdaTaskReceiveDetailDialogsOnEscape' },
+  { matches: exact('/fcs/pda/task-receive'), load: () => import('../pages/pda-task-receive'), exportName: 'handlePdaTaskReceiveEvent', closeExportName: 'closePdaTaskReceiveDialogsOnEscape' },
+  { matches: startsWith('/fcs/pda/exec/'), load: () => import('../pages/pda-exec-detail'), exportName: 'handlePdaExecDetailEvent', closeExportName: 'closePdaExecDetailDialogsOnEscape' },
   { matches: exact('/fcs/pda/exec'), load: () => import('../pages/pda-exec'), exportName: 'handlePdaExecEvent' },
-  { matches: exact('/fcs/pda/warehouse/wait-process'), load: () => import('../pages/pda-warehouse-wait-process'), exportName: 'handlePdaWarehouseWaitProcessEvent' },
+  { matches: exact('/fcs/pda/warehouse/wait-process'), load: () => import('../pages/pda-warehouse-wait-process'), exportName: 'handlePdaWarehouseWaitProcessEvent', closeExportName: 'closePdaWarehouseWaitProcessDialogsOnEscape' },
   { matches: exact('/fcs/pda/warehouse/wait-handover'), load: () => import('../pages/pda-warehouse-wait-handover'), exportName: 'handlePdaWarehouseWaitHandoverEvent' },
-  { matches: exact('/fcs/pda/warehouse/inbound-records'), load: () => import('../pages/pda-warehouse-inbound-records'), exportName: 'handlePdaWarehouseInboundRecordsEvent' },
-  { matches: exact('/fcs/pda/warehouse/outbound-records'), load: () => import('../pages/pda-warehouse-outbound-records'), exportName: 'handlePdaWarehouseOutboundRecordsEvent' },
+  { matches: exact('/fcs/pda/warehouse/inbound-records'), load: () => import('../pages/pda-warehouse-inbound-records'), exportName: 'handlePdaWarehouseInboundRecordsEvent', closeExportName: 'closePdaWarehouseInboundDialogsOnEscape' },
+  { matches: exact('/fcs/pda/warehouse/outbound-records'), load: () => import('../pages/pda-warehouse-outbound-records'), exportName: 'handlePdaWarehouseOutboundRecordsEvent', closeExportName: 'closePdaWarehouseOutboundDialogsOnEscape' },
   { matches: exact('/fcs/pda/warehouse/stocktake'), load: () => import('../pages/pda-warehouse-stocktake'), exportName: 'handlePdaWarehouseStocktakeEvent' },
   { matches: exact('/fcs/pda/warehouse'), load: () => import('../pages/pda-warehouse'), exportName: 'handlePdaWarehouseEvent' },
   { matches: startsWith('/fcs/pda/cutting/task/'), load: () => import('../pages/pda-cutting-task-detail'), exportName: 'handlePdaCuttingTaskDetailEvent' },
@@ -82,6 +83,11 @@ export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): 
   }
 }
 
-export function closePdaDialogsOnEscape(): boolean {
-  return closePdaShellDialogsOnEscape()
+export async function closePdaDialogsOnEscape(): Promise<boolean> {
+  if (closePdaShellDialogsOnEscape()) return true
+  const route = pdaRouteHandlers.find((item) => item.matches(window.location.pathname))
+  if (!route?.closeExportName) return false
+  const module = await route.load()
+  const closer = module[route.closeExportName]
+  return typeof closer === 'function' ? Boolean((closer as () => unknown)()) : false
 }

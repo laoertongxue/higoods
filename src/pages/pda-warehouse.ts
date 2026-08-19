@@ -1,4 +1,7 @@
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { getFactoryMobileTodos, type FactoryMobileTodoType } from '../data/fcs/factory-mobile-todos.ts'
 import {
@@ -8,6 +11,11 @@ import {
 import { getPdaCuttingWaitHandoverActions } from './pda-cutting-wait-handover-actions.ts'
 import { renderPdaFrame } from './pda-shell'
 import { escapeHtml, toClassName } from '../utils'
+import {
+  findFactoryInternalWarehouseByFactoryAndKind,
+  listFactoryWarehouseInboundRecords,
+  listFactoryWarehouseOutboundRecords,
+} from '../data/fcs/factory-internal-warehouse.ts'
 
 type WarehouseActionTone = 'primary' | 'normal' | 'warning' | 'danger'
 
@@ -99,7 +107,7 @@ function getActiveTodoCount(
   types: FactoryMobileTodoType[],
 ): number {
   const typeSet = new Set(types)
-  return getFactoryMobileTodos(runtime.factoryId).filter(
+  return getFactoryMobileTodos(runtime.factoryId, runtime.roleId).filter(
     (todo) => typeSet.has(todo.todoType) && (todo.status === '待处理' || todo.status === '处理中'),
   ).length
 }
@@ -186,6 +194,23 @@ function renderInventoryActions(runtime: NonNullable<ReturnType<typeof getMobile
 export function renderPdaWarehousePage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderMobileWarehouseLoginRedirect()
+
+  if (isKolGotoFactory(runtime.factoryId)) {
+    ensureKolGotoPdaScenarios()
+    const warehouse = findFactoryInternalWarehouseByFactoryAndKind(KOL_GOTO_FACTORY_ID, 'WAIT_PROCESS')
+    const area = warehouse?.areaList[0]
+    const shelf = area?.shelfList[0]
+    const location = shelf?.locationList[0]
+    const inboundCount = listFactoryWarehouseInboundRecords().filter((item) => item.factoryId === KOL_GOTO_FACTORY_ID).length
+    const outboundCount = listFactoryWarehouseOutboundRecords().filter((item) => item.factoryId === KOL_GOTO_FACTORY_ID).length
+    const content = `
+      <div class="space-y-4 px-4 pb-5 pt-4">
+        <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><h1 class="font-semibold">KOL-GOTO 待加工仓</h1><p class="mt-1 text-xs text-blue-700">本工厂只有一个待加工仓和一个默认库位。加工领料提交后，系统按每条领料明细成对写入入库和出库记录。</p></section>
+        <section class="rounded-2xl border bg-card p-4"><div class="flex items-center justify-between"><div><div class="font-semibold">${escapeHtml(warehouse?.warehouseName || '待加工仓')}</div><div class="mt-1 text-xs text-muted-foreground">默认库位：${escapeHtml([area?.areaName, shelf?.shelfNo, location?.locationNo].filter(Boolean).join(' / ') || '未配置')}</div></div><span class="rounded-full bg-green-50 px-2 py-1 text-xs text-green-700">唯一库位</span></div><button class="mt-4 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process">查看待加工仓</button></section>
+        <section class="grid grid-cols-2 gap-3"><button class="rounded-2xl border bg-card p-4 text-left" data-nav="/fcs/pda/warehouse/inbound-records"><div class="text-sm font-semibold">入库记录</div><div class="mt-2 text-xl font-bold">${inboundCount}</div><div class="mt-1 text-xs text-muted-foreground">加工领料自动写入</div></button><button class="rounded-2xl border bg-card p-4 text-left" data-nav="/fcs/pda/warehouse/outbound-records"><div class="text-sm font-semibold">出库记录</div><div class="mt-2 text-xl font-bold">${outboundCount}</div><div class="mt-1 text-xs text-muted-foreground">同次领料自动出库</div></button></section>
+      </div>`
+    return renderPdaFrame(content, 'warehouse', { headerTitle: '仓管', disableTodoAutoOpen: true })
+  }
 
   const content = `
     <div class="space-y-3 px-4 pb-5 pt-4">

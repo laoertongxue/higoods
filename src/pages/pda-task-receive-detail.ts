@@ -46,10 +46,14 @@ import {
   projectPdaTaskLegacyAcceptance,
   rejectPdaTaskWithRuntimeFallback,
 } from './pda-task-receive.ts'
+import { isKolGotoFactory, isKolGotoWholeOrderTask } from '../data/fcs/kol-goto-special-flow.ts'
+import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 
 interface TaskReceiveDetailState {
   rejectDialogOpen: boolean
   rejectReason: string
+  imageUrl: string
+  imageAlt: string
 }
 
 type ReceiveDetailTabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
@@ -59,6 +63,15 @@ type PdaReceiveTask = PdaTaskFlowMock
 const state: TaskReceiveDetailState = {
   rejectDialogOpen: false,
   rejectReason: '',
+  imageUrl: '',
+  imageAlt: '',
+}
+
+export function closePdaTaskReceiveDetailDialogsOnEscape(): boolean {
+  if (!state.imageUrl) return false
+  state.imageUrl = ''
+  state.imageAlt = ''
+  return true
 }
 
 function listTaskFacts(): ProcessTask[] {
@@ -177,6 +190,44 @@ function renderSectionCard(title: string, icon: string, body: string): string {
       <div class="space-y-3 p-4 text-sm">${body}</div>
     </article>
   `
+}
+
+function renderKolGotoReceiveReadOnlyPage(task: ProcessTask): string {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime || (!isKolGotoFactory(runtime.factoryId) && runtime.factoryId !== task.assignedFactoryId)) {
+    return renderPdaFrame('<div class="p-6 text-sm text-amber-700">该 KOL 整单任务只允许 KOL-GOTO 查看。</div>', 'task-receive')
+  }
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const styleImage = order?.techPackSnapshot?.imageSnapshot.styleImages[0]
+    || order?.techPackSnapshot?.imageSnapshot.productImages[0]
+    || order?.techPackSnapshot?.imageSnapshot.sampleImages[0]
+    || ''
+  const imageAlt = `${order?.techPackSnapshot?.styleName || order?.demandSnapshot.spuName || 'KOL样衣'}款式图`
+  const content = `
+    <div class="min-h-[760px] bg-background pb-6">
+      <header class="sticky top-0 z-20 flex items-center gap-3 border-b bg-background px-4 py-3">
+        <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pda-trd-action="back"><i data-lucide="arrow-left" class="h-4 w-4"></i></button>
+        <div><h1 class="text-lg font-semibold">接单查看</h1><p class="text-xs text-muted-foreground">KOL-GOTO 固定整单任务</p></div>
+      </header>
+      <main class="space-y-4 p-4">
+        <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          <div class="font-semibold">系统已自动分配并接收</div>
+          <p class="mt-1 text-xs">本页只用于查看任务与系统分配结果。</p>
+        </section>
+        <section class="rounded-xl border bg-card p-4">
+          <div class="flex gap-3">
+            ${styleImage
+              ? `<button class="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted" data-pda-trd-action="open-image" data-image-url="${escapeHtml(styleImage)}" data-image-alt="${escapeHtml(imageAlt)}"><img src="${escapeHtml(styleImage)}" alt="${escapeHtml(imageAlt)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+              : '<div class="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 p-2 text-center text-xs text-red-700">缺少对应款式图</div>'}
+            <div class="min-w-0 flex-1"><div class="font-semibold">${escapeHtml(order?.techPackSnapshot?.styleName || order?.demandSnapshot.spuName || '-')}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div><div class="mt-3 text-xs text-muted-foreground">${escapeHtml(task.saleTypeSnapshot || '-')} · ${task.qty} ${escapeHtml(task.qtyDisplayUnit || '件')}</div></div>
+          </div>
+          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">生产单</dt><dd class="mt-1 font-medium">${escapeHtml(task.productionOrderNo || task.productionOrderId)}</dd></div><div><dt class="text-xs text-muted-foreground">承接工厂</dt><dd class="mt-1 font-medium">${escapeHtml(task.assignedFactoryName || task.assignedFactoryId || '-')}</dd></div><div><dt class="text-xs text-muted-foreground">任务状态</dt><dd class="mt-1 font-medium">${task.status === 'DONE' ? '已完成' : task.status === 'IN_PROGRESS' ? '加工中' : '未开工'}</dd></div><div><dt class="text-xs text-muted-foreground">固定总价</dt><dd class="mt-1 font-semibold text-blue-700">${Number(task.fixedTotalPrice || 0).toLocaleString()} ${escapeHtml(task.fixedTotalPriceCurrency || 'IDR')} / ${escapeHtml(task.fixedTotalPriceUnit || '整单')}</dd></div></dl>
+        </section>
+        <section class="rounded-xl border bg-card p-4"><h2 class="font-semibold">系统处理记录</h2><div class="mt-3 space-y-2">${[...(task.auditLogs || [])].reverse().map((log) => `<div class="border-l-2 pl-3 text-xs"><div class="font-medium">${escapeHtml(log.detail)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(log.at)} · ${escapeHtml(log.by)}</div></div>`).join('') || '<div class="text-sm text-muted-foreground">暂无记录</div>'}</div></section>
+      </main>
+      ${state.imageUrl ? `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4" data-pda-trd-action="close-image"><button class="absolute right-4 top-4 rounded-full bg-white px-3 py-2 text-sm" data-pda-trd-action="close-image">关闭</button><img src="${escapeHtml(state.imageUrl)}" alt="${escapeHtml(state.imageAlt)}" class="max-h-[85vh] max-w-full rounded-xl object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><div hidden class="rounded-xl bg-white p-8 text-sm text-red-700">图片加载失败，请核对原图素材。</div></div>` : ''}
+    </div>`
+  return renderPdaFrame(content, 'task-receive', { disableTodoAutoOpen: true })
 }
 
 function showTaskReceiveDetailToast(message: string): void {
@@ -764,11 +815,18 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
 }
 
 export function renderPdaTaskReceiveDetailPage(taskId: string): string {
-  if (!getPdaRuntimeContext()) {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) {
     return renderPdaLoginRedirect()
   }
 
+  if (isKolGotoFactory(runtime.factoryId)) ensureKolGotoPdaScenarios()
+
   const task = getTaskFactById(taskId)
+
+  if (isKolGotoWholeOrderTask(task)) {
+    return renderKolGotoReceiveReadOnlyPage(task as ProcessTask)
+  }
 
   if (isCuttingSpecialTask(task)) {
     return renderPdaTaskReceiveCuttingDetailPage(task as PdaReceiveTask)
@@ -1014,6 +1072,17 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaTrdAction
   if (!action) return false
 
+  if (action === 'open-image') {
+    state.imageUrl = actionNode.dataset.imageUrl || ''
+    state.imageAlt = actionNode.dataset.imageAlt || ''
+    return true
+  }
+  if (action === 'close-image') {
+    state.imageUrl = ''
+    state.imageAlt = ''
+    return true
+  }
+
   if (action === 'back') {
     appStore.navigate(resolveReceiveBackHref())
     return true
@@ -1041,6 +1110,10 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   if (action === 'accept') {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
+    if (isKolGotoWholeOrderTask(getTaskFactById(taskId))) {
+      showTaskReceiveDetailToast('KOL-GOTO 整单任务由系统自动分配并接收，仅支持查看')
+      return true
+    }
 
     const factoryId = getCurrentFactoryId()
     const factoryName = getFactoryName(factoryId)
@@ -1059,6 +1132,10 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   if (action === 'confirm-reject') {
     const taskId = actionNode.dataset.taskId
     if (!taskId || !state.rejectReason.trim()) return true
+    if (isKolGotoWholeOrderTask(getTaskFactById(taskId))) {
+      showTaskReceiveDetailToast('KOL-GOTO 整单任务不能拒单')
+      return true
+    }
 
     const factoryId = getCurrentFactoryId()
     const factoryName = getFactoryName(factoryId)

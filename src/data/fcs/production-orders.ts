@@ -4,7 +4,11 @@ import {
   KOL_GOTO_FACTORY_ID,
   KOL_GOTO_FACTORY_NAME,
 } from './factory-mock-data.ts'
-import type { ProductionDemand, ProductionSaleType } from './production-demands.ts'
+import {
+  isKolGotoSaleType,
+  type ProductionDemand,
+  type ProductionSaleType,
+} from './production-demands.ts'
 import {
   buildProductionOrderDemandSnapshot,
   validateDemandTechPackOrderLink,
@@ -20,6 +24,7 @@ import {
   type ProductionOrderRuntimeStatus,
 } from './production-order-runtime-store.ts'
 import type { MergedProductionTaskType } from './merged-production-task.ts'
+import { applyKolGotoTechPackFixture } from './kol-goto-tech-pack-fixtures.ts'
 
 export type ProductionOrderStatus = ProductionOrderRuntimeStatus
 
@@ -112,17 +117,13 @@ export interface TaskBreakdownSummary {
   taskTypesTop3: string[]
   lastBreakdownAt?: string
   lastBreakdownBy?: string
-  generationRuleId?: string
-  generationRuleName?: string
   generatedTaskUnitCount?: number
   singleProcessTaskCount?: number
   independentWorkOrderTaskCount?: number
-  independentWorkOrderCount?: number
   mergedProductionTaskCount?: number
   mergedTaskType?: MergedProductionTaskType
   wholeOrderTaskCount?: number
   coveredProcessNames?: string[]
-  previewStatus?: 'READY' | 'NEED_CONFIRM' | 'BLOCKED' | 'NO_MATCH_USE_DEFAULT'
 }
 
 export interface MaterialIssueRow {
@@ -272,8 +273,8 @@ function createKolGotoFactorySnapshot(): FactorySnapshot {
     id: KOL_GOTO_FACTORY_ID,
     code: KOL_GOTO_FACTORY_CODE,
     name: KOL_GOTO_FACTORY_NAME,
-    tier: 'CENTRAL',
-    type: 'CENTRAL_FACTORY',
+    tier: 'THIRD_PARTY',
+    type: 'MICRO_SEWING',
     status: 'ACTIVE',
     province: 'DKI Jakarta',
     city: 'Jakarta',
@@ -430,30 +431,102 @@ function buildProductionOrderFromResolvedUpstream(
   demand: ProductionDemand,
   techPackSnapshot: ProductionOrderTechPackSnapshot | null,
 ): ProductionOrder {
-  const factorySnapshot = resolveProductionOrderFactorySnapshot(seed.mainFactoryId)
-  const isPendingFactory = seed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || seed.mainFactoryId === PENDING_MAIN_FACTORY_ID
+  const isKolGotoDemand = isKolGotoSaleType(demand.saleType)
+  const resolvedSeed: ProductionOrderSeed = isKolGotoDemand
+    ? {
+        ...seed,
+        status: 'EXECUTING',
+        mainFactoryId: KOL_GOTO_FACTORY_ID,
+        mainFactoryStatus: 'CONFIRMED',
+        mainFactorySource: 'ORDER_CREATE',
+        mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt ?? seed.createdAt,
+        mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy ?? '系统',
+        ownerPartyType: 'FACTORY',
+        ownerPartyId: KOL_GOTO_FACTORY_ID,
+        ownerReason: `KOL整单任务固定由 ${KOL_GOTO_FACTORY_NAME} 承接。`,
+        assignmentSummary: { directCount: 1, biddingCount: 0, totalTasks: 1, unassignedCount: 0 },
+        assignmentProgress: { status: 'DONE', directAssignedCount: 1, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+        biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
+        directDispatchSummary: { assignedFactoryCount: 1, rejectedCount: 0, overdueAckCount: 0 },
+        taskBreakdownSummary: {
+          ...seed.taskBreakdownSummary,
+          isBrokenDown: true,
+          taskTypesTop3: ['KOL整单任务'],
+          generatedTaskUnitCount: 1,
+          singleProcessTaskCount: 0,
+          independentWorkOrderTaskCount: 0,
+          mergedProductionTaskCount: 0,
+          wholeOrderTaskCount: 1,
+        },
+        auditLogs: [
+          ...seed.auditLogs.filter((log) => !/待分配|竞价|接单/.test(log.detail)),
+          createAuditLog(
+            `LOG-KOL-AUTO-${seed.productionOrderId}`,
+            'KOL_AUTO_BREAKDOWN',
+            `已自动拆解 1 张 KOL整单任务，固定分配 ${KOL_GOTO_FACTORY_NAME} 并由系统自动接收。`,
+            seed.taskBreakdownSummary.lastBreakdownAt ?? seed.createdAt,
+            '系统',
+          ),
+        ],
+      }
+    : seed
+  const factorySnapshot = resolveProductionOrderFactorySnapshot(resolvedSeed.mainFactoryId)
+  const isPendingFactory = resolvedSeed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || resolvedSeed.mainFactoryId === PENDING_MAIN_FACTORY_ID
   if (!factorySnapshot && !isPendingFactory) {
-    throw new Error(`生产单 ${seed.productionOrderId} 绑定的主工厂 ${seed.mainFactoryId} 不存在`)
+    throw new Error(`生产单 ${resolvedSeed.productionOrderId} 绑定的主工厂 ${resolvedSeed.mainFactoryId} 不存在`)
   }
   const demandSnapshot = buildProductionOrderDemandSnapshot(demand)
+  const resolvedTechPackSnapshot = isKolGotoDemand
+    ? applyKolGotoTechPackFixture(demand.spuCode, cloneProductionOrderTechPackSnapshot(techPackSnapshot))
+    : techPackSnapshot
 
-  const ledgerDetails = seed.ledgerDetails ?? buildDefaultProductionLedgerDetails(seed, demand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
+  const defaultLedgerDetails = buildDefaultProductionLedgerDetails(
+    resolvedSeed,
+    demand,
+    (factorySnapshot ?? createPendingMainFactorySnapshot()).name,
+  )
+  const sourceLedgerDetails = resolvedSeed.ledgerDetails ?? defaultLedgerDetails
+  const plannedQty = String(demand.requiredQtyTotal)
+  const ledgerDetails: ProductionLedgerDetails = isKolGotoDemand
+    ? {
+        ...sourceLedgerDetails,
+        taskFactories: [
+          {
+            taskType: 'KOL整单任务',
+            taskNo: `KOL-${resolvedSeed.productionOrderId}`,
+            factory: KOL_GOTO_FACTORY_NAME,
+            factoryType: 'KOL样衣工厂',
+            status: '未开工',
+            plannedDoneAt: demand.requiredDeliveryDate ?? '-',
+            actualDoneAt: '-',
+            completedQty: '0',
+            issue: '加工领料后自动开工',
+            action: '查看',
+          },
+        ],
+        keyTimes: defaultLedgerDetails.keyTimes,
+        quantityQuality: [
+          { quantityType: '生产计划', plannedQty, currentQty: plannedQty, unit: '件', diff: '0', status: '正常', note: 'KOL 整单任务计划数量' },
+          { quantityType: '已交出', plannedQty, currentQty: '0', unit: '件', diff: `-${plannedQty}`, status: '未交出', note: '每次发起交出直接累计为已加工、已交出数量' },
+        ],
+      }
+    : sourceLedgerDetails
   return {
-    ...seed,
-    productionOrderNo: cutPieceReleaseDemoOrderNoById[seed.productionOrderId] || seed.productionOrderId,
-    sourceDemandIds: seed.sourceDemandIds ?? [seed.demandId],
+    ...resolvedSeed,
+    productionOrderNo: cutPieceReleaseDemoOrderNoById[resolvedSeed.productionOrderId] || resolvedSeed.productionOrderId,
+    sourceDemandIds: resolvedSeed.sourceDemandIds ?? [resolvedSeed.demandId],
     lockedLegacy:
-      seed.lockedLegacy ?? ['EXECUTING', 'COMPLETED', 'CANCELLED'].includes(seed.status),
+      resolvedSeed.lockedLegacy ?? ['EXECUTING', 'COMPLETED', 'CANCELLED'].includes(resolvedSeed.status),
     mainFactorySnapshot: factorySnapshot ?? createPendingMainFactorySnapshot(),
     sewingFactorySnapshots: [],
-    mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
-    mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
-    mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
-    mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy,
+    mainFactoryStatus: resolvedSeed.mainFactoryStatus ?? 'CONFIRMED',
+    mainFactorySource: resolvedSeed.mainFactorySource ?? 'ORDER_CREATE',
+    mainFactoryConfirmedAt: resolvedSeed.mainFactoryConfirmedAt,
+    mainFactoryConfirmedBy: resolvedSeed.mainFactoryConfirmedBy,
     legacyOrderNo: demand.legacyOrderNo,
     demandSnapshot,
     sourceDemandSnapshots: [demandSnapshot],
-    techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
+    techPackSnapshot: cloneProductionOrderTechPackSnapshot(resolvedTechPackSnapshot),
     ledgerDetails: cloneProductionLedgerDetails(ledgerDetails),
   }
 }
@@ -566,40 +639,79 @@ export function buildProductionOrderFromDemands(
     throw new Error(`生产单 ${seed.productionOrderId} 主需求 ${seed.demandId} 不在合并需求中`)
   }
 
+  const isKolGotoDemand = (demand: ProductionDemand): boolean => isKolGotoSaleType(demand.saleType)
+  const kolDemandCount = demands.filter(isKolGotoDemand).length
+  if (kolDemandCount > 0 && kolDemandCount !== demands.length) {
+    throw new Error('KOL样衣 / KOL样品小单不能与其他售卖类型合并生成生产单')
+  }
+  const isKolGotoDemandGroup = kolDemandCount === demands.length
+  const resolvedSeed: ProductionOrderSeed = isKolGotoDemandGroup
+    ? {
+        ...seed,
+        status: 'EXECUTING',
+        mainFactoryId: KOL_GOTO_FACTORY_ID,
+        mainFactoryStatus: 'CONFIRMED',
+        mainFactorySource: 'ORDER_CREATE',
+        mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt ?? seed.createdAt,
+        mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy ?? '系统',
+        ownerPartyType: 'FACTORY',
+        ownerPartyId: KOL_GOTO_FACTORY_ID,
+        ownerReason: `KOL整单任务固定由 ${KOL_GOTO_FACTORY_NAME} 承接。`,
+        assignmentSummary: { directCount: 1, biddingCount: 0, totalTasks: 1, unassignedCount: 0 },
+        assignmentProgress: { status: 'DONE', directAssignedCount: 1, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+        biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
+        directDispatchSummary: { assignedFactoryCount: 1, rejectedCount: 0, overdueAckCount: 0 },
+        taskBreakdownSummary: {
+          ...seed.taskBreakdownSummary,
+          isBrokenDown: true,
+          taskTypesTop3: ['KOL整单任务'],
+          generatedTaskUnitCount: 1,
+          singleProcessTaskCount: 0,
+          independentWorkOrderTaskCount: 0,
+          mergedProductionTaskCount: 0,
+          wholeOrderTaskCount: 1,
+          coveredProcessNames: ['KOL整单任务'],
+        },
+      }
+    : seed
+
   const techPackSnapshot = buildProductionOrderTechPackSnapshot({
-    productionOrderId: seed.productionOrderId,
-    productionOrderNo: seed.productionOrderId,
+    productionOrderId: resolvedSeed.productionOrderId,
+    productionOrderNo: resolvedSeed.productionOrderId,
     demand: primaryDemand,
-    snapshotAt: seed.snapshotAt ?? seed.updatedAt,
+    snapshotAt: resolvedSeed.snapshotAt ?? resolvedSeed.updatedAt,
     snapshotBy,
-    technicalVersionId: seed.selectedTechPackVersionId,
+    technicalVersionId: resolvedSeed.selectedTechPackVersionId,
   })
 
-  const factorySnapshot = resolveProductionOrderFactorySnapshot(seed.mainFactoryId)
-  const isPendingFactory = seed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || seed.mainFactoryId === PENDING_MAIN_FACTORY_ID
+  const factorySnapshot = resolveProductionOrderFactorySnapshot(resolvedSeed.mainFactoryId)
+  const isPendingFactory = resolvedSeed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || resolvedSeed.mainFactoryId === PENDING_MAIN_FACTORY_ID
   if (!factorySnapshot && !isPendingFactory) {
-    throw new Error(`生产单 ${seed.productionOrderId} 绑定的主工厂 ${seed.mainFactoryId} 不存在`)
+    throw new Error(`生产单 ${resolvedSeed.productionOrderId} 绑定的主工厂 ${resolvedSeed.mainFactoryId} 不存在`)
   }
 
   const demandSnapshots = demands.map((demand) => buildProductionOrderDemandSnapshot(demand))
   const demandSnapshot = buildMergedProductionOrderDemandSnapshot(demands)
-  const ledgerDetails = seed.ledgerDetails ?? buildDefaultProductionLedgerDetails(seed, primaryDemand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
+  const ledgerDetails = resolvedSeed.ledgerDetails ?? buildDefaultProductionLedgerDetails(resolvedSeed, primaryDemand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
+  const resolvedTechPackSnapshot = isKolGotoDemandGroup
+    ? applyKolGotoTechPackFixture(primaryDemand.spuCode, cloneProductionOrderTechPackSnapshot(techPackSnapshot))
+    : techPackSnapshot
 
   return {
-    ...seed,
-    productionOrderNo: seed.productionOrderId,
+    ...resolvedSeed,
+    productionOrderNo: resolvedSeed.productionOrderId,
     sourceDemandIds: demands.map((demand) => demand.demandId),
     lockedLegacy: seed.lockedLegacy ?? false,
     mainFactorySnapshot: factorySnapshot ?? createPendingMainFactorySnapshot(),
     sewingFactorySnapshots: [],
-    mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
-    mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
-    mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
-    mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy,
+    mainFactoryStatus: resolvedSeed.mainFactoryStatus ?? 'CONFIRMED',
+    mainFactorySource: resolvedSeed.mainFactorySource ?? 'ORDER_CREATE',
+    mainFactoryConfirmedAt: resolvedSeed.mainFactoryConfirmedAt,
+    mainFactoryConfirmedBy: resolvedSeed.mainFactoryConfirmedBy,
     legacyOrderNo: demands.map((demand) => demand.legacyOrderNo).join('、'),
     demandSnapshot,
     sourceDemandSnapshots: demandSnapshots,
-    techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
+    techPackSnapshot: cloneProductionOrderTechPackSnapshot(resolvedTechPackSnapshot),
     ledgerDetails: cloneProductionLedgerDetails(ledgerDetails),
   }
 }
@@ -797,16 +909,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['KOL整单任务'],
       lastBreakdownAt: '2026-03-02 16:05:00',
       lastBreakdownBy: '系统',
-      generationRuleId: 'TGR-KOL-001',
-      generationRuleName: 'KOL样衣整单承接规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 1,
       coveredProcessNames: ['裁片', '车缝', '特殊工艺', '开扣眼', '烫包'],
-      previewStatus: 'READY',
     },
     ledgerDetails: {
       materialIssues: [
@@ -874,14 +982,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['裁片', '车缝', '烫包'],
       lastBreakdownAt: '2026-03-03 15:05:00',
       lastBreakdownBy: '系统',
-      generationRuleName: '默认按工序生成规则',
       generatedTaskUnitCount: 3,
       singleProcessTaskCount: 3,
       independentWorkOrderTaskCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: ['裁片', '车缝', '烫包'],
-      previewStatus: 'NO_MATCH_USE_DEFAULT',
     },
     ledgerDetails: {
       materialIssues: [
@@ -1008,14 +1114,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['裁剪', '车缝', '烫包'],
       lastBreakdownAt: '2026-03-06 10:00:00',
       lastBreakdownBy: '系统',
-      generationRuleName: '待创建固定合并任务',
       generatedTaskUnitCount: 3,
       singleProcessTaskCount: 3,
       independentWorkOrderTaskCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: ['裁剪', '车缝', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-0101', 'CREATE', '同款 Jogger 第二张生产单创建', '2026-03-06 10:00:00', '系统')],
@@ -1038,7 +1142,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['裁剪+车缝+烫包'],
       lastBreakdownAt: '2026-03-07 09:45:00',
       lastBreakdownBy: '系统',
-      generationRuleName: '固定合并任务规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
@@ -1046,7 +1149,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       wholeOrderTaskCount: 0,
       mergedTaskType: 'CUTTING_SEWING_IRON_PACK',
       coveredProcessNames: ['裁剪', '车缝', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-0102', 'CREATE', '同款 Jogger 第三张生产单创建', '2026-03-07 09:45:00', '系统')],
@@ -1069,16 +1171,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['KOL整单任务'],
       lastBreakdownAt: '2026-03-01 14:05:00',
       lastBreakdownBy: '系统',
-      generationRuleId: 'TGR-KOL-001',
-      generationRuleName: 'KOL样衣整单承接规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 1,
       coveredProcessNames: ['压褶', '毛织', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-007', 'CREATE', '生产单创建', '2026-03-01 14:00:00', 'Lina Susanti')],
@@ -1101,14 +1199,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['整件毛织', '后道'],
       lastBreakdownAt: '2026-03-02 15:05:00',
       lastBreakdownBy: '系统',
-      generationRuleName: '默认按工序生成规则',
       generatedTaskUnitCount: 2,
       singleProcessTaskCount: 2,
       independentWorkOrderTaskCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: ['压褶', '毛织', '整件毛织', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'NO_MATCH_USE_DEFAULT',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-008', 'CREATE', '生产单创建', '2026-03-02 15:00:00', 'Dewi Lestari')],
@@ -1131,15 +1227,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['压褶', '毛织', '特殊工艺'],
       lastBreakdownAt: '2026-03-03 11:00:00',
       lastBreakdownBy: 'Yudi Prakoso',
-      generationRuleName: '默认按工序生成规则',
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: ['压褶', '毛织', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'NO_MATCH_USE_DEFAULT',
     },
     riskFlags: ['DISPATCH_REJECTED'],
     auditLogs: [
@@ -1163,15 +1256,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     taskBreakdownSummary: {
       isBrokenDown: false,
       taskTypesTop3: ['待拆解'],
-      generationRuleName: '默认按生产任务拆解',
       generatedTaskUnitCount: 0,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: [],
-      previewStatus: 'NEED_CONFIRM',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-011', 'CREATE', '生产单创建，待拆解任务', '2026-03-04 09:00:00', 'Lina Susanti')],
@@ -1194,16 +1284,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['KOL整单任务'],
       lastBreakdownAt: '2026-03-16 10:00:00',
       lastBreakdownBy: '系统',
-      generationRuleId: 'TGR-KOL-001',
-      generationRuleName: 'KOL样衣整单承接规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 1,
       coveredProcessNames: ['裁片', '车缝', '毛织', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: [],
     auditLogs: [createAuditLog('LOG-012', 'CREATE', '生产单创建', '2026-03-04 14:30:00', 'Lina Susanti')],
@@ -1266,11 +1352,9 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 0,
       coveredProcessNames: ['车缝', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: [],
     auditLogs: [
@@ -1296,16 +1380,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['KOL整单任务'],
       lastBreakdownAt: '2026-03-08 09:10:00',
       lastBreakdownBy: '系统',
-      generationRuleId: 'TGR-KOL-001',
-      generationRuleName: 'KOL样衣整单承接规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 1,
       coveredProcessNames: ['裁片', '车缝', '特殊工艺', '装扣子', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: ['DELIVERY_DATE_NEAR'],
     auditLogs: [createAuditLog('LOG-081', 'CREATE', '裁片域正式生产单已生成', '2026-03-08 08:30:00', '系统')],
@@ -1431,16 +1511,12 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       taskTypesTop3: ['KOL整单任务'],
       lastBreakdownAt: '2026-03-15 09:30:00',
       lastBreakdownBy: '系统',
-      generationRuleId: 'TGR-KOL-001',
-      generationRuleName: 'KOL样衣整单承接规则',
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentWorkOrderCount: 0,
       mergedProductionTaskCount: 0,
       wholeOrderTaskCount: 1,
       coveredProcessNames: ['裁片', '车缝', '特殊工艺', '烫包'],
-      previewStatus: 'READY',
     },
     riskFlags: ['DELIVERY_DATE_NEAR'],
     auditLogs: [createAuditLog('LOG-088', 'CREATE', '裁片域正式生产单已生成', '2026-03-15 09:10:00', '系统')],

@@ -1,4 +1,6 @@
 import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
+import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
+import { normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import { processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
 import {
@@ -36,6 +38,7 @@ import type {
   StatementDraft,
   SettlementBatch,
 } from './store-domain-settlement-types.ts'
+import { listKolGotoFixedTotalLedgers } from './kol-goto-fixed-total-ledger.ts'
 
 export interface PreSettlementLedgerSourceTrace {
   ledger: PreSettlementLedger
@@ -55,6 +58,8 @@ function roundAmount(value: number): number {
 }
 
 function normalizeFactoryId(factoryId: string): string {
+  const kolGotoFactoryId = normalizeKolGotoFactoryId(factoryId)
+  if (kolGotoFactoryId) return kolGotoFactoryId
   const factory = getFactoryById(factoryId) ?? getFactoryByCode(factoryId)
   return factory?.id ?? factoryId
 }
@@ -337,7 +342,17 @@ export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOption
   const qcReworkChargebackLedgers = listPostFinishingQcOrders().flatMap((item) =>
     buildQcReworkChargebackPreSettlementLedgers(item),
   )
-  const taskLedgers = initialTaskEarningLedgers.map((item) => buildTaskEarningLedgerRuntime(item))
+  const runtimeKolGotoLedgers = listKolGotoFixedTotalLedgers()
+  const fallbackTaskLedgers = runtimeKolGotoLedgers.length > 0
+    ? initialTaskEarningLedgers.filter((item) => !(
+        normalizeFactoryId(item.factoryId) === KOL_GOTO_FACTORY_ID
+        && item.priceSourceType === 'TASK_FIXED_TOTAL'
+      ))
+    : initialTaskEarningLedgers
+  const taskLedgers = [...new Map(
+    [...fallbackTaskLedgers, ...runtimeKolGotoLedgers]
+      .map((item) => [item.ledgerId, item] as const),
+  ).values()].map((item) => buildTaskEarningLedgerRuntime(item))
   const all = sortLedgers([...taskLedgers, ...qualityLedgers, ...qcReworkChargebackLedgers])
   const normalizedKeyword = keyword?.trim().toLowerCase() ?? ''
 

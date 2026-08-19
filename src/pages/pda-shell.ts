@@ -1,6 +1,7 @@
 import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoCount, getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensurePdaAccessForRoute, logoutPdaAccess } from '../data/fcs/factory-onboarding-flow.ts'
 import { findFactoryPdaRoleById } from '../data/fcs/store-domain-pda.ts'
 import {
@@ -36,6 +37,9 @@ const MOBILE_APP_TABS: PdaTabConfig[] = [
 
 function getVisibleMobileAppTabs(): PdaTabConfig[] {
   const runtime = getPdaRuntimeContext()
+  if (isKolGotoFactory(runtime?.factoryId)) {
+    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'settlement' || runtime.roleId === 'ROLE_ADMIN')
+  }
   const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
   if (factory?.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING') {
     return MOBILE_APP_TABS.filter((tab) => tab.key !== 'warehouse')
@@ -135,7 +139,7 @@ function getPdaFactoryCodeLabel(factoryId: string): string {
 
 function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): string {
   const runtime = getPdaRuntimeContext()
-  const todoCount = runtime ? getFactoryMobileTodoCount(runtime.factoryId) : 0
+  const todoCount = runtime ? getFactoryMobileTodoCount(runtime.factoryId, runtime.roleId) : 0
   const factoryTitle = runtime?.factoryName || '工厂端移动应用'
   const factoryCode = runtime ? getPdaFactoryCodeLabel(runtime.factoryId) : ''
   const subtitle = runtime && factoryCode ? `${getTabTitle(activeTab, headerTitle)} · ${factoryCode}` : getTabTitle(activeTab, headerTitle)
@@ -156,7 +160,10 @@ function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): str
 function renderTodoModal(): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime || !todoModalOpen) return ''
-  const todoItems = getFactoryMobileTodos(runtime.factoryId).slice(0, 5)
+  const todoItems = getFactoryMobileTodos(runtime.factoryId, runtime.roleId).slice(0, 5)
+  const todoHint = isKolGotoFactory(runtime.factoryId)
+    ? '优先处理加工领料、交出和可完成任务。'
+    : '优先处理待接单、待接收、待交出和差异项。'
   return `
     <div class="fixed inset-0 z-[120]" data-pda-todo-modal="true">
       <button
@@ -169,7 +176,7 @@ function renderTodoModal(): string {
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-foreground">当前待办</h2>
-            <p class="mt-1 text-xs text-muted-foreground">优先处理待接单、待接收、待交出和差异项。</p>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(todoHint)}</p>
           </div>
           <button
             type="button"

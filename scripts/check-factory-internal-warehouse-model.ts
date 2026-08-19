@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { menusBySystem } from '../src/data/app-shell-config.ts'
-import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
+import { KOL_GOTO_FACTORY_ID, mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import {
   approveAndExecuteFactoryWarehouseStocktakeDifferenceReview,
@@ -120,11 +120,15 @@ const nonSewingFactories = Array.from(
       .map((factory) => [factory.id, factory]),
   ).values(),
 )
-const sewingFactories = mockFactories.filter((factory) => SEWING_FACTORY_TYPES.has(factory.factoryType))
+const sewingFactories = mockFactories.filter(
+  (factory) => factory.id !== KOL_GOTO_FACTORY_ID && SEWING_FACTORY_TYPES.has(factory.factoryType),
+)
 const testFactories = mockFactories.filter((factory) => factory.isTestFactory)
 const standardWarehouses = defaultWarehouses.filter(
-  (warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'].includes(warehouse.factoryId),
+  (warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT', KOL_GOTO_FACTORY_ID].includes(warehouse.factoryId),
 )
+const ordinaryNonSewingFactories = nonSewingFactories.filter((factory) => factory.id !== KOL_GOTO_FACTORY_ID)
+const kolGotoWarehouses = defaultWarehouses.filter((warehouse) => warehouse.factoryId === KOL_GOTO_FACTORY_ID)
 
 assertContains(packageSource, 'check:factory-internal-warehouse-model', 'package.json 缺少工厂内部仓检查命令')
 assertContains(packageSource, 'check:factory-handover-warehouse-linkage', 'package.json 缺少交接与仓管联动检查命令')
@@ -181,15 +185,23 @@ assertContains(dyeingWarehousePageSource, 'getDyeingWarehouseView', '染色仓�
   assert(!specialCraftWarehouseSource.includes(token), `特殊工艺仓库页不得新造库存模型：${token}`)
 })
 
-assert(defaultWarehouses.length === nonSewingFactories.length * 2, '默认工厂仓库数量应等于非车缝工厂数量的两倍')
+assert(
+  defaultWarehouses.length === ordinaryNonSewingFactories.length * 2 + 1,
+  '普通非车缝工厂各保留两仓，KOL-GOTO 仅保留一个待加工仓',
+)
 assert(testFactories.length === 1, '默认工厂池中只能存在一个测试工厂')
 assert(businessFactories.every((factory) => !factory.isTestFactory), '默认业务工厂列表必须排除测试工厂')
 assert(!factoryWarehouseSnapshots.some((snapshot) => testFactories.some((factory) => factory.id === snapshot.factoryId)), '默认工厂仓库统计不得混入测试工厂')
-nonSewingFactories.forEach((factory) => {
+ordinaryNonSewingFactories.forEach((factory) => {
   const warehouseRows = defaultWarehouses.filter((item) => item.factoryId === factory.id)
   assert(warehouseRows.some((item) => item.warehouseKind === 'WAIT_PROCESS'), `${factory.name} 缺少待加工仓`)
   assert(warehouseRows.some((item) => item.warehouseKind === 'WAIT_HANDOVER'), `${factory.name} 缺少待交出仓`)
 })
+assert.equal(kolGotoWarehouses.length, 1, 'KOL-GOTO 必须且只能生成一个内部仓')
+assert.equal(kolGotoWarehouses[0]?.warehouseKind, 'WAIT_PROCESS', 'KOL-GOTO 唯一内部仓必须是待加工仓')
+assert.equal(kolGotoWarehouses[0]?.areaList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认库区')
+assert.equal(kolGotoWarehouses[0]?.areaList[0]?.shelfList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认货架')
+assert.equal(kolGotoWarehouses[0]?.areaList[0]?.shelfList[0]?.locationList.length, 1, 'KOL-GOTO 待加工仓必须只有一个默认库位')
 sewingFactories.forEach((factory) => {
   assert(!defaultWarehouses.some((item) => item.factoryId === factory.id), `${factory.name} 不应默认生成工厂内部仓`)
 })
@@ -208,7 +220,10 @@ assert(
 assert(seededWarehouses.length >= defaultWarehouses.length, '种子仓库数据未初始化')
 assert(seededWarehouses.some((item) => item.warehouseKind === 'WAIT_PROCESS'), '缺少待加工仓种子数据')
 assert(seededWarehouses.some((item) => item.warehouseKind === 'WAIT_HANDOVER'), '缺少待交出仓种子数据')
-assert(!seededWarehouses.some((item) => SEWING_FACTORY_TYPES.has(item.factoryKind)), '车缝厂不应存在工厂内部仓种子数据')
+assert(
+  !seededWarehouses.some((item) => item.factoryId !== KOL_GOTO_FACTORY_ID && SEWING_FACTORY_TYPES.has(item.factoryKind)),
+  '普通车缝厂不应存在工厂内部仓种子数据；KOL-GOTO 特例仅保留待加工仓',
+)
 assert(!sewingDispatchSource.includes(buildToken('车', '缝厂', ' · ', '待加工仓')), `裁片交出不应为${buildToken('车', '缝')}接收方生成${buildToken('待加工', '仓')}`)
 assert(!sewingDispatchSource.includes(buildToken('车', '缝厂', ' · ', '待交出仓')), `裁片交出不应为${buildToken('车', '缝')}接收方生成${buildToken('待交出', '仓')}`)
 assert(!sewingDispatchSource.includes('sewingFactoryWarehouse'), `裁片交出不应为${buildToken('车', '缝')}接收方生成内部仓`)

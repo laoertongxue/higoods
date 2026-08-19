@@ -6,6 +6,7 @@ import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndException
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { listFutureMobileFactorySoonOverdueQcItems } from '../data/fcs/quality-deduction-selectors'
 import { getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
+import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   ensurePdaSessionForAction,
@@ -85,10 +86,6 @@ function formatRemaining(ms: number): string {
 function isSoonDue(deadline: string): boolean {
   const ms = msUntil(deadline)
   return ms > 0 && ms < SOON_THRESHOLD_MS
-}
-
-function getCurrentFactoryId(): string {
-  return getPdaRuntimeContext()?.factoryId ?? ''
 }
 
 function getFactoryName(factoryId: string): string {
@@ -240,6 +237,13 @@ const CATEGORIES: Array<{ key: DueSoonCategory; label: string; icon: string }> =
   { key: '结算类', label: '结算类', icon: 'wallet' },
 ]
 
+function getVisibleCategories(factoryId: string, roleId: string): typeof CATEGORIES {
+  if (!isKolGotoFactory(factoryId)) return CATEGORIES
+  const allowed = new Set<DueSoonCategory>(['全部', '执行类'])
+  if (roleId === 'ROLE_ADMIN') allowed.add('结算类')
+  return CATEGORIES.filter((item) => allowed.has(item.key))
+}
+
 const SUBTYPE_STYLE: Record<string, { label: string; className: string }> = {
   待接单: { label: '待接单', className: 'bg-orange-100 text-orange-700 border-orange-200' },
   待报价: { label: '待报价', className: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -260,12 +264,16 @@ const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
 }
 
 function getAllItems(): DueSoonItem[] {
-  syncPdaStartRiskAndExceptions()
-  syncMilestoneOverdueExceptions()
+  const runtime = getPdaRuntimeContext()
+  const selectedFactoryId = runtime?.factoryId ?? ''
+  const kolGotoFactory = isKolGotoFactory(selectedFactoryId)
+  if (!kolGotoFactory) {
+    syncPdaStartRiskAndExceptions()
+    syncMilestoneOverdueExceptions()
+  }
 
-  const staticItems = DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
-  const selectedFactoryId = getCurrentFactoryId()
-  const tenderQuoteDueItems: DueSoonItem[] = getFactoryMobileTodos(selectedFactoryId)
+  const staticItems = kolGotoFactory ? [] : DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
+  const tenderQuoteDueItems: DueSoonItem[] = getFactoryMobileTodos(selectedFactoryId, runtime?.roleId)
     .filter((todo) => todo.todoType === '待报价' && Boolean(todo.dueAt) && isSoonDue(todo.dueAt as string))
     .map((todo) => ({
       id: `quote-due-${todo.todoId}`,
@@ -284,6 +292,7 @@ function getAllItems(): DueSoonItem[] {
   const startDueItems: DueSoonItem[] = processTasks
     .filter(
       (task) =>
+        !kolGotoFactory &&
         task.taskId.startsWith('PDA-EXEC-') &&
         task.assignedFactoryId === selectedFactoryId &&
         task.acceptanceStatus === 'ACCEPTED' &&
@@ -315,6 +324,7 @@ function getAllItems(): DueSoonItem[] {
   const execInProgressItems: DueSoonItem[] = processTasks
     .filter(
       (task) =>
+        !kolGotoFactory &&
         task.taskId.startsWith('PDA-EXEC-') &&
         task.assignedFactoryId === selectedFactoryId &&
         task.acceptanceStatus === 'ACCEPTED' &&
@@ -342,7 +352,11 @@ function getAllItems(): DueSoonItem[] {
       href: `/fcs/pda/exec/${item.task.taskId}`,
     }))
 
-  const qualityDueSoonItems: DueSoonItem[] = listFutureMobileFactorySoonOverdueQcItems(selectedFactoryId).map((item) => ({
+  const qualityDueSoonItems: DueSoonItem[] = (
+    kolGotoFactory && runtime?.roleId !== 'ROLE_ADMIN'
+      ? []
+      : listFutureMobileFactorySoonOverdueQcItems(selectedFactoryId)
+  ).map((item) => ({
     id: `quality-due-${item.qcId}`,
     category: '结算类' as const,
     subtype: '质检扣款' as const,
@@ -445,10 +459,13 @@ function renderDueSoonCard(item: DueSoonItem): string {
 }
 
 export function renderPdaNotifyDueSoonPage(): string {
-  if (!getPdaRuntimeContext()) {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) {
     return renderPdaLoginRedirect()
   }
 
+  const visibleCategories = getVisibleCategories(runtime.factoryId, runtime.roleId)
+  if (!visibleCategories.some((item) => item.key === state.activeCategory)) state.activeCategory = '全部'
   const allItems = getAllItems()
   const countByCategory = getCountByCategory(allItems)
   const filtered = getFilteredItems(allItems)
@@ -472,7 +489,7 @@ export function renderPdaNotifyDueSoonPage(): string {
         </div>
 
         <div class="flex items-center gap-4 overflow-x-auto px-4 pb-2 text-xs text-muted-foreground">
-          ${CATEGORIES.filter((item) => item.key !== '全部')
+          ${visibleCategories.filter((item) => item.key !== '全部')
             .map((item) => {
               const count = countByCategory[item.key] ?? 0
               return `<span class="shrink-0">${escapeHtml(item.label)} <span class="font-semibold ${count > 0 ? 'text-foreground' : ''}">${count}</span></span>`
@@ -483,7 +500,7 @@ export function renderPdaNotifyDueSoonPage(): string {
 
       <section class="sticky top-[88px] z-10 border-b bg-background">
         <div class="flex gap-1 overflow-x-auto px-3 py-2">
-          ${CATEGORIES.map((category) => {
+          ${visibleCategories.map((category) => {
             const count = category.key === '全部' ? allItems.length : (countByCategory[category.key] ?? 0)
             const active = state.activeCategory === category.key
             return `
@@ -562,7 +579,9 @@ export function handlePdaNotifyDueSoonEvent(target: HTMLElement): boolean {
 
   if (action === 'set-category') {
     const category = actionNode.dataset.category as DueSoonCategory | undefined
-    if (category && ['全部', '接单类', '报价类', '交接类', '执行类', '结算类'].includes(category)) {
+    const runtime = getPdaRuntimeContext()
+    const visibleCategories = runtime ? getVisibleCategories(runtime.factoryId, runtime.roleId) : []
+    if (category && visibleCategories.some((item) => item.key === category)) {
       state.activeCategory = category
     }
     return true

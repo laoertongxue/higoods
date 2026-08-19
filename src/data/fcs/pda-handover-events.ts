@@ -5,12 +5,8 @@ import {
   type WarehouseIssueOrder,
   type WarehouseReturnOrder,
 } from './warehouse-material-execution.ts'
-import {
-  KOL_GOTO_FACTORY_ID,
-  KOL_GOTO_FACTORY_NAME,
-  TEST_FACTORY_ID,
-  TEST_FACTORY_NAME,
-} from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { isKolGotoWholeOrderTask } from './kol-goto-special-flow.ts'
 import {
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   getProcessDefinitionByCode,
@@ -874,22 +870,36 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
   const handoverOrderId = head.handoverOrderId || head.handoverId
   const receiverKind = normalizeReceiverKind(head.targetKind, head.receiverKind)
   const receiverName = normalizeReceiverName(head)
-  const submittedQtyTotal = sumBy(records, (record) => resolveSubmittedQty(record))
-  const writtenBackQtyTotal = sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
-  const diffQtyTotal = sumBy(records, (record) => deriveDiffQty(record) ?? 0)
+  const isKolGotoWholeOrderHead = isKolGotoWholeOrderTask({
+    productionOrderId: head.productionOrderId,
+    taskUnitType: head.taskTypeCode,
+    processCode: head.processBusinessCode,
+    processBusinessCode: head.processBusinessCode,
+    assignedFactoryId: head.factoryId,
+  })
+  const effectiveRecords = isKolGotoWholeOrderHead
+    ? records.filter((record) => record.handoverRecordStatus !== 'VOIDED')
+    : records
+  const submittedQtyTotal = sumBy(effectiveRecords, (record) => resolveSubmittedQty(record))
+  const writtenBackQtyTotal = sumBy(effectiveRecords, (record) => resolveReceiverWrittenQty(record) ?? 0)
+  const diffQtyTotal = sumBy(effectiveRecords, (record) => deriveDiffQty(record) ?? 0)
   const factoryMarkedComplete = head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED'
   const derivedHandoverOrderStatus =
     head.headType === 'HANDOUT'
-      ? deriveHandoverOrderStatus(records, factoryMarkedComplete)
+      ? deriveHandoverOrderStatus(effectiveRecords, factoryMarkedComplete)
       : undefined
-  const waterRecordStatuses = records.map((record) => record.handoverRecordStatus || mapRecordLifecycleStatus(record))
+  const waterRecordStatuses = effectiveRecords.map((record) => record.handoverRecordStatus || mapRecordLifecycleStatus(record))
   const waterReceiverClosed = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
     && factoryMarkedComplete
     && waterRecordStatuses.length === 1
     && waterRecordStatuses.every((status) => status === 'WRITTEN_BACK_MATCHED' || status === 'DIFF_ACCEPTED')
-  const handoverOrderStatus = waterReceiverClosed ? 'CLOSED' : derivedHandoverOrderStatus
+  const handoverOrderStatus = head.handoverOrderStatus === 'CLOSED'
+    ? 'CLOSED'
+    : waterReceiverClosed
+      ? 'CLOSED'
+      : derivedHandoverOrderStatus
   const receiverClosedAt = waterReceiverClosed
-    ? head.receiverClosedAt || records.map(resolveReceiverWrittenAt).filter((value): value is string => Boolean(value)).sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+    ? head.receiverClosedAt || effectiveRecords.map(resolveReceiverWrittenAt).filter((value): value is string => Boolean(value)).sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
     : head.receiverClosedAt
 
   return {
@@ -1617,7 +1627,6 @@ const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(
 
 const PDA_MOCK_FACTORY_ID = TEST_FACTORY_ID
 const PDA_MOCK_CUTTING_FACTORY_ID = TEST_FACTORY_ID
-const KOL_WHOLE_ORDER_HANDOUT_HEAD_ID = 'HOH-TASKGEN-202603-0001-001'
 
 const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
@@ -1672,248 +1681,6 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     assignmentGranularityLabel: '整单',
     isSpecialCraft: false,
     lastRecordAt: '2026-07-05 12:00:00',
-  },
-  {
-    handoverId: KOL_WHOLE_ORDER_HANDOUT_HEAD_ID,
-    handoverOrderId: KOL_WHOLE_ORDER_HANDOUT_HEAD_ID,
-    handoverOrderNo: buildHandoverOrderNo(KOL_WHOLE_ORDER_HANDOUT_HEAD_ID),
-    headType: 'HANDOUT',
-    qrCodeValue: buildHandoutHeadQrCodeValue(KOL_WHOLE_ORDER_HANDOUT_HEAD_ID),
-    handoverOrderQrValue: buildHandoverOrderQrValue(KOL_WHOLE_ORDER_HANDOUT_HEAD_ID),
-    taskId: 'TASKGEN-202603-0001-001__ORDER',
-    sourceTaskId: 'TASKGEN-202603-0001-001__ORDER',
-    taskNo: 'TASKGEN-202603-0001-001',
-    sourceTaskNo: 'TASKGEN-202603-0001-001',
-    productionOrderNo: 'PO-202603-0001',
-    processName: 'KOL整单任务',
-    sourceFactoryId: KOL_GOTO_FACTORY_ID,
-    sourceFactoryName: KOL_GOTO_FACTORY_NAME,
-    targetName: '工厂入库',
-    targetKind: 'WAREHOUSE',
-    receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TASK-GENERATION-HANDOVER',
-    receiverName: '工厂入库',
-    qtyUnit: '件',
-    factoryId: KOL_GOTO_FACTORY_ID,
-    taskStatus: 'IN_PROGRESS',
-    summaryStatus: 'SUBMITTED',
-    handoverOrderStatus: 'WAIT_RECEIVER_WRITEBACK',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    submittedQtyTotal: 0,
-    writtenBackQtyTotal: 0,
-    diffQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'OPEN',
-    plannedQty: 5000,
-    qtyExpectedTotal: 5000,
-    qtyActualTotal: 0,
-    qtyDiffTotal: 5000,
-    runtimeTaskId: 'TASKGEN-202603-0001-001__ORDER',
-    sourceDocNo: 'HAND-202603-0001',
-    scopeLabel: 'KOL整单任务交出',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'NOT_APPLICABLE',
-    transitionToNext: 'RETURN_TO_WAREHOUSE',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    processBusinessCode: 'WHOLE_ORDER_TASK',
-    processBusinessName: 'KOL整单任务',
-    taskTypeCode: 'WHOLE_ORDER_TASK',
-    taskTypeLabel: '整单任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
-  },
-  {
-    handoverId: 'PKH-KOL-WHOLE-0001',
-    headType: 'PICKUP',
-    qrCodeValue: '',
-    taskId: 'TASKGEN-202603-0003-006__ORDER',
-    taskNo: 'TASKGEN-202603-0003-006',
-    productionOrderNo: 'PO-202603-0003',
-    processName: 'KOL整单任务',
-    sourceFactoryName: '辅料仓',
-    targetName: KOL_GOTO_FACTORY_NAME,
-    targetKind: 'FACTORY',
-    qtyUnit: '包',
-    factoryId: KOL_GOTO_FACTORY_ID,
-    taskStatus: 'IN_PROGRESS',
-    summaryStatus: 'SUBMITTED',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    submittedQtyTotal: 0,
-    writtenBackQtyTotal: 0,
-    diffQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'OPEN',
-    plannedQty: 3,
-    qtyExpectedTotal: 3,
-    qtyActualTotal: 0,
-    qtyDiffTotal: 3,
-    runtimeTaskId: 'TASKGEN-202603-0003-006__ORDER',
-    sourceDocNo: 'ISS-KOL-0003',
-    scopeLabel: '辅料待领',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'NOT_APPLICABLE',
-    transitionToNext: 'SAME_FACTORY_CONTINUE',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    processBusinessCode: 'WHOLE_ORDER_TASK',
-    processBusinessName: 'KOL整单任务',
-    taskTypeCode: 'WHOLE_ORDER_TASK',
-    taskTypeLabel: '整单任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
-  },
-  {
-    handoverId: 'PKH-KOL-WHOLE-0002',
-    headType: 'PICKUP',
-    qrCodeValue: '',
-    taskId: 'TASKGEN-202603-0015-005__ORDER',
-    taskNo: 'TASKGEN-202603-0015-005',
-    productionOrderNo: 'PO-202603-0015',
-    processName: 'KOL整单任务',
-    sourceFactoryName: '成衣仓',
-    targetName: KOL_GOTO_FACTORY_NAME,
-    targetKind: 'FACTORY',
-    qtyUnit: '包',
-    factoryId: KOL_GOTO_FACTORY_ID,
-    taskStatus: 'IN_PROGRESS',
-    summaryStatus: 'SUBMITTED',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    submittedQtyTotal: 0,
-    writtenBackQtyTotal: 0,
-    diffQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'OPEN',
-    plannedQty: 2,
-    qtyExpectedTotal: 2,
-    qtyActualTotal: 0,
-    qtyDiffTotal: 2,
-    runtimeTaskId: 'TASKGEN-202603-0015-005__ORDER',
-    sourceDocNo: 'ISS-KOL-0015',
-    scopeLabel: '工艺样包待领',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'NOT_APPLICABLE',
-    transitionToNext: 'SAME_FACTORY_CONTINUE',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    processBusinessCode: 'WHOLE_ORDER_TASK',
-    processBusinessName: 'KOL整单任务',
-    taskTypeCode: 'WHOLE_ORDER_TASK',
-    taskTypeLabel: '整单任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
-  },
-  {
-    handoverId: 'HOH-KOL-WHOLE-DONE-0001',
-    handoverOrderId: 'HOH-KOL-WHOLE-DONE-0001',
-    handoverOrderNo: buildHandoverOrderNo('HOH-KOL-WHOLE-DONE-0001'),
-    headType: 'HANDOUT',
-    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-KOL-WHOLE-DONE-0001'),
-    handoverOrderQrValue: buildHandoverOrderQrValue('HOH-KOL-WHOLE-DONE-0001'),
-    taskId: 'TASKGEN-202603-0004-001__ORDER',
-    sourceTaskId: 'TASKGEN-202603-0004-001__ORDER',
-    taskNo: 'TASKGEN-202603-0004-001',
-    sourceTaskNo: 'TASKGEN-202603-0004-001',
-    productionOrderNo: 'PO-202603-0004',
-    processName: 'KOL整单任务',
-    sourceFactoryId: KOL_GOTO_FACTORY_ID,
-    sourceFactoryName: KOL_GOTO_FACTORY_NAME,
-    targetName: '工厂入库',
-    targetKind: 'WAREHOUSE',
-    receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TASK-GENERATION-HANDOVER',
-    receiverName: '工厂入库',
-    qtyUnit: '件',
-    factoryId: KOL_GOTO_FACTORY_ID,
-    taskStatus: 'DONE',
-    summaryStatus: 'WRITTEN_BACK',
-    handoverOrderStatus: 'RECEIVER_WRITTEN_BACK',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    submittedQtyTotal: 0,
-    writtenBackQtyTotal: 0,
-    diffQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'COMPLETED',
-    completedByWarehouseAt: '2026-03-25 18:10:00',
-    plannedQty: 7000,
-    qtyExpectedTotal: 7000,
-    qtyActualTotal: 7000,
-    qtyDiffTotal: 0,
-    runtimeTaskId: 'TASKGEN-202603-0004-001__ORDER',
-    sourceDocNo: 'HAND-KOL-0004',
-    scopeLabel: 'KOL整单任务交出',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'NOT_APPLICABLE',
-    transitionToNext: 'RETURN_TO_WAREHOUSE',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    processBusinessCode: 'WHOLE_ORDER_TASK',
-    processBusinessName: 'KOL整单任务',
-    taskTypeCode: 'WHOLE_ORDER_TASK',
-    taskTypeLabel: '整单任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
-  },
-  {
-    handoverId: 'HOH-KOL-WHOLE-DONE-0002',
-    handoverOrderId: 'HOH-KOL-WHOLE-DONE-0002',
-    handoverOrderNo: buildHandoverOrderNo('HOH-KOL-WHOLE-DONE-0002'),
-    headType: 'HANDOUT',
-    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-KOL-WHOLE-DONE-0002'),
-    handoverOrderQrValue: buildHandoverOrderQrValue('HOH-KOL-WHOLE-DONE-0002'),
-    taskId: 'TASKGEN-202603-0004-006__ORDER',
-    sourceTaskId: 'TASKGEN-202603-0004-006__ORDER',
-    taskNo: 'TASKGEN-202603-0004-006',
-    sourceTaskNo: 'TASKGEN-202603-0004-006',
-    productionOrderNo: 'PO-202603-0004',
-    processName: 'KOL整单任务',
-    sourceFactoryId: KOL_GOTO_FACTORY_ID,
-    sourceFactoryName: KOL_GOTO_FACTORY_NAME,
-    targetName: '工厂入库',
-    targetKind: 'WAREHOUSE',
-    receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TASK-GENERATION-HANDOVER',
-    receiverName: '工厂入库',
-    qtyUnit: '件',
-    factoryId: KOL_GOTO_FACTORY_ID,
-    taskStatus: 'DONE',
-    summaryStatus: 'WRITTEN_BACK',
-    handoverOrderStatus: 'RECEIVER_WRITTEN_BACK',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    submittedQtyTotal: 0,
-    writtenBackQtyTotal: 0,
-    diffQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'COMPLETED',
-    completedByWarehouseAt: '2026-03-27 17:20:00',
-    plannedQty: 3200,
-    qtyExpectedTotal: 3200,
-    qtyActualTotal: 3200,
-    qtyDiffTotal: 0,
-    runtimeTaskId: 'TASKGEN-202603-0004-006__ORDER',
-    sourceDocNo: 'HAND-KOL-0004-02',
-    scopeLabel: 'KOL整单任务交出',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'NOT_APPLICABLE',
-    transitionToNext: 'RETURN_TO_WAREHOUSE',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    processBusinessCode: 'WHOLE_ORDER_TASK',
-    processBusinessName: 'KOL整单任务',
-    taskTypeCode: 'WHOLE_ORDER_TASK',
-    taskTypeLabel: '整单任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
   },
   {
     handoverId: 'PKH-MOCK-CUT-089',
@@ -2148,55 +1915,6 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
 ]
 
 const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
-  'PKH-KOL-WHOLE-0001': [
-    {
-      recordId: 'PKR-KOL-WHOLE-0001-001',
-      handoverId: 'PKH-KOL-WHOLE-0001',
-      taskId: 'TASKGEN-202603-0003-006__ORDER',
-      sequenceNo: 1,
-      materialCode: 'ACC-KOL-0008',
-      materialName: 'KOL小单辅料包',
-      materialSpec: '拉链 / 扣件 / 吊牌',
-      skuCode: 'KOL-PO-0008',
-      skuColor: '混色',
-      skuSize: '均码',
-      pieceName: '整单',
-      pickupMode: 'WAREHOUSE_DELIVERY',
-      pickupModeLabel: '仓库配送到厂',
-      materialSummary: 'KOL小单辅料包',
-      qtyExpected: 3,
-      qtyUnit: '包',
-      submittedAt: '2026-03-21 10:00:00',
-      status: 'PENDING_FACTORY_CONFIRM',
-      qrCodeValue: buildPickupQrCodeValue('PKR-KOL-WHOLE-0001-001'),
-      warehouseHandedQty: 3,
-      warehouseHandedAt: '2026-03-21 10:20:00',
-      warehouseHandedBy: '辅料仓',
-    },
-  ],
-  'PKH-KOL-WHOLE-0002': [
-    {
-      recordId: 'PKR-KOL-WHOLE-0002-001',
-      handoverId: 'PKH-KOL-WHOLE-0002',
-      taskId: 'TASKGEN-202603-0015-005__ORDER',
-      sequenceNo: 1,
-      materialCode: 'TECH-KOL-0015',
-      materialName: 'KOL工艺样包',
-      materialSpec: '工艺卡 / 样衣参考',
-      skuCode: 'KOL-PO-0015',
-      skuColor: '混色',
-      skuSize: '均码',
-      pieceName: '整单',
-      pickupMode: 'FACTORY_PICKUP',
-      pickupModeLabel: '工厂到仓自提',
-      materialSummary: 'KOL工艺样包',
-      qtyExpected: 2,
-      qtyUnit: '包',
-      submittedAt: '2026-03-18 14:30:00',
-      status: 'PENDING_FACTORY_PICKUP',
-      qrCodeValue: buildPickupQrCodeValue('PKR-KOL-WHOLE-0002-001'),
-    },
-  ],
   'PKH-MOCK-CUT-089': [
     {
       recordId: 'PKR-MOCK-CUT089-001',
@@ -2333,60 +2051,6 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       receiverWrittenBy: '成衣仓收货员',
       receiverProofFiles: [],
       diffQty: 0,
-    },
-  ],
-  'HOH-KOL-WHOLE-DONE-0001': [
-    {
-      recordId: 'HOR-KOL-WHOLE-DONE-0001-001',
-      handoverId: 'HOH-KOL-WHOLE-DONE-0001',
-      handoverOrderId: 'HOH-KOL-WHOLE-DONE-0001',
-      taskId: 'TASKGEN-202603-0004-001__ORDER',
-      sequenceNo: 1,
-      handoutObjectType: 'GARMENT',
-      handoutItemLabel: 'KOL整单成衣 / PO-202603-0004',
-      garmentEquivalentQty: 7000,
-      materialCode: 'GAR-KOL-0004',
-      materialName: '成衣',
-      materialSpec: 'KOL整单',
-      skuCode: 'PO-202603-0004',
-      skuColor: '混色',
-      skuSize: '混码',
-      pieceName: '整单',
-      plannedQty: 7000,
-      qtyUnit: '件',
-      factorySubmittedAt: '2026-03-25 17:45:00',
-      factoryProofFiles: [],
-      status: 'WRITTEN_BACK',
-      warehouseReturnNo: 'RET-KOL-0004-001',
-      warehouseWrittenQty: 7000,
-      warehouseWrittenAt: '2026-03-25 18:10:00',
-    },
-  ],
-  'HOH-KOL-WHOLE-DONE-0002': [
-    {
-      recordId: 'HOR-KOL-WHOLE-DONE-0002-001',
-      handoverId: 'HOH-KOL-WHOLE-DONE-0002',
-      handoverOrderId: 'HOH-KOL-WHOLE-DONE-0002',
-      taskId: 'TASKGEN-202603-0004-006__ORDER',
-      sequenceNo: 1,
-      handoutObjectType: 'GARMENT',
-      handoutItemLabel: 'KOL整单成衣 / PO-202603-0004',
-      garmentEquivalentQty: 3200,
-      materialCode: 'GAR-KOL-0015',
-      materialName: '成衣',
-      materialSpec: 'KOL整单',
-      skuCode: 'PO-202603-0004',
-      skuColor: '混色',
-      skuSize: '混码',
-      pieceName: '整单',
-      plannedQty: 3200,
-      qtyUnit: '件',
-      factorySubmittedAt: '2026-03-27 17:00:00',
-      factoryProofFiles: [],
-      status: 'WRITTEN_BACK',
-      warehouseReturnNo: 'RET-KOL-0004-002',
-      warehouseWrittenQty: 3200,
-      warehouseWrittenAt: '2026-03-27 17:20:00',
     },
   ],
   'HOH-MOCK-CUT-093': [
@@ -2869,16 +2533,6 @@ headCompletionOverrides.set('HOH-MOCK-CUT-094', {
 headCompletionOverrides.set('HOH-MOCK-CUT-103-F004-DONE', {
   completionStatus: 'COMPLETED',
   completedByWarehouseAt: '2026-03-24 18:20:00',
-})
-
-headCompletionOverrides.set('HOH-KOL-WHOLE-DONE-0001', {
-  completionStatus: 'COMPLETED',
-  completedByWarehouseAt: '2026-03-25 18:10:00',
-})
-
-headCompletionOverrides.set('HOH-KOL-WHOLE-DONE-0002', {
-  completionStatus: 'COMPLETED',
-  completedByWarehouseAt: '2026-03-27 17:20:00',
 })
 
 PDA_GENERIC_HANDOVER_HEADS
@@ -4889,6 +4543,14 @@ export function createFactoryHandoverRecord(input: {
 
 export function upsertPdaHandoverHeadMock(head: PdaHandoverHead): PdaHandoverHead {
   handoverHeadAdditions.set(head.handoverId, cloneHead(head))
+  if (head.completionStatus === 'COMPLETED' && head.factoryMarkedComplete) {
+    headCompletionOverrides.set(head.handoverId, {
+      completionStatus: 'COMPLETED',
+      completedByWarehouseAt: head.completedByWarehouseAt,
+      factoryMarkedComplete: true,
+      factoryMarkedCompleteAt: head.factoryMarkedCompleteAt,
+    })
+  }
   invalidatePdaHandoverHeadCache()
   return findPdaHandoverHead(head.handoverId) ?? cloneHead(head)
 }

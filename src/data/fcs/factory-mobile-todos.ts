@@ -28,6 +28,8 @@ import {
   resolveRuntimeTaskTenderStatus,
 } from './runtime-task-tenders.ts'
 import { getSpecialCraftPdaCandidateByTaskId } from './special-craft-pda-scan.ts'
+import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
+import { isKolGotoFactory, isKolGotoWholeOrderTask } from './kol-goto-special-flow.ts'
 
 export type FactoryMobileTodoType =
   | '待报价'
@@ -37,6 +39,7 @@ export type FactoryMobileTodoType =
   | '待完工'
   | '待确认接收'
   | '待加工填报'
+  | '加工领料'
   | '待交出'
   | '差异待处理'
   | '异常待处理'
@@ -148,10 +151,6 @@ function buildTenderQuoteTodos(factoryId: string): FactoryMobileTodo[] {
     })
 }
 
-function isWholeOrderFiveStepTask(task: PdaTaskFlowMock): boolean {
-  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
-}
-
 function isFixedMergedTask(task: PdaTaskFlowMock): boolean {
   return task.taskUnitType === 'MERGED_PRODUCTION_TASK'
 }
@@ -257,8 +256,8 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       return {
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
-      todoType: executionMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待接收' as const : '待开工' as const),
-      todoTitle: executionMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待接收' : '待开工'),
+      todoType: executionMeta?.todoType || '待开工' as const,
+      todoTitle: executionMeta?.title || getMobileTaskDisplayTitle(task, '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -283,12 +282,10 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       return {
       todoId: `todo-finish-${task.taskId}`,
       todoNo: `TD-FN-${String(index + 1).padStart(3, '0')}`,
-      todoType: executionMeta?.todoType || (isWholeOrderFiveStepTask(task) || isFixedMergedTask(task) ? '待交出' as const : '待完工' as const),
-      todoTitle: executionMeta?.title || (isWholeOrderFiveStepTask(task)
-        ? `${getMobileTaskDisplayTitle(task, '上传进度')}，交给${task.handoverReceiverName || '仓库'}后进入仓库待确认`
-        : isFixedMergedTask(task)
-          ? `${getMobileTaskDisplayTitle(task, '待交出')}，交出即结束本次合并任务`
-          : getMobileTaskDisplayTitle(task, '待完工')),
+      todoType: executionMeta?.todoType || (isFixedMergedTask(task) ? '待交出' as const : '待完工' as const),
+      todoTitle: executionMeta?.title || (isFixedMergedTask(task)
+        ? `${getMobileTaskDisplayTitle(task, '待交出')}，交出即结束本次合并任务`
+        : getMobileTaskDisplayTitle(task, '待完工')),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -567,6 +564,33 @@ function buildSettlementTodos(factoryId: string): FactoryMobileTodo[] {
     }))
 }
 
+function buildKolGotoExecutionTodos(): FactoryMobileTodo[] {
+  return listPdaTaskFlowTasks()
+    .filter((task) => isKolGotoWholeOrderTask(task) && task.status !== 'DONE')
+    .map((task, index) => {
+      const notStarted = task.status === 'NOT_STARTED'
+      return {
+        todoId: `todo-kol-exec-${task.taskId}`,
+        todoNo: `TD-KOL-${String(index + 1).padStart(3, '0')}`,
+        todoType: notStarted ? '加工领料' as const : '待交出' as const,
+        todoTitle: notStarted ? 'KOL 整单任务可加工领料' : 'KOL 整单任务继续执行',
+        todoSubtitle: notStarted
+          ? `${task.productionOrderNo || task.productionOrderId} · 加工领料后自动开工`
+          : `${task.productionOrderNo || task.productionOrderId} · 可继续加工领料、发起交出或完成`,
+        factoryId: KOL_GOTO_FACTORY_ID,
+        factoryName: task.assignedFactoryName || KOL_GOTO_FACTORY_ID,
+        relatedTaskId: task.taskId,
+        relatedTaskNo: task.taskNo || task.taskId,
+        priority: resolvePriority(task.taskDeadline, notStarted ? '待处理' : '处理中'),
+        status: notStarted ? '待处理' as const : '处理中' as const,
+        dueAt: task.taskDeadline,
+        createdAt: task.startedAt || task.acceptedAt || task.createdAt || '',
+        detailRoute: `/fcs/pda/exec/${task.taskId}`,
+        actionLabel: '去处理' as const,
+      }
+    })
+}
+
 function compareTodo(a: FactoryMobileTodo, b: FactoryMobileTodo): number {
   const priorityRank: Record<FactoryMobileTodoPriority, number> = {
     紧急: 3,
@@ -583,7 +607,14 @@ export function getFactoryMobileTodoActionRoute(todo: FactoryMobileTodo): string
   return resolveFactoryMobileTodoActionRoute(todo)
 }
 
-export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {
+export function getFactoryMobileTodos(factoryId: string, roleId?: string): FactoryMobileTodo[] {
+  if (isKolGotoFactory(factoryId)) {
+    return [
+      ...buildKolGotoExecutionTodos(),
+      ...(roleId === 'ROLE_ADMIN' ? buildSettlementTodos(factoryId) : []),
+    ].sort(compareTodo)
+  }
+
   if (factoryId === FULL_CAPABILITY_FACTORY_ID) {
     return [
       ...buildTenderQuoteTodos(factoryId),
@@ -609,8 +640,8 @@ export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {
     .sort(compareTodo)
 }
 
-export function getFactoryMobileTodoCount(factoryId: string): number {
-  return getFactoryMobileTodos(factoryId).filter((item) => item.status === '待处理' || item.status === '处理中').length
+export function getFactoryMobileTodoCount(factoryId: string, roleId?: string): number {
+  return getFactoryMobileTodos(factoryId, roleId).filter((item) => item.status === '待处理' || item.status === '处理中').length
 }
 
 export function getFactoryMobileTodoById(todoId: string): FactoryMobileTodo | null {
@@ -623,12 +654,12 @@ export function getFactoryMobileTodoById(todoId: string): FactoryMobileTodo | nu
         .filter((factoryId): factoryId is string => Boolean(factoryId)),
       ],
     ),
-  ).flatMap((factoryId) => getFactoryMobileTodos(factoryId))
+  ).flatMap((factoryId) => getFactoryMobileTodos(factoryId, isKolGotoFactory(factoryId) ? 'ROLE_ADMIN' : undefined))
   return allTodos.find((item) => item.todoId === todoId) ?? null
 }
 
-export function getFactoryMobileTodoSummary(factoryId: string): FactoryMobileTodoSummary {
-  const todos = getFactoryMobileTodos(factoryId)
+export function getFactoryMobileTodoSummary(factoryId: string, roleId?: string): FactoryMobileTodoSummary {
+  const todos = getFactoryMobileTodos(factoryId, roleId)
   return {
     total: todos.filter((item) => item.status === '待处理' || item.status === '处理中').length,
     urgent: todos.filter((item) => item.priority === '紧急').length,

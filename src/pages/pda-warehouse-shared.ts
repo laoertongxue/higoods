@@ -24,6 +24,28 @@ export function escapeAttr(value: string | number | undefined | null): string {
   return escapeHtml(value ?? '')
 }
 
+export function renderPdaWarehouseBusinessImage(input: {
+  imageUrl?: string
+  imageAlt: string
+  openAction: string
+  className?: string
+}): string {
+  const className = input.className ?? 'h-16 w-16'
+  if (!input.imageUrl) {
+    return `<div class="${className} flex shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 p-1 text-center text-[10px] text-red-700">缺少对应实物图</div>`
+  }
+  return `<button type="button" class="${className} relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted" data-pda-warehouse-action="${escapeAttr(input.openAction)}" data-image-url="${escapeAttr(input.imageUrl)}" data-image-alt="${escapeAttr(input.imageAlt)}"><img src="${escapeAttr(input.imageUrl)}" alt="${escapeAttr(input.imageAlt)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+}
+
+export function renderPdaWarehouseImagePreview(input: {
+  imageUrl?: string
+  imageAlt?: string
+  closeAction: string
+}): string {
+  if (!input.imageUrl) return ''
+  return `<div class="fixed inset-0 z-[160] flex items-center justify-center bg-black/75 p-4" data-pda-warehouse-action="${escapeAttr(input.closeAction)}"><button type="button" class="absolute right-4 top-4 rounded-full bg-white px-3 py-2 text-sm" data-pda-warehouse-action="${escapeAttr(input.closeAction)}">关闭</button><img src="${escapeAttr(input.imageUrl)}" alt="${escapeAttr(input.imageAlt || '实物高清图')}" class="max-h-[85vh] max-w-full rounded-xl object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><div hidden class="rounded-xl bg-white p-8 text-sm text-red-700">图片加载失败，请核对原图素材。</div></div>`
+}
+
 export function showPdaWarehouseActionToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
   const rootId = 'pda-warehouse-action-toast-root'
@@ -47,6 +69,7 @@ export function showPdaWarehouseActionToast(message: string): void {
 export interface MobileWarehouseRuntimeContext {
   factoryId: string
   factoryName: string
+  roleId: string
   overview: FactoryMobileWarehouseOverview
   cards: FactoryMobileWarehouseCard[]
   warehouses: FactoryInternalWarehouse[]
@@ -59,6 +82,7 @@ export function getMobileWarehouseRuntimeContext(): MobileWarehouseRuntimeContex
   return {
     factoryId: runtime.factoryId,
     factoryName: runtime.factoryName,
+    roleId: runtime.roleId,
     overview: getFactoryMobileWarehouseOverview(runtime.factoryId, runtime.factoryName),
     cards: getFactoryMobileWarehouseCards(runtime.factoryId, runtime.factoryName),
     warehouses,
@@ -268,6 +292,7 @@ export function getMobileWarehouseSearchParams(): URLSearchParams {
 }
 
 export function getWaitProcessSourceActionLabel(item: Pick<FactoryWaitProcessStockItem, 'sourceRecordType'>): string {
+  if (item.sourceRecordType === 'KOL_PROCESSING_PICKUP') return '加工领料'
   return item.sourceRecordType === 'HANDOVER_RECEIVE' ? '交出接收' : '接收记录'
 }
 
@@ -285,7 +310,8 @@ export function getWaitHandoverWritebackStatusLabel(
   return '未回写'
 }
 
-export function getWarehouseGeneratedModeLabel(): string {
+export function getWarehouseGeneratedModeLabel(sourceRecordType?: FactoryWaitProcessStockItem['sourceRecordType']): string {
+  if (sourceRecordType === 'KOL_PROCESSING_PICKUP') return '加工领料自动写入'
   return '自动转单'
 }
 

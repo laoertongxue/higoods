@@ -18,12 +18,16 @@ import { deriveFormalProductionOrderProcessSnapshots } from './production-proces
 import type { ProductionOrder } from './production-orders.ts'
 import {
   ensureProcessWorkOrders,
+  prepareProcessWorkOrderBatch,
   type EnsuredProcessWorkOrders,
+  type PreparedProcessWorkOrderBatch,
+  type ProcessWorkOrderGenerationInput,
 } from './process-work-order-generation-service.ts'
 
 export type { FormalProductionOrderProcessSnapshot } from './process-work-order-domain.ts'
 
 export type EnsuredProductionProcessWorkOrders = EnsuredProcessWorkOrders
+export type PreparedProductionProcessWorkOrderBatch = PreparedProcessWorkOrderBatch
 
 export interface ProductionOrderChangeWorkOrderSyncOptions {
   changeRecordId?: string
@@ -94,9 +98,15 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
   snapshot: FormalProductionOrderProcessSnapshot,
 ): EnsuredProductionProcessWorkOrders {
   validateFormalProductionOrderProcessSnapshot(snapshot)
+  return ensureProcessWorkOrders(toProcessWorkOrderGenerationInput(snapshot))
+}
+
+function toProcessWorkOrderGenerationInput(
+  snapshot: FormalProductionOrderProcessSnapshot,
+): ProcessWorkOrderGenerationInput {
   const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
   const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
-  return ensureProcessWorkOrders({
+  return {
     source: {
       sourceType: 'PRODUCTION_ORDER',
       productionOrderId: snapshot.productionOrderId,
@@ -121,7 +131,14 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
     spuCode: snapshot.spuCode,
     spuName: snapshot.spuName,
     requiredDeliveryDate: snapshot.requiredDeliveryDate,
-  })
+  }
+}
+
+export function prepareProcessWorkOrdersForFormalProductionOrders(
+  snapshots: FormalProductionOrderProcessSnapshot[],
+): PreparedProductionProcessWorkOrderBatch {
+  snapshots.forEach(validateFormalProductionOrderProcessSnapshot)
+  return prepareProcessWorkOrderBatch(snapshots.map(toProcessWorkOrderGenerationInput))
 }
 
 function createDefaultChangeRecordId(snapshot: FormalProductionOrderProcessSnapshot): string {
