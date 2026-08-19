@@ -30,6 +30,10 @@ import { getCuttingCutOrderTaskPrintSourceById } from '../../../data/fcs/cutting
 import { buildBindingProcessOrders } from '../../process-factory/cutting/binding-strip-orders.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
 import {
+  buildTransferBagGoodsLabelPages,
+  resolveTransferBagGoodsLabelSource,
+} from '../../../data/fcs/cutting/transfer-bag-goods-label.ts'
+import {
   getProcessHandoverRecordById,
   listProcessHandoverRecords,
   type ProcessHandoverRecord,
@@ -43,6 +47,7 @@ const TEMPLATE_BY_DOCUMENT: Record<string, string> = {
   FEI_TICKET_LABEL: 'FEI_TICKET_LABEL',
   FEI_TICKET_REPRINT_LABEL: 'FEI_TICKET_REPRINT_LABEL',
   TRANSFER_BAG_LABEL: 'TRANSFER_BAG_LABEL',
+  TRANSFER_BAG_GOODS_LABEL: 'TRANSFER_BAG_GOODS_LABEL',
   CUTTING_ORDER_QR_LABEL: 'CUTTING_ORDER_QR_LABEL',
   HANDOVER_QR_LABEL: 'HANDOVER_QR_LABEL',
 }
@@ -574,10 +579,45 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
     subtitle: '',
     templateCode: 'TRANSFER_BAG_LABEL',
     sourceType: 'TRANSFER_BAG_RECORD',
-    paperType: 'LABEL_100_60',
+    paperType: 'LABEL_100_100',
     mode: '普通打印',
     labelItems: [item],
     returnHref: '/fcs/craft/cutting/transfer-bags',
+  })
+}
+
+export function buildTransferBagGoodsLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
+  const usageCycleIds = Array.from(new Set(input.sourceId.split(',').map((item) => item.trim()).filter(Boolean)))
+  if (!usageCycleIds.length) throw new Error('请至少选择一个中转袋使用周期。')
+  const resolved = usageCycleIds.map((usageCycleId) => ({
+    usageCycleId,
+    source: resolveTransferBagGoodsLabelSource(usageCycleId),
+  }))
+  const missing = resolved.filter((item) => !item.source).map((item) => item.usageCycleId)
+  if (missing.length) throw new Error(`以下中转袋使用周期没有有效装袋快照，整批未生成：${missing.join('、')}`)
+  const generatedAt = now()
+  const pages = resolved.flatMap((item) => buildTransferBagGoodsLabelPages(item.source!))
+  const labelItems: PrintLabelItem[] = pages.map((page) => ({
+    labelTitle: '货物标识',
+    labelFields: fields([
+      { label: '中转袋编号', value: page.bagCode, emphasis: true },
+      { label: '使用周期', value: page.usageCycleId },
+    ]),
+    labelBusinessLayout: 'TRANSFER_BAG_GOODS',
+    transferBagGoods: { ...page, printedAt: generatedAt },
+    labelWarnings: [],
+    printMode: '普通打印',
+    thermalPaperColor: 'WHITE',
+  }))
+  return buildBaseLabelDocument(input, {
+    title: usageCycleIds.length === 1 ? `${pages[0]?.bagCode || '中转袋'} 货物标识` : `${usageCycleIds.length} 个中转袋货物标识`,
+    subtitle: '多颜色 × 多尺码裁片数量矩阵',
+    templateCode: 'TRANSFER_BAG_GOODS_LABEL',
+    sourceType: 'TRANSFER_BAG_USAGE_RECORD',
+    paperType: 'LABEL_100_100',
+    mode: '普通打印',
+    labelItems,
+    returnHref: '/fcs/craft/cutting/warehouse-management/wait-handover',
   })
 }
 
@@ -826,6 +866,7 @@ function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: Print
 
 function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
   if (item.labelBusinessLayout === 'FEI_TICKET_BUSINESS') return renderFeiTicketBusinessLabelItem(item, paperType)
+  if (item.labelBusinessLayout === 'TRANSFER_BAG_GOODS') return renderTransferBagGoodsLabelItem(item, paperType)
 
   const qr = item.qrCode
   const headerBarcode = !item.labelTitle && item.barcode ? item.barcode : null
@@ -853,6 +894,36 @@ function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): strin
   `
 }
 
+function renderTransferBagGoodsLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
+  const page = item.transferBagGoods
+  if (!page) throw new Error('货物标识缺少颜色尺码矩阵数据。')
+  const formatQty = (value: number) => value > 0 ? value.toLocaleString('zh-CN') : '—'
+  return `
+    <section class="print-label-card transfer-bag-goods-label-card label-paper-${paperType.toLowerCase().replace(/_/g, '-')}" data-testid="transfer-bag-goods-label" data-usage-cycle-id="${escapeHtml(page.usageCycleId)}" data-bag-code="${escapeHtml(page.bagCode)}">
+      <header class="transfer-bag-goods-header">
+        <strong>货物标识</strong>
+        <span>第 ${page.pageIndex}/${page.pageCount} 页</span>
+      </header>
+      <div class="transfer-bag-goods-bag"><span>中转袋</span><strong>${escapeHtml(page.bagCode)}</strong></div>
+      <div class="transfer-bag-goods-facts">
+        <div><span>款号 / SPU</span><strong>${escapeHtml(page.spuCodes.join(' / ') || '—')}</strong></div>
+        <div><span>生产单</span><strong>${escapeHtml(page.productionOrderNo)}</strong></div>
+        <div><span>部位数量</span><strong>${page.partCount.toLocaleString('zh-CN')} 个</strong></div>
+      </div>
+      <table class="transfer-bag-goods-matrix" aria-label="${escapeHtml(`${page.bagCode} 颜色尺码裁片数量矩阵`)}">
+        <thead><tr><th>颜色＼尺码</th>${page.sizes.map((size) => `<th>${escapeHtml(size)}</th>`).join('')}<th>本页</th></tr></thead>
+        <tbody>${page.rows.map((row) => `<tr><th>${escapeHtml(row.color)}</th>${row.quantities.map((qty) => `<td>${formatQty(qty)}</td>`).join('')}<td class="transfer-bag-goods-total-cell">${formatQty(row.pageTotal)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><th>本页合计</th>${page.sizeTotals.map((qty) => `<td>${formatQty(qty)}</td>`).join('')}<td>${formatQty(page.pagePieceQty)}</td></tr></tfoot>
+      </table>
+      <div class="transfer-bag-goods-summary">
+        <strong>整袋：${page.ticketCount.toLocaleString('zh-CN')} 张菲票 / ${page.totalPieceQty.toLocaleString('zh-CN')} 片</strong>
+        <span>共 ${page.totalColorCount} 色 × ${page.totalSizeCount} 码；本页 ${page.pagePieceQty.toLocaleString('zh-CN')} 片</span>
+      </div>
+      <footer class="transfer-bag-goods-footer"><span>打印：${escapeHtml(page.printedAt)}</span><strong>按袋号插入对应中转袋</strong></footer>
+    </section>
+  `
+}
+
 export function renderLabelPrintTemplate(doc: PrintDocument): string {
   const items = doc.labelItems?.length ? doc.labelItems : [{
     labelTitle: doc.labelTitle || doc.documentTitle,
@@ -867,14 +938,22 @@ export function renderLabelPrintTemplate(doc: PrintDocument): string {
   }]
   const paperType = doc.paperType
   const isGrid = paperType === 'A4_LABEL_GRID'
+  const paperSize = paperType === 'LABEL_80_50' ? '80mm 50mm'
+    : paperType === 'LABEL_100_60' ? '100mm 60mm'
+      : paperType === 'LABEL_100_100' ? '100mm 100mm'
+        : paperType === 'LABEL_150_100' ? '150mm 100mm'
+          : paperType === 'LABEL_60_40' ? '60mm 40mm'
+            : 'A4 portrait'
+  const printPageStyle = `<style>@media print { @page { size: ${paperSize}; margin: 0; } .print-label-paper { break-after: page; page-break-after: always; } .print-label-paper:last-child { break-after: auto; page-break-after: auto; } }</style>`
   if (!isGrid) {
-    return items.map((item) => `
+    return `${printPageStyle}${items.map((item) => `
       <article class="print-label-paper label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
         <div class="print-label-single-sheet">${renderLabelItem(item, paperType)}</div>
       </article>
-    `).join('')
+    `).join('')}`
   }
   return `
+    ${printPageStyle}
     <article class="print-paper-a4 print-label-grid-a4">
       <div class="print-label-grid-sheet">
         <div class="print-label-grid-meta print-hidden">${escapeHtml(doc.documentTitle)} · ${escapeHtml(doc.printMeta.generatedAt)}</div>
@@ -888,6 +967,7 @@ export const FeiTicketLabelTemplate = renderLabelPrintTemplate
 export const FeiTicketReprintLabelTemplate = renderLabelPrintTemplate
 export const FeiTicketVoidLabelTemplate = renderLabelPrintTemplate
 export const TransferBagLabelTemplate = renderLabelPrintTemplate
+export const TransferBagGoodsLabelTemplate = renderLabelPrintTemplate
 // 中转袋二维码打印标签字段：中转袋编号、所属工厂、本码只代表中转袋档案
 export const CuttingOrderQrLabelTemplate = renderLabelPrintTemplate
 export const HandoverQrLabelTemplate = renderLabelPrintTemplate

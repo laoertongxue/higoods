@@ -34,7 +34,7 @@ import {
   getMaterialPrepRecordContext,
   type MaterialPrepUnitSummary,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
-import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   appendCuttingRuntimeEvent,
   listCuttingRuntimeEvents,
@@ -46,6 +46,8 @@ import {
   type WaitProcessReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { appStore } from '../../../state/store.ts'
+import { buildTransferBagGoodsLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { renderCompactKpiCard, renderCompactKpiGroup, renderStickyTableScroller } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import {
@@ -112,6 +114,12 @@ type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
 let waitProcessSelectedLocationIds: string[] = []
 let waitHandoverSelectedLocationIds: string[] = []
 const waitHandoverPaginationState = new Map<string, { page: number; pageSize: number }>()
+type WaitHandoverGoodsLabelListKey = 'bagging-records' | 'inbound-records'
+interface WaitHandoverGoodsLabelSelectionState {
+  active: boolean
+  selectedUsageCycleIds: string[]
+}
+const waitHandoverGoodsLabelSelectionState = new Map<WaitHandoverGoodsLabelListKey, WaitHandoverGoodsLabelSelectionState>()
 
 const waitProcessStockFlowEventTypes: CuttingMaterialLedgerEventType[] = [
   'CUTTING_WAIT_PROCESS_INBOUNDED',
@@ -1999,18 +2007,52 @@ function renderWaitHandoverBagTicketDetailButton(bagCode: string): string {
   return `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-bag-ticket-detail" data-wait-handover-selection="${escapeHtml(bagCode)}">查看详情</button>`
 }
 
+function getWaitHandoverGoodsLabelSelection(listKey: WaitHandoverGoodsLabelListKey): WaitHandoverGoodsLabelSelectionState {
+  const existing = waitHandoverGoodsLabelSelectionState.get(listKey)
+  if (existing) return existing
+  const created = { active: false, selectedUsageCycleIds: [] }
+  waitHandoverGoodsLabelSelectionState.set(listKey, created)
+  return created
+}
+
+function renderWaitHandoverGoodsLabelToolbar(listKey: WaitHandoverGoodsLabelListKey, currentPageBags: InboundTempBag[]): string {
+  const state = getWaitHandoverGoodsLabelSelection(listKey)
+  const currentPageIds = currentPageBags.map((bag) => bag.usageCycleId).filter(Boolean)
+  const selected = new Set(state.selectedUsageCycleIds)
+  const allCurrentPageSelected = currentPageIds.length > 0 && currentPageIds.every((usageCycleId) => selected.has(usageCycleId))
+  if (!state.active) {
+    return `<div class="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3" data-goods-label-toolbar><div><div class="text-sm font-semibold">货物标识</div><div class="mt-0.5 text-xs text-muted-foreground">100mm × 100mm 黑白热敏标签；按袋号与本次装袋内容一一对应。</div></div><button type="button" class="rounded-md border border-blue-600 bg-white px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50" data-skip-page-rerender="true" data-wait-handover-goods-action="enter-batch" data-list-key="${listKey}">批量打印货物标识</button></div>`
+  }
+  return `<div class="flex flex-wrap items-center justify-between gap-3 border-b bg-blue-50 px-4 py-3" data-goods-label-toolbar><label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" class="h-4 w-4" data-skip-page-rerender="true" data-wait-handover-goods-action="toggle-current-page" data-list-key="${listKey}" ${allCurrentPageSelected ? 'checked' : ''} ${currentPageIds.length ? '' : 'disabled'} />全选当前页</label><div class="flex flex-wrap items-center gap-2"><span class="text-sm text-blue-900">已选 <strong data-goods-label-selected-count>${state.selectedUsageCycleIds.length}</strong> 个中转袋</span><button type="button" class="rounded-md border bg-white px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-goods-action="cancel-batch" data-list-key="${listKey}">取消批量</button><button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-goods-action="print-selected" data-list-key="${listKey}">打印已选</button></div></div>`
+}
+
+function renderWaitHandoverGoodsLabelSelectCell(listKey: WaitHandoverGoodsLabelListKey, bag: InboundTempBag): string {
+  const state = getWaitHandoverGoodsLabelSelection(listKey)
+  if (!state.active) return ''
+  const checked = state.selectedUsageCycleIds.includes(bag.usageCycleId)
+  return `<td class="px-3 py-3 align-top text-center"><input type="checkbox" class="h-4 w-4" aria-label="选择 ${escapeHtml(bag.bagCode)} 打印货物标识" data-skip-page-rerender="true" data-wait-handover-goods-action="toggle-one" data-list-key="${listKey}" data-usage-cycle-id="${escapeHtml(bag.usageCycleId)}" ${checked ? 'checked' : ''} /></td>`
+}
+
+function renderWaitHandoverGoodsLabelPrintButton(bag: InboundTempBag): string {
+  return `<button type="button" class="rounded-md border border-blue-300 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50" data-skip-page-rerender="true" data-wait-handover-goods-action="print-one" data-usage-cycle-id="${escapeHtml(bag.usageCycleId)}">打印货物标识</button>`
+}
+
 function renderWaitHandoverBaggingRecordTable(allBags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
   const paged = getWaitHandoverPage('bagging-records', allBags)
   const bags = paged.records
+  const listKey: WaitHandoverGoodsLabelListKey = 'bagging-records'
+  const batchActive = getWaitHandoverGoodsLabelSelection(listKey).active
   if (!bags.length) {
-    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="bagging-records"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('bagging-records', paged.total, paged.page, paged.pageSize)}</section>`
+    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="bagging-records">${renderWaitHandoverGoodsLabelToolbar(listKey, bags)}<div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('bagging-records', paged.total, paged.page, paged.pageSize)}</section>`
   }
   return `
     <section class="rounded-lg border bg-card" data-wait-handover-paged-list="bagging-records">
+      ${renderWaitHandoverGoodsLabelToolbar(listKey, bags)}
       ${renderStickyTableScroller(`
-        <table class="min-w-[1200px] w-full text-sm">
+        <table class="min-w-[1280px] w-full text-sm">
           <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
             <tr>
+              ${batchActive ? '<th class="w-10 px-3 py-3 text-center font-medium">选择</th>' : ''}
               <th class="px-4 py-3 text-left font-medium">中转袋</th>
               <th class="px-4 py-3 text-left font-medium">中转袋二维码</th>
               <th class="px-4 py-3 text-left font-medium">装袋时间</th>
@@ -2028,17 +2070,18 @@ function renderWaitHandoverBaggingRecordTable(allBags: InboundTempBag[], emptyTe
               const statusText = bag.inboundStatus || '入仓暂存中'
               return `
                 <tr class="border-b last:border-b-0">
+                  ${renderWaitHandoverGoodsLabelSelectCell(listKey, bag)}
                   <td class="px-4 py-3 align-top">
                     <div class="font-medium text-blue-700">${escapeHtml(bag.bagCode)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.tempBagUseId)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.usageCycleId)}</div>
                     <div class="mt-2">${renderWaitHandoverPill(statusText, getWaitHandoverInboundBagStatusClass(statusText))}</div>
                   </td>
                   <td class="px-4 py-3 align-top">${renderWaitHandoverTransferBagQrCell(bag.bagCode)}</td>
                   <td class="px-4 py-3 align-top text-xs text-muted-foreground">
-                    <span class="font-medium text-foreground">${escapeHtml(bag.inboundAt || '待记录')}</span>
+                    <span class="font-medium text-foreground">${escapeHtml(bag.baggingAt || bag.inboundAt || '待记录')}</span>
                   </td>
                   <td class="px-4 py-3 align-top text-xs text-muted-foreground">
-                    ${escapeHtml(bag.inboundBy || '裁床装袋员')}
+                    ${escapeHtml(bag.baggingBy || bag.inboundBy || '裁床装袋员')}
                   </td>
                   <td class="px-4 py-3 align-top"><span class="font-medium text-foreground">${escapeHtml(String(bag.containedFeiTickets.length))}</span> 张</td>
                   <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(`${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单`)}</td>
@@ -2046,6 +2089,7 @@ function renderWaitHandoverBaggingRecordTable(allBags: InboundTempBag[], emptyTe
                   <td class="px-4 py-3 align-top">
                     <div class="flex flex-wrap gap-2">
                       ${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}
+                      ${renderWaitHandoverGoodsLabelPrintButton(bag)}
                       <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-inbound" data-wait-handover-selection="${escapeHtml(bag.bagCode)}">继续入仓</button>
                     </div>
                   </td>
@@ -2063,15 +2107,19 @@ function renderWaitHandoverBaggingRecordTable(allBags: InboundTempBag[], emptyTe
 function renderWaitHandoverInboundLocationTable(allBags: InboundTempBag[], emptyText = '暂无中转袋入仓记录。'): string {
   const paged = getWaitHandoverPage('inbound-records', allBags)
   const bags = paged.records
+  const listKey: WaitHandoverGoodsLabelListKey = 'inbound-records'
+  const batchActive = getWaitHandoverGoodsLabelSelection(listKey).active
   if (!bags.length) {
-    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="inbound-records"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('inbound-records', paged.total, paged.page, paged.pageSize)}</section>`
+    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="inbound-records">${renderWaitHandoverGoodsLabelToolbar(listKey, bags)}<div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('inbound-records', paged.total, paged.page, paged.pageSize)}</section>`
   }
   return `
     <section class="rounded-lg border bg-card" data-wait-handover-paged-list="inbound-records">
+      ${renderWaitHandoverGoodsLabelToolbar(listKey, bags)}
       ${renderStickyTableScroller(`
-        <table class="min-w-[1040px] w-full text-sm">
+        <table class="min-w-[1140px] w-full text-sm">
           <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
             <tr>
+              ${batchActive ? '<th class="w-10 px-3 py-3 text-center font-medium">选择</th>' : ''}
               <th class="px-4 py-3 text-left font-medium">中转袋</th>
               <th class="px-4 py-3 text-left font-medium">中转袋二维码</th>
               <th class="px-4 py-3 text-left font-medium">入仓时间</th>
@@ -2086,9 +2134,10 @@ function renderWaitHandoverInboundLocationTable(allBags: InboundTempBag[], empty
           <tbody>
             ${bags.map((bag) => `
               <tr class="border-b last:border-b-0">
+                ${renderWaitHandoverGoodsLabelSelectCell(listKey, bag)}
                 <td class="px-4 py-3 align-top">
                   <div class="font-medium text-blue-700">${escapeHtml(bag.bagCode)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.tempBagUseId)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.usageCycleId)}</div>
                 </td>
                 <td class="px-4 py-3 align-top">${renderWaitHandoverTransferBagQrCell(bag.bagCode)}</td>
                 <td class="px-4 py-3 align-top text-xs text-muted-foreground"><span class="font-medium text-foreground">${escapeHtml(bag.inboundAt || '待记录')}</span></td>
@@ -2097,7 +2146,7 @@ function renderWaitHandoverInboundLocationTable(allBags: InboundTempBag[], empty
                 <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.warehouseArea || '待确认库区')}</td>
                 <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.locationCode || '待确认库位')}</td>
                 <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(`${bag.containedFeiTickets.length} 张 / ${formatPieceQty(bag.totalPieceQty)}`)}</td>
-                <td class="px-4 py-3 align-top"><div class="flex flex-wrap gap-2">${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}</div></td>
+                <td class="px-4 py-3 align-top"><div class="flex flex-wrap gap-2">${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}${renderWaitHandoverGoodsLabelPrintButton(bag)}</div></td>
               </tr>
             `).join('')}
           </tbody>
@@ -3460,6 +3509,68 @@ function configureWaitHandoverWebActionBridge(): void {
   })
 }
 
+function refreshWaitHandoverPagedList(listKey: string): void {
+  if (typeof document === 'undefined') return
+  const currentRegion = document.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
+  if (!currentRegion) return
+  const template = document.createElement('template')
+  template.innerHTML = renderCraftCuttingWarehouseManagementWaitHandoverPage().trim()
+  const nextRegion = template.content.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
+  if (!nextRegion) return
+  currentRegion.replaceWith(nextRegion)
+  hydrateRealQRCodes(nextRegion)
+  const icons = (window as unknown as { lucide?: { createIcons(options?: { attrs?: Record<string, string> }): void } }).lucide
+  icons?.createIcons({ attrs: { 'aria-hidden': 'true' } })
+}
+
+function handleWaitHandoverGoodsLabelEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-wait-handover-goods-action]')
+  if (!actionNode) return false
+  const action = actionNode.dataset.waitHandoverGoodsAction || ''
+  if (action === 'print-one') {
+    const usageCycleId = actionNode.dataset.usageCycleId || ''
+    if (!usageCycleId) window.alert('该中转袋缺少使用周期，不能打印货物标识。')
+    else appStore.navigate(buildTransferBagGoodsLabelPrintLink(usageCycleId))
+    return true
+  }
+  const listKey = actionNode.dataset.listKey as WaitHandoverGoodsLabelListKey
+  if (listKey !== 'bagging-records' && listKey !== 'inbound-records') return true
+  const state = getWaitHandoverGoodsLabelSelection(listKey)
+  if (action === 'enter-batch') {
+    state.active = true
+    state.selectedUsageCycleIds = []
+  } else if (action === 'cancel-batch') {
+    state.active = false
+    state.selectedUsageCycleIds = []
+  } else if (action === 'toggle-one') {
+    const usageCycleId = actionNode.dataset.usageCycleId || ''
+    const checked = actionNode instanceof HTMLInputElement && actionNode.checked
+    state.selectedUsageCycleIds = checked
+      ? Array.from(new Set([...state.selectedUsageCycleIds, usageCycleId].filter(Boolean)))
+      : state.selectedUsageCycleIds.filter((item) => item !== usageCycleId)
+  } else if (action === 'toggle-current-page') {
+    const checked = actionNode instanceof HTMLInputElement && actionNode.checked
+    const currentPageIds = Array.from(
+      actionNode.closest<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
+        ?.querySelectorAll<HTMLElement>('[data-wait-handover-goods-action="toggle-one"][data-usage-cycle-id]') || [],
+    ).map((node) => node.dataset.usageCycleId || '').filter(Boolean)
+    const selected = new Set(state.selectedUsageCycleIds)
+    currentPageIds.forEach((usageCycleId) => checked ? selected.add(usageCycleId) : selected.delete(usageCycleId))
+    state.selectedUsageCycleIds = Array.from(selected)
+  } else if (action === 'print-selected') {
+    if (!state.selectedUsageCycleIds.length) {
+      window.alert('请至少勾选一个中转袋后再打印货物标识。')
+      return true
+    }
+    appStore.navigate(buildTransferBagGoodsLabelPrintLink(state.selectedUsageCycleIds))
+    return true
+  } else {
+    return true
+  }
+  refreshWaitHandoverPagedList(listKey)
+  return true
+}
+
 function handleWaitHandoverPaginationEvent(target: HTMLElement): boolean {
   const pageInput = target.closest<HTMLInputElement>('[data-wait-handover-pagination-page-input]')
   const actionNode = target.closest<HTMLElement>('[data-wait-handover-pagination-action]')
@@ -3478,22 +3589,14 @@ function handleWaitHandoverPaginationEvent(target: HTMLElement): boolean {
     page: Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : current.page,
     pageSize: current.pageSize,
   })
-  if (typeof document === 'undefined') return true
-  const currentRegion = document.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
-  if (!currentRegion) return true
-  const template = document.createElement('template')
-  template.innerHTML = renderCraftCuttingWarehouseManagementWaitHandoverPage().trim()
-  const nextRegion = template.content.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
-  if (!nextRegion) return true
-  currentRegion.replaceWith(nextRegion)
-  const icons = (window as unknown as { lucide?: { createIcons(options?: { attrs?: Record<string, string> }): void } }).lucide
-  icons?.createIcons({ attrs: { 'aria-hidden': 'true' } })
+  refreshWaitHandoverPagedList(listKey)
   return true
 }
 
 export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolean {
   configureWaitHandoverWebActionBridge()
   if (handleWaitHandoverPaginationEvent(target)) return true
+  if (handleWaitHandoverGoodsLabelEvent(target)) return true
   if (handleWaitHandoverActionEvent(target)) return true
   const locationNode = target.closest<HTMLElement>('[data-wait-handover-modal] [data-warehouse-map-action]')
   if (locationNode) {
@@ -4748,6 +4851,10 @@ function buildRuntimeInboundTempBagsFromEvents(
 
       return {
         tempBagUseId: runtimeString(payload.tempBagUseId) || event.eventId,
+        usageCycleId: event.refs.usageCycleId || event.eventId,
+        hasInboundRecord: Boolean(inboundEvent),
+        baggingAt: event.occurredAt,
+        baggingBy: event.operatorName,
         bagCode,
         bagMasterId: runtimeString(payload.bagMasterId) || bagCode || event.eventId,
         useStage: '入仓暂存',
@@ -4755,10 +4862,10 @@ function buildRuntimeInboundTempBagsFromEvents(
         warehouseName: '裁床待交出仓',
         warehouseArea: runtimeString(inboundPayload.warehouseArea) || inboundEvent?.inventoryEffect?.toWarehouseArea || '裁床待交出仓',
         locationCode: runtimeString(inboundPayload.locationCode) || inboundEvent?.inventoryEffect?.toLocationCode || '待补库位',
-        inboundStatus: effectiveInboundEvent.eventStatus,
-        inboundAt: runtimeString(inboundPayload.inboundAt) || effectiveInboundEvent.occurredAt,
-        inboundBy: runtimeString(inboundPayload.inboundBy) || effectiveInboundEvent.operatorName,
-        inboundSource: '菲票入仓',
+        inboundStatus: inboundEvent?.eventStatus || '已装袋待入仓',
+        inboundAt: runtimeString(inboundPayload.inboundAt) || event.occurredAt,
+        inboundBy: runtimeString(inboundPayload.inboundBy) || event.operatorName,
+        inboundSource: inboundEvent ? '菲票入仓' : '菲票装袋',
         containedFeiTickets,
         totalPieceQty: runtimeNumber(payload.totalPieceQty) || containedFeiTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
         mixedFlag: typeof payload.mixedFlag === 'boolean' ? payload.mixedFlag : derivedMixedFlag,
@@ -5505,6 +5612,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       ], filters.keyword),
     )
   const inboundTempUseRows = filterWaitHandoverInboundTempBags(inboundTempBags, filters)
+  const actualInboundTempUseRows = inboundTempUseRows.filter((bag) => bag.hasInboundRecord)
   const readyHandoverBagCount = uniqueStrings(inboundTempUseRows.map((bag) => bag.bagCode))
     .filter((bagCode) => ['INBOUND_STORED', 'READY_HANDOVER'].includes(
       resolveTransferBagCurrentUse(bagCode).flowStage || '',
@@ -5593,7 +5701,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const inboundContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inbound' })}
     ${waitHandoverStats}
-    ${renderWaitHandoverInboundLocationTable(inboundTempUseRows)}
+    ${renderWaitHandoverInboundLocationTable(actualInboundTempUseRows)}
   </section>`
   const handoverRecordContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handover-bagging' })}

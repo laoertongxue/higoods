@@ -826,6 +826,10 @@ export interface InboundTempBagDiscrepancyRecord {
 
 export interface InboundTempBag {
   tempBagUseId: string
+  usageCycleId: string
+  hasInboundRecord: boolean
+  baggingAt?: string
+  baggingBy?: string
   bagCode: string
   bagMasterId: string
   useStage: '入仓暂存'
@@ -2538,6 +2542,8 @@ export function buildInboundTempBagsFromTransferBagViewModel(
 
       return {
         tempBagUseId: usage.usageId,
+        usageCycleId: usage.usageId,
+        hasInboundRecord: true,
         bagCode: usage.bagCode,
         bagMasterId: usage.bagId,
         useStage: '入仓暂存',

@@ -39,6 +39,7 @@ import {
   buildFeiTicketLabelPrintDocument,
   buildFeiTicketReprintLabelPrintDocument,
   buildHandoverQrLabelPrintDocument,
+  buildTransferBagGoodsLabelPrintDocument,
   buildTransferBagLabelPrintDocument,
   renderLabelPrintTemplate,
 } from '../../pages/print/templates/label-print-template.ts'
@@ -198,6 +199,14 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     documentType: 'TRANSFER_BAG_LABEL',
     supportedSourceTypes: ['TRANSFER_BAG_RECORD'],
     buildDocument: buildTransferBagLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'TRANSFER_BAG_GOODS_LABEL',
+    templateName: '中转袋货物标识（100mm × 100mm 黑白热敏）',
+    documentType: 'TRANSFER_BAG_GOODS_LABEL',
+    supportedSourceTypes: ['TRANSFER_BAG_USAGE_RECORD'],
+    buildDocument: buildTransferBagGoodsLabelPrintDocument,
     render: renderLabelPrintTemplate,
   },
   {

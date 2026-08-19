@@ -130,6 +130,18 @@ export function buildTransferBagLabelPrintLink(sourceId: string): string {
   })
 }
 
+export function buildTransferBagGoodsLabelPrintLink(usageCycleIds: string | readonly string[]): string {
+  const sourceId = (Array.isArray(usageCycleIds) ? usageCycleIds : [usageCycleIds])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(',')
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'TRANSFER_BAG_GOODS_LABEL',
+    sourceType: 'TRANSFER_BAG_USAGE_RECORD',
+    sourceId,
+  })
+}
+
 export function buildCuttingOrderQrLabelPrintLink(sourceId: string): string {
   return buildUnifiedPrintPreviewLink({
     documentType: 'CUTTING_ORDER_QR_LABEL',

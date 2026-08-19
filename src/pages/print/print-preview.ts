@@ -50,6 +50,7 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'FEI_TICKET_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'FEI_TICKET_REPRINT_LABEL') return 'FEI_TICKET_RECORD'
   if (documentType === 'TRANSFER_BAG_LABEL') return 'TRANSFER_BAG_RECORD'
+  if (documentType === 'TRANSFER_BAG_GOODS_LABEL') return 'TRANSFER_BAG_USAGE_RECORD'
   if (documentType === 'CUTTING_ORDER_QR_LABEL') return 'CUTTING_ORDER_RECORD'
   if (documentType === 'HANDOVER_QR_LABEL') return 'HANDOVER_RECORD'
   if (documentType === 'PRODUCTION_CONFIRMATION') return 'PRODUCTION_ORDER'
@@ -155,6 +156,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
               <h1 class="text-lg font-semibold">${escapeHtml(document.documentTitle)}打印预览</h1>
               <p class="mt-1 text-xs text-muted-foreground">打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。</p>
               ${document.thermalPaperColor ? `<p class="mt-2 rounded-md border px-3 py-2 text-sm font-semibold ${document.thermalPaperColor === 'YELLOW' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-blue-300 bg-blue-50 text-blue-800'}">请再次确认打印机已装入${document.thermalPaperColor === 'YELLOW' ? '黄色' : '白色'}热敏纸；本批次 ${document.totalCopies || 1} 张。</p>` : ''}
+              ${resolved.documentType === 'TRANSFER_BAG_GOODS_LABEL' ? `<p class="mt-2 text-xs font-medium text-slate-700">纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。</p>` : ''}
               ${resolved.documentType === 'FEI_TICKET_REPRINT_LABEL' && operationReason ? `<p class="mt-2 text-xs text-slate-600">补打原因：${escapeHtml(operationReason)}</p>` : ''}
             </div>
             <div class="flex flex-wrap gap-2">

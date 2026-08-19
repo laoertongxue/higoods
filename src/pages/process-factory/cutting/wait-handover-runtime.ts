@@ -1096,6 +1096,8 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
       })
       return {
         tempBagUseId: runtimeString(payload.tempBagUseId) || event.eventId,
+        usageCycleId: event.refs.usageCycleId || event.eventId,
+        hasInboundRecord: true,
         bagCode: runtimeString(payload.bagCode) || event.refs.transferBagCode || '待补袋码',
         bagMasterId: runtimeString(payload.bagMasterId) || runtimeString(payload.bagCode) || event.refs.transferBagCode || event.eventId,
         useStage: '入仓暂存',

@@ -823,7 +823,7 @@ function renderLocationLabelPrintModal(
   return `
     <div id="${LOCATION_LABEL_PRINT_MODAL_ID}" class="fixed inset-0 z-[150] overflow-y-auto bg-black/50 p-4" data-location-label-print-modal>
       <style>
-        @page { size: 70mm 50mm; margin: 0; }
+        @page { size: 100mm 100mm; margin: 0; }
         @media print {
           body * { visibility: hidden !important; }
           #${LOCATION_LABEL_PRINT_MODAL_ID}, #${LOCATION_LABEL_PRINT_MODAL_ID} * { visibility: visible !important; }
@@ -831,7 +831,7 @@ function renderLocationLabelPrintModal(
           #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-shell] { width: auto !important; max-width: none !important; border: 0 !important; box-shadow: none !important; }
           #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-toolbar] { display: none !important; }
           #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-grid] { display: block !important; padding: 0 !important; }
-          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-card] { width: 70mm !important; height: 50mm !important; break-after: page; page-break-after: always; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-card] { width: 100mm !important; height: 100mm !important; break-after: page; page-break-after: always; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
           #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-card]:last-child { break-after: auto; page-break-after: auto; }
         }
       </style>
@@ -841,9 +841,12 @@ function renderLocationLabelPrintModal(
           <div class="flex gap-2"><button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="close-location-label-print">关闭</button><button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="print-location-labels" ${rows.length ? '' : 'disabled'}>打印 ${rows.length} 张标签</button></div>
         </div>
         <div class="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3" data-location-label-print-grid>
-          ${rows.length ? rows.map((row) => `<article class="flex h-[50mm] w-[70mm] flex-col overflow-hidden rounded-lg border-2 border-slate-900 bg-white p-[3mm] text-slate-950" data-location-label-card data-label-code="${escapeHtml(row.labelCode)}">
-            <div class="flex items-start justify-between gap-2"><div><div class="text-[10px] font-semibold">${escapeHtml(row.warehouseName)}</div><div class="mt-0.5 font-mono text-[17px] font-black tracking-tight">${escapeHtml(row.locationNo)}</div><div class="text-[9px]">${escapeHtml(row.areaName)} · ${escapeHtml(row.shelfNo)} · 第 ${row.levelNo} 层 · 第 ${row.positionNo} 位</div></div>${renderRealQrPlaceholder({ value: row.qrValue, size: 76, title: `${row.locationNo} 库位二维码`, label: `${row.locationNo} 库位二维码`, className: 'shrink-0' })}</div>
-            <div class="mt-auto">${renderCode128Barcode(row.labelCode, `${row.locationNo} 库位条码`)}<div class="-mt-1 text-center font-mono text-[7px] tracking-tight">${escapeHtml(row.labelCode)}</div></div>
+          ${rows.length ? rows.map((row) => `<article class="flex h-[100mm] w-[100mm] flex-col overflow-hidden rounded-lg border-2 border-slate-900 bg-white p-[3mm] text-slate-950" data-location-label-card data-label-code="${escapeHtml(row.labelCode)}">
+            <div class="truncate border-b-2 border-black pb-[1mm] text-center font-mono text-[25px] font-black leading-none tracking-tight" data-location-label-line="location">${escapeHtml(row.locationNo)}</div>
+            <div class="truncate border-b border-black py-[1mm] text-center text-[15px] font-bold leading-tight" data-location-label-line="area">${escapeHtml(row.areaName)}-${escapeHtml(row.warehouseName)}</div>
+            <div class="truncate border-b border-black py-[1mm] text-center text-[14px] font-black leading-tight" data-location-label-line="guide">${escapeHtml(row.shelfNo)} · 第 ${row.levelNo} 层 · 第 ${row.positionNo} 位</div>
+            <div class="flex min-h-0 flex-1 items-center justify-center py-[1mm]" data-location-label-line="qr">${renderRealQrPlaceholder({ value: row.qrValue, size: 148, title: `${row.locationNo} 库位二维码`, label: `${row.locationNo} 库位二维码` })}</div>
+            <div class="border-t border-black pt-[1mm]" data-location-label-line="barcode">${renderCode128Barcode(row.labelCode, `${row.locationNo} 库位条码`)}<div class="-mt-1 truncate text-center font-mono text-[9px] font-semibold tracking-tight">${escapeHtml(row.labelCode)}</div></div>
           </article>`).join('') : '<div class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">当前范围没有启用的库位，无法打印标签。</div>'}
         </div>
       </section>

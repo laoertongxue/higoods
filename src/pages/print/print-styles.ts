@@ -828,6 +828,168 @@ export function renderUnifiedPrintStyles(): string {
         font-weight: 700;
       }
 
+      .transfer-bag-goods-label-card {
+        display: flex;
+        flex-direction: column;
+        gap: 1mm;
+        border: 1.5px solid #000;
+        padding: 1.5mm;
+        background: #fff;
+        color: #000;
+        font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      }
+
+      .transfer-bag-goods-header,
+      .transfer-bag-goods-bag,
+      .transfer-bag-goods-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2mm;
+      }
+
+      .transfer-bag-goods-header {
+        border-bottom: 1px solid #000;
+        padding-bottom: 0.8mm;
+        font-size: 10px;
+        line-height: 1;
+      }
+
+      .transfer-bag-goods-header strong {
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .transfer-bag-goods-header span {
+        font-weight: 800;
+      }
+
+      .transfer-bag-goods-bag {
+        border-bottom: 2px solid #000;
+        padding: 0.5mm 0 1mm;
+      }
+
+      .transfer-bag-goods-bag span {
+        flex: 0 0 auto;
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .transfer-bag-goods-bag strong {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-family: "Arial Narrow", Arial, sans-serif;
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        line-height: 1;
+        text-align: right;
+      }
+
+      .transfer-bag-goods-facts {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.65fr);
+        border-left: 1px solid #000;
+        border-top: 1px solid #000;
+      }
+
+      .transfer-bag-goods-facts > div {
+        min-width: 0;
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 0.7mm 1mm;
+      }
+
+      .transfer-bag-goods-facts span {
+        display: block;
+        font-size: 6.5px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .transfer-bag-goods-facts strong {
+        display: block;
+        margin-top: 0.3mm;
+        overflow-wrap: anywhere;
+        font-size: 8.5px;
+        font-weight: 900;
+        line-height: 1.12;
+      }
+
+      .transfer-bag-goods-matrix {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        color: #000;
+        font-size: 9px;
+        line-height: 1;
+      }
+
+      .transfer-bag-goods-matrix th,
+      .transfer-bag-goods-matrix td {
+        height: 6.2mm;
+        overflow: hidden;
+        border: 1px solid #000;
+        padding: 0.5mm 0.35mm;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .transfer-bag-goods-matrix th {
+        font-weight: 900;
+      }
+
+      .transfer-bag-goods-matrix th:first-child {
+        width: 18%;
+      }
+
+      .transfer-bag-goods-matrix th:last-child,
+      .transfer-bag-goods-matrix td:last-child {
+        width: 11%;
+        font-weight: 900;
+      }
+
+      .transfer-bag-goods-matrix thead th,
+      .transfer-bag-goods-matrix tfoot th,
+      .transfer-bag-goods-matrix tfoot td {
+        border-width: 1.5px;
+        font-size: 8px;
+        font-weight: 900;
+      }
+
+      .transfer-bag-goods-summary {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 2mm;
+        border: 1.5px solid #000;
+        padding: 1mm;
+      }
+
+      .transfer-bag-goods-summary strong {
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .transfer-bag-goods-summary span {
+        font-size: 7.5px;
+        font-weight: 700;
+        text-align: right;
+      }
+
+      .transfer-bag-goods-footer {
+        margin-top: auto;
+        border-top: 1px solid #000;
+        padding-top: 0.7mm;
+        font-size: 6.5px;
+      }
+
+      .transfer-bag-goods-footer strong {
+        font-size: 7px;
+        font-weight: 900;
+      }
+
       @media print {
         html,
         body {

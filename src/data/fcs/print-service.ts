@@ -13,6 +13,7 @@ export type PrintDocumentType =
   | 'FEI_TICKET_LABEL'
   | 'FEI_TICKET_REPRINT_LABEL'
   | 'TRANSFER_BAG_LABEL'
+  | 'TRANSFER_BAG_GOODS_LABEL'
   | 'CUTTING_ORDER_QR_LABEL'
   | 'HANDOVER_QR_LABEL'
   | 'TRANSFER_BAG_MANIFEST'
@@ -35,6 +36,7 @@ export type PrintSourceType =
   | 'ISSUE_SLIP_RECORD'
   | 'FEI_TICKET_RECORD'
   | 'TRANSFER_BAG_RECORD'
+  | 'TRANSFER_BAG_USAGE_RECORD'
   | 'CUTTING_ORDER_RECORD'
   | 'PRODUCTION_ORDER'
   | 'SETTLEMENT_CHANGE_REQUEST_RECORD'
@@ -106,11 +108,32 @@ export type PrintMode = '首次打印' | '继续打印' | '补打' | '普通打�
 export type PrintLabelLayout = '单张标签' | 'A4 多列标签' | 'A4 多行标签'
 export type PrintThermalPaperColor = 'WHITE' | 'YELLOW'
 
+export interface PrintTransferBagGoodsLabelPage {
+  usageCycleId: string
+  bagCode: string
+  productionOrderNo: string
+  spuCodes: string[]
+  partCount: number
+  sizes: string[]
+  rows: Array<{ color: string; quantities: number[]; pageTotal: number }>
+  sizeTotals: number[]
+  pagePieceQty: number
+  totalPieceQty: number
+  ticketCount: number
+  totalColorCount: number
+  totalSizeCount: number
+  pageIndex: number
+  pageCount: number
+  baggingAt: string
+  printedAt: string
+}
+
 export interface PrintLabelItem {
   labelTitle: string
   labelSubtitle?: string
   labelFields: PrintField[]
-  labelBusinessLayout?: 'FEI_TICKET_BUSINESS'
+  labelBusinessLayout?: 'FEI_TICKET_BUSINESS' | 'TRANSFER_BAG_GOODS'
+  transferBagGoods?: PrintTransferBagGoodsLabelPage
   labelWarnings?: string[]
   qrCode?: PrintQrCode
   barcode?: PrintBarcode
