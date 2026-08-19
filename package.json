@@ -138,6 +138,7 @@
     "check:print-service-post-route-card": "tsx scripts/check-print-service-post-route-card.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",
     "check:fcs-inactive-process-craft-usage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-inactive-process-craft-usage.ts",
+    "check:process-craft-default-order-removal": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-default-order-removal.ts",
     "check:production-craft-dict-page": "tsx scripts/check-production-craft-dict-page.ts",
     "check:printing-workflow": "tsx scripts/check-printing-workflow.ts && tsx scripts/check-task9-process-order-list-architecture.ts",
     "check:printing-work-order-redesign": "tsx scripts/check-printing-work-order-redesign.ts",

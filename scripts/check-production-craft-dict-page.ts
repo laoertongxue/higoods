@@ -55,7 +55,7 @@ try {
       '不进入生产任务清单、任务分配或合并任务',
       '质检、复检是回货流程节点，不是工序',
       '后道阶段仅包含开扣眼、装扣子、烫包',
-      '不作为任务合并判断条件',
+      '每款工序顺序以对应技术包确认路线为准',
     ],
     '工序工艺字典页面缺少阶段与任务边界',
   )
@@ -79,8 +79,11 @@ try {
   const removedCraftNameSet = new Set(removedLegacyCraftNames)
   const pageHtml = renderProductionCraftDictPage()
 
-  assert(pageHtml.includes('查看基础工序顺序'), '页面缺少基础工序顺序入口')
+  assert(!pageHtml.includes('基础工序顺序'), '页面不得继续展示基础工序顺序入口或弹窗')
+  assert(!pageHtml.includes('data-craft-dict-action="open-route-order"'), '页面不得保留默认顺序打开动作')
+  assert(!pageHtml.includes('data-craft-dict-action="close-route-order"'), '页面不得保留默认顺序关闭动作')
   assert(!pageHtml.includes('产值计算'), '渲染结果不得暴露产值计算')
+  assert(processDefinitions.every((item) => !('sort' in item)), '工序定义不得继续携带默认路线排序值')
   assert(activeRows.every((row) => row.isActive), '默认字典只应包含可用项')
   removedLegacyProcessCodes.forEach((processCode) => {
     assert(!activeRows.some((row) => row.processCode === processCode), '默认字典不应出现已删除旧编码')
@@ -105,8 +108,8 @@ try {
     .filter((item) => item.stageCode === 'POST' && item.isActive)
     .map((item) => item.processCode)
   assert(
-    JSON.stringify(activePostProcessCodes) === JSON.stringify(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']),
-    '后道阶段必须且只能包含开扣眼、装扣子、烫包',
+    JSON.stringify(activePostProcessCodes.slice().sort()) === JSON.stringify(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].sort()),
+    '后道阶段必须且只能包含开扣眼、装扣子、烫包，不约定三者的款式级先后顺序',
   )
   for (const processCode of ['BUTTONHOLE', 'BUTTON_ATTACH']) {
     activeRows.filter((row) => row.processCode === processCode).forEach((row) => {
@@ -121,25 +124,42 @@ try {
   assert(!processDefinitions.some((item) => ['QUALITY_INSPECTION', 'RECHECK'].includes(item.processCode)), '质检、复检不得进入工序字典')
   assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
 
-  const openHandled = handleProductionCraftDictEvent({
+  const removedRouteActionHandled = handleProductionCraftDictEvent({
     closest(selector: string) {
       if (selector === '[data-craft-dict-field]') return null
       if (selector === '[data-craft-dict-action]') return { dataset: { craftDictAction: 'open-route-order' } }
       return null
     },
   } as unknown as HTMLElement)
-  assert(openHandled && isProductionCraftDictDialogOpen(), '基础工序顺序弹窗必须可打开')
-  const routeDialogHtml = renderProductionCraftDictPage()
-  assert(routeDialogHtml.includes('基础工序顺序'), '基础工序顺序弹窗缺少标题')
-  assert(routeDialogHtml.includes('不作为任务合并判断条件'), '基础顺序不得恢复为连续工序合并规则')
-  handleProductionCraftDictEvent({
+  assert(!removedRouteActionHandled, '已删除的默认顺序动作不得继续被事件处理器接收')
+  assert(!isProductionCraftDictDialogOpen(), '已删除的默认顺序动作不得打开任何弹窗')
+
+  const detailTarget = activeRows[0]
+  assert(detailTarget, '工序工艺字典缺少可用于详情回归的工艺')
+  const detailOpenHandled = handleProductionCraftDictEvent({
     closest(selector: string) {
       if (selector === '[data-craft-dict-field]') return null
-      if (selector === '[data-craft-dict-action]') return { dataset: { craftDictAction: 'close-route-order' } }
+      if (selector === '[data-craft-dict-action]') {
+        return { dataset: { craftDictAction: 'open-detail', craftCode: detailTarget.craftCode } }
+      }
       return null
     },
   } as unknown as HTMLElement)
-  assert(!isProductionCraftDictDialogOpen(), '基础工序顺序弹窗必须可关闭')
+  assert(detailOpenHandled && isProductionCraftDictDialogOpen(), '删除默认顺序后工艺详情弹窗仍必须可打开')
+  assert(renderProductionCraftDictPage().includes(detailTarget.craftName), '工艺详情弹窗必须展示当前工艺')
+  handleProductionCraftDictEvent({
+    closest(selector: string) {
+      if (selector === '[data-craft-dict-field]') return null
+      if (selector === '[data-craft-dict-action]') return { dataset: { craftDictAction: 'close-detail' } }
+      return null
+    },
+  } as unknown as HTMLElement)
+  assert(!isProductionCraftDictDialogOpen(), '工艺详情弹窗必须可关闭')
+
+  const dictionarySource = readSource('src/data/fcs/process-craft-dict.ts')
+  for (const removedTerm of ['listDefaultProcessRouteOrders', 'getDefaultProcessRouteOrder']) {
+    assert(!dictionarySource.includes(removedTerm), `字典数据层不得保留 ${removedTerm}`)
+  }
 
   const artifacts = ['PO-202603-0002', 'PO-202603-0015']
     .flatMap((orderId) => generateProductionArtifactsForOrder(orderId))
@@ -157,6 +177,7 @@ try {
     默认可用工艺数: activeRows.length,
     历史停用工艺数: historicalRows.length,
     后道阶段三工序: '已校验',
+    字典默认顺序: '已删除',
   }, null, 2))
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error))

@@ -1,6 +1,6 @@
 import {
+  confirmEngineeringMasterTaskPlan,
   createEngineeringMasterOrder,
-  publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
 } from '../../src/data/pcs-engineering-master-repository.ts'
 import { createStyleArchiveShell, getStyleArchiveById } from '../../src/data/pcs-style-archive-repository.ts'
@@ -84,13 +84,13 @@ export function installTechnicalDataVersionFixtures(input: {
   resetEngineeringMasterRepository()
   resetTechnicalDataVersionRepository()
   const contentByVersionId = new Map(input.contents.map((content) => [content.technicalVersionId, content]))
-  const sourceByStyleId = new Map<string, ReturnType<typeof publishEngineeringMasterOrder>>()
+  const sourceByStyleId = new Map<string, ReturnType<typeof confirmEngineeringMasterTaskPlan>>()
 
   input.records.forEach((record) => {
     ensureFixtureStyle(record)
     let master = sourceByStyleId.get(record.styleId)
     if (!master) {
-      master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+      const draftMaster = createEngineeringMasterOrder({
         styleId: record.styleId,
         styleCode: record.styleCode,
         merchandiserId: 'CHECK-MERCHANDISER',
@@ -119,7 +119,19 @@ export function installTechnicalDataVersionFixtures(input: {
           uniqueTriggerKey: `TECHNICAL-VERSION-FIXTURE-${record.styleId}`,
         },
         creationReason: '专项检查构造技术包来源',
-      }).masterOrderId)
+      })
+      master = confirmEngineeringMasterTaskPlan(draftMaster.masterOrderId, {
+        confirmedBy: draftMaster.merchandiserName,
+        confirmedById: draftMaster.merchandiserId,
+        confirmedByRole: '跟单',
+        selectedConditionalTaskTypes: [],
+        preProductionSampleRequirements: [{
+          targetColor: '检查色',
+          targetSize: 'M',
+          requiredQuantity: 1,
+          requirementNote: '技术包专项检查固定样衣要求',
+        }],
+      })
       sourceByStyleId.set(record.styleId, master)
     }
     const sourceTaskId = `${master.masterOrderId}-TECH_PACK_CONFIRMATION`

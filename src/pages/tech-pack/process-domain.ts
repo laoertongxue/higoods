@@ -18,7 +18,7 @@ import type { TechniqueItem } from './context.ts'
 import { sortProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
 
 const routeSourceKindLabel: Record<TechniqueItem['routeSourceKind'], string> = {
-  DICT_DEFAULT: '字典基础路线',
+  DICT_REFERENCE: '工序字典引用',
   GARMENT_CATEGORY: '品类默认路线',
   BOM_REQUIREMENT: '物料要求推导',
   PATTERN_PACKAGE: '纸样资料推导',

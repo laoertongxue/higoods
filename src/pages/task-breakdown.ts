@@ -203,7 +203,7 @@ export function renderTaskBreakdownPage(keywordOverride?: string): string {
   const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
   const content = renderStandardListPage({
     title: '任务清单',
-    description: '展示全部可执行生产任务；KOL-GOTO 整单任务由生产单自动拆解，只供查看，不参与普通分配或竞价。',
+    description: '展示全部可执行生产任务；生产准备工序不进入任务清单；KOL-GOTO 整单任务由生产单自动拆解，只供查看，不参与普通分配或竞价。',
     primaryActionsHtml: '<a class="rounded bg-blue-600 px-4 py-2 text-sm text-white" href="/fcs/dispatch/workbench">前往任务分配</a>',
     filtersHtml: `<div class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3"><input class="h-9 rounded border px-3 text-sm" placeholder="生产单 / 任务号 / 工序 / 工厂" data-task-list-field="keyword" value="${escapeHtml(state.keyword)}"/><select class="h-9 rounded border px-3 text-sm" data-task-list-field="type"><option value="ALL">全部任务</option><option value="SEWING" ${state.type === 'SEWING' ? 'selected' : ''}>独立车缝</option><option value="NON_SEWING" ${state.type === 'NON_SEWING' ? 'selected' : ''}>非车缝独立生产任务</option><option value="MERGED" ${state.type === 'MERGED' ? 'selected' : ''}>合并任务</option><option value="WHOLE_ORDER" ${state.type === 'WHOLE_ORDER' ? 'selected' : ''}>整单任务</option></select><select class="h-9 rounded border px-3 text-sm" data-task-list-field="status"><option value="ALL">全部分配状态</option><option value="UNASSIGNED" ${state.status === 'UNASSIGNED' ? 'selected' : ''}>待分配</option><option value="BIDDING" ${state.status === 'BIDDING' ? 'selected' : ''}>竞价中</option><option value="ASSIGNED" ${state.status === 'ASSIGNED' ? 'selected' : ''}>已分配</option><option value="AWARDED" ${state.status === 'AWARDED' ? 'selected' : ''}>已定标</option></select></div>`,
     statsHtml: renderStandardListStats([
@@ -214,7 +214,7 @@ export function renderTaskBreakdownPage(keywordOverride?: string): string {
       { label: '待分配', value: all.filter((task) => task.assignmentStatus === 'UNASSIGNED').length },
     ]),
     listTitle: '生产任务',
-    listActionsHtml: '<span class="text-xs text-muted-foreground">合并任务仅支持车缝+烫包、裁剪+车缝+烫包</span>',
+    listActionsHtml: '<div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>生产准备工序不进入任务清单</span><span>KOL-GOTO 整单任务只供查看，不参与普通分配或竞价</span><span>合并任务仅支持车缝+烫包、裁剪+车缝+烫包</span></div>',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences, sort: null, eventPrefix: 'task-list', emptyText: '当前条件下没有可执行生产任务' }),
     paginationHtml: renderTablePagination({ total: rows.length, from: rows.length ? (state.page - 1) * pageSize + 1 : 0, to: Math.min(state.page * pageSize, rows.length), currentPage: state.page, totalPages, pageSize, actionPrefix: 'task-list', fieldPrefix: 'task-list', pageSizeOptions: [20] }),
     overlaysHtml: `${renderDetail()}${renderImagePreview()}`,

@@ -386,7 +386,7 @@ export interface TechnicalProcessEntry {
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeSourceKind?: 'DICT_DEFAULT' | 'GARMENT_CATEGORY' | 'BOM_REQUIREMENT' | 'PATTERN_PACKAGE' | 'PIECE_CRAFT' | 'MANUAL'
+  routeSourceKind?: 'DICT_REFERENCE' | 'GARMENT_CATEGORY' | 'BOM_REQUIREMENT' | 'PATTERN_PACKAGE' | 'PIECE_CRAFT' | 'MANUAL'
   routeUpdatedBy?: string
   routeUpdatedAt?: string
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'

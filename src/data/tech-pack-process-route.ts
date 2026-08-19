@@ -1,5 +1,3 @@
-import { getDefaultProcessRouteOrder } from './fcs/process-craft-dict.ts'
-
 type RouteEntryBase = {
   id: string
   routeStepNo?: number
@@ -41,11 +39,7 @@ function getNumberSort(value: number | undefined): number {
   return isPositiveStepNo(value) ? value : Number.MAX_SAFE_INTEGER
 }
 
-function getProcessRouteSort(processCode: string | undefined): number {
-  return processCode ? getDefaultProcessRouteOrder(processCode) : Number.MAX_SAFE_INTEGER
-}
-
-function compareRouteBase<T extends RouteEntryBase & { stageCode?: string; processCode?: string }>(
+function compareRouteBase<T extends RouteEntryBase & { stageCode?: string }>(
   left: T,
   right: T,
 ): number {
@@ -57,12 +51,6 @@ function compareRouteBase<T extends RouteEntryBase & { stageCode?: string; proce
 
   const stageCompare = getStageSort(left.stageCode ?? '') - getStageSort(right.stageCode ?? '')
   if (stageCompare !== 0) return stageCompare
-
-  const processRouteCompare = getProcessRouteSort(left.processCode) - getProcessRouteSort(right.processCode)
-  if (processRouteCompare !== 0) return processRouteCompare
-
-  const processCompare = (left.processCode ?? '').localeCompare(right.processCode ?? '', 'zh-CN')
-  if (processCompare !== 0) return processCompare
 
   return 0
 }

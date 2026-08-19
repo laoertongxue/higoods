@@ -68,7 +68,7 @@ function buildCheckTechnique(id: string, routeStepNo: number): TechniqueItem {
     source: '字典引用',
     routeStepNo,
     routeLaneNo: 1,
-    routeSourceKind: 'DICT_DEFAULT',
+    routeSourceKind: 'DICT_REFERENCE',
   }
 }
 
@@ -96,6 +96,22 @@ assert.deepEqual(
   normalizeProcessRouteEntries(missingRouteEntries).map((entry) => entry.routeStepNo),
   [1, 2],
   '缺 routeStepNo 时应从第 1 步开始归一化',
+)
+
+const noDictionaryDefaultOrderEntries: CheckRouteEntry[] = [
+  { id: 'print-first', stageCode: 'PREP', processCode: 'PRINT' },
+  { id: 'dye-second', stageCode: 'PREP', processCode: 'DYE' },
+  { id: 'water-third', stageCode: 'PREP', processCode: 'WATER_SOLUBLE' },
+]
+assert.deepEqual(
+  ids(sortProcessRouteEntries(noDictionaryDefaultOrderEntries)),
+  ['print-first', 'dye-second', 'water-third'],
+  '同阶段且未录入路线时不得再按工序字典默认顺序重排',
+)
+assert.deepEqual(
+  ids(normalizeProcessRouteEntries(noDictionaryDefaultOrderEntries)),
+  ['print-first', 'dye-second', 'water-third'],
+  '同阶段路线归一化必须保留该款原始录入顺序',
 )
 
 const sameSortKeyEntries: CheckRouteEntry[] = [
@@ -274,6 +290,25 @@ const multipleDyePrint = {
 assert.equal(hasInvalidDyePrintOrder(multipleDyePrint.techniques), true, '多染多印中任一共享 BOM 反序都必须阻断')
 
 const techPackEventsSource = readFileSync(new URL('../src/pages/tech-pack/events.ts', import.meta.url), 'utf8')
+const routeSorterSource = readFileSync(new URL('../src/data/tech-pack-process-route.ts', import.meta.url), 'utf8')
+const techPackContextSource = readFileSync(new URL('../src/pages/tech-pack/context.ts', import.meta.url), 'utf8')
+const processDomainSource = readFileSync(new URL('../src/pages/tech-pack/process-domain.ts', import.meta.url), 'utf8')
+assert.doesNotMatch(
+  routeSorterSource,
+  /getDefaultProcessRouteOrder|listDefaultProcessRouteOrders|process-craft-dict/,
+  '技术包路线排序不得继续读取工序工艺字典默认顺序',
+)
+assert.doesNotMatch(
+  techPackContextSource,
+  /DEFAULT_TECHNIQUES|DICT_DEFAULT|技术包默认烫包工序/,
+  '空技术包不得再补入硬编码默认路线，路线来源也不得继续标记为字典默认',
+)
+assert.match(
+  techPackContextSource,
+  /syncBomDrivenPrepTechniques\(\[\], bomItems\)/,
+  '没有款式工序时只能按 BOM 真实要求补入准备工序，不得虚构生产路线',
+)
+assert.match(processDomainSource, /DICT_REFERENCE: '工序字典引用'/, '技术包来源文案必须只表达字典引用，不表达默认顺序')
 assert.match(
   techPackEventsSource,
   /hasInvalidDyePrintOrder\(nextTechniques\)/,
@@ -419,7 +454,7 @@ function buildRouteGateContent(id: string, routeConfirmed: boolean): TechnicalDa
       routeLaneNo: 1,
       routeParallelGroupId: 'ROUTE-GROUP-1',
       routeParallelGroupName: '路线克隆验证并行组',
-      routeSourceKind: 'DICT_DEFAULT',
+      routeSourceKind: 'DICT_REFERENCE',
       supportedTargetObjects: ['CUT_PIECE'],
       supportedTargetObjectLabels: ['已裁部位'],
       linkedBomItemIds: [`${id}-bom`],
@@ -434,6 +469,8 @@ function buildRouteGateContent(id: string, routeConfirmed: boolean): TechnicalDa
     processRouteChangeReason: routeConfirmed ? '第 2 批确认检查' : '',
     sizeTable: [{ id: `${id}-size`, part: '胸围', S: 90, M: 94, L: 98, XL: 102, tolerance: 1 }],
     bomItems: [{ id: `${id}-bom`, type: '面料', name: '主面料', spec: '100% 棉', unitConsumption: 1, lossRate: 0.03, supplier: '供应商' }],
+    bomCustomCosts: [],
+    bomCustomCostDecision: 'NO_CUSTOM_COST',
     qualityRules: [],
     colorMaterialMappings: [{ id: `${id}-mapping`, spuCode: id, colorCode: 'BK', colorName: '黑色', status: 'CONFIRMED', generatedMode: 'MANUAL', lines: [] }],
     patternDesigns: [],
@@ -561,7 +598,7 @@ assert.equal(roundtripContent?.processEntries[0]?.routeStepNo, 1, '仓库读取�
 assert.equal(roundtripContent?.processEntries[0]?.routeLaneNo, 1, '仓库读取时工序条目应保留路线并行线')
 assert.equal(roundtripContent?.processEntries[0]?.routeParallelGroupId, 'ROUTE-GROUP-1', '仓库读取时工序条目应保留并行组')
 assert.equal(roundtripContent?.processEntries[0]?.routeParallelGroupName, '路线克隆验证并行组', '仓库读取时工序条目应保留并行组名称')
-assert.equal(roundtripContent?.processEntries[0]?.routeSourceKind, 'DICT_DEFAULT', '仓库读取时工序条目应保留路线来源')
+assert.equal(roundtripContent?.processEntries[0]?.routeSourceKind, 'DICT_REFERENCE', '仓库读取时工序条目应保留字典引用来源')
 roundtripContent?.processEntries[0]?.linkedBomItemIds?.push('mutated-bom')
 assert.deepEqual(
   getTechnicalDataVersionContent(roundtripId)?.processEntries[0]?.linkedBomItemIds,

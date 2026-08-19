@@ -2,7 +2,6 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   craftStageDict,
-  getDefaultProcessRouteOrder,
   getProcessCraftDictRowByCode,
   listProcessCraftDictRows,
   processDefinitions,
@@ -15,7 +14,6 @@ type CraftDictState = {
   stage: 'ALL' | CraftStageCode
   status: 'ACTIVE' | 'HISTORICAL' | 'ALL'
   detailCraftCode: string
-  showRouteOrder: boolean
 }
 
 const state: CraftDictState = {
@@ -23,7 +21,6 @@ const state: CraftDictState = {
   stage: 'ALL',
   status: 'ACTIVE',
   detailCraftCode: '',
-  showRouteOrder: false,
 }
 
 function listVisibleRows() {
@@ -40,8 +37,8 @@ function listVisibleRows() {
       const stageSort = (craftStageDict.find((item) => item.stageCode === left.stageCode)?.sort ?? 999)
         - (craftStageDict.find((item) => item.stageCode === right.stageCode)?.sort ?? 999)
       if (stageSort !== 0) return stageSort
-      const routeSort = getDefaultProcessRouteOrder(left.processCode) - getDefaultProcessRouteOrder(right.processCode)
-      if (routeSort !== 0) return routeSort
+      const processNameSort = left.processName.localeCompare(right.processName, 'zh-CN')
+      if (processNameSort !== 0) return processNameSort
       return left.craftName.localeCompare(right.craftName, 'zh-CN')
     })
 }
@@ -53,7 +50,7 @@ function renderSummary(): string {
     .map((stage) => {
       const processes = processDefinitions
         .filter((process) => process.stageCode === stage.stageCode && process.isActive)
-        .sort((left, right) => left.sort - right.sort)
+        .sort((left, right) => left.processName.localeCompare(right.processName, 'zh-CN'))
       return `
         <article class="rounded-md border bg-background p-4" data-stage-code="${stage.stageCode}">
           <div class="flex items-center justify-between gap-3">
@@ -71,25 +68,6 @@ function renderSummary(): string {
     })
     .join('')
   return `<section class="grid gap-3 lg:grid-cols-3" data-testid="process-stage-summary">${stages}</section>`
-}
-
-function renderRouteDialog(): string {
-  if (!state.showRouteOrder) return ''
-  const rows = processDefinitions
-    .filter((process) => process.isActive)
-    .sort((left, right) => getDefaultProcessRouteOrder(left.processCode) - getDefaultProcessRouteOrder(right.processCode))
-  return `
-    <div class="fixed inset-0 z-[120] bg-black/35" data-craft-dict-action="close-route-order"></div>
-    <section class="fixed left-1/2 top-1/2 z-[121] max-h-[80vh] w-[680px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg bg-background shadow-xl">
-      <header class="flex items-center justify-between border-b px-5 py-4">
-        <div><h2 class="text-lg font-semibold">基础工序顺序</h2><p class="mt-1 text-xs text-muted-foreground">仅用于技术包展示和业务追溯，不作为任务合并判断条件。</p></div>
-        <button class="rounded-md border px-3 py-1.5 text-sm" data-craft-dict-action="close-route-order">关闭</button>
-      </header>
-      <div class="space-y-2 p-5">
-        ${rows.map((row) => `<div class="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"><span class="w-14 text-muted-foreground">第 ${getDefaultProcessRouteOrder(row.processCode)} 位</span><span class="w-24">${escapeHtml(craftStageDict.find((stage) => stage.stageCode === row.stageCode)?.stageName ?? row.stageCode)}</span><strong>${escapeHtml(row.processName)}</strong></div>`).join('')}
-      </div>
-    </section>
-  `
 }
 
 function renderDetailDialog(): string {
@@ -129,12 +107,11 @@ export function renderProductionCraftDictPage(): string {
   const rows = listVisibleRows()
   return `
     <div class="space-y-4" data-production-craft-dict-page>
-      <header class="flex flex-wrap items-center justify-between gap-3">
+      <header class="flex flex-wrap items-center gap-3">
         <div>
           <h1 class="text-xl font-semibold">工序工艺字典</h1>
-          <p class="mt-1 text-sm text-muted-foreground">展示阶段、工序、工艺及任务边界；任务合并在任务分配页处理。</p>
+          <p class="mt-1 text-sm text-muted-foreground">展示阶段、工序、工艺及任务边界；每款工序顺序以对应技术包确认路线为准。</p>
         </div>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-craft-dict-action="open-route-order">查看基础工序顺序</button>
       </header>
       ${renderSummary()}
       <section class="rounded-md border bg-background">
@@ -161,7 +138,6 @@ export function renderProductionCraftDictPage(): string {
         </div>
       </section>
       ${renderDetailDialog()}
-      ${renderRouteDialog()}
     </div>
   `
 }
@@ -177,19 +153,22 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
   }
   const action = target.closest<HTMLElement>('[data-craft-dict-action]')
   if (!action) return false
-  if (action.dataset.craftDictAction === 'open-detail') state.detailCraftCode = action.dataset.craftCode || ''
-  if (action.dataset.craftDictAction === 'close-detail') state.detailCraftCode = ''
-  if (action.dataset.craftDictAction === 'open-route-order') state.showRouteOrder = true
-  if (action.dataset.craftDictAction === 'close-route-order') state.showRouteOrder = false
-  return true
+  if (action.dataset.craftDictAction === 'open-detail') {
+    state.detailCraftCode = action.dataset.craftCode || ''
+    return true
+  }
+  if (action.dataset.craftDictAction === 'close-detail') {
+    state.detailCraftCode = ''
+    return true
+  }
+  return false
 }
 
 export function isProductionCraftDictDialogOpen(): boolean {
-  return Boolean(state.detailCraftCode || state.showRouteOrder)
+  return Boolean(state.detailCraftCode)
 }
 
 export function closeProductionCraftDictDialog(): void {
   state.detailCraftCode = ''
-  state.showRouteOrder = false
   appStore.navigate('/fcs/production/craft-dict')
 }

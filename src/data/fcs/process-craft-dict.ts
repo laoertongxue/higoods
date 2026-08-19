@@ -31,7 +31,6 @@ export interface ProcessDefinition {
   systemProcessCode: string
   processName: string
   stageCode: CraftStageCode
-  sort: number
   processRole: ProcessRole
   parentProcessCode?: string
   generatesExternalTask: boolean
@@ -883,7 +882,6 @@ const processDefinitionSeeds: Array<
     processCode: 'PRINT',
     processName: '印花',
     stageCode: 'PREP',
-    sort: 25,
     processRole: 'PREPARATION_ORDER',
     generatesExternalTask: false,
     requiresTaskQr: true,
@@ -900,7 +898,6 @@ const processDefinitionSeeds: Array<
     processCode: 'WATER_SOLUBLE',
     processName: '水溶',
     stageCode: 'PREP',
-    sort: 10,
     processRole: 'PREPARATION_ORDER',
     generatesExternalTask: false,
     requiresTaskQr: true,
@@ -917,7 +914,6 @@ const processDefinitionSeeds: Array<
     processCode: 'DYE',
     processName: '染色',
     stageCode: 'PREP',
-    sort: 20,
     processRole: 'PREPARATION_ORDER',
     generatesExternalTask: false,
     requiresTaskQr: true,
@@ -934,7 +930,6 @@ const processDefinitionSeeds: Array<
     processCode: 'SHRINKING',
     processName: '缩水',
     stageCode: 'PREP',
-    sort: 30,
     processRole: 'PREPARATION_ORDER',
     generatesExternalTask: false,
     requiresTaskQr: false,
@@ -950,7 +945,6 @@ const processDefinitionSeeds: Array<
     processCode: 'WASHING',
     processName: '洗水',
     stageCode: 'PREP',
-    sort: 35,
     processRole: 'PREPARATION_ORDER',
     generatesExternalTask: false,
     requiresTaskQr: false,
@@ -966,7 +960,6 @@ const processDefinitionSeeds: Array<
     processCode: 'CUT_PANEL',
     processName: '裁片',
     stageCode: 'PROD',
-    sort: 10,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -981,7 +974,6 @@ const processDefinitionSeeds: Array<
     processCode: 'EMBROIDERY',
     processName: '绣花',
     stageCode: 'PROD',
-    sort: 20,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -996,7 +988,6 @@ const processDefinitionSeeds: Array<
     processCode: 'PLEATING',
     processName: '压褶',
     stageCode: 'PROD',
-    sort: 30,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1011,7 +1002,6 @@ const processDefinitionSeeds: Array<
     processCode: 'WOOL',
     processName: '毛织',
     stageCode: 'PROD',
-    sort: 35,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1027,7 +1017,6 @@ const processDefinitionSeeds: Array<
     processCode: 'SEW',
     processName: '车缝',
     stageCode: 'PROD',
-    sort: 40,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1042,7 +1031,6 @@ const processDefinitionSeeds: Array<
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
     stageCode: 'PROD',
-    sort: 50,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1058,7 +1046,6 @@ const processDefinitionSeeds: Array<
     processCode: 'BUTTONHOLE',
     processName: '开扣眼',
     stageCode: 'POST',
-    sort: 20,
     processRole: 'INTERNAL_CAPACITY_NODE',
     generatesExternalTask: false,
     requiresTaskQr: false,
@@ -1073,7 +1060,6 @@ const processDefinitionSeeds: Array<
     processCode: 'BUTTON_ATTACH',
     processName: '装扣子',
     stageCode: 'POST',
-    sort: 30,
     processRole: 'INTERNAL_CAPACITY_NODE',
     generatesExternalTask: false,
     requiresTaskQr: false,
@@ -1088,7 +1074,6 @@ const processDefinitionSeeds: Array<
     processCode: 'IRON_PACK',
     processName: '烫包',
     stageCode: 'POST',
-    sort: 40,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1157,7 +1142,6 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
     systemProcessCode: PROCESS_SYSTEM_CODE_MAP[seed.processCode] ?? `PROC_${seed.processCode}`,
     processName: seed.processName,
     stageCode: seed.stageCode,
-    sort: seed.sort,
     processRole: seed.processRole,
     parentProcessCode: seed.parentProcessCode,
     generatesExternalTask: seed.generatesExternalTask,
@@ -1445,28 +1429,10 @@ export function listProcessDefinitions(): ProcessDefinition[] {
       const stageA = stageDefinitionByCode.get(a.stageCode)?.sort ?? 999
       const stageB = stageDefinitionByCode.get(b.stageCode)?.sort ?? 999
       if (stageA !== stageB) return stageA - stageB
-      return a.sort - b.sort
+      const nameCompare = a.processName.localeCompare(b.processName, 'zh-CN')
+      if (nameCompare !== 0) return nameCompare
+      return a.processCode.localeCompare(b.processCode)
     })
-}
-
-export function listDefaultProcessRouteOrders(): Array<{
-  processCode: string
-  processName: string
-  stageCode: CraftStageCode
-  stageName: string
-  routeOrder: number
-}> {
-  return listProcessDefinitions().map((process, index) => ({
-    processCode: process.processCode,
-    processName: process.processName,
-    stageCode: process.stageCode,
-    stageName: getProcessStageByCode(process.stageCode)?.stageName ?? process.stageCode,
-    routeOrder: index + 1,
-  }))
-}
-
-export function getDefaultProcessRouteOrder(processCode: string): number {
-  return listDefaultProcessRouteOrders().find((item) => item.processCode === processCode)?.routeOrder ?? Number.MAX_SAFE_INTEGER
 }
 
 export function getProcessDefinitionByCode(processCode: string): ProcessDefinition | undefined {

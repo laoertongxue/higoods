@@ -127,7 +127,7 @@ type TechPackTab =
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 type ProcessRouteStatus = NonNullable<TechnicalDataVersionContent['processRouteStatus']>
 type RouteSourceKind =
-  | 'DICT_DEFAULT'
+  | 'DICT_REFERENCE'
   | 'GARMENT_CATEGORY'
   | 'BOM_REQUIREMENT'
   | 'PATTERN_PACKAGE'
@@ -1759,105 +1759,6 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
   },
 ]
 
-const DEFAULT_TECHNIQUES: TechniqueItem[] = [
-  {
-    id: 'tech-default-1',
-    entryType: 'PROCESS_BASELINE',
-    stageCode: 'PREP',
-    stage: '准备阶段',
-    processCode: 'PRINT',
-    process: '印花',
-    craftCode: '',
-    technique: '印花',
-    assignmentGranularity: 'COLOR',
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    triggerSource: 'BOM上存在印花要求',
-    difficulty: '中等',
-    remark: '',
-    source: '字典引用',
-    routeStepNo: 1,
-    routeLaneNo: 1,
-    routeSourceKind: 'BOM_REQUIREMENT',
-  },
-  {
-    id: 'tech-default-2',
-    entryType: 'CRAFT',
-    stageCode: 'PROD',
-    stage: '生产阶段',
-    processCode: 'CUT_PANEL',
-    process: '裁片',
-    craftCode: 'CRAFT_000001',
-    technique: '定位裁',
-    assignmentGranularity: 'ORDER',
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_COLOR', 'PATTERN', 'MATERIAL_SKU'],
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    triggerSource: '',
-    difficulty: '简单',
-    remark: '',
-    source: '字典引用',
-    routeStepNo: 2,
-    routeLaneNo: 1,
-    routeSourceKind: 'DICT_DEFAULT',
-  },
-  {
-    id: 'tech-default-3',
-    entryType: 'CRAFT',
-    stageCode: 'PROD',
-    stage: '生产阶段',
-    processCode: 'SEW',
-    process: '车缝',
-    craftCode: 'CRAFT_262144',
-    technique: '曲牙',
-    assignmentGranularity: 'SKU',
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    triggerSource: '',
-    difficulty: '中等',
-    remark: '',
-    source: '字典引用',
-    routeStepNo: 3,
-    routeLaneNo: 1,
-    routeSourceKind: 'DICT_DEFAULT',
-  },
-  {
-    id: 'tech-default-iron-pack',
-    entryType: 'CRAFT',
-    stageCode: 'POST',
-    stage: '后道阶段',
-    processCode: 'IRON_PACK',
-    process: '烫包',
-    craftCode: 'CRAFT_2000010',
-    technique: '烫包',
-    assignmentGranularity: 'SKU',
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    triggerSource: '技术包默认烫包工序',
-    difficulty: '中等',
-    remark: '后道阶段只记录开扣眼、装扣子、烫包三个实际工序；质检与复检是回货流程节点。',
-    source: '字典引用',
-    routeStepNo: 4,
-    routeLaneNo: 1,
-    routeSourceKind: 'DICT_DEFAULT',
-  },
-]
-
 interface TechPackPageState {
   currentSpuCode: string | null
   currentStyleId: string | null
@@ -2124,7 +2025,7 @@ function getRouteSourceKind(
   if (item.sourceType === 'BOM') return 'BOM_REQUIREMENT'
   if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
   if (item.isSpecialCraft) return 'PIECE_CRAFT'
-  return 'DICT_DEFAULT'
+  return 'DICT_REFERENCE'
 }
 
 function withRouteDefaults(item: TechniqueItem, fallbackIndex: number): TechniqueItem {
@@ -4564,13 +4465,7 @@ function buildTechniquesFromTechPack(
   }
 
   if (techPack.processes.length === 0) {
-    return syncBomDrivenPrepTechniques(
-      DEFAULT_TECHNIQUES.map((item) => ({
-        ...item,
-        detailSplitDimensions: [...item.detailSplitDimensions],
-      })),
-      bomItems,
-    )
+    return syncBomDrivenPrepTechniques([], bomItems)
   }
 
   return syncBomDrivenPrepTechniques(
@@ -4641,7 +4536,7 @@ function buildTechniquesFromTechPack(
           source: '字典引用',
           routeStepNo: index + 1,
           routeLaneNo: 1,
-          routeSourceKind: 'DICT_DEFAULT',
+          routeSourceKind: 'DICT_REFERENCE',
         }
       }
 
@@ -4667,7 +4562,7 @@ function buildTechniquesFromTechPack(
         source: '字典引用',
         routeStepNo: index + 1,
         routeLaneNo: 1,
-        routeSourceKind: 'DICT_DEFAULT',
+        routeSourceKind: 'DICT_REFERENCE',
       }
     }),
     bomItems,
