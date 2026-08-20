@@ -88,7 +88,7 @@ function main(): void {
   const activeCraftNames = new Set(activeCrafts.map((item) => item.craftName))
   const specialCraftOperations = listSpecialCraftOperationDefinitions()
   const enabledOperations = listEnabledSpecialCraftOperationDefinitions()
-  const allowedTargetLabels = new Set(['已裁部位', '完整面料'])
+  const allowedTargetLabels = new Set(['已裁部位', '完整面料', '成衣', '捆条'])
 
   assert(
     !activeCrafts.some((item) => removedCraftNameSet.has(item.craftName)),
@@ -108,7 +108,7 @@ function main(): void {
       Array.isArray(item.supportedTargetObjects)
       && item.supportedTargetObjects.length > 0
       && item.supportedTargetObjectLabels.every((label) => allowedTargetLabels.has(label))),
-    '特殊工艺字典必须维护多选作用对象，且只允许已裁部位 / 完整面料',
+    '特殊工艺字典必须维护作用对象，且只允许已裁部位 / 完整面料 / 成衣 / 捆条',
   )
   assert(
     specialCraftOperations.every((item) =>
@@ -157,9 +157,10 @@ function main(): void {
   const printingSource =
     read('src/data/fcs/printing-task-domain.ts')
     + read('src/pages/process-factory/printing/work-orders.ts')
+    + read('src/pages/process-factory/printing/warehouse.ts')
     + read('src/pages/process-factory/printing/statistics.ts')
     + read('src/pages/process-factory/printing/dashboards.ts')
-  ;['印花加工单', '印花任务', '印花统计', '印花大屏'].forEach((token) => {
+  ;['印花加工单', '印花任务', '印花统计', '印花执行大屏'].forEach((token) => {
     assert(printingSource.includes(token), `独立模块缺少：${token}`)
   })
 
@@ -167,8 +168,9 @@ function main(): void {
     read('src/data/fcs/dyeing-task-domain.ts')
     + read('src/pages/process-factory/dyeing/work-orders.ts')
     + read('src/pages/process-factory/dyeing/dye-orders.ts')
+    + read('src/pages/process-factory/dyeing/warehouse.ts')
     + read('src/pages/process-factory/dyeing/reports.ts')
-  ;['染色加工单', '染色任务', '染色配方', '染色报表'].forEach((token) => {
+  ;['染色加工单', '染色任务', '染色配方', '染色加工单总数'].forEach((token) => {
     assert(dyeingSource.includes(token), `独立模块缺少：${token}`)
   })
 

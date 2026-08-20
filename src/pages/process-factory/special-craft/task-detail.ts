@@ -16,6 +16,7 @@ import { executeProcessWebAction } from '../../../data/fcs/process-web-status-ac
 import {
   renderGarmentSkuConfirmDialog,
   renderCutPieceFeiTicketConfirmDialog,
+  renderButtonLoopTaskActionDialog,
 } from './shared.ts'
 
 import {
@@ -123,16 +124,32 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
   }
 
   const objectMeta = {
-    objectType: taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
-    objectLabel: taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
-    qtyUnit: taskOrder.unit || '件',
-    qtyRule: taskOrder.targetObject === '成衣' ? '按 SKU 件数汇总' : '按裁片数量统计',
+    objectType: taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT' ? '捆条' : taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
+    objectLabel: taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT' ? '盘扣' : taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
+    qtyUnit: taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT' ? taskOrder.outputUnit || '个' : taskOrder.unit || '件',
+    qtyRule: taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+      ? '投入按捆条菲票张数追溯，产出与交出按盘扣个数记录，不按衣服件数换算'
+      : taskOrder.targetObject === '成衣' ? '按 SKU 件数汇总' : '按裁片数量统计',
   }
   const webActions = getFastSpecialCraftWebActions(taskOrder)
   const taskOrderQty = taskOrder.currentQty || taskOrder.planQty || 1
   const flowBindings = getSpecialCraftBindingsByTaskOrderId(taskOrder.taskOrderId)
   const flowSummary = getSpecialCraftBindingSummaryByTaskOrderId(taskOrder.taskOrderId)
 
+  const quantityInfo = taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+    ? [
+        { label: '投入捆条菲票', value: `${formatQty(taskOrder.receivedTicketCount || 0)} / ${formatQty(taskOrder.inputTicketCount || 0)} 张` },
+        { label: '投入捆条长度', value: `${formatQty(taskOrder.inputLengthM || 0)} m（仅追溯）` },
+        { label: '盘扣产出', value: `${formatQty(taskOrder.outputQty || 0)} 个` },
+        { label: '已交出 / 待交出', value: `${formatQty(taskOrder.handedOverQty || 0)} / ${formatQty(taskOrder.waitHandoverQty)} 个` },
+        { label: '交出去向', value: escapeHtml(taskOrder.receiverWarehouseName || '中央辅料仓') },
+      ]
+    : [
+        { label: '计划裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '已接收数量', value: `${formatQty(taskOrder.receivedQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '已完成裁片数量', value: `${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '待交出裁片数量', value: `${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}` },
+      ]
   const basicInfo = renderInfoGrid([
     { label: '任务号', value: escapeHtml(taskOrder.taskOrderNo) },
     { label: '生产单', value: escapeHtml(taskOrder.productionOrderNo) },
@@ -144,10 +161,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     { label: '作用对象', value: escapeHtml(taskOrder.targetObject) },
     { label: '分配状态', value: renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配') },
     { label: '执行状态', value: renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status) },
-    { label: '计划裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '已接收数量', value: `${formatQty(taskOrder.receivedQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '已完成裁片数量', value: `${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '待交出裁片数量', value: `${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}` },
+    ...quantityInfo,
     { label: '当前状态', value: renderStatusBadge(taskOrder.status) },
     { label: '交期', value: escapeHtml(taskOrder.dueAt.slice(0, 10)) },
   ])
@@ -160,6 +174,16 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         { label: '菲票号', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待绑定') },
         { label: '中转袋号', value: escapeHtml(taskOrder.transferBagNos.join('、') || '—') },
         { label: '计划加工数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+      ])
+    : ''
+
+  const bindingStripInfo = taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+    ? renderInfoGrid([
+        { label: '盘扣捆条', value: escapeHtml(taskOrder.partName || '—') },
+        { label: '捆条菲票', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待生成') },
+        { label: '投入口径', value: `${formatQty(taskOrder.inputTicketCount || 0)} 张 / ${formatQty(taskOrder.inputLengthM || 0)} m` },
+        { label: '产出口径', value: `${formatQty(taskOrder.outputQty || 0)} 个盘扣` },
+        { label: '交出去向', value: escapeHtml(taskOrder.receiverWarehouseName || '中央辅料仓') },
       ])
     : ''
 
@@ -264,6 +288,8 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
   const activeTab = getCurrentTaskDetailTab()
   const targetInfoSection = isCutPieceTarget(taskOrder.targetObject)
     ? renderSection('裁片信息', pieceInfo)
+    : taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+      ? renderSection('捆条投入与盘扣产出', bindingStripInfo)
     : isFabricTarget(taskOrder.targetObject)
       ? renderSection('面料信息', fabricInfo)
       : ''
@@ -271,7 +297,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
   const demandSummary = renderInfoGrid([
     { label: '任务明细', value: `${formatQty(taskOrder.demandLines?.length || 0)} 条` },
     { label: '来源纸样', value: escapeHtml(firstDemandLine?.patternFileName || '—') },
-    { label: '来源裁片明细', value: escapeHtml(firstDemandLine?.pieceRowId || '—') },
+    { label: taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT' ? '来源捆条明细' : '来源裁片明细', value: escapeHtml(firstDemandLine?.pieceRowId || '—') },
     { label: '菲票状态', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待绑定') },
   ])
 
@@ -287,7 +313,9 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       '任务明细',
       demandRows
         ? renderTable(
-            ['裁片部位', '颜色', '尺码', '每件片数', '生产成衣件数', '计划裁片数量', '来源纸样', '来源裁片明细', '菲票号'],
+            taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+              ? ['捆条名称', '对象', '宽度', '菲票投入系数', '菲票数', '投入张数', '来源纸样', '来源捆条明细', '菲票号']
+              : ['裁片部位', '颜色', '尺码', '每件片数', '生产成衣件数', '计划裁片数量', '来源纸样', '来源裁片明细', '菲票号'],
             demandRows,
             'min-w-[1120px]',
           )
@@ -308,7 +336,9 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           '菲票流转明细',
           bindingRows
             ? renderTable(
-                ['菲票号', '裁片部位', '颜色', '尺码', '当前数量', '当前状态', '发料交出记录', '回仓交出记录'],
+                taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+                  ? ['菲票号', '捆条名称', '对象', '宽度', '投入张数', '当前状态', '投入交出记录', '盘扣交出记录']
+                  : ['菲票号', '裁片部位', '颜色', '尺码', '当前数量', '当前状态', '发料交出记录', '回仓交出记录'],
                 bindingRows,
                 'min-w-[1180px]',
               )
@@ -336,7 +366,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     `,
     events: renderSection(
       '节点记录',
-      renderTable(['节点', '操作', '操作裁片数量', '操作人', '操作时间', '关联单号', '照片数量', '备注'], nodeRows, 'min-w-[1160px]'),
+      renderTable(['节点', '操作', taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT' ? '操作数量' : '操作裁片数量', '操作人', '操作时间', '关联单号', '照片数量', '备注'], nodeRows, 'min-w-[1160px]'),
     ),
   }
 
@@ -374,9 +404,14 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           </div>
           ${renderWebActionPanel(taskOrder.taskOrderId, taskOrder.status, webActions, taskOrderQty, objectMeta)}
           <div class="grid gap-2 border-t pt-3 text-sm">
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已完成</span><span class="font-medium">${formatQty(taskOrder.completedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已交出</span><span class="font-medium">${formatQty(taskOrder.waitHandoverQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            ${taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+              ? `<div class="flex justify-between gap-3"><span class="text-muted-foreground">投入菲票</span><span class="font-medium">${formatQty(taskOrder.receivedTicketCount || 0)} / ${formatQty(taskOrder.inputTicketCount || 0)} 张</span></div>
+                <div class="flex justify-between gap-3"><span class="text-muted-foreground">盘扣产出</span><span class="font-medium">${formatQty(taskOrder.outputQty || 0)} 个</span></div>
+                <div class="flex justify-between gap-3"><span class="text-muted-foreground">已交出 / 待交出</span><span class="font-medium">${formatQty(taskOrder.handedOverQty || 0)} / ${formatQty(taskOrder.waitHandoverQty)} 个</span></div>
+                <div class="flex justify-between gap-3"><span class="text-muted-foreground">去向</span><span class="font-medium">${escapeHtml(taskOrder.receiverWarehouseName || '中央辅料仓')}</span></div>`
+              : `<div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+                <div class="flex justify-between gap-3"><span class="text-muted-foreground">已完成</span><span class="font-medium">${formatQty(taskOrder.completedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+                <div class="flex justify-between gap-3"><span class="text-muted-foreground">待交出</span><span class="font-medium">${formatQty(taskOrder.waitHandoverQty)} ${escapeHtml(taskOrder.unit)}</span></div>`}
           </div>
           <button type="button" class="w-full rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-special-craft-task-action="go-back">返回列表</button>
         </section>
@@ -433,7 +468,7 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
   }
 
   const actionNode = target.closest<HTMLElement>('[data-special-craft-web-action]')
-  const customConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm], [data-special-craft-fei-confirm]')
+  const customConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm], [data-special-craft-fei-confirm], [data-special-craft-button-loop-confirm]')
   if (!actionNode && !customConfirmNode) return false
 
   if (actionNode?.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
@@ -448,6 +483,13 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       || actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
     if (isCustomDialog) {
+      if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+        ;(document.getElementById('app') || document.body).insertAdjacentHTML(
+          'beforeend',
+          renderButtonLoopTaskActionDialog(taskOrder, actionCode),
+        )
+        return true
+      }
       const isGarment = taskOrder.targetObject === '成衣'
       const lines = taskOrder.demandLines || []
       const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
@@ -530,6 +572,53 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
   }
 
   if (actionNode) return true
+
+  const buttonLoopConfirmNode = target.closest<HTMLElement>('[data-special-craft-button-loop-confirm]')
+  if (buttonLoopConfirmNode) {
+    const taskId = buttonLoopConfirmNode.dataset.taskId || ''
+    const actionCode = buttonLoopConfirmNode.dataset.actionCode || ''
+    const dialog = document.getElementById('special-craft-button-loop-dialog')
+    const taskOrder = getSpecialCraftTaskOrderById(taskId)
+    if (!dialog || !taskOrder) return true
+    const feiQtyByTicketNo = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+      ? Object.fromEntries(Array.from(dialog.querySelectorAll<HTMLInputElement>('[data-button-loop-fei-ticket-no]'))
+          .filter((input) => input.checked && !input.disabled)
+          .map((input) => [input.dataset.buttonLoopFeiTicketNo || '', 1])
+          .filter(([ticketNo]) => Boolean(ticketNo)))
+      : undefined
+    const outputInput = dialog.querySelector<HTMLInputElement>('[data-button-loop-output-qty]')
+    const outputQty = outputInput ? Number(outputInput.value) : undefined
+    if ((actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') && (!Number.isInteger(outputQty) || Number(outputQty) <= 0)) {
+      showToast('盘扣产出或交出数量必须为正整数。')
+      outputInput?.focus()
+      return true
+    }
+    dialog.remove()
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: taskId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-08-20 10:00',
+        objectType: '捆条',
+        objectQty: outputQty,
+        qtyUnit: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '张' : '个',
+        feiQtyByTicketNo,
+        remark: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+          ? `逐张确认接收 ${Object.keys(feiQtyByTicketNo || {}).length} 张捆条菲票`
+          : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+            ? `盘扣交至${taskOrder.receiverWarehouseName || '中央辅料仓'}`
+            : '盘扣加工单操作',
+      })
+      showToast(result.message)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '盘扣加工单操作失败')
+    }
+    const current = appStore.getState().pathname || '/'
+    appStore.navigate(current, { historyMode: 'replace' })
+    return true
+  }
 
   // SKU 确认对话框提交
   const skuConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm]')

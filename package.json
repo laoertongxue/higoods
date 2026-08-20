@@ -117,6 +117,7 @@
     "check:process-factory-special-craft-split": "tsx scripts/check-process-factory-special-craft-split.ts",
     "check:special-craft-task-generation": "tsx scripts/check-special-craft-task-generation.ts",
     "check:special-craft-task-and-fei-flow-deepening": "tsx scripts/check-special-craft-task-and-fei-flow-deepening.ts",
+    "check:button-loop-auxiliary-crafts": "node --import tsx scripts/check-button-loop-auxiliary-crafts.ts",
     "check:pickup-handout-order-and-warehouse-foundation": "tsx scripts/check-pickup-handout-order-and-warehouse-foundation.ts",
     "check:transfer-bag-mobile-closed-loop": "tsx scripts/check-transfer-bag-mobile-closed-loop.ts",
     "check:menu-visibility-test-factory-and-default-views": "tsx scripts/check-menu-visibility-test-factory-and-default-views.ts",

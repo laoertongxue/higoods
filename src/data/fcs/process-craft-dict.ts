@@ -8,10 +8,10 @@ export type FactoryMobileExecutionMode = 'FULL_TASK' | 'INTERNAL_RECORD_ONLY' | 
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
-export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'
-export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣'
-export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL'
-export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料'
+export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'
+export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣' | '捆条'
+export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL' | 'BINDING_STRIP'
+export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条'
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
 export type SpecialCraftCategoryName = '辅助工艺' | '特种工艺'
 export type SpecialCraftVisibleFactoryType =
@@ -19,6 +19,7 @@ export type SpecialCraftVisibleFactoryType =
   | 'SATELLITE_FINISHING'
   | 'CENTRAL_DENIM_WASH'
   | 'CENTRAL_CUTTING'
+  | 'CENTRAL_AUX'
 export interface ProcessStageDefinition {
   stageCode: CraftStageCode
   stageName: string
@@ -221,6 +222,7 @@ export const SPECIAL_CRAFT_TARGET_OBJECT_LABEL: Record<SpecialCraftSupportedTarg
   CUT_PIECE: '已裁部位',
   FULL_FABRIC: '完整面料',
   SEMI_FINISHED_GARMENT: '成衣',
+  BINDING_STRIP: '捆条',
 }
 
 export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTargetObjectName> = {
@@ -229,6 +231,7 @@ export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTarg
   ACCESSORY: '辅料',
   GARMENT_SEMI: '成衣',
   BOM_MATERIAL: 'BOM物料',
+  BINDING_STRIP: '捆条',
 }
 
 export const SPECIAL_CRAFT_CATEGORY_NAME: Record<SpecialCraftCategory, SpecialCraftCategoryName> = {
@@ -252,6 +255,10 @@ const AUXILIARY_CRAFT_FACTORY_CRAFT_NAMES = new Set([
   '贝壳绣',
   '曲牙绣',
   '一字贝绣花',
+  '盘扣',
+  '花朵',
+  '打褶',
+  '烫钻',
 ])
 
 const SPECIAL_CRAFT_FACTORY_CRAFT_NAMES = new Set([
@@ -274,6 +281,10 @@ const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, Spe
   8192: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
   16384: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
   131072: ['CUT_PIECE'],
+  3100001: ['BINDING_STRIP'],
+  3100002: ['CUT_PIECE'],
+  3100003: ['CUT_PIECE'],
+  3100004: ['CUT_PIECE'],
 }
 
 const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, SpecialCraftVisibleFactoryType[]> = {
@@ -284,6 +295,10 @@ const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, Specia
   8192: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   16384: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   131072: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  3100001: ['CENTRAL_AUX'],
+  3100002: ['CENTRAL_AUX'],
+  3100003: ['CENTRAL_AUX'],
+  3100004: ['CENTRAL_AUX'],
 }
 
 export const preparationProcessDefinitions: PreparationProcessDefinition[] = [
@@ -485,6 +500,74 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     description: '捆条跟随纸样维护，不在单个裁片实例特殊工艺列中选择。',
   },
   {
+    craftCode: 'AUX_BUTTON_LOOP',
+    craftName: '盘扣',
+    craftCategory: 'AUXILIARY',
+    craftCategoryName: '辅助工艺',
+    specialCraftType: 'AUXILIARY',
+    specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
+    targetObject: 'BINDING_STRIP',
+    targetObjectName: '捆条',
+    canSelectInPatternPiece: false,
+    canSelectInBindingArea: true,
+    canTriggerFromMaterial: false,
+    canGenerateSpecialCraftTask: true,
+    description: '捆条菲票投入、盘扣成品按个产出的辅助工艺，仅在纸样包捆条行维护。',
+  },
+  {
+    craftCode: 'AUX_FLOWER_MAKING',
+    craftName: '花朵',
+    craftCategory: 'AUXILIARY',
+    craftCategoryName: '辅助工艺',
+    specialCraftType: 'AUXILIARY',
+    specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
+    targetObject: 'CUT_PIECE_PART',
+    targetObjectName: '裁片部位',
+    canSelectInPatternPiece: true,
+    canSelectInBindingArea: false,
+    canTriggerFromMaterial: false,
+    canGenerateSpecialCraftTask: true,
+    description: '裁片部位级花朵辅助工艺，沿用裁片菲票加工闭环。',
+  },
+  {
+    craftCode: 'AUX_GATHERING',
+    craftName: '打褶',
+    craftCategory: 'AUXILIARY',
+    craftCategoryName: '辅助工艺',
+    specialCraftType: 'AUXILIARY',
+    specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
+    targetObject: 'CUT_PIECE_PART',
+    targetObjectName: '裁片部位',
+    canSelectInPatternPiece: true,
+    canSelectInBindingArea: false,
+    canTriggerFromMaterial: false,
+    canGenerateSpecialCraftTask: true,
+    description: '裁片部位级打褶辅助工艺，与压褶保持独立工艺身份。',
+  },
+  {
+    craftCode: 'AUX_HOTFIX_RHINESTONE',
+    craftName: '烫钻',
+    craftCategory: 'AUXILIARY',
+    craftCategoryName: '辅助工艺',
+    specialCraftType: 'AUXILIARY',
+    specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
+    targetObject: 'CUT_PIECE_PART',
+    targetObjectName: '裁片部位',
+    canSelectInPatternPiece: true,
+    canSelectInBindingArea: false,
+    canTriggerFromMaterial: false,
+    canGenerateSpecialCraftTask: true,
+    description: '裁片部位级烫钻辅助工艺，沿用裁片菲票加工闭环。',
+  },
+  {
     craftCode: 'SPECIAL_TEMPLATE_PROCESS',
     craftName: '模板工序',
     craftCategory: 'SPECIAL',
@@ -617,7 +700,7 @@ export function getSpecialCraftSupportedTargetObjectLabels(
 }
 
 export function isSpecialCraftTargetObjectLabel(value: string | undefined): value is SpecialCraftTargetObjectLabel {
-  return value === '已裁部位' || value === '完整面料' || value === '成衣'
+  return value === '已裁部位' || value === '完整面料' || value === '成衣' || value === '捆条'
 }
 
 export function normalizeSpecialCraftTargetObjectLabel(
@@ -626,6 +709,7 @@ export function normalizeSpecialCraftTargetObjectLabel(
   if (value === '裁片') return '已裁部位'
   if (value === '面料') return '完整面料'
   if (value === '半成品' || value === '成衣半成品' || value === '整件成衣') return '成衣'
+  if (value === 'BINDING_STRIP') return '捆条'
   return isSpecialCraftTargetObjectLabel(value) ? value : ''
 }
 
@@ -1233,6 +1317,22 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   },
 ]
 
+const MODERN_SPECIAL_CRAFT_LEGACY_VALUE_BY_NAME: Record<string, number> = {
+  绣花: 3000001,
+  压褶: 3000002,
+  贝壳绣: 3000003,
+  曲牙绣: 3000004,
+  一字贝绣花: 3000005,
+  模板工序: 3000006,
+  激光开袋: 3000007,
+  '特种车缝（花样机）': 3000008,
+  橡筋定长切割: 3000009,
+  盘扣: 3100001,
+  花朵: 3100002,
+  打褶: 3100003,
+  烫钻: 3100004,
+}
+
 const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modernSpecialCraftDefinitions
   .filter(
     (craft) =>
@@ -1240,8 +1340,8 @@ const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modern
         (item) => item.processCode === 'SPECIAL_CRAFT' && item.craftName === craft.craftName,
       ),
   )
-  .map((craft, index) => ({
-    legacyValue: 3000001 + index,
+  .map((craft) => ({
+    legacyValue: MODERN_SPECIAL_CRAFT_LEGACY_VALUE_BY_NAME[craft.craftName],
     legacyCraftName: craft.craftName,
     craftName: craft.craftName,
     processCode: 'SPECIAL_CRAFT',
@@ -1567,6 +1667,12 @@ export function listSpecialTypeCrafts(): ModernSpecialCraftDefinition[] {
 export function listCutPiecePartCrafts(): ModernSpecialCraftDefinition[] {
   return modernSpecialCraftDefinitions
     .filter((item) => item.targetObject === 'CUT_PIECE_PART' && item.canSelectInPatternPiece)
+    .map((item) => cloneModernSpecialCraft(item))
+}
+
+export function listBindingAreaCrafts(): ModernSpecialCraftDefinition[] {
+  return modernSpecialCraftDefinitions
+    .filter((item) => item.canSelectInBindingArea)
     .map((item) => cloneModernSpecialCraft(item))
 }
 

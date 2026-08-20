@@ -30,6 +30,11 @@ import { getFactoryWarehouseProgressSnapshots } from '../src/data/fcs/progress-s
 import { getPdaHandoverRecordsByHead, listPdaHandoverHeads } from '../src/data/fcs/pda-handover-events.ts'
 import { listWarehouseIssueOrders } from '../src/data/fcs/warehouse-material-execution.ts'
 import { buildCuttingWarehouseLocationNo } from '../src/data/fcs/cutting/warehouse-location-mock.ts'
+import {
+  APF_FACTORY_ID,
+  FLOWER_FACTORY_ID,
+  SPF_FACTORY_ID,
+} from '../src/data/fcs/special-craft-dedicated-factories.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SEWING_FACTORY_TYPES = new Set(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
@@ -125,7 +130,7 @@ const sewingFactories = mockFactories.filter(
 )
 const testFactories = mockFactories.filter((factory) => factory.isTestFactory)
 const standardWarehouses = defaultWarehouses.filter(
-  (warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT', KOL_GOTO_FACTORY_ID].includes(warehouse.factoryId),
+  (warehouse) => ![FLOWER_FACTORY_ID, APF_FACTORY_ID, SPF_FACTORY_ID, KOL_GOTO_FACTORY_ID].includes(warehouse.factoryId),
 )
 const ordinaryNonSewingFactories = nonSewingFactories.filter((factory) => factory.id !== KOL_GOTO_FACTORY_ID)
 const kolGotoWarehouses = defaultWarehouses.filter((warehouse) => warehouse.factoryId === KOL_GOTO_FACTORY_ID)

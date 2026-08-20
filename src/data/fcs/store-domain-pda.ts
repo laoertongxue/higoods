@@ -23,6 +23,7 @@ import {
 } from './factory-mock-data.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 import type { Factory } from './factory-types'
+import { isLegacySpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
 
 // =============================================
 // 权限键
@@ -697,6 +698,7 @@ function ensurePdaUserStore(): FactoryPdaUser[] {
     cachedPdaUsers = stored
       .map((item) => normalizeStoredPdaUser(item))
       .filter((item): item is FactoryPdaUser => Boolean(item))
+      .filter((item) => !isLegacySpecialCraftFactoryId(item.factoryId))
       .map((item) => {
         const withPasswordHash = item.passwordHash
           ? item
@@ -709,6 +711,7 @@ function ensurePdaUserStore(): FactoryPdaUser[] {
         if (normalized !== item) needsMigration = true
         return normalized
       })
+    if (cachedPdaUsers.length !== stored.length) needsMigration = true
     const userIds = new Set(cachedPdaUsers.map((item) => item.userId))
     const missingSeedUsers = initialFactoryPdaUsers.filter((item) => !userIds.has(item.userId)).map(clonePdaUser)
     if (missingSeedUsers.length > 0) {
@@ -734,8 +737,9 @@ function ensurePdaRoleStore(): FactoryPdaRole[] {
     const storedRoles = stored
       .map((item) => normalizeStoredPdaRole(item))
       .filter((item): item is FactoryPdaRole => Boolean(item))
+      .filter((item) => !isLegacySpecialCraftFactoryId(item.factoryId))
     cachedPdaRoles = normalizeKolGotoPdaRoles(storedRoles)
-    let needsMigration = JSON.stringify(cachedPdaRoles) !== JSON.stringify(storedRoles)
+    let needsMigration = storedRoles.length !== stored.length || JSON.stringify(cachedPdaRoles) !== JSON.stringify(storedRoles)
     const roleKeys = new Set(cachedPdaRoles.map((item) => `${item.factoryId}:${item.roleId}`))
     const missingSeedRoles = initialFactoryPdaRoles.filter((item) => !roleKeys.has(`${item.factoryId}:${item.roleId}`)).map(clonePdaRole)
     if (missingSeedRoles.length > 0) {

@@ -15,6 +15,10 @@ import {
   type LaceHandoverRecord,
   type LaceReceiptRecord,
 } from '../data/fcs/lace-factory-domain.ts'
+import {
+  confirmButtonLoopAccessoryReceipt,
+  listButtonLoopAccessoryReceiptRows,
+} from '../data/fcs/button-loop-accessory-receipts.ts'
 import { escapeHtml } from '../utils.ts'
 import {
   formatJakartaTime,
@@ -185,6 +189,45 @@ function renderOverlays(): string {
   return `<div data-wls-lace-receipts-column-overlays>${controller.renderColumnSettings()}</div>${renderReceiptOverlay()}${renderLaceImagePreview()}`
 }
 
+function renderButtonLoopReceiptSection(): string {
+  const rows = listButtonLoopAccessoryReceiptRows()
+  return `
+    <section class="overflow-hidden rounded-lg border border-amber-200 bg-white" data-wls-button-loop-receipts>
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3">
+        <div>
+          <h2 class="font-semibold text-amber-950">盘扣成品收货</h2>
+          <p class="mt-1 text-xs text-amber-800">来源为 APF - 辅助工艺已发起交出的盘扣加工单；收货与库存单位均为“个”。</p>
+        </div>
+        <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-900">中央辅料仓</span>
+      </header>
+      ${rows.length ? `
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[880px] text-left text-sm">
+            <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">交出单／加工单</th><th class="px-4 py-3">生产单</th><th class="px-4 py-3">交出方</th><th class="px-4 py-3 text-right">交出数量</th><th class="px-4 py-3">去向</th><th class="px-4 py-3">收货状态</th><th class="px-4 py-3 text-right">操作</th></tr></thead>
+            <tbody class="divide-y divide-slate-100">${rows.map((row) => `
+              <tr>
+                <td class="px-4 py-3"><strong>${escapeHtml(row.handoverNo)}</strong><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.task.taskOrderNo)}</div></td>
+                <td class="px-4 py-3">${escapeHtml(row.task.productionOrderNo)}</td>
+                <td class="px-4 py-3">${escapeHtml(row.task.factoryName)}</td>
+                <td class="px-4 py-3 text-right font-semibold">${row.handedOverQty} 个</td>
+                <td class="px-4 py-3">${escapeHtml(row.destinationWarehouseName)}</td>
+                <td class="px-4 py-3">${row.status === '已收货' && row.receipt
+                  ? `<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">已收货 ${row.receipt.receivedQty} 个</span><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.receipt.receivedBy)} · ${escapeHtml(row.receipt.receivedAt)}</div>`
+                  : row.receipt
+                    ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">已收货 ${row.receipt.receivedQty} 个 / 待收货 ${row.pendingReceiptQty} 个</span><div class="mt-1 text-xs text-slate-500">上一批：${escapeHtml(row.receipt.receivedBy)} · ${escapeHtml(row.receipt.receivedAt)}</div>`
+                    : '<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">待收货</span>'}</td>
+                <td class="px-4 py-3 text-right">${row.status === '已收货'
+                  ? '<span class="text-xs text-slate-400">已完成</span>'
+                  : `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" data-wls-button-loop-action="confirm-receipt" data-task-order-id="${escapeHtml(row.task.taskOrderId)}" data-skip-page-rerender="true">${row.receipt ? `确认新增收货（${row.pendingReceiptQty} 个）` : '确认全部收货'}</button>`}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>
+      ` : '<div class="px-4 py-6 text-sm text-slate-500">暂无已发起交出的盘扣成品。盘扣加工单完成“发起交出”后会自动出现在这里。</div>'}
+    </section>
+  `
+}
+
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
@@ -193,7 +236,7 @@ function renderInner(): string {
   return renderStandardListPage({
     title: '中央辅料仓收货',
     primaryActionsHtml: `<label class="flex items-center gap-2 text-xs text-slate-500"><span>当前收货身份</span><select class="h-8 rounded-md border bg-white px-2 text-sm text-slate-800" data-wls-lace-receipts-field="actorRole" data-skip-page-rerender="true"><option value="中央辅料仓管" ${state.actorRole === '中央辅料仓管' ? 'selected' : ''}>中央辅料仓收货人员</option><option value="中央辅料仓主管" ${state.actorRole === '中央辅料仓主管' ? 'selected' : ''}>中央辅料仓主管</option></select><span>中央仓库·辅料仓</span></label>`,
-    feedbackHtml: `<div>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>`,
+    feedbackHtml: `<div>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>${renderButtonLoopReceiptSection()}`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '待收货', value: `${all.filter((row) => row.handover.receiptStatus === '待收货').length} 条` },
@@ -234,6 +277,24 @@ export function renderWlsAccessoryReceiptsPage(): string {
 
 export function handleWlsAccessoryReceiptsEvent(target: HTMLElement, event?: Event): boolean {
   if (!rootElement() && typeof window !== 'undefined') return false
+  const buttonLoopAction = target.closest<HTMLElement>('[data-wls-button-loop-action]')
+  if (buttonLoopAction?.dataset.wlsButtonLoopAction === 'confirm-receipt') {
+    try {
+      const actor = currentReceiptActor()
+      const receipt = confirmButtonLoopAccessoryReceipt({
+        taskOrderId: buttonLoopAction.dataset.taskOrderId || '',
+        receivedBy: actor.actorName,
+        receivedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      })
+      state.feedback = `盘扣成品 ${receipt.receivedQty} 个已确认进入中央辅料仓。`
+      state.feedbackOk = true
+    } catch (error) {
+      state.feedback = `盘扣收货未保存：${error instanceof Error ? error.message : String(error)}`
+      state.feedbackOk = false
+    }
+    refreshAll()
+    return true
+  }
   if (handleLaceCommonImageEvent(target, event, refreshOverlays)) return true
   if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && state.overlay) {
     state.overlay = null

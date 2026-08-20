@@ -181,9 +181,9 @@ export interface TechnicalPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条'>
 }
 
 export type TechnicalPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
@@ -196,8 +196,8 @@ export interface TechnicalPatternPieceSpecialCraftAssignment {
   craftName: string
   craftCategory?: 'AUXILIARY' | 'SPECIAL'
   craftCategoryName?: '辅助工艺' | '特种工艺'
-  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
-  targetObjectName?: '裁片部位' | '面料' | '辅料'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'BINDING_STRIP'
+  targetObjectName?: '裁片部位' | '面料' | '辅料' | '捆条'
   craftPosition: TechnicalPatternPieceCraftPosition
   craftPositionName: TechnicalPatternPieceCraftPositionName
   remark?: string
@@ -276,6 +276,7 @@ export interface TechnicalPatternBindingStrip {
   widthCm: number
   cuttingMethod?: TechnicalPatternBindingStripCuttingMethod
   relatedMaterialId?: string
+  specialCrafts?: TechnicalPatternPieceSpecialCraft[]
   remark?: string
   createdBy?: string
   updatedAt?: string
@@ -361,11 +362,11 @@ export interface TechnicalProcessEntry {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣'
-  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL'
-  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL' | 'BINDING_STRIP'
+  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条'>
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   materialIssueMode?: 'WAREHOUSE_DELIVERY'

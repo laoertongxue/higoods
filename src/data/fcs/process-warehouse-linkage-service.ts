@@ -662,6 +662,12 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
   if (!context.sourceProductionOrderId || !context.sourceProductionOrderNo) {
     return mergeResult(base, { success: false, message: '特殊工艺单缺少来源生产单，不能执行仓联动' })
   }
+  if (context.objectType === '捆条') {
+    return mergeResult(base, {
+      updatedFeiTicketIds: context.relatedFeiTicketIds,
+      message: '盘扣按捆条菲票投入、盘扣成品产出及中央辅料仓去向执行专用仓联动',
+    })
+  }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
     if (context.objectType === '成衣') {
       const workOrder = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)

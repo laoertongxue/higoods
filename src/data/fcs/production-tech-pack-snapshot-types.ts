@@ -75,9 +75,9 @@ export interface TechPackCutPiecePartSnapshot {
     craftCode: string
     craftName: string
     displayName: string
-    selectedTargetObject?: '已裁部位' | '完整面料' | '成衣'
-    supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
-    supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
+    selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条'
+    supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'>
+    supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条'>
   }>
   bundleLengthCm?: number
   bundleWidthCm?: number

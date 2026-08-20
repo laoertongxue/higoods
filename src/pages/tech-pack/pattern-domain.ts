@@ -8,6 +8,7 @@ import {
   getPartTemplateOptions,
   getPatternPieceInstanceSpecialCraftOptions,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
+  getButtonLoopBindingCraftOption,
   PATTERN_CRAFT_POSITION_OPTIONS,
   getPatternBySelectionKey,
   getSizeCodeOptionsFromSizeRules,
@@ -184,6 +185,7 @@ function renderBindingStripCuttingMethodOptions(selected?: string): string {
 
 function renderPatternBindingStripEditor(): string {
   const rows = state.newPattern.bindingStrips
+  const buttonLoopOption = getButtonLoopBindingCraftOption()
   return `
     <section class="space-y-3 rounded-md border p-3" data-testid="pattern-binding-strip-section">
       <div class="flex items-center justify-between">
@@ -193,6 +195,9 @@ function renderPatternBindingStripEditor(): string {
           添加捆条
         </button>
       </div>
+      ${buttonLoopOption.routeConfigured
+        ? '<p class="text-xs text-muted-foreground">每条捆条独立选择是否用于盘扣；选择后对应菲票使用黄色 100mm × 100mm 纸张。</p>'
+        : '<p class="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">如需选择盘扣，请先在工序路线增加“盘扣（对象：捆条）”并确认路线。</p>'}
       ${
         rows.length === 0
           ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无捆条</div>'
@@ -206,6 +211,7 @@ function renderPatternBindingStripEditor(): string {
                     <th class="px-2 py-1 text-left">长度（cm）</th>
                     <th class="px-2 py-1 text-left">宽度（cm）</th>
                     <th class="px-2 py-1 text-left">切割方式</th>
+                    <th class="px-2 py-1 text-left">辅助工艺</th>
                     <th class="px-2 py-1 text-left">备注</th>
                     <th class="px-2 py-1 text-right">操作</th>
                   </tr>
@@ -227,6 +233,19 @@ function renderPatternBindingStripEditor(): string {
                         <select class="h-8 w-24 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-cutting-method" data-binding-strip-id="${escapeHtml(row.bindingStripId)}">
                           ${renderBindingStripCuttingMethodOptions(row.cuttingMethod || '斜切')}
                         </select>
+                      </td>
+                      <td class="px-2 py-1">
+                        <button
+                          type="button"
+                          class="inline-flex h-8 items-center gap-1 rounded border px-2 text-xs ${row.specialCrafts?.some((craft) => craft.craftName === '盘扣') ? 'border-amber-400 bg-amber-50 text-amber-800' : 'bg-white text-muted-foreground'} disabled:cursor-not-allowed disabled:opacity-50"
+                          data-tech-action="toggle-binding-strip-button-loop"
+                          data-binding-strip-id="${escapeHtml(row.bindingStripId)}"
+                          aria-pressed="${row.specialCrafts?.some((craft) => craft.craftName === '盘扣') ? 'true' : 'false'}"
+                          ${buttonLoopOption.routeConfigured ? '' : 'disabled'}
+                        >
+                          <span class="inline-flex h-4 w-4 items-center justify-center rounded border">${row.specialCrafts?.some((craft) => craft.craftName === '盘扣') ? '✓' : ''}</span>
+                          盘扣
+                        </button>
                       </td>
                       <td class="px-2 py-1">
                         <input class="h-8 w-40 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-remark" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(row.remark || '')}" placeholder="可选" />
@@ -260,6 +279,7 @@ function renderPatternBindingStripDetail(pattern: (typeof state.patternItems)[nu
           <th class="px-2 py-1 text-left">长度（cm）</th>
           <th class="px-2 py-1 text-left">宽度（cm）</th>
           <th class="px-2 py-1 text-left">切割方式</th>
+          <th class="px-2 py-1 text-left">辅助工艺</th>
           <th class="px-2 py-1 text-left">备注</th>
         </tr>
       </thead>
@@ -271,6 +291,9 @@ function renderPatternBindingStripDetail(pattern: (typeof state.patternItems)[nu
             <td class="px-2 py-1">${renderTextValue(row.lengthCm)}</td>
             <td class="px-2 py-1">${renderTextValue(row.widthCm)}</td>
             <td class="px-2 py-1">${renderTextValue(row.cuttingMethod || '斜切')}</td>
+            <td class="px-2 py-1">${row.specialCrafts?.some((craft) => craft.craftName === '盘扣')
+              ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">盘扣 · 黄色菲票</span>'
+              : '<span class="text-muted-foreground">无</span>'}</td>
             <td class="px-2 py-1">${renderTextValue(row.remark)}</td>
           </tr>
         `).join('')}

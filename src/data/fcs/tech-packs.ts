@@ -180,6 +180,7 @@ export interface TechPackPatternBindingStrip {
   widthCm: number
   cuttingMethod?: TechPackPatternBindingStripCuttingMethod
   relatedMaterialId?: string
+  specialCrafts?: TechPackPatternPieceSpecialCraft[]
   remark?: string
   createdBy?: string
   updatedAt?: string

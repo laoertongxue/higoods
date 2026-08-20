@@ -145,6 +145,11 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
   {
     key: 'qtyProgress', title: '数量进度', width: 160, align: 'right',
     render(row) {
+      if (row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+        return `<div class="text-sm tabular-nums">投入 ${formatQty(row.taskOrder.receivedTicketCount || 0)} / ${formatQty(row.taskOrder.inputTicketCount || row.taskOrder.planQty)} 张</div>
+          <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">捆条 ${formatQty(row.taskOrder.inputLengthM || 0)} m · 产出 ${formatQty(row.taskOrder.outputQty || 0)} 个</div>
+          <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">已交出 ${formatQty(row.taskOrder.handedOverQty || 0)} 个 · 待交出 ${formatQty(row.taskOrder.waitHandoverQty)} 个</div>`
+      }
       return `<div class="text-sm tabular-nums">计划 ${formatQty(row.taskOrder.planQty)}${escapeHtml(row.taskOrder.unit)}</div>
         <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">接收 ${formatQty(row.taskOrder.receivedQty)} / 完成 ${formatQty(row.taskOrder.completedQty)} / 待交出 ${formatQty(row.taskOrder.waitHandoverQty)}</div>`
     },
@@ -154,6 +159,11 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
     render(row) {
       if (row.taskOrder.targetObject === '成衣') {
         return '<div class="text-xs text-muted-foreground">成衣加工单不关联菲票</div>'
+      }
+      if (row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+        return `<div class="text-xs tabular-nums text-foreground">盘扣捆条菲票 ${formatQty(row.taskOrder.inputTicketCount || 0)} 张</div>
+          <div class="mt-1 text-xs tabular-nums text-muted-foreground">已确认接收 ${formatQty(row.taskOrder.receivedTicketCount || 0)} 张</div>
+          <div class="mt-1 text-xs text-blue-700">产出交至${escapeHtml(row.taskOrder.receiverWarehouseName || '中央辅料仓')}</div>`
       }
       const summary = getSpecialCraftBindingSummaryByTaskOrderId(row.taskOrder.taskOrderId)
       return `
@@ -178,17 +188,23 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
       )
       const webActions = getFastSpecialCraftWebActions(row.taskOrder)
       const actionable = webActions.filter((a) => !a.disabledReason && a.actionCode !== 'SPECIAL_CRAFT_COMPLETE_ORDER').slice(0, 3)
-      const objectType = row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
-      const objectQty = row.taskOrder.currentQty || row.taskOrder.planQty || 1
-      const qtyUnit = row.taskOrder.unit || '件'
+      const objectType = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+        ? '捆条'
+        : row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
+      const objectQty = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+        ? row.taskOrder.outputQty || row.taskOrder.inputTicketCount || 1
+        : row.taskOrder.currentQty || row.taskOrder.planQty || 1
+      const qtyUnit = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+        ? row.taskOrder.outputUnit || '个'
+        : row.taskOrder.unit || '件'
       const quickButtons = actionable
         .map((a) => {
           const requiredFields = a.requiredFields
-            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', '成衣'))
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectType))
           const optionalFields = a.optionalFields
-            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', '成衣'))
-          const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', '成衣')
-          const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', '成衣')
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectType))
+          const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', objectType)
+          const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', objectType)
           return `<button type="button" class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 hover:bg-blue-100"
             data-skip-page-rerender="true"
             data-special-craft-web-action="open-web-status-action-dialog"

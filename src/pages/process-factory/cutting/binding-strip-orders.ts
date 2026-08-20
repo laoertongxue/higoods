@@ -4,7 +4,10 @@ import {
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-orders.ts'
 import type { TechPackPatternFileSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
-import type { TechnicalPatternBindingStrip } from '../../../data/pcs-technical-data-version-types.ts'
+import type {
+  TechnicalPatternBindingStrip,
+  TechnicalPatternPieceSpecialCraft,
+} from '../../../data/pcs-technical-data-version-types.ts'
 import type {
   BindingProcessAbnormalItem,
   BindingProcessDifferenceStatus,
@@ -59,6 +62,8 @@ export interface BindingStripRequirementLine {
   minRequiredLengthM: number
   minRequiredLengthApplied: boolean
   formulaText: string
+  specialCrafts: TechnicalPatternPieceSpecialCraft[]
+  requiresButtonLoop: boolean
 }
 
 export interface BindingStripRequirementSummary {
@@ -331,6 +336,8 @@ function buildRequirementLinesForSource(
       minRequiredLengthM: lengthMeta.minRequiredLengthM,
       minRequiredLengthApplied: lengthMeta.minRequiredLengthApplied,
       formulaText: buildBindingStripRequiredLengthFormula(plannedBindingLengthM, bindingWidthCm, doorWidthCm),
+      specialCrafts: (strip.specialCrafts || []).map((craft) => ({ ...craft })),
+      requiresButtonLoop: (strip.specialCrafts || []).some((craft) => craft.craftName === '盘扣'),
     }
   }).filter((line) => line.requiredLengthM > 0 && line.bindingWidthCm > 0 && line.plannedBindingLengthM > 0)
 }
@@ -575,6 +582,8 @@ function buildDetail(
     cuttingRecords,
     differenceRecords,
     formulaText: line.formulaText,
+    specialCrafts: (line.specialCrafts ?? []).map((craft) => ({ ...craft })),
+    requiresButtonLoop: line.requiresButtonLoop,
   }
 }
 

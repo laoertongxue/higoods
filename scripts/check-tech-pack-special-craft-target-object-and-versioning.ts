@@ -20,7 +20,7 @@ import {
 } from '../src/data/fcs/tech-packs.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料', '成衣']
+const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料', '成衣', '捆条']
 
 function read(relativePath: string): string {
   return readFileSync(resolve(repoRoot, relativePath), 'utf8')
@@ -125,10 +125,13 @@ selectableSpecialCrafts.forEach((craft) => {
 const expectedGarmentCraftTargets: SpecialCraftTargetObjectLabel[] = ['已裁部位', '成衣']
 const heatTransfer = selectableSpecialCrafts.find((item) => item.craftName === '烫画')
 const directPrint = selectableSpecialCrafts.find((item) => item.craftName === '直喷')
+const buttonLoop = selectableSpecialCrafts.find((item) => item.craftName === '盘扣')
 assert(heatTransfer, '工序工艺字典缺少烫画')
 assert(directPrint, '工序工艺字典缺少直喷')
+assert(buttonLoop, '工序工艺字典缺少盘扣')
 assert.deepEqual(heatTransfer.supportedTargetObjectLabels, expectedGarmentCraftTargets)
 assert.deepEqual(directPrint.supportedTargetObjectLabels, expectedGarmentCraftTargets)
+assert.deepEqual(buttonLoop.supportedTargetObjectLabels, ['捆条'], '盘扣只能选择捆条加工对象')
 assert.equal(getProcessDefinitionByCode('PRINT')?.defaultDocType, 'PREPARATION_ORDER', '印花默认产物必须是生产准备加工单')
 assert.equal(getProcessDefinitionByCode('DYE')?.defaultDocType, 'PREPARATION_ORDER', '染色默认产物必须是生产准备加工单')
 assert.deepEqual(
@@ -230,7 +233,6 @@ assertIncludes(generationSource, 'getDemandLineUnit(selectedTargetObject)', '特
 ;[
   buildToken('五', '金'),
   buildToken('盘', '口'),
-  buildToken('盘', '扣'),
   buildToken('盘', '抠'),
   buildToken('鸡', '眼', '扣'),
   buildToken('手工', '盘', '扣'),

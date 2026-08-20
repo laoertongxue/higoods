@@ -1,6 +1,11 @@
 import { KOL_GOTO_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
+import {
+  APF_FACTORY_ID,
+  FLOWER_FACTORY_ID,
+  SPF_FACTORY_ID,
+} from './special-craft-dedicated-factories.ts'
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
@@ -162,18 +167,24 @@ export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
   return [
     { areaId: 'AUX-WP-AREA-01', areaName: '绣花-成衣库区', shelfList: buildDefaultShelf('AUX-WP-01'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-02', areaName: '绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-02'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-03', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('AUX-WP-03'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('AUX-WP-04'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-05', areaName: '抽条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
+    { areaId: 'FLOWER-WP-AREA-01', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('FLOWER-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'FLOWER-WP-AREA-02', areaName: '直喷-裁片库区', shelfList: buildDefaultShelf('FLOWER-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'FLOWER-WP-AREA-03', areaName: '烫画-裁片库区', shelfList: buildDefaultShelf('FLOWER-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'FLOWER-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('FLOWER-WP-04'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-05', areaName: '打条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-07', areaName: '打缆-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-07', areaName: '打揽-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-08', areaName: '贝壳绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-08'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-09', areaName: '曲牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-09'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-10', areaName: '直牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-01', areaName: '模板工艺-裁片库区', shelfList: buildDefaultShelf('SPC-WP-01'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-02', areaName: '激光袋-裁片库区', shelfList: buildDefaultShelf('SPC-WP-02'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-03', areaName: '花样机-裁片库区', shelfList: buildDefaultShelf('SPC-WP-03'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-04', areaName: '橡筋定长-辅料库区', shelfList: buildDefaultShelf('SPC-WP-04'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-10', areaName: '一字贝绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-11', areaName: '盘扣-捆条库区', shelfList: buildDefaultShelf('AUX-WP-11'), status: 'AVAILABLE', remark: '投入为捆条菲票，产出为盘扣成品' },
+    { areaId: 'AUX-WP-AREA-12', areaName: '花朵-裁片库区', shelfList: buildDefaultShelf('AUX-WP-12'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-13', areaName: '打褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-13'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-14', areaName: '烫钻-裁片库区', shelfList: buildDefaultShelf('AUX-WP-14'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-01', areaName: '模板工序-裁片库区', shelfList: buildDefaultShelf('SPC-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-02', areaName: '激光开袋-裁片库区', shelfList: buildDefaultShelf('SPC-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-03', areaName: '特种车缝（花样机）-裁片库区', shelfList: buildDefaultShelf('SPC-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-04', areaName: '橡筋定长切割-辅料库区', shelfList: buildDefaultShelf('SPC-WP-04'), status: 'AVAILABLE' },
   ]
 }
 
@@ -204,10 +215,13 @@ function buildFactoryAreaList(
       }],
     }]
   }
-  if (factoryId === 'FAC-AUX-CRAFT') {
+  if (factoryId === FLOWER_FACTORY_ID) {
+    return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('FLOWER-'))
+  }
+  if (factoryId === APF_FACTORY_ID) {
     return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
   }
-  if (factoryId === 'FAC-SPC-CRAFT') {
+  if (factoryId === SPF_FACTORY_ID) {
     return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
   }
   if (factoryType === 'CENTRAL_CUTTING') {

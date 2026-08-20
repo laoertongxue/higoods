@@ -1347,9 +1347,21 @@ function deriveBindingPrintObjectStatus(details: BindingStripWorkOrderDetail[]):
   return 'WAITING_PRINT'
 }
 
-function buildBindingPrintPreviewHref(details: BindingStripWorkOrderDetail[]): string {
+function getBindingDetailPaperColor(detail: BindingStripWorkOrderDetail): FeiTicketPaperColor {
+  return detail.requiresButtonLoop ? 'YELLOW' : 'WHITE'
+}
+
+function buildBindingPrintPreviewHref(
+  details: BindingStripWorkOrderDetail[],
+  paperColor?: FeiTicketPaperColor,
+): string {
+  const actualPaperColors = uniqueStrings(details.map(getBindingDetailPaperColor))
+  if (actualPaperColors.length > 1) {
+    throw new Error('捆条普通白票与盘扣黄色菲票必须分批打印')
+  }
+  const resolvedPaperColor = paperColor ?? (actualPaperColors[0] as FeiTicketPaperColor | undefined) ?? 'WHITE'
   const sourceIds = details.map((detail) => detail.feiTicketId || detail.feiTicketNo).filter(Boolean)
-  return `/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(sourceIds.join(','))}`
+  return `/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(sourceIds.join(','))}&paperColor=${resolvedPaperColor}`
 }
 
 function buildBindingSinglePrintPreviewHref(detail: BindingStripWorkOrderDetail): string {
@@ -1419,6 +1431,8 @@ function buildSpreadingPrintObjectRow(row: FeiTicketSpreadingWorkbenchRow): FeiT
 function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintObjectRow | null {
   const details = getPrintableBindingDetails(order)
   if (!details.length) return null
+  const whiteDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'WHITE')
+  const yellowDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'YELLOW')
   const printStatus = deriveBindingPrintObjectStatus(details)
   const printedCount = details.filter((detail) => detail.printStatus === '已打印').length
   const missingCount = Math.max(details.length - printedCount, 0)
@@ -1430,7 +1444,10 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
     objectType: 'BINDING_STRIP_ORDER',
     objectTypeLabel: printObjectTypeMeta.BINDING_STRIP_ORDER,
     detailHref: buildStandaloneBindingHref(order),
-    allPrintHref: buildBindingPrintPreviewHref(details),
+    allPrintHref: buildBindingPrintPreviewHref(
+      whiteDetails.length ? whiteDetails : yellowDetails,
+      whiteDetails.length ? 'WHITE' : 'YELLOW',
+    ),
     sourceLines: [
       `生产单：${order.sourceProductionOrderNo}`,
       `裁片单：${order.sourceCutOrderNo}`,
@@ -1471,8 +1488,8 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
       ticketId: detail.feiTicketId,
       ticketNo: detail.feiTicketNo,
       primaryLabel: `${detail.bindingStripName} / ${detail.bindingWidth} cm / 切割方式：${detail.cuttingMethod}`,
-      secondaryLabel: `捆条需要 ${formatBindingLength(detail.plannedBindingLength)} / 每卷长度：${detail.rollLength ? formatBindingLength(detail.rollLength) : '待记录'} / 实切卷数：${detail.actualRollCount || 0} 卷`,
-      quantityLabel: `宽度：${detail.bindingWidth} cm`,
+      secondaryLabel: `${detail.requiresButtonLoop ? '用途：制作盘扣 / APF - 辅助工艺 / 去向：中央辅料仓' : '用途：衣服捆条'} / 捆条需要 ${formatBindingLength(detail.plannedBindingLength)} / 每卷长度：${detail.rollLength ? formatBindingLength(detail.rollLength) : '待记录'} / 实切卷数：${detail.actualRollCount || 0} 卷`,
+      quantityLabel: `${detail.requiresButtonLoop ? '黄色' : '白色'}热敏纸 / 100mm × 100mm`,
       printStatusLabel: detail.printStatus === '已打印' ? '已打印' : '待打印',
       printHref: buildBindingSinglePrintPreviewHref(detail),
     })),
@@ -2020,6 +2037,19 @@ function renderPrintObjectDetailSummary(row: FeiTicketPrintObjectRow): string {
 }
 
 function renderPrintObjectActions(row: FeiTicketPrintObjectRow): string {
+  if (row.objectType === 'BINDING_STRIP_ORDER') {
+    const order = row.sourceOrder as BindingProcessOrder
+    const details = getPrintableBindingDetails(order)
+    const whiteDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'WHITE')
+    const yellowDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'YELLOW')
+    return `
+      <div class="flex min-w-[216px] flex-wrap gap-1.5">
+        ${whiteDetails.length ? `<button type="button" data-nav="${escapeHtml(buildBindingPrintPreviewHref(whiteDetails, 'WHITE'))}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">普通白票（${whiteDetails.length}）</button>` : ''}
+        ${yellowDetails.length ? `<button type="button" data-nav="${escapeHtml(buildBindingPrintPreviewHref(yellowDetails, 'YELLOW'))}" class="inline-flex min-h-8 items-center rounded-md border border-amber-500 bg-amber-400 px-2.5 text-xs font-semibold text-amber-950 hover:bg-amber-500">盘扣黄票（${yellowDetails.length}）</button>` : ''}
+        <button type="button" data-nav="${escapeHtml(row.detailHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">菲票明细</button>
+      </div>
+    `
+  }
   return `
     <div class="flex min-w-[168px] flex-wrap gap-1.5">
       <button type="button" data-nav="${escapeHtml(row.allPrintHref)}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">全部打印</button>
@@ -3699,6 +3729,8 @@ function renderBindingTicketPrintedFlag(detail: BindingStripWorkOrderDetail): st
 
 function renderBindingStandaloneDetailSections(order: BindingProcessOrder): string {
   const details = getPrintableBindingDetails(order)
+  const whiteDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'WHITE')
+  const yellowDetails = details.filter((detail) => getBindingDetailPaperColor(detail) === 'YELLOW')
   return `
     ${renderSectionCard('捆条加工单菲票概况', '', `
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -3707,6 +3739,13 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">来源裁片单</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(order.sourceCutOrderNo)}</p></div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">应打菲票</p><p class="mt-1 text-sm font-semibold text-slate-900">${formatCount(details.length)} 张</p></div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">捆条需要长度</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatBindingLength(order.plannedTotalLength))}</p></div>
+      </div>
+    `)}
+    ${renderSectionCard('分纸打印', '普通捆条与盘扣捆条不得混在同一打印任务中。', `
+      <div class="flex flex-wrap items-center gap-3">
+        ${whiteDetails.length ? `<button type="button" data-nav="${escapeHtml(buildBindingPrintPreviewHref(whiteDetails, 'WHITE'))}" class="inline-flex min-h-10 items-center rounded-md border border-blue-600 bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700">打印普通捆条白票（${whiteDetails.length} 张）</button>` : ''}
+        ${yellowDetails.length ? `<button type="button" data-nav="${escapeHtml(buildBindingPrintPreviewHref(yellowDetails, 'YELLOW'))}" class="inline-flex min-h-10 items-center rounded-md border border-amber-500 bg-amber-400 px-4 text-sm font-semibold text-amber-950 hover:bg-amber-500">打印盘扣捆条黄票（${yellowDetails.length} 张）</button>` : ''}
+        <p class="text-xs text-slate-500">两类菲票均为 100mm × 100mm；盘扣黄票显著标注“盘扣”、APF - 辅助工艺和中央辅料仓。</p>
       </div>
     `)}
     ${renderSectionCard('物料与纸样', '', `
@@ -3733,6 +3772,7 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
             <div>
               <p class="text-xs text-slate-500">捆条名称</p>
               <p class="mt-1 font-semibold text-slate-900">${escapeHtml(detail.bindingStripName)}</p>
+              <p class="mt-1 text-xs font-medium ${detail.requiresButtonLoop ? 'text-amber-700' : 'text-slate-500'}">${detail.requiresButtonLoop ? '制作盘扣 · 黄色热敏纸' : '衣服捆条 · 白色热敏纸'}</p>
             </div>
             <div>
               <p class="text-xs text-slate-500">捆条宽度</p>
@@ -3763,7 +3803,7 @@ function renderBindingStandaloneDetailSections(order: BindingProcessOrder): stri
               <p class="mt-1 text-xs text-slate-500">${escapeHtml(detail.sufficiencyStatus)}${detail.shortageLength ? ` / 缺口 ${escapeHtml(formatBindingLength(detail.shortageLength))}` : ''}</p>
             </div>
             <div class="flex flex-wrap gap-1.5 xl:justify-end">
-              <button type="button" data-nav="${escapeHtml(buildBindingSinglePrintPreviewHref(detail))}" class="inline-flex min-h-8 items-center rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700">打印</button>
+              <button type="button" data-nav="${escapeHtml(buildBindingSinglePrintPreviewHref(detail))}" class="inline-flex min-h-8 items-center rounded-md border px-2.5 text-xs font-medium ${detail.requiresButtonLoop ? 'border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-500' : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'}">${detail.requiresButtonLoop ? '黄纸打印' : '白纸打印'}</button>
             </div>
           </article>
         `).join('')}

@@ -9,9 +9,11 @@ export function escapeRegExp(value: string): string {
 const removedChineseTerms = [
   fromCodes([20116, 37329]),
   fromCodes([30424, 21475]),
-  fromCodes([30424, 25187]),
   fromCodes([40481, 30524, 25187]),
   fromCodes([25163, 24037, 30424, 25187]),
+] as const
+
+const removedPseudoChineseCraftNames = [
   fromCodes([21360, 33457, 24037, 33402]),
   fromCodes([26579, 33394, 24037, 33402]),
 ] as const
@@ -31,9 +33,9 @@ const removedEnglishCodes = [
 ] as const
 
 export const removedLegacyTerms = [...removedChineseTerms, ...removedEnglishCodes]
-export const removedLegacyCraftNames = removedChineseTerms
+export const removedLegacyCraftNames = [...removedChineseTerms, ...removedPseudoChineseCraftNames]
 export const removedLegacyProcessCodes = removedEnglishCodes
-export const removedPseudoCraftNames = removedChineseTerms.slice(-2)
+export const removedPseudoCraftNames = removedPseudoChineseCraftNames
 export const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
 export function getRemovedLegacyTermPattern(flags = ''): RegExp {

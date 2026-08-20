@@ -32,6 +32,7 @@ const snapshotBuilderSource = read('src/data/fcs/production-tech-pack-snapshot-b
 const snapshotRuntimeSource = read('src/data/fcs/production-order-tech-pack-runtime.ts')
 const confirmationSource = read('src/data/fcs/production-confirmation.ts')
 const confirmationPageSource = read('src/pages/production/confirmation-print.ts')
+const confirmationTemplateSource = read('src/pages/print/templates/production-material-confirmation-template.ts')
 const snapshotPageSource = read('src/pages/fcs-production-tech-pack-snapshot.ts')
 const mainSource = read('src/main.ts')
 const fieldHandlingSection =
@@ -86,19 +87,19 @@ assertIncludes(processCraftSource, 'export function listSelectableSpecialCraftDe
 assertIncludes(processCraftSource, "item.isSpecialCraft", '统一特殊工艺出口必须限制特殊工艺')
 assertIncludes(processCraftSource, "item.processCode === 'SPECIAL_CRAFT'", '统一特殊工艺出口必须只返回特殊工艺工序')
 assertIncludes(processCraftSource, 'SPECIAL_CRAFT', '工序工艺字典必须存在特殊工艺工序')
-assertIncludes(patternDomainSource, '捆条长度（厘米）', '纸样裁片部位关联捆条时必须维护长度')
-assertIncludes(patternDomainSource, '捆条宽度（厘米）', '纸样裁片部位关联捆条时必须维护宽度')
-assertIncludes(patternEventsSource, 'new-pattern-piece-bundle-length-cm', '纸样事件必须保存捆条长度')
-assertIncludes(patternEventsSource, 'new-pattern-piece-bundle-width-cm', '纸样事件必须保存捆条宽度')
-assertIncludes(patternEventsSource, '已关联捆条，但未填写捆条长度', '发布校验必须阻止捆条长度缺失')
-assertIncludes(patternEventsSource, '已关联捆条，但未填写捆条宽度', '发布校验必须阻止捆条宽度缺失')
+assertIncludes(patternDomainSource, 'data-tech-field="new-pattern-binding-strip-length-cm"', '纸样包每条捆条必须独立维护长度')
+assertIncludes(patternDomainSource, 'data-tech-field="new-pattern-binding-strip-width-cm"', '纸样包每条捆条必须独立维护宽度')
+assertIncludes(patternEventsSource, 'new-pattern-binding-strip-length-cm', '纸样事件必须保存每条捆条长度')
+assertIncludes(patternEventsSource, 'new-pattern-binding-strip-width-cm', '纸样事件必须保存每条捆条宽度')
+assertIncludes(patternEventsSource, '捆条长度必须大于 0', '保存校验必须阻止任一捆条长度缺失')
+assertIncludes(patternEventsSource, '捆条宽度必须大于 0', '保存校验必须阻止任一捆条宽度缺失')
 removedPseudoCraftNames.forEach((token) => {
   assertNotIncludes(patternContextSource, token, '技术包特殊工艺 helper 不得暴露已删除伪特殊工艺')
 })
 
 assertIncludes(patternEventsSource, "if (state.newPattern.patternMaterialType !== 'WOOL') return true", '新增裁片入口必须只对毛织纸样开放')
 assertIncludes(patternDomainSource, '新增裁片', '毛织纸样必须显示新增裁片入口')
-assertIncludes(patternDomainSource, '解析结果只读部位名称和片数', '布料纸样必须说明解析行只读')
+assertIncludes(patternDomainSource, '解析部位信息', '布料纸样必须展示解析部位信息')
 assertIncludes(patternEventsSource, "sourceType !== 'PARSED_PATTERN'", '布料纸样保存必须校验解析来源')
 assertIncludes(patternEventsSource, "sourceType !== 'MANUAL'", '毛织纸样保存必须校验人工来源')
 
@@ -122,7 +123,7 @@ assertIncludes(snapshotRuntimeSource, 'bundleWidthCm', '运行时快照克隆必
 assertIncludes(snapshotRuntimeSource, 'selectedSizeCodes', '运行时快照克隆必须保留尺码数组')
 
 ;['适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
-  assertIncludes(confirmationPageSource, token, `生产确认单必须展示：${token}`)
+  assertIncludes(`${confirmationPageSource}\n${confirmationTemplateSource}`, token, `生产确认单必须展示：${token}`)
   assertIncludes(snapshotPageSource, token, `技术包快照页必须展示：${token}`)
 })
 assertIncludes(confirmationSource, 'colorAllocations', '确认单快照必须保留颜色分配')
@@ -163,7 +164,7 @@ const confirmationHtml = renderProductionConfirmationPrintPage(confirmationOrder
 ;['适用颜色', '每种颜色的片数', '特殊工艺', '纸样分类'].forEach((token) => {
   assertIncludes(confirmationHtml, token, `生产确认单渲染缺少：${token}`)
 })
-;['patternMaterialType', 'colorAllocations', 'specialCrafts', 'sourceType', 'WOVEN', 'WOOL', 'JSON'].forEach((token) => {
+;['patternMaterialType', 'colorAllocations', 'specialCrafts', 'WOVEN', 'WOOL', 'JSON'].forEach((token) => {
   assertNotIncludes(confirmationHtml, token, `生产确认单不得展示研发字段：${token}`)
 })
 

@@ -21,7 +21,7 @@ type SpecialCraftPdaTaskLike = Partial<ProcessTask> & {
   workOrderNo?: string
 }
 
-const SPECIAL_CRAFT_TEXT_KEYWORDS = ['特殊工艺', '辅助工艺', '特种工艺', '绣花', '打揽', '打条', '压褶', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣', '模板机', '激光开袋', '特种车缝', '橡筋']
+const SPECIAL_CRAFT_TEXT_KEYWORDS = ['特殊工艺', '辅助工艺', '特种工艺', '绣花', '打揽', '打条', '压褶', '盘扣', '花朵', '打褶', '烫钻', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣', '模板机', '激光开袋', '特种车缝', '橡筋']
 
 function normalizeValue(value: unknown): string {
   return String(value ?? '').trim()

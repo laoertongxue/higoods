@@ -41,6 +41,20 @@ import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
   getSpecialCraftGenerationBatchByProductionOrder,
 } from './special-craft-task-generation.ts'
+import {
+  BUTTON_LOOP_INPUT_UNIT,
+  BUTTON_LOOP_OPERATION_ID,
+  BUTTON_LOOP_OUTPUT_UNIT,
+  BUTTON_LOOP_RECEIVER_WAREHOUSE_NAME,
+  applyButtonLoopTaskAction,
+  buildButtonLoopTaskOrders,
+  type ButtonLoopTaskAction,
+  type ButtonLoopTaskEvent,
+  type ButtonLoopTaskInputLine,
+  type ButtonLoopTaskOrder,
+  type ButtonLoopSelectedBindingStripInput,
+} from './button-loop-craft-flow.ts'
+import { buildBindingProcessOrders } from '../../pages/process-factory/cutting/binding-strip-orders.ts'
 import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-generation-boundaries.ts'
 
 export type SpecialCraftTaskStatus =
@@ -216,6 +230,18 @@ export interface SpecialCraftTaskOrder {
   sourcePatternFileIds?: string[]
   sourceSpecialCraftKeys?: string[]
   targetObject: SpecialCraftTargetObject
+  quantityMode?: SpecialCraftOperationDefinition['quantityMode']
+  inputUnit?: string
+  outputUnit?: string
+  receiverWarehouseName?: string
+  selectedBindingStripCount?: number
+  inputTicketCount?: number
+  receivedTicketCount?: number
+  inputLengthM?: number
+  outputQty?: number
+  handedOverQty?: number
+  buttonLoopInputLines?: ButtonLoopTaskInputLine[]
+  buttonLoopEvents?: ButtonLoopTaskEvent[]
   partName?: string
   fabricColor?: string
   sizeCode?: string
@@ -564,10 +590,14 @@ function getWarehouse(factoryId: string, warehouseKind: FactoryInternalWarehouse
 
 function pickWarehousePosition(
   warehouse: FactoryInternalWarehouse,
-  preferredAreaName: 'A区' | 'B区' | '异常区' | '待确认区',
+  preferredAreaName: string,
   seed: number,
+  fallbackAreaName?: 'A区' | 'B区' | '异常区' | '待确认区',
 ): { areaName: string; shelfNo: string; locationNo: string; locationText: string } {
-  const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName) ?? warehouse.areaList[0]
+  const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName)
+    ?? warehouse.areaList.find((item) => item.areaName.includes(preferredAreaName))
+    ?? warehouse.areaList.find((item) => item.areaName === fallbackAreaName)
+    ?? warehouse.areaList[0]
   const shelf = area.shelfList[seed % area.shelfList.length]
   const location = shelf.locationList[seed % shelf.locationList.length]
   return {
@@ -578,11 +608,22 @@ function pickWarehousePosition(
   }
 }
 
+function getCraftWarehouseAreaName(operationName: string, targetObject: SpecialCraftTargetObject): string {
+  const objectName = targetObject === '成衣'
+    ? '成衣'
+    : targetObject === '捆条'
+      ? '捆条'
+      : operationName.includes('橡筋')
+        ? '辅料'
+        : '裁片'
+  return `${operationName}-${objectName}库区`
+}
+
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
   return getSpecialCraftFlowRule(targetObject).unit
 }
 
-function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' {
+function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' | '辅料' {
   return resolveAuxiliaryWarehouseFlow(targetObject).itemKind
 }
 
@@ -828,8 +869,9 @@ function buildInboundArtifacts(seed: TaskSeedContext, positionIndex: number): Wa
   const warehouse = getWarehouse(seed.factory.id, 'WAIT_PROCESS')
   const inboundPosition = pickWarehousePosition(
     warehouse,
-    'A区',
+    getCraftWarehouseAreaName(seed.operation.operationName, seed.operation.targetObject),
     positionIndex,
+    'A区',
   )
   const differenceQty = roundQty(seed.receivedQty - seed.planQty)
   const inboundRecord = upsertFactoryWarehouseInboundRecord({
@@ -900,7 +942,12 @@ function buildInboundArtifacts(seed: TaskSeedContext, positionIndex: number): Wa
 
 function buildPendingWaitHandoverItem(seed: TaskSeedContext, positionIndex: number): FactoryWaitHandoverStockItem {
   const warehouse = getWarehouse(seed.factory.id, 'WAIT_HANDOVER')
-  const position = pickWarehousePosition(warehouse, 'B区', positionIndex)
+  const position = pickWarehousePosition(
+    warehouse,
+    getCraftWarehouseAreaName(seed.operation.operationName, seed.operation.targetObject),
+    positionIndex,
+    'B区',
+  )
   return upsertFactoryWaitHandoverStockItem({
     stockItemId: `SC-WHS-${seed.taskOrderId}`,
     warehouseId: warehouse.warehouseId,
@@ -954,8 +1001,9 @@ function buildOutboundArtifacts(seed: TaskSeedContext, positionIndex: number): W
   const warehouse = getWarehouse(seed.factory.id, 'WAIT_HANDOVER')
   const outboundPosition = pickWarehousePosition(
     warehouse,
-    '待确认区',
+    getCraftWarehouseAreaName(seed.operation.operationName, seed.operation.targetObject),
     positionIndex,
+    '待确认区',
   )
   const outboundQty = roundQty(seed.completedQty - seed.lossQty)
   const receiverWrittenQty = seed.status === '已完结'
@@ -1339,21 +1387,41 @@ function buildLinkedSupplementTaskOrders(
   return supplements
 }
 
-function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
-  itemKind: FactoryWaitProcessStockItem['itemKind']
-  itemName: string
-  unit: string
+function getSpecialCraftWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
+  inputItemKind: FactoryWaitProcessStockItem['itemKind']
+  inputItemName: string
+  inputUnit: string
+  outputItemKind: FactoryWaitHandoverStockItem['itemKind']
+  outputItemName: string
+  outputUnit: string
   materialSku?: string
   receiverKind: FactoryWaitHandoverStockItem['receiverKind']
   receiverName: string
   sourceObjectName: string
 } {
+  if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+    return {
+      inputItemKind: '辅料',
+      inputItemName: '盘扣捆条菲票',
+      inputUnit: taskOrder.inputUnit || '张',
+      outputItemKind: '辅料',
+      outputItemName: '盘扣成品',
+      outputUnit: taskOrder.outputUnit || '个',
+      materialSku: taskOrder.materialSku,
+      receiverKind: '其他接收方',
+      receiverName: taskOrder.receiverWarehouseName || '中央辅料仓',
+      sourceObjectName: '裁床待交出仓',
+    }
+  }
   const isElastic = taskOrder.craftName.includes('橡筋')
   if (isElastic) {
     return {
-      itemKind: '辅料',
-      itemName: '定长橡筋',
-      unit: '条',
+      inputItemKind: '辅料',
+      inputItemName: '定长橡筋',
+      inputUnit: '条',
+      outputItemKind: '辅料',
+      outputItemName: '定长橡筋',
+      outputUnit: '条',
       materialSku: taskOrder.materialSku || `ELASTIC-${taskOrder.sizeCode || 'STD'}`,
       receiverKind: '中转仓',
       receiverName: '辅料中转仓',
@@ -1363,9 +1431,12 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
   if (taskOrder.targetObject === '成衣') {
     const flow = resolveAuxiliaryWarehouseFlow('成衣')
     return {
-      itemKind: flow.itemKind,
-      itemName: `${taskOrder.craftName}成衣`,
-      unit: taskOrder.unit || flow.qtyUnit,
+      inputItemKind: flow.itemKind,
+      inputItemName: `${taskOrder.craftName}成衣`,
+      inputUnit: taskOrder.unit || flow.qtyUnit,
+      outputItemKind: flow.itemKind,
+      outputItemName: `${taskOrder.craftName}成衣`,
+      outputUnit: taskOrder.unit || flow.qtyUnit,
       materialSku: taskOrder.materialSku,
       receiverKind: flow.receiverKind,
       receiverName: flow.receiverName,
@@ -1374,9 +1445,12 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
   }
   const flow = resolveAuxiliaryWarehouseFlow('已裁部位')
   return {
-    itemKind: flow.itemKind,
-    itemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
-    unit: taskOrder.unit || flow.qtyUnit,
+    inputItemKind: flow.itemKind,
+    inputItemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
+    inputUnit: taskOrder.unit || flow.qtyUnit,
+    outputItemKind: flow.itemKind,
+    outputItemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
+    outputUnit: taskOrder.unit || flow.qtyUnit,
     materialSku: taskOrder.materialSku,
     receiverKind: flow.receiverKind,
     receiverName: flow.receiverName,
@@ -1384,24 +1458,36 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
   }
 }
 
-function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTaskOrder[]): void {
-  const specialTypeTaskOrders = taskOrders.filter((taskOrder) => taskOrder.managementDomain === 'SPECIAL_CRAFT_FACTORY')
-  if (!specialTypeTaskOrders.length) return
+function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTaskOrder[]): void {
+  const managedTaskOrders = taskOrders.filter((taskOrder) =>
+    taskOrder.managementDomain === 'SPECIAL_CRAFT_FACTORY'
+    || taskOrder.managementDomain === 'AUXILIARY_CRAFT_FACTORY',
+  )
+  if (!managedTaskOrders.length) return
 
-  specialTypeTaskOrders.forEach((taskOrder, index) => {
+  managedTaskOrders.forEach((taskOrder, index) => {
     const factory = mockFactories.find((item) => item.id === taskOrder.factoryId)
     if (!factory) return
-    const profile = getSpecialTypeWarehouseProfile(taskOrder)
+    const profile = getSpecialCraftWarehouseProfile(taskOrder)
+    const isButtonLoop = taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
+    const hasPendingButtonLoopOutput = isButtonLoop && Number(taskOrder.waitHandoverQty || 0) > 0
+    const inputExpectedQty = isButtonLoop ? taskOrder.inputTicketCount || taskOrder.planQty : taskOrder.planQty
+    const inputReceivedQty = isButtonLoop ? taskOrder.receivedTicketCount || 0 : taskOrder.receivedQty
+    let linkedInboundRecord: FactoryWarehouseInboundRecord | undefined
+    let linkedWaitProcessItem: FactoryWaitProcessStockItem | undefined
+    let linkedWaitHandoverItem: FactoryWaitHandoverStockItem | undefined
+    let linkedOutboundRecord: FactoryWarehouseOutboundRecord | undefined
 
     if (shouldCreateInboundRecord(taskOrder.status)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_PROCESS')
       const position = pickWarehousePosition(
         warehouse,
-        'A区',
+        getCraftWarehouseAreaName(taskOrder.operationName, taskOrder.targetObject),
         index + 1,
+        'A区',
       )
-      const receivedQty = roundQty(taskOrder.receivedQty)
-      const differenceQty = roundQty(receivedQty - taskOrder.planQty)
+      const receivedQty = roundQty(inputReceivedQty)
+      const differenceQty = roundQty(receivedQty - inputExpectedQty)
       const inboundRecord = upsertFactoryWarehouseInboundRecord({
         inboundRecordId: `SC-INB-${taskOrder.taskOrderId}`,
         inboundRecordNo: `RK-${taskOrder.taskOrderNo}`,
@@ -1416,12 +1502,12 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         craftName: taskOrder.craftName,
         sourceRecordId: `SPC-SRC-${taskOrder.taskOrderId}`,
         sourceRecordNo: `LL-${taskOrder.taskOrderNo}`,
-        sourceRecordType: profile.itemKind === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+        sourceRecordType: profile.inputItemKind === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
         sourceObjectName: profile.sourceObjectName,
         taskId: taskOrder.sourceTaskId,
         taskNo: taskOrder.sourceTaskNo,
-        itemKind: profile.itemKind,
-        itemName: profile.itemName,
+        itemKind: profile.inputItemKind,
+        itemName: profile.inputItemName,
         materialSku: profile.materialSku,
         partName: taskOrder.partName,
         fabricColor: taskOrder.fabricColor,
@@ -1429,10 +1515,10 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         feiTicketNo: taskOrder.feiTicketNos[0],
         transferBagNo: taskOrder.transferBagNos[0],
         fabricRollNo: taskOrder.fabricRollNos[0],
-        expectedQty: taskOrder.planQty,
+        expectedQty: inputExpectedQty,
         receivedQty,
         differenceQty,
-        unit: profile.unit,
+        unit: profile.inputUnit,
         receiverName: factory.contact || '特种工艺仓管',
         receivedAt: taskOrder.createdAt,
         areaName: position.areaName,
@@ -1441,11 +1527,12 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         status: differenceQty !== 0 ? '差异待处理' : '已入库',
         abnormalReason: differenceQty !== 0 ? '数量不符' : undefined,
         photoList: differenceQty !== 0 ? ['special-craft-diff-proof.jpg'] : [],
-        remark: '特种工艺接收入仓 mock',
+        remark: isButtonLoop ? '盘扣捆条菲票确认接收入待加工仓' : '工艺接收入仓',
       })
+      linkedInboundRecord = inboundRecord
 
       if (shouldCreateWaitProcessRecord(taskOrder.status)) {
-        upsertFactoryWaitProcessStockItem({
+        linkedWaitProcessItem = upsertFactoryWaitProcessStockItem({
           ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
           stockItemId: `SC-WPS-${taskOrder.taskOrderId}`,
           productionOrderId: taskOrder.productionOrderId,
@@ -1453,15 +1540,20 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
           taskId: taskOrder.sourceTaskId,
           taskNo: taskOrder.sourceTaskNo,
           status: differenceQty !== 0 ? '差异待处理' : '已入待加工仓',
-          remark: taskOrder.status === '加工中' ? '加工接收中' : '特种工艺待加工库存',
+          remark: isButtonLoop ? '已接收盘扣捆条菲票，待加工填报盘扣产出' : taskOrder.status === '加工中' ? '加工接收中' : '工艺待加工库存',
         })
       }
     }
 
-    if (shouldCreatePendingWaitHandoverRecord(taskOrder.status)) {
+    if (shouldCreatePendingWaitHandoverRecord(taskOrder.status) || (isButtonLoop && (taskOrder.waitHandoverQty || 0) > 0)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
-      const position = pickWarehousePosition(warehouse, 'B区', index + 3)
-      upsertFactoryWaitHandoverStockItem({
+      const position = pickWarehousePosition(
+        warehouse,
+        getCraftWarehouseAreaName(taskOrder.operationName, taskOrder.targetObject),
+        index + 3,
+        'B区',
+      )
+      linkedWaitHandoverItem = upsertFactoryWaitHandoverStockItem({
         stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
         warehouseId: warehouse.warehouseId,
         factoryId: taskOrder.factoryId,
@@ -1476,8 +1568,8 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         taskNo: taskOrder.sourceTaskNo,
         productionOrderId: taskOrder.productionOrderId,
         productionOrderNo: taskOrder.productionOrderNo,
-        itemKind: profile.itemKind,
-        itemName: profile.itemName,
+        itemKind: profile.outputItemKind,
+        itemName: profile.outputItemName,
         materialSku: profile.materialSku,
         partName: taskOrder.partName,
         fabricColor: taskOrder.fabricColor,
@@ -1485,10 +1577,10 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         feiTicketNo: taskOrder.feiTicketNos[0],
         transferBagNo: taskOrder.transferBagNos[0],
         fabricRollNo: taskOrder.fabricRollNos[0],
-        completedQty: roundQty(taskOrder.completedQty),
+        completedQty: roundQty(isButtonLoop ? taskOrder.outputQty || 0 : taskOrder.completedQty),
         lossQty: roundQty(taskOrder.lossQty),
         waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty),
-        unit: profile.unit,
+        unit: profile.outputUnit,
         receiverKind: profile.receiverKind,
         receiverName: profile.receiverName,
         handoverOrderId: taskOrder.taskOrderId,
@@ -1499,18 +1591,19 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         locationText: position.locationText,
         status: '待交出',
         photoList: [],
-        remark: '特种工艺完工入仓 mock',
+        remark: isButtonLoop ? `盘扣成品待交${taskOrder.receiverWarehouseName || '中央辅料仓'}` : '工艺完工入仓',
       })
     }
 
-    if (shouldCreateOutboundRecord(taskOrder.status)) {
+    if (shouldCreateOutboundRecord(taskOrder.status) || (isButtonLoop && (taskOrder.handedOverQty || 0) > 0)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
       const position = pickWarehousePosition(
         warehouse,
-        '待确认区',
+        getCraftWarehouseAreaName(taskOrder.operationName, taskOrder.targetObject),
         index + 5,
+        '待确认区',
       )
-      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty)
+      const outboundQty = roundQty(isButtonLoop ? taskOrder.handedOverQty || 0 : taskOrder.waitHandoverQty || taskOrder.completedQty)
       const receiverWrittenQty = taskOrder.status === '已完结'
         ? outboundQty
         : undefined
@@ -1536,8 +1629,8 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         handoverRecordQrValue: `JHQR-${taskOrder.taskOrderId}`,
         receiverKind: profile.receiverKind,
         receiverName: profile.receiverName,
-        itemKind: profile.itemKind,
-        itemName: profile.itemName,
+        itemKind: profile.outputItemKind,
+        itemName: profile.outputItemName,
         materialSku: profile.materialSku,
         partName: taskOrder.partName,
         fabricColor: taskOrder.fabricColor,
@@ -1548,32 +1641,72 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         outboundQty,
         receiverWrittenQty,
         differenceQty,
-        unit: profile.unit,
+        unit: profile.outputUnit,
         operatorName: factory.contact || '特种工艺仓管',
         outboundAt: taskOrder.updatedAt || taskOrder.createdAt,
         status:
-          taskOrder.status === '已完结'
-            ? '已回写'
-            : '待交出',
-        remark: '特种工艺交出确认 mock',
+          isButtonLoop
+            ? '已出库'
+            : taskOrder.status === '已完结'
+              ? '已回写'
+              : '待交出',
+        remark: isButtonLoop ? `盘扣成品交至${taskOrder.receiverWarehouseName || '中央辅料仓'}` : '工艺交出确认',
       })
-      upsertFactoryWaitHandoverStockItem({
-        ...buildFactoryWaitHandoverStockItemFromOutboundRecord(outboundRecord),
-        stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
-        productionOrderId: taskOrder.productionOrderId,
-        productionOrderNo: taskOrder.productionOrderNo,
-        areaName: position.areaName,
-        shelfNo: position.shelfNo,
-        locationNo: position.locationNo,
-        locationText: position.locationText,
-        status:
-          taskOrder.status === '已完结'
-            ? '已回写'
-            : '待交出',
-        differenceQty,
-        remark: '特种工艺交出记录 mock',
-      })
+      linkedOutboundRecord = outboundRecord
+      if (!hasPendingButtonLoopOutput) {
+        linkedWaitHandoverItem = upsertFactoryWaitHandoverStockItem({
+          ...buildFactoryWaitHandoverStockItemFromOutboundRecord(outboundRecord),
+          stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
+          productionOrderId: taskOrder.productionOrderId,
+          productionOrderNo: taskOrder.productionOrderNo,
+          areaName: position.areaName,
+          shelfNo: position.shelfNo,
+          locationNo: position.locationNo,
+          locationText: position.locationText,
+          status:
+            isButtonLoop
+              ? '已交出'
+              : taskOrder.status === '已完结'
+                ? '已回写'
+                : '待交出',
+          differenceQty,
+          remark: isButtonLoop ? `盘扣已发起交出至${taskOrder.receiverWarehouseName || '中央辅料仓'}` : '工艺交出记录',
+        })
+      }
     }
+
+    taskOrder.waitProcessStockItemIds = linkedWaitProcessItem ? [linkedWaitProcessItem.stockItemId] : taskOrder.waitProcessStockItemIds || []
+    taskOrder.waitHandoverStockItemIds = linkedWaitHandoverItem ? [linkedWaitHandoverItem.stockItemId] : taskOrder.waitHandoverStockItemIds || []
+    taskOrder.inboundRecordIds = linkedInboundRecord ? [linkedInboundRecord.inboundRecordId] : taskOrder.inboundRecordIds || []
+    taskOrder.outboundRecordIds = linkedOutboundRecord ? [linkedOutboundRecord.outboundRecordId] : taskOrder.outboundRecordIds || []
+    taskOrder.warehouseLinks = [
+      ...(linkedInboundRecord ? [{
+        linkId: `${taskOrder.taskOrderId}-WAIT_PROCESS`,
+        taskOrderId: taskOrder.taskOrderId,
+        warehouseKind: '待加工仓' as const,
+        warehouseName: linkedInboundRecord.warehouseName,
+        inboundRecordId: linkedInboundRecord.inboundRecordId,
+        inboundRecordNo: linkedInboundRecord.inboundRecordNo,
+        waitProcessStockItemId: linkedWaitProcessItem?.stockItemId,
+        status: '已入库' as const,
+      }] : []),
+      ...(linkedWaitHandoverItem ? [{
+        linkId: `${taskOrder.taskOrderId}-WAIT_HANDOVER`,
+        taskOrderId: taskOrder.taskOrderId,
+        warehouseKind: '待交出仓' as const,
+        warehouseName: linkedWaitHandoverItem.warehouseName,
+        outboundRecordId: linkedOutboundRecord?.outboundRecordId,
+        outboundRecordNo: linkedOutboundRecord?.outboundRecordNo,
+        waitHandoverStockItemId: linkedWaitHandoverItem.stockItemId,
+        handoverRecordId: linkedWaitHandoverItem.handoverRecordId,
+        handoverRecordNo: linkedWaitHandoverItem.handoverRecordNo,
+        status: hasPendingButtonLoopOutput
+          ? '待交出' as const
+          : linkedOutboundRecord
+            ? (taskOrder.status === '已完结' ? '已回写' as const : '已出库' as const)
+            : '待交出' as const,
+      }] : []),
+    ]
   })
 }
 
@@ -1615,6 +1748,207 @@ function normalizeGeneratedTaskOrderForMobile(taskOrder: SpecialCraftTaskOrder):
   }
 }
 
+function buildButtonLoopTaskOrdersForStore(): SpecialCraftTaskOrder[] {
+  const operation = getSpecialCraftOperationById(BUTTON_LOOP_OPERATION_ID)
+  if (!operation) return []
+  const bindingOrdersByProductionOrder = new Map<string, ReturnType<typeof buildBindingProcessOrders>>()
+  buildBindingProcessOrders().forEach((bindingOrder) => {
+    if (!bindingOrder.bindingDetails.some((detail) => detail.requiresButtonLoop)) return
+    const current = bindingOrdersByProductionOrder.get(bindingOrder.sourceProductionOrderId) || []
+    current.push(bindingOrder)
+    bindingOrdersByProductionOrder.set(bindingOrder.sourceProductionOrderId, current)
+  })
+
+  return [...bindingOrdersByProductionOrder.entries()].flatMap(([productionOrderId, bindingOrders]) => {
+    const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+    const productionOrder = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+    if (!snapshot || !productionOrder) return []
+    const selectedByStrip = new Map<string, ButtonLoopSelectedBindingStripInput>()
+    bindingOrders.forEach((bindingOrder) => {
+      bindingOrder.bindingDetails
+        .filter((detail) => detail.requiresButtonLoop)
+        .forEach((detail) => {
+          const key = `${bindingOrder.patternIdentity.patternFileId}::${detail.bindingStripId}`
+          const current = selectedByStrip.get(key)
+          const ticket = {
+            feiTicketId: detail.feiTicketId,
+            feiTicketNo: detail.feiTicketNo,
+            actualLengthM: detail.actualLength,
+          }
+          if (current) {
+            if (!current.tickets?.some((item) => item.feiTicketId === ticket.feiTicketId)) current.tickets?.push(ticket)
+            return
+          }
+          selectedByStrip.set(key, {
+            patternFileId: bindingOrder.patternIdentity.patternFileId,
+            patternFileName: bindingOrder.patternIdentity.patternFileName,
+            bindingStripId: detail.bindingStripId,
+            bindingStripNo: detail.bindingStripNo,
+            bindingStripName: detail.bindingStripName,
+            lengthCm: detail.sourceLengthCm,
+            widthCm: detail.bindingWidth,
+            requiresButtonLoop: true,
+            tickets: [ticket],
+          })
+        })
+    })
+
+    return buildButtonLoopTaskOrders({
+      productionOrderId,
+      productionOrderNo: productionOrder.productionOrderNo,
+      styleCode: snapshot.styleCode,
+      styleName: snapshot.styleName,
+      techPackSnapshotId: snapshot.snapshotId,
+      selectedBindingStrips: [...selectedByStrip.values()],
+    }).map((buttonLoopTask): SpecialCraftTaskOrder => {
+      const demandLines: SpecialCraftTaskDemandLine[] = buttonLoopTask.inputLines.map((line) => ({
+        demandLineId: `SCDL-${line.inputLineId}`,
+        skuCode: line.feiTicketNo,
+        taskOrderId: buttonLoopTask.taskOrderId,
+        productionOrderId,
+        productionOrderNo: productionOrder.productionOrderNo,
+        patternFileId: line.patternFileId,
+        patternFileName: line.patternFileName,
+        pieceRowId: line.bindingStripId,
+        partName: line.bindingStripName,
+        colorName: '捆条',
+        colorCode: 'BINDING_STRIP',
+        sizeCode: `${line.widthCm} cm`,
+        pieceCountPerGarment: 1,
+        orderQty: 1,
+        planPieceQty: 1,
+        specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:捆条`,
+        operationId: operation.operationId,
+        operationName: operation.operationName,
+        managementDomain: operation.managementDomain,
+        managementDomainName: operation.managementDomainName,
+        processCode: operation.processCode,
+        processName: operation.processName,
+        craftCode: operation.craftCode,
+        craftName: operation.craftName,
+        targetObject: '捆条',
+        unit: BUTTON_LOOP_INPUT_UNIT,
+        feiTicketNos: [line.feiTicketNo],
+        bundleLengthCm: line.lengthCm,
+        bundleWidthCm: line.widthCm,
+        remark: `投入捆条 ${line.actualLengthM} m；盘扣产出另按个填报。`,
+      }))
+      const createdAt = snapshot.snapshotAt || productionOrder.updatedAt || productionOrder.createdAt
+      return {
+        taskOrderId: buttonLoopTask.taskOrderId,
+        taskOrderNo: buttonLoopTask.taskOrderNo,
+        operationId: operation.operationId,
+        operationName: operation.operationName,
+        businessType: 'BUTTON_LOOP',
+        managementDomain: operation.managementDomain,
+        managementDomainName: operation.managementDomainName,
+        processCode: operation.processCode,
+        processName: operation.processName,
+        craftCode: operation.craftCode,
+        craftName: operation.craftName,
+        factoryId: buttonLoopTask.factoryId,
+        factoryName: buttonLoopTask.factoryName,
+        productionOrderId,
+        productionOrderNo: productionOrder.productionOrderNo,
+        productionOrderVersion: productionOrder.taskBreakdownSummary.lastBreakdownAt || productionOrder.updatedAt,
+        techPackSnapshotId: snapshot.snapshotId,
+        techPackVersion: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
+        sourceTaskId: buttonLoopTask.taskOrderId,
+        sourceTaskNo: buttonLoopTask.taskOrderNo,
+        generationBatchId: `SCB-${buttonLoopTask.taskOrderId}`,
+        generationSource: 'PRODUCTION_ORDER',
+        generationSourceLabel: '生产单生成',
+        sourceTrigger: 'PRODUCTION_ORDER_CREATED',
+        sourceTriggerLabel: '技术包捆条标记盘扣后自动生成',
+        assignmentStatus: 'ASSIGNED',
+        assignmentStatusLabel: '已分配',
+        executionStatus: 'WAIT_PICKUP',
+        executionStatusLabel: '待接收',
+        demandLines,
+        sourcePieceRowIds: [...new Set(buttonLoopTask.inputLines.map((line) => line.bindingStripId))],
+        sourcePatternFileIds: [...new Set(buttonLoopTask.inputLines.map((line) => line.patternFileId))],
+        sourceSpecialCraftKeys: demandLines.map((line) => line.specialCraftKey),
+        targetObject: '捆条',
+        quantityMode: 'TICKET_INPUT_OUTPUT',
+        inputUnit: BUTTON_LOOP_INPUT_UNIT,
+        outputUnit: BUTTON_LOOP_OUTPUT_UNIT,
+        receiverWarehouseName: BUTTON_LOOP_RECEIVER_WAREHOUSE_NAME,
+        selectedBindingStripCount: buttonLoopTask.selectedBindingStripCount,
+        inputTicketCount: buttonLoopTask.inputTicketCount,
+        receivedTicketCount: buttonLoopTask.receivedTicketCount,
+        inputLengthM: buttonLoopTask.inputLengthM,
+        outputQty: buttonLoopTask.outputQty,
+        handedOverQty: buttonLoopTask.handedOverQty,
+        buttonLoopInputLines: buttonLoopTask.inputLines.map((line) => ({ ...line })),
+        buttonLoopEvents: buttonLoopTask.events.map((event) => ({ ...event })),
+        partName: buttonLoopTask.selectedBindingStripCount > 1 ? `${buttonLoopTask.selectedBindingStripCount} 条盘扣捆条` : buttonLoopTask.inputLines[0]?.bindingStripName || '盘扣捆条',
+        fabricColor: '捆条',
+        sizeCode: '多规格',
+        feiTicketNos: buttonLoopTask.inputLines.map((line) => line.feiTicketNo),
+        transferBagNos: [],
+        fabricRollNos: [],
+        materialSku: snapshot.styleCode,
+        planQty: buttonLoopTask.inputTicketCount,
+        receivedQty: buttonLoopTask.receivedTicketCount,
+        completedQty: buttonLoopTask.outputQty,
+        lossQty: 0,
+        currentQty: buttonLoopTask.outputQty,
+        returnedQty: buttonLoopTask.handedOverQty,
+        waitHandoverQty: buttonLoopTask.waitHandoverQty,
+        unit: BUTTON_LOOP_INPUT_UNIT,
+        status: buttonLoopTask.status,
+        abnormalStatus: '无异常',
+        dueAt: productionOrder.demandSnapshot.requiredDeliveryDate || productionOrder.updatedAt,
+        createdAt,
+        updatedAt: createdAt,
+        waitProcessStockItemIds: [],
+        waitHandoverStockItemIds: [],
+        inboundRecordIds: [],
+        outboundRecordIds: [],
+        validationWarnings: [],
+        isGenerated: true,
+        isManualCreated: false,
+        generationKey: `BUTTON_LOOP::${productionOrderId}::${snapshot.snapshotId}`,
+        suggestedFactoryId: buttonLoopTask.factoryId,
+        suggestedFactoryName: buttonLoopTask.factoryName,
+        assignedFactoryId: buttonLoopTask.factoryId,
+        assignedFactoryName: buttonLoopTask.factoryName,
+        assignmentMode: '按工艺固定分配',
+        nodeRecords: [{
+          nodeRecordId: `${buttonLoopTask.taskOrderId}-NODE-01`,
+          taskOrderId: buttonLoopTask.taskOrderId,
+          nodeName: '待接收',
+          actionName: '生产单生成',
+          beforeStatus: '待接收',
+          afterStatus: '待接收',
+          qty: buttonLoopTask.inputTicketCount,
+          unit: BUTTON_LOOP_INPUT_UNIT,
+          operatorName: '系统',
+          operatedAt: createdAt,
+          relatedRecordNo: productionOrder.productionOrderNo,
+          relatedRecordType: '任务记录',
+          photoCount: 0,
+          remark: `${buttonLoopTask.selectedBindingStripCount} 条捆条，共 ${buttonLoopTask.inputTicketCount} 张菲票作为盘扣投入。`,
+        }],
+        warehouseLinks: [],
+        lineProgress: buttonLoopTask.inputLines.map((line) => ({
+          lineProgressKey: `fei:${line.feiTicketNo}`,
+          lineType: 'fei-ticket',
+          feiTicketNo: line.feiTicketNo,
+          partName: line.bindingStripName,
+          colorName: '捆条',
+          sizeCode: `${line.widthCm} cm`,
+          planQty: 1,
+          receivedQty: line.received ? 1 : 0,
+          completedQty: 0,
+          returnedQty: 0,
+        })),
+        remark: '投入为捆条菲票，投入长度仅追溯；加工产出与交出均按盘扣个数记录，交中央辅料仓。',
+      }
+    })
+  })
+}
+
 export function getSpecialCraftWorkOrderBusinessType(
   operationId: string,
 ): string {
@@ -1631,12 +1965,15 @@ function ensureStore(): SpecialCraftTaskStore {
       .map((taskOrder) => normalizeGeneratedTaskOrderForMobile(taskOrder))
     const generationBatches = generatedResults.map((item) => item.generationBatch)
     const generationErrors = generatedResults.flatMap((item) => item.errors)
-    const supplementalTaskOrders = buildLinkedSupplementTaskOrders(generatedTaskOrders)
-    const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders].map((taskOrder) => ({
+    const buttonLoopTaskOrders = buildButtonLoopTaskOrdersForStore()
+    const generatedWithoutGenericButtonLoop = generatedTaskOrders.filter((taskOrder) => taskOrder.operationId !== BUTTON_LOOP_OPERATION_ID)
+    const supplementalTaskOrders = buildLinkedSupplementTaskOrders([...generatedWithoutGenericButtonLoop, ...buttonLoopTaskOrders])
+      .filter((taskOrder) => taskOrder.operationId !== BUTTON_LOOP_OPERATION_ID)
+    const taskOrders = [...generatedWithoutGenericButtonLoop, ...buttonLoopTaskOrders, ...supplementalTaskOrders].map((taskOrder) => ({
       ...taskOrder,
       lineProgress: normalizeSpecialCraftLineProgress(taskOrder),
     }))
-    ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders)
+    ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders)
     specialCraftTaskStore = {
       taskOrders,
       generationBatches,
@@ -1840,6 +2177,136 @@ export function updateSpecialCraftTaskOrderWebStatus(
     remark: payload.remark?.trim() || current.remark,
   }
   store.taskOrders[taskOrderIndex] = next
+  ensureSpecialCraftUnifiedWarehouseArtifacts([next])
+  return next
+}
+
+export function executeButtonLoopSpecialCraftAction(input: {
+  taskOrderId: string
+  actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE' | 'SPECIAL_CRAFT_PROCESS_REPORT' | 'SPECIAL_CRAFT_SUBMIT_HANDOVER' | 'SPECIAL_CRAFT_COMPLETE_ORDER'
+  feiTicketNos?: string[]
+  outputQty?: number
+  operatorName: string
+  operatedAt: string
+}): SpecialCraftTaskOrder {
+  const store = ensureStore()
+  const taskOrderIndex = store.taskOrders.findIndex((item) => item.taskOrderId === input.taskOrderId)
+  if (taskOrderIndex < 0) throw new Error('盘扣加工单不存在。')
+  const current = store.taskOrders[taskOrderIndex]
+  if (current.quantityMode !== 'TICKET_INPUT_OUTPUT' || current.operationId !== BUTTON_LOOP_OPERATION_ID) {
+    throw new Error('当前加工单不是盘扣投入/产出双口径加工单。')
+  }
+  const domainCurrent: ButtonLoopTaskOrder = {
+    taskOrderId: current.taskOrderId,
+    taskOrderNo: current.taskOrderNo,
+    operationId: BUTTON_LOOP_OPERATION_ID,
+    craftName: '盘扣',
+    quantityMode: 'TICKET_INPUT_OUTPUT',
+    productionOrderId: current.productionOrderId,
+    productionOrderNo: current.productionOrderNo,
+    styleCode: current.materialSku || '',
+    styleName: '',
+    techPackSnapshotId: current.techPackSnapshotId || '',
+    factoryId: current.factoryId,
+    factoryName: current.factoryName,
+    receiverWarehouseName: BUTTON_LOOP_RECEIVER_WAREHOUSE_NAME,
+    selectedBindingStripCount: current.selectedBindingStripCount || 0,
+    inputLines: (current.buttonLoopInputLines || []).map((line) => ({ ...line })),
+    inputTicketCount: current.inputTicketCount || 0,
+    receivedTicketCount: current.receivedTicketCount || 0,
+    inputLengthM: current.inputLengthM || 0,
+    inputUnit: BUTTON_LOOP_INPUT_UNIT,
+    outputQty: current.outputQty || 0,
+    handedOverQty: current.handedOverQty || 0,
+    waitHandoverQty: current.waitHandoverQty || 0,
+    outputUnit: BUTTON_LOOP_OUTPUT_UNIT,
+    status: current.status,
+    events: (current.buttonLoopEvents || []).map((event) => ({ ...event })),
+  }
+  let action: ButtonLoopTaskAction
+  if (input.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+    action = {
+      action: 'CONFIRM_RECEIVE',
+      feiTicketNos: input.feiTicketNos || [],
+      operatorName: input.operatorName,
+      operatedAt: input.operatedAt,
+    }
+  } else if (input.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') {
+    action = {
+      action: 'PROCESS_REPORT',
+      outputQty: Number(input.outputQty),
+      operatorName: input.operatorName,
+      operatedAt: input.operatedAt,
+    }
+  } else if (input.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
+    action = {
+      action: 'SUBMIT_HANDOVER',
+      outputQty: Number(input.outputQty),
+      operatorName: input.operatorName,
+      operatedAt: input.operatedAt,
+    }
+  } else {
+    action = {
+      action: 'COMPLETE',
+      operatorName: input.operatorName,
+      operatedAt: input.operatedAt,
+    }
+  }
+  const nextDomain = applyButtonLoopTaskAction(domainCurrent, action)
+  const lastEvent = nextDomain.events[nextDomain.events.length - 1]
+  const eventUnit = lastEvent?.unit || (input.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? BUTTON_LOOP_INPUT_UNIT : BUTTON_LOOP_OUTPUT_UNIT)
+  const eventQty = input.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+    ? lastEvent?.inputTicketNos?.length || 0
+    : input.actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
+      ? nextDomain.outputQty
+      : Number(input.outputQty || 0)
+  const next: SpecialCraftTaskOrder = {
+    ...current,
+    status: nextDomain.status,
+    executionStatus: nextDomain.status === '待接收' ? 'WAIT_PICKUP' : nextDomain.status === '已完结' ? 'COMPLETED' : 'PROCESSING',
+    executionStatusLabel: nextDomain.status,
+    receivedTicketCount: nextDomain.receivedTicketCount,
+    outputQty: nextDomain.outputQty,
+    handedOverQty: nextDomain.handedOverQty,
+    receivedQty: nextDomain.receivedTicketCount,
+    completedQty: nextDomain.outputQty,
+    currentQty: nextDomain.outputQty,
+    returnedQty: nextDomain.handedOverQty,
+    waitHandoverQty: nextDomain.waitHandoverQty,
+    buttonLoopInputLines: nextDomain.inputLines.map((line) => ({ ...line })),
+    buttonLoopEvents: nextDomain.events.map((event) => ({ ...event })),
+    lineProgress: (current.lineProgress || []).map((row) => {
+      const inputLine = nextDomain.inputLines.find((line) => line.feiTicketNo === row.feiTicketNo)
+      return inputLine ? { ...row, receivedQty: inputLine.received ? 1 : 0 } : { ...row }
+    }),
+    updatedAt: input.operatedAt,
+    nodeRecords: lastEvent && nextDomain.events.length > domainCurrent.events.length
+      ? [...current.nodeRecords, {
+          nodeRecordId: `${current.taskOrderId}-NODE-${String(current.nodeRecords.length + 1).padStart(2, '0')}`,
+          taskOrderId: current.taskOrderId,
+          nodeName: nextDomain.status,
+          actionName: input.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+            ? '确认接收'
+            : input.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
+              ? '加工填报'
+              : input.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+                ? '发起交出'
+                : '完成加工单',
+          beforeStatus: current.status,
+          afterStatus: nextDomain.status,
+          qty: eventQty,
+          unit: eventUnit,
+          operatorName: input.operatorName,
+          operatedAt: input.operatedAt,
+          relatedRecordNo: input.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? `JCD-${current.taskOrderNo}` : current.taskOrderNo,
+          relatedRecordType: input.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '交出记录' : '任务记录',
+          photoCount: 0,
+          remark: lastEvent.remark,
+        }]
+      : current.nodeRecords,
+  }
+  store.taskOrders[taskOrderIndex] = next
+  ensureSpecialCraftUnifiedWarehouseArtifacts([next])
   return next
 }
 

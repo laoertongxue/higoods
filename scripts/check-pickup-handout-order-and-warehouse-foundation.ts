@@ -26,6 +26,11 @@ import {
   getPdaPickupRecordsByHead,
   listPdaHandoverHeads,
 } from '../src/data/fcs/pda-handover-events.ts'
+import {
+  APF_FACTORY_ID,
+  FLOWER_FACTORY_ID,
+  SPF_FACTORY_ID,
+} from '../src/data/fcs/special-craft-dedicated-factories.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SEWING_FACTORY_TYPES = new Set(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
@@ -145,7 +150,7 @@ nonSewingFactories.forEach((factory) => {
   assert(rows.length >= 2, `${factory.name} 缺少默认待加工仓或待交出仓`)
   rows
     .filter((warehouse) => warehouse.factoryKind !== 'CENTRAL_CUTTING')
-    .filter((warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'].includes(warehouse.factoryId))
+    .filter((warehouse) => ![FLOWER_FACTORY_ID, APF_FACTORY_ID, SPF_FACTORY_ID].includes(warehouse.factoryId))
     .forEach((warehouse) => assert(warehouse.areaList.length >= 8, `${warehouse.warehouseName} 默认库区不足 8 个`))
 })
 sewingFactories.forEach((factory) => {

@@ -746,6 +746,12 @@ function createPatternBindingStrip(input: Partial<TechPackPatternBindingStrip> =
     widthCm: Number.isFinite(Number(input.widthCm)) ? Number(input.widthCm) : 0,
     cuttingMethod,
     relatedMaterialId: input.relatedMaterialId || '',
+    specialCrafts: (input.specialCrafts ?? []).map((craft) => ({
+      ...craft,
+      selectedTargetObject: '捆条',
+      supportedTargetObjects: ['BINDING_STRIP'],
+      supportedTargetObjectLabels: ['捆条'],
+    })),
     remark: input.remark || '',
     createdBy: input.createdBy || currentUser.name,
     updatedAt: input.updatedAt || toTimestamp(),
@@ -1417,7 +1423,7 @@ function ensurePatternStatusDemoCoverage(
       pieceRows,
       pieceInstances,
       ...pieceInstanceSummary,
-      bindingStrips: isPackage ? [] : normalizePatternBindingStrips(item.bindingStrips),
+      bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
       patternSignature: item.patternSignature || buildPatternSignature(item),
       duplicateConfirmed: Boolean(item.duplicateConfirmed),
       duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
@@ -1456,6 +1462,7 @@ function createPatternPoolDemoPackage(
     type: TechPackPatternCategory
     materialType: 'WOVEN' | 'WOOL'
     fileBaseName: string
+    inheritBindingStrips?: boolean
   },
 ): PatternItem {
   const isWool = spec.materialType === 'WOOL'
@@ -1513,7 +1520,9 @@ function createPatternPoolDemoPackage(
           uploadedAt: '2026-04-20 09:15:00',
           uploadedBy: 'Sari 版师',
         }),
-    bindingStrips: [],
+    bindingStrips: !isWool && spec.inheritBindingStrips
+      ? normalizePatternBindingStrips(source.bindingStrips)
+      : [],
     patternSignature: '',
     duplicateConfirmed: false,
     duplicateWarningReasons: [],
@@ -1646,6 +1655,7 @@ export function ensurePatternPoolDemoPackages(
       type: '主体片',
       materialType: 'WOVEN',
       fileBaseName: 'front-pattern-package',
+      inheritBindingStrips: true,
     }),
     createPatternPoolDemoPackage(wovenSources[1] ?? fallbackWoven, {
       id: 'PAT-PKG-BACK',
@@ -3468,6 +3478,36 @@ function getPatternPieceSpecialCraftOptionsFromCurrentTechPack(): TechPackPatter
       )
     },
   )
+}
+
+function getButtonLoopBindingCraftOption(): {
+  routeConfigured: boolean
+  craft: TechPackPatternPieceSpecialCraft | null
+} {
+  const definition = listProcessCraftDefinitions().find(
+    (item) => item.processCode === 'SPECIAL_CRAFT' && item.craftName === '盘扣',
+  )
+  if (!definition) return { routeConfigured: false, craft: null }
+  const route = state.techniques.find(
+    (item) =>
+      item.entryType === 'CRAFT'
+      && item.processCode === 'SPECIAL_CRAFT'
+      && item.craftCode === definition.craftCode
+      && normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject) === '捆条',
+  )
+  return {
+    routeConfigured: Boolean(route) && state.processRouteStatus === 'CONFIRMED',
+    craft: {
+      processCode: definition.processCode,
+      processName: '特殊工艺',
+      craftCode: definition.craftCode,
+      craftName: definition.craftName,
+      displayName: definition.craftName,
+      selectedTargetObject: '捆条',
+      supportedTargetObjects: ['BINDING_STRIP'],
+      supportedTargetObjectLabels: ['捆条'],
+    },
+  }
 }
 
 function getSpecialCraftOptionsForPatternPiece(): TechPackPatternPieceSpecialCraft[] {
@@ -5458,6 +5498,7 @@ export {
   getPrimaryBomPatternDesignId,
   normalizePatternDesignIdList,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
+  getButtonLoopBindingCraftOption,
   getPatternPieceInstanceSpecialCraftOptions,
   PATTERN_CRAFT_POSITION_OPTIONS,
   generatePieceInstancesFromColorQuantities,

@@ -6,6 +6,7 @@ import {
 } from '../browser-storage.ts'
 import { DEFAULT_FACTORY_ONBOARDING_PPIC } from './factory-onboarding-ppic.ts'
 import type { Factory } from './factory-types.ts'
+import { isLegacySpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
 
 const FACTORY_MASTER_STORE_KEY = 'fcs_factory_master_store_v1'
 
@@ -201,11 +202,12 @@ function createOnboardingOfficialSeedFactories(): Factory[] {
 }
 
 function mergeSeedFactories(factories: Factory[]): Factory[] {
-  const existingIds = new Set(factories.map((factory) => factory.id))
+  const currentFactories = factories.filter((factory) => !isLegacySpecialCraftFactoryId(factory.id))
+  const existingIds = new Set(currentFactories.map((factory) => factory.id))
   const missingMockSeeds = mockFactories.filter((factory) => !existingIds.has(factory.id))
   missingMockSeeds.forEach((factory) => existingIds.add(factory.id))
   const missingOfficialSeeds = createOnboardingOfficialSeedFactories().filter((factory) => !existingIds.has(factory.id))
-  return [...factories, ...missingMockSeeds, ...missingOfficialSeeds]
+  return [...currentFactories, ...missingMockSeeds, ...missingOfficialSeeds]
 }
 
 function loadFactoryMasterRecords(): Factory[] {

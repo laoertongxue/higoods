@@ -103,6 +103,19 @@ function normalizeBindingStrips(value: unknown): unknown[] {
         widthCm: normalizeNumber(record.widthCm),
         cuttingMethod: normalizeText(record.cuttingMethod || '斜切'),
         stripCount: normalizeNumber(record.stripCount),
+        specialCrafts: Array.isArray(record.specialCrafts)
+          ? record.specialCrafts
+              .map((craft) => {
+                const craftRecord = craft && typeof craft === 'object' ? craft as Record<string, unknown> : {}
+                return {
+                  craftCode: normalizeText(craftRecord.craftCode),
+                  craftName: normalizeText(craftRecord.craftName || craftRecord.displayName),
+                  targetObject: normalizeText(craftRecord.selectedTargetObject || '捆条'),
+                }
+              })
+              .filter((craft) => craft.craftCode || craft.craftName)
+              .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), 'zh-Hans-CN'))
+          : [],
       }
     })
     .filter((item) => item.name || item.lengthCm > 0 || item.widthCm > 0 || item.stripCount > 0)

@@ -76,6 +76,7 @@ import {
   getPatternColorQuantityOptions,
   getPartTemplateRecordById,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
+  getButtonLoopBindingCraftOption,
   getPatternDesignOptionsBySide,
   getBomPatternDesignIds,
   getPrimaryBomPatternDesignId,
@@ -202,6 +203,7 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'save-pattern-merchandiser-step': 'MATERIAL_PATTERN_LINK',
   'save-pattern-and-go-maker': 'MATERIAL_PATTERN_LINK',
   'add-pattern-binding-strip': 'PATTERN',
+  'toggle-binding-strip-button-loop': 'PATTERN',
   'delete-pattern-binding-strip': 'PATTERN',
   'confirm-pattern-duplicate-warning': 'PATTERN',
   'save-pattern-package': 'PATTERN',
@@ -1385,6 +1387,16 @@ function validatePatternMakerStep(): string | null {
   if (invalidWidthStrip) return '捆条宽度必须大于 0'
   const invalidCuttingMethodStrip = state.newPattern.bindingStrips.find((item) => !['斜切', '直切', '横切'].includes(String(item.cuttingMethod || '')))
   if (invalidCuttingMethodStrip) return '请选择捆条切割方式'
+  const invalidCraftStrip = state.newPattern.bindingStrips.find((item) =>
+    (item.specialCrafts ?? []).some((craft) => craft.craftName !== '盘扣' || craft.selectedTargetObject !== '捆条'),
+  )
+  if (invalidCraftStrip) return '捆条区域只能选择加工对象为捆条的盘扣工艺'
+  const selectedButtonLoopStrip = state.newPattern.bindingStrips.find((item) =>
+    (item.specialCrafts ?? []).some((craft) => craft.craftName === '盘扣'),
+  )
+  if (selectedButtonLoopStrip && !getButtonLoopBindingCraftOption().routeConfigured) {
+    return '请先在工序路线增加“盘扣（对象：捆条）”并确认路线'
+  }
   if (state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.pieceRows.length === 0) {
     return '布料纸样请先在纸样池解析部位信息'
   }
@@ -3567,6 +3579,31 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       ...state.newPattern.bindingStrips,
       createPatternBindingStrip({}, state.newPattern.bindingStrips.length),
     ])
+    state.newPattern.parseError = ''
+    return true
+  }
+  if (action === 'toggle-binding-strip-button-loop') {
+    const bindingStripId = actionNode.dataset.bindingStripId
+    if (!bindingStripId) return true
+    const buttonLoopOption = getButtonLoopBindingCraftOption()
+    if (!buttonLoopOption.routeConfigured || !buttonLoopOption.craft) {
+      state.newPattern.parseError = '请先在工序路线增加“盘扣（对象：捆条）”并确认路线'
+      return true
+    }
+    state.newPattern.bindingStrips = normalizePatternBindingStrips(
+      state.newPattern.bindingStrips.map((item) => {
+        if (item.bindingStripId !== bindingStripId) return item
+        const currentCrafts = item.specialCrafts ?? []
+        const selected = currentCrafts.some((craft) => craft.craftName === '盘扣')
+        return {
+          ...item,
+          specialCrafts: selected
+            ? currentCrafts.filter((craft) => craft.craftName !== '盘扣')
+            : [...currentCrafts.filter((craft) => craft.craftName !== '盘扣'), buttonLoopOption.craft!],
+          updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        }
+      }),
+    )
     state.newPattern.parseError = ''
     return true
   }

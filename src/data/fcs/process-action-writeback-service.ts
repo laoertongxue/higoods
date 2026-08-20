@@ -35,6 +35,7 @@ import {
   applySpecialCraftLineProgressAction,
   confirmSpecialCraftTaskOrderCompletionBySku,
   confirmSpecialCraftTaskOrderReceiptBySku,
+  executeButtonLoopSpecialCraftAction,
   getSpecialCraftTaskOrderById,
   updateSpecialCraftTaskOrderWebStatus,
   type SpecialCraftTaskStatus,
@@ -1136,6 +1137,20 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (!definition) throw new Error('特殊工艺动作未注册')
   const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
   if (!workOrder) throw new Error('特殊工艺加工单不存在')
+  if (workOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+    const feiTicketNos = Object.entries(payload.feiQtyByTicketNo || {})
+      .filter(([, qty]) => Number(qty) > 0)
+      .map(([ticketNo]) => ticketNo)
+    const updated = executeButtonLoopSpecialCraftAction({
+      taskOrderId: workOrder.taskOrderId,
+      actionCode: payload.actionCode as 'SPECIAL_CRAFT_CONFIRM_RECEIVE' | 'SPECIAL_CRAFT_PROCESS_REPORT' | 'SPECIAL_CRAFT_SUBMIT_HANDOVER' | 'SPECIAL_CRAFT_COMPLETE_ORDER',
+      feiTicketNos,
+      outputQty: payload.objectQty,
+      operatorName: payload.operatorName || '现场操作员',
+      operatedAt: payload.operatedAt || nowText(),
+    })
+    return { updatedWorkOrderId: updated.taskOrderId }
+  }
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
   const nextStatus = definition.toStatus as SpecialCraftTaskStatus
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)

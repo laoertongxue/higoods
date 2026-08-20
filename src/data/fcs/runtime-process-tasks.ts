@@ -23,6 +23,7 @@ import {
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
+import { SPF_FACTORY_ID, SPF_FACTORY_NAME } from './special-craft-dedicated-factories.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
 import {
   isKolGotoFactory,
@@ -1404,7 +1405,8 @@ function ensureDispatchBoardSeedData(): void {
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
 
-  const centralSpecialFactory = specialCraftDedicatedFactories[0] ?? { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME }
+  const centralSpecialFactory = specialCraftDedicatedFactories.find((factory) => factory.id === SPF_FACTORY_ID)
+    ?? { id: SPF_FACTORY_ID, name: SPF_FACTORY_NAME }
   const directFactorySeeds = {
     cut: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     sew: { id: 'ID-F003', name: '万隆车缝厂' },

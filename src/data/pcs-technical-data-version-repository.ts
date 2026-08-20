@@ -85,7 +85,14 @@ function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[
     markerImage: item.markerImage ? { ...item.markerImage } : undefined,
     dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
     rulFile: item.rulFile ? { ...item.rulFile } : undefined,
-    bindingStrips: item.bindingStrips?.map((strip) => ({ ...strip })),
+    bindingStrips: item.bindingStrips?.map((strip) => ({
+      ...strip,
+      specialCrafts: strip.specialCrafts?.map((craft) => ({
+        ...craft,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
+    })),
     patternTotalPieceQty: item.patternTotalPieceQty,
     pieceInstanceTotal: item.pieceInstanceTotal,
     specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,

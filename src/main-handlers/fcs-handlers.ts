@@ -381,6 +381,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
       '[data-special-craft-web-action]',
       '[data-special-craft-sku-confirm]',
       '[data-special-craft-fei-confirm]',
+      '[data-special-craft-button-loop-confirm]',
       '[data-process-web-status-action]',
       '[data-special-craft-task-field]',
       '[data-special-craft-task-list-field]',

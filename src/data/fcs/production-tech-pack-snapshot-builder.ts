@@ -173,6 +173,14 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
     ...item,
     rulSizeList: [...(item.rulSizeList ?? [])],
     selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
+    bindingStrips: item.bindingStrips?.map((strip) => ({
+      ...strip,
+      specialCrafts: strip.specialCrafts?.map((craft) => ({
+        ...craft,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
+    })),
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
@@ -441,6 +449,15 @@ function normalizePatternFiles(
         ? normalizeText((item as { imageUrl?: string }).imageUrl)
         : undefined,
       remark: normalizeText((item as { remark?: string }).remark) || undefined,
+      bindingStrips: item.bindingStrips?.map((strip) => ({
+        ...strip,
+        specialCrafts: strip.specialCrafts?.map((craft) => ({
+          ...craft,
+          selectedTargetObject: craft.selectedTargetObject,
+          supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+          supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+        })),
+      })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         bundleLengthCm: row.bundleLengthCm,

@@ -1,4 +1,5 @@
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
+import type { TechnicalPatternPieceSpecialCraft } from '../../../data/pcs-technical-data-version-types.ts'
 import { getCanonicalCuttingPath } from './meta.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import {
@@ -160,6 +161,8 @@ export interface BindingStripWorkOrderDetail {
   cuttingRecords: BindingStripCuttingRecord[]
   differenceRecords: BindingStripDifferenceRecord[]
   formulaText: string
+  specialCrafts: TechnicalPatternPieceSpecialCraft[]
+  requiresButtonLoop: boolean
 }
 
 export interface BindingProcessOrder {

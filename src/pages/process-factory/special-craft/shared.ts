@@ -472,3 +472,56 @@ export function renderCutPieceFeiTicketConfirmDialog(
     </div>
   `
 }
+
+export function renderButtonLoopTaskActionDialog(
+  taskOrder: SpecialCraftTaskOrder,
+  actionCode: string,
+): string {
+  const inputLines = taskOrder.buttonLoopInputLines || []
+  const isReceive = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+  const isReport = actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
+  const isHandover = actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+  const title = isReceive
+    ? '确认接收 - 逐张核对捆条菲票'
+    : isReport
+      ? '加工填报 - 填写本次盘扣产出'
+      : isHandover
+        ? '发起交出 - 交中央辅料仓'
+        : '完成盘扣加工单'
+  const body = isReceive
+    ? `<div class="space-y-2">${inputLines.map((line) => `
+        <label class="flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${line.received ? 'bg-emerald-50' : 'bg-background'}">
+          <input type="checkbox" data-button-loop-fei-ticket-no="${escapeHtml(line.feiTicketNo)}" ${line.received ? 'checked disabled' : 'checked'} />
+          <span class="min-w-0 flex-1"><strong class="font-mono text-xs">${escapeHtml(line.feiTicketNo)}</strong><br><span class="text-xs text-muted-foreground">${escapeHtml(line.bindingStripName)} · ${formatQty(line.actualLengthM)} m · 宽 ${formatQty(line.widthCm)} cm</span></span>
+          <span class="text-xs ${line.received ? 'text-emerald-700' : 'text-amber-700'}">${line.received ? '已接收' : '本次接收'}</span>
+        </label>
+      `).join('')}</div>`
+    : actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
+      ? `<div class="space-y-2 rounded-md border bg-muted/20 px-3 py-3 text-sm">
+          <div>投入：${taskOrder.receivedTicketCount || 0} / ${taskOrder.inputTicketCount || 0} 张捆条菲票</div>
+          <div>累计产出：${formatQty(taskOrder.outputQty || 0)} 个</div>
+          <div>累计交出：${formatQty(taskOrder.handedOverQty || 0)} 个</div>
+          <div>待交出：${formatQty(taskOrder.waitHandoverQty || 0)} 个</div>
+          <div class="text-xs text-muted-foreground">只有全部投入已接收、已有产出且全部交至中央辅料仓时才能完成。</div>
+        </div>`
+      : `<div class="space-y-3">
+          <div class="rounded-md border bg-muted/20 px-3 py-3 text-sm">
+            <div>投入捆条：${taskOrder.receivedTicketCount || 0} / ${taskOrder.inputTicketCount || 0} 张菲票，共 ${formatQty(taskOrder.inputLengthM || 0)} m（仅追溯，不换算产出）</div>
+            <div class="mt-1">累计产出：${formatQty(taskOrder.outputQty || 0)} 个；已交出：${formatQty(taskOrder.handedOverQty || 0)} 个；待交出：${formatQty(taskOrder.waitHandoverQty || 0)} 个</div>
+            ${isHandover ? '<div class="mt-1 font-medium text-blue-700">交出去向：中央辅料仓</div>' : ''}
+          </div>
+          <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">${isReport ? '本次产出数量（个）' : '本次交出数量（个）'}</span><input type="number" min="1" step="1" inputmode="numeric" class="h-10 w-full rounded-md border px-3" data-button-loop-output-qty value="${isHandover ? Math.max(taskOrder.waitHandoverQty || 0, 1) : 1}" /></label>
+        </div>`
+  return `
+    <div id="special-craft-button-loop-dialog" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4">
+      <section class="w-full max-w-xl rounded-lg border bg-card shadow-xl">
+        <header class="border-b px-5 py-4"><h3 class="text-base font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-xs text-muted-foreground">投入单位为张，产出与交出单位为个；不计算每件衣服需要多少个盘扣。</p></header>
+        <div class="max-h-[65vh] overflow-y-auto px-5 py-4">${body}</div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm" onclick="document.getElementById('special-craft-button-loop-dialog')?.remove()">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white" data-special-craft-button-loop-confirm data-task-id="${escapeHtml(taskOrder.taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认</button>
+        </footer>
+      </section>
+    </div>
+  `
+}

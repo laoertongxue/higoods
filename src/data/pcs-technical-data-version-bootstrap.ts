@@ -414,6 +414,33 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         remark: `在成衣上${craft.craftName}，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。`,
       }))
     : []
+  const buttonLoopProcessEntries = demand.spuCode === 'SPU-2024-009'
+    ? [{
+        id: `${seed.technicalVersionId}-process-button-loop`,
+        entryType: 'CRAFT' as const,
+        stageCode: 'PROD' as const,
+        stageName: '生产执行',
+        processCode: 'SPECIAL_CRAFT',
+        processName: '特殊工艺',
+        craftCode: 'CRAFT_3100001',
+        craftName: '盘扣',
+        assignmentGranularity: 'DETAIL' as const,
+        ruleSource: 'OVERRIDE_CRAFT' as const,
+        detailSplitMode: 'COMPOSITE' as const,
+        detailSplitDimensions: ['PATTERN'] as const,
+        defaultDocType: 'TASK' as const,
+        taskTypeMode: 'CRAFT' as const,
+        isSpecialCraft: true,
+        selectedTargetObject: '捆条' as const,
+        targetObject: 'BINDING_STRIP' as const,
+        targetObjectName: '捆条' as const,
+        supportedTargetObjects: ['BINDING_STRIP'] as const,
+        supportedTargetObjectLabels: ['捆条'] as const,
+        linkedPatternIds: [patternPackageId],
+        difficulty: 'MEDIUM' as const,
+        remark: '只将纸样包内勾选盘扣的捆条菲票作为投入；产出按盘扣个数填报。',
+      }]
+    : []
   const joggerPostProcessEntries = demand.spuCode === 'SPU-2024-010'
     ? [
         {
@@ -476,6 +503,48 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     }
   }
 
+  const buildBindingStrips = (inheritedNote: string) => {
+    if (isWoolScenario) return []
+    const regularStrip = {
+      bindingStripId: `${patternPackageId}-binding-1`,
+      bindingStripNo: 'BIND-01',
+      bindingStripName: '领口包边捆条',
+      relatedPieceId: '',
+      relatedPieceName: '领口',
+      lengthCm: 42,
+      widthCm: 3.2,
+      cuttingMethod: '斜切' as const,
+      stripCount: 1,
+      relatedMaterialId: '',
+      relatedMaterialName: '',
+      specialCrafts: [],
+      note: inheritedNote,
+    }
+    if (demand.spuCode !== 'SPU-2024-009') return [regularStrip]
+    return [
+      regularStrip,
+      {
+        ...regularStrip,
+        bindingStripId: `${patternPackageId}-binding-button-loop`,
+        bindingStripNo: 'BIND-02',
+        bindingStripName: '前襟盘扣捆条',
+        lengthCm: 80,
+        widthCm: 2.5,
+        specialCrafts: [{
+          processCode: 'SPECIAL_CRAFT',
+          processName: '特殊工艺',
+          craftCode: 'CRAFT_3100001',
+          craftName: '盘扣',
+          displayName: '盘扣',
+          selectedTargetObject: '捆条' as const,
+          supportedTargetObjects: ['BINDING_STRIP'] as const,
+          supportedTargetObjectLabels: ['捆条'] as const,
+        }],
+        note: '该捆条专用于盘扣；捆条菲票作为加工投入，盘扣成品按个填报并交中央辅料仓。',
+      },
+    ]
+  }
+
   return {
     technicalVersionId: seed.technicalVersionId,
     patternFiles: [
@@ -501,23 +570,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         linkedBomItemId: '',
         widthCm: isWoolScenario ? 120 : 150,
         markerLengthM: isWoolScenario ? 0.8 : 1.35,
-        bindingStrips: isWoolScenario
-          ? []
-          : [
-              {
-                bindingStripId: `${patternPackageId}-binding-1`,
-                bindingStripName: '领口捆条',
-                relatedPieceId: '',
-                relatedPieceName: '领口',
-                lengthCm: 42,
-                widthCm: 3.2,
-                cuttingMethod: '斜切',
-                stripCount: 1,
-                relatedMaterialId: '',
-                relatedMaterialName: '',
-                note: '捆条归属纸样包，关联该纸样的物料均需制作。',
-              },
-            ],
+        bindingStrips: buildBindingStrips('捆条归属纸样包，关联该纸样的物料均需制作。'),
         totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
         isWoolted: isWoolScenario ? '是' : '否',
         pieceRows: pieceRows.map((row) => ({
@@ -549,23 +602,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         sourcePatternPackageName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         widthCm: isWoolScenario ? 120 : 150,
         markerLengthM: isWoolScenario ? 0.8 : 1.35,
-        bindingStrips: isWoolScenario
-          ? []
-          : [
-              {
-                bindingStripId: `${patternPackageId}-binding-1`,
-                bindingStripName: '领口捆条',
-                relatedPieceId: '',
-                relatedPieceName: '领口',
-                lengthCm: 42,
-                widthCm: 3.2,
-                cuttingMethod: '斜切',
-                stripCount: 1,
-                relatedMaterialId: '',
-                relatedMaterialName: '',
-                note: '继承自纸样包。',
-              },
-            ],
+        bindingStrips: buildBindingStrips('继承自纸样包。'),
         totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
         isWoolted: isWoolScenario ? '是' : '否',
         pieceRows: pieceRows.map((row) => ({
@@ -619,6 +656,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     processEntries: [
       ...processEntries,
       ...internalGarmentPrintProcessEntries,
+      ...buttonLoopProcessEntries,
       ...joggerPostProcessEntries,
       ...waterSolubleDyeProcessEntries,
     ],

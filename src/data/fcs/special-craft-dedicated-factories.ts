@@ -12,137 +12,81 @@ export interface SpecialCraftDedicatedFactorySeed {
   factoryType: FactoryType
 }
 
+export const FLOWER_FACTORY_ID = 'FAC-FLOWER'
+export const FLOWER_FACTORY_CODE = 'FLOWER'
+export const FLOWER_FACTORY_NAME = 'FLOWER'
+export const APF_FACTORY_ID = 'FAC-APF'
+export const APF_FACTORY_CODE = 'APF'
+export const APF_FACTORY_NAME = 'APF - 辅助工艺'
+export const SPF_FACTORY_ID = 'FAC-SPF'
+export const SPF_FACTORY_CODE = 'SPF'
+export const SPF_FACTORY_NAME = 'SPF - 特种工艺'
+export const LEGACY_SPECIAL_CRAFT_FACTORY_IDS = ['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'] as const
+
+export function isLegacySpecialCraftFactoryId(factoryId: string | null | undefined): boolean {
+  return LEGACY_SPECIAL_CRAFT_FACTORY_IDS.includes(String(factoryId || '') as typeof LEGACY_SPECIAL_CRAFT_FACTORY_IDS[number])
+}
+
+const apfCrafts = [
+  ['AUX-OP-EMBROIDERY', 'CRAFT_3000001', '绣花'],
+  ['AUX-OP-STRIP', 'CRAFT_000032', '打条'],
+  ['AUX-OP-PLEATING', 'CRAFT_3000002', '压褶'],
+  ['AUX-OP-DALAN', 'CRAFT_000008', '打揽'],
+  ['AUX-OP-SHELL-EMBROIDERY', 'CRAFT_3000003', '贝壳绣'],
+  ['AUX-OP-CURVED-TEETH-EMBROIDERY', 'CRAFT_3000004', '曲牙绣'],
+  ['AUX-OP-STRAIGHT-SHELL-EMBROIDERY', 'CRAFT_3000005', '一字贝绣花'],
+  ['AUX-OP-BUTTON-LOOP', 'CRAFT_3100001', '盘扣'],
+  ['AUX-OP-FLOWER-MAKING', 'CRAFT_3100002', '花朵'],
+  ['AUX-OP-GATHERING', 'CRAFT_3100003', '打褶'],
+  ['AUX-OP-HOTFIX-RHINESTONE', 'CRAFT_3100004', '烫钻'],
+] as const
+
+const flowerCrafts = [
+  ['AUX-OP-HEAT-TRANSFER', 'CRAFT_008192', '烫画'],
+  ['AUX-OP-DIRECT-PRINT', 'CRAFT_016384', '直喷'],
+] as const
+
+const spfCrafts = [
+  ['SPC-OP-TEMPLATE-PROCESS', 'CRAFT_3000006', '模板工序'],
+  ['SPC-OP-LASER-POCKET', 'CRAFT_3000007', '激光开袋'],
+  ['SPC-OP-PATTERN-MACHINE-SEWING', 'CRAFT_3000008', '特种车缝（花样机）'],
+  ['SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING', 'CRAFT_3000009', '橡筋定长切割'],
+] as const
+
+function buildFactorySeeds(
+  rows: ReadonlyArray<readonly [string, string, string]>,
+  factory: Pick<SpecialCraftDedicatedFactorySeed, 'factoryId' | 'factoryCode' | 'factoryName' | 'managementDomain' | 'factoryType'>,
+): SpecialCraftDedicatedFactorySeed[] {
+  return rows.map(([operationId, craftCode, craftName]) => ({
+    operationId,
+    craftCode,
+    craftName,
+    ...factory,
+  }))
+}
+
 export const specialCraftDedicatedFactorySeeds: SpecialCraftDedicatedFactorySeed[] = [
-  {
-    operationId: 'AUX-OP-EMBROIDERY',
-    craftCode: 'CRAFT_3000001',
-    craftName: '绣花',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
+  ...buildFactorySeeds(flowerCrafts, {
+    factoryId: FLOWER_FACTORY_ID,
+    factoryCode: FLOWER_FACTORY_CODE,
+    factoryName: FLOWER_FACTORY_NAME,
     managementDomain: 'AUXILIARY_CRAFT_FACTORY',
     factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-STRIP',
-    craftCode: 'CRAFT_000032',
-    craftName: '打条',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
+  }),
+  ...buildFactorySeeds(apfCrafts, {
+    factoryId: APF_FACTORY_ID,
+    factoryCode: APF_FACTORY_CODE,
+    factoryName: APF_FACTORY_NAME,
     managementDomain: 'AUXILIARY_CRAFT_FACTORY',
     factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-PLEATING',
-    craftCode: 'CRAFT_3000002',
-    craftName: '压褶',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-DALAN',
-    craftCode: 'CRAFT_000008',
-    craftName: '打揽',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-HEAT-TRANSFER',
-    craftCode: 'CRAFT_008192',
-    craftName: '烫画',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-DIRECT-PRINT',
-    craftCode: 'CRAFT_016384',
-    craftName: '直喷',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-SHELL-EMBROIDERY',
-    craftCode: 'CRAFT_3000003',
-    craftName: '贝壳绣',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-CURVED-TEETH-EMBROIDERY',
-    craftCode: 'CRAFT_3000004',
-    craftName: '曲牙绣',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'AUX-OP-STRAIGHT-SHELL-EMBROIDERY',
-    craftCode: 'CRAFT_3000005',
-    craftName: '一字贝绣花',
-    factoryId: 'FAC-AUX-CRAFT',
-    factoryCode: 'AUX-CRAFT',
-    factoryName: '辅助工艺厂',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_AUX',
-  },
-  {
-    operationId: 'SPC-OP-TEMPLATE-PROCESS',
-    craftCode: 'CRAFT_3000006',
-    craftName: '模板工序',
-    factoryId: 'FAC-SPC-CRAFT',
-    factoryCode: 'SPC-CRAFT',
-    factoryName: '特种工艺厂',
+  }),
+  ...buildFactorySeeds(spfCrafts, {
+    factoryId: SPF_FACTORY_ID,
+    factoryCode: SPF_FACTORY_CODE,
+    factoryName: SPF_FACTORY_NAME,
     managementDomain: 'SPECIAL_CRAFT_FACTORY',
     factoryType: 'CENTRAL_SPECIAL',
-  },
-  {
-    operationId: 'SPC-OP-LASER-POCKET',
-    craftCode: 'CRAFT_3000007',
-    craftName: '激光开袋',
-    factoryId: 'FAC-SPC-CRAFT',
-    factoryCode: 'SPC-CRAFT',
-    factoryName: '特种工艺厂',
-    managementDomain: 'SPECIAL_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_SPECIAL',
-  },
-  {
-    operationId: 'SPC-OP-PATTERN-MACHINE-SEWING',
-    craftCode: 'CRAFT_3000008',
-    craftName: '特种车缝（花样机）',
-    factoryId: 'FAC-SPC-CRAFT',
-    factoryCode: 'SPC-CRAFT',
-    factoryName: '特种工艺厂',
-    managementDomain: 'SPECIAL_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_SPECIAL',
-  },
-  {
-    operationId: 'SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING',
-    craftCode: 'CRAFT_3000009',
-    craftName: '橡筋定长切割',
-    factoryId: 'FAC-SPC-CRAFT',
-    factoryCode: 'SPC-CRAFT',
-    factoryName: '特种工艺厂',
-    managementDomain: 'SPECIAL_CRAFT_FACTORY',
-    factoryType: 'CENTRAL_SPECIAL',
-  },
+  }),
 ]
 
 const dedicatedFactorySeedByOperationId = new Map(
