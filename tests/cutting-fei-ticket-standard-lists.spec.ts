@@ -192,8 +192,8 @@ for (const config of [
   {
     mode: 'BINDING' as const,
     title: '捆条菲票打印',
-    headers: ['捆条加工单', '来源', '物料 / 纸样', '捆条明细', '应打菲票数', '打印状态', '最近打印', '操作'],
-    requiredText: ['纸样：', '已打印', '缺口', '全部打印', '菲票明细'],
+    headers: ['捆条加工单', '来源', '物料 / 纸样', '捆条明细', '盘扣 / 打印用纸', '打印信息', '状态', '操作'],
+    requiredText: ['纸样：', '普通白票', '盘扣黄票', '同单含普通白票与盘扣黄票', '菲票明细'],
   },
 ]) {
   test(`${config.title}使用统一骨架、标准表格和标准分页且保留原列内容`, async ({ page }) => {
@@ -324,6 +324,45 @@ test('捆条物料图保持同列身份展示并可查看大图和失败态', as
   await expect(dialog.getByText('图片加载失败，请核对素材。')).toBeAttached()
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
+})
+
+test('捆条列表与详情沿用部位菲票结构并稳定展示同单双纸色 Mock', async ({ page }) => {
+  const errors = collectRuntimeErrors(page)
+  const mixedOrder = buildBindingProcessOrders().find((order) => {
+    const whiteCount = order.bindingDetails.filter((detail) => !detail.requiresButtonLoop).length
+    const yellowCount = order.bindingDetails.filter((detail) => detail.requiresButtonLoop).length
+    return whiteCount > 0 && yellowCount > 0
+  })
+  expect(mixedOrder, '缺少同一捆条加工单同时包含普通捆条和盘扣捆条的 Mock').toBeTruthy()
+
+  const root = await openList(page, 'BINDING')
+  await expect(root.getByText('白票 / 盘扣黄票', { exact: true })).toBeVisible()
+  await expect(root.getByText('同单双纸色', { exact: true })).toBeVisible()
+  const mixedBadge = root.locator('[data-binding-mixed-paper-order]').first()
+  await expect(mixedBadge).toBeVisible()
+  const mixedRow = mixedBadge.locator('xpath=ancestor::tr')
+  await expect(mixedRow.locator('[data-binding-paper-routing="MIXED"]')).toContainText('普通白票：1 张')
+  await expect(mixedRow.locator('[data-binding-paper-routing="MIXED"]')).toContainText('盘扣黄票：1 张')
+  await expect(mixedRow.getByRole('button', { name: '普通白票（1）', exact: true })).toBeVisible()
+  await expect(mixedRow.getByRole('button', { name: '盘扣黄票（1）', exact: true })).toBeVisible()
+
+  await mixedRow.getByRole('button', { name: '菲票明细', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '捆条菲票明细', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '捆条加工单菲票概况', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '来源与工艺概况', exact: true })).toBeVisible()
+  await expect(page.locator('[data-binding-detail-mixed-paper]')).toContainText('同单同时有普通白票')
+  await expect(page.getByRole('button', { name: '普通捆条 · 白色热敏纸（1）', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '盘扣捆条 · 黄色热敏纸（1）', exact: true })).toBeVisible()
+  await expect(page.locator('[data-binding-fei-detail-table]')).toContainText('不需要盘扣')
+  await expect(page.locator('[data-binding-fei-detail-table]')).toContainText('白色热敏纸 · 衣服捆条')
+
+  await page.getByRole('button', { name: '盘扣捆条 · 黄色热敏纸（1）', exact: true }).click()
+  await expect(page.locator('[data-binding-fei-detail-table]')).toContainText('需要盘扣')
+  await expect(page.locator('[data-binding-fei-detail-table]')).toContainText('APF - 辅助工艺 · 中央辅料仓')
+  await expect(page.getByText('当前仅展示需要做盘扣的捆条菲票', { exact: false })).toBeVisible()
+  const yellowBatchPrint = page.getByRole('button', { name: '打印当前盘扣黄票（1）', exact: true })
+  await expect(yellowBatchPrint).toHaveAttribute('data-nav', /paperColor=YELLOW/)
+  expect(errors).toEqual([])
 })
 
 test('PDA 裁床待交出仓提供菲票打编号入口并直达既有编号页', async ({ page }) => {
