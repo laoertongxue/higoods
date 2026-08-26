@@ -9,9 +9,12 @@ import {
   resolveMergedProductionTaskType,
 } from '../src/data/fcs/merged-production-task.ts'
 import {
+  allocateRuntimeSkuTaskScope,
+  captureRuntimeDirectDispatchState,
   evaluateFixedMergedTask,
   listRuntimeExecutionTasks,
   listRuntimeProcessTasks,
+  restoreRuntimeDirectDispatchState,
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import {
   resolveProductionOrderTaskBoundary,
@@ -184,6 +187,12 @@ const sewingPolicy = policy({})
 const sewingIronPackPolicy = policy({ taskUnitType: 'MERGED_PRODUCTION_TASK', mergedTaskType: 'SEWING_IRON_PACK' })
 const cuttingSewingIronPackPolicy = policy({ taskUnitType: 'MERGED_PRODUCTION_TASK', mergedTaskType: 'CUTTING_SEWING_IRON_PACK' })
 const printingPolicy = policy({ processCode: 'PRINT', processBusinessCode: 'PRINT', processNameZh: '印花', assignmentGranularity: 'ORDER' })
+const nonSewingWithLegacySkuGranularityPolicy = policy({ processCode: 'CUT', processBusinessCode: 'CUTTING', processNameZh: '裁剪', assignmentGranularity: 'SKU' })
+assert.equal(sewingPolicy.assignmentGranularity, 'SKU')
+assert.equal(sewingIronPackPolicy.assignmentGranularity, 'SKU')
+assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'SKU')
+assert.equal(printingPolicy.assignmentGranularity, 'ORDER')
+assert.equal(nonSewingWithLegacySkuGranularityPolicy.assignmentGranularity, 'ORDER')
 assert.equal(sewingPolicy.contractRequired, true)
 assert.deepEqual(sewingPolicy.milestones.map((item) => item.naturalDay), [4, 8, 9])
 assert.equal(sewingIronPackPolicy.contractRequired, true)
@@ -193,6 +202,23 @@ assert.deepEqual(cuttingSewingIronPackPolicy.milestones.map((item) => item.natur
 assert.equal(printingPolicy.contractRequired, false)
 assert.deepEqual(printingPolicy.milestones, [])
 assert.equal(calculateNaturalDayDeadline('2026-08-05 23:59:59', 4), '2026-08-08')
+
+const cuttingMergedTask = demoVisibleTasks[0]
+assert(cuttingMergedTask.scopeSkuLines.length > 1, '裁剪+车缝+烫包演示任务必须包含多个SKU')
+const runtimeStateBeforeSkuAllocation = captureRuntimeDirectDispatchState()
+try {
+  const firstSkuLine = cuttingMergedTask.scopeSkuLines[0]
+  const allocatedCuttingMergedTask = allocateRuntimeSkuTaskScope({
+    taskId: cuttingMergedTask.taskId,
+    lines: [{ skuCode: firstSkuLine.skuCode, qty: firstSkuLine.qty }],
+    by: '专项检查',
+    operatedAt: '2026-08-21 09:00:00',
+  })
+  assert.equal(allocatedCuttingMergedTask.scopeSkuLines.length, 1, '裁剪+车缝+烫包必须允许按完整SKU分配')
+  assert.equal(allocatedCuttingMergedTask.scopeSkuLines[0]?.skuCode, firstSkuLine.skuCode)
+} finally {
+  restoreRuntimeDirectDispatchState(runtimeStateBeforeSkuAllocation)
+}
 
 // 5. 价格与分配事实冻结；改派时旧分配保留并失效。
 resetEffectiveTaskAssignmentsForTests()

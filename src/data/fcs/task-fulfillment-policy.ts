@@ -116,7 +116,7 @@ export function classifyTaskFulfillmentPolicy(task: TaskFulfillmentPolicyInput):
     isIndependentTask: true,
     mergedTaskType: null,
     startsWithSewing: independentSewing,
-    assignmentGranularity: independentSewing ? 'SKU' : (task.assignmentGranularity ?? 'ORDER'),
+    assignmentGranularity: independentSewing ? 'SKU' : 'ORDER',
     fulfillmentRuleCode,
     milestones: fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE'
       ? []

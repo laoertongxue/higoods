@@ -116,6 +116,47 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await dispatchDialog(page).getByRole('button', { name: '取消' }).click()
 })
 
+test('只有三类含车缝任务允许按完整 SKU 分配，其他任务强制整任务派单', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/dispatch/workbench')
+  await expect(page.getByRole('heading', { name: '任务分配工作台' })).toBeVisible()
+
+  await searchTask(page, 'TASKGEN-202603-0004-001')
+  await openTaskAction(page, 'TASKGEN-202603-0004-001', 'open-direct')
+  let dialog = dispatchDialog(page)
+  await expect(dialog).toContainText('非车缝独立生产任务')
+  await expect(dialog.locator('[data-unified-whole-task-direct-scope]')).toContainText('本次派单为整个任务')
+  await expect(dialog.locator('[data-unified-whole-task-direct-scope]')).toContainText('该任务不按 SKU 拆分')
+  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
+  await expect(dialog).toContainText('本次整任务分配 4 个SKU，共 3,500件；不允许拆分')
+  await dialog.locator('[data-unified-field="factoryId"]').selectOption({ index: 1 })
+  await dialog.getByRole('button', { name: '下一步：二次确认价格' }).click()
+  dialog = dispatchDialog(page)
+  await expect(dialog).toContainText('数量：3,500件')
+  await dialog.getByRole('button', { name: '确认提交并冻结价格' }).click()
+  await expect(page.locator('[data-unified-action="close-dispatch"]')).toHaveCount(0)
+  const wholeTaskAssignment = await page.evaluate(async () => {
+    const runtimeModule = await import('/src/data/fcs/runtime-process-tasks.ts')
+    const assignmentModule = await import('/src/data/fcs/effective-task-assignments.ts')
+    const task = runtimeModule.listRuntimeProcessTasks().find((item) => item.taskNo === 'TASKGEN-202603-0004-001')
+    if (!task) throw new Error('未找到非车缝任务运行时事实')
+    const assignment = assignmentModule.listCurrentEffectiveTaskAssignments(task.taskId)[0]
+    return assignment ? { assignedQty: assignment.assignedQty, skuCount: assignment.skuLines.length } : null
+  })
+  expect(wholeTaskAssignment).toEqual({ assignedQty: 3500, skuCount: 4 })
+
+  await searchTask(page, 'MERGED-CUT-SEW-IRON-PACK-DEMO-001')
+  await openTaskAction(page, 'MERGED-CUT-SEW-IRON-PACK-DEMO-001', 'open-direct')
+  dialog = dispatchDialog(page)
+  await expect(dialog).toContainText('裁剪+车缝+烫包')
+  const skuInputs = dialog.locator('[data-unified-sku]')
+  await expect(skuInputs).toHaveCount(4)
+  for (let index = 1; index < 4; index += 1) await skuInputs.nth(index).uncheck()
+  dialog = dispatchDialog(page)
+  await expect(dialog).toContainText('已选 1 个SKU')
+  await dialog.getByRole('button', { name: '取消' }).click()
+})
+
 test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改派范围不可手工改数量', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.clock.setFixedTime(new Date(2026, 7, 6, 10, 0, 0))

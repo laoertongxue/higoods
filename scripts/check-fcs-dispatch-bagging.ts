@@ -73,7 +73,9 @@ for (const literal of ['当前菲票装袋情况', '按装袋关系推荐（整�
 }
 assert.ok(!page.includes('当前有 2 个菲票袋'), '旧固定袋数 Mock 文案必须清理')
 assert.ok(!page.includes('appendCuttingRuntimeEvent('), '任务分配不得生成裁床拆袋或袋事件')
-assert.ok(page.includes("policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE'"), '只有车缝及车缝为首工序的任务可进入菲票分配模式')
+assert.ok(page.includes("policy.startsWithSewing && dialog.distributionMode === 'BAG_AWARE'"), '只有车缝及车缝为首工序的任务可进入菲票装袋推荐模式')
 assert.ok(page.includes("policy.startsWithSewing ? `${baggingDecisionSummary"), '非车缝任务派单备注不得写入菲票决策')
+assert.ok(page.includes('renderWholeTaskDirectDispatchScope(task)'), '非SKU分配任务必须展示整任务直接派单范围')
+assert.ok(page.includes('该任务不按 SKU 拆分'), '整任务直接派单必须明确禁止按SKU拆分')
 
 console.log('FCS 任务分配菲票装袋推荐检查通过：连通推荐、自由影响、异常排除、已交出、无记录、完整SKU和页面契约全部通过。')

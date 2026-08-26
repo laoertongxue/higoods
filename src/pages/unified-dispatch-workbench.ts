@@ -5,7 +5,7 @@ import { renderStandardListTable, type StandardListColumn } from '../components/
 import type { StandardListColumnPreferences } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import {
-  allocateRuntimeSewingTaskScope,
+  allocateRuntimeSkuTaskScope,
   applyRuntimeDirectDispatchMeta,
   captureRuntimeDirectDispatchState,
   cancelFixedMergedTask,
@@ -755,6 +755,13 @@ function renderPlainSkuSelection(task: RuntimeProcessTask, dialog: DispatchDialo
   return `<section><h3 class="text-sm font-semibold">本次分配SKU（同一SKU不能拆数量）</h3><div class="mt-2 grid gap-2 md:grid-cols-2">${lines.map((line) => `<label class="flex items-start justify-between gap-2 rounded border p-3 text-sm"><span><input type="checkbox" data-unified-sku="${escapeHtml(line.skuCode)}" ${dialog.selectedSkuCodes.has(line.skuCode) ? 'checked' : ''}/> ${escapeHtml(line.skuCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)}</span><b>${line.qty.toLocaleString()}件</b></label>`).join('')}</div></section>`
 }
 
+function renderWholeTaskDirectDispatchScope(task: RuntimeProcessTask): string {
+  const lines = task.scopeSkuLines.length
+    ? task.scopeSkuLines
+    : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]
+  return `<section class="rounded-lg border border-blue-200 bg-blue-50/30 p-4" data-unified-whole-task-direct-scope><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-sm font-semibold text-blue-900">本次派单为整个任务</h3><p class="mt-1 text-xs text-blue-800">该任务不按 SKU 拆分；所选工厂承接当前任务的全部范围。</p></div><b class="text-sm text-blue-900">${lines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件</b></div><details class="mt-3"><summary class="cursor-pointer text-xs font-medium text-blue-800">展开查看任务包含的 SKU 明细</summary><div class="mt-2 grid gap-2 md:grid-cols-2">${lines.map((line) => `<div class="flex items-center justify-between rounded border bg-white p-3 text-sm"><span>${escapeHtml(line.skuCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)}</span><b>${line.qty.toLocaleString()}件</b></div>`).join('')}</div></details></section>`
+}
+
 function renderWholeTaskTenderScope(task: RuntimeProcessTask): string {
   const lines = task.scopeSkuLines.length
     ? task.scopeSkuLines
@@ -856,6 +863,7 @@ function renderDispatchDialog(): string {
   const task = dialog ? getRuntimeTaskById(dialog.taskId) : null
   if (!dialog || !task) return ''
   const policy = classifyTaskFulfillmentPolicy(task)
+  const allowsSkuAssignment = policy.assignmentGranularity === 'SKU'
   const factories = listEligibleFactoriesForTask(task)
   const skuLines = task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]
   const bagging = buildDispatchBaggingSnapshot(task)
@@ -866,7 +874,7 @@ function renderDispatchDialog(): string {
     ? (reassignmentScope?.remainingQty ?? 0)
     : dialog.mode === 'BIDDING'
       ? task.scopeQty
-      : selectedQty
+      : allowsSkuAssignment ? selectedQty : task.scopeQty
   const isSecond = dialog.confirmStage === 2
   return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
@@ -876,8 +884,8 @@ function renderDispatchDialog(): string {
       ${policy.requiresSewingReadinessContext ? `<p class="rounded bg-blue-50 p-2 text-xs text-blue-800">信息不完善只提示风险，不阻断生产分配。</p>${renderSewingPreparationOverview(task, dialog.selectedSkuCodes)}` : ''}
       ${policy.startsWithSewing ? renderBaggingOverview(bagging) : ''}
       ${dialog.baggingNotice ? `<div class="rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">${escapeHtml(dialog.baggingNotice)}</div>` : ''}
-      ${dialog.mode === 'BIDDING' ? renderWholeTaskTenderScope(task) : dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : renderFreeSelection(bagging, dialog)) : renderPlainSkuSelection(task, dialog)}
-      <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : dialog.mode === 'BIDDING' ? `本次竞价 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分` : `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件`}</p>
+      ${dialog.mode === 'BIDDING' ? renderWholeTaskTenderScope(task) : dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : allowsSkuAssignment ? (policy.startsWithSewing && dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : policy.startsWithSewing ? renderFreeSelection(bagging, dialog) : renderPlainSkuSelection(task, dialog)) : renderWholeTaskDirectDispatchScope(task)}
+      <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : dialog.mode === 'BIDDING' ? `本次竞价 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分` : allowsSkuAssignment ? `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件` : `本次整任务分配 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分`}</p>
       ${dialog.mode !== 'BIDDING' ? `<label class="block text-sm">承接工厂<select class="mt-1 h-9 w-full rounded border px-3" data-unified-field="factoryId"><option value="">请选择工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${dialog.factoryId === factory.id ? 'selected' : ''} ${dialog.mode === 'REASSIGN' && factory.id === task.assignedFactoryId ? 'disabled' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">派单价（IDR/件）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="price" value="${escapeHtml(dialog.price)}"/></label>${dialog.mode === 'REASSIGN' ? `<label class="block text-sm">改派原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-unified-field="reassignReason" placeholder="必填，说明本次改派原因">${escapeHtml(dialog.reassignReason)}</textarea></label>` : ''}` : `${renderTenderFactoryPool(task, dialog)}<label class="block text-sm">竞价截止时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderDeadline" value="${escapeHtml(dialog.tenderDeadline)}"/></label>`}
       ${dialog.mode === 'BIDDING' ? renderTenderPriceSettings(task, dialog) : ''}
       <label class="block text-sm">业务分配日期/时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="businessAssignedAt" value="${escapeHtml(dialog.businessAssignedAt)}"/><span class="mt-1 block text-xs text-muted-foreground">回货规则按日期计算，分配日期为第1个自然日；合同只打印日期，不打印具体时间。</span></label>
@@ -1198,12 +1206,15 @@ function commitDirectDispatch(dialog: DispatchDialogState): void {
   const factory = listEligibleFactoriesForTask(sourceTask).find((item) => item.id === dialog.factoryId)
   if (!factory) throw new Error('所选工厂不具备该任务的有效承接能力，请重新选择')
   const sourceLines = sourceTask.scopeSkuLines.length ? sourceTask.scopeSkuLines : [{ skuCode: sourceTask.skuCode || 'SKU-ALL', color: sourceTask.skuColor || '混色', size: sourceTask.skuSize || '混码', qty: sourceTask.scopeQty }]
-  const selectedLines = sourceLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode))
-  if (selectedLines.length === 0) throw new Error('请至少选择一个完整SKU')
   const policy = classifyTaskFulfillmentPolicy(sourceTask)
+  const allowsSkuAssignment = policy.assignmentGranularity === 'SKU'
+  const selectedLines = allowsSkuAssignment
+    ? sourceLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode))
+    : sourceLines
+  if (allowsSkuAssignment && selectedLines.length === 0) throw new Error('请至少选择一个完整SKU')
   let task = sourceTask
-  if (policy.startsWithSewing && selectedLines.length < sourceLines.length) {
-    task = allocateRuntimeSewingTaskScope({ taskId: sourceTask.taskId, lines: selectedLines.map((line) => ({ skuCode: line.skuCode, qty: line.qty })), by: '生产计划员' })
+  if (allowsSkuAssignment && selectedLines.length < sourceLines.length) {
+    task = allocateRuntimeSkuTaskScope({ taskId: sourceTask.taskId, lines: selectedLines.map((line) => ({ skuCode: line.skuCode, qty: line.qty })), by: '生产计划员' })
   }
   const operatedAt = formatOperationLocalWallClock()
   const businessAssignedAt = toWallClock(dialog.businessAssignedAt)
@@ -1533,8 +1544,8 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         state.dispatch.confirmStage = 2
       } else if (state.dispatch.mode !== 'BIDDING' && state.dispatch.confirmStage === 1) {
         if (!state.dispatch.factoryId) throw new Error('请选择承接工厂')
-        if (state.dispatch.mode !== 'REASSIGN' && state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         const task = getRuntimeTaskById(state.dispatch.taskId)
+        if (state.dispatch.mode !== 'REASSIGN' && task && classifyTaskFulfillmentPolicy(task).assignmentGranularity === 'SKU' && state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         if (state.dispatch.mode !== 'REASSIGN' && task && classifyTaskFulfillmentPolicy(task).startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(task), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
         state.dispatch.confirmStage = 2
         if (state.dispatch.mode === 'REASSIGN' && !state.dispatch.reassignReason.trim()) throw new Error('请填写改派原因')

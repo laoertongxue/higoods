@@ -746,9 +746,16 @@ function deriveScopeSkuLinesByDetailRows(scopeSkuLines: RuntimeTaskSkuLine[], de
 function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
   if (runtimeTaskSplitPlans.size === 0) return tasks
 
-  const planBySourceTaskId = new Map(runtimeTaskSplitPlans)
+  const existingTaskIds = new Set(tasks.map((task) => task.taskId))
+  const applicablePlans = Array.from(runtimeTaskSplitPlans.entries()).filter(([, plan]) =>
+    existingTaskIds.has(plan.sourceTaskId)
+    && !plan.results.some((result) => existingTaskIds.has(result.taskId)),
+  )
+  if (applicablePlans.length === 0) return tasks
+
+  const planBySourceTaskId = new Map(applicablePlans)
   const splitResultTaskIdsBySource = new Map<string, string[]>()
-  for (const plan of runtimeTaskSplitPlans.values()) {
+  for (const [, plan] of applicablePlans) {
     splitResultTaskIdsBySource.set(plan.sourceTaskId, plan.results.map((result) => result.taskId))
   }
 
@@ -1322,7 +1329,8 @@ function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
   ))
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
   const mergedTasks = applyRuntimeMergedTaskPlans(applyFixedMergedTaskDemo(applyRuntimeOverrides(withSplit)))
-  const withOverrides = applyRuntimeOverrides(mergedTasks)
+  const withMergedTaskSplits = applyRuntimeSplitPlans(mergedTasks)
+  const withOverrides = applyRuntimeOverrides(withMergedTaskSplits)
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
     const current = grouped.get(task.productionOrderId) ?? []
@@ -2137,7 +2145,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
   }
 }
 
-export interface RuntimeSewingScopeAllocationInput {
+export interface RuntimeSkuScopeAllocationInput {
   taskId: string
   lines: Array<{ skuCode: string; qty: number }>
   by: string
@@ -2149,14 +2157,14 @@ export interface RuntimeSewingScopeAllocationInput {
  * 同一个 SKU 不允许再按数量拆分；分区继续使用既有 split plan，
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
-export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocationInput): RuntimeProcessTask {
+export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInput): RuntimeProcessTask {
   assertOrdinaryAssignmentTaskId(input.taskId, '按 SKU 分配')
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
   assertOrdinaryAssignmentBoundary(task, '按 SKU 分配')
   const policy = classifyTaskFulfillmentPolicy(task)
-  if (!isRuntimeTaskExecutionTask(task) || !policy.startsWithSewing) {
-    throw new Error(`任务 ${input.taskId} 不是可按SKU分配的车缝或固定合并任务`)
+  if (!isRuntimeTaskExecutionTask(task) || policy.assignmentGranularity !== 'SKU') {
+    throw new Error(`任务 ${input.taskId} 不属于车缝、车缝+烫包或裁剪+车缝+烫包，不能按SKU分配`)
   }
   if (task.assignmentStatus !== 'UNASSIGNED') throw new Error(`任务 ${input.taskId} 已进入分配流程，不可重复分区`)
   if (!input.by.trim()) throw new Error('分区操作人不能为空')
@@ -2259,7 +2267,7 @@ export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocati
       ? existingResults.reduce((sum, result) => sum + result.scopeQty, 0)
       : task.scopeQty
     const rebuiltTotal = rebuiltResults.reduce((sum, result) => sum + result.scopeQty, 0)
-    if (originalTotal !== rebuiltTotal) throw new Error('车缝数量分区前后总范围不守恒')
+    if (originalTotal !== rebuiltTotal) throw new Error('SKU分区前后总范围不守恒')
 
     const eventAt = input.operatedAt ?? nowTimestamp()
     ownerPlan = {
@@ -2284,7 +2292,7 @@ export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocati
       auditLogs: appendRuntimeAudit(rootTask, 'QUANTITY_SPLIT', `按完整 SKU 分区，本次 ${selectedQty} 件，剩余 ${task.scopeQty - selectedQty} 件`, input.by),
     })
     const allocated = getRuntimeTaskById(selectedTaskId)
-    if (!allocated || allocated.scopeQty !== selectedQty) throw new Error('车缝数量分区结果生成失败')
+    if (!allocated || allocated.scopeQty !== selectedQty) throw new Error('SKU分区结果生成失败')
     recomputeRuntimeTransitionsForOrder(task.productionOrderId)
     return getRuntimeTaskById(selectedTaskId) ?? allocated
   } catch (error) {
