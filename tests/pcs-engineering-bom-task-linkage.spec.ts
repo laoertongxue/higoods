@@ -38,8 +38,6 @@ function row(
     materialType: '面料',
     printRequirement: '否',
     dyeRequirement: '否',
-    shrinkRequirement: '否',
-    washRequirement: '否',
     waterSolubleRequirement: '否',
     ...requirements,
   }
@@ -50,13 +48,13 @@ const first = applyBomRequirementsToEngineeringTasks(master.masterOrderId, [
   row('BOM-PRINT-RED', { printRequirement: '是', printProcess: '数码印花', productColor: '红色' }),
   row('BOM-PRINT-BLUE', { printRequirement: '是', printProcess: '数码印花', productColor: '蓝色' }),
   row('BOM-DYE', { dyeRequirement: '是', productColor: '米白色' }),
-  row('BOM-ONLY', { shrinkRequirement: '是', washRequirement: '是', waterSolubleRequirement: '是' }),
+  row('BOM-ONLY', { waterSolubleRequirement: '是' }),
 ])
 
 assert.equal(first.createdTaskCount, 0, 'BOM 联动只启用发布时已有骨架，不得新建任务')
 assert.equal(first.tasks.filter((task) => task.taskType === 'PATTERN_ARTWORK').length, 1)
 assert.equal(first.tasks.filter((task) => task.taskType === 'COLOR_FABRIC').length, 1)
-assert.deepEqual(first.techPackOnlyProcesses.sort(), ['水溶', '洗水', '缩水'], '三类要求只进入技术包工艺')
+assert.deepEqual(first.techPackOnlyProcesses, ['水溶'], '水溶要求只进入技术包工艺')
 const pattern = first.masterOrder.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
 const color = first.masterOrder.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
 assert.ok(pattern && color)
@@ -65,7 +63,7 @@ assert.equal(color.status, '待开始')
 assert.deepEqual(pattern.materialLines.map((line) => line.bomItemId), ['BOM-PRINT-RED', 'BOM-PRINT-BLUE'])
 assert.deepEqual(color.materialLines.map((line) => line.bomItemId), ['BOM-DYE'])
 assert.equal(pattern.materialLines[0]?.materialLineId === pattern.materialLines[1]?.materialLineId, false, '同类物料必须逐行关联')
-assert.equal(first.masterOrder.tasks.some((task) => task.taskName.includes('缩水') || task.taskName.includes('洗水') || task.taskName.includes('水溶')), false)
+assert.equal(first.masterOrder.tasks.some((task) => task.taskName.includes('水溶')), false)
 
 const idempotent = applyBomRequirementsToEngineeringTasks(master.masterOrderId, [
   row('BOM-PRINT-RED', { printRequirement: '是', printProcess: '数码印花', productColor: '红色' }),

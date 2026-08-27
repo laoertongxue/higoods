@@ -102,7 +102,7 @@ const materialReadiness = getMaterialPrepDispatchReadinessForTask(sewingTask)
 assert.equal(materialReadiness.hasMaterialPrepScope, true)
 assert.equal(materialReadiness.ready, true)
 assert.equal(materialReadiness.blockingLineCount, 0)
-assert.deepEqual(materialReadiness.lines.map((line) => line.materialName), ['前中拉链', '主唛', '洗水唛', '缝纫线'])
+assert.deepEqual(materialReadiness.lines.map((line) => line.materialName), ['前中拉链', '主唛', '洗护唛', '缝纫线'])
 assert.deepEqual(
   materialReadiness.lines.map((line) => [
     line.requiredQty,

@@ -27,7 +27,7 @@
 - 即使取消的是任务最后一条有效物料要求，也只结束对应物料行，工程任务保留同步前状态及全部成果、审核历史。
 - 技术包版本同时记录工程主单来源和来源任务时，两者必须归属同一张工程主单；来源冲突明确阻断。
 - 技术包内容与工程任务联动通过同一保存入口执行；技术版本仓和工程主单仓各自在事务内部捕获并恢复快照，页面只恢复其余关联仓，任一步失败仍保持六类事实源一致。
-- 缩水、洗水、水溶只保留在技术包工艺中，不生成工程任务，也不进入生产准备时效。
+- 水溶只保留在技术包工艺中，不生成工程任务，也不进入生产准备时效。
 - 固定依赖只从已确认的任务策略读取；启用任务时自动补齐其固定前置，不提供人工调整依赖入口。
 - 本切片不涉及老任务、任务迁移、人工取消及异常处理。
 
@@ -70,7 +70,7 @@
 结论：通过。
 
 - BOM 工艺要求与工程主单既有骨架之间形成物料行级、幂等、可追溯联动。
-- 现有技术包印花、染色、水溶、缩水和洗水工艺路线保持不变。
+- 现有技术包印花、染色和水溶工艺路线保持不变。
 - 无产品设计规范例外。
 
 ## 7. 变更覆盖与验证
@@ -86,7 +86,6 @@
 - `tests/pcs-engineering-bom-task-linkage-page.spec.ts`
 - `scripts/check-tech-pack-process-route.ts`
 - `scripts/check-water-soluble-process.ts`
-- `scripts/check-bom-shrink-wash-process-linkage.ts`
 
 ### 验证命令
 
@@ -98,7 +97,6 @@
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过。
 - `npm run check:tech-pack-process-route`：通过。
 - `npm run check:water-soluble-process`：通过。
-- `npx tsx scripts/check-bom-shrink-wash-process-linkage.ts`：失败（既有基线），报错“mock 数据必须至少有一个技术包同时触发缩水和洗水”；本次未修改 `src/data/fcs/tech-packs.ts`，检查脚本只同步函数命名且未删除、放宽任何断言。
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `npm run check:list-page-governance`：通过。
 - `npm run check:menu-routes`：通过。
@@ -106,4 +104,4 @@
 
 ### 例外
 
-- 缩水 / 洗水联动检查存在与本次 Task 8 无关的既有 Mock 数据基线失败。本次按任务边界保留原断言和原数据，不用修改 Mock 的方式绕过。
+- 无。

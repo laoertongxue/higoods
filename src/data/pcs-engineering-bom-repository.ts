@@ -980,8 +980,6 @@ export function buildEngineeringBomTaskRows(
     printProcess: line.printRequirementText,
     dyeRequirement: line.dyeRequirement,
     purchaseRequirement: line.purchaseRequirement,
-    shrinkRequirement: line.shrinkRequirementText && line.shrinkRequirementText !== '无' ? '是' : '否',
-    washRequirement: line.washRequirementText && line.washRequirementText !== '无' ? '是' : '否',
     waterSolubleRequirement: line.waterSolubleRequirementText && line.waterSolubleRequirementText !== '无' ? '是' : '否',
   })))
 }

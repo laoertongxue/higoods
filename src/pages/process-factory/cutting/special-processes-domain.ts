@@ -13,7 +13,6 @@ import type {
   SpecialProcessScopeLine,
   SpecialProcessStatusKey,
   SpecialProcessType,
-  SpecialProcessTypeExecutionMeta,
 } from './special-processes-model.ts'
 
 function nowText(date = new Date()): string {
@@ -79,42 +78,12 @@ export interface SpecialProcessOutputLabels {
 }
 
 export function getSpecialProcessOutputLabels(processType: SpecialProcessType): SpecialProcessOutputLabels {
-  if (processType === 'BINDING_STRIP') {
-    return {
-      planned: '计划捆条产出',
-      actual: '实际捆条产出',
-      plannedQty: '计划捆条产出数量',
-      cumulativeActual: '累计实际捆条产出',
-      actualColumn: '实际捆条产出',
-    }
-  }
   return {
-    planned: '计划产出',
-    actual: '实际产出',
-    plannedQty: '计划产出数量',
-    cumulativeActual: '累计实际产出',
-    actualColumn: '实际产出',
-  }
-}
-
-export function deriveSpecialProcessTypeExecutionMeta(processType: SpecialProcessType): SpecialProcessTypeExecutionMeta {
-  if (processType === 'BINDING_STRIP') {
-    return {
-      enabledForExecution: true,
-      readinessLevel: 'READY',
-      integrationLevel: 'EXECUTION',
-      readinessLabel: '已接入执行',
-      integrationLabel: '执行链已接通',
-      disabledReason: '',
-    }
-  }
-  return {
-    enabledForExecution: false,
-    readinessLevel: 'RESERVED',
-    integrationLevel: 'PLACEHOLDER',
-    readinessLabel: '预留类型',
-    integrationLabel: '暂未接入执行链',
-    disabledReason: '洗水工艺当前仅保留结构预留，暂不进入裁片执行链。',
+    planned: '计划捆条产出',
+    actual: '实际捆条产出',
+    plannedQty: '计划捆条产出数量',
+    cumulativeActual: '累计实际捆条产出',
+    actualColumn: '实际捆条产出',
   }
 }
 
@@ -216,10 +185,7 @@ export function hydrateScopeLineFromSource(
 export function buildDefaultSpecialProcessFollowupActions(options: {
   order: SpecialProcessOrder
   navigationPayload: SpecialProcessNavigationPayload
-  typeMeta: SpecialProcessTypeExecutionMeta
 }): SpecialProcessFollowupAction[] {
-  if (!options.typeMeta.enabledForExecution) return []
-
   const targetConfig: Array<{
     actionType: SpecialProcessFollowupActionType
     targetPageKey: SpecialProcessFollowupAction['targetPageKey']
@@ -281,7 +247,6 @@ export function deriveSpecialProcessExecutionSnapshot(options: {
   scopeLines: SpecialProcessScopeLine[]
   executionLogs: SpecialProcessExecutionLog[]
   followupActions: SpecialProcessFollowupAction[]
-  typeMeta: SpecialProcessTypeExecutionMeta
 }): SpecialProcessExecutionSnapshot {
   const plannedQtyTotal = options.scopeLines.reduce((sum, item) => sum + Math.max(item.plannedQty, 0), 0)
   const sortedLogs = [...options.executionLogs].sort((left, right) => right.operatedAt.localeCompare(left.operatedAt, 'zh-CN'))
@@ -295,16 +260,11 @@ export function deriveSpecialProcessExecutionSnapshot(options: {
   const activeLogs = options.executionLogs.filter((item) => item.actionType !== 'CREATE')
   const completedActionCount = options.followupActions.filter((item) => item.status === 'DONE').length
   const pendingActionCount = options.followupActions.filter((item) => item.status === 'PENDING').length
-  const executionProgressText = options.typeMeta.enabledForExecution
-    ? `${actualQtyTotal}/${Math.max(options.payload?.expectedQty || plannedQtyTotal, 0)}`
-    : options.typeMeta.integrationLabel
+  const executionProgressText = `${actualQtyTotal}/${Math.max(options.payload?.expectedQty || plannedQtyTotal, 0)}`
 
   let downstreamBlocked = false
   let downstreamBlockReason = ''
-  if (!options.typeMeta.enabledForExecution) {
-    downstreamBlocked = true
-    downstreamBlockReason = '预留类型未接入'
-  } else if (!['DONE', 'CANCELLED'].includes(options.order.status)) {
+  if (!['DONE', 'CANCELLED'].includes(options.order.status)) {
     downstreamBlocked = true
     downstreamBlockReason = '工艺执行未完成'
   } else if (pendingActionCount > 0) {
@@ -327,9 +287,7 @@ export function deriveSpecialProcessExecutionSnapshot(options: {
     executionProgressText,
     followupProgressText: options.followupActions.length
       ? `${completedActionCount}/${options.followupActions.length} 已处理`
-      : options.typeMeta.enabledForExecution
-        ? '无后续动作'
-        : '预留类型未接入',
+      : '无后续动作',
     downstreamBlocked,
     downstreamBlockReason,
   }
@@ -345,12 +303,8 @@ export function validateSpecialProcessExecutionTransition(options: {
   payload: BindingStripProcessPayload | null
   scopeLines: SpecialProcessScopeLine[]
   executionLogs: SpecialProcessExecutionLog[]
-  typeMeta: SpecialProcessTypeExecutionMeta
   remark?: string
 }): SpecialProcessStatusValidationResult {
-  if (!options.typeMeta.enabledForExecution) {
-    return { ok: false, message: options.typeMeta.disabledReason || '当前工艺类型未接入执行链。' }
-  }
   if (!options.scopeLines.length) return { ok: false, message: '请先补齐作用范围。' }
   if (!options.payload) return { ok: false, message: '请先补齐工艺参数。' }
 

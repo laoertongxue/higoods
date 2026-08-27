@@ -135,9 +135,9 @@ function resolveSuggestedFactory(operation: SpecialCraftOperationDefinition, tar
       }
     }
   }
-  const preferred = targetObject === '完整面料' || targetObject === '面料'
-    ? matched.find((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
-    : matched.find((factory) => factory.factoryType === 'CENTRAL_SPECIAL' || factory.factoryType === 'SATELLITE_FINISHING')
+  const preferred = matched.find(
+    (factory) => factory.factoryType === 'CENTRAL_SPECIAL' || factory.factoryType === 'SATELLITE_FINISHING',
+  )
   const resolved = preferred || matched[0]
   if (!resolved) return {}
   return {

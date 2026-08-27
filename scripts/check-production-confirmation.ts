@@ -131,7 +131,6 @@ assert(previewHtml.includes('适用颜色'), '预览页必须展示适用颜色'
 assert(previewHtml.includes('每种颜色的片数'), '预览页必须展示每种颜色的片数')
 assert(previewHtml.includes('特殊工艺'), '预览页必须展示特殊工艺')
 assert(previewHtml.includes('暂无图片') || previewHtml.includes('<img '), '预览页必须处理图片展示或缺图兜底')
-assert(!previewHtml.includes('WASHING'), '预览页不得显示 WASHING')
 assert(!previewHtml.includes('POST_FINISHING'), '预览页不得显示 POST_FINISHING')
 assert(!previewHtml.includes('BUTTONHOLE'), '预览页不得显示 BUTTONHOLE')
 assert(!previewHtml.includes('BUTTON_ATTACH'), '预览页不得显示 BUTTON_ATTACH')
@@ -157,16 +156,6 @@ assert(specialCraftPreviewHtml.includes(specialCraftTask.productionOrderNo), '�
 const blockedHtml = renderProductionConfirmationPrintPage(nonPrintableOrder.productionOrderId)
 assert(blockedHtml.includes(nonPrintableState.reason || '未完成工厂分配'), '不可打印页面必须显示短中文原因')
 
-assert.equal(
-  formatConfirmationTaskDisplayName({
-    processCode: 'WASHING',
-    processName: '洗水',
-    craftName: '洗水',
-    isSpecialCraft: false,
-  }),
-  '洗水',
-  '洗水必须按准备阶段工序显示为“洗水”',
-)
 assert.equal(
   formatConfirmationTaskDisplayName({
     processCode: 'POST_FINISHING',

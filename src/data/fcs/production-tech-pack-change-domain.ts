@@ -856,12 +856,12 @@ const productionOrderChangeScenarioTitles = [
   '辅料短缺，纽扣替代，未车缝范围生效。',
   '辅料短缺，拉链替代，已车缝部分不追回。',
   '面料色差，指定缸号停用，未裁批次改领新缸号。',
-  '面料缩水异常，纸样不改，用料单增加损耗补丁。',
+  '面料纬斜异常，纸样不改，用料单增加损耗补丁。',
   '供应商临时调价，只影响成本核算，不改生产。',
   '面料克重不符，买手确认接受，记录影响并保留原单据。',
   '面料克重不符，买手不接受，未加工批次换料。',
   '面料门幅变化，排版耗用变化，配料单补料。',
-  '工艺路线新增洗水，未进入后道范围追加工序。',
+  '工艺路线新增压线，未进入车缝范围追加工序。',
   '工艺路线取消压烫，未压烫范围取消工序并扣减工费。',
   '工艺参数改线迹密度，车缝未开工范围按新工艺。',
   '工艺参数改针距，已车缝部分不返工，未车缝部分改做。',
@@ -874,7 +874,7 @@ const productionOrderChangeScenarioTitles = [
   '染色配方调整，染色未开工，染色单改做。',
   '染色配方调整，部分已染，未染批次改做。',
   '染色返修要求，已染批次追加返修费用。',
-  '洗水方式变更，后道未开始范围追加工序。',
+  '整烫方式变更，后道未开始范围追加工序。',
   '纸样调整，生产单未裁剪，裁剪单重算。',
   '纸样调整，已裁部分保留，未裁部分重排版。',
   '放码规则调整，指定尺码改纸样。',
@@ -976,7 +976,7 @@ function getScenarioDocuments(title: string, result: ProductionOrderChangeResult
   if (/裁|铺布|纸样|排版|唛架|尺码|菲票|扎号/.test(title)) documents.push('CUTTING', 'BUNDLE_TICKET')
   if (/印花|花型|制版|图/.test(title)) documents.push('PRINTING')
   if (/染色|缸号|色差/.test(title)) documents.push('DYEING')
-  if (/车缝|针距|线迹|返工|后道|压烫|洗水/.test(title)) documents.push('SEWING')
+  if (/车缝|针距|线迹|返工|后道|压烫/.test(title)) documents.push('SEWING')
   if (/核价|成本|费用|结算|扣款|工价|版费/.test(title)) documents.push('SETTLEMENT')
   if (result === 'VERSION_RELATION' || result === 'VERSION_AND_PATCH') documents.push('MATERIAL_PREPARATION', 'CUTTING')
   if (result === 'COST_ONLY') documents.push('SETTLEMENT')
@@ -986,7 +986,7 @@ function getScenarioDocuments(title: string, result: ProductionOrderChangeResult
 function getScenarioCostImpact(title: string, source: ProductionOrderChangeSource): ProductionOrderChangeCostType[] {
   const impacts: ProductionOrderChangeCostType[] = []
   if (/面料|物料|里布|辅料|纽扣|拉链|用料|补料|裁片/.test(title)) impacts.push('MATERIAL')
-  if (/工艺|车缝|印花|染色|洗水|返工|压烫|针距|线迹/.test(title)) impacts.push('LABOR')
+  if (/工艺|车缝|印花|染色|返工|压烫|针距|线迹/.test(title)) impacts.push('LABOR')
   if (/费用|成本|核价|结算|扣款|工价|版费|空运|物流|调价/.test(title)) impacts.push('FEE')
   if (impacts.length > 0) return uniqueList(impacts)
   if (source === 'MATERIAL_SHORTAGE') return ['MATERIAL']
@@ -1002,7 +1002,7 @@ function getScenarioTimingNodes(title: string): ProductionOrderChangeTimingNode[
   if (/印花|花型|制版/.test(title)) nodes.push('PRINTING')
   if (/染色|缸号|色差/.test(title)) nodes.push('DYEING')
   if (/车缝|针距|线迹/.test(title)) nodes.push('SEWING')
-  if (/洗水|后道|压烫|返工|质检/.test(title)) nodes.push('POST_FINISHING')
+  if (/后道|压烫|返工|质检/.test(title)) nodes.push('POST_FINISHING')
   if (/交期|发货|空运|物流|订单|补单/.test(title)) nodes.push('SHIPPING')
   return uniqueList(nodes.length > 0 ? nodes : ['MATERIAL_PREPARATION'])
 }
@@ -1019,7 +1019,7 @@ function getScenarioModules(title: string): TechPackChangeModule[] {
   if (/纸样|裁|铺布|排版|补裁/.test(title)) modules.push('PATTERN')
   if (/尺码|放码|尺码唛|菲票|扎号/.test(title)) modules.push('SIZE')
   if (/颜色|款色|缸号/.test(title)) modules.push('COLOR_MATERIAL_MAPPING')
-  if (/工艺|车缝|印花|染色|洗水|压烫|针距|线迹|后道|返工/.test(title)) modules.push('PROCESS')
+  if (/工艺|车缝|印花|染色|压烫|针距|线迹|后道|返工/.test(title)) modules.push('PROCESS')
   if (/花型|图|版权|清晰度/.test(title)) modules.push('DESIGN')
   if (/核价|成本|费用|结算|扣款|工价|版费|调价|物流/.test(title)) modules.push('COST')
   return uniqueList(modules.length > 0 ? modules : ['PROCESS'])

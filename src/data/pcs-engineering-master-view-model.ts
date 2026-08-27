@@ -192,8 +192,6 @@ function ensureEngineeringDemoBomVersions(
       printRequirement: '否' as const,
       dyeRequirement: '否' as const,
       purchaseRequirement: '否' as const,
-      shrinkRequirementText: '无',
-      washRequirementText: '无',
       waterSolubleRequirementText: '无',
       printSide: '无' as const,
       linkedPatternResultIds: [],

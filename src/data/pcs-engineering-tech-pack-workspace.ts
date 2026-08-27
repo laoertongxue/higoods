@@ -155,8 +155,6 @@ function collectEngineeringOutputs(
       supplier: '',
       printRequirement: resolved.printRequirementText || resolved.printRequirement || '否',
       dyeRequirement: resolved.dyeRequirementText || resolved.dyeRequirement || '否',
-      shrinkRequirement: resolved.shrinkRequirementText && resolved.shrinkRequirementText !== '无' ? '是' as const : '否' as const,
-      washRequirement: resolved.washRequirementText && resolved.washRequirementText !== '无' ? '是' as const : '否' as const,
       waterSolubleRequirement: resolved.waterSolubleRequirementText && resolved.waterSolubleRequirementText !== '无' ? '是' as const : '否' as const,
       printSideMode: resolved.printSide === '双面' ? 'DOUBLE' as const : resolved.printSide === '反面' ? 'REVERSE' as const : resolved.printSide === '正面' ? 'SINGLE' as const : '' as const,
       applicableSkuCodes: [...version.applicableSkuIds],

@@ -1093,8 +1093,6 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         supplier: '深圳面料仓',
         printRequirement: '印花',
         dyeRequirement: '无',
-        shrinkRequirement: '否',
-        washRequirement: '否',
         printSideMode: 'SINGLE',
         frontPatternDesignId: frontDesignId,
         frontPatternDesignIds: [frontDesignId],

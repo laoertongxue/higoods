@@ -32,7 +32,6 @@ function assertIncludes(source: string, expected: string, message: string): void
 
 for (const scriptPath of [
   'scripts/check-process-craft-dictionary-rebuild.ts',
-  'scripts/check-bom-shrink-wash-process-linkage.ts',
   'scripts/check-pattern-two-step-maintenance.ts',
   'scripts/check-pattern-binding-duplicate.ts',
   'scripts/check-pattern-piece-color-quantity.ts',
@@ -101,8 +100,6 @@ for (const expected of [
   'forbiddenPieceInstanceCraftNames',
   '捆条',
   '橡筋定长切割',
-  '缩水',
-  '洗水',
 ]) {
   assertIncludes(contextSource, expected, '纸样运行上下文必须支持裁片实例生成和可选工艺过滤')
 }
@@ -162,7 +159,7 @@ for (const expected of [
   assert(craftNames.includes(expected), `逐片特殊工艺选择器必须包含 ${expected}`)
 }
 
-for (const forbidden of ['捆条', '橡筋定长切割', '缩水', '洗水']) {
+for (const forbidden of ['捆条', '橡筋定长切割']) {
   assert(!craftNames.includes(forbidden), `逐片特殊工艺选择器不得包含 ${forbidden}`)
 }
 

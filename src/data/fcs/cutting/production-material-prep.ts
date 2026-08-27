@@ -596,7 +596,7 @@ const standardMaterialTemplates: Record<MaterialPrepMaterialType, Array<{
   辅料: [
     { code: 'accessory-zipper', name: '拉链', imageUrl: '/materials/accessory-zipper.jpg', color: '同色', spec: 'YKK 18cm / 条', unit: '条', qtyRatio: 1, sourceType: '采购', progressStatus: '采购中', progressDetail: '拉链采购单已下，未全部入中转仓。' },
     { code: 'accessory-button', name: '纽扣', imageUrl: '/materials/accessory-button.jpg', color: '同色', spec: '18L / 粒', unit: '粒', qtyRatio: 4, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '纽扣已有库存，按生产单数量配料。' },
-    { code: 'accessory-label', name: '主唛/洗水唛', imageUrl: '/materials/accessory-label.jpg', color: '白底黑字', spec: '套标 / 套', unit: '套', qtyRatio: 1, sourceType: '采购', progressStatus: '待到仓', progressDetail: '主唛和洗水唛待供应商送仓。' },
+    { code: 'accessory-label', name: '主唛/洗护唛', imageUrl: '/materials/accessory-label.jpg', color: '白底黑字', spec: '套标 / 套', unit: '套', qtyRatio: 1, sourceType: '采购', progressStatus: '待到仓', progressDetail: '主唛和洗护唛待供应商送仓。' },
   ],
   纱线: [
     { code: 'yarn-stitching', name: '缝纫线', imageUrl: '/materials/yarn-stitching.jpg', color: '同色', spec: '40S/2 / 公斤', unit: '公斤', qtyRatio: 0.012, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '缝纫线按颜色配套，库存可先配。' },
@@ -1354,11 +1354,11 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         cutOrderId: 'cut-order:po-202603-0002:tdv-demand-spu-2024-005:bom-accessory-care-label:v2-1',
         cutOrderNo: 'CUT-260303-002-01',
         materialSku: 'tdv_demand_SPU_2024_005-bom-accessory-care-label',
-        materialName: '洗水唛',
+        materialName: '洗护唛',
         materialType: '辅料',
         materialImageUrl: '/materials/accessory-label.jpg',
         color: '白底黑字',
-        spec: '连帽衫洗水唛 / 套',
+        spec: '连帽衫洗护唛 / 套',
         unit: '套',
         requiredQty: 2500,
         availableStockQty: 2600,
@@ -1368,7 +1368,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         upstreamSourceType: '辅料仓库存',
         upstreamProgressStatus: '已到仓可配',
         expectedAvailableAt: '2026-03-16 09:30',
-        upstreamProgressDetail: '洗水唛已到辅料仓，库存满足本生产单车缝配料。',
+        upstreamProgressDetail: '洗护唛已到辅料仓，库存满足本生产单车缝配料。',
       },
       {
         prepLineId: 'prep-line-po-0002-yarn-stitching',
@@ -2018,7 +2018,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
         warehouseArea: '辅料仓 B 区',
         locationCode: 'ACC-B-013',
         sourceStockEventId: 'ledger:po-202603-0004:label:prep:draft:004',
-        remark: '主唛/洗水唛采购到仓后先登记小批量配料。',
+        remark: '主唛/洗护唛采购到仓后先登记小批量配料。',
       },
       {
         prepRecordItemId: 'prep-item-po-0004-package-draft-004-bag',
@@ -2360,7 +2360,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
         warehouseArea: '辅料仓 B 区',
         locationCode: 'ACC-B-003',
         sourceStockEventId: 'ledger:cut-order:po-202603-0007:label:prep:001',
-        remark: '主唛/洗水唛从辅料仓配出，随整条配料记录确认。',
+        remark: '主唛/洗护唛从辅料仓配出，随整条配料记录确认。',
       },
       {
         prepRecordItemId: 'prep-item-po-0007-yarn-001',

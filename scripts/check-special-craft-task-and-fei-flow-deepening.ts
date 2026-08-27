@@ -203,7 +203,6 @@ assertContains(workOrderDetailPageSource, '/tasks/', '加工单详情页重定�
   'inboundDifferenceCount',
   'outboundDifferenceCount',
 ].forEach((item) => assertContains(progressSource, item, `特殊工艺进度联动缺少深化字段：${item}`))
-assertNotContains(progressSource, '水洗批次', '洗水联动不得新增水洗批次维度')
 if (taskOrdersSource.includes('bundleWidthCm') || taskOrdersSource.includes('stripCount')) {
   assertContains(progressSource + taskOrdersSource, 'bundleWidthCm', '捆条宽度源字段存在时联动消费位必须保留')
 }

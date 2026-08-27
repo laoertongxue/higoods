@@ -26,7 +26,6 @@ function assertIncludes(source: string, expected: string, message: string): void
 
 for (const scriptPath of [
   'scripts/check-process-craft-dictionary-rebuild.ts',
-  'scripts/check-bom-shrink-wash-process-linkage.ts',
   'scripts/check-pattern-two-step-maintenance.ts',
   'scripts/check-pattern-binding-duplicate.ts',
 ]) {

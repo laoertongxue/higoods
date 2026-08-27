@@ -340,8 +340,6 @@ const normalized = normalizeGarmentBomItem({
   printRequirement: '有',
   waterSolubleRequirement: '是',
   dyeRequirement: '有',
-  shrinkRequirement: '是',
-  washRequirement: '是',
   printSideMode: 'SINGLE',
   frontPatternDesignId: 'design-1',
   frontPatternDesignIds: ['design-1'],
@@ -385,8 +383,6 @@ export function normalizeGarmentBomItem(item: BomItemRow): BomItemRow {
     printRequirement: '无',
     dyeRequirement: '无',
     waterSolubleRequirement: '否',
-    shrinkRequirement: '否',
-    washRequirement: '否',
     linkedPatternIds: [],
   }
 }
@@ -402,7 +398,7 @@ export function validateGarmentBomItem(item: BomItemRow): string {
 `src/pages/tech-pack/bom-domain.ts` 的物料类型选项增加“成衣”。选择成衣时：
 
 - 显示适用 SKU、备注、固定单位“件”和单件用量 1。
-- 隐藏物料编码、规格、损耗率、印花、染色、水溶、缩水、洗水和纸样关联字段。
+- 隐藏物料编码、规格、损耗率、印花、染色、水溶和纸样关联字段。
 - 保存按钮只在存在适用 SKU 时可用。
 
 `src/pages/tech-pack/events.ts` 的 `new-bom-type` 事件在切换到成衣时立即局部更新表单状态，不整页重绘；保存时再次调用 `validateGarmentBomItem`。

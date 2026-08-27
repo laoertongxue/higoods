@@ -754,15 +754,13 @@ const changed = applyBomRequirementsToEngineeringTasks('EM-001', [{
   bomItemId: 'BOM-1',
   printRequirement: '是',
   dyeRequirement: '是',
-  shrinkRequirement: '是',
-  washRequirement: '是',
   waterSolubleRequirement: '是',
 }])
 
 assert.equal(changed.tasks.filter((item) => item.taskType === 'PATTERN_ARTWORK').length, 1)
 assert.equal(changed.tasks.filter((item) => item.taskType === 'COLOR_FABRIC').length, 1)
 assert.equal(changed.createdTaskCount, 0, '只能启用既有任务骨架')
-assert.deepEqual(changed.techPackOnlyProcesses.sort(), ['洗水', '水溶', '缩水'])
+assert.deepEqual(changed.techPackOnlyProcesses, ['水溶'])
 ```
 
 - [ ] **步骤 2：运行测试确认失败**
@@ -775,7 +773,7 @@ npm test -- tests/pcs-engineering-bom-task-linkage.spec.ts
 
 - [ ] **步骤 3：调整联动边界**
 
-只有印花和染色启用专业任务；缩水、洗水、水溶继续写入技术包工艺资料，不创建工程任务或生产准备项。
+只有印花和染色启用专业任务；水溶继续写入技术包工艺资料，不创建工程任务或生产准备项。
 
 - [ ] **步骤 4：实现新增和删除物料行规则**
 

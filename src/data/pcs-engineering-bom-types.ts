@@ -17,8 +17,6 @@ export interface EngineeringBomTaskLinkageRow {
   dyeColorCode?: string
   dyeFactoryName?: string
   purchaseRequirement?: EngineeringBomRequirementFlag
-  shrinkRequirement?: EngineeringBomRequirementFlag
-  washRequirement?: EngineeringBomRequirementFlag
   waterSolubleRequirement?: EngineeringBomRequirementFlag
 }
 
@@ -41,8 +39,6 @@ export interface EngineeringBomMaterialLineDraft {
   dyeRequirement?: EngineeringBomRequirementFlag
   dyeRequirementText?: string
   purchaseRequirement?: EngineeringBomRequirementFlag
-  shrinkRequirementText?: string
-  washRequirementText?: string
   waterSolubleRequirementText?: string
   printSide?: '正面' | '反面' | '双面' | '无'
   frontPatternResultId?: string

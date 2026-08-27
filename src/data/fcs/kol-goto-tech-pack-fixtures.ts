@@ -49,7 +49,7 @@ const KOL_GOTO_TECH_PACK_FIXTURES: Record<string, KolGotoTechPackFixture> = {
       supplier: '冻结技术包 BOM',
     },
     accessoryFallback: {
-      name: '洗水唛',
+      name: '洗护唛',
       spec: '毛织成衣洗护标签',
       materialCode: 'LABEL-SPU-2024-011-CARE',
       unit: '件',

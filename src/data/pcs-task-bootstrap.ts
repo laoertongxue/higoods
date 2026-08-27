@@ -983,7 +983,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       outputReady: false,
       materialName: '加绒卫裤主面料',
       materialSku: 'FAB-FLEECE-012',
-      note: '缺少确认面料克重和缩水率，纸样暂不能提交样板确认。',
+      note: '缺少确认面料克重和面料缩率，纸样暂不能提交样板确认。',
     },
     {
       projectCode: 'PRJ-202604-011',

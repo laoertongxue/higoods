@@ -1420,7 +1420,6 @@ function ensureDispatchBoardSeedData(): void {
     sew: { id: 'ID-F003', name: '万隆车缝厂' },
     button: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     special: { id: centralSpecialFactory.id, name: centralSpecialFactory.name },
-    wash: { id: 'ID-F007', name: '玛琅精工车缝' },
   } as const
 
   seedRuntimeTaskOverride(

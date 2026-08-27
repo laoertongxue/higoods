@@ -2461,7 +2461,7 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         materialName: '特殊工艺半成品',
         materialSpec: '首批回货',
         skuCode: 'SKU-0002-C',
-        skuColor: '水洗蓝',
+        skuColor: '浅牛仔蓝',
         skuSize: '整单',
         pieceName: '半成品包',
         plannedQty: Math.max(head.qtyExpectedTotal, 120),

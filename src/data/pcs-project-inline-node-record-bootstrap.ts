@@ -335,7 +335,7 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     evaluationDimension: ['改版空间', '工艺稳定性'],
     judgmentDescription: '可作为改版测款参考样，建议继续确认。',
     evaluationParticipants: ['赵云', '牛仔版师'],
-    reviewRisk: '需确认后腰工艺与洗水稳定性。',
+    reviewRisk: '需确认后腰工艺稳定性。',
     shootPlan: '改版款不安排完整拍摄，仅补充上身图。',
     fitFeedback: '腰臀包容性较好。',
     sampleFlatImageIds: [],
@@ -717,7 +717,6 @@ function buildSampleCostReviewSeed(input: {
   )
   const optionalRows = normalizeSampleCostOptionalProcessRows([
     { processName: '印花', costAmount: 3000, costCurrency: 'IDR' },
-    { processName: '缩水', costAmount: 2500, costCurrency: 'IDR' },
   ])
   const pricing = calculateSampleCostReview({
     spuCode,

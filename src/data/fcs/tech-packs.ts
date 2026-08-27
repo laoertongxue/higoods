@@ -4,7 +4,6 @@ import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   getProcessStageByCode,
-  listPreparationProcesses,
   normalizeSpecialCraftTargetObjectLabel,
   listProcessCraftDefinitions,
   type DetailSplitDimension,
@@ -336,8 +335,6 @@ export interface TechPackBomItem {
   printRequirement?: string
   waterSolubleRequirement?: '是' | '否'
   dyeRequirement?: string
-  shrinkRequirement?: '是' | '否'
-  washRequirement?: '是' | '否'
   printSideMode?: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
@@ -803,8 +800,6 @@ function fallbackDetailDimensions(
   return ['PATTERN', 'MATERIAL_SKU']
 }
 
-const preparationProcessByCode = new Map(listPreparationProcesses().map((item) => [item.processCode, item]))
-
 function resolveProcessEntryDictionaryFields(entry: TechPackProcessEntry): Pick<
   TechPackProcessEntry,
   'stageCode' | 'stageName' | 'processCode' | 'processName' | 'craftCode' | 'craftName'
@@ -813,21 +808,17 @@ function resolveProcessEntryDictionaryFields(entry: TechPackProcessEntry): Pick<
   const resolvedProcessCode = craftDef?.processCode || entry.processCode
   const processDef = getProcessDefinitionByCode(resolvedProcessCode)
     || getProcessDefinitionByCode(entry.processCode)
-  const preparationProcess = preparationProcessByCode.get(resolvedProcessCode)
-    || preparationProcessByCode.get(entry.processCode)
   const stageCode = (craftDef?.stageCode
     || processDef?.stageCode
-    || preparationProcess?.processStage
     || entry.stageCode) as TechPackProcessEntry['stageCode']
 
   return {
     stageCode,
     stageName:
       getProcessStageByCode(stageCode)?.stageName
-      || preparationProcess?.processStageName
       || entry.stageName,
-    processCode: processDef?.processCode || preparationProcess?.processCode || resolvedProcessCode,
-    processName: processDef?.processName || preparationProcess?.processName || entry.processName,
+    processCode: processDef?.processCode || resolvedProcessCode,
+    processName: processDef?.processName || entry.processName,
     craftCode: craftDef?.craftCode || entry.craftCode,
     craftName: craftDef?.craftName || entry.craftName,
   }

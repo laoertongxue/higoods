@@ -818,27 +818,6 @@ function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
   blockers: CuttingCheckBlockerItem[]
 } {
   const blockers = options.specialProcesses.flatMap((item) => {
-    if (!item.typeExecutionMeta.enabledForExecution) {
-      return [
-        buildBlocker({
-          productionOrderId: options.productionRow.productionOrderId,
-          productionOrderNo: options.productionRow.productionOrderNo,
-          sectionKey: 'SPECIAL_PROCESS',
-          severity: 'MEDIUM',
-          title: `${item.processOrderNo} 预留未接入`,
-          sourceType: 'SPECIAL_PROCESS',
-          sourceId: item.processOrderId,
-          sourceNo: item.processOrderNo,
-          sourceLabel: '特殊工艺单',
-          materialSku: item.materialSku,
-          currentStateLabel: item.typeExecutionMeta.readinessLabel,
-          blockerReason: item.typeExecutionMeta.disabledReason,
-          navigationTarget: 'specialProcesses',
-          navigationPayload: item.navigationPayload.specialProcesses,
-          nextActionLabel: '去特殊工艺',
-        }),
-      ]
-    }
     if (['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS'].includes(item.status)) {
       return [
         buildBlocker({
@@ -886,14 +865,14 @@ function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
 
   const totalCount = options.specialProcesses.length
   const doneCount = options.specialProcesses.filter(
-    (item) => item.typeExecutionMeta.enabledForExecution && ['DONE', 'CANCELLED'].includes(item.status) && item.followupPendingCount === 0,
+    (item) => ['DONE', 'CANCELLED'].includes(item.status) && item.followupPendingCount === 0,
   ).length
 
   let stateKey: CuttingCheckSectionStateKey = 'NOT_APPLICABLE'
   let detailText = '当前未创建特殊工艺单。'
   if (totalCount) {
     if (blockers.length) {
-      stateKey = blockers.some((item) => item.currentStateLabel === '预留') ? 'DATA_PENDING' : 'BLOCKED'
+      stateKey = 'BLOCKED'
       detailText = `当前有 ${blockers.length} 张特殊工艺单未闭环。`
     } else {
       stateKey = 'DONE'

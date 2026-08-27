@@ -448,7 +448,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     key: 'SPECIAL_PROCESS',
     label: '特殊工艺问题',
     className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200',
-    detailText: '特殊工艺待执行、执行中，或预留类型尚未接入执行链。',
+    detailText: '特殊工艺待执行、执行中，或后续动作尚未闭环。',
     actionHint: '去特殊工艺',
   },
 }
@@ -536,26 +536,19 @@ function summarizeSpreading(sessions: SpreadingSession[]): string {
     .join(' / ')
 }
 
-function isReservedSpecialProcess(item: SpecialProcessRow): boolean {
-  return !item.typeExecutionMeta.enabledForExecution
-}
-
 function isOpenSpecialProcess(item: SpecialProcessRow): boolean {
-  if (isReservedSpecialProcess(item)) return true
   return !['DONE', 'CANCELLED'].includes(item.status)
 }
 
 function summarizeSpecialProcess(items: SpecialProcessRow[]): string {
   if (!items.length) return '未创建'
-  const reservedCount = items.filter(isReservedSpecialProcess).length
-  const draftCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'DRAFT').length
-  const pendingCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'PENDING_EXECUTION').length
+  const draftCount = items.filter((item) => item.status === 'DRAFT').length
+  const pendingCount = items.filter((item) => item.status === 'PENDING_EXECUTION').length
   const inProgressCount = items.filter((item) => item.status === 'IN_PROGRESS').length
-  const doneCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'DONE').length
-  const cancelledCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'CANCELLED').length
+  const doneCount = items.filter((item) => item.status === 'DONE').length
+  const cancelledCount = items.filter((item) => item.status === 'CANCELLED').length
   return [
     `工艺单 ${items.length}`,
-    reservedCount ? `预留未接入 ${reservedCount}` : '',
     draftCount ? `草稿 ${draftCount}` : '',
     pendingCount ? `待执行 ${pendingCount}` : '',
     inProgressCount ? `执行中 ${inProgressCount}` : '',
@@ -1251,7 +1244,7 @@ export function buildSummaryDashboardCards(
       key: 'special-process-open',
       label: '特殊工艺单数',
       value: dashboard.openSpecialProcessCount,
-      hint: '含草稿、待执行、执行中与预留类型',
+      hint: '含草稿、待执行与执行中',
       accentClass: 'text-fuchsia-600',
       filterType: 'special-process',
       filterValue: 'true',

@@ -226,8 +226,6 @@ export const sampleCostOptionalProcessOptions = [
   '打揽',
   '打条',
   '绣花',
-  '洗水',
-  '缩水',
   '曲牙',
   '贝壳绣',
 ]

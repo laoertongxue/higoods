@@ -7,7 +7,7 @@ export type FactoryTier = 'CENTRAL' | 'SATELLITE' | 'THIRD_PARTY'
 // 组织类型（按 tier 约束）
 export type CentralType = 
   | 'CENTRAL_FACTORY' | 'PRINTING' | 'DYEING' | 'CUTTING' | 'AUX_PROCESS' | 'SPECIAL_PROCESS'
-  | 'TRIM_SUPPLIER' | 'WOOL' | 'DENIM_WASH' | 'POD'
+  | 'TRIM_SUPPLIER' | 'WOOL' | 'POD'
   | 'WAREHOUSE' | 'DISPATCH_CENTER' | 'DEV_DESIGN_CENTER'
 export type SatelliteType = 'SATELLITE_CLUSTER' | 'SATELLITE_SEWING' | 'SATELLITE_FINISHING'
 export type ThirdPartyType = 'MICRO_SEWING' | 'THIRD_SEWING'
@@ -20,7 +20,7 @@ export type KpiTemplate = 'SEWING' | 'PRINT_DYE' | 'WAREHOUSE' | 'GENERAL'
 export const typesByTier: Record<FactoryTier, FactoryType[]> = {
   CENTRAL: [
     'CENTRAL_FACTORY', 'PRINTING', 'DYEING', 'CUTTING', 'AUX_PROCESS', 'SPECIAL_PROCESS',
-    'TRIM_SUPPLIER', 'WOOL', 'DENIM_WASH', 'POD',
+    'TRIM_SUPPLIER', 'WOOL', 'POD',
     'WAREHOUSE', 'DISPATCH_CENTER', 'DEV_DESIGN_CENTER',
   ],
   SATELLITE: ['SATELLITE_CLUSTER', 'SATELLITE_SEWING', 'SATELLITE_FINISHING'],
@@ -44,7 +44,6 @@ export const typeLabels: Record<FactoryType, string> = {
   SPECIAL_PROCESS:    '特种工艺厂',
   TRIM_SUPPLIER:      '花边/织带厂',
   WOOL:               '毛织厂',
-  DENIM_WASH:         '牛仔水洗厂',
   POD:                'POD工厂',
   WAREHOUSE:          '原料仓库',
   DISPATCH_CENTER:    '成衣发货仓库',
@@ -128,7 +127,7 @@ export const indonesiaBanks = [
 // 能力标签
 export const capabilityTags = [
   '车缝', '后整', '梭织', '毛织', '大货', '小单快反',
-  '印花', '绣花', '水洗', '染色', '棉', '涤纶', '真丝', '牛仔', '羽绒服', '外套'
+  '印花', '绣花', '染色', '棉', '涤纶', '真丝', '牛仔', '羽绒服', '外套'
 ]
 
 // 30+ 印尼工厂数据（含 tier/type）
@@ -199,7 +198,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Ahmad Wijaya',
     contactPhone: '+62 821-5678-1234',
     status: 'SUSPENDED',
-    tags: ['染色', '水洗'],
+    tags: ['染色'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 25000,
@@ -315,32 +314,6 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     hasDefaultAccount: false,
     performanceScore: 88,
     performanceLevel: 'B',
-  },
-  {
-    id: 'ID-F008',
-    code: 'ID-FAC-0008',
-    name: 'PT Denim Wash Nusantara',
-    tier: 'CENTRAL',
-    type: 'DENIM_WASH',
-    kpiTemplate: 'PRINT_DYE',
-    city: 'Yogyakarta',
-    province: 'DI Yogyakarta',
-    address: 'Jl. Magelang Km.8 No.66, Mlati, Sleman',
-    contactName: 'Wulan Sari',
-    contactPhone: '+62 818-7777-8888',
-    status: 'SUSPENDED',
-    tags: ['牛仔', '水洗'],
-    currency: 'IDR',
-    timezone: 'Asia/Jakarta',
-    monthlyCapacity: 28000,
-    qualityScore: 79,
-    deliveryScore: 81,
-    createdAt: '2024-08-25',
-    updatedAt: '2024-10-15',
-    hasSettlement: true,
-    hasDefaultAccount: true,
-    performanceScore: 76,
-    performanceLevel: 'C',
   },
   {
     id: 'ID-F009',

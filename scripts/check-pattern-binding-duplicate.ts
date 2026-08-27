@@ -43,7 +43,6 @@ function uniqueName(prefix: string): string {
 
 for (const scriptPath of [
   'scripts/check-process-craft-dictionary-rebuild.ts',
-  'scripts/check-bom-shrink-wash-process-linkage.ts',
   'scripts/check-pattern-two-step-maintenance.ts',
 ]) {
   assert(existsSync(resolve(root, scriptPath)), `前置检查脚本不存在：${scriptPath}`)
@@ -264,10 +263,6 @@ const signature = buildPatternSignature(base)
 assert(signature && signature === base.patternSignature, 'patternSignature 必须与当前纸样数据一致')
 
 for (const expected of [
-  'PREP_SHRINKING',
-  'PREP_WASHING',
-  'shrinkRequirement',
-  'washRequirement',
   '跟单基础信息',
   '版师技术信息',
   '纸样 PRJ 文件',

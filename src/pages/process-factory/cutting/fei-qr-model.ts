@@ -206,8 +206,8 @@ function inferReservedProcess(payload: CanonicalFeiTicketQrPayload): Record<FeiQ
     strip: secondaryCrafts.some((item) => item.includes('条') || item.includes('包边'))
       ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含条带 / 包边工艺顺序信息。' }
       : null,
-    dyeMark: secondaryCrafts.some((item) => item.includes('染') || item.includes('洗'))
-      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含染整 / 洗水工艺顺序信息。' }
+    dyeMark: secondaryCrafts.some((item) => item.includes('染'))
+      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含染整工艺顺序信息。' }
       : null,
   })
 }

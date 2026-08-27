@@ -67,7 +67,6 @@ export function formatFactoryDisplayName(factoryName?: string | null, factoryCod
 const legacyTagProcessMap: Record<string, string[]> = {
   印花: ['PRINT'],
   绣花: ['EMBROIDERY'],
-  水洗: ['WASHING'],
   染色: ['DYE'],
   水溶: ['WATER_SOLUBLE'],
   车缝: ['SEW'],
@@ -83,7 +82,6 @@ const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
   CENTRAL_AUX: [...POST_STAGE_PROCESS_CODES, 'SPECIAL_CRAFT'],
   CENTRAL_LACE: [...POST_STAGE_PROCESS_CODES],
   CENTRAL_WOOL: ['SEW', 'PLEATING'],
-  CENTRAL_DENIM_WASH: ['WASHING', 'SHRINKING'],
   SATELLITE_SEWING: ['SEW'],
   SATELLITE_FINISHING: [...POST_STAGE_PROCESS_CODES, 'PLEATING', 'SPECIAL_CRAFT'],
   THIRD_SEWING: ['SEW'],
@@ -180,7 +178,6 @@ function mapType(tier: string, type: string, index: number): FactoryType {
     SPECIAL_PROCESS: 'CENTRAL_SPECIAL',
     TRIM_SUPPLIER: 'CENTRAL_LACE',
     WOOL: 'CENTRAL_WOOL',
-    DENIM_WASH: 'CENTRAL_DENIM_WASH',
     POD: 'CENTRAL_POD',
     SATELLITE_CLUSTER: 'SATELLITE_SEWING',
     MICRO_SEWING: 'THIRD_SEWING',

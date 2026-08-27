@@ -210,8 +210,6 @@ triggerField?:
   | 'printRequirement'
   | 'dyeRequirement'
   | 'waterSolubleRequirement'
-  | 'shrinkRequirement'
-  | 'washRequirement'
 ~~~
 
 水溶目标使用现有通用 BOM 关联，不引入只适用于面料的限制。
@@ -335,8 +333,6 @@ export type BomDrivenPrepProcessCode =
   | 'PRINT'
   | 'WATER_SOLUBLE'
   | 'DYE'
-  | 'PREP_SHRINKING'
-  | 'PREP_WASHING'
 ~~~
 
 水溶工序元数据：

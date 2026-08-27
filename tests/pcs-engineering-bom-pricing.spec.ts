@@ -376,8 +376,6 @@ createTechnicalDataVersionDraft(
         applicableSkuCodes: ['SKU-BLACK-S', 'SKU-BLACK-M'],
         printRequirement: '需要印花',
         dyeRequirement: '需要染色',
-        shrinkRequirement: '否',
-        washRequirement: '是',
         waterSolubleRequirement: '是',
         printSideMode: 'REVERSE',
         frontPatternDesignId: '',

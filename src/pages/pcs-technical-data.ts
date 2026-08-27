@@ -225,8 +225,6 @@ function renderBomMaterialRows(
     <tr class="bg-slate-50/70" data-bom-line-detail="${escapeHtml(line.bomItemId || '')}"><td colspan="11" class="p-3"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <label class="text-xs text-slate-500">印花要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.printRequirementText || '')}" data-bom-line-field="printRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">染色要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.dyeRequirementText || '')}" data-bom-line-field="dyeRequirementText" ${disabled}></label>
-      <label class="text-xs text-slate-500">缩率要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.shrinkRequirementText || '无')}" data-bom-line-field="shrinkRequirementText" ${disabled}></label>
-      <label class="text-xs text-slate-500">水洗要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.washRequirementText || '无')}" data-bom-line-field="washRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">水溶要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.waterSolubleRequirementText || '无')}" data-bom-line-field="waterSolubleRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">印花面<select class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" data-bom-line-field="printSide" ${disabled}>${['无', '正面', '反面', '双面'].map((value) => `<option value="${value}" ${line.printSide === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <label class="text-xs text-slate-500">关联花型成果<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" placeholder="多个成果编号用逗号分隔" value="${escapeHtml((line.linkedPatternResultIds || []).join(','))}" data-bom-line-field="linkedPatternResultIds" ${disabled}></label>
@@ -319,8 +317,6 @@ function collectBomLines(record: EngineeringBomVersionRecord): EngineeringBomMat
       applicableSkuIds: [...row.querySelectorAll<HTMLInputElement>('[data-bom-sku-scope]:checked')].map((item) => item.value),
       printRequirementText: textValue('printRequirementText'),
       dyeRequirementText: textValue('dyeRequirementText'),
-      shrinkRequirementText: textValue('shrinkRequirementText'),
-      washRequirementText: textValue('washRequirementText'),
       waterSolubleRequirementText: textValue('waterSolubleRequirementText'),
       printSide: (textValue('printSide') || '无') as EngineeringBomMaterialLineDraft['printSide'],
       linkedPatternResultIds: textValue('linkedPatternResultIds').split(',').map((item) => item.trim()).filter(Boolean),
@@ -462,7 +458,7 @@ export function handlePcsTechnicalDataEvent(target: HTMLElement, event?: Event):
         lossRate: 0,
         applicableSkuIds: [...record.applicableSkuIds],
         printRequirement: '否', dyeRequirement: '否', purchaseRequirement: '否',
-        printRequirementText: '', dyeRequirementText: '', shrinkRequirementText: '无', washRequirementText: '无', waterSolubleRequirementText: '无', printSide: '无', linkedPatternResultIds: [], remark: '',
+        printRequirementText: '', dyeRequirementText: '', waterSolubleRequirementText: '无', printSide: '无', linkedPatternResultIds: [], remark: '',
       }])
       bomFeedback = { message: '物料已加入并保存。', ok: true }
     } catch (error) { bomFeedback = { message: error instanceof Error ? error.message : '加入物料失败。', ok: false } }

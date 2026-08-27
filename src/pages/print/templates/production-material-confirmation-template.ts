@@ -325,7 +325,7 @@ function buildProductionSections(context: ProductionPrintContext): PrintDocument
       title: '包装要求区',
       fields: mapFields([
         { label: '包装方式', value: '按订单包装标准执行' },
-        { label: '吊牌 / 水洗标 / 贴标要求', value: '按技术包和商品档案要求执行' },
+        { label: '吊牌 / 洗护唛 / 贴标要求', value: '按技术包和商品档案要求执行' },
         { label: '外箱要求', value: '按订单包装标准执行' },
         { label: '备注', value: snapshot.productionOrderSnapshot.productionRemark || '暂无数据' },
       ]),

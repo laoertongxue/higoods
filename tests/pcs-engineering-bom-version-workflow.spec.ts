@@ -49,7 +49,7 @@ assert.ok(editableVersion, 'Mock 数据必须保留可维护的 BOM 草稿')
 assert.ok(populatedVersion, 'Mock 数据必须包含非空 BOM 方案')
 
 const detailHtml = renderPcsTechnicalDataBomPricingDetailPage(populatedVersion.bomDraftVersionId)
-for (const label of ['单位用量', '打样数量', '损耗率', '总需求量', '标准单价', '印花要求', '染色要求', '缩率要求', '水洗要求', '水溶要求', '印花面', '关联花型成果', '适用 SKU']) {
+for (const label of ['单位用量', '打样数量', '损耗率', '总需求量', '标准单价', '印花要求', '染色要求', '水溶要求', '印花面', '关联花型成果', '适用 SKU']) {
   assert.ok(detailHtml.includes(label), `BOM 详情必须展示字段：${label}`)
 }
 assert.doesNotMatch(detailHtml, /确认当前物料方案/, '单个颜色页面只能保存物料，不能承担整款业务确认')

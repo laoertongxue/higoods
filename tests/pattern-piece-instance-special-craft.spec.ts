@@ -104,7 +104,7 @@ test('根据颜色片数生成裁片实例并维护逐片特殊工艺', async ({
   for (const expected of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣花', '模板工序', '激光开袋', '特种车缝（花样机）']) {
     await expect(craftSelect).toContainText(expected)
   }
-  for (const forbidden of ['捆条', '橡筋定长切割', '缩水', '洗水']) {
+  for (const forbidden of ['捆条', '橡筋定长切割']) {
     await expect(craftSelect.locator('option', { hasText: forbidden })).toHaveCount(0)
   }
 

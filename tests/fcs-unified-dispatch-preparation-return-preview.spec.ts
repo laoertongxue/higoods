@@ -59,7 +59,7 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   const materialPanel = dialog.locator('[data-unified-material-prep-readiness]')
   await expect(materialPanel.getByRole('heading', { name: '本生产单车缝所需辅料的库存与配料情况' })).toBeVisible()
   await expect(materialPanel.locator('tbody tr')).toHaveCount(4)
-  for (const expectedText of ['前中拉链', '2,500条', '3,100条', '主唛', '2,800套', '洗水唛', '2,600套', '缝纫线', '30公斤', '42公斤']) {
+  for (const expectedText of ['前中拉链', '2,500条', '3,100条', '主唛', '2,800套', '洗护唛', '2,600套', '缝纫线', '30公斤', '42公斤']) {
     await expect(materialPanel).toContainText(expectedText)
   }
   const materialImages = materialPanel.locator('img')

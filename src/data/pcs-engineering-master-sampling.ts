@@ -160,8 +160,6 @@ function createDefaultBomLines(styleCode: string): EngineeringBomMaterialLineDra
     printRequirement: '否',
     dyeRequirement: '否',
     purchaseRequirement: '否',
-    shrinkRequirementText: '无',
-    washRequirementText: '无',
     waterSolubleRequirementText: '无',
     printSide: '无',
     linkedPatternResultIds: [],

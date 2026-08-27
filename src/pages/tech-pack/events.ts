@@ -2416,8 +2416,6 @@ function handleTechPackField(
         printRequirement: normalized.printRequirement,
         waterSolubleRequirement: normalized.waterSolubleRequirement,
         dyeRequirement: normalized.dyeRequirement,
-        shrinkRequirement: normalized.shrinkRequirement,
-        washRequirement: normalized.washRequirement,
         printSideMode: normalized.printSideMode,
         frontPatternDesignId: normalized.frontPatternDesignId,
         frontPatternDesignIds: normalized.frontPatternDesignIds,
@@ -2476,14 +2474,6 @@ function handleTechPackField(
   }
   if (field === 'new-bom-dye-requirement') {
     state.newBomItem.dyeRequirement = value
-    return true
-  }
-  if (field === 'new-bom-shrink-requirement') {
-    state.newBomItem.shrinkRequirement = normalizeBomRequirement(value)
-    return true
-  }
-  if (field === 'new-bom-wash-requirement') {
-    state.newBomItem.washRequirement = normalizeBomRequirement(value)
     return true
   }
   if (field === 'new-bom-print-side-mode') {
@@ -2718,27 +2708,6 @@ function handleTechPackField(
     syncTechPackToStore()
     return true
   }
-  if (field === 'bom-shrink') {
-    const bomId = node.dataset.bomId
-    if (!bomId) return true
-    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
-    state.bomItems = state.bomItems.map((item) =>
-      item.id === bomId ? { ...item, shrinkRequirement: normalizeBomRequirement(value) } : item,
-    )
-    syncTechPackToStore()
-    return true
-  }
-  if (field === 'bom-wash') {
-    const bomId = node.dataset.bomId
-    if (!bomId) return true
-    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
-    state.bomItems = state.bomItems.map((item) =>
-      item.id === bomId ? { ...item, washRequirement: normalizeBomRequirement(value) } : item,
-    )
-    syncTechPackToStore()
-    return true
-  }
-
   if (field === 'tech-difficulty') {
     const techId = node.dataset.techId
     if (!techId) return true
@@ -4061,8 +4030,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       printRequirement: bom.printRequirement,
       waterSolubleRequirement: bom.waterSolubleRequirement || '否',
       dyeRequirement: bom.dyeRequirement,
-      shrinkRequirement: bom.shrinkRequirement,
-      washRequirement: bom.washRequirement,
       printSideMode: bom.printSideMode,
       frontPatternDesignId: getPrimaryBomPatternDesignId(bom, 'FRONT'),
       frontPatternDesignIds: getBomPatternDesignIds(bom, 'FRONT'),
@@ -4151,8 +4118,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       printRequirement: state.newBomItem.printRequirement,
       waterSolubleRequirement: state.newBomItem.waterSolubleRequirement,
       dyeRequirement: state.newBomItem.dyeRequirement,
-      shrinkRequirement: state.newBomItem.shrinkRequirement,
-      washRequirement: state.newBomItem.washRequirement,
       printSideMode:
         state.newBomItem.printRequirement === '无'
           ? ''

@@ -506,9 +506,9 @@ assert.throws(
     ...dyeOnly,
     productionOrderId: 'PO-AUTO-UNKNOWN-001',
     productionOrderNo: 'PO-AUTO-UNKNOWN-001',
-    processCodes: JSON.parse('["WASH"]'),
+    processCodes: JSON.parse('["UNKNOWN_PROCESS"]'),
   }),
-  /不支持的生产工艺：WASH/,
+  /不支持的生产工艺：UNKNOWN_PROCESS/,
   '未知工艺不能静默忽略',
 )
 assert.throws(

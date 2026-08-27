@@ -132,7 +132,7 @@
 ### 真实图片验证
 
 - 款式图片读取当前任务关联的正式款式资源；缩略图与 SPU、款式名同列，提供可见加载失败态，并支持高清大图、遮罩、关闭按钮及 `Esc`。
-- 车缝辅料使用 `public/materials/accessory-button.jpg`、`accessory-zipper.jpg`、`accessory-label.jpg`，分别对应纽扣、拉链、洗水标，弹窗内提供可见加载失败态。
+- 车缝辅料使用 `public/materials/accessory-button.jpg`、`accessory-zipper.jpg`、`accessory-label.jpg`，分别对应纽扣、拉链、洗护唛，弹窗内提供可见加载失败态。
 
 ### 例外
 

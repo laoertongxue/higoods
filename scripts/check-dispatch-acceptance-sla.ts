@@ -114,7 +114,7 @@ function assertFactoryListModel(): void {
   const fullFactoryAbilities = listDispatchAcceptanceSlaFactoryAbilityRows(fullFactory.factoryId)
   assert(fullFactoryAbilities.length === fullFactory.abilityCount, '工厂明细能力数与主列表不一致')
   assert(fullFactoryAbilities.some((row) => row.processName === '裁片'), '工厂明细缺少裁片能力')
-  assert(!fullFactoryAbilities.some((row) => ['印花', '染色', '水溶', '缩水', '洗水'].includes(row.processName)), '生产准备工序不得进入任务接单时效配置')
+  assert(!fullFactoryAbilities.some((row) => ['印花', '染色', '水溶'].includes(row.processName)), '生产准备工序不得进入任务接单时效配置')
 }
 
 function assertRuleResolutionAndPriority(): void {
@@ -154,7 +154,7 @@ function assertRuleResolutionAndPriority(): void {
 
   const ruleOptions = listDispatchAcceptanceSlaRuleProcessCraftOptions()
   assert(ruleOptions.some((option) => option.craftCode === DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_CODE), '规则维护缺少全部工艺选项')
-  assert(!ruleOptions.some((option) => ['PRINT', 'DYE', 'WATER_SOLUBLE', 'SHRINKING', 'WASHING'].includes(option.processCode)), '生产准备工序不得进入任务接单时效选项')
+  assert(!ruleOptions.some((option) => ['PRINT', 'DYE', 'WATER_SOLUBLE'].includes(option.processCode)), '生产准备工序不得进入任务接单时效选项')
   const impact = previewDispatchAcceptanceSlaRuleImpact({
     processScopeType: 'PROCESS_ALL_CRAFTS',
     processCode: zeroAbility.processCode,

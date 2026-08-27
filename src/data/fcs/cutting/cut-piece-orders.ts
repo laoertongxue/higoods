@@ -474,7 +474,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-SOLID-240327-21',
     materialType: 'SOLID',
-    materialLabel: '面料 · 水洗白府绸',
+    materialLabel: '面料 · 漂白府绸',
     configStatus: 'CONFIGURED',
     receiveStatus: 'RECEIVED',
     printSlipStatus: 'PRINTED',

@@ -366,7 +366,7 @@ function resolveTaskSpecificImage(
   if (text.includes('裁') || text.toLowerCase().includes('cut')) {
     return firstImage('唛架图', snapshot?.imageSnapshot.markerImages, '任务特有图：唛架图')
   }
-  if (text.includes('特殊') || text.includes('绣') || text.includes('洗') || text.includes('烫')) {
+  if (text.includes('特殊') || text.includes('绣') || text.includes('烫')) {
     return (
       firstImage('工艺参考图', snapshot?.imageSnapshot.artworkImages, '任务特有图：工艺参考图')
       || firstImage('工艺参考图', snapshot?.imageSnapshot.patternImages, '任务特有图：工艺参考图')

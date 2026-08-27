@@ -472,7 +472,7 @@ function resolvePrimaryFactoryProcess(factory: Factory): { processCode?: string;
           ? 'CUT_PANEL'
           : factory.factoryType === 'SATELLITE_FINISHING' || factory.factoryType === 'CENTRAL_AUX' || factory.factoryType === 'CENTRAL_LACE'
             ? 'POST_FINISHING'
-            : factory.factoryType === 'CENTRAL_DENIM_WASH' || factory.factoryType === 'CENTRAL_SPECIAL'
+            : factory.factoryType === 'CENTRAL_SPECIAL'
               ? 'SPECIAL_CRAFT'
               : factory.factoryType === 'CENTRAL_WOOL'
                 ? 'PLEATING'

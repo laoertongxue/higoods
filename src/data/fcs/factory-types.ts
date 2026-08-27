@@ -30,7 +30,6 @@ export type FactoryType =
   | 'CENTRAL_RIBBON'      // 织带厂
   | 'CENTRAL_WOOL'        // 毛织厂
   | 'CENTRAL_POD'         // POD工厂
-  | 'CENTRAL_DENIM_WASH'  // 牛仔水洗厂
   // 卫星工厂类型
   | 'SATELLITE_SEWING'    // 缝纫工厂
   | 'SATELLITE_FINISHING' // 后道工厂
@@ -285,7 +284,6 @@ export const factoryTypeConfig: Record<FactoryType, { label: string }> = {
   CENTRAL_RIBBON:      { label: '织带厂' },
   CENTRAL_WOOL:        { label: '毛织厂' },
   CENTRAL_POD:         { label: 'POD工厂' },
-  CENTRAL_DENIM_WASH:  { label: '牛仔水洗厂' },
   SATELLITE_SEWING:    { label: '缝纫工厂' },
   SATELLITE_FINISHING: { label: '后道工厂' },
   THIRD_SEWING:        { label: '小微缝纫工厂' },
@@ -317,7 +315,7 @@ export const typesByTier: Record<FactoryTier, FactoryType[]> = {
   CENTRAL: [
     'CENTRAL_GARMENT', 'CENTRAL_PRINT', 'CENTRAL_DYE', 'CENTRAL_CUTTING', 'CENTRAL_SPECIAL',
     'CENTRAL_AUX', 'CENTRAL_LACE', 'CENTRAL_RIBBON', 'CENTRAL_WOOL',
-    'CENTRAL_POD', 'CENTRAL_DENIM_WASH',
+    'CENTRAL_POD',
   ],
   SATELLITE: ['SATELLITE_SEWING', 'SATELLITE_FINISHING'],
   THIRD_PARTY: ['THIRD_SEWING'],

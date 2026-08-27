@@ -8,7 +8,6 @@ import {
   buildSpecialProcessExecutionLog,
   buildSpecialProcessSourceOptions,
   deriveSpecialProcessExecutionSnapshot,
-  deriveSpecialProcessTypeExecutionMeta,
   getSpecialProcessOutputLabels,
   hydrateScopeLineFromSource,
   normalizeFollowupStatus,
@@ -23,7 +22,7 @@ export const CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY = 'cuttingSpecialPr
 export const CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY = 'cuttingSpecialProcessExecutionLogs'
 export const CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY = 'cuttingSpecialProcessFollowupActions'
 
-export type SpecialProcessType = 'BINDING_STRIP' | 'WASH'
+export type SpecialProcessType = 'BINDING_STRIP'
 export type SpecialProcessSourceType = 'cut-order' | 'marker-plan'
 export type SpecialProcessStatusKey = 'DRAFT' | 'PENDING_EXECUTION' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
 export type SpecialProcessAuditAction =
@@ -43,8 +42,6 @@ export type SpecialProcessFollowupActionType =
   | 'GO_CUTTING_DASHBOARD'
   | 'GO_CUTTING_TOTAL_TABLE'
 export type SpecialProcessFollowupActionStatus = 'PENDING' | 'DONE' | 'SKIPPED'
-export type SpecialProcessReadinessLevel = 'READY' | 'RESERVED'
-export type SpecialProcessIntegrationLevel = 'EXECUTION' | 'PLACEHOLDER'
 export type BindingProcessMode = '裁床内部加工' | '外部承接工厂加工'
 export type BindingProcessStatus = '待加工' | '加工中' | '已完成' | '已取消'
 export type BindingProcessPrintStatus = '未生成' | '待打印' | '已打印'
@@ -230,15 +227,6 @@ export interface BindingProcessOrder {
   remark: string
 }
 
-export interface SpecialProcessTypeExecutionMeta {
-  enabledForExecution: boolean
-  readinessLevel: SpecialProcessReadinessLevel
-  integrationLevel: SpecialProcessIntegrationLevel
-  readinessLabel: string
-  integrationLabel: string
-  disabledReason: string
-}
-
 export interface SpecialProcessOrder {
   processOrderId: string
   processOrderNo: string
@@ -276,14 +264,6 @@ export interface BindingStripProcessPayload {
   recordedAt: string
   operatorName: string
   note: string
-}
-
-export interface ReservedSpecialProcessPayload {
-  processOrderId: string
-  processType: SpecialProcessType
-  enabled: boolean
-  payloadVersion: string | null
-  data: Record<string, unknown> | null
 }
 
 export interface SpecialProcessScopeLine {
@@ -385,14 +365,12 @@ export interface SpecialProcessRow extends SpecialProcessOrder {
   sourceSummary: string
   statusMeta: SpecialProcessStatusMeta
   bindingPayload: BindingStripProcessPayload | null
-  reservedPayload: ReservedSpecialProcessPayload
   navigationPayload: SpecialProcessNavigationPayload
   keywordIndex: string[]
   scopeLines: SpecialProcessScopeLine[]
   executionLogs: SpecialProcessExecutionLog[]
   followupActions: SpecialProcessFollowupAction[]
   sourceOptions: SpecialProcessSourceOption[]
-  typeExecutionMeta: SpecialProcessTypeExecutionMeta
   plannedQtyTotal: number
   actualQtyTotal: number
   latestActualLength: number
@@ -417,7 +395,6 @@ export interface SpecialProcessViewModel {
     pendingExecutionCount: number
     inProgressCount: number
     doneCount: number
-    reservedCount: number
   }
 }
 
@@ -426,11 +403,6 @@ export const specialProcessTypeMeta: Record<SpecialProcessType, { label: string;
     label: '捆条工艺',
     className: 'bg-blue-100 text-blue-700',
     detailText: '当前已接入裁片执行链。',
-  },
-  WASH: {
-    label: '洗水（预留）',
-    className: 'bg-slate-100 text-slate-700',
-    detailText: '当前仅保留预留结构，暂未进入执行链。',
   },
 }
 
@@ -468,7 +440,8 @@ function normalizeSpecialProcessOrder(record: unknown): SpecialProcessOrder | nu
   if (!record || typeof record !== 'object') return null
   const raw = record as Record<string, unknown>
   if (typeof raw.processOrderId !== 'string' || typeof raw.processOrderNo !== 'string') return null
-  const processType = raw.processType === 'WASH' ? 'WASH' : 'BINDING_STRIP'
+  if (raw.processType !== undefined && raw.processType !== 'BINDING_STRIP') return null
+  const processType: SpecialProcessType = 'BINDING_STRIP'
   const sourceType = raw.sourceType === 'marker-plan' ? 'marker-plan' : 'cut-order'
   const status = ['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS', 'DONE', 'CANCELLED'].includes(String(raw.status))
     ? (raw.status as SpecialProcessStatusKey)
@@ -665,7 +638,6 @@ export function createBindingStripProcessDraft(options: {
     note: '',
   }
   const navigationPayload = buildSpecialProcessNavigationPayload(order)
-  const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
   const scopeLines = buildDefaultSpecialProcessScopeLines({
     order,
     cutOrderRows: options.cutOrderRows,
@@ -674,7 +646,6 @@ export function createBindingStripProcessDraft(options: {
   const followupActions = buildDefaultSpecialProcessFollowupActions({
     order,
     navigationPayload,
-    typeMeta,
   })
 
   return {
@@ -700,9 +671,6 @@ export function validateSpecialProcessPayload(options: {
   order: SpecialProcessOrder
   payload: BindingStripProcessPayload | null
 }): { ok: boolean; message: string } {
-  if (options.order.processType === 'WASH') {
-    return { ok: false, message: '洗水工艺当前仅做预留，暂未接入裁片执行链。' }
-  }
   if (!options.payload) return { ok: false, message: '当前缺少捆条工艺参数。' }
   if (options.payload.materialLength <= 0) return { ok: false, message: '请填写计划布料长度。' }
   if (options.payload.cutWidth <= 0) return { ok: false, message: '请填写计划裁剪宽度。' }
@@ -710,16 +678,6 @@ export function validateSpecialProcessPayload(options: {
     return { ok: false, message: `请填写${getSpecialProcessOutputLabels(options.order.processType).plannedQty}。` }
   }
   return { ok: true, message: '' }
-}
-
-export function buildReservedSpecialProcessPayload(processOrderId: string, processType: SpecialProcessType): ReservedSpecialProcessPayload {
-  return {
-    processOrderId,
-    processType,
-    enabled: false,
-    payloadVersion: null,
-    data: null,
-  }
 }
 
 export function buildSpecialProcessNavigationPayload(
@@ -867,9 +825,8 @@ function buildSystemSeedOrders(cutOrderRows: CutOrderRow[], markerPlanSources: M
       note: '首轮捆条已完成，待复核余量。',
     }
     const navigationPayload = buildSpecialProcessNavigationPayload(order)
-    const typeMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
     const seedScopes = buildDefaultSpecialProcessScopeLines({ order, cutOrderRows, markerPlanSources })
-    const seedActions = buildDefaultSpecialProcessFollowupActions({ order, navigationPayload, typeMeta }).map((item, index) =>
+    const seedActions = buildDefaultSpecialProcessFollowupActions({ order, navigationPayload }).map((item, index) =>
       index === 2
         ? {
             ...item,
@@ -1061,21 +1018,18 @@ function getEffectiveFollowupActions(options: {
   order: SpecialProcessOrder
   storedActions: SpecialProcessFollowupAction[]
   navigationPayload: SpecialProcessNavigationPayload
-  typeMeta: SpecialProcessTypeExecutionMeta
 }): SpecialProcessFollowupAction[] {
   const matched = options.storedActions.filter((item) => item.processOrderId === options.order.processOrderId)
   if (!matched.length) {
     return buildDefaultSpecialProcessFollowupActions({
       order: options.order,
       navigationPayload: options.navigationPayload,
-      typeMeta: options.typeMeta,
     })
   }
   const defaultsByType = new Map(
     buildDefaultSpecialProcessFollowupActions({
       order: options.order,
       navigationPayload: options.navigationPayload,
-      typeMeta: options.typeMeta,
     }).map((item) => [item.actionType, item]),
   )
   return matched.map((item) => ({
@@ -1140,9 +1094,7 @@ export function buildSpecialProcessViewModel(options: {
     .map((order) => {
       const statusMeta = deriveSpecialProcessStatus(order.status)
       const bindingPayload = payloadMap.get(order.processOrderId) || null
-      const reservedPayload = buildReservedSpecialProcessPayload(order.processOrderId, order.processType)
       const navigationPayload = buildSpecialProcessNavigationPayload(order)
-      const typeExecutionMeta = deriveSpecialProcessTypeExecutionMeta(order.processType)
       const sourceOptions = buildSpecialProcessSourceOptions({
         order,
         cutOrderRows: options.cutOrderRows,
@@ -1162,7 +1114,6 @@ export function buildSpecialProcessViewModel(options: {
         order,
         storedActions: allStoredFollowupActions,
         navigationPayload,
-        typeMeta: typeExecutionMeta,
       })
       const executionSnapshot: SpecialProcessExecutionSnapshot = deriveSpecialProcessExecutionSnapshot({
         order,
@@ -1170,7 +1121,6 @@ export function buildSpecialProcessViewModel(options: {
         scopeLines,
         executionLogs,
         followupActions,
-        typeMeta: typeExecutionMeta,
       })
       return {
         ...order,
@@ -1179,14 +1129,12 @@ export function buildSpecialProcessViewModel(options: {
         sourceSummary: buildSourceSummary(order, scopeLines),
         statusMeta,
         bindingPayload,
-        reservedPayload,
         navigationPayload,
         keywordIndex: buildKeywordIndex(order, scopeLines),
         scopeLines,
         executionLogs,
         followupActions,
         sourceOptions,
-        typeExecutionMeta,
         plannedQtyTotal: executionSnapshot.plannedQtyTotal,
         actualQtyTotal: executionSnapshot.actualQtyTotal,
         latestActualLength: executionSnapshot.latestActualLength,
@@ -1212,7 +1160,6 @@ export function buildSpecialProcessViewModel(options: {
       pendingExecutionCount: rows.filter((row) => row.status === 'PENDING_EXECUTION').length,
       inProgressCount: rows.filter((row) => row.status === 'IN_PROGRESS').length,
       doneCount: rows.filter((row) => row.status === 'DONE').length,
-      reservedCount: rows.filter((row) => !row.typeExecutionMeta.enabledForExecution).length,
     },
   }
 }

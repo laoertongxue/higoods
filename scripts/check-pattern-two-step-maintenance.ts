@@ -52,7 +52,6 @@ const adapterSource = read('src/data/pcs-technical-data-fcs-adapter.ts')
 
 for (const scriptPath of [
   'scripts/check-process-craft-dictionary-rebuild.ts',
-  'scripts/check-bom-shrink-wash-process-linkage.ts',
 ]) {
   assert(existsSync(resolve(root, scriptPath)), `前置检查脚本不存在：${scriptPath}`)
 }
@@ -177,11 +176,6 @@ for (const file of collectFiles(['src/pages', 'src/data', 'docs', 'tests'])) {
   assert(!readFileSync(file, 'utf8').includes('纸样图片'), `用户可见旧文案仍存在：${relativePath}`)
 }
 
-for (const expected of ['PREP_SHRINKING', 'PREP_WASHING', 'shrinkRequirement', 'washRequirement']) {
-  assert(contextSource.includes(expected) || read('src/pages/tech-pack/bom-process-linkage.ts').includes(expected), `不得破坏前置 BOM/工序联动：${expected}`)
-}
-
-assertIncludes('src/data/fcs/process-craft-dict.ts', 'listPreparationProcesses', '第 1 步工序工艺字典能力必须保留')
 assertIncludes('src/pages/tech-pack/bom-process-linkage.ts', 'syncPreparationProcessesFromBom', '第 2 步 BOM 联动能力必须保留')
 
 console.log('pattern two step maintenance checks passed')

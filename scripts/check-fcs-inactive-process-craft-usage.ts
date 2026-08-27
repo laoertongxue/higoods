@@ -19,7 +19,7 @@ import {
 } from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const RETIRED_PROCESS_CODES = ['WASHING', ...removedLegacyProcessCodes] as const
+const RETIRED_PROCESS_CODES = removedLegacyProcessCodes
 const SAFE_SOURCE_FILES = new Set([
   'src/data/fcs/process-craft-dict.ts',
   'src/data/fcs/process-craft-output-value-explainer.ts',

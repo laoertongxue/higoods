@@ -139,8 +139,6 @@ function normalizeReviewItem(scope: string, item: unknown): unknown {
       printRequirement: normalizeText(record.printRequirement || '无'),
       waterSolubleRequirement: normalizeText(record.waterSolubleRequirement || '否'),
       dyeRequirement: normalizeText(record.dyeRequirement || '无'),
-      shrinkRequirement: normalizeText(record.shrinkRequirement || '否'),
-      washRequirement: normalizeText(record.washRequirement || '否'),
       printSideMode: normalizeText(record.printSideMode),
       applicableSkuCodes: normalizeStringList(record.applicableSkuCodes),
       usageProcessCodes: normalizeStringList(record.usageProcessCodes),

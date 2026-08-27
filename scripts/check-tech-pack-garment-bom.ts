@@ -32,8 +32,6 @@ const garmentSeed = {
   printRequirement: '有',
   waterSolubleRequirement: '是',
   dyeRequirement: '有',
-  shrinkRequirement: '是',
-  washRequirement: '是',
   printSideMode: 'SINGLE',
   frontPatternDesignId: 'design-1',
   frontPatternDesignIds: ['design-1'],
@@ -53,8 +51,6 @@ assert.deepEqual(normalized.linkedPatternIds, [])
 assert.equal(normalized.printRequirement, '无')
 assert.equal(normalized.dyeRequirement, '无')
 assert.equal(normalized.waterSolubleRequirement, '否')
-assert.equal(normalized.shrinkRequirement, '否')
-assert.equal(normalized.washRequirement, '否')
 assert.equal(normalized.printSideMode, '')
 assert.deepEqual(normalized.frontPatternDesignIds, [])
 assert.deepEqual(normalized.insidePatternDesignIds, [])

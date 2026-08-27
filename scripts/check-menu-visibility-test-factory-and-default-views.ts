@@ -29,7 +29,6 @@ import {
 import {
   canFactorySeeSpecialCraftOperation,
   listEnabledSpecialCraftOperationDefinitions,
-  listVisibleSpecialCraftOperationsForFactoryType,
 } from '../src/data/fcs/special-craft-operations.ts'
 import {
   buildFactoryWarehouseProgressSnapshots,
@@ -124,12 +123,6 @@ assertContains(specialCraftSource, 'visibleFactoryTypes', '特殊工艺定义缺
 assertContains(specialCraftSource, 'visibleFactoryIds', '特殊工艺定义缺少工厂 ID 可见性字段')
 assertContains(specialCraftSource, 'canFactorySeeSpecialCraftOperation', '特殊工艺缺少工厂可见性判断 helper')
 assertContains(specialCraftSource, 'listVisibleSpecialCraftOperationsForFactory', '特殊工艺缺少工厂上下文菜单 helper')
-
-assert(!enabledOperations.some((item) => item.operationName === '洗水'), '洗水不得继续作为特殊工艺定义')
-assert(
-  !listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_DENIM_WASH').some((item) => item.operationName === '洗水'),
-  '工厂类型过滤下，洗水不得继续作为特殊工艺开放',
-)
 
 const testFactory = listFactoryMasterRecords().find((factory) => factory.id === TEST_FACTORY_ID)
 assert(testFactory, '缺少全能力测试工厂')

@@ -106,7 +106,7 @@ const CATEGORY_KEYWORDS: Array<{ primary: string; secondary: string; keywords: s
   { primary: '植物与花卉', secondary: '水墨/水彩花卉', keywords: ['watercolor', 'ink', 'inkwash', '水彩', '水墨'] },
   { primary: '几何与抽象', secondary: '几何图形', keywords: ['stripe', 'stripes', 'check', 'plaid', 'grid', 'gingham', 'geo', 'geometric', 'diamond', 'dot', 'circle', '条纹', '格纹', '格子', '几何'] },
   { primary: '几何与抽象', secondary: '抽象艺术', keywords: ['abstract', 'brush', 'splash', '抽象', '涂鸦'] },
-  { primary: '几何与抽象', secondary: '肌理背景', keywords: ['solid', 'texture', 'plain', 'grain', 'wash', '肌理', '纯色', '底纹'] },
+  { primary: '几何与抽象', secondary: '肌理背景', keywords: ['solid', 'texture', 'plain', 'grain', '肌理', '纯色', '底纹'] },
   { primary: '卡通与动漫', secondary: '经典卡通', keywords: ['cartoon', 'cute', 'bear', 'bunny', '卡通'] },
   { primary: '卡通与动漫', secondary: '动漫风格', keywords: ['anime', 'manga', '动漫'] },
   { primary: '卡通与动漫', secondary: '表情包', keywords: ['emoji', 'sticker', 'expression', '表情包'] },
@@ -132,7 +132,7 @@ const USAGE_KEYWORDS: Record<string, string[]> = {
   定位花: ['placement', 'panel', 'position', 'front', 'back'],
   边条花: ['border', 'hem', 'side', 'lace'],
   满印: ['full', 'allover', '全幅', '满印'],
-  纯色肌理: ['solid', 'texture', 'grain', 'wash'],
+  纯色肌理: ['solid', 'texture', 'grain'],
 }
 
 const TIFF_TYPE_SIZES: Record<number, number> = {

@@ -4,7 +4,7 @@
 
 **目标：** 清除旧印染需求单字面残留，并将三个失效的专项检查校准为现行、可执行的业务事实，最终重新通过 2026-07-22 实施计划任务 11 的完整矩阵。
 
-**架构：** 不恢复已废弃的需求单、洗水特殊工艺或成衣的菲票/子工艺单模型。检查脚本分别验证：旧术语零字面残留、洗水作为准备阶段面料工序、裁片与成衣按各自对象模型展示、捆条读取生产单冻结技术包事实。
+**架构：** 不恢复已废弃的需求单或成衣的菲票/子工艺单模型。检查脚本分别验证：旧术语零字面残留、裁片与成衣按各自对象模型展示、捆条读取生产单冻结技术包事实。
 
 **技术栈：** TypeScript、Node/tsx 专项检查、Playwright、CodeGraph。
 
@@ -48,43 +48,7 @@ npm run check:production-order-progress-tracking
 
 预期：`rg` 无命中；专项 PASS。
 
-### 任务 2：校准洗水与双对象技术包专项
-
-**文件：**
-- 修改：`scripts/check-tech-pack-special-craft-target-object-and-versioning.ts`
-
-- [ ] **步骤 1：记录当前失败**
-
-运行：
-
-```bash
-npm run check:tech-pack-special-craft-target-object-and-versioning
-```
-
-预期：FAIL，旧断言要求洗水为完整面料特殊工艺。
-
-- [ ] **步骤 2：改为准备阶段洗水事实断言**
-
-```ts
-const washing = getProcessDefinitionByCode('WASHING')
-assert.equal(washing?.isSpecialCraft, false, '洗水必须是准备阶段面料工序，而非特殊工艺')
-assert.equal(washing?.defaultDocType, 'TASK', '洗水默认产物必须是任务单')
-assert(!selectableSpecialCrafts.some((craft) => craft.craftName === '洗水'), '洗水不得作为可选特殊工艺')
-```
-
-将捆条检查从已经移除的 DOM 事件名校准为 `bundleLengthCm`、`bundleWidthCm` 数据字段及“必须大于 0”的发布校验，保留冻结技术包中的捆条规格事实。
-
-- [ ] **步骤 3：验证技术包专项**
-
-运行：
-
-```bash
-npm run check:tech-pack-special-craft-target-object-and-versioning
-```
-
-预期：PASS，并仍验证烫画和直喷只支持已裁部位、成衣。
-
-### 任务 3：校准特殊工艺详情与裁片菲票专项
+### 任务 2：校准特殊工艺详情与裁片菲票专项
 
 **文件：**
 - 修改：`scripts/check-special-craft-task-and-fei-flow-deepening.ts`

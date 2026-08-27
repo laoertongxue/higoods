@@ -139,10 +139,6 @@ assert.deepEqual(
   ['已裁部位'],
   '捆条只能支持已裁部位',
 )
-const washing = getProcessDefinitionByCode('WASHING')
-assert.equal(washing?.stageCode, 'PREP', '洗水必须是准备阶段面料工序，而非特殊工艺')
-assert.equal(washing?.defaultDocType, 'PREPARATION_ORDER', '洗水默认产物必须是生产准备加工单')
-assert(!selectableSpecialCrafts.some((craft) => craft.craftName === '洗水'), '洗水不得作为可选特殊工艺')
 assert(
   selectableSpecialCrafts.some((craft) => getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects).length > 1),
   '必须存在支持两个作用对象的特殊工艺',

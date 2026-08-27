@@ -1103,7 +1103,7 @@ export function startEngineeringTask(input: {
   })
 }
 
-export type EngineeringTechPackOnlyProcess = '缩水' | '洗水' | '水溶'
+export type EngineeringTechPackOnlyProcess = '水溶'
 
 export interface ApplyBomRequirementsToEngineeringTasksResult {
   masterOrder: EngineeringMasterOrderRecord
@@ -1139,8 +1139,6 @@ function hasBomRequirement(value: unknown): boolean {
 
 function listTechPackOnlyProcesses(rows: EngineeringBomTaskLinkageRow[]): EngineeringTechPackOnlyProcess[] {
   const processes: EngineeringTechPackOnlyProcess[] = []
-  if (rows.some((row) => hasBomRequirement(row.shrinkRequirement))) processes.push('缩水')
-  if (rows.some((row) => hasBomRequirement(row.washRequirement))) processes.push('洗水')
   if (rows.some((row) => hasBomRequirement(row.waterSolubleRequirement))) processes.push('水溶')
   return processes
 }
@@ -1324,7 +1322,7 @@ function syncTaskMaterialLines(
 }
 
 // BOM 只启用工程主单发布时已有的条件任务骨架，并按 BOM 行维护任务物料事实。
-// 缩水、洗水、水溶留在技术包工艺，不生成工程任务或生产准备时效项。
+// 水溶留在技术包工艺，不生成工程任务或生产准备时效项。
 export function applyBomRequirementsToEngineeringTasks(
   masterOrderId: string,
   rows: EngineeringBomTaskLinkageRow[],

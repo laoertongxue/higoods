@@ -242,8 +242,6 @@ type BomItemRow = {
   printRequirement: string
   waterSolubleRequirement: BomRequirementFlag
   dyeRequirement: string
-  shrinkRequirement: BomRequirementFlag
-  washRequirement: BomRequirementFlag
   printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId: string
   frontPatternDesignIds: string[]
@@ -267,8 +265,6 @@ export function normalizeGarmentBomItem(item: BomItemRow): BomItemRow {
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
-    shrinkRequirement: '否',
-    washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -851,8 +847,6 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
-    shrinkRequirement: '否',
-    washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -1709,8 +1703,6 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '数码印',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
-    shrinkRequirement: '是',
-    washRequirement: '是',
     printSideMode: 'SINGLE',
     frontPatternDesignId: 'design-front-1',
     frontPatternDesignIds: ['design-front-1'],
@@ -1734,8 +1726,6 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '无',
     waterSolubleRequirement: '是',
     dyeRequirement: '匹染',
-    shrinkRequirement: '是',
-    washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -1759,8 +1749,6 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
-    shrinkRequirement: '否',
-    washRequirement: '否',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -1853,8 +1841,6 @@ interface TechPackPageState {
     printRequirement: string
     waterSolubleRequirement: BomRequirementFlag
     dyeRequirement: string
-    shrinkRequirement: BomRequirementFlag
-    washRequirement: BomRequirementFlag
     printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
     frontPatternDesignId: string
     frontPatternDesignIds: string[]
@@ -2376,8 +2362,6 @@ function buildEngineeringBomTaskRows(bomItems: BomItemRow[]) {
     printRequirement: item.printRequirement && item.printRequirement !== '无' ? '是' as const : '否' as const,
     printProcess: item.printRequirement && item.printRequirement !== '无' ? item.printRequirement : undefined,
     dyeRequirement: item.dyeRequirement && item.dyeRequirement !== '无' ? '是' as const : '否' as const,
-    shrinkRequirement: item.shrinkRequirement,
-    washRequirement: item.washRequirement,
     waterSolubleRequirement: item.waterSolubleRequirement,
   }))
 }
@@ -2946,8 +2930,6 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         item.printRequirement,
         item.waterSolubleRequirement,
         item.dyeRequirement,
-        item.shrinkRequirement,
-        item.washRequirement,
         item.printSideMode,
         item.frontPatternDesignId,
         item.frontPatternDesignIds,
@@ -2975,8 +2957,6 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         printRequirement: item.printRequirement || '无',
         waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
-        shrinkRequirement: item.shrinkRequirement || '否',
-        washRequirement: item.washRequirement || '否',
         printSideMode: item.printSideMode || '',
         frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
         frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
@@ -3135,7 +3115,7 @@ const PATTERN_CRAFT_POSITION_OPTIONS: Array<{
 const patternCraftPositionNameByCode = new Map(
   PATTERN_CRAFT_POSITION_OPTIONS.map((item) => [item.code, item.name] as const),
 )
-const forbiddenPieceInstanceCraftNames = new Set(['捆条', '橡筋定长切割', '缩水', '洗水'])
+const forbiddenPieceInstanceCraftNames = new Set(['捆条', '橡筋定长切割'])
 
 function sanitizePieceInstanceIdPart(value: string): string {
   return String(value || '')
@@ -4408,8 +4388,6 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       printRequirement: item.printRequirement ?? '无',
       waterSolubleRequirement: item.waterSolubleRequirement ?? '否',
       dyeRequirement: item.dyeRequirement ?? '无',
-      shrinkRequirement: item.shrinkRequirement ?? '否',
-      washRequirement: item.washRequirement ?? '否',
       printSideMode: item.printSideMode ?? '',
       frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
       frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
@@ -5021,8 +4999,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         printRequirement: item.printRequirement || '无',
         waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
-        shrinkRequirement: item.shrinkRequirement || '否',
-        washRequirement: item.washRequirement || '否',
         printSideMode: item.printSideMode || undefined,
         frontPatternDesignId: frontPatternDesignIds[0] || undefined,
         frontPatternDesignIds: frontPatternDesignIds.length > 0 ? frontPatternDesignIds : undefined,

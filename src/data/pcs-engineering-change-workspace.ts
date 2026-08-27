@@ -764,8 +764,6 @@ function syncEngineeringChangeBomPricingToTechnicalContent(technicalVersionId: s
       supplier: '',
       printRequirement: material.printRequirementText || material.printRequirement || '否',
       dyeRequirement: material.dyeRequirementText || material.dyeRequirement || '否',
-      shrinkRequirement: material.shrinkRequirementText && material.shrinkRequirementText !== '无' ? '是' : '否',
-      washRequirement: material.washRequirementText && material.washRequirementText !== '无' ? '是' : '否',
       waterSolubleRequirement: material.waterSolubleRequirementText && material.waterSolubleRequirementText !== '无' ? '是' : '否',
       printSideMode: material.printSide === '双面' ? 'DOUBLE' : material.printSide === '反面' ? 'REVERSE' : material.printSide === '正面' ? 'SINGLE' : '',
       applicableSkuCodes: [...version.applicableSkuIds],

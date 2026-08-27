@@ -527,7 +527,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         productionOrderNo: 'PO-202603-031',
         materialSku: 'ML-SOLID-240327-21',
         materialType: 'SOLID',
-        materialLabel: '面料 · 水洗白府绸',
+        materialLabel: '面料 · 漂白府绸',
         reviewStatus: 'APPROVED',
         demandRollCount: 8,
         demandLength: 460,

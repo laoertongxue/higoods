@@ -565,9 +565,9 @@ function resolveOperationFactories(operation: SpecialCraftOperationDefinition): 
     }
     return scoped
   }
-  const preferred = operation.targetObject === '完整面料' || operation.targetObject === '面料'
-    ? matched.filter((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
-    : matched.filter((factory) => factory.factoryType === 'SATELLITE_FINISHING' || factory.factoryType === 'CENTRAL_SPECIAL')
+  const preferred = matched.filter(
+    (factory) => factory.factoryType === 'SATELLITE_FINISHING' || factory.factoryType === 'CENTRAL_SPECIAL',
+  )
   const pool = preferred.length > 0 ? preferred : matched
   if (pool.length === 0) {
     throw new Error(`未找到特殊工艺执行工厂：${operation.operationName}`)
