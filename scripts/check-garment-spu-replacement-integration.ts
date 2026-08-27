@@ -93,7 +93,7 @@ const replacement = createGarmentSpuReplacement({
   sourceColor: 'White',
   targetSpuCode: TARGET_SPU,
   targetColor: 'White',
-  reason: '验收：整色质量问题，B/C/D 全部替换',
+  reason: '验收：整色质量问题，成衣仓未售、后道在手及剩余待回货量全部替换',
   operatorName: '后道验收员',
   occurredAt: '2026-08-27 12:00:00',
 })
@@ -105,11 +105,11 @@ const migrations = appendGarmentIdentityMigrationAudits({
 assert.equal(migrations.length, 3)
 assert.ok(migrations.some((item) => item.originalSkuCode === 'SKU-2024-004-WHT-M' && item.currentSkuCode === 'SKU-015-M-WHT'))
 
-// C 类未换码前，后道可交出数量必须被收口；完成后恢复并使用目标身份。
+// 后道工厂在手成衣未换码前，可交出数量必须被收口；完成后恢复并使用目标身份。
 assert.equal(
   listPostFinishingAvailableHandoverLines().filter((item) => item.sourceProductionOrderNo === PRODUCTION_ORDER_NO).length,
   0,
-  'C 类未换码不得继续交成衣仓',
+  '后道工厂在手成衣未换码不得继续交成衣仓',
 )
 
 const qcAfter = listPostFinishingQcOrderEntities()
@@ -159,7 +159,7 @@ const newDefectRecheck = completePostFinishingRecheckOrder({
 })
 assert.equal(newDefectRecheck.recheckSkuResults.find((item) => item.sizeName === 'L')?.skuCode, 'SKU-015-L-WHT')
 
-// D 类回货批次保留原 SKU，并以目标 SKU 作为当前实物身份。
+// 剩余待回货批次保留原 SKU，并以目标 SKU 作为当前实物身份。
 const returnBatches: ReturnInboundBatch[] = []
 const returnBatch = createReturnInboundBatchRecord({
   batches: returnBatches,
@@ -243,7 +243,7 @@ for (const source of [
 }
 assert.deepEqual(validatePrintTemplateRegistry(), [])
 
-// B 类任务必须阻断旧 SKU 销售出库，完成后生成每尺码旧出、新入两笔流水。
+// 成衣仓未售成衣的换码任务必须阻断旧 SKU 销售出库，完成后生成每尺码旧出、新入两笔流水。
 const relabelTask = listGarmentWarehouseRelabelTasks()[0]
 assert.throws(() => assertGarmentSalesOutboundAllowed({
   productionOrderId: PRODUCTION_ORDER_ID,
@@ -263,4 +263,4 @@ assert.doesNotThrow(() => assertGarmentSalesOutboundAllowed({
 assert.deepEqual(originalOrder.demandSnapshot, originalDemandSnapshot, 'SPU 替换不得改写生产单原需求快照')
 assert.equal(listGarmentSpuReplacements()[0].status, 'COMPLETED')
 
-console.log('成衣 SPU/SKU 替换跨模块契约通过：后道交出门禁、QC/复检瑕疵迁移、D 回货双身份、原分配匹配、生产单/仓库条码与吊牌、B 类销售出库阻断。')
+console.log('成衣 SPU/SKU 替换跨模块契约通过：后道交出门禁、QC/复检瑕疵迁移、剩余待回货双身份、原分配匹配、生产单/仓库条码与吊牌、成衣仓旧 SKU 销售出库阻断。')

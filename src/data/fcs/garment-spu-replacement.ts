@@ -171,18 +171,113 @@ export interface GarmentSalesOutboundGuard {
   relabelTaskNo?: string
 }
 
-const STORAGE_KEY = 'higood-fcs-garment-spu-replacement-v1'
-const DEFAULT_QUANTITY_SPLITS: Record<string, GarmentReplacementQuantitySplit> = {
-  S: { soldHistoryQty: 300, finishedWarehouseQty: 300, postFactoryQty: 0, remainingReturnQty: 400 },
-  M: { soldHistoryQty: 400, finishedWarehouseQty: 350, postFactoryQty: 300, remainingReturnQty: 450 },
-  L: { soldHistoryQty: 350, finishedWarehouseQty: 300, postFactoryQty: 250, remainingReturnQty: 600 },
-  XL: { soldHistoryQty: 200, finishedWarehouseQty: 200, postFactoryQty: 150, remainingReturnQty: 450 },
+const STORAGE_KEY = 'higood-fcs-garment-spu-replacement-v2'
+const QUANTITY_SPLITS_BY_SCOPE: Record<string, Record<string, GarmentReplacementQuantitySplit>> = {
+  'PO-202603-0001::white': {
+    S: { soldHistoryQty: 300, finishedWarehouseQty: 300, postFactoryQty: 0, remainingReturnQty: 400 },
+    M: { soldHistoryQty: 400, finishedWarehouseQty: 350, postFactoryQty: 300, remainingReturnQty: 450 },
+    L: { soldHistoryQty: 350, finishedWarehouseQty: 300, postFactoryQty: 250, remainingReturnQty: 600 },
+    XL: { soldHistoryQty: 200, finishedWarehouseQty: 200, postFactoryQty: 150, remainingReturnQty: 450 },
+  },
+  'PO-202603-0002::grey': {
+    S: { soldHistoryQty: 120, finishedWarehouseQty: 140, postFactoryQty: 90, remainingReturnQty: 150 },
+    M: { soldHistoryQty: 180, finishedWarehouseQty: 200, postFactoryQty: 120, remainingReturnQty: 200 },
+    L: { soldHistoryQty: 240, finishedWarehouseQty: 210, postFactoryQty: 150, remainingReturnQty: 200 },
+    XL: { soldHistoryQty: 150, finishedWarehouseQty: 120, postFactoryQty: 80, remainingReturnQty: 150 },
+  },
+  'PO-202603-0003::white': {
+    S: { soldHistoryQty: 300, finishedWarehouseQty: 280, postFactoryQty: 220, remainingReturnQty: 400 },
+    M: { soldHistoryQty: 500, finishedWarehouseQty: 400, postFactoryQty: 300, remainingReturnQty: 600 },
+    L: { soldHistoryQty: 550, finishedWarehouseQty: 350, postFactoryQty: 300, remainingReturnQty: 600 },
+    XL: { soldHistoryQty: 350, finishedWarehouseQty: 250, postFactoryQty: 200, remainingReturnQty: 400 },
+  },
+  'PO-202603-0004::black': {
+    S: { soldHistoryQty: 150, finishedWarehouseQty: 180, postFactoryQty: 120, remainingReturnQty: 250 },
+    M: { soldHistoryQty: 250, finishedWarehouseQty: 260, postFactoryQty: 190, remainingReturnQty: 300 },
+    L: { soldHistoryQty: 300, finishedWarehouseQty: 280, postFactoryQty: 220, remainingReturnQty: 300 },
+    XL: { soldHistoryQty: 180, finishedWarehouseQty: 170, postFactoryQty: 100, remainingReturnQty: 250 },
+  },
 }
 
 let memorySnapshot: GarmentReplacementStoreSnapshot | null = null
 
 function emptySnapshot(): GarmentReplacementStoreSnapshot {
   return { version: 1, records: [], inventoryBatches: [], relabelTasks: [], warehouseMovements: [] }
+}
+
+function appendSeedMigrationAudit(record: GarmentSpuReplacementRecord, occurredAt: string): void {
+  const line = record.lines.find((item) => item.replacementRequired)
+  if (!line) return
+  record.migrationAudits.push({
+    auditId: `${record.replacementId}-MIG-0001`,
+    objectType: '后道瑕疵记录',
+    objectId: `DEFECT-MOCK-${record.replacementId}`,
+    size: line.size,
+    originalSpuCode: line.source.spuCode,
+    originalSkuCode: line.source.skuCode,
+    currentSpuCode: line.target.spuCode,
+    currentSkuCode: line.target.skuCode,
+    migratedAt: occurredAt,
+    reason: '整色 SPU 替换：瑕疵数量与责任不变，当前归属迁移到目标 SKU',
+  })
+}
+
+function buildSeedSnapshot(): GarmentReplacementStoreSnapshot {
+  const snapshot = emptySnapshot()
+  const createSeed = (input: GarmentSpuReplacementCreateInput): GarmentSpuReplacementRecord => {
+    const preview = buildGarmentReplacementPreview(input)
+    const record = appendGarmentSpuReplacementToSnapshot(snapshot, input, preview)
+    appendSeedMigrationAudit(record, input.occurredAt || record.createdAt)
+    return record
+  }
+
+  createSeed({
+    productionOrderId: 'PO-202603-0002',
+    sourceColor: 'Grey',
+    targetSpuCode: 'SPU-2024-015',
+    targetColor: 'White',
+    reason: 'Mock：第二批回货发现整色质量问题，等待后道工厂和成衣仓开始换码',
+    evidenceFileName: 'mock-灰色整色问题.jpg',
+    evidenceImageUrl: '/jacket-sample.jpg',
+    operatorName: '后道跟单员 王敏',
+    occurredAt: '2026-08-27 11:30:00',
+  })
+
+  const processing = createSeed({
+    productionOrderId: 'PO-202603-0003',
+    sourceColor: 'White',
+    targetSpuCode: 'SPU-2024-015',
+    targetColor: 'White',
+    reason: 'Mock：后道工厂已开始重新贴码，成衣仓正在按原入库批次处理',
+    evidenceFileName: 'mock-白色整色问题.jpg',
+    evidenceImageUrl: '/shirt-sample.jpg',
+    operatorName: '成衣仓管理员 林洁',
+    occurredAt: '2026-08-27 10:20:00',
+  })
+  const processingTask = snapshot.relabelTasks.find((task) => task.replacementId === processing.replacementId)
+  if (processingTask) startGarmentWarehouseRelabelTaskInSnapshot(processingTask)
+  processing.lines.forEach((line) => { line.postRelabeledQty = Math.floor(line.postFactoryQty / 2) })
+  recomputeRecordStatus(processing, processingTask)
+
+  const completed = createSeed({
+    productionOrderId: 'PO-202603-0004',
+    sourceColor: 'Black',
+    targetSpuCode: 'SPU-2024-015',
+    targetColor: 'White',
+    reason: 'Mock：后道与成衣仓均已完成新条码、新吊牌和旧出新入',
+    evidenceFileName: 'mock-黑色整色问题.jpg',
+    evidenceImageUrl: '/pants-sample.jpg',
+    operatorName: '后道跟单员 陈玲',
+    occurredAt: '2026-08-27 09:10:00',
+  })
+  completed.lines.forEach((line) => { line.postRelabeledQty = line.postFactoryQty })
+  const completedTask = snapshot.relabelTasks.find((task) => task.replacementId === completed.replacementId)
+  if (completedTask) {
+    completeGarmentWarehouseRelabelTaskInSnapshot(snapshot, completedTask, '成衣仓换码员 周敏', '2026-08-27 09:50:00')
+  } else {
+    recomputeRecordStatus(completed)
+  }
+  return snapshot
 }
 
 function canUseStorage(): boolean {
@@ -209,10 +304,11 @@ function loadSnapshot(): GarmentReplacementStoreSnapshot {
         }
       }
     } catch {
-      // 原型环境存储损坏时回到空白状态，不伪造业务记录。
+      // 原型环境存储损坏时回到可演示的 Mock 快照。
     }
   }
-  memorySnapshot = emptySnapshot()
+  memorySnapshot = buildSeedSnapshot()
+  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
   return cloneSnapshot(memorySnapshot)
 }
 
@@ -296,10 +392,10 @@ function resolveTargetSku(input: { targetSpuCode: string; targetColor: string; s
   return matches[0]
 }
 
-function buildSplit(size: string, originalDemandQty: number, useDefaultSplit: boolean): GarmentReplacementQuantitySplit {
-  const preset = useDefaultSplit ? DEFAULT_QUANTITY_SPLITS[size] : undefined
+function buildSplit(productionOrderId: string, color: string, size: string, originalDemandQty: number): GarmentReplacementQuantitySplit {
+  const preset = QUANTITY_SPLITS_BY_SCOPE[`${productionOrderId}::${normalize(color)}`]?.[size]
   if (!preset) return { soldHistoryQty: 0, finishedWarehouseQty: 0, postFactoryQty: 0, remainingReturnQty: originalDemandQty }
-  if (sumLine(preset) !== originalDemandQty) throw new Error(`${size} 码 A/B/C/D 数量与生产需求数量不守恒。`)
+  if (sumLine(preset) !== originalDemandQty) throw new Error(`${size} 码的已销售、成衣仓、后道工厂和剩余待回货数量与生产需求数量不守恒。`)
   return { ...preset }
 }
 
@@ -319,11 +415,10 @@ export function buildGarmentReplacementPreview(input: {
   const order = getOrder(input.productionOrderId)
   const sourceLines = order.demandSnapshot.skuLines.filter((line) => normalize(line.color) === normalize(input.sourceColor))
   if (!sourceLines.length) throw new Error('生产单中没有所选源颜色。')
-  const useDefaultSplit = order.productionOrderId === 'PO-202603-0001' && normalize(input.sourceColor) === 'white'
   const lines = sourceLines.map((sourceLine, index): GarmentSpuReplacementLine => {
-    const split = buildSplit(sourceLine.size, sourceLine.qty, useDefaultSplit)
+    const split = buildSplit(order.productionOrderId, input.sourceColor, sourceLine.size, sourceLine.qty)
     const replacementQty = split.finishedWarehouseQty + split.postFactoryQty + split.remainingReturnQty
-    // 只对确实要替换的 B/C/D 数量要求目标尺码；纯 A 类历史数量不增加商品门禁。
+    // 只对当前存在或未来待回货的实际数量要求目标尺码；纯销售历史数量不增加商品门禁。
     const targetSku = replacementQty > 0
       ? resolveTargetSku({ targetSpuCode: input.targetSpuCode, targetColor: input.targetColor, size: sourceLine.size })
       : null
@@ -354,7 +449,7 @@ export function buildGarmentReplacementPreview(input: {
     replacementQty: result.replacementQty + line.finishedWarehouseQty + line.postFactoryQty + line.remainingReturnQty,
   }), { soldHistoryQty: 0, finishedWarehouseQty: 0, postFactoryQty: 0, remainingReturnQty: 0, originalDemandQty: 0, replacementQty: 0 })
   const firstTarget = lines.find((line) => line.replacementRequired)?.target
-  if (!firstTarget) throw new Error('所选颜色当前只有已销售历史数量，没有可执行替换的 B/C/D 数量。')
+  if (!firstTarget) throw new Error('所选颜色当前只有已完成销售出库的历史数量，没有可执行替换的未售或待回货数量。')
   return {
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
@@ -369,7 +464,7 @@ export function buildGarmentReplacementPreview(input: {
   }
 }
 
-export function createGarmentSpuReplacement(input: {
+interface GarmentSpuReplacementCreateInput {
   productionOrderId: string
   sourceColor: string
   targetSpuCode: string
@@ -379,13 +474,13 @@ export function createGarmentSpuReplacement(input: {
   evidenceImageUrl?: string
   operatorName: string
   occurredAt?: string
-}): GarmentSpuReplacementRecord {
-  if (!input.reason.trim()) throw new Error('必须填写 SPU 替换原因。')
-  const preview = buildGarmentReplacementPreview(input)
-  if (preview.sourceSpuCode === preview.targetSpuCode && normalize(preview.sourceColor) === normalize(preview.targetColor)) {
-    throw new Error('目标 SPU 和颜色不能与源商品完全相同。')
-  }
-  const snapshot = loadSnapshot()
+}
+
+function appendGarmentSpuReplacementToSnapshot(
+  snapshot: GarmentReplacementStoreSnapshot,
+  input: GarmentSpuReplacementCreateInput,
+  preview: GarmentReplacementPreview,
+): GarmentSpuReplacementRecord {
   const scopeKey = `${preview.productionOrderId}::${normalize(preview.sourceColor)}`
   if (snapshot.records.some((record) => record.scopeKey === scopeKey)) {
     throw new Error('该生产单与颜色已经存在整色替换记录，不能重复发起。')
@@ -462,6 +557,17 @@ export function createGarmentSpuReplacement(input: {
     })
   }
   recomputeRecordStatus(record, snapshot.relabelTasks.find((task) => task.replacementId === replacementId))
+  return record
+}
+
+export function createGarmentSpuReplacement(input: GarmentSpuReplacementCreateInput): GarmentSpuReplacementRecord {
+  if (!input.reason.trim()) throw new Error('必须填写 SPU 替换原因。')
+  const preview = buildGarmentReplacementPreview(input)
+  if (preview.sourceSpuCode === preview.targetSpuCode && normalize(preview.sourceColor) === normalize(preview.targetColor)) {
+    throw new Error('目标 SPU 和颜色不能与源商品完全相同。')
+  }
+  const snapshot = loadSnapshot()
+  const record = appendGarmentSpuReplacementToSnapshot(snapshot, input, preview)
   persistSnapshot(snapshot)
   return structuredClone(record)
 }
@@ -598,23 +704,28 @@ export function getGarmentWarehouseRelabelTask(id: string): GarmentWarehouseRela
   return task ? structuredClone(task) : null
 }
 
+function startGarmentWarehouseRelabelTaskInSnapshot(task: GarmentWarehouseRelabelTask): void {
+  if (task.status === 'COMPLETED') return
+  task.status = 'PROCESSING'
+  task.lines.forEach((line) => { if (line.status === 'PENDING') line.status = 'PROCESSING' })
+}
+
 export function startGarmentWarehouseRelabelTask(taskId: string): GarmentWarehouseRelabelTask {
   const snapshot = loadSnapshot()
   const task = snapshot.relabelTasks.find((item) => item.relabelTaskId === taskId)
   if (!task) throw new Error('未找到成衣仓换码任务。')
-  if (task.status === 'COMPLETED') return structuredClone(task)
-  task.status = 'PROCESSING'
-  task.lines.forEach((line) => { if (line.status === 'PENDING') line.status = 'PROCESSING' })
+  startGarmentWarehouseRelabelTaskInSnapshot(task)
   persistSnapshot(snapshot)
   return structuredClone(task)
 }
 
-export function completeGarmentWarehouseRelabelTask(input: { taskId: string; operatorName: string; occurredAt?: string }): GarmentWarehouseRelabelTask {
-  const snapshot = loadSnapshot()
-  const task = snapshot.relabelTasks.find((item) => item.relabelTaskId === input.taskId)
-  if (!task) throw new Error('未找到成衣仓换码任务。')
-  if (task.status === 'COMPLETED') return structuredClone(task)
-  const occurredAt = input.occurredAt || nowText()
+function completeGarmentWarehouseRelabelTaskInSnapshot(
+  snapshot: GarmentReplacementStoreSnapshot,
+  task: GarmentWarehouseRelabelTask,
+  operatorName: string,
+  occurredAt: string,
+): void {
+  if (task.status === 'COMPLETED') return
   task.lines.forEach((line) => {
     const batch = snapshot.inventoryBatches.find((item) => item.inventoryBatchId === line.inventoryBatchId)
     if (!batch) throw new Error(`未找到来源入库批次 ${line.sourceInboundBatchId}。`)
@@ -628,7 +739,7 @@ export function completeGarmentWarehouseRelabelTask(input: { taskId: string; ope
       qty: line.qty,
       identity: structuredClone(line.source),
       occurredAt,
-      operatorName: input.operatorName,
+      operatorName,
     })
     snapshot.warehouseMovements.push({
       movementId: `${task.relabelTaskId}-IN-${line.size}`,
@@ -640,7 +751,7 @@ export function completeGarmentWarehouseRelabelTask(input: { taskId: string; ope
       qty: line.qty,
       identity: structuredClone(line.target || line.source),
       occurredAt,
-      operatorName: input.operatorName,
+      operatorName,
     })
     batch.currentIdentity = structuredClone(line.target)
     batch.relabeled = true
@@ -650,6 +761,13 @@ export function completeGarmentWarehouseRelabelTask(input: { taskId: string; ope
   task.completedAt = occurredAt
   const record = snapshot.records.find((item) => item.replacementId === task.replacementId)
   if (record) recomputeRecordStatus(record, task)
+}
+
+export function completeGarmentWarehouseRelabelTask(input: { taskId: string; operatorName: string; occurredAt?: string }): GarmentWarehouseRelabelTask {
+  const snapshot = loadSnapshot()
+  const task = snapshot.relabelTasks.find((item) => item.relabelTaskId === input.taskId)
+  if (!task) throw new Error('未找到成衣仓换码任务。')
+  completeGarmentWarehouseRelabelTaskInSnapshot(snapshot, task, input.operatorName, input.occurredAt || nowText())
   persistSnapshot(snapshot)
   return structuredClone(task)
 }

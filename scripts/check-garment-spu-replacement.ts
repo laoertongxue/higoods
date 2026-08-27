@@ -108,7 +108,7 @@ assert.doesNotThrow(() => assertGarmentSalesOutboundAllowed({
 }))
 assert.equal(listGarmentWarehouseMovements(record.replacementId).length, 8, '四个尺码分别形成旧出库和新入库')
 assert.ok(listGarmentWarehouseInventoryBatches().every((batch) => batch.relabeled && batch.currentIdentity.spuCode === 'SPU-2024-015'))
-assert.equal(listGarmentSpuReplacements()[0].status, 'RELABELING', '后道 C 类尚未换码时总记录不能完成')
+assert.equal(listGarmentSpuReplacements()[0].status, 'RELABELING', '后道工厂在手成衣尚未换码时总记录不能完成')
 
 completePostFactoryRelabel({ replacementId: record.replacementId, operatorName: '后道验收员', occurredAt: '2026-08-27 11:30:00' })
 assert.equal(isPostFactoryRelabelPending('PO-202603-0001', 'White'), false)
@@ -164,4 +164,4 @@ assert.deepEqual(evidenceRecord.evidence, [{
   uploadedBy: '验收员',
 }], '截图应保留文件名、预览原图、上传人与时间；不上传仍不阻断')
 
-console.log('成衣 SPU/SKU 整色替换核心契约通过：A/B/C/D、整色唯一映射、双身份、仓库双流水、瑕疵迁移、打印当前身份、结算不变。')
+console.log('成衣 SPU/SKU 整色替换核心契约通过：四类业务数量、整色唯一映射、双身份、仓库双流水、瑕疵迁移、打印当前身份、结算不变。')

@@ -553,7 +553,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },
             { key: 'pfos-post-finishing-wait-process-warehouse', title: '阶段待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
             { key: 'pfos-post-finishing-wait-handover-warehouse', title: '阶段待交出仓', icon: 'PackageCheck', href: '/fcs/craft/post-finishing/wait-handover-warehouse' },
-            { key: 'pfos-post-finishing-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCcw', href: '/fcs/craft/post-finishing/garment-spu-replacements' },
+            { key: 'pfos-post-finishing-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/garment-spu-replacements' },
           ],
         },
       ],
@@ -566,7 +566,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       items: [
         { key: 'wls-fabric-demand-board', title: '面料需求看板', icon: 'PanelsTopLeft', href: '/wls/fabric-demand-board' },
         { key: 'wls-accessory-receipts', title: '中央辅料仓收货', icon: 'PackageCheck', href: '/wls/accessory-receipts' },
-        { key: 'wls-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCcw', href: '/wls/garment-spu-replacements' },
+        { key: 'wls-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCw', href: '/wls/garment-spu-replacements' },
         { key: 'wls-garment-relabel-tasks', title: '成衣仓换码任务', icon: 'Tags', href: '/wls/garment-relabel-tasks' },
         { key: 'inventory', title: '库存管理', icon: 'Archive', href: '/wls/inventory' },
         { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },

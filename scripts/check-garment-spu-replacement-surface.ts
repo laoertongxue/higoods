@@ -22,6 +22,7 @@ const returnWorkflow = read('src/data/fcs/return-inbound-workflow.ts')
 const fulfillment = read('src/data/fcs/production-return-fulfillment.ts')
 const printRegistry = read('src/data/fcs/print-template-registry.ts')
 const printTemplate = read('src/pages/print/templates/garment-sku-label-template.ts')
+const shellIcons = read('src/icons/shell-icons.ts')
 
 includesAll(shell, '菜单', [
   "title: '成衣 SPU 替换'",
@@ -29,6 +30,12 @@ includesAll(shell, '菜单', [
   "href: '/fcs/craft/post-finishing/garment-spu-replacements'",
   "href: '/wls/garment-spu-replacements'",
   "href: '/wls/garment-relabel-tasks'",
+  "icon: 'RefreshCw'",
+  "icon: 'Tags'",
+])
+includesAll(shellIcons, '菜单图标注册', [
+  'RefreshCw,',
+  'Tags,',
 ])
 includesAll(fcsRoutes, 'FCS 路由', [
   "'/fcs/craft/post-finishing/garment-spu-replacements':",
@@ -52,12 +59,17 @@ assert.ok(relabelTaskPage.startsWith('// @page-pattern: list'))
 includesAll(replacementPage, '替换页面', [
   'renderStandardListPage',
   '范围固定为“生产单＋源颜色”',
-  '目标 SPU（商品中心）',
-  '唯一目标 SKU',
-  'A 已售历史',
-  'B 成衣仓',
-  'C 后道厂',
-  'D 待回货',
+  '生产单（可搜索）',
+  'data-searchable-select="production-order"',
+  '源颜色（来自所选生产单）',
+  '目标 SPU（商品中心，可搜索）',
+  'data-searchable-select="target-spu"',
+  '目标颜色（来自目标 SPU）',
+  '匹配目标 SKU',
+  '已完成销售出库（历史）',
+  '成衣仓未售成衣',
+  '后道工厂未入仓成衣',
+  '生产单剩余待回货',
   '现场截图（非必填）',
   '已上传图片可点击查看原图',
   'evidenceImageUrl',
@@ -65,12 +77,24 @@ includesAll(replacementPage, '替换页面', [
   '打印新条码',
   '打印新吊牌',
   '瑕疵迁移与追溯',
-  '确认后道 C 类已全部换码',
+  '确认后道工厂在手成衣已全部换码',
   '图片加载失败',
   'open-image',
 ])
+includesAll(core, 'Mock 场景', [
+  'buildSeedSnapshot',
+  '等待后道工厂和成衣仓开始换码',
+  '成衣仓正在按原入库批次处理',
+  '后道与成衣仓均已完成新条码、新吊牌和旧出新入',
+  "task.status = 'PROCESSING'",
+  "task.status = 'COMPLETED'",
+])
 assert.ok(!replacementPage.includes('现场创建'))
 assert.ok(!replacementPage.includes('新建目标 SKU'))
+for (const obsoleteLabel of ['A 已售历史', 'B 成衣仓', 'C 后道厂', 'D 待回货', 'A / B / C / D', 'A 类', 'B 类', 'C 类', 'D 类']) {
+  assert.ok(!replacementPage.includes(obsoleteLabel), `替换页面不应再显示内部分类字母：${obsoleteLabel}`)
+  assert.ok(!relabelTaskPage.includes(obsoleteLabel), `成衣仓任务页面不应再显示内部分类字母：${obsoleteLabel}`)
+}
 
 includesAll(relabelTaskPage, '成衣仓换码任务页面', [
   'renderStandardListPage',
@@ -144,4 +168,4 @@ for (const excluded of ['异常对账数量', '销售退回数量', '通用异�
   assert.ok(!scopedSources.includes(excluded), `本次范围不应引入：${excluded}`)
 }
 
-console.log('成衣 SPU/SKU 替换反向表面审查通过：菜单、路由、事件、两类列表、双打印、A/B/C/D、瑕疵、回货、仓库双流水和非范围均已逐项反查。')
+console.log('成衣 SPU/SKU 替换反向表面审查通过：菜单图标、搜索联动、三态 Mock、业务数量名称、两类列表、双打印、瑕疵、回货、仓库双流水和非范围均已逐项反查。')
