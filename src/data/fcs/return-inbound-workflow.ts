@@ -16,9 +16,11 @@ import type {
   ReturnInboundQcPolicy,
   ReturnInboundSourceBusinessType,
   RootCauseType,
+  ReturnInboundSkuLine,
   SettlementPartyType,
 } from './store-domain-quality-types'
 import { getPostProcessRouteByProductionOrderId } from './post-process-route.ts'
+import { resolveEffectiveGarmentIdentity, resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
 
 interface CreateReturnInboundBatchRecordInput {
   batches: ReturnInboundBatch[]
@@ -28,6 +30,7 @@ interface CreateReturnInboundBatchRecordInput {
   processType: ReturnInboundBatch['processType']
   processLabel?: string
   returnedQty: number
+  skuLines?: ReturnInboundSkuLine[]
   returnFactoryId?: string
   returnFactoryName?: string
   warehouseId?: string
@@ -145,6 +148,22 @@ function ensureUniqueId(prefix: string, hasId: (id: string) => boolean): string 
 
 export function createReturnInboundBatchRecord(input: CreateReturnInboundBatchRecordInput): ReturnInboundBatch {
   const ts = input.now ?? nowTimestamp()
+  const skuLines = input.skuLines?.map((line) => {
+    const effective = resolveEffectiveGarmentIdentity({
+      productionOrderId: input.productionOrderId,
+      color: line.color,
+      size: line.size,
+      stage: 'FUTURE_RETURN',
+    })
+    const originalSkuCode = resolveOriginalSkuForReturnedSku(input.productionOrderId, effective?.skuCode || line.skuCode)
+    return {
+      ...line,
+      skuCode: effective?.skuCode || line.skuCode,
+      originalSkuCode,
+      originalSpuCode: line.originalSpuCode,
+      effectiveSpuCode: effective?.spuCode || line.effectiveSpuCode,
+    }
+  })
   const next: ReturnInboundBatch = {
     batchId: input.batchId,
     productionOrderId: input.productionOrderId,
@@ -152,6 +171,7 @@ export function createReturnInboundBatchRecord(input: CreateReturnInboundBatchRe
     processType: input.processType,
     processLabel: input.processLabel,
     returnedQty: input.returnedQty,
+    skuLines,
     returnFactoryId: input.returnFactoryId,
     returnFactoryName: input.returnFactoryName,
     warehouseId: input.warehouseId,

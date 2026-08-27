@@ -1,5 +1,6 @@
 import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillment-policy'
 import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
+import { resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
 
 export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'OVERDUE'
 export type ReturnReminderType = 'DUE_TOMORROW' | 'DUE_TODAY' | 'OVERDUE'
@@ -115,7 +116,11 @@ export function resolveReturnReceiptAssignment(input: {
   confirmedDate: string
 }): ReturnReceiptAssignmentResolution {
   const confirmedDate = assertDate(input.confirmedDate, '到货确认日期')
-  const skuSet = new Set(input.skuCodes)
+  // 回货实物可能已经按整色替换后的 SKU 贴码；履约归属仍按生产单原始分配身份匹配。
+  const skuSet = new Set(input.skuCodes.flatMap((skuCode) => [
+    skuCode,
+    resolveOriginalSkuForReturnedSku(input.productionOrderId, skuCode),
+  ]))
   const candidates = listEffectiveTaskAssignments()
     .filter((assignment) => assignment.productionOrderId === input.productionOrderId && assignment.factoryId === input.factoryId)
     .filter((assignment) => assignment.businessAssignedAt.slice(0, 10) <= confirmedDate)

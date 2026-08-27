@@ -47,6 +47,14 @@ const renderPmsPurchaseOrdersPage = createAsyncRenderer(
   () => import('../pages/pms-purchase-orders'),
   'renderPmsPurchaseOrdersPage',
 )
+const renderWlsGarmentSpuReplacementsPage = createAsyncRenderer(
+  () => import('../pages/garment-spu-replacements'),
+  'renderWlsGarmentSpuReplacementsPage',
+)
+const renderWlsGarmentRelabelTasksPage = createAsyncRenderer(
+  () => import('../pages/wls-garment-relabel-tasks'),
+  'renderWlsGarmentRelabelTasksPage',
+)
 
 const exactBaseRoutes: Record<string, () => Promise<string>> = {
   '/': async () => {
@@ -60,6 +68,8 @@ const exactBaseRoutes: Record<string, () => Promise<string>> = {
   '/wls': () => renderRouteRedirect('/wls/fabric-demand-board', '正在跳转到面料需求看板'),
   '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
   '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
+  '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
+  '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),
 }
 
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null

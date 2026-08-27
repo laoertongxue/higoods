@@ -3,6 +3,11 @@ import {
   DEDICATED_POST_FACTORY_ID,
   DEDICATED_POST_FACTORY_NAME,
 } from './factory-mock-data.ts'
+import {
+  isPostFactoryRelabelPending,
+  resolveEffectiveGarmentIdentity,
+  type GarmentReplacementIdentityStage,
+} from './garment-spu-replacement.ts'
 
 export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
@@ -51,6 +56,8 @@ export interface PostFinishingSkuLine {
   spuName: string
   skuId: string
   skuCode: string
+  originalSpuCode?: string
+  originalSkuCode?: string
   colorName: string
   sizeName: string
   imageUrl?: string
@@ -89,6 +96,7 @@ export interface PostFinishingQcSkuResult {
   skuLineId: string
   skuId: string
   skuCode: string
+  originalSkuCode?: string
   skuImageUrl?: string
   colorName: string
   sizeName: string
@@ -141,6 +149,7 @@ export interface PostFinishingRecheckSkuResult {
   skuLineId: string
   skuId: string
   skuCode: string
+  originalSkuCode?: string
   skuImageUrl?: string
   colorName: string
   sizeName: string
@@ -502,6 +511,8 @@ export interface PostFinishingWaitProcessWarehouseRecord {
   spuName: string
   skuId: string
   skuCode: string
+  originalSpuCode?: string
+  originalSkuCode?: string
   colorName: string
   sizeName: string
   skuImageUrl?: string
@@ -612,6 +623,8 @@ export interface PostFinishingWaitHandoverWarehouseRecord {
   spuName: string
   skuId: string
   skuCode: string
+  originalSpuCode?: string
+  originalSkuCode?: string
   colorName: string
   sizeName: string
   skuSummary: string
@@ -848,6 +861,33 @@ function cloneSkuLine(line: PostFinishingSkuLine): PostFinishingSkuLine {
   return { ...line }
 }
 
+function projectSkuLineIdentity(
+  line: PostFinishingSkuLine,
+  productionOrderIdOrNo: string,
+  stage: GarmentReplacementIdentityStage,
+): PostFinishingSkuLine {
+  const effective = resolveEffectiveGarmentIdentity({
+    productionOrderId: productionOrderIdOrNo,
+    color: line.colorName,
+    size: line.sizeName,
+    stage,
+  })
+  if (!effective || effective.skuCode === line.skuCode) return cloneSkuLine(line)
+  return {
+    ...line,
+    originalSpuCode: line.originalSpuCode || line.spuCode,
+    originalSkuCode: line.originalSkuCode || line.skuCode,
+    spuId: effective.spuCode,
+    spuCode: effective.spuCode,
+    spuName: effective.spuName,
+    skuId: effective.skuCode,
+    skuCode: effective.skuCode,
+    colorName: effective.color,
+    sizeName: effective.size,
+    imageUrl: effective.imageUrl,
+  }
+}
+
 function cloneQcDefectReasonItem(item: PostFinishingQcDefectReasonItem): PostFinishingQcDefectReasonItem {
   return { ...item }
 }
@@ -861,12 +901,51 @@ function cloneQcSkuResult(result: PostFinishingQcSkuResult): PostFinishingQcSkuR
   }
 }
 
+function projectQcSkuResultIdentity(result: PostFinishingQcSkuResult, productionOrderIdOrNo: string): PostFinishingQcSkuResult {
+  const effective = resolveEffectiveGarmentIdentity({
+    productionOrderId: productionOrderIdOrNo,
+    color: result.colorName,
+    size: result.sizeName,
+    stage: 'DEFECT',
+  })
+  const cloned = cloneQcSkuResult(result)
+  if (!effective || effective.skuCode === result.skuCode) return cloned
+  return {
+    ...cloned,
+    originalSkuCode: result.originalSkuCode || result.skuCode,
+    skuId: effective.skuCode,
+    skuCode: effective.skuCode,
+    skuImageUrl: effective.imageUrl,
+    colorName: effective.color,
+    sizeName: effective.size,
+  }
+}
+
 function clonePostProjectLine(line: PostFinishingPostProjectLine): PostFinishingPostProjectLine {
   return { ...line }
 }
 
 function cloneRecheckSkuResult(result: PostFinishingRecheckSkuResult): PostFinishingRecheckSkuResult {
   return { ...result }
+}
+
+function projectRecheckSkuResultIdentity(result: PostFinishingRecheckSkuResult, productionOrderIdOrNo: string): PostFinishingRecheckSkuResult {
+  const effective = resolveEffectiveGarmentIdentity({
+    productionOrderId: productionOrderIdOrNo,
+    color: result.colorName,
+    size: result.sizeName,
+    stage: 'DEFECT',
+  })
+  if (!effective || effective.skuCode === result.skuCode) return cloneRecheckSkuResult(result)
+  return {
+    ...result,
+    originalSkuCode: result.originalSkuCode || result.skuCode,
+    skuId: effective.skuCode,
+    skuCode: effective.skuCode,
+    skuImageUrl: effective.imageUrl,
+    colorName: effective.color,
+    sizeName: effective.size,
+  }
 }
 
 function cloneFlowRecord(record: PostFinishingWarehouseFlowRecord): PostFinishingWarehouseFlowRecord {
@@ -2146,11 +2225,16 @@ function cloneReceipt(record: PostFinishingReceiptRecord): PostFinishingReceiptR
 }
 
 function cloneQcOrder(order: PostFinishingQcOrder): PostFinishingQcOrder {
+  const projectedLines = order.skuLines.map((line) => projectSkuLineIdentity(line, order.productionOrderId || order.productionOrderNo, 'DEFECT'))
+  const firstLine = projectedLines[0]
   return {
     ...order,
-    skuLines: order.skuLines.map(cloneSkuLine),
+    spuId: firstLine?.spuId || order.spuId,
+    spuCode: firstLine?.spuCode || order.spuCode,
+    spuName: firstLine?.spuName || order.spuName,
+    skuLines: projectedLines,
     warehouseAllocations: order.warehouseAllocations.map((allocation) => ({ ...allocation })),
-    qcSkuResults: order.qcSkuResults.map(cloneQcSkuResult),
+    qcSkuResults: order.qcSkuResults.map((result) => projectQcSkuResultIdentity(result, order.productionOrderId || order.productionOrderNo)),
     defectItems: order.defectItems.map((item) => ({ ...item })),
     evidenceAssets: order.evidenceAssets.map((item) => ({ ...item })),
   }
@@ -2681,13 +2765,23 @@ function ensurePostRecheckFromOrder(order: PostFinishingWorkOrder): PostFinishin
   return recheck
 }
 
-function cloneActionRecord(record: PostFinishingActionRecord): PostFinishingActionRecord {
+function cloneActionRecord(
+  record: PostFinishingActionRecord,
+  productionOrderIdOrNo = '',
+  stage: GarmentReplacementIdentityStage = 'POST_FACTORY',
+): PostFinishingActionRecord {
   return {
     ...record,
-    skuLines: record.skuLines.map(cloneSkuLine),
-    qcSkuResults: record.qcSkuResults?.map(cloneQcSkuResult),
+    skuLines: productionOrderIdOrNo
+      ? record.skuLines.map((line) => projectSkuLineIdentity(line, productionOrderIdOrNo, stage))
+      : record.skuLines.map(cloneSkuLine),
+    qcSkuResults: record.qcSkuResults?.map((result) => productionOrderIdOrNo
+      ? projectQcSkuResultIdentity(result, productionOrderIdOrNo)
+      : cloneQcSkuResult(result)),
     postProjectLines: record.postProjectLines?.map(clonePostProjectLine),
-    recheckSkuResults: record.recheckSkuResults?.map(cloneRecheckSkuResult),
+    recheckSkuResults: record.recheckSkuResults?.map((result) => productionOrderIdOrNo
+      ? projectRecheckSkuResultIdentity(result, productionOrderIdOrNo)
+      : cloneRecheckSkuResult(result)),
     defectItems: record.defectItems?.map((item) => ({ ...item })),
     evidenceAssets: record.evidenceAssets?.map((item) => ({ ...item })),
     evidenceUrls: record.evidenceUrls ? [...record.evidenceUrls] : undefined,
@@ -2703,23 +2797,33 @@ function cloneActionRecord(record: PostFinishingActionRecord): PostFinishingActi
 }
 
 function cloneWorkOrder(order: PostFinishingWorkOrder): PostFinishingWorkOrder {
+  const projectedLines = order.skuLines.map((line) => projectSkuLineIdentity(line, order.sourceProductionOrderId || order.sourceProductionOrderNo, 'POST_FACTORY'))
+  const firstLine = projectedLines[0]
   return {
     ...order,
-    skuLines: order.skuLines.map(cloneSkuLine),
+    spuId: firstLine?.spuId || order.spuId,
+    spuCode: firstLine?.spuCode || order.spuCode,
+    spuName: firstLine?.spuName || order.spuName,
+    skuLines: projectedLines,
     postProcessItems: [...order.postProcessItems],
     postProjectLines: order.postProjectLines.map(clonePostProjectLine),
-    receiveAction: cloneActionRecord(order.receiveAction),
-    qcAction: cloneActionRecord(order.qcAction),
-    postAction: cloneActionRecord(order.postAction),
-    recheckAction: cloneActionRecord(order.recheckAction),
+    receiveAction: cloneActionRecord(order.receiveAction, order.sourceProductionOrderId || order.sourceProductionOrderNo, 'POST_FACTORY'),
+    qcAction: cloneActionRecord(order.qcAction, order.sourceProductionOrderId || order.sourceProductionOrderNo, 'DEFECT'),
+    postAction: cloneActionRecord(order.postAction, order.sourceProductionOrderId || order.sourceProductionOrderNo, 'POST_FACTORY'),
+    recheckAction: cloneActionRecord(order.recheckAction, order.sourceProductionOrderId || order.sourceProductionOrderNo, 'DEFECT'),
   }
 }
 
 function cloneRecheck(order: PostFinishingRecheckOrder): PostFinishingRecheckOrder {
+  const projectedLines = order.skuLines.map((line) => projectSkuLineIdentity(line, order.productionOrderNo, 'DEFECT'))
+  const firstLine = projectedLines[0]
   return {
     ...order,
-    skuLines: order.skuLines.map(cloneSkuLine),
-    recheckSkuResults: order.recheckSkuResults.map(cloneRecheckSkuResult),
+    spuId: firstLine?.spuId || order.spuId,
+    spuCode: firstLine?.spuCode || order.spuCode,
+    spuName: firstLine?.spuName || order.spuName,
+    skuLines: projectedLines,
+    recheckSkuResults: order.recheckSkuResults.map((result) => projectRecheckSkuResultIdentity(result, order.productionOrderNo)),
   }
 }
 
@@ -3258,6 +3362,51 @@ export function listPostFinishingQcOrderEntities(): PostFinishingQcOrder[] {
 
 export function listPostFinishingRecheckOrderEntities(): PostFinishingRecheckOrder[] {
   return recheckOrders.map(cloneRecheck)
+}
+
+export function listPostFinishingIdentityMigrationCandidates(
+  productionOrderIdOrNo: string,
+  color: string,
+): Array<{
+  objectType: string
+  objectId: string
+  size: string
+  originalSpuCode: string
+  originalSkuCode: string
+}> {
+  const normalizedOrder = normalizeProductionOrderNo(productionOrderIdOrNo)
+  const normalizedColor = color.trim().toLowerCase()
+  const candidates = [
+    ...qcOrders
+      .filter((order) => [order.productionOrderId, order.productionOrderNo].some((value) => normalizeProductionOrderNo(value) === normalizedOrder))
+      .flatMap((order) => order.qcSkuResults
+        .filter((result) => result.colorName.trim().toLowerCase() === normalizedColor)
+        .filter((result) => result.unqualifiedQty > 0 || result.reworkQty > 0 || result.defectAcceptedQty > 0)
+        .map((result) => ({
+          objectType: 'QC_SKU_RESULT',
+          objectId: result.qcSkuResultId,
+          size: result.sizeName,
+          originalSpuCode: order.spuCode,
+          originalSkuCode: result.originalSkuCode || result.skuCode,
+        }))),
+    ...recheckOrders
+      .filter((order) => normalizeProductionOrderNo(order.productionOrderNo) === normalizedOrder)
+      .flatMap((order) => order.recheckSkuResults
+        .filter((result) => result.colorName.trim().toLowerCase() === normalizedColor)
+        .filter((result) => result.unqualifiedQty > 0)
+        .map((result) => ({
+          objectType: 'RECHECK_SKU_RESULT',
+          objectId: result.recheckSkuResultId,
+          size: result.sizeName,
+          originalSpuCode: order.spuCode,
+          originalSkuCode: result.originalSkuCode || result.skuCode,
+        }))),
+  ]
+  return candidates.filter((candidate, index) => candidates.findIndex((item) => (
+    item.objectType === candidate.objectType
+    && item.objectId === candidate.objectId
+    && item.size === candidate.size
+  )) === index)
 }
 
 export function getPostFinishingRecheckOrderById(recheckOrderId: string): PostFinishingRecheckOrder | undefined {
@@ -5079,11 +5228,16 @@ export function ensurePostFinishingHandoverWarehouseRecord(input: { postOrderId:
 export function listPostFinishingAvailableHandoverLines(): Array<PostFinishingWaitHandoverWarehouseRecord & { availableHandoverGarmentQty: number }> {
   waitHandoverWarehouseRecords = buildWaitHandoverRecords()
   return waitHandoverWarehouseRecords
-    .map((record) => ({
-      ...record,
-      availableHandoverGarmentQty: Math.max(roundQty(record.waitHandoverGarmentQty - record.submittedHandoverGarmentQty), 0),
-      flowRecords: record.flowRecords.map(cloneFlowRecord),
-    }))
+    .map((record) => {
+      const relabelPending = isPostFactoryRelabelPending(record.sourceProductionOrderNo, record.colorName)
+      return projectWarehouseRecordIdentity({
+        ...record,
+        availableHandoverGarmentQty: relabelPending
+          ? 0
+          : Math.max(roundQty(record.waitHandoverGarmentQty - record.submittedHandoverGarmentQty), 0),
+        flowRecords: record.flowRecords.map(cloneFlowRecord),
+      })
+    })
     .filter((record) => record.availableHandoverGarmentQty > 0)
 }
 
@@ -5211,7 +5365,23 @@ export function listPostFinishingActionRecords(actionType?: PostFinishingActionT
   })
   return [...receiveActions, ...qcActions, ...postActions, ...recheckActions]
     .filter((record) => !actionType || record.actionType === actionType)
-    .map(cloneActionRecord)
+    .map((record) => {
+      const qc = qcOrders.find((item) => item.qcOrderId === record.actionRecordId || item.qcOrderId === record.linkedQcOrderId)
+      const recheck = recheckOrders.find((item) => item.recheckOrderId === record.actionRecordId || item.recheckOrderId === record.linkedRecheckOrderId)
+      const workOrder = postFinishingWorkOrders.find((item) => item.postOrderId === record.postOrderId || item.postAction.actionRecordId === record.actionRecordId)
+      const receipt = receiptRecords.find((item) => item.receiptId === record.postOrderId)
+      const productionOrderIdOrNo = qc?.productionOrderId
+        || qc?.productionOrderNo
+        || recheck?.productionOrderNo
+        || workOrder?.sourceProductionOrderId
+        || workOrder?.sourceProductionOrderNo
+        || receipt?.productionOrderNo
+        || ''
+      const identityStage: GarmentReplacementIdentityStage = record.actionType === '质检' || record.actionType === '复检'
+        ? 'DEFECT'
+        : 'POST_FACTORY'
+      return cloneActionRecord(record, productionOrderIdOrNo, identityStage)
+    })
 }
 
 export function listPostFinishingQcOrders(): PostFinishingActionRecord[] {
@@ -5227,19 +5397,55 @@ export function listPostFinishingReceiveOrders(): PostFinishingActionRecord[] {
 }
 
 export function listSewingFactoryPostTasks(): SewingFactoryPostTask[] {
-  return sewingFactoryPostTasks.map((task) => ({ ...task, skuLines: task.skuLines.map(cloneSkuLine) }))
+  return sewingFactoryPostTasks.map((task) => ({
+    ...task,
+    skuLines: task.skuLines.map((line) => projectSkuLineIdentity(line, task.productionOrderNo, 'POST_FACTORY')),
+  }))
+}
+
+function projectWarehouseRecordIdentity<T extends {
+  sourceProductionOrderNo: string
+  spuId: string
+  spuCode: string
+  spuName: string
+  skuId: string
+  skuCode: string
+  colorName: string
+  sizeName: string
+  skuImageUrl?: string
+}>(record: T): T & { originalSpuCode?: string; originalSkuCode?: string } {
+  const effective = resolveEffectiveGarmentIdentity({
+    productionOrderId: record.sourceProductionOrderNo,
+    color: record.colorName,
+    size: record.sizeName,
+    stage: 'POST_FACTORY',
+  })
+  if (!effective || effective.skuCode === record.skuCode) return { ...record }
+  return {
+    ...record,
+    originalSpuCode: record.spuCode,
+    originalSkuCode: record.skuCode,
+    spuId: effective.spuCode,
+    spuCode: effective.spuCode,
+    spuName: effective.spuName,
+    skuId: effective.skuCode,
+    skuCode: effective.skuCode,
+    colorName: effective.color,
+    sizeName: effective.size,
+    skuImageUrl: effective.imageUrl,
+  }
 }
 
 export function listPostFinishingWaitProcessWarehouseRecords(): PostFinishingWaitProcessWarehouseRecord[] {
   const storedRecords = readPostFinishingWarehouseStore().waitProcessReceiptRecords
   const storedIds = new Set(storedRecords.map((record) => record.warehouseRecordId))
   return applyQcAllocationsToWaitProcessRecords([...storedRecords, ...waitProcessWarehouseRecords.filter((record) => !storedIds.has(record.warehouseRecordId))])
-    .map((record) => ({ ...record, flowRecords: record.flowRecords.map(cloneFlowRecord) }))
+    .map((record) => projectWarehouseRecordIdentity({ ...record, flowRecords: record.flowRecords.map(cloneFlowRecord) }))
 }
 
 export function listPostFinishingWaitHandoverWarehouseRecords(): PostFinishingWaitHandoverWarehouseRecord[] {
   waitHandoverWarehouseRecords = buildWaitHandoverRecords()
-  return waitHandoverWarehouseRecords.map((record) => ({ ...record, flowRecords: record.flowRecords.map(cloneFlowRecord) }))
+  return waitHandoverWarehouseRecords.map((record) => projectWarehouseRecordIdentity({ ...record, flowRecords: record.flowRecords.map(cloneFlowRecord) }))
 }
 
 export function getPostFinishingSummary() {

@@ -158,6 +158,7 @@ import {
   renderPostFinishingWaitProcessWarehousePage,
   renderPostFinishingWorkOrderDetailPage,
   renderPostFinishingWorkOrdersPage,
+  renderPostFinishingGarmentSpuReplacementsPage,
   renderSpecialCraftDomainWaitHandoverWarehousePage,
   renderSpecialCraftDomainWaitProcessWarehousePage,
   renderSpecialCraftTaskDetailPage,
@@ -394,6 +395,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/post-finishing/wait-process-warehouse': () => renderPostFinishingWaitProcessWarehousePage(),
     '/fcs/craft/post-finishing/wait-handover-warehouse': () => renderPostFinishingWaitHandoverWarehousePage(),
     '/fcs/craft/post-finishing/statistics': () => renderPostFinishingStatisticsPage(),
+    '/fcs/craft/post-finishing/garment-spu-replacements': () => renderPostFinishingGarmentSpuReplacementsPage(),
     ...specialCraftExactRoutes,
     '/fcs/production/create': () =>
       renderPlaceholderPage(

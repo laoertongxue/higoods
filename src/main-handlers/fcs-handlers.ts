@@ -232,6 +232,14 @@ import {
 } from '../pages/process-factory/shared/warehouse-standard'
 import { closeProductionObjectOverlays } from '../components/production-object-overview'
 import { handleCuttingWarehouseLocationMapEvent } from '../pages/process-factory/cutting/warehouse-location-map'
+import {
+  closeGarmentSpuReplacementOverlays,
+  handleGarmentSpuReplacementEvent,
+} from '../pages/garment-spu-replacements.ts'
+import {
+  closeWlsGarmentRelabelTaskOverlays,
+  handleWlsGarmentRelabelTasksEvent,
+} from '../pages/wls-garment-relabel-tasks.ts'
 
 const CUTTING_PICKUP_LIST_PATHS = new Set([
   '/fcs/craft/cutting/pickup-management/ready',
@@ -243,6 +251,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   if (pathname === '/fcs/print/preview') {
     return handleUnifiedPrintPreviewEvent(target)
+  }
+  if (pathname === '/fcs/craft/post-finishing/garment-spu-replacements' || pathname === '/wls/garment-spu-replacements') {
+    return handleGarmentSpuReplacementEvent(target, event)
+  }
+  if (pathname === '/wls/garment-relabel-tasks') {
+    return handleWlsGarmentRelabelTasksEvent(target, event)
   }
   if (
     pathname.startsWith('/fcs/craft/accessory/lace')
@@ -499,6 +513,9 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeGarmentSpuReplacementOverlays() || closeWlsGarmentRelabelTaskOverlays()) {
+    return true
+  }
   if (closeCraftCuttingPickupListOverlay()) {
     return true
   }

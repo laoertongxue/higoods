@@ -80,6 +80,10 @@ import {
 import {
   isKolGotoProductionOrder,
 } from '../../data/fcs/kol-goto-special-flow.ts'
+import {
+  getProductionOrderGarmentComposition,
+} from '../../data/fcs/garment-spu-replacement.ts'
+import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -257,6 +261,7 @@ function renderOrderDemandInfo(order: ProductionOrder): string {
 
 function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficultyGrade?: string; showTechPackVersion?: boolean } = {}): string {
   const imageUrl = resolveProductionSpuImageUrl(order.demandSnapshot)
+  const garmentComposition = getProductionOrderGarmentComposition(order.productionOrderId)
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, order.demandSnapshot.spuName, 'h-12 w-12')}
@@ -283,6 +288,7 @@ function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficulty
             : ''
         }
         ${options.showTechPackVersion ? renderOrderTechPackVersionLink(order) : ''}
+        ${garmentComposition ? `<div class="mt-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-900"><div class="font-semibold">当前成衣构成（原生产需求不变）</div><div>${escapeHtml(garmentComposition.sourceSpuCode)}：${garmentComposition.originalSpuQty.toLocaleString('zh-CN')} 件历史已售</div><div>${escapeHtml(garmentComposition.targetSpuCode)}：${garmentComposition.targetSpuQty.toLocaleString('zh-CN')} 件当前／后续成衣</div><div>其中剩余待回货：${garmentComposition.remainingReturnQty.toLocaleString('zh-CN')} 件</div></div>` : ''}
       </div>
     </div>
   `
@@ -1736,6 +1742,24 @@ export function renderProductionOrdersPage(): string {
                             nav: confirmationPreviewState.href,
                             disabled: !confirmationPreviewState.available,
                             title: confirmationPreviewState.title,
+                          }),
+                          renderOrderTextActionButton({
+                            label: '打印条码',
+                            nav: buildUnifiedPrintPreviewLink({
+                              documentType: 'GARMENT_SKU_BARCODE',
+                              sourceType: 'PRODUCTION_ORDER',
+                              sourceId: order.productionOrderId,
+                            }),
+                            title: '按当前有效 SKU 打印成衣条码',
+                          }),
+                          renderOrderTextActionButton({
+                            label: '打印吊牌',
+                            nav: buildUnifiedPrintPreviewLink({
+                              documentType: 'GARMENT_HANGTAG',
+                              sourceType: 'PRODUCTION_ORDER',
+                              sourceId: order.productionOrderId,
+                            }),
+                            title: '按商品中心当前有效资料打印成衣吊牌',
                           }),
                           isKolGotoProductionOrder(order)
                             ? ''

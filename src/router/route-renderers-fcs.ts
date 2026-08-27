@@ -158,6 +158,10 @@ export const renderPrintPreviewPage = createAsyncRenderer(
   () => import('../pages/print/print-preview'),
   'renderPrintPreviewPage',
 )
+export const renderPostFinishingGarmentSpuReplacementsPage = createAsyncRenderer(
+  () => import('../pages/garment-spu-replacements'),
+  'renderPostFinishingGarmentSpuReplacementsPage',
+)
 export const renderMaterialStatementsPage = createAsyncRenderer(
   () => import('../pages/material-statements'),
   'renderMaterialStatementsPage',

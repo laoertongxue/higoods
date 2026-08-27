@@ -94,6 +94,16 @@ export type SewPostProcessMode = PostExecutionMode
 export type ReturnInboundSourceBusinessType = 'TASK' | 'DYE_PRINT_ORDER' | 'RETURN_BATCH' | 'OTHER'
 export type InspectionSourceType = 'HANDOVER_ORDER' | 'HANDOVER_RECORD' | 'RETURN_BATCH'
 
+export interface ReturnInboundSkuLine {
+  skuCode: string
+  color: string
+  size: string
+  qty: number
+  originalSkuCode?: string
+  originalSpuCode?: string
+  effectiveSpuCode?: string
+}
+
 export interface ReturnInboundBatch {
   batchId: string
   productionOrderId: string
@@ -101,6 +111,7 @@ export interface ReturnInboundBatch {
   processType: ReturnInboundProcessType
   processLabel?: string
   returnedQty: number
+  skuLines?: ReturnInboundSkuLine[]
   returnFactoryId?: string
   returnFactoryName?: string
   warehouseId?: string

@@ -70,6 +70,10 @@ import {
   renderPrintingInfoSheetDocument,
   renderPrintingRollLabelDocument,
 } from '../../pages/print/templates/printing-work-order-template.ts'
+import {
+  buildGarmentSkuLabelPrintDocument,
+  renderGarmentSkuLabelTemplate,
+} from '../../pages/print/templates/garment-sku-label-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -81,6 +85,22 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'GARMENT_SKU_BARCODE_V1',
+    templateName: '成衣 SKU 条码',
+    documentType: 'GARMENT_SKU_BARCODE',
+    supportedSourceTypes: ['PRODUCTION_ORDER', 'GARMENT_WAREHOUSE_RELABEL_TASK'],
+    buildDocument: buildGarmentSkuLabelPrintDocument,
+    render: renderGarmentSkuLabelTemplate,
+  },
+  {
+    templateCode: 'GARMENT_HANGTAG_V1',
+    templateName: '成衣吊牌',
+    documentType: 'GARMENT_HANGTAG',
+    supportedSourceTypes: ['PRODUCTION_ORDER', 'GARMENT_WAREHOUSE_RELABEL_TASK'],
+    buildDocument: buildGarmentSkuLabelPrintDocument,
+    render: renderGarmentSkuLabelTemplate,
+  },
   {
     templateCode: 'PRINTING_INFO_SHEET_V2',
     templateName: '印花信息单',
@@ -379,6 +399,8 @@ export function renderPrintDocument(document: PrintDocument): string {
 }
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'GARMENT_SKU_BARCODE',
+  'GARMENT_HANGTAG',
   'PRODUCTION_CONTRACT',
   'PRINTING_INFO_SHEET',
   'PRINTING_CONFIRMATION',
