@@ -6,7 +6,7 @@ import {
 import {
   POST_STAGE_FLOW_NODES,
   POST_STAGE_PROCESSES,
-  normalizeHistoricalPostProcessCode,
+  normalizePostStageProcessCode,
 } from '../src/data/fcs/post-stage-taxonomy.ts'
 import { buildPostStageExecutionSequence, type PostProcessRoute } from '../src/data/fcs/post-process-route.ts'
 
@@ -14,8 +14,8 @@ const actualProcessCodes = POST_STAGE_PROCESSES.map((item) => item.code)
 assert.deepEqual(actualProcessCodes, ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'])
 assert.deepEqual(POST_STAGE_PROCESSES.map((item) => item.name), ['开扣眼', '装扣子', '烫包'])
 assert.deepEqual(POST_STAGE_FLOW_NODES.map((item) => item.code), ['ARRIVAL_CONFIRM', 'QC', 'RECHECK', 'HANDOVER'])
-assert.equal(normalizeHistoricalPostProcessCode('IRONING'), 'IRON_PACK')
-assert.equal(normalizeHistoricalPostProcessCode('PACKAGING'), 'IRON_PACK')
+assert.equal(normalizePostStageProcessCode('IRON_PACK'), 'IRON_PACK')
+assert.equal(normalizePostStageProcessCode('UNKNOWN'), null)
 
 const fullSequence = buildPostStageExecutionSequence({
   requiresReceivingQc: true,
@@ -47,7 +47,7 @@ for (const order of workOrders) {
   assert.ok(order.skuLines.length > 0, `${order.postOrderNo} 缺少 SKU 明细`)
   assert.ok(order.postProjectLines.length > 0, `${order.postOrderNo} 缺少实际工序项目`)
   order.postProjectLines.forEach((line) => assert.ok(allowedNames.has(line.projectName), `${order.postOrderNo} 出现伪工序 ${line.projectName}`))
-  assert.ok(!order.postProcessItems.some((name) => name === ('熨烫' as never) || name === ('包装' as never)), `${order.postOrderNo} 未归一为烫包`)
+  assert.ok(order.postProcessItems.every((name) => allowedNames.has(name)), `${order.postOrderNo} 存在非当前后道工序`)
 }
 
 const visibleSources = [

@@ -539,7 +539,7 @@ sequenceDiagram
 | 两色 | `FLSZ26041134-white` | 4 PCS | 2 | 0% | 各 8 PCS | 辅料采购；Black 款需要印花效果确认 |
 | 两色 | `PKG-HANGTAG-STD` | 1 PCS | 2 | 0% | 各 2 PCS | 辅料采购 |
 
-自定义费用：整烫费 20,000 IDR，作用于整个 SPU。
+自定义费用：烫包费 20,000 IDR，作用于整个 SPU。
 
 ### 10.4 预期任务和依赖
 

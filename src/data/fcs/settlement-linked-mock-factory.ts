@@ -402,7 +402,7 @@ function buildDispatchSummary(): DirectDispatchSummary {
 function buildTaskBreakdownSummary(createdAt: string): TaskBreakdownSummary {
   return {
     isBrokenDown: true,
-    taskTypesTop3: ['车缝', '整烫', '包装'],
+    taskTypesTop3: ['车缝', '烫包'],
     lastBreakdownAt: createdAt,
     lastBreakdownBy: '系统',
   }

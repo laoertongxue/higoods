@@ -721,8 +721,6 @@ const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   SPECIAL_CRAFT: 'PROC_SPECIAL_CRAFT',
   BUTTONHOLE: 'PROC_BUTTONHOLE',
   BUTTON_ATTACH: 'PROC_BUTTON_ATTACH',
-  IRONING: 'PROC_IRON',
-  PACKAGING: 'PROC_PACK',
   IRON_PACK: 'PROC_IRON_PACK',
 }
 
@@ -749,8 +747,6 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   2000002: 'PROC_PRINT',
   2000003: 'PROC_DYE',
   2000004: 'PROC_DYE',
-  2000005: 'PROC_IRON',
-  2000006: 'PROC_PACK',
   2000007: 'PROC_WOOL',
   2000008: 'PROC_WOOL',
   2000009: 'PROC_WATER_SOLUBLE',
@@ -768,8 +764,7 @@ const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   SPECIAL_CRAFT: '特殊工艺厂优先',
   BUTTONHOLE: '后道产能优先',
   BUTTON_ATTACH: '后道产能优先',
-  IRONING: '后道产能优先',
-  PACKAGING: '后道产能优先',
+  IRON_PACK: '后道产能优先',
 }
 
 type ProcessDefaultRule = {
@@ -834,18 +829,8 @@ const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
   },
-  IRONING: {
-    assignmentGranularity: 'SKU',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
-  PACKAGING: {
-    assignmentGranularity: 'SKU',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
   IRON_PACK: {
-    assignmentGranularity: 'SKU',
+    assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
   },
@@ -1076,7 +1061,7 @@ const processDefinitionSeeds: Array<
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
     defaultDocument: '任务单',
-    description: '合并原熨烫与包装的当前业务口径；历史 IRONING、PACKAGING 仅通过兼容映射归一到烫包。',
+    description: '后道阶段对成衣执行烫包，并生成可分配、可接收、可填报和可交出的独立任务。',
   },
 ]
 
@@ -1087,9 +1072,6 @@ function resolveProcessGranularity(processCode: string): ProcessAssignmentGranul
     || processCode === 'WOOL'
     || processCode === 'BUTTONHOLE'
     || processCode === 'BUTTON_ATTACH'
-    || processCode === 'IRON_PACK'
-    || processCode === 'IRONING'
-    || processCode === 'PACKAGING'
   ) return 'SKU'
   return 'ORDER'
 }
@@ -1181,8 +1163,6 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '加工单' },
   { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '加工单' },
   { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '加工单' },
-  { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '烫包', processCode: 'IRON_PACK', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史名称，仅用于归一到烫包' },
-  { legacyValue: 2000006, legacyCraftName: '包装', craftName: '烫包', processCode: 'IRON_PACK', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史名称，仅用于归一到烫包' },
   { legacyValue: 2000010, legacyCraftName: '烫包', craftName: '烫包', processCode: 'IRON_PACK', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
   {
     legacyValue: 2000007,
@@ -1322,6 +1302,9 @@ function resolveProcessCraftTargetObject(
   }
   if (item.processCode === 'BUTTON_ATTACH') {
     return { targetObject: 'ACCESSORY', targetObjectName: '辅料' }
+  }
+  if (item.processCode === 'IRON_PACK') {
+    return { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣' }
   }
   if (item.processCode === 'WOOL') {
     return item.craftName === '部位毛织'

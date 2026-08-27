@@ -236,7 +236,7 @@ function checkDataSignals(): void {
       assert(Boolean(record.handoverRecordQrValue), `交出记录缺少二维码：${record.recordId}`)
       assert(record.factorySubmittedByKind === 'FACTORY', `交出记录必须由工厂发起：${record.recordId}`)
     })
-    assert(!['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(head.processBusinessCode || ''), `后道产能节点误入交出场景：${head.handoverId}`)
+    assert(!['BUTTONHOLE', 'BUTTON_ATTACH'].includes(head.processBusinessCode || ''), `后道内部产能节点误入交出场景：${head.handoverId}`)
     assert(!removedLegacyProcessCodes.includes(head.processBusinessCode as (typeof removedLegacyProcessCodes)[number]), `历史停用工序误入交出场景：${head.handoverId}`)
   })
 

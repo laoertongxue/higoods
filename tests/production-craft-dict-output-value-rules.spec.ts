@@ -61,7 +61,7 @@ test('工艺详情弹窗展示标准完整口径与当前阶段口径，并覆�
   await page.goto('/fcs/production/craft-dict')
   await expect(page.getByRole('heading', { name: '工序工艺字典', exact: true })).toBeVisible()
 
-  const coveredCrafts = ['丝网印', '匹染', '定位裁', '绣花', '曲牙', '打条', '手缝扣', '打揽', '包装']
+  const coveredCrafts = ['丝网印', '匹染', '定位裁', '绣花', '曲牙', '打条', '手缝扣', '打揽', '烫包']
 
   for (const craftName of coveredCrafts) {
     const sheet = await openCraftDetail(page, craftName)

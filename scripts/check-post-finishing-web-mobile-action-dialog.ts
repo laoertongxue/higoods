@@ -36,7 +36,7 @@ import {
 } from '../src/data/fcs/process-warehouse-domain.ts'
 
 const root = process.cwd()
-const forbiddenPostActionTerms = ['开扣眼', '装扣子', '熨烫', '包装']
+const forbiddenPostActionTerms = ['开扣眼', '装扣子', '烫包']
 
 function read(path: string): string {
   return readFileSync(join(root, path), 'utf8')
@@ -125,7 +125,7 @@ for (const code of [
 assert(definitions.some((item) => item.actionLabel.includes('质检')), '必须存在质检动作定义')
 assert(definitions.some((item) => item.actionLabel.includes('复检')), '必须存在复检动作定义')
 assert(definitions.some((item) => item.requiredFields.some((field) => field.includes('成衣件数'))), '后道弹窗字段必须包含成衣件数')
-assert(definitions.every((item) => forbiddenPostActionTerms.every((term) => !item.actionLabel.includes(term))), '后道动作定义不得混入开扣眼、装扣子、熨烫、包装')
+assert(definitions.every((item) => forbiddenPostActionTerms.every((term) => !item.actionLabel.includes(term))), '后道阶段动作定义不得混入实际加工工序')
 
 const dedicatedOrder = listPostFinishingWorkOrders().find((order) => order.postOrderId === 'POST-WO-003')
 assert(dedicatedOrder, '缺少专门后道工厂演示单 POST-WO-003')

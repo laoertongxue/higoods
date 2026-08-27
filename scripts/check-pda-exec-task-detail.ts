@@ -185,8 +185,8 @@ function checkAutoCreateIdempotency(): void {
 function checkPostCapacityNodesStayOut(): void {
   const postCapacityTasks = listPdaGenericProcessTasks().filter(
     (task) =>
-      ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(task.processBusinessCode || '')
-      || ['PROC_BUTTONHOLE', 'PROC_BUTTON_ATTACH', 'PROC_IRON', 'PROC_PACK'].includes(task.processCode),
+      ['BUTTONHOLE', 'BUTTON_ATTACH'].includes(task.processBusinessCode || '')
+      || ['PROC_BUTTONHOLE', 'PROC_BUTTON_ATTACH'].includes(task.processCode),
   )
   postCapacityTasks.forEach((task) => {
     assert(!task.taskQrValue, `后道产能节点不应有任务二维码：${task.taskId}`)

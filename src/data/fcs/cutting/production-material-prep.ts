@@ -43,7 +43,7 @@ export type UpstreamProgressStatus = '已到仓可配' | '采购中' | '印花�
 export type MaterialPrepMaterialType = '面料' | '辅料' | '纱线' | '包材'
 export type MaterialStockWarehouseName = '面料仓' | '中转仓' | '辅料仓' | '纱线仓' | '包材仓'
 export type MaterialPrepRecordStatus = 'DRAFT' | 'PICKED' | 'STAGED' | 'CONFIRMED' | 'REJECTED'
-export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '车缝任务' | '包装任务'
+export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '车缝任务' | '烫包任务'
 export type MaterialPrepOrderStatus =
   | 'NEED_PREP_NO_STOCK'
   | 'NEED_PREP_PARTIAL_STOCK'
@@ -663,7 +663,7 @@ const taskMetaByType: Record<MaterialPrepTaskType, {
   印花任务: { code: 'PRT', name: '印花任务', processCode: 'PRINT', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_PRINT'] },
   染色任务: { code: 'DYE', name: '染色任务', processCode: 'DYE', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_DYE', 'CENTRAL_PRINT'] },
   车缝任务: { code: 'SEW', name: '车缝任务', processCode: 'SEW', preferredFactoryIds: ['ID-F001'], preferredFactoryTypes: ['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'] },
-  包装任务: { code: 'PKG', name: '烫包任务', processCode: 'IRON_PACK', capacityNodeCode: 'IRON_PACK', preferredFactoryIds: ['PF-DEDICATED-001'], preferredFactoryTypes: ['SATELLITE_FINISHING', 'CENTRAL_AUX'] },
+  烫包任务: { code: 'IPK', name: '烫包任务', processCode: 'IRON_PACK', capacityNodeCode: 'IRON_PACK', preferredFactoryIds: ['PF-DEDICATED-001'], preferredFactoryTypes: ['SATELLITE_FINISHING', 'CENTRAL_AUX'] },
 }
 
 const materialPrepTaskFactoryCache = new Map<MaterialPrepTaskType, Factory | null>()
@@ -720,7 +720,7 @@ const runtimeTaskTypeKeywordMap: Record<MaterialPrepTaskType, string[]> = {
   印花任务: ['print', 'printing', '印花'],
   染色任务: ['dye', 'dyeing', '染色'],
   车缝任务: ['sew', 'sewing', '车缝', '缝制'],
-  包装任务: ['pack', 'packing', '包装', '后道'],
+  烫包任务: ['iron_pack', '烫包', '后道'],
 }
 
 export function getMaterialPrepTaskTypesForLine(line: Pick<MaterialPrepSeedLine | MaterialPrepLine, 'materialType' | 'upstreamSourceType' | 'upstreamProgressStatus' | 'materialName'>): MaterialPrepTaskType[] {
@@ -735,7 +735,7 @@ export function getMaterialPrepTaskTypesForLine(line: Pick<MaterialPrepSeedLine 
     }
     taskTypes.push('裁片任务')
   } else if (materialType === '包材') {
-    taskTypes.push('包装任务')
+    taskTypes.push('烫包任务')
   } else {
     taskTypes.push('车缝任务')
   }

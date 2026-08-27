@@ -66,7 +66,6 @@ export interface GeneratedProductionArtifactBase {
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   requiresFeiTicket?: boolean
-  packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   bomItemId?: string
   materialCode?: string

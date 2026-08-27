@@ -90,7 +90,7 @@ const postActionSection = pdaExecDetail.slice(
   pdaExecDetail.indexOf('function renderPostFinishingActionPanel'),
   pdaExecDetail.indexOf('function renderPdaPostFinishingExecutionPage'),
 )
-;['开扣眼', '装扣子', '熨烫', '包装'].forEach((term) => {
+;['开扣眼', '装扣子', '烫包'].forEach((term) => {
   assertNotIncludes(postActionSection, term, `后道移动端动作不应出现 ${term}`)
 })
 

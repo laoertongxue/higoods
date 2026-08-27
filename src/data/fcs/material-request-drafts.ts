@@ -386,11 +386,9 @@ function resolveTaskType(task: Pick<ProcessTask, 'processNameZh' | 'processCode'
   if (processName.includes('车缝') || processName.includes('缝纫') || processCode === 'PROC_SEW') return 'SEW'
   if (
     processName.includes('后道') ||
-    processName.includes('整烫') ||
-    processName.includes('包装') ||
+    processName.includes('烫包') ||
     processName.includes('终检') ||
-    processCode === 'PROC_IRON' ||
-    processCode === 'PROC_PACK' ||
+    processCode === 'PROC_IRON_PACK' ||
     processCode === 'PROC_FINISH' ||
     processCode === 'PROC_FINISHING' ||
     processCode === 'PROC_QC' ||

@@ -48,9 +48,7 @@ assertNotIncludes(dyeingList, 'renderFormulaView', '染色加工单列表页不�
 assertNotIncludes(specialCraftShared, '当前特殊工艺', '特殊工艺页面布局不应再渲染当前特殊工艺信息卡')
 assertNotIncludes(specialCraftShared, 'subNavItems', '特殊工艺页面布局不应再渲染顶部二级切换卡片')
 
-;['base', 'pattern', 'execution', 'handover', 'review', 'progress', 'exception'].forEach((tab) => {
-  assertIncludes(printingDetail, `'${tab}'`, `印花详情页缺少 tab=${tab}`)
-})
+assertNotIncludes(printingDetail, 'renderViewTabs', '印花详情页已收口为单页事实视图，不应恢复顶部视图 Tab')
 ;['base', 'sample', 'execution', 'formula', 'handover', 'review', 'statistics', 'exception'].forEach((tab) => {
   assertIncludes(dyeingDetail, `'${tab}'`, `染色详情页缺少 tab=${tab}`)
 })
@@ -71,11 +69,10 @@ const activeFactoryAbilities = listFactoryMasterRecords()
 for (const [processCode, processName] of [['BUTTONHOLE', '开扣眼'], ['BUTTON_ATTACH', '装扣子'], ['IRON_PACK', '烫包']] as const) {
   assert(activeFactoryAbilities.some((ability) => ability.processCode === processCode && ability.processName === processName), `工厂能力数据缺少后道阶段实际工序 ${processName}`)
 }
-for (const legacyProcessCode of ['POST_FINISHING', 'QC', 'RECHECK', 'IRONING', 'PACKAGING']) {
-  assert(!activeFactoryAbilities.some((ability) => ability.processCode === legacyProcessCode), `工厂能力数据不得保留 ${legacyProcessCode}`)
+for (const flowOnlyCode of ['POST_FINISHING', 'QC', 'RECHECK']) {
+  assert(!activeFactoryAbilities.some((ability) => ability.processCode === flowOnlyCode), `工厂能力数据不得保留流程节点 ${flowOnlyCode}`)
 }
-assertNotIncludes(factoryMock, "'熨烫'", '工厂 Mock 不得继续使用熨烫旧工序')
-assertNotIncludes(factoryMock, "'包装'", '工厂 Mock 不得继续使用包装旧工序')
+assertIncludes(factoryMock, "['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']", '工厂 Mock 必须使用后道三项当前工序能力')
 assertNotIncludes(factoryProfile, "craftName: '质检'", '质检是回货后的流程节点，不得作为工厂实际工序能力')
 assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的流程节点，不得作为工厂实际工序能力')
 assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')

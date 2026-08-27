@@ -129,8 +129,7 @@ test('特殊工艺页面和移动端不出现后道错误动作', async ({ page 
     await page.goto(path)
     await expect(page.locator('body')).not.toContainText('开扣眼')
     await expect(page.locator('body')).not.toContainText('装扣子')
-    await expect(page.locator('body')).not.toContainText('熨烫')
-    await expect(page.locator('body')).not.toContainText('包装')
+    await expect(page.locator('body')).not.toContainText('烫包')
   }
 
   await page.goto('/fcs/process-factory/special-craft/sc-op-008/statistics')

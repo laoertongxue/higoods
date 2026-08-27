@@ -175,7 +175,7 @@ const postSource = [
   'src/data/fcs/post-finishing-domain.ts',
   domainPath,
 ].map(read).join('\n')
-for (const word of ['开扣眼', '装扣子', '熨烫']) {
+for (const word of ['开扣眼', '装扣子', '烫包']) {
   assert(!postSource.includes(word), `后道任务动作不应出现 ${word}`)
 }
 

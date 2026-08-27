@@ -51,7 +51,7 @@ type TaskLike = {
   receiverName?: string
 }
 
-const POST_CAPACITY_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'])
+const POST_CAPACITY_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH'])
 const BANNED_PROCESS_CODES = new Set(removedLegacyProcessCodes)
 
 function resolveBusinessProcessCode(task: TaskLike): string {

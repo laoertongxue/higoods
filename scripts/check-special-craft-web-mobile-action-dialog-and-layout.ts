@@ -126,7 +126,7 @@ includesAll(platformSource, [
   'platformRiskLabel',
   'platformActionHint',
 ], '平台特殊工艺结果视图')
-assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|熨烫|包装/), '特殊工艺页面出现后道或染色包装动作文案')
+assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|烫包/), '特殊工艺页面出现后道动作文案')
 
 const taskOrders = listSpecialCraftTaskOrders()
 const waitReceive = taskOrders.find((item) => item.status === '待接收')

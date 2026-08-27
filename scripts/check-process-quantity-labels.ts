@@ -128,7 +128,7 @@ assertNotIncludes('src/pages/pda-exec-detail.ts', '计划印花面料米数：32
 assertIncludes('src/data/fcs/process-action-writeback-service.ts', 'objectQty: qty', '统一写回服务必须把数量收口为 objectQty')
 assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '开扣眼', '特殊工艺动作不得新增开扣眼')
 assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '装扣子', '特殊工艺动作不得新增装扣子')
-assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '熨烫', '特殊工艺动作不得新增熨烫')
+assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '烫包', '特殊工艺动作不得新增后道烫包')
 
 assert(validatePrintWorkOrderMobileTaskBinding('PWO-PRINT-001').reasonCode === 'OK', '第 2 步绑定校验回退')
 assert(listMobileExecutionTasks({ currentFactoryId: 'F090' }).some((task) => task.taskId === 'TASK-PRINT-000716'), '第 3 步移动端执行列表回退')

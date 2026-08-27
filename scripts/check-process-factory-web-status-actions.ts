@@ -71,7 +71,7 @@ assertNotIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', '<sel
 assertNotIncludes('src/pages/process-factory/special-craft/task-detail.ts', '<select name="status"', '特殊工艺任务详情不得提供自由状态下拉')
 assertNotIncludes(modulePath, '开扣眼', '特殊工艺动作不得出现开扣眼')
 assertNotIncludes(modulePath, '装扣子', '特殊工艺动作不得出现装扣子')
-assertNotIncludes(modulePath, '熨烫', '特殊工艺动作不得出现熨烫')
+assertNotIncludes(modulePath, '烫包', '特殊工艺动作不得出现后道烫包')
 
 const printBinding = validatePrintWorkOrderMobileTaskBinding('PWO-PRINT-001')
 assert(printBinding.reasonCode === 'OK', '第 2 步绑定校验回退：PWO-PRINT-001 不再可执行')

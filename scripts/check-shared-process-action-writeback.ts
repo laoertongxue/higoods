@@ -197,7 +197,7 @@ assertNotIncludes(servicePath, '自由状态下拉', '不得出现自由状态�
 assertNotIncludes(servicePath, '任意跳', '不得允许任意跳转')
 assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '开扣眼', '特殊工艺动作不得出现开扣眼')
 assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '装扣子', '特殊工艺动作不得出现装扣子')
-assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '熨烫', '特殊工艺动作不得出现熨烫')
+assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', '烫包', '特殊工艺动作不得出现后道烫包')
 
 assertIncludes('docs/fcs-shared-process-action-writeback.md', 'Web或移动端发起动作', '缺少统一写回文档流程图')
 assertIncludes('docs/fcs-shared-process-action-writeback.md', '待操作', '缺少统一写回文档状态机')

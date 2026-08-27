@@ -1,7 +1,7 @@
 export type SewingDeliverySlaKind =
   | 'INDEPENDENT_SEWING'
-  | 'SEWING_TO_PACKAGING'
-  | 'CUTTING_TO_PACKAGING'
+  | 'SEWING_TO_IRON_PACK'
+  | 'CUTTING_TO_IRON_PACK'
 
 export interface SewingDeliveryCoveredProcess {
   processCode: string
@@ -16,7 +16,7 @@ export interface SewingDeliverySlaTaskLike {
   processCode: string
   processBusinessCode?: string
   processNameZh: string
-  mergedTaskType?: 'SEW_IRON' | 'CUT_SEW_IRON'
+  mergedTaskType?: 'SEWING_IRON_PACK' | 'CUTTING_SEWING_IRON_PACK'
   coveredProcesses?: SewingDeliveryCoveredProcess[]
 }
 
@@ -98,8 +98,8 @@ export interface SewingDeliveryResponsibilityReview {
 
 const RULE_NATURAL_DAYS: Record<SewingDeliverySlaKind, [number, number, number]> = {
   INDEPENDENT_SEWING: [4, 8, 9],
-  SEWING_TO_PACKAGING: [5, 9, 10],
-  CUTTING_TO_PACKAGING: [6, 9, 12],
+  SEWING_TO_IRON_PACK: [5, 9, 10],
+  CUTTING_TO_IRON_PACK: [6, 9, 12],
 }
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
@@ -138,8 +138,8 @@ export function classifySewingDeliverySla(task: SewingDeliverySlaTaskLike): Sewi
   }
 
   if (task.taskUnitType !== 'MERGED_PRODUCTION_TASK') return null
-  if (task.mergedTaskType === 'SEW_IRON') return 'SEWING_TO_PACKAGING'
-  if (task.mergedTaskType === 'CUT_SEW_IRON') return 'CUTTING_TO_PACKAGING'
+  if (task.mergedTaskType === 'SEWING_IRON_PACK') return 'SEWING_TO_IRON_PACK'
+  if (task.mergedTaskType === 'CUTTING_SEWING_IRON_PACK') return 'CUTTING_TO_IRON_PACK'
   return null
 }
 

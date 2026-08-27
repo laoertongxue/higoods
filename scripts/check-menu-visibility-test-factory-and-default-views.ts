@@ -23,6 +23,7 @@ import {
 import { listPdaBiddingTendersByFactoryId } from '../src/data/fcs/pda-mobile-mock.ts'
 import { listPdaGenericTasksByFactory } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
+  isPostCapacityNode,
   listCraftsByProcessCode,
   listProcessDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
@@ -132,7 +133,7 @@ assert(testFactory.isTestFactory === true, '测试工厂必须带 isTestFactory 
 assert(testFactory.testFactoryScope === TEST_FACTORY_SCOPE, '测试工厂 testFactoryScope 不正确')
 
 const expectedProcesses = listProcessDefinitions().filter(
-  (process) => process.isActive && (process.generatesExternalTask || process.processCode === 'POST_FINISHING'),
+  (process) => process.isActive && (process.generatesExternalTask || isPostCapacityNode(process.processCode)),
 )
 expectedProcesses.forEach((process) => {
   const ability = testFactory.processAbilities.find((item) => item.processCode === process.processCode)
@@ -140,10 +141,8 @@ expectedProcesses.forEach((process) => {
   assert((ability.status ?? 'ACTIVE') !== 'DISABLED', `测试工厂能力不应停用：${process.processName}`)
   assert(ability.canReceiveTask === true, `测试工厂能力必须可接单：${process.processName}`)
 
-  if (process.processCode === 'POST_FINISHING') {
-    ;['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].forEach((nodeCode) => {
-      assert(ability.capacityNodeCodes?.includes(nodeCode as never), `测试工厂后道能力缺少节点：${nodeCode}`)
-    })
+  if (isPostCapacityNode(process.processCode)) {
+    assert(ability.capacityNodeCodes?.includes(process.processCode as never), `测试工厂后道能力缺少节点：${process.processCode}`)
     return
   }
 

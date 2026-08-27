@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { getPdaHandoutHeads } from '../src/data/fcs/pda-handover-events'
 import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpers/seed-cutting-runtime-state'
 
-const garmentProcessNames = ['车缝', '整烫', '包装', '质检', '后整理'] as const
+const garmentProcessNames = ['车缝', '烫包', '质检', '后整理'] as const
 const printingHead = getPdaHandoutHeads('ID-F002').find((head) => head.processName === '印花')
 const dyeingHead = getPdaHandoutHeads('ID-F003').find((head) => head.processName === '染色')
 

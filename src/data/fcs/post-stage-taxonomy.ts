@@ -17,11 +17,11 @@ export const POST_STAGE_FLOW_NODES: Array<{ code: PostStageFlowNodeCode; name: s
   { code: 'HANDOVER', name: '后续交接' },
 ]
 
-export function normalizeHistoricalPostProcessCode(code: string): PostStageProcessCode | null {
+export function normalizePostStageProcessCode(code: string): PostStageProcessCode | null {
   const normalized = code.trim().toUpperCase()
   if (normalized === 'BUTTONHOLE') return 'BUTTONHOLE'
   if (normalized === 'BUTTON_ATTACH') return 'BUTTON_ATTACH'
-  if (['IRON_PACK', 'IRONING', 'PACKAGING', 'POST_FINISHING', 'POST'].includes(normalized)) return 'IRON_PACK'
+  if (normalized === 'IRON_PACK') return 'IRON_PACK'
   return null
 }
 

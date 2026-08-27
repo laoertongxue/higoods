@@ -119,7 +119,7 @@ const commonSeedSuccess: CommonPickupSeed = {
 }
 
 const commonSeedRecheck: CommonPickupSeed = {
-  task: requireOrdinaryTask('TASK-PACK-000241'),
+  task: requireOrdinaryTask('TASK-IRON-PACK-000241'),
   pickupSlipNo: 'PS-COM-20260322-002',
   materialSku: 'FAB-SKU-GENERAL-014',
   materialType: 'GENERAL',

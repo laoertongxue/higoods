@@ -499,7 +499,7 @@ await expect(card.getByText('领域暂未记录')).toHaveCount(0)
 在既有工厂入驻检查中同时断言：
 
 ~~~typescript
-assert(hasCapabilityPair('DIRECTED_CUTTING', 'POST_FINISHING'), '必须保留定向裁与后道包装演示')
+assert(hasCapabilityPair('DIRECTED_CUTTING', 'POST_FINISHING'), '必须保留定向裁与后道烫包演示')
 assert(hasCapabilityPair('DYE', 'WATER_SOLUBLE'), '必须提供染色与水溶能力演示')
 ~~~
 
@@ -525,7 +525,7 @@ PFOS 最近操作从最后一条动作日志的 `detail` 中展示已经写入�
 
 - [ ] **步骤 6：恢复无关 Mock**
 
-恢复原有“定向裁＋后道包装”能力组合；水溶能力使用新增或专门的染厂演示对象，不覆盖原数组位置的既有场景。
+恢复原有“定向裁＋后道烫包”能力组合；水溶能力使用新增或专门的染厂演示对象，不覆盖原数组位置的既有场景。
 
 - [ ] **步骤 7：运行绿灯**
 

@@ -642,13 +642,13 @@ assert(sewingPostTasks.some((task) => task.assignmentStatus === 'UNASSIGNED'))
 assert(sewingPostTasks.some((task) => task.assignmentStatus === 'BIDDING'))
 assert(sewingPostTasks.some((task) => task.assignmentStatus === 'ASSIGNED'))
 
-const cuttingToPackagingTask = listRuntimeProcessTasks().find((task) =>
-  task.taskId === 'CONT-CUT-PACK-UNASSIGNED'
+const cuttingToIronPackTask = listRuntimeProcessTasks().find((task) =>
+  task.taskId === 'CONT-CUT-IRON-IRON-PACK-UNASSIGNED'
   && task.coveredProcesses?.some((process) => process.processCode === 'CUT_PANEL')
   && task.coveredProcesses?.some((process) => process.processCode === 'SEW')
   && task.coveredProcesses?.some((process) => process.processCode === 'PACK'),
 )
-assert(cuttingToPackagingTask, '其他连续工序页签必须有裁片到包装样例')
+assert(cuttingToIronPackTask, '其他连续工序页签必须有裁片到烫包样例')
 
 const continuousHtml = renderContinuousDispatchPage()
 assert.match(continuousHtml, /车缝\+后道/)
@@ -714,16 +714,16 @@ function buildSewingPostContinuousDemo(
 - `CONT-SEW-POST-UNASSIGNED`：待分配，可打开直接派单和竞价弹窗。
 - `CONT-SEW-POST-BIDDING`：招标中，不再展示重复分配动作。
 - `CONT-SEW-POST-ASSIGNED`：已直接派单并自动接单，展示承接工厂。
-- `CONT-CUT-PACK-UNASSIGNED`：覆盖裁片、车缝、后道、包装，进入“其他连续工序任务”页签。
+- `CONT-CUT-IRON-PACK-UNASSIGNED`：覆盖裁片、车缝、后道、烫包，进入“其他连续工序任务”页签。
 
-`CONT-CUT-PACK-UNASSIGNED` 使用同一构造器，仅将 `processNameZh` 改为“裁片+车缝+后道+包装组合任务”，并将 `coveredProcesses` 明确设为：
+`CONT-CUT-IRON-PACK-UNASSIGNED` 使用同一构造器，仅将 `processNameZh` 改为“裁片+车缝+后道+烫包组合任务”，并将 `coveredProcesses` 明确设为：
 
 ```typescript
 [
-  { processCode: 'CUT_PANEL', processName: '裁片', sourceArtifactIds: ['CONT-CUT-PACK-UNASSIGNED'] },
-  { processCode: 'SEW', processName: '车缝', sourceArtifactIds: ['CONT-CUT-PACK-UNASSIGNED'] },
-  { processCode: 'POST_FINISHING', processName: '后道', sourceArtifactIds: ['CONT-CUT-PACK-UNASSIGNED'] },
-  { processCode: 'PACK', processName: '包装', sourceArtifactIds: ['CONT-CUT-PACK-UNASSIGNED'] },
+  { processCode: 'CUT_PANEL', processName: '裁片', sourceArtifactIds: ['CONT-CUT-IRON-IRON-PACK-UNASSIGNED'] },
+  { processCode: 'SEW', processName: '车缝', sourceArtifactIds: ['CONT-CUT-IRON-IRON-PACK-UNASSIGNED'] },
+  { processCode: 'POST_FINISHING', processName: '后道', sourceArtifactIds: ['CONT-CUT-IRON-IRON-PACK-UNASSIGNED'] },
+  { processCode: 'IRON_PACK', processName: '烫包', sourceArtifactIds: ['CONT-CUT-IRON-PACK-UNASSIGNED'] },
 ]
 ```
 

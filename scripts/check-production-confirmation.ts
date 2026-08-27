@@ -134,8 +134,7 @@ assert(previewHtml.includes('暂无图片') || previewHtml.includes('<img '), '�
 assert(!previewHtml.includes('POST_FINISHING'), '预览页不得显示 POST_FINISHING')
 assert(!previewHtml.includes('BUTTONHOLE'), '预览页不得显示 BUTTONHOLE')
 assert(!previewHtml.includes('BUTTON_ATTACH'), '预览页不得显示 BUTTON_ATTACH')
-assert(!previewHtml.includes('IRONING'), '预览页不得显示 IRONING')
-assert(!previewHtml.includes('PACKAGING'), '预览页不得显示 PACKAGING')
+assert(!previewHtml.includes('IRON_PACK'), '预览页不得显示烫包技术码')
 assert(!previewHtml.includes('confirmationSnapshot'), '预览页不得显示 confirmationSnapshot')
 assert(!previewHtml.includes('taskAssignmentSnapshot'), '预览页不得显示 taskAssignmentSnapshot')
 assert(!previewHtml.includes('techPackSnapshot'), '预览页不得显示 techPackSnapshot')
@@ -166,8 +165,16 @@ assert.equal(
 )
 assert.equal(
   getPostIncludedRemark(),
-  '内含：开扣眼、装扣子、熨烫、包装',
+  '内含：开扣眼、装扣子、烫包',
   '后道备注必须收口为内含说明',
+)
+assert.equal(
+  formatConfirmationTaskDisplayName({
+    processCode: 'IRON_PACK',
+    processName: '烫包',
+  }),
+  '烫包',
+  '独立烫包任务必须以当前业务名称进入生产确认单',
 )
 
 console.log('[check-production-confirmation] PASS')

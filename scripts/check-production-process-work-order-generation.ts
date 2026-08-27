@@ -1451,7 +1451,6 @@ const woolTaskArtifacts = generateTaskArtifactsForAllOrders()
 assert(woolTaskArtifacts.length > 0, '缺少毛织任务产物检查夹具')
 for (const artifact of woolTaskArtifacts) {
   assert.equal(artifact.requiresFeiTicket, undefined, '毛织任务产物不得携带菲票要求')
-  assert.equal(artifact.packagingRequired, undefined, '毛织任务产物不得携带包装节点要求')
 }
 
 const generatedWoolTasks = processTasks.filter(
@@ -1468,7 +1467,6 @@ for (const task of generatedWoolTasks) {
   assert.equal(task.milestoneRuleType, undefined, '毛织任务生成不得携带旧里程碑规则')
   assert.equal(task.milestoneStatus, undefined, '毛织任务生成不得默认上报旧里程碑')
   assert.equal(task.requiresFeiTicket, undefined, '毛织任务生成不得携带菲票要求')
-  assert.equal(task.packagingRequired, undefined, '毛织任务生成不得携带包装节点要求')
   assert.equal(task.yarnSku, undefined, '毛织任务不得把第一条物料复制成纱线事实')
   assert.equal(task.yarnPlannedWeightKg, undefined, '毛织任务不得估算纱线计划重量')
   assert.equal(task.yarnReceivedWeightKg, undefined, '毛织任务不得默认生成纱线接收数量')
@@ -1488,7 +1486,6 @@ const woolTaskGenerationSources = [
 for (const removedWoolText of [
   '横机完成首批部位片',
   '横机完成首批整件',
-  '整件毛织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定',
   '部位毛织按毛织部位打印菲票',
 ]) {
   assert.equal(woolTaskGenerationSources.includes(removedWoolText), false)

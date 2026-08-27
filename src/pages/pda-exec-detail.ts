@@ -1693,7 +1693,7 @@ const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
     { id: 'sp-004', type: 'VIDEO', name: '设备状态检查.mp4', uploadedAt: '2026-03-09 14:12:30' },
   ],
   'PDA-EXEC-009': [
-    { id: 'sp-005', type: 'IMAGE', name: '整烫区就位.jpg', uploadedAt: '2026-03-08 09:06:00' },
+    { id: 'sp-005', type: 'IMAGE', name: '烫包区就位.jpg', uploadedAt: '2026-03-08 09:06:00' },
   ],
   'PDA-EXEC-010': [],
 }

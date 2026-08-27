@@ -202,8 +202,8 @@ export interface ProductionConfirmation {
   snapshotId: string
 }
 
-const INTERNAL_POST_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'])
-const POST_INCLUDED_PROCESS_NAMES = ['开扣眼', '装扣子', '熨烫', '包装'] as const
+const CONFIRMATION_INTERNAL_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH'])
+const POST_INCLUDED_PROCESS_NAMES = ['开扣眼', '装扣子', '烫包'] as const
 const IMAGE_PLACEHOLDER_MARKERS = ['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage']
 const CONFIRMATION_CREATED_AT = '2026-04-20 09:00:00'
 const CONFIRMATION_CREATED_BY = '系统'
@@ -371,8 +371,8 @@ export function getPostIncludedRemark(): string {
 }
 
 function isConfirmationExternalTask(task: RuntimeProcessTask): boolean {
-  if (INTERNAL_POST_PROCESS_CODES.has(task.processBusinessCode || '')) return false
-  if (INTERNAL_POST_PROCESS_CODES.has(task.processCode)) return false
+  if (CONFIRMATION_INTERNAL_PROCESS_CODES.has(task.processBusinessCode || '')) return false
+  if (CONFIRMATION_INTERNAL_PROCESS_CODES.has(task.processCode)) return false
   return true
 }
 

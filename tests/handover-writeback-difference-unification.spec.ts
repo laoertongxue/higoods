@@ -66,7 +66,7 @@ test('后道交出仓只承接复检完成并统一统计交出差异', async ({
   await expect(page.getByRole('columnheader', { name: '统一交出记录' })).toBeVisible()
   await expect(page.getByText('开扣眼')).toHaveCount(0)
   await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('熨烫')).toHaveCount(0)
+  await expect(page.getByText('烫包')).toHaveCount(0)
 
   await page.goto('/fcs/craft/post-finishing/statistics')
   await expect(page.getByRole('heading', { name: '后道统计' })).toBeVisible()

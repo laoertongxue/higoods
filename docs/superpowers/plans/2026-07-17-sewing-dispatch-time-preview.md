@@ -173,7 +173,7 @@ export function buildSewingDeliverySlaPreviewModel(
   input: SewingDeliverySlaPreviewInput,
 ): SewingDeliverySlaPreviewModel {
   const slaKind = classifySewingDeliverySla(input.task)
-  if (slaKind !== 'INDEPENDENT_SEWING' && slaKind !== 'SEWING_TO_PACKAGING') {
+  if (slaKind !== 'INDEPENDENT_SEWING' && slaKind !== 'SEWING_TO_IRON_PACK') {
     return { supported: false, valid: false, kindLabel: '', error: '', rows: [] }
   }
   try {
@@ -512,7 +512,7 @@ HIGOOD_BASE_URL=http://127.0.0.1:5188 npm run check:sewing-dispatch-performance
 - 参考了角色、管理端页面模式、短文案、防错、局部刷新和 200ms 性能规范。
 - 四个入口的业务对象和动作。
 - 1366×768、1280×720 验收结论。
-- 竞价、裁片到包装和非车缝任务不在本次范围。
+- 竞价、裁片到烫包和非车缝任务不在本次范围。
 - 无产品设计例外；如列表治理存在既有豁免，只记录事实，不修改基线绕过检查。
 
 - [ ] **步骤 5：运行完整门禁**
@@ -550,6 +550,6 @@ git commit -m "test: 收口车缝派单时效预览验收"
 ## 计划自检结果
 
 - 规格覆盖：四个入口、两类任务、直接派单与改派、时间校验、局部刷新、正式快照、回归范围、性能和浏览器验收均有对应任务。
-- 范围控制：竞价、裁片到包装、非车缝任务、配料、工厂能力和主工厂规则没有进入实现任务。
+- 范围控制：竞价、裁片到烫包、非车缝任务、配料、工厂能力和主工厂规则没有进入实现任务。
 - 类型一致性：共享组件统一使用 `SewingDeliverySlaPreviewInput`、`SewingDeliverySlaPreviewModel` 和 `SewingDeliverySlaPreviewRow`；四个入口复用相同模型。
 - 无占位步骤：每个代码任务均给出具体文件、函数契约、命令和预期结果。

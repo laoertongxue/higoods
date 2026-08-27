@@ -54,7 +54,7 @@ import { buildPrintDocument } from '../src/data/fcs/print-template-registry.ts'
 import {
   POST_STAGE_FLOW_NODES,
   POST_STAGE_PROCESSES,
-  normalizeHistoricalPostProcessCode,
+  normalizePostStageProcessCode,
 } from '../src/data/fcs/post-stage-taxonomy.ts'
 import { buildPostStageExecutionSequence } from '../src/data/fcs/post-process-route.ts'
 import { getProcessDefinitionByCode, listProcessDefinitions } from '../src/data/fcs/process-craft-dict.ts'
@@ -372,8 +372,8 @@ assert(!printText.includes('frozenPrice') && !printText.includes('派单价') &&
 // 8. 后道是阶段，实际工序只有三项；质检、复检只是回货流程节点。
 assert.deepEqual(POST_STAGE_PROCESSES.map((item) => item.code), ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'])
 assert.deepEqual(POST_STAGE_FLOW_NODES.map((item) => item.code), ['ARRIVAL_CONFIRM', 'QC', 'RECHECK', 'HANDOVER'])
-assert.equal(normalizeHistoricalPostProcessCode('IRONING'), 'IRON_PACK')
-assert.equal(normalizeHistoricalPostProcessCode('PACKAGING'), 'IRON_PACK')
+assert.equal(normalizePostStageProcessCode('IRON_PACK'), 'IRON_PACK')
+assert.equal(normalizePostStageProcessCode('UNKNOWN'), null)
 assert.equal(getProcessDefinitionByCode('POST_FINISHING'), undefined)
 assert.equal(getProcessDefinitionByCode('QC'), undefined)
 assert.equal(getProcessDefinitionByCode('RECHECK'), undefined)
@@ -404,10 +404,10 @@ assert.deepEqual(buildPostStageExecutionSequence({
 }).map((item) => item.code), ['ARRIVAL_CONFIRM', 'QC', 'BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK', 'RECHECK', 'HANDOVER'])
 
 const activeProcessCodes = new Set(listProcessDefinitions().filter((item) => item.isActive).map((item) => item.processCode))
-for (const forbiddenCode of ['POST_FINISHING', 'QC', 'RECHECK', 'IRONING', 'PACKAGING']) assert.equal(activeProcessCodes.has(forbiddenCode), false)
+for (const flowOnlyCode of ['POST_FINISHING', 'QC', 'RECHECK']) assert.equal(activeProcessCodes.has(flowOnlyCode), false)
 const activeFactoryAbilities = listFactoryMasterRecords().flatMap((factory) => factory.processAbilities.filter((ability) => (ability.status ?? 'ACTIVE') !== 'DISABLED'))
-for (const forbiddenCode of ['POST_FINISHING', 'QC', 'RECHECK', 'IRONING', 'PACKAGING']) {
-  assert.equal(activeFactoryAbilities.some((ability) => ability.processCode === forbiddenCode), false, `工厂能力不得保留 ${forbiddenCode}`)
+for (const flowOnlyCode of ['POST_FINISHING', 'QC', 'RECHECK']) {
+  assert.equal(activeFactoryAbilities.some((ability) => ability.processCode === flowOnlyCode), false, `工厂能力不得保留流程节点 ${flowOnlyCode}`)
 }
 
 // 9. 统一分配、竞价、PDA、合同和线上进度页面都使用同一口径。

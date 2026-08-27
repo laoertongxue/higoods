@@ -252,7 +252,7 @@ const sourceBuildInput: WoolOrderSourceBuildInput = {
       usageProcessCodes: ['WOOL'],
       applicableSkuCodes: ['GARMENT-BLACK-M'],
     },
-    { id: 'BOM-BAG', materialCode: 'BAG-01', usageProcessCodes: ['PACKAGING'] },
+    { id: 'BOM-BAG', materialCode: 'BAG-01', usageProcessCodes: ['PROC_IRON_PACK'] },
   ],
   colorMaterialMappings: [{
     id: 'MAP-BLACK',
@@ -548,14 +548,13 @@ const processDomainSource = readFileSync(
   'utf8',
 )
 assert.equal(processDomainSource.includes('打印毛织菲票'), false)
-assert.equal(processDomainSource.includes('毛织厂包装'), false)
+assert.equal(processDomainSource.includes('毛织厂烫包'), false)
 
 const artifactGenerationSource = readFileSync(
   new URL('../src/data/fcs/production-artifact-generation.ts', import.meta.url),
   'utf8',
 )
 assert.equal(artifactGenerationSource.includes('context.sourceEntry.requiresFeiTicket'), false)
-assert.equal(artifactGenerationSource.includes('context.sourceEntry.packagingRequired'), false)
 
 const taskDetailRowsSource = readFileSync(
   new URL('../src/data/fcs/task-detail-rows.ts', import.meta.url),
@@ -4122,8 +4121,7 @@ for (const removedWoolNodeText of [
   '横机完成首批部位片',
   '横机完成首批整件',
   '缝盘',
-  '毛织厂包装',
-  '整件毛织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定',
+  '毛织厂烫包',
   '部位毛织按毛织部位打印菲票',
 ]) {
   assert.equal(
@@ -4512,8 +4510,7 @@ for (const removed of [
   'markWoolFeiTicketsPrinted',
   '横机成片',
   '缝盘',
-  '熨烫',
-  '包装',
+  '烫包',
   '毛织菲票',
   '标准价',
   '派工价',
@@ -4541,7 +4538,7 @@ for (const label of [
 }
 for (const removed of [
   '横机成片',
-  '缝盘熨烫包装',
+  '缝盘烫包',
   '毛织菲票',
   '价格信息',
   '异常证据',

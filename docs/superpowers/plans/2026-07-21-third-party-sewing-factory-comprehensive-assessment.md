@@ -251,7 +251,7 @@ export interface FactoryQualityFact {
 export interface FactoryTimelinessFact {
   allocatedQty: number
   acceptedAt: string
-  taskKind: 'INDEPENDENT_SEWING' | 'SEWING_TO_PACKAGING' | 'CUTTING_TO_PACKAGING'
+  taskKind: 'INDEPENDENT_SEWING' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK'
   submittedQty: number
   submittedReachedAt: string | null
   receiptMilestones: Partial<Record<0.3 | 0.7 | 1, string>>
@@ -267,8 +267,8 @@ export interface FactoryTimelinessFact {
 ```ts
 const milestoneDaysByKind = {
   INDEPENDENT_SEWING: { 0.3: 4, 0.7: 8, 1: 9 },
-  SEWING_TO_PACKAGING: { 0.3: 5, 0.7: 9, 1: 10 },
-  CUTTING_TO_PACKAGING: { 0.3: 6, 0.7: 9, 1: 12 },
+  SEWING_TO_IRON_PACK: { 0.3: 5, 0.7: 9, 1: 10 },
+  CUTTING_TO_IRON_PACK: { 0.3: 6, 0.7: 9, 1: 12 },
 } as const
 
 export function calculateFactoryQualityMetrics(facts: readonly FactoryQualityFact[]) {

@@ -17,7 +17,7 @@
 ## 实施边界
 
 - 本仓库是产品原型，不增加真实后端、数据库、接口层、权限层或状态管理框架。
-- 只重写毛织管理及其直接上下游消费者；其他工艺的熨烫、包装、菲票、价格、统计和仓库位置逻辑保持不变。
+- 只重写毛织管理及其直接上下游消费者；其他工艺的烫包、菲票、价格、统计和仓库位置逻辑保持不变。
 - 毛织侧不计算纱线最多可加工件数，也不做纱线预占或款色间分配。
 - 已确认设计中的三类核心操作名称固定为“确认接收”“加工填报”“发起交出”；上游任务“接单”不得替代确认接收。
 - 整件毛织加工后对象是成衣 SKU，单位为件；部位毛织加工后对象是毛织部位 SKU，但完工数量、交出数量和 150% 上限均按颜色+尺码件数，不按片数换算。
@@ -282,7 +282,7 @@ const techPackProcessSource = readFileSync(
   'utf8',
 )
 assert(!techPackProcessSource.includes('打印毛织菲票'))
-assert(!techPackProcessSource.includes('毛织厂包装'))
+assert(!techPackProcessSource.includes('毛织旧后道必做'))
 ```
 
 - [ ] **步骤 2：运行检查并确认来源字段缺失**
@@ -310,9 +310,9 @@ export interface ProductionTechPackColorMaterialMapping {
 
 `cloneColorMappings()` 克隆技术包原始行时统一写 `mappingOrigin: 'TECH_PACK'`。把 `alignSnapshotWithDemandSkuLines()` 内的款色关系对齐提取为 `alignWoolColorMaterialMappingsForDemand()`：复制缺色关系时统一写 `mappingOrigin: 'DEMAND_FALLBACK'`，原构建函数调用该纯函数。运行时克隆和读取必须保留该字段，不允许用颜色或行内容反推来源。
 
-- [ ] **步骤 4：删除毛织专属菲票、包装配置和展示**
+- [ ] **步骤 4：删除毛织专属菲票、旧后道配置和展示**
 
-从毛织工艺配置类型、技术包编辑上下文、事件读写、规则卡、快照执行要求和 bootstrap 示例中删除 `requiresFeiTicket`、`packagingRequired` 及毛织旧节点文案。只删除毛织分支，不改其他工艺的包装、菲票能力。
+从毛织工艺配置类型、技术包编辑上下文、事件读写、规则卡、快照执行要求和 bootstrap 示例中删除菲票与旧后道必做字段及毛织旧节点文案。只删除毛织分支，不改其他工艺的烫包、菲票能力。
 
 核心类型保留：
 
@@ -372,7 +372,7 @@ const sourceBase: Omit<WoolOrderSourceBuildInput, 'kind' | 'patternParts'> = {
   ],
   bomItems: [
     { bomItemId: 'BOM-YARN-A', materialCode: 'YARN-A', materialName: '黑色纱线 A', usageProcessCodes: ['WOOL'] },
-    { bomItemId: 'BOM-BAG', materialCode: 'BAG-01', materialName: '包装袋', usageProcessCodes: ['PACKAGING'] },
+    { bomItemId: 'BOM-BAG', materialCode: 'BAG-01', materialName: '包装袋', usageProcessCodes: ['PROC_IRON_PACK'] },
   ],
   colorMaterialMappings: [{
     mappingId: 'MAP-BLACK',
@@ -926,7 +926,7 @@ npm run check:production-process-work-order-generation
 npm run check:wool-fact-workflow
 ```
 
-预期：至少一项 FAIL，显示新毛织任务仍带已接单、开工、横机里程碑、第一条物料、价格、包装或菲票。
+预期：至少一项 FAIL，显示新毛织任务仍带已接单、开工、横机里程碑、第一条物料、价格、旧后道必做项或菲票。
 
 - [ ] **步骤 3：让毛织任务生成调用冻结来源构建器**
 
@@ -934,7 +934,7 @@ npm run check:wool-fact-workflow
 
 - [ ] **步骤 4：删除毛织旧产物与里程碑**
 
-从生产工艺产物、毛织里程碑配置和毛织工艺说明中删除横机首批、缝盘、熨烫、包装、毛织菲票与价格要求；保留全局其他工艺定义。
+从生产工艺产物、毛织里程碑配置和毛织工艺说明中删除横机首批、缝盘、两项旧后道、毛织菲票与价格要求；保留全局其他工艺定义。
 
 - [ ] **步骤 5：调整运行时任务和标准适配器**
 
@@ -1068,7 +1068,7 @@ for (const label of [
   '横机关联',
   '操作记录',
 ]) assert(detailSource.includes(label))
-for (const oldLabel of ['横机成片', '缝盘熨烫包装', '毛织菲票']) {
+for (const oldLabel of ['横机成片', '缝盘与旧后道', '毛织菲票']) {
   assert(!detailSource.includes(oldLabel))
 }
 assert(detailSource.includes('renderTablePagination'))
@@ -1268,7 +1268,7 @@ const pdaDetail = readFileSync(new URL('../src/pages/pda-exec-detail.ts', import
 for (const action of ['确认接收', '加工填报', '发起交出', '完成加工单']) {
   assert(pdaDetail.includes(action))
 }
-for (const removedText of ['横机首批', '缝盘', '熨烫', '包装', '毛织菲票']) {
+for (const removedText of ['横机首批', '缝盘', '烫包', '毛织菲票']) {
   assert(!pdaDetail.includes(removedText))
 }
 const pdaReceive = readFileSync(new URL('../src/pages/pda-task-receive.ts', import.meta.url), 'utf8')

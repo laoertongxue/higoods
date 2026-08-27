@@ -890,8 +890,7 @@ const bomUsageProcessOptions = [
   { code: 'PROC_PRINT', label: '印花' },
   { code: 'PROC_DYE', label: '染色' },
   { code: 'PROC_SEW', label: '车缝' },
-  { code: 'PROC_IRON', label: '后道' },
-  { code: 'PROC_PACK', label: '包装' },
+  { code: 'PROC_IRON_PACK', label: '烫包' },
 ]
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageCodeToName = new Map(listProcessStages().map((item) => [item.stageCode, item.stageName]))
@@ -1743,7 +1742,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     patternPieces: ['前片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
-    usageProcessCodes: ['PROC_PACK'],
+    usageProcessCodes: ['PROC_IRON_PACK'],
     usage: 5,
     lossRate: 2,
     printRequirement: '无',

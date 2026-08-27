@@ -2563,7 +2563,6 @@ function handleTechPackField(
       detailSplitMode: 'COMPOSITE',
       detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
       difficulty: '中等',
-      packagingRequired: false,
       remark: '',
     }
     return true
@@ -2574,7 +2573,6 @@ function handleTechPackField(
       processCode: value,
       craftCode: '',
       selectedTargetObject: '',
-      packagingRequired: false,
     }
     return true
   }
@@ -2602,7 +2600,6 @@ function handleTechPackField(
       craftCode: value,
       selectedTargetObject,
       linkedBomItemIds: [],
-      packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
     }
     refreshTechniqueFormDialogDom()
     return true
@@ -2723,16 +2720,6 @@ function handleTechPackField(
     updateTechnique(techId, (item) => ({ ...item, remark: value }))
     return true
   }
-  if (field === 'tech-packaging-required') {
-    const techId = node.dataset.techId
-    if (!techId) return true
-    updateTechnique(techId, (item) => ({
-      ...item,
-      packagingRequired: item.technique === '整件毛织' || item.woolTaskType === 'WHOLE_GARMENT' ? checked : false,
-    }))
-    return true
-  }
-
   if (field === 'bom-pricing-usage') {
     updateCurrentBomPricingLine(node, { usage: Number.parseFloat(value) })
     return true

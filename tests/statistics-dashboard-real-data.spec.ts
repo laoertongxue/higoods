@@ -52,7 +52,7 @@ test('后道统计读取后道、质检、复检、交出和差异记录', async
   await expect(page.getByText('非专门工厂转入后道工厂待质检成衣件数').first()).toBeVisible()
   await expect(page.getByText('开扣眼')).toHaveCount(0)
   await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('熨烫')).toHaveCount(0)
+  await expect(page.getByText('烫包')).toHaveCount(0)
 
   await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()

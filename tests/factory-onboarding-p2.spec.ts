@@ -46,7 +46,7 @@ test('工厂类型自动匹配', async ({ page }) => {
   await nativeClick(page, '[data-pda-onboarding-action="select-process"][data-process-code="DYE"]')
   await nativeClick(page, '[data-pda-onboarding-action="toggle-capability"][data-process-code="DYE"][data-craft-code="CRAFT_2000003"]')
   await nativeClick(page, '[data-pda-onboarding-action="select-process"][data-process-code="POST_FINISHING"]')
-  await nativeClick(page, '[data-pda-onboarding-action="toggle-capability"][data-process-code="POST_FINISHING"][data-craft-code="PACKAGING"]')
+  await nativeClick(page, '[data-pda-onboarding-action="toggle-capability"][data-process-code="IRON_PACK"][data-craft-code="CRAFT_2000010"]')
 
   await expect(page.locator('body')).toContainText('系统匹配工厂类型：全能力工厂')
   await expect(page.locator('body')).toContainText('裁床厂')

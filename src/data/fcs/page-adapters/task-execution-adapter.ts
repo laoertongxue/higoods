@@ -153,7 +153,6 @@ function syncWoolExecutionFact(task: ProcessTask, runtimeTask: RuntimeProcessTas
   delete task.yarnPlannedWeightKg
   delete task.yarnReceivedWeightKg
   delete task.requiresFeiTicket
-  delete task.packagingRequired
   delete task.mockReceiveSummary
   delete task.mockExecutionSummary
   delete task.mockHandoverSummary
@@ -262,7 +261,6 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     yarnPlannedWeightKg: runtimeTask.yarnPlannedWeightKg,
     yarnReceivedWeightKg: runtimeTask.yarnReceivedWeightKg,
     requiresFeiTicket: runtimeTask.requiresFeiTicket,
-    packagingRequired: runtimeTask.packagingRequired,
     materialIssueMode: runtimeTask.materialIssueMode,
     mockReceiveSummary: runtimeTask.mockReceiveSummary,
     mockExecutionSummary: runtimeTask.mockExecutionSummary,
@@ -329,7 +327,6 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.yarnPlannedWeightKg = runtimeTask.yarnPlannedWeightKg
   task.yarnReceivedWeightKg = runtimeTask.yarnReceivedWeightKg
   task.requiresFeiTicket = runtimeTask.requiresFeiTicket
-  task.packagingRequired = runtimeTask.packagingRequired
   task.materialIssueMode = runtimeTask.materialIssueMode
   task.mockReceiveSummary = runtimeTask.mockReceiveSummary
   task.mockExecutionSummary = runtimeTask.mockExecutionSummary

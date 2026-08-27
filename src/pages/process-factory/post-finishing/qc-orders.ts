@@ -617,10 +617,10 @@ function registerQcPageActions(): void {
       }
       const buttonhole = row.querySelector<HTMLInputElement>('[data-qc-post-project][value="开扣眼"]')
       const button = row.querySelector<HTMLInputElement>('[data-qc-post-project][value="装扣子"]')
-      const forceIroningAndPackaging = Boolean(buttonhole?.checked || button?.checked)
+      const forceIronPack = Boolean(buttonhole?.checked || button?.checked)
       row.querySelectorAll<HTMLInputElement>('[data-qc-post-project-lockable]').forEach((checkbox) => {
-        checkbox.checked = forceIroningAndPackaging || checkbox.checked
-        checkbox.disabled = forceIroningAndPackaging
+        checkbox.checked = forceIronPack || checkbox.checked
+        checkbox.disabled = forceIronPack
       })
       row.querySelectorAll<HTMLInputElement>('[data-qc-button-mode]').forEach((radio) => {
         radio.disabled = !button?.checked
@@ -632,10 +632,10 @@ function registerQcPageActions(): void {
     document.querySelectorAll<HTMLElement>('[data-qc-quick-source-row]').forEach((row) => {
       const button = row.querySelector<HTMLInputElement>('[data-qc-quick-post-project][value="装扣子"]')
       const buttonhole = row.querySelector<HTMLInputElement>('[data-qc-quick-post-project][value="开扣眼"]')
-      const forceIroningAndPackaging = Boolean(button?.checked || buttonhole?.checked)
+      const forceIronPack = Boolean(button?.checked || buttonhole?.checked)
       row.querySelectorAll<HTMLInputElement>('[data-qc-quick-post-project-lockable]').forEach((checkbox) => {
-        checkbox.checked = forceIroningAndPackaging || checkbox.checked
-        checkbox.disabled = forceIroningAndPackaging
+        checkbox.checked = forceIronPack || checkbox.checked
+        checkbox.disabled = forceIronPack
       })
       row.querySelectorAll<HTMLInputElement>('[data-qc-quick-button-mode]').forEach((radio) => {
         radio.disabled = !button?.checked
@@ -756,7 +756,7 @@ function renderQuickQcSkuRow(item: PostFinishingWaitQcSkuItem, index: number, ch
             <div class="text-xs text-muted-foreground">后道项目</div>
             <div class="grid gap-2 sm:grid-cols-2">
               ${QC_POST_PROJECTS.map((project) => {
-                const lockable = project === '熨烫' || project === '包装'
+                const lockable = project === '烫包'
                 return `<label class="flex items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-xs">
                   <input type="checkbox" data-qc-quick-post-project ${lockable ? 'data-qc-quick-post-project-lockable="1"' : ''} value="${escapeHtml(project)}" onchange="window.__syncQuickQcInput()" />
                   <span>${escapeHtml(project)}</span>
@@ -934,7 +934,7 @@ function renderInput(label: string, value = '', attrs = ''): string {
   `
 }
 
-const QC_POST_PROJECTS: PostFinishingQcPostProjectJudgement['projectName'][] = ['开扣眼', '装扣子', '熨烫', '包装']
+const QC_POST_PROJECTS: PostFinishingQcPostProjectJudgement['projectName'][] = ['开扣眼', '装扣子', '烫包']
 
 function normalizeRecordSkuResults(record: PostFinishingActionRecord): PostFinishingQcSkuResult[] {
   if (record.qcSkuResults?.length) return record.qcSkuResults
@@ -965,7 +965,7 @@ function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectF
   return normalizeRecordSkuResults(record).map((result) => {
     const checkedProjects = new Set(result.postProjectJudgements.filter((item) => item.needed).map((item) => item.projectName))
     const selectedButtonMode = result.postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode
-    const forceIroningAndPackaging = checkedProjects.has('开扣眼') || checkedProjects.has('装扣子')
+    const forceIronPack = checkedProjects.has('开扣眼') || checkedProjects.has('装扣子')
     const reasonQtyByName = new Map(result.defectReasonItems.map((item) => [item.reasonName, item.qty]))
     const reworkQty = result.reworkQty ?? result.unqualifiedQty
     const defectAcceptedQty = result.defectAcceptedQty ?? 0
@@ -1032,9 +1032,9 @@ function renderSkuQcResultRows(record: PostFinishingActionRecord, disableDefectF
               <div class="text-xs text-muted-foreground">后道项目</div>
               <div class="grid gap-2 sm:grid-cols-2">
             ${QC_POST_PROJECTS.map((project) => {
-              const lockable = project === '熨烫' || project === '包装'
-              const checked = lockable && forceIroningAndPackaging ? true : checkedProjects.has(project)
-              const disabled = lockable && forceIroningAndPackaging
+              const lockable = project === '烫包'
+              const checked = lockable && forceIronPack ? true : checkedProjects.has(project)
+              const disabled = lockable && forceIronPack
               return `
                 <label class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
                   <input type="checkbox" data-qc-post-project ${lockable ? 'data-qc-post-project-lockable="1"' : ''} value="${escapeHtml(project)}" onchange="window.__syncQcCompleteForm()" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} />

@@ -120,7 +120,7 @@ test('产能档案已收口为当前阶段最小必要字段维护，工厂与�
     { factoryName: 'PT Sinar Garment Indonesia', crafts: ['基础连接', '曲牙'] },
     { factoryName: 'PT Prima Printing Center', crafts: ['丝网印', '数码印'] },
     { factoryName: 'PT Cahaya Dyeing Sejahtera', crafts: ['匹染', '色织'] },
-    { factoryName: 'CV Satellite Cluster Malang A', crafts: ['手缝扣', '包装'] },
+    { factoryName: 'CV Satellite Cluster Malang A', crafts: ['手缝扣', '烫包'] },
   ] as const
 
   for (const scenario of scenarios) {

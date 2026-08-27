@@ -92,7 +92,7 @@ test('任务交货卡共同打印规则', async ({ page }) => {
   await expect(page.getByText('暂无商品图').first()).toBeVisible()
   await expect(page.getByText('开扣眼')).toHaveCount(0)
   await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('熨烫')).toHaveCount(0)
+  await expect(page.getByText('烫包')).toHaveCount(0)
 
   await page.evaluate(() => {
     ;(window as unknown as { __printCalled?: boolean }).__printCalled = false

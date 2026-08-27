@@ -56,8 +56,6 @@ assert(
 )
 
 assert.equal(getProcessDefinitionByCode('POST_FINISHING'), undefined, '后道只能作为阶段，不得存在名为后道的活跃工序')
-assert.equal(getProcessDefinitionByCode('IRONING'), undefined, '历史熨烫工序不得作为活跃工序')
-assert.equal(getProcessDefinitionByCode('PACKAGING'), undefined, '历史包装工序不得作为活跃工序')
 
 for (const processCode of ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']) {
   const node = getProcessDefinitionByCode(processCode)
@@ -67,10 +65,13 @@ for (const processCode of ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']) {
 }
 assert.equal(getProcessDefinitionByCode('BUTTONHOLE')?.generatesExternalTask, false, '开扣眼不得伪造成通用后道任务')
 assert.equal(getProcessDefinitionByCode('BUTTON_ATTACH')?.generatesExternalTask, false, '装扣子不得伪造成通用后道任务')
-assert.equal(getProcessDefinitionByCode('IRON_PACK')?.processName, '烫包', '当前熨烫/包装口径必须合并为烫包')
+assert.equal(getProcessDefinitionByCode('IRON_PACK')?.processName, '烫包', '后道成衣处理必须统一为烫包')
 const activeIronPackCrafts = activeCrafts.filter((item) => item.processCode === 'IRON_PACK')
-assert.deepEqual(activeIronPackCrafts.map((item) => item.craftName), ['烫包'], '烫包当前工艺选项必须唯一，不得继续暴露熨烫或包装')
-assert(inactiveCrafts.filter((item) => item.processCode === 'IRON_PACK' && ['熨烫', '包装'].includes(item.legacyCraftName)).every((item) => item.craftName === '烫包'), '历史熨烫/包装必须只作为烫包归一映射')
+assert.deepEqual(activeIronPackCrafts.map((item) => item.craftName), ['烫包'], '烫包当前工艺选项必须唯一')
+assert.equal(activeIronPackCrafts[0]?.targetObjectName, '成衣', '后道烫包的作用对象必须是成衣')
+assert.equal(activeIronPackCrafts[0]?.assignmentGranularity, 'ORDER', '独立烫包必须按整个生产任务分配')
+assert.deepEqual(activeIronPackCrafts[0]?.detailSplitDimensions, ['GARMENT_SKU'], '独立烫包必须保留可查看的成衣 SKU 需求明细')
+assert.equal(inactiveCrafts.some((item) => item.processCode === 'IRON_PACK'), false, '烫包不得携带旧工艺兼容行')
 
 const craftDictPage = read('src/pages/production-craft-dict.ts')
 const craftDictSource = read('src/data/fcs/process-craft-dict.ts')
@@ -87,10 +88,8 @@ assertNoRemovedLegacyTerm(craftDictSource, assert, '工序工艺字典源码不�
 assert(taskBreakdownPage.includes('合并任务仅支持车缝+烫包、裁剪+车缝+烫包'), '任务清单缺少两种固定合并范围口径')
 assert(taskBreakdownPage.includes('生产准备工序不进入任务清单'), '任务清单必须明确隔离生产准备工序')
 assert(factoryMockSource.includes("['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']"), '工厂能力源必须只保留后道阶段三个实际工序')
-assert(!factoryMockSource.includes("'IRONING'"), '工厂能力数据不得继续暴露历史熨烫工序')
-assert(!factoryMockSource.includes("'PACKAGING'"), '工厂能力数据不得继续暴露历史包装工序')
-assert(!onboardingStoreSource.includes("createCapability('后道', '包装'"), '工厂入驻 Mock 不得继续生成后道/包装旧能力')
-assert(!onboardingFlowSource.includes("['质检', '复检', '包装', '熨烫']"), '工厂类型识别不得把质检复检或历史名称当作工序能力')
+assert(onboardingStoreSource.includes("'IRON_PACK'"), '工厂入驻能力必须使用烫包业务码')
+assert(onboardingFlowSource.includes("IRON_PACK"), '工厂类型识别必须支持烫包能力')
 
 console.log(
   JSON.stringify(

@@ -23,7 +23,7 @@ const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   yarn: ['车缝线', '包缝线', '绣花线', '织带线'],
   consumable: ['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
   packaging: ['吊牌', '包装袋', '贴纸', '纸卡', '包装盒', '防潮包'],
-  parts: ['裁床配件', '缝纫机配件', '熨烫设备配件', '检针设备配件', '通用设备配件'],
+  parts: ['裁床配件', '缝纫机配件', '烫包设备配件', '检针设备配件', '通用设备配件'],
 }
 
 const MATERIAL_SKU_SPEC_META: Record<
@@ -68,7 +68,7 @@ const MATERIAL_SKU_SPEC_META: Record<
   parts: {
     primaryLabel: '适配设备',
     secondaryLabel: '型号 / 规格',
-    primaryPlaceholder: '例如：裁床 / 平车 / 熨烫台',
+    primaryPlaceholder: '例如：裁床 / 平车 / 烫包台',
     secondaryPlaceholder: '例如：10英寸 / DBx1 11号 / 通用款',
   },
 }

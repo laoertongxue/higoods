@@ -154,9 +154,9 @@ const milestoneConfigs: MilestoneConfig[] = [
     remark: '车缝工序统一要求关键节点上报',
   },
   {
-    id: 'MC-PROC-IRON',
-    processCode: 'PROC_IRON',
-    processNameZh: '整烫',
+    id: 'MC-PROC-IRON-PACK',
+    processCode: 'PROC_IRON_PACK',
+    processNameZh: '烫包',
     factoryTypeScope: 'POST_FACTORY',
     factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.POST_FACTORY,
     taskTypeScope: 'POST_FINISHING',
@@ -166,10 +166,10 @@ const milestoneConfigs: MilestoneConfig[] = [
     startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE,
     startDueHours: 48,
     enabled: true,
-    ruleType: 'AFTER_N_YARD',
+    ruleType: 'AFTER_N_PIECES',
     targetQty: 20,
-    targetUnit: 'YARD',
-    ruleLabel: buildMilestoneRuleLabel('AFTER_N_YARD', 20),
+    targetUnit: 'PIECE',
+    ruleLabel: buildMilestoneRuleLabel('AFTER_N_PIECES', 20),
     proofRequirement: 'IMAGE',
     proofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE,
     overdueExceptionEnabled: true,
@@ -177,7 +177,7 @@ const milestoneConfigs: MilestoneConfig[] = [
     exceptionSeverity: 'S2',
     updatedAt: '2026-03-12 10:30:00',
     updatedBy: '平台运营',
-    remark: '整烫工序采用 Yard 阈值示例',
+    remark: '烫包工序统一按成衣件数上报',
   },
   {
     id: 'MC-PROC-CUT',
@@ -382,7 +382,7 @@ export function resolveExecutionTaskTypeScope(input: ExecutionRuleTaskContext): 
     return 'PRINT_DYE'
   }
   if (includesAny(codeText, ['SEW']) || labelText.includes('车缝')) return 'SEWING'
-  if (includesAny(codeText, ['POST_FINISHING', 'IRON', 'PACK']) || labelText.includes('后道') || labelText.includes('整烫')) {
+  if (includesAny(codeText, ['POST_FINISHING', 'IRON_PACK']) || labelText.includes('后道') || labelText.includes('烫包')) {
     return 'POST_FINISHING'
   }
   if (input.isSpecialCraft || labelText.includes('特殊工艺')) return 'SPECIAL_CRAFT'

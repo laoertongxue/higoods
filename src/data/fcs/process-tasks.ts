@@ -278,7 +278,6 @@ export interface ProcessTask {
   yarnPlannedWeightKg?: number
   yarnReceivedWeightKg?: number
   requiresFeiTicket?: boolean
-  packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   mockReceiveSummary?: string
   mockExecutionSummary?: string
@@ -903,7 +902,6 @@ export function buildGeneratedProcessTasksFromArtifacts(
         woolOrderNo,
         woolDownstreamTarget,
         requiresFeiTicket: isWool ? undefined : artifact.requiresFeiTicket,
-        packagingRequired: isWool ? undefined : artifact.packagingRequired,
         materialIssueMode: artifact.materialIssueMode,
         yarnSku: undefined,
         yarnPlannedWeightKg: undefined,

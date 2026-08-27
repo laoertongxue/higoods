@@ -462,7 +462,7 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
             <div><p class="text-xs text-muted-foreground">后道单</p><p class="text-lg font-semibold">${task.postOrderCount}</p></div>
             <div><p class="text-xs text-muted-foreground">复检单</p><p class="text-lg font-semibold">${task.recheckOrderCount}</p></div>
           </div>
-          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子、熨烫、包装才生成后道单；未勾选则进入复检链路。</p>
+          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子或烫包才生成后道单；未勾选则进入复检链路。</p>
         </section>
       </div>
     </section>

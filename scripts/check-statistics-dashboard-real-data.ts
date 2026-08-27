@@ -141,10 +141,9 @@ const postStatsSource = [
   'src/pages/process-factory/post-finishing/statistics.ts',
   domainPath,
 ].map(read).join('\n')
-for (const forbidden of ['开扣眼', '装扣子', '熨烫']) {
+for (const forbidden of ['开扣眼', '装扣子', '烫包']) {
   assert(!postStatsSource.includes(forbidden), `后道统计和大屏不得出现 ${forbidden} 作为任务动作`)
 }
-assert(!postStatsSource.includes('包装'), '后道统计和大屏不得出现包装作为任务动作')
 
 const quantityLabelSource = pagesWithPotentialMocks
 assert(!/>\s*数量：/.test(quantityLabelSource), '统计和大屏不得只显示“数量：”')

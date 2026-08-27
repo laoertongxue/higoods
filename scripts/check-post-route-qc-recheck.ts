@@ -111,7 +111,7 @@ function main(): void {
     assert(inspection.receivedQty === batch?.receiverWrittenQty, `${inspection.qcId} 实收数量未对齐接收方回写`)
   }
 
-  const forbiddenProcessLabels = ['开扣眼', '装扣子', '熨烫', '包装']
+  const forbiddenProcessLabels = ['开扣眼', '装扣子', '烫包']
   assert(
     returnInboundChainQualityInspections.every((inspection) => !forbiddenProcessLabels.includes(inspection.processLabel)),
     '后道产能节点误入质检/复检链路',

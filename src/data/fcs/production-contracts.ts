@@ -18,7 +18,7 @@ export interface SignedContractScan {
 }
 
 export type ProductionContractTaskTypeId = 'NON-GABUNGAN' | 'GABUNGAN'
-export type ProductionContractProcessTypeId = 'JAHIT' | 'JAHIT-PACKING' | 'CUTTING-PACKING'
+export type ProductionContractProcessTypeId = 'JAHIT' | 'JAHIT-IRON-PACK' | 'CUTTING-IRON-PACK'
 
 export interface ProductionContractTaskDetailSnapshot {
   spuNo: string
@@ -127,8 +127,8 @@ function hydrateContractState(): void {
 }
 
 function resolveProcessTypeId(policy: TaskFulfillmentPolicy): ProductionContractProcessTypeId {
-  if (policy.fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK') return 'CUTTING-PACKING'
-  if (policy.fulfillmentRuleCode === 'SEWING_TO_IRON_PACK') return 'JAHIT-PACKING'
+  if (policy.fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK') return 'CUTTING-IRON-PACK'
+  if (policy.fulfillmentRuleCode === 'SEWING_TO_IRON_PACK') return 'JAHIT-IRON-PACK'
   return 'JAHIT'
 }
 
@@ -161,9 +161,9 @@ function buildTemplateSnapshot(input: {
 function buildLegacyTemplateSnapshot(contract: Omit<ProductionContract, 'templateSnapshot'> & { templateSnapshot?: ProductionContractTemplateSnapshot }): ProductionContractTemplateSnapshot {
   const fulfillmentRuleCode = contract.returnRuleSnapshot.fulfillmentRuleCode
   const processTypeId: ProductionContractProcessTypeId = fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK'
-    ? 'CUTTING-PACKING'
+    ? 'CUTTING-IRON-PACK'
     : fulfillmentRuleCode === 'SEWING_TO_IRON_PACK'
-      ? 'JAHIT-PACKING'
+      ? 'JAHIT-IRON-PACK'
       : 'JAHIT'
   const order = productionOrders.find((item) => (
     item.productionOrderId === contract.productionOrderId

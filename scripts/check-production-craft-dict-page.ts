@@ -118,9 +118,12 @@ try {
     })
   }
   const activeIronPackRows = activeRows.filter((row) => row.processCode === 'IRON_PACK')
-  assert(activeIronPackRows.length === 1 && activeIronPackRows[0].craftName === '烫包', '当前口径只能保留烫包，熨烫/包装只能作为历史归一映射')
+  assert(activeIronPackRows.length === 1 && activeIronPackRows[0].craftName === '烫包', '当前后道成衣处理只能保留唯一烫包工艺')
   assert(activeIronPackRows[0].generatesExternalTaskLabel === '是', '独立烫包必须可生成生产任务')
-  assert(!activeRows.some((row) => ['熨烫', '包装'].includes(row.craftName)), '可用字典不得暴露熨烫/包装旧名称')
+  assert(activeIronPackRows[0].craftCode === 'CRAFT_2000010', '烫包必须使用唯一当前工艺码')
+  assert(activeIronPackRows[0].targetObjectName === '成衣', '独立烫包的作用对象必须是成衣')
+  assert(activeIronPackRows[0].processAssignmentGranularity === 'ORDER', '独立烫包必须按整个生产任务分配')
+  assert(activeIronPackRows[0].processDetailSplitDimensionsText === '成衣SKU', '独立烫包必须保留可查看的成衣 SKU 需求明细')
   assert(!processDefinitions.some((item) => ['QUALITY_INSPECTION', 'RECHECK'].includes(item.processCode)), '质检、复检不得进入工序字典')
   assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
 

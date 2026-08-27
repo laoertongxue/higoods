@@ -6,7 +6,7 @@ export const WOMENSWEAR_CATEGORY_OPTIONS = [
 
 export type WomenswearCategory = (typeof WOMENSWEAR_CATEGORY_OPTIONS)[number]
 export type ComprehensiveAssessmentGrade = 'S' | 'A' | 'B' | 'C'
-export type TimelinessTaskKind = 'INDEPENDENT_SEWING' | 'SEWING_TO_PACKAGING' | 'CUTTING_TO_PACKAGING'
+export type TimelinessTaskKind = 'INDEPENDENT_SEWING' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK'
 
 export interface ReceiptMilestones {
   30: string | null
@@ -96,8 +96,8 @@ export const THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY = 'fcs_third_party
 
 const dayByTaskKind: Record<TimelinessTaskKind, Record<30 | 70 | 100, number>> = {
   INDEPENDENT_SEWING: { 30: 4, 70: 8, 100: 9 },
-  SEWING_TO_PACKAGING: { 30: 5, 70: 9, 100: 10 },
-  CUTTING_TO_PACKAGING: { 30: 6, 70: 9, 100: 12 },
+  SEWING_TO_IRON_PACK: { 30: 5, 70: 9, 100: 10 },
+  CUTTING_TO_IRON_PACK: { 30: 6, 70: 9, 100: 12 },
 }
 
 const manualAssessmentSeed: ManualAssessmentSnapshot[] = [
@@ -116,14 +116,14 @@ const manualAssessmentSeed: ManualAssessmentSnapshot[] = [
 
 const timelinessFacts: FactoryTimelinessFact[] = [
   completeTimeliness('KOL-GOTO-001', 'INDEPENDENT_SEWING', '2026-07-01T00:00:00.000Z'),
-  completeTimeliness('ID-F021', 'SEWING_TO_PACKAGING', '2026-07-01T00:00:00.000Z'),
-  completeTimeliness('ID-F022', 'CUTTING_TO_PACKAGING', '2026-07-01T00:00:00.000Z'),
+  completeTimeliness('ID-F021', 'SEWING_TO_IRON_PACK', '2026-07-01T00:00:00.000Z'),
+  completeTimeliness('ID-F022', 'CUTTING_TO_IRON_PACK', '2026-07-01T00:00:00.000Z'),
   completeTimeliness('ID-F023', 'INDEPENDENT_SEWING', '2026-07-01T00:00:00.000Z'),
-  completeTimeliness('ID-F025', 'SEWING_TO_PACKAGING', '2026-07-01T00:00:00.000Z'),
+  completeTimeliness('ID-F025', 'SEWING_TO_IRON_PACK', '2026-07-01T00:00:00.000Z'),
   lateTimeliness('ID-F026'),
   completeTimeliness('ID-F027', 'INDEPENDENT_SEWING', '2026-07-01T00:00:00.000Z'),
-  completeTimeliness('ID-F028', 'CUTTING_TO_PACKAGING', '2026-07-01T00:00:00.000Z'),
-  completeTimeliness('ID-F029', 'SEWING_TO_PACKAGING', '2026-07-01T00:00:00.000Z'),
+  completeTimeliness('ID-F028', 'CUTTING_TO_IRON_PACK', '2026-07-01T00:00:00.000Z'),
+  completeTimeliness('ID-F029', 'SEWING_TO_IRON_PACK', '2026-07-01T00:00:00.000Z'),
   completeTimeliness('ID-F030', 'INDEPENDENT_SEWING', '2026-07-01T00:00:00.000Z'),
 ]
 

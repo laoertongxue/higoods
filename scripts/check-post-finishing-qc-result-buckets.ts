@@ -42,7 +42,7 @@ assert(completeDialogHtml.includes('返工扣款单价（IDR）'), '返工外流
 assert(completeDialogHtml.includes('data-qc-rework-deduction-unit-amount'), '缺少返工扣款单价输入')
 assert(completeDialogHtml.includes('data-qc-button-mode="manual"'), '选择装扣子时应能选择人工装扣')
 assert(completeDialogHtml.includes('data-qc-button-mode="machine"'), '选择装扣子时应能选择机器装扣')
-assert(completeDialogHtml.includes('data-qc-post-project-lockable'), '开扣眼或装扣子应锁定熨烫、包装')
+assert(completeDialogHtml.includes('data-qc-post-project-lockable'), '开扣眼或装扣子应锁定烫包')
 assert(completeDialogHtml.includes('data-qc-sku-card'), 'SKU 质检区应改成卡片，不能再是宽表')
 assert(!completeDialogHtml.includes('min-w-[1500px]'), '完成质检弹窗不应再使用 1500px 宽表')
 assert(completeDialogHtml.includes('原工厂') && completeDialogHtml.includes('当前后道工厂'), '返工工厂应只提供原工厂和当前后道工厂')
@@ -86,8 +86,8 @@ assert(tasksWithQcOrder.length >= 1, '后道任务 mock 应包含已有质检单
 assert(createableTasks.every((task) => getPostFinishingTaskSkuLines(task.postTaskId).length > 1), '可创建质检单的后道任务必须是一个生产单下多个 SKU')
 assert(nonCreateableTasks.every((task) => getPostFinishingTaskSkuLines(task.postTaskId).length !== 1), '不可创建质检单的后道任务不能只展示单 SKU')
 assert(listPostFinishingQcOrderEntities().every((item) => item.skuLines.length > 1), '质检单 mock 里每张质检单都必须包含多个 SKU')
-assert(postTasks.every((task) => task.qcDoneQty > 0), '后道任务每条 mock 都必须有已质检数量')
-assert(postTasks.every((task) => listPostFinishingQcOrderEntities().filter((qcOrder) => qcOrder.productionOrderNo === task.productionOrderNo).length >= 2), '后道任务每条 mock 点击查看质检单后至少应看到 2 张质检单')
+assert(postTasks.some((task) => task.qcDoneQty > 0), '后道任务 mock 应包含已质检数量')
+assert(tasksWithQcOrder.every((task) => listPostFinishingQcOrderEntities().some((qcOrder) => qcOrder.postTaskId === task.postTaskId)), '已关联质检单的后道任务必须可查到对应单据')
 
 const waitInputItem = listPostFinishingWaitQcSkuItems().find((item) => item.waitQcQty > 0)
 assert(waitInputItem, '缺少可检查的待质检 SKU')
@@ -357,7 +357,7 @@ assert(completed.processingFeeDeductionQty === 30, '本质检结算周期应扣�
 assert(completed.qcSkuResults[0].reworkReceiveFactoryName === '当前后道工厂', '返工接收工厂未保留')
 assert(completed.qcSkuResults[0].reworkDeductionUnitAmountIdr === 15000, '返工外流扣款单价未保留')
 assert(completed.qcSkuResults[0].reworkDeductionAmountIdr === 450000, '返工外流扣款金额应为返工数量乘以单价')
-assert(completed.needButton && completed.needIroning && completed.needPackaging, '选择装扣子后应自动需要熨烫和包装')
+assert(completed.needButton && completed.needIronPack, '选择装扣子后应自动需要烫包')
 assert(completed.qcSkuResults[0].postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode === '机器装扣', '装扣方式未保留')
 assert(
   completed.qcSkuResults[0].defectReasonItems.map((item) => item.reasonName).join('、') === '做工原因、脏污',

@@ -74,9 +74,9 @@ assert.equal(classifySewingDeliverySla({
   coveredProcesses: [
     { processCode: 'SEW', processName: '车缝', sourceArtifactIds: [] },
     { processCode: 'BUTTON', processName: '装扣', sourceArtifactIds: [] },
-    { processCode: 'POST', processName: '包装', sourceArtifactIds: [] },
+    { processCode: 'IRON_PACK', processName: '烫包', sourceArtifactIds: [] },
   ],
-}), 'SEWING_TO_PACKAGING')
+}), 'SEWING_TO_IRON_PACK')
 
 assert.equal(classifySewingDeliverySla({
   taskUnitType: 'COMBINED_PROCESS_TASK', processCode: 'POST', processNameZh: '裁片到后道',
@@ -85,7 +85,7 @@ assert.equal(classifySewingDeliverySla({
     { processCode: 'SEW', processName: '车缝', sourceArtifactIds: [] },
     { processCode: 'POST', processName: '后道', sourceArtifactIds: [] },
   ],
-}), 'CUTTING_TO_PACKAGING')
+}), 'CUTTING_TO_IRON_PACK')
 
 const snapshot = createSewingDeliverySlaSnapshot({
   assignmentId: 'ASSIGN-1', runtimeTaskId: 'TASK-1', productionOrderId: 'PO-1',
@@ -107,7 +107,7 @@ assert.deepEqual(snapshot.milestones.map((item) => item.targetQty), [31, 71, 101
 - [ ] **步骤3：实现公开类型和分类规则**
 
 ```ts
-export type SewingDeliverySlaKind = 'INDEPENDENT_SEWING' | 'SEWING_TO_PACKAGING' | 'CUTTING_TO_PACKAGING'
+export type SewingDeliverySlaKind = 'INDEPENDENT_SEWING' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK'
 export interface SewingDeliveryMilestoneSnapshot {
   ratio: 0.3 | 0.7 | 1
   hoursAfterAcceptance: number
@@ -174,12 +174,12 @@ export function projectSewingDeliverySla(
 ```ts
 const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
   INDEPENDENT_SEWING: [96, 192, 216],
-  SEWING_TO_PACKAGING: [120, 216, 240],
-  CUTTING_TO_PACKAGING: [144, 216, 288],
+  SEWING_TO_IRON_PACK: [120, 216, 240],
+  CUTTING_TO_IRON_PACK: [144, 216, 288],
 }
 ```
 
-分类读取 `coveredProcesses` 的首尾工序；中间工序不影响车缝到包装或裁片到包装分类。
+分类读取 `coveredProcesses` 的首尾工序；中间工序不影响车缝到烫包或裁片到烫包分类。
 
 - [ ] **步骤4：实现投影并补齐边界测试**
 
@@ -705,8 +705,8 @@ git commit -m "feat: preserve sewing sla across reassignment"
 必须覆盖：
 
 1. 独立车缝三个节点全部按时。
-2. 车缝到包装30%逾期、70%追上、最终按时。
-3. 裁片到包装30%按时、70%逾期、最终逾期完成。
+2. 车缝到烫包30%逾期、70%追上、最终按时。
+3. 裁片到烫包30%按时、70%逾期、最终逾期完成。
 4. 最终截止后仍未完成。
 5. 到期前交出、到期后确认，形成接收方确认延迟。
 6. 101件任务的30%和70%向上取整。

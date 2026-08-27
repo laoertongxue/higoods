@@ -402,7 +402,7 @@ assertNotIncludes('src/data/fcs/platform-process-result-view.ts', legacyReceiptR
 assertNotIncludes('docs/fcs-process-warehouse-handover-linkage.md', legacyReviewLabel, '第 8 步文档不得保留旧审核状态')
 assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '开扣眼', '特殊工艺页面不得新增开扣眼动作')
 assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '装扣子', '特殊工艺页面不得新增装扣子动作')
-assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '熨烫', '特殊工艺页面不得新增熨烫动作')
+assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '烫包', '特殊工艺页面不得新增后道烫包动作')
 assertNotIncludes(linkagePath, 'handoverRecords = [', '联动服务不得维护页面孤立交出数组')
 assertNotIncludes(linkagePath, 'differenceRecords = [', '联动服务不得维护页面孤立差异数组')
 assertIncludes('docs/fcs-process-warehouse-handover-linkage.md', 'Web或移动端执行动作', '缺少本轮文档流程图')

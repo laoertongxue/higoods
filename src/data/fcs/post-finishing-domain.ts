@@ -338,8 +338,7 @@ export interface PostFinishingActionRecord {
   dispositionRemark?: string
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   evidenceAssets?: PostFinishingEvidenceAsset[]
   evidenceUrls?: string[]
   qualityDeductionSnapshot?: PostFinishingQualityDeductionSnapshot
@@ -462,8 +461,7 @@ export interface PostFinishingQcOrder {
   deductionDecisionRemark: string
   needButtonhole: boolean
   needButton: boolean
-  needIroning: boolean
-  needPackaging: boolean
+  needIronPack: boolean
   generatedPostOrderId?: string
   generatedRecheckOrderId?: string
   inspectorName: string
@@ -744,8 +742,7 @@ export interface PostFinishingWorkOrder {
   requiresPostFinishing: boolean
   needButtonhole: boolean
   needButton: boolean
-  needIroning: boolean
-  needPackaging: boolean
+  needIronPack: boolean
   postProcessItems: PostFinishingNeedFlag[]
   postProjectLines: PostFinishingPostProjectLine[]
   qcOrderId: string
@@ -1003,11 +1000,11 @@ function summarizeSku(lines: PostFinishingSkuLine[]): string {
   return lines.map((line) => `${line.skuCode}/${line.colorName}/${line.sizeName} ${line.plannedQty}${line.qtyUnit}`).join('、')
 }
 
-function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton' | 'needIroning' | 'needPackaging'> & { qcSkuResults?: PostFinishingQcSkuResult[] }): PostFinishingNeedFlag[] {
+function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton' | 'needIronPack'> & { qcSkuResults?: PostFinishingQcSkuResult[] }): PostFinishingNeedFlag[] {
   const fromSku = (qc.qcSkuResults || [])
     .flatMap((result) => result.postProjectJudgements)
     .filter((judgement) => judgement.needed && judgement.qty > 0)
-    .map((judgement) => judgement.projectName === ('熨烫' as PostFinishingNeedFlag) || judgement.projectName === ('包装' as PostFinishingNeedFlag) ? '烫包' : judgement.projectName)
+    .map((judgement) => judgement.projectName)
   if (fromSku.length) {
     const next = new Set<PostFinishingNeedFlag>(fromSku)
     if (next.has('开扣眼') || next.has('装扣子')) {
@@ -1018,7 +1015,7 @@ function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton
   const next = new Set([
     qc.needButtonhole ? '开扣眼' : '',
     qc.needButton ? '装扣子' : '',
-    qc.needIroning || qc.needPackaging ? '烫包' : '',
+    qc.needIronPack ? '烫包' : '',
   ].filter(Boolean) as PostFinishingNeedFlag[])
   if (next.has('开扣眼') || next.has('装扣子')) {
     next.add('烫包')
@@ -1055,8 +1052,7 @@ function normalizePostProjectJudgements(items: PostFinishingQcPostProjectJudgeme
 function postProjectJudgementsFromFlags(input: {
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   buttonAttachMode?: PostFinishingButtonAttachMode
   qty: number
 }): PostFinishingQcPostProjectJudgement[] {
@@ -1065,7 +1061,7 @@ function postProjectJudgementsFromFlags(input: {
   const pairs: Array<[PostFinishingNeedFlag, boolean | undefined]> = [
     ['开扣眼', needButtonhole],
     ['装扣子', needButton],
-    ['烫包', input.needIroning || input.needPackaging || needButtonhole || needButton],
+    ['烫包', input.needIronPack || needButtonhole || needButton],
   ]
   return normalizePostProjectJudgements(pairs
     .filter(([, needed]) => Boolean(needed))
@@ -1087,8 +1083,7 @@ function buildQcSkuResultsFromLines(input: {
   sourceFactoryName?: string
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   buttonAttachMode?: PostFinishingButtonAttachMode
 }): PostFinishingQcSkuResult[] {
   let remainingPassed = Math.max(input.passedQty ?? 0, 0)
@@ -1146,8 +1141,7 @@ function buildQcSkuResultsFromLines(input: {
       postProjectJudgements: postProjectJudgementsFromFlags({
         needButtonhole: input.needButtonhole,
         needButton: input.needButton,
-        needIroning: input.needIroning,
-        needPackaging: input.needPackaging,
+        needIronPack: input.needIronPack,
         buttonAttachMode: input.buttonAttachMode,
         qty: qualifiedQty,
       }),
@@ -1164,8 +1158,7 @@ function normalizeQcSkuResults(input: {
   sourceFactoryName?: string
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   buttonAttachMode?: PostFinishingButtonAttachMode
 }): PostFinishingQcSkuResult[] {
   const provided = input.results || []
@@ -1178,8 +1171,7 @@ function normalizeQcSkuResults(input: {
       sourceFactoryName: input.sourceFactoryName,
       needButtonhole: input.needButtonhole,
       needButton: input.needButton,
-      needIroning: input.needIroning,
-      needPackaging: input.needPackaging,
+      needIronPack: input.needIronPack,
       buttonAttachMode: input.buttonAttachMode,
     })
   }
@@ -1223,8 +1215,7 @@ function normalizeQcSkuResults(input: {
       : postProjectJudgementsFromFlags({
           needButtonhole: input.needButtonhole,
           needButton: input.needButton,
-          needIroning: input.needIroning,
-          needPackaging: input.needPackaging,
+          needIronPack: input.needIronPack,
           buttonAttachMode: input.buttonAttachMode,
           qty: qualifiedQty,
         }))
@@ -1849,8 +1840,7 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
   defectiveQty: number
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   buttonAttachMode?: PostFinishingButtonAttachMode
   allocationQty?: number
   station: string
@@ -1870,8 +1860,7 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     sourceFactoryName: context.sourceFactoryName,
     needButtonhole: options.needButtonhole,
     needButton: options.needButton,
-    needIroning: options.needIroning,
-    needPackaging: options.needPackaging,
+    needIronPack: options.needIronPack,
     buttonAttachMode: options.buttonAttachMode,
   })
   const qcResult: PostFinishingQcResult = options.status !== '质检完成'
@@ -1927,8 +1916,7 @@ function buildQcOrder(index: number, context: PostFinishingSourceContext, receip
     deductionDecisionRemark: hasDefect ? '质检记录只展示事实；扣款由对账单确认。' : '',
     needButtonhole: Boolean(options.needButtonhole),
     needButton: Boolean(options.needButton),
-    needIroning: Boolean(options.needIroning),
-    needPackaging: Boolean(options.needPackaging),
+    needIronPack: Boolean(options.needIronPack),
     generatedPostOrderId: undefined,
     generatedRecheckOrderId: undefined,
     inspectorName: options.status === '待质检' ? '—' : '后道质检员',
@@ -2097,10 +2085,10 @@ function withoutWarehouseAllocations(qc: PostFinishingQcOrder): PostFinishingQcO
 }
 
 let qcOrders: PostFinishingQcOrder[] = [
-  withMultiSkuDefectReasonMock(buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 4980, defectiveQty: 20, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
-  buildQcOrder(2, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 5000, defectiveQty: 0, needPackaging: true, station: 'B' }),
-  withoutWarehouseAllocations(buildQcOrder(3, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 360, defectiveQty: 30, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
-  withoutWarehouseAllocations(buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 386, defectiveQty: 4, needPackaging: true, station: 'B' })),
+  withMultiSkuDefectReasonMock(buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 4980, defectiveQty: 20, needButton: true, needIronPack: true, buttonAttachMode: '人工装扣', station: 'A' })),
+  buildQcOrder(2, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 5000, defectiveQty: 0, needIronPack: true, station: 'B' }),
+  withoutWarehouseAllocations(buildQcOrder(3, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 360, defectiveQty: 30, needButton: true, needIronPack: true, buttonAttachMode: '人工装扣', station: 'A' })),
+  withoutWarehouseAllocations(buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 386, defectiveQty: 4, needIronPack: true, station: 'B' })),
   withMultiSkuDefectReasonMock(buildQcOrder(5, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检完成', passedQty: 206, defectiveQty: 4, needButtonhole: true, needButton: true, buttonAttachMode: '机器装扣', station: 'A' })),
   withPendingDefectReasonMock(buildQcOrder(6, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
 ]
@@ -2285,8 +2273,7 @@ function makeActionRecord(input: {
     action.dispositionRemark = snapshot.dispositionRemark
     action.needButtonhole = input.qc.needButtonhole
     action.needButton = input.qc.needButton
-    action.needIroning = input.qc.needIroning
-    action.needPackaging = input.qc.needPackaging
+    action.needIronPack = input.qc.needIronPack
     action.qcSkuResults = input.qc.qcSkuResults.map(cloneQcSkuResult)
     action.evidenceAssets = input.qc.evidenceAssets.map((item) => ({ ...item }))
     action.evidenceUrls = input.qc.evidenceAssets.map((item) => item.url)
@@ -2444,8 +2431,7 @@ function buildPostOrderFromQc(qc: PostFinishingQcOrder, index: number): PostFini
     requiresPostFinishing: true,
     needButtonhole: qc.needButtonhole,
     needButton: qc.needButton,
-    needIroning: qc.needIroning,
-    needPackaging: qc.needPackaging,
+    needIronPack: qc.needIronPack,
     postProcessItems: needs,
     postProjectLines,
     qcOrderId: qc.qcOrderId,
@@ -3094,8 +3080,7 @@ export function createPostFinishingQcOrder(input: {
     deductionDecisionRemark: '',
     needButtonhole: false,
     needButton: false,
-    needIroning: false,
-    needPackaging: false,
+    needIronPack: false,
     generatedPostOrderId: undefined,
     generatedRecheckOrderId: undefined,
     inspectorName: input.inspectorName || '—',
@@ -3128,8 +3113,7 @@ export function completePostFinishingQcOrder(input: {
   deductionDecisionRemark?: string
   needButtonhole?: boolean
   needButton?: boolean
-  needIroning?: boolean
-  needPackaging?: boolean
+  needIronPack?: boolean
   qcSkuResults?: PostFinishingQcSkuResult[]
 }): PostFinishingQcOrder {
   const qc = qcOrders.find((item) => item.qcOrderId === input.qcOrderId)
@@ -3155,8 +3139,7 @@ export function completePostFinishingQcOrder(input: {
         sourceFactoryName: qc.sourceFactoryName,
         needButtonhole: input.needButtonhole,
         needButton: input.needButton,
-        needIroning: input.needIroning,
-        needPackaging: input.needPackaging,
+        needIronPack: input.needIronPack,
       })
   assertQcSkuResultsReadyToComplete(nextQcSkuResults, true)
   const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty') || fallbackInspectedQty
@@ -3192,8 +3175,7 @@ export function completePostFinishingQcOrder(input: {
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')
-  qc.needIroning = nextNeeds.includes('烫包')
-  qc.needPackaging = nextNeeds.includes('烫包')
+  qc.needIronPack = nextNeeds.includes('烫包')
   qc.defectItems = hasDefect ? [defect(`PF-DEF-${pad(nextQcIndex())}`, qc.defectiveGarmentQty)] : []
   qc.evidenceAssets = hasDefect ? qc.evidenceAssets : []
   qc.inspectedAt = nowText()
@@ -3262,8 +3244,7 @@ export function submitPostFinishingPdaQcResult(input: {
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')
-  qc.needIroning = nextNeeds.includes('烫包')
-  qc.needPackaging = nextNeeds.includes('烫包')
+  qc.needIronPack = nextNeeds.includes('烫包')
   qc.defectItems = [defect(`PF-DEF-${pad(nextQcIndex())}`, defectiveQty)]
   qc.inspectedAt = nowText()
   qc.updatedAt = nowText()

@@ -62,7 +62,7 @@ test('后道仓模型只由复检完成生成交出仓', async ({ page }) => {
   await expect(page.getByText('待复检').first()).toBeVisible()
   await expect(page.getByText('开扣眼')).toHaveCount(0)
   await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('熨烫')).toHaveCount(0)
+  await expect(page.getByText('烫包')).toHaveCount(0)
 
   await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()

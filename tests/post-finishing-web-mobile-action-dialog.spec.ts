@@ -150,8 +150,7 @@ test('后道页面和移动端不出现错误后道动作，统计读取成衣�
     await page.goto(path)
     await expect(page.locator('body')).not.toContainText('开扣眼')
     await expect(page.locator('body')).not.toContainText('装扣子')
-    await expect(page.locator('body')).not.toContainText('熨烫')
-    await expect(page.locator('body')).not.toContainText('包装')
+    await expect(page.locator('body')).not.toContainText('烫包')
   }
 
   await page.goto('/fcs/craft/post-finishing/statistics')

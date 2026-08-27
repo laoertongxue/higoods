@@ -93,6 +93,5 @@ test('工厂档案不展示后道 产值 节点为接单能力', async ({ page }
   await expect(page.getByText('复检', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('开扣眼')).toHaveCount(0)
   await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('熨烫')).toHaveCount(0)
-  await expect(page.getByText('包装')).toHaveCount(0)
+  await expect(page.getByText('烫包')).toHaveCount(0)
 })
