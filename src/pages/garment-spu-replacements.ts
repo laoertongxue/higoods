@@ -13,6 +13,7 @@ import {
   createGarmentSpuReplacement,
   getGarmentSpuReplacement,
   listGarmentSpuReplacements,
+  listGarmentWarehouseRelabelTasks,
   type GarmentSpuReplacementLine,
   type GarmentSpuReplacementRecord,
 } from '../data/fcs/garment-spu-replacement.ts'
@@ -156,6 +157,39 @@ function renderStatus(status: GarmentSpuReplacementRecord['status']): string {
     : '<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">换码中</span>'
 }
 
+function getReplacementCompletionProgress(record: GarmentSpuReplacementRecord) {
+  const postTotal = record.lines.reduce((sum, line) => sum + line.postFactoryQty, 0)
+  const postDone = record.lines.reduce((sum, line) => sum + line.postRelabeledQty, 0)
+  const warehouseTask = listGarmentWarehouseRelabelTasks().find((task) => task.replacementId === record.replacementId)
+  const warehouseTotal = warehouseTask
+    ? warehouseTask.lines.reduce((sum, line) => sum + line.qty, 0)
+    : record.lines.reduce((sum, line) => sum + line.finishedWarehouseQty, 0)
+  const warehouseDone = warehouseTask
+    ? warehouseTask.lines.filter((line) => line.status === 'COMPLETED').reduce((sum, line) => sum + line.qty, 0)
+    : 0
+  const remainingReturnQty = record.lines.reduce((sum, line) => sum + line.remainingReturnQty, 0)
+  const postCompleted = postDone === postTotal
+  const warehouseCompleted = warehouseTotal === 0 || warehouseTask?.status === 'COMPLETED'
+  const pendingText = postCompleted && warehouseCompleted
+    ? '完成条件已满足：后道工厂与成衣仓实物换码均已完成'
+    : !postCompleted && !warehouseCompleted
+      ? '当前待办：等待后道工厂和成衣仓完成换码'
+      : !postCompleted
+        ? '当前待办：等待后道工厂完成实物换码'
+        : '当前待办：等待成衣仓换码任务完成'
+  return {
+    postTotal,
+    postDone,
+    warehouseTask,
+    warehouseTotal,
+    warehouseDone,
+    remainingReturnQty,
+    postCompleted,
+    warehouseCompleted,
+    pendingText,
+  }
+}
+
 function renderBusinessImage(url: string, label: string, sizeClass = 'h-12 w-12'): string {
   return `<button type="button" class="group relative shrink-0 rounded-md border bg-slate-50" data-garment-spu-replacement-action="open-image" data-image-url="${escapeHtml(url)}" data-image-label="${escapeHtml(label)}" data-skip-page-rerender="true"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="${sizeClass} rounded-md object-cover" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="flex ${sizeClass} items-center justify-center p-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
 }
@@ -167,16 +201,6 @@ function renderEvidenceCell(record: GarmentSpuReplacementRecord): string {
 
 function renderEvidenceSection(record: GarmentSpuReplacementRecord): string {
   return `<section class="rounded-lg border p-4"><h3 class="font-semibold">现场截图</h3><p class="mt-1 text-xs text-slate-500">截图非必填；已上传图片可点击查看原图，用于后续追溯。</p><div class="mt-3">${renderEvidenceCell(record)}</div></section>`
-}
-
-function appendDetailEvidence(dialogHtml: string): string {
-  if (state.overlay?.kind !== 'detail') return dialogHtml
-  const record = getGarmentSpuReplacement(state.overlay.replacementId)
-  if (!record) return dialogHtml
-  const marker = '</div></section></div>'
-  const markerIndex = dialogHtml.lastIndexOf(marker)
-  if (markerIndex < 0) return dialogHtml
-  return `${dialogHtml.slice(0, markerIndex)}${renderEvidenceSection(record)}${dialogHtml.slice(markerIndex)}`
 }
 
 function filteredRows(): GarmentSpuReplacementRecord[] {
@@ -211,11 +235,13 @@ const columns: StandardListColumn<GarmentSpuReplacementRecord>[] = [
     },
   },
   {
-    key: 'progress', title: '换码进度', width: 190,
+    key: 'progress', title: '换码进度', width: 330,
     render: (row) => {
-      const cTotal = row.lines.reduce((sum, line) => sum + line.postFactoryQty, 0)
-      const cDone = row.lines.reduce((sum, line) => sum + line.postRelabeledQty, 0)
-      return `${renderStatus(row.status)}<div class="mt-2 text-xs">后道工厂在手成衣：${formatQty(cDone)} / ${formatQty(cTotal)}</div><div class="mt-1 text-xs text-slate-500">成衣仓未售成衣进入统一换码任务</div>`
+      const progress = getReplacementCompletionProgress(row)
+      const warehouseTaskLabel = progress.warehouseTask
+        ? `${progress.warehouseTask.relabelTaskNo} · ${progress.warehouseCompleted ? '已完成' : progress.warehouseTask.status === 'PROCESSING' ? '换码中' : '待处理'}`
+        : progress.warehouseTotal === 0 ? '无需处理' : '待生成换码任务'
+      return `${renderStatus(row.status)}<div class="mt-2 space-y-1.5 text-xs"><div><span class="text-slate-500">后道工厂换码：</span><strong>${formatQty(progress.postDone)} / ${formatQty(progress.postTotal)}</strong>${progress.postTotal === 0 ? ' · 无需处理' : progress.postCompleted ? ' · 已完成' : ' · 待处理'}</div><div><span class="text-slate-500">成衣仓换码：</span><strong>${formatQty(progress.warehouseDone)} / ${formatQty(progress.warehouseTotal)}</strong><div class="pl-[5.5rem] text-slate-500">${escapeHtml(warehouseTaskLabel)}</div></div><div><span class="text-slate-500">剩余待回货：</span><strong>${formatQty(progress.remainingReturnQty)}</strong> · 目标 SKU 已生效</div></div><div class="mt-2 rounded-md px-2 py-1.5 text-xs font-medium ${row.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}">${escapeHtml(progress.pendingText)}</div>`
     },
   },
   {
@@ -292,11 +318,10 @@ function renderDetailDialog(): string {
   if (state.overlay?.kind !== 'detail') return ''
   const record = getGarmentSpuReplacement(state.overlay.replacementId)
   if (!record) return ''
-  const postTotal = record.lines.reduce((sum, line) => sum + line.postFactoryQty, 0)
-  const postDone = record.lines.reduce((sum, line) => sum + line.postRelabeledQty, 0)
+  const progress = getReplacementCompletionProgress(record)
   const barcodeHref = buildUnifiedPrintPreviewLink({ documentType: 'GARMENT_SKU_BARCODE', sourceType: 'PRODUCTION_ORDER', sourceId: record.productionOrderId })
   const hangtagHref = buildUnifiedPrintPreviewLink({ documentType: 'GARMENT_HANGTAG', sourceType: 'PRODUCTION_ORDER', sourceId: record.productionOrderId })
-  const postActionHtml = postDone < postTotal
+  const postActionHtml = progress.postDone < progress.postTotal
     ? `<button class="rounded-md bg-emerald-600 px-3 py-2 text-sm text-white" data-garment-spu-replacement-action="complete-post" data-replacement-id="${escapeHtml(record.replacementId)}" data-skip-page-rerender="true">确认后道工厂在手成衣已全部换码</button>`
     : '<span class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">后道工厂在手成衣已换码，可继续交出</span>'
   const lineRowsHtml = record.lines.map((line) => `<tr class="border-t"><td class="p-3"><div class="flex items-center gap-2">${renderBusinessImage(line.target.imageUrl, `${line.target.spuName} ${line.target.color}/${line.size}`, 'h-10 w-10')}<strong>${escapeHtml(line.size)}</strong></div></td><td class="p-3">${escapeHtml(line.source.skuCode)}</td><td class="p-3 font-semibold text-blue-700">${escapeHtml(line.target.skuCode)}</td><td class="p-3 text-right">${formatQty(line.soldHistoryQty)}</td><td class="p-3 text-right">${formatQty(line.finishedWarehouseQty)}</td><td class="p-3 text-right">${formatQty(line.postFactoryQty)}</td><td class="p-3 text-right">${formatQty(line.remainingReturnQty)}</td><td class="p-3">${formatQty(line.postRelabeledQty)} / ${formatQty(line.postFactoryQty)}</td></tr>`).join('')
@@ -304,7 +329,31 @@ function renderDetailDialog(): string {
   const migrationHtml = record.migrationAudits.length
     ? `<div class="mt-3 overflow-x-auto"><table class="w-full min-w-[860px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-2">对象</th><th class="p-2">尺码</th><th class="p-2">原 SKU</th><th class="p-2">当前 SKU</th><th class="p-2">迁移时间</th></tr></thead><tbody>${migrationRowsHtml}</tbody></table></div>`
     : '<p class="mt-3 text-sm text-slate-500">当前范围内尚无已记录的瑕疵 SKU 明细；后续新瑕疵自动归入目标 SKU。</p>'
-  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true"><section class="max-h-[92vh] w-full max-w-7xl overflow-y-auto rounded-xl bg-white shadow-2xl"><header class="sticky top-0 z-10 flex items-start justify-between border-b bg-white px-5 py-4"><div><h2 class="text-lg font-semibold">${escapeHtml(record.replacementNo)}</h2><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.sourceSpuCode)} ${escapeHtml(record.sourceColor)} → ${escapeHtml(record.targetSpuCode)} ${escapeHtml(record.targetColor)}</p></div><button class="rounded-md border px-3 py-1.5 text-sm" data-garment-spu-replacement-action="close-overlay" data-skip-page-rerender="true">关闭</button></header><div class="space-y-4 p-5"><div class="grid gap-3 md:grid-cols-4"><div class="rounded-lg border p-3"><span class="text-xs text-slate-500">状态</span><div class="mt-2">${renderStatus(record.status)}</div></div><div class="rounded-lg border p-3"><span class="text-xs text-slate-500">生产单原数量</span><strong class="mt-2 block">${formatQty(record.originalDemandQty)}</strong></div><div class="rounded-lg border p-3"><span class="text-xs text-slate-500">后道工厂在手成衣换码</span><strong class="mt-2 block">${formatQty(postDone)} / ${formatQty(postTotal)}</strong></div><div class="rounded-lg border p-3"><span class="text-xs text-slate-500">瑕疵身份迁移</span><strong class="mt-2 block">${record.migrationAudits.length} 条</strong></div></div><div class="flex flex-wrap gap-2"><a class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white" href="${escapeHtml(barcodeHref)}" data-nav="${escapeHtml(barcodeHref)}">打印新条码</a><a class="rounded-md bg-amber-500 px-3 py-2 text-sm text-white" href="${escapeHtml(hangtagHref)}" data-nav="${escapeHtml(hangtagHref)}">打印新吊牌</a>${postActionHtml}</div><div class="overflow-x-auto rounded-lg border"><table class="w-full min-w-[1320px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-3">尺码／图片</th><th class="p-3">原 SKU</th><th class="p-3">当前目标 SKU</th><th class="p-3 text-right">已完成销售出库（历史）</th><th class="p-3 text-right">成衣仓未售成衣</th><th class="p-3 text-right">后道工厂未入仓成衣</th><th class="p-3 text-right">生产单剩余待回货</th><th class="p-3">后道换码进度</th></tr></thead><tbody>${lineRowsHtml}</tbody></table></div><section class="rounded-lg border p-4"><h3 class="font-semibold">瑕疵迁移与追溯</h3><p class="mt-1 text-xs text-slate-500">瑕疵数量、原因、责任和扣款事实不变；当前归属显示目标 SKU，保留原 SKU 审计。</p>${migrationHtml}</section></div></section></div>`
+  const warehouseTaskText = progress.warehouseTask
+    ? `${progress.warehouseTask.relabelTaskNo} · ${progress.warehouseCompleted ? '已完成' : progress.warehouseTask.status === 'PROCESSING' ? '换码中' : '待处理'}`
+    : progress.warehouseTotal === 0 ? '无需处理' : '待生成换码任务'
+  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true"><section class="max-h-[92vh] w-full max-w-7xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+    <header class="sticky top-0 z-10 flex items-start justify-between border-b bg-white px-5 py-4"><div><h2 class="text-lg font-semibold">${escapeHtml(record.replacementNo)}</h2><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.sourceSpuCode)} ${escapeHtml(record.sourceColor)} → ${escapeHtml(record.targetSpuCode)} ${escapeHtml(record.targetColor)}</p></div><button class="rounded-md border px-3 py-1.5 text-sm" data-garment-spu-replacement-action="close-overlay" data-skip-page-rerender="true">关闭</button></header>
+    <div class="space-y-4 p-5">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div class="rounded-lg border p-3"><span class="text-xs text-slate-500">替换单状态</span><div class="mt-2">${renderStatus(record.status)}</div></div>
+        <div class="rounded-lg border p-3"><span class="text-xs text-slate-500">生产单原数量</span><strong class="mt-2 block">${formatQty(record.originalDemandQty)}</strong></div>
+        <div class="rounded-lg border p-3"><span class="text-xs text-slate-500">后道工厂换码</span><strong class="mt-2 block">${formatQty(progress.postDone)} / ${formatQty(progress.postTotal)}</strong><span class="mt-1 block text-xs text-slate-500">${progress.postTotal === 0 ? '无需处理' : progress.postCompleted ? '已完成' : '待处理'}</span></div>
+        <div class="rounded-lg border p-3"><span class="text-xs text-slate-500">成衣仓换码</span><strong class="mt-2 block">${formatQty(progress.warehouseDone)} / ${formatQty(progress.warehouseTotal)}</strong><span class="mt-1 block text-xs text-slate-500">${escapeHtml(warehouseTaskText)}</span></div>
+        <div class="rounded-lg border p-3"><span class="text-xs text-slate-500">剩余待回货</span><strong class="mt-2 block">${formatQty(progress.remainingReturnQty)}</strong><span class="mt-1 block text-xs text-blue-700">目标 SKU 已生效</span></div>
+      </div>
+      <section class="rounded-lg border ${record.status === 'COMPLETED' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} p-4 text-sm">
+        <h3 class="font-semibold">怎么才算完成</h3>
+        <p class="mt-2">完成条件：后道工厂在手成衣全部换码；成衣仓未售成衣全部完成旧 SKU 出库、重新贴码和新 SKU 入库。</p>
+        <p class="mt-1 text-slate-600">已完成销售出库的历史数量不处理；剩余待回货从替换生效起直接使用目标 SKU，因此不需要等全部回货才完成替换单。</p>
+        <p class="mt-2 font-semibold ${record.status === 'COMPLETED' ? 'text-emerald-700' : 'text-amber-800'}">${escapeHtml(progress.pendingText)}</p>
+      </section>
+      <div class="flex flex-wrap gap-2"><a class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white" href="${escapeHtml(barcodeHref)}" data-nav="${escapeHtml(barcodeHref)}">打印新条码</a><a class="rounded-md bg-amber-500 px-3 py-2 text-sm text-white" href="${escapeHtml(hangtagHref)}" data-nav="${escapeHtml(hangtagHref)}">打印新吊牌</a>${postActionHtml}</div>
+      <div class="overflow-x-auto rounded-lg border"><table class="w-full min-w-[1320px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-3">尺码／图片</th><th class="p-3">原 SKU</th><th class="p-3">当前目标 SKU</th><th class="p-3 text-right">已完成销售出库（历史）</th><th class="p-3 text-right">成衣仓未售成衣</th><th class="p-3 text-right">后道工厂未入仓成衣</th><th class="p-3 text-right">生产单剩余待回货</th><th class="p-3">后道换码进度</th></tr></thead><tbody>${lineRowsHtml}</tbody></table></div>
+      <section class="rounded-lg border p-4"><h3 class="font-semibold">瑕疵迁移与追溯</h3><p class="mt-1 text-xs text-slate-500">瑕疵数量、原因、责任和扣款事实不变；当前归属显示目标 SKU，保留原 SKU 审计。</p>${migrationHtml}</section>
+      ${renderEvidenceSection(record)}
+    </div>
+  </section></div>`
 }
 
 function renderImageDialog(): string {
@@ -313,7 +362,7 @@ function renderImageDialog(): string {
 }
 
 function renderOverlays(): string {
-  return `<div data-garment-spu-replacement-column-settings>${controller.renderColumnSettings()}</div>${renderCreateDialog()}${appendDetailEvidence(renderDetailDialog())}${renderImageDialog()}`
+  return `<div data-garment-spu-replacement-column-settings>${controller.renderColumnSettings()}</div>${renderCreateDialog()}${renderDetailDialog()}${renderImageDialog()}`
 }
 
 function renderInner(): string {

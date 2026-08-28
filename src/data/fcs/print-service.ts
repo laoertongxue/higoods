@@ -204,6 +204,10 @@ export interface PrintDocumentBuildInput {
   sourceId: string
   handoverRecordId?: string
   paperColor?: PrintThermalPaperColor
+  skuData?: Array<{
+    skuCode: string
+    qty: number
+  }>
 }
 
 function encodeParam(value: string): string {
@@ -218,6 +222,9 @@ export function buildUnifiedPrintPreviewLink(input: PrintDocumentBuildInput): st
   })
   if (input.handoverRecordId) {
     params.set('handoverRecordId', input.handoverRecordId)
+  }
+  if (input.skuData?.length) {
+    params.set('skuData', JSON.stringify(input.skuData))
   }
   return `/fcs/print/preview?${params.toString()}`
 }

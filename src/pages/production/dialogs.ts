@@ -10,6 +10,7 @@ export function isProductionDialogOpen(): boolean {
     state.ordersTechPackSnapshotDialogId !== null ||
     state.ordersFromDemandDialogOpen ||
     state.ordersLogsId !== null ||
+    state.ordersPrintDialogOrderId !== null ||
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||

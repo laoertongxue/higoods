@@ -6,6 +6,7 @@ import {
   completeGarmentWarehouseRelabelTask,
   completePostFactoryRelabel,
   createGarmentSpuReplacement,
+  listGarmentPrintRows,
   listGarmentSpuReplacements,
   listGarmentWarehouseMovements,
   listGarmentWarehouseRelabelTasks,
@@ -254,6 +255,23 @@ for (const source of [
     }
   }
 }
+const selectedPrintRow = listGarmentPrintRows(PRODUCTION_ORDER_ID)[0]
+assert.ok(selectedPrintRow)
+const selectedBarcodeDocument = buildPrintDocument({
+  documentType: 'GARMENT_SKU_BARCODE',
+  sourceType: 'PRODUCTION_ORDER',
+  sourceId: PRODUCTION_ORDER_ID,
+  skuData: [{ skuCode: selectedPrintRow.identity.skuCode, qty: 2 }],
+})
+assert.equal(selectedBarcodeDocument.labelItems?.length, 2, '生产单打印弹窗填写 2 件时必须生成 2 张同 SKU 标签')
+assert.ok(selectedBarcodeDocument.labelItems?.every((item) => item.labelFields.some((field) => field.label === 'SKU' && field.value === selectedPrintRow.identity.skuCode)))
+const selectedHangtagDocument = buildPrintDocument({
+  documentType: 'GARMENT_HANGTAG',
+  sourceType: 'PRODUCTION_ORDER',
+  sourceId: PRODUCTION_ORDER_ID,
+  skuData: [{ skuCode: selectedPrintRow.identity.skuCode, qty: 1 }],
+})
+assert.equal(selectedHangtagDocument.labelItems?.length, 1, '生产单打印弹窗选择单 SKU 时必须只生成该 SKU 的一张吊牌')
 assert.deepEqual(validatePrintTemplateRegistry(), [])
 
 // 成衣仓未售成衣的换码任务必须阻断旧 SKU 销售出库，完成后生成每尺码旧出、新入两笔流水。
