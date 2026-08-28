@@ -963,7 +963,8 @@ export function renderLabelPrintTemplate(doc: PrintDocument): string {
     : paperType === 'LABEL_100_60' ? '100mm 60mm'
       : paperType === 'LABEL_100_100' ? '100mm 100mm'
         : paperType === 'LABEL_150_100' ? '150mm 100mm'
-          : paperType === 'LABEL_60_40' ? '60mm 40mm'
+          : paperType === 'LABEL_40_30' ? '40mm 30mm'
+            : paperType === 'LABEL_60_40' ? '60mm 40mm'
             : 'A4 portrait'
   const printPageStyle = `<style>@media print { @page { size: ${paperSize}; margin: 0; } .print-label-paper { break-after: page; page-break-after: always; } .print-label-paper:last-child { break-after: auto; page-break-after: auto; } }</style>`
   if (!isGrid) {

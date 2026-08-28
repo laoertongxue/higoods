@@ -99,9 +99,9 @@ function renderActionBar(order: PostFinishingWorkOrder): string {
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-3">
       ${renderTabs(order.postOrderId, getCurrentTab())}
       <div class="flex flex-wrap gap-2">
-        ${renderPostAction('返回实际工序单列表', '/fcs/craft/post-finishing/work-orders')}
+        ${renderPostAction('返回后道单列表', '/fcs/craft/post-finishing/work-orders')}
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="window.__reportPostFinishingWorkOrderException('${escapeHtml(order.postOrderNo)}')">上报异常</button>
-        ${renderPostAction('打印实际工序单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
+        ${renderPostAction('打印后道单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
       </div>
     </div>
   `
@@ -181,7 +181,7 @@ function renderTabBody(order: PostFinishingWorkOrder): string {
   }
 
   const baseRows: Array<[string, string]> = [
-    ['实际工序单号', order.postOrderNo],
+    ['后道单号', order.postOrderNo],
     ['来源质检单', order.qcOrderNo],
     ['生产单', order.sourceProductionOrderNo],
     ['来源任务', order.sourceTaskNo],
@@ -203,11 +203,11 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   if (!order) {
     return `
       <div class="space-y-4 p-4">
-        ${renderPostFinishingPageHeader('实际工序单详情')}
-        ${renderPostSection('未找到实际工序单', `
+        ${renderPostFinishingPageHeader('后道单详情')}
+        ${renderPostSection('未找到后道单', `
           <div class="space-y-3 text-sm text-muted-foreground">
-            <p>未找到实际工序单：${escapeHtml(postOrderId)}</p>
-            ${renderPostAction('返回实际工序单列表', '/fcs/craft/post-finishing/work-orders')}
+            <p>未找到后道单：${escapeHtml(postOrderId)}</p>
+            ${renderPostAction('返回后道单列表', '/fcs/craft/post-finishing/work-orders')}
           </div>
         `)}
       </div>
@@ -216,7 +216,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('实际工序单详情', `${order.postOrderNo} / ${order.currentFactoryName}`)}
+      ${renderPostFinishingPageHeader('后道单详情', `${order.postOrderNo} / ${order.currentFactoryName}`)}
       ${renderActionBar(order)}
       ${renderTabBody(order)}
     </div>

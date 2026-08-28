@@ -8,6 +8,10 @@ import {
   resolveEffectiveGarmentIdentity,
   type GarmentReplacementIdentityStage,
 } from './garment-spu-replacement.ts'
+import {
+  seedPostFinishingOutboundOrders,
+  upsertPostFinishingOutboundOrderFromRecheck,
+} from './post-finishing-outbound-orders.ts'
 
 export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
@@ -1491,7 +1495,7 @@ export function buildPostFinishingTaskId(productionOrderId: string): string {
 }
 
 export function buildPostFinishingTaskNo(productionOrderNo: string): string {
-  return `后道阶段处理-${productionOrderNo.replace(/^PO-/, '')}`
+  return `后道任务-${productionOrderNo.replace(/^PO-/, '')}`
 }
 
 function sumProductionOrderQty(order: Pick<ProductionOrder, 'demandSnapshot'>): number {
@@ -2666,6 +2670,8 @@ let postFinishingWorkOrders: PostFinishingWorkOrder[] = qcOrders
   .filter((qc) => qc.qcStatus === '质检完成' && postFlags(qc).length > 0)
   .map((qc, index) => buildPostOrderFromQc(qc, qc.qcOrderId.endsWith('004') ? 4 : index + 1))
 
+seedPostFinishingOutboundOrders(recheckOrders)
+
 let sewingFactoryPostTasks: SewingFactoryPostTask[] = SOURCE_CONTEXTS.filter((context) => context.sourceTaskId).map((context, index) => {
   const postOrder = postFinishingWorkOrders.find((order) => order.sourceTaskId === context.sourceTaskId)
   return {
@@ -3071,7 +3077,7 @@ export function createPostFinishingQcOrder(input: {
   inspectorName?: string
 }): PostFinishingQcOrder {
   const targetTask = input.postTaskId ? getPostFinishingTaskById(input.postTaskId) : undefined
-  if (input.postTaskId && !targetTask) throw new Error('未找到后道阶段处理记录，不能创建质检单。')
+  if (input.postTaskId && !targetTask) throw new Error('未找到后道任务，不能创建质检单。')
   const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId: input.postTaskId })
   const selected = input.allocations
     .map((allocationInput) => {
@@ -3082,7 +3088,7 @@ export function createPostFinishingQcOrder(input: {
     .filter((item): item is { item: PostFinishingWaitQcSkuItem; qcQty: number } => Boolean(item))
   if (!selected.length) throw new Error('请至少选择一个待质检 SKU。')
   const first = selected[0].item
-  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道阶段处理记录下创建质检单。')
+  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道任务下创建质检单。')
   const notSameOrder = selected.find(({ item }) => item.productionOrderNo !== first.productionOrderNo || item.spuId !== first.spuId)
   if (notSameOrder) throw new Error('一次质检单只能选择同一生产单下的同一款式 SKU。')
   const invalidQty = selected.find(({ item, qcQty }) => qcQty > item.waitQcQty)
@@ -3442,21 +3448,21 @@ export function getSewingFactoryPostTaskById(taskId: string): SewingFactoryPostT
 
 export function startSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
   task.status = '后道中'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function finishSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
   task.status = '后道完成'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function transferSewingFactoryPostTaskToManagedFactory(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
   task.status = '已交后道工厂'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
@@ -3685,6 +3691,7 @@ export function applyPostFinishingActionFinish(input: {
       recheck.recheckedAt = action.finishedAt
       recheck.updatedAt = action.finishedAt || nowText()
       order.handoverStatus = '待交出'
+      upsertPostFinishingOutboundOrderFromRecheck(recheck)
     }
   }
   applyNextStatusAfterFinish(order, input.actionType)
@@ -3761,6 +3768,7 @@ export function completePostFinishingRecheckOrder(input: {
       recheck,
     })
   }
+  upsertPostFinishingOutboundOrderFromRecheck(recheck)
   refreshPostFinishingDerivedRecords()
   return cloneRecheck(recheck)
 }

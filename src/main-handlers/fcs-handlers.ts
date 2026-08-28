@@ -382,7 +382,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     pathname.includes('/fcs/craft/post-finishing')
   if (
     isPostFinishingRoute
-    && target.closest('[data-post-finishing-action], [data-process-web-status-action]')
+    && target.closest([
+      '[data-post-finishing-action]',
+      '[data-post-finishing-outbound-action]',
+      '[data-post-finishing-outbound-field]',
+      '[data-process-web-status-action]',
+    ].join(', '))
   ) {
     return handlePostFinishingEvent(target)
   }

@@ -220,7 +220,7 @@ function renderPostFinishingInboundDetailDrawer(): string {
             { label: '入库类型', value: row.flowLabel },
             { label: '仓库记录', value: row.warehouseRecordNo },
             { label: '生产单', value: row.sourceProductionOrderNo },
-            { label: '后道阶段处理记录', value: row.sourceTaskNo },
+            { label: '后道任务', value: row.sourceTaskNo },
             { label: '款式', value: row.spuName },
             { label: 'SKU', value: row.skuSummary },
             { label: '数量', value: `${row.flow.qty} ${row.flow.qtyUnit}` },

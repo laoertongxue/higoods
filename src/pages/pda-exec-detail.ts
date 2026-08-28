@@ -3078,7 +3078,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
           返回
         </button>
-        <h1 class="text-base font-semibold">后道阶段处理</h1>
+        <h1 class="text-base font-semibold">后道任务</h1>
       </div>
 
       <article class="rounded-lg border bg-card">
@@ -3288,7 +3288,7 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
           返回
         </button>
-        <h1 class="text-base font-semibold">车缝及后道阶段处理</h1>
+        <h1 class="text-base font-semibold">车缝及后道任务</h1>
       </div>
 
       <article class="rounded-lg border bg-card">
@@ -3327,7 +3327,7 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
             <span>${completedPostGarmentQty} ${escapeHtml(qtyUnit)}</span>
             <span class="text-muted-foreground">实际工序后流向</span>
             <span>交给${escapeHtml(task.managedPostFactoryName)}质检和复检</span>
-            <span class="text-muted-foreground">关联实际工序单号</span>
+            <span class="text-muted-foreground">关联后道单号</span>
             <span>${renderPdaObjectCode({
               objectType: 'PROCESS_DOC',
               objectId: task.relatedPostOrderNo,

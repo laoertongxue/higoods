@@ -280,6 +280,15 @@ export function buildPostFinishingWaitHandoverWarehouseLink(postOrderId?: string
   return postOrderId ? `${base}?postOrderId=${encodeSegment(postOrderId)}` : base
 }
 
+export function buildPostFinishingOutboundOrdersLink(recheckOrderId?: string): string {
+  const base = '/fcs/craft/post-finishing/outbound-orders'
+  return recheckOrderId ? `${base}?recheckOrderId=${encodeSegment(recheckOrderId)}` : base
+}
+
+export function buildPostFinishingOutboundOrderDetailLink(outboundOrderId: string): string {
+  return `/fcs/craft/post-finishing/outbound-orders/${encodeSegment(outboundOrderId)}`
+}
+
 export function buildCutOrderLink(cutOrderId: string): string {
   return `/fcs/craft/cutting/cut-orders?cutOrderId=${encodeSegment(cutOrderId)}`
 }

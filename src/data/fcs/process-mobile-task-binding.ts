@@ -203,7 +203,7 @@ function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): P
     acceptedBy: task.acceptedBy,
     dispatchedAt: task.createdAt,
     dispatchedBy: '系统',
-    dispatchRemark: '生产单级后道阶段处理记录同步到工厂端移动应用执行',
+    dispatchRemark: '生产单级后道任务同步到工厂端移动应用执行',
     acceptDeadline: task.createdAt,
     taskDeadline: task.updatedAt,
     receiverKind: 'MANAGED_POST_FACTORY',

@@ -758,7 +758,7 @@ try {
   assert(!kolDetailHtml.includes('>拆解任务</button>'), 'KOL 生产单详情不得出现人工拆解入口')
   assert(!kolDetailHtml.includes('>接收状态</h3>'), 'KOL 生产单详情不得出现普通接收状态卡')
   assert(!kolDetailHtml.includes('>竞价情况</h3>'), 'KOL 生产单详情不得出现竞价模块')
-  assert(!kolDetailHtml.includes('>后道阶段处理</h3>'), 'KOL 生产单详情不得出现普通后道模块')
+  assert(!kolDetailHtml.includes('>后道任务</h3>'), 'KOL 生产单详情不得出现普通后道模块')
   assert(!kolDetailHtml.includes('查看物料检查'), 'KOL 生产单详情不得出现普通物料检查入口')
   const taskListHtml = renderTaskBreakdownPage(baseKolOrder.productionOrderNo)
   const kolTaskAnchorIndex = taskListHtml.indexOf(baseKolOrder.productionOrderNo)

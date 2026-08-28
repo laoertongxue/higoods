@@ -153,6 +153,8 @@ import {
   renderPostFinishingRecheckOrdersPage,
   renderPostFinishingRecheckOrderDetailPage,
   renderPostFinishingStatisticsPage,
+  renderPostFinishingOutboundOrdersPage,
+  renderPostFinishingOutboundOrderDetailPage,
   renderPostFinishingTasksPage,
   renderPostFinishingWaitHandoverWarehousePage,
   renderPostFinishingWaitProcessWarehousePage,
@@ -387,13 +389,14 @@ export const routes: RouteRegistry = {
     '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
     '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
     '/fcs/craft/post-finishing': () =>
-      renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道阶段任务'),
+      renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
     '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),
     '/fcs/craft/post-finishing/recheck-orders': () => renderPostFinishingRecheckOrdersPage(),
     '/fcs/craft/post-finishing/wait-process-warehouse': () => renderPostFinishingWaitProcessWarehousePage(),
     '/fcs/craft/post-finishing/wait-handover-warehouse': () => renderPostFinishingWaitHandoverWarehousePage(),
+    '/fcs/craft/post-finishing/outbound-orders': () => renderPostFinishingOutboundOrdersPage(),
     '/fcs/craft/post-finishing/statistics': () => renderPostFinishingStatisticsPage(),
     '/fcs/craft/post-finishing/garment-spu-replacements': () => renderPostFinishingGarmentSpuReplacementsPage(),
     ...specialCraftExactRoutes,
@@ -555,6 +558,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)$/,
       render: (match) => renderCraftWoolWorkOrderDetailPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/post-finishing\/outbound-orders\/([^/]+)$/,
+      render: (match) => renderPostFinishingOutboundOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/post-finishing\/recheck-orders\/([^/]+)$/,

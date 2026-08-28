@@ -9,7 +9,7 @@ import {
 } from '../src/data/fcs/post-finishing-domain.ts'
 
 const workOrders = listPostFinishingWorkOrders()
-assert.ok(workOrders.length >= 5, '后道阶段处理记录不足')
+assert.ok(workOrders.length >= 5, '后道任务记录不足')
 assert.ok(workOrders.every((order) => order.currentFactoryName && order.managedPostFactoryName), '处理记录必须绑定后道工厂')
 assert.ok(workOrders.every((order) => order.skuLines.every((line) => Boolean(line.imageUrl))), '每个后道阶段 SKU 必须带真实款式图')
 assert.ok(workOrders.every((order) => order.postProjectLines.every((line) => ['开扣眼', '装扣子', '烫包'].includes(line.projectName))), '实际工序只能是开扣眼、装扣子、烫包')
@@ -33,13 +33,13 @@ const printSource = readFileSync(new URL('../src/pages/print/templates/post-fini
   assert.ok(pdaSource.includes(text), `PDA 缺少动作 ${text}`)
 })
 ;['开扣眼', '装扣子', '烫包'].forEach((text) => assert.ok(pdaSource.includes(text), `PDA 缺少实际工序 ${text}`))
-;['后道任务', '车缝+后道', '>开始后道<', '>完成后道<'].forEach((text) => {
+;['阶段任务', '实际工序单', '车缝+后道', '>开始后道<', '>完成后道<'].forEach((text) => {
   assert.ok(!(detailSource + workOrdersSource + pdaSource + printSource).includes(text), `Web/PDA/打印不得展示 ${text}`)
 })
-assert.ok(printSource.includes('后道阶段处理流转卡'), '打印标题必须使用后道阶段处理口径')
+assert.ok(printSource.includes('后道任务流转卡'), '打印标题必须使用后道任务口径')
 
 console.log(JSON.stringify({
-  后道阶段处理记录: workOrders.length,
+  后道任务记录: workOrders.length,
   质检记录: qcOrders.length,
   复检记录: recheckOrders.length,
   Web_PDA_打印实际工序动作: '通过',

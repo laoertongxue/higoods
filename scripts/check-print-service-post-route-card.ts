@@ -89,11 +89,11 @@ assertIncludes(printStyles, 'margin: 8mm', '打印样式必须设置 8mm 页边�
 assertIncludes(printStyles, 'print-hidden', '打印按钮和提示必须设置为非打印区域')
 assertIncludes(printStyles, '30mm', '二维码尺寸必须控制在 26mm 至 32mm 范围')
 
-;['后道阶段处理流转卡', '扫码收货', '质检', '实际工序区', '复检', '交出', '差异记录区', '签字区', '二维码区', '计划成衣件数', '复检确认成衣件数', '差异成衣件数'].forEach((token) => {
+;['后道任务流转卡', '扫码收货', '质检', '实际工序区', '复检', '交出', '差异记录区', '签字区', '二维码区', '计划成衣件数', '复检确认成衣件数', '差异成衣件数'].forEach((token) => {
   assertIncludes(postTemplate, token, `后道打印模板缺少 ${token}`)
 })
 assertIncludes(postTemplate, '实际工序已由车缝厂完成', '车缝厂已完成实际工序时必须有说明')
-assertIncludes(postTemplate, '扫码进入工厂端后道阶段处理详情', '后道打印模板缺少二维码说明')
+assertIncludes(postTemplate, '扫码进入工厂端后道任务详情', '后道打印模板缺少二维码说明')
 assertIncludes(postTemplate, '暂无商品图', '后道打印模板必须使用紧凑无图占位')
 assertNotIncludes(postTemplate + taskPrintCards, '系统占位图', '打印底座不得继续使用大块系统占位图文案')
 
@@ -109,7 +109,7 @@ const dedicatedDoc = buildPrintDocument({
   sourceType: 'POST_FINISHING_WORK_ORDER',
   sourceId: 'POST-WO-001',
 })
-assert(dedicatedDoc.printTitle === '后道阶段处理流转卡', '后道阶段处理流转卡标题错误')
+assert(dedicatedDoc.printTitle === '后道任务流转卡', '后道任务流转卡标题错误')
 assert(dedicatedDoc.printSubtitle.includes('扫码收货 -> 质检 -> 实际工序 -> 复检 -> 交出'), '后道工厂流程顺序错误')
 assert(dedicatedDoc.qrCodes[0]?.sizeMm >= 26 && dedicatedDoc.qrCodes[0]?.sizeMm <= 32, '后道二维码尺寸必须为 26mm 至 32mm')
 assert(dedicatedDoc.differenceBlocks[0]?.minRows === 3, '差异记录区必须保留空白手写行')
@@ -131,7 +131,7 @@ if (sewingDoneOrder) {
 ;['HiGood 顶部导航', '商品中心系统', '采购管理系统', '工厂生产协同'].forEach((token) => {
   assertNotIncludes(previewPage + postTemplate + taskRouteTemplate, token, `打印模板不得出现系统导航文案：${token}`)
 })
-;['后道任务', '车缝+后道', '>开始后道<', '>完成后道<'].forEach((term) => {
+;['阶段任务', '实际工序单', '车缝+后道', '>开始后道<', '>完成后道<'].forEach((term) => {
   assertNotIncludes(postTemplate, term, `后道打印模板不得出现错误任务口径：${term}`)
 })
 assertNotIncludes(postTemplate, '数量：', '后道打印模板不得只显示“数量：”')
