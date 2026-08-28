@@ -88,7 +88,15 @@ assert.ok(style, '应存在可用于 BOM 与价格页面测试的首单款式')
 const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-TEST',
   merchandiserName: '测试跟单',
+  createdById: 'USER-M-TEST',
+  createdBy: '测试跟单',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `BOM-PAGE-${style.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `BOM-PAGE-${style.styleCode}` },
+  creationReason: '专项测试创建工程主单',
 }).masterOrderId)
 const techPackConfirmationTask = engineeringMaster.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
 assert.ok(techPackConfirmationTask, '工程主单必须包含技术包确认任务')
@@ -173,7 +181,10 @@ const saved = getTechnicalDataVersionContent(versionId)
 assert.equal(saved?.bomItems[0]?.unitConsumption, 1.25)
 assert.equal(saved?.bomItems[0]?.sampleQuantity, 2)
 assert.equal(saved?.bomItems[0]?.lossRate, 0.05)
-assert.deepEqual(saved?.bomCustomCosts, [{ title: '车位费', amountIdr: 44000 }])
+assert.deepEqual(
+  saved?.bomCustomCosts.map(({ title, amountIdr }) => ({ title, amountIdr })),
+  [{ title: '车位费', amountIdr: 44000 }],
+)
 
 const workspace = getTechnicalDataVersionBomWorkspace(versionId)
 assert.equal(workspace.cost.exchangeRateIdrPerCny, 2250)

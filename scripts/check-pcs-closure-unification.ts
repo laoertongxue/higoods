@@ -70,7 +70,6 @@ const projectsPage = read('src/pages/pcs-projects.ts')
 
 ;[
   'PROJECT_INIT',
-  'REVISION_TASK',
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',
   'FIRST_SAMPLE',

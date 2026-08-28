@@ -1721,7 +1721,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
       accessoryImages: [], patternImages: [], markerImages: [], artworkImages: [],
     },
     patternDesigns: [],
-    linkedRevisionTaskIds: [],
+    linkedDesignRevisionTaskIds: [],
     linkedPatternTaskIds: [],
     linkedArtworkTaskIds: [],
     completenessScore: 100,

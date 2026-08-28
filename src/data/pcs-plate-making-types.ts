@@ -53,8 +53,6 @@ export interface PlateMakingTaskRecord {
   linkedTechPackVersionLabel: string
   linkedTechPackVersionStatus: string
   linkedTechPackUpdatedAt: string
-  primaryTechPackGeneratedFlag?: boolean
-  primaryTechPackGeneratedAt?: string
   sampleReviewStatus: PlateMakingSampleReviewStatus
   sampleReviewSubmittedAt: string
   sampleReviewSubmittedBy: string

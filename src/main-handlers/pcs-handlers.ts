@@ -239,19 +239,9 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ],
   },
   {
-    cacheKey: 'pcs-engineering-change',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/engineering/changes'),
-    importModule: () => import('../pages/pcs-engineering-change'),
-    eventExport: 'handlePcsEngineeringChangeEvent',
-    inputExport: 'handlePcsEngineeringChangeInput',
-    dialogExport: 'isPcsEngineeringChangeDialogOpen',
-    closeActions: [{ datasetKey: 'engineeringChangeAction', value: 'close-image-preview' }],
-  },
-  {
     cacheKey: 'pcs-independent-sampling',
     matches: (pathname) => isAnyExactOrNestedPath(pathname, [
-      '/pcs/engineering/revision-sampling',
-      '/pcs/engineering/design-sampling',
+      '/pcs/engineering/design-revision',
       '/pcs/engineering/sampling-professional',
       '/pcs/samples/display-sample',
     ]) || isIndependentProfessionalTaskPath(pathname),

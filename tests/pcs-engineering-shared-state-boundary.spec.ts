@@ -16,8 +16,8 @@ const VISIBLE_STATUSES = ['未启用', '待前置', '待开始', '进行中', '�
 
 assert.deepEqual(ENGINEERING_COMMON_FILTER_STATUS_OPTIONS, VISIBLE_STATUSES)
 assert.deepEqual(Object.keys(COMMON_STATUS_META), VISIBLE_STATUSES)
-assert.deepEqual(Object.keys(ENGINEERING_LIST_STORAGE_KEYS).sort(), ['color', 'firstSample', 'pattern', 'plate', 'purchase', 'revision', 'techPack'])
-assert.deepEqual(Object.keys(engineeringListUiState).sort(), ['color', 'firstSample', 'pattern', 'plate', 'purchase', 'revision', 'techPack'])
+assert.deepEqual(Object.keys(ENGINEERING_LIST_STORAGE_KEYS).sort(), ['color', 'firstSample', 'pattern', 'plate', 'purchase', 'techPack'])
+assert.deepEqual(Object.keys(engineeringListUiState).sort(), ['color', 'firstSample', 'pattern', 'plate', 'purchase', 'techPack'])
 
 assert.equal(normalizeEngineeringVisibleStatus('未知旧状态'), '未启用')
 assert.equal(getCommonStatusMeta('未知旧状态').label, '未启用')

@@ -9,7 +9,6 @@ import {
   submitEngineeringTaskResult,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { submitEngineeringPatternResult } from '../src/data/pcs-engineering-pattern-result.ts'
-import { listRevisionTasks } from '../src/data/pcs-revision-task-repository.ts'
 import {
   handlePcsEngineeringTaskEvent,
   renderPcsFirstOrderSampleTaskDetailPage,
@@ -24,7 +23,6 @@ import {
   resetPcsEngineeringTaskState,
   submitEngineeringFirstSampleResult,
 } from '../src/pages/pcs-engineering-tasks.ts'
-import { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from '../src/pages/pcs-engineering-tasks/revision-task.ts'
 import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
 
 const storage = new Map<string, string>()
@@ -173,17 +171,6 @@ assert.equal(
   renderPcsFirstSampleTaskDetailPage(sampleTaskId),
   '首单任务详情入口应静默复用产前版样衣详情',
 )
-
-// 改款和设计打样仍是工程主单外的独立任务，但页面不再提供取消、异常或验收语义。
-const revisionListHtml = renderPcsRevisionTaskPage()
-const revisionTask = listRevisionTasks()[0]
-assert.ok(revisionTask, '应存在改款与设计打样演示任务')
-assert.match(revisionListHtml, /改款与设计打样任务/, '独立任务页面应区分改款和设计打样')
-assert.ok(revisionListHtml.includes(revisionTask.revisionTaskCode), '独立任务列表应展示真实任务编号')
-assert.doesNotMatch(revisionListHtml, /取消|异常|验收/, '独立任务列表不应保留已删除的旧动作')
-const revisionDetailHtml = renderPcsRevisionTaskDetailPage(revisionTask.revisionTaskId)
-assert.match(revisionDetailHtml, /样衣物料/, '独立任务详情应保留样衣物料维护')
-assert.doesNotMatch(revisionDetailHtml, /取消|异常|验收/, '独立任务详情不应保留已删除的旧动作')
 
 // 统一事件入口继续处理标准列表轻交互；成果提交走专业页公开动作而非已删除的旧事件名。
 const quickFilterTarget = makeActionTarget('set-first-sample-quick-filter', {

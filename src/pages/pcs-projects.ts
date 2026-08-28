@@ -114,6 +114,7 @@ import {
   resolvePcsStoreDisplayName,
 } from '../data/pcs-channel-store-master.ts'
 import type {
+  PcsProjectInstanceField,
   PcsProjectInstanceItem,
   PcsProjectInstanceModel,
   PcsProjectNodeInstanceModel,
@@ -414,7 +415,6 @@ type ProjectDetailSupportModule = Pick<
   | 'getProjectArchiveByProjectId'
   | 'getTechnicalDataVersionById'
   | 'listTechnicalDataVersionsByStyleId'
-  | 'getRevisionTaskById'
   | 'getPlateMakingTaskById'
   | 'getPatternTaskById'
   | 'getFirstSampleTaskById'
@@ -725,14 +725,6 @@ function listTechnicalDataVersionsByStyleIdSafe(styleId: string) {
   return projectDetailSupportModule.listTechnicalDataVersionsByStyleId(styleId)
 }
 
-function getRevisionTaskByIdSafe(revisionTaskId: string) {
-  if (!projectDetailSupportModule) {
-    return null
-  }
-
-  return projectDetailSupportModule.getRevisionTaskById(revisionTaskId)
-}
-
 function getPlateMakingTaskByIdSafe(plateTaskId: string) {
   if (!projectDetailSupportModule) {
     return null
@@ -895,11 +887,11 @@ function renderTestingCreateAction(
 }
 
 function renderProjectProfessionalTaskEntry(project: PcsProjectRecord): string {
-  return `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/pcs/engineering/revision-sampling?projectId=${escapeHtml(project.projectId)}">进入改款打样任务</button>`
+  return `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/pcs/engineering/design-revision?projectId=${escapeHtml(project.projectId)}">进入设计改款任务</button>`
 }
 
 const PROJECT_PROFESSIONAL_TASK_MODULES = new Set<ProjectRelationTaskSourceModule>([
-  '改版任务',
+  '设计改款任务',
   '制版任务',
   '花型任务',
   '首版样衣打样',
@@ -908,7 +900,7 @@ const PROJECT_PROFESSIONAL_TASK_MODULES = new Set<ProjectRelationTaskSourceModul
 
 function getProjectProfessionalTaskRoute(relation: ProjectRelationRecord): string {
   const taskId = encodeURIComponent(relation.sourceObjectId)
-  if (relation.sourceModule === '改版任务') return `/pcs/engineering/revision-sampling/${taskId}`
+  if (relation.sourceModule === '设计改款任务') return `/pcs/engineering/design-revision/${taskId}`
   if (relation.sourceModule === '制版任务') return `/pcs/patterns/plate-making/${taskId}`
   if (relation.sourceModule === '花型任务') return `/pcs/patterns/colors/${taskId}`
   if (relation.sourceModule === '首版样衣打样') return `/pcs/samples/first-sample/${taskId}`
@@ -1103,6 +1095,15 @@ function buildInstanceFieldMap(instance: PcsProjectInstanceItem | null | undefin
     if (field.fieldKey) result[field.fieldKey] = field.value
     return result
   }, {})
+}
+
+function renderInstanceFields(fields: PcsProjectInstanceField[]): string {
+  if (fields.length === 0) return '<span class="text-xs text-slate-400">-</span>'
+  return `<div class="space-y-1">${fields
+    .map(
+      (field) => `<div class="text-xs leading-5"><span class="text-slate-400">${escapeHtml(field.label)}：</span><span class="text-slate-600">${escapeHtml(formatValue(field.value))}</span></div>`,
+    )
+    .join('')}</div>`
 }
 
 function getFirstTargetChannelCode(project: PcsProjectRecord): string {
@@ -2224,8 +2225,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const currentChannelMeta = buildInstanceFieldMap(currentChannelProduct)
   const styleRelation = findLatestProjectRelation(project.projectId, '款式档案', '款式档案')
   const styleMeta = buildInstanceFieldMap(styleRelation)
-  const revisionRelation = findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
-  const revisionMeta = buildInstanceFieldMap(revisionRelation)
   const projectArchiveRelation = findLatestProjectRelation(project.projectId, '项目资料归档', '项目资料归档')
   const projectArchiveMeta = buildInstanceFieldMap(projectArchiveRelation)
   const plateRelation = findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
@@ -3547,7 +3546,7 @@ function applyProjectFixedFlowFieldPolicy(
     return {
       ...field,
       label: '承接方',
-      businessLogic: '万隆改版出样衣由改版任务承接，样衣获取只记录承接打样方。',
+      businessLogic: '设计改款样衣由设计改款任务承接，样衣获取只记录承接打样方。',
     }
   }
 
@@ -3568,7 +3567,7 @@ function applyProjectFixedFlowFieldPolicy(
     businessLogic:
       lockedSourceType === '外采'
         ? '国内采购样衣测款项目的样衣来源固定为外采。'
-        : '万隆改版出样衣测款项目的样衣来源固定为委托打样，由改版任务产出样衣。',
+        : '设计改款出样衣测款项目的样衣来源固定为委托打样，由设计改款任务产出样衣。',
   }
 }
 

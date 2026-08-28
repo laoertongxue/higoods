@@ -41,7 +41,7 @@ function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
   const assignedTeamCode = task.assignedTeamCode || 'CN_TEAM'
   const assignedMemberId = task.assignedMemberId || 'cn_bing_bing'
   const assignedMember = getPatternTaskMember(assignedTeamCode, assignedMemberId)
-  const demandSourceType = task.demandSourceType || (task.sourceType === '改版任务' ? '改版任务' : '预售测款通过')
+  const demandSourceType = task.demandSourceType || (task.sourceType === '设计改款任务' ? '设计改款任务' : '预售测款通过')
   const processType = task.processType || (task.artworkType === '烫画' ? '烫画' : '数码印')
   return {
     ...cloneTask(task),

@@ -38,7 +38,7 @@ export interface DemandCurrentTechPackInfo {
   currentTechPackVersionLabel: string
   publishedAt: string
   completenessScore: number
-  linkedRevisionTaskIds: string[]
+  linkedDesignRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
   canConvertToProductionOrder: boolean
@@ -618,7 +618,7 @@ export function cloneProductionOrderTechPackSnapshot(
     cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
     imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
     patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
-    linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
+    linkedDesignRevisionTaskIds: [...snapshot.linkedDesignRevisionTaskIds],
     linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
   }
@@ -692,7 +692,7 @@ function buildSnapshotFromSource(input: {
     }),
     imageSnapshot,
     patternDesigns,
-    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+    linkedDesignRevisionTaskIds: [...record.linkedDesignRevisionTaskIds],
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
     completenessScore: record.completenessScore,
@@ -983,7 +983,7 @@ export function getDemandCurrentTechPackInfo(
       currentTechPackVersionLabel: '',
       publishedAt: '',
       completenessScore: 0,
-      linkedRevisionTaskIds: [],
+      linkedDesignRevisionTaskIds: [],
       linkedPatternTaskIds: [],
       linkedArtworkTaskIds: [],
       canConvertToProductionOrder: false,
@@ -1002,7 +1002,7 @@ export function getDemandCurrentTechPackInfo(
       currentTechPackVersionLabel: '',
       publishedAt: '',
       completenessScore: 0,
-      linkedRevisionTaskIds: [],
+      linkedDesignRevisionTaskIds: [],
       linkedPatternTaskIds: [],
       linkedArtworkTaskIds: [],
       canConvertToProductionOrder: false,
@@ -1020,7 +1020,7 @@ export function getDemandCurrentTechPackInfo(
       currentTechPackVersionLabel: record.versionLabel,
       publishedAt: record.publishedAt,
       completenessScore: record.completenessScore,
-      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedDesignRevisionTaskIds: [...record.linkedDesignRevisionTaskIds],
       linkedPatternTaskIds: [...record.linkedPatternTaskIds],
       linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
       canConvertToProductionOrder: false,
@@ -1039,7 +1039,7 @@ export function getDemandCurrentTechPackInfo(
       currentTechPackVersionLabel: record.versionLabel,
       publishedAt: record.publishedAt,
       completenessScore: record.completenessScore,
-      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedDesignRevisionTaskIds: [...record.linkedDesignRevisionTaskIds],
       linkedPatternTaskIds: [...record.linkedPatternTaskIds],
       linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
       canConvertToProductionOrder: false,
@@ -1057,7 +1057,7 @@ export function getDemandCurrentTechPackInfo(
       currentTechPackVersionLabel: record.versionLabel,
       publishedAt: record.publishedAt,
       completenessScore: record.completenessScore,
-      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedDesignRevisionTaskIds: [...record.linkedDesignRevisionTaskIds],
       linkedPatternTaskIds: [...record.linkedPatternTaskIds],
       linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
       canConvertToProductionOrder: false,
@@ -1074,7 +1074,7 @@ export function getDemandCurrentTechPackInfo(
     currentTechPackVersionLabel: record.versionLabel,
     publishedAt: record.publishedAt,
     completenessScore: record.completenessScore,
-    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+    linkedDesignRevisionTaskIds: [...record.linkedDesignRevisionTaskIds],
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
     canConvertToProductionOrder: true,

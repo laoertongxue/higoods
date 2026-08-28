@@ -23,9 +23,9 @@ const originalPatternTasks = listPatternTasks()
 const originalFirstSampleTasks = listFirstSampleTasks()
 
 try {
-  const generatedOnly = evaluatePlateFirstSampleReadiness('PT-20260414-GENERATED')
-  assert.equal(generatedOnly.canCreateFirstSample, false)
-  assert.ok(generatedOnly.blockingReasons.includes('制版任务未完成'))
+  const completedPlate = evaluatePlateFirstSampleReadiness('PT-20260414-GENERATED')
+  assert.equal(completedPlate.canCreateFirstSample, true, '制版完成即可进入首版样衣，不等待正式技术包')
+  assert.equal(completedPlate.blockingReasons.some((reason) => reason.includes('技术包')), false)
 
   const plateWithExistingSample = getPlateMakingTaskById('PT-20260407-018')
   assert.ok(plateWithExistingSample, '重复创建样例制版任务应存在')
@@ -94,6 +94,22 @@ try {
     task.upstreamObjectId !== 'PT-20260407-018' &&
     task.upstreamObjectCode !== 'PT-20260407-018'
   ))
+  replacePlateMakingTaskStore(originalPlateTasks.map((task) => task.plateTaskId === 'PT-20260407-018'
+    ? {
+        ...task,
+        linkedTechPackVersionId: '',
+        linkedTechPackVersionCode: '',
+        linkedTechPackVersionLabel: '',
+        linkedTechPackVersionStatus: '',
+        linkedTechPackUpdatedAt: '',
+      }
+    : task))
+  const readyWithoutTechPack = evaluatePlateFirstSampleReadiness('PT-20260407-018')
+  assert.equal(readyWithoutTechPack.canCreateFirstSample, true, '制版完成后不得再以技术包未生成为前置阻断')
+  assert.equal(readyWithoutTechPack.blockingReasons.some((reason) => reason.includes('技术包')), false)
+
+  const plateWithoutTechPack = getPlateMakingTaskById('PT-20260407-018')
+  assert.ok(plateWithoutTechPack, '去除技术包关联后的制版任务应仍可读取')
   const projectNodesBeforeCreate = listProjectNodes(plateWithExistingSample.projectId)
   const createdResult = createFirstSampleTaskFromPlate('PT-20260407-018', '验收脚本')
   assert.equal(createdResult.ok, true)
@@ -101,7 +117,7 @@ try {
   assert.equal('projectNodeId' in createdResult.task!, false, '真实制版入口创建的首版样衣不得绑定专业项目节点')
   assert.equal(createdResult.task?.sourceType, '制版任务')
   assert.equal(createdResult.task?.upstreamObjectId, 'PT-20260407-018')
-  assert.equal(createdResult.task?.sourceTechPackVersionId, 'tdv_seed_project_018_base')
+  assert.equal(createdResult.task?.sourceTechPackVersionId, '', '首版样衣可以在工程主单生成正式技术包前创建')
   assert.deepEqual(
     listProjectNodes(plateWithExistingSample.projectId),
     projectNodesBeforeCreate,

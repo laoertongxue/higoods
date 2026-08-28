@@ -1404,7 +1404,9 @@ function getOrderTechPackInfo(order: ProductionOrder): {
   const sourceTaskText = (() => {
     if (!order.techPackSnapshot) return '暂无来源任务链'
     const parts: string[] = []
-    if (order.techPackSnapshot.linkedRevisionTaskIds.length > 0) parts.push(`改版任务 ${order.techPackSnapshot.linkedRevisionTaskIds.length}`)
+    if (order.techPackSnapshot.linkedDesignRevisionTaskIds.length > 0) {
+      parts.push(`设计改款来源 ${order.techPackSnapshot.linkedDesignRevisionTaskIds.length}`)
+    }
     if (order.techPackSnapshot.linkedPatternTaskIds.length > 0) parts.push(`制版任务 ${order.techPackSnapshot.linkedPatternTaskIds.length}`)
     if (order.techPackSnapshot.linkedArtworkTaskIds.length > 0) parts.push(`花型任务 ${order.techPackSnapshot.linkedArtworkTaskIds.length}`)
     return parts.length > 0 ? parts.join(' / ') : '暂无来源任务链'

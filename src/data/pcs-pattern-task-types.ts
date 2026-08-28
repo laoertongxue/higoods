@@ -3,7 +3,7 @@ import type { CommonTaskStatus, PatternTaskSourceType } from './pcs-task-source-
 
 export type PatternTaskStatus = CommonTaskStatus
 
-export type PatternTaskDemandSourceType = '预售测款通过' | '改版任务' | '设计师款'
+export type PatternTaskDemandSourceType = '预售测款通过' | '设计改款任务' | '设计师款'
 export type PatternTaskProcessType = '数码印' | '烫画' | '直喷'
 export type PatternTaskColorDepthOption = '浅色' | '深色' | '中间值'
 export type PatternTaskDifficultyGrade = 'A++' | 'A+' | 'A' | 'B' | 'C' | 'D'

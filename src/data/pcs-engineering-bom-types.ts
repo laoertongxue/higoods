@@ -87,7 +87,6 @@ export type EngineeringBomOwnerStage =
   | 'INDEPENDENT_SAMPLING'
   | 'ENGINEERING_MASTER'
   | 'TECH_PACK_DRAFT'
-  | 'ENGINEERING_CHANGE'
 
 export interface EngineeringBomVersionRecord extends EngineeringBomDraft {
   bomDraftVersionId: string

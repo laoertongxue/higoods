@@ -1,209 +1,152 @@
 # PCS 生产工程管理需求追踪与交付矩阵
 
-| 文档信息 | 内容 |
-| --- | --- |
-| 版本 | V5.0 |
-| 日期 | 2026-08-13 |
-| 状态 | V5.0 ADJ-043～050 已完成直接验证；CodeGraph 已同步；项目级任务收据仅被未修改的 PFOS 历史列表欠账阻断；待提交、推送和产品确认 |
-| 需求来源 | 《PCS 生产工程管理完整调整方案》V5.0、《PCS 生产工程管理总体设计文档》V5.0，以及用户对样衣制作要求、多颜色多尺码实际成果和专业任务规范入口的最终确认 |
+## 0. 文档信息
 
-## 1. 使用规则
+| 项目 | 内容 |
+|---|---|
+| 权威需求来源 | 《PCS设计改款合并、工程变更删除与生产准备时效收口调整方案》 |
+| 适用版本 | `codex/pcs-design-revision-consolidation-20260827` |
+| 原子需求总数 | 81 条 |
+| 当前状态 | 已验证（第一轮正向、第二轮反向均通过）；待用户验收 |
+| 产品口径 | 用户于 2026-08-27 确认：设计与改款合并；设计稿由跟单上传；删除工程变更；生产准备时效只读工程主单 |
+| 证据刷新规则 | 最后一次实质修改后，自动化和页面证据必须重新生成 |
 
-1. 本矩阵以 ADJ-001～050 为稳定原子需求编号。
-2. `已验证` 必须同时具备当前实现、自动化证据和适用的当前页面证据。
-3. 状态只使用：待实施、实施中、已实现待验证、已验证、已阻塞、不适用。
-4. 纯领域规则若浏览器证据不适用，必须说明原因；用户可见规则不得以构建代替页面验收。
-5. 最后一次实质修改后，旧证据失效，须重新回填验证时间和版本。
+## 1. 状态口径
 
-## 2. 工作包
+- `待实施`：尚无实现。
+- `实施中`：正在修改。
+- `已实现待验证`：实现存在，仍需完成两轮当前版本核验。
+- `已验证`：正向、反向两轮核验均通过。
+- `已阻塞`：存在明确外部阻塞。
+- `不适用`：必须注明原因。
 
-| 工作包 | 内容 |
-| --- | --- |
-| WP1 | 业务路径、命名、入口和创建顺序 |
-| WP2 | A→B 颜色、物料和 BOM |
-| WP3 | 工作安排、固定依赖和团队接力 |
-| WP4 | 专业任务详情、审核返工和真实上传 |
-| WP5 | 工程变更具体内容与统一任务 |
-| WP6 | 技术包具体退回和版本闭环 |
-| WP7 | 生产准备时效只读投影 |
-| WP8 | 标准页面、业务文案和丰富 Mock |
-| WP9 | 文档、治理和交付证据 |
-| WP10 | V4.1 目标颜色、BOM 建立时点、四步团队接力和真实上传回归 |
-| WP11 | 样衣制作要求、多行实际成果、数量口径、两种样衣边界和规范专业入口 |
+## 2. 原子需求与交付证据
 
-## 3. 原子需求登记表
+| 需求编号 | 来源章节 | 原子需求 | 工作包 | 实现位置／事实源 | 自动化证据 | 页面／运行时证据 | 状态 | 证据版本与确认 |
+|---|---|---|---|---|---|---|---|---|
+| SCOPE-001 | §1 | 删除工程变更完整能力，不只是隐藏菜单 | WP5 | `src/data/pcs-engineering-master-sampling.ts`；`src/pages/pcs-independent-sampling.ts`；`src/router/routes-pcs.ts` | `npm run check:pcs-design-revision-consolidation`；残留扫描 | 统一菜单、统一路由、无分类验收 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| SCOPE-002 | §1 | 改款和设计合并为设计改款 | WP1 | `src/data/pcs-engineering-master-sampling.ts`；`src/pages/pcs-independent-sampling.ts`；`src/router/routes-pcs.ts` | `npm run check:pcs-design-revision-consolidation`；残留扫描 | 统一菜单、统一路由、无分类验收 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| SCOPE-003 | §1 | 不保留设计／改款分类和统计 | WP1、WP2 | `src/data/pcs-engineering-master-sampling.ts`；`src/pages/pcs-independent-sampling.ts`；`src/router/routes-pcs.ts` | `npm run check:pcs-design-revision-consolidation`；残留扫描 | 统一菜单、统一路由、无分类验收 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DR-001 | §3.2 | 来源款 A 必须已建档 | WP1 | `createEngineeringIndependentSampling()`；统一设计改款记录 | `tests/pcs-design-revision-consolidation.spec.ts` 创建门禁 | 新建弹窗与详情首屏 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DR-002 | §3.2 | 目标款 B 必须已建档 | WP1 | `createEngineeringIndependentSampling()`；统一设计改款记录 | `tests/pcs-design-revision-consolidation.spec.ts` 创建门禁 | 新建弹窗与详情首屏 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DR-003 | §3.2 | A、B 不能是同一 SPU | WP1 | `createEngineeringIndependentSampling()`；统一设计改款记录 | `tests/pcs-design-revision-consolidation.spec.ts` 创建门禁 | 新建弹窗与详情首屏 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DR-004 | §3.2 | 每张任务必须有设计改款说明 | WP1 | `createEngineeringIndependentSampling()`；统一设计改款记录 | `tests/pcs-design-revision-consolidation.spec.ts` 创建门禁 | 新建弹窗与详情首屏 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DR-005 | §3.2 | 测款结论和样衣返工不得静默创建设计改款，必须由跟单补齐完整资料后显式创建 | WP1、WP2 | `createEngineeringIndependentSampling()`；统一设计改款记录 | `tests/pcs-design-revision-consolidation.spec.ts` 创建门禁 | 新建弹窗与详情首屏 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| FILE-001 | §3.2 | 每张任务必须上传真实设计稿图片 | WP2 | `src/data/pcs-engineering-file-upload.ts`；设计稿创建／替换动作 | 真实 `File` 上传、替换权限与锁定后阻断契约 | 真实选择文件、预览、替换和失败恢复 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| FILE-002 | §3.2 | 仅跟单首次上传设计稿 | WP2 | `src/data/pcs-engineering-file-upload.ts`；设计稿创建／替换动作 | 真实 `File` 上传、替换权限与锁定后阻断契约 | 真实选择文件、预览、替换和失败恢复 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| FILE-003 | §3.2 | 仅跟单在工作安排确认前替换设计稿 | WP2 | `src/data/pcs-engineering-file-upload.ts`；设计稿创建／替换动作 | 真实 `File` 上传、替换权限与锁定后阻断契约 | 真实选择文件、预览、替换和失败恢复 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| FILE-004 | §3.2 | 设计稿显示上传人、时间、文件名和预览 | WP2 | `src/data/pcs-engineering-file-upload.ts`；设计稿创建／替换动作 | 真实 `File` 上传、替换权限与锁定后阻断契约 | 真实选择文件、预览、替换和失败恢复 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| FILE-005 | §5.3 | 上传失败保留表单并提供重试 | WP2 | `src/data/pcs-engineering-file-upload.ts`；设计稿创建／替换动作 | 真实 `File` 上传、替换权限与锁定后阻断契约 | 真实选择文件、预览、替换和失败恢复 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| IMAGE-001 | §5.4 | A/B 款均展示真实图片并可查看大图 | WP2 | `src/pages/pcs-independent-sampling.ts`；款式档案真实图片 | 命名页面缩略图／大图／Esc 验收 | A/B 款缩略图、大图、遮罩、Esc、失败态 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| COLOR-001 | §3.2 | B 款颜色数独立于 A 款 | WP3 | `confirmEngineeringIndependentColorMappings()`；目标色与参考色关系 | 少／等／多颜色和无参考色契约 | 第一步目标色／参考色维护 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| COLOR-002 | §3.2 | B 款每色可选择一个 A 款参考色 | WP3 | `confirmEngineeringIndependentColorMappings()`；目标色与参考色关系 | 少／等／多颜色和无参考色契约 | 第一步目标色／参考色维护 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| COLOR-003 | §3.2 | B 款颜色可选择无参考色 | WP3 | `confirmEngineeringIndependentColorMappings()`；目标色与参考色关系 | 少／等／多颜色和无参考色契约 | 第一步目标色／参考色维护 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-001 | §3.2 | 有参考色默认带入最近已完成且已确认物料方案 | WP3 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-002 | §3.2 | 无参考色从空白 BOM 开始 | WP3 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-003 | §3.2 | 买手可新增、删除、替换 B 款物料 | WP3 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-004 | §3.2 | 买手统一确认物料和整款费用 | WP3 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-005 | §3.2 | 非买手不能维护或确认 BOM 与价格 | WP3 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| BOM-006 | §6.3 | BOM 所有者阶段删除工程变更 | WP5 | `src/data/pcs-engineering-bom-*`；设计改款买手准备步骤 | 最近确认方案、空白方案、物料与费用统一确认契约 | 第一步 BOM 与价格统一确认 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DATA-001 | §2.4、§7.1 | 删除旧改版纸样／回直播状态／物料行辅助类型文件 | WP5 | 旧改版辅助类型已删除；`src/data/pcs-task-source-normalizer.ts` | 文件不存在与依赖零残留扫描 | 不适用：内部事实源删除，以残留扫描为证 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DATA-002 | §2.4、§7.6 | 删除旧改版来源标准化函数，并统一专业任务来源名称 | WP5 | 旧改版辅助类型已删除；`src/data/pcs-task-source-normalizer.ts` | 文件不存在与依赖零残留扫描 | 不适用：内部事实源删除，以残留扫描为证 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-001 | §3.2 | 跟单确认设计改款工作安排 | WP3 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-002 | §3.2 | 销售展示样衣要求按颜色、尺码、数量下达 | WP3 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-003 | §3.2 | 专业任务依赖固定且自动补齐前置 | WP3 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-004 | §5.5 | 父单和专业列表进入同一任务详情 | WP3 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-005 | §5.5 | 专业任务成果使用真实文件上传 | WP3 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-006 | §5.5 | 专业任务来源不再出现工程变更 | WP5 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-007 | §7.6 | 同款首版样衣返工在原任务新增轮次 | WP5 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TASK-008 | §7.6 | 首版样衣返工不自动创建旧改版任务 | WP5 | 设计改款工作安排、统一专业任务仓储与规范任务详情 | 工作安排、固定依赖、真实成果文件与双入口契约 | 工作安排、专业列表、任务详情与成果上传 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| STATE-001 | §4.2 | 创建后显示新款资料准备中 | WP1、WP2 | `src/data/pcs-engineering-master-sampling.ts` 状态投影；设计改款详情步骤 | 四步状态推进与幂等契约 | 四步骤页签与当前团队／当前动作 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| STATE-002 | §4.2 | 买手完成后进入待跟单安排 | WP3 | `src/data/pcs-engineering-master-sampling.ts` 状态投影；设计改款详情步骤 | 四步状态推进与幂等契约 | 四步骤页签与当前团队／当前动作 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| STATE-003 | §4.2 | 跟单确认后进入专业工作中 | WP3 | `src/data/pcs-engineering-master-sampling.ts` 状态投影；设计改款详情步骤 | 四步状态推进与幂等契约 | 四步骤页签与当前团队／当前动作 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| STATE-004 | §4.2 | 专业任务全部完成后进入待整单确认 | WP3 | `src/data/pcs-engineering-master-sampling.ts` 状态投影；设计改款详情步骤 | 四步状态推进与幂等契约 | 四步骤页签与当前团队／当前动作 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| STATE-005 | §4.2 | 跟单整单确认后完成 | WP3 | `src/data/pcs-engineering-master-sampling.ts` 状态投影；设计改款详情步骤 | 四步状态推进与幂等契约 | 四步骤页签与当前团队／当前动作 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-001 | §3.3 | 同一 SPU 只允许一张未关闭工程主单 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-002 | §3.3 | 主单首步由跟单确认任务方案 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-003 | §3.3 | 主单展示设计改款可复用成果 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-004 | §3.3 | 跟单逐项选择复用、重做或不采用 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-005 | §3.3 | 销售展示样衣不替代产前版样衣 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-006 | §3.4 | 主单关闭前修改和返工留在原主单 | WP3 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-007 | §3.4 | 已关闭主单和正式包只读 | WP4、WP5 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| MASTER-008 | §2.4、§7.3 | 工程主单详情只展示统一设计改款成果，不保留工程变更或双打样来源 | WP3、WP5 | `src/data/pcs-engineering-master-repository.ts`；工程主单详情与复用候选 | 工程主单领域、复用、返工与唯一性专项 | 工程主单新建、任务方案、详情与返工 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-001 | §3.5 | 新业务技术包只能由工程主单生成 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-002 | §3.5 | 设计改款不能直接生成正式技术包 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-003 | §3.5 | 旧改版、制版、花型、手工入口不能生成新业务版本 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-004 | §3.5 | 技术包继续走现行审核流程 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-005 | §3.5 | 发布时形成 BOM 与价格正式快照 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-006 | §3.7 | 来源类型收口不得误删技术包内容中的人工维护／人工调整字段 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-007 | §3.7 | 已发布技术包仍可被 FCS 生产单和生产快照读取 | WP4 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-008 | §6.3、§7.5 | 现行 Mock 技术包统一改为工程主单来源 | WP4、WP7 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PACK-009 | §3.7、§6.3 | `linkedRevisionTaskIds` 统一为设计改款成果溯源关系，且不改变工程主单唯一生成来源 | WP4、WP5 | `src/data/pcs-technical-data-version-*`；`src/data/pcs-engineering-tech-pack-workspace.ts`；FCS 快照 | 技术包工程主单唯一来源、审核、正式快照与 FCS 回归 | 技术包列表、详情、审核、发布与 FCS 快照 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-001 | §7.1 | 删除工程变更工作区文件 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-002 | §7.1 | 删除工程变更页面文件 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-003 | §7.2 | 删除工程变更菜单、路由、渲染器和处理器 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-004 | §7.3 | 删除主单快照 changeTasks 及创建查询重置函数 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-005 | §7.4 | 删除工程变更 BOM 所有者阶段 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-006 | §7.5 | 删除工程变更技术包来源和生成逻辑 | WP4、WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-007 | §7.3 | 删除工程变更专业任务投影 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-008 | §7.6 | 删除旧改版任务第二事实源 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-009 | §6.4 | 不保留旧数据迁移、兼容读取或提示 | WP5 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| DELETE-010 | §7.7 | 更新所有现行测试、脚本和权威文档 | WP7 | 工程变更专用文件、入口、类型、Mock、投影与检查已删除 | 旧路由 404、文件不存在、`src/tests/scripts` 零实现残留 | 旧工程变更和旧双路由均返回未匹配 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| REL-001 | §3.7、§7.6 | 项目关系契约删除 `REVISION_TASK`，统一登记设计改款任务 | WP5 | `src/data/pcs-project-relation-*`；`src/data/pcs-task-project-relation-writeback.ts` | 项目关系生命周期与来源解析专项 | 项目详情关系和专业任务来源 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| REL-002 | §3.7 | 花型、制版和样衣任务来源统一为设计改款或原专业任务返工 | WP1、WP5 | `src/data/pcs-project-relation-*`；`src/data/pcs-task-project-relation-writeback.ts` | 项目关系生命周期与来源解析专项 | 项目详情关系和专业任务来源 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| ARCHIVE-001 | §3.7、§7.6 | 项目归档删除 `REVISION_RECORD` 分组 | WP5 | `src/data/pcs-project-archive-*` | 项目归档收集与旧分组零残留专项 | 项目归档统一成果分组 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| ARCHIVE-002 | §3.7 | 项目归档统一收集设计稿、BOM、样衣和专业成果 | WP5、WP7 | `src/data/pcs-project-archive-*` | 项目归档收集与旧分组零残留专项 | 项目归档统一成果分组 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| CLOSE-001 | §3.7 | 项目关闭和数据一致性不再要求旧改版任务 | WP5 | `src/data/pcs-project-data-consistency.ts`；项目关闭视图 | 项目关闭与一致性专项 | 项目关闭结果不再要求旧改版记录 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| COPY-001 | §2.2 | 保留“因需求变更结束”业务状态 | WP5 | 工程任务状态与 `src/pages/pcs-engineering-tasks/shared.ts` | 条件结束状态与用户文案扫描 | 条件任务结束文案 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| COPY-002 | §2.2 | 用户文案不再说“因工程变更结束” | WP5 | 工程任务状态与 `src/pages/pcs-engineering-tasks/shared.ts` | 条件结束状态与用户文案扫描 | 条件任务结束文案 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TIME-001 | §3.6 | 时效只读取工程主单和主单任务 | WP6 | `src/data/pcs-engineering-preparation-projection.ts`；生产准备时效只读页 | 时效投影、颜色投影、只读页面专项 | 生产准备时效列表、详情、返回主单／任务 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TIME-002 | §3.6 | 设计改款任务不进入时效 | WP6 | `src/data/pcs-engineering-preparation-projection.ts`；生产准备时效只读页 | 时效投影、颜色投影、只读页面专项 | 生产准备时效列表、详情、返回主单／任务 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TIME-003 | §3.6 | 时效页面无写动作 | WP6 | `src/data/pcs-engineering-preparation-projection.ts`；生产准备时效只读页 | 时效投影、颜色投影、只读页面专项 | 生产准备时效列表、详情、返回主单／任务 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| TIME-004 | §3.6 | 同一主单只形成一条时效记录 | WP6 | `src/data/pcs-engineering-preparation-projection.ts`；生产准备时效只读页 | 时效投影、颜色投影、只读页面专项 | 生产准备时效列表、详情、返回主单／任务 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PAGE-001 | §5.1 | 只保留一个设计改款菜单和规范路由 | WP2 | `src/data/app-shell-config.ts`；`src/router/routes-pcs.ts`；命名页面 | 1366×768 命名页面与导航验收 | 统一设计改款列表／新建／详情及表头列设置 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PAGE-002 | §5.2 | 列表提供当前需处理的团队筛选 | WP2 | `src/data/app-shell-config.ts`；`src/router/routes-pcs.ts`；命名页面 | 1366×768 命名页面与导航验收 | 统一设计改款列表／新建／详情及表头列设置 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PAGE-003 | §5.2 | 列设置位于列表表头最右侧 | WP2 | `src/data/app-shell-config.ts`；`src/router/routes-pcs.ts`；命名页面 | 1366×768 命名页面与导航验收 | 统一设计改款列表／新建／详情及表头列设置 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PAGE-004 | §5.7 | 时效记录可回到主单或工程任务 | WP6 | `src/data/app-shell-config.ts`；`src/router/routes-pcs.ts`；命名页面 | 1366×768 命名页面与导航验收 | 统一设计改款列表／新建／详情及表头列设置 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
+| PAGE-005 | §7.3 | 工程主单详情可进入统一设计改款成果及对应专业任务 | WP3 | `src/data/app-shell-config.ts`；`src/router/routes-pcs.ts`；命名页面 | 1366×768 命名页面与导航验收 | 统一设计改款列表／新建／详情及表头列设置 | 已验证 | 分支 codex/pcs-design-revision-consolidation-20260827；基线 HEAD 1778d6343e1dd37f37ebe8c0f91833b8cf536568；双轮核验 2026-08-27；产品口径已确认，实施验收待用户 |
 
-| 编号 | 来源章节 | 原子需求 | 工作包 | 实现文件／事实位置 | 自动化验证 | 页面验证 | 状态 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ADJ-001 | 调整方案 2.1；设计 3 | 独立改款／设计、工程主单、工程变更为三条独立路径 | WP1 | 菜单、PCS 路由、独立打样与工程变更页面 | navigation-removal；v4-contract | 四个独立入口和来源展示 | 已验证 |
-| ADJ-002 | 调整方案 2.1；设计 3、7 | 销售展示样衣与产前版样衣分离 | WP1 | 独立打样任务类型、工程主单样衣类型、两个列表入口 | independent-sampling；v4-contract | 两个任务列表及详情名称、成果字段 | 已验证 |
-| ADJ-003 | 调整方案 2.1；设计 5.1 | 新建独立打样只建立业务单，详情再确认工作 | WP1 | 独立打样创建和工作安排确认 | independent-sampling；v4-contract | 创建草稿后详情显示 0 个任务和工作安排 | 已验证 |
-| ADJ-004 | 调整方案 2.1；设计 5.3 | 按目的、款式事实和 B 款 BOM 给出任务建议 | WP2 | 独立打样建议函数和详情工作安排 | independent-sampling | BOM 变化后建议花型／调色 | 已验证 |
-| ADJ-005 | 调整方案 2.1；设计 5.2 | 先做 A→B 颜色对应，再逐物料确认六类处理 | WP2 | 独立打样颜色及物料转换领域、页面表格 | independent-sampling | 颜色对应和物料处理页面 | 已验证 |
-| ADJ-006 | 调整方案 2.1；设计 5.2 | A 款最近已完成且已确认 BOM 只作参考 | WP2 | 可复用 BOM 查找和转换逻辑 | independent-sampling | 页面显示参考来源而非直接复制 | 已验证 |
-| ADJ-007 | 调整方案 2.1；设计 5.2 | 每条物料有处理结论，最终归 B 款 | WP2 | 转换确认、BOM 归属和提交门禁 | independent-sampling | B 款 BOM 颜色版本和物料行 | 已验证 |
-| ADJ-008 | 调整方案 2.1；设计 4 | 节点只确定当前团队，不预先指定个人 | WP3 | 团队目录、主单及独立任务记录 | dependency-policy；v4-contract | 未开始任务只显示团队 | 已验证 |
-| ADJ-009 | 调整方案 2.1；设计 4 | 真实动作后才记录实际操作人 | WP3 | 开始、提交、审核、日志字段 | dependency-policy；independent-sampling | 开始前为空，开始后出现实际操作人 | 已验证 |
-| ADJ-010 | 调整方案 2.1；设计 11.1 | 统一业务状态，只增加一个当前团队筛选 | WP3、WP8 | 公共筛选、独立打样、主单任务、变更列表 | pages；v4-contract | 每个列表仅一个团队筛选 | 已验证 |
-| ADJ-011 | 调整方案 2.1；设计 6、7 | 明确当前动作、完成条件和下一团队，自动交接 | WP3 | 固定依赖、任务推进和详情动作区 | dependency-policy | 推进串行链并观察团队切换 | 已验证 |
-| ADJ-012 | 调整方案 2.1；设计 6.3 | 主单详情以七类业务列的表格展示任务 | WP3、WP8 | 工程主单详情任务表 | v4-contract | 主单详情表格、并行任务行 | 已验证 |
-| ADJ-013 | 调整方案 2.1；设计 7.2 | 各专业任务使用各自字段和审核返工规则 | WP4 | 制版、花型、调色、样衣、采购任务页和领域 | prior-result；technical-data-and-change | 各类详情提交与审核 | 已验证 |
-| ADJ-014 | 调整方案 2.1；设计 6.3 | 依赖显示业务名称，不显示内部编号 | WP3 | 主单与专业任务详情依赖展示 | pages；v4-contract | “需要先完成：业务任务名” | 已验证 |
-| ADJ-015 | 调整方案 2.1；设计 8.1 | 工程变更选择具体 BOM、纸样、花型、调色、样衣或资料内容 | WP5 | 变更可选项、创建页和详情 | technical-data-and-change；v4-contract | 创建变更时的具体内容列表 | 已验证 |
-| ADJ-016 | 调整方案 2.1；设计 8.1 | 专业制作生成任务，普通资料在草稿直接维护 | WP5 | 变更三种处理方式 | technical-data-and-change | 变更详情的编辑位置和任务分流 | 已验证 |
-| ADJ-017 | 调整方案 2.1；设计 8.2 | 变更专业任务进入统一专业列表并标明来源 | WP5 | 变更任务投影和专业任务列表合并 | technical-data-and-change | 制版／花型／调色／样衣列表来源列 | 已验证 |
-| ADJ-018 | 调整方案 2.1；设计 8.1 | 变更由对应团队真实执行，BOM 由买手维护 | WP5 | 变更任务开始／提交／审核和直接项权限 | technical-data-and-change | 对应团队动作及 BOM 维护入口 | 已验证 |
-| ADJ-019 | 调整方案 2.1；设计 8.2 | 工程变更使用六个业务状态 | WP5 | 变更工作区状态推导 | technical-data-and-change；v4-contract | 列表和详情状态推进 | 已验证 |
-| ADJ-020 | 调整方案 2.1；设计 8.1 | 原主单与原版本只读，新一轮任务和版本可追溯 | WP5 | 变更来源快照、下一版技术包及日志 | technical-data-and-change | 详情同时展示基线和下一版 | 已验证 |
-| ADJ-021 | 调整方案 2.1；设计 9 | 技术包退回到具体 BOM 行、资料栏目、任务或成果项 | WP6 | 技术包退回目标、审核、任务回开 | tech-pack-rework-bridge | 审核页具体选择和返工轮次 | 已验证 |
-| ADJ-022 | 调整方案 2.1；设计 10 | 时效仅投影主单任务和实际操作事实 | WP7 | 工程准备投影、生产准备时效页 | preparation-projection；v4-contract | 同一主单任务和时效时间对照 | 已验证 |
-| ADJ-023 | 调整方案 2.1；设计 11.3 | 页面只使用已确认业务语言 | WP1、WP8 | 所有当前 PCS 生产工程页面 | v4-contract | 命名页面术语抽查 | 已验证 |
-| ADJ-024 | 调整方案 2.1；设计 12 | Mock 覆盖分页、A→B、多团队、审核、返工和版本 | WP8 | 主单视图模型、独立打样种子、变更演示数据 | independent-sampling；v4-contract | 32 个场景逐项演示 | 已验证 |
-| ADJ-025 | 调整方案 2.1；设计 13 | 四份权威文档和验收记录同步 | WP9 | 调整方案、设计、计划、矩阵、验收记录 | v4-contract | 不适用：文档治理项 | 已验证 |
-| ADJ-026 | 调整方案 2.1；设计 7.3 | 图片、`.prj` 和附件真实选择、保存、预览、下载、追溯并阻断失败 | WP4 | 上传领域、任务成果、技术包草稿／正式快照、公共上传组件及任务事件 | independent-sampling；v4-contract；snapshot-compat | 真实选择正确／错误文件、大图及上传后原文件下载比对 | 已验证 |
-| ADJ-027 | 调整方案 2.1；设计 11.1 | 改款／设计列表和详情与专业任务页面基准统一 | WP4、WP8 | 独立打样标准列表和专业详情骨架 | pages；v4-contract；list governance | 两个列表在指定分辨率对照 | 已验证 |
-| ADJ-028 | V4.1 专项 4、15、19.1；设计 11.1 | 列设置只位于数据列表表头最右侧 | WP10 | `renderIndependentSamplingList` 的 `listActionsHtml` | pages；list governance | 改款／设计列表各仅一个列设置，且位于列表区域 | 已验证 |
-| ADJ-029 | V4.1 专项 4、6、8、19.2；设计 5.1 | 创建草稿时 BOM 和专业任务均为 0 | WP10 | `buildRecord`、`createEngineeringIndependentSampling` | independent-sampling | 新建改款草稿、BOM 页签锁定、无专业任务 | 已验证 |
-| ADJ-030 | V4.1 专项 4、8、19.3～19.4；设计 5.2 | 买手自定义本次目标颜色，数量不依赖已有颜色 | WP10 | 目标颜色草稿、`confirmEngineeringIndependentColorMappings` | independent-sampling；pages | 自定义输入、已有颜色建议、少色／多色案例 | 已验证 |
-| ADJ-031 | V4.1 专项 4、8、19.3～19.4；设计 5.2 | 每个目标颜色可选 A 款参考色或无参考，同一 A 色可一对多 | WP10 | `EngineeringIndependentColorMapping`、颜色确认页面 | independent-sampling | 一对多与无参考颜色 | 已验证 |
-| ADJ-032 | V4.1 专项 8.2、8.3、19.5；设计 5.2 | 至少一个颜色、名称去空格／忽略大小写不重复、必须选尺码；SKU 与 BOM 整组成功或回退 | WP10 | 颜色规范化、SKU 批量建立、仓储快照回退 | independent-sampling | 重名、缺尺码阻断且无部分 SKU／BOM | 已验证 |
-| ADJ-033 | V4.1 专项 8.3、9.1、19.6；设计 5.2 | 确认 N 个目标颜色建立 N 份 B 款 BOM 草稿 | WP10 | `reconcileEngineeringBomVersionsForTargetColors` | independent-sampling | 颜色页签与 BOM 数量一一对应 | 已验证 |
-| ADJ-034 | V4.1 专项 9.2、19.6；设计 5.2 | 有参考色只取 A 款最近一份合格 BOM，无参考色空白，不隐式取 B 款历史 | WP10 | 来源历史按确认／更新时间倒序、BOM 版本复制资格 | independent-sampling | BOM 来源摘要、最近版本与空白 BOM | 已验证 |
-| ADJ-035 | V4.1 专项 9.3～9.5、19.6；设计 5.2 | 买手独立维护 B 款 BOM；A 款只读；明确重新生成才覆盖 | WP10 | BOM 保存门禁、编辑锁、`regenerateEngineeringIndependentBomFromReference` | independent-sampling | 改／删／增、来源追溯、锁定／退回、重新生成确认 | 已验证 |
-| ADJ-036 | V4.1 专项 7、16、19.7～19.9；设计 5.3 | 改款／设计详情采用四个团队步骤 | WP10 | `SAMPLING_STEPS`、四步渲染函数 | pages；v41-e2e | 两类详情四步导航和当前步骤 | 已验证 |
-| ADJ-037 | V4.1 专项 7、10～14；设计 5.3 | 当前步骤与当前团队从同一事实推导并自动交接 | WP10 | `getEngineeringIndependentSamplingStep`、`getEngineeringIndependentCurrentTeam`、动作后步骤同步 | independent-sampling；v41-e2e | 买手→跟单→专业团队→跟单全流程 | 已验证 |
-| ADJ-038 | V4.1 专项 7.2、8.4、10、19.7；设计 5.3 | 过去步骤只读、未来步骤锁定、当前步骤可操作；跟单可退回买手 | WP10 | 步骤门禁、BOM 编辑锁、退回函数 | independent-sampling；pages；v41-e2e | 跟单退回原因、BOM 解锁、完成页回看 | 已验证 |
-| ADJ-039 | V4.1 专项 18、19.3～19.9；设计 12 | Mock 覆盖少色、多色、一对多、无参考、并行和完成只读 | WP10 | `seedRecords` V4.1 命名数据 | independent-sampling；pages | 列表分页与命名场景 | 已验证 |
-| ADJ-040 | V4.1 专项 16、19.11；设计 11.1 | 改款／设计与制版等专业任务沿用统一页面骨架 | WP10 | 标准列表、详情头部、当前动作、内容卡片、操作记录 | pages；list governance；v41-e2e | 改款／设计列表及详情对照 | 已验证 |
-| ADJ-041 | V4.1 专项 16、19.12；设计 7.3 | 新步骤中的图片、纸样和附件真实上传并验证失败、保存、预览和下载 | WP10 | 工程文件上传领域、专业任务详情及事件 | independent-sampling；v41-e2e | 空 `.prj` 阻断、真实 `.prj` 下载、真实样衣图大图及 Esc | 已验证 |
-| ADJ-042 | 用户 2026-08-12 明确确认；设计 1.2、9 | 技术资料仅保留技术包、BOM 与价格、花型库、部位模板库；不保留技术包模板库的菜单、路由、渲染器、页面、Mock 或兼容入口 | WP1、WP9 | PCS 菜单、路由、异步渲染器、技术资料页面及删除契约 | navigation-removal；technical-data-and-change | 技术资料菜单无该项；旧地址不可进入；技术包与 BOM 页面正常 | 已验证 |
-| ADJ-043 | 调整方案 2.2、7.6；设计 5.4～5.5 | 跟单在改款／设计工作安排中逐行下达销售展示样衣要求，确认后随任务生成并锁定 | WP11 | 独立打样要求领域、工作安排页面和销售展示样衣任务 | independent-sampling；pages | 改款、设计工作安排要求表及生成后只读 | 已验证 |
-| ADJ-044 | 调整方案 2.2、7.6；设计 6.1～6.2 | 跟单在工程主单确认工作安排前逐行下达产前版样衣要求，确认后随任务生成并锁定 | WP11 | 主单任务方案、主单详情和产前版样衣任务 | pre-production-submit；tasks | 主单要求表及产前版样衣详情只读要求 | 已验证 |
-| ADJ-045 | 调整方案 7.6；设计 5.5、7.2 | 制作要求和实际成果均为颜色、尺码、数量多行明细，分别汇总要求、实际和差异 | WP11 | 两类样衣领域对象、详情表格和提交处理 | independent-sampling；pre-production-submit | 多颜色、多尺码、拆分交付、差异说明 | 已验证 |
-| ADJ-046 | 调整方案 7.1、21；设计 5.3～5.5 | 设计打样使用与改款相同四步流程并完整覆盖销售展示样衣要求和执行 | WP10、WP11 | 独立设计打样四步、工作安排和专业详情 | independent-sampling；pages | 设计打样命名流程 | 已验证 |
-| ADJ-047 | 调整方案 5.3、12；设计 5.5、7 | 父单“进入任务”按真实任务类型进入规范专业详情，并与专业列表使用同一事实 | WP1、WP11 | 专业路由、独立打样任务入口和统一详情渲染 | task-submit；tasks；pages | 制版、花型、调色、销售展示样衣入口 | 已验证 |
-| ADJ-048 | 调整方案 3.2、7.6；设计 1.2、6.2 | 销售展示样衣不能替代产前版样衣，工程主单必须单独下达和完成 | WP1、WP11 | 前期成果复用规则和工程任务生成 | prior-result-reuse | 完成销售样衣后产前版仍独立待办 | 已验证 |
-| ADJ-049 | 调整方案 7.6、14；设计 5.5、7.2 | 列表、父单和详情中的样衣完成数量按实际件数求和，不按成果行数 | WP8、WP11 | 专业任务汇总与两类样衣页面 | task-submit；tasks | 一条要求拆两行后显示 2 件而非 2 条 | 已验证 |
-| ADJ-050 | 调整方案 20～24；设计 13 | 总体设计、计划、矩阵、Mock、测试和浏览器证据同步为本次规则 | WP9、WP11 | 三份权威文档、专项测试、审查记录和验收结果 | 全部 V5 专项与治理 | 不适用：文档治理项，浏览器证据由关联需求承担 | 已验证 |
+## 3. 正向追踪要求
 
-## 4. 原子需求交付登记表
+1. 从本矩阵每一条需求回到权威方案章节。
+2. 核对实现位置是否由当前运行版本读取。
+3. 执行对应自动化契约。
+4. 对适用条目执行命名页面和真实文件验收。
+5. 记录当前 Git HEAD、命令、退出码和页面证据。
 
-本表与第 3 节按需求编号联查，补齐证据位置、产品确认人和确认版本。`已验证` 只表示当前分支证据闭环；产品确认前不等于 `accepted`。
+## 4. 反向追踪要求
 
-| 需求编号 | 证据位置 | 产品确认人 | 确认版本 |
-| --- | --- | --- | --- |
-| ADJ-001 | E-AUTO-01、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-002 | E-AUTO-01、E-AUTO-02、E-WEB-01 | 待产品确认 | — |
-| ADJ-003 | E-AUTO-01、E-AUTO-02、E-WEB-01 | 待产品确认 | — |
-| ADJ-004 | E-AUTO-02、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-005 | E-AUTO-02、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-006 | E-AUTO-02、E-AUTO-05 | 待产品确认 | — |
-| ADJ-007 | E-AUTO-02、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-008 | E-AUTO-04、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-009 | E-AUTO-02、E-AUTO-04、E-WEB-01 | 待产品确认 | — |
-| ADJ-010 | E-AUTO-01、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-011 | E-AUTO-04、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-012 | E-AUTO-01、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-013 | E-AUTO-03、E-AUTO-05、E-WEB-02 | 待产品确认 | — |
-| ADJ-014 | E-AUTO-01、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-015 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-016 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-017 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-018 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-019 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-020 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-021 | E-AUTO-03、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-022 | E-AUTO-04、E-AUTO-05、E-WEB-03 | 待产品确认 | — |
-| ADJ-023 | E-AUTO-01、E-AUTO-05、E-WEB-01 | 待产品确认 | — |
-| ADJ-024 | E-AUTO-01、E-AUTO-02、E-WEB-01 | 待产品确认 | — |
-| ADJ-025 | E-AUTO-01、E-AUTO-05、本矩阵 | 待产品确认 | — |
-| ADJ-026 | E-AUTO-01、E-AUTO-05、E-WEB-02、E-WEB-04 | 待产品确认 | — |
-| ADJ-027 | E-AUTO-01、E-GOV-02、E-WEB-01 | 待产品确认 | — |
-| ADJ-028 | E-AUTO-06、E-GOV-02、E-WEB-05 | 待产品确认 | — |
-| ADJ-029 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-030 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-031 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-032 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-033 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-034 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-035 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-036 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-037 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-038 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-039 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-040 | E-AUTO-06、E-GOV-02、E-WEB-05 | 待产品确认 | — |
-| ADJ-041 | E-AUTO-06、E-WEB-05 | 待产品确认 | — |
-| ADJ-042 | E-AUTO-07、E-WEB-06、E-REVIEW-02 | 用户（本轮确认） | V4.2 |
-| ADJ-043 | E-AUTO-V5-01、E-WEB-V5-01、E-REVIEW-V5-01 | 用户（本轮确认） | V5.0 |
-| ADJ-044 | E-AUTO-V5-02、E-WEB-V5-02、E-REVIEW-V5-01 | 用户（本轮确认） | V5.0 |
-| ADJ-045 | E-AUTO-V5-01、E-AUTO-V5-02、E-WEB-V5-01、E-WEB-V5-02 | 用户（本轮确认） | V5.0 |
-| ADJ-046 | E-AUTO-V5-01、E-WEB-V5-01 | 用户（本轮确认） | V5.0 |
-| ADJ-047 | E-AUTO-V5-03、E-WEB-V5-03 | 用户（本轮确认） | V5.0 |
-| ADJ-048 | E-AUTO-V5-03、E-WEB-V5-02 | 用户（本轮确认） | V5.0 |
-| ADJ-049 | E-AUTO-V5-01、E-AUTO-V5-02、E-WEB-V5-03 | 用户（本轮确认） | V5.0 |
-| ADJ-050 | E-GOV-V5-01、E-REVIEW-V5-01、本矩阵 | 用户（本轮确认） | V5.0 |
+1. 从菜单、路由、页面、领域数据、Mock、测试和检查脚本反查需求编号。
+2. 确认没有未声明的工程变更入口、对象、存储或任务投影。
+3. 确认没有“设计／改款”双类型、双统计、双路由或第二事实源。
+4. 确认技术包新业务来源只有工程主单，设计改款和专业任务不能直达正式技术包。
+5. 确认生产准备时效只读工程主单及其任务。
+6. 确认历史文档未被现行检查脚本读取为权威需求。
 
-## 5. 验收场景与需求对应
+## 5. 交付门禁
 
-| 场景组 | 需求编号 | 关键结果 |
+只有 81 条需求全部达到“已验证”，且不存在无说明的待实施、实施中、已实现待验证或已阻塞条目时，才允许宣称本次调整完整完成。
+
+## 6. 双案例、双轮次全流程验收证据
+
+本节不新增或重复产品需求编号。`FLOW-001`～`FLOW-019` 是对上述 81 条原子需求进行跨模块串联验证的交付证据编号，用来证明单点能力能够组成连续业务流程。
+
+| 证据 | 位置 | 结果 |
 | --- | --- | --- |
-| 三条入口和创建分步 | ADJ-001、ADJ-003、ADJ-023 | 业务单先建、工作后确认，不出现旧入口和内部术语 |
-| 两种样衣 | ADJ-002、ADJ-013 | 销售展示与生产前确认用途、字段、入口不同 |
-| A→B 颜色和物料 | ADJ-004～ADJ-007 | 一对多、无来源、逐行处理、B 款归属和阻断均成立 |
-| 团队接力 | ADJ-008～ADJ-014 | 团队先行、实际人员后记、固定依赖、自动交接、主单表格 |
-| 工程变更 | ADJ-015～ADJ-020 | 具体修改项、真实任务、统一列表、六状态、版本只读与追溯 |
-| 技术包返工 | ADJ-021 | 具体退回、局部返工、其他成果保持通过 |
-| 生产准备时效 | ADJ-022 | 仅主单投影，时间一致，只读 |
-| Mock 与文档 | ADJ-024、ADJ-025 | 足够分页和业务场景，文档编号一致 |
-| 真实上传与统一页面 | ADJ-026、ADJ-027 | 文件真实、失败阻断、预览下载、页面基准一致 |
-| V4.1 目标颜色与 BOM | ADJ-029～ADJ-035 | 先确认目标颜色，N 色 N 份 B 款 BOM，明确来源、原子回退和独立维护 |
-| V4.1 四步团队接力 | ADJ-036～ADJ-038 | 买手、跟单、专业团队、跟单自动接力，退回和步骤门禁成立 |
-| V4.1 列表、Mock 与上传 | ADJ-028、ADJ-039～ADJ-041 | 列设置归位，场景充分，页面统一，真实文件全链路通过 |
-| V4.2 技术资料入口收口 | ADJ-042 | 菜单、旧路由、渲染器、页面、Mock 和兼容入口全部删除；技术包与 BOM 主链路不受影响 |
-| 销售展示样衣要求与实际 | ADJ-043、ADJ-045、ADJ-046、ADJ-049 | 改款、设计均先下达多行要求，再逐行提交真实实际成果并正确汇总件数 |
-| 产前版样衣要求与实际 | ADJ-044、ADJ-045、ADJ-048、ADJ-049 | 主单先下达要求，产前版独立制作；销售展示样衣不得替代 |
-| 规范专业任务入口 | ADJ-047 | 父单进入制版、花型、调色、销售展示样衣规范详情且读取同一任务 |
-| V5 文档与证据同步 | ADJ-050 | 设计、计划、矩阵、Mock、专项契约、页面验收和审查记录口径一致 |
+| 可重复全流程模拟 | `tests/pcs-production-engineering-full-flow.spec.ts` | 每个独立进程连续执行 2 条业务链，并逐步记录对象、团队、动作、输入、输出、前后状态和断言 |
+| 第 1 轮原始记录 | `docs/product-design/test-records/pcs-production-engineering-full-flow-pass-1.json` | 2 条链、44 个步骤，全部通过 |
+| 第 2 轮原始记录 | `docs/product-design/test-records/pcs-production-engineering-full-flow-pass-2.json` | 2 条链、44 个步骤，全部通过 |
+| 人工可读执行记录 | `docs/product-design/PCS生产工程管理全流程模拟测试执行记录.md` | 汇总两轮逐步骤记录、`FLOW-001`～`FLOW-019`、正向追踪和反向追踪 |
+| 记录生成与门禁校验 | `scripts/render-pcs-production-engineering-full-flow-record.ts` | 校验轮次、案例数、必经阶段、对象唯一性、上传文件唯一性和结果后生成 Markdown |
 
-## 6. 最终证据回填表
+### 6.1 覆盖关系
 
-| 证据编号 | 验证内容 | 命令／页面 | 当前结果 | 证据版本／时间 |
-| --- | --- | --- | --- | --- |
-| E-AUTO-01 | V4 原子合同 | `tests/pcs-engineering-v4-contract.spec.ts` | 通过 | 2026-08-12 · 总门禁 23／23 通过中的原子合同 |
-| E-AUTO-02 | 独立打样领域与页面 | independent sampling 两项专项契约 | 通过 | 2026-08-12 · 总门禁 23／23 通过，0 失败 |
-| E-AUTO-03 | 工程变更与技术包返工 | change、rework 两项专项契约 | 通过 | 2026-08-12 · 总门禁 23／23 通过，0 失败 |
-| E-AUTO-04 | 依赖、复用和时效投影 | dependency、prior result、preparation 三项专项契约 | 通过 | 2026-08-12 · 总门禁 23／23 通过，0 失败 |
-| E-AUTO-05 | PCS 生产工程总门禁 | `npm run check:pcs-engineering-master` | 通过 | 2026-08-12 · 23／23 通过，0 失败 |
-| E-BUILD-01 | 当前原型构建 | `npm run build` | 通过 | 2026-08-12 · 隔离任务快照 2,339 个模块 |
-| E-GOV-01 | 原型治理 | 隔离本次 PCS 文件的 `npm run check:prototype-design-governance` | 通过 | 2026-08-12 · 未吸收无关 FCS 改动 |
-| E-GOV-02 | 标准列表治理 | `check:list-page-governance:static`、`check:standard-list-page-template` | 通过 | 2026-08-12 · 355 页／18 个历史基线页 |
-| E-WEB-01 | 列表、分页、筛选、详情 | 命名 PCS 路由 | 通过 | 2026-08-12 · 13 条路由；1366×768、1280×720 |
-| E-WEB-02 | 真实上传、错误阻断、预览下载 | 命名专业任务详情 | 通过 | 2026-08-12 · Playwright 5／5 通过中的专业任务场景 |
-| E-WEB-03 | 工程变更、技术包、时效 | 命名变更／技术包／时效路由 | 通过 | 2026-08-12 · 页面只读／来源／版本对照通过 |
-| E-WEB-04 | 技术包真实纸样原文件 | 上传真实 Zip 后下载并逐字节比对 | 通过 | 2026-08-12 · Playwright 5／5 通过；下载内容与上传文件逐字节一致 |
-| E-AUTO-06 | V4.1 目标颜色、BOM 与四步接力 | `tests/pcs-independent-sampling.spec.ts`、`tests/pcs-independent-sampling-pages.spec.ts` | 通过 | 2026-08-12 · 最后一次源代码修改后两项均通过；含最近有效来源 BOM 回归 |
-| E-WEB-05 | V4.1 改款／设计命名浏览器流程 | `tests/pcs-independent-sampling-v41-e2e.spec.ts` | 通过 | 2026-08-12 · 2／2 通过；改款完整接力和设计四步骨架 |
-| E-REVIEW-01 | V4.1 正向／反向审查 | 《PCS 改款与设计打样 V4.1 验收与审查结果》 | 通过 | 2026-08-12 · 正向 14／14、反向 12 项通过；发现并修复最近有效 BOM 排序遗漏 |
-| E-AUTO-07 | V4.2 技术资料删除契约 | navigation-removal、technical-data-and-change、PCS 总门禁 | 通过 | 2026-08-12 · 2 项直接契约通过；总门禁 23／23 通过 |
-| E-WEB-06 | V4.2 技术资料命名页面 | 技术包、BOM、已删除旧地址 | 通过 | 2026-08-12 · 保留页面正常；菜单无误建项；旧地址不再进入模板页面 |
-| E-REVIEW-02 | V4.2 正向／反向删除审查 | 《PCS 技术包模板库删除原型审查记录》 | 通过 | 2026-08-12 · 菜单、路由、渲染器、页面、Mock、测试、文档和兼容入口逐项核对 |
-| E-GRAPH-01 | 代码结构索引 | CodeGraph status | 通过 | 2026-08-12 · 1,494 个文件、45,932 个节点、162,068 条边，无待同步提示 |
-| E-RECEIPT-01 | 全工作区任务收据 | `workflow:verify` | 不适用（当前工作区） | 2026-08-12 · 存在不可吸收的无关 FCS 改动，依 AGENTS.md 不运行全工作区收据；PCS 直接证据独立闭环 |
-| E-RECEIPT-02 | ADJ-042 隔离工作树任务收据 | `workflow:verify` | 已实现，项目级门禁未全绿 | 2026-08-12 · 本次菜单路由检查、构建、原型治理和 CodeGraph 通过；全局列表治理被未修改的 `src/pages/process-factory/cutting/fei-tickets.ts` 既有欠账阻断，不纳入本次 PCS 修改 |
-| E-AUTO-V5-01 | 改款／设计要求、实际、状态和纸样版本 | 5 项 independent sampling 相关直接专项 | 通过 | 2026-08-13 · 纳入 V5 直接 Node 专项 8／8；含不存在纸样版本阻断 |
-| E-AUTO-V5-02 | 工程主单产前版样衣要求、实际和状态 | 3 项 master／pre-production 直接专项 | 通过 | 2026-08-13 · 纳入 V5 直接 Node 专项 8／8；含真实纸样成果版本选择 |
-| E-AUTO-V5-03 | 规范路由、件数汇总和两种样衣边界 | tasks、task-submit、prior-result-reuse、pages 直接专项 | 通过 | 2026-08-13 · 纳入 V5 直接 Node 专项 8／8；0 失败 |
-| E-WEB-V5-01 | 改款与设计四步命名流程 | `tests/pcs-independent-sampling-v41-e2e.spec.ts` | 通过 | 2026-08-13 · 2／2；真实 `.prj`、真实仓库图片、空文件阻断、差异说明、规范任务入口和大图 |
-| E-WEB-V5-02 | 工程主单产前版样衣命名流程 | `tests/pcs-engineering-pre-production-sample-submit-dom.spec.ts` | 通过 | 2026-08-13 · 1／1；开始、真实图片、已完成纸样版本、多行实际和任务完成 |
-| E-WEB-V5-03 | 专业任务入口与实际件数 | 改款专业工作表、销售展示样衣详情、产前版样衣详情 | 通过 | 2026-08-13 · 父单和专业列表进入同一规范详情，汇总读取实际数量之和 |
-| E-GOV-V5-01 | V5 任务范围原型治理 | 隔离临时索引的 `check:prototype-design-governance` | 通过 | 2026-08-13 · 9 个用户可见文件、0 个技术-only 文件、1 份关联审查记录 |
-| E-GOV-V5-02 | 标准列表模板 | `npm run check:standard-list-page-template` | 通过 | 2026-08-13 · TypeScript、模板和 Chromium 列拖拽契约通过 |
-| E-GOV-V5-03 | 完整列表总治理 | `npm run check:list-page-governance` | 失败（仓库既有项） | 2026-08-13 · 被本次未修改的 PFOS `src/pages/process-factory/cutting/fei-tickets.ts` 历史欠账阻断；与本次 PCS 列表分开记录 |
-| E-BUILD-V5-01 | 当前隔离分支生产构建 | `npm run build` | 通过 | 2026-08-13 · 2,340 个模块 |
-| E-REVIEW-V5-01 | V5 正向／反向审查 | 《PCS 生产工程管理 V5 逐项验收结果》与本矩阵 | 通过 | 2026-08-13 · ADJ-043～050 均有实现、自动化、页面和审查位置 |
-| E-GRAPH-V5-01 | 当前隔离分支结构索引 | CodeGraph sync／status | 通过 | 2026-08-13 · 当前隔离工作树 1,495 个文件、46,038 个节点、180,002 条边；待同步 0，工作树不匹配为 null |
-| E-RECEIPT-V5-01 | 当前隔离分支任务收据 | `workflow:verify` | 已生成，状态 `implemented` | 2026-08-13 · `/private/tmp/pcs-professional-task-routing-task-receipt.json`；菜单路由、原型治理、构建和 CodeGraph 通过，仅完整列表总治理被未修改的 PFOS 历史欠账阻断 |
+- 设计改款与真实设计稿：覆盖 `DR-*`、`FILE-*`、`COLOR-*`、`BOM-*`。
+- 工程主单、工作安排和专业任务：覆盖 `MASTER-*`、`TASK-*`、`STATE-*`。
+- 正式技术包、BOM 快照和审核：覆盖 `PACK-*`、`BOM-*`。
+- FCS 生产单技术包快照和生产准备时效：覆盖 `TIME-*` 及对应上下游读取规则。
+- 菜单、路由、列表和详情入口由专项页面验收覆盖；PDA 与打印不属于本次产品范围，在审查记录中明确为不适用。
 
-## 7. 最终门禁
+### 6.2 全流程门禁结论
 
-ADJ-001～027 的既有证据已保留；ADJ-028～041 的 V4.1 证据保持有效；ADJ-042 的删除证据保持有效；ADJ-043～050 已在最后一次源代码修改后完成 8／8 直接专项、23／23 PCS 总门禁、3／3 命名浏览器流程、生产构建、任务范围原型治理、CodeGraph 和正反向审查，统一标记为 `已验证`。矩阵不存在无说明的 `待实施`、`实施中`、`已实现待验证` 或 `已阻塞` 条目。完整列表总治理仍被未修改的 PFOS 菲票历史欠账阻断，必须与本次 PCS 原子需求结果分开报告；因此项目级任务收据状态为 `implemented`。分支尚未提交或推送，因此不能声明 `delivered`。
+只有两份原始记录均满足“2 条链、44 个步骤、全部通过”，且人工可读记录中的 `FLOW-001`～`FLOW-019` 正向、反向追踪均无缺口时，才满足本矩阵的全流程验收门禁。单页截图、单点专项测试或一次进程内通过均不能替代本门禁。

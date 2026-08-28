@@ -52,12 +52,10 @@ import {
   getEngineeringMasterOrderById,
   assertEngineeringTaskCanComplete,
   createEngineeringMasterOrder,
-  createEngineeringChangeTask,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
-import { closeEngineeringMasterOrder } from '../src/data/pcs-engineering-master-repository.ts'
 import { getEngineeringTaskDefinition } from '../src/data/pcs-engineering-dependency-policy.ts'
 import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
 import { resolveEngineeringLinkedPartTemplateVersions } from '../src/data/pcs-engineering-bom-snapshot-source.ts'
@@ -942,34 +940,6 @@ assert.deepEqual(
   getTechnicalDataVersionContent(successVersionId)?.bomPricingSnapshot,
   publishedSnapshotBeforeExplicitUndefined,
 )
-
-// 工程变更来源正式启用只切换技术包事实，不得改写已关闭主单的任何专业任务。
-closeEngineeringMasterOrder(engineeringMaster.masterOrderId, '跟单甲')
-const engineeringChange = createEngineeringChangeTask({
-  sourceMasterOrderId: engineeringMaster.masterOrderId,
-  createdBy: '跟单甲',
-})
-const masterTasksBeforeChangeActivation = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)?.tasks
-const changeVersionId = `task7_change_activation_${Date.now()}`
-createTechnicalDataVersionDraft(
-  {
-    ...makeRecord({ id: changeVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
-    sourceProjectId: engineeringChange.engineeringChangeTaskId,
-    sourceProjectCode: engineeringChange.engineeringChangeTaskCode,
-    sourceProjectName: engineeringChange.title,
-    createdFromTaskType: 'ENGINEERING_CHANGE',
-    createdFromTaskId: engineeringChange.engineeringChangeTaskId,
-    createdFromTaskCode: engineeringChange.engineeringChangeTaskCode,
-  },
-  makeContent(changeVersionId, [makeBomItem('BOM-CHANGE-ACT-1', validSku.materialSkuId, '米')]),
-)
-activateTechPackVersionForStyle(style.styleId, changeVersionId, '跟单甲')
-assert.deepEqual(
-  getEngineeringMasterOrderById(engineeringMaster.masterOrderId)?.tasks,
-  masterTasksBeforeChangeActivation,
-  '工程变更技术包启用不得修改来源主单任务',
-)
-assert.equal(getProjectArchiveFacts(productProjectId).archive?.currentTechnicalVersionId, changeVersionId)
 
 changePrice(validSku.materialSkuId, 19.9999)
 updateLatestPcsExchangeRate({ idrPerCny: 2500, updatedBy: '系统管理员' })

@@ -15,6 +15,7 @@ import {
 import {
   getEngineeringBomVersionById,
   resetEngineeringBomRepository,
+  saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
 } from '../src/data/pcs-engineering-bom-repository.ts'
 import { captureEngineeringUploadedFiles } from '../src/data/pcs-engineering-file-upload.ts'
@@ -93,6 +94,16 @@ function confirmSamplingBom(record: EngineeringIndependentSamplingRecord): void 
       customCosts: [],
     })
   })
+  saveEngineeringBomPricingPlan({
+    ownerStage: 'INDEPENDENT_SAMPLING',
+    ownerId: record.samplingTaskId,
+    role: '买手',
+    userId: buyer.userId,
+    userName: buyer.userName,
+    customCostDecision: 'NO_CUSTOM_COST',
+    customCosts: [],
+    updatedAt: record.createdAt,
+  })
   completeEngineeringIndependentBuyerPreparation({
     samplingTaskId: record.samplingTaskId,
     actor: buyer,
@@ -105,10 +116,16 @@ async function createSampling(
   taskTypes: EngineeringIndependentProfessionalTaskType[],
   confirmedAt?: string,
 ): Promise<EngineeringIndependentSamplingRecord> {
+  const designFiles = await uploaded(
+    [realFile(`${marker}-design.png`, 'image/png')],
+    'DESIGN_IMAGE',
+    { userId: merchandiser.userId, userName: merchandiser.userName, teamName: '跟单' },
+  )
   const created = createEngineeringIndependentSampling({
-    samplingType: 'DESIGN',
+    sourceStyleId: sourceStyle.styleId,
     targetStyleId: targetStyle.styleId,
     creationReason: `${marker} 前期成果复用专项`,
+    designFiles,
     merchandiser,
     createdAt: `2026-07-${marker === 'OLD' ? '01' : marker === 'NEW' ? '10' : '20'} 09:00:00`,
   })

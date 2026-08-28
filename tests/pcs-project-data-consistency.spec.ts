@@ -17,7 +17,10 @@ import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-co
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
-import { listRevisionTasks, resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
+import {
+  listEngineeringIndependentSamplingRecords,
+  resetEngineeringIndependentSamplingRepository,
+} from '../src/data/pcs-engineering-master-sampling.ts'
 import { listPlateMakingTasks, resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
 import { listPatternTasks, resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
 import { listFirstSampleTasks, resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
@@ -39,7 +42,7 @@ resetProjectRepository()
 resetProjectRelationRepository()
 resetProjectInlineNodeRecordRepository()
 resetProjectChannelProductRepository()
-resetRevisionTaskRepository()
+resetEngineeringIndependentSamplingRepository()
 resetPlateMakingTaskRepository()
 resetPatternTaskRepository()
 resetFirstSampleTaskRepository()
@@ -72,13 +75,12 @@ projects.forEach((project) => {
 })
 
 const professionalTasks = [
-  ...listRevisionTasks().map((task) => ({ moduleName: '改版任务', task })),
   ...listPlateMakingTasks().map((task) => ({ moduleName: '制版任务', task })),
   ...listPatternTasks().map((task) => ({ moduleName: '花型任务', task })),
   ...listFirstSampleTasks().map((task) => ({ moduleName: '首版样衣', task })),
   ...listFirstOrderSampleTasks().map((task) => ({ moduleName: '首单样衣', task })),
 ]
-assert.ok(professionalTasks.some((item) => item.moduleName === '改版任务'), '应覆盖改版任务仓储')
+assert.ok(listEngineeringIndependentSamplingRecords().length > 0, '应覆盖设计改款任务仓储')
 assert.ok(professionalTasks.some((item) => item.moduleName === '花型任务'), '应覆盖花型任务仓储')
 assert.ok(professionalTasks.some((item) => item.moduleName === '首版样衣'), '应覆盖首版样衣仓储')
 professionalTasks.forEach(({ moduleName, task }) => {

@@ -22,7 +22,7 @@ import {
   type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
 import { getProjectChannelProductById } from './pcs-channel-product-project-repository.ts'
-import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
+import { getEngineeringIndependentSamplingRecord } from './pcs-engineering-master-sampling.ts'
 import { getPlateMakingTaskById } from './pcs-plate-making-repository.ts'
 import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import { getFirstSampleTaskById } from './pcs-first-sample-repository.ts'
@@ -380,23 +380,22 @@ function resolveChannelProductRelationObject(relation: ProjectRelationRecord, me
   }
 }
 
-function resolveRevisionTaskRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
-  const task = getRevisionTaskById(relation.sourceObjectId)
+function resolveDesignRevisionTaskRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
+  const task = getEngineeringIndependentSamplingRecord(relation.sourceObjectId)
   const fields: PcsProjectInstanceField[] = []
-  addField(fields, '改版范围', task?.revisionScopeNames, 'revisionScopeNames')
-  addField(fields, '优先级', task?.priorityLevel, 'priorityLevel')
-  addField(fields, '关联技术包', task?.linkedTechPackVersionCode, 'linkedTechPackVersionCode')
-  addField(fields, '截止时间', task?.dueAt, 'dueAt')
+  addField(fields, '参照款式', task?.sourceStyleCode, 'sourceStyleCode')
+  addField(fields, '目标款式', task?.targetStyleCode, 'targetStyleCode')
+  addField(fields, '当前处理团队', task ? '' : relation.ownerName, 'currentTeam')
   return {
-    instanceId: task?.revisionTaskId || relation.sourceObjectId,
-    instanceCode: task?.revisionTaskCode || relation.sourceObjectCode,
-    title: task?.title || relation.sourceTitle,
+    instanceId: task?.samplingTaskId || relation.sourceObjectId,
+    instanceCode: task?.samplingTaskCode || relation.sourceObjectCode,
+    title: task ? `${task.targetStyleName}设计改款` : relation.sourceTitle,
     status: task?.status || relation.sourceStatus,
-    ownerName: task?.ownerName || relation.ownerName,
+    ownerName: task?.merchandiserName || relation.ownerName,
     businessDate: relation.businessDate,
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: task ? `/pcs/engineering/revision-sampling/${encodeURIComponent(task.revisionTaskId)}` : '/pcs/engineering/revision-sampling',
+    targetRoute: task ? `/pcs/engineering/design-revision/${encodeURIComponent(task.samplingTaskId)}` : '/pcs/engineering/design-revision',
     fields,
   }
 }
@@ -747,7 +746,7 @@ function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): Resolve
   if (relation.sourceObjectType === '渠道店铺商品' || relation.sourceObjectType === '渠道商品') {
     return resolveChannelProductRelationObject(relation, meta)
   }
-  if (relation.sourceObjectType === '改版任务') return resolveRevisionTaskRelationObject(relation)
+  if (relation.sourceObjectType === '设计改款任务') return resolveDesignRevisionTaskRelationObject(relation)
   if (relation.sourceObjectType === '制版任务') return resolvePlateTaskRelationObject(relation)
   if (relation.sourceObjectType === '花型任务') return resolvePatternTaskRelationObject(relation)
   if (relation.sourceObjectType === '首版样衣打样任务') return resolveFirstSampleRelationObject(relation)

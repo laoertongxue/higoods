@@ -93,8 +93,8 @@ export interface ProjectChannelProductRecord extends PcsProjectChannelProductRec
   conclusion: ProjectTestingConclusion
   testingStatusText: string
   listingInstanceCode: string
-  linkedRevisionTaskId: string
-  linkedRevisionTaskCode: string
+  linkedDesignRevisionTaskId: string
+  linkedDesignRevisionTaskCode: string
   linkedLiveLineId: string
   linkedLiveLineCode: string
   linkedVideoRecordId: string
@@ -128,7 +128,7 @@ export interface ProjectChannelProductChainSummary {
   linkedTechPackVersionStatus: string
   currentConclusion: ProjectTestingConclusion
   invalidatedReason: string
-  linkedRevisionTaskCode: string
+  linkedDesignRevisionTaskCode: string
   summaryText: string
   channelProducts: ProjectChannelProductRecord[]
 }
@@ -221,8 +221,6 @@ export interface ProjectChannelProductWriteResult {
   record: ProjectChannelProductRecord | null
   relationCount?: number
   summaryText?: string
-  revisionTaskId?: string
-  revisionTaskCode?: string
 }
 
 interface ChannelProductStoreSnapshot {
@@ -256,8 +254,8 @@ interface ChannelSeed {
   effectiveAt?: string
   invalidatedAt?: string
   lastUpstreamSyncAt?: string
-  linkedRevisionTaskId?: string
-  linkedRevisionTaskCode?: string
+  linkedDesignRevisionTaskId?: string
+  linkedDesignRevisionTaskCode?: string
   linkedLiveLineId?: string
   linkedLiveLineCode?: string
   linkedVideoRecordId?: string
@@ -836,8 +834,8 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     conclusion: seed.conclusion || '',
     testingStatusText: buildTestingStatusText(seed),
     listingInstanceCode: `LIST-${project.projectCode.slice(-10).replace(/-/g, '')}-${seed.sequence}`,
-    linkedRevisionTaskId: seed.linkedRevisionTaskId || '',
-    linkedRevisionTaskCode: seed.linkedRevisionTaskCode || '',
+    linkedDesignRevisionTaskId: seed.linkedDesignRevisionTaskId || '',
+    linkedDesignRevisionTaskCode: seed.linkedDesignRevisionTaskCode || '',
     linkedLiveLineId: seed.linkedLiveLineId || '',
     linkedLiveLineCode: seed.linkedLiveLineCode || '',
     linkedVideoRecordId: seed.linkedVideoRecordId || '',
@@ -893,8 +891,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       invalidatedAt: '2026-03-25 18:20',
       conclusion: '',
       invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
-      linkedRevisionTaskId: 'RT-20260109-003',
-      linkedRevisionTaskCode: 'RT-20260109-003',
+      linkedDesignRevisionTaskId: 'ES-DR-003',
+      linkedDesignRevisionTaskCode: 'ES-DR-003',
       linkedVideoRecordId: 'SV-20260122-008',
       linkedVideoRecordCode: 'SV-20260122-008',
       upstreamSyncNote: '测款未通过，已停止后续渠道更新。',
@@ -913,10 +911,10 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       upstreamSyncStatus: '无需更新',
       createdAt: '2026-03-26 09:30',
       updatedAt: '2026-03-26 09:30',
-      linkedRevisionTaskId: 'RT-20260109-003',
-      linkedRevisionTaskCode: 'RT-20260109-003',
-      upstreamSyncNote: '改版任务已建立，等待重新上架。',
-      upstreamSyncLog: '改版任务已建立，等待重新上架。',
+      linkedDesignRevisionTaskId: 'ES-DR-003',
+      linkedDesignRevisionTaskCode: 'ES-DR-003',
+      upstreamSyncNote: '设计改款任务已建立，等待重新上架。',
+      upstreamSyncLog: '设计改款任务已建立，等待重新上架。',
     },
     {
       projectCode: 'PRJ-20251216-008',
@@ -1159,12 +1157,12 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       invalidatedAt: '2026-03-29 18:10',
       conclusion: '',
       invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
-      linkedRevisionTaskId: 'RT-20260401-016',
-      linkedRevisionTaskCode: 'RT-20260401-016',
+      linkedDesignRevisionTaskId: '',
+      linkedDesignRevisionTaskCode: '',
       linkedLiveLineId: 'LS-20260329-016__item-001',
       linkedLiveLineCode: 'LS-20260329-016-L01',
-      upstreamSyncNote: '测款未通过，已转改版任务。',
-      upstreamSyncLog: '测款未通过，已转改版任务。',
+      upstreamSyncNote: '测款未通过，已进入样衣退回处理。',
+      upstreamSyncLog: '测款未通过，未自动创建设计改款任务。',
     },
     {
       projectCode: 'PRJ-20251216-017',
@@ -1182,8 +1180,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       invalidatedAt: '2026-03-31 17:20',
       conclusion: '',
       invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
-      linkedRevisionTaskId: 'RT-20260401-017',
-      linkedRevisionTaskCode: 'RT-20260401-017',
+      linkedDesignRevisionTaskId: 'ES-DR-017',
+      linkedDesignRevisionTaskCode: 'ES-DR-017',
       linkedLiveLineId: 'LS-20260331-017__item-001',
       linkedLiveLineCode: 'LS-20260331-017-L01',
       upstreamSyncNote: '历史测款结论待重新确认。',
@@ -1205,8 +1203,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       invalidatedAt: '2026-04-01 18:20',
       conclusion: '',
       invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
-      linkedRevisionTaskId: 'RT-20260402-018',
-      linkedRevisionTaskCode: 'RT-20260402-018',
+      linkedDesignRevisionTaskId: 'ES-DR-018',
+      linkedDesignRevisionTaskCode: 'ES-DR-018',
       linkedLiveLineId: 'LS-20260331-017__item-001',
       linkedLiveLineCode: 'LS-20260331-017-L01',
       linkedVideoRecordId: 'SV-PJT-018',
@@ -2548,7 +2546,7 @@ export function buildProjectChannelProductChainSummary(projectId: string): Proje
     ),
     currentConclusion: currentRecord?.conclusion || '',
     invalidatedReason: currentRecord?.invalidatedReason || '',
-    linkedRevisionTaskCode: currentRecord?.linkedRevisionTaskCode || '',
+    linkedDesignRevisionTaskCode: currentRecord?.linkedDesignRevisionTaskCode || '',
     summaryText: buildSummaryText(currentRecord, styleStatus, activeRecords.length),
     channelProducts: records,
   }
@@ -2746,8 +2744,8 @@ export function createProjectChannelProductFromListingNode(
     conclusion: '',
     testingStatusText: '已创建渠道店铺商品，等待发起上架',
     listingInstanceCode: `LIST-${project.projectCode.slice(-7).replace(/-/g, '')}-${sequence}`,
-    linkedRevisionTaskId: '',
-    linkedRevisionTaskCode: '',
+    linkedDesignRevisionTaskId: '',
+    linkedDesignRevisionTaskCode: '',
     linkedLiveLineId: '',
     linkedLiveLineCode: '',
     linkedVideoRecordId: '',

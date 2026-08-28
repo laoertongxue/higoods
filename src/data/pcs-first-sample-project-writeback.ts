@@ -11,7 +11,6 @@ import {
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import { listPlateMakingTasksByProject } from './pcs-plate-making-repository.ts'
 import { listPatternTasksByProject } from './pcs-pattern-task-repository.ts'
-import { listRevisionTasksByProject } from './pcs-revision-task-repository.ts'
 import { nowTaskText } from './pcs-task-source-normalizer.ts'
 import type { FirstSampleProjectRelationMeta, FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
@@ -49,7 +48,6 @@ export function resolveFirstSampleProjectDefaults(projectId: string): FirstSampl
   const project = getProjectById(projectId)
   if (!project) return null
   const plateTask = sortByUpdatedAtDesc(listPlateMakingTasksByProject(projectId))[0]
-  const revisionTask = sortByUpdatedAtDesc(listRevisionTasksByProject(projectId))[0]
   const patternTask = sortByUpdatedAtDesc(listPatternTasksByProject(projectId))[0]
   const source = plateTask
     ? {
@@ -60,16 +58,7 @@ export function resolveFirstSampleProjectDefaults(projectId: string): FirstSampl
         versionCode: plateTask.linkedTechPackVersionCode,
         versionLabel: plateTask.linkedTechPackVersionLabel,
       }
-    : revisionTask
-      ? {
-          sourceTaskType: '改版任务',
-          sourceTaskId: revisionTask.revisionTaskId,
-          sourceTaskCode: revisionTask.revisionTaskCode,
-          versionId: revisionTask.linkedTechPackVersionId,
-          versionCode: revisionTask.linkedTechPackVersionCode,
-          versionLabel: revisionTask.linkedTechPackVersionLabel,
-        }
-      : patternTask
+    : patternTask
         ? {
             sourceTaskType: '花型任务',
             sourceTaskId: patternTask.patternTaskId,

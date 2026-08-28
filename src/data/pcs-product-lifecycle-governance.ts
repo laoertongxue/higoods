@@ -137,7 +137,7 @@ export const CHANNEL_PRODUCT_STATUS_RULES: Record<ChannelProductBusinessStatusKe
     label: '已作废',
     className: 'border-slate-200 bg-slate-100 text-slate-600',
     scene: '测款结论不是通过，或后续链路已转入改版，当前渠道店铺商品不再继续使用。',
-    operations: ['查看作废原因', '查看改版任务', '查看历史链路'],
+    operations: ['查看作废原因', '查看设计改款任务', '查看历史链路'],
   },
 }
 

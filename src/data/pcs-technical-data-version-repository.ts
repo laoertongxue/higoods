@@ -7,10 +7,7 @@ import {
   resolveEngineeringBomMaterialLine,
 } from './pcs-engineering-bom-material-resolver.ts'
 import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
-import {
-  getEngineeringChangeTaskById,
-  getEngineeringMasterOrderById,
-} from './pcs-engineering-master-repository.ts'
+import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   validateTechPackDesignRequirement,
@@ -186,7 +183,7 @@ function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
 function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRecord {
   return {
     ...record,
-    linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
+    linkedDesignRevisionTaskIds: [...(record.linkedDesignRevisionTaskIds ?? [])],
     linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],
     linkedArtworkTaskIds: [...(record.linkedArtworkTaskIds ?? [])],
     linkedPartTemplateIds: [...(record.linkedPartTemplateIds ?? [])],
@@ -337,62 +334,38 @@ function normalizeDomainStatus(value: string | null | undefined): TechnicalDomai
 
 function normalizeSourceTaskType(
   value: string | null | undefined,
-  record?: Pick<TechnicalDataVersionRecord, 'linkedRevisionTaskIds' | 'linkedPatternTaskIds' | 'linkedArtworkTaskIds'>,
 ): StoredTechPackSourceTaskType {
-  if (value === 'ENGINEERING_MASTER' || value === 'ENGINEERING_CHANGE') return value
-  if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK' || value === 'MANUAL') return value
-  if ((record?.linkedRevisionTaskIds?.length ?? 0) > 0) return 'REVISION'
-  if ((record?.linkedPatternTaskIds?.length ?? 0) > 0) return 'PLATE'
-  if ((record?.linkedArtworkTaskIds?.length ?? 0) > 0) return 'ARTWORK'
-  return 'REVISION'
+  if (value !== 'ENGINEERING_MASTER') {
+    throw new Error('技术包版本必须来源于工程主单。')
+  }
+  return value
 }
 
 function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
-  if (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE') {
-    throw new Error('技术包新版本只能由工程主单或工程变更任务生成。')
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER') {
+    throw new Error('技术包新版本只能由工程主单生成。')
   }
   if (!record.sourceProjectId.trim() || !record.createdFromTaskId.trim()) {
     throw new Error('技术包必须同时记录来源对象和来源任务。')
   }
 
-  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
-    const master = getEngineeringMasterOrderById(record.sourceProjectId)
-    if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
-    const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
-    if (!sourceTask) {
-      throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
-    }
-    if (sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
-      throw new Error('工程主单来源任务必须是技术包确认任务。')
-    }
-    if (master.styleId !== record.styleId) {
-      throw new Error('技术包款式与工程主单款式不一致。')
-    }
-    return
+  const master = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
+  const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
+  if (!sourceTask) {
+    throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
   }
-
-  const changeTask = getEngineeringChangeTaskById(record.sourceProjectId)
-  if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
-  if (changeTask.engineeringChangeTaskId !== record.createdFromTaskId) {
-    throw new Error('技术包来源对象与工程变更任务不一致。')
+  if (sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
+    throw new Error('工程主单来源任务必须是技术包确认任务。')
   }
-  if (changeTask.styleId !== record.styleId) {
-    throw new Error('技术包款式与工程变更任务款式不一致。')
+  if (master.styleId !== record.styleId) {
+    throw new Error('技术包款式与工程主单款式不一致。')
   }
-}
-
-function isPublishedLegacyTechnicalVersion(record: TechnicalDataVersionRecord | undefined): boolean {
-  return Boolean(
-    record?.versionStatus === 'PUBLISHED' &&
-    ['REVISION', 'PLATE', 'ARTWORK', 'MANUAL'].includes(record.createdFromTaskType),
-  )
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
-  if (value === '制版生成' || value === '花型写入' || value === '花型替换' || value === '改版生成' || value === '手动新增') {
-    return value
-  }
-  return '改版生成'
+  void value
+  return '工程主单生成'
 }
 
 function normalizeGarmentDifficultyGrade(value: unknown): TechnicalGarmentDifficultyGrade {
@@ -718,10 +691,10 @@ function applyDerivedFields(
       sourceMaterialLineIds: [...(target.sourceMaterialLineIds ?? [])],
     })),
     ...derived,
-    linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
+    linkedDesignRevisionTaskIds: [...(record.linkedDesignRevisionTaskIds ?? [])],
     linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],
     linkedArtworkTaskIds: [...(record.linkedArtworkTaskIds ?? [])],
-    createdFromTaskType: normalizeSourceTaskType(record.createdFromTaskType, record),
+    createdFromTaskType: normalizeSourceTaskType(record.createdFromTaskType),
     createdFromTaskId: record.createdFromTaskId || '',
     createdFromTaskCode: record.createdFromTaskCode || '',
     primaryPlateTaskId: record.primaryPlateTaskId || '',
@@ -759,10 +732,10 @@ function normalizeRecord(
     {
       ...cloneRecord(rawRecord),
       sourceProjectNodeId: rawRecord.sourceProjectNodeId || '',
-      linkedRevisionTaskIds: [...(rawRecord.linkedRevisionTaskIds ?? [])],
+      linkedDesignRevisionTaskIds: [...(rawRecord.linkedDesignRevisionTaskIds ?? [])],
       linkedPatternTaskIds: [...(rawRecord.linkedPatternTaskIds ?? [])],
       linkedArtworkTaskIds: [...(rawRecord.linkedArtworkTaskIds ?? [])],
-      createdFromTaskType: normalizeSourceTaskType(rawRecord.createdFromTaskType, rawRecord),
+      createdFromTaskType: normalizeSourceTaskType(rawRecord.createdFromTaskType),
       createdFromTaskId: rawRecord.createdFromTaskId || '',
       createdFromTaskCode: rawRecord.createdFromTaskCode || '',
       primaryPlateTaskId: rawRecord.primaryPlateTaskId || '',
@@ -986,7 +959,7 @@ export function getCurrentTechPackVersionByStyleId(styleId: string): TechnicalDa
 function isNewEngineeringTechnicalVersion(
   record: TechnicalDataVersionRecord | null | undefined,
 ): record is TechnicalDataVersionRecord {
-  return record?.createdFromTaskType === 'ENGINEERING_MASTER' || record?.createdFromTaskType === 'ENGINEERING_CHANGE'
+  return record?.createdFromTaskType === 'ENGINEERING_MASTER'
 }
 
 function assertCallerDidNotProvideEngineeringBomPricingSnapshot(
@@ -1023,9 +996,6 @@ export function updateTechnicalDataVersionRecord(
   const snapshot = loadSnapshot()
   const index = snapshot.records.findIndex((item) => item.technicalVersionId === technicalVersionId)
   if (index < 0) return null
-  if (isPublishedLegacyTechnicalVersion(snapshot.records[index])) {
-    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
-  }
   const immutableSourceKeys = [
     'styleId',
     'styleCode',
@@ -1064,9 +1034,6 @@ export function updateTechnicalDataVersionContent(
 ): TechnicalDataVersionContent | null {
   const snapshot = loadSnapshot()
   const targetRecord = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
-  if (isPublishedLegacyTechnicalVersion(targetRecord)) {
-    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
-  }
   assertCallerDidNotProvideEngineeringBomPricingSnapshot(
     targetRecord,
     Object.prototype.hasOwnProperty.call(patch, 'bomPricingSnapshot'),
@@ -1131,7 +1098,7 @@ function buildPublishedTechnicalDataVersionBomPricingSnapshot(
     !record
     || record.versionStatus !== 'PUBLISHED'
     || record.reviewStage !== '已发布'
-    || (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE')
+    || record.createdFromTaskType !== 'ENGINEERING_MASTER'
   ) {
     throw new Error('只有已审核发布的新工程来源技术包可以形成正式 BOM/COST 快照。')
   }

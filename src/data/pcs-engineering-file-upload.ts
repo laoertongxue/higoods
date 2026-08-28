@@ -2,6 +2,7 @@
 
 export type EngineeringUploadPurpose =
   | 'STYLE_IMAGE'
+  | 'DESIGN_IMAGE'
   | 'PATTERN_SOURCE'
   | 'PATTERN_PREVIEW'
   | 'PATTERN_ARTWORK'
@@ -36,9 +37,18 @@ export interface EngineeringUploadRule {
 }
 
 const MB = 1024 * 1024
+let fallbackUploadSequence = 0
+
+function createEngineeringUploadFileId(index: number): string {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  if (uuid) return `ENG-FILE-${uuid}`
+  fallbackUploadSequence += 1
+  return `ENG-FILE-${Date.now().toString(36)}-${fallbackUploadSequence.toString(36).padStart(4, '0')}-${String(index + 1).padStart(2, '0')}`
+}
 
 export const ENGINEERING_UPLOAD_RULES: Record<EngineeringUploadPurpose, EngineeringUploadRule> = {
   STYLE_IMAGE: { label: '款式图片', accept: '.jpg,.jpeg,.png,.webp', extensions: ['jpg', 'jpeg', 'png', 'webp'], maxSizeBytes: 5 * MB },
+  DESIGN_IMAGE: { label: '设计稿', accept: '.jpg,.jpeg,.png,.webp', extensions: ['jpg', 'jpeg', 'png', 'webp'], maxSizeBytes: 5 * MB },
   PATTERN_SOURCE: { label: '纸样源文件', accept: '.prj,.dxf,.rul,.pdf', extensions: ['prj', 'dxf', 'rul', 'pdf'], maxSizeBytes: 8 * MB },
   PATTERN_PREVIEW: { label: '纸样预览图', accept: '.jpg,.jpeg,.png,.webp,.pdf', extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'], maxSizeBytes: 5 * MB },
   PATTERN_ARTWORK: { label: '花型成果', accept: '.jpg,.jpeg,.png,.webp,.pdf,.ai,.psd', extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'ai', 'psd'], maxSizeBytes: 8 * MB },
@@ -95,7 +105,7 @@ export async function captureEngineeringUploadedFiles(input: {
   files.forEach((file) => validateEngineeringUploadFile(file, input.purpose))
   const uploadedAt = input.uploadedAt || nowText()
   return Promise.all(files.map(async (file, index) => ({
-    fileId: `ENG-FILE-${Date.now().toString(36)}-${String(index + 1).padStart(2, '0')}`,
+    fileId: createEngineeringUploadFileId(index),
     purpose: input.purpose,
     fileName: file.name,
     extension: getEngineeringFileExtension(file.name),

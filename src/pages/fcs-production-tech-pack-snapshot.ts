@@ -676,7 +676,9 @@ export function renderFcsProductionTechPackSnapshotPage(productionOrderId: strin
   }
 
   const taskChain = [
-    source.record.linkedRevisionTaskIds.length > 0 ? `改版任务 ${source.record.linkedRevisionTaskIds.length}` : '',
+    source.record.linkedDesignRevisionTaskIds.length > 0
+      ? `设计改款来源 ${source.record.linkedDesignRevisionTaskIds.length}`
+      : '',
     source.record.linkedPatternTaskIds.length > 0 ? `制版任务 ${source.record.linkedPatternTaskIds.length}` : '',
     source.record.linkedArtworkTaskIds.length > 0 ? `花型任务 ${source.record.linkedArtworkTaskIds.length}` : '',
   ]

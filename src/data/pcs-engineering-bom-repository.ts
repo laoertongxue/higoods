@@ -324,7 +324,7 @@ export interface ReconcileEngineeringBomVersionsForTargetColorsInput {
   createdAt?: string
 }
 
-// 独立打样的 BOM 颜色只能来自买手已经确认的“目标颜色”。
+// 设计改款任务的 BOM 颜色只能来自买手已经确认的“目标颜色”。
 // 这里不读取目标款历史 BOM，也不按目标款档案中的原有颜色提前建 BOM。
 export function reconcileEngineeringBomVersionsForTargetColors(
   input: ReconcileEngineeringBomVersionsForTargetColorsInput,
@@ -567,7 +567,7 @@ export function reopenEngineeringBomPricingPlanForEditing(input: {
 
 /**
  * 以一个事务性写入替换整款方案的全部颜色物料和共享费用。
- * 技术包审核、工程变更都通过这里把页面事实同步回同一份整款方案。
+ * 技术包审核通过这里把页面事实同步回同一份整款方案。
  */
 export function replaceEngineeringBomPricingPlanDraft(input: {
   ownerStage: EngineeringBomOwnerStage

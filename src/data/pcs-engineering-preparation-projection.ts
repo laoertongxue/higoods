@@ -56,7 +56,7 @@ function taskByType(master: EngineeringMasterOrderRecord): Map<EngineeringTaskTy
   const result = new Map<EngineeringTaskType, EngineeringTaskRecord>()
   for (const task of master.tasks) {
     // 生产准备时效只读取工程主单生成的专业任务。
-    // 独立改款／设计打样即使被错误塞入 tasks 也不得进入时效投影。
+    // 设计改款任务即使被错误塞入 tasks 也不得进入时效投影。
     if (task.sourceType !== 'ENGINEERING_MASTER') continue
     const current = result.get(task.taskType)
     if (!current || task.taskId.localeCompare(current.taskId) < 0) result.set(task.taskType, task)

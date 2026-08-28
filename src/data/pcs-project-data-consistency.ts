@@ -512,7 +512,7 @@ export function repairPcsProjectDataConsistency(
     '款式档案',
     '技术包',
     '项目资料归档',
-    '改版任务',
+    '设计改款任务',
     '制版任务',
     '花型任务',
     '首版样衣打样',

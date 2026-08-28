@@ -1,5 +1,5 @@
 // 生产工程专业任务：共享类型、状态、公共渲染与列表公共骨架
-// 由 pcs-engineering-tasks.ts（改款、制版、产前版样衣）与专业任务页共用。
+// 由 pcs-engineering-tasks.ts（制版、产前版样衣）与专业任务页共用。
 // 本文件不依赖任何页面模块，避免循环依赖；页面模块只能单向依赖本文件。
 
 import { renderSecondaryButton } from '../../components/ui/button.ts'
@@ -27,7 +27,7 @@ import { findStyleArchiveByProjectId, listStyleArchives } from '../../data/pcs-s
 import { listProjectRelationsBySourceObject } from '../../data/pcs-project-relation-repository.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../../utils.ts'
 
-export type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'color' | 'purchase' | 'techPack'
+export type ModuleKey = 'plate' | 'pattern' | 'firstSample' | 'color' | 'purchase' | 'techPack'
 
 export interface EngineeringLog {
   time: string
@@ -64,7 +64,6 @@ export interface EngineeringListUiState {
 export const ENGINEERING_LIST_PAGE_SIZES = [8, 20, 50]
 export const ENGINEERING_LIST_MAX_FROZEN_WIDTH = 520
 export const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
-  revision: 'higood:list-page:/pcs/patterns/revision',
   plate: 'higood:list-page:/pcs/patterns/plate-making',
   pattern: 'higood:list-page:/pcs/patterns/artwork',
   firstSample: 'higood:list-page:/pcs/samples/first-sample',
@@ -73,18 +72,6 @@ export const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
   techPack: 'higood:list-page:/pcs/engineering/tech-pack',
 }
 export const ENGINEERING_LIST_COLUMN_RULES: Record<ModuleKey, StandardListColumnRule[]> = {
-  revision: [
-    { key: 'image', required: true, freezeable: true },
-    { key: 'task', required: true, freezeable: true },
-    { key: 'project', freezeable: true },
-    { key: 'style' },
-    { key: 'scope' },
-    { key: 'retest' },
-    { key: 'techPack' },
-    { key: 'status', required: true, freezeable: true },
-    { key: 'updated', freezeable: true },
-    { key: 'actions', required: true, actionColumn: true },
-  ],
   plate: [
     { key: 'image', required: true, freezeable: true },
     { key: 'task', required: true, freezeable: true },
@@ -185,12 +172,8 @@ export const COMMON_STATUS_META: Record<string, { label: string; className: stri
 }
 
 export const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['未启用', '待前置', '待开始', '进行中', '待审核', '返工中', '已完成', '因需求变更结束']
-export const REVISION_FILTER_STATUS_OPTIONS = ENGINEERING_COMMON_FILTER_STATUS_OPTIONS
-
 export const state = {
   notice: null as string | null,
-  revisionList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
-
   plateList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
 
   patternList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -203,7 +186,6 @@ export const state = {
 }
 
 export const engineeringListUiState: Record<ModuleKey, EngineeringListUiState> = {
-  revision: createEngineeringListUiState('revision'),
   plate: createEngineeringListUiState('plate'),
   pattern: createEngineeringListUiState('pattern'),
   firstSample: createEngineeringListUiState('firstSample'),
@@ -212,7 +194,6 @@ export const engineeringListUiState: Record<ModuleKey, EngineeringListUiState> =
   techPack: createEngineeringListUiState('techPack'),
 }
 export const engineeringListPreferencesLoaded: Record<ModuleKey, boolean> = {
-  revision: false,
   plate: false,
   pattern: false,
   firstSample: false,
@@ -222,7 +203,6 @@ export const engineeringListPreferencesLoaded: Record<ModuleKey, boolean> = {
 }
 
 export const runtimeLogs: Record<ModuleKey, Map<string, EngineeringLog[]>> = {
-  revision: new Map(),
   plate: new Map(),
   pattern: new Map(),
   firstSample: new Map(),
@@ -415,13 +395,13 @@ export function withEngineeringListLocalInteractions(module: ModuleKey, html: st
         'toggle-column-visibility',
         'toggle-column-freeze',
       ])
-      if (!localActions.has(action) && !/^set-(revision|plate|pattern|first-sample|first-order|color|purchase|tech-pack)-quick-filter$/.test(action)) {
+      if (!localActions.has(action) && !/^set-(plate|pattern|first-sample|first-order|color|purchase|tech-pack)-quick-filter$/.test(action)) {
         return attribute
       }
       return `data-skip-page-rerender="true" data-pcs-engineering-list-module="${module}" ${attribute}`
     })
     .replace(/data-pcs-engineering-field="([^"]+)"/g, (attribute, field: string) => {
-      if (field !== 'pageSize' && !/^(revision|plate|pattern|first-sample|first-order|color|purchase|tech-pack)-(search|status|owner|source|site)$/.test(field)) {
+      if (field !== 'pageSize' && !/^(plate|pattern|first-sample|first-order|color|purchase|tech-pack)-(search|status|owner|source|site)$/.test(field)) {
         return attribute
       }
       return `data-skip-page-rerender="true" data-pcs-engineering-list-module="${module}" ${attribute}`
@@ -606,11 +586,6 @@ export function styleArchiveLinkByProject(projectId: string): string {
   const style = findStyleArchiveByProjectId(projectId)
   if (!style) return '<span class="text-slate-400">待建立</span>'
   return `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}">${escapeHtml(style.styleCode)}</button>`
-}
-
-export function revisionTaskNewTabLink(revisionTaskId: string, revisionTaskCode: string): string {
-  if (!revisionTaskId) return '<span class="text-slate-400">未创建改版任务</span>'
-  return `<a class="font-medium text-blue-700 hover:underline" href="/pcs/engineering/revision-sampling/${escapeHtml(revisionTaskId)}" target="_blank" rel="noreferrer">${escapeHtml(revisionTaskCode || '查看改款打样')}</a>`
 }
 
 export function styleArchiveLink(
@@ -865,7 +840,7 @@ export function renderProjectContext(task: {
 export function getEngineeringListModule(node: HTMLElement): ModuleKey | null {
   const value = node.dataset.pcsEngineeringListModule
     || node.closest<HTMLElement>('[data-pcs-engineering-list-module]')?.dataset.pcsEngineeringListModule
-  return value === 'revision' || value === 'plate' || value === 'pattern' || value === 'firstSample' || value === 'color' || value === 'purchase' || value === 'techPack'
+  return value === 'plate' || value === 'pattern' || value === 'firstSample' || value === 'color' || value === 'purchase' || value === 'techPack'
     ? value
     : null
 }
@@ -915,7 +890,7 @@ export function getEngineeringListRows(module: ModuleKey): EngineeringListRow[] 
 }
 
 export function getEngineeringListState(module: ModuleKey): ListState | SampleListState {
-  return engineeringListModuleHooks[module]?.getState() || state.revisionList
+  return engineeringListModuleHooks[module]?.getState() || state.plateList
 }
 
 export function getEngineeringListEmptyText(module: ModuleKey): string {

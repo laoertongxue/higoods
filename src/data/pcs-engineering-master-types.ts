@@ -22,10 +22,8 @@ export type EngineeringPreparationType =
 export type EngineeringMasterCreationMode = 'MANUAL' | 'SYSTEM'
 
 export type EngineeringTaskSourceType =
-  | 'INDEPENDENT_REVISION_SAMPLING'
-  | 'INDEPENDENT_DESIGN_SAMPLING'
+  | 'INDEPENDENT_DESIGN_REVISION'
   | 'ENGINEERING_MASTER'
-  | 'ENGINEERING_CHANGE'
 
 export interface EngineeringFirstProductionQualificationFact {
   styleCode: string
@@ -37,7 +35,7 @@ export interface EngineeringFirstProductionQualificationFact {
 }
 
 export interface EngineeringBulkProductionQualification {
-  basisType: 'TEST_APPROVED' | 'REVISION_READY' | 'DESIGN_READY' | 'OTHER_CONFIRMED'
+  basisType: 'TEST_APPROVED' | 'DESIGN_REVISION_READY' | 'OTHER_CONFIRMED'
   triggerBusinessObjectType: string
   triggerBusinessObjectId: string
   thresholdQuantity: number | null
@@ -230,7 +228,7 @@ export interface EngineeringTaskRecord {
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
   colorResultCompletedAt: string
-  // 统一专业任务列表的只读导航信息。工程主单任务不填写；独立打样与工程变更投影时填写。
+  // 统一专业任务列表的只读导航信息。工程主单任务不填写；设计改款任务投影时填写。
   detailPath?: string
   sourceBusinessCode?: string
   sourceBusinessName?: string
@@ -283,30 +281,12 @@ export interface EngineeringMasterOrderRecord {
   terminateReason: string
 }
 
-export type EngineeringChangeTaskStatus = '进行中' | '已完成'
-
-export interface EngineeringChangeTaskRecord {
-  engineeringChangeTaskId: string
-  engineeringChangeTaskCode: string
-  title: string
-  sourceMasterOrderId: string
-  sourceMasterOrderCode: string
-  styleId: string
-  styleCode: string
-  styleName: string
-  status: EngineeringChangeTaskStatus
-  createdAt: string
-  createdBy: string
-  completedAt: string
-}
-
 export interface EngineeringMasterOrderSnapshot {
   version: number
   records: EngineeringMasterOrderRecord[]
-  changeTasks?: EngineeringChangeTaskRecord[]
 }
 
-export type EngineeringIndependentSamplingType = 'REVISION' | 'DESIGN'
+export type EngineeringIndependentSamplingType = 'DESIGN_REVISION'
 export type EngineeringIndependentSamplingStatus = 'DRAFT' | 'IN_PROGRESS' | 'WAIT_CONFIRMATION' | 'COMPLETED'
 export type EngineeringIndependentProfessionalTaskType = 'BASE_PATTERN' | 'DISPLAY_SAMPLE' | 'PATTERN_ARTWORK' | 'COLOR_YARN' | 'COLOR_FABRIC'
 export type EngineeringIndependentProfessionalTaskStatus = 'WAIT_DEPENDENCY' | 'WAIT_START' | 'IN_PROGRESS' | 'WAIT_REVIEW' | 'REWORK' | 'COMPLETED'
@@ -364,7 +344,7 @@ export interface EngineeringIndependentColorMapping {
   targetColor: string
   targetSkuIds: string[]
   targetSizeNames: string[]
-  mappingType: '参考 A 款颜色' | '无参考颜色' | '沿用颜色' | '改为新颜色' | 'B 款新增颜色'
+  mappingType: '参考 A 款颜色' | '无参考颜色'
   confirmedBy: string
   confirmedAt: string
 }
@@ -421,6 +401,7 @@ export interface EngineeringIndependentSamplingRecord {
   targetStyleName: string
   status: EngineeringIndependentSamplingStatus
   creationReason: string
+  designFiles: EngineeringUploadedFile[]
   merchandiserId: string
   merchandiserName: string
   relatedProfessionalTaskIds: string[]
