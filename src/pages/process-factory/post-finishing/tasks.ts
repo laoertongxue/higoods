@@ -151,14 +151,14 @@ function renderTaskDetail(task: PostFinishingTaskView): string {
       <div class="flex flex-wrap gap-2">
         ${renderPostAction('创建质检单', createQcLink(task), task.waitQcQty <= 0)}
         ${renderPostAction('查看质检单', taskQcListLink(task))}
-        ${renderPostAction('查看实际工序单', `/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.productionOrderNo)}`)}
+        ${renderPostAction('查看后道单', `/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.productionOrderNo)}`)}
         ${renderPostAction('查看复检单', `/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(task.productionOrderNo)}`)}
         ${renderPostAction('打印流转卡', buildTaskRouteCardPrintLink('POST_FINISHING_TASK', task.postTaskId))}
       </div>
       <div class="grid gap-4 xl:grid-cols-2">
         ${renderPostSection('待质检库存', renderPostTable(['SKU', '颜色 / 尺码', '待质检数量', '库区 / 库位'], waitRows || '<tr><td colspan="4" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无待质检库存</td></tr>', 'min-w-[620px]'))}
         ${renderPostSection('质检单', renderPostTable(['质检单号', '状态', '质检数量', '合格数量', '质检人'], qcRows || '<tr><td colspan="5" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无质检单</td></tr>', 'min-w-[720px]'))}
-        ${renderPostSection('实际工序单', renderPostTable(['实际工序单号', '实际工序', '状态', '数量'], postRows || '<tr><td colspan="4" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无实际工序单</td></tr>', 'min-w-[620px]'))}
+        ${renderPostSection('后道单', renderPostTable(['后道单号', '实际工序', '状态', '数量'], postRows || '<tr><td colspan="4" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无后道单</td></tr>', 'min-w-[620px]'))}
         ${renderPostSection('复检单', renderPostTable(['复检单号', '来源', '状态', '合格数量'], recheckRows || '<tr><td colspan="4" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无复检单</td></tr>', 'min-w-[620px]'))}
       </div>
     </div>
@@ -178,9 +178,9 @@ export function renderPostFinishingTasksPage(): string {
   const rows = renderTaskRows(pagination.rows)
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道阶段处理')}
+      ${renderPostFinishingPageHeader('后道任务')}
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderPostMetricCard('后道阶段处理记录', String(tasks.length), '生产单级流程记录')}
+        ${renderPostMetricCard('后道任务', String(tasks.length), '生产单级流程记录')}
         ${renderPostMetricCard('计划数量', formatGarmentQty(totalPlannedQty), '全部生产单')}
         ${renderPostMetricCard('待质检数量', formatGarmentQty(totalWaitQcQty), '可创建质检单')}
         ${renderPostMetricCard('待交出数量', formatGarmentQty(totalWaitHandoverQty), '复检完成待交出')}
@@ -190,11 +190,11 @@ export function renderPostFinishingTasksPage(): string {
         statusOptions: tasks.map((task) => task.currentStatus),
         sourceOptions: tasks.map((task) => task.sourceFactoryNames.join('、') || '待上游交出'),
         factoryOptions: tasks.map((task) => task.managedPostFactoryName),
-        keywordPlaceholder: '后道阶段处理编号 / 生产单 / 款式 / 技术包版本',
+        keywordPlaceholder: '后道任务编号 / 生产单 / 款式 / 技术包版本',
       })}
-      ${renderPostSection('后道阶段处理列表', `${renderPostTable(
+      ${renderPostSection('后道任务列表', `${renderPostTable(
         ['处理编号', `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`, '款式衣服', '计划数量', '待质检数量', '已质检数量', '待交出', '上游来源', '操作'],
-        rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道阶段处理记录</td></tr>',
+        rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道任务</td></tr>',
         'min-w-[1280px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
       ${selectedTask ? renderTaskDetail(selectedTask) : ''}

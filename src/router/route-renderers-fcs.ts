@@ -566,6 +566,14 @@ export const renderPostFinishingStatisticsPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/statistics'),
   'renderPostFinishingStatisticsPage',
 )
+export const renderPostFinishingOutboundOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/outbound-orders'),
+  'renderPostFinishingOutboundOrdersPage',
+)
+export const renderPostFinishingOutboundOrderDetailPage = createAsyncRenderer<[string]>(
+  () => import('../pages/process-factory/post-finishing/outbound-orders'),
+  'renderPostFinishingOutboundOrderDetailPage',
+)
 export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-orders'),
   'renderSpecialCraftTaskOrdersPage',

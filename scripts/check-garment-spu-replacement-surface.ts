@@ -156,12 +156,19 @@ includesAll(printRegistry, '打印注册', [
 ])
 includesAll(printTemplate, '打印模板', [
   'renderCode128Barcode',
-  "title: 'HG 出货条码'",
-  "title: '零售条码'",
+  'data-online-print-layout="sku-barcode"',
+  'data-online-print-layout="garment-hangtag"',
+  "@page { size: ${paperSize}",
   "{ label: '日期'",
-  "{ label: '当前 SKU'",
-  '商品资料以商品中心当前有效 SKU 为准',
+  "{ label: 'SKU'",
+  "{ label: 'Kategori'",
+  "{ label: 'Metode pencucian'",
+  "{ label: 'Standar implementasi'",
+  "{ label: 'Kategori keamanan'",
 ])
+for (const forbiddenPrintText of ['来源 SKU', '当前标签已按整色替换', '成衣新条码']) {
+  assert.ok(!printTemplate.includes(forbiddenPrintText), `线上打印样式不得额外显示：${forbiddenPrintText}`)
+}
 
 const scopedSources = [core, replacementPage, relabelTaskPage, printTemplate].join('\n')
 for (const excluded of ['异常对账数量', '销售退回数量', '通用异常平台', '多级替换', '替换审批', '替换回滚']) {

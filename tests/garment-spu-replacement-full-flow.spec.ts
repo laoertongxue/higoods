@@ -4,6 +4,8 @@ const FCS_REPLACEMENT_PATH = '/fcs/craft/post-finishing/garment-spu-replacements
 const WLS_REPLACEMENT_PATH = '/wls/garment-spu-replacements'
 const WLS_RELABEL_TASK_PATH = '/wls/garment-relabel-tasks'
 const PRODUCTION_ORDER_PATH = '/fcs/production/orders'
+const POST_RECHECK_DETAIL_PATH = '/fcs/craft/post-finishing/recheck-orders/PF-RC-001'
+const POST_OUTBOUND_PATH = '/fcs/craft/post-finishing/outbound-orders'
 const STORAGE_KEY = 'higood-fcs-garment-spu-replacement-v2'
 
 async function openPath(page: Page, path: string, rootSelector: string): Promise<Locator> {
@@ -116,11 +118,24 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   const printPage = await context.newPage()
   printPage.on('console', collectConsoleError)
   await printPage.goto(barcodeHref || '', { waitUntil: 'domcontentloaded' })
-  await expect(printPage.locator('body')).toContainText('HG 出货条码')
-  await expect(printPage.locator('body')).toContainText('SKU-015-M-WHT')
+  await expect(printPage.locator('[data-online-print-layout="sku-barcode"]')).not.toHaveCount(0)
+  await expect(printPage.locator('[data-online-print-layout="sku-barcode"]').filter({ hasText: 'SKU-015-M-WHT' })).toHaveCount(1)
+  await expect(printPage.locator('[data-online-print-layout="sku-barcode"]').first().locator('[data-real-barcode]')).toHaveCount(1)
+  await expect(printPage.locator('body')).not.toContainText('来源 SKU')
+  await screenshot(printPage, 'garment-spu-replacement-full-flow-print-online-barcode')
   await printPage.goto(hangtagHref || '', { waitUntil: 'domcontentloaded' })
-  await expect(printPage.locator('body')).toContainText('成衣吊牌打印预览')
-  await expect(printPage.locator('body')).toContainText('SKU-015-M-WHT')
+  const onlineHangtag = printPage.locator('[data-online-print-layout="garment-hangtag"]').first()
+  await expect(onlineHangtag).toBeVisible()
+  await expect(onlineHangtag).toContainText('SPU:')
+  await expect(onlineHangtag).toContainText('Metode pencucian:')
+  await expect(onlineHangtag).toContainText('Standar implementasi:')
+  await expect(onlineHangtag).toContainText('Kategori keamanan:')
+  await expect(onlineHangtag).toContainText('Rp.')
+  await expect(onlineHangtag.locator('[data-online-color-dot]')).toHaveCount(1)
+  await expect(onlineHangtag.locator('img')).toHaveCount(0)
+  await expect(onlineHangtag.locator('[data-real-barcode]')).toHaveCount(2)
+  await expect(printPage.locator('body')).not.toContainText('来源 SKU')
+  await screenshot(printPage, 'garment-spu-replacement-full-flow-print-online-hangtag')
   await printPage.close()
 
   await dialog.getByRole('button', { name: '确认后道工厂在手成衣已全部换码', exact: true }).click()
@@ -183,5 +198,74 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await expect(productionRow.getByText('打印条码', { exact: true })).toBeVisible()
   await expect(productionRow.getByText('打印吊牌', { exact: true })).toBeVisible()
   await screenshot(page, 'garment-spu-replacement-full-flow-06-production-order-ledger')
+  expect(consoleErrors).toEqual([])
+})
+
+test('复检通过生成后道出货单并可按线上版式打印整单和条码', async ({ page, context }) => {
+  test.setTimeout(120_000)
+  const consoleErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+
+  await openPath(page, POST_OUTBOUND_PATH, '[data-post-finishing-outbound-root]')
+  for (const menuTitle of ['后道任务', '后道单', '后道待加工仓', '后道待交出仓', '后道出货单']) {
+    await expectMenuIcon(page, menuTitle)
+  }
+  for (const oldMenuTitle of ['阶段任务', '阶段待加工仓', '阶段待交出仓', '实际工序任务']) {
+    await expect(page.locator('body')).not.toContainText(oldMenuTitle)
+  }
+  const recheckDetail = await openPath(page, POST_RECHECK_DETAIL_PATH, 'body')
+  await expect(recheckDetail.getByRole('button', { name: '完成复检', exact: true })).toBeVisible()
+  await recheckDetail.getByRole('button', { name: '完成复检', exact: true }).click()
+
+  await expect(page.locator('body')).toContainText('复检完成')
+  const outboundEntry = page.getByText('查看后道出货单', { exact: true })
+  await expect(outboundEntry).toBeVisible()
+  await outboundEntry.click()
+
+  const detail = page.locator('[data-post-finishing-outbound-detail-root]')
+  await expect(detail).toBeVisible()
+  await expect(detail).toContainText('后道出货单 FCK')
+  await expect(detail).toContainText('复检完成 → 后道待交出仓')
+  await expect(detail).toContainText('后道待加工仓')
+  await expect(detail).toContainText('后道待交出仓')
+  for (const column of ['图片 / 名称', '类型', 'SKU', '颜色', '尺码', '计划数量', '已入库数量', '单位']) {
+    await expect(detail).toContainText(column)
+  }
+  await screenshot(page, 'post-finishing-outbound-full-flow-01-detail')
+
+  const wholePrintHref = await detail.getByText('打印整单', { exact: true }).getAttribute('data-nav')
+  const barcodePrintHref = await detail.getByText('打印条码', { exact: true }).getAttribute('data-nav')
+  expect(wholePrintHref).toContain('POST_FINISHING_OUTBOUND_ORDER')
+  expect(barcodePrintHref).toContain('POST_FINISHING_OUTBOUND_BARCODE')
+
+  const printPage = await context.newPage()
+  await printPage.goto(wholePrintHref || '', { waitUntil: 'domcontentloaded' })
+  const wholePrint = printPage.locator('[data-post-finishing-outbound-print]')
+  await expect(wholePrint).toBeVisible()
+  for (const text of ['出货单号', '状态', '工厂', '来源动作', '出库仓', '接收仓', '生产单号', '任务单号', '来源对象', '创建时间', '出货明细']) {
+    await expect(wholePrint).toContainText(text)
+  }
+  await screenshot(printPage, 'post-finishing-outbound-full-flow-02-whole-print')
+
+  await printPage.goto(barcodePrintHref || '', { waitUntil: 'domcontentloaded' })
+  const labels = printPage.locator('[data-online-print-layout="sku-barcode"]')
+  await expect(labels).not.toHaveCount(0)
+  await expect(labels.first().locator('[data-real-barcode]')).toHaveCount(1)
+  await expect(labels.first()).toContainText('HG')
+  await expect(printPage.locator('body')).not.toContainText('来源 SKU')
+  await screenshot(printPage, 'post-finishing-outbound-full-flow-03-online-barcode')
+  await printPage.close()
+
+  const listRoot = await openPath(page, POST_OUTBOUND_PATH, '[data-post-finishing-outbound-root]')
+  await expect(listRoot).toContainText('待确认')
+  await expect(listRoot).toContainText('已确认')
+  await expect(listRoot.getByText('详情', { exact: true })).not.toHaveCount(0)
+  await expect(listRoot.getByText('打印整单', { exact: true })).not.toHaveCount(0)
+  await expect(listRoot.getByText('打印条码', { exact: true })).not.toHaveCount(0)
+  await expectNoDocumentOverflow(page)
+  await screenshot(page, 'post-finishing-outbound-full-flow-04-list')
+
   expect(consoleErrors).toEqual([])
 })

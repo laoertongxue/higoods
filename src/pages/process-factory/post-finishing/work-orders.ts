@@ -110,16 +110,16 @@ export function renderPostFinishingWorkOrdersPage(): string {
   const filteredRecords = filterRows(allRecords, filters)
   const pagination = paginatePostRows(filteredRecords, filters)
   return renderStandardListPage({
-    title: '实际工序单',
+    title: '后道单',
     filtersHtml: renderPostFilterPanel({
         filters,
         statusOptions: allRecords.flatMap((order) => [order.currentStatus, order.postStatus]),
         sourceOptions: allRecords.map((order) => order.postProcessItems.join('、')),
         factoryOptions: allRecords.map((order) => order.managedPostFactoryName),
-        keywordPlaceholder: '后道阶段加工单 / 质检单 / 生产单 / 款式 / 实际工序',
+        keywordPlaceholder: '后道单 / 质检单 / 生产单 / 款式 / 实际工序',
     }),
-    listTitle: '实际工序单列表',
-    tableHtml: renderStandardListTable({ columns: WORK_ORDER_COLUMNS, rows: pagination.rows, preferences: { ...WORK_ORDER_PREFERENCES, pageSize: pagination.pageSize }, sort: null, eventPrefix: 'post-work-orders', emptyText: '暂无实际工序单' }),
+    listTitle: '后道单列表',
+    tableHtml: renderStandardListTable({ columns: WORK_ORDER_COLUMNS, rows: pagination.rows, preferences: { ...WORK_ORDER_PREFERENCES, pageSize: pagination.pageSize }, sort: null, eventPrefix: 'post-work-orders', emptyText: '暂无后道单' }),
     paginationHtml: renderWorkOrderPagination(pagination),
   })
 }

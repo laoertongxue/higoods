@@ -62,6 +62,7 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'POST_FINISHING_QC_ORDER') return 'POST_FINISHING_QC_ORDER'
   if (documentType === 'MASTER_DATA_CHANGE_REQUEST') return 'MASTER_DATA_CHANGE_REQUEST_RECORD'
   if (documentType === 'GARMENT_SKU_BARCODE' || documentType === 'GARMENT_HANGTAG') return 'PRODUCTION_ORDER'
+  if (documentType === 'POST_FINISHING_OUTBOUND_ORDER' || documentType === 'POST_FINISHING_OUTBOUND_BARCODE') return 'POST_FINISHING_OUTBOUND_ORDER'
   return ''
 }
 

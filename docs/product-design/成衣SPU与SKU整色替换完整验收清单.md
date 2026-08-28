@@ -69,8 +69,8 @@
 | PAGE-01 | `output/playwright/garment-spu-replacement-full-flow-01-mock-list.png` | 默认待处理、处理中、已完成三类 Mock，菜单图标与业务数量名称 |
 | PAGE-02 | `output/playwright/garment-spu-replacement-full-flow-02-search-linked-create.png` | 生产单和目标 SPU 可搜索、源颜色和目标颜色按上级选择联动、可选截图 |
 | PAGE-03 | `output/playwright/garment-spu-replacement-full-flow-03-created-detail.png` | 新建记录详情、四类业务数量、目标 SKU、双打印、瑕疵迁移与审计 |
-| PAGE-04 | 浏览器打印预览断言 | 目标 SKU 新条码预览、HG 出货条码、日期、源 SKU 追溯 |
-| PAGE-05 | 浏览器打印预览断言 | 目标 SKU 新吊牌预览、商品中心商品信息、HG 与零售两个真实条码 |
+| PAGE-04 | `output/playwright/garment-spu-replacement-full-flow-print-online-barcode.png` | 线上 40×30 版式：单个 HG 条码、条码文本、日期和目标 SKU；不出现源 SKU／替换提示 |
+| PAGE-05 | `output/playwright/garment-spu-replacement-full-flow-print-online-hangtag.png` | 线上 40×100 吊牌：商品图、商品中心信息、HG 与零售两个真实条码、印尼盾价格 |
 | PAGE-06 | `output/playwright/garment-spu-replacement-full-flow-04-warehouse-task-pending.png` | 成衣仓换码前任务、4 个尺码／来源批次、旧 SKU 销售出库阻断 |
 | PAGE-07 | `output/playwright/garment-spu-replacement-full-flow-05-warehouse-task-completed.png` | 成衣仓换码完成后 8 条成对库存流水、来源批次保持、阻断解除 |
 | PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 生产单原需求与当前构成、列表“打印条码”“打印吊牌” |
@@ -109,8 +109,8 @@
 
 | 编号 | 验收结果 | 实现位置／符号 | 自动化证据 | 页面／打印证据 | 状态 |
 |---|---|---|---|---|---|
-| POST-001 | 后道工厂未入仓成衣在替换详情可打印目标 SKU 新条码 | `listGarmentPrintRows()`、`GARMENT_SKU_BARCODE_V1` | AUTO-02、AUTO-03、AUTO-04 | PAGE-03、PAGE-04 | 已验证 |
-| POST-002 | 后道工厂未入仓成衣在替换详情可打印目标 SKU 新吊牌 | `listGarmentPrintRows()`、`GARMENT_HANGTAG_V1` | AUTO-02、AUTO-03、AUTO-04 | PAGE-03、PAGE-05 | 已验证 |
+| POST-001 | 后道工厂未入仓成衣在替换详情可打印目标 SKU 新条码 | `listGarmentPrintRows()`、`GARMENT_SKU_BARCODE_V2` | AUTO-02、AUTO-03、AUTO-04 | PAGE-03、PAGE-04 | 已验证 |
+| POST-002 | 后道工厂未入仓成衣在替换详情可打印目标 SKU 新吊牌 | `listGarmentPrintRows()`、`GARMENT_HANGTAG_V2` | AUTO-02、AUTO-03、AUTO-04 | PAGE-03、PAGE-05 | 已验证 |
 | POST-003 | 后道换码未完成时，待交出数量被投影为 0；完成后恢复可交出 | `isPostFactoryRelabelPending()`、`listPostFinishingAvailableHandoverLines()` | AUTO-02、AUTO-04 | PAGE-03 | 已验证 |
 | POST-004 | 后道换码完成后，当前 SKU 行、待交出对象和后续对象统一读取目标身份 | `completePostFactoryRelabel()`、`projectSkuLineIdentity()` | AUTO-01、AUTO-02、AUTO-04 | PAGE-03 | 已验证 |
 | DEFECT-001 | 替换前已有 QC 瑕疵展示为目标 SKU | `projectQcSkuResultIdentity()`、迁移候选和审计 | AUTO-02 | PAGE-01 | 已验证 |

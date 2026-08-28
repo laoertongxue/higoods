@@ -813,7 +813,7 @@ assert.equal(
   true,
   '历史 PRINT / DYE 入口也必须归一为生产准备加工单',
 )
-assert(legacyArtifacts.some((item) => item.artifactType === 'TASK' && item.processCode === 'IRON_PACK'), '烫包工序入口必须继续生成实际工序任务')
+assert(legacyArtifacts.some((item) => item.artifactType === 'TASK' && item.processCode === 'IRON_PACK'), '烫包工序入口必须继续生成后道单执行对象')
 
 const collisionBomB = { ...artifactBomRows[1], id: 'B', materialCode: 'MAT-B' }
 const collisionBomAB = { ...artifactBomRows[1], id: 'A-B', materialCode: 'MAT-A-B' }

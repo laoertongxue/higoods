@@ -1,6 +1,7 @@
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
+  completePostFinishingRecheckOrder,
   confirmPostFinishingSewingSelfReturnReceipt,
   confirmPostFinishingWarehouseReceipt,
   deletePostFinishingWarehouseLocation,
@@ -14,12 +15,14 @@ import {
   upsertPostFinishingWarehouseArea,
   upsertPostFinishingWarehouseLocation,
   type PostFinishingUpstreamHandover,
+  type PostFinishingRecheckSkuResult,
   type PostFinishingWarehouseMode,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import {
   handleProcessWebStatusActionDialogEvent,
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
+import { handlePostFinishingOutboundOrderEvent } from './outbound-orders.ts'
 
 const POST_FINISHING_WAREHOUSE_FORM_MODAL_ID = 'post-finishing-warehouse-form-modal'
 const POST_FINISHING_RECEIPT_MODAL_ID = 'post-finishing-receipt-modal'
@@ -41,6 +44,35 @@ function refreshCurrentPage(): void {
   url.searchParams.set('actionResultAt', String(Date.now()))
   window.history.replaceState(null, '', `${url.pathname}${url.search}`)
   appStore.navigate(`${url.pathname}${url.search}`)
+}
+
+function completePostFinishingRecheckFromPage(recheckOrderId: string): void {
+  const recheckSkuResults = Array.from(document.querySelectorAll<HTMLElement>('[data-recheck-sku-row]')).map((row): PostFinishingRecheckSkuResult => ({
+    recheckSkuResultId: row.dataset.recheckSkuResultId || '',
+    skuLineId: row.dataset.skuLineId || '',
+    skuId: row.dataset.skuId || '',
+    skuCode: row.dataset.skuCode || '',
+    skuImageUrl: row.dataset.skuImageUrl || undefined,
+    colorName: row.dataset.colorName || '',
+    sizeName: row.dataset.sizeName || '',
+    waitRecheckQty: Number(row.dataset.waitRecheckQty || 0),
+    recheckQty: Number(row.querySelector<HTMLInputElement>('[data-recheck-qty]')?.value || 0),
+    qualifiedQty: Number(row.querySelector<HTMLInputElement>('[data-recheck-qualified]')?.value || 0),
+    unqualifiedQty: Number(row.querySelector<HTMLInputElement>('[data-recheck-unqualified]')?.value || 0),
+    qtyUnit: row.dataset.qtyUnit || '件',
+    remark: row.querySelector<HTMLInputElement>('[data-recheck-remark]')?.value.trim() || undefined,
+  }))
+  try {
+    const completed = completePostFinishingRecheckOrder({
+      recheckOrderId,
+      operatorName: '复检员',
+      recheckSkuResults,
+    })
+    refreshCurrentPage()
+    showPostFinishingToast(`${completed.recheckOrderNo} 已完成复检并生成后道出货单。`)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '完成复检失败。')
+  }
 }
 
 function removePostFinishingWarehouseFormDialog(): void {
@@ -730,6 +762,7 @@ function openPostFinishingSelfReturnEditDialog(recordId: string): void {
 }
 
 export function handlePostFinishingEvent(target: HTMLElement): boolean {
+  if (handlePostFinishingOutboundOrderEvent(target)) return true
   const dialogResult = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPostFinishingToast,
     refresh: refreshCurrentPage,
@@ -740,6 +773,16 @@ export function handlePostFinishingEvent(target: HTMLElement): boolean {
   if (!actionNode) return false
 
   const action = actionNode.dataset.postFinishingAction
+  if (action === 'complete-recheck') {
+    const recheckOrderId = actionNode.dataset.recheckOrderId
+    if (!recheckOrderId) {
+      window.alert('缺少复检单。')
+      return true
+    }
+    completePostFinishingRecheckFromPage(recheckOrderId)
+    return true
+  }
+
   if (action === 'open-web-status-action-dialog') {
     openProcessWebStatusActionDialog({
       actionNode,

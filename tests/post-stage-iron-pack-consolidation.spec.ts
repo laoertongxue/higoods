@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
-test('后道阶段字典、实际工序单与质检单统一使用烫包', async ({ page }) => {
+test('后道阶段字典、后道单与质检单统一使用烫包', async ({ page }) => {
   await page.goto('/fcs/production/craft-dict')
   await expect(page.getByRole('heading', { name: '工序工艺字典', exact: true })).toBeVisible()
 
@@ -13,7 +13,7 @@ test('后道阶段字典、实际工序单与质检单统一使用烫包', async
   await expect(craftRows.first()).toContainText('成衣')
 
   await page.goto('/fcs/craft/post-finishing/work-orders')
-  await expect(page.getByRole('heading', { name: '实际工序单', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
   await expect(page.locator('tbody tr').filter({ hasText: '烫包' }).first()).toBeVisible()
 
   await page.goto('/fcs/craft/post-finishing/qc-orders')

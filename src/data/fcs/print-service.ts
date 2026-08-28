@@ -27,6 +27,8 @@ export type PrintDocumentType =
   | 'PRODUCTION_CONTRACT'
   | 'GARMENT_SKU_BARCODE'
   | 'GARMENT_HANGTAG'
+  | 'POST_FINISHING_OUTBOUND_ORDER'
+  | 'POST_FINISHING_OUTBOUND_BARCODE'
 
 export type PrintSourceType =
   | TaskRouteCardSourceType
@@ -49,8 +51,9 @@ export type PrintSourceType =
   | 'MASTER_DATA_CHANGE_REQUEST_RECORD'
   | 'PRODUCTION_CONTRACT_RECORD'
   | 'GARMENT_WAREHOUSE_RELABEL_TASK'
+  | 'POST_FINISHING_OUTBOUND_ORDER'
 
-export type PrintPaperType = 'A4' | 'LABEL_80_50' | 'LABEL_100_60' | 'LABEL_100_100' | 'LABEL_150_100' | 'LABEL_60_40' | 'A4_LABEL_GRID'
+export type PrintPaperType = 'A4' | 'LABEL_40_30' | 'LABEL_40_100' | 'LABEL_80_50' | 'LABEL_100_60' | 'LABEL_100_100' | 'LABEL_150_100' | 'LABEL_60_40' | 'A4_LABEL_GRID'
 export type PrintOrientation = 'portrait'
 
 export interface PrintField {

@@ -145,7 +145,7 @@ function renderSection(section: PrintSection): string {
 export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const order = getPostFinishingWorkOrderById(input.sourceId)
   if (!order) {
-    throw new Error(`未找到实际工序单：${input.sourceId}`)
+    throw new Error(`未找到后道单：${input.sourceId}`)
   }
 
   const printAt = getPrintGeneratedAt()
@@ -171,7 +171,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   }).toString()
 
   const headerFields: PrintField[] = [
-    { label: '实际工序单号', value: order.postOrderNo, emphasis: true },
+    { label: '后道单号', value: order.postOrderNo, emphasis: true },
     { label: '生产单', value: order.sourceProductionOrderNo, emphasis: true },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
@@ -191,7 +191,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   ]
 
   const baseFields: PrintField[] = [
-    { label: '实际工序单号', value: order.postOrderNo },
+    { label: '后道单号', value: order.postOrderNo },
     { label: '生产单', value: order.sourceProductionOrderNo },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
@@ -287,13 +287,13 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   return {
     printDocumentId: createPrintDocumentId(input, 'POST_FINISHING_ROUTE_CARD'),
     documentType: 'TASK_ROUTE_CARD',
-    documentTitle: '后道阶段处理流转卡',
+    documentTitle: '后道任务流转卡',
     sourceType: 'POST_FINISHING_WORK_ORDER',
     sourceId: order.postOrderId,
     templateCode: 'POST_FINISHING_ROUTE_CARD',
     paperType: 'A4',
     orientation: 'portrait',
-    printTitle: '后道阶段处理流转卡',
+    printTitle: '后道任务流转卡',
     printSubtitle: `${sourceLabel}｜${flowText}`,
     headerFields,
     imageBlocks: [
@@ -309,7 +309,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       {
         title: '任务二维码',
         value: qrValue,
-        description: '扫码进入工厂端后道阶段处理详情',
+        description: '扫码进入工厂端后道任务详情',
         sizeMm: 30,
       },
     ],
@@ -395,7 +395,7 @@ export function renderPostFinishingRouteCardTemplate(doc: PrintDocument): string
                 label: qr.title,
               }) : ''}
             </div>
-            <div class="print-note">${escapeHtml(qr?.description || '扫码进入工厂端后道阶段处理详情')}</div>
+            <div class="print-note">${escapeHtml(qr?.description || '扫码进入工厂端后道任务详情')}</div>
           </section>
         </div>
 

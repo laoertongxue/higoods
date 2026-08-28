@@ -74,6 +74,12 @@ import {
   buildGarmentSkuLabelPrintDocument,
   renderGarmentSkuLabelTemplate,
 } from '../../pages/print/templates/garment-sku-label-template.ts'
+import {
+  buildPostFinishingOutboundBarcodePrintDocument,
+  buildPostFinishingOutboundOrderPrintDocument,
+  renderPostFinishingOutboundBarcodeTemplate,
+  renderPostFinishingOutboundOrderTemplate,
+} from '../../pages/print/templates/post-finishing-outbound-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -86,7 +92,23 @@ export interface PrintTemplateRegistration {
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
   {
-    templateCode: 'GARMENT_SKU_BARCODE_V1',
+    templateCode: 'POST_FINISHING_OUTBOUND_ORDER_V1',
+    templateName: '后道出货单',
+    documentType: 'POST_FINISHING_OUTBOUND_ORDER',
+    supportedSourceTypes: ['POST_FINISHING_OUTBOUND_ORDER'],
+    buildDocument: buildPostFinishingOutboundOrderPrintDocument,
+    render: renderPostFinishingOutboundOrderTemplate,
+  },
+  {
+    templateCode: 'POST_FINISHING_OUTBOUND_BARCODE_V1',
+    templateName: '后道出货单 SKU 条码',
+    documentType: 'POST_FINISHING_OUTBOUND_BARCODE',
+    supportedSourceTypes: ['POST_FINISHING_OUTBOUND_ORDER'],
+    buildDocument: buildPostFinishingOutboundBarcodePrintDocument,
+    render: renderPostFinishingOutboundBarcodeTemplate,
+  },
+  {
+    templateCode: 'GARMENT_SKU_BARCODE_V2',
     templateName: '成衣 SKU 条码',
     documentType: 'GARMENT_SKU_BARCODE',
     supportedSourceTypes: ['PRODUCTION_ORDER', 'GARMENT_WAREHOUSE_RELABEL_TASK'],
@@ -94,7 +116,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderGarmentSkuLabelTemplate,
   },
   {
-    templateCode: 'GARMENT_HANGTAG_V1',
+    templateCode: 'GARMENT_HANGTAG_V2',
     templateName: '成衣吊牌',
     documentType: 'GARMENT_HANGTAG',
     supportedSourceTypes: ['PRODUCTION_ORDER', 'GARMENT_WAREHOUSE_RELABEL_TASK'],
@@ -279,7 +301,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_ROUTE_CARD',
-    templateName: '后道阶段处理流转卡',
+    templateName: '后道任务流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_WORK_ORDER'],
     buildDocument: buildPostFinishingRouteCardPrintDocument,
@@ -287,7 +309,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_TASK_ROUTE_CARD',
-    templateName: '后道阶段处理流转卡',
+    templateName: '后道任务流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_TASK'],
     buildDocument: buildPostFinishingTaskRouteCardPrintDocument,
@@ -399,6 +421,8 @@ export function renderPrintDocument(document: PrintDocument): string {
 }
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'POST_FINISHING_OUTBOUND_ORDER',
+  'POST_FINISHING_OUTBOUND_BARCODE',
   'GARMENT_SKU_BARCODE',
   'GARMENT_HANGTAG',
   'PRODUCTION_CONTRACT',

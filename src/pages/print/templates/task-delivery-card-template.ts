@@ -37,7 +37,7 @@ const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   printing: '印花任务交货卡',
   dyeing: '染色任务交货卡',
   specialCraft: '特殊工艺任务交货卡',
-  postFinishing: '后道阶段处理交货卡',
+  postFinishing: '后道任务交货卡',
   cutting: '裁片任务交货卡',
   sewing: '车缝任务交货卡',
 }

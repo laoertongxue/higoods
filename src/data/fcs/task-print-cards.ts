@@ -1200,7 +1200,7 @@ function buildPostFinishingTaskRouteRows(task: PostFinishingTaskView): TaskRoute
       exceptionQty: '—',
       station: task.managedPostFactoryName,
       operator: '后道工',
-      remark: task.postOrderCount > 0 ? `实际工序单 ${task.postOrderCount} 张` : '质检未勾选实际工序时可直接进入复检',
+      remark: task.postOrderCount > 0 ? `后道单 ${task.postOrderCount} 张` : '质检未勾选实际工序时可直接进入复检',
     },
     {
       rowId: `${task.postTaskId}-recheck`,
@@ -1229,7 +1229,7 @@ function buildPostFinishingTaskRouteRows(task: PostFinishingTaskView): TaskRoute
 
 function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBuildResult {
   const task = getPostFinishingTaskById(sourceId)
-  if (!task) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道阶段处理记录：${sourceId}` }
+  if (!task) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道任务：${sourceId}` }
 
   return {
     ok: true,
@@ -1237,7 +1237,7 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
       cardName: TASK_ROUTE_CARD_NAME,
       sourceType: 'POST_FINISHING_TASK',
       sourceId: task.postTaskId,
-      sourceLabel: '后道阶段处理',
+      sourceLabel: '后道任务',
       taskId: task.postTaskId,
       taskNo: task.postTaskNo,
       productionOrderId: task.productionOrderId,
@@ -1251,10 +1251,10 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
       dueAt: task.updatedAt,
       qrValue: buildTaskQrValue(task.postTaskId),
       image: resolvePrintImage({ productionOrderId: task.productionOrderNo, processName: '后道', craftName: '后道' }),
-      summaryRemark: '生产单级后道阶段流转卡，质检单、实际工序单、复检单均归属该任务。',
-      titleOverride: '后道阶段处理流转卡',
+      summaryRemark: '生产单级后道任务流转卡，质检单、后道单、复检单均归属该任务。',
+      titleOverride: '后道任务流转卡',
       summaryRowsOverride: [
-        { label: '后道阶段处理编号', value: task.postTaskNo },
+        { label: '后道任务编号', value: task.postTaskNo },
         { label: '生产单号', value: task.productionOrderNo },
         { label: '款式衣服', value: `${task.spuCode} / ${task.spuName}` },
         { label: '后道工厂', value: task.managedPostFactoryName },
@@ -1267,7 +1267,7 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
         { label: '技术包版本', value: task.techPackVersionLabel },
         { label: '上游来源', value: task.sourceFactoryNames.join('、') || '待上游交出' },
         { label: '上游任务', value: task.sourceTaskNos.join('、') || '—' },
-        { label: '子单据', value: `质检单 ${task.qcOrderCount} 张 / 实际工序单 ${task.postOrderCount} 张 / 复检单 ${task.recheckOrderCount} 张` },
+        { label: '子单据', value: `质检单 ${task.qcOrderCount} 张 / 后道单 ${task.postOrderCount} 张 / 复检单 ${task.recheckOrderCount} 张` },
       ],
       routeRecords: buildPostFinishingTaskRouteRows(task),
     },
@@ -1276,7 +1276,7 @@ function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBui
 
 function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCardBuildResult {
   const order = getPostFinishingWorkOrderById(sourceId)
-  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到实际工序单：${sourceId}` }
+  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道单：${sourceId}` }
   const actionRecords = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
 
   return {
@@ -1285,7 +1285,7 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       cardName: TASK_ROUTE_CARD_NAME,
       sourceType: 'POST_FINISHING_WORK_ORDER',
       sourceId,
-      sourceLabel: '实际工序单',
+      sourceLabel: '后道单',
       taskId: order.sourceTaskId,
       taskNo: order.postOrderNo,
       productionOrderId: order.sourceProductionOrderId,
@@ -1299,10 +1299,10 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       dueAt: order.updatedAt,
       qrValue: buildTaskQrValue(order.sourceTaskId || order.postOrderId),
       image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderNo, processName: '后道', craftName: '后道' }),
-      summaryRemark: '按扫码收货、质检、实际工序、复检节点生成后道阶段处理流转卡',
-      titleOverride: '后道阶段处理流转卡',
+      summaryRemark: '按扫码收货、质检、实际工序、复检节点生成后道任务流转卡',
+      titleOverride: '后道任务流转卡',
       summaryRowsOverride: [
-        { label: '实际工序单号', value: order.postOrderNo },
+        { label: '后道单号', value: order.postOrderNo },
         { label: '生产单号', value: order.sourceProductionOrderNo },
         { label: '来源任务', value: order.sourceTaskNo },
         { label: '来源车缝任务', value: order.sourceSewingTaskNo },

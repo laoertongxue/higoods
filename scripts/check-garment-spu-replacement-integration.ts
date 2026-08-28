@@ -225,7 +225,7 @@ assert.deepEqual(
   '回货商品编码变化不得改写原工厂分配与冻结价格',
 )
 
-// 生产单与仓库任务的条码、吊牌都读取目标 SKU，并使用真实 Code 128 DOM。
+// 生产单与仓库任务的条码、吊牌都读取目标 SKU，并严格使用线上版式与真实 Code 128 DOM。
 for (const source of [
   { sourceType: 'PRODUCTION_ORDER' as const, sourceId: PRODUCTION_ORDER_ID },
   { sourceType: 'GARMENT_WAREHOUSE_RELABEL_TASK' as const, sourceId: listGarmentWarehouseRelabelTasks()[0].relabelTaskId },
@@ -233,12 +233,25 @@ for (const source of [
   for (const documentType of ['GARMENT_SKU_BARCODE', 'GARMENT_HANGTAG'] as const) {
     const document = buildPrintDocument({ documentType, ...source })
     const html = renderPrintDocument(document)
-    assert.ok(document.labelItems?.every((item) => item.labelFields.some((field) => field.label === '当前 SKU' && field.value.startsWith('SKU-015-'))))
-    assert.ok(document.labelItems?.every((item) => item.labelFields.some((field) => field.label === '日期')))
+    assert.ok(document.labelItems?.every((item) => item.labelFields.some((field) => field.label === 'SKU' && field.value.startsWith('SKU-015-')) || documentType === 'GARMENT_HANGTAG'))
     assert.ok(document.barcodes.every((barcode) => barcode.value.length > 0))
-    assert.match(html, /<svg/)
-    assert.match(html, /SKU-015-/)
-    assert.match(html, /HG\d+/)
+    assert.match(html, /data-real-barcode/)
+    assert.doesNotMatch(html, /来源 SKU|当前标签已按整色替换|成衣新条码/)
+    if (documentType === 'GARMENT_SKU_BARCODE') {
+      assert.equal(document.paperType, 'LABEL_40_30')
+      assert.match(html, /data-online-print-layout="sku-barcode"/)
+      assert.match(html, /@page\s*\{\s*size:\s*40mm 30mm/)
+      assert.match(html, /SKU-015-/)
+      assert.equal((html.match(/data-real-barcode/g) || []).length, document.labelItems?.length)
+    } else {
+      assert.equal(document.paperType, 'LABEL_40_100')
+      assert.match(html, /data-online-print-layout="garment-hangtag"/)
+      assert.match(html, /@page\s*\{\s*size:\s*40mm 100mm/)
+      for (const text of ['Kategori:', 'SPU:', 'Metode pencucian:', 'Standar implementasi:', 'Kategori keamanan:', 'Rp.']) {
+        assert.match(html, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      }
+      assert.equal((html.match(/data-real-barcode/g) || []).length, (document.labelItems?.length || 0) * 2)
+    }
   }
 }
 assert.deepEqual(validatePrintTemplateRegistry(), [])
