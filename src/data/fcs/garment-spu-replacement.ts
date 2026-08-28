@@ -576,6 +576,12 @@ export function listGarmentSpuReplacements(): GarmentSpuReplacementRecord[] {
   return loadSnapshot().records.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
+export function listGarmentSpuReplacementsByProductionOrder(productionOrderId: string): GarmentSpuReplacementRecord[] {
+  return listGarmentSpuReplacements().filter((record) =>
+    record.productionOrderId === productionOrderId || record.productionOrderNo === productionOrderId,
+  )
+}
+
 export function getGarmentSpuReplacement(id: string): GarmentSpuReplacementRecord | null {
   const record = loadSnapshot().records.find((item) => item.replacementId === id || item.replacementNo === id)
   return record ? structuredClone(record) : null
@@ -855,7 +861,7 @@ export function getProductionOrderGarmentComposition(productionOrderId: string):
   sourceSpuCode: string
   targetSpuCode: string
 } | null {
-  const record = listGarmentSpuReplacements().find((item) => item.productionOrderId === productionOrderId || item.productionOrderNo === productionOrderId)
+  const record = listGarmentSpuReplacementsByProductionOrder(productionOrderId)[0]
   if (!record) return null
   return {
     originalDemandQty: record.originalDemandQty,

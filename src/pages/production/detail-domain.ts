@@ -77,6 +77,9 @@ import {
 import {
   getTasksByOrderId,
 } from '../../data/fcs/process-tasks.ts'
+import {
+  renderProductionOrderGarmentReplacementSection,
+} from './garment-spu-replacement-display.ts'
 
 function getDetailConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -875,6 +878,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
           </div>
         </section>
       </div>
+      ${renderProductionOrderGarmentReplacementSection(order)}
       ${renderOrderMaterialInfoSection(order)}
       </div>
     `

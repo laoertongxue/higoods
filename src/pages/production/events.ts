@@ -2448,6 +2448,19 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     return true
   }
 
+  if (action === 'open-order-garment-replacement-dialog') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.ordersActionMenuId = null
+    state.ordersGarmentReplacementDialogOrderId = orderId
+    return true
+  }
+
+  if (action === 'close-order-garment-replacement-dialog') {
+    state.ordersGarmentReplacementDialogOrderId = null
+    return true
+  }
+
   if (action === 'open-order-print-dialog') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
@@ -2710,6 +2723,7 @@ export function isProductionDialogOpen(): boolean {
     state.ordersTechPackSnapshotDialogId !== null ||
     state.ordersLogsId !== null ||
     state.ordersPrintDialogOrderId !== null ||
+    state.ordersGarmentReplacementDialogOrderId !== null ||
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||

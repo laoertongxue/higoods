@@ -4,6 +4,7 @@ const FCS_REPLACEMENT_PATH = '/fcs/craft/post-finishing/garment-spu-replacements
 const WLS_REPLACEMENT_PATH = '/wls/garment-spu-replacements'
 const WLS_RELABEL_TASK_PATH = '/wls/garment-relabel-tasks'
 const PRODUCTION_ORDER_PATH = '/fcs/production/orders'
+const PRODUCTION_ORDER_DETAIL_PATH = '/fcs/production/orders/PO-202603-0001'
 const POST_RECHECK_DETAIL_PATH = '/fcs/craft/post-finishing/recheck-orders/PF-RC-001'
 const POST_OUTBOUND_PATH = '/fcs/craft/post-finishing/outbound-orders'
 const STORAGE_KEY = 'higood-fcs-garment-spu-replacement-v2'
@@ -201,13 +202,51 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await expectNoDocumentOverflow(page)
   const productionRow = page.locator('tr').filter({ hasText: 'PO-202603-0001' }).first()
   await expect(productionRow).toBeVisible()
-  await expect(productionRow).toContainText('当前成衣构成（原生产需求不变）')
-  await expect(productionRow).toContainText('SPU-2024-004：1,250 件历史已售')
-  await expect(productionRow).toContainText('SPU-2024-015：3,750 件当前／后续成衣')
+  await expect(productionRow).not.toContainText('当前成衣构成（原生产需求不变）')
+  await expect(productionRow).not.toContainText('1,250 件历史已售')
+  const replacementMarker = productionRow.getByRole('button', { name: '存在成衣 SPU 替换', exact: true })
+  await expect(replacementMarker).toBeVisible()
   await expect(productionRow.getByText('打印条码', { exact: true })).toBeVisible()
   await expect(productionRow.getByText('打印吊牌', { exact: true })).toHaveCount(0)
   await screenshot(page, 'garment-spu-replacement-full-flow-06-production-order-ledger')
-  await productionRow.getByText('打印条码', { exact: true }).click()
+
+  await replacementMarker.click()
+  dialog = page.getByRole('dialog', { name: '成衣 SPU 替换详情' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('原生产需求（保持不变）')
+  await expect(dialog).toContainText('SPU-2024-004')
+  await expect(dialog).toContainText('生产单原数量')
+  await expect(dialog).toContainText('5,000 件')
+  await expect(dialog).toContainText('SPU-2024-015')
+  await expect(dialog).toContainText('已完成销售出库（历史）')
+  await expect(dialog).toContainText('1,250 件')
+  await expect(dialog).toContainText('成衣仓未售成衣')
+  await expect(dialog).toContainText('1,150 件')
+  await expect(dialog).toContainText('后道工厂未入仓成衣')
+  await expect(dialog).toContainText('700 件')
+  await expect(dialog).toContainText('生产单剩余待回货')
+  await expect(dialog).toContainText('1,900 件')
+  await expect(dialog).toContainText('SKU-004-M-WHT')
+  await expect(dialog).toContainText('SKU-015-M-WHT')
+  await screenshot(page, 'garment-spu-replacement-full-flow-07-production-order-replacement-modal')
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click()
+
+  await page.goto(PRODUCTION_ORDER_DETAIL_PATH, { waitUntil: 'domcontentloaded' })
+  const replacementSection = page.locator('[data-production-order-garment-replacement-section="true"]')
+  await expect(replacementSection).toBeVisible()
+  await expect(replacementSection.getByRole('heading', { name: '成衣 SPU 替换', exact: true })).toBeVisible()
+  await expect(replacementSection).toContainText('原生产需求（保持不变）')
+  await expect(replacementSection).toContainText('SPU-2024-004')
+  await expect(replacementSection).toContainText('SPU-2024-015')
+  await expect(replacementSection).toContainText('1,250 件')
+  await expect(replacementSection).toContainText('1,150 件')
+  await expect(replacementSection).toContainText('700 件')
+  await expect(replacementSection).toContainText('1,900 件')
+  await screenshot(page, 'garment-spu-replacement-full-flow-08-production-order-detail-replacement')
+
+  await page.goto(PRODUCTION_ORDER_PATH, { waitUntil: 'domcontentloaded' })
+  const printProductionRow = page.locator('tr').filter({ hasText: 'PO-202603-0001' }).first()
+  await printProductionRow.getByText('打印条码', { exact: true }).click()
   dialog = page.getByRole('dialog', { name: '批量打印货品条码' })
   await expect(dialog).toBeVisible()
   for (const column of ['SKU编码', '出货条码', '采购价格', '采购数量', '已到货数', '打印数量', '操作']) {
@@ -217,14 +256,14 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await expect(dialog).toContainText('SKU-015-M-WHT')
   await expect(dialog.getByRole('button', { name: '打印条码', exact: true })).toHaveCount(5)
   await expect(dialog.getByRole('button', { name: '打印吊牌', exact: true })).toHaveCount(5)
-  await screenshot(page, 'garment-spu-replacement-full-flow-07-production-order-print-modal')
+  await screenshot(page, 'garment-spu-replacement-full-flow-09-production-order-print-modal')
 
   let modalSkuRow = dialog.locator('tbody tr').filter({ hasText: 'SKU-015-M-WHT' })
   await modalSkuRow.getByLabel('SKU-015-M-WHT 打印数量').fill('2')
   await modalSkuRow.getByRole('button', { name: '打印条码', exact: true }).click()
   await expect(page.locator('[data-online-print-layout="sku-barcode"]')).toHaveCount(2)
   await expect(page.locator('[data-online-print-layout="sku-barcode"]')).toContainText(['SKU-015-M-WHT', 'SKU-015-M-WHT'])
-  await screenshot(page, 'garment-spu-replacement-full-flow-08-production-order-modal-barcode')
+  await screenshot(page, 'garment-spu-replacement-full-flow-10-production-order-modal-barcode')
 
   await page.goto(PRODUCTION_ORDER_PATH, { waitUntil: 'domcontentloaded' })
   const reopenedProductionRow = page.locator('tr').filter({ hasText: 'PO-202603-0001' }).first()
@@ -237,7 +276,7 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await dialog.locator('div.mt-5').getByRole('button', { name: '打印吊牌', exact: true }).click()
   await expect(page.locator('[data-online-print-layout="garment-hangtag"]')).toHaveCount(1)
   await expect(page.locator('[data-online-print-layout="garment-hangtag"]')).toContainText('SPU-2024-015')
-  await screenshot(page, 'garment-spu-replacement-full-flow-09-production-order-modal-hangtag')
+  await screenshot(page, 'garment-spu-replacement-full-flow-11-production-order-modal-hangtag')
   expect(consoleErrors).toEqual([])
 })
 

@@ -81,9 +81,12 @@ import {
   isKolGotoProductionOrder,
 } from '../../data/fcs/kol-goto-special-flow.ts'
 import {
-  getProductionOrderGarmentComposition,
   listGarmentPrintRows,
 } from '../../data/fcs/garment-spu-replacement.ts'
+import {
+  renderProductionOrderGarmentReplacementDetails,
+  renderProductionOrderGarmentReplacementMarker,
+} from './garment-spu-replacement-display.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -259,9 +262,12 @@ function renderOrderDemandInfo(order: ProductionOrder): string {
   `
 }
 
-function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficultyGrade?: string; showTechPackVersion?: boolean } = {}): string {
+function renderOrderSpuInfo(order: ProductionOrder, options: {
+  garmentDifficultyGrade?: string
+  showTechPackVersion?: boolean
+  showGarmentReplacementMarker?: boolean
+} = {}): string {
   const imageUrl = resolveProductionSpuImageUrl(order.demandSnapshot)
-  const garmentComposition = getProductionOrderGarmentComposition(order.productionOrderId)
   return `
     <div class="flex min-w-0 items-center gap-3">
       ${renderProductionImageThumb(imageUrl, order.demandSnapshot.spuName, 'h-12 w-12')}
@@ -288,7 +294,7 @@ function renderOrderSpuInfo(order: ProductionOrder, options: { garmentDifficulty
             : ''
         }
         ${options.showTechPackVersion ? renderOrderTechPackVersionLink(order) : ''}
-        ${garmentComposition ? `<div class="mt-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-900"><div class="font-semibold">当前成衣构成（原生产需求不变）</div><div>${escapeHtml(garmentComposition.sourceSpuCode)}：${garmentComposition.originalSpuQty.toLocaleString('zh-CN')} 件历史已售</div><div>${escapeHtml(garmentComposition.targetSpuCode)}：${garmentComposition.targetSpuQty.toLocaleString('zh-CN')} 件当前／后续成衣</div><div>其中剩余待回货：${garmentComposition.remainingReturnQty.toLocaleString('zh-CN')} 件</div></div>` : ''}
+        ${options.showGarmentReplacementMarker ? renderProductionOrderGarmentReplacementMarker(order) : ''}
       </div>
     </div>
   `
@@ -1536,6 +1542,25 @@ function renderOrderPrintDialog(): string {
   </div>`
 }
 
+function renderOrderGarmentReplacementDialog(): string {
+  const order = getOrderById(state.ordersGarmentReplacementDialogOrderId)
+  if (!order) return ''
+  const details = renderProductionOrderGarmentReplacementDetails(order)
+  if (!details) return ''
+  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-labelledby="production-order-garment-replacement-title">
+    <section class="max-h-[92vh] w-full max-w-7xl overflow-hidden rounded-xl bg-white shadow-2xl">
+      <header class="flex items-start justify-between border-b px-5 py-4">
+        <div>
+          <h2 id="production-order-garment-replacement-title" class="text-lg font-semibold">成衣 SPU 替换详情</h2>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · 查看原生产需求、替换 SPU / SKU 和对应数量。</p>
+        </div>
+        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-order-garment-replacement-dialog" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
+      </header>
+      <div class="max-h-[calc(92vh-81px)] overflow-y-auto p-5">${details}</div>
+    </section>
+  </div>`
+}
+
 export function renderProductionOrdersPage(): string {
   const filteredOrders = getFilteredOrders()
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
@@ -1829,6 +1854,7 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">${renderOrderSpuInfo(order, {
                               garmentDifficultyGrade: techPackSnapshotDisplay.garmentDifficultyGrade,
                               showTechPackVersion: true,
+                              showGarmentReplacementMarker: true,
                             })}</td>
                             <td class="px-3 py-3">
                               ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
@@ -1875,7 +1901,7 @@ export function renderProductionOrdersPage(): string {
         </div>
       </footer>
 
-      <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}${renderOrderPrintDialog()}</div>
+      <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}${renderOrderPrintDialog()}${renderOrderGarmentReplacementDialog()}</div>
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderTechPackSnapshotDialog()}
       ${renderOrderLogsDialog()}
@@ -1901,4 +1927,5 @@ export {
   renderAddDraftMaterialsDialog,
   renderMaterialDraftDrawer,
   renderOrderPrintDialog,
+  renderOrderGarmentReplacementDialog,
 }

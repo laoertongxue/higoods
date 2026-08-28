@@ -265,6 +265,7 @@ interface ProductionState {
   ordersTechPackSnapshotDialogId: string | null
   ordersLogsId: string | null
   ordersPrintDialogOrderId: string | null
+  ordersGarmentReplacementDialogOrderId: string | null
   ordersPrintSelectedSkuCodes: Set<string>
   ordersPrintQtyBySku: Record<string, string>
   ordersPrintError: string
@@ -1760,6 +1761,7 @@ function closeAllProductionDialogs(): void {
   state.ordersTechPackSnapshotDialogId = null
   state.ordersLogsId = null
   state.ordersPrintDialogOrderId = null
+  state.ordersGarmentReplacementDialogOrderId = null
   state.ordersPrintSelectedSkuCodes = new Set<string>()
   state.ordersPrintQtyBySku = {}
   state.ordersPrintError = ''
@@ -1828,6 +1830,7 @@ const state: ProductionState = {
   ordersTechPackSnapshotDialogId: null,
   ordersLogsId: null,
   ordersPrintDialogOrderId: null,
+  ordersGarmentReplacementDialogOrderId: null,
   ordersPrintSelectedSkuCodes: new Set<string>(),
   ordersPrintQtyBySku: {},
   ordersPrintError: '',

@@ -1100,6 +1100,8 @@ function shouldUseProductionOrdersOverlayRender(target: Element | null, previous
     'confirm-material-request-draft',
     'open-order-print-dialog',
     'close-order-print-dialog',
+    'open-order-garment-replacement-dialog',
+    'close-order-garment-replacement-dialog',
     'toggle-order-print-select-all',
     'toggle-order-print-select',
     'reset-order-print-qty',
@@ -1319,7 +1321,7 @@ async function renderProductionOrdersOverlayOnly(snapshot: FocusSnapshot | null 
   }
 
   const productionOrdersPage = await getProductionOrdersPageModule()
-  host.innerHTML = `${productionOrdersPage.renderMaterialDraftDrawer()}${productionOrdersPage.renderOrderPrintDialog()}`
+  host.innerHTML = `${productionOrdersPage.renderMaterialDraftDrawer()}${productionOrdersPage.renderOrderPrintDialog()}${productionOrdersPage.renderOrderGarmentReplacementDialog()}`
   hydrateRealQRCodes(host)
   queueMicrotask(() => {
     hydrateIcons(host)

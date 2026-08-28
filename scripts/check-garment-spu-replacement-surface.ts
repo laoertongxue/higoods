@@ -16,6 +16,8 @@ const handlers = read('src/main-handlers/fcs-handlers.ts')
 const replacementPage = read('src/pages/garment-spu-replacements.ts')
 const relabelTaskPage = read('src/pages/wls-garment-relabel-tasks.ts')
 const productionList = read('src/pages/production/orders-domain.ts')
+const productionDetail = read('src/pages/production/detail-domain.ts')
+const productionReplacementDisplay = read('src/pages/production/garment-spu-replacement-display.ts')
 const productionEvents = read('src/pages/production/events.ts')
 const core = read('src/data/fcs/garment-spu-replacement.ts')
 const post = read('src/data/fcs/post-finishing-domain.ts')
@@ -132,13 +134,30 @@ includesAll(productionList, '生产单列表', [
   'print-order-sku-hangtag',
   'print-order-selected-barcode',
   'print-order-selected-hangtag',
-  '原生产需求不变',
-  '当前成衣构成',
+  '成衣 SPU 替换详情',
 ])
 assert.equal((productionList.match(/label: '打印吊牌'/g) || []).length, 0, '生产单列表不得出现独立“打印吊牌”入口')
 assert.equal((productionList.match(/label: '打印条码'/g) || []).length, 1, '生产单列表必须只有一个“打印条码”入口')
+assert.ok(!productionList.includes('当前成衣构成（原生产需求不变）'), '生产单列表不得直接铺开成衣构成数量')
+includesAll(productionReplacementDisplay, '生产单替换明细', [
+  '存在成衣 SPU 替换',
+  'open-order-garment-replacement-dialog',
+  '原生产需求（保持不变）',
+  '原 SPU / 源颜色',
+  '目标 SPU / 目标颜色',
+  '已完成销售出库（历史）',
+  '成衣仓未售成衣',
+  '后道工厂未入仓成衣',
+  '生产单剩余待回货',
+  '原 SKU',
+  '目标 SKU',
+])
+includesAll(productionDetail, '生产单详情', [
+  'renderProductionOrderGarmentReplacementSection',
+])
 includesAll(productionEvents, '生产单打印事件', [
   "action === 'open-order-print-dialog'",
+  "action === 'open-order-garment-replacement-dialog'",
   "documentType: PrintDocumentType = action.endsWith('hangtag') ? 'GARMENT_HANGTAG' : 'GARMENT_SKU_BARCODE'",
   'skuData,',
   '大于 0 的整数',

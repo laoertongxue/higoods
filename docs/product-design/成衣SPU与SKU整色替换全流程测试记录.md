@@ -1,8 +1,8 @@
 # 成衣 SPU 与 SKU 整色替换全流程测试记录
 
 > 记录日期：2026-08-28
-> 测试分支：`codex/garment-spu-replacement-20260827`
-> 基线提交：`995ca8569f1d8626f636a933ff9ee1b9e44be74c`
+> 测试分支：`codex/garment-spu-replacement-order-display-20260828`
+> 基线提交：`64673c7a0b196efc15d88701a216fc5e4a832eb6`
 > 测试对象：当前分支、当前工作树中的 HiGood 高保真原型
 > 自动化用例：`tests/garment-spu-replacement-full-flow.spec.ts`
 > 聚合命令：`npm run check:garment-spu-replacement`
@@ -17,7 +17,7 @@
 4. 后道工厂新条码、新吊牌打印及实物换码完成。
 5. 仓储管理共享替换记录，成衣仓任务打印、开始换码和旧出新入。
 6. 四个来源入库批次形成四条旧 SKU 出库和四条新 SKU 入库流水。
-7. 替换记录最终完成，生产单原需求不变并展示原 SPU 与目标 SPU 的实际构成。
+7. 替换记录最终完成，生产单原需求不变；列表只标记存在替换，标记弹窗和生产单详情分别展示原 SPU、目标 SPU 与对应数量。
 8. 替换列表和详情可解释“怎么才算完成”，并按流程显示同时等待后道／成衣仓、只等待成衣仓、完成条件满足。
 9. 生产单列表只有一个“打印条码”入口；入口弹窗支持 SKU 勾选、数量填写、按行／批量打印条码和吊牌。
 
@@ -31,6 +31,7 @@
 | 仓储共享路由 | `/wls/garment-spu-replacements` |
 | 成衣仓任务路由 | `/wls/garment-relabel-tasks` |
 | 生产单台账路由 | `/fcs/production/orders` |
+| 生产单详情路由 | `/fcs/production/orders/PO-202603-0001` |
 | 打印路由 | `/fcs/print/preview` |
 | 浏览器 | Playwright Chromium |
 | 测试端口 | `43217` |
@@ -100,11 +101,13 @@
 | 16 | 点击“开始换码” | 任务进入换码中 | 符合 | AUTO-04 |
 | 17 | 点击“确认全部完成旧出新入” | 四个来源批次各生成一旧出、一新入，共八条流水 | 符合 | PAGE-07 |
 | 18 | 返回后道替换列表 | 成衣替换-0004 状态为已完成，显示“完成条件已满足”，原因与审计仍可查 | 符合 | AUTO-04 |
-| 19 | 打开生产单台账 | 原生产需求不变；显示源 SPU 历史已售 1,250 件、目标 SPU 当前／后续 3,750 件 | 符合 | PAGE-08 |
-| 20 | 检查生产单行操作 | 只有一个“打印条码”入口，不存在第二个“打印吊牌”入口 | 符合 | PAGE-08、AUTO-04 |
-| 21 | 点击生产单“打印条码” | 打开“批量打印货品条码”弹窗，显示线上列结构、目标 SKU、勾选、数量、按行与底部双打印 | 符合 | PAGE-09、AUTO-04 |
-| 22 | 目标 M 码填写 2，点击该行“打印条码” | 只生成目标 M 码的 2 张线上 40×30 条码 | 符合 | PAGE-10、AUTO-02、AUTO-04 |
-| 23 | 只勾选目标 M 码并填写 1，点击底部“打印吊牌” | 只生成目标 M 码的 1 张线上 40×100 吊牌 | 符合 | PAGE-11、AUTO-02、AUTO-04 |
+| 19 | 打开生产单台账 | SPU 单元格不再直接铺开构成数量，只显示“存在成衣 SPU 替换”标记 | 符合 | PAGE-08 |
+| 20 | 点击“存在成衣 SPU 替换” | 打开详情弹窗，展示 5,000 件原需求、源／目标 SPU、四类合计数量和逐尺码 SKU 映射 | 符合 | PAGE-09、AUTO-04 |
+| 21 | 打开生产单详情 | 概览新增独立“成衣 SPU 替换”信息区，原需求与新增目标 SPU 分区展示 | 符合 | PAGE-10、AUTO-04 |
+| 22 | 检查生产单行操作 | 只有一个“打印条码”入口，不存在第二个“打印吊牌”入口 | 符合 | PAGE-08、AUTO-04 |
+| 23 | 点击生产单“打印条码” | 打开“批量打印货品条码”弹窗，显示线上列结构、目标 SKU、勾选、数量、按行与底部双打印 | 符合 | PAGE-11、AUTO-04 |
+| 24 | 目标 M 码填写 2，点击该行“打印条码” | 只生成目标 M 码的 2 张线上 40×30 条码 | 符合 | PAGE-12、AUTO-02、AUTO-04 |
+| 25 | 只勾选目标 M 码并填写 1，点击底部“打印吊牌” | 只生成目标 M 码的 1 张线上 40×100 吊牌 | 符合 | PAGE-13、AUTO-02、AUTO-04 |
 
 ## 6. 关键守恒与防错断言
 
@@ -139,10 +142,12 @@
 | PAGE-05 | `output/playwright/garment-spu-replacement-full-flow-print-online-hangtag.png` | 线上 40×100 吊牌版式，顶部纯色圆点 |
 | PAGE-06 | `output/playwright/garment-spu-replacement-full-flow-04-warehouse-task-pending.png` | 成衣仓任务、来源批次、源／目标 SKU 和双打印 |
 | PAGE-07 | `output/playwright/garment-spu-replacement-full-flow-05-warehouse-task-completed.png` | 已完成任务与八条成对库存流水 |
-| PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 生产单实际构成与唯一“打印条码”入口 |
-| PAGE-09 | `output/playwright/garment-spu-replacement-full-flow-07-production-order-print-modal.png` | SKU 勾选、数量填写、按行／批量条码和吊牌操作 |
-| PAGE-10 | `output/playwright/garment-spu-replacement-full-flow-08-production-order-modal-barcode.png` | 目标 M 码 2 张线上条码 |
-| PAGE-11 | `output/playwright/garment-spu-replacement-full-flow-09-production-order-modal-hangtag.png` | 目标 M 码 1 张线上吊牌 |
+| PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 列表只显示替换标记和唯一“打印条码”入口 |
+| PAGE-09 | `output/playwright/garment-spu-replacement-full-flow-07-production-order-replacement-modal.png` | 原需求、替换 SPU、四类数量和逐尺码 SKU 映射弹窗 |
+| PAGE-10 | `output/playwright/garment-spu-replacement-full-flow-08-production-order-detail-replacement.png` | 生产单详情独立替换信息区 |
+| PAGE-11 | `output/playwright/garment-spu-replacement-full-flow-09-production-order-print-modal.png` | SKU 勾选、数量填写、按行／批量条码和吊牌操作 |
+| PAGE-12 | `output/playwright/garment-spu-replacement-full-flow-10-production-order-modal-barcode.png` | 目标 M 码 2 张线上条码 |
+| PAGE-13 | `output/playwright/garment-spu-replacement-full-flow-11-production-order-modal-hangtag.png` | 目标 M 码 1 张线上吊牌 |
 
 打印预览由自动化直接检查 DOM、文档类型和目标 SKU，不依赖仅看截图判断。
 
@@ -152,14 +157,12 @@
 
 | 核验遍次 | 命令 | 结果 |
 |---|---|---|
-| 第一遍 | `npm run check:garment-spu-replacement` | 通过：核心、集成、表面契约及 2 个浏览器全流程用例全部通过；浏览器用例 22.8 秒 |
-| 第一遍 | `npm run build` | 通过 |
-| 第一遍 | `npm run check:menu-routes`、`npm run check:list-page-governance:static`、`npm run check:standard-list-page-template`、`npm run check:prototype-design-governance -- --all` | 通过；原型治理覆盖当前工作区 25 个用户可见文件和 2 份关联记录 |
-| 第二遍 | `npm run check:garment-spu-replacement` | 通过：重新从空状态完成整色替换闭环与后道出货场景；2 个浏览器用例 23.2 秒 |
-| 第二遍 | `npm run build` | 通过 |
-| 第二遍 | `npm run check:menu-routes`、`npm run check:list-page-governance:static`、`npm run check:standard-list-page-template`、`npm run check:prototype-design-governance -- --all` | 通过；菜单 166/166 可达，标准列表和原型治理再次通过 |
-| 最终静态检查 | `git diff --check`、CodeGraph 同步与状态检查 | 通过 |
-| 最终原型治理复核 | `npm run check:prototype-design-governance -- --all` | 通过；本任务审查记录与当前受管差异关联有效 |
+| 第一遍 | `npm run check:garment-spu-replacement` | 通过：核心、集成、表面契约及 2 个浏览器全流程用例全部通过；浏览器用例 24.8 秒 |
+| 第二遍 | `npm run check:garment-spu-replacement` | 通过：重新从空状态完成整色替换闭环与后道出货场景；2 个浏览器用例 25.6 秒 |
+| 补充项目检查 | `npm run build`、`npm run check:menu-routes`、`npm run check:list-page-governance:static`、`npm run check:standard-list-page-template` | 通过；2,358 个模块完成构建，164/164 个菜单 href 可达，标准列表静态与 Chromium 拖拽契约通过 |
+| 原型治理 | `npm run check:prototype-design-governance -- --all` | 通过；当前差异识别 7 个用户可见文件，并关联 1 份完整原型审查记录 |
+| 最终静态检查 | `git diff --check`、CodeGraph 同步与状态检查 | 通过；CodeGraph 同步 17 个变更文件，索引无待同步文件 |
+| 任务收据 | `npm run workflow:verify -- --output /private/tmp/garment-spu-order-display-task-receipt.json --task-boundary "生产单列表成衣 SPU 替换标记与详情弹窗、生产单详情替换信息区及其专项测试和追踪文档"` | 通过；收据边界仅包含本次隔离工作树差异 |
 
 ## 9. 测试脚本校准记录
 
@@ -171,7 +174,7 @@
 4. 复检详情原“完成复检”使用内联事件，实际 DOM 中事件被清空；已改为统一后道事件入口，并验证复检完成后自动生成后道出货单。
 5. 新开打印标签页读不到当前页内存中新生成的后道出货单；已增加仅限后道出货单的最小跨页持久化，整单与条码均可从详情直接打印。
 
-上述校准后，最终从初始 Mock 完整执行整色替换 23 个步骤，并追加“复检完成→后道出货单→整单／条码打印”场景，不跳过中间状态。
+上述校准后，最终从初始 Mock 完整执行整色替换 25 个步骤，并追加“复检完成→后道出货单→整单／条码打印”场景，不跳过中间状态。
 
 ## 10. 验收边界
 
