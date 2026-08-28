@@ -16,12 +16,6 @@ assert.doesNotMatch(
   /\btask\.stepCode\b/,
   '专业任务页面不得读取已删除的专业步骤编码',
 )
-assert.match(
-  engineeringPageSource,
-  /listFirstOrderSourceFirstSampleOptions\(projectId\)/,
-  '首单来源标签必须按项目查询真实首版样衣结果',
-)
-
 const reusableFirstSample = listFirstSampleTasks().find(
   (task) => task.projectId && task.status === '已通过' && task.sampleCode,
 )
@@ -36,7 +30,7 @@ assert.ok(
   '首单创建必须能读取同项目已通过的真实首版样衣结果',
 )
 
-const allowedFirstSampleSourceTypes = new Set(['制版任务', '花型任务', '改版任务', '人工创建'])
+const allowedFirstSampleSourceTypes = new Set(['制版任务', '花型任务', '设计改款任务', '人工创建'])
 const firstSampleSeeds = createTaskBootstrapSnapshot().firstSampleTasks
 assert.ok(firstSampleSeeds.length > 0, '缺少首版样衣演示任务')
 for (const task of firstSampleSeeds) {
@@ -44,7 +38,7 @@ for (const task of firstSampleSeeds) {
     allowedFirstSampleSourceTypes.has(task.sourceType),
     `首版任务 ${task.firstSampleTaskCode} 来源类型不合法：${task.sourceType}`,
   )
-  if (task.upstreamModule === '制版任务' || task.upstreamModule === '花型任务' || task.upstreamModule === '改版任务') {
+  if (task.upstreamModule === '制版任务' || task.upstreamModule === '花型任务' || task.upstreamModule === '设计改款任务') {
     assert.equal(task.sourceType, task.upstreamModule, '首版来源类型必须与真实上游任务一致')
   }
 }

@@ -13,9 +13,6 @@ import {
   activateTechPackVersionForStyle,
 } from './pcs-tech-pack-version-activation.ts'
 import {
-  generateTechPackVersionFromPatternTask,
-  generateTechPackVersionFromPlateTask,
-  generateTechPackVersionFromRevisionTask,
   syncProjectFromTechPackVersion,
   syncStyleArchiveFromTechPackVersion,
   writeProjectRelationFromTechPackVersion,
@@ -63,9 +60,6 @@ function mergeLegacyPayloadWithRouteGate(
 }
 
 export {
-  generateTechPackVersionFromRevisionTask,
-  generateTechPackVersionFromPlateTask,
-  generateTechPackVersionFromPatternTask,
   activateTechPackVersionForStyle,
 }
 

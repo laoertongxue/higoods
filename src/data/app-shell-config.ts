@@ -161,9 +161,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Scissors',
           children: [
             { key: 'pcs-engineering-masters', title: '工程主单', icon: 'FolderKanban', href: '/pcs/engineering/masters' },
-            { key: 'pcs-engineering-changes', title: '工程变更', icon: 'RefreshCw', href: '/pcs/engineering/changes' },
-            { key: 'pcs-revision-sampling-tasks', title: '改款打样任务', icon: 'FileText', href: '/pcs/engineering/revision-sampling' },
-            { key: 'pcs-design-sampling-tasks', title: '设计打样任务', icon: 'FileText', href: '/pcs/engineering/design-sampling' },
+            { key: 'pcs-design-revision-tasks', title: '设计改款任务', icon: 'FileText', href: '/pcs/engineering/design-revision' },
             { key: 'pcs-pattern-tasks', title: '制版任务', icon: 'Scissors', href: '/pcs/patterns/plate-making' },
             { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/artwork' },
             { key: 'pcs-engineering-color-tasks', title: '调色任务', icon: 'Droplets', href: '/pcs/engineering/color' },

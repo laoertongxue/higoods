@@ -5,7 +5,7 @@ export const PROJECT_RELATION_SOURCE_MODULES = [
   '渠道店铺商品',
   '渠道商品',
   '上游渠道商品同步',
-  '改版任务',
+  '设计改款任务',
   '制版任务',
   '花型任务',
   '首版样衣打样',
@@ -22,7 +22,7 @@ export const PROJECT_RELATION_SOURCE_OBJECT_TYPES = [
   '渠道店铺商品',
   '渠道商品',
   '上游渠道商品同步',
-  '改版任务',
+  '设计改款任务',
   '制版任务',
   '花型任务',
   '首版样衣打样任务',
@@ -40,11 +40,11 @@ export type ProjectRelationTechnicalVersionSourceObjectType = Extract<ProjectRel
 export type ProjectRelationArchiveSourceObjectType = Extract<ProjectRelationSourceObjectType, '项目资料归档'>
 export type ProjectRelationTaskSourceModule = Extract<
   ProjectRelationSourceModule,
-  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样'
+  '设计改款任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样'
 >
 export type ProjectRelationTaskSourceObjectType = Extract<
   ProjectRelationSourceObjectType,
-  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样任务' | '首单样衣打样任务'
+  '设计改款任务' | '制版任务' | '花型任务' | '首版样衣打样任务' | '首单样衣打样任务'
 >
 
 export interface ProjectRelationRecord {

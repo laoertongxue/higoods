@@ -866,7 +866,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               ${renderDetailField('渠道商品状态', record.channelProductStatus)}
               ${renderDetailField('是否已作废', record.channelProductStatus === '已作废' ? '是' : '否')}
               ${renderDetailField('作废原因', record.invalidatedReason || '—')}
-              ${renderDetailField('关联改版任务', record.linkedRevisionTaskCode || '—')}
+              ${renderDetailField('关联设计改款任务', record.linkedDesignRevisionTaskCode || '—')}
             </div>
           </section>
         </div>

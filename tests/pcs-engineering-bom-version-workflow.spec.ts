@@ -62,8 +62,12 @@ for (const label of ['颜色物料方案', '整款自定义费用', '物料成�
   assert.ok(planHtml.includes(label), `整款方案必须展示字段：${label}`)
 }
 
+const engineeringMasterIds = new Set(masters.map((master) => master.masterOrderId))
 const generatedTechPacks = listTechnicalDataVersions()
-  .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
+  .filter((version) =>
+    version.createdFromTaskType === 'ENGINEERING_MASTER'
+      && engineeringMasterIds.has(version.sourceProjectId),
+  )
 const generatedTechPackIds = new Set(generatedTechPacks.map((version) => version.technicalVersionId))
 const technicalVersions = allVersions.filter((version) =>
   version.ownerStage === 'TECH_PACK_DRAFT' && generatedTechPackIds.has(version.ownerId),

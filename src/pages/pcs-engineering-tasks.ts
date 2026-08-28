@@ -250,12 +250,12 @@ export function isPcsEngineeringTaskDialogOpen(): boolean {
 
 export function resetPcsEngineeringTaskState(): void {
   clearNotice()
-  for (const module of ['revision', 'plate', 'pattern', 'color', 'purchase', 'techPack', 'firstSample'] as const) {
+  for (const module of ['plate', 'pattern', 'color', 'purchase', 'techPack', 'firstSample'] as const) {
     const list = state[`${module}List`] as Record<string, string | number>
     Object.assign(list, { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 })
   }
 }
 
 export function resetPcsEngineeringTaskRepositories(): void {
-  // 各专业任务的共享事实由工程主单、独立打样和工程变更仓库重置。
+  // 各专业任务的共享事实由工程主单和设计改款任务仓库重置。
 }

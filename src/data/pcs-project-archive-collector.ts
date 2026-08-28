@@ -1,5 +1,6 @@
 import { getProjectNodeRecordByStepCode } from './pcs-project-repository.ts'
-import { listRevisionTasksByProject } from './pcs-revision-task-repository.ts'
+import { listEngineeringIndependentSamplingRecords } from './pcs-engineering-master-sampling.ts'
+import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import { listPlateMakingTasksByProject } from './pcs-plate-making-repository.ts'
 import { listPatternTasksByProject } from './pcs-pattern-task-repository.ts'
 import { listFirstSampleTasksByProject } from './pcs-first-sample-repository.ts'
@@ -45,7 +46,7 @@ export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, s
   PATTERN_DRAWING: '纸样图纸',
   ARTWORK_ASSET: '花型资料',
   SAMPLE_ASSET: '样衣资料',
-  REVISION_RECORD: '改版记录',
+  DESIGN_REVISION_RECORD: '设计改款记录',
   PATTERN_RECORD: '制版记录',
   PATTERN_TASK_RECORD: '花型任务记录',
   CONCLUSION_RECORD: '结论记录',
@@ -732,67 +733,35 @@ function buildTechnicalDocuments(
   return getCurrentTechPackVersionByStyleId(style.styleId)
 }
 
-function buildRevisionDocuments(
+function buildDesignRevisionDocuments(
   archive: ProjectArchiveRecord,
   project: PcsProjectRecord,
   documents: ProjectArchiveDocumentRecord[],
   files: ProjectArchiveFileRecord[],
 ): void {
-  listRevisionTasksByProject(project.projectId).forEach((task) => {
-    const documentId = buildDocumentId(archive.projectArchiveId, '改版任务', '改版任务', task.revisionTaskId, '', '改版任务', false)
-    const revisionFiles = [
-      ...(task.materialAdjustmentLines || []).map((line, index) => ({
-        sourceFileId: line.materialImageId,
-        fileName: archiveFileNameFromUrl(line.materialImageId, `改版面辅料-${index + 1}.png`),
-        fileType: '面辅料变化',
-        previewUrl: line.materialImageId,
-      })),
-      ...(task.newPatternImageIds || []).map((fileId, index) => ({
-        sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `新花型图片-${index + 1}.png`),
-        fileType: '花型变化',
-        previewUrl: fileId,
-      })),
-      ...(task.patternPieceImageIds || []).map((fileId, index) => ({
-        sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `唛架图片-${index + 1}.png`),
-        fileType: '唛架图片',
-        previewUrl: fileId,
-      })),
-      ...(task.patternFileIds || []).map((fileId, index) => ({
-        sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `纸样文件-${index + 1}`),
-        fileType: '纸样文件',
-        previewUrl: fileId,
-      })),
-      ...(task.mainImageIds || []).map((fileId, index) => ({
-        sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `主图图片-${index + 1}.png`),
-        fileType: '主图图片',
-        previewUrl: fileId,
-      })),
-      ...(task.designDraftImageIds || []).map((fileId, index) => ({
-        sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `新图设计稿-${index + 1}.png`),
-        fileType: '新图设计稿',
-        previewUrl: fileId,
-      })),
-    ].filter((file) => file.sourceFileId)
-    const archiveFiles = revisionFiles.map((file, index) => createFileRecord({
-      archiveFileId: buildFileId(archive.projectArchiveId, documentId, file.sourceFileId, file.fileName),
+  listEngineeringIndependentSamplingRecords()
+    .filter((task) => getStyleArchiveById(task.targetStyleId)?.sourceProjectId === project.projectId)
+    .forEach((task) => {
+    const documentId = buildDocumentId(archive.projectArchiveId, '设计改款任务', '设计改款任务', task.samplingTaskId, '', '设计改款任务', false)
+    const sourceFiles = [
+      ...task.designFiles,
+      ...task.professionalTasks.flatMap((professionalTask) => professionalTask.results.flatMap((result) => result.files)),
+    ]
+    const archiveFiles = sourceFiles.map((file, index) => createFileRecord({
+      archiveFileId: buildFileId(archive.projectArchiveId, documentId, file.fileId, file.fileName),
       projectArchiveId: archive.projectArchiveId,
       archiveDocumentId: documentId,
-      sourceModule: '改版任务',
-      sourceObjectType: '改版任务',
-      sourceObjectId: task.revisionTaskId,
-      sourceFileId: file.sourceFileId,
+      sourceModule: '设计改款任务',
+      sourceObjectType: '设计改款任务',
+      sourceObjectId: task.samplingTaskId,
+      sourceFileId: file.fileId,
       fileName: file.fileName,
-      fileType: file.fileType,
-      previewUrl: file.previewUrl,
+      fileType: file.purpose,
+      previewUrl: file.dataUrl,
       isPrimary: index === 0,
       sortOrder: index + 1,
-      uploadedAt: task.updatedAt || task.createdAt,
-      uploadedBy: task.updatedBy || task.ownerName,
+      uploadedAt: file.uploadedAt,
+      uploadedBy: file.uploadedByName,
     }))
 
     pushDocumentWithFiles(
@@ -806,17 +775,17 @@ function buildRevisionDocuments(
         projectNodeId: '',
         stepCode: '',
         stepName: '',
-        sourceModule: '改版任务',
-        sourceObjectType: '改版任务',
-        sourceObjectId: task.revisionTaskId,
-        sourceObjectCode: task.revisionTaskCode,
+        sourceModule: '设计改款任务',
+        sourceObjectType: '设计改款任务',
+        sourceObjectId: task.samplingTaskId,
+        sourceObjectCode: task.samplingTaskCode,
         sourceVersionId: '',
         sourceVersionCode: '',
         sourceVersionLabel: '',
-        documentGroup: 'REVISION_RECORD',
-        documentCategory: '改版记录',
-        documentType: '改版任务',
-        documentTitle: task.title,
+        documentGroup: 'DESIGN_REVISION_RECORD',
+        documentCategory: '设计改款记录',
+        documentType: '设计改款任务',
+        documentTitle: `${task.targetStyleName}设计改款`,
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
@@ -825,12 +794,12 @@ function buildRevisionDocuments(
         primaryFileName: archiveFiles[0]?.fileName || '',
         previewUrl: archiveFiles[0]?.previewUrl || '',
         businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
+        ownerName: task.merchandiserName,
         createdAt: archive.createdAt,
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
-        updatedBy: task.updatedBy,
-        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
+        updatedBy: task.confirmedBy || task.merchandiserName,
+        legacySourceRef: '',
       }),
       archiveFiles,
     )
@@ -1272,7 +1241,7 @@ export function collectProjectArchiveAutoData(
     currentTechnicalVersion = buildTechnicalDocuments(archive, project, style, documents, files)
   }
 
-  buildRevisionDocuments(archive, project, documents, files)
+  buildDesignRevisionDocuments(archive, project, documents, files)
   buildPatternTaskDocuments(archive, project, documents, files)
   buildSampleDocuments(archive, project, documents, files)
   buildConclusionDocument(archive, project, documents)

@@ -42,8 +42,9 @@ import {
 } from './pcs-engineering-bom-repository.ts'
 import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 import { assertEngineeringUploadedFilesReady } from './pcs-engineering-file-upload.ts'
+import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 
-const STORAGE_KEY = 'higood-pcs-independent-sampling-v7'
+const STORAGE_KEY = 'higood-pcs-design-revision-v1'
 const TASK_META: Record<EngineeringIndependentProfessionalTaskType, { name: string; team: string }> = {
   BASE_PATTERN: { name: '基码纸样', team: '版师' },
   DISPLAY_SAMPLE: { name: '销售展示样衣任务', team: '制作团队' },
@@ -96,6 +97,7 @@ function cloneTask(task: EngineeringIndependentProfessionalTask): EngineeringInd
 function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
   return {
     ...record,
+    designFiles: (record.designFiles || []).map((file) => ({ ...file })),
     relatedProfessionalTaskIds: [...record.relatedProfessionalTaskIds],
     professionalTasks: record.professionalTasks.map(cloneTask),
     selectedTaskTypes: [...record.selectedTaskTypes],
@@ -110,6 +112,8 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
 function normalizeRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
   return {
     ...record,
+    samplingType: 'DESIGN_REVISION',
+    designFiles: Array.isArray(record.designFiles) ? record.designFiles.map((file) => ({ ...file })) : [],
     relatedProfessionalTaskIds: Array.isArray(record.relatedProfessionalTaskIds) ? record.relatedProfessionalTaskIds : [],
     professionalTasks: Array.isArray(record.professionalTasks) ? record.professionalTasks.map(cloneTask) : [],
     selectedTaskTypes: Array.isArray(record.selectedTaskTypes) ? record.selectedTaskTypes : [],
@@ -119,7 +123,7 @@ function normalizeRecord(record: EngineeringIndependentSamplingRecord): Engineer
     creationReason: record.creationReason || '',
     colorMappings: Array.isArray(record.colorMappings) ? record.colorMappings.map((item) => ({ ...item, targetSkuIds: [...(item.targetSkuIds || [])], targetSizeNames: [...(item.targetSizeNames || [])] })) : [],
     materialConversionLines: Array.isArray(record.materialConversionLines) ? record.materialConversionLines.map((item) => ({ ...item })) : [],
-    bomConversionStatus: record.bomConversionStatus || (record.samplingType === 'REVISION' ? 'WAIT_COLOR_MAPPING' : 'NOT_REQUIRED'),
+    bomConversionStatus: record.bomConversionStatus || 'WAIT_COLOR_MAPPING',
     bomConversionConfirmedBy: record.bomConversionConfirmedBy || '',
     bomConversionConfirmedAt: record.bomConversionConfirmedAt || '',
     buyerPreparationConfirmedBy: record.buyerPreparationConfirmedBy || (record.bomConversionStatus === 'CONFIRMED' ? record.bomConversionConfirmedBy || '买手' : ''),
@@ -174,7 +178,9 @@ function createSeedUploadedFile(
   createdAt: string,
   index = 1,
 ): EngineeringUploadedFile {
-  const operator = purpose === 'PATTERN_SOURCE'
+  const operator = purpose === 'DESIGN_IMAGE'
+    ? { id: 'U-MERCH-LINXIAO', name: '跟单-林晓', team: '跟单' }
+    : purpose === 'PATTERN_SOURCE'
     ? { id: 'PCS-PATTERN-MAKER-ZHOU', name: '周师傅', team: '版师' }
     : purpose === 'SAMPLE_RESULT'
     ? { id: 'PCS-SAMPLE-MAKER-LINA', name: 'Lina', team: '制作团队' }
@@ -204,8 +210,8 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
   if (styles.length < 2) return []
   const actor = { role: '跟单' as const, userId: 'U-MERCH-LINXIAO', userName: '跟单-林晓' }
   const buyer = { userId: 'U-BUYER-DEMO', userName: '买手-阿乐' }
-  // 独立打样只能引用已经完成确认的历史物料方案；这些演示历史方案不属于任何打样任务，
-  // 避免把“独立打样完成”错误表现成“BOM 已形成正式技术包版本”。
+  // 设计改款只能引用已经完成确认的历史物料方案；这些演示历史方案不属于任何设计改款任务，
+  // 避免把“设计改款完成”错误表现成“BOM 已形成正式技术包版本”。
   styles.forEach((style, styleIndex) => {
     if (listEngineeringBomHistory(style.styleCode).length) return
     const versions = createEngineeringBomVersionsForOwner({
@@ -250,13 +256,13 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
   const statuses = ['DRAFT', 'IN_PROGRESS', 'WAIT_CONFIRMATION', 'COMPLETED', 'IN_PROGRESS', 'COMPLETED'] as const
   return Array.from({ length: 24 }, (_, index) => {
     const target = styles[index % styles.length]
-    const type: EngineeringIndependentSamplingType = index % 2 === 0 ? 'REVISION' : 'DESIGN'
-    const source = type === 'REVISION' ? styles[(index + 1) % styles.length] : undefined
+    const type: EngineeringIndependentSamplingType = 'DESIGN_REVISION'
+    const source = styles[(index + 1) % styles.length]
     const createdAt = `2026-07-${String(index + 1).padStart(2, '0')} 09:00:00`
     const selected: EngineeringIndependentProfessionalTaskType[] = index % 3 === 0
       ? ['BASE_PATTERN', 'DISPLAY_SAMPLE', 'PATTERN_ARTWORK']
       : ['PATTERN_ARTWORK', index % 2 ? 'COLOR_FABRIC' : 'COLOR_YARN']
-    const code = `ES-${type === 'REVISION' ? 'R' : 'D'}-${String(index + 1).padStart(3, '0')}`
+    const code = `ES-DR-${String(index + 1).padStart(3, '0')}`
     const taskId = code.replace(/^ES-/, 'ES-ID-')
     const existingBomVersionIds = new Set(
       listEngineeringBomVersionsByOwner('INDEPENDENT_SAMPLING', taskId)
@@ -264,9 +270,10 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
     )
     const record = buildRecord({
       samplingType: type,
-      sourceStyleId: source?.styleId,
+      sourceStyleId: source.styleId,
       targetStyleId: target.styleId,
-      creationReason: type === 'REVISION' ? '基于现有款式调整版型和颜色后制作销售展示样衣。' : '根据设计资料制作销售展示样衣。',
+      creationReason: '基于参照款和设计稿完成目标款式的设计改款。',
+      designFiles: [createSeedUploadedFile(`${code}-DESIGN`, 'DESIGN_IMAGE', target.mainImageUrl, createdAt)],
       merchandiser: actor,
       createdAt,
     }, code)
@@ -275,8 +282,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       ? [...new Set(listSkuArchivesByStyleId(source.styleId).filter((sku) => sku.archiveStatus === 'ACTIVE').map((sku) => sku.colorName))]
       : []
     const scenario = index % 6
-    const targetColorInputs = type === 'REVISION'
-      ? scenario === 0
+    const targetColorInputs = scenario === 0
         ? [{ targetColor: '改款深蓝', sourceColor: sourceColors[0] || '', targetSizeNames: targetSizes }]
         : scenario === 2
           ? [
@@ -288,12 +294,6 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
               { targetColor: '目标黑', sourceColor: sourceColors[0] || '', targetSizeNames: targetSizes },
               { targetColor: '目标白', sourceColor: sourceColors[1] || '', targetSizeNames: targetSizes },
             ]
-      : scenario === 1
-        ? [{ targetColor: '设计主色', sourceColor: '', targetSizeNames: targetSizes }]
-        : [
-            { targetColor: '设计黑', sourceColor: '', targetSizeNames: targetSizes },
-            { targetColor: '设计米白', sourceColor: '', targetSizeNames: targetSizes },
-          ]
 
     const existingBomVersions = listEngineeringBomVersionsByOwner('INDEPENDENT_SAMPLING', taskId)
     if (existingBomVersions.length) {
@@ -488,7 +488,7 @@ function writeRecords(records: EngineeringIndependentSamplingRecord[]): void {
 }
 
 function requireMerchandiser(actor: { role: string; userId: string; userName: string }): void {
-  if (actor.role !== '跟单' || !actor.userId.trim() || !actor.userName.trim()) throw new Error('只有当前登录的跟单可以操作独立改款或设计打样任务。')
+  if (actor.role !== '跟单' || !actor.userId.trim() || !actor.userName.trim()) throw new Error('只有当前登录的跟单可以操作设计改款任务。')
 }
 
 function addLog(record: EngineeringIndependentSamplingRecord, action: string, actor: { userId: string; userName: string }, detail: string, occurredAt = nowText()): void {
@@ -496,11 +496,41 @@ function addLog(record: EngineeringIndependentSamplingRecord, action: string, ac
   record.updatedAt = occurredAt
 }
 
+function syncDesignRevisionProjectRelation(record: EngineeringIndependentSamplingRecord): void {
+  const target = getStyleArchiveById(record.targetStyleId)
+  if (!target?.sourceProjectId || !target.sourceProjectCode) return
+  upsertProjectRelation({
+    projectRelationId: '',
+    projectId: target.sourceProjectId,
+    projectCode: target.sourceProjectCode,
+    projectNodeId: target.sourceProjectNodeId || null,
+    stepCode: '',
+    stepName: '',
+    relationRole: '执行记录',
+    sourceModule: '设计改款任务',
+    sourceObjectType: '设计改款任务',
+    sourceObjectId: record.samplingTaskId,
+    sourceObjectCode: record.samplingTaskCode,
+    sourceLineId: null,
+    sourceLineCode: null,
+    sourceTitle: `${record.targetStyleName}设计改款`,
+    sourceStatus: record.status,
+    businessDate: record.updatedAt || record.createdAt,
+    ownerName: record.merchandiserName,
+    createdAt: record.createdAt,
+    createdBy: record.createdBy,
+    updatedAt: record.updatedAt,
+    updatedBy: record.confirmedBy || record.merchandiserName,
+    note: `参照款式 ${record.sourceStyleCode}，目标款式 ${record.targetStyleCode}。`,
+  })
+}
+
 export interface CreateEngineeringIndependentSamplingInput {
-  samplingType: EngineeringIndependentSamplingType
-  sourceStyleId?: string
+  samplingType?: EngineeringIndependentSamplingType
+  sourceStyleId: string
   targetStyleId: string
   creationReason: string
+  designFiles: EngineeringUploadedFile[]
   merchandiser: { role: string; userId: string; userName: string }
   createdAt: string
 }
@@ -509,20 +539,20 @@ function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: str
   requireMerchandiser(input.merchandiser)
   const target = getStyleArchiveById(input.targetStyleId)
   if (!target) throw new Error('目标商品／款式档案不存在。')
-  const source = input.sourceStyleId ? getStyleArchiveById(input.sourceStyleId) : null
-  if (input.samplingType === 'REVISION') {
-    if (!source) throw new Error('改款打样的来源商品／款式档案不存在。')
-    if (source.styleId === target.styleId || source.styleCode === target.styleCode) throw new Error('改款打样的来源 SPU 与目标 SPU 不能相同。')
-  }
-  if (input.samplingType === 'DESIGN' && input.sourceStyleId) throw new Error('设计打样不应填写来源 SPU，请改用改款打样。')
+  const source = getStyleArchiveById(input.sourceStyleId)
+  if (!source) throw new Error('参照商品／款式档案不存在。')
+  if (source.styleId === target.styleId || source.styleCode === target.styleCode) throw new Error('参照 SPU 与目标 SPU 不能相同。')
+  assertEngineeringUploadedFilesReady(input.designFiles, '设计稿')
+  if (input.designFiles.some((file) => file.purpose !== 'DESIGN_IMAGE')) throw new Error('设计稿文件类型不正确。')
+  if (input.designFiles.some((file) => file.uploadedById !== input.merchandiser.userId || file.uploadedByTeam !== '跟单')) throw new Error('设计稿必须由当前跟单上传。')
   const creationReason = input.creationReason?.trim() || ''
-  if (!creationReason) throw new Error('请填写本次打样原因。')
+  if (!creationReason) throw new Error('请填写本次设计改款要求。')
   const taskId = code.replace(/^ES-/, 'ES-ID-')
   const record: EngineeringIndependentSamplingRecord = {
-    samplingTaskId: taskId, samplingTaskCode: code, samplingType: input.samplingType,
-    sourceStyleId: source?.styleId || '', sourceStyleCode: source?.styleCode || '',
+    samplingTaskId: taskId, samplingTaskCode: code, samplingType: 'DESIGN_REVISION',
+    sourceStyleId: source.styleId, sourceStyleCode: source.styleCode,
     targetStyleId: target.styleId, targetStyleCode: target.styleCode, targetStyleName: target.styleName,
-    status: 'DRAFT', creationReason, merchandiserId: input.merchandiser.userId, merchandiserName: input.merchandiser.userName,
+    status: 'DRAFT', creationReason, designFiles: input.designFiles.map((file) => ({ ...file })), merchandiserId: input.merchandiser.userId, merchandiserName: input.merchandiser.userName,
     relatedProfessionalTaskIds: [], professionalTasks: [],
     bomDraftVersionId: '',
     bomVersionIds: [],
@@ -535,17 +565,18 @@ function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: str
     buyerPreparationReturnedBy: '', buyerPreparationReturnedAt: '', buyerPreparationReturnReason: '',
     operationLogs: [], createdBy: input.merchandiser.userName, createdAt: input.createdAt, updatedAt: input.createdAt,
   }
-  addLog(record, '创建任务', input.merchandiser, `${input.samplingType === 'REVISION' ? '改款' : '设计'}打样任务已创建：${record.creationReason}`, input.createdAt)
+  addLog(record, '创建任务', input.merchandiser, `设计改款任务已创建，并上传设计稿：${record.designFiles.map((file) => file.fileName).join('、')}。${record.creationReason}`, input.createdAt)
   return record
 }
 
 export function createEngineeringIndependentSampling(input: CreateEngineeringIndependentSamplingInput): EngineeringIndependentSamplingRecord {
   const records = readRecords()
-  const code = `ES-${input.samplingType === 'REVISION' ? 'R' : 'D'}-${String(records.length + 1).padStart(3, '0')}`
+  const code = `ES-DR-${String(records.length + 1).padStart(3, '0')}`
   const bomSnapshot = captureEngineeringBomRepositoryState()
   try {
     const record = buildRecord(input, code)
     writeRecords([...records, record])
+    syncDesignRevisionProjectRelation(record)
     return cloneRecord(record)
   } catch (error) {
     restoreEngineeringBomRepositoryState(bomSnapshot)
@@ -553,8 +584,29 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
   }
 }
 
-export function listEngineeringIndependentSamplingRecords(type?: EngineeringIndependentSamplingType): EngineeringIndependentSamplingRecord[] {
-  return readRecords().filter((record) => !type || record.samplingType === type).map(cloneRecord)
+export function replaceEngineeringIndependentDesignFiles(input: {
+  samplingTaskId: string
+  designFiles: EngineeringUploadedFile[]
+  actor: { role: string; userId: string; userName: string }
+  replacedAt?: string
+}): EngineeringIndependentSamplingRecord {
+  requireMerchandiser(input.actor)
+  assertEngineeringUploadedFilesReady(input.designFiles, '设计稿')
+  if (input.designFiles.some((file) => file.purpose !== 'DESIGN_IMAGE')) throw new Error('设计稿文件类型不正确。')
+  if (input.designFiles.some((file) => file.uploadedById !== input.actor.userId || file.uploadedByTeam !== '跟单')) throw new Error('设计稿必须由当前跟单上传。')
+  const records = readRecords()
+  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
+  if (!record) throw new Error('设计改款任务不存在。')
+  if (record.taskPlanConfirmedAt) throw new Error('工作安排确认后不能替换设计稿。')
+  const replacedAt = input.replacedAt || nowText()
+  record.designFiles.push(...input.designFiles.map((file) => ({ ...file })))
+  addLog(record, '替换设计稿', input.actor, `已上传新的设计稿：${input.designFiles.map((file) => file.fileName).join('、')}。历史设计稿继续保留。`, replacedAt)
+  writeRecords(records)
+  return cloneRecord(record)
+}
+
+export function listEngineeringIndependentSamplingRecords(): EngineeringIndependentSamplingRecord[] {
+  return readRecords().map(cloneRecord)
 }
 
 export function getEngineeringIndependentSamplingRecord(id: string): EngineeringIndependentSamplingRecord | null {
@@ -568,7 +620,7 @@ function requireBuyer(actor: { role: string; userId: string; userName: string })
 
 export function listEngineeringIndependentSourceBomReferences(samplingTaskId: string) {
   const record = getEngineeringIndependentSamplingRecord(samplingTaskId)
-  if (!record || record.samplingType !== 'REVISION') return []
+  if (!record) return []
   return listEngineeringBomHistory(record.sourceStyleCode)
 }
 
@@ -674,12 +726,9 @@ function applyEngineeringIndependentColorMappings(input: {
   if (normalized.some((item) => !item.targetColor)) throw new Error('目标颜色名称不能为空。')
   const colorKeys = normalized.map((item) => normalizeColorKey(item.targetColor))
   if (new Set(colorKeys).size !== colorKeys.length) throw new Error('目标颜色名称不能重复。')
-  const sourceColors = record.samplingType === 'REVISION'
-    ? [...new Set(listSkuArchivesByStyleId(record.sourceStyleId).filter((sku) => sku.archiveStatus === 'ACTIVE').map((sku) => sku.colorName.trim()).filter(Boolean))]
-    : []
+  const sourceColors = [...new Set(listSkuArchivesByStyleId(record.sourceStyleId).filter((sku) => sku.archiveStatus === 'ACTIVE').map((sku) => sku.colorName.trim()).filter(Boolean))]
 
   const mapped = normalized.map((mapping, index) => {
-    if (record.samplingType === 'DESIGN' && mapping.sourceColor) throw new Error('设计打样没有来源款式，目标颜色不能选择 A 款参考色。')
     const canonicalSource = mapping.sourceColor
       ? sourceColors.find((color) => normalizeColorKey(color) === normalizeColorKey(mapping.sourceColor))
       : ''
@@ -765,7 +814,7 @@ export function confirmEngineeringIndependentColorMappings(input: {
   requireBuyer(input.actor)
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt) throw new Error('本次工作安排确认后不能再修改颜色对应。')
   if (record.buyerPreparationConfirmedAt) throw new Error('新款资料准备已完成。请先由跟单退回买手修改，再调整目标颜色。')
   const at = input.confirmedAt || nowText()
@@ -803,7 +852,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
   requireBuyer(input.actor)
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record || record.samplingType !== 'REVISION') throw new Error('仅改款打样需要确认 A 款物料如何转成 B 款物料。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.buyerPreparationConfirmedAt) throw new Error('新款资料准备已完成。请先由跟单退回买手修改，再调整参考物料。')
   if (record.bomConversionStatus !== 'WAIT_MATERIAL_DECISION') throw new Error('请先确认 A 款颜色到 B 款颜色的对应。')
   if (input.decisions.length !== record.materialConversionLines.length) throw new Error('请逐行确认全部来源物料的处理方式。')
@@ -906,7 +955,7 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
   requireBuyer(input.actor)
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
+  if (!record) throw new Error('设计改款任务不存在。')
   // 浏览器重复点击或重复提交同一交接动作时直接返回既有事实，避免重复日志、
   // 重复锁定或把第一次成功反馈覆盖成“已经交接”的失败提示。
   if (record.status === 'DRAFT' && record.buyerPreparationConfirmedAt && !record.taskPlanConfirmedAt) {
@@ -998,7 +1047,7 @@ export function returnEngineeringIndependentBuyerPreparation(input: {
   requireMerchandiser(input.actor)
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.merchandiserId !== input.actor.userId) throw new Error('只有任务跟单本人可以退回新款资料准备。')
   if (record.status !== 'DRAFT' || !record.buyerPreparationConfirmedAt || record.taskPlanConfirmedAt) {
     throw new Error('只有买手已完成、工作安排尚未确认时才能退回修改。')
@@ -1042,7 +1091,7 @@ export function regenerateEngineeringIndependentBomFromReference(input: {
   requireBuyer(input.actor)
   const records = readRecords()
   const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record || record.samplingType !== 'REVISION') throw new Error('只有改款打样可以按旧款参考色重新生成 BOM。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt || record.buyerPreparationConfirmedAt) {
     throw new Error('新款资料准备完成后不能重新生成 BOM。请先由跟单退回买手修改。')
   }
@@ -1233,14 +1282,14 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
 }): EngineeringIndependentSamplingRecord {
   requireMerchandiser(input.actor)
   const records = readRecords(); const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.merchandiserId !== input.actor.userId) throw new Error('只有任务跟单本人可以确认任务方案。')
   if (record.status !== 'DRAFT') throw new Error('只有草稿任务可以确认任务方案。')
   if (!record.buyerPreparationConfirmedAt || record.bomConversionStatus !== 'CONFIRMED') throw new Error('请先由买手完成目标颜色及整款 BOM 与价格方案。')
   const incompleteBom = record.bomVersionIds.map(getEngineeringBomVersionById).find((version) => version && version.materialLines.length === 0)
   if (incompleteBom) throw new Error(`B 款颜色“${incompleteBom.productColor}”尚未维护物料，不能确认本次工作安排。`)
   if (!input.selectedTaskTypes.length) throw new Error('请至少选择一个专业任务。')
-  if (!input.selectedTaskTypes.includes('DISPLAY_SAMPLE')) throw new Error('独立打样必须包含销售展示样衣任务。')
+  if (!input.selectedTaskTypes.includes('DISPLAY_SAMPLE')) throw new Error('设计改款任务必须包含销售展示样衣任务。')
   const at = input.confirmedAt || nowText()
   const sampleRequirements = normalizeIndependentSampleRequirements(record, input.sampleRequirements, input.actor.userName, at)
   record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
@@ -1256,7 +1305,7 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
 
 function findTask(records: EngineeringIndependentSamplingRecord[], taskId: string): { record: EngineeringIndependentSamplingRecord; task: EngineeringIndependentProfessionalTask } {
   for (const record of records) { const task = record.professionalTasks.find((item) => item.taskId === taskId); if (task) return { record, task } }
-  throw new Error('独立打样专业任务不存在。')
+  throw new Error('设计改款专业任务不存在。')
 }
 
 function unlockDependents(record: EngineeringIndependentSamplingRecord, completedTaskId: string): void {
@@ -1444,12 +1493,12 @@ export function reviewEngineeringIndependentProfessionalTask(input: { taskId: st
 
 export function confirmEngineeringIndependentSamplingResult(input: { samplingTaskId: string; actor: { role: string; userId: string; userName: string }; resultVersion: string; resultSummary: string; confirmedAt: string }): EngineeringIndependentSamplingRecord {
   requireMerchandiser(input.actor); const records = readRecords(); const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
+  if (!record) throw new Error('设计改款任务不存在。')
   if (record.merchandiserId !== input.actor.userId) throw new Error('只有任务跟单本人可以确认整张任务成果。')
   if (record.status !== 'WAIT_CONFIRMATION') throw new Error('全部专业任务完成后才能确认整张成果。')
   if (!input.resultVersion.trim() || !input.resultSummary.trim()) throw new Error('请完整填写成果版本和成果摘要。')
   record.status = 'COMPLETED'; record.resultVersion = input.resultVersion.trim(); record.resultSummary = input.resultSummary.trim(); record.confirmedBy = input.actor.userName; record.confirmedAt = input.confirmedAt
-  addLog(record, '确认整张成果', input.actor, `成果版本 ${record.resultVersion} 已确认。`, input.confirmedAt); writeRecords(records); return cloneRecord(record)
+  addLog(record, '确认整张成果', input.actor, `成果版本 ${record.resultVersion} 已确认。`, input.confirmedAt); writeRecords(records); syncDesignRevisionProjectRelation(record); return cloneRecord(record)
 }
 
 export function listReusableEngineeringIndependentSamplingResults(targetStyleCode: string): EngineeringIndependentSamplingRecord[] {

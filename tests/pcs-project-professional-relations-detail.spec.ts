@@ -9,7 +9,7 @@ resetProjectRepository()
 resetProjectRelationRepository()
 
 const professionalModules = new Set<ProjectRelationTaskSourceModule>([
-  '改版任务',
+  '设计改款任务',
   '制版任务',
   '花型任务',
   '首版样衣打样',

@@ -9,7 +9,7 @@ export interface TechnicalVersionProductProjectSource {
   project: PcsProjectRecord
 }
 
-// 技术版本的 sourceProjectId 是工程主单／工程变更任务 ID。
+// 技术版本的 sourceProjectId 是工程主单 ID。
 // 商品项目必须统一经由 技术版本 -> 款式档案 -> 款式来源项目 解析。
 export function resolveTechnicalVersionProductProject(
   record: Pick<TechnicalDataVersionRecord, 'styleId'>,

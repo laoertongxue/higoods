@@ -1,48 +1,59 @@
 import assert from 'node:assert/strict'
+
 import { buildProductionOrderFromDemand, type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
-import {
-  generateTechPackVersionFromPlateTask,
-  generateTechPackVersionFromRevisionTask,
-  publishTechnicalDataVersion,
-  saveTechnicalDataVersionContent,
-} from '../src/data/pcs-project-technical-data-writeback.ts'
-import { activateTechPackVersionForStyle } from '../src/data/pcs-tech-pack-version-activation.ts'
 import type { ProductionDemand } from '../src/data/fcs/production-demands.ts'
 import {
-  fillCoreTechPackContent,
-  prepareTechPackTaskScenario,
-} from './pcs-tech-pack-test-helper.ts'
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  getStyleArchiveById,
+  listStyleArchives,
+  updateStyleArchive,
+} from '../src/data/pcs-style-archive-repository.ts'
+import {
+  createTechnicalDataVersionDraft,
+  getTechnicalDataVersionContent,
+  listTechnicalDataVersions,
+  resetTechnicalDataVersionRepository,
+} from '../src/data/pcs-technical-data-version-repository.ts'
+import type {
+  TechnicalDataVersionContent,
+  TechnicalDataVersionRecord,
+} from '../src/data/pcs-technical-data-version-types.ts'
 
-function buildDemand(
-  demandId: string,
-  styleCode: string,
-  techPackVersionLabel: string,
-): ProductionDemand {
+function buildDemand(input: {
+  demandId: string
+  styleCode: string
+  styleName: string
+  versionLabel: string
+}): ProductionDemand {
   return {
-    demandId,
+    demandId: input.demandId,
     legacyType: 'ID_PURCHASE',
-    legacyOrderNo: `LEGACY-${demandId}`,
+    legacyOrderNo: `LEGACY-${input.demandId}`,
     sourceSystem: 'NEW',
-    spuCode: styleCode,
-    spuName: '冻结验证款式',
-    imageUrl: '/placeholder.svg?height=80&width=80',
+    spuCode: input.styleCode,
+    spuName: input.styleName,
+    imageUrl: '/assets/products/product-dress-pink-floral.webp',
     category: '测试分类',
     marketScopes: ['内销'],
     priority: 'NORMAL',
     demandStatus: 'PENDING_CONVERT',
     techPackStatus: 'RELEASED',
-    techPackVersionLabel,
-    requiredDeliveryDate: '2026-05-10',
+    techPackVersionLabel: input.versionLabel,
+    requiredDeliveryDate: '2026-09-10',
     requiredQtyTotal: 480,
-    constraintsNote: '用于验证生产单快照冻结',
+    constraintsNote: '验证生产单技术包快照冻结',
     skuLines: [
-      { skuCode: `${styleCode}-BK-M`, size: 'M', color: '黑色', qty: 220 },
-      { skuCode: `${styleCode}-BK-L`, size: 'L', color: '黑色', qty: 260 },
+      { skuCode: `${input.styleCode}-BK-M`, size: 'M', color: '黑色', qty: 220 },
+      { skuCode: `${input.styleCode}-BK-L`, size: 'L', color: '黑色', qty: 260 },
     ],
     hasProductionOrder: false,
     productionOrderId: null,
-    createdAt: '2026-04-10 13:00:00',
-    updatedAt: '2026-04-10 13:00:00',
+    createdAt: '2026-08-27 10:00:00',
+    updatedAt: '2026-08-27 10:00:00',
   }
 }
 
@@ -67,92 +78,172 @@ function buildSeed(orderId: string, demandId: string, snapshotAt: string): Produ
   }
 }
 
-const scenario = prepareTechPackTaskScenario()
+resetEngineeringMasterRepository()
+resetTechnicalDataVersionRepository()
 
-const firstDraft = generateTechPackVersionFromPlateTask(scenario.plateTaskId, '测试用户')
-fillCoreTechPackContent(firstDraft.record.technicalVersionId, scenario.styleCode)
-saveTechnicalDataVersionContent(
-  firstDraft.record.technicalVersionId,
-  {
-    bomItems: [
-      {
-        id: 'bom-freeze-1',
-        type: '面料',
-        name: '首版主面料',
-        spec: '100% 棉',
-        unitConsumption: 1.15,
-        lossRate: 0.02,
-        supplier: '供应商甲',
-      },
-    ],
+const style = listStyleArchives()[0]
+const baseRecord = listTechnicalDataVersions()[0]
+assert.ok(style, '必须存在款式档案演示数据')
+assert.ok(baseRecord, '必须存在技术包结构演示数据')
+const baseContent = getTechnicalDataVersionContent(baseRecord.technicalVersionId)
+assert.ok(baseContent, '必须存在技术包内容演示数据')
+
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserId: 'MERCHANDISER-FREEZE',
+  merchandiserName: '跟单-快照验证',
+  createdById: 'MERCHANDISER-FREEZE',
+  createdBy: '跟单-快照验证',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: {
+    styleCode: style.styleCode,
+    formalSaleStatus: 'NO_FORMAL_SALE',
+    formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+    formalSaleSource: '正式销售订单',
+    formalProductionSource: '正式生产单',
+    checkedAt: '2026-08-27 09:00:00',
   },
-  '测试用户',
-)
-const firstPublished = publishTechnicalDataVersion(firstDraft.record.technicalVersionId, '测试用户')
-activateTechPackVersionForStyle(scenario.styleId, firstPublished.technicalVersionId, '测试用户')
+  bulkProductionQualification: {
+    basisType: 'TEST_APPROVED',
+    triggerBusinessObjectType: '测款结果',
+    triggerBusinessObjectId: 'TEST-SNAPSHOT-FREEZE',
+    thresholdQuantity: 300,
+    reachedQuantity: 480,
+    reachedAt: '2026-08-27 09:00:00',
+    reason: '已满足做大货要求',
+    uniqueTriggerKey: 'TEST-SNAPSHOT-FREEZE',
+  },
+  creationReason: '验证正式技术包快照冻结',
+}).masterOrderId)
+const sourceTaskId = `${master.masterOrderId}-TECH_PACK_CONFIRMATION`
 
-const firstDemand = buildDemand('DEM-FREEZE-001', scenario.styleCode, firstPublished.versionLabel)
+function createPublishedVersion(input: {
+  id: string
+  code: string
+  versionNo: number
+  versionLabel: string
+  materialName: string
+  linkedDesignRevisionTaskIds: string[]
+  publishedAt: string
+}): TechnicalDataVersionRecord {
+  const record: TechnicalDataVersionRecord = {
+    ...baseRecord,
+    technicalVersionId: input.id,
+    technicalVersionCode: input.code,
+    versionNo: input.versionNo,
+    versionLabel: input.versionLabel,
+    versionStatus: 'PUBLISHED',
+    reviewStage: '已发布',
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    sourceProjectId: master.masterOrderId,
+    sourceProjectCode: master.masterOrderCode,
+    sourceProjectName: master.styleName,
+    sourceProjectNodeId: '',
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: sourceTaskId,
+    createdFromTaskCode: sourceTaskId,
+    linkedDesignRevisionTaskIds: [...input.linkedDesignRevisionTaskIds],
+    publishedAt: input.publishedAt,
+    publishedBy: '跟单-快照验证',
+    updatedAt: input.publishedAt,
+    updatedBy: '跟单-快照验证',
+  }
+  const firstBom = baseContent.bomItems[0]
+  const content: TechnicalDataVersionContent = {
+    ...baseContent,
+    technicalVersionId: input.id,
+    bomItems: firstBom
+      ? [{ ...firstBom, id: `BOM-${input.id}`, name: input.materialName }]
+      : [],
+    patternFiles: baseContent.patternFiles.map((item) => ({ ...item })),
+    processEntries: baseContent.processEntries.map((item) => ({ ...item })),
+    sizeTable: baseContent.sizeTable.map((item) => ({ ...item })),
+    qualityRules: baseContent.qualityRules.map((item) => ({ ...item })),
+    colorMaterialMappings: baseContent.colorMaterialMappings.map((item) => ({ ...item })),
+    patternDesigns: baseContent.patternDesigns.map((item) => ({ ...item })),
+    attachments: baseContent.attachments.map((item) => ({ ...item })),
+    bomCustomCosts: baseContent.bomCustomCosts.map((item) => ({ ...item })),
+    bomPricingSnapshot: undefined,
+  }
+  return createTechnicalDataVersionDraft(record, content)
+}
+
+function activateVersion(record: TechnicalDataVersionRecord): void {
+  updateStyleArchive(style.styleId, {
+    currentTechPackVersionId: record.technicalVersionId,
+    currentTechPackVersionCode: record.technicalVersionCode,
+    currentTechPackVersionLabel: record.versionLabel,
+    currentTechPackVersionStatus: 'PUBLISHED',
+    currentTechPackVersionActivatedAt: record.publishedAt,
+    currentTechPackVersionActivatedBy: '跟单-快照验证',
+  })
+  assert.equal(getStyleArchiveById(style.styleId)?.currentTechPackVersionId, record.technicalVersionId)
+}
+
+const firstVersion = createPublishedVersion({
+  id: 'TDV-SNAPSHOT-FREEZE-001',
+  code: 'TP-SNAPSHOT-FREEZE-001',
+  versionNo: 1,
+  versionLabel: 'V1',
+  materialName: '首版主面料',
+  linkedDesignRevisionTaskIds: [],
+  publishedAt: '2026-08-27 10:10:00',
+})
+activateVersion(firstVersion)
+
+const firstDemand = buildDemand({
+  demandId: 'DEM-SNAPSHOT-FREEZE-001',
+  styleCode: style.styleCode,
+  styleName: style.styleName,
+  versionLabel: firstVersion.versionLabel,
+})
 const firstOrder = buildProductionOrderFromDemand(
-  buildSeed('PO-FREEZE-001', firstDemand.demandId, '2026-04-10 13:10:00'),
+  buildSeed('PO-SNAPSHOT-FREEZE-001', firstDemand.demandId, '2026-08-27 10:20:00'),
   firstDemand,
   '测试用户',
 )
-const firstSnapshotVersionCode = firstOrder.techPackSnapshot!.sourceTechPackVersionCode
-const firstSnapshotVersionLabel = firstOrder.techPackSnapshot!.sourceTechPackVersionLabel
-const firstSnapshotBomName = firstOrder.techPackSnapshot!.bomItems[0].name
+assert.ok(firstOrder.techPackSnapshot, '首张生产单必须冻结当前正式技术包')
+const firstSnapshot = structuredClone(firstOrder.techPackSnapshot)
 
-saveTechnicalDataVersionContent(
-  firstPublished.technicalVersionId,
-  {
-    bomItems: [
-      {
-        id: 'bom-freeze-1',
-        type: '面料',
-        name: '已变更主面料',
-        spec: '65% 棉 35% 涤',
-        unitConsumption: 1.22,
-        lossRate: 0.04,
-        supplier: '供应商乙',
-      },
-    ],
-  },
-  '测试用户',
-)
+const secondVersion = createPublishedVersion({
+  id: 'TDV-SNAPSHOT-FREEZE-002',
+  code: 'TP-SNAPSHOT-FREEZE-002',
+  versionNo: 2,
+  versionLabel: 'V2',
+  materialName: '二版主面料',
+  linkedDesignRevisionTaskIds: ['ES-DR-FREEZE-001'],
+  publishedAt: '2026-08-27 11:10:00',
+})
+activateVersion(secondVersion)
 
-assert.equal(firstOrder.techPackSnapshot!.bomItems[0].name, firstSnapshotBomName, '已生成生产单的快照 BOM 不得被后续版本内容修改影响')
-
-const secondDraft = generateTechPackVersionFromRevisionTask(scenario.revisionTaskId, '测试用户')
-fillCoreTechPackContent(secondDraft.record.technicalVersionId, scenario.styleCode)
-saveTechnicalDataVersionContent(
-  secondDraft.record.technicalVersionId,
-  {
-    bomItems: [
-      {
-        id: 'bom-freeze-2',
-        type: '面料',
-        name: '二版主面料',
-        spec: '弹力棉',
-        unitConsumption: 1.3,
-        lossRate: 0.05,
-        supplier: '供应商丙',
-      },
-    ],
-  },
-  '测试用户',
-)
-const secondPublished = publishTechnicalDataVersion(secondDraft.record.technicalVersionId, '测试用户')
-activateTechPackVersionForStyle(scenario.styleId, secondPublished.technicalVersionId, '测试用户')
-
-const secondDemand = buildDemand('DEM-FREEZE-002', scenario.styleCode, secondPublished.versionLabel)
+const secondDemand = buildDemand({
+  demandId: 'DEM-SNAPSHOT-FREEZE-002',
+  styleCode: style.styleCode,
+  styleName: style.styleName,
+  versionLabel: secondVersion.versionLabel,
+})
 const secondOrder = buildProductionOrderFromDemand(
-  buildSeed('PO-FREEZE-002', secondDemand.demandId, '2026-04-10 14:10:00'),
+  buildSeed('PO-SNAPSHOT-FREEZE-002', secondDemand.demandId, '2026-08-27 11:20:00'),
   secondDemand,
   '测试用户',
 )
 
-assert.equal(firstOrder.techPackSnapshot!.sourceTechPackVersionCode, firstSnapshotVersionCode, '切换当前生效版本后，旧生产单快照版本编号不得变化')
-assert.equal(firstOrder.techPackSnapshot!.sourceTechPackVersionLabel, firstSnapshotVersionLabel, '切换当前生效版本后，旧生产单快照版本标签不得变化')
-assert.equal(secondOrder.techPackSnapshot!.sourceTechPackVersionId, secondPublished.technicalVersionId, '新生产单必须使用切换后的当前生效技术包版本')
-assert.equal(secondOrder.techPackSnapshot!.linkedRevisionTaskIds[0], scenario.revisionTaskId, '新快照必须记录新的来源任务链')
+assert.deepEqual(firstOrder.techPackSnapshot, firstSnapshot, '切换正式技术包后，旧生产单快照必须保持冻结')
+assert.equal(firstOrder.techPackSnapshot?.sourceTechPackVersionId, firstVersion.technicalVersionId)
+assert.equal(secondOrder.techPackSnapshot?.sourceTechPackVersionId, secondVersion.technicalVersionId)
+assert.deepEqual(
+  secondOrder.techPackSnapshot?.linkedDesignRevisionTaskIds,
+  ['ES-DR-FREEZE-001'],
+  '新生产单快照必须保留设计改款成果的溯源关系',
+)
+assert.notEqual(
+  firstOrder.techPackSnapshot?.bomItems[0]?.name,
+  secondOrder.techPackSnapshot?.bomItems[0]?.name,
+  '新旧生产单必须分别冻结各自版本的 BOM 内容',
+)
 
 console.log('fcs-production-tech-pack-snapshot-freeze.spec.ts PASS')

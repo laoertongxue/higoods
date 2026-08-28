@@ -32,10 +32,7 @@ export const routes: RouteRegistry = {
     '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
     '/pcs/engineering/masters': () => renderers.renderPcsEngineeringMasterListPage(),
-    '/pcs/engineering/changes': () => renderers.renderPcsEngineeringChangeListPage(),
-    '/pcs/engineering/changes/new': () => renderers.renderPcsEngineeringChangeCreatePage(),
-    '/pcs/engineering/revision-sampling': () => renderers.renderPcsRevisionSamplingListPage(),
-    '/pcs/engineering/design-sampling': () => renderers.renderPcsDesignSamplingListPage(),
+    '/pcs/engineering/design-revision': () => renderers.renderPcsDesignRevisionListPage(),
     '/pcs/engineering/color': () => renderers.renderPcsColorTaskPage(),
     '/pcs/engineering/purchase': () => renderers.renderPcsPurchaseTaskPage(),
     '/pcs/engineering/tech-pack': () => renderers.renderPcsTechPackTaskPage(),
@@ -103,12 +100,8 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsEngineeringMasterDetailPage(match[1]),
     },
     {
-      pattern: /^\/pcs\/engineering\/changes\/([^/]+)$/,
-      render: (match) => renderers.renderPcsEngineeringChangeDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/engineering\/(revision|design)-sampling\/([^/]+)$/,
-      render: (match) => renderers.renderPcsIndependentSamplingDetailPage(match[1] === 'revision' ? 'REVISION' : 'DESIGN', match[2]),
+      pattern: /^\/pcs\/engineering\/design-revision\/([^/]+)$/,
+      render: (match) => renderers.renderPcsIndependentSamplingDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/engineering\/sampling-professional\/(.+)$/,

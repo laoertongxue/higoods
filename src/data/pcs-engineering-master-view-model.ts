@@ -43,15 +43,7 @@ import {
   listTechnicalDataVersionsByStyleId,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
-import {
-  confirmEngineeringChangeWork,
-  createEngineeringChangeWorkspace,
-  listEngineeringChangeModificationOptions,
-  listEngineeringChangeWorkspaceViews,
-  startEngineeringChangeTaskLine,
-} from './pcs-engineering-change-workspace.ts'
 import { CURRENT_PCS_ENGINEERING_USER } from './pcs-engineering-current-user.ts'
-import { getEngineeringTeamCurrentOperator } from './pcs-engineering-team-directory.ts'
 import { buildEngineeringBomTaskRows } from './pcs-engineering-bom-repository.ts'
 
 // ============ 泳道与逻辑阶段（固定结构，只读） ============
@@ -143,7 +135,7 @@ export function ensureEngineeringMasterDemoData(): void {
         checkedAt: `2026-08-${String((scenarioNo % 4) + 1).padStart(2, '0')} 09:00:00`,
       },
       bulkProductionQualification: {
-        basisType: scenarioNo % 3 === 0 ? 'TEST_APPROVED' : scenarioNo % 3 === 1 ? 'REVISION_READY' : 'DESIGN_READY',
+        basisType: scenarioNo % 3 === 0 ? 'TEST_APPROVED' : scenarioNo % 3 === 1 ? 'DESIGN_REVISION_READY' : 'OTHER_CONFIRMED',
         triggerBusinessObjectType: '做大货资格',
         triggerBusinessObjectId: `BULK-DEMO-${scenarioNo + 1}`,
         thresholdQuantity: 300,
@@ -459,30 +451,6 @@ function ensureEngineeringLifecycleDemoData(): void {
   }
   if (closedMaster.status !== '已关闭') {
     seedEngineeringMasterDemoLifecycleStatus(closedMaster.masterOrderId, '已关闭')
-  }
-  if (listEngineeringChangeWorkspaceViews().length > 0) return
-  const modificationOptions = listEngineeringChangeModificationOptions(closedMaster.masterOrderId)
-  if (modificationOptions.length === 0) return
-  const preferredKinds = new Set(['BOM_ITEM', 'BASE_PATTERN', 'SIZE_PATTERN', 'PRE_PRODUCTION_SAMPLE', 'PATTERN_ARTWORK'])
-  const preferredOptions = modificationOptions.filter((item) => preferredKinds.has(item.itemKind))
-  const selectedOptions = [
-    preferredOptions.find((item) => item.treatment !== 'PROFESSIONAL_TASK'),
-    preferredOptions.find((item) => item.treatment === 'PROFESSIONAL_TASK'),
-  ].filter((item): item is (typeof modificationOptions)[number] => Boolean(item))
-  const changeView = createEngineeringChangeWorkspace({
-    sourceMasterOrderId: closedMaster.masterOrderId,
-    changeReason: '直播反馈领口版型需要调整，同时更新齐码纸样。',
-    modificationOptionIds: (selectedOptions.length > 0 ? selectedOptions : modificationOptions.slice(0, 2)).map((item) => item.optionId),
-    actor: CURRENT_PCS_ENGINEERING_USER,
-  })
-  const confirmedWorkspace = confirmEngineeringChangeWork(changeView.change.engineeringChangeTaskId, CURRENT_PCS_ENGINEERING_USER)
-  const firstLine = confirmedWorkspace.taskLines[0]
-  if (firstLine) {
-    startEngineeringChangeTaskLine(
-      changeView.change.engineeringChangeTaskId,
-      firstLine.lineId,
-      getEngineeringTeamCurrentOperator(firstLine.currentTeamName),
-    )
   }
 }
 

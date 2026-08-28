@@ -16,7 +16,6 @@ const checks = [
   'tests/pcs-engineering-bom-task-linkage.spec.ts',
   'tests/pcs-engineering-bom-version-workflow.spec.ts',
   'tests/pcs-engineering-purchase-linkage.spec.ts',
-  'tests/pcs-engineering-tech-pack-linkage.spec.ts',
   'tests/pcs-engineering-preparation-projection.spec.ts',
   'tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts',
   'tests/pcs-engineering-master-close-gate.spec.ts',
@@ -24,16 +23,16 @@ const checks = [
   'tests/pcs-technical-data-version-snapshot-compat.spec.ts',
   'tests/pcs-engineering-preparation-color-projection.spec.ts',
   'tests/pcs-engineering-navigation-removal.spec.ts',
-  'tests/pcs-independent-sampling.spec.ts',
-  'tests/pcs-independent-sampling-pages.spec.ts',
-  'tests/pcs-engineering-technical-data-and-change.spec.ts',
+  'tests/pcs-design-revision-consolidation.spec.ts',
+  'tests/fcs-production-tech-pack-snapshot-freeze.spec.ts',
+  'tests/fcs-demand-to-order-current-tech-pack.spec.ts',
 ] as const
 
 for (const check of checks) {
   console.log(`\n[PCS 生产工程门禁] ${check}`)
   const result = spawnSync(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['test', '--', check],
+    process.execPath,
+    ['--import', 'tsx', check],
     { cwd: process.cwd(), stdio: 'inherit' },
   )
 

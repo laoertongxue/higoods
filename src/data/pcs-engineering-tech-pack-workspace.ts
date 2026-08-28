@@ -236,7 +236,7 @@ function reviewView(role: string, node?: TechnicalReviewNode) {
 
 export function listEngineeringTechnicalVersions(): TechnicalDataVersionRecord[] {
   return listTechnicalDataVersions()
-    .filter((record) => record.createdFromTaskType === 'ENGINEERING_MASTER' || record.createdFromTaskType === 'ENGINEERING_CHANGE')
+    .filter((record) => record.createdFromTaskType === 'ENGINEERING_MASTER')
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
@@ -349,7 +349,11 @@ export function createEngineeringMasterTechPackDraft(
     primaryPlateTaskId: master.tasks.find((task) => task.taskType.startsWith('BASE_PATTERN'))?.taskId || '',
     primaryPlateTaskCode: master.tasks.find((task) => task.taskType.startsWith('BASE_PATTERN'))?.taskId || '',
     primaryPlateTaskVersion: '',
-    linkedRevisionTaskIds: [],
+    linkedDesignRevisionTaskIds: [...new Set(
+      master.priorResultReuseLines
+        .map((line) => line.sourceSamplingTaskId)
+        .filter(Boolean),
+    )],
     linkedPatternTaskIds: [],
     linkedArtworkTaskIds: master.tasks.filter((task) => task.taskType === 'PATTERN_ARTWORK').map((task) => task.taskId),
     createdFromTaskType: 'ENGINEERING_MASTER',
@@ -357,7 +361,7 @@ export function createEngineeringMasterTechPackDraft(
     createdFromTaskCode: confirmationTask.taskId,
     baseTechnicalVersionId: style.currentTechPackVersionId || '',
     baseTechnicalVersionCode: style.currentTechPackVersionCode || '',
-    changeScope: '制版生成',
+    changeScope: '工程主单生成',
     changeSummary: '工程主单专业任务成果汇总',
     garmentDifficultyGrade: 'B',
     linkedPartTemplateIds: [],

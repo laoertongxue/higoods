@@ -120,7 +120,7 @@ function normalizeSourceModule(value: string | null | undefined): ProjectRelatio
     value === '渠道店铺商品' ||
     value === '渠道商品' ||
     value === '上游渠道商品同步' ||
-    value === '改版任务' ||
+    value === '设计改款任务' ||
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样' ||
@@ -141,7 +141,7 @@ function normalizeSourceObjectType(value: string | null | undefined): ProjectRel
     value === '渠道店铺商品' ||
     value === '渠道商品' ||
     value === '上游渠道商品同步' ||
-    value === '改版任务' ||
+    value === '设计改款任务' ||
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样任务' ||
@@ -352,7 +352,7 @@ export function listProjectRelationsBySourceObject(input: {
 }
 
 export function listProjectRelationsByTaskSource(
-  sourceModule: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样',
+  sourceModule: '设计改款任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样',
   sourceObjectId: string,
 ): ProjectRelationRecord[] {
   ensurePcsProjectFormalRelationSeedReady()

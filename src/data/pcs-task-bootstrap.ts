@@ -14,12 +14,9 @@ import type { FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
-import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
 import { normalizeFirstSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
 export interface TaskBootstrapSnapshot {
-  revisionTasks: RevisionTaskRecord[]
-  revisionPendingItems: PcsTaskPendingItem[]
   plateTasks: PlateMakingTaskRecord[]
   platePendingItems: PcsTaskPendingItem[]
   patternTasks: PatternTaskRecord[]
@@ -153,369 +150,6 @@ function firstOrderRelationMeta(task: FirstOrderSampleTaskRecord): string {
   })
 }
 
-function revisionExecutionSeed(input: {
-  styleId?: string
-  styleCode?: string
-  styleName?: string
-  ownerName?: string
-  imageId?: string
-  sampleQty?: number
-  liveRetestRequired?: boolean
-}): Pick<
-  RevisionTaskRecord,
-  | 'baseStyleId'
-  | 'baseStyleCode'
-  | 'baseStyleName'
-  | 'baseStyleImageIds'
-  | 'targetStyleCodeCandidate'
-  | 'targetStyleNameCandidate'
-  | 'targetStyleImageIds'
-  | 'sampleQty'
-  | 'stylePreference'
-  | 'patternMakerId'
-  | 'patternMakerName'
-  | 'revisionSuggestionRichText'
-  | 'paperPrintAt'
-  | 'deliveryAddress'
-  | 'patternArea'
-  | 'materialAdjustmentLines'
-  | 'newPatternImageIds'
-  | 'newPatternSpuCode'
-  | 'patternChangeNote'
-  | 'patternPieceImageIds'
-  | 'patternFileIds'
-  | 'mainImageIds'
-  | 'designDraftImageIds'
-  | 'liveRetestRequired'
-  | 'liveRetestStatus'
-  | 'liveRetestRelationIds'
-  | 'liveRetestSummary'
-  | 'generatedNewTechPackVersionFlag'
-  | 'generatedNewTechPackVersionAt'
-> {
-  const imageId = input.imageId || ''
-  return {
-    baseStyleId: input.styleId || '',
-    baseStyleCode: input.styleCode || '',
-    baseStyleName: input.styleName || '',
-    baseStyleImageIds: imageId ? [imageId] : [],
-    targetStyleCodeCandidate: input.styleCode ? `${input.styleCode}-R` : '',
-    targetStyleNameCandidate: input.styleName ? `${input.styleName}改版款` : '',
-    targetStyleImageIds: imageId ? [imageId] : [],
-    sampleQty: input.sampleQty || 2,
-    stylePreference: '保留旧款卖点，优化直播呈现。',
-    patternMakerId: '',
-    patternMakerName: input.ownerName || '',
-    revisionSuggestionRichText: '按测款反馈调整版型、面辅料或花型细节。',
-    paperPrintAt: '',
-    deliveryAddress: '深圳样衣室',
-    patternArea: '深圳',
-    materialAdjustmentLines: [],
-    newPatternImageIds: [],
-    newPatternSpuCode: '',
-    patternChangeNote: '',
-    patternPieceImageIds: [],
-    patternFileIds: [],
-    mainImageIds: imageId ? [imageId] : [],
-    designDraftImageIds: [],
-    liveRetestRequired: Boolean(input.liveRetestRequired),
-    liveRetestStatus: input.liveRetestRequired ? '待回直播验证' : '不需要',
-    liveRetestRelationIds: [],
-    liveRetestSummary: '',
-    generatedNewTechPackVersionFlag: false,
-    generatedNewTechPackVersionAt: '',
-  }
-}
-
-function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
-  const tasks: RevisionTaskRecord[] = []
-  const projectA = pickProjectByCode('PRJ-20251216-001')
-  const projectB = pickProjectByCode('PRJ-20251216-010')
-  const nodeA = projectA
-    ? findProjectNodeByStepCode(projectA.projectId, 'TEST_CONCLUSION')
-    : null
-  const nodeB = projectB
-    ? findProjectNodeByStepCode(projectB.projectId, 'TEST_CONCLUSION')
-    : null
-
-  if (projectA && nodeA) {
-    const styleA = findStyleArchiveByProjectId(projectA.projectId)
-    tasks.push({
-      revisionTaskId: 'RT-20260109-003',
-      revisionTaskCode: 'RT-20260109-003',
-      title: '印尼风格碎花连衣裙改版（领口、腰节、面料克重）',
-      projectId: projectA.projectId,
-      projectCode: projectA.projectCode,
-      projectName: projectA.projectName,
-      sourceType: '测款结论返改',
-      upstreamModule: '商品项目',
-      upstreamObjectType: '商品项目',
-      upstreamObjectId: projectA.projectId,
-      upstreamObjectCode: projectA.projectCode,
-      styleId: styleA?.styleId || '',
-      styleCode: styleA?.styleCode || 'SPU-LY-2401',
-      styleName: styleA?.styleName || projectA.projectName,
-      referenceObjectType: '',
-      referenceObjectId: '',
-      referenceObjectCode: '',
-      referenceObjectName: '',
-      productStyleCode: styleA?.styleCode || 'SPU-LY-2401',
-      spuCode: styleA?.styleCode || 'SPU-LY-2401',
-      status: '进行中',
-      ownerId: projectA.ownerId,
-      ownerName: '李版师',
-      participantNames: ['王测款', '张仓管'],
-      priorityLevel: '高',
-      dueAt: '2026-01-15 18:00:00',
-      revisionScopeCodes: ['PATTERN', 'SIZE', 'FABRIC'],
-      revisionScopeNames: ['版型结构', '尺码规格', '面料'],
-      revisionVersion: '',
-      issueSummary: '领口开口偏大，腰节位置偏低，面料克重不利于直播镜头呈现。',
-      evidenceSummary: '直播测款评论、试穿反馈和面料手感评审记录已确认上述问题。',
-      evidenceImageUrls: [],
-      ...revisionExecutionSeed({
-        styleId: styleA?.styleId || '',
-        styleCode: styleA?.styleCode || 'SPU-LY-2401',
-        styleName: styleA?.styleName || projectA.projectName,
-        ownerName: '李版师',
-        liveRetestRequired: true,
-      }),
-      createdAt: '2026-01-09 09:30:00',
-      createdBy: '系统初始化',
-      updatedAt: '2026-01-09 14:30:00',
-      updatedBy: '系统初始化',
-      note: '商品项目改版任务演示数据。',
-    })
-  }
-
-  const styleB = pickStyleByProjectCode('PRJ-20251216-010') || listStyleArchives()[0] || null
-  if (styleB) {
-    tasks.push({
-      revisionTaskId: 'RT-20260108-002',
-      revisionTaskCode: 'RT-20260108-002',
-      title: '波西米亚印花长裙花型与颜色改版',
-      projectId: '',
-      projectCode: '',
-      projectName: '',
-      sourceType: '既有商品改款',
-      upstreamModule: '款式档案',
-      upstreamObjectType: '款式档案',
-      upstreamObjectId: styleB.styleId,
-      upstreamObjectCode: styleB.styleCode,
-      styleId: styleB.styleId,
-      styleCode: styleB.styleCode,
-      styleName: styleB.styleName,
-      referenceObjectType: '',
-      referenceObjectId: '',
-      referenceObjectCode: '',
-      referenceObjectName: '',
-      productStyleCode: styleB.styleCode,
-      spuCode: styleB.styleCode,
-      status: '待确认',
-      ownerId: '',
-      ownerName: '王版师',
-      participantNames: ['李设计'],
-      priorityLevel: '中',
-      dueAt: '2026-01-18 18:00:00',
-      revisionScopeCodes: ['PRINT', 'COLOR'],
-      revisionScopeNames: ['花型', '颜色'],
-      revisionVersion: 'R1',
-      issueSummary: '原款花型节奏偏密、主色偏暗，既有商品复刻后缺少夏季轻快感。',
-      evidenceSummary: '对比门店反馈、竞品陈列照片和既有款销售评论后确认需要调整。',
-      evidenceImageUrls: [],
-      ...revisionExecutionSeed({
-        styleId: styleB.styleId,
-        styleCode: styleB.styleCode,
-        styleName: styleB.styleName,
-        ownerName: '王版师',
-        liveRetestRequired: true,
-      }),
-      linkedTechPackVersionId: '',
-      linkedTechPackVersionCode: '',
-      linkedTechPackVersionLabel: '',
-      linkedTechPackVersionStatus: '',
-      linkedTechPackUpdatedAt: '',
-      createdAt: '2026-01-08 10:00:00',
-      createdBy: '系统初始化',
-      updatedAt: '2026-01-09 11:00:00',
-      updatedBy: '系统初始化',
-      note: '既有商品改款任务演示数据。',
-    })
-  }
-
-  ;[
-    {
-      projectCode: 'PRJ-20251216-016',
-      revisionTaskId: 'RT-20260401-016',
-      revisionTaskCode: 'RT-20260401-016',
-      title: '基础款波点雪纺连衣裙改版（腰节、版长、花型密度）',
-      productStyleCode: 'SPU-2026-016',
-      spuCode: 'SPU-2026-016',
-      status: '进行中' as const,
-      ownerName: '李版师',
-      participantNames: ['张工', '王测款'],
-      priorityLevel: '高' as const,
-      dueAt: '2026-04-08 18:00:00',
-      revisionScopeCodes: ['PATTERN', 'PRINT'],
-      revisionScopeNames: ['版型结构', '花型密度'],
-      createdAt: '2026-04-01 09:30:00',
-      updatedAt: '2026-04-02 15:00:00',
-    },
-    {
-      projectCode: 'PRJ-202604-013',
-      revisionTaskId: 'RT-20260401-017',
-      revisionTaskCode: 'RT-20260401-017',
-      title: '镂空蕾丝拼接上衣改版（袖长、拼接比例、花型位置）',
-      productStyleCode: 'SPU-2026-017',
-      spuCode: 'SPU-2026-017',
-      status: '待确认' as const,
-      ownerName: '王版师',
-      participantNames: ['李工', '陈设计'],
-      priorityLevel: '中' as const,
-      dueAt: '2026-04-09 18:00:00',
-      revisionScopeCodes: ['PATTERN', 'FABRIC'],
-      revisionScopeNames: ['版型结构', '面料效果'],
-      createdAt: '2026-04-01 10:20:00',
-      updatedAt: '2026-04-03 11:40:00',
-    },
-    {
-      projectCode: 'PRJ-202604-014',
-      revisionTaskId: 'RT-20260402-018',
-      revisionTaskCode: 'RT-20260402-018',
-      title: '修身弹力牛仔裤改版（版型结构、贴章花型、腰部工艺）',
-      productStyleCode: 'SPU-2026-018',
-      spuCode: 'SPU-2026-018',
-      status: '已确认' as const,
-      ownerName: '林版师',
-      participantNames: ['李娜', '张工'],
-      priorityLevel: '高' as const,
-      dueAt: '2026-04-10 18:00:00',
-      revisionScopeCodes: ['PRINT', 'PATTERN'],
-      revisionScopeNames: ['花型', '版型结构'],
-      createdAt: '2026-04-02 09:00:00',
-      updatedAt: '2026-04-03 16:20:00',
-    },
-  ].forEach((item) => {
-    const project = pickProjectByCode(item.projectCode)
-    const node = project
-      ? findProjectNodeByStepCode(project.projectId, 'TEST_CONCLUSION')
-      : null
-    const style = project ? findStyleArchiveByProjectId(project.projectId) : null
-    if (!project || !node) return
-    tasks.push({
-      revisionTaskId: item.revisionTaskId,
-      revisionTaskCode: item.revisionTaskCode,
-      title: item.title,
-      projectId: project.projectId,
-      projectCode: project.projectCode,
-      projectName: project.projectName,
-      sourceType: '测款结论返改',
-      upstreamModule: '商品项目',
-      upstreamObjectType: '商品项目',
-      upstreamObjectId: project.projectId,
-      upstreamObjectCode: project.projectCode,
-      styleId: style?.styleId || '',
-      styleCode: style?.styleCode || item.productStyleCode,
-      styleName: style?.styleName || project.projectName,
-      referenceObjectType: '',
-      referenceObjectId: '',
-      referenceObjectCode: '',
-      referenceObjectName: '',
-      productStyleCode: style?.styleCode || item.productStyleCode,
-      spuCode: style?.styleCode || item.spuCode,
-      status: item.status,
-      ownerId: project.ownerId,
-      ownerName: item.ownerName,
-      participantNames: item.participantNames,
-      priorityLevel: item.priorityLevel,
-      dueAt: item.dueAt,
-      revisionScopeCodes: item.revisionScopeCodes,
-      revisionScopeNames: item.revisionScopeNames,
-      revisionVersion: '',
-      issueSummary: '测款与评审结论已汇总，需要据此调整当前款式的重点问题。',
-      evidenceSummary: '来源于测款结论、样衣评审和复盘记录的正式结论摘要。',
-      evidenceImageUrls: [],
-      ...revisionExecutionSeed({
-        styleId: style?.styleId || '',
-        styleCode: style?.styleCode || item.productStyleCode,
-        styleName: style?.styleName || project.projectName,
-        ownerName: item.ownerName,
-        liveRetestRequired: true,
-      }),
-      linkedTechPackVersionId: '',
-      linkedTechPackVersionCode: '',
-      linkedTechPackVersionLabel: '',
-      linkedTechPackVersionStatus: '',
-      linkedTechPackUpdatedAt: '',
-      createdAt: item.createdAt,
-      createdBy: '系统初始化',
-      updatedAt: item.updatedAt,
-      updatedBy: '系统初始化',
-      note: '补充的演示改版任务。',
-    })
-  })
-
-  const manualStyle = pickStyleByCode('SPU-2026-018') || listStyleArchives()[1] || listStyleArchives()[0] || null
-  if (manualStyle) {
-    tasks.push({
-      revisionTaskId: 'RT-20260406-901',
-      revisionTaskCode: 'RT-20260406-901',
-      title: '设计师补充意见改版（阔腿连体裤花型留白与裤脚结构）',
-      projectId: '',
-      projectCode: '',
-      projectName: '',
-      sourceType: '人工改版需求',
-      upstreamModule: '人工参考',
-      upstreamObjectType: '设计评审纪要',
-      upstreamObjectId: 'REF-20260406-001',
-      upstreamObjectCode: 'REF-20260406-001',
-      styleId: manualStyle.styleId,
-      styleCode: manualStyle.styleCode,
-      styleName: manualStyle.styleName,
-      referenceObjectType: '设计评审纪要',
-      referenceObjectId: 'REF-20260406-001',
-      referenceObjectCode: 'REF-20260406-001',
-      referenceObjectName: '设计评审纪要 · 阔腿连体裤二次确认',
-      productStyleCode: manualStyle.styleCode,
-      spuCode: manualStyle.styleCode,
-      status: '已确认',
-      ownerId: '',
-      ownerName: '陈版师',
-      participantNames: ['李设计', '张工艺'],
-      priorityLevel: '中',
-      dueAt: '2026-04-11 18:00:00',
-      revisionScopeCodes: ['PRINT', 'PATTERN'],
-      revisionScopeNames: ['花型', '版型结构'],
-      revisionVersion: 'R1',
-      issueSummary: '设计评审认为花型留白不足、裤脚展开角度偏保守，影响设计识别度。',
-      evidenceSummary: '来源于设计评审纪要和试穿对照图，不依赖上游自动汇集。',
-      evidenceImageUrls: [],
-      ...revisionExecutionSeed({
-        styleId: manualStyle.styleId,
-        styleCode: manualStyle.styleCode,
-        styleName: manualStyle.styleName,
-        ownerName: '陈版师',
-        liveRetestRequired: false,
-      }),
-      linkedTechPackVersionId: '',
-      linkedTechPackVersionCode: '',
-      linkedTechPackVersionLabel: '',
-      linkedTechPackVersionStatus: '',
-      linkedTechPackUpdatedAt: '',
-      createdAt: '2026-04-06 15:10:00',
-      createdBy: '系统初始化',
-      updatedAt: '2026-04-06 16:00:00',
-      updatedBy: '系统初始化',
-      note: '人工创建的改版任务样例。',
-    })
-  }
-
-  return {
-    tasks,
-    pendingItems: [],
-  }
-}
-
 function plateExecutionSeed(taskId: string, input: {
   makerName: string
   area: '印尼' | '深圳'
@@ -583,8 +217,6 @@ function plateExecutionSeed(taskId: string, input: {
         matchedPartNames: ['前片', '后片'],
       },
     ],
-    primaryTechPackGeneratedFlag: false,
-    primaryTechPackGeneratedAt: '',
     sampleReviewStatus: reviewStatus,
     sampleReviewSubmittedAt: input.sampleReviewSubmittedAt || (reviewStatus === '待样板确认' ? '2026-04-03 16:00:00' : ''),
     sampleReviewSubmittedBy: input.sampleReviewSubmittedBy || (reviewStatus === '待样板确认' ? input.makerName : ''),
@@ -678,11 +310,11 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectCode: 'PRJ-202604-013',
       plateTaskId: 'PT-20260425-002',
       title: '制版-镂空蕾丝拼接上衣(P1)',
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260401-017',
-      upstreamObjectCode: 'RT-20260401-017',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-017',
+      upstreamObjectCode: 'ES-DR-017',
       productStyleCode: 'SPU-2026-017',
       patternType: '蕾丝上衣',
       sizeRange: 'S-L',
@@ -748,11 +380,11 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectCode: 'PRJ-202604-014',
       plateTaskId: 'PT-20260407-018',
       title: '制版-设计款印花阔腿连体裤(P1)',
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260402-018',
-      upstreamObjectCode: 'RT-20260402-018',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-018',
+      upstreamObjectCode: 'ES-DR-018',
       productStyleCode: 'SPU-2026-018',
       patternType: '连体裤',
       sizeRange: 'S-L',
@@ -782,7 +414,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
     {
       projectCode: 'PRJ-202604-014',
       plateTaskId: 'PT-20260414-GENERATED',
-      title: '制版-弹力牛仔裤已写包待收口(P1)',
+      title: '制版-弹力牛仔裤已完成归档(P1)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
       upstreamObjectType: '商品项目',
@@ -792,7 +424,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       patternType: '牛仔裤',
       sizeRange: 'S-XL',
       patternVersion: 'P1',
-      status: '已生成技术包',
+      status: '已完成',
       area: '深圳',
       makerName: '林版师',
       participantNames: ['李娜'],
@@ -805,24 +437,24 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       sampleReviewSubmittedBy: '林版师',
       sampleReviewerName: '当前用户',
       sampleReviewAt: '2026-04-14 11:20:00',
-      sampleReviewNote: '样板已通过，技术包已生成，等待任务收口。',
+      sampleReviewNote: '样板已通过，制版任务已完成。',
       materialName: '弹力牛仔主面料',
       materialSku: 'FAB-DENIM-014',
       linkedTechPackVersionId: 'tdv_plate_generated_mock_014',
       linkedTechPackVersionCode: 'TDV-PLATE-20260414',
       linkedTechPackVersionLabel: 'V1.0 已发布',
       linkedTechPackVersionStatus: '已发布',
-      note: '技术包已生成，制版任务尚未点完成。',
+      note: '制版成果已纳入工程主单生成的正式技术包。',
     },
     {
       projectCode: 'PRJ-202604-014',
       plateTaskId: 'PT-20260426-003',
       title: '制版-修身弹力牛仔裤待写技术包(P2)',
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260402-018',
-      upstreamObjectCode: 'RT-20260402-018',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-018',
+      upstreamObjectCode: 'ES-DR-018',
       productStyleCode: 'SPU-2026-018',
       patternType: '牛仔裤',
       sizeRange: 'S-XL',
@@ -849,11 +481,11 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectCode: 'PRJ-202604-013',
       plateTaskId: 'PT-20260426-004',
       title: '制版-蕾丝拼接上衣待样板确认(P2)',
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260401-017',
-      upstreamObjectCode: 'RT-20260401-017',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-017',
+      upstreamObjectCode: 'ES-DR-017',
       productStyleCode: 'SPU-2026-017',
       patternType: '蕾丝上衣',
       sizeRange: 'S-L',
@@ -877,11 +509,11 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectCode: 'PRJ-202604-013',
       plateTaskId: 'PT-20260426-005',
       title: '制版-蕾丝拼接上衣样板驳回(P1)',
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260401-017',
-      upstreamObjectCode: 'RT-20260401-017',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-017',
+      upstreamObjectCode: 'ES-DR-017',
       productStyleCode: 'SPU-2026-017',
       patternType: '蕾丝上衣',
       sizeRange: 'S-L',
@@ -1070,8 +702,6 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       linkedTechPackVersionLabel: item.linkedTechPackVersionLabel || '',
       linkedTechPackVersionStatus: item.linkedTechPackVersionStatus || '',
       linkedTechPackUpdatedAt,
-      primaryTechPackGeneratedFlag: Boolean(linkedTechPackVersionId),
-      primaryTechPackGeneratedAt: linkedTechPackUpdatedAt,
       status: item.status,
       ownerId: project.ownerId,
       ownerName: item.makerName,
@@ -1158,14 +788,14 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260402-018',
-      upstreamObjectCode: 'RT-20260402-018',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-018',
+      upstreamObjectCode: 'ES-DR-018',
       productStyleCode: 'SPU-010',
       spuCode: 'SPU-010',
-      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260402-018', completed: true }),
+      ...executionFields({ sourceType: '设计改款任务', sourceCode: 'ES-DR-018', completed: true }),
       artworkType: '印花',
       patternMode: '定位印',
       artworkName: 'Bunga Tropis A1',
@@ -1196,14 +826,14 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260401-017',
-      upstreamObjectCode: 'RT-20260401-017',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-017',
+      upstreamObjectCode: 'ES-DR-017',
       productStyleCode: 'SPU-003',
       spuCode: 'SPU-003',
-      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260401-017', teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
+      ...executionFields({ sourceType: '设计改款任务', sourceCode: 'ES-DR-017', teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
       artworkType: '印花',
       patternMode: '满印',
       artworkName: 'Summer Denim',
@@ -1266,10 +896,10 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     if (!project) return
-    const upstreamRevisionCode = item.projectCode === 'PRJ-202604-014'
-      ? 'RT-20260402-018'
+    const upstreamDesignRevisionCode = item.projectCode === 'PRJ-202604-014'
+      ? 'ES-DR-018'
       : item.projectCode === 'PRJ-202604-013'
-        ? 'RT-20260401-017'
+        ? 'ES-DR-017'
         : ''
     tasks.push({
       patternTaskId: item.patternTaskId,
@@ -1278,14 +908,14 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      sourceType: upstreamRevisionCode ? '改版任务' : '商品项目',
-      upstreamModule: upstreamRevisionCode ? '改版任务' : '商品项目',
-      upstreamObjectType: upstreamRevisionCode ? '改版任务' : '商品项目',
-      upstreamObjectId: upstreamRevisionCode || project.projectId,
-      upstreamObjectCode: upstreamRevisionCode || project.projectCode,
+      sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '商品项目',
+      upstreamModule: upstreamDesignRevisionCode ? '设计改款任务' : '商品项目',
+      upstreamObjectType: upstreamDesignRevisionCode ? '设计改款任务' : '商品项目',
+      upstreamObjectId: upstreamDesignRevisionCode || project.projectId,
+      upstreamObjectCode: upstreamDesignRevisionCode || project.projectCode,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
-      ...executionFields({ sourceType: upstreamRevisionCode ? '改版任务' : '设计师款', sourceCode: upstreamRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
+      ...executionFields({ sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '商品项目', sourceCode: upstreamDesignRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
       artworkType: item.artworkType,
       patternMode: item.patternMode,
       artworkName: item.artworkName,
@@ -1465,19 +1095,19 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      sourceType: '改版任务',
-      upstreamModule: '改版任务',
-      upstreamObjectType: '改版任务',
-      upstreamObjectId: 'RT-20260108-002',
-      upstreamObjectCode: 'RT-20260108-002',
+      sourceType: '设计改款任务',
+      upstreamModule: '设计改款任务',
+      upstreamObjectType: '设计改款任务',
+      upstreamObjectId: 'ES-DR-002',
+      upstreamObjectCode: 'ES-DR-002',
       factoryId: 'factory-shenzhen-01',
       factoryName: '深圳工厂01',
       targetSite: '深圳',
       sampleCode: 'SY-SZ-00088',
       ...firstSampleChainSeed({
-        upstreamObjectType: '改版任务',
-        upstreamObjectId: 'RT-20260108-002',
-        upstreamObjectCode: 'RT-20260108-002',
+        upstreamObjectType: '设计改款任务',
+        upstreamObjectId: 'ES-DR-002',
+        upstreamObjectCode: 'ES-DR-002',
       }),
       status: '待处理',
       ownerId: projectA.ownerId,
@@ -2030,14 +1660,11 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
 }
 
 export function createTaskBootstrapSnapshot(): TaskBootstrapSnapshot {
-  const revision = createRevisionSeeds()
   const plate = createPlateSeeds()
   const pattern = createPatternSeeds()
   const firstSample = createFirstSampleSeeds()
   const firstOrder = createFirstOrderSeeds()
   return {
-    revisionTasks: revision.tasks,
-    revisionPendingItems: revision.pendingItems,
     plateTasks: plate.tasks,
     platePendingItems: plate.pendingItems,
     patternTasks: pattern.tasks,
@@ -2053,22 +1680,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
   const snapshot = createTaskBootstrapSnapshot()
   return {
     relations: [
-      ...snapshot.revisionTasks
-        .filter((task) => task.projectId)
-        .map((task) =>
-          taskRelationRecord({
-            projectId: task.projectId,
-            projectCode: task.projectCode,
-            sourceModule: '改版任务',
-            sourceObjectType: '改版任务',
-            sourceObjectId: task.revisionTaskId,
-            sourceObjectCode: task.revisionTaskCode,
-            sourceTitle: task.title,
-            sourceStatus: task.status,
-            businessDate: task.createdAt,
-            ownerName: task.ownerName,
-          }),
-        ),
       ...snapshot.plateTasks.filter((task) => task.projectId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,

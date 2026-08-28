@@ -134,7 +134,7 @@ export type PcsProjectConfigSourceKind =
   | '系统生成'
   | '样衣结果'
   | '上游实例回写'
-  | '改版任务'
+  | '设计改款任务'
   | '制版任务'
   | '花型任务'
   | '项目来源'
@@ -1014,7 +1014,7 @@ const sampleAcquireFields = [
   ...groupFields({
     id: 'sample-acquire-main',
     title: '样衣来源',
-    description: '记录样衣获取方式和来源信息；国内采购记录采购要素，万隆改版只确认由改版任务产出样衣。',
+    description: '记录样衣获取方式和来源信息；国内采购记录采购要素，设计改款样衣只确认由设计改款任务产出。',
     fields: [
       {
         key: 'sampleSourceType',
@@ -1048,7 +1048,7 @@ const sampleInboundFields = [
     description: '核对实际到样数量和明细，按收到的实物生成样衣资产编号；只确认样衣是否真实到位，不承担是否进入测款的业务决策。',
     fields: [
       { key: 'sampleInboundLines', label: '到样明细 / 样衣登记明细', type: 'table', sourceKind: '本地主数据', sourceRef: '样衣结果核对.到样明细', meaning: '按实际收到的样衣实物记录颜色、尺码、计划数量、实收数量和差异', logic: '样衣编号不提前手填；先承接上游计划行，登记实际收到的颜色、尺码和件数，保存时按实收件数生成样衣资产编号。', required: true, placeholder: '例如：黑色 / M：计划 2 件，实收 2 件' },
-      { key: 'receivedQty', label: '实际收到总数', type: 'number', sourceKind: '系统计算', sourceRef: '到样明细', meaning: '按到样明细汇总的实际收到件数', logic: '根据到样明细中的实收数量自动汇总，用于和样衣获取或改版任务中的计划数量核对。', required: false, readonly: true },
+      { key: 'receivedQty', label: '实际收到总数', type: 'number', sourceKind: '系统计算', sourceRef: '到样明细', meaning: '按到样明细汇总的实际收到件数', logic: '根据到样明细中的实收数量自动汇总，用于和样衣获取或设计改款任务中的计划数量核对。', required: false, readonly: true },
       { key: 'generatedSampleCodes', label: '生成样衣编号', type: 'table', sourceKind: '系统生成', sourceRef: '样衣库存', meaning: '本次核对后生成的样衣资产编号清单', logic: '每一件实际收到的样衣生成一个编号，并作为样衣管理模块的样衣库存资产标识。', required: false, readonly: true },
       { key: 'receivedAt', label: '收到时间', type: 'datetime', sourceKind: '本地主数据', sourceRef: '样衣结果核对', meaning: '样衣实际收到时间', logic: '样衣到样后补录，供项目进度和样衣库存追踪。', required: false },
       { key: 'sampleImageIds', label: '样衣图片', type: 'image-list', sourceKind: '样衣结果', sourceRef: '样衣图片结果池', meaning: '收到样衣后的图片证据', logic: '样衣图片进入项目图片结果池，可供上架、款式档案和样衣管理引用。', required: false },
@@ -1457,93 +1457,6 @@ const conclusionFields = [
   }),
 ]
 
-const revisionTaskFields = [
-  ...groupFields({
-    id: 'revision-style-compare',
-    title: '旧款 / 新款对比',
-    description: '正式记录改版基于的旧款和新款候选方向。',
-    fields: [
-      { key: 'baseStyleCode', label: '旧款编码', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.baseStyleCode', meaning: '本次改版基于的旧款编码', logic: '由款式档案或商品项目来源回写。' },
-      { key: 'baseStyleName', label: '旧款名称', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.baseStyleName', meaning: '本次改版基于的旧款名称', logic: '由款式档案或商品项目来源回写。' },
-      { key: 'baseStyleImageIds', label: '旧款图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.baseStyleImageIds', meaning: '旧款参考图片', logic: '用于和新款方向对比。', required: false },
-      { key: 'targetStyleCodeCandidate', label: '新款候选编码', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.targetStyleCodeCandidate', meaning: '改版后的新款候选编码', logic: '仅作为改版方向，不直接生成正式款式档案。', required: false },
-      { key: 'targetStyleNameCandidate', label: '新款候选名称', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.targetStyleNameCandidate', meaning: '改版后的新款候选名称', logic: '仅作为改版方向，不直接生成正式款式档案。', required: false },
-      { key: 'targetStyleImageIds', label: '新款参考图', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.targetStyleImageIds', meaning: '新款候选参考图', logic: '用于表达改版方向。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-plan',
-    title: '改版说明',
-    description: '改版范围、样衣数量、风格偏好和修改建议。',
-    fields: [
-      { key: 'revisionScopeNames', label: '改版范围', type: 'multi-select', sourceKind: '改版任务', sourceRef: '改版任务正式对象.revisionScopeNames', meaning: '本次改版涉及范围', logic: '创建或详情补齐时写入。', required: true },
-      { key: 'revisionVersion', label: '改版版本', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.revisionVersion', meaning: '本次改版版次', logic: '详情补齐时写入。', required: false },
-      { key: 'sampleQty', label: '样衣数量', type: 'number', sourceKind: '改版任务', sourceRef: '改版任务正式对象.sampleQty', meaning: '本次改版样衣数量', logic: '用于样衣和回直播验证串联。', required: false },
-      { key: 'stylePreference', label: '风格偏好', type: 'textarea', sourceKind: '改版任务', sourceRef: '改版任务正式对象.stylePreference', meaning: '改版后的风格方向', logic: '详情补齐时写入。', required: false },
-      { key: 'revisionSuggestionRichText', label: '修改建议', type: 'textarea', sourceKind: '改版任务', sourceRef: '改版任务正式对象.revisionSuggestionRichText', meaning: '本次改版执行建议', logic: '完成前必须可读。', required: true },
-      { key: 'ownerName', label: '负责人', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.ownerName', meaning: '当前改版负责人', logic: '创建或详情补齐时写入。' },
-      { key: 'dueAt', label: '截止时间', type: 'datetime', sourceKind: '改版任务', sourceRef: '改版任务正式对象.dueAt', meaning: '计划完成时间', logic: '创建或详情补齐时写入。' },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-material',
-    title: '面辅料变化',
-    description: '承接本次改版涉及的面料、辅料和印花要求变化。',
-    fields: [
-      { key: 'materialAdjustmentLines', label: '面辅料变化明细', type: 'table', sourceKind: '改版任务', sourceRef: '改版任务正式对象.materialAdjustmentLines', meaning: '本次改版面辅料变化明细', logic: '详情页维护，项目资料归档可采集。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-pattern-change',
-    title: '花型变化',
-    description: '记录改版涉及的新花型图片、SPU 和说明。',
-    fields: [
-      { key: 'newPatternImageIds', label: '新花型图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.newPatternImageIds', meaning: '本次改版涉及的新花型图片', logic: '用于花型任务和归档串联。', required: false },
-      { key: 'newPatternSpuCode', label: '新花型 SPU', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.newPatternSpuCode', meaning: '本次改版涉及的新花型 SPU', logic: '用于后续花型任务或花型库参考。', required: false },
-      { key: 'patternChangeNote', label: '花型变化说明', type: 'textarea', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternChangeNote', meaning: '花型变化说明', logic: '详情页维护。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-pattern-files',
-    title: '纸样与设计稿',
-    description: '改版执行产生或引用的纸样、主图和设计稿资料。',
-    fields: [
-      { key: 'patternPieceImageIds', label: '纸样图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternPieceImageIds', meaning: '本次改版纸样图片', logic: '详情页维护，项目资料归档可采集。', required: false },
-      { key: 'patternFileIds', label: '纸样文件', type: 'file-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternFileIds', meaning: '本次改版纸样文件', logic: '详情页维护，技术包和归档可读取。', required: false },
-      { key: 'mainImageIds', label: '主图图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.mainImageIds', meaning: '本次改版主图或证据主图', logic: '详情页维护。', required: false },
-      { key: 'designDraftImageIds', label: '新图设计稿', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.designDraftImageIds', meaning: '本次改版新图设计稿', logic: '详情页维护。', required: false },
-      { key: 'paperPrintAt', label: '纸样打印时间', type: 'datetime', sourceKind: '改版任务', sourceRef: '改版任务正式对象.paperPrintAt', meaning: '纸样打印时间', logic: '详情页维护。', required: false },
-      { key: 'deliveryAddress', label: '寄送地址', type: 'textarea', sourceKind: '改版任务', sourceRef: '改版任务正式对象.deliveryAddress', meaning: '改版样衣或纸样寄送地址', logic: '详情页维护。', required: false },
-      { key: 'patternArea', label: '打版区域', type: 'single-select', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternArea', meaning: '本次打版区域', logic: '固定为印尼或深圳。', required: false },
-      { key: 'patternMakerName', label: '打版人', type: 'text', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternMakerName', meaning: '本次改版打版人', logic: '详情页维护。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-live-retest',
-    title: '回直播验证',
-    description: '承接改版样衣回直播或测款验证要求。',
-    fields: [
-      { key: 'liveRetestRequired', label: '是否需要回直播验证', type: 'boolean', sourceKind: '改版任务', sourceRef: '改版任务正式对象.liveRetestRequired', meaning: '改版样衣是否需要回直播验证', logic: '详情页维护。', required: false },
-      { key: 'liveRetestStatus', label: '回直播验证状态', type: 'single-select', sourceKind: '改版任务', sourceRef: '改版任务正式对象.liveRetestStatus', meaning: '回直播验证进度和结果', logic: '固定为待回直播验证、已回直播验证、验证通过、验证未通过或不需要。', required: false },
-      { key: 'liveRetestRelationIds', label: '回直播验证关系', type: 'reference-multi', sourceKind: '项目资料归档', sourceRef: '直播测款 / 短视频测款关系', meaning: '关联直播或短视频测款关系 ID', logic: '通过项目关系读取或详情页补齐。', required: false },
-      { key: 'liveRetestSummary', label: '回直播验证说明', type: 'textarea', sourceKind: '改版任务', sourceRef: '改版任务正式对象.liveRetestSummary', meaning: '回直播验证结论摘要', logic: '详情页维护。', required: false },
-    ],
-  }),
-  ...groupFields({
-    id: 'revision-tech-pack',
-    title: '技术包',
-    description: '改版任务只生成新的技术包版本，并保留版本日志。',
-    fields: [
-      { key: 'linkedTechPackVersionId', label: '关联技术包版本ID', type: 'text', sourceKind: '技术包', sourceRef: '技术包版本', meaning: '改版任务生成的新技术包版本 ID', logic: '由技术包生成链路回写。', readonly: true },
-      { key: 'linkedTechPackVersionCode', label: '关联技术包版本编码', type: 'text', sourceKind: '技术包', sourceRef: '技术包版本', meaning: '改版任务生成的新技术包版本编码', logic: '由技术包生成链路回写。', readonly: true },
-      { key: 'linkedTechPackVersionLabel', label: '关联技术包版本标签', type: 'text', sourceKind: '技术包', sourceRef: '技术包版本', meaning: '改版任务生成的新技术包版本标签', logic: '由技术包生成链路回写。', readonly: true },
-      { key: 'generatedNewTechPackVersionFlag', label: '是否已生成新技术包版本', type: 'boolean', sourceKind: '技术包', sourceRef: '技术包版本日志', meaning: '改版任务是否已生成新技术包版本', logic: '生成新版本后系统回写。', readonly: true },
-      { key: 'generatedNewTechPackVersionAt', label: '技术包更新时间', type: 'datetime', sourceKind: '技术包', sourceRef: '技术包版本日志', meaning: '新技术包版本生成时间', logic: '生成新版本后系统回写。', readonly: true, required: false },
-      { key: 'projectArchiveStatus', label: '归档状态摘要', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档正式对象', meaning: '改版任务资料是否已被项目资料归档采集', logic: '由项目资料归档同步器按正式改版任务和技术包版本采集结果汇总。', readonly: true, required: false },
-    ],
-  }),
-]
-
 const patternTaskFields = [
   ...groupFields({
     id: 'pattern-task-source',
@@ -1611,11 +1524,10 @@ const patternTaskFields = [
   }),
   ...groupFields({
     id: 'pattern-task-tech-pack',
-    title: '技术包',
-    description: '制版任务作为技术包主挂载入口。',
+    title: '技术包关联',
+    description: '正式技术包只由工程主单生成；制版任务只记录已被采用的成果关联。',
     fields: [
-      { key: 'linkedTechPackVersionId', label: '关联技术包版本', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionId', meaning: '制版生成或关联的技术包版本', logic: '由技术包服务回写。', readonly: true, required: false },
-      { key: 'primaryTechPackGeneratedFlag', label: '是否已生成主技术包', type: 'boolean', sourceKind: '制版任务', sourceRef: '制版任务正式对象.primaryTechPackGeneratedFlag', meaning: '是否已作为主挂载生成技术包', logic: '制版生成技术包后回写。', readonly: true, required: false },
+      { key: 'linkedTechPackVersionId', label: '关联技术包版本', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionId', meaning: '采用本任务成果的工程主单技术包版本', logic: '工程主单生成技术包后回写，只读展示。', readonly: true, required: false },
       { key: 'projectArchiveStatus', label: '归档状态摘要', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档正式对象', meaning: '制版任务纸样和技术包是否已被项目资料归档采集', logic: '由项目资料归档同步器按制版任务、纸样文件和技术包版本采集结果汇总。', readonly: true, required: false },
     ],
   }),
@@ -1629,10 +1541,10 @@ const patternTaskFields = [
       { key: 'upstreamObjectType', label: '上游对象类型', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectType', meaning: '当前制版任务来源对象类型', logic: '由正式制版任务回写，只读展示。', readonly: true },
       { key: 'upstreamObjectId', label: '上游对象ID', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectId', meaning: '当前制版任务来源对象 ID', logic: '由正式制版任务回写，只读展示。', readonly: true },
       { key: 'upstreamObjectCode', label: '上游对象编码', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectCode', meaning: '当前制版任务来源对象编码', logic: '由正式制版任务回写，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionId', label: '关联技术包版本ID', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionId', meaning: '制版任务已写入或绑定的技术包版本 ID', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionCode', label: '关联技术包版本编码', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionCode', meaning: '制版任务已写入或绑定的技术包版本编码', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionLabel', label: '关联技术包版本标签', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionLabel', meaning: '制版任务已写入或绑定的技术包版本标签', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionStatus', label: '关联技术包版本状态', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionStatus', meaning: '制版任务已写入或绑定的技术包版本状态', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionId', label: '关联技术包版本ID', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionId', meaning: '采用本任务成果的工程主单技术包版本 ID', logic: '工程主单生成技术包后回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionCode', label: '关联技术包版本编码', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionCode', meaning: '采用本任务成果的工程主单技术包版本编码', logic: '工程主单生成技术包后回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionLabel', label: '关联技术包版本标签', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionLabel', meaning: '采用本任务成果的工程主单技术包版本标签', logic: '工程主单生成技术包后回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionStatus', label: '关联技术包版本状态', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionStatus', meaning: '采用本任务成果的工程主单技术包版本状态', logic: '工程主单生成技术包后回填，只读展示。', readonly: true },
       { key: 'taskStatus', label: '任务状态', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.status', meaning: '当前制版任务状态', logic: '任务状态直接来自正式制版任务，只读展示。', readonly: true },
       { key: 'confirmedAt', label: '确认时间', type: 'datetime', sourceKind: '制版任务', sourceRef: '制版任务正式对象.confirmedAt', meaning: '当前制版任务确认通过时间', logic: '由正式制版任务回写，如未单独维护则按确认/完成时间推导，只读展示。', readonly: true },
     ],
@@ -1645,7 +1557,7 @@ const artworkTaskFields = [
     title: '花型任务',
     description: '承接花型需求、工艺、面料、团队执行和买手确认。',
     fields: [
-      { key: 'demandSourceType', label: '需求来源', type: 'single-select', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型需求来源', logic: '固定为预售测款通过、改版任务或设计师款。' },
+      { key: 'demandSourceType', label: '需求来源', type: 'single-select', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型需求来源', logic: '固定为预售测款通过、设计改款任务或设计师款。' },
       { key: 'demandSourceRefCode', label: '来源对象编号', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.demandSourceRefCode', meaning: '花型需求来源对象编号', logic: '由任务创建或项目节点推进时写入。', required: false },
       { key: 'processType', label: '工艺类型', type: 'single-select', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型工艺分类', logic: '固定为数码印、烫画或直喷。' },
       { key: 'requestQty', label: '数量', type: 'number', sourceKind: '花型任务', sourceRef: '花型任务正式对象.requestQty', meaning: '本次花型需求数量', logic: '由业务人员填写。' },
@@ -2081,7 +1993,7 @@ export const PCS_PROJECT_STEP_DEFINITIONS: PcsProjectStepDefinition[] = [
       { statusName: '已完成', entryConditions: ['核对完成'], exitConditions: ['无'], businessMeaning: '样衣已正式到位，可进入初步可行性判断。' },
       { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '该次样衣结果核对不再继续。' },
     ],
-    upstreamChanges: ['引用样衣来源实例、改版任务和实物到样信息。'],
+    upstreamChanges: ['引用样衣来源实例、设计改款任务和实物到样信息。'],
     downstreamChanges: ['解锁初步可行性判断'],
     businessRules: ['到样明细、收到时间、基础核对结果必须完整', '样衣编号只能在实际收到样衣后生成'],
     systemConstraints: ['样衣未到位前不能进入初步可行性判断'],
@@ -2572,7 +2484,6 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'CHANNEL_PRODUCT', typeName: '渠道店铺商品', moduleName: '渠道店铺商品', businessMeaning: '商品上架节点生成的款式上架批次及其规格明细。' },
   { typeCode: 'PATTERN_TASK', typeName: '制版任务', moduleName: '制版任务', businessMeaning: '测款通过后的制版推进任务。' },
   { typeCode: 'PATTERN_ARTWORK_TASK', typeName: '花型任务', moduleName: '花型任务', businessMeaning: '设计款花型推进任务。' },
-  { typeCode: 'REVISION_TASK', typeName: '改版任务', moduleName: '改版任务', businessMeaning: '改版触发后创建的正式改版任务。' },
   { typeCode: 'FIRST_SAMPLE', typeName: '首版样衣打样', moduleName: '首版样衣', businessMeaning: '开发推进中的首版样衣验证。' },
   { typeCode: 'FIRST_ORDER_SAMPLE', typeName: '首单样衣打样', moduleName: '首单样衣打样', businessMeaning: '量首单最终样确认。' },
   { typeCode: 'STYLE_ARCHIVE', typeName: '商品测款档案', moduleName: '商品档案', businessMeaning: '创建商品项目时同步建立的唯一商品测款档案。' },

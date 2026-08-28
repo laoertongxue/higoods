@@ -100,14 +100,14 @@ assert.deepEqual(second, first, '重复投影必须幂等')
 assert.equal(new Set(first.items.map((item) => item.itemType)).size, 11, '重复任务事件不能重复累计准备项')
 const independentTaskContamination = projectEngineeringMasterToPreparation(master({
   tasks: [
-    task('BASE_PATTERN_WOVEN', { sourceType: 'INDEPENDENT_REVISION_SAMPLING', sourceId: 'ES-R-001' }),
+    task('BASE_PATTERN_WOVEN', { sourceType: 'INDEPENDENT_DESIGN_REVISION', sourceId: 'ES-DR-001' }),
     task('BASE_PATTERN_WOVEN', { taskId: 'EM-TEST-BASE-PATTERN-AUTHORITY', sourceType: 'ENGINEERING_MASTER', sourceId: 'EM-TEST' }),
   ],
 }))
 assert.equal(
   independentTaskContamination.items.find((item) => item.itemType === '梭织基码纸样')?.taskId,
   'EM-TEST-BASE-PATTERN-AUTHORITY',
-  '独立改款／设计打样任务不得进入生产准备时效投影',
+  '设计改款任务不得进入生产准备时效投影',
 )
 assert.ok(first.items.every((item) => item.plannedStartAt && item.plannedFinishAt), '适用准备项必须按固定依赖生成计划起止时间')
 assert.ok(first.expectedFinishAt, '准备记录必须汇总预计完成时间')

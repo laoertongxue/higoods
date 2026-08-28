@@ -8,11 +8,9 @@ import {
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
-import { resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
 import { resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
-import { resetPreProductionSampleTaskRepository } from '../src/data/pcs-pre-production-sample-repository.ts'
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetProjectArchiveRepository } from '../src/data/pcs-project-archive-repository.ts'
@@ -22,17 +20,15 @@ import { appStore } from '../src/state/store.ts'
 resetProjectRepository()
 resetProjectRelationRepository()
 resetProjectChannelProductRepository()
-resetRevisionTaskRepository()
 resetPlateMakingTaskRepository()
 resetPatternTaskRepository()
 resetFirstSampleTaskRepository()
-resetPreProductionSampleTaskRepository()
 resetStyleArchiveRepository()
 resetTechnicalDataVersionRepository()
 resetProjectArchiveRepository()
 
-const project = listProjects().find((item) => item.projectCode === 'PRJ-20251216-015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = listProjects().find((item) => item.projectCode === 'PRJ-202603-001')
+assert.ok(project, '应存在 PRJ-202603-001 演示项目')
 
 const model = getProjectInstanceModel(project!.projectId)
 assert.ok(model, '应能生成统一项目实例模型')
@@ -56,8 +52,8 @@ const channelListingInstanceModel = model!.nodes.find((item) => item.projectNode
 assert.ok(channelListingInstanceModel, '渠道商品上架节点应生成实例模型')
 assert.ok(channelListingInstanceModel!.relatedObjectCount >= 1, '渠道商品上架节点应纳入正式渠道商品对象')
 assert.ok(
-  channelListingInstanceModel!.instances.some((item) => item.objectType === '渠道商品'),
-  '渠道商品上架节点应能识别渠道商品正式对象',
+  channelListingInstanceModel!.instances.some((item) => item.objectType === '渠道店铺商品'),
+  '渠道商品上架节点应能识别渠道店铺商品正式对象',
 )
 assert.ok(
   channelListingInstanceModel!.instances.some((item) => item.targetRoute?.includes('/pcs/products/channel-products/')),
@@ -67,14 +63,14 @@ assert.ok(
 appStore.navigate(`/pcs/projects/${project!.projectId}/steps/${projectInitNode!.projectNodeId}?tab=attachments`, {
   historyMode: 'replace',
 })
-const initHtml = renderPcsProjectStepDetailPage(project!.projectId, projectInitNode!.projectNodeId)
+const initHtml = await renderPcsProjectStepDetailPage(project!.projectId, projectInitNode!.projectNodeId)
 assert.match(initHtml, /项目实例总览/, '项目立项详情页应渲染统一实例总览')
 assert.match(initHtml, /项目主记录/, '项目立项详情页应展示项目主记录来源层')
 
 appStore.navigate(`/pcs/projects/${project!.projectId}/steps/${channelListingNode!.projectNodeId}?tab=attachments`, {
   historyMode: 'replace',
 })
-const channelListingHtml = renderPcsProjectStepDetailPage(project!.projectId, channelListingNode!.projectNodeId)
+const channelListingHtml = await renderPcsProjectStepDetailPage(project!.projectId, channelListingNode!.projectNodeId)
 assert.match(channelListingHtml, /项目实例总览/, '渠道商品上架详情页应渲染统一实例总览')
 assert.match(channelListingHtml, /正式业务对象/, '渠道商品上架详情页应展示正式业务对象来源层')
 assert.match(channelListingHtml, /打开/, '统一实例总览应保留跳转动作')

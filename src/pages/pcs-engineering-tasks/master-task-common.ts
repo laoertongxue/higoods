@@ -16,7 +16,6 @@ import { getMaterialArchiveById, getMaterialSkuRecordById } from '../../data/pcs
 import { getEngineeringTaskDefinition } from '../../data/pcs-engineering-dependency-policy.ts'
 import { getEngineeringTeamCurrentOperator } from '../../data/pcs-engineering-team-directory.ts'
 import { listEngineeringIndependentSamplingRecords } from '../../data/pcs-engineering-master-sampling.ts'
-import { listEngineeringChangeProfessionalTaskProjections } from '../../data/pcs-engineering-change-workspace.ts'
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import type { EngineeringLog, ModuleKey } from './shared.ts'
 import {
@@ -67,7 +66,7 @@ function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
     if (task.taskType === 'DISPLAY_SAMPLE') return []
     const taskType = INDEPENDENT_TASK_TYPE_MAP[task.taskType]
     const firstFile = task.results.flatMap((result) => result.files)[0]
-    const sourceLabel = record.samplingType === 'REVISION' ? '改款打样' : '设计打样'
+    const sourceLabel = '设计改款任务'
     const currentTeamName = task.status === 'COMPLETED'
       ? ''
       : task.status === 'WAIT_REVIEW'
@@ -80,7 +79,7 @@ function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
       masterOrderId: '',
       taskType,
       taskName: task.taskName,
-      sourceType: record.samplingType === 'REVISION' ? 'INDEPENDENT_REVISION_SAMPLING' : 'INDEPENDENT_DESIGN_SAMPLING',
+      sourceType: 'INDEPENDENT_DESIGN_REVISION',
       sourceId: record.samplingTaskId,
       targetStyleId: record.targetStyleId,
       targetStyleCode: record.targetStyleCode,
@@ -132,12 +131,11 @@ function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
   }))
 }
 
-// 按任务类型读取统一专业任务列表：主单任务与独立打样任务共享一个列表，来源详情仍各自回到原业务单。
+// 按任务类型读取统一专业任务列表：主单任务与设计改款任务共享一个列表，来源详情仍各自回到原业务单。
 export function listEngineeringTasksByType(taskTypes: readonly EngineeringTaskType[]): EngineeringTaskRecord[] {
   return [
     ...listEngineeringMasterOrders().flatMap((master) => master.tasks),
     ...listIndependentProfessionalTaskProjections(),
-    ...listEngineeringChangeProfessionalTaskProjections(),
   ].filter((task) => taskTypes.includes(task.taskType))
 }
 
@@ -162,9 +160,7 @@ export function getEngineeringTaskDetail(
 }
 
 function taskSourceLabel(task: EngineeringTaskRecord): string {
-  if (task.sourceType === 'ENGINEERING_CHANGE') return '工程变更'
-  if (task.sourceType === 'INDEPENDENT_REVISION_SAMPLING') return '改款打样'
-  if (task.sourceType === 'INDEPENDENT_DESIGN_SAMPLING') return '设计打样'
+  if (task.sourceType === 'INDEPENDENT_DESIGN_REVISION') return '设计改款任务'
   return '工程主单'
 }
 
@@ -177,7 +173,7 @@ function taskNextAction(task: EngineeringTaskRecord): string {
   if (task.status === '待审核') return '等待买手审核；未通过项将进入返工'
   if (task.status === '返工中') return '仅修改未通过项并重新提交'
   if (task.status === '已完成') return '成果已完成，并作为后续任务或技术包的输入'
-  if (task.status === '因需求变更结束') return '该任务已因工程变更结束'
+  if (task.status === '因需求变更结束') return '该任务已因本次需求调整结束'
   if (task.taskType === 'ACCESSORY_PURCHASE') return '在采购系统下单后，绑定采购单号'
   if (task.taskType === 'TECH_PACK_CONFIRMATION') return '汇总已完成成果，生成并提交技术包审核'
   if (task.taskType === 'PATTERN_ARTWORK') return '逐项维护花型成果，整单提交买手审核'
@@ -243,7 +239,7 @@ export function getEngineeringTaskTeamOptions(items: EngineeringTaskRecord[]): s
   return [...new Set(items.filter((item) => item.status !== '已完成').map((item) => item.ownerTeamName).filter(Boolean))].sort()
 }
 
-// 来源下拉选项：工程主单、改款打样、设计打样或工程变更。
+// 来源下拉选项：工程主单或设计改款任务。
 export function getEngineeringTaskSourceOptions(items: EngineeringTaskRecord[]): string[] {
   return [...new Set(items.map((item) => getEngineeringTaskSourceSummary(item).label))].sort()
 }

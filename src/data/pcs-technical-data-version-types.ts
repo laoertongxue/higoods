@@ -6,10 +6,9 @@ import type {
 
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
-export type TechPackSourceTaskType = 'ENGINEERING_MASTER' | 'ENGINEERING_CHANGE'
-export type LegacyTechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
-export type StoredTechPackSourceTaskType = TechPackSourceTaskType | LegacyTechPackSourceTaskType
-export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
+export type TechPackSourceTaskType = 'ENGINEERING_MASTER'
+export type StoredTechPackSourceTaskType = TechPackSourceTaskType
+export type TechPackVersionChangeScope = '工程主单生成'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
 
@@ -509,7 +508,7 @@ export interface TechnicalDataVersionRecord {
   primaryPlateTaskId: string
   primaryPlateTaskCode: string
   primaryPlateTaskVersion: string
-  linkedRevisionTaskIds: string[]
+  linkedDesignRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
   createdFromTaskType: StoredTechPackSourceTaskType

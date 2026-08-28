@@ -11,8 +11,7 @@ assert.doesNotMatch(routeSource, /\^\\\/pcs\\\/patterns\\\/\(\[\^\/\]\+\)/, '不
 assert.doesNotMatch(handlerSource, /['"]\/pcs\/patterns['"]\s*,/, '事件处理不得继续使用 /pcs/patterns 泛入口')
 
 for (const required of [
-  ['改款打样任务', '/pcs/engineering/revision-sampling'],
-  ['设计打样任务', '/pcs/engineering/design-sampling'],
+  ['设计改款任务', '/pcs/engineering/design-revision'],
   ['制版任务', '/pcs/patterns/plate-making'],
   ['花型任务', '/pcs/patterns/artwork'],
   ['调色任务', '/pcs/engineering/color'],
@@ -22,6 +21,9 @@ for (const required of [
 ]) {
   assert.ok(menuSource.includes(required[0]) && menuSource.includes(required[1]), `生产工程菜单缺少 ${required[0]} 规范入口`)
 }
+
+assert.doesNotMatch(menuSource, /工程变更|改款打样任务|设计打样任务/, '生产工程菜单不得保留已删除入口')
+assert.doesNotMatch(routeSource, /engineering\/changes|revision-sampling|design-sampling/, '路由不得兼容已删除入口')
 
 for (const required of ['技术资料', '技术包', 'BOM 与价格', '花型库', '部位模板库']) {
   assert.ok(menuSource.includes(required), `技术资料菜单缺少 ${required}`)

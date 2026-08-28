@@ -807,7 +807,9 @@ function renderOrderTechPackSnapshotDialog(): string {
   const display = getOrderTechPackSnapshotDisplay(order)
   const versionLabel = formatTechPackVersionLabel(display.techPackVersionLabelText)
   const sourceTaskText = [
-    snapshot?.linkedRevisionTaskIds.length ? `改版任务 ${snapshot.linkedRevisionTaskIds.length}` : '',
+    snapshot?.linkedDesignRevisionTaskIds.length
+      ? `设计改款来源 ${snapshot.linkedDesignRevisionTaskIds.length}`
+      : '',
     snapshot?.linkedPatternTaskIds.length ? `制版任务 ${snapshot.linkedPatternTaskIds.length}` : '',
     snapshot?.linkedArtworkTaskIds.length ? `花型任务 ${snapshot.linkedArtworkTaskIds.length}` : '',
   ].filter(Boolean).join(' / ') || '暂无来源任务链'

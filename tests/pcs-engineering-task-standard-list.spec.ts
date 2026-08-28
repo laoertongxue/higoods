@@ -11,7 +11,6 @@ import {
   renderPcsFirstSampleTaskPage,
   renderPcsPatternTaskPage,
   renderPcsPlateMakingTaskPage,
-  renderPcsRevisionTaskPage,
   resetPcsEngineeringTaskState,
 } from '../src/pages/pcs-engineering-tasks.ts'
 import { ENGINEERING_LIST_STORAGE_KEYS } from '../src/pages/pcs-engineering-tasks/shared.ts'
@@ -28,11 +27,18 @@ assert.ok(style, '测试必须存在款式档案')
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-A',
   merchandiserName: '跟单A',
+  createdById: 'USER-M-A',
+  createdBy: '跟单A',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `TASK-LIST-${style.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `TASK-LIST-${style.styleCode}` },
+  creationReason: '专项测试创建工程主单',
 }).masterOrderId)
 
 const pages = [
-  ['改版任务', renderPcsRevisionTaskPage()],
   ['制版任务', renderPcsPlateMakingTaskPage()],
   ['花型任务', renderPcsPatternTaskPage()],
   ['产前版样衣任务', renderPcsFirstSampleTaskPage()],
@@ -48,7 +54,7 @@ for (const [label, html] of pages) {
   assert.match(html, /data-skip-page-rerender="true"/, `${label}轻交互必须跳过整页重绘`)
 }
 
-const engineeringPages = pages.slice(1)
+const engineeringPages = pages
 const engineeringStatuses = ['未启用', '待前置', '待开始', '进行中', '待审核', '返工中', '已完成', '因需求变更结束']
 for (const [label, html] of engineeringPages) {
   assert.match(html, new RegExp(master.masterOrderCode), `${label}必须读取工程主单编号`)

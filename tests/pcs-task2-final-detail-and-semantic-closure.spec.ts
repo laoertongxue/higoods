@@ -72,7 +72,6 @@ assert.match(patternHtml, />商品项目</, '花型列表必须展示商品项�
 assert.match(patternHtml, /data-nav="\/pcs\/projects\//, '花型列表必须提供商品项目详情入口')
 
 for (const relativePath of [
-  'src/data/pcs-revision-task-repository.ts',
   'src/data/pcs-pattern-task-repository.ts',
   'src/data/pcs-first-sample-repository.ts',
   'src/data/pcs-plate-making-repository.ts',

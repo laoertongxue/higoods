@@ -1,10 +1,7 @@
 import type { TechPackSourceTaskType, TechPackVersionChangeScope } from './pcs-technical-data-version-types.ts'
 
 export type TechPackVersionLogType =
-  | '制版生成技术包'
   | '花型写入技术包'
-  | '花型生成新版本'
-  | '改版生成新版本'
   | '发布技术包版本'
   | '启用当前生效版本'
   | '提交技术包审核'

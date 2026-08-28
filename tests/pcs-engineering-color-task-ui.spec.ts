@@ -44,7 +44,31 @@ assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'MERCHANDISER-A',
   merchandiserName: '跟单A',
+  createdById: 'MERCHANDISER-A',
+  createdBy: '跟单A',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: {
+    styleCode: style.styleCode,
+    formalSaleStatus: 'NO_FORMAL_SALE',
+    formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+    formalSaleSource: '专项测试固定事实',
+    formalProductionSource: '专项测试固定事实',
+    checkedAt: '2026-08-27 09:00:00',
+  },
+  bulkProductionQualification: {
+    basisType: 'TEST_APPROVED',
+    triggerBusinessObjectType: '专项测试',
+    triggerBusinessObjectId: 'COLOR-TASK-UI',
+    thresholdQuantity: 1,
+    reachedQuantity: 1,
+    reachedAt: '2026-08-27 09:00:00',
+    reason: '专项测试已满足做大货要求',
+    uniqueTriggerKey: 'COLOR-TASK-UI',
+  },
+  creationReason: '专项测试创建工程主单',
 }).masterOrderId)
 const taskId = `${master.masterOrderId}-COLOR_FABRIC`
 

@@ -116,7 +116,7 @@ assert.throws(
     copiedAt: '2026-08-02 10:00:00',
     copiedBy: '买手乙',
   }),
-  /已完成且已确认/,
+  /已完成确认|已形成正式技术包/,
 )
 
 const recommendation = selectRecommendedEngineeringBomDraft([

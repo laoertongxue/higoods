@@ -9,7 +9,7 @@ for (const test of [
   'tests/pcs-engineering-preparation-projection.spec.ts',
   'tests/pcs-engineering-preparation-color-projection.spec.ts',
 ]) {
-  const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['test', '--', test], {
+  const result = spawnSync(process.execPath, ['--import', 'tsx', test], {
     cwd: process.cwd(),
     stdio: 'inherit',
   })

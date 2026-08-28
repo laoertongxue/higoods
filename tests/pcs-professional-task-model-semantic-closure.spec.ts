@@ -5,7 +5,6 @@ const readSource = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 
 const professionalTypeFiles = [
-  'src/data/pcs-revision-task-types.ts',
   'src/data/pcs-pattern-task-types.ts',
   'src/data/pcs-plate-making-types.ts',
   'src/data/pcs-first-sample-types.ts',
@@ -13,7 +12,6 @@ const professionalTypeFiles = [
 ]
 
 const professionalRepositoryFiles = [
-  'src/data/pcs-revision-task-repository.ts',
   'src/data/pcs-pattern-task-repository.ts',
   'src/data/pcs-plate-making-repository.ts',
   'src/data/pcs-first-sample-repository.ts',
@@ -39,7 +37,7 @@ assert.doesNotMatch(
 )
 assert.doesNotMatch(
   writebackSource,
-  /\bstepCode\s*:\s*'(?:REVISION_TASK|PATTERN_TASK|PATTERN_ARTWORK_TASK|FIRST_SAMPLE|FIRST_ORDER_SAMPLE)'/,
+  /\bstepCode\s*:\s*'(?:PATTERN_TASK|PATTERN_ARTWORK_TASK|FIRST_SAMPLE|FIRST_ORDER_SAMPLE)'/,
   '专业任务创建结果不得写入已删除的专业步骤编码',
 )
 assert.doesNotMatch(

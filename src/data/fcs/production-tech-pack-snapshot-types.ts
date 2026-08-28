@@ -129,7 +129,7 @@ export interface ProductionOrderTechPackSnapshot {
   cutPieceParts: TechPackCutPiecePartSnapshot[]
   imageSnapshot: TechPackImageSnapshot
   patternDesigns: TechnicalPatternDesign[]
-  linkedRevisionTaskIds: string[]
+  linkedDesignRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
   completenessScore: number
