@@ -153,8 +153,17 @@ includesAll(productionReplacementDisplay, '生产单替换明细', [
   '目标 SKU',
 ])
 includesAll(productionDetail, '生产单详情', [
+  'getProductionOrderGarmentReplacementRecords',
+  "key: 'garment-spu-replacement'",
+  "label: '成衣 SPU 替换'",
+  "state.detailTab === 'garment-spu-replacement'",
   'renderProductionOrderGarmentReplacementSection',
 ])
+assert.equal(
+  (productionDetail.match(/renderProductionOrderGarmentReplacementSection\(order\)/g) || []).length,
+  1,
+  '生产单替换明细只能在专属 Tab 内容中渲染一次，不得同时平铺在概览',
+)
 includesAll(productionEvents, '生产单打印事件', [
   "action === 'open-order-print-dialog'",
   "action === 'open-order-garment-replacement-dialog'",

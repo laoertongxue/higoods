@@ -2,8 +2,8 @@
 
 > 验收状态：本次需求已完成本地实现与两遍核验
 > 验收日期：2026-08-28
-> 验收分支：`codex/garment-spu-replacement-order-display-20260828`
-> 基线提交：`64673c7a0b196efc15d88701a216fc5e4a832eb6`
+> 验收分支：`codex/garment-spu-replacement-detail-tab-20260828`
+> 基线提交：`5f14178722597fc4f4e470675661001675f3f4eb`
 > 对应方案：`docs/product-design/成衣SPU与SKU整色替换完整调整方案.md`
 > 全流程记录：`docs/product-design/成衣SPU与SKU整色替换全流程测试记录.md`
 > 验收范围：当前原型仓库，不代表生产后端、真实库存数据库或线上部署已经完成
@@ -12,7 +12,7 @@
 
 ## 1. 验收结论
 
-本次按“生产单 + 源颜色”完成了成衣 SPU 与 SKU 整色替换原型闭环，并按最新确认把生产单展示拆成“列表标记与详情弹窗”和“生产单详情独立替换信息区”两条原子需求；当前统计为：
+本次按“生产单 + 源颜色”完成了成衣 SPU 与 SKU 整色替换原型闭环，并按最新确认把生产单展示拆成“列表标记与详情弹窗”和“生产单详情条件 Tab”两条原子需求；当前统计为：
 
 - 原子需求：54 条。
 - 已验证：54 条。
@@ -28,7 +28,7 @@
 3. 后道工厂未入仓成衣完成新条码、新吊牌打印和换码前不能交出；完成后后道对象使用目标 SKU。
 4. 生产单剩余待回货使用目标 SKU，同时映射回原 SKU 匹配原车缝工厂分配。
 5. 既有 QC／复检瑕疵和后续瑕疵统一归到目标 SKU，数量、原因、责任和扣款不变，原身份可追溯。
-6. 生产单原需求、原工厂分配和冻结价格不变；列表只标记存在替换，点击后用弹窗展示详细信息；生产单详情以独立信息区同时展示原 SPU、目标 SPU 和对应数量。
+6. 生产单原需求、原工厂分配和冻结价格不变；列表只标记存在替换，点击后用弹窗展示详细信息；生产单详情只有在存在替换记录时显示“成衣 SPU 替换”Tab，概览不平铺替换明细，Tab 内同时展示原 SPU、目标 SPU 和对应数量。
 7. 生产单列表只有一个“打印条码”入口，入口弹窗、替换详情和成衣仓换码任务均覆盖条码和吊牌打印；发生替换后统一读取目标 SKU。
 8. 替换列表和详情明确展示后道工厂换码、成衣仓换码、剩余待回货三段进度，并直接说明当前还在等待什么。
 9. 截图非必填；上传后记录文件名、原图、上传人和上传时间，详情可点击查看原图。
@@ -76,7 +76,7 @@
 | PAGE-07 | `output/playwright/garment-spu-replacement-full-flow-05-warehouse-task-completed.png` | 成衣仓换码完成后 8 条成对库存流水、来源批次保持、阻断解除 |
 | PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 生产单列表只显示“存在成衣 SPU 替换”标记，并保留唯一“打印条码”入口 |
 | PAGE-09 | `output/playwright/garment-spu-replacement-full-flow-07-production-order-replacement-modal.png` | 替换详情弹窗展示原生产需求、源／目标 SPU、四类数量和逐尺码 SKU 映射 |
-| PAGE-10 | `output/playwright/garment-spu-replacement-full-flow-08-production-order-detail-replacement.png` | 生产单详情独立“成衣 SPU 替换”信息区 |
+| PAGE-10 | `output/playwright/garment-spu-replacement-full-flow-08-production-order-detail-replacement-tab.png` | 有替换记录时显示“成衣 SPU 替换”Tab；概览无平铺明细，点击 Tab 后展示完整替换详情 |
 | PAGE-11 | `output/playwright/garment-spu-replacement-full-flow-09-production-order-print-modal.png` | 线上同口径批量打印弹窗、SKU 勾选、数量输入、行操作和底部双打印 |
 | PAGE-12 | `output/playwright/garment-spu-replacement-full-flow-10-production-order-modal-barcode.png` | 指定目标 SKU 填写 2 件后生成 2 张线上 40×30 条码 |
 | PAGE-13 | `output/playwright/garment-spu-replacement-full-flow-11-production-order-modal-hangtag.png` | 批量区选择单一目标 SKU 后生成 1 张线上 40×100 吊牌 |
@@ -148,7 +148,7 @@
 | PO-001 | 替换前后 `ProductionOrder.demandSnapshot` 深相等，原生产需求未改写 | 生产单替换展示只读取 `listGarmentSpuReplacementsByProductionOrder()`，不写 `demandSnapshot` | AUTO-02、AUTO-03 | PAGE-08～10 | 已验证 |
 | PO-002 | 生产单关联替换原因、映射、四类业务数量、截图及迁移审计 | `GarmentSpuReplacementRecord`、替换详情 | AUTO-01、AUTO-03、AUTO-04 | PAGE-03 | 已验证 |
 | PO-003 | 生产单列表只显示“存在成衣 SPU 替换”标记；点击后弹窗展示原需求、源／目标 SPU、四类数量和逐尺码 SKU 映射 | `renderProductionOrderGarmentReplacementMarker()`、`renderOrderGarmentReplacementDialog()` | AUTO-03、AUTO-04 | PAGE-08、PAGE-09 | 已验证 |
-| PO-004 | 生产单详情新增独立“成衣 SPU 替换”信息区，原需求和新增目标 SPU 分区展示 | `renderProductionOrderGarmentReplacementSection()`、`detail-domain.ts` | AUTO-03、AUTO-04 | PAGE-10 | 已验证 |
+| PO-004 | 生产单详情仅在存在替换记录时显示“成衣 SPU 替换”Tab；概览不平铺明细，Tab 内分区展示原需求和新增目标 SPU；无记录时不显示 Tab | `renderOrderDetailTabButtons()`、`renderProductionOrderGarmentReplacementSection()`、`detail-domain.ts` | AUTO-03、AUTO-04 | PAGE-10 | 已验证 |
 | SETTLE-001 | 换码不写回工厂分配和冻结价格 | 目标回货只做目标→原 SKU 匹配；结算输入保持原分配 | AUTO-01、AUTO-02 | 不适用：分配与冻结价格由领域契约验证 | 已验证 |
 | SETTLE-002 | 专项构造 SPUA 800 + SPUB 200，结算结果与原 1,000 件完全一致 | `scripts/check-garment-spu-replacement.ts` 的 settlementBefore／settlementAfter 深相等断言 | AUTO-01 | 不适用：金额与数量由领域契约验证 | 已验证 |
 
@@ -211,7 +211,7 @@
 | 瑕疵 | QC／复检既有与新增迁移、质量／扣款不变、原身份审计 | DEFECT-001～005；AUTO-02、04；PAGE-03 |
 | 仓储 | 唯一任务、旧出新入、来源批次、销售阻断、双打印 | WMS-001～008；AUTO-01、02、04；PAGE-06、07 |
 | 回货 | 生产单剩余待回货使用目标 SKU，原分配匹配，批次双身份 | RETURN-001～003；AUTO-02 |
-| 生产与结算 | 原需求不改；列表标记与详情弹窗；详情独立替换区；实际混合构成；800+200 结算不变 | PO-001～004、SETTLE-001～002；AUTO-01～04；PAGE-08～10 |
+| 生产与结算 | 原需求不改；列表标记与详情弹窗；详情条件替换 Tab；实际混合构成；800+200 结算不变 | PO-001～004、SETTLE-001～002；AUTO-01～04；PAGE-08～10 |
 | 页面与证据 | 三个菜单／路由及图标、三类 Mock、三段完成进度、生产单替换追溯、生产单单入口双打印、截图可选与原图 | PRINT-001～005、PROGRESS-001～002、MENU-001～004、DATA-001、EVIDENCE-001；AUTO-03、04；PAGE-01～13 |
 | 范围收口 | 无 E/R、销售退回、审批、回滚、多级链或通用异常平台 | SIMPLE-001；AUTO-03、11 |
 
@@ -229,7 +229,7 @@
 | 发起表单 | 是否仍为自由文本，或颜色能够脱离所选生产单／目标 SPU 随意输入 | 两个可搜索下拉与两个联动颜色下拉均有精确匹配门禁；通过 |
 | 后道领域 | 是否遗漏 QC、复检、待交出、后续新增对象，或只改 SPU 未改 SKU | 当前投影同时更新 SPU/SKU 并保留 original；通过 |
 | 回货领域 | 目标 SKU 是否失去原工厂分配，批次是否无法表达混合 SKU | 目标→原 SKU 匹配与回货 SKU 双身份均已接通；通过 |
-| 生产单 | 是否保持原需求、列表避免铺开数量、标记弹窗可追溯、详情有独立替换区，以及单一列表入口内的条码和吊牌两个动作 | 均存在且读取同一替换事实；通过 |
+| 生产单 | 是否保持原需求、列表避免铺开数量、标记弹窗可追溯、详情仅在有记录时显示替换 Tab且概览不平铺，以及单一列表入口内的条码和吊牌两个动作 | 均存在且读取同一替换事实；通过 |
 | 仓储 | 是否只有后道入口、没有统一任务，或只有入库没有出库 | WLS 两个页面和成对流水均存在；通过 |
 | 打印注册表 | 是否只加条码漏吊牌，是否任一来源仍读源 SKU | 两个 documentType、两个 sourceType、统一当前身份；通过 |
 | 菜单与路由 | 是否出现空图标、占位页、菜单无路由或事件未分发 | 三个菜单均有有效 SVG 图标，命名路由均进入真实页面并有事件入口；通过 |
@@ -255,7 +255,7 @@
 - 当前实现使用本地内存／`localStorage` Mock 事实，不是生产数据库事务、真实库存服务或销售出库服务。
 - 已验证真实 Code 128 SVG、条码值、打印 DOM 和浏览器预览；未连接实体扫码枪逐张实扫，也未在实体热敏／吊牌打印机上出纸。
 - 已在当前分支同一工作树完成页面验收；未部署到线上，也没有 GitHub 远端交付回执。
-- 已在隔离工作树生成任务收据：`/private/tmp/garment-spu-order-display-task-receipt.json`；收据边界仅包含生产单列表替换标记与弹窗、生产单详情替换信息区、专项测试和追踪文档，未吸收原工作区的无关差异。
+- 已在隔离工作树生成任务收据：`/private/tmp/garment-spu-detail-tab-task-receipt.json`；收据边界仅包含生产单详情条件 Tab、概览移除平铺明细、专项测试和追踪文档，未吸收原工作区的无关差异。
 
 ---
 

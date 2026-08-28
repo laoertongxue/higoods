@@ -78,6 +78,7 @@ import {
   getTasksByOrderId,
 } from '../../data/fcs/process-tasks.ts'
 import {
+  getProductionOrderGarmentReplacementRecords,
   renderProductionOrderGarmentReplacementSection,
 } from './garment-spu-replacement-display.ts'
 
@@ -567,6 +568,11 @@ function renderDetailSimulateConfirmDialog(order: ProductionOrder): string {
 function renderOrderDetailTabButtons(activeTab: OrderDetailTab, order: ProductionOrder): string {
   const tabs: Array<{ key: OrderDetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
+    ...(
+      getProductionOrderGarmentReplacementRecords(order).length > 0
+        ? [{ key: 'garment-spu-replacement' as const, label: '成衣 SPU 替换' }]
+        : []
+    ),
     { key: 'demand-snapshot', label: '需求快照' },
     { key: 'tech-pack', label: '技术包快照' },
     { key: 'assignment', label: '分配概览' },
@@ -878,10 +884,13 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
           </div>
         </section>
       </div>
-      ${renderProductionOrderGarmentReplacementSection(order)}
       ${renderOrderMaterialInfoSection(order)}
       </div>
     `
+  }
+
+  if (state.detailTab === 'garment-spu-replacement') {
+    return renderProductionOrderGarmentReplacementSection(order)
   }
 
   if (state.detailTab === 'demand-snapshot') {

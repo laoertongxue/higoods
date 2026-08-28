@@ -5,6 +5,7 @@ const WLS_REPLACEMENT_PATH = '/wls/garment-spu-replacements'
 const WLS_RELABEL_TASK_PATH = '/wls/garment-relabel-tasks'
 const PRODUCTION_ORDER_PATH = '/fcs/production/orders'
 const PRODUCTION_ORDER_DETAIL_PATH = '/fcs/production/orders/PO-202603-0001'
+const PRODUCTION_ORDER_DETAIL_WITHOUT_REPLACEMENT_PATH = '/fcs/production/orders/PO-202603-0005'
 const POST_RECHECK_DETAIL_PATH = '/fcs/craft/post-finishing/recheck-orders/PF-RC-001'
 const POST_OUTBOUND_PATH = '/fcs/craft/post-finishing/outbound-orders'
 const STORAGE_KEY = 'higood-fcs-garment-spu-replacement-v2'
@@ -232,7 +233,11 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await dialog.getByRole('button', { name: '关闭', exact: true }).click()
 
   await page.goto(PRODUCTION_ORDER_DETAIL_PATH, { waitUntil: 'domcontentloaded' })
+  const replacementTab = page.getByRole('button', { name: '成衣 SPU 替换', exact: true })
   const replacementSection = page.locator('[data-production-order-garment-replacement-section="true"]')
+  await expect(replacementTab).toBeVisible()
+  await expect(replacementSection).toHaveCount(0)
+  await replacementTab.click()
   await expect(replacementSection).toBeVisible()
   await expect(replacementSection.getByRole('heading', { name: '成衣 SPU 替换', exact: true })).toBeVisible()
   await expect(replacementSection).toContainText('原生产需求（保持不变）')
@@ -242,7 +247,14 @@ test('成衣整色 SPU 替换从后道发起到成衣仓旧出新入形成完整
   await expect(replacementSection).toContainText('1,150 件')
   await expect(replacementSection).toContainText('700 件')
   await expect(replacementSection).toContainText('1,900 件')
-  await screenshot(page, 'garment-spu-replacement-full-flow-08-production-order-detail-replacement')
+  await screenshot(page, 'garment-spu-replacement-full-flow-08-production-order-detail-replacement-tab')
+
+  await page.getByRole('button', { name: '概览', exact: true }).click()
+  await expect(replacementSection).toHaveCount(0)
+
+  await page.goto(PRODUCTION_ORDER_DETAIL_WITHOUT_REPLACEMENT_PATH, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('button', { name: '成衣 SPU 替换', exact: true })).toHaveCount(0)
+  await expect(page.locator('[data-production-order-garment-replacement-section="true"]')).toHaveCount(0)
 
   await page.goto(PRODUCTION_ORDER_PATH, { waitUntil: 'domcontentloaded' })
   const printProductionRow = page.locator('tr').filter({ hasText: 'PO-202603-0001' }).first()
