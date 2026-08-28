@@ -15,7 +15,11 @@ test('设计改款新建页阻断非图片且保留表单，真实设计稿保�
   await target.selectOption({ index: 2 })
   await reason.fill('验证设计稿上传失败后不丢失已填资料')
 
-  await page.locator('[data-pcs-independent-sampling-create-design-upload]').setInputFiles({
+  const chooseDesignFile = page.getByText('选择本地设计稿', { exact: true })
+  const invalidFileChooserPromise = page.waitForEvent('filechooser', { timeout: 2_000 })
+  await chooseDesignFile.click()
+  const invalidFileChooser = await invalidFileChooserPromise
+  await invalidFileChooser.setFiles({
     name: 'wrong-design.pdf',
     mimeType: 'application/pdf',
     buffer: Buffer.from('not-an-image'),
@@ -25,7 +29,10 @@ test('设计改款新建页阻断非图片且保留表单，真实设计稿保�
   await expect(target).not.toHaveValue('')
   await expect(reason).toHaveValue('验证设计稿上传失败后不丢失已填资料')
 
-  await page.locator('[data-pcs-independent-sampling-create-design-upload]').setInputFiles(REAL_DESIGN_IMAGE)
+  const realFileChooserPromise = page.waitForEvent('filechooser', { timeout: 2_000 })
+  await chooseDesignFile.click()
+  const realFileChooser = await realFileChooserPromise
+  await realFileChooser.setFiles(REAL_DESIGN_IMAGE)
   await expect(page.getByText('dress-sample-1.jpg', { exact: true })).toBeVisible()
   await page.locator('[data-pcs-independent-sampling-action="create"]').click()
 
