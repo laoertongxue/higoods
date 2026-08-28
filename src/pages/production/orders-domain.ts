@@ -82,8 +82,8 @@ import {
 } from '../../data/fcs/kol-goto-special-flow.ts'
 import {
   getProductionOrderGarmentComposition,
+  listGarmentPrintRows,
 } from '../../data/fcs/garment-spu-replacement.ts'
-import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -1481,6 +1481,59 @@ function renderMaterialDraftDrawer(): string {
   `
 }
 
+function renderOrderPrintDialog(): string {
+  const order = getOrderById(state.ordersPrintDialogOrderId)
+  if (!order) return ''
+  const rows = listGarmentPrintRows(order.productionOrderId)
+  const allSelected = rows.length > 0 && rows.every((row) => state.ordersPrintSelectedSkuCodes.has(row.identity.skuCode))
+  const rowHtml = rows.map((row) => {
+    const skuCode = row.identity.skuCode
+    const checked = state.ordersPrintSelectedSkuCodes.has(skuCode)
+    const qtyValue = state.ordersPrintQtyBySku[skuCode] ?? '0'
+    return `<tr class="border-t">
+      <td class="px-3 py-3 text-center"><input type="checkbox" aria-label="选择 ${escapeHtml(skuCode)}" data-prod-action="toggle-order-print-select" data-sku-code="${escapeHtml(skuCode)}" ${checked ? 'checked' : ''}></td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(skuCode)}</td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.identity.shipmentBarcode)}</td>
+      <td class="px-3 py-3 text-right text-sm text-muted-foreground">-</td>
+      <td class="px-3 py-3 text-right text-sm">${row.qty.toLocaleString('zh-CN')}</td>
+      <td class="px-3 py-3 text-right text-sm">${row.qty.toLocaleString('zh-CN')}</td>
+      <td class="px-3 py-3">
+        <input type="number" min="0" step="1" class="h-9 w-28 rounded-md border px-3 text-right text-sm" value="${escapeHtml(qtyValue)}" placeholder="必填，大于0" aria-label="${escapeHtml(skuCode)} 打印数量" data-prod-field="ordersPrintQty" data-sku-code="${escapeHtml(skuCode)}" data-skip-page-rerender="true">
+      </td>
+      <td class="px-3 py-3"><div class="flex flex-wrap gap-2">
+        <button type="button" class="rounded bg-blue-500 px-2.5 py-1.5 text-xs text-white hover:bg-blue-600" data-prod-action="print-order-sku-barcode" data-sku-code="${escapeHtml(skuCode)}">打印条码</button>
+        <button type="button" class="rounded bg-amber-500 px-2.5 py-1.5 text-xs text-white hover:bg-amber-600" data-prod-action="print-order-sku-hangtag" data-sku-code="${escapeHtml(skuCode)}">打印吊牌</button>
+      </div></td>
+    </tr>`
+  }).join('')
+
+  return `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-labelledby="production-order-print-title">
+    <section class="max-h-[92vh] w-full max-w-7xl overflow-hidden rounded-xl bg-white shadow-2xl">
+      <header class="flex items-start justify-between border-b px-5 py-4">
+        <div><h2 id="production-order-print-title" class="text-lg font-semibold">批量打印货品条码</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · 发生整色替换的颜色显示目标 SKU，未替换颜色保留原 SKU。</p></div>
+        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-order-print-dialog" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
+      </header>
+      <div class="max-h-[calc(92vh-145px)] overflow-auto p-5">
+        ${state.ordersPrintError ? `<div class="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.ordersPrintError)}</div>` : ''}
+        <div class="overflow-x-auto rounded-lg border">
+          <table class="w-full min-w-[1080px] text-left">
+            <thead class="bg-slate-50 text-xs text-slate-500"><tr>
+              <th class="w-12 px-3 py-3 text-center"><input type="checkbox" aria-label="全选 SKU" data-prod-action="toggle-order-print-select-all" ${allSelected ? 'checked' : ''}></th>
+              <th class="px-3 py-3">SKU编码</th><th class="px-3 py-3">出货条码</th><th class="px-3 py-3 text-right">采购价格</th><th class="px-3 py-3 text-right">采购数量</th><th class="px-3 py-3 text-right">已到货数</th><th class="px-3 py-3">打印数量</th><th class="px-3 py-3">操作</th>
+            </tr></thead>
+            <tbody>${rowHtml || renderEmptyRow(8, '当前生产单没有可打印的成衣 SKU')}</tbody>
+          </table>
+        </div>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button type="button" class="rounded-md bg-teal-500 px-4 py-2 text-sm text-white hover:bg-teal-600" data-prod-action="print-order-selected-barcode">打印条码</button>
+          <button type="button" class="rounded-md bg-amber-500 px-4 py-2 text-sm text-white hover:bg-amber-600" data-prod-action="print-order-selected-hangtag">打印吊牌</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="reset-order-print-qty">重置</button>
+        </div>
+      </div>
+    </section>
+  </div>`
+}
+
 export function renderProductionOrdersPage(): string {
   const filteredOrders = getFilteredOrders()
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
@@ -1745,21 +1798,9 @@ export function renderProductionOrdersPage(): string {
                           }),
                           renderOrderTextActionButton({
                             label: '打印条码',
-                            nav: buildUnifiedPrintPreviewLink({
-                              documentType: 'GARMENT_SKU_BARCODE',
-                              sourceType: 'PRODUCTION_ORDER',
-                              sourceId: order.productionOrderId,
-                            }),
-                            title: '按当前有效 SKU 打印成衣条码',
-                          }),
-                          renderOrderTextActionButton({
-                            label: '打印吊牌',
-                            nav: buildUnifiedPrintPreviewLink({
-                              documentType: 'GARMENT_HANGTAG',
-                              sourceType: 'PRODUCTION_ORDER',
-                              sourceId: order.productionOrderId,
-                            }),
-                            title: '按商品中心当前有效资料打印成衣吊牌',
+                            action: 'open-order-print-dialog',
+                            orderId: order.productionOrderId,
+                            title: '选择当前有效 SKU 和数量后打印条码或吊牌',
                           }),
                           isKolGotoProductionOrder(order)
                             ? ''
@@ -1832,7 +1873,7 @@ export function renderProductionOrdersPage(): string {
         </div>
       </footer>
 
-      <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}</div>
+      <div data-production-orders-overlay-root="true">${renderMaterialDraftDrawer()}${renderOrderPrintDialog()}</div>
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderTechPackSnapshotDialog()}
       ${renderOrderLogsDialog()}
@@ -1857,4 +1898,5 @@ export {
   renderMaterialDraftTaskCard,
   renderAddDraftMaterialsDialog,
   renderMaterialDraftDrawer,
+  renderOrderPrintDialog,
 }

@@ -25,7 +25,18 @@ function formatRupiah(value: number): string {
 }
 
 function buildLabelItems(input: PrintDocumentBuildInput, generatedAt: string): PrintLabelItem[] {
-  const rows = listGarmentPrintRows(input.sourceId)
+  const availableRows = listGarmentPrintRows(input.sourceId)
+  const requestedQtyBySku = input.skuData?.reduce((result, item) => {
+    const qty = Math.floor(Number(item.qty))
+    if (item.skuCode && Number.isFinite(qty) && qty > 0) {
+      result.set(item.skuCode, (result.get(item.skuCode) || 0) + qty)
+    }
+    return result
+  }, new Map<string, number>())
+  const rows = availableRows.flatMap((row) => {
+    const copies = requestedQtyBySku ? (requestedQtyBySku.get(row.identity.skuCode) || 0) : 1
+    return Array.from({ length: copies }, () => row)
+  })
   if (!rows.length) throw new Error('当前单据没有可打印的成衣 SKU。')
   const isHangtag = input.documentType === 'GARMENT_HANGTAG'
   return rows.map((row) => {

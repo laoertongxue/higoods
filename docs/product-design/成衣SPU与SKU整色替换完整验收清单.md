@@ -3,7 +3,7 @@
 > 验收状态：本次需求已完成本地实现与两遍核验
 > 验收日期：2026-08-28
 > 验收分支：`codex/garment-spu-replacement-20260827`
-> 基线提交：`814fe172f30cb65aaab5fdb4f6f1388f2183a6df`
+> 基线提交：`995ca8569f1d8626f636a933ff9ee1b9e44be74c`
 > 对应方案：`docs/product-design/成衣SPU与SKU整色替换完整调整方案.md`
 > 全流程记录：`docs/product-design/成衣SPU与SKU整色替换全流程测试记录.md`
 > 验收范围：当前原型仓库，不代表生产后端、真实库存数据库或线上部署已经完成
@@ -14,8 +14,8 @@
 
 本次按“生产单 + 源颜色”完成了成衣 SPU 与 SKU 整色替换原型闭环。方案原有 45 条原子需求与本轮新增的 5 条页面可用性需求均已绑定实现位置，并完成专项契约、真实页面全流程、打印或反向范围审查；当前统计为：
 
-- 原子需求：50 条。
-- 已验证：50 条。
+- 原子需求：53 条。
+- 已验证：53 条。
 - 已实现待验证：0 条。
 - 待实施：0 条。
 - 已阻塞：0 条。
@@ -29,10 +29,11 @@
 4. 生产单剩余待回货使用目标 SKU，同时映射回原 SKU 匹配原车缝工厂分配。
 5. 既有 QC／复检瑕疵和后续瑕疵统一归到目标 SKU，数量、原因、责任和扣款不变，原身份可追溯。
 6. 生产单原需求、原工厂分配和冻结价格不变；实际构成可同时展示原 SPU 与目标 SPU。
-7. 生产单列表、替换详情、成衣仓换码任务均覆盖条码和吊牌打印；发生替换后统一读取目标 SKU。
-8. 截图非必填；上传后记录文件名、原图、上传人和上传时间，详情可点击查看原图。
-9. 三个菜单均显示可识别图标；默认数据同时演示待处理、处理中、已完成三种场景。
-10. 发起整色替换时，生产单和目标 SPU 均可搜索；源颜色只来自所选生产单，目标颜色只来自所选目标 SPU。
+7. 生产单列表只有一个“打印条码”入口，入口弹窗、替换详情和成衣仓换码任务均覆盖条码和吊牌打印；发生替换后统一读取目标 SKU。
+8. 替换列表和详情明确展示后道工厂换码、成衣仓换码、剩余待回货三段进度，并直接说明当前还在等待什么。
+9. 截图非必填；上传后记录文件名、原图、上传人和上传时间，详情可点击查看原图。
+10. 三个菜单均显示可识别图标；默认数据同时演示待处理、处理中、已完成三种场景。
+11. 发起整色替换时，生产单和目标 SPU 均可搜索；源颜色只来自所选生产单，目标颜色只来自所选目标 SPU。
 
 ---
 
@@ -43,15 +44,15 @@
 | 证据编号 | 命令／文件 | 覆盖范围 | 结果 |
 |---|---|---|---|
 | AUTO-01 | `npm run check:garment-spu-replacement:core` | 四类业务数量、整色唯一映射、范围防重、当前身份、仓库双流水、销售阻断、结算不变、截图可选与追溯字段 | 通过 |
-| AUTO-02 | `npm run check:garment-spu-replacement:integration` | 后道交出门禁、既有／新增 QC 与复检瑕疵、剩余待回货双身份、原分配匹配、生产单／仓库双打印、真实 Code 128 | 通过 |
-| AUTO-03 | `npm run check:garment-spu-replacement:surface` | 三个有效菜单图标、可搜索联动选择、三类 Mock、业务数量名称、路由、事件入口、双打印与范围反查 | 通过 |
-| AUTO-04 | `npm run check:garment-spu-replacement:full-flow` | 从后道发起、上传截图、瑕疵迁移、后道换码、仓库旧出新入、双打印、生产单构成到最终完成的浏览器全流程 | 通过；1 个完整用例 |
+| AUTO-02 | `npm run check:garment-spu-replacement:integration` | 后道交出门禁、既有／新增 QC 与复检瑕疵、剩余待回货双身份、原分配匹配、生产单／仓库双打印、指定 SKU 与份数、真实 Code 128 | 通过 |
+| AUTO-03 | `npm run check:garment-spu-replacement:surface` | 三个有效菜单图标、可搜索联动选择、三类 Mock、三段完成进度、生产单单入口双打印、路由、事件和范围反查 | 通过 |
+| AUTO-04 | `npm run check:garment-spu-replacement:full-flow` | 从后道发起、三阶段进度、上传截图、瑕疵迁移、后道换码、仓库旧出新入、生产单单入口弹窗、按行／批量双打印到最终完成的浏览器全流程 | 通过；2 个完整用例 |
 | AUTO-05 | `npm run check:garment-spu-replacement` | AUTO-01～04 聚合重放，浏览器全流程为聚合验收必经项 | 通过 |
 | AUTO-06 | `npm run build` | TypeScript 与 Vite 生产构建 | 通过；仅保留既有 chunk size 警告 |
 | AUTO-07 | `npm run check:menu-routes` | 菜单 href 与命名路由可达性 | 通过 |
 | AUTO-08 | `npm run check:list-page-governance:static` | 两个新增标准列表的页面模式与静态治理 | 通过 |
 | AUTO-09 | `npm run check:standard-list-page-template` | 标准列表组件使用约束 | 通过 |
-| AUTO-10 | 临时任务索引 + `npm run check:prototype-design-governance` | 只纳入本次 4 个用户可见受管文件与完整原型审查记录，不吸收并行任务改动 | 通过；4 个用户可见文件、1 份关联记录 |
+| AUTO-10 | `npm run check:prototype-design-governance` | 本次用户可见受管文件与完整原型审查记录的关联关系 | 通过 |
 | AUTO-11 | `git diff --check` | 空白符与补丁完整性 | 通过 |
 | AUTO-12 | `codegraph sync` + `codegraph status` | 最终代码结构索引同步与健康状态 | 通过；无待同步文件 |
 
@@ -70,16 +71,19 @@
 | PAGE-02 | `output/playwright/garment-spu-replacement-full-flow-02-search-linked-create.png` | 生产单和目标 SPU 可搜索、源颜色和目标颜色按上级选择联动、可选截图 |
 | PAGE-03 | `output/playwright/garment-spu-replacement-full-flow-03-created-detail.png` | 新建记录详情、四类业务数量、目标 SKU、双打印、瑕疵迁移与审计 |
 | PAGE-04 | `output/playwright/garment-spu-replacement-full-flow-print-online-barcode.png` | 线上 40×30 版式：单个 HG 条码、条码文本、日期和目标 SKU；不出现源 SKU／替换提示 |
-| PAGE-05 | `output/playwright/garment-spu-replacement-full-flow-print-online-hangtag.png` | 线上 40×100 吊牌：商品图、商品中心信息、HG 与零售两个真实条码、印尼盾价格 |
+| PAGE-05 | `output/playwright/garment-spu-replacement-full-flow-print-online-hangtag.png` | 线上 40×100 吊牌：顶部纯色圆点、商品中心信息、HG 与零售两个真实条码、印尼盾价格 |
 | PAGE-06 | `output/playwright/garment-spu-replacement-full-flow-04-warehouse-task-pending.png` | 成衣仓换码前任务、4 个尺码／来源批次、旧 SKU 销售出库阻断 |
 | PAGE-07 | `output/playwright/garment-spu-replacement-full-flow-05-warehouse-task-completed.png` | 成衣仓换码完成后 8 条成对库存流水、来源批次保持、阻断解除 |
-| PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 生产单原需求与当前构成、列表“打印条码”“打印吊牌” |
+| PAGE-08 | `output/playwright/garment-spu-replacement-full-flow-06-production-order-ledger.png` | 生产单原需求与当前构成、列表仅一个“打印条码”入口 |
+| PAGE-09 | `output/playwright/garment-spu-replacement-full-flow-07-production-order-print-modal.png` | 线上同口径批量打印弹窗、SKU 勾选、数量输入、行操作和底部双打印 |
+| PAGE-10 | `output/playwright/garment-spu-replacement-full-flow-08-production-order-modal-barcode.png` | 指定目标 SKU 填写 2 件后生成 2 张线上 40×30 条码 |
+| PAGE-11 | `output/playwright/garment-spu-replacement-full-flow-09-production-order-modal-hangtag.png` | 批量区选择单一目标 SKU 后生成 1 张线上 40×100 吊牌 |
 
 浏览器控制台错误数为 0；图片原图预览完成后使用 `Esc` 只关闭图片层，不误关替换详情；在 1280×720 逐页复核后，后道替换、仓储替换、成衣仓换码任务和生产单台账均为 `document.scrollWidth = document.clientWidth = 1280`，宽表只在自身容器内滚动。
 
 ---
 
-## 3. 50 条原子需求逐项验收
+## 3. 53 条原子需求逐项验收
 
 ### 3.1 范围与商品中心
 
@@ -149,10 +153,13 @@
 
 | 编号 | 验收结果 | 实现位置／符号 | 自动化证据 | 页面／打印证据 | 状态 |
 |---|---|---|---|---|---|
-| PRINT-001 | 生产单列表行操作提供“打印条码” | `orders-domain.ts`、`GARMENT_SKU_BARCODE` | AUTO-02、AUTO-03、AUTO-04 | PAGE-08、PAGE-04 | 已验证 |
-| PRINT-002 | 生产单列表行操作提供“打印吊牌” | `orders-domain.ts`、`GARMENT_HANGTAG` | AUTO-02、AUTO-03、AUTO-04 | PAGE-08、PAGE-05 | 已验证 |
-| PRINT-003 | 生产单、后道详情、仓库任务两种打印统一使用 `listGarmentPrintRows()` 当前有效身份 | 打印注册表与 `buildGarmentSkuLabelPrintDocument()` | AUTO-02、AUTO-04 | PAGE-04、PAGE-05 | 已验证 |
-| PRINT-004 | HG 出货条码和零售条码均复用真实 Code 128 SVG 渲染，不使用 CSS 竖线模拟 | `renderGarmentSkuLabelTemplate()`、`renderRealBarcode()` | AUTO-02、AUTO-04 | PAGE-04、PAGE-05 | 已验证 |
+| PRINT-001 | 生产单列表行操作只提供一个“打印条码”入口，不出现独立“打印吊牌”入口 | `orders-domain.ts`：`open-order-print-dialog` | AUTO-03、AUTO-04 | PAGE-08 | 已验证 |
+| PRINT-002 | 点击单入口后打开“批量打印货品条码”弹窗，弹窗行操作和底部批量区均同时提供条码、吊牌打印 | `renderOrderPrintDialog()`、生产单打印事件 | AUTO-03、AUTO-04 | PAGE-09 | 已验证 |
+| PRINT-003 | 生产单、后道详情、仓库任务两种打印统一使用 `listGarmentPrintRows()` 当前有效身份；替换色用目标 SKU、未替换色保留原 SKU | 打印注册表与 `buildGarmentSkuLabelPrintDocument()` | AUTO-02、AUTO-04 | PAGE-04、PAGE-05、PAGE-09 | 已验证 |
+| PRINT-004 | HG 出货条码和零售条码均复用真实 Code 128 SVG 渲染，并保持线上 40×30 条码、40×100 吊牌版式 | `renderGarmentSkuLabelTemplate()`、`renderCode128Barcode()` | AUTO-02、AUTO-04 | PAGE-04、PAGE-05、PAGE-10、PAGE-11 | 已验证 |
+| PRINT-005 | 弹窗支持 SKU 勾选、打印数量输入、按行打印、批量打印和重置；打印份数严格等于填写数量 | `orders-domain.ts`、`events.ts`、`print-service.ts`、`print-preview.ts` | AUTO-02、AUTO-03、AUTO-04 | PAGE-09、PAGE-10、PAGE-11 | 已验证 |
+| PROGRESS-001 | 替换列表和详情分别显示后道工厂换码、成衣仓换码、剩余待回货三段数量与状态 | `getReplacementCompletionProgress()`、进度列、详情卡片 | AUTO-03、AUTO-04 | PAGE-01、PAGE-03 | 已验证 |
+| PROGRESS-002 | 换码中明确当前等待后道工厂、成衣仓或两者；两处实物换码完成即完成，剩余待回货仅显示目标 SKU 已生效且不阻断 | `getReplacementCompletionProgress()`、`recomputeRecordStatus()` | AUTO-01、AUTO-03、AUTO-04 | PAGE-03、PAGE-07 | 已验证 |
 | MENU-001 | 后道工厂管理“成衣 SPU 替换”进入真实页面 | `app-shell-config.ts`、`routes-fcs.ts` | AUTO-03、AUTO-04、AUTO-07 | PAGE-01 | 已验证 |
 | MENU-002 | 仓储管理“成衣 SPU 替换”与后道读取同一数据 | `app-shell-config.ts`、`routes.ts` | AUTO-03、AUTO-04、AUTO-07 | PAGE-03、PAGE-06 | 已验证 |
 | MENU-003 | 仓储管理“成衣仓换码任务”进入真实任务列表 | `app-shell-config.ts`、`routes.ts` | AUTO-03、AUTO-04、AUTO-07 | PAGE-06、PAGE-07 | 已验证 |
@@ -163,7 +170,7 @@
 
 ---
 
-## 4. 17 个关键场景逐项验收
+## 4. 18 个关键场景逐项验收
 
 | 场景 | 操作与预期 | 证据 | 结果 |
 |---|---|---|---|
@@ -177,19 +184,20 @@
 | 8. 销售出库未完成 | 仍归成衣仓未售成衣；旧 SKU 销售出库完成被阻断 | AUTO-01、AUTO-02；PAGE-06 | 通过 |
 | 9. 销售出库已完成 | 保留为历史数量；不换码、不生成仓库任务，历史仍是源 SKU | AUTO-01；PAGE-03 | 通过 |
 | 10. 既有与新增瑕疵 | QC、复检及后续瑕疵归目标 SKU，业务字段不变、原身份可查 | AUTO-02、AUTO-04；PAGE-03 | 通过 |
-| 11. 生产单列表打印 | 同一行同时有条码和吊牌；替换色使用目标 SKU | AUTO-02、AUTO-03、AUTO-04；PAGE-04、PAGE-05、PAGE-08 | 通过 |
+| 11. 生产单列表打印 | 同一行只有一个“打印条码”入口；弹窗内支持 SKU 勾选、数量、按行／批量打印条码和吊牌；替换色使用目标 SKU | AUTO-02、AUTO-03、AUTO-04；PAGE-08～11 | 通过 |
 | 12. 后道／仓储双入口 | 两处读取同一替换记录；同一替换只生成一个仓库任务 | AUTO-01、AUTO-03、AUTO-04；PAGE-03、PAGE-06、PAGE-07 | 通过 |
 | 13. 可选截图 | 无截图提交成功；上传后展示缩略图、上传信息和原图 | AUTO-01、AUTO-03、AUTO-04；PAGE-02、PAGE-03 | 通过 |
 | 14. 重复点击与幂等 | 同范围记录、任务、瑕疵迁移和仓库流水均不重复 | AUTO-01、AUTO-02 | 通过 |
 | 15. 搜索与颜色联动 | 生产单和目标 SPU 可输入搜索；源颜色和目标颜色只能从各自上级对象选择 | AUTO-03、AUTO-04；PAGE-02 | 通过 |
 | 16. 菜单图标 | 三个业务菜单均渲染有效 SVG 图标，不再出现空图标位 | AUTO-03、AUTO-04；PAGE-01、PAGE-06 | 通过 |
 | 17. 默认 Mock | 待处理、处理中、已完成三种状态均有可辨识业务记录和仓库任务 | AUTO-03、AUTO-04；PAGE-01、PAGE-07 | 通过 |
+| 18. 完成判定可解释 | 创建后显示同时等待后道与成衣仓；后道完成后只等待成衣仓；仓库完成后显示完成条件满足；剩余待回货目标映射不阻断 | AUTO-01、AUTO-03、AUTO-04；PAGE-01、PAGE-03、PAGE-07 | 通过 |
 
 ---
 
 ## 5. 第一遍核验：正向追踪
 
-核验方法：从方案章节和 50 个需求编号出发，逐项走到工作包、实现文件／符号、专项自动化和页面／打印证据。
+核验方法：从方案章节和 53 个需求编号出发，逐项走到工作包、实现文件／符号、专项自动化和页面／打印证据。
 
 | 正向核验域 | 核验结果 | 直接证据 |
 |---|---|---|
@@ -201,10 +209,10 @@
 | 仓储 | 唯一任务、旧出新入、来源批次、销售阻断、双打印 | WMS-001～008；AUTO-01、02、04；PAGE-06、07 |
 | 回货 | 生产单剩余待回货使用目标 SKU，原分配匹配，批次双身份 | RETURN-001～003；AUTO-02 |
 | 生产与结算 | 原需求不改、实际混合构成、800+200 结算不变 | PO-001～003、SETTLE-001～002；AUTO-01、02、04；PAGE-08 |
-| 页面与证据 | 三个菜单／路由及图标、三类 Mock、生产单双打印、截图可选与原图 | PRINT-001～004、MENU-001～004、DATA-001、EVIDENCE-001；AUTO-03、04；PAGE-01～08 |
+| 页面与证据 | 三个菜单／路由及图标、三类 Mock、三段完成进度、生产单单入口双打印、截图可选与原图 | PRINT-001～005、PROGRESS-001～002、MENU-001～004、DATA-001、EVIDENCE-001；AUTO-03、04；PAGE-01～11 |
 | 范围收口 | 无 E/R、销售退回、审批、回滚、多级链或通用异常平台 | SIMPLE-001；AUTO-03、11 |
 
-正向追踪结论：50/50 条需求均可从方案回到实现和至少一组直接证据，没有无证据条目。
+正向追踪结论：53/53 条需求均可从方案回到实现和至少一组直接证据，没有无证据条目。
 
 ---
 
@@ -218,7 +226,7 @@
 | 发起表单 | 是否仍为自由文本，或颜色能够脱离所选生产单／目标 SPU 随意输入 | 两个可搜索下拉与两个联动颜色下拉均有精确匹配门禁；通过 |
 | 后道领域 | 是否遗漏 QC、复检、待交出、后续新增对象，或只改 SPU 未改 SKU | 当前投影同时更新 SPU/SKU 并保留 original；通过 |
 | 回货领域 | 目标 SKU 是否失去原工厂分配，批次是否无法表达混合 SKU | 目标→原 SKU 匹配与回货 SKU 双身份均已接通；通过 |
-| 生产单 | 是否覆盖原需求、实际构成、条码和吊牌两个动作 | 四项均存在；通过 |
+| 生产单 | 是否覆盖原需求、实际构成，以及单一列表入口内的条码和吊牌两个动作 | 四项均存在；通过 |
 | 仓储 | 是否只有后道入口、没有统一任务，或只有入库没有出库 | WLS 两个页面和成对流水均存在；通过 |
 | 打印注册表 | 是否只加条码漏吊牌，是否任一来源仍读源 SKU | 两个 documentType、两个 sourceType、统一当前身份；通过 |
 | 菜单与路由 | 是否出现空图标、占位页、菜单无路由或事件未分发 | 三个菜单均有有效 SVG 图标，命名路由均进入真实页面并有事件入口；通过 |
@@ -233,7 +241,7 @@
 
 ## 7. 回归范围说明
 
-本次验收覆盖成衣 SPU/SKU 整色替换的核心契约、跨模块契约、反向表面审查、20 步真实浏览器全流程、生产构建、菜单路由、标准列表和原型治理。未运行与本业务无关的全部历史 Playwright 套件，也没有为制造全仓绿灯而修改无关模块或旧测试期待。
+本次验收覆盖成衣 SPU/SKU 整色替换的核心契约、跨模块契约、反向表面审查、23 步真实浏览器全流程、生产构建、菜单路由、标准列表和原型治理。未运行与本业务无关的全部历史 Playwright 套件，也没有为制造全仓绿灯而修改无关模块或旧测试期待。
 
 因此本清单结论严格限定为：**成衣 SPU/SKU 整色替换本次范围已完成两遍验证；不据此宣称整个仓库所有历史业务回归均已执行。**
 
@@ -253,8 +261,8 @@
 | 项目 | 状态 |
 |---|---|
 | 方案范围实现 | 已实现 |
-| 50 条原子需求 | 50/50 已验证 |
-| 17 个关键场景 | 17/17 通过 |
+| 53 条原子需求 | 53/53 已验证 |
+| 18 个关键场景 | 18/18 通过 |
 | 第一遍正向核验 | 通过 |
 | 第二遍反向核验 | 通过 |
 | 当前分支本地状态 | verified |

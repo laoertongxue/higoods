@@ -16,12 +16,15 @@ const handlers = read('src/main-handlers/fcs-handlers.ts')
 const replacementPage = read('src/pages/garment-spu-replacements.ts')
 const relabelTaskPage = read('src/pages/wls-garment-relabel-tasks.ts')
 const productionList = read('src/pages/production/orders-domain.ts')
+const productionEvents = read('src/pages/production/events.ts')
 const core = read('src/data/fcs/garment-spu-replacement.ts')
 const post = read('src/data/fcs/post-finishing-domain.ts')
 const returnWorkflow = read('src/data/fcs/return-inbound-workflow.ts')
 const fulfillment = read('src/data/fcs/production-return-fulfillment.ts')
 const printRegistry = read('src/data/fcs/print-template-registry.ts')
 const printTemplate = read('src/pages/print/templates/garment-sku-label-template.ts')
+const printService = read('src/data/fcs/print-service.ts')
+const printPreview = read('src/pages/print/print-preview.ts')
 const shellIcons = read('src/icons/shell-icons.ts')
 
 includesAll(shell, '菜单', [
@@ -78,6 +81,13 @@ includesAll(replacementPage, '替换页面', [
   '打印新吊牌',
   '瑕疵迁移与追溯',
   '确认后道工厂在手成衣已全部换码',
+  '后道工厂换码',
+  '成衣仓换码',
+  '剩余待回货',
+  '目标 SKU 已生效',
+  '怎么才算完成',
+  '当前待办：等待成衣仓换码任务完成',
+  '完成条件已满足：后道工厂与成衣仓实物换码均已完成',
   '图片加载失败',
   'open-image',
 ])
@@ -110,11 +120,28 @@ includesAll(relabelTaskPage, '成衣仓换码任务页面', [
 ])
 includesAll(productionList, '生产单列表', [
   "label: '打印条码'",
-  "documentType: 'GARMENT_SKU_BARCODE'",
-  "label: '打印吊牌'",
-  "documentType: 'GARMENT_HANGTAG'",
+  "action: 'open-order-print-dialog'",
+  '批量打印货品条码',
+  'SKU编码',
+  '出货条码',
+  '采购价格',
+  '采购数量',
+  '已到货数',
+  '打印数量',
+  'print-order-sku-barcode',
+  'print-order-sku-hangtag',
+  'print-order-selected-barcode',
+  'print-order-selected-hangtag',
   '原生产需求不变',
   '当前成衣构成',
+])
+assert.equal((productionList.match(/label: '打印吊牌'/g) || []).length, 0, '生产单列表不得出现独立“打印吊牌”入口')
+assert.equal((productionList.match(/label: '打印条码'/g) || []).length, 1, '生产单列表必须只有一个“打印条码”入口')
+includesAll(productionEvents, '生产单打印事件', [
+  "action === 'open-order-print-dialog'",
+  "documentType: PrintDocumentType = action.endsWith('hangtag') ? 'GARMENT_HANGTAG' : 'GARMENT_SKU_BARCODE'",
+  'skuData,',
+  '大于 0 的整数',
 ])
 
 includesAll(core, '核心事实', [
@@ -166,6 +193,15 @@ includesAll(printTemplate, '打印模板', [
   "{ label: 'Standar implementasi'",
   "{ label: 'Kategori keamanan'",
 ])
+includesAll(printService, '打印选择参数', [
+  'skuData?: Array<{',
+  "params.set('skuData', JSON.stringify(input.skuData))",
+])
+includesAll(printPreview, '打印选择参数解析', [
+  'function parseSkuData',
+  "parseSkuData(params.get('skuData'))",
+  'skuData: resolved.skuData',
+])
 for (const forbiddenPrintText of ['来源 SKU', '当前标签已按整色替换', '成衣新条码']) {
   assert.ok(!printTemplate.includes(forbiddenPrintText), `线上打印样式不得额外显示：${forbiddenPrintText}`)
 }
@@ -175,4 +211,4 @@ for (const excluded of ['异常对账数量', '销售退回数量', '通用异�
   assert.ok(!scopedSources.includes(excluded), `本次范围不应引入：${excluded}`)
 }
 
-console.log('成衣 SPU/SKU 替换反向表面审查通过：菜单图标、搜索联动、三态 Mock、业务数量名称、两类列表、双打印、瑕疵、回货、仓库双流水和非范围均已逐项反查。')
+console.log('成衣 SPU/SKU 替换反向表面审查通过：菜单图标、搜索联动、三态 Mock、三段完成进度、生产单单入口双打印、瑕疵、回货、仓库双流水和非范围均已逐项反查。')

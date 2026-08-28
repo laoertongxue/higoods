@@ -33,6 +33,23 @@ function getOperationReason(): string {
   return (getSearchParams().get('reason') || '').trim()
 }
 
+function parseSkuData(value: string | null): PrintDocumentBuildInput['skuData'] {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!Array.isArray(parsed)) return undefined
+    const rows = parsed.flatMap((item) => {
+      if (!item || typeof item !== 'object') return []
+      const skuCode = String((item as { skuCode?: unknown }).skuCode || '').trim()
+      const qty = Math.floor(Number((item as { qty?: unknown }).qty))
+      return skuCode && Number.isFinite(qty) && qty > 0 ? [{ skuCode, qty }] : []
+    })
+    return rows.length ? rows : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function hasMatchedManualFeiTicket(sourceId: string): boolean {
   const sourceIds = new Set(decodeParam(sourceId).split(',').map((item) => item.trim()).filter(Boolean))
   return listManualFeiTicketSources().some((record) =>
@@ -75,12 +92,14 @@ function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBu
     || inferSourceType(documentType, handoverRecordId)) as PrintSourceType
   const sourceId = input?.sourceId || params.get('sourceId') || handoverRecordId
   const paperColor = input?.paperColor || (params.get('paperColor') as PrintDocumentBuildInput['paperColor']) || undefined
+  const skuData = input?.skuData || parseSkuData(params.get('skuData'))
   return {
     documentType,
     sourceType,
     sourceId,
     handoverRecordId,
     paperColor,
+    skuData,
   }
 }
 
@@ -147,6 +166,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       sourceId: decodeParam(resolved.sourceId),
       handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
       paperColor: resolved.paperColor,
+      skuData: resolved.skuData,
     } as PrintDocumentBuildInput)
 
     return `

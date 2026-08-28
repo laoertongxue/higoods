@@ -264,6 +264,10 @@ interface ProductionState {
   ordersDemandSnapshotId: string | null
   ordersTechPackSnapshotDialogId: string | null
   ordersLogsId: string | null
+  ordersPrintDialogOrderId: string | null
+  ordersPrintSelectedSkuCodes: Set<string>
+  ordersPrintQtyBySku: Record<string, string>
+  ordersPrintError: string
   ordersActionMenuId: string | null
   ordersBreakdownReadinessOrderId: string | null
   taskGenerationPreview: TaskGenerationPreviewState | null
@@ -1753,6 +1757,10 @@ function closeAllProductionDialogs(): void {
   state.ordersDemandSnapshotId = null
   state.ordersTechPackSnapshotDialogId = null
   state.ordersLogsId = null
+  state.ordersPrintDialogOrderId = null
+  state.ordersPrintSelectedSkuCodes = new Set<string>()
+  state.ordersPrintQtyBySku = {}
+  state.ordersPrintError = ''
   state.ordersBreakdownReadinessOrderId = null
   state.taskGenerationPreview = null
   state.ordersFromDemandDialogOpen = false
@@ -1817,6 +1825,10 @@ const state: ProductionState = {
   ordersDemandSnapshotId: null,
   ordersTechPackSnapshotDialogId: null,
   ordersLogsId: null,
+  ordersPrintDialogOrderId: null,
+  ordersPrintSelectedSkuCodes: new Set<string>(),
+  ordersPrintQtyBySku: {},
+  ordersPrintError: '',
   ordersActionMenuId: null,
   ordersBreakdownReadinessOrderId: null,
   taskGenerationPreview: null,

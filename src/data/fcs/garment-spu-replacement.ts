@@ -783,38 +783,60 @@ export function listGarmentWarehouseMovements(replacementId?: string): GarmentWa
 export function listGarmentPrintRows(sourceId: string): GarmentPrintRow[] {
   const snapshot = loadSnapshot()
   const task = snapshot.relabelTasks.find((item) => item.relabelTaskId === sourceId || item.relabelTaskNo === sourceId)
-  const record = snapshot.records.find((item) =>
-    item.replacementId === sourceId
-    || item.replacementNo === sourceId
-    || item.productionOrderId === sourceId
-    || item.productionOrderNo === sourceId
-    || item.replacementId === task?.replacementId,
-  )
-  if (record) {
-    return record.lines.map((line) => ({
-      replacementId: record.replacementId,
-      productionOrderId: record.productionOrderId,
-      productionOrderNo: record.productionOrderNo,
+  if (task) {
+    return task.lines.map((line) => ({
+      replacementId: task.replacementId,
+      productionOrderId: task.productionOrderId,
+      productionOrderNo: task.productionOrderNo,
       size: line.size,
-      qty: task ? line.finishedWarehouseQty : line.finishedWarehouseQty + line.postFactoryQty + line.remainingReturnQty,
+      qty: line.qty,
       identity: structuredClone(line.target),
       originalIdentity: structuredClone(line.source),
     })).filter((line) => line.qty > 0)
   }
+
+  const directRecord = snapshot.records.find((item) => item.replacementId === sourceId || item.replacementNo === sourceId)
+  if (directRecord) {
+    return directRecord.lines.map((line) => ({
+      replacementId: directRecord.replacementId,
+      productionOrderId: directRecord.productionOrderId,
+      productionOrderNo: directRecord.productionOrderNo,
+      size: line.size,
+      qty: line.finishedWarehouseQty + line.postFactoryQty + line.remainingReturnQty,
+      identity: structuredClone(line.target),
+      originalIdentity: structuredClone(line.source),
+    })).filter((line) => line.qty > 0)
+  }
+
   const order = getOrder(sourceId)
+  const orderRecords = snapshot.records.filter((item) => (
+    item.productionOrderId === order.productionOrderId || item.productionOrderNo === order.productionOrderNo
+  ))
   return order.demandSnapshot.skuLines.map((line) => ({
-    replacementId: '',
+    replacementId: orderRecords.find((record) => normalize(record.sourceColor) === normalize(line.color))?.replacementId || '',
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
     size: line.size,
-    qty: line.qty,
-    identity: fallbackSourceIdentity({
-      spuCode: order.demandSnapshot.spuCode,
-      spuName: order.demandSnapshot.spuName,
-      skuCode: line.skuCode,
-      color: line.color,
-      size: line.size,
-    }),
+    qty: (() => {
+      const replacementLine = orderRecords
+        .find((record) => normalize(record.sourceColor) === normalize(line.color))
+        ?.lines.find((item) => item.source.skuCode === line.skuCode || normalize(item.size) === normalize(line.size))
+      return replacementLine
+        ? replacementLine.finishedWarehouseQty + replacementLine.postFactoryQty + replacementLine.remainingReturnQty
+        : line.qty
+    })(),
+    identity: (() => {
+      const replacementLine = orderRecords
+        .find((record) => normalize(record.sourceColor) === normalize(line.color))
+        ?.lines.find((item) => item.source.skuCode === line.skuCode || normalize(item.size) === normalize(line.size))
+      return replacementLine ? structuredClone(replacementLine.target) : fallbackSourceIdentity({
+        spuCode: order.demandSnapshot.spuCode,
+        spuName: order.demandSnapshot.spuName,
+        skuCode: line.skuCode,
+        color: line.color,
+        size: line.size,
+      })
+    })(),
     originalIdentity: fallbackSourceIdentity({
       spuCode: order.demandSnapshot.spuCode,
       spuName: order.demandSnapshot.spuName,
@@ -822,7 +844,7 @@ export function listGarmentPrintRows(sourceId: string): GarmentPrintRow[] {
       color: line.color,
       size: line.size,
     }),
-  }))
+  })).filter((line) => line.qty > 0)
 }
 
 export function getProductionOrderGarmentComposition(productionOrderId: string): {

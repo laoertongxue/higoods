@@ -122,6 +122,8 @@ import {
   handleProductionPreparationTimingEvent,
   handleProductionPreparationTimingSubmit,
 } from './preparation-timing'
+import { listGarmentPrintRows } from '../../data/fcs/garment-spu-replacement.ts'
+import { buildUnifiedPrintPreviewLink, type PrintDocumentType } from '../../data/fcs/print-service.ts'
 
 function isProductionPreparationTimingPath(): boolean {
   return typeof window !== 'undefined' && (
@@ -1194,6 +1196,15 @@ function updateProductionField(
     if (draftId && lineId) {
       const qty = Number(value)
       setMaterialDraftLineConfirmedQty(draftId, lineId, Number.isFinite(qty) ? qty : 0, currentUser.name)
+    }
+    return
+  }
+
+  if (field === 'ordersPrintQty') {
+    const skuCode = node.dataset.skuCode || ''
+    if (skuCode) {
+      state.ordersPrintQtyBySku = { ...state.ordersPrintQtyBySku, [skuCode]: value }
+      state.ordersPrintError = ''
     }
     return
   }
@@ -2437,6 +2448,96 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     return true
   }
 
+  if (action === 'open-order-print-dialog') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    const rows = listGarmentPrintRows(orderId)
+    state.ordersActionMenuId = null
+    state.ordersPrintDialogOrderId = orderId
+    state.ordersPrintSelectedSkuCodes = new Set(rows.map((row) => row.identity.skuCode))
+    state.ordersPrintQtyBySku = Object.fromEntries(rows.map((row) => [row.identity.skuCode, '0']))
+    state.ordersPrintError = rows.length ? '' : '当前生产单没有可打印的成衣 SKU。'
+    return true
+  }
+
+  if (action === 'close-order-print-dialog') {
+    state.ordersPrintDialogOrderId = null
+    state.ordersPrintSelectedSkuCodes = new Set<string>()
+    state.ordersPrintQtyBySku = {}
+    state.ordersPrintError = ''
+    return true
+  }
+
+  if (action === 'toggle-order-print-select-all') {
+    const orderId = state.ordersPrintDialogOrderId
+    if (!orderId) return true
+    const skuCodes = listGarmentPrintRows(orderId).map((row) => row.identity.skuCode)
+    const shouldSelect = actionNode instanceof HTMLInputElement
+      ? actionNode.checked
+      : !skuCodes.every((skuCode) => state.ordersPrintSelectedSkuCodes.has(skuCode))
+    state.ordersPrintSelectedSkuCodes = shouldSelect ? new Set(skuCodes) : new Set<string>()
+    state.ordersPrintError = ''
+    return true
+  }
+
+  if (action === 'toggle-order-print-select') {
+    const skuCode = actionNode.dataset.skuCode
+    if (!skuCode) return true
+    const next = new Set(state.ordersPrintSelectedSkuCodes)
+    const shouldSelect = actionNode instanceof HTMLInputElement ? actionNode.checked : !next.has(skuCode)
+    if (shouldSelect) next.add(skuCode)
+    else next.delete(skuCode)
+    state.ordersPrintSelectedSkuCodes = next
+    state.ordersPrintError = ''
+    return true
+  }
+
+  if (action === 'reset-order-print-qty') {
+    const orderId = state.ordersPrintDialogOrderId
+    if (!orderId) return true
+    const rows = listGarmentPrintRows(orderId)
+    state.ordersPrintSelectedSkuCodes = new Set(rows.map((row) => row.identity.skuCode))
+    state.ordersPrintQtyBySku = Object.fromEntries(rows.map((row) => [row.identity.skuCode, '0']))
+    state.ordersPrintError = ''
+    return true
+  }
+
+  if (
+    action === 'print-order-sku-barcode'
+    || action === 'print-order-sku-hangtag'
+    || action === 'print-order-selected-barcode'
+    || action === 'print-order-selected-hangtag'
+  ) {
+    const orderId = state.ordersPrintDialogOrderId
+    if (!orderId) return true
+    const rowSkuCode = actionNode.dataset.skuCode || ''
+    const requestedSkuCodes = rowSkuCode ? [rowSkuCode] : [...state.ordersPrintSelectedSkuCodes]
+    const rows = listGarmentPrintRows(orderId)
+    const availableSkuCodes = new Set(rows.map((row) => row.identity.skuCode))
+    const skuCodes = [...new Set(requestedSkuCodes)].filter((skuCode) => availableSkuCodes.has(skuCode))
+    const skuData = skuCodes.flatMap((skuCode) => {
+      const qty = Number(state.ordersPrintQtyBySku[skuCode] || '0')
+      return Number.isInteger(qty) && qty > 0 ? [{ skuCode, qty }] : []
+    })
+    if (!skuCodes.length || skuData.length !== skuCodes.length) {
+      state.ordersPrintError = '请先勾选 SKU，并将对应打印数量填写为大于 0 的整数。'
+      return true
+    }
+    const documentType: PrintDocumentType = action.endsWith('hangtag') ? 'GARMENT_HANGTAG' : 'GARMENT_SKU_BARCODE'
+    const href = buildUnifiedPrintPreviewLink({
+      documentType,
+      sourceType: 'PRODUCTION_ORDER',
+      sourceId: orderId,
+      skuData,
+    })
+    openAppRoute(
+      href,
+      `${documentType === 'GARMENT_HANGTAG' ? 'production-order-hangtag' : 'production-order-barcode'}-${orderId}`,
+      `${documentType === 'GARMENT_HANGTAG' ? '商品标签' : 'SKU 条码'} ${getOrderById(orderId)?.productionOrderNo || orderId}`,
+    )
+    return true
+  }
+
   if (action === 'open-breakdown-readiness') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
@@ -2608,6 +2709,7 @@ export function isProductionDialogOpen(): boolean {
     state.ordersDemandSnapshotId !== null ||
     state.ordersTechPackSnapshotDialogId !== null ||
     state.ordersLogsId !== null ||
+    state.ordersPrintDialogOrderId !== null ||
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||
