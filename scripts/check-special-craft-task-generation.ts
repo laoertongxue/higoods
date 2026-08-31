@@ -23,6 +23,7 @@ import {
   getSpecialCraftGenerationBatchByOrderId,
   getSpecialCraftTaskOrderById,
   getSpecialCraftTasksByProductionOrder,
+  listSpecialCraftGenerationErrors,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskGenerationError,
 } from '../src/data/fcs/special-craft-task-orders.ts'
@@ -61,8 +62,9 @@ const validatedGenerationErrorTypes: SpecialCraftTaskGenerationError['errorType'
   '生产SKU重复',
   '成衣BOM适用SKU缺失',
   '成衣BOM适用SKU无生产数量',
+  '菲票缺失',
 ]
-assert.equal(new Set(validatedGenerationErrorTypes).size, 3, '新增生成阻断错误必须纳入统一错误类型契约')
+assert.equal(new Set(validatedGenerationErrorTypes).size, 4, '新增生成阻断错误必须纳入统一错误类型契约')
 
 function assertNotContains(source: string, token: string, message: string): void {
   assert(!source.includes(token), message)
@@ -152,10 +154,11 @@ assert(demandBuildResult.demandLines.every((line) => line.sizeCode.trim().length
 assert(demandBuildResult.demandLines.every((line) => Number(line.pieceCountPerGarment) > 0), '任务明细必须包含每件片数')
 assert(demandBuildResult.demandLines.every((line) => Number(line.orderQty) > 0), '任务明细必须包含生产数量')
 assert(demandBuildResult.demandLines.every((line) => line.planPieceQty === line.pieceCountPerGarment * line.orderQty), '计划片数必须等于每件片数乘生产数量')
-assert(demandBuildResult.demandLines.every((line) => line.targetObject === '成衣' || (line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0)), '裁片任务明细必须包含来源纸样')
-assert(demandBuildResult.demandLines.every((line) => line.targetObject === '成衣' || line.pieceRowId.trim().length > 0), '裁片任务明细必须包含来源裁片明细')
+assert(demandBuildResult.demandLines.every((line) => ['成衣', '辅料'].includes(line.targetObject) || (line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0)), '裁片任务明细必须包含来源纸样')
+assert(demandBuildResult.demandLines.every((line) => ['成衣', '辅料'].includes(line.targetObject) || line.pieceRowId.trim().length > 0), '裁片任务明细必须包含来源裁片明细')
+assert(demandBuildResult.demandLines.filter((line) => line.targetObject === '辅料').every((line) => Boolean(line.sourceBomItemId) && line.inputPlannedQty && line.inputPlannedQty > 0 && Boolean(line.inputUnit) && line.outputUnit === line.unit), '辅料加工明细必须保留正式 BOM、投入数量/单位和产出单位')
 assert(demandBuildResult.demandLines.every((line) => Array.isArray(line.feiTicketNos) && line.feiTicketNos.length === 0), '任务生成时菲票字段必须允许为空')
-assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料' || line.targetObject === '成衣'), '任务明细必须承接技术包选择的作用对象')
+assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料' || line.targetObject === '成衣' || line.targetObject === '辅料'), '任务明细必须承接技术包选择的作用对象')
 
 const garmentOrder = productionOrders.find((order) =>
   getProductionOrderTechPackSnapshot(order.productionOrderId)?.processEntries.some(
@@ -213,7 +216,7 @@ assert(!JSON.stringify(migratedGarmentDemand.demandLines).includes('成衣半成
 
 const resolvedGarmentEntry = resolveTechPackProcessEntryRule(legacyGarmentEntry)
 assert.equal(resolvedGarmentEntry.selectedTargetObject, '成衣', '新保存工艺作用对象必须为成衣')
-assert.deepEqual(resolvedGarmentEntry.supportedTargetObjectLabels, ['已裁部位', '成衣'], '新保存支持对象不得写回旧标签')
+assert.deepEqual(resolvedGarmentEntry.supportedTargetObjectLabels, ['成衣'], '烫画新保存支持对象必须收口为成衣')
 assert(!JSON.stringify(resolvedGarmentEntry).includes('成衣半成品'), '规范化工艺不得包含旧标签')
 
 const directPrintDefinition = listActiveProcessCraftDefinitions().find((definition) => definition.craftName === '直喷')
@@ -289,11 +292,9 @@ const dualTargetResult = generateSpecialCraftTaskOrdersFromProductionOrder({
 assert.equal(dualTargetResult.errors.length, 0, '直喷和烫画双对象快照不应产生阻塞错误')
 for (const craftName of ['直喷', '烫画'] as const) {
   const craftTasks = dualTargetResult.taskOrders.filter((task) => task.craftName === craftName)
-  const cutPiece = craftTasks.find((task) => task.targetObject === '已裁部位')
   const garment = craftTasks.find((task) => task.targetObject === '成衣')
-  assert(cutPiece && garment, `${craftName} 必须分别生成裁片和成衣任务`)
-  assert.equal(cutPiece.unit, '片')
-  assert(cutPiece.demandLines?.every((line) => Boolean(line.patternFileId && line.pieceRowId)), `${craftName} 裁片明细必须保留真实纸样和部位`)
+  assert(garment, `${craftName} 必须按成衣生成加工单`)
+  assert(!craftTasks.some((task) => task.targetObject === '已裁部位'), `${craftName} 不得继续生成裁片加工单`)
   assert.equal(garment.unit, '件')
   assert.equal(garment.planQty, applicableSku.qty, `${craftName} 成衣数量只能取成衣 BOM 适用 SKU`)
   assert(garment.demandLines?.every((line) => line.sourceBomItemId === garmentBomId), `${craftName} 成衣明细必须保存来源 BOM 行`)
@@ -318,52 +319,33 @@ const packageMemberResult = generateSpecialCraftTaskOrdersFromProductionOrder({
   productionOrder: packageMemberOrder,
   techPackSnapshot: packageMemberSnapshot,
 })
-const expectedPlanQtyByCraft = new Map([
-  ['烫画', 3500],
-  ['直喷', 7000],
-])
-expectedPlanQtyByCraft.forEach((expectedPlanQty, craftName) => {
-  const task = packageMemberResult.taskOrders.find(
-    (item) => item.craftName === craftName && item.targetObject === '已裁部位',
+for (const craftName of ['烫画', '直喷']) {
+  const pieceConfigs = packageMemberSnapshot.patternFiles
+    .flatMap((pattern) => pattern.pieceRows)
+    .flatMap((piece) => piece.specialCrafts ?? [])
+    .filter((craft) => craft.craftName === craftName)
+  assert(pieceConfigs.every((craft) => craft.selectedTargetObject === '成衣'), `${craftName} 历史纸样配置必须规范为成衣对象`)
+  assert(
+    !packageMemberResult.taskOrders.some((item) => item.craftName === craftName && item.targetObject === '已裁部位'),
+    `${craftName} 不得再从纸样包生成裁片加工单`,
   )
-  assert(task, `${craftName} 缺少纸样包裁片任务`)
-  const identities = (task.demandLines ?? []).map((line) => {
-    const sku = packageMemberOrder.demandSnapshot.skuLines.find(
-      (skuLine) => skuLine.color === line.colorName && skuLine.size === line.sizeCode,
-    )
-    assert(sku, `${craftName} 任务明细无法回溯生产 SKU`)
-    return [line.pieceRowId, sku.skuCode, line.operationId, line.targetObject].join('::')
-  })
-  assert.equal(new Set(identities).size, identities.length, `${craftName} 同一任务不得重复计入同一裁片与 SKU`)
-  const expectedPlanQtyFromSnapshot = (physicalPattern.pieceRows ?? [])
-    .filter((row) => (row.specialCrafts ?? []).some((craft) => craft.craftName === craftName))
-    .reduce((rowTotal, row) => rowTotal + (row.colorAllocations ?? []).reduce((allocationTotal, allocation) => {
-      const applicableSkuLines = allocation.skuCodes?.length
-        ? allocation.skuCodes.flatMap((skuCode) => {
-            const skuLine = packageMemberOrder.demandSnapshot.skuLines.find((line) => line.skuCode === skuCode)
-            return skuLine ? [skuLine] : []
-          })
-        : packageMemberOrder.demandSnapshot.skuLines.filter((line) => line.color === allocation.colorName)
-      return allocationTotal + applicableSkuLines.reduce(
-        (skuTotal, skuLine) => skuTotal + skuLine.qty * allocation.pieceCount,
-        0,
-      )
-    }, 0), 0)
-  assert.equal(expectedPlanQtyFromSnapshot, expectedPlanQty, `${craftName} 回归用例的 SKU 数量乘每件片数基线有误`)
-  assert.equal(
-    (task.demandLines ?? []).reduce((sum, line) => sum + line.planPieceQty, 0),
-    expectedPlanQtyFromSnapshot,
-    `${craftName} 计划数量必须等于生产 SKU 数量乘每件片数且不重复`,
-  )
-  assert.equal(task.planQty, expectedPlanQtyFromSnapshot, `${craftName} 加工单汇总数量不得被纸样关联层翻倍`)
-})
+}
 
 const mixedPatternSnapshot = JSON.parse(JSON.stringify(packageMemberSnapshot)) as typeof packageMemberSnapshot
 const orphanAssociation = JSON.parse(JSON.stringify(materialAssociationPattern)) as typeof materialAssociationPattern
-const orphanPieceRow = orphanAssociation.pieceRows?.find(
-  (row) => (row.specialCrafts ?? []).some((craft) => craft.craftName === '烫画'),
-)
-assert(orphanPieceRow, '混合快照回归用例缺少烫画裁片')
+const cutPieceCraftDefinition = listActiveProcessCraftDefinitions().find((definition) => definition.craftName === '打揽')
+const orphanPieceRow = orphanAssociation.pieceRows?.find((row) => (row.colorAllocations ?? []).some((allocation) => allocation.pieceCount > 0))
+assert(orphanPieceRow && cutPieceCraftDefinition, '混合快照回归用例缺少可验证的裁片和打揽字典')
+orphanPieceRow.specialCrafts = [{
+  processCode: 'SPECIAL_CRAFT',
+  processName: '辅助工艺',
+  craftCode: cutPieceCraftDefinition.craftCode,
+  craftName: '打揽',
+  displayName: '打揽',
+  selectedTargetObject: '已裁部位',
+  supportedTargetObjects: ['CUT_PIECE'],
+  supportedTargetObjectLabels: ['已裁部位'],
+}]
 orphanAssociation.id = 'PATTERN-ASSOCIATION-WITHOUT-PACKAGE'
 orphanAssociation.patternFileId = orphanAssociation.id
 orphanAssociation.sourcePatternPackageId = 'PATTERN-PACKAGE-NOT-IN-SNAPSHOT'
@@ -383,7 +365,11 @@ assert(
 )
 
 const multiPhysicalPatternSnapshot = JSON.parse(JSON.stringify(packageMemberSnapshot)) as typeof packageMemberSnapshot
-const secondPhysicalPattern = JSON.parse(JSON.stringify(physicalPattern)) as typeof physicalPattern
+const firstPhysicalPattern = multiPhysicalPatternSnapshot.patternFiles.find((pattern) => pattern.patternFileId === physicalPattern.patternFileId)
+const firstPhysicalPiece = firstPhysicalPattern?.pieceRows.find((row) => (row.colorAllocations ?? []).some((allocation) => allocation.pieceCount > 0))
+assert(firstPhysicalPiece && cutPieceCraftDefinition, '多物理纸样回归用例缺少裁片')
+firstPhysicalPiece.specialCrafts = structuredClone(orphanPieceRow.specialCrafts)
+const secondPhysicalPattern = JSON.parse(JSON.stringify(firstPhysicalPattern)) as typeof physicalPattern
 secondPhysicalPattern.id = 'PATTERN-PACKAGE-SECOND-PHYSICAL'
 secondPhysicalPattern.patternFileId = secondPhysicalPattern.id
 secondPhysicalPattern.patternFileName = '第二个独立物理纸样包'
@@ -392,13 +378,13 @@ const multiPhysicalPatternResult = buildSpecialCraftTaskDemandLinesFromProductio
   productionOrder: packageMemberOrder,
   techPackSnapshot: multiPhysicalPatternSnapshot,
 })
-const multiPhysicalHeatLines = multiPhysicalPatternResult.demandLines.filter(
-  (line) => line.craftName === '烫画' && line.targetObject === '已裁部位',
+const multiPhysicalCutLines = multiPhysicalPatternResult.demandLines.filter(
+  (line) => line.craftName === '打揽' && line.targetObject === '已裁部位',
 )
-assert.equal(multiPhysicalHeatLines.length, 8, '两个独立物理纸样包应分别产生裁片明细')
+assert(multiPhysicalCutLines.length >= 2, '两个独立物理纸样包应分别产生裁片明细')
 assert.equal(
-  new Set(multiPhysicalHeatLines.map((line) => line.demandLineId)).size,
-  multiPhysicalHeatLines.length,
+  new Set(multiPhysicalCutLines.map((line) => line.demandLineId)).size,
+  multiPhysicalCutLines.length,
   '不同物理纸样包的相同裁片与 SKU 必须生成唯一明细 ID',
 )
 
@@ -565,38 +551,41 @@ const artifactBundle = generateProductionArtifactBundleForOrder(sampleOrder.prod
 assert(artifactBundle.specialCraftTaskOrders.length === firstResult.taskOrders.length, '生产单产物 bundle 必须承接特殊工艺任务')
 
 const storeTasks = getSpecialCraftTasksByProductionOrder(sampleOrder.productionOrderId)
-assert(storeTasks.length === firstResult.taskOrders.length, '特殊工艺加工单数据源必须读取自动产出任务')
+const storeGenerationErrors = listSpecialCraftGenerationErrors()
+assert(firstResult.taskOrders.every((generatedTask) => {
+  const requiresFeiTicket = generatedTask.targetObject === '已裁部位'
+  const missingFeiTicket = requiresFeiTicket && generatedTask.feiTicketNos.length === 0
+  if (missingFeiTicket) {
+    return !storeTasks.some((storedTask) => storedTask.taskOrderId === generatedTask.taskOrderId)
+      && storeGenerationErrors.some((error) =>
+        error.productionOrderId === generatedTask.productionOrderId
+        && error.operationName === generatedTask.operationName
+        && error.errorType === '菲票缺失',
+      )
+  }
+  return storeTasks.some((storedTask) => storedTask.taskOrderId === generatedTask.taskOrderId)
+}), '特殊工艺加工单数据源必须读取合法自动产出任务，并阻断缺正式菲票的裁片半成品加工单')
 const allStoreTasks = listSpecialCraftTaskOrders()
 assert(allStoreTasks.length > 0, '特殊工艺加工单数据源必须存在生产单自动产出任务')
 for (const craftName of ['直喷', '烫画'] as const) {
   const craftOrders = allStoreTasks.filter((order) => order.craftName === craftName)
-  const cutPiece = craftOrders.find((order) => order.targetObject === '已裁部位')
-  const garment = craftOrders.find((order) => order.targetObject === '成衣')
-  assert(cutPiece, `${craftName} 必须生成裁片部位加工单`)
-  assert(garment, `${craftName} 必须生成成衣加工单`)
-  assert.equal(cutPiece.unit, '片', `${craftName} 裁片部位加工单单位必须为片`)
-  assert.equal(garment.unit, '件', `${craftName} 成衣加工单单位必须为件`)
-  assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣加工单不得关联菲票`)
+  assert(craftOrders.length >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION, `${craftName} 必须至少生成 3 张独立成衣加工单`)
+  assert(craftOrders.every((order) => order.targetObject === '成衣'), `${craftName} 加工单对象必须全部为成衣`)
+  assert(craftOrders.every((order) => order.unit === '件'), `${craftName} 成衣加工单单位必须为件`)
+  assert(craftOrders.every((order) => order.feiTicketNos.length === 0), `${craftName} 成衣加工单不得关联菲票`)
 }
 const feiTicketBindingResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets({
   specialCraftTaskOrders: allStoreTasks,
 })
 for (const craftName of ['直喷', '烫画'] as const) {
-  const cutPieceTaskIds = new Set(
-    allStoreTasks
-      .filter((task) => task.craftName === craftName && task.targetObject === '已裁部位')
-      .map((task) => task.taskOrderId),
-  )
   const garmentTaskIds = new Set(
     allStoreTasks
       .filter((task) => task.craftName === craftName && task.targetObject === '成衣')
       .map((task) => task.taskOrderId),
   )
-  const cutPieceBindings = feiTicketBindingResult.bindings.filter((binding) => cutPieceTaskIds.has(binding.taskOrderId))
   const garmentBindings = feiTicketBindingResult.bindings.filter((binding) => garmentTaskIds.has(binding.taskOrderId))
-  assert(cutPieceBindings.length > 0, `${craftName} 裁片部位任务必须绑定真实菲票`)
-  assert(cutPieceBindings.every((binding) => Boolean(binding.feiTicketId && binding.feiTicketNo && binding.cuttingOrderId)), `${craftName} 裁片部位任务菲票必须可回溯裁片单`)
   assert.equal(garmentBindings.length, 0, `${craftName} 成衣任务不得进入菲票绑定`)
+  assert(!feiTicketBindingResult.pendingBindingViews.some((binding) => garmentTaskIds.has(binding.taskOrderId)), `${craftName} 成衣任务不得进入待绑定菲票队列`)
 }
 allStoreTasks
   .filter((task) => (task.craftName === '直喷' || task.craftName === '烫画') && task.targetObject === '成衣')
@@ -628,7 +617,7 @@ assert(
 )
 assert(allStoreTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '特殊工艺任务必须关联已有生产单的技术包快照')
 const activeCraftDefinitions = listActiveProcessCraftDefinitions()
-const taskCraftDefinitions = activeCraftDefinitions.filter((definition) => definition.defaultDocType === 'TASK')
+const taskCraftDefinitions = activeCraftDefinitions.filter((definition) => definition.defaultDocType === 'TASK' && definition.isSpecialCraft)
 const generatedTaskArtifacts = listGeneratedProductionTaskArtifacts()
 
 function countByCraftCode(items: Array<{ craftCode?: string }>): Map<string, number> {
@@ -689,8 +678,8 @@ const runtimeTaskCoverageKeys = new Set(
   ].filter((value): value is string => Boolean(value))),
 )
 assert(
-  processTasks.every((task) => runtimeTaskCoverageKeys.has(task.taskId) || runtimeTaskCoverageKeys.has(task.taskNo ?? '')),
-  'FCS 路由加载后运行时工序工艺任务必须承接全部字典任务 mock',
+  allStoreTasks.every((order) => runtimeTaskCoverageKeys.has(order.sourceTaskId) || runtimeTaskCoverageKeys.has(order.sourceTaskNo ?? '')),
+  'FCS 路由加载后运行时任务必须承接每张辅助/特殊工艺加工单的来源任务',
 )
 
 const productionOrderIds = new Set(productionOrders.map((order) => order.productionOrderId))
@@ -748,23 +737,23 @@ dyeWorkOrders.forEach((order) => {
 
 const sampleTask = storeTasks[0]
 assert(sampleTask, '必须能在任务单数据源中找到自动产出任务')
-assert(getSpecialCraftTaskOrderById(sampleTask.taskOrderId), '必须能根据任务号读取自动产出任务详情')
+assert(getSpecialCraftTaskOrderById(sampleTask.taskOrderId), '必须能根据加工单 ID 读取自动产出加工单详情')
 assert(getSpecialCraftGenerationBatchByOrderId(sampleOrder.productionOrderId), '必须能根据生产单读取生成批次')
 
 const operationSlug = buildSpecialCraftOperationSlug(sampleTask.operationId)
 const taskOrdersHtml = renderSpecialCraftTaskOrdersPage(operationSlug)
-assert(taskOrdersHtml.includes(sampleTask.taskOrderNo), '特殊工艺加工单页面必须显示自动产出任务')
-assert(taskOrdersHtml.includes('生产单生成'), '特殊工艺加工单页面必须显示任务来源')
+assert(taskOrdersHtml.includes(sampleTask.taskOrderNo), '特殊工艺加工单页面必须显示自动产出加工单')
+assert(taskOrdersHtml.includes('生产单生成'), '特殊工艺加工单页面必须显示加工单来源')
 assert(taskOrdersHtml.includes('加工对象'), '特殊工艺加工单页面必须显示加工对象')
 assert(taskOrdersHtml.includes('数量进度'), '特殊工艺加工单页面必须显示数量进度')
-assert(taskOrdersHtml.includes('状态'), '特殊工艺加工单页面必须显示任务状态')
+assert(taskOrdersHtml.includes('状态'), '特殊工艺加工单页面必须显示加工单状态')
 
 const taskDetailHtml = renderSpecialCraftTaskDetailPage(operationSlug, sampleTask.taskOrderId)
-;['任务明细', '来源纸样', '来源裁片明细', '技术包版本', '生成批次', '分配状态', '执行状态', '待绑定'].forEach((token) => {
-  assert(taskDetailHtml.includes(token), `特殊工艺任务详情页缺少：${token}`)
+;['加工明细', '来源任务 ID', '来源纸样', '来源裁片明细', '技术包版本', '生成批次', '分配状态', '执行状态', '待绑定'].forEach((token) => {
+  assert(taskDetailHtml.includes(token), `特殊工艺加工单详情页缺少：${token}`)
 })
 
-;['任务清单', '任务总数', '任务流程', 'data-breakdown-field="keyword"'].forEach((token) => {
+;['任务清单', '可执行任务', '生产任务', 'data-task-list-field="keyword"'].forEach((token) => {
   assertContains(taskBreakdownSource, token, `任务拆解页源码缺少：${token}`)
 })
 

@@ -178,9 +178,14 @@ import {
 
 const specialCraftExactRoutes = Object.fromEntries(
   [
-    ...listEnabledSpecialCraftOperationDefinitions().map((operation) => {
+    ...listEnabledSpecialCraftOperationDefinitions().flatMap((operation) => {
       const operationSlug = buildSpecialCraftOperationSlug(operation)
-      return [buildSpecialCraftTaskOrdersPath(operation), () => renderSpecialCraftTaskOrdersPage(operationSlug)]
+      const workOrdersPath = buildSpecialCraftTaskOrdersPath(operation)
+      const legacyTasksPath = `/fcs/process-factory/special-craft/${operationSlug}/tasks`
+      return [
+        [workOrdersPath, () => renderSpecialCraftTaskOrdersPage(operationSlug)],
+        [legacyTasksPath, () => renderRouteRedirect(workOrdersPath, '正在跳转到加工单列表')],
+      ]
     }),
     [
       buildSpecialCraftDomainWaitProcessWarehousePath('AUXILIARY_CRAFT_FACTORY'),
@@ -536,7 +541,10 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\/([^/]+)$/,
-      render: (match) => renderSpecialCraftTaskDetailPage(match[1], decodeURIComponent(match[2])),
+      render: (match) => renderRouteRedirect(
+        buildSpecialCraftTaskOrdersPath(match[1]) + `/${encodeURIComponent(decodeURIComponent(match[2]))}`,
+        '正在跳转到加工单详情',
+      ),
     },
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders\/([^/]+)$/,

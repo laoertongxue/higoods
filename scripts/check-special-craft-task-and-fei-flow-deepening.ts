@@ -152,7 +152,9 @@ assertContains(feiTicketsPageSource, '累计货损', '裁床菲票页面必须�
 ;[
   '差异上报',
   '接收差异上报 / 回仓差异上报',
-].forEach((item) => assertContains(taskDetailPageSource, item, `任务详情缺少深化区块：${item}`))
+].forEach((item) => assertNotContains(taskDetailPageSource, item, `加工单详情不得把仓库差异处理暴露为第五个加工动作：${item}`))
+assertNotContains(taskDetailPageSource, '节点记录', '加工单详情不得保留“查看节点”入口')
+assertContains(taskDetailPageSource, '操作记录', '加工单详情必须使用四动作操作记录')
 assertContains(sharedPageSource, "'wait-process'", '特殊工艺 shared 子导航缺少待加工仓')
 assertContains(sharedPageSource, "'wait-handover'", '特殊工艺 shared 子导航缺少待交出仓')
 assertContains(warehousePageSource, 'renderSpecialCraftDomainWaitHandoverWarehousePage', '特殊工艺缺少待交出仓页面')
@@ -165,8 +167,9 @@ const sampleOperation =
   ) || listEnabledSpecialCraftOperationDefinitions()[0]
 assert(sampleOperation, '缺少特殊工艺菜单样例')
 assertNotContains(renderSpecialCraftDomainWaitProcessWarehousePage(warehouseDomainSlug(sampleOperation)), '打印任务交货卡', '特殊工艺待加工仓不得出现打印任务交货卡')
-assertContains(workOrderDetailPageSource, 'window.location.replace', '加工单详情页已改为重定向到任务详情')
-assertContains(workOrderDetailPageSource, '/tasks/', '加工单详情页重定向目标必须是任务详情页')
+assertContains(workOrderDetailPageSource, 'renderSpecialCraftTaskDetailPage', '加工单详情页必须按具体 workOrderId 直接渲染')
+assertNotContains(workOrderDetailPageSource, 'window.location.replace', '加工单详情页不得再重定向到任务详情')
+assertNotContains(workOrderDetailPageSource, '/tasks/', '加工单详情页不得再生成任务执行路由')
 
 ;[
   '菲票',

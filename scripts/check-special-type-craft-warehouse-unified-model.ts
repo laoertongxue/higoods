@@ -81,8 +81,10 @@ assert.ok(
   garmentWaitProcessItems.every((item) => item.itemKind === '成衣' && item.unit === '件'),
   '成衣待加工库存必须按成衣、件记录',
 )
-const garmentWaitHandoverItems = allWaitHandoverItems.filter((item) => item.partName === '毛织整件')
-assert.ok(garmentWaitHandoverItems.length > 0, '缺少成衣交出待交出库存投影')
+const garmentWaitHandoverItems = allWaitHandoverItems.filter(
+  (item) => item.itemKind === '成衣' && ['烫画', '直喷'].includes(item.craftName || ''),
+)
+assert.ok(garmentWaitHandoverItems.length > 0, '缺少烫画/直喷成衣加工单交出待交出库存投影')
 assert.ok(
   garmentWaitHandoverItems.every((item) => item.itemKind === '成衣' && item.unit === '件'),
   '成衣待交出库存必须按成衣、件记录',
@@ -111,9 +113,13 @@ assert.ok(waitProcessStatuses.has('已入待加工仓'), '特种工艺待加工�
 assert.ok(waitProcessStatuses.has('差异待处理'), '特种工艺待加工仓缺少差异待处理状态')
 
 const waitHandoverStatuses = new Set(waitHandoverItems.map((item) => item.status))
-for (const status of ['待交出', '已交出', '已回写', '差异', '异议中']) {
+for (const status of ['待交出', '已回写']) {
   assert.ok(waitHandoverStatuses.has(status), `特种工艺待交出仓缺少状态：${status}`)
 }
+assert.ok(
+  [...waitHandoverStatuses].every((status) => ['待交出', '已交出', '已回写', '差异', '异议中'].includes(status)),
+  '特种工艺待交出仓出现未知状态',
+)
 
 appStore.navigate('/fcs/process-factory/special-craft/special-type/wait-process-warehouse')
 const waitProcessHtml = renderSpecialCraftDomainWaitProcessWarehousePage('special-type')
@@ -208,60 +214,38 @@ Object.defineProperty(globalThis, 'localStorage', {
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
+    localStorage: globalThis.localStorage,
     location: {
       pathname: '/fcs/pda/warehouse',
       search: '',
     },
+    history: {
+      replaceState: () => undefined,
+      pushState: () => undefined,
+    },
+    setTimeout,
   },
 })
 
 storage.set('fcs_pda_session', JSON.stringify({
-  userId: 'FAC-SPC-TEMPLATE-PROCESS_admin',
-  loginId: 'FAC-SPC-TEMPLATE-PROCESS_admin',
-  userName: '模板工序专属工厂_管理员',
+  userId: 'FAC-SPF_admin',
+  loginId: 'FAC-SPF_admin',
+  userName: 'SPF_-_管理员',
   roleId: 'ROLE_ADMIN',
   roleName: '管理员',
-  factoryId: 'FAC-SPC-TEMPLATE-PROCESS',
-  factoryName: '模板工序专属工厂',
+  factoryId: 'FAC-SPF',
+  factoryName: 'SPF - 特种工艺',
   loggedAt: '2026-06-03 09:20:00',
 }))
 
-const pdaWindow = globalThis.window as unknown as { location: { pathname: string; search: string } }
 const { renderPdaWarehousePage } = await import('../src/pages/pda-warehouse.ts')
-const { renderPdaWarehouseWaitProcessPage } = await import('../src/pages/pda-warehouse-wait-process.ts')
-const { renderPdaWarehouseWaitHandoverPage } = await import('../src/pages/pda-warehouse-wait-handover.ts')
 
 const pdaHomeHtml = renderPdaWarehousePage()
-for (const label of ['模板工序专属工厂', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['SPF - 特种工艺', '查库存', '扫码查询', '库存盘点', '加工单号']) {
   assert.ok(pdaHomeHtml.includes(label), `PDA 特种工艺首页渲染缺少：${label}`)
 }
-
-pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-process'
-pdaWindow.location.search = '?action=receive'
-const pdaWaitProcessHtml = renderPdaWarehouseWaitProcessPage()
-for (const label of ['接收入仓', '接收数量', '库区', '货架', '库位', '确认接收入仓']) {
-  assert.ok(pdaWaitProcessHtml.includes(label), `PDA 特种工艺接收入仓页渲染缺少：${label}`)
-}
-
-pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-process'
-pdaWindow.location.search = '?action=issue'
-const pdaIssueHtml = renderPdaWarehouseWaitProcessPage()
-for (const label of ['加工接收', '接收数量', '库区', '货架', '库位', '确认加工接收']) {
-  assert.ok(pdaIssueHtml.includes(label), `PDA 特种工艺加工接收页渲染缺少：${label}`)
-}
-
-pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-handover'
-pdaWindow.location.search = '?action=finish-inbound'
-const pdaFinishHtml = renderPdaWarehouseWaitHandoverPage()
-for (const label of ['完工入仓', '完工数量', '损耗数量', '库区', '货架', '库位', '确认完工入仓']) {
-  assert.ok(pdaFinishHtml.includes(label), `PDA 特种工艺完工入仓页渲染缺少：${label}`)
-}
-
-pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-handover'
-pdaWindow.location.search = '?action=handover-confirm'
-const pdaHandoverHtml = renderPdaWarehouseWaitHandoverPage()
-for (const label of ['交出确认', '交出数量', '接收方', '库区', '货架', '库位', '确认交出']) {
-  assert.ok(pdaHandoverHtml.includes(label), `PDA 特种工艺交出确认页渲染缺少：${label}`)
+for (const removedAction of ['接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
+  assert.ok(!pdaHomeHtml.includes(removedAction), `PDA 特种工艺仓库首页不得绕过加工单四动作：${removedAction}`)
 }
 
 console.log('特种工艺 Web/PDA 仓管统一模型验收通过')

@@ -764,7 +764,7 @@ export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
 
 const ONBOARDING_CUTTING_FACTORIES = [
   { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34', seedNo: '034' },
-  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35', seedNo: '035' },
+  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁（激光切）演示工厂35', seedNo: '035' },
 ] as const
 
 const ONBOARDING_CUTTING_FACTORY_ID = ONBOARDING_CUTTING_FACTORIES[0].factoryId

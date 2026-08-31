@@ -27,7 +27,7 @@ import {
   requiresLaceOverproductionConfirmation,
   resetLaceFactoryRuntime,
   restoreCancelledLaceProductionOrder,
-  startLaceProduction,
+  confirmLaceProductionReceipt,
   syncLaceProductionOrders,
   undoLaceProductionCompletion,
   updateLaceProcessingInputs,
@@ -130,10 +130,10 @@ let snapshot = getLaceRuntimeEvidenceSnapshot()
 assert.equal(snapshot.factoryMappings.length, 1)
 assert.equal(snapshot.factoryMappings[0].supplierName, 'Renda Jaya')
 assert.equal(snapshot.factoryMappings[0].factoryOrgId, 'FAC-RJ-LACE')
-assert.equal(snapshot.demands.length, 4, 'only active internal lace purchase SKUs enter PFOS')
-assert.equal(snapshot.failures.length, 1, 'incomplete internal lace source is isolated as a generation failure')
-assert.equal(snapshot.workOrders.length, 4, 'one work order per purchase order + SKU')
-assert.equal(new Set(snapshot.workOrders.map((order) => order.generationKey)).size, 4)
+assert.equal(snapshot.demands.length, 5, 'all active internal lace purchase SKUs with formal inputs enter PFOS')
+assert.equal(snapshot.failures.length, 0, 'PO-338520 formal inputs are complete and must not remain in generation failures')
+assert.equal(snapshot.workOrders.length, 5, 'one work order per purchase order + SKU')
+assert.equal(new Set(snapshot.workOrders.map((order) => order.generationKey)).size, 5)
 snapshot.workOrders.forEach((order) => {
   assert.equal(order.demandSource.purchaseOrderId, order.purchaseOrderId)
   assert.equal(order.demandSource.purchaseVersion, order.purchaseVersion)
@@ -148,10 +148,10 @@ snapshot.workOrders.forEach((order) => {
     assert.equal(line.plannedQty, Math.round(order.planQty * line.unitUsage * 100) / 100)
   })
 })
-assert.ok(snapshot.failures.some((failure) => failure.reason.includes('默认加工投入')), 'missing default input stays in the purchase-demand failure row')
+assert.ok(snapshot.workOrders.some((order) => order.purchaseOrderId === 'PO-338520' && order.inputLines.length > 0), 'PO-338520 must generate from its formal processing inputs')
 assert.equal(buildLaceProductionGenerationKey(' po-338468 ', ' sku-a '), 'PO-338468::SKU-A')
 assert.ok(snapshot.logs.some((log) => log.action === '识别内部花边采购需求'))
-assert.ok(snapshot.logs.some((log) => log.action === '自动生成生产单失败'))
+assert.ok(!snapshot.logs.some((log) => log.action === '自动生成生产单失败'), 'current formal purchase facts must not produce a generation failure')
 assert.ok(snapshot.logs.every((log) => Boolean(log.actorOrgId)), 'all operation logs identify the acting organization')
 
 const mergedDemand = snapshot.demands.find((demand) => demand.skuCode === 'IDFL251050-BLACK-19-4003PT')
@@ -270,8 +270,8 @@ assert.equal(updatedInputs.inputLines[0].inputMaterialSku, 'RJ-YARN-LACE-150D')
 assert.equal(updatedInputs.inputLines[0].unitUsage, 0.025)
 assert.equal(updatedInputs.inputLines[0].plannedQty, 15)
 assert.equal(updatedInputs.inputLines.length, 2, 'the first phase does not add or remove input lines')
-startLaceProduction(inputPending.workOrderId, LACE_FACTORY_OPERATOR)
-expectDomainError('FORBIDDEN_FACTORY', () => startLaceProduction(inputPending.workOrderId, PMS_BUYER))
+confirmLaceProductionReceipt(inputPending.workOrderId, LACE_FACTORY_OPERATOR)
+expectDomainError('FORBIDDEN_FACTORY', () => confirmLaceProductionReceipt(inputPending.workOrderId, PMS_BUYER))
 expectDomainError('FUTURE_EVENT_TIME', () => createLaceCompletionReport({
   workOrderId: inputPending.workOrderId,
   qty: 1,
@@ -579,16 +579,10 @@ assert.equal(validateCriticalPurchaseChange('PO-338468', '单位').allowed, fals
 
 snapshot = getLaceRuntimeEvidenceSnapshot()
 const workOrderCountBeforeFix = snapshot.workOrders.length
-const validDefaultInputs = createAccessoryPurchaseOrderSeeds()
-  .find((order) => order.purchaseOrderId === 'PO-338501')!
-  .lines[0].plannedInputs!
-updatePurchaseOrder('PO-338520', {
-  plannedInputsBySku: { 'SKU-FLSZ26051153-107-2CM': validDefaultInputs },
-}, 'CHECK-FIX-GENERATION-FAILURE')
 assert.equal(getLaceRuntimeEvidenceSnapshot().failures.length, 0)
-assert.equal(getLaceRuntimeEvidenceSnapshot().workOrders.length, workOrderCountBeforeFix + 1)
+assert.equal(getLaceRuntimeEvidenceSnapshot().workOrders.length, workOrderCountBeforeFix, 'already-generated PO-338520 must not create a second work order')
 syncLaceProductionOrders()
-assert.equal(getLaceRuntimeEvidenceSnapshot().workOrders.length, workOrderCountBeforeFix + 1, 'safe retry remains idempotent')
+assert.equal(getLaceRuntimeEvidenceSnapshot().workOrders.length, workOrderCountBeforeFix, 'safe retry remains idempotent')
 
 captureOperationEvidence()
 resetLaceFactoryRuntime()
@@ -614,7 +608,7 @@ expectDomainError('SUPERVISOR_REQUIRED', () => cancelLaceProductionOrder({
   reason: '普通业务员不可取消',
   actor: LACE_FACTORY_OPERATOR,
 }))
-startLaceProduction(pendingCancelable.workOrderId, LACE_FACTORY_OPERATOR)
+confirmLaceProductionReceipt(pendingCancelable.workOrderId, LACE_FACTORY_OPERATOR)
 assert.equal(checkPurchaseOrderCancellation('PO-338501').allowed, false, 'entered production blocks purchase cancellation')
 expectDomainError('CANCEL_CONFIRM_REQUIRED', () => cancelLaceProductionOrder({
   workOrderId: pendingCancelable.workOrderId,
@@ -643,7 +637,7 @@ expectDomainError('PURCHASE_NOT_ACTIVE', () => restoreCancelledLaceProductionOrd
 ))
 
 const cancellableStarted = findOrderBySku('FLSZ26051153-104-11CM')
-startLaceProduction(cancellableStarted.workOrderId)
+confirmLaceProductionReceipt(cancellableStarted.workOrderId)
 createLaceCompletionReport({ workOrderId: cancellableStarted.workOrderId, qty: 10, clientActionId: 'CHECK-CANCEL-REPORT' })
 expectDomainError('CANCEL_CONFIRM_REQUIRED', () => cancelLaceProductionOrder({
   workOrderId: cancellableStarted.workOrderId,
@@ -666,7 +660,7 @@ assert.equal(listLaceProductionOrders(PLATFORM_ADMIN).length, countBeforeRestore
 captureOperationEvidence()
 resetLaceFactoryRuntime()
 const inputOrder = findOrderBySku('FLSZ26051153-106-3CM')
-startLaceProduction(inputOrder.workOrderId)
+confirmLaceProductionReceipt(inputOrder.workOrderId)
 createLaceCompletionReport({ workOrderId: inputOrder.workOrderId, qty: 269.99, clientActionId: 'CHECK-149-POINT-99' })
 expectDomainError('OVERPRODUCTION_CONFIRM_REQUIRED', () => createLaceCompletionReport({
   workOrderId: inputOrder.workOrderId,
@@ -701,7 +695,6 @@ captureOperationEvidence()
 for (const action of [
   '识别内部花边采购需求',
   '自动生成生产单',
-  '自动生成生产单失败',
   '变更采购单',
   '同步采购变更',
   '查看采购变更',
@@ -727,7 +720,7 @@ assert.ok(observedSecondConfirmations.has('撤销完成'))
 resetLaceFactoryRuntime()
 const actionPending = findOrderBySku('FLSZ26051153-104-11CM')
 const operatorPendingActions = listExecutableLaceWorkOrderActions(actionPending, LACE_FACTORY_OPERATOR).map((action) => action.key)
-assert.ok(operatorPendingActions.includes('start-production'))
+assert.ok(operatorPendingActions.includes('confirm-receive'))
 assert.ok(!operatorPendingActions.some((action) => String(action).includes('input')), 'input editing is located inside the detail input section, not the list action column')
 assert.ok(!operatorPendingActions.includes('cancel-order'))
 assert.ok(!operatorPendingActions.includes('undo-completion'))
@@ -735,7 +728,7 @@ assert.ok(!operatorPendingActions.includes('restore-order'))
 const supervisorPendingActions = listExecutableLaceWorkOrderActions(actionPending, LACE_FACTORY_SUPERVISOR).map((action) => action.key)
 assert.ok(supervisorPendingActions.includes('cancel-order'))
 const platformPendingActions = listExecutableLaceWorkOrderActions(actionPending, PLATFORM_ADMIN).map((action) => action.key)
-for (const action of ['start-production', 'cancel-order']) assert.ok(platformPendingActions.includes(action as typeof platformPendingActions[number]))
+for (const action of ['confirm-receive', 'cancel-order']) assert.ok(platformPendingActions.includes(action as typeof platformPendingActions[number]))
 const actionProduction = findOrderBySku('IDFL251050-BLACK-19-4003PT')
 const operatorProductionActions = listExecutableLaceWorkOrderActions(actionProduction, LACE_FACTORY_OPERATOR).map((action) => action.key)
 for (const action of ['report-completion', 'complete-production', 'handover']) assert.ok(operatorProductionActions.includes(action as typeof operatorProductionActions[number]))
@@ -771,7 +764,8 @@ assert.doesNotMatch(pageHtml, /采购价格|加工费|结算状态|对账|付款
 
 const purchaseDemandHtml = renderLacePurchaseDemandsPage()
 assert.match(purchaseDemandHtml, /自动生成异常/)
-assert.match(purchaseDemandHtml, /PMS 采购人员补齐来源后/)
+assert.match(purchaseDemandHtml, /FLSZ26051153-107-2CM/, 'PO-338520 SKU must appear as a generated purchase demand')
+assert.doesNotMatch(purchaseDemandHtml, /PMS 采购人员补齐来源后/, 'current formal inputs must not show stale recovery copy')
 assert.doesNotMatch(purchaseDemandHtml, /data-lace-generation-failures/)
 const purchaseDemandSourceText = readFileSync(new URL('../src/pages/process-factory/accessory/lace/purchase-demands.ts', import.meta.url), 'utf8')
 const purchaseStatsSource = purchaseDemandSourceText.slice(purchaseDemandSourceText.indexOf('statsHtml:'), purchaseDemandSourceText.indexOf('listTitle:'))

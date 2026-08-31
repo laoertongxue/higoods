@@ -27,6 +27,8 @@ function names<T extends { craftName?: string; processName?: string }>(items: T[
   return items.map((item) => item.craftName || item.processName || '')
 }
 
+const positioningLaserCraftName = '定位裁（激光切）'
+
 const preparationNames = names(listProcessDefinitions().filter((item) => item.stageCode === 'PREP'))
 for (const processName of ['印花', '染色', '水溶']) {
   assert(preparationNames.includes(processName), `准备阶段缺少${processName}`)
@@ -62,14 +64,17 @@ assert(names(listFabricCrafts()).includes('捆条'), '面料级工艺必须包�
 assert(names(listAccessoryCrafts()).includes('橡筋定长切割'), '辅料级工艺必须包含橡筋定长切割')
 
 const cuttingNames = names(listCuttingCrafts())
-for (const craft of ['普通裁', '激光定位裁', '定向裁']) {
+for (const craft of ['普通裁', positioningLaserCraftName, '定向裁']) {
   assert(cuttingNames.includes(craft), `裁床工序缺少${craft}`)
 }
 
 const pageHtml = renderProductionCraftDictPage()
-for (const text of ['工序工艺字典', '准备阶段', '生产阶段', '后道阶段', '裁片部位', '面料', '辅料', '定位裁', '激光切', '定向裁']) {
+for (const text of ['工序工艺字典', '准备阶段', '生产阶段', '后道阶段', '裁片部位', '面料', '辅料', positioningLaserCraftName, '定向裁']) {
   assert(pageHtml.includes(text), `工序工艺字典页面缺少${text}`)
 }
+const pageWithoutCanonicalName = pageHtml.split(positioningLaserCraftName).join('')
+assert(!pageWithoutCanonicalName.includes(positioningLaserCraftName.slice(0, 3)), '页面仍残留旧裁床工艺名称')
+assert(!pageWithoutCanonicalName.includes(positioningLaserCraftName.slice(4, -1)), '页面仍残留已删除特种工艺名称')
 assert(!pageHtml.includes('AUXILIARY') && !pageHtml.includes('CUT_PIECE_PART') && !pageHtml.includes('ACCESSORY'), '页面不应直接展示英文枚举')
 
 for (const scriptPath of [

@@ -25,7 +25,7 @@ import {
   listPostFinishingTasks,
   type PostFinishingTaskView,
 } from './post-finishing-domain.ts'
-import type { ProcessTask } from './process-tasks.ts'
+import { processTasks, type ProcessTask } from './process-tasks.ts'
 import { isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import {
   getPrintWorkOrderById,
@@ -121,6 +121,7 @@ interface ValidateBindingContext {
   currentFactoryId: string
   requireExactTaskId?: boolean
   skipAcceptanceGate?: boolean
+  skipMobileVisibilityGate?: boolean
 }
 
 export interface ValidateProcessMobileTaskBindingParams {
@@ -154,7 +155,7 @@ const OPENABLE_STATES = new Set(['待开工', '进行中', '生产暂停', '已�
 
 export const ONBOARDING_CUTTING_DEMO_FACTORIES: ReadonlyArray<{ factoryId: string; factoryName: string }> = [
   { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34' },
-  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35' },
+  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁（激光切）演示工厂35' },
 ]
 
 export function getOnboardingCuttingDemoFactoryName(factoryId: string): string {
@@ -283,7 +284,7 @@ function mapSpecialCraftTaskOrderToMobileTask(taskOrder: SpecialCraftTaskOrder, 
     assignedFactoryName,
     qcPoints: [],
     attachments: [],
-    status: mapSpecialCraftExecutionStatus(taskOrder.executionStatus),
+    status: mapSpecialCraftExecutionStatus(taskOrder.executionStatus || 'WAIT_PICKUP'),
     acceptanceStatus: isAssigned ? 'ACCEPTED' : 'PENDING',
     acceptedAt: isAssigned ? taskOrder.createdAt : undefined,
     acceptedBy: isAssigned ? assignedFactoryName : undefined,
@@ -295,7 +296,7 @@ function mapSpecialCraftTaskOrderToMobileTask(taskOrder: SpecialCraftTaskOrder, 
     craftName: taskOrder.operationName,
     sourceTaskId: taskOrder.taskOrderId,
     createdAt: taskOrder.createdAt,
-    updatedAt: taskOrder.updatedAt,
+    updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     auditLogs: [],
   }
 }
@@ -514,11 +515,11 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
   if (/PROC_PRINT|PRINT\b|印花|转印/.test(explicitFields)) return 'PRINT'
   if (/PROC_DYE|DYE\b|染色/.test(explicitFields)) return 'DYE'
   if (/PROC_WATER_SOLUBLE|WATER_SOLUBLE|水溶/.test(explicitFields)) return 'WATER_SOLUBLE'
-  if (/PROC_CUT|CUTTING|裁片|定位裁/.test(explicitFields)) return 'CUTTING'
+  if (/PROC_CUT|CUTTING|裁片|定位裁（激光切）/.test(explicitFields)) return 'CUTTING'
   if (/PROC_WOOL|WOOL|毛织|毛织/.test(explicitFields)) return 'WOOL'
   if (/POST_FINISH|后道/.test(explicitFields)) return 'POST_FINISHING'
   if (/SEW|车缝/.test(explicitFields)) return 'SEWING'
-  if (/SPECIAL|特殊工艺|绣花|打揽|打条|激光切|烫画|直喷|捆条/.test(craftFields)) return 'SPECIAL_CRAFT'
+  if (/SPECIAL|特殊工艺|绣花|打揽|打条|烫画|直喷|捆条/.test(craftFields)) return 'SPECIAL_CRAFT'
   return 'UNKNOWN'
 }
 
@@ -706,7 +707,8 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
     : false
   const isAcceptedOrExecutable = Boolean(task)
     && (context.skipAcceptanceGate || isTaskAccepted(task) || isTaskExecutable(task))
-  const isVisibleInMobileExecutionList = isTaskVisibleInMobileExecutionList(task, context.currentFactoryId)
+  const isVisibleInMobileExecutionList = context.skipMobileVisibilityGate
+    || isTaskVisibleInMobileExecutionList(task, context.currentFactoryId)
 
   let reasonCode: BindingReasonCode = 'OK'
   if (!context.sourceExists) {
@@ -922,12 +924,17 @@ export function validateSpecialCraftTaskOrderMobileTaskBinding(taskOrderId: stri
     expectedFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
-    actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
+    actualTask: expectedTaskId ? processTasks.find((task) => task.taskId === expectedTaskId) || null : null,
     currentFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
+    requireExactTaskId: true,
+    skipMobileVisibilityGate: true,
   })
 }
 
-export function validateSpecialCraftMobileTaskBinding(taskOrderId: string): ProcessMobileTaskBindingResult {
+export function validateSpecialCraftMobileTaskBinding(
+  taskOrderId: string,
+  currentFactoryId?: string,
+): ProcessMobileTaskBindingResult {
   const taskOrder = getSpecialCraftTaskOrderById(taskOrderId)
   const expectedTaskId = taskOrder?.sourceTaskId || taskOrder?.taskOrderId
   return validateBinding({
@@ -941,8 +948,10 @@ export function validateSpecialCraftMobileTaskBinding(taskOrderId: string): Proc
     expectedFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
-    actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
-    currentFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
+    actualTask: expectedTaskId ? processTasks.find((task) => task.taskId === expectedTaskId) || null : null,
+    currentFactoryId: currentFactoryId || taskOrder?.factoryId || TEST_FACTORY_ID,
+    requireExactTaskId: true,
+    skipMobileVisibilityGate: true,
   })
 }
 

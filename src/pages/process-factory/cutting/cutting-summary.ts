@@ -1317,8 +1317,8 @@ function buildCuttingResultCheckItems(
           handlingStatus: abnormal?.handlingStatus || '待处理',
           ownerRole: '裁床工艺',
           ownerName: abnormal?.reportedBy || bindingOrder.operatorName || '捆条加工负责人',
-          occurredAt: abnormal?.reportedAt || bindingOrder.startedAt,
-          updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.startedAt,
+          occurredAt: abnormal?.reportedAt || bindingOrder.receivedAt,
+          updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.receivedAt,
           cutOrder: bindingCutOrder,
         })
       })
@@ -1364,8 +1364,8 @@ function buildCuttingResultCheckItems(
         handlingStatus: abnormal?.handlingStatus || '待处理',
         ownerRole: '裁床工艺',
         ownerName: abnormal?.reportedBy || bindingOrder.operatorName || '捆条加工负责人',
-        occurredAt: abnormal?.reportedAt || bindingOrder.startedAt,
-        updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.startedAt,
+        occurredAt: abnormal?.reportedAt || bindingOrder.receivedAt,
+        updatedAt: abnormal?.reportedAt || bindingOrder.completedAt || bindingOrder.receivedAt,
         cutOrder: bindingCutOrder,
       })
     })

@@ -156,7 +156,7 @@ export function openProcessWebStatusActionDialog(config: ProcessWebStatusActionD
           <textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-process-web-status-action-field="备注" placeholder="补充本次操作说明">工艺工厂 Web 端状态操作</textarea>
         </label>
         <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          提交后将调用统一写回函数，生成操作记录，并同步移动端任务、平台聚合状态、仓交出联动结果。
+          提交后会生成当前加工单的操作记录，并同步仓库、交出与平台汇总结果。
         </div>
       </div>
       <footer class="flex justify-end gap-2 border-t px-5 py-4">

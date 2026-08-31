@@ -9,6 +9,7 @@ import {
   type SpecialCraftTaskOrder,
 } from '../../../data/fcs/special-craft-task-orders.ts'
 import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { getDifferenceRecordsByWorkOrderId } from '../../../data/fcs/process-warehouse-domain.ts'
 import { renderProductionOrderIdentityCell } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -20,6 +21,7 @@ import {
   resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   getFastSpecialCraftWebActions,
+  getSpecialCraftWorkObjectMeta,
   resolveSpuImageUrl,
 } from './shared.ts'
 import { appStore } from '../../../state/store.ts'
@@ -45,7 +47,7 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-const PREF_STORAGE_KEY = 'higood:list-page:/fcs/craft/special-craft/task-orders'
+const PREF_STORAGE_KEY = 'higood:list-page:/fcs/craft/special-craft/work-orders'
 const PAGE_SIZES = [10, 20, 50]
 const MAX_FROZEN_WIDTH = 360
 
@@ -65,7 +67,7 @@ interface ExpandedTaskOrderRow {
 }
 
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '全部', label: '全部任务' },
+  { value: '全部', label: '全部加工单' },
   { value: '待接收', label: '待接收' },
   { value: '加工中', label: '加工中' },
   { value: '已完结', label: '已完结' },
@@ -86,6 +88,7 @@ const columnRules: StandardListColumnRule[] = [
   { key: 'factory' },
   { key: 'qtyProgress' },
   { key: 'feiTicketFlow' },
+  { key: 'difference' },
   { key: 'status', freezeable: true },
   { key: 'actions', required: true, actionColumn: true },
 ]
@@ -174,6 +177,16 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
     },
   },
   {
+    key: 'difference', title: '差异', width: 100,
+    render(row) {
+      const records = getDifferenceRecordsByWorkOrderId(row.taskOrder.taskOrderId)
+      if (records.length === 0) return '<span class="text-xs text-muted-foreground">无差异</span>'
+      const unresolvedCount = records.filter((record) => !['已关闭', '已确认差异'].includes(record.status)).length
+      return `<div class="text-xs font-medium ${unresolvedCount > 0 ? 'text-rose-700' : 'text-amber-700'}">差异 ${records.length} 条</div>
+        <div class="mt-0.5 text-[11px] text-muted-foreground">${unresolvedCount > 0 ? `待处理 ${unresolvedCount} 条` : '已处理'}</div>`
+    },
+  },
+  {
     key: 'status', title: '状态', width: 100, freezeable: true,
     render(row) {
       return renderStatusBadge(row.taskOrder.status)
@@ -188,23 +201,30 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
       )
       const webActions = getFastSpecialCraftWebActions(row.taskOrder)
       const actionable = webActions.filter((a) => !a.disabledReason && a.actionCode !== 'SPECIAL_CRAFT_COMPLETE_ORDER').slice(0, 3)
-      const objectType = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
-        ? '捆条'
-        : row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
+      const objectMeta = getSpecialCraftWorkObjectMeta(row.taskOrder)
+      const objectType = objectMeta.objectType
       const objectQty = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
         ? row.taskOrder.outputQty || row.taskOrder.inputTicketCount || 1
         : row.taskOrder.currentQty || row.taskOrder.planQty || 1
-      const qtyUnit = row.taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
-        ? row.taskOrder.outputUnit || '个'
-        : row.taskOrder.unit || '件'
+      const qtyUnit = objectMeta.qtyUnit
       const quickButtons = actionable
         .map((a) => {
-          const requiredFields = a.requiredFields
-            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectType))
+          const quantityField = a.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+            ? `本次实收${objectMeta.objectLabel}数量`
+            : a.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
+              ? `本次完工${objectMeta.objectLabel}数量`
+              : a.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+                ? `本次交出${objectMeta.objectLabel}数量`
+                : ''
+          const requiredFields = [
+            ...(quantityField ? [quantityField] : []),
+            ...a.requiredFields,
+          ]
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectMeta.objectLabel))
           const optionalFields = a.optionalFields
-            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectType))
-          const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', objectType)
-          const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', objectType)
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', objectMeta.objectLabel))
+          const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', objectMeta.objectLabel)
+          const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', objectMeta.objectLabel)
           return `<button type="button" class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 hover:bg-blue-100"
             data-skip-page-rerender="true"
             data-special-craft-web-action="open-web-status-action-dialog"
@@ -294,7 +314,7 @@ function getActiveOperationId(): string | null {
   const pathname = typeof window !== 'undefined'
     ? window.location.pathname
     : (appStore.getState().pathname || '')
-  const match = pathname.match(/\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks/)
+  const match = pathname.match(/\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders/)
   if (!match) return null
   const operation = getSpecialCraftOperationBySlug(decodeURIComponent(match[1]))
   return operation?.operationId || null

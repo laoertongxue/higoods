@@ -88,7 +88,7 @@ function main(): void {
   const activeCraftNames = new Set(activeCrafts.map((item) => item.craftName))
   const specialCraftOperations = listSpecialCraftOperationDefinitions()
   const enabledOperations = listEnabledSpecialCraftOperationDefinitions()
-  const allowedTargetLabels = new Set(['已裁部位', '完整面料', '成衣', '捆条'])
+  const allowedTargetLabels = new Set(['已裁部位', '完整面料', '成衣', '捆条', '辅料'])
 
   assert(
     !activeCrafts.some((item) => removedCraftNameSet.has(item.craftName)),
@@ -108,7 +108,7 @@ function main(): void {
       Array.isArray(item.supportedTargetObjects)
       && item.supportedTargetObjects.length > 0
       && item.supportedTargetObjectLabels.every((label) => allowedTargetLabels.has(label))),
-    '特殊工艺字典必须维护作用对象，且只允许已裁部位 / 完整面料 / 成衣 / 捆条',
+    '特殊工艺字典必须维护作用对象，且只允许已裁部位 / 完整面料 / 成衣 / 捆条 / 辅料',
   )
   assert(
     specialCraftOperations.every((item) =>

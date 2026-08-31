@@ -20,7 +20,7 @@ async function resetWarehouseMapStores(page: Page): Promise<void> {
       userName: '裁床仓管',
       roleId: 'ROLE_OPERATOR',
       factoryId: 'FACTORY-ONBOARD-0035',
-      factoryName: '定位裁演示工厂35',
+      factoryName: '定位裁（激光切）演示工厂35',
       loggedAt: '2026-07-30 10:00:00',
     }))
     sessionStorage.setItem('warehouse-map-e2e-initialized', '1')

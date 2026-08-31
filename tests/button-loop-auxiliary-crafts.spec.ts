@@ -13,9 +13,9 @@ const buttonLoopTask = listSpecialCraftTaskOrders().find((item) =>
 
 if (!buttonLoopTask) throw new Error('盘扣验收缺少真实生产单生成的加工单')
 
-const BUTTON_LOOP_LIST_PATH = '/fcs/process-factory/special-craft/aux-op-button-loop/tasks'
-const BUTTON_LOOP_DETAIL_PATH = `/fcs/process-factory/special-craft/aux-op-button-loop/tasks/${encodeURIComponent(buttonLoopTask.taskOrderId)}`
-const BUTTON_LOOP_PDA_PATH = `/fcs/pda/exec/${encodeURIComponent(buttonLoopTask.sourceTaskId || buttonLoopTask.taskOrderId)}`
+const BUTTON_LOOP_LIST_PATH = '/fcs/process-factory/special-craft/aux-op-button-loop/work-orders'
+const BUTTON_LOOP_DETAIL_PATH = `/fcs/process-factory/special-craft/aux-op-button-loop/work-orders/${encodeURIComponent(buttonLoopTask.taskOrderId)}`
+const BUTTON_LOOP_PDA_PATH = `/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(buttonLoopTask.taskOrderId)}`
 const TECH_PACK_PATH = '/pcs/products/styles/style_demand_SPU_2024_009/technical-data/tdv_demand_SPU_2024_009'
 const EDITABLE_TECH_PACK_PATH = '/pcs/products/styles/style_seed_project_018/technical-data/tdv_seed_project_018_review_skip_demo'
 

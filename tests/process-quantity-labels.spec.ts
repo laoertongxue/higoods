@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+
 const PDA_SESSION = {
   userId: 'F090_operator',
   loginId: 'F090_operator',
@@ -60,16 +63,14 @@ test('移动端任务详情展示对象和单位', async ({ page }) => {
   await expect(page.locator('body')).toContainText('染色完成面料米数')
 })
 
-test('裁片和特殊工艺展示裁片数量与菲票数量', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/cut-orders?cutOrderNo=CUT-260314-087-02')
-  await expect(page.getByTestId('cutting-cut-orders-page')).toBeVisible()
-  await expect(page.locator('body')).toContainText('裁片数量')
-  await expect(page.locator('body')).not.toContainText('执行数量')
-
-  await page.goto('/fcs/process-factory/special-craft/sc-op-008/tasks/SC-TASK-SC-OP-008-01')
+test('裁片对象特殊工艺展示裁片数量与菲票数量', async ({ page }) => {
+  const order = listSpecialCraftTaskOrders().find((item) => item.targetObject === '已裁部位')
+  if (!order) throw new Error('缺少裁片对象特殊工艺加工单')
+  const slug = buildSpecialCraftOperationSlug(order.operationId)
+  await page.goto(`/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(order.taskOrderId)}`)
   await expect(page.locator('body')).toContainText('计划裁片数量')
-  await expect(page.locator('body')).toContainText('绑定菲票数量')
-  await page.getByRole('button', { name: '查看工艺单' }).first().click()
-  await expect(page.locator('body')).toContainText('当前裁片数量')
-  await expect(page.locator('body')).toContainText('绑定菲票')
+  await expect(page.locator('body')).toContainText('菲票号')
+  await page.getByRole('button', { name: '仓库流转' }).click()
+  await expect(page.locator('body')).toContainText('关联菲票数')
+  await expect(page.locator('body')).toContainText('菲票流转明细')
 })

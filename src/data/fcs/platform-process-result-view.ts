@@ -49,6 +49,7 @@ import { cloneCutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/c
 import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   buildSpecialCraftOperationSlug,
+  buildSpecialCraftTaskDetailPath,
   getSpecialCraftOperationById,
 } from './special-craft-operations.ts'
 import {
@@ -688,7 +689,7 @@ function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProces
     plannedObjectQty: workOrder.planQty,
     completedObjectQty: workOrder.returnedQty || workOrder.currentQty,
     detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(workOrder.taskOrderId)}`,
-    craftDetailLink: `/fcs/process-factory/special-craft/${slug}/tasks/${encodeURIComponent(workOrder.taskOrderId)}`,
+    craftDetailLink: buildSpecialCraftTaskDetailPath(slug, workOrder.taskOrderId),
     mobileTaskLink: buildTaskDetailLink(workOrder.sourceTaskId || workOrder.taskOrderId, {
       currentFactoryId: TEST_FACTORY_ID,
       sourceType: 'SPECIAL_CRAFT',

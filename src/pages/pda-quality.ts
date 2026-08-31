@@ -11,6 +11,12 @@ import {
   type FutureMobileFactoryQcListItem,
 } from '../data/fcs/quality-deduction-selectors'
 import type { QualityEvidenceAsset } from '../data/fcs/quality-deduction-domain'
+import {
+  createProcessWorkOrderQcRecord,
+  listProcessHandoversWaitingQc,
+  listProcessWorkOrderQcRecords,
+  submitProcessWorkOrderQcResult,
+} from '../data/fcs/process-work-order-quality-settlement'
 import { escapeHtml, formatDateTime } from '../utils'
 import { renderPdaFrame } from './pda-shell'
 import {
@@ -508,6 +514,64 @@ function renderListEmptyState(viewLabel: string): string {
   `
 }
 
+function renderProcessWorkOrderQcSection(factoryId: string): string {
+  const waiting = listProcessHandoversWaitingQc(factoryId)
+  const records = listProcessWorkOrderQcRecords({ factoryId })
+  if (!waiting.length && !records.length) return ''
+
+  const waitingCards = waiting.map((handover) => `
+    <article class="rounded-xl border bg-background p-3" data-process-handover-qc-card="${escapeAttr(handover.handoverRecordId)}">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="font-medium text-foreground">加工单 ${escapeHtml(handover.workOrderNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(handover.craftName)} · 交出批次 ${escapeHtml(handover.handoverRecordNo)}</div>
+        </div>
+        ${renderStatusBadge('待建质检', getBadgeClass('amber'))}
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div class="rounded-lg bg-muted/40 p-2"><div class="text-muted-foreground">仓库实收</div><div class="mt-1 font-medium">${handover.receiveObjectQty} ${escapeHtml(handover.qtyUnit)}</div></div>
+        <div class="rounded-lg bg-muted/40 p-2"><div class="text-muted-foreground">来源任务</div><div class="mt-1 truncate font-medium">${escapeHtml(handover.sourceTaskNo)}</div></div>
+      </div>
+      <button type="button" class="mt-3 w-full rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground" data-pda-quality-action="create-process-work-order-qc" data-handover-record-id="${escapeAttr(handover.handoverRecordId)}">创建该批次质检</button>
+    </article>
+  `).join('')
+
+  const recordCards = records.map((record) => {
+    const pending = record.status === '待质检'
+    return `
+      <article class="rounded-xl border bg-background p-3" data-process-work-order-qc-card="${escapeAttr(record.qcRecordId)}">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-medium text-foreground">加工单 ${escapeHtml(record.workOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">质检单 ${escapeHtml(record.qcRecordNo)} · ${escapeHtml(record.craftName)}</div>
+          </div>
+          ${renderStatusBadge(record.status, getBadgeClass(pending ? 'blue' : 'green'))}
+        </div>
+        <div class="mt-3 text-xs text-muted-foreground">实收 ${record.receivedQty} ${escapeHtml(record.qtyUnit)} · 价格来源任务 ${escapeHtml(record.priceSourceTaskNo || record.priceSourceTaskId)}</div>
+        ${pending ? `
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <label class="text-[11px] text-muted-foreground">质检数量<input data-process-qc-inspected type="number" step="0.01" value="${record.receivedQty}" class="mt-1 h-9 w-full rounded-lg border px-2 text-sm text-foreground" /></label>
+            <label class="text-[11px] text-muted-foreground">合格数量<input data-process-qc-qualified type="number" step="0.01" value="${record.receivedQty}" class="mt-1 h-9 w-full rounded-lg border px-2 text-sm text-foreground" /></label>
+            <label class="text-[11px] text-muted-foreground">不合格<input data-process-qc-unqualified type="number" step="0.01" value="0" class="mt-1 h-9 w-full rounded-lg border px-2 text-sm text-foreground" /></label>
+          </div>
+          <textarea data-process-qc-remark class="mt-2 min-h-16 w-full rounded-lg border px-3 py-2 text-sm" placeholder="有不合格数量时填写原因"></textarea>
+          <button type="button" class="mt-3 w-full rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground" data-pda-quality-action="submit-process-work-order-qc" data-qc-record-id="${escapeAttr(record.qcRecordId)}">提交质检结果</button>
+        ` : `
+          <div class="mt-3 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">合格 ${record.qualifiedQty} ${escapeHtml(record.qtyUnit)}，不合格 ${record.unqualifiedQty} ${escapeHtml(record.qtyUnit)}；仅合格数量进入该加工单预结算。</div>
+        `}
+      </article>
+    `
+  }).join('')
+
+  return `
+    <section class="rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-4 shadow-sm" data-testid="process-work-order-qc-section">
+      <div class="text-base font-semibold text-foreground">加工单实收质检</div>
+      <div class="mt-1 text-xs leading-5 text-muted-foreground">按具体加工单的仓库实收批次质检；任务号只用于价格来源和追溯。</div>
+      <div class="mt-3 space-y-3">${waitingCards}${recordCards}</div>
+    </section>
+  `
+}
+
 export function renderPdaQualityPage(): string {
   if (!getPdaRuntimeContext()) {
     return renderPdaLoginRedirect()
@@ -533,6 +597,8 @@ export function renderPdaQualityPage(): string {
         </header>
 
         ${renderSummaryCards(factoryId)}
+
+        ${renderProcessWorkOrderQcSection(factoryId)}
 
         <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
           ${renderViewTabs(factoryId)}
@@ -942,6 +1008,44 @@ export function handlePdaQualityEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.pdaQualityAction
   if (!action) return false
+
+  if (action === 'create-process-work-order-qc') {
+    const handoverRecordId = actionNode.dataset.handoverRecordId
+    if (!handoverRecordId) return true
+    try {
+      createProcessWorkOrderQcRecord({
+        handoverRecordId,
+        createdBy: getCurrentFactoryOperatorName(getCurrentFactoryId()),
+      })
+      showPdaQualityToast('已按具体加工单实收批次创建质检')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    } catch (error) {
+      showPdaQualityToast(error instanceof Error ? error.message : '创建加工单质检失败')
+    }
+    return true
+  }
+
+  if (action === 'submit-process-work-order-qc') {
+    const qcRecordId = actionNode.dataset.qcRecordId
+    const card = actionNode.closest<HTMLElement>('[data-process-work-order-qc-card]')
+    if (!qcRecordId || !card) return true
+    try {
+      submitProcessWorkOrderQcResult({
+        qcRecordId,
+        inspectedQty: Number(card.querySelector<HTMLInputElement>('[data-process-qc-inspected]')?.value || 0),
+        qualifiedQty: Number(card.querySelector<HTMLInputElement>('[data-process-qc-qualified]')?.value || 0),
+        unqualifiedQty: Number(card.querySelector<HTMLInputElement>('[data-process-qc-unqualified]')?.value || 0),
+        inspectorName: getCurrentFactoryOperatorName(getCurrentFactoryId()),
+        inspectedAt: nowTimestamp(),
+        remark: card.querySelector<HTMLTextAreaElement>('[data-process-qc-remark]')?.value,
+      })
+      showPdaQualityToast('质检已完成，合格数量已进入该加工单预结算')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    } catch (error) {
+      showPdaQualityToast(error instanceof Error ? error.message : '提交加工单质检失败')
+    }
+    return true
+  }
 
   if (action === 'set-view') {
     const view = actionNode.dataset.view as QualityViewKey | undefined

@@ -85,7 +85,7 @@ const DEFAULT_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异
 const SEWING_FACTORY_TYPES = new Set<FactoryType>(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
 const ONBOARDING_CUTTING_FACTORIES = [
   { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34' },
-  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35' },
+  { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁（激光切）演示工厂35' },
 ] as const
 
 let warehouseLocationRegistry: FactoryInternalWarehouse[] | null = null
@@ -168,8 +168,6 @@ export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
     { areaId: 'AUX-WP-AREA-01', areaName: '绣花-成衣库区', shelfList: buildDefaultShelf('AUX-WP-01'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-02', areaName: '绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-02'), status: 'AVAILABLE' },
     { areaId: 'FLOWER-WP-AREA-01', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('FLOWER-WP-01'), status: 'AVAILABLE' },
-    { areaId: 'FLOWER-WP-AREA-02', areaName: '直喷-裁片库区', shelfList: buildDefaultShelf('FLOWER-WP-02'), status: 'AVAILABLE' },
-    { areaId: 'FLOWER-WP-AREA-03', areaName: '烫画-裁片库区', shelfList: buildDefaultShelf('FLOWER-WP-03'), status: 'AVAILABLE' },
     { areaId: 'FLOWER-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('FLOWER-WP-04'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-05', areaName: '打条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },

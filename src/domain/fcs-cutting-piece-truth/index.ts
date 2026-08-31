@@ -1244,7 +1244,7 @@ export function buildProductionPieceTruth(
     .forEach((row) => {
       pushIssue(mappingIssues, {
         issueType: 'MAPPING_MISSING',
-        message: `${row.cutOrderNo || '未定位裁片单'} · ${row.color}/${row.size} · ${row.partName}：${row.mappingStatusLabel}`,
+        message: `${row.cutOrderNo || '未找到对应裁片单'} · ${row.color}/${row.size} · ${row.partName}：${row.mappingStatusLabel}`,
         productionOrderId: row.productionOrderId,
         productionOrderNo: row.productionOrderNo,
         cutOrderId: row.cutOrderId,

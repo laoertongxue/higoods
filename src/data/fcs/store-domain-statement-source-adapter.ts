@@ -49,6 +49,11 @@ export interface StatementSourceItemViewModel {
   productionOrderNo?: string
   taskId?: string
   taskNo?: string
+  workOrderId?: string
+  workOrderNo?: string
+  priceSourceTaskId?: string
+  priceSourceTaskNo?: string
+  qtyUnit?: string
   qty: number
   amount: number
   currency: string
@@ -315,6 +320,12 @@ function normalizeLedgerPriceSource(
 }
 
 function buildTaskLedgerHref(ledger: PreSettlementLedger): string {
+  if (ledger.workOrderId) {
+    const sourceType = ledger.workOrderId.startsWith('binding:') || ledger.workOrderId.startsWith('BIND-')
+      ? 'BINDING_PROCESS_ORDER'
+      : 'SPECIAL_CRAFT'
+    return `/fcs/pda/exec/${sourceType}/${encodeURIComponent(ledger.workOrderId)}`
+  }
   if (ledger.taskId) return `/fcs/pda/task-receive/${encodeURIComponent(ledger.taskId)}`
   if (ledger.returnInboundBatchId) return `/fcs/pda/task-receive/${encodeURIComponent(ledger.returnInboundBatchId)}`
   return '/fcs/settlement/adjustments'
@@ -387,6 +398,11 @@ function mapLedgerToStatementSourceItem(
       productionOrderNo: ledger.productionOrderNo,
       taskId: ledger.taskId,
       taskNo: ledger.taskNo,
+      workOrderId: ledger.workOrderId,
+      workOrderNo: ledger.workOrderNo,
+      priceSourceTaskId: ledger.priceSourceTaskId,
+      priceSourceTaskNo: ledger.priceSourceTaskNo,
+      qtyUnit: ledger.qtyUnit,
       qty: ledger.qty,
       amount: ledger.settlementAmount,
       currency: ledger.settlementCurrency,
@@ -407,11 +423,21 @@ function mapLedgerToStatementSourceItem(
       settlementCycleStartAt: ledger.settlementCycleStartAt,
       settlementCycleEndAt: ledger.settlementCycleEndAt,
       plannedPrepaymentAt: ledger.plannedPrepaymentAt,
-      statementLineGrainType: isFixedTotalCompletion ? 'TASK_COMPLETION' : 'RETURN_INBOUND_BATCH',
-      returnInboundBatchId: isFixedTotalCompletion ? undefined : ledger.returnInboundBatchId,
-      returnInboundBatchNo: isFixedTotalCompletion ? undefined : ledger.returnInboundBatchNo,
-      returnInboundQty: isFixedTotalCompletion ? undefined : ledger.qty,
-      qcRecordId: undefined,
+      statementLineGrainType: ledger.sourceType === 'WORK_ORDER_QUALITY_RESULT'
+        ? 'WORK_ORDER_QUALITY_RESULT'
+        : isFixedTotalCompletion
+          ? 'TASK_COMPLETION'
+          : 'RETURN_INBOUND_BATCH',
+      returnInboundBatchId: isFixedTotalCompletion || ledger.sourceType === 'WORK_ORDER_QUALITY_RESULT'
+        ? undefined
+        : ledger.returnInboundBatchId,
+      returnInboundBatchNo: isFixedTotalCompletion || ledger.sourceType === 'WORK_ORDER_QUALITY_RESULT'
+        ? undefined
+        : ledger.returnInboundBatchNo,
+      returnInboundQty: isFixedTotalCompletion || ledger.sourceType === 'WORK_ORDER_QUALITY_RESULT'
+        ? undefined
+        : ledger.qty,
+      qcRecordId: ledger.qcRecordId,
       pendingDeductionRecordId: undefined,
       disputeId: undefined,
       processLabel: trace?.qcRecord?.processLabel,
@@ -518,6 +544,7 @@ function getStatementSourceTypeSummary(items: StatementDraftItem[]): string {
 function getStatementLineTypeZh(item: StatementDraftItem): string {
   if (item.statementLineGrainType === 'RETURN_INBOUND_BATCH') return '回货批次行'
   if (item.statementLineGrainType === 'TASK_COMPLETION') return '任务完成行'
+  if (item.statementLineGrainType === 'WORK_ORDER_QUALITY_RESULT') return '加工单质检合格行'
   if (item.statementLineGrainType === 'NON_BATCH_QUALITY') return '返工扣款流水行'
   if (item.statementLineGrainType === 'NON_BATCH_ADJUSTMENT') return '兼容来源行'
   return '其它来源行'
@@ -667,6 +694,11 @@ export function toStatementDraftItemFromSource(item: StatementSourceItemViewMode
     productionOrderNo: item.productionOrderNo,
     taskId: item.taskId,
     taskNo: item.taskNo,
+    workOrderId: item.workOrderId,
+    workOrderNo: item.workOrderNo,
+    priceSourceTaskId: item.priceSourceTaskId,
+    priceSourceTaskNo: item.priceSourceTaskNo,
+    qtyUnit: item.qtyUnit,
     settlementCycleId: item.settlementCycleId,
     settlementCycleLabel: item.settlementCycleLabel,
     settlementCycleStartAt: item.settlementCycleStartAt,

@@ -24,9 +24,20 @@ import {
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
+  getSpecialCraftActionRevision,
   getSpecialCraftTaskOrderById,
 } from '../data/fcs/special-craft-task-orders.ts'
-import { getSpecialCraftPdaCandidateByTaskId } from '../data/fcs/special-craft-pda-scan.ts'
+import {
+  getSpecialCraftPdaCandidateByTaskId,
+  getSpecialCraftPdaCandidatesByTaskId,
+  getSpecialCraftPdaCandidateByWorkOrderId,
+} from '../data/fcs/special-craft-pda-scan.ts'
+import { getBindingProcessPdaCandidateByWorkOrderId } from '../data/fcs/binding-process-pda-scan.ts'
+import {
+  getBindingDetailAvailableProcessQty,
+  getBindingProcessOrderById,
+} from './process-factory/cutting/binding-strip-orders.ts'
+import { executeBindingProcessActionWithWarehouse } from '../data/fcs/binding-process-warehouse-linkage-service.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -199,6 +210,11 @@ interface PdaExecDetailState {
   specialCraftScrapQty: string
   specialCraftDamageQty: string
   specialCraftButtonLoopQty: string
+  specialCraftAccessoryQty: string
+  bindingDraftWorkOrderId: string
+  bindingDetailId: string
+  bindingQty: string
+  bindingRemark: string
   specialCraftSkuDrafts: Record<string, { outboundQty: string; receivedQty: string; completedQty: string; handoverQty: string; scrapQty: string; damageQty: string }>
   waterCompletionDraft: { taskId: string; orderId: string; completedQty: string; reason: string }
   waterOverlay: null | {
@@ -246,6 +262,11 @@ const detailState: PdaExecDetailState = {
   specialCraftScrapQty: '0',
   specialCraftDamageQty: '0',
   specialCraftButtonLoopQty: '',
+  specialCraftAccessoryQty: '',
+  bindingDraftWorkOrderId: '',
+  bindingDetailId: '',
+  bindingQty: '',
+  bindingRemark: '',
   specialCraftSkuDrafts: {},
   waterCompletionDraft: { taskId: '', orderId: '', completedQty: '', reason: '' },
   waterOverlay: null,
@@ -2054,28 +2075,21 @@ function isSpecialCraftExecutionTask(task: ProcessTask, displayProcessName = get
   return stage === 'SPECIAL'
     || processStage === 'SPECIAL'
     || processCode === 'SPECIAL_CRAFT'
-    || /特殊工艺|辅助工艺|绣花|打揽|打条|激光切|烫画|直喷|盘扣|花朵|打褶|烫钻|捆条/.test(displayProcessName)
+    || /特殊工艺|辅助工艺|绣花|打揽|打条|烫画|直喷|盘扣|花朵|打褶|烫钻|捆条/.test(displayProcessName)
 }
 
-function getSpecialCraftExecBindings(task: ProcessTask) {
-  const taskNo = task.taskNo || task.taskId
-  const rootTaskNo = task.rootTaskNo || ''
+function getSpecialCraftExecBindings(task: ProcessTask, requestedWorkOrderId = '') {
+  const workOrderId = requestedWorkOrderId || getSpecialCraftPdaCandidateByTaskId(task.taskId)?.workOrderId || ''
+  if (!workOrderId) return []
   return listCuttingSpecialCraftFeiTicketBindings().filter((binding) =>
-    binding.taskOrderId === task.taskId
-    || binding.taskOrderNo === taskNo
-    || binding.workOrderId === task.taskId
-    || binding.workOrderNo === taskNo
-    || binding.taskOrderNo === rootTaskNo
-    || binding.workOrderNo === rootTaskNo
-    || binding.productionOrderId === task.productionOrderId
-    || binding.productionOrderNo === task.productionOrderId,
+    binding.taskOrderId === workOrderId || binding.workOrderId === workOrderId,
   )
 }
 
 type SpecialCraftPdaObjectMeta = {
-  objectType: '面料' | '裁片' | '成衣' | '捆条'
-  objectLabel: '面料' | '裁片' | '成衣' | '捆条'
-  qtyUnit: '米' | '片' | '件' | '个'
+  objectType: '面料' | '裁片' | '成衣' | '捆条' | '辅料'
+  objectLabel: '面料' | '裁片' | '成衣' | '捆条' | '辅料'
+  qtyUnit: '米' | '片' | '件' | '个' | '条'
   requiresFeiTicket: boolean
 }
 
@@ -2090,16 +2104,27 @@ function resolveSpecialCraftPdaObjectMeta(workOrder?: { targetObject?: string } 
   if (targetObject.includes('捆条')) {
     return { objectType: '捆条', objectLabel: '捆条', qtyUnit: '个', requiresFeiTicket: true }
   }
+  if (targetObject.includes('辅料') || targetObject.includes('橡筋')) {
+    return { objectType: '辅料', objectLabel: '辅料', qtyUnit: '条', requiresFeiTicket: false }
+  }
   return { objectType: '裁片', objectLabel: '裁片', qtyUnit: '片', requiresFeiTicket: true }
 }
 
-function getSpecialCraftWorkOrderForPdaTask(task: ProcessTask, bindings = getSpecialCraftExecBindings(task)) {
+function getSpecialCraftWorkOrderForPdaTask(
+  task: ProcessTask,
+  bindings = getSpecialCraftExecBindings(task),
+  requestedWorkOrderId = '',
+) {
+  if (requestedWorkOrderId) {
+    const requested = getSpecialCraftTaskOrderById(requestedWorkOrderId)
+    return requested?.sourceTaskId === task.taskId ? requested : undefined
+  }
   const params = getExecDetailSearchParams()
   const querySourceType = params.get('sourceType') || ''
   const querySourceId = params.get('sourceId') || ''
   if (querySourceId && ['SPECIAL_CRAFT', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(querySourceType)) {
     const queryWorkOrder = getSpecialCraftTaskOrderById(querySourceId)
-    if (queryWorkOrder) return queryWorkOrder
+    return queryWorkOrder?.sourceTaskId === task.taskId ? queryWorkOrder : undefined
   }
 
   const sourceInfo = getMobileExecutionTaskSourceInfo(task)
@@ -2112,8 +2137,9 @@ function getSpecialCraftWorkOrderForPdaTask(task: ProcessTask, bindings = getSpe
     if (sourceWorkOrder) return sourceWorkOrder
   }
 
-  const bindingWorkOrderId = bindings[0]?.taskOrderId || bindings[0]?.workOrderId
-  return bindingWorkOrderId ? getSpecialCraftTaskOrderById(bindingWorkOrderId) : undefined
+  const bindingWorkOrderIds = Array.from(new Set(bindings.map((binding) => binding.taskOrderId || binding.workOrderId).filter(Boolean)))
+  if (bindingWorkOrderIds.length === 1) return getSpecialCraftTaskOrderById(bindingWorkOrderIds[0])
+  return getSpecialCraftPdaCandidateByTaskId(task.taskId)?.order
 }
 
 function getSpecialCraftPdaBaseQty(
@@ -2171,13 +2197,13 @@ function getSpecialCraftPdaAllowedActions(input: {
   )
 }
 
-function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask): boolean {
+function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask, requestedWorkOrderId = ''): boolean {
   const session = getPdaSession()
   if (!session) return false
   const factory = getFactoryMasterRecordById(session.factoryId)
   const role = findFactoryPdaRoleById(session.roleId, session.factoryId)
-  const bindings = getSpecialCraftExecBindings(task)
-  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings)
+  const bindings = getSpecialCraftExecBindings(task, requestedWorkOrderId)
+  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings, requestedWorkOrderId)
   return factory?.factoryType === 'CENTRAL_GARMENT'
     && role?.status === 'ACTIVE'
     && role.permissionKeys.includes('HANDOUT_CREATE')
@@ -2313,7 +2339,7 @@ function renderSpecialCraftLineProgressSummary(workOrder: ReturnType<typeof getS
     <div class="space-y-2" data-special-craft-line-progress-summary>
       ${rows.map((row) => `
         <section class="rounded-md border bg-muted/20 px-3 py-2 text-xs" data-line-progress-key="${escapeHtml(row.lineProgressKey)}">
-          <div class="font-medium">${escapeHtml(row.lineType === 'sku' ? row.skuCode || 'SKU' : row.feiTicketNo || '菲票')} · ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div>
+          <div class="font-medium">${escapeHtml(row.lineType === 'sku' ? row.skuCode || 'SKU' : row.lineType === 'material' ? row.partName || '辅料' : row.feiTicketNo || '菲票')} · ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div>
           <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
             <span>计划：${row.planQty} ${escapeHtml(unit)}</span>
             <span>累计实收：${row.receivedQty} ${escapeHtml(unit)}</span>
@@ -2329,11 +2355,11 @@ function renderSpecialCraftLineProgressSummary(workOrder: ReturnType<typeof getS
   `
 }
 
-function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, displayProcessName: string): string {
-  const bindings = getSpecialCraftExecBindings(task)
+function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, displayProcessName: string, requestedWorkOrderId = ''): string {
+  const bindings = getSpecialCraftExecBindings(task, requestedWorkOrderId)
   if (!isSpecialCraftExecutionTask(task, displayProcessName) && bindings.length === 0) return ''
 
-  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings)
+  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings, requestedWorkOrderId)
   const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
   const isButtonLoop = workOrder?.quantityMode === 'TICKET_INPUT_OUTPUT'
   const firstBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined
@@ -2411,7 +2437,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const handoverSummary = handoverRecords.length
     ? handoverRecords.map((record) => `${record.handoverRecordNo}：${record.handoverObjectQty}${record.qtyUnit}`).join('；')
     : '暂无交出记录'
-  const canGarmentWarehouseOutbound = canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
+  const canGarmentWarehouseOutbound = canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task, requestedWorkOrderId)
   const surface = getSpecialCraftPdaSurface()
   const allowedActions = getSpecialCraftPdaAllowedActions({
     status,
@@ -2425,7 +2451,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const garmentSkuExecution = objectMeta.objectType === '成衣' && workOrderId
     ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status, canGarmentWarehouseOutbound)
     : ''
-  const lineProgressSummary = isButtonLoop
+  const lineProgressSummary = isButtonLoop || objectMeta.objectType === '辅料'
     ? ''
     : renderSpecialCraftLineProgressSummary(workOrder, objectMeta.qtyUnit)
   const buttonLoopQtyInput = isButtonLoop && surface !== 'HANDOVER_RECEIVE'
@@ -2435,6 +2461,21 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
         <span class="mt-1 block text-xs text-muted-foreground">投入捆条按菲票逐张接收；这里只填写本次产出或交出的盘扣个数。</span>
       </label>`
     : ''
+  const isAccessoryReceive = objectMeta.objectType === '辅料' && ['WAITING', 'TODO', '待接收', '已接收', '待加工', '已入待加工仓'].includes(workOrder?.status || status)
+  const accessoryQtyUnit = isAccessoryReceive ? workOrder?.inputUnit || '米' : workOrder?.outputUnit || workOrder?.unit || '条'
+  const accessoryQtyStep = isAccessoryReceive ? '0.01' : '1'
+  const accessoryQtyInput = objectMeta.objectType === '辅料' && surface !== 'HANDOVER_RECEIVE'
+    ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+        <span class="font-medium">${surface === 'HANDOVER_HANDOUT' ? '本次交出数量' : '本次加工／交出数量'}</span>
+        <span class="mt-1 flex items-center gap-2"><input type="number" min="${accessoryQtyStep}" step="${accessoryQtyStep}" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftAccessoryQty" value="${escapeHtml(detailState.specialCraftAccessoryQty)}" placeholder="填写本次数量"><strong>${escapeHtml(accessoryQtyUnit)}</strong></span>
+        <span class="mt-1 block text-xs text-muted-foreground">接收按 BOM 投入单位；加工和交出按定长产出单位。系统会阻断超投入、超产出和超交出。</span>
+      </label>`
+    : objectMeta.objectType === '辅料' && surface === 'HANDOVER_RECEIVE'
+      ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+          <span class="font-medium">本次实际接收投入</span>
+          <span class="mt-1 flex items-center gap-2"><input type="number" min="0.01" step="0.01" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftAccessoryQty" value="${escapeHtml(detailState.specialCraftAccessoryQty)}" placeholder="填写本次实收"><strong>${escapeHtml(workOrder?.inputUnit || '米')}</strong></span>
+        </label>`
+      : ''
 
   return `
     <article class="rounded-lg border bg-card">
@@ -2453,6 +2494,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
             objectId: workOrder?.taskOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId,
             relatedProductionOrderNo: task.productionOrderId,
           })}</span>
+          <span class="break-all">加工单 ID：${escapeHtml(workOrderId)}</span>
           <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
           <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
           <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
@@ -2462,15 +2504,23 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
               <span>累计产出：${workOrder?.outputQty || 0} 个</span>
               <span>已交出／待交出：${workOrder?.handedOverQty || 0} / ${workOrder?.waitHandoverQty || 0} 个</span>
               <span class="col-span-2 font-medium text-blue-700">交出去向：${escapeHtml(workOrder?.receiverWarehouseName || '中央辅料仓')}</span>`
-            : `<span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
-              <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>`}
+            : objectMeta.objectType === '辅料'
+              ? `<span>计划投入：${workOrder?.inputPlannedQty || 0} ${escapeHtml(workOrder?.inputUnit || '米')}</span>
+                <span>累计实收投入：${workOrder?.inputReceivedQty || 0} ${escapeHtml(workOrder?.inputUnit || '米')}</span>
+                <span>定长规格：${workOrder?.fixedLengthCm || 0} cm / 条</span>
+                <span>计划产出：${workOrder?.planQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>
+                <span>累计完工：${workOrder?.completedQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>
+                <span>累计交出：${workOrder?.returnedQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>`
+              : `<span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>`}
         </div>
         ${buttonLoopQtyInput}
+        ${accessoryQtyInput}
         <div class="grid grid-cols-2 gap-2">
           ${
             allowedActions.length
               ? allowedActions.map((action) => `
-                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-task-id="${escapeHtml(task.taskId)}">${escapeHtml(action.label)}</button>
+                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-source-type="SPECIAL_CRAFT" data-work-order-id="${escapeHtml(workOrderId)}" data-source-task-id="${escapeHtml(task.taskId)}" data-confirmation-key="${escapeHtml(`PDA:${workOrderId}:${action.action}:${getSpecialCraftActionRevision(workOrder)}`)}">${escapeHtml(action.label)}</button>
               `).join('')
               : '<div class="col-span-2 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前状态暂无可执行动作</div>'
           }
@@ -3038,14 +3088,17 @@ function renderPdaFixedMergedTaskPage(task: FixedMergedPdaTask, currentFactoryId
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
-function renderSpecialCraftFocusedDetailPage(task: ProcessTask): string {
+function renderSpecialCraftFocusedDetailPage(task: ProcessTask, requestedWorkOrderId = ''): string {
   const session = getPdaSession()
-  const candidate = getSpecialCraftPdaCandidateByTaskId(task.taskId)
+  const candidate = requestedWorkOrderId
+    ? getSpecialCraftPdaCandidateByWorkOrderId(requestedWorkOrderId)
+    : getSpecialCraftPdaCandidateByTaskId(task.taskId)
   const surface = getSpecialCraftPdaSurface()
-  const canGarmentWarehouseOutbound = surface === 'EXECUTION' && canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
+  const canGarmentWarehouseOutbound = surface === 'EXECUTION' && canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task, requestedWorkOrderId)
   const canOpen = Boolean(
     session
     && candidate
+    && candidate.sourceTaskId === task.taskId
     && (
       (candidate.order.factoryId === session.factoryId && canFactoryAccessSpecialCraftPdaTask(session.factoryId, task))
       || canGarmentWarehouseOutbound
@@ -3070,7 +3123,10 @@ function renderSpecialCraftFocusedDetailPage(task: ProcessTask): string {
             ${candidate.styleImageUrl ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30" data-pda-image-preview-url="${escapeHtml(candidate.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(candidate.styleImageUrl)}" alt="${escapeHtml(imageTitle)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border bg-muted/30"><span class="px-1 text-center text-xs text-muted-foreground">款式图缺失</span></div>'}
             <div class="min-w-0 flex-1 text-xs">
               <div class="text-sm font-semibold">${escapeHtml(candidate.order.taskOrderNo)}</div>
+              <div class="mt-1 break-all text-muted-foreground">加工单 ID：${escapeHtml(candidate.order.taskOrderId)}</div>
               <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(candidate.order.productionOrderNo)}</div>
+              <div class="mt-1 text-muted-foreground">来源任务：${escapeHtml(candidate.sourceTaskNo)}</div>
+              <div class="mt-1 break-all text-muted-foreground">来源任务 ID：${escapeHtml(candidate.sourceTaskId)}</div>
               <div class="mt-1">${escapeHtml(candidate.styleNo)} · ${escapeHtml(candidate.styleName)}</div>
               <div class="mt-1">${escapeHtml(candidate.order.operationName)} · ${escapeHtml(candidate.order.targetObject)}</div>
             </div>
@@ -3078,11 +3134,90 @@ function renderSpecialCraftFocusedDetailPage(task: ProcessTask): string {
         </article>
       ` : ''}
       ${canOpen
-        ? renderSpecialCraftExecutionPanel(task, task.status || 'NOT_STARTED', getTaskProcessDisplayName(task))
+        ? renderSpecialCraftExecutionPanel(task, task.status || 'NOT_STARTED', getTaskProcessDisplayName(task), candidate?.workOrderId || requestedWorkOrderId)
         : '<section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">该加工单不属于当前登录工厂，不能操作。</section>'}
     </div>
   `
   return renderPdaFrame(content, isExecution ? 'exec' : 'handover', { headerTitle: actionLabel, disableTodoAutoOpen: true })
+}
+
+function renderBindingFocusedDetailPage(workOrderId: string): string {
+  const candidate = getBindingProcessPdaCandidateByWorkOrderId(workOrderId)
+  const order = candidate?.order || null
+  const session = getPdaSession()
+  const surface = getSpecialCraftPdaSurface()
+  const isExecution = surface === 'EXECUTION'
+  const canOpen = Boolean(order && session && order.factoryId === session.factoryId)
+  if (order && detailState.bindingDraftWorkOrderId !== order.bindingOrderId) {
+    detailState.bindingDraftWorkOrderId = order.bindingOrderId
+    detailState.bindingDetailId = order.bindingDetails[0]?.detailId || ''
+    detailState.bindingQty = ''
+    detailState.bindingRemark = ''
+  }
+  const selectedDetail = order?.bindingDetails.find((detail) => detail.detailId === detailState.bindingDetailId)
+    || order?.bindingDetails[0]
+  const availableHandoverQty = order ? Math.max(order.actualOutputQty - (order.handedOverQty || 0), 0) : 0
+  const remainingReceiveQty = order ? Math.max(order.requiredMaterialLength - order.receivedMaterialLength, 0) : 0
+  const detailRemainingProcessQty = selectedDetail ? getBindingDetailAvailableProcessQty(selectedDetail) : 0
+  const actionButtons = !order || !canOpen
+    ? ''
+    : surface === 'HANDOVER_RECEIVE'
+      ? (order.status === '待加工' || order.status === '加工中') && remainingReceiveQty > 0
+        ? `<button type="button" class="h-11 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground" data-pda-execd-action="binding-confirm-receive" data-work-order-id="${escapeHtml(order.bindingOrderId)}" data-confirmation-key="${escapeHtml(`PDA:${order.bindingOrderId}:receive:${order.actionRecords?.length || 0}`)}">确认本次接收</button>`
+        : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前没有可接收数量</div>'
+      : surface === 'HANDOVER_HANDOUT'
+        ? availableHandoverQty > 0
+          ? `<button type="button" class="h-11 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground" data-pda-execd-action="binding-submit-handover" data-work-order-id="${escapeHtml(order.bindingOrderId)}" data-confirmation-key="${escapeHtml(`PDA:${order.bindingOrderId}:handover:${order.actionRecords?.length || 0}`)}">发起本次交出</button>`
+          : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前没有已加工未交出的捆条</div>'
+        : order.status === '加工中'
+          ? `<div class="grid grid-cols-2 gap-2"><button type="button" class="h-11 rounded-md bg-primary text-sm font-semibold text-primary-foreground" data-pda-execd-action="binding-process-report" data-work-order-id="${escapeHtml(order.bindingOrderId)}" data-confirmation-key="${escapeHtml(`PDA:${order.bindingOrderId}:process:${order.actionRecords?.length || 0}`)}">加工填报</button><button type="button" class="h-11 rounded-md border text-sm font-semibold" data-pda-execd-action="binding-submit-handover" data-work-order-id="${escapeHtml(order.bindingOrderId)}" data-confirmation-key="${escapeHtml(`PDA:${order.bindingOrderId}:handover:${order.actionRecords?.length || 0}`)}">发起交出</button><button type="button" class="col-span-2 h-11 rounded-md border text-sm font-semibold" data-pda-execd-action="binding-complete-order" data-work-order-id="${escapeHtml(order.bindingOrderId)}" data-confirmation-key="${escapeHtml(`PDA:${order.bindingOrderId}:complete:${order.actionRecords?.length || 0}`)}">完成加工单</button></div>`
+          : order.status === '已完成'
+            ? '<div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">该捆条加工单已完成</div>'
+            : '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">请先到交接模块确认接收面料</div>'
+  const qtyLabel = surface === 'HANDOVER_RECEIVE'
+    ? `本次实收面料（剩余 ${remainingReceiveQty} 米）`
+    : surface === 'HANDOVER_HANDOUT'
+      ? `本次交出捆条（可交 ${availableHandoverQty} 米）`
+      : `本次加工／交出米数（本规格可加工 ${detailRemainingProcessQty} 米）`
+  const title = surface === 'HANDOVER_RECEIVE' ? '捆条 · 确认接收' : surface === 'HANDOVER_HANDOUT' ? '捆条 · 发起交出' : '捆条加工单执行'
+  const imageUrl = order?.materialIdentity.materialImageUrl || ''
+  const imageTitle = order ? `${order.materialIdentity.materialSku} · ${order.materialIdentity.materialName}` : '捆条面料'
+  const content = `<div class="space-y-4 bg-background p-4 pb-6" data-pda-binding-detail>
+    <div class="flex items-center gap-2"><button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back"><i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>返回${isExecution ? '执行' : '交接'}</button><h1 class="text-base font-semibold">${escapeHtml(title)}</h1></div>
+    ${order ? `<article class="rounded-lg border bg-card p-3"><div class="flex gap-3">${imageUrl ? `<button type="button" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageTitle)}物料图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>` : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border bg-muted/30"><span class="px-1 text-center text-xs text-muted-foreground">物料图缺失</span></div>'}<div class="min-w-0 flex-1 text-xs"><div class="text-sm font-semibold">${escapeHtml(order.bindingOrderNo)}</div><div class="mt-1 break-all text-muted-foreground">加工单 ID：${escapeHtml(order.bindingOrderId)}</div><div class="mt-1 text-muted-foreground">来源任务：${escapeHtml(order.sourceTaskNo)}</div><div class="mt-1 break-all text-muted-foreground">来源任务 ID：${escapeHtml(order.sourceTaskId)}</div><div class="mt-1">${escapeHtml(order.sourceProductionOrderNo)} · ${escapeHtml(order.materialIdentity.materialSku)}</div><div class="mt-1">${escapeHtml(order.factoryName)} · ${escapeHtml(order.status)}</div></div></div></article>` : ''}
+    ${canOpen && order ? `<article class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs"><span>计划：${order.plannedOutputQty} 米</span><span>面料实收：${order.receivedMaterialLength} 米</span><span>累计加工：${order.actualOutputQty} 米</span><span>累计交出：${order.handedOverQty || 0} 米</span><span>规格：${order.bindingSpecificationCount} 个</span><span>差异：${order.differenceStatus}</span></div>
+      <label class="block text-sm"><span class="font-medium">捆条规格</span><select class="mt-1 h-10 w-full rounded-md border bg-background px-3" data-pda-execd-field="bindingDetailId">${order.bindingDetails.map((detail) => `<option value="${escapeHtml(detail.detailId)}" ${detail.detailId === selectedDetail?.detailId ? 'selected' : ''}>${escapeHtml(detail.bindingStripName)} · ${detail.bindingWidth} cm · ${escapeHtml(detail.cuttingMethod)}</option>`).join('')}</select></label>
+      <label class="block text-sm"><span class="font-medium">${escapeHtml(qtyLabel)}</span><span class="mt-1 flex items-center gap-2"><input type="number" min="0.01" step="0.01" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3" data-pda-execd-field="bindingQty" value="${escapeHtml(detailState.bindingQty)}" placeholder="填写本次数量"><strong>米</strong></span></label>
+      <label class="block text-sm"><span class="font-medium">差异原因／备注</span><textarea class="mt-1 min-h-16 w-full rounded-md border bg-background px-3 py-2" data-pda-execd-field="bindingRemark" placeholder="正常操作可不填；短裁完成必须填写">${escapeHtml(detailState.bindingRemark)}</textarea></label>
+      ${actionButtons}
+      <details class="rounded-md border bg-muted/20 px-3 py-2 text-xs"><summary class="cursor-pointer font-medium">查看各规格和菲票</summary><div class="mt-2 space-y-2">${order.bindingDetails.map((detail) => `<div class="rounded border bg-background px-2 py-2"><div class="font-medium">${escapeHtml(detail.bindingStripName)} · ${detail.bindingWidth} cm · ${escapeHtml(detail.cuttingMethod)}</div><div class="mt-1">菲票：${escapeHtml(detail.feiTicketNo)}；计划 ${detail.plannedBindingLength} 米；实收 ${detail.receivedMaterialLength} 米；已加工 ${detail.actualLength} 米</div></div>`).join('')}</div><a class="mt-2 inline-flex text-blue-700 underline" href="/fcs/craft/cutting/binding-fei-tickets" data-nav="/fcs/craft/cutting/binding-fei-tickets">查看／打印捆条菲票</a></details>
+    </article>` : '<section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">加工单不存在或不属于当前登录裁床工厂，已阻断操作。</section>'}
+  </div>`
+  return renderPdaFrame(content, isExecution ? 'exec' : 'handover', { headerTitle: title, disableTodoAutoOpen: true })
+}
+
+export function renderPdaWorkOrderExecDetailPage(sourceType: string, workOrderId: string): string {
+  if (sourceType === 'BINDING_PROCESS_ORDER') {
+    return renderBindingFocusedDetailPage(workOrderId)
+  }
+  if (sourceType !== 'SPECIAL_CRAFT') {
+    return renderPdaFrame(
+      '<section class="m-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">不支持的加工单类型，请重新扫码。</section>',
+      'exec',
+      { disableTodoAutoOpen: true },
+    )
+  }
+  const candidate = getSpecialCraftPdaCandidateByWorkOrderId(workOrderId)
+  const task = candidate?.sourceTaskId ? getTaskFactById(candidate.sourceTaskId) : null
+  if (!candidate || !task || candidate.order.sourceTaskId !== task.taskId) {
+    return renderPdaFrame(
+      '<section class="m-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">加工单不存在，或加工单与来源任务关系不完整；已阻断操作。</section>',
+      'exec',
+      { disableTodoAutoOpen: true },
+    )
+  }
+  return renderSpecialCraftFocusedDetailPage(task, workOrderId)
 }
 
 export function renderPdaExecDetailPage(taskId: string): string {
@@ -3105,7 +3240,13 @@ export function renderPdaExecDetailPage(taskId: string): string {
   }
 
   if (task && getMobileTaskProcessType(task) === 'SPECIAL_CRAFT') {
-    return renderSpecialCraftFocusedDetailPage(task)
+    const candidates = getSpecialCraftPdaCandidatesByTaskId(task.taskId)
+    if (candidates.length === 1) {
+      const targetPath = `/fcs/pda/exec/${candidates[0].sourceType}/${encodeURIComponent(candidates[0].workOrderId)}`
+      queueMicrotask(() => appStore.navigate(targetPath))
+      return renderPdaFrame('<section class="m-4 rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">正在进入具体加工单…</section>', 'exec', { disableTodoAutoOpen: true })
+    }
+    return renderPdaFrame('<section class="m-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">该任务包含多张加工单，请返回列表或重新扫描具体加工单；系统不会代选第一张。</section>', 'exec', { disableTodoAutoOpen: true })
   }
 
   const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
@@ -4048,6 +4189,26 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'specialCraftButtonLoopQty' && fieldNode instanceof HTMLInputElement) {
       detailState.specialCraftButtonLoopQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'specialCraftAccessoryQty' && fieldNode instanceof HTMLInputElement) {
+      detailState.specialCraftAccessoryQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'bindingDetailId' && fieldNode instanceof HTMLSelectElement) {
+      detailState.bindingDetailId = fieldNode.value
+      return true
+    }
+
+    if (field === 'bindingQty' && fieldNode instanceof HTMLInputElement) {
+      detailState.bindingQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'bindingRemark') {
+      detailState.bindingRemark = fieldNode.value
       return true
     }
   }
@@ -5127,43 +5288,110 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   }
 
   if (
+    action === 'binding-confirm-receive'
+    || action === 'binding-process-report'
+    || action === 'binding-submit-handover'
+    || action === 'binding-complete-order'
+  ) {
+    try {
+      const workOrderId = actionNode.dataset.workOrderId || ''
+      const confirmationKey = actionNode.dataset.confirmationKey || ''
+      const order = getBindingProcessOrderById(workOrderId)
+      const session = getPdaSession()
+      if (!order || !session || order.factoryId !== session.factoryId) {
+        throw new Error('捆条加工单不存在或不属于当前登录裁床工厂。')
+      }
+      if (!confirmationKey) throw new Error('缺少本次操作确认号，请重新扫码进入。')
+      const actionCodeMap = {
+        'binding-confirm-receive': 'BINDING_CONFIRM_RECEIVE',
+        'binding-process-report': 'BINDING_PROCESS_REPORT',
+        'binding-submit-handover': 'BINDING_SUBMIT_HANDOVER',
+        'binding-complete-order': 'BINDING_COMPLETE_ORDER',
+      } as const
+      const actionLabelMap = {
+        'binding-confirm-receive': '确认接收',
+        'binding-process-report': '加工填报',
+        'binding-submit-handover': '发起交出',
+        'binding-complete-order': '完成加工单',
+      } as const
+      const actionCode = actionCodeMap[action as keyof typeof actionCodeMap]
+      const actionLabel = actionLabelMap[action as keyof typeof actionLabelMap]
+      if (!actionCode || !actionLabel) throw new Error('捆条加工单动作不正确。')
+      const qty = Number(detailState.bindingQty)
+      if (action !== 'binding-complete-order' && (!Number.isFinite(qty) || qty <= 0)) {
+        throw new Error('请填写本次实际米数。')
+      }
+      executeBindingProcessActionWithWarehouse({
+        bindingOrderId: order.bindingOrderId,
+        actionCode,
+        qty: action === 'binding-complete-order' ? undefined : qty,
+        detailId: action === 'binding-confirm-receive' || action === 'binding-process-report'
+          ? detailState.bindingDetailId
+          : undefined,
+        confirmationKey,
+        operatorName: session.userName,
+        operatedAt: nowTimestamp(),
+        remark: detailState.bindingRemark,
+      })
+      detailState.bindingQty = ''
+      if (action !== 'binding-complete-order') detailState.bindingRemark = ''
+      showPdaExecDetailToast(`捆条加工单${actionLabel}已记录`)
+      window.dispatchEvent(new CustomEvent('higood:request-render'))
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '捆条加工单写回失败')
+      return true
+    }
+  }
+
+  if (
     action === 'special-confirm-receive' ||
     action === 'special-process-report' ||
     action === 'special-submit-handover' ||
     action === 'special-complete-order'
   ) {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
     try {
-      const actionTask = getTaskFactById(taskId)
+      const workOrderId = actionNode.dataset.workOrderId || ''
+      const sourceTaskId = actionNode.dataset.sourceTaskId || ''
+      const confirmationKey = actionNode.dataset.confirmationKey || ''
+      if (!workOrderId || !sourceTaskId || !confirmationKey) {
+        throw new Error('加工单执行身份不完整，请重新扫码进入。')
+      }
+      const strictWorkOrder = getSpecialCraftTaskOrderById(workOrderId)
+      if (!strictWorkOrder || strictWorkOrder.sourceTaskId !== sourceTaskId) {
+        throw new Error('加工单与来源任务不一致，已阻断操作。')
+      }
+      const actionTask = getTaskFactById(sourceTaskId)
       const actionSession = getPdaSession()
       const actionFactoryId = actionSession?.factoryId || ''
-      const actionAccess = actionTask && actionFactoryId ? getMobileTaskAccessResult(actionTask, actionFactoryId) : null
-      const canGarmentWarehouseOperate = actionTask ? canCurrentPdaSessionExecuteGarmentWarehouseOutbound(actionTask) : false
+      const canGarmentWarehouseOperate = actionTask ? canCurrentPdaSessionExecuteGarmentWarehouseOutbound(actionTask, workOrderId) : false
       const canExecuteCurrentAction = Boolean(
-            actionSession
-            && actionTask
-            && canFactoryAccessSpecialCraftPdaTask(actionFactoryId, actionTask)
-            && (actionAccess?.canExecuteInMobile || canGarmentWarehouseOperate),
-          )
+        actionSession
+        && actionTask
+        && (
+          (strictWorkOrder.factoryId === actionFactoryId && canFactoryAccessSpecialCraftPdaTask(actionFactoryId, actionTask))
+          || canGarmentWarehouseOperate
+        ),
+      )
       if (!canExecuteCurrentAction) {
         throw new Error('当前账号无权执行该特殊工艺加工单。')
       }
+      if (!actionTask) throw new Error('来源任务不存在，已阻断加工单操作。')
       if (!isSpecialCraftActionAllowedOnCurrentSurface(action, canGarmentWarehouseOperate)) {
         throw new Error('该动作不属于当前页，请从“执行”或“交接”对应入口操作。')
       }
       const actionAudit = getCurrentPdaProcessActionAudit()
 
-      const task = getTaskFactById(taskId)
-      const bindings = task ? getSpecialCraftExecBindings(task) : []
-      const workOrder = task ? getSpecialCraftWorkOrderForPdaTask(task, bindings) : undefined
+      const task = actionTask
+      const bindings = getSpecialCraftExecBindings(task, workOrderId)
+      const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings, workOrderId)
       if (!workOrder) {
         showPdaExecDetailToast('特殊工艺加工单未关联，不能执行')
         return true
       }
       const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
       const isButtonLoop = workOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
-      const sourceId = workOrder?.taskOrderId || ''
+      const sourceId = workOrder.taskOrderId
       if (!sourceId) {
         showPdaExecDetailToast('特殊工艺加工单未关联')
         return true
@@ -5226,6 +5454,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           throw new Error('请填写本次盘扣产出或交出的正整数个数。')
         }
       }
+      const accessoryQty = Number(detailState.specialCraftAccessoryQty)
+      if (objectMeta.objectType === '辅料' && action !== 'special-complete-order') {
+        if (!Number.isFinite(accessoryQty) || accessoryQty <= 0) {
+          throw new Error('请填写本次实际数量。')
+        }
+        if (action !== 'special-confirm-receive' && !Number.isInteger(accessoryQty)) {
+          throw new Error('定长橡筋产出和交出数量必须为整数条。')
+        }
+      }
       const finishQty = skuActionQty ?? Math.max(
           baseQty - Number(detailState.specialCraftScrapQty || 0) - Number(detailState.specialCraftDamageQty || 0),
           0,
@@ -5233,15 +5470,20 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId,
-        taskId,
+        taskId: sourceTaskId,
         actionCode: actionCodeMap[action],
+        confirmationKey,
         ...actionAudit,
         operatedAt: nowTimestamp(),
         objectType: isButtonLoop && action !== 'special-confirm-receive' ? '盘扣' : objectMeta.objectType,
-        objectQty: isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')
+        objectQty: objectMeta.objectType === '辅料' && action !== 'special-complete-order'
+          ? accessoryQty
+          : isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')
           ? buttonLoopQty
           : skuActionQty ?? feiActionQty ?? (action === 'special-process-report' ? finishQty || baseQty : baseQty),
-        qtyUnit: isButtonLoop && action === 'special-confirm-receive' ? '张' : objectMeta.qtyUnit,
+        qtyUnit: objectMeta.objectType === '辅料'
+          ? action === 'special-confirm-receive' ? workOrder.inputUnit || '米' : workOrder.outputUnit || workOrder.unit || '条'
+          : isButtonLoop && action === 'special-confirm-receive' ? '张' : objectMeta.qtyUnit,
         skuQtyBySkuCode,
         feiQtyByTicketNo,
         skuScrapQtyBySkuCode,
@@ -5250,6 +5492,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       })
       if (isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')) {
         detailState.specialCraftButtonLoopQty = ''
+      }
+      if (objectMeta.objectType === '辅料' && action !== 'special-complete-order') {
+        detailState.specialCraftAccessoryQty = ''
       }
       showPdaExecDetailToast(`特殊工艺${actionLabelMap[action]}已同步`)
       return true
@@ -5684,7 +5929,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const sourceBinding = objectMeta.requiresFeiTicket ? specialCraftBindings[0] : undefined
       const baseQty = getSpecialCraftPdaBaseQty(task, specialCraftWorkOrder, sourceBinding, objectMeta)
       const garmentSkuDraft = objectMeta.objectType === '成衣'
-        ? getSpecialCraftGarmentSkuDrafts(specialCraftWorkOrder.workOrderId, specialCraftWorkOrder.status)
+        ? getSpecialCraftGarmentSkuDrafts(specialCraftWorkOrder.taskOrderId, specialCraftWorkOrder.status)
         : undefined
       const skuQtyBySkuCode = garmentSkuDraft
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].completedQty)]))

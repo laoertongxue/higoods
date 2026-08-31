@@ -9,7 +9,7 @@ import {
   listLaceProductionOrders,
   LACE_FACTORY_OPERATOR,
   PLATFORM_ADMIN,
-  startLaceProduction,
+  confirmLaceProductionReceipt,
   type LaceHandoverStatus,
   type LaceReceiptSummaryStatus,
   type LaceProductionOrderView,
@@ -125,8 +125,8 @@ function renderRowActions(order: LaceProductionOrderView): string {
   const actions = listExecutableLaceWorkOrderActions(order, PLATFORM_ADMIN)
   return `<div class="flex min-w-[20rem] flex-wrap gap-1.5" data-lace-work-order-actions="${escapeHtml(order.workOrderId)}">${actions.map((action) => {
     const commonClass = `rounded-md border px-2.5 py-1.5 text-xs font-medium ${actionClass(action)}`
-    if (action.key === 'start-production') {
-      return `<button type="button" class="${commonClass}" data-lace-work-orders-action="start-production" data-work-order-id="${escapeHtml(order.workOrderId)}" data-skip-page-rerender="true">${escapeHtml(action.label)}</button>`
+    if (action.key === 'confirm-receive') {
+      return `<button type="button" class="${commonClass}" data-lace-work-orders-action="confirm-receive" data-work-order-id="${escapeHtml(order.workOrderId)}" data-skip-page-rerender="true">${escapeHtml(action.label)}</button>`
     }
     return `<button type="button" class="${commonClass}" data-nav="${escapeHtml(detailActionHref(order, action.key))}">${escapeHtml(action.label)}</button>`
   }).join('')}</div>`
@@ -344,10 +344,10 @@ export function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): b
     refreshListChrome()
     return true
   }
-  if (action === 'start-production') {
+  if (action === 'confirm-receive') {
     const workOrderId = actionNode.dataset.workOrderId || ''
     try {
-      const nextOrder = startLaceProduction(workOrderId, LACE_FACTORY_OPERATOR)
+      const nextOrder = confirmLaceProductionReceipt(workOrderId, LACE_FACTORY_OPERATOR)
       state.feedback = `${nextOrder.workOrderNo} 已确认接收并进入“加工中”；操作日志已记录花边厂业务员。`
       state.feedbackOk = true
     } catch (error) {

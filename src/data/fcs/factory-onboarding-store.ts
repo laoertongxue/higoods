@@ -291,7 +291,7 @@ function applyMachineValidations(
 }
 
 function resolveFactoryTypeCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
-  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
+  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '定位裁（激光切）', '定向裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE' || capability.processCode === 'WATER_SOLUBLE') return 'DYEING_FACTORY'
   if (['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(capability.processCode)) return 'POST_FINISHING_FACTORY'
@@ -1099,12 +1099,12 @@ function createSeedApplication(
 }
 
 const CAPABILITY_SETS: Array<Array<[string, string]>> = [
-  [['裁片', '定位裁']],
+  [['裁片', '定位裁（激光切）']],
   [['印花', '数码印']],
   [['染色', '匹染']],
   [['烫包', '烫包']],
   [['特殊工艺', '打揽']],
-  [['裁片', '定位裁'], ['印花', '数码印'], ['染色', '匹染']],
+  [['裁片', '定位裁（激光切）'], ['印花', '数码印'], ['染色', '匹染']],
   [['印花', '丝网印']],
   [['染色', '色织']],
   [['特殊工艺', '打条']],

@@ -108,7 +108,7 @@ function cloneFactory(factory: Factory): Factory {
 
 function createOnboardingOfficialSeedFactories(): Factory[] {
   return [34, 35, 36].map((seed, index) => {
-    const craftName = index === 0 ? '定向裁' : index === 1 ? '定位裁' : '数码印'
+    const craftName = index === 0 ? '定向裁' : index === 1 ? '定位裁（激光切）' : '数码印'
     const processName = index === 2 ? '印花' : '裁片'
     const processCode = index === 2 ? 'PRINT' : 'CUT_PANEL'
     const craftCode = index === 2 ? 'CRAFT_2000002' : index === 0 ? 'CRAFT_000016' : 'CRAFT_000001'

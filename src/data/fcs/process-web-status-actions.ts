@@ -112,6 +112,7 @@ export interface ProcessWebActionPayload {
   skuScrapQtyBySkuCode?: Record<string, number>
   skuDamageQtyBySkuCode?: Record<string, number>
   feiQtyByTicketNo?: Record<string, number>
+  confirmationKey?: string
 }
 
 export interface ProcessWebActionResult {
@@ -901,6 +902,7 @@ export function executeProcessWebAction(payload: ProcessWebActionPayload): Proce
     skuScrapQtyBySkuCode: hydratedPayload.skuScrapQtyBySkuCode,
     skuDamageQtyBySkuCode: hydratedPayload.skuDamageQtyBySkuCode,
     feiQtyByTicketNo: hydratedPayload.feiQtyByTicketNo,
+    confirmationKey: hydratedPayload.confirmationKey,
   })
   return {
     success: true,

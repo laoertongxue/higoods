@@ -369,7 +369,7 @@ export function getCompletenessMissingItems(application: Pick<
 }
 
 function resolveFactoryTypeMatchCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
-  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
+  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '定位裁（激光切）', '定向裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
   if (['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(capability.processCode)) return 'POST_FINISHING_FACTORY'

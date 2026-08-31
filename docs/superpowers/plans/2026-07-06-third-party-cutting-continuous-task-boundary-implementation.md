@@ -171,7 +171,7 @@ export interface ProductionOrderTaskBoundary {
 }
 
 function hasCuttingName(names: string[]): boolean {
-  return names.some((name) => ['裁片', '裁剪', '定位裁', '裁床'].some((token) => name.includes(token)))
+  return names.some((name) => ['裁片', '裁剪', '定位裁（激光切）', '裁床'].some((token) => name.includes(token)))
 }
 
 export function resolveProductionOrderTaskBoundary(order: ProductionOrder): ProductionOrderTaskBoundary {

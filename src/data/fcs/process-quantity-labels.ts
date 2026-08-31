@@ -2,7 +2,7 @@ export type ProcessQuantityProcessType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_
 
 export type ProcessObjectType = '面料' | '裁片' | '成衣' | '菲票' | '卷' | '包' | '箱' | '辅料'
 
-export type ProcessQtyUnit = 'Yard' | '米' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个'
+export type ProcessQtyUnit = 'Yard' | '米' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个' | '条'
 
 export type QtyPurpose =
   | '计划'
@@ -51,6 +51,7 @@ function normalizeUnit(unit: string | undefined): ProcessQtyUnit {
   if (unit === 'TICKET' || unit === '张') return '张'
   if (unit === '包') return '包'
   if (unit === '箱') return '箱'
+  if (unit === '条') return '条'
   return '个'
 }
 
@@ -217,8 +218,10 @@ function specialCraftPurposeLabel(context: ProcessQuantityContext, objectType: P
     if (context.qtyPurpose === '差异') return '有差异菲票数量'
     return '菲票数量'
   }
-  const objectLabel = objectType === '成衣' ? '成衣' : objectType === '面料' ? '面料' : '裁片'
+  const objectLabel = objectType === '成衣' ? '成衣' : objectType === '面料' ? '面料' : objectType === '辅料' ? '辅料' : '裁片'
   switch (context.operationCode) {
+    case 'SPECIAL_CRAFT_CONFIRM_RECEIVE':
+      return objectType === '辅料' ? '接收辅料投入数量' : `接收${objectLabel}数量`
     case 'SPECIAL_CRAFT_PROCESS_REPORT':
       return `加工完成${objectLabel}数量`
     default:

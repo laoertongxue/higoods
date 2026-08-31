@@ -21,6 +21,7 @@ const TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE: Record<TaskRouteCardSourceType, s
   PRINTING_WORK_ORDER: 'PRINTING_WORK_ORDER_ROUTE_CARD',
   DYEING_WORK_ORDER: 'DYEING_WORK_ORDER_ROUTE_CARD',
   SPECIAL_CRAFT_TASK_ORDER: 'SPECIAL_CRAFT_TASK_ORDER_ROUTE_CARD',
+  BINDING_PROCESS_ORDER: 'BINDING_PROCESS_ORDER_ROUTE_CARD',
   POST_FINISHING_TASK: 'POST_FINISHING_TASK_ROUTE_CARD',
   POST_FINISHING_WORK_ORDER: 'POST_FINISHING_ROUTE_CARD',
   CUTTING_ORDER: 'CUTTING_ORDER_ROUTE_CARD',
@@ -45,6 +46,7 @@ function getSourceTypeLabel(sourceType: string): string {
     PRINTING_WORK_ORDER: '印花加工单',
     DYEING_WORK_ORDER: '染色加工单',
     SPECIAL_CRAFT_TASK_ORDER: '特殊工艺单',
+    BINDING_PROCESS_ORDER: '捆条加工单',
     POST_FINISHING_TASK: '后道任务',
     CUTTING_ORDER: '裁片单',
     CUTTING_MARKER_PLAN: '唛架方案',
@@ -69,7 +71,9 @@ function resolveTaskRouteTargetRoute(sourceType: PrintSourceType, sourceId: stri
     case 'DYEING_WORK_ORDER':
       return `/fcs/craft/dyeing/work-orders/${encodeURIComponent(sourceId)}`
     case 'SPECIAL_CRAFT_TASK_ORDER':
-      return `/fcs/pda/exec/${encodeURIComponent(doc.taskId || sourceId)}`
+      return `/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(sourceId)}`
+    case 'BINDING_PROCESS_ORDER':
+      return `/fcs/pda/exec/BINDING_PROCESS_ORDER/${encodeURIComponent(sourceId)}`
     case 'POST_FINISHING_TASK':
       return `/fcs/craft/post-finishing/tasks?taskId=${encodeURIComponent(sourceId)}`
     case 'POST_FINISHING_WORK_ORDER':
@@ -84,6 +88,9 @@ function resolveTaskRouteTargetRoute(sourceType: PrintSourceType, sourceId: stri
 }
 
 function buildTaskRouteQrValue(input: PrintDocumentBuildInput, doc: ReturnType<typeof buildTaskRouteCardPrintDoc>): string {
+  if (input.sourceType === 'SPECIAL_CRAFT_TASK_ORDER' || input.sourceType === 'BINDING_PROCESS_ORDER') {
+    return doc.qrValue
+  }
   const targetRoute = resolveTaskRouteTargetRoute(input.sourceType, input.sourceId, doc)
   const payload = new URLSearchParams({
     documentType: 'TASK_ROUTE_CARD',
@@ -115,7 +122,7 @@ function buildTaskRouteCardPrintDocumentForSource(
     paperType: 'A4',
     orientation: 'portrait',
     printTitle: doc.title,
-    printSubtitle: '任务级单据，随任务执行链路流转。',
+    printSubtitle: doc.qrLabel === '加工单二维码' ? '加工单级单据，随具体加工单执行链路流转。' : '任务级单据，随任务执行链路流转。',
     headerFields: mapFields(doc.summaryRows),
     imageBlocks: [
       {
@@ -130,7 +137,7 @@ function buildTaskRouteCardPrintDocumentForSource(
       {
         title: doc.qrLabel,
         value: buildTaskRouteQrValue(input, doc),
-        description: '扫码进入工厂端任务详情',
+        description: doc.qrLabel === '加工单二维码' ? '扫码进入当前加工单详情' : '扫码进入工厂端任务详情',
         sizeMm: 30,
       },
     ],
@@ -211,6 +218,11 @@ export function buildDyeingWorkOrderRouteCardPrintDocument(input: TaskRouteCardA
 export function buildSpecialCraftTaskOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
   const resolvedInput = resolveTaskRouteCardInput(input, 'SPECIAL_CRAFT_TASK_ORDER')
   return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.SPECIAL_CRAFT_TASK_ORDER)
+}
+
+export function buildBindingProcessOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
+  const resolvedInput = resolveTaskRouteCardInput(input, 'BINDING_PROCESS_ORDER')
+  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.BINDING_PROCESS_ORDER)
 }
 
 export function buildPostFinishingTaskRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {

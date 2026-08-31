@@ -1,4 +1,4 @@
-export type FcsQrType = 'TASK' | 'HANDOVER_ORDER' | 'HANDOVER_RECORD' | 'UNKNOWN'
+export type FcsQrType = 'TASK' | 'WORK_ORDER' | 'HANDOVER_ORDER' | 'HANDOVER_RECORD' | 'UNKNOWN'
 
 function buildFcsQrValue(type: Exclude<FcsQrType, 'UNKNOWN'>, id: string): string {
   return `FCS:${type}:v1:${id}`
@@ -6,6 +6,10 @@ function buildFcsQrValue(type: Exclude<FcsQrType, 'UNKNOWN'>, id: string): strin
 
 export function buildTaskQrValue(taskId: string): string {
   return buildFcsQrValue('TASK', taskId)
+}
+
+export function buildWorkOrderQrValue(workOrderId: string): string {
+  return buildFcsQrValue('WORK_ORDER', workOrderId)
 }
 
 export function buildHandoverOrderQrValue(handoverOrderId: string): string {
@@ -33,7 +37,7 @@ export function parseFcsQrValue(qrValue: string): {
     return { type: 'UNKNOWN' }
   }
 
-  if (typeToken === 'TASK' || typeToken === 'HANDOVER_ORDER' || typeToken === 'HANDOVER_RECORD') {
+  if (typeToken === 'TASK' || typeToken === 'WORK_ORDER' || typeToken === 'HANDOVER_ORDER' || typeToken === 'HANDOVER_RECORD') {
     return {
       type: typeToken,
       id,

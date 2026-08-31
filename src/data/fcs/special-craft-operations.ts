@@ -19,19 +19,20 @@ export type SpecialCraftTargetObject =
   | '裁片'
   | '面料'
   | '捆条'
+  | '辅料'
 
 export type SpecialCraftQuantityMode = 'SAME_UNIT' | 'TICKET_INPUT_OUTPUT'
 
 export interface SpecialCraftFlowRule {
-  unit: '片' | '米' | '件' | '个'
+  unit: '片' | '米' | '件' | '个' | '条'
   requiresFeiTicketScan: boolean
   mustReturnToCuttingFactory: boolean
 }
 
 export interface AuxiliaryWarehouseFlowContext {
-  objectType: '裁片' | '面料' | '成衣' | '捆条'
+  objectType: '裁片' | '面料' | '成衣' | '捆条' | '辅料'
   itemKind: '裁片' | '面料' | '成衣' | '辅料'
-  qtyUnit: '片' | '米' | '件' | '个'
+  qtyUnit: '片' | '米' | '件' | '个' | '条'
   sourceObjectName: '裁床待交出仓' | '面辅料仓' | '成衣仓'
   receiverKind: '裁床厂' | '中转仓' | '后道工厂'
   receiverName: '裁床工厂' | '公司中转仓' | '我方后道工厂' | '中央辅料仓'
@@ -61,6 +62,17 @@ export function resolveAuxiliaryWarehouseFlow(
       receiverKind: '后道工厂',
       receiverName: '我方后道工厂',
       receiverWarehouseName: '后道待加工仓',
+    }
+  }
+  if (targetObject === '辅料') {
+    return {
+      objectType: '辅料',
+      itemKind: '辅料',
+      qtyUnit: '条',
+      sourceObjectName: '面辅料仓',
+      receiverKind: '中转仓',
+      receiverName: '中央辅料仓',
+      receiverWarehouseName: '中央辅料仓',
     }
   }
   if (targetObject === '完整面料' || targetObject === '面料') {
@@ -110,8 +122,8 @@ export interface SpecialCraftOperationDefinition {
   defaultTargetObject: SpecialCraftTargetObjectLabel
   targetObject: SpecialCraftTargetObject
   quantityMode: SpecialCraftQuantityMode
-  inputUnit: '张' | '片' | '米' | '件' | '个'
-  outputUnit: '片' | '米' | '件' | '个'
+  inputUnit: '张' | '片' | '米' | '件' | '个' | '条'
+  outputUnit: '片' | '米' | '件' | '个' | '条'
   receiverWarehouseName: string
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
   visibleFactoryIds?: string[]
@@ -129,8 +141,8 @@ interface SpecialCraftOperationSeed {
   requiresFeiTicketScan: boolean
   mustReturnToCuttingFactory: boolean
   quantityMode?: SpecialCraftQuantityMode
-  inputUnit?: '张' | '片' | '米' | '件' | '个'
-  outputUnit?: '片' | '米' | '件' | '个'
+  inputUnit?: '张' | '片' | '米' | '件' | '个' | '条'
+  outputUnit?: '片' | '米' | '件' | '个' | '条'
   receiverWarehouseName?: string
   remark: string
 }
@@ -178,10 +190,10 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
   },
   直喷: {
     operationId: 'AUX-OP-DIRECT-PRINT',
-    defaultTargetObject: 'CUT_PIECE',
-    requiresFeiTicketScan: true,
-    mustReturnToCuttingFactory: true,
-    remark: '按裁片直喷辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    defaultTargetObject: 'SEMI_FINISHED_GARMENT',
+    requiresFeiTicketScan: false,
+    mustReturnToCuttingFactory: false,
+    remark: '按成衣直喷辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   贝壳绣: {
     operationId: 'AUX-OP-SHELL-EMBROIDERY',
@@ -265,6 +277,8 @@ const specialTypeCraftOperationSeedByName: Record<string, SpecialCraftOperationS
     defaultTargetObject: 'ACCESSORY',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
+    inputUnit: '米',
+    outputUnit: '条',
     remark: '按橡筋定长切割特种工艺加工单管理，完成后进入特种工艺待交出仓。',
   },
 }
@@ -461,10 +475,17 @@ export function listVisibleSpecialCraftOperationsForFactoryType(factoryType: Fac
   )
 }
 
+export function getSpecialCraftWorkOrderBusinessType(operationId: string): string {
+  if (operationId === 'AUX-OP-HEAT-TRANSFER') return 'HEAT_TRANSFER'
+  if (operationId === 'AUX-OP-DIRECT-PRINT') return 'DIRECT_PRINT'
+  if (operationId === 'AUX-OP-BUTTON-LOOP') return 'BUTTON_LOOP'
+  return 'OTHER_SPECIAL_CRAFT'
+}
+
 export function getDefaultSpecialCraftTargetObject(
   operation: Pick<SpecialCraftOperationDefinition, 'defaultTargetObject' | 'targetObject'>,
 ): SpecialCraftTargetObjectLabel {
-  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料' || operation.defaultTargetObject === '成衣' || operation.defaultTargetObject === '捆条') {
+  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料' || operation.defaultTargetObject === '成衣' || operation.defaultTargetObject === '捆条' || operation.defaultTargetObject === '辅料') {
     return operation.defaultTargetObject
   }
   return operation.targetObject === '面料' || operation.targetObject === '完整面料'
@@ -476,7 +497,7 @@ export function isSpecialCraftTargetObjectSupported(
   operation: Pick<SpecialCraftOperationDefinition, 'supportedTargetObjectLabels'>,
   selectedTargetObject: string | undefined,
 ): selectedTargetObject is SpecialCraftTargetObjectLabel {
-  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣' || selectedTargetObject === '捆条'
+  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣' || selectedTargetObject === '捆条' || selectedTargetObject === '辅料'
     ? operation.supportedTargetObjectLabels.includes(selectedTargetObject)
     : false
 }
@@ -499,7 +520,7 @@ export function buildSpecialCraftTaskOrdersPath(
   input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
 ): string {
   const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/tasks`
+  return `/fcs/process-factory/special-craft/${slug}/work-orders`
 }
 
 export function buildSpecialCraftTaskDetailPath(

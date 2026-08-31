@@ -75,7 +75,7 @@ const CROWDS = ['年轻', '成熟', '中老年']
 
 const PRODUCT_POSITIONING = ['基础款', '设计款', '设计改款', '低价改款', '低价']
 
-const SPECIAL_CRAFTS = ['绣花', '激光切', '烫画', '直喷', '贝壳绣', '四合扣', '打条', '打揽', '压褶']
+const SPECIAL_CRAFTS = ['绣花', '烫画', '直喷', '贝壳绣', '四合扣', '打条', '打揽', '压褶']
 
 const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'One Size']
 

@@ -3,11 +3,11 @@ import { expect, test } from '@playwright/test'
 const HEAT_TRANSFER_GARMENT_WORK_ORDER = 'AUX-TASK-PO2026030002-SFER-2ab9e9-03-WO-001-'
 
 test('直喷和烫画拥有独立加工单入口', async ({ page }) => {
-  await page.goto('/fcs/process-factory/special-craft/aux-op-heat-transfer/tasks')
+  await page.goto('/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders')
   await expect(page.getByRole('heading', { name: '烫画加工单' })).toBeVisible()
   await expect(page.locator('body')).toContainText('AUX-202603-0002-8192-03')
 
-  await page.goto('/fcs/process-factory/special-craft/aux-op-direct-print/tasks')
+  await page.goto('/fcs/process-factory/special-craft/aux-op-direct-print/work-orders')
   await expect(page.getByRole('heading', { name: '直喷加工单' })).toBeVisible()
   await expect(page.locator('body')).toContainText('AUX-202603-0002-6384-04')
 })

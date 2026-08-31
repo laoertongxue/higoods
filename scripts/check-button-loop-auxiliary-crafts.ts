@@ -230,8 +230,11 @@ newCraftNames.forEach((craftName) => assert(apfAreas.some((areaName) => areaName
 const flowerAreas = internalWarehouses
   .filter((item) => item.factoryId === FLOWER_FACTORY_ID)
   .flatMap((item) => item.areaList.map((area) => area.areaName))
-;['烫画-成衣库区', '烫画-裁片库区', '直喷-成衣库区', '直喷-裁片库区'].forEach((areaName) => {
+;['烫画-成衣库区', '直喷-成衣库区'].forEach((areaName) => {
   assert(flowerAreas.includes(areaName), `FLOWER 默认库区缺少 ${areaName}`)
+})
+;['烫画-裁片库区', '直喷-裁片库区'].forEach((areaName) => {
+  assert(!flowerAreas.includes(areaName), `FLOWER 不应保留已失效的裁片库区 ${areaName}`)
 })
 
 const menuGroups = menuModule.buildSpecialCraftMenuGroups()
@@ -263,7 +266,7 @@ const webDetailHtml = webDetailModule.renderSpecialCraftTaskDetailPage('aux-op-b
 const apfPdaUser = pdaStoreModule.listFactoryPdaUsers(APF_FACTORY_ID)[0]
 assert(apfPdaUser, 'APF - 辅助工艺缺少默认 PDA 用户')
 pdaStoreModule.setPdaSession(pdaStoreModule.createPdaSessionFromUser(apfPdaUser))
-const pdaDetailHtml = pdaDetailModule.renderPdaExecDetailPage(runtimeButtonTask.sourceTaskId || runtimeButtonTask.taskOrderId)
+const pdaDetailHtml = pdaDetailModule.renderPdaWorkOrderExecDetailPage('SPECIAL_CRAFT', runtimeButtonTask.taskOrderId)
 ;['盘扣', '加工单执行'].forEach((token) => {
   assert(pdaDetailHtml.includes(token), `盘扣 PDA 详情缺少 ${token}`)
 })

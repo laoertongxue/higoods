@@ -17,7 +17,7 @@ export interface ProductionOrderTaskBoundary {
   internalCraftPolicyLabel: string
 }
 
-const CUTTING_PROCESS_NAMES = ['裁片', '裁剪', '定位裁', '裁床', 'CUTTING', 'CUT_PANEL']
+const CUTTING_PROCESS_NAMES = ['裁片', '裁剪', '定位裁（激光切）', '裁床', 'CUTTING', 'CUT_PANEL']
 
 function hasIndependentCuttingProcess(order: ProductionOrder): boolean {
   const names = [

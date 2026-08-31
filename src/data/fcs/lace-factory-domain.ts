@@ -140,7 +140,7 @@ export interface LaceProductionOrder {
   statusBeforeCancellation?: Exclude<LaceProductionStatus, '已取消'>
   createdAt: string
   createdBy: string
-  startedAt?: string
+  receivedAt?: string
   completedAt?: string
   cancelledAt?: string
 }
@@ -254,7 +254,7 @@ export interface LaceProductionOrderView extends LaceProductionOrder {
   purchaseChangeStatus: LacePurchaseChangeViewStatus
 }
 
-interface LaceFactoryRuntimeState {
+export interface LaceFactoryRuntimeState {
   purchaseOrders: AccessoryPurchaseOrder[]
   workOrders: LaceProductionOrder[]
   completionReports: LaceCompletionReport[]
@@ -687,11 +687,11 @@ function buildInitialRuntime(): LaceFactoryRuntimeState {
   const partialOrder = state.workOrders.find((order) => order.skuCode === 'IDFL251050-BLACK-19-4003PT')
   if (partialOrder) {
     partialOrder.status = '加工中'
-    partialOrder.startedAt = '2026-08-08T09:00:00+07:00'
+    partialOrder.receivedAt = '2026-08-08T09:00:00+07:00'
     appendLog(state, {
       objectType: '花边生产单', objectId: partialOrder.workOrderId, action: '确认接收', beforeValue: '待接收', afterValue: '加工中',
       reason: '花边厂确认接收生产任务', actorId: LACE_FACTORY_OPERATOR.actorId, actorName: LACE_FACTORY_OPERATOR.actorName,
-      actorRole: LACE_FACTORY_OPERATOR.role, source: 'PFOS', occurredAt: partialOrder.startedAt,
+      actorRole: LACE_FACTORY_OPERATOR.role, source: 'PFOS', occurredAt: partialOrder.receivedAt,
       relatedObjectType: '采购单', relatedObjectId: partialOrder.purchaseOrderId, relatedPurchaseVersion: partialOrder.purchaseVersion,
     })
     seedCompletion(state, partialOrder, 120, '2026-08-08T11:10:00+07:00', '上午首批完工')
@@ -703,12 +703,12 @@ function buildInitialRuntime(): LaceFactoryRuntimeState {
   const completedOrder = state.workOrders.find((order) => order.skuCode === 'FLSZ26051153-105-4CM')
   if (completedOrder) {
     completedOrder.status = '已完结'
-    completedOrder.startedAt = '2026-08-08T08:50:00+07:00'
+    completedOrder.receivedAt = '2026-08-08T08:50:00+07:00'
     completedOrder.completedAt = '2026-08-08T13:10:00+07:00'
     appendLog(state, {
       objectType: '花边生产单', objectId: completedOrder.workOrderId, action: '确认接收', beforeValue: '待接收', afterValue: '加工中',
       reason: '花边厂确认接收生产任务', actorId: LACE_FACTORY_OPERATOR.actorId, actorName: LACE_FACTORY_OPERATOR.actorName,
-      actorRole: LACE_FACTORY_OPERATOR.role, source: 'PFOS', occurredAt: completedOrder.startedAt,
+      actorRole: LACE_FACTORY_OPERATOR.role, source: 'PFOS', occurredAt: completedOrder.receivedAt,
       relatedObjectType: '采购单', relatedObjectId: completedOrder.purchaseOrderId, relatedPurchaseVersion: completedOrder.purchaseVersion,
     })
     seedCompletion(state, completedOrder, 420, '2026-08-08T12:55:00+07:00', '本单一次性完工')
@@ -820,6 +820,14 @@ function toWorkOrderView(state: LaceFactoryRuntimeState, order: LaceProductionOr
 export function resetLaceFactoryRuntime(): void {
   runtime = null
   void getState()
+}
+
+export function captureLaceFactoryRuntime(): LaceFactoryRuntimeState {
+  return structuredClone(getState())
+}
+
+export function restoreLaceFactoryRuntime(snapshot: LaceFactoryRuntimeState): void {
+  runtime = structuredClone(snapshot)
 }
 
 export function listAccessoryPurchaseOrders(): AccessoryPurchaseOrder[] {
@@ -1032,11 +1040,11 @@ export function requiresLaceOverproductionConfirmation(planQty: number, resultin
   return planQty > 0 && resultingCompletedQty >= roundQty(planQty * 1.5)
 }
 
-export function startLaceProduction(workOrderId: string, actor: LaceActor = LACE_FACTORY_OPERATOR): LaceProductionOrderView {
+export function confirmLaceProductionReceipt(workOrderId: string, actor: LaceActor = LACE_FACTORY_OPERATOR): LaceProductionOrderView {
   const state = getState()
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
-  if (order.status !== '待接收') fail('INVALID_START_STATUS', `当前状态为${order.status}，不能确认接收`)
+  if (order.status !== '待接收') fail('INVALID_RECEIVE_STATUS', `当前状态为${order.status}，不能确认接收`)
   if (order.inputLines.length === 0 || order.inputLines.some((line) => (
     !line.inputMaterialId.trim()
     || !line.inputMaterialSku.trim()
@@ -1048,7 +1056,7 @@ export function startLaceProduction(workOrderId: string, actor: LaceActor = LACE
   }
   const before = order.status
   order.status = '加工中'
-  order.startedAt = nowIso()
+  order.receivedAt = nowIso()
   appendLog(state, {
     objectType: '花边生产单', objectId: order.workOrderId, action: '确认接收', beforeValue: before, afterValue: order.status,
     reason: '默认加工投入完整，已确认接收生产任务',

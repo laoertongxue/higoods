@@ -12,6 +12,7 @@ export type PreSettlementLedgerDirection = 'INCOME' | 'DEDUCTION'
 export type PreSettlementLedgerSourceType =
   | 'RETURN_INBOUND_BATCH'
   | 'TASK_COMPLETION'
+  | 'WORK_ORDER_QUALITY_RESULT'
   | 'FORMAL_QUALITY_DEDUCTION_LEDGER'
   | 'QC_REWORK_CHARGEBACK'
 export type PreSettlementLedgerPriceSourceType = 'DISPATCH' | 'BID' | 'TASK_FIXED_TOTAL' | 'OTHER_COMPAT'
@@ -57,6 +58,7 @@ export type StatementSourceItemType = 'TASK_EARNING' | 'QUALITY_DEDUCTION'
 export type StatementLineGrainType =
   | 'RETURN_INBOUND_BATCH'
   | 'TASK_COMPLETION'
+  | 'WORK_ORDER_QUALITY_RESULT'
   | 'NON_BATCH_QUALITY'
   | 'NON_BATCH_ADJUSTMENT'
   | 'OTHER_SOURCE_OBJECT'
@@ -148,6 +150,11 @@ export interface PreSettlementLedger {
   factoryName: string
   taskId?: string
   taskNo?: string
+  workOrderId?: string
+  workOrderNo?: string
+  priceSourceTaskId?: string
+  priceSourceTaskNo?: string
+  qtyUnit?: string
   productionOrderId?: string
   productionOrderNo?: string
   returnInboundBatchId?: string
@@ -358,6 +365,11 @@ export interface StatementDraftItem {
   sourceOrderId?: string
   taskId?: string
   taskNo?: string
+  workOrderId?: string
+  workOrderNo?: string
+  priceSourceTaskId?: string
+  priceSourceTaskNo?: string
+  qtyUnit?: string
   settlementCycleId?: string
   settlementCycleLabel?: string
   settlementCycleStartAt?: string

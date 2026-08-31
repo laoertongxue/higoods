@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+
 test('印花加工单列表移除冗余切换并进入详情 Tab', async ({ page }) => {
   await page.goto('/fcs/craft/printing/work-orders')
   await expect(page.getByRole('heading', { name: '印花加工单', exact: true })).toBeVisible()
@@ -39,23 +42,28 @@ test('染色加工单列表移除冗余切换并进入详情 Tab', async ({ page
   await expect(page.getByText('染色报表')).toHaveCount(0)
 })
 
-test('特殊工艺列表与详情 Tab 收口', async ({ page }) => {
-  await page.goto('/fcs/process-factory/special-craft/sc-op-008/tasks')
-  await expect(page.getByRole('heading', { name: '打揽任务单' })).toBeVisible()
+test('特殊工艺加工单列表与详情 Tab 收口', async ({ page }) => {
+  const order = listSpecialCraftTaskOrders().find((item) => item.status === '加工中')
+  if (!order) throw new Error('缺少可执行特殊工艺加工单')
+  const slug = buildSpecialCraftOperationSlug(order.operationId)
+  const detailPath = `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(order.taskOrderId)}`
+
+  await page.goto(`/fcs/process-factory/special-craft/${slug}/work-orders`)
+  await expect(page.getByRole('heading', { name: `${order.operationName}加工单` })).toBeVisible()
   await expect(page.getByText('当前特殊工艺')).toHaveCount(0)
   await expect(page.getByText(/任务单.*待加工仓.*待交出仓.*统计/)).toHaveCount(0)
 
-  await page.goto('/fcs/process-factory/special-craft/sc-op-008/work-orders/SC-TASK-SC-OP-008-01-WO-001-')
-  await expect(page.getByRole('heading', { name: '工艺单详情' })).toBeVisible()
-  await page.getByRole('button', { name: '绑定菲票' }).click()
-  await expect(page).toHaveURL(/tab=fei/)
-  await expect(page.getByRole('heading', { name: '绑定菲票' })).toBeVisible()
-  await page.getByRole('button', { name: '差异上报' }).click()
-  await expect(page).toHaveURL(/tab=difference/)
-  await expect(page.getByRole('heading', { name: '差异上报' })).toBeVisible()
-  await page.getByRole('button', { name: '流转记录' }).click()
+  await page.goto(detailPath)
+  await expect(page.getByRole('heading', { name: `${order.operationName}加工单详情` })).toBeVisible()
+  await page.getByRole('button', { name: '加工明细' }).click()
+  await expect(page).toHaveURL(/tab=demand/)
+  await expect(page.getByRole('heading', { name: '加工明细' })).toBeVisible()
+  await page.getByRole('button', { name: '仓库流转' }).click()
+  await expect(page).toHaveURL(/tab=warehouse/)
+  await expect(page.getByRole('heading', { name: '仓库记录' })).toBeVisible()
+  await page.getByRole('button', { name: '操作记录' }).click()
   await expect(page).toHaveURL(/tab=events/)
-  await expect(page.getByRole('heading', { name: '流转记录' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '操作记录' })).toBeVisible()
 })
 
 test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {

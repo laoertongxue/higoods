@@ -20,9 +20,9 @@ import {
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from './factory-mock-data.ts'
 
-export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
+export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'BINDING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
-export type ProcessWarehouseObjectType = '面料' | '裁片' | '成衣'
+export type ProcessWarehouseObjectType = '面料' | '裁片' | '成衣' | '捆条' | '盘扣' | '辅料'
 export type ProcessWarehouseHandoverStatus = '交出待收货' | '部分交出' | '全部交出' | '收货差异' | '平台处理中' | '需重新交出' | '已关闭'
 export type ProcessWarehouseDifferenceStatus = '待处理' | '处理中' | '已确认差异' | '需重新交出' | '已关闭'
 export type ProcessWarehouseReviewStatus = '收货确认中' | '收货已确认' | '收货差异' | '已关闭'
@@ -36,6 +36,8 @@ export interface ProcessWarehouseRecord {
   recordType: ProcessWarehouseRecordType
   craftType: ProcessWarehouseCraftType
   craftName: string
+  workOrderId: string
+  workOrderNo: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
@@ -82,6 +84,8 @@ export interface ProcessHandoverRecord {
   warehouseRecordId: string
   craftType: ProcessWarehouseCraftType
   craftName: string
+  workOrderId: string
+  workOrderNo: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
@@ -124,6 +128,8 @@ export interface ProcessHandoverDifferenceRecord {
   differenceRecordNo: string
   handoverRecordId: string
   warehouseRecordId: string
+  workOrderId: string
+  workOrderNo: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceType?: ProcessWorkOrderSourceType
@@ -157,6 +163,8 @@ export interface ProcessWarehouseReviewRecord {
   reviewRecordNo: string
   handoverRecordId: string
   warehouseRecordId: string
+  workOrderId: string
+  workOrderNo: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   craftType: ProcessWarehouseCraftType
@@ -180,6 +188,7 @@ export interface ProcessWarehouseRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  workOrderId?: string
   sourceTaskId?: string
   targetFactoryId?: string
   status?: string
@@ -189,6 +198,7 @@ export interface ProcessHandoverRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  workOrderId?: string
   warehouseRecordId?: string
   status?: ProcessWarehouseHandoverStatus
 }
@@ -197,6 +207,7 @@ export interface ProcessWarehouseReviewRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  workOrderId?: string
   handoverRecordId?: string
   reviewStatus?: ProcessWarehouseReviewStatus
 }
@@ -205,6 +216,7 @@ export interface ProcessHandoverDifferenceRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  workOrderId?: string
   handoverRecordId?: string
   warehouseRecordId?: string
   status?: ProcessWarehouseDifferenceStatus
@@ -326,6 +338,8 @@ function buildWarehouseRecord(
     recordType,
     craftType: payload.craftType,
     craftName: payload.craftName,
+    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
     sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || '',
@@ -370,7 +384,10 @@ function buildWarehouseRecord(
 function getObjectQtyLabel(objectType: ProcessWarehouseObjectType): string {
   if (objectType === '面料') return '面料米数'
   if (objectType === '裁片') return '裁片数量'
-  return '成衣件数'
+  if (objectType === '成衣') return '成衣件数'
+  if (objectType === '捆条') return '捆条数量'
+  if (objectType === '盘扣') return '盘扣数量'
+  return '辅料数量'
 }
 
 export function formatProcessObjectQty(qty: number | undefined, unit: string): string {
@@ -720,7 +737,10 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
         ),
       )
     }
-    if (taskOrder.waitHandoverQty > 0 || ['待交出', '已交出', '全部交出', '收货差异', '差异', '异议中'].includes(taskOrder.status)) {
+    const completedQty = roundQty(taskOrder.outputQty ?? taskOrder.completedQty)
+    const handedOverQty = roundQty(taskOrder.handedOverQty ?? taskOrder.returnedQty ?? 0)
+    const availableToHandoverQty = roundQty(Math.max(completedQty - handedOverQty, 0))
+    if (completedQty > 0 || handedOverQty > 0) {
       const location = resolveLocation(taskOrder.operationName, 'WAIT_HANDOVER', taskOrder.taskOrderNo)
       records.push(
         buildWarehouseRecord(
@@ -730,12 +750,14 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
             targetFactoryName: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_NAME : flow.receiverName,
             targetWarehouseName: location.targetWarehouseName,
             warehouseLocation: location.warehouseLocation,
-            availableObjectQty: taskOrder.waitHandoverQty || taskOrder.completedQty,
-            handedOverObjectQty: taskOrder.status === '已交出' || taskOrder.status === '全部交出' ? taskOrder.waitHandoverQty : 0,
-            writtenBackObjectQty: taskOrder.status === '全部交出' ? taskOrder.returnedQty || taskOrder.waitHandoverQty : 0,
-            diffObjectQty: Math.max((taskOrder.waitHandoverQty || 0) - (taskOrder.returnedQty || 0), 0),
+            availableObjectQty: availableToHandoverQty,
+            handedOverObjectQty: handedOverQty,
+            writtenBackObjectQty: 0,
+            diffObjectQty: 0,
             currentActionName: '特殊工艺待交出',
-            status: taskOrder.status === '全部交出' ? '全部交出' : taskOrder.status === '已交出' ? '交出待收货' : '待交出',
+            status: availableToHandoverQty > 0
+              ? (handedOverQty > 0 ? '部分交出' : '待交出')
+              : '交出待收货',
             remark: '特殊工艺完成后进入对应物理库区待交出仓',
           },
           'WAIT_HANDOVER',
@@ -820,7 +842,9 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             plannedObjectQty: order.plannedGarmentQty,
             receivedObjectQty: order.recheckAction.acceptedGarmentQty,
             availableObjectQty: order.recheckAction.acceptedGarmentQty,
-            handedOverObjectQty: order.handoverRecordId ? order.recheckAction.acceptedGarmentQty : 0,
+            handedOverObjectQty: order.handoverStatus.includes('已交出') || order.handoverStatus.includes('交出待收货')
+              ? order.recheckAction.acceptedGarmentQty
+              : 0,
             writtenBackObjectQty: order.currentStatus === '全部交出' ? order.recheckAction.acceptedGarmentQty - order.recheckAction.diffGarmentQty : 0,
             diffObjectQty: order.recheckAction.diffGarmentQty,
             qtyUnit: order.plannedGarmentQtyUnit,
@@ -864,6 +888,8 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
         warehouseRecordId: record.warehouseRecordId,
         craftType: record.craftType,
         craftName: record.craftName,
+        workOrderId: record.workOrderId,
+        workOrderNo: record.workOrderNo,
         sourceTaskOrderId: record.sourceTaskOrderId,
         sourceWorkOrderNo: record.sourceWorkOrderNo,
         sourceTaskId: record.sourceTaskId,
@@ -883,6 +909,10 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
         packageQty: record.relatedFeiTicketIds.length || 1,
         packageUnit: record.objectType === '裁片' ? '包' : '箱',
         handoverPerson: `${record.craftName}操作员`,
+        operatorUserId: '',
+        operatorFactoryId: record.sourceFactoryId,
+        operatorRoleId: '',
+        operatorRoleName: '',
         handoverAt: record.updatedAt,
         receivePerson: record.status === '全部交出' ? '接收方仓管' : '',
         receiveAt: record.status === '全部交出' ? record.updatedAt : '',
@@ -923,6 +953,8 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
           warehouseRecordId: warehouse.warehouseRecordId,
           craftType: warehouse.craftType,
           craftName: warehouse.craftName,
+          workOrderId: warehouse.workOrderId,
+          workOrderNo: warehouse.workOrderNo,
           sourceTaskOrderId: warehouse.sourceTaskOrderId,
           sourceWorkOrderNo: warehouse.sourceWorkOrderNo,
           sourceTaskId: warehouse.sourceTaskId,
@@ -942,6 +974,10 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
           packageQty: warehouse.relatedFeiTicketIds.length || 1,
           packageUnit: warehouse.objectType === '面料' ? '卷' : warehouse.objectType === '裁片' ? '包' : '箱',
           handoverPerson: `${warehouse.craftName}交出员`,
+          operatorUserId: '',
+          operatorFactoryId: warehouse.sourceFactoryId,
+          operatorRoleId: '',
+          operatorRoleName: '',
           handoverAt: demoRecordedAt,
           receivePerson: status === '交出待收货' ? '' : '接收方仓管',
           receiveAt: status === '交出待收货' ? '' : demoRecordedAt,
@@ -977,6 +1013,8 @@ function buildInitialReviewRecords(handoverRecords: ProcessHandoverRecord[]): Pr
     reviewRecordNo: `SH-${String(index + 1).padStart(4, '0')}`,
     handoverRecordId: record.handoverRecordId,
     warehouseRecordId: record.warehouseRecordId,
+    workOrderId: record.workOrderId,
+    workOrderNo: record.workOrderNo,
     sourceTaskOrderId: record.sourceTaskOrderId,
     sourceWorkOrderNo: record.sourceWorkOrderNo,
     craftType: record.craftType,
@@ -1018,6 +1056,8 @@ function buildDifferenceRecordFromHandover(record: ProcessHandoverRecord, index:
     differenceRecordNo: `CY-${String(index + 1).padStart(4, '0')}`,
     handoverRecordId: record.handoverRecordId,
     warehouseRecordId: record.warehouseRecordId,
+    workOrderId: record.workOrderId,
+    workOrderNo: record.workOrderNo,
     sourceTaskOrderId: record.sourceTaskOrderId,
     sourceWorkOrderNo: record.sourceWorkOrderNo,
     sourceProductionOrderId: record.sourceProductionOrderId,
@@ -1102,6 +1142,7 @@ function matchesWarehouseFilter(record: ProcessWarehouseRecord, filter: ProcessW
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.sourceTaskId && record.sourceTaskId !== filter.sourceTaskId) return false
   if (filter.targetFactoryId && record.targetFactoryId !== filter.targetFactoryId) return false
   if (filter.status && record.status !== filter.status) return false
@@ -1112,6 +1153,7 @@ function matchesHandoverFilter(record: ProcessHandoverRecord, filter: ProcessHan
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
   if (filter.status && record.status !== filter.status) return false
   return true
@@ -1121,6 +1163,7 @@ function matchesReviewFilter(record: ProcessWarehouseReviewRecord, filter: Proce
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.reviewStatus && record.reviewStatus !== filter.reviewStatus) return false
   return true
@@ -1130,6 +1173,7 @@ function matchesDifferenceFilter(record: ProcessHandoverDifferenceRecord, filter
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
   if (filter.status && record.status !== filter.status) return false
@@ -1193,19 +1237,19 @@ export function getProcessWarehouseReviewRecordById(reviewRecordId: string): Pro
 }
 
 export function getWarehouseRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseRecord[] {
-  return listProcessWarehouseRecords({ sourceTaskOrderId: workOrderId })
+  return listProcessWarehouseRecords({ workOrderId })
 }
 
 export function getHandoverRecordsByWorkOrderId(workOrderId: string): ProcessHandoverRecord[] {
-  return listProcessHandoverRecords({ sourceTaskOrderId: workOrderId })
+  return listProcessHandoverRecords({ workOrderId })
 }
 
 export function getReviewRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseReviewRecord[] {
-  return listProcessWarehouseReviewRecords({ sourceTaskOrderId: workOrderId })
+  return listProcessWarehouseReviewRecords({ workOrderId })
 }
 
 export function getDifferenceRecordsByWorkOrderId(workOrderId: string): ProcessHandoverDifferenceRecord[] {
-  return listProcessHandoverDifferenceRecords({ sourceTaskOrderId: workOrderId })
+  return listProcessHandoverDifferenceRecords({ workOrderId })
 }
 
 export function getHandoverRecordsByWarehouseRecordId(warehouseRecordId: string): ProcessHandoverRecord[] {
@@ -1314,6 +1358,8 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     warehouseRecordId: warehouse?.warehouseRecordId || payload.warehouseRecordId || '',
     craftType: payload.craftType,
     craftName: payload.craftName,
+    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
     sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || warehouse?.sourceTaskId || '',
@@ -1372,6 +1418,8 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
     differenceRecordNo: payload.differenceRecordNo || existed?.differenceRecordNo || `CY-${String(processHandoverDifferenceRecords.length + 1).padStart(4, '0')}`,
     handoverRecordId: payload.handoverRecordId,
     warehouseRecordId: payload.warehouseRecordId,
+    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
     sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     ...(payload.sourceType ? { sourceType: payload.sourceType } : {}),
@@ -1436,6 +1484,10 @@ export function writeBackProcessHandoverRecord(
 ): ProcessHandoverRecord | undefined {
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === handoverRecordId)
   if (!handover) return undefined
+  if (!Number.isFinite(payload.receiveObjectQty) || payload.receiveObjectQty < 0) {
+    throw new Error('本次实收数量必须是大于或等于 0 的有效数字。')
+  }
+  if (handover.receiveAt) throw new Error('该交出记录已经完成收货确认，不能重复写回。')
   const isAuxiliaryGarmentToPost = handover.craftType === 'SPECIAL_CRAFT'
     && handover.objectType === '成衣'
     && handover.receiveFactoryId === DEDICATED_POST_FACTORY_ID
@@ -1444,7 +1496,6 @@ export function writeBackProcessHandoverRecord(
     ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceTaskOrderId && stock.itemKind === '成衣')
     : []
   if (isAuxiliaryGarmentToPost) {
-    if (handover.receiveAt) throw new Error('该成衣交出记录已完成后道收货，不能重复收货。')
     if (!payload.receivedQtyBySkuCode) throw new Error('后道成衣收货必须逐 SKU 确认实收件数。')
     const expectedSkuCodes = postSourceSkuStocks.map((stock) => stock.materialSku || '').sort()
     const actualSkuCodes = Object.keys(payload.receivedQtyBySkuCode).sort()
@@ -1496,6 +1547,8 @@ export function writeBackProcessHandoverRecord(
     ? createProcessHandoverDifferenceRecord({
         handoverRecordId: handover.handoverRecordId,
         warehouseRecordId: handover.warehouseRecordId,
+        workOrderId: handover.workOrderId,
+        workOrderNo: handover.workOrderNo,
         sourceTaskOrderId: handover.sourceTaskOrderId,
         sourceWorkOrderNo: handover.sourceWorkOrderNo,
         sourceProductionOrderId: handover.sourceProductionOrderId,
@@ -1518,6 +1571,8 @@ export function writeBackProcessHandoverRecord(
   const review = createProcessWarehouseReviewRecord({
     handoverRecordId: handover.handoverRecordId,
     warehouseRecordId: handover.warehouseRecordId,
+    workOrderId: handover.workOrderId,
+    workOrderNo: handover.workOrderNo,
     sourceTaskOrderId: handover.sourceTaskOrderId,
     sourceWorkOrderNo: handover.sourceWorkOrderNo,
     craftType: handover.craftType,
@@ -1608,6 +1663,8 @@ export function createProcessWarehouseReviewRecord(payload: ReviewRecordPayload)
     reviewRecordNo: payload.reviewRecordNo || existed?.reviewRecordNo || `SH-${String(processWarehouseReviewRecords.length + 1).padStart(4, '0')}`,
     handoverRecordId: payload.handoverRecordId,
     warehouseRecordId: payload.warehouseRecordId || '',
+    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
     sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     craftType: payload.craftType,
@@ -1720,7 +1777,7 @@ export function handleProcessHandoverDifference(
       warehouse.updatedAt = handledAt
     }
     if (review) {
-      review.reviewStatus = '数量差异'
+      review.reviewStatus = '收货差异'
       review.nextAction = '平台处理差异'
       review.reviewerName = payload.handledBy
       review.reviewedAt = handledAt

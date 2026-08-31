@@ -120,6 +120,19 @@ export interface BindingStripDifferenceRecord {
   recordedAt: string
 }
 
+export interface BindingProcessActionRecord {
+  actionRecordId: string
+  bindingOrderId: string
+  actionCode: 'BINDING_CONFIRM_RECEIVE' | 'BINDING_PROCESS_REPORT' | 'BINDING_SUBMIT_HANDOVER' | 'BINDING_COMPLETE_ORDER'
+  detailId?: string
+  qty: number
+  unit: string
+  confirmationKey: string
+  operatorName: string
+  operatedAt: string
+  remark: string
+}
+
 export interface BindingStripWorkOrderDetail {
   detailId: string
   bindingStripId: string
@@ -167,8 +180,14 @@ export interface BindingProcessOrder {
   bindingOrderNo: string
   processType: '捆条'
   processMode: BindingProcessMode
+  factoryId: string
+  factoryName: string
   sourceCutOrderId: string
   sourceCutOrderNo: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  sourceParentTaskId: string
+  sourceParentTaskNo: string
   sourceProductionOrderId: string
   sourceProductionOrderNo: string
   sourceMarkerPlanId: string
@@ -203,9 +222,10 @@ export interface BindingProcessOrder {
   actualTotalLength: number
   plannedOutputQty: number
   actualOutputQty: number
+  handedOverQty?: number
   unit: string
   operatorName: string
-  startedAt: string
+  receivedAt: string
   completedAt: string
   status: BindingProcessStatus
   printStatus: BindingProcessPrintStatus
@@ -215,6 +235,7 @@ export interface BindingProcessOrder {
   bindingDetails: BindingStripWorkOrderDetail[]
   cuttingRecords: BindingStripCuttingRecord[]
   differenceRecords: BindingStripDifferenceRecord[]
+  actionRecords?: BindingProcessActionRecord[]
   costItems: BindingProcessCostItem[]
   abnormalItems: BindingProcessAbnormalItem[]
   inboundInventoryRecordIds: string[]

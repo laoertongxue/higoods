@@ -12,7 +12,7 @@ import {
   LACE_FACTORY_SUPERVISOR,
   PLATFORM_ADMIN,
   restoreCancelledLaceProductionOrder,
-  startLaceProduction,
+  confirmLaceProductionReceipt,
   undoLaceProductionCompletion,
   updateLaceProcessingInputs,
   updateLaceCompletionReport,
@@ -105,7 +105,7 @@ function productionTone(status: LaceProductionOrderView['status']): 'blue' | 'gr
 
 function detailActionName(action: LaceWorkOrderActionKey): string {
   const mapping: Partial<Record<LaceWorkOrderActionKey, string>> = {
-    'start-production': 'start-production',
+    'confirm-receive': 'confirm-receive',
     'report-completion': 'open-report',
     'complete-production': 'open-complete',
     handover: 'open-handover',
@@ -274,6 +274,7 @@ function renderInner(): string {
       <div>
         <button type="button" class="mb-2 text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/accessory/lace/work-orders">← 返回花边生产单</button>
         <div class="flex flex-wrap items-center gap-2"><h1 class="text-2xl font-semibold">${escapeHtml(order.workOrderNo)}</h1>${renderLaceStatusBadge(order.status, productionTone(order.status))}</div>
+        <p class="mt-1 break-all text-xs text-slate-500">加工单 ID：${escapeHtml(order.workOrderId)}</p>
         <p class="mt-1 text-sm text-slate-500">${escapeHtml(order.demandSource.factoryName)} · 采购单 ${escapeHtml(order.demandSource.purchaseOrderNo)} · ${escapeHtml(order.processingOutput.skuCode)}</p>
       </div>
       <div class="flex flex-wrap justify-end gap-2">${renderHeaderActions(order)}</div>
@@ -404,8 +405,8 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
   const order = currentOrder()
   if (!order) return false
   try {
-    if (action === 'start-production') {
-      startLaceProduction(order.workOrderId, LACE_FACTORY_OPERATOR)
+    if (action === 'confirm-receive') {
+      confirmLaceProductionReceipt(order.workOrderId, LACE_FACTORY_OPERATOR)
       closeOverlayWithFeedback('已确认接收生产任务并进入加工中；默认加工投入保持不变。')
       return true
     }

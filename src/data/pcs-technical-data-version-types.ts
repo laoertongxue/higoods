@@ -180,9 +180,9 @@ export interface TechnicalPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条'>
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP' | 'ACCESSORY'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'>
 }
 
 export type TechnicalPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
@@ -370,6 +370,9 @@ export interface TechnicalProcessEntry {
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
+  fixedLengthCm?: number
+  outputUnit?: string
+  outputQtyPerGarment?: number
   linkedPatternIds?: string[]
   visibleFactoryTypes?: string[]
   triggerSource?: string

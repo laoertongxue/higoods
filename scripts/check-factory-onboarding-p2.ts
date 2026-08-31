@@ -106,7 +106,7 @@ try {
 }
 assert(requiredBlocked, '缺少业务必填字段时应被中文校验阻止')
 
-const cuttingCapability = createCapability('裁片', '定位裁')
+const cuttingCapability = createCapability('裁片', '定位裁（激光切）')
 const printingCapability = createCapability('印花', '数码印')
 const dyeCapability = createCapability('染色', '匹染')
 const postCapability = createCapability('烫包', '烫包')

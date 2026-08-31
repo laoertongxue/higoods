@@ -7,7 +7,7 @@ import {
 export type LaceWorkOrderActionKey =
   | 'view-detail'
   | 'view-change'
-  | 'start-production'
+  | 'confirm-receive'
   | 'report-completion'
   | 'complete-production'
   | 'handover'
@@ -43,7 +43,7 @@ export function listExecutableLaceWorkOrderActions(
     actions.push({ key: 'view-change', label: '查看采购变更', tone: 'warning' })
   }
   if (canOperate && order.status === '待接收') {
-    actions.push({ key: 'start-production', label: '确认接收', tone: 'primary' })
+    actions.push({ key: 'confirm-receive', label: '确认接收', tone: 'primary' })
   }
   if (canOperate && order.status === '加工中') {
     actions.push({ key: 'report-completion', label: '加工填报', tone: 'primary' })

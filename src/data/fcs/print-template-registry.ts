@@ -7,6 +7,7 @@ import type {
 import {
   buildCuttingMarkerPlanSourceRouteCardPrintDocument,
   buildCuttingCutOrderRouteCardPrintDocument,
+  buildBindingProcessOrderRouteCardPrintDocument,
   buildDyeingWorkOrderRouteCardPrintDocument,
   buildLegacyTaskRouteCardPrintDocument,
   buildPostFinishingTaskRouteCardPrintDocument,
@@ -340,6 +341,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
       'PRINTING_WORK_ORDER',
       'DYEING_WORK_ORDER',
       'SPECIAL_CRAFT_TASK_ORDER',
+      'BINDING_PROCESS_ORDER',
       'CUTTING_ORDER',
       'CUTTING_MARKER_PLAN',
     ],
@@ -372,10 +374,18 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'SPECIAL_CRAFT_TASK_ORDER_ROUTE_CARD',
-    templateName: '特殊工艺任务流转卡',
+    templateName: '特殊工艺加工单流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['SPECIAL_CRAFT_TASK_ORDER'],
     buildDocument: buildSpecialCraftTaskOrderRouteCardPrintDocument,
+    render: renderTaskRouteCardTemplate,
+  },
+  {
+    templateCode: 'BINDING_PROCESS_ORDER_ROUTE_CARD',
+    templateName: '捆条加工单流转卡',
+    documentType: 'TASK_ROUTE_CARD',
+    supportedSourceTypes: ['BINDING_PROCESS_ORDER'],
+    buildDocument: buildBindingProcessOrderRouteCardPrintDocument,
     render: renderTaskRouteCardTemplate,
   },
   {

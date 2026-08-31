@@ -131,7 +131,9 @@ export function applyKolGotoTechPackFixture(
   const bomItems = snapshot.bomItems.map((sourceItem) => {
     const item = cloneBomItem(sourceItem)
     const runtimeType = String(item.type)
-    const isLegacyFabric = runtimeType === '纱线' || runtimeType === '成衣'
+    // 成衣是成衣类辅助工艺的正式投入 BOM，不能为了补 KOL 面料图片而改写成面料。
+    // 若技术包同时需要面料展示，下方会单独补一行面料，不破坏成衣加工单的来源关系。
+    const isLegacyFabric = runtimeType === '纱线'
     if (item.type === '面料' || isLegacyFabric) {
       hasFabric = true
       return {

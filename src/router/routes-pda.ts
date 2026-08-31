@@ -11,6 +11,7 @@ import {
   renderPdaTaskReceiveDetailPage,
   renderPdaTaskReceivePage,
   renderPdaExecDetailPage,
+  renderPdaWorkOrderExecDetailPage,
   renderPdaExecPage,
   renderPdaHandoverDetailPage,
   renderPdaHandoverPage,
@@ -90,6 +91,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/pda\/notify\/([^/]+)$/,
       render: (match) => renderPdaNotifyDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/pda\/exec\/([^/]+)\/([^/]+)$/,
+      render: (match) => renderPdaWorkOrderExecDetailPage(decodeRouteSegment(match[1]), decodeRouteSegment(match[2])),
     },
     {
       pattern: /^\/fcs\/pda\/exec\/([^/]+)$/,

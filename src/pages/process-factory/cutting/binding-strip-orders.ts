@@ -3,6 +3,7 @@ import {
   type GeneratedCutOrderSourceRecord,
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-orders.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
 import type { TechPackPatternFileSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import type {
   TechnicalPatternBindingStrip,
@@ -10,6 +11,7 @@ import type {
 } from '../../../data/pcs-technical-data-version-types.ts'
 import type {
   BindingProcessAbnormalItem,
+  BindingProcessActionRecord,
   BindingProcessDifferenceStatus,
   BindingProcessHandoverStatus,
   BindingProcessInboundStatus,
@@ -95,6 +97,29 @@ function slugToken(value: string | number | null | undefined): string {
 function roundTo(value: number, precision = 2): number {
   const factor = 10 ** precision
   return Math.round((Number(value) || 0) * factor) / factor
+}
+
+export function getBindingDetailAuthorizedOutputQty(detail: Pick<BindingStripWorkOrderDetail, 'plannedBindingLength' | 'requiredLength' | 'receivedMaterialLength'>): number {
+  if (detail.plannedBindingLength <= 0 || detail.requiredLength <= 0) return 0
+  const receivedRatio = Math.min(Math.max(detail.receivedMaterialLength / detail.requiredLength, 0), 1)
+  return roundTo(detail.plannedBindingLength * receivedRatio)
+}
+
+export function getBindingDetailAvailableProcessQty(detail: Pick<BindingStripWorkOrderDetail, 'plannedBindingLength' | 'requiredLength' | 'receivedMaterialLength' | 'actualLength'>): number {
+  return roundTo(Math.max(getBindingDetailAuthorizedOutputQty(detail) - detail.actualLength, 0))
+}
+
+export function getBindingDetailConsumedMaterialQty(detail: Pick<BindingStripWorkOrderDetail, 'plannedBindingLength' | 'requiredLength' | 'actualLength'>): number {
+  if (detail.plannedBindingLength <= 0 || detail.requiredLength <= 0) return 0
+  const completedRatio = Math.min(Math.max(detail.actualLength / detail.plannedBindingLength, 0), 1)
+  return roundTo(detail.requiredLength * completedRatio)
+}
+
+export function getBindingOrderAvailableInputMaterialQty(order: Pick<BindingProcessOrder, 'bindingDetails'>): number {
+  return roundTo(order.bindingDetails.reduce(
+    (sum, detail) => sum + Math.max(detail.receivedMaterialLength - getBindingDetailConsumedMaterialQty(detail), 0),
+    0,
+  ))
 }
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
@@ -820,8 +845,14 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
       bindingOrderNo: row.orderNo,
       processType: '捆条',
       processMode: '裁床内部加工',
+      factoryId: TEST_FACTORY_ID,
+      factoryName: TEST_FACTORY_NAME,
       sourceCutOrderId: row.source.cutOrderId,
       sourceCutOrderNo: row.source.cutOrderNo,
+      sourceTaskId: `TASK-BIND-${slugToken(row.source.cutOrderId)}`,
+      sourceTaskNo: `TASK-BIND-${row.source.cutOrderNo}`,
+      sourceParentTaskId: `TASK-CUT-${slugToken(row.source.cutOrderId)}`,
+      sourceParentTaskNo: `TASK-CUT-${row.source.cutOrderNo}`,
       sourceProductionOrderId: row.source.productionOrderId,
       sourceProductionOrderNo: row.source.productionOrderNo,
       sourceMarkerPlanId: row.source.markerPlanId,
@@ -872,7 +903,7 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
       actualOutputQty: actualTotalLength,
       unit: '米',
       operatorName: cuttingRecords[0]?.operatorName || '',
-      startedAt: cuttingRecords[cuttingRecords.length - 1]?.operatedAt || '',
+      receivedAt: '',
       completedAt: row.status === '已完成' ? cuttingRecords[0]?.operatedAt || '' : '',
       status: row.status,
       printStatus,
@@ -899,7 +930,7 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
   })
 }
 
-export function buildBindingProcessOrders(
+function buildInitialBindingProcessOrders(
   sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): BindingProcessOrder[] {
   const eligibleSourceEntries = sourceRecords
@@ -935,8 +966,14 @@ export function buildBindingProcessOrders(
         bindingOrderNo,
         processType: '捆条',
         processMode: '裁床内部加工',
+        factoryId: source.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
+        factoryName: source.cuttingTaskAssigneeFactoryName || TEST_FACTORY_NAME,
         sourceCutOrderId: source.cutOrderId,
         sourceCutOrderNo: source.cutOrderNo,
+        sourceTaskId: `TASK-BIND-${slugToken(source.cuttingTaskId)}`,
+        sourceTaskNo: `TASK-BIND-${source.cuttingTaskNo}`,
+        sourceParentTaskId: source.cuttingTaskId,
+        sourceParentTaskNo: source.cuttingTaskNo,
         sourceProductionOrderId: source.productionOrderId,
         sourceProductionOrderNo: source.productionOrderNo,
         sourceMarkerPlanId: source.markerPlanId,
@@ -987,7 +1024,7 @@ export function buildBindingProcessOrders(
         actualOutputQty: actualTotalLength,
         unit: '米',
         operatorName: cuttingRecords[0]?.operatorName || '',
-        startedAt: cuttingRecords[cuttingRecords.length - 1]?.operatedAt || '',
+        receivedAt: '',
         completedAt: status === '已完成' ? cuttingRecords[0]?.operatedAt || '' : '',
         status,
         printStatus,
@@ -1017,9 +1054,234 @@ export function buildBindingProcessOrders(
   return orders.length ? orders : sourceRecords.length ? [] : buildFallbackBindingProcessOrders()
 }
 
+let bindingProcessOrderStore: BindingProcessOrder[] | null = null
+
+export function buildBindingProcessOrders(
+  sourceRecords?: GeneratedCutOrderSourceRecord[],
+): BindingProcessOrder[] {
+  if (sourceRecords) return buildInitialBindingProcessOrders(sourceRecords)
+  bindingProcessOrderStore ||= buildInitialBindingProcessOrders()
+  return bindingProcessOrderStore
+}
+
 export function getBindingProcessOrderById(bindingOrderId?: string): BindingProcessOrder | null {
   const rows = buildBindingProcessOrders()
-  return rows.find((row) => row.bindingOrderId === bindingOrderId) || rows[0] || null
+  if (!bindingOrderId) return null
+  return rows.find((row) => row.bindingOrderId === bindingOrderId) || null
+}
+
+export interface BindingProcessSourceTaskSummary {
+  sourceTaskId: string
+  sourceTaskNo: string
+  sourceParentTaskId: string
+  sourceParentTaskNo: string
+  factoryId: string
+  factoryName: string
+  workOrderCount: number
+  completedWorkOrderCount: number
+  status: 'IN_PROGRESS' | 'DONE'
+}
+
+export function listBindingProcessSourceTasks(): BindingProcessSourceTaskSummary[] {
+  const grouped = new Map<string, BindingProcessOrder[]>()
+  buildBindingProcessOrders().forEach((order) => {
+    grouped.set(order.sourceTaskId, [...(grouped.get(order.sourceTaskId) || []), order])
+  })
+  return [...grouped.values()].map((orders) => {
+    const first = orders[0]
+    const completedWorkOrderCount = orders.filter((order) => order.status === '已完成').length
+    return {
+      sourceTaskId: first.sourceTaskId,
+      sourceTaskNo: first.sourceTaskNo,
+      sourceParentTaskId: first.sourceParentTaskId,
+      sourceParentTaskNo: first.sourceParentTaskNo,
+      factoryId: first.factoryId,
+      factoryName: first.factoryName,
+      workOrderCount: orders.length,
+      completedWorkOrderCount,
+      status: orders.length > 0 && completedWorkOrderCount === orders.length ? 'DONE' : 'IN_PROGRESS',
+    }
+  })
+}
+
+export function getBindingProcessSourceTaskById(sourceTaskId?: string): BindingProcessSourceTaskSummary | null {
+  if (!sourceTaskId) return null
+  return listBindingProcessSourceTasks().find((task) => task.sourceTaskId === sourceTaskId) || null
+}
+
+export type BindingProcessActionCode =
+  | 'BINDING_CONFIRM_RECEIVE'
+  | 'BINDING_PROCESS_REPORT'
+  | 'BINDING_SUBMIT_HANDOVER'
+  | 'BINDING_COMPLETE_ORDER'
+
+export interface ExecuteBindingProcessActionInput {
+  bindingOrderId: string
+  actionCode: BindingProcessActionCode
+  qty?: number
+  detailId?: string
+  confirmationKey: string
+  operatorName: string
+  operatedAt: string
+  remark?: string
+}
+
+function recalculateBindingProcessOrder(order: BindingProcessOrder): void {
+  const summary = summarizeBindingDetails(order.bindingDetails)
+  order.receivedMaterialLength = summary.receivedMaterialLength
+  order.actualOutputQty = summary.actualLength
+  order.actualTotalLength = summary.actualLength
+  order.actualLength = order.bindingDetails[0]?.actualLength || 0
+  order.straightCutLength = summary.straightCutLength
+  order.crossCutLength = summary.crossCutLength
+  order.biasCutLength = summary.biasCutLength
+  order.actualRollCount = summary.actualRollCount
+  order.latestRecordedAt = summary.latestRecordedAt
+  order.shortageLength = summary.shortageLength
+  order.lossLength = summary.shortageLength
+  order.lossRate = order.plannedTotalLength ? roundTo((order.lossLength / order.plannedTotalLength) * 100, 1) : 0
+  order.sufficiencyStatus = summary.sufficiencyStatus
+  order.cuttingRecords = order.bindingDetails.flatMap((detail) => detail.cuttingRecords)
+  order.differenceRecords = order.bindingDetails.flatMap((detail) => detail.differenceRecords)
+  order.differenceStatus = order.differenceRecords.length ? '有差异' : '无差异'
+}
+
+export function executeBindingProcessAction(input: ExecuteBindingProcessActionInput): BindingProcessOrder {
+  const order = getBindingProcessOrderById(input.bindingOrderId)
+  if (!order) throw new Error('捆条加工单不存在')
+  const confirmationKey = input.confirmationKey.trim()
+  if (!confirmationKey) throw new Error('缺少本次操作确认号，请重新打开加工单动作后提交。')
+  order.actionRecords ||= []
+  if (order.actionRecords.some((record) => record.confirmationKey === confirmationKey && record.actionCode === input.actionCode)) {
+    return order
+  }
+  const qty = Number(input.qty || 0)
+  const requiresQty = input.actionCode !== 'BINDING_COMPLETE_ORDER'
+  if (requiresQty && (!Number.isFinite(qty) || qty <= 0)) throw new Error('本次数量必须大于 0 米。')
+  const beforeSnapshot = structuredClone(order)
+  try {
+    if (input.actionCode === 'BINDING_CONFIRM_RECEIVE') {
+      if (order.status !== '待加工' && order.status !== '加工中') throw new Error('当前状态不能确认接收。')
+      const detail = input.detailId
+        ? order.bindingDetails.find((item) => item.detailId === input.detailId)
+        : order.bindingDetails[0]
+      if (!detail) throw new Error('请选择本次接收的捆条规格。')
+      const remaining = roundTo(Math.max(detail.requiredLength - detail.receivedMaterialLength, 0))
+      if (qty > remaining) throw new Error(`实收数量不能超过该规格剩余应收 ${remaining} 米。`)
+      detail.receivedMaterialLength = roundTo(detail.receivedMaterialLength + qty)
+      detail.latestRecordedAt = input.operatedAt
+      order.status = '加工中'
+      order.receivedAt ||= input.operatedAt
+      order.materialReceiveStatus = '已接收'
+    } else if (input.actionCode === 'BINDING_PROCESS_REPORT') {
+      if (order.status !== '加工中') throw new Error('请先确认接收，再填报加工。')
+      const detail = order.bindingDetails.find((item) => item.detailId === input.detailId)
+      if (!detail) throw new Error('加工填报必须选择具体捆条规格。')
+      const remaining = roundTo(Math.max(detail.plannedBindingLength - detail.actualLength, 0))
+      const authorizedRemaining = getBindingDetailAvailableProcessQty(detail)
+      if (qty > remaining || qty > authorizedRemaining) {
+        throw new Error(`本次加工不能超过该规格剩余计划 ${remaining} 米及按实收面料比例可加工 ${authorizedRemaining} 米。`)
+      }
+      const record: BindingStripCuttingRecord = {
+        recordId: `BCR-${slugToken(order.bindingOrderId)}-${String(order.cuttingRecords.length + 1).padStart(3, '0')}`,
+        detailId: detail.detailId,
+        bindingStripId: detail.bindingStripId,
+        bindingWidth: detail.bindingWidth,
+        cuttingMethod: detail.cuttingMethod,
+        receivedMaterialLength: qty,
+        actualLength: qty,
+        straightCutLength: detail.cuttingMethod === '直切' ? qty : 0,
+        crossCutLength: detail.cuttingMethod === '横切' ? qty : 0,
+        biasCutLength: detail.cuttingMethod === '斜切' ? qty : 0,
+        rollLength: qty,
+        actualRollCount: 1,
+        operatorName: input.operatorName,
+        operatedAt: input.operatedAt,
+        remark: input.remark?.trim() || 'PDA/Web 加工填报',
+      }
+      detail.cuttingRecords.push(record)
+      detail.actualLength = roundTo(detail.actualLength + qty)
+      detail.straightCutLength = roundTo(detail.straightCutLength + record.straightCutLength)
+      detail.crossCutLength = roundTo(detail.crossCutLength + record.crossCutLength)
+      detail.biasCutLength = roundTo(detail.biasCutLength + record.biasCutLength)
+      detail.rollLength = roundTo(detail.rollLength + record.rollLength)
+      detail.actualRollCount += 1
+      detail.latestRecordedAt = input.operatedAt
+      detail.shortageLength = roundTo(Math.max(detail.plannedBindingLength - detail.actualLength, 0))
+      detail.differenceLength = roundTo(detail.actualLength - detail.plannedBindingLength)
+      detail.sufficiencyStatus = detail.shortageLength > 0 ? '捆条不足' : '充足'
+    } else if (input.actionCode === 'BINDING_SUBMIT_HANDOVER') {
+      if (order.status !== '加工中' && order.status !== '已完成') throw new Error('当前状态不能发起交出。')
+      const remaining = roundTo(Math.max(order.actualOutputQty - (order.handedOverQty || 0), 0))
+      if (qty > remaining) throw new Error(`本次交出不能超过可交出 ${remaining} 米。`)
+      order.handedOverQty = roundTo((order.handedOverQty || 0) + qty)
+      order.handoverStatus = order.handedOverQty >= order.actualOutputQty ? '已交出' : '已装袋待交出'
+    } else {
+      if (order.status !== '加工中') throw new Error('只有加工中的捆条加工单可以完成。')
+      if (order.actualOutputQty <= 0) throw new Error('尚无加工填报，不能完成加工单。')
+      if ((order.handedOverQty || 0) < order.actualOutputQty) throw new Error('仍有已加工捆条未交出，不能完成加工单。')
+      if (order.actualOutputQty < order.plannedOutputQty && !input.remark?.trim()) {
+        throw new Error('短裁完成必须填写差异原因。')
+      }
+      order.bindingDetails.forEach((detail) => {
+        const differenceLength = roundTo(detail.actualLength - detail.plannedBindingLength)
+        if (differenceLength === 0) return
+        const differenceType: BindingStripDifferenceRecord['differenceType'] = differenceLength < 0 ? '短裁差异' : '超裁差异'
+        const alreadyRecorded = detail.differenceRecords.some((record) =>
+          record.differenceType === differenceType
+          && record.actualLength === detail.actualLength
+          && record.plannedLength === detail.plannedBindingLength,
+        )
+        if (alreadyRecorded) return
+        detail.differenceRecords.push({
+          differenceId: `BDR-${slugToken(order.bindingOrderId)}-${slugToken(detail.detailId)}-${String(detail.differenceRecords.length + 1).padStart(3, '0')}`,
+          detailId: detail.detailId,
+          bindingStripId: detail.bindingStripId,
+          differenceType,
+          plannedLength: detail.plannedBindingLength,
+          actualLength: detail.actualLength,
+          differenceLength,
+          reason: input.remark?.trim() || '加工单完成数量差异',
+          recordedBy: input.operatorName,
+          recordedAt: input.operatedAt,
+        })
+      })
+      order.status = '已完成'
+      order.completedAt = input.operatedAt
+      if (order.actualOutputQty !== order.plannedOutputQty) order.differenceStatus = '有差异'
+    }
+    recalculateBindingProcessOrder(order)
+    const actionRecord: BindingProcessActionRecord = {
+      actionRecordId: `BAR-${slugToken(order.bindingOrderId)}-${String(order.actionRecords.length + 1).padStart(3, '0')}`,
+      bindingOrderId: order.bindingOrderId,
+      actionCode: input.actionCode,
+      detailId: input.detailId,
+      qty: requiresQty ? qty : order.actualOutputQty,
+      unit: order.unit,
+      confirmationKey,
+      operatorName: input.operatorName,
+      operatedAt: input.operatedAt,
+      remark: input.remark?.trim() || '',
+    }
+    order.actionRecords.push(actionRecord)
+    order.operatorName = input.operatorName
+    return order
+  } catch (error) {
+    Object.assign(order, beforeSnapshot)
+    throw error
+  }
+}
+
+export function captureBindingProcessOrderStore(): BindingProcessOrder[] {
+  return structuredClone(buildBindingProcessOrders())
+}
+
+export function restoreBindingProcessOrderStore(snapshot: BindingProcessOrder[]): void {
+  bindingProcessOrderStore = structuredClone(snapshot)
+}
+
+export function resetBindingProcessOrderStore(): void {
+  bindingProcessOrderStore = null
 }
 
 export function summarizeBindingStripRequirementsForCutOrders(

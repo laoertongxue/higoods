@@ -21,6 +21,12 @@ import {
   getPostFinishingWorkOrderById,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import {
+  buildSpecialCraftTaskDetailPath,
+} from '../../../data/fcs/special-craft-operations.ts'
+import {
+  getSpecialCraftTaskOrderById,
+} from '../../../data/fcs/special-craft-task-orders.ts'
+import {
   createPrintDocumentId,
   formatPrintQty,
   getPrintGeneratedAt,
@@ -36,7 +42,7 @@ const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   runtime: '任务交货卡',
   printing: '印花任务交货卡',
   dyeing: '染色任务交货卡',
-  specialCraft: '特殊工艺任务交货卡',
+  specialCraft: '特殊工艺加工单交货卡',
   postFinishing: '后道任务交货卡',
   cutting: '裁片任务交货卡',
   sewing: '车缝任务交货卡',
@@ -96,8 +102,8 @@ function inferVariantFromText(text: string): DeliveryVariant {
   if (text.includes('染色')) return 'dyeing'
   if (text.includes('后道')) return 'postFinishing'
   if (text.includes('车缝') || text.includes('缝制')) return 'sewing'
-  if (text.includes('裁片') || text.includes('裁剪') || text.includes('裁床')) return 'cutting'
-  if (['打揽', '打条', '捆条', '烫画', '直喷', '激光切', '特殊工艺'].some((keyword) => text.includes(keyword))) {
+  if (text.includes('裁片') || text.includes('裁剪') || text.includes('裁床') || text.includes('定位裁（激光切）')) return 'cutting'
+  if (['打揽', '打条', '捆条', '烫画', '直喷', '特殊工艺'].some((keyword) => text.includes(keyword))) {
     return 'specialCraft'
   }
   return 'runtime'
@@ -115,7 +121,12 @@ function resolveTargetRoute(record: ProcessHandoverRecord): string {
   if (record.craftType === 'PRINT') return `/fcs/craft/printing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
   if (record.craftType === 'DYE') return `/fcs/craft/dyeing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
   if (record.craftType === 'POST_FINISHING') return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
-  if (record.craftType === 'SPECIAL_CRAFT') return `/fcs/process-factory/special-craft/tasks?handoverRecordId=${encodeURIComponent(record.handoverRecordId)}`
+  if (record.craftType === 'SPECIAL_CRAFT') {
+    const workOrder = getSpecialCraftTaskOrderById(record.sourceWorkOrderId)
+    return workOrder
+      ? `${buildSpecialCraftTaskDetailPath(workOrder.operationId, workOrder.taskOrderId)}?tab=warehouse&handoverRecordId=${encodeURIComponent(record.handoverRecordId)}`
+      : `/fcs/progress/handover?recordId=${encodeURIComponent(record.handoverRecordId)}`
+  }
   return `/fcs/progress/handover?recordId=${encodeURIComponent(record.handoverRecordId)}`
 }
 
@@ -287,15 +298,15 @@ function buildDocumentFromLegacyDoc(
       },
       {
         sectionId: 'base',
-        title: '任务基础信息',
+        title: variant === 'specialCraft' ? '加工单基础信息' : '任务基础信息',
         fields: mapFields([
-          { label: '任务编号 / 加工单号', value: doc.taskNo || doc.handoverOrderNo },
+          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号', value: doc.handoverOrderNo || doc.taskNo },
           { label: '生产单', value: doc.productionOrderNo || '待确认' },
           { label: '工序 / 工艺', value: [doc.processName, doc.craftName].filter(Boolean).join(' / ') || '待确认' },
           { label: '款号', value: doc.summaryRows.find((row) => row.label.includes('款号'))?.value || '随生产单' },
           { label: '商品名称', value: doc.summaryRows.find((row) => row.label.includes('商品'))?.value || '随生产单' },
           { label: 'SKU / 颜色 / 尺码概况', value: doc.lineRows.map((row) => [row.materialOrSku, row.color, row.size].filter(Boolean).join(' / ')).slice(0, 2).join('；') || '待确认' },
-          { label: '来源任务', value: doc.taskNo || '待确认' },
+          { label: variant === 'specialCraft' ? '来源任务 ID' : '来源任务', value: doc.taskNo || '待确认' },
           { label: `计划${noun}`, value: qtyText(doc.submittedQty, doc.qtyUnit) },
           ...(variant === 'sewing' ? [
             { label: '是否本厂完成实际工序', value: `${doc.title} ${doc.processName} ${doc.craftName || ''}`.includes('后道') ? '是' : '按任务要求确认' },
@@ -451,16 +462,16 @@ function buildDocumentFromProcessHandover(
       },
       {
         sectionId: 'base',
-        title: '任务基础信息',
+        title: variant === 'specialCraft' ? '加工单基础信息' : '任务基础信息',
         fields: mapFields([
-          { label: '任务编号 / 加工单号 / 后道单号 / 裁片单号 / 车缝任务号', value: record.sourceWorkOrderNo || record.sourceTaskNo },
+          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号 / 后道单号 / 裁片单号 / 车缝任务号', value: record.sourceWorkOrderNo || record.sourceTaskNo },
           { label: '生产单', value: record.sourceProductionOrderNo || '待确认' },
           { label: '工序 / 工艺', value: record.craftName },
           { label: '款号', value: warehouse?.styleNo || postOrder?.styleNo || '随生产单' },
           { label: '商品名称', value: warehouse?.materialName || '随生产单' },
           { label: '商品图或款式图', value: imageUrl ? image.sourceLabel : '暂无商品图' },
           { label: 'SKU / 颜色 / 尺码概况', value: warehouse?.skuSummary || postOrder?.skuSummary || warehouse?.materialSku || '待确认' },
-          { label: '来源任务', value: record.sourceTaskNo || '待确认' },
+          { label: variant === 'specialCraft' ? '来源任务 ID' : '来源任务', value: record.sourceTaskId || record.sourceTaskNo || '待确认' },
           { label: `计划${noun}`, value: qtyText(warehouse?.plannedObjectQty || postOrder?.plannedGarmentQty || record.handoverObjectQty, record.qtyUnit) },
           ...(postOrder ? [
             { label: '来源车缝任务', value: postOrder.sourceSewingTaskNo },

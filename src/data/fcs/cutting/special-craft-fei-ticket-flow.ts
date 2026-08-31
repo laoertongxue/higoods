@@ -256,12 +256,16 @@ export interface CuttingSpecialCraftReturnView {
 
 interface BindingBuildResult {
   bindings: CuttingSpecialCraftFeiTicketBinding[]
+  pendingBindingViews: Prompt7PendingBindingView[]
   errors: string[]
   warnings: string[]
 }
 
-interface Prompt7PendingBindingView {
+export interface Prompt7PendingBindingView {
   pendingViewId: string
+  taskOrderId: string
+  workOrderId: string
+  workOrderNo: string
   productionOrderNo: string
   cuttingOrderNo: string
   operationName: string
@@ -810,6 +814,9 @@ function buildPendingBindingViews(
         const targetFactory = resolveBindingTargetFactory(taskOrder, getSpecialCraftOperationById(taskOrder.operationId)!)
         return {
           pendingViewId: `SC-PENDING-${line.demandLineId}`,
+          taskOrderId: taskOrder.taskOrderId,
+          workOrderId: taskOrder.taskOrderId,
+          workOrderNo: taskOrder.taskOrderNo,
           productionOrderNo: taskOrder.productionOrderNo,
           cuttingOrderNo: '待绑定裁片单',
           operationName: taskOrder.operationName,
@@ -1078,6 +1085,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
 
   return {
     bindings,
+    pendingBindingViews,
     warnings,
     errors,
   }

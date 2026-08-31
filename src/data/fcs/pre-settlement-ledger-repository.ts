@@ -39,6 +39,7 @@ import type {
   SettlementBatch,
 } from './store-domain-settlement-types.ts'
 import { listKolGotoFixedTotalLedgers } from './kol-goto-fixed-total-ledger.ts'
+import { listProcessWorkOrderSettlementLedgers } from './process-work-order-quality-settlement.ts'
 
 export interface PreSettlementLedgerSourceTrace {
   ledger: PreSettlementLedger
@@ -343,6 +344,7 @@ export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOption
     buildQcReworkChargebackPreSettlementLedgers(item),
   )
   const runtimeKolGotoLedgers = listKolGotoFixedTotalLedgers()
+  const processWorkOrderLedgers = listProcessWorkOrderSettlementLedgers()
   const fallbackTaskLedgers = runtimeKolGotoLedgers.length > 0
     ? initialTaskEarningLedgers.filter((item) => !(
         normalizeFactoryId(item.factoryId) === KOL_GOTO_FACTORY_ID
@@ -353,7 +355,12 @@ export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOption
     [...fallbackTaskLedgers, ...runtimeKolGotoLedgers]
       .map((item) => [item.ledgerId, item] as const),
   ).values()].map((item) => buildTaskEarningLedgerRuntime(item))
-  const all = sortLedgers([...taskLedgers, ...qualityLedgers, ...qcReworkChargebackLedgers])
+  const all = sortLedgers([
+    ...taskLedgers,
+    ...processWorkOrderLedgers,
+    ...qualityLedgers,
+    ...qcReworkChargebackLedgers,
+  ])
   const normalizedKeyword = keyword?.trim().toLowerCase() ?? ''
 
   return all.filter((ledger) => {
@@ -368,7 +375,10 @@ export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOption
     const haystack = [
       ledger.ledgerNo,
       ledger.factoryName,
+      ledger.workOrderNo ?? '',
+      ledger.workOrderId ?? '',
       ledger.taskNo ?? '',
+      ledger.priceSourceTaskNo ?? '',
       ledger.returnInboundBatchNo ?? '',
       ledger.qcRecordId ?? '',
       ledger.statementId ?? '',

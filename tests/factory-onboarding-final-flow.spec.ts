@@ -401,7 +401,7 @@ test.describe.serial('factory-onboarding-final-flow', () => {
     })
     expect(candidates.some((factory) => factory.id === converted.factoryId)).toBe(true)
     expect(candidates.some((factory) => factory.name === '数码印演示工厂13')).toBe(false)
-    expect(candidates.some((factory) => factory.name === '定位裁演示工厂33')).toBe(false)
+    expect(candidates.some((factory) => factory.name === '定位裁（激光切）演示工厂33')).toBe(false)
     expect(candidates.some((factory) => factory.name === '车缝演示工厂28')).toBe(false)
   })
 })

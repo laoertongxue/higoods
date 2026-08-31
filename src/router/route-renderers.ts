@@ -429,6 +429,10 @@ export const renderPdaTaskReceiveDetailPage = createAsyncRenderer(
 )
 export const renderPdaExecPage = createAsyncRenderer(() => import('../pages/pda-exec'), 'renderPdaExecPage')
 export const renderPdaExecDetailPage = createAsyncRenderer(() => import('../pages/pda-exec-detail'), 'renderPdaExecDetailPage')
+export const renderPdaWorkOrderExecDetailPage = createAsyncRenderer(
+  () => import('../pages/pda-exec-detail'),
+  'renderPdaWorkOrderExecDetailPage',
+)
 export const renderPdaHandoverPage = createAsyncRenderer(() => import('../pages/pda-handover'), 'renderPdaHandoverPage')
 export const renderPdaHandoverDetailPage = createAsyncRenderer(
   () => import('../pages/pda-handover-detail'),

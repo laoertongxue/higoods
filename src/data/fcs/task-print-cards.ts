@@ -36,7 +36,8 @@ import {
   type ProductionConfirmationImage,
   type ProductionConfirmationSnapshot,
 } from './production-confirmation.ts'
-import { buildTaskQrValue } from './task-qr.ts'
+import { buildTaskQrValue, buildWorkOrderQrValue } from './task-qr.ts'
+import { getBindingProcessOrderById } from '../../pages/process-factory/cutting/binding-strip-orders.ts'
 import {
   PROCESS_WORK_ORDER_SOURCE_LABEL,
   type ProcessWorkOrderSourceSnapshot,
@@ -71,6 +72,7 @@ export type TaskRouteCardSourceType =
   | 'PRINTING_WORK_ORDER'
   | 'DYEING_WORK_ORDER'
   | 'SPECIAL_CRAFT_TASK_ORDER'
+  | 'BINDING_PROCESS_ORDER'
   | 'POST_FINISHING_TASK'
   | 'POST_FINISHING_WORK_ORDER'
   | 'CUTTING_ORDER'
@@ -158,6 +160,7 @@ export interface TaskRouteCardModel {
   qtyUnit: string
   dueAt: string
   qrValue: string
+  qrLabel?: '任务二维码' | '加工单二维码'
   image: TaskPrintImage
   summaryRemark: string
   supplementalItems: Array<{ label: string; value: string }>
@@ -192,7 +195,7 @@ export interface TaskRouteCardPrintDoc {
   qtyUnit?: string
   dueDate?: string
   qrValue: string
-  qrLabel: '任务二维码'
+  qrLabel: '任务二维码' | '加工单二维码'
   imageUrl: string
   imageLabel: '商品图片'
   imageSourceLabel: string
@@ -1121,12 +1124,14 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
       plannedQty: order.planQty,
       qtyUnit: order.unit,
       dueAt: order.dueAt,
-      qrValue: buildTaskQrValue(order.sourceTaskId || order.taskOrderId),
+      qrValue: buildWorkOrderQrValue(order.taskOrderId),
+      qrLabel: '加工单二维码',
       image: resolvePrintImage({ productionOrderId: order.productionOrderId, processName: order.processName, craftName: order.craftName }),
       summaryRemark: order.remark || '特殊工艺加工单生成',
-      titleOverride: `${order.operationName}任务流转卡`,
+      titleOverride: `${order.operationName}加工单流转卡`,
       summaryRowsOverride: [
-        { label: '任务号', value: order.taskOrderNo },
+        { label: '加工单号', value: order.taskOrderNo },
+        { label: '来源任务号', value: order.sourceTaskNo || order.sourceTaskId || '—' },
         { label: '生产单号', value: order.productionOrderNo || order.productionOrderId },
         { label: '特殊工艺名称', value: order.operationName },
         { label: '执行工厂', value: order.factoryName },
@@ -1134,8 +1139,17 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
         { label: '裁片部位 / 面料 SKU', value: `${order.partName || '—'} / ${order.materialSku || '—'}` },
         { label: '颜色', value: order.fabricColor || '—' },
         { label: '尺码', value: order.sizeCode || '—' },
-        { label: '计划裁片数量', value: formatQtyText(order.planQty, order.unit) },
-        { label: '已接收数量', value: formatQtyText(order.receivedQty, order.unit) },
+        ...(order.targetObject === '辅料'
+          ? [
+              { label: '计划投入数量', value: formatQtyText(order.inputPlannedQty, order.inputUnit) },
+              { label: '累计实收投入', value: formatQtyText(order.inputReceivedQty, order.inputUnit) },
+              { label: '定长规格', value: `${order.fixedLengthCm || 0} cm / 条` },
+              { label: '计划产出数量', value: formatQtyText(order.planQty, order.outputUnit || order.unit) },
+            ]
+          : [
+              { label: `计划${order.targetObject}数量`, value: formatQtyText(order.planQty, order.unit) },
+              { label: '已接收数量', value: formatQtyText(order.receivedQty, order.unit) },
+            ]),
         { label: '加工填报数量', value: formatQtyText(order.completedQty, order.unit) },
         { label: '待交出数量', value: formatQtyText(order.waitHandoverQty, order.unit) },
         { label: '状态', value: order.status },
@@ -1145,10 +1159,93 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
       supplementalItems: [
         { label: '技术包版本', value: order.techPackVersion || '—' },
         { label: '来源', value: order.generationSourceLabel || '—' },
-        { label: '菲票号', value: order.feiTicketNos.join('、') || '—' },
+        { label: '菲票号', value: order.targetObject === '辅料' ? '不适用：辅料对象不生成裁片菲票' : order.feiTicketNos.join('、') || '—' },
         { label: '中转袋号', value: order.transferBagNos.join('、') || '—' },
       ],
       routeRecords: buildSpecialCraftRouteRows(order),
+    },
+  }
+}
+
+function buildBindingRouteRows(sourceId: string): TaskRouteCardRecordRow[] {
+  const order = getBindingProcessOrderById(sourceId)
+  if (!order) return []
+  const labelByCode = {
+    BINDING_CONFIRM_RECEIVE: '确认接收',
+    BINDING_PROCESS_REPORT: '加工填报',
+    BINDING_SUBMIT_HANDOVER: '发起交出',
+    BINDING_COMPLETE_ORDER: '完成加工单',
+  } as const
+  const rowsByNode = new Map<string, TaskRouteCardRecordRow>()
+  ;(order.actionRecords || []).forEach((record) => {
+    const node = labelByCode[record.actionCode]
+    rowsByNode.set(node, {
+      rowId: record.actionRecordId,
+      node,
+      startedAt: record.operatedAt,
+      finishedAt: record.operatedAt,
+      completedQty: formatQtyText(record.qty, record.unit),
+      exceptionQty: order.differenceStatus === '有差异' && node === '完成加工单' ? formatQtyText(Math.abs(order.actualOutputQty - order.plannedOutputQty), order.unit) : '—',
+      station: record.detailId || order.factoryName,
+      operator: record.operatorName,
+      remark: record.remark || '—',
+    })
+  })
+  return ['确认接收', '加工填报', '发起交出', '完成加工单']
+    .map((node) => rowsByNode.get(node) || buildPendingRouteRow(node))
+}
+
+function buildRouteCardFromBindingProcessOrder(sourceId: string): TaskRouteCardBuildResult {
+  const order = getBindingProcessOrderById(sourceId)
+  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到捆条加工单：${sourceId}` }
+  return {
+    ok: true,
+    card: {
+      cardName: TASK_ROUTE_CARD_NAME,
+      sourceType: 'BINDING_PROCESS_ORDER',
+      sourceId: order.bindingOrderId,
+      sourceLabel: '捆条加工单',
+      taskId: order.sourceTaskId,
+      taskNo: order.sourceTaskNo,
+      productionOrderId: order.sourceProductionOrderId,
+      productionOrderNo: order.sourceProductionOrderNo,
+      processName: '捆条',
+      craftName: '捆条加工',
+      factoryName: order.factoryName,
+      statusLabel: order.status,
+      plannedQty: order.plannedOutputQty,
+      qtyUnit: order.unit,
+      dueAt: order.latestRecordedAt || '—',
+      qrValue: buildWorkOrderQrValue(order.bindingOrderId),
+      qrLabel: '加工单二维码',
+      image: {
+        title: `${order.materialIdentity.materialSku} · ${order.materialIdentity.materialName}`,
+        url: order.materialIdentity.materialImageUrl,
+        sourceLabel: '捆条加工单物料快照',
+      },
+      summaryRemark: '按具体捆条加工单和规格追溯；任务仅作来源信息。',
+      titleOverride: '捆条加工单流转卡',
+      summaryRowsOverride: [
+        { label: '加工单号', value: order.bindingOrderNo },
+        { label: '来源任务号', value: order.sourceTaskNo },
+        { label: '上游裁剪任务', value: order.sourceParentTaskNo },
+        { label: '生产单号', value: order.sourceProductionOrderNo },
+        { label: '执行工厂', value: order.factoryName },
+        { label: '面料', value: `${order.materialIdentity.materialSku} / ${order.materialIdentity.materialName} / ${order.materialIdentity.materialColor}` },
+        { label: '纸样版本', value: `${order.patternIdentity.patternFileName} / ${order.patternIdentity.patternVersion}` },
+        { label: '规格数量', value: `${order.bindingSpecificationCount} 个` },
+        { label: '计划捆条米数', value: formatQtyText(order.plannedOutputQty, order.unit) },
+        { label: '累计面料实收', value: formatQtyText(order.receivedMaterialLength, '米') },
+        { label: '累计加工', value: formatQtyText(order.actualOutputQty, order.unit) },
+        { label: '累计交出', value: formatQtyText(order.handedOverQty || 0, order.unit) },
+        { label: '状态', value: order.status },
+        { label: '差异', value: order.differenceStatus },
+      ],
+      supplementalItems: order.bindingDetails.map((detail) => ({
+        label: `${detail.bindingStripName} / ${detail.bindingWidth} cm / ${detail.cuttingMethod}`,
+        value: `${detail.feiTicketNo}；计划 ${detail.plannedBindingLength} 米；实收 ${detail.receivedMaterialLength} 米；加工 ${detail.actualLength} 米`,
+      })),
+      routeRecords: buildBindingRouteRows(order.bindingOrderId),
     },
   }
 }
@@ -1439,6 +1536,8 @@ export function buildTaskRouteCardBySource(
       return buildRouteCardFromDyeWorkOrder(sourceId)
     case 'SPECIAL_CRAFT_TASK_ORDER':
       return buildRouteCardFromSpecialCraftTaskOrder(sourceId)
+    case 'BINDING_PROCESS_ORDER':
+      return buildRouteCardFromBindingProcessOrder(sourceId)
     case 'POST_FINISHING_TASK':
       return buildRouteCardFromPostFinishingTask(sourceId)
     case 'POST_FINISHING_WORK_ORDER':
@@ -1460,6 +1559,7 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
     || value === 'PRINTING_WORK_ORDER'
     || value === 'DYEING_WORK_ORDER'
     || value === 'SPECIAL_CRAFT_TASK_ORDER'
+    || value === 'BINDING_PROCESS_ORDER'
     || value === 'POST_FINISHING_TASK'
     || value === 'POST_FINISHING_WORK_ORDER'
     || value === 'CUTTING_ORDER'
@@ -1480,7 +1580,7 @@ function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc
     { label: plannedQtyLabel, value: `${card.plannedQty} ${card.qtyUnit}` },
     { label: '单位', value: card.qtyUnit },
     { label: '交期', value: card.dueAt },
-    { label: '二维码', value: '任务二维码' },
+    { label: '二维码', value: card.qrLabel || '任务二维码' },
   ]
 
   return {
@@ -1503,7 +1603,7 @@ function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc
     qtyUnit: card.qtyUnit,
     dueDate: card.dueAt,
     qrValue: card.qrValue,
-    qrLabel: '任务二维码',
+    qrLabel: card.qrLabel || '任务二维码',
     imageUrl: card.image.url,
     imageLabel: '商品图片',
     imageSourceLabel: card.image.sourceLabel,

@@ -842,18 +842,18 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
   const forcedInherit = entry.entryType === 'PROCESS_BASELINE'
   const forcedOverride = entry.entryType === 'CRAFT' && (entry.isSpecialCraft || craftDef?.isSpecialCraft)
   const supportedTargetObjects = craftDef?.isSpecialCraft
-    ? [...(entry.supportedTargetObjects?.length ? entry.supportedTargetObjects : craftDef.supportedTargetObjects)]
+    ? [...craftDef.supportedTargetObjects]
     : undefined
   const supportedTargetObjectLabels = craftDef?.isSpecialCraft
-    ? (entry.supportedTargetObjectLabels?.length
-        ? entry.supportedTargetObjectLabels
-            .map((label) => normalizeSpecialCraftTargetObjectLabel(label))
-            .filter((label): label is TechPackSpecialCraftTargetObject => Boolean(label))
-        : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects ?? []))
+    ? getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects ?? [])
+    : undefined
+  const normalizedSelectedTargetObject = craftDef?.isSpecialCraft
+    ? normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject)
     : undefined
   const selectedTargetObject = craftDef?.isSpecialCraft
-    ? normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject)
-      || (supportedTargetObjectLabels?.length === 1 ? supportedTargetObjectLabels[0] : undefined)
+    ? normalizedSelectedTargetObject && supportedTargetObjectLabels?.includes(normalizedSelectedTargetObject)
+      ? normalizedSelectedTargetObject
+      : supportedTargetObjectLabels?.length === 1 ? supportedTargetObjectLabels[0] : undefined
     : undefined
   const defaultRuleSource: TechPackRuleSource = forcedOverride
     ? 'OVERRIDE_CRAFT'

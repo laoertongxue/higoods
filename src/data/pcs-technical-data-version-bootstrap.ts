@@ -48,17 +48,19 @@ function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   return 'DEFAULT'
 }
 
-function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '已裁部位') {
+function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject?: string) {
   const supportsGarment = craftName === '直喷' || craftName === '烫画'
+  const supportsAccessory = craftName === '橡筋定长切割'
+  const canonicalTargetObject = selectedTargetObject || (supportsAccessory ? '辅料' : supportsGarment ? '成衣' : '已裁部位')
   return {
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
     craftCode,
     craftName,
     displayName: craftName,
-    selectedTargetObject,
-    supportedTargetObjects: supportsGarment ? ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] : ['CUT_PIECE'],
-    supportedTargetObjectLabels: supportsGarment ? ['已裁部位', '成衣'] : ['已裁部位'],
+    selectedTargetObject: canonicalTargetObject,
+    supportedTargetObjects: supportsAccessory ? ['ACCESSORY'] : supportsGarment ? ['SEMI_FINISHED_GARMENT'] : ['CUT_PIECE'],
+    supportedTargetObjectLabels: supportsAccessory ? ['辅料'] : supportsGarment ? ['成衣'] : ['已裁部位'],
   }
 }
 
@@ -71,6 +73,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const garmentBomItemId = scenario === 'GARMENT_HEAT_TRANSFER'
     ? bomItemId
     : `${seed.technicalVersionId}-bom-garment`
+  const elasticBomItemId = `${seed.technicalVersionId}-bom-elastic-fixed-length`
   const patternPackageId = `${seed.technicalVersionId}-pattern-package-main`
   const patternId = `${seed.technicalVersionId}-pattern-main`
   const buildPieceRows = (pieces: Array<{
@@ -129,7 +132,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     'SPU-2024-015': {
       袖片: [
         buildSpecialCraftConfig('CRAFT_3000003', '贝壳绣'),
-        buildSpecialCraftConfig('CRAFT_3000009', '橡筋定长切割'),
       ],
     },
     'SPU-2024-016': {
@@ -150,7 +152,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         ...(demand.spuCode === 'SPU-2024-010'
           ? [
               buildSpecialCraftConfig('CRAFT_3000006', '模板工序'),
-              buildSpecialCraftConfig('CRAFT_3000010', '手工钉珠'),
             ]
           : []),
       ],
@@ -279,8 +280,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               selectedTargetObject: '成衣' as const,
               targetObject: 'GARMENT_SEMI' as const,
               targetObjectName: '成衣' as const,
-              supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
-              supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
+              supportedTargetObjects: ['SEMI_FINISHED_GARMENT'] as const,
+              supportedTargetObjectLabels: ['成衣'] as const,
               linkedBomItemIds: [bomItemId],
               difficulty: 'MEDIUM' as const,
               remark: '在纯色 T-shirt 成衣上烫画，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
@@ -304,8 +305,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               selectedTargetObject: '成衣' as const,
               targetObject: 'GARMENT_SEMI' as const,
               targetObjectName: '成衣' as const,
-              supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
-              supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
+              supportedTargetObjects: ['SEMI_FINISHED_GARMENT'] as const,
+              supportedTargetObjectLabels: ['成衣'] as const,
               linkedBomItemIds: [bomItemId],
               difficulty: 'MEDIUM' as const,
               remark: '在纯色 T-shirt 成衣上直喷，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
@@ -407,8 +408,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         selectedTargetObject: '成衣' as const,
         targetObject: 'GARMENT_SEMI' as const,
         targetObjectName: '成衣' as const,
-        supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
-        supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
+        supportedTargetObjects: ['SEMI_FINISHED_GARMENT'] as const,
+        supportedTargetObjectLabels: ['成衣'] as const,
         linkedBomItemIds: [garmentBomItemId],
         difficulty: 'MEDIUM' as const,
         remark: `在成衣上${craft.craftName}，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。`,
@@ -439,6 +440,36 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         linkedPatternIds: [patternPackageId],
         difficulty: 'MEDIUM' as const,
         remark: '只将纸样包内勾选盘扣的捆条菲票作为投入；产出按盘扣个数填报。',
+      }]
+    : []
+  const elasticFixedLengthProcessEntries = ['SPU-2024-005', 'SPU-2024-015'].includes(demand.spuCode)
+    ? [{
+        id: `${seed.technicalVersionId}-process-elastic-fixed-length`,
+        entryType: 'CRAFT' as const,
+        stageCode: 'PROD' as const,
+        stageName: '生产执行',
+        processCode: 'SPECIAL_CRAFT',
+        processName: '特殊工艺',
+        craftCode: 'CRAFT_3000009',
+        craftName: '橡筋定长切割',
+        assignmentGranularity: 'SKU' as const,
+        ruleSource: 'OVERRIDE_CRAFT' as const,
+        detailSplitMode: 'COMPOSITE' as const,
+        detailSplitDimensions: ['GARMENT_SKU'] as const,
+        defaultDocType: 'TASK' as const,
+        taskTypeMode: 'CRAFT' as const,
+        isSpecialCraft: true,
+        selectedTargetObject: '辅料' as const,
+        targetObject: 'ACCESSORY' as const,
+        targetObjectName: '辅料' as const,
+        supportedTargetObjects: ['ACCESSORY'] as const,
+        supportedTargetObjectLabels: ['辅料'] as const,
+        linkedBomItemIds: [elasticBomItemId],
+        fixedLengthCm: 42,
+        outputUnit: '条',
+        outputQtyPerGarment: 2,
+        difficulty: 'MEDIUM' as const,
+        remark: '从正式 BOM 橡筋辅料按米投入，每件成衣产出 2 条 42cm 定长橡筋。',
       }]
     : []
   const joggerPostProcessEntries = demand.spuCode === 'SPU-2024-010'
@@ -657,6 +688,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       ...processEntries,
       ...internalGarmentPrintProcessEntries,
       ...buttonLoopProcessEntries,
+      ...elasticFixedLengthProcessEntries,
       ...joggerPostProcessEntries,
       ...waterSolubleDyeProcessEntries,
     ],
@@ -725,6 +757,23 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             applicableSkuCodes: [...allSkuCodes],
             linkedPatternIds: [patternId],
             usageProcessCodes: ['CUT_PANEL', 'SEW'],
+          }]
+        : []),
+      ...(['SPU-2024-005', 'SPU-2024-015'].includes(demand.spuCode)
+        ? [{
+            id: elasticBomItemId,
+            type: '辅料',
+            name: '腰口定长橡筋',
+            spec: '42cm / 条，连续卷装来料',
+            colorLabel: '本白',
+            materialCode: `ACC-ELASTIC-42CM-${demand.spuCode.endsWith('005') ? '005' : '015'}`,
+            unit: '米',
+            unitConsumption: 0.84,
+            lossRate: 0.02,
+            supplier: '生产需求单指定',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [],
+            usageProcessCodes: ['SPECIAL_CRAFT'],
           }]
         : []),
       ...(isWaterSolubleDyeDemo

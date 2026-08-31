@@ -286,8 +286,34 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
   }))
 }
 
+export function getSpecialCraftWorkObjectMeta(taskOrder: SpecialCraftTaskOrder): {
+  objectType: string
+  objectLabel: string
+  qtyUnit: string
+  qtyRule: string
+} {
+  if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+    return {
+      objectType: '捆条',
+      objectLabel: '盘扣',
+      qtyUnit: taskOrder.outputUnit || '个',
+      qtyRule: '投入按捆条菲票张数追溯，产出与交出按盘扣个数记录，不按衣服件数换算',
+    }
+  }
+  if (taskOrder.targetObject === '成衣') {
+    return { objectType: '成衣', objectLabel: '成衣', qtyUnit: taskOrder.outputUnit || taskOrder.unit || '件', qtyRule: '按 SKU 件数汇总' }
+  }
+  if (taskOrder.targetObject === '完整面料' || taskOrder.targetObject === '面料') {
+    return { objectType: '面料', objectLabel: '面料', qtyUnit: taskOrder.outputUnit || taskOrder.unit || '米', qtyRule: '按面料 SKU、颜色和卷号确认数量' }
+  }
+  if (taskOrder.targetObject === '辅料') {
+    return { objectType: '辅料', objectLabel: '辅料', qtyUnit: taskOrder.outputUnit || taskOrder.unit || '条', qtyRule: '按辅料 SKU 和规格确认实际数量' }
+  }
+  return { objectType: '裁片', objectLabel: '裁片', qtyUnit: taskOrder.outputUnit || taskOrder.unit || '片', qtyRule: '按菲票和裁片数量统计' }
+}
+
 export function renderWebActionPanel(
-  taskOrderId: string,
+  workOrderId: string,
   currentStatus: string,
   actions: ProcessWebAction[],
   objectQty: number,
@@ -317,13 +343,23 @@ export function renderWebActionPanel(
         ? `<div class="grid gap-2">
             ${actionable.map((action) => {
               const actionLabel = localizedText(action.actionLabel)
-              const requiredFields = action.requiredFields.map(localizedText)
+              const quantityField = action.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+                ? `本次实收${objectMeta.objectLabel}数量`
+                : action.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
+                  ? `本次完工${objectMeta.objectLabel}数量`
+                  : action.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+                    ? `本次交出${objectMeta.objectLabel}数量`
+                    : ''
+              const requiredFields = [
+                ...(quantityField ? [quantityField] : []),
+                ...action.requiredFields.map(localizedText),
+              ]
               const optionalFields = action.optionalFields.map(localizedText)
               const confirmText = localizedText(action.confirmText)
               return `<button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
                 data-skip-page-rerender="true"
                 data-special-craft-web-action="open-web-status-action-dialog"
-                data-source-id="${escapeHtml(taskOrderId)}"
+                data-source-id="${escapeHtml(workOrderId)}"
                 data-action-code="${escapeHtml(action.actionCode)}"
                 data-action-label="${escapeHtml(actionLabel)}"
                 data-from-status="${escapeHtml(action.fromStatus)}"
@@ -343,7 +379,7 @@ export function renderWebActionPanel(
 }
 
 export function renderGarmentSkuConfirmDialog(
-  taskOrderId: string,
+  workOrderId: string,
   actionCode: string,
   title: string,
   demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string; receivedQty?: number; completedQty?: number; returnedQty?: number }>,
@@ -414,7 +450,7 @@ export function renderGarmentSkuConfirmDialog(
         </div>
         <div class="mt-4 flex justify-end gap-2">
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-garment-sku-dialog')?.remove()">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-work-order-id="${escapeHtml(workOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
         </div>
       </div>
     </div>
@@ -422,7 +458,7 @@ export function renderGarmentSkuConfirmDialog(
 }
 
 export function renderCutPieceFeiTicketConfirmDialog(
-  taskOrderId: string,
+  workOrderId: string,
   actionCode: string,
   title: string,
   feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number; receivedQty?: number; completedQty?: number; returnedQty?: number }>,
@@ -466,7 +502,7 @@ export function renderCutPieceFeiTicketConfirmDialog(
         </div>
         <div class="mt-4 flex justify-end gap-2">
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-fei-ticket-dialog')?.remove()">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-work-order-id="${escapeHtml(workOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
         </div>
       </div>
     </div>
@@ -519,7 +555,7 @@ export function renderButtonLoopTaskActionDialog(
         <div class="max-h-[65vh] overflow-y-auto px-5 py-4">${body}</div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm" onclick="document.getElementById('special-craft-button-loop-dialog')?.remove()">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white" data-special-craft-button-loop-confirm data-task-id="${escapeHtml(taskOrder.taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white" data-special-craft-button-loop-confirm data-work-order-id="${escapeHtml(taskOrder.taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认</button>
         </footer>
       </section>
     </div>

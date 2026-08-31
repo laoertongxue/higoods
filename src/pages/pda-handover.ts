@@ -41,6 +41,12 @@ import {
   type SpecialCraftPdaScanPurpose,
 } from '../data/fcs/special-craft-pda-scan.ts'
 import {
+  hasBindingProcessOrdersForFactory,
+  resolveBindingProcessPdaScan,
+  type BindingProcessPdaScanCandidate,
+  type BindingProcessPdaScanPurpose,
+} from '../data/fcs/binding-process-pda-scan.ts'
+import {
   handlePdaWoolExecutionEvent,
   renderPdaWoolHandoverContent,
 } from './pda-wool-fact-execution.ts'
@@ -65,6 +71,11 @@ interface PdaHandoverState {
   specialCraftScanTone: 'info' | 'error'
   specialCraftScanCandidates: SpecialCraftPdaScanCandidate[]
   specialCraftLastResolvedCode: string
+  bindingScanKeyword: string
+  bindingScanMessage: string
+  bindingScanTone: 'info' | 'error'
+  bindingScanCandidates: BindingProcessPdaScanCandidate[]
+  bindingLastResolvedCode: string
 }
 
 const state: PdaHandoverState = {
@@ -81,6 +92,11 @@ const state: PdaHandoverState = {
   specialCraftScanTone: 'info',
   specialCraftScanCandidates: [],
   specialCraftLastResolvedCode: '',
+  bindingScanKeyword: '',
+  bindingScanMessage: '',
+  bindingScanTone: 'info',
+  bindingScanCandidates: [],
+  bindingLastResolvedCode: '',
 }
 
 let specialCraftSeedScheduled = false
@@ -118,6 +134,10 @@ function syncTabWithQuery(): void {
     state.specialCraftScanMessage = ''
     state.specialCraftScanCandidates = []
     state.specialCraftLastResolvedCode = ''
+    state.bindingScanKeyword = ''
+    state.bindingScanMessage = ''
+    state.bindingScanCandidates = []
+    state.bindingLastResolvedCode = ''
   }
   state.selectedWoolTaskId = getCurrentSearchParams().get('taskId') || ''
 }
@@ -722,10 +742,10 @@ function getSpecialCraftScanPurpose(tab: HandoverTab): SpecialCraftPdaScanPurpos
   return null
 }
 
-function buildSpecialCraftHandoverTaskPath(taskId: string): string {
+function buildSpecialCraftHandoverWorkOrderPath(workOrderId: string): string {
   const handoverAction = state.activeTab === 'pickup' ? 'receive' : 'handout'
   const returnTo = `/fcs/pda/handover?tab=${state.activeTab}`
-  return `/fcs/pda/exec/${encodeURIComponent(taskId)}?surface=handover&handoverAction=${handoverAction}&returnTo=${encodeURIComponent(returnTo)}`
+  return `/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(workOrderId)}?surface=handover&handoverAction=${handoverAction}&returnTo=${encodeURIComponent(returnTo)}`
 }
 
 function renderSpecialCraftScanCandidate(candidate: SpecialCraftPdaScanCandidate): string {
@@ -740,7 +760,7 @@ function renderSpecialCraftScanCandidate(candidate: SpecialCraftPdaScanCandidate
         <div class="mt-1">${escapeHtml(order.operationName)} · ${escapeHtml(order.targetObject)} · ${order.planQty} ${escapeHtml(order.unit)}</div>
       </div>
     </div>
-    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-special-craft-order" data-task-id="${escapeHtml(candidate.taskId)}">选择此加工单</button>
+    <button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-special-craft-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}" data-source-task-id="${escapeHtml(candidate.sourceTaskId)}">选择此加工单</button>
   </article>`
 }
 
@@ -788,13 +808,63 @@ function runSpecialCraftHandoverScan(rawCode: string): void {
   state.specialCraftScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
   state.specialCraftScanCandidates = result.candidates
   if (result.status === 'MATCH') {
-    appStore.navigate(buildSpecialCraftHandoverTaskPath(result.candidates[0].taskId))
+    appStore.navigate(buildSpecialCraftHandoverWorkOrderPath(result.candidates[0].workOrderId))
   }
 }
 
 function updateSpecialCraftHandoverScanFeedbackInPlace(): void {
   const target = document.querySelector<HTMLElement>('[data-pda-handover-special-craft-scan-feedback]')
   if (target) target.outerHTML = renderSpecialCraftHandoverScanFeedback()
+}
+
+function getBindingScanPurpose(tab: HandoverTab): BindingProcessPdaScanPurpose | null {
+  if (tab === 'pickup') return 'RECEIVE'
+  if (tab === 'handout') return 'HANDOVER'
+  return null
+}
+
+function buildBindingHandoverWorkOrderPath(workOrderId: string): string {
+  const handoverAction = state.activeTab === 'pickup' ? 'receive' : 'handout'
+  const returnTo = `/fcs/pda/handover?tab=${state.activeTab}`
+  return `/fcs/pda/exec/BINDING_PROCESS_ORDER/${encodeURIComponent(workOrderId)}?surface=handover&handoverAction=${handoverAction}&returnTo=${encodeURIComponent(returnTo)}`
+}
+
+function renderBindingScanCandidate(candidate: BindingProcessPdaScanCandidate): string {
+  const { order } = candidate
+  return `<article class="rounded-lg border bg-background p-3" data-pda-binding-scan-candidate><div class="text-xs"><div class="font-semibold">${escapeHtml(order.bindingOrderNo)}</div><div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.sourceProductionOrderNo)}</div><div class="mt-1">${escapeHtml(order.materialIdentity.materialSku)} · ${order.bindingSpecificationCount} 个规格 · ${order.plannedOutputQty} 米</div><div class="mt-1 text-muted-foreground">来源任务：${escapeHtml(order.sourceTaskNo)}</div></div><button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-binding-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}">选择此捆条加工单</button></article>`
+}
+
+function renderBindingHandoverScanFeedback(): string {
+  const message = state.bindingScanMessage
+    ? `<div class="rounded border px-3 py-2 text-xs ${state.bindingScanTone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-800'}">${escapeHtml(state.bindingScanMessage)}</div>`
+    : ''
+  const candidates = state.bindingScanCandidates.length
+    ? `<div class="space-y-2">${state.bindingScanCandidates.map(renderBindingScanCandidate).join('')}</div>`
+    : ''
+  return `<div class="mt-3 space-y-2" data-pda-handover-binding-scan-feedback>${message}${candidates}</div>`
+}
+
+function renderBindingHandoverScanPanel(): string {
+  const purpose = getBindingScanPurpose(state.activeTab)
+  if (!purpose) return ''
+  const isReceive = purpose === 'RECEIVE'
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-binding-scan><div class="flex items-start gap-2"><i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i><div><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '接收捆条面料' : '交出加工后捆条'}</div><div class="mt-1 text-xs text-blue-800">扫描捆条加工单或规格菲票；多张加工单时必须选择。</div></div></div><div class="mt-3 flex gap-2"><input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" placeholder="扫描捆条加工单 / 菲票" data-pda-handover-field="bindingScanKeyword" data-pda-scan-enter="true" data-skip-page-rerender="true" value="${escapeHtml(state.bindingScanKeyword)}"><button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-binding-order">识别加工单</button></div><div class="mt-2 text-[11px] text-blue-700">实际米数必须确认；任务号只在加工单基本信息中追溯。</div>${renderBindingHandoverScanFeedback()}</section>`
+}
+
+function runBindingHandoverScan(rawCode: string): void {
+  const purpose = getBindingScanPurpose(state.activeTab)
+  if (!purpose) return
+  state.bindingLastResolvedCode = rawCode.trim()
+  const result = resolveBindingProcessPdaScan(rawCode, getCurrentFactoryId(), purpose)
+  state.bindingScanMessage = result.message
+  state.bindingScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
+  state.bindingScanCandidates = result.candidates
+  if (result.status === 'MATCH') appStore.navigate(buildBindingHandoverWorkOrderPath(result.candidates[0].workOrderId))
+}
+
+function updateBindingHandoverScanFeedbackInPlace(): void {
+  const target = document.querySelector<HTMLElement>('[data-pda-handover-binding-scan-feedback]')
+  if (target) target.outerHTML = renderBindingHandoverScanFeedback()
 }
 
 export function renderPdaHandoverPage(): string {
@@ -810,6 +880,7 @@ export function renderPdaHandoverPage(): string {
     return renderKolGotoHandoverPage()
   }
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
+  const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
@@ -864,6 +935,7 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
+        ${hasBindingOrders && state.activeTab !== 'done' ? renderBindingHandoverScanPanel() : ''}
         ${hasWoolOrders && state.activeTab !== 'done' ? renderWoolHandoverScanPanel() : ''}
         ${hasWoolOrders && state.activeTab !== 'done' ? renderSelectedWoolHandoverOrder() : ''}
         ${hasSpecialCraftOrders && state.activeTab !== 'done' ? renderSpecialCraftHandoverScanPanel() : ''}
@@ -873,7 +945,7 @@ export function renderPdaHandoverPage(): string {
             ? `
               ${
                 pickupHeads.length === 0
-                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders ? '可先扫码确认接收；暂无其他待处理接收单' : '暂无待处理接收单')
+                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码确认接收；暂无其他待处理接收单' : '暂无待处理接收单')
                   : pickupHeads.map((head) => renderOpenHeadCard(head)).join('')
               }
             `
@@ -885,7 +957,7 @@ export function renderPdaHandoverPage(): string {
             ? `
               ${
                 handoutHeads.length === 0
-                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
+                  ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
                   : handoutHeads.map((head) => renderOpenHeadCard(head)).join('')
               }
             `
@@ -929,6 +1001,21 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
     return true
   }
 
+  const bindingFieldNode = target.closest<HTMLInputElement>('[data-pda-handover-field="bindingScanKeyword"]')
+  if (bindingFieldNode) {
+    state.bindingScanKeyword = bindingFieldNode.value
+    if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+      runBindingHandoverScan(bindingFieldNode.value)
+      return true
+    }
+    if (bindingFieldNode.value.trim() !== state.bindingLastResolvedCode) {
+      state.bindingScanMessage = ''
+      state.bindingScanCandidates = []
+      updateBindingHandoverScanFeedbackInPlace()
+    }
+    return true
+  }
+
   const fieldNode = target.closest<HTMLInputElement>('[data-pda-handover-field="woolScanKeyword"]')
   if (fieldNode) {
     state.woolScanKeyword = fieldNode.value
@@ -964,9 +1051,22 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
     return true
   }
 
+  if (action === 'scan-binding-order') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-handover-binding-scan] [data-pda-handover-field="bindingScanKeyword"]')
+    state.bindingScanKeyword = input?.value || state.bindingScanKeyword
+    runBindingHandoverScan(state.bindingScanKeyword)
+    return true
+  }
+
+  if (action === 'select-binding-order') {
+    const workOrderId = actionNode.dataset.workOrderId
+    if (workOrderId) appStore.navigate(buildBindingHandoverWorkOrderPath(workOrderId))
+    return true
+  }
+
   if (action === 'select-special-craft-order') {
-    const taskId = actionNode.dataset.taskId
-    if (taskId) appStore.navigate(buildSpecialCraftHandoverTaskPath(taskId))
+    const workOrderId = actionNode.dataset.workOrderId
+    if (workOrderId) appStore.navigate(buildSpecialCraftHandoverWorkOrderPath(workOrderId))
     return true
   }
 
@@ -1004,6 +1104,10 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
       state.specialCraftScanMessage = ''
       state.specialCraftScanCandidates = []
       state.specialCraftLastResolvedCode = ''
+      state.bindingScanKeyword = ''
+      state.bindingScanMessage = ''
+      state.bindingScanCandidates = []
+      state.bindingLastResolvedCode = ''
       appStore.navigate(`/fcs/pda/handover?tab=${tab}`)
     }
     return true

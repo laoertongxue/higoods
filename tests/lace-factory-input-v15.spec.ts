@@ -4,15 +4,13 @@ const PURCHASE_DEMANDS = '/fcs/craft/accessory/lace/purchase-demands'
 const WORK_ORDERS = '/fcs/craft/accessory/lace/work-orders'
 const WAITING_WORK_ORDER = '/fcs/craft/accessory/lace/work-orders/LWO-RJ-260808-001'
 
-test('采购需求将默认投入缺失异常并入同一列表', async ({ page }) => {
+test('采购需求默认投入已补齐，不再产生自动生成异常', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(PURCHASE_DEMANDS)
 
   await expect(page.locator('[data-lace-generation-failures]')).toHaveCount(0)
   const failureRow = page.locator('tbody tr').filter({ hasText: '自动生成异常' })
-  await expect(failureRow).toHaveCount(1)
-  await expect(failureRow).toContainText('默认加工投入')
-  await expect(failureRow).toContainText('PMS')
+  await expect(failureRow).toHaveCount(0)
   await expect(page.locator('main, [data-page-content-root]').first()).not.toContainText('自动生成异常 1 条\n采购信息补齐后')
   await page.screenshot({ path: '/private/tmp/lace-v15-purchase-demands.png', fullPage: true })
 })

@@ -81,6 +81,9 @@ export interface ProcessWarehouseLinkageActionResult {
   operatorRoleName?: string
   operatedAt?: string
   skuQtyBySkuCode?: Record<string, number>
+  skuScrapQtyBySkuCode?: Record<string, number>
+  skuDamageQtyBySkuCode?: Record<string, number>
+  feiQtyByTicketNo?: Record<string, number>
 }
 
 export interface ProcessWarehouseLinkageResult {
@@ -410,6 +413,8 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
   const transferBagNos = [...(workOrder.transferBagNos || [])]
   const feiTicketNos = [...(workOrder.feiTicketNos || [])]
   const flow = resolveAuxiliaryWarehouseFlow(workOrder.targetObject)
+  const isAccessoryReceive = workOrder.targetObject === '辅料'
+    && actionResult.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
   return {
     craftType: 'SPECIAL_CRAFT',
     craftName: workOrder.operationName,
@@ -435,13 +440,17 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     materialName: workOrder.partName || workOrder.operationName,
     batchNo: transferBagNos[0] || '',
     objectType: flow.objectType,
-    plannedObjectQty: roundQty(workOrder.planQty),
+    plannedObjectQty: roundQty(isAccessoryReceive ? workOrder.inputPlannedQty || 0 : workOrder.planQty),
     objectQty,
-    qtyUnit: flow.qtyUnit,
+    qtyUnit: isAccessoryReceive ? workOrder.inputUnit || actionResult.qtyUnit || '米' : workOrder.outputUnit || flow.qtyUnit,
     packageQty: Math.max(feiTicketNos.length, 1),
     packageUnit: '包',
     relatedFeiTicketIds: flow.objectType === '裁片' ? feiTicketNos : [],
-    upstreamWarehouseId: flow.objectType === '成衣' ? GARMENT_WAREHOUSE_FACTORY_ID : 'CUTTING-WAIT-HANDOVER-WAREHOUSE',
+    upstreamWarehouseId: flow.objectType === '成衣'
+      ? GARMENT_WAREHOUSE_FACTORY_ID
+      : flow.objectType === '辅料'
+        ? 'CENTRAL-ACCESSORY-WAREHOUSE'
+        : 'CUTTING-WAIT-HANDOVER-WAREHOUSE',
     upstreamWarehouseName: flow.sourceObjectName,
     currentFactoryId: workOrder.factoryId,
     currentFactoryName: workOrder.factoryName,
@@ -663,10 +672,66 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     return mergeResult(base, { success: false, message: '特殊工艺单缺少来源生产单，不能执行仓联动' })
   }
   if (context.objectType === '捆条') {
-    return mergeResult(base, {
-      updatedFeiTicketIds: context.relatedFeiTicketIds,
-      message: '盘扣按捆条菲票投入、盘扣成品产出及中央辅料仓去向执行专用仓联动',
+    const workOrder = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)
+    if (!workOrder) return mergeResult(base, { success: false, message: '未找到盘扣加工单，不能执行专用仓联动' })
+    if (actionResult.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+      return mergeResult(base, {
+        updatedFeiTicketIds: context.relatedFeiTicketIds,
+        message: '捆条菲票已按张确认接收，盘扣产出仍按个记录',
+      })
+    }
+    if (!['SPECIAL_CRAFT_PROCESS_REPORT', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+    const actionQty = roundQty(actionResult.objectQty)
+    const cumulativeOutputQty = roundQty(workOrder.outputQty || workOrder.completedQty)
+    const cumulativeHandedOverQty = roundQty(workOrder.handedOverQty || workOrder.returnedQty)
+    const handedOverBeforeCurrentAction = actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+      ? roundQty(Math.max(cumulativeHandedOverQty - actionQty, 0))
+      : cumulativeHandedOverQty
+    const buttonLoopWarehouseContext: WarehouseBaseContext = {
+      ...context,
+      sourceFactoryId: context.currentFactoryId,
+      sourceFactoryName: context.currentFactoryName,
+      targetFactoryId: context.downstreamFactoryId,
+      targetFactoryName: context.downstreamFactoryName,
+      receiveWarehouseName: '中央辅料仓',
+      targetWarehouseName: '盘扣待交出仓',
+      warehouseLocation: '盘扣待交出仓-B01',
+      objectType: '盘扣',
+      plannedObjectQty: cumulativeOutputQty,
+      objectQty: cumulativeOutputQty,
+      qtyUnit: '个',
+      packageUnit: '袋',
+    }
+    const waitHandover = createWaitHandoverWarehouseRecord({
+      ...buttonLoopWarehouseContext,
+      currentActionName: '盘扣待交出',
+      plannedObjectQty: cumulativeOutputQty,
+      receivedObjectQty: cumulativeOutputQty,
+      availableObjectQty: Math.max(cumulativeOutputQty - handedOverBeforeCurrentAction, 0),
+      handedOverObjectQty: handedOverBeforeCurrentAction,
+      status: Math.max(cumulativeOutputQty - handedOverBeforeCurrentAction, 0) > 0 ? '待交出' : '全部交出',
+      inboundAt: actionResult.operatedAt,
+      remark: `${actionResult.sourceChannel || '统一写回'}触发盘扣待交出仓`,
     })
+    let result = mergeResult(base, {
+      createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
+      updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
+      updatedFeiTicketIds: context.relatedFeiTicketIds,
+      message: '盘扣产出已按个进入待交出仓',
+    })
+    if (actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
+      const handover = ensureHandoverRecord(
+        { ...buttonLoopWarehouseContext, objectQty: actionQty },
+        actionResult,
+        waitHandover.warehouseRecordId,
+      )
+      result = mergeResult(result, {
+        createdHandoverRecordId: handover.handoverRecordId,
+        updatedHandoverRecordId: handover.handoverRecordId,
+        message: '盘扣已按个交至中央辅料仓，并保留投入捆条菲票追溯',
+      })
+    }
+    return result
   }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
     if (context.objectType === '成衣') {
@@ -753,7 +818,9 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       updatedFeiTicketIds: context.relatedFeiTicketIds,
       message: context.objectType === '成衣'
         ? `${context.currentFactoryName}已按 SKU 确认成衣收货`
-        : `${context.currentFactoryName}待加工仓已联动并关联菲票`,
+        : context.objectType === '辅料'
+          ? `${context.currentFactoryName}已按 BOM 单位确认辅料投入`
+          : `${context.currentFactoryName}待加工仓已联动并关联菲票`,
     })
   }
   if (!['SPECIAL_CRAFT_PROCESS_REPORT', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
@@ -788,7 +855,24 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       operatorRoleName: actionResult.operatorRoleName,
     })
   }
-  const waitHandover = ensureWaitHandoverWarehouseRecord(waitHandoverContext, actionResult)
+  const workOrder = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)
+  const cumulativeCompletedQty = roundQty(workOrder?.completedQty || context.objectQty)
+  const cumulativeReturnedQty = roundQty(workOrder?.returnedQty)
+  const currentActionQty = roundQty(actionResult.objectQty)
+  const returnedBeforeCurrentAction = actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+    ? roundQty(Math.max(cumulativeReturnedQty - currentActionQty, 0))
+    : cumulativeReturnedQty
+  const waitHandover = createWaitHandoverWarehouseRecord({
+    ...waitHandoverContext,
+    currentActionName: `${context.craftName}待交出`,
+    plannedObjectQty: Math.max(context.plannedObjectQty, cumulativeCompletedQty),
+    receivedObjectQty: cumulativeCompletedQty,
+    availableObjectQty: Math.max(cumulativeCompletedQty - returnedBeforeCurrentAction, 0),
+    handedOverObjectQty: returnedBeforeCurrentAction,
+    status: Math.max(cumulativeCompletedQty - returnedBeforeCurrentAction, 0) > 0 ? '待交出' : '全部交出',
+    inboundAt: actionResult.operatedAt,
+    remark: `${actionResult.sourceChannel || '统一写回'}触发${context.craftName}待交出仓`,
+  })
   let result = mergeResult(base, {
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
@@ -796,13 +880,19 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     message: `${context.targetWarehouseName}已联动`,
   })
   if (actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
-    const handover = ensureHandoverRecord(waitHandoverContext, actionResult, waitHandover.warehouseRecordId)
+    const handover = ensureHandoverRecord(
+      { ...waitHandoverContext, objectQty: currentActionQty },
+      actionResult,
+      waitHandover.warehouseRecordId,
+    )
     result = mergeResult(result, {
       createdHandoverRecordId: handover.handoverRecordId,
       updatedHandoverRecordId: handover.handoverRecordId,
       message: context.objectType === '成衣'
         ? `成衣已交往${context.downstreamFactoryName}`
-        : '特殊工艺交出记录已联动并关联裁片菲票',
+        : context.objectType === '辅料'
+          ? '定长橡筋已按条交至中央辅料仓'
+          : '特殊工艺交出记录已联动并关联裁片菲票',
     })
   }
   return result

@@ -67,6 +67,7 @@ assert.throws(
     objectType: workOrder.targetObject,
     objectQty: Math.max(workOrder.receivedQty - workOrder.completedQty, 0) + 1,
     qtyUnit: workOrder.unit,
+    confirmationKey: `CHECK-LINE-GUARD-${workOrder.taskOrderId}`,
   }),
   /完工数量不能超过累计实收未完工数量/,
   '加工填报必须拦截超过累计实收未完工数量',
@@ -86,6 +87,7 @@ if (processQty > 0) {
     objectQty: processQty,
     qtyUnit: workOrder.unit,
     feiQtyByTicketNo: { [firstFeiProgress.feiTicketNo]: processQty },
+    confirmationKey: `CHECK-LINE-PROCESS-${workOrder.taskOrderId}-${firstFeiProgress.feiTicketNo}`,
   })
   const updatedWorkOrder = listSpecialCraftTaskOrders().find((item) => item.taskOrderId === workOrder.taskOrderId)
   const updatedLine = updatedWorkOrder?.lineProgress?.find((row) => row.feiTicketNo === firstFeiProgress.feiTicketNo)
@@ -104,6 +106,7 @@ if (processQty > 0) {
       objectQty: handoverQty,
       qtyUnit: workOrder.unit,
       feiQtyByTicketNo: { [firstFeiProgress.feiTicketNo]: handoverQty },
+      confirmationKey: `CHECK-LINE-HANDOVER-${workOrder.taskOrderId}-${firstFeiProgress.feiTicketNo}`,
     })
     const handedOverWorkOrder = listSpecialCraftTaskOrders().find((item) => item.taskOrderId === workOrder.taskOrderId)
     const handedOverLine = handedOverWorkOrder?.lineProgress?.find((row) => row.feiTicketNo === firstFeiProgress.feiTicketNo)
@@ -135,7 +138,10 @@ const garmentLines = (garmentOrder.demandLines || []).map((line) => {
 })
 const garmentProcessHtml = renderGarmentSkuConfirmDialog(garmentOrder.taskOrderId, 'SPECIAL_CRAFT_PROCESS_REPORT', '加工填报', garmentLines, 'planPieceQty')
 const garmentHandoverHtml = renderGarmentSkuConfirmDialog(garmentOrder.taskOrderId, 'SPECIAL_CRAFT_SUBMIT_HANDOVER', '发起交出', garmentLines, 'planPieceQty')
-assertIncludes(garmentProcessHtml, 'data-sku-code="蓝白印花-S"', '成衣 SKU 缺失时必须用颜色尺码生成稳定行级 key')
+garmentLines.forEach((line) => {
+  assert.ok(line.skuCode.trim(), '成衣行级进度必须解析出稳定 SKU key')
+  assertIncludes(garmentProcessHtml, `data-sku-code="${line.skuCode}"`, `成衣弹窗必须保留实际 SKU 行级身份：${line.skuCode}`)
+})
 assertIncludes(garmentProcessHtml, `max="${Math.max(garmentOrder.receivedQty - garmentOrder.completedQty, 0)}`, '成衣加工填报上限必须基于累计实收减累计完工')
 assertIncludes(garmentHandoverHtml, `max="${Math.max(garmentOrder.completedQty - (garmentOrder.returnedQty || 0), 0)}`, '成衣发起交出上限必须基于累计完工减累计交出')
 

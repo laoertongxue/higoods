@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
 
+import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { createPdaSessionFromUser, listFactoryPdaUsers } from '../src/data/fcs/store-domain-pda.ts'
+
 const DEMO_FACTORY_LABEL = '全能力测试工厂（F090）'
 const PDA_SESSION = {
   userId: 'F090_operator',
@@ -15,6 +19,17 @@ async function setPdaSession(page: import('@playwright/test').Page) {
   await page.addInitScript((session) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
   }, PDA_SESSION)
+}
+
+async function setPdaSessionForFactory(page: import('@playwright/test').Page, factoryId: string) {
+  const user = listFactoryPdaUsers(factoryId).find((item) =>
+    item.status === 'ACTIVE' && ['ROLE_OPERATOR', 'ROLE_ADMIN'].includes(item.roleId),
+  )
+  if (!user) throw new Error(`${factoryId} 缺少可用 PDA 账号`)
+  const session = createPdaSessionFromUser(user)
+  await page.addInitScript((value) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(value))
+  }, session)
 }
 
 async function searchVisibleTask(page: import('@playwright/test').Page, taskNo: string, tab = 'NOT_STARTED') {
@@ -75,21 +90,23 @@ test('裁片绑定校验通过并可在移动端执行列表搜索到', async ({
   await searchVisibleTask(page, 'TASK-CUT-000097')
 })
 
-test('特殊工艺绑定校验通过并可在移动端执行列表搜索到', async ({ page }) => {
-  await page.goto('/fcs/process-factory/special-craft/sc-op-008/tasks/SC-TASK-SC-OP-008-01')
-  await expect(page.locator('body')).toContainText('打揽', { timeout: 30_000 })
-  await page.getByRole('button', { name: '查看工艺单' }).first().click()
-  await expect(page.locator('body')).toContainText('工艺单详情', { timeout: 30_000 })
-  await expect(page.locator('body')).toContainText('移动端执行任务号', { timeout: 30_000 })
-  await expect(page.locator('body')).toContainText('TASK-SC-OP-008-0101', { timeout: 30_000 })
-  await expect(page.locator('body')).toContainText('绑定状态', { timeout: 30_000 })
-  await expect(page.locator('body')).toContainText('允许打开移动端执行页', { timeout: 30_000 })
+test('特殊工艺绑定以具体加工单进入 PDA 并保留来源任务', async ({ page }) => {
+  const order = listSpecialCraftTaskOrders().find((item) => item.status === '加工中')
+  if (!order) throw new Error('缺少可执行特殊工艺加工单')
+  const slug = buildSpecialCraftOperationSlug(order.operationId)
+  await page.goto(`/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(order.taskOrderId)}`)
+  await expect(page.getByRole('heading', { name: `${order.operationName}加工单详情` })).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('#app')).toContainText(order.taskOrderNo)
+  await expect(page.locator('#app')).toContainText(order.taskOrderId)
+  await expect(page.locator('#app')).toContainText(order.sourceTaskId || '')
 
-  await page.getByRole('button', { name: '打开移动端执行页' }).first().click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/exec\/TASK-SC-OP-008-0101/)
-  await expect(page.locator('body')).toContainText(DEMO_FACTORY_LABEL)
-
-  await searchVisibleTask(page, 'TASK-SC-OP-008-0101')
+  await setPdaSessionForFactory(page, order.factoryId)
+  await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}`)
+  await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible()
+  await expect(page.locator('#app')).toContainText(order.taskOrderNo)
+  await expect(page.locator('#app')).toContainText(order.taskOrderId)
+  await expect(page.locator('#app')).toContainText(order.sourceTaskId || '')
+  await expect(page.locator('[data-pda-execd-action][data-work-order-id]').first()).toHaveAttribute('data-work-order-id', order.taskOrderId)
 })
 
 test('报价 / 待定标样本不会作为印花加工单执行绑定，也不会出现在执行列表', async ({ page }) => {

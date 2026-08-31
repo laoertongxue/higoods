@@ -9,8 +9,12 @@ import {
 export type SpecialCraftPdaScanPurpose = 'EXECUTION' | 'RECEIVE' | 'HANDOVER'
 
 export interface SpecialCraftPdaScanCandidate {
+  sourceType: 'SPECIAL_CRAFT'
+  workOrderId: string
+  workOrderNo: string
   order: SpecialCraftTaskOrder
-  taskId: string
+  sourceTaskId: string
+  sourceTaskNo: string
   styleNo: string
   styleName: string
   styleImageUrl: string
@@ -22,7 +26,9 @@ export type SpecialCraftPdaScanResolution =
   | { status: 'MULTIPLE'; message: string; candidates: SpecialCraftPdaScanCandidate[] }
 
 function normalizeScanCode(value: string): string {
-  return value.trim().toLocaleUpperCase()
+  const normalized = value.trim().toLocaleUpperCase()
+  const workOrderPrefix = 'FCS:WORK_ORDER:V1:'
+  return normalized.startsWith(workOrderPrefix) ? normalized.slice(workOrderPrefix.length) : normalized
 }
 
 function matchesCode(code: string | undefined, normalizedCode: string): boolean {
@@ -66,8 +72,12 @@ function resolveCandidate(order: SpecialCraftTaskOrder): SpecialCraftPdaScanCand
   ].find((url) => /^(?:https?:\/\/|\/|data:image\/)/i.test(url.trim())) || ''
 
   return {
+    sourceType: 'SPECIAL_CRAFT',
+    workOrderId: order.taskOrderId,
+    workOrderNo: order.taskOrderNo,
     order,
-    taskId: order.sourceTaskId || order.taskOrderId,
+    sourceTaskId: order.sourceTaskId || '',
+    sourceTaskNo: order.sourceTaskNo || '',
     styleNo: productionOrder?.demandSnapshot.spuCode || demand?.spuCode || order.productionOrderNo,
     styleName: productionOrder?.demandSnapshot.spuName || demand?.spuName || order.operationName,
     styleImageUrl,
@@ -119,9 +129,20 @@ export function hasSpecialCraftOrdersForFactory(factoryId: string): boolean {
   return listSpecialCraftTaskOrders().some((order) => order.factoryId === factoryId)
 }
 
-export function getSpecialCraftPdaCandidateByTaskId(taskId: string): SpecialCraftPdaScanCandidate | null {
-  const order = listSpecialCraftTaskOrders().find((item) =>
-    item.sourceTaskId === taskId || item.taskOrderId === taskId,
-  )
+export function getSpecialCraftPdaCandidateByWorkOrderId(workOrderId: string): SpecialCraftPdaScanCandidate | null {
+  const order = listSpecialCraftTaskOrders().find((item) => item.taskOrderId === workOrderId)
   return order ? resolveCandidate(order) : null
+}
+
+export function getSpecialCraftPdaCandidatesByTaskId(taskId: string): SpecialCraftPdaScanCandidate[] {
+  return listSpecialCraftTaskOrders()
+    .filter((item) => item.sourceTaskId === taskId)
+    .map(resolveCandidate)
+    .sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo, 'zh-CN'))
+}
+
+/** @deprecated 执行链不得再按任务静默选择第一张加工单。 */
+export function getSpecialCraftPdaCandidateByTaskId(taskId: string): SpecialCraftPdaScanCandidate | null {
+  const candidates = getSpecialCraftPdaCandidatesByTaskId(taskId)
+  return candidates.length === 1 ? candidates[0] : null
 }

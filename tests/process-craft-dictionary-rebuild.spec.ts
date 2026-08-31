@@ -21,9 +21,13 @@ test('工序工艺字典展示保留阶段、加工工艺和裁床工艺口径',
   await expect(body).toContainText('辅料')
 
   await expect(body).toContainText('裁片')
-  for (const craft of ['定位裁', '激光切', '定向裁']) {
+  const positioningLaserCraftName = '定位裁（激光切）'
+  for (const craft of [positioningLaserCraftName, '定向裁']) {
     await expect(body).toContainText(craft)
   }
+  const bodyWithoutCanonicalName = (await body.innerText()).split(positioningLaserCraftName).join('')
+  expect(bodyWithoutCanonicalName).not.toContain(positioningLaserCraftName.slice(0, 3))
+  expect(bodyWithoutCanonicalName).not.toContain(positioningLaserCraftName.slice(4, -1))
 
   await expect(body).not.toContainText('AUXILIARY')
   await expect(body).not.toContainText('CUT_PIECE_PART')

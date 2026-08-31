@@ -8,8 +8,8 @@ export type FactoryMobileExecutionMode = 'FULL_TASK' | 'INTERNAL_RECORD_ONLY' | 
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
-export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'
-export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣' | '捆条'
+export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP' | 'ACCESSORY'
+export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'
 export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL' | 'BINDING_STRIP'
 export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条'
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
@@ -207,6 +207,7 @@ export const SPECIAL_CRAFT_TARGET_OBJECT_LABEL: Record<SpecialCraftSupportedTarg
   FULL_FABRIC: '完整面料',
   SEMI_FINISHED_GARMENT: '成衣',
   BINDING_STRIP: '捆条',
+  ACCESSORY: '辅料',
 }
 
 export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTargetObjectName> = {
@@ -252,7 +253,6 @@ const SPECIAL_CRAFT_FACTORY_CRAFT_NAMES = new Set([
   '特种车缝（花样机）',
   '特种车缝',
   '橡筋定长切割',
-  '激光切',
 ])
 
 const CUTTING_FACTORY_CRAFT_NAMES = new Set(['捆条'])
@@ -260,20 +260,19 @@ const CUTTING_FACTORY_CRAFT_NAMES = new Set(['捆条'])
 const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, SpecialCraftSupportedTargetObject[]> = {
   8: ['CUT_PIECE'],
   32: ['CUT_PIECE'],
-  64: ['CUT_PIECE'],
-  8192: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
-  16384: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+  8192: ['SEMI_FINISHED_GARMENT'],
+  16384: ['SEMI_FINISHED_GARMENT'],
   131072: ['CUT_PIECE'],
   3100001: ['BINDING_STRIP'],
   3100002: ['CUT_PIECE'],
   3100003: ['CUT_PIECE'],
   3100004: ['CUT_PIECE'],
+  3000009: ['ACCESSORY'],
 }
 
 const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, SpecialCraftVisibleFactoryType[]> = {
   8: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   32: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
-  64: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   8192: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   16384: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   131072: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
@@ -281,6 +280,7 @@ const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, Specia
   3100002: ['CENTRAL_AUX'],
   3100003: ['CENTRAL_AUX'],
   3100004: ['CENTRAL_AUX'],
+  3000009: ['CENTRAL_SPECIAL'],
 }
 
 export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
@@ -605,8 +605,8 @@ export const cuttingCraftDefinitions: CuttingCraftDefinition[] = [
     description: '常规裁床裁剪工艺。',
   },
   {
-    craftCode: 'CUTTING_LASER_POSITIONING',
-    craftName: '激光定位裁',
+    craftCode: 'CUTTING_POSITIONING_LASER',
+    craftName: '定位裁（激光切）',
     processStage: 'PROD',
     processStageName: '生产阶段',
     processGroup: 'CUTTING',
@@ -655,7 +655,7 @@ export function getSpecialCraftSupportedTargetObjectLabels(
 }
 
 export function isSpecialCraftTargetObjectLabel(value: string | undefined): value is SpecialCraftTargetObjectLabel {
-  return value === '已裁部位' || value === '完整面料' || value === '成衣' || value === '捆条'
+  return value === '已裁部位' || value === '完整面料' || value === '成衣' || value === '捆条' || value === '辅料'
 }
 
 export function normalizeSpecialCraftTargetObjectLabel(
@@ -665,6 +665,7 @@ export function normalizeSpecialCraftTargetObjectLabel(
   if (value === '面料') return '完整面料'
   if (value === '半成品' || value === '成衣半成品' || value === '整件成衣') return '成衣'
   if (value === 'BINDING_STRIP') return '捆条'
+  if (value === 'ACCESSORY' || value === 'BOM物料') return '辅料'
   return isSpecialCraftTargetObjectLabel(value) ? value : ''
 }
 
@@ -731,7 +732,6 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   8: 'PROC_DALAN',
   16: 'PROC_DIRECTION_CUT',
   32: 'PROC_DATIAO',
-  64: 'PROC_LASER_CUT',
   256: 'PROC_HAND_BUTTON',
   512: 'PROC_MACHINE_BUTTON',
   1024: 'PROC_FOUR_CLAW',
@@ -1018,7 +1018,7 @@ const processDefinitionSeeds: Array<
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
     defaultDocument: '任务单',
-    description: '用于打揽、打条、捆条、激光切、烫画、直喷等',
+    description: '用于打揽、打条、捆条、烫画、直喷等',
   },
   {
     processCode: 'BUTTONHOLE',
@@ -1138,13 +1138,12 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
 })
 
 export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
-  { legacyValue: 1, legacyCraftName: '定位裁', craftName: '定位裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 1, legacyCraftName: '定位裁（激光切）', craftName: '定位裁（激光切）', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 2, legacyCraftName: '绣花', craftName: '绣花', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 4, legacyCraftName: '压褶', craftName: '压褶', processCode: 'PLEATING', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
-  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },

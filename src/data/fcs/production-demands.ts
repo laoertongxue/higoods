@@ -439,7 +439,7 @@ const seedProductionDemands: ProductionDemand[] = [
     demandId: 'DEM-202603-0018', legacyType: 'ID_PURCHASE', legacyOrderNo: '240793', sourceSystem: 'LEGACY',
     spuCode: 'SPU-2024-001', spuName: '春季休闲T恤', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID'], priority: 'URGENT', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
-    requiredDeliveryDate: '2026-04-12', constraintsNote: '白黑双色同批，含激光切和打揽特殊工艺。',
+    requiredDeliveryDate: '2026-04-12', constraintsNote: '白黑双色同批，含定位裁（激光切）和打揽工艺。',
     skuLines: [
       { skuCode: 'SKU-001-S-WHT', size: 'S', color: 'White', qty: 300 },
       { skuCode: 'SKU-001-M-WHT', size: 'M', color: 'White', qty: 400 },

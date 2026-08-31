@@ -216,8 +216,7 @@ export const sampleCostFinishCraftOptions: SampleCostFinishCraftOption[] = [
 ]
 
 export const sampleCostOptionalProcessOptions = [
-  '定位裁',
-  '激光切',
+  '定位裁（激光切）',
   '压褶',
   '印花',
   '染色',

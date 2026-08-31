@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+
 test('印花交出回写与差异处理读取统一记录', async ({ page }) => {
   await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-007?tab=handover')
   await expect(page.getByRole('heading', { name: '送货交出' })).toBeVisible()
@@ -34,29 +37,24 @@ test('染色统计和染色差异处理统一使用交出记录', async ({ page 
   await expect(page.getByText('处理中').first()).toBeVisible()
 })
 
-test('特殊工艺交出差异能追溯菲票、数量变化和流转记录', async ({ page }) => {
-  const detailPath = '/fcs/process-factory/special-craft/sc-op-008/work-orders/SC-TASK-SC-OP-008-02-WO-001-'
+test('特殊工艺仓库、交出与操作记录统一追溯具体加工单', async ({ page }) => {
+  const order = listSpecialCraftTaskOrders().find((item) => item.targetObject === '已裁部位' && item.status === '加工中')
+  if (!order) throw new Error('缺少加工中裁片特殊工艺加工单')
+  const slug = buildSpecialCraftOperationSlug(order.operationId)
+  const detailPath = `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(order.taskOrderId)}`
 
-  await page.goto(`${detailPath}?tab=difference`)
-  await expect(page.getByRole('heading', { name: '差异上报' })).toBeVisible()
-  await expect(page.getByText('交出裁片数量').first()).toBeVisible()
-  await expect(page.getByText('实收裁片数量').first()).toBeVisible()
-  await expect(page.getByText('差异裁片数量').first()).toBeVisible()
-  await page.getByRole('button', { name: '同步菲票数量' }).first().click()
-  await expect(page.getByText('已确认差异').first()).toBeVisible()
-
-  await page.goto(`${detailPath}?tab=fei`)
-  await expect(page.getByRole('heading', { name: '绑定菲票' })).toBeVisible()
-  await expect(page.getByText('当前裁片数量').first()).toBeVisible()
-  await expect(page.getByText('累计报废裁片数量').first()).toBeVisible()
-
-  await page.goto(`${detailPath}?tab=quantity`)
-  await expect(page.getByRole('heading', { name: '数量变化' })).toBeVisible()
-  await expect(page.getByText('变化数量').first()).toBeVisible()
+  await page.goto(`${detailPath}?tab=warehouse`)
+  await expect(page.getByRole('heading', { name: `${order.operationName}加工单详情` })).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/work-orders/${encodeURIComponent(order.taskOrderId)}\\?tab=warehouse`))
+  await expect(page.locator('#app')).toContainText(order.taskOrderNo)
+  await expect(page.getByRole('heading', { name: '菲票流转', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '仓库记录' })).toBeVisible()
+  await expect(page.locator('#app')).toContainText('交出记录')
 
   await page.goto(`${detailPath}?tab=events`)
-  await expect(page.getByRole('heading', { name: '流转记录' })).toBeVisible()
-  await expect(page.getByText('交出记录').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '操作记录' })).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/work-orders/${encodeURIComponent(order.taskOrderId)}\\?tab=events`))
+  await expect(page.locator('#app')).toContainText(order.taskOrderNo)
 })
 
 test('后道交出仓只承接复检完成并统一统计交出差异', async ({ page }) => {

@@ -15,6 +15,7 @@ import {
   getDefaultSpecialCraftTargetObject,
   getSpecialCraftFlowRule,
   getSpecialCraftOperationByCraftCode,
+  getSpecialCraftWorkOrderBusinessType,
   isSpecialCraftTargetObjectSupported,
   listEnabledAuxiliaryCraftOperationDefinitions,
   listEnabledSpecialCraftOperationDefinitions,
@@ -79,6 +80,10 @@ function stableHash(input: string): string {
 
 function normalizeText(value: string | undefined): string {
   return String(value || '').trim()
+}
+
+function roundQty(value: number): number {
+  return Math.round((Number(value) + Number.EPSILON) * 1_000_000) / 1_000_000
 }
 
 function buildBlockingError(input: Omit<SpecialCraftTaskGenerationError, 'errorId'>): SpecialCraftTaskGenerationError {
@@ -661,6 +666,161 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         })
     })
 
+  techPackSnapshot.processEntries
+    .filter((entry) => entry.processCode === 'SPECIAL_CRAFT')
+    .filter((entry) => Boolean(entry.craftCode))
+    .filter((entry) => normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject) === '辅料')
+    .forEach((entry) => {
+      const craftCode = normalizeText(entry.craftCode)
+      const entryId = normalizeText(entry.id) || craftCode
+      const reference = validateSpecialCraftReference(
+        productionOrder,
+        techPackSnapshot,
+        '',
+        '',
+        '辅料',
+        entry.processCode,
+        craftCode,
+        entry.selectedTargetObject,
+      )
+      if (reference.error) {
+        errors.push(reference.error)
+        return
+      }
+      const operation = reference.operation
+      if (!operation || !operationIdSet.has(operation.operationId)) return
+      const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
+      const linkedBomItemIds = new Set(entry.linkedBomItemIds ?? [])
+      const accessoryBomItems = techPackSnapshot.bomItems.filter(
+        (item) => item.type === '辅料' && linkedBomItemIds.has(item.id),
+      )
+      if (accessoryBomItems.length !== 1) {
+        errors.push(buildBlockingError({
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          pieceRowId: '',
+          partName: '辅料',
+          operationName: operation.operationName,
+          errorType: '辅料BOM缺失',
+          errorMessage: `${operation.operationName}必须唯一关联一行正式辅料 BOM`,
+          blocking: true,
+        }))
+        return
+      }
+      const accessoryBom = accessoryBomItems[0]
+      const inputUnit = normalizeText(accessoryBom.unit)
+      if (!inputUnit) {
+        errors.push(buildBlockingError({
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          pieceRowId: '',
+          partName: accessoryBom.name,
+          operationName: operation.operationName,
+          errorType: '辅料单位缺失',
+          errorMessage: `${accessoryBom.name}未配置 BOM 投入单位`,
+          blocking: true,
+        }))
+        return
+      }
+      const fixedLengthCm = Number(entry.fixedLengthCm)
+      if (!Number.isFinite(fixedLengthCm) || fixedLengthCm <= 0) {
+        errors.push(buildBlockingError({
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          pieceRowId: '',
+          partName: accessoryBom.name,
+          operationName: operation.operationName,
+          errorType: '定长要求缺失',
+          errorMessage: `${operation.operationName}未配置有效定长`,
+          blocking: true,
+        }))
+        return
+      }
+      const outputUnit = normalizeText(entry.outputUnit)
+      const outputQtyPerGarment = Number(entry.outputQtyPerGarment)
+      if (!outputUnit || !Number.isFinite(outputQtyPerGarment) || outputQtyPerGarment <= 0) {
+        errors.push(buildBlockingError({
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          pieceRowId: '',
+          partName: accessoryBom.name,
+          operationName: operation.operationName,
+          errorType: '计划产出缺失',
+          errorMessage: `${operation.operationName}未配置每件产出数量或产出单位`,
+          blocking: true,
+        }))
+        return
+      }
+      const unitConsumption = Number(accessoryBom.unitConsumption)
+      if (!Number.isFinite(unitConsumption) || unitConsumption <= 0) {
+        errors.push(buildBlockingError({
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          pieceRowId: '',
+          partName: accessoryBom.name,
+          operationName: operation.operationName,
+          errorType: '计划产出缺失',
+          errorMessage: `${accessoryBom.name}未配置有效单位用量`,
+          blocking: true,
+        }))
+        return
+      }
+      const applicableSkuCodes = new Set((accessoryBom.applicableSkuCodes ?? []).map(normalizeText).filter(Boolean))
+      const matchedOrderLines = productionSkuLines.filter((line) =>
+        applicableSkuCodes.size === 0 || applicableSkuCodes.has(normalizeText(line.skuCode)),
+      )
+      matchedOrderLines.forEach((orderLine) => {
+        const orderQty = Number(orderLine.qty)
+        if (!Number.isFinite(orderQty) || orderQty <= 0) return
+        const inputPlannedQty = roundQty(orderQty * unitConsumption * (1 + Number(accessoryBom.lossRate || 0)))
+        const planOutputQty = roundQty(orderQty * outputQtyPerGarment)
+        const demandLine: SpecialCraftTaskDemandLine = {
+          demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, entryId, operation.operationId, accessoryBom.id, orderLine.skuCode].join('|'))}`,
+          skuCode: orderLine.skuCode,
+          taskOrderId: '',
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId: '',
+          patternFileName: accessoryBom.name,
+          pieceRowId: '',
+          partName: accessoryBom.name,
+          colorName: orderLine.color,
+          colorCode: orderLine.color,
+          sizeCode: orderLine.size,
+          pieceCountPerGarment: outputQtyPerGarment,
+          orderQty,
+          planPieceQty: planOutputQty,
+          specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${selectedTargetObject}:${accessoryBom.id}`,
+          operationId: operation.operationId,
+          operationName: operation.operationName,
+          managementDomain: operation.managementDomain,
+          managementDomainName: operation.managementDomainName,
+          processCode: operation.processCode,
+          processName: operation.processName,
+          craftCode: operation.craftCode,
+          craftName: operation.craftName,
+          targetObject: selectedTargetObject,
+          unit: outputUnit,
+          feiTicketNos: [],
+          sourceBomItemId: accessoryBom.id,
+          materialSku: normalizeText(accessoryBom.materialCode) || accessoryBom.id,
+          inputPlannedQty,
+          inputUnit,
+          fixedLengthCm,
+          outputQtyPerGarment,
+          outputUnit,
+          remark: entry.remark || `${accessoryBom.name}按 ${inputUnit} 投入，按 ${outputUnit} 产出。`,
+        }
+        errors.push(...validateSpecialCraftDemandLine(demandLine))
+        demandLines.push(demandLine)
+      })
+    })
+
   return {
     demandLines,
     errors,
@@ -751,6 +911,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
 }): SpecialCraftTaskOrder {
   const { order, snapshot, operation, demandLines, generationBatchId, generationKey, taskIndex, existingTask } = input
   const planQty = demandLines.reduce((sum, line) => sum + line.planPieceQty, 0)
+  const inputPlannedQty = roundQty(demandLines.reduce((sum, line) => sum + Number(line.inputPlannedQty || 0), 0))
   const sourcePieceRowIds = unique(demandLines.map((line) => line.pieceRowId).filter(Boolean))
   const sourcePatternFileIds = unique(demandLines.map((line) => line.patternFileId).filter(Boolean))
   const sourceSpecialCraftKeys = unique(demandLines.map((line) => line.specialCraftKey))
@@ -767,6 +928,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
     taskOrderNo: existingTask?.taskOrderNo || buildTaskOrderNo(order, operation, taskIndex),
     operationId: operation.operationId,
     operationName: operation.operationName,
+    businessType: getSpecialCraftWorkOrderBusinessType(operation.operationId),
     managementDomain: operation.managementDomain,
     managementDomainName: operation.managementDomainName,
     processCode: operation.processCode,
@@ -789,7 +951,13 @@ function mergeDemandLinesIntoTaskOrder(input: {
     feiTicketNos: [],
     transferBagNos: [],
     fabricRollNos: [],
-    materialSku: summarizeSingleValue(demandLines.map((line) => line.patternFileName), ''),
+    materialSku: summarizeSingleValue(demandLines.map((line) => line.materialSku || line.patternFileName), ''),
+    inputPlannedQty: inputPlannedQty > 0 ? inputPlannedQty : undefined,
+    inputReceivedQty: existingTask?.inputReceivedQty || 0,
+    inputUnit: summarizeSingleValue(demandLines.map((line) => line.inputUnit || '').filter(Boolean), operation.inputUnit),
+    fixedLengthCm: demandLines.find((line) => Number(line.fixedLengthCm) > 0)?.fixedLengthCm,
+    outputQtyPerGarment: demandLines.find((line) => Number(line.outputQtyPerGarment) > 0)?.outputQtyPerGarment,
+    outputUnit: summarizeSingleValue(demandLines.map((line) => line.outputUnit || line.unit).filter(Boolean), operation.outputUnit),
     planQty,
     receivedQty: existingTask?.receivedQty || 0,
     completedQty: existingTask?.completedQty || 0,
@@ -1082,10 +1250,10 @@ export function generateSpecialTypeCraftTaskOrdersFromProductionOrder(input: {
 
 function itemHasExecution(task: SpecialCraftTaskOrder): boolean {
   return task.executionStatus !== 'WAIT_PICKUP'
-    || task.inboundRecordIds.length > 0
-    || task.outboundRecordIds.length > 0
-    || task.waitProcessStockItemIds.length > 0
-    || task.waitHandoverStockItemIds.length > 0
+    || (task.inboundRecordIds?.length || 0) > 0
+    || (task.outboundRecordIds?.length || 0) > 0
+    || (task.waitProcessStockItemIds?.length || 0) > 0
+    || (task.waitHandoverStockItemIds?.length || 0) > 0
 }
 
 export function attachSpecialCraftTasksToProductionArtifacts<TArtifact = unknown>(input: {

@@ -131,6 +131,6 @@ test('派单候选过滤', async ({ page }) => {
     }))
   })
   expect(candidates.some((factory) => factory.id === result.factoryId)).toBe(true)
-  expect(candidates.some((factory) => factory.name === '定位裁演示工厂32')).toBe(false)
+  expect(candidates.some((factory) => factory.name === '定位裁（激光切）演示工厂32')).toBe(false)
   expect(candidates.some((factory) => factory.name === '数码印演示工厂13')).toBe(false)
 })

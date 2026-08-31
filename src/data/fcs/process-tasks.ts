@@ -40,6 +40,11 @@ import type {
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import type { WoolAllowedAction } from './wool-domain/queries.ts'
+import {
+  buildSpecialCraftSourceTaskIdentity,
+  registerSpecialCraftSourceTaskAdapter,
+  type SpecialCraftSourceTaskRequest,
+} from './special-craft-source-task-registry.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -945,6 +950,146 @@ function createInitialProcessTasks(): ProcessTask[] {
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
 
+const specialCraftTaskPlanByWorkOrder = new Map<string, {
+  taskId: string
+  planQty: number
+}>()
+
+function buildSpecialCraftSourceTaskId(request: SpecialCraftSourceTaskRequest): string {
+  return buildSpecialCraftSourceTaskIdentity(request).taskId
+}
+
+function ensureCanonicalSpecialCraftSourceTask(request: SpecialCraftSourceTaskRequest): ProcessTask {
+  const existing = processTasks.find((task) =>
+    task.productionOrderId === request.productionOrderId
+    && task.stage === 'SPECIAL'
+    && (task.craftCode === request.craftCode || task.taskId === buildSpecialCraftSourceTaskId(request)),
+  )
+  const now = request.createdAt || '2026-08-31 09:00:00'
+  const task = existing || {
+    taskId: buildSpecialCraftSourceTaskId(request),
+    taskNo: buildSpecialCraftSourceTaskId(request),
+    rootTaskNo: buildSpecialCraftSourceTaskId(request),
+    productionOrderId: request.productionOrderId,
+    productionOrderNo: request.productionOrderNo,
+    seq: processTasks.filter((item) => item.productionOrderId === request.productionOrderId).length + 1,
+    processCode: 'SPECIAL_CRAFT',
+    processNameZh: request.operationName,
+    stage: 'SPECIAL',
+    qty: 0,
+    qtyUnit: 'PIECE',
+    qtyDisplayUnit: request.qtyUnit,
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
+    assignedFactoryId: request.factoryId,
+    assignedFactoryName: request.factoryName,
+    qcPoints: [],
+    attachments: [],
+    status: 'IN_PROGRESS',
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: now,
+    acceptedBy: request.factoryName,
+    dispatchedAt: now,
+    dispatchedBy: '系统',
+    dispatchRemark: '来源任务仅负责接单、价格、时效和加工单聚合；现场执行以具体加工单为准。',
+    taskDeadline: request.dueAt,
+    craftCode: request.craftCode,
+    craftName: request.operationName,
+    processBusinessCode: 'SPECIAL_CRAFT',
+    processBusinessName: request.operationName,
+    taskUnitType: 'SINGLE_PROCESS_TASK',
+    stageCode: 'PROD',
+    stageName: '生产执行',
+    sourceEntryType: 'CRAFT',
+    sourceEntryId: request.craftCode,
+    assignmentGranularity: 'ORDER',
+    taskScope: 'EXTERNAL_TASK',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'CRAFT',
+    isSpecialCraft: true,
+    executionEnabled: true,
+    createdAt: now,
+    updatedAt: now,
+    auditLogs: [{
+      id: `AL-${buildSpecialCraftSourceTaskId(request)}-ASSIGN`,
+      action: 'ASSIGN_WORK_ORDERS',
+      detail: `任务已接单；${request.operationName}的执行、交出、仓库、质检、结算与打印均按具体加工单记录。`,
+      at: now,
+      by: '系统',
+    }],
+  } satisfies ProcessTask
+  if (!existing) processTasks.push(task)
+
+  task.assignmentMode = 'DIRECT'
+  task.assignmentStatus = 'ASSIGNED'
+  task.assignedFactoryId = request.factoryId
+  task.assignedFactoryName = request.factoryName
+  task.acceptanceStatus = 'ACCEPTED'
+  task.acceptedAt ||= now
+  task.acceptedBy ||= request.factoryName
+  task.taskUnitType ||= 'SINGLE_PROCESS_TASK'
+  task.stageCode ||= 'PROD'
+  task.stageName ||= '生产执行'
+  task.sourceEntryType ||= 'CRAFT'
+  task.sourceEntryId ||= request.craftCode
+  task.assignmentGranularity ||= 'ORDER'
+  task.defaultDocType = 'TASK'
+  task.taskTypeMode ||= 'CRAFT'
+  task.isSpecialCraft = true
+  task.qtyDisplayUnit = request.qtyUnit
+  task.taskDeadline = request.dueAt
+  specialCraftTaskPlanByWorkOrder.set(request.workOrderId, {
+    taskId: task.taskId,
+    planQty: request.planQty,
+  })
+  task.qty = Array.from(specialCraftTaskPlanByWorkOrder.values())
+    .filter((item) => item.taskId === task.taskId)
+    .reduce((sum, item) => sum + item.planQty, 0)
+  notifyProcessTasksMutated()
+  return task
+}
+
+registerSpecialCraftSourceTaskAdapter({
+  ensureTask(request) {
+    const task = ensureCanonicalSpecialCraftSourceTask(request)
+    return { taskId: task.taskId, taskNo: task.taskNo || task.taskId }
+  },
+  reconcileTask(taskId, childOrders) {
+    const task = processTasks.find((item) => item.taskId === taskId)
+    if (!task || childOrders.length === 0) return
+    const allCompleted = childOrders.every((order) => order.status === '已完结')
+    const lastUpdatedAt = childOrders.map((order) => order.updatedAt || '').sort().at(-1) || new Date().toISOString()
+    if (allCompleted && task.status !== 'DONE') {
+      task.status = 'DONE'
+      task.finishedAt = lastUpdatedAt
+      task.updatedAt = lastUpdatedAt
+      task.auditLogs.push({
+        id: `AL-${taskId}-AUTO-COMPLETE-${task.auditLogs.filter((log) => log.action === 'AUTO_COMPLETE_FROM_WORK_ORDERS').length + 1}`,
+        action: 'AUTO_COMPLETE_FROM_WORK_ORDERS',
+        detail: `任务下 ${childOrders.length} 张加工单均已完成，系统自动完成任务。`,
+        at: lastUpdatedAt,
+        by: '系统',
+      })
+      notifyProcessTasksMutated()
+      return
+    }
+    if (!allCompleted && task.status === 'DONE') {
+      task.status = 'IN_PROGRESS'
+      task.finishedAt = undefined
+      task.updatedAt = lastUpdatedAt
+      task.auditLogs.push({
+        id: `AL-${taskId}-AUTO-REOPEN-${task.auditLogs.filter((log) => log.action === 'AUTO_REOPEN_FROM_WORK_ORDERS').length + 1}`,
+        action: 'AUTO_REOPEN_FROM_WORK_ORDERS',
+        detail: '存在未完成的子加工单，系统重新聚合为进行中。',
+        at: lastUpdatedAt,
+        by: '系统',
+      })
+      notifyProcessTasksMutated()
+    }
+  },
+})
+
 export type ProcessTaskStoreSnapshot = ProcessTask[]
 
 export function captureProcessTaskStore(): ProcessTaskStoreSnapshot {
@@ -1055,7 +1200,6 @@ function resolveGeneratedTaskStandardPrice(processCode: string): number | undefi
     PROC_CUT: 1000,
     PROC_SEW: 1200,
     PROC_IRON_PACK: 2000,
-    PROC_LASER_CUT: 1600,
     PROC_SPECIAL_CRAFT: 1800,
     PROC_KUNTIAO: 1500,
     PROC_DALAN: 1600,

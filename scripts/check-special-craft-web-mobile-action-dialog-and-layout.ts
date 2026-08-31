@@ -29,7 +29,7 @@ function includesAll(content: string, values: string[], label: string): void {
 }
 
 const detailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
-const workOrderDetailRedirectSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
+const workOrderDetailSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
 const taskDetailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
@@ -42,9 +42,10 @@ const platformSource = read('src/data/fcs/platform-process-result-view.ts')
 const mainHandlersSource = read('src/main-handlers/fcs-handlers.ts')
 const taskPrintCardsSource = read('src/data/fcs/task-print-cards.ts')
 
-assert(workOrderDetailRedirectSource.includes('window.location.replace'), '加工单详情页已改为重定向到任务详情')
-assert(workOrderDetailRedirectSource.includes('/tasks/'), '加工单详情页重定向目标必须是任务详情页')
-assert(!/data-nav="[^"]*webAction/.test(workOrderDetailRedirectSource + detailSource), '特殊工艺页面仍存在 data-nav + webAction 直写')
+assert(workOrderDetailSource.includes('renderSpecialCraftTaskDetailPage'), '加工单详情页必须按 workOrderId 直接渲染')
+assert(!workOrderDetailSource.includes('window.location.replace'), '加工单详情页不得重定向到任务详情')
+assert(!workOrderDetailSource.includes('/tasks/'), '加工单详情页不得生成任务执行路由')
+assert(!/data-nav="[^"]*webAction/.test(workOrderDetailSource + detailSource), '特殊工艺页面仍存在 data-nav + webAction 直写')
 assert(!detailSource.includes('applyWebActionFromUrl'), '特殊工艺页面仍保留 applyWebActionFromUrl 主操作入口')
 assert(!detailSource.includes('document.body.insertAdjacentHTML'), '特殊工艺自定义弹窗不能挂到 body 外，避免 #app 事件委托不可达')
 includesAll(mainHandlersSource, [
@@ -66,7 +67,8 @@ assert(
     && detailSource.indexOf('if (actionNode) return true') < detailSource.indexOf('const skuConfirmNode'),
   '特殊工艺自定义确认按钮必须绕过 web action 提前返回，并进入 SKU/菲票提交处理',
 )
-includesAll(detailSource, ['基本信息', '菲票流转', '交出记录', '任务明细'], '特殊工艺任务详情内容')
+includesAll(detailSource, ['基本信息', '菲票流转', '交出记录', '加工明细', '操作记录'], '特殊工艺加工单详情内容')
+assert(!detailSource.includes('节点记录'), '特殊工艺加工单详情不得保留查看节点入口')
 assert(!detailSource.includes('差异异常'), '特殊工艺任务详情仍包含差异异常 Tab')
 includesAll(specialCraftSharedSource, [
   'SPECIAL_CRAFT_CONFIRM_RECEIVE',
@@ -129,8 +131,8 @@ includesAll(platformSource, [
 assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|烫包/), '特殊工艺页面出现后道动作文案')
 
 const taskOrders = listSpecialCraftTaskOrders()
-const waitReceive = taskOrders.find((item) => item.status === '待接收')
-const processing = taskOrders.find((item) => item.status === '加工中')
+const waitReceive = taskOrders.find((item) => item.status === '待接收' && item.targetObject === '已裁部位')
+const processing = taskOrders.find((item) => item.status === '加工中' && item.targetObject === '已裁部位')
 const completed = taskOrders.find((item) => item.status === '已完结')
 assert(waitReceive, '缺少待接收特殊工艺演示工艺单')
 assert(processing, '缺少加工中特殊工艺演示工艺单')
@@ -152,6 +154,7 @@ assertThrows(() => executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: waitReceive!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+  confirmationKey: 'CHECK-WEB-RECEIVE-OVER',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 09:50',
   objectType: '裁片',
@@ -162,6 +165,7 @@ const receiveResult = executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: waitReceive!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+  confirmationKey: 'CHECK-WEB-RECEIVE-OK',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:00',
   objectType: '裁片',
@@ -191,6 +195,7 @@ assertThrows(() => executeMobileProcessAction({
   sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
+  confirmationKey: 'CHECK-MOBILE-REPORT-OVER',
   operatorName: '移动端验收员',
   operatedAt: '2026-04-28 10:05',
   objectType: '裁片',
@@ -202,6 +207,7 @@ const mobileReport = executeMobileProcessAction({
   sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
+  confirmationKey: 'CHECK-MOBILE-REPORT-OK',
   operatorName: '移动端验收员',
   operatedAt: '2026-04-28 10:10',
   objectType: '裁片',
@@ -222,6 +228,7 @@ assertThrows(() => executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: processing!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+  confirmationKey: 'CHECK-WEB-HANDOVER-OVER',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:25',
   objectType: '裁片',
@@ -233,6 +240,7 @@ assertThrows(() => executeMobileProcessAction({
   sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
+  confirmationKey: 'CHECK-MOBILE-COMPLETE-EARLY',
   operatorName: '移动端验收员',
   operatedAt: '2026-04-28 10:26',
   objectType: '裁片',
@@ -245,6 +253,7 @@ const handoverResult = executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: processing!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+  confirmationKey: 'CHECK-WEB-HANDOVER-OK',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:30',
   objectType: '裁片',
@@ -264,6 +273,7 @@ const completeResult = executeMobileProcessAction({
   sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
+  confirmationKey: 'CHECK-MOBILE-COMPLETE-OK',
   operatorName: '移动端验收员',
   operatedAt: '2026-04-28 10:40',
   objectType: '裁片',

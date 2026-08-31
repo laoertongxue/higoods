@@ -756,7 +756,12 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   }
 }
 
-function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, sourceChannel?: ProcessActionPayload['sourceChannel']): { ok: boolean; reason: string; taskId: string } {
+function validateBinding(
+  sourceType: ProcessActionSourceType,
+  sourceId: string,
+  sourceChannel?: ProcessActionPayload['sourceChannel'],
+  currentFactoryId?: string,
+): { ok: boolean; reason: string; taskId: string } {
   const binding =
     sourceType === 'PRINT'
       ? validatePrintWorkOrderMobileTaskBinding(sourceId)
@@ -765,7 +770,7 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, 
         : sourceType === 'CUTTING'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
           : sourceType === 'SPECIAL_CRAFT'
-            ? validateSpecialCraftMobileTaskBinding(sourceId)
+            ? validateSpecialCraftMobileTaskBinding(sourceId, currentFactoryId)
             : validatePostFinishingMobileTaskBinding(sourceId)
   const prototypeCanUseFactoryScopedSpecialCraft =
     (sourceChannel === 'Web 端' || sourceChannel === '移动端') &&
@@ -773,6 +778,7 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, 
     binding.isBound &&
     binding.isTaskFound &&
     binding.isProcessTypeMatched &&
+    binding.isFactoryMatched &&
     binding.isAcceptedOrExecutable
   const webCanUseBoundPreparationOrder =
     sourceChannel === 'Web 端' &&
@@ -840,10 +846,11 @@ function assertActionSpecificFields(payload: ProcessActionPayload, definition: P
   }
 }
 
-function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { objectType: '面料' | '裁片' | '成衣'; qtyUnit: '米' | '片' | '件' } {
+function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { objectType: '面料' | '裁片' | '成衣' | '辅料'; qtyUnit: '米' | '片' | '件' | '条' } {
   const normalized = String(targetObject || '')
   if (normalized.includes('成衣')) return { objectType: '成衣', qtyUnit: '件' }
   if (normalized.includes('面料')) return { objectType: '面料', qtyUnit: '米' }
+  if (normalized.includes('辅料') || normalized.includes('橡筋')) return { objectType: '辅料', qtyUnit: '条' }
   return { objectType: '裁片', qtyUnit: '片' }
 }
 
@@ -909,7 +916,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
       return { ok: false, message: '请填写大于或等于 0 的有效染色完成数量。' }
     }
   }
-  const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
+  const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel, payload.operatorFactoryId)
   if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {
@@ -941,6 +948,10 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
 }
 
 function getActionObjectType(sourceType: ProcessActionSourceType, payload: ProcessActionPayload): string {
+  if (sourceType === 'SPECIAL_CRAFT') {
+    const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
+    if (workOrder) return resolveSpecialCraftObjectMeta(workOrder.targetObject).objectType
+  }
   return getProcessObjectType({
     processType: sourceType,
     sourceType,
@@ -951,6 +962,14 @@ function getActionObjectType(sourceType: ProcessActionSourceType, payload: Proce
 }
 
 function getActionQtyUnit(sourceType: ProcessActionSourceType, payload: ProcessActionPayload, snapshot: StatusSnapshot): string {
+  if (sourceType === 'SPECIAL_CRAFT') {
+    const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
+    if (workOrder?.targetObject === '辅料') {
+      return normalizeActionCode(payload.actionCode) === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+        ? workOrder.inputUnit || '米'
+        : workOrder.outputUnit || workOrder.unit || '条'
+    }
+  }
   return getProcessQtyUnit({
     processType: sourceType,
     sourceType,
@@ -1154,6 +1173,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
   const nextStatus = definition.toStatus as SpecialCraftTaskStatus
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
+  const isAccessoryInputOutput = workOrder.targetObject === '辅料'
   assertGarmentSkuQtyPayload(payload, definition.actionCode)
   const skuReceivedQty = payload.skuQtyBySkuCode
     ? Object.values(payload.skuQtyBySkuCode).reduce((sum, value) => sum + Number(value || 0), 0)
@@ -1163,10 +1183,25 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   }
   const qty = Number(skuReceivedQty ?? payload.objectQty ?? workOrder.currentQty ?? workOrder.receivedQty ?? 0)
   if (!Number.isFinite(qty) || qty < 0) throw new Error('本次数量必须为有效非负数。')
-  if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && workOrder.receivedQty + qty > workOrder.planQty) {
-    throw new Error('本次接收后会超过计划数量，请检查数量。')
+  const inputPlannedQty = Number(workOrder.inputPlannedQty || 0)
+  const inputReceivedQty = Number(workOrder.inputReceivedQty || 0)
+  const nextInputReceivedQty = Math.round((inputReceivedQty + (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? qty : 0)) * 10_000) / 10_000
+  const authorizedAccessoryOutputQty = isAccessoryInputOutput && inputPlannedQty > 0
+    ? Math.floor((workOrder.planQty * nextInputReceivedQty) / inputPlannedQty + 1e-9)
+    : workOrder.receivedQty
+  if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+    const plannedReceiveQty = isAccessoryInputOutput ? inputPlannedQty : workOrder.planQty
+    const currentReceiveQty = isAccessoryInputOutput ? inputReceivedQty : workOrder.receivedQty
+    if (plannedReceiveQty <= 0) throw new Error('加工单缺少可接收的计划投入数量。')
+    const nextReceivedQty = isAccessoryInputOutput ? nextInputReceivedQty : currentReceiveQty + qty
+    if (nextReceivedQty - plannedReceiveQty > 1e-9) {
+      throw new Error('本次接收后会超过计划投入数量，请检查数量。')
+    }
   }
-  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && qty > Math.max(workOrder.receivedQty - workOrder.completedQty, 0)) {
+  const availableToCompleteQty = isAccessoryInputOutput
+    ? Math.max(Math.min(workOrder.planQty, authorizedAccessoryOutputQty) - workOrder.completedQty, 0)
+    : Math.max(workOrder.receivedQty - workOrder.completedQty, 0)
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && qty > availableToCompleteQty) {
     throw new Error('完工数量不能超过累计实收未完工数量。')
   }
   if (definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' && qty > Math.max(workOrder.completedQty - (workOrder.returnedQty || 0), 0)) {
@@ -1217,7 +1252,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && objectMeta.objectType === '成衣') {
     const updated = confirmSpecialCraftTaskOrderReceiptBySku({
       taskOrderId: workOrder.taskOrderId,
-      receivedQtyBySkuCode: payload.skuQtyBySkuCode,
+      receivedQtyBySkuCode: payload.skuQtyBySkuCode!,
       receiverName: payload.operatorName || '辅助工艺仓管员',
       receivedAt: payload.operatedAt || nowText(),
     })
@@ -1226,7 +1261,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '成衣') {
     const updated = confirmSpecialCraftTaskOrderCompletionBySku({
       taskOrderId: workOrder.taskOrderId,
-      completedQtyBySkuCode: payload.skuQtyBySkuCode,
+      completedQtyBySkuCode: payload.skuQtyBySkuCode!,
       scrapQtyBySkuCode: payload.skuScrapQtyBySkuCode || {},
       damageQtyBySkuCode: payload.skuDamageQtyBySkuCode || {},
       operatorName: payload.operatorName || '现场操作员',
@@ -1238,7 +1273,14 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     status: nextStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
-    receivedQty: definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? workOrder.receivedQty + qty : undefined,
+    inputReceivedQty: definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && isAccessoryInputOutput
+      ? nextInputReceivedQty
+      : undefined,
+    receivedQty: definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+      ? isAccessoryInputOutput
+        ? Math.min(workOrder.planQty, authorizedAccessoryOutputQty)
+        : workOrder.receivedQty + qty
+      : undefined,
     completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? workOrder.completedQty + qty : undefined,
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? (workOrder.returnedQty || 0) + qty : undefined,
     remark: payload.remark,
@@ -1413,13 +1455,20 @@ export function createProcessActionOperationRecord(
 }
 
 export function executeProcessAction(payload: ProcessActionPayload): ProcessActionWritebackResult {
+  const authoritativeSpecialCraftOrder = payload.sourceType === 'SPECIAL_CRAFT'
+    ? getSpecialCraftTaskOrderById(payload.sourceId)
+    : undefined
   const canonicalPayload: ProcessActionPayload = {
     ...payload,
+    taskId: authoritativeSpecialCraftOrder?.sourceTaskId || payload.taskId,
     actionCode: normalizeActionCode(payload.actionCode),
     operatorName: payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员'),
     operatedAt: payload.operatedAt || nowText(),
   }
   const confirmationKey = canonicalPayload.confirmationKey?.trim()
+  if (canonicalPayload.sourceType === 'SPECIAL_CRAFT' && !confirmationKey) {
+    throw new Error('缺少本次操作确认号，请重新打开加工单动作后提交。')
+  }
   const idempotencyKey = confirmationKey
     ? `${canonicalPayload.sourceType}:${canonicalPayload.sourceId}:${normalizeActionCode(canonicalPayload.actionCode)}:${confirmationKey}`
     : ''
@@ -1648,6 +1697,29 @@ export function getProcessActionOperationRecordsBySource(sourceType: ProcessActi
 
 export function getProcessActionOperationRecordsByTask(taskId: string): ProcessActionOperationRecord[] {
   return listProcessActionOperationRecords({ taskId })
+}
+
+export interface ProcessActionRuntimeSnapshot {
+  operationRecords: ProcessActionOperationRecord[]
+  idempotentResults: Array<[string, ProcessActionWritebackResult]>
+}
+
+export function captureProcessActionRuntime(): ProcessActionRuntimeSnapshot {
+  return {
+    operationRecords: structuredClone(processActionOperationRecords),
+    idempotentResults: structuredClone(Array.from(processActionResultsByConfirmationKey.entries())),
+  }
+}
+
+export function restoreProcessActionRuntime(snapshot: ProcessActionRuntimeSnapshot): void {
+  processActionOperationRecords.splice(0, processActionOperationRecords.length, ...structuredClone(snapshot.operationRecords))
+  processActionResultsByConfirmationKey.clear()
+  structuredClone(snapshot.idempotentResults).forEach(([key, result]) => processActionResultsByConfirmationKey.set(key, result))
+}
+
+export function resetProcessActionRuntime(): void {
+  processActionOperationRecords.splice(0, processActionOperationRecords.length)
+  processActionResultsByConfirmationKey.clear()
 }
 
 export const PROCESS_ACTION_WRITEBACK_SERVICE_SOURCE = '移动端与 Web 端共用写回函数'

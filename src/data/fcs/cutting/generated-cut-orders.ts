@@ -341,6 +341,7 @@ function makeStableCutOrderId(input: {
     'cut-order',
     slugToken(input.productionOrderNo),
     slugToken(input.materialIdentity.materialSku),
+    slugToken(input.materialIdentity.materialColor),
     slugToken(input.patternIdentity.patternFileId),
     slugToken(input.patternIdentity.patternVersion),
     slugToken(`${input.patternIdentity.effectiveWidthValue}${input.patternIdentity.effectiveWidthUnit}`),
