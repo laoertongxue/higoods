@@ -1,4 +1,5 @@
 function canShowProductionObjectEntry(pathname: string): boolean {
+  if (pathname.startsWith('/fcs/pda')) return false
   if (pathname.startsWith('/fcs/print/')) return false
   if (pathname.startsWith('/fcs/task-print/')) return false
   if (pathname.includes('confirmation-print')) return false

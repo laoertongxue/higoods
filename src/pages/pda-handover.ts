@@ -3,6 +3,8 @@ import { escapeHtml, toClassName } from '../utils'
 import { renderRealQrPlaceholder } from '../components/real-qr'
 import { renderPdaFrame } from './pda-shell'
 import {
+  canCompletePdaHandoutHead,
+  canCompletePdaPickupHead,
   deriveHandoutObjectProfile,
   findPdaHandoverHead,
   getPdaHandoverSourceDisplay,
@@ -524,6 +526,65 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
   `
 }
 
+function renderCompactOpenHeadCard(head: PdaHandoverHead): string {
+  const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
+  const source = getPdaHandoverSourceDisplay(head)
+  const receiverName = getReceiverDisplayName(head)
+  const isPickup = head.headType === 'PICKUP'
+  const profile = isPickup
+    ? null
+    : deriveHandoutObjectProfile(head, getPdaHandoverRecordsByHead(head.handoverId))
+  const primaryValue = isPickup ? head.qtyExpectedTotal : profile?.totalPlannedQty || 0
+  const actualValue = isPickup ? head.qtyActualTotal : profile?.totalWrittenQty || 0
+  const pendingValue = isPickup
+    ? Math.max(head.qtyExpectedTotal - head.qtyActualTotal, 0)
+    : profile?.totalPendingQty || 0
+  const unit = profile?.displayUnit || head.qtyUnit
+  const canComplete = isPickup
+    ? canCompletePdaPickupHead(head.handoverId).ok
+    : canCompletePdaHandoutHead(head.handoverId).ok
+  const action = isPickup || head.processBusinessCode === 'WOOL' || canComplete ? 'open-detail' : 'open-new-record'
+  const actionLabel = isPickup
+    ? canComplete ? '完成接收单' : '确认接收'
+    : canComplete ? '完成交出单' : head.processBusinessCode === 'WOOL' ? '查看交出' : '发起交出'
+
+  return `
+    <article
+      class="cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition-colors hover:border-primary"
+      data-testid="${isPickup ? 'pickup-head-card' : 'handout-head-card'}"
+      data-pda-handover-action="open-detail"
+      data-event-id="${escapeHtml(head.handoverId)}"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold">${escapeHtml(head.processName)}</div>
+          <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div>
+        </div>
+        <span class="shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
+      </div>
+
+      <div class="mt-3 flex items-center gap-2 text-xs">
+        ${renderPartyChip('FACTORY', head.sourceFactoryName)}
+        <i data-lucide="arrow-right" class="h-3.5 w-3.5 shrink-0 text-muted-foreground"></i>
+        ${renderPartyChip(head.targetKind, receiverName)}
+      </div>
+
+      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '应收' : '计划'}</div><div class="mt-1 font-semibold">${primaryValue} ${escapeHtml(unit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '已收' : '已确认'}</div><div class="mt-1 font-semibold">${actualValue} ${escapeHtml(unit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '待收' : '待确认'}</div><div class="mt-1 font-semibold ${pendingValue > 0 ? 'text-amber-700' : 'text-emerald-700'}">${pendingValue} ${escapeHtml(unit)}</div></div>
+      </div>
+
+      <button
+        type="button"
+        class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
+        data-pda-handover-action="${action}"
+        data-event-id="${escapeHtml(head.handoverId)}"
+      >${actionLabel}</button>
+    </article>
+  `
+}
+
 function renderDoneHeadCard(head: PdaHandoverHead): string {
   const doneTypeLabel = head.headType === 'PICKUP' ? '接收单已完成' : '交出单已完成'
   const diffLabel = `${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}`
@@ -576,6 +637,37 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
         }
         ${head.headType === 'HANDOUT' ? renderHandoutObjectBlock(head) : ''}
       </div>
+    </article>
+  `
+}
+
+function renderCompactDoneHeadCard(head: PdaHandoverHead): string {
+  const source = getPdaHandoverSourceDisplay(head)
+  const isPickup = head.headType === 'PICKUP'
+  const profile = isPickup
+    ? null
+    : deriveHandoutObjectProfile(head, getPdaHandoverRecordsByHead(head.handoverId))
+  const expected = isPickup ? head.qtyExpectedTotal : profile?.totalPlannedQty || 0
+  const actual = isPickup ? head.qtyActualTotal : profile?.totalWrittenQty || 0
+  const unit = profile?.displayUnit || head.qtyUnit
+  const diff = head.qtyDiffTotal
+  return `
+    <article
+      class="cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition-colors hover:border-primary"
+      data-testid="${isPickup ? 'pickup-head-card' : 'handout-head-card'}"
+      data-pda-handover-action="open-detail"
+      data-event-id="${escapeHtml(head.handoverId)}"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0"><div class="truncate text-sm font-semibold">${escapeHtml(head.processName)}</div><div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div></div>
+        <span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">已完成</span>
+      </div>
+      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '应收' : '已交'}</div><div class="mt-1 font-semibold">${expected} ${escapeHtml(unit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '已收' : '已收'}</div><div class="mt-1 font-semibold">${actual} ${escapeHtml(unit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${diff !== 0 ? 'text-red-600' : 'text-emerald-700'}">${diff > 0 ? '-' : diff < 0 ? '+' : ''}${Math.abs(diff)} ${escapeHtml(unit)}</div></div>
+      </div>
+      <div class="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-primary">查看结果<i data-lucide="chevron-right" class="h-4 w-4"></i></div>
     </article>
   `
 }
@@ -781,7 +873,7 @@ function renderSpecialCraftHandoverScanPanel(): string {
   return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-special-craft-scan>
     <div class="flex items-start gap-2">
       <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
-      <div><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '确认接收' : '发起交出'}</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或加工单码；一个生产单有多张加工单时再选择。</div></div>
+      <div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '确认接收' : '发起交出'}</div>
     </div>
     <div class="mt-3 flex gap-2">
       <input
@@ -794,7 +886,6 @@ function renderSpecialCraftHandoverScanPanel(): string {
       />
       <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-special-craft-order">识别加工单</button>
     </div>
-    <div class="mt-2 text-[11px] text-blue-700">“交接”只处理确认接收和发起交出。</div>
     ${renderSpecialCraftHandoverScanFeedback()}
   </section>`
 }
@@ -831,7 +922,7 @@ function buildBindingHandoverWorkOrderPath(workOrderId: string): string {
 
 function renderBindingScanCandidate(candidate: BindingProcessPdaScanCandidate): string {
   const { order } = candidate
-  return `<article class="rounded-lg border bg-background p-3" data-pda-binding-scan-candidate><div class="text-xs"><div class="font-semibold">${escapeHtml(order.bindingOrderNo)}</div><div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.sourceProductionOrderNo)}</div><div class="mt-1">${escapeHtml(order.materialIdentity.materialSku)} · ${order.bindingSpecificationCount} 个规格 · ${order.plannedOutputQty} 米</div><div class="mt-1 text-muted-foreground">来源任务：${escapeHtml(order.sourceTaskNo)}</div></div><button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-binding-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}">选择此捆条加工单</button></article>`
+  return `<article class="rounded-lg border bg-background p-3" data-pda-binding-scan-candidate><div class="text-xs"><div class="font-semibold">${escapeHtml(order.bindingOrderNo)}</div><div class="mt-1 text-muted-foreground">生产单：${escapeHtml(order.sourceProductionOrderNo)}</div><div class="mt-1">${escapeHtml(order.materialIdentity.materialSku)} · ${order.bindingSpecificationCount} 个规格 · ${order.plannedOutputQty} 米</div></div><button type="button" class="mt-3 h-10 w-full rounded bg-primary text-sm font-medium text-primary-foreground" data-pda-handover-action="select-binding-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}">选择此捆条加工单</button></article>`
 }
 
 function renderBindingHandoverScanFeedback(): string {
@@ -848,7 +939,7 @@ function renderBindingHandoverScanPanel(): string {
   const purpose = getBindingScanPurpose(state.activeTab)
   if (!purpose) return ''
   const isReceive = purpose === 'RECEIVE'
-  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-binding-scan><div class="flex items-start gap-2"><i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i><div><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '接收捆条面料' : '交出加工后捆条'}</div><div class="mt-1 text-xs text-blue-800">扫描捆条加工单或规格菲票；多张加工单时必须选择。</div></div></div><div class="mt-3 flex gap-2"><input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" placeholder="扫描捆条加工单 / 菲票" data-pda-handover-field="bindingScanKeyword" data-pda-scan-enter="true" data-skip-page-rerender="true" value="${escapeHtml(state.bindingScanKeyword)}"><button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-binding-order">识别加工单</button></div><div class="mt-2 text-[11px] text-blue-700">实际米数必须确认；任务号只在加工单基本信息中追溯。</div>${renderBindingHandoverScanFeedback()}</section>`
+  return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-handover-binding-scan><div class="flex items-start gap-2"><i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i><div class="text-sm font-semibold text-blue-950">扫码${isReceive ? '接收捆条面料' : '交出加工后捆条'}</div></div><div class="mt-3 flex gap-2"><input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" placeholder="扫描捆条加工单 / 菲票" data-pda-handover-field="bindingScanKeyword" data-pda-scan-enter="true" data-skip-page-rerender="true" value="${escapeHtml(state.bindingScanKeyword)}"><button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-handover-action="scan-binding-order">识别加工单</button></div>${renderBindingHandoverScanFeedback()}</section>`
 }
 
 function runBindingHandoverScan(rawCode: string): void {
@@ -946,7 +1037,7 @@ export function renderPdaHandoverPage(): string {
               ${
                 pickupHeads.length === 0
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码确认接收；暂无其他待处理接收单' : '暂无待处理接收单')
-                  : pickupHeads.map((head) => renderOpenHeadCard(head)).join('')
+                  : pickupHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
               }
             `
             : ''
@@ -958,7 +1049,7 @@ export function renderPdaHandoverPage(): string {
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
-                  : handoutHeads.map((head) => renderOpenHeadCard(head)).join('')
+                  : handoutHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
               }
             `
             : ''
@@ -970,7 +1061,7 @@ export function renderPdaHandoverPage(): string {
               ${
                 doneHeads.length === 0
                   ? renderEmptyState('暂无已完成交接单')
-                  : doneHeads.map((head) => renderDoneHeadCard(head)).join('')
+                  : doneHeads.map((head) => renderCompactDoneHeadCard(head)).join('')
               }
             `
             : ''

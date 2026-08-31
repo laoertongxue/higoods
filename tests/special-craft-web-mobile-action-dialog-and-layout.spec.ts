@@ -37,6 +37,16 @@ function selectOrderByTarget(target: '已裁部位' | '成衣' | '辅料' | '捆
   return order
 }
 
+function selectPartialHandoverOrder(): SpecialCraftTaskOrder {
+  const order = listSpecialCraftTaskOrders().find((item) =>
+    item.taskOrderNo === 'AUX-PO14672-0002-02'
+    && item.status === '加工中'
+    && item.completedQty > (item.returnedQty || 0),
+  )
+  if (!order) throw new Error('缺少压褶部分交出演示加工单 AUX-PO14672-0002-02')
+  return order
+}
+
 async function setPdaSession(page: Page, factoryId: string): Promise<void> {
   const user = listFactoryPdaUsers(factoryId).find((item) =>
     item.status === 'ACTIVE' && ['ROLE_OPERATOR', 'ROLE_ADMIN'].includes(item.roleId),
@@ -142,6 +152,7 @@ test('PDA 按具体加工单进入，所有执行载荷同时保留加工单和�
   await expect(page.locator('#app')).toContainText(order.taskOrderId)
   await expect(page.locator('#app')).toContainText(order.sourceTaskId || '')
   await expect(page.locator('#app')).toContainText(order.sourceTaskNo || order.sourceTaskId || '')
+  await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
 
   const actions = page.locator('[data-pda-execd-action][data-work-order-id]')
   expect(await actions.count()).toBeGreaterThan(0)
@@ -150,6 +161,55 @@ test('PDA 按具体加工单进入，所有执行载荷同时保留加工单和�
     await expect(actions.nth(index)).toHaveAttribute('data-source-task-id', order.sourceTaskId || '')
   }
   await assertNoTaskExecutionActions(page)
+})
+
+test('PDA 列表不显示 Web 分页和全局悬浮搜索，较长列表只提供继续显示', async ({ page }) => {
+  const order = selectPartialHandoverOrder()
+  await setPdaSession(page, order.factoryId)
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.goto('/fcs/pda/exec?tab=IN_PROGRESS')
+
+  const listRoot = page.locator('[data-testid="pda-exec-card-list"]')
+  await expect(listRoot).toBeVisible()
+  await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
+  await expect(listRoot.locator('[data-pda-exec-pagination]')).toHaveCount(0)
+  await expect(listRoot).not.toContainText('上一页')
+  await expect(listRoot).not.toContainText('下一页')
+  await expect(listRoot).not.toContainText('每页 10 条')
+  const progressiveControl = listRoot.locator('[data-pda-exec-load-more="special-craft"]')
+  if (await progressiveControl.count()) {
+    await expect(progressiveControl.getByRole('button', { name: /继续显示 \d+ 条/ })).toBeVisible()
+  }
+})
+
+test('PDA 发起交出按菲票填写本次数量，可部分交出并显示业务留痕 ID', async ({ page }) => {
+  const order = selectPartialHandoverOrder()
+  const line = order.lineProgress?.find((item) => item.feiTicketNo)
+  if (!line?.feiTicketNo) throw new Error(`${order.taskOrderNo} 缺少菲票明细`)
+  const availableQty = line.completedQty - line.returnedQty
+  const partialQty = Math.max(1, Math.floor(availableQty / 3))
+
+  await setPdaSession(page, order.factoryId)
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}?surface=handover&handoverAction=handout`)
+
+  await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible()
+  await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
+  const qtyInput = page.getByLabel(`${line.feiTicketNo}本次交出数量`)
+  await expect(qtyInput).toHaveValue(String(availableQty))
+  await qtyInput.fill(String(partialQty))
+  await page.getByLabel('交出备注（选填）').fill('PDA 部分交出验证')
+
+  const submit = page.getByRole('button', { name: '确认发起交出', exact: true })
+  await expect(submit).toHaveAttribute('data-work-order-id', order.taskOrderId)
+  await expect(submit).toHaveAttribute('data-source-task-id', order.sourceTaskId || '')
+  await submit.click()
+
+  await expect(page.locator('[data-line-progress-key]')).toContainText(`累计交出：${partialQty} 片`)
+  await expect(page.locator('#app')).toContainText('业务记录 ID：PAO-')
+  await expect(page.locator('#app')).toContainText('交出记录 ID：')
+  await expect(page.locator('#app')).toContainText(`PDA 部分交出验证`)
+  await expect(page.locator('[data-line-progress-key] input')).toHaveValue(String(availableQty - partialQty))
 })
 
 test('旧任务详情地址仅兼容重定向到唯一加工单地址', async ({ page }) => {

@@ -1,52 +1,28 @@
 import { expect, test } from '@playwright/test'
 
-import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpers/seed-cutting-runtime-state'
+import {
+  collectPageErrors,
+  expectNoPageErrors,
+  GENERIC_PDA_SESSION,
+  seedLocalStorage,
+} from './helpers/seed-cutting-runtime-state'
 
-const GENERIC_PICKUP_HEAD_ID = 'PKH-MOCK-SEW-400'
-
-test('待接收详情的记录卡改成核心字段加场景补充，追溯信息默认收起', async ({ page }) => {
+test('接收记录默认折叠，展开后只显示结果字段', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
+  await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001', fcs_pda_session: GENERIC_PDA_SESSION })
 
-  await page.goto(`/fcs/pda/handover/${GENERIC_PICKUP_HEAD_ID}`)
+  await page.goto('/fcs/pda/handover/PKH-MOCK-SEW-400')
 
-  const recordListSection = page.locator('article').filter({ has: page.getByRole('heading', { name: '仓库已生成的接收记录' }) }).first()
-  const recordCard = recordListSection.locator('article').first()
-  const recordCardText = await recordCard.textContent()
-
-  expect(recordCardText).toContain('第 ')
-  expect(recordCardText).toContain('接收方式')
-  expect(recordCardText).toContain('物料说明')
-  expect(recordCardText).toContain('本次应领数量')
-  expect(recordCardText).toContain('仓库交付数量')
-  expect(recordCardText).toContain('接收记录二维码')
-
-  expect(recordCardText).not.toContain('物料名称：')
-  expect(recordCardText).not.toContain('物料规格：')
-  expect(recordCardText).not.toContain('SKU：')
-  expect(recordCardText).not.toContain('颜色/尺码：')
-  expect(recordCardText).not.toContain('裁片：')
-  expect(recordCardText).not.toContain('备注：—')
-  expect(recordCardText).not.toContain('平台处理说明：—')
-
-  await expect(recordCard.getByText('物料主体：').first()).toBeVisible()
-  await expect(recordCard.getByText(/SKU\s/).first()).toBeVisible()
-
-  const traceability = page.locator('[data-testid="pickup-traceability"]')
-  await expect(traceability).toBeVisible()
-  expect(await traceability.evaluate((node) => node.hasAttribute('open'))).toBe(false)
-
-  await traceability.locator('summary').click()
-  await expect(traceability.getByText('原始任务')).toBeVisible()
-  await expect(traceability.getByText('来源执行单')).toBeVisible()
-  await expect(traceability.getByText('来源类型')).toBeVisible()
-  await expect(traceability.getByText('执行范围')).toBeVisible()
-  await expect(traceability.getByText('运行时任务')).toBeVisible()
-  await expect(traceability.getByText('拆分组')).toBeVisible()
-  await expect(traceability.getByText('拆分来源')).toBeVisible()
-
-  const currentRecordSection = page.locator('article').filter({ has: page.getByRole('heading', { name: '当前记录处理区' }) }).first()
-  await expect(currentRecordSection.getByRole('button', { name: /确认本次接收|发起数量差异|去异常定位与处理/ }).first()).toBeVisible()
-
+  const history = page.getByTestId('pickup-record-history')
+  await expect(history).toBeVisible()
+  await expect(history).not.toHaveAttribute('open', '')
+  await history.locator('summary').click()
+  const record = history.getByTestId('pickup-record-card').first()
+  await expect(record).toBeVisible()
+  await expect(record).toContainText('应收')
+  await expect(record).toContainText('实收')
+  await expect(record).toContainText('差异')
+  await expect(record).not.toContainText('接收记录二维码')
+  await expect(record).not.toContainText('入库记录')
   await expectNoPageErrors(errors)
 })

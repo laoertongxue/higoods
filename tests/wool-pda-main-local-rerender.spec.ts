@@ -39,19 +39,23 @@ test('毛织输入和弹窗动作经过真实 main.ts 分发链且不替换整�
   expect(await originalRoot!.evaluate((node) => node.isConnected)).toBe(true)
 })
 
-test('执行任务卡分页有界且搜索回到第一页并局部刷新', async ({ page }) => {
+test('执行任务卡使用移动端渐进加载，搜索后重置首批并局部刷新', async ({ page }) => {
   await page.goto('/fcs/pda/exec?tab=NOT_STARTED')
   const listRoot = page.locator('[data-testid="pda-exec-card-list"]')
-  await expect(listRoot.locator('[data-pda-exec-pagination]')).toContainText('每页 10 条')
+  await expect(listRoot.locator('[data-pda-exec-pagination]')).toHaveCount(0)
+  await expect(listRoot).not.toContainText('上一页')
+  await expect(listRoot).not.toContainText('下一页')
   expect(await listRoot.locator('[data-testid="pda-exec-task-card"]').count()).toBeLessThanOrEqual(10)
   const originalList = await listRoot.elementHandle()
-  const nextButton = listRoot.locator('[data-pda-exec-action="page"][data-page="2"]')
-  if (await nextButton.isEnabled()) {
-    await nextButton.click()
-    await expect(listRoot.locator('[data-pda-exec-pagination]')).toContainText('第 2 /')
+  const loadMoreButton = listRoot.locator('[data-pda-exec-action="load-more"][data-list-key="general"]')
+  if (await loadMoreButton.count()) {
+    const initialCount = await listRoot.locator('[data-testid="pda-exec-task-card"]').count()
+    await loadMoreButton.click()
+    expect(await listRoot.locator('[data-testid="pda-exec-task-card"]').count()).toBeGreaterThan(initialCount)
     expect(await originalList!.evaluate((node) => node.isConnected)).toBe(true)
     await page.locator('[data-pda-exec-field="searchKeyword"]').fill('TASK-WOOL')
-    await expect(listRoot.locator('[data-pda-exec-pagination]')).toContainText('第 1 /')
+    await expect(listRoot.locator('[data-pda-exec-pagination]')).toHaveCount(0)
+    expect(await listRoot.locator('[data-testid="pda-exec-task-card"]').count()).toBeLessThanOrEqual(10)
     expect(await originalList!.evaluate((node) => node.isConnected)).toBe(true)
   }
 })

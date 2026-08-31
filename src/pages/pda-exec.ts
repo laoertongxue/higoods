@@ -78,9 +78,9 @@ import {
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 import {
-  buildPdaExecPageSlice,
-  renderPdaExecPaginationControls,
-} from './pda-exec-pagination.ts'
+  buildPdaExecProgressiveSlice,
+  renderPdaExecLoadMoreControl,
+} from './pda-exec-progressive-list.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
@@ -94,7 +94,9 @@ interface PdaExecState {
   activeTab: TaskStatusTab
   searchKeyword: string
   riskParam: string
-  page: number
+  specialCraftVisibleCount: number
+  bindingVisibleCount: number
+  generalVisibleCount: number
   woolScanMessage: string
   woolScanTone: 'info' | 'error'
   woolScanCandidates: WoolPdaScanCandidate[]
@@ -124,7 +126,9 @@ const state: PdaExecState = {
   activeTab: 'NOT_STARTED',
   searchKeyword: '',
   riskParam: '',
-  page: 1,
+  specialCraftVisibleCount: 10,
+  bindingVisibleCount: 10,
+  generalVisibleCount: 10,
   woolScanMessage: '',
   woolScanTone: 'info',
   woolScanCandidates: [],
@@ -142,7 +146,13 @@ const state: PdaExecState = {
   bindingTab: 'IN_PROGRESS',
 }
 
-const PDA_EXEC_PAGE_SIZE = 10
+const PDA_EXEC_BATCH_SIZE = 10
+
+function resetPdaExecVisibleCounts(): void {
+  state.specialCraftVisibleCount = PDA_EXEC_BATCH_SIZE
+  state.bindingVisibleCount = PDA_EXEC_BATCH_SIZE
+  state.generalVisibleCount = PDA_EXEC_BATCH_SIZE
+}
 
 function listTaskFacts(): ProcessTask[] {
   return listPdaMobileExecutionTasks()
@@ -280,7 +290,7 @@ function syncTabWithQuery(): void {
     ? searchParams.get('keyword') || ''
     : state.searchKeyword
   if (state.activeTab !== mapped || state.riskParam !== nextRisk || state.searchKeyword !== nextKeyword) {
-    state.page = 1
+    resetPdaExecVisibleCounts()
   }
   state.activeTab = mapped
   state.riskParam = nextRisk
@@ -757,7 +767,6 @@ function renderSpecialCraftFactCard(candidate: SpecialCraftPdaScanCandidate): st
             <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">${escapeHtml(order.status)}</span>
           </div>
           <div class="text-xs">${escapeHtml(order.operationName)} · ${escapeHtml(order.targetObject)}</div>
-          <div class="text-[11px] text-muted-foreground">来源任务：${escapeHtml(candidate.sourceTaskNo || candidate.sourceTaskId || '—')}</div>
           <div class="rounded-md border bg-muted/20 px-2 py-1.5 text-xs">已接收 ${order.receivedQty} / 已完成 ${order.completedQty} ${escapeHtml(order.unit)}</div>
           <button type="button" class="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="open-special-craft-work-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}" data-source-task-id="${escapeHtml(candidate.sourceTaskId)}">${escapeHtml(actionLabel)}</button>
         </div>
@@ -774,16 +783,16 @@ function renderSpecialCraftWorkOrderSection(factoryId: string): string {
   const matchedTabs = [...new Set(candidates.map(getSpecialCraftWorkOrderTab))]
   if (state.searchKeyword.trim() && matchedTabs.length === 1) state.specialCraftTab = matchedTabs[0]
   const rows = candidates.filter((candidate) => getSpecialCraftWorkOrderTab(candidate) === state.specialCraftTab)
-  const page = buildPdaExecPageSlice(rows, state.page, PDA_EXEC_PAGE_SIZE)
-  state.page = page.currentPage
+  const list = buildPdaExecProgressiveSlice(rows, state.specialCraftVisibleCount, PDA_EXEC_BATCH_SIZE)
+  state.specialCraftVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
   return `
-    <section class="space-y-3" data-pda-special-craft-work-order-list>
-      <div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">工艺加工单</h2><span class="text-[11px] text-muted-foreground">任务仅作来源追溯</span></div>
-      <div class="grid grid-cols-4 rounded-lg border bg-background">
+    <section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-special-craft-work-order-list>
+      <div class="grid grid-cols-4 border-b bg-background" data-testid="pda-exec-special-craft-tabs">
         ${SPECIAL_CRAFT_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
       </div>
-      <div class="space-y-3">${page.rows.length ? page.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
-      ${renderPdaExecPaginationControls(page)}
+      <div class="px-4">${renderSpecialCraftExecutionScanHeader()}</div>
+      <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
+      <div class="px-4">${renderPdaExecLoadMoreControl(list, 'special-craft')}</div>
     </section>
   `
 }
@@ -838,7 +847,6 @@ function renderBindingFactCard(candidate: BindingProcessPdaScanCandidate): strin
         <div class="min-w-0 flex-1 space-y-2">
           <div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="truncate text-sm font-semibold">${escapeHtml(order.bindingOrderNo)}</div><div class="mt-0.5 truncate text-[11px] text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo)} · ${escapeHtml(order.materialIdentity.materialSku)}</div></div><span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">${escapeHtml(order.status)}</span></div>
           <div class="text-xs">${order.bindingSpecificationCount} 个规格 · 计划 ${order.plannedOutputQty} 米</div>
-          <div class="text-[11px] text-muted-foreground">来源任务：${escapeHtml(order.sourceTaskNo)}</div>
           <div class="rounded-md border bg-muted/20 px-2 py-1.5 text-xs">实收 ${order.receivedMaterialLength} / 已加工 ${order.actualOutputQty} / 已交出 ${order.handedOverQty || 0} 米</div>
           <button type="button" class="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="open-binding-work-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}">${escapeHtml(actionLabel)}</button>
         </div>
@@ -854,21 +862,21 @@ function renderBindingWorkOrderSection(factoryId: string): string {
   const matchedTabs = [...new Set(candidates.map(getBindingWorkOrderTab))]
   if (state.searchKeyword.trim() && matchedTabs.length === 1) state.bindingTab = matchedTabs[0]
   const rows = candidates.filter((candidate) => getBindingWorkOrderTab(candidate) === state.bindingTab)
-  const page = buildPdaExecPageSlice(rows, state.page, PDA_EXEC_PAGE_SIZE)
-  state.page = page.currentPage
-  return `<section class="space-y-3" data-pda-binding-work-order-list>
-    <div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">捆条加工单</h2><span class="text-[11px] text-muted-foreground">按加工单和规格执行</span></div>
-    <div class="grid grid-cols-4 rounded-lg border bg-background">${SPECIAL_CRAFT_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
-    <div class="space-y-3">${page.rows.length ? page.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
-    ${renderPdaExecPaginationControls(page)}
+  const list = buildPdaExecProgressiveSlice(rows, state.bindingVisibleCount, PDA_EXEC_BATCH_SIZE)
+  state.bindingVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
+  return `<section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-binding-work-order-list>
+    <div class="grid grid-cols-4 border-b bg-background" data-testid="pda-exec-binding-tabs">${SPECIAL_CRAFT_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
+    <div class="px-4">${renderBindingExecutionScanHeader()}</div>
+    <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
+    <div class="px-4">${renderPdaExecLoadMoreControl(list, 'binding')}</div>
   </section>`
 }
 
 function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: string): string {
-  const page = buildPdaExecPageSlice(filteredTasks, state.page, PDA_EXEC_PAGE_SIZE)
-  state.page = page.currentPage
-  const cards = page.rows.length
-    ? page.rows.map((task) => {
+  const list = buildPdaExecProgressiveSlice(filteredTasks, state.generalVisibleCount, PDA_EXEC_BATCH_SIZE)
+  state.generalVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
+  const cards = list.rows.length
+    ? list.rows.map((task) => {
       if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
       if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
       if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
@@ -878,7 +886,7 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
     }).join('')
     : `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
   return `${cards}
-    ${renderPdaExecPaginationControls(page)}`
+    ${renderPdaExecLoadMoreControl(list, 'general')}`
 }
 
 export function renderWaterSolubleCard(
@@ -1577,7 +1585,7 @@ function renderSpecialCraftExecutionScanHeader(): string {
   return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-exec-special-craft-scan>
     <div class="flex items-start gap-2">
       <i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i>
-      <div><div class="text-sm font-semibold text-blue-950">扫码进入加工填报</div><div class="mt-1 text-xs text-blue-800">优先扫描生产单码或加工单码；一个生产单有多张加工单时再选择。</div></div>
+      <div class="text-sm font-semibold text-blue-950">扫码加工单</div>
     </div>
     <div class="mt-3 flex gap-2">
       <input
@@ -1590,7 +1598,6 @@ function renderSpecialCraftExecutionScanHeader(): string {
       />
       <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-exec-action="scan-special-craft-order">识别加工单</button>
     </div>
-    <div class="mt-2 text-[11px] text-blue-700">“执行”只处理加工填报和完成加工单。</div>
     ${renderSpecialCraftExecutionScanFeedback()}
   </section>`
 }
@@ -1631,9 +1638,8 @@ function renderBindingExecutionScanFeedback(): string {
 
 function renderBindingExecutionScanHeader(): string {
   return `<section class="rounded-xl border border-blue-200 bg-blue-50/70 p-3" data-pda-exec-binding-scan>
-    <div class="flex items-start gap-2"><i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i><div><div class="text-sm font-semibold text-blue-950">扫码进入捆条加工</div><div class="mt-1 text-xs text-blue-800">优先扫描捆条加工单或规格菲票；对应多张加工单时必须选择。</div></div></div>
+    <div class="flex items-start gap-2"><i data-lucide="scan-line" class="mt-0.5 h-5 w-5 shrink-0 text-blue-700"></i><div class="text-sm font-semibold text-blue-950">扫码捆条加工单</div></div>
     <div class="mt-3 flex gap-2"><input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" placeholder="扫描捆条加工单 / 菲票" data-pda-exec-field="bindingSearchKeyword" data-pda-scan-enter="true" data-skip-page-rerender="true" value="${escapeHtml(state.bindingScanKeyword)}"><button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-exec-action="scan-binding-order">识别加工单</button></div>
-    <div class="mt-2 text-[11px] text-blue-700">按规格填写本次米数。</div>
     ${renderBindingExecutionScanFeedback()}
   </section>`
 }
@@ -1688,14 +1694,10 @@ export function renderPdaExecPage(): string {
 
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
   const emptyStateText = getPdaExecEmptyStateText(acceptedTasks)
-
-  const content = `
-    <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
-      <header class="sticky top-0 z-30 space-y-3 border-b bg-background p-4">
-        ${hasBindingOrders ? renderBindingExecutionScanHeader() : ''}
-        ${hasSpecialCraftOrders ? renderSpecialCraftExecutionScanHeader() : ''}
-        ${hasWoolOrders ? renderWoolExecutionScanHeader() : ''}
-        ${!hasWoolOrders && !hasSpecialCraftOrders && !hasBindingOrders ? `<div class="relative">
+  const scanOrSearch = hasWoolOrders
+    ? renderWoolExecutionScanHeader()
+    : !hasSpecialCraftOrders && !hasBindingOrders
+      ? `<div class="relative">
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
@@ -1704,9 +1706,11 @@ export function renderPdaExecPage(): string {
             data-skip-page-rerender="true"
             value="${escapeHtml(state.searchKeyword)}"
           />
-        </div>` : ''}
-      </header>
+        </div>`
+      : ''
 
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
       ${acceptedTasks.length ? `<div class="z-20 grid grid-cols-4 border-b bg-background" data-testid="pda-exec-tabs">
         ${TAB_CONFIG.map((tab) => {
           const active = tab.key === state.activeTab
@@ -1724,6 +1728,8 @@ export function renderPdaExecPage(): string {
           `
         }).join('')}
       </div>` : ''}
+
+      ${scanOrSearch ? `<header class="z-10 space-y-3 border-b bg-background p-4">${scanOrSearch}</header>` : ''}
 
       <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
         ${selectedFactoryId === 'ID-F002' ? `<section class="rounded-xl border border-blue-200 bg-blue-50 p-3" data-pda-post-finishing-entry><div class="text-sm font-semibold text-blue-950">后道现场执行</div><div class="mt-1 text-xs text-blue-800">精确扫描后道任务或复检单；质检仅在 Web 进行。</div><div class="mt-3 grid grid-cols-2 gap-2"><button type="button" class="h-10 rounded-xl bg-blue-600 text-xs font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button><button type="button" class="h-10 rounded-xl border border-blue-300 bg-white text-xs font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button></div></section>` : ''}
@@ -1747,7 +1753,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
 
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value
-      state.page = 1
+      resetPdaExecVisibleCounts()
       if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
         const factoryId = getCurrentFactoryId()
         if (hasWoolOrdersForFactory(factoryId)) runWoolExecutionScan(fieldNode.value)
@@ -1763,7 +1769,9 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
         state.specialCraftScanMessage = ''
         state.specialCraftScanCandidates = []
       }
-      updatePdaExecCardListInPlace()
+      if (!hasSpecialCraftOrdersForFactory(getCurrentFactoryId())) {
+        updatePdaExecCardListInPlace()
+      }
       updateWoolExecutionScanFeedbackInPlace()
       updateSpecialCraftExecutionScanFeedbackInPlace()
       return true
@@ -1841,7 +1849,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && SPECIAL_CRAFT_TAB_CONFIG.some((item) => item.key === tab)) {
       state.specialCraftTab = tab
-      state.page = 1
+      state.specialCraftVisibleCount = PDA_EXEC_BATCH_SIZE
       updatePdaExecCardListInPlace()
     }
     return true
@@ -1851,7 +1859,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && SPECIAL_CRAFT_TAB_CONFIG.some((item) => item.key === tab)) {
       state.bindingTab = tab
-      state.page = 1
+      state.bindingVisibleCount = PDA_EXEC_BATCH_SIZE
       updatePdaExecCardListInPlace()
     }
     return true
@@ -1861,7 +1869,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
-      state.page = 1
+      state.generalVisibleCount = PDA_EXEC_BATCH_SIZE
       appStore.navigate(buildPdaExecListPath(tab))
     }
     return true
@@ -1875,8 +1883,13 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
     return true
   }
 
-  if (action === 'page') {
-    state.page = Math.max(1, Number(actionNode.dataset.page || 1))
+  if (action === 'load-more') {
+    const listKey = actionNode.dataset.listKey
+    const nextVisibleCount = Math.max(PDA_EXEC_BATCH_SIZE, Number(actionNode.dataset.nextVisibleCount || PDA_EXEC_BATCH_SIZE))
+    if (listKey === 'special-craft') state.specialCraftVisibleCount = nextVisibleCount
+    else if (listKey === 'binding') state.bindingVisibleCount = nextVisibleCount
+    else if (listKey === 'general') state.generalVisibleCount = nextVisibleCount
+    else return true
     updatePdaExecCardListInPlace()
     return true
   }

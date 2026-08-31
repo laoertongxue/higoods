@@ -211,6 +211,9 @@ interface PdaExecDetailState {
   specialCraftDamageQty: string
   specialCraftButtonLoopQty: string
   specialCraftAccessoryQty: string
+  specialCraftHandoverQty: string
+  specialCraftHandoverRemark: string
+  specialCraftLineHandoverDrafts: Record<string, string>
   bindingDraftWorkOrderId: string
   bindingDetailId: string
   bindingQty: string
@@ -263,6 +266,9 @@ const detailState: PdaExecDetailState = {
   specialCraftDamageQty: '0',
   specialCraftButtonLoopQty: '',
   specialCraftAccessoryQty: '',
+  specialCraftHandoverQty: '',
+  specialCraftHandoverRemark: '',
+  specialCraftLineHandoverDrafts: {},
   bindingDraftWorkOrderId: '',
   bindingDetailId: '',
   bindingQty: '',
@@ -754,7 +760,7 @@ export function renderPdaSewingDeliveryProgress(
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <span class="text-muted-foreground">分配量</span><span class="font-medium">${assignedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">已交</span><span class="font-medium">${view.submittedQty} ${escapeHtml(unit)}</span>
-          <span class="text-muted-foreground">已实收</span><span class="font-medium">${view.confirmedReceivedQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">后道最终确认</span><span class="font-medium">${view.confirmedReceivedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">还差</span><span class="font-medium">${view.projection.remainingQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">下一节点</span><span class="font-medium">${nextMilestone ? `${nextMilestone.ratio * 100}% · ${nextMilestone.targetQty} ${escapeHtml(unit)}` : '全部节点已完成'}</span>
           <span class="text-muted-foreground">剩余时间</span><span class="font-medium">${nextMilestone ? escapeHtml(formatSewingDeliveryRemaining(nextMilestone.deadlineAt, nowAt)) : '0 小时'}</span>
@@ -2296,9 +2302,11 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
 function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: string, canGarmentWarehouseOutbound: boolean): string {
   const { lines, drafts } = getSpecialCraftGarmentSkuDrafts(workOrderId, status)
   if (!lines.length) return '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无成衣 SKU 明细</div>'
+  const surface = getSpecialCraftPdaSurface()
   const canOutbound = status === '待接收' && canGarmentWarehouseOutbound
   const canReceive = status === '成衣仓已出库待收货'
-  const canFinish = status === '加工中'
+  const canFinish = status === '加工中' && surface === 'EXECUTION'
+  const canHandover = status === '加工中' && surface === 'HANDOVER_HANDOUT'
   return `
     <div class="space-y-2" data-special-craft-garment-sku-list>
       ${canOutbound ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">待出库：成衣仓按 SKU 确认实出后，辅助工艺才可收货。</div>' : ''}
@@ -2319,10 +2327,10 @@ function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: stri
               <span>可加工：${line.warehouseAvailableQty} 件</span>
               ${canOutbound ? `<label>实出：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.planPieceQty}" step="1" data-pda-execd-sku-field="outboundQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.outboundQty)}" /></label>` : ''}
               ${canReceive ? `<label>本次实收：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.expectedQty}" step="1" data-pda-execd-sku-field="receivedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.receivedQty)}" /></label>` : ''}
-              <label>本次完工：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${Math.max(line.progressReceivedQty - line.progressCompletedQty, 0)}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="completedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.completedQty)}" /></label>
-              <label>本次交出：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${Math.max(line.progressCompletedQty - line.progressReturnedQty, 0)}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="handoverQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.handoverQty)}" /></label>
-              <label>报废数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="scrapQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.scrapQty)}" /></label>
-              <label>货损数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="damageQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.damageQty)}" /></label>
+              ${canFinish ? `<label>本次完工：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${Math.max(line.progressReceivedQty - line.progressCompletedQty, 0)}" step="1" data-pda-execd-sku-field="completedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.completedQty)}" /></label>
+                <label>报废数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" data-pda-execd-sku-field="scrapQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.scrapQty)}" /></label>
+                <label>货损数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" data-pda-execd-sku-field="damageQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.damageQty)}" /></label>` : ''}
+              ${canHandover ? `<label class="col-span-3 rounded-md border border-blue-200 bg-white px-2 py-2 text-sm">本次交出：<span class="mt-1 flex items-center gap-2"><input class="h-10 min-w-0 flex-1 rounded border px-2 text-base" type="number" min="0" max="${Math.max(line.progressCompletedQty - line.progressReturnedQty, 0)}" step="1" inputmode="numeric" data-pda-execd-sku-field="handoverQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.handoverQty)}" /><strong>件</strong></span></label>` : ''}
             </div>
             <div class="mt-1 text-muted-foreground">应收来自成衣仓实出；已收和可加工来自辅助工艺仓记录；汇总不允许单独填写。</div>
           </section>
@@ -2332,12 +2340,42 @@ function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: stri
   `
 }
 
-function renderSpecialCraftLineProgressSummary(workOrder: ReturnType<typeof getSpecialCraftWorkOrderForPdaTask>, unit: string): string {
+function buildSpecialCraftLineHandoverDraftKey(workOrderId: string, lineProgressKey: string): string {
+  return `${workOrderId}::handover::${lineProgressKey}`
+}
+
+function clearSpecialCraftHandoverDrafts(workOrderId: string): void {
+  const linePrefix = `${workOrderId}::handover::`
+  Object.keys(detailState.specialCraftLineHandoverDrafts).forEach((key) => {
+    if (key.startsWith(linePrefix)) delete detailState.specialCraftLineHandoverDrafts[key]
+  })
+  const skuPrefix = `${workOrderId}::`
+  Object.keys(detailState.specialCraftSkuDrafts).forEach((key) => {
+    if (key.startsWith(skuPrefix)) delete detailState.specialCraftSkuDrafts[key]
+  })
+  detailState.specialCraftHandoverQty = ''
+  detailState.specialCraftHandoverRemark = ''
+}
+
+function renderSpecialCraftLineProgressSummary(
+  workOrder: ReturnType<typeof getSpecialCraftWorkOrderForPdaTask>,
+  unit: string,
+  surface: SpecialCraftPdaSurface,
+): string {
   const rows = workOrder?.lineProgress || []
   if (!rows.length) return ''
+  const showHandoverInput = surface === 'HANDOVER_HANDOUT'
+  const step = ['米', '码', '公斤'].includes(unit) ? '0.01' : '1'
   return `
     <div class="space-y-2" data-special-craft-line-progress-summary>
-      ${rows.map((row) => `
+      ${showHandoverInput ? '<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">按本次实际交出的菲票／明细填写数量；默认带出当前全部可交数量，可改小后分批交出。</div>' : ''}
+      ${rows.map((row) => {
+        const remainingHandoverQty = Math.max(row.completedQty - row.returnedQty, 0)
+        const draftKey = buildSpecialCraftLineHandoverDraftKey(workOrder?.taskOrderId || '', row.lineProgressKey)
+        if (showHandoverInput && detailState.specialCraftLineHandoverDrafts[draftKey] === undefined) {
+          detailState.specialCraftLineHandoverDrafts[draftKey] = String(remainingHandoverQty)
+        }
+        return `
         <section class="rounded-md border bg-muted/20 px-3 py-2 text-xs" data-line-progress-key="${escapeHtml(row.lineProgressKey)}">
           <div class="font-medium">${escapeHtml(row.lineType === 'sku' ? row.skuCode || 'SKU' : row.lineType === 'material' ? row.partName || '辅料' : row.feiTicketNo || '菲票')} · ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div>
           <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
@@ -2349,8 +2387,15 @@ function renderSpecialCraftLineProgressSummary(workOrder: ReturnType<typeof getS
             <span>剩余可完工：${Math.max(row.receivedQty - row.completedQty, 0)} ${escapeHtml(unit)}</span>
             <span>剩余可交出：${Math.max(row.completedQty - row.returnedQty, 0)} ${escapeHtml(unit)}</span>
           </div>
+          ${showHandoverInput ? `<label class="mt-2 block rounded-md border border-blue-200 bg-white px-2 py-2 text-sm">
+            <span class="font-medium">本次交出数量</span>
+            <span class="mt-1 flex items-center gap-2">
+              <input type="number" min="0" max="${remainingHandoverQty}" step="${step}" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border px-3 text-base" data-pda-execd-handover-line-key="${escapeHtml(draftKey)}" value="${escapeHtml(detailState.specialCraftLineHandoverDrafts[draftKey])}" aria-label="${escapeHtml(`${row.feiTicketNo || row.skuCode || row.partName || '明细'}本次交出数量`)}">
+              <strong>${escapeHtml(unit)}</strong>
+            </span>
+          </label>` : ''}
         </section>
-      `).join('')}
+      `}).join('')}
     </div>
   `
 }
@@ -2402,10 +2447,6 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
         .join('')
     : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">暂无绑定菲票</div>'
 
-  const receivedQty = getSpecialCraftPdaBaseQty(task, workOrder, firstBinding, objectMeta)
-  const scrapQty = Number(detailState.specialCraftScrapQty || 0)
-  const damageQty = Number(detailState.specialCraftDamageQty || 0)
-  const completedQty = Math.max(receivedQty - (Number.isFinite(scrapQty) ? scrapQty : 0) - (Number.isFinite(damageQty) ? damageQty : 0), 0)
   const workOrderId = workOrder?.taskOrderId || firstBinding?.taskOrderId || firstBinding?.workOrderId || ''
   const operationRecords = workOrderId
     ? [
@@ -2426,7 +2467,9 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
               <span class="font-medium">${escapeHtml(record.actionLabel)}</span>
               <span>${escapeHtml(record.sourceChannel)}</span>
             </div>
-            <div class="mt-1 text-muted-foreground">${escapeHtml(record.previousStatus)} -> ${escapeHtml(record.nextStatus)}，${escapeHtml(record.operatorName)}，${escapeHtml(record.operatedAt)}</div>
+            <div class="mt-1 text-muted-foreground">${escapeHtml(record.previousStatus)} -> ${escapeHtml(record.nextStatus)}，${record.objectQty} ${escapeHtml(record.qtyUnit)}，${escapeHtml(record.operatorName)}，${escapeHtml(record.operatedAt)}</div>
+            <div class="mt-1 break-all text-muted-foreground">业务记录 ID：${escapeHtml(record.operationRecordId)}${record.relatedHandoverRecordId ? `；交出记录 ID：${escapeHtml(record.relatedHandoverRecordId)}` : ''}</div>
+            ${record.remark ? `<div class="mt-1 text-muted-foreground">备注：${escapeHtml(record.remark)}</div>` : ''}
           </div>
         `)
         .join('')
@@ -2453,7 +2496,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     : ''
   const lineProgressSummary = isButtonLoop || objectMeta.objectType === '辅料'
     ? ''
-    : renderSpecialCraftLineProgressSummary(workOrder, objectMeta.qtyUnit)
+    : renderSpecialCraftLineProgressSummary(workOrder, objectMeta.qtyUnit, surface)
   const buttonLoopQtyInput = isButtonLoop && surface !== 'HANDOVER_RECEIVE'
     ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
         <span class="font-medium">${surface === 'HANDOVER_HANDOUT' ? '本次交出盘扣数量' : '本次盘扣产出／交出数量'}</span>
@@ -2476,6 +2519,22 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
           <span class="mt-1 flex items-center gap-2"><input type="number" min="0.01" step="0.01" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftAccessoryQty" value="${escapeHtml(detailState.specialCraftAccessoryQty)}" placeholder="填写本次实收"><strong>${escapeHtml(workOrder?.inputUnit || '米')}</strong></span>
         </label>`
       : ''
+  const genericHandoverQtyInput = surface === 'HANDOVER_HANDOUT'
+    && !isButtonLoop
+    && objectMeta.objectType !== '成衣'
+    && objectMeta.objectType !== '辅料'
+    && !(workOrder?.lineProgress || []).length
+    ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+        <span class="font-medium">本次交出数量</span>
+        <span class="mt-1 flex items-center gap-2"><input type="number" min="0.01" max="${Math.max((workOrder?.completedQty || 0) - (workOrder?.returnedQty || 0), 0)}" step="0.01" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftHandoverQty" value="${escapeHtml(detailState.specialCraftHandoverQty)}" placeholder="填写本次实际交出"><strong>${escapeHtml(objectMeta.qtyUnit)}</strong></span>
+      </label>`
+    : ''
+  const handoverRemarkInput = surface === 'HANDOVER_HANDOUT'
+    ? `<label class="block text-sm">
+        <span class="font-medium">交出备注（选填）</span>
+        <textarea class="mt-1 min-h-16 w-full rounded-md border bg-background px-3 py-2" data-pda-execd-field="specialCraftHandoverRemark" placeholder="正常交出可不填；有差异时说明原因">${escapeHtml(detailState.specialCraftHandoverRemark)}</textarea>
+      </label>`
+    : ''
 
   return `
     <article class="rounded-lg border bg-card">
@@ -2511,16 +2570,20 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
                 <span>计划产出：${workOrder?.planQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>
                 <span>累计完工：${workOrder?.completedQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>
                 <span>累计交出：${workOrder?.returnedQty || 0} ${escapeHtml(workOrder?.outputUnit || workOrder?.unit || '条')}</span>`
-              : `<span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+              : `<span>累计完工：${workOrder?.completedQty || 0} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span>累计交出：${workOrder?.returnedQty || 0} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span>剩余可交出：${Math.max((workOrder?.completedQty || 0) - (workOrder?.returnedQty || 0), 0)} ${escapeHtml(objectMeta.qtyUnit)}</span>
                 <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>`}
         </div>
         ${buttonLoopQtyInput}
         ${accessoryQtyInput}
+        ${genericHandoverQtyInput}
+        ${handoverRemarkInput}
         <div class="grid grid-cols-2 gap-2">
           ${
             allowedActions.length
               ? allowedActions.map((action) => `
-                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-source-type="SPECIAL_CRAFT" data-work-order-id="${escapeHtml(workOrderId)}" data-source-task-id="${escapeHtml(task.taskId)}" data-confirmation-key="${escapeHtml(`PDA:${workOrderId}:${action.action}:${getSpecialCraftActionRevision(workOrder)}`)}">${escapeHtml(action.label)}</button>
+                <button type="button" class="inline-flex ${allowedActions.length === 1 ? 'col-span-2 h-11' : 'h-9'} items-center justify-center rounded-md ${action.primary || surface === 'HANDOVER_HANDOUT' ? 'bg-primary text-primary-foreground' : 'border'} text-sm font-medium hover:bg-muted" data-pda-execd-action="${action.action}" data-source-type="SPECIAL_CRAFT" data-work-order-id="${escapeHtml(workOrderId)}" data-source-task-id="${escapeHtml(task.taskId)}" data-confirmation-key="${escapeHtml(`PDA:${workOrderId}:${action.action}:${getSpecialCraftActionRevision(workOrder)}`)}">${escapeHtml(surface === 'HANDOVER_HANDOUT' && action.action === 'special-submit-handover' ? '确认发起交出' : action.label)}</button>
               `).join('')
               : '<div class="col-span-2 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前状态暂无可执行动作</div>'
           }
@@ -4107,6 +4170,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   if (handleKolGotoPdaExecEvent(target)) return true
   if (handlePdaWoolExecutionEvent(target)) return true
   syncWaterActionScope(getCurrentExecDetailTaskId())
+  const handoverLineNode = target.closest<HTMLInputElement>('[data-pda-execd-handover-line-key]')
+  if (handoverLineNode instanceof HTMLInputElement) {
+    const draftKey = handoverLineNode.dataset.pdaExecdHandoverLineKey || ''
+    if (draftKey) detailState.specialCraftLineHandoverDrafts[draftKey] = handoverLineNode.value
+    return true
+  }
   const skuFieldNode = target.closest<HTMLInputElement>('[data-pda-execd-sku-field]')
   if (skuFieldNode instanceof HTMLInputElement) {
     const draftKey = skuFieldNode.dataset.draftKey || ''
@@ -4194,6 +4263,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'specialCraftAccessoryQty' && fieldNode instanceof HTMLInputElement) {
       detailState.specialCraftAccessoryQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'specialCraftHandoverQty' && fieldNode instanceof HTMLInputElement) {
+      detailState.specialCraftHandoverQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'specialCraftHandoverRemark') {
+      detailState.specialCraftHandoverRemark = fieldNode.value
       return true
     }
 
@@ -5423,10 +5502,32 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           : action === 'special-submit-handover'
             ? 'handoverQty'
           : ''
-      const skuQtyBySkuCode = garmentSkuDraft && skuQtyField
+      const garmentSkuQtyBySkuCode = garmentSkuDraft && skuQtyField
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey][skuQtyField as 'receivedQty' | 'completedQty' | 'handoverQty'])]))
         : undefined
-      const feiQtyByTicketNo = objectMeta.objectType !== '成衣'
+      const lineHandoverRows = action === 'special-submit-handover'
+        && !isButtonLoop
+        && objectMeta.objectType !== '成衣'
+        && objectMeta.objectType !== '辅料'
+        ? workOrder.lineProgress || []
+        : []
+      const lineHandoverQtyEntries = lineHandoverRows.map((row) => {
+        const remainingQty = Math.max(row.completedQty - row.returnedQty, 0)
+        const draftKey = buildSpecialCraftLineHandoverDraftKey(workOrder.taskOrderId, row.lineProgressKey)
+        const rawQty = detailState.specialCraftLineHandoverDrafts[draftKey] ?? String(remainingQty)
+        const qty = Number(rawQty)
+        if (!Number.isFinite(qty) || qty < 0) throw new Error(`${row.feiTicketNo || row.skuCode || row.partName || '加工明细'}的本次交出数量无效。`)
+        if (qty > remainingQty) throw new Error(`${row.feiTicketNo || row.skuCode || row.partName || '加工明细'}的交出数量不能超过剩余可交数量。`)
+        return { row, qty }
+      })
+      const lineHandoverSkuQtyBySkuCode = lineHandoverQtyEntries.some(({ row }) => Boolean(row.skuCode))
+        ? Object.fromEntries(lineHandoverQtyEntries.filter(({ row }) => row.skuCode).map(({ row, qty }) => [row.skuCode!, qty]))
+        : undefined
+      const lineHandoverFeiQtyByTicketNo = lineHandoverQtyEntries.some(({ row }) => Boolean(row.feiTicketNo))
+        ? Object.fromEntries(lineHandoverQtyEntries.filter(({ row }) => row.feiTicketNo).map(({ row, qty }) => [row.feiTicketNo!, qty]))
+        : undefined
+      const skuQtyBySkuCode = garmentSkuQtyBySkuCode || lineHandoverSkuQtyBySkuCode
+      const feiQtyByTicketNo = lineHandoverFeiQtyByTicketNo || (objectMeta.objectType !== '成衣'
         && action !== 'special-complete-order'
         && (!isButtonLoop || action === 'special-confirm-receive')
         ? Object.fromEntries((workOrder.lineProgress || [])
@@ -5439,7 +5540,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
                   ? Math.max(row.receivedQty - row.completedQty, 0)
                   : Math.max(row.completedQty - row.returnedQty, 0),
             ]))
-        : undefined
+        : undefined)
       const skuScrapQtyBySkuCode = garmentSkuDraft && action === 'special-process-report'
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].scrapQty)]))
         : undefined
@@ -5448,6 +5549,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         : undefined
       const skuActionQty = skuQtyBySkuCode ? Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) : undefined
       const feiActionQty = feiQtyByTicketNo ? Object.values(feiQtyByTicketNo).reduce((sum, qty) => sum + qty, 0) : undefined
+      const genericHandoverQty = Number(detailState.specialCraftHandoverQty)
+      if (action === 'special-submit-handover'
+        && objectMeta.objectType !== '成衣'
+        && objectMeta.objectType !== '辅料'
+        && !isButtonLoop) {
+        const handoverQty = skuActionQty ?? feiActionQty ?? genericHandoverQty
+        if (!Number.isFinite(handoverQty) || handoverQty <= 0) {
+          throw new Error('请填写至少一条大于 0 的本次交出数量。')
+        }
+      }
       const buttonLoopQty = Number(detailState.specialCraftButtonLoopQty)
       if (isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')) {
         if (!Number.isInteger(buttonLoopQty) || buttonLoopQty <= 0) {
@@ -5467,7 +5578,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           baseQty - Number(detailState.specialCraftScrapQty || 0) - Number(detailState.specialCraftDamageQty || 0),
           0,
         )
-      executeMobileProcessAction({
+      const actionResult = executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId,
         taskId: sourceTaskId,
@@ -5480,6 +5591,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           ? accessoryQty
           : isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')
           ? buttonLoopQty
+          : action === 'special-submit-handover' && skuActionQty === undefined && feiActionQty === undefined
+            ? genericHandoverQty
           : skuActionQty ?? feiActionQty ?? (action === 'special-process-report' ? finishQty || baseQty : baseQty),
         qtyUnit: objectMeta.objectType === '辅料'
           ? action === 'special-confirm-receive' ? workOrder.inputUnit || '米' : workOrder.outputUnit || workOrder.unit || '条'
@@ -5488,7 +5601,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         feiQtyByTicketNo,
         skuScrapQtyBySkuCode,
         skuDamageQtyBySkuCode,
-        remark: `移动端${actionLabelMap[action]}`,
+        remark: action === 'special-submit-handover'
+          ? detailState.specialCraftHandoverRemark.trim() || '移动端发起交出'
+          : `移动端${actionLabelMap[action]}`,
       })
       if (isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')) {
         detailState.specialCraftButtonLoopQty = ''
@@ -5496,7 +5611,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       if (objectMeta.objectType === '辅料' && action !== 'special-complete-order') {
         detailState.specialCraftAccessoryQty = ''
       }
-      showPdaExecDetailToast(`特殊工艺${actionLabelMap[action]}已同步`)
+      if (action === 'special-submit-handover') clearSpecialCraftHandoverDrafts(workOrder.taskOrderId)
+      showPdaExecDetailToast(`特殊工艺${actionLabelMap[action]}已记录（${actionResult.operationRecordId}）`)
+      window.dispatchEvent(new CustomEvent('higood:request-render'))
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '特殊工艺写回失败')

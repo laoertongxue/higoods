@@ -1,34 +1,32 @@
 import { expect, test } from '@playwright/test'
 
-import { getPdaCompletedHeads, getPdaHandoutHeads } from '../src/data/fcs/pda-handover-events'
-import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpers/seed-cutting-runtime-state'
+import {
+  APF_PDA_SESSION,
+  collectPageErrors,
+  expectNoPageErrors,
+  seedLocalStorage,
+} from './helpers/seed-cutting-runtime-state'
 
-const openHandoutHead = getPdaHandoutHeads('ID-F001')[0]
-const doneHandoutHead = getPdaCompletedHeads('ID-F001').find((head) => head.headType === 'HANDOUT')
-
-test('待交出、已完成和交出详情都展示真实交出头二维码', async ({ page }) => {
+test('交出列表和详情不再展示二维码与内部追溯编号', async ({ page }) => {
   const errors = collectPageErrors(page)
-  expect(openHandoutHead).toBeTruthy()
-  expect(doneHandoutHead).toBeTruthy()
+  await seedLocalStorage(page, {
+    fcs_pda_factory_id: 'FAC-APF',
+    fcs_pda_session: APF_PDA_SESSION,
+  })
 
-  await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
+  await page.goto('/fcs/pda/handover?tab=handout')
 
-  await page.goto('/fcs/pda/handover?tab=handout', { waitUntil: 'commit' })
-  await page.getByRole('button', { name: '查看交出详情', exact: true }).first().waitFor({ timeout: 30_000 })
-  const openCard = page.locator('[data-testid="handout-head-card"]').filter({ hasText: openHandoutHead!.handoverId }).first()
-  await expect(openCard).toBeVisible()
-  await expect(openCard.locator('[data-testid="handout-head-qr"] svg')).toBeVisible()
+  const card = page.getByTestId('handout-head-card').filter({
+    has: page.getByRole('button', { name: '发起交出', exact: true }),
+  }).first()
+  await expect(card).toBeVisible()
+  await expect(card.locator('[data-testid="handout-head-qr"]')).toHaveCount(0)
+  await expect(card).not.toContainText('任务编号')
+  await expect(card).not.toContainText('交出单号')
+  await card.getByRole('button', { name: '发起交出', exact: true }).click()
 
-  await openCard.getByRole('button', { name: '查看交出详情', exact: true }).click()
-  await expect(page).toHaveURL(new RegExp(`/fcs/pda/handover/${openHandoutHead!.handoverId}$`))
-  await expect(page.locator('[data-testid="handout-head-qr"] svg')).toBeVisible()
-  await expect(page.locator('[data-testid="handout-head-qr"]')).toContainText(`交出头编号：${openHandoutHead!.handoverId}`)
-
-  await page.goto('/fcs/pda/handover?tab=done', { waitUntil: 'commit' })
-  await page.locator('[data-testid="handout-head-card"]').first().waitFor({ timeout: 30_000 })
-  const doneCard = page.locator('[data-testid="handout-head-card"]').filter({ hasText: doneHandoutHead!.handoverId }).first()
-  await expect(doneCard).toBeVisible()
-  await expect(doneCard.locator('[data-testid="handout-head-qr"] svg')).toBeVisible()
-
+  await expect(page.getByTestId('handout-new-record-form')).toBeVisible()
+  await expect(page.locator('[data-testid="handout-head-qr"]')).toHaveCount(0)
+  await expect(page.locator('body')).not.toContainText('来源与追溯信息')
   await expectNoPageErrors(errors)
 })

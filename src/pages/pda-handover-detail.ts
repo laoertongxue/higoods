@@ -40,10 +40,6 @@ import {
 } from '../data/fcs/pda-handover-events'
 import {
   formatOperationLocalWallClock,
-  getSewingDeliverySlaSnapshot,
-  projectSewingDeliverySla,
-  type SewingDeliveryReceiptFact,
-  type SewingDeliverySlaProjection,
 } from '../data/fcs/sewing-delivery-sla.ts'
 import { getSewingDeliverySlaView } from '../data/fcs/sewing-delivery-sla-view.ts'
 import {
@@ -1057,12 +1053,6 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric('已确认数量', confirmedQtyValue, true)}
         ${renderPickupCurrentMetric('确认时间', record.factoryConfirmedAt || record.receivedAt || '—')}
       </div>
-      <div class="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2">
-        <div class="space-y-1.5">
-          ${renderWarehouseLinkRow('入库记录', linkedInboundLabel, linkedInboundHref)}
-          ${renderWarehouseLinkRow('来源状态', sourceStatusLabel)}
-        </div>
-      </div>
       <div class="text-xs text-emerald-700">本次接收已确认完成。</div>
     `
   }
@@ -1072,24 +1062,11 @@ function renderPickupCurrentPanel(
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 lg:grid-cols-3">
         ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
         ${renderPickupCurrentMetric('工厂申报数量', reportedQtyValue)}
-        ${renderPickupCurrentMetric('异常单号', record.exceptionCaseId || '待生成')}
-      </div>
-      <div class="rounded-md border border-red-200 bg-red-50 px-2.5 py-2">
-        <div class="space-y-1.5">
-          ${renderWarehouseLinkRow('入库记录', linkedInboundLabel, linkedInboundHref)}
-          ${renderWarehouseLinkRow('来源状态', sourceStatusLabel)}
-        </div>
+        ${renderPickupCurrentMetric('当前结果', '差异处理中')}
       </div>
       <div class="space-y-2 pt-1 text-xs text-red-700">
         ${record.followUpRemark ? `<p>处理进度：${escapeHtml(record.followUpRemark)}</p>` : ''}
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="inline-flex h-9 items-center rounded-md border border-red-200 bg-background px-4 text-sm hover:bg-red-100"
-            data-pda-handoverd-action="goto-pickup-record-exception"
-            data-record-id="${escapeHtml(record.recordId)}"
-          >去异常定位与处理</button>
-        </div>
+        <p>等待主管处理，结果会自动更新。</p>
       </div>
     `
   }
@@ -1099,12 +1076,6 @@ function renderPickupCurrentPanel(
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
         ${renderPickupCurrentMetric('最终确认数量', finalQtyValue, true)}
         ${renderPickupCurrentMetric('裁定时间', record.finalResolvedAt || '—')}
-      </div>
-      <div class="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-        <div class="space-y-1.5">
-          ${renderWarehouseLinkRow('入库记录', linkedInboundLabel, linkedInboundHref)}
-          ${renderWarehouseLinkRow('来源状态', sourceStatusLabel)}
-        </div>
       </div>
       <div class="space-y-1 pt-1 text-xs text-zinc-700">
         ${record.resolvedRemark ? `<p>处理记录：${escapeHtml(record.resolvedRemark)}</p>` : ''}
@@ -1117,12 +1088,6 @@ function renderPickupCurrentPanel(
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
         ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
         ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)}
-      </div>
-      <div class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-        <div class="space-y-1.5">
-          ${renderWarehouseLinkRow('入库记录', '未入库')}
-          ${renderWarehouseLinkRow('来源状态', sourceStatusLabel)}
-        </div>
       </div>
       <div class="space-y-1 pt-1 text-xs text-slate-700">
         ${record.objectionReason ? `<p>驳回原因：${escapeHtml(record.objectionReason)}</p>` : ''}
@@ -1140,7 +1105,7 @@ function renderPickupCurrentPanel(
           : ''
       }
     </div>
-    <div class="pt-1 text-xs text-blue-700">${postFinishingSource ? '当前先查看记录与二维码，待车缝厂送达后再处理。' : '当前先查看记录与二维码，待仓库交付后再处理。'}</div>
+    <div class="pt-1 text-xs text-blue-700">${postFinishingSource ? '待车缝厂送达后确认接收。' : '待仓库交付后确认接收。'}</div>
   `
 }
 
@@ -1231,7 +1196,7 @@ function buildOutboundRecordRoute(handoverRecordId: string): string {
   return `/fcs/pda/warehouse/outbound-records?recordId=${encodeURIComponent(outboundRecord.outboundRecordId)}`
 }
 
-function renderPickupRecordItem(record: PdaPickupRecord): string {
+function renderPickupRecordAuditItem(record: PdaPickupRecord): string {
   const meta = getPickupRecordStatusMeta(record.status)
   const selected = detailState.selectedPickupRecordId === record.recordId
   const linkedInboundRecord = getLinkedInboundRecord(record.recordId)
@@ -1381,6 +1346,41 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
   `
 }
 
+function renderPickupRecordItem(record: PdaPickupRecord): string {
+  const meta = getPickupRecordStatusMeta(record.status)
+  const selected = detailState.selectedPickupRecordId === record.recordId
+  const sourceQty = record.warehouseHandedQty ?? record.qtyExpected
+  const confirmedQty = record.finalResolvedQty ?? record.factoryConfirmedQty
+  const diffQty = typeof confirmedQty === 'number' ? confirmedQty - sourceQty : null
+  const confirmedAt = record.finalResolvedAt || record.factoryConfirmedAt || record.receivedAt || record.warehouseHandedAt || ''
+  const canSelect = !selected && (
+    record.status === 'PENDING_FACTORY_CONFIRM'
+    || record.status === 'OBJECTION_REPORTED'
+    || record.status === 'OBJECTION_PROCESSING'
+  )
+
+  return `
+    <article
+      data-testid="pickup-record-card"
+      data-record-id="${escapeHtml(record.recordId)}"
+      class="rounded-lg border bg-background p-3"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-xs font-medium">第 ${record.sequenceNo} 次接收</span>
+        <span class="rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
+      </div>
+      <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">应收</div><div class="mt-1 font-semibold">${record.qtyExpected} ${escapeHtml(record.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof confirmedQty === 'number' ? confirmedQty : '待确认'}${typeof confirmedQty === 'number' ? ` ${escapeHtml(record.qtyUnit)}` : ''}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${diffQty !== null && diffQty !== 0 ? 'text-red-600' : 'text-emerald-700'}">${diffQty === null ? '待确认' : `${diffQty > 0 ? '+' : ''}${diffQty} ${escapeHtml(record.qtyUnit)}`}</div></div>
+      </div>
+      ${confirmedAt ? `<div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(confirmedAt)}</div>` : ''}
+      ${record.objectionReason ? `<div class="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">差异：${escapeHtml(record.objectionReason)}</div>` : ''}
+      ${canSelect ? `<button type="button" class="mt-3 h-9 w-full rounded-md border border-primary text-xs font-medium text-primary" data-pda-handoverd-action="select-pickup-record" data-record-id="${escapeHtml(record.recordId)}">处理这次接收</button>` : ''}
+    </article>
+  `
+}
+
 function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>, runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>): string {
   return `
     <details class="rounded-lg border bg-card" data-testid="pickup-traceability">
@@ -1419,8 +1419,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
   const records = getPdaPickupRecordsByHead(head.handoverId)
   const isCompleted = head.completionStatus === 'COMPLETED'
   const completionCheck = canCompletePdaPickupHead(head.handoverId)
-  const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
-  const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
+  const source = getPdaHandoverSourceDisplay(head)
   const currentRecord = detailState.selectedPickupRecordId
     ? records.find((record) => record.recordId === detailState.selectedPickupRecordId) ?? records[0]
     : records[0]
@@ -1436,72 +1435,38 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     currentRecord &&
     currentRecord.status === 'PENDING_FACTORY_CONFIRM' &&
     detailState.pickupRejectRecordId === currentRecord.recordId
+  const pendingQty = Math.max(head.qtyExpectedTotal - head.qtyActualTotal, 0)
 
   return `
-    ${renderSectionCard(
-      '接收单',
-      `
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldHtmlRow('任务编号', renderPdaHandoverObjectCode({
-          objectType: 'PROCESS_DOC',
-          objectId: head.taskNo,
-          ...getPdaHandoverProductionRelation(head),
-        }))}
-        ${renderPdaHandoverSourceIdentity(head)}
-        ${renderFieldRow('当前工序', head.processName)}
+    <article class="rounded-xl border bg-card p-3 shadow-sm" data-testid="pda-pickup-summary">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0"><div class="truncate text-base font-semibold">${escapeHtml(head.processName)}</div><div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div></div>
+        <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}">${isCompleted ? '已完成' : '待接收'}</span>
       </div>
-      <div class="h-px bg-border"></div>
-      ${renderPartyRow(partyDisplay.sourceLabel, partyDisplay.sourceKind, head.sourceFactoryName)}
-      ${renderPartyRow(partyDisplay.targetLabel, partyDisplay.targetKind, head.targetName)}
-      <div class="h-px bg-border"></div>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('累计接收记录', `${head.recordCount} 次`)}
-        ${renderFieldRow('待处理记录', `${head.pendingWritebackCount} 次`)}
-        ${renderFieldRow('应领总量', `${head.qtyExpectedTotal} ${head.qtyUnit}`)}
-        ${renderFieldRow('累计最终确认总量', `${head.qtyActualTotal} ${head.qtyUnit}`)}
+      <div class="mt-3 flex items-center gap-2 text-xs">
+        <span class="truncate">${escapeHtml(head.sourceFactoryName)}</span><i data-lucide="arrow-right" class="h-3.5 w-3.5 shrink-0 text-muted-foreground"></i><span class="truncate font-medium text-primary">${escapeHtml(head.targetName)}</span>
       </div>
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-        ${
-          isCompleted
-            ? `接收单已完成；已有接收记录的差异和异议可继续处理。`
-            : '完成接收单后不再新增接收记录；已有差异和异议可继续处理。'
-        }
+      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">应收</div><div class="mt-1 font-semibold">${head.qtyExpectedTotal} ${escapeHtml(head.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">已收</div><div class="mt-1 font-semibold">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">待收</div><div class="mt-1 font-semibold ${pendingQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${pendingQty} ${escapeHtml(head.qtyUnit)}</div></div>
       </div>
-      <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
-        <span>${escapeHtml(isCompleted ? '接收单已完成' : completionCheck.message)}</span>
-        ${
-          isCompleted
-            ? ''
-            : `<button type="button" class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90" data-pda-handoverd-action="complete-pickup-head" data-handover-id="${escapeHtml(head.handoverId)}">完成接收单</button>`
-        }
-      </div>
-    `,
-    )}
+    </article>
 
-    ${renderSectionCard(
-      '当前记录处理区',
-      !currentRecord
-        ? '<div class="py-4 text-center text-xs text-muted-foreground">当前暂无可处理的接收记录</div>'
-        : `
-            <div data-testid="pickup-current-panel-card" class="space-y-3 rounded-lg border ${currentGuide?.panelClass || 'border-primary/20 bg-primary/5'} px-3 py-3 shadow-sm">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="text-sm font-semibold">当前处理记录</p>
-                <span class="inline-flex items-center rounded border px-2 py-1 text-xs ${currentRecordMeta?.className || ''}">${escapeHtml(currentRecordMeta?.label || '—')}</span>
-              </div>
-              <p class="text-xs text-muted-foreground">${escapeHtml(currentGuide?.hint || '查看当前记录并继续处理。')}</p>
-              ${renderPickupCurrentPanel(currentRecord, showPickupDisputeForm, showPickupRejectForm)}
-            </div>
-          `,
-    )}
+    ${!currentRecord
+      ? '<article class="rounded-xl border bg-card px-3 py-6 text-center text-sm text-muted-foreground">暂无待接收记录</article>'
+      : `<article data-testid="pickup-current-panel-card" class="space-y-3 rounded-xl border ${currentGuide?.panelClass || 'border-primary/20 bg-primary/5'} p-3 shadow-sm">
+          <div class="flex items-center justify-between gap-2"><p class="text-sm font-semibold">${escapeHtml(currentGuide?.title || '本次接收')}</p><span class="rounded-full border px-2 py-0.5 text-[10px] ${currentRecordMeta?.className || ''}">${escapeHtml(currentRecordMeta?.label || '—')}</span></div>
+          <p class="text-xs text-muted-foreground">${escapeHtml(currentGuide?.hint || '')}</p>
+          ${renderPickupCurrentPanel(currentRecord, showPickupDisputeForm, showPickupRejectForm)}
+        </article>`}
 
-    ${renderSectionCard(
-      postFinishingPickup ? '车缝厂送达的接收记录' : '仓库已生成的接收记录',
-      records.length === 0
-        ? `<div class="py-4 text-center text-xs text-muted-foreground">${postFinishingPickup ? '暂无车缝厂送达后的接收记录' : '暂无仓库送料后的接收记录'}</div>`
-        : `<div class="space-y-2">${records.map((record) => renderPickupRecordItem(record)).join('')}</div>`,
-    )}
+    ${!isCompleted ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-pickup-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成接收单</button>` : ''}
 
-    ${renderPickupTraceabilitySection(head, sourceDoc, runtimeTask)}
+    <details class="rounded-xl border bg-card" data-testid="pickup-record-history">
+      <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>接收记录（${records.length}）</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
+      <div class="space-y-2 border-t p-3">${records.length ? records.map((record) => renderPickupRecordItem(record)).join('') : `<div class="py-4 text-center text-xs text-muted-foreground">${postFinishingPickup ? '暂无到货记录' : '暂无接收记录'}</div>`}</div>
+    </details>
   `
 }
 
@@ -1646,16 +1611,13 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
   if (isWaterSolubleHandoverHead(head) && (!waterConfirm || waterConfirm.handoverId !== head.handoverId)) return ''
 
   return `
-    <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-new-record-form">
+    <div class="space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3" data-testid="handout-new-record-form">
+      <div class="flex items-center justify-between gap-2"><span class="text-sm font-semibold">本次交出</span><span class="text-xs text-muted-foreground" ${isWaterSolubleHandoverHead(head) ? 'data-testid="water-handover-readonly-unit"' : ''}>${escapeHtml(getHandoverObjectTypeLabel(detailState.newRecordObjectType))} · ${escapeHtml(detailState.newRecordUnit || head.qtyUnit || '件')}</span></div>
       <div class="grid gap-3 md:grid-cols-2">
-        <div class="space-y-1">
-          <span class="text-xs font-medium">交出对象</span>
-          <div class="flex h-8 items-center rounded-md border bg-background px-2.5 text-xs font-medium">${escapeHtml(getHandoverObjectTypeLabel(detailState.newRecordObjectType))}</div>
-        </div>
         <label class="space-y-1">
-          <span class="text-xs font-medium">扫码内容</span>
+          <span class="text-xs font-medium">扫码</span>
           <input
-            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm"
             value="${escapeAttr(detailState.newRecordScanCode)}"
             placeholder="扫描中转袋 / 菲票 / 交出物码"
             data-pda-handoverd-field="newRecordScanCode"
@@ -1664,29 +1626,21 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
         <label class="space-y-1">
           <span class="text-xs font-medium">本次交出数量</span>
           <input
-            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm"
             type="number"
             value="${escapeAttr(detailState.newRecordQty)}"
             placeholder="输入数量"
             data-pda-handoverd-field="newRecordQty"
           />
         </label>
-        ${
-          isWaterSolubleHandoverHead(head)
-            ? `<div class="space-y-1"><span class="text-xs font-medium">单位</span><div data-testid="water-handover-readonly-unit" class="flex h-8 items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium">${escapeHtml(head.qtyUnit)}</div></div>`
-            : `<label class="space-y-1">
-                <span class="text-xs font-medium">单位</span>
-                <input class="h-8 w-full rounded-md border bg-background px-2.5 text-xs" value="${escapeAttr(detailState.newRecordUnit || head.qtyUnit || '件')}" placeholder="例如：件 / 米 / 片" data-pda-handoverd-field="newRecordUnit" />
-              </label>`
-        }
       </div>
-      <div class="flex justify-end gap-2">
+      <div class="grid grid-cols-2 gap-2">
         <button
-          class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+          class="inline-flex h-10 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-muted"
           data-pda-handoverd-action="cancel-new-handout-record"
         >取消</button>
         <button
-          class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           data-pda-handoverd-action="submit-new-handout-record"
           data-handover-id="${escapeHtml(head.handoverId)}"
           ${waterConfirm ? `data-water-handover-confirm-token="${escapeAttr(waterConfirm.token)}"` : ''}
@@ -1756,32 +1710,10 @@ function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
 }
 
 export interface ReceiverWritebackSlaPreview {
-  readonly confirmedReceivedQty: number
-  readonly progressRatio: number
-  readonly newlyReachedRatios: readonly number[]
+  readonly onsiteReceivedQty: number
   readonly unit: string
-  readonly projection: SewingDeliverySlaProjection
-}
-
-function toSewingDeliveryReceipt(record: PdaHandoverRecord): SewingDeliveryReceiptFact | null {
-  const submittedQty = record.submittedQty ?? record.plannedQty
-  if (
-    typeof submittedQty !== 'number'
-    || !Number.isFinite(submittedQty)
-    || submittedQty < 0
-    || typeof record.receiverWrittenQty !== 'number'
-    || !Number.isFinite(record.receiverWrittenQty)
-    || record.receiverWrittenQty < 0
-    || !record.receiverWrittenAt
-  ) return null
-  return {
-    recordId: record.handoverRecordId || record.recordId,
-    submittedQty,
-    submittedAt: record.factorySubmittedAt,
-    receivedQty: record.receiverWrittenQty,
-    receivedAt: record.receiverWrittenAt,
-    voided: record.handoverRecordStatus === 'VOIDED',
-  }
+  readonly confirmedAt: string
+  readonly formalReturnSource: '后道最终确认'
 }
 
 export function buildReceiverWritebackSlaPreview(
@@ -1791,36 +1723,12 @@ export function buildReceiverWritebackSlaPreview(
 ): ReceiverWritebackSlaPreview | null {
   if (!Number.isFinite(receiverWrittenQty) || receiverWrittenQty < 0) return null
   const record = findPdaHandoverRecord(recordId)
-  const runtimeTaskId = record?.taskId || record?.sourceTaskId
-  const snapshot = runtimeTaskId ? getSewingDeliverySlaSnapshot(runtimeTaskId) : null
-  if (!record || !runtimeTaskId || !snapshot?.active) return null
-  const records = listHandoverOrdersByTaskId(runtimeTaskId)
-    .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
-  const baseReceipts = records
-    .map(toSewingDeliveryReceipt)
-    .filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
-  const receiptsWithoutCurrent = baseReceipts.filter((receipt) => receipt.recordId !== (record.handoverRecordId || record.recordId))
-  const baseProjection = projectSewingDeliverySla(snapshot, receiptsWithoutCurrent, confirmedAt)
-  const submittedQty = record.submittedQty ?? record.plannedQty ?? 0
-  const previewProjection = projectSewingDeliverySla(snapshot, [
-    ...receiptsWithoutCurrent,
-    {
-      recordId: record.handoverRecordId || record.recordId,
-      submittedQty,
-      submittedAt: record.factorySubmittedAt,
-      receivedQty: receiverWrittenQty,
-      receivedAt: confirmedAt,
-    },
-  ], confirmedAt)
-  const newlyReachedRatios = previewProjection.milestones
-    .filter((milestone, index) => milestone.firstReachedAt && !baseProjection.milestones[index]?.firstReachedAt)
-    .map((milestone) => milestone.ratio)
+  if (!record || !confirmedAt.trim()) return null
   return Object.freeze({
-    confirmedReceivedQty: previewProjection.confirmedReceivedQty,
-    progressRatio: previewProjection.progressRatio,
-    newlyReachedRatios: Object.freeze(newlyReachedRatios),
+    onsiteReceivedQty: receiverWrittenQty,
     unit: record.qtyUnit || '件',
-    projection: previewProjection,
+    confirmedAt,
+    formalReturnSource: '后道最终确认',
   })
 }
 
@@ -1831,20 +1739,17 @@ export function renderReceiverWritebackSlaPreview(
 ): string {
   const preview = buildReceiverWritebackSlaPreview(recordId, receiverWrittenQty, confirmedAt)
   if (!preview) return ''
-  const impact = preview.newlyReachedRatios.length > 0
-    ? `本次将达到 ${preview.newlyReachedRatios.map((ratio) => `${ratio * 100}%`).join('、')} 节点`
-    : '本次不会新增达标节点'
   return `
     <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-      <div class="font-medium">确认后累计实收 ${preview.confirmedReceivedQty} ${escapeHtml(preview.unit)} · ${Math.round(preview.progressRatio * 1000) / 10}%</div>
-      <div class="mt-1">节点影响：${escapeHtml(impact)}</div>
+      <div class="font-medium">本次现场交接实收 ${preview.onsiteReceivedQty} ${escapeHtml(preview.unit)}</div>
+      <div class="mt-1">PDA 确认只完成现场交接，不计入 PPIC 正式回货；后道最终确认后才更新 30% / 70% / 100% 节点。</div>
     </div>
   `
 }
 
 function renderReceiverWritebackSlaPreviewContent(recordId: string): string {
   if (!detailState.writebackPreviewConfirmedAt) return ''
-  return `${renderReceiverWritebackSlaPreview(recordId, Number(detailState.writebackQty), detailState.writebackPreviewConfirmedAt)}<div class="mt-1 text-xs text-muted-foreground">预估确认时间：${escapeHtml(detailState.writebackPreviewConfirmedAt)}；提交时按实际时间重新计算</div>`
+  return `${renderReceiverWritebackSlaPreview(recordId, Number(detailState.writebackQty), detailState.writebackPreviewConfirmedAt)}<div class="mt-1 text-xs text-muted-foreground">现场交接时间：${escapeHtml(detailState.writebackPreviewConfirmedAt)}</div>`
 }
 
 function refreshReceiverWritebackSlaPreview(recordId: string): void {
@@ -1857,7 +1762,7 @@ function refreshReceiverWritebackSlaPreview(recordId: string): void {
 function renderHandoverSlaSummary(taskId: string, unit: string): string {
   const view = getSewingDeliverySlaView(taskId)
   if (!view) return ''
-  return `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700" data-sewing-sla-handover-summary="${escapeHtml(taskId)}">累计已确认实收 ${view.confirmedReceivedQty} ${escapeHtml(unit)} · ${Math.round(view.projection.progressRatio * 1000) / 10}%</div>`
+  return `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700" data-sewing-sla-handover-summary="${escapeHtml(taskId)}">后道已最终确认回货 ${view.confirmedReceivedQty} ${escapeHtml(unit)} · ${Math.round(view.projection.progressRatio * 1000) / 10}%；PDA 现场交接数量不计入此数。</div>`
 }
 
 function escapeCssAttributeValue(value: string): string {
@@ -1893,7 +1798,7 @@ function refreshHandoutRecordAndSlaSummary(updated: PdaHandoverRecord): void {
   if (currentHead && headSummaryHost) headSummaryHost.outerHTML = renderHandoutHeadLiveSummary(currentHead)
 }
 
-function renderHandoutRecordItem(
+function renderHandoutRecordAuditItem(
   record: PdaHandoverRecord,
   head: PdaHandoverHead,
   runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
@@ -2121,6 +2026,51 @@ function renderHandoutRecordItem(
   `
 }
 
+function renderHandoutRecordItem(
+  record: PdaHandoverRecord,
+  head: PdaHandoverHead,
+  runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
+  sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
+): string {
+  const defaultRole = head.processBusinessCode === 'WOOL' ? 'RECEIVER' : 'FACTORY'
+  const demoRole = resolveFcsDemoRole(defaultRole)
+  const meta = getRecordStatusMeta(record.status)
+  const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
+  const submittedQty = record.submittedQty ?? record.plannedQty ?? 0
+  const receiverWrittenQty = getRecordReceiverWrittenQty(record)
+  const diffQty = getRecordDiffQty(record)
+  const canWriteback = canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
+  const canDiff = canHandleDiff(record) && canAcceptDiffAction(demoRole)
+  const canObjection = canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
+  const showObjectionForm = detailState.objectionRecordId === record.recordId && canObjection
+
+  return `
+    <article data-testid="handout-record-card" data-handout-record-id="${escapeHtml(record.recordId)}" class="space-y-3 rounded-lg border bg-background p-3">
+      <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium">第 ${record.sequenceNo} 次交出</span><span class="rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span></div>
+      <div class="truncate text-xs text-muted-foreground">${escapeHtml(profile.itemTitle || profile.objectTypeLabel)}</div>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">交出</div><div class="mt-1 font-semibold">${submittedQty} ${escapeHtml(record.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${typeof diffQty === 'number' && diffQty !== 0 ? 'text-red-600' : 'text-emerald-700'}">${typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div></div>
+      </div>
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(record.factorySubmittedAt)}</div>
+      ${record.objectionReason ? `<div class="rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">异议：${escapeHtml(record.objectionReason)}</div>` : ''}
+      ${(canWriteback || canDiff || canObjection) ? `<div class="grid ${[canWriteback, canDiff, canObjection].filter(Boolean).length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
+        ${canWriteback ? `<button type="button" class="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground" data-pda-handoverd-action="open-receiver-writeback" data-record-id="${escapeHtml(record.recordId)}">确认收货</button>` : ''}
+        ${canDiff ? `<button type="button" class="h-9 rounded-md border px-3 text-xs" data-pda-handoverd-action="accept-record-diff" data-record-id="${escapeHtml(record.recordId)}">接受差异</button>` : ''}
+        ${canObjection ? `<button type="button" class="h-9 rounded-md border border-red-200 px-3 text-xs text-red-700" data-pda-handoverd-action="open-record-objection" data-record-id="${escapeHtml(record.recordId)}">数量有异议</button>` : ''}
+      </div>` : ''}
+      ${renderReceiverWritebackForm(record)}
+      ${showObjectionForm ? `<div class="space-y-3 rounded-md border border-red-200 bg-red-50/50 p-3">
+        <label class="space-y-1"><span class="text-xs font-medium">异议原因 *</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(detailState.objectionReason)}" data-pda-handoverd-field="objectionReason" /></label>
+        <label class="space-y-1"><span class="text-xs">说明</span><textarea class="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pda-handoverd-field="objectionRemark">${escapeHtml(detailState.objectionRemark)}</textarea></label>
+        ${renderObjectionProofSection()}
+        <div class="grid grid-cols-2 gap-2"><button class="h-10 rounded-md border bg-background text-sm" data-pda-handoverd-action="cancel-record-objection">取消</button><button class="h-10 rounded-md bg-red-600 text-sm font-medium text-white" data-pda-handoverd-action="submit-record-objection" data-record-id="${escapeHtml(record.recordId)}">提交异议</button></div>
+      </div>` : ''}
+    </article>
+  `
+}
+
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
   const isWoolHandover = head.processBusinessCode === 'WOOL'
@@ -2249,6 +2199,51 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   `
 }
 
+function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
+  const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
+  const isWoolHandover = head.processBusinessCode === 'WOOL'
+  const canCreateRecord = !isWoolHandover
+    && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
+  const isCompleted = head.completionStatus === 'COMPLETED'
+  const completionCheck = canCompletePdaHandoutHead(head.handoverId)
+  const records = getPdaHandoverRecordsByHead(head.handoverId)
+  const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
+  const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
+  const profile = deriveHandoutObjectProfile(head, records, runtimeTask, sourceDoc)
+  const source = getPdaHandoverSourceDisplay(head)
+
+  return `
+    <article class="rounded-xl border bg-card p-3 shadow-sm" data-testid="pda-handout-summary">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0"><div class="truncate text-base font-semibold">${escapeHtml(head.processName)}</div><div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div></div>
+        <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}">${isCompleted ? '已完成' : '待交出'}</span>
+      </div>
+      <div class="mt-3 flex items-center gap-2 text-xs"><span class="truncate">${escapeHtml(head.sourceFactoryName)}</span><i data-lucide="arrow-right" class="h-3.5 w-3.5 shrink-0 text-muted-foreground"></i><span class="truncate font-medium text-primary">${escapeHtml(getReceiverDisplayName(head))}</span></div>
+      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">计划</div><div class="mt-1 font-semibold">${profile.totalPlannedQty} ${escapeHtml(profile.displayUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">已确认</div><div class="mt-1 font-semibold">${profile.totalWrittenQty} ${escapeHtml(profile.displayUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">待确认</div><div class="mt-1 font-semibold ${profile.totalPendingQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${profile.totalPendingQty} ${escapeHtml(profile.displayUnit)}</div></div>
+      </div>
+    </article>
+
+    ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
+
+    ${!isWoolHandover && !isCompleted && !detailState.newRecordOpen
+      ? `<button type="button" class="h-11 w-full rounded-lg bg-primary text-sm font-medium text-primary-foreground" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord ? '' : `disabled title="${ACTION_PERMISSION_DENIED_TEXT}"`}>本次交出</button>`
+      : ''}
+    ${isWoolHandover ? '' : renderNewHandoutRecordForm(head)}
+
+    ${!isWoolHandover && !isCompleted
+      ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-handout-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成交出单</button>`
+      : ''}
+
+    <details class="rounded-xl border bg-card" data-testid="handout-record-history">
+      <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>交出记录（${records.length}）</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
+      <div class="space-y-2 border-t p-3">${records.length ? records.map((record) => renderHandoutRecordItem(record, head, runtimeTask, sourceDoc)).join('') : '<div class="py-4 text-center text-xs text-muted-foreground">暂无交出记录</div>'}</div>
+    </details>
+  `
+}
+
 export function renderPdaHandoverDetailPage(eventId: string): string {
   const head = findPdaHandoverHead(eventId)
 
@@ -2334,24 +2329,12 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
           <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
         </button>
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold">${escapeHtml(head.headType === 'PICKUP' ? '接收详情' : '交出单详情')}</span>
+          <span class="text-sm font-semibold">${escapeHtml(head.headType === 'PICKUP' ? '确认接收' : '发起交出')}</span>
         </div>
         <div class="w-16"></div>
       </div>
 
-      <div class="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
-        <span class="inline-flex items-center gap-1">
-          <i data-lucide="${head.headType === 'PICKUP' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-muted-foreground"></i>
-          <span class="text-muted-foreground">${escapeHtml(head.sourceFactoryName)}</span>
-        </span>
-        <i data-lucide="arrow-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
-        <span class="inline-flex items-center gap-1">
-          <i data-lucide="${head.targetKind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-primary"></i>
-          <span class="font-medium text-primary">${escapeHtml(getReceiverDisplayName(head))}</span>
-        </span>
-      </div>
-
-      ${head.headType === 'PICKUP' ? renderPickupHeadDetail(head) : renderHandoutHeadDetail(head)}
+      ${head.headType === 'PICKUP' ? renderPickupHeadDetail(head) : renderCompactHandoutHeadDetail(head)}
     </div>
   `
 
@@ -2778,8 +2761,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
 
     const confirmedAt = receiverWritebackNowProvider()
-    const currentSnapshot = getSewingDeliverySlaSnapshot(record.taskId || record.sourceTaskId)
-    if (currentSnapshot?.active && !buildReceiverWritebackSlaPreview(record.recordId, receiverWrittenQty, confirmedAt)) {
+    if (!buildReceiverWritebackSlaPreview(record.recordId, receiverWrittenQty, confirmedAt)) {
       showPdaHandoverDetailToast('交出信息已更新，请重新确认')
       return true
     }
@@ -3040,7 +3022,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         throw error
       }
     }
-    showPdaHandoverDetailToast(selfReturnPickup || postFinishingPickup ? '已入后道待加工仓' : '已入待加工仓')
+    showPdaHandoverDetailToast(currentPostFinishingPickup || postFinishingPickup ? '已入后道待加工仓' : '已入待加工仓')
     return true
   }
 
@@ -3297,17 +3279,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       '工厂端移动应用',
     )
     showPdaHandoverDetailToast('当前差异已接受')
-    return true
-  }
-
-  if (action === 'goto-pickup-record-exception') {
-    const recordId = actionNode.dataset.recordId
-    const record = recordId ? findPdaPickupRecord(recordId) : undefined
-    if (!record?.exceptionCaseId) {
-      showPdaHandoverDetailToast('当前记录尚未绑定异常单')
-      return true
-    }
-    appStore.navigate(`/fcs/progress/exceptions?caseId=${encodeURIComponent(record.exceptionCaseId)}`)
     return true
   }
 
