@@ -1007,7 +1007,10 @@ async function render(): Promise<void> {
     preloadFcsHandlers()
   }
   ensureInitialPdaLoadingShell(state)
-  const pageContent = await renderCurrentPageContent(state.pathname)
+  const pageContentPromise = renderCurrentPageContent(state.pathname)
+  const pageContent = isPdaPath(state.pathname)
+    ? (await Promise.all([pageContentPromise, getPdaHandlersModule()]))[0]
+    : await pageContentPromise
   if (currentSerial !== renderSerial) {
     return
   }

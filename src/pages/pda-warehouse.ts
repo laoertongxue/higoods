@@ -214,6 +214,7 @@ export function renderPdaWarehousePage(): string {
 
   const content = `
     <div class="space-y-3 px-4 pb-5 pt-4">
+      ${runtime.factoryId === 'ID-F002' ? renderWarehouseActionGroup('后道回货与出货', [{ title: '扫描送货单点数确认', subtitle: '逐 SKU 点数；超过 5%二次点数并授权。', route: '/fcs/pda/post-finishing/return-confirm', tone: 'primary' }, { title: '扫描后道出货单收货', subtitle: '只接受完整 FCK 后道出货单号。', route: '/fcs/pda/post-finishing/outbound-receive', tone: 'normal' }]) : ''}
       ${renderWaitProcessActions(runtime)}
       ${renderWaitHandoverActions(runtime)}
       ${renderInventoryActions(runtime)}

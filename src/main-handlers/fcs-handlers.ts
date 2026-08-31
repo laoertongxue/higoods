@@ -384,12 +384,13 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     isPostFinishingRoute
     && target.closest([
       '[data-post-finishing-action]',
+      '[data-post-finishing-field]',
       '[data-post-finishing-outbound-action]',
       '[data-post-finishing-outbound-field]',
       '[data-process-web-status-action]',
     ].join(', '))
   ) {
-    return handlePostFinishingEvent(target)
+    return handlePostFinishingEvent(target, event)
   }
   const isSpecialCraftRoute =
     pathname.includes('/fcs/process-factory/special-craft') ||
@@ -435,7 +436,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftWoolEvent(target) ||
     await handleCraftWoolWarehouseEvent(target, event) ||
     await handleCraftWoolMachinesEvent(target) ||
-    await handlePostFinishingEvent(target) ||
+    await handlePostFinishingEvent(target, event) ||
     handleSpecialCraftTaskOrdersEvent(target, event) ||
     handleSpecialCraftTaskDetailEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||

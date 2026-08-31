@@ -88,7 +88,6 @@ import {
 import { buildWaitHandoverLifecycleByBagCode } from './process-factory/cutting/wait-handover-runtime.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
-  confirmPostFinishingSewingSelfReturnWarehouseRecord,
   confirmPostFinishingWarehouseReceipt,
   listPostFinishingWarehouseAreas,
   listPostFinishingWarehouseLocations,
@@ -2971,8 +2970,13 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
     const currentPostFinishingPickup = parsePostFinishingPickupRecord(currentRecord)
     const currentSelfReturnPickup = parsePostFinishingSelfReturnPickupRecord(currentRecord)
+    if (currentSelfReturnPickup) {
+      showPdaHandoverDetailToast('旧回货接收入口已关闭，请扫描送货单到专用回货确认页。')
+      appStore.navigate('/fcs/pda/post-finishing/return-confirm')
+      return true
+    }
     if (typeof currentRecord.warehouseHandedQty !== 'number' || currentRecord.warehouseHandedQty < 0) {
-      showPdaHandoverDetailToast(currentPostFinishingPickup || currentSelfReturnPickup ? '当前记录缺少车缝厂交付数量' : '当前记录缺少仓库交付数量')
+      showPdaHandoverDetailToast(currentPostFinishingPickup ? '当前记录缺少车缝厂交付数量' : '当前记录缺少仓库交付数量')
       return true
     }
     const updated = confirmPdaPickupRecordReceived(recordId, {
@@ -2991,17 +2995,9 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       '工厂端移动应用',
     )
     const postFinishingPickup = parsePostFinishingPickupRecord(updated)
-    const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(updated)
     const isPrompt7Dispatch = isSpecialCraftDispatchPickupRecord(updated.recordId)
     try {
-      if (selfReturnPickup) {
-        confirmPostFinishingSewingSelfReturnWarehouseRecord({
-          warehouseRecordId: selfReturnPickup.warehouseRecordId,
-          confirmedQty: updated.factoryConfirmedQty ?? updated.warehouseHandedQty ?? updated.qtyExpected,
-          confirmerName: '工厂端移动应用',
-          remark: 'PDA 交接待接收确认车缝自助回货。',
-        })
-      } else if (postFinishingPickup) {
+      if (postFinishingPickup) {
         const area = listPostFinishingWarehouseAreas('wait-process')[0]
         if (!area) {
           showPdaHandoverDetailToast('请先维护后道待加工仓库区')

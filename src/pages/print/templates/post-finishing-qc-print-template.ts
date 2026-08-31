@@ -351,7 +351,7 @@ export function buildPostFinishingQcOrderPrintDocument(input: PrintDocumentBuild
   const generatedAt = getPrintGeneratedAt()
   const documentType = 'POST_FINISHING_QC_ORDER'
   const businessNo = qc.qcOrderNo
-  const targetRoute = `/fcs/pda/exec/${encodeURIComponent(qc.postTaskId || qc.productionOrderId)}?postMobileAction=complete-qc&qcOrderId=${encodeURIComponent(qc.qcOrderId)}`
+  const targetRoute = `/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(qc.qcOrderNo)}`
   const qrPayload = buildPrintQrPayload({
     documentType,
     sourceType: 'POST_FINISHING_QC_ORDER',
@@ -377,7 +377,7 @@ export function buildPostFinishingQcOrderPrintDocument(input: PrintDocumentBuild
       { label: '后道工厂', value: qc.managedPostFactoryName },
     ],
     imageBlocks: [],
-    qrCodes: [{ title: '质检单二维码', value: qrPayload, description: '扫码进入 PDA 质检执行页', sizeMm: 30 }],
+    qrCodes: [{ title: '质检单二维码', value: qrPayload, description: '扫码进入 Web 质检工作台', sizeMm: 30 }],
     barcodes: [{ title: '质检单条码', value: buildPrintBarcodePayload({ documentType, sourceType: 'POST_FINISHING_QC_ORDER', sourceId: qc.qcOrderId, businessNo }), description: businessNo }],
     sections: [],
     tables: [],

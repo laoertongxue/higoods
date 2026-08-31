@@ -2048,7 +2048,7 @@ function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcO
     qcSkuResults,
     qcResult: '部分不合格',
     unqualifiedDisposition: '返修',
-    unqualifiedReasonSummary: `PDA 已提交瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因。`,
+    unqualifiedReasonSummary: `历史质检记录已提交瑕疵数量 ${defectAcceptedQty}，待在 Web 补齐瑕疵原因。`,
     rootCauseType: '工厂加工问题',
     responsiblePartyType: '工厂',
     responsiblePartyId: qc.sourceFactoryId,
@@ -2056,8 +2056,8 @@ function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcO
     reworkReceiveFactoryId: qc.sourceFactoryId,
     reworkReceiveFactoryName: qc.sourceFactoryName,
     deductionDecision: '',
-    deductionDecisionRemark: `质检记录只展示事实；扣款由对账单确认。PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`,
-    inspectorName: 'PDA 后道质检员',
+    deductionDecisionRemark: `质检记录只展示事实；扣款由对账单确认。历史记录已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待在 Web 补齐瑕疵原因后完成质检。`,
+    inspectorName: '王质检员',
     inspectedAt: '2026-05-08 14:20',
     updatedAt: '2026-05-08 14:20',
     defectItems: [defect(`${qc.qcOrderId}-PENDING-REASON`, defectiveQty)],
@@ -3296,72 +3296,6 @@ export function completePostFinishingQcOrder(input: {
   return cloneQcOrder(qc)
 }
 
-export function submitPostFinishingPdaQcResult(input: {
-  qcOrderId: string
-  qcStationName?: string
-  inspectorName?: string
-  qcSkuResults: PostFinishingQcSkuResult[]
-}): PostFinishingQcOrder {
-  const qc = qcOrders.find((item) => item.qcOrderId === input.qcOrderId)
-  if (!qc) throw new Error(`未找到质检单：${input.qcOrderId}`)
-  const nextQcSkuResults = normalizeQcSkuResults({
-    qcOrderId: qc.qcOrderId,
-    lines: qc.skuLines,
-    results: input.qcSkuResults,
-    sourceFactoryId: qc.sourceFactoryId,
-    sourceFactoryName: qc.sourceFactoryName,
-  })
-  assertQcSkuResultsReadyToComplete(nextQcSkuResults, false)
-  const needsWebReasons = nextQcSkuResults.some((result) => result.defectAcceptedQty > 0 && sumDefectReasonQty(result) !== roundQty(result.defectAcceptedQty))
-  if (!needsWebReasons) {
-    return completePostFinishingQcOrder({
-      qcOrderId: input.qcOrderId,
-      qcStationName: input.qcStationName,
-      inspectorName: input.inspectorName,
-      qcSkuResults: nextQcSkuResults,
-      unqualifiedReasonSummary: 'PDA 已提交 SKU 级质检结果',
-    })
-  }
-
-  const inspectedQty = sumQcSkuResults(nextQcSkuResults, 'inspectedQty')
-  const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
-  const reworkQty = sumQcSkuResults(nextQcSkuResults, 'reworkQty')
-  const defectAcceptedQty = sumQcSkuResults(nextQcSkuResults, 'defectAcceptedQty')
-  const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
-  const reworkReceiveFactorySummary = summarizeReworkReceiveFactories(nextQcSkuResults)
-  qc.qcStatus = '质检中'
-  qc.qcStationName = input.qcStationName || qc.qcStationName
-  qc.qcStationId = qc.qcStationName.replace('后道质检台 ', 'QC-STATION-')
-  qc.inspectorName = input.inspectorName || qc.inspectorName || 'PDA 后道质检员'
-  qc.inspectedGarmentQty = inspectedQty
-  qc.passedGarmentQty = passedQty
-  qc.defectiveGarmentQty = defectiveQty
-  qc.reworkGarmentQty = reworkQty
-  qc.defectAcceptedGarmentQty = defectAcceptedQty
-  qc.processingFeeDeductionQty = reworkQty
-  qc.qcSkuResults = nextQcSkuResults.map(cloneQcSkuResult)
-  qc.qcResult = defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格'
-  qc.unqualifiedDisposition = reworkQty > 0 ? '返修' : '让步接收'
-  qc.unqualifiedReasonSummary = `PDA 已提交瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因。`
-  qc.rootCauseType = '工厂加工问题'
-  qc.responsiblePartyType = '工厂'
-  qc.responsiblePartyId = qc.sourceFactoryId
-  qc.responsiblePartyName = qc.sourceFactoryName
-  qc.reworkReceiveFactoryId = reworkReceiveFactorySummary.ids || qc.sourceFactoryId
-  qc.reworkReceiveFactoryName = reworkReceiveFactorySummary.names || qc.sourceFactoryName
-  qc.deductionDecision = ''
-  qc.deductionDecisionRemark = `质检记录只展示事实；扣款由对账单确认。PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`
-  const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
-  qc.needButtonhole = nextNeeds.includes('开扣眼')
-  qc.needButton = nextNeeds.includes('装扣子')
-  qc.needIronPack = nextNeeds.includes('烫包')
-  qc.defectItems = [defect(`PF-DEF-${pad(nextQcIndex())}`, defectiveQty)]
-  qc.inspectedAt = nowText()
-  qc.updatedAt = nowText()
-  refreshPostFinishingDerivedRecords()
-  return cloneQcOrder(qc)
-}
-
 export function listPostFinishingQcOrderEntities(): PostFinishingQcOrder[] {
   return qcOrders.map(cloneQcOrder)
 }
@@ -3813,7 +3747,7 @@ function buildFlowRecord(input: {
     flowRecordNo: `${input.recordNo}-流水-${input.index}`,
     flowType: input.flowType,
     operatedAt: input.operatedAt || `2026-05-${String(input.index + 5).padStart(2, '0')} 10:00`,
-    operatorName: input.operatorName || '后道仓管员',
+    operatorName: input.operatorName || '黄回货确认员',
     qty: input.qty,
     qtyUnit: input.qtyUnit || '件',
     beforeQty: input.beforeQty,
@@ -4106,7 +4040,7 @@ function getDefaultPostFinishingWarehouseAreas(mode: PostFinishingWarehouseMode)
       warehouseMode: mode,
       areaCode: `${prefix}-A`,
       areaName: `${warehouseName} A 区`,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '默认库区',
       updatedAt: '2026-05-09 09:00',
     },
@@ -4115,7 +4049,7 @@ function getDefaultPostFinishingWarehouseAreas(mode: PostFinishingWarehouseMode)
       warehouseMode: mode,
       areaCode: `${prefix}-B`,
       areaName: `${warehouseName} B 区`,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '周转库区',
       updatedAt: '2026-05-09 09:00',
     },
@@ -4126,7 +4060,7 @@ function getDefaultPostFinishingWarehouseAreas(mode: PostFinishingWarehouseMode)
       warehouseMode: mode,
       areaCode: 'PFP-SELF',
       areaName: SEWING_SELF_RETURN_DEFAULT_AREA_NAME,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '车缝厂自助回货固定暂存库区',
       updatedAt: '2026-06-11 09:00',
     })
@@ -4159,7 +4093,7 @@ export function upsertPostFinishingWarehouseArea(input: Partial<PostFinishingWar
     warehouseMode: input.warehouseMode,
     areaCode: input.areaCode?.trim() || existing?.areaCode || `PFAREA-${String(store.areas.length + 1).padStart(2, '0')}`,
     areaName: input.areaName?.trim() || existing?.areaName || `${postFinishingWarehouseName(input.warehouseMode)}新区`,
-    managerName: input.managerName?.trim() || existing?.managerName || '后道仓管员',
+    managerName: input.managerName?.trim() || existing?.managerName || '黄回货确认员',
     remark: input.remark?.trim() || existing?.remark || '',
     updatedAt: nowText(),
   }
@@ -4185,7 +4119,7 @@ function getDefaultPostFinishingWarehouseLocations(mode: PostFinishingWarehouseM
       areaId: areas[0].areaId,
       areaName: areas[0].areaName,
       locationCode: `${prefix}-A-01`,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '默认库位',
       updatedAt: '2026-05-09 09:00',
     },
@@ -4195,7 +4129,7 @@ function getDefaultPostFinishingWarehouseLocations(mode: PostFinishingWarehouseM
       areaId: areas[1].areaId,
       areaName: areas[1].areaName,
       locationCode: `${prefix}-B-01`,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '周转库位',
       updatedAt: '2026-05-09 09:00',
     },
@@ -4207,7 +4141,7 @@ function getDefaultPostFinishingWarehouseLocations(mode: PostFinishingWarehouseM
       areaId: SEWING_SELF_RETURN_DEFAULT_AREA_ID,
       areaName: SEWING_SELF_RETURN_DEFAULT_AREA_NAME,
       locationCode: SEWING_SELF_RETURN_DEFAULT_LOCATION_CODE,
-      managerName: '后道仓管员',
+      managerName: '黄回货确认员',
       remark: '车缝自助交货默认库位',
       updatedAt: '2026-06-11 09:00',
     })
@@ -4241,7 +4175,7 @@ export function upsertPostFinishingWarehouseLocation(input: Partial<PostFinishin
     areaId: area?.areaId || existing?.areaId || '',
     areaName: area?.areaName || input.areaName?.trim() || existing?.areaName || `${postFinishingWarehouseName(input.warehouseMode)} A 区`,
     locationCode: input.locationCode?.trim() || existing?.locationCode || `PFLOC-${String(store.locations.length + 1).padStart(2, '0')}`,
-    managerName: input.managerName?.trim() || existing?.managerName || '后道仓管员',
+    managerName: input.managerName?.trim() || existing?.managerName || '黄回货确认员',
     remark: input.remark?.trim() || existing?.remark || '',
     updatedAt: nowText(),
   }

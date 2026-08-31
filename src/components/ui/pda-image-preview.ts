@@ -12,7 +12,7 @@ function getPreviewHost(): HTMLElement {
   if (host) return host
   host = document.createElement('div')
   host.dataset.pdaImagePreviewRoot = 'true'
-  document.body.append(host)
+  ;(document.querySelector('#app') || document.body).append(host)
   return host
 }
 

@@ -546,6 +546,10 @@ export const renderPostFinishingQcOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/qc-orders'),
   'renderPostFinishingQcOrdersPage',
 )
+export const renderPostFinishingQcWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/qc-workbench'),
+  'renderPostFinishingQcWorkbenchPage',
+)
 export const renderPostFinishingRecheckOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/recheck-orders'),
   'renderPostFinishingRecheckOrdersPage',
@@ -573,6 +577,14 @@ export const renderPostFinishingOutboundOrdersPage = createAsyncRenderer(
 export const renderPostFinishingOutboundOrderDetailPage = createAsyncRenderer<[string]>(
   () => import('../pages/process-factory/post-finishing/outbound-orders'),
   'renderPostFinishingOutboundOrderDetailPage',
+)
+export const renderPostFinishingFullFlowPrintPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/full-flow-print'),
+  'renderPostFinishingFullFlowPrintPage',
+)
+export const renderPostFinishingAuditRecordsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/audit-records'),
+  'renderPostFinishingAuditRecordsPage',
 )
 export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-orders'),

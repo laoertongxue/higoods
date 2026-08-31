@@ -1513,6 +1513,7 @@ export function renderPdaExecPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
+        ${selectedFactoryId === 'ID-F002' ? `<section class="rounded-xl border border-blue-200 bg-blue-50 p-3" data-pda-post-finishing-entry><div class="text-sm font-semibold text-blue-950">后道现场执行</div><div class="mt-1 text-xs text-blue-800">精确扫描后道任务或复检单；质检仅在 Web 进行。</div><div class="mt-3 grid grid-cols-2 gap-2"><button type="button" class="h-10 rounded-xl bg-blue-600 text-xs font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button><button type="button" class="h-10 rounded-xl border border-blue-300 bg-white text-xs font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button></div></section>` : ''}
         ${renderPdaExecCardList(filteredTasks, emptyStateText)}
       </div>
     </div>

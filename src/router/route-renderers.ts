@@ -438,6 +438,22 @@ export const renderPdaSewingSelfReturnPage = createAsyncRenderer(
   () => import('../pages/pda-sewing-self-return'),
   'renderPdaSewingSelfReturnPage',
 )
+export const renderPdaPostFinishingExecutionPage = createAsyncRenderer(
+  () => import('../pages/pda-post-finishing-flow'),
+  'renderPdaPostFinishingExecutionPage',
+)
+export const renderPdaPostFinishingReturnConfirmationPage = createAsyncRenderer(
+  () => import('../pages/pda-post-finishing-flow'),
+  'renderPdaPostFinishingReturnConfirmationPage',
+)
+export const renderPdaPostFinishingRecheckPage = createAsyncRenderer(
+  () => import('../pages/pda-post-finishing-flow'),
+  'renderPdaPostFinishingRecheckPage',
+)
+export const renderPdaPostFinishingOutboundReceivePage = createAsyncRenderer(
+  () => import('../pages/pda-post-finishing-flow'),
+  'renderPdaPostFinishingOutboundReceivePage',
+)
 export const renderPdaTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/pda-transfer-bag-detail'),
   'renderPdaTransferBagDetailPage',

@@ -411,7 +411,7 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道任务</button>
-          <button class="rounded-md border px-3 py-1.5 text-sm ${task.waitQcQty > 0 ? 'hover:bg-muted' : 'pointer-events-none opacity-50'}" data-nav="/fcs/craft/post-finishing/qc-orders?postTaskId=${escapeHtml(encodeURIComponent(task.postTaskId))}&createQc=1">创建质检单</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="/fcs/craft/post-finishing/wait-process-warehouse">回货确认与送检</button>
           <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('POST_FINISHING_TASK', task.postTaskId))}">打印流转卡</button>
         </div>
       </div>

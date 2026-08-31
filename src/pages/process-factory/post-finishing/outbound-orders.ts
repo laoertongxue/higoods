@@ -1,267 +1,66 @@
-// @page-pattern: list
+// @page-pattern: dashboard
 
-import { hydrateIcons } from '../../../components/shell.ts'
-import { renderBadge } from '../../../components/ui/badge.ts'
-import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
-import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { type StandardListColumn } from '../../../components/ui/list-table.ts'
 import {
-  normalizeListColumnPreferences,
-  type StandardListColumnPreferences,
-  type StandardListSortState,
-} from '../../../components/ui/list-table-model.ts'
-import {
-  createProcessOrderListController,
-  type ProcessOrderListControllerState,
-} from '../../../components/ui/process-order-list-controller.ts'
-import { buildUnifiedPrintPreviewLink } from '../../../data/fcs/print-service.ts'
-import {
-  getPostFinishingOutboundOrderById,
-  listPostFinishingOutboundOrders,
-  type PostFinishingOutboundOrder,
-  type PostFinishingOutboundOrderStatus,
-} from '../../../data/fcs/post-finishing-outbound-orders.ts'
-import {
-  buildPostFinishingOutboundOrderDetailLink,
-  buildPostFinishingOutboundOrdersLink,
-} from '../../../data/fcs/fcs-route-links.ts'
+  getPostFinishingFullFlowOutboundOrder,
+  listPostFinishingFullFlowOutboundOrders,
+  listPostFinishingWarehouseReceipts,
+} from '../../../data/fcs/post-finishing-full-flow.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderPostFinishingPageHeader, renderPostStatusBadge } from './shared.ts'
 
-// 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
-
-const EVENT_PREFIX = 'post-finishing-outbound'
-const PREFERENCE_KEY = '/fcs/craft/post-finishing/outbound-orders:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50]
-
-interface OutboundFilters {
-  keyword: string
-  status: '' | PostFinishingOutboundOrderStatus
-  factory: string
-  createdFrom: string
-  createdTo: string
+function query(): URLSearchParams {
+  return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
 }
 
-const EMPTY_FILTERS: OutboundFilters = {
-  keyword: '',
-  status: '',
-  factory: '',
-  createdFrom: '',
-  createdTo: '',
+function authorizationText(record: NonNullable<ReturnType<typeof getPostFinishingFullFlowOutboundOrder>>): string {
+  return record.warehouseAuthorizedBy
+    ? `${record.warehouseAuthorizedBy.authorizerName} / ${record.warehouseAuthorizationId}`
+    : '无差异'
 }
 
-const state: ProcessOrderListControllerState & { filters: OutboundFilters } = {
-  currentPage: 1,
-  sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: ['outboundOrderNo'], pageSize: 10 },
-  preferencesLoaded: false,
-  showColumnSettings: false,
-  filters: { ...EMPTY_FILTERS },
+function image(line: NonNullable<ReturnType<typeof getPostFinishingFullFlowOutboundOrder>>['lines'][number]): string {
+  const label = `${line.sku.skuCode} ${line.sku.colorName} ${line.sku.sizeName}`
+  return `<button type="button" class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(line.sku.imageUrl)}" data-image-label="${escapeHtml(label)}"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[9px] text-slate-500">图片加载中…</span></button>`
 }
 
-function formatQty(value: number, unit: string): string {
-  return `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${escapeHtml(unit)}`
-}
-
-function statusBadge(status: PostFinishingOutboundOrderStatus): string {
-  return status === '已确认'
-    ? renderBadge(status, 'success', 'circle-check-big')
-    : renderBadge(status, 'warning', 'clock-3')
-}
-
-function renderActions(order: PostFinishingOutboundOrder): string {
-  const detailHref = buildPostFinishingOutboundOrderDetailLink(order.outboundOrderId)
-  const wholePrintHref = buildUnifiedPrintPreviewLink({
-    documentType: 'POST_FINISHING_OUTBOUND_ORDER',
-    sourceType: 'POST_FINISHING_OUTBOUND_ORDER',
-    sourceId: order.outboundOrderId,
-  })
-  const barcodeHref = buildUnifiedPrintPreviewLink({
-    documentType: 'POST_FINISHING_OUTBOUND_BARCODE',
-    sourceType: 'POST_FINISHING_OUTBOUND_ORDER',
-    sourceId: order.outboundOrderId,
-  })
-  return `<div class="flex flex-wrap justify-end gap-1.5">
-    <a class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">详情</a>
-    <a class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(wholePrintHref)}">打印整单</a>
-    <a class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(barcodeHref)}">打印条码</a>
+function renderDetail(record: NonNullable<ReturnType<typeof getPostFinishingFullFlowOutboundOrder>>): string {
+  const receipt = listPostFinishingWarehouseReceipts().find((item) => item.outboundOrderId === record.outboundOrderId)
+  const rows = record.lines.map((line) => `<tr>
+    <td class="px-3 py-3"><div class="flex items-center gap-3">${image(line)}<div><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.spuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td>
+    <td class="px-3 py-3">${line.outboundQty} 件</td>
+    <td class="px-3 py-3">${line.receivedQty ?? '—'}${line.receivedQty === undefined ? '' : ' 件'}</td>
+    <td class="px-3 py-3 font-mono text-xs">${escapeHtml(line.sku.barcode)}</td>
+    <td class="px-3 py-3"><a data-nav="/fcs/craft/post-finishing/print?type=SKU_LABEL&id=${encodeURIComponent(record.recheckOrderId)}&skuId=${encodeURIComponent(line.sku.skuId)}" class="text-blue-700 underline">打印 40×30 SKU 贴标</a></td>
+  </tr>`).join('')
+  return `<div class="space-y-4">
+    <button type="button" data-nav="/fcs/craft/post-finishing/outbound-orders" class="text-sm text-blue-700 underline">← 返回出货单列表</button>
+    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><h2 class="font-mono text-xl font-semibold">${escapeHtml(record.outboundOrderNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 复检单 ${escapeHtml(record.recheckOrderNo)}</p></div>${renderPostStatusBadge(record.status)}</div><div class="mt-4 grid gap-3 text-sm md:grid-cols-4"><div><span class="text-xs text-muted-foreground">出货数量</span><div>${record.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div><div><span class="text-xs text-muted-foreground">实际接收入库人</span><div>${escapeHtml(record.receivedBy?.actorName || '待接收')}</div></div><div><span class="text-xs text-muted-foreground">差异授权人</span><div>${escapeHtml(authorizationText(record))}</div></div><div><span class="text-xs text-muted-foreground">接收时间</span><div>${escapeHtml(record.receivedAt ? new Date(record.receivedAt).toLocaleString('zh-CN') : '—')}</div></div></div><dl class="mt-4 grid gap-2 border-t pt-4 text-xs md:grid-cols-3"><div><dt class="text-muted-foreground">送货单 / 质检任务</dt><dd class="font-mono">${escapeHtml(record.deliveryOrderNo)} / ${escapeHtml(record.qcTaskNo)}</dd></div><div><dt class="text-muted-foreground">后道任务</dt><dd class="font-mono">${escapeHtml(record.postTaskNo || '质检后直达复检')}</dd></div><div><dt class="text-muted-foreground">复检单</dt><dd class="font-mono">${escapeHtml(record.recheckOrderNo)}</dd></div></dl></section>
+    <section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">逐 SKU 出货与接收</h3><div class="mt-3 overflow-x-auto"><table class="min-w-[920px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU / 产品</th><th class="px-3 py-2">复检合格 / 出货</th><th class="px-3 py-2">仓库实收</th><th class="px-3 py-2">条码</th><th class="px-3 py-2">SKU 贴标</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div></section>
+    ${receipt ? `<section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><h3 class="font-semibold text-emerald-900">仓库接收记录</h3><div class="mt-2 text-sm text-emerald-800">${escapeHtml(receipt.receivedBy.actorName)} · ${escapeHtml(new Date(receipt.receivedAt).toLocaleString('zh-CN'))} · ${escapeHtml(receipt.differenceReason || '数量一致')}</div></section>` : ''}
+    <div class="flex flex-wrap gap-2"><a data-nav="/fcs/craft/post-finishing/print?type=OUTBOUND&id=${encodeURIComponent(record.outboundOrderId)}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">打印后道出货单及出货单条码</a><a data-nav="/fcs/pda/post-finishing/outbound-receive?id=${encodeURIComponent(record.outboundOrderNo)}" class="rounded-md border px-4 py-2 text-sm">仓库 PDA 扫码收货</a></div>
+    <p class="text-xs text-muted-foreground">“后道出货单条码”用于仓库整单收货；“SKU 贴标”用于单件条码纠错，两者不是同一个打印目标。</p>
   </div>`
 }
 
-const columns: StandardListColumn<PostFinishingOutboundOrder>[] = [
-  {
-    key: 'outboundOrderNo', title: '出货单号', width: 142, required: true, freezeable: true, sortable: true,
-    render: (row) => `<a class="font-medium text-blue-600 hover:underline" data-nav="${escapeHtml(buildPostFinishingOutboundOrderDetailLink(row.outboundOrderId))}">${escapeHtml(row.outboundOrderNo)}</a>`,
-    sortValue: (row) => row.outboundOrderNo,
-  },
-  { key: 'factory', title: '工厂', width: 170, freezeable: true, sortable: true, render: (row) => escapeHtml(row.managedPostFactoryName), sortValue: (row) => row.managedPostFactoryName },
-  { key: 'productionOrderNo', title: '生产单号', width: 145, sortable: true, render: (row) => escapeHtml(row.productionOrderNo), sortValue: (row) => row.productionOrderNo },
-  { key: 'taskNo', title: '任务单号', width: 150, sortable: true, render: (row) => escapeHtml(row.taskNo), sortValue: (row) => row.taskNo },
-  { key: 'outboundQty', title: '出库数量', width: 110, align: 'right', sortable: true, render: (row) => formatQty(row.outboundQty, row.qtyUnit), sortValue: (row) => row.outboundQty },
-  { key: 'inboundQty', title: '入库数量', width: 110, align: 'right', sortable: true, render: (row) => formatQty(row.inboundQty, row.qtyUnit), sortValue: (row) => row.inboundQty },
-  { key: 'status', title: '状态', width: 100, sortable: true, render: (row) => statusBadge(row.status), sortValue: (row) => row.status },
-  { key: 'createdAt', title: '创建时间', width: 155, sortable: true, render: (row) => escapeHtml(row.createdAt), sortValue: (row) => row.createdAt },
-  { key: 'operatorName', title: '操作人', width: 110, sortable: true, render: (row) => escapeHtml(row.operatorName), sortValue: (row) => row.operatorName },
-  { key: 'actions', title: '操作', width: 255, required: true, actionColumn: true, align: 'right', render: renderActions },
-]
-
-const columnRules = columns.map(({ key, required, freezeable, actionColumn }) => ({ key, required, freezeable, actionColumn }))
-state.preferences = normalizeListColumnPreferences(columnRules, {
-  order: columns.map((column) => column.key),
-  visibleKeys: columns.map((column) => column.key),
-  frozenKeys: ['outboundOrderNo'],
-  pageSize: 10,
-}, PAGE_SIZE_OPTIONS)
-
-function filteredRows(): PostFinishingOutboundOrder[] {
-  const keyword = state.filters.keyword.trim().toLowerCase()
-  return listPostFinishingOutboundOrders().filter((order) => {
-    const searchable = [
-      order.outboundOrderNo,
-      order.productionOrderNo,
-      order.taskNo,
-      order.recheckOrderNo,
-      order.qcOrderNo,
-      order.postOrderNo || '',
-    ].join(' ').toLowerCase()
-    if (keyword && !searchable.includes(keyword)) return false
-    if (state.filters.status && order.status !== state.filters.status) return false
-    if (state.filters.factory && order.managedPostFactoryName !== state.filters.factory) return false
-    const date = order.createdAt.slice(0, 10)
-    if (state.filters.createdFrom && date < state.filters.createdFrom) return false
-    if (state.filters.createdTo && date > state.filters.createdTo) return false
-    return true
-  })
-}
-
-const controller = createProcessOrderListController<PostFinishingOutboundOrder>({
-  state,
-  columns,
-  preferenceKey: PREFERENCE_KEY,
-  pageSizeOptions: PAGE_SIZE_OPTIONS,
-  eventPrefix: EVENT_PREFIX,
-  rootSelector: '[data-post-finishing-outbound-root]',
-  tableSurfaceSelector: '[data-post-finishing-outbound-table]',
-  paginationSurfaceSelector: '[data-post-finishing-outbound-pagination]',
-  overlaysSurfaceSelector: '[data-post-finishing-outbound-overlays]',
-  defaultFrozenKeys: ['outboundOrderNo'],
-  columnSettingsTitle: '后道出货单列设置',
-  emptyText: '当前筛选范围暂无后道出货单',
-  getRows: filteredRows,
-  locallyManagedEvents: true,
-})
-
-function renderFilterField(label: string, field: keyof OutboundFilters, value: string, type = 'text'): string {
-  return `<label class="min-w-[10rem] flex-1 text-sm"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span><input type="${escapeHtml(type)}" value="${escapeHtml(value)}" class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-post-finishing-outbound-filter="${escapeHtml(field)}"></label>`
-}
-
-function renderFilters(allRows: PostFinishingOutboundOrder[]): string {
-  const factories = [...new Set(allRows.map((order) => order.managedPostFactoryName))]
-  return `<div class="rounded-lg border bg-card p-3"><div class="flex flex-wrap items-end gap-3">
-    ${renderFilterField('关键词', 'keyword', state.filters.keyword)}
-    <label class="min-w-[8rem] text-sm"><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-post-finishing-outbound-filter="status"><option value="">全部</option>${(['待确认', '已确认'] as const).map((status) => `<option value="${status}" ${state.filters.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
-    <label class="min-w-[11rem] text-sm"><span class="mb-1 block text-xs text-muted-foreground">工厂</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-post-finishing-outbound-filter="factory"><option value="">全部</option>${factories.map((factory) => `<option value="${escapeHtml(factory)}" ${state.filters.factory === factory ? 'selected' : ''}>${escapeHtml(factory)}</option>`).join('')}</select></label>
-    ${renderFilterField('创建开始日期', 'createdFrom', state.filters.createdFrom, 'date')}
-    ${renderFilterField('创建结束日期', 'createdTo', state.filters.createdTo, 'date')}
-    ${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}
-    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}
-  </div><p class="mt-2 text-xs text-muted-foreground">关键词支持出货单号、生产单号、后道任务号、后道单号、质检单号和复检单号。</p></div>`
-}
-
-function renderWorkspace(): string {
-  controller.ensurePreferencesLoaded()
-  const allRows = listPostFinishingOutboundOrders()
-  const rows = filteredRows()
-  const view = controller.getView(rows)
-  const outboundQty = rows.reduce((sum, order) => sum + order.outboundQty, 0)
-  const inboundQty = rows.reduce((sum, order) => sum + order.inboundQty, 0)
-  return renderStandardListPage({
-    title: '后道出货单',
-    filtersHtml: renderFilters(allRows),
-    statsHtml: renderStandardListStats([
-      { label: '出货单', value: `${rows.length} 张` },
-      { label: '待确认', value: `${rows.filter((order) => order.status === '待确认').length} 张` },
-      { label: '出库数量', value: `${outboundQty.toLocaleString('zh-CN')} 件` },
-      { label: '入库数量', value: `${inboundQty.toLocaleString('zh-CN')} 件` },
-    ]),
-    listTitle: `后道出货单列表（${rows.length}）`,
-    listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
-    tableHtml: `<div data-post-finishing-outbound-table>${view.tableHtml}</div>`,
-    paginationHtml: `<div data-post-finishing-outbound-pagination>${view.paginationHtml}</div>`,
-    overlaysHtml: `<div data-post-finishing-outbound-overlays>${controller.renderColumnSettings()}</div>`,
-  })
-}
-
-function refreshWorkspace(): void {
-  const root = document.querySelector<HTMLElement>('[data-post-finishing-outbound-root]')
-  if (!root) return
-  root.innerHTML = renderWorkspace()
-  hydrateIcons(root)
-}
-
-function readFilters(root: HTMLElement): OutboundFilters {
-  const value = (field: keyof OutboundFilters) => root.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-post-finishing-outbound-filter="${field}"]`)?.value.trim() || ''
-  return {
-    keyword: value('keyword'),
-    status: value('status') as OutboundFilters['status'],
-    factory: value('factory'),
-    createdFrom: value('createdFrom'),
-    createdTo: value('createdTo'),
-  }
-}
-
-export function handlePostFinishingOutboundOrderEvent(target: HTMLElement): boolean {
-  const root = target.closest<HTMLElement>('[data-post-finishing-outbound-root]')
-  if (!root) return false
-  const field = target.closest<HTMLSelectElement>('[data-post-finishing-outbound-field="pageSize"]')
-  if (field) {
-    controller.setPageSize(Number(field.value))
-    controller.refresh()
-    return true
-  }
-  const actionNode = target.closest<HTMLElement>('[data-post-finishing-outbound-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.postFinishingOutboundAction || ''
-  if (action === 'apply-filter') { state.filters = readFilters(root); state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.filters = { ...EMPTY_FILTERS }; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'prev-page' || action === 'next-page') { controller.stepPage(action === 'next-page' ? 1 : -1); controller.refresh(); return true }
-  if (action === 'sort-column') { controller.cycleSort(actionNode.dataset.columnKey || ''); controller.refresh(); return true }
-  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
-  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
-  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset.postFinishingOutboundColumnKey || actionNode.closest<HTMLElement>('[data-post-finishing-outbound-column-key]')?.dataset.postFinishingOutboundColumnKey || ''
-    controller.updateColumnPreference(action, key, (actionNode as HTMLInputElement).checked)
-    controller.refresh({ overlays: true })
-    return true
-  }
-  if (action === 'restore-column-settings') { controller.restorePreferences(); refreshWorkspace(); return true }
-  return false
-}
-
 export function renderPostFinishingOutboundOrdersPage(): string {
-  controller.installColumnDragEvents()
-  return `<div data-post-finishing-outbound-root data-skip-page-rerender="true">${renderWorkspace()}</div>`
-}
-
-function renderProductCell(line: PostFinishingOutboundOrder['lines'][number]): string {
-  const image = line.skuImageUrl
-    ? `<button type="button" class="relative h-16 w-12 shrink-0 cursor-zoom-in overflow-hidden rounded border bg-muted" data-post-finishing-action="zoom-image" data-zoom-url="${escapeHtml(line.skuImageUrl)}" data-zoom-label="${escapeHtml(`${line.spuName} ${line.skuCode}`)}"><img src="${escapeHtml(line.skuImageUrl)}" alt="${escapeHtml(`${line.spuName} ${line.skuCode}`)}" class="h-full w-full object-cover" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden p-1 text-[10px] text-red-700">图片加载失败</span></button>`
-    : '<div class="flex h-16 w-12 shrink-0 items-center justify-center rounded border bg-muted text-[10px] text-muted-foreground">无图</div>'
-  return `<div class="flex items-center gap-3">${image}<div><strong class="block">${escapeHtml(line.spuName)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(line.spuCode)}</span></div></div>`
+  const keyword = query().get('keyword')?.toLowerCase() || ''
+  const receiver = query().get('receiver')?.toLowerCase() || ''
+  const authorizer = query().get('authorizer')?.toLowerCase() || ''
+  const records = listPostFinishingFullFlowOutboundOrders().filter((record) => {
+    const text = [record.outboundOrderNo, record.recheckOrderNo, record.postTaskNo, record.qcTaskNo, record.deliveryOrderNo, record.productionOrderNo].filter(Boolean).join(' ').toLowerCase()
+    return (!keyword || text.includes(keyword))
+      && (!receiver || record.receivedBy?.actorName.toLowerCase().includes(receiver))
+      && (!authorizer || [record.warehouseAuthorizedBy?.authorizerName, record.warehouseAuthorizationId].filter(Boolean).join(' ').toLowerCase().includes(authorizer))
+  })
+  const rows = records.map((record) => `<tr><td class="px-3 py-3 font-mono font-semibold">${escapeHtml(record.outboundOrderNo)}</td><td class="px-3 py-3"><div>${escapeHtml(record.recheckOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.productionOrderNo)}</div></td><td class="px-3 py-3">${record.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</td><td class="px-3 py-3">${escapeHtml(record.receivedBy?.actorName || '待接收')}</td><td class="px-3 py-3">${escapeHtml(authorizationText(record))}</td><td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td><td class="px-3 py-3"><a data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(record.outboundOrderId)}" class="text-blue-700 underline">详情与打印</a></td></tr>`).join('')
+  return `<div class="space-y-4 p-4" data-testid="post-finishing-outbound-orders-page">${renderPostFinishingPageHeader('后道出货单', '复检完成自动且唯一生成；FCK 出货单号是仓库现场唯一收货身份')}<form class="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-3"><label class="text-xs text-muted-foreground">出货单 / 复检单 / 后道任务 / 质检任务 / 送货单 / 生产单<input name="keyword" value="${escapeHtml(query().get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">实际接收人<input name="receiver" value="${escapeHtml(query().get('receiver') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">差异授权人<input name="authorizer" value="${escapeHtml(query().get('authorizer') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><button class="h-9 rounded-md border text-sm md:col-span-3">筛选</button></form><div class="overflow-x-auto rounded-xl border bg-card"><table class="min-w-[1100px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">后道出货单</th><th class="px-3 py-2">复检单 / 生产单</th><th class="px-3 py-2">出货数量</th><th class="px-3 py-2">实际接收人</th><th class="px-3 py-2">差异授权人</th><th class="px-3 py-2">状态</th><th class="px-3 py-2">操作</th></tr></thead><tbody class="divide-y">${rows || '<tr><td colspan="7" class="p-10 text-center text-muted-foreground">暂无后道出货单。</td></tr>'}</tbody></table></div></div>`
 }
 
 export function renderPostFinishingOutboundOrderDetailPage(id: string): string {
-  const order = getPostFinishingOutboundOrderById(id)
-  if (!order) return `<section class="p-6"><h1 class="text-xl font-semibold">未找到后道出货单</h1><p class="mt-2 text-sm text-muted-foreground">${escapeHtml(id)}</p><a class="mt-4 inline-flex rounded-md border px-3 py-2 text-sm" data-nav="${buildPostFinishingOutboundOrdersLink()}">返回列表</a></section>`
-  const wholePrintHref = buildUnifiedPrintPreviewLink({ documentType: 'POST_FINISHING_OUTBOUND_ORDER', sourceType: 'POST_FINISHING_OUTBOUND_ORDER', sourceId: order.outboundOrderId })
-  const barcodeHref = buildUnifiedPrintPreviewLink({ documentType: 'POST_FINISHING_OUTBOUND_BARCODE', sourceType: 'POST_FINISHING_OUTBOUND_ORDER', sourceId: order.outboundOrderId })
-  const facts = [
-    ['出货单号', order.outboundOrderNo], ['状态', order.status], ['工厂', order.managedPostFactoryName], ['来源动作', order.sourceActionLabel],
-    ['出库仓', order.sourceWarehouseName], ['接收仓', order.targetWarehouseName], ['生产单号', order.productionOrderNo], ['任务单号', order.taskNo],
-    ['来源对象', order.sourceObjectLabel], ['创建时间', order.createdAt], ['操作人', order.operatorName], ['数量', formatQty(order.outboundQty, order.qtyUnit)],
-  ]
-  return `<section class="space-y-4 p-4" data-post-finishing-outbound-detail-root>
-    <header class="flex flex-wrap items-center justify-between gap-3"><div><button type="button" class="mb-2 text-sm text-blue-600 hover:underline" data-nav="${buildPostFinishingOutboundOrdersLink()}">← 返回后道出货单</button><div class="flex items-center gap-3"><h1 class="text-xl font-semibold">后道出货单 ${escapeHtml(order.outboundOrderNo)}</h1>${statusBadge(order.status)}</div></div><div class="flex flex-wrap gap-2"><a class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(wholePrintHref)}">打印整单</a><a class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(barcodeHref)}">打印条码</a></div></header>
-    <section class="rounded-lg border bg-card p-4"><h2 class="font-semibold">出货信息</h2><dl class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">${facts.map(([label, value]) => `<div class="rounded-md border bg-background p-3"><dt class="text-xs text-muted-foreground">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
-    <section class="overflow-hidden rounded-lg border bg-card"><header class="border-b px-4 py-3"><h2 class="font-semibold">出货明细</h2></header><div class="overflow-x-auto"><table class="min-w-[1080px] w-full text-sm"><thead class="bg-muted/50 text-xs text-muted-foreground"><tr>${['序号', '图片 / 名称', '类型', 'SKU', '颜色', '尺码', '计划数量', '已入库数量', '单位'].map((title) => `<th class="px-3 py-2 text-left">${title}</th>`).join('')}</tr></thead><tbody>${order.lines.map((line, index) => `<tr class="border-t"><td class="px-3 py-3">${index + 1}</td><td class="px-3 py-3">${renderProductCell(line)}</td><td class="px-3 py-3">${line.itemType}</td><td class="px-3 py-3 font-medium">${escapeHtml(line.skuCode)}${line.originalSkuCode ? `<div class="mt-1 text-xs text-muted-foreground">原记录：${escapeHtml(line.originalSkuCode)}</div>` : ''}</td><td class="px-3 py-3">${escapeHtml(line.colorName)}</td><td class="px-3 py-3">${escapeHtml(line.sizeName)}</td><td class="px-3 py-3 text-right">${line.plannedQty.toLocaleString('zh-CN')}</td><td class="px-3 py-3 text-right">${line.inboundQty.toLocaleString('zh-CN')}</td><td class="px-3 py-3">${escapeHtml(line.qtyUnit)}</td></tr>`).join('')}</tbody></table></div></section>
-  </section>`
+  const record = getPostFinishingFullFlowOutboundOrder(id)
+  return `<div class="space-y-4 p-4">${renderPostFinishingPageHeader('后道出货单详情', '整单条码用于仓库收货；SKU 贴标用于条码纠错')}${record ? renderDetail(record) : '<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">未找到后道出货单。</div>'}</div>`
+}
+
+export function handlePostFinishingOutboundOrderEvent(_target: HTMLElement): boolean {
+  return false
 }

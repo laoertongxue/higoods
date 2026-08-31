@@ -10,10 +10,10 @@ import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
-  confirmPostFinishingSewingSelfReturnWarehouseRecord,
   getPostFinishingWaitProcessReceiptConfirmStatus,
   listPostFinishingWaitProcessWarehouseRecords,
 } from '../data/fcs/post-finishing-domain.ts'
+import { getPdaRuntimeContext } from './pda-runtime.ts'
 import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
 import {
   listMaterialLedgerProjections,
@@ -142,9 +142,6 @@ interface WaitProcessState {
   cuttingReturnLocationIds: string[]
   cuttingReturnQty: string
   cuttingReturnRollCount: string
-  postFinishingConfirmRecordId: string | null
-  postFinishingConfirmQty: string
-  postFinishingConfirmRemark: string
   kolImageUrl: string
   kolImageAlt: string
 }
@@ -183,9 +180,6 @@ const state: WaitProcessState = {
   cuttingReturnLocationIds: [],
   cuttingReturnQty: '',
   cuttingReturnRollCount: '',
-  postFinishingConfirmRecordId: null,
-  postFinishingConfirmQty: '',
-  postFinishingConfirmRemark: '',
   kolImageUrl: '',
   kolImageAlt: '',
 }
@@ -1596,64 +1590,6 @@ function renderPostFinishingReceiptStatus(record: PostFinishingWaitProcessWareho
   return renderStatusPill(record.availableGarmentQty > 0 ? '可质检' : '已占用')
 }
 
-function renderPostFinishingSelfReturnConfirmDrawer(): string {
-  const row = getPostFinishingWaitProcessRows().find((item) => item.warehouseRecordId === state.postFinishingConfirmRecordId)
-  if (!row) return ''
-  const submittedQty = row.submittedGarmentQty ?? row.inboundGarmentQty
-  const defaultQty = state.postFinishingConfirmQty || String(row.confirmedGarmentQty ?? submittedQty)
-  return `
-    <div class="fixed inset-0 z-[130]">
-      <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-post-self-return-confirm"></button>
-      <section class="absolute inset-x-0 bottom-[72px] max-h-[78vh] overflow-y-auto rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-base font-semibold text-foreground">确认车缝自助回货入库</h2>
-          <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-post-self-return-confirm">关闭</button>
-        </div>
-        <div class="mt-4 rounded-2xl border bg-card px-4 py-4 text-xs leading-5 shadow-sm">
-          <div class="flex gap-3">
-            ${row.skuImageUrl
-              ? `<img src="${escapeHtml(row.skuImageUrl)}" alt="${escapeHtml(row.skuCode)}" class="h-16 w-16 flex-shrink-0 rounded-xl border object-cover" loading="lazy" referrerpolicy="no-referrer" />`
-              : ''}
-            <div class="min-w-0 flex-1">
-              <div class="font-semibold text-foreground">${escapeHtml(row.skuCode)} / ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeName)}</div>
-              <div class="mt-1 text-muted-foreground">自助登记：${submittedQty} ${escapeHtml(row.qtyUnit)} · 来源：${escapeHtml(row.selfReturnRecordNo || row.postOrderNo)}</div>
-              <div class="text-muted-foreground">默认库位：${escapeHtml(row.areaName || '-')} / ${escapeHtml(row.locationCode || '-')}</div>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 space-y-3">
-          <label class="block text-xs font-medium text-muted-foreground">
-            后道确认数量
-            <input
-              type="number"
-              min="0"
-              step="1"
-              class="mt-1 h-11 w-full rounded-xl border bg-background px-3 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              value="${escapeAttr(defaultQty)}"
-              data-pda-warehouse-field="post-self-return-confirm-qty"
-              data-skip-page-rerender="true"
-            />
-          </label>
-          <label class="block text-xs font-medium text-muted-foreground">
-            确认备注
-            <textarea
-              class="mt-1 min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              data-pda-warehouse-field="post-self-return-confirm-remark"
-              data-skip-page-rerender="true"
-              placeholder="如有数量差异，请说明现场核对原因"
-            >${escapeHtml(state.postFinishingConfirmRemark)}</textarea>
-          </label>
-        </div>
-        <button
-          type="button"
-          class="mt-4 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
-          data-pda-warehouse-action="confirm-post-self-return"
-        >确认入库</button>
-      </section>
-    </div>
-  `
-}
-
 function renderPostFinishingWaitProcessDetailDrawer(): string {
   const row = getPostFinishingWaitProcessRows().find((item) => item.warehouseRecordId === state.detailId)
   if (!row) return ''
@@ -1721,7 +1657,7 @@ function renderPostFinishingWaitProcessPage(): string {
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-base font-semibold">后道待加工仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">上游交出扫码收货后进入待加工仓；车缝自助回货先待后道确认，确认后才计入可用数量。</div>
+        <div class="mt-1 text-xs text-muted-foreground">上游交出扫码收货后进入待加工仓；公共 PDA 回货登记统一到专用回货确认页逐 SKU 点数。</div>
         <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${rows.length}</div><div class="text-muted-foreground">SKU</div></div>
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${totalAvailable}</div><div class="text-muted-foreground">可用件数</div></div>
@@ -1761,7 +1697,7 @@ function renderPostFinishingWaitProcessPage(): string {
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               ${receiptStatus === '待后道确认' && item.selfReturnRecordId ? `
-                <button type="button" class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700" data-pda-warehouse-action="open-post-self-return-confirm" data-stock-item-id="${escapeAttr(item.warehouseRecordId)}">确认入库</button>
+                <a class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700" data-nav="/fcs/pda/post-finishing/return-confirm">扫描送货单确认回货</a>
               ` : ''}
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(item.warehouseRecordId)}">查看流水</button>
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.sourceTaskNo))}">查看任务</button>
@@ -1770,7 +1706,6 @@ function renderPostFinishingWaitProcessPage(): string {
         `}).join('') : renderMobilePageEmptyState('暂无后道待加工库存', '扫码收货确认后，会进入后道待加工仓。')}
       </section>
       ${renderPostFinishingWaitProcessDetailDrawer()}
-      ${renderPostFinishingSelfReturnConfirmDrawer()}
     </div>
   `
   return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
@@ -2446,38 +2381,6 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     state.detailId = null
     return true
   }
-  if (action === 'open-post-self-return-confirm' && actionNode.dataset.stockItemId) {
-    const row = getPostFinishingWaitProcessRows().find((item) => item.warehouseRecordId === actionNode.dataset.stockItemId)
-    if (!row) return true
-    state.postFinishingConfirmRecordId = row.warehouseRecordId
-    state.postFinishingConfirmQty = String(row.confirmedGarmentQty ?? row.submittedGarmentQty ?? row.inboundGarmentQty)
-    state.postFinishingConfirmRemark = ''
-    return true
-  }
-  if (action === 'close-post-self-return-confirm') {
-    state.postFinishingConfirmRecordId = null
-    state.postFinishingConfirmQty = ''
-    state.postFinishingConfirmRemark = ''
-    return true
-  }
-  if (action === 'confirm-post-self-return') {
-    if (!state.postFinishingConfirmRecordId) return true
-    const confirmedQty = Number(state.postFinishingConfirmQty)
-    if (!Number.isFinite(confirmedQty) || confirmedQty < 0) {
-      window.alert('请输入不小于 0 的后道确认数量。')
-      return true
-    }
-    confirmPostFinishingSewingSelfReturnWarehouseRecord({
-      warehouseRecordId: state.postFinishingConfirmRecordId,
-      confirmedQty: Math.round(confirmedQty * 100) / 100,
-      confirmerName: '后道仓管员',
-      remark: state.postFinishingConfirmRemark,
-    })
-    state.postFinishingConfirmRecordId = null
-    state.postFinishingConfirmQty = ''
-    state.postFinishingConfirmRemark = ''
-    return true
-  }
   if (action === 'open-wait-process-location' && actionNode.dataset.stockItemId) {
     openLocationEditor(actionNode.dataset.stockItemId)
     return true
@@ -2530,14 +2433,6 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (field === 'wait-process-remark') {
     state.remark = value
-    return true
-  }
-  if (field === 'post-self-return-confirm-qty') {
-    state.postFinishingConfirmQty = value
-    return true
-  }
-  if (field === 'post-self-return-confirm-remark') {
-    state.postFinishingConfirmRemark = value
     return true
   }
   if (field === 'cutting-adjust-remaining') {
