@@ -1,104 +1,56 @@
 import { expect, test } from '@playwright/test'
 
-const FULL_FACTORY_NAME = '全能力测试工厂'
 const PDA_SESSION = {
   userId: 'F090_operator',
   loginId: 'F090_operator',
   userName: '全能力测试工厂_操作工',
   roleId: 'ROLE_OPERATOR',
   factoryId: 'F090',
-  factoryName: FULL_FACTORY_NAME,
-  loggedAt: '2026-04-25 10:00:00',
+  factoryName: '全能力测试工厂',
+  loggedAt: '2026-08-31 10:00:00',
 }
 
-test('后道单列表工厂名称、详情和操作入口可用', async ({ page }) => {
-  await page.goto('/fcs/craft/post-finishing/work-orders')
-  await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
-  await expect(page.getByText('雅加达后道工厂')).toHaveCount(0)
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-
-  await page.getByRole('button', { name: '查看详情' }).first().click()
-  await expect(page).toHaveURL(/\/fcs\/craft\/post-finishing\/work-orders\/POST-WO-\d+/)
-  await expect(page.getByRole('heading', { name: '后道单详情' })).toBeVisible()
-  await expect(page.getByText('HD-2026-001', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('生产单-001')).toBeVisible()
-  await expect(page.getByText('后道来源任务-001')).toBeVisible()
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-  await expect(page.getByText('计划成衣件数')).toBeVisible()
-  await expect(page.getByText('当前状态')).toBeVisible()
-
-  for (const tab of ['接收接收', '质检记录', '后道记录', '复检记录', '交出记录', '流转记录']) {
-    await page.getByRole('button', { name: tab, exact: true }).click()
-    await expect(page).toHaveURL(new RegExp(`tab=${tab === '接收接收' ? 'receive' : tab === '后道记录' ? 'post' : tab === '质检记录' ? 'qc' : tab === '复检记录' ? 'recheck' : tab === '交出记录' ? 'handover' : 'events'}`))
-    await expect(page.getByRole('heading', { name: tab })).toBeVisible()
-  }
-
-  await page.goto('/fcs/craft/post-finishing/work-orders')
-  await page.getByRole('button', { name: '打印任务流转卡' }).first().click()
-  await expect(page).toHaveURL(/\/fcs\/print\/preview/)
-  await expect(page.getByText('后道任务流转卡', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-
-  await page.goto('/fcs/craft/post-finishing/work-orders')
-  await page.getByRole('button', { name: '查看待加工仓' }).first().click()
-  await expect(page).toHaveURL(/wait-process-warehouse\?postOrderId=POST-WO-001/)
-  await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
-  await expect(page.getByText('已按后道单定位：POST-WO-001')).toBeVisible()
-  await expect(page.getByText('HD-2026-001', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('待处理成衣件数')).toBeVisible()
-
-  await page.goto('/fcs/craft/post-finishing/work-orders')
-  await page.getByRole('button', { name: '查看交出记录' }).first().click()
-  await expect(page).toHaveURL(/wait-handover-warehouse\?postOrderId=POST-WO-/)
-  await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()
-  await expect(page.getByText('待交出成衣件数')).toBeVisible()
-  await expect(page.getByText('实收成衣件数')).toBeVisible()
+test.beforeEach(async ({ page }) => {
+  page.setDefaultTimeout(45_000)
+  page.setDefaultNavigationTimeout(45_000)
 })
 
-test('质检单、复检单和移动端后道任务使用同一工厂与同一批后道单', async ({ page }) => {
-  await page.goto('/fcs/craft/post-finishing/qc-orders')
-  await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-  await expect(page.getByText('雅加达后道工厂')).toHaveCount(0)
+test('Web 后道任务读取 3×5×5 事实源并只进入专用 PDA 执行页', async ({ page }) => {
+  await page.goto('/fcs/craft/post-finishing/work-orders')
+  await expect(page.getByRole('heading', { name: '后道任务', exact: true })).toBeVisible()
+  await expect(page.locator('article')).toHaveCount(2)
+  await expect(page.locator('body')).toContainText('5')
+  await expect(page.getByText('打开 PDA 后道加工')).toBeVisible()
+  const taskExecutionEntries = page.locator('[data-nav^="/fcs/pda/post-finishing/execute"]').filter({ hasText: 'PDA 执行' })
+  await expect(taskExecutionEntries).toHaveCount(2)
+  await expect(page.locator('[data-nav*="type=POST_ORDER"]')).toHaveCount(2)
+  await expect(page.locator('body')).not.toContainText('雅加达后道工厂')
 
-  await page.goto('/fcs/craft/post-finishing/recheck-orders')
-  await expect(page.getByRole('heading', { name: '复检单', exact: true })).toBeVisible()
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-  await expect(page.getByText('雅加达后道工厂')).toHaveCount(0)
+  await page.evaluate((session) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+  }, PDA_SESSION)
+  await taskExecutionEntries.first().click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/post-finishing\/execute\?id=HD-/)
+  await expect(page.getByRole('heading', { name: '后道加工' })).toBeVisible()
+  await expect(page.locator('main article')).toHaveCount(5)
+  await expect(page.getByRole('button', { name: '核对无误，开始后道' })).toBeVisible()
+})
+
+test('质检统一在 Web 领取管理，专用 PDA 只执行后道且不得执行质检', async ({ page }) => {
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
+  await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '输入质检任务号' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '领取并开始质检' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检任务管理' })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(9)
+  await expect(page.locator('body')).toContainText('Web 端输入完整任务号后领取')
+  await expect(page.locator('body')).not.toContainText('调用摄像头')
 
   await page.addInitScript((session) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
   }, PDA_SESSION)
-  await page.goto('/fcs/pda/exec')
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-  await expect(page.getByText('HD-2026-001', { exact: true }).first()).toBeVisible()
-
-  await page.goto('/fcs/pda/exec/TASK-POST-001')
-  await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
-  await expect(page.getByText('HD-2026-001')).toBeVisible()
-  await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
-  await expect(page.getByText('计划成衣件数')).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认接收接收' })).toBeVisible()
-
-  await page.goto('/fcs/pda/exec/TASK-POST-002')
-  await expect(page.getByRole('button', { name: '开始质检' })).toBeVisible()
-  await page.goto('/fcs/pda/exec/TASK-POST-003')
-  await expect(page.getByRole('button', { name: '开始后道' })).toBeVisible()
-  await page.goto('/fcs/pda/exec/TASK-POST-004')
-  await expect(page.getByRole('button', { name: '开始复检' })).toBeVisible()
-
-  await page.goto('/fcs/pda/exec/TASK-POST-101')
-  await expect(page.getByText('HD-2026-101')).toBeVisible()
-  await expect(page.getByText('后道已由车缝厂完成', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: '开始后道' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '完成后道' })).toHaveCount(0)
-
-  await page.goto('/fcs/pda/exec/SEW-POST-101')
-  await expect(page.getByText('HD-2026-101')).toBeVisible()
-  await expect(page.getByRole('button', { name: '交给后道工厂' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /质检/ })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /复检/ })).toHaveCount(0)
-  await expect(page.getByText('开扣眼')).toHaveCount(0)
-  await expect(page.getByText('装扣子')).toHaveCount(0)
-  await expect(page.getByText('烫包')).toHaveCount(0)
+  await page.goto('/fcs/pda/post-finishing/execute')
+  await expect(page.locator('[data-pda-post-field="postScan"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始质检' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '完成质检' })).toHaveCount(0)
 })

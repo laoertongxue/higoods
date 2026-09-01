@@ -1,8 +1,8 @@
 # QC 后道全流程实施计划
 
-> 版本：2026-08-31
+> 版本：2026-09-01 纠偏执行版
 >
-> 状态：已执行，本地原型已验证；实现验收待用户
+> 状态：WP-12 六项跨端 UI 纠偏已实施；最终代码已完成命名页面验收和两轮 3×5×5 全链路验收
 >
 > 总体设计：`docs/product-design/QC后道全流程系统完整调整方案.md`
 >
@@ -36,7 +36,7 @@
 
 1. 业务事实优先：用户确认规则覆盖历史文档、旧 Mock 和旧检查。
 2. 共享事实优先：Web、PDA、打印和列表不得各算一套数量或状态。
-3. 扫码优先：员工端按完整业务单号精确识别，不展示初始全量任务池，不模糊代选。
+3. 端侧识别：PDA 扫码优先；Web 使用完整业务单号输入，扫码枪只作为键盘输入的可选方式；均不得模糊代选。
 4. 角色分离：质检 Web-only；PDA 只保留回货、后道、复检和仓库收货的现场动作。
 5. 原型边界：使用现有 TypeScript/LocalStorage/Mock 结构表达业务服务，不伪装成真实后端、真实权限或真实持久化。
 6. 最小共享模块：编号、授权、质检参考资料和操作日志是跨端事实，可以独立为小型数据模块；不建设未来型通用平台。
@@ -50,11 +50,11 @@
 |---|---|---|
 | `src/data/fcs/post-finishing-domain.ts` | 后道任务、回货、质检、后道、复检、仓库投影 | 补充链路关系、数量规则、领取/退领、状态门禁、真实操作人；移除 PDA 质检专用写入口 |
 | `src/data/fcs/post-finishing-outbound-orders.ts` | 复检到后道出货单 | 接入统一编号、条码正确门禁、一复检一出货、仓库接收状态 |
-| `src/pages/process-factory/post-finishing/qc-orders.ts` | 当前待质检列表、质检单列表、创建/完成质检 | 拆分主管管理与质检员扫码工作台；按送货单生成任务；统一瑕疵和参考资料 |
+| `src/pages/process-factory/post-finishing/qc-orders.ts` | 当前待质检列表、质检单列表、创建/完成质检 | 收口成“质检任务”单一菜单，在同页按角色展示任务号输入区和主管管理列表；统一瑕疵和参考资料 |
 | `src/pages/process-factory/post-finishing/work-orders.ts` | 后道单列表 | 展示数量来源、瑕疵汇总、操作人和状态 |
 | `src/pages/process-factory/post-finishing/recheck-orders.ts` | 复检单列表/详情 | 展示 PDA 复检、条码、重贴、授权和出货单关系 |
 | `src/pages/process-factory/post-finishing/outbound-orders.ts` | 出货单列表/详情/打印入口 | 区分出货单条码与 SKU 贴标；展示仓库接收与授权 |
-| `src/pages/process-factory/post-finishing/warehouse.ts` | 后道仓库 Web 管理 | 回货二次点数、5%授权、送检入口、确认人和授权人 |
+| `src/pages/process-factory/post-finishing/warehouse.ts` | 后道仓库 Web 管理 | 恢复“后道待加工仓”的待确认、可用库存和流水结构；保留明显的 Web 二次点数、5%授权和送检动作 |
 | `src/pages/pda-sewing-self-return.ts` | 公共 PDA 车缝自助回货 | 阻断 0 数量、调用统一送货单号、明确提交结果 |
 | `src/pages/pda-warehouse-wait-process.ts` | PDA 待加工仓和回货确认 | 二次点数、差异率、动态授权、真实确认人 |
 | `src/pages/pda-exec.ts` | 通用 PDA 执行列表/扫描 | 增加精确后道任务和复检入口，不展示质检任务 |
@@ -62,7 +62,7 @@
 | `src/pages/pda-warehouse-wait-handover.ts` | 当前后道交出/交接 | 内部记录保留时由出货单驱动，不再暴露第二个现场扫码号 |
 | `src/pages/pda-shell.ts` | PDA 导航 | 按角色显示后道、复检、仓库入口；不出现质检入口 |
 | `src/router/routes-pda.ts` | PDA 路由 | 删除/阻断后道质检路径；增加复检扫描和出货收货命名路由 |
-| `src/router/routes-fcs.ts`、`src/router/route-renderers.ts` | Web 路由 | 增加质检工作台、差异授权记录和资料入口 |
+| `src/router/routes-fcs.ts`、`src/router/route-renderers.ts` | Web 路由 | 收口质检菜单，增加“我的动态授权码”正常入口，保留任务详情深链 |
 | `src/pages/print/templates/post-finishing-qc-print-template.ts` | 当前质检单打印并跳转 PDA | 调整为送检单/质检单内容，条码跳转 Web 质检工作台 |
 | `src/pages/print/templates/post-finishing-route-card-template.ts` | 后道加工单打印 | 确保后道任务号、合格数量、图片和加工项目准确 |
 | `src/pages/print/templates/post-finishing-outbound-template.ts` | 出货整单和 SKU 标签 | 明确两类条码，保证整单条码供仓库 PDA 扫描 |
@@ -76,7 +76,7 @@
 | `src/data/fcs/post-finishing-authorization.ts` | 指定授权人、30 秒动态码、单次消费、业务绑定和校验结果 | 不实现真实安全认证或网络服务 |
 | `src/data/fcs/post-finishing-qc-reference.ts` | 买手/QC 上传的质检参考资料及任务绑定 | 不写入技术包 |
 | `src/data/fcs/post-finishing-operation-log.ts` | 全链动作、差异和授权日志的统一查询事实 | 不复制已有业务对象全部数据 |
-| `src/pages/process-factory/post-finishing/qc-workbench.ts` | 普通质检员精确扫码领取和执行 | 不展示待质检池 |
+| `src/pages/process-factory/post-finishing/qc-workbench.ts` | 普通质检员输入完整任务号领取和执行 | 不展示待质检池 |
 | `src/pages/process-factory/post-finishing/difference-authorization-records.ts` | Web 差异/授权查询 | 不提供历史事实编辑 |
 | `src/pages/pda-post-finishing-recheck.ts` | 复检单扫码、数量和条码执行 | 不承载质检 |
 | `src/pages/pda-post-finishing-outbound-receive.ts` | 仓库扫描后道出货单收货 | 不接受内部交接号替代出货单号 |
@@ -247,11 +247,11 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 
 ### 业务目标
 
-关闭 PDA 质检，建立普通质检员精确扫码、独占领取、退领和三类数量录入。
+关闭 PDA 质检，建立普通质检员 Web 完整任务号输入、独占领取、退领和三类数量录入。
 
 ### 主要实现
 
-1. 新增/拆分 Web 质检工作台，首屏只提供完整质检任务号扫描/输入。
+1. 在单一“质检任务”菜单页提供完整质检任务号输入，领取后进入任务执行区；主管管理位于同页下方。
 2. 主管保留质检管理列表，普通质检员不能从待质检池挑单。
 3. 扫码打开与领取必须是一个不可分割动作；保存领取人和时间。
 4. 他人扫描占用任务时显示占用质检员。
@@ -496,7 +496,7 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 | `check-post-finishing-chain-numbering.ts` | 统一编号、一送货一质检、一复检一出货 |
 | `check-post-finishing-return-tolerance.ts` | 正数登记、5%边界、二次点数 |
 | `check-post-finishing-authorization-code.ts` | 指定人员、30 秒、单次使用、业务绑定 |
-| `check-post-finishing-qc-web-only-and-claim.ts` | Web-only、精确扫码、独占领取、退领 |
+| `check-post-finishing-qc-web-only-and-claim.ts` | Web-only、完整任务号输入、独占领取、退领 |
 | `check-post-finishing-qc-reference.ts` | 独立参考资料、买手/QC上传、历史绑定 |
 | `check-post-finishing-defect-reconciliation.ts` | 统一瑕疵、发现阶段、全链数量守恒 |
 | `check-post-finishing-recheck-barcode-gate.ts` | 复检数量、条码错误、重贴复扫 |
@@ -580,7 +580,43 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 
 每个批次只有负责需求达到约定状态后才能关闭；不得以“下一批次会补”掩盖当前批次的无说明遗漏。
 
+### WP-12：2026-09-01 跨端 UI 纠偏
+
+本工作包负责 U-14 至 U-19，只修复用户实际验收发现的六项缺口，不扩大后道业务范围。
+
+1. **后道待加工仓事实与页面**
+   - 业务目标：工厂登记后形成待确认仓记录；确认后按最终数量进入可用库存并生成正式入库流水；送检形成独立出库流水。
+   - 文件/符号：`post-finishing-full-flow.ts`的待加工仓记录、明细和流水；`warehouse.ts`的待确认、可用库存、流水及 Web 确认/送检动作。
+   - 验证证据：Web 与 PDA 各完成一次回货确认；确认前可用量为 0，确认后等于最终确认数量；送检后可用量清零且只有一条送检出库流水。
+   - 完成条件：菜单恢复“后道待加工仓”，页面可从正常菜单完成 Web 确认和送检。
+2. **质检单一菜单和 Web 输入**
+   - 业务目标：同一质检任务只保留一个菜单；普通质检员输入完整任务号，主管在同页查看任务列表和释放占用。
+   - 文件/符号：`app-shell-config.ts`、`qc-orders.ts`、`qc-workbench.ts`及相关事件和检查。
+   - 验证证据：菜单只出现一个“质检任务”；页面文案和交互不再把 Web 输入冒充扫码；完整、部分、错误和占用任务分别验收。
+   - 完成条件：任务打印深链仍可打开详情，但不恢复第二个菜单。
+3. **日志主从结构**
+   - 业务目标：先按生产单、送货单和回货序号选择一条业务链，再分别查看逐 SKU 差异和操作时间线。
+   - 文件/符号：`audit-records.ts`、`post-finishing-operation-log.ts`、全链追溯函数。
+   - 验证证据：默认 Mock 至少有多条链、差异记录和时间线；从任一单号可定位同一链；日志不可编辑。
+   - 完成条件：不再把所有日志、动态码和瑕疵记录平铺在同一张宽表。
+4. **指定授权人正常入口**
+   - 业务目标：指定授权身份从“我的动态授权码”入口查看本人动态码；审计页不展示当前码，不使用 URL 查询参数模拟本人权限。
+   - 文件/符号：`post-finishing-authorization.ts`、新增授权码页面、Web 路由和菜单。
+   - 验证证据：三个指定身份分别看到本人码，非授权身份看不到码；30 秒刷新和单次消费继续通过。
+   - 完成条件：跨端测试通过模拟当前登录身份进入正常路由获取授权码。
+5. **默认 3×5×5 多状态 Mock**
+   - 业务目标：全新浏览器直接有 3 个生产单、每单 5 个 SKU、每单 5 次回货，共 15 条可追溯业务链，并覆盖待确认、库存待送检、待质检、质检中、后道、复检、出货和已收货状态。
+   - 文件/符号：`post-finishing-full-flow.ts`稳定 Mock 引导和重置入口；各 Web/PDA 页面读取同一事实。
+   - 验证证据：全新浏览器命名页面非空；测试可显式切换为空状态后重新完成两轮 15 条链，默认 Mock 不污染测试结果。
+   - 完成条件：页面交付 Mock 与测试临时数据分开验证，两者不得互相替代。
+6. **纠偏后验证**
+   - 更新菜单、仓库、授权、日志、Mock 和跨端 UI 检查；新增 Web 回货确认路径。
+   - 最后一次修改后独立执行两遍正向/反向追踪，以及两轮 3×5×5 连续 Web/PDA/打印测试。
+   - 只有命名页面、数据快照、截图、打印和 CodeGraph/治理门禁全部重新生成后，才允许恢复“已验证”。
+
 ## 19. 实际执行与验证结果
+
+> 2026-09-01 状态更正：本节记录的是旧实现的历史运行结果，不能作为当前版本通过证据。WP-12 六项缺口已经修复，当前证据以本节 §19.3 至 §19.6、需求矩阵 §3.2 和原型审查记录为准。
 
 ### 19.1 执行边界与版本事实
 
@@ -598,14 +634,14 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 | WP-01 单号与关系 | 多触发来源共用送货编号；质检、后道、复检、出货按同一链生成；一送货一质检、一复检一出货幂等 | `post-finishing-document-numbering.ts`、`post-finishing-full-flow.ts` | 3×5×5 全链检查，两轮各 15 条链 |
 | WP-02 数量、授权、日志 | 回货 5%和后续零阈值分离；逐 SKU 校验；30 秒动态码、单次消费、差异指纹；全链操作日志 | `post-finishing-authorization.ts`、`post-finishing-operation-log.ts`、`post-finishing-full-flow.ts` | 边界套件、授权消费与 336 条日志/轮 |
 | WP-03 回货与送检 | 公共 PDA 阻断 0；回货超 5%先复点再授权；确认后送检和打印；旧确认入口统一迁移 | `pda-sewing-self-return.ts`、`pda-post-finishing-flow.ts`、`warehouse.ts`、`full-flow-print.ts` | 公共 PDA、回货授权、旧入口迁移 E2E 通过 |
-| WP-04 Web 质检 | 精确扫码领取、一单一人、冲突提示、退领；分类数量；独立质检参考资料上传和任务冻结；后道/直达复检分支 | `qc-workbench.ts`、`qc-orders.ts`、`post-finishing-qc-reference.ts` | Web 质检 E2E、领域契约和打印目标检查通过 |
+| WP-04 Web 质检 | 单一菜单输入完整任务号领取、一单一人、冲突提示、退领；分类数量；独立质检参考资料上传和任务冻结；后道/直达复检分支 | `qc-workbench.ts`、`qc-orders.ts`、`post-finishing-qc-reference.ts` | Web 质检 E2E、领域契约和打印目标检查通过 |
 | WP-05 PDA 后道 | 扫码核对后开始；只处理质检合格数；新增瑕疵与质检瑕疵共用结构；任一数量差异授权 | `pda-post-finishing-flow.ts`、`post-finishing-full-flow.ts`、`work-orders.ts` | PDA 后道 E2E 与全链两分支检查通过 |
 | WP-06 PDA 复检 | 一单一人领取/释放；逐 SKU 数量和条码；错码阻断、重贴、复扫恢复 | `pda-post-finishing-flow.ts`、`recheck-orders.ts`、`full-flow-print.ts` | PDA 错码阻断 E2E 和 40×30贴标契约通过 |
 | WP-07 出货与仓库 | 复检完成幂等生成唯一出货单；仓库仅扫 FCK 单号；逐 SKU 实收、差异授权、重复扫描只读 | `outbound-orders.ts`、`pda-post-finishing-flow.ts`、`post-finishing-full-flow.ts` | PDA 仓库 E2E，每轮 15 次收货通过 |
 | WP-08 管理与追溯 | 回货、质检、后道、复检、出货和操作日志读取同一链路事实；日志支持环节、人员和时间筛选 | `warehouse.ts`、`qc-orders.ts`、`work-orders.ts`、`recheck-orders.ts`、`outbound-orders.ts`、`audit-records.ts` | surface、Web 管理页 E2E 和日志查询契约通过 |
 | WP-09 打印 | 送检单、后道加工单、出货单、SKU重贴标签分别读取正确单号与路由；质检打印跳转 Web | `full-flow-print.ts`、`post-finishing-qc-print-template.ts` | 四类打印 DOM/目标检查与 A4 预览 E2E 通过 |
 | WP-10 历史收口 | PDA 质检入口和旧打印目标收口；“次品”统一为“瑕疵”；技术包不写质检参考资料；旧回货直接确认被阻断 | PDA/Web/打印路由及旧入口相关文件 | literal/surface、相邻专项和旧入口 E2E 通过 |
-| WP-11 验证闭环 | 115 条需求回填；两轮 3×5×5 领域规则测试、两轮 15 条链全量跨端连续 UI 验收、两轮 8 个分页面回归、构建和专项检查 | 三份设计/计划/矩阵、原型审查记录、验证脚本和持久化证据目录 | §19.3至§19.6 |
+| WP-11 验证闭环 | 125 条需求回填；两轮 3×5×5 领域规则测试、两轮 15 条链全量跨端连续 UI 验收、9 个命名页面回归、构建和专项检查 | 三份设计/计划/矩阵、原型审查记录、验证脚本和持久化证据目录 | §19.3至§19.6 |
 
 ### 19.3 强制规模测试
 
@@ -615,8 +651,8 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 - 每个生产单 5 个 SKU。
 - 每个生产单 5 次回货。
 - 合计 15 条回货链、75 条 SKU 回货明细。
-- 领域规则套件每轮结果：15 张质检任务、12 张后道任务、15 张复检单、15 张后道出货单、15 次仓库收货、336 条操作日志、15 次授权消费。
-- 连续跨端 UI 套件每轮结果：15 条链全部完成、75 条 SKU 回货明细、15 张质检任务、12 张后道任务、15 张复检单、15 张后道出货单、15 次仓库收货、271 条操作日志和 5 次跨环节差异授权；15 条链逐条跨端连续 UI 操作，全部业务写入由 Web/PDA 页面操作产生。
+- 领域规则套件每轮结果：15 张质检任务、12 张后道任务、15 张复检单、15 张后道出货单、15 次仓库收货、15 条待加工仓记录、30 条出入库流水、336 条操作日志、15 次授权消费。
+- 连续跨端 UI 套件每轮结果：15 条链全部完成、75 条 SKU 回货明细、15 张质检任务、12 张后道任务、15 张复检单、15 张后道出货单、15 次仓库收货、15 条待加工仓记录、30 条出入库流水、271 条操作日志和 5 次跨环节差异授权；15 条链逐条跨端连续 UI 操作，全部业务写入由 Web/PDA 页面操作产生。
 
 两轮覆盖的业务场景相同但分别重新执行：正常一致、回货 -5%边界、+5%与 -5%整单抵消仍逐 SKU 判断、超过 5%二次点数与授权、回货后少 1/多 1整单抵消仍授权、质检领取冲突与退领、买手上传与当前 QC 代上传资料冻结、质检直达复检、后道领取冲突、后道本环节守恒但全链不守恒、质检与后道统一瑕疵、复检领取冲突与释放、错码阻断、重贴未复扫阻断、重贴后复扫恢复、一复检一出货幂等、仓库仅接受 FCK 单号、仓库差异授权、重复收货幂等、授权码 30 秒刷新、过期/复用阻断和操作日志全链回溯。
 
@@ -624,19 +660,19 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 
 | 核查 | 领域规则全流程 | 连续跨端 UI 验收 | 分页面相邻回归 | 持久化证据位置 |
 |---|---|---|---|---|
-| 核查第 1 遍 | `check:post-finishing-full-flow`通过；15/15链、336条日志、15次授权消费 | 从空状态逐链操作公共PDA→回货确认PDA→Web送检/打印→Web质检→Web后道打印→PDA后道→PDA复检→Web出货/打印→PDA仓库→Web回查；15/15链、75/75 SKU、271条日志、5次跨环节授权；28张截图、1份trace | 原有8/8命名场景用于页面级异常及布局回归，另落地7张截图；结构、旧入口专项通过 | `output/verification/qc-post-finishing-full-flow/pass-1/domain-evidence.json`、`pass-1/cross-terminal-evidence.json`、`pass-1/browser/`、`pass-1/playwright/`、`pass-1/page-regression/` |
-| 核查第 2 遍 | 独立重置后再次通过；15/15链、336条日志、15次授权消费 | 新端口和新空状态下再次完成同一15条链；15/15链、75/75 SKU、271条日志、5次跨环节授权；28张截图、1份trace | 原有8/8命名场景在新端口重跑，另落地7张截图；结构、旧入口专项通过 | `output/verification/qc-post-finishing-full-flow/pass-2/domain-evidence.json`、`pass-2/cross-terminal-evidence.json`、`pass-2/browser/`、`pass-2/playwright/`、`pass-2/page-regression/` |
+| 核查第 1 遍 | `check:post-finishing-full-flow`通过；15/15链、336条日志、15次授权消费 | 从空状态逐链操作公共PDA→Web/PDA回货确认→待加工仓入库/送检/打印→统一Web质检→Web后道打印→PDA后道→PDA复检→Web出货/打印→PDA仓库→日志链详情；15/15链、75/75 SKU、271条日志、5次跨环节授权、15条待加工仓记录和30条出入库流水；32张截图、1份trace | 最终9/9命名场景通过并落地9张截图，包含默认3×5×5 Mock；结构、旧入口专项通过 | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-1/evidence.json`、`2026-09-01-ui-fix-final-pass-1/screenshots/`、`2026-09-01-ui-fix-final-pass-1/playwright/`、`2026-09-01-named-ui-final/` |
+| 核查第 2 遍 | 独立重置后再次通过；15/15链、336条日志、15次授权消费 | 新端口和新空状态下再次完成同一15条链；15/15链、75/75 SKU、271条日志、5次跨环节授权、15条待加工仓记录和30条出入库流水；32张截图、1份trace | 两轮结构和最终数量由落地证据脚本逐项比对；9个命名场景证据复用最终代码上的独立回归 | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-2/evidence.json`、`2026-09-01-ui-fix-final-pass-2/screenshots/`、`2026-09-01-ui-fix-final-pass-2/playwright/` |
 
 连续跨端 UI 套件不导入或调用领域写入函数。测试准备动作仅限清空浏览器本地状态并写入 PDA 测试登录会话；该会话只建立页面操作身份，不生成或修改业务单据。所有送货、确认、送检、质检、后道、复检、出货和收货写入都由可见 Web/PDA 控件触发。测试结束后的页面内模块导入只读取列表和链路快照，用于生成落地 JSON，不修改业务状态。
 
-证据完整性脚本验证每轮恰好包含 3 个生产单、每单 5 次回货、每条 5 个 SKU、15 条最终收货链、28 张连续链 PNG、7 张分页面回归 PNG 和 1 份非空 trace，并比较两轮场景结构与最终数量完全一致。关键摘要如下：
+证据完整性脚本验证每轮恰好包含 3 个生产单、每单 5 次回货、每条 5 个 SKU、15 条最终收货链、32 张跨端 PNG（含4张关键 Web 页面）和 1 份非空 trace；另验证最终命名页面回归的9张 PNG，并比较两轮场景结构与最终数量完全一致。关键摘要如下：
 
 | 证据 | 核查第 1 遍 SHA-256 | 核查第 2 遍 SHA-256 |
 |---|---|---|
-| 连续 UI JSON | `335ffd1a4fbee22755f4af2f94d512c09d47302ecd1e1b2c18a2bca9db386dbe` | `04dac01b422942f0ac0590dc71fec0b251c4135934906305ce9003106cde3c62` |
-| Playwright trace | `e193f1f9c3a472ec3fc7a19d18f27c38ba66dc53e28e628123b6e2b2f6211e04` | `7bc67580137b8833b8fd37c180afda9d574be8bc658f00f10141a9f86ca52341` |
+| 连续 UI JSON | `0d77b97bb6b9ed578c9cc113f5acc038ec6737437a6deff5d4879ce4b897ff22` | `3e429a6768437a8c8de7a1233252b30a50476ce5d33ecd5ee5c53e80f7fce099` |
+| Playwright trace | `fb8c276da6d35d6535dda585ed5ea980b7d04cb8ae6df78a4d2bfa3d3430e71f` | `107b5127a0d6a30585197aa5db51175177a4dacb7ec059820312afee66fd92c0` |
 
-原有 8 个命名页面 E2E 仍负责精确页面异常、低分辨率和打印 DOM 的相邻回归，但它们使用预置中间状态，不能作为全链 UI 验收的替代证据。
+最终 9 个命名页面 E2E 负责默认 Mock、精确页面异常、低分辨率和打印 DOM 的相邻回归；它们不能替代两轮从空状态开始的全链 UI 验收。
 
 ### 19.5 相邻回归和项目门禁
 
@@ -650,4 +686,4 @@ Web 和 PDA 对同一数量给出相同差异、状态和授权结果；任何�
 
 ### 19.6 完成判定与例外
 
-本地原型完成门禁以 115 条原子需求全部关联当前实现和证据、两轮 3×5×5领域规则测试、两轮 UI-only 全量跨端连续验收、两轮分页面相邻回归及最终治理门禁通过为准。当前工作树存在无法按任务隔离的其他未提交差异，因此按项目规则不生成会吸收全工作区的 `workflow:verify`任务收据；该例外不替代本次专项证据，也不把本地结果升级为远端 `delivered`或用户 `accepted`。
+本地原型完成门禁以 125 条原子需求全部关联当前实现和证据、两轮 3×5×5领域规则测试、两轮 UI-only 全量跨端连续验收、命名页面相邻回归及最终治理门禁通过为准。本任务使用独立干净工作树，可生成限定任务边界的 `workflow:verify`收据；本地结果仍不自动升级为远端 `delivered`或用户 `accepted`。

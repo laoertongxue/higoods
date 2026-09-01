@@ -588,7 +588,7 @@ export function renderPdaQualityPage(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <div class="text-lg font-semibold text-foreground">检查记录</div>
-              <div class="mt-1 text-xs text-muted-foreground">查看异议进度和金额影响；后道质检仅在 Web 工作台领取。</div>
+              <div class="mt-1 text-xs text-muted-foreground">查看异议进度和金额影响；后道质检仅在 Web“质检任务”领取。</div>
             </div>
             <div class="flex shrink-0 flex-col items-end gap-2">
               <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(factoryId)}</div>

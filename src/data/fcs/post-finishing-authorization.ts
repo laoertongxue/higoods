@@ -64,6 +64,8 @@ export interface ConsumePostFinishingAuthorizationInput {
 
 const STORAGE_KEY = 'higood-fcs-post-finishing-authorization-consumptions-v1'
 const TIME_WINDOW_MS = 30_000
+export const POST_FINISHING_AUTHORIZED_IDENTITY_STORAGE_KEY = 'higood-fcs-post-finishing-current-authorizer-v1'
+const NO_AUTHORIZED_IDENTITY = 'NONE'
 
 const AUTHORIZED_PEOPLE: PostFinishingAuthorizedPerson[] = [
   { authorizerId: 'AUTH-QC-001', authorizerName: '林质检主管', roleName: 'QC主管', secret: 'PF-QC-31' },
@@ -124,6 +126,34 @@ export function buildPostFinishingDifferenceFingerprint(input: {
 
 export function listPostFinishingAuthorizedPeople(): Array<Omit<PostFinishingAuthorizedPerson, 'secret'>> {
   return AUTHORIZED_PEOPLE.map(({ secret: _secret, ...person }) => ({ ...person }))
+}
+
+export function getCurrentPostFinishingAuthorizedPerson(): Omit<PostFinishingAuthorizedPerson, 'secret'> | undefined {
+  let storedId = ''
+  try {
+    storedId = globalThis.localStorage?.getItem(POST_FINISHING_AUTHORIZED_IDENTITY_STORAGE_KEY) || ''
+  } catch {
+    // 原型存储不可用时不展示授权码，避免把授权身份兜底给普通人员。
+  }
+  if (!storedId || storedId === NO_AUTHORIZED_IDENTITY) return undefined
+  const person = AUTHORIZED_PEOPLE.find((item) => item.authorizerId === storedId)
+  if (!person) return undefined
+  const { secret: _secret, ...publicPerson } = person
+  return { ...publicPerson }
+}
+
+export function setCurrentPostFinishingAuthorizedPersonForPrototype(authorizerId?: string): void {
+  if (authorizerId && !AUTHORIZED_PEOPLE.some((item) => item.authorizerId === authorizerId)) {
+    throw new PostFinishingAuthorizationError('NOT_AUTHORIZED_PERSON', '当前人员不在授权名单中。')
+  }
+  try {
+    globalThis.localStorage?.setItem(
+      POST_FINISHING_AUTHORIZED_IDENTITY_STORAGE_KEY,
+      authorizerId || NO_AUTHORIZED_IDENTITY,
+    )
+  } catch {
+    // 原型存储不可用时不模拟身份切换。
+  }
 }
 
 export function getPostFinishingAuthorizationDisplay(

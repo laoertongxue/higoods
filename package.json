@@ -160,6 +160,7 @@
     "check:post-finishing-flow-correction": "tsx scripts/check-post-finishing-flow-correction.ts",
     "check:post-finishing-sewing-self-return": "tsx scripts/check-post-finishing-sewing-self-return.ts",
     "check:post-finishing-full-flow": "node --import tsx scripts/check-post-finishing-full-flow.ts",
+    "check:post-finishing-default-demo": "node --import tsx scripts/check-post-finishing-default-demo.ts",
     "check:post-finishing-full-flow-surface": "node --import tsx scripts/check-post-finishing-full-flow-surface.ts",
     "check:post-finishing-full-flow-traceability": "node --import tsx scripts/check-post-finishing-full-flow-traceability.ts",
     "check:post-finishing-cross-terminal-ui": "node --import tsx scripts/check-post-finishing-cross-terminal-ui.ts",

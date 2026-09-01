@@ -19,6 +19,7 @@ const expectedIds = `
 GLOBAL-001 GLOBAL-002 GLOBAL-003
 AUTH-001 AUTH-002 AUTH-003 AUTH-004 AUTH-005
 LOG-001 LOG-002 LOG-003 CHAIN-001 CHAIN-002 TERM-001 IDENTITY-001
+WAITPROCESS-001 WAITPROCESS-002 WAITPROCESS-003 QCNAV-001 QCINPUT-001 LOGUI-001 AUTHUI-001 MOCK-001
 DELIVERY-001 DELIVERY-002 DELIVERY-003
 RETURN-001 RETURN-002 RETURN-003 RETURN-004 RETURN-005 RETURN-006 RETURN-007 RETURN-008
 QCNO-001 QCNO-002 QCNO-003 QCNO-004 QCNO-005
@@ -37,7 +38,7 @@ WAREHOUSE-001 WAREHOUSE-002 WAREHOUSE-003 WAREHOUSE-004 WAREHOUSE-005
 WAREHOUSE-006 WAREHOUSE-007 WAREHOUSE-008 WAREHOUSE-009 WAREHOUSE-010
 IMAGE-001 IMAGE-002 PDA-001 PDA-002 PDA-003 PRINT-001 PRINT-002
 MIGRATION-001 MIGRATION-002 MIGRATION-003 MIGRATION-004
-TEST-001 TEST-002 TEST-003 TEST-004 TEST-005
+TEST-001 TEST-002 TEST-003 TEST-004 TEST-005 TEST-006 TEST-007
 `.trim().split(/\s+/)
 
 type AtomicRow = {
@@ -85,7 +86,7 @@ for (const row of atomicRows) {
 const sourceText = atomicRows.map((row) => row.source).join('、')
 const expectedParagraphs = 'P004 P006 P008 P010 P014 P016 P018 P020 P021 P023 P027 P029 P031 P033 P035 P037 P038 P040 P044 P046 P048 P050 P052 P056 P058 P060 P062 P064 P066 P070 P072 P074 P075'.split(' ')
 for (const source of expectedParagraphs) assert(sourceText.includes(source), `原文来源 ${source} 未映射到原子需求`)
-for (let index = 1; index <= 13; index += 1) {
+for (let index = 1; index <= 19; index += 1) {
   const source = `U-${String(index).padStart(2, '0')}`
   assert(sourceText.includes(source), `用户确认 ${source} 未映射到原子需求`)
 }
@@ -119,26 +120,26 @@ for (const [name, content] of [
 }
 
 for (const path of [
-  'output/verification/qc-post-finishing-full-flow/pass-1/',
-  'output/verification/qc-post-finishing-full-flow/pass-2/',
+  'output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-1/',
+  'output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-2/',
 ]) {
   assert(plan.includes(path), `实施计划缺少持久化证据目录：${path}`)
   assert(review.includes(path), `原型审查记录缺少持久化证据目录：${path}`)
 }
 
-assert(review.includes('28张截图') && matrix.includes('28张截图'), '审查记录或矩阵缺少每轮28张截图证据')
+assert(review.includes('32张截图') && matrix.includes('32张截图'), '审查记录或矩阵缺少每轮32张截图证据')
 assert(crossTerminalSpec.includes('全部业务写入由 Web/PDA 页面操作产生'), '连续UI测试缺少写入边界声明')
 assert(crossTerminalSpec.includes("toHaveLength(15)"), '连续UI测试缺少15条链断言')
 assert(crossTerminalStaticCheck.includes('forbiddenDomainWrites'), '跨端静态门禁缺少领域写入禁用清单')
-assert(crossTerminalEvidenceCheck.includes("screenshots.length, 28"), '跨端证据检查缺少28张截图门槛')
+assert(crossTerminalEvidenceCheck.includes("screenshots.length, 32"), '跨端证据检查缺少32张截图门槛')
 assert(crossTerminalEvidenceCheck.includes("traces.length, 1"), '跨端证据检查缺少完整trace门槛')
-assert(crossTerminalEvidenceCheck.includes("shape(readEvidence('pass-1').evidence)"), '跨端证据检查缺少两轮结构一致性比较')
+assert(crossTerminalEvidenceCheck.includes('shape(readEvidence(passes[0]).evidence)'), '跨端证据检查缺少两轮结构一致性比较')
 
 for (const hash of [
-  '335ffd1a4fbee22755f4af2f94d512c09d47302ecd1e1b2c18a2bca9db386dbe',
-  '04dac01b422942f0ac0590dc71fec0b251c4135934906305ce9003106cde3c62',
-  'e193f1f9c3a472ec3fc7a19d18f27c38ba66dc53e28e628123b6e2b2f6211e04',
-  '7bc67580137b8833b8fd37c180afda9d574be8bc658f00f10141a9f86ca52341',
+  '0d77b97bb6b9ed578c9cc113f5acc038ec6737437a6deff5d4879ce4b897ff22',
+  '3e429a6768437a8c8de7a1233252b30a50476ce5d33ecd5ee5c53e80f7fce099',
+  'fb8c276da6d35d6535dda585ed5ea980b7d04cb8ae6df78a4d2bfa3d3430e71f',
+  '107b5127a0d6a30585197aa5db51175177a4dacb7ec059820312afee66fd92c0',
 ]) {
   assert(plan.includes(hash), `实施计划缺少最终证据哈希：${hash}`)
   assert(review.includes(hash), `原型审查记录缺少最终证据哈希：${hash}`)
@@ -149,7 +150,7 @@ console.log(JSON.stringify({
   suite: 'QC 后道全流程需求追踪闭环检查',
   atomicRequirements: atomicRows.length,
   sourceParagraphs: expectedParagraphs.length,
-  userConfirmations: 13,
+  userConfirmations: 19,
   evidenceMappings: evidenceIds.length,
   status: '全部已验证',
 }, null, 2))

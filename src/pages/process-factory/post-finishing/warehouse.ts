@@ -5,6 +5,9 @@ import {
   confirmPostFinishingFactoryReturn,
   getPostFinishingFactoryReturn,
   listPostFinishingFactoryReturns,
+  listPostFinishingWaitProcessWarehouseMovements,
+  listPostFinishingWaitProcessWarehouseRecords,
+  loadPostFinishingDemoData,
   sendPostFinishingFactoryReturnToQc,
   uploadPostFinishingDeliveryQcReference,
   type PostFinishingFactoryReturnDelivery,
@@ -21,8 +24,16 @@ function currentDeliveryId(): string {
   return typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('deliveryId') || ''
 }
 
+function currentTab(): 'pending' | 'inventory' | 'movements' {
+  const value = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('tab') || ''
+  return value === 'inventory' || value === 'movements' ? value : 'pending'
+}
+
 function refresh(deliveryId = currentDeliveryId()): void {
-  const query = deliveryId ? `?deliveryId=${encodeURIComponent(deliveryId)}&refresh=${Date.now()}` : `?refresh=${Date.now()}`
+  const tab = currentTab()
+  const query = deliveryId
+    ? `?tab=${tab}&deliveryId=${encodeURIComponent(deliveryId)}&refresh=${Date.now()}`
+    : `?tab=${tab}&refresh=${Date.now()}`
   appStore.navigate(`/fcs/craft/post-finishing/wait-process-warehouse${query}`)
 }
 
@@ -52,6 +63,42 @@ function renderDeliveryCards(records: PostFinishingFactoryReturnDelivery[]): str
   }).join('')}</div>`
 }
 
+function renderWarehouseOverview(): string {
+  const tab = currentTab()
+  const deliveries = listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt))
+  const warehouseRecords = listPostFinishingWaitProcessWarehouseRecords()
+  const movements = listPostFinishingWaitProcessWarehouseMovements()
+  const pendingIds = new Set(warehouseRecords.filter((record) => record.status === '待确认').map((record) => record.deliveryId))
+  const inventoryIds = new Set(warehouseRecords.filter((record) => record.status === '待送检').map((record) => record.deliveryId))
+  const pendingDeliveries = deliveries.filter((record) => pendingIds.has(record.deliveryId))
+  const inventoryDeliveries = deliveries.filter((record) => inventoryIds.has(record.deliveryId))
+  const availableQty = warehouseRecords.reduce((sum, record) => sum + record.lines.reduce((lineSum, line) => lineSum + line.availableQty, 0), 0)
+  const tabs = [
+    { key: 'pending', label: `待确认回货 ${pendingDeliveries.length}` },
+    { key: 'inventory', label: `可用库存 / 待送检 ${inventoryDeliveries.length}` },
+    { key: 'movements', label: `出入库流水 ${movements.length}` },
+  ] as const
+  const tabHtml = `<nav class="flex flex-wrap gap-2 rounded-xl border bg-card p-2" aria-label="后道待加工仓视图">${tabs.map((item) => `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=${item.key}" class="rounded-lg px-4 py-2 text-sm font-medium ${tab === item.key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}">${item.label}</a>`).join('')}</nav>`
+  const stats = `<div class="grid gap-3 sm:grid-cols-4"><div class="rounded-xl border bg-card p-4"><div class="text-xs text-muted-foreground">生产单</div><strong class="mt-1 block text-2xl">${new Set(deliveries.map((item) => item.productionOrderNo)).size}</strong></div><div class="rounded-xl border bg-card p-4"><div class="text-xs text-muted-foreground">回货单</div><strong class="mt-1 block text-2xl">${deliveries.length}</strong></div><div class="rounded-xl border bg-card p-4"><div class="text-xs text-muted-foreground">待确认</div><strong class="mt-1 block text-2xl">${pendingDeliveries.length}</strong></div><div class="rounded-xl border bg-card p-4"><div class="text-xs text-muted-foreground">仓内可用</div><strong class="mt-1 block text-2xl">${availableQty} 件</strong></div></div>`
+  let content = renderDeliveryCards(pendingDeliveries)
+  if (tab === 'inventory') {
+    content = inventoryDeliveries.length
+      ? `<div class="grid gap-3 xl:grid-cols-2">${inventoryDeliveries.map((delivery) => {
+        const record = warehouseRecords.find((item) => item.deliveryId === delivery.deliveryId)!
+        const qty = record.lines.reduce((sum, line) => sum + line.availableQty, 0)
+        return `<article class="rounded-xl border bg-card p-4 shadow-sm" data-wait-process-inventory-card="${escapeHtml(record.warehouseRecordId)}"><div class="flex items-start justify-between gap-3"><div><div class="font-mono text-sm font-semibold">${escapeHtml(record.deliveryOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次回货</div></div>${renderPostStatusBadge('待送检')}</div><div class="mt-3 grid grid-cols-3 gap-2 text-xs"><div class="rounded-lg bg-slate-50 p-2">暂存区<strong class="mt-1 block">${escapeHtml(record.areaName)}</strong></div><div class="rounded-lg bg-slate-50 p-2">库位<strong class="mt-1 block font-mono">${escapeHtml(record.locationCode)}</strong></div><div class="rounded-lg bg-blue-50 p-2 text-blue-800">可送检<strong class="mt-1 block">${qty} 件 · ${record.lines.length} SKU</strong></div></div><a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=inventory&deliveryId=${encodeURIComponent(record.deliveryId)}" class="mt-3 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">查看并送检</a></article>`
+      }).join('')}</div>`
+      : '<div class="rounded-xl border border-dashed bg-white px-6 py-12 text-center text-sm text-muted-foreground">暂无已确认待送检库存。</div>'
+  }
+  if (tab === 'movements') {
+    content = `<div class="overflow-x-auto rounded-xl border bg-card"><table class="min-w-[980px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">时间</th><th class="px-3 py-2">出入库动作</th><th class="px-3 py-2">送货单 / 生产单</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">操作人</th><th class="px-3 py-2">仓位</th></tr></thead><tbody class="divide-y">${movements.map((movement) => {
+      const record = warehouseRecords.find((item) => item.warehouseRecordId === movement.warehouseRecordId)
+      return `<tr data-wait-process-movement="${escapeHtml(movement.movementId)}"><td class="px-3 py-3">${escapeHtml(new Date(movement.operatedAt).toLocaleString('zh-CN'))}</td><td class="px-3 py-3 font-semibold ${movement.movementType === '确认入库' ? 'text-emerald-700' : 'text-blue-700'}">${escapeHtml(movement.movementType)}</td><td class="px-3 py-3"><div class="font-mono">${escapeHtml(movement.deliveryOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(movement.productionOrderNo)}</div></td><td class="px-3 py-3">${movement.quantities.reduce((sum, line) => sum + line.quantity, 0)} 件 / ${movement.quantities.length} SKU</td><td class="px-3 py-3">${escapeHtml(movement.operator.actorName)}</td><td class="px-3 py-3 font-mono">${escapeHtml(record?.locationCode || '—')}</td></tr>`
+    }).join('') || '<tr><td colspan="6" class="px-6 py-12 text-center text-muted-foreground">确认回货后生成入库流水，送检后生成出库流水。</td></tr>'}</tbody></table></div>`
+  }
+  return `${stats}<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"><span>默认演示数据覆盖 3 个生产单 × 每单 5 个 SKU × 每单 5 次回货，并分布在待确认、在仓、质检、后道、复检和已出货状态。</span><button type="button" class="rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium" data-post-finishing-action="full-flow-load-demo">恢复 3×5×5 演示数据</button></div>${tabHtml}${content}`
+}
+
 function renderImageButton(record: PostFinishingFactoryReturnDelivery, line: PostFinishingFactoryReturnDelivery['lines'][number]): string {
   return `<button type="button" class="relative flex h-12 w-12 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(line.sku.imageUrl)}" data-image-label="${escapeHtml(`${line.sku.skuCode} ${line.sku.colorName} ${line.sku.sizeName}`)}"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" /><span class="px-1 text-center text-[9px] text-slate-500">图片加载中…</span></button>`
 }
@@ -63,15 +110,14 @@ function renderConfirmationDetail(record: PostFinishingFactoryReturnDelivery): s
   return `<div class="space-y-4" data-return-confirm-root="${escapeHtml(record.deliveryId)}">
     <div class="flex flex-wrap items-center justify-between gap-3"><button type="button" class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/post-finishing/wait-process-warehouse">← 返回回货列表</button><div class="flex gap-2">${record.status === '已确认待送检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-send-qc" data-delivery-id="${escapeHtml(record.deliveryId)}">送检并生成质检任务</button>` : ''}${record.qcTaskNo ? `<a data-nav="/fcs/craft/post-finishing/print?type=SEND_QC&id=${encodeURIComponent(record.deliveryId)}" class="rounded-md border px-3 py-2 text-sm">打印送检单</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(record.qcTaskNo)}" class="rounded-md border px-3 py-2 text-sm">打开质检任务</a>` : ''}</div></div>
     <section class="rounded-xl border bg-card p-4"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold">${escapeHtml(record.deliveryOrderNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次回货 · ${escapeHtml(record.deliveryPersonName)}</p></div>${renderPostStatusBadge(record.status)}</div><div class="mt-3 grid gap-3 text-sm md:grid-cols-4"><div><span class="text-xs text-muted-foreground">登记人</span><div>${escapeHtml(record.registeredBy.actorName)}</div></div><div><span class="text-xs text-muted-foreground">来源</span><div>${escapeHtml(record.triggerSource)}</div></div><div><span class="text-xs text-muted-foreground">确认入库人</span><div>${escapeHtml(record.confirmedBy?.actorName || '—')}</div></div><div><span class="text-xs text-muted-foreground">差异授权人</span><div>${escapeHtml(record.returnAuthorizedBy ? `${record.returnAuthorizedBy.authorizerName} / ${record.returnAuthorizationId}` : '无需授权')}</div></div></div></section>
-    ${record.status !== '已确认待送检' && record.status !== '已送检' && record.status !== '已完成' ? `<section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">${showSecond ? '第二次点数' : '第一次点数'}</h3><p class="mt-1 text-xs text-muted-foreground">任一 SKU 首次差异率超过 5%才要求二次点数；二次点数仍超过 5%才需要授权。分母始终为工厂登记数量。</p><div class="mt-4 overflow-x-auto"><table class="min-w-[880px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">登记数量</th><th class="px-3 py-2">第一次点数</th><th class="px-3 py-2">第二次点数</th><th class="px-3 py-2">最终差异</th></tr></thead><tbody class="divide-y">${record.lines.map((line) => `<tr data-return-count-line="${escapeHtml(line.sku.skuId)}"><td class="px-3 py-3"><div class="flex items-center gap-3">${renderImageButton(record, line)}<div><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3 font-semibold">${line.registeredQty} 件</td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2" data-return-first-count /></td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.secondCountQty ?? line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2 ${showSecond ? '' : 'bg-slate-100'}" data-return-second-count ${showSecond ? '' : 'disabled'} /></td><td class="px-3 py-3 text-xs">${line.confirmedQty === undefined ? '系统自动计算' : `${(line.differenceQty || 0) > 0 ? '多' : (line.differenceQty || 0) < 0 ? '少' : '一致'} ${Math.abs(line.differenceQty || 0)} 件 / ${((line.differenceRate || 0) * 100).toFixed(2)}%`}</td></tr>`).join('')}</tbody></table></div>${showAuthorization ? `<div class="mt-4 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:grid-cols-2"><label class="text-sm">差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-return-difference-reason placeholder="必须填写"></textarea></label><label class="text-sm">扫描动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-return-authorization placeholder="PFAUTH:..."></textarea></label></div>` : ''}<button type="button" class="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showSecond ? (showAuthorization ? '授权并确认回货' : '提交第二次点数') : '提交第一次点数'}</button></section>` : ''}
+    ${record.status !== '已确认待送检' && record.status !== '已送检' && record.status !== '已完成' ? `<section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">${showSecond ? '第二次点数' : '第一次点数'}</h3><p class="mt-1 text-xs text-muted-foreground">任一 SKU 首次差异率超过 5%才要求二次点数；二次点数仍超过 5%才需要授权。分母始终为工厂登记数量。</p><div class="mt-4 overflow-x-auto"><table class="min-w-[880px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">登记数量</th><th class="px-3 py-2">第一次点数</th><th class="px-3 py-2">第二次点数</th><th class="px-3 py-2">最终差异</th></tr></thead><tbody class="divide-y">${record.lines.map((line) => `<tr data-return-count-line="${escapeHtml(line.sku.skuId)}"><td class="px-3 py-3"><div class="flex items-center gap-3">${renderImageButton(record, line)}<div><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3 font-semibold">${line.registeredQty} 件</td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2" data-return-first-count /></td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.secondCountQty ?? line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2 ${showSecond ? '' : 'bg-slate-100'}" data-return-second-count ${showSecond ? '' : 'disabled'} /></td><td class="px-3 py-3 text-xs">${line.confirmedQty === undefined ? '系统自动计算' : `${(line.differenceQty || 0) > 0 ? '多' : (line.differenceQty || 0) < 0 ? '少' : '一致'} ${Math.abs(line.differenceQty || 0)} 件 / ${((line.differenceRate || 0) * 100).toFixed(2)}%`}</td></tr>`).join('')}</tbody></table></div>${showAuthorization ? `<div class="mt-4 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:grid-cols-2"><label class="text-sm">差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-return-difference-reason placeholder="必须填写"></textarea></label><label class="text-sm">录入或粘贴动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-return-authorization placeholder="PFAUTH:..."></textarea></label></div>` : ''}<button type="button" class="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showSecond ? (showAuthorization ? '授权并确认回货' : '提交第二次点数') : '提交第一次点数'}</button></section>` : ''}
     <section class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">质检参考资料</h3><p class="mt-1 text-xs text-muted-foreground">独立于技术包；买手上传，或 QC 根据飞书资料代上传。</p></div><span class="text-xs text-muted-foreground">${references.length} 份</span></div><div class="mt-3 grid gap-3 lg:grid-cols-2">${references.map((reference) => `<article class="rounded-lg border p-3 text-sm"><div class="font-semibold">${escapeHtml(reference.title)} · v${reference.version}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(reference.referenceType)} / ${escapeHtml(reference.source)} / ${escapeHtml(reference.uploaderName)}</div><p class="mt-2 text-xs">${escapeHtml(reference.description)}</p>${reference.imageUrl ? `<button type="button" class="relative mt-2 flex h-24 w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(reference.imageUrl)}" data-image-label="${escapeHtml(reference.title)}"><img src="${escapeHtml(reference.imageUrl)}" alt="${escapeHtml(reference.title)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" /><span class="px-2 text-xs text-muted-foreground">图片加载中…</span></button>` : ''}</article>`).join('') || '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">本次未上传质检参考资料，不伪造默认资料。</div>'}</div>${record.status === '已确认待送检' ? `<div class="mt-4 grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-2"><label class="text-sm">资料类型<select class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-type><option>色差参考图</option><option>尺寸判断标准</option></select></label><label class="text-sm">上传来源<select class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-source><option>买手上传</option><option>QC代上传</option></select></label><label class="text-sm">资料名称<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-title placeholder="填写本批真实资料名称" /></label><label class="text-sm">实际来源<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-source-note placeholder="QC 代上传时填写飞书实际来源" /></label><label class="text-sm md:col-span-2">判断说明<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-qc-reference-description placeholder="填写本批真实判断说明"></textarea></label><label class="text-sm">选择本批参考图片<input type="file" accept="image/*" class="mt-1 block w-full rounded-md border bg-white p-2 text-xs" data-qc-reference-file /></label><label class="text-sm">或填写原型图片地址<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-image placeholder="/materials/..." /></label><button type="button" class="rounded-md border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 md:col-span-2" data-post-finishing-action="full-flow-upload-reference" data-delivery-id="${escapeHtml(record.deliveryId)}">上传质检参考资料</button></div>` : ''}</section>
   </div>`
 }
 
 export function renderPostFinishingWaitProcessWarehousePage(): string {
   const selected = currentDeliveryId() ? getPostFinishingFactoryReturn(currentDeliveryId()) : undefined
-  const records = listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt))
-  return `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('回货确认与送检', '工厂登记 → 二次点数 → 5%差异授权 → 送检')}${renderMessage()}${selected ? renderConfirmationDetail(selected) : renderDeliveryCards(records)}</div>`
+  return `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', '工厂登记形成待确认记录 → Web / PDA 确认入仓 → 从仓内送检出库')}${renderMessage()}${selected ? renderConfirmationDetail(selected) : renderWarehouseOverview()}</div>`
 }
 
 export function renderPostFinishingWaitHandoverWarehousePage(): string {
@@ -101,6 +147,13 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement): boolean
   try {
     if (action === 'full-flow-zoom-image' && actionNode?.dataset.imageUrl) {
       showImage(actionNode.dataset.imageUrl, actionNode.dataset.imageLabel || '产品图片')
+      return true
+    }
+    if (action === 'full-flow-load-demo') {
+      loadPostFinishingDemoData()
+      pageMessage = '已恢复 3 个生产单 × 5 个 SKU × 5 次回货演示数据。'
+      pageMessageTone = 'success'
+      refresh('')
       return true
     }
     const deliveryId = actionNode?.dataset.deliveryId || currentDeliveryId()

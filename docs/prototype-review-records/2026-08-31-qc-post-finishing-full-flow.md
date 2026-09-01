@@ -4,11 +4,11 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 记录日期 | 2026-08-31 |
-| 相关需求 / 任务 | 按《QC后道全流程系统功能需求》、用户 13 项补充规则、完整调整方案、实施计划和 115 条原子需求矩阵实施；执行两轮 3 个生产单 × 5 个 SKU × 5 次回货的领域规则测试及 UI-only 全量跨端连续验收 |
+| 记录日期 | 2026-09-01 |
+| 相关需求 / 任务 | 按《QC后道全流程系统功能需求》、用户 19 项补充规则、完整调整方案、实施计划和 125 条原子需求矩阵实施；修复六项跨端 UI 缺口，并执行两轮 3 个生产单 × 5 个 SKU × 5 次回货的领域规则测试及 UI-only 全量跨端连续验收 |
 | 记录模式 | 完整产品审查 |
 | 涉及系统 | FCS 后道工厂管理 / 公共 PDA / 后道员工 PDA / 仓库 PDA / 打印预览 |
-| 涉及页面路径 | 回货确认与送检、Web质检、后道加工、复检、后道出货、差异日志、公共回货PDA、回货确认PDA、后道执行PDA、复检PDA、仓库收货PDA、后道打印 |
+| 涉及页面路径 | 后道待加工仓、统一质检任务、我的动态授权码、后道加工、复检、后道出货、差异与操作日志主从页、公共回货PDA、回货确认PDA、后道执行PDA、复检PDA、仓库收货PDA、后道打印 |
 | 端类型 | 管理端 / 主管端 / 员工执行端 |
 | 主要角色与任务 | 工厂回货登记人、回货确认人、质检员、质检主管、买手、后道操作员、复检员、仓库收货人、指定授权人、管理追溯人员 |
 | 当前交付状态 | 本记录覆盖版本已达到本地 `verified`；远端 `delivered` 状态以 GitHub 发布 SHA 回执为准；未做生产部署 |
@@ -16,7 +16,7 @@
 ## 2. 影响判定
 
 - 用户可见影响：有
-- 判定依据：后道全流程由旧的生产单级自由建质检、PDA质检和多个旧回货确认入口，调整为送货单驱动的一单到底链路；新增 Web 质检工作台、四个后道 PDA 扫码动作、动态授权、差异日志、独立质检参考资料、复检错码重贴恢复及四类打印；同时重写数量、状态、术语、导航和防错反馈。
+- 判定依据：后道全流程由旧的生产单级自由建质检、PDA质检和多个旧回货确认入口，调整为送货单驱动的一单到底链路；新增真实后道待加工仓出入库事实、统一 Web 质检菜单与任务号输入、授权人本人动态码入口、日志主从页、默认 3×5×5 Mock、四个后道 PDA 动作、独立质检参考资料、复检错码重贴恢复及四类打印；同时重写数量、状态、术语、导航和防错反馈。
 
 审查基线：
 
@@ -29,13 +29,13 @@
 
 | 检查项 | 结论 | 说明 |
 | --- | --- | --- |
-| 角色、任务与页面模式 | 通过 | 质检仅在 Web；公共 PDA 只登记回货；员工 PDA 分别处理回货确认、后道、复检和仓库收货；主管 Web 负责列表、授权与追溯。普通质检员无待办池，只能精确扫码。 |
+| 角色、任务与页面模式 | 通过 | 质检仅在 Web；“质检任务”同一菜单页面同时提供普通质检员任务号输入和主管任务管理；公共 PDA 只登记回货；员工 PDA 分别处理回货确认、后道、复检和仓库收货；授权人从“我的动态授权码”查看本人码。 |
 | 文案、状态、数量与单位 | 通过 | 用户可见术语统一为“瑕疵”，数量统一为件和非负整数；回货数量必须大于 0；回货 ±5%与后续零阈值分开；差异逐 SKU 判断，不能整单抵消。 |
 | 扫码、真实图片与对象识别 | 通过 | 送检、后道、复检、出货分别使用正确单号；PDA 扫描后显示款式图、SKU、颜色、尺码和数量；三张生产单样式分别使用对应的衬衫、连衣裙和外套图片。 |
 | 防错、危险确认与主管兜底 | 通过 | 0数量、部分单号、任务占用、无授权、授权过期/复用、条码错误、内部交接号收货和重复入库均有明确阻断及恢复动作；危险差异要求指定授权人动态码。 |
-| 交接、跨端事实与异常追溯 | 通过 | Web、PDA和打印读取同一送货链；每次回货独立形成质检任务；质检、后道、复检、出货和收货均记录真实操作账号、差异、授权和时间。 |
+| 交接、跨端事实与异常追溯 | 通过 | 工厂登记先形成待加工仓待确认记录；Web/PDA确认形成唯一入库流水与可用量，Web送检形成唯一出库流水并清零；Web、PDA和打印读取同一送货链；日志外层按每次回货聚合，详情展示单据链、逐 SKU 差异和时间线。 |
 | 低分辨率、PDA、弱网与上传恢复 | 通过（原型范围） | 公共 PDA 覆盖 360×800和400×806；其余后道 PDA 使用项目小屏视口，无初始全量任务。文件上传有选择、成功/失败提示和可重选动作；原型明确不宣称真实离线队列。 |
-| 命名路由、交互、图片大图与打印 | 通过 | 两轮各完成 15 条链逐条跨端连续 UI 操作并各保留28张截图与完整trace；全部业务写入由 Web/PDA 页面操作产生。原8个命名场景继续承担大图、低分辨率、异常页和打印DOM相邻回归；送检单、后道加工单、出货单为A4预览，SKU重贴标签为40×30；质检条码进入Web。 |
+| 命名路由、交互、图片大图与打印 | 通过 | 两轮各完成 15 条链逐条跨端连续 UI 操作并各保留32张截图与完整trace；其中包含待加工仓、统一质检页、日志链详情和本人授权码四张关键 Web 页面图。全部业务写入由 Web/PDA 页面操作产生；另有9个命名场景留图覆盖默认 Mock、大图、低分辨率、异常页和打印DOM。 |
 
 ## 4. 问题标签
 
@@ -51,11 +51,16 @@
 | --- | --- | --- | --- | --- |
 | 回货和后续差异曾使用不清晰的统一口径 | `算不准` | 回货确认人、质检、后道、复检、仓库 | 回货按登记数为分母判断绝对差异率是否超过 5%；后续任一 SKU 只要不等即授权；全部逐 SKU 后汇总 | 否 |
 | 旧车缝自助回货可在交接/待加工仓直接确认，绕过复点授权 | `点错风险`、`追溯不足` | 回货确认人 | 旧列表隐藏可领取项；历史待处理只跳转新回货确认页；旧详情直接阻断；Web旧确认处理器删除 | 否 |
-| 质检存在 PDA 入口且任务可能被多人处理 | `协作断裂` | 质检员、主管 | 质检改为 Web-only精确扫码，一单一人；占用提示当前质检员，提供退领和再领取 | 否 |
+| 质检存在 PDA 入口且任务可能被多人处理 | `协作断裂` | 质检员、主管 | 质检改为 Web-only输入完整任务号领取，一单一人；占用提示当前质检员，提供退领和再领取 | 否 |
 | 色差图和尺寸标准曾可能被误解为技术包内容 | `协作断裂` | 买手、QC | 建立独立质检参考资料，由买手上传或当前 QC 代上传，记录来源和上传人并按质检任务冻结；未上传不伪造 | 否 |
 | 后道“次品”与质检瑕疵可能形成两套口径 | `算不准`、`追溯不足` | QC、后道、管理人员 | 用户可见词统一为“瑕疵”；原因、证据、责任和后续处理共用结构，保留发现环节且后道只追加 | 否 |
 | 数量一致时 SKU 条码错误可能仍被放行 | `点错风险`、`缺扫码识别` | 复检员、仓库 | 条码错误设为独立绝对阻断；数量授权不可绕过；必须打印正确贴标、确认重贴并复扫正确 | 否 |
 | 复检与出货、出货与仓库扫码身份可能重复或混淆 | `协作断裂` | 复检员、仓库 | 一复检单幂等对应一出货单；现场仓库只接受 `FCK...`，内部交接号只作后台关联；重复扫描只读 | 否 |
+| 回货确认只有表单、没有真实待加工仓库存与 Web 操作入口 | `协作断裂`、`追溯不足` | 回货确认人、送检人 | 登记即形成待确认仓记录；Web/PDA确认形成入库和逐 SKU 可用量；Web库存卡发起送检并形成出库流水 | 否 |
+| Web 质检工作台与任务管理分散，且 Web 文案误写为扫码 | `点错风险` | 质检员、主管 | 菜单只保留“质检任务”；同页上方输入完整任务号领取，下方主管管理；扫码仅保留在 PDA 语境 | 否 |
+| 日志页面平铺原始操作，无法按一次回货理解完整链路 | `追溯不足` | 管理追溯人员 | 外层一行一条具体回货链，详情拆为单据链、逐 SKU 差异、操作时间线和统一瑕疵记录 | 否 |
+| 指定人员动态码没有正常查看入口 | `协作断裂` | 指定授权人 | 新增“我的动态授权码”菜单；只读取当前身份，非授权身份拒绝显示，日志页不再展示当前码 | 否 |
+| 默认页面没有足够 Mock，无法直接验证多状态业务 | `追溯不足` | 产品、测试、演示人员 | 全新浏览器默认加载3个生产单×每单5个SKU×每单5次回货，并分布于待确认、在仓、质检、后道、复检和已出货状态；空状态全链测试单独关闭默认数据 | 否 |
 | 当前是本地原型，不具备真实后端动态码、权限和持久化服务 | `追溯不足` | 未来研发与验收人员 | 文档明确原型边界；本次只验证共享 Mock 事实和页面门禁，不把 LocalStorage 演示表述为生产能力 | 是，属于生产化范围外 |
 
 ## 6. 最终结论
@@ -64,12 +69,20 @@
 
 说明：
 
-- 核查第 1 遍：领域规则套件独立完成3×5×5并形成336条日志/15次授权消费；随后从空浏览器状态开始，用页面控件连续完成公共PDA回货→回货确认PDA→Web送检/打印→Web质检→Web后道打印→PDA后道→PDA复检→Web出货/打印→PDA仓库→Web回查，15/15链、75/75 SKU全部收货，形成271条日志/5次跨环节授权、28张截图和1份完整trace。
-- 核查第 2 遍：在新的空状态、新浏览器端口和独立证据目录再次执行同一领域规模与同一连续跨端链；15/15链、75/75 SKU再次全部收货，业务落地数量与第1遍一致，形成271条日志/5次跨环节授权、28张截图和1份完整trace。
+- 核查第 1 遍：领域规则套件独立完成3×5×5，形成15条待加工仓记录、30条出入库流水、336条日志和15次授权消费；随后从空浏览器状态开始，用页面控件连续完成公共PDA回货→Web/PDA回货确认→待加工仓入库/送检/打印→统一Web质检→Web后道打印→PDA后道→PDA复检→Web出货/打印→PDA仓库→日志链详情，15/15链、75/75 SKU全部收货，形成271条日志、5次跨环节授权、32张截图和1份完整trace。
+- 核查第 2 遍：在新的空状态、新浏览器端口和独立证据目录再次执行同一领域规模与同一连续跨端链；15/15链、75/75 SKU再次全部收货，15条待加工仓记录、30条出入库流水及全部业务落地数量与第1遍一致，形成271条日志、5次跨环节授权、32张截图和1份完整trace。
 - 连续跨端测试不调用送货、确认、送检、质检、后道、复检、出货或收货领域写入；准备写操作仅限清空测试浏览器本地状态并写入PDA测试登录会话，后者只建立页面操作身份，不生成或修改业务单据。结束时只读回查链路列表和快照以生成JSON证据。
 - 两轮连续UI均覆盖正常一致、±5%边界、超5%复点授权、回货后1件差异、领取冲突/退领、参考资料上传冻结、后道和直达复检、统一瑕疵、条码错误阻断/重贴/复扫、一复检一出货、FCK扫码收货、差异授权和重复入库幂等。动态码30秒刷新、过期/复用和数量变更后失效由两轮领域规则套件补足。
-- 原8个命名页面场景按两轮重跑，用于精确异常页、低分辨率、大图和打印DOM相邻回归；因使用预置中间状态，不作为全链UI完成证明。
+- 最终9个命名页面场景在最后一次实质修改后重跑通过并保留9张截图，新增默认3×5×5 Mock、待加工仓待确认/在仓卡片、统一质检页、个人授权码和日志链详情验收；它们不替代从空状态运行的双轮全链UI证据。
+- 开启trace的首次正式尝试暴露PDA后道数量输入仍触发整页重绘、填写值可能恢复默认；修复为数量输入只局部更新合计后，受影响专项、9个命名场景和双轮全链全部重新执行。失败/中断产物不计入通过证据。
+- 最终反向核查发现“未设置当前授权身份”曾错误兜底为授权名单第一人；已改为无明确授权身份即拒绝显示动态码，并在命名页面和两轮跨端取码流程中分别验证“先不可见、再设置指定人员后可见”。
+- 最终证据核查发现旧检查脚本曾读取上一轮 `qc-post-finishing-full-flow` 目录；该次检查结果已作废。检查器、计划、矩阵和本记录现统一读取本次 `post-finishing-full-flow` 目录，并以当前两轮时间、数量和 SHA-256 重新通过。
 - 本结论是当前本地工作树的原型 `verified`，不等于远端 `delivered`或用户 `accepted`。
+
+### 两遍追踪审查
+
+- 第 1 遍（正向）：从 33 个需求来源段落和用户 19 项确认逐条进入 125 个原子需求，再检查工作包、实现位置、自动化与 Web/PDA/打印证据；未发现无来源需求或无证据的“已验证”条目。
+- 第 2 遍（反向）：从菜单、9 个 Web 路由、5 个 PDA 路由、4 类打印、默认 Mock、领域脚本和浏览器测试逐项回到需求编号；发现并修复无身份授权码兜底、旧证据目录和旧 PDA 质检契约三项冲突，修复后没有遗留越界入口或冲突测试。
 
 ## 7. 变更覆盖与验证
 
@@ -99,6 +112,7 @@
 - `src/pages/pda-warehouse.ts`
 - `src/pages/print/templates/post-finishing-qc-print-template.ts`
 - `src/pages/process-factory/post-finishing/audit-records.ts`
+- `src/pages/process-factory/post-finishing/authorization-code.ts`
 - `src/pages/process-factory/post-finishing/events.ts`
 - `src/pages/process-factory/post-finishing/full-flow-print.ts`
 - `src/pages/process-factory/post-finishing/outbound-orders.ts`
@@ -119,6 +133,7 @@
 - `tests/post-stage-iron-pack-consolidation.spec.ts`
 - `tests/process-factory-tabs-and-post-finishing.spec.ts`
 - `scripts/check-post-finishing-full-flow.ts`
+- `scripts/check-post-finishing-default-demo.ts`
 - `scripts/check-post-finishing-full-flow-surface.ts`
 - `scripts/check-post-finishing-cross-terminal-ui.ts`
 - `scripts/check-post-finishing-cross-terminal-evidence.ts`
@@ -140,6 +155,7 @@
 - `/fcs/craft/post-finishing/recheck-orders`
 - `/fcs/craft/post-finishing/outbound-orders`
 - `/fcs/craft/post-finishing/audit-records`
+- `/fcs/craft/post-finishing/authorization-code`
 - `/fcs/craft/post-finishing/print`
 - `/fcs/pda/handover/sewing-self-return`
 - `/fcs/pda/post-finishing/return-confirm`
@@ -151,38 +167,38 @@
 
 | 项目 | 核查第 1 遍 | 核查第 2 遍 |
 |---|---|---|
-| 领域规则证据 | `output/verification/qc-post-finishing-full-flow/pass-1/domain-evidence.json` | `output/verification/qc-post-finishing-full-flow/pass-2/domain-evidence.json` |
-| 领域证据生成时间 | `2026-08-31T10:53:52.888Z` | `2026-08-31T10:53:52.888Z` |
-| 领域结果 | 15/15链、75/75 SKU、336条日志、15次授权消费 | 15/15链、75/75 SKU、336条日志、15次授权消费 |
-| 连续UI JSON | `output/verification/qc-post-finishing-full-flow/pass-1/cross-terminal-evidence.json` | `output/verification/qc-post-finishing-full-flow/pass-2/cross-terminal-evidence.json` |
-| 连续UI执行时间 | `2026-08-31T10:55:17.707Z`至`2026-08-31T11:02:00.970Z` | `2026-08-31T12:13:06.733Z`至`2026-08-31T12:20:59.531Z` |
-| 连续UI结果 | 15/15链、75/75 SKU、271条日志、5次跨环节授权、15次仓库收货 | 15/15链、75/75 SKU、271条日志、5次跨环节授权、15次仓库收货 |
-| 页面截图 | `pass-1/browser/`共28张 | `pass-2/browser/`共28张 |
-| 分页面回归 | 8/8通过；`pass-1/page-regression/`共7张 | 8/8通过；`pass-2/page-regression/`共7张 |
-| Playwright trace | `pass-1/playwright/`共1份，70,369,999字节 | `pass-2/playwright/`共1份，76,352,416字节 |
-| 连续UI JSON SHA-256 | `335ffd1a4fbee22755f4af2f94d512c09d47302ecd1e1b2c18a2bca9db386dbe` | `04dac01b422942f0ac0590dc71fec0b251c4135934906305ce9003106cde3c62` |
-| trace SHA-256 | `e193f1f9c3a472ec3fc7a19d18f27c38ba66dc53e28e628123b6e2b2f6211e04` | `7bc67580137b8833b8fd37c180afda9d574be8bc658f00f10141a9f86ca52341` |
+| 领域规则证据 | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-1/domain-evidence.json` | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-2/domain-evidence.json` |
+| 领域证据生成时间 | `2026-09-01T05:55:23.489Z` | `2026-09-01T05:55:23.488Z`（独立进程/独立状态） |
+| 领域结果 | 15/15链、75/75 SKU、15条待加工仓记录、30条流水、336条日志、15次授权消费 | 15/15链、75/75 SKU、15条待加工仓记录、30条流水、336条日志、15次授权消费 |
+| 连续UI JSON | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-1/evidence.json` | `output/verification/post-finishing-full-flow/2026-09-01-ui-fix-final-pass-2/evidence.json` |
+| 连续UI执行时间 | `2026-09-01T05:35:59.603Z`至`2026-09-01T05:44:50.809Z` | `2026-09-01T05:45:43.910Z`至`2026-09-01T05:54:37.527Z` |
+| 连续UI结果 | 15/15链、75/75 SKU、15条待加工仓记录、30条流水、271条日志、5次跨环节授权、15次仓库收货 | 15/15链、75/75 SKU、15条待加工仓记录、30条流水、271条日志、5次跨环节授权、15次仓库收货 |
+| 页面截图 | `2026-09-01-ui-fix-final-pass-1/screenshots/`共32张 | `2026-09-01-ui-fix-final-pass-2/screenshots/`共32张 |
+| 命名页面回归 | 9/9通过；`2026-09-01-named-ui-final/`共9张 | 不重复制造第二份相同证据；两轮各自已保留4张关键 Web 页面截图 |
+| Playwright trace | `2026-09-01-ui-fix-final-pass-1/playwright/`共1份，69,617,500字节 | `2026-09-01-ui-fix-final-pass-2/playwright/`共1份，72,512,507字节 |
+| 连续UI JSON SHA-256 | `0d77b97bb6b9ed578c9cc113f5acc038ec6737437a6deff5d4879ce4b897ff22` | `3e429a6768437a8c8de7a1233252b30a50476ce5d33ecd5ee5c53e80f7fce099` |
+| trace SHA-256 | `fb8c276da6d35d6535dda585ed5ea980b7d04cb8ae6df78a4d2bfa3d3430e71f` | `107b5127a0d6a30585197aa5db51175177a4dacb7ec059820312afee66fd92c0` |
 
 ### 验证命令
 
-- 两轮分别以`VERIFICATION_PASS=pass-1/pass-2`和对应`POST_FINISHING_EVIDENCE_OUT=output/verification/qc-post-finishing-full-flow/<pass>/domain-evidence.json`运行`npm run check:post-finishing-full-flow`：均通过。
-- 两轮分别以独立端口、`POST_FINISHING_CROSS_TERMINAL_EVIDENCE_OUT=output/verification/qc-post-finishing-full-flow/<pass>/cross-terminal-evidence.json`、`POST_FINISHING_CROSS_TERMINAL_SCREENSHOT_DIR=.../<pass>/browser`和Playwright `--output=.../<pass>/playwright --trace=on`运行`npm run test:post-finishing-full-flow:cross-terminal`：串行重跑均1/1通过，最终两轮分别用时约8.0分钟和8.4分钟。
-- 最终反向核查先发现测试会话准备写入未被证据文字完整披露，修正为“清空状态并写入PDA测试会话，除此之外业务写入全部来自页面”；随后发现一次页面导航执行上下文竞态和并行运行导致的15分钟总超时。测试加固为导航落定后重试、页面断言最长45秒、单轮上限30分钟，并取消双轮并行。clean-main 发布核查又复现验收产物写入 `output/` 触发 Vite 监听、PDA 停留骨架屏的问题，因此 `vite.config.ts`明确忽略`output/`和`test-results/`；修正后第2轮从空状态完整重跑通过。失败和中断目录仅作调试材料，不计入通过证据。
-- `npm run check:post-finishing-cross-terminal-ui`：通过；确认10个命名路由、10个跨端阶段、3×5×5规模及14个禁止直接调用的领域写入。
-- `npm run check:post-finishing-cross-terminal-evidence`：通过；确认两轮各15链、28张连续链截图、7张分页面回归截图、1份非空trace、15次收货、最终数量和场景结构一致。
-- 两轮原8个命名页面E2E、`check:post-finishing-full-flow-surface`和`check:post-finishing-sewing-self-return`均重跑通过，作为页面级与旧入口相邻回归。
+- 两轮分别以`VERIFICATION_PASS=ui-fix-final-pass-1/ui-fix-final-pass-2`和对应`POST_FINISHING_EVIDENCE_OUT=.../<final-pass>/domain-evidence.json`运行`npm run check:post-finishing-full-flow`：均通过；每轮明确落地15条待加工仓记录和30条出入库流水。
+- 两轮分别以独立端口、空浏览器状态、独立`evidence.json`/`screenshots/`/`playwright/`目录及Playwright `--trace=on`串行运行连续跨端套件：均1/1通过；重放到最新`main`后的最终两轮分别用时9.3分钟和9.2分钟。
+- 开启trace后复现PDA后道数量输入整页重绘，根因是局部合计处理后全局输入监听仍重新渲染页面；修复为数量输入标记跳过整页重绘。受影响专项、最终9个命名页面和双轮全链均在修复后重跑。失败和中断产物不计入通过证据。
+- `npm run check:post-finishing-cross-terminal-ui`：通过；确认正常菜单、11个命名路由、11个跨端阶段、3×5×5规模及禁止直接调用的领域写入。
+- `npm run check:post-finishing-cross-terminal-evidence`：通过；确认两轮各15链、32张跨端截图（含4张关键Web页面）、1份非空trace、15次收货、15条待加工仓记录、30条流水、最终数量和场景结构一致；另确认9张命名页面回归截图。
+- 最终9个命名页面E2E、`check:post-finishing-full-flow-surface`和`check:post-finishing-sewing-self-return`重跑通过，覆盖默认Mock、页面级异常与旧入口相邻回归。
 - `node --import tsx scripts/check-post-finishing-qc-result-buckets.ts`：通过。
 - `node --import tsx scripts/check-post-finishing-qc-print-templates.ts`：通过。
 - `node --import tsx scripts/check-post-finishing-web-mobile-action-dialog.ts`：通过。
 - `node --import tsx scripts/check-process-factory-tabs-and-post-finishing.ts`：通过。
-- `npm run build`：通过，2,367 个模块完成转换。
-- `npm run check:post-finishing-full-flow-traceability`：通过；文档回填后连续执行两遍，每遍均确认 115/115 条原子需求、33/33 个原文来源段落、13/13 项用户确认和 115/115 个最终证据映射，状态全部为“已验证”。
-- `npm run check:list-page-governance:static`：通过；第一次发现新 PDA 页缺页面模式声明，补齐本次三个新增执行/打印/质检页面的 `pda`、`detail`、`form`声明后重跑通过，共扫描 366 个页面、17 个历史基线页面。
+- `npm run build`：通过；2,372 个模块完成转换。
+- `npm run check:post-finishing-full-flow-traceability`：通过；文档回填后连续执行两遍，每遍确认 125/125 条原子需求、33/33 个原文来源段落、19/19 项用户确认和 125/125 个最终证据映射，状态全部为“已验证”。
+- `npm run check:list-page-governance:static`：通过；第一次发现新 PDA 页缺页面模式声明，补齐本次三个新增执行/打印/质检页面的 `pda`、`detail`、`form`声明后重跑通过，共扫描 367 个页面、17 个历史基线页面。
 - `npm run check:prototype-design-governance`：通过；暂存区内本次受管文件全部由本审查记录覆盖。
-- `npm run check:prototype-design-governance -- --all`：通过；在隔离干净工作树中确认 35 个用户可见受管文件、0 个纯技术受管文件和 1 份关联审查记录。
+- `npm run check:prototype-design-governance -- --all`：通过；在隔离工作树中确认 17 个用户可见受管文件、0 个纯技术受管文件和 1 份关联审查记录。
 - `git diff --check`：通过。
-- `codegraph init -i .`与后续`codegraph sync`：通过；隔离工作树索引最终状态为 1,516 个文件、46,659 个节点、182,968 条边，待同步文件为 0，工作树匹配。
-- `npm run workflow:verify -- --output /private/tmp/qc-post-finishing-task-receipt.json --task-boundary "QC后道全流程Web/PDA/打印与3×5×5双轮验收"`：通过；提交前最终任务收据状态为 `verified`。
+- `codegraph sync`与`codegraph status`：通过；隔离工作树索引最终状态为 1,535 个文件、47,150 个节点、179,522 条边，工作树匹配。
+- `npm run workflow:verify -- --output /private/tmp/qc-post-finishing-ui-fix-receipt.json --task-boundary "QC后道六项跨端UI纠偏与3×5×5双轮验收"`：通过；最终任务收据状态为 `verified`，阻塞项为 0。
 
 ### 真实图片验证
 
@@ -193,5 +209,5 @@
 
 ### 例外
 
-- 本次发布使用独立干净工作树，仅包含本任务 56 个文件；原工作树的其他未提交修改未进入任务差异。提交前最终 `workflow:verify` 回执输出到 `/private/tmp/qc-post-finishing-task-receipt.json`，临时回执不纳入仓库。
+- 本次发布使用独立工作树；原工作树的其他未提交修改未进入任务差异。最终 `workflow:verify` 回执输出到 `/private/tmp/qc-post-finishing-ui-fix-receipt.json`，临时回执不纳入仓库。
 - 本仓库是产品原型；真实服务端鉴权、动态码密钥、数据库持久化、离线队列、实体扫码枪和生产部署不在本次范围。本次 PDA 结论来自项目小屏浏览器验收。

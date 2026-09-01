@@ -586,6 +586,10 @@ export const renderPostFinishingAuditRecordsPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/audit-records'),
   'renderPostFinishingAuditRecordsPage',
 )
+export const renderPostFinishingAuthorizationCodePage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/authorization-code'),
+  'renderPostFinishingAuthorizationCodePage',
+)
 export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-orders'),
   'renderSpecialCraftTaskOrdersPage',

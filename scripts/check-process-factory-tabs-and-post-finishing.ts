@@ -78,9 +78,10 @@ assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的�
 assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')
 assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得把阶段名当作实际工序')
 
-;['后道工厂管理', '回货确认与送检', 'Web 质检工作台', '质检任务管理', '后道加工任务', '复检单', '后道待交出仓', '后道出货单', '差异与操作日志'].forEach((label) => {
+;['后道工厂管理', '后道待加工仓', '质检任务', '后道加工任务', '复检单', '后道待交出仓', '后道出货单', '差异与操作日志', '我的动态授权码'].forEach((label) => {
   assertIncludes(appShell, label, `后道阶段菜单缺少 ${label}`)
 })
+assertNotIncludes(appShell, "title: 'Web 质检工作台'", 'Web 质检工作台不得再作为独立菜单')
 ;[
   'renderPostFinishingWorkOrdersPage',
   'renderPostFinishingQcOrdersPage',
@@ -89,6 +90,7 @@ assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得�
   'renderPostFinishingWaitHandoverWarehousePage',
   'renderPostFinishingStatisticsPage',
   'renderPostFinishingOutboundOrdersPage',
+  'renderPostFinishingAuthorizationCodePage',
 ].forEach((renderer) => {
   assertIncludes(renderers, renderer, `后道 renderer 缺少 ${renderer}`)
 })
@@ -100,6 +102,7 @@ assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得�
   '/fcs/craft/post-finishing/wait-handover-warehouse',
   '/fcs/craft/post-finishing/statistics',
   '/fcs/craft/post-finishing/outbound-orders',
+  '/fcs/craft/post-finishing/authorization-code',
 ].forEach((route) => {
   assertIncludes(routes, route, `后道路由缺少 ${route}`)
 })

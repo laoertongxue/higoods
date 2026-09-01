@@ -41,6 +41,7 @@ async function seedBrowserFlow(page: Page): Promise<BrowserSeed> {
   return page.evaluate(async () => {
     const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
     flow.resetPostFinishingFullFlow()
+    flow.setPostFinishingDemoBootstrapEnabled(false)
     const actors = flow.POST_FINISHING_ACCEPTANCE_ACTORS
     const order = flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
     let nowMs = Date.UTC(2026, 7, 31, 8, 0, 0)
@@ -245,12 +246,32 @@ async function attachPageEvidence(page: Page, testInfo: TestInfo, name: string):
   }
 }
 
+test('默认演示数据在 Web 端真实展示 3 个生产单、15 次回货和分阶段库存', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
+  await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('3 个生产单 × 每单 5 个 SKU × 每单 5 次回货')
+  await expect(page.locator('[data-return-card]')).toHaveCount(3)
+  await attachPageEvidence(page, testInfo, 'default-demo-wait-process-pending')
+
+  await page.locator('[data-nav*="tab=inventory"]').click()
+  await expect(page.locator('[data-wait-process-inventory-card]')).toHaveCount(3)
+  await expect(page.locator('[data-wait-process-inventory-card]').first()).toContainText('5 SKU')
+  await attachPageEvidence(page, testInfo, 'default-demo-wait-process-inventory')
+
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
+  await expect(page.locator('tbody tr')).toHaveCount(9)
+  await page.goto('/fcs/craft/post-finishing/audit-records')
+  await expect(page.locator('body')).toContainText('业务链（每次回货一条）')
+  await expect(page.locator('body')).toContainText('15')
+})
+
 test('Web 质检精确领取、占用提示、退领、实时合计和参考资料闭环', async ({ page }, testInfo) => {
   const seed = await seedBrowserFlow(page)
-  await page.goto('/fcs/craft/post-finishing/qc-workbench?actor=qcA')
-  const scanner = page.locator('[data-post-finishing-field="qc-task-scan"]')
-  await scanner.fill(seed.qcTaskNo)
-  await scanner.press('Enter')
+  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcA')
+  const taskInput = page.locator('[data-qc-task-input]')
+  await taskInput.fill(seed.qcTaskNo)
+  await page.getByRole('button', { name: '领取并开始质检' }).click()
   await expect(page).toHaveURL(new RegExp(`taskNo=${encodeURIComponent(seed.qcTaskNo)}`))
   await expect(page.locator('[data-qc-result-line]')).toHaveCount(5)
   await expect(page.getByText('浏览器验收色差参考')).toBeVisible()
@@ -288,9 +309,9 @@ test('Web 质检精确领取、占用提示、退领、实时合计和参考资�
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await page.goto('/fcs/craft/post-finishing/qc-workbench?actor=qcB')
-  await page.locator('[data-post-finishing-field="qc-task-scan"]').fill(seed.qcTaskNo)
-  await page.locator('[data-post-finishing-field="qc-task-scan"]').press('Enter')
+  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcB')
+  await page.locator('[data-qc-task-input]').fill(seed.qcTaskNo)
+  await page.getByRole('button', { name: '领取并开始质检' }).click()
   await expect(page.getByRole('status')).toContainText('已由 李质检员 质检中')
 
   await page.goto(`/fcs/craft/post-finishing/qc-workbench?actor=qcA&taskNo=${encodeURIComponent(seed.qcTaskNo)}`)
@@ -526,7 +547,7 @@ test('仓库 PDA 只收 FCK 单，逐 SKU 实收并对重复扫描只读展示',
   await verifyPdaAtBothSizes(page)
 })
 
-test('Web 管理页、动态授权日志和四类打印均读取同一链路事实', async ({ page }, testInfo) => {
+test('Web 管理页、独立动态授权码、主从日志和四类打印均读取同一链路事实', async ({ page }, testInfo) => {
   const seed = await seedBrowserFlow(page)
   await page.setViewportSize({ width: 1366, height: 768 })
   for (const path of [
@@ -540,22 +561,30 @@ test('Web 管理页、动态授权日志和四类打印均读取同一链路事�
     await expect(page.locator('body')).not.toContainText('次品')
     await expectNoBodyOverflow(page)
   }
-  await expect(page.locator('[data-testid="post-finishing-authorization-panel"]')).toContainText('不会公开任何人的当前授权码')
   await expect(page.locator('[data-authorization-code]')).toHaveCount(0)
-  await page.goto('/fcs/craft/post-finishing/audit-records?authorizerId=AUTH-QC-001')
-  await expect(page.locator('[data-testid="post-finishing-authorization-panel"]')).toContainText('每 30 秒自动刷新；一经使用不可重复')
+  await page.goto('/fcs/craft/post-finishing/authorization-code')
+  await expect(page.locator('body')).toContainText('当前账号没有授权权限')
+  await expect(page.locator('[data-authorization-code]')).toHaveCount(0)
+  await page.evaluate(() => window.localStorage.setItem('higood-fcs-post-finishing-current-authorizer-v1', 'AUTH-QC-001'))
+  await page.goto('/fcs/craft/post-finishing/authorization-code')
+  await expect(page.getByRole('heading', { name: '我的动态授权码' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('30 秒自动刷新')
   await expect(page.locator('[data-authorization-code]')).toBeVisible()
-  await expect(page.locator('input[name="startedAt"]')).toBeVisible()
-  await expect(page.locator('input[name="endedAt"]')).toBeVisible()
-  await expect(page.locator('input[name="operator"]')).toBeVisible()
-  await expect(page.locator('input[name="authorizer"]')).toBeVisible()
-  await expect(page.locator('select[name="direction"]')).toBeVisible()
-  await expect(page.locator('select[name="authorizationResult"]')).toBeVisible()
+  await expect(page.locator('[data-authorization-scan-payload]')).toHaveText(/^PFAUTH:/)
+  await page.evaluate(() => window.localStorage.setItem('higood-fcs-post-finishing-current-authorizer-v1', 'NONE'))
+  await page.reload()
+  await expect(page.locator('body')).toContainText('当前账号没有授权权限')
+  await expect(page.locator('[data-authorization-code]')).toHaveCount(0)
 
-  await page.goto('/fcs/craft/post-finishing/audit-records?direction=%E5%B0%91')
-  await expect(page.locator('tbody')).toContainText('少 1 件')
-  await page.goto('/fcs/craft/post-finishing/audit-records?authorizationResult=%E6%88%90%E5%8A%9F')
-  await expect(page.locator('tbody')).toContainText('陈仓库主管')
+  await page.goto(`/fcs/craft/post-finishing/audit-records?keyword=${encodeURIComponent(seed.authorizedOutboundNo)}`)
+  await expect(page.getByRole('heading', { name: '差异与操作日志' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '回货全链路总览' })).toBeVisible()
+  await page.getByRole('link', { name: '查看详情' }).click()
+  await expect(page.locator('[data-audit-chain-detail]')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '单据链路' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '逐 SKU 差异' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '操作时间线' })).toBeVisible()
+  await expect(page.locator('[data-audit-chain-detail]')).toContainText('陈仓库主管')
   await page.goto(`/fcs/craft/post-finishing/outbound-orders?keyword=${encodeURIComponent(seed.authorizedOutboundNo)}&receiver=${encodeURIComponent('孙仓库收货员')}&authorizer=${encodeURIComponent('陈仓库主管')}`)
   await expect(page.locator('tbody tr')).toHaveCount(1)
   await expect(page.locator('tbody')).toContainText(seed.authorizedOutboundNo)

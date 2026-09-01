@@ -416,7 +416,7 @@ function openPostFinishingReceiptDialog(): void {
 export function handlePostFinishingEvent(target: HTMLElement, event?: Event): boolean {
   if (handlePostFinishingAuditRecordsEvent(target, event)) return true
   if (handlePostFinishingQcWorkbenchEvent(target, event)) return true
-  if (handlePostFinishingQcOrdersEvent(target)) return true
+  if (handlePostFinishingQcOrdersEvent(target, event)) return true
   if (handlePostFinishingRecheckOrdersEvent(target)) return true
   if (handlePostFinishingReturnFlowEvent(target)) return true
   if (handlePostFinishingOutboundOrderEvent(target)) return true

@@ -61,6 +61,7 @@ interface AcceptanceEvidence {
     chains: number
   }
   chains: ChainEvidence[]
+  surfaceScreenshots: string[]
   finalSnapshot?: unknown
 }
 
@@ -127,7 +128,7 @@ const evidence: AcceptanceEvidence = {
   suite: 'QC 后道全流程 3×5×5 全量跨端 UI 验收',
   passLabel,
   startedAt: new Date().toISOString(),
-  writeBoundary: '开始时仅清空浏览器 localStorage 并写入 PDA 测试会话；除此之外全部业务写入由 Web/PDA 页面操作产生；结束时只读业务事实用于核对。',
+  writeBoundary: '开始时清空浏览器 localStorage、关闭默认演示数据并写入 PDA 测试会话；除此之外全部业务写入由 Web/PDA 页面操作产生；结束时只读业务事实用于核对。',
   expected: {
     productionOrders: 3,
     skuPerProductionOrder: 5,
@@ -135,6 +136,7 @@ const evidence: AcceptanceEvidence = {
     chains: 15,
   },
   chains: [],
+  surfaceScreenshots: [],
 }
 
 function persistEvidence(): void {
@@ -243,15 +245,31 @@ async function saveScreenshot(page: Page, chain: ChainEvidence, suffix: string):
   return path
 }
 
+async function saveSurfaceScreenshot(page: Page, name: string): Promise<void> {
+  if (!screenshotDirectory) return
+  mkdirSync(screenshotDirectory, { recursive: true })
+  const path = resolve(screenshotDirectory, `surface-${name}.png`)
+  await page.screenshot({ path, fullPage: true })
+  evidence.surfaceScreenshots.push(path)
+  persistEvidence()
+}
+
 async function freshAuthorizationPayload(context: BrowserContext, authorizerId: string): Promise<string> {
   const authorizationPage = await context.newPage()
   await authorizationPage.setViewportSize({ width: 1366, height: 768 })
   authorizationPage.setDefaultTimeout(45_000)
   authorizationPage.setDefaultNavigationTimeout(45_000)
-  await authorizationPage.goto(
-    `/fcs/craft/post-finishing/audit-records?authorizerId=${encodeURIComponent(authorizerId)}`,
-    { waitUntil: 'domcontentloaded' },
-  )
+  await authorizationPage.goto('/fcs/craft/post-finishing/authorization-code', { waitUntil: 'domcontentloaded' })
+  await authorizationPage.evaluate(() => {
+    window.localStorage.removeItem('higood-fcs-post-finishing-current-authorizer-v1')
+  })
+  await authorizationPage.reload({ waitUntil: 'domcontentloaded' })
+  await expect(authorizationPage.locator('body')).toContainText('当前账号没有授权权限')
+  await expect(authorizationPage.locator('[data-authorization-code]')).toHaveCount(0)
+  await authorizationPage.evaluate((id) => {
+    window.localStorage.setItem('higood-fcs-post-finishing-current-authorizer-v1', id)
+  }, authorizerId)
+  await authorizationPage.reload({ waitUntil: 'domcontentloaded' })
   const payloadNode = authorizationPage.locator('[data-authorization-scan-payload]')
   await expect(payloadNode).toHaveText(/^PFAUTH:/, { timeout: 45_000 })
   const deadline = Date.now() + 65_000
@@ -340,10 +358,57 @@ async function confirmReturnThroughPda(
   })
 }
 
+async function confirmReturnThroughWeb(
+  page: Page,
+  context: BrowserContext,
+  scenario: CrossTerminalScenario,
+  chain: ChainEvidence,
+  deliveryOrderNo: string,
+): Promise<void> {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=pending')
+  const card = page.locator('[data-return-card]').filter({ hasText: deliveryOrderNo })
+  await expect(card).toHaveCount(1)
+  await card.locator('[data-nav]').filter({ hasText: '点数确认' }).click({ noWaitAfter: true })
+  await expect(page.locator('[data-return-confirm-root]')).toContainText(deliveryOrderNo)
+  const firstQuantity = scenario.returnScenario === 'minus-5-boundary'
+    ? 19
+    : scenario.returnScenario === 'plus-5-boundary'
+      ? 21
+      : scenario.returnScenario === 'over-5-authorization'
+        ? 18
+        : 20
+  const firstCounts = page.locator('[data-return-first-count]')
+  for (let index = 0; index < 5; index += 1) await firstCounts.nth(index).fill(String(index === 0 ? firstQuantity : 20))
+  await page.getByRole('button', { name: '提交第一次点数' }).click()
+
+  if (scenario.returnScenario === 'over-5-authorization') {
+    await expect(page.getByRole('status')).toContainText('请重新点数')
+    const secondCounts = page.locator('[data-return-second-count]')
+    for (let index = 0; index < 5; index += 1) await secondCounts.nth(index).fill(String(index === 0 ? 18 : 20))
+    await page.getByRole('button', { name: '提交第二次点数' }).click()
+    await expect(page.getByRole('status')).toContainText('必须扫描动态授权码')
+    const payload = await freshAuthorizationPayload(context, 'AUTH-QC-001')
+    await page.locator('[data-return-difference-reason]').fill('全量跨端UI验收：Web复点后首个SKU仍少2件')
+    await page.locator('[data-return-authorization]').fill(payload)
+    chain.authorizationStages.push('Web回货确认')
+    await saveScreenshot(page, chain, 'web-return-authorization')
+    await page.getByRole('button', { name: '授权并确认回货' }).click()
+  }
+
+  const status = await statusText(page)
+  await expect(page.getByRole('status')).toContainText('数量已进入后道待加工仓')
+  await expect(page.locator('body')).toContainText('送检并生成质检任务')
+  addStage(chain, page, 'Web回货确认并入待加工仓', status, {
+    returnScenario: scenario.returnScenario,
+    firstSkuConfirmedQty: firstQuantity,
+  })
+}
+
 async function sendToQcThroughWeb(page: Page, scenario: CrossTerminalScenario, chain: ChainEvidence, deliveryOrderNo: string): Promise<string> {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
-  const card = page.locator('[data-return-card]').filter({ hasText: deliveryOrderNo })
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=inventory')
+  const card = page.locator('[data-wait-process-inventory-card]').filter({ hasText: deliveryOrderNo })
   await expect(card).toHaveCount(1)
   await card.locator('[data-nav]').filter({ hasText: '查看并送检' }).click({ noWaitAfter: true })
   await expect(page.locator('[data-return-confirm-root]')).toContainText(deliveryOrderNo)
@@ -376,23 +441,20 @@ async function completeQcThroughWeb(
   chain: ChainEvidence,
   qcTaskNo: string,
 ): Promise<{ postTaskNo?: string; recheckOrderNo?: string }> {
-  await page.goto('/fcs/craft/post-finishing/qc-workbench?actor=qcA')
-  const scanner = page.locator('[data-post-finishing-field="qc-task-scan"]')
-  await fillScanAndWaitForRefresh(page, scanner, qcTaskNo, {
-    queryKey: 'taskNo',
-    queryValue: qcTaskNo,
-    resultSelector: '[data-qc-result-line]',
-    resultCount: 5,
-  })
+  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcA')
+  const taskInput = page.locator('[data-qc-task-input]')
+  await taskInput.fill(qcTaskNo)
+  await page.getByRole('button', { name: '领取并开始质检' }).click()
+  await expect(page).toHaveURL(new RegExp(`taskNo=${encodeURIComponent(qcTaskNo)}`))
+  await expect(page.locator('[data-qc-result-line]')).toHaveCount(5)
 
   if (scenario.qcClaimConflictAndRelease) {
     const conflictPage = await context.newPage()
     conflictPage.setDefaultTimeout(15_000)
     conflictPage.setDefaultNavigationTimeout(30_000)
-    await conflictPage.goto('/fcs/craft/post-finishing/qc-workbench?actor=qcB')
-    await fillScanAndWaitForRefresh(conflictPage, conflictPage.locator('[data-post-finishing-field="qc-task-scan"]'), qcTaskNo, {
-      resultSelector: '[role="status"]',
-    })
+    await conflictPage.goto('/fcs/craft/post-finishing/qc-orders?actor=qcB')
+    await conflictPage.locator('[data-qc-task-input]').fill(qcTaskNo)
+    await conflictPage.getByRole('button', { name: '领取并开始质检' }).click()
     await expect(conflictPage.getByRole('status')).toContainText('已由 李质检员 质检中')
     await conflictPage.close()
     await page.getByRole('button', { name: '错误领取，退回待质检' }).click()
@@ -701,6 +763,8 @@ async function readFinalSnapshot(page: Page): Promise<unknown> {
         recheckOrders: flow.listPostFinishingFullFlowRecheckOrders().length,
         outboundOrders: flow.listPostFinishingFullFlowOutboundOrders().length,
         warehouseReceipts: flow.listPostFinishingWarehouseReceipts().length,
+        waitProcessWarehouseRecords: flow.listPostFinishingWaitProcessWarehouseRecords().length,
+        waitProcessWarehouseMovements: flow.listPostFinishingWaitProcessWarehouseMovements().length,
         defects: flow.listPostFinishingDefectRecords().length,
         operationLogs: logs.listPostFinishingOperationLogs().length,
         authorizationConsumptions: authorization.listPostFinishingAuthorizationConsumptions().length,
@@ -734,7 +798,10 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
   }
 
   await page.goto('/fcs/pda/warehouse')
-  await page.evaluate(() => window.localStorage.clear())
+  await page.evaluate(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem('higood-fcs-post-finishing-demo-mode-v1', 'empty')
+  })
   await page.reload()
   await setPdaSession(page)
   await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
@@ -754,7 +821,8 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
     persistEvidence()
 
     chain.deliveryOrderNo = await registerReturnThroughPublicPda(page, scenario, chain)
-    await confirmReturnThroughPda(page, context, scenario, chain, chain.deliveryOrderNo)
+    if (index % 2 === 0) await confirmReturnThroughWeb(page, context, scenario, chain, chain.deliveryOrderNo)
+    else await confirmReturnThroughPda(page, context, scenario, chain, chain.deliveryOrderNo)
     chain.qcTaskNo = await sendToQcThroughWeb(page, scenario, chain, chain.deliveryOrderNo)
     const qcResult = await completeQcThroughWeb(page, context, scenario, chain, chain.qcTaskNo)
     chain.postTaskNo = qcResult.postTaskNo
@@ -767,6 +835,33 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
     persistEvidence()
   }
 
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=movements')
+  await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
+  await expect(page.locator('[data-wait-process-movement]')).toHaveCount(30)
+  await expect(page.locator('body')).toContainText('3 个生产单 × 每单 5 个 SKU × 每单 5 次回货')
+  await saveSurfaceScreenshot(page, 'wait-process-warehouse')
+
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
+  await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
+  await expect(page.locator('[data-qc-task-input]')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检任务管理' })).toBeVisible()
+  await saveSurfaceScreenshot(page, 'qc-task')
+
+  await page.goto('/fcs/craft/post-finishing/audit-records')
+  await expect(page.getByRole('heading', { name: '差异与操作日志' })).toBeVisible()
+  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(10)
+  await page.getByRole('link', { name: '查看详情' }).first().click()
+  await expect(page.locator('[data-audit-chain-detail]')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '逐 SKU 差异' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '操作时间线' })).toBeVisible()
+  await saveSurfaceScreenshot(page, 'audit-chain-detail')
+
+  await page.goto('/fcs/craft/post-finishing/authorization-code')
+  await expect(page.getByRole('heading', { name: '我的动态授权码' })).toBeVisible()
+  await expect(page.locator('[data-authorization-scan-payload]')).toHaveText(/^PFAUTH:/)
+  await saveSurfaceScreenshot(page, 'authorization-code')
+
   const snapshot = await readFinalSnapshot(page)
   const totals = (snapshot as { totals: Record<string, number> }).totals
   expect(totals.productionOrders).toBe(3)
@@ -777,6 +872,8 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
   expect(totals.recheckOrders).toBe(15)
   expect(totals.outboundOrders).toBe(15)
   expect(totals.warehouseReceipts).toBe(15)
+  expect(totals.waitProcessWarehouseRecords).toBe(15)
+  expect(totals.waitProcessWarehouseMovements).toBe(30)
   expect(totals.authorizationConsumptions).toBe(5)
   const finalChains = (snapshot as { chains: Array<{ warehouseReceived: boolean }> }).chains
   expect(finalChains).toHaveLength(15)

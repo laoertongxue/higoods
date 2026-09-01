@@ -13,7 +13,7 @@ test('后道阶段保留烫包工艺且质检不再允许手工建单', async ({
   await expect(craftRows.first()).toContainText('成衣')
 
   await page.goto('/fcs/craft/post-finishing/qc-orders')
-  await expect(page.getByRole('heading', { name: '质检任务管理', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '创建质检单', exact: true })).toHaveCount(0)
-  await expect(page.locator('body')).toContainText('回货确认并送检后自动出现')
+  await expect(page.locator('body')).toContainText('Web 端输入完整任务号后领取')
 })

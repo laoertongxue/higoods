@@ -25,6 +25,8 @@ import {
   listPostFinishingFullFlowRecheckOrders,
   listPostFinishingReturnRegistrationSources,
   listPostFinishingWarehouseReceipts,
+  listPostFinishingWaitProcessWarehouseMovements,
+  listPostFinishingWaitProcessWarehouseRecords,
   markPostFinishingRecheckSkuRelabeled,
   receivePostFinishingOutboundOrder,
   registerPostFinishingFactoryReturn,
@@ -636,6 +638,10 @@ assert.equal(listPostFinishingFullFlowPostTasks().length, 12, '每个生产单�
 assert.equal(listPostFinishingFullFlowRecheckOrders().length, 15, '必须产生 15 张独立复检单')
 assert.equal(listPostFinishingFullFlowOutboundOrders().length, 15, '必须产生且仅产生 15 张出货单')
 assert.equal(listPostFinishingWarehouseReceipts().length, 15, '必须产生且仅产生 15 条仓库收货记录')
+assert.equal(listPostFinishingWaitProcessWarehouseRecords().length, 15, '每次回货必须形成 1 条后道待加工仓记录')
+assert.equal(listPostFinishingWaitProcessWarehouseMovements().filter((item) => item.movementType === '确认入库').length, 15, '每次 Web/PDA 回货确认必须形成 1 条确认入库流水')
+assert.equal(listPostFinishingWaitProcessWarehouseMovements().filter((item) => item.movementType === '送检出库').length, 15, '每次送检必须形成 1 条送检出库流水')
+assert(listPostFinishingWaitProcessWarehouseRecords().every((item) => item.status === '已送检' && item.lines.every((line) => line.availableQty === 0)), '全流程结束后待加工仓记录必须显示已送检且可用数量归零')
 assert.equal(new Set(listPostFinishingFullFlowQcTasks().map((item) => item.qcTaskNo)).size, 15, '质检任务号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowRecheckOrders().map((item) => item.recheckOrderNo)).size, 15, '复检单号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => item.outboundOrderNo)).size, 15, '出货单号不得重复')
@@ -675,7 +681,7 @@ expectCode('已绑定旧差异的授权码不得用于修改后的数量或原�
 assert(listPostFinishingAuthorizationConsumptions().every((item) => item.authorizerName && item.operatorName), '每次授权必须同时记录授权人与现场操作人')
 
 const logs = listPostFinishingOperationLogs()
-assert(logs.some((item) => item.result === '阻断' && item.action.includes('扫描领取冲突')), '操作日志必须保存领取冲突')
+assert(logs.some((item) => item.result === '阻断' && item.action.includes('输入任务号领取冲突')), '操作日志必须保存 Web 输入任务号领取冲突')
 assert(logs.some((item) => item.action === '第一次点数') && logs.some((item) => item.action === '第二次点数') && logs.some((item) => item.action === '最终确认回货'), '回货两次点数和最终确认必须分别留痕')
 assert(logs.some((item) => item.action === '重新贴码'), '操作日志必须保存重新贴码动作')
 assert(logs.some((item) => item.action === '差异授权' && item.authorizerName), '操作日志必须保存授权人')
@@ -712,6 +718,8 @@ const evidence = {
     recheckOrders: 15,
     outboundOrders: 15,
     warehouseReceipts: 15,
+    waitProcessWarehouseRecords: listPostFinishingWaitProcessWarehouseRecords().length,
+    waitProcessWarehouseMovements: listPostFinishingWaitProcessWarehouseMovements().length,
     operationLogs: logs.length,
     authorizationConsumptions: listPostFinishingAuthorizationConsumptions().length,
   },

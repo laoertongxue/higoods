@@ -154,7 +154,7 @@ function renderReturnConfirmation(record: PostFinishingFactoryReturnDelivery): s
         <div class="mt-2 rounded-xl bg-white/80 px-3 py-2 text-xs text-blue-900">首次逐 SKU 差异率不超过 5%直接确认；超过 5%必须二次点数，二次仍超过 5%才扫描授权码。分母固定为工厂登记数量。</div>
       </section>
       ${lines}
-      ${editable ? `${initialSummary(registeredTotal, currentTotal, `整单登记 ${registeredTotal} 件，当前点数 ${currentTotal} 件`, 'return-total')}${showAuthorization ? authorizationBlock('return') : ''}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showAuthorization ? '授权并确认回货' : showSecond ? '提交第二次点数' : '提交第一次点数'}</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">回货已由 ${escapeHtml(record.confirmedBy?.actorName || '回货确认人员')} 确认。送检操作请在 Web“回货确认与送检”完成。</div>`}
+      ${editable ? `${initialSummary(registeredTotal, currentTotal, `整单登记 ${registeredTotal} 件，当前点数 ${currentTotal} 件`, 'return-total')}${showAuthorization ? authorizationBlock('return') : ''}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showAuthorization ? '授权并确认回货' : showSecond ? '提交第二次点数' : '提交第一次点数'}</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">回货已由 ${escapeHtml(record.confirmedBy?.actorName || '回货确认人员')} 确认并进入后道待加工仓。送检操作请在 Web“后道待加工仓”完成。</div>`}
     </div>
   `
 }
@@ -515,6 +515,7 @@ function isQuantityInput(target: HTMLElement, event?: Event): boolean {
 
 export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): boolean {
   if (isQuantityInput(target, event)) {
+    target.dataset.skipPageRerender = 'true'
     updateQuantitySummaries()
     return true
   }

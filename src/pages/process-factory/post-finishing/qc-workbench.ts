@@ -44,9 +44,9 @@ function renderNotice(): string {
 function renderScanner(): string {
   const actor = currentActor()
   return `<section class="mx-auto max-w-2xl rounded-xl border bg-card p-5 shadow-sm" data-qc-workbench-scan>
-    <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">扫描完整质检任务号</h2><p class="mt-1 text-sm text-muted-foreground">初始不展示待质检池；扫码成功即由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
-    <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-scan" data-pda-scan-enter="true" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取任务</button></div>
-    <div class="mt-4 flex flex-wrap gap-3 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcA" class="text-blue-700 underline">切换为李质检员</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcB" class="text-blue-700 underline">切换为王质检员</a><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">主管管理列表</a></div>
+    <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">输入完整质检任务号</h2><p class="mt-1 text-sm text-muted-foreground">Web 端不调用摄像头；输入完整任务号后由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
+    <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="请输入完整任务号，例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-input" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取任务</button></div>
+    <div class="mt-4 flex flex-wrap gap-3 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcA" class="text-blue-700 underline">切换为李质检员</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcB" class="text-blue-700 underline">切换为王质检员</a><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检任务列表</a></div>
   </section>`
 }
 
@@ -88,13 +88,13 @@ function renderTask(task: PostFinishingQcTask): string {
       : `<button type="button" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800" data-post-finishing-action="full-flow-release-qc-prompt" data-task-id="${escapeHtml(task.qcTaskId)}">错误领取，退回待质检</button>`
     : ''
   return `<div class="space-y-4" data-qc-workbench-task="${escapeHtml(task.qcTaskId)}" data-skip-page-rerender="true">
-    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 扫描其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><p class="mt-1 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 送检：${escapeHtml(new Date(task.sentAt).toLocaleString('zh-CN'))}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : '尚未领取'}</div></div></div>
+    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 输入其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><p class="mt-1 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 送检：${escapeHtml(new Date(task.sentAt).toLocaleString('zh-CN'))}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : '尚未领取'}</div></div></div>
       ${task.claimedBy && !isOwner && task.status !== '质检完成' ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">已由 ${escapeHtml(task.claimedBy.actorName)} 质检中。当前账号不能录入或提交。</div>` : ''}
       <div class="mt-4 flex flex-wrap gap-2">${!task.claimedBy && task.status !== '质检完成' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-claim-qc" data-task-no="${escapeHtml(task.qcTaskNo)}">领取任务</button>` : ''}${releaseControl}${task.status === '质检完成' ? `<a data-nav="${task.postTaskNo ? `/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.postTaskNo)}` : `/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(task.recheckOrderNo || '')}`}" class="rounded-md border px-4 py-2 text-sm">查看下游单据</a>` : ''}</div>
     </section>
     ${renderReferences(task)}
     <section class="rounded-xl border bg-card p-4"><div><h3 class="font-semibold">逐 SKU 质检结果</h3><p class="mt-1 text-xs text-muted-foreground">合格 + 瑕疵 + 返厂应等于送检数；回货后任一逐 SKU 数量差异都必须授权。</p></div><div class="mt-3 rounded-lg px-3 py-2 text-sm ${differentSkuCount ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}" data-qc-live-summary>送检 ${expectedTotal} 件 · 当前分类合计 ${actualTotal} 件 · 整单差异 ${actualTotal - expectedTotal} 件 · ${differentSkuCount} 个 SKU 有差异</div><div class="mt-4 space-y-3">${task.lines.map((_, index) => renderResultLine(task, index, canEdit)).join('')}</div>
-      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><label class="block text-sm">下游处理<select class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-need-post><option value="yes">需要后道加工</option><option value="no">不需要后道，直接复检</option></select></label><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须扫描授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">扫描 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}">完成质检并生成下一环节</button></div>` : ''}
+      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><label class="block text-sm">下游处理<select class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-need-post><option value="yes">需要后道加工</option><option value="no">不需要后道，直接复检</option></select></label><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须录入授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">录入或粘贴 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}">完成质检并生成下一环节</button></div>` : ''}
     </section>
     <datalist id="post-finishing-defect-reasons">${POST_FINISHING_DEFECT_REASON_OPTIONS.map((reason) => `<option value="${escapeHtml(reason)}"></option>`).join('')}</datalist>
   </div>`
@@ -103,7 +103,7 @@ function renderTask(task: PostFinishingQcTask): string {
 export function renderPostFinishingQcWorkbenchPage(): string {
   const taskNo = query().get('taskNo') || ''
   const task = taskNo ? getPostFinishingFullFlowQcTask(taskNo) : undefined
-  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('Web 质检工作台', '精确扫码领取 · 一任务一质检员 · 支持退领')}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
+  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('质检任务执行', '输入完整任务号领取 · 一任务一质检员 · 支持退领')}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
 }
 
 function readValue(root: ParentNode, selector: string): string {
@@ -151,7 +151,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-post-finishing-action]')
-  const scanField = target.closest<HTMLInputElement>('[data-post-finishing-field="qc-task-scan"]')
+  const scanField = target.closest<HTMLInputElement>('[data-post-finishing-field="qc-task-input"]')
   const action = actionNode?.dataset.postFinishingAction
     || (scanField && event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter' ? 'full-flow-claim-qc' : undefined)
   if (!action || ![
@@ -181,7 +181,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
       return true
     }
     if (action === 'full-flow-claim-qc') {
-      const taskNo = actionNode?.dataset.taskNo || scanField?.value || readValue(document, '[data-post-finishing-field="qc-task-scan"]')
+      const taskNo = actionNode?.dataset.taskNo || scanField?.value || readValue(document, '[data-post-finishing-field="qc-task-input"]')
       const claimed = claimPostFinishingQcTask({ qcTaskNo: taskNo, actor: currentActor() })
       notice = `领取成功：${claimed.qcTaskNo}`
       noticeTone = 'success'
