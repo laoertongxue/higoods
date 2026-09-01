@@ -179,6 +179,9 @@ function getSpecialCraftTodoMeta(task: PdaTaskFlowMock): {
   if (workOrder.status === '待接收') {
     return { todoType: '待确认接收', title: `${workOrder.operationName}加工单待确认接收` }
   }
+  if (workOrder.status === '已完结' && workOrder.completedQty > (workOrder.returnedQty || 0)) {
+    return { todoType: '待交出', title: `${workOrder.operationName}已完结加工单仍有成品待交出` }
+  }
   if (workOrder.status !== '加工中') return null
   if (workOrder.completedQty > (workOrder.returnedQty || 0)) {
     return { todoType: '待交出', title: `${workOrder.operationName}加工单待发起交出` }

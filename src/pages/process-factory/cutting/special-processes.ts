@@ -413,7 +413,7 @@ function renderOrderActions(row: BindingProcessOrder): string {
       ${actionButton('confirm-receive', '确认接收', row.status !== '已完成' && row.status !== '已取消' && remainingReceiveQty > 0, row.status === '待加工')}
       ${actionButton('process-report', '加工填报', row.status === '加工中' && remainingProcessQty > 0)}
       ${actionButton('submit-handover', '发起交出', (row.status === '加工中' || row.status === '已完成') && remainingHandoverQty > 0)}
-      ${actionButton('complete-order', '完成加工单', row.status === '加工中' && row.actualOutputQty > 0 && remainingHandoverQty === 0)}
+      ${actionButton('complete-order', '完成加工单', row.status === '加工中' && row.actualOutputQty > 0)}
       <a href="${escapeHtml(printHref)}" data-nav="${escapeHtml(printHref)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">打印菲票</a>
     </div>
   `
@@ -809,7 +809,7 @@ const bindingActionMeta: Record<BindingProcessActionCode, { title: string; help:
   },
   BINDING_COMPLETE_ORDER: {
     title: '完成加工单',
-    help: '只有已经填报且全部交出的加工单才能完成；存在短裁时必须填写差异原因。',
+    help: '已有加工填报即可完成加工单；剩余已加工数量仍可在完成后分批交出。存在短裁时必须填写差异原因。',
     requiresQty: false,
     requiresDetail: false,
   },

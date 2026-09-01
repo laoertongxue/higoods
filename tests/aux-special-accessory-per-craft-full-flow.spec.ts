@@ -332,8 +332,7 @@ for (const chain of specialChains) {
       await expect(executionTabs.getByRole('button')).toHaveCount(2)
       await expect(executionTabs).not.toContainText('待接收')
       await expect(executionTabs).not.toContainText('待交出')
-      const appearsInExecution = order.status === '已完结'
-        || (order.status !== '待接收' && order.completedQty <= (order.returnedQty || 0))
+      const appearsInExecution = order.status === '加工中' || order.status === '已完结'
       await expect(page.locator(`[data-testid="pda-exec-work-order-card"][data-work-order-id="${order.taskOrderId}"]`))
         .toHaveCount(appearsInExecution ? 1 : 0)
     })
@@ -406,10 +405,7 @@ for (const [orderIndex, order] of bindingOrders.entries()) {
     await expect(executionTabs.getByRole('button')).toHaveCount(2)
     await expect(executionTabs).not.toContainText('待接收')
     await expect(executionTabs).not.toContainText('待交出')
-    const appearsInExecution = order.status !== '已取消' && (
-      order.status === '已完成'
-      || (order.status !== '待加工' && order.actualOutputQty <= (order.handedOverQty || 0))
-    )
+    const appearsInExecution = order.status === '加工中' || order.status === '已完成'
     await expect(page.locator(`[data-testid="pda-exec-binding-work-order-card"][data-work-order-id="${order.bindingOrderId}"]`))
       .toHaveCount(appearsInExecution ? 1 : 0)
   })

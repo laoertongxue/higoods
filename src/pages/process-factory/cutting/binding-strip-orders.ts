@@ -1219,7 +1219,6 @@ export function executeBindingProcessAction(input: ExecuteBindingProcessActionIn
     } else {
       if (order.status !== '加工中') throw new Error('只有加工中的捆条加工单可以完成。')
       if (order.actualOutputQty <= 0) throw new Error('尚无加工填报，不能完成加工单。')
-      if ((order.handedOverQty || 0) < order.actualOutputQty) throw new Error('仍有已加工捆条未交出，不能完成加工单。')
       if (order.actualOutputQty < order.plannedOutputQty && !input.remark?.trim()) {
         throw new Error('短裁完成必须填写差异原因。')
       }

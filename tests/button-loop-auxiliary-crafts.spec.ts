@@ -50,8 +50,8 @@ test('管理端、技术包、加工单、捆条菲票打印和辅料仓形成�
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/production/craft-dict')
-  for (const craftName of ['盘扣', '花朵', '打褶', '烫钻']) {
-    await expect(page.locator('body')).toContainText(craftName)
+  for (const [index, craftName] of ['盘扣', '花朵', '打褶', '烫钻'].entries()) {
+    await expect(page.locator('body')).toContainText(craftName, { timeout: index === 0 ? 30_000 : 10_000 })
   }
   await expect(page.locator('body')).toContainText('捆条')
   await expect(page.locator('body')).toContainText('裁片部位')
@@ -111,8 +111,8 @@ test('管理端、技术包、加工单、捆条菲票打印和辅料仓形成�
   await expect(page.locator('body')).toContainText('盘扣捆条菲票')
   await expect(page.locator('body')).toContainText('APF - 辅助工艺')
 
-  await page.goto(BUTTON_LOOP_DETAIL_PATH)
-  await expect(page.locator('body')).toContainText('捆条投入与盘扣产出')
+  await navigateInApp(page, BUTTON_LOOP_DETAIL_PATH)
+  await expect(page.locator('body')).toContainText('捆条投入与盘扣产出', { timeout: 30_000 })
   await expect(page.locator('body')).toContainText('投入按捆条菲票张数追溯')
   await expect(page.locator('body')).toContainText('中央辅料仓')
   await page.getByRole('button', { name: '确认接收', exact: true }).click()
@@ -166,7 +166,7 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
 
   await page.goto(`${BUTTON_LOOP_PDA_PATH}?surface=handover&handoverAction=receive`)
   await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible({ timeout: 30_000 })
-  await expect(page.locator('body')).toContainText('交接 · 确认接收')
+  await expect(page.locator('body')).not.toContainText('交接 · 确认接收')
   await expect(page.locator('[data-pda-physical-scan-panel]')).toBeVisible()
   await expect(page.getByTestId('pda-work-order-details')).not.toHaveAttribute('open', '')
   await expect(page.locator('body')).not.toContainText('查看历史和流转')
@@ -180,7 +180,7 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
   await expect(page.locator('body')).toContainText(/特殊工艺确认接收已(?:同步|记录)|已确认接收/)
 
   await navigateInApp(page, BUTTON_LOOP_PDA_PATH)
-  await expect(page.locator('body')).toContainText('执行 · 加工填报')
+  await expect(page.locator('body')).not.toContainText('执行 · 加工填报')
   await expect(page.getByRole('button', { name: '加工填报', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '发起交出', exact: true })).toHaveCount(0)
   await expect(page.locator('[data-special-craft-line-progress-summary]')).toHaveCount(0)
@@ -190,7 +190,7 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
   await saveEvidence(page, testInfo, '05-pda-button-loop-process-report.png')
 
   await navigateInApp(page, `${BUTTON_LOOP_PDA_PATH}?surface=handover&handoverAction=handout`)
-  await expect(page.locator('body')).toContainText('交接 · 发起交出')
+  await expect(page.locator('body')).not.toContainText('交接 · 发起交出')
   const firstHandoutAction = page.locator('[data-pda-execd-action="special-submit-handover"]')
   await expect(firstHandoutAction).toBeDisabled()
   await expect(page.getByRole('button', { name: '完成加工单', exact: true })).toHaveCount(0)

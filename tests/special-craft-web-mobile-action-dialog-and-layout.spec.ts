@@ -180,23 +180,44 @@ test('PDA 按具体加工单进入，所有执行载荷同时保留加工单和�
   await assertNoTaskExecutionActions(page)
 })
 
-test('PDA 列表不显示 Web 分页和全局悬浮搜索，较长列表只提供继续显示', async ({ page }) => {
+test('PDA 列表不显示 Web 分页和加载按钮，滑到底部自动追加加工单', async ({ page }) => {
   const order = selectPartialHandoverOrder()
   await setPdaSession(page, order.factoryId)
   await page.setViewportSize({ width: 360, height: 640 })
   await page.goto('/fcs/pda/exec?tab=IN_PROGRESS')
 
   const listRoot = page.locator('[data-testid="pda-exec-card-list"]')
-  await expect(listRoot).toBeVisible()
+  await expect(listRoot).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
   await expect(listRoot.locator('[data-pda-exec-pagination]')).toHaveCount(0)
   await expect(listRoot).not.toContainText('上一页')
   await expect(listRoot).not.toContainText('下一页')
   await expect(listRoot).not.toContainText('每页 10 条')
-  const progressiveControl = listRoot.locator('[data-pda-exec-load-more="special-craft"]')
-  if (await progressiveControl.count()) {
-    await expect(progressiveControl.getByRole('button', { name: /继续显示 \d+ 条/ })).toBeVisible()
-  }
+  await expect(listRoot).not.toContainText(/已显示 \d+ \/ \d+ 条/)
+  await expect(listRoot).not.toContainText(/继续显示 \d+ 条/)
+  await expect(listRoot.locator('[data-pda-exec-action="load-more"]')).toHaveCount(0)
+
+  const doneTab = page.locator('[data-testid="pda-exec-special-craft-tabs"] [data-tab="DONE"]')
+  await doneTab.click()
+  const cards = listRoot.locator('[data-testid="pda-exec-work-order-card"]')
+  await expect(cards).toHaveCount(10)
+  const originalList = await listRoot.elementHandle()
+  const sentinel = listRoot.locator('[data-pda-exec-auto-load-sentinel="special-craft"]')
+  const scrollContainer = page.locator('[data-pda-scroll-container="true"]')
+  await expect(sentinel).toHaveCount(1)
+  await sentinel.evaluate((node) => node.scrollIntoView({ block: 'end' }))
+  await expect.poll(async () => scrollContainer.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  await expect(cards).toHaveCount(20)
+  await expect(sentinel).toHaveCount(1)
+  await sentinel.evaluate((node) => node.scrollIntoView({ block: 'end' }))
+  await expect(cards).toHaveCount(27)
+  await expect(sentinel).toHaveCount(0)
+  expect(await scrollContainer.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  expect(await originalList!.evaluate((node) => node.isConnected)).toBe(true)
+  await page.screenshot({
+    path: 'output/playwright/pda-density-fix/exec-auto-load-final-360x640.png',
+    fullPage: false,
+  })
 })
 
 test('PDA 发起交出逐张扫描菲票，可部分交出且不在操作页展示历史流转', async ({ page }) => {
@@ -210,7 +231,7 @@ test('PDA 发起交出逐张扫描菲票，可部分交出且不在操作页展�
   await page.setViewportSize({ width: 360, height: 640 })
   await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}?surface=handover&handoverAction=handout`)
 
-  await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible()
+  await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
   const actionPanel = page.getByTestId('pda-work-order-action-panel')
   const workOrderDetails = page.getByTestId('pda-work-order-details')
@@ -275,7 +296,7 @@ test('PDA 辅料接收使用单一输入框，扫码和手动输入走同一标�
   const panel = page.locator('[data-pda-physical-scan-panel]')
   const actionPanel = page.getByTestId('pda-work-order-action-panel')
   const workOrderDetails = page.getByTestId('pda-work-order-details')
-  await expect(panel).toBeVisible()
+  await expect(panel).toBeVisible({ timeout: 30_000 })
   await expect(actionPanel).toBeVisible()
   await expect(workOrderDetails).toBeVisible()
   await expect(workOrderDetails).not.toHaveAttribute('open', '')

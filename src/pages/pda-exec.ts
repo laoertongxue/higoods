@@ -79,7 +79,8 @@ import {
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaExecProgressiveSlice,
-  renderPdaExecLoadMoreControl,
+  renderPdaExecAutoLoadSentinel,
+  type PdaExecProgressiveListKey,
 } from './pda-exec-progressive-list.ts'
 import {
   ensurePdaSessionForAction,
@@ -148,6 +149,9 @@ const state: PdaExecState = {
   bindingLastResolvedCode: '',
   bindingTab: 'IN_PROGRESS',
 }
+
+let pdaExecAutoLoadBound = false
+let pdaExecAutoLoadFrame: number | null = null
 
 const PDA_EXEC_BATCH_SIZE = 10
 
@@ -719,7 +723,6 @@ function getSpecialCraftWorkOrderTab(candidate: SpecialCraftPdaScanCandidate): T
   const { order } = candidate
   if (order.status === '待接收') return 'NOT_STARTED'
   if (order.status === '已完结') return 'DONE'
-  if (order.completedQty > (order.returnedQty || 0)) return 'BLOCKED'
   return 'IN_PROGRESS'
 }
 
@@ -728,9 +731,6 @@ function buildSpecialCraftWorkOrderPath(candidate: SpecialCraftPdaScanCandidate)
   const returnTo = '/fcs/pda/exec'
   if (tab === 'NOT_STARTED') {
     return '/fcs/pda/handover?tab=pickup'
-  }
-  if (tab === 'BLOCKED') {
-    return '/fcs/pda/handover?tab=handout'
   }
   return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?returnTo=${encodeURIComponent(returnTo)}`
 }
@@ -800,8 +800,8 @@ function renderSpecialCraftWorkOrderSection(factoryId: string): string {
         ${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
       </div>
       <div class="px-4">${renderSpecialCraftExecutionScanHeader()}</div>
-      <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
-      <div class="px-4">${renderPdaExecLoadMoreControl(list, 'special-craft')}</div>
+      <div class="space-y-3 px-4" data-pda-exec-card-container="special-craft">${list.rows.length ? list.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
+      <div class="px-4">${renderPdaExecAutoLoadSentinel(list, 'special-craft')}</div>
     </section>
   `
 }
@@ -809,7 +809,6 @@ function renderSpecialCraftWorkOrderSection(factoryId: string): string {
 function getBindingWorkOrderTab(candidate: BindingProcessPdaScanCandidate): TaskStatusTab {
   const { order } = candidate
   if (order.status === '已完成') return 'DONE'
-  if (order.actualOutputQty > (order.handedOverQty || 0)) return 'BLOCKED'
   if (order.status === '待加工') return 'NOT_STARTED'
   return 'IN_PROGRESS'
 }
@@ -823,9 +822,6 @@ function buildBindingWorkOrderPath(candidate: BindingProcessPdaScanCandidate): s
   const tab = getBindingWorkOrderTab(candidate)
   if (tab === 'NOT_STARTED') {
     return '/fcs/pda/handover?tab=pickup'
-  }
-  if (tab === 'BLOCKED') {
-    return '/fcs/pda/handover?tab=handout'
   }
   return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?returnTo=${encodeURIComponent('/fcs/pda/exec')}`
 }
@@ -882,26 +878,28 @@ function renderBindingWorkOrderSection(factoryId: string): string {
   return `<section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-binding-work-order-list>
     <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-binding-tabs">${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
     <div class="px-4">${renderBindingExecutionScanHeader()}</div>
-    <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
-    <div class="px-4">${renderPdaExecLoadMoreControl(list, 'binding')}</div>
+    <div class="space-y-3 px-4" data-pda-exec-card-container="binding">${list.rows.length ? list.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
+    <div class="px-4">${renderPdaExecAutoLoadSentinel(list, 'binding')}</div>
   </section>`
+}
+
+function renderPdaExecTaskCard(task: ProcessTask): string {
+  if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
+  if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
+  if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
+  if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
+  if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
+  return renderDoneCard(task)
 }
 
 function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: string): string {
   const list = buildPdaExecProgressiveSlice(filteredTasks, state.generalVisibleCount, PDA_EXEC_BATCH_SIZE)
   state.generalVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
   const cards = list.rows.length
-    ? list.rows.map((task) => {
-      if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
-      if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
-      if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
-      if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
-      if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
-      return renderDoneCard(task)
-    }).join('')
+    ? list.rows.map(renderPdaExecTaskCard).join('')
     : `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
-  return `${cards}
-    ${renderPdaExecLoadMoreControl(list, 'general')}`
+  return `<div class="space-y-3" data-pda-exec-card-container="general">${cards}</div>
+    ${renderPdaExecAutoLoadSentinel(list, 'general')}`
 }
 
 export function renderWaterSolubleCard(
@@ -968,6 +966,101 @@ function updatePdaExecCardListInPlace(): void {
   const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
   listNode.innerHTML = `${renderBindingWorkOrderSection(selectedFactoryId)}${renderSpecialCraftWorkOrderSection(selectedFactoryId)}${acceptedTasks.length ? `<section class="space-y-3" data-pda-general-task-list><h2 class="text-sm font-semibold">其他执行任务</h2>${renderPdaExecCardList(filteredTasks, getPdaExecEmptyStateText(acceptedTasks))}</section>` : ''}`
+  queueMicrotask(bindPdaExecAutoLoad)
+}
+
+function applyPdaExecAutoLoad(
+  listKey: PdaExecProgressiveListKey,
+  nextVisibleCount: number,
+): void {
+  const selectedFactoryId = getCurrentFactoryId()
+  const container = document.querySelector<HTMLElement>(`[data-pda-exec-card-container="${listKey}"]`)
+  const sentinel = document.querySelector<HTMLElement>(`[data-pda-exec-auto-load-sentinel="${listKey}"]`)
+  if (!container || !sentinel) return
+
+  let currentVisibleCount = state.generalVisibleCount
+  let nextCards = ''
+  let total = 0
+  if (listKey === 'special-craft') {
+    currentVisibleCount = state.specialCraftVisibleCount
+    const rows = listSpecialCraftCandidatesForFactory(selectedFactoryId)
+      .filter((candidate) => isExecutionWorkOrderTab(getSpecialCraftWorkOrderTab(candidate)))
+      .filter((candidate) => getSpecialCraftWorkOrderTab(candidate) === state.specialCraftTab)
+    total = rows.length
+    const targetVisibleCount = Math.min(Math.max(PDA_EXEC_BATCH_SIZE, nextVisibleCount), total)
+    nextCards = rows.slice(currentVisibleCount, targetVisibleCount).map(renderSpecialCraftFactCard).join('')
+    state.specialCraftVisibleCount = targetVisibleCount
+  } else if (listKey === 'binding') {
+    currentVisibleCount = state.bindingVisibleCount
+    const rows = listBindingCandidatesForFactory(selectedFactoryId)
+      .filter(isBindingExecutionCandidate)
+      .filter((candidate) => getBindingWorkOrderTab(candidate) === state.bindingTab)
+    total = rows.length
+    const targetVisibleCount = Math.min(Math.max(PDA_EXEC_BATCH_SIZE, nextVisibleCount), total)
+    nextCards = rows.slice(currentVisibleCount, targetVisibleCount).map(renderBindingFactCard).join('')
+    state.bindingVisibleCount = targetVisibleCount
+  } else {
+    const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+    const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
+    const rows = getFilteredTasks(tasksByStatus, state.activeTab)
+    total = rows.length
+    const targetVisibleCount = Math.min(Math.max(PDA_EXEC_BATCH_SIZE, nextVisibleCount), total)
+    nextCards = rows.slice(currentVisibleCount, targetVisibleCount).map(renderPdaExecTaskCard).join('')
+    state.generalVisibleCount = targetVisibleCount
+  }
+
+  if (nextCards) container.insertAdjacentHTML('beforeend', nextCards)
+  const visibleCount = listKey === 'special-craft'
+    ? state.specialCraftVisibleCount
+    : listKey === 'binding'
+      ? state.bindingVisibleCount
+      : state.generalVisibleCount
+  const nextSlice = buildPdaExecProgressiveSlice(new Array(total).fill(null), visibleCount, PDA_EXEC_BATCH_SIZE)
+  sentinel.outerHTML = renderPdaExecAutoLoadSentinel(nextSlice, listKey)
+  queueMicrotask(bindPdaExecAutoLoad)
+}
+
+function loadNextPdaExecBatchNearViewport(): void {
+  if (typeof document === 'undefined') return
+  const listNode = document.querySelector<HTMLElement>('[data-testid="pda-exec-card-list"]')
+  const scrollContainer = listNode?.closest<HTMLElement>('[data-pda-scroll-container="true"]')
+  if (!listNode || !scrollContainer) return
+
+  const viewport = scrollContainer.getBoundingClientRect()
+  const sentinel = Array.from(
+    listNode.querySelectorAll<HTMLElement>('[data-pda-exec-auto-load-sentinel]'),
+  ).find((candidate) => {
+    if (candidate.dataset.autoLoading === 'true') return false
+    const bounds = candidate.getBoundingClientRect()
+    return bounds.top <= viewport.bottom + 240 && bounds.bottom >= viewport.top - 32
+  })
+  if (!sentinel) return
+
+  const listKey = sentinel.dataset.listKey as PdaExecProgressiveListKey | undefined
+  const nextVisibleCount = Number(sentinel.dataset.nextVisibleCount)
+  if (!listKey || !Number.isFinite(nextVisibleCount)) return
+  sentinel.dataset.autoLoading = 'true'
+  applyPdaExecAutoLoad(listKey, nextVisibleCount)
+}
+
+function schedulePdaExecAutoLoadCheck(): void {
+  if (typeof window === 'undefined' || pdaExecAutoLoadFrame !== null) return
+  pdaExecAutoLoadFrame = window.requestAnimationFrame(() => {
+    pdaExecAutoLoadFrame = null
+    loadNextPdaExecBatchNearViewport()
+  })
+}
+
+function bindPdaExecAutoLoad(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
+  if (!pdaExecAutoLoadBound) {
+    pdaExecAutoLoadBound = true
+    document.addEventListener('scroll', schedulePdaExecAutoLoadCheck, {
+      capture: true,
+      passive: true,
+    })
+  }
+  schedulePdaExecAutoLoadCheck()
 }
 
 function renderKolGotoExecCardList(acceptedTasks: ProcessTask[]): string {
@@ -1807,6 +1900,7 @@ export function renderPdaExecPage(): string {
     </div>
   `
 
+  queueMicrotask(bindPdaExecAutoLoad)
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
@@ -1960,17 +2054,6 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
     if (taskId) {
       appStore.navigate(resolvePdaExecCardDetailPath(taskId))
     }
-    return true
-  }
-
-  if (action === 'load-more') {
-    const listKey = actionNode.dataset.listKey
-    const nextVisibleCount = Math.max(PDA_EXEC_BATCH_SIZE, Number(actionNode.dataset.nextVisibleCount || PDA_EXEC_BATCH_SIZE))
-    if (listKey === 'special-craft') state.specialCraftVisibleCount = nextVisibleCount
-    else if (listKey === 'binding') state.bindingVisibleCount = nextVisibleCount
-    else if (listKey === 'general') state.generalVisibleCount = nextVisibleCount
-    else return true
-    updatePdaExecCardListInPlace()
     return true
   }
 

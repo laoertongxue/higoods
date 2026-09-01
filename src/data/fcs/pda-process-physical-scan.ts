@@ -1,5 +1,5 @@
 export type PdaPhysicalScanSourceType = 'SPECIAL_CRAFT' | 'BINDING_PROCESS_ORDER'
-export type PdaPhysicalScanAction = 'RECEIVE' | 'HANDOUT'
+export type PdaPhysicalScanAction = 'RECEIVE' | 'PROCESS_REPORT' | 'HANDOUT'
 export type PdaPhysicalScanInputMethod = 'SCANNER' | 'MANUAL'
 export type PdaPhysicalScanObjectType = 'MATERIAL_LABEL' | 'FEI_TICKET' | 'GARMENT_LABEL' | 'OUTPUT_LABEL'
 
@@ -175,7 +175,11 @@ export function commitPdaPhysicalScanBatch(input: PdaPhysicalScanScope & {
 }): PdaPhysicalScanBatchRecord {
   const lines = listPdaPhysicalScanDraftLines(input)
   if (lines.length === 0) {
-    throw new Error(input.action === 'RECEIVE' ? '请先扫描或输入本批接收的标签或菲票。' : '请先扫描或输入本批交出的标签或菲票。')
+    throw new Error(input.action === 'RECEIVE'
+      ? '请先扫描或输入本批接收的标签或菲票。'
+      : input.action === 'PROCESS_REPORT'
+        ? '请先扫描或输入本批加工填报的菲票。'
+        : '请先扫描或输入本批交出的标签或菲票。')
   }
   const businessRecordIds = input.businessRecordIds.map((item) => item.trim()).filter(Boolean)
   if (businessRecordIds.length === 0) throw new Error('业务动作未返回记录 ID，本批扫码证据不能提交。')

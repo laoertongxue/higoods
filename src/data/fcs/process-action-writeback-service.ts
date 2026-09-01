@@ -529,7 +529,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
     actionLabel: '发起交出',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['加工中'],
+    fromStatuses: ['加工中', '已完结'],
     toStatus: '加工中',
     requiredFields: ['交出人', '交出时间'],
     optionalFields: ['备注'],
@@ -1171,7 +1171,9 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     return { updatedWorkOrderId: updated.taskOrderId }
   }
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
-  const nextStatus = definition.toStatus as SpecialCraftTaskStatus
+  const nextStatus = definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' && workOrder.status === '已完结'
+    ? '已完结'
+    : definition.toStatus as SpecialCraftTaskStatus
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
   const isAccessoryInputOutput = workOrder.targetObject === '辅料'
   assertGarmentSkuQtyPayload(payload, definition.actionCode)
@@ -1209,7 +1211,6 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   }
   if (definition.actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER') {
     if (workOrder.completedQty <= 0) throw new Error('未完成加工填报，不能完成加工单。')
-    if ((workOrder.returnedQty || 0) < workOrder.completedQty) throw new Error('仍有已完工数量未发起交出，不能完成加工单。')
   }
   const lineActionCode = definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
     || definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'

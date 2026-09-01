@@ -47,7 +47,7 @@ export function listExecutableLaceWorkOrderActions(
   }
   if (canOperate && order.status === '加工中') {
     actions.push({ key: 'report-completion', label: '加工填报', tone: 'primary' })
-    actions.push({ key: 'complete-production', label: '完成加工单', tone: 'default' })
+    if (order.completedQty > 0) actions.push({ key: 'complete-production', label: '完成加工单', tone: 'default' })
   }
   if (canOperate && ['加工中', '已完结'].includes(order.status) && order.remainingHandoverQty > 0) {
     actions.push({ key: 'handover', label: '发起交出', tone: 'success' })

@@ -235,7 +235,7 @@ assertThrows(() => executeProcessWebAction({
   objectQty: processing!.planQty + 1,
   qtyUnit: '片',
 }), '发起交出超已完工未交出数量没有被拦截')
-assertThrows(() => executeMobileProcessAction({
+const earlyCompleteResult = executeMobileProcessAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
@@ -246,7 +246,8 @@ assertThrows(() => executeMobileProcessAction({
   objectType: '裁片',
   objectQty: 0,
   qtyUnit: '片',
-}), '未发起交出前完成加工单没有被拦截')
+})
+assert(earlyCompleteResult.success, '已有加工填报时，未发起交出不应阻断完成加工单')
 
 const processingAfterReport = getSpecialCraftTaskOrderById(processing!.taskOrderId) || processing!
 const handoverResult = executeProcessWebAction({
@@ -267,21 +268,7 @@ const handoverResult = executeProcessWebAction({
 })
 assert(handoverResult.success, 'Web 发起交出未成功')
 assert(getHandoverRecordsByWorkOrderId(processing!.taskOrderId).length > 0, '发起交出后未生成交出记录')
-
-const completeResult = executeMobileProcessAction({
-  sourceType: 'SPECIAL_CRAFT',
-  sourceId: processing!.taskOrderId,
-  taskId: processingBinding.actualTaskId,
-  actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
-  confirmationKey: 'CHECK-MOBILE-COMPLETE-OK',
-  operatorName: '移动端验收员',
-  operatedAt: '2026-04-28 10:40',
-  objectType: '裁片',
-  objectQty: processing!.currentQty || processing!.planQty,
-  qtyUnit: '片',
-  remark: '检查脚本完成加工单',
-})
-assert(completeResult.success, '移动端完成加工单未成功')
+assert(getSpecialCraftTaskOrderById(processing!.taskOrderId)?.status === '已完结', '已完结加工单交出后不得重新变为加工中')
 
 const platformViews = listPlatformSpecialCraftResultViews()
 assert(platformViews.some((view) => view.processType === 'SPECIAL_CRAFT' && view.platformStatusLabel), '平台侧看不到特殊工艺结果')

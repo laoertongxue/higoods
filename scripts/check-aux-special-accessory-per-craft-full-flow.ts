@@ -520,12 +520,12 @@ function runBindingFullFlow(workOrderId: string, sequence: number): void {
     }
     assert.throws(() => action('BINDING_SUBMIT_HANDOVER', 'BIND-HANDOVER-OVER', order.actualOutputQty + 1), /不能超过/)
     const [bindingHandoverFirst, bindingHandoverSecond] = splitQty(order.actualOutputQty, false)
-    action('BINDING_SUBMIT_HANDOVER', 'BIND-HANDOVER-1', bindingHandoverFirst)
-    assert.throws(() => action('BINDING_COMPLETE_ORDER', 'BIND-COMPLETE-EARLY'), /未交出/)
-    action('BINDING_SUBMIT_HANDOVER', 'BIND-HANDOVER-2', bindingHandoverSecond)
     action('BINDING_COMPLETE_ORDER', 'BIND-COMPLETE')
+    action('BINDING_SUBMIT_HANDOVER', 'BIND-HANDOVER-1', bindingHandoverFirst)
+    action('BINDING_SUBMIT_HANDOVER', 'BIND-HANDOVER-2', bindingHandoverSecond)
     const finalBindingOrder = getBindingProcessOrderById(order.bindingOrderId)
     assert(finalBindingOrder)
+    assert.equal(finalBindingOrder.status, '已完成', '已完成捆条加工单交出后不得重新变为加工中')
     const expectedActionCount = order.bindingDetails.length * 4 + 3
     const bindingWarehouseRows = getWarehouseRecordsByWorkOrderId(order.bindingOrderId)
     const bindingHandovers = listProcessHandoverRecords().filter((record) => (

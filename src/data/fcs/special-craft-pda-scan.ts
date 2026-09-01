@@ -47,7 +47,7 @@ function matchesProductionOrderCode(order: SpecialCraftTaskOrder, normalizedCode
 
 function isActionable(order: SpecialCraftTaskOrder, purpose: SpecialCraftPdaScanPurpose): boolean {
   if (purpose === 'RECEIVE') return order.status === '待接收'
-  if (purpose === 'HANDOVER') return order.status === '加工中' && order.completedQty > (order.returnedQty || 0)
+  if (purpose === 'HANDOVER') return ['加工中', '已完结'].includes(order.status) && order.completedQty > (order.returnedQty || 0)
   return order.status === '加工中'
 }
 

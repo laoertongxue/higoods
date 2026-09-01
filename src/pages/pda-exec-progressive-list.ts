@@ -7,6 +7,8 @@ export interface PdaExecProgressiveSlice<T> {
   hasMore: boolean
 }
 
+export type PdaExecProgressiveListKey = 'special-craft' | 'binding' | 'general'
+
 export function buildPdaExecProgressiveSlice<T>(
   rows: T[],
   requestedVisibleCount: number,
@@ -28,23 +30,18 @@ export function buildPdaExecProgressiveSlice<T>(
   }
 }
 
-export function renderPdaExecLoadMoreControl(
+export function renderPdaExecAutoLoadSentinel(
   slice: PdaExecProgressiveSlice<unknown>,
-  listKey: 'special-craft' | 'binding' | 'general',
+  listKey: PdaExecProgressiveListKey,
 ): string {
   if (!slice.hasMore) return ''
   const nextVisibleCount = Math.min(slice.visibleCount + slice.batchSize, slice.total)
-  const nextBatchCount = nextVisibleCount - slice.visibleCount
   return `
-    <div class="space-y-2 rounded-lg border bg-card px-3 py-3 text-xs" data-pda-exec-load-more="${listKey}">
-      <div class="text-center text-muted-foreground">已显示 ${slice.visibleCount} / ${slice.total} 条</div>
-      <button
-        type="button"
-        class="h-10 w-full rounded-md border border-primary/40 bg-primary/5 font-medium text-primary"
-        data-pda-exec-action="load-more"
-        data-list-key="${listKey}"
-        data-next-visible-count="${nextVisibleCount}"
-        data-skip-page-rerender="true"
-      >继续显示 ${nextBatchCount} 条</button>
-    </div>`
+    <div
+      class="h-px w-full"
+      data-pda-exec-auto-load-sentinel="${listKey}"
+      data-list-key="${listKey}"
+      data-next-visible-count="${nextVisibleCount}"
+      aria-hidden="true"
+    ></div>`
 }

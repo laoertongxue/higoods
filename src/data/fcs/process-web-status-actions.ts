@@ -476,7 +476,7 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
     actionLabel: '发起交出',
     processType: 'SPECIAL_CRAFT',
-    fromStatuses: ['加工中'],
+    fromStatuses: ['加工中', '已完结'],
     toStatus: '加工中',
     requiredFields: ['交出人', '交出时间'],
     optionalFields: ['备注'],
@@ -774,9 +774,12 @@ export function getAvailableCuttingWebActions(cuttingOrderId: string): ProcessWe
 export function getAvailableSpecialCraftWebActions(workOrderId: string): ProcessWebAction[] {
   const binding = isMobileBindingValid('SPECIAL_CRAFT', workOrderId)
   const status = getSpecialCraftStatus(workOrderId)
+  const workOrder = getSpecialCraftTaskOrderById(workOrderId)
   if (!status) return []
   if (!binding.ok) return [toAction(SPECIAL_CRAFT_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(SPECIAL_CRAFT_ACTIONS, status.status)
+    .filter((action) => action.actionCode !== 'SPECIAL_CRAFT_COMPLETE_ORDER' || (workOrder?.completedQty || 0) > 0)
+    .filter((action) => action.actionCode !== 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || (workOrder?.completedQty || 0) > (workOrder?.returnedQty || 0))
 }
 
 export function getAvailablePostFinishingWebActions(postOrderId: string): ProcessWebAction[] {

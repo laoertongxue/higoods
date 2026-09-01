@@ -1234,6 +1234,7 @@ export function completeLaceProduction(
   const order = findWorkOrder(state, workOrderId)
   assertFactoryActor(order, actor)
   if (order.status !== '加工中') fail('INVALID_COMPLETE_STATUS', '只有加工中的花边生产单可以完成加工单')
+  if (completedQtyForState(state, order.workOrderId) <= 0) fail('NO_COMPLETION_REPORT', '尚无加工填报，不能完成加工单')
   const before = order.status
   order.status = '已完结'
   order.completedAt = nowIso()

@@ -190,7 +190,9 @@ export function applyButtonLoopTaskAction(
   current: ButtonLoopTaskOrder,
   action: ButtonLoopTaskAction,
 ): ButtonLoopTaskOrder {
-  if (current.status === '已完结') throw new Error('盘扣加工单已完结，不允许继续操作。')
+  if (current.status === '已完结' && action.action !== 'SUBMIT_HANDOVER') {
+    throw new Error('盘扣加工单已完结，只允许继续交出已填报产出。')
+  }
 
   if (action.action === 'CONFIRM_RECEIVE') {
     if (current.inputTicketCount === 0) throw new Error('待裁床生成捆条菲票后才能确认接收。')
@@ -257,7 +259,7 @@ export function applyButtonLoopTaskAction(
     const handedOverQty = current.handedOverQty + action.outputQty
     return {
       ...current,
-      status: '加工中',
+      status: current.status === '已完结' ? '已完结' : '加工中',
       handedOverQty,
       waitHandoverQty: current.outputQty - handedOverQty,
       events: [...current.events, {
@@ -276,7 +278,6 @@ export function applyButtonLoopTaskAction(
     throw new Error('仍有捆条菲票未确认接收，不能完成加工单。')
   }
   if (current.outputQty <= 0) throw new Error('尚未填报盘扣产出，不能完成加工单。')
-  if (current.waitHandoverQty > 0) throw new Error(`仍有 ${current.waitHandoverQty} 个待交出，不能完成加工单。`)
   return {
     ...current,
     status: '已完结',
@@ -287,7 +288,7 @@ export function applyButtonLoopTaskAction(
       operatedAt: action.operatedAt,
       outputQty: current.outputQty,
       unit: BUTTON_LOOP_OUTPUT_UNIT,
-      remark: `盘扣加工单完成，累计产出并交出 ${current.outputQty} 个。`,
+      remark: `盘扣加工单完成，累计产出 ${current.outputQty} 个。`,
     }],
   }
 }

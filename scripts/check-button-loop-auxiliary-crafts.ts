@@ -132,24 +132,17 @@ task = applyButtonLoopTaskAction(task, {
   operatedAt: '2026-08-20 13:00:00',
 })
 assert.equal(task.waitHandoverQty, 18)
-assert.throws(
-  () => applyButtonLoopTaskAction(task, {
-    action: 'COMPLETE',
-    operatorName: 'APF 主管',
-    operatedAt: '2026-08-20 13:05:00',
-  }),
-  /仍有 18 个待交出/,
-)
+task = applyButtonLoopTaskAction(task, {
+  action: 'COMPLETE',
+  operatorName: 'APF 主管',
+  operatedAt: '2026-08-20 13:05:00',
+})
+assert.equal(task.status, '已完结')
 task = applyButtonLoopTaskAction(task, {
   action: 'SUBMIT_HANDOVER',
   outputQty: 18,
   operatorName: 'APF 交出员',
   operatedAt: '2026-08-20 13:10:00',
-})
-task = applyButtonLoopTaskAction(task, {
-  action: 'COMPLETE',
-  operatorName: 'APF 主管',
-  operatedAt: '2026-08-20 13:15:00',
 })
 assert.equal(task.status, '已完结')
 assert.equal(task.receiverWarehouseName, '中央辅料仓')
@@ -353,15 +346,15 @@ const firstReceipt = accessoryReceiptModule.confirmButtonLoopAccessoryReceipt({
 assert.equal(firstReceipt.receivedQty, 10)
 runtimeTask = taskOrderModule.executeButtonLoopSpecialCraftAction({
   taskOrderId: runtimeTask.taskOrderId,
-  actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
-  outputQty: 14,
-  operatorName: 'APF 交出员',
+  actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
+  operatorName: 'APF 主管',
   operatedAt: '2026-08-20 11:04:00',
 })
 runtimeTask = taskOrderModule.executeButtonLoopSpecialCraftAction({
   taskOrderId: runtimeTask.taskOrderId,
-  actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
-  operatorName: 'APF 主管',
+  actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+  outputQty: 14,
+  operatorName: 'APF 交出员',
   operatedAt: '2026-08-20 11:05:00',
 })
 assert.equal(runtimeTask.status, '已完结')

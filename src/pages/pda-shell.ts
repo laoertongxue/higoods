@@ -376,7 +376,7 @@ export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, opt
   return `
     <section class="relative flex h-screen min-h-0 flex-col overflow-hidden bg-background">
       ${renderPdaTopBar(activeTab, options.headerTitle)}
-      <div class="min-h-0 flex-1 overflow-y-auto pb-[72px]">
+      <div class="min-h-0 flex-1 overflow-y-auto pb-[72px]" data-pda-scroll-container="true">
         ${content}
       </div>
       ${renderPdaBottomNav(activeTab)}

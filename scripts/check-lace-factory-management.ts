@@ -272,6 +272,7 @@ assert.equal(updatedInputs.inputLines[0].plannedQty, 15)
 assert.equal(updatedInputs.inputLines.length, 2, 'the first phase does not add or remove input lines')
 confirmLaceProductionReceipt(inputPending.workOrderId, LACE_FACTORY_OPERATOR)
 expectDomainError('FORBIDDEN_FACTORY', () => confirmLaceProductionReceipt(inputPending.workOrderId, PMS_BUYER))
+expectDomainError('NO_COMPLETION_REPORT', () => completeLaceProduction(inputPending.workOrderId, '尚无填报不得完成', LACE_FACTORY_OPERATOR))
 expectDomainError('FUTURE_EVENT_TIME', () => createLaceCompletionReport({
   workOrderId: inputPending.workOrderId,
   qty: 1,
