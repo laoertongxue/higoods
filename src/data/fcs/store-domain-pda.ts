@@ -496,6 +496,7 @@ const PDA_SESSION_KEY = 'fcs_pda_session'
 
 let cachedPdaUsers: FactoryPdaUser[] | null = null
 let cachedPdaRoles: FactoryPdaRole[] | null = null
+let cachedPdaSession: FactoryPdaSession | null = null
 
 function clonePermissionKeys(permissionKeys: PermissionKey[]): PermissionKey[] {
   return [...permissionKeys]
@@ -1095,7 +1096,10 @@ export function removeFactoryPdaDataByFactory(factoryId: string): void {
 }
 
 function readRawPdaSession(): FactoryPdaSession | null {
-  return normalizeSession(readStoredJson<FactoryPdaSession>(PDA_SESSION_KEY))
+  const stored = normalizeSession(readStoredJson<FactoryPdaSession>(PDA_SESSION_KEY))
+  const session = stored ?? cachedPdaSession
+  cachedPdaSession = session ? clonePdaSession(session) : null
+  return session ? clonePdaSession(session) : null
 }
 
 export function getPdaSession(): FactoryPdaSession | null {
@@ -1131,10 +1135,12 @@ export function setPdaSession(session: FactoryPdaSession | null): void {
     clearPdaSession()
     return
   }
-  writeStoredJson(PDA_SESSION_KEY, clonePdaSession(session))
+  cachedPdaSession = clonePdaSession(session)
+  writeStoredJson(PDA_SESSION_KEY, cachedPdaSession)
 }
 
 export function clearPdaSession(): void {
+  cachedPdaSession = null
   removeBrowserStorageItem(getStorage(), PDA_SESSION_KEY)
 }
 

@@ -15,6 +15,7 @@ import {
   type ReleaseSourceStatus,
   type SupplementPartShortage,
 } from './cut-piece-release-domain.ts'
+import { listEffectiveTaskAssignments } from './effective-task-assignments.ts'
 
 export type CutPieceReleaseDecision = '待判断' | '可以做' | '部分可以做' | '暂时不能做'
 
@@ -154,6 +155,10 @@ export interface CutPieceDispatchReadinessSkuLine {
   completeKitQty: number | null
   releaseConfirmQty: number | null
   riskReleaseQty: number | null
+  allocatedQty: number
+  availableQty: number | null
+  allocationTaskIds: string[]
+  dispatchAllowed: boolean
   status: CutPieceDispatchReadinessStatus
   reason: string
 }
@@ -168,6 +173,8 @@ export interface CutPieceDispatchReadiness {
   latestUpdatedAt: string
   lines: CutPieceDispatchReadinessSkuLine[]
   warningCount: number
+  blockingCount: number
+  canDispatch: boolean
 }
 
 export type CutPieceReleaseAvailableStatus =
@@ -1423,14 +1430,29 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
     : { status: 'rejected', reason: '铺布冲销事件写入失败。' }
 }
 
-export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
-  const sourceId = releaseRepository.has(productionOrderId) ? productionOrderId : ({
+const CUT_PIECE_RELEASE_PRODUCTION_ORDER_ALIASES: Record<string, string> = {
     'PO-202603-0014': 'po-14677',
     'PO-202603-0015': 'po-14673',
     'PO-202603-083': 'po-14672',
     'PO-202603-084': 'po-14671',
     'PO-202603-086': 'po-14671',
-  } as Record<string, string>)[productionOrderId] ?? productionOrderId
+}
+
+function resolveCutPieceReleaseProductionOrderId(productionOrderId: string): string {
+  return releaseRepository.has(productionOrderId)
+    ? productionOrderId
+    : CUT_PIECE_RELEASE_PRODUCTION_ORDER_ALIASES[productionOrderId] ?? productionOrderId
+}
+
+export function requiresCutPieceReleaseForProcessCodes(processCodes: readonly string[]): boolean {
+  const normalized = new Set(processCodes.map((code) => code.trim().toUpperCase()))
+  const containsSewing = [...normalized].some((code) => ['SEW', 'SEWING', 'PROC_SEW'].includes(code))
+  const containsCutting = [...normalized].some((code) => ['CUT', 'CUTTING', 'CUT_PANEL', 'PROC_CUT'].includes(code))
+  return containsSewing && !containsCutting
+}
+
+export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
+  const sourceId = resolveCutPieceReleaseProductionOrderId(productionOrderId)
   const item = releaseRepository.get(sourceId)
   const record = listCutPieceReleaseRecords().find((candidate) => candidate.productionOrderId === sourceId)
   if (!record || !item) return null
@@ -1471,12 +1493,57 @@ function normalizeReadinessText(value: string): string {
   return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
 }
 
+interface ActiveCutPieceAllocationLine {
+  assignmentId: string
+  runtimeTaskId: string
+  skuCode: string
+  color: string
+  size: string
+  qty: number
+}
+
+function listActiveCutPieceAllocationLines(
+  productionOrderId: string,
+  excludeRuntimeTaskIds: readonly string[] = [],
+): ActiveCutPieceAllocationLine[] {
+  const sourceId = resolveCutPieceReleaseProductionOrderId(productionOrderId)
+  const excluded = new Set(excludeRuntimeTaskIds)
+  return listEffectiveTaskAssignments()
+    .filter((assignment) => (
+      assignment.status === 'EFFECTIVE'
+      && !excluded.has(assignment.runtimeTaskId)
+      && requiresCutPieceReleaseForProcessCodes(assignment.processCodes)
+      && resolveCutPieceReleaseProductionOrderId(assignment.productionOrderId) === sourceId
+    ))
+    .flatMap((assignment) => assignment.skuLines.map((line) => ({
+      assignmentId: assignment.assignmentId,
+      runtimeTaskId: assignment.runtimeTaskId,
+      skuCode: line.skuCode,
+      color: line.color,
+      size: line.size,
+      qty: line.qty,
+    })))
+}
+
+function matchActiveCutPieceAllocations(
+  source: Pick<CutPieceReleaseSkuLine, 'skuCode' | 'colorName' | 'sizeCode'>,
+  allocations: ActiveCutPieceAllocationLine[],
+): ActiveCutPieceAllocationLine[] {
+  const exactSku = allocations.filter((line) => normalizeReadinessText(line.skuCode) === normalizeReadinessText(source.skuCode))
+  if (exactSku.length > 0) return exactSku
+  return allocations.filter((line) => (
+    normalizeReadinessText(line.color) === normalizeReadinessText(source.colorName)
+    && normalizeReadinessText(line.size) === normalizeReadinessText(source.sizeCode)
+  ))
+}
+
 export function getCutPieceDispatchReadinessForTask(input: {
   productionOrderId: string
   productionOrderNo?: string
   skuLines: Array<{ skuCode: string; color: string; size: string; qty: number }>
+  excludeRuntimeTaskIds?: string[]
 }): CutPieceDispatchReadiness {
-  const productionOrderKey = input.productionOrderId || input.productionOrderNo || ''
+  const productionOrderKey = resolveCutPieceReleaseProductionOrderId(input.productionOrderId || input.productionOrderNo || '')
   const record = listCutPieceReleaseRecords().find((candidate) => (
     candidate.productionOrderId === productionOrderKey
     || candidate.productionOrderNo === productionOrderKey
@@ -1492,6 +1559,10 @@ export function getCutPieceDispatchReadinessForTask(input: {
     completeKitQty: null,
     releaseConfirmQty: null,
     riskReleaseQty: null,
+    allocatedQty: 0,
+    availableQty: null,
+    allocationTaskIds: [],
+    dispatchAllowed: false,
     status: '待同步',
     reason: '尚未读取到该生产单的裁片齐套、目标与放行记录。',
   }))
@@ -1506,9 +1577,12 @@ export function getCutPieceDispatchReadinessForTask(input: {
       latestUpdatedAt: '',
       lines: missingLines,
       warningCount: missingLines.length,
+      blockingCount: missingLines.length,
+      canDispatch: false,
     }
   }
 
+  const activeAllocations = listActiveCutPieceAllocationLines(record.productionOrderId, input.excludeRuntimeTaskIds)
   const lines = input.skuLines.map<CutPieceDispatchReadinessSkuLine>((taskLine) => {
     const exact = record.skuLines.find((line) => normalizeReadinessText(line.skuCode) === normalizeReadinessText(taskLine.skuCode))
     const byColorSize = record.skuLines.filter((line) => (
@@ -1521,16 +1595,21 @@ export function getCutPieceDispatchReadinessForTask(input: {
     const completeKitQty = source.completeKitQty
     const releaseConfirmQty = source.releaseConfirmQty
     const riskReleaseQty = source.riskReleaseQty
+    const matchedAllocations = matchActiveCutPieceAllocations(source, activeAllocations)
+    const allocatedQty = matchedAllocations.reduce((sum, line) => sum + line.qty, 0)
+    const availableQty = Math.max(releaseConfirmQty - allocatedQty, 0)
+    const allocationTaskIds = [...new Set(matchedAllocations.map((line) => line.runtimeTaskId))]
     let status: CutPieceDispatchReadinessStatus = '已满足'
-    let reason = '目标、齐套与已确认放行数量均满足本次任务范围。'
+    let reason = `当前放行 ${releaseConfirmQty} 件，已被有效任务占用 ${allocatedQty} 件，可分配 ${availableQty} 件。`
+    let dispatchAllowed = true
     if (targetQty == null) {
-      status = '待维护目标'; reason = '裁床尚未确认该 SKU 的目标数量。'
-    } else if (riskReleaseQty > 0) {
-      status = '风险放行'; reason = `已确认放行中有 ${riskReleaseQty} 件超过当前齐套数量，须关注裁床风险说明。`
-    } else if (releaseConfirmQty < taskLine.qty) {
-      status = '部分放行'; reason = `当前已确认放行 ${releaseConfirmQty} 件，少于本次任务 ${taskLine.qty} 件。`
-    } else if (completeKitQty < taskLine.qty) {
-      status = '齐套不足'; reason = `当前齐套 ${completeKitQty} 件，少于本次任务 ${taskLine.qty} 件。`
+      status = '待维护目标'; reason = '裁床尚未确认该 SKU 的目标数量。'; dispatchAllowed = false
+    } else if (!['按齐套放行', '风险放行'].includes(record.releaseAvailableStatus)) {
+      status = '部分放行'; reason = `当前放行状态为“${record.releaseAvailableStatus}”，裁床须重新确认具体放行数量后才能分配。`; dispatchAllowed = false
+    } else if (availableQty < taskLine.qty) {
+      status = '部分放行'; reason = `当前放行 ${releaseConfirmQty} 件，已占用 ${allocatedQty} 件，可分配 ${availableQty} 件，少于本次任务 ${taskLine.qty} 件。`; dispatchAllowed = false
+    } else if (riskReleaseQty > 0 || completeKitQty < releaseConfirmQty) {
+      status = '风险放行'; reason = `本行含 ${riskReleaseQty} 件风险放行；扣除已占用 ${allocatedQty} 件后仍可分配 ${availableQty} 件。`
     }
     return {
       skuCode: taskLine.skuCode,
@@ -1541,6 +1620,10 @@ export function getCutPieceDispatchReadinessForTask(input: {
       completeKitQty,
       releaseConfirmQty,
       riskReleaseQty,
+      allocatedQty,
+      availableQty,
+      allocationTaskIds,
+      dispatchAllowed,
       status,
       reason,
     }
@@ -1556,7 +1639,22 @@ export function getCutPieceDispatchReadinessForTask(input: {
     latestUpdatedAt: [record.latestUpdateAt, latestReleaseVersion?.confirmedAt || ''].sort().at(-1) || record.latestUpdateAt,
     lines,
     warningCount: lines.filter((line) => line.status !== '已满足').length,
+    blockingCount: lines.filter((line) => !line.dispatchAllowed).length,
+    canDispatch: lines.every((line) => line.dispatchAllowed),
   }
+}
+
+export function assertCutPieceReleaseDispatchAvailable(input: {
+  productionOrderId: string
+  productionOrderNo?: string
+  skuLines: Array<{ skuCode: string; color: string; size: string; qty: number }>
+  excludeRuntimeTaskIds?: string[]
+}): CutPieceDispatchReadiness {
+  const readiness = getCutPieceDispatchReadinessForTask(input)
+  if (readiness.canDispatch) return readiness
+  const blocked = readiness.lines.filter((line) => !line.dispatchAllowed)
+  const detail = blocked.slice(0, 3).map((line) => `${line.color}/${line.size}：${line.reason}`).join('；')
+  throw new Error(`裁片放行不足，不能分配车缝任务。${detail}${blocked.length > 3 ? `；另有${blocked.length - 3}项` : ''}`)
 }
 
 export function confirmCutPieceReleaseAvailableQty(
@@ -1581,6 +1679,7 @@ export function confirmCutPieceReleaseAvailableQty(
   }
 
   const targetValues = targetSnapshot.targetPreview.colorSizeTargets
+  const activeAllocations = listActiveCutPieceAllocationLines(input.productionOrderId)
   let totalRiskReleaseQty = 0
   let totalReleaseQty = 0
   const riskReleaseQtyByColorSize: Record<string, number> = {}
@@ -1594,6 +1693,19 @@ export function confirmCutPieceReleaseAvailableQty(
     if (qty < 0) return { ok: false, message: `${key} 可做数量不能为负数。`, version: null }
     const targetQty = targetValues[key] ?? 0
     if (qty > targetQty) return { ok: false, message: `${key} 可做数量 ${qty} 不能超过目标数量 ${targetQty}。`, version: null }
+    const occupiedLines = activeAllocations.filter((line) => (
+      normalizeReadinessText(line.color) === normalizeReadinessText(garmentColor)
+      && normalizeReadinessText(line.size) === normalizeReadinessText(size)
+    ))
+    const occupiedQty = occupiedLines.reduce((sum, line) => sum + line.qty, 0)
+    if (qty < occupiedQty) {
+      const taskIds = [...new Set(occupiedLines.map((line) => line.runtimeTaskId))]
+      return {
+        ok: false,
+        message: `${key} 放行数量不得低于已分配数量 ${occupiedQty} 件（占用任务：${taskIds.join('、')}）；本次修改未保存。`,
+        version: null,
+      }
+    }
 
     const group = matrix.colorGroups.find((g) => g.garmentColor === garmentColor)
     const completeKitQtyVal = group?.completeKitBySize[size]

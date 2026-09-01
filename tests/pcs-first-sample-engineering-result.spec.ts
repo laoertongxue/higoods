@@ -57,7 +57,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     reason: '已满足做大货要求',
     uniqueTriggerKey: `FIRST-SAMPLE-${style.styleCode}`,
   },
-  creationReason: '验证产前版样衣逐行实际交付',
+  creationReason: '验证首单样衣逐行实际交付',
 }).masterOrderId)
 
 const basePatternTaskId = `${master.masterOrderId}-BASE_PATTERN_WOVEN`
@@ -68,7 +68,7 @@ const patternVersion = submitEngineeringPatternResult({
   applicableSizes: ['M'],
   sourceFiles: [{ fileId: `${basePatternTaskId}-PRJ`, purpose: 'PATTERN_SOURCE', fileName: '样衣基码纸样.prj', extension: 'prj', mimeType: 'application/octet-stream', sizeBytes: 8, dataUrl: 'data:application/octet-stream;base64,SElHT09E', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-13 10:00:00', roundNo: 1, errorMessage: '' }],
   previewFiles: [{ fileId: `${basePatternTaskId}-IMAGE`, purpose: 'PATTERN_PREVIEW', fileName: '样衣基码纸样.jpg', extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 4, dataUrl: 'data:image/jpeg;base64,/9j/2Q==', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-13 10:00:00', roundNo: 1, errorMessage: '' }],
-  note: '产前版样衣逐行交付验证',
+  note: '首单样衣逐行交付验证',
   submittedBy: '版师负责人',
 })
 const sourcePatternVersion = `${patternVersion.materialKind}${patternVersion.patternKind} ${patternVersion.versionLabel}`
@@ -108,7 +108,7 @@ assert.throws(
   () => submitEngineeringFirstSampleResult(taskId, {
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, submittedBy: '   ' } : line),
   }),
-  /请填写产前版样衣成果提交人/,
+  /请填写首单样衣成果提交人/,
 )
 const submitted = submitEngineeringFirstSampleResult(taskId, {
   sampleActuals: makeActuals(),

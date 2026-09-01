@@ -172,8 +172,8 @@ assert.equal(published.tasks.length, 10, '发布时一次性生成 10 类专业�
 const statusByType = Object.fromEntries(published.tasks.map((task) => [task.taskType, task.status]))
 assert.equal(statusByType.BASE_PATTERN_WOVEN, '待开始', '基码无前置，初始待开始')
 assert.equal(statusByType.BASE_PATTERN_KNIT, '未启用', '纯梭织不启用毛织基码')
-assert.equal(statusByType.PRE_PRODUCTION_SAMPLE, '待前置', '产前版样衣等待梭织基码')
-assert.equal(statusByType.SIZE_PATTERN_WOVEN, '待前置', '齐码等待产前版样衣')
+assert.equal(statusByType.PRE_PRODUCTION_SAMPLE, '待前置', '首单样衣等待梭织基码')
+assert.equal(statusByType.SIZE_PATTERN_WOVEN, '待前置', '齐码等待首单样衣')
 assert.equal(statusByType.PATTERN_ARTWORK, '未启用', '花型为条件任务，初始未启用')
 assert.equal(statusByType.COLOR_YARN, '未启用', '纱线调色为条件任务，初始未启用')
 assert.equal(statusByType.COLOR_FABRIC, '未启用', '面料调色为条件任务，初始未启用')
@@ -182,7 +182,7 @@ assert.equal(statusByType.TECH_PACK_CONFIRMATION, '待前置', '技术包确认�
 
 // 任务依赖必须指向同主单内任务，且只从固定策略复制
 const sampleTask = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
-assert.ok(sampleTask, '应存在产前版样衣任务')
+assert.ok(sampleTask, '应存在首单样衣任务')
 assert.deepEqual(sampleTask.dependsOnTaskIds, [
   `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
 ])

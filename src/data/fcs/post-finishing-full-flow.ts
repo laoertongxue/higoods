@@ -35,6 +35,7 @@ export interface PostFinishingActor {
 export const POST_FINISHING_ACCEPTANCE_ACTORS = {
   factoryCourier: { actorId: 'PF-USER-COURIER', actorName: '苏车缝送货员', roleName: '车缝厂送货人员' },
   returnConfirmer: { actorId: 'PF-USER-RETURN', actorName: '黄回货确认员', roleName: '后道回货确认人员' },
+  returnSupervisor: { actorId: 'PF-USER-RETURN-MGR', actorName: '凌回货主管', roleName: '后道回货主管' },
   sender: { actorId: 'PF-USER-SEND', actorName: '郭送检员', roleName: '送检人员' },
   buyer: { actorId: 'PF-USER-BUYER', actorName: '陈买手', roleName: '买手' },
   qcA: { actorId: 'PF-USER-QC-A', actorName: '李质检员', roleName: 'QC质检员' },
@@ -46,6 +47,17 @@ export const POST_FINISHING_ACCEPTANCE_ACTORS = {
   recheckerB: { actorId: 'PF-USER-RC-B', actorName: '钱复检员', roleName: '复检员' },
   warehouseReceiver: { actorId: 'PF-USER-WH', actorName: '孙仓库收货员', roleName: '仓库收货人员' },
 } as const satisfies Record<string, PostFinishingActor>
+
+export type PostFinishingSewingTaskType =
+  | 'INDEPENDENT_SEWING'
+  | 'SEWING_TO_IRON_PACK'
+  | 'CUTTING_TO_IRON_PACK'
+
+export const POST_FINISHING_SEWING_TASK_TYPE_LABEL: Record<PostFinishingSewingTaskType, string> = {
+  INDEPENDENT_SEWING: '独立车缝',
+  SEWING_TO_IRON_PACK: '车缝＋烫包',
+  CUTTING_TO_IRON_PACK: '裁剪＋车缝＋烫包',
+}
 
 export interface PostFinishingAcceptanceSku {
   skuId: string
@@ -65,7 +77,10 @@ export interface PostFinishingAcceptanceProductionOrder {
   productionOrderNo: string
   styleNo: string
   styleName: string
+  executionTaskId: string
   sewingTaskNo: string
+  assignmentId: string
+  sewingTaskType: PostFinishingSewingTaskType
   defaultStagingLocation: string
   sewingFactoryId: string
   sewingFactoryName: string
@@ -99,6 +114,10 @@ export interface PostFinishingFactoryReturnDelivery {
   idempotencyKey: string
   productionOrderId: string
   productionOrderNo: string
+  executionTaskId: string
+  sewingTaskNo: string
+  assignmentId: string
+  sewingTaskType: PostFinishingSewingTaskType
   returnIndex: number
   sewingFactoryId: string
   sewingFactoryName: string
@@ -113,6 +132,8 @@ export interface PostFinishingFactoryReturnDelivery {
   lines: PostFinishingFactoryReturnLine[]
   confirmedBy?: PostFinishingActor
   confirmedAt?: string
+  lastCorrectedBy?: PostFinishingActor
+  lastCorrectedAt?: string
   returnAuthorizationId?: string
   returnAuthorizedBy?: { authorizerId: string; authorizerName: string }
   qcTaskId?: string
@@ -156,6 +177,41 @@ export interface PostFinishingWaitProcessWarehouseMovement {
   quantities: Array<{ sku: PostFinishingAcceptanceSku; quantity: number }>
   operator: PostFinishingActor
   operatedAt: string
+}
+
+export interface PostFinishingReturnConfirmationLine {
+  skuId: string
+  skuCode: string
+  colorName: string
+  sizeName: string
+  registeredQty: number
+  confirmedQty: number
+}
+
+export interface PostFinishingReturnConfirmationVersion {
+  confirmationVersionId: string
+  deliveryId: string
+  deliveryOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  executionTaskId: string
+  sewingTaskNo: string
+  assignmentId: string
+  factoryId: string
+  factoryName: string
+  sewingTaskType: PostFinishingSewingTaskType
+  registeredQty: number
+  confirmedQty: number
+  confirmedAt: string
+  versionCreatedAt: string
+  confirmedBy: PostFinishingActor
+  versionKind: 'FINAL_CONFIRMATION' | 'AUTHORIZED_CORRECTION'
+  correctionReason?: string
+  status: 'ACTIVE' | 'SUPERSEDED'
+  supersedesVersionId?: string
+  supersededAt?: string
+  supersededByVersionId?: string
+  lines: PostFinishingReturnConfirmationLine[]
 }
 
 export interface PostFinishingQualityResultLine {
@@ -349,6 +405,7 @@ interface PostFinishingFullFlowState {
   deliveries: PostFinishingFactoryReturnDelivery[]
   waitProcessWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[]
   waitProcessWarehouseMovements: PostFinishingWaitProcessWarehouseMovement[]
+  returnConfirmationVersions: PostFinishingReturnConfirmationVersion[]
   qcTasks: PostFinishingQcTask[]
   postTasks: PostFinishingPostTask[]
   recheckOrders: PostFinishingRecheckOrder[]
@@ -369,8 +426,11 @@ export type PostFinishingFlowGateCode =
   | 'DEFECT_REASON_REQUIRED'
 
 export class PostFinishingFlowGateError extends Error {
-  constructor(public readonly code: PostFinishingFlowGateCode, message: string) {
+  public readonly code: PostFinishingFlowGateCode
+
+  constructor(code: PostFinishingFlowGateCode, message: string) {
     super(message)
+    this.code = code
     this.name = 'PostFinishingFlowGateError'
   }
 }
@@ -408,15 +468,30 @@ const ORDER_SEEDS = [
   { no: 'PO-QC-202608-003', styleNo: 'HG-QC-003', styleName: '后道验收外套', imageUrl: '/jacket-sample.jpg', spuCode: 'SPU-QC-003' },
 ] as const
 
+const SEWING_FACTORY_SEEDS = [
+  { factoryId: 'ID-F021', factoryName: 'CV Micro Sewing Jakarta Pusat' },
+  { factoryId: 'ID-F022', factoryName: 'CV Micro Sewing Bandung Utara' },
+  { factoryId: 'ID-F024', factoryName: 'CV Micro Sewing Semarang Timur' },
+] as const
+
+const SEWING_TASK_TYPE_SEEDS: PostFinishingSewingTaskType[] = [
+  'INDEPENDENT_SEWING',
+  'SEWING_TO_IRON_PACK',
+  'CUTTING_TO_IRON_PACK',
+]
+
 export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanceProductionOrder[] = ORDER_SEEDS.map((seed, orderIndex) => ({
   productionOrderId: `PF-ACCEPT-PO-${orderIndex + 1}`,
   productionOrderNo: seed.no,
   styleNo: seed.styleNo,
   styleName: seed.styleName,
+  executionTaskId: `PF-SEW-EXEC-${String(orderIndex + 1).padStart(3, '0')}`,
   sewingTaskNo: `SEW-TASK-QC-${String(orderIndex + 1).padStart(3, '0')}`,
+  assignmentId: `PF-SEW-ASG-${String(orderIndex + 1).padStart(3, '0')}`,
+  sewingTaskType: SEWING_TASK_TYPE_SEEDS[orderIndex],
   defaultStagingLocation: `后道待确认区-${String.fromCharCode(65 + orderIndex)}`,
-  sewingFactoryId: `SEW-QC-${orderIndex + 1}`,
-  sewingFactoryName: `车缝验收工厂 ${orderIndex + 1}`,
+  sewingFactoryId: SEWING_FACTORY_SEEDS[orderIndex].factoryId,
+  sewingFactoryName: SEWING_FACTORY_SEEDS[orderIndex].factoryName,
   managedPostFactoryId: 'ID-F002',
   managedPostFactoryName: 'PT Prima Printing Center',
   skus: SIZES.map((sizeName, skuIndex) => ({
@@ -438,6 +513,7 @@ function emptyState(): PostFinishingFullFlowState {
     deliveries: [],
     waitProcessWarehouseRecords: [],
     waitProcessWarehouseMovements: [],
+    returnConfirmationVersions: [],
     qcTasks: [],
     postTasks: [],
     recheckOrders: [],
@@ -447,15 +523,67 @@ function emptyState(): PostFinishingFullFlowState {
   }
 }
 
+function backfillDeliveryExecutionIdentity(delivery: PostFinishingFactoryReturnDelivery): PostFinishingFactoryReturnDelivery {
+  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === delivery.productionOrderNo)
+  if (!order) return delivery
+  return {
+    ...delivery,
+    executionTaskId: delivery.executionTaskId || order.executionTaskId,
+    sewingTaskNo: delivery.sewingTaskNo || order.sewingTaskNo,
+    assignmentId: delivery.assignmentId || order.assignmentId,
+    sewingTaskType: delivery.sewingTaskType || order.sewingTaskType,
+    sewingFactoryId: order.sewingFactoryId,
+    sewingFactoryName: order.sewingFactoryName,
+  }
+}
+
+function deriveLegacyConfirmationVersions(deliveries: PostFinishingFactoryReturnDelivery[]): PostFinishingReturnConfirmationVersion[] {
+  return deliveries.filter((delivery) => delivery.confirmedAt && delivery.confirmedBy).map((delivery) => ({
+    confirmationVersionId: `PF-RET-CONF-LEGACY-${delivery.deliveryId}`,
+    deliveryId: delivery.deliveryId,
+    deliveryOrderNo: delivery.deliveryOrderNo,
+    productionOrderId: delivery.productionOrderId,
+    productionOrderNo: delivery.productionOrderNo,
+    executionTaskId: delivery.executionTaskId,
+    sewingTaskNo: delivery.sewingTaskNo,
+    assignmentId: delivery.assignmentId,
+    factoryId: delivery.sewingFactoryId,
+    factoryName: delivery.sewingFactoryName,
+    sewingTaskType: delivery.sewingTaskType,
+    registeredQty: total(delivery.lines.map((line) => line.registeredQty)),
+    confirmedQty: total(delivery.lines.map((line) => line.confirmedQty || 0)),
+    confirmedAt: delivery.confirmedAt!,
+    versionCreatedAt: delivery.confirmedAt!,
+    confirmedBy: { ...delivery.confirmedBy! },
+    versionKind: 'FINAL_CONFIRMATION',
+    status: 'ACTIVE',
+    lines: delivery.lines.map((line) => ({
+      skuId: line.sku.skuId,
+      skuCode: line.sku.skuCode,
+      colorName: line.sku.colorName,
+      sizeName: line.sku.sizeName,
+      registeredQty: line.registeredQty,
+      confirmedQty: line.confirmedQty || 0,
+    })),
+  }))
+}
+
 function readPersistedState(): PostFinishingFullFlowState {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
     if (!raw) return emptyState()
     const parsed = JSON.parse(raw) as Partial<PostFinishingFullFlowState>
+    const deliveries = (Array.isArray(parsed.deliveries) ? parsed.deliveries : []).map(backfillDeliveryExecutionIdentity)
     return {
-      deliveries: Array.isArray(parsed.deliveries) ? parsed.deliveries : [],
+      deliveries,
       waitProcessWarehouseRecords: Array.isArray(parsed.waitProcessWarehouseRecords) ? parsed.waitProcessWarehouseRecords : [],
       waitProcessWarehouseMovements: Array.isArray(parsed.waitProcessWarehouseMovements) ? parsed.waitProcessWarehouseMovements : [],
+      returnConfirmationVersions: Array.isArray(parsed.returnConfirmationVersions)
+        ? parsed.returnConfirmationVersions.map((version) => ({
+            ...version,
+            versionCreatedAt: version.versionCreatedAt || version.confirmedAt,
+          }))
+        : deriveLegacyConfirmationVersions(deliveries),
       qcTasks: Array.isArray(parsed.qcTasks) ? parsed.qcTasks : [],
       postTasks: Array.isArray(parsed.postTasks) ? parsed.postTasks : [],
       recheckOrders: Array.isArray(parsed.recheckOrders) ? parsed.recheckOrders : [],
@@ -596,6 +724,60 @@ function backfillWaitProcessWarehouseFacts(): void {
       })
     }
   })
+}
+
+function appendReturnConfirmationVersion(input: {
+  delivery: PostFinishingFactoryReturnDelivery
+  confirmedAt: string
+  versionCreatedAt?: string
+  confirmedBy: PostFinishingActor
+  versionKind: PostFinishingReturnConfirmationVersion['versionKind']
+  correctionReason?: string
+}): PostFinishingReturnConfirmationVersion {
+  const current = state.returnConfirmationVersions.find((version) => (
+    version.deliveryId === input.delivery.deliveryId && version.status === 'ACTIVE'
+  ))
+  const confirmationVersionId = `PF-RET-CONF-${input.delivery.deliveryId}-${String(
+    state.returnConfirmationVersions.filter((version) => version.deliveryId === input.delivery.deliveryId).length + 1,
+  ).padStart(3, '0')}`
+  const versionCreatedAt = input.versionCreatedAt || input.confirmedAt
+  if (current) {
+    current.status = 'SUPERSEDED'
+    current.supersededAt = versionCreatedAt
+    current.supersededByVersionId = confirmationVersionId
+  }
+  const version: PostFinishingReturnConfirmationVersion = {
+    confirmationVersionId,
+    deliveryId: input.delivery.deliveryId,
+    deliveryOrderNo: input.delivery.deliveryOrderNo,
+    productionOrderId: input.delivery.productionOrderId,
+    productionOrderNo: input.delivery.productionOrderNo,
+    executionTaskId: input.delivery.executionTaskId,
+    sewingTaskNo: input.delivery.sewingTaskNo,
+    assignmentId: input.delivery.assignmentId,
+    factoryId: input.delivery.sewingFactoryId,
+    factoryName: input.delivery.sewingFactoryName,
+    sewingTaskType: input.delivery.sewingTaskType,
+    registeredQty: total(input.delivery.lines.map((line) => line.registeredQty)),
+    confirmedQty: total(input.delivery.lines.map((line) => line.confirmedQty || 0)),
+    confirmedAt: input.confirmedAt,
+    versionCreatedAt,
+    confirmedBy: clone(input.confirmedBy),
+    versionKind: input.versionKind,
+    correctionReason: input.correctionReason?.trim() || undefined,
+    status: 'ACTIVE',
+    supersedesVersionId: current?.confirmationVersionId,
+    lines: input.delivery.lines.map((line) => ({
+      skuId: line.sku.skuId,
+      skuCode: line.sku.skuCode,
+      colorName: line.sku.colorName,
+      sizeName: line.sku.sizeName,
+      registeredQty: line.registeredQty,
+      confirmedQty: line.confirmedQty || 0,
+    })),
+  }
+  state.returnConfirmationVersions.push(version)
+  return clone(version)
 }
 
 function getProductionOrder(productionOrderNo: string): PostFinishingAcceptanceProductionOrder {
@@ -785,6 +967,9 @@ export function registerPostFinishingFactoryReturn(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  if (!input.actor.roleName.trim() || /PPIC/i.test(input.actor.roleName) || !/(车缝厂送货人员|工厂|factory)/i.test(input.actor.roleName)) {
+    throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货登记只能由车缝工厂送货人员或已登录工厂账号发起，PPIC只能读取后道回货结果。')
+  }
   const order = getProductionOrder(input.productionOrderNo)
   if (!Number.isInteger(input.returnIndex) || input.returnIndex < 1 || input.returnIndex > 5) {
     throw new PostFinishingFlowGateError('INVALID_QUANTITY', '回货序号必须是 1 至 5。')
@@ -817,6 +1002,10 @@ export function registerPostFinishingFactoryReturn(input: {
     idempotencyKey: input.idempotencyKey,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
+    executionTaskId: order.executionTaskId,
+    sewingTaskNo: order.sewingTaskNo,
+    assignmentId: order.assignmentId,
+    sewingTaskType: order.sewingTaskType,
     returnIndex: input.returnIndex,
     sewingFactoryId: order.sewingFactoryId,
     sewingFactoryName: order.sewingFactoryName,
@@ -849,6 +1038,9 @@ export function confirmPostFinishingFactoryReturn(input: {
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  if (!/回货确认/.test(input.actor.roleName) || /PPIC/i.test(input.actor.roleName)) {
+    throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货最终确认只能由后道回货确认岗位完成，PPIC不得填写或确认回货数量。')
+  }
   const delivery = findDelivery(input.deliveryId)
   if (!['待后道确认', '待二次点数', '差异待授权'].includes(delivery.status)) {
     if (delivery.status === '已确认待送检') return clone(delivery)
@@ -951,6 +1143,12 @@ export function confirmPostFinishingFactoryReturn(input: {
     operator: input.actor,
     operatedAt: now,
   })
+  appendReturnConfirmationVersion({
+    delivery,
+    confirmedAt: now,
+    confirmedBy: input.actor,
+    versionKind: 'FINAL_CONFIRMATION',
+  })
   persist()
   appendBusinessLog({
     stage: '回货确认', delivery, objectType: '送货单', objectId: delivery.deliveryId, objectNo: delivery.deliveryOrderNo,
@@ -960,6 +1158,55 @@ export function confirmPostFinishingFactoryReturn(input: {
     differenceQuantity: total(delivery.lines.map((line) => line.confirmedQty || 0)) - total(delivery.lines.map((line) => line.registeredQty)),
     differenceReason: input.authorization?.differenceReason,
     authorization: consumed,
+  })
+  return clone(delivery)
+}
+
+export function correctPostFinishingFactoryReturnConfirmation(input: {
+  deliveryId: string
+  correctedCounts: Array<{ skuId: string; actualQty: number }>
+  correctionReason: string
+  actor: PostFinishingActor
+  nowMs?: number
+}): PostFinishingFactoryReturnDelivery {
+  const delivery = findDelivery(input.deliveryId)
+  if (delivery.status !== '已确认待送检' || !delivery.confirmedAt) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '只有尚未送检的后道最终确认记录可以由回货主管订正。')
+  }
+  if (input.actor.roleName !== '后道回货主管') {
+    throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '后道最终确认数量只能由后道回货主管订正。')
+  }
+  const correctionReason = input.correctionReason.trim()
+  if (!correctionReason) throw new Error('请填写后道回货订正原因。')
+  const businessConfirmedAt = delivery.confirmedAt
+  const beforeQuantity = total(delivery.lines.map((line) => line.confirmedQty || 0))
+  delivery.lines.forEach((line) => {
+    const actualQty = Number(input.correctedCounts.find((item) => item.skuId === line.sku.skuId)?.actualQty)
+    assertIntegerQuantity(actualQty, { label: `SKU ${line.sku.skuCode} 订正确认数量` })
+    line.confirmedQty = actualQty
+    line.differenceQty = actualQty - line.registeredQty
+    line.differenceRate = Math.abs(actualQty - line.registeredQty) / line.registeredQty
+  })
+  const correctedAt = nowIso(input.nowMs)
+  delivery.lastCorrectedBy = clone(input.actor)
+  delivery.lastCorrectedAt = correctedAt
+  const version = appendReturnConfirmationVersion({
+    delivery,
+    confirmedAt: businessConfirmedAt,
+    versionCreatedAt: correctedAt,
+    confirmedBy: input.actor,
+    versionKind: 'AUTHORIZED_CORRECTION',
+    correctionReason,
+  })
+  persist()
+  appendBusinessLog({
+    stage: '回货确认', delivery, objectType: '送货单', objectId: delivery.deliveryId, objectNo: delivery.deliveryOrderNo,
+    action: '主管订正最终确认', actor: input.actor, operatedAt: correctedAt,
+    beforeQuantity,
+    afterQuantity: version.confirmedQty,
+    differenceQuantity: version.confirmedQty - beforeQuantity,
+    differenceReason: correctionReason,
+    remark: `保留原确认版本；当前版本 ${version.confirmationVersionId}`,
   })
   return clone(delivery)
 }
@@ -1825,6 +2072,21 @@ export function listPostFinishingWaitProcessWarehouseRecords(): PostFinishingWai
 
 export function listPostFinishingWaitProcessWarehouseMovements(): PostFinishingWaitProcessWarehouseMovement[] {
   return clone(state.waitProcessWarehouseMovements).sort((a, b) => b.operatedAt.localeCompare(a.operatedAt))
+}
+
+export function listPostFinishingReturnConfirmationVersions(input: {
+  deliveryId?: string
+  executionTaskId?: string
+  assignmentId?: string
+  activeOnly?: boolean
+} = {}): PostFinishingReturnConfirmationVersion[] {
+  return clone(state.returnConfirmationVersions
+    .filter((version) => !input.deliveryId || version.deliveryId === input.deliveryId)
+    .filter((version) => !input.executionTaskId || version.executionTaskId === input.executionTaskId)
+    .filter((version) => !input.assignmentId || version.assignmentId === input.assignmentId)
+    .filter((version) => !input.activeOnly || version.status === 'ACTIVE')
+    .sort((left, right) => left.versionCreatedAt.localeCompare(right.versionCreatedAt)
+      || left.confirmationVersionId.localeCompare(right.confirmationVersionId)))
 }
 
 export function listPostFinishingFullFlowQcTasks(): PostFinishingQcTask[] {

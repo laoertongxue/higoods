@@ -62,7 +62,7 @@ export interface EngineeringPhaseDefinition {
 
 export const ENGINEERING_LANES: readonly EngineeringLaneDefinition[] = [
   { laneKey: 'pattern', laneName: '制版', taskTypes: ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] },
-  { laneKey: 'sample', laneName: '产前版样衣', taskTypes: ['PRE_PRODUCTION_SAMPLE'] },
+  { laneKey: 'sample', laneName: '首单样衣', taskTypes: ['PRE_PRODUCTION_SAMPLE'] },
   { laneKey: 'artwork', laneName: '花型', taskTypes: ['PATTERN_ARTWORK'] },
   { laneKey: 'color', laneName: '调色', taskTypes: ['COLOR_YARN', 'COLOR_FABRIC'] },
   { laneKey: 'purchase', laneName: '辅料下单', taskTypes: ['ACCESSORY_PURCHASE'] },
@@ -71,7 +71,7 @@ export const ENGINEERING_LANES: readonly EngineeringLaneDefinition[] = [
 
 export const ENGINEERING_PHASES: readonly EngineeringPhaseDefinition[] = [
   { phaseKey: 'base-pattern', phaseName: '基码纸样', taskTypes: ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'] },
-  { phaseKey: 'sample-size', phaseName: '产前版样衣与齐码', taskTypes: ['PRE_PRODUCTION_SAMPLE', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] },
+  { phaseKey: 'sample-size', phaseName: '首单样衣与齐码', taskTypes: ['PRE_PRODUCTION_SAMPLE', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] },
   { phaseKey: 'artwork-color', phaseName: '花型与调色', taskTypes: ['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'] },
   { phaseKey: 'purchase', phaseName: '辅料采购', taskTypes: ['ACCESSORY_PURCHASE'] },
   { phaseKey: 'tech-pack', phaseName: '技术包确认', taskTypes: ['TECH_PACK_CONFIRMATION'] },
@@ -702,7 +702,7 @@ function deriveCurrentTeamName(task: EngineeringTaskRecord): string {
 
 function taskWorkVerb(taskType: EngineeringTaskType): string {
   if (taskType === 'BASE_PATTERN_WOVEN' || taskType === 'BASE_PATTERN_KNIT') return '制作并上传基码纸样'
-  if (taskType === 'PRE_PRODUCTION_SAMPLE') return '制作并上传产前版样衣'
+  if (taskType === 'PRE_PRODUCTION_SAMPLE') return '制作并上传首单样衣'
   if (taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT') return '制作并上传齐码纸样'
   if (taskType === 'PATTERN_ARTWORK') return '制作并上传花型成果'
   if (taskType === 'COLOR_YARN' || taskType === 'COLOR_FABRIC') return '制作并上传调色成果'

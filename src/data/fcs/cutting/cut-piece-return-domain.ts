@@ -1068,6 +1068,8 @@ export interface CutPieceReturnReceiptConfirmationInput {
     identificationMode: CutPieceReturnIdentificationMode
     physicalTicketStatus: CutPieceReturnPhysicalTicketStatus
     scannedTicketNo?: string
+    identifiedAt?: string
+    identifiedBy?: string
   }>
   confirmedBy: string
   confirmedAt?: string
@@ -1135,8 +1137,8 @@ function applyCutPieceReturnReceipt(
       identificationMode: item.identificationMode,
       physicalTicketStatus: item.physicalTicketStatus,
       scannedTicketNo,
-      identifiedAt: confirmedAt,
-      identifiedBy: confirmedBy,
+      identifiedAt: item.identifiedAt?.trim() || confirmedAt,
+      identifiedBy: item.identifiedBy?.trim() || confirmedBy,
     }
   })
   if (!partCounts.some((item) => item.pieceQty > 0)) throw new Error('至少需要清点到一个部位裁片。')

@@ -17,7 +17,7 @@ for (const required of [
   ['调色任务', '/pcs/engineering/color'],
   ['辅料下单任务', '/pcs/engineering/purchase'],
   ['技术包确认任务', '/pcs/engineering/tech-pack'],
-  ['产前版样衣任务', '/pcs/samples/first-sample'],
+  ['首单样衣任务', '/pcs/samples/first-sample'],
 ]) {
   assert.ok(menuSource.includes(required[0]) && menuSource.includes(required[1]), `生产工程菜单缺少 ${required[0]} 规范入口`)
 }

@@ -44,7 +44,7 @@ const archive: ProjectArchiveRecord = {
 const result = collectProjectArchiveAutoData(archive, project, null)
 const titles = result.documents.map((document) => document.documentTitle).join(' / ')
 
-assert.match(titles, /首版样衣|产前版样衣|样衣/)
-assert.ok(result.documents.some((document) => document.sourceModule === '首版样衣打样' || document.sourceModule === '产前版样衣'))
+assert.match(titles, /首版样衣|首单样衣|样衣/)
+assert.ok(result.documents.some((document) => document.sourceModule === '首版样衣打样' || document.sourceModule === '首单样衣'))
 
 console.log('pcs-sample-chain-archive-linkage.spec.ts PASS')

@@ -47,7 +47,15 @@ import {
   type DispatchAcceptanceSlaResolution,
   type DispatchAcceptanceSlaRuleSource,
 } from './dispatch-acceptance-sla.ts'
-import { listBusinessFactoryMasterRecords, listFactoryMasterRecords } from './factory-master-store.ts'
+import {
+  getFactoryActivePpicSnapshot,
+  listBusinessFactoryMasterRecords,
+  listFactoryMasterRecords,
+} from './factory-master-store.ts'
+import {
+  assertCutPieceReleaseDispatchAvailable,
+  requiresCutPieceReleaseForProcessCodes,
+} from './cut-piece-release.ts'
 import {
   evaluateThirdPartyFactoryDispatchPolicy,
   getThirdPartyFactoryRatingSnapshot,
@@ -550,6 +558,39 @@ export function isRuntimeIndependentSewingTask(task: RuntimeSewingTaskLike): boo
     || Boolean(task.mergedTaskType)
   ) return false
   return task.processBusinessCode === 'SEW' || task.processCode === 'SEW' || task.processNameZh === '车缝'
+}
+
+function getRuntimeTaskSkuLinesForCutPieceRelease(
+  task: RuntimeProcessTask,
+  assignedQty = task.scopeQty,
+): Array<{ skuCode: string; color: string; size: string; qty: number }> {
+  const sourceLines = task.scopeSkuLines.length > 0
+    ? task.scopeSkuLines
+    : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]
+  const sourceTotal = sourceLines.reduce((sum, line) => sum + line.qty, 0)
+  if (assignedQty === sourceTotal) return sourceLines.map((line) => ({ ...line }))
+  let remaining = assignedQty
+  return sourceLines.map((line, index) => {
+    const qty = index === sourceLines.length - 1
+      ? remaining
+      : Math.min(remaining, Math.floor(line.qty * assignedQty / Math.max(1, sourceTotal)))
+    remaining -= qty
+    return { ...line, qty }
+  }).filter((line) => line.qty > 0)
+}
+
+function assertRuntimeTaskCutPieceReleaseAvailable(
+  task: RuntimeProcessTask,
+  options: { assignedQty?: number; excludeRuntimeTaskIds?: string[] } = {},
+): void {
+  const policy = classifyTaskFulfillmentPolicy(task)
+  if (!requiresCutPieceReleaseForProcessCodes(policy.normalizedProcessCodes)) return
+  assertCutPieceReleaseDispatchAvailable({
+    productionOrderId: task.productionOrderId,
+    productionOrderNo: task.productionOrderNo,
+    skuLines: getRuntimeTaskSkuLinesForCutPieceRelease(task, options.assignedQty ?? task.scopeQty),
+    excludeRuntimeTaskIds: options.excludeRuntimeTaskIds,
+  })
 }
 
 function isThirdPartyFactoryRatingGovernanceTarget(factoryId: string): boolean {
@@ -1645,7 +1686,7 @@ function ensureDispatchBoardSeedData(): void {
     ],
   )
 
-  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-002__ORDER'
+  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-003__ORDER'
   const delayedReceiptDemoAcceptedAt = '2026-07-01 09:00:00'
   const delayedReceiptDemoFactoryId = 'ID-F021'
   const delayedReceiptDemoFactoryName = 'CV Micro Sewing Jakarta Pusat'
@@ -1922,7 +1963,41 @@ export function listRuntimeExecutionTasks(): RuntimeProcessTask[] {
   return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
 }
 
+export function validateRuntimeIndependentSewingFactoryUniqueness(
+  taskId: string,
+  factoryId: string,
+): RuntimeFactoryAssignmentValidation {
+  const task = getRuntimeTaskById(taskId)
+  if (!task) return { valid: false, reason: `任务 ${taskId} 不存在或已被移除` }
+  if (!factoryId.trim()) return { valid: false, reason: '承接工厂不能为空' }
+  if (classifyTaskFulfillmentPolicy(task).contractEligibilityCode !== 'INDEPENDENT_SEWING') {
+    return { valid: true }
+  }
+
+  const rootTaskNo = getTaskRootNo(task)
+  const conflictedTaskIds = listRuntimeProcessTasks()
+    .filter((candidate) => candidate.taskId !== task.taskId)
+    .filter((candidate) => getTaskRootNo(candidate) === rootTaskNo)
+    .filter((candidate) => candidate.isSplitSource !== true)
+    .filter((candidate) => candidate.assignmentStatus === 'ASSIGNED')
+    .filter((candidate) => candidate.assignedFactoryId === factoryId)
+    .map((candidate) => candidate.taskId)
+
+  if (conflictedTaskIds.length > 0) {
+    return {
+      valid: false,
+      reason: `同一来源车缝任务下，一家工厂只能对应一张执行任务；工厂已承接任务 ${conflictedTaskIds.join('、')}`,
+      conflictedTaskIds,
+    }
+  }
+  return { valid: true }
+}
+
 function resolveTaskAssignmentGranularity(task: RuntimeProcessTask): ProcessAssignmentGranularity {
+  const fulfillmentPolicy = classifyTaskFulfillmentPolicy(task)
+  if (fulfillmentPolicy.contractEligibilityCode === 'INDEPENDENT_SEWING' || fulfillmentPolicy.mergedTaskType) {
+    return fulfillmentPolicy.assignmentGranularity
+  }
   return (task.assignmentGranularity as ProcessAssignmentGranularity | undefined)
     ?? getProcessAssignmentGranularity(task.processCode)
 }
@@ -1981,10 +2056,18 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
   if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细分配，请对来源任务操作' }
 
   const groups = listRuntimeTaskAllocatableGroups(task.taskId)
+  const assignmentGranularity = resolveTaskAssignmentGranularity(task)
+  if (assignmentGranularity === 'ORDER' && (groups.length !== 1 || input.assignments.length !== 1)) {
+    return { ok: false, message: '整任务只能提交一个分配单元，并分配给一家工厂' }
+  }
   const validation = validateAllocatableGroupAssignments(groups, input.assignments)
   if (!validation.valid) return { ok: false, message: validation.reason ?? '分配单元校验失败' }
+  try {
+    assertRuntimeTaskCutPieceReleaseAvailable(task)
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '裁片放行不足，不能分配车缝任务' }
+  }
 
-  const assignmentGranularity = resolveTaskAssignmentGranularity(task)
   const uniqueFactoryIds = Array.from(new Set(input.assignments.map((item) => item.factoryId)))
   if (assignmentGranularity === 'ORDER' && uniqueFactoryIds.length > 1) {
     return { ok: false, message: '该任务粒度为按生产单，仅支持整任务分配给同一工厂' }
@@ -2152,7 +2235,7 @@ export interface RuntimeSkuScopeAllocationInput {
 }
 
 /**
- * 把独立车缝任务或两种固定合并任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
+ * 把独立车缝任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
  * 同一个 SKU 不允许再按数量拆分；分区继续使用既有 split plan，
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
@@ -2162,8 +2245,12 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
   assertOrdinaryAssignmentBoundary(task, '按 SKU 分配')
   const policy = classifyTaskFulfillmentPolicy(task)
-  if (!isRuntimeTaskExecutionTask(task) || policy.assignmentGranularity !== 'SKU') {
-    throw new Error(`任务 ${input.taskId} 不属于车缝、车缝+烫包或裁剪+车缝+烫包，不能按SKU分配`)
+  if (
+    !isRuntimeTaskExecutionTask(task)
+    || policy.contractEligibilityCode !== 'INDEPENDENT_SEWING'
+    || policy.assignmentGranularity !== 'SKU'
+  ) {
+    throw new Error(`只有独立车缝任务允许按完整SKU分配；任务 ${input.taskId} 必须整任务分配`)
   }
   if (task.assignmentStatus !== 'UNASSIGNED') throw new Error(`任务 ${input.taskId} 已进入分配流程，不可重复分区`)
   if (!input.by.trim()) throw new Error('分区操作人不能为空')
@@ -2235,25 +2322,29 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
       assignmentMode: 'DIRECT',
       assignmentStatus: 'UNASSIGNED',
     }
-    const residualPlans: RuntimeSplitResultPlan[] = task.scopeSkuLines.flatMap((line) => {
-      const remainingQty = line.qty - (requestedBySku.get(line.skuCode) ?? 0)
-      if (remainingQty <= 0) return []
-      const residualTaskId = nextId('R')
-      const residualDetailRows = scopedDetailRowsForSku(line.skuCode, remainingQty, residualTaskId)
-      return [{
-        taskId: residualTaskId,
-        taskNo: residualTaskId,
-        splitSeq: suffix,
-        detailRowKeys: residualDetailRows.map((row) => row.rowKey),
-        allocatableGroupKeys: [line.skuCode],
-        scopeQty: remainingQty,
-        scopeLabel: `${line.skuCode} 剩余 ${remainingQty}件`,
-        scopeSkuLines: [{ ...line, qty: remainingQty }],
-        scopeDetailRows: residualDetailRows,
-        assignmentMode: 'DIRECT' as const,
-        assignmentStatus: 'UNASSIGNED' as const,
-      }]
-    })
+    const residualLines = task.scopeSkuLines
+      .filter((line) => !requestedBySku.has(line.skuCode))
+      .map((line) => ({ ...line }))
+    const residualPlans: RuntimeSplitResultPlan[] = residualLines.length > 0
+      ? (() => {
+        const residualTaskId = nextId('R')
+        const residualDetailRows = residualLines.flatMap((line) => scopedDetailRowsForSku(line.skuCode, line.qty, residualTaskId))
+        const residualQty = residualLines.reduce((sum, line) => sum + line.qty, 0)
+        return [{
+          taskId: residualTaskId,
+          taskNo: residualTaskId,
+          splitSeq: suffix,
+          detailRowKeys: residualDetailRows.map((row) => row.rowKey),
+          allocatableGroupKeys: residualLines.map((line) => line.skuCode),
+          scopeQty: residualQty,
+          scopeLabel: `${residualLines.length}个SKU待分配，共${residualQty}件`,
+          scopeSkuLines: residualLines,
+          scopeDetailRows: residualDetailRows,
+          assignmentMode: 'DIRECT' as const,
+          assignmentStatus: 'UNASSIGNED' as const,
+        }]
+      })()
+      : []
     const partitions = [selectedPlan, ...residualPlans]
     const rebuiltResults = ownerPlan
       ? [
@@ -2454,6 +2545,7 @@ export function upsertRuntimeTaskTender(
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
   assertOrdinaryAssignmentBoundary(task, '发起竞价')
+  assertRuntimeTaskCutPieceReleaseAvailable(task)
   const sewingDeliverySlaKind = classifySewingDeliverySla(task)
   const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(taskId) : null
   const isCleanUnassigned = task.assignmentStatus === 'UNASSIGNED'
@@ -2566,6 +2658,10 @@ export function prepareRuntimeTaskTenderAward(
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
   assertOrdinaryAssignmentBoundary(task, '竞价定标', input.factoryId)
+  if (classifySewingDeliverySla(task) !== null && !getFactoryActivePpicSnapshot(input.factoryId)) {
+    throw new Error(`三方车缝工厂${input.factoryName}没有唯一有效PPIC，不能定标`)
+  }
+  assertRuntimeTaskCutPieceReleaseAvailable(task)
   if (task.assignmentMode !== 'BIDDING' || !task.tenderId) {
     throw new Error(`任务 ${input.taskId} 尚未发起竞价，不可定标`)
   }
@@ -2986,6 +3082,11 @@ export function prepareRuntimeDirectDispatchMeta(
   const originalTask = target.task ?? getRuntimeTaskById(input.taskId)
   if (!originalTask) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
   assertOrdinaryAssignmentBoundary(originalTask, '直接派单', input.factoryId)
+  if (classifySewingDeliverySla(originalTask) !== null && !getFactoryActivePpicSnapshot(input.factoryId)) {
+    throw new Error(`三方车缝工厂${input.factoryName}没有唯一有效PPIC，不能派单`)
+  }
+  const factoryUniqueness = validateRuntimeIndependentSewingFactoryUniqueness(originalTask.taskId, input.factoryId)
+  if (!factoryUniqueness.valid) throw new Error(factoryUniqueness.reason)
   const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
   const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(originalTask.taskId) : null
   if (
@@ -3011,6 +3112,7 @@ export function prepareRuntimeDirectDispatchMeta(
   ) {
     throw new Error(`合并任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖`)
   }
+  assertRuntimeTaskCutPieceReleaseAvailable(originalTask, { assignedQty: target.assignedQty ?? originalTask.scopeQty })
 
   const operatedAt = input.operatedAt ?? input.dispatchedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = input.businessAssignedAt ?? operatedAt
@@ -3203,6 +3305,9 @@ export function reassignRuntimeSewingTask(
   if (!input.targetFactoryId.trim() || !input.targetFactoryName.trim()) {
     return reject('请选择目标工厂')
   }
+  if (!getFactoryActivePpicSnapshot(input.targetFactoryId)) {
+    return reject(`三方车缝工厂${input.targetFactoryName}没有唯一有效PPIC，不能改派`)
+  }
   if (input.targetFactoryId === source.assignedFactoryId) {
     return reject('目标工厂不能与原工厂相同')
   }
@@ -3215,6 +3320,14 @@ export function reassignRuntimeSewingTask(
   const scopePreview = getRuntimeSewingTaskReassignmentScopePreview(input.sourceTaskId, input.operatedAt)
   const remainingQty = scopePreview?.remainingQty ?? 0
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
+  try {
+    assertRuntimeTaskCutPieceReleaseAvailable(source, {
+      assignedQty: remainingQty,
+      excludeRuntimeTaskIds: [source.taskId],
+    })
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : '裁片放行不足，不能改派')
+  }
   if (isThirdPartyFactoryRatingGovernanceTarget(input.targetFactoryId)) {
     if (!getThirdPartyFactoryRatingSnapshot(input.targetFactoryId)) {
       return reject('该三方车缝工厂缺少三方评级快照，不能改派。请先完成评级。')

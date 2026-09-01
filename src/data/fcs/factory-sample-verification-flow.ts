@@ -753,7 +753,7 @@ export function submitFactorySampleReview(
     },
   }, operatedAt)
   const saved = saveFactoryOnboardingApplication(updatedApplication)
-  const assignedApplication = assignDefaultPpicForOnboarding(saved.applicationId, '系统默认分配')
+  const assignedApplication = assignDefaultPpicForOnboarding(saved.applicationId, '系统按入驻责任规则分配')
   return { application: assignedApplication, sampleVerification: updatedVerification }
 }
 

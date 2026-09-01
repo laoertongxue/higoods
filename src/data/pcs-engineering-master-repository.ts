@@ -678,16 +678,16 @@ function normalizePreProductionSampleRequirements(
         requirementNote: '',
       }))
     : input
-  if (!drafts.length) throw new Error('请跟单下达产前版样衣的颜色、尺码和要求数量。')
+  if (!drafts.length) throw new Error('请跟单下达首单样衣的颜色、尺码和要求数量。')
   const seen = new Set<string>()
   return drafts.map((draft, index) => {
     const targetColor = draft.targetColor.trim()
     const targetSize = draft.targetSize.trim()
     const requiredQuantity = Number(draft.requiredQuantity)
     const key = `${targetColor}\u0000${targetSize}`
-    if (!targetColor || !targetSize) throw new Error('请完整填写产前版样衣的颜色和尺码。')
-    if (!Number.isInteger(requiredQuantity) || requiredQuantity <= 0) throw new Error('产前版样衣要求数量必须为大于 0 的整数。')
-    if (seen.has(key)) throw new Error(`产前版样衣制作要求重复：${targetColor} / ${targetSize}。`)
+    if (!targetColor || !targetSize) throw new Error('请完整填写首单样衣的颜色和尺码。')
+    if (!Number.isInteger(requiredQuantity) || requiredQuantity <= 0) throw new Error('首单样衣要求数量必须为大于 0 的整数。')
+    if (seen.has(key)) throw new Error(`首单样衣制作要求重复：${targetColor} / ${targetSize}。`)
     seen.add(key)
     return {
       requirementLineId: draft.requirementLineId?.trim() || `${record.masterOrderId}-PRE-SAMPLE-REQ-${index + 1}`,
@@ -745,7 +745,7 @@ export function confirmEngineeringMasterTaskPlan(
   record.taskPlanConfirmedBy = confirmedBy
   record.taskPlanConfirmedAt = nowText()
   const preProductionSampleTask = record.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
-  if (!preProductionSampleTask) throw new Error('工程任务方案缺少产前版样衣任务。')
+  if (!preProductionSampleTask) throw new Error('工程任务方案缺少首单样衣任务。')
   preProductionSampleTask.sampleRequirements = normalizePreProductionSampleRequirements(
     record,
     input.preProductionSampleRequirements,
@@ -1378,7 +1378,7 @@ export interface SubmitEngineeringTaskResultInput {
   sampleActuals?: Array<Omit<EngineeringSampleActualLine, 'actualLineId' | 'submittedAt'> & { actualLineId?: string; submittedAt?: string }>
 }
 
-// 提交任务成果：制版与产前版样衣提交即完成；花型和调色进入待审核。
+// 提交任务成果：制版与首单样衣提交即完成；花型和调色进入待审核。
 // 待前置任务要求全部前置已完成；条件任务未启用时禁止提交。
 export function submitEngineeringTaskResult(
   masterOrderId: string,
@@ -1415,21 +1415,21 @@ export function submitEngineeringTaskResult(
   let normalizedSampleActuals: EngineeringSampleActualLine[] = []
   if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
     const requirements = task.sampleRequirements || []
-    if (!requirements.length) throw new Error('产前版样衣尚未下达制作要求，不能提交成果。')
-    if (!input.sampleActuals?.length) throw new Error('请按制作要求逐行填写产前版样衣实际交付。')
+    if (!requirements.length) throw new Error('首单样衣尚未下达制作要求，不能提交成果。')
+    if (!input.sampleActuals?.length) throw new Error('请按制作要求逐行填写首单样衣实际交付。')
     const requirementMap = new Map(requirements.map((line) => [line.requirementLineId, line]))
     const actualsByRequirement = new Map<string, EngineeringSampleActualLine[]>()
     normalizedSampleActuals = input.sampleActuals.map((actual, index) => {
       const requirementLineId = actual.requirementLineId.trim()
       if (!requirementMap.has(requirementLineId)) throw new Error('每行实际样衣必须对应一行已下达的制作要求。')
       const actualQuantity = Number(actual.actualQuantity)
-      if (!actual.actualColor.trim() || !actual.actualSize.trim()) throw new Error('请完整填写产前版样衣实际颜色和尺码。')
-      if (!Number.isInteger(actualQuantity) || actualQuantity <= 0) throw new Error('产前版样衣实际数量必须为大于 0 的整数。')
-      if (!actual.sourcePatternVersion.trim()) throw new Error('请填写产前版样衣使用的纸样版本。')
-      if (!actual.productionNote.trim()) throw new Error('请填写产前版样衣制作说明。')
-      if (!actual.submittedBy.trim()) throw new Error('请填写产前版样衣成果提交人。')
+      if (!actual.actualColor.trim() || !actual.actualSize.trim()) throw new Error('请完整填写首单样衣实际颜色和尺码。')
+      if (!Number.isInteger(actualQuantity) || actualQuantity <= 0) throw new Error('首单样衣实际数量必须为大于 0 的整数。')
+      if (!actual.sourcePatternVersion.trim()) throw new Error('请填写首单样衣使用的纸样版本。')
+      if (!actual.productionNote.trim()) throw new Error('请填写首单样衣制作说明。')
+      if (!actual.submittedBy.trim()) throw new Error('请填写首单样衣成果提交人。')
       const imageFileIds = actual.imageFileIds.map((item) => item.trim()).filter(Boolean)
-      if (!imageFileIds.length) throw new Error('每行产前版样衣实际交付必须上传真实样衣图片。')
+      if (!imageFileIds.length) throw new Error('每行首单样衣实际交付必须上传真实样衣图片。')
       const line: EngineeringSampleActualLine = {
         actualLineId: actual.actualLineId?.trim() || `${task.taskId}-ACTUAL-${index + 1}`,
         requirementLineId,

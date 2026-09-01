@@ -100,16 +100,16 @@ const sampleListHtml = renderPcsFirstSampleTaskPage()
 for (const [html, taskId, title] of [
   [plateListHtml, plateTaskId, '制版任务'],
   [patternListHtml, patternTaskId, '花型任务'],
-  [sampleListHtml, sampleTaskId, '产前版样衣任务'],
+  [sampleListHtml, sampleTaskId, '首单样衣任务'],
 ] as const) {
   assert.match(html, new RegExp(title), `${title}页面应使用当前业务名称`)
   assert.ok(html.includes(taskId), `${title}页面应展示工程主单任务 ID`)
   assert.ok(html.includes(master.masterOrderCode), `${title}页面应展示所属工程主单`)
 }
 assert.match(patternListHtml, /未启用/, '未带入印花物料时花型任务应保持未启用')
-assert.doesNotMatch(sampleListHtml, /首版样衣|首单确认|验收与结论/, '产前版样衣页面不应保留旧样衣事实或验收')
+assert.doesNotMatch(sampleListHtml, /首版样衣|首单确认|验收与结论/, '首单样衣页面不应保留旧样衣事实或验收')
 
-// 制版成果提交即完成，并为产前版样衣解锁其全部固定前置。
+// 制版成果提交即完成，并为首单样衣解锁其全部固定前置。
 startEngineeringTaskFromDetail(plateTaskId)
 const patternVersion = submitEngineeringPatternResult({
   masterOrderId: master.masterOrderId,
@@ -133,12 +133,12 @@ assert.throws(
 const patternDetailHtml = renderPcsPatternTaskDetailPage(patternTaskId)
 assert.match(patternDetailHtml, /未启用/, '花型详情应读取工程主单任务状态')
 
-// 产前版样衣只接受完整成果；制作团队提交后即完成，无任务级验收。
+// 首单样衣只接受完整成果；制作团队提交后即完成，无任务级验收。
 startEngineeringTaskFromDetail(sampleTaskId)
 assert.throws(
   () => submitEngineeringFirstSampleResult(sampleTaskId, { sampleActuals: [] }),
-  /逐行填写产前版样衣实际交付/,
-  '产前版样衣成果必须包含图片',
+  /逐行填写首单样衣实际交付/,
+  '首单样衣成果必须包含图片',
 )
 const sampleRequirements = master.tasks.find((task) => task.taskId === sampleTaskId)?.sampleRequirements || []
 const sampleActuals = sampleRequirements.map((requirement, index) => ({
@@ -156,20 +156,20 @@ const sampleActuals = sampleRequirements.map((requirement, index) => ({
 const sampleResult = submitEngineeringFirstSampleResult(sampleTaskId, {
   sampleActuals,
 })
-assert.equal(sampleResult.status, '已完成', '完整产前版样衣成果提交后应完成任务')
+assert.equal(sampleResult.status, '已完成', '完整首单样衣成果提交后应完成任务')
 assert.equal(sampleResult.sampleActuals?.length, sampleRequirements.length)
 assert.equal(sampleResult.resultSubmittedBy, '制作团队A')
 const sampleDetailHtml = renderPcsFirstSampleTaskDetailPage(sampleTaskId)
-assert.match(sampleDetailHtml, /样衣实际交付/, '产前版样衣详情应读取逐行实际交付成果')
-assert.match(sampleDetailHtml, /制作团队A/, '产前版样衣详情应读取成果提交人')
-assert.doesNotMatch(sampleDetailHtml, /验收|首单确认/, '产前版样衣详情不应出现旧验收或首单确认')
+assert.match(sampleDetailHtml, /样衣实际交付/, '首单样衣详情应读取逐行实际交付成果')
+assert.match(sampleDetailHtml, /制作团队A/, '首单样衣详情应读取成果提交人')
+assert.doesNotMatch(sampleDetailHtml, /验收|首单确认/, '首单样衣详情不应出现旧验收或首单确认')
 
-// 首单旧路由只是静默别名，必须与产前版样衣共用同一任务详情和业务文案。
-assert.equal(renderPcsFirstOrderSampleTaskPage(), renderPcsFirstSampleTaskPage(), '首单任务列表入口应静默复用产前版样衣页面')
+// 首单旧路由只是静默别名，必须与首单样衣共用同一任务详情和业务文案。
+assert.equal(renderPcsFirstOrderSampleTaskPage(), renderPcsFirstSampleTaskPage(), '首单任务列表入口应静默复用首单样衣页面')
 assert.equal(
   renderPcsFirstOrderSampleTaskDetailPage(sampleTaskId),
   renderPcsFirstSampleTaskDetailPage(sampleTaskId),
-  '首单任务详情入口应静默复用产前版样衣详情',
+  '首单任务详情入口应静默复用首单样衣详情',
 )
 
 // 统一事件入口继续处理标准列表轻交互；成果提交走专业页公开动作而非已删除的旧事件名。
@@ -177,7 +177,7 @@ const quickFilterTarget = makeActionTarget('set-first-sample-quick-filter', {
   pcsEngineeringListModule: 'firstSample',
   quickFilter: 'completed',
 })
-assert.equal(handlePcsEngineeringTaskEvent(quickFilterTarget), true, '统一事件入口应处理产前版样衣列表快捷筛选')
+assert.equal(handlePcsEngineeringTaskEvent(quickFilterTarget), true, '统一事件入口应处理首单样衣列表快捷筛选')
 assert.match(renderPcsFirstSampleTaskPage(), /已完成/, '快捷筛选后的列表应仍显示当前工程任务状态')
 
 const storedMaster = getEngineeringMasterOrderById(master.masterOrderId)

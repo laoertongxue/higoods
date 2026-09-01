@@ -110,7 +110,7 @@ const preparationSelected = handlePcsEngineeringMasterDetailEvent({
 assert.equal(preparationSelected, true, '跟单选择生产准备类型必须由详情页处理')
 const plannedDetailHtml = renderPcsEngineeringMasterDetailPage(createdMaster.masterOrderId)
 assert.match(plannedDetailHtml, /梭织基码纸样/, '选择纯梭织后必须立即展示对应任务')
-assert.match(plannedDetailHtml, /产前版样衣/, '选择纯梭织后必须展示样衣任务')
+assert.match(plannedDetailHtml, /首单样衣/, '选择纯梭织后必须展示样衣任务')
 assert.match(plannedDetailHtml, /技术包确认任务/, '四类准备类型都必须生成技术包确认任务')
 const plannedModel = buildEngineeringMasterDetailModel(createdMaster.masterOrderId, 'PURE_WOVEN')
 const sampleTask = plannedModel?.taskPlanSuggestions.find((item) => item.taskType === 'PRE_PRODUCTION_SAMPLE')

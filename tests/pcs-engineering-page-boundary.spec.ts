@@ -17,21 +17,21 @@ const engineeringMenu = menusBySystem.pcs
 assert.ok(engineeringMenu?.children)
 
 const menuText = engineeringMenu.children.map((item) => `${item.title}:${item.href}`).join('\n')
-assert.match(menuText, /产前版样衣任务:\/pcs\/samples\/first-sample/)
-assert.doesNotMatch(menuText, /首版样衣|首单样衣|\/pcs\/samples\/first-order/)
+assert.match(menuText, /首单样衣任务:\/pcs\/samples\/first-sample/)
+assert.doesNotMatch(menuText, /首版样衣|产前版样衣|\/pcs\/samples\/first-order/)
 
 const preProductionSampleHtml = renderPcsFirstSampleTaskPage()
-assert.match(preProductionSampleHtml, /产前版样衣任务/)
-assert.doesNotMatch(preProductionSampleHtml, /首版样衣|首单样衣|验收|复用/)
+assert.match(preProductionSampleHtml, /首单样衣任务/)
+assert.doesNotMatch(preProductionSampleHtml, /首版样衣|产前版样衣|验收|复用/)
 
 const retainedRouteAliasHtml = renderPcsFirstOrderSampleTaskPage()
-assert.equal(retainedRouteAliasHtml, preProductionSampleHtml, '旧地址只能无文案地落到产前版样衣任务')
+assert.equal(retainedRouteAliasHtml, preProductionSampleHtml, '旧地址只能无文案地落到首单样衣任务')
 
 const retainedRouteAliasDetailHtml = renderPcsFirstOrderSampleTaskDetailPage('missing-engineering-task')
 assert.equal(
   retainedRouteAliasDetailHtml,
   renderPcsFirstSampleTaskDetailPage('missing-engineering-task'),
-  '旧详情地址只能无文案地落到产前版样衣任务详情',
+  '旧详情地址只能无文案地落到首单样衣任务详情',
 )
 
 console.log('pcs-engineering-page-boundary.spec.ts PASS')

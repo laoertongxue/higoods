@@ -94,6 +94,56 @@ import {
   isDispatchAcceptanceSlaDialogOpen,
 } from '../pages/dispatch-acceptance-sla'
 import { handleUnifiedDispatchWorkbenchEvent, isUnifiedDispatchWorkbenchDialogOpen } from '../pages/unified-dispatch-workbench'
+import {
+  closeSewingOutsourcingWorkbenchDialog,
+  handleSewingOutsourcingWorkbenchEvent,
+  isSewingOutsourcingWorkbenchDialogOpen,
+} from '../pages/sewing-outsourcing/workbench'
+import {
+  closeSewingOutsourcingTasksDialog,
+  handleSewingOutsourcingTasksEvent,
+  isSewingOutsourcingTasksDialogOpen,
+} from '../pages/sewing-outsourcing/tasks'
+import {
+  closeSewingCutPieceHandoverDialog,
+  handleSewingCutPieceHandoverEvent,
+  isSewingCutPieceHandoverDialogOpen,
+} from '../pages/sewing-outsourcing/cut-piece-handover'
+import {
+  closeSampleApprovalSuggestionDialog,
+  handleSampleApprovalSuggestionsEvent,
+  isSampleApprovalSuggestionDialogOpen,
+} from '../pages/sewing-outsourcing/sample-approval-suggestions'
+import {
+  closeSewingMaterialHandoverDialog,
+  handleSewingMaterialHandoverEvent,
+  isSewingMaterialHandoverDialogOpen,
+} from '../pages/sewing-outsourcing/material-handover'
+import {
+  closeSewingOutsourcingSupplementsDialog,
+  handleSewingOutsourcingSupplementsEvent,
+  isSewingOutsourcingSupplementsDialogOpen,
+} from '../pages/sewing-outsourcing/supplements'
+import {
+  closeSewingOutsourcingCutPieceReturnDialog,
+  handleSewingOutsourcingCutPieceReturnsEvent,
+  isSewingOutsourcingCutPieceReturnDialogOpen,
+} from '../pages/sewing-outsourcing/cut-piece-returns'
+import {
+  closeSewingOutsourcingReturnsDialog,
+  handleSewingOutsourcingReturnsEvent,
+  isSewingOutsourcingReturnsDialogOpen,
+} from '../pages/sewing-outsourcing/returns'
+import {
+  closeSewingOutsourcingResponsibilityTransferDialog,
+  handleSewingOutsourcingResponsibilityTransfersEvent,
+  isSewingOutsourcingResponsibilityTransferDialogOpen,
+} from '../pages/sewing-outsourcing/responsibility-transfers'
+import { handleSewingOutsourcingMigrationAuditEvent } from '../pages/sewing-outsourcing/migration-audit'
+import {
+  closeCutPieceReturnWarehouseDialog,
+  isCutPieceReturnWarehouseDialogOpen,
+} from '../pages/process-factory/cutting/cut-piece-return-warehouse'
 import { handleProductionContractCenterEvent } from '../pages/production-contract-center'
 import { handleProductionContractPrintEvent } from '../pages/production-contract-print'
 import { handleUnifiedPrintPreviewEvent } from '../pages/print/print-preview'
@@ -267,6 +317,36 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/dispatch/workbench')) {
     return handleUnifiedDispatchWorkbenchEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/cut-piece-handover')) {
+    return handleSewingCutPieceHandoverEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/workbench') || pathname.startsWith('/fcs/sewing-outsourcing/team-workbench')) {
+    return handleSewingOutsourcingWorkbenchEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/tasks')) {
+    return handleSewingOutsourcingTasksEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/sample-approval-suggestions')) {
+    return handleSampleApprovalSuggestionsEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/material-handover')) {
+    return handleSewingMaterialHandoverEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/supplements')) {
+    return handleSewingOutsourcingSupplementsEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/cut-piece-returns')) {
+    return handleSewingOutsourcingCutPieceReturnsEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/returns')) {
+    return handleSewingOutsourcingReturnsEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/responsibility-transfers')) {
+    return handleSewingOutsourcingResponsibilityTransfersEvent(target)
+  }
+  if (pathname.startsWith('/fcs/sewing-outsourcing/migration-audit')) {
+    return handleSewingOutsourcingMigrationAuditEvent(target)
   }
   if (pathname === '/fcs/contracts') {
     return handleProductionContractCenterEvent(target)
@@ -519,6 +599,46 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (isSewingOutsourcingResponsibilityTransferDialogOpen()) {
+    closeSewingOutsourcingResponsibilityTransferDialog()
+    return true
+  }
+  if (isSewingOutsourcingTasksDialogOpen()) {
+    closeSewingOutsourcingTasksDialog()
+    return true
+  }
+  if (isSewingOutsourcingWorkbenchDialogOpen()) {
+    closeSewingOutsourcingWorkbenchDialog()
+    return true
+  }
+  if (isSewingOutsourcingReturnsDialogOpen()) {
+    closeSewingOutsourcingReturnsDialog()
+    return true
+  }
+  if (isSewingOutsourcingSupplementsDialogOpen()) {
+    closeSewingOutsourcingSupplementsDialog()
+    return true
+  }
+  if (isSewingOutsourcingCutPieceReturnDialogOpen()) {
+    closeSewingOutsourcingCutPieceReturnDialog()
+    return true
+  }
+  if (isCutPieceReturnWarehouseDialogOpen()) {
+    closeCutPieceReturnWarehouseDialog()
+    return true
+  }
+  if (isSampleApprovalSuggestionDialogOpen()) {
+    closeSampleApprovalSuggestionDialog()
+    return true
+  }
+  if (isSewingMaterialHandoverDialogOpen()) {
+    closeSewingMaterialHandoverDialog()
+    return true
+  }
+  if (isSewingCutPieceHandoverDialogOpen()) {
+    closeSewingCutPieceHandoverDialog()
+    return true
+  }
   if (closeGarmentSpuReplacementOverlays() || closeWlsGarmentRelabelTaskOverlays()) {
     return true
   }

@@ -203,7 +203,7 @@ function collectEngineeringOutputs(
     })),
     attachments: sampleImages.map((url, index) => ({
       id: `${master.masterOrderId}-SAMPLE-${index + 1}`,
-      fileName: url.split('/').pop() || `产前版样衣-${index + 1}`,
+      fileName: url.split('/').pop() || `首单样衣-${index + 1}`,
       fileType: 'image',
       fileSize: '-',
       uploadedAt: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.submittedAt || '',
@@ -267,7 +267,7 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
     moduleSources: [
       { module: 'BOM 与价格', source: master.masterOrderCode, status: content?.bomItems.length ? '已汇总' : '待补齐' },
       { module: '纸样', source: master.tasks.filter((task) => task.taskType.startsWith('BASE_PATTERN') || task.taskType.startsWith('SIZE_PATTERN')).map((task) => task.taskId).join('、') || '-', status: content?.patternFiles.length ? '已汇总' : '待补齐' },
-      { module: '产前版样衣', source: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.taskId || '-', status: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.status || '不适用' },
+      { module: '首单样衣', source: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.taskId || '-', status: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.status || '不适用' },
       { module: '花型', source: master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')?.taskId || '-', status: content?.patternDesigns.length ? '已汇总' : '待补齐' },
       { module: '调色／物料颜色', source: master.tasks.filter((task) => task.taskType.startsWith('COLOR_')).map((task) => task.taskId).join('、') || '-', status: content?.colorMaterialMappings.length ? '已汇总' : '待补齐' },
       { module: '工艺、尺码、设计、附件、质量', source: master.masterOrderCode, status: latestVersion ? '进入技术包维护' : '待生成草稿' },

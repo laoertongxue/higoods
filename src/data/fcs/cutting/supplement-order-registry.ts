@@ -3,6 +3,7 @@ import type { SupplementMaterialSupplyDecisionSnapshot } from './supplement-supp
 
 export type SupplementOrderStatus = '未完成' | '已完成'
 export type SupplementBusinessSourceType = 'MANUAL' | 'SEWING_RETURN'
+export type SupplementWriteActorRole = 'CUTTING' | 'PPIC' | 'PPIC_LEADER'
 
 export interface SupplementReturnPieceSnapshot {
   readonly inventoryLotId: string
@@ -148,6 +149,11 @@ export type RegisterSupplementOrderInput = Omit<
 
 const supplementOrders = new Map<string, MutableSupplementOrderLifecycle>()
 
+function assertSupplementWriteRole(actorRole: SupplementWriteActorRole): void {
+  if (actorRole === 'CUTTING') return
+  throw new Error('补料单只能由裁床发起和推进；PPIC及PPIC负责人仅可查询和跟进。')
+}
+
 function cloneSupplementOrder(
   order: SupplementOrderLifecycle,
 ): SupplementOrderLifecycle {
@@ -218,7 +224,9 @@ export function getSupplementOrder(id: string): SupplementOrderLifecycle | undef
 
 export function registerSupplementOrder(
   input: RegisterSupplementOrderInput,
+  actorRole: SupplementWriteActorRole = 'CUTTING',
 ): SupplementOrderLifecycle {
+  assertSupplementWriteRole(actorRole)
   const businessSourceType = input.businessSourceType ?? 'MANUAL'
   const sourceReturnCaseId = input.sourceReturnCaseId?.trim() ?? ''
   const sourceReturnOrderNo = input.sourceReturnOrderNo?.trim() ?? ''
@@ -288,7 +296,9 @@ export function completeSupplementOrder(input: {
   completedAt: string
   completedBy: string
   unresolvedDifferences?: ReadonlyArray<{ materialName: string; nodeName: string; quantity: number; unit: string }>
+  actorRole?: SupplementWriteActorRole
 }): SupplementOrderLifecycle {
+  assertSupplementWriteRole(input.actorRole ?? 'CUTTING')
   const existing = supplementOrders.get(input.id)
   if (!existing) {
     throw new Error('未找到对应补料单，请刷新后重试。')

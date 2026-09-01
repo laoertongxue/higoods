@@ -1,5 +1,5 @@
 // 生产工程专业任务：共享类型、状态、公共渲染与列表公共骨架
-// 由 pcs-engineering-tasks.ts（制版、产前版样衣）与专业任务页共用。
+// 由 pcs-engineering-tasks.ts（制版、首单样衣）与专业任务页共用。
 // 本文件不依赖任何页面模块，避免循环依赖；页面模块只能单向依赖本文件。
 
 import { renderSecondaryButton } from '../../components/ui/button.ts'

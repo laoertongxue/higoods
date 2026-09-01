@@ -9,10 +9,14 @@ import {
   listFactoryOnboardingApplications,
   updateOnboardingPpic,
 } from '../src/data/fcs/factory-onboarding-store.ts'
+import {
+  getFactoryMasterRecordById,
+  listSewingFactoryMasterRecords,
+  upsertFactoryMasterRecord,
+} from '../src/data/fcs/factory-master-store.ts'
 import { submitFactorySampleReview } from '../src/data/fcs/factory-sample-verification-flow.ts'
 import { listSampleVerifications } from '../src/data/fcs/factory-sample-verification-store.ts'
 import { convertOnboardingToOfficialFactory } from '../src/data/fcs/factory-onboarding-flow.ts'
-import { getFactoryMasterRecordById } from '../src/data/fcs/factory-master-store.ts'
 
 const SCRIPT_NAME = 'check-factory-onboarding-step11-ppic-assignment'
 const root = process.cwd()
@@ -109,7 +113,7 @@ assertIncludes(storePath, [
   'updateOnboardingPpic',
   'getAvailableOnboardingPpicOptions',
   'getOnboardingPpicName',
-  '工厂提交样衣审核资料后自动分配默认 PPIC',
+  '工厂提交样衣审核资料后自动分配有效责任PPIC',
 ])
 assertIncludes(sampleFlowPath, ['assignDefaultPpicForOnboarding'])
 assertIncludes(platformPath, ['<th class="px-3 py-2 text-left font-medium">PPIC</th>', 'data-factory-onboarding-field="ppicFilter"', '修改 PPIC', 'PPIC 变更记录'])
@@ -119,7 +123,30 @@ assertIncludes(flowPath, ['assignedPpicId', 'assignedPpicName', 'assignedPpicPho
 assert(FACTORY_ONBOARDING_PPIC_OPTIONS.length >= 3, 'PPIC 选项不足 3 个')
 assert(getAvailableOnboardingPpicOptions().length >= 2, '启用 PPIC 选项不足 2 个')
 assert(FACTORY_ONBOARDING_PPIC_OPTIONS.some((item) => item.status === '停用'), '缺少停用 PPIC')
-assert(DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId === 'PPIC-DEFAULT-001', '默认 PPIC 不正确')
+assert(DEFAULT_FACTORY_ONBOARDING_PPIC.status === '启用', '入驻责任规则必须指向启用PPIC')
+assert(DEFAULT_FACTORY_ONBOARDING_PPIC.role === 'MEMBER', '入驻责任规则必须指向具体PPIC成员')
+assert(!/DEFAULT|默认/.test(`${DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId}${DEFAULT_FACTORY_ONBOARDING_PPIC.ppicName}`), '入驻责任PPIC不得使用占位身份')
+
+const sewingFactoryMasterRecords = listSewingFactoryMasterRecords()
+const sewingFactoriesMissingPpic = sewingFactoryMasterRecords.filter((factory) =>
+  !factory.assignedPpicId?.trim() || !factory.assignedPpicName?.trim(),
+)
+assert(sewingFactoryMasterRecords.length > 0, '工厂档案缺少有效车缝工厂')
+assert(
+  sewingFactoriesMissingPpic.length === 0,
+  `正式车缝工厂档案必须全部分配 PPIC，当前缺失：${sewingFactoriesMissingPpic.map((factory) => factory.name).join('、')}`,
+)
+expectError(
+  () => upsertFactoryMasterRecord({
+    ...sewingFactoryMasterRecords[0],
+    id: 'STEP11-SEWING-FACTORY-WITHOUT-PPIC',
+    code: 'STEP11-SEWING-FACTORY-WITHOUT-PPIC',
+    assignedPpicId: undefined,
+    assignedPpicName: undefined,
+    assignedPpicPhone: undefined,
+  }),
+  '正式车缝工厂必须分配有效PPIC',
+)
 
 const submissionPayload: FactorySampleSubmissionPayload = {
   factorySamplePhotos: [file('样衣照片.jpg', 'jpg')],
@@ -138,19 +165,19 @@ const waitingSubmit = listSampleVerifications().find((item) => item.status === '
 assert(waitingSubmit, '缺少待工厂提交样衣审核样本')
 const submitted = submitFactorySampleReview(waitingSubmit.verificationId, submissionPayload, 'Step11工厂管理员')
 assert(submitted.application.status === '待平台审核样衣', '提交样衣后状态应为待平台审核样衣')
-assert(submitted.application.assignedPpicId === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId, '提交样衣后未自动分配默认 PPIC')
-assert(submitted.application.assignedPpicName === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicName, '默认 PPIC 姓名未写入')
-assert(submitted.application.assignedPpicBy === '系统默认分配', '默认 PPIC 分配人不正确')
-assert(submitted.application.ppicChangeLogs.some((log) => log.changedBy === '系统默认分配'), '默认分配未写入 PPIC 变更记录')
+assert(submitted.application.assignedPpicId === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId, '提交样衣后未自动分配有效责任PPIC')
+assert(submitted.application.assignedPpicName === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicName, '责任PPIC姓名未写入')
+assert(submitted.application.assignedPpicBy === '系统按入驻责任规则分配', '责任PPIC分配来源不正确')
+assert(submitted.application.ppicChangeLogs.some((log) => log.changedBy === '系统按入驻责任规则分配'), '规则分配未写入PPIC变更记录')
 
 const activePpic = getAvailableOnboardingPpicOptions().find((item) => item.ppicId !== DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId)
 assert(activePpic, '缺少可用于平台修改的启用 PPIC')
 const changed = updateOnboardingPpic(submitted.application.applicationId, activePpic.ppicId, 'Step11平台运营员', '调整跟进人')
 assert(changed.assignedPpicId === activePpic.ppicId, '平台修改 PPIC 未生效')
 assert(changed.ppicChangeLogs.some((log) => log.changedBy === 'Step11平台运营员' && log.toPpicId === activePpic.ppicId), '平台修改 PPIC 未写入变更记录')
-const unchanged = assignDefaultPpicForOnboarding(changed.applicationId, '系统默认分配')
-assert(unchanged.assignedPpicId === activePpic.ppicId, '已有 PPIC 不应被默认 PPIC 覆盖')
-assert(unchanged.ppicChangeLogs.length === changed.ppicChangeLogs.length, '已有 PPIC 时不应新增重复默认分配记录')
+const unchanged = assignDefaultPpicForOnboarding(changed.applicationId, '系统按入驻责任规则分配')
+assert(unchanged.assignedPpicId === activePpic.ppicId, '已有PPIC不应被入驻责任规则覆盖')
+assert(unchanged.ppicChangeLogs.length === changed.ppicChangeLogs.length, '已有PPIC时不应新增重复规则分配记录')
 
 const stoppedPpic = FACTORY_ONBOARDING_PPIC_OPTIONS.find((item) => item.status === '停用')
 assert(stoppedPpic, '缺少停用 PPIC')
@@ -158,7 +185,7 @@ expectError(() => updateOnboardingPpic(changed.applicationId, stoppedPpic.ppicId
 expectError(() => updateOnboardingPpic(changed.applicationId, '', 'Step11平台运营员'), '请选择 PPIC')
 
 const applications = listFactoryOnboardingApplications()
-assert(applications.filter((item) => ['待平台审核样衣', '样衣审核退回', '样衣审核通过待转正式', '已转正式合作'].includes(item.status) && item.assignedPpicId).length >= 12, '样衣提交后状态 mock 未覆盖默认 PPIC')
+assert(applications.filter((item) => ['待平台审核样衣', '样衣审核退回', '样衣审核通过待转正式', '已转正式合作'].includes(item.status) && item.assignedPpicId).length >= 12, '样衣提交后状态mock未覆盖有效责任PPIC')
 assert(applications.filter((item) => !item.assignedPpicId).length >= 3, 'mock 缺少未分配 PPIC 的入驻申请')
 assert(applications.filter((item) => item.ppicChangeLogs.length >= 2).length >= 3, 'mock 缺少平台手动修改 PPIC 记录')
 
@@ -173,4 +200,4 @@ assertNoRegexInSrc(/\/fcs\/pda\/login/, '不得存在 /fcs/pda/login 兼容跳�
 assert(!/PPIC.*说明/.test(src(platformPath)), '平台页面不得出现 PPIC 大段说明文案')
 assert(!/PPIC.*说明/.test(src(pdaPath)), '工厂端不得出现 PPIC 大段说明文案')
 
-console.log('工厂入驻 Step11 PPIC 默认分配与平台修改检查通过')
+console.log(`工厂入驻 Step11 有效责任PPIC分配与平台修改检查通过；正式车缝工厂 ${sewingFactoryMasterRecords.length} 家，PPIC 缺失 0 家`)

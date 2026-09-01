@@ -11,13 +11,13 @@ import {
 const definitions = listEngineeringTaskDefinitions()
 assert.equal(definitions.length, 10, '必须包含 10 类专业任务定义')
 
-// 固定依赖：产前版样衣等待全部基码
+// 固定依赖：首单样衣等待全部基码
 assert.deepEqual(
   definitions.find((item) => item.taskType === 'PRE_PRODUCTION_SAMPLE')?.dependsOn,
   ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'],
 )
 
-// 固定依赖：齐码纸样在产前版样衣完成后并行
+// 固定依赖：齐码纸样在首单样衣完成后并行
 assert.deepEqual(
   definitions.find((item) => item.taskType === 'SIZE_PATTERN_WOVEN')?.dependsOn,
   ['PRE_PRODUCTION_SAMPLE'],

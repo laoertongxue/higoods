@@ -174,6 +174,50 @@ export const renderUnifiedDispatchWorkbenchPage = createAsyncRenderer(
   () => import('../pages/unified-dispatch-workbench'),
   'renderUnifiedDispatchWorkbenchPage',
 )
+export const renderSewingOutsourcingWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/workbench'),
+  'renderSewingOutsourcingWorkbenchPage',
+)
+export const renderSewingOutsourcingTeamWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/workbench'),
+  'renderSewingOutsourcingTeamWorkbenchPage',
+)
+export const renderSewingOutsourcingTasksPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/tasks'),
+  'renderSewingOutsourcingTasksPage',
+)
+export const renderSewingCutPieceHandoverPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/cut-piece-handover'),
+  'renderSewingCutPieceHandoverPage',
+)
+export const renderSampleApprovalSuggestionsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/sample-approval-suggestions'),
+  'renderSampleApprovalSuggestionsPage',
+)
+export const renderSewingMaterialHandoverPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/material-handover'),
+  'renderSewingMaterialHandoverPage',
+)
+export const renderSewingOutsourcingSupplementsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/supplements'),
+  'renderSewingOutsourcingSupplementsPage',
+)
+export const renderSewingOutsourcingCutPieceReturnsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/cut-piece-returns'),
+  'renderSewingOutsourcingCutPieceReturnsPage',
+)
+export const renderSewingOutsourcingReturnsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/returns'),
+  'renderSewingOutsourcingReturnsPage',
+)
+export const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/responsibility-transfers'),
+  'renderSewingOutsourcingResponsibilityTransfersPage',
+)
+export const renderSewingOutsourcingMigrationAuditPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/migration-audit'),
+  'renderSewingOutsourcingMigrationAuditPage',
+)
 export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
   'renderDispatchTendersPage',
@@ -390,7 +434,7 @@ export const renderCraftCuttingCutPieceReleasePage = createAsyncRenderer(
   'renderCraftCuttingCutPieceReleasePage',
 )
 export const renderCraftCuttingCutPieceReturnProcessingPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/cut-piece-return-processing'),
+  () => import('../pages/process-factory/cutting/cut-piece-return-warehouse'),
   'renderCraftCuttingCutPieceReturnProcessingPage',
 )
 export const renderCraftCuttingSupplementManagementPage = createAsyncRenderer(

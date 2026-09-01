@@ -41,7 +41,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
 const pages = [
   ['制版任务', renderPcsPlateMakingTaskPage()],
   ['花型任务', renderPcsPatternTaskPage()],
-  ['产前版样衣任务', renderPcsFirstSampleTaskPage()],
+  ['首单样衣任务', renderPcsFirstSampleTaskPage()],
 ] as const
 
 for (const [label, html] of pages) {
@@ -67,7 +67,7 @@ for (const [label, html] of engineeringPages) {
 }
 
 assert.equal(ENGINEERING_LIST_STORAGE_KEYS.pattern, 'higood:list-page:/pcs/patterns/artwork', '花型列表偏好必须按正式花型路由持久化')
-assert.equal(ENGINEERING_LIST_STORAGE_KEYS.firstSample, 'higood:list-page:/pcs/samples/first-sample', '产前版样衣列表偏好必须按正式路由持久化')
+assert.equal(ENGINEERING_LIST_STORAGE_KEYS.firstSample, 'higood:list-page:/pcs/samples/first-sample', '首单样衣列表偏好必须按正式路由持久化')
 assert.doesNotMatch(dispatcherSource, /pattern-master-task/, '薄分派器不得再导入花型第二页面')
 assert.match(dispatcherSource, /pcs-engineering-tasks\/pattern-task\.ts/, '薄分派器必须直接导出唯一花型任务页面')
 assert.match(dispatcherSource, /ENGINEERING_LIST_STORAGE_KEYS/, '主文件必须引用按路由持久化键常量')

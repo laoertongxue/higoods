@@ -77,7 +77,7 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
   },
   {
     taskType: 'PRE_PRODUCTION_SAMPLE',
-    taskName: '产前版样衣',
+    taskName: '首单样衣',
     ownerTeamName: '制作团队',
     dependsOn: ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'],
     conditionType: 'ALWAYS',
@@ -378,7 +378,7 @@ export function resolveInitialTaskStatus(taskType: EngineeringTaskType): Enginee
   return '待开始'
 }
 
-// 提交目标状态派生：制版与产前版样衣提交成果即完成；只有花型和调色进入待审核。
+// 提交目标状态派生：制版与首单样衣提交成果即完成；只有花型和调色进入待审核。
 export function resolveEngineeringTaskSubmitStatus(taskType: EngineeringTaskType): EngineeringTaskStatus {
   const definition = getEngineeringTaskDefinition(taskType)
   return definition.reviewRequired ? '待审核' : '已完成'

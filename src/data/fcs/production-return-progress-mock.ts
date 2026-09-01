@@ -13,6 +13,7 @@ const SEWING_POLICY: TaskFulfillmentPolicy = {
   normalizedProcessCodes: ['SEWING'],
   isIndependentTask: true,
   mergedTaskType: null,
+  involvesSewingOutsourcing: true,
   startsWithSewing: true,
   assignmentGranularity: 'SKU',
   fulfillmentRuleCode: 'SEWING_ONLY',

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createEffectiveTaskAssignment, resetEffectiveTaskAssignmentsForTests } from '../src/data/fcs/effective-task-assignments.ts'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import { generateProductionContract, resetProductionContractsForTests } from '../src/data/fcs/production-contracts.ts'
 import { createProductionReturnRuleSnapshot, resetProductionReturnSnapshotSequenceForTests } from '../src/data/fcs/production-return-fulfillment.ts'
 import { classifyTaskFulfillmentPolicy } from '../src/data/fcs/task-fulfillment-policy.ts'
@@ -58,8 +59,8 @@ const assignment = createEffectiveTaskAssignment({
   productionOrderId: 'PO-CONTRACT-TEMPLATE-CHECK',
   productionOrderNo: 'PO-CONTRACT-TEMPLATE-CHECK',
   taskNo: 'TASK-CONTRACT-TEMPLATE-CHECK',
-  factoryId: 'FACTORY-CONTRACT-TEMPLATE-CHECK',
-  factoryName: 'Maklon Nusantara',
+  factoryId: 'ID-F021',
+  factoryName: 'CV Micro Sewing Jakarta Pusat',
   source: 'DIRECT_DISPATCH',
   assignedQty: 101,
   skuLines: [{ skuCode: 'SKU-WHT-M', color: 'White', size: 'M', qty: 101 }],
@@ -69,7 +70,9 @@ const assignment = createEffectiveTaskAssignment({
   priceUnit: 'Pcs',
   businessAssignedAt: '2026-08-05 17:04:00',
   operatedAt: '2026-08-05 17:04:00',
-  operatedBy: '生产计划员',
+  operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+  allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+  allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
 })
 const returnRuleSnapshot = createProductionReturnRuleSnapshot({
   assignmentId: assignment.assignmentId,
@@ -104,7 +107,7 @@ const rendered = renderProductionContractMasterTemplate(contract, {
 assert(rendered.includes(`data-contract-template="${PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE}"`))
 assert.equal((rendered.match(/production-contract-master__page(?: |")/g) || []).length, 2)
 for (const asset of PRODUCTION_CONTRACT_MASTER_ASSETS) assert(rendered.includes(asset))
-for (const requiredValue of ['Maklon Nusantara', 'NON-GABUNGAN', 'JAHIT', 'KALENDER', 'Belum diambil', 'Tidak tersedia', 'Perencana Produksi', '5 Agustus 2026', '8 Agu 2026']) {
+for (const requiredValue of ['CV Micro Sewing Jakarta Pusat', 'NON-GABUNGAN', 'JAHIT', 'KALENDER', 'Belum diambil', 'Tidak tersedia', 'Perencana Produksi', '5 Agustus 2026', '8 Agu 2026']) {
   assert(rendered.includes(requiredValue), `合同动态字段缺少印尼文值：${requiredValue}`)
 }
 for (const forbiddenText of ['生产加工合同', 'PRODUCTION PROCESSING CONTRACT', '生产履约约定与签署页', 'FULFILLMENT TERMS AND SIGNATURES', 'SKU DETAILS CONTINUED', '[[NO_KONTRAK]]']) {

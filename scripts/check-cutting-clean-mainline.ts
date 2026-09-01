@@ -21,6 +21,7 @@ import {
   buildSpecialCraftHandoverGroups,
   buildSpecialCraftReturnProjection,
   buildUniversalHandoverProjection,
+  evaluateSpecialCraftHandoverEligibility,
   listHandoverAfterRecordResults,
   listHandoverOrders,
   listHandoverRecords,
@@ -334,10 +335,20 @@ function assertHandoverAndSpecialCraft(): void {
 
   const candidates = listSpecialCraftHandoverCandidates()
   assert(candidates.some((candidate) => candidate.canCreateHandover), '特殊工艺必须能从菲票生成交出候选')
-  assert(candidates.some((candidate) => !candidate.canCreateHandover && candidate.reasonTexts.join('').includes('承接工厂')), '承接工厂待补充必须阻止正式交出单')
+  const missingReceiverEligibility = evaluateSpecialCraftHandoverEligibility({
+    receiverFactoryId: 'PENDING-SPECIAL-CRAFT-FACTORY',
+    receiverFactoryName: '承接工厂待补充',
+    printStatus: 'PRINTED',
+    alreadyHandedOver: false,
+  })
+  assert(
+    !missingReceiverEligibility.canCreateHandover
+      && missingReceiverEligibility.reasonTexts.join('').includes('承接工厂'),
+    '承接工厂待补充必须阻止正式交出单',
+  )
   const groups = buildSpecialCraftHandoverGroups()
   assert(groups.some((group) => group.receiverFactoryName.includes('绣花') || group.craftType === '绣花'), '特殊工艺必须按承接工厂 / 工艺归组')
-  assert(groups.some((group) => !group.canCreateHandover), '承接工厂缺失归组必须保留待补充原因')
+  assert(groups.some((group) => !group.canCreateHandover), '已交出或已回仓的工艺归组必须保留不可重复交出原因')
 
   const returnRecords = listSpecialCraftReturnRecords()
   assert(returnRecords.some((record) => record.returnStatus === '已回仓'), '缺少特殊工艺全量回仓场景')

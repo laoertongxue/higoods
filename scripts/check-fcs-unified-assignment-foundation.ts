@@ -32,6 +32,7 @@ import {
   listEffectiveTaskAssignments,
   resetEffectiveTaskAssignmentsForTests,
 } from '../src/data/fcs/effective-task-assignments.ts'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import {
   calculateNaturalDayDeadline,
   createProductionReturnRuleSnapshot,
@@ -121,8 +122,8 @@ assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.generatesCentra
 assert.deepEqual(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.requiredSourceProcessCodes, ['CUTTING', 'SEWING', 'IRON_PACK'])
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.auxiliarySpecialExecutorMode, 'FOLLOW_MERGED_TASK_FACTORY')
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.generatesCentralAuxiliarySpecialOrders, false)
-assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'SKU')
-assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.assignmentGranularity, 'SKU')
+assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
+assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
 
 assert.equal(resolveMergedProductionTaskType([{ processCode: 'SEW' }, { processCode: 'IRON_PACK' }]), 'SEWING_IRON_PACK')
 assert.equal(resolveMergedProductionTaskType([{ processCode: 'CUT_PANEL' }, { processCode: 'SEW' }, { processCode: 'IRON_PACK' }]), 'CUTTING_SEWING_IRON_PACK')
@@ -189,8 +190,8 @@ const cuttingSewingIronPackPolicy = policy({ taskUnitType: 'MERGED_PRODUCTION_TA
 const printingPolicy = policy({ processCode: 'PRINT', processBusinessCode: 'PRINT', processNameZh: '印花', assignmentGranularity: 'ORDER' })
 const nonSewingWithLegacySkuGranularityPolicy = policy({ processCode: 'CUT', processBusinessCode: 'CUTTING', processNameZh: '裁剪', assignmentGranularity: 'SKU' })
 assert.equal(sewingPolicy.assignmentGranularity, 'SKU')
-assert.equal(sewingIronPackPolicy.assignmentGranularity, 'SKU')
-assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'SKU')
+assert.equal(sewingIronPackPolicy.assignmentGranularity, 'ORDER')
+assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'ORDER')
 assert.equal(printingPolicy.assignmentGranularity, 'ORDER')
 assert.equal(nonSewingWithLegacySkuGranularityPolicy.assignmentGranularity, 'ORDER')
 assert.equal(sewingPolicy.contractRequired, true)
@@ -208,14 +209,15 @@ assert(cuttingMergedTask.scopeSkuLines.length > 1, '裁剪+车缝+烫包演示�
 const runtimeStateBeforeSkuAllocation = captureRuntimeDirectDispatchState()
 try {
   const firstSkuLine = cuttingMergedTask.scopeSkuLines[0]
-  const allocatedCuttingMergedTask = allocateRuntimeSkuTaskScope({
-    taskId: cuttingMergedTask.taskId,
-    lines: [{ skuCode: firstSkuLine.skuCode, qty: firstSkuLine.qty }],
-    by: '专项检查',
-    operatedAt: '2026-08-21 09:00:00',
-  })
-  assert.equal(allocatedCuttingMergedTask.scopeSkuLines.length, 1, '裁剪+车缝+烫包必须允许按完整SKU分配')
-  assert.equal(allocatedCuttingMergedTask.scopeSkuLines[0]?.skuCode, firstSkuLine.skuCode)
+  assert.throws(
+    () => allocateRuntimeSkuTaskScope({
+      taskId: cuttingMergedTask.taskId,
+      lines: [{ skuCode: firstSkuLine.skuCode, qty: firstSkuLine.qty }],
+      by: '专项检查',
+      operatedAt: '2026-08-21 09:00:00',
+    }),
+    /只有独立车缝任务允许按完整SKU分配/,
+  )
 } finally {
   restoreRuntimeDirectDispatchState(runtimeStateBeforeSkuAllocation)
 }
@@ -231,8 +233,8 @@ const assignmentV1 = createEffectiveTaskAssignment({
   productionOrderId: 'PO-CHECK-001',
   productionOrderNo: 'PO-CHECK-001',
   taskNo: 'TASK-CHECK-SEWING',
-  factoryId: 'FAC-A',
-  factoryName: 'A工厂',
+  factoryId: 'ID-F021',
+  factoryName: 'CV Micro Sewing Jakarta Pusat',
   source: 'DIRECT_DISPATCH',
   assignedQty: 101,
   skuLines: [{ skuCode: 'SKU-BLACK-M', color: '黑色', size: 'M', qty: 101 }],
@@ -242,7 +244,9 @@ const assignmentV1 = createEffectiveTaskAssignment({
   priceUnit: '件',
   businessAssignedAt: '2026-08-04 09:00:00',
   operatedAt: '2026-08-04 09:00:00',
-  operatedBy: 'PPIC-01',
+  operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+  allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+  allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
 })
 const returnV1 = createProductionReturnRuleSnapshot({
   assignmentId: assignmentV1.assignmentId,
@@ -272,8 +276,8 @@ const assignmentV2 = createEffectiveTaskAssignment({
   productionOrderId: 'PO-CHECK-001',
   productionOrderNo: 'PO-CHECK-001',
   taskNo: 'TASK-CHECK-SEWING',
-  factoryId: 'FAC-B',
-  factoryName: 'B工厂',
+  factoryId: 'ID-F022',
+  factoryName: 'CV Micro Sewing Bandung Utara',
   source: 'REASSIGNMENT',
   assignedQty: 101,
   skuLines: [{ skuCode: 'SKU-BLACK-M', color: '黑色', size: 'M', qty: 101 }],
@@ -283,7 +287,9 @@ const assignmentV2 = createEffectiveTaskAssignment({
   priceUnit: '件',
   businessAssignedAt: '2026-08-05 10:00:00',
   operatedAt: '2026-08-05 10:00:00',
-  operatedBy: 'PPIC-02',
+  operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+  allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+  allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
   replaceReason: '改派加工厂',
 })
 assert.equal(listCurrentEffectiveTaskAssignments('TASK-CHECK-SEWING')[0]?.assignmentId, assignmentV2.assignmentId)
@@ -424,9 +430,9 @@ const packageSource = read('package.json')
 
 for (const requiredText of [
   '创建合并任务', '搜索生产单', '车缝+烫包', '裁剪+车缝+烫包',
-  '请再次确认', '本生产单车缝所需辅料的库存与配料情况', '裁片齐套、放行及目标（SKU 维度）',
-  '裁床目标', '已确认放行', '回货规则预览（自然日）', '% 回货节点', 'data-return-ratio=', 'milestone.targetQty',
-  '菲票装袋', '信息不完善只提示风险，不阻断生产分配',
+  '请再次确认', '本生产单车缝所需辅料的库存与配料情况', '裁片放行与分配占用（SKU 维度）',
+  '裁床目标', '已确认放行', '已分配占用', '可分配余量', '回货规则预览（自然日）', '% 回货节点', 'data-return-ratio=', 'milestone.targetQty',
+  '菲票装袋', '当前存在无放行或可分配余量不足，本次提交将被阻断',
   '同一SKU不能拆数量', 'BAG_AWARE', 'FREE', '不生成拆袋重装待办',
   '谨慎确认价格，一经提交确认不得修改。', '生产合同已生成', '是否立即打印合同',
 ]) assert(workbenchSource.includes(requiredText), `统一分配页缺少：${requiredText}`)

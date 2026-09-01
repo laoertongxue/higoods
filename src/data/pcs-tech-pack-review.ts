@@ -201,7 +201,7 @@ export function listTechPackReviewReturnTargets(
         targetId: `PRE_PRODUCTION_SAMPLE_RESULT:${task.taskId}`,
         moduleKey: 'ATTACHMENT',
         targetType: 'PRE_PRODUCTION_SAMPLE_RESULT',
-        label: '产前版样衣成果',
+        label: '首单样衣成果',
         detail: task.taskName,
         sourceTaskId: task.taskId,
         sourceMaterialLineIds: [],

@@ -43,8 +43,11 @@ export type PostFinishingAuthorizationErrorCode =
   | 'MISSING_REASON'
 
 export class PostFinishingAuthorizationError extends Error {
-  constructor(public readonly code: PostFinishingAuthorizationErrorCode, message: string) {
+  public readonly code: PostFinishingAuthorizationErrorCode
+
+  constructor(code: PostFinishingAuthorizationErrorCode, message: string) {
     super(message)
+    this.code = code
     this.name = 'PostFinishingAuthorizationError'
   }
 }

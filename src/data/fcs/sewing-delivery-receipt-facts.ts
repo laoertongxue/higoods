@@ -1,9 +1,16 @@
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
 import { listRegisteredHandoutRecordVersions } from './pda-handover-handout-registry.ts'
-import { compareSewingDeliveryDateTimes, formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import { formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import {
+  listPostFinishingFactoryReturns,
+  listPostFinishingReturnConfirmationVersions,
+} from './post-finishing-full-flow.ts'
 
-function validNonNegativeQty(value: number | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+export interface SewingDeliverySubmissionFact {
+  recordId: string
+  sourceDocumentNo: string
+  submittedQty: number
+  submittedAt: string
 }
 
 const CONFIRMED_RECEIPT_STATUSES = new Set([
@@ -80,34 +87,57 @@ export function toConfirmedSewingDeliveryReceiptFact(
   record: PdaHandoverRecord,
   runtimeTaskId: string,
 ): SewingDeliveryReceiptFact | null {
-  if (record.taskId !== runtimeTaskId) return null
-  if (!CONFIRMED_RECEIPT_STATUSES.has(record.handoverRecordStatus)) return null
-  const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
-  const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
-  if (submittedQty === null || receivedQty === null || !record.factorySubmittedAt || !record.receiverWrittenAt) return null
-  try {
-    if (compareSewingDeliveryDateTimes(record.receiverWrittenAt, record.factorySubmittedAt) < 0) return null
-  } catch {
-    return null
-  }
-  return {
-    recordId: record.handoverRecordId || record.recordId,
-    submittedQty,
-    submittedAt: record.factorySubmittedAt,
-    receivedQty,
-    receivedAt: record.receiverWrittenAt,
-    voided: false,
-  }
+  // PDA 现场交接只证明“工厂交了、接收方当场点了”，不是 PPIC 正式回货数据。
+  // 保留旧导出名称仅防止历史调用方将现场数量静默计入节点。
+  void record
+  void runtimeTaskId
+  return null
+}
+
+function toSlaWallClock(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) return value
+  const parsed = new Date(value)
+  if (!Number.isFinite(parsed.getTime())) throw new Error('后道回货时间无效')
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${parsed.getUTCFullYear()}-${pad(parsed.getUTCMonth() + 1)}-${pad(parsed.getUTCDate())} ${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}:${pad(parsed.getUTCSeconds())}`
+}
+
+export function listSewingDeliverySubmissionFacts(
+  runtimeTaskId: string,
+  nowAt: string = formatOperationLocalWallClock(),
+): SewingDeliverySubmissionFact[] {
+  return listPostFinishingFactoryReturns()
+    .filter((delivery) => delivery.executionTaskId === runtimeTaskId)
+    .map((delivery) => ({
+      recordId: delivery.deliveryId,
+      sourceDocumentNo: delivery.deliveryOrderNo,
+      submittedQty: delivery.lines.reduce((sum, line) => sum + line.registeredQty, 0),
+      submittedAt: toSlaWallClock(delivery.registeredAt),
+    }))
+    .filter((fact) => fact.submittedAt <= nowAt)
+    .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt) || left.recordId.localeCompare(right.recordId))
 }
 
 export function listSewingDeliveryReceiptFacts(
   runtimeTaskId: string,
   nowAt: string = formatOperationLocalWallClock(),
 ): SewingDeliveryReceiptFact[] {
-  return listLatestSewingDeliveryRawRecords(nowAt, [runtimeTaskId])
-    .filter((record) => record.taskId === runtimeTaskId)
-    .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
-    .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
+  const deliveryById = new Map(listPostFinishingFactoryReturns().map((delivery) => [delivery.deliveryId, delivery] as const))
+  return listPostFinishingReturnConfirmationVersions({ executionTaskId: runtimeTaskId, activeOnly: true })
+    .map((version): SewingDeliveryReceiptFact | null => {
+      const delivery = deliveryById.get(version.deliveryId)
+      if (!delivery) return null
+      return {
+        recordId: version.confirmationVersionId,
+        submittedQty: version.registeredQty,
+        submittedAt: toSlaWallClock(delivery.registeredAt),
+        receivedQty: version.confirmedQty,
+        receivedAt: toSlaWallClock(version.confirmedAt),
+        voided: false,
+      }
+    })
+    .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null && fact.receivedAt <= nowAt)
+    .sort((left, right) => left.receivedAt.localeCompare(right.receivedAt) || left.recordId.localeCompare(right.recordId))
 }
 
 export function sumSewingDeliveryConfirmedReceiptQty(

@@ -28,6 +28,6 @@ for (const removedAction of [
 
 assert.doesNotMatch(source, /revision-task\.ts|design-task\.ts/, '设计改款父任务不得混入专业任务分派层')
 assert.match(routeSource, /pcs-independent-sampling/, '设计改款必须由统一页面模块承接')
-assert.match(source, /renderPcsFirstOrderSampleTaskPage\s*=\s*renderPcsFirstSampleTaskPage/, '旧首单入口只能无文案别名到产前版样衣')
+assert.match(source, /renderPcsFirstOrderSampleTaskPage\s*=\s*renderPcsFirstSampleTaskPage/, '旧首单入口只能无文案别名到首单样衣')
 
 console.log('pcs-engineering-thin-dispatcher.spec.ts PASS')

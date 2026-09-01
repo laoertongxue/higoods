@@ -36,7 +36,17 @@ import {
   listCuttingSpecialCraftFeiTicketBindingsForProjection,
   type CuttingSpecialCraftFeiTicketBinding,
 } from './special-craft-fei-ticket-flow.ts'
-import { listCurrentEffectiveTaskAssignments } from '../effective-task-assignments.ts'
+import {
+  getEffectiveTaskAssignment,
+  listCurrentEffectiveTaskAssignments,
+  type EffectiveTaskAssignment,
+} from '../effective-task-assignments.ts'
+import {
+  initializeSewingCutPieceResponsibility,
+  recordSewingCutPieceHandover,
+  type SewingCutPieceHandoverLineInput,
+  type SewingCutPieceRequirementLineInput,
+} from '../sewing-cut-piece-responsibility.ts'
 
 export interface PpicPickupLatestAssignmentProjection {
   runtimeTaskId: string
@@ -126,6 +136,7 @@ export type CuttingSewingTransferBagLocation =
 
 export interface CuttingSewingDispatchSkuQtyLine {
   lineId: string
+  skuCode?: string
   colorName: string
   colorCode: string
   sizeCode: string
@@ -136,6 +147,7 @@ export interface CuttingSewingDispatchSkuQtyLine {
 
 export interface CuttingSewingTransferBagPieceLine {
   pieceLineId: string
+  partCode: string
   partName: string
   colorName: string
   colorCode: string
@@ -259,6 +271,13 @@ export interface CuttingSewingDispatchOrder {
   cuttingFactoryName: string
   sewingFactoryId: string
   sewingFactoryName: string
+  executionAssignmentId?: string
+  runtimeTaskId?: string
+  taskNo?: string
+  ppicId?: string
+  ppicName?: string
+  ppicSnapshotAt?: string
+  legacyUnboundReason?: string
   totalProductionQty: number
   plannedDispatchGarmentQty: number
   cumulativeDispatchedGarmentQty: number
@@ -606,6 +625,7 @@ export interface HandoverPickingTaskProjection {
 }
 
 interface RequiredCutPieceLine {
+  partCode: string
   partName: string
   colorName: string
   colorCode: string
@@ -628,6 +648,8 @@ interface CreateDispatchOrderInput {
   productionOrderId: string
   cuttingFactoryId?: string
   sewingFactoryId?: string
+  executionAssignmentId?: string
+  legacyUnboundReason?: string
   remark?: string
 }
 
@@ -859,6 +881,64 @@ function getProductionOrder(productionOrderId: string): ProductionOrder {
 function getTotalProductionQty(order: ProductionOrder): number {
   const skuTotal = sum(order.demandSnapshot.skuLines.map((line) => line.qty || 0))
   return skuTotal || 0
+}
+
+function requireDispatchExecutionAssignment(
+  assignmentId: string,
+  options: { productionOrderId: string; sewingFactoryId?: string; requireEffective: boolean },
+): EffectiveTaskAssignment {
+  const assignment = getEffectiveTaskAssignment(assignmentId)
+  if (!assignment) throw new Error(`未找到车缝执行任务分配：${assignmentId}`)
+  if (options.requireEffective && assignment.status !== 'EFFECTIVE') {
+    throw new Error(`车缝执行任务分配${assignmentId}当前不是有效分配，不能新增裁片交出批次`)
+  }
+  if (assignment.status === 'CANCELLED') throw new Error('已取消的车缝执行任务分配不能接收裁片交出')
+  if (assignment.productionOrderId !== options.productionOrderId) {
+    throw new Error('裁片交出单与车缝执行任务分配不属于同一生产单')
+  }
+  if (options.sewingFactoryId && assignment.factoryId !== options.sewingFactoryId) {
+    throw new Error('裁片交出接收工厂必须与车缝执行任务承接工厂一致')
+  }
+  if (!assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code.trim().toUpperCase()))) {
+    throw new Error('裁片交出只能绑定含车缝的执行任务分配')
+  }
+  if (!assignment.ppicId || !assignment.ppicName) {
+    throw new Error('车缝执行任务没有冻结PPIC，不能建立裁片交出责任')
+  }
+  return assignment
+}
+
+function buildBoundRequirementLines(
+  assignment: EffectiveTaskAssignment,
+  snapshot: ProductionOrderTechPackSnapshot,
+): SewingCutPieceRequirementLineInput[] {
+  return assignment.skuLines.flatMap((skuLine) => snapshot.cutPieceParts
+    .filter((part) => !part.applicableSizeList.length || part.applicableSizeList.includes(skuLine.size))
+    .filter((part) => isColorApplicable(part.applicableColorList, skuLine.color))
+    .filter((part) => part.partCode && part.partNameCn && part.pieceCountPerGarment > 0)
+    .map((part) => ({
+      skuCode: skuLine.skuCode,
+      color: skuLine.color,
+      size: skuLine.size,
+      partCode: part.partCode,
+      partName: part.partNameCn,
+      piecesPerGarment: part.pieceCountPerGarment,
+      allocatedGarmentQty: skuLine.qty,
+    })))
+}
+
+function initializeBoundCutPieceResponsibility(assignment: EffectiveTaskAssignment): void {
+  const snapshot = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
+  if (!snapshot) throw new Error('车缝执行任务缺少已发布技术包快照，不能冻结必需裁片部位')
+  const requirementLines = buildBoundRequirementLines(assignment, snapshot)
+  if (!requirementLines.length) throw new Error('车缝执行任务没有可冻结的必需裁片部位')
+  initializeSewingCutPieceResponsibility({
+    assignmentId: assignment.assignmentId,
+    requirementSnapshotId: snapshot.snapshotId,
+    requirementSnapshotAt: assignment.operatedAt,
+    requirementSnapshotBy: `${assignment.operatedBy}在任务分配时冻结`,
+    requirementLines,
+  })
 }
 
 function isColorApplicable(applicableColorList: string[], colorName: string): boolean {
@@ -1127,6 +1207,7 @@ function getRequiredLinesForBag(batch: CuttingSewingDispatchBatch): RequiredCutP
 function buildPieceLineFromRequiredLine(requiredLine: RequiredCutPieceLine, bagId: string, index: number): CuttingSewingTransferBagPieceLine {
   return {
     pieceLineId: `${bagId}-PIECE-${String(index + 1).padStart(3, '0')}`,
+    partCode: requiredLine.partCode,
     partName: requiredLine.partName,
     colorName: requiredLine.colorName,
     colorCode: requiredLine.colorCode,
@@ -1220,8 +1301,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
 
     for (const part of candidateParts) {
       if (!ticketPartNames.has(part.partNameCn)) {
-        warnings.push(`裁片部位 ${part.partNameCn} 暂无匹配菲票，当前交出先按可扫码部位核对。`)
-        continue
+        warnings.push(`裁片部位 ${part.partNameCn} 暂无匹配菲票，仍按冻结技术包必需部位以0片参与齐套和欠片核对。`)
       }
       const key = `${plannedLine.colorName}|${plannedLine.sizeCode}|${part.partNameCn}`
       if (seen.has(key)) continue
@@ -1236,6 +1316,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
         ? mapSpecialCraftReturnStatus(sampleTicket.feiTicketNo)
         : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
       lines.push({
+        partCode: part.partCode,
         partName: part.partNameCn,
         colorName: plannedLine.colorName,
         colorCode: plannedLine.colorCode,
@@ -1264,6 +1345,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
         : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
       warnings.push(`裁片部位 ${partName} 来自裁床待交出仓菲票，技术包未配置该部位，当前交出按 1:1 核对。`)
       lines.push({
+        partCode: sampleTicket?.partCode || partName,
         partName,
         colorName: plannedLine.colorName,
         colorCode: plannedLine.colorCode,
@@ -2067,10 +2149,32 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
 export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput): CuttingSewingDispatchOrder {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const productionOrder = getProductionOrder(input.productionOrderId)
+  if (!input.executionAssignmentId && !normalizeText(input.legacyUnboundReason)) {
+    throw new Error('裁片交出单必须绑定已分配的车缝执行任务；历史演示数据需显式说明未绑定原因')
+  }
+  const executionAssignment = input.executionAssignmentId
+    ? requireDispatchExecutionAssignment(input.executionAssignmentId, {
+      productionOrderId: productionOrder.productionOrderId,
+      sewingFactoryId: input.sewingFactoryId,
+      requireEffective: true,
+    })
+    : null
+  if (
+    executionAssignment
+    && storeRef.dispatchOrders.some((item) => item.executionAssignmentId === executionAssignment.assignmentId)
+  ) {
+    throw new Error(`车缝执行任务分配${executionAssignment.assignmentId}已经建立裁片交出单`)
+  }
   const cuttingFactory = input.cuttingFactoryId
     ? mockFactories.find((factory) => factory.id === input.cuttingFactoryId) || getCuttingFactory()
     : getCuttingFactory()
-  const sewingFactory = input.sewingFactoryId
+  const sewingFactory = executionAssignment
+    ? mockFactories.find((factory) => factory.id === executionAssignment.factoryId) || {
+      ...getSewingFactory(),
+      id: executionAssignment.factoryId,
+      name: executionAssignment.factoryName,
+    }
+    : input.sewingFactoryId
     ? mockFactories.find((factory) => factory.id === input.sewingFactoryId) || getSewingFactory()
     : getSewingFactory()
   const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: productionOrder.productionOrderId })
@@ -2087,11 +2191,18 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
     cuttingFactoryId: cuttingFactory.id,
     cuttingFactoryName: cuttingFactory.name,
     sewingFactoryId: sewingFactory.id,
-    sewingFactoryName: sewingFactory.name.includes('车缝') ? sewingFactory.name : `${sewingFactory.name}车缝厂`,
-    totalProductionQty: getTotalProductionQty(productionOrder),
+    sewingFactoryName: executionAssignment?.factoryName || (sewingFactory.name.includes('车缝') ? sewingFactory.name : `${sewingFactory.name}车缝厂`),
+    executionAssignmentId: executionAssignment?.assignmentId,
+    runtimeTaskId: executionAssignment?.runtimeTaskId,
+    taskNo: executionAssignment?.taskNo,
+    ppicId: executionAssignment?.ppicId,
+    ppicName: executionAssignment?.ppicName,
+    ppicSnapshotAt: executionAssignment?.ppicSnapshotAt,
+    legacyUnboundReason: executionAssignment ? undefined : normalizeText(input.legacyUnboundReason),
+    totalProductionQty: executionAssignment?.assignedQty || getTotalProductionQty(productionOrder),
     plannedDispatchGarmentQty: 0,
     cumulativeDispatchedGarmentQty: 0,
-    remainingGarmentQty: getTotalProductionQty(productionOrder),
+    remainingGarmentQty: executionAssignment?.assignedQty || getTotalProductionQty(productionOrder),
     dispatchBatchIds: [],
     transferOrderIds: [],
     transferBagIds: [],
@@ -2104,6 +2215,7 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
     updatedAt: createdAt,
     remark: input.remark,
   }
+  if (executionAssignment) initializeBoundCutPieceResponsibility(executionAssignment)
   storeRef.dispatchOrders.push(order)
   return clone(order)
 }
@@ -2111,18 +2223,51 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
 export function createCuttingSewingDispatchBatch(input: CreateDispatchBatchInput): CuttingSewingDispatchBatch {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const order = findDispatchOrderById(storeRef, input.dispatchOrderId)
+  const executionAssignment = order.executionAssignmentId
+    ? requireDispatchExecutionAssignment(order.executionAssignmentId, {
+      productionOrderId: order.productionOrderId,
+      sewingFactoryId: order.sewingFactoryId,
+      requireEffective: true,
+    })
+    : null
+  const productionOrder = getProductionOrder(order.productionOrderId)
   const normalizedLines = input.plannedSkuQtyLines
     .filter((line) => line.plannedGarmentQty > 0)
-    .map((line, index) => ({
-      lineId: `${input.dispatchOrderId}-SKU-${String(index + 1).padStart(3, '0')}`,
-      colorName: line.colorName,
-      colorCode: line.colorCode || line.colorName,
-      sizeCode: line.sizeCode,
-      plannedGarmentQty: line.plannedGarmentQty,
-      dispatchedGarmentQty: 0,
-      remainingGarmentQty: getAvailablePieceQtyForSkuLine(order.productionOrderId, line.colorName, line.sizeCode),
-    }))
+    .map((line, index) => {
+      const assignmentSku = executionAssignment?.skuLines.find((item) => (
+        item.color === line.colorName && item.size === line.sizeCode
+      ))
+      if (executionAssignment && !assignmentSku) {
+        throw new Error(`${line.colorName} / ${line.sizeCode}不属于当前车缝执行任务分配`)
+      }
+      const sourceSku = productionOrder.demandSnapshot.skuLines.find((item) => (
+        item.color === line.colorName && item.size === line.sizeCode
+      ))
+      return {
+        lineId: `${input.dispatchOrderId}-SKU-${String(index + 1).padStart(3, '0')}`,
+        skuCode: assignmentSku?.skuCode || sourceSku?.skuCode,
+        colorName: line.colorName,
+        colorCode: line.colorCode || line.colorName,
+        sizeCode: line.sizeCode,
+        plannedGarmentQty: line.plannedGarmentQty,
+        dispatchedGarmentQty: 0,
+        remainingGarmentQty: getAvailablePieceQtyForSkuLine(order.productionOrderId, line.colorName, line.sizeCode),
+      }
+    })
   if (!normalizedLines.length) throw new Error('至少需要一行本次交出颜色 / 尺码 / 件数')
+  if (executionAssignment) {
+    normalizedLines.forEach((line) => {
+      const assignedLine = executionAssignment.skuLines.find((item) => item.skuCode === line.skuCode)!
+      const priorPlannedQty = storeRef.dispatchBatches
+        .filter((batch) => batch.dispatchOrderId === order.dispatchOrderId)
+        .flatMap((batch) => batch.plannedSkuQtyLines)
+        .filter((item) => item.skuCode === line.skuCode)
+        .reduce((total, item) => total + item.plannedGarmentQty, 0)
+      if (priorPlannedQty + line.plannedGarmentQty > assignedLine.qty) {
+        throw new Error(`SKU ${assignedLine.skuCode}累计裁片交出计划不能超过任务分配${assignedLine.qty}件`)
+      }
+    })
+  }
   const noStockLine = normalizedLines.find((line) => line.remainingGarmentQty <= 0)
   if (noStockLine) throw new Error(`待交出仓没有 ${noStockLine.colorName} / ${noStockLine.sizeCode} 的可分配菲票，不能创建车缝任务分配`)
   const overStockLine = normalizedLines.find((line) => line.plannedGarmentQty > line.remainingGarmentQty)
@@ -2786,6 +2931,7 @@ export function submitCuttingSewingDispatchBatch(input: {
   if (batch.handoverRecordId) {
     const record = findPdaHandoverRecord(batch.handoverRecordId)
     if (record) {
+      syncBoundCutPieceHandoverToResponsibility({ order, batch, record })
       return {
         handoverOrder: upsertPdaHandoverHeadMock(buildHandoverHead(order)),
         handoverRecord: record,
@@ -2853,6 +2999,7 @@ export function submitCuttingSewingDispatchBatch(input: {
     }),
     feiTicketWritebackLines: [],
   })
+  syncBoundCutPieceHandoverToResponsibility({ order, batch, record: recordWithTransferBagFields })
   const linkage = linkHandoverRecordToOutboundRecord({
     handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
     handoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
@@ -3009,18 +3156,71 @@ function buildHandoverCutPieceLines(
   storeRef: CuttingSewingDispatchStore,
   batch: CuttingSewingDispatchBatch,
 ): PdaCutPieceHandoutLine[] {
+  const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
+  const assignment = order.executionAssignmentId
+    ? requireDispatchExecutionAssignment(order.executionAssignmentId, {
+      productionOrderId: order.productionOrderId,
+      sewingFactoryId: order.sewingFactoryId,
+      requireEffective: false,
+    })
+    : null
+  const productionOrder = getProductionOrder(order.productionOrderId)
   return batch.transferBagIds.flatMap((bagId) => {
     const bag = findTransferBagById(storeRef, bagId)
-    return bag.pieceLines.map((line) => ({
-      lineId: `${bag.transferBagId}-${line.pieceLineId}`,
-      piecePartLabel: line.partName,
-      garmentSkuCode: `${line.colorName}-${line.sizeCode}`,
-      garmentSkuLabel: `${line.colorName} / ${line.sizeCode}`,
-      colorLabel: line.colorName,
-      sizeLabel: line.sizeCode,
-      pieceQty: line.scannedPieceQty,
-      garmentEquivalentQty: Math.floor(Math.max(line.scannedPieceQty || 0, 0) / Math.max(line.pieceCountPerGarment || 1, 1)),
+    return bag.pieceLines.map((line) => {
+      const skuCode = assignment?.skuLines.find((item) => (
+        item.color === line.colorName && item.size === line.sizeCode
+      ))?.skuCode || productionOrder.demandSnapshot.skuLines.find((item) => (
+        item.color === line.colorName && item.size === line.sizeCode
+      ))?.skuCode
+      if (!skuCode) throw new Error(`无法识别${line.colorName} / ${line.sizeCode}对应的完整SKU`)
+      return {
+        lineId: `${bag.transferBagId}-${line.pieceLineId}`,
+        piecePartLabel: line.partName,
+        piecePartCode: line.partCode,
+        garmentSkuCode: skuCode,
+        garmentSkuLabel: `${line.colorName} / ${line.sizeCode}`,
+        colorLabel: line.colorName,
+        sizeLabel: line.sizeCode,
+        pieceQty: line.scannedPieceQty,
+        garmentEquivalentQty: Math.floor(Math.max(line.scannedPieceQty || 0, 0) / Math.max(line.pieceCountPerGarment || 1, 1)),
+      }
+    })
+  })
+}
+
+function syncBoundCutPieceHandoverToResponsibility(input: {
+  order: CuttingSewingDispatchOrder
+  batch: CuttingSewingDispatchBatch
+  record: PdaHandoverRecord
+}): void {
+  if (!input.order.executionAssignmentId) return
+  const assignment = requireDispatchExecutionAssignment(input.order.executionAssignmentId, {
+    productionOrderId: input.order.productionOrderId,
+    sewingFactoryId: input.order.sewingFactoryId,
+    requireEffective: false,
+  })
+  initializeBoundCutPieceResponsibility(assignment)
+  const lines: SewingCutPieceHandoverLineInput[] = (input.record.cutPieceLines || [])
+    .filter((line) => line.pieceQty > 0)
+    .map((line) => ({
+      skuCode: line.garmentSkuCode,
+      color: line.colorLabel || '',
+      size: line.sizeLabel || '',
+      partCode: line.piecePartCode || line.piecePartLabel,
+      pieceQty: line.pieceQty,
     }))
+  if (!lines.length) throw new Error('裁床确认交出记录没有可入账的裁片部位数量')
+  const handoverRecordId = input.record.handoverRecordId || input.record.recordId
+  recordSewingCutPieceHandover({
+    commandId: `CMD-CUT-DISPATCH-${handoverRecordId}`,
+    assignmentId: assignment.assignmentId,
+    handoverRecordId,
+    handoverRecordNo: input.record.handoverRecordNo || input.record.recordId,
+    dispatchBatchId: input.batch.dispatchBatchId,
+    handedOverAt: input.record.factorySubmittedAt,
+    handedOverBy: input.record.factorySubmittedBy || '裁床待交出仓',
+    lines,
   })
 }
 
@@ -3436,7 +3636,11 @@ function seedStore(): void {
       plannedGarmentQty: Math.max(ticket.garmentQty || fallbackQty, 1),
     }
   }
-  const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: seedProductionOrderId, remark: '车缝任务分配：按待交出仓实际库存分批交出。' })
+  const readyOrder = createCuttingSewingDispatchOrder({
+    productionOrderId: seedProductionOrderId,
+    legacyUnboundReason: '历史裁床演示单生成于执行任务绑定规则上线前，仅保留兼容展示。',
+    remark: '车缝任务分配：按待交出仓实际库存分批交出。',
+  })
   const readyBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
     plannedSkuQtyLines: [getSeedSkuLine(0, 356)],

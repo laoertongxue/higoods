@@ -55,6 +55,7 @@ const APPLICANT_SESSION_KEY = 'fcs_factory_onboarding_session_v1'
 export const LOCKED_FACTORY_NAME_MESSAGE = '该工厂入驻申请已被拒绝，不能再次发起入驻。'
 
 let cachedApplications: FactoryOnboardingApplication[] | null = null
+let cachedApplicantSession: FactoryOnboardingApplicantSession | null = null
 
 function nowTimestamp(date = new Date()): string {
   return date.toISOString().slice(0, 19).replace('T', ' ')
@@ -1019,8 +1020,8 @@ function createSeedApplication(
       toPpicId: defaultPpic.ppicId,
       toPpicName: defaultPpic.ppicName,
       changedAt: sampleAt,
-      changedBy: '系统默认分配',
-      changeReason: '工厂提交样衣审核资料后自动分配默认 PPIC',
+      changedBy: '系统按入驻责任规则分配',
+      changeReason: '工厂提交样衣审核资料后自动分配有效责任PPIC',
     }))
     if (manuallyChangedPpic && changedPpic.ppicId !== defaultPpic.ppicId) {
       ppicChangeLogs.push(createPpicChangeLog({
@@ -1059,7 +1060,7 @@ function createSeedApplication(
     assignedPpicName: assignedPpic?.ppicName,
     assignedPpicPhone: assignedPpic?.mobilePhone,
     assignedPpicAt: assignedPpic ? (manuallyChangedPpic ? sampleReviewAt : sampleAt) : undefined,
-    assignedPpicBy: assignedPpic ? (manuallyChangedPpic ? '平台运营员' : '系统默认分配') : undefined,
+    assignedPpicBy: assignedPpic ? (manuallyChangedPpic ? '平台运营员' : '系统按入驻责任规则分配') : undefined,
     ppicChangeLogs,
     machineTotalCount: payload.machineTotalCount,
     effectiveWorkerCount: payload.effectiveWorkerCount,
@@ -1250,7 +1251,7 @@ export function getOnboardingPpicName(ppicId: string): string {
   return resolveOnboardingPpicName(ppicId)
 }
 
-export function assignDefaultPpicForOnboarding(applicationId: string, operator = '系统默认分配'): FactoryOnboardingApplication {
+export function assignDefaultPpicForOnboarding(applicationId: string, operator = '系统按入驻责任规则分配'): FactoryOnboardingApplication {
   const application = getFactoryOnboardingApplicationById(applicationId)
   if (!application) throw new Error('未找到入驻申请')
   if (application.assignedPpicId) return application
@@ -1263,15 +1264,15 @@ export function assignDefaultPpicForOnboarding(applicationId: string, operator =
     assignedPpicName: defaultPpic.ppicName,
     assignedPpicPhone: defaultPpic.mobilePhone,
     assignedPpicAt: assignedAt,
-    assignedPpicBy: operator || '系统默认分配',
+    assignedPpicBy: operator || '系统按入驻责任规则分配',
     ppicChangeLogs: [
       ...(application.ppicChangeLogs || []),
       createPpicChangeLog({
         toPpicId: defaultPpic.ppicId,
         toPpicName: defaultPpic.ppicName,
         changedAt: assignedAt,
-        changedBy: operator || '系统默认分配',
-        changeReason: '工厂提交样衣审核资料后自动分配默认 PPIC',
+        changedBy: operator || '系统按入驻责任规则分配',
+        changeReason: '工厂提交样衣审核资料后自动分配有效责任PPIC',
       }),
     ],
   })
@@ -1371,12 +1372,15 @@ export function createEmptyFactoryOnboardingDraft(): FactoryOnboardingDraftPaylo
 
 export function getFactoryOnboardingApplicantSession(): FactoryOnboardingApplicantSession | null {
   const stored = readStoredJson<FactoryOnboardingApplicantSession>(APPLICANT_SESSION_KEY)
-  if (!stored) return null
-  if (!stored.applicationId || !stored.loginId || !stored.factoryName) return null
-  return { ...stored }
+  const session = stored ?? cachedApplicantSession
+  if (!session) return null
+  if (!session.applicationId || !session.loginId || !session.factoryName) return null
+  cachedApplicantSession = { ...session }
+  return { ...session }
 }
 
 export function setFactoryOnboardingApplicantSession(session: FactoryOnboardingApplicantSession | null): void {
+  cachedApplicantSession = session ? { ...session } : null
   if (!session) {
     removeBrowserStorageItem(getStorage(), APPLICANT_SESSION_KEY)
     return
@@ -1385,6 +1389,7 @@ export function setFactoryOnboardingApplicantSession(session: FactoryOnboardingA
 }
 
 export function clearFactoryOnboardingApplicantSession(): void {
+  cachedApplicantSession = null
   removeBrowserStorageItem(getStorage(), APPLICANT_SESSION_KEY)
 }
 

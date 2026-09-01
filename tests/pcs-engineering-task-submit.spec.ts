@@ -48,7 +48,7 @@ const master = createEngineeringMasterOrder({
 })
 const published = publishEngineeringMasterOrder(master.masterOrderId)
 
-// 提交目标状态分派：制版与产前版样衣提交即完成；只有花型和调色进入待审核。
+// 提交目标状态分派：制版与首单样衣提交即完成；只有花型和调色进入待审核。
 assert.equal(resolveEngineeringTaskSubmitStatus('BASE_PATTERN_WOVEN'), '已完成')
 assert.equal(resolveEngineeringTaskSubmitStatus('BASE_PATTERN_KNIT'), '已完成')
 assert.equal(resolveEngineeringTaskSubmitStatus('PRE_PRODUCTION_SAMPLE'), '已完成')
@@ -115,7 +115,7 @@ for (const [index, status] of (['技术包审核中', '待关闭'] as const).ent
   setEngineeringMasterStatus(blockedPublished.masterOrderId, '已终止')
 }
 
-// 前置完成后待前置任务可提交：产前版样衣提交即完成
+// 前置完成后待前置任务可提交：首单样衣提交即完成
 startEngineeringTaskFromDetail(taskId('PRE_PRODUCTION_SAMPLE'))
 const sampleTask = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')!
 const sampleActuals = (sampleTask.sampleRequirements || []).map((requirement, index) => ({

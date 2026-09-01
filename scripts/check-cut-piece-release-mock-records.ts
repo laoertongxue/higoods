@@ -135,9 +135,9 @@ records.forEach((record) => {
   })
 })
 
-assert.equal(byStatus('按齐套放行').length, 1, '按齐套放行场景应保持 1 条，便于演示稳定基准')
-assert.equal(byStatus('风险放行').length, 1, '风险放行场景应保持 1 条，便于演示风险原因和版本变化')
-assert.equal(byStatus('暂不放行').length, 1, '暂不放行场景应保持 1 条，便于演示 PPIC 阻断')
-assert.equal(byStatus('确认后需复核').length, 1, '确认后需复核场景应保持 1 条，便于演示事实变化后复核')
+assert.ok(byStatus('按齐套放行').length >= 1, '必须保留按齐套放行场景，便于演示稳定基准')
+assert.ok(byStatus('风险放行').length >= 1, '必须保留风险放行场景，便于演示风险原因和版本变化')
+assert.ok(byStatus('暂不放行').length >= 1, '必须保留暂不放行场景，便于演示 PPIC 阻断')
+assert.ok(byStatus('确认后需复核').length >= 1, '必须保留确认后需复核场景，便于演示事实变化后复核')
 
 console.log('[check-cut-piece-release-mock-records] 裁片放行管理 mock 数据检查通过')

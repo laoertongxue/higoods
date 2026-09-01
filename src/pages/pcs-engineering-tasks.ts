@@ -89,7 +89,7 @@ function handleEngineeringTaskWorkbenchAction(target: HTMLElement): boolean {
   }
 }
 
-// 仅为旧路由渲染器保留函数名；页面和文案均统一为产前版样衣。
+// 仅为旧路由渲染器保留函数名；页面和文案均统一为首单样衣。
 export const renderPcsFirstOrderSampleTaskPage = renderPcsFirstSampleTaskPage
 export const renderPcsFirstOrderSampleTaskDetailPage = renderPcsFirstSampleTaskDetailPage
 

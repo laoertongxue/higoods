@@ -10,7 +10,7 @@ assert.match(listHtml, /data-table-pagination/)
 
 // 任务执行表格：按任务逐行展示阶段、当前团队、当前动作、业务依赖、去向、时间和状态。
 const detailHtml = renderPcsEngineeringMasterDetailPage('EM-001')
-assert.match(detailHtml, /制版|产前版样衣|花型|调色|辅料下单|技术包确认/)
+assert.match(detailHtml, /制版|首单样衣|花型|调色|辅料下单|技术包确认/)
 assert.match(detailHtml, /data-engineering-task-table/)
 for (const column of ['序号', '任务', '阶段', '当前处理团队', '当前动作', '需要先完成', '完成后去向', '计划／实际', '状态']) {
   assert.match(detailHtml, new RegExp(column), `工程任务表格缺少列：${column}`)

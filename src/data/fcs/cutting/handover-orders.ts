@@ -1508,6 +1508,25 @@ function isMissingReceiverFactory(craft: Pick<FeiTicketSpecialCraft, 'receiverFa
   return !craft.receiverFactoryId || craft.receiverFactoryId.includes('PENDING') || craft.receiverFactoryName.includes('待补充')
 }
 
+export function evaluateSpecialCraftHandoverEligibility(input: Pick<
+  FeiTicketSpecialCraft,
+  'receiverFactoryId' | 'receiverFactoryName'
+> & {
+  printStatus: GeneratedFeiTicketSourceRecord['printStatus']
+  alreadyHandedOver: boolean
+}): { missingReceiver: boolean; canCreateHandover: boolean; reasonTexts: string[] } {
+  const missingReceiver = isMissingReceiverFactory(input)
+  return {
+    missingReceiver,
+    canCreateHandover: !missingReceiver && !input.alreadyHandedOver && input.printStatus !== 'VOIDED',
+    reasonTexts: [
+      input.printStatus === 'VOIDED' ? '菲票已作废，不能生成特殊工艺交出单' : '',
+      missingReceiver ? '承接工厂待补充，不能生成正式交出单' : '',
+      input.alreadyHandedOver ? '同一菲票同一特殊工艺已交出未回仓，不能重复交出' : '',
+    ].filter(Boolean),
+  }
+}
+
 function getReceiverTypeForSpecialCraft(craft: { craftCategory: '辅助工艺' | '特种工艺'; receiverFactoryType: string }): HandoverReceiverType {
   if (craft.receiverFactoryType === '辅助工艺厂') return '辅助工艺厂'
   if (craft.receiverFactoryType === '特种工艺厂') return '特种工艺厂'
@@ -1551,7 +1570,6 @@ function createSpecialCraftCandidateFromGeneratedRecord(
   craft: FeiTicketSpecialCraft,
   existingKeys: Set<string>,
 ): SpecialCraftHandoverCandidate {
-  const missingReceiver = isMissingReceiverFactory(craft)
   const alreadyHandedOver =
     craft.handoverStatus === '已交出' ||
     existingKeys.has(
@@ -1563,12 +1581,12 @@ function createSpecialCraftCandidateFromGeneratedRecord(
         size: record.skuSize,
       }),
     )
-  const canCreateHandover = !missingReceiver && !alreadyHandedOver && record.printStatus !== 'VOIDED'
-  const reasonTexts = [
-    record.printStatus === 'VOIDED' ? '菲票已作废，不能生成特殊工艺交出单' : '',
-    missingReceiver ? '承接工厂待补充，不能生成正式交出单' : '',
-    alreadyHandedOver ? '同一菲票同一特殊工艺已交出未回仓，不能重复交出' : '',
-  ].filter(Boolean)
+  const { missingReceiver, canCreateHandover, reasonTexts } = evaluateSpecialCraftHandoverEligibility({
+    receiverFactoryId: craft.receiverFactoryId,
+    receiverFactoryName: craft.receiverFactoryName,
+    printStatus: record.printStatus,
+    alreadyHandedOver,
+  })
 
   return {
     candidateId: `SC-HO-CAND-${record.feiTicketId}-${craft.specialCraftId}`,
@@ -2144,13 +2162,20 @@ export function calculateMinimumReturnQtyByBags(
     const minimumByColorSize: Record<string, number> = {}
     let totalMinimum = 0
     partQtyByColorSize.forEach((parts, key) => {
-      const garmentQtys = Object.entries(parts).map(([partCode, pieceQty]) => {
+      // 配置表中的部位是冻结BOM必需部位。即使某部位从未交出，也必须以0片进入最小值，
+      // 不能只遍历“实际出现过的部位”，否则整部位缺失会被错误忽略。
+      const partCodes = Array.from(new Set([
+        ...Object.keys(parts),
+        ...Object.keys(piecesPerGarmentByPart || {}),
+      ]))
+      const garmentQtys = partCodes.map((partCode) => {
+        const pieceQty = parts[partCode] || 0
         const ppg = piecesPerGarmentByPart?.[partCode]
           ? piecesPerGarmentByPart[partCode]
           : 1
         return ppg > 0 ? Math.floor(pieceQty / ppg) : 0
       })
-      const qty = Math.min(...garmentQtys)
+      const qty = garmentQtys.length ? Math.min(...garmentQtys) : 0
       minimumByColorSize[key] = qty
       totalMinimum += qty
     })

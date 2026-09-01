@@ -264,7 +264,7 @@ assert(initialSamples.filter((item) => item.status === '样衣审核退回' && !
 assert(initialSamples.filter((item) => item.factorySubmissionRoundNo >= 2 && item.sampleReviewRecords.some((record) => record.sampleReviewRoundNo >= 2)).length >= 3, '多轮样衣提交和审核少于 3 条')
 assertIncludes(ppicPath, ['FACTORY_ONBOARDING_PPIC_OPTIONS', 'DEFAULT_FACTORY_ONBOARDING_PPIC'])
 assert(FACTORY_ONBOARDING_PPIC_OPTIONS.length >= 3 && getAvailableOnboardingPpicOptions().length >= 2, 'PPIC 选项覆盖不足')
-assert(initialApplications.filter((item) => ['待平台审核样衣', '样衣审核退回', '样衣审核通过待转正式', '已转正式合作'].includes(item.status) && item.assignedPpicId).length >= 12, '样衣提交后状态应覆盖默认 PPIC')
+assert(initialApplications.filter((item) => ['待平台审核样衣', '样衣审核退回', '样衣审核通过待转正式', '已转正式合作'].includes(item.status) && item.assignedPpicId).length >= 12, '样衣提交后状态应覆盖有效责任PPIC')
 assert(initialApplications.filter((item) => !item.assignedPpicId).length >= 3, '缺少未分配 PPIC 的入驻申请')
 assert(initialApplications.filter((item) => item.ppicChangeLogs.length >= 2).length >= 3, '缺少平台手动修改 PPIC 的 mock 记录')
 const initialConverted = initialApplications.filter((item) => item.status === '已转正式合作')
@@ -419,8 +419,8 @@ assert(submitResult.sampleVerification.status === '待平台审核样衣' && sub
 assert(submitResult.sampleVerification.factorySamplePhotos.length > 0 && submitResult.sampleVerification.factorySampleVideos.length > 0 && submitResult.sampleVerification.factoryCraftDescription, '提交样衣审核资料未写入')
 assert(submitResult.sampleVerification.factorySitePhotos.length > 0 && submitResult.sampleVerification.factorySiteVideos.length > 0, '提交样衣审核未写入工厂照片或工厂视频')
 assert(submitResult.sampleVerification.factorySubmissionRoundNo >= 1 && submitResult.sampleVerification.actionLogs.some((item) => item.actionName === '工厂提交样衣审核'), '提交轮次或动作记录不正确')
-assert(submitResult.application.assignedPpicId === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId, '工厂提交样衣后应自动分配默认 PPIC')
-assert(submitResult.application.ppicChangeLogs.some((item) => item.changedBy === '系统默认分配'), '默认 PPIC 分配应写入变更记录')
+assert(submitResult.application.assignedPpicId === DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId, '工厂提交样衣后应自动分配有效责任PPIC')
+assert(submitResult.application.ppicChangeLogs.some((item) => item.changedBy === '系统按入驻责任规则分配'), '责任PPIC规则分配应写入变更记录')
 const nextPpic = getAvailableOnboardingPpicOptions().find((item) => item.ppicId !== DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId)
 assert(nextPpic, '缺少可修改的启用 PPIC')
 const ppicUpdated = updateOnboardingPpic(submitResult.application.applicationId, nextPpic.ppicId, '最终平台运营员', '最终检查修改 PPIC')
@@ -559,7 +559,7 @@ assertNotIncludes(platformPath, ['PENDING', 'DONE', 'IN_PROGRESS', '空白占位
 assertNotIncludes(pdaOnboardingPath, ['PENDING', 'DONE', 'IN_PROGRESS', '空白占位页'])
 assertIncludes(factoryMasterPath, ['listBusinessFactoryMasterRecords'])
 assertIncludes(dispatchWorkbenchPath, ['listBusinessFactoryMasterRecords'])
-assertIncludes(dispatchTenderPath, ['listBusinessFactoryMasterRecords'])
+assertIncludes(dispatchTenderPath, ['listRuntimeTaskTenderRecords', 'factoryPool'])
 
 // 第十二类：文档
 for (const docPath of [

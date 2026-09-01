@@ -231,7 +231,7 @@ function syncLedgerFilterContext(params: URLSearchParams, month: string): void {
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
   毛织基码纸样: '上传毛织基码纸样',
-  版衣制作: '查看产前版样衣成果',
+  版衣制作: '查看首单样衣成果',
   梭织齐码纸样: '上传梭织齐码纸样',
   毛织齐码纸样: '上传毛织齐码纸样',
   '数码印/DTF/DTG花型': '上传花型文件',
@@ -243,7 +243,7 @@ const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
 }
 
 function preparationItemDisplayName(itemType: PreparationItemType): string {
-  return itemType === '版衣制作' ? '产前版样衣' : itemType
+  return itemType === '版衣制作' ? '首单样衣' : itemType
 }
 
 interface StatsTableRow extends MonthlyPreparationStatRow {

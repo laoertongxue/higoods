@@ -28,6 +28,7 @@ import {
   calculateCutPieceReleaseHistoryDifference,
   confirmCutPieceReleaseAvailableQty,
   confirmCutPieceReleaseTarget,
+  getCutPieceDispatchReadinessForTask,
   getCutPieceReleaseFactSourceSummary,
   getCutPieceReleaseRecord,
   listLateCutPieceReleaseEvents,
@@ -58,7 +59,7 @@ type TargetStatusFilter = '全部' | MatrixTargetStatus
 type TargetMode = '查看' | '编辑' | '确认'
 
 interface CutPieceReleaseFeedback {
-  tone: 'success' | 'warning'
+  tone: 'success' | 'warning' | 'error'
   message: string
 }
 
@@ -622,6 +623,8 @@ function renderFeedback(): string {
   if (!state.feedback) return ''
   const className = state.feedback.tone === 'success'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : state.feedback.tone === 'error'
+      ? 'border-red-300 bg-red-50 text-red-700'
     : 'border-amber-200 bg-amber-50 text-amber-700'
   return `<div class="rounded-md border px-3 py-2 text-sm ${className}">${escapeHtml(state.feedback.message)}</div>`
 }
@@ -889,6 +892,16 @@ function renderReleaseConfirmPanel(): string {
   const versions = listCutPieceReleaseAvailableQtyVersions(record.productionOrderId)
   const latestVersion = versions.find((v) => v.isLatestEffective) ?? null
   const targetValues = state.savedTargetSnapshot?.colorSizeTargets ?? null
+  const allocationReadiness = getCutPieceDispatchReadinessForTask({
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    skuLines: record.skuLines.map((line) => ({
+      skuCode: line.skuCode,
+      color: line.colorName,
+      size: line.sizeCode,
+      qty: 0,
+    })),
+  })
 
   const colorSizeLines = record.matrix.colorGroups.flatMap((group) =>
     group.sizes.map((size) => {
@@ -896,7 +909,10 @@ function renderReleaseConfirmPanel(): string {
       const targetQty = targetValues?.[key] ?? 0
       const completeKitQty = group.completeKitBySize[size] ?? 0
       const releaseQty = latestVersion?.releaseQtyByColorSize[key] ?? Math.min(targetQty, completeKitQty)
-      return { garmentColor: group.garmentColor, size, key, targetQty, completeKitQty, releaseQty }
+      const allocatedQty = allocationReadiness.lines.find((line) => (
+        line.color === group.garmentColor && line.size === size
+      ))?.allocatedQty ?? 0
+      return { garmentColor: group.garmentColor, size, key, targetQty, completeKitQty, releaseQty, allocatedQty }
     })
   )
 
@@ -921,13 +937,14 @@ function renderReleaseConfirmPanel(): string {
   return `
     <section class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4" data-cut-piece-release-release-confirm-panel>
       <h3 class="font-semibold">裁片放行确认</h3>
+      <p class="mt-1 text-sm text-muted-foreground">已分配数量是本次可保存的硬下限；若输入低于占用数量，系统拒绝保存并保留原放行版本。</p>
       ${savedReleaseVersionHtml}
       <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
         ${colorSizeLines.map((line) => `
           <label class="flex items-center gap-2 rounded bg-white px-3 py-2">
-            <span class="flex-1 text-sm">${escapeHtml(line.garmentColor)} / ${escapeHtml(line.size)}</span>
+            <span class="flex-1 text-sm">${escapeHtml(line.garmentColor)} / ${escapeHtml(line.size)}<small class="mt-0.5 block text-muted-foreground">已分配 ${formatQuantity(line.allocatedQty)} 件</small></span>
             <input type="text" inputmode="numeric" pattern="[0-9]*" class="h-8 w-20 rounded border px-2 text-right text-sm tabular-nums"
-              data-min="0" data-max="${line.targetQty}"
+              data-min="${line.allocatedQty}" data-max="${line.targetQty}"
               value="${line.releaseQty}"
               data-cut-piece-release-field="releaseQtyInput"
               data-release-color="${escapeHtml(line.garmentColor)}"
@@ -1460,8 +1477,9 @@ function handleFieldChange(node: HTMLInputElement | HTMLSelectElement): boolean 
     return true
   }
   if (field === 'releaseQtyInput') {
+    const min = Number(node.dataset.min || 0)
     const max = Number(node.dataset.max || 0)
-    const qty = Math.min(Math.max(0, Math.round(Number(node.value) || 0)), max)
+    const qty = Math.min(Math.max(min, Math.round(Number(node.value) || 0)), max)
     node.value = String(qty)
     refreshReleaseRiskReasonInput()
     return true
@@ -1836,7 +1854,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     })
     state.feedback = result.ok
       ? { tone: 'success', message: result.message }
-      : { tone: 'warning', message: result.message }
+      : { tone: 'error', message: result.message }
     refreshFeedback()
     refreshMatrix()
     refreshList()

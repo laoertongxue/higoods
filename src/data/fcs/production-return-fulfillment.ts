@@ -2,7 +2,7 @@ import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillm
 import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
 import { resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
 
-export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'OVERDUE'
+export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'CUTTING_SHORTFALL' | 'OVERDUE'
 export type ReturnReminderType = 'DUE_TOMORROW' | 'DUE_TODAY' | 'OVERDUE'
 
 export interface ProductionReturnMilestoneSnapshot {
@@ -10,6 +10,7 @@ export interface ProductionReturnMilestoneSnapshot {
   naturalDay: number
   targetQty: number
   deadlineDate: string
+  deadlineAt: string
 }
 
 export interface ProductionReturnRulePreview {
@@ -42,12 +43,33 @@ export interface ProductionReturnReceiptFact {
   factoryId: string
   confirmedQty: number
   confirmedDate: string
+  confirmedAt?: string
   confirmed: boolean
   voided?: boolean
+  executionTaskId?: string
+  productionOrderId?: string
+  declaredQty?: number
+  sourceType?: 'POST_FINISHING_FINAL_CONFIRMATION'
+  sourceDocumentNo?: string
+  confirmationVersionId?: string
+  skuCodes?: string[]
+}
+
+export interface ProductionReturnResponsibilityVersionFact {
+  responsibilityVersionId: string
+  assignmentId: string
+  totalResponsibilityQty: number
+  createdAt: string
 }
 
 export interface ProductionReturnMilestoneProjection extends ProductionReturnMilestoneSnapshot {
   confirmedQtyByDeadline: number
+  attributableTargetQty: number
+  cuttingShortfallQty: number
+  factoryPendingQty: number
+  responsibilityQtyAtCutoff: number
+  responsibilityCutoffAt: string
+  responsibilityVersionId?: string
   shortageQty: number
   reachedDate?: string
   status: ReturnMilestoneStatus
@@ -78,6 +100,7 @@ export interface ProductionReturnReminder {
 export type ProductionOrderReturnListStatus =
   | 'DATA_INCOMPLETE'
   | 'OVERDUE'
+  | 'CUTTING_SHORTFALL'
   | 'DUE_TODAY'
   | 'DUE_TOMORROW'
   | 'UPCOMING'
@@ -159,6 +182,21 @@ function dateToEpochDay(value: string): number {
   return Math.floor(Date.parse(`${dateText}T00:00:00Z`) / 86_400_000)
 }
 
+function dateTimeToEpoch(value: string, fieldName: string): number {
+  const normalized = value.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return Date.parse(`${assertDate(normalized, fieldName)}T23:59:59Z`)
+  }
+  const wallClock = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(normalized)
+  const parsed = Date.parse(wallClock ? `${wallClock[1]}T${wallClock[2]}Z` : normalized)
+  if (!Number.isFinite(parsed)) throw new Error(`${fieldName}必须是有效日期时间`)
+  return parsed
+}
+
+function receiptConfirmedTime(receipt: ProductionReturnReceiptFact): number {
+  return dateTimeToEpoch(receipt.confirmedAt ?? receipt.confirmedDate, '后道最终确认时间')
+}
+
 export function addNaturalDays(dateValue: string, days: number): string {
   if (!Number.isInteger(days)) throw new Error('自然日偏移必须为整数')
   const epochDay = dateToEpochDay(dateValue) + days
@@ -188,6 +226,7 @@ export function buildProductionReturnRulePreview(input: {
       ...milestone,
       targetQty: milestone.ratio === 1 ? assignedQty : Math.ceil(assignedQty * milestone.ratio),
       deadlineDate: calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay),
+      deadlineAt: `${calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay)} 23:59:59`,
     })),
   }
 }
@@ -260,37 +299,65 @@ export function projectProductionReturnFulfillment(input: {
   snapshot: ProductionReturnRuleSnapshot
   receipts: ProductionReturnReceiptFact[]
   today: string
+  nowAt?: string
+  usesCutPieceResponsibility?: boolean
+  responsibilityVersions?: ProductionReturnResponsibilityVersionFact[]
 }): ProductionReturnProjection {
   const today = assertDate(input.today, '查询日期')
+  const nowAt = input.nowAt ?? `${today} 23:59:59`
+  const nowTime = dateTimeToEpoch(nowAt, '查询时间')
   const effectiveReceipts = receiptsForSnapshot(input.snapshot, input.receipts)
   const confirmedReturnedQty = effectiveReceipts.reduce((sum, item) => sum + item.confirmedQty, 0)
   const milestones = input.snapshot.milestones.map<ProductionReturnMilestoneProjection>((milestone) => {
-    const byDeadline = effectiveReceipts.filter((item) => item.confirmedDate <= milestone.deadlineDate)
+    const deadlineAt = milestone.deadlineAt || `${milestone.deadlineDate} 23:59:59`
+    const deadlineTime = dateTimeToEpoch(deadlineAt, '节点截止时间')
+    const byDeadline = effectiveReceipts.filter((item) => receiptConfirmedTime(item) <= deadlineTime)
     const confirmedQtyByDeadline = byDeadline.reduce((sum, item) => sum + item.confirmedQty, 0)
+    const responsibilityCutoffAt = nowTime > deadlineTime ? deadlineAt : nowAt
+    const responsibilityCutoffTime = Math.min(nowTime, deadlineTime)
+    const responsibilityVersions = (input.responsibilityVersions ?? [])
+      .filter((version) => version.assignmentId === input.snapshot.assignmentId)
+      .filter((version) => dateTimeToEpoch(version.createdAt, '回货责任版本时间') <= responsibilityCutoffTime)
+      .sort((left, right) => dateTimeToEpoch(left.createdAt, '回货责任版本时间') - dateTimeToEpoch(right.createdAt, '回货责任版本时间'))
+    const responsibilityVersion = responsibilityVersions.at(-1)
+    const responsibilityQtyAtCutoff = input.usesCutPieceResponsibility
+      ? Math.min(input.snapshot.assignedQty, responsibilityVersion?.totalResponsibilityQty ?? 0)
+      : input.snapshot.assignedQty
+    const attributableTargetQty = Math.min(milestone.targetQty, responsibilityQtyAtCutoff)
+    const cuttingShortfallQty = Math.max(0, milestone.targetQty - attributableTargetQty)
+    const factoryPendingQty = Math.max(0, attributableTargetQty - confirmedQtyByDeadline)
     const reachedDate = (() => {
       let accumulated = 0
       for (const receipt of effectiveReceipts) {
         accumulated += receipt.confirmedQty
-        if (accumulated >= milestone.targetQty) return receipt.confirmedDate
+        if (accumulated >= milestone.targetQty) return receipt.confirmedAt ?? receipt.confirmedDate
       }
       return undefined
     })()
     let status: ReturnMilestoneStatus = 'UPCOMING'
     if (confirmedQtyByDeadline >= milestone.targetQty) status = 'REACHED'
-    else if (today > milestone.deadlineDate) status = 'OVERDUE'
+    else if (nowTime > deadlineTime && factoryPendingQty > 0) status = 'OVERDUE'
+    else if (nowTime > deadlineTime && cuttingShortfallQty > 0) status = 'CUTTING_SHORTFALL'
     else if (today === milestone.deadlineDate) status = 'DUE_TODAY'
     return {
       ...milestone,
+      deadlineAt,
       confirmedQtyByDeadline,
-      shortageQty: Math.max(0, milestone.targetQty - confirmedQtyByDeadline),
+      attributableTargetQty,
+      cuttingShortfallQty,
+      factoryPendingQty,
+      responsibilityQtyAtCutoff,
+      responsibilityCutoffAt,
+      responsibilityVersionId: responsibilityVersion?.responsibilityVersionId,
+      shortageQty: cuttingShortfallQty + factoryPendingQty,
       reachedDate,
       status,
     }
   })
-  const statusRank: Record<ReturnMilestoneStatus, number> = { UPCOMING: 0, REACHED: 1, DUE_TODAY: 2, OVERDUE: 3 }
+  const statusRank: Record<ReturnMilestoneStatus, number> = { REACHED: 0, UPCOMING: 1, DUE_TODAY: 2, CUTTING_SHORTFALL: 3, OVERDUE: 4 }
   const highestRiskStatus = milestones.reduce<ReturnMilestoneStatus>(
     (highest, item) => statusRank[item.status] > statusRank[highest] ? item.status : highest,
-    'UPCOMING',
+    'REACHED',
   )
   return {
     snapshot: { ...input.snapshot, milestones: input.snapshot.milestones.map((item) => ({ ...item })) },
@@ -304,7 +371,7 @@ export function projectProductionReturnFulfillment(input: {
 export function buildProductionReturnReminders(projection: ProductionReturnProjection, todayValue: string): ProductionReturnReminder[] {
   const today = assertDate(todayValue, '提醒日期')
   return projection.milestones.flatMap((milestone) => {
-    if (milestone.status === 'REACHED') return []
+    if (milestone.status === 'REACHED' || milestone.status === 'CUTTING_SHORTFALL') return []
     const daysToDeadline = dateToEpochDay(milestone.deadlineDate) - dateToEpochDay(today)
     let reminderType: ReturnReminderType | null = null
     if (daysToDeadline === 1) reminderType = 'DUE_TOMORROW'
@@ -327,7 +394,7 @@ export function buildProductionReturnReminders(projection: ProductionReturnProje
       targetQty: milestone.targetQty,
       confirmedQty: milestone.confirmedQtyByDeadline,
       shortageQty: milestone.shortageQty,
-      message: `${projection.snapshot.productionOrderId} ${projection.snapshot.factoryName} ${Math.round(milestone.ratio * 100)}%回货节点${dayLabel}，应回${milestone.targetQty}件，按期已回${milestone.confirmedQtyByDeadline}件，尚差${milestone.shortageQty}件。`,
+      message: `${projection.snapshot.productionOrderId} ${projection.snapshot.factoryName} ${Math.round(milestone.ratio * 100)}%回货节点${dayLabel}，计划应回${milestone.targetQty}件，截止当前工厂承担${milestone.attributableTargetQty}件，后道按期确认${milestone.confirmedQtyByDeadline}件，工厂尚差${milestone.factoryPendingQty}件，裁床待补${milestone.cuttingShortfallQty}件。`,
     }]
   })
 }
@@ -337,6 +404,7 @@ export function recordProductionReturnReceipt(fact: ProductionReturnReceiptFact)
   if (!fact.assignmentId.trim() || !fact.factoryId.trim()) throw new Error('回货确认必须关联分配记录和加工厂')
   if (!Number.isFinite(fact.confirmedQty) || fact.confirmedQty <= 0) throw new Error('回货确认数量必须大于0')
   assertDate(fact.confirmedDate, '到货确认日期')
+  if (fact.confirmedAt) dateTimeToEpoch(fact.confirmedAt, '后道最终确认时间')
   const saved = { ...fact }
   receiptFacts.set(fact.receiptId, saved)
   return { ...saved }
@@ -378,6 +446,7 @@ export function listProductionReturnReminderLogs(input: { assignmentId?: string;
 const RETURN_LIST_STATUS_LABEL: Record<ProductionOrderReturnListStatus, string> = {
   DATA_INCOMPLETE: '履约数据不完整',
   OVERDUE: '已逾期',
+  CUTTING_SHORTFALL: '裁床待补裁片',
   DUE_TODAY: '今日到期',
   DUE_TOMORROW: '明日到期',
   UPCOMING: '即将到期',
@@ -392,19 +461,22 @@ function resolveAssignmentListStatus(
 ): ProductionOrderReturnAssignmentSummary {
   const todayDay = dateToEpochDay(today)
   const overdue = projection.milestones.find((item) => item.status === 'OVERDUE')
+  const cuttingShortfall = projection.milestones.find((item) => item.status === 'CUTTING_SHORTFALL')
   const dueToday = projection.milestones.find((item) => item.status === 'DUE_TODAY')
   const dueTomorrow = projection.milestones.find((item) => item.status === 'UPCOMING' && dateToEpochDay(item.deadlineDate) - todayDay === 1)
   const upcoming = projection.milestones.find((item) => item.status === 'UPCOMING')
-  const focusMilestone = overdue || dueToday || dueTomorrow || upcoming || projection.milestones[projection.milestones.length - 1]
+  const focusMilestone = overdue || cuttingShortfall || dueToday || dueTomorrow || upcoming || projection.milestones[projection.milestones.length - 1]
   const status: ProductionOrderReturnAssignmentSummary['status'] = overdue
     ? 'OVERDUE'
-    : dueToday
-      ? 'DUE_TODAY'
-      : dueTomorrow
-        ? 'DUE_TOMORROW'
-        : upcoming
-          ? 'UPCOMING'
-          : 'REACHED'
+    : cuttingShortfall
+      ? 'CUTTING_SHORTFALL'
+      : dueToday
+        ? 'DUE_TODAY'
+        : dueTomorrow
+          ? 'DUE_TOMORROW'
+          : upcoming
+            ? 'UPCOMING'
+            : 'REACHED'
   const expectedReminderType: ReturnReminderType | null = status === 'DUE_TOMORROW'
     ? 'DUE_TOMORROW'
     : status === 'DUE_TODAY'
@@ -418,6 +490,8 @@ function resolveAssignmentListStatus(
   }).some((item) => item.milestoneRatio === focusMilestone.ratio && item.reminderType === expectedReminderType)
   const reminderState = status === 'REACHED'
     ? '节点已达成，无需提醒'
+    : status === 'CUTTING_SHORTFALL'
+      ? `工厂截止节点的已获裁片责任已履行，裁床仍待补${focusMilestone.cuttingShortfallQty}件对应裁片`
     : expectedReminderType == null
       ? '尚未到提醒时间'
       : expectedReminderType === 'OVERDUE'
@@ -473,7 +547,7 @@ export function projectProductionOrderReturnSummary(input: {
     receipts: listProductionReturnReceipts({ assignmentId: snapshot.assignmentId, factoryId: snapshot.factoryId }),
     today,
   }), today))
-  const rank: Record<ProductionOrderReturnAssignmentSummary['status'], number> = { OVERDUE: 6, DUE_TODAY: 5, DUE_TOMORROW: 4, UPCOMING: 3, REACHED: 2 }
+  const rank: Record<ProductionOrderReturnAssignmentSummary['status'], number> = { OVERDUE: 7, CUTTING_SHORTFALL: 6, DUE_TODAY: 5, DUE_TOMORROW: 4, UPCOMING: 3, REACHED: 2 }
   assignments.sort((left, right) => rank[right.status] - rank[left.status] || left.focusMilestone.deadlineDate.localeCompare(right.focusMilestone.deadlineDate))
   const primary = assignments[0]
   const factoryCount = new Set(assignments.map((item) => item.projection.snapshot.factoryId)).size

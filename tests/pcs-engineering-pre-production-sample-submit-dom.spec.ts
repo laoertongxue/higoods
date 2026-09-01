@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test'
 
 const SAMPLE_IMAGE = path.resolve('public/dress-sample-1.jpg')
 
-test('产前版样衣必须在专业任务详情开始、真实上传并提交完成', async ({ page }) => {
+test('首单样衣必须在专业任务详情开始、真实上传并提交完成', async ({ page }) => {
   await page.goto('/')
   const scenario = await page.evaluate(async () => {
     const styleRepository = await import('/src/data/pcs-style-archive-repository.ts')
@@ -43,11 +43,11 @@ test('产前版样衣必须在专业任务详情开始、真实上传并提交�
         reason: '已满足做大货要求',
         uniqueTriggerKey: `SAMPLE-PLAYWRIGHT-${style.styleCode}`,
       },
-      creationReason: '验证产前版样衣真实成果提交',
+      creationReason: '验证首单样衣真实成果提交',
     })
     const published = engineeringRepository.publishEngineeringMasterOrder(master.masterOrderId)
     const sample = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
-    if (!sample) throw new Error('工程主单未生成产前版样衣任务')
+    if (!sample) throw new Error('工程主单未生成首单样衣任务')
     for (const dependencyId of sample.dependsOnTaskIds) {
       const dependency = published.tasks.find((item) => item.taskId === dependencyId)
       if (!dependency) continue
@@ -58,7 +58,7 @@ test('产前版样衣必须在专业任务详情开始、真实上传并提交�
         applicableSizes: ['M'],
         sourceFiles: [{ fileId: `${dependencyId}-PRJ`, purpose: 'PATTERN_SOURCE', fileName: '验收纸样.prj', extension: 'prj', mimeType: 'application/octet-stream', sizeBytes: 8, dataUrl: 'data:application/octet-stream;base64,SElHT09E', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师-验收', uploadedByTeam: '版师', uploadedAt: '2026-08-12 09:20:00', roundNo: 1, errorMessage: '' }],
         previewFiles: [{ fileId: `${dependencyId}-IMAGE`, purpose: 'PATTERN_PREVIEW', fileName: '验收纸样.jpg', extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 4, dataUrl: 'data:image/jpeg;base64,/9j/2Q==', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师-验收', uploadedByTeam: '版师', uploadedAt: '2026-08-12 09:20:00', roundNo: 1, errorMessage: '' }],
-        note: '产前版样衣验收前置纸样',
+        note: '首单样衣验收前置纸样',
         submittedBy: '版师-验收',
       })
     }
@@ -98,7 +98,7 @@ test('产前版样衣必须在专业任务详情开始、真实上传并提交�
   await expect(page.locator('[data-engineering-task-workbench]')).toContainText('已完成')
   await expect(page.getByText(`要求 ${scenario.expectedTotal} 件`, { exact: false })).toBeVisible()
   await expect(page.getByText('提交成果并完成任务')).toHaveCount(0)
-  const uploadedImage = page.getByRole('button', { name: '产前版样衣成果图 1' })
+  const uploadedImage = page.getByRole('button', { name: '首单样衣成果图 1' })
   await uploadedImage.click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')

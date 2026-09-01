@@ -673,7 +673,7 @@ async function runChain(input: {
     action: '结合系统建议确认生产准备类型、固定任务、条件任务及前期成果处置',
     before: { status: '草稿', currentTeams: ['跟单'] }, inputSummary: `纯梭织；${withDye ? '启用面料调色' : '无调色'}；前期纸样重新执行`,
     after: masterState(masterOrderId), outputIds: master.tasks.filter((task) => task.status !== '未启用').map((task) => task.taskId),
-    assertions: ['固定任务一次生成', '固定依赖由系统生成', '产前版样衣要求包含颜色尺码数量', '跟单不能调整依赖'],
+    assertions: ['固定任务一次生成', '固定依赖由系统生成', '首单样衣要求包含颜色尺码数量', '跟单不能调整依赖'],
   })
 
   const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', masterOrderId)
@@ -742,7 +742,7 @@ async function runChain(input: {
   sampleTask = latestTask(masterOrderId, 'PRE_PRODUCTION_SAMPLE')
   assert.equal(sampleTask.status, '已完成')
   recordStep({
-    chainId, stage: '工程产前版样衣', objectId: sampleTask.taskId, actorTeam: '制作团队', actorName: sampleTeam.userName,
+    chainId, stage: '工程首单样衣', objectId: sampleTask.taskId, actorTeam: '制作团队', actorName: sampleTeam.userName,
     action: '按跟单下达的颜色、尺码、数量逐行制作并上传真实样衣图片', before: beforeSample,
     inputSummary: `${sampleTask.sampleRequirements?.map((line) => `${line.targetColor}/${line.targetSize}/${line.requiredQuantity}件`).join('；')}`,
     after: taskState(sampleTask), outputIds: preSampleImages.map((files) => files[0].fileId),

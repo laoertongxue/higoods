@@ -1,3 +1,17 @@
+import { getFactoryActivePpicSnapshot } from './factory-master-store.ts'
+import {
+  getOnboardingPpicOptionById,
+  type FactoryOnboardingPpicRole,
+} from './factory-onboarding-ppic.ts'
+import {
+  initializeSewingSampleApprovalSuggestionForAssignment,
+  resetSewingSampleApprovalSuggestionsForTests,
+} from './sewing-sample-approval-suggestion.ts'
+import {
+  initializeSewingMaterialHandoverForAssignment,
+  resetSewingMaterialHandoversForTests,
+} from './sewing-material-handover.ts'
+
 export type EffectiveAssignmentSource = 'DIRECT_DISPATCH' | 'TENDER_AWARD' | 'REASSIGNMENT'
 export type EffectiveAssignmentStatus = 'EFFECTIVE' | 'SUPERSEDED' | 'CANCELLED'
 
@@ -26,6 +40,14 @@ export interface EffectiveTaskAssignment {
   businessAssignedAt: string
   operatedAt: string
   operatedBy: string
+  allocationOperatorPpicId?: string
+  allocationOperatorPpicName?: string
+  allocationOperatorRole?: FactoryOnboardingPpicRole
+  ppicId?: string
+  ppicName?: string
+  ppicPhone?: string
+  ppicSnapshotAt?: string
+  ppicSnapshotSource?: 'FACTORY_MASTER_AT_ASSIGNMENT'
   status: EffectiveAssignmentStatus
   supersededAt?: string
   supersededByAssignmentId?: string
@@ -89,6 +111,10 @@ function currentIds(runtimeTaskId: string): string[] {
   return [...(currentAssignmentIdsByTask.get(runtimeTaskId) ?? [])]
 }
 
+function assignmentRequiresPpic(processCodes: readonly string[]): boolean {
+  return processCodes.some((code) => ['SEW', 'SEWING', 'PROC_SEW'].includes(code.trim().toUpperCase()))
+}
+
 export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignmentInput): EffectiveTaskAssignment {
   if (!input.factoryId || !input.factoryName) throw new Error('必须确认具体加工厂后才能形成有效分配')
   if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
@@ -97,8 +123,30 @@ export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignme
     throw new Error('分配明细必须按完整SKU记录且数量大于0')
   }
 
+  const requiresPpic = assignmentRequiresPpic(input.processCodes)
+  const allocationOperator = requiresPpic
+    ? getOnboardingPpicOptionById(input.allocationOperatorPpicId?.trim() || '')
+    : null
+  if (requiresPpic && (
+    !allocationOperator
+    || allocationOperator.status !== '启用'
+    || !['MEMBER', 'TEAM_LEADER'].includes(allocationOperator.role)
+    || allocationOperator.ppicName !== input.allocationOperatorPpicName?.trim()
+  )) {
+    throw new Error('含车缝任务只能由当前登录的有效PPIC分配，必须记录真实PPIC人员身份。')
+  }
+  if (allocationOperator && input.operatedBy.trim() !== allocationOperator.ppicName) {
+    throw new Error('车缝任务分配操作人与当前登录PPIC身份不一致。')
+  }
+
   const assignmentId = input.assignmentId || nextAssignmentId(input.runtimeTaskId)
   if (assignments.has(assignmentId)) throw new Error(`分配记录${assignmentId}已存在`)
+  const factoryPpic = requiresPpic
+    ? getFactoryActivePpicSnapshot(input.factoryId)
+    : null
+  if (requiresPpic && !factoryPpic) {
+    throw new Error(`三方车缝工厂${input.factoryName}没有唯一有效PPIC，不能生成含车缝执行任务`)
+  }
 
   const sameTaskCurrentIds = currentIds(input.runtimeTaskId)
   for (const currentId of sameTaskCurrentIds) {
@@ -128,6 +176,14 @@ export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignme
   const record: EffectiveTaskAssignment = {
     ...input,
     assignmentId,
+    allocationOperatorPpicId: allocationOperator?.ppicId,
+    allocationOperatorPpicName: allocationOperator?.ppicName,
+    allocationOperatorRole: allocationOperator?.role,
+    ppicId: factoryPpic?.ppicId,
+    ppicName: factoryPpic?.ppicName,
+    ppicPhone: factoryPpic?.mobilePhone,
+    ppicSnapshotAt: factoryPpic ? input.operatedAt : undefined,
+    ppicSnapshotSource: factoryPpic ? 'FACTORY_MASTER_AT_ASSIGNMENT' : undefined,
     status: 'EFFECTIVE',
     skuLines: input.skuLines.map((line) => ({ ...line })),
     processCodes: [...input.processCodes],
@@ -137,7 +193,15 @@ export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignme
     ...sameTaskCurrentIds.filter((id) => assignments.get(id)?.status === 'EFFECTIVE'),
     assignmentId,
   ])
-  appendAudit(record, 'CREATED', `已冻结${record.priceCurrency} ${record.frozenPrice}/${record.priceUnit}`, record.operatedAt, record.operatedBy)
+  appendAudit(
+    record,
+    'CREATED',
+    `已冻结${record.priceCurrency} ${record.frozenPrice}/${record.priceUnit}${record.allocationOperatorPpicName ? `；分配操作人：${record.allocationOperatorPpicName}` : ''}${record.ppicName ? `；任务PPIC：${record.ppicName}` : ''}`,
+    record.operatedAt,
+    record.operatedBy,
+  )
+  initializeSewingSampleApprovalSuggestionForAssignment(record)
+  initializeSewingMaterialHandoverForAssignment(record)
   return cloneAssignment(record)
 }
 
@@ -221,4 +285,6 @@ export function resetEffectiveTaskAssignmentsForTests(): void {
   auditLogs.splice(0)
   assignmentSeq = 0
   auditSeq = 0
+  resetSewingSampleApprovalSuggestionsForTests()
+  resetSewingMaterialHandoversForTests()
 }

@@ -27,6 +27,9 @@ export interface TaskFulfillmentPolicy {
   normalizedProcessCodes: string[]
   isIndependentTask: boolean
   mergedTaskType: MergedProductionTaskType | null
+  /** Whether the task belongs to the three PPIC-managed sewing-outsourcing task types. */
+  involvesSewingOutsourcing: boolean
+  /** Whether cut pieces are the first handover object, used only for bagging/debt semantics. */
   startsWithSewing: boolean
   assignmentGranularity: 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
   fulfillmentRuleCode: FulfillmentRuleCode
@@ -93,13 +96,14 @@ export function classifyTaskFulfillmentPolicy(task: TaskFulfillmentPolicyInput):
       normalizedProcessCodes: [...definition.requiredSourceProcessCodes],
       isIndependentTask: false,
       mergedTaskType,
+      involvesSewingOutsourcing: true,
       startsWithSewing: mergedTaskType === 'SEWING_IRON_PACK',
       assignmentGranularity: definition.assignmentGranularity,
       fulfillmentRuleCode: definition.returnRuleCode,
       milestones: MILESTONES[definition.returnRuleCode].map((item) => ({ ...item })),
       contractEligibilityCode,
       contractRequired: true,
-      requiresSewingReadinessContext: mergedTaskType === 'SEWING_IRON_PACK',
+      requiresSewingReadinessContext: true,
     }
   }
 
@@ -115,6 +119,7 @@ export function classifyTaskFulfillmentPolicy(task: TaskFulfillmentPolicyInput):
     normalizedProcessCodes: [processCode],
     isIndependentTask: true,
     mergedTaskType: null,
+    involvesSewingOutsourcing: independentSewing,
     startsWithSewing: independentSewing,
     assignmentGranularity: independentSewing ? 'SKU' : 'ORDER',
     fulfillmentRuleCode,

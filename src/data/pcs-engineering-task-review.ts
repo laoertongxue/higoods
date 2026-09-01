@@ -216,7 +216,7 @@ export function reopenEngineeringDirectResultTaskForTechPackReview(input: {
   if (!master) throw new Error(`工程主单不存在：${input.masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === input.taskId)
   if (!task) throw new Error(`工程任务不存在：${input.taskId}`)
-  if (!DIRECT_RESULT_TASK_TYPES.includes(task.taskType)) throw new Error('当前任务不是可由技术包退回的纸样或产前版样衣任务。')
+  if (!DIRECT_RESULT_TASK_TYPES.includes(task.taskType)) throw new Error('当前任务不是可由技术包退回的纸样或首单样衣任务。')
   if (task.status !== '已完成') throw new Error(`原工程任务当前不是已完成状态，无法发起返工：${input.taskId}`)
   const reason = input.reason.trim()
   if (!reason) throw new Error('请填写技术包退回原因。')

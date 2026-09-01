@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url'
 import { getCutPieceDispatchReadinessForTask } from '../src/data/fcs/cut-piece-release.ts'
 import { getMaterialPrepDispatchReadinessForTask } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
+  findPdaHandoutHead,
+  listPdaHandoverRecordsByHeadId,
+} from '../src/data/fcs/pda-handover-events.ts'
+import {
   createProductionReturnRuleSnapshot,
   buildProductionReturnRulePreview,
   resetProductionReturnSnapshotSequenceForTests,
@@ -77,11 +81,14 @@ assert.deepEqual(
   ]),
   [
     ['SKU-005-S-GRY', 500, 500, 490, 490, 0, '部分放行'],
-    ['SKU-005-M-GRY', 700, 700, 660, 680, 20, '风险放行'],
+    ['SKU-005-M-GRY', 700, 700, 660, 680, 20, '部分放行'],
     ['SKU-005-L-GRY', 800, 800, 720, 720, 0, '部分放行'],
     ['SKU-005-XL-GRY', 500, 500, 430, 430, 0, '部分放行'],
   ],
 )
+assert.equal(cutReadiness.canDispatch, false, '风险放行仍须满足本次任务数量；数量不足时必须优先阻断')
+assert.equal(cutReadiness.blockingCount, 4)
+assert(cutReadiness.lines.every((line) => line.allocatedQty === 0 && line.availableQty === line.releaseConfirmQty))
 
 const selectedCutReadiness = getCutPieceDispatchReadinessForTask({
   productionOrderId: sewingTask.productionOrderId,
@@ -97,6 +104,7 @@ const missingCutReadiness = getCutPieceDispatchReadinessForTask({
 })
 assert.equal(missingCutReadiness.hasRecord, false)
 assert.equal(missingCutReadiness.lines[0].status, '待同步')
+assert.equal(missingCutReadiness.canDispatch, false)
 
 const materialReadiness = getMaterialPrepDispatchReadinessForTask(sewingTask)
 assert.equal(materialReadiness.hasMaterialPrepScope, true)
@@ -142,9 +150,12 @@ const cuttingPolicy = policy({
 assert.deepEqual(sewingPolicy.milestones.map((item) => item.naturalDay), [4, 8, 9])
 assert.deepEqual(sewingIronPackPolicy.milestones.map((item) => item.naturalDay), [5, 9, 10])
 assert.deepEqual(cuttingSewingIronPackPolicy.milestones.map((item) => item.naturalDay), [6, 9, 12])
+assert.equal(sewingPolicy.involvesSewingOutsourcing, true)
+assert.equal(sewingIronPackPolicy.involvesSewingOutsourcing, true)
+assert.equal(cuttingSewingIronPackPolicy.involvesSewingOutsourcing, true)
 assert.equal(sewingPolicy.requiresSewingReadinessContext, true)
 assert.equal(sewingIronPackPolicy.requiresSewingReadinessContext, true)
-assert.equal(cuttingSewingIronPackPolicy.requiresSewingReadinessContext, false)
+assert.equal(cuttingSewingIronPackPolicy.requiresSewingReadinessContext, true)
 assert.equal(buildProductionReturnRulePreview({ assignedQty: 2500, businessAssignedAt: '2026-08-10 09:22:00', policy: cuttingPolicy }), null)
 
 const independentPreview = buildProductionReturnRulePreview({
@@ -262,13 +273,22 @@ try {
 }
 
 const reassignmentPreview = getRuntimeSewingTaskReassignmentScopePreview(
-  'TASKGEN-202603-0015-002__ORDER',
+  'TASKGEN-202603-0015-003__ORDER',
   '2026-08-10 23:59:59',
 )
 assert(reassignmentPreview)
 assert.equal(
   reassignmentPreview.remainingQty,
   reassignmentPreview.originalAssignedQty - reassignmentPreview.confirmedReceivedQty,
+)
+const delayedReceiptHead = findPdaHandoutHead('HOH-SLA-DELAY-DEMO-001')
+assert(delayedReceiptHead)
+assert.equal(delayedReceiptHead.taskId, 'TASKGEN-202603-0015-003__ORDER')
+assert.equal(delayedReceiptHead.taskNo, 'TASKGEN-202603-0015-003')
+assert.equal(getRuntimeTaskById(delayedReceiptHead.taskId)?.processBusinessCode, 'SEW')
+assert.deepEqual(
+  listPdaHandoverRecordsByHeadId(delayedReceiptHead.handoverId).map((record) => record.taskId),
+  ['TASKGEN-202603-0015-003__ORDER'],
 )
 
 const workbenchSource = fs.readFileSync(path.join(repoRoot, 'src/pages/unified-dispatch-workbench.ts'), 'utf8')

@@ -6,11 +6,12 @@ import {
   projectSewingDeliverySla,
   type SewingDeliverySlaProjection,
   type SewingDeliverySlaSnapshot,
-  type SewingDeliveryReceiptFact,
 } from './sewing-delivery-sla.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks, type RuntimeProcessTask } from './runtime-process-tasks.ts'
-import type { PdaHandoverRecord } from './pda-handover-events.ts'
-import { listLatestSewingDeliveryRawRecords, toConfirmedSewingDeliveryReceiptFact } from './sewing-delivery-receipt-facts.ts'
+import {
+  listSewingDeliveryReceiptFacts,
+  listSewingDeliverySubmissionFacts,
+} from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -19,28 +20,14 @@ export interface SewingDeliverySlaView {
   readonly projection: SewingDeliverySlaProjection
 }
 
-function isVoided(record: PdaHandoverRecord): boolean {
-  return record.handoverRecordStatus === 'VOIDED'
-}
-
-function validNonNegativeQty(value: number | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
-}
-
 function buildView(
   runtimeTaskId: string,
   snapshot: SewingDeliverySlaSnapshot,
-  records: PdaHandoverRecord[],
   nowAt: string,
 ): SewingDeliverySlaView {
-  const taskRecords = records.filter((record) => record.taskId === runtimeTaskId)
-  const submittedQty = taskRecords.reduce((sum, record) => {
-    if (isVoided(record) || record.factorySubmittedAt > nowAt) return sum
-    return sum + (validNonNegativeQty(record.submittedQty ?? record.plannedQty) ?? 0)
-  }, 0)
-  const receipts = taskRecords
-    .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
-    .filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
+  const submittedQty = listSewingDeliverySubmissionFacts(runtimeTaskId, nowAt)
+    .reduce((sum, record) => sum + record.submittedQty, 0)
+  const receipts = listSewingDeliveryReceiptFacts(runtimeTaskId, nowAt)
   const projection = projectSewingDeliverySla(snapshot, receipts, nowAt)
 
   return Object.freeze({
@@ -70,7 +57,7 @@ export function getSewingDeliverySlaView(
 ): SewingDeliverySlaView | null {
   const snapshot = resolveEligibleSnapshot(runtimeTaskId, nowAt)
   if (!snapshot) return null
-  return buildView(runtimeTaskId, snapshot, listLatestSewingDeliveryRawRecords(nowAt, [runtimeTaskId]), nowAt)
+  return buildView(runtimeTaskId, snapshot, nowAt)
 }
 
 
@@ -95,16 +82,8 @@ export function listSewingDeliverySlaViews(
     )
     if (snapshot) snapshotsByTaskId.set(taskId, snapshot)
   })
-  const targetTaskIds = new Set(snapshotsByTaskId.keys())
-  const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
-  listLatestSewingDeliveryRawRecords(nowAt, Array.from(targetTaskIds)).forEach((record) => {
-    if (!targetTaskIds.has(record.taskId)) return
-    const records = recordsByTaskId.get(record.taskId) ?? []
-    records.push(record)
-    recordsByTaskId.set(record.taskId, records)
-  })
   const views = Array.from(snapshotsByTaskId.entries()).map(([runtimeTaskId, snapshot]) =>
-    buildView(runtimeTaskId, snapshot, recordsByTaskId.get(runtimeTaskId) ?? [], nowAt),
+    buildView(runtimeTaskId, snapshot, nowAt),
   )
   return Object.freeze(views)
 }

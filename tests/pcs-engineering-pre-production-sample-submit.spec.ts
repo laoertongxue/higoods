@@ -58,7 +58,7 @@ const master = createEngineeringMasterOrder({
     reason: '已满足做大货要求',
     uniqueTriggerKey: `TEST-SAMPLE-${style.styleCode}`,
   },
-  creationReason: '验证产前版样衣专业任务',
+  creationReason: '验证首单样衣专业任务',
 })
 const published = confirmEngineeringMasterTaskPlan(master.masterOrderId, {
   confirmedBy: '跟单-林晓',
@@ -82,7 +82,7 @@ const patternVersion = submitEngineeringPatternResult({
   applicableSizes: ['M', 'L'],
   sourceFiles: [{ fileId: `${basePattern.taskId}-PRJ`, purpose: 'PATTERN_SOURCE', fileName: '产前版基码纸样.prj', extension: 'prj', mimeType: 'application/octet-stream', sizeBytes: 8, dataUrl: 'data:application/octet-stream;base64,SElHT09E', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-04 10:00:00', roundNo: 1, errorMessage: '' }],
   previewFiles: [{ fileId: `${basePattern.taskId}-IMAGE`, purpose: 'PATTERN_PREVIEW', fileName: '产前版基码纸样.jpg', extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 4, dataUrl: 'data:image/jpeg;base64,/9j/2Q==', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-04 10:00:00', roundNo: 1, errorMessage: '' }],
-  note: '产前版样衣使用的基码纸样',
+  note: '首单样衣使用的基码纸样',
   submittedBy: basePattern.assigneeName || '版师负责人',
 })
 const sourcePatternVersion = `${patternVersion.materialKind}${patternVersion.patternKind} ${patternVersion.versionLabel}`
@@ -123,7 +123,7 @@ assert.throws(
   () => submitEngineeringFirstSampleResult(sampleTask.taskId, {
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, imageFileIds: [] } : line),
   }),
-  /每行产前版样衣实际交付必须上传真实样衣图片/,
+  /每行首单样衣实际交付必须上传真实样衣图片/,
 )
 assert.throws(
   () => submitEngineeringFirstSampleResult(sampleTask.taskId, {
@@ -136,7 +136,7 @@ assert.throws(
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, actualColor: '实际改色' } : line),
   }),
   /实际交付与制作要求不一致，请填写差异说明/,
-  '产前版样衣与跟单要求不一致时必须填写差异说明',
+  '首单样衣与跟单要求不一致时必须填写差异说明',
 )
 
 submitEngineeringFirstSampleResult(sampleTask.taskId, {

@@ -4,7 +4,11 @@ import {
   readBrowserStorageItem,
   writeBrowserStorageItem,
 } from '../browser-storage.ts'
-import { DEFAULT_FACTORY_ONBOARDING_PPIC } from './factory-onboarding-ppic.ts'
+import {
+  DEFAULT_FACTORY_ONBOARDING_PPIC,
+  getAvailableOnboardingPpicOptions,
+  getOnboardingPpicOptionById,
+} from './factory-onboarding-ppic.ts'
 import type { Factory } from './factory-types.ts'
 import { isLegacySpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
 
@@ -72,8 +76,53 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
   }
 }
 
+function isSewingFactoryProfile(factory: Factory): boolean {
+  if (factory.processAbilities.some((item) => item.processCode === 'SEW')) return true
+  return ['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'].includes(factory.factoryType)
+}
+
+function withLegacySewingFactoryPpicBackfill(factory: Factory): Factory {
+  if (!isSewingFactoryProfile(factory)) return factory
+  if (factory.assignedPpicId?.trim() && factory.assignedPpicName?.trim()) return factory
+  const teamMembers = getAvailableOnboardingPpicOptions().filter((item) => item.role === 'MEMBER')
+  const stableIndex = [...factory.id].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const assignedPpic = teamMembers[stableIndex % teamMembers.length] ?? DEFAULT_FACTORY_ONBOARDING_PPIC
+  return {
+    ...factory,
+    assignedPpicId: assignedPpic.ppicId,
+    assignedPpicName: assignedPpic.ppicName,
+    assignedPpicPhone: assignedPpic.mobilePhone,
+  }
+}
+
+export interface FactoryActivePpicSnapshot {
+  ppicId: string
+  ppicName: string
+  mobilePhone: string
+}
+
+function resolveActivePpicSnapshot(factory: Factory): FactoryActivePpicSnapshot | null {
+  if (!isSewingFactoryProfile(factory)) return null
+  const ppicId = factory.assignedPpicId?.trim() || ''
+  const ppicName = factory.assignedPpicName?.trim() || ''
+  if (!ppicId || !ppicName) return null
+  const ppic = getOnboardingPpicOptionById(ppicId)
+  if (!ppic || ppic.status !== '启用' || ppic.ppicName !== ppicName) return null
+  return {
+    ppicId: ppic.ppicId,
+    ppicName: ppic.ppicName,
+    mobilePhone: ppic.mobilePhone,
+  }
+}
+
+function assertSewingFactoryHasPpic(factory: Factory): void {
+  if (!isSewingFactoryProfile(factory)) return
+  if (resolveActivePpicSnapshot(factory)) return
+  throw new Error('正式车缝工厂必须分配有效PPIC，且只能分配一名启用中的人员，人员ID与姓名必须一致')
+}
+
 function cloneFactory(factory: Factory): Factory {
-  const normalizedFactory = withDefaultTaskAcceptanceConfig(factory)
+  const normalizedFactory = withLegacySewingFactoryPpicBackfill(withDefaultTaskAcceptanceConfig(factory))
   return {
     ...normalizedFactory,
     factoryShortName: normalizedFactory.factoryShortName || normalizedFactory.code || normalizedFactory.name,
@@ -253,8 +302,7 @@ export function listBusinessFactoryMasterRecords(input: { includeTestFactories?:
 
 function isSewingFactory(factory: Factory): boolean {
   if (factory.status !== 'active') return false
-  if (factory.processAbilities.some((item) => item.processCode === 'SEW')) return true
-  return ['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'].includes(factory.factoryType)
+  return isSewingFactoryProfile(factory)
 }
 
 export function listSewingFactoryMasterRecords(): Factory[] {
@@ -271,7 +319,17 @@ export function getFactoryMasterRecordById(factoryId: string): Factory | undefin
   return factory ? cloneFactory(factory) : undefined
 }
 
+export function getFactoryActivePpicSnapshot(factoryId: string): FactoryActivePpicSnapshot | null {
+  const factory = getFactoryMasterRecordById(factoryId)
+  return factory ? resolveActivePpicSnapshot(factory) : null
+}
+
+export function listSewingFactoriesWithoutActivePpic(): Factory[] {
+  return listSewingFactoryMasterRecords().filter((factory) => !resolveActivePpicSnapshot(factory))
+}
+
 export function upsertFactoryMasterRecord(factory: Factory): void {
+  assertSewingFactoryHasPpic(factory)
   const nextFactory = cloneFactory(factory)
   const currentIndex = factoryMasterRecords.findIndex((item) => item.id === nextFactory.id)
 
