@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import {
   buildBindingProcessOrders,
@@ -21,6 +21,15 @@ async function setFactorySession(page: Page, factoryId: string): Promise<void> {
   }, session)
 }
 
+async function expectBefore(first: Locator, second: Locator): Promise<void> {
+  const secondHandle = await second.elementHandle()
+  if (!secondHandle) throw new Error('缺少用于顺序断言的第二个节点')
+  const firstComesBefore = await first.evaluate((firstNode, secondNode) => (
+    Boolean(firstNode.compareDocumentPosition(secondNode) & Node.DOCUMENT_POSITION_FOLLOWING)
+  ), secondHandle)
+  expect(firstComesBefore).toBe(true)
+}
+
 function selectBindingReceiveOrder(): BindingProcessOrder {
   const order = buildBindingProcessOrders().find((item) =>
     item.status === '待加工'
@@ -40,12 +49,20 @@ test('捆条加工单逐标签接收面料，扫码为主且业务记录与扫�
   await page.goto(`/fcs/pda/exec/BINDING_PROCESS_ORDER/${encodeURIComponent(order.bindingOrderId)}?surface=handover&handoverAction=receive`)
 
   const panel = page.locator('[data-pda-physical-scan-panel]')
+  const actionPanel = page.getByTestId('pda-work-order-action-panel')
+  const workOrderDetails = page.getByTestId('pda-work-order-details')
   await expect(panel).toBeVisible()
+  await expect(actionPanel).toBeVisible()
+  await expect(workOrderDetails).toBeVisible()
+  await expect(workOrderDetails).not.toHaveAttribute('open', '')
+  await expect(workOrderDetails.getByText(order.bindingOrderId)).toBeHidden()
+  await expectBefore(actionPanel, workOrderDetails)
+  await expect(page.locator('body')).not.toContainText('查看历史和流转')
   const scanner = panel.locator('input[data-physical-input-method="SCANNER"]')
   await expect(scanner).toBeFocused()
-  await expect(scanner).toHaveAttribute('placeholder', '扫描面料标签')
+  await expect(scanner).toHaveAttribute('placeholder', '扫描或输入面料标签')
   await expect(page.locator('[data-pda-execd-field="bindingQty"]')).toHaveCount(0)
-  await expect(panel.locator('details').filter({ hasText: '无法扫码？手动输入' })).not.toHaveAttribute('open', '')
+  await expect(panel.locator('details').filter({ hasText: '无法扫码？手动输入' })).toHaveCount(0)
 
   const code = `MAT-${order.bindingOrderNo}-${detail.bindingStripNo}-01`
   await scanner.fill(code)
@@ -57,9 +74,8 @@ test('捆条加工单逐标签接收面料，扫码为主且业务记录与扫�
   await page.screenshot({ path: 'output/playwright/pda-density-fix/binding-receive-physical-scan-360x640.png', fullPage: true })
   await submit.click()
 
-  await expect(page.locator('#app')).toContainText('最近扫码批次')
-  await expect(page.locator('#app')).toContainText('PSB-')
-  await expect(page.locator('#app')).toContainText('BAR-')
+  await expect(page.locator('#app')).not.toContainText('最近扫码批次')
+  await expect(page.locator('#app')).not.toContainText('查看历史和流转')
   await expectNoPageErrors(errors)
 })
 
@@ -75,8 +91,14 @@ test('捆条加工单交出必须先扫描加工后捆条标签，不能按汇�
   await page.goto(`/fcs/pda/exec/BINDING_PROCESS_ORDER/${encodeURIComponent(order.bindingOrderId)}?surface=handover&handoverAction=handout`)
 
   const panel = page.locator('[data-pda-physical-scan-panel]')
+  const actionPanel = page.getByTestId('pda-work-order-action-panel')
+  const workOrderDetails = page.getByTestId('pda-work-order-details')
   const submit = page.locator('[data-pda-execd-action="binding-submit-handover"]')
   await expect(panel).toBeVisible()
+  await expect(actionPanel).toBeVisible()
+  await expect(workOrderDetails).toBeVisible()
+  await expect(workOrderDetails).not.toHaveAttribute('open', '')
+  await expectBefore(actionPanel, workOrderDetails)
   await expect(submit).toBeDisabled()
   await expect(page.locator('[data-pda-execd-field="bindingQty"]')).toHaveCount(0)
 
@@ -88,7 +110,7 @@ test('捆条加工单交出必须先扫描加工后捆条标签，不能按汇�
   await page.screenshot({ path: 'output/playwright/pda-density-fix/binding-handout-physical-scan-360x640.png', fullPage: true })
   await submit.click()
 
-  await expect(page.locator('#app')).toContainText('PSB-')
-  await expect(page.locator('#app')).toContainText('BAR-')
+  await expect(page.locator('#app')).not.toContainText('最近扫码批次')
+  await expect(page.locator('#app')).not.toContainText('查看历史和流转')
   await expectNoPageErrors(errors)
 })

@@ -175,7 +175,7 @@ export function commitPdaPhysicalScanBatch(input: PdaPhysicalScanScope & {
 }): PdaPhysicalScanBatchRecord {
   const lines = listPdaPhysicalScanDraftLines(input)
   if (lines.length === 0) {
-    throw new Error(input.action === 'RECEIVE' ? '请先逐张扫描本批接收的标签或菲票。' : '请先逐张扫描本批交出的标签或菲票。')
+    throw new Error(input.action === 'RECEIVE' ? '请先扫描或输入本批接收的标签或菲票。' : '请先扫描或输入本批交出的标签或菲票。')
   }
   const businessRecordIds = input.businessRecordIds.map((item) => item.trim()).filter(Boolean)
   if (businessRecordIds.length === 0) throw new Error('业务动作未返回记录 ID，本批扫码证据不能提交。')

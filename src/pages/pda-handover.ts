@@ -8,10 +8,8 @@ import {
   deriveHandoutObjectProfile,
   findPdaHandoverHead,
   getPdaHandoverSourceDisplay,
-  getPdaCompletedHeads,
   getPdaHandoverRecordsByHead,
   getPdaHandoutHeads,
-  getPdaPostFinishingCompletedHeads,
   getPdaPostFinishingHandoutHeads,
   getPdaPostFinishingPickupHeads,
   getPdaPickupHeads,
@@ -57,7 +55,7 @@ import { isKolGotoFactory, isKolGotoWholeOrderTask } from '../data/fcs/kol-goto-
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { processTasks } from '../data/fcs/process-tasks.ts'
 
-type HandoverTab = 'pickup' | 'handout' | 'done'
+type HandoverTab = 'pickup' | 'handout'
 
 interface PdaHandoverState {
   selectedFactoryId: string
@@ -106,7 +104,6 @@ let specialCraftSeedScheduled = false
 const TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待接收' },
   { key: 'handout', label: '待交出' },
-  { key: 'done', label: '已完成' },
 ]
 
 function getCurrentQueryString(): string {
@@ -122,9 +119,9 @@ function getCurrentSearchParams(): URLSearchParams {
 function syncTabWithQuery(): void {
   const previousTab = state.activeTab
   const tab = getCurrentSearchParams().get('tab')
-  if (!tab) {
+  if (!tab || !TAB_CONFIG.some((item) => item.key === tab)) {
     state.activeTab = 'pickup'
-  } else if (TAB_CONFIG.some((item) => item.key === tab)) {
+  } else {
     state.activeTab = tab as HandoverTab
   }
   if (state.activeTab !== previousTab) {
@@ -589,93 +586,6 @@ function renderCompactOpenHeadCard(head: PdaHandoverHead): string {
   `
 }
 
-function renderDoneHeadCard(head: PdaHandoverHead): string {
-  const doneTypeLabel = head.headType === 'PICKUP' ? '接收单已完成' : '交出单已完成'
-  const diffLabel = `${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}`
-  const receiverName = getReceiverDisplayName(head)
-
-  return `
-    <article
-      class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
-      ${head.headType === 'HANDOUT' ? 'data-testid="handout-head-card"' : ''}
-      data-pda-handover-action="open-detail"
-      data-event-id="${escapeHtml(head.handoverId)}"
-    >
-      <div class="space-y-2 p-3">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex min-w-0 items-center gap-1.5">
-            <span class="inline-flex shrink-0 items-center rounded border border-green-200 bg-green-50 px-1.5 py-0 text-[10px] text-green-700">${doneTypeLabel}</span>
-            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${head.headType === 'HANDOUT' && !head.receiverClosedAt ? '接收方确认中' : '已完成'}</span>
-          </div>
-          <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
-        </div>
-
-        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-          <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
-          <div><span class="text-muted-foreground">原始任务：</span>${escapeHtml(head.rootTaskNo || head.taskNo)}</div>
-          ${renderHandoverSourceField(head)}
-          <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
-          <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
-          <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
-          <div><span class="text-muted-foreground">交接方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">${head.headType === 'PICKUP' ? '接收单号' : '交出单号'}：</span>${escapeHtml(head.headType === 'PICKUP' ? head.handoverId : head.handoverOrderNo || head.handoverId)}</div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
-          <div>${head.headType === 'PICKUP' ? '应领对象数量：' : '已交出：'}<span class="font-medium">${head.headType === 'PICKUP' ? head.qtyExpectedTotal : head.submittedQtyTotal ?? 0} ${escapeHtml(head.qtyUnit)}</span></div>
-          <div>${head.headType === 'PICKUP' ? '累计实领：' : '已收货：'}<span class="font-medium">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</span></div>
-          <div class="col-span-2 rounded-md border px-2 py-1 ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">
-            ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${escapeHtml(diffLabel)}）` : '数量一致'}
-          </div>
-        </div>
-
-        ${
-          head.headType === 'HANDOUT'
-            ? `
-              <div class="flex items-center gap-2 py-0.5 text-xs">
-                <span class="shrink-0 text-muted-foreground">接收方：</span>
-                ${renderPartyChip(head.targetKind, receiverName)}
-              </div>
-            `
-            : ''
-        }
-        ${head.headType === 'HANDOUT' ? renderHandoutObjectBlock(head) : ''}
-      </div>
-    </article>
-  `
-}
-
-function renderCompactDoneHeadCard(head: PdaHandoverHead): string {
-  const source = getPdaHandoverSourceDisplay(head)
-  const isPickup = head.headType === 'PICKUP'
-  const profile = isPickup
-    ? null
-    : deriveHandoutObjectProfile(head, getPdaHandoverRecordsByHead(head.handoverId))
-  const expected = isPickup ? head.qtyExpectedTotal : profile?.totalPlannedQty || 0
-  const actual = isPickup ? head.qtyActualTotal : profile?.totalWrittenQty || 0
-  const unit = profile?.displayUnit || head.qtyUnit
-  const diff = head.qtyDiffTotal
-  return `
-    <article
-      class="cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition-colors hover:border-primary"
-      data-testid="${isPickup ? 'pickup-head-card' : 'handout-head-card'}"
-      data-pda-handover-action="open-detail"
-      data-event-id="${escapeHtml(head.handoverId)}"
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0"><div class="truncate text-sm font-semibold">${escapeHtml(head.processName)}</div><div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div></div>
-        <span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">已完成</span>
-      </div>
-      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
-        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '应收' : '已交'}</div><div class="mt-1 font-semibold">${expected} ${escapeHtml(unit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">${isPickup ? '已收' : '已收'}</div><div class="mt-1 font-semibold">${actual} ${escapeHtml(unit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${diff !== 0 ? 'text-red-600' : 'text-emerald-700'}">${diff > 0 ? '-' : diff < 0 ? '+' : ''}${Math.abs(diff)} ${escapeHtml(unit)}</div></div>
-      </div>
-      <div class="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-primary">查看结果<i data-lucide="chevron-right" class="h-4 w-4"></i></div>
-    </article>
-  `
-}
-
 function renderEmptyState(message: string): string {
   return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(message)}</div>`
 }
@@ -688,21 +598,16 @@ function getKolGotoTaskByHead(head: PdaHandoverHead) {
 function renderKolGotoHandoverPage(): string {
   if (state.activeTab === 'pickup') state.activeTab = 'handout'
   const openHeads = getPdaHandoutHeads(KOL_GOTO_FACTORY_ID).filter((head) => Boolean(getKolGotoTaskByHead(head)))
-  const doneHeads = getPdaCompletedHeads(KOL_GOTO_FACTORY_ID).filter((head) => Boolean(getKolGotoTaskByHead(head)))
-  const current = state.activeTab === 'done' ? doneHeads : openHeads
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
       <header class="border-b bg-blue-50 px-4 py-3"><h1 class="font-semibold text-blue-950">KOL 整单交接</h1><p class="mt-1 text-xs text-blue-700">这里只查看每次发起交出的现场事实。</p></header>
-      <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-handover-tabs">
-        ${[
-          { key: 'handout' as const, label: '待交出', count: openHeads.length },
-          { key: 'done' as const, label: '已完成', count: doneHeads.length },
-        ].map((tab) => `<button class="border-b-2 py-3 text-sm font-medium ${state.activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-handover-action="switch-tab" data-tab="${tab.key}">${tab.label}${tab.count ? ` <span class="rounded-full bg-muted px-1.5 text-[10px]">${tab.count}</span>` : ''}</button>`).join('')}
+      <div class="grid grid-cols-1 border-b bg-background" data-testid="pda-handover-tabs">
+        <button class="border-b-2 border-primary py-3 text-sm font-medium text-primary" data-pda-handover-action="switch-tab" data-tab="handout">待交出${openHeads.length ? ` <span class="rounded-full bg-muted px-1.5 text-[10px]">${openHeads.length}</span>` : ''}</button>
       </div>
       <main class="flex-1 space-y-3 p-4">
-        ${current.length === 0
-          ? renderEmptyState(state.activeTab === 'done' ? '暂无已完成交出单' : '尚未发起交出，请在执行任务中操作')
-          : current.map((head) => {
+        ${openHeads.length === 0
+          ? renderEmptyState('尚未发起交出，请在执行任务中操作')
+          : openHeads.map((head) => {
               const task = getKolGotoTaskByHead(head)!
               const records = getPdaHandoverRecordsByHead(head.handoverId)
               const effectiveRecords = records.filter((record) => record.handoverRecordStatus !== 'VOIDED')
@@ -988,21 +893,14 @@ export function renderPdaHandoverPage(): string {
   const visiblePickupHeads = pickupHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
   const factoryWoolHandoutHeads = getPdaHandoutHeads(selectedFactoryId)
     .filter((head) => head.processBusinessCode === 'WOOL')
-  const factoryWoolCompletedHeads = getPdaCompletedHeads(selectedFactoryId)
-    .filter((head) => head.processBusinessCode === 'WOOL')
   const handoutHeads = isPostFinishingFactory
     ? mergeHandoverHeadsById(getPdaPostFinishingHandoutHeads(), factoryWoolHandoutHeads)
     : getPdaHandoutHeads(selectedFactoryId)
-  const doneHeads = isPostFinishingFactory
-    ? mergeHandoverHeadsById(getPdaPostFinishingCompletedHeads(), factoryWoolCompletedHeads)
-    : getPdaCompletedHeads(selectedFactoryId)
   const visibleHandoutHeads = handoutHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
-  const visibleDoneHeads = doneHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
 
   const tabCounts: Record<HandoverTab, number> = {
     pickup: visiblePickupHeads.length,
     handout: visibleHandoutHeads.length,
-    done: visibleDoneHeads.length,
   }
 
 // 裁床中转袋交接状态：待装袋 / 待收中转袋
@@ -1033,10 +931,10 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
-        ${hasBindingOrders && state.activeTab !== 'done' ? renderBindingHandoverScanPanel() : ''}
-        ${hasWoolOrders && state.activeTab !== 'done' ? renderWoolHandoverScanPanel() : ''}
-        ${hasWoolOrders && state.activeTab !== 'done' ? renderSelectedWoolHandoverOrder() : ''}
-        ${hasSpecialCraftOrders && state.activeTab !== 'done' ? renderSpecialCraftHandoverScanPanel() : ''}
+        ${hasBindingOrders ? renderBindingHandoverScanPanel() : ''}
+        ${hasWoolOrders ? renderWoolHandoverScanPanel() : ''}
+        ${hasWoolOrders ? renderSelectedWoolHandoverOrder() : ''}
+        ${hasSpecialCraftOrders ? renderSpecialCraftHandoverScanPanel() : ''}
         ${canManageSewingSelfReturnMode && state.activeTab === 'pickup' ? renderPostFinishingSewingSelfReturnPanel() : ''}
         ${
           state.activeTab === 'pickup'
@@ -1057,18 +955,6 @@ export function renderPdaHandoverPage(): string {
                 visibleHandoutHeads.length === 0
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
                   : visibleHandoutHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
-              }
-            `
-            : ''
-        }
-
-        ${
-          state.activeTab === 'done'
-            ? `
-              ${
-                visibleDoneHeads.length === 0
-                  ? renderEmptyState('暂无已完成交接单')
-                  : visibleDoneHeads.map((head) => renderCompactDoneHeadCard(head)).join('')
               }
             `
             : ''

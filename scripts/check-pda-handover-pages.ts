@@ -468,13 +468,15 @@ function checkWoolFactHandoverProjection(): void {
 
   loginPdaFactory(DEDICATED_POST_FACTORY_ID)
   appStore.navigate('/fcs/pda/handover?tab=done')
-  assert(renderPdaHandoverPage().includes(head.handoverId), '后道专厂真实 PDA 已完成页必须合并已确认的毛织交出')
+  const dedicatedLegacyDonePage = renderPdaHandoverPage()
+  assert(!dedicatedLegacyDonePage.includes('data-tab="done"'), '交接页必须删除已完成 Tab')
+  assert(!dedicatedLegacyDonePage.includes(head.handoverId), '旧 tab=done 地址不得继续展示已完成毛织交出')
   loginPdaFactory(OWN_WOOL_FACTORY_ID)
   appStore.navigate('/fcs/pda/handover?tab=done')
-  assert(!renderPdaHandoverPage().includes(head.handoverId), '来源毛织厂不得看到目标专厂已完成毛织交出')
+  assert(!renderPdaHandoverPage().includes(head.handoverId), '来源毛织厂不得从旧 tab=done 地址看到已完成毛织交出')
   loginPdaFactory(TEST_FACTORY_ID)
   appStore.navigate('/fcs/pda/handover?tab=done')
-  assert(!renderPdaHandoverPage().includes(head.handoverId), '无关工厂不得看到目标专厂已完成毛织交出')
+  assert(!renderPdaHandoverPage().includes(head.handoverId), '无关工厂不得从旧 tab=done 地址看到已完成毛织交出')
 
   const cuttingReceiverFactoryId = resolveWoolReceiverExecutionFactoryId(
     'CUTTING_WAIT_HANDOVER_WAREHOUSE',

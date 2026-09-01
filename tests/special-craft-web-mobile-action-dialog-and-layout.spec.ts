@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
 import {
@@ -56,6 +56,15 @@ async function setPdaSession(page: Page, factoryId: string): Promise<void> {
   await page.addInitScript((value) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(value))
   }, session)
+}
+
+async function expectBefore(first: Locator, second: Locator): Promise<void> {
+  const secondHandle = await second.elementHandle()
+  if (!secondHandle) throw new Error('缺少用于顺序断言的第二个节点')
+  const firstComesBefore = await first.evaluate((firstNode, secondNode) => (
+    Boolean(firstNode.compareDocumentPosition(secondNode) & Node.DOCUMENT_POSITION_FOLLOWING)
+  ), secondHandle)
+  expect(firstComesBefore).toBe(true)
 }
 
 async function assertNoTaskExecutionActions(page: Page): Promise<void> {
@@ -148,6 +157,14 @@ test('PDA 按具体加工单进入，所有执行载荷同时保留加工单和�
   await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}`)
 
   await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible({ timeout: 30_000 })
+  const actionPanel = page.getByTestId('pda-work-order-action-panel')
+  const workOrderDetails = page.getByTestId('pda-work-order-details')
+  await expect(actionPanel).toBeVisible()
+  await expect(workOrderDetails).toBeVisible()
+  await expect(workOrderDetails).not.toHaveAttribute('open', '')
+  await expect(workOrderDetails.getByText(order.taskOrderId)).toBeHidden()
+  await expectBefore(actionPanel, workOrderDetails)
+  await expect(page.locator('body')).not.toContainText('查看历史和流转')
   await expect(page.locator('#app')).toContainText(order.taskOrderNo)
   await expect(page.locator('#app')).toContainText(order.taskOrderId)
   await expect(page.locator('#app')).toContainText(order.sourceTaskId || '')
@@ -182,7 +199,7 @@ test('PDA 列表不显示 Web 分页和全局悬浮搜索，较长列表只提�
   }
 })
 
-test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次与业务留痕 ID', async ({ page }) => {
+test('PDA 发起交出逐张扫描菲票，可部分交出且不在操作页展示历史流转', async ({ page }) => {
   const order = selectPartialHandoverOrder()
   const line = order.lineProgress?.find((item) => item.feiTicketNo)
   if (!line?.feiTicketNo) throw new Error(`${order.taskOrderNo} 缺少菲票明细`)
@@ -195,7 +212,15 @@ test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次�
 
   await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible()
   await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
-  const scanInput = page.getByLabel('扫描加工后裁片菲票')
+  const actionPanel = page.getByTestId('pda-work-order-action-panel')
+  const workOrderDetails = page.getByTestId('pda-work-order-details')
+  await expect(actionPanel).toBeVisible()
+  await expect(workOrderDetails).toBeVisible()
+  await expect(workOrderDetails).not.toHaveAttribute('open', '')
+  await expectBefore(actionPanel, workOrderDetails)
+  await expect(page.locator('body')).not.toContainText('查看历史和流转')
+  await expect(page.getByLabel('交出备注（选填）')).toHaveCount(0)
+  const scanInput = page.getByLabel('扫描或输入加工后裁片菲票')
   await expect(scanInput).toBeFocused()
   const submit = page.locator('[data-pda-execd-action="special-submit-handover"]')
   await expect(submit).toBeDisabled()
@@ -204,8 +229,8 @@ test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次�
   await scanInput.press('Enter')
   await expect(page.locator('#pda-exec-detail-toast-root')).toContainText('不属于当前加工单')
 
-  await page.getByLabel('扫描加工后裁片菲票').fill(line.feiTicketNo)
-  await page.getByLabel('扫描加工后裁片菲票').press('Enter')
+  await page.getByLabel('扫描或输入加工后裁片菲票').fill(line.feiTicketNo)
+  await page.getByLabel('扫描或输入加工后裁片菲票').press('Enter')
   await expect(page.locator('[data-pda-physical-scan-line]')).toHaveCount(1)
   await expect(page.locator('[data-pda-physical-scan-line]')).toContainText('扫码')
   const qtyInput = page.getByLabel(`${line.feiTicketNo}本次数量`)
@@ -218,11 +243,10 @@ test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次�
   await qtyInput.fill(String(partialQty))
   await expect(qtyInput).not.toHaveAttribute('aria-invalid', 'true')
   await expect(submit).toBeEnabled()
-  await page.getByLabel('交出备注（选填）').fill('PDA 部分交出验证')
   await page.screenshot({ path: 'output/playwright/pda-density-fix/special-craft-handout-physical-scan-360x640.png', fullPage: true })
 
-  await page.getByLabel('扫描加工后裁片菲票').fill(line.feiTicketNo)
-  await page.getByLabel('扫描加工后裁片菲票').press('Enter')
+  await page.getByLabel('扫描或输入加工后裁片菲票').fill(line.feiTicketNo)
+  await page.getByLabel('扫描或输入加工后裁片菲票').press('Enter')
   await expect(page.locator('#pda-exec-detail-toast-root')).toContainText('已经扫过')
 
   await expect(submit).toHaveText('确认本批交出（1 张）')
@@ -231,14 +255,12 @@ test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次�
   await submit.click()
 
   await expect(page.locator('#app')).toContainText(`累计交出：${partialQty} 片`)
-  await expect(page.locator('#app')).toContainText('业务记录 ID：PAO-')
-  await expect(page.locator('#app')).toContainText('交出记录 ID：')
-  await expect(page.locator('#app')).toContainText(`PDA 部分交出验证`)
-  await expect(page.locator('#app')).toContainText('最近扫码批次')
-  await expect(page.locator('#app')).toContainText('PSB-')
+  await expect(page.locator('#app')).not.toContainText('业务记录 ID：')
+  await expect(page.locator('#app')).not.toContainText('交出记录 ID：')
+  await expect(page.locator('#app')).not.toContainText('最近扫码批次')
 })
 
-test('PDA 辅料接收默认扫码，手动输入弱化但走同一标签校验和留痕', async ({ page }) => {
+test('PDA 辅料接收使用单一输入框，扫码和手动输入走同一标签校验和留痕', async ({ page }) => {
   const order = listSpecialCraftTaskOrders().find((item) =>
     item.targetObject === '辅料'
     && item.status === '待接收'
@@ -251,25 +273,29 @@ test('PDA 辅料接收默认扫码，手动输入弱化但走同一标签校验�
   await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}?surface=handover&handoverAction=receive`)
 
   const panel = page.locator('[data-pda-physical-scan-panel]')
+  const actionPanel = page.getByTestId('pda-work-order-action-panel')
+  const workOrderDetails = page.getByTestId('pda-work-order-details')
   await expect(panel).toBeVisible()
-  await expect(page.getByLabel('扫描面料／辅料标签')).toBeFocused()
+  await expect(actionPanel).toBeVisible()
+  await expect(workOrderDetails).toBeVisible()
+  await expect(workOrderDetails).not.toHaveAttribute('open', '')
+  await expectBefore(actionPanel, workOrderDetails)
+  const unifiedInput = page.getByLabel('扫描或输入面料／辅料标签')
+  await expect(unifiedInput).toBeFocused()
   await expect(panel.locator('input[data-pda-execd-field="specialCraftAccessoryQty"]')).toHaveCount(0)
-  const manual = panel.locator('details').filter({ hasText: '无法扫码？手动输入' })
-  await expect(manual).not.toHaveAttribute('open', '')
-  await page.screenshot({ path: 'output/playwright/pda-density-fix/accessory-receive-scan-default-360x640.png', fullPage: true })
-  await manual.locator('summary').click()
+  await expect(panel.locator('details').filter({ hasText: '无法扫码？手动输入' })).toHaveCount(0)
+  await page.screenshot({ path: 'output/playwright/pda-density-fix/accessory-receive-unified-input-360x640.png', fullPage: true })
 
   const materialCode = `MAT-${order.taskOrderNo}-01`
-  await page.getByLabel('手动输入标签码或菲票号').fill(materialCode)
-  await page.getByRole('button', { name: '手动加入', exact: true }).click()
+  await unifiedInput.fill(materialCode)
+  await page.getByRole('button', { name: '加入本批', exact: true }).click()
   await expect(panel.locator('[data-pda-physical-scan-line]')).toContainText('手动录入')
   const submit = page.locator('[data-pda-execd-action="special-confirm-receive"]')
   await expect(submit).toHaveText('确认本批接收（1 张）')
   await submit.click()
 
-  await expect(page.locator('#app')).toContainText('业务记录 ID：PAO-')
-  await expect(page.locator('#app')).toContainText(materialCode)
-  await expect(page.locator('#app')).toContainText('PSB-')
+  await expect(page.locator('#app')).not.toContainText('业务记录 ID：')
+  await expect(page.locator('#app')).not.toContainText('最近扫码批次')
 })
 
 test('旧任务详情地址仅兼容重定向到唯一加工单地址', async ({ page }) => {

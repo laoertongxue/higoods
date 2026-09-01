@@ -109,7 +109,7 @@ expectFailure(() => commitPdaPhysicalScanBatch({
   businessRecordIds: ['PAO-RECEIVE-002'],
   operatorName: 'PDA 操作员',
   committedAt: '2026-09-01 09:05:00',
-}), /请先逐张扫描/)
+}), /请先扫描或输入/)
 
 resetPdaPhysicalScanRuntime()
 
