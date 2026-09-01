@@ -176,6 +176,10 @@ function isPostFinishingPickupHead(head: PdaHandoverHead): boolean {
   return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && head.targetKind === 'FACTORY'
 }
 
+function isPhysicalScanWorkOrderHead(head: PdaHandoverHead): boolean {
+  return head.processBusinessCode === 'SPECIAL_CRAFT'
+}
+
 function isCurrentPdaAdmin(): boolean {
   return getPdaRuntimeContext()?.roleId === 'ROLE_ADMIN'
 }
@@ -981,6 +985,7 @@ export function renderPdaHandoverPage(): string {
   const pickupHeads = isPostFinishingFactory
     ? getPdaPostFinishingPickupHeads().filter((head) => head.pickupSourceType !== 'SEWING_SELF_RETURN')
     : getPdaPickupHeads(selectedFactoryId)
+  const visiblePickupHeads = pickupHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
   const factoryWoolHandoutHeads = getPdaHandoutHeads(selectedFactoryId)
     .filter((head) => head.processBusinessCode === 'WOOL')
   const factoryWoolCompletedHeads = getPdaCompletedHeads(selectedFactoryId)
@@ -991,11 +996,13 @@ export function renderPdaHandoverPage(): string {
   const doneHeads = isPostFinishingFactory
     ? mergeHandoverHeadsById(getPdaPostFinishingCompletedHeads(), factoryWoolCompletedHeads)
     : getPdaCompletedHeads(selectedFactoryId)
+  const visibleHandoutHeads = handoutHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
+  const visibleDoneHeads = doneHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
 
   const tabCounts: Record<HandoverTab, number> = {
-    pickup: pickupHeads.length,
-    handout: handoutHeads.length,
-    done: doneHeads.length,
+    pickup: visiblePickupHeads.length,
+    handout: visibleHandoutHeads.length,
+    done: visibleDoneHeads.length,
   }
 
 // 裁床中转袋交接状态：待装袋 / 待收中转袋
@@ -1035,9 +1042,9 @@ export function renderPdaHandoverPage(): string {
           state.activeTab === 'pickup'
             ? `
               ${
-                pickupHeads.length === 0
+                visiblePickupHeads.length === 0
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码确认接收；暂无其他待处理接收单' : '暂无待处理接收单')
-                  : pickupHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
+                  : visiblePickupHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
               }
             `
             : ''
@@ -1047,9 +1054,9 @@ export function renderPdaHandoverPage(): string {
           state.activeTab === 'handout'
             ? `
               ${
-                handoutHeads.length === 0
+                visibleHandoutHeads.length === 0
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
-                  : handoutHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
+                  : visibleHandoutHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
               }
             `
             : ''
@@ -1059,9 +1066,9 @@ export function renderPdaHandoverPage(): string {
           state.activeTab === 'done'
             ? `
               ${
-                doneHeads.length === 0
+                visibleDoneHeads.length === 0
                   ? renderEmptyState('暂无已完成交接单')
-                  : doneHeads.map((head) => renderCompactDoneHeadCard(head)).join('')
+                  : visibleDoneHeads.map((head) => renderCompactDoneHeadCard(head)).join('')
               }
             `
             : ''

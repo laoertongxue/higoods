@@ -2259,6 +2259,22 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
     return renderPdaFrame(content, 'handover')
   }
 
+  if (head.processBusinessCode === 'SPECIAL_CRAFT') {
+    const content = `
+      <div class="space-y-4 p-4">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
+          <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
+        </button>
+        <article class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <div class="font-semibold">请扫描加工单后逐张接收或交出</div>
+          <div class="mt-2 leading-6">辅助工艺、特殊工艺和辅料加工单不再支持按交接单汇总数量直接操作。请返回“交接”，先扫描加工单，再逐张扫描物料标签或菲票。</div>
+          <button type="button" class="mt-4 h-11 w-full rounded-lg bg-primary font-medium text-primary-foreground" data-pda-handoverd-action="back">返回交接扫码</button>
+        </article>
+      </div>
+    `
+    return renderPdaFrame(content, 'handover')
+  }
+
   const runtime = getPdaRuntimeContext()
   if (
     head.processBusinessCode === 'WOOL'
@@ -2579,6 +2595,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
       showPdaHandoverDetailToast('未找到交出单')
+      return true
+    }
+    if (head.processBusinessCode === 'SPECIAL_CRAFT') {
+      showPdaHandoverDetailToast('请返回交接，扫描加工单后逐张扫描物料标签或菲票')
       return true
     }
     if (head.processBusinessCode === 'WOOL') {
@@ -2944,6 +2964,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const currentRecord = findPdaPickupRecord(recordId)
     if (!currentRecord) {
       showPdaHandoverDetailToast('未找到接收记录')
+      return true
+    }
+    const currentHead = findPdaHandoverHead(currentRecord.handoverId)
+    if (currentHead?.processBusinessCode === 'SPECIAL_CRAFT') {
+      showPdaHandoverDetailToast('请返回交接，扫描加工单后逐张扫描物料标签或菲票')
       return true
     }
     if (currentRecord.status !== 'PENDING_FACTORY_CONFIRM') {

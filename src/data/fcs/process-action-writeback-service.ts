@@ -1144,10 +1144,10 @@ function assertGarmentSkuQtyPayload(payload: ProcessActionPayload, actionCode: s
   }
   const expectedSkuCodes = (workOrder.demandLines || [])
     .map((line) => line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`)
-    .sort()
-  const actualSkuCodes = Object.keys(payload.skuQtyBySkuCode).sort()
-  if (expectedSkuCodes.length !== actualSkuCodes.length || expectedSkuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
-    throw new Error('逐 SKU 数量必须覆盖加工单全部 SKU，且不得包含其他 SKU。')
+  const expectedSkuCodeSet = new Set(expectedSkuCodes)
+  const actualSkuCodes = Object.keys(payload.skuQtyBySkuCode)
+  if (actualSkuCodes.length === 0 || actualSkuCodes.some((skuCode) => !expectedSkuCodeSet.has(skuCode))) {
+    throw new Error('本批成衣标签必须属于当前加工单，且至少包含一个 SKU。')
   }
 }
 

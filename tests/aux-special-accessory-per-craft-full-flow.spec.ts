@@ -327,8 +327,15 @@ for (const chain of specialChains) {
 
       await page.goto(`/fcs/pda/exec?keyword=${encodeURIComponent(order.taskOrderNo)}`)
       await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
-      await expect(page.locator('[data-pda-exec-field="searchKeyword"]')).toHaveValue(order.taskOrderNo)
-      await expect(page.locator(`[data-testid="pda-exec-work-order-card"][data-work-order-id="${order.taskOrderId}"]`)).toBeVisible()
+      await expect(page.locator('[data-pda-exec-field="specialCraftScanKeyword"]')).toHaveValue(order.taskOrderNo)
+      const executionTabs = page.getByTestId('pda-exec-special-craft-tabs')
+      await expect(executionTabs.getByRole('button')).toHaveCount(2)
+      await expect(executionTabs).not.toContainText('待接收')
+      await expect(executionTabs).not.toContainText('待交出')
+      const appearsInExecution = order.status === '已完结'
+        || (order.status !== '待接收' && order.completedQty <= (order.returnedQty || 0))
+      await expect(page.locator(`[data-testid="pda-exec-work-order-card"][data-work-order-id="${order.taskOrderId}"]`))
+        .toHaveCount(appearsInExecution ? 1 : 0)
     })
   }
 }
@@ -395,7 +402,16 @@ for (const [orderIndex, order] of bindingOrders.entries()) {
     await page.goto(`/fcs/pda/exec?keyword=${encodeURIComponent(order.bindingOrderNo)}`)
     await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
     await expect(page.locator('[data-pda-exec-field="bindingSearchKeyword"]')).toHaveValue(order.bindingOrderNo)
-    await expect(page.locator(`[data-testid="pda-exec-binding-work-order-card"][data-work-order-id="${order.bindingOrderId}"]`)).toBeVisible()
+    const executionTabs = page.getByTestId('pda-exec-binding-tabs')
+    await expect(executionTabs.getByRole('button')).toHaveCount(2)
+    await expect(executionTabs).not.toContainText('待接收')
+    await expect(executionTabs).not.toContainText('待交出')
+    const appearsInExecution = order.status !== '已取消' && (
+      order.status === '已完成'
+      || (order.status !== '待加工' && order.actualOutputQty <= (order.handedOverQty || 0))
+    )
+    await expect(page.locator(`[data-testid="pda-exec-binding-work-order-card"][data-work-order-id="${order.bindingOrderId}"]`))
+      .toHaveCount(appearsInExecution ? 1 : 0)
   })
 }
 

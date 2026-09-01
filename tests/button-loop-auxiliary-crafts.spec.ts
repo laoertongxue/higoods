@@ -40,6 +40,12 @@ async function navigateInApp(page: Page, path: string): Promise<void> {
   }, path)
 }
 
+async function scanPhysicalCode(page: Page, code: string): Promise<void> {
+  const input = page.locator('[data-pda-physical-scan-panel] input[data-physical-input-method="SCANNER"]')
+  await input.fill(code)
+  await input.press('Enter')
+}
+
 test('管理端、技术包、加工单、捆条菲票打印和辅料仓形成可见闭环', async ({ page }, testInfo) => {
   const errors = collectPageErrors(page)
 
@@ -163,9 +169,13 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
   await expect(page.locator('body')).toContainText('交接 · 确认接收')
   await expect(page.locator('body')).toContainText('投入捆条')
   await expect(page.locator('body')).toContainText('待确认接收')
-  await expect(page.getByRole('button', { name: '确认接收捆条', exact: true })).toBeVisible()
+  const receiveAction = page.locator('[data-pda-execd-action="special-confirm-receive"]')
+  await expect(receiveAction).toBeDisabled()
   await expect(page.getByRole('button', { name: '加工填报', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '确认接收捆条', exact: true }).click()
+  for (const line of buttonLoopTask.buttonLoopInputLines || []) await scanPhysicalCode(page, line.feiTicketNo)
+  await expect(page.locator('[data-pda-physical-scan-line]')).toHaveCount(buttonLoopTask.inputTicketCount || 0)
+  await expect(receiveAction).toHaveText(`确认本批接收（${buttonLoopTask.inputTicketCount || 0} 张）`)
+  await receiveAction.click()
   await expect(page.locator('body')).toContainText(/特殊工艺确认接收已同步|已确认接收/)
 
   await navigateInApp(page, BUTTON_LOOP_PDA_PATH)
@@ -180,10 +190,13 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
 
   await navigateInApp(page, `${BUTTON_LOOP_PDA_PATH}?surface=handover&handoverAction=handout`)
   await expect(page.locator('body')).toContainText('交接 · 发起交出')
-  await expect(page.getByRole('button', { name: '发起交出', exact: true })).toBeVisible()
+  const firstHandoutAction = page.locator('[data-pda-execd-action="special-submit-handover"]')
+  await expect(firstHandoutAction).toBeDisabled()
   await expect(page.getByRole('button', { name: '完成加工单', exact: true })).toHaveCount(0)
-  await page.locator('[data-pda-execd-field="specialCraftButtonLoopQty"]').fill('10')
-  await page.getByRole('button', { name: '发起交出', exact: true }).click()
+  await scanPhysicalCode(page, `OUT-${buttonLoopTask.taskOrderNo}-01`)
+  await page.getByLabel(`OUT-${buttonLoopTask.taskOrderNo}-01本次数量`).fill('10')
+  await expect(firstHandoutAction).toHaveText('确认本批交出（1 张）')
+  await firstHandoutAction.click()
   await expect(page.locator('body')).toContainText(/特殊工艺发起交出已同步|已交出／待交出：10 \/ 14 个/)
   await saveEvidence(page, testInfo, '06-pda-button-loop-handover.png')
 
@@ -193,8 +206,11 @@ test('PDA 交接与执行按现场职责完成盘扣全流程', async ({ page },
   await expect(page.locator('[data-wls-button-loop-receipts]')).toContainText('已收货 10 个')
 
   await navigateInApp(page, `${BUTTON_LOOP_PDA_PATH}?surface=handover&handoverAction=handout`)
-  await page.locator('[data-pda-execd-field="specialCraftButtonLoopQty"]').fill('14')
-  await page.getByRole('button', { name: '发起交出', exact: true }).click()
+  await scanPhysicalCode(page, `OUT-${buttonLoopTask.taskOrderNo}-01`)
+  await scanPhysicalCode(page, `OUT-${buttonLoopTask.taskOrderNo}-02`)
+  const secondHandoutAction = page.locator('[data-pda-execd-action="special-submit-handover"]')
+  await expect(secondHandoutAction).toHaveText('确认本批交出（2 张）')
+  await secondHandoutAction.click()
   await expect(page.locator('body')).toContainText(/特殊工艺发起交出已同步|已交出／待交出：24 \/ 0 个/)
 
   await navigateInApp(page, BUTTON_LOOP_PDA_PATH)

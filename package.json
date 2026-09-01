@@ -121,6 +121,7 @@
     "check:special-craft-line-progress-quantity-dialogs": "node --import tsx scripts/check-special-craft-line-progress-quantity-dialogs.ts",
     "check:heat-transfer-and-print-dye-contract": "node --import tsx scripts/check-heat-transfer-and-print-dye-contract.ts && node --import tsx scripts/check-special-craft-pda-single-fact.ts",
     "check:special-craft-pda-single-fact": "node --import tsx scripts/check-special-craft-pda-single-fact.ts",
+    "check:pda-process-physical-scan": "node --import tsx scripts/check-pda-process-physical-scan.ts",
     "check:process-factory-special-craft-split": "node --import tsx scripts/check-process-factory-special-craft-split.ts",
     "check:special-craft-task-generation": "node --import tsx scripts/check-special-craft-task-generation.ts",
     "check:special-craft-task-and-fei-flow-deepening": "node --import tsx scripts/check-special-craft-task-and-fei-flow-deepening.ts",

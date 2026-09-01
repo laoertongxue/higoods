@@ -88,6 +88,7 @@ import {
 } from './pda-runtime'
 
 type TaskStatusTab = MobileExecutionTaskStatusTab
+type ExecutionWorkOrderTab = Extract<TaskStatusTab, 'IN_PROGRESS' | 'DONE'>
 
 interface PdaExecState {
   selectedFactoryId: string
@@ -105,13 +106,14 @@ interface PdaExecState {
   specialCraftScanTone: 'info' | 'error'
   specialCraftScanCandidates: SpecialCraftPdaScanCandidate[]
   specialCraftLastResolvedCode: string
-  specialCraftTab: TaskStatusTab
+  specialCraftScanKeyword: string
+  specialCraftTab: ExecutionWorkOrderTab
   bindingScanKeyword: string
   bindingScanMessage: string
   bindingScanTone: 'info' | 'error'
   bindingScanCandidates: BindingProcessPdaScanCandidate[]
   bindingLastResolvedCode: string
-  bindingTab: TaskStatusTab
+  bindingTab: ExecutionWorkOrderTab
 }
 
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
@@ -137,6 +139,7 @@ const state: PdaExecState = {
   specialCraftScanTone: 'info',
   specialCraftScanCandidates: [],
   specialCraftLastResolvedCode: '',
+  specialCraftScanKeyword: '',
   specialCraftTab: 'IN_PROGRESS',
   bindingScanKeyword: '',
   bindingScanMessage: '',
@@ -295,7 +298,10 @@ function syncTabWithQuery(): void {
   state.activeTab = mapped
   state.riskParam = nextRisk
   state.searchKeyword = nextKeyword
-  if (hasKeywordParam) state.bindingScanKeyword = nextKeyword
+  if (hasKeywordParam) {
+    state.specialCraftScanKeyword = nextKeyword
+    state.bindingScanKeyword = nextKeyword
+  }
 }
 
 function buildPdaExecListPath(tab = state.activeTab): string {
@@ -700,12 +706,14 @@ function renderWoolFactCard(task: ProcessTask): string {
   `
 }
 
-const SPECIAL_CRAFT_TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
-  { key: 'NOT_STARTED', label: '待接收' },
+const EXECUTION_WORK_ORDER_TAB_CONFIG: Array<{ key: ExecutionWorkOrderTab; label: string }> = [
   { key: 'IN_PROGRESS', label: '加工中' },
-  { key: 'BLOCKED', label: '待交出' },
   { key: 'DONE', label: '已完成' },
 ]
+
+function isExecutionWorkOrderTab(tab: TaskStatusTab): tab is ExecutionWorkOrderTab {
+  return tab === 'IN_PROGRESS' || tab === 'DONE'
+}
 
 function getSpecialCraftWorkOrderTab(candidate: SpecialCraftPdaScanCandidate): TaskStatusTab {
   const { order } = candidate
@@ -719,10 +727,10 @@ function buildSpecialCraftWorkOrderPath(candidate: SpecialCraftPdaScanCandidate)
   const tab = getSpecialCraftWorkOrderTab(candidate)
   const returnTo = '/fcs/pda/exec'
   if (tab === 'NOT_STARTED') {
-    return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?surface=handover&handoverAction=receive&returnTo=${encodeURIComponent('/fcs/pda/handover?tab=pickup')}`
+    return '/fcs/pda/handover?tab=pickup'
   }
   if (tab === 'BLOCKED') {
-    return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?surface=handover&handoverAction=handout&returnTo=${encodeURIComponent('/fcs/pda/handover?tab=handout')}`
+    return '/fcs/pda/handover?tab=handout'
   }
   return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?returnTo=${encodeURIComponent(returnTo)}`
 }
@@ -753,7 +761,7 @@ function renderSpecialCraftFactCard(candidate: SpecialCraftPdaScanCandidate): st
   const { order } = candidate
   const imageTitle = `${candidate.styleNo} · ${candidate.styleName}`
   const tab = getSpecialCraftWorkOrderTab(candidate)
-  const actionLabel = tab === 'NOT_STARTED' ? '确认接收' : tab === 'BLOCKED' ? '发起交出' : tab === 'DONE' ? '查看加工记录' : '加工填报'
+  const actionLabel = tab === 'DONE' ? '查看加工记录' : '加工填报'
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-work-order-card" data-pda-exec-action="open-special-craft-work-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}" data-source-task-id="${escapeHtml(candidate.sourceTaskId)}">
       <div class="flex gap-3 p-3">
@@ -778,17 +786,18 @@ function renderSpecialCraftFactCard(candidate: SpecialCraftPdaScanCandidate): st
 function renderSpecialCraftWorkOrderSection(factoryId: string): string {
   const candidates = listSpecialCraftCandidatesForFactory(factoryId)
   if (!candidates.length) return ''
-  const counts = Object.fromEntries(SPECIAL_CRAFT_TAB_CONFIG.map((tab) => [tab.key, 0])) as Record<TaskStatusTab, number>
-  candidates.forEach((candidate) => { counts[getSpecialCraftWorkOrderTab(candidate)] += 1 })
-  const matchedTabs = [...new Set(candidates.map(getSpecialCraftWorkOrderTab))]
+  const executionCandidates = candidates.filter((candidate) => isExecutionWorkOrderTab(getSpecialCraftWorkOrderTab(candidate)))
+  const counts: Record<ExecutionWorkOrderTab, number> = { IN_PROGRESS: 0, DONE: 0 }
+  executionCandidates.forEach((candidate) => { counts[getSpecialCraftWorkOrderTab(candidate) as ExecutionWorkOrderTab] += 1 })
+  const matchedTabs = [...new Set(executionCandidates.map((candidate) => getSpecialCraftWorkOrderTab(candidate) as ExecutionWorkOrderTab))]
   if (state.searchKeyword.trim() && matchedTabs.length === 1) state.specialCraftTab = matchedTabs[0]
-  const rows = candidates.filter((candidate) => getSpecialCraftWorkOrderTab(candidate) === state.specialCraftTab)
+  const rows = executionCandidates.filter((candidate) => getSpecialCraftWorkOrderTab(candidate) === state.specialCraftTab)
   const list = buildPdaExecProgressiveSlice(rows, state.specialCraftVisibleCount, PDA_EXEC_BATCH_SIZE)
   state.specialCraftVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
   return `
     <section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-special-craft-work-order-list>
-      <div class="grid grid-cols-4 border-b bg-background" data-testid="pda-exec-special-craft-tabs">
-        ${SPECIAL_CRAFT_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
+      <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-special-craft-tabs">
+        ${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
       </div>
       <div class="px-4">${renderSpecialCraftExecutionScanHeader()}</div>
       <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
@@ -805,13 +814,18 @@ function getBindingWorkOrderTab(candidate: BindingProcessPdaScanCandidate): Task
   return 'IN_PROGRESS'
 }
 
+function isBindingExecutionCandidate(candidate: BindingProcessPdaScanCandidate): boolean {
+  return candidate.order.status !== '已取消'
+    && isExecutionWorkOrderTab(getBindingWorkOrderTab(candidate))
+}
+
 function buildBindingWorkOrderPath(candidate: BindingProcessPdaScanCandidate): string {
   const tab = getBindingWorkOrderTab(candidate)
   if (tab === 'NOT_STARTED') {
-    return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?surface=handover&handoverAction=receive&returnTo=${encodeURIComponent('/fcs/pda/handover?tab=pickup')}`
+    return '/fcs/pda/handover?tab=pickup'
   }
   if (tab === 'BLOCKED') {
-    return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?surface=handover&handoverAction=handout&returnTo=${encodeURIComponent('/fcs/pda/handover?tab=handout')}`
+    return '/fcs/pda/handover?tab=handout'
   }
   return `/fcs/pda/exec/${candidate.sourceType}/${encodeURIComponent(candidate.workOrderId)}?returnTo=${encodeURIComponent('/fcs/pda/exec')}`
 }
@@ -838,7 +852,7 @@ function listBindingCandidatesForFactory(factoryId: string): BindingProcessPdaSc
 function renderBindingFactCard(candidate: BindingProcessPdaScanCandidate): string {
   const { order } = candidate
   const tab = getBindingWorkOrderTab(candidate)
-  const actionLabel = tab === 'NOT_STARTED' ? '确认接收' : tab === 'BLOCKED' ? '发起交出' : tab === 'DONE' ? '查看加工记录' : '加工填报'
+  const actionLabel = tab === 'DONE' ? '查看加工记录' : '加工填报'
   const imageTitle = `${order.materialIdentity.materialSku} · ${order.materialIdentity.materialName}`
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-binding-work-order-card" data-pda-exec-action="open-binding-work-order" data-source-type="${candidate.sourceType}" data-work-order-id="${escapeHtml(candidate.workOrderId)}">
@@ -857,15 +871,16 @@ function renderBindingFactCard(candidate: BindingProcessPdaScanCandidate): strin
 function renderBindingWorkOrderSection(factoryId: string): string {
   const candidates = listBindingCandidatesForFactory(factoryId)
   if (!candidates.length) return ''
-  const counts = Object.fromEntries(SPECIAL_CRAFT_TAB_CONFIG.map((tab) => [tab.key, 0])) as Record<TaskStatusTab, number>
-  candidates.forEach((candidate) => { counts[getBindingWorkOrderTab(candidate)] += 1 })
-  const matchedTabs = [...new Set(candidates.map(getBindingWorkOrderTab))]
+  const executionCandidates = candidates.filter(isBindingExecutionCandidate)
+  const counts: Record<ExecutionWorkOrderTab, number> = { IN_PROGRESS: 0, DONE: 0 }
+  executionCandidates.forEach((candidate) => { counts[getBindingWorkOrderTab(candidate) as ExecutionWorkOrderTab] += 1 })
+  const matchedTabs = [...new Set(executionCandidates.map((candidate) => getBindingWorkOrderTab(candidate) as ExecutionWorkOrderTab))]
   if (state.searchKeyword.trim() && matchedTabs.length === 1) state.bindingTab = matchedTabs[0]
-  const rows = candidates.filter((candidate) => getBindingWorkOrderTab(candidate) === state.bindingTab)
+  const rows = executionCandidates.filter((candidate) => getBindingWorkOrderTab(candidate) === state.bindingTab)
   const list = buildPdaExecProgressiveSlice(rows, state.bindingVisibleCount, PDA_EXEC_BATCH_SIZE)
   state.bindingVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
   return `<section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-binding-work-order-list>
-    <div class="grid grid-cols-4 border-b bg-background" data-testid="pda-exec-binding-tabs">${SPECIAL_CRAFT_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
+    <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-binding-tabs">${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
     <div class="px-4">${renderBindingExecutionScanHeader()}</div>
     <div class="space-y-3 px-4">${list.rows.length ? list.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
     <div class="px-4">${renderPdaExecLoadMoreControl(list, 'binding')}</div>
@@ -1591,10 +1606,10 @@ function renderSpecialCraftExecutionScanHeader(): string {
       <input
         class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
         placeholder="扫描生产单 / 加工单"
-        data-pda-exec-field="searchKeyword"
+        data-pda-exec-field="specialCraftScanKeyword"
         data-pda-scan-enter="true"
         data-skip-page-rerender="true"
-        value="${escapeHtml(state.searchKeyword)}"
+        value="${escapeHtml(state.specialCraftScanKeyword)}"
       />
       <button type="button" class="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-exec-action="scan-special-craft-order">识别加工单</button>
     </div>
@@ -1605,12 +1620,37 @@ function renderSpecialCraftExecutionScanHeader(): string {
 function runSpecialCraftExecutionScan(rawCode: string): void {
   state.specialCraftLastResolvedCode = rawCode.trim()
   const result = resolveSpecialCraftPdaScan(rawCode, getCurrentFactoryId(), 'EXECUTION')
-  state.specialCraftScanMessage = result.message
-  state.specialCraftScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
-  state.specialCraftScanCandidates = result.candidates
-  if (result.status === 'MATCH') {
-    appStore.navigate(buildSpecialCraftWorkOrderPath(result.candidates[0]))
+  const executionCandidates = result.candidates.filter((candidate) => isExecutionWorkOrderTab(getSpecialCraftWorkOrderTab(candidate)))
+  state.specialCraftScanCandidates = executionCandidates
+  if (executionCandidates.length === 1) {
+    state.specialCraftScanMessage = result.message
+    state.specialCraftScanTone = 'info'
+    appStore.navigate(buildSpecialCraftWorkOrderPath(executionCandidates[0]))
+    return
   }
+  if (executionCandidates.length > 1) {
+    state.specialCraftScanMessage = `找到 ${executionCandidates.length} 张可执行加工单，请选择。`
+    state.specialCraftScanTone = 'info'
+    return
+  }
+  if (result.candidates.length > 0) {
+    const tabs = new Set(result.candidates.map(getSpecialCraftWorkOrderTab))
+    state.specialCraftScanMessage = tabs.size === 1 && tabs.has('NOT_STARTED')
+      ? '该加工单待接收，请到“交接-待接收”处理。'
+      : tabs.size === 1 && tabs.has('BLOCKED')
+        ? '该加工单待交出，请到“交接-待交出”处理。'
+        : '这些加工单属于接收或交出环节，请到“交接”处理。'
+    state.specialCraftScanTone = 'info'
+    return
+  }
+  const receiveResult = resolveSpecialCraftPdaScan(rawCode, getCurrentFactoryId(), 'RECEIVE')
+  if (receiveResult.candidates.length > 0) {
+    state.specialCraftScanMessage = '该加工单待接收，请到“交接-待接收”处理。'
+    state.specialCraftScanTone = 'info'
+    return
+  }
+  state.specialCraftScanMessage = result.message
+  state.specialCraftScanTone = 'error'
 }
 
 function updateSpecialCraftExecutionScanFeedbackInPlace(): void {
@@ -1647,10 +1687,37 @@ function renderBindingExecutionScanHeader(): string {
 function runBindingExecutionScan(rawCode: string): void {
   state.bindingLastResolvedCode = rawCode.trim()
   const result = resolveBindingProcessPdaScan(rawCode, getCurrentFactoryId(), 'EXECUTION')
+  const executionCandidates = result.candidates.filter(isBindingExecutionCandidate)
+  state.bindingScanCandidates = executionCandidates
+  if (executionCandidates.length === 1) {
+    state.bindingScanMessage = result.message
+    state.bindingScanTone = 'info'
+    appStore.navigate(buildBindingWorkOrderPath(executionCandidates[0]))
+    return
+  }
+  if (executionCandidates.length > 1) {
+    state.bindingScanMessage = `找到 ${executionCandidates.length} 张可执行捆条加工单，请选择。`
+    state.bindingScanTone = 'info'
+    return
+  }
+  if (result.candidates.length > 0) {
+    const tabs = new Set(result.candidates.map(getBindingWorkOrderTab))
+    state.bindingScanMessage = tabs.size === 1 && tabs.has('NOT_STARTED')
+      ? '该加工单待接收，请到“交接-待接收”处理。'
+      : tabs.size === 1 && tabs.has('BLOCKED')
+        ? '该加工单待交出，请到“交接-待交出”处理。'
+        : '这些加工单属于接收或交出环节，请到“交接”处理。'
+    state.bindingScanTone = 'info'
+    return
+  }
+  const receiveResult = resolveBindingProcessPdaScan(rawCode, getCurrentFactoryId(), 'RECEIVE')
+  if (receiveResult.candidates.length > 0) {
+    state.bindingScanMessage = '该捆条加工单待接收，请到“交接-待接收”处理。'
+    state.bindingScanTone = 'info'
+    return
+  }
   state.bindingScanMessage = result.message
-  state.bindingScanTone = result.status === 'MATCH' || result.status === 'MULTIPLE' ? 'info' : 'error'
-  state.bindingScanCandidates = result.candidates
-  if (result.status === 'MATCH') appStore.navigate(buildBindingWorkOrderPath(result.candidates[0]))
+  state.bindingScanTone = 'error'
 }
 
 function updateBindingExecutionScanFeedbackInPlace(): void {
@@ -1776,6 +1843,19 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
       updateSpecialCraftExecutionScanFeedbackInPlace()
       return true
     }
+    if (field === 'specialCraftScanKeyword') {
+      state.specialCraftScanKeyword = fieldNode.value
+      if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
+        runSpecialCraftExecutionScan(fieldNode.value)
+        return true
+      }
+      if (fieldNode.value.trim() !== state.specialCraftLastResolvedCode) {
+        state.specialCraftScanMessage = ''
+        state.specialCraftScanCandidates = []
+      }
+      updateSpecialCraftExecutionScanFeedbackInPlace()
+      return true
+    }
     if (field === 'bindingSearchKeyword') {
       state.bindingScanKeyword = fieldNode.value
       if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
@@ -1805,9 +1885,9 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
   }
 
   if (action === 'scan-special-craft-order') {
-    const input = document.querySelector<HTMLInputElement>('[data-pda-exec-special-craft-scan] [data-pda-exec-field="searchKeyword"]')
-    state.searchKeyword = input?.value || state.searchKeyword
-    runSpecialCraftExecutionScan(state.searchKeyword)
+    const input = document.querySelector<HTMLInputElement>('[data-pda-exec-special-craft-scan] [data-pda-exec-field="specialCraftScanKeyword"]')
+    state.specialCraftScanKeyword = input?.value || state.specialCraftScanKeyword
+    runSpecialCraftExecutionScan(state.specialCraftScanKeyword)
     return true
   }
 
@@ -1847,7 +1927,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
 
   if (action === 'switch-special-craft-tab') {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
-    if (tab && SPECIAL_CRAFT_TAB_CONFIG.some((item) => item.key === tab)) {
+    if (tab && isExecutionWorkOrderTab(tab)) {
       state.specialCraftTab = tab
       state.specialCraftVisibleCount = PDA_EXEC_BATCH_SIZE
       updatePdaExecCardListInPlace()
@@ -1857,7 +1937,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
 
   if (action === 'switch-binding-tab') {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
-    if (tab && SPECIAL_CRAFT_TAB_CONFIG.some((item) => item.key === tab)) {
+    if (tab && isExecutionWorkOrderTab(tab)) {
       state.bindingTab = tab
       state.bindingVisibleCount = PDA_EXEC_BATCH_SIZE
       updatePdaExecCardListInPlace()

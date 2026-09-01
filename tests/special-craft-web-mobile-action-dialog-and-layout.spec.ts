@@ -182,7 +182,7 @@ test('PDA 列表不显示 Web 分页和全局悬浮搜索，较长列表只提�
   }
 })
 
-test('PDA 发起交出按菲票填写本次数量，可部分交出并显示业务留痕 ID', async ({ page }) => {
+test('PDA 发起交出逐张扫描菲票，可部分交出并显示扫码批次与业务留痕 ID', async ({ page }) => {
   const order = selectPartialHandoverOrder()
   const line = order.lineProgress?.find((item) => item.feiTicketNo)
   if (!line?.feiTicketNo) throw new Error(`${order.taskOrderNo} 缺少菲票明细`)
@@ -195,21 +195,81 @@ test('PDA 发起交出按菲票填写本次数量，可部分交出并显示业�
 
   await expect(page.locator('[data-pda-special-craft-detail]')).toBeVisible()
   await expect(page.locator('.production-object-floating-entry')).toHaveCount(0)
-  const qtyInput = page.getByLabel(`${line.feiTicketNo}本次交出数量`)
+  const scanInput = page.getByLabel('扫描加工后裁片菲票')
+  await expect(scanInput).toBeFocused()
+  const submit = page.locator('[data-pda-execd-action="special-submit-handover"]')
+  await expect(submit).toBeDisabled()
+
+  await scanInput.fill('FT-NOT-IN-CURRENT-WORK-ORDER')
+  await scanInput.press('Enter')
+  await expect(page.locator('#pda-exec-detail-toast-root')).toContainText('不属于当前加工单')
+
+  await page.getByLabel('扫描加工后裁片菲票').fill(line.feiTicketNo)
+  await page.getByLabel('扫描加工后裁片菲票').press('Enter')
+  await expect(page.locator('[data-pda-physical-scan-line]')).toHaveCount(1)
+  await expect(page.locator('[data-pda-physical-scan-line]')).toContainText('扫码')
+  const qtyInput = page.getByLabel(`${line.feiTicketNo}本次数量`)
   await expect(qtyInput).toHaveValue(String(availableQty))
   await qtyInput.fill(String(partialQty))
+  await expect(page.locator('[data-pda-physical-scan-total]')).toHaveText(`合计 ${partialQty} 片`)
+  await qtyInput.fill(String(availableQty + 1))
+  await expect(qtyInput).toHaveAttribute('aria-invalid', 'true')
+  await expect(submit).toBeDisabled()
+  await qtyInput.fill(String(partialQty))
+  await expect(qtyInput).not.toHaveAttribute('aria-invalid', 'true')
+  await expect(submit).toBeEnabled()
   await page.getByLabel('交出备注（选填）').fill('PDA 部分交出验证')
+  await page.screenshot({ path: 'output/playwright/pda-density-fix/special-craft-handout-physical-scan-360x640.png', fullPage: true })
 
-  const submit = page.getByRole('button', { name: '确认发起交出', exact: true })
+  await page.getByLabel('扫描加工后裁片菲票').fill(line.feiTicketNo)
+  await page.getByLabel('扫描加工后裁片菲票').press('Enter')
+  await expect(page.locator('#pda-exec-detail-toast-root')).toContainText('已经扫过')
+
+  await expect(submit).toHaveText('确认本批交出（1 张）')
   await expect(submit).toHaveAttribute('data-work-order-id', order.taskOrderId)
   await expect(submit).toHaveAttribute('data-source-task-id', order.sourceTaskId || '')
   await submit.click()
 
-  await expect(page.locator('[data-line-progress-key]')).toContainText(`累计交出：${partialQty} 片`)
+  await expect(page.locator('#app')).toContainText(`累计交出：${partialQty} 片`)
   await expect(page.locator('#app')).toContainText('业务记录 ID：PAO-')
   await expect(page.locator('#app')).toContainText('交出记录 ID：')
   await expect(page.locator('#app')).toContainText(`PDA 部分交出验证`)
-  await expect(page.locator('[data-line-progress-key] input')).toHaveValue(String(availableQty - partialQty))
+  await expect(page.locator('#app')).toContainText('最近扫码批次')
+  await expect(page.locator('#app')).toContainText('PSB-')
+})
+
+test('PDA 辅料接收默认扫码，手动输入弱化但走同一标签校验和留痕', async ({ page }) => {
+  const order = listSpecialCraftTaskOrders().find((item) =>
+    item.targetObject === '辅料'
+    && item.status === '待接收'
+    && (item.inputPlannedQty || 0) > (item.inputReceivedQty || 0),
+  )
+  if (!order) throw new Error('缺少待接收的辅料加工单')
+
+  await setPdaSession(page, order.factoryId)
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.goto(`/fcs/pda/exec/SPECIAL_CRAFT/${encodeURIComponent(order.taskOrderId)}?surface=handover&handoverAction=receive`)
+
+  const panel = page.locator('[data-pda-physical-scan-panel]')
+  await expect(panel).toBeVisible()
+  await expect(page.getByLabel('扫描面料／辅料标签')).toBeFocused()
+  await expect(panel.locator('input[data-pda-execd-field="specialCraftAccessoryQty"]')).toHaveCount(0)
+  const manual = panel.locator('details').filter({ hasText: '无法扫码？手动输入' })
+  await expect(manual).not.toHaveAttribute('open', '')
+  await page.screenshot({ path: 'output/playwright/pda-density-fix/accessory-receive-scan-default-360x640.png', fullPage: true })
+  await manual.locator('summary').click()
+
+  const materialCode = `MAT-${order.taskOrderNo}-01`
+  await page.getByLabel('手动输入标签码或菲票号').fill(materialCode)
+  await page.getByRole('button', { name: '手动加入', exact: true }).click()
+  await expect(panel.locator('[data-pda-physical-scan-line]')).toContainText('手动录入')
+  const submit = page.locator('[data-pda-execd-action="special-confirm-receive"]')
+  await expect(submit).toHaveText('确认本批接收（1 张）')
+  await submit.click()
+
+  await expect(page.locator('#app')).toContainText('业务记录 ID：PAO-')
+  await expect(page.locator('#app')).toContainText(materialCode)
+  await expect(page.locator('#app')).toContainText('PSB-')
 })
 
 test('旧任务详情地址仅兼容重定向到唯一加工单地址', async ({ page }) => {
