@@ -311,8 +311,21 @@ function addSampleFacts(draft: WorkbenchDraft, record: SewingSampleApprovalRecor
 }
 
 function addSupplementFacts(draft: WorkbenchDraft, row: SewingSupplementTrackingRow): void {
-  pushUniqueSource(draft, { label: '补料跟进', href: `/fcs/sewing-outsourcing/supplements?assignmentId=${encodeURIComponent(row.assignmentId)}` })
-  pushQuantity(draft, `裁片欠片 ${row.totalDebtPieceQty.toLocaleString()}片`)
+  if (!row.hasConfirmedHandover) {
+    pushUniqueSource(draft, { label: '交出与欠片', href: `/fcs/sewing-outsourcing/cut-piece-handover?tab=UNHANDED&assignmentId=${encodeURIComponent(row.assignmentId)}` })
+    pushQuantity(draft, `待裁床交出 ${row.totalRequiredPieceQty.toLocaleString()}片`)
+    pushSignal(draft, {
+      health: 'ATTENTION',
+      nextResponsibleParty: 'CUTTING',
+      nextAction: '跟进裁床完成实际交出',
+      dueAt: '尽快交出',
+      impactSummary: `应交${row.totalRequiredPieceQty.toLocaleString()}片，当前尚未形成确认交出；交出前不判定欠片`,
+      reason: '裁片尚未正式交出',
+      priority: 70,
+    })
+    return
+  }
+  pushUniqueSource(draft, { label: '交出与欠片', href: `/fcs/sewing-outsourcing/cut-piece-handover?tab=${row.totalDebtPieceQty > 0 ? 'HANDED_WITH_DEBT' : 'HANDED_NO_DEBT'}&assignmentId=${encodeURIComponent(row.assignmentId)}` })
   row.supplementOrders.forEach((order) => pushTimeline(draft, {
     timelineId: `SUPPLEMENT::${order.id}`,
     occurredAt: order.createdAt,
@@ -327,7 +340,12 @@ function addSupplementFacts(draft: WorkbenchDraft, row: SewingSupplementTracking
     title: log.result,
     detail: `下一步：${log.nextAction}${log.promisedAt ? `；承诺${log.promisedAt}` : ''}。`,
   }))
-  if (row.totalDebtPieceQty <= 0) return
+  if (row.totalDebtPieceQty <= 0) {
+    pushQuantity(draft, '裁片已齐，不欠片')
+    return
+  }
+  pushUniqueSource(draft, { label: '补料跟进', href: `/fcs/sewing-outsourcing/supplements?assignmentId=${encodeURIComponent(row.assignmentId)}` })
+  pushQuantity(draft, `裁片欠片 ${row.totalDebtPieceQty.toLocaleString()}片`)
   const latestPromisedAt = row.followUpLogs.find((log) => log.promisedAt)?.promisedAt || ''
   const promiseOverdue = Boolean(latestPromisedAt && latestPromisedAt < SEWING_OUTSOURCING_WORKBENCH_NOW)
   const impactful = row.structuralMissingLineCount > 0

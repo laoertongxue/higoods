@@ -63,6 +63,7 @@ export interface CutPieceReturnReceiptPartCount {
 export interface CutPieceReturnReceipt {
   receiptId: string
   returnedGarmentQty: number
+  responsibilityAdjustmentGarmentQty?: number
   unit: '件'
   partCounts: CutPieceReturnReceiptPartCount[]
   differenceSummary: string
@@ -260,6 +261,7 @@ const CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v3'
 const LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v2'
 const LEGACY_CUT_PIECE_RETURN_STORAGE_KEY = 'higood:fcs:cutting:cut-piece-return:v1'
 let store: CutPieceReturnStore = { cases: [] }
+const prototypeInitiationCandidates = new Map<string, CutPieceReturnInitiationCandidate>()
 
 function nowText(): string {
   return new Date().toISOString().replace('T', ' ').slice(0, 19)
@@ -395,7 +397,7 @@ function groupFormalSewingTickets(): Array<{
 }
 
 function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
-  return groupFormalSewingTickets().map((group) => {
+  const formalCandidates = groupFormalSewingTickets().map((group) => {
     const blockedReasons: string[] = []
     const minimumKey = group.color + '::' + group.size
     const frozenMinimumReturnQty = group.records.reduce((maximum, record) => Math.max(
@@ -493,10 +495,24 @@ function buildRawInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
       eligible: blockedReasons.length === 0,
       blockedReasons,
     }
-  }).sort((left, right) => left.sourceHandoverOrderNo.localeCompare(right.sourceHandoverOrderNo)
+  })
+  return [...formalCandidates, ...[...prototypeInitiationCandidates.values()].map(clone)]
+    .sort((left, right) => left.sourceHandoverOrderNo.localeCompare(right.sourceHandoverOrderNo)
     || left.productionOrderNo.localeCompare(right.productionOrderNo)
     || left.garmentColor.localeCompare(right.garmentColor)
     || left.size.localeCompare(right.size))
+}
+
+/** Adds a fully linked formal-handover candidate used only by high-fidelity prototype scenarios. */
+export function registerCutPieceReturnInitiationCandidateMock(
+  candidate: CutPieceReturnInitiationCandidate,
+): CutPieceReturnInitiationCandidate {
+  if (!candidate.candidateId.trim()) throw new Error('退仓来源候选ID不能为空。')
+  if (!candidate.responsibilityScopeKey.trim()) throw new Error('退仓责任范围不能为空。')
+  if (!candidate.parts.length) throw new Error('退仓来源必须包含裁片部位。')
+  const normalized = clone(candidate)
+  prototypeInitiationCandidates.set(normalized.candidateId, normalized)
+  return clone(normalized)
 }
 
 function createCaseFromCandidate(input: {
@@ -1061,6 +1077,7 @@ export function getCutPieceReturnCase(caseId: string): CutPieceReturnCaseProject
 export interface CutPieceReturnReceiptConfirmationInput {
   caseId: string
   returnedGarmentQty: number
+  responsibilityAdjustmentGarmentQty?: number
   partCounts: Array<{
     partCode: string
     sourceCutOrderId: string
@@ -1082,9 +1099,15 @@ function applyCutPieceReturnReceipt(
   if (record.settlementType) throw new Error('该退仓单已结算，不能再次确认退件。')
   if (record.receipts.length) throw new Error('该退仓单已经确认过退件，不能重复确认。')
   const returnedGarmentQty = positiveInteger(input.returnedGarmentQty, '确认退件数量')
+  const responsibilityAdjustmentGarmentQty = input.responsibilityAdjustmentGarmentQty === undefined
+    ? returnedGarmentQty
+    : nonNegativeInteger(input.responsibilityAdjustmentGarmentQty, '回货责任调整数量')
+  if (responsibilityAdjustmentGarmentQty > returnedGarmentQty) {
+    throw new Error('回货责任调整数量不能超过本次实物退仓折算件数。')
+  }
   const responsibility = calculateCutPieceReturnResponsibility(record)
-  if (returnedGarmentQty > responsibility.currentExpectedReturnQty) {
-    throw new Error('本次确认退件 ' + returnedGarmentQty + ' 件，超过当前应回 ' + responsibility.currentExpectedReturnQty + ' 件，必须由主管处理。')
+  if (responsibilityAdjustmentGarmentQty > responsibility.currentExpectedReturnQty) {
+    throw new Error('本次回货责任调整 ' + responsibilityAdjustmentGarmentQty + ' 件，超过当前应回 ' + responsibility.currentExpectedReturnQty + ' 件，必须由主管处理。')
   }
   const partKey = (partCode: string, sourceCutOrderId: string) => sourceCutOrderId + '::' + partCode
   const inputMap = new Map<string, typeof input.partCounts[number]>()
@@ -1154,6 +1177,7 @@ function applyCutPieceReturnReceipt(
   const receipt: CutPieceReturnReceipt = {
     receiptId,
     returnedGarmentQty,
+    responsibilityAdjustmentGarmentQty,
     unit: '件',
     partCounts,
     differenceSummary: differenceParts.length
@@ -1184,20 +1208,22 @@ function applyCutPieceReturnReceipt(
       receivedAt: confirmedAt,
     })
   })
-  record.responsibilityEvents.push({
-    eventId: receiptId + '-responsibility',
-    eventType: '确认退件扣减',
-    garmentQty: returnedGarmentQty,
-    occurredAt: confirmedAt,
-    businessNo: receiptId,
-  })
+  if (responsibilityAdjustmentGarmentQty > 0) {
+    record.responsibilityEvents.push({
+      eventId: receiptId + '-responsibility',
+      eventType: '确认退件扣减',
+      garmentQty: responsibilityAdjustmentGarmentQty,
+      occurredAt: confirmedAt,
+      businessNo: receiptId,
+    })
+  }
   appendOperationLog(record, {
     action: '确认退件',
     businessNo: receiptId,
     quantityText: returnedGarmentQty + ' 件 / ' + partCounts.reduce((sum, item) => sum + item.pieceQty, 0) + ' 片',
     operatedAt: confirmedAt,
     operatedBy: receipt.confirmedBy,
-    note: receipt.differenceSummary,
+    note: `${receipt.differenceSummary}；${responsibilityAdjustmentGarmentQty > 0 ? `按冻结原因调整回货责任${responsibilityAdjustmentGarmentQty}件` : '本次退仓不调整工厂回货责任'}。`,
   })
   record.receiptStatus = '已确认退件'
   record.dispositionStatus = '待处理'
@@ -1214,6 +1240,7 @@ export function confirmCutPieceReturnReceipt(input: CutPieceReturnReceiptConfirm
 export function createAndConfirmCutPieceReturn(input: {
   candidateId: string
   returnedGarmentQty: number
+  responsibilityAdjustmentGarmentQty?: number
   partCounts: CutPieceReturnReceiptConfirmationInput['partCounts']
   confirmedBy: string
   confirmedAt?: string
@@ -1233,6 +1260,7 @@ export function createAndConfirmCutPieceReturn(input: {
   })
   applyCutPieceReturnReceipt(record, {
     returnedGarmentQty: input.returnedGarmentQty,
+    responsibilityAdjustmentGarmentQty: input.responsibilityAdjustmentGarmentQty,
     partCounts: input.partCounts,
     confirmedBy,
     confirmedAt,
@@ -1612,6 +1640,7 @@ export function resetCutPieceReturnDomainForTesting(): void {
     if (order) removeSupplementOrderForRollback(link.supplementOrderId, order.confirmationKey || confirmationKey)
   })
   store = seedStore()
+  prototypeInitiationCandidates.clear()
   try {
     globalThis.localStorage?.removeItem(CUT_PIECE_RETURN_STORAGE_KEY)
     globalThis.localStorage?.removeItem(LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY)

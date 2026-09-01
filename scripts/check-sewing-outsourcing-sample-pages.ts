@@ -9,7 +9,6 @@ const handlers = readFileSync('src/main-handlers/fcs-handlers.ts', 'utf8')
 
 for (const text of [
   '批版建议',
-  '三方车缝工厂制作的实物叫产前版样衣',
   'PPIC视角',
   '批版人员视角',
   '上传样衣照片',
@@ -29,6 +28,10 @@ for (const text of [
 ]) {
   assert.ok(samplePage.includes(text), `批版建议页面缺少业务口径：${text}`)
 }
+assert.ok(!samplePage.includes('三方车缝工厂制作的实物叫产前版样衣；PPIC转交批版人员后'), '列表顶部不得保留红框标记的解释段落')
+assert.ok(!samplePage.includes('已领取批版，请填写批版建议。'), '列表顶部不得保留红框标记的成功提示')
+assert.ok(samplePage.includes('statusTabsHtml:'), '批版状态Tab必须使用标准列表独立区域')
+assert.ok(samplePage.includes('filtersHtml:'), '批版搜索必须与状态Tab分离')
 assert.ok(samplePage.includes('data-sample-approval-screenshot-card'), '必须提供单卡片截图区域')
 assert.ok(samplePage.includes('data-sample-approval-field="receivedSamplePhotos"'), 'PPIC接收时必须提供产前版样衣实物照片上传控件')
 assert.ok(samplePage.includes('data-sample-approval-action="select-received-photos"'), '选择样衣照片后必须立即形成多图预览')

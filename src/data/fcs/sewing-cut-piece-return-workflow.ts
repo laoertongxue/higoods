@@ -9,6 +9,7 @@ import {
   getCutPieceReturnCase,
   listCutPieceReturnCases,
   listCutPieceReturnInitiationCandidates,
+  registerCutPieceReturnInitiationCandidateMock,
   scrapCutPieceReturnInventory,
   type CutPieceReturnIdentificationMode,
   type CutPieceReturnInitiationCandidate,
@@ -21,6 +22,61 @@ export type SewingCutPieceReturnWorkflowStatus =
   | 'WAREHOUSED'
 
 export type SewingCutPieceReturnActorRole = 'PPIC' | 'WAREHOUSE'
+
+export type SewingCutPieceReturnReasonCode =
+  | 'EXCESS_OR_WRONG_PIECES'
+  | 'QUALITY_REPLACEMENT'
+  | 'EXCLUDED_PART_UNUSED'
+  | 'TASK_QTY_REDUCED'
+  | 'TASK_CANCELLED_OR_TRANSFERRED'
+
+export type SewingCutPieceReturnResponsibilityImpact = 'NO_CHANGE' | 'DEDUCT_ON_WAREHOUSE_RECEIPT'
+
+export interface SewingCutPieceReturnReasonPolicy {
+  code: SewingCutPieceReturnReasonCode
+  label: string
+  responsibilityImpact: SewingCutPieceReturnResponsibilityImpact
+  responsibilityExplanation: string
+  requiresDecisionReference: boolean
+}
+
+export const SEWING_CUT_PIECE_RETURN_REASON_POLICIES: Record<SewingCutPieceReturnReasonCode, SewingCutPieceReturnReasonPolicy> = {
+  EXCESS_OR_WRONG_PIECES: {
+    code: 'EXCESS_OR_WRONG_PIECES',
+    label: '多交／错发裁片退回',
+    responsibilityImpact: 'NO_CHANGE',
+    responsibilityExplanation: '仅退回多交或错发的实物，不减少工厂已形成的回货责任。',
+    requiresDecisionReference: false,
+  },
+  QUALITY_REPLACEMENT: {
+    code: 'QUALITY_REPLACEMENT',
+    label: '质量问题换片',
+    responsibilityImpact: 'NO_CHANGE',
+    responsibilityExplanation: '问题裁片退回等待换片，工厂仍需按原回货责任完成大货。',
+    requiresDecisionReference: false,
+  },
+  EXCLUDED_PART_UNUSED: {
+    code: 'EXCLUDED_PART_UNUSED',
+    label: '排除部位补交后未使用',
+    responsibilityImpact: 'NO_CHANGE',
+    responsibilityExplanation: '该部位曾被排除且后续补交未使用，退回实物不重复改变已冻结的回货责任。',
+    requiresDecisionReference: false,
+  },
+  TASK_QTY_REDUCED: {
+    code: 'TASK_QTY_REDUCED',
+    label: '任务数量正式调减',
+    responsibilityImpact: 'DEDUCT_ON_WAREHOUSE_RECEIPT',
+    responsibilityExplanation: '必须引用已确认的任务数量调整依据，仓库实际入仓后才按核定件数减少工厂回货责任。',
+    requiresDecisionReference: true,
+  },
+  TASK_CANCELLED_OR_TRANSFERRED: {
+    code: 'TASK_CANCELLED_OR_TRANSFERRED',
+    label: '剩余任务正式取消／转派',
+    responsibilityImpact: 'DEDUCT_ON_WAREHOUSE_RECEIPT',
+    responsibilityExplanation: '必须引用已确认的取消或转派依据，仓库实际入仓后才按核定件数减少原工厂回货责任。',
+    requiresDecisionReference: true,
+  },
+}
 
 export interface SewingCutPieceReturnActor {
   actorId: string
@@ -70,6 +126,14 @@ export interface SewingCutPieceReturnRequest {
   garmentColor: string
   size: string
   returnedGarmentQty: number
+  returnReasonCode: SewingCutPieceReturnReasonCode
+  returnReasonLabel: string
+  returnReasonDetail: string
+  responsibilityImpact: SewingCutPieceReturnResponsibilityImpact
+  responsibilityDecisionReference: string
+  expectedReturnQtyBefore: number
+  responsibilityAdjustmentQty: number
+  expectedReturnQtyAfter: number
   partCounts: SewingCutPieceReturnPartCount[]
   status: SewingCutPieceReturnWorkflowStatus
   createdAt: string
@@ -102,7 +166,33 @@ function hydrateWorkflowStore(): void {
     const raw = window.localStorage.getItem(WORKFLOW_STORAGE_KEY)
     if (!raw) return
     const parsed = JSON.parse(raw) as Partial<SewingCutPieceReturnWorkflowStore>
-    ;(parsed.requests || []).forEach((request) => requests.set(request.requestId, request))
+    ;(parsed.requests || []).forEach((request) => {
+      const legacy = request as SewingCutPieceReturnRequest & Partial<Pick<SewingCutPieceReturnRequest,
+        'returnReasonCode' | 'returnReasonLabel' | 'returnReasonDetail' | 'responsibilityImpact'
+        | 'responsibilityDecisionReference' | 'expectedReturnQtyBefore' | 'responsibilityAdjustmentQty'
+        | 'expectedReturnQtyAfter'>>
+      const reasonCode = legacy.returnReasonCode || 'TASK_QTY_REDUCED'
+      const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[reasonCode]
+      const adjustmentQty = Number.isInteger(legacy.responsibilityAdjustmentQty)
+        ? legacy.responsibilityAdjustmentQty
+        : legacy.returnedGarmentQty
+      const expectedBefore = Number.isInteger(legacy.expectedReturnQtyBefore)
+        ? legacy.expectedReturnQtyBefore
+        : Math.max(legacy.returnedGarmentQty, adjustmentQty)
+      requests.set(legacy.requestId, {
+        ...legacy,
+        returnReasonCode: reasonCode,
+        returnReasonLabel: legacy.returnReasonLabel || policy.label,
+        returnReasonDetail: legacy.returnReasonDetail || legacy.offlineRequestNote,
+        responsibilityImpact: legacy.responsibilityImpact || policy.responsibilityImpact,
+        responsibilityDecisionReference: legacy.responsibilityDecisionReference || '历史原型口径',
+        expectedReturnQtyBefore: expectedBefore,
+        responsibilityAdjustmentQty: adjustmentQty,
+        expectedReturnQtyAfter: Number.isInteger(legacy.expectedReturnQtyAfter)
+          ? legacy.expectedReturnQtyAfter
+          : Math.max(expectedBefore - adjustmentQty, 0),
+      })
+    })
     ;(parsed.commandResults || []).forEach(([commandId, requestId]) => commandResults.set(commandId, requestId))
     requestSequence = Number.isInteger(parsed.requestSequence) ? parsed.requestSequence! : requests.size
     eventSequence = Number.isInteger(parsed.eventSequence)
@@ -230,6 +320,10 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
   commandId: string
   candidateId: string
   returnedGarmentQty: number
+  returnReasonCode: SewingCutPieceReturnReasonCode
+  returnReasonDetail: string
+  responsibilityAdjustmentQty?: number
+  responsibilityDecisionReference?: string
   partCounts: Array<{
     partCode: string
     sourceCutOrderId: string
@@ -252,9 +346,29 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
   const ppic = getFactoryActivePpicSnapshot(candidate.sourceFactoryId)
   if (!ppic) throw new Error('承接工厂缺少有效PPIC，必须先补齐工厂主数据。')
   if (input.actor.actorId !== ppic.ppicId) throw new Error('只有该车缝任务当前PPIC可以根据线下申请创建裁片退仓。')
-  const returnedGarmentQty = positiveInteger(input.returnedGarmentQty, '退仓件数')
-  if (returnedGarmentQty > candidate.currentExpectedReturnQty) {
-    throw new Error(`退仓${returnedGarmentQty}件超过当前应回${candidate.currentExpectedReturnQty}件。`)
+  const returnedGarmentQty = positiveInteger(input.returnedGarmentQty, '实物退仓折算件数')
+  const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[input.returnReasonCode]
+  if (!policy) throw new Error('请选择有效的裁片退仓原因。')
+  const returnReasonDetail = input.returnReasonDetail.trim()
+  if (!returnReasonDetail) throw new Error('请填写具体退仓原因。')
+  const responsibilityDecisionReference = input.responsibilityDecisionReference?.trim() || ''
+  if (policy.requiresDecisionReference && !responsibilityDecisionReference) {
+    throw new Error(`${policy.label}会调整工厂回货责任，必须填写已确认的调整依据号。`)
+  }
+  const requestedAdjustmentQty = input.responsibilityAdjustmentQty === undefined
+    ? (policy.responsibilityImpact === 'DEDUCT_ON_WAREHOUSE_RECEIPT' ? returnedGarmentQty : 0)
+    : nonNegativeInteger(input.responsibilityAdjustmentQty, '回货责任调整数量')
+  if (policy.responsibilityImpact === 'NO_CHANGE' && requestedAdjustmentQty !== 0) {
+    throw new Error(`${policy.label}只处理实物退回，不允许减少工厂回货责任。`)
+  }
+  if (policy.responsibilityImpact === 'DEDUCT_ON_WAREHOUSE_RECEIPT' && requestedAdjustmentQty <= 0) {
+    throw new Error(`${policy.label}必须填写大于0的回货责任调整数量。`)
+  }
+  if (requestedAdjustmentQty > returnedGarmentQty) {
+    throw new Error('回货责任调整数量不能超过本次实物退仓折算件数。')
+  }
+  if (requestedAdjustmentQty > candidate.currentExpectedReturnQty) {
+    throw new Error(`回货责任调整${requestedAdjustmentQty}件超过当前应回${candidate.currentExpectedReturnQty}件。`)
   }
   const partCounts = normalizePartCounts(candidate, input.partCounts)
   const offlineRequestNote = input.offlineRequestNote.trim()
@@ -281,6 +395,14 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
     garmentColor: candidate.garmentColor,
     size: candidate.size,
     returnedGarmentQty,
+    returnReasonCode: policy.code,
+    returnReasonLabel: policy.label,
+    returnReasonDetail,
+    responsibilityImpact: policy.responsibilityImpact,
+    responsibilityDecisionReference,
+    expectedReturnQtyBefore: candidate.currentExpectedReturnQty,
+    responsibilityAdjustmentQty: requestedAdjustmentQty,
+    expectedReturnQtyAfter: candidate.currentExpectedReturnQty - requestedAdjustmentQty,
     partCounts,
     status: 'APPROVED_WAITING_WAREHOUSE',
     createdAt: input.createdAt,
@@ -293,7 +415,13 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
     legacyReturnOrderNo: '',
     events: [],
   }
-  appendEvent(request, 'PPIC_CREATED', input.createdAt, input.actor, `PPIC根据线下申请建单并核对部位数量：${returnedGarmentQty}件、${partCounts.reduce((sum, item) => sum + item.pieceQty, 0)}片；提交待交出仓接收。`)
+  appendEvent(
+    request,
+    'PPIC_CREATED',
+    input.createdAt,
+    input.actor,
+    `PPIC根据线下申请建单：${policy.label}；实物退仓折算${returnedGarmentQty}件、${partCounts.reduce((sum, item) => sum + item.pieceQty, 0)}片；${requestedAdjustmentQty > 0 ? `仓库入仓后回货责任由${candidate.currentExpectedReturnQty}件调整为${candidate.currentExpectedReturnQty - requestedAdjustmentQty}件` : `工厂回货责任仍为${candidate.currentExpectedReturnQty}件`}。`,
+  )
   requests.set(request.requestId, request)
   commandResults.set(input.commandId, request.requestId)
   persistWorkflowStore()
@@ -347,6 +475,7 @@ export function receiveApprovedCutPieceReturnByWarehouse(input: {
   const result = createAndConfirmCutPieceReturn({
     candidateId: request.candidateId,
     returnedGarmentQty: request.returnedGarmentQty,
+    responsibilityAdjustmentGarmentQty: request.responsibilityAdjustmentQty,
     partCounts: request.partCounts.map((item) => ({
       partCode: item.partCode,
       sourceCutOrderId: item.sourceCutOrderId,
@@ -365,7 +494,13 @@ export function receiveApprovedCutPieceReturnByWarehouse(input: {
   request.warehouseReceivedBy = input.actor.actorName
   request.legacyReturnCaseId = result.caseId
   request.legacyReturnOrderNo = result.returnOrderNo
-  appendEvent(request, 'WAREHOUSED', input.receivedAt, input.actor, `按PPIC建单数量接收并入仓：${request.returnedGarmentQty}件、${request.partCounts.reduce((sum, item) => sum + item.pieceQty, 0)}片。`)
+  appendEvent(
+    request,
+    'WAREHOUSED',
+    input.receivedAt,
+    input.actor,
+    `按PPIC建单数量接收并入仓：实物${request.returnedGarmentQty}件、${request.partCounts.reduce((sum, item) => sum + item.pieceQty, 0)}片；${request.responsibilityAdjustmentQty > 0 ? `工厂回货责任同步减少${request.responsibilityAdjustmentQty}件，调整后应回${request.expectedReturnQtyAfter}件` : `本次原因不影响工厂回货责任，仍应回${request.expectedReturnQtyBefore}件`}。`,
+  )
   commandResults.set(input.commandId, request.requestId)
   persistWorkflowStore()
   return clone(request)
@@ -438,6 +573,36 @@ function closeLegacyPageDemoCases(): void {
     .forEach(closePageDemoReturnInventory)
 }
 
+function ensureAvailableReturnCreationCandidate(): void {
+  const candidateId = 'RETURN-SOURCE-PPIC-CREATE-DEMO-001'
+  if (listCutPieceReturnInitiationCandidates().some((item) => item.candidateId === candidateId)) return
+  const source = listCutPieceReturnInitiationCandidates().find((item) => item.eligible && item.sourceFactoryId === 'sew-factory-01')
+  if (!source) throw new Error('缺少可复制的正式交出责任范围，无法建立新增退仓演示来源。')
+  registerCutPieceReturnInitiationCandidateMock({
+    ...source,
+    candidateId,
+    responsibilityScopeKey: `${source.responsibilityScopeKey}::PPIC-CREATE-DEMO-001`,
+    sourceHandoverOrderId: 'HANDOVER-PPIC-CREATE-DEMO-001',
+    sourceHandoverOrderNo: 'JCD-PPIC-CREATE-DEMO-001',
+    sourceHandoverRecordIds: ['HANDOVER-RECORD-PPIC-CREATE-DEMO-001'],
+    sourceHandoverRecordNos: ['JCR-PPIC-CREATE-DEMO-001'],
+    productionOrderId: 'PO-202603-0102',
+    productionOrderNo: 'PO-202603-0102',
+    sewingTaskId: 'ST-260325-002',
+    frozenReleaseSnapshotId: 'CUT-RELEASE-PPIC-CREATE-DEMO-001',
+    frozenMinimumReturnQty: 120,
+    currentExpectedReturnQty: 120,
+    parts: source.parts.map((part) => ({
+      ...part,
+      effectiveHandedPieceQty: Math.max(part.piecesPerGarment * 120, part.piecesPerGarment),
+      confirmedReturnedPieceQty: 0,
+      currentReturnablePieceQty: Math.max(part.piecesPerGarment * 120, part.piecesPerGarment),
+    })),
+    eligible: true,
+    blockedReasons: [],
+  })
+}
+
 export function ensureSewingCutPieceReturnWorkflowDemo(): SewingCutPieceReturnRequest {
   ensureReturnDemoFactoryMaster()
   const existing = listSewingCutPieceReturnRequests().find((item) => item.commandId === 'CMD-CPR-WF-DEMO-CREATE-001')
@@ -451,6 +616,10 @@ export function ensureSewingCutPieceReturnWorkflowDemo(): SewingCutPieceReturnRe
     commandId: 'CMD-CPR-WF-DEMO-CREATE-001',
     candidateId: candidate.candidateId,
     returnedGarmentQty: 10,
+    returnReasonCode: 'TASK_QTY_REDUCED',
+    returnReasonDetail: '生产单数量已正式调减10件，工厂将对应未生产裁片退回。',
+    responsibilityAdjustmentQty: 10,
+    responsibilityDecisionReference: 'TASK-CHANGE-PPIC-DEMO-001',
     partCounts: candidate.parts.map((part) => ({
       partCode: part.partCode,
       sourceCutOrderId: part.sourceCutOrderId,
@@ -478,6 +647,32 @@ export function ensureSewingCutPieceReturnPageDemo(): SewingCutPieceReturnReques
 
   const returnCase = getCutPieceReturnCase(request.legacyReturnCaseId)
   if (returnCase) closePageDemoReturnInventory(returnCase)
+  ensureAvailableReturnCreationCandidate()
+  const pendingExists = listSewingCutPieceReturnRequests().some((item) => item.commandId === 'CMD-CPR-WF-DEMO-CREATE-002')
+  if (!pendingExists) {
+    const candidate = listCutPieceReturnInitiationCandidates().find((item) => item.eligible && item.sourceFactoryId === 'sew-factory-01')
+    const ppic = candidate ? getFactoryActivePpicSnapshot(candidate.sourceFactoryId) : null
+    if (candidate && ppic) {
+      createSewingCutPieceReturnRequestByPpic({
+        commandId: 'CMD-CPR-WF-DEMO-CREATE-002',
+        candidateId: candidate.candidateId,
+        returnedGarmentQty: 8,
+        returnReasonCode: 'EXCESS_OR_WRONG_PIECES',
+        returnReasonDetail: '裁片交出时多配了8件的前片和后片，工厂未投入生产并申请原样退回。',
+        responsibilityAdjustmentQty: 0,
+        partCounts: candidate.parts.map((part) => ({
+          partCode: part.partCode,
+          sourceCutOrderId: part.sourceCutOrderId,
+          pieceQty: Math.min(8 * part.piecesPerGarment, part.currentReturnablePieceQty),
+          identificationMode: 'MANUAL_PART_SELECTION',
+          physicalTicketStatus: 'MISSING',
+        })),
+        offlineRequestNote: 'PPIC已线下收到工厂多交裁片退仓申请，并核对了未投入生产的实物数量。',
+        actor: { actorId: ppic.ppicId, actorName: ppic.ppicName, role: 'PPIC' },
+        createdAt: '2026-09-01 10:30:00',
+      })
+    }
+  }
   return request
 }
 

@@ -1,9 +1,10 @@
 // @page-pattern: list
 
-import { renderStandardListPage, renderStandardListStats } from '../../components/ui/list-page.ts'
+import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
 import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
+import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sla.ts'
 import { ensureSewingOutsourcingSampleDemo } from '../../data/fcs/sewing-outsourcing-demo.ts'
 import {
@@ -36,6 +37,8 @@ type DialogState =
 
 let activeRole: PageRole = 'PPIC'
 let activeSituation: SampleSituation = 'PENDING_RETURN'
+let keyword = ''
+let draftKeyword = ''
 let activePage = 1
 let pageSize = 20
 let dialog: DialogState = null
@@ -326,23 +329,36 @@ function renderDialog(): string {
 export function renderSampleApprovalSuggestionsPage(): string {
   ensureSewingOutsourcingSampleDemo()
   const allRecords = listSewingSampleApprovalRecords().filter((item) => item.assignmentId.startsWith('ASG-PPIC-SAMPLE-DEMO'))
-  const filteredRecords = allRecords.filter((item) => matchesSituation(item, activeSituation))
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  const filteredRecords = allRecords
+    .filter((item) => matchesSituation(item, activeSituation))
+    .filter((item) => !normalizedKeyword || [
+      item.sample.styleCode,
+      item.sample.styleName,
+      item.sample.productionOrderNo,
+      item.sample.taskNo,
+      item.sample.factoryName,
+      item.sample.currentPpicName,
+    ].some((value) => value.toLowerCase().includes(normalizedKeyword)))
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
   activePage = Math.min(Math.max(1, activePage), totalPages)
   const start = (activePage - 1) * pageSize
   const records = filteredRecords.slice(start, start + pageSize)
-  const pendingPpic = allRecords.filter((item) => ['WAITING_RETURN_TO_PPIC', 'PPIC_RECEIVED', 'SUGGESTION_UPLOADED'].includes(item.sample.status)).length
-  const pendingApprover = allRecords.filter((item) => ['HANDED_TO_APPROVER', 'APPROVAL_IN_PROGRESS'].includes(item.sample.status)).length
   return `<div data-sample-approval-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '批版建议',
     primaryActionsHtml: `<div class="flex rounded border bg-white p-1"><button class="rounded px-3 py-2 text-sm ${activeRole === 'PPIC' ? 'bg-blue-600 text-white' : ''}" data-sample-approval-action="switch-role" data-role="PPIC">PPIC视角</button><button class="rounded px-3 py-2 text-sm ${activeRole === 'SAMPLE_APPROVER' ? 'bg-blue-600 text-white' : ''}" data-sample-approval-action="switch-role" data-role="SAMPLE_APPROVER">批版人员视角</button></div>`,
-    feedbackHtml: feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">${escapeHtml(feedback)}</div>` : '',
-    filtersHtml: `<div class="space-y-3 rounded-lg border bg-white p-3"><p class="text-sm text-slate-500">三方车缝工厂制作的实物叫产前版样衣；PPIC转交批版人员后，上传到系统的业务结果叫批版建议。</p><nav class="flex flex-wrap gap-2" aria-label="批版建议状态">${(Object.keys(SITUATION_LABELS) as SampleSituation[]).map((situation) => `<button type="button" class="rounded px-4 py-2 text-sm font-semibold ${activeSituation === situation ? 'bg-blue-600 text-white' : 'border text-slate-600 hover:bg-slate-100'}" data-sample-approval-action="switch-situation" data-situation="${situation}">${SITUATION_LABELS[situation]} <span class="ml-1">${allRecords.filter((item) => matchesSituation(item, situation)).length}</span></button>`).join('')}</nav></div>`,
-    statsHtml: renderStandardListStats([
-      { label: '全部执行任务', value: allRecords.length },
-      { label: 'PPIC待处理', value: pendingPpic },
-      { label: '批版人员待处理', value: pendingApprover },
-    ]),
+    statusTabsHtml: renderUiTabs({
+      tabs: (Object.keys(SITUATION_LABELS) as SampleSituation[]).map((situation) => ({ key: situation, label: SITUATION_LABELS[situation], count: allRecords.filter((item) => matchesSituation(item, situation)).length })),
+      activeKey: activeSituation,
+      variant: 'pills',
+      prefix: 'sample-approval',
+      action: 'switch-tab',
+      fullWidth: true,
+    }),
+    filtersHtml: renderStandardListFilters({
+      actionPrefix: 'sample-approval',
+      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="SPU / PO / 执行任务 / 工厂 / PPIC" value="${escapeHtml(draftKeyword)}" data-sample-approval-filter="keyword">`,
+    }),
     listTitle: `${SITUATION_LABELS[activeSituation]}的产前版样衣`,
     tableHtml: renderStandardListTable({ columns, rows: records, preferences: { ...preferences, pageSize }, sort: null, eventPrefix: 'sample-approval', emptyText: '当前状态下没有待处理的产前版样衣' }),
     paginationHtml: renderTablePagination({ total: filteredRecords.length, from: filteredRecords.length ? start + 1 : 0, to: Math.min(start + pageSize, filteredRecords.length), currentPage: activePage, totalPages, pageSize, actionPrefix: 'sample-approval', fieldPrefix: 'sample-approval', pageSizeOptions: [20, 50] }),
@@ -357,6 +373,11 @@ function actorFor(record: SewingSampleApprovalRecord) {
 }
 
 export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  const listFilter = target.closest<HTMLInputElement>('[data-sample-approval-filter="keyword"]')
+  if (listFilter && !dialog) {
+    draftKeyword = listFilter.value
+    return true
+  }
   const pageSizeField = target.closest<HTMLSelectElement>('[data-sample-approval-field="pageSize"]')
   if (pageSizeField && !dialog) {
     pageSize = Number(pageSizeField.value) || 20
@@ -378,8 +399,23 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
     refreshPage()
     return true
   }
-  if (action === 'switch-situation') {
-    activeSituation = node.dataset.situation as SampleSituation
+  if (action.startsWith('switch-tab:')) {
+    activeSituation = action.slice('switch-tab:'.length) as SampleSituation
+    activePage = 1
+    feedback = ''
+    refreshPage()
+    return true
+  }
+  if (action === 'query') {
+    keyword = draftKeyword
+    activePage = 1
+    feedback = ''
+    refreshPage()
+    return true
+  }
+  if (action === 'reset') {
+    keyword = ''
+    draftKeyword = ''
     activePage = 1
     feedback = ''
     refreshPage()
@@ -444,7 +480,7 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
       feedback = '已记录样衣转交批版人员。'
     } else if (action === 'start-approval') {
       startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor })
-      feedback = '已领取批版，请填写批版建议。'
+      feedback = ''
     } else if (action === 'open-approval') {
       dialog = {
         kind: 'APPROVAL',

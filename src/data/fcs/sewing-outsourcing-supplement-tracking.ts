@@ -2,11 +2,15 @@ import { listEffectiveTaskAssignments } from './effective-task-assignments.ts'
 import { getCurrentSewingTaskResponsibility } from './sewing-outsourcing-responsibility.ts'
 import {
   ensureSewingCutPieceResponsibilityDemo,
+  ensureSewingCutPieceResponsibilityOverviewDemos,
   getSewingCutPieceResponsibilityProjection,
+  listSewingCutPieceHandoverEvents,
+  SEWING_CUT_PIECE_WAIT_HANDOVER_DEMO_ASSIGNMENT_ID,
   type SewingCutPieceProjectionLine,
 } from './sewing-cut-piece-responsibility.ts'
 import { getSewingSampleApprovalRecord } from './sewing-sample-approval-suggestion.ts'
 import {
+  completeSupplementOrder,
   getSupplementOrder,
   listSupplementOrders,
   registerSupplementOrder,
@@ -46,6 +50,9 @@ export interface SewingSupplementTrackingRow {
   styleCode: string
   styleName: string
   styleImageUrl: string
+  hasConfirmedHandover: boolean
+  totalRequiredPieceQty: number
+  totalHandedOverPieceQty: number
   missingLines: SewingCutPieceProjectionLine[]
   totalDebtPieceQty: number
   structuralMissingLineCount: number
@@ -166,7 +173,10 @@ export function listSewingSupplementTrackingRows(): SewingSupplementTrackingRow[
         ppicName: projection.context.ppicName,
       })
       const sample = getSewingSampleApprovalRecord(assignment.assignmentId)
-      const availability = resolveAvailability(projection.totalDebtPieceQty, relatedOrders)
+      const hasConfirmedHandover = listSewingCutPieceHandoverEvents(assignment.assignmentId).length > 0
+      const availability = hasConfirmedHandover
+        ? resolveAvailability(projection.totalDebtPieceQty, relatedOrders)
+        : 'NO_SUPPLEMENT_ORDER'
       rows.push({
         assignmentId: assignment.assignmentId,
         runtimeTaskId: assignment.runtimeTaskId,
@@ -181,6 +191,9 @@ export function listSewingSupplementTrackingRows(): SewingSupplementTrackingRow[
         styleCode: sample?.sample.styleCode || assignment.productionOrderNo || assignment.productionOrderId,
         styleName: sample?.sample.styleName || '车缝外发款式',
         styleImageUrl: sample?.sample.styleImageUrl || '/tshirt-sample.jpg',
+        hasConfirmedHandover,
+        totalRequiredPieceQty: projection.totalRequiredPieceQty,
+        totalHandedOverPieceQty: projection.totalHandedOverPieceQty,
         missingLines: clone(missingLines),
         totalDebtPieceQty: projection.totalDebtPieceQty,
         structuralMissingLineCount: projection.structuralMissingLineCount,
@@ -189,7 +202,7 @@ export function listSewingSupplementTrackingRows(): SewingSupplementTrackingRow[
         maximumMissingRatio,
         supplementOrders: clone(relatedOrders),
         availability,
-        canHandToFactory: availability === 'READY_FOR_FACTORY',
+        canHandToFactory: hasConfirmedHandover && availability === 'READY_FOR_FACTORY',
         followUpLogs: listSewingSupplementFollowUps(assignment.assignmentId),
       })
     })
@@ -197,8 +210,10 @@ export function listSewingSupplementTrackingRows(): SewingSupplementTrackingRow[
 }
 
 export const SEWING_SUPPLEMENT_DEMO_ORDER_ID = 'SUP-PPIC-DEMO-POCKET-001'
+export const SEWING_SUPPLEMENT_WAIT_HANDOVER_DEMO_ORDER_ID = 'SUP-PPIC-DEMO-LACE-001'
 
 export function ensureSewingOutsourcingSupplementDemo(): SewingSupplementTrackingRow {
+  ensureSewingCutPieceResponsibilityOverviewDemos()
   const projection = ensureSewingCutPieceResponsibilityDemo()
   const context = projection.context
   if (!getSupplementOrder(SEWING_SUPPLEMENT_DEMO_ORDER_ID)) {
@@ -244,6 +259,31 @@ export function ensureSewingOutsourcingSupplementDemo(): SewingSupplementTrackin
       createdAt: '2026-09-01 08:30:00',
       createdBy: '裁床补料员 王敏',
     }, 'CUTTING')
+  }
+  const waitingProjection = getSewingCutPieceResponsibilityProjection(SEWING_CUT_PIECE_WAIT_HANDOVER_DEMO_ASSIGNMENT_ID)
+  if (!getSupplementOrder(SEWING_SUPPLEMENT_WAIT_HANDOVER_DEMO_ORDER_ID)) {
+    registerSupplementOrder({
+      id: SEWING_SUPPLEMENT_WAIT_HANDOVER_DEMO_ORDER_ID,
+      recordNo: 'BL-PPIC-20260901-002',
+      cutOrderId: 'CUT-PPIC-DEMO-LACE',
+      cutOrderNo: 'CUT-PPIC-DEMO-LACE',
+      productionOrderId: waitingProjection.context.productionOrderId,
+      productionOrderNo: waitingProjection.context.productionOrderNo || waitingProjection.context.productionOrderId,
+      reason: '裁片数量不足',
+      reasonDetail: '黑色/M花边仅交400片，裁床已补裁剩余400片，等待实际转交车缝工厂。',
+      totalQty: 400,
+      lineSummary: '黑色 / M / 花边 400片',
+      lines: [{ color: '黑色', size: 'M', supplementQty: 400 }],
+      materialDemands: [],
+      createdAt: '2026-09-01 09:00:00',
+      createdBy: '裁床补料员 王敏',
+    }, 'CUTTING')
+    completeSupplementOrder({
+      id: SEWING_SUPPLEMENT_WAIT_HANDOVER_DEMO_ORDER_ID,
+      completedAt: '2026-09-01 16:30:00',
+      completedBy: '裁床补料员 王敏',
+      actorRole: 'CUTTING',
+    })
   }
   ;[
     ['CMD-SUP-FOLLOW-DEMO-001', '已联系裁床确认口袋整部位未完成裁剪。', '裁床补料员确认物料和纸样。', '2026-09-01 11:00:00', '2026-09-01 09:00:00'],

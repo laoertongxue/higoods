@@ -1,9 +1,10 @@
 // @page-pattern: list
 
-import { renderStandardListPage, renderStandardListStats } from '../../components/ui/list-page.ts'
+import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
 import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
+import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import {
   getAvailableOnboardingPpicOptions,
   PPIC_TEAM_LEADER_JIEGE,
@@ -33,11 +34,21 @@ type DialogState =
 const state = {
   managerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
   keyword: '',
+  draftKeyword: '',
+  historyTab: 'ALL' as TransferHistoryTab,
   page: 1,
   pageSize: 20,
   feedback: '',
   commandSequence: 0,
   dialog: null as DialogState,
+}
+
+type TransferHistoryTab = 'ALL' | 'HAS_HISTORY' | 'NO_HISTORY'
+
+const transferHistoryTabLabels: Record<TransferHistoryTab, string> = {
+  ALL: '全部未完任务',
+  HAS_HISTORY: '已有移交历史',
+  NO_HISTORY: '尚无移交历史',
 }
 
 const managers = [PPIC_TEAM_LEADER_LINGYUN, PPIC_TEAM_LEADER_JIEGE]
@@ -46,8 +57,7 @@ function currentManager() {
   return managers.find((item) => item.ppicId === state.managerPpicId) || PPIC_TEAM_LEADER_LINGYUN
 }
 
-function rows(): SewingOutsourcingWorkbenchTaskRow[] {
-  const keyword = state.keyword.trim().toLowerCase()
+function baseRows(): SewingOutsourcingWorkbenchTaskRow[] {
   return listSewingOutsourcingWorkbenchRows({
     viewerPpicId: currentManager().ppicId,
     leaderView: true,
@@ -57,6 +67,16 @@ function rows(): SewingOutsourcingWorkbenchTaskRow[] {
       const task = getRuntimeTaskById(row.runtimeTaskId)
       return Boolean(task && task.executionEnabled !== false && task.status !== 'DONE' && task.status !== 'CANCELLED')
     })
+}
+
+function hasTransferHistory(row: SewingOutsourcingWorkbenchTaskRow): boolean {
+  return listSewingTaskResponsibilityVersions(row.runtimeTaskId).length > 1
+}
+
+function rows(): SewingOutsourcingWorkbenchTaskRow[] {
+  const keyword = state.keyword.trim().toLowerCase()
+  return baseRows()
+    .filter((row) => state.historyTab === 'ALL' || (state.historyTab === 'HAS_HISTORY' ? hasTransferHistory(row) : !hasTransferHistory(row)))
     .filter((row) => !keyword || [row.taskNo, row.productionOrderNo, row.factoryName, row.ppicName]
       .some((value) => value.toLowerCase().includes(keyword)))
 }
@@ -109,6 +129,7 @@ function renderDialog(): string {
 }
 
 export function renderSewingOutsourcingResponsibilityTransfersPage(): string {
+  const completeRows = baseRows()
   const allRows = rows()
   const totalPages = Math.max(1, Math.ceil(allRows.length / state.pageSize))
   state.page = Math.min(Math.max(1, state.page), totalPages)
@@ -116,13 +137,20 @@ export function renderSewingOutsourcingResponsibilityTransfersPage(): string {
   const pageRows = allRows.slice(start, start + state.pageSize)
   return `<div data-ppic-transfer-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '责任移交',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2"><label class="text-sm">管理人员<select class="ml-2 h-9 rounded border bg-white px-3" data-ppic-transfer-field="managerPpicId">${managers.map((manager) => `<option value="${escapeHtml(manager.ppicId)}"${manager.ppicId === state.managerPpicId ? ' selected' : ''}>${escapeHtml(manager.ppicName)}</option>`).join('')}</select></label><span class="rounded bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-800">当前操作身份：${escapeHtml(currentManager().ppicName)}（团队负责人）</span></div>`,
     feedbackHtml: state.feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">${escapeHtml(state.feedback)}</div>` : '',
-    filtersHtml: `<div class="flex flex-wrap items-center gap-3 rounded-lg border bg-white p-3"><input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 工厂 / 当前PPIC" value="${escapeHtml(state.keyword)}" data-ppic-transfer-field="keyword"><label class="ml-auto text-sm">管理人员<select class="ml-2 h-9 rounded border px-3" data-ppic-transfer-field="managerPpicId">${managers.map((manager) => `<option value="${escapeHtml(manager.ppicId)}"${manager.ppicId === state.managerPpicId ? ' selected' : ''}>${escapeHtml(manager.ppicName)}</option>`).join('')}</select></label><span class="rounded bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-800">当前操作身份：${escapeHtml(currentManager().ppicName)}（团队负责人）</span></div>`,
-    statsHtml: renderStandardListStats([
-      { label: '可移交未完任务', value: allRows.length },
-      { label: '已有移交历史', value: allRows.filter((row) => listSewingTaskResponsibilityVersions(row.runtimeTaskId).length > 1).length },
-      { label: '当前责任明确', value: allRows.filter((row) => Boolean(currentResponsibility(row))).length },
-    ]),
+    statusTabsHtml: renderUiTabs({
+      tabs: (Object.keys(transferHistoryTabLabels) as TransferHistoryTab[]).map((tab) => ({ key: tab, label: transferHistoryTabLabels[tab], count: tab === 'ALL' ? completeRows.length : completeRows.filter((row) => tab === 'HAS_HISTORY' ? hasTransferHistory(row) : !hasTransferHistory(row)).length })),
+      activeKey: state.historyTab,
+      variant: 'pills',
+      prefix: 'ppic-transfer',
+      action: 'switch-tab',
+      fullWidth: true,
+    }),
+    filtersHtml: renderStandardListFilters({
+      actionPrefix: 'ppic-transfer',
+      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 工厂 / 当前PPIC" value="${escapeHtml(state.draftKeyword)}" data-ppic-transfer-field="keyword">`,
+    }),
     listTitle: '未完成车缝外发执行任务',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-transfer', emptyText: '当前没有可移交的未完执行任务' }),
     paginationHtml: renderTablePagination({ total: allRows.length, from: allRows.length ? start + 1 : 0, to: Math.min(start + state.pageSize, allRows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'ppic-transfer', fieldPrefix: 'ppic-transfer', pageSizeOptions: [20, 50] }),
@@ -147,19 +175,38 @@ export function closeSewingOutsourcingResponsibilityTransferDialog(): boolean {
 export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTMLElement): boolean {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-transfer-field]')
   if (field && !state.dialog) {
-    if (field.dataset.ppicTransferField === 'keyword') state.keyword = field.value
-    else if (field.dataset.ppicTransferField === 'managerPpicId') state.managerPpicId = field.value
-    else if (field.dataset.ppicTransferField === 'pageSize') state.pageSize = Number(field.value) || 20
+    if (field.dataset.ppicTransferField === 'keyword') state.draftKeyword = field.value
+    else if (field.dataset.ppicTransferField === 'managerPpicId') {
+      state.managerPpicId = field.value
+      state.page = 1
+      refresh()
+    }
+    else if (field.dataset.ppicTransferField === 'pageSize') {
+      state.pageSize = Number(field.value) || 20
+      state.page = 1
+      refresh()
+    }
     else return false
-    state.page = 1
-    refresh()
     return true
   }
   const node = target.closest<HTMLElement>('[data-ppic-transfer-action]')
   const action = node?.dataset.ppicTransferAction
   if (!node || !action) return false
   if (action === 'close-dialog') return closeSewingOutsourcingResponsibilityTransferDialog()
-  if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
+  if (action.startsWith('switch-tab:')) {
+    state.historyTab = action.slice('switch-tab:'.length) as TransferHistoryTab
+    state.page = 1
+  }
+  else if (action === 'query') {
+    state.keyword = state.draftKeyword
+    state.page = 1
+  }
+  else if (action === 'reset') {
+    state.keyword = ''
+    state.draftKeyword = ''
+    state.page = 1
+  }
+  else if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
   else if (action === 'history') state.dialog = { kind: 'HISTORY', rowId: node.dataset.rowId || '' }
   else if (action === 'transfer') state.dialog = { kind: 'TRANSFER', rowId: node.dataset.rowId || '', error: '' }
   else if (action === 'submit-transfer' && state.dialog?.kind === 'TRANSFER') {

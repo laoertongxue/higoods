@@ -26,6 +26,15 @@ import {
 } from '../src/data/fcs/sewing-cut-piece-return-workflow.ts'
 
 const supplementRow = ensureSewingOutsourcingSupplementDemo()
+const supplementRows = listSewingSupplementTrackingRows().filter((item) => item.hasConfirmedHandover && item.totalDebtPieceQty > 0)
+assert.ok(supplementRows.length >= 3, '补料跟进必须有足够Mock覆盖三个欠片衔接状态')
+assert.ok(supplementRows.every((item) => item.hasConfirmedHandover && item.totalDebtPieceQty > 0), '补料跟进列表只允许出现已确认交出后当前仍欠片的任务')
+assert.ok(listSewingSupplementTrackingRows().some((item) => !item.hasConfirmedHandover), '必须保留未交出任务供工作台跟进裁床，但不得混入补料列表')
+assert.deepEqual(
+  [...new Set(supplementRows.map((item) => item.availability))].sort(),
+  ['NO_SUPPLEMENT_ORDER', 'CUTTING_PROCESSING', 'WAITING_CUTTING_HANDOVER'].sort(),
+  '欠片任务必须覆盖尚无补料单、裁床处理中和补料完成待实际交出三态Mock',
+)
 assert.equal(supplementRow.structuralMissingLineCount, 1, '演示场景应是口袋整部位缺失，而不是只差零星裁片')
 assert.equal(supplementRow.missingLines[0]?.partName, '口袋')
 assert.equal(supplementRow.supplementOrders[0]?.id, SEWING_SUPPLEMENT_DEMO_ORDER_ID)
@@ -67,6 +76,10 @@ assert.throws(() => recordSewingSupplementFollowUp({
 ensureSewingCutPieceReturnWorkflowDemo()
 const pageHistoryDemo = ensureSewingCutPieceReturnPageDemo()
 assert.equal(pageHistoryDemo.status, 'WAREHOUSED', 'PPIC退仓页应保留一条已入仓历史，同时释放责任范围供新增演示')
+assert.equal(pageHistoryDemo.returnReasonCode, 'TASK_QTY_REDUCED')
+assert.equal(pageHistoryDemo.responsibilityAdjustmentQty, 10)
+assert.equal(pageHistoryDemo.expectedReturnQtyAfter, pageHistoryDemo.expectedReturnQtyBefore - 10)
+assert.equal(getCutPieceReturnCase(pageHistoryDemo.legacyReturnCaseId)?.receipts[0]?.responsibilityAdjustmentGarmentQty, 10, '正式调减原因应在仓库入仓后按核定数量调整回货责任')
 assert.ok(listCutPieceReturnInitiationCandidates().some((item) => item.eligible), '历史入仓后仍有剩余裁片责任时应允许PPIC继续建单')
 resetSewingCutPieceReturnWorkflowForTests()
 const candidate = listCutPieceReturnInitiationCandidates().find((item) => item.eligible)
@@ -84,15 +97,33 @@ assert.throws(() => createSewingCutPieceReturnRequestByPpic({
   commandId: 'CMD-WRONG-PPIC-RETURN-CREATE-001',
   candidateId: candidate!.candidateId,
   returnedGarmentQty: 10,
+  returnReasonCode: 'EXCESS_OR_WRONG_PIECES',
+  returnReasonDetail: '多交裁片退回。',
+  responsibilityAdjustmentQty: 0,
   partCounts,
   offlineRequestNote: '线下申请。',
   actor: { actorId: 'PPIC-OTHER', actorName: '其他PPIC', role: 'PPIC' },
   createdAt: '2026-09-01 09:10:00',
 }), /当前PPIC/, '非任务PPIC不得代建退仓申请')
+assert.throws(() => createSewingCutPieceReturnRequestByPpic({
+  commandId: 'CMD-IMPACT-WITHOUT-REFERENCE-001',
+  candidateId: candidate!.candidateId,
+  returnedGarmentQty: 10,
+  returnReasonCode: 'TASK_QTY_REDUCED',
+  returnReasonDetail: '任务数量正式调减。',
+  responsibilityAdjustmentQty: 10,
+  partCounts,
+  offlineRequestNote: '线下申请。',
+  actor: { actorId: ppic!.ppicId, actorName: ppic!.ppicName, role: 'PPIC' },
+  createdAt: '2026-09-01 09:15:00',
+}), /必须填写已确认的调整依据号/, '影响回货责任的原因没有正式依据时必须阻断')
 const request = createSewingCutPieceReturnRequestByPpic({
   commandId: 'CMD-PPIC-RETURN-CREATE-001',
   candidateId: candidate!.candidateId,
   returnedGarmentQty: 10,
+  returnReasonCode: 'EXCESS_OR_WRONG_PIECES',
+  returnReasonDetail: '裁片交出时多配了前片和后片，工厂未投入生产并原样退回。',
+  responsibilityAdjustmentQty: 0,
   partCounts,
   offlineRequestNote: 'PPIC线下收到车缝工厂退仓申请，并已核对实物部位和数量。',
   actor: { actorId: ppic!.ppicId, actorName: ppic!.ppicName, role: 'PPIC' },
@@ -101,6 +132,7 @@ const request = createSewingCutPieceReturnRequestByPpic({
 assert.equal(request.status, 'APPROVED_WAITING_WAREHOUSE')
 assert.equal(request.events[0]?.eventType, 'PPIC_CREATED')
 assert.equal(request.partCounts.length, partCounts.length)
+assert.equal(request.expectedReturnQtyAfter, request.expectedReturnQtyBefore, '多交／错发裁片退回不得减少工厂回货责任')
 
 const exception = receiveApprovedCutPieceReturnByWarehouse({
   commandId: 'CMD-WAREHOUSE-EXCEPTION-001',
@@ -138,6 +170,8 @@ assert.equal(warehoused.status, 'WAREHOUSED')
 assert.ok(warehoused.legacyReturnCaseId)
 const receipt = getCutPieceReturnCase(warehoused.legacyReturnCaseId)?.receipts[0]
 assert.equal(receipt?.confirmedBy, '裁床待交出仓 王敏', '仓库仅记录接收入仓人')
+assert.equal(receipt?.responsibilityAdjustmentGarmentQty, 0, '不影响责任的实物退仓必须以0件责任调整入账')
+assert.equal(getCutPieceReturnCase(warehoused.legacyReturnCaseId)?.responsibility.currentExpectedReturnQty, request.expectedReturnQtyBefore, '实物已入仓不等于工厂回货责任减少')
 assert.ok(receipt?.partCounts.every((item) => item.identifiedBy === request.createdBy), '裁片部位识别责任必须保留为建单PPIC')
 const replay = receiveApprovedCutPieceReturnByWarehouse({
   commandId: 'CMD-WAREHOUSE-RECEIVE-001',
@@ -154,8 +188,17 @@ const renderers = readFileSync('src/router/route-renderers-fcs.ts', 'utf8')
 assert.ok(ppicPage.includes('data-ppic-return-action="create"'))
 assert.ok(ppicPage.includes('操作角色：任务PPIC'))
 assert.ok(ppicPage.includes('createSewingCutPieceReturnRequestByPpic'))
+assert.ok(ppicPage.includes('退仓原因'))
+assert.ok(ppicPage.includes('实物退仓折算件数'))
+assert.ok(ppicPage.includes('回货责任调整数量'))
+assert.ok(ppicPage.includes('正式调整依据号'))
+assert.ok(ppicPage.includes('statusTabsHtml: renderUiTabs({'))
+assert.ok(ppicPage.includes('filtersHtml: renderStandardListFilters({'))
+assert.ok(!ppicPage.includes('statsHtml:'), '裁片退仓不得重复展示统计卡片')
 assert.ok(!ppicPage.includes('操作角色：三方车缝工厂'))
 assert.ok(supplementPage.includes('PPIC只写协同日志，不修改补料单状态'))
+assert.ok(supplementPage.includes("filter((item) => item.hasConfirmedHandover && item.totalDebtPieceQty > 0)"))
+assert.ok(!supplementPage.includes("READY_TO_HANDOVER"), '补料完成但尚未实际交出时不能显示为可交工厂')
 assert.ok(!supplementPage.includes('创建补料单</button>'))
 assert.ok(warehousePage.includes('待交出仓只做接收和入仓'))
 assert.ok(warehousePage.includes('仓库不可修改'))

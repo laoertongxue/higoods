@@ -155,6 +155,23 @@ export interface SewingCutPieceResponsibilityProjection {
   activeExclusionCount: number
 }
 
+export interface SewingCutPiecePartExclusionEligibility {
+  eligible: boolean
+  reason: string
+}
+
+export function getSewingCutPiecePartExclusionEligibility(
+  line: SewingCutPieceProjectionLine,
+  hasConfirmedHandover = true,
+): SewingCutPiecePartExclusionEligibility {
+  if (!hasConfirmedHandover) return { eligible: false, reason: '裁床尚未形成确认交出，交出前不判定欠片，也不能排除部位' }
+  if (line.excludedFromEffectiveKit) return { eligible: false, reason: '该部位已有生效中的排除版本' }
+  if (line.debtPieceQty <= 0) return { eligible: false, reason: '该部位没有欠片，不能排除' }
+  if (line.shortageShape === 'ENTIRE_PART_MISSING') return { eligible: true, reason: '整个部位未交，可由当前任务PPIC判断是否排除' }
+  if (line.shortageShape === 'AT_LEAST_HALF_MISSING') return { eligible: true, reason: '缺口达到应交数量一半，可由当前任务PPIC判断是否排除' }
+  return { eligible: false, reason: '局部欠片未达到一半，保留欠片和补料跟进，不做人为排除' }
+}
+
 const contexts = new Map<string, SewingCutPieceResponsibilityContext>()
 const handoverEvents = new Map<string, SewingCutPieceHandoverEvent>()
 const exclusions = new Map<string, SewingCutPiecePartExclusionVersion>()
@@ -309,6 +326,9 @@ function kitQty(lines: SewingCutPieceProjectionLine[], useExclusions: boolean): 
 function buildProjection(assignmentId: string): SewingCutPieceResponsibilityProjection {
   const context = requireContext(assignmentId)
   const totals = handoverTotals(assignmentId)
+  const hasConfirmedHandover = [...handoverEvents.values()].some((event) => (
+    event.assignmentId === assignmentId && event.status === 'CONFIRMED'
+  ))
   const exclusionByKey = new Map(activeExclusions(assignmentId).map((item) => [requirementKey(item), item]))
   const lines: SewingCutPieceProjectionLine[] = context.requirementLines.map((line) => {
     const handedOverPieceQty = totals.get(requirementKey(line)) || 0
@@ -358,7 +378,9 @@ function buildProjection(assignmentId: string): SewingCutPieceResponsibilityProj
     strictCompleteKitQty: skuSummaries.reduce((sum, line) => sum + line.strictCompleteKitQty, 0),
     effectiveCompleteKitQty: skuSummaries.reduce((sum, line) => sum + line.effectiveCompleteKitQty, 0),
     returnResponsibilityQty: skuSummaries.reduce((sum, line) => sum + line.returnResponsibilityQty, 0),
-    structuralMissingLineCount: lines.filter((line) => line.shortageShape === 'ENTIRE_PART_MISSING').length,
+    structuralMissingLineCount: hasConfirmedHandover
+      ? lines.filter((line) => ['ENTIRE_PART_MISSING', 'AT_LEAST_HALF_MISSING'].includes(line.shortageShape)).length
+      : 0,
     activeExclusionCount: exclusionByKey.size,
   }
 }
@@ -487,6 +509,13 @@ export function createSewingCutPiecePartExclusion(input: {
   const key = requirementKey(input)
   const requirement = context.requirementLines.find((line) => requirementKey(line) === key)
   if (!requirement) throw new Error(`部位${key}不属于冻结必需裁片`)
+  const projectionLine = buildProjection(input.assignmentId).lines.find((line) => requirementKey(line) === key)
+  if (!projectionLine) throw new Error(`部位${key}缺少当前裁片投影`)
+  const eligibility = getSewingCutPiecePartExclusionEligibility(
+    projectionLine,
+    listSewingCutPieceHandoverEvents(input.assignmentId).length > 0,
+  )
+  if (!eligibility.eligible) throw new Error(eligibility.reason)
   const currentlyExcludedKeys = new Set(activeExclusions(input.assignmentId).map(requirementKey))
   currentlyExcludedKeys.add(key)
   const remainingForSku = context.requirementLines.filter((line) => (
@@ -658,6 +687,8 @@ export function ensureSewingCutPieceResponsibilityDemo(): SewingCutPieceResponsi
 
 export const SEWING_CUT_PIECE_UNHANDED_DEMO_ASSIGNMENT_ID = 'ASG-PPIC-CUT-HANDOVER-DEMO-UNHANDED'
 export const SEWING_CUT_PIECE_CLEAR_DEMO_ASSIGNMENT_ID = 'ASG-PPIC-CUT-HANDOVER-DEMO-CLEAR'
+export const SEWING_CUT_PIECE_NO_SUPPLEMENT_DEMO_ASSIGNMENT_ID = 'ASG-PPIC-CUT-HANDOVER-DEMO-NO-SUPPLEMENT'
+export const SEWING_CUT_PIECE_WAIT_HANDOVER_DEMO_ASSIGNMENT_ID = 'ASG-PPIC-CUT-HANDOVER-DEMO-WAIT-HANDOVER'
 
 function ensureOverviewDemoAssignment(input: {
   assignmentId: string
@@ -732,6 +763,48 @@ function ensureOverviewProjection(input: {
   return getSewingCutPieceResponsibilityProjection(input.assignmentId)
 }
 
+function ensureShortageOverviewProjection(input: {
+  assignmentId: string
+  runtimeTaskId: string
+  productionOrderNo: string
+  taskNo: string
+  assignedQty: number
+  shortagePartCode: string
+  shortagePartName: string
+  handedShortagePieceQty: number
+}): SewingCutPieceResponsibilityProjection {
+  ensureOverviewDemoAssignment(input)
+  const skuCode = `${input.taskNo}-BLACK-M`
+  initializeSewingCutPieceResponsibility({
+    assignmentId: input.assignmentId,
+    requirementSnapshotId: `TECHPACK-${input.taskNo}-V1`,
+    requirementSnapshotAt: '2026-09-01 08:01:00',
+    requirementSnapshotBy: '系统按有效分配冻结',
+    requirementLines: [
+      { skuCode, color: '黑色', size: 'M', partCode: 'BODY', partName: '衣身', piecesPerGarment: 1, allocatedGarmentQty: input.assignedQty },
+      { skuCode, color: '黑色', size: 'M', partCode: input.shortagePartCode, partName: input.shortagePartName, piecesPerGarment: 1, allocatedGarmentQty: input.assignedQty },
+    ],
+  })
+  if (!listSewingCutPieceHandoverEvents(input.assignmentId).length) {
+    recordSewingCutPieceHandover({
+      commandId: `CMD-${input.taskNo}-HANDOVER-001`,
+      assignmentId: input.assignmentId,
+      handoverRecordId: `HO-${input.taskNo}-001`,
+      handoverRecordNo: `JCR-${input.taskNo}-001`,
+      dispatchBatchId: `BATCH-${input.taskNo}-001`,
+      handedOverAt: '2026-09-01 09:20:00',
+      handedOverBy: '裁床待交出仓 王敏',
+      lines: [
+        { skuCode, color: '黑色', size: 'M', partCode: 'BODY', pieceQty: input.assignedQty },
+        ...(input.handedShortagePieceQty > 0
+          ? [{ skuCode, color: '黑色', size: 'M', partCode: input.shortagePartCode, pieceQty: input.handedShortagePieceQty }]
+          : []),
+      ],
+    })
+  }
+  return getSewingCutPieceResponsibilityProjection(input.assignmentId)
+}
+
 /** Three task-level states used by the PPIC handover/debt page and workbench summary. */
 export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPieceResponsibilityProjection[] {
   const unhanded = ensureOverviewProjection({
@@ -750,5 +823,25 @@ export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPiec
     assignedQty: 600,
     handover: true,
   })
-  return [unhanded, clear, ensureSewingCutPieceResponsibilityDemo()]
+  const noSupplement = ensureShortageOverviewProjection({
+    assignmentId: SEWING_CUT_PIECE_NO_SUPPLEMENT_DEMO_ASSIGNMENT_ID,
+    runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-NO-SUPPLEMENT-001',
+    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-NO-SUPPLEMENT-001',
+    taskNo: 'SEW-OUT-NO-SUPPLEMENT-001',
+    assignedQty: 700,
+    shortagePartCode: 'COLLAR',
+    shortagePartName: '领片',
+    handedShortagePieceQty: 0,
+  })
+  const waitingHandover = ensureShortageOverviewProjection({
+    assignmentId: SEWING_CUT_PIECE_WAIT_HANDOVER_DEMO_ASSIGNMENT_ID,
+    runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-WAIT-HANDOVER-001',
+    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-WAIT-HANDOVER-001',
+    taskNo: 'SEW-OUT-WAIT-HANDOVER-001',
+    assignedQty: 800,
+    shortagePartCode: 'LACE',
+    shortagePartName: '花边',
+    handedShortagePieceQty: 400,
+  })
+  return [unhanded, clear, ensureSewingCutPieceResponsibilityDemo(), noSupplement, waitingHandover]
 }

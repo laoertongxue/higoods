@@ -25,6 +25,7 @@ const forwardScripts = [
   'scripts/check-post-finishing-sewing-self-return.ts',
   'scripts/check-sewing-outsourcing-return-fulfillment.ts',
   'scripts/check-sewing-outsourcing-workbench.ts',
+  'scripts/check-sewing-outsourcing-list-page-consistency.ts',
   'scripts/check-sewing-outsourcing-information-architecture.ts',
   'scripts/check-sewing-outsourcing-migration-audit.ts',
   'scripts/check-production-contract-template-fidelity.ts',

@@ -1,9 +1,10 @@
 // @page-pattern: list
 
-import { renderStandardListPage, renderStandardListStats } from '../../components/ui/list-page.ts'
+import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
 import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
+import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import { POST_FINISHING_SEWING_TASK_TYPE_LABEL } from '../../data/fcs/post-finishing-full-flow.ts'
 import {
   SEWING_RETURN_TRACKING_DEMO_NOW,
@@ -23,6 +24,7 @@ type ReturnSituation = 'DUE_FOLLOW_UP' | 'OVERDUE' | 'CUTTING_SHORTFALL' | 'POST
 
 const state = {
   keyword: '',
+  draftKeyword: '',
   situation: 'DUE_FOLLOW_UP' as ReturnSituation,
   page: 1,
   pageSize: 20,
@@ -127,14 +129,20 @@ export function renderSewingOutsourcingReturnsPage(): string {
   const allUnfiltered = listSewingOutsourcingReturnTrackingRows()
   return `<div data-ppic-return-track-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '回货跟进',
-    filtersHtml: `<div class="space-y-3 rounded-lg border bg-white p-3"><div class="flex flex-wrap gap-2" role="tablist" aria-label="回货跟进状态">${(Object.keys(situationLabels) as ReturnSituation[]).map((situation) => `<button type="button" class="rounded px-4 py-2 text-sm font-semibold ${state.situation === situation ? 'bg-blue-600 text-white' : 'border text-slate-600'}" data-ppic-return-track-action="switch-situation" data-situation="${situation}">${situationLabels[situation]} <span class="ml-1">${allUnfiltered.filter((row) => matchesSituation(row, situation)).length}</span></button>`).join('')}</div><div class="flex flex-wrap gap-3"><input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 车缝任务 / 工厂 / PPIC" value="${escapeHtml(state.keyword)}" data-ppic-return-track-filter="keyword"><span class="self-center text-xs text-slate-500">原型核查时点：${escapeHtml(SEWING_RETURN_TRACKING_DEMO_NOW)}</span></div></div>`,
-    statsHtml: renderStandardListStats([
-      { label: '本人跟进任务', value: allUnfiltered.length },
-      { label: '工厂逾期', value: allUnfiltered.filter((row) => row.returnProjection.highestRiskStatus === 'OVERDUE').length },
-      { label: '需跟进裁床', value: allUnfiltered.filter((row) => row.returnProjection.milestones.some((node) => node.cuttingShortfallQty > 0)).length },
-      { label: '待后道最终确认', value: allUnfiltered.filter((row) => row.pendingPostFinishingQty > 0).length },
-    ]),
+    statusTabsHtml: renderUiTabs({
+      tabs: (Object.keys(situationLabels) as ReturnSituation[]).map((situation) => ({ key: situation, label: situationLabels[situation], count: allUnfiltered.filter((row) => matchesSituation(row, situation)).length })),
+      activeKey: state.situation,
+      variant: 'pills',
+      prefix: 'ppic-return-track',
+      action: 'switch-tab',
+      fullWidth: true,
+    }),
+    filtersHtml: renderStandardListFilters({
+      actionPrefix: 'ppic-return-track',
+      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 车缝任务 / 工厂 / PPIC" value="${escapeHtml(state.draftKeyword)}" data-ppic-return-track-filter="keyword">`,
+    }),
     listTitle: `${situationLabels[state.situation]}的车缝外发任务`,
+    listActionsHtml: `<span class="text-xs text-slate-500">原型核查时点：${escapeHtml(SEWING_RETURN_TRACKING_DEMO_NOW)}</span>`,
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-return-track', emptyText: '暂无符合条件的回货任务' }),
     paginationHtml: renderTablePagination({ total: filteredRows.length, from: filteredRows.length ? start + 1 : 0, to: Math.min(start + state.pageSize, filteredRows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'ppic-return-track', fieldPrefix: 'ppic-return-track', pageSizeOptions: [20, 50] }),
     overlaysHtml: renderDialog(),
@@ -158,18 +166,29 @@ export function closeSewingOutsourcingReturnsDialog(): boolean {
 export function handleSewingOutsourcingReturnsEvent(target: HTMLElement): boolean {
   const filter = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-return-track-filter]')
   if (filter && !state.dialog) {
-    if (filter.dataset.ppicReturnTrackFilter === 'keyword') state.keyword = filter.value
-    if (filter.dataset.ppicReturnTrackFilter === 'pageSize') state.pageSize = Number(filter.value) || 20
-    state.page = 1
-    refresh()
+    if (filter.dataset.ppicReturnTrackFilter === 'keyword') state.draftKeyword = filter.value
+    if (filter.dataset.ppicReturnTrackFilter === 'pageSize') {
+      state.pageSize = Number(filter.value) || 20
+      state.page = 1
+      refresh()
+    }
     return true
   }
   const node = target.closest<HTMLElement>('[data-ppic-return-track-action]')
   const action = node?.dataset.ppicReturnTrackAction
   if (!node || !action) return false
   if (action === 'close-dialog') return closeSewingOutsourcingReturnsDialog()
-  if (action === 'switch-situation') {
-    state.situation = node.dataset.situation as ReturnSituation
+  if (action.startsWith('switch-tab:')) {
+    state.situation = action.slice('switch-tab:'.length) as ReturnSituation
+    state.page = 1
+  }
+  else if (action === 'query') {
+    state.keyword = state.draftKeyword
+    state.page = 1
+  }
+  else if (action === 'reset') {
+    state.keyword = ''
+    state.draftKeyword = ''
     state.page = 1
   }
   else if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }

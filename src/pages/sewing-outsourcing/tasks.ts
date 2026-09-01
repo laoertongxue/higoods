@@ -1,9 +1,10 @@
 // @page-pattern: list
 
-import { renderStandardListPage, renderStandardListStats } from '../../components/ui/list-page.ts'
+import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
 import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
+import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import { PPIC_TEAM_LEADER_LINGYUN } from '../../data/fcs/factory-onboarding-ppic.ts'
 import {
   getSewingOutsourcingWorkbenchRow,
@@ -22,20 +23,35 @@ type DialogState =
 
 const state = {
   keyword: '',
+  draftKeyword: '',
   ppicId: '',
+  draftPpicId: '',
   taskKind: 'ALL',
   page: 1,
   pageSize: 20,
   dialog: null as DialogState,
 }
 
-function rows(): SewingOutsourcingWorkbenchTaskRow[] {
-  const keyword = state.keyword.trim().toLowerCase()
+type TaskKindTab = 'ALL' | 'INDEPENDENT_SEWING' | 'SEWING_IRON_PACK' | 'CUTTING_SEWING_IRON_PACK'
+
+const taskKindLabels: Record<TaskKindTab, string> = {
+  ALL: '全部任务',
+  INDEPENDENT_SEWING: '独立车缝',
+  SEWING_IRON_PACK: '车缝+烫包',
+  CUTTING_SEWING_IRON_PACK: '裁剪+车缝+烫包',
+}
+
+function baseRows(): SewingOutsourcingWorkbenchTaskRow[] {
   return listSewingOutsourcingWorkbenchRows({
     viewerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
     leaderView: true,
     selectedPpicId: state.ppicId,
   })
+}
+
+function rows(): SewingOutsourcingWorkbenchTaskRow[] {
+  const keyword = state.keyword.trim().toLowerCase()
+  return baseRows()
     .filter((row) => state.taskKind === 'ALL' || row.taskKind === state.taskKind)
     .filter((row) => !keyword || [
       row.productionOrderNo,
@@ -81,6 +97,7 @@ function renderDialog(): string {
 }
 
 export function renderSewingOutsourcingTasksPage(): string {
+  const completeRows = baseRows()
   const allRows = rows()
   const totalPages = Math.max(1, Math.ceil(allRows.length / state.pageSize))
   state.page = Math.min(Math.max(1, state.page), totalPages)
@@ -89,13 +106,22 @@ export function renderSewingOutsourcingTasksPage(): string {
   const ppicOptions = listSewingOutsourcingWorkbenchPpicOptions()
   return `<div data-ppic-task-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '车缝任务',
-    filtersHtml: `<div class="flex flex-wrap gap-3 rounded-lg border bg-white p-3"><input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 分配 / 工厂" value="${escapeHtml(state.keyword)}" data-ppic-task-field="keyword"><select class="h-9 rounded border px-3 text-sm" data-ppic-task-field="ppicId"><option value="">全部PPIC</option>${ppicOptions.map((option) => `<option value="${escapeHtml(option.ppicId)}"${state.ppicId === option.ppicId ? ' selected' : ''}>${escapeHtml(option.ppicName)}（${option.taskCount}）</option>`).join('')}</select><select class="h-9 rounded border px-3 text-sm" data-ppic-task-field="taskKind"><option value="ALL">全部三类任务</option><option value="INDEPENDENT_SEWING"${state.taskKind === 'INDEPENDENT_SEWING' ? ' selected' : ''}>独立车缝</option><option value="SEWING_IRON_PACK"${state.taskKind === 'SEWING_IRON_PACK' ? ' selected' : ''}>车缝+烫包</option><option value="CUTTING_SEWING_IRON_PACK"${state.taskKind === 'CUTTING_SEWING_IRON_PACK' ? ' selected' : ''}>裁剪+车缝+烫包</option></select></div>`,
-    statsHtml: renderStandardListStats([
-      { label: '执行任务', value: allRows.length },
-      { label: '独立车缝', value: allRows.filter((row) => row.taskKind === 'INDEPENDENT_SEWING').length },
-      { label: '车缝+烫包', value: allRows.filter((row) => row.taskKind === 'SEWING_IRON_PACK').length },
-      { label: '裁剪+车缝+烫包', value: allRows.filter((row) => row.taskKind === 'CUTTING_SEWING_IRON_PACK').length },
-    ]),
+    statusTabsHtml: renderUiTabs({
+      tabs: (Object.keys(taskKindLabels) as TaskKindTab[]).map((taskKind) => ({
+        key: taskKind,
+        label: taskKindLabels[taskKind],
+        count: taskKind === 'ALL' ? completeRows.length : completeRows.filter((row) => row.taskKind === taskKind).length,
+      })),
+      activeKey: state.taskKind,
+      variant: 'pills',
+      prefix: 'ppic-task',
+      action: 'switch-tab',
+      fullWidth: true,
+    }),
+    filtersHtml: renderStandardListFilters({
+      actionPrefix: 'ppic-task',
+      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 分配 / 工厂" value="${escapeHtml(state.draftKeyword)}" data-ppic-task-field="keyword"><select class="h-9 rounded border px-3 text-sm" data-ppic-task-field="ppicId"><option value="">全部PPIC</option>${ppicOptions.map((option) => `<option value="${escapeHtml(option.ppicId)}"${state.draftPpicId === option.ppicId ? ' selected' : ''}>${escapeHtml(option.ppicName)}（${option.taskCount}）</option>`).join('')}</select>`,
+    }),
     listTitle: '车缝外发执行任务主清单',
     listActionsHtml: '<a class="text-xs font-semibold text-blue-700" data-nav="/fcs/sewing-outsourcing/migration-audit">历史迁移审计</a>',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-task', emptyText: '暂无符合条件的车缝执行任务' }),
@@ -122,20 +148,37 @@ export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean 
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-task-field]')
   if (field && !state.dialog) {
     const name = field.dataset.ppicTaskField
-    if (name === 'keyword') state.keyword = field.value
-    else if (name === 'ppicId') state.ppicId = field.value
-    else if (name === 'taskKind') state.taskKind = field.value
-    else if (name === 'pageSize') state.pageSize = Number(field.value) || 20
+    if (name === 'keyword') state.draftKeyword = field.value
+    else if (name === 'ppicId') state.draftPpicId = field.value
+    else if (name === 'pageSize') {
+      state.pageSize = Number(field.value) || 20
+      state.page = 1
+      refresh()
+    }
     else return false
-    state.page = 1
-    refresh()
     return true
   }
   const node = target.closest<HTMLElement>('[data-ppic-task-action]')
   const action = node?.dataset.ppicTaskAction
   if (!node || !action) return false
   if (action === 'close-dialog') return closeSewingOutsourcingTasksDialog()
-  if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
+  if (action.startsWith('switch-tab:')) {
+    state.taskKind = action.slice('switch-tab:'.length) as TaskKindTab
+    state.page = 1
+  }
+  else if (action === 'query') {
+    state.keyword = state.draftKeyword
+    state.ppicId = state.draftPpicId
+    state.page = 1
+  }
+  else if (action === 'reset') {
+    state.keyword = ''
+    state.draftKeyword = ''
+    state.ppicId = ''
+    state.draftPpicId = ''
+    state.page = 1
+  }
+  else if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
   else if (action === 'detail') state.dialog = { kind: 'DETAIL', rowId: node.dataset.rowId || '' }
   else if (action === 'prev-page') state.page = Math.max(1, state.page - 1)
   else if (action === 'next-page') state.page += 1

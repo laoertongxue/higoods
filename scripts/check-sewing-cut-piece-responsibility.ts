@@ -8,7 +8,9 @@ import { getFactoryActivePpicSnapshot } from '../src/data/fcs/factory-master-sto
 import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import { resetSewingTaskResponsibilityTransfersForTests } from '../src/data/fcs/sewing-outsourcing-responsibility.ts'
 import {
+  cancelSewingCutPiecePartExclusion,
   createSewingCutPiecePartExclusion,
+  getSewingCutPiecePartExclusionEligibility,
   getSewingCutPieceResponsibilityProjection,
   initializeSewingCutPieceResponsibility,
   listSewingCutPieceHandoverEvents,
@@ -108,6 +110,7 @@ assert(pocketDebt)
 assert.equal(pocketDebt.handedOverPieceQty, 0)
 assert.equal(pocketDebt.debtPieceQty, 1000)
 assert.equal(pocketDebt.shortageShape, 'ENTIRE_PART_MISSING')
+assert.equal(getSewingCutPiecePartExclusionEligibility(pocketDebt).eligible, true, '整个部位未交必须允许当前任务PPIC判断是否排除')
 assert.equal(projection.structuralMissingLineCount, 1)
 const sleeve = projection.lines.find((line) => line.partCode === 'SLEEVE')
 assert.equal(sleeve?.piecesPerGarment, 2)
@@ -154,6 +157,19 @@ assert.equal(projection.totalDebtPieceQty, 0)
 assert.equal(projection.returnResponsibilityQty, 1000, '补交只消减欠片，不能把回货责任重复增加到2000')
 assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId).length, 1, '责任未增加时不制造重复版本')
 
+const cancelledExclusion = cancelSewingCutPiecePartExclusion({
+  commandId: 'CMD-CANCEL-EXC-001',
+  exclusionVersionId: exclusion.exclusionVersionId,
+  reason: '裁床已完成口袋补交，恢复该部位参与当前有效齐套计算。',
+  cancelledAt: '2026-09-02 09:05:00',
+  cancelledByPpicId: ppic.ppicId,
+})
+assert.equal(cancelledExclusion.status, 'CANCELLED')
+projection = getSewingCutPieceResponsibilityProjection(assignment.assignmentId)
+assert.equal(projection.activeExclusionCount, 0)
+assert.equal(projection.returnResponsibilityQty, 1000, '取消排除不得回退已经冻结的工厂回货责任')
+assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId).length, 1, '取消排除不制造责任回退版本')
+
 recordSewingCutPieceHandover({
   commandId: 'CMD-HAND-003',
   assignmentId: assignment.assignmentId,
@@ -184,6 +200,27 @@ initializeSewingCutPieceResponsibility({
     { skuCode: 'SKU-MINOR-M', color: 'Black', size: 'M', partCode: 'LACE', partName: '花边', piecesPerGarment: 1, allocatedGarmentQty: 1000 },
   ],
 })
+const beforeMinorHandover = getSewingCutPieceResponsibilityProjection(minorAssignment.assignmentId)
+assert.equal(beforeMinorHandover.structuralMissingLineCount, 0, '尚未交出时不得把所有未交部位统计成结构性欠片')
+assert.equal(
+  getSewingCutPiecePartExclusionEligibility(beforeMinorHandover.lines[0]!, false).eligible,
+  false,
+  '尚未形成确认交出时不能人为排除部位',
+)
+assert.throws(
+  () => createSewingCutPiecePartExclusion({
+    commandId: 'CMD-EXC-BEFORE-HANDOVER-001',
+    assignmentId: minorAssignment.assignmentId,
+    skuCode: 'SKU-MINOR-M',
+    color: 'Black',
+    size: 'M',
+    partCode: 'LACE',
+    reason: '交出前不得排除。',
+    createdAt: '2026-09-01 11:05:00',
+    createdByPpicId: ppic.ppicId,
+  }),
+  /尚未形成确认交出/,
+)
 recordSewingCutPieceHandover({
   commandId: 'CMD-HAND-MINOR-001',
   assignmentId: minorAssignment.assignmentId,
@@ -203,32 +240,56 @@ assert.equal(minorProjection.totalDebtPieceQty, 400)
 assert.equal(minorProjection.structuralMissingLineCount, 0)
 assert.equal(minorProjection.lines.find((line) => line.partCode === 'LACE')?.shortageShape, 'PARTIAL_SHORTAGE', '不足需求量一半的局部缺口保留明细，不得误判成整部位或半数缺失')
 assert.equal(getSewingCutPieceResponsibilityProjection(assignment.assignmentId).returnResponsibilityQty, 1000, '不同执行任务不得串账')
-
-createSewingCutPiecePartExclusion({
-  commandId: 'CMD-EXC-MINOR-BODY-001',
-  assignmentId: minorAssignment.assignmentId,
-  skuCode: 'SKU-MINOR-M',
-  color: 'Black',
-  size: 'M',
-  partCode: 'BODY',
-  reason: '验证至少保留一个有效部位',
-  createdAt: '2026-09-01 11:20:00',
-  createdByPpicId: ppic.ppicId,
-})
+assert.equal(getSewingCutPiecePartExclusionEligibility(minorProjection.lines.find((line) => line.partCode === 'BODY')!).eligible, false)
+assert.match(getSewingCutPiecePartExclusionEligibility(minorProjection.lines.find((line) => line.partCode === 'BODY')!).reason, /没有欠片/)
 assert.throws(
   () => createSewingCutPiecePartExclusion({
-    commandId: 'CMD-EXC-ALL-001',
+    commandId: 'CMD-EXC-MINOR-001',
     assignmentId: minorAssignment.assignmentId,
     skuCode: 'SKU-MINOR-M',
     color: 'Black',
     size: 'M',
     partCode: 'LACE',
-    reason: '不能再排除最后一个有效部位',
+    reason: '局部欠片未达到一半时不允许排除。',
     createdAt: '2026-09-01 11:21:00',
     createdByPpicId: ppic.ppicId,
   }),
-  /不能排除一个SKU的全部必需裁片部位/,
+  /局部欠片未达到一半/,
 )
+
+const halfAssignment = createAssignment({
+  assignmentId: 'ASG-CUT-RESP-HALF-001',
+  taskId: 'TASK-CUT-RESP-HALF-001',
+  skuCode: 'SKU-HALF-M',
+  qty: 1000,
+})
+initializeSewingCutPieceResponsibility({
+  assignmentId: halfAssignment.assignmentId,
+  requirementSnapshotId: 'TECHPACK-CUT-PARTS-HALF-V1',
+  requirementSnapshotAt: '2026-09-01 12:00:00',
+  requirementSnapshotBy: '系统按分配冻结',
+  requirementLines: [
+    { skuCode: 'SKU-HALF-M', color: 'Black', size: 'M', partCode: 'BODY', partName: '衣身', piecesPerGarment: 1, allocatedGarmentQty: 1000 },
+    { skuCode: 'SKU-HALF-M', color: 'Black', size: 'M', partCode: 'COLLAR', partName: '领片', piecesPerGarment: 1, allocatedGarmentQty: 1000 },
+  ],
+})
+recordSewingCutPieceHandover({
+  commandId: 'CMD-HAND-HALF-001',
+  assignmentId: halfAssignment.assignmentId,
+  handoverRecordId: 'HO-REC-HALF-001',
+  handoverRecordNo: 'JCR-HALF-001',
+  dispatchBatchId: 'BATCH-HALF-001',
+  handedOverAt: '2026-09-01 12:10:00',
+  handedOverBy: '裁床待交出仓 王五',
+  lines: [
+    { skuCode: 'SKU-HALF-M', color: 'Black', size: 'M', partCode: 'BODY', pieceQty: 1000 },
+    { skuCode: 'SKU-HALF-M', color: 'Black', size: 'M', partCode: 'COLLAR', pieceQty: 500 },
+  ],
+})
+const halfLine = getSewingCutPieceResponsibilityProjection(halfAssignment.assignmentId).lines.find((line) => line.partCode === 'COLLAR')!
+assert.equal(halfLine.shortageShape, 'AT_LEAST_HALF_MISSING')
+assert.equal(getSewingCutPiecePartExclusionEligibility(halfLine).eligible, true, '欠片达到应交数量一半时允许PPIC判断是否排除')
+assert.equal(getSewingCutPieceResponsibilityProjection(halfAssignment.assignmentId).structuralMissingLineCount, 1, '缺口达到一半应计入排除核对阈值统计')
 
 assert.equal(listSewingCutPieceHandoverEvents(assignment.assignmentId).length, 3)
 assert.equal(listSewingCutPiecePartExclusionVersions(assignment.assignmentId).length, 1)
