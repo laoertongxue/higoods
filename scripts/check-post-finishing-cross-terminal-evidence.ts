@@ -36,14 +36,14 @@ type AcceptanceEvidence = {
   surfaceScreenshots: string[]
   finalSnapshot?: {
     totals: Record<string, number>
-    chains: Array<{ warehouseReceived: boolean }>
+    chains: Array<{ warehouseReceived: boolean; waitHandoverStatus?: string }>
   }
 }
 
 const evidenceRoot = resolve(process.cwd(), 'output/verification/post-finishing-full-flow')
 const passes = [
-  { directory: '2026-09-01-ui-fix-final-pass-1', label: 'ui-fix-final-pass-1' },
-  { directory: '2026-09-01-ui-fix-final-pass-2', label: 'ui-fix-final-pass-2' },
+  { directory: '2026-09-01-online-baseline-final-pass-1', label: 'online-baseline-final-pass-1' },
+  { directory: '2026-09-01-online-baseline-final-pass-2', label: 'online-baseline-final-pass-2' },
 ] as const
 const expectedTotals = {
   productionOrders: 3,
@@ -56,6 +56,8 @@ const expectedTotals = {
   warehouseReceipts: 15,
   waitProcessWarehouseRecords: 15,
   waitProcessWarehouseMovements: 30,
+  waitHandoverWarehouseRecords: 15,
+  waitHandoverWarehouseMovements: 30,
   defects: 2,
   operationLogs: 271,
   authorizationConsumptions: 5,
@@ -103,8 +105,8 @@ function readEvidence(pass: typeof passes[number]): {
   const evidence = JSON.parse(readFileSync(jsonPath, 'utf8')) as AcceptanceEvidence
   const screenshots = walkFiles(resolve(passRoot, 'screenshots')).filter((path) => path.endsWith('.png'))
   const traces = walkFiles(resolve(passRoot, 'playwright')).filter((path) => path.endsWith('/trace.zip'))
-  assert.equal(screenshots.length, 32, `${pass.label} 必须保留 32 张页面截图`)
-  assert.equal(evidence.surfaceScreenshots.length, 4, `${pass.label} 必须保留 4 张关键 Web 页面截图索引`)
+  assert.equal(screenshots.length, 48, `${pass.label} 必须保留 48 张页面截图`)
+  assert.equal(evidence.surfaceScreenshots.length, 5, `${pass.label} 必须保留 5 张关键 Web 页面截图索引`)
   assert(evidence.surfaceScreenshots.every((path) => existsSync(path)), `${pass.label} 存在缺失的关键 Web 页面截图`)
   assert.equal(traces.length, 1, `${pass.label} 必须保留 1 份完整 Playwright trace`)
   assert(statSync(traces[0]!).size > 0, `${pass.label} trace 不得为空`)
@@ -116,8 +118,8 @@ function readEvidence(pass: typeof passes[number]): {
   }
 }
 
-const namedUiScreenshots = walkFiles(resolve(evidenceRoot, '2026-09-01-named-ui-final')).filter((path) => path.endsWith('.png'))
-assert.equal(namedUiScreenshots.length, 9, '最终命名页面回归必须保留 9 张截图')
+const namedUiScreenshots = walkFiles(resolve(evidenceRoot, '2026-09-01-online-baseline-named-ui-final')).filter((path) => path.endsWith('.png'))
+assert.equal(namedUiScreenshots.length, 11, '最终命名页面回归必须保留 11 张截图')
 
 const results = passes.map((pass) => {
   const result = readEvidence(pass)
@@ -142,6 +144,8 @@ const results = passes.map((pass) => {
     assert.equal(chain.stages[0]?.stage, '公共PDA登记回货')
     assert.equal(chain.stages.at(-1)?.stage, 'Web收货结果回查')
     assert(chain.stages.some((stage) => stage.stage === 'PDA仓库收货'))
+    assert(chain.stages.some((stage) => stage.stage === 'Web待交出仓入仓核对'))
+    assert(chain.stages.some((stage) => stage.stage === 'Web待交出仓交出回查'))
     assert(chain.stages.some((stage) => stage.stage === 'Web出货核对及出货单打印'))
     assert(chain.finalScreenshot && existsSync(chain.finalScreenshot), `${pass.label} 第 ${chain.chainIndex} 条链缺少最终页面截图`)
   }
@@ -151,6 +155,7 @@ const results = passes.map((pass) => {
   assert.deepEqual(evidence.finalSnapshot?.totals, expectedTotals, `${pass.label} 最终业务落地数量不一致`)
   assert.equal(evidence.finalSnapshot?.chains.length, 15)
   assert(evidence.finalSnapshot?.chains.every((chain) => chain.warehouseReceived), `${pass.label} 存在未收货链`)
+  assert(evidence.finalSnapshot?.chains.every((chain) => chain.waitHandoverStatus === '已交出'), `${pass.label} 存在未完成交出的待交出仓记录`)
 
   return {
     passLabel: pass.label,

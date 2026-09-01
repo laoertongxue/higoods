@@ -123,6 +123,7 @@ function buildDifferences(trace: FlowTrace): DifferenceLine[] {
 
 function currentFlowState(trace: FlowTrace): { stage: string; status: string } {
   if (trace.receipt) return { stage: '仓库收货', status: '全流程完成' }
+  if (trace.waitHandoverRecord) return { stage: '后道待交出仓', status: trace.waitHandoverRecord.status }
   if (trace.outboundOrder) return { stage: '后道出货', status: trace.outboundOrder.status }
   if (trace.recheckOrder) return { stage: '复检', status: trace.recheckOrder.status }
   if (trace.postTask) return { stage: '后道加工', status: trace.postTask.status }
@@ -161,7 +162,7 @@ const columns: StandardListColumn<ChainRow>[] = [
     title: '业务链单据',
     width: 280,
     required: true,
-    render: (row) => `<div class="space-y-1 font-mono text-[11px]"><div>质检：${escapeHtml(row.trace.qcTask?.qcTaskNo || '未生成')}</div><div>后道：${escapeHtml(row.trace.postTask?.postTaskNo || '未生成 / 不适用')}</div><div>复检：${escapeHtml(row.trace.recheckOrder?.recheckOrderNo || '未生成')}</div><div>出货：${escapeHtml(row.trace.outboundOrder?.outboundOrderNo || '未生成')}</div></div>`,
+    render: (row) => `<div class="space-y-1 font-mono text-[11px]"><div>质检：${escapeHtml(row.trace.qcTask?.qcTaskNo || '未生成')}</div><div>后道：${escapeHtml(row.trace.postTask?.postTaskNo || '未生成 / 不适用')}</div><div>复检：${escapeHtml(row.trace.recheckOrder?.recheckOrderNo || '未生成')}</div><div>待交出仓：${escapeHtml(row.trace.waitHandoverRecord?.warehouseRecordId || '未入仓')}</div><div>出货：${escapeHtml(row.trace.outboundOrder?.outboundOrderNo || '未生成')}</div></div>`,
   },
   {
     key: 'state',
@@ -203,9 +204,10 @@ function renderChainNodes(row: ChainRow): string {
     ['质检任务', row.trace.qcTask?.qcTaskNo || '未生成', row.trace.qcTask?.status || '未开始'],
     ['后道任务', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
     ['复检单', row.trace.recheckOrder?.recheckOrderNo || '未生成', row.trace.recheckOrder?.status || '未开始'],
+    ['待交出仓', row.trace.waitHandoverRecord?.warehouseRecordId || '未入仓', row.trace.waitHandoverRecord?.status || '未开始'],
     ['出货单', row.trace.outboundOrder?.outboundOrderNo || '未生成', row.trace.outboundOrder?.status || '未开始'],
   ]
-  return `<div class="grid gap-2 lg:grid-cols-5">${nodes.map(([label, no, status]) => `<div class="rounded-lg border bg-slate-50 p-3"><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 break-all font-mono text-xs font-semibold">${escapeHtml(no)}</div><div class="mt-2 text-xs">${escapeHtml(status)}</div></div>`).join('')}</div>`
+  return `<div class="grid gap-2 lg:grid-cols-6">${nodes.map(([label, no, status]) => `<div class="rounded-lg border bg-slate-50 p-3"><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 break-all font-mono text-xs font-semibold">${escapeHtml(no)}</div><div class="mt-2 text-xs">${escapeHtml(status)}</div></div>`).join('')}</div>`
 }
 
 function renderDetail(row: ChainRow): string {

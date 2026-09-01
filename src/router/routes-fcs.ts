@@ -420,7 +420,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
     '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
     '/fcs/craft/post-finishing': () =>
-      renderRouteRedirect('/fcs/craft/post-finishing/wait-process-warehouse', '正在跳转到后道待加工仓'),
+      renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
     '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),

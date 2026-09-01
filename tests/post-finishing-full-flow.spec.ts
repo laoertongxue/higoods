@@ -36,6 +36,12 @@ async function setSession(page: Page, session = PDA_SESSION): Promise<void> {
   }, session)
 }
 
+async function setCurrentWebActor(page: Page, actorId: string): Promise<void> {
+  await page.evaluate((id) => {
+    window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', id)
+  }, actorId)
+}
+
 async function seedBrowserFlow(page: Page): Promise<BrowserSeed> {
   await page.goto('/fcs/craft/post-finishing/qc-workbench')
   return page.evaluate(async () => {
@@ -248,17 +254,28 @@ async function attachPageEvidence(page: Page, testInfo: TestInfo, name: string):
 
 test('默认演示数据在 Web 端真实展示 3 个生产单、15 次回货和分阶段库存', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
+  await page.goto('/fcs/craft/post-finishing/tasks')
+  await expect(page.getByRole('heading', { name: '后道任务', exact: true })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(3)
+  await expect(page.getByText('已登记回货', { exact: true })).toBeVisible()
+  await expect(page.getByText('15 / 15 次', { exact: true })).toBeVisible()
+  await attachPageEvidence(page, testInfo, 'default-demo-post-finishing-tasks')
+
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=returns')
   await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('3 个生产单 × 每单 5 个 SKU × 每单 5 次回货')
-  await expect(page.locator('[data-return-card]')).toHaveCount(3)
+  await expect(page.locator('[data-return-card]')).toHaveCount(15)
   await attachPageEvidence(page, testInfo, 'default-demo-wait-process-pending')
 
   await page.locator('[data-nav*="tab=inventory"]').click()
-  await expect(page.locator('[data-wait-process-inventory-card]')).toHaveCount(3)
-  await expect(page.locator('[data-wait-process-inventory-card]').first()).toContainText('5 SKU')
+  await expect(page.locator('[data-warehouse-sku-row]')).toHaveCount(15)
   await attachPageEvidence(page, testInfo, 'default-demo-wait-process-inventory')
 
+  await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse')
+  await expect(page.getByRole('heading', { name: '后道待交出仓' })).toBeVisible()
+  await expect(page.locator('[data-warehouse-sku-row]')).toHaveCount(5)
+  await attachPageEvidence(page, testInfo, 'default-demo-wait-handover-inventory')
+
+  await setCurrentWebActor(page, 'PF-USER-QC-MGR')
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.locator('tbody tr')).toHaveCount(9)
   await page.goto('/fcs/craft/post-finishing/audit-records')
@@ -268,7 +285,8 @@ test('默认演示数据在 Web 端真实展示 3 个生产单、15 次回货和
 
 test('Web 质检精确领取、占用提示、退领、实时合计和参考资料闭环', async ({ page }, testInfo) => {
   const seed = await seedBrowserFlow(page)
-  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcA')
+  await setCurrentWebActor(page, 'PF-USER-QC-A')
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
   const taskInput = page.locator('[data-qc-task-input]')
   await taskInput.fill(seed.qcTaskNo)
   await page.getByRole('button', { name: '领取并开始质检' }).click()
@@ -309,12 +327,14 @@ test('Web 质检精确领取、占用提示、退领、实时合计和参考资�
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcB')
+  await setCurrentWebActor(page, 'PF-USER-QC-B')
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
   await page.locator('[data-qc-task-input]').fill(seed.qcTaskNo)
   await page.getByRole('button', { name: '领取并开始质检' }).click()
   await expect(page.getByRole('status')).toContainText('已由 李质检员 质检中')
 
-  await page.goto(`/fcs/craft/post-finishing/qc-workbench?actor=qcA&taskNo=${encodeURIComponent(seed.qcTaskNo)}`)
+  await setCurrentWebActor(page, 'PF-USER-QC-A')
+  await page.goto(`/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(seed.qcTaskNo)}`)
   await page.getByRole('button', { name: '错误领取，退回待质检' }).click()
   await expect(page.locator('[data-qc-release-confirm]')).toBeVisible()
   await page.locator('[data-qc-release-reason]').fill('扫描错了生产批次')
@@ -418,7 +438,7 @@ test('PDA 回货确认执行超 5%二次点数、授权和真实账号记录', a
   await expect(page.locator('body')).toContainText('回货已由 全能力测试工厂_操作工 确认')
   await verifyPdaAtBothSizes(page)
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto(`/fcs/craft/post-finishing/wait-process-warehouse?deliveryId=${encodeURIComponent(seed.pendingDeliveryId)}`)
+  await page.goto(`/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(seed.pendingDeliveryId)}`)
   await page.locator('[data-qc-reference-title]').fill('买手上传送检前色差图')
   await page.locator('[data-qc-reference-description]').fill('送检前绑定本次回货的实际判断资料。')
   await page.locator('[data-qc-reference-file]').setInputFiles('public/materials/fabric-main.jpg')
@@ -509,8 +529,8 @@ test('PDA 复检执行领取释放、错码阻断、重贴复扫并唯一生成�
   }
   await expect(page.locator('body')).not.toContainText('错误待重贴')
   await page.getByRole('button', { name: '完成复检' }).click()
-  await expect(page.getByRole('status')).toContainText('复检完成，出货单 FCK-')
-  await expect(page.locator('body')).toContainText('已生成唯一出货单：FCK-')
+  await expect(page.getByRole('status')).toContainText('复检完成，已进入后道待交出仓并生成出货单 FCK-')
+  await expect(page.locator('body')).toContainText('复检合格品已进入后道待交出仓，并生成唯一出货单：FCK-')
   await verifyPdaAtBothSizes(page)
 })
 
@@ -538,6 +558,7 @@ test('仓库 PDA 只收 FCK 单，逐 SKU 实收并对重复扫描只读展示',
   await attachPageEvidence(page, testInfo, 'pda-warehouse-outbound-receive')
   await page.getByRole('button', { name: '确认收货入库' }).click()
   await expect(page.getByRole('status')).toContainText('收货入库成功')
+  await expect(page.locator('body')).toContainText('后道待交出仓已按出货数量完成交出扣减')
   await expect(page.locator('body')).toContainText('已由 全能力测试工厂_操作工 接收入库')
   await page.goto('/fcs/pda/post-finishing/outbound-receive')
   await expect(page.locator('body')).toContainText(seed.outboundOrderNo)
@@ -548,12 +569,14 @@ test('仓库 PDA 只收 FCK 单，逐 SKU 实收并对重复扫描只读展示',
 })
 
 test('Web 管理页、独立动态授权码、主从日志和四类打印均读取同一链路事实', async ({ page }, testInfo) => {
+  test.setTimeout(180_000)
   const seed = await seedBrowserFlow(page)
   await page.setViewportSize({ width: 1366, height: 768 })
   for (const path of [
     '/fcs/craft/post-finishing/qc-orders',
     '/fcs/craft/post-finishing/work-orders',
     '/fcs/craft/post-finishing/recheck-orders',
+    '/fcs/craft/post-finishing/wait-handover-warehouse',
     '/fcs/craft/post-finishing/outbound-orders',
     '/fcs/craft/post-finishing/audit-records',
   ]) {
@@ -590,7 +613,7 @@ test('Web 管理页、独立动态授权码、主从日志和四类打印均读�
   await expect(page.locator('tbody')).toContainText(seed.authorizedOutboundNo)
   await page.locator('[data-nav*="/fcs/craft/post-finishing/outbound-orders/"]').click()
   await expect(page.locator('body')).toContainText('送货单 / 质检任务')
-  await expect(page.locator('body')).toContainText('后道任务')
+  await expect(page.locator('body')).toContainText('后道单')
   await expect(page.locator('body')).toContainText('复检单')
 
   const prints: Array<{ url: string; title: string; documentNo: string; target: string }> = [
@@ -605,7 +628,7 @@ test('Web 管理页、独立动态授权码、主从日志和四类打印均读�
     await expect(page.locator('[data-scan-target]')).toHaveAttribute('data-scan-target', new RegExp(item.target))
     await expect(page.locator('tbody tr')).toHaveCount(5)
     await expect(page.locator('[data-business-document-barcode]')).toHaveAttribute('data-business-document-barcode', item.documentNo)
-    await expect(page.locator('dl > div')).toHaveCount(4)
+    await expect(page.locator('dl > div')).toHaveCount(item.title === '后道出货单' ? 5 : 4)
     await expectImagesLoaded(page)
     const sheetSize = await page.locator('[data-print-sheet="a4"]').evaluate((node) => {
       const rect = node.getBoundingClientRect()

@@ -125,6 +125,7 @@ export function renderPostFinishingFullFlowPrintPage(): string {
           { label: '送货单 / 质检任务', value: `${outbound.deliveryOrderNo} / ${outbound.qcTaskNo}` },
           { label: '后道任务', value: outbound.postTaskNo || '质检后直达复检' },
           { label: '复检单 / 出货生成时间', value: `${outbound.recheckOrderNo} / ${new Date(outbound.createdAt).toLocaleString('zh-CN')}` },
+          { label: '库存来源', value: '复检合格后进入后道待交出仓，本单确认接收时按应出数量交出扣减' },
         ],
         outbound.lines.map((line) => ({ sku: line.sku, qty: line.outboundQty })),
       )

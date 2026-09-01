@@ -22,6 +22,8 @@ import { handlePostFinishingQcWorkbenchEvent } from './qc-workbench.ts'
 import { handlePostFinishingQcOrdersEvent } from './qc-orders.ts'
 import { handlePostFinishingRecheckOrdersEvent } from './recheck-orders.ts'
 import { handlePostFinishingReturnFlowEvent } from './warehouse.ts'
+import { handlePostFinishingTasksEvent } from './tasks.ts'
+import { handlePostFinishingWorkOrdersEvent } from './work-orders.ts'
 import { POST_FINISHING_ACCEPTANCE_ACTORS } from '../../../data/fcs/post-finishing-full-flow.ts'
 
 const POST_FINISHING_WAREHOUSE_FORM_MODAL_ID = 'post-finishing-warehouse-form-modal'
@@ -415,10 +417,12 @@ function openPostFinishingReceiptDialog(): void {
 
 export function handlePostFinishingEvent(target: HTMLElement, event?: Event): boolean {
   if (handlePostFinishingAuditRecordsEvent(target, event)) return true
+  if (handlePostFinishingTasksEvent(target, event)) return true
+  if (handlePostFinishingWorkOrdersEvent(target, event)) return true
   if (handlePostFinishingQcWorkbenchEvent(target, event)) return true
   if (handlePostFinishingQcOrdersEvent(target, event)) return true
   if (handlePostFinishingRecheckOrdersEvent(target)) return true
-  if (handlePostFinishingReturnFlowEvent(target)) return true
+  if (handlePostFinishingReturnFlowEvent(target, event)) return true
   if (handlePostFinishingOutboundOrderEvent(target)) return true
   const dialogResult = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPostFinishingToast,

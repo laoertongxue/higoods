@@ -27,6 +27,8 @@ import {
   listPostFinishingWarehouseReceipts,
   listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
+  listPostFinishingWaitHandoverWarehouseMovements,
+  listPostFinishingWaitHandoverWarehouseRecords,
   markPostFinishingRecheckSkuRelabeled,
   receivePostFinishingOutboundOrder,
   registerPostFinishingFactoryReturn,
@@ -576,6 +578,10 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
 
     const outbound = listPostFinishingFullFlowOutboundOrders().find((item) => item.outboundOrderNo === completedRecheck.outboundOrderNo)!
     assert.deepEqual(outbound.lines.map((line) => line.outboundQty), recheckResults.map((line) => line.passedQty), '出货数量必须逐 SKU 等于复检合格数量')
+    const readyWarehouseRecord = listPostFinishingWaitHandoverWarehouseRecords().find((item) => item.outboundOrderId === outbound.outboundOrderId)
+    assert(readyWarehouseRecord, '复检完成必须先形成后道待交出仓记录')
+    assert.equal(readyWarehouseRecord.status, '待交出', '仓库收货前必须为待交出')
+    assert.deepEqual(readyWarehouseRecord.lines.map((line) => line.availableQty), outbound.lines.map((line) => line.outboundQty), '待交出仓可用量必须逐 SKU 等于复检合格出货量')
     expectCode('仓库不能用内部交接号或复检单号代替 FCK 出货单', 'NOT_FOUND', () => {
       receivePostFinishingOutboundOrder({ outboundOrderNo: completedRecheck.recheckOrderNo, actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver, receivedQuantities: outbound.lines.map((line) => ({ skuId: line.sku.skuId, receivedQty: line.outboundQty })), nowMs: nextTime() })
     })
@@ -600,6 +606,9 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     })
     assert.equal(received.alreadyReceived, false, '首次收货必须写入')
     assert.deepEqual(received.receipt.lines.map((line) => line.receivedQty), receivedQuantities.map((line) => line.receivedQty), '授权后必须按真实逐 SKU 实收数量入库')
+    const handedWarehouseRecord = listPostFinishingWaitHandoverWarehouseRecords().find((item) => item.outboundOrderId === outbound.outboundOrderId)
+    assert.equal(handedWarehouseRecord?.status, '已交出', '仓库确认收货后待交出仓必须完成交出')
+    assert(handedWarehouseRecord?.lines.every((line) => line.availableQty === 0 && line.handedOverQty === line.inboundQty), '待交出仓按应出数量扣减，实收差异不得反改库存')
     const repeatedReceipt = receivePostFinishingOutboundOrder({
       outboundOrderNo: outbound.outboundOrderNo,
       actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
@@ -615,6 +624,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       assert.equal(trace.qcTask?.qcTaskId, qcTask.qcTaskId, `从 ${number} 必须回溯到质检任务`)
       assert.equal(trace.recheckOrder?.recheckOrderNo, recheckNo, `从 ${number} 必须回溯到复检单`)
       assert.equal(trace.outboundOrder?.outboundOrderNo, outbound.outboundOrderNo, `从 ${number} 必须回溯到出货单`)
+      assert.equal(trace.waitHandoverRecord?.warehouseRecordId, handedWarehouseRecord?.warehouseRecordId, `从 ${number} 必须回溯到待交出仓记录`)
     }
 
     chainEvidence.push({
@@ -626,6 +636,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       branch: needPostFinishing ? '质检-后道-复检' : '质检-直达复检',
       recheckOrderNo: recheckNo!,
       outboundOrderNo: outbound.outboundOrderNo,
+      waitHandoverStatus: handedWarehouseRecord?.status || '',
       warehouseReceived: true,
     })
   }
@@ -642,6 +653,10 @@ assert.equal(listPostFinishingWaitProcessWarehouseRecords().length, 15, '每次�
 assert.equal(listPostFinishingWaitProcessWarehouseMovements().filter((item) => item.movementType === '确认入库').length, 15, '每次 Web/PDA 回货确认必须形成 1 条确认入库流水')
 assert.equal(listPostFinishingWaitProcessWarehouseMovements().filter((item) => item.movementType === '送检出库').length, 15, '每次送检必须形成 1 条送检出库流水')
 assert(listPostFinishingWaitProcessWarehouseRecords().every((item) => item.status === '已送检' && item.lines.every((line) => line.availableQty === 0)), '全流程结束后待加工仓记录必须显示已送检且可用数量归零')
+assert.equal(listPostFinishingWaitHandoverWarehouseRecords().length, 15, '每次复检完成必须形成 1 条后道待交出仓记录')
+assert.equal(listPostFinishingWaitHandoverWarehouseMovements().filter((item) => item.movementType === '复检完成入仓').length, 15, '每次复检完成必须形成 1 条待交出仓入仓流水')
+assert.equal(listPostFinishingWaitHandoverWarehouseMovements().filter((item) => item.movementType === '后道出货交出').length, 15, '每次仓库确认收货必须形成 1 条待交出仓交出流水')
+assert(listPostFinishingWaitHandoverWarehouseRecords().every((item) => item.status === '已交出' && item.lines.every((line) => line.availableQty === 0)), '全流程结束后待交出仓记录必须显示已交出且可用数量归零')
 assert.equal(new Set(listPostFinishingFullFlowQcTasks().map((item) => item.qcTaskNo)).size, 15, '质检任务号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowRecheckOrders().map((item) => item.recheckOrderNo)).size, 15, '复检单号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => item.outboundOrderNo)).size, 15, '出货单号不得重复')
@@ -720,6 +735,8 @@ const evidence = {
     warehouseReceipts: 15,
     waitProcessWarehouseRecords: listPostFinishingWaitProcessWarehouseRecords().length,
     waitProcessWarehouseMovements: listPostFinishingWaitProcessWarehouseMovements().length,
+    waitHandoverWarehouseRecords: listPostFinishingWaitHandoverWarehouseRecords().length,
+    waitHandoverWarehouseMovements: listPostFinishingWaitHandoverWarehouseMovements().length,
     operationLogs: logs.length,
     authorizationConsumptions: listPostFinishingAuthorizationConsumptions().length,
   },
@@ -728,7 +745,7 @@ const evidence = {
     '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', '买手上传与当前QC代上传资料冻结', '质检直达复检', '后道领取冲突',
     '后道本环节守恒但全链不守恒仍授权', '质检与后道统一瑕疵和返厂', '复检领取冲突与释放', '条码错误阻断', '重贴未复扫阻断',
     '重贴后复扫恢复', '一复检一出货幂等', '仓库只接受FCK单号', '仓库差异授权', '重复收货幂等',
-    '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',
+    '后道待交出仓复检入仓与出货交出', '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',
   ],
   chains: chainEvidence,
 }

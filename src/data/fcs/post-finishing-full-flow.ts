@@ -48,6 +48,29 @@ export const POST_FINISHING_ACCEPTANCE_ACTORS = {
   warehouseReceiver: { actorId: 'PF-USER-WH', actorName: '孙仓库收货员', roleName: '仓库收货人员' },
 } as const satisfies Record<string, PostFinishingActor>
 
+export const POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY = 'higood-fcs-post-finishing-current-actor-v1'
+
+export function getCurrentPostFinishingActor(fallbackActorId = POST_FINISHING_ACCEPTANCE_ACTORS.qcA.actorId): PostFinishingActor {
+  let actorId = ''
+  try {
+    actorId = globalThis.localStorage?.getItem(POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY) || ''
+  } catch {
+    // 原型存储不可用时使用当前页面约定的默认岗位。
+  }
+  const actors = Object.values(POST_FINISHING_ACCEPTANCE_ACTORS) as PostFinishingActor[]
+  return clone(actors.find((actor) => actor.actorId === actorId) || actors.find((actor) => actor.actorId === fallbackActorId) || POST_FINISHING_ACCEPTANCE_ACTORS.qcA)
+}
+
+export function setCurrentPostFinishingActor(actorId: string): void {
+  const actor = (Object.values(POST_FINISHING_ACCEPTANCE_ACTORS) as PostFinishingActor[]).find((item) => item.actorId === actorId)
+  if (!actor) throw new PostFinishingFlowGateError('NOT_FOUND', '当前登录账号不属于后道全流程演示人员。')
+  try {
+    globalThis.localStorage?.setItem(POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY, actor.actorId)
+  } catch {
+    // 原型存储不可用时不切换当前账号。
+  }
+}
+
 export type PostFinishingSewingTaskType =
   | 'INDEPENDENT_SEWING'
   | 'SEWING_TO_IRON_PACK'
@@ -174,6 +197,53 @@ export interface PostFinishingWaitProcessWarehouseMovement {
   deliveryOrderNo: string
   productionOrderNo: string
   movementType: '确认入库' | '送检出库'
+  quantities: Array<{ sku: PostFinishingAcceptanceSku; quantity: number }>
+  operator: PostFinishingActor
+  operatedAt: string
+}
+
+export type PostFinishingWaitHandoverWarehouseStatus = '待交出' | '已交出'
+
+export interface PostFinishingWaitHandoverWarehouseLine {
+  sku: PostFinishingAcceptanceSku
+  inboundQty: number
+  availableQty: number
+  handedOverQty: number
+}
+
+export interface PostFinishingWaitHandoverWarehouseRecord {
+  warehouseRecordId: string
+  deliveryId: string
+  deliveryOrderNo: string
+  productionOrderNo: string
+  returnIndex: number
+  qcTaskId: string
+  qcTaskNo: string
+  postTaskId?: string
+  postTaskNo?: string
+  recheckOrderId: string
+  recheckOrderNo: string
+  outboundOrderId: string
+  outboundOrderNo: string
+  areaName: '复检合格暂存区'
+  locationCode: string
+  status: PostFinishingWaitHandoverWarehouseStatus
+  lines: PostFinishingWaitHandoverWarehouseLine[]
+  createdAt: string
+  createdBy: PostFinishingActor
+  handedOverAt?: string
+  handedOverBy?: PostFinishingActor
+}
+
+export interface PostFinishingWaitHandoverWarehouseMovement {
+  movementId: string
+  warehouseRecordId: string
+  deliveryId: string
+  deliveryOrderNo: string
+  productionOrderNo: string
+  recheckOrderNo: string
+  outboundOrderNo: string
+  movementType: '复检完成入仓' | '后道出货交出'
   quantities: Array<{ sku: PostFinishingAcceptanceSku; quantity: number }>
   operator: PostFinishingActor
   operatedAt: string
@@ -405,6 +475,8 @@ interface PostFinishingFullFlowState {
   deliveries: PostFinishingFactoryReturnDelivery[]
   waitProcessWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[]
   waitProcessWarehouseMovements: PostFinishingWaitProcessWarehouseMovement[]
+  waitHandoverWarehouseRecords: PostFinishingWaitHandoverWarehouseRecord[]
+  waitHandoverWarehouseMovements: PostFinishingWaitHandoverWarehouseMovement[]
   returnConfirmationVersions: PostFinishingReturnConfirmationVersion[]
   qcTasks: PostFinishingQcTask[]
   postTasks: PostFinishingPostTask[]
@@ -513,6 +585,8 @@ function emptyState(): PostFinishingFullFlowState {
     deliveries: [],
     waitProcessWarehouseRecords: [],
     waitProcessWarehouseMovements: [],
+    waitHandoverWarehouseRecords: [],
+    waitHandoverWarehouseMovements: [],
     returnConfirmationVersions: [],
     qcTasks: [],
     postTasks: [],
@@ -578,6 +652,8 @@ function readPersistedState(): PostFinishingFullFlowState {
       deliveries,
       waitProcessWarehouseRecords: Array.isArray(parsed.waitProcessWarehouseRecords) ? parsed.waitProcessWarehouseRecords : [],
       waitProcessWarehouseMovements: Array.isArray(parsed.waitProcessWarehouseMovements) ? parsed.waitProcessWarehouseMovements : [],
+      waitHandoverWarehouseRecords: Array.isArray(parsed.waitHandoverWarehouseRecords) ? parsed.waitHandoverWarehouseRecords : [],
+      waitHandoverWarehouseMovements: Array.isArray(parsed.waitHandoverWarehouseMovements) ? parsed.waitHandoverWarehouseMovements : [],
       returnConfirmationVersions: Array.isArray(parsed.returnConfirmationVersions)
         ? parsed.returnConfirmationVersions.map((version) => ({
             ...version,
@@ -967,7 +1043,7 @@ export function registerPostFinishingFactoryReturn(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
-  if (!input.actor.roleName.trim() || /PPIC/i.test(input.actor.roleName) || !/(车缝厂送货人员|工厂|factory)/i.test(input.actor.roleName)) {
+  if (!input.actor.roleName.trim() || /PPIC/i.test(input.actor.roleName) || !/(车缝厂送货人员|工厂|factory|ROLE_OPERATOR)/i.test(input.actor.roleName)) {
     throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货登记只能由车缝工厂送货人员或已登录工厂账号发起，PPIC只能读取后道回货结果。')
   }
   const order = getProductionOrder(input.productionOrderNo)
@@ -1190,6 +1266,13 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
   const correctedAt = nowIso(input.nowMs)
   delivery.lastCorrectedBy = clone(input.actor)
   delivery.lastCorrectedAt = correctedAt
+  const warehouseRecord = getOrCreateWaitProcessWarehouseRecord(delivery)
+  warehouseRecord.lines = delivery.lines.map((line) => ({
+    sku: clone(line.sku),
+    registeredQty: line.registeredQty,
+    confirmedQty: line.confirmedQty || 0,
+    availableQty: line.confirmedQty || 0,
+  }))
   const version = appendReturnConfirmationVersion({
     delivery,
     confirmedAt: businessConfirmedAt,
@@ -1941,6 +2024,115 @@ function upsertOutboundFromRecheck(
   return outbound
 }
 
+function getOrCreateWaitHandoverWarehouseRecord(input: {
+  recheck: PostFinishingRecheckOrder
+  outbound: PostFinishingOutboundOrder
+  delivery: PostFinishingFactoryReturnDelivery
+  operator: PostFinishingActor
+  operatedAt: string
+}): PostFinishingWaitHandoverWarehouseRecord {
+  const existing = state.waitHandoverWarehouseRecords.find((item) => item.recheckOrderId === input.recheck.recheckOrderId)
+  if (existing) return existing
+  const record: PostFinishingWaitHandoverWarehouseRecord = {
+    warehouseRecordId: `PF-WHW-${input.recheck.recheckOrderId}`,
+    deliveryId: input.delivery.deliveryId,
+    deliveryOrderNo: input.delivery.deliveryOrderNo,
+    productionOrderNo: input.delivery.productionOrderNo,
+    returnIndex: input.delivery.returnIndex,
+    qcTaskId: input.recheck.qcTaskId,
+    qcTaskNo: input.recheck.qcTaskNo,
+    postTaskId: input.recheck.postTaskId,
+    postTaskNo: input.recheck.postTaskNo,
+    recheckOrderId: input.recheck.recheckOrderId,
+    recheckOrderNo: input.recheck.recheckOrderNo,
+    outboundOrderId: input.outbound.outboundOrderId,
+    outboundOrderNo: input.outbound.outboundOrderNo,
+    areaName: '复检合格暂存区',
+    locationCode: `WH-${input.delivery.productionOrderId}-${input.delivery.returnIndex}`,
+    status: '待交出',
+    lines: input.outbound.lines.map((line) => ({
+      sku: clone(line.sku),
+      inboundQty: line.outboundQty,
+      availableQty: line.outboundQty,
+      handedOverQty: 0,
+    })),
+    createdAt: input.operatedAt,
+    createdBy: clone(input.operator),
+  }
+  state.waitHandoverWarehouseRecords.push(record)
+  return record
+}
+
+function appendWaitHandoverWarehouseMovement(input: {
+  record: PostFinishingWaitHandoverWarehouseRecord
+  movementType: PostFinishingWaitHandoverWarehouseMovement['movementType']
+  operator: PostFinishingActor
+  operatedAt: string
+}): PostFinishingWaitHandoverWarehouseMovement {
+  const existing = state.waitHandoverWarehouseMovements.find((item) => (
+    item.warehouseRecordId === input.record.warehouseRecordId && item.movementType === input.movementType
+  ))
+  if (existing) return existing
+  const movement: PostFinishingWaitHandoverWarehouseMovement = {
+    movementId: `PF-WHM-${String(state.waitHandoverWarehouseMovements.length + 1).padStart(6, '0')}`,
+    warehouseRecordId: input.record.warehouseRecordId,
+    deliveryId: input.record.deliveryId,
+    deliveryOrderNo: input.record.deliveryOrderNo,
+    productionOrderNo: input.record.productionOrderNo,
+    recheckOrderNo: input.record.recheckOrderNo,
+    outboundOrderNo: input.record.outboundOrderNo,
+    movementType: input.movementType,
+    quantities: input.record.lines.map((line) => ({
+      sku: clone(line.sku),
+      quantity: input.movementType === '复检完成入仓' ? line.inboundQty : line.handedOverQty,
+    })),
+    operator: clone(input.operator),
+    operatedAt: input.operatedAt,
+  }
+  state.waitHandoverWarehouseMovements.push(movement)
+  return movement
+}
+
+function backfillWaitHandoverWarehouseFacts(): void {
+  state.recheckOrders.filter((record) => record.status === '复检完成').forEach((recheck) => {
+    const outbound = state.outboundOrders.find((item) => item.recheckOrderId === recheck.recheckOrderId)
+    const delivery = state.deliveries.find((item) => item.deliveryId === recheck.deliveryId)
+    if (!outbound || !delivery) return
+    const inboundActor = recheck.claimedBy || POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA
+    const record = getOrCreateWaitHandoverWarehouseRecord({
+      recheck,
+      outbound,
+      delivery,
+      operator: inboundActor,
+      operatedAt: recheck.completedAt || outbound.createdAt,
+    })
+    appendWaitHandoverWarehouseMovement({
+      record,
+      movementType: '复检完成入仓',
+      operator: inboundActor,
+      operatedAt: recheck.completedAt || outbound.createdAt,
+    })
+    const receipt = state.warehouseReceipts.find((item) => item.outboundOrderId === outbound.outboundOrderId)
+    if (outbound.status !== '已接收入库' && !receipt) return
+    const handoverActor = outbound.receivedBy || receipt?.receivedBy || POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver
+    const handedOverAt = outbound.receivedAt || receipt?.receivedAt || outbound.createdAt
+    record.status = '已交出'
+    record.handedOverAt = handedOverAt
+    record.handedOverBy = clone(handoverActor)
+    record.lines.forEach((line) => {
+      const outboundLine = outbound.lines.find((item) => item.sku.skuId === line.sku.skuId)
+      line.handedOverQty = outboundLine?.outboundQty || 0
+      line.availableQty = 0
+    })
+    appendWaitHandoverWarehouseMovement({
+      record,
+      movementType: '后道出货交出',
+      operator: handoverActor,
+      operatedAt: handedOverAt,
+    })
+  })
+}
+
 export function completePostFinishingRecheckOrderFullFlow(input: {
   recheckOrderId: string
   actor: PostFinishingActor
@@ -1968,6 +2160,9 @@ export function completePostFinishingRecheckOrderFullFlow(input: {
     return { skuId: line.sku.skuId, expectedQty: line.expectedQty, actualQty: submitted.passedQty + submitted.defectQty }
   })
   const hasDifference = quantities.some((line) => line.expectedQty !== line.actualQty)
+  if (total(record.lines.map((line) => line.passedQty || 0)) <= 0) {
+    throw new PostFinishingFlowGateError('INVALID_QUANTITY', '复检合格数量合计必须大于 0，不能生成空出货单。')
+  }
   let consumed: PostFinishingAuthorizationConsumption | undefined
   if (hasDifference) {
     consumed = consumeRequiredAuthorization({
@@ -1980,6 +2175,19 @@ export function completePostFinishingRecheckOrderFullFlow(input: {
   record.status = '复检完成'
   record.completedAt = now
   const outbound = upsertOutboundFromRecheck(record, delivery, now)
+  const waitHandoverRecord = getOrCreateWaitHandoverWarehouseRecord({
+    recheck: record,
+    outbound,
+    delivery,
+    operator: input.actor,
+    operatedAt: now,
+  })
+  appendWaitHandoverWarehouseMovement({
+    record: waitHandoverRecord,
+    movementType: '复检完成入仓',
+    operator: input.actor,
+    operatedAt: now,
+  })
   persist()
   appendBusinessLog({
     stage: '复检', delivery, objectType: '复检单', objectId: record.recheckOrderId, objectNo: record.recheckOrderNo,
@@ -1988,7 +2196,7 @@ export function completePostFinishingRecheckOrderFullFlow(input: {
     afterQuantity: total(quantities.map((line) => line.actualQty)),
     differenceQuantity: total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
     differenceReason: input.authorization?.differenceReason, authorization: consumed,
-    remark: `所有 SKU 条码正确；生成唯一出货单 ${outbound.outboundOrderNo}`,
+    remark: `所有 SKU 条码正确；进入后道待交出仓并生成唯一出货单 ${outbound.outboundOrderNo}`,
   })
   appendBusinessLog({
     stage: '出货', delivery, objectType: '后道出货单', objectId: outbound.outboundOrderId, objectNo: outbound.outboundOrderNo,
@@ -2037,6 +2245,28 @@ export function receivePostFinishingOutboundOrder(input: {
     ? { authorizerId: consumed.authorizerId, authorizerName: consumed.authorizerName }
     : undefined
   exact.warehouseDifferenceReason = input.authorization?.differenceReason
+  const recheck = findRecheck(exact.recheckOrderId)
+  const waitHandoverRecord = getOrCreateWaitHandoverWarehouseRecord({
+    recheck,
+    outbound: exact,
+    delivery,
+    operator: recheck.claimedBy || POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA,
+    operatedAt: recheck.completedAt || exact.createdAt,
+  })
+  waitHandoverRecord.status = '已交出'
+  waitHandoverRecord.handedOverAt = now
+  waitHandoverRecord.handedOverBy = clone(input.actor)
+  waitHandoverRecord.lines.forEach((line) => {
+    const outboundLine = exact.lines.find((item) => item.sku.skuId === line.sku.skuId)
+    line.handedOverQty = outboundLine?.outboundQty || 0
+    line.availableQty = 0
+  })
+  appendWaitHandoverWarehouseMovement({
+    record: waitHandoverRecord,
+    movementType: '后道出货交出',
+    operator: input.actor,
+    operatedAt: now,
+  })
   const receipt: PostFinishingWarehouseReceipt = {
     receiptId: `PF-WH-RCPT-${String(state.warehouseReceipts.length + 1).padStart(6, '0')}`,
     outboundOrderId: exact.outboundOrderId,
@@ -2072,6 +2302,14 @@ export function listPostFinishingWaitProcessWarehouseRecords(): PostFinishingWai
 
 export function listPostFinishingWaitProcessWarehouseMovements(): PostFinishingWaitProcessWarehouseMovement[] {
   return clone(state.waitProcessWarehouseMovements).sort((a, b) => b.operatedAt.localeCompare(a.operatedAt))
+}
+
+export function listPostFinishingWaitHandoverWarehouseRecords(): PostFinishingWaitHandoverWarehouseRecord[] {
+  return clone(state.waitHandoverWarehouseRecords)
+}
+
+export function listPostFinishingWaitHandoverWarehouseMovements(): PostFinishingWaitHandoverWarehouseMovement[] {
+  return clone(state.waitHandoverWarehouseMovements).sort((a, b) => b.operatedAt.localeCompare(a.operatedAt))
 }
 
 export function listPostFinishingReturnConfirmationVersions(input: {
@@ -2138,6 +2376,16 @@ export function getPostFinishingFullFlowOutboundOrder(outboundIdOrNo: string): P
   return record ? clone(record) : undefined
 }
 
+export function getPostFinishingWaitHandoverWarehouseRecord(recordIdOrNumber: string): PostFinishingWaitHandoverWarehouseRecord | undefined {
+  const record = state.waitHandoverWarehouseRecords.find((item) => (
+    item.warehouseRecordId === recordIdOrNumber
+    || item.deliveryOrderNo === recordIdOrNumber
+    || item.recheckOrderNo === recordIdOrNumber
+    || item.outboundOrderNo === recordIdOrNumber
+  ))
+  return record ? clone(record) : undefined
+}
+
 export function getPostFinishingQcTaskReferences(qcTaskId: string): PostFinishingQcReferenceRecord[] {
   return listPostFinishingQcReferences({ qcTaskId })
 }
@@ -2148,6 +2396,7 @@ export function tracePostFinishingFullFlow(anyNumber: string): {
   postTask?: PostFinishingPostTask
   recheckOrder?: PostFinishingRecheckOrder
   outboundOrder?: PostFinishingOutboundOrder
+  waitHandoverRecord?: PostFinishingWaitHandoverWarehouseRecord
   receipt?: PostFinishingWarehouseReceipt
 } {
   const normalized = anyNumber.trim()
@@ -2165,7 +2414,18 @@ export function tracePostFinishingFullFlow(anyNumber: string): {
   const receipt = relation.outbound
     ? state.warehouseReceipts.find((item) => item.outboundOrderId === relation.outbound!.outboundOrderId)
     : undefined
-  return clone({ delivery, qcTask: relation.qcTask, postTask: relation.postTask, recheckOrder: relation.recheck, outboundOrder: relation.outbound, receipt })
+  const waitHandoverRecord = relation.outbound
+    ? state.waitHandoverWarehouseRecords.find((item) => item.outboundOrderId === relation.outbound!.outboundOrderId)
+    : undefined
+  return clone({
+    delivery,
+    qcTask: relation.qcTask,
+    postTask: relation.postTask,
+    recheckOrder: relation.recheck,
+    outboundOrder: relation.outbound,
+    waitHandoverRecord,
+    receipt,
+  })
 }
 
 export function getPostFinishingReturnToleranceRate(): number {
@@ -2246,7 +2506,7 @@ export function loadPostFinishingDemoData(): void {
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
         nowMs: chainTime + 30 * 60 * 1000,
       })
-      if (returnIndex === 4) continue
+      if (returnIndex === 4 && orderIndex !== 1) continue
 
       const completedQc = completePostFinishingQcTask({
         qcTaskId: claimedQc.qcTaskId,
@@ -2257,12 +2517,12 @@ export function loadPostFinishingDemoData(): void {
           defectQty: 0,
           returnQty: 0,
         })),
-        needPostFinishing: orderIndex !== 2,
+        needPostFinishing: orderIndex !== 2 && !(orderIndex === 1 && returnIndex === 4),
         nowMs: chainTime + 40 * 60 * 1000,
       })
 
       if (orderIndex === 0) continue
-      if (orderIndex === 1 && completedQc.postTaskNo && completedQc.postTaskId) {
+      if (orderIndex === 1 && returnIndex === 5 && completedQc.postTaskNo && completedQc.postTaskId) {
         const startedPost = startPostFinishingPostTask({
           postTaskNo: completedQc.postTaskNo,
           actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
@@ -2308,6 +2568,7 @@ export function loadPostFinishingDemoData(): void {
         nowMs: chainTime + 65 * 60 * 1000,
       })
       const outbound = findOutbound(completedRecheck.outboundOrderId || completedRecheck.outboundOrderNo || '')
+      if (orderIndex === 1 && returnIndex === 4) continue
       receivePostFinishingOutboundOrder({
         outboundOrderNo: outbound.outboundOrderNo,
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
@@ -2322,5 +2583,6 @@ export function loadPostFinishingDemoData(): void {
 }
 
 backfillWaitProcessWarehouseFacts()
+backfillWaitHandoverWarehouseFacts()
 if (state.deliveries.length > 0) persist()
 if (state.deliveries.length === 0 && shouldBootstrapPostFinishingDemo()) loadPostFinishingDemoData()

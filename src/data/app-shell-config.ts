@@ -560,10 +560,11 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '后道工厂管理',
           icon: 'PackageCheck',
           children: [
-            { key: 'pfos-post-finishing-wait-process-warehouse', title: '后道待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
+            { key: 'pfos-post-finishing-tasks', title: '后道任务', icon: 'ListTodo', href: '/fcs/craft/post-finishing/tasks' },
             { key: 'pfos-post-finishing-qc-orders', title: '质检任务', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
-            { key: 'pfos-post-finishing-work-orders', title: '后道加工任务', icon: 'ClipboardList', href: '/fcs/craft/post-finishing/work-orders' },
+            { key: 'pfos-post-finishing-work-orders', title: '后道单', icon: 'ClipboardList', href: '/fcs/craft/post-finishing/work-orders' },
             { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },
+            { key: 'pfos-post-finishing-wait-process-warehouse', title: '后道待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
             { key: 'pfos-post-finishing-wait-handover-warehouse', title: '后道待交出仓', icon: 'PackageCheck', href: '/fcs/craft/post-finishing/wait-handover-warehouse' },
             { key: 'pfos-post-finishing-outbound-orders', title: '后道出货单', icon: 'Truck', href: '/fcs/craft/post-finishing/outbound-orders' },
             { key: 'pfos-post-finishing-audit-records', title: '差异与操作日志', icon: 'History', href: '/fcs/craft/post-finishing/audit-records' },

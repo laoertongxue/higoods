@@ -16,6 +16,7 @@ const requiredUiRoutes = [
   '/fcs/pda/handover/sewing-self-return',
   '/fcs/pda/post-finishing/return-confirm',
   '/fcs/craft/post-finishing/wait-process-warehouse',
+  '/fcs/craft/post-finishing/wait-handover-warehouse',
   '/fcs/craft/post-finishing/qc-orders',
   '/fcs/craft/post-finishing/authorization-code',
   '/fcs/craft/post-finishing/work-orders',
@@ -35,8 +36,10 @@ const requiredUiStages = [
   'Web后道加工单打印',
   'PDA后道完成',
   'PDA复检完成',
+  'Web待交出仓入仓核对',
   'Web出货核对及出货单打印',
   'PDA仓库收货',
+  'Web待交出仓交出回查',
   'Web收货结果回查',
 ]
 
@@ -71,10 +74,11 @@ assert(spec.includes("window.localStorage.clear()"), '跨端验收必须从空�
 assert(spec.includes("window.localStorage.setItem('fcs_pda_session'"), '跨端验收必须明确设置PDA测试会话')
 assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-demo-mode-v1', 'empty')"), '跨端验收必须关闭默认演示数据后再执行 UI 写入')
 assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-current-authorizer-v1'"), '跨端验收必须通过当前授权身份打开独立授权码页')
+assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1'"), '跨端验收必须使用当前登录质检身份，不得通过网址参数切换')
 assert.equal(
   [...spec.matchAll(/window\.localStorage\.setItem\(/g)].length,
-  3,
-  '测试准备阶段只允许写入 PDA 会话、演示数据开关和当前授权身份',
+  4,
+  '测试准备阶段只允许写入 PDA 会话、演示数据开关、当前登录质检身份和当前授权身份',
 )
 
 assert(spec.includes("'PO-QC-202608-001'"), '缺少第 1 个生产单')
@@ -101,6 +105,6 @@ console.log(JSON.stringify({
   namedRoutes: requiredUiRoutes.length,
   uiStages: requiredUiStages.length,
   forbiddenDomainWrites: forbiddenDomainWrites.length,
-  setupWrites: '清空浏览器状态，写入PDA测试会话、关闭默认演示数据并切换指定授权测试身份',
+  setupWrites: '清空浏览器状态，写入PDA测试会话、关闭默认演示数据并设置当前登录质检身份与指定授权身份',
   writeBoundary: 'UI-only',
 }, null, 2))

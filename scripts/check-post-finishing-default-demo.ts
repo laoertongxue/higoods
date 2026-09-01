@@ -9,6 +9,8 @@ import {
   listPostFinishingFullFlowRecheckOrders,
   listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
+  listPostFinishingWaitHandoverWarehouseMovements,
+  listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWarehouseReceipts,
   loadPostFinishingDemoData,
   tracePostFinishingFullFlow,
@@ -20,6 +22,8 @@ const deliveries = listPostFinishingFactoryReturns()
 const warehouseRecords = listPostFinishingWaitProcessWarehouseRecords()
 const movements = listPostFinishingWaitProcessWarehouseMovements()
 const qcTasks = listPostFinishingFullFlowQcTasks()
+const waitHandoverRecords = listPostFinishingWaitHandoverWarehouseRecords()
+const waitHandoverMovements = listPostFinishingWaitHandoverWarehouseMovements()
 
 assert.equal(new Set(deliveries.map((item) => item.productionOrderNo)).size, 3, '默认 Mock 必须覆盖 3 个生产单')
 assert.equal(deliveries.length, 15, '默认 Mock 必须覆盖每个生产单 5 次、共 15 次回货')
@@ -40,13 +44,20 @@ assert.equal(movements.filter((item) => item.movementType === '送检出库').le
 
 assert.equal(qcTasks.length, 9, '默认 Mock 必须覆盖九个已送检质检任务')
 assert.equal(qcTasks.filter((item) => item.status === '待质检').length, 3, '每个生产单必须各有一个待质检任务')
-assert.equal(qcTasks.filter((item) => item.status === '质检中').length, 3, '每个生产单必须各有一个质检中任务')
-assert.equal(qcTasks.filter((item) => item.status === '质检完成').length, 3, '每个生产单必须各有一个质检完成任务')
+assert.equal(qcTasks.filter((item) => item.status === '质检中').length, 2, '默认 Mock 必须保留两个质检中任务')
+assert.equal(qcTasks.filter((item) => item.status === '质检完成').length, 4, '默认 Mock 必须覆盖四个已完成质检任务')
 assert.equal(listPostFinishingFullFlowPostTasks().length, 2, '默认 Mock 必须覆盖待后道和后道完成状态')
-assert.equal(listPostFinishingFullFlowRecheckOrders().length, 2, '默认 Mock 必须覆盖待复检和复检完成状态')
-assert.equal(listPostFinishingFullFlowOutboundOrders().length, 1, '默认 Mock 必须覆盖唯一出货单场景')
+assert.equal(listPostFinishingFullFlowRecheckOrders().length, 3, '默认 Mock 必须覆盖待复检、待交出和已收货三种后续状态')
+assert.equal(listPostFinishingFullFlowOutboundOrders().length, 2, '默认 Mock 必须覆盖待交出和已收货两张出货单')
 assert.equal(listPostFinishingWarehouseReceipts().length, 1, '默认 Mock 必须覆盖出货收货完成场景')
+assert.equal(waitHandoverRecords.length, 2, '两个复检完成批次必须各形成一条待交出仓记录')
+assert.equal(waitHandoverRecords.filter((item) => item.status === '待交出').length, 1, '默认 Mock 必须有一条仍在待交出仓的批次')
+assert.equal(waitHandoverRecords.filter((item) => item.status === '已交出').length, 1, '默认 Mock 必须有一条已交出历史批次')
+assert.equal(waitHandoverMovements.filter((item) => item.movementType === '复检完成入仓').length, 2, '复检完成必须形成唯一待交出入仓流水')
+assert.equal(waitHandoverMovements.filter((item) => item.movementType === '后道出货交出').length, 1, '已收货链必须形成唯一待交出交出流水')
+assert.equal(waitHandoverRecords.find((item) => item.status === '待交出')?.lines.reduce((sum, line) => sum + line.availableQty, 0), 100, '待交出批次必须保留 100 件可用库存')
 assert(deliveries.every((delivery) => tracePostFinishingFullFlow(delivery.deliveryOrderNo).delivery?.deliveryId === delivery.deliveryId), '十五条默认 Mock 都必须可按送货单回溯')
+assert(waitHandoverRecords.every((record) => tracePostFinishingFullFlow(record.outboundOrderNo).waitHandoverRecord?.warehouseRecordId === record.warehouseRecordId), '待交出仓批次必须能从出货单回溯同一链')
 
 console.log(JSON.stringify({
   suite: 'QC 后道默认 3×5×5 Mock 数据检查',
@@ -55,6 +66,8 @@ console.log(JSON.stringify({
   skuLines: deliveries.reduce((sum, item) => sum + item.lines.length, 0),
   warehouseRecords: warehouseRecords.length,
   warehouseMovements: movements.length,
+  waitHandoverWarehouseRecords: waitHandoverRecords.length,
+  waitHandoverWarehouseMovements: waitHandoverMovements.length,
   qcTasks: qcTasks.length,
   result: '通过',
 }, null, 2))

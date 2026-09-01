@@ -309,7 +309,7 @@ function renderRecheckTask(record: PostFinishingRecheckOrder): string {
       </section>
       ${lines}
       ${editable ? `${initialSummary(expectedTotal, actualTotal, `整单交接 ${expectedTotal} 件，当前复检合计 ${actualTotal} 件`, 'recheck-total')}${authorizationBlock('recheck', hasDifference)}<div class="grid grid-cols-2 gap-2"><button type="button" class="h-11 rounded-2xl border border-amber-300 text-sm text-amber-800" data-pda-post-action="release-recheck" data-recheck-id="${escapeHtml(record.recheckOrderId)}">错误领取，释放</button><button type="button" class="h-11 rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-pda-post-action="complete-recheck" data-recheck-id="${escapeHtml(record.recheckOrderId)}">完成复检</button></div>` : ''}
-      ${record.status === '复检完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">已生成唯一出货单：${escapeHtml(record.outboundOrderNo || '生成中')}</div>` : ''}
+      ${record.status === '复检完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">复检合格品已进入后道待交出仓，并生成唯一出货单：${escapeHtml(record.outboundOrderNo || '生成中')}</div>` : ''}
     </div>
   `
 }
@@ -373,7 +373,7 @@ function renderOutboundReceive(): string {
         <div class="mt-3 text-xs">来源后道工厂：${escapeHtml(delivery?.managedPostFactoryName || '—')} · 出货时间 ${escapeHtml(new Date(outbound.createdAt).toLocaleString('zh-CN'))}</div><div class="mt-1 text-xs">待接收 ${expectedTotal} 件 / ${outbound.lines.length} SKU</div>
       </section>
       ${lines}
-      ${editable ? `${initialSummary(expectedTotal, actualTotal, `整单应收 ${expectedTotal} 件，当前实收 ${actualTotal} 件`, 'warehouse-total')}${authorizationBlock('warehouse', hasDifference)}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="receive-outbound" data-outbound-no="${escapeHtml(outbound.outboundOrderNo)}">确认收货入库</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">该出货单已由 ${escapeHtml(outbound.receivedBy?.actorName || '仓库人员')} 接收入库；重复扫描仅只读展示，不会重复入库。</div>`}
+      ${editable ? `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">确认后，后道待交出仓按本出货单的应出数量完成交出扣减；实际接收数量单独记录，不反向改写交出库存。</div>${initialSummary(expectedTotal, actualTotal, `整单应收 ${expectedTotal} 件，当前实收 ${actualTotal} 件`, 'warehouse-total')}${authorizationBlock('warehouse', hasDifference)}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="receive-outbound" data-outbound-no="${escapeHtml(outbound.outboundOrderNo)}">确认收货入库</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">后道待交出仓已按出货数量完成交出扣减；该出货单已由 ${escapeHtml(outbound.receivedBy?.actorName || '仓库人员')} 接收入库。重复扫描仅只读展示，不会重复入库。</div>`}
     </div>
   `
 }
@@ -656,7 +656,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const results = lines.map((line) => ({ skuId: line.dataset.recheckResultLine || '', passedQty: numberValue(line, '[data-recheck-result-field="passedQty"]'), defectQty: numberValue(line, '[data-recheck-result-field="defectQty"]') }))
       const diff = lines.some((line, index) => Number(line.dataset.expectedQty) !== results[index]!.passedQty + results[index]!.defectQty)
       const record = completePostFinishingRecheckOrderFullFlow({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), results, authorization: diff ? { scanValue: readValue(root, '[data-recheck-authorization]'), differenceReason: readValue(root, '[data-recheck-difference-reason]') } : undefined })
-      message = `复检完成，出货单 ${record.outboundOrderNo}`
+      message = `复检完成，已进入后道待交出仓并生成出货单 ${record.outboundOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
       return true
@@ -676,7 +676,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const receivedQuantities = lines.map((line) => ({ skuId: line.dataset.outboundResultLine || '', receivedQty: numberValue(line, '[data-outbound-result-field="receivedQty"]') }))
       const diff = lines.some((line, index) => Number(line.dataset.expectedQty) !== receivedQuantities[index]!.receivedQty)
       const result = receivePostFinishingOutboundOrder({ outboundOrderNo: actionNode?.dataset.outboundNo || '', actor: actor('仓库收货人员'), receivedQuantities, authorization: diff ? { scanValue: readValue(root, '[data-warehouse-authorization]'), differenceReason: readValue(root, '[data-warehouse-difference-reason]') } : undefined })
-      message = result.alreadyReceived ? '该出货单已接收，本次仅展示原记录。' : '收货入库成功。'
+      message = result.alreadyReceived ? '该出货单已接收，本次仅展示原记录。' : '收货入库成功；后道待交出仓已按出货数量完成交出扣减。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/outbound-receive', result.outbound.outboundOrderNo)
       return true

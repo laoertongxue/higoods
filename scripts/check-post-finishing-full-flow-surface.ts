@@ -47,7 +47,9 @@ const files = {
 }
 
 const webPaths = [
+  '/fcs/craft/post-finishing/tasks',
   '/fcs/craft/post-finishing/wait-process-warehouse',
+  '/fcs/craft/post-finishing/wait-handover-warehouse',
   '/fcs/craft/post-finishing/qc-workbench',
   '/fcs/craft/post-finishing/qc-orders',
   '/fcs/craft/post-finishing/work-orders',
@@ -96,6 +98,8 @@ for (const required of [
   'tracePostFinishingFullFlow',
   'listPostFinishingWaitProcessWarehouseRecords',
   'listPostFinishingWaitProcessWarehouseMovements',
+  'listPostFinishingWaitHandoverWarehouseRecords',
+  'listPostFinishingWaitHandoverWarehouseMovements',
   'loadPostFinishingDemoData',
 ]) assert(files.domain.includes(required), `共享全流程事实缺少 ${required}`)
 
@@ -134,8 +138,10 @@ for (const fakeDefault of ['value="本批质检判断依据"', 'value="买手通
 }
 assert(files.warehouse.includes('独立于技术包'), '质检参考资料必须明确独立于技术包')
 assert(files.warehouse.includes('不伪造默认资料'), '未上传资料必须显示真实空态')
-assert(files.warehouse.includes('后道待加工仓') && files.warehouse.includes('确认入库') && files.warehouse.includes('送检出库'), 'Web 必须显示后道待加工仓及其出入库事实')
-assert(files.warehouse.includes('3 个生产单 × 每单 5 个 SKU × 每单 5 次回货'), 'Web 必须说明默认 3×5×5 演示数据覆盖')
+assert(files.warehouse.includes("title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓'"), 'Web 两类仓库必须共用线上基线式列表结构')
+assert(files.warehouse.includes('确认回货后生成入仓流水，送检后生成出仓流水'), '后道待加工仓必须显示回货入仓和送检出仓事实')
+assert(files.warehouse.includes('复检完成后生成入仓流水，仓库收货后生成交出流水'), '后道待交出仓必须显示复检入仓和出货交出事实')
+assert(files.warehouse.includes("{ key: 'inventory', label: '库存' }") && files.warehouse.includes("{ key: 'movements', label: '流水记录' }") && files.warehouse.includes("{ key: 'locations', label: '库区库位' }"), '两类仓库必须保留线上库存、流水记录和库区库位页签')
 
 assert(files.qcWorkbench.includes('输入完整质检任务号'), 'Web 质检执行页必须输入完整任务号')
 assert(!files.qcWorkbench.includes('扫描完整质检任务号'), 'Web 质检不得把任务号输入描述为扫描')
@@ -149,7 +155,9 @@ assert(files.qcWorkbench.includes('data-qc-difference-authorization') && files.q
 assert(files.qcOrders.includes('主管释放'), '质检管理页必须提供主管释放')
 assert(files.qcOrders.includes('data-qc-task-input') && files.qcOrders.includes('输入质检任务号'), '质检任务页必须同时提供输入领取入口')
 assert(files.recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检管理页必须提供主管释放错误领取')
-assert(files.tasks.includes('质检任务由已确认送货单执行“送检”后自动生成'), '兼容任务页必须说明自动生成来源')
+assert(files.tasks.includes('生产单级后道任务') && files.tasks.includes('查看全流程'), '后道任务页必须以生产单汇总并进入一单到底链路')
+assert(files.qcOrders.includes('getCurrentPostFinishingActor') && !files.qcOrders.includes("query().get('actor')"), 'Web 质检身份必须来自当前登录身份，不得由网址参数切换')
+assert(files.qcWorkbench.includes('getCurrentPostFinishingActor') && !files.qcWorkbench.includes("query().get('actor')"), 'Web 质检工作台身份必须来自当前登录身份，不得由网址参数切换')
 
 const reachableUi = [
   files.sewingReturn, files.pdaFlow, files.pdaQuality, files.pdaExecDetail, files.pdaWarehouse,

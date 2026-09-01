@@ -151,6 +151,12 @@ async function setPdaSession(page: Page): Promise<void> {
   }, PDA_SESSION)
 }
 
+async function setCurrentWebActor(page: Page, actorId: string): Promise<void> {
+  await page.evaluate((id) => {
+    window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', id)
+  }, actorId)
+}
+
 async function statusText(page: Page): Promise<string> {
   const status = page.getByRole('status').last()
   await expect(status).toBeVisible()
@@ -366,10 +372,10 @@ async function confirmReturnThroughWeb(
   deliveryOrderNo: string,
 ): Promise<void> {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=pending')
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=returns')
   const card = page.locator('[data-return-card]').filter({ hasText: deliveryOrderNo })
   await expect(card).toHaveCount(1)
-  await card.locator('[data-nav]').filter({ hasText: '点数确认' }).click({ noWaitAfter: true })
+  await card.locator('[data-nav]').first().click({ noWaitAfter: true })
   await expect(page.locator('[data-return-confirm-root]')).toContainText(deliveryOrderNo)
   const firstQuantity = scenario.returnScenario === 'minus-5-boundary'
     ? 19
@@ -407,10 +413,10 @@ async function confirmReturnThroughWeb(
 
 async function sendToQcThroughWeb(page: Page, scenario: CrossTerminalScenario, chain: ChainEvidence, deliveryOrderNo: string): Promise<string> {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=inventory')
-  const card = page.locator('[data-wait-process-inventory-card]').filter({ hasText: deliveryOrderNo })
-  await expect(card).toHaveCount(1)
-  await card.locator('[data-nav]').filter({ hasText: '查看并送检' }).click({ noWaitAfter: true })
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=returns')
+  const row = page.locator('tbody tr').filter({ hasText: deliveryOrderNo })
+  await expect(row).toHaveCount(1)
+  await row.locator('[data-nav]').filter({ hasText: '查看并送检' }).click({ noWaitAfter: true })
   await expect(page.locator('[data-return-confirm-root]')).toContainText(deliveryOrderNo)
 
   if (scenario.uploadReference) {
@@ -441,7 +447,8 @@ async function completeQcThroughWeb(
   chain: ChainEvidence,
   qcTaskNo: string,
 ): Promise<{ postTaskNo?: string; recheckOrderNo?: string }> {
-  await page.goto('/fcs/craft/post-finishing/qc-orders?actor=qcA')
+  await setCurrentWebActor(page, 'PF-USER-QC-A')
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
   const taskInput = page.locator('[data-qc-task-input]')
   await taskInput.fill(qcTaskNo)
   await page.getByRole('button', { name: '领取并开始质检' }).click()
@@ -452,10 +459,13 @@ async function completeQcThroughWeb(
     const conflictPage = await context.newPage()
     conflictPage.setDefaultTimeout(15_000)
     conflictPage.setDefaultNavigationTimeout(30_000)
-    await conflictPage.goto('/fcs/craft/post-finishing/qc-orders?actor=qcB')
+    await conflictPage.goto('/fcs/craft/post-finishing/qc-orders')
+    await setCurrentWebActor(conflictPage, 'PF-USER-QC-B')
+    await conflictPage.goto('/fcs/craft/post-finishing/qc-orders')
     await conflictPage.locator('[data-qc-task-input]').fill(qcTaskNo)
     await conflictPage.getByRole('button', { name: '领取并开始质检' }).click()
     await expect(conflictPage.getByRole('status')).toContainText('已由 李质检员 质检中')
+    await setCurrentWebActor(conflictPage, 'PF-USER-QC-A')
     await conflictPage.close()
     await page.getByRole('button', { name: '错误领取，退回待质检' }).click()
     await page.locator('[data-qc-release-reason]').fill('全量跨端UI验收：验证退领后继续完成同一链')
@@ -532,9 +542,9 @@ async function completePostThroughPda(
 ): Promise<string> {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(`/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(postTaskNo)}`)
-  const taskCard = page.locator('article').filter({ hasText: postTaskNo })
-  await expect(taskCard).toHaveCount(1)
-  await taskCard.locator('[data-nav]').filter({ hasText: '打印后道工序加工单' }).click({ noWaitAfter: true })
+  const taskRow = page.locator('tbody tr').filter({ hasText: postTaskNo })
+  await expect(taskRow).toHaveCount(1)
+  await taskRow.locator('[data-nav]').filter({ hasText: '打印后道加工单' }).click({ noWaitAfter: true })
   await expect(page.getByRole('heading', { name: '后道工序加工单' })).toBeVisible()
   await expect(page.locator('[data-business-document-barcode]')).toHaveAttribute('data-business-document-barcode', postTaskNo)
   await expect(page.locator('tbody tr')).toHaveCount(5)
@@ -663,8 +673,8 @@ async function completeRecheckThroughPda(
 
   await page.getByRole('button', { name: '完成复检' }).click()
   const status = await statusText(page)
-  const outboundOrderNo = extractNumber(status, /复检完成，出货单 (FCK-[A-Z0-9-]+)/, '后道出货单号')
-  await expect(page.locator('body')).toContainText(`已生成唯一出货单：${outboundOrderNo}`)
+  const outboundOrderNo = extractNumber(status, /复检完成，已进入后道待交出仓并生成出货单 (FCK-[A-Z0-9-]+)/, '后道出货单号')
+  await expect(page.locator('body')).toContainText(`复检合格品已进入后道待交出仓，并生成唯一出货单：${outboundOrderNo}`)
   addStage(chain, page, 'PDA复检完成', status, {
     recheckScenario: scenario.recheckScenario,
     barcodeErrorRecovered: scenario.barcodeError,
@@ -681,6 +691,27 @@ async function receiveOutboundAcrossWebAndPda(
   outboundOrderNo: string,
 ): Promise<void> {
   await page.setViewportSize({ width: 1366, height: 768 })
+  const skuCode = `SPU-QC-${String(scenario.orderIndex + 1).padStart(3, '0')}-01`
+  await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory')
+  await expect(page.getByRole('heading', { name: '后道待交出仓' })).toBeVisible()
+  await page.locator('[data-post-finishing-field="warehouse-availability"]').selectOption('available')
+  await page.locator('[data-post-finishing-field="warehouse-keyword"]').fill(skuCode)
+  await page.locator('[data-post-finishing-action="full-flow-query"]').click()
+  const readyRow = page.locator('tbody tr').filter({ hasText: skuCode })
+  await expect(readyRow).toHaveCount(1)
+  await readyRow.getByRole('button', { name: '库存明细' }).click()
+  const readyDrawer = page.locator('[data-warehouse-inventory-drawer]')
+  await expect(readyDrawer).toContainText(chain.deliveryOrderNo!)
+  await expect(readyDrawer).toContainText(outboundOrderNo)
+  await expect(readyDrawer).toContainText('待交出')
+  const readyScreenshot = await saveScreenshot(page, chain, 'wait-handover-ready')
+  addStage(chain, page, 'Web待交出仓入仓核对', '待交出', {
+    outboundOrderNo,
+    skuCount: 5,
+    screenshot: readyScreenshot || '',
+  })
+  await page.locator('[data-post-finishing-action="full-flow-close-overlay"]').last().click()
+
   await page.goto(`/fcs/craft/post-finishing/outbound-orders?keyword=${encodeURIComponent(outboundOrderNo)}`)
   await expect(page.locator('tbody tr')).toHaveCount(1)
   await page.locator('[data-nav]').filter({ hasText: '详情与打印' }).click({ noWaitAfter: true })
@@ -740,6 +771,19 @@ async function receiveOutboundAcrossWebAndPda(
   }
 
   await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory')
+  await page.locator('[data-post-finishing-field="warehouse-availability"]').selectOption('all')
+  await page.locator('[data-post-finishing-field="warehouse-keyword"]').fill(skuCode)
+  await page.locator('[data-post-finishing-action="full-flow-query"]').click()
+  const handedRow = page.locator('tbody tr').filter({ hasText: skuCode })
+  await expect(handedRow).toHaveCount(1)
+  await handedRow.getByRole('button', { name: '库存明细' }).click()
+  const handedDrawer = page.locator('[data-warehouse-inventory-drawer]')
+  await expect(handedDrawer).toContainText(chain.deliveryOrderNo!)
+  await expect(handedDrawer).toContainText('已交出')
+  await expect(handedDrawer).toContainText('当前库存0 件')
+  addStage(chain, page, 'Web待交出仓交出回查', '已交出', { availableQty: 0 })
+
   await page.goto(`/fcs/craft/post-finishing/outbound-orders?keyword=${encodeURIComponent(outboundOrderNo)}`)
   await page.locator('[data-nav]').filter({ hasText: '详情与打印' }).click({ noWaitAfter: true })
   await expect(page.locator('body')).toContainText('全能力测试工厂_操作工')
@@ -765,6 +809,8 @@ async function readFinalSnapshot(page: Page): Promise<unknown> {
         warehouseReceipts: flow.listPostFinishingWarehouseReceipts().length,
         waitProcessWarehouseRecords: flow.listPostFinishingWaitProcessWarehouseRecords().length,
         waitProcessWarehouseMovements: flow.listPostFinishingWaitProcessWarehouseMovements().length,
+        waitHandoverWarehouseRecords: flow.listPostFinishingWaitHandoverWarehouseRecords().length,
+        waitHandoverWarehouseMovements: flow.listPostFinishingWaitHandoverWarehouseMovements().length,
         defects: flow.listPostFinishingDefectRecords().length,
         operationLogs: logs.listPostFinishingOperationLogs().length,
         authorizationConsumptions: authorization.listPostFinishingAuthorizationConsumptions().length,
@@ -779,6 +825,8 @@ async function readFinalSnapshot(page: Page): Promise<unknown> {
           postTaskNo: trace.postTask?.postTaskNo,
           recheckOrderNo: trace.recheckOrder?.recheckOrderNo,
           outboundOrderNo: trace.outboundOrder?.outboundOrderNo,
+          waitHandoverWarehouseRecordId: trace.waitHandoverRecord?.warehouseRecordId,
+          waitHandoverStatus: trace.waitHandoverRecord?.status,
           warehouseReceiptNo: trace.receipt?.receiptNo,
           warehouseReceived: Boolean(trace.receipt),
         }
@@ -804,6 +852,7 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
   })
   await page.reload()
   await setPdaSession(page)
+  await setCurrentWebActor(page, 'PF-USER-QC-A')
   await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
   await expect(page.locator('[data-return-card]')).toHaveCount(0)
 
@@ -838,10 +887,21 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto('/fcs/craft/post-finishing/wait-process-warehouse?tab=movements')
   await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
+  await page.locator('[data-post-finishing-field="pageSize"]').selectOption('50')
   await expect(page.locator('[data-wait-process-movement]')).toHaveCount(30)
-  await expect(page.locator('body')).toContainText('3 个生产单 × 每单 5 个 SKU × 每单 5 次回货')
+  await expect(page.getByText('缺少送货单。', { exact: true })).toHaveCount(0)
   await saveSurfaceScreenshot(page, 'wait-process-warehouse')
 
+  await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse?tab=movements')
+  await expect(page.getByRole('heading', { name: '后道待交出仓' })).toBeVisible()
+  await page.locator('[data-post-finishing-field="pageSize"]').selectOption('50')
+  await expect(page.locator('[data-wait-handover-movement]')).toHaveCount(30)
+  await expect(page.locator('body')).toContainText('复检完成入仓')
+  await expect(page.locator('body')).toContainText('后道出货交出')
+  await expect(page.getByText('缺少送货单。', { exact: true })).toHaveCount(0)
+  await saveSurfaceScreenshot(page, 'wait-handover-warehouse')
+
+  await setCurrentWebActor(page, 'PF-USER-QC-MGR')
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
   await expect(page.locator('[data-qc-task-input]')).toBeVisible()
@@ -874,10 +934,13 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
   expect(totals.warehouseReceipts).toBe(15)
   expect(totals.waitProcessWarehouseRecords).toBe(15)
   expect(totals.waitProcessWarehouseMovements).toBe(30)
+  expect(totals.waitHandoverWarehouseRecords).toBe(15)
+  expect(totals.waitHandoverWarehouseMovements).toBe(30)
   expect(totals.authorizationConsumptions).toBe(5)
-  const finalChains = (snapshot as { chains: Array<{ warehouseReceived: boolean }> }).chains
+  const finalChains = (snapshot as { chains: Array<{ warehouseReceived: boolean; waitHandoverStatus?: string }> }).chains
   expect(finalChains).toHaveLength(15)
   expect(finalChains.every((chain) => chain.warehouseReceived)).toBe(true)
+  expect(finalChains.every((chain) => chain.waitHandoverStatus === '已交出')).toBe(true)
 
   evidence.finalSnapshot = snapshot
   evidence.finishedAt = new Date().toISOString()

@@ -2,15 +2,14 @@
 
 import {
   POST_FINISHING_DEFECT_REASON_OPTIONS,
-  POST_FINISHING_ACCEPTANCE_ACTORS,
   claimPostFinishingQcTask,
   completePostFinishingQcTask,
   getPostFinishingFactoryReturn,
+  getCurrentPostFinishingActor,
   getPostFinishingFullFlowQcTask,
   getPostFinishingQcTaskReferences,
   releasePostFinishingQcTask,
   uploadPostFinishingQcTaskReference,
-  type PostFinishingActor,
   type PostFinishingQcTask,
 } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { appStore } from '../../../state/store.ts'
@@ -25,15 +24,8 @@ function query(): URLSearchParams {
   return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
 }
 
-function currentActor(): PostFinishingActor {
-  return query().get('actor') === 'qcB'
-    ? POST_FINISHING_ACCEPTANCE_ACTORS.qcB
-    : POST_FINISHING_ACCEPTANCE_ACTORS.qcA
-}
-
 function navigate(taskNo = query().get('taskNo') || ''): void {
-  const actor = currentActor().actorId === POST_FINISHING_ACCEPTANCE_ACTORS.qcB.actorId ? 'qcB' : 'qcA'
-  appStore.navigate(`/fcs/craft/post-finishing/qc-workbench?actor=${actor}${taskNo ? `&taskNo=${encodeURIComponent(taskNo)}` : ''}&refresh=${Date.now()}`)
+  appStore.navigate(`/fcs/craft/post-finishing/qc-workbench?${taskNo ? `taskNo=${encodeURIComponent(taskNo)}&` : ''}refresh=${Date.now()}`)
 }
 
 function renderNotice(): string {
@@ -42,11 +34,11 @@ function renderNotice(): string {
 }
 
 function renderScanner(): string {
-  const actor = currentActor()
+  const actor = getCurrentPostFinishingActor()
   return `<section class="mx-auto max-w-2xl rounded-xl border bg-card p-5 shadow-sm" data-qc-workbench-scan>
     <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">输入完整质检任务号</h2><p class="mt-1 text-sm text-muted-foreground">Web 端不调用摄像头；输入完整任务号后由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
     <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="请输入完整任务号，例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-input" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取任务</button></div>
-    <div class="mt-4 flex flex-wrap gap-3 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcA" class="text-blue-700 underline">切换为李质检员</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?actor=qcB" class="text-blue-700 underline">切换为王质检员</a><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检任务列表</a></div>
+    <div class="mt-4 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检任务</a></div>
   </section>`
 }
 
@@ -59,7 +51,7 @@ function imageButton(task: PostFinishingQcTask, index: number): string {
 function renderReferences(task: PostFinishingQcTask): string {
   const references = getPostFinishingQcTaskReferences(task.qcTaskId)
   const cards = references.map((record) => `<article class="rounded-lg border p-3"><div class="text-sm font-semibold">${escapeHtml(record.title)} · v${record.version}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.referenceType)} / ${escapeHtml(record.source)} / 实际上传人 ${escapeHtml(record.uploaderName)}</div>${record.sourceNote ? `<div class="mt-1 text-xs text-muted-foreground">资料实际来源：${escapeHtml(record.sourceNote)}</div>` : ''}<p class="mt-2 text-xs">${escapeHtml(record.description)}</p>${record.imageUrl ? `<button type="button" class="relative mt-2 flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(record.imageUrl)}" data-image-label="${escapeHtml(record.title)}"><img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.title)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="text-xs text-slate-500">图片加载中…</span></button>` : '<div class="mt-2 rounded border border-dashed p-3 text-xs text-muted-foreground">该资料无图片，仅使用文字判断说明。</div>'}</article>`).join('')
-  const canUpload = task.status !== '质检完成' && task.claimedBy?.actorId === currentActor().actorId
+  const canUpload = task.status !== '质检完成' && task.claimedBy?.actorId === getCurrentPostFinishingActor().actorId
   return `<section class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">本次质检参考资料</h3><p class="mt-1 text-xs text-muted-foreground">独立于技术包，绑定本次任务；后续上传不会覆盖既有版本。</p></div><span class="text-xs text-muted-foreground">${references.length} 份</span></div><div class="mt-3 grid gap-3 md:grid-cols-2">${cards || '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground md:col-span-2">本次未上传色差参考图或尺寸判断标准；系统明确显示未上传，不伪造默认资料，也不阻断质检。</div>'}</div>${canUpload ? `<div class="mt-4 grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 md:grid-cols-2" data-qc-task-reference-form><label class="text-xs text-blue-900">资料类型<select class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-type><option>色差参考图</option><option>尺寸判断标准</option></select></label><label class="text-xs text-blue-900">资料名称<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-title placeholder="填写本批判断资料名称" /></label><label class="text-xs text-blue-900 md:col-span-2">飞书实际来源<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-source-note placeholder="例如：陈买手通过飞书提供" /></label><label class="text-xs text-blue-900 md:col-span-2">判断说明<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-qc-task-reference-description></textarea></label><label class="text-xs text-blue-900">选择本批参考图片<input type="file" accept="image/*" class="mt-1 block w-full rounded-md border bg-white p-2" data-qc-task-reference-file /></label><label class="text-xs text-blue-900">或填写原型图片地址<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-image placeholder="/materials/..." /></label><button type="button" class="h-10 rounded-md bg-blue-600 font-semibold text-white md:col-span-2" data-post-finishing-action="full-flow-upload-qc-reference" data-task-id="${escapeHtml(task.qcTaskId)}">QC 代上传并绑定本次任务</button></div>` : ''}</section>`
 }
 
@@ -75,7 +67,7 @@ function renderResultLine(task: PostFinishingQcTask, index: number, canEdit: boo
 }
 
 function renderTask(task: PostFinishingQcTask): string {
-  const actor = currentActor()
+  const actor = getCurrentPostFinishingActor()
   const delivery = getPostFinishingFactoryReturn(task.deliveryId)
   const isOwner = task.claimedBy?.actorId === actor.actorId
   const canEdit = Boolean(isOwner && task.status !== '质检完成')
@@ -182,7 +174,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     }
     if (action === 'full-flow-claim-qc') {
       const taskNo = actionNode?.dataset.taskNo || scanField?.value || readValue(document, '[data-post-finishing-field="qc-task-input"]')
-      const claimed = claimPostFinishingQcTask({ qcTaskNo: taskNo, actor: currentActor() })
+      const claimed = claimPostFinishingQcTask({ qcTaskNo: taskNo, actor: getCurrentPostFinishingActor() })
       notice = `领取成功：${claimed.qcTaskNo}`
       noticeTone = 'success'
       navigate(claimed.qcTaskNo)
@@ -191,7 +183,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     if (action === 'full-flow-release-qc') {
       const released = releasePostFinishingQcTask({
         qcTaskId: actionNode?.dataset.taskId || '',
-        actor: currentActor(),
+        actor: getCurrentPostFinishingActor(),
         reason: readValue(document, '[data-qc-release-reason]') || '错误领取',
       })
       releaseConfirmTaskId = ''
@@ -212,7 +204,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
           || readValue(root, '[data-qc-task-reference-image]')
           || undefined,
         sourceNote: readValue(root, '[data-qc-task-reference-source-note]'),
-        actor: currentActor(),
+        actor: getCurrentPostFinishingActor(),
       })
       notice = `已代上传并绑定：${reference.title} v${reference.version}`
       noticeTone = 'success'
@@ -226,7 +218,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     const hasDifference = lineNodes.some((line, index) => Number(line.dataset.expectedQty || 0) !== results[index].passedQty + results[index].defectQty + results[index].returnQty)
     const completed = completePostFinishingQcTask({
       qcTaskId: actionNode?.dataset.taskId || '',
-      actor: currentActor(),
+      actor: getCurrentPostFinishingActor(),
       results,
       needPostFinishing: readValue(root, '[data-qc-need-post]') !== 'no',
       authorization: hasDifference
