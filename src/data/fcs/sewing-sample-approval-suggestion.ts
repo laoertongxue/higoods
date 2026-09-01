@@ -17,6 +17,13 @@ export type PreProductionSampleStatus =
 
 export type SampleApprovalConclusion = 'NO_PROBLEM' | 'HAS_PROBLEM'
 
+export interface SampleApprovalStructuredComments {
+  fabricApprovalComment: string
+  processComment: string
+  materialUsageComment: string
+  otherComment: string
+}
+
 export interface SewingSampleAssignmentSnapshot {
   assignmentId: string
   runtimeTaskId: string
@@ -79,9 +86,8 @@ export interface SampleApprovalSuggestionVersion {
   sampleId: string
   roundNo: number
   conclusion: SampleApprovalConclusion
-  problemParts: string[]
-  specificAdvice: string
-  annotatedImageUrls: string[]
+  structuredComments: SampleApprovalStructuredComments
+  approvalSheetPhotoUrls: string[]
   referenceSnapshots: SampleApprovalReferenceSnapshot[]
   requiresAnotherApproval: boolean
   uploadedAt: string
@@ -121,6 +127,31 @@ function text(value: string | undefined, label: string): string {
   const normalized = String(value || '').trim()
   if (!normalized) throw new Error(`${label}不能为空`)
   return normalized
+}
+
+function normalizeStructuredComments(
+  input: Partial<SampleApprovalStructuredComments> | undefined,
+): SampleApprovalStructuredComments {
+  return {
+    fabricApprovalComment: String(input?.fabricApprovalComment || '').trim(),
+    processComment: String(input?.processComment || '').trim(),
+    materialUsageComment: String(input?.materialUsageComment || '').trim(),
+    otherComment: String(input?.otherComment || '').trim(),
+  }
+}
+
+export function summarizeSampleApprovalStructuredComments(
+  comments: SampleApprovalStructuredComments,
+): string {
+  return [
+    ['批版面料', comments.fabricApprovalComment],
+    ['工艺意见', comments.processComment],
+    ['用料意见', comments.materialUsageComment],
+    ['其他意见', comments.otherComment],
+  ]
+    .filter((item): item is [string, string] => Boolean(item[1]))
+    .map(([label, value]) => `${label}：${value}`)
+    .join('；')
 }
 
 function classifyTaskKind(processCodes: readonly string[]): SewingOutsourcingTaskKind | null {
@@ -357,9 +388,8 @@ export function submitSampleApprovalSuggestion(input: {
   assignmentId: string
   actor: SewingSampleActor
   conclusion: SampleApprovalConclusion
-  problemParts?: string[]
-  specificAdvice?: string
-  annotatedImageUrls?: string[]
+  structuredComments?: Partial<SampleApprovalStructuredComments>
+  approvalSheetPhotoUrls?: string[]
   requiresAnotherApproval?: boolean
   uploadedAt: string
 }): SampleApprovalSuggestionVersion {
@@ -372,10 +402,9 @@ export function submitSampleApprovalSuggestion(input: {
   if (record.currentApproverId && record.currentApproverId !== input.actor.actorId) {
     throw new Error('当前批版建议已由其他批版人员领取')
   }
-  const problemParts = [...new Set((input.problemParts || []).map((item) => item.trim()).filter(Boolean))]
-  const specificAdvice = String(input.specificAdvice || '').trim()
-  if (input.conclusion === 'HAS_PROBLEM' && (!problemParts.length || !specificAdvice)) {
-    throw new Error('批版结论为有问题时，问题部位和具体生产建议必填')
+  const structuredComments = normalizeStructuredComments(input.structuredComments)
+  if (input.conclusion === 'HAS_PROBLEM' && !summarizeSampleApprovalStructuredComments(structuredComments)) {
+    throw new Error('批版结论为有问题时，必须至少填写一项结构化意见')
   }
   suggestionSequence += 1
   const suggestion: SampleApprovalSuggestionVersion = {
@@ -386,9 +415,8 @@ export function submitSampleApprovalSuggestion(input: {
     sampleId: record.sample.sampleId,
     roundNo: record.sample.roundNo,
     conclusion: input.conclusion,
-    problemParts,
-    specificAdvice,
-    annotatedImageUrls: [...new Set((input.annotatedImageUrls || []).map((item) => item.trim()).filter(Boolean))],
+    structuredComments,
+    approvalSheetPhotoUrls: [...new Set((input.approvalSheetPhotoUrls || []).map((item) => item.trim()).filter(Boolean))],
     referenceSnapshots: clone(record.referenceSnapshots),
     requiresAnotherApproval: Boolean(input.requiresAnotherApproval),
     uploadedAt: text(input.uploadedAt, '批版建议上传时间'),

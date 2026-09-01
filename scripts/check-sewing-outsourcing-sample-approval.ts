@@ -107,10 +107,18 @@ receivePreProductionSampleByPpic({
   commandId: 'CMD-SAMPLE-PPIC-RECEIVE-001',
   assignmentId: independent.assignmentId,
   actor: ppicActor,
-  receivedSamplePhotoUrls: ['/shirt-sample.jpg'],
+  receivedSamplePhotoUrls: [
+    '/shirt-sample-front.jpg',
+    '/shirt-sample-side.jpg',
+    '/shirt-sample-detail.jpg',
+  ],
   receivedAt: '2026-09-01 11:00:00',
 })
-assert.deepEqual(getSewingSampleApprovalRecord(independent.assignmentId)?.sample.ppicReceivedSamplePhotoUrls, ['/shirt-sample.jpg'])
+assert.deepEqual(
+  getSewingSampleApprovalRecord(independent.assignmentId)?.sample.ppicReceivedSamplePhotoUrls,
+  ['/shirt-sample-front.jpg', '/shirt-sample-side.jpg', '/shirt-sample-detail.jpg'],
+  'PPIC一次选择的多张产前版样衣照片必须全部保存并保持顺序',
+)
 handoffPreProductionSampleToApprover({
   commandId: 'CMD-SAMPLE-HANDOFF-001',
   assignmentId: independent.assignmentId,
@@ -140,22 +148,39 @@ assert.throws(
     assignmentId: independent.assignmentId,
     actor: approverActor,
     conclusion: 'HAS_PROBLEM',
-    problemParts: ['口袋'],
     uploadedAt: '2026-09-01 11:20:00',
   }),
-  /问题部位和具体生产建议必填/,
+  /至少填写一项结构化意见/,
+  '批版结论有问题时不能只给结论，必须按线下批版单至少填写一类意见',
 )
 const suggestion = submitSampleApprovalSuggestion({
   commandId: 'CMD-SAMPLE-SUGGESTION-001',
   assignmentId: independent.assignmentId,
   actor: approverActor,
   conclusion: 'HAS_PROBLEM',
-  problemParts: ['口袋', '侧缝'],
-  specificAdvice: '口袋位置上移1cm；侧缝按纸样顺直车缝，后续大货按此建议执行。',
-  annotatedImageUrls: ['/shirt-sample.jpg'],
+  structuredComments: {
+    fabricApprovalComment: '面料裁片必须按色组编号顺序配套。',
+    processComment: '口袋位置按纸样上移1cm，侧缝顺直车缝。',
+    materialUsageComment: '肩部用量偏小，缝制时不得强行拉伸。',
+    otherComment: '后续大货按本次批版建议执行。',
+  },
+  approvalSheetPhotoUrls: ['/approval-sheet-front.jpg', '/approval-sheet-back.jpg'],
   uploadedAt: '2026-09-01 11:20:00',
 })
 assert.equal(getSewingSampleApprovalRecord(independent.assignmentId)?.sample.status, 'SUGGESTION_UPLOADED', '有问题只形成可反馈建议，不得自动进入整改或复审状态')
+assert.deepEqual(suggestion.structuredComments, {
+  fabricApprovalComment: '面料裁片必须按色组编号顺序配套。',
+  processComment: '口袋位置按纸样上移1cm，侧缝顺直车缝。',
+  materialUsageComment: '肩部用量偏小，缝制时不得强行拉伸。',
+  otherComment: '后续大货按本次批版建议执行。',
+}, '批版建议必须按线下四类意见结构化保存')
+assert.deepEqual(
+  suggestion.approvalSheetPhotoUrls,
+  ['/approval-sheet-front.jpg', '/approval-sheet-back.jpg'],
+  '线下批版建议单照片必须作为独立佐证附件保存，不能混入样衣照片',
+)
+assert.equal(suggestion.uploadedByName, approverActor.actorName, '批版人员必须由当前领取人自动记录')
+assert.equal(suggestion.uploadedAt, '2026-09-01 11:20:00', '批版日期必须由本次提交时间自动记录')
 assert.equal(suggestion.referenceSnapshots.some((item) => item.referenceType === 'PATTERN'), true, '建议版本必须冻结本次核对的纸样资料')
 assert.equal(suggestion.referenceSnapshots.some((item) => item.referenceType === 'FABRIC' || item.referenceType === 'ACCESSORY'), true, '建议版本必须冻结面辅料核对依据')
 

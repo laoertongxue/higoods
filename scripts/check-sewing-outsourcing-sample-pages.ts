@@ -13,23 +13,36 @@ for (const text of [
   'PPIC视角',
   '批版人员视角',
   '上传样衣照片',
-  '上传并确认接收',
+  '确认接收',
   '转交批版人员',
   '填写批版建议',
   '记录已截图反馈',
   '有问题',
-  '具体生产建议',
+  '批版面料',
+  '工艺意见',
+  '用料意见',
+  '其他意见',
+  '线下批版单照片',
+  '批版人员',
+  '批版日期',
   '本次批版核对依据',
 ]) {
   assert.ok(samplePage.includes(text), `批版建议页面缺少业务口径：${text}`)
 }
 assert.ok(samplePage.includes('data-sample-approval-screenshot-card'), '必须提供单卡片截图区域')
 assert.ok(samplePage.includes('data-sample-approval-field="receivedSamplePhotos"'), 'PPIC接收时必须提供产前版样衣实物照片上传控件')
+assert.ok(samplePage.includes('data-sample-approval-action="select-received-photos"'), '选择样衣照片后必须立即形成多图预览')
+assert.ok(samplePage.includes("removeAction: 'remove-received-photo'"), '样衣照片提交前必须支持逐张删除')
+assert.ok(samplePage.includes('type="file" accept="image/*" multiple'), '样衣照片必须支持一次选择多张图片')
 assert.ok(samplePage.includes('ppicReceivedSamplePhotoUrls'), '列表和截图卡必须优先展示PPIC收到实物后上传的照片')
 assert.ok(samplePage.includes('data-sample-approval-action="preview-image"'), '产前版样衣和引用图片必须支持高清大图')
 assert.ok(samplePage.includes('isSampleApprovalSuggestionDialogOpen'), '批版建议弹窗必须接入Escape关闭')
 assert.ok(samplePage.includes("form.conclusion === 'HAS_PROBLEM' ? ' selected'"), '校验失败后必须保留有问题结论')
-assert.ok(samplePage.includes('problemParts: read(\'problemParts\')'), '校验失败后必须保留问题部位等已填内容')
+assert.ok(samplePage.includes('fabricApprovalComment: read(\'fabricApprovalComment\')'), '校验失败或选择附件后必须保留结构化批版意见')
+assert.ok(samplePage.includes('data-sample-approval-field="approvalSheetPhotos"'), '必须支持上传线下批版建议单照片作为佐证')
+assert.ok(samplePage.includes("removeAction: 'remove-approval-sheet-photo'"), '线下批版单照片提交前必须支持逐张删除')
+assert.ok(samplePage.includes('suggestion.structuredComments'), '批版建议卡必须按四类结构化意见展示')
+assert.ok(samplePage.includes('photos.map'), '批版建议卡不能只展示第一张产前版样衣照片')
 
 for (const text of [
   '面辅料交出',

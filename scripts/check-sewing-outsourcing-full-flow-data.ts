@@ -429,7 +429,7 @@ markPreProductionSampleFactoryCompleted({
 })
 receivePreProductionSampleByPpic({
   commandId: 'CMD-PPIC-E2E-SAMPLE-RECEIVE', assignmentId: assignment.assignmentId, actor: currentPpicActor,
-  receivedSamplePhotoUrls: ['/shirt-sample.jpg'],
+  receivedSamplePhotoUrls: ['/shirt-sample.jpg', '/shirt-sample.jpg?detail=1'],
   receivedAt: '2026-09-01 15:00:00',
 })
 handoffPreProductionSampleToApprover({
@@ -439,9 +439,14 @@ handoffPreProductionSampleToApprover({
 startSampleApproval({ commandId: 'CMD-PPIC-E2E-SAMPLE-START', assignmentId: assignment.assignmentId, actor: approverActor })
 const suggestion = submitSampleApprovalSuggestion({
   commandId: 'CMD-PPIC-E2E-SAMPLE-SUGGESTION', assignmentId: assignment.assignmentId, actor: approverActor,
-  conclusion: 'HAS_PROBLEM', problemParts: ['口袋', '侧缝'],
-  specificAdvice: '口袋位置上移1cm；侧缝按纸样顺直车缝，大货按本批版建议执行。',
-  annotatedImageUrls: ['/shirt-sample.jpg'], requiresAnotherApproval: false, uploadedAt: '2026-09-01 15:30:00',
+  conclusion: 'HAS_PROBLEM',
+  structuredComments: {
+    fabricApprovalComment: '面料裁片按色组编号顺序配套。',
+    processComment: '口袋位置上移1cm；侧缝按纸样顺直车缝。',
+    materialUsageComment: '辅料安装保持自然松量。',
+    otherComment: '大货按本批版建议执行。',
+  },
+  approvalSheetPhotoUrls: ['/approval-sheet.jpg'], requiresAnotherApproval: false, uploadedAt: '2026-09-01 15:30:00',
 })
 recordSampleApprovalFeedbackToFactory({
   commandId: 'CMD-PPIC-E2E-SAMPLE-FEEDBACK', assignmentId: assignment.assignmentId, actor: currentPpicActor,
@@ -451,11 +456,12 @@ const sampleRecord = getSewingSampleApprovalRecord(assignment.assignmentId)!
 assert.equal(sampleRecord.sample.status, 'FEEDBACK_SENT')
 assert.equal(sampleRecord.sample.currentPpicId, transferTarget.ppicId)
 assert.equal(suggestion.conclusion, 'HAS_PROBLEM')
+assert.equal(sampleRecord.sample.ppicReceivedSamplePhotoUrls.length, 2)
 record({
   step: '产前版样衣实物与批版建议',
   objectIds: [sampleRecord.sample.sampleId, suggestion.suggestionVersionId],
-  after: { physicalObject: '产前版样衣', businessAction: '批版建议', status: sampleRecord.sample.status, currentPpic: sampleRecord.sample.currentPpicName, conclusion: suggestion.conclusion, specificAdvice: suggestion.specificAdvice },
-  assertions: ['三方车缝工厂先制作一件大货产前版', 'PPIC接收实物并交批版人员', '批版人员核对参考资料并上传具体建议', 'PPIC反馈工厂后才能进入大货执行依据'],
+  after: { physicalObject: '产前版样衣', samplePhotoCount: sampleRecord.sample.ppicReceivedSamplePhotoUrls.length, businessAction: '批版建议', status: sampleRecord.sample.status, currentPpic: sampleRecord.sample.currentPpicName, conclusion: suggestion.conclusion, structuredComments: suggestion.structuredComments },
+  assertions: ['三方车缝工厂先制作一件大货产前版', 'PPIC接收实物并交批版人员且多张照片全部保留', '批版人员按线下四类意见结构化上传建议', 'PPIC反馈工厂后才能进入大货执行依据'],
 })
 
 const materialOrder = productionOrders.find((order) => order.techPackSnapshot?.bomItems.some((item) => item.type === '面料' || item.type === '辅料') && order.demandSnapshot.skuLines.length)

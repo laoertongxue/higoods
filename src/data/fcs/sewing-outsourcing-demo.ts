@@ -147,9 +147,13 @@ export function ensureSewingOutsourcingSampleDemo(): typeof SEWING_SAMPLE_DEMO_A
     assignmentId: cuttingSewingIronPack.assignmentId,
     actor: approverActor,
     conclusion: 'HAS_PROBLEM',
-    problemParts: ['口袋', '侧缝'],
-    specificAdvice: '口袋位置上移1cm；侧缝按纸样顺直车缝。后续大货按本建议执行。',
-    annotatedImageUrls: ['/dress-sample-1.jpg'],
+    structuredComments: {
+      fabricApprovalComment: '面料裁片按色组编号顺序配套，不得混用色差批次。',
+      processComment: '口袋位置按纸样上移1cm，侧缝顺直车缝。',
+      materialUsageComment: '花边安装保持自然松量，不得强拉起皱。',
+      otherComment: '后续大货按本次批版建议执行。',
+    },
+    approvalSheetPhotoUrls: [],
     uploadedAt: '2026-09-01 11:20:00',
   })
 

@@ -28,6 +28,7 @@ import {
 } from './sewing-outsourcing-supplement-tracking.ts'
 import {
   listSewingSampleApprovalRecords,
+  summarizeSampleApprovalStructuredComments,
   type SewingOutsourcingTaskKind,
   type SewingSampleApprovalRecord,
 } from './sewing-sample-approval-suggestion.ts'
@@ -283,7 +284,7 @@ function addSampleFacts(draft: WorkbenchDraft, record: SewingSampleApprovalRecor
       occurredAt: version.uploadedAt,
       source: '批版建议',
       title: version.conclusion === 'NO_PROBLEM' ? '批版建议：无问题' : '批版建议：有问题',
-      detail: version.specificAdvice || '批版人员已上传建议。',
+      detail: summarizeSampleApprovalStructuredComments(version.structuredComments) || '批版人员确认无问题，可按当前资料生产大货。',
     })
     if (version.feedbackSentAt) pushTimeline(draft, {
       timelineId: `SAMPLE-FEEDBACK::${version.suggestionVersionId}`,
