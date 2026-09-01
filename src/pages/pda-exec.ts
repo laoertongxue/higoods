@@ -797,7 +797,7 @@ function renderSpecialCraftWorkOrderSection(factoryId: string): string {
   return `
     <section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-special-craft-work-order-list>
       <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-special-craft-tabs">
-        ${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
+        ${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.specialCraftTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-special-craft-tab" data-tab="${tab.key}" data-skip-page-rerender="true">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}
       </div>
       <div class="px-4">${renderSpecialCraftExecutionScanHeader()}</div>
       <div class="space-y-3 px-4" data-pda-exec-card-container="special-craft">${list.rows.length ? list.rows.map(renderSpecialCraftFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的加工单</div>'}</div>
@@ -876,7 +876,7 @@ function renderBindingWorkOrderSection(factoryId: string): string {
   const list = buildPdaExecProgressiveSlice(rows, state.bindingVisibleCount, PDA_EXEC_BATCH_SIZE)
   state.bindingVisibleCount = list.visibleCount || PDA_EXEC_BATCH_SIZE
   return `<section class="-mx-4 -mt-4 space-y-3 pb-4" data-pda-binding-work-order-list>
-    <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-binding-tabs">${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
+    <div class="grid grid-cols-2 border-b bg-background" data-testid="pda-exec-binding-tabs">${EXECUTION_WORK_ORDER_TAB_CONFIG.map((tab) => `<button type="button" class="border-b-2 py-2 text-[11px] ${tab.key === state.bindingTab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" data-pda-exec-action="switch-binding-tab" data-tab="${tab.key}" data-skip-page-rerender="true">${tab.label}<span class="ml-1 opacity-70">(${counts[tab.key]})</span></button>`).join('')}</div>
     <div class="px-4">${renderBindingExecutionScanHeader()}</div>
     <div class="space-y-3 px-4" data-pda-exec-card-container="binding">${list.rows.length ? list.rows.map(renderBindingFactCard).join('') : '<div class="rounded-lg border bg-muted/20 py-8 text-center text-sm text-muted-foreground">当前没有此状态的捆条加工单</div>'}</div>
     <div class="px-4">${renderPdaExecAutoLoadSentinel(list, 'binding')}</div>
