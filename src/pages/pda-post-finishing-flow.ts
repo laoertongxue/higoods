@@ -4,18 +4,21 @@ import {
   POST_FINISHING_DEFECT_REASON_OPTIONS,
   claimPostFinishingRecheckOrder,
   confirmPostFinishingFactoryReturn,
-  completePostFinishingPostTask,
+  completePostFinishingPostTaskFromDraft,
   completePostFinishingRecheckOrderFullFlow,
   getPostFinishingFactoryReturn,
   getPostFinishingFullFlowOutboundOrder,
   getPostFinishingFullFlowPostTask,
   getPostFinishingFullFlowQcTask,
   getPostFinishingFullFlowRecheckOrder,
+  listPostFinishingPostReturnReceiverOptions,
   markPostFinishingRecheckSkuRelabeled,
   receivePostFinishingOutboundOrder,
   releasePostFinishingRecheckOrder,
   listPostFinishingWarehouseReceipts,
   scanPostFinishingRecheckSkuBarcode,
+  savePostFinishingPostSkuAdjustment,
+  setPostFinishingPostCompletedQuantity,
   startPostFinishingPostTask,
   type PostFinishingActor,
   type PostFinishingFactoryReturnDelivery,
@@ -39,9 +42,12 @@ function actor(roleName: string): PostFinishingActor {
   return { actorId: runtime.userId, actorName: runtime.userName, roleName }
 }
 
-function refresh(path: string, id = query().get('id') || ''): void {
+function refresh(path: string, id = query().get('id') || '', extra: Record<string, string> = {}): void {
   const search = new URLSearchParams({ refresh: String(Date.now()) })
   if (id) search.set('id', id)
+  Object.entries(extra).forEach(([key, value]) => {
+    if (value) search.set(key, value)
+  })
   appStore.navigate(`${path}?${search.toString()}`)
 }
 
@@ -173,36 +179,40 @@ function renderPostTask(task: PostFinishingPostTask): string {
   const isStarted = task.status === '后道中'
   const isOwner = Boolean(runtime && task.startedBy?.actorId === runtime.userId)
   const qcTask = getPostFinishingFullFlowQcTask(task.qcTaskId)
-  const expectedTotal = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
-  const actualTotal = task.lines.reduce((sum, line) => {
-    const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    return sum + (prior?.passedQty ?? line.expectedQty) + (prior?.defectQty ?? 0) + (prior?.returnQty ?? 0)
-  }, 0)
-  const fullChainExpectedTotal = qcTask?.results?.reduce((sum, line) => sum + line.expectedQty, 0) ?? expectedTotal
-  const fullChainActualTotal = task.lines.reduce((sum, line) => {
-    const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const qcResult = qcTask?.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    return sum + (prior?.passedQty ?? line.expectedQty) + (prior?.defectQty ?? 0) + (prior?.returnQty ?? 0) + (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0)
-  }, 0)
-  const hasAnyDifference = task.lines.some((line) => {
-    const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const qcResult = qcTask?.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const postActual = (prior?.passedQty ?? line.expectedQty) + (prior?.defectQty ?? 0) + (prior?.returnQty ?? 0)
-    const fullChainActual = postActual + (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0)
-    return postActual !== line.expectedQty || fullChainActual !== (qcResult?.expectedQty ?? line.expectedQty)
+  const drafts = task.draftLines ?? []
+  const lineProgress = task.lines.map((line) => {
+    const draft = drafts.find((item) => item.skuId === line.sku.skuId)
+    const finalResult = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
+    const completedQty = finalResult?.completedQty ?? draft?.completedQty ?? 0
+    const defectQty = finalResult?.defectQty ?? draft?.defectQty ?? 0
+    const returnQty = finalResult?.returnQty ?? draft?.returnQty ?? 0
+    const adjustedQty = defectQty + returnQty
+    const resolvedQty = completedQty > 0 ? completedQty : adjustedQty
+    return {
+      line,
+      completedQty,
+      defectQty,
+      returnQty,
+      resolvedQty,
+      quantityResolved: line.expectedQty === 0 || completedQty > 0 || adjustedQty === line.expectedQty,
+      draft,
+      finalResult,
+    }
   })
-  const lines = task.lines.map((line) => {
-    const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
+  const completedLineCount = lineProgress.filter((item) => item.quantityResolved).length
+  const allCompletedQuantitiesFilled = completedLineCount === task.lines.length
+  const totalExpectedQty = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
+  const totalResolvedQty = lineProgress.reduce((sum, item) => sum + item.resolvedQty, 0)
+  const hasAnyDifference = allCompletedQuantitiesFilled && lineProgress.some(({ line, resolvedQty }) => {
     const qcResult = qcTask?.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const passedQty = prior?.passedQty ?? line.expectedQty
-    const defectQty = prior?.defectQty ?? 0
-    const returnQty = prior?.returnQty ?? 0
-    const actualQty = passedQty + defectQty + returnQty
-    const qcExcludedQty = (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0)
-    const fullChainExpectedQty = qcResult?.expectedQty ?? line.expectedQty
-    const fullChainActualQty = actualQty + qcExcludedQty
+    const fullChainActual = resolvedQty + (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0)
+    return resolvedQty !== line.expectedQty || fullChainActual !== (qcResult?.expectedQty ?? line.expectedQty)
+  })
+  const lines = lineProgress.map(({ line, completedQty, defectQty, returnQty, resolvedQty, quantityResolved, finalResult }) => {
+    const passedQty = finalResult?.passedQty ?? Math.max(0, resolvedQty - defectQty - returnQty)
+    const canEdit = isStarted && isOwner
     return `
-      <article class="rounded-2xl border bg-white p-3 shadow-sm" data-post-result-line="${escapeHtml(line.sku.skuId)}" data-expected-qty="${line.expectedQty}" data-chain-expected-qty="${fullChainExpectedQty}" data-qc-excluded-qty="${qcExcludedQty}">
+      <article class="rounded-2xl border bg-white p-3 shadow-sm" data-post-completion-line="${escapeHtml(line.sku.skuId)}">
         <div class="flex gap-3">
           ${image(line.sku)}
           <div class="min-w-0 flex-1">
@@ -211,23 +221,18 @@ function renderPostTask(task: PostFinishingPostTask): string {
             <div class="mt-1 text-xs font-medium">需加工 ${line.expectedQty} 件</div>
           </div>
         </div>
-        ${isStarted && isOwner ? `
-          <div class="mt-3 grid grid-cols-3 gap-2">
-            <label class="text-[11px] text-slate-500">后道合格<input type="number" min="0" step="1" value="${passedQty}" class="mt-1 h-10 w-full rounded-xl border px-2 text-right" data-post-result-field="passedQty" /></label>
-            <label class="text-[11px] text-slate-500">新增瑕疵<input type="number" min="0" step="1" value="${defectQty || ''}" class="mt-1 h-10 w-full rounded-xl border px-2 text-right" placeholder="0" data-post-result-field="defectQty" /></label>
-            <label class="text-[11px] text-slate-500">返厂<input type="number" min="0" step="1" value="${returnQty || ''}" class="mt-1 h-10 w-full rounded-xl border px-2 text-right" placeholder="0" data-post-result-field="returnQty" /></label>
+        <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+          <label class="block text-sm font-semibold text-blue-950">完成数量</label>
+          <div class="mt-2 flex gap-2">
+            <input type="number" min="0" max="${line.expectedQty}" step="1" inputmode="numeric" value="${completedQty || ''}" placeholder="填写完成件数" class="h-12 min-w-0 flex-1 rounded-xl border bg-white px-3 text-right text-base font-semibold" data-post-completed-qty data-skip-page-rerender="true" ${canEdit ? '' : 'disabled'} />
+            ${canEdit ? `<button type="button" class="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white" data-pda-post-action="save-completed-qty" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}">保存</button>` : ''}
           </div>
-          ${initialSummary(line.expectedQty, actualQty, `本行 ${passedQty} + ${defectQty} + ${returnQty} = ${actualQty} 件`, 'post-line')}
-          ${initialSummary(fullChainExpectedQty, fullChainActualQty, `全链：后道 ${actualQty} + 质检瑕疵/返厂 ${qcExcludedQty} = ${fullChainActualQty} 件`, 'post-chain-line')}
-          <div class="mt-2 space-y-2">
-            <input class="h-10 w-full rounded-xl border px-3 text-xs" value="${escapeHtml(prior?.defectReason || '')}" list="post-finishing-defect-reasons" placeholder="有瑕疵时填写原因" data-post-result-field="defectReason" />
-            <label class="rounded-xl border bg-slate-50 p-2 text-[11px] text-slate-500">上传瑕疵证据图片<input type="file" accept="image/*" class="mt-1 block w-full text-[11px]" data-post-result-file="defectImage" /></label>
-            <input class="h-10 w-full rounded-xl border px-3 text-xs" value="${escapeHtml(prior?.defectImageUrl || '')}" placeholder="或填写瑕疵证据图片地址" data-post-result-field="defectImageUrl" />
-            <input class="h-10 w-full rounded-xl border px-3 text-xs" value="${escapeHtml(prior?.responsibleParty || '')}" placeholder="瑕疵责任方" data-post-result-field="responsibleParty" />
-            <input class="h-10 w-full rounded-xl border px-3 text-xs" value="${escapeHtml(prior?.returnReason || '')}" placeholder="有返厂时填写原因" data-post-result-field="returnReason" />
-            <input class="h-10 w-full rounded-xl border px-3 text-xs" value="${escapeHtml(prior?.returnReceiver || '')}" placeholder="返厂接收责任方" data-post-result-field="returnReceiver" />
-          </div>
-        ` : ''}
+          <div class="mt-2 text-xs text-blue-800">完成数量和瑕疵可按现场先后填写；整批均为瑕疵时无需先填完成数量。</div>
+        </div>
+        <div class="mt-3 flex items-center justify-between gap-3 rounded-xl border px-3 py-2">
+          <div class="min-w-0 text-xs text-slate-600"><div>${completedQty > 0 ? `完成 ${completedQty} 件` : quantityResolved ? '整批已归为瑕疵或返厂' : '完成数量未填写'} · 合格 ${passedQty} 件</div>${defectQty || returnQty ? `<div class="mt-1 text-amber-700">瑕疵 ${defectQty} 件 · 返厂 ${returnQty} 件</div>` : '<div class="mt-1 text-emerald-700">未记录瑕疵或返厂</div>'}</div>
+          ${task.status === '后道中' ? `<a data-nav="/fcs/pda/post-finishing/sku-adjustment?id=${encodeURIComponent(task.postTaskNo)}&skuId=${encodeURIComponent(line.sku.skuId)}" class="shrink-0 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">调整瑕疵</a>` : ''}
+        </div>
       </article>
     `
   }).join('')
@@ -239,17 +244,64 @@ function renderPostTask(task: PostFinishingPostTask): string {
           <div><div class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次</div></div>
           <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-blue-800">${escapeHtml(task.status)}</span>
         </div>
-        <div class="mt-3 text-xs text-blue-900">加工项目：${task.processItems.map(escapeHtml).join('、')}</div>
+        <div class="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-blue-900"><span class="font-semibold">质检已确认加工项目：</span>${task.processItems.map(escapeHtml).join('、')}</div>
         ${task.startedBy && isStarted ? `<div class="mt-2 text-xs text-blue-900">开始人：${escapeHtml(task.startedBy.actorName)} · ${escapeHtml(task.startedAt || '')}</div>` : ''}
         ${task.startedBy && isStarted && !isOwner ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">已由 ${escapeHtml(task.startedBy.actorName)} 加工中。请由本人继续，错误领取请联系主管处理。</div>` : ''}
       </section>
       ${lines}
       ${task.status === '待后道' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="start-post" data-task-no="${escapeHtml(task.postTaskNo)}">核对无误，开始后道</button>` : ''}
-      ${isStarted && isOwner ? `${initialSummary(expectedTotal, actualTotal, `整单应加工 ${expectedTotal} 件，当前分类合计 ${actualTotal} 件`, 'post-total')}${initialSummary(fullChainExpectedTotal, fullChainActualTotal, `整单全链应有 ${fullChainExpectedTotal} 件，当前全链合计 ${fullChainActualTotal} 件`, 'post-chain-total')}${authorizationBlock('post', hasAnyDifference)}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="complete-post" data-task-id="${escapeHtml(task.postTaskId)}">完成后道并生成复检单</button>` : ''}
+      ${isStarted && isOwner ? `<section class="rounded-2xl border bg-white p-3"><div class="flex items-center justify-between gap-3 text-sm"><span class="font-semibold">本批数量归类</span><span class="${allCompletedQuantitiesFilled ? 'text-emerald-700' : 'text-amber-700'}">${completedLineCount} / ${task.lines.length} 个 SKU</span></div><div class="mt-2 text-xs text-slate-600">已处理 ${totalResolvedQty} / 应加工 ${totalExpectedQty} 件</div></section>${authorizationBlock('post', hasAnyDifference)}<button type="button" class="h-12 w-full rounded-2xl text-base font-semibold ${allCompletedQuantitiesFilled ? 'bg-blue-600 text-white' : 'cursor-not-allowed bg-slate-200 text-slate-500'}" data-pda-post-action="complete-post" data-task-id="${escapeHtml(task.postTaskId)}" ${allCompletedQuantitiesFilled ? '' : 'disabled'}>${allCompletedQuantitiesFilled ? '完成后道并生成复检单' : `还有 ${task.lines.length - completedLineCount} 个 SKU 未完成数量归类`}</button>` : ''}
       ${task.status === '后道完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">已完成，复检单：${escapeHtml(task.recheckOrderNo || '生成中')}</div>` : ''}
-      <datalist id="post-finishing-defect-reasons">${POST_FINISHING_DEFECT_REASON_OPTIONS.map((reason) => `<option value="${escapeHtml(reason)}"></option>`).join('')}</datalist>
     </div>
   `
+}
+
+export function renderPdaPostFinishingSkuAdjustmentPage(): string {
+  const id = query().get('id') || ''
+  const skuId = query().get('skuId') || ''
+  const task = id ? getPostFinishingFullFlowPostTask(id) : undefined
+  const line = task?.lines.find((item) => item.sku.skuId === skuId)
+  if (!task || !line) {
+    return shell('调整瑕疵数量', '后道加工', '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">未找到后道单或 SKU。请返回重新扫描。</div><a data-nav="/fcs/pda/post-finishing/execute" class="block rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white">返回后道加工</a>', 'pda-post-finishing-sku-adjustment-page')
+  }
+  const runtime = getPdaRuntimeContext()
+  const isOwner = Boolean(runtime && task.status === '后道中' && task.startedBy?.actorId === runtime.userId)
+  const draft = task.draftLines?.find((item) => item.skuId === skuId)
+  const defectQty = draft?.defectQty ?? 0
+  const returnQty = draft?.returnQty ?? 0
+  const completedQty = draft?.completedQty ?? 0
+  const adjustedQty = defectQty + returnQty
+  const returnReceiverOptions = listPostFinishingPostReturnReceiverOptions(task.postTaskId)
+  const currentDefectSummary = draft?.defectReasonQuantities?.length
+    ? draft.defectReasonQuantities.map((item) => `${item.reason} ${item.quantity} 件`).join('、')
+    : '暂无瑕疵'
+  const body = `
+    <div class="space-y-4" data-post-sku-adjustment-root data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}" data-skip-page-rerender="true">
+      <a data-nav="/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}" class="inline-flex min-h-10 items-center text-sm font-medium text-blue-700">← 返回后道单</a>
+      <section class="rounded-2xl border bg-white p-3 shadow-sm"><div class="flex gap-3">${image(line.sku)}<div class="min-w-0 flex-1"><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-2 text-sm font-medium">应加工 ${line.expectedQty} 件 · ${completedQty > 0 ? `已填完成 ${completedQty} 件` : '完成数量未填写'}</div></div></div></section>
+      ${isOwner ? `
+        <section class="rounded-2xl border bg-white p-4 shadow-sm">
+          <h2 class="font-semibold">调整瑕疵</h2>
+          <p class="mt-1 text-xs text-slate-500">先选增加或减少，再按每种瑕疵原因填写本次数量。</p>
+          <div class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-700"><span class="font-semibold">当前瑕疵 ${defectQty} 件：</span>${escapeHtml(currentDefectSummary)}</div>
+          <div class="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="瑕疵调整方式">
+            <label class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-blue-300 bg-blue-50 font-semibold text-blue-800"><input type="radio" name="post-defect-adjustment-mode" value="INCREASE" checked data-post-defect-adjustment-mode />增加瑕疵</label>
+            <label class="flex min-h-12 items-center justify-center gap-2 rounded-xl border bg-white font-semibold text-slate-700"><input type="radio" name="post-defect-adjustment-mode" value="DECREASE" data-post-defect-adjustment-mode />减少瑕疵</label>
+          </div>
+          <div class="mt-3 divide-y rounded-xl border bg-white">
+            ${POST_FINISHING_DEFECT_REASON_OPTIONS.map((reason) => {
+              const currentQty = draft?.defectReasonQuantities?.find((item) => item.reason === reason)?.quantity ?? 0
+              return `<label class="flex min-h-14 items-center justify-between gap-3 px-3 py-2"><span class="text-sm font-medium">${escapeHtml(reason)}<span class="ml-1 text-xs font-normal text-slate-400">当前 ${currentQty}</span></span><input type="number" min="0" max="${line.expectedQty}" step="1" inputmode="numeric" value="0" class="h-10 w-24 rounded-xl border px-2 text-right text-base" data-post-defect-reason-qty data-reason="${escapeHtml(reason)}" data-skip-page-rerender="true" /></label>`
+            }).join('')}
+          </div>
+        </section>
+        <details class="rounded-2xl border bg-white p-4 shadow-sm" ${returnQty ? 'open' : ''}><summary class="cursor-pointer font-semibold">返厂处理（没有可不填）</summary><label class="mt-4 block text-sm">返厂数量<input type="number" min="0" max="${line.expectedQty}" step="1" value="${returnQty || 0}" class="mt-1 h-12 w-full rounded-xl border px-3 text-right text-base" data-post-adjust-field="returnQty" data-skip-page-rerender="true" /></label><label class="mt-3 block text-sm">返厂原因<input value="${escapeHtml(draft?.returnReason || '')}" class="mt-1 h-11 w-full rounded-xl border px-3" data-post-adjust-field="returnReason" /></label><details class="mt-3 rounded-xl border bg-slate-50 p-3" data-return-receiver-picker><summary class="cursor-pointer text-sm font-medium">接收对象：<span data-return-receiver-label>${escapeHtml(draft?.returnReceiver || '请选择')}</span></summary><input type="hidden" value="${escapeHtml(draft?.returnReceiver || '')}" data-post-adjust-field="returnReceiver" /><input autocomplete="off" value="" placeholder="搜索工厂名称" class="mt-3 h-11 w-full rounded-xl border bg-white px-3 text-sm" data-pda-post-action="filter-return-receiver" data-return-receiver-search data-skip-page-rerender="true" /><div class="mt-2 max-h-52 space-y-2 overflow-y-auto" data-return-receiver-options>${returnReceiverOptions.map((option) => `<button type="button" class="w-full rounded-xl border bg-white px-3 py-3 text-left" data-pda-post-action="select-return-receiver" data-return-receiver-value="${escapeHtml(option.value)}" data-return-receiver-search-text="${escapeHtml(`${option.label} ${option.description}`.toLowerCase())}"><span class="block text-sm font-semibold">${escapeHtml(option.label)}</span><span class="mt-1 block text-xs text-slate-500">${escapeHtml(option.description)}</span></button>`).join('')}<div class="hidden px-3 py-4 text-center text-sm text-slate-500" data-return-receiver-empty>没有匹配的接收对象</div></div></details></details>
+        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">当前已记录瑕疵/返厂 ${adjustedQty} / ${line.expectedQty} 件。可先登记瑕疵；若整批均为瑕疵或返厂，无需再填写完成数量。</div>
+        <button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="save-sku-adjustment" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}">保存并返回后道单</button>
+      ` : `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">当前任务由 ${escapeHtml(task.startedBy?.actorName || '其他操作员')} 处理，不能修改该 SKU。</div>`}
+    </div>
+  `
+  return shell('调整瑕疵数量', '后道加工', body, 'pda-post-finishing-sku-adjustment-page')
 }
 
 export function renderPdaPostFinishingExecutionPage(): string {
@@ -257,7 +309,7 @@ export function renderPdaPostFinishingExecutionPage(): string {
   const task = id ? getPostFinishingFullFlowPostTask(id) : undefined
   const body = task
     ? renderPostTask(task)
-    : scanner({ label: '扫描后道任务号', placeholder: 'HD-…', action: 'scan-post', field: 'postScan', help: '只按完整后道任务号查询；先核对产品、数量和工序，再确认开始。' })
+    : scanner({ label: '扫描后道任务号', placeholder: 'HD-…', action: 'scan-post', field: 'postScan', help: '只按完整后道任务号查询；加工项目已由质检确认，后道只填完成数量。' })
   return shell('后道加工', '精确扫描后道任务', body, 'pda-post-finishing-execution-page')
 }
 
@@ -386,13 +438,35 @@ function readValue(root: ParentNode, selector: string): string {
   return root.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)?.value.trim() || ''
 }
 
-function selectedFileUrl(root: ParentNode, selector: string): string | undefined {
-  const file = root.querySelector<HTMLInputElement>(selector)?.files?.[0]
-  return file ? URL.createObjectURL(file) : undefined
-}
-
 function numberValue(root: ParentNode, selector: string): number {
   return Number(readValue(root, selector) || 0)
+}
+
+function filterReturnReceiverOptions(input: HTMLInputElement): void {
+  const picker = input.closest<HTMLElement>('[data-return-receiver-picker]')
+  if (!picker) return
+  const keyword = input.value.trim().toLowerCase()
+  const options = Array.from(picker.querySelectorAll<HTMLElement>('[data-return-receiver-value]'))
+  let visibleCount = 0
+  options.forEach((option) => {
+    const visible = !keyword || (option.dataset.returnReceiverSearchText || '').includes(keyword)
+    option.classList.toggle('hidden', !visible)
+    if (visible) visibleCount += 1
+  })
+  picker.querySelector<HTMLElement>('[data-return-receiver-empty]')?.classList.toggle('hidden', visibleCount > 0)
+}
+
+function selectReturnReceiver(option: HTMLElement): void {
+  const picker = option.closest<HTMLDetailsElement>('[data-return-receiver-picker]')
+  if (!picker) return
+  const value = option.dataset.returnReceiverValue || ''
+  const field = picker.querySelector<HTMLInputElement>('[data-post-adjust-field="returnReceiver"]')
+  const label = picker.querySelector<HTMLElement>('[data-return-receiver-label]')
+  const search = picker.querySelector<HTMLInputElement>('[data-return-receiver-search]')
+  if (field) field.value = value
+  if (label) label.textContent = value || '请选择'
+  if (search) search.value = ''
+  picker.open = false
 }
 
 function setSummary(element: HTMLElement | null, expectedQty: number, actualQty: number, detail: string): void {
@@ -510,7 +584,7 @@ function setError(error: unknown): void {
 
 function isQuantityInput(target: HTMLElement, event?: Event): boolean {
   if (event?.type !== 'input' || !(target instanceof HTMLInputElement)) return false
-  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-result-field="passedQty"], [data-post-result-field="defectQty"], [data-post-result-field="returnQty"], [data-recheck-result-field="passedQty"], [data-recheck-result-field="defectQty"], [data-outbound-result-field="receivedQty"]')
+  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-completed-qty], [data-post-defect-reason-qty], [data-post-adjust-field="returnQty"], [data-post-result-field="passedQty"], [data-post-result-field="defectQty"], [data-post-result-field="returnQty"], [data-recheck-result-field="passedQty"], [data-recheck-result-field="defectQty"], [data-outbound-result-field="receivedQty"]')
 }
 
 export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): boolean {
@@ -581,41 +655,73 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const scanValue = (field?.value || readValue(document, '[data-pda-post-field="postScan"]')).trim()
       const task = getPostFinishingFullFlowPostTask(scanValue)
       if (!task || task.postTaskNo !== scanValue) throw new Error('未找到完整后道任务号，请重新扫描任务单条码。')
-      message = `已识别 ${task.postTaskNo}，请先核对产品、数量和加工项目。`
+      message = `已识别 ${task.postTaskNo}，请核对产品并填写各 SKU 完成数量。`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
       return true
     }
     if (action === 'start-post') {
       const task = startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor: actor('后道操作员') })
-      message = '已开始后道，请逐 SKU 填写结果。'
+      message = '已开始后道，请逐 SKU 填写完成数量。'
+      messageTone = 'success'
+      refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
+      return true
+    }
+    if (action === 'save-completed-qty') {
+      const line = actionNode?.closest<HTMLElement>('[data-post-completion-line]')
+      const task = setPostFinishingPostCompletedQuantity({
+        postTaskId: actionNode?.dataset.taskId || '',
+        skuId: actionNode?.dataset.skuId || '',
+        completedQty: numberValue(line || document, '[data-post-completed-qty]'),
+        actor: actor('后道操作员'),
+      })
+      message = '完成数量已保存。'
+      messageTone = 'success'
+      refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
+      return true
+    }
+    if (action === 'filter-return-receiver') {
+      filterReturnReceiverOptions(actionNode as HTMLInputElement)
+      return true
+    }
+    if (action === 'select-return-receiver') {
+      if (actionNode) selectReturnReceiver(actionNode)
+      return true
+    }
+    if (action === 'save-sku-adjustment') {
+      const root = document.querySelector<HTMLElement>('[data-post-sku-adjustment-root]')
+      if (!root) throw new Error('未找到当前 SKU 调整表单。')
+      const adjustmentMode = root.querySelector<HTMLInputElement>('[data-post-defect-adjustment-mode]:checked')?.value === 'DECREASE'
+        ? 'DECREASE'
+        : 'INCREASE'
+      const task = savePostFinishingPostSkuAdjustment({
+        postTaskId: actionNode?.dataset.taskId || '',
+        skuId: actionNode?.dataset.skuId || '',
+        adjustmentMode,
+        defectReasonQuantities: Array.from(root.querySelectorAll<HTMLInputElement>('[data-post-defect-reason-qty]')).map((input) => ({
+          reason: input.dataset.reason || '',
+          quantity: Number(input.value || 0),
+        })),
+        returnQty: numberValue(root, '[data-post-adjust-field="returnQty"]'),
+        returnReason: readValue(root, '[data-post-adjust-field="returnReason"]'),
+        returnReceiver: readValue(root, '[data-post-adjust-field="returnReceiver"]'),
+        actor: actor('后道操作员'),
+      })
+      message = '当前 SKU 的瑕疵原因数量与返厂信息已保存。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
       return true
     }
     if (action === 'complete-post') {
       const root = document.querySelector<HTMLElement>('[data-pda-post-task]')!
-      const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-post-result-line]'))
-      const results = lines.map((line) => ({
-        skuId: line.dataset.postResultLine || '',
-        passedQty: numberValue(line, '[data-post-result-field="passedQty"]'),
-        defectQty: numberValue(line, '[data-post-result-field="defectQty"]'),
-        returnQty: numberValue(line, '[data-post-result-field="returnQty"]'),
-        defectReason: readValue(line, '[data-post-result-field="defectReason"]'),
-        defectImageUrl: selectedFileUrl(line, '[data-post-result-file="defectImage"]')
-          || readValue(line, '[data-post-result-field="defectImageUrl"]')
-          || undefined,
-        responsibleParty: readValue(line, '[data-post-result-field="responsibleParty"]'),
-        returnReason: readValue(line, '[data-post-result-field="returnReason"]'),
-        returnReceiver: readValue(line, '[data-post-result-field="returnReceiver"]'),
-      }))
-      const diff = lines.some((line, index) => {
-        const actual = results[index]!.passedQty + results[index]!.defectQty + results[index]!.returnQty
-        const fullChainActual = actual + Number(line.dataset.qcExcludedQty || 0)
-        return Number(line.dataset.expectedQty) !== actual
-          || Number(line.dataset.chainExpectedQty || line.dataset.expectedQty) !== fullChainActual
+      const authorizationValue = readValue(root, '[data-post-authorization]')
+      const completed = completePostFinishingPostTaskFromDraft({
+        postTaskId: actionNode?.dataset.taskId || '',
+        actor: actor('后道操作员'),
+        authorization: authorizationValue
+          ? { scanValue: authorizationValue, differenceReason: readValue(root, '[data-post-difference-reason]') }
+          : undefined,
       })
-      const completed = completePostFinishingPostTask({ postTaskId: actionNode?.dataset.taskId || '', actor: actor('后道操作员'), results, authorization: diff ? { scanValue: readValue(root, '[data-post-authorization]'), differenceReason: readValue(root, '[data-post-difference-reason]') } : undefined })
       message = `后道完成，复检单 ${completed.recheckOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', completed.postTaskNo)
@@ -683,7 +789,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     }
   } catch (error) {
     setError(error)
-    refresh(window.location.pathname, query().get('id') || '')
+    refresh(window.location.pathname, query().get('id') || '', { skuId: query().get('skuId') || '' })
     return true
   }
   return false

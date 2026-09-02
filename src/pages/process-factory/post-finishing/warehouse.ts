@@ -302,7 +302,7 @@ function renderInventoryDrawer(mode: WarehouseMode, rows: WarehouseInventoryRow[
 
 function renderReturnLookupDialog(): string {
   if (!warehouseUi.showReturnLookup) return ''
-  return `<div class="fixed inset-0 z-[170] flex items-center justify-center bg-black/35 p-4"><section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" data-return-lookup-dialog><div class="flex items-center justify-between gap-3"><div><h2 class="font-semibold">回货确认</h2><p class="mt-1 text-xs text-muted-foreground">输入完整送货单号进入回货点数；扫码枪可作为键盘输入设备。</p></div><button type="button" class="rounded-md border px-3 py-2 text-xs" data-post-finishing-action="full-flow-close-overlay">关闭</button></div><label class="mt-4 block text-sm">完整送货单号<input class="mt-1 h-10 w-full rounded-md border px-3 font-mono" data-post-finishing-field="return-order-number" placeholder="请输入完整送货单号" /></label><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-open-return">进入回货确认</button></section></div>`
+  return `<div class="fixed inset-0 z-[170] flex items-center justify-center bg-black/35 p-4"><section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" data-return-lookup-dialog><div class="flex items-start justify-between gap-3"><div><div class="text-xs font-medium text-blue-700">PDA 扫码优先 · Web 应急兜底</div><h2 class="mt-1 font-semibold">扫码收货</h2><p class="mt-1 text-xs text-muted-foreground">PDA 不可用时，在这里扫描或输入完整送货单号；两端进入同一张待确认收货记录。</p></div><button type="button" class="rounded-md border px-3 py-2 text-xs" data-post-finishing-action="full-flow-close-overlay">关闭</button></div><label class="mt-4 block text-sm">扫描或输入完整送货单号<input autofocus class="mt-1 h-11 w-full rounded-md border px-3 font-mono" data-post-finishing-field="return-order-number" data-scan-enter="true" placeholder="扫描枪回车，或手工输入完整单号" /></label><p class="mt-2 text-xs text-muted-foreground">不支持部分单号和模糊代选。</p><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white" data-post-finishing-action="full-flow-open-return">识别送货单并收货</button></section></div>`
 }
 
 function renderWarehouseOverview(mode: WarehouseMode): string {
@@ -325,7 +325,7 @@ function renderWarehouseOverview(mode: WarehouseMode): string {
   if (tab === 'returns' && mode === 'wait-process') content = renderReturnsContent(listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt)))
   return renderStandardListPage({
     title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓',
-    primaryActionsHtml: mode === 'wait-process' ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">回货确认</button>' : '',
+    primaryActionsHtml: mode === 'wait-process' ? '<div class="flex items-center gap-3"><span class="text-xs text-muted-foreground">PDA 扫码优先，Web 保留故障兜底</span><button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">扫码收货（Web 兜底）</button></div>' : '',
     feedbackHtml: renderMessage(),
     filtersHtml: `<div class="space-y-3">${stats}${renderWarehouseTabs(mode, tab)}${renderWarehouseFilters(mode)}</div>`,
     listTitle: content.listTitle,
@@ -369,7 +369,7 @@ function renderConfirmationDetail(record: PostFinishingFactoryReturnDelivery): s
 export function renderPostFinishingWaitProcessWarehousePage(): string {
   const selected = currentDeliveryId() ? getPostFinishingFactoryReturn(currentDeliveryId()) : undefined
   return selected
-    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', '工厂登记形成待确认记录 → Web / PDA 确认入仓 → 从具体送货批次送检出仓')}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
+    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', 'PDA 扫码收货优先；Web 应急确认读取同一待确认记录 → 从具体送货批次送检出仓')}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
     : `<div data-post-finishing-return-page>${renderWarehouseOverview('wait-process')}</div>`
 }
 
@@ -398,7 +398,8 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
   const action = actionNode?.dataset.postFinishingAction
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-post-finishing-field]')
   const field = fieldNode?.dataset.postFinishingField
-  if (!action?.startsWith('full-flow-') && !['prev-page', 'next-page'].includes(action || '') && field !== 'pageSize') return false
+  const openReturnFromEnter = field === 'return-order-number' && event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter'
+  if (!action?.startsWith('full-flow-') && !['prev-page', 'next-page'].includes(action || '') && field !== 'pageSize' && !openReturnFromEnter) return false
   try {
     if (action === 'full-flow-zoom-image' && actionNode?.dataset.imageUrl) {
       showImage(actionNode.dataset.imageUrl, actionNode.dataset.imageLabel || '产品图片')
@@ -448,7 +449,7 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
       refresh('')
       return true
     }
-    if (action === 'full-flow-open-return') {
+    if (action === 'full-flow-open-return' || openReturnFromEnter) {
       const orderNo = document.querySelector<HTMLInputElement>('[data-post-finishing-field="return-order-number"]')?.value.trim() || ''
       const delivery = getPostFinishingFactoryReturn(orderNo)
       if (!delivery || delivery.deliveryOrderNo !== orderNo) throw new Error('未找到完整送货单号，请核对后重新输入。')

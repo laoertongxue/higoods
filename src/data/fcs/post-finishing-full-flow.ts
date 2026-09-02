@@ -330,14 +330,38 @@ export interface PostFinishingQcTask {
 export interface PostFinishingPostResultLine {
   sku: PostFinishingAcceptanceSku
   expectedQty: number
+  completedQty: number
   passedQty: number
   defectQty: number
   returnQty: number
-  defectReason?: string
-  defectImageUrl?: string
-  responsibleParty?: string
+  defectReasonQuantities: PostFinishingDefectReasonQuantity[]
   returnReason?: string
   returnReceiver?: string
+}
+
+export interface PostFinishingDefectReasonQuantity {
+  reason: string
+  quantity: number
+}
+
+export type PostFinishingDefectAdjustmentMode = 'INCREASE' | 'DECREASE'
+
+export interface PostFinishingReturnReceiverOption {
+  value: string
+  label: string
+  description: string
+}
+
+export interface PostFinishingPostDraftLine {
+  skuId: string
+  completedQty: number
+  defectQty: number
+  defectReasonQuantities: PostFinishingDefectReasonQuantity[]
+  returnQty: number
+  returnReason?: string
+  returnReceiver?: string
+  updatedBy?: PostFinishingActor
+  updatedAt?: string
 }
 
 export type PostFinishingPostTaskStatus = '待后道' | '后道中' | '后道完成'
@@ -356,6 +380,9 @@ export interface PostFinishingPostTask {
   lines: Array<{ sku: PostFinishingAcceptanceSku; expectedQty: number }>
   startedBy?: PostFinishingActor
   startedAt?: string
+  draftLines?: PostFinishingPostDraftLine[]
+  lastTakeoverAt?: string
+  lastTakeoverReason?: string
   results?: PostFinishingPostResultLine[]
   completedAt?: string
   postAuthorizationId?: string
@@ -1517,6 +1544,7 @@ function createDefectRecords(input: {
   lines: Array<{
     sku: PostFinishingAcceptanceSku
     defectQty: number
+    defectReasonQuantities?: PostFinishingDefectReasonQuantity[]
     defectReason?: string
     defectImageUrl?: string
     responsibleParty?: string
@@ -1525,21 +1553,25 @@ function createDefectRecords(input: {
   recordedAt: string
 }): void {
   input.lines.filter((line) => line.defectQty > 0).forEach((line) => {
-    state.defects.push({
-      defectId: `PF-DEF-${String(state.defects.length + 1).padStart(6, '0')}`,
-      discoveryStage: input.discoveryStage,
-      sourceObjectId: input.sourceObjectId,
-      sourceObjectNo: input.sourceObjectNo,
-      deliveryOrderNo: input.delivery.deliveryOrderNo,
-      productionOrderNo: input.delivery.productionOrderNo,
-      sku: clone(line.sku),
-      defectQty: line.defectQty,
-      defectReason: line.defectReason || '未填写',
-      evidenceImageUrl: line.defectImageUrl,
-      responsibleParty: line.responsibleParty,
-      dispositionStatus: '待处理',
-      recordedBy: clone(input.actor),
-      recordedAt: input.recordedAt,
+    const reasonQuantities = line.defectReasonQuantities?.filter((item) => item.quantity > 0)
+      ?? [{ reason: line.defectReason || '未填写', quantity: line.defectQty }]
+    reasonQuantities.forEach((item) => {
+      state.defects.push({
+        defectId: `PF-DEF-${String(state.defects.length + 1).padStart(6, '0')}`,
+        discoveryStage: input.discoveryStage,
+        sourceObjectId: input.sourceObjectId,
+        sourceObjectNo: input.sourceObjectNo,
+        deliveryOrderNo: input.delivery.deliveryOrderNo,
+        productionOrderNo: input.delivery.productionOrderNo,
+        sku: clone(line.sku),
+        defectQty: item.quantity,
+        defectReason: item.reason,
+        evidenceImageUrl: line.defectImageUrl,
+        responsibleParty: line.responsibleParty,
+        dispositionStatus: '待处理',
+        recordedBy: clone(input.actor),
+        recordedAt: input.recordedAt,
+      })
     })
   })
 }
@@ -1712,6 +1744,282 @@ export function completePostFinishingQcTask(input: {
   return clone(task)
 }
 
+function normalizeLegacyPostDefectReasons(value: unknown, defectQty: number): PostFinishingDefectReasonQuantity[] {
+  if (Array.isArray(value)) {
+    const normalized = value.flatMap((item) => {
+      if (!item || typeof item !== 'object') return []
+      const reason = String((item as { reason?: unknown }).reason || '').trim()
+      const quantity = Number((item as { quantity?: unknown }).quantity)
+      if (!reason || !Number.isInteger(quantity) || quantity <= 0) return []
+      return [{ reason, quantity }]
+    })
+    if (total(normalized.map((item) => item.quantity)) === defectQty) return normalized
+  }
+  if (defectQty <= 0) return []
+  const legacyReason = typeof value === 'string' && value.trim() ? value.trim() : '其他'
+  const reason = POST_FINISHING_DEFECT_REASON_OPTIONS.includes(legacyReason as typeof POST_FINISHING_DEFECT_REASON_OPTIONS[number])
+    ? legacyReason
+    : '其他'
+  return [{ reason, quantity: defectQty }]
+}
+
+function normalizePostDefectReasonQuantities(
+  values: PostFinishingDefectReasonQuantity[],
+  label: string,
+): PostFinishingDefectReasonQuantity[] {
+  const seen = new Set<string>()
+  return values.flatMap((item) => {
+    const reason = item.reason.trim()
+    assertIntegerQuantity(item.quantity, { label: `${label}${reason ? `（${reason}）` : ''}` })
+    if (!reason || !POST_FINISHING_DEFECT_REASON_OPTIONS.includes(reason as typeof POST_FINISHING_DEFECT_REASON_OPTIONS[number])) {
+      throw new PostFinishingFlowGateError('DEFECT_REASON_REQUIRED', `${label}必须选择系统提供的具体瑕疵原因。`)
+    }
+    if (seen.has(reason)) {
+      throw new PostFinishingFlowGateError('INVALID_STATUS', `${label}中的瑕疵原因“${reason}”不能重复。`)
+    }
+    seen.add(reason)
+    return item.quantity > 0 ? [{ reason, quantity: item.quantity }] : []
+  })
+}
+
+function ensurePostFinishingPostDraftLines(task: PostFinishingPostTask): PostFinishingPostDraftLine[] {
+  const current = task.draftLines ?? []
+  task.draftLines = task.lines.map((line) => {
+    const draft = current.find((item) => item.skuId === line.sku.skuId) as (PostFinishingPostDraftLine & {
+      defectReason?: string
+    }) | undefined
+    const result = task.results?.find((item) => item.sku.skuId === line.sku.skuId) as (PostFinishingPostResultLine & {
+      defectReason?: string
+    }) | undefined
+    const defectQty = draft?.defectQty ?? result?.defectQty ?? 0
+    return {
+      skuId: line.sku.skuId,
+      completedQty: draft?.completedQty ?? result?.completedQty ?? 0,
+      defectQty,
+      defectReasonQuantities: normalizeLegacyPostDefectReasons(
+        draft?.defectReasonQuantities ?? draft?.defectReason ?? result?.defectReasonQuantities ?? result?.defectReason,
+        defectQty,
+      ),
+      returnQty: draft?.returnQty ?? result?.returnQty ?? 0,
+      returnReason: draft?.returnReason ?? result?.returnReason,
+      returnReceiver: draft?.returnReceiver ?? result?.returnReceiver,
+      updatedBy: draft?.updatedBy,
+      updatedAt: draft?.updatedAt,
+    }
+  })
+  return task.draftLines
+}
+
+export function listPostFinishingPostReturnReceiverOptions(postTaskIdOrNo: string): PostFinishingReturnReceiverOption[] {
+  const task = findPostTask(postTaskIdOrNo)
+  const delivery = findDelivery(task.deliveryId)
+  const candidates: PostFinishingReturnReceiverOption[] = [
+    { value: delivery.sewingFactoryName, label: delivery.sewingFactoryName, description: '本次来源车缝工厂' },
+    { value: delivery.managedPostFactoryName, label: delivery.managedPostFactoryName, description: '当前后道工厂' },
+    ...POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.flatMap((order) => [
+      { value: order.sewingFactoryName, label: order.sewingFactoryName, description: '车缝工厂' },
+      { value: order.managedPostFactoryName, label: order.managedPostFactoryName, description: '后道工厂' },
+    ]),
+  ]
+  return candidates.filter((item, index) => candidates.findIndex((candidate) => candidate.value === item.value) === index)
+}
+
+function assertPostFinishingPostTaskOwner(task: PostFinishingPostTask, actor: PostFinishingActor): void {
+  if (task.status !== '后道中') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '必须先开始后道才能更新加工进度。')
+  }
+  if (!task.startedBy || task.startedBy.actorId !== actor.actorId) {
+    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', `当前任务由 ${task.startedBy?.actorName || '其他操作员'} 处理，请先完成应急接管。`)
+  }
+}
+
+export function takeOverPostFinishingPostTask(input: {
+  postTaskId: string
+  actor: PostFinishingActor
+  reason: string
+  nowMs?: number
+}): PostFinishingPostTask {
+  const task = findPostTask(input.postTaskId)
+  if (task.status !== '后道中') throw new PostFinishingFlowGateError('INVALID_STATUS', '只有加工中的后道单可以应急接管。')
+  const reason = input.reason.trim()
+  if (!reason) throw new PostFinishingFlowGateError('INVALID_STATUS', 'Web 应急接管必须填写原因。')
+  if (task.startedBy?.actorId === input.actor.actorId) return clone(task)
+  const delivery = findDelivery(task.deliveryId)
+  const previousOperator = task.startedBy?.actorName || '未记录'
+  const now = nowIso(input.nowMs)
+  task.startedBy = clone(input.actor)
+  task.lastTakeoverAt = now
+  task.lastTakeoverReason = reason
+  ensurePostFinishingPostDraftLines(task)
+  persist()
+  appendBusinessLog({
+    stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    action: 'Web应急接管后道', actor: input.actor, operatedAt: now,
+    beforeStatus: '后道中', afterStatus: '后道中',
+    remark: `原操作人：${previousOperator}；接管原因：${reason}`,
+  })
+  return clone(task)
+}
+
+export function setPostFinishingPostCompletedQuantity(input: {
+  postTaskId: string
+  skuId: string
+  completedQty: number
+  actor: PostFinishingActor
+  nowMs?: number
+}): PostFinishingPostTask {
+  const task = findPostTask(input.postTaskId)
+  assertPostFinishingPostTaskOwner(task, input.actor)
+  const line = task.lines.find((item) => item.sku.skuId === input.skuId)
+  if (!line) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到当前 SKU。')
+  assertIntegerQuantity(input.completedQty, { label: `SKU ${line.sku.skuCode} 后道完成数量` })
+  if (input.completedQty > line.expectedQty) {
+    throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的后道完成数量不能超过应加工 ${line.expectedQty} 件。`)
+  }
+  const draft = ensurePostFinishingPostDraftLines(task).find((item) => item.skuId === input.skuId)!
+  if (draft.defectQty + draft.returnQty > input.completedQty) {
+    throw new PostFinishingFlowGateError(
+      'INVALID_QUANTITY',
+      `SKU ${line.sku.skuCode} 已有瑕疵与返厂 ${draft.defectQty + draft.returnQty} 件，完成数量不能低于该数量。`,
+    )
+  }
+  const before = draft.completedQty
+  if (before === input.completedQty) return clone(task)
+  draft.completedQty = input.completedQty
+  const now = nowIso(input.nowMs)
+  draft.updatedBy = clone(input.actor)
+  draft.updatedAt = now
+  persist()
+  appendBusinessLog({
+    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    action: '填报后道完成数量', actor: input.actor, operatedAt: now,
+    beforeQuantity: before, afterQuantity: input.completedQty, differenceQuantity: input.completedQty - before,
+    remark: `${line.sku.skuCode}；完成 ${input.completedQty} / 应加工 ${line.expectedQty} 件`,
+  })
+  return clone(task)
+}
+
+export function savePostFinishingPostSkuAdjustment(input: {
+  postTaskId: string
+  skuId: string
+  adjustmentMode: PostFinishingDefectAdjustmentMode
+  defectReasonQuantities: PostFinishingDefectReasonQuantity[]
+  returnQty: number
+  returnReason?: string
+  returnReceiver?: string
+  actor: PostFinishingActor
+  nowMs?: number
+}): PostFinishingPostTask {
+  const task = findPostTask(input.postTaskId)
+  assertPostFinishingPostTaskOwner(task, input.actor)
+  const line = task.lines.find((item) => item.sku.skuId === input.skuId)
+  if (!line) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到当前 SKU。')
+  assertIntegerQuantity(input.returnQty, { label: `SKU ${line.sku.skuCode} 后道返厂数量` })
+  if (!['INCREASE', 'DECREASE'].includes(input.adjustmentMode)) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '必须选择增加瑕疵或减少瑕疵。')
+  }
+  const deltas = normalizePostDefectReasonQuantities(input.defectReasonQuantities, `SKU ${line.sku.skuCode} 瑕疵数量`)
+  const draft = ensurePostFinishingPostDraftLines(task).find((item) => item.skuId === input.skuId)!
+  const reasonTotals = new Map(draft.defectReasonQuantities.map((item) => [item.reason, item.quantity]))
+  deltas.forEach((item) => {
+    const before = reasonTotals.get(item.reason) || 0
+    if (input.adjustmentMode === 'DECREASE' && item.quantity > before) {
+      throw new PostFinishingFlowGateError(
+        'INVALID_QUANTITY',
+        `${line.sku.skuCode} 的“${item.reason}”当前只有 ${before} 件，不能减少 ${item.quantity} 件。`,
+      )
+    }
+    reasonTotals.set(item.reason, input.adjustmentMode === 'INCREASE' ? before + item.quantity : before - item.quantity)
+  })
+  const defectReasonQuantities = POST_FINISHING_DEFECT_REASON_OPTIONS.flatMap((reason) => {
+    const quantity = reasonTotals.get(reason) || 0
+    return quantity > 0 ? [{ reason, quantity }] : []
+  })
+  const defectQty = total(defectReasonQuantities.map((item) => item.quantity))
+  const adjustedQty = defectQty + input.returnQty
+  const adjustmentLimit = draft.completedQty > 0 ? draft.completedQty : line.expectedQty
+  if (adjustedQty > adjustmentLimit) {
+    throw new PostFinishingFlowGateError(
+      'INVALID_QUANTITY',
+      draft.completedQty > 0
+        ? `SKU ${line.sku.skuCode} 的瑕疵与返厂合计不能超过已填完成数量 ${draft.completedQty} 件。`
+        : `SKU ${line.sku.skuCode} 的瑕疵与返厂合计不能超过应加工 ${line.expectedQty} 件。`,
+    )
+  }
+  const returnReason = input.returnReason?.trim() || ''
+  const returnReceiver = input.returnReceiver?.trim() || ''
+  if (input.returnQty > 0 && (!returnReason || !returnReceiver)) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `SKU ${line.sku.skuCode} 有返厂数量时必须填写返厂原因并选择接收对象。`)
+  }
+  if (input.returnQty > 0 && !listPostFinishingPostReturnReceiverOptions(task.postTaskId).some((item) => item.value === returnReceiver)) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `SKU ${line.sku.skuCode} 的返厂接收对象必须从列表中选择。`)
+  }
+  const beforeQty = draft.defectQty + draft.returnQty
+  const now = nowIso(input.nowMs)
+  Object.assign(draft, {
+    defectQty,
+    defectReasonQuantities,
+    returnQty: input.returnQty,
+    returnReason: input.returnQty > 0 ? returnReason : undefined,
+    returnReceiver: input.returnQty > 0 ? returnReceiver : undefined,
+    updatedBy: clone(input.actor),
+    updatedAt: now,
+  })
+  persist()
+  appendBusinessLog({
+    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    action: deltas.length ? `${input.adjustmentMode === 'INCREASE' ? '增加' : '减少'}后道瑕疵` : '调整后道返厂',
+    actor: input.actor, operatedAt: now,
+    beforeQuantity: beforeQty, afterQuantity: defectQty + input.returnQty,
+    differenceQuantity: defectQty + input.returnQty - beforeQty,
+    remark: `${line.sku.skuCode}；${deltas.length ? deltas.map((item) => `${item.reason} ${input.adjustmentMode === 'INCREASE' ? '+' : '-'}${item.quantity} 件`).join('、') : '瑕疵未调整'}；当前瑕疵 ${defectQty} 件；返厂 ${input.returnQty} 件`,
+  })
+  return clone(task)
+}
+
+export function completePostFinishingPostTaskFromDraft(input: {
+  postTaskId: string
+  actor: PostFinishingActor
+  authorization?: PostFinishingAuthorizationInput
+  nowMs?: number
+}): PostFinishingPostTask {
+  const task = findPostTask(input.postTaskId)
+  assertPostFinishingPostTaskOwner(task, input.actor)
+  const drafts = ensurePostFinishingPostDraftLines(task)
+  const results = task.lines.map((line) => {
+    const draft = drafts.find((item) => item.skuId === line.sku.skuId)!
+    const adjustedQty = draft.defectQty + draft.returnQty
+    const completedQty = draft.completedQty > 0
+      ? draft.completedQty
+      : adjustedQty === line.expectedQty
+        ? line.expectedQty
+        : 0
+    if (line.expectedQty > 0 && completedQty <= 0) {
+      throw new PostFinishingFlowGateError(
+        'INVALID_QUANTITY',
+        `请填写 SKU ${line.sku.skuCode} 的后道完成数量；若整批均为瑕疵或返厂，请先按原因登记全部 ${line.expectedQty} 件。`,
+      )
+    }
+    if (completedQty > line.expectedQty) {
+      throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的后道完成数量不能超过应加工 ${line.expectedQty} 件。`)
+    }
+    if (adjustedQty > completedQty) {
+      throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的瑕疵与返厂合计不能超过完成数量。`)
+    }
+    return {
+      skuId: line.sku.skuId,
+      completedQty,
+      passedQty: completedQty - draft.defectQty - draft.returnQty,
+      defectQty: draft.defectQty,
+      returnQty: draft.returnQty,
+      defectReasonQuantities: clone(draft.defectReasonQuantities),
+      returnReason: draft.returnReason,
+      returnReceiver: draft.returnReceiver,
+    }
+  })
+  return completePostFinishingPostTask({ ...input, results })
+}
+
 export function startPostFinishingPostTask(input: {
   postTaskNo: string
   actor: PostFinishingActor
@@ -1737,11 +2045,16 @@ export function startPostFinishingPostTask(input: {
     task.status = '后道中'
     task.startedBy = clone(input.actor)
     task.startedAt = now
+    ensurePostFinishingPostDraftLines(task)
     persist()
     appendBusinessLog({
       stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
       action: '开始后道', actor: input.actor, operatedAt: now, beforeStatus: '待后道', afterStatus: task.status,
     })
+  }
+  if (task.status === '后道中' && !task.draftLines) {
+    ensurePostFinishingPostDraftLines(task)
+    persist()
   }
   return clone(task)
 }
@@ -1749,7 +2062,15 @@ export function startPostFinishingPostTask(input: {
 export function completePostFinishingPostTask(input: {
   postTaskId: string
   actor: PostFinishingActor
-  results: Array<Omit<PostFinishingPostResultLine, 'sku' | 'expectedQty'> & { skuId: string }>
+  results: Array<
+    Omit<PostFinishingPostResultLine, 'sku' | 'expectedQty' | 'completedQty' | 'defectReasonQuantities'>
+    & {
+      skuId: string
+      completedQty?: number
+      defectReasonQuantities?: PostFinishingDefectReasonQuantity[]
+      defectReason?: string
+    }
+  >
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingPostTask {
@@ -1768,17 +2089,34 @@ export function completePostFinishingPostTask(input: {
     assertIntegerQuantity(submitted.passedQty, { label: `SKU ${line.sku.skuCode} 后道合格数量` })
     assertIntegerQuantity(submitted.defectQty, { label: `SKU ${line.sku.skuCode} 后道瑕疵数量` })
     assertIntegerQuantity(submitted.returnQty, { label: `SKU ${line.sku.skuCode} 后道返厂数量` })
-    if (submitted.defectQty > 0 && !submitted.defectReason?.trim()) {
-      throw new PostFinishingFlowGateError('DEFECT_REASON_REQUIRED', `SKU ${line.sku.skuCode} 有后道瑕疵时必须填写瑕疵原因。`)
+    const completedQty = submitted.completedQty ?? submitted.passedQty + submitted.defectQty + submitted.returnQty
+    assertIntegerQuantity(completedQty, { label: `SKU ${line.sku.skuCode} 后道完成数量` })
+    if (completedQty > line.expectedQty) {
+      throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的后道完成数量不能超过应加工 ${line.expectedQty} 件。`)
+    }
+    if (submitted.passedQty + submitted.defectQty + submitted.returnQty !== completedQty) {
+      throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的合格、瑕疵与返厂合计必须等于完成数量 ${completedQty} 件。`)
+    }
+    const defectReasonQuantities = normalizePostDefectReasonQuantities(
+      submitted.defectReasonQuantities
+        ?? (submitted.defectQty > 0 && submitted.defectReason?.trim()
+          ? [{ reason: submitted.defectReason.trim(), quantity: submitted.defectQty }]
+          : []),
+      `SKU ${line.sku.skuCode} 瑕疵数量`,
+    )
+    if (total(defectReasonQuantities.map((item) => item.quantity)) !== submitted.defectQty) {
+      throw new PostFinishingFlowGateError('INVALID_QUANTITY', `SKU ${line.sku.skuCode} 的各瑕疵原因数量合计必须等于瑕疵总数 ${submitted.defectQty} 件。`)
     }
     if (submitted.returnQty > 0 && (!submitted.returnReason?.trim() || !submitted.returnReceiver?.trim())) {
-      throw new Error(`SKU ${line.sku.skuCode} 有后道返厂数量时必须填写返厂原因和接收责任方。`)
+      throw new Error(`SKU ${line.sku.skuCode} 有后道返厂数量时必须填写返厂原因并选择接收对象。`)
+    }
+    if (submitted.returnQty > 0 && !listPostFinishingPostReturnReceiverOptions(task.postTaskId).some((item) => item.value === submitted.returnReceiver?.trim())) {
+      throw new PostFinishingFlowGateError('INVALID_STATUS', `SKU ${line.sku.skuCode} 的返厂接收对象必须从列表中选择。`)
     }
     return {
       sku: clone(line.sku), expectedQty: line.expectedQty,
-      passedQty: submitted.passedQty, defectQty: submitted.defectQty, returnQty: submitted.returnQty,
-      defectReason: submitted.defectReason?.trim(), defectImageUrl: submitted.defectImageUrl,
-      responsibleParty: submitted.responsibleParty, returnReason: submitted.returnReason?.trim(),
+      completedQty, passedQty: submitted.passedQty, defectQty: submitted.defectQty, returnQty: submitted.returnQty,
+      defectReasonQuantities, returnReason: submitted.returnReason?.trim(),
       returnReceiver: submitted.returnReceiver?.trim(),
     }
   })

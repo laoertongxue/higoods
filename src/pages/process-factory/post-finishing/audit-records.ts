@@ -40,6 +40,14 @@ interface ChainRow {
   currentStatus: string
 }
 
+type AuditDetailTab = 'overview' | 'differences' | 'timeline'
+
+const AUDIT_DETAIL_TABS: Array<{ key: AuditDetailTab; label: string }> = [
+  { key: 'overview', label: '业务链总览' },
+  { key: 'differences', label: '差异与瑕疵' },
+  { key: 'timeline', label: '操作时间线' },
+]
+
 function query(): URLSearchParams {
   return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
 }
@@ -198,28 +206,75 @@ const columns: StandardListColumn<ChainRow>[] = [
   },
 ]
 
-function renderChainNodes(row: ChainRow): string {
-  const nodes = [
-    ['回货单', row.delivery.deliveryOrderNo, row.delivery.status],
-    ['质检任务', row.trace.qcTask?.qcTaskNo || '未生成', row.trace.qcTask?.status || '未开始'],
-    ['后道任务', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
-    ['复检单', row.trace.recheckOrder?.recheckOrderNo || '未生成', row.trace.recheckOrder?.status || '未开始'],
-    ['待交出仓', row.trace.waitHandoverRecord?.warehouseRecordId || '未入仓', row.trace.waitHandoverRecord?.status || '未开始'],
-    ['出货单', row.trace.outboundOrder?.outboundOrderNo || '未生成', row.trace.outboundOrder?.status || '未开始'],
-  ]
-  return `<div class="grid gap-2 lg:grid-cols-6">${nodes.map(([label, no, status]) => `<div class="rounded-lg border bg-slate-50 p-3"><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 break-all font-mono text-xs font-semibold">${escapeHtml(no)}</div><div class="mt-2 text-xs">${escapeHtml(status)}</div></div>`).join('')}</div>`
+function auditDetailHref(row: ChainRow, detailTab: AuditDetailTab): string {
+  return `/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.delivery.deliveryId)}&detailTab=${detailTab}`
 }
 
-function renderDetail(row: ChainRow): string {
+function selectedAuditDetailTab(params: URLSearchParams): AuditDetailTab {
+  const tab = params.get('detailTab') || 'overview'
+  return AUDIT_DETAIL_TABS.some((item) => item.key === tab) ? tab as AuditDetailTab : 'overview'
+}
+
+function renderDetailTabs(row: ChainRow, activeTab: AuditDetailTab): string {
+  return `<nav class="flex overflow-hidden rounded-lg border bg-white" aria-label="业务链详情分类">${AUDIT_DETAIL_TABS.map((tab) => `<a href="${escapeHtml(auditDetailHref(row, tab.key))}" data-nav="${escapeHtml(auditDetailHref(row, tab.key))}" class="flex-1 border-r px-3 py-2.5 text-center text-sm last:border-r-0 ${tab.key === activeTab ? 'bg-blue-600 font-semibold text-white' : 'text-slate-600 hover:bg-slate-50'}">${escapeHtml(tab.label)}${tab.key === 'differences' && row.differences.length ? ` (${row.differences.length})` : ''}</a>`).join('')}</nav>`
+}
+
+function renderChainNode(label: string, no: string, status: string): string {
+  return `<div class="min-w-0 rounded-lg bg-slate-50 px-3 py-3"><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 truncate font-mono text-xs font-semibold" title="${escapeHtml(no)}">${escapeHtml(no)}</div><div class="mt-2 text-xs">${escapeHtml(status)}</div></div>`
+}
+
+function renderOverviewDetail(row: ChainRow): string {
+  const groups = [
+    {
+      title: '1. 回货与质检',
+      description: '工厂回货进入待加工仓，确认后发起质检。',
+      nodes: [
+        ['回货单', row.delivery.deliveryOrderNo, row.delivery.status],
+        ['质检任务', row.trace.qcTask?.qcTaskNo || '未生成', row.trace.qcTask?.status || '未开始'],
+      ],
+    },
+    {
+      title: '2. 后道与复检',
+      description: '质检通过后进入后道；完成后生成复检单。',
+      nodes: [
+        ['后道任务', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
+        ['复检单', row.trace.recheckOrder?.recheckOrderNo || '未生成', row.trace.recheckOrder?.status || '未开始'],
+      ],
+    },
+    {
+      title: '3. 交出与收货',
+      description: '复检通过后进入待交出仓，出货并由仓库确认收货。',
+      nodes: [
+        ['待交出仓', row.trace.waitHandoverRecord?.warehouseRecordId || '未入仓', row.trace.waitHandoverRecord?.status || '未开始'],
+        ['出货单', row.trace.outboundOrder?.outboundOrderNo || '未生成', row.trace.outboundOrder?.status || '未开始'],
+      ],
+    },
+  ]
+  return `<section class="rounded-xl border bg-white p-4"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-semibold">按阶段查看单据链</h3><p class="mt-1 text-xs text-muted-foreground">同一次回货按三个业务阶段归组；不再将所有单据平铺在一行。</p></div><div class="text-right text-xs text-muted-foreground">当前环节<div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(row.currentStage)}</div></div></div><div class="mt-4 grid gap-3 xl:grid-cols-3">${groups.map((group) => `<section class="rounded-xl border p-3"><h4 class="text-sm font-semibold">${escapeHtml(group.title)}</h4><p class="mt-1 min-h-8 text-xs text-muted-foreground">${escapeHtml(group.description)}</p><div class="mt-3 space-y-2">${group.nodes.map(([label, no, status]) => renderChainNode(label, no, status)).join('')}</div></section>`).join('')}</div></section>`
+}
+
+function renderDifferenceDetail(row: ChainRow): string {
   const defects = listPostFinishingDefectRecords().filter((record) => record.deliveryOrderNo === row.delivery.deliveryOrderNo)
+  return `<div class="space-y-4"><section class="rounded-xl border bg-white p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">逐 SKU 数量差异</h3><p class="mt-1 text-xs text-muted-foreground">这里只显示有差异的 SKU；授权人和数量口径保留在同一行。</p></div><span class="rounded-full px-3 py-1 text-sm font-semibold ${row.differences.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">${row.differences.length} 条</span></div><div class="mt-3 overflow-x-auto"><table class="min-w-[820px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">环节</th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">应有</th><th class="px-3 py-2">实有</th><th class="px-3 py-2">差异</th><th class="px-3 py-2">授权人</th></tr></thead><tbody class="divide-y">${row.differences.map((line) => `<tr><td class="px-3 py-3">${escapeHtml(line.stage)}</td><td class="px-3 py-3"><div class="flex items-center gap-2"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-10 w-10 rounded-md border object-cover" /><div><div class="font-mono text-xs font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3">${line.expectedQty} 件</td><td class="px-3 py-3">${line.actualQty} 件</td><td class="px-3 py-3 font-semibold text-amber-700">${line.direction} ${line.differenceQty} 件</td><td class="px-3 py-3">${escapeHtml(line.authorization)}</td></tr>`).join('') || '<tr><td colspan="6" class="px-6 py-10 text-center text-emerald-700">当前已发生环节没有逐 SKU 数量差异。</td></tr>'}</tbody></table></div></section><section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">瑕疵记录</h3><p class="mt-1 text-xs text-muted-foreground">按 SKU 展示质检和后道记录；没有记录时保持空态。</p><div class="mt-3 grid gap-2 lg:grid-cols-2">${defects.map((record) => `<div class="rounded-lg border p-3 text-sm"><div class="flex items-center justify-between gap-2"><span class="font-semibold">${escapeHtml(record.sku.skuCode)} · ${record.defectQty} 件瑕疵</span><span class="text-xs text-muted-foreground">${escapeHtml(record.discoveryStage)}</span></div><div class="mt-1 text-xs">${escapeHtml(record.defectReason)} · ${escapeHtml(record.responsibleParty || '责任待确认')}</div><div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(record.sourceObjectNo)} / ${escapeHtml(record.recordedBy.actorName)}</div></div>`).join('') || '<div class="text-sm text-muted-foreground">本次业务链暂无瑕疵记录。</div>'}</div></section></div>`
+}
+
+function renderTimelineDetail(row: ChainRow): string {
   const timeline = [...row.logs].sort((a, b) => a.operatedAt.localeCompare(b.operatedAt))
-  return `<section class="space-y-4 rounded-xl border border-blue-200 bg-blue-50/40 p-4" data-audit-chain-detail="${escapeHtml(row.delivery.deliveryId)}">
-    <div class="flex flex-wrap items-start justify-between gap-3"><div><a href="/fcs/craft/post-finishing/audit-records" data-nav="/fcs/craft/post-finishing/audit-records" class="text-sm text-blue-700 hover:underline">← 返回业务链列表</a><h2 class="mt-2 text-lg font-semibold">${escapeHtml(row.delivery.productionOrderNo)} · 第 ${row.delivery.returnIndex} 次回货</h2><p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.delivery.deliveryOrderNo)}</p></div><div class="text-right"><div class="text-xs text-muted-foreground">${escapeHtml(row.currentStage)}</div><div class="mt-1">${renderPostStatusBadge(row.currentStatus)}</div></div></div>
-    <section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">单据链路</h3><p class="mt-1 text-xs text-muted-foreground">一行代表一次回货链；下游单据按同一送货单关联。</p><div class="mt-3">${renderChainNodes(row)}</div></section>
-    <section class="rounded-xl border bg-white p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">逐 SKU 差异</h3><p class="mt-1 text-xs text-muted-foreground">只展示存在差异的 SKU；回货确认允许上下浮动 5%，回货后的后续环节只要有差异就必须授权。</p></div><span class="text-sm ${row.differences.length ? 'text-amber-700' : 'text-emerald-700'}">${row.differences.length} 条</span></div><div class="mt-3 overflow-x-auto"><table class="min-w-[820px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">环节</th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">应有</th><th class="px-3 py-2">实有</th><th class="px-3 py-2">差异</th><th class="px-3 py-2">授权人</th></tr></thead><tbody class="divide-y">${row.differences.map((line) => `<tr><td class="px-3 py-3">${escapeHtml(line.stage)}</td><td class="px-3 py-3"><div class="flex items-center gap-2"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-10 w-10 rounded-md border object-cover" /><div><div class="font-mono text-xs font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3">${line.expectedQty} 件</td><td class="px-3 py-3">${line.actualQty} 件</td><td class="px-3 py-3 font-semibold text-amber-700">${line.direction} ${line.differenceQty} 件</td><td class="px-3 py-3">${escapeHtml(line.authorization)}</td></tr>`).join('') || '<tr><td colspan="6" class="px-6 py-10 text-center text-emerald-700">当前已发生环节没有逐 SKU 数量差异。</td></tr>'}</tbody></table></div></section>
-    <section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">操作时间线</h3><p class="mt-1 text-xs text-muted-foreground">保留操作人、时间、动作、状态变化、数量差异与授权事实，可按业务链回溯。</p><ol class="mt-4 space-y-3">${timeline.map((log, index) => `<li class="grid gap-2 rounded-lg border p-3 md:grid-cols-[32px_170px_1fr]"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800">${index + 1}</span><div class="text-xs"><div class="font-semibold">${escapeHtml(new Date(log.operatedAt).toLocaleString('zh-CN'))}</div><div class="mt-1 text-muted-foreground">${escapeHtml(log.operatorName)} · ${escapeHtml(log.stage)}</div></div><div class="text-sm"><div class="font-semibold">${escapeHtml(log.action)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${log.beforeStatus || '—'} → ${log.afterStatus || '—'}`)}${log.differenceQuantity === undefined ? '' : ` · 差异 ${log.differenceQuantity} 件`}${log.authorizerName ? ` · 授权人 ${log.authorizerName}` : ''}</div>${log.remark ? `<div class="mt-1 text-xs">${escapeHtml(log.remark)}</div>` : ''}</div></li>`).join('') || '<li class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">暂无操作记录。</li>'}</ol></section>
-    <section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">统一瑕疵记录</h3><p class="mt-1 text-xs text-muted-foreground">质检与后道使用相同的“瑕疵”处理口径。</p><div class="mt-3 grid gap-2 lg:grid-cols-2">${defects.map((record) => `<div class="rounded-lg border p-3 text-sm"><div class="flex items-center justify-between gap-2"><span class="font-semibold">${escapeHtml(record.sku.skuCode)} · ${record.defectQty} 件瑕疵</span><span class="text-xs text-muted-foreground">${escapeHtml(record.discoveryStage)}</span></div><div class="mt-1 text-xs">${escapeHtml(record.defectReason)} · ${escapeHtml(record.responsibleParty || '责任待确认')}</div><div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(record.sourceObjectNo)} / ${escapeHtml(record.recordedBy.actorName)}</div></div>`).join('') || '<div class="text-sm text-muted-foreground">本次业务链暂无瑕疵记录。</div>'}</div></section>
-  </section>`
+  const stageOrder = ['回货登记', '回货确认', '送检', '质检', '后道', '复检', '待交出仓', '出货', '仓库收货', '授权']
+  const stages = Array.from(new Set([...stageOrder, ...timeline.map((log) => log.stage)]))
+    .map((stage) => ({ stage, logs: timeline.filter((log) => log.stage === stage) }))
+    .filter((group) => group.logs.length)
+  let sequence = 0
+  return `<section class="rounded-xl border bg-white p-4"><h3 class="font-semibold">按环节归组的操作记录</h3><p class="mt-1 text-xs text-muted-foreground">先选择业务环节，再查看该环节内的操作人、时间、状态、数量差异和授权事实。</p><div class="mt-4 space-y-3">${stages.map((group, groupIndex) => `<details class="rounded-xl border" ${groupIndex === stages.length - 1 ? 'open' : ''}><summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><span class="font-semibold">${escapeHtml(group.stage)}</span><span class="text-xs text-muted-foreground">${group.logs.length} 条操作</span></summary><ol class="space-y-2 border-t bg-slate-50/50 p-3">${group.logs.map((log) => { sequence += 1; return `<li class="grid gap-2 rounded-lg bg-white p-3 md:grid-cols-[32px_170px_1fr]"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800">${sequence}</span><div class="text-xs"><div class="font-semibold">${escapeHtml(new Date(log.operatedAt).toLocaleString('zh-CN'))}</div><div class="mt-1 text-muted-foreground">${escapeHtml(log.operatorName)}</div></div><div class="text-sm"><div class="font-semibold">${escapeHtml(log.action)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${log.beforeStatus || '—'} → ${log.afterStatus || '—'}`)}${log.differenceQuantity === undefined ? '' : ` · 差异 ${log.differenceQuantity} 件`}${log.authorizerName ? ` · 授权人 ${escapeHtml(log.authorizerName)}` : ''}</div>${log.remark ? `<div class="mt-1 text-xs">${escapeHtml(log.remark)}</div>` : ''}</div></li>` }).join('')}</ol></details>`).join('') || '<div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">暂无操作记录。</div>'}</div></section>`
+}
+
+function renderDetail(row: ChainRow, activeTab: AuditDetailTab): string {
+  const content = activeTab === 'differences'
+    ? renderDifferenceDetail(row)
+    : activeTab === 'timeline'
+      ? renderTimelineDetail(row)
+      : renderOverviewDetail(row)
+  return `<section class="space-y-4 rounded-xl border border-blue-200 bg-blue-50/40 p-4" data-audit-chain-detail="${escapeHtml(row.delivery.deliveryId)}" data-audit-detail-tab="${activeTab}"><div class="flex flex-wrap items-start justify-between gap-3"><div><a href="/fcs/craft/post-finishing/audit-records" data-nav="/fcs/craft/post-finishing/audit-records" class="text-sm text-blue-700 hover:underline">← 返回业务链列表</a><h2 class="mt-2 text-lg font-semibold">${escapeHtml(row.delivery.productionOrderNo)} · 第 ${row.delivery.returnIndex} 次回货</h2><p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.delivery.deliveryOrderNo)}</p></div><div class="text-right"><div class="text-xs text-muted-foreground">${escapeHtml(row.currentStage)}</div><div class="mt-1">${renderPostStatusBadge(row.currentStatus)}</div></div></div>${renderDetailTabs(row, activeTab)}${content}</section>`
 }
 
 export function renderPostFinishingAuditRecordsPage(): string {
@@ -237,10 +292,11 @@ export function renderPostFinishingAuditRecordsPage(): string {
   const slice = paginateStandardListRows(rows, Number(params.get('page') || 1), pageSize)
   const preferences: StandardListColumnPreferences = { order: columns.map((column) => column.key), visibleKeys: columns.map((column) => column.key), frozenKeys: ['delivery'], pageSize }
   const selected = allRows.find((row) => row.delivery.deliveryId === params.get('deliveryId'))
+  const activeDetailTab = selectedAuditDetailTab(params)
   const filtersHtml = `<form action="/fcs/craft/post-finishing/audit-records" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-8"><label class="text-xs text-muted-foreground xl:col-span-2">生产单 / 回货单 / 下游单号<input name="keyword" value="${escapeHtml(params.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="按业务链查询" /></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${Array.from(new Set(allRows.map((row) => row.currentStatus))).map((value) => `<option ${value === status ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">开始日期<input type="date" name="startedAt" value="${escapeHtml(params.get('startedAt') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">结束日期<input type="date" name="endedAt" value="${escapeHtml(params.get('endedAt') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">操作人<input name="operator" value="${escapeHtml(params.get('operator') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">授权人<input name="authorizer" value="${escapeHtml(params.get('authorizer') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">差异方向<select name="direction" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${['多','少'].map((value) => `<option ${value === params.get('direction') ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">授权结果<select name="authorizationResult" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${['成功','过期','已使用','无效'].map((value) => `<option ${value === params.get('authorizationResult') ? 'selected' : ''}>${value}</option>`).join('')}</select></label><button class="h-9 self-end rounded-md border px-5 text-sm md:col-span-4 xl:col-span-8">查询</button></form>`
   return renderStandardListPage({
     title: '差异与操作日志',
-    feedbackHtml: selected ? renderDetail(selected) : '',
+    feedbackHtml: selected ? renderDetail(selected, activeDetailTab) : '',
     filtersHtml,
     statsHtml: renderStandardListStats([
       { label: '业务链（每次回货一条）', value: allRows.length },

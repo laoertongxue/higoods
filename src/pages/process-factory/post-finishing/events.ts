@@ -23,6 +23,7 @@ import { handlePostFinishingQcOrdersEvent } from './qc-orders.ts'
 import { handlePostFinishingRecheckOrdersEvent } from './recheck-orders.ts'
 import { handlePostFinishingReturnFlowEvent } from './warehouse.ts'
 import { handlePostFinishingTasksEvent } from './tasks.ts'
+import { handlePostFinishingWorkOrderDetailEvent } from './work-order-detail.ts'
 import { handlePostFinishingWorkOrdersEvent } from './work-orders.ts'
 import { POST_FINISHING_ACCEPTANCE_ACTORS } from '../../../data/fcs/post-finishing-full-flow.ts'
 
@@ -418,6 +419,7 @@ function openPostFinishingReceiptDialog(): void {
 export function handlePostFinishingEvent(target: HTMLElement, event?: Event): boolean {
   if (handlePostFinishingAuditRecordsEvent(target, event)) return true
   if (handlePostFinishingTasksEvent(target, event)) return true
+  if (handlePostFinishingWorkOrderDetailEvent(target)) return true
   if (handlePostFinishingWorkOrdersEvent(target, event)) return true
   if (handlePostFinishingQcWorkbenchEvent(target, event)) return true
   if (handlePostFinishingQcOrdersEvent(target, event)) return true

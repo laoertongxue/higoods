@@ -68,6 +68,7 @@ const pdaPaths = [
   '/fcs/pda/handover/sewing-self-return',
   '/fcs/pda/post-finishing/return-confirm',
   '/fcs/pda/post-finishing/execute',
+  '/fcs/pda/post-finishing/sku-adjustment',
   '/fcs/pda/post-finishing/recheck',
   '/fcs/pda/post-finishing/outbound-receive',
 ]
@@ -95,6 +96,12 @@ for (const required of [
   'markPostFinishingRecheckSkuRelabeled',
   'upsertOutboundFromRecheck',
   'receivePostFinishingOutboundOrder',
+  'setPostFinishingPostCompletedQuantity',
+  'savePostFinishingPostSkuAdjustment',
+  'defectReasonQuantities',
+  'listPostFinishingPostReturnReceiverOptions',
+  'completePostFinishingPostTaskFromDraft',
+  'takeOverPostFinishingPostTask',
   'tracePostFinishingFullFlow',
   'listPostFinishingWaitProcessWarehouseRecords',
   'listPostFinishingWaitProcessWarehouseMovements',
@@ -120,14 +127,18 @@ assert(files.pdaFlow.includes('初始不展示待确认任务池'), '回货确�
 assert(files.pdaFlow.includes('二次仍超过 5%才扫描授权码'), '回货确认 PDA 必须展示正确的二次点数规则')
 assert(files.pdaFlow.includes("actor('回货确认人员')"), '回货确认 PDA 必须读取当前登录账号')
 assert(files.pdaFlow.includes('核对无误，开始后道'), '后道 PDA 必须扫码核对后再开始')
-assert(files.pdaFlow.includes('有瑕疵时填写原因') && files.pdaFlow.includes('瑕疵证据图片地址') && files.pdaFlow.includes('瑕疵责任方'), '后道 PDA 必须完整记录瑕疵处理事实')
-assert(files.pdaFlow.includes('data-post-result-file="defectImage"'), '后道 PDA 必须提供可见瑕疵图片选择器')
+assert(files.pdaFlow.includes('data-post-completed-qty') && files.pdaFlow.includes('质检已确认加工项目'), '后道 PDA 必须只读展示质检已确认项目，并以逐 SKU 完成数量为主动作')
+assert(!files.pdaFlow.includes('toggle-process-item'), '后道 PDA 不得再次勾选质检已确认的加工项目')
+assert(files.pdaFlow.includes('调整瑕疵数量') && files.pdaFlow.includes('data-post-defect-reason-qty') && files.pdaFlow.includes('增加瑕疵') && files.pdaFlow.includes('减少瑕疵'), '后道 PDA 必须从 SKU 入口进入逐原因增减瑕疵页')
+assert(!files.pdaFlow.includes('data-post-adjust-file="defectImage"') && !files.pdaFlow.includes('data-post-adjust-field="responsibleParty"'), '后道 PDA 调整页不得保留责任方或现场证据图片')
+assert(files.pdaFlow.includes('data-return-receiver-search') && files.pdaFlow.includes('data-return-receiver-options'), '后道 PDA 返厂接收对象必须使用移动端可搜索选择器')
 assert(files.pdaFlow.includes('本人最近收货'), '仓库 PDA 扫码首页必须展示当前账号最近收货')
 assert(files.pdaFlow.includes('条码错误，已阻断出货') && files.pdaFlow.includes('已重新贴码') && files.pdaFlow.includes('必须复扫正确'), '复检 PDA 必须完成错码阻断、重贴和复扫恢复')
 assert(files.pdaFlow.includes('只接受完整 FCK 后道出货单号'), '仓库 PDA 只能扫描 FCK 出货单')
-for (const summary of ['return-line', 'return-total', 'post-line', 'post-total', 'post-chain-line', 'post-chain-total', 'recheck-line', 'recheck-total', 'warehouse-line', 'warehouse-total']) {
+for (const summary of ['return-line', 'return-total', 'recheck-line', 'recheck-total', 'warehouse-line', 'warehouse-total']) {
   assert(files.pdaFlow.includes(`'${summary}'`), `PDA 缺少实时数量摘要 ${summary}`)
 }
+assert(files.pdaFlow.includes('本批数量归类') && files.pdaFlow.includes('个 SKU 未完成数量归类'), '后道 PDA 必须按完成、瑕疵或返厂的逐 SKU 归类进度替代加工项目勾选')
 assert(files.pdaFlow.includes('data-difference-authorization-block') && files.pdaFlow.includes("classList.toggle('hidden', !visible)"), 'PDA 各环节必须仅在有差异时显示授权区')
 
 assert(files.warehouse.includes('首次差异率超过 5%才要求二次点数'), 'Web 回货确认不得保留“任何差异都二次点数”的旧规则')
@@ -142,6 +153,8 @@ assert(files.warehouse.includes("title: mode === 'wait-process' ? '后道待加�
 assert(files.warehouse.includes('确认回货后生成入仓流水，送检后生成出仓流水'), '后道待加工仓必须显示回货入仓和送检出仓事实')
 assert(files.warehouse.includes('复检完成后生成入仓流水，仓库收货后生成交出流水'), '后道待交出仓必须显示复检入仓和出货交出事实')
 assert(files.warehouse.includes("{ key: 'inventory', label: '库存' }") && files.warehouse.includes("{ key: 'movements', label: '流水记录' }") && files.warehouse.includes("{ key: 'locations', label: '库区库位' }"), '两类仓库必须保留线上库存、流水记录和库区库位页签')
+assert(files.warehouse.includes('扫码收货（Web 兜底）') && files.warehouse.includes('PDA 扫码优先'), 'Web 后道待加工仓必须保留扫码收货兜底入口')
+assert(files.workOrders.includes('PDA执行（优先）') && files.workOrders.includes('Web应急处理'), 'Web 后道单必须同时提供 PDA 优先和 Web 应急处理入口')
 
 assert(files.qcWorkbench.includes('输入完整质检任务号'), 'Web 质检执行页必须输入完整任务号')
 assert(!files.qcWorkbench.includes('扫描完整质检任务号'), 'Web 质检不得把任务号输入描述为扫描')
@@ -214,7 +227,8 @@ for (const imageSurface of [files.sewingReturn, files.pdaFlow, files.warehouse, 
   assert(imageSurface.includes('zoom-image'), '款式/SKU 缩略图必须能查看大图')
 }
 
-assert(files.audit.includes('data-audit-chain-detail') && files.audit.includes('逐 SKU 差异') && files.audit.includes('操作时间线'), '日志页必须采用业务链主从结构')
+assert(files.audit.includes('data-audit-chain-detail') && files.audit.includes('差异与瑕疵') && files.audit.includes('操作时间线'), '日志页必须采用业务链主从结构')
+assert(files.audit.includes('data-audit-detail-tab') && files.audit.includes('按阶段查看单据链') && files.audit.includes('按环节归组的操作记录'), '日志详情必须分层展示，不得继续把链路、差异和时间线全部平铺')
 assert(files.audit.includes('name="startedAt"') && files.audit.includes('name="endedAt"') && files.audit.includes('name="operator"') && files.audit.includes('name="authorizer"'), '主从日志页仍必须支持时间、操作人和授权人筛选')
 assert(files.audit.includes('name="direction"') && files.audit.includes('name="authorizationResult"'), '主从日志页仍必须支持差异方向和授权结果筛选')
 assert(!files.audit.includes('getPostFinishingAuthorizationDisplay') && !files.audit.includes("query().get('authorizerId')"), '操作日志页不得再夹带动态授权码入口')

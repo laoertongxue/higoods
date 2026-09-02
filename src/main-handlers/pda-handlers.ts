@@ -43,6 +43,7 @@ const pdaRouteHandlers: PdaRouteHandler[] = [
   { matches: exact('/fcs/pda/handover/sewing-self-return'), load: () => import('../pages/pda-sewing-self-return'), exportName: 'handlePdaSewingSelfReturnEvent' },
   { matches: exact('/fcs/pda/post-finishing/return-confirm'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: exact('/fcs/pda/post-finishing/execute'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
+  { matches: exact('/fcs/pda/post-finishing/sku-adjustment'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: exact('/fcs/pda/post-finishing/recheck'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: exact('/fcs/pda/post-finishing/outbound-receive'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: startsWith('/fcs/pda/handover/'), load: () => import('../pages/pda-handover-detail'), exportName: 'handlePdaHandoverDetailEvent' },

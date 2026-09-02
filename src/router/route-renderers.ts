@@ -446,6 +446,10 @@ export const renderPdaPostFinishingExecutionPage = createAsyncRenderer(
   () => import('../pages/pda-post-finishing-flow'),
   'renderPdaPostFinishingExecutionPage',
 )
+export const renderPdaPostFinishingSkuAdjustmentPage = createAsyncRenderer(
+  () => import('../pages/pda-post-finishing-flow'),
+  'renderPdaPostFinishingSkuAdjustmentPage',
+)
 export const renderPdaPostFinishingReturnConfirmationPage = createAsyncRenderer(
   () => import('../pages/pda-post-finishing-flow'),
   'renderPdaPostFinishingReturnConfirmationPage',

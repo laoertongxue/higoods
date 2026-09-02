@@ -15,14 +15,15 @@ test.beforeEach(async ({ page }) => {
   page.setDefaultNavigationTimeout(45_000)
 })
 
-test('Web 后道任务读取 3×5×5 事实源并只进入专用 PDA 执行页', async ({ page }) => {
+test('Web 后道单同时保留 PDA 优先入口和 Web 应急入口', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/work-orders')
-  await expect(page.getByRole('heading', { name: '后道任务', exact: true })).toBeVisible()
-  await expect(page.locator('article')).toHaveCount(2)
+  await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(2)
   await expect(page.locator('body')).toContainText('5')
   await expect(page.getByText('打开 PDA 后道加工')).toBeVisible()
-  const taskExecutionEntries = page.locator('[data-nav^="/fcs/pda/post-finishing/execute"]').filter({ hasText: 'PDA 执行' })
+  const taskExecutionEntries = page.locator('[data-nav^="/fcs/pda/post-finishing/execute"]').filter({ hasText: 'PDA执行（优先）' })
   await expect(taskExecutionEntries).toHaveCount(2)
+  await expect(page.locator('[data-nav^="/fcs/craft/post-finishing/work-orders/"]').filter({ hasText: 'Web应急处理' })).toHaveCount(2)
   await expect(page.locator('[data-nav*="type=POST_ORDER"]')).toHaveCount(2)
   await expect(page.locator('body')).not.toContainText('雅加达后道工厂')
 
@@ -37,6 +38,9 @@ test('Web 后道任务读取 3×5×5 事实源并只进入专用 PDA 执行页',
 })
 
 test('质检统一在 Web 领取管理，专用 PDA 只执行后道且不得执行质检', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', 'PF-USER-QC-MGR')
+  })
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '输入质检任务号' })).toBeVisible()

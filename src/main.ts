@@ -1775,6 +1775,7 @@ root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'))
+  const preserveNativeClick = Boolean(target.closest<HTMLInputElement>('input[data-preserve-native-click="true"]'))
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
@@ -1867,7 +1868,9 @@ root.addEventListener('click', async (event) => {
 
   const pageEventHandled = await dispatchPageEvent(target, event)
   if (pageEventHandled) {
-    event.preventDefault()
+    // Checkbox/radio actions read the browser's already-toggled state. Cancelling
+    // that click would roll the native control back after the local handler ran.
+    if (!preserveNativeClick) event.preventDefault()
     if (skipPageRerender) {
       return
     }
@@ -2063,12 +2066,12 @@ document.addEventListener('keydown', async (event) => {
     if (scanResult) event.preventDefault()
     return
   }
-  const pdaOrderScanTarget = event.key === 'Enter'
-    ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"]')
+  const scanEnterTarget = event.key === 'Enter'
+    ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
     : null
-  if (pdaOrderScanTarget) {
+  if (scanEnterTarget) {
     const focusSnapshot = captureFocusSnapshot()
-    if (await dispatchPageEvent(pdaOrderScanTarget, event)) {
+    if (await dispatchPageEvent(scanEnterTarget, event)) {
       event.preventDefault()
       await renderWithFocusRestore(focusSnapshot)
     }

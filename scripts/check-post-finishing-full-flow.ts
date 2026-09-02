@@ -23,6 +23,7 @@ import {
   listPostFinishingFullFlowPostTasks,
   listPostFinishingFullFlowQcTasks,
   listPostFinishingFullFlowRecheckOrders,
+  listPostFinishingPostReturnReceiverOptions,
   listPostFinishingReturnRegistrationSources,
   listPostFinishingWarehouseReceipts,
   listPostFinishingWaitProcessWarehouseMovements,
@@ -484,10 +485,10 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
         })
       }
       assert.deepEqual(startedPost.lines.map((line) => line.expectedQty), completedQc.results?.map((line) => line.passedQty), '只有质检合格数量进入后道')
+      const postReturnReceiver = listPostFinishingPostReturnReceiverOptions(startedPost.postTaskId)[0].value
       const postResults = startedPost.lines.map((line, skuIndex) => {
         if (returnIndex === 3 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 1, defectQty: 0, returnQty: 0 }
-        if (returnIndex === 3 && skuIndex === 1) return { skuId: line.sku.skuId, passedQty: line.expectedQty + 1, defectQty: 0, returnQty: 0 }
-        if (returnIndex === 5 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 2, defectQty: 1, returnQty: 1, defectReason: '压痕', defectImageUrl: '/materials/fabric-main.jpg', responsibleParty: '后道工厂', returnReason: '返后道返修', returnReceiver: '后道主管' }
+        if (returnIndex === 5 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 2, defectQty: 1, returnQty: 1, defectReasonQuantities: [{ reason: '压痕', quantity: 1 }], returnReason: '返后道返修', returnReceiver: postReturnReceiver }
         return { skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 }
       })
       let postAuthorization: PostFinishingAuthorizationInput | undefined
@@ -504,7 +505,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
         expectCode('后道一件差异必须授权', 'AUTHORIZATION_REQUIRED', () => {
           completePostFinishingPostTask({ postTaskId: startedPost.postTaskId, actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator, results: postResults, nowMs: nextTime() })
         })
-        postAuthorization = authorization('AUTH-POST-001', '后道逐 SKU 一多一少，整单总量相等仍授权')
+        postAuthorization = authorization('AUTH-POST-001', '后道逐 SKU 少一件，完成数量差异必须授权')
       }
       const completedPost = completePostFinishingPostTask({
         postTaskId: startedPost.postTaskId,
@@ -664,8 +665,10 @@ assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => ite
 const defects = listPostFinishingDefectRecords()
 assert(defects.some((item) => item.discoveryStage === '质检'), '统一瑕疵记录必须包含质检阶段')
 assert(defects.some((item) => item.discoveryStage === '后道'), '统一瑕疵记录必须包含后道阶段')
-assert(defects.every((item) => item.defectReason && item.recordedBy.actorName), '两阶段瑕疵必须共用原因、责任和记录人结构')
-assert(defects.every((item) => item.evidenceImageUrl && item.responsibleParty && item.dispositionStatus === '待处理'), '质检和后道瑕疵必须共用证据、责任方和后续处理状态')
+assert(defects.every((item) => item.defectReason && item.recordedBy.actorName), '两阶段瑕疵必须共用逐原因数量与记录人结构')
+assert(defects.every((item) => item.dispositionStatus === '待处理'), '质检和后道瑕疵必须共用后续处理状态')
+assert(defects.filter((item) => item.discoveryStage === '质检').every((item) => item.evidenceImageUrl && item.responsibleParty), '质检阶段继续保留证据与责任事实')
+assert(defects.filter((item) => item.discoveryStage === '后道').every((item) => !item.evidenceImageUrl && !item.responsibleParty), '后道调整不得再要求或写入责任方与现场证据图片')
 const firstQcDefect = defects.find((item) => item.discoveryStage === '质检')!
 const firstPostDefect = defects.find((item) => item.discoveryStage === '后道')!
 assert.notEqual(firstQcDefect.defectId, firstPostDefect.defectId, '后道瑕疵必须追加新记录，不得覆盖质检瑕疵')
