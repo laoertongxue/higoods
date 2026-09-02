@@ -17,16 +17,16 @@ async function setPdaSession(page: Page): Promise<void> {
   }, PDA_SESSION)
 }
 
-test('后道质检将输入领取与主管管理合并在质检任务菜单，不允许手工建单', async ({ page }) => {
+test('后道质检将输入领取与主管管理合并在质检单菜单，不允许手工建单', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/qc-orders')
-  await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
-  await expect(page.getByText('输入质检任务号', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '输入质检单号领取' })).toBeVisible()
   await expect(page.locator('[data-qc-task-input]')).toBeVisible()
   await expect(page.locator('body')).toContainText('Web 端输入完整任务号')
   await expect(page.locator('body')).not.toContainText('Web 质检工作台')
   await expect(page.locator('body')).not.toContainText('创建质检单')
   await expect(page.locator('body')).not.toContainText('不关联来源任务')
-  await expect(page.getByRole('heading', { name: '质检任务管理' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检单列表' })).toBeVisible()
   await expect(page.locator('body')).not.toContainText('POST_QC_FINISH')
 })
 

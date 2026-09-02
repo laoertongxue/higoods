@@ -11,7 +11,7 @@ import {
 } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { escapeHtml } from '../../../utils.ts'
 
-type PrintType = 'SEND_QC' | 'POST_ORDER' | 'OUTBOUND' | 'SKU_LABEL'
+type PrintType = 'SEND_QC' | 'QC_ORDER' | 'QC_DETAIL' | 'POST_ORDER' | 'OUTBOUND' | 'SKU_LABEL'
 
 interface PrintLine {
   sku: {
@@ -70,18 +70,32 @@ function skuLabel(recheckId: string, skuId: string): string {
   return `<div class="min-h-screen bg-slate-100 p-4 print:bg-white print:p-0" data-testid="post-finishing-sku-label-print"><div class="mx-auto h-[30mm] w-[40mm] overflow-hidden border border-black bg-white p-[2mm] text-black"><div class="truncate text-[9px] font-bold">${escapeHtml(line.sku.spuName)}</div><div class="truncate font-mono text-[8px]">${escapeHtml(line.sku.skuCode)}</div><div class="text-[8px]">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-[1mm]" data-sku-label-barcode="${escapeHtml(line.sku.barcode)}">${renderCode128Barcode(line.sku.barcode, `${line.sku.skuCode} SKU 贴标`)}</div><div class="-mt-1 truncate text-center font-mono text-[7px]">${escapeHtml(line.sku.barcode)}</div></div><div class="mx-auto mt-4 w-[40mm] print:hidden"><button type="button" onclick="window.print()" class="w-full rounded-md bg-blue-600 px-3 py-2 text-xs text-white">打印 40×30 SKU 贴标</button></div></div>`
 }
 
+function qcDetailPage(task: NonNullable<ReturnType<typeof getPostFinishingFullFlowQcTask>>): string {
+  const sourceDelivery = getPostFinishingFactoryReturn(task.deliveryId)
+  const scanTarget = `/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(task.qcTaskNo)}`
+  return `<div class="min-h-screen bg-slate-100 p-4 print:bg-white print:p-0" data-testid="post-finishing-full-flow-print" data-print-document-no="${escapeHtml(task.qcTaskNo)}" data-scan-target="${escapeHtml(scanTarget)}">
+    <div class="mx-auto max-w-[210mm] bg-white p-[12mm] shadow print:shadow-none" data-print-sheet="a4">
+      <div class="flex items-start justify-between gap-6 border-b-2 border-black pb-4"><div><h1 class="text-2xl font-bold">质检详情单</h1><p class="mt-1 text-sm">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次回货</p><div class="mt-3 font-mono text-lg font-semibold">${escapeHtml(task.qcTaskNo)}</div></div><div class="w-36 text-center">${renderRealQrPlaceholder({ value: scanTarget, size: 116, title: '质检详情单扫描入口', label: scanTarget })}<div class="mt-1 break-all text-[9px]">${escapeHtml(scanTarget)}</div></div></div>
+      <div class="mt-4 border border-black p-3" data-business-document-barcode="${escapeHtml(task.qcTaskNo)}">${renderCode128Barcode(task.qcTaskNo, '质检单业务单号条码')}<div class="mt-1 text-center font-mono text-xs font-semibold">${escapeHtml(task.qcTaskNo)}</div></div>
+      <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-y border-black py-3 text-xs"><div><dt class="text-slate-500">来源工厂</dt><dd class="mt-0.5 font-medium">${escapeHtml(sourceDelivery?.sewingFactoryName || '—')}</dd></div><div><dt class="text-slate-500">质检人 / 时间</dt><dd class="mt-0.5 font-medium">${escapeHtml(`${task.claimedBy?.actorName || '—'} / ${task.completedAt ? new Date(task.completedAt).toLocaleString('zh-CN') : '未完成'}`)}</dd></div><div><dt class="text-slate-500">质检结果</dt><dd class="mt-0.5 font-medium">${task.status === '质检完成' ? '已出结果' : '未出结果'}</dd></div><div><dt class="text-slate-500">后续处理</dt><dd class="mt-0.5 font-medium">${escapeHtml(task.postTaskNo || task.recheckOrderNo || '待质检完成后确定')}</dd></div></dl>
+      <table class="mt-5 w-full border-collapse text-xs"><thead><tr><th class="border border-black p-2">SPU / 产品</th><th class="border border-black p-2">SKU</th><th class="border border-black p-2">应检</th><th class="border border-black p-2">合格</th><th class="border border-black p-2">瑕疵</th><th class="border border-black p-2">返厂</th><th class="border border-black p-2">原因</th></tr></thead><tbody>${task.lines.map((line) => { const result = task.results?.find((item) => item.sku.skuId === line.sku.skuId); return `<tr><td class="border border-black p-2"><div class="flex items-center gap-2">${printImage({ sku: line.sku, qty: line.expectedQty })}<span><span class="block font-mono text-[10px]">${escapeHtml(line.sku.spuCode)}</span>${escapeHtml(line.sku.spuName)}</span></div></td><td class="border border-black p-2 font-mono">${escapeHtml(line.sku.skuCode)}<div class="mt-1 text-[10px]">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></td><td class="border border-black p-2 text-center">${line.expectedQty} 件</td><td class="border border-black p-2 text-center">${result?.passedQty ?? 0} 件</td><td class="border border-black p-2 text-center">${result?.defectQty ?? 0} 件</td><td class="border border-black p-2 text-center">${result?.returnQty ?? 0} 件</td><td class="border border-black p-2">${escapeHtml(result?.defectReason || result?.returnReason || '—')}</td></tr>` }).join('')}</tbody></table>
+      <div class="mt-6 flex justify-end print:hidden"><button type="button" onclick="window.print()" class="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white">打印质检详情单</button></div>
+    </div>
+  </div>`
+}
+
 export function renderPostFinishingFullFlowPrintPage(): string {
   const type = (query().get('type') || '') as PrintType
   const id = query().get('id') || ''
   try {
     if (type === 'SKU_LABEL') return skuLabel(id, query().get('skuId') || '')
-    if (type === 'SEND_QC') {
+    if (type === 'SEND_QC' || type === 'QC_ORDER') {
       const delivery = getPostFinishingFactoryReturn(id)
       const task = delivery?.qcTaskNo ? getPostFinishingFullFlowQcTask(delivery.qcTaskNo) : getPostFinishingFullFlowQcTask(id)
-      if (!task) throw new Error('送检后才能打印质检任务单。')
+      if (!task) throw new Error('送检后才能打印质检单。')
       const sourceDelivery = getPostFinishingFactoryReturn(task.deliveryId)
       return page(
-        '后道送检单',
+        type === 'SEND_QC' ? '后道送检单' : '质检单',
         `${task.deliveryOrderNo} · ${task.productionOrderNo} · 送检时间 ${new Date(task.sentAt).toLocaleString('zh-CN')}`,
         task.qcTaskNo,
         `/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(task.qcTaskNo)}`,
@@ -94,17 +108,22 @@ export function renderPostFinishingFullFlowPrintPage(): string {
         task.lines.map((line) => ({ sku: line.sku, qty: line.expectedQty })),
       )
     }
+    if (type === 'QC_DETAIL') {
+      const task = getPostFinishingFullFlowQcTask(id)
+      if (!task) throw new Error('未找到质检单。')
+      return qcDetailPage(task)
+    }
     if (type === 'POST_ORDER') {
       const task = getPostFinishingFullFlowPostTask(id)
       if (!task) throw new Error('未找到后道任务。')
       const qcTask = getPostFinishingFullFlowQcTask(task.qcTaskId)
       return page(
-        '后道工序加工单',
+        '后道任务流转卡',
         `${task.qcTaskNo} · ${task.productionOrderNo} · ${task.processItems.join('、')}`,
         task.postTaskNo,
         `/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}`,
         [
-          { label: '送货单 / 质检任务', value: `${task.deliveryOrderNo} / ${task.qcTaskNo}` },
+          { label: '送货单 / 质检单', value: `${task.deliveryOrderNo} / ${task.qcTaskNo}` },
           { label: '生产单 / 第几次回货', value: `${task.productionOrderNo} / 第 ${task.returnIndex} 次` },
           { label: '后道工序', value: task.processItems.join('、') },
           { label: '质检交接时间', value: qcTask?.completedAt ? new Date(qcTask.completedAt).toLocaleString('zh-CN') : '—' },
@@ -122,7 +141,7 @@ export function renderPostFinishingFullFlowPrintPage(): string {
         `/fcs/pda/post-finishing/outbound-receive?id=${encodeURIComponent(outbound.outboundOrderNo)}`,
         [
           { label: '生产单 / 第几次回货', value: `${outbound.productionOrderNo} / 第 ${outbound.returnIndex} 次` },
-          { label: '送货单 / 质检任务', value: `${outbound.deliveryOrderNo} / ${outbound.qcTaskNo}` },
+          { label: '送货单 / 质检单', value: `${outbound.deliveryOrderNo} / ${outbound.qcTaskNo}` },
           { label: '后道任务', value: outbound.postTaskNo || '质检后直达复检' },
           { label: '复检单 / 出货生成时间', value: `${outbound.recheckOrderNo} / ${new Date(outbound.createdAt).toLocaleString('zh-CN')}` },
           { label: '库存来源', value: '复检合格后进入后道待交出仓，本单确认接收时按应出数量交出扣减' },

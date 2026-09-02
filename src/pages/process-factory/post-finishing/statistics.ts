@@ -23,7 +23,7 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('待执行实际工序数', String(statistics.waitPostTaskCount), '状态分布')}
         ${renderPostMetricCard('实际工序执行中数', String(statistics.postDoingTaskCount), '状态分布')}
         ${renderPostMetricCard('实际工序完成数', String(statistics.postDoneTaskCount), '状态分布')}
-        ${renderPostMetricCard('待质检任务数', String(statistics.waitQcTaskCount), '状态分布')}
+        ${renderPostMetricCard('待质检单数', String(statistics.waitQcTaskCount), '状态分布')}
         ${renderPostMetricCard('质检中任务数', String(statistics.qcDoingTaskCount), '状态分布')}
         ${renderPostMetricCard('质检完成任务数', String(statistics.qcDoneTaskCount), '状态分布')}
         ${renderPostMetricCard('待复检任务数', String(statistics.waitRecheckTaskCount), '状态分布')}

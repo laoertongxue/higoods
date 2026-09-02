@@ -36,9 +36,9 @@ function renderNotice(): string {
 function renderScanner(): string {
   const actor = getCurrentPostFinishingActor()
   return `<section class="mx-auto max-w-2xl rounded-xl border bg-card p-5 shadow-sm" data-qc-workbench-scan>
-    <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">输入完整质检任务号</h2><p class="mt-1 text-sm text-muted-foreground">Web 端不调用摄像头；输入完整任务号后由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
+    <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">输入完整质检单号</h2><p class="mt-1 text-sm text-muted-foreground">Web 端不调用摄像头；输入完整单号后由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
     <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="请输入完整任务号，例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-input" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取任务</button></div>
-    <div class="mt-4 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检任务</a></div>
+    <div class="mt-4 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检单</a></div>
   </section>`
 }
 
@@ -95,7 +95,7 @@ function renderTask(task: PostFinishingQcTask): string {
 export function renderPostFinishingQcWorkbenchPage(): string {
   const taskNo = query().get('taskNo') || ''
   const task = taskNo ? getPostFinishingFullFlowQcTask(taskNo) : undefined
-  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('质检任务执行', '输入完整任务号领取 · 一任务一质检员 · 支持退领')}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
+  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('质检单执行', '输入完整单号领取 · 一单一质检员 · 支持退领')}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
 }
 
 function readValue(root: ParentNode, selector: string): string {
@@ -212,7 +212,7 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
       return true
     }
     const root = document.querySelector<HTMLElement>('[data-qc-workbench-task]')
-    if (!root) throw new Error('未找到质检任务表单。')
+    if (!root) throw new Error('未找到质检单表单。')
     const lineNodes = Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]'))
     const results = collectResults(root, true)
     const hasDifference = lineNodes.some((line, index) => Number(line.dataset.expectedQty || 0) !== results[index].passedQty + results[index].defectQty + results[index].returnQty)

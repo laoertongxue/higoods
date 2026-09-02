@@ -170,6 +170,7 @@
     "check:handover-writeback-difference-unification": "tsx scripts/check-handover-writeback-difference-unification.ts",
     "check:statistics-dashboard-real-data": "tsx scripts/check-statistics-dashboard-real-data.ts",
     "check:post-finishing-factory-detail-actions": "node --import tsx scripts/check-post-finishing-factory-detail-actions.ts",
+    "check:post-finishing-management-list-alignment": "node --import tsx scripts/check-post-finishing-management-list-alignment.ts",
     "check:post-finishing-flow-correction": "tsx scripts/check-post-finishing-flow-correction.ts",
     "check:post-finishing-sewing-self-return": "tsx scripts/check-post-finishing-sewing-self-return.ts",
     "check:post-finishing-full-flow": "node --import tsx scripts/check-post-finishing-full-flow.ts",

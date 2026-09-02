@@ -445,7 +445,7 @@ test('PDA 回货确认执行超 5%二次点数、授权和真实账号记录', a
   await page.getByRole('button', { name: '上传质检参考资料' }).click()
   await expect(page.getByRole('status')).toContainText('质检参考资料已上传')
   await expect(page.getByText('买手上传送检前色差图')).toBeVisible()
-  await page.getByRole('button', { name: '送检并生成质检任务' }).click()
+  await page.getByRole('button', { name: '送检并生成质检单' }).click()
   await expect(page.getByRole('status')).toContainText('送检成功')
   await expect(page.locator('[data-nav*="print?type=SEND_QC"]')).toBeVisible()
 })
@@ -703,7 +703,7 @@ test('Web 管理页、独立动态授权码、主从日志和四类打印均读�
   await expect(page.locator('tbody tr')).toHaveCount(1)
   await expect(page.locator('tbody')).toContainText(seed.authorizedOutboundNo)
   await page.locator('[data-nav*="/fcs/craft/post-finishing/outbound-orders/"]').click()
-  await expect(page.locator('body')).toContainText('送货单 / 质检任务')
+  await expect(page.locator('body')).toContainText('送货单 / 质检单')
   await expect(page.locator('body')).toContainText('后道单')
   await expect(page.locator('body')).toContainText('复检单')
 

@@ -404,7 +404,7 @@ async function confirmReturnThroughWeb(
 
   const status = await statusText(page)
   await expect(page.getByRole('status')).toContainText('数量已进入后道待加工仓')
-  await expect(page.locator('body')).toContainText('送检并生成质检任务')
+  await expect(page.locator('body')).toContainText('送检并生成质检单')
   addStage(chain, page, 'Web回货确认并入待加工仓', status, {
     returnScenario: scenario.returnScenario,
     firstSkuConfirmedQty: firstQuantity,
@@ -427,7 +427,7 @@ async function sendToQcThroughWeb(page: Page, scenario: CrossTerminalScenario, c
     await expect(page.getByRole('status')).toContainText('质检参考资料已上传')
   }
 
-  await page.getByRole('button', { name: '送检并生成质检任务' }).click()
+  await page.getByRole('button', { name: '送检并生成质检单' }).click()
   const status = await statusText(page)
   const qcTaskNo = extractNumber(status, /送检成功：([A-Z0-9-]+)/, '质检任务号')
   const printLink = page.locator('[data-nav*="print?type=SEND_QC"]')
@@ -916,9 +916,9 @@ test('15条链逐条跨公共PDA、Web质检、PDA后道复检与仓库收货连
 
   await setCurrentWebActor(page, 'PF-USER-QC-MGR')
   await page.goto('/fcs/craft/post-finishing/qc-orders')
-  await expect(page.getByRole('heading', { name: '质检任务', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
   await expect(page.locator('[data-qc-task-input]')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '质检任务管理' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '质检单列表' })).toBeVisible()
   await saveSurfaceScreenshot(page, 'qc-task')
 
   await page.goto('/fcs/craft/post-finishing/audit-records')

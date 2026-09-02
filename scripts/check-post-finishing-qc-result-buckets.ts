@@ -24,10 +24,10 @@ for (const obsolete of [
   assert(!pdaQuality.includes(obsolete), `PDA 质检页不得保留旧后道质检能力：${obsolete}`)
 }
 
-assert(pdaQuality.includes('后道质检仅在 Web“质检任务”领取'), 'PDA 通用质检页必须明确后道质检的 Web 边界')
-assert(pdaExecDetail.includes('质检仅在 Web“质检任务”'), 'PDA 执行详情必须把后道质检导向 Web 质检任务页')
-assert(qcWorkbench.includes('输入完整质检任务号'), 'Web 质检任务执行页必须以完整任务号输入进入')
-assert(!qcWorkbench.includes('扫描完整质检任务号'), 'Web 质检任务执行页不得把输入描述为扫描')
+assert(pdaQuality.includes('后道质检仅在 Web“质检单”领取'), 'PDA 通用质检页必须明确后道质检的 Web 边界')
+assert(pdaExecDetail.includes('质检仅在 Web“质检单”'), 'PDA 执行详情必须把后道质检导向 Web 质检单页')
+assert(qcWorkbench.includes('输入完整质检单号'), 'Web 质检单执行页必须以完整单号输入进入')
+assert(!qcWorkbench.includes('扫描完整质检单号'), 'Web 质检单执行页不得把输入描述为扫描')
 assert(qcWorkbench.includes('错误领取，退回待质检'), 'Web 质检必须支持错误领取后的退领')
 assert(qcWorkbench.includes('已由 ${escapeHtml(task.claimedBy.actorName)} 质检中'), '他人领取时必须显示占用质检员')
 assert(qcOrders.includes('主管释放'), '质检任务管理页必须提供主管释放兜底')

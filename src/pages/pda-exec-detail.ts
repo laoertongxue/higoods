@@ -2812,7 +2812,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
 
 function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
   if (actionType === '扫码收货') return phase === 'start' ? '开始扫码收货' : '确认收货入库'
-  if (actionType === '质检') return '质检仅在 Web“质检任务”执行'
+  if (actionType === '质检') return '质检仅在 Web“质检单”执行'
   if (phase === 'start') {
     return actionType === '后道' ? '开始实际工序' : '开始复检'
   }
@@ -3010,7 +3010,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-go-handover" data-post-task-id="${escapeHtml(task.postTaskId)}">去交接接收</button>`
       : '',
     task.waitQcQty > 0
-      ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/craft/post-finishing/qc-orders">前往 Web 质检任务</a>`
+      ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/craft/post-finishing/qc-orders">前往 Web 质检单</a>`
       : '',
     postOrders[0]
       ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道单</button>`
@@ -3083,7 +3083,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       </article>
 
       <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        质检已经收口为 Web 专属操作；此 PDA 页面不再创建、领取或完成质检任务。
+        质检已经收口为 Web 专属操作；此 PDA 页面不再创建、领取或完成质检单。
       </article>
 
       <article class="rounded-lg border bg-card">
@@ -6110,7 +6110,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       if (!actionType) return true
 
       if (actionType === '质检') {
-        showPdaExecDetailToast('后道质检仅在 Web“质检任务”执行')
+        showPdaExecDetailToast('后道质检仅在 Web“质检单”执行')
         return true
       }
 

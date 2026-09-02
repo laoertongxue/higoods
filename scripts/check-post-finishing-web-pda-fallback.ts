@@ -243,7 +243,7 @@ const auditSource = source('../src/pages/process-factory/post-finishing/audit-re
 const pdaRoutesSource = source('../src/router/routes-pda.ts')
 
 assert(warehouseSource.includes('扫码收货（Web 兜底）') && warehouseSource.includes('PDA 扫码优先'), '待加工仓必须保留 Web 扫码收货兜底入口')
-assert(workOrdersSource.includes('PDA执行（优先）') && workOrdersSource.includes('Web应急处理'), '后道单列表必须同时提供 PDA 主入口和 Web 兜底入口')
+assert(workOrdersSource.includes('PDA 执行（优先）') && workOrdersSource.includes('查看详情') && workOrdersSource.includes('Web 应急处理'), '后道单列表必须同时提供 PDA 主入口和 Web 详情兜底入口')
 assert(workOrderDetailSource.includes('Web 应急处理') && workOrderDetailSource.includes('data-web-post-completed-qty') && !workOrderDetailSource.includes('toggle-process-item'), 'Web 后道详情必须只填写共享完成数量，不重复勾选质检已确认项目')
 assert(pdaSource.includes('质检已确认加工项目') && pdaSource.includes('data-post-completed-qty') && !pdaSource.includes('toggle-process-item'), 'PDA 后道详情必须以 SKU 完成数量为主动作')
 assert(pdaSource.includes('data-post-defect-adjustment-mode') && pdaSource.includes('data-post-defect-reason-qty'), 'PDA 必须支持增加或减少瑕疵，并逐原因填写数量')

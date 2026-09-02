@@ -230,7 +230,7 @@ function renderOverviewDetail(row: ChainRow): string {
       description: '工厂回货进入待加工仓，确认后发起质检。',
       nodes: [
         ['回货单', row.delivery.deliveryOrderNo, row.delivery.status],
-        ['质检任务', row.trace.qcTask?.qcTaskNo || '未生成', row.trace.qcTask?.status || '未开始'],
+        ['质检单', row.trace.qcTask?.qcTaskNo || '未生成', row.trace.qcTask?.status || '未开始'],
       ],
     },
     {

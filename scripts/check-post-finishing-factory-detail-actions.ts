@@ -34,7 +34,7 @@ const printSource = readFileSync(new URL('../src/pages/print/templates/post-fini
 ;['确认接收', '开始实际工序', '完成实际工序', '开始复检', '完成复检', '发起交出'].forEach((text) => {
   assert.ok(pdaSource.includes(text), `PDA 缺少动作 ${text}`)
 })
-;['输入质检任务号', '领取并开始质检', '一任务一质检员'].forEach((text) => {
+;['输入质检单号', '领取并开始质检', '一张质检单只由一名质检员操作'].forEach((text) => {
   assert.ok((qcOrdersSource + qcWorkbenchSource).includes(text), `Web 统一质检页缺少 ${text}`)
 })
 assert.ok(pdaSource.includes('质检已经收口为 Web 专属操作'), 'PDA 必须明确引导到 Web 质检任务')
