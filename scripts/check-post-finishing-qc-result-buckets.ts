@@ -12,6 +12,7 @@ const pdaExecDetail = source('../src/pages/pda-exec-detail.ts')
 const qcWorkbench = source('../src/pages/process-factory/post-finishing/qc-workbench.ts')
 const qcOrders = source('../src/pages/process-factory/post-finishing/qc-orders.ts')
 const tasks = source('../src/pages/process-factory/post-finishing/tasks.ts')
+const dispatchWorkbench = source('../src/pages/unified-dispatch-workbench.ts')
 const fullFlow = source('../src/data/fcs/post-finishing-full-flow.ts')
 
 for (const obsolete of [
@@ -33,7 +34,11 @@ assert(qcWorkbench.includes('已由 ${escapeHtml(task.claimedBy.actorName)} 质�
 assert(qcOrders.includes('主管释放'), '质检任务管理页必须提供主管释放兜底')
 assert(qcOrders.includes('data-qc-task-input'), '同一质检任务页面必须提供普通质检员输入领取入口')
 assert(!tasks.includes('创建质检单'), '兼容任务页不得保留手工创建质检单')
-assert(tasks.includes('/fcs/craft/post-finishing/wait-process-warehouse?tab=returns'), '后道任务页必须从具体回货批次进入待加工仓')
+assert(!tasks.includes('>生成质检单<'), '后道任务页不得保留重复的生成质检单操作')
+assert(tasks.includes('/fcs/dispatch/workbench?search_field=task&keyword='), '后道任务页查看任务必须携带任务号进入任务分配工作台')
+assert(tasks.includes('source=post-finishing'), '后道任务页必须声明任务分配工作台的数据来源')
+assert(dispatchWorkbench.includes("params.get('keyword')"), '任务分配工作台必须读取后道任务号查询条件')
+assert(dispatchWorkbench.includes("params.get('source') === 'post-finishing'"), '任务分配工作台必须按后道来源加载对应任务')
 assert(fullFlow.includes('sendPostFinishingFactoryReturnToQc'), '质检任务必须由统一送检动作生成')
 assert(fullFlow.includes('只有后道待加工仓中的待送检库存可以发起送检'), '质检任务生成必须受待加工仓批次状态门禁约束')
 

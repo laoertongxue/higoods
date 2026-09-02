@@ -87,6 +87,10 @@ import {
   isKolGotoFactory,
   isKolGotoWholeOrderTask,
 } from '../data/fcs/kol-goto-special-flow.ts'
+import {
+  POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
+  type PostFinishingAcceptanceProductionOrder,
+} from '../data/fcs/post-finishing-full-flow.ts'
 
 type WorkbenchTaskType = 'ALL' | 'SEWING' | 'NON_SEWING' | 'MERGED'
 type DistributionMode = 'BAG_AWARE' | 'FREE'
@@ -195,11 +199,92 @@ const state: WorkbenchState = {
   showAdvancedFilters: false,
 }
 
-let queryTypeInitialized = false
+let appliedQuerySignature = ''
 const autoDispatchConfigs = new Map<string, AutoDispatchConfig>()
 const automaticDispatchFailures = new Set<string>()
 
 const TASK_IMAGE_BY_INDEX = ['/shirt-sample.jpg', '/dress-sample-1.jpg', '/cardigan-sample.jpg', '/tshirt-sample.jpg']
+
+function isPostFinishingSourceQuery(): boolean {
+  return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('source') === 'post-finishing'
+}
+
+function buildPostFinishingWorkbenchTask(order: PostFinishingAcceptanceProductionOrder): RuntimeProcessTask {
+  const qty = order.skus.reduce((sum, sku) => sum + sku.plannedQty, 0)
+  return {
+    taskId: order.executionTaskId,
+    taskNo: order.sewingTaskNo,
+    rootTaskNo: order.sewingTaskNo,
+    baseTaskId: order.executionTaskId,
+    baseQty: qty,
+    baseDependsOnTaskIds: [],
+    dependsOnTaskIds: [],
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    seq: 1,
+    processCode: 'POST_FINISHING_QC',
+    processNameZh: '后道质检',
+    processBusinessCode: 'POST_FINISHING_QC',
+    processBusinessName: '后道质检',
+    stage: 'POST',
+    stageCode: 'POST',
+    qty,
+    qtyUnit: 'PIECE',
+    qtyDisplayUnit: '件',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
+    assignedFactoryId: order.managedPostFactoryId,
+    assignedFactoryName: order.managedPostFactoryName,
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: '2026-08-01 09:00:00',
+    acceptedBy: order.managedPostFactoryName,
+    dispatchedAt: '2026-08-01 08:30:00',
+    dispatchedBy: '生产计划员',
+    businessAssignedAt: '2026-08-01 08:30:00',
+    standardPrice: 1200,
+    standardPriceCurrency: 'IDR',
+    standardPriceUnit: '件',
+    dispatchPrice: 1200,
+    dispatchPriceCurrency: 'IDR',
+    dispatchPriceUnit: '件',
+    qcPoints: ['外观', '数量', '包装'],
+    attachments: [],
+    status: 'NOT_STARTED',
+    taskUnitType: 'SINGLE_PROCESS_TASK',
+    assignmentGranularity: 'ORDER',
+    taskScope: 'EXTERNAL_TASK',
+    defaultDocType: 'TASK',
+    executionEnabled: true,
+    scopeType: 'ORDER',
+    scopeKey: order.productionOrderId,
+    scopeLabel: order.productionOrderNo,
+    scopeQty: qty,
+    scopeSkuLines: order.skus.map((sku) => ({ skuCode: sku.skuCode, color: sku.colorName, size: sku.sizeName, qty: sku.plannedQty })),
+    scopeDetailRows: [],
+    createdAt: '2026-08-01 08:30:00',
+    updatedAt: '2026-08-01 09:00:00',
+    auditLogs: [{ id: `${order.executionTaskId}-LINK`, action: '任务已派单', detail: `后道质检任务已分配给 ${order.managedPostFactoryName}`, at: '2026-08-01 08:30:00', by: '生产计划员' }],
+  }
+}
+
+function listWorkbenchSourceTasks(): RuntimeProcessTask[] {
+  if (isPostFinishingSourceQuery()) return POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.map(buildPostFinishingWorkbenchTask)
+  return listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+}
+
+function findPostFinishingOrder(task: RuntimeProcessTask): PostFinishingAcceptanceProductionOrder | null {
+  return POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((order) =>
+    order.executionTaskId === task.taskId
+    || order.sewingTaskNo === task.taskNo
+    || order.productionOrderNo === task.productionOrderNo,
+  ) || null
+}
+
+function resolveWorkbenchTask(taskId: string): RuntimeProcessTask | null {
+  return getRuntimeTaskById(taskId)
+    || (isPostFinishingSourceQuery() ? listWorkbenchSourceTasks().find((task) => task.taskId === taskId) || null : null)
+}
 
 function formatDateTimeLocal(value: string): string {
   return value.replace(' ', 'T').slice(0, 16)
@@ -405,6 +490,7 @@ function taskPriceStatus(task: RuntimeProcessTask): string {
 
 function taskListContext(task: RuntimeProcessTask): TaskListContext {
   const order = findProductionOrder(task)
+  const postFinishingOrder = findPostFinishingOrder(task)
   const processCode = normalizeProductionExecutionProcessCode(task.processBusinessCode || task.processCode || task.processNameZh)
   const processLabel = task.processBusinessName || task.processNameZh
   const craftCode = task.craftCode || 'NO_CRAFT'
@@ -414,8 +500,8 @@ function taskListContext(task: RuntimeProcessTask): TaskListContext {
   const currentPpic = policy.involvesSewingOutsourcing ? getCurrentSewingTaskResponsibility(task.taskId) : null
   return {
     order,
-    spuCode: order?.demandSnapshot.spuCode || task.productionOrderNo || '待关联款式',
-    spuName: order?.demandSnapshot.spuName || '款式信息待同步',
+    spuCode: order?.demandSnapshot.spuCode || postFinishingOrder?.styleNo || task.productionOrderNo || '待关联款式',
+    spuName: order?.demandSnapshot.spuName || postFinishingOrder?.styleName || '款式信息待同步',
     domesticTracker: order?.demandSnapshot.merchandiserName || '未分配',
     indonesiaTracker: policy.involvesSewingOutsourcing
       ? currentPpic?.ppicName || '待选厂后确定'
@@ -444,8 +530,7 @@ function assignmentModeValue(task: RuntimeProcessTask): string {
 function taskRows(): RuntimeProcessTask[] {
   ensureAutoDispatchConfigs()
   const keyword = state.keyword.trim().toLowerCase()
-  return listRuntimeProcessTasks()
-    .filter(isAssignableProductionExecutionTask)
+  return listWorkbenchSourceTasks()
     .filter((task) => state.taskType === 'ALL' || getTaskType(task) === state.taskType)
     .filter((task) => {
       const context = taskListContext(task)
@@ -468,6 +553,8 @@ function taskRows(): RuntimeProcessTask[] {
 }
 
 function taskImage(task: RuntimeProcessTask): string {
+  const postFinishingOrder = findPostFinishingOrder(task)
+  if (postFinishingOrder?.skus[0]?.imageUrl) return postFinishingOrder.skus[0].imageUrl
   const index = Math.abs([...task.taskId].reduce((sum, char) => sum + char.charCodeAt(0), 0)) % TASK_IMAGE_BY_INDEX.length
   return TASK_IMAGE_BY_INDEX[index]
 }
@@ -576,7 +663,7 @@ const preferences: StandardListColumnPreferences = {
 }
 
 function renderTaskTabs(rows: RuntimeProcessTask[]): string {
-  const all = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+  const all = listWorkbenchSourceTasks()
   const types: WorkbenchTaskType[] = ['ALL', 'SEWING', 'NON_SEWING', 'MERGED']
   return types.map((type) => {
     const count = type === 'ALL' ? all.length : all.filter((task) => getTaskType(task) === type).length
@@ -615,7 +702,7 @@ const FILTER_VALUE_LABELS: Partial<Record<WorkbenchFilterKey, Record<string, str
 function activeFilterValueLabel(key: WorkbenchFilterKey, value: string): string {
   const fixedLabel = FILTER_VALUE_LABELS[key]?.[value]
   if (fixedLabel) return fixedLabel
-  const contexts = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask).map((task) => ({ task, context: taskListContext(task) }))
+  const contexts = listWorkbenchSourceTasks().map((task) => ({ task, context: taskListContext(task) }))
   if (key === 'process') return contexts.find(({ context }) => context.processCode === value)?.context.processLabel || value
   if (key === 'craft') return contexts.find(({ context }) => context.craftCode === value)?.context.craftLabel || value
   if (key === 'factory') return contexts.find(({ task }) => task.assignedFactoryId === value)?.task.assignedFactoryName || value
@@ -634,7 +721,7 @@ function renderActiveFilters(): string {
 }
 
 function renderTaskFilters(rows: RuntimeProcessTask[]): string {
-  const sourceTasks = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+  const sourceTasks = listWorkbenchSourceTasks()
   const sourceContexts = sourceTasks.map((task) => ({ task, context: taskListContext(task) }))
   const processScoped = sourceContexts.filter(({ context }) => state.filters.process === 'ALL' || context.processCode === state.filters.process)
   const processOptions = uniqueOptions(sourceContexts.map(({ context }) => [context.processCode, context.processLabel]))
@@ -665,7 +752,7 @@ function renderTaskFilters(rows: RuntimeProcessTask[]): string {
 }
 
 function renderTaskDetailDialog(): string {
-  const task = state.detailTaskId ? getRuntimeTaskById(state.detailTaskId) : null
+  const task = state.detailTaskId ? resolveWorkbenchTask(state.detailTaskId) : null
   if (!task) return ''
   const context = taskListContext(task)
   const skuRows = (task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }])
@@ -1044,19 +1131,28 @@ function executeAutomaticDispatch(): { succeeded: number; failed: string[] } {
 function renderImagePreview(): string { return '<div data-unified-image-preview></div>' }
 
 export function renderUnifiedDispatchWorkbenchPage(): string {
-  if (!queryTypeInitialized && typeof window !== 'undefined') {
-    const queryType = new URLSearchParams(window.location.search).get('type') as WorkbenchTaskType | null
-    if (queryType && ['ALL', 'SEWING', 'NON_SEWING', 'MERGED'].includes(queryType)) state.taskType = queryType
-    const contractId = new URLSearchParams(window.location.search).get('contractId')
-    if (contractId && getProductionContract(contractId)?.status === 'EFFECTIVE') state.uploadContractId = contractId
-    queryTypeInitialized = true
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search)
+    const querySignature = `${window.location.pathname}?${params.toString()}`
+    const workbenchMounted = Boolean(document.querySelector('[data-unified-dispatch-page]'))
+    const shouldApplyQuery = !workbenchMounted || appliedQuerySignature !== querySignature
+    const queryType = params.get('type') as WorkbenchTaskType | null
+    if (shouldApplyQuery) {
+      if (params.get('source') === 'post-finishing') state.taskType = 'ALL'
+      if (queryType && ['ALL', 'SEWING', 'NON_SEWING', 'MERGED'].includes(queryType)) state.taskType = queryType
+      state.keyword = params.get('keyword') || ''
+      state.page = 1
+      const contractId = params.get('contractId')
+      if (contractId && getProductionContract(contractId)?.status === 'EFFECTIVE') state.uploadContractId = contractId
+      appliedQuerySignature = querySignature
+    }
   }
   const rows = taskRows()
   const pageSize = 20
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
   state.page = Math.min(Math.max(1, state.page), pageCount)
   const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
-  const all = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+  const all = listWorkbenchSourceTasks()
   const assigned = all.filter((task) => ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus)).length
   const failedContracts = listProductionContracts().filter((item) => item.status === 'GENERATION_FAILED')
   const content = renderStandardListPage({

@@ -11,7 +11,7 @@
 
 - 共享事实依赖：`src/data/fcs/post-finishing-full-flow.ts`。
 - 列表公共能力依赖：`src/components/ui/standard-list-page.ts` 等既有标准列表组件。
-- 路由继续使用现有 `/fcs/craft/post-finishing/*`，不新增状态入口。
+- 路由继续使用现有 `/fcs/craft/post-finishing/*`；“查看任务”复用现有 `/fcs/dispatch/workbench` 并携带任务号查询，不新增状态入口。
 - PDA 后道和复检逻辑保持当前实现，不在本计划重复改造。
 
 ## 3. 工作包
@@ -19,10 +19,10 @@
 ### WP-1 后道任务线上基线
 
 - 业务目标：恢复线上统计、筛选、字段和操作，不丢失 SKU 重量及质检查看/打印。
-- 文件 / 符号：`src/pages/process-factory/post-finishing/tasks.ts`、`renderPostFinishingTasksPage`、`handlePostFinishingTasksEvent`。
-- 修改：标准列表、五张统计卡、六类筛选、线上字段、重量弹窗和本地保存；“生成质检单”导航至待加工仓；压缩 SPU、任务、数量和操作列。
-- 验证证据：专项脚本、浏览器保存重量后 `0/5 → 1/5`、1366×768 首屏至少 5 个数据列和固定操作列。
-- 完成条件：TASK-001～TASK-006 均达到已验证。
+- 文件 / 符号：`src/pages/process-factory/post-finishing/tasks.ts`、`src/pages/unified-dispatch-workbench.ts`、`renderPostFinishingTasksPage`、`renderUnifiedDispatchWorkbenchPage`、`handlePostFinishingTasksEvent`。
+- 修改：标准列表、五张统计卡、六类筛选、线上字段、重量弹窗和本地保存；删除“生成质检单”列表操作；“查看任务”携带当前后道任务号进入任务分配工作台并加载对应后道质检任务；压缩 SPU、任务、数量和操作列。
+- 验证证据：专项脚本、浏览器确认任务号精确定位及无“生成质检单”、保存重量后 `0/5 → 1/5`、1366×768 首屏至少 5 个数据列和固定操作列。
+- 完成条件：TASK-001～TASK-007 均达到已验证。
 
 ### WP-2 质检单命名与列表
 
@@ -48,13 +48,13 @@
 - 验证证据：专项脚本、复检列表及具体单据详情浏览器快照、1366×768 首屏至少 6 个数据列和固定操作列。
 - 完成条件：RECHECK-001～RECHECK-004 均达到已验证。
 
-### WP-5 打印、菜单图标、契约与治理
+### WP-5 打印、契约与治理
 
 - 业务目标：补齐三类打印并证明流程未变、页面符合标准列表和原型治理。
-- 文件 / 符号：`full-flow-print.ts`、`src/components/ui/list-page.ts`、`src/icons/shell-icons.ts`、`scripts/check-post-finishing-management-list-alignment.ts`、`package.json`、相关既有检查。
-- 修改：增加 `QC_ORDER`、`QC_DETAIL`，收口 `POST_ORDER` 标题；标准列表在无二级标题和列表动作时收起重复标题栏；把 `KeyRound` 纳入侧栏按需图标包；增加四页字段、动作和密度静态契约；同步旧测试文案。
+- 文件 / 符号：`full-flow-print.ts`、`src/pages/print/templates/post-finishing-qc-print-template.ts`、`src/data/fcs/post-finishing-full-flow.ts`、`src/components/ui/list-page.ts`、`scripts/check-post-finishing-management-list-alignment.ts`、`package.json`、相关既有检查。
+- 修改：让 `QC_ORDER`、`QC_DETAIL` 采用线上主质检单 / 质检详情单版式和真实对象图片，并由后道任务与质检单列表共用；收口 `POST_ORDER` 标题；标准列表在无二级标题和列表动作时收起重复标题栏；增加四页字段、动作、跳转、打印和密度静态契约；同步旧测试文案。
 - 验证证据：专项检查、相关既有检查、构建、浏览器、CodeGraph、治理和任务收据。
-- 完成条件：PRINT-001、AUTH-001、GOV-001～GOV-002 均达到已验证。
+- 完成条件：PRINT-001～PRINT-002、GOV-001～GOV-002 均达到约定状态。
 
 ## 4. 依赖顺序
 
@@ -66,9 +66,10 @@
 
 ## 5. 风险与控制
 
-- 风险：照搬线上“创建质检单”会绕过待加工仓送检。控制：列表只提供导航到待加工仓，专项断言不得调用送检函数。
+- 风险：保留“生成质检单”会与每次回货形成质检单的既有流程重复。控制：从后道任务操作列删除该入口，专项断言页面不存在该动作且不得调用送检函数。
+- 风险：“查看任务”只打开通用工作台而没有定位当前任务。控制：携带后道任务号和来源参数，并在工作台按该任务号加载唯一目标任务。
 - 风险：标准宽表造成页面整体横向溢出。控制：复用标准列表的内部滚动容器并以 1366×768 验收。
 - 风险：压缩列宽后长单号或动作被遮挡。控制：长编号允许单元格内断行，操作使用双列网格和不换行动作文字，并逐页核对可见性与最大行数。
 - 风险：列表数据与当前 Mock 状态不一致。控制：所有聚合从共享事实源实时计算。
-- 风险：打印入口只有按钮没有具体页面。控制：用具体质检单/后道单 ID 打开三类命名打印路由。
+- 风险：打印入口虽然可打开，但版式与线上不同或两个列表入口产生两套内容。控制：两类入口共用同一在线版式渲染器，并用具体质检单/后道单 ID 打开三类命名打印路由。
 - 风险：旧“质检任务”文案残留。控制：相关受管页面全文检查并增加菜单静态断言。

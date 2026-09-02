@@ -11,6 +11,8 @@ const qcOrders = read('src/pages/process-factory/post-finishing/qc-orders.ts')
 const workOrders = read('src/pages/process-factory/post-finishing/work-orders.ts')
 const recheckOrders = read('src/pages/process-factory/post-finishing/recheck-orders.ts')
 const printPage = read('src/pages/process-factory/post-finishing/full-flow-print.ts')
+const printTemplate = read('src/pages/print/templates/post-finishing-qc-print-template.ts')
+const dispatchWorkbench = read('src/pages/unified-dispatch-workbench.ts')
 const menu = read('src/data/app-shell-config.ts')
 const outboundOrders = read('src/pages/process-factory/post-finishing/outbound-orders.ts')
 const listPage = read('src/components/ui/list-page.ts')
@@ -64,7 +66,10 @@ for (const text of ['计划数量', '已入待加工仓', '未质检', '已质�
 for (const text of ['出库状态', '后道来源', '售卖类型', '设置 SKU 重量', '查看质检单', '打印质检单', '打印质检详情单']) {
   assert(tasks.includes(text), `后道任务缺少线上筛选或动作：${text}`)
 }
-assert(tasks.includes('/wait-process-warehouse?tab=returns') && !tasks.includes('sendPostFinishingFactoryReturnToQc'), '后道任务“生成质检单”必须回到待加工仓送检，不得绕过现有流程')
+assert(tasks.includes('/fcs/dispatch/workbench?search_field=task&keyword=') && tasks.includes('&source=post-finishing'), '后道任务“查看任务”必须按任务号进入任务分配工作台')
+assert(!tasks.includes('>生成质检单<'), '每次回货会形成质检单，后道任务列表不得再提供“生成质检单”操作')
+assert(dispatchWorkbench.includes("params.get('keyword')") && dispatchWorkbench.includes("get('source') === 'post-finishing'"), '任务分配工作台必须读取任务号查询并识别后道任务来源')
+assert(dispatchWorkbench.includes('buildPostFinishingWorkbenchTask') && dispatchWorkbench.includes('resolveWorkbenchTask'), '任务分配工作台必须展示并可查看命中的后道任务')
 
 assert(menu.includes("title: '质检单'") && !menu.includes("title: '质检任务'"), '菜单必须将质检任务更名为质检单')
 assert(!outboundOrders.includes('质检任务'), '后道出货单用户文案也必须统一为质检单')
@@ -88,14 +93,26 @@ for (const text of ['复检单号', '来源', '关联质检单', '关联后道�
 }
 assert(recheckOrders.includes('查看复检详情') && recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检单必须保留详情和主管释放兜底')
 
-for (const text of ["'QC_ORDER'", "'QC_DETAIL'", '质检详情单', '后道任务流转卡']) {
+for (const text of ["'QC_ORDER'", "'QC_DETAIL'", 'renderOnlinePostFinishingQcMaster', 'renderOnlinePostFinishingQcDetail', '后道任务流转卡']) {
   assert(printPage.includes(text), `打印入口缺少：${text}`)
 }
+for (const source of [tasks, qcOrders]) {
+  assert(source.includes('type=QC_ORDER') && source.includes('type=QC_DETAIL'), '后道任务与质检单列表必须共用两类 QC 打印入口')
+}
+for (const text of [
+  '质检单 （Pemeriksaan Kualitas）', '款式评级（Gaya penilaian）', '买手（Pembeli）', '生产单类型（Jenis pesanan）',
+  '售卖类型（Jenis penjualan）', '面辅料（pakaian &amp; aksesori）', '单耗(Pemakaian per unit)', '尺码表（Graf ukuran）',
+  '质检详情单 （Pemeriksaan Kualitas）', '打印时间（Print Time）', 'SKU列表（Daftar SKU）',
+  '待加工数量(Tes kualitas diperlukan)', '待质检数量(Tes kualitas diperlukan)', '质检数量(Kualitas sudah diperiksa)',
+]) {
+  assert(printTemplate.includes(text), `QC 打印版式缺少线上字段：${text}`)
+}
+assert(printTemplate.includes('renderCode128Barcode') && printTemplate.includes('图片加载失败'), 'QC 打印必须使用真实条码并提供图片失败态')
 
 console.log(JSON.stringify({
   suite: 'QC 后道四张管理列表线上基线对齐检查',
   pages: ['后道任务', '质检单', '后道单', '复检单'],
   density: '移除重复列表标题；关键列压缩；操作列双列网格且最多 3 行',
-  flow: '待加工仓送检生成质检单 -> 质检 -> 可选后道 -> 复检',
+  flow: '回货形成质检单；后道任务列表不提供手工生成入口；质检 -> 可选后道 -> 复检',
   result: '通过',
 }, null, 2))

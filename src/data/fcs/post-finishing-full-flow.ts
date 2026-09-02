@@ -95,6 +95,23 @@ export interface PostFinishingAcceptanceSku {
   qtyUnit: '件'
 }
 
+export interface PostFinishingQcPrintMaterial {
+  materialName: string
+  materialCode: string
+  unitConsumption: string
+  materialUsed: string
+  imageUrl: string
+}
+
+export interface PostFinishingQcPrintSizeRow {
+  sizeName: string
+  backLength: string
+  shoulderWidth: string
+  bust: string
+  sleeveLength: string
+  cuff: string
+}
+
 export interface PostFinishingAcceptanceProductionOrder {
   productionOrderId: string
   productionOrderNo: string
@@ -109,6 +126,13 @@ export interface PostFinishingAcceptanceProductionOrder {
   sewingFactoryName: string
   managedPostFactoryId: string
   managedPostFactoryName: string
+  styleGrade: 'A' | 'B' | 'C' | 'D'
+  buyerName: string
+  productionOrderType: '首单' | '翻单'
+  saleType: '预售'
+  tagPrice: number
+  qcPrintMaterials: PostFinishingQcPrintMaterial[]
+  qcPrintSizeRows: PostFinishingQcPrintSizeRow[]
   skus: PostFinishingAcceptanceSku[]
 }
 
@@ -562,10 +586,18 @@ export const POST_FINISHING_DEFECT_REASON_OPTIONS = Object.freeze([
 const COLORS = ['黑色', '白色', '雾蓝', '卡其', '酒红']
 const SIZES = ['S', 'M', 'L', 'XL', '2XL']
 const ORDER_SEEDS = [
-  { no: 'PO-QC-202608-001', styleNo: 'HG-QC-001', styleName: '后道验收衬衫', imageUrl: '/shirt-sample.jpg', spuCode: 'SPU-QC-001' },
-  { no: 'PO-QC-202608-002', styleNo: 'HG-QC-002', styleName: '后道验收连衣裙', imageUrl: '/dress-sample-1.jpg', spuCode: 'SPU-QC-002' },
-  { no: 'PO-QC-202608-003', styleNo: 'HG-QC-003', styleName: '后道验收外套', imageUrl: '/jacket-sample.jpg', spuCode: 'SPU-QC-003' },
+  { no: 'PO-QC-202608-001', styleNo: 'HG-QC-001', styleName: '后道验收衬衫', imageUrl: '/shirt-sample.jpg', spuCode: 'SPU-QC-001', styleGrade: 'C', buyerName: '臻臻', productionOrderType: '首单', tagPrice: 264000 },
+  { no: 'PO-QC-202608-002', styleNo: 'HG-QC-002', styleName: '后道验收连衣裙', imageUrl: '/dress-sample-1.jpg', spuCode: 'SPU-QC-002', styleGrade: 'B', buyerName: '阿乐', productionOrderType: '翻单', tagPrice: 289000 },
+  { no: 'PO-QC-202608-003', styleNo: 'HG-QC-003', styleName: '后道验收外套', imageUrl: '/jacket-sample.jpg', spuCode: 'SPU-QC-003', styleGrade: 'B', buyerName: '小雨', productionOrderType: '首单', tagPrice: 319000 },
 ] as const
+
+const QC_PRINT_MATERIALS: PostFinishingQcPrintMaterial[] = [
+  { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-black', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
+  { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-fadfad', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
+  { materialName: '纯白色染色纽扣 1.1cm', materialCode: 'FLSZ25111845-black-322', unitConsumption: '3 PCS', materialUsed: '', imageUrl: '/materials/accessory-button.jpg' },
+  { materialName: '印尼车边 polyester 线', materialCode: 'IDSZFL24093-b349', unitConsumption: '0.001 CNS', materialUsed: '', imageUrl: '/materials/yarn-stitching.jpg' },
+  { materialName: '印尼 cotton 平车线', materialCode: 'IDSZFL24092-b349', unitConsumption: '0.001 DZ', materialUsed: '', imageUrl: '/materials/yarn-stitching.jpg' },
+]
 
 const SEWING_FACTORY_SEEDS = [
   { factoryId: 'ID-F021', factoryName: 'CV Micro Sewing Jakarta Pusat' },
@@ -593,6 +625,20 @@ export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanc
   sewingFactoryName: SEWING_FACTORY_SEEDS[orderIndex].factoryName,
   managedPostFactoryId: 'ID-F002',
   managedPostFactoryName: 'PT Prima Printing Center',
+  styleGrade: seed.styleGrade,
+  buyerName: seed.buyerName,
+  productionOrderType: seed.productionOrderType,
+  saleType: '预售',
+  tagPrice: seed.tagPrice,
+  qcPrintMaterials: QC_PRINT_MATERIALS.map((item) => ({ ...item })),
+  qcPrintSizeRows: SIZES.map((sizeName, sizeIndex) => ({
+    sizeName,
+    backLength: `${64 + sizeIndex}cm`,
+    shoulderWidth: `${35 + sizeIndex}cm`,
+    bust: `${114 + sizeIndex * 4}cm`,
+    sleeveLength: `${59 + sizeIndex}cm`,
+    cuff: `${16 + sizeIndex}cm`,
+  })),
   skus: SIZES.map((sizeName, skuIndex) => ({
     skuId: `${seed.spuCode}-${sizeName}`,
     skuCode: `${seed.spuCode}-${String(skuIndex + 1).padStart(2, '0')}`,

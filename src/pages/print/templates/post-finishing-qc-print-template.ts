@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../../utils.ts'
+import { renderCode128Barcode } from '../../../components/real-barcode.ts'
 import {
   buildProductionConfirmationSnapshot,
   type ProductionConfirmationBomSnapshotRow,
@@ -20,6 +21,48 @@ import {
   type PrintDocument,
   type PrintDocumentBuildInput,
 } from '../../../data/fcs/print-service.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
+
+export interface OnlinePostFinishingQcMaterial {
+  materialName: string
+  materialCode: string
+  unitConsumption: string
+  materialUsed: string
+  imageUrl: string
+}
+
+export interface OnlinePostFinishingQcMasterModel {
+  documentNo: string
+  spuCode: string
+  styleGrade: string
+  productionOrderNo: string
+  factoryName: string
+  productImageUrl: string
+  tagPrice: number
+  buyerName: string
+  productionOrderType: string
+  saleType: string
+  materials: OnlinePostFinishingQcMaterial[]
+  sizeHeaders: string[]
+  sizeRows: string[][]
+}
+
+export interface OnlinePostFinishingQcDetailModel {
+  documentNo: string
+  spuCode: string
+  printedAt: string
+  productionOrderNo: string
+  factoryName: string
+  buyerName: string
+  productionOrderType: string
+  saleType: string
+  skuLines: Array<{
+    skuCode: string
+    waitProcessQty: string
+    waitQcQty: string
+    inspectedQty: string
+  }>
+}
 
 function pickImage(...urls: Array<string | undefined>): string {
   return urls.find((url) => url
@@ -104,8 +147,7 @@ function renderStyle(): string {
       .pf-qc-title { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 700; text-align: center; }
       .pf-qc-title-text { min-width: 92mm; text-align: right; }
       .pf-qc-barcode { width: 42mm; }
-      .pf-qc-barcode-lines { height: 10mm; background: repeating-linear-gradient(90deg, #000 0 1px, #fff 1px 3px, #000 3px 5px, #fff 5px 7px, #000 7px 8px, #fff 8px 10px); }
-      .pf-qc-barcode-text { overflow-wrap: anywhere; font-size: 6px; color: #111; }
+      .pf-qc-barcode svg { display: block; width: 42mm; height: 12mm; }
       .pf-qc-section-title { margin: 6mm 0 3mm; text-align: center; font-size: 16px; font-weight: 700; }
       .pf-qc-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
       .pf-qc-table th, .pf-qc-table td { border: 1px solid #777; padding: 4px 5px; text-align: center; vertical-align: middle; font-weight: 400; overflow-wrap: anywhere; word-break: break-word; }
@@ -113,6 +155,8 @@ function renderStyle(): string {
       .pf-qc-header td { height: 24mm; font-size: 14px; }
       .pf-qc-header th { font-size: 13px; }
       .pf-qc-product-cell img { display: block; max-width: 32mm; max-height: 28mm; margin: 0 auto 2px; object-fit: contain; }
+      .pf-qc-image-wrap { display: flex; min-height: 12mm; align-items: center; justify-content: center; }
+      .pf-qc-image-fallback { color: #b91c1c; font-size: 10px; }
       .pf-qc-material td { min-height: 12mm; }
       .pf-qc-material-imgs { display: flex; align-items: center; justify-content: center; gap: 4px; }
       .pf-qc-material-imgs img { max-width: 20mm; max-height: 16mm; object-fit: contain; }
@@ -128,30 +172,12 @@ function renderStyle(): string {
 }
 
 function renderBarcode(value: string): string {
-  return `
-    <div class="pf-qc-barcode" aria-label="barcode">
-      <div class="pf-qc-barcode-lines"></div>
-      <div class="pf-qc-barcode-text">${escapeHtml(value)}</div>
-    </div>
-  `
+  return `<div class="pf-qc-barcode" aria-label="barcode">${renderCode128Barcode(value, `质检单 ${value} 条码`)}</div>`
 }
 
-function renderProductImage(snapshot: ProductionConfirmationSnapshot): string {
-  const imageUrl = pickImage(
-    firstSnapshotImage(snapshot.imageSnapshot.productImages),
-    firstSnapshotImage(snapshot.imageSnapshot.styleImages),
-    firstSnapshotImage(snapshot.imageSnapshot.sampleImages),
-  )
-  return imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="产品图">` : ''
-}
-
-function renderMaterialImages(row: ProductionConfirmationBomSnapshotRow, snapshot: ProductionConfirmationSnapshot): string {
-  const imageUrl = pickImage(
-    row.materialImageUrl,
-    row.materialType === '面料' ? firstSnapshotImage(snapshot.imageSnapshot.materialImages) : firstSnapshotImage(snapshot.imageSnapshot.accessoryImages),
-    resolveMaterialFallbackImage(row),
-  )
-  return imageUrl ? `<div class="pf-qc-material-imgs"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(row.materialName)}"></div>` : ''
+function renderQcImage(imageUrl: string, alt: string): string {
+  if (!imageUrl) return '<span class="pf-qc-image-fallback">图片缺失</span>'
+  return `<span class="pf-qc-image-wrap"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(alt)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="pf-qc-image-fallback">图片加载失败</span></span>`
 }
 
 function resolveMaterialFallbackImage(row: ProductionConfirmationBomSnapshotRow): string {
@@ -165,141 +191,120 @@ function resolveMaterialFallbackImage(row: ProductionConfirmationBomSnapshotRow)
   return '/materials/accessory-label.jpg'
 }
 
-function renderMasterPrint(task: PostFinishingTaskView, document: PrintDocument): string {
-  const snapshot = buildProductionConfirmationSnapshot(task.productionOrderId)
-  const materials = snapshot.bomSnapshot.slice(0, 6)
-  const sizeMatrix = buildSizeMatrix(snapshot)
-  const barcode = document.barcodes[0]?.value || document.barcodePayload || task.postTaskNo
-
+export function renderOnlinePostFinishingQcMaster(model: OnlinePostFinishingQcMasterModel): string {
   return `
     ${renderStyle()}
-    <div class="pf-qc-print-root">
+    <div class="pf-qc-print-root" data-testid="post-finishing-qc-master-print" data-print-document-no="${escapeHtml(model.documentNo)}">
       <div class="pf-qc-toolbar"><button onclick="window.print()">打印</button></div>
       <article class="pf-qc-paper">
-        <div class="pf-qc-title">
-          <div class="pf-qc-title-text">生产单质检总单（Pemeriksaan Kualitas Produksi）</div>
-          ${renderBarcode(barcode)}
-        </div>
+        <div class="pf-qc-title"><div class="pf-qc-title-text">质检单 （Pemeriksaan Kualitas）</div>${renderBarcode(model.documentNo)}</div>
         <table class="pf-qc-table pf-qc-header">
           <colgroup><col style="width:26%"><col style="width:16%"><col style="width:19%"><col style="width:16%"><col style="width:23%"></colgroup>
-          <thead>
-            <tr>
-              <th>款号SPU(Satuan Pembelian)</th>
-              <th>款式评级（Gaya penilaian）</th>
-              <th>生产单号（Nomor produksi tunggal）</th>
-              <th>工厂名字（Nama pabrik）</th>
-              <th>产品图（Gambar Produk）</th>
-            </tr>
-          </thead>
+          <thead><tr><th>款号SPU(Satuan Pembelian)</th><th>款式评级（Gaya penilaian）</th><th>生产单号（Nomor produksi tunggal）</th><th>工厂名字（Nama pabrik）</th><th>产品图（Gambar Produk）</th></tr></thead>
           <tbody>
-            <tr>
-              <td>${escapeHtml(task.spuCode)}</td>
-              <td>D</td>
-              <td>${escapeHtml(task.productionOrderNo)}</td>
-              <td>${escapeHtml(task.managedPostFactoryName)}</td>
-              <td class="pf-qc-product-cell">${renderProductImage(snapshot)}<div>吊牌价：${escapeHtml(snapshot.productionOrderSnapshot.plannedQty.toLocaleString('zh-CN'))}.00</div></td>
-            </tr>
+            <tr><td>${escapeHtml(model.spuCode)}</td><td>${escapeHtml(model.styleGrade)}</td><td>${escapeHtml(model.productionOrderNo)}</td><td>${escapeHtml(model.factoryName)}</td><td rowspan="3" class="pf-qc-product-cell">${renderQcImage(model.productImageUrl, `${model.spuCode} 产品图`)}<div>吊牌价：${escapeHtml(model.tagPrice.toFixed(2))}</div></td></tr>
+            <tr><th>买手（Pembeli）</th><th colspan="2">生产单类型（Jenis pesanan）</th><th>售卖类型（Jenis penjualan）</th></tr>
+            <tr><td>${escapeHtml(model.buyerName)}</td><td colspan="2">${escapeHtml(model.productionOrderType)}</td><td>${escapeHtml(model.saleType)}</td></tr>
           </tbody>
         </table>
-
         <div class="pf-qc-section-title">面辅料（pakaian &amp; aksesori）</div>
         <table class="pf-qc-table pf-qc-material">
-          <colgroup><col style="width:22%"><col style="width:19%"><col style="width:10%"><col style="width:23%"><col style="width:22%"><col style="width:4%"></colgroup>
-          <thead>
-            <tr>
-              <th>辅料名称(Nama aksesori)</th>
-              <th>辅料编码(Kode aksesori)</th>
-              <th>数量(jumlah)</th>
-              <th>用料(Material yang digunakan)</th>
-              <th>图片(Gambar)</th>
-              <th>已准备(Siap)</th>
-            </tr>
-          </thead>
+          <colgroup><col style="width:22%"><col style="width:19%"><col style="width:13%"><col style="width:20%"><col style="width:21%"><col style="width:5%"></colgroup>
+          <thead><tr><th>辅料名称(Nama aksesori)</th><th>辅料编码(Kode aksesori)</th><th>单耗(Pemakaian per unit)</th><th>用料(Material yang digunakan)</th><th>图片(Gambar)</th><th>已准备(Siap)</th></tr></thead>
+          <tbody>${model.materials.map((row) => `<tr><td>${escapeHtml(row.materialName)}</td><td>${escapeHtml(row.materialCode)}</td><td>${escapeHtml(row.unitConsumption)}</td><td>${escapeHtml(row.materialUsed)}</td><td><div class="pf-qc-material-imgs">${renderQcImage(row.imageUrl, `${row.materialName} 图片`)}</div></td><td></td></tr>`).join('')}</tbody>
+        </table>
+        <div class="pf-qc-section-title">尺码表（Graf ukuran）</div>
+        <table class="pf-qc-table pf-qc-size"><thead><tr>${model.sizeHeaders.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${model.sizeRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+      </article>
+    </div>
+  `
+}
+
+export function renderOnlinePostFinishingQcDetail(model: OnlinePostFinishingQcDetailModel): string {
+  return `
+    ${renderStyle()}
+    <div class="pf-qc-print-root" data-testid="post-finishing-qc-detail-print" data-print-document-no="${escapeHtml(model.documentNo)}">
+      <div class="pf-qc-toolbar"><button onclick="window.print()">打印</button></div>
+      <article class="pf-qc-paper pf-qc-slip">
+        <div class="pf-qc-title"><div class="pf-qc-title-text">质检详情单 （Pemeriksaan Kualitas）</div>${renderBarcode(model.documentNo)}</div>
+        <table class="pf-qc-table pf-qc-header">
+          <colgroup><col style="width:26%"><col style="width:20%"><col style="width:32%"><col style="width:22%"></colgroup>
+          <thead><tr><th>款号SPU(Satuan Pembelian)</th><th>打印时间（Print Time）</th><th>生产单号（Nomor produksi tunggal）</th><th>工厂名字（Nama pabrik）</th></tr></thead>
           <tbody>
-            ${materials.map((row) => `
-              <tr>
-                <td>${escapeHtml(row.materialName)}</td>
-                <td>${escapeHtml(row.materialSku)}</td>
-                <td>${escapeHtml(materialQty(row))}</td>
-                <td>${escapeHtml(materialUsed(row))}</td>
-                <td>${renderMaterialImages(row, snapshot)}</td>
-                <td></td>
-              </tr>
-            `).join('')}
+            <tr><td>${escapeHtml(model.spuCode)}</td><td>${escapeHtml(model.printedAt)}</td><td>${escapeHtml(model.productionOrderNo)}</td><td>${escapeHtml(model.factoryName)}</td></tr>
+            <tr><th>买手（Pembeli）</th><th>生产单类型（Jenis pesanan）</th><th colspan="2">售卖类型（Jenis penjualan）</th></tr>
+            <tr><td>${escapeHtml(model.buyerName)}</td><td>${escapeHtml(model.productionOrderType)}</td><td colspan="2">${escapeHtml(model.saleType)}</td></tr>
           </tbody>
         </table>
-
-        <div class="pf-qc-section-title">尺码表（Graf ukuran）</div>
-        <table class="pf-qc-table pf-qc-size">
-          <thead><tr>${sizeMatrix.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
-          <tbody>
-            ${sizeMatrix.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
-          </tbody>
+        <div class="pf-qc-section-title">SKU列表（Daftar SKU）</div>
+        <table class="pf-qc-table pf-qc-sku-table">
+          <colgroup><col style="width:24%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"></colgroup>
+          <thead><tr><th>SKU</th><th>待加工数量(Tes kualitas diperlukan)</th><th>待质检数量(Tes kualitas diperlukan)</th><th>质检数量(Kualitas sudah diperiksa)</th><th>日期签名(Date &amp; Tandatangan)</th></tr></thead>
+          <tbody>${model.skuLines.map((line) => `<tr><td>${escapeHtml(line.skuCode)}</td><td>${escapeHtml(line.waitProcessQty)}</td><td>${escapeHtml(line.waitQcQty)}</td><td>${escapeHtml(line.inspectedQty)}</td><td></td></tr>`).join('')}</tbody>
         </table>
       </article>
     </div>
   `
 }
 
-function renderQcOrderPrint(qc: PostFinishingQcOrder, document: PrintDocument): string {
-  const barcode = document.barcodes[0]?.value || document.barcodePayload || qc.qcOrderNo
-  return `
-    ${renderStyle()}
-    <div class="pf-qc-print-root">
-      <div class="pf-qc-toolbar"><button onclick="window.print()">打印</button></div>
-      <article class="pf-qc-paper pf-qc-slip">
-        <div class="pf-qc-title">
-          <div class="pf-qc-title-text">质检单（Pemeriksaan Kualitas）</div>
-          ${renderBarcode(barcode)}
-        </div>
-        <table class="pf-qc-table pf-qc-header">
-          <colgroup><col style="width:26%"><col style="width:20%"><col style="width:32%"><col style="width:22%"></colgroup>
-          <thead>
-            <tr>
-              <th>款号SPU(Satuan Pembelian)</th>
-              <th>打印时间（Print Time）</th>
-              <th>生产单号（Nomor produksi tunggal）</th>
-              <th>工厂名字（Nama pabrik）</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${escapeHtml(qc.spuCode)}</td>
-              <td>${escapeHtml(document.printMeta.generatedAt)}</td>
-              <td>${escapeHtml(qc.productionOrderNo)}</td>
-              <td>${escapeHtml(qc.managedPostFactoryName)}</td>
-            </tr>
-          </tbody>
-        </table>
+function renderMasterPrint(task: PostFinishingTaskView, _document: PrintDocument): string {
+  const snapshot = buildProductionConfirmationSnapshot(task.productionOrderId)
+  const productionOrder = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const sizeMatrix = buildSizeMatrix(snapshot)
+  const productImageUrl = pickImage(
+    firstSnapshotImage(snapshot.imageSnapshot.productImages),
+    firstSnapshotImage(snapshot.imageSnapshot.styleImages),
+    firstSnapshotImage(snapshot.imageSnapshot.sampleImages),
+  )
+  return renderOnlinePostFinishingQcMaster({
+    documentNo: task.postTaskNo,
+    spuCode: task.spuCode,
+    styleGrade: 'C',
+    productionOrderNo: task.productionOrderNo,
+    factoryName: task.managedPostFactoryName,
+    productImageUrl,
+    tagPrice: 264000,
+    buyerName: productionOrder?.demandSnapshot.buyerName || '—',
+    productionOrderType: snapshot.productionOrderSnapshot.orderType || '—',
+    saleType: productionOrder?.demandSnapshot.saleType || '—',
+    materials: snapshot.bomSnapshot.slice(0, 6).map((row) => ({
+      materialName: row.materialName,
+      materialCode: row.materialSku,
+      unitConsumption: materialUsed(row),
+      materialUsed: materialQty(row),
+      imageUrl: pickImage(
+        row.materialImageUrl,
+        row.materialType === '面料' ? firstSnapshotImage(snapshot.imageSnapshot.materialImages) : firstSnapshotImage(snapshot.imageSnapshot.accessoryImages),
+        resolveMaterialFallbackImage(row),
+      ),
+    })),
+    sizeHeaders: sizeMatrix.headers,
+    sizeRows: sizeMatrix.rows,
+  })
+}
 
-        <div class="pf-qc-section-title">SKU列表（Daftar SKU）</div>
-        <table class="pf-qc-table pf-qc-sku-table">
-          <colgroup><col style="width:17%"><col style="width:29%"><col style="width:29%"><col style="width:25%"></colgroup>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>待质检数量(Tes kualitas diperlukan)</th>
-              <th>质检数量(Kualitas sudah diperiksa)</th>
-              <th>日期签名(Date &amp; Tandatangan)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${qc.skuLines.map((line) => {
-              const result = qc.qcSkuResults.find((item) => item.skuLineId === line.skuLineId || item.skuCode === line.skuCode)
-              return `
-                <tr>
-                  <td>${escapeHtml(line.skuCode)}</td>
-                  <td>${escapeHtml(formatPrintQty(line.plannedQty, line.qtyUnit))}</td>
-                  <td>${result?.inspectedQty ? escapeHtml(formatPrintQty(result.inspectedQty, line.qtyUnit)) : ''}</td>
-                  <td></td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
-      </article>
-    </div>
-  `
+function renderQcOrderPrint(qc: PostFinishingQcOrder, document: PrintDocument): string {
+  const snapshot = buildProductionConfirmationSnapshot(qc.productionOrderId)
+  const productionOrder = productionOrders.find((item) => item.productionOrderId === qc.productionOrderId)
+  return renderOnlinePostFinishingQcDetail({
+    documentNo: qc.qcOrderNo,
+    spuCode: qc.spuCode,
+    printedAt: document.printMeta.generatedAt,
+    productionOrderNo: qc.productionOrderNo,
+    factoryName: qc.managedPostFactoryName,
+    buyerName: productionOrder?.demandSnapshot.buyerName || '—',
+    productionOrderType: snapshot.productionOrderSnapshot.orderType || '—',
+    saleType: productionOrder?.demandSnapshot.saleType || '—',
+    skuLines: qc.skuLines.map((line) => {
+      const result = qc.qcSkuResults.find((item) => item.skuLineId === line.skuLineId || item.skuCode === line.skuCode)
+      return {
+        skuCode: line.skuCode,
+        waitProcessQty: formatPrintQty(0, line.qtyUnit),
+        waitQcQty: qc.qcStatus === '质检完成' ? '' : formatPrintQty(line.plannedQty, line.qtyUnit),
+        inspectedQty: result?.inspectedQty ? formatPrintQty(result.inspectedQty, line.qtyUnit) : '',
+      }
+    }),
+  })
 }
 
 export function buildProductionQcMasterPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
