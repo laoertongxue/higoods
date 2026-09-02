@@ -68,20 +68,20 @@ function totalDefect(record: RecheckRecord): number {
 }
 
 const columns: StandardListColumn<RecheckOrderRow>[] = [
-  { key: 'recheck', title: '复检单号', width: 220, required: true, freezeable: true, render: (row) => `<div class="font-mono font-semibold">${escapeHtml(row.record.recheckOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">第 ${row.record.returnIndex} 次回货</div>` },
-  { key: 'source', title: '来源', width: 110, required: true, render: (row) => row.record.postTaskNo ? '后道单' : '质检单' },
-  { key: 'qc', title: '关联质检单', width: 220, required: true, render: (row) => `<span class="font-mono text-blue-700">${escapeHtml(row.record.qcTaskNo)}</span>` },
-  { key: 'post', title: '关联后道单', width: 220, required: true, render: (row) => `<span class="font-mono ${row.record.postTaskNo ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(row.record.postTaskNo || '—')}</span>` },
-  { key: 'production', title: '生产单号', width: 180, required: true, render: (row) => `<span class="font-mono text-blue-700">${escapeHtml(row.record.productionOrderNo)}</span>` },
-  { key: 'factory', title: '加工工厂', width: 190, required: true, render: (row) => escapeHtml(row.delivery?.managedPostFactoryName || '—') },
-  { key: 'style', title: '款式名称', width: 280, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.record.lines[0]?.sku.spuCode || '—')}</div><div class="mt-1 text-xs">${escapeHtml(row.record.lines[0]?.sku.spuName || '—')}</div>` },
-  { key: 'sku', title: 'SKU 明细', width: 330, required: true, render: renderSkuSummary },
-  { key: 'expected', title: '复检数量', width: 120, required: true, align: 'center', render: (row) => `${totalExpected(row.record)} 件` },
-  { key: 'passed', title: '合格数量', width: 120, required: true, align: 'center', render: (row) => `${totalPassed(row.record)} 件` },
-  { key: 'defect', title: '不合格数量', width: 130, required: true, align: 'center', render: (row) => `${totalDefect(row.record)} 件` },
-  { key: 'status', title: '复检状态', width: 140, required: true, render: (row) => renderPostStatusBadge(row.record.status) },
-  { key: 'time', title: '复检时间', width: 190, required: true, render: (row) => escapeHtml(row.record.completedAt ? new Date(row.record.completedAt).toLocaleString('zh-CN') : row.record.claimedAt ? new Date(row.record.claimedAt).toLocaleString('zh-CN') : '—') },
-  { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true, render: (row) => `<div class="flex flex-wrap justify-end gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/recheck-orders?id=${encodeURIComponent(row.record.recheckOrderId)}" class="text-xs font-medium text-blue-700 hover:underline">查看复检详情</a>${row.record.claimedBy && row.record.status !== '复检完成' ? `<button type="button" class="text-xs text-amber-700 hover:underline" data-post-finishing-action="full-flow-supervisor-release-recheck" data-recheck-id="${escapeHtml(row.record.recheckOrderId)}">主管释放</button>` : ''}</div>` },
+  { key: 'recheck', title: '复检单号', width: 160, required: true, freezeable: true, render: (row) => `<div class="break-all font-mono font-semibold">${escapeHtml(row.record.recheckOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">第 ${row.record.returnIndex} 次回货</div>` },
+  { key: 'source', title: '来源', width: 80, required: true, render: (row) => row.record.postTaskNo ? '后道单' : '质检单' },
+  { key: 'qc', title: '关联质检单', width: 160, required: true, render: (row) => `<span class="break-all font-mono text-blue-700">${escapeHtml(row.record.qcTaskNo)}</span>` },
+  { key: 'post', title: '关联后道单', width: 160, required: true, render: (row) => `<span class="break-all font-mono ${row.record.postTaskNo ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(row.record.postTaskNo || '—')}</span>` },
+  { key: 'production', title: '生产单号', width: 130, required: true, render: (row) => `<span class="font-mono text-blue-700">${escapeHtml(row.record.productionOrderNo)}</span>` },
+  { key: 'factory', title: '加工工厂', width: 140, required: true, render: (row) => escapeHtml(row.delivery?.managedPostFactoryName || '—') },
+  { key: 'style', title: '款式名称', width: 190, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.record.lines[0]?.sku.spuCode || '—')}</div><div class="mt-1 text-xs">${escapeHtml(row.record.lines[0]?.sku.spuName || '—')}</div>` },
+  { key: 'sku', title: 'SKU 明细', width: 220, required: true, render: renderSkuSummary },
+  { key: 'expected', title: '复检数量', width: 90, required: true, align: 'center', render: (row) => `${totalExpected(row.record)} 件` },
+  { key: 'passed', title: '合格数量', width: 90, required: true, align: 'center', render: (row) => `${totalPassed(row.record)} 件` },
+  { key: 'defect', title: '不合格数量', width: 100, required: true, align: 'center', render: (row) => `${totalDefect(row.record)} 件` },
+  { key: 'status', title: '复检状态', width: 110, required: true, render: (row) => renderPostStatusBadge(row.record.status) },
+  { key: 'time', title: '复检时间', width: 150, required: true, render: (row) => escapeHtml(row.record.completedAt ? new Date(row.record.completedAt).toLocaleString('zh-CN') : row.record.claimedAt ? new Date(row.record.claimedAt).toLocaleString('zh-CN') : '—') },
+  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/recheck-orders?id=${encodeURIComponent(row.record.recheckOrderId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">查看复检详情</a>${row.record.claimedBy && row.record.status !== '复检完成' ? `<button type="button" class="whitespace-nowrap text-xs text-amber-700 hover:underline" data-post-finishing-action="full-flow-supervisor-release-recheck" data-recheck-id="${escapeHtml(row.record.recheckOrderId)}">主管释放</button>` : ''}</div>` },
 ]
 
 function renderDetail(record: RecheckRecord): string {
@@ -146,7 +146,6 @@ export function renderPostFinishingRecheckOrdersPage(): string {
       { label: '复检中', value: `${(statusCounts['复检中'] || 0) + (statusCounts['条码异常待重贴'] || 0)} 张` },
       { label: '复检完成', value: `${statusCounts['复检完成'] || 0} 张` },
     ]),
-    listTitle: '复检单列表',
     tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences, sort: null, eventPrefix: 'post-finishing-recheck-orders', emptyText: '暂无符合条件的复检单。' }),
     paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing-recheck-orders', fieldPrefix: 'post-finishing-recheck-orders' }),
   })

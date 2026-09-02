@@ -33,7 +33,6 @@ interface PostFinishingRootTaskRow {
   inspectedQty: number
   waitHandoverQty: number
   returnCount: number
-  currentStage: string
   outboundStatus: '未出库' | '待出库' | '已出库'
   weightedSkuCount: number
 }
@@ -87,23 +86,23 @@ function sourceOptions(selected: string): string {
 }
 
 const columns: StandardListColumn<PostFinishingRootTaskRow>[] = [
-  { key: 'spu', title: 'SPU', width: 300, required: true, freezeable: true, render: renderStyle },
-  { key: 'task', title: '后道任务', width: 260, required: true, render: (row) => `<div class="font-semibold">后道质检</div><div class="mt-1 font-mono text-xs">${escapeHtml(row.order.sewingTaskNo)}</div><div class="mt-1 text-xs text-muted-foreground">工厂：${escapeHtml(row.order.managedPostFactoryName)}</div>` },
-  { key: 'production', title: '生产单信息', width: 200, required: true, render: (row) => `<div class="font-mono font-semibold text-blue-700">${escapeHtml(row.order.productionOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">技术包 v1.0</div><div class="mt-1 text-xs text-muted-foreground">售卖类型：预售</div>` },
-  { key: 'planned', title: '计划数量', width: 120, required: true, align: 'center', render: (row) => `${row.plannedQty} 件` },
-  { key: 'waitProcess', title: '已入待加工仓', width: 150, required: true, align: 'center', render: (row) => `${row.waitProcessQty} 件` },
-  { key: 'uninspected', title: '未质检', width: 110, required: true, align: 'center', render: (row) => `${row.uninspectedQty} 件` },
-  { key: 'inspected', title: '已质检', width: 110, required: true, align: 'center', render: (row) => `${row.inspectedQty} 件` },
-  { key: 'handover', title: '待交出', width: 110, required: true, align: 'center', render: (row) => `${row.waitHandoverQty} 件` },
-  { key: 'source', title: '上游来源', width: 170, required: true, render: (row) => escapeHtml(POST_FINISHING_SEWING_TASK_TYPE_LABEL[row.order.sewingTaskType]) },
-  { key: 'assignment', title: '分配状态', width: 120, required: true, align: 'center', render: () => renderPostStatusBadge('已派单') },
-  { key: 'weight', title: 'SKU 重量', width: 130, required: true, align: 'center', render: (row) => `<span class="${row.weightedSkuCount === row.order.skus.length ? 'text-emerald-700' : 'text-amber-700'}">${row.weightedSkuCount}/${row.order.skus.length} 已设置</span>` },
-  { key: 'actions', title: '操作', width: 470, required: true, actionColumn: true, render: (row) => {
+  { key: 'spu', title: 'SPU', width: 210, required: true, freezeable: true, render: renderStyle },
+  { key: 'task', title: '后道任务', width: 190, required: true, render: (row) => `<div class="font-semibold">后道质检</div><div class="mt-1 font-mono text-xs">${escapeHtml(row.order.sewingTaskNo)}</div><div class="mt-1 text-xs text-muted-foreground">工厂：${escapeHtml(row.order.managedPostFactoryName)}</div>` },
+  { key: 'production', title: '生产单信息', width: 180, required: true, render: (row) => `<div class="font-mono font-semibold text-blue-700">${escapeHtml(row.order.productionOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">技术包 v1.0</div><div class="mt-1 text-xs text-muted-foreground">售卖类型：预售</div>` },
+  { key: 'planned', title: '计划数量', width: 96, required: true, align: 'center', render: (row) => `${row.plannedQty} 件` },
+  { key: 'waitProcess', title: '已入待加工仓', width: 116, required: true, align: 'center', render: (row) => `${row.waitProcessQty} 件` },
+  { key: 'uninspected', title: '未质检', width: 88, required: true, align: 'center', render: (row) => `${row.uninspectedQty} 件` },
+  { key: 'inspected', title: '已质检', width: 88, required: true, align: 'center', render: (row) => `${row.inspectedQty} 件` },
+  { key: 'handover', title: '待交出', width: 88, required: true, align: 'center', render: (row) => `${row.waitHandoverQty} 件` },
+  { key: 'source', title: '上游来源', width: 130, required: true, render: (row) => escapeHtml(POST_FINISHING_SEWING_TASK_TYPE_LABEL[row.order.sewingTaskType]) },
+  { key: 'assignment', title: '分配状态', width: 104, required: true, align: 'center', render: () => renderPostStatusBadge('已派单') },
+  { key: 'weight', title: 'SKU 重量', width: 112, required: true, align: 'center', render: (row) => `<span class="${row.weightedSkuCount === row.order.skus.length ? 'text-emerald-700' : 'text-amber-700'}">${row.weightedSkuCount}/${row.order.skus.length} 已设置</span>` },
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true, render: (row) => {
     const latestQc = [...row.qcTasks].sort((a, b) => b.returnIndex - a.returnIndex)[0]
     const qcActions = latestQc
-      ? `<a data-nav="/fcs/craft/post-finishing/qc-orders?keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="text-xs text-blue-600 hover:underline">查看质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(latestQc.qcTaskNo)}" class="text-xs text-blue-600 hover:underline">打印质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(latestQc.qcTaskNo)}" class="text-xs text-blue-600 hover:underline">打印质检详情单</a>`
+      ? `<a data-nav="/fcs/craft/post-finishing/qc-orders?keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(latestQc.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(latestQc.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检详情单</a>`
       : '<span class="text-xs text-muted-foreground">暂无质检单</span>'
-    return `<div class="flex flex-wrap justify-end gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/audit-records?keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="text-xs text-blue-600 hover:underline">查看任务</a><a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="text-xs text-blue-600 hover:underline" title="仍由待加工仓执行送检后生成质检单">生成质检单</a><a data-nav="/fcs/craft/post-finishing/tasks?weightOrder=${encodeURIComponent(row.order.productionOrderNo)}" class="text-xs text-blue-600 hover:underline">设置 SKU 重量</a>${qcActions}</div>`
+    return `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/audit-records?keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看任务</a><a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&keyword=${encodeURIComponent(row.order.productionOrderNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline" title="仍由待加工仓执行送检后生成质检单">生成质检单</a><a data-nav="/fcs/craft/post-finishing/tasks?weightOrder=${encodeURIComponent(row.order.productionOrderNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">设置 SKU 重量</a>${qcActions}</div>`
   } },
 ]
 
@@ -128,12 +127,6 @@ export function renderPostFinishingTasksPage(): string {
     const hasCompletedOutbound = traces.some((trace) => trace.receipt || trace.waitHandoverRecord?.status === '已交出')
     const hasWaitingOutbound = orderWaitHandover.some((record) => record.status === '待交出')
     const rowOutboundStatus: PostFinishingRootTaskRow['outboundStatus'] = hasCompletedOutbound ? '已出库' : hasWaitingOutbound ? '待出库' : '未出库'
-    const currentStage = traces.some((trace) => trace.receipt) ? '已收货'
-      : hasWaitingOutbound ? '待交出'
-        : traces.some((trace) => trace.recheckOrder) ? '复检中'
-          : traces.some((trace) => trace.postTask) ? '后道中'
-            : traces.some((trace) => trace.qcTask) ? '质检中'
-              : orderDeliveries.some((delivery) => delivery.confirmedAt) ? '待送检' : '待回货'
     return {
       order,
       deliveries: orderDeliveries,
@@ -144,7 +137,6 @@ export function renderPostFinishingTasksPage(): string {
       inspectedQty: orderQcTasks.filter((task) => task.status === '质检完成').reduce((sum, task) => sum + (task.results || []).reduce((lineSum, line) => lineSum + line.expectedQty, 0), 0),
       waitHandoverQty: orderWaitHandover.reduce((sum, record) => sum + record.lines.reduce((lineSum, line) => lineSum + line.availableQty, 0), 0),
       returnCount: orderDeliveries.length,
-      currentStage,
       outboundStatus: rowOutboundStatus,
       weightedSkuCount: order.skus.filter((sku) => typeof skuWeights[sku.skuId] === 'number').length,
     }
@@ -175,7 +167,6 @@ export function renderPostFinishingTasksPage(): string {
       { label: '已入待加工仓', value: `${totalWaitProcess} 件` },
       { label: '待交出数量', value: `${totalWaitHandover} 件` },
     ]),
-    listTitle: `后道任务列表 · 当前最远环节：${escapeHtml(rows[0]?.currentStage || '—')}`,
     tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences, sort: null, eventPrefix: 'post-finishing-tasks', emptyText: '暂无符合条件的后道任务。' }),
     paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing-tasks', fieldPrefix: 'post-finishing-tasks' }),
   })}${message ? `<div class="fixed bottom-5 right-5 z-50 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow">${escapeHtml(message)}</div>` : ''}${current.get('weightOrder') ? renderSkuWeightsDialog(current.get('weightOrder') || '', skuWeights) : ''}`

@@ -168,7 +168,7 @@ assert(files.qcWorkbench.includes('data-qc-difference-authorization') && files.q
 assert(files.qcOrders.includes('主管释放'), '质检管理页必须提供主管释放')
 assert(files.qcOrders.includes('data-qc-task-input') && files.qcOrders.includes('输入质检单号'), '质检单页必须同时提供输入领取入口')
 assert(files.recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检管理页必须提供主管释放错误领取')
-assert(files.tasks.includes('后道任务列表') && files.tasks.includes('查看任务'), '后道任务页必须以生产单汇总并进入一单到底链路')
+assert(files.tasks.includes("title: '后道任务'") && !files.tasks.includes("title: '后道任务列表'") && files.tasks.includes('查看任务'), '后道任务页必须以生产单汇总、移除重复列表标题并进入一单到底链路')
 assert(files.qcOrders.includes('getCurrentPostFinishingActor') && !files.qcOrders.includes("query().get('actor')"), 'Web 质检身份必须来自当前登录身份，不得由网址参数切换')
 assert(files.qcWorkbench.includes('getCurrentPostFinishingActor') && !files.qcWorkbench.includes("query().get('actor')"), 'Web 质检工作台身份必须来自当前登录身份，不得由网址参数切换')
 

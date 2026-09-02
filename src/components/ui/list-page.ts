@@ -13,7 +13,7 @@ export interface StandardListPageConfig {
   statusTabsHtml?: string
   filtersHtml: string
   statsHtml?: string
-  listTitle: string
+  listTitle?: string
   listActionsHtml?: string
   tableHtml: string
   paginationHtml: string
@@ -59,6 +59,12 @@ export function renderStandardListStats(items: StandardListStatItem[]): string {
 
 export function renderStandardListPage(config: StandardListPageConfig): string {
   const className = ['p-4', 'space-y-3', config.className].filter(Boolean).join(' ')
+  const listHeader = config.listTitle || config.listActionsHtml
+    ? `<header class="flex min-h-11 flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+        ${config.listTitle ? `<h2 class="font-semibold">${escapeHtml(config.listTitle)}</h2>` : ''}
+        ${config.listActionsHtml ?? ''}
+      </header>`
+    : ''
 
   return `
     <section class="${escapeHtml(className)}" data-standard-list-page>
@@ -71,10 +77,7 @@ export function renderStandardListPage(config: StandardListPageConfig): string {
       <div data-standard-list-filters>${config.filtersHtml}</div>
       ${config.statsHtml ?? ''}
       <section class="overflow-hidden rounded-lg border bg-card" data-standard-list-table-section>
-        <header class="flex min-h-11 flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <h2 class="font-semibold">${escapeHtml(config.listTitle)}</h2>
-          ${config.listActionsHtml ?? ''}
-        </header>
+        ${listHeader}
         <div class="overflow-x-auto">${config.tableHtml}</div>
         <div class="border-t px-4 py-3">${config.paginationHtml}</div>
       </section>
