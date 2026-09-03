@@ -40,13 +40,14 @@ export function renderStandardListFilters(config: StandardListFiltersConfig): st
   `
 }
 
-export function renderStandardListStats(items: StandardListStatItem[]): string {
+export function renderStandardListStats(items: StandardListStatItem[], options: { compact?: boolean } = {}): string {
+  const itemWidthClass = options.compact ? 'min-w-[9rem] flex-[1_1_9rem]' : 'min-w-[12rem] flex-[1_1_12rem]'
   return `
     <div class="flex flex-wrap gap-3" data-standard-list-stats>
       ${items
         .map(
           (item) => `
-            <div class="flex h-12 min-w-[12rem] flex-[1_1_12rem] items-center justify-between gap-2 rounded-lg border bg-card px-3">
+            <div class="flex h-12 ${itemWidthClass} items-center justify-between gap-2 rounded-lg border bg-card px-3">
               <span class="shrink-0 whitespace-nowrap text-xs text-muted-foreground">${escapeHtml(item.label)}</span>
               <strong class="whitespace-nowrap text-sm font-semibold tabular-nums">${escapeHtml(item.value)}</strong>
             </div>

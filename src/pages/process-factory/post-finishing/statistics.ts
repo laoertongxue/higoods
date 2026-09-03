@@ -2,19 +2,35 @@
 
 import { getPostFinishingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import {
+  POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
+  listPostFinishingFullFlowPostTasks,
+  listPostFinishingFullFlowRecheckOrders,
+  listPostFinishingMaterialTransferOrders,
+} from '../../../data/fcs/post-finishing-full-flow.ts'
+import {
   formatGarmentQty,
   renderPostFinishingPageHeader,
-  renderPostFinishingQcPrintActions,
   renderPostMetricCard,
   renderPostSection,
 } from './shared.ts'
 
 export function renderPostFinishingStatisticsPage(): string {
   const statistics = getPostFinishingExecutionStatistics()
+  const postTasks = listPostFinishingFullFlowPostTasks()
+  const recheckOrders = listPostFinishingFullFlowRecheckOrders()
+  const materialTransfers = listPostFinishingMaterialTransferOrders()
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道统计', '', renderPostFinishingQcPrintActions())}
+      ${renderPostFinishingPageHeader('后道统计')}
+      ${renderPostSection('任务责任与质检分支', `<div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        ${renderPostMetricCard('仅车缝生产任务', String(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.filter((order) => order.sewingTaskType === 'INDEPENDENT_SEWING').length), '后道工厂负责烫包')}
+        ${renderPostMetricCard('车缝＋烫包生产任务', String(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.filter((order) => order.sewingTaskType === 'SEWING_TO_IRON_PACK').length), '三方工厂负责烫包')}
+        ${renderPostMetricCard('裁剪＋车缝＋烫包任务', String(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.filter((order) => order.sewingTaskType === 'CUTTING_TO_IRON_PACK').length), '与车缝＋烫包同规则')}
+        ${renderPostMetricCard('质检直达复检', String(recheckOrders.filter((order) => order.sourceType === '质检直达').length), '未发现漏做项目')}
+        ${renderPostMetricCard('质检补加工', String(postTasks.filter((task) => task.sourceType === '质检补加工').length), '按质检勾选项目')}
+        ${renderPostMetricCard('待入库辅料调拨单', String(materialTransfers.filter((order) => order.status === '待入库').length), '不计入成衣库存')}
+      </div>`)}
       <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
         ${renderPostMetricCard('后道生产任务总数', String(statistics.workOrderCount), '生产单级流程记录')}
         ${renderPostMetricCard('后道加工单总数', String(statistics.postOrderCount), '质检勾选实际工序后生成')}

@@ -78,9 +78,69 @@ export type PostFinishingSewingTaskType =
   | 'CUTTING_TO_IRON_PACK'
 
 export const POST_FINISHING_SEWING_TASK_TYPE_LABEL: Record<PostFinishingSewingTaskType, string> = {
-  INDEPENDENT_SEWING: '独立车缝',
+  INDEPENDENT_SEWING: '仅车缝',
   SEWING_TO_IRON_PACK: '车缝＋烫包',
   CUTTING_TO_IRON_PACK: '裁剪＋车缝＋烫包',
+}
+
+export type PostFinishingResponsibilityMode = 'POST_FACTORY' | 'THIRD_PARTY_FACTORY'
+
+export const POST_FINISHING_PROCESS_ITEMS = Object.freeze([
+  '开扣眼',
+  '装扣子',
+  '熨烫和包装',
+] as const)
+
+export type PostFinishingProcessItem = typeof POST_FINISHING_PROCESS_ITEMS[number]
+
+export interface PostFinishingResponsibilitySnapshot {
+  sewingTaskType: PostFinishingSewingTaskType
+  taskTypeLabel: string
+  responsibilityMode: PostFinishingResponsibilityMode
+  responsibilityLabel: '后道工厂负责' | '三方工厂负责' | '历史责任未标记'
+  source: 'PPIC任务分配'
+  frozenAt: string
+  defaultProcessItems: PostFinishingProcessItem[]
+  processItemsEditable: boolean
+  historicalUnmarked?: boolean
+}
+
+export function resolvePostFinishingResponsibility(
+  sewingTaskType: PostFinishingSewingTaskType,
+  frozenAt = '2026-08-01T08:00:00+07:00',
+): PostFinishingResponsibilitySnapshot {
+  const handledByPostFactory = sewingTaskType === 'INDEPENDENT_SEWING'
+  return {
+    sewingTaskType,
+    taskTypeLabel: POST_FINISHING_SEWING_TASK_TYPE_LABEL[sewingTaskType],
+    responsibilityMode: handledByPostFactory ? 'POST_FACTORY' : 'THIRD_PARTY_FACTORY',
+    responsibilityLabel: handledByPostFactory ? '后道工厂负责' : '三方工厂负责',
+    source: 'PPIC任务分配',
+    frozenAt,
+    defaultProcessItems: handledByPostFactory ? [...POST_FINISHING_PROCESS_ITEMS] : [],
+    processItemsEditable: !handledByPostFactory,
+  }
+}
+
+function normalizeResponsibilitySnapshot(
+  snapshot: PostFinishingResponsibilitySnapshot | undefined,
+  sewingTaskType: PostFinishingSewingTaskType,
+  frozenAt?: string,
+  historicalUnmarked = false,
+): PostFinishingResponsibilitySnapshot {
+  const fallback = resolvePostFinishingResponsibility(sewingTaskType, frozenAt)
+  if (!snapshot && historicalUnmarked) {
+    return { ...fallback, taskTypeLabel: '历史责任未标记', responsibilityLabel: '历史责任未标记', historicalUnmarked: true }
+  }
+  return {
+    ...fallback,
+    ...(snapshot || {}),
+    source: snapshot?.source || fallback.source,
+    frozenAt: snapshot?.frozenAt || fallback.frozenAt,
+    defaultProcessItems: snapshot?.defaultProcessItems
+      ? snapshot.defaultProcessItems.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item))
+      : fallback.defaultProcessItems,
+  }
 }
 
 export interface PostFinishingAcceptanceSku {
@@ -246,6 +306,8 @@ export interface PostFinishingWaitHandoverWarehouseRecord {
   qcTaskNo: string
   postTaskId?: string
   postTaskNo?: string
+  responsibility: PostFinishingResponsibilitySnapshot
+  sourceType: '质检直达' | '后道加工后'
   recheckOrderId: string
   recheckOrderNo: string
   outboundOrderId: string
@@ -332,6 +394,7 @@ export interface PostFinishingQcTask {
   deliveryOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  responsibility: PostFinishingResponsibilitySnapshot
   returnIndex: number
   status: PostFinishingQcTaskStatus
   lines: Array<{ sku: PostFinishingAcceptanceSku; expectedQty: number }>
@@ -346,6 +409,7 @@ export interface PostFinishingQcTask {
   releaseReason?: string
   results?: PostFinishingQualityResultLine[]
   needPostFinishing?: boolean
+  frozenProcessItems?: PostFinishingProcessItem[]
   completedAt?: string
   qcAuthorizationId?: string
   qcAuthorizedBy?: { authorizerId: string; authorizerName: string }
@@ -400,11 +464,13 @@ export interface PostFinishingPostTask {
   deliveryId: string
   deliveryOrderNo: string
   productionOrderNo: string
+  responsibility: PostFinishingResponsibilitySnapshot
+  sourceType: '任务后道' | '质检补加工'
   qcTaskId: string
   qcTaskNo: string
   returnIndex: number
   status: PostFinishingPostTaskStatus
-  processItems: string[]
+  processItems: PostFinishingProcessItem[]
   lines: Array<{ sku: PostFinishingAcceptanceSku; expectedQty: number }>
   startedBy?: PostFinishingActor
   startedAt?: string
@@ -448,6 +514,8 @@ export interface PostFinishingRecheckOrder {
   deliveryId: string
   deliveryOrderNo: string
   productionOrderNo: string
+  responsibility: PostFinishingResponsibilitySnapshot
+  sourceType: '质检直达' | '后道加工后'
   qcTaskId: string
   qcTaskNo: string
   postTaskId?: string
@@ -484,6 +552,8 @@ export interface PostFinishingOutboundOrder {
   qcTaskNo: string
   postTaskId?: string
   postTaskNo?: string
+  responsibility: PostFinishingResponsibilitySnapshot
+  sourceType: '质检直达' | '后道加工后'
   recheckOrderId: string
   recheckOrderNo: string
   returnIndex: number
@@ -507,6 +577,64 @@ export interface PostFinishingWarehouseReceipt {
   receivedAt: string
   authorizationId?: string
   differenceReason?: string
+}
+
+export type PostFinishingMaterialTransferStatus = '申请调拨' | '待调拨' | '待入库' | '已入库'
+
+export interface PostFinishingMaterialTransferLine {
+  transferLineId: string
+  materialName: string
+  materialCode: string
+  materialSpuCode: string
+  specification: string
+  unit: string
+  requestedQty: number
+  preparedQty: number
+  imageUrl: string
+}
+
+export interface PostFinishingMaterialTransferHistory {
+  status: PostFinishingMaterialTransferStatus
+  operatedAt: string
+  operatorName: string
+  remark: string
+}
+
+export interface PostFinishingMaterialTransferOrder {
+  transferOrderId: string
+  transferOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleNo: string
+  styleName: string
+  styleImageUrl: string
+  sewingTaskNo: string
+  responsibility: PostFinishingResponsibilitySnapshot
+  sourceWarehouseName: string
+  targetWarehouseName: string
+  targetAreaName: string
+  targetLocationCode: string
+  status: PostFinishingMaterialTransferStatus
+  lines: PostFinishingMaterialTransferLine[]
+  statusHistory: PostFinishingMaterialTransferHistory[]
+  createdAt: string
+  updatedAt: string
+  inboundAt?: string
+  inboundBy?: PostFinishingActor
+}
+
+export interface PostFinishingMaterialStock {
+  stockId: string
+  transferOrderId: string
+  transferOrderNo: string
+  productionOrderNo: string
+  material: PostFinishingMaterialTransferLine
+  currentQty: number
+  inboundQty: number
+  areaName: string
+  locationCode: string
+  inboundAt: string
+  inboundBy: PostFinishingActor
 }
 
 export interface PostFinishingDefectRecord {
@@ -539,6 +667,8 @@ interface PostFinishingFullFlowState {
   outboundOrders: PostFinishingOutboundOrder[]
   warehouseReceipts: PostFinishingWarehouseReceipt[]
   defects: PostFinishingDefectRecord[]
+  materialTransferOrders: PostFinishingMaterialTransferOrder[]
+  materialStocks: PostFinishingMaterialStock[]
 }
 
 export type PostFinishingFlowGateCode =
@@ -601,6 +731,32 @@ export const POST_FINISHING_DEFECT_REASON_OPTIONS = Object.freeze([
   '其他',
 ] as const)
 
+function normalizePostFinishingProcessItem(value: string): PostFinishingProcessItem | undefined {
+  const normalized = value.trim() === '烫包' ? '熨烫和包装' : value.trim()
+  return POST_FINISHING_PROCESS_ITEMS.includes(normalized as PostFinishingProcessItem)
+    ? normalized as PostFinishingProcessItem
+    : undefined
+}
+
+export function isPostFinishingDedicatedMaterial(input: {
+  materialName: string
+  materialSpuCode: string
+}): boolean {
+  const materialName = input.materialName.trim()
+  const materialSpuCode = input.materialSpuCode.trim().toUpperCase()
+  return ['吊牌', '吊粒', '扣', '扣子'].some((keyword) => materialName.includes(keyword))
+    || materialSpuCode.startsWith('FLBF')
+}
+
+export function isMaterialRequiringCutting(input: {
+  materialId: string
+  bomLinkedPatternIds?: string[]
+  patternLinkedMaterialIds?: string[]
+}): boolean {
+  return Boolean(input.bomLinkedPatternIds?.length)
+    || Boolean(input.patternLinkedMaterialIds?.includes(input.materialId))
+}
+
 export function listPostFinishingQcReworkFactoryOptions(): Array<{ value: string; label: string }> {
   return listSewingFactoryMasterRecords()
     .map((factory) => ({ value: factory.name, label: `${factory.name}（${factory.code}）` }))
@@ -619,6 +775,7 @@ const QC_PRINT_MATERIALS: PostFinishingQcPrintMaterial[] = [
   { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-black', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
   { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-fadfad', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
   { materialName: '纯白色染色纽扣 1.1cm', materialCode: 'FLSZ25111845-black-322', unitConsumption: '3 PCS', materialUsed: '', imageUrl: '/materials/accessory-button.jpg' },
+  { materialName: '后道包装辅件', materialCode: 'FLBF2609001-white', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
   { materialName: '印尼车边 polyester 线', materialCode: 'IDSZFL24093-b349', unitConsumption: '0.001 CNS', materialUsed: '', imageUrl: '/materials/yarn-stitching.jpg' },
   { materialName: '印尼 cotton 平车线', materialCode: 'IDSZFL24092-b349', unitConsumption: '0.001 DZ', materialUsed: '', imageUrl: '/materials/yarn-stitching.jpg' },
 ]
@@ -691,6 +848,8 @@ function emptyState(): PostFinishingFullFlowState {
     outboundOrders: [],
     warehouseReceipts: [],
     defects: [],
+    materialTransferOrders: [],
+    materialStocks: [],
   }
 }
 
@@ -749,7 +908,21 @@ function readPersistedState(): PostFinishingFullFlowState {
       deliveries,
       waitProcessWarehouseRecords: Array.isArray(parsed.waitProcessWarehouseRecords) ? parsed.waitProcessWarehouseRecords : [],
       waitProcessWarehouseMovements: Array.isArray(parsed.waitProcessWarehouseMovements) ? parsed.waitProcessWarehouseMovements : [],
-      waitHandoverWarehouseRecords: Array.isArray(parsed.waitHandoverWarehouseRecords) ? parsed.waitHandoverWarehouseRecords : [],
+      waitHandoverWarehouseRecords: Array.isArray(parsed.waitHandoverWarehouseRecords)
+        ? parsed.waitHandoverWarehouseRecords.map((record) => {
+            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
+            return {
+              ...record,
+              responsibility: normalizeResponsibilitySnapshot(
+                record.responsibility,
+                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
+                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+                !record.responsibility && !delivery,
+              ),
+              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
+            }
+          })
+        : [],
       waitHandoverWarehouseMovements: Array.isArray(parsed.waitHandoverWarehouseMovements) ? parsed.waitHandoverWarehouseMovements : [],
       returnConfirmationVersions: Array.isArray(parsed.returnConfirmationVersions)
         ? parsed.returnConfirmationVersions.map((version) => ({
@@ -760,18 +933,72 @@ function readPersistedState(): PostFinishingFullFlowState {
       qcTasks: Array.isArray(parsed.qcTasks)
         ? parsed.qcTasks.map((task) => {
             const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
+            const responsibility = normalizeResponsibilitySnapshot(
+              task.responsibility,
+              delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
+              task.createdAt || task.sentAt || delivery?.confirmedAt || delivery?.registeredAt,
+              !task.responsibility && !delivery,
+            )
             return {
               ...task,
+              responsibility,
+              frozenProcessItems: task.frozenProcessItems?.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item)),
               createdBy: task.createdBy || task.sentBy || delivery?.confirmedBy || POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer,
               createdAt: task.createdAt || task.sentAt || delivery?.confirmedAt || delivery?.registeredAt || nowIso(),
             }
           })
         : [],
-      postTasks: Array.isArray(parsed.postTasks) ? parsed.postTasks : [],
-      recheckOrders: Array.isArray(parsed.recheckOrders) ? parsed.recheckOrders : [],
-      outboundOrders: Array.isArray(parsed.outboundOrders) ? parsed.outboundOrders : [],
+      postTasks: Array.isArray(parsed.postTasks)
+        ? parsed.postTasks.map((task) => {
+            const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
+            const responsibility = normalizeResponsibilitySnapshot(
+              task.responsibility,
+              delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
+              task.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+              !task.responsibility && !delivery,
+            )
+            return {
+              ...task,
+              responsibility,
+              sourceType: task.sourceType || (responsibility.responsibilityMode === 'POST_FACTORY' ? '任务后道' : '质检补加工'),
+              processItems: task.processItems.map(normalizePostFinishingProcessItem).filter((item): item is PostFinishingProcessItem => Boolean(item)),
+            }
+          })
+        : [],
+      recheckOrders: Array.isArray(parsed.recheckOrders)
+        ? parsed.recheckOrders.map((record) => {
+            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
+            return {
+              ...record,
+              responsibility: normalizeResponsibilitySnapshot(
+                record.responsibility,
+                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
+                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+                !record.responsibility && !delivery,
+              ),
+              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
+            }
+          })
+        : [],
+      outboundOrders: Array.isArray(parsed.outboundOrders)
+        ? parsed.outboundOrders.map((record) => {
+            const delivery = deliveries.find((item) => item.deliveryId === record.deliveryId)
+            return {
+              ...record,
+              responsibility: normalizeResponsibilitySnapshot(
+                record.responsibility,
+                delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
+                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+                !record.responsibility && !delivery,
+              ),
+              sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),
+            }
+          })
+        : [],
       warehouseReceipts: Array.isArray(parsed.warehouseReceipts) ? parsed.warehouseReceipts : [],
       defects: Array.isArray(parsed.defects) ? parsed.defects : [],
+      materialTransferOrders: Array.isArray(parsed.materialTransferOrders) ? parsed.materialTransferOrders : [],
+      materialStocks: Array.isArray(parsed.materialStocks) ? parsed.materialStocks : [],
     }
   } catch {
     return emptyState()
@@ -814,6 +1041,185 @@ function differenceDirection(value: number): '多' | '少' | '一致' {
   if (value > 0) return '多'
   if (value < 0) return '少'
   return '一致'
+}
+
+function buildPostFinishingMaterialTransferDemo(): PostFinishingMaterialTransferOrder | undefined {
+  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.sewingTaskType === 'INDEPENDENT_SEWING')
+  if (!order) return undefined
+  const garmentQty = total(order.skus.map((sku) => sku.plannedQty))
+  const lines = order.qcPrintMaterials.flatMap((material, index) => {
+    const materialSpuCode = material.materialCode.split('-')[0] || material.materialCode
+    if (!isPostFinishingDedicatedMaterial({ materialName: material.materialName, materialSpuCode })) return []
+    const consumptionMatch = material.unitConsumption.match(/^([0-9.]+)\s*(\S+)/)
+    const consumption = Number(consumptionMatch?.[1] || 1)
+    const unit = consumptionMatch?.[2] || 'PCS'
+    const requestedQty = Math.max(1, Math.round(garmentQty * consumption))
+    const preparedQty = index === 0 ? Math.max(1, requestedQty - 5) : requestedQty
+    return [{
+      transferLineId: `PF-MTL-${String(index + 1).padStart(3, '0')}`,
+      materialName: material.materialName,
+      materialCode: material.materialCode,
+      materialSpuCode,
+      specification: material.materialCode.split('-').slice(1).join(' / ') || '标准规格',
+      unit,
+      requestedQty,
+      preparedQty,
+      imageUrl: material.imageUrl,
+    }]
+  })
+  const createdAt = new Date(Date.UTC(2026, 7, 24, 1, 0, 0)).toISOString()
+  const approvedAt = new Date(Date.UTC(2026, 7, 24, 3, 0, 0)).toISOString()
+  const readyAt = new Date(Date.UTC(2026, 7, 24, 7, 30, 0)).toISOString()
+  return {
+    transferOrderId: `PF-MT-${order.productionOrderId}`,
+    transferOrderNo: 'DB-PF-202608-001',
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    styleNo: order.styleNo,
+    styleName: order.styleName,
+    styleImageUrl: order.skus[0]?.imageUrl || '',
+    sewingTaskNo: order.sewingTaskNo,
+    responsibility: resolvePostFinishingResponsibility(order.sewingTaskType),
+    sourceWarehouseName: '辅料仓',
+    targetWarehouseName: '后道待加工仓',
+    targetAreaName: '后道辅料暂存区',
+    targetLocationCode: 'PF-MAT-A01-01',
+    status: '待入库',
+    lines,
+    statusHistory: [
+      { status: '申请调拨', operatedAt: createdAt, operatorName: 'PPIC 配料计划员', remark: '按仅车缝任务生成后道辅料调拨申请' },
+      { status: '待调拨', operatedAt: approvedAt, operatorName: '辅料仓主管', remark: '调拨申请审核通过' },
+      { status: '待入库', operatedAt: readyAt, operatorName: '辅料仓配料员', remark: '已按实际配料数量一次性备妥，等待后道领料入库' },
+    ],
+    createdAt,
+    updatedAt: readyAt,
+  }
+}
+
+function ensurePostFinishingMaterialTransferDemo(): void {
+  if (state.materialTransferOrders.length > 0) return
+  const transfer = buildPostFinishingMaterialTransferDemo()
+  if (!transfer) return
+  state.materialTransferOrders.push(transfer)
+  transfer.statusHistory.forEach((history, index) => appendPostFinishingOperationLog({
+    logId: `PF-LOG-MATERIAL-${index + 1}`,
+    stage: '辅料调拨',
+    objectType: '后道辅料调拨单',
+    objectId: transfer.transferOrderId,
+    objectNo: transfer.transferOrderNo,
+    productionOrderNo: transfer.productionOrderNo,
+    action: index === 0 ? '创建调拨申请' : index === 1 ? '审核通过进入待调拨' : '辅料仓整单备妥',
+    operatorId: `PF-MATERIAL-${index + 1}`,
+    operatorName: history.operatorName,
+    operatedAt: history.operatedAt,
+    beforeStatus: index === 0 ? '未创建' : transfer.statusHistory[index - 1].status,
+    afterStatus: history.status,
+    afterQuantity: index === 2 ? total(transfer.lines.map((line) => line.preparedQty)) : undefined,
+    result: '成功',
+    remark: history.remark,
+  }))
+  persist()
+}
+
+export function listPostFinishingMaterialTransferOrders(): PostFinishingMaterialTransferOrder[] {
+  ensurePostFinishingMaterialTransferDemo()
+  return clone(state.materialTransferOrders).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
+export function getPostFinishingMaterialTransferOrder(
+  transferOrderIdOrNo: string,
+): PostFinishingMaterialTransferOrder | undefined {
+  ensurePostFinishingMaterialTransferDemo()
+  const record = state.materialTransferOrders.find((item) => (
+    item.transferOrderId === transferOrderIdOrNo || item.transferOrderNo === transferOrderIdOrNo
+  ))
+  return record ? clone(record) : undefined
+}
+
+export function getPostFinishingMaterialReadiness(productionOrderNo: string): {
+  applicable: boolean
+  status: PostFinishingMaterialTransferStatus | '不适用'
+  label: string
+  transferOrderNo?: string
+} {
+  const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === productionOrderNo)
+  if (!order || order.sewingTaskType !== 'INDEPENDENT_SEWING') {
+    return { applicable: false, status: '不适用', label: '三方工厂已承接烫包，后道辅料调拨不适用' }
+  }
+  const transfer = listPostFinishingMaterialTransferOrders().find((item) => item.productionOrderNo === productionOrderNo)
+  if (!transfer) return { applicable: true, status: '申请调拨', label: '后道辅料尚未形成调拨单' }
+  const labelByStatus: Record<PostFinishingMaterialTransferStatus, string> = {
+    申请调拨: '后道辅料尚未备妥，请关注调拨进度',
+    待调拨: '后道辅料尚未备妥，请关注调拨进度',
+    待入库: '后道辅料已由辅料仓备妥，请领料并完成入库',
+    已入库: '后道辅料已入后道待加工仓',
+  }
+  return { applicable: true, status: transfer.status, label: labelByStatus[transfer.status], transferOrderNo: transfer.transferOrderNo }
+}
+
+export function listPostFinishingMaterialStocks(): PostFinishingMaterialStock[] {
+  return clone(state.materialStocks).sort((left, right) => right.inboundAt.localeCompare(left.inboundAt))
+}
+
+export function receivePostFinishingMaterialTransfer(input: {
+  transferOrderNo: string
+  actor: PostFinishingActor
+  nowMs?: number
+}): { transfer: PostFinishingMaterialTransferOrder; alreadyInbound: boolean } {
+  ensurePostFinishingMaterialTransferDemo()
+  const transfer = state.materialTransferOrders.find((item) => item.transferOrderNo === input.transferOrderNo.trim())
+  if (!transfer) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到完整辅料调拨单号 ${input.transferOrderNo.trim()}。`)
+  if (transfer.status === '已入库') return { transfer: clone(transfer), alreadyInbound: true }
+  if (transfer.status !== '待入库') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `调拨单当前为${transfer.status}，辅料仓备妥后才能入库。`)
+  }
+  const operatedAt = nowIso(input.nowMs)
+  transfer.status = '已入库'
+  transfer.updatedAt = operatedAt
+  transfer.inboundAt = operatedAt
+  transfer.inboundBy = clone(input.actor)
+  transfer.statusHistory.push({
+    status: '已入库',
+    operatedAt,
+    operatorName: input.actor.actorName,
+    remark: '后道领料回厂后按调出方实际配料数量整单入库',
+  })
+  transfer.lines.forEach((line) => {
+    const existing = state.materialStocks.find((item) => item.transferOrderId === transfer.transferOrderId && item.material.transferLineId === line.transferLineId)
+    if (existing) return
+    state.materialStocks.push({
+      stockId: `PF-MS-${line.transferLineId}`,
+      transferOrderId: transfer.transferOrderId,
+      transferOrderNo: transfer.transferOrderNo,
+      productionOrderNo: transfer.productionOrderNo,
+      material: clone(line),
+      currentQty: line.preparedQty,
+      inboundQty: line.preparedQty,
+      areaName: transfer.targetAreaName,
+      locationCode: transfer.targetLocationCode,
+      inboundAt: operatedAt,
+      inboundBy: clone(input.actor),
+    })
+  })
+  appendPostFinishingOperationLog({
+    stage: '辅料调拨',
+    objectType: '后道辅料调拨单',
+    objectId: transfer.transferOrderId,
+    objectNo: transfer.transferOrderNo,
+    productionOrderNo: transfer.productionOrderNo,
+    action: '整单确认入库',
+    operatorId: input.actor.actorId,
+    operatorName: input.actor.actorName,
+    operatedAt,
+    beforeStatus: '待入库',
+    afterStatus: '已入库',
+    beforeQuantity: total(transfer.lines.map((line) => line.preparedQty)),
+    afterQuantity: total(transfer.lines.map((line) => line.preparedQty)),
+    result: '成功',
+    remark: '以调出方实际配料数量为准；整单一次性入库；不使用成衣差异授权',
+  })
+  persist()
+  return { transfer: clone(transfer), alreadyInbound: false }
 }
 
 function buildWaitProcessWarehouseRecord(
@@ -1016,6 +1422,7 @@ function getOrCreateQcTaskForConfirmedDelivery(input: {
     deliveryOrderNo: input.delivery.deliveryOrderNo,
     productionOrderId: input.delivery.productionOrderId,
     productionOrderNo: input.delivery.productionOrderNo,
+    responsibility: resolvePostFinishingResponsibility(input.delivery.sewingTaskType, input.delivery.registeredAt),
     returnIndex: input.delivery.returnIndex,
     status: '待送检',
     lines: input.delivery.lines.map((line) => ({ sku: clone(line.sku), expectedQty: line.confirmedQty || 0 })),
@@ -1208,6 +1615,12 @@ export function registerPostFinishingFactoryReturn(input: {
     throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货登记只能由车缝工厂送货人员或已登录工厂账号发起，PPIC只能读取后道回货结果。')
   }
   const order = getProductionOrder(input.productionOrderNo)
+  const conflictingResponsibility = state.deliveries.find((item) => (
+    item.productionOrderNo === order.productionOrderNo && item.sewingTaskType !== order.sewingTaskType
+  ))
+  if (conflictingResponsibility) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '同一生产单存在不一致的车缝任务范围，请联系 PPIC 修正后再操作。')
+  }
   if (!Number.isInteger(input.returnIndex) || input.returnIndex < 1 || input.returnIndex > 5) {
     throw new PostFinishingFlowGateError('INVALID_QUANTITY', '回货序号必须是 1 至 5。')
   }
@@ -1407,7 +1820,7 @@ export function confirmPostFinishingFactoryReturn(input: {
       stage: '回货确认', delivery, objectType: '质检单', objectId: qcCreation.task.qcTaskId, objectNo: qcCreation.task.qcTaskNo,
       action: '自动生成质检单', actor: input.actor, operatedAt: now, beforeStatus: '未生成', afterStatus: qcCreation.task.status,
       afterQuantity: total(qcCreation.task.lines.map((line) => line.expectedQty)),
-      remark: '回货最终确认即自动生成；编号按同一生产单现有最大序号加一且不可人工修改；待加工仓送检时沿用本单。',
+      remark: `回货最终确认即自动生成；编号按同一生产单现有最大序号加一且不可人工修改；冻结责任：${qcCreation.task.responsibility.taskTypeLabel} / ${qcCreation.task.responsibility.responsibilityLabel}；来源：${qcCreation.task.responsibility.source}。`,
     })
   }
   return clone(delivery)
@@ -1702,6 +2115,7 @@ export function releasePostFinishingQcTask(input: {
   task.status = '待质检'
   task.results = undefined
   task.needPostFinishing = undefined
+  task.frozenProcessItems = undefined
   task.completedAt = undefined
   task.qcAuthorizationId = undefined
   task.qcAuthorizedBy = undefined
@@ -1782,6 +2196,8 @@ function createRecheckOrder(input: {
     deliveryId: input.delivery.deliveryId,
     deliveryOrderNo: input.delivery.deliveryOrderNo,
     productionOrderNo: input.delivery.productionOrderNo,
+    responsibility: input.qcTask.responsibility,
+    sourceType: input.postTask ? '后道加工后' : '质检直达',
     qcTaskId: input.qcTask.qcTaskId,
     qcTaskNo: input.qcTask.qcTaskNo,
     postTaskId: input.postTask?.postTaskId,
@@ -1877,11 +2293,17 @@ export function completePostFinishingQcTask(input: {
     task.qcAuthorizedBy = { authorizerId: consumed.authorizerId, authorizerName: consumed.authorizerName }
   }
   task.results = results
-  const processItems = [...new Set((input.processItems || ['开扣眼', '装扣子', '烫包']).map((item) => item.trim()).filter(Boolean))]
-  if (!processItems.length) {
-    throw new PostFinishingFlowGateError('INVALID_STATUS', '至少选择一个后道加工项目。')
-  }
-  task.needPostFinishing = true
+  const responsibility = task.responsibility || resolvePostFinishingResponsibility(delivery.sewingTaskType)
+  const selectedItems = (input.processItems || [])
+    .map(normalizePostFinishingProcessItem)
+    .filter((item): item is PostFinishingProcessItem => Boolean(item))
+  const processItems = responsibility.processItemsEditable
+    ? [...new Set(selectedItems)]
+    : [...POST_FINISHING_PROCESS_ITEMS]
+  const needPostFinishing = processItems.length > 0
+  task.responsibility = responsibility
+  task.frozenProcessItems = processItems
+  task.needPostFinishing = needPostFinishing
   task.status = '质检完成'
   task.completedAt = now
   createDefectRecords({
@@ -1893,6 +2315,26 @@ export function completePostFinishingQcTask(input: {
     actor: input.actor,
     recordedAt: now,
   })
+  if (!needPostFinishing) {
+    const recheckOrder = createRecheckOrder({
+      delivery,
+      qcTask: task,
+      lines: results.map((line) => ({ sku: clone(line.sku), expectedQty: line.passedQty })),
+      createdAt: now,
+    })
+    persist()
+    appendBusinessLog({
+      stage: '质检', delivery, objectType: '质检任务', objectId: task.qcTaskId, objectNo: task.qcTaskNo,
+      action: '完成质检', actor: input.actor, operatedAt: now, beforeStatus: '质检中', afterStatus: task.status,
+      beforeQuantity: total(task.lines.map((line) => line.expectedQty)),
+      afterQuantity: total(quantities.map((line) => line.actualQty)),
+      differenceQuantity: total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
+      differenceReason: input.authorization?.differenceReason,
+      authorization: consumed,
+      remark: `三方工厂已承接烫包且质检未发现漏做；直接生成复检单 ${recheckOrder.recheckOrderNo}`,
+    })
+    return clone(task)
+  }
   const postTaskId = `PF-POST-${delivery.productionOrderId}-${delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'POST',
@@ -1908,6 +2350,8 @@ export function completePostFinishingQcTask(input: {
     deliveryId: delivery.deliveryId,
     deliveryOrderNo: delivery.deliveryOrderNo,
     productionOrderNo: delivery.productionOrderNo,
+    responsibility,
+    sourceType: responsibility.responsibilityMode === 'POST_FACTORY' ? '任务后道' as const : '质检补加工' as const,
     qcTaskId: task.qcTaskId,
     qcTaskNo: task.qcTaskNo,
     returnIndex: delivery.returnIndex,
@@ -1916,6 +2360,8 @@ export function completePostFinishingQcTask(input: {
     lines: results.map((line) => ({ sku: clone(line.sku), expectedQty: line.passedQty })),
   }
   postTask.processItems = processItems
+  postTask.responsibility = responsibility
+  postTask.sourceType = responsibility.responsibilityMode === 'POST_FACTORY' ? '任务后道' : '质检补加工'
   if (!existing) state.postTasks.push(postTask)
   task.postTaskId = postTask.postTaskId
   task.postTaskNo = postTask.postTaskNo
@@ -1928,7 +2374,7 @@ export function completePostFinishingQcTask(input: {
     differenceQuantity: total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
     differenceReason: input.authorization?.differenceReason,
     authorization: consumed,
-    remark: `生成唯一后道加工单；加工项目：${processItems.join('、')}`,
+    remark: `${postTask.sourceType === '质检补加工' ? '发现三方工厂漏做，' : ''}生成唯一后道加工单；加工项目：${processItems.join('、')}`,
   })
   return clone(task)
 }
@@ -2552,6 +2998,8 @@ function upsertOutboundFromRecheck(
     qcTaskNo: record.qcTaskNo,
     postTaskId: record.postTaskId,
     postTaskNo: record.postTaskNo,
+    responsibility: clone(record.responsibility),
+    sourceType: record.sourceType,
     recheckOrderId: record.recheckOrderId,
     recheckOrderNo: record.recheckOrderNo,
     returnIndex: delivery.returnIndex,
@@ -2584,6 +3032,8 @@ function getOrCreateWaitHandoverWarehouseRecord(input: {
     qcTaskNo: input.recheck.qcTaskNo,
     postTaskId: input.recheck.postTaskId,
     postTaskNo: input.recheck.postTaskNo,
+    responsibility: clone(input.recheck.responsibility),
+    sourceType: input.recheck.sourceType,
     recheckOrderId: input.recheck.recheckOrderId,
     recheckOrderNo: input.recheck.recheckOrderNo,
     outboundOrderId: input.outbound.outboundOrderId,
@@ -3058,30 +3508,39 @@ export function loadPostFinishingDemoData(): void {
           defectQty: 0,
           returnQty: 0,
         })),
-        needPostFinishing: true,
+        needPostFinishing: order.sewingTaskType === 'INDEPENDENT_SEWING' || orderIndex === 2,
+        processItems: order.sewingTaskType === 'INDEPENDENT_SEWING'
+          ? [...POST_FINISHING_PROCESS_ITEMS]
+          : orderIndex === 2 ? ['熨烫和包装'] : [],
         nowMs: chainTime + 40 * 60 * 1000,
       })
 
       if (orderIndex === 0) continue
-      const startedPost = startPostFinishingPostTask({
-        postTaskNo: completedQc.postTaskNo || '',
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-        nowMs: chainTime + 50 * 60 * 1000,
-      })
-      const completedPost = completePostFinishingPostTask({
-        postTaskId: startedPost.postTaskId,
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-        results: startedPost.lines.map((line) => ({
-          skuId: line.sku.skuId,
-          passedQty: line.expectedQty,
-          defectQty: 0,
-          returnQty: 0,
-        })),
-        nowMs: chainTime + 60 * 60 * 1000,
-      })
+      let recheck = completedQc.recheckOrderId || completedQc.recheckOrderNo
+        ? findRecheck(completedQc.recheckOrderId || completedQc.recheckOrderNo || '')
+        : undefined
+      if (completedQc.postTaskNo) {
+        const startedPost = startPostFinishingPostTask({
+          postTaskNo: completedQc.postTaskNo,
+          actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
+          nowMs: chainTime + 50 * 60 * 1000,
+        })
+        const completedPost = completePostFinishingPostTask({
+          postTaskId: startedPost.postTaskId,
+          actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
+          results: startedPost.lines.map((line) => ({
+            skuId: line.sku.skuId,
+            passedQty: line.expectedQty,
+            defectQty: 0,
+            returnQty: 0,
+          })),
+          nowMs: chainTime + 60 * 60 * 1000,
+        })
+        recheck = findRecheck(completedPost.recheckOrderId || completedPost.recheckOrderNo || '')
+      }
       if (orderIndex === 1 && returnIndex === 5) continue
 
-      const recheck = findRecheck(completedPost.recheckOrderId || completedPost.recheckOrderNo || '')
+      if (!recheck) continue
       const claimedRecheck = claimPostFinishingRecheckOrder({
         recheckOrderNo: recheck.recheckOrderNo,
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA,

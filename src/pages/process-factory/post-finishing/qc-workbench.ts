@@ -1,6 +1,7 @@
 // @page-pattern: form
 
 import {
+  POST_FINISHING_PROCESS_ITEMS,
   POST_FINISHING_QC_DEFECT_REASON_OPTIONS,
   claimPostFinishingQcTask,
   completePostFinishingQcTask,
@@ -105,19 +106,22 @@ function renderTask(task: PostFinishingQcTask): string {
   const expectedTotal = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
   const actualTotal = task.results?.reduce((sum, line) => sum + line.passedQty + line.defectQty + line.returnQty, 0) ?? expectedTotal
   const differentSkuCount = task.results?.filter((result) => result.expectedQty !== result.passedQty + result.defectQty + result.returnQty).length ?? 0
+  const responsibility = task.responsibility
+  const selectedProcessItems = task.frozenProcessItems || responsibility.defaultProcessItems
+  const completedTarget = task.postTaskNo ? '后道加工单' : task.recheckOrderNo ? '复检单' : '待生成下游单据'
   const releaseControl = canEdit
     ? releaseConfirmTaskId === task.qcTaskId
       ? `<div class="w-full rounded-lg border border-amber-300 bg-amber-50 p-3" data-qc-release-confirm><div class="text-sm font-semibold text-amber-900">确认退领并放弃当前未提交内容？</div><label class="mt-2 block text-xs text-amber-900">退领原因（可填写）<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" value="错误领取" data-qc-release-reason /></label><div class="mt-2 flex gap-2"><button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm text-white" data-post-finishing-action="full-flow-release-qc" data-task-id="${escapeHtml(task.qcTaskId)}">确认退领</button><button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-post-finishing-action="full-flow-release-qc-cancel">取消</button></div></div>`
       : `<button type="button" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800" data-post-finishing-action="full-flow-release-qc-prompt" data-task-id="${escapeHtml(task.qcTaskId)}">错误领取，退回待质检</button>`
     : ''
   return `<div class="space-y-4" data-qc-workbench-task="${escapeHtml(task.qcTaskId)}" data-skip-page-rerender="true">
-    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 输入其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><p class="mt-1 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 质检单生成：${escapeHtml(new Date(task.createdAt).toLocaleString('zh-CN'))} · 送检：${escapeHtml(task.sentAt ? new Date(task.sentAt).toLocaleString('zh-CN') : '待加工仓尚未送检')}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : task.status === '待送检' ? '尚未送检，不能领取' : '尚未领取'}</div></div></div>
+    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 输入其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><div class="mt-2 flex flex-wrap gap-2 text-xs"><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-blue-800">${escapeHtml(responsibility.taskTypeLabel)}</span><span class="rounded-full border px-2 py-1">${escapeHtml(responsibility.responsibilityLabel)}</span>${task.status === '质检完成' ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-800">去向：${escapeHtml(completedTarget)}</span>` : ''}</div><p class="mt-2 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 质检单生成：${escapeHtml(new Date(task.createdAt).toLocaleString('zh-CN'))} · 送检：${escapeHtml(task.sentAt ? new Date(task.sentAt).toLocaleString('zh-CN') : '待加工仓尚未送检')}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : task.status === '待送检' ? '尚未送检，不能领取' : '尚未领取'}</div></div></div>
       ${task.status === '待送检' ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">质检单已在回货确认时生成，但对应货物尚未从后道待加工仓送检出库。请先完成送检交接，再由质检员领取。</div>` : ''}
       ${task.claimedBy && !isOwner && task.status !== '质检完成' ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">已由 ${escapeHtml(task.claimedBy.actorName)} 质检中。当前账号不能录入或提交。</div>` : ''}
-      <div class="mt-4 flex flex-wrap gap-2">${!task.claimedBy && task.status === '待质检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-claim-qc" data-task-no="${escapeHtml(task.qcTaskNo)}">领取质检单</button>` : ''}${task.status === '待送检' ? `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(task.deliveryId)}" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800">去待加工仓送检</a>` : ''}${releaseControl}${task.status === '质检完成' ? `<a data-nav="/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.postTaskNo || '')}" class="rounded-md border px-4 py-2 text-sm">查看后道加工单</a>` : ''}</div>
+      <div class="mt-4 flex flex-wrap gap-2">${!task.claimedBy && task.status === '待质检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-claim-qc" data-task-no="${escapeHtml(task.qcTaskNo)}">领取质检单</button>` : ''}${task.status === '待送检' ? `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(task.deliveryId)}" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800">去待加工仓送检</a>` : ''}${releaseControl}${task.status === '质检完成' && task.postTaskNo ? `<a data-nav="/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.postTaskNo)}" class="rounded-md border px-4 py-2 text-sm">查看后道加工单</a>` : ''}${task.status === '质检完成' && !task.postTaskNo && task.recheckOrderNo ? `<a data-nav="/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(task.recheckOrderNo)}" class="rounded-md border px-4 py-2 text-sm">查看复检单</a>` : ''}</div>
     </section>
     <div class="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]"><section class="min-w-0 rounded-xl border bg-card p-4"><div><h3 class="font-semibold">逐 SKU 质检结果</h3><p class="mt-1 text-xs text-muted-foreground">合格 + 瑕疵 + 返工应等于送检数；瑕疵数量由各原因自动汇总，数量存在差异时必须授权。</p></div><div class="mt-3 rounded-lg px-3 py-2 text-sm ${differentSkuCount ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}" data-qc-live-summary>送检 ${expectedTotal} 件 · 当前分类合计 ${actualTotal} 件 · 整单差异 ${actualTotal - expectedTotal} 件 · ${differentSkuCount} 个 SKU 有差异</div><div class="mt-4 space-y-3">${task.lines.map((_, index) => renderResultLine(task, index, canEdit)).join('')}</div>
-      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><fieldset class="rounded-lg border bg-white p-3" data-qc-process-items><legend class="px-1 text-sm font-medium">后道加工项目</legend><p class="mb-2 text-xs text-muted-foreground">质检完成后必定生成一张后道加工单，请勾选本批实际加工项目。</p><div class="grid gap-2 sm:grid-cols-3"><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="开扣眼" checked data-qc-process-item />开扣眼</label><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="装扣子" checked data-qc-process-item />装扣子</label><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="烫包" checked data-qc-process-item />烫包</label></div></fieldset><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须录入授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">录入或粘贴 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}">完成质检并生成后道加工单</button></div>` : ''}</section>${renderSpuTechnicalParameters(task)}</div>
+      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><fieldset class="rounded-lg border bg-white p-3" data-qc-process-items data-process-items-editable="${responsibility.processItemsEditable ? 'true' : 'false'}"><legend class="px-1 text-sm font-medium">后道加工项目</legend><div class="mb-3 rounded-md px-3 py-2 text-xs ${responsibility.processItemsEditable ? 'border border-blue-200 bg-blue-50 text-blue-800' : 'border border-amber-200 bg-amber-50 text-amber-900'}">${responsibility.processItemsEditable ? '第三方工厂已承接烫包；只有质检发现漏做时才勾选。未勾选将直接进入复检。' : '本生产单只外发车缝，以下项目由后道工厂完成，系统已锁定，不能取消。'}</div><div class="grid gap-2 sm:grid-cols-3">${POST_FINISHING_PROCESS_ITEMS.map((item) => `<label class="flex items-center gap-2 rounded-md border p-2 text-sm ${responsibility.processItemsEditable ? '' : 'bg-slate-50'}"><input type="checkbox" value="${escapeHtml(item)}" ${selectedProcessItems.includes(item) ? 'checked' : ''} ${responsibility.processItemsEditable ? '' : 'disabled'} data-qc-process-item />${escapeHtml(item)}</label>`).join('')}</div></fieldset><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须录入授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">录入或粘贴 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}" data-qc-complete-label>${selectedProcessItems.length ? '完成质检并生成后道加工单' : '完成质检并进入复检'}</button></div>` : ''}</section>${renderSpuTechnicalParameters(task)}</div>
     <datalist id="post-finishing-qc-rework-factories">${listPostFinishingQcReworkFactoryOptions().map((factory) => `<option value="${escapeHtml(factory.value)}">${escapeHtml(factory.label)}</option>`).join('')}</datalist>
   </div>`
 }
@@ -183,6 +187,12 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     updateLiveSummary(formRoot)
     return true
   }
+  if (formRoot && event?.type === 'change' && target.closest('[data-qc-process-item]')) {
+    const selectedCount = formRoot.querySelectorAll<HTMLInputElement>('[data-qc-process-item]:checked').length
+    const button = formRoot.querySelector<HTMLButtonElement>('[data-qc-complete-label]')
+    if (button) button.textContent = selectedCount ? '完成质检并生成后道加工单' : '完成质检并进入复检'
+    return true
+  }
   const actionNode = target.closest<HTMLElement>('[data-post-finishing-action]')
   const scanField = target.closest<HTMLInputElement>('[data-post-finishing-field="qc-task-input"]')
   const action = actionNode?.dataset.postFinishingAction
@@ -237,17 +247,20 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     const lineNodes = Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]'))
     const results = collectResults(root)
     const hasDifference = lineNodes.some((line, index) => Number(line.dataset.expectedQty || 0) !== results[index].passedQty + results[index].defectQty + results[index].returnQty)
+    const processItems = Array.from(root.querySelectorAll<HTMLInputElement>('[data-qc-process-item]:checked')).map((item) => item.value)
     const completed = completePostFinishingQcTask({
       qcTaskId: actionNode?.dataset.taskId || '',
       actor: getCurrentPostFinishingActor(),
       results,
-      needPostFinishing: true,
-      processItems: Array.from(root.querySelectorAll<HTMLInputElement>('[data-qc-process-item]:checked')).map((item) => item.value),
+      needPostFinishing: processItems.length > 0,
+      processItems,
       authorization: hasDifference
         ? { scanValue: readValue(root, '[data-qc-authorization]'), differenceReason: readValue(root, '[data-qc-difference-reason]') }
         : undefined,
     })
-    notice = `质检完成，已生成后道加工单 ${completed.postTaskNo || ''}`
+    notice = completed.postTaskNo
+      ? `质检完成，已生成后道加工单 ${completed.postTaskNo}`
+      : `质检完成，已直接生成复检单 ${completed.recheckOrderNo || ''}`
     noticeTone = 'success'
     navigate(completed.qcTaskNo)
   } catch (error) {

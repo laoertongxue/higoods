@@ -166,6 +166,7 @@ async function seedBrowserFlow(page: Page): Promise<BrowserSeed> {
       actor: actors.qcA,
       results: auditQc.lines.map((line) => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })),
       needPostFinishing: true,
+      processItems: ['熨烫和包装'],
       nowMs: nextTime(),
     })
     const auditPostDone = completePost(auditQcDone.postTaskNo!)
@@ -292,6 +293,67 @@ test('默认演示数据在 Web 端真实展示 3 个生产单、15 次回货和
   await page.goto('/fcs/craft/post-finishing/audit-records')
   await expect(page.locator('body')).toContainText('业务链（每次回货一条）')
   await expect(page.locator('body')).toContainText('15')
+})
+
+test('三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto('/fcs/craft/post-finishing/tasks')
+  await expect(page.locator('tbody tr')).toHaveCount(3)
+  await expect(page.locator('tbody')).toContainText('仅车缝')
+  await expect(page.locator('tbody')).toContainText('车缝＋烫包')
+  await expect(page.locator('tbody')).toContainText('裁剪＋车缝＋烫包')
+  await expect(page.locator('tbody')).toContainText('后道负责开扣眼、装扣子、熨烫和包装')
+  await expect(page.locator('tbody')).toContainText('三方工厂负责烫包；质检按漏做情况分流')
+  const statTops = await page.locator('[data-standard-list-stats] > div').evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().top)))
+  expect(new Set(statTops).size).toBe(1)
+  await expectNoBodyOverflow(page)
+  await attachPageEvidence(page, testInfo, 'web-post-production-task-responsibility')
+
+  await page.goto('/fcs/craft/post-finishing/material-transfers')
+  await expect(page.getByRole('heading', { name: '后道辅料调拨单', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '调拨单列表', exact: true })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(1)
+  await expect(page.locator('tbody')).toContainText('DB-PF-202608-001')
+  await expect(page.locator('[data-material-transfer-detail]')).toHaveCount(0)
+  await page.locator('[data-nav*="material-transfers?transferId="]').click()
+  const drawer = page.getByRole('dialog', { name: '后道辅料调拨单详情' })
+  await expect(drawer).toBeVisible()
+  await expect(page.locator('[data-standard-list-table-section]')).toHaveCount(1)
+  await expect(drawer.locator('tbody tr')).toHaveCount(4)
+  await expect(drawer).toContainText('不允许分批入库')
+  await expect(drawer.locator('input[type="number"]')).toHaveCount(0)
+  await expectImagesLoaded(page)
+  await attachPageEvidence(page, testInfo, 'web-material-transfer-list-and-detail-drawer')
+  await drawer.locator('[data-nav="/fcs/craft/post-finishing/material-transfers"]').click()
+  await expect(drawer).toHaveCount(0)
+
+  await setCurrentWebActor(page, 'PF-USER-QC-A')
+  await page.goto('/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-2')
+  await page.evaluate(async (taskNo) => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    flow.claimPostFinishingQcTask({ qcTaskNo: taskNo, actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.qcA, nowMs: Date.now() })
+  }, 'PO-QC-202608-001-2')
+  await page.reload()
+  const fixedItems = page.locator('[data-qc-process-item]')
+  await expect(fixedItems).toHaveCount(3)
+  expect(await fixedItems.evaluateAll((nodes) => nodes.every((node) => (node as HTMLInputElement).checked && (node as HTMLInputElement).disabled))).toBe(true)
+  await expect(page.locator('[data-qc-complete-label]')).toHaveText('完成质检并生成后道加工单')
+  await attachPageEvidence(page, testInfo, 'web-qc-only-sewing-fixed-process-items')
+
+  await page.goto('/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-2')
+  await page.evaluate(async (taskNo) => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    flow.claimPostFinishingQcTask({ qcTaskNo: taskNo, actor: flow.POST_FINISHING_ACCEPTANCE_ACTORS.qcA, nowMs: Date.now() })
+  }, 'PO-QC-202608-003-2')
+  await page.reload()
+  const optionalItems = page.locator('[data-qc-process-item]')
+  await expect(optionalItems).toHaveCount(3)
+  expect(await optionalItems.evaluateAll((nodes) => nodes.every((node) => !(node as HTMLInputElement).checked && !(node as HTMLInputElement).disabled))).toBe(true)
+  await expect(page.locator('[data-qc-complete-label]')).toHaveText('完成质检并进入复检')
+  await page.locator('[data-qc-process-item][value="熨烫和包装"]').check()
+  await expect(page.locator('[data-qc-complete-label]')).toHaveText('完成质检并生成后道加工单')
+  await expectNoBodyOverflow(page)
+  await attachPageEvidence(page, testInfo, 'web-qc-third-party-optional-process-items')
 })
 
 test('Web 质检精确领取、原因汇总、返工工厂与 SPU 技术参数闭环', async ({ page }, testInfo) => {
@@ -717,25 +779,14 @@ test('Web 管理页、独立动态授权码、主从日志和全套打印均读�
   }
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByText('打印质检单', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('打印质检单详情', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('打印质检详情单', { exact: true }).first()).toBeVisible()
   await expect(page.locator('[data-authorization-code]')).toHaveCount(0)
 
-  await page.goto('/fcs/craft/post-finishing/statistics')
-  await page.getByRole('button', { name: '打印质检单', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: '打印质检单' })).toBeVisible()
-  await page.locator('[data-qc-print-task-no]').fill(seed.qcTaskNo.slice(0, -1))
-  page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('dialog', { name: '打印质检单' }).getByRole('button', { name: '打印质检单', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: '打印质检单' })).toBeVisible()
-  await page.locator('[data-qc-print-task-no]').fill(seed.qcTaskNo)
-  await page.getByRole('dialog', { name: '打印质检单' }).getByRole('button', { name: '打印质检单', exact: true }).click()
+  await page.goto(`/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(seed.qcTaskNo)}`)
   await expect(page.locator('[data-testid="post-finishing-qc-master-print"]')).toBeVisible()
   await expect(page.locator('[data-print-document-no]')).toHaveAttribute('data-print-document-no', seed.qcTaskNo)
 
-  await page.goto('/fcs/craft/post-finishing/statistics')
-  await page.getByRole('button', { name: '打印质检单详情', exact: true }).click()
-  await page.locator('[data-qc-print-task-no]').fill(seed.qcTaskNo)
-  await page.getByRole('dialog', { name: '打印质检单详情' }).getByRole('button', { name: '打印质检单详情', exact: true }).click()
+  await page.goto(`/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(seed.qcTaskNo)}`)
   await expect(page.locator('[data-testid="post-finishing-qc-detail-print"]')).toBeVisible()
   await expect(page.locator('[data-print-document-no]')).toHaveAttribute('data-print-document-no', seed.qcTaskNo)
 

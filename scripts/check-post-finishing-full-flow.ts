@@ -5,6 +5,7 @@ import { writeFileSync } from 'node:fs'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
+  POST_FINISHING_PROCESS_ITEMS,
   POST_FINISHING_RETURN_DIFFERENCE_POLICY,
   PostFinishingFlowGateError,
   claimPostFinishingQcTask,
@@ -14,6 +15,7 @@ import {
   completePostFinishingRecheckOrderFullFlow,
   confirmPostFinishingFactoryReturn,
   getPostFinishingFactoryReturn,
+  getPostFinishingMaterialReadiness,
   getPostFinishingReturnSourceScanValue,
   getPostFinishingReturnToleranceRate,
   listPostFinishingDefectRecords,
@@ -22,6 +24,8 @@ import {
   listPostFinishingFullFlowPostTasks,
   listPostFinishingFullFlowQcTasks,
   listPostFinishingFullFlowRecheckOrders,
+  listPostFinishingMaterialStocks,
+  listPostFinishingMaterialTransferOrders,
   listPostFinishingPostReturnReceiverOptions,
   listPostFinishingReturnRegistrationSources,
   listPostFinishingWarehouseReceipts,
@@ -30,12 +34,16 @@ import {
   listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
   markPostFinishingRecheckSkuRelabeled,
+  isMaterialRequiringCutting,
+  isPostFinishingDedicatedMaterial,
   receivePostFinishingOutboundOrder,
+  receivePostFinishingMaterialTransfer,
   registerPostFinishingFactoryReturn,
   releasePostFinishingQcTask,
   releasePostFinishingRecheckOrder,
   resetPostFinishingFullFlow,
   resolvePostFinishingReturnRegistrationSource,
+  resolvePostFinishingResponsibility,
   scanPostFinishingRecheckSkuBarcode,
   sendPostFinishingFactoryReturnToQc,
   startPostFinishingPostTask,
@@ -173,6 +181,37 @@ assert.deepEqual(POST_FINISHING_RETURN_DIFFERENCE_POLICY, { toleranceRate: 0.05,
 assert.equal(POST_FINISHING_AUTHORIZATION_WINDOW_MS, 30_000, '授权码刷新时间必须为 30 秒')
 assert.equal(listPostFinishingAuthorizedPeople().length, 3, '只有指定的 3 名授权人员持有动态码')
 expectCode('非授权人员不能生成授权码', 'NOT_AUTHORIZED_PERSON', () => getPostFinishingAuthorizationDisplay('NOT-AUTHORIZED', clockMs))
+
+const responsibilityCases = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.map((order) => ({
+  taskType: order.sewingTaskType,
+  snapshot: resolvePostFinishingResponsibility(order.sewingTaskType),
+}))
+assert.deepEqual(
+  responsibilityCases.map((item) => [item.taskType, item.snapshot.responsibilityMode, item.snapshot.defaultProcessItems, item.snapshot.processItemsEditable]),
+  [
+    ['INDEPENDENT_SEWING', 'POST_FACTORY', [...POST_FINISHING_PROCESS_ITEMS], false],
+    ['SEWING_TO_IRON_PACK', 'THIRD_PARTY_FACTORY', [], true],
+    ['CUTTING_TO_IRON_PACK', 'THIRD_PARTY_FACTORY', [], true],
+  ],
+  '三种 PPIC 任务范围必须映射为已确认的后道责任、默认项目和可编辑性',
+)
+assert(isPostFinishingDedicatedMaterial({ materialName: '品牌吊牌', materialSpuCode: 'WLID001' }), '标题含吊牌必须进入后道辅料')
+assert(isPostFinishingDedicatedMaterial({ materialName: '品牌吊粒', materialSpuCode: 'WLID002' }), '标题含吊粒必须进入后道辅料')
+assert(isPostFinishingDedicatedMaterial({ materialName: '金属扣子', materialSpuCode: 'WLID003' }), '标题含扣或扣子必须进入后道辅料')
+assert(isPostFinishingDedicatedMaterial({ materialName: '包装辅件', materialSpuCode: 'flbf2609001' }), 'FLBF 前缀必须忽略大小写进入后道辅料')
+assert.equal(isPostFinishingDedicatedMaterial({ materialName: '印尼平车线', materialSpuCode: 'IDSZFL001' }), false, '非后道专用辅料不得误入调拨')
+assert(isMaterialRequiringCutting({ materialId: 'MAT-001', bomLinkedPatternIds: ['PAT-001'], patternLinkedMaterialIds: [] }), 'BOM 正向关联纸样即必须裁剪')
+assert(isMaterialRequiringCutting({ materialId: 'MAT-002', bomLinkedPatternIds: [], patternLinkedMaterialIds: ['MAT-002'] }), '纸样文件反向关联物料即必须裁剪')
+assert.equal(isMaterialRequiringCutting({ materialId: 'MAT-003', bomLinkedPatternIds: [], patternLinkedMaterialIds: ['MAT-002'] }), false, '没有任何纸样关联的物料不得误判为裁片')
+
+const transferBeforeFlow = listPostFinishingMaterialTransferOrders()
+assert.equal(transferBeforeFlow.length, 1, '仅车缝生产单必须且只能形成一张后道辅料主调拨单')
+assert.equal(transferBeforeFlow[0].status, '待入库', '辅料仓整单备妥后后道看到的状态必须为待入库')
+assert.equal(new Set(transferBeforeFlow[0].lines.map((line) => line.materialCode)).size, transferBeforeFlow[0].lines.length, '同一物料命中多个规则时不得生成重复调拨明细')
+assert.equal(listPostFinishingMaterialStocks().length, 0, '确认入库前不得提前形成后道辅料库存')
+assert.equal(getPostFinishingMaterialReadiness(transferBeforeFlow[0].productionOrderNo).status, '待入库', '仅车缝加工前必须能够读取关联调拨状态')
+assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[1].productionOrderNo).applicable, false, '车缝＋烫包不得误读主调拨单')
+assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[2].productionOrderNo).applicable, false, '裁剪＋车缝＋烫包不得误读主调拨单')
 
 const numberingFirst = issuePostFinishingDocumentNumber({
   kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-1', idempotencyKey: 'NUM-1', sequence: 7,
@@ -342,6 +381,9 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     assert.equal(qcTask.qcTaskId, autoCreatedQcTask.qcTaskId, '送检必须沿用回货确认时自动生成的同一质检单')
     assert.equal(qcTask.qcTaskNo, autoCreatedQcTask.qcTaskNo, '送检不得重编或替换质检单号')
     assert.equal(qcTask.status, '待质检', '完成送检交接后质检单才进入待质检')
+    assert.equal(qcTask.responsibility.sewingTaskType, order.sewingTaskType, '每次回货生成的质检单必须继承该生产单的任务范围快照')
+    assert.equal(qcTask.responsibility.source, 'PPIC任务分配', '质检责任快照必须保留 PPIC 来源')
+    assert.equal(qcTask.responsibility.frozenAt, registered.registeredAt, '质检责任必须冻结在本次回货登记时间，不随上游后续变化')
     const duplicateQcTask = sendPostFinishingFactoryReturnToQc({
       deliveryId: confirmed.deliveryId,
       actor: POST_FINISHING_ACCEPTANCE_ACTORS.sender,
@@ -382,11 +424,19 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       if (returnIndex === 5 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 2, defectQty: 1, returnQty: 1, defectReasonQuantities: [{ reason: '色差', quantity: 1 }], returnReason: '质检返工', returnReceiver: order.sewingFactoryName }
       return { skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 }
     })
-    const needPostFinishing = true
+    const selectedProcessItems = order.sewingTaskType === 'INDEPENDENT_SEWING'
+      ? []
+      : order.sewingTaskType === 'CUTTING_TO_IRON_PACK'
+        ? ['熨烫和包装']
+        : []
+    const expectedProcessItems = order.sewingTaskType === 'INDEPENDENT_SEWING'
+      ? [...POST_FINISHING_PROCESS_ITEMS]
+      : selectedProcessItems
+    const needPostFinishing = expectedProcessItems.length > 0
     let qcAuthorization: PostFinishingAuthorizationInput | undefined
     if (returnIndex === 3) {
       expectCode('质检逐 SKU 差异即使整单抵消也必须授权', 'AUTHORIZATION_REQUIRED', () => {
-        completePostFinishingQcTask({ qcTaskId: qcTask.qcTaskId, actor: qcActor, results: qcResults, needPostFinishing, nowMs: nextTime() })
+        completePostFinishingQcTask({ qcTaskId: qcTask.qcTaskId, actor: qcActor, results: qcResults, needPostFinishing, processItems: selectedProcessItems, nowMs: nextTime() })
       })
       const reusedReturnAuthorization = listPostFinishingAuthorizationConsumptions().find((item) => item.businessObjectId === confirmed.deliveryId)
       assert(reusedReturnAuthorization, '回货超阈值应有授权消费记录')
@@ -397,6 +447,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
           actor: qcActor,
           results: qcResults,
           needPostFinishing,
+          processItems: selectedProcessItems,
           authorization: { scanValue: priorDisplay.scanPayload, differenceReason: '尝试复用回货授权码', nowMs: new Date(reusedReturnAuthorization.consumedAt).getTime() },
           nowMs: new Date(reusedReturnAuthorization.consumedAt).getTime(),
         })
@@ -408,10 +459,12 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       actor: qcActor,
       results: qcResults,
       needPostFinishing,
+      processItems: selectedProcessItems,
       authorization: qcAuthorization,
       nowMs: qcAuthorization?.nowMs || nextTime(),
     })
     assert.equal(completedQc.status, '质检完成', '质检完成状态')
+    assert.deepEqual(completedQc.frozenProcessItems, expectedProcessItems, '质检完成时必须按任务责任冻结最终后道项目')
     assert.deepEqual(completedQc.results?.map((line) => [line.passedQty, line.defectQty, line.returnQty]), qcResults.map((line) => [line.passedQty, line.defectQty, line.returnQty]), '授权后必须保存真实分类数量，不得自动补数')
     assert(completedQc.results?.every((line) => line.defectQty === (line.defectReasonQuantities || []).reduce((sum, item) => sum + item.quantity, 0)), '质检瑕疵数量必须始终等于各瑕疵原因数量之和')
     const postCountAfterQc = listPostFinishingFullFlowPostTasks().length
@@ -423,11 +476,12 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       needPostFinishing: !needPostFinishing,
       nowMs: nextTime(),
     })
-    assert.equal(repeatedQc.needPostFinishing, true, '质检完成后重复提交必须保持生成后道加工单')
+    assert.equal(repeatedQc.needPostFinishing, needPostFinishing, '质检完成后重复提交必须保持原责任分支')
+    assert.deepEqual(repeatedQc.frozenProcessItems, expectedProcessItems, '质检完成后重复提交不得改变冻结的后道项目')
     assert.equal(listPostFinishingFullFlowPostTasks().length, postCountAfterQc, '重复质检不得生成第二张后道加工单')
     assert.equal(listPostFinishingFullFlowRecheckOrders().length, recheckCountAfterQc, '重复质检不得生成第二条复检分支')
     let recheckNo = completedQc.recheckOrderNo
-    {
+    if (needPostFinishing) {
       assert(completedQc.postTaskNo, '选择需要后道时必须生成后道加工单')
       const startedPost = startPostFinishingPostTask({
         postTaskNo: completedQc.postTaskNo!,
@@ -475,6 +529,9 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       assert.equal(completedPost.status, '后道完成', '后道完成状态')
       assert.equal(getPostFinishingFactoryReturn(registered.deliveryId)?.status, '已送检', '后道加工不得提前写入库存或完成收货状态')
       recheckNo = completedPost.recheckOrderNo
+    } else {
+      assert.equal(completedQc.postTaskNo, undefined, '三方工厂已承接烫包且未发现漏做时不得生成后道加工单')
+      assert(completedQc.recheckOrderNo, '三方工厂已承接烫包且未发现漏做时必须直接生成复检单')
     }
 
     assert(recheckNo, '每条链必须生成复检单')
@@ -589,7 +646,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       skuCount: order.skus.length,
       deliveryOrderNo: registered.deliveryOrderNo,
       qcTaskNo: qcTask.qcTaskNo,
-      branch: '质检-后道-复检',
+      branch: needPostFinishing ? '质检-后道-复检' : '质检-直接复检',
       recheckOrderNo: recheckNo!,
       outboundOrderNo: outbound.outboundOrderNo,
       waitHandoverStatus: handedWarehouseRecord?.status || '',
@@ -601,7 +658,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
 assert.equal(chainEvidence.length, 15, '验收结果必须包含 15 条独立回货全链')
 assert.equal(listPostFinishingFactoryReturns().length, 15, '必须产生 15 张独立送货单')
 assert.equal(listPostFinishingFullFlowQcTasks().length, 15, '必须产生 15 个独立质检任务')
-assert.equal(listPostFinishingFullFlowPostTasks().length, 15, '15 次回货必须逐次生成 15 张后道加工单')
+assert.equal(listPostFinishingFullFlowPostTasks().length, 10, '仅车缝 5 次和裁剪＋车缝＋烫包漏做补加工 5 次应生成 10 张后道加工单')
 assert.equal(listPostFinishingFullFlowRecheckOrders().length, 15, '必须产生 15 张独立复检单')
 assert.equal(listPostFinishingFullFlowOutboundOrders().length, 15, '必须产生且仅产生 15 张出货单')
 assert.equal(listPostFinishingWarehouseReceipts().length, 15, '必须产生且仅产生 15 条仓库收货记录')
@@ -623,6 +680,35 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
 }
 assert.equal(new Set(listPostFinishingFullFlowRecheckOrders().map((item) => item.recheckOrderNo)).size, 15, '复检单号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => item.outboundOrderNo)).size, 15, '出货单号不得重复')
+
+const authorizationCountBeforeMaterialInbound = listPostFinishingAuthorizationConsumptions().length
+const materialTransfer = listPostFinishingMaterialTransferOrders()[0]
+expectCode('辅料调拨必须精确匹配完整单号', 'NOT_FOUND', () => {
+  receivePostFinishingMaterialTransfer({
+    transferOrderNo: materialTransfer.transferOrderNo.slice(0, -1),
+    actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
+    nowMs: nextTime(),
+  })
+})
+const firstMaterialInbound = receivePostFinishingMaterialTransfer({
+  transferOrderNo: materialTransfer.transferOrderNo,
+  actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
+  nowMs: nextTime(),
+})
+assert.equal(firstMaterialInbound.alreadyInbound, false, '待入库辅料调拨单必须整单一次确认入库')
+assert.equal(firstMaterialInbound.transfer.status, '已入库', '整单确认后调拨状态必须变为已入库')
+const materialStocks = listPostFinishingMaterialStocks()
+assert.equal(materialStocks.length, materialTransfer.lines.length, '整单入库必须为每条调拨明细形成且只形成一条辅料库存')
+assert(materialStocks.every((stock) => stock.currentQty === stock.material.preparedQty && stock.inboundQty === stock.material.preparedQty), '辅料应收和入库数量必须以调出方实际配料数量为准')
+assert(materialStocks.every((stock) => stock.material.unit && stock.areaName === '后道辅料暂存区'), '辅料库存必须保留各自单位并进入后道待加工仓辅料区')
+const repeatedMaterialInbound = receivePostFinishingMaterialTransfer({
+  transferOrderNo: materialTransfer.transferOrderNo,
+  actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver,
+  nowMs: nextTime(),
+})
+assert.equal(repeatedMaterialInbound.alreadyInbound, true, '重复确认已入库调拨单必须幂等返回原单')
+assert.equal(listPostFinishingMaterialStocks().length, materialStocks.length, '重复确认不得重复增加辅料库存')
+assert.equal(listPostFinishingAuthorizationConsumptions().length, authorizationCountBeforeMaterialInbound, '辅料整单入库不得调用成衣差异授权')
 
 const defects = listPostFinishingDefectRecords()
 assert(defects.some((item) => item.discoveryStage === '质检'), '统一瑕疵记录必须包含质检阶段')
@@ -694,7 +780,7 @@ const evidence = {
     returnChains: 15,
     skuReturnLines: 75,
     qcTasks: 15,
-    postTasks: 15,
+    postTasks: listPostFinishingFullFlowPostTasks().length,
     recheckOrders: 15,
     outboundOrders: 15,
     warehouseReceipts: 15,
@@ -707,10 +793,12 @@ const evidence = {
   },
   coveredScenarios: [
     '正常一致', '回货-5%边界', '回货+5%与-5%整单抵消', '回货超过5%二次点数与授权',
-    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', 'SPU技术参数独立维护与质检使用', '回货-质检-后道-复检-出货一次回货1:1', '后道领取冲突',
+    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', 'SPU技术参数独立维护与质检使用', '仅车缝固定三项后道',
+    '车缝＋烫包无漏做直达复检', '裁剪＋车缝＋烫包漏做补加工', '回货-质检-后道或直达复检-出货一次回货1:1', '后道领取冲突',
     '后道本环节守恒但全链不守恒仍授权', '质检与后道统一瑕疵和返厂', '复检领取冲突与释放', '条码错误阻断', '重贴未复扫阻断',
     '重贴后复扫恢复', '一复检一出货幂等', '仓库只接受FCK单号', '仓库差异授权', '重复收货幂等',
-    '后道待交出仓复检入仓与出货交出', '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',
+    '后道待交出仓复检入仓与出货交出', '后道辅料识别与纸样关联', '辅料整单一次入库与幂等',
+    '辅料实配数量入库且不使用成衣授权', '辅料未入库只提示不阻断加工', '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',
   ],
   chains: chainEvidence,
 }

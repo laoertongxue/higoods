@@ -155,6 +155,12 @@ const columns: StandardListColumn<QcOrderRow>[] = [
   { key: 'qcOrder', title: '质检单号', width: 160, required: true, freezeable: true, render: (row) => `<div class="break-all font-mono font-semibold">${escapeHtml(row.task.qcTaskNo)}</div><div class="mt-1 text-xs text-muted-foreground">第 ${row.task.returnIndex} 次回货</div>` },
   { key: 'documents', title: '单号', width: 190, required: true, render: (row) => `<div>后道：<span class="font-mono">${escapeHtml(row.delivery?.sewingTaskNo || '—')}</span></div><div class="mt-1">生产：<span class="font-mono text-blue-700">${escapeHtml(row.task.productionOrderNo)}</span></div><div class="mt-1 break-all text-xs text-muted-foreground">回货：${escapeHtml(row.task.deliveryOrderNo)}</div>` },
   { key: 'factory', title: '来源工厂', width: 130, required: true, render: (row) => escapeHtml(row.delivery?.sewingFactoryName || '—') },
+  { key: 'responsibility', title: '后道责任 / 完成去向', width: 210, required: true, render: (row) => {
+    const destination = row.task.status === '质检完成'
+      ? (row.task.postTaskNo ? `生成加工单 ${row.task.postTaskNo}` : `质检直达复检 ${row.task.recheckOrderNo || ''}`)
+      : (row.task.responsibility.processItemsEditable ? '未勾选则质检直达复检' : '固定生成后道加工单')
+    return `<div class="text-xs font-medium ${row.task.responsibility.responsibilityMode === 'POST_FACTORY' ? 'text-blue-700' : 'text-slate-700'}">${escapeHtml(`${row.task.responsibility.taskTypeLabel} · ${row.task.responsibility.responsibilityLabel}`)}</div><div class="mt-1 text-[11px] text-muted-foreground">${row.task.responsibility.processItemsEditable ? '按质检漏做情况勾选' : '加工项目固定不可修改'}</div><div class="mt-1 text-[11px] text-blue-700">${escapeHtml(destination)}</div>`
+  } },
   { key: 'station', title: '质检员', width: 120, required: true, render: (row) => escapeHtml(row.task.claimedBy?.actorName || '待领取') },
   { key: 'sku', title: 'SKU 明细 / SPU 技术参数', width: 220, required: true, render: renderSkuLines },
   { key: 'expected', title: '质检数量', width: 90, required: true, align: 'center', render: (row) => `${totalExpected(row.task)} 件` },

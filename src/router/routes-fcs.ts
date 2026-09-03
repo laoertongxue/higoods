@@ -171,6 +171,7 @@ import {
   renderPostFinishingAuditRecordsPage,
   renderPostFinishingAuthorizationCodePage,
   renderPostFinishingTasksPage,
+  renderPostFinishingMaterialTransfersPage,
   renderPostFinishingWaitHandoverWarehousePage,
   renderPostFinishingWaitProcessWarehousePage,
   renderPostFinishingWorkOrderDetailPage,
@@ -422,6 +423,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/post-finishing': () =>
       renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道生产任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
+    '/fcs/craft/post-finishing/material-transfers': () => renderPostFinishingMaterialTransfersPage(),
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
     '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),
     '/fcs/craft/post-finishing/qc-workbench': () => renderPostFinishingQcWorkbenchPage(),

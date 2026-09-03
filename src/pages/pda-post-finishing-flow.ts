@@ -9,6 +9,7 @@ import {
   getPostFinishingFactoryReturn,
   getPostFinishingFullFlowPostTask,
   getPostFinishingFullFlowQcTask,
+  getPostFinishingMaterialReadiness,
   getPostFinishingFullFlowRecheckOrder,
   listPostFinishingPostReturnReceiverOptions,
   markPostFinishingRecheckSkuRelabeled,
@@ -56,15 +57,18 @@ function notice(): string {
   return `<div role="status" class="rounded-2xl border px-3 py-2 text-sm ${tone}">${escapeHtml(message)}</div>`
 }
 
-function shell(title: string, subtitle: string, body: string, testId: string): string {
+function shell(title: string, subtitle: string, body: string, testId: string, backHref = ''): string {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return renderPdaLoginRedirect(title)
   return `
     <div class="min-h-screen bg-slate-100 pb-8" data-testid="${testId}">
       <header class="sticky top-0 z-20 border-b bg-white px-4 py-3 shadow-sm">
-        <div class="mx-auto max-w-[480px]">
-          <div class="text-[11px] text-slate-500">${escapeHtml(subtitle)} · ${escapeHtml(runtime.userName)}</div>
-          <h1 class="text-base font-semibold">${escapeHtml(title)}</h1>
+        <div class="mx-auto flex max-w-[480px] items-center gap-3">
+          ${backHref ? `<button type="button" class="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border bg-white px-3 text-sm font-medium text-slate-700" data-nav="${escapeHtml(backHref)}" data-testid="pda-post-back"><span aria-hidden="true">←</span>返回</button>` : ''}
+          <div class="min-w-0">
+            <div class="truncate text-[11px] text-slate-500">${escapeHtml(subtitle)} · ${escapeHtml(runtime.userName)}</div>
+            <h1 class="text-base font-semibold">${escapeHtml(title)}</h1>
+          </div>
         </div>
       </header>
       <main class="mx-auto max-w-[480px] space-y-4 p-4">${notice()}${body}</main>
@@ -176,6 +180,7 @@ function renderPostTask(task: PostFinishingPostTask): string {
   const isStarted = task.status === '后道中'
   const isOwner = Boolean(runtime && task.startedBy?.actorId === runtime.userId)
   const qcTask = getPostFinishingFullFlowQcTask(task.qcTaskId)
+  const materialReadiness = getPostFinishingMaterialReadiness(task.productionOrderNo)
   const drafts = task.draftLines ?? []
   const lineProgress = task.lines.map((line) => {
     const draft = drafts.find((item) => item.skuId === line.sku.skuId)
@@ -241,10 +246,11 @@ function renderPostTask(task: PostFinishingPostTask): string {
           <div><div class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次</div></div>
           <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-blue-800">${escapeHtml(task.status)}</span>
         </div>
-        <div class="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-blue-900"><span class="font-semibold">质检已确认加工项目：</span>${task.processItems.map(escapeHtml).join('、')}</div>
+        <div class="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-blue-900"><div><span class="font-semibold">任务范围：</span>${escapeHtml(task.responsibility.taskTypeLabel)} · ${escapeHtml(task.responsibility.responsibilityLabel)}</div><div class="mt-1"><span class="font-semibold">加工来源：</span>${escapeHtml(task.sourceType)}</div><div class="mt-1"><span class="font-semibold">质检已确认加工项目：</span>${task.processItems.map(escapeHtml).join('、')}</div></div>
         ${task.startedBy && isStarted ? `<div class="mt-2 text-xs text-blue-900">开始人：${escapeHtml(task.startedBy.actorName)} · ${escapeHtml(task.startedAt || '')}</div>` : ''}
         ${task.startedBy && isStarted && !isOwner ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">已由 ${escapeHtml(task.startedBy.actorName)} 加工中。请由本人继续，错误领取请联系主管处理。</div>` : ''}
       </section>
+      ${materialReadiness.applicable && materialReadiness.status !== '已入库' ? `<section class="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>后道辅料未到齐。</strong><span class="mt-1 block text-xs">${escapeHtml(materialReadiness.label)}。当前仅提示，不阻断开始或完成加工。</span></section>` : ''}
       ${lines}
       ${task.status === '待后道' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="start-post" data-task-no="${escapeHtml(task.postTaskNo)}">核对无误，开始后道</button>` : ''}
       ${isStarted && isOwner ? `<section class="rounded-2xl border bg-white p-3"><div class="flex items-center justify-between gap-3 text-sm"><span class="font-semibold">本批数量归类</span><span class="${allCompletedQuantitiesFilled ? 'text-emerald-700' : 'text-amber-700'}">${completedLineCount} / ${task.lines.length} 个 SKU</span></div><div class="mt-2 text-xs text-slate-600">已处理 ${totalResolvedQty} / 应加工 ${totalExpectedQty} 件</div></section>${authorizationBlock('post', hasAnyDifference)}<button type="button" class="h-12 w-full rounded-2xl text-base font-semibold ${allCompletedQuantitiesFilled ? 'bg-blue-600 text-white' : 'cursor-not-allowed bg-slate-200 text-slate-500'}" data-pda-post-action="complete-post" data-task-id="${escapeHtml(task.postTaskId)}" ${allCompletedQuantitiesFilled ? '' : 'disabled'}>${allCompletedQuantitiesFilled ? '完成后道并生成复检单' : `还有 ${task.lines.length - completedLineCount} 个 SKU 未完成数量归类`}</button>` : ''}
@@ -307,7 +313,7 @@ export function renderPdaPostFinishingExecutionPage(): string {
   const body = task
     ? renderPostTask(task)
     : scanner({ label: '扫描后道加工单号', placeholder: 'HD-…', action: 'scan-post', field: 'postScan', help: '只按完整后道加工单号查询；加工项目已由质检确认，后道只填完成数量。' })
-  return shell('后道加工', '精确扫描后道加工单', body, 'pda-post-finishing-execution-page')
+  return shell('后道加工', '精确扫描后道加工单', body, 'pda-post-finishing-execution-page', '/fcs/pda/exec')
 }
 
 function renderRecheckTask(record: PostFinishingRecheckOrder): string {
@@ -351,7 +357,7 @@ function renderRecheckTask(record: PostFinishingRecheckOrder): string {
       <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
         <button type="button" class="text-xs text-blue-700 underline" data-pda-post-action="clear-recheck">重新扫描</button>
         <div class="mt-2 flex items-start justify-between gap-3">
-          <div><div class="font-mono text-sm font-semibold">${escapeHtml(record.recheckOrderNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.postTaskNo || '后道加工单待同步')}</div><div class="mt-1 text-xs text-blue-800">送货 ${escapeHtml(record.deliveryOrderNo)} · 质检 ${escapeHtml(record.qcTaskNo)}</div></div>
+          <div><div class="font-mono text-sm font-semibold">${escapeHtml(record.recheckOrderNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.postTaskNo || '后道加工单不适用')}</div><div class="mt-1 text-xs font-medium text-blue-900">来源：${escapeHtml(record.sourceType)}</div><div class="mt-1 text-xs text-blue-800">送货 ${escapeHtml(record.deliveryOrderNo)} · 质检 ${escapeHtml(record.qcTaskNo)}</div></div>
           <span class="rounded-full bg-white px-3 py-1 text-xs">${escapeHtml(record.status)}</span>
         </div>
         ${record.claimedBy && !isOwner && record.status !== '复检完成' ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">已由 ${escapeHtml(record.claimedBy.actorName)} 复检中，当前账号不能继续。</div>` : ''}
@@ -369,7 +375,7 @@ export function renderPdaPostFinishingRecheckPage(): string {
   const body = record
     ? renderRecheckTask(record)
     : scanner({ label: '扫描复检单号', placeholder: 'FC-…', action: 'scan-recheck', field: 'recheckScan', help: '扫描成功即由当前账号领取；条码错误必须重贴并复扫。' })
-  return shell('后道复检', '数量清点与 SKU 条码核对', body, 'pda-post-finishing-recheck-page')
+  return shell('后道复检', '数量清点与 SKU 条码核对', body, 'pda-post-finishing-recheck-page', '/fcs/pda/exec')
 }
 
 function readValue(root: ParentNode, selector: string): string {

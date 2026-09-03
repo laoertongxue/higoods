@@ -85,6 +85,9 @@ import { buildWaitHandoverLifecycleByBagCode } from './process-factory/cutting/w
 import {
   FULL_CAPABILITY_FACTORY_ID,
   confirmPostFinishingWarehouseReceipt,
+  getPostFinishingSewingSelfReturnSourceSkuLines,
+  listPostFinishingSkuOptions,
+  listPostFinishingUpstreamHandovers,
   listPostFinishingWarehouseAreas,
   listPostFinishingWarehouseLocations,
 } from '../data/fcs/post-finishing-domain.ts'
@@ -866,6 +869,65 @@ function formatPickupQty(qty: number | undefined, unit: string): string {
   return typeof qty === 'number' ? `${qty} ${unit}` : '—'
 }
 
+function resolvePickupSkuDisplay(record: PdaPickupRecord): {
+  spuCode: string
+  spuName: string
+  skuCode: string
+  colorName: string
+  sizeName: string
+  imageUrl: string
+} {
+  const normalPickup = parsePostFinishingPickupRecord(record)
+  if (normalPickup) {
+    const handover = listPostFinishingUpstreamHandovers().find((item) => item.handoverRecordNo === normalPickup.handoverRecordNo)
+    const sourceSku = handover
+      ? listPostFinishingSkuOptions(handover.spuId).find((line) => line.skuCode === record.skuCode)
+      : undefined
+    return {
+      spuCode: handover?.spuCode || '—',
+      spuName: handover?.spuName || record.materialName || '成衣',
+      skuCode: record.skuCode || sourceSku?.skuCode || '—',
+      colorName: record.skuColor || sourceSku?.colorName || '—',
+      sizeName: record.skuSize || sourceSku?.sizeName || '—',
+      imageUrl: sourceSku?.imageUrl || '',
+    }
+  }
+
+  const selfReturnPickup = parsePostFinishingSelfReturnPickupRecord(record)
+  const selfReturnSku = selfReturnPickup
+    ? getPostFinishingSewingSelfReturnSourceSkuLines(selfReturnPickup.selfReturnRecordNo)
+        .find((line) => line.skuCode === record.skuCode)
+    : undefined
+  return {
+    spuCode: selfReturnSku?.spuCode || '—',
+    spuName: selfReturnSku?.spuName || record.materialName || '成衣',
+    skuCode: record.skuCode || selfReturnSku?.skuCode || record.materialCode || '—',
+    colorName: record.skuColor || selfReturnSku?.colorName || '—',
+    sizeName: record.skuSize || selfReturnSku?.sizeName || record.materialSpec || '—',
+    imageUrl: selfReturnSku?.imageUrl || '',
+  }
+}
+
+function renderPickupSkuDetail(record: PdaPickupRecord, quantity: number | undefined, testId: string): string {
+  const sku = resolvePickupSkuDisplay(record)
+  const imageTitle = `${sku.spuCode} / ${sku.skuCode}`
+  return `
+    <div class="rounded-lg border bg-background p-2.5" data-testid="${testId}" data-pickup-sku-code="${escapeAttr(sku.skuCode)}">
+      <div class="flex gap-3">
+        ${sku.imageUrl
+          ? `<button type="button" class="flex h-16 w-16 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeAttr(sku.imageUrl)}" data-pda-image-preview-title="${escapeAttr(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeAttr(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeAttr(sku.imageUrl)}" alt="${escapeAttr(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+          : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border bg-muted/30 px-1 text-center text-[10px] text-amber-700">暂无款式图</div>'}
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-xs font-semibold">SPU ${escapeHtml(sku.spuCode)} · ${escapeHtml(sku.spuName)}</div>
+          <div class="mt-1 break-all font-mono text-[11px]">SKU ${escapeHtml(sku.skuCode)}</div>
+          <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(sku.colorName)} / ${escapeHtml(sku.sizeName)}</div>
+          <div class="mt-1 text-sm font-semibold text-blue-700">本次 ${escapeHtml(formatPickupQty(quantity, record.qtyUnit))}</div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderPickupCurrentMetric(label: string, value: string, emphasis = false): string {
   return `
     <div class="min-w-0">
@@ -918,6 +980,13 @@ function renderPickupCurrentPanel(
   const waitSourceText = postFinishingSource ? '待车缝厂送达' : '待仓库扫码交付'
   const shouldShowExpectedInPendingConfirm =
     typeof record.warehouseHandedQty === 'number' && record.warehouseHandedQty !== record.qtyExpected
+  const currentSkuDetail = postFinishingSource
+    ? renderPickupSkuDetail(
+        record,
+        record.finalResolvedQty ?? record.factoryConfirmedQty ?? record.warehouseHandedQty ?? record.qtyExpected,
+        'pickup-current-sku-detail',
+      )
+    : ''
 
   if (record.status === 'PENDING_FACTORY_CONFIRM') {
     return `
@@ -930,6 +999,8 @@ function renderPickupCurrentPanel(
             : ''
         }
       </div>
+
+      ${currentSkuDetail}
 
       <div class="flex flex-wrap gap-2 pt-1">
         <button
@@ -1053,6 +1124,7 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric('已确认数量', confirmedQtyValue, true)}
         ${renderPickupCurrentMetric('确认时间', record.factoryConfirmedAt || record.receivedAt || '—')}
       </div>
+      ${currentSkuDetail}
       <div class="text-xs text-emerald-700">本次接收已确认完成。</div>
     `
   }
@@ -1064,6 +1136,7 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric('工厂申报数量', reportedQtyValue)}
         ${renderPickupCurrentMetric('当前结果', '差异处理中')}
       </div>
+      ${currentSkuDetail}
       <div class="space-y-2 pt-1 text-xs text-red-700">
         ${record.followUpRemark ? `<p>处理进度：${escapeHtml(record.followUpRemark)}</p>` : ''}
         <p>等待主管处理，结果会自动更新。</p>
@@ -1077,6 +1150,7 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric('最终确认数量', finalQtyValue, true)}
         ${renderPickupCurrentMetric('裁定时间', record.finalResolvedAt || '—')}
       </div>
+      ${currentSkuDetail}
       <div class="space-y-1 pt-1 text-xs text-zinc-700">
         ${record.resolvedRemark ? `<p>处理记录：${escapeHtml(record.resolvedRemark)}</p>` : ''}
       </div>
@@ -1089,6 +1163,7 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
         ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)}
       </div>
+      ${currentSkuDetail}
       <div class="space-y-1 pt-1 text-xs text-slate-700">
         ${record.objectionReason ? `<p>驳回原因：${escapeHtml(record.objectionReason)}</p>` : ''}
         ${record.objectionRemark ? `<p>驳回记录：${escapeHtml(record.objectionRemark)}</p>` : ''}
@@ -1105,6 +1180,7 @@ function renderPickupCurrentPanel(
           : ''
       }
     </div>
+    ${currentSkuDetail}
     <div class="pt-1 text-xs text-blue-700">${postFinishingSource ? '待车缝厂送达后确认接收。' : '待仓库交付后确认接收。'}</div>
   `
 }
@@ -1358,6 +1434,7 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
     || record.status === 'OBJECTION_REPORTED'
     || record.status === 'OBJECTION_PROCESSING'
   )
+  const postFinishingSource = Boolean(parsePostFinishingPickupRecord(record) || parsePostFinishingSelfReturnPickupRecord(record))
 
   return `
     <article
@@ -1366,9 +1443,10 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
       class="rounded-lg border bg-background p-3"
     >
       <div class="flex items-center justify-between gap-2">
-        <span class="text-xs font-medium">第 ${record.sequenceNo} 次接收</span>
+        <span class="text-xs font-medium">${postFinishingSource ? `SKU 明细 ${record.sequenceNo}` : `第 ${record.sequenceNo} 次接收`}</span>
         <span class="rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
       </div>
+      ${postFinishingSource ? `<div class="mt-3">${renderPickupSkuDetail(record, confirmedQty ?? sourceQty, 'pickup-history-sku-detail')}</div>` : ''}
       <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
         <div><div class="text-[10px] text-muted-foreground">应收</div><div class="mt-1 font-semibold">${record.qtyExpected} ${escapeHtml(record.qtyUnit)}</div></div>
         <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof confirmedQty === 'number' ? confirmedQty : '待确认'}${typeof confirmedQty === 'number' ? ` ${escapeHtml(record.qtyUnit)}` : ''}</div></div>
@@ -1464,7 +1542,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     ${!isCompleted ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-pickup-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成接收单</button>` : ''}
 
     <details class="rounded-xl border bg-card" data-testid="pickup-record-history">
-      <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>接收记录（${records.length}）</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
+      <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>${postFinishingPickup ? `接收明细（${records.length} 个 SKU）` : `接收记录（${records.length}）`}</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
       <div class="space-y-2 border-t p-3">${records.length ? records.map((record) => renderPickupRecordItem(record)).join('') : `<div class="py-4 text-center text-xs text-muted-foreground">${postFinishingPickup ? '暂无到货记录' : '暂无接收记录'}</div>`}</div>
     </details>
   `

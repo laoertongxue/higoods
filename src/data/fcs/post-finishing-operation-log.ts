@@ -7,6 +7,7 @@ export type PostFinishingFullFlowStage =
   | '复检'
   | '出货'
   | '仓库收货'
+  | '辅料调拨'
   | '授权'
   | '质检参考资料'
 

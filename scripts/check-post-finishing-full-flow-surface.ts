@@ -246,16 +246,16 @@ assert(files.authorizationCode.includes('当前账号没有授权权限') && !fi
 assert(files.menu.includes("title: '后道待加工仓'") && files.menu.includes("title: '质检单'") && files.menu.includes("title: '我的动态授权码'"), '后道菜单必须使用纠偏后的三个入口')
 assert(!files.menu.includes("title: 'Web 质检工作台'"), 'Web 质检工作台不得保留独立菜单')
 for (const [pageName, source] of Object.entries({
-  后道生产任务: files.tasks,
   质检单: files.qcOrders,
   质检单执行: files.qcWorkbench,
-  后道统计: files.statistics,
 })) {
   assert(source.includes('renderPostFinishingQcPrintActions'), `${pageName}缺少质检单与质检单详情打印入口`)
 }
 for (const [pageName, source] of Object.entries({
   后道加工单: files.workOrders,
   后道加工详情: files.workOrderDetail,
+  后道生产任务: files.tasks,
+  后道统计: files.statistics,
   复检单: files.recheckOrders,
   后道待加工仓与待交出仓: files.warehouse,
   后道出货单: files.outboundOrders,

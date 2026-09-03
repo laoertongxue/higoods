@@ -7,6 +7,7 @@ import {
   correctPostFinishingFactoryReturnConfirmation,
   getPostFinishingFactoryReturn,
   listPostFinishingFactoryReturns,
+  listPostFinishingMaterialStocks,
   listPostFinishingReturnConfirmationVersions,
   listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
@@ -15,6 +16,7 @@ import {
   sendPostFinishingFactoryReturnToQc,
   type PostFinishingAcceptanceSku,
   type PostFinishingFactoryReturnDelivery,
+  type PostFinishingMaterialStock,
   type PostFinishingWaitHandoverWarehouseMovement,
   type PostFinishingWaitHandoverWarehouseRecord,
   type PostFinishingWaitProcessWarehouseMovement,
@@ -32,7 +34,7 @@ let pageMessage = ''
 let pageMessageTone: 'success' | 'error' = 'success'
 
 type WarehouseMode = 'wait-process' | 'wait-handover'
-type WarehouseTab = 'inventory' | 'movements' | 'locations' | 'returns'
+type WarehouseTab = 'inventory' | 'movements' | 'locations' | 'returns' | 'materials'
 
 interface WarehouseBatch {
   warehouseRecordId: string
@@ -48,6 +50,7 @@ interface WarehouseBatch {
   qcTaskNo?: string
   recheckOrderNo?: string
   outboundOrderNo?: string
+  sourceType?: '质检直达' | '后道加工后'
 }
 
 interface WarehouseInventoryRow {
@@ -65,6 +68,8 @@ const warehouseUi = {
   pageSize: 20,
   selectedSkuId: '',
   selectedView: 'stock' as 'stock' | 'movements',
+  selectedMaterialStockId: '',
+  selectedMaterialView: 'stock' as 'stock' | 'movements',
   showReturnLookup: false,
 }
 
@@ -86,6 +91,7 @@ function currentTab(mode = currentWarehouseMode()): WarehouseTab {
   const value = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('tab') || ''
   if (value === 'pending') return 'returns'
   if (value === 'movements' || value === 'locations' || value === 'inventory') return value
+  if (value === 'materials' && mode === 'wait-process') return value
   if (value === 'returns' && mode === 'wait-process') return value
   return 'inventory'
 }
@@ -155,6 +161,7 @@ function buildWaitHandoverInventory(records: PostFinishingWaitHandoverWarehouseR
       qcTaskNo: record.qcTaskNo,
       recheckOrderNo: record.recheckOrderNo,
       outboundOrderNo: record.outboundOrderNo,
+      sourceType: record.sourceType,
     })
     rows.set(line.sku.skuId, row)
   }))
@@ -181,13 +188,14 @@ function fixedPreferences<T>(columns: readonly StandardListColumn<T>[]): Standar
 
 function renderWarehouseTabs(mode: WarehouseMode, tab: WarehouseTab): string {
   const tabs: Array<{ key: WarehouseTab; label: string }> = mode === 'wait-process'
-    ? [{ key: 'inventory', label: '库存' }, { key: 'movements', label: '流水记录' }, { key: 'locations', label: '库区库位' }, { key: 'returns', label: '车缝登记回货' }]
+    ? [{ key: 'inventory', label: '库存' }, { key: 'movements', label: '流水记录' }, { key: 'locations', label: '库区库位' }, { key: 'returns', label: '车缝登记回货' }, { key: 'materials', label: '辅料库存' }]
     : [{ key: 'inventory', label: '库存' }, { key: 'movements', label: '流水记录' }, { key: 'locations', label: '库区库位' }]
   return `<nav class="flex min-h-10 items-end gap-6 border-b bg-card px-3" aria-label="${mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓'}页签">${tabs.map((item) => `<a data-nav="${warehousePath(mode)}?tab=${item.key}" class="border-b-2 px-1 py-3 text-sm ${tab === item.key ? 'border-blue-500 font-semibold text-blue-600' : 'border-transparent text-slate-600 hover:text-slate-900'}">${item.label}</a>`).join('')}</nav>`
 }
 
 function renderWarehouseFilters(mode: WarehouseMode): string {
-  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card px-3 py-2"><label class="text-xs text-muted-foreground">关键词<input class="ml-2 h-8 w-64 rounded-md border px-3 text-sm" data-post-finishing-field="warehouse-keyword" value="${escapeHtml(warehouseUi.keyword)}" placeholder="SKU/款式名称/颜色/尺码" /></label>${mode === 'wait-handover' ? `<label class="text-xs text-muted-foreground">可出库<select class="ml-2 h-8 rounded-md border bg-white px-3 text-sm" data-post-finishing-field="warehouse-availability"><option value="available" ${warehouseUi.availability === 'available' ? 'selected' : ''}>可出库</option><option value="all" ${warehouseUi.availability === 'all' ? 'selected' : ''}>全部</option><option value="unavailable" ${warehouseUi.availability === 'unavailable' ? 'selected' : ''}>不可出库</option></select></label>` : ''}<span class="ml-auto"></span><button type="button" class="h-8 rounded-md border px-3 text-xs" data-post-finishing-action="full-flow-reset-filter">重置</button><button type="button" class="h-8 rounded-md bg-blue-600 px-4 text-xs font-medium text-white" data-post-finishing-action="full-flow-query">查询</button></div>`
+  const materialTab = currentTab(mode) === 'materials'
+  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card px-3 py-2"><label class="text-xs text-muted-foreground">关键词<input class="ml-2 h-8 w-64 rounded-md border px-3 text-sm" data-post-finishing-field="warehouse-keyword" value="${escapeHtml(warehouseUi.keyword)}" placeholder="${materialTab ? '物料/编码/生产单/调拨单/库位' : 'SKU/款式名称/颜色/尺码'}" /></label>${mode === 'wait-handover' ? `<label class="text-xs text-muted-foreground">可出库<select class="ml-2 h-8 rounded-md border bg-white px-3 text-sm" data-post-finishing-field="warehouse-availability"><option value="available" ${warehouseUi.availability === 'available' ? 'selected' : ''}>可出库</option><option value="all" ${warehouseUi.availability === 'all' ? 'selected' : ''}>全部</option><option value="unavailable" ${warehouseUi.availability === 'unavailable' ? 'selected' : ''}>不可出库</option></select></label>` : ''}<span class="ml-auto"></span><button type="button" class="h-8 rounded-md border px-3 text-xs" data-post-finishing-action="full-flow-reset-filter">重置</button><button type="button" class="h-8 rounded-md bg-blue-600 px-4 text-xs font-medium text-white" data-post-finishing-action="full-flow-query">查询</button></div>`
 }
 
 function filterInventoryRows(rows: WarehouseInventoryRow[], mode: WarehouseMode): WarehouseInventoryRow[] {
@@ -263,6 +271,33 @@ function renderReturnsContent(deliveries: PostFinishingFactoryReturnDelivery[]):
   return { listTitle: '车缝登记回货', tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: '暂无车缝回货登记。' }), paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing' }) }
 }
 
+function renderMaterialStockContent(stocks: PostFinishingMaterialStock[]): { tableHtml: string; paginationHtml: string; listTitle: string } {
+  const keyword = warehouseUi.keyword.trim().toLowerCase()
+  const filtered = stocks.filter((stock) => !keyword || [stock.productionOrderNo, stock.transferOrderNo, stock.material.materialName, stock.material.materialCode, stock.material.materialSpuCode, stock.locationCode].join(' ').toLowerCase().includes(keyword))
+  const slice = paginateStandardListRows(filtered, warehouseUi.page, warehouseUi.pageSize)
+  warehouseUi.page = slice.currentPage
+  const columns: StandardListColumn<PostFinishingMaterialStock>[] = [
+    { key: 'material', title: '物料', width: 320, required: true, freezeable: true, render: (row) => `<div class="flex items-center gap-3"><button type="button" class="relative flex h-11 w-11 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-md border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(row.material.imageUrl)}" data-image-label="${escapeHtml(`${row.material.materialCode} ${row.material.materialName}`)}"><img src="${escapeHtml(row.material.imageUrl)}" alt="${escapeHtml(`${row.material.materialName} 物料图`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[9px] text-slate-500">图片加载中…</span></button><div><div class="font-medium">${escapeHtml(row.material.materialName)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.material.materialCode)}</div></div></div>` },
+    { key: 'production', title: '生产单 / 调拨单', width: 250, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.productionOrderNo)}</div><div class="mt-1 font-mono text-xs text-blue-700">${escapeHtml(row.transferOrderNo)}</div>` },
+    { key: 'spec', title: '规格 / SPU', width: 220, required: true, render: (row) => `<div>${escapeHtml(row.material.specification)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.material.materialSpuCode)}</div>` },
+    { key: 'stock', title: '当前库存', width: 130, required: true, align: 'center', render: (row) => `<strong>${row.currentQty} ${escapeHtml(row.material.unit)}</strong>` },
+    { key: 'location', title: '库区库位', width: 190, required: true, render: (row) => `<div>${escapeHtml(row.areaName)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.locationCode)}</div>` },
+    { key: 'inbound', title: '入库信息', width: 180, required: true, render: (row) => `<div>${escapeHtml(row.inboundBy.actorName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(new Date(row.inboundAt).toLocaleString('zh-CN'))}</div>` },
+    { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true, render: (row) => `<div class="flex flex-wrap justify-end gap-x-3 gap-y-1"><button type="button" class="text-xs text-blue-700 hover:underline" data-post-finishing-action="full-flow-open-material-stock" data-material-stock-id="${escapeHtml(row.stockId)}">库存明细</button><button type="button" class="text-xs text-blue-700 hover:underline" data-post-finishing-action="full-flow-open-material-movements" data-material-stock-id="${escapeHtml(row.stockId)}">查看入库流水</button><a data-nav="/fcs/craft/post-finishing/material-transfers?transferId=${encodeURIComponent(row.transferOrderId)}" class="text-xs text-blue-700 hover:underline">关联调拨单</a></div>` },
+  ]
+  const preferences: StandardListColumnPreferences = { order: columns.map((column) => column.key), visibleKeys: columns.map((column) => column.key), frozenKeys: ['material'], pageSize: warehouseUi.pageSize }
+  return { listTitle: '辅料库存', tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences, sort: null, eventPrefix: 'post-finishing', emptyText: '暂无已入库的后道辅料；待入库调拨单请到“后道辅料调拨单”查看。' }), paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing' }) }
+}
+
+function renderMaterialStockDrawer(stocks: PostFinishingMaterialStock[]): string {
+  const stock = stocks.find((item) => item.stockId === warehouseUi.selectedMaterialStockId)
+  if (!stock) return ''
+  const body = warehouseUi.selectedMaterialView === 'stock'
+    ? `<section class="mt-5 rounded-xl border p-4"><h3 class="font-semibold">库存明细</h3><dl class="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">生产单</dt><dd class="font-mono">${escapeHtml(stock.productionOrderNo)}</dd></div><div><dt class="text-xs text-muted-foreground">当前库存</dt><dd class="font-semibold">${stock.currentQty} ${escapeHtml(stock.material.unit)}</dd></div><div><dt class="text-xs text-muted-foreground">库区</dt><dd>${escapeHtml(stock.areaName)}</dd></div><div><dt class="text-xs text-muted-foreground">库位</dt><dd class="font-mono">${escapeHtml(stock.locationCode)}</dd></div></dl></section>`
+    : `<section class="mt-5 rounded-xl border p-4"><h3 class="font-semibold">入库流水</h3><article class="mt-3 flex items-center justify-between gap-3 rounded-lg border bg-slate-50 p-3 text-sm"><div><strong>辅料调拨入库</strong><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(stock.transferOrderNo)} · ${escapeHtml(new Date(stock.inboundAt).toLocaleString('zh-CN'))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(stock.inboundBy.actorName)} · ${escapeHtml(stock.inboundBy.roleName)}</div></div><div class="text-right font-semibold">+${stock.inboundQty} ${escapeHtml(stock.material.unit)}</div></article></section>`
+  return `<div class="fixed inset-0 z-[150] bg-black/30" data-post-finishing-action="full-flow-close-overlay"></div><aside class="fixed inset-y-0 right-0 z-[160] w-full max-w-2xl overflow-y-auto border-l bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" data-material-stock-drawer="${escapeHtml(stock.stockId)}"><div class="flex items-start justify-between gap-3"><div class="flex gap-3"><button type="button" class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(stock.material.imageUrl)}" data-image-label="${escapeHtml(`${stock.material.materialCode} ${stock.material.materialName}`)}"><img src="${escapeHtml(stock.material.imageUrl)}" alt="${escapeHtml(`${stock.material.materialName} 物料图`)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[9px] text-red-700">图片加载失败</span></button><div><h2 class="font-semibold">${escapeHtml(stock.material.materialName)}</h2><p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(stock.material.materialCode)} · ${escapeHtml(stock.material.materialSpuCode)}</p><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(stock.material.specification)}</p></div></div><button type="button" class="rounded-md border px-3 py-2 text-xs" data-post-finishing-action="full-flow-close-overlay">关闭</button></div>${body}<div class="mt-4"><a data-nav="/fcs/craft/post-finishing/material-transfers?transferId=${encodeURIComponent(stock.transferOrderId)}" class="text-sm font-medium text-blue-700 hover:underline">查看关联调拨单详情</a></div></aside>`
+}
+
 function renderInventoryDrawer(mode: WarehouseMode, rows: WarehouseInventoryRow[]): string {
   const row = rows.find((item) => item.sku.skuId === warehouseUi.selectedSkuId)
   if (!row) return ''
@@ -275,7 +310,7 @@ function renderInventoryDrawer(mode: WarehouseMode, rows: WarehouseInventoryRow[
       : `<a data-nav="/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(batch.recheckOrderNo || '')}" class="text-blue-600 hover:underline">复检单 ${escapeHtml(batch.recheckOrderNo || '—')}</a><a data-nav="/fcs/craft/post-finishing/outbound-orders?keyword=${encodeURIComponent(batch.outboundOrderNo || '')}" class="text-blue-600 hover:underline">出货单 ${escapeHtml(batch.outboundOrderNo || '—')}</a>`
     return `<article class="rounded-lg border p-3 text-sm" data-warehouse-batch="${escapeHtml(batch.warehouseRecordId)}">
       <div class="flex items-start justify-between gap-3">
-        <div><div class="font-mono text-xs font-semibold">${escapeHtml(batch.deliveryOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.productionOrderNo)} · 第 ${batch.returnIndex} 次回货 · ${escapeHtml(batch.locationCode)}</div></div>
+        <div><div class="font-mono text-xs font-semibold">${escapeHtml(batch.deliveryOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.productionOrderNo)} · 第 ${batch.returnIndex} 次回货 · ${escapeHtml(batch.locationCode)}</div>${mode === 'wait-handover' ? `<div class="mt-1 text-xs font-medium text-blue-700">来源：${escapeHtml(batch.sourceType || '历史来源未标记')}</div>` : ''}</div>
         ${renderPostStatusBadge(batch.status)}
       </div>
       <div class="mt-3 grid grid-cols-3 gap-2 text-xs"><span>入仓 <strong>${batch.inboundQty} 件</strong></span><span>可用 <strong>${batch.availableQty} 件</strong></span><span>出仓 <strong>${batch.outboundQty} 件</strong></span></div>
@@ -311,7 +346,13 @@ function renderWarehouseOverview(mode: WarehouseMode): string {
   const movements = mode === 'wait-process' ? listPostFinishingWaitProcessWarehouseMovements() : listPostFinishingWaitHandoverWarehouseMovements()
   const locations = new Set(rows.flatMap((row) => row.batches.map((batch) => batch.locationCode)))
   const areaCount = rows.length ? 1 : 0
-  const stats = renderStandardListStats([
+  const materialStocks = mode === 'wait-process' ? listPostFinishingMaterialStocks() : []
+  const stats = tab === 'materials' ? renderStandardListStats([
+    { label: '辅料库存', value: `${materialStocks.length} 条` },
+    { label: '生产单', value: `${new Set(materialStocks.map((row) => row.productionOrderNo)).size} 单` },
+    { label: '调拨单', value: `${new Set(materialStocks.map((row) => row.transferOrderNo)).size} 张` },
+    { label: '库区库位', value: `${new Set(materialStocks.map((row) => row.locationCode)).size} 个` },
+  ]) : renderStandardListStats([
     { label: mode === 'wait-process' ? '待加工在仓' : '待交出在仓', value: `${rows.length} 条` },
     { label: 'SKU 种数', value: `${new Set(rows.map((row) => row.sku.skuId)).size} 种` },
     { label: '库区库位', value: `${areaCount} / ${locations.size}` },
@@ -321,16 +362,17 @@ function renderWarehouseOverview(mode: WarehouseMode): string {
   if (tab === 'movements') content = renderMovementContent(mode, movements)
   if (tab === 'locations') content = renderLocationContent(mode, rows)
   if (tab === 'returns' && mode === 'wait-process') content = renderReturnsContent(listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt)))
+  if (tab === 'materials' && mode === 'wait-process') content = renderMaterialStockContent(materialStocks)
   return renderStandardListPage({
     title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓',
     primaryActionsHtml: mode === 'wait-process' ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">回货确认</button>' : '',
     feedbackHtml: renderMessage(),
     filtersHtml: `<div class="space-y-3">${stats}${renderWarehouseTabs(mode, tab)}${renderWarehouseFilters(mode)}</div>`,
     listTitle: content.listTitle,
-    listActionsHtml: `<span class="text-xs text-muted-foreground">当前库存 ${rows.reduce((sum, row) => sum + row.currentQty, 0)} 件</span>`,
+    listActionsHtml: tab === 'materials' ? '<a data-nav="/fcs/craft/post-finishing/material-transfers" class="text-xs text-blue-700 hover:underline">查看后道辅料调拨单</a>' : `<span class="text-xs text-muted-foreground">当前库存 ${rows.reduce((sum, row) => sum + row.currentQty, 0)} 件</span>`,
     tableHtml: content.tableHtml,
     paginationHtml: content.paginationHtml,
-    overlaysHtml: `${renderInventoryDrawer(mode, rows)}${renderReturnLookupDialog()}`,
+    overlaysHtml: `${renderInventoryDrawer(mode, rows)}${renderMaterialStockDrawer(materialStocks)}${renderReturnLookupDialog()}`,
   })
 }
 
@@ -435,6 +477,12 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
       refresh('')
       return true
     }
+    if (action === 'full-flow-open-material-stock' || action === 'full-flow-open-material-movements') {
+      warehouseUi.selectedMaterialStockId = actionNode?.dataset.materialStockId || ''
+      warehouseUi.selectedMaterialView = action === 'full-flow-open-material-stock' ? 'stock' : 'movements'
+      refresh('')
+      return true
+    }
     if (action === 'full-flow-show-return-lookup') {
       warehouseUi.showReturnLookup = true
       refresh('')
@@ -442,6 +490,7 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
     }
     if (action === 'full-flow-close-overlay') {
       warehouseUi.selectedSkuId = ''
+      warehouseUi.selectedMaterialStockId = ''
       warehouseUi.showReturnLookup = false
       refresh('')
       return true

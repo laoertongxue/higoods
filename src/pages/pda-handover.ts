@@ -27,7 +27,15 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
-import { isPostFinishingFactoryId } from '../data/fcs/post-finishing-domain.ts'
+import {
+  FULL_CAPABILITY_FACTORY_NAME,
+  isPostFinishingFactoryId,
+  listPostFinishingSkuOptions,
+} from '../data/fcs/post-finishing-domain.ts'
+import {
+  listPostFinishingOutboundOrders,
+  type PostFinishingOutboundOrder,
+} from '../data/fcs/post-finishing-outbound-orders.ts'
 import { activatePdaSewingSelfReturnMode } from '../data/fcs/pda-sewing-self-return-mode.ts'
 import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
 import {
@@ -55,8 +63,14 @@ import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory, isKolGotoWholeOrderTask } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { processTasks } from '../data/fcs/process-tasks.ts'
+import {
+  getPostFinishingMaterialTransferOrder,
+  listPostFinishingMaterialTransferOrders,
+  receivePostFinishingMaterialTransfer,
+  type PostFinishingMaterialTransferOrder,
+} from '../data/fcs/post-finishing-full-flow.ts'
 
-type HandoverTab = 'pickup' | 'handout'
+type HandoverTab = 'pickup' | 'handout' | 'shipped'
 
 interface PdaHandoverState {
   selectedFactoryId: string
@@ -101,11 +115,21 @@ const state: PdaHandoverState = {
 }
 
 let specialCraftSeedScheduled = false
+let materialInboundMessage = ''
 
-const TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
+const DEFAULT_TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待接收' },
   { key: 'handout', label: '待交出' },
 ]
+
+const POST_FINISHING_TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
+  { key: 'pickup', label: '待接收' },
+  { key: 'shipped', label: '已交出' },
+]
+
+function getTabConfig(isPostFinishingFactory: boolean): Array<{ key: HandoverTab; label: string }> {
+  return isPostFinishingFactory ? POST_FINISHING_TAB_CONFIG : DEFAULT_TAB_CONFIG
+}
 
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
@@ -117,10 +141,11 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
-function syncTabWithQuery(): void {
+function syncTabWithQuery(isPostFinishingFactory: boolean): void {
   const previousTab = state.activeTab
   const tab = getCurrentSearchParams().get('tab')
-  if (!tab || !TAB_CONFIG.some((item) => item.key === tab)) {
+  const tabConfig = getTabConfig(isPostFinishingFactory)
+  if (!tab || !tabConfig.some((item) => item.key === tab)) {
     state.activeTab = 'pickup'
   } else {
     state.activeTab = tab as HandoverTab
@@ -647,6 +672,64 @@ function renderPostFinishingReturnReceivingPanel(canOpenSelfReturnMode: boolean)
   `
 }
 
+function renderPostFinishingMaterialTransferCard(order: PostFinishingMaterialTransferOrder): string {
+  const total = order.lines.reduce((sum, line) => sum + line.preparedQty, 0)
+  return `<article class="rounded-xl border bg-card p-3 shadow-sm" data-pda-material-transfer-card="${escapeHtml(order.transferOrderNo)}"><div class="flex items-start justify-between gap-3"><div><div class="font-mono text-sm font-semibold">${escapeHtml(order.transferOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.styleNo)}</div></div><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${escapeHtml(order.status)}</span></div><div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs"><div><div class="text-[10px] text-muted-foreground">物料</div><div class="mt-1 font-semibold">${order.lines.length} 种</div></div><div><div class="text-[10px] text-muted-foreground">调出方实配</div><div class="mt-1 font-semibold">${total}</div></div><div><div class="text-[10px] text-muted-foreground">目标库位</div><div class="mt-1 truncate font-semibold">${escapeHtml(order.targetLocationCode)}</div></div></div><a data-nav="/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(order.transferOrderNo)}" class="mt-3 flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white">查看并整单入库</a></article>`
+}
+
+function renderPostFinishingMaterialTransfersPanel(): string {
+  const pending = listPostFinishingMaterialTransferOrders().filter((order) => order.status === '待入库')
+  return `<section class="space-y-2" data-pda-material-transfer-list><div class="flex items-center justify-between"><div><h2 class="text-sm font-semibold">后道辅料待入库</h2><p class="mt-1 text-[11px] text-muted-foreground">辅料仓备妥后，由后道领料回厂并整单入库。</p></div><span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${pending.length} 张</span></div><div class="rounded-xl border bg-white p-3" data-pda-material-transfer-scan><label class="text-xs font-medium">扫描或输入完整调拨单号</label><div class="mt-2 flex gap-2"><input class="h-11 min-w-0 flex-1 rounded-xl border px-3 font-mono text-sm" placeholder="DB-PF-…" data-pda-handover-field="materialTransferNo"/><button type="button" class="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white" data-pda-handover-action="scan-material-transfer">查询</button></div><p class="mt-2 text-[11px] text-muted-foreground">只接受完整单号，不提供模糊候选。</p></div>${pending.length ? pending.map(renderPostFinishingMaterialTransferCard).join('') : '<div class="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">暂无待入库的后道辅料调拨单</div>'}</section>`
+}
+
+function renderPostFinishingMaterialTransferDetail(order: PostFinishingMaterialTransferOrder): string {
+  const runtime = getPdaRuntimeContext()!
+  const body = `<div class="flex min-h-[760px] flex-col bg-slate-100"><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="flex items-center gap-3"><a data-nav="/fcs/pda/handover?tab=pickup" class="inline-flex h-9 items-center rounded-xl border px-3 text-sm">← 返回</a><div><div class="text-[11px] text-slate-500">后道辅料整单入库 · ${escapeHtml(runtime.userName)}</div><h1 class="font-semibold">确认辅料入库</h1></div></div></header><main class="flex-1 space-y-3 p-4">${materialInboundMessage ? `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${escapeHtml(materialInboundMessage)}</div>` : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex items-start justify-between gap-3"><div><div class="font-mono font-semibold">${escapeHtml(order.transferOrderNo)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.styleNo)}</div></div><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(order.status)}</span></div><div class="mt-3 text-xs text-slate-600">${escapeHtml(order.sourceWarehouseName)} → ${escapeHtml(order.targetWarehouseName)}</div><div class="mt-1 text-xs text-slate-600">入库位置：${escapeHtml(order.targetAreaName)} / ${escapeHtml(order.targetLocationCode)}</div></section><section class="overflow-hidden rounded-2xl border bg-white"><div class="border-b px-4 py-3"><h2 class="font-semibold">物料明细</h2><p class="mt-1 text-xs text-slate-500">数量以调出方实际配料为准，不分批、不修改。</p></div>${order.lines.map((line) => `<div class="flex gap-3 border-b p-3 last:border-b-0"><button type="button" class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-pda-image-preview-url="${escapeHtml(line.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${line.materialCode} ${line.materialName}`)}" data-skip-page-rerender="true"><img src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.materialName} 物料图`)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button><div class="min-w-0 flex-1"><div class="text-sm font-semibold">${escapeHtml(line.materialName)}</div><div class="mt-1 break-all font-mono text-[11px] text-slate-500">${escapeHtml(line.materialCode)}</div><div class="mt-1 font-mono text-[11px] text-slate-500">SPU ${escapeHtml(line.materialSpuCode)}</div><div class="mt-1 text-xs text-slate-600">${escapeHtml(line.specification)}</div></div><div class="shrink-0 text-right"><div class="font-semibold">${line.preparedQty} ${escapeHtml(line.unit)}</div><div class="mt-1 text-[10px] text-slate-500">调出方实配</div></div></div>`).join('')}</section>${order.status === '待入库' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-material-inbound" data-material-order-no="${escapeHtml(order.transferOrderNo)}">确认全部物料已领回并整单入库</button>` : '<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">该调拨单已整单入库。</div>'}</main></div>`
+  return renderPdaFrame(body, 'handover', { disableTodoAutoOpen: true })
+}
+
+function renderPostFinishingOutboundLine(order: PostFinishingOutboundOrder, line: PostFinishingOutboundOrder['lines'][number]): string {
+  const imageTitle = `${line.spuCode} / ${line.skuCode}`
+  const imageUrl = line.skuImageUrl
+    || listPostFinishingSkuOptions(line.spuCode).find((item) => item.skuCode === line.skuCode)?.imageUrl
+    || ''
+  return `<div class="flex gap-2.5 border-t px-3 py-2.5" data-pda-post-outbound-line="${escapeHtml(line.outboundLineId)}">
+    ${imageUrl
+      ? `<button type="button" class="flex h-14 w-14 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${line.spuName} ${line.colorName} ${line.sizeName}`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+      : '<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border bg-muted/30 px-1 text-center text-[10px] text-amber-700">暂无款式图</div>'}
+    <div class="min-w-0 flex-1 text-xs">
+      <div class="truncate font-semibold">${escapeHtml(line.spuCode)} · ${escapeHtml(line.spuName)}</div>
+      <div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.skuCode)}</div>
+      <div class="mt-1 text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div>
+    </div>
+    <div class="shrink-0 text-right text-xs"><div class="font-semibold">${line.plannedQty} ${escapeHtml(line.qtyUnit)}</div><div class="mt-1 text-[10px] text-muted-foreground">交出数量</div></div>
+  </div>`
+}
+
+function renderPostFinishingOutboundCard(order: PostFinishingOutboundOrder): string {
+  const statusClass = order.status === '已确认'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-amber-200 bg-amber-50 text-amber-800'
+  return `<article class="overflow-hidden rounded-xl border bg-card shadow-sm" data-pda-post-outbound-card="${escapeHtml(order.outboundOrderNo)}">
+    <div class="p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(order.outboundOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.recheckOrderNo)}</div></div>
+        <span class="shrink-0 rounded-full border px-2 py-1 text-[10px] ${statusClass}">${escapeHtml(order.status)}</span>
+      </div>
+      <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
+        <div><div class="text-[10px] text-muted-foreground">SKU</div><div class="mt-1 font-semibold">${order.lines.length} 个</div></div>
+        <div><div class="text-[10px] text-muted-foreground">已交出</div><div class="mt-1 font-semibold">${order.outboundQty} ${escapeHtml(order.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">成衣仓确认</div><div class="mt-1 font-semibold">${order.inboundQty} ${escapeHtml(order.qtyUnit)}</div></div>
+      </div>
+      <div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(order.createdAt)} · ${escapeHtml(order.operatorName)}</div>
+    </div>
+    <details data-pda-post-outbound-details>
+      <summary class="cursor-pointer list-none border-t px-3 py-2.5 text-xs font-medium text-blue-700"><span class="flex items-center justify-between"><span>查看出货 SKU 明细</span><i data-lucide="chevron-down" class="h-4 w-4"></i></span></summary>
+      <div>${order.lines.map((line) => renderPostFinishingOutboundLine(order, line)).join('')}</div>
+    </details>
+  </article>`
+}
+
 function getWoolScanPurpose(tab: HandoverTab): WoolPdaScanPurpose | null {
   if (tab === 'pickup') return 'RECEIVE'
   if (tab === 'handout') return 'HANDOVER'
@@ -883,8 +966,12 @@ export function renderPdaHandoverPage(): string {
     return renderPdaLoginRedirect()
   }
 
-  syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
+  const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
+  syncTabWithQuery(isPostFinishingFactory)
+  const materialOrderNo = getCurrentSearchParams().get('materialOrderNo') || ''
+  const selectedMaterialOrder = materialOrderNo ? getPostFinishingMaterialTransferOrder(materialOrderNo) : undefined
+  if (isPostFinishingFactory && selectedMaterialOrder) return renderPostFinishingMaterialTransferDetail(selectedMaterialOrder)
   if (isKolGotoFactory(selectedFactoryId)) {
     ensureKolGotoPdaScenarios()
     return renderKolGotoHandoverPage()
@@ -892,7 +979,6 @@ export function renderPdaHandoverPage(): string {
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
   const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
-  const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
   if (!isPostFinishingFactory) {
     scheduleSpecialCraftHandoverSeed()
@@ -907,17 +993,25 @@ export function renderPdaHandoverPage(): string {
     ? mergeHandoverHeadsById(getPdaPostFinishingHandoutHeads(), factoryWoolHandoutHeads)
     : getPdaHandoutHeads(selectedFactoryId)
   const visibleHandoutHeads = handoutHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
+  const shippedOrders = isPostFinishingFactory
+    ? listPostFinishingOutboundOrders().filter((order) => (
+        order.managedPostFactoryName === FULL_CAPABILITY_FACTORY_NAME
+        || isPostFinishingFactoryId(order.managedPostFactoryId)
+      ))
+    : []
+  const tabConfig = getTabConfig(isPostFinishingFactory)
 
   const tabCounts: Record<HandoverTab, number> = {
-    pickup: visiblePickupHeads.length,
+    pickup: visiblePickupHeads.length + (isPostFinishingFactory ? listPostFinishingMaterialTransferOrders().filter((order) => order.status === '待入库').length : 0),
     handout: visibleHandoutHeads.length,
+    shipped: shippedOrders.length,
   }
 
 // 裁床中转袋交接状态：待装袋 / 待收中转袋
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
       <div class="sticky top-[auto] z-20 flex border-b bg-background" data-testid="pda-handover-tabs">
-        ${TAB_CONFIG.map((tab) => {
+        ${tabConfig.map((tab) => {
           const active = state.activeTab === tab.key
           return `
             <button
@@ -946,6 +1040,7 @@ export function renderPdaHandoverPage(): string {
         ${hasWoolOrders ? renderSelectedWoolHandoverOrder() : ''}
         ${hasSpecialCraftOrders ? renderSpecialCraftHandoverScanPanel() : ''}
         ${isPostFinishingFactory && state.activeTab === 'pickup' ? renderPostFinishingReturnReceivingPanel(canManageSewingSelfReturnMode) : ''}
+        ${isPostFinishingFactory && state.activeTab === 'pickup' ? renderPostFinishingMaterialTransfersPanel() : ''}
         ${
           state.activeTab === 'pickup'
             ? `
@@ -966,6 +1061,20 @@ export function renderPdaHandoverPage(): string {
                   ? renderEmptyState(hasWoolOrders || hasSpecialCraftOrders || hasBindingOrders ? '可先扫码发起交出；暂无其他待处理交出单' : '暂无待处理交出单')
                   : visibleHandoutHeads.map((head) => renderCompactOpenHeadCard(head)).join('')
               }
+            `
+            : ''
+        }
+
+        ${
+          state.activeTab === 'shipped'
+            ? `
+              <section class="rounded-xl border border-blue-100 bg-blue-50/60 p-3" data-pda-post-shipped-note>
+                <div class="text-sm font-semibold text-blue-950">已交出记录</div>
+                <p class="mt-1 text-xs leading-5 text-blue-700">与 Web“后道出货单”共用同一组单据；此处只查看，不再发起交出。</p>
+              </section>
+              ${shippedOrders.length === 0
+                ? renderEmptyState('暂无已生成的后道出货单')
+                : shippedOrders.map(renderPostFinishingOutboundCard).join('')}
             `
             : ''
         }
@@ -1031,6 +1140,43 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
   const action = actionNode.dataset.pdaHandoverAction
   if (!action) return false
 
+  if (action === 'scan-material-transfer') {
+    const input = document.querySelector<HTMLInputElement>('[data-pda-material-transfer-scan] [data-pda-handover-field="materialTransferNo"]')
+    const raw = input?.value.trim() || ''
+    const record = getPostFinishingMaterialTransferOrder(raw)
+    if (!raw || !record || record.transferOrderNo !== raw) {
+      window.alert('未找到完整后道辅料调拨单号，不提供模糊候选。')
+      return true
+    }
+    if (record.status !== '待入库') {
+      window.alert(`该调拨单当前为${record.status}，只有待入库调拨单可执行整单入库。`)
+      return true
+    }
+    materialInboundMessage = ''
+    appStore.navigate(`/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(record.transferOrderNo)}`)
+    return true
+  }
+
+  if (action === 'confirm-material-inbound') {
+    const runtime = getPdaRuntimeContext()
+    if (!runtime || !isPostFinishingFactoryId(runtime.factoryId)) {
+      window.alert('当前账号不属于后道工厂，不能确认辅料入库。')
+      return true
+    }
+    if (!window.confirm('确认已领回本单全部物料，并按调出方实配数量一次性入库？入库后不支持分批修改。')) return true
+    try {
+      const result = receivePostFinishingMaterialTransfer({
+        transferOrderNo: actionNode.dataset.materialOrderNo || '',
+        actor: { actorId: runtime.userId, actorName: runtime.userName, roleName: '后道仓管' },
+      })
+      materialInboundMessage = result.alreadyInbound ? '该调拨单已入库，无需重复提交。' : '整单入库成功，辅料库存已按调出方实配数量登记。'
+      appStore.navigate(`/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(result.transfer.transferOrderNo)}&refresh=${Date.now()}`)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '辅料入库失败，请重新核对。')
+    }
+    return true
+  }
+
   if (action === 'scan-wool-order') {
     const input = document.querySelector<HTMLInputElement>('[data-pda-handover-wool-scan] [data-pda-handover-field="woolScanKeyword"]')
     state.woolScanKeyword = input?.value || state.woolScanKeyword
@@ -1088,7 +1234,8 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as HandoverTab | undefined
     if (isKolGotoFactory(getCurrentFactoryId()) && tab === 'pickup') return true
-    if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
+    const tabConfig = getTabConfig(isPostFinishingFactoryId(getCurrentFactoryId()))
+    if (tab && tabConfig.some((item) => item.key === tab)) {
       state.activeTab = tab
       state.woolScanKeyword = ''
       state.woolScanMessage = ''

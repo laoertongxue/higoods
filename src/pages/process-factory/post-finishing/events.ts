@@ -25,6 +25,7 @@ import { handlePostFinishingReturnFlowEvent } from './warehouse.ts'
 import { handlePostFinishingTasksEvent } from './tasks.ts'
 import { handlePostFinishingWorkOrderDetailEvent } from './work-order-detail.ts'
 import { handlePostFinishingWorkOrdersEvent } from './work-orders.ts'
+import { handlePostFinishingMaterialTransfersEvent } from './material-transfers.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
   getPostFinishingFullFlowQcTask,
@@ -439,6 +440,7 @@ function openPostFinishingReceiptDialog(): void {
 }
 
 export function handlePostFinishingEvent(target: HTMLElement, event?: Event): boolean {
+  if (handlePostFinishingMaterialTransfersEvent(target, event)) return true
   if (handlePostFinishingAuditRecordsEvent(target, event)) return true
   if (handlePostFinishingTasksEvent(target, event)) return true
   if (handlePostFinishingWorkOrderDetailEvent(target)) return true

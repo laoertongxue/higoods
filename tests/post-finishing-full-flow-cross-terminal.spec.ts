@@ -89,7 +89,7 @@ const scenarios: CrossTerminalScenario[] = PRODUCTION_ORDERS.flatMap((production
       label: '正常一致',
       returnScenario: 'normal',
       qcScenario: 'normal',
-      needPost: true,
+      needPost: orderIndex === 0,
       postScenario: 'normal',
       recheckScenario: 'normal',
       barcodeError: false,
@@ -101,15 +101,15 @@ const scenarios: CrossTerminalScenario[] = PRODUCTION_ORDERS.flatMap((production
     if (key === '1-3') return { ...base, label: '回货超过5%复点与动态授权', returnScenario: 'over-5-authorization' }
     if (key === '1-4') return { ...base, label: '质检瑕疵守恒、后道少1件动态授权', qcScenario: 'balanced-defect', postScenario: 'difference' }
     if (key === '1-5') return { ...base, label: 'SKU错码重贴与复扫恢复', barcodeError: true }
-    if (key === '2-1') return { ...base, label: '回货 +5%边界及 SPU 技术参数' , returnScenario: 'plus-5-boundary' }
-    if (key === '2-2') return { ...base, label: '质检少1件授权后进入后道', qcScenario: 'difference' }
-    if (key === '2-3') return { ...base, label: 'PDA中断后由Web接管继续', postScenario: 'web-fallback' }
+    if (key === '2-1') return { ...base, label: '回货 +5%边界、SPU技术参数及质检直达复检' , returnScenario: 'plus-5-boundary' }
+    if (key === '2-2') return { ...base, label: '质检少1件授权后直达复检', qcScenario: 'difference' }
+    if (key === '2-3') return { ...base, label: '漏做熨烫和包装，PDA中断后由Web接管继续', needPost: true, postScenario: 'web-fallback' }
     if (key === '2-4') return { ...base, label: '复检少1件动态授权', recheckScenario: 'difference' }
-    if (key === '2-5') return { ...base, label: '后道出货单与待交出库存核对' }
+    if (key === '2-5') return { ...base, label: '漏做熨烫和包装后的出货单与待交出库存核对', needPost: true }
     if (key === '3-1') return { ...base, label: '质检返工守恒及返工工厂选择', qcScenario: 'balanced-return' }
-    if (key === '3-2') return { ...base, label: '后道正常完成进入复检' }
-    if (key === '3-3') return { ...base, label: '后道新增瑕疵守恒', postScenario: 'balanced-defect' }
-    if (key === '3-4') return { ...base, label: '第二组SKU错码重贴复扫', barcodeError: true }
+    if (key === '3-2') return { ...base, label: '漏做项目进入后道后正常完成复检', needPost: true }
+    if (key === '3-3') return { ...base, label: '漏做项目进入后道并新增瑕疵守恒', needPost: true, postScenario: 'balanced-defect' }
+    if (key === '3-4') return { ...base, label: '漏做项目进入后道，第二组SKU错码重贴复扫', needPost: true, barcodeError: true }
     if (key === '3-5') return { ...base, label: '复检退领重领及待交出核对', recheckScenario: 'balanced-defect' }
     return base
   })
@@ -515,14 +515,27 @@ async function completeQcThroughWeb(
     await saveScreenshot(page, chain, 'qc-authorization')
   }
 
-  await page.getByRole('button', { name: '完成质检并生成后道加工单' }).click()
+  const processItems = page.locator('[data-qc-process-item]')
+  await expect(processItems).toHaveCount(3)
+  if (scenario.orderIndex === 0) {
+    expect(scenario.needPost).toBe(true)
+    expect(await processItems.evaluateAll((nodes) => nodes.every((node) => (node as HTMLInputElement).checked && (node as HTMLInputElement).disabled))).toBe(true)
+  } else if (scenario.needPost) {
+    await page.locator('[data-qc-process-item][value="熨烫和包装"]').check()
+    await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(1)
+  } else {
+    await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(0)
+  }
+
+  await page.getByRole('button', { name: scenario.needPost ? '完成质检并生成后道加工单' : '完成质检并进入复检' }).click()
   const status = await statusText(page)
   await expect(page.locator('body')).toContainText('质检完成')
-  const postTaskNo = extractNumber(status, /后道加工单 ([A-Z0-9-]+)/, '后道加工单号')
-  const recheckOrderNo = undefined
+  const postTaskNo = scenario.needPost ? extractNumber(status, /后道加工单 ([A-Z0-9-]+)/, '后道加工单号') : undefined
+  const recheckOrderNo = scenario.needPost ? undefined : extractNumber(status, /复检单 ([A-Z0-9-]+)/, '复检单号')
   addStage(chain, page, 'Web质检完成', status, {
     qcScenario: scenario.qcScenario,
-    needPost: true,
+    needPost: scenario.needPost,
+    selectedProcessItems: scenario.needPost ? (scenario.orderIndex === 0 ? 3 : 1) : 0,
     downstreamNo: postTaskNo || recheckOrderNo || '',
   })
   if (scenario.qcScenario !== 'normal' || scenario.qcClaimConflictAndRelease) await saveScreenshot(page, chain, 'web-qc-completed')
@@ -812,7 +825,7 @@ async function readFinalSnapshot(page: Page): Promise<unknown> {
   })
 }
 
-test('15条链逐条跨公共PDA、Web质检、PDA与Web后道、Web复检并生成后道出货单', async ({ page, context }, testInfo: TestInfo) => {
+test('15条链按责任逐条跨公共PDA、Web质检、PDA与Web后道、Web复检并生成后道出货单', async ({ page, context }, testInfo: TestInfo) => {
   test.setTimeout(30 * 60_000)
   page.setDefaultTimeout(15_000)
   page.setDefaultNavigationTimeout(30_000)
@@ -938,7 +951,7 @@ test('15条链逐条跨公共PDA、Web质检、PDA与Web后道、Web复检并生
   expect(totals.deliveries).toBe(15)
   expect(totals.skuReturnLines).toBe(75)
   expect(totals.qcTasks).toBe(15)
-  expect(totals.postTasks).toBe(15)
+  expect(totals.postTasks).toBe(10)
   expect(totals.recheckOrders).toBe(15)
   expect(totals.outboundOrders).toBe(15)
   expect(totals.warehouseReceipts).toBe(0)
@@ -946,7 +959,7 @@ test('15条链逐条跨公共PDA、Web质检、PDA与Web后道、Web复检并生
   expect(totals.waitProcessWarehouseMovements).toBe(30)
   expect(totals.waitHandoverWarehouseRecords).toBe(15)
   expect(totals.waitHandoverWarehouseMovements).toBe(15)
-  expect(totals.authorizationConsumptions).toBe(5)
+  expect(totals.authorizationConsumptions).toBe(4)
   const finalChains = (snapshot as { chains: Array<{ warehouseReceived: boolean; waitHandoverStatus?: string }> }).chains
   expect(finalChains).toHaveLength(15)
   expect(finalChains.every((chain) => !chain.warehouseReceived)).toBe(true)

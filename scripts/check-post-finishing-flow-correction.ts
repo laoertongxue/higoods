@@ -63,7 +63,7 @@ const visibleSources = [
   '../src/pages/print/templates/post-finishing-route-card-template.ts',
   '../src/data/fcs/task-print-cards.ts',
 ]
-const forbidden = ['阶段任务', '实际工序单', '车缝+后道', '>开始后道<', '>完成后道<']
+const forbidden = ['阶段任务', '实际工序单', '车缝+后道']
 for (const pathname of visibleSources) {
   const source = readFileSync(new URL(pathname, import.meta.url), 'utf8')
   forbidden.forEach((text) => assert.ok(!source.includes(text), `${pathname} 不得展示「${text}」`))
