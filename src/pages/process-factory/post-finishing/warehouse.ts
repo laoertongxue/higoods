@@ -26,7 +26,7 @@ import { paginateStandardListRows, type StandardListColumnPreferences } from '..
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostFinishingPageHeader, renderPostFinishingQcPrintActions, renderPostStatusBadge } from './shared.ts'
+import { renderPostFinishingPageHeader, renderPostStatusBadge } from './shared.ts'
 
 let pageMessage = ''
 let pageMessageTone: 'success' | 'error' = 'success'
@@ -323,7 +323,7 @@ function renderWarehouseOverview(mode: WarehouseMode): string {
   if (tab === 'returns' && mode === 'wait-process') content = renderReturnsContent(listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt)))
   return renderStandardListPage({
     title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}${mode === 'wait-process' ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">回货确认</button>' : ''}</div>`,
+    primaryActionsHtml: mode === 'wait-process' ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">回货确认</button>' : '',
     feedbackHtml: renderMessage(),
     filtersHtml: `<div class="space-y-3">${stats}${renderWarehouseTabs(mode, tab)}${renderWarehouseFilters(mode)}</div>`,
     listTitle: content.listTitle,
@@ -366,7 +366,7 @@ function renderConfirmationDetail(record: PostFinishingFactoryReturnDelivery): s
 export function renderPostFinishingWaitProcessWarehousePage(): string {
   const selected = currentDeliveryId() ? getPostFinishingFactoryReturn(currentDeliveryId()) : undefined
   return selected
-    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', '根据完整送货单号确认回货，确认后进入待加工仓并可发起送检', renderPostFinishingQcPrintActions(selected.qcTaskNo))}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
+    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', '根据完整送货单号确认回货，确认后进入待加工仓并可发起送检')}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
     : `<div data-post-finishing-return-page>${renderWarehouseOverview('wait-process')}</div>`
 }
 

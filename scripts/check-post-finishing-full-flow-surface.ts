@@ -27,6 +27,7 @@ const files = {
   qcOrders: read('../src/pages/process-factory/post-finishing/qc-orders.ts'),
   tasks: read('../src/pages/process-factory/post-finishing/tasks.ts'),
   workOrders: read('../src/pages/process-factory/post-finishing/work-orders.ts'),
+  workOrderDetail: read('../src/pages/process-factory/post-finishing/work-order-detail.ts'),
   recheckOrders: read('../src/pages/process-factory/post-finishing/recheck-orders.ts'),
   outboundOrders: read('../src/pages/process-factory/post-finishing/outbound-orders.ts'),
   audit: read('../src/pages/process-factory/post-finishing/audit-records.ts'),
@@ -72,15 +73,16 @@ const pdaPaths = [
   '/fcs/pda/post-finishing/execute',
   '/fcs/pda/post-finishing/sku-adjustment',
   '/fcs/pda/post-finishing/recheck',
-  '/fcs/pda/post-finishing/outbound-receive',
 ]
 for (const path of pdaPaths) {
   assert(files.pdaRoutes.includes(`'${path}'`), `PDA 路由缺少 ${path}`)
   assert(files.pdaHandlers.includes(`exact('${path}')`), `PDA 处理器缺少 ${path}`)
 }
 assert(files.renderers.includes('renderPdaPostFinishingReturnConfirmationPage'), 'PDA 回货确认渲染器未注册')
-assert(files.pdaWarehouse.includes('/fcs/pda/post-finishing/return-confirm'), '仓库 PDA 首页缺少回货确认入口')
-assert(files.pdaWarehouse.includes('/fcs/pda/post-finishing/outbound-receive'), '仓库 PDA 首页缺少 FCK 收货入口')
+assert(files.pdaHandover.includes('/fcs/pda/post-finishing/return-confirm'), '交接待接收缺少送货单点数确认入口')
+assert(!files.pdaWarehouse.includes('/fcs/pda/post-finishing/return-confirm'), '仓管页不得保留回货确认入口')
+assert(!files.pdaWarehouse.includes('/fcs/pda/post-finishing/outbound-receive'), '仓管页不得保留成衣仓收货入口')
+assert(!files.pdaRoutes.includes('/fcs/pda/post-finishing/outbound-receive') && !files.pdaHandlers.includes('/fcs/pda/post-finishing/outbound-receive'), '后道工厂 PDA 必须删除成衣仓收货路由与处理器')
 
 for (const required of [
   'toleranceRate: RETURN_TOLERANCE_RATE',
@@ -135,10 +137,9 @@ assert(!files.pdaFlow.includes('toggle-process-item'), '后道 PDA 不得再次�
 assert(files.pdaFlow.includes('调整瑕疵数量') && files.pdaFlow.includes('data-post-defect-reason-qty') && files.pdaFlow.includes('增加瑕疵') && files.pdaFlow.includes('减少瑕疵'), '后道 PDA 必须从 SKU 入口进入逐原因增减瑕疵页')
 assert(!files.pdaFlow.includes('data-post-adjust-file="defectImage"') && !files.pdaFlow.includes('data-post-adjust-field="responsibleParty"'), '后道 PDA 调整页不得保留责任方或现场证据图片')
 assert(files.pdaFlow.includes('data-return-receiver-search') && files.pdaFlow.includes('data-return-receiver-options'), '后道 PDA 返厂接收对象必须使用移动端可搜索选择器')
-assert(files.pdaFlow.includes('本人最近收货'), '仓库 PDA 扫码首页必须展示当前账号最近收货')
 assert(files.pdaFlow.includes('条码错误，已阻断出货') && files.pdaFlow.includes('已重新贴码') && files.pdaFlow.includes('必须复扫正确'), '复检 PDA 必须完成错码阻断、重贴和复扫恢复')
-assert(files.pdaFlow.includes('只接受完整 FCK 后道出货单号'), '仓库 PDA 只能扫描 FCK 出货单')
-for (const summary of ['return-line', 'return-total', 'recheck-line', 'recheck-total', 'warehouse-line', 'warehouse-total']) {
+assert(!files.pdaFlow.includes('扫描后道出货单条码') && !files.pdaFlow.includes('本人最近收货'), '后道工厂 PDA 不得保留成衣仓收货页面内容')
+for (const summary of ['return-line', 'return-total', 'recheck-line', 'recheck-total']) {
   assert(files.pdaFlow.includes(`'${summary}'`), `PDA 缺少实时数量摘要 ${summary}`)
 }
 assert(files.pdaFlow.includes('本批数量归类') && files.pdaFlow.includes('个 SKU 未完成数量归类'), '后道 PDA 必须按完成、瑕疵或返厂的逐 SKU 归类进度替代加工项目勾选')
@@ -214,7 +215,6 @@ for (const required of [
   "type PrintType = 'SEND_QC' | 'QC_ORDER' | 'QC_DETAIL' | 'POST_ORDER' | 'OUTBOUND' | 'OUTBOUND_BARCODE' | 'OUTBOUND_HANGTAG' | 'SKU_LABEL'",
   '/fcs/craft/post-finishing/qc-workbench?taskNo=',
   '/fcs/pda/post-finishing/execute?id=',
-  '/fcs/pda/post-finishing/outbound-receive?id=',
   'data-business-document-barcode',
   'data-sku-label-barcode',
   'h-[30mm] w-[40mm]',
@@ -228,6 +228,7 @@ for (const required of [
   '质检交接时间',
   '送货单 / 质检单',
 ]) assert(files.print.includes(required), `打印闭环缺少 ${required}`)
+assert(!files.print.includes('/fcs/pda/post-finishing/outbound-receive'), '后道出货单不得再指向后道工厂 PDA 的成衣仓收货入口')
 
 for (const imageSurface of [files.sewingReturn, files.pdaFlow, files.warehouse, files.qcWorkbench, files.recheckOrders, files.outboundOrders]) {
   assert(imageSurface.includes('图片加载中') && imageSurface.includes('图片加载失败'), '款式/SKU 图片表面必须有加载与失败状态')
@@ -236,6 +237,7 @@ for (const imageSurface of [files.sewingReturn, files.pdaFlow, files.warehouse, 
 
 assert(files.audit.includes('data-audit-chain-detail') && files.audit.includes('差异与瑕疵') && files.audit.includes('操作时间线'), '日志页必须采用业务链主从结构')
 assert(files.audit.includes('data-audit-detail-tab') && files.audit.includes('按阶段查看单据链') && files.audit.includes('按环节归组的操作记录'), '日志详情必须分层展示，不得继续把链路、差异和时间线全部平铺')
+assert(files.audit.includes('if (selected)') && files.audit.includes('post-finishing-audit-detail-page'), '日志详情必须独立渲染，不得与筛选和业务链列表上下叠加')
 assert(files.audit.includes('name="startedAt"') && files.audit.includes('name="endedAt"') && files.audit.includes('name="operator"') && files.audit.includes('name="authorizer"'), '主从日志页仍必须支持时间、操作人和授权人筛选')
 assert(files.audit.includes('name="direction"') && files.audit.includes('name="authorizationResult"'), '主从日志页仍必须支持差异方向和授权结果筛选')
 assert(!files.audit.includes('getPostFinishingAuthorizationDisplay') && !files.audit.includes("query().get('authorizerId')"), '操作日志页不得再夹带动态授权码入口')
@@ -247,16 +249,20 @@ for (const [pageName, source] of Object.entries({
   后道生产任务: files.tasks,
   质检单: files.qcOrders,
   质检单执行: files.qcWorkbench,
+  后道统计: files.statistics,
+})) {
+  assert(source.includes('renderPostFinishingQcPrintActions'), `${pageName}缺少质检单与质检单详情打印入口`)
+}
+for (const [pageName, source] of Object.entries({
   后道加工单: files.workOrders,
-  后道加工详情: read('../src/pages/process-factory/post-finishing/work-order-detail.ts'),
+  后道加工详情: files.workOrderDetail,
   复检单: files.recheckOrders,
   后道待加工仓与待交出仓: files.warehouse,
   后道出货单: files.outboundOrders,
   差异与操作日志: files.audit,
   我的动态授权码: files.authorizationCode,
-  后道统计: files.statistics,
 })) {
-  assert(source.includes('renderPostFinishingQcPrintActions'), `${pageName}缺少质检单与质检单详情打印入口`)
+  assert(!source.includes('renderPostFinishingQcPrintActions') && !source.includes('打印质检单') && !source.includes('type=QC_ORDER') && !source.includes('type=QC_DETAIL'), `${pageName}不得提供质检单打印入口`)
 }
 for (const relation of ['deliveryOrderNo', 'qcTaskNo', 'postTaskNo', 'recheckOrderNo', 'productionOrderNo']) {
   assert(files.outboundOrders.includes(`record.${relation}`), `出货页面关联筛选缺少 ${relation}`)

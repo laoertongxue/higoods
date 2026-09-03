@@ -7,15 +7,12 @@ import {
   completePostFinishingPostTaskFromDraft,
   completePostFinishingRecheckOrderFullFlow,
   getPostFinishingFactoryReturn,
-  getPostFinishingFullFlowOutboundOrder,
   getPostFinishingFullFlowPostTask,
   getPostFinishingFullFlowQcTask,
   getPostFinishingFullFlowRecheckOrder,
   listPostFinishingPostReturnReceiverOptions,
   markPostFinishingRecheckSkuRelabeled,
-  receivePostFinishingOutboundOrder,
   releasePostFinishingRecheckOrder,
-  listPostFinishingWarehouseReceipts,
   scanPostFinishingRecheckSkuBarcode,
   savePostFinishingPostSkuAdjustment,
   setPostFinishingPostCompletedQuantity,
@@ -375,65 +372,6 @@ export function renderPdaPostFinishingRecheckPage(): string {
   return shell('后道复检', '数量清点与 SKU 条码核对', body, 'pda-post-finishing-recheck-page')
 }
 
-function renderRecentWarehouseReceipts(): string {
-  const runtime = getPdaRuntimeContext()
-  if (!runtime) return ''
-  const records = listPostFinishingWarehouseReceipts()
-    .filter((record) => record.receivedBy.actorId === runtime.userId)
-    .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
-    .slice(0, 3)
-  return `<section class="rounded-2xl border bg-white p-4 shadow-sm"><h2 class="text-sm font-semibold">本人最近收货</h2><div class="mt-3 space-y-2">${records.map((record) => `<div class="rounded-xl bg-slate-50 px-3 py-2 text-xs"><div class="font-mono font-semibold">${escapeHtml(record.outboundOrderNo)}</div><div class="mt-1 text-slate-500">${record.lines.reduce((sum, line) => sum + line.receivedQty, 0)} 件 · ${escapeHtml(new Date(record.receivedAt).toLocaleString('zh-CN'))}</div></div>`).join('') || '<div class="text-xs text-slate-500">暂无本人已完成的后道出货收货记录。</div>'}</div></section>`
-}
-
-function renderOutboundReceive(): string {
-  const id = query().get('id') || ''
-  const outbound = id ? getPostFinishingFullFlowOutboundOrder(id) : undefined
-  if (!outbound) {
-    return `${scanner({ label: '扫描后道出货单条码', placeholder: 'FCK-…', action: 'scan-outbound', field: 'outboundScan', help: '只接受完整 FCK 后道出货单号；复检单和内部交接号均不接受。' })}${renderRecentWarehouseReceipts()}`
-  }
-  const delivery = getPostFinishingFactoryReturn(outbound.deliveryId)
-  const expectedTotal = outbound.lines.reduce((sum, line) => sum + line.outboundQty, 0)
-  const actualTotal = outbound.lines.reduce((sum, line) => sum + (line.receivedQty ?? line.outboundQty), 0)
-  const hasDifference = outbound.lines.some((line) => line.outboundQty !== (line.receivedQty ?? line.outboundQty))
-  const editable = outbound.status === '待仓库接收'
-  const lines = outbound.lines.map((line) => {
-    const receivedQty = line.receivedQty ?? line.outboundQty
-    return `
-      <article class="rounded-2xl border bg-white p-3 shadow-sm" data-outbound-result-line="${escapeHtml(line.sku.skuId)}" data-expected-qty="${line.outboundQty}">
-        <div class="flex gap-3">
-          ${image(line.sku)}
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-semibold">SPU ${escapeHtml(line.sku.spuCode)}</div>
-            <div class="truncate text-xs font-medium">SKU ${escapeHtml(line.sku.skuCode)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
-            <div class="mt-1 text-xs font-medium">应收 ${line.outboundQty} 件</div>
-          </div>
-          <label class="w-24 text-[11px] text-slate-500">实际接收<input type="number" min="0" step="1" value="${receivedQty}" class="mt-1 h-11 w-full rounded-xl border px-2 text-right text-base font-semibold" data-outbound-result-field="receivedQty" ${editable ? '' : 'disabled'} /></label>
-        </div>
-        ${editable ? initialSummary(line.outboundQty, receivedQty, `本行实收 ${receivedQty} 件`, 'warehouse-line') : ''}
-      </article>
-    `
-  }).join('')
-  return `
-    <div class="space-y-4" data-pda-outbound-task="${escapeHtml(outbound.outboundOrderId)}" data-skip-page-rerender="true">
-      <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-        <button type="button" class="text-xs text-blue-700 underline" data-pda-post-action="clear-outbound">重新扫描</button>
-        <div class="mt-2 flex items-start justify-between gap-3">
-          <div><div class="font-mono text-sm font-semibold">${escapeHtml(outbound.outboundOrderNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(outbound.productionOrderNo)} · ${escapeHtml(outbound.recheckOrderNo)}</div><div class="mt-1 text-xs text-blue-800">送货 ${escapeHtml(outbound.deliveryOrderNo)} · 质检 ${escapeHtml(outbound.qcTaskNo)} · ${escapeHtml(outbound.postTaskNo || '无后道加工单')}</div></div>
-          <span class="rounded-full bg-white px-3 py-1 text-xs">${escapeHtml(outbound.status)}</span>
-        </div>
-        <div class="mt-3 text-xs">来源后道工厂：${escapeHtml(delivery?.managedPostFactoryName || '—')} · 出货时间 ${escapeHtml(new Date(outbound.createdAt).toLocaleString('zh-CN'))}</div><div class="mt-1 text-xs">待接收 ${expectedTotal} 件 / ${outbound.lines.length} SKU</div>
-      </section>
-      ${lines}
-      ${editable ? `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">确认后，后道待交出仓按本出货单的应出数量完成交出扣减；实际接收数量单独记录，不反向改写交出库存。</div>${initialSummary(expectedTotal, actualTotal, `整单应收 ${expectedTotal} 件，当前实收 ${actualTotal} 件`, 'warehouse-total')}${authorizationBlock('warehouse', hasDifference)}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="receive-outbound" data-outbound-no="${escapeHtml(outbound.outboundOrderNo)}">确认收货入库</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">后道待交出仓已按出货数量完成交出扣减；该出货单已由 ${escapeHtml(outbound.receivedBy?.actorName || '仓库人员')} 接收入库。重复扫描仅只读展示，不会重复入库。</div>`}
-    </div>
-  `
-}
-
-export function renderPdaPostFinishingOutboundReceivePage(): string {
-  return shell('后道出货收货', '仓库 PDA', renderOutboundReceive(), 'pda-post-finishing-outbound-receive-page')
-}
-
 function readValue(root: ParentNode, selector: string): string {
   return root.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)?.value.trim() || ''
 }
@@ -543,22 +481,6 @@ function updateQuantitySummaries(): void {
     setSummary(recheckRoot.querySelector('[data-quantity-summary="recheck-total"]'), expectedTotal, actualTotal, `整单交接 ${expectedTotal} 件，当前复检合计 ${actualTotal} 件`)
     toggleAuthorizationBlock(recheckRoot, 'recheck', hasDifference)
   }
-  const warehouseRoot = document.querySelector<HTMLElement>('[data-pda-outbound-task]')
-  if (warehouseRoot) {
-    let expectedTotal = 0
-    let actualTotal = 0
-    let hasDifference = false
-    warehouseRoot.querySelectorAll<HTMLElement>('[data-outbound-result-line]').forEach((line) => {
-      const expected = Number(line.dataset.expectedQty || 0)
-      const actual = numberValue(line, '[data-outbound-result-field="receivedQty"]')
-      expectedTotal += expected
-      actualTotal += actual
-      hasDifference ||= actual !== expected
-      setSummary(line.querySelector('[data-quantity-summary="warehouse-line"]'), expected, actual, `本行实收 ${actual} 件`)
-    })
-    setSummary(warehouseRoot.querySelector('[data-quantity-summary="warehouse-total"]'), expectedTotal, actualTotal, `整单应收 ${expectedTotal} 件，当前实收 ${actualTotal} 件`)
-    toggleAuthorizationBlock(warehouseRoot, 'warehouse', hasDifference)
-  }
 }
 
 function showImage(url: string, label: string): void {
@@ -584,7 +506,7 @@ function setError(error: unknown): void {
 
 function isQuantityInput(target: HTMLElement, event?: Event): boolean {
   if (event?.type !== 'input' || !(target instanceof HTMLInputElement)) return false
-  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-completed-qty], [data-post-defect-reason-qty], [data-post-adjust-field="returnQty"], [data-post-result-field="passedQty"], [data-post-result-field="defectQty"], [data-post-result-field="returnQty"], [data-recheck-result-field="passedQty"], [data-recheck-result-field="defectQty"], [data-outbound-result-field="receivedQty"]')
+  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-completed-qty], [data-post-defect-reason-qty], [data-post-adjust-field="returnQty"], [data-post-result-field="passedQty"], [data-post-result-field="defectQty"], [data-post-result-field="returnQty"], [data-recheck-result-field="passedQty"], [data-recheck-result-field="defectQty"]')
 }
 
 export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): boolean {
@@ -603,7 +525,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
         ? 'scan-post'
         : field.dataset.pdaPostField === 'recheckScan'
           ? 'scan-recheck'
-          : 'scan-outbound'
+          : undefined
   }
   if (!action) return Boolean(field)
   try {
@@ -614,7 +536,6 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     if (action === 'clear-return') { refresh('/fcs/pda/post-finishing/return-confirm', ''); return true }
     if (action === 'clear-post') { refresh('/fcs/pda/post-finishing/execute', ''); return true }
     if (action === 'clear-recheck') { refresh('/fcs/pda/post-finishing/recheck', ''); return true }
-    if (action === 'clear-outbound') { refresh('/fcs/pda/post-finishing/outbound-receive', ''); return true }
     if (action === 'scan-return') {
       const scanValue = (field?.value || readValue(document, '[data-pda-post-field="returnScan"]')).trim()
       const record = getPostFinishingFactoryReturn(scanValue)
@@ -765,26 +686,6 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       message = `复检完成，已进入后道待交出仓并生成出货单 ${record.outboundOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
-      return true
-    }
-    if (action === 'scan-outbound') {
-      const scanValue = (field?.value || readValue(document, '[data-pda-post-field="outboundScan"]')).trim()
-      const outbound = getPostFinishingFullFlowOutboundOrder(scanValue)
-      if (!outbound || outbound.outboundOrderNo !== scanValue) throw new Error('只接受完整 FCK 后道出货单号，不接受复检单或内部交接号。')
-      message = `已识别 ${outbound.outboundOrderNo}`
-      messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/outbound-receive', outbound.outboundOrderNo)
-      return true
-    }
-    if (action === 'receive-outbound') {
-      const root = document.querySelector<HTMLElement>('[data-pda-outbound-task]')!
-      const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-outbound-result-line]'))
-      const receivedQuantities = lines.map((line) => ({ skuId: line.dataset.outboundResultLine || '', receivedQty: numberValue(line, '[data-outbound-result-field="receivedQty"]') }))
-      const diff = lines.some((line, index) => Number(line.dataset.expectedQty) !== receivedQuantities[index]!.receivedQty)
-      const result = receivePostFinishingOutboundOrder({ outboundOrderNo: actionNode?.dataset.outboundNo || '', actor: actor('仓库收货人员'), receivedQuantities, authorization: diff ? { scanValue: readValue(root, '[data-warehouse-authorization]'), differenceReason: readValue(root, '[data-warehouse-difference-reason]') } : undefined })
-      message = result.alreadyReceived ? '该出货单已接收，本次仅展示原记录。' : '收货入库成功；后道待交出仓已按出货数量完成交出扣减。'
-      messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/outbound-receive', result.outbound.outboundOrderNo)
       return true
     }
   } catch (error) {

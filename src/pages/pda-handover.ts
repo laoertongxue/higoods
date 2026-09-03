@@ -27,7 +27,8 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
-import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-domain.ts'
+import { isPostFinishingFactoryId } from '../data/fcs/post-finishing-domain.ts'
+import { activatePdaSewingSelfReturnMode } from '../data/fcs/pda-sewing-self-return-mode.ts'
 import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
 import {
   resolveWoolPdaScan,
@@ -619,19 +620,28 @@ function renderKolGotoHandoverPage(): string {
   return renderPdaFrame(content, 'handover', { disableTodoAutoOpen: true })
 }
 
-function renderPostFinishingSewingSelfReturnPanel(): string {
+function renderPostFinishingReturnReceivingPanel(canOpenSelfReturnMode: boolean): string {
   return `
-    <section class="rounded-2xl border border-blue-100 bg-blue-50/60 px-3 py-3 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold text-blue-950">车缝现场交货登记模式</h2>
-          <p class="mt-1 text-xs text-blue-700">公共 PDA 只负责逐 SKU 登记；回货确认统一到专用扫码页执行。</p>
+    <section class="rounded-2xl border border-blue-100 bg-blue-50/60 p-3 shadow-sm" data-pda-post-finishing-receiving>
+      <h2 class="text-sm font-semibold text-blue-950">后道回货接收</h2>
+      <p class="mt-1 text-xs leading-5 text-blue-700">回货属于交接责任；先登记送货，再由后道逐 SKU 点数确认。</p>
+      <div class="mt-3 space-y-2">
+        <button type="button" class="flex min-h-14 w-full items-center justify-between rounded-xl bg-blue-600 px-3 py-3 text-left text-white" data-nav="/fcs/pda/post-finishing/return-confirm">
+          <span><span class="block text-sm font-semibold">扫描送货单点数确认</span><span class="mt-1 block text-[11px] text-blue-100">超过工厂登记数量上下 5%时二次点数并授权</span></span>
+          <i data-lucide="scan-line" class="h-5 w-5 shrink-0"></i>
+        </button>
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-3">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-blue-950">开启车缝自助回货</div>
+            <p class="mt-1 text-[11px] leading-4 text-blue-700">锁定公共 PDA 给车缝送货人员登记，登记后仍需后道点数确认。</p>
+            ${canOpenSelfReturnMode ? '' : '<p class="mt-1 text-[11px] text-amber-700">需后道工厂管理员开启</p>'}
+          </div>
+          <button
+            type="button"
+            class="shrink-0 rounded-xl ${canOpenSelfReturnMode ? 'bg-blue-600 text-white' : 'border border-amber-300 bg-amber-50 text-amber-800'} px-3 py-2 text-xs font-semibold"
+            data-pda-handover-action="open-sewing-self-return-mode"
+          >开启</button>
         </div>
-        <button
-          type="button"
-          class="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
-          data-pda-handover-action="open-sewing-self-return-mode"
-        >开启</button>
       </div>
     </section>
   `
@@ -882,7 +892,7 @@ export function renderPdaHandoverPage(): string {
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
   const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
-  const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
+  const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
   if (!isPostFinishingFactory) {
     scheduleSpecialCraftHandoverSeed()
@@ -935,7 +945,7 @@ export function renderPdaHandoverPage(): string {
         ${hasWoolOrders ? renderWoolHandoverScanPanel() : ''}
         ${hasWoolOrders ? renderSelectedWoolHandoverOrder() : ''}
         ${hasSpecialCraftOrders ? renderSpecialCraftHandoverScanPanel() : ''}
-        ${canManageSewingSelfReturnMode && state.activeTab === 'pickup' ? renderPostFinishingSewingSelfReturnPanel() : ''}
+        ${isPostFinishingFactory && state.activeTab === 'pickup' ? renderPostFinishingReturnReceivingPanel(canManageSewingSelfReturnMode) : ''}
         ${
           state.activeTab === 'pickup'
             ? `
@@ -1099,9 +1109,19 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
 
   if (action === 'open-sewing-self-return-mode') {
     if (!isCurrentPdaAdmin()) {
-      window.alert('只有后道工厂管理员可以开启车缝现场交货登记模式。')
+      window.alert('请由后道工厂管理员开启车缝自助回货。')
       return true
     }
+    const runtime = getPdaRuntimeContext()
+    if (!runtime || !isPostFinishingFactoryId(runtime.factoryId)) {
+      window.alert('当前账号不属于后道工厂，不能开启车缝自助回货。')
+      return true
+    }
+    activatePdaSewingSelfReturnMode({
+      factoryId: runtime.factoryId,
+      factoryName: runtime.factoryName,
+      openedBy: runtime.userName,
+    })
     appStore.navigate('/fcs/pda/handover/sewing-self-return')
     return true
   }

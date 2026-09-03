@@ -458,10 +458,6 @@ export const renderPdaPostFinishingRecheckPage = createAsyncRenderer(
   () => import('../pages/pda-post-finishing-flow'),
   'renderPdaPostFinishingRecheckPage',
 )
-export const renderPdaPostFinishingOutboundReceivePage = createAsyncRenderer(
-  () => import('../pages/pda-post-finishing-flow'),
-  'renderPdaPostFinishingOutboundReceivePage',
-)
 export const renderPdaTransferBagDetailPage = createAsyncRenderer(
   () => import('../pages/pda-transfer-bag-detail'),
   'renderPdaTransferBagDetailPage',

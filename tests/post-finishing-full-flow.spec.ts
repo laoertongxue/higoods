@@ -429,7 +429,7 @@ test('公共 PDA 回货登记即时阻断 0，并展示 5 个 SKU 与真实图�
   await expect(page.getByRole('status')).toContainText('登记成功')
   await verifyPdaAtBothSizes(page)
   await page.getByRole('button', { name: '管理员退出' }).click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/warehouse/)
+  await expect(page).toHaveURL(/\/fcs\/pda\/handover\?tab=pickup/)
 })
 
 test('旧车缝自助回货接收入口不可再绕过 5%复点授权规则', async ({ page }) => {
@@ -674,38 +674,16 @@ test('Web 复检精确领取、退领清空、错码阻断、重贴复核并唯�
   await expect(page.locator('body')).toContainText('唯一后道出货单')
 })
 
-test('仓库 PDA 只收 FCK 单，逐 SKU 实收并对重复扫描只读展示', async ({ page }, testInfo) => {
+test('后道工厂 PDA 删除成衣仓收货入口，出货单只保留业务条码', async ({ page }) => {
   const seed = await seedBrowserFlow(page)
-  await page.setViewportSize({ width: 360, height: 800 })
   await setSession(page)
+  await page.goto('/fcs/pda/warehouse')
+  await expect(page.locator('body')).not.toContainText('扫描后道出货单收货')
   await page.goto('/fcs/pda/post-finishing/outbound-receive')
-  await expect(page.getByRole('heading', { name: '本人最近收货' })).toBeVisible()
-  const scanner = page.locator('[data-pda-post-field="outboundScan"]')
-  await scanner.fill(seed.outboundRecheckId)
-  await scanner.press('Enter')
-  await expect(page.getByRole('status')).toContainText('只接受完整 FCK 后道出货单号')
-  await page.locator('[data-pda-post-field="outboundScan"]').fill(seed.outboundOrderNo)
-  await page.locator('[data-pda-post-field="outboundScan"]').press('Enter')
-  await expect(page.locator('[data-outbound-result-line]')).toHaveCount(5)
-  await expect(page.locator('[data-difference-authorization-block="warehouse"]')).toBeHidden()
-  await expectImagesLoaded(page)
-  const first = page.locator('[data-outbound-result-line]').first().locator('[data-outbound-result-field="receivedQty"]')
-  await first.fill('19')
-  await expect(page.locator('[data-quantity-summary="warehouse-total"]')).toContainText('少 1 件，提交前需授权')
-  await expect(page.locator('[data-difference-authorization-block="warehouse"]')).toBeVisible()
-  await first.fill('20')
-  await expect(page.locator('[data-difference-authorization-block="warehouse"]')).toBeHidden()
-  await attachPageEvidence(page, testInfo, 'pda-warehouse-outbound-receive')
-  await page.getByRole('button', { name: '确认收货入库' }).click()
-  await expect(page.getByRole('status')).toContainText('收货入库成功')
-  await expect(page.locator('body')).toContainText('后道待交出仓已按出货数量完成交出扣减')
-  await expect(page.locator('body')).toContainText('已由 全能力测试工厂_操作工 接收入库')
-  await page.goto('/fcs/pda/post-finishing/outbound-receive')
-  await expect(page.locator('body')).toContainText(seed.outboundOrderNo)
-  await page.locator('[data-pda-post-field="outboundScan"]').fill(seed.outboundOrderNo)
-  await page.locator('[data-pda-post-field="outboundScan"]').press('Enter')
-  await expect(page.locator('body')).toContainText('重复扫描仅只读展示，不会重复入库')
-  await verifyPdaAtBothSizes(page)
+  await expect(page.getByRole('heading', { name: '扫描后道出货单条码' })).toHaveCount(0)
+  await page.goto(`/fcs/craft/post-finishing/print?type=OUTBOUND&id=${encodeURIComponent(seed.outboundOrderId)}`)
+  await expect(page.locator('[data-business-document-barcode]')).toHaveAttribute('data-business-document-barcode', seed.outboundOrderNo)
+  await expect(page.locator('[data-scan-target]')).toHaveCount(0)
 })
 
 test('Web 管理页、独立动态授权码、主从日志和全套打印均读取同一链路事实', async ({ page }, testInfo) => {
@@ -724,6 +702,22 @@ test('Web 管理页、独立动态授权码、主从日志和全套打印均读�
     await expect(page.locator('body')).not.toContainText('次品')
     await expectNoBodyOverflow(page)
   }
+  for (const path of [
+    '/fcs/craft/post-finishing/work-orders',
+    '/fcs/craft/post-finishing/recheck-orders',
+    '/fcs/craft/post-finishing/wait-process-warehouse',
+    '/fcs/craft/post-finishing/wait-handover-warehouse',
+    '/fcs/craft/post-finishing/outbound-orders',
+    '/fcs/craft/post-finishing/audit-records',
+    '/fcs/craft/post-finishing/authorization-code',
+  ]) {
+    await page.goto(path)
+    await expect(page.getByText('打印质检单', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('打印质检单详情', { exact: true })).toHaveCount(0)
+  }
+  await page.goto('/fcs/craft/post-finishing/qc-orders')
+  await expect(page.getByText('打印质检单', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('打印质检单详情', { exact: true }).first()).toBeVisible()
   await expect(page.locator('[data-authorization-code]')).toHaveCount(0)
 
   await page.goto('/fcs/craft/post-finishing/statistics')
@@ -764,6 +758,8 @@ test('Web 管理页、独立动态授权码、主从日志和全套打印均读�
   await expect(page.getByRole('heading', { name: '回货全链路总览' })).toBeVisible()
   await page.getByRole('link', { name: '查看详情' }).click()
   await expect(page.locator('[data-audit-chain-detail]')).toBeVisible()
+  await expect(page.locator('form[action="/fcs/craft/post-finishing/audit-records"]')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '回货全链路总览' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: '业务链总览' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '1. 回货与质检' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '逐 SKU 数量差异' })).toHaveCount(0)
@@ -782,16 +778,17 @@ test('Web 管理页、独立动态授权码、主从日志和全套打印均读�
   await expect(page.locator('body')).toContainText('后道加工单')
   await expect(page.locator('body')).toContainText('复检单')
 
-  const prints: Array<{ url: string; title: string; documentNo: string; target: string }> = [
+  const prints: Array<{ url: string; title: string; documentNo: string; target?: string }> = [
     { url: `/fcs/craft/post-finishing/print?type=SEND_QC&id=${encodeURIComponent(seed.qcDeliveryId)}`, title: '后道送检单', documentNo: seed.qcTaskNo, target: '/fcs/craft/post-finishing/qc-workbench' },
     { url: `/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(seed.postTaskId)}`, title: '后道加工单流转卡', documentNo: seed.postTaskNo, target: '/fcs/pda/post-finishing/execute' },
-    { url: `/fcs/craft/post-finishing/print?type=OUTBOUND&id=${encodeURIComponent(seed.outboundOrderId)}`, title: '后道出货单', documentNo: seed.outboundOrderNo, target: '/fcs/pda/post-finishing/outbound-receive' },
+    { url: `/fcs/craft/post-finishing/print?type=OUTBOUND&id=${encodeURIComponent(seed.outboundOrderId)}`, title: '后道出货单', documentNo: seed.outboundOrderNo },
   ]
   for (const item of prints) {
     await page.goto(item.url)
     await expect(page.getByRole('heading', { name: item.title })).toBeVisible()
     await expect(page.locator('[data-print-document-no]')).toHaveAttribute('data-print-document-no', item.documentNo)
-    await expect(page.locator('[data-scan-target]')).toHaveAttribute('data-scan-target', new RegExp(item.target))
+    if (item.target) await expect(page.locator('[data-scan-target]')).toHaveAttribute('data-scan-target', new RegExp(item.target))
+    else await expect(page.locator('[data-scan-target]')).toHaveCount(0)
     if (item.title === '后道出货单') await expect(page.getByRole('heading', { name: '出货明细' }).locator('xpath=following-sibling::table[1]//tbody/tr')).toHaveCount(5)
     else await expect(page.locator('tbody tr')).toHaveCount(5)
     await expect(page.locator('[data-business-document-barcode]')).toHaveAttribute('data-business-document-barcode', item.documentNo)

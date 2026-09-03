@@ -107,9 +107,10 @@ assert(recheckOrders.includes('查看复检详情') && recheckOrders.includes('f
 for (const text of ['// @page-pattern: list', 'renderStandardListPage', 'renderStandardListTable', 'renderTablePagination', '后道出货单列表', '出货单号', '工厂', '生产单号', '任务单号', '出库数量', '入库数量', '状态', '创建时间', '操作人']) {
   assert(outboundOrders.includes(text), `后道出货单列表缺少线上基线或标准列表能力：${text}`)
 }
-for (const action of ['详情', '打印整单', '打印条码', '打印吊牌', '打印质检单', '打印质检单详情']) {
+for (const action of ['详情', '打印整单', '打印条码', '打印吊牌']) {
   assert(outboundOrders.includes(action), `后道出货单缺少动作：${action}`)
 }
+assert(!outboundOrders.includes('打印质检单') && !outboundOrders.includes('type=QC_ORDER') && !outboundOrders.includes('type=QC_DETAIL'), '后道出货单不得继续提供质检单打印入口')
 for (const field of ['单头信息', '出货明细', '出库仓', '接收仓', '来源动作', '来源对象', '交接单号', '库区', '库位', '计划数量', '入库数量', '备注']) {
   assert(outboundOrders.includes(field), `后道出货单详情缺少线上字段：${field}`)
 }

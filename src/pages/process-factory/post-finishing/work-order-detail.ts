@@ -29,7 +29,6 @@ import {
   formatGarmentQty,
   renderPostAction,
   renderPostFinishingPageHeader,
-  renderPostFinishingQcPrintActions,
   renderPostSection,
   renderPostStatusBadge,
   renderPostTable,
@@ -281,7 +280,7 @@ function renderFullFlowSkuAdjustment(task: PostFinishingPostTask, skuId: string)
 
 function renderFullFlowTaskDetail(task: PostFinishingPostTask): string {
   const skuId = fullFlowQuery().get('skuId') || ''
-  if (skuId) return `<div class="space-y-4 p-4">${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / SKU 调整`, `<div class="flex flex-wrap gap-2">${renderPostFinishingQcPrintActions(task.qcTaskNo)}<a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回后道加工单</a></div>`)}${renderFullFlowMessage()}${renderFullFlowSkuAdjustment(task, skuId)}</div>`
+  if (skuId) return `<div class="space-y-4 p-4">${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / SKU 调整`, `<a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回后道加工单</a>`)}${renderFullFlowMessage()}${renderFullFlowSkuAdjustment(task, skuId)}</div>`
   const actor = webFallbackActor()
   const isStarted = task.status === '后道中'
   const isOwner = Boolean(isStarted && task.startedBy?.actorId === actor.actorId)
@@ -319,7 +318,7 @@ function renderFullFlowTaskDetail(task: PostFinishingPostTask): string {
     return resolvedQty !== line.expectedQty
       || resolvedQty + (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0) !== (qcResult?.expectedQty ?? line.expectedQty)
   })
-  const headerActions = `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions(task.qcTaskNo)}${task.status === '待后道' ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="start" data-task-no="${escapeHtml(task.postTaskNo)}">开始后道</button>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回列表</a></div>`
+  const headerActions = `<div class="flex flex-wrap items-center justify-end gap-2">${task.status === '待后道' ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="start" data-task-no="${escapeHtml(task.postTaskNo)}">开始后道</button>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回列表</a></div>`
   return `
     <div class="space-y-4 p-4" data-web-post-task="${escapeHtml(task.postTaskId)}" data-skip-page-rerender="true">
       ${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / ${task.productionOrderNo}`, headerActions)}
@@ -429,7 +428,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   if (!order) {
     return `
       <div class="space-y-4 p-4">
-        ${renderPostFinishingPageHeader('后道加工单详情', '', `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}${renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders')}</div>`)}
+        ${renderPostFinishingPageHeader('后道加工单详情', '', renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders'))}
         ${renderPostSection('未找到后道加工单', `
           <div class="space-y-3 text-sm text-muted-foreground">
             <p>未找到后道加工单：${escapeHtml(postOrderId)}</p>
@@ -442,7 +441,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道加工单详情', `${order.postOrderNo} / ${order.currentFactoryName}`, `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions(order.qcOrderNo)}${renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders')}</div>`)}
+      ${renderPostFinishingPageHeader('后道加工单详情', `${order.postOrderNo} / ${order.currentFactoryName}`, renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders'))}
       ${renderActionBar(order)}
       ${renderTabBody(order)}
     </div>

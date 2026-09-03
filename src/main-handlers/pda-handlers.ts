@@ -45,7 +45,6 @@ const pdaRouteHandlers: PdaRouteHandler[] = [
   { matches: exact('/fcs/pda/post-finishing/execute'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: exact('/fcs/pda/post-finishing/sku-adjustment'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: exact('/fcs/pda/post-finishing/recheck'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
-  { matches: exact('/fcs/pda/post-finishing/outbound-receive'), load: () => import('../pages/pda-post-finishing-flow'), exportName: 'handlePdaPostFinishingFlowEvent' },
   { matches: startsWith('/fcs/pda/handover/'), load: () => import('../pages/pda-handover-detail'), exportName: 'handlePdaHandoverDetailEvent' },
   { matches: exact('/fcs/pda/handover'), load: () => import('../pages/pda-handover'), exportName: 'handlePdaHandoverEvent' },
   { matches: exact('/fcs/pda/settlement'), load: () => import('../pages/pda-settlement'), exportName: 'handlePdaSettlementEvent' },

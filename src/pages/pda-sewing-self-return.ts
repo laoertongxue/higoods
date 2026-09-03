@@ -8,6 +8,7 @@ import {
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
 import { getPdaRuntimeContext, renderPdaLoginRedirect } from './pda-runtime.ts'
+import { clearPdaSewingSelfReturnMode } from '../data/fcs/pda-sewing-self-return-mode.ts'
 
 interface SewingReturnPageState {
   scanValue: string
@@ -177,12 +178,13 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
   if (!action) return false
   try {
     if (action === 'admin-exit') {
+      clearPdaSewingSelfReturnMode()
       state.resolvedOrder = undefined
       state.returnIndex = undefined
       state.quantities = {}
       state.errorText = ''
       state.successText = ''
-      appStore.navigate('/fcs/pda/warehouse')
+      appStore.navigate('/fcs/pda/handover?tab=pickup')
       return true
     }
     if (action === 'scan') resolveCurrentScan()

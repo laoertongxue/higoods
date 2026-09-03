@@ -18,7 +18,7 @@ import {
 } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostFinishingQcPrintActions, renderPostStatusBadge } from './shared.ts'
+import { renderPostStatusBadge } from './shared.ts'
 
 interface WorkOrderRow {
   task: PostFinishingPostTask
@@ -40,7 +40,8 @@ function renderStartLookupDialog(task?: PostFinishingPostTask): string {
 
 function openStartDialog(task?: PostFinishingPostTask): void {
   removeStartDialog()
-  document.body.insertAdjacentHTML('beforeend', renderStartLookupDialog(task))
+  const host = document.getElementById('app') || document.body
+  host.insertAdjacentHTML('beforeend', renderStartLookupDialog(task))
   document.querySelector<HTMLInputElement>('[data-post-finishing-start-task-no]')?.focus()
 }
 
@@ -71,7 +72,7 @@ const columns: StandardListColumn<WorkOrderRow>[] = [
   { key: 'defect', title: '后道不合格', width: 110, required: true, align: 'center', render: (row) => `${row.defectQty} 件` },
   { key: 'status', title: '后道状态', width: 100, required: true, render: (row) => renderPostStatusBadge(row.task.status) },
   { key: 'time', title: '时间', width: 160, required: true, render: (row) => `<div><span class="text-xs text-muted-foreground">创建：</span>${escapeHtml(row.qcTask?.completedAt ? new Date(row.qcTask.completedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">开始：</span>${escapeHtml(row.task.startedAt ? new Date(row.task.startedAt).toLocaleString('zh-CN') : '—')}</div><div class="mt-1"><span class="text-xs text-muted-foreground">完成：</span>${escapeHtml(row.task.completedAt ? new Date(row.task.completedAt).toLocaleString('zh-CN') : '—')}</div>` },
-  { key: 'actions', title: '操作', width: 260, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">查看加工单</a>${row.task.status === '待后道' ? `<button type="button" class="whitespace-nowrap text-left text-xs font-medium text-blue-700 hover:underline" data-post-finishing-work-orders-action="open-start" data-task-no="${escapeHtml(row.task.postTaskNo)}">开始后道</button>` : ''}<a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检单</a><a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(row.task.qcTaskNo)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印质检单详情</a><a data-nav="/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
+  { key: 'actions', title: '操作', width: 260, required: true, actionColumn: true, render: (row) => `<div class="grid grid-cols-2 gap-x-3 gap-y-2"><a data-nav="/fcs/craft/post-finishing/work-orders/${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs font-medium text-blue-700 hover:underline">查看加工单</a>${row.task.status === '待后道' ? `<button type="button" class="whitespace-nowrap text-left text-xs font-medium text-blue-700 hover:underline" data-post-finishing-work-orders-action="open-start" data-task-no="${escapeHtml(row.task.postTaskNo)}" data-skip-page-rerender="true">开始后道</button>` : ''}<a data-nav="/fcs/craft/post-finishing/print?type=POST_ORDER&id=${encodeURIComponent(row.task.postTaskId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">打印加工单</a><a data-nav="/fcs/craft/post-finishing/audit-records?deliveryId=${encodeURIComponent(row.task.deliveryId)}" class="whitespace-nowrap text-xs text-blue-600 hover:underline">查看全流程</a></div>` },
 ]
 
 export function renderPostFinishingWorkOrdersPage(): string {
@@ -105,7 +106,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
   const factories = [...new Set(allTasks.map((task) => getPostFinishingFactoryReturn(task.deliveryId)?.managedPostFactoryName).filter((value): value is string => Boolean(value)))]
   return renderStandardListPage({
     title: '后道加工单',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-orders-action="open-start">开始后道</button></div>`,
+    primaryActionsHtml: '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-orders-action="open-start" data-skip-page-rerender="true">开始后道</button>',
     filtersHtml: `<form action="/fcs/craft/post-finishing/work-orders" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-5"><label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="后道加工单/质检单/生产单/款式/后道项目"/></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['待后道','后道中','后道完成'], status)}</select></label><label class="text-xs text-muted-foreground">后道项目<select name="processItem" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(processItems, processItem)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label><div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-5"><a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
     statsHtml: renderStandardListStats([
       { label: '后道加工单', value: `${allTasks.length} 张` },

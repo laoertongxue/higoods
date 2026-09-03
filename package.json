@@ -183,6 +183,7 @@
     "check:post-finishing-cross-terminal-evidence": "node --import tsx scripts/check-post-finishing-cross-terminal-evidence.ts",
     "test:post-finishing-full-flow:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false playwright test tests/post-finishing-full-flow.spec.ts --workers=1 --reporter=line",
     "test:post-finishing-full-flow:cross-terminal": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_EXPECT_TIMEOUT=45000 CUTTING_E2E_TEST_TIMEOUT=1800000 playwright test tests/post-finishing-full-flow-cross-terminal.spec.ts --workers=1 --reporter=line",
+    "test:post-finishing-pda-role-boundary": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false playwright test tests/post-finishing-pda-role-boundary.spec.ts --workers=1 --reporter=line",
     "check:print-service-post-route-card": "tsx scripts/check-print-service-post-route-card.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",
     "check:fcs-inactive-process-craft-usage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-inactive-process-craft-usage.ts",

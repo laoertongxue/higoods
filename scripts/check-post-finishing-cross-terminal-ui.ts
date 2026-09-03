@@ -23,7 +23,6 @@ const requiredUiRoutes = [
   '/fcs/pda/post-finishing/execute',
   '/fcs/craft/post-finishing/recheck-orders',
   '/fcs/craft/post-finishing/outbound-orders',
-  '/fcs/pda/post-finishing/outbound-receive',
   '/fcs/craft/post-finishing/audit-records',
 ]
 
@@ -40,9 +39,8 @@ const requiredUiStages = [
   'Web复检完成',
   'Web待交出仓入仓核对',
   'Web出货核对及出货单打印',
-  'PDA仓库收货',
-  'Web待交出仓交出回查',
-  'Web收货结果回查',
+  '后道工厂PDA收货入口已删除',
+  'Web待交出仓待交出回查',
 ]
 
 const forbiddenDomainWrites = [

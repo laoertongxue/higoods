@@ -13,8 +13,8 @@ for (const type of ['SEND_QC', 'POST_ORDER', 'OUTBOUND', 'SKU_LABEL']) {
 assert(fullFlowPrint.includes('renderCode128Barcode'), '三类业务单必须打印真实 Code128 条形码')
 assert(fullFlowPrint.includes('/fcs/craft/post-finishing/qc-workbench?taskNo='), '送检单二维码必须进入 Web 质检工作台')
 assert(fullFlowPrint.includes('/fcs/pda/post-finishing/execute?id='), '后道加工单二维码必须进入 PDA 后道执行')
-assert(fullFlowPrint.includes('/fcs/pda/post-finishing/outbound-receive?id='), '后道出货单二维码必须进入仓库 PDA 收货')
-assert(fullFlowPrint.includes("'后道出货单'") && fullFlowPrint.includes('业务单号条码'), '打印页面必须明确整单出货条码')
+assert(!fullFlowPrint.includes('/fcs/pda/post-finishing/outbound-receive'), '后道出货单不得指向后道工厂 PDA 的成衣仓收货入口')
+assert(fullFlowPrint.includes('后道出货单号条码') && fullFlowPrint.includes('data-business-document-barcode'), '打印页面必须明确整单出货条码')
 assert(fullFlowPrint.includes('SKU 贴标'), '打印页面必须明确 SKU 贴标')
 assert(fullFlowPrint.includes('imageUrl'), '打印明细必须带真实产品图片')
 

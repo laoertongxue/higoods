@@ -56,6 +56,7 @@ import { buildBindingProcessOrders } from './process-factory/cutting/binding-str
 import {
   getPostFinishingTaskById,
   getPostFinishingWorkOrderBySourceTaskId,
+  isPostFinishingFactoryId,
 } from '../data/fcs/post-finishing-domain.ts'
 import { getKolGotoHandoutQty } from '../data/fcs/kol-goto-pda-domain.ts'
 import { isKolGotoFactory, isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from '../data/fcs/kol-goto-special-flow.ts'
@@ -1831,6 +1832,23 @@ export function renderPdaExecPage(): string {
   if (isKolGotoFactory(selectedFactoryId)) {
     return renderKolGotoExecListPage(acceptedTasks)
   }
+  if (isPostFinishingFactoryId(selectedFactoryId)) {
+    const content = `
+      <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
+        <main class="flex-1 p-4">
+          <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4" data-pda-post-finishing-entry>
+            <h1 class="text-base font-semibold text-blue-950">后道现场执行</h1>
+            <p class="mt-1 text-xs leading-5 text-blue-800">精确扫描后道加工单或复检单；质检只在 Web 端进行。</p>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" class="h-12 rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button>
+              <button type="button" class="h-12 rounded-2xl border border-blue-300 bg-white text-sm font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button>
+            </div>
+          </section>
+        </main>
+      </div>
+    `
+    return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+  }
 
   queueMicrotask(() => {
     syncPdaStartRiskAndExceptions()
@@ -1892,7 +1910,6 @@ export function renderPdaExecPage(): string {
       ${scanOrSearch ? `<header class="z-10 space-y-3 border-b bg-background p-4">${scanOrSearch}</header>` : ''}
 
       <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
-        ${selectedFactoryId === 'ID-F002' ? `<section class="rounded-xl border border-blue-200 bg-blue-50 p-3" data-pda-post-finishing-entry><div class="text-sm font-semibold text-blue-950">后道现场执行</div><div class="mt-1 text-xs text-blue-800">精确扫描后道加工单或复检单；质检仅在 Web 进行。</div><div class="mt-3 grid grid-cols-2 gap-2"><button type="button" class="h-10 rounded-xl bg-blue-600 text-xs font-semibold text-white" data-nav="/fcs/pda/post-finishing/execute">后道加工</button><button type="button" class="h-10 rounded-xl border border-blue-300 bg-white text-xs font-semibold text-blue-800" data-nav="/fcs/pda/post-finishing/recheck">后道复检</button></div></section>` : ''}
         ${renderBindingWorkOrderSection(selectedFactoryId)}
         ${renderSpecialCraftWorkOrderSection(selectedFactoryId)}
         ${acceptedTasks.length ? `<section class="space-y-3" data-pda-general-task-list><h2 class="text-sm font-semibold">其他执行任务</h2>${renderPdaExecCardList(filteredTasks, emptyStateText)}</section>` : ''}

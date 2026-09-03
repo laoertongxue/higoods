@@ -22,7 +22,6 @@ for (const path of [
   '/fcs/pda/post-finishing/return-confirm',
   '/fcs/pda/post-finishing/execute',
   '/fcs/pda/post-finishing/recheck',
-  '/fcs/pda/post-finishing/outbound-receive',
 ]) {
   assert(routes.includes(`'${path}'`), `PDA 路由缺少 ${path}`)
   assert(handlers.includes(`exact('${path}')`), `PDA 事件处理缺少 ${path}`)
@@ -34,7 +33,7 @@ assert(pdaFlow.includes('二次仍超过 5%才扫描授权码'), '回货确认 P
 assert(pdaFlow.includes('核对无误，开始后道') && pdaFlow.includes('质检已确认加工项目'), '后道 PDA 必须先展示质检已确认项目并由员工核对后开始')
 assert(pdaFlow.includes('data-post-completed-qty') && !pdaFlow.includes('toggle-process-item'), '后道 PDA 开始后必须只填完成数量，不得重复勾选加工项目')
 assert(pdaFlow.includes('扫描成功即由当前账号领取'), '复检 PDA 扫描成功必须领取')
-assert(pdaFlow.includes('只接受完整 FCK 后道出货单号'), '仓库 PDA 不得接受内部交接号')
-assert(pdaFlow.includes("actor('回货确认人员')") && pdaFlow.includes("actor('后道操作员')") && pdaFlow.includes("actor('复检员')") && pdaFlow.includes("actor('仓库收货人员')"), 'PDA 四类现场动作必须读取当前登录账号')
+assert(!pdaFlow.includes('扫描后道出货单条码') && !pdaFlow.includes("actor('仓库收货人员')"), '后道工厂 PDA 不得保留成衣仓收货动作')
+assert(pdaFlow.includes("actor('回货确认人员')") && pdaFlow.includes("actor('后道操作员')") && pdaFlow.includes("actor('复检员')"), 'PDA 三类后道现场动作必须读取当前登录账号')
 
 console.log('后道 Web/PDA 动作边界检查通过：质检使用专用 Web 工作台；现场后道动作 PDA 优先，Web 保留应急兜底。')
