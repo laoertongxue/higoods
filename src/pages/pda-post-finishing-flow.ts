@@ -2,8 +2,10 @@
 
 import {
   POST_FINISHING_DEFECT_REASON_OPTIONS,
+  canDiscardPostFinishingFactoryReturn,
   claimPostFinishingRecheckOrder,
   confirmPostFinishingFactoryReturn,
+  discardPostFinishingFactoryReturn,
   completePostFinishingPostTaskFromDraft,
   completePostFinishingRecheckOrderFullFlow,
   getPostFinishingFactoryReturn,
@@ -99,10 +101,10 @@ function image(sku: { imageUrl: string; skuCode: string; spuName: string; colorN
   `
 }
 
-function authorizationBlock(prefix: string, visible = true): string {
+function authorizationBlock(prefix: string, visible = true, ruleText = '逐 SKU 数量存在任何差异时必须授权'): string {
   return `
     <div class="${visible ? '' : 'hidden '}rounded-2xl border border-amber-200 bg-amber-50 p-3" data-difference-authorization-block="${escapeHtml(prefix)}">
-      <div class="text-xs font-semibold text-amber-900">逐 SKU 数量存在任何差异时必须授权</div>
+      <div class="text-xs font-semibold text-amber-900">${escapeHtml(ruleText)}</div>
       <label class="mt-2 block text-xs text-amber-900">差异原因
         <input class="mt-1 h-10 w-full rounded-xl border bg-white px-3" data-${prefix}-difference-reason data-skip-page-rerender="true" />
       </label>
@@ -113,11 +115,24 @@ function authorizationBlock(prefix: string, visible = true): string {
   `
 }
 
-function initialSummary(expectedQty: number, actualQty: number, detail: string, testId: string): string {
+function initialSummary(expectedQty: number, actualQty: number, detail: string, testId: string, policy: 'any' | 'return-line' | 'return-total' = 'any'): string {
   const difference = actualQty - expectedQty
-  const tone = difference === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'
-  const differenceText = difference === 0 ? '数量一致' : `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，提交前需授权`
-  return `<div class="mt-2 rounded-xl border px-3 py-2 text-xs ${tone}" data-quantity-summary="${testId}">${escapeHtml(detail)}；${differenceText}</div>`
+  const rate = expectedQty > 0 ? Math.abs(difference) / expectedQty : 0
+  const differenceText = policy === 'return-total'
+    ? '整单合计仅供核对，是否复点和授权以每个 SKU 为准'
+    : difference === 0
+      ? '数量一致'
+      : policy === 'return-line'
+        ? `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，${rate > 0.05 ? '超过 5%，需按规则复点或授权' : '不超过 5%，可直接确认'}`
+        : `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，提交前需授权`
+  const tone = policy === 'return-total'
+    ? 'border-blue-200 bg-blue-50 text-blue-800'
+    : difference === 0
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+      : policy === 'return-line' && rate <= 0.05
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-red-200 bg-red-50 text-red-700'
+  return `<div class="mt-2 rounded-xl border px-3 py-2 text-xs ${tone}" data-quantity-summary="${testId}" data-summary-policy="${policy}">${escapeHtml(detail)}；${differenceText}</div>`
 }
 
 function renderReturnConfirmation(record: PostFinishingFactoryReturnDelivery): string {
@@ -145,7 +160,7 @@ function renderReturnConfirmation(record: PostFinishingFactoryReturnDelivery): s
         ${editable ? `<div class="mt-3 grid ${showSecond ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
           ${showSecond ? `<label class="text-[11px] text-slate-500">第一次点数<input type="number" value="${firstQty}" disabled class="mt-1 h-10 w-full rounded-xl border bg-slate-100 px-2 text-right" data-return-first-count /></label>` : ''}
           <label class="text-[11px] text-slate-500">${showSecond ? '第二次点数' : '第一次点数'}<input type="number" min="0" step="1" inputmode="numeric" value="${currentQty}" class="mt-1 h-10 w-full rounded-xl border px-2 text-right text-base font-semibold" ${showSecond ? 'data-return-second-count' : 'data-return-first-count'} /></label>
-        </div>${initialSummary(line.registeredQty, currentQty, `本行点数 ${currentQty} 件；差异率分母 ${line.registeredQty} 件`, 'return-line')}` : `<div class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800">最终确认 ${line.confirmedQty ?? line.registeredQty} 件</div>`}
+        </div>${initialSummary(line.registeredQty, currentQty, `本行点数 ${currentQty} 件；差异率分母 ${line.registeredQty} 件`, 'return-line', 'return-line')}` : `<div class="mt-3 rounded-xl ${record.status === '已废弃' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-800'} px-3 py-2 text-xs">${record.status === '已废弃' ? `登记 ${line.registeredQty} 件 · 未形成最终确认` : `最终确认 ${line.confirmedQty ?? line.registeredQty} 件`}</div>`}
       </article>
     `
   }).join('')
@@ -161,7 +176,7 @@ function renderReturnConfirmation(record: PostFinishingFactoryReturnDelivery): s
         <div class="mt-2 rounded-xl bg-white/80 px-3 py-2 text-xs text-blue-900">首次逐 SKU 差异率不超过 5%直接确认；超过 5%必须二次点数，二次仍超过 5%才扫描授权码。分母固定为工厂登记数量。</div>
       </section>
       ${lines}
-      ${editable ? `${initialSummary(registeredTotal, currentTotal, `整单登记 ${registeredTotal} 件，当前点数 ${currentTotal} 件`, 'return-total')}${showAuthorization ? authorizationBlock('return') : ''}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showAuthorization ? '授权并确认回货' : showSecond ? '提交第二次点数' : '提交第一次点数'}</button>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">回货已由 ${escapeHtml(record.confirmedBy?.actorName || '回货确认人员')} 确认并进入后道待加工仓。送检操作请在 Web“后道待加工仓”完成。</div>`}
+      ${editable ? `${initialSummary(registeredTotal, currentTotal, `整单登记 ${registeredTotal} 件，当前点数 ${currentTotal} 件`, 'return-total', 'return-total')}${showAuthorization ? authorizationBlock('return', true, '任一 SKU 二次点数与登记数量的差异率仍超过 5%时必须授权') : ''}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showAuthorization ? '授权并确认回货' : showSecond ? '提交第二次点数' : '提交第一次点数'}</button>${canDiscardPostFinishingFactoryReturn(record) ? `<button type="button" class="h-11 w-full rounded-2xl border border-red-200 bg-white text-sm font-medium text-red-700" data-pda-post-action="discard-return" data-delivery-id="${escapeHtml(record.deliveryId)}">废弃本次回货</button>` : ''}` : record.status === '已废弃' ? `<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"><strong>本次回货已废弃。</strong><span class="mt-1 block text-xs">${escapeHtml(record.discardReason || '未填写原因')} · ${escapeHtml(record.discardedBy?.actorName || '—')} · ${escapeHtml(record.discardedAt || '—')}</span></div>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">回货已由 ${escapeHtml(record.confirmedBy?.actorName || '回货确认人员')} 确认并进入后道待加工仓。质检单 ${escapeHtml(record.qcTaskNo || '—')} 已自动生成；送检操作请在 Web“后道待加工仓”完成。</div>`}
     </div>
   `
 }
@@ -416,8 +431,24 @@ function selectReturnReceiver(option: HTMLElement): void {
 function setSummary(element: HTMLElement | null, expectedQty: number, actualQty: number, detail: string): void {
   if (!element) return
   const difference = actualQty - expectedQty
-  element.textContent = `${detail}；${difference === 0 ? '数量一致' : `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，提交前需授权`}`
-  element.className = `mt-2 rounded-xl border px-3 py-2 text-xs ${difference === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'}`
+  const policy = element.dataset.summaryPolicy || 'any'
+  const rate = expectedQty > 0 ? Math.abs(difference) / expectedQty : 0
+  const differenceText = policy === 'return-total'
+    ? '整单合计仅供核对，是否复点和授权以每个 SKU 为准'
+    : difference === 0
+      ? '数量一致'
+      : policy === 'return-line'
+        ? `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，${rate > 0.05 ? '超过 5%，需按规则复点或授权' : '不超过 5%，可直接确认'}`
+        : `${difference > 0 ? '多' : '少'} ${Math.abs(difference)} 件，提交前需授权`
+  const tone = policy === 'return-total'
+    ? 'border-blue-200 bg-blue-50 text-blue-800'
+    : difference === 0
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+      : policy === 'return-line' && rate <= 0.05
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-red-200 bg-red-50 text-red-700'
+  element.textContent = `${detail}；${differenceText}`
+  element.className = `mt-2 rounded-xl border px-3 py-2 text-xs ${tone}`
 }
 
 function toggleAuthorizationBlock(root: ParentNode, prefix: string, visible: boolean): void {
@@ -576,6 +607,22 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       message = `回货确认成功：${confirmed.deliveryOrderNo}；质检单 ${confirmed.qcTaskNo || '—'} 已自动生成，等待待加工仓送检。`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/return-confirm', confirmed.deliveryOrderNo)
+      return true
+    }
+    if (action === 'discard-return') {
+      const current = getPostFinishingFactoryReturn(actionNode?.dataset.deliveryId || '')
+      if (!current) throw new Error('未找到送货单。')
+      const reason = window.prompt('请填写废弃原因。废弃后只保留审计，不进入待加工仓，也不会生成质检单。')?.trim() || ''
+      if (!reason) throw new Error('已取消废弃：必须填写废弃原因。')
+      if (!window.confirm(`确认废弃本次回货？\n${reason}`)) return true
+      const discarded = discardPostFinishingFactoryReturn({
+        deliveryId: current.deliveryId,
+        reason,
+        actor: actor('回货确认人员'),
+      })
+      message = `已废弃 ${discarded.deliveryOrderNo}；明细和原因已保留。`
+      messageTone = 'success'
+      refresh('/fcs/pda/post-finishing/return-confirm', discarded.deliveryOrderNo)
       return true
     }
     if (action === 'scan-post') {

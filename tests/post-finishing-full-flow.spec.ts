@@ -489,9 +489,49 @@ test('公共 PDA 回货登记即时阻断 0，并展示 5 个 SKU 与真实图�
   await attachPageEvidence(page, testInfo, 'public-pda-return-registration')
   await page.getByRole('button', { name: '提交本次回货登记' }).click()
   await expect(page.getByRole('status')).toContainText('登记成功')
+  const latestReturn = page.locator('[data-self-return-recent]').first()
+  await expect(latestReturn.getByText('SKU 明细（5）')).toBeVisible()
+  await expect(latestReturn.locator('img')).toHaveCount(5)
+  await expect(latestReturn.getByRole('button', { name: '查看并确认' })).toBeVisible()
+  let promptHandled = false
+  page.on('dialog', async (dialog) => {
+    if (dialog.type() === 'prompt') {
+      promptHandled = true
+      await dialog.accept('车缝工厂登记错了回货批次')
+      return
+    }
+    await dialog.accept()
+  })
+  await latestReturn.getByRole('button', { name: '废弃本次回货' }).click()
+  expect(promptHandled).toBe(true)
+  await expect(page.getByRole('status')).toContainText('已废弃')
+  await expect(page.locator('[data-self-return-recent]').first()).toContainText('车缝工厂登记错了回货批次')
   await verifyPdaAtBothSizes(page)
   await page.getByRole('button', { name: '管理员退出' }).click()
   await expect(page).toHaveURL(/\/fcs\/pda\/handover\?tab=pickup/)
+})
+
+test('Web 回货详情在最终确认后仍展示逐 SKU 明细，未确认记录可废弃', async ({ page }, testInfo) => {
+  const seed = await seedBrowserFlow(page)
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto(`/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(seed.pendingDeliveryId)}`)
+  await expect(page.locator('[data-return-count-line]')).toHaveCount(5)
+  await expect(page.locator('body')).toContainText('回货方式')
+  await expect(page.getByRole('button', { name: '废弃回货记录' })).toBeVisible()
+  page.on('dialog', async (dialog) => {
+    if (dialog.type() === 'prompt') {
+      await dialog.accept('Web 核对发现回货批次登记错误')
+      return
+    }
+    await dialog.accept()
+  })
+  await page.getByRole('button', { name: '废弃回货记录' }).click()
+  await expect(page.getByRole('status')).toContainText('回货记录已废弃')
+  await expect(page.locator('[data-return-readonly-line]')).toHaveCount(5)
+  await expect(page.locator('body')).toContainText('Web 核对发现回货批次登记错误')
+  await expect(page.locator('body')).toContainText('未形成最终确认')
+  await expect(page.getByRole('button', { name: '确认送检出库' })).toHaveCount(0)
+  await attachPageEvidence(page, testInfo, 'web-return-discarded-sku-detail')
 })
 
 test('旧车缝自助回货接收入口不可再绕过 5%复点授权规则', async ({ page }) => {
@@ -557,10 +597,12 @@ test('PDA 回货确认执行超 5%二次点数、授权和真实账号记录', a
   await page.getByRole('button', { name: '授权并确认回货' }).click()
   await expect(page.getByRole('status')).toContainText('回货确认成功')
   await expect(page.locator('body')).toContainText('回货已由 全能力测试工厂_操作工 确认')
+  await expect(page.locator('body')).toContainText('质检单')
   await verifyPdaAtBothSizes(page)
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(`/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(seed.pendingDeliveryId)}`)
   await expect(page.getByRole('heading', { name: 'SPU 技术参数在质检单统一维护' })).toBeVisible()
+  await expect(page.locator('[data-return-readonly-line]')).toHaveCount(5)
   await expect(page.locator('[data-qc-reference-file]')).toHaveCount(0)
   await expect(page.getByRole('link', { name: '前往质检单维护' })).toBeVisible()
   await page.getByRole('button', { name: '确认送检出库' }).click()

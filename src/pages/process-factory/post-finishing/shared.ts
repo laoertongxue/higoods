@@ -53,7 +53,9 @@ export function renderPostSection(title: string, body: string): string {
 }
 
 export function renderPostStatusBadge(status: string): string {
-  const tone = status.includes('差异')
+  const tone = status.includes('废弃')
+    ? 'border-slate-200 bg-slate-100 text-slate-600'
+    : status.includes('差异')
     ? 'border-rose-200 bg-rose-50 text-rose-700'
     : status.includes('完成') || status.includes('已回写')
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'

@@ -112,6 +112,10 @@ for (const required of [
   'listPostFinishingWaitHandoverWarehouseRecords',
   'listPostFinishingWaitHandoverWarehouseMovements',
   'loadPostFinishingDemoData',
+  'canDiscardPostFinishingFactoryReturn',
+  'discardPostFinishingFactoryReturn',
+  "delivery.status = '已废弃'",
+  "action: '废弃回货记录'",
 ]) assert(files.domain.includes(required), `共享全流程事实缺少 ${required}`)
 
 assert(files.numbering.includes('idempotencyKey'), '统一编号服务必须按幂等键生成')
@@ -125,11 +129,16 @@ assert(files.spuTechnical.includes('colorReferenceImageUrl') && files.spuTechnic
 
 assert(files.sewingReturn.includes('min="1"') && files.sewingReturn.includes('回货登记数量必须大于 0，不能静默忽略'), '公共 PDA 必须显式阻断 0 数量')
 assert(files.sewingReturn.includes('不展示待办列表'), '公共 PDA 初始不得展示回货任务池')
+assert(files.sewingReturn.includes('查看并确认') && files.sewingReturn.includes('SKU 明细'), '车缝自助回货记录必须进入逐 SKU 确认并可展开明细')
+assert(files.sewingReturn.includes('废弃本次回货') && files.sewingReturn.includes('discardPostFinishingFactoryReturn'), '车缝自助回货 PDA 必须允许废弃尚未最终接收的记录')
 for (const required of ['车缝任务', '生产计划', 'defaultStagingLocation', '管理员退出']) {
   assert(files.sewingReturn.includes(required), `公共 PDA 回货识别结果缺少 ${required}`)
 }
 assert(files.pdaFlow.includes('初始不展示待确认任务池'), '回货确认 PDA 初始不得展示任务池')
 assert(files.pdaFlow.includes('二次仍超过 5%才扫描授权码'), '回货确认 PDA 必须展示正确的二次点数规则')
+assert(files.pdaFlow.includes('不超过 5%，可直接确认') && files.pdaFlow.includes("policy === 'return-line'"), '回货确认 PDA 必须按逐 SKU 5%阈值实时解释授权结果')
+assert(files.pdaFlow.includes('废弃本次回货') && files.pdaFlow.includes("action === 'discard-return'"), '回货确认 PDA 必须允许废弃尚未最终接收的回货记录')
+assert(files.pdaFlow.includes('质检单') && files.pdaFlow.includes('已自动生成'), '回货最终确认后 PDA 必须展示自动生成的质检单号')
 assert(files.pdaFlow.includes("actor('回货确认人员')"), '回货确认 PDA 必须读取当前登录账号')
 assert(files.pdaFlow.includes('核对无误，开始后道'), '后道 PDA 必须扫码核对后再开始')
 assert(files.pdaFlow.includes('data-post-completed-qty') && files.pdaFlow.includes('质检已确认加工项目'), '后道 PDA 必须只读展示质检已确认项目，并以逐 SKU 完成数量为主动作')
@@ -146,6 +155,10 @@ assert(files.pdaFlow.includes('本批数量归类') && files.pdaFlow.includes('�
 assert(files.pdaFlow.includes('data-difference-authorization-block') && files.pdaFlow.includes("classList.toggle('hidden', !visible)"), 'PDA 各环节必须仅在有差异时显示授权区')
 
 assert(files.warehouse.includes('首次差异率超过 5%才要求二次点数'), 'Web 回货确认不得保留“任何差异都二次点数”的旧规则')
+assert(files.warehouse.includes('回货 SKU 明细') && files.warehouse.includes('data-return-readonly-line'), 'Web 回货详情必须在确认后继续展示逐 SKU 明细')
+assert(files.warehouse.includes('废弃回货记录') && files.warehouse.includes('full-flow-discard-return'), 'Web 车缝回货登记必须允许废弃尚未最终接收的记录')
+assert(files.warehouse.includes("record.status !== '已废弃'"), '已废弃回货不得计入后道待加工仓库存')
+assert(!files.warehouse.includes("record.status !== '已确认待送检' && record.status !== '已送检' && record.status !== '已完成'"), '已废弃回货详情不得继续渲染点数确认表')
 assert(files.warehouse.includes('分母始终为工厂登记数量'), 'Web 回货确认必须说明差异分母')
 assert(!files.warehouse.includes('任一 SKU 首次点数有差异必须二次点数'), 'Web 回货确认仍残留错误阈值文案')
 assert(files.warehouse.includes('SPU 技术参数在质检单统一维护'), '待加工仓必须指向质检单统一维护 SPU 技术参数')
@@ -153,6 +166,8 @@ assert(!files.warehouse.includes('data-qc-reference-file') && !files.warehouse.i
 assert(files.warehouse.includes("title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓'"), 'Web 两类仓库必须共用线上基线式列表结构')
 assert(files.warehouse.includes('确认回货后生成入仓流水，送检后生成出仓流水'), '后道待加工仓必须显示回货入仓和送检出仓事实')
 assert(files.warehouse.includes('复检完成后生成入仓流水，仓库收货后生成交出流水'), '后道待交出仓必须显示复检入仓和出货交出事实')
+assert(files.pdaHandoverDetail.includes('逐 SKU 回货确认') && files.pdaHandoverDetail.includes('扫描送货单逐 SKU 确认'), '旧 PDA 后道交接详情必须收口到专用逐 SKU 确认页')
+assert(files.pdaHandoverDetail.includes('确认数量必须按每个 SKU 分别填写') && files.pdaHandoverDetail.includes('最终确认后自动生成质检单'), '旧 PDA 后道交接详情必须移除直接差异/驳回分支并解释新规则')
 assert(files.warehouse.includes("{ key: 'inventory', label: '库存' }") && files.warehouse.includes("{ key: 'movements', label: '流水记录' }") && files.warehouse.includes("{ key: 'locations', label: '库区库位' }"), '两类仓库必须保留线上库存、流水记录和库区库位页签')
 assert(files.warehouse.includes('>回货确认<') && files.warehouse.includes('完整送货单号'), 'Web 后道待加工仓必须提供输入完整单号的回货确认入口')
 assert(files.workOrders.includes('开始后道') && files.workOrders.includes('查看加工单') && !files.workOrders.includes('PDA 执行（优先）') && !files.workOrders.includes('Web 应急处理'), 'Web 后道加工单必须使用开始后道和查看加工单入口，不保留旧优先级标识')

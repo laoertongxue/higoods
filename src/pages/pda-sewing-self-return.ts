@@ -1,4 +1,6 @@
 import {
+  canDiscardPostFinishingFactoryReturn,
+  discardPostFinishingFactoryReturn,
   getPostFinishingReturnSourceScanValue,
   listPostFinishingFactoryReturns,
   registerPostFinishingFactoryReturn,
@@ -98,7 +100,7 @@ function renderEvidence(): string {
 function renderRecent(): string {
   const recent = listPostFinishingFactoryReturns().slice(-3).reverse()
   if (!recent.length) return ''
-  return `<section class="rounded-2xl border bg-white p-4 shadow-sm"><h2 class="text-sm font-semibold">最近登记</h2><div class="mt-3 space-y-2">${recent.map((record) => `<div class="rounded-xl bg-slate-50 px-3 py-2 text-xs"><div class="font-mono font-semibold">${escapeHtml(record.deliveryOrderNo)}</div><div class="mt-1 text-slate-500">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次 · ${record.lines.reduce((sum, line) => sum + line.registeredQty, 0)} 件 · ${escapeHtml(record.status)}</div></div>`).join('')}</div></section>`
+  return `<section class="rounded-2xl border bg-white p-4 shadow-sm"><h2 class="text-sm font-semibold">最近登记</h2><div class="mt-3 space-y-3">${recent.map((record) => `<article class="rounded-xl bg-slate-50 px-3 py-3 text-xs" data-self-return-recent="${escapeHtml(record.deliveryId)}"><div class="flex items-start justify-between gap-2"><div><div class="font-mono font-semibold">${escapeHtml(record.deliveryOrderNo)}</div><div class="mt-1 text-slate-500">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次 · ${record.lines.reduce((sum, line) => sum + line.registeredQty, 0)} 件 · ${escapeHtml(record.status)}</div></div><button type="button" class="shrink-0 text-blue-700 underline" data-nav="/fcs/pda/post-finishing/return-confirm?id=${encodeURIComponent(record.deliveryOrderNo)}">${record.status === '已废弃' ? '查看详情' : '查看并确认'}</button></div><details class="mt-2 rounded-lg border bg-white"><summary class="cursor-pointer px-3 py-2 font-medium">SKU 明细（${record.lines.length}）</summary><div class="space-y-2 border-t p-2">${record.lines.map((line) => `<div class="flex items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white" data-pda-sewing-self-return-action="zoom-image" data-image-url="${escapeHtml(line.sku.imageUrl)}" data-image-label="${escapeHtml(`${line.sku.skuCode} ${line.sku.colorName} ${line.sku.sizeName}`)}"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[8px] text-slate-500">加载中…</span></button><div class="min-w-0 flex-1"><div class="truncate font-medium">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-slate-500">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div><strong class="shrink-0">${line.registeredQty} 件</strong></div>`).join('')}</div></details>${canDiscardPostFinishingFactoryReturn(record) ? `<button type="button" class="mt-2 text-red-700 underline" data-pda-sewing-self-return-action="discard" data-delivery-id="${escapeHtml(record.deliveryId)}">废弃本次回货</button>` : ''}${record.status === '已废弃' ? `<div class="mt-2 rounded-lg bg-slate-100 px-2 py-1.5 text-slate-600">${escapeHtml(record.discardReason || '已废弃')} · ${escapeHtml(record.discardedBy?.actorName || '—')}</div>` : ''}</article>`).join('')}</div></section>`
 }
 
 export function renderPdaSewingSelfReturnPage(): string {
@@ -201,6 +203,20 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
     }
     if (action === 'load-evidence') state.evidenceImages = [{ name: '现场回货凭证.jpg', previewUrl: '/shirt-sample.jpg' }]
     if (action === 'zoom-image' && actionNode?.dataset.imageUrl) showImage(actionNode.dataset.imageUrl, actionNode.dataset.imageLabel || '图片大图')
+    if (action === 'discard') {
+      const runtime = getPdaRuntimeContext()
+      if (!runtime) throw new Error('请先登录 PDA。')
+      const reason = window.prompt('请填写废弃原因。废弃后只保留审计，不进入待加工仓，也不会生成质检单。')?.trim() || ''
+      if (!reason) throw new Error('已取消废弃：必须填写废弃原因。')
+      if (!window.confirm(`确认废弃本次回货？\n${reason}`)) return true
+      const discarded = discardPostFinishingFactoryReturn({
+        deliveryId: actionNode.dataset.deliveryId || '',
+        reason,
+        actor: { actorId: runtime.userId, actorName: runtime.userName, roleName: runtime.roleId },
+      })
+      state.successText = `已废弃 ${discarded.deliveryOrderNo}；明细和原因已保留。`
+      state.errorText = ''
+    }
     if (action === 'submit') {
       const runtime = getPdaRuntimeContext()
       if (!runtime || !state.resolvedOrder || !state.returnIndex) throw new Error('请先扫描本次回货来源码。')

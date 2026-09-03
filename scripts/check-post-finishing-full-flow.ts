@@ -14,6 +14,7 @@ import {
   completePostFinishingQcTask,
   completePostFinishingRecheckOrderFullFlow,
   confirmPostFinishingFactoryReturn,
+  discardPostFinishingFactoryReturn,
   getPostFinishingFactoryReturn,
   getPostFinishingMaterialReadiness,
   getPostFinishingReturnSourceScanValue,
@@ -306,6 +307,38 @@ expectCode('回货登记数量为小数必须明确阻断', 'INVALID_QUANTITY', 
     nowMs: nextTime(),
   })
 })
+
+const discardableReturn = registerPostFinishingFactoryReturn({
+  productionOrderNo: firstOrder.productionOrderNo,
+  returnIndex: 1,
+  triggerSource: '公共PDA自助回货',
+  idempotencyKey: 'DISCARD-PENDING-RETURN',
+  quantities: firstOrder.skus.map((sku) => ({ skuId: sku.skuId, registeredQty: 20 })),
+  deliveryPersonName: POST_FINISHING_ACCEPTANCE_ACTORS.factoryCourier.actorName,
+  deliveryPersonPhone: '0812000099',
+  evidenceImageUrls: ['/materials/fabric-main.jpg'],
+  actor: POST_FINISHING_ACCEPTANCE_ACTORS.factoryCourier,
+  nowMs: nextTime(),
+})
+const discardedReturn = discardPostFinishingFactoryReturn({
+  deliveryId: discardableReturn.deliveryId,
+  reason: '送货单登记错误，废弃后重新按正确批次登记',
+  actor: POST_FINISHING_ACCEPTANCE_ACTORS.factoryCourier,
+  nowMs: nextTime(),
+})
+assert.equal(discardedReturn.status, '已废弃', '未完成最终接收的回货记录必须允许废弃并保留记录')
+assert.equal(discardedReturn.discardReason, '送货单登记错误，废弃后重新按正确批次登记', '废弃必须保留原因')
+assert.equal(listPostFinishingWaitProcessWarehouseRecords()[0]?.status, '已废弃', '废弃回货不得继续停留在待确认仓')
+assert.equal(listPostFinishingFullFlowQcTasks().length, 0, '废弃回货不得生成质检单')
+expectCode('已废弃回货不得继续确认', 'INVALID_STATUS', () => {
+  confirmPostFinishingFactoryReturn({
+    deliveryId: discardedReturn.deliveryId,
+    firstCounts: discardedReturn.lines.map((line) => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })),
+    actor: POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer,
+    nowMs: nextTime(),
+  })
+})
+resetPostFinishingFullFlow()
 
 for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
   for (let returnIndex = 1; returnIndex <= 5; returnIndex += 1) {

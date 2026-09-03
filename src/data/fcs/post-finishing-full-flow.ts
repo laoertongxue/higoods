@@ -204,6 +204,7 @@ export type PostFinishingDeliveryStatus =
   | '已确认待送检'
   | '已送检'
   | '已完成'
+  | '已废弃'
 
 export interface PostFinishingFactoryReturnLine {
   sku: PostFinishingAcceptanceSku
@@ -246,9 +247,12 @@ export interface PostFinishingFactoryReturnDelivery {
   returnAuthorizedBy?: { authorizerId: string; authorizerName: string }
   qcTaskId?: string
   qcTaskNo?: string
+  discardedAt?: string
+  discardedBy?: PostFinishingActor
+  discardReason?: string
 }
 
-export type PostFinishingWaitProcessWarehouseStatus = '待确认' | '待送检' | '已送检'
+export type PostFinishingWaitProcessWarehouseStatus = '待确认' | '待送检' | '已送检' | '已废弃'
 
 export interface PostFinishingWaitProcessWarehouseLine {
   sku: PostFinishingAcceptanceSku
@@ -1225,6 +1229,7 @@ export function receivePostFinishingMaterialTransfer(input: {
 function buildWaitProcessWarehouseRecord(
   delivery: PostFinishingFactoryReturnDelivery,
 ): PostFinishingWaitProcessWarehouseRecord {
+  const discarded = delivery.status === '已废弃'
   const hasConfirmed = Boolean(delivery.confirmedAt)
   const hasSent = delivery.status === '已送检' || delivery.status === '已完成'
   return {
@@ -1236,12 +1241,12 @@ function buildWaitProcessWarehouseRecord(
     sewingFactoryName: delivery.sewingFactoryName,
     areaName: '车缝回货暂存区',
     locationCode: `WP-${delivery.productionOrderId}-${delivery.returnIndex}`,
-    status: hasSent ? '已送检' : hasConfirmed ? '待送检' : '待确认',
+    status: discarded ? '已废弃' : hasSent ? '已送检' : hasConfirmed ? '待送检' : '待确认',
     lines: delivery.lines.map((line) => ({
       sku: clone(line.sku),
       registeredQty: line.registeredQty,
       confirmedQty: line.confirmedQty || 0,
-      availableQty: hasConfirmed && !hasSent ? line.confirmedQty || 0 : 0,
+      availableQty: !discarded && hasConfirmed && !hasSent ? line.confirmedQty || 0 : 0,
     })),
     createdAt: delivery.registeredAt,
     confirmedAt: delivery.confirmedAt,
@@ -1676,6 +1681,57 @@ export function registerPostFinishingFactoryReturn(input: {
     stage: '送货登记', delivery, objectType: '送货单', objectId: delivery.deliveryId, objectNo: delivery.deliveryOrderNo,
     action: '工厂登记回货', actor: input.actor, operatedAt: now, afterStatus: delivery.status,
     afterQuantity: total(lines.map((line) => line.registeredQty)), remark: `${input.triggerSource}；5 个 SKU`,
+  })
+  return clone(delivery)
+}
+
+export function canDiscardPostFinishingFactoryReturn(record: PostFinishingFactoryReturnDelivery): boolean {
+  return ['待后道确认', '待二次点数', '差异待授权'].includes(record.status)
+    && !record.confirmedAt
+    && !record.qcTaskId
+}
+
+export function discardPostFinishingFactoryReturn(input: {
+  deliveryId: string
+  reason: string
+  actor: PostFinishingActor
+  nowMs?: number
+}): PostFinishingFactoryReturnDelivery {
+  const delivery = findDelivery(input.deliveryId)
+  if (!canDiscardPostFinishingFactoryReturn(delivery)) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `送货单当前为${delivery.status}，已完成最终接收或已进入质检链路，不能废弃。`)
+  }
+  const isRegistrant = delivery.registeredBy.actorId === input.actor.actorId
+  const isFactoryOperator = /(车缝厂送货人员|工厂|factory|ROLE_OPERATOR)/i.test(input.actor.roleName)
+  const isReturnManager = /回货确认|回货主管/.test(input.actor.roleName)
+  if (/PPIC/i.test(input.actor.roleName) || (!isRegistrant && !isFactoryOperator && !isReturnManager)) {
+    throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '只有车缝工厂回货登记岗位或后道回货确认岗位可以废弃尚未完成最终接收的回货记录。')
+  }
+  const reason = input.reason.trim()
+  if (!reason) throw new Error('请填写废弃原因。')
+
+  const beforeStatus = delivery.status
+  const discardedAt = nowIso(input.nowMs)
+  delivery.status = '已废弃'
+  delivery.discardedAt = discardedAt
+  delivery.discardedBy = clone(input.actor)
+  delivery.discardReason = reason
+  const warehouseRecord = getOrCreateWaitProcessWarehouseRecord(delivery)
+  warehouseRecord.status = '已废弃'
+  warehouseRecord.confirmedAt = undefined
+  warehouseRecord.confirmedBy = undefined
+  warehouseRecord.lines = delivery.lines.map((line) => ({
+    sku: clone(line.sku),
+    registeredQty: line.registeredQty,
+    confirmedQty: 0,
+    availableQty: 0,
+  }))
+  persist()
+  appendBusinessLog({
+    stage: '送货登记', delivery, objectType: '送货单', objectId: delivery.deliveryId, objectNo: delivery.deliveryOrderNo,
+    action: '废弃回货记录', actor: input.actor, operatedAt: discardedAt, beforeStatus, afterStatus: delivery.status,
+    beforeQuantity: total(delivery.lines.map((line) => line.registeredQty)), afterQuantity: 0,
+    differenceQuantity: -total(delivery.lines.map((line) => line.registeredQty)), remark: reason,
   })
   return clone(delivery)
 }

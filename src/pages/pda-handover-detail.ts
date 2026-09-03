@@ -825,9 +825,11 @@ function getPickupCurrentGuide(
   const postFinishingSource = Boolean(postFinishingPickup || selfReturnPickup)
   if (record.status === 'PENDING_FACTORY_CONFIRM') {
     return {
-      title: '当前等待你确认',
-      hint: '请确认本次接收，或发起数量差异。',
-      panelClass: 'border-violet-200 bg-violet-50',
+      title: postFinishingSource ? '逐 SKU 回货确认' : '当前等待你确认',
+      hint: postFinishingSource
+        ? '本页查看交接明细；请扫描完整车缝送货单，在专用页面逐个颜色、尺码点数确认。'
+        : '请确认本次接收，或发起数量差异。',
+      panelClass: postFinishingSource ? 'border-blue-200 bg-blue-50' : 'border-violet-200 bg-violet-50',
     }
   }
   if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
@@ -989,6 +991,17 @@ function renderPickupCurrentPanel(
     : ''
 
   if (record.status === 'PENDING_FACTORY_CONFIRM') {
+    if (postFinishingSource) {
+      return `
+        <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
+          ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
+          ${renderPickupCurrentMetric(sourceTimeLabel, record.warehouseHandedAt || waitSourceText)}
+        </div>
+        ${currentSkuDetail}
+        <div class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-blue-800">确认数量必须按每个 SKU 分别填写；任一 SKU 差异率超过 5%时，系统自动要求复点，并在复点后仍超 5%时触发上级授权。最终确认后自动生成质检单。</div>
+        <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/post-finishing/return-confirm">扫描送货单逐 SKU 确认</button>
+      `
+    }
     return `
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 ${shouldShowExpectedInPendingConfirm ? 'lg:grid-cols-3' : ''}">
         ${renderPickupCurrentMetric(sourceQtyLabel, warehouseQtyValue, true)}
@@ -1539,9 +1552,9 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
           ${renderPickupCurrentPanel(currentRecord, showPickupDisputeForm, showPickupRejectForm)}
         </article>`}
 
-    ${!isCompleted ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-pickup-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成接收单</button>` : ''}
+    ${!isCompleted && !postFinishingPickup ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-pickup-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成接收单</button>` : ''}
 
-    <details class="rounded-xl border bg-card" data-testid="pickup-record-history">
+    <details class="rounded-xl border bg-card" data-testid="pickup-record-history" ${postFinishingPickup ? 'open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>${postFinishingPickup ? `接收明细（${records.length} 个 SKU）` : `接收记录（${records.length}）`}</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
       <div class="space-y-2 border-t p-3">${records.length ? records.map((record) => renderPickupRecordItem(record)).join('') : `<div class="py-4 text-center text-xs text-muted-foreground">${postFinishingPickup ? '暂无到货记录' : '暂无接收记录'}</div>`}</div>
     </details>
@@ -3055,7 +3068,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
     const currentPostFinishingPickup = parsePostFinishingPickupRecord(currentRecord)
     const currentSelfReturnPickup = parsePostFinishingSelfReturnPickupRecord(currentRecord)
-    if (currentSelfReturnPickup) {
+    if (currentPostFinishingPickup || currentSelfReturnPickup) {
       showPdaHandoverDetailToast('旧回货接收入口已关闭，请扫描送货单到专用回货确认页。')
       appStore.navigate('/fcs/pda/post-finishing/return-confirm')
       return true
@@ -3144,6 +3157,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
+    if (currentRecord && (parsePostFinishingPickupRecord(currentRecord) || parsePostFinishingSelfReturnPickupRecord(currentRecord))) {
+      showPdaHandoverDetailToast('后道回货不单独发起数量差异；专用页面按逐 SKU 5%规则自动处理。')
+      appStore.navigate('/fcs/pda/post-finishing/return-confirm')
+      return true
+    }
     if (!currentRecord || currentRecord.status !== 'PENDING_FACTORY_CONFIRM') {
       showPdaHandoverDetailToast('当前记录暂不可发起数量差异')
       return true
@@ -3173,6 +3191,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
+    if (currentRecord && (parsePostFinishingPickupRecord(currentRecord) || parsePostFinishingSelfReturnPickupRecord(currentRecord))) {
+      showPdaHandoverDetailToast('后道回货接收不提供驳回；登记有误请在回货登记中废弃。')
+      return true
+    }
     if (!currentRecord || currentRecord.status !== 'PENDING_FACTORY_CONFIRM') {
       showPdaHandoverDetailToast('当前记录暂不可驳回')
       return true
@@ -3199,6 +3221,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
+    if (currentRecord && (parsePostFinishingPickupRecord(currentRecord) || parsePostFinishingSelfReturnPickupRecord(currentRecord))) {
+      showPdaHandoverDetailToast('后道回货不单独发起数量差异；专用页面按逐 SKU 5%规则自动处理。')
+      appStore.navigate('/fcs/pda/post-finishing/return-confirm')
+      return true
+    }
     if (!currentRecord || currentRecord.status !== 'PENDING_FACTORY_CONFIRM') {
       showPdaHandoverDetailToast('当前记录暂不可发起数量差异')
       return true
@@ -3268,6 +3295,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
+    if (currentRecord && (parsePostFinishingPickupRecord(currentRecord) || parsePostFinishingSelfReturnPickupRecord(currentRecord))) {
+      showPdaHandoverDetailToast('后道回货接收不提供驳回；登记有误请在回货登记中废弃。')
+      return true
+    }
     if (!currentRecord || currentRecord.status !== 'PENDING_FACTORY_CONFIRM') {
       showPdaHandoverDetailToast('当前记录暂不可驳回')
       return true
