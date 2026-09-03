@@ -78,7 +78,7 @@ assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的�
 assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')
 assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得把阶段名当作实际工序')
 
-;['后道工厂管理', '后道任务', '质检单', '后道单', '复检单', '后道待加工仓', '后道待交出仓', '后道出货单', '差异与操作日志', '我的动态授权码'].forEach((label) => {
+;['后道工厂管理', '后道生产任务', '质检单', '后道加工单', '复检单', '后道待加工仓', '后道待交出仓', '后道出货单', '差异与操作日志', '我的动态授权码'].forEach((label) => {
   assertIncludes(appShell, label, `后道阶段菜单缺少 ${label}`)
 })
 assertNotIncludes(appShell, "title: 'Web 质检工作台'", 'Web 质检工作台不得再作为独立菜单')

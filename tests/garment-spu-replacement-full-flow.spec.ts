@@ -300,7 +300,7 @@ test('复检通过生成后道出货单并可按线上版式打印整单和条�
   })
 
   await openPath(page, POST_OUTBOUND_PATH, '[data-post-finishing-outbound-root]')
-  for (const menuTitle of ['后道任务', '后道单', '后道待加工仓', '后道待交出仓', '后道出货单']) {
+  for (const menuTitle of ['后道生产任务', '后道加工单', '后道待加工仓', '后道待交出仓', '后道出货单']) {
     await expectMenuIcon(page, menuTitle)
   }
   for (const oldMenuTitle of ['阶段任务', '阶段待加工仓', '阶段待交出仓', '实际工序任务']) {

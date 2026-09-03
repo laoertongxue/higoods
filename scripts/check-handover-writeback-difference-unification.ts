@@ -176,7 +176,7 @@ const postSource = [
   domainPath,
 ].map(read).join('\n')
 for (const word of ['开扣眼', '装扣子', '烫包']) {
-  assert(!postSource.includes(word), `后道任务动作不应出现 ${word}`)
+  assert(!postSource.includes(word), `后道加工单动作不应出现 ${word}`)
 }
 
 const dyeReportWord = '染色' + '报表'

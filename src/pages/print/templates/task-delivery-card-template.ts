@@ -43,7 +43,7 @@ const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   printing: '印花任务交货卡',
   dyeing: '染色任务交货卡',
   specialCraft: '特殊工艺加工单交货卡',
-  postFinishing: '后道任务交货卡',
+  postFinishing: '后道生产任务交货卡',
   cutting: '裁片任务交货卡',
   sewing: '车缝任务交货卡',
 }
@@ -312,7 +312,7 @@ function buildDocumentFromLegacyDoc(
             { label: '是否本厂完成实际工序', value: `${doc.title} ${doc.processName} ${doc.craftName || ''}`.includes('后道') ? '是' : '按任务要求确认' },
             { label: '后道完成成衣件数', value: qtyText(doc.submittedQty, doc.qtyUnit) },
             { label: '后道后流向', value: '交给后道工厂质检和复检' },
-            { label: '关联后道单号', value: '待后道工厂接收后关联' },
+            { label: '关联后道加工单号', value: '待后道工厂接收后关联' },
           ] : []),
         ]),
       },
@@ -464,7 +464,7 @@ function buildDocumentFromProcessHandover(
         sectionId: 'base',
         title: variant === 'specialCraft' ? '加工单基础信息' : '任务基础信息',
         fields: mapFields([
-          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号 / 后道单号 / 裁片单号 / 车缝任务号', value: record.sourceWorkOrderNo || record.sourceTaskNo },
+          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号 / 后道加工单号 / 裁片单号 / 车缝任务号', value: record.sourceWorkOrderNo || record.sourceTaskNo },
           { label: '生产单', value: record.sourceProductionOrderNo || '待确认' },
           { label: '工序 / 工艺', value: record.craftName },
           { label: '款号', value: warehouse?.styleNo || postOrder?.styleNo || '随生产单' },

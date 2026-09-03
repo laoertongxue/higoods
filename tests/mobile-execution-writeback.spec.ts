@@ -106,7 +106,7 @@ test('后道移动端专门后道工厂复检完成生成交出仓', async ({ pa
   await acceptDialogs(page, ['278'])
   await page.goto('/fcs/pda/exec/TASK-POST-010')
   await closeTodoModalIfPresent(page)
-  await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '后道生产任务' })).toBeVisible()
   await page.getByRole('button', { name: '完成复检' }).click()
 
   await spaGoto(page, '/fcs/craft/post-finishing/wait-handover-warehouse')
@@ -118,7 +118,7 @@ test('车缝工厂移动端只能执行车缝后道交接动作', async ({ page 
   await seedPdaSession(page)
   await page.goto('/fcs/pda/exec/SEW-POST-101')
   await closeTodoModalIfPresent(page)
-  await expect(page.getByRole('heading', { name: '车缝后道任务' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车缝及后道加工任务' })).toBeVisible()
   await expect(page.getByRole('button', { name: '开始后道' })).toBeVisible()
   await expect(page.getByRole('button', { name: '交给后道工厂' })).toBeVisible()
   await expect(page.getByRole('button', { name: /质检/ })).toHaveCount(0)

@@ -781,7 +781,7 @@ export interface PostFinishingRecheckOrder {
   recheckOrderNo: string
   postTaskId?: string
   postTaskNo?: string
-  sourceType: '质检单' | '后道单'
+  sourceType: '质检单' | '后道加工单'
   qcOrderId: string
   qcOrderNo: string
   postOrderId?: string
@@ -1495,7 +1495,7 @@ export function buildPostFinishingTaskId(productionOrderId: string): string {
 }
 
 export function buildPostFinishingTaskNo(productionOrderNo: string): string {
-  return `后道任务-${productionOrderNo.replace(/^PO-/, '')}`
+  return `后道生产任务-${productionOrderNo.replace(/^PO-/, '')}`
 }
 
 function sumProductionOrderQty(order: Pick<ProductionOrder, 'demandSnapshot'>): number {
@@ -2590,7 +2590,7 @@ function buildPostRecheck(qc: PostFinishingQcOrder, postOrderId: string, postOrd
     recheckOrderNo: `RC-POST-2026-${pad(index)}`,
     postTaskId: qc.postTaskId || buildPostFinishingTaskId(qc.productionOrderId),
     postTaskNo: qc.postTaskNo || buildPostFinishingTaskNo(qc.productionOrderNo),
-    sourceType: '后道单',
+    sourceType: '后道加工单',
     qcOrderId: qc.qcOrderId,
     qcOrderNo: qc.qcOrderNo,
     postOrderId,
@@ -2627,7 +2627,7 @@ function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, post
     recheckOrderNo: `RC-POST-2026-${pad(index)}`,
     postTaskId: qc.postTaskId || buildPostFinishingTaskId(qc.productionOrderId),
     postTaskNo: qc.postTaskNo || buildPostFinishingTaskNo(qc.productionOrderNo),
-    sourceType: postOrder ? '后道单' : '质检单',
+    sourceType: postOrder ? '后道加工单' : '质检单',
     qcOrderId: qc.qcOrderId,
     qcOrderNo: qc.qcOrderNo,
     postOrderId: postOrder?.postOrderId,
@@ -2742,7 +2742,7 @@ function ensurePostRecheckFromOrder(order: PostFinishingWorkOrder): PostFinishin
   const existing = recheckOrders.find((item) => item.postOrderId === order.postOrderId)
   if (existing) return existing
   const qc = qcOrders.find((item) => item.qcOrderId === order.qcOrderId)
-  if (!qc) throw new Error(`未找到后道单关联质检单：${order.qcOrderId}`)
+  if (!qc) throw new Error(`未找到后道加工单关联质检单：${order.qcOrderId}`)
   const recheck = buildPendingRecheckFromQc(qc, nextRecheckIndex(), order)
   recheckOrders.push(recheck)
   order.linkedRecheckOrderId = recheck.recheckOrderId
@@ -3077,7 +3077,7 @@ export function createPostFinishingQcOrder(input: {
   inspectorName?: string
 }): PostFinishingQcOrder {
   const targetTask = input.postTaskId ? getPostFinishingTaskById(input.postTaskId) : undefined
-  if (input.postTaskId && !targetTask) throw new Error('未找到后道任务，不能创建质检单。')
+  if (input.postTaskId && !targetTask) throw new Error('未找到后道生产任务，不能创建质检单。')
   const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId: input.postTaskId })
   const selected = input.allocations
     .map((allocationInput) => {
@@ -3088,7 +3088,7 @@ export function createPostFinishingQcOrder(input: {
     .filter((item): item is { item: PostFinishingWaitQcSkuItem; qcQty: number } => Boolean(item))
   if (!selected.length) throw new Error('请至少选择一个待质检 SKU。')
   const first = selected[0].item
-  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道任务下创建质检单。')
+  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道生产任务下创建质检单。')
   const notSameOrder = selected.find(({ item }) => item.productionOrderNo !== first.productionOrderNo || item.spuId !== first.spuId)
   if (notSameOrder) throw new Error('一次质检单只能选择同一生产单下的同一款式 SKU。')
   const invalidQty = selected.find(({ item, qcQty }) => qcQty > item.waitQcQty)
@@ -3382,28 +3382,28 @@ export function getSewingFactoryPostTaskById(taskId: string): SewingFactoryPostT
 
 export function startSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道生产任务：${taskId}`)
   task.status = '后道中'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function finishSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道生产任务：${taskId}`)
   task.status = '后道完成'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function transferSewingFactoryPostTaskToManagedFactory(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道生产任务：${taskId}`)
   task.status = '已交后道工厂'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 function getMutablePostFinishingWorkOrder(postOrderId: string): PostFinishingWorkOrder {
   const order = postFinishingWorkOrders.find((item) => item.postOrderId === postOrderId)
-  if (!order) throw new Error(`未找到后道单：${postOrderId}`)
+  if (!order) throw new Error(`未找到后道加工单：${postOrderId}`)
   return order
 }
 
@@ -3956,7 +3956,7 @@ function buildWaitHandoverRecords(): PostFinishingWaitHandoverWarehouseRecord[] 
         postOrderNo: recheck.postOrderNo || recheck.qcOrderNo,
         sourceProductionOrderNo: recheck.productionOrderNo,
         sourceTaskNo: recheck.sourceTaskNo,
-        postSourceLabel: recheck.sourceType === '后道单' ? '后道完成后复检' : '质检完成后复检',
+        postSourceLabel: recheck.sourceType === '后道加工单' ? '后道完成后复检' : '质检完成后复检',
         managedPostFactoryName: recheck.managedPostFactoryName,
         styleNo: recheck.spuCode,
         spuId: recheck.spuId,

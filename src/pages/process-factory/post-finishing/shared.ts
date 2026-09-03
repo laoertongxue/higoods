@@ -17,6 +17,20 @@ export function renderPostFinishingPageHeader(title: string, description = '', a
   `
 }
 
+export function renderPostFinishingQcPrintActions(qcTaskNo = ''): string {
+  const baseClass = 'inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50'
+  if (qcTaskNo) {
+    return `<div class="flex flex-wrap gap-2" data-post-finishing-qc-print-actions>
+      <a data-nav="/fcs/craft/post-finishing/print?type=QC_ORDER&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单</a>
+      <a data-nav="/fcs/craft/post-finishing/print?type=QC_DETAIL&id=${encodeURIComponent(qcTaskNo)}" class="${baseClass}">打印质检单详情</a>
+    </div>`
+  }
+  return `<div class="flex flex-wrap gap-2" data-post-finishing-qc-print-actions>
+    <button type="button" class="${baseClass}" data-post-finishing-action="open-qc-print-dialog" data-qc-print-type="QC_ORDER" data-skip-page-rerender="true">打印质检单</button>
+    <button type="button" class="${baseClass}" data-post-finishing-action="open-qc-print-dialog" data-qc-print-type="QC_DETAIL" data-skip-page-rerender="true">打印质检单详情</button>
+  </div>`
+}
+
 export function renderPostMetricCard(label: string, value: string, description: string): string {
   return `
     <article class="rounded-lg border bg-card px-4 py-3">

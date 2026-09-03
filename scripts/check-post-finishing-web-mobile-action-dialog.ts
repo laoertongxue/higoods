@@ -28,7 +28,7 @@ for (const path of [
   assert(handlers.includes(`exact('${path}')`), `PDA 事件处理缺少 ${path}`)
 }
 
-assert(pdaFlow.includes('只按完整后道任务号查询'), '后道 PDA 必须精确扫描且初始不展示任务池')
+assert(pdaFlow.includes('只按完整后道加工单号查询'), '后道 PDA 必须精确扫描后道加工单且初始不展示任务池')
 assert(pdaFlow.includes('初始不展示待确认任务池'), '回货确认 PDA 必须精确扫描送货单且不展示任务池')
 assert(pdaFlow.includes('二次仍超过 5%才扫描授权码'), '回货确认 PDA 必须显示两段 5%规则')
 assert(pdaFlow.includes('核对无误，开始后道') && pdaFlow.includes('质检已确认加工项目'), '后道 PDA 必须先展示质检已确认项目并由员工核对后开始')

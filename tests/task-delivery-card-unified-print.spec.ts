@@ -26,9 +26,9 @@ const deliveryCards = [
     tokens: ['关联菲票', '交出裁片数量', '实收裁片数量', '差异裁片数量'],
   },
   {
-    name: '后道任务交货卡',
+    name: '后道生产任务交货卡',
     url: '/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=PHR-PFP-WH-005',
-    title: '后道任务交货卡',
+    title: '后道生产任务交货卡',
     tokens: ['后道工厂', '复检确认成衣件数', '交出成衣件数', '实收成衣件数', '差异成衣件数'],
   },
   {

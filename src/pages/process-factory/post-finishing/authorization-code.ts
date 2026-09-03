@@ -6,7 +6,7 @@ import {
 } from '../../../data/fcs/post-finishing-authorization.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostFinishingPageHeader } from './shared.ts'
+import { renderPostFinishingPageHeader, renderPostFinishingQcPrintActions } from './shared.ts'
 
 let refreshTimer: number | undefined
 
@@ -23,7 +23,7 @@ export function renderPostFinishingAuthorizationCodePage(): string {
   if (!person) {
     if (typeof window !== 'undefined') window.clearTimeout(refreshTimer)
     return `<div class="space-y-4 p-4" data-testid="post-finishing-authorization-page">
-      ${renderPostFinishingPageHeader('我的动态授权码', '仅指定授权人员本人可见')}
+      ${renderPostFinishingPageHeader('我的动态授权码', '仅指定授权人员本人可见', renderPostFinishingQcPrintActions())}
       <section class="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
         <div class="text-lg font-semibold text-amber-950">当前账号没有授权权限</div>
         <p class="mt-2 text-sm text-amber-800">授权码只向指定的 QC 主管、后道经理和仓库主管显示。请使用本人账号登录，不通过网址参数切换身份。</p>
@@ -34,7 +34,7 @@ export function renderPostFinishingAuthorizationCodePage(): string {
   const display = getPostFinishingAuthorizationDisplay(person.authorizerId)
   scheduleRefresh(display.validUntilMs)
   return `<div class="space-y-4 p-4" data-testid="post-finishing-authorization-page">
-    ${renderPostFinishingPageHeader('我的动态授权码', '30 秒自动刷新 · 每个授权码只能使用一次')}
+    ${renderPostFinishingPageHeader('我的动态授权码', '30 秒自动刷新 · 每个授权码只能使用一次', renderPostFinishingQcPrintActions())}
     <section class="mx-auto max-w-3xl rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div><div class="text-sm text-muted-foreground">当前授权人</div><div class="mt-1 text-xl font-semibold">${escapeHtml(display.authorizerName)}</div><div class="mt-1 text-sm text-blue-700">${escapeHtml(display.roleName)}</div></div>

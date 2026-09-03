@@ -95,6 +95,6 @@ const postActionSection = pdaExecDetail.slice(
 })
 
 assertIncludes(routesPda, '^\\/fcs\\/pda\\/exec\\/([^/]+)$', '移动端执行详情动态路由必须存在')
-assertIncludes(pdaExecDetail, 'getPostFinishingWorkOrderForMobile', '后道单必须复用移动端执行详情路由')
+assertIncludes(pdaExecDetail, 'getPostFinishingWorkOrderForMobile', '后道加工单必须复用移动端执行详情路由')
 
 console.log('mobile execution writeback checks passed')

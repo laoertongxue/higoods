@@ -13,7 +13,6 @@ import {
   listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
   sendPostFinishingFactoryReturnToQc,
-  uploadPostFinishingDeliveryQcReference,
   type PostFinishingAcceptanceSku,
   type PostFinishingFactoryReturnDelivery,
   type PostFinishingWaitHandoverWarehouseMovement,
@@ -25,10 +24,9 @@ import { renderStandardListPage, renderStandardListStats } from '../../../compon
 import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { paginateStandardListRows, type StandardListColumnPreferences } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
-import { listPostFinishingQcReferences } from '../../../data/fcs/post-finishing-qc-reference.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostFinishingPageHeader, renderPostStatusBadge } from './shared.ts'
+import { renderPostFinishingPageHeader, renderPostFinishingQcPrintActions, renderPostStatusBadge } from './shared.ts'
 
 let pageMessage = ''
 let pageMessageTone: 'success' | 'error' = 'success'
@@ -302,7 +300,7 @@ function renderInventoryDrawer(mode: WarehouseMode, rows: WarehouseInventoryRow[
 
 function renderReturnLookupDialog(): string {
   if (!warehouseUi.showReturnLookup) return ''
-  return `<div class="fixed inset-0 z-[170] flex items-center justify-center bg-black/35 p-4"><section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" data-return-lookup-dialog><div class="flex items-start justify-between gap-3"><div><div class="text-xs font-medium text-blue-700">PDA 扫码优先 · Web 应急兜底</div><h2 class="mt-1 font-semibold">扫码收货</h2><p class="mt-1 text-xs text-muted-foreground">PDA 不可用时，在这里扫描或输入完整送货单号；两端进入同一张待确认收货记录。</p></div><button type="button" class="rounded-md border px-3 py-2 text-xs" data-post-finishing-action="full-flow-close-overlay">关闭</button></div><label class="mt-4 block text-sm">扫描或输入完整送货单号<input autofocus class="mt-1 h-11 w-full rounded-md border px-3 font-mono" data-post-finishing-field="return-order-number" data-scan-enter="true" placeholder="扫描枪回车，或手工输入完整单号" /></label><p class="mt-2 text-xs text-muted-foreground">不支持部分单号和模糊代选。</p><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white" data-post-finishing-action="full-flow-open-return">识别送货单并收货</button></section></div>`
+  return `<div class="fixed inset-0 z-[170] flex items-center justify-center bg-black/35 p-4"><section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" data-return-lookup-dialog><div class="flex items-start justify-between gap-3"><div><h2 class="font-semibold">回货确认</h2><p class="mt-1 text-xs text-muted-foreground">Web 端输入完整送货单号，打开待确认回货记录。</p></div><button type="button" class="rounded-md border px-3 py-2 text-xs" data-post-finishing-action="full-flow-close-overlay">关闭</button></div><label class="mt-4 block text-sm">完整送货单号<input autofocus class="mt-1 h-11 w-full rounded-md border px-3 font-mono" data-post-finishing-field="return-order-number" data-scan-enter="true" placeholder="请输入完整送货单号" /></label><p class="mt-2 text-xs text-muted-foreground">不支持部分单号和模糊代选。</p><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white" data-post-finishing-action="full-flow-open-return">查找回货记录</button></section></div>`
 }
 
 function renderWarehouseOverview(mode: WarehouseMode): string {
@@ -325,7 +323,7 @@ function renderWarehouseOverview(mode: WarehouseMode): string {
   if (tab === 'returns' && mode === 'wait-process') content = renderReturnsContent(listPostFinishingFactoryReturns().sort((a, b) => b.registeredAt.localeCompare(a.registeredAt)))
   return renderStandardListPage({
     title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓',
-    primaryActionsHtml: mode === 'wait-process' ? '<div class="flex items-center gap-3"><span class="text-xs text-muted-foreground">PDA 扫码优先，Web 保留故障兜底</span><button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">扫码收货（Web 兜底）</button></div>' : '',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center justify-end gap-2">${renderPostFinishingQcPrintActions()}${mode === 'wait-process' ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-action="full-flow-show-return-lookup">回货确认</button>' : ''}</div>`,
     feedbackHtml: renderMessage(),
     filtersHtml: `<div class="space-y-3">${stats}${renderWarehouseTabs(mode, tab)}${renderWarehouseFilters(mode)}</div>`,
     listTitle: content.listTitle,
@@ -355,21 +353,20 @@ function renderImageButton(record: PostFinishingFactoryReturnDelivery, line: Pos
 function renderConfirmationDetail(record: PostFinishingFactoryReturnDelivery): string {
   const showSecond = ['待二次点数', '差异待授权'].includes(record.status)
   const showAuthorization = record.status === '差异待授权'
-  const references = listPostFinishingQcReferences({ deliveryId: record.deliveryId })
   return `<div class="space-y-4" data-return-confirm-root="${escapeHtml(record.deliveryId)}">
-    <div class="flex flex-wrap items-center justify-between gap-3"><button type="button" class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/post-finishing/wait-process-warehouse">← 返回回货列表</button><div class="flex gap-2">${record.status === '已确认待送检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-send-qc" data-delivery-id="${escapeHtml(record.deliveryId)}">送检并生成质检单</button>` : ''}${record.qcTaskNo ? `<a data-nav="/fcs/craft/post-finishing/print?type=SEND_QC&id=${encodeURIComponent(record.deliveryId)}" class="rounded-md border px-3 py-2 text-sm">打印送检单</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(record.qcTaskNo)}" class="rounded-md border px-3 py-2 text-sm">打开质检单</a>` : ''}</div></div>
+    <div class="flex flex-wrap items-center justify-between gap-3"><button type="button" class="text-sm text-blue-700 hover:underline" data-nav="/fcs/craft/post-finishing/wait-process-warehouse">← 返回回货列表</button><div class="flex gap-2">${record.status === '已确认待送检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-send-qc" data-delivery-id="${escapeHtml(record.deliveryId)}">确认送检出库</button>` : ''}${record.qcTaskNo && record.status !== '已确认待送检' ? `<a data-nav="/fcs/craft/post-finishing/print?type=SEND_QC&id=${encodeURIComponent(record.deliveryId)}" class="rounded-md border px-3 py-2 text-sm">打印送检单</a><a data-nav="/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(record.qcTaskNo)}" class="rounded-md border px-3 py-2 text-sm">打开质检单</a>` : ''}</div></div>
     <section class="rounded-xl border bg-card p-4"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold">${escapeHtml(record.deliveryOrderNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次回货 · ${escapeHtml(record.deliveryPersonName)}</p></div>${renderPostStatusBadge(record.status)}</div><div class="mt-3 grid gap-3 text-sm md:grid-cols-4"><div><span class="text-xs text-muted-foreground">执行任务</span><div>${escapeHtml(record.sewingTaskNo)}</div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(record.executionTaskId)}</div></div><div><span class="text-xs text-muted-foreground">分配与任务类型</span><div>${escapeHtml(record.assignmentId)}</div><div class="text-xs text-muted-foreground">${escapeHtml(POST_FINISHING_SEWING_TASK_TYPE_LABEL[record.sewingTaskType])}</div></div><div><span class="text-xs text-muted-foreground">后道最终确认人</span><div>${escapeHtml(record.confirmedBy?.actorName || '—')}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.confirmedAt || '尚未确认')}</div></div><div><span class="text-xs text-muted-foreground">差异授权人</span><div>${escapeHtml(record.returnAuthorizedBy ? `${record.returnAuthorizedBy.authorizerName} / ${record.returnAuthorizationId}` : '无需授权')}</div></div></div><div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">数据边界：工厂登记是申报；本页“后道最终确认”才是 PPIC 正式回货及履约节点的唯一数据源。</div></section>
     ${record.status !== '已确认待送检' && record.status !== '已送检' && record.status !== '已完成' ? `<section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">${showSecond ? '第二次点数' : '第一次点数'}</h3><p class="mt-1 text-xs text-muted-foreground">任一 SKU 首次差异率超过 5%才要求二次点数；二次点数仍超过 5%才需要授权。分母始终为工厂登记数量。</p><div class="mt-4 overflow-x-auto"><table class="min-w-[880px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">登记数量</th><th class="px-3 py-2">第一次点数</th><th class="px-3 py-2">第二次点数</th><th class="px-3 py-2">最终差异</th></tr></thead><tbody class="divide-y">${record.lines.map((line) => `<tr data-return-count-line="${escapeHtml(line.sku.skuId)}"><td class="px-3 py-3"><div class="flex items-center gap-3">${renderImageButton(record, line)}<div><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td><td class="px-3 py-3 font-semibold">${line.registeredQty} 件</td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2" data-return-first-count /></td><td class="px-3 py-3"><input type="number" min="0" step="1" value="${line.secondCountQty ?? line.firstCountQty ?? line.registeredQty}" class="h-9 w-24 rounded-md border px-2 ${showSecond ? '' : 'bg-slate-100'}" data-return-second-count ${showSecond ? '' : 'disabled'} /></td><td class="px-3 py-3 text-xs">${line.confirmedQty === undefined ? '系统自动计算' : `${(line.differenceQty || 0) > 0 ? '多' : (line.differenceQty || 0) < 0 ? '少' : '一致'} ${Math.abs(line.differenceQty || 0)} 件 / ${((line.differenceRate || 0) * 100).toFixed(2)}%`}</td></tr>`).join('')}</tbody></table></div>${showAuthorization ? `<div class="mt-4 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:grid-cols-2"><label class="text-sm">差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-return-difference-reason placeholder="必须填写"></textarea></label><label class="text-sm">录入或粘贴动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-return-authorization placeholder="PFAUTH:..."></textarea></label></div>` : ''}<button type="button" class="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showSecond ? (showAuthorization ? '授权并确认回货' : '提交第二次点数') : '提交第一次点数'}</button></section>` : ''}
     ${renderConfirmationCorrection(record)}
     ${renderConfirmationVersionHistory(record)}
-    <section class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">质检参考资料</h3><p class="mt-1 text-xs text-muted-foreground">独立于技术包；买手上传，或 QC 根据飞书资料代上传。</p></div><span class="text-xs text-muted-foreground">${references.length} 份</span></div><div class="mt-3 grid gap-3 lg:grid-cols-2">${references.map((reference) => `<article class="rounded-lg border p-3 text-sm"><div class="font-semibold">${escapeHtml(reference.title)} · v${reference.version}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(reference.referenceType)} / ${escapeHtml(reference.source)} / ${escapeHtml(reference.uploaderName)}</div><p class="mt-2 text-xs">${escapeHtml(reference.description)}</p>${reference.imageUrl ? `<button type="button" class="relative mt-2 flex h-24 w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(reference.imageUrl)}" data-image-label="${escapeHtml(reference.title)}"><img src="${escapeHtml(reference.imageUrl)}" alt="${escapeHtml(reference.title)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" /><span class="px-2 text-xs text-muted-foreground">图片加载中…</span></button>` : ''}</article>`).join('') || '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">本次未上传质检参考资料，不伪造默认资料。</div>'}</div>${record.status === '已确认待送检' ? `<div class="mt-4 grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-2"><label class="text-sm">资料类型<select class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-type><option>色差参考图</option><option>尺寸判断标准</option></select></label><label class="text-sm">上传来源<select class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-source><option>买手上传</option><option>QC代上传</option></select></label><label class="text-sm">资料名称<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-title placeholder="填写本批真实资料名称" /></label><label class="text-sm">实际来源<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-source-note placeholder="QC 代上传时填写飞书实际来源" /></label><label class="text-sm md:col-span-2">判断说明<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-qc-reference-description placeholder="填写本批真实判断说明"></textarea></label><label class="text-sm">选择本批参考图片<input type="file" accept="image/*" class="mt-1 block w-full rounded-md border bg-white p-2 text-xs" data-qc-reference-file /></label><label class="text-sm">或填写原型图片地址<input class="mt-1 h-9 w-full rounded-md border bg-white px-3" data-qc-reference-image placeholder="/materials/..." /></label><button type="button" class="rounded-md border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 md:col-span-2" data-post-finishing-action="full-flow-upload-reference" data-delivery-id="${escapeHtml(record.deliveryId)}">上传质检参考资料</button></div>` : ''}</section>
+    <section class="rounded-xl border border-blue-200 bg-blue-50 p-4"><h3 class="font-semibold text-blue-900">SPU 技术参数在质检单统一维护</h3><p class="mt-1 text-xs text-blue-800">颜色对照图和各尺码尺寸按 SPU 共用，本回货页不再重复上传。</p><a href="/fcs/craft/post-finishing/qc-orders" data-nav="/fcs/craft/post-finishing/qc-orders" class="mt-3 inline-flex rounded-md border border-blue-300 bg-white px-3 py-2 text-sm font-medium text-blue-700">前往质检单维护</a></section>
   </div>`
 }
 
 export function renderPostFinishingWaitProcessWarehousePage(): string {
   const selected = currentDeliveryId() ? getPostFinishingFactoryReturn(currentDeliveryId()) : undefined
   return selected
-    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', 'PDA 扫码收货优先；Web 应急确认读取同一待确认记录 → 从具体送货批次送检出仓')}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
+    ? `<div class="space-y-4 p-4" data-post-finishing-return-page>${renderPostFinishingPageHeader('后道待加工仓', '根据完整送货单号确认回货，确认后进入待加工仓并可发起送检', renderPostFinishingQcPrintActions(selected.qcTaskNo))}${renderMessage()}${renderConfirmationDetail(selected)}</div>`
     : `<div data-post-finishing-return-page>${renderWarehouseOverview('wait-process')}</div>`
 }
 
@@ -468,7 +465,7 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
       const firstCounts = lines.map((line) => ({ skuId: line.dataset.returnCountLine || '', actualQty: Number(line.querySelector<HTMLInputElement>('[data-return-first-count]')?.value || 0) }))
       const showSecond = ['待二次点数', '差异待授权'].includes(current.status)
       const secondCounts = showSecond ? lines.map((line) => ({ skuId: line.dataset.returnCountLine || '', actualQty: Number(line.querySelector<HTMLInputElement>('[data-return-second-count]')?.value || 0) })) : undefined
-      confirmPostFinishingFactoryReturn({
+      const confirmed = confirmPostFinishingFactoryReturn({
         deliveryId,
         firstCounts,
         secondCounts,
@@ -478,7 +475,7 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
           differenceReason: root.querySelector<HTMLTextAreaElement>('[data-return-difference-reason]')?.value || '',
         } : undefined,
       })
-      pageMessage = '后道已最终确认回货，数量已进入后道待加工仓；当前生效版本已进入 PPIC 回货及 30% / 70% / 100% 节点。'
+      pageMessage = `后道已最终确认回货，质检单 ${confirmed.qcTaskNo || '—'} 已自动生成并进入待送检；数量已进入后道待加工仓。`
     }
     if (action === 'full-flow-correct-return') {
       const root = document.querySelector<HTMLElement>('[data-return-confirm-root]')
@@ -498,24 +495,6 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
     if (action === 'full-flow-send-qc') {
       const task = sendPostFinishingFactoryReturnToQc({ deliveryId, actor: POST_FINISHING_ACCEPTANCE_ACTORS.sender })
       pageMessage = `送检成功：${task.qcTaskNo}`
-    }
-    if (action === 'full-flow-upload-reference') {
-      const root = document.querySelector<HTMLElement>('[data-return-confirm-root]')
-      if (!root) throw new Error('未找到资料上传表单。')
-      const source = root.querySelector<HTMLSelectElement>('[data-qc-reference-source]')?.value as '买手上传' | 'QC代上传'
-      uploadPostFinishingDeliveryQcReference({
-        deliveryId,
-        referenceType: root.querySelector<HTMLSelectElement>('[data-qc-reference-type]')?.value as '色差参考图' | '尺寸判断标准',
-        title: root.querySelector<HTMLInputElement>('[data-qc-reference-title]')?.value || '',
-        description: root.querySelector<HTMLTextAreaElement>('[data-qc-reference-description]')?.value || '',
-        imageUrl: root.querySelector<HTMLInputElement>('[data-qc-reference-file]')?.files?.[0]
-          ? URL.createObjectURL(root.querySelector<HTMLInputElement>('[data-qc-reference-file]')!.files![0]!)
-          : root.querySelector<HTMLInputElement>('[data-qc-reference-image]')?.value || undefined,
-        source,
-        sourceNote: root.querySelector<HTMLInputElement>('[data-qc-reference-source-note]')?.value || undefined,
-        actor: source === '买手上传' ? POST_FINISHING_ACCEPTANCE_ACTORS.buyer : POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
-      })
-      pageMessage = '质检参考资料已上传并绑定本次送货。'
     }
     pageMessageTone = 'success'
   } catch (error) {

@@ -21,7 +21,7 @@ const requiredUiRoutes = [
   '/fcs/craft/post-finishing/authorization-code',
   '/fcs/craft/post-finishing/work-orders',
   '/fcs/pda/post-finishing/execute',
-  '/fcs/pda/post-finishing/recheck',
+  '/fcs/craft/post-finishing/recheck-orders',
   '/fcs/craft/post-finishing/outbound-orders',
   '/fcs/pda/post-finishing/outbound-receive',
   '/fcs/craft/post-finishing/audit-records',
@@ -31,11 +31,13 @@ const requiredUiStages = [
   '公共PDA登记回货',
   'PDA回货确认',
   'Web回货确认并入待加工仓',
+  '回货确认自动生成质检单',
   'Web送检及送检单打印',
   'Web质检完成',
   'Web后道加工单打印',
   'PDA后道完成',
-  'PDA复检完成',
+  'Web接管后道完成',
+  'Web复检完成',
   'Web待交出仓入仓核对',
   'Web出货核对及出货单打印',
   'PDA仓库收货',
@@ -90,6 +92,8 @@ assert(spec.includes("toHaveLength(15)"), '必须断言 15 条跨端业务链')
 assert(spec.includes('POST_FINISHING_CROSS_TERMINAL_EVIDENCE_OUT'), '必须输出结构化验收证据')
 assert(spec.includes('POST_FINISHING_CROSS_TERMINAL_SCREENSHOT_DIR'), '必须输出逐链截图证据')
 assert(spec.includes('全部业务写入由 Web/PDA 页面操作产生'), '必须声明 UI 写入边界')
+assert(spec.includes("getByRole('button', { name: '领取质检单' })"), '跨端验收必须从质检单列表的精确领取弹窗进入 Web 质检')
+assert(spec.includes("getByRole('button', { name: '领取复检单' })"), '跨端验收必须从复检单列表的精确领取弹窗进入 Web 复检')
 assert.equal(
   packageJson.scripts?.['test:post-finishing-full-flow:cross-terminal'],
   'PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_EXPECT_TIMEOUT=45000 CUTTING_E2E_TEST_TIMEOUT=1800000 playwright test tests/post-finishing-full-flow-cross-terminal.spec.ts --workers=1 --reporter=line',

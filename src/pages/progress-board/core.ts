@@ -117,13 +117,13 @@ function renderPostFinishingPlatformResults(): string {
           <h2 class="text-base font-semibold text-foreground">后道平台结果</h2>
           <p class="mt-1 text-xs text-muted-foreground">平台侧只看后道聚合状态、风险、跟单动作、交出和差异结果。</p>
         </div>
-        <div class="text-xs text-muted-foreground">统一结果视图：后道单 / 质检单 / 复检单</div>
+        <div class="text-xs text-muted-foreground">统一结果视图：后道加工单 / 质检单 / 复检单</div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[1320px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['后道单号', '生产单', '平台状态', '工厂内部状态', '风险提示', '下一步动作', '当前责任方', '关键数量', '同步结果', '最新来源']
+              ${['后道加工单号', '生产单', '平台状态', '工厂内部状态', '风险提示', '下一步动作', '当前责任方', '关键数量', '同步结果', '最新来源']
                 .map((item) => `<th class="px-3 py-2 font-medium">${item}</th>`)
                 .join('')}
             </tr>

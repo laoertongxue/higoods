@@ -13,7 +13,6 @@ import {
   completePostFinishingQcTask,
   completePostFinishingRecheckOrderFullFlow,
   confirmPostFinishingFactoryReturn,
-  getPostFinishingQcTaskReferences,
   getPostFinishingFactoryReturn,
   getPostFinishingReturnSourceScanValue,
   getPostFinishingReturnToleranceRate,
@@ -41,8 +40,6 @@ import {
   sendPostFinishingFactoryReturnToQc,
   startPostFinishingPostTask,
   tracePostFinishingFullFlow,
-  uploadPostFinishingDeliveryQcReference,
-  uploadPostFinishingQcTaskReference,
   type PostFinishingAuthorizationInput,
   type PostFinishingFactoryReturnDelivery,
 } from '../src/data/fcs/post-finishing-full-flow.ts'
@@ -189,6 +186,16 @@ assert.equal(issuePostFinishingDocumentNumber({
   kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-2', idempotencyKey: 'NUM-2', sequence: 100,
 }, new Date(nextTime())).documentNo, numberingSecond.documentNo, '同一质检来源重复请求必须返回原任务号')
 resetPostFinishingDocumentNumbering()
+const numberingAfterLedgerLoss = issuePostFinishingDocumentNumber({
+  kind: 'QC',
+  productionOrderNo: 'PO-NUMBERING-CHECK',
+  sourceObjectId: 'NUM-5',
+  idempotencyKey: 'NUM-5',
+  sequence: 1,
+  existingDocumentNos: ['PO-NUMBERING-CHECK-1', 'PO-NUMBERING-CHECK-4', 'PO-OTHER-99', 'PO-NUMBERING-CHECK-X'],
+}, new Date(nextTime()))
+assert.equal(numberingAfterLedgerLoss.documentNo, 'PO-NUMBERING-CHECK-5', '编号台账丢失时仍必须从当前生产单已有质检单最大序号递增')
+resetPostFinishingDocumentNumbering()
 
 const slotStart = Math.floor(clockMs / POST_FINISHING_AUTHORIZATION_WINDOW_MS) * POST_FINISHING_AUTHORIZATION_WINDOW_MS
 const beforeBoundary = getPostFinishingAuthorizationDisplay('AUTH-QC-001', slotStart + 29_999)
@@ -305,24 +312,25 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       })
     }
 
+    const qcTaskCountBeforeConfirmation = listPostFinishingFullFlowQcTasks().length
     const confirmed = confirmReturn(registered, returnIndex)
     assert.equal(confirmed.status, '已确认待送检', '回货确认后应待送检')
     assert(confirmed.lines.every((line) => Number.isInteger(line.confirmedQty) && (line.confirmedQty || 0) >= 0), '最终确认数量必须逐 SKU 保存')
+    const qcTasksAfterConfirmation = listPostFinishingFullFlowQcTasks()
+    assert.equal(qcTasksAfterConfirmation.length, qcTaskCountBeforeConfirmation + 1, '每次回货最终确认时必须立即自动生成且只生成一张质检单')
+    const autoCreatedQcTask = qcTasksAfterConfirmation.find((task) => task.deliveryId === confirmed.deliveryId)
+    assert(autoCreatedQcTask, '回货确认结果必须立即关联自动生成的质检单')
+    assert.equal(confirmed.qcTaskId, autoCreatedQcTask.qcTaskId, '送货单必须在回货确认时写入质检单主键')
+    assert.equal(confirmed.qcTaskNo, autoCreatedQcTask.qcTaskNo, '送货单必须在回货确认时写入质检单号')
+    assert.equal(autoCreatedQcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}`, '确认时生成的质检单号必须为生产单号-最大序号加一')
+    assert.equal(autoCreatedQcTask.status, '待送检', '确认时生成的质检单必须等待后道待加工仓完成送检交接')
+    if (returnIndex === 1 && order === firstOrder) {
+      expectCode('尚未从后道待加工仓送检的质检单不得领取', 'INVALID_STATUS', () => {
+        claimPostFinishingQcTask({ qcTaskNo: autoCreatedQcTask.qcTaskNo, actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA, nowMs: nextTime() })
+      })
+    }
     if (returnIndex === 2 || returnIndex === 4) {
       assert.equal(confirmed.returnAuthorizationId, undefined, '±5% 边界不得要求授权')
-    }
-
-    if (returnIndex === 1 && order === firstOrder) {
-      uploadPostFinishingDeliveryQcReference({
-        deliveryId: confirmed.deliveryId,
-        referenceType: '色差参考图',
-        title: '首批色差判断参考',
-        description: '由买手在送检前上传，与技术包完全独立。',
-        imageUrl: '/materials/fabric-main.jpg',
-        source: '买手上传',
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.buyer,
-        nowMs: nextTime(),
-      })
     }
 
     const qcTask = sendPostFinishingFactoryReturnToQc({
@@ -330,6 +338,10 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       actor: POST_FINISHING_ACCEPTANCE_ACTORS.sender,
       nowMs: nextTime(),
     })
+    assert.equal(listPostFinishingFullFlowQcTasks().length, qcTasksAfterConfirmation.length, '待加工仓送检只改变交接状态，不得再次创建质检单')
+    assert.equal(qcTask.qcTaskId, autoCreatedQcTask.qcTaskId, '送检必须沿用回货确认时自动生成的同一质检单')
+    assert.equal(qcTask.qcTaskNo, autoCreatedQcTask.qcTaskNo, '送检不得重编或替换质检单号')
+    assert.equal(qcTask.status, '待质检', '完成送检交接后质检单才进入待质检')
     const duplicateQcTask = sendPostFinishingFactoryReturnToQc({
       deliveryId: confirmed.deliveryId,
       actor: POST_FINISHING_ACCEPTANCE_ACTORS.sender,
@@ -338,21 +350,6 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     assert.equal(duplicateQcTask.qcTaskId, qcTask.qcTaskId, '一张送货单只能生成一张质检任务')
     assert.equal(qcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}`, '质检任务号必须为生产单号-序号')
     assert.deepEqual(qcTask.lines.map((line) => line.expectedQty), confirmed.lines.map((line) => line.confirmedQty), '送检数必须取确认入库数')
-
-    if (returnIndex === 1 && order === firstOrder) {
-      assert.equal(getPostFinishingQcTaskReferences(qcTask.qcTaskId).length, 1, '送检时必须冻结绑定当时的质检参考资料')
-      uploadPostFinishingDeliveryQcReference({
-        deliveryId: confirmed.deliveryId,
-        referenceType: '尺寸判断标准',
-        title: '送检后补充资料',
-        description: '用于验证后续上传不覆盖历史任务绑定。',
-        source: 'QC代上传',
-        sourceNote: '买手通过飞书交给 QC',
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
-        nowMs: nextTime(),
-      })
-      assert.equal(getPostFinishingQcTaskReferences(qcTask.qcTaskId).length, 1, '后续上传不得改写已绑定任务资料')
-    }
 
     expectCode('质检任务必须精确匹配完整任务号', 'NOT_FOUND', () => {
       claimPostFinishingQcTask({ qcTaskNo: qcTask.qcTaskNo.slice(0, -1), actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA, nowMs: nextTime() })
@@ -363,32 +360,6 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
 
     let qcActor = POST_FINISHING_ACCEPTANCE_ACTORS.qcA
     claimPostFinishingQcTask({ qcTaskNo: qcTask.qcTaskNo, actor: qcActor, nowMs: nextTime() })
-    if (returnIndex === 1 && order === firstOrder) {
-      expectCode('非当前领取 QC 不得代上传任务参考资料', 'NOT_CLAIM_OWNER', () => {
-        uploadPostFinishingQcTaskReference({
-          qcTaskId: qcTask.qcTaskId,
-          referenceType: '尺寸判断标准',
-          title: '非领取人上传应阻断',
-          description: '用于验证任务资料所有权。',
-          sourceNote: '买手通过飞书提供',
-          actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcB,
-          nowMs: nextTime(),
-        })
-      })
-      const taskReference = uploadPostFinishingQcTaskReference({
-        qcTaskId: qcTask.qcTaskId,
-        referenceType: '尺寸判断标准',
-        title: 'QC 代上传本批尺寸标准',
-        description: '买手通过飞书交给当前 QC，由当前 QC 绑定本任务。',
-        imageUrl: '/materials/fabric-main.jpg',
-        sourceNote: '陈买手通过飞书提供',
-        actor: qcActor,
-        nowMs: nextTime(),
-      })
-      assert.equal(taskReference.source, 'QC代上传', 'QC 代上传必须记录资料来源')
-      assert.equal(taskReference.uploaderName, qcActor.actorName, 'QC 代上传必须记录实际上传人')
-      assert.equal(getPostFinishingQcTaskReferences(qcTask.qcTaskId).length, 2, '当前领取 QC 上传后应直接绑定本次任务')
-    }
     if (returnIndex === 4) {
       expectCode('他人扫描已领取质检任务必须提示占用', 'CLAIM_CONFLICT', () => {
         claimPostFinishingQcTask({ qcTaskNo: qcTask.qcTaskNo, actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcB, nowMs: nextTime() })
@@ -407,11 +378,11 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     const qcResults = qcTask.lines.map((line, skuIndex) => {
       if (returnIndex === 3 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 1, defectQty: 0, returnQty: 0 }
       if (returnIndex === 3 && skuIndex === 1) return { skuId: line.sku.skuId, passedQty: line.expectedQty + 1, defectQty: 0, returnQty: 0 }
-      if (returnIndex === 4 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 1, defectQty: 1, returnQty: 0, defectReason: '污渍', defectImageUrl: '/materials/fabric-main.jpg', responsibleParty: '车缝工厂' }
-      if (returnIndex === 5 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 2, defectQty: 1, returnQty: 1, defectReason: '色差', defectImageUrl: '/materials/fabric-main.jpg', responsibleParty: '车缝工厂', returnReason: '严重色差返厂', returnReceiver: '车缝工厂' }
+      if (returnIndex === 4 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 1, defectQty: 1, returnQty: 0, defectReasonQuantities: [{ reason: '脏污', quantity: 1 }] }
+      if (returnIndex === 5 && skuIndex === 0) return { skuId: line.sku.skuId, passedQty: line.expectedQty - 2, defectQty: 1, returnQty: 1, defectReasonQuantities: [{ reason: '色差', quantity: 1 }], returnReason: '质检返工', returnReceiver: order.sewingFactoryName }
       return { skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 }
     })
-    const needPostFinishing = returnIndex !== 2
+    const needPostFinishing = true
     let qcAuthorization: PostFinishingAuthorizationInput | undefined
     if (returnIndex === 3) {
       expectCode('质检逐 SKU 差异即使整单抵消也必须授权', 'AUTHORIZATION_REQUIRED', () => {
@@ -442,6 +413,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     })
     assert.equal(completedQc.status, '质检完成', '质检完成状态')
     assert.deepEqual(completedQc.results?.map((line) => [line.passedQty, line.defectQty, line.returnQty]), qcResults.map((line) => [line.passedQty, line.defectQty, line.returnQty]), '授权后必须保存真实分类数量，不得自动补数')
+    assert(completedQc.results?.every((line) => line.defectQty === (line.defectReasonQuantities || []).reduce((sum, item) => sum + item.quantity, 0)), '质检瑕疵数量必须始终等于各瑕疵原因数量之和')
     const postCountAfterQc = listPostFinishingFullFlowPostTasks().length
     const recheckCountAfterQc = listPostFinishingFullFlowRecheckOrders().length
     const repeatedQc = completePostFinishingQcTask({
@@ -451,36 +423,22 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       needPostFinishing: !needPostFinishing,
       nowMs: nextTime(),
     })
-    assert.equal(repeatedQc.needPostFinishing, needPostFinishing, '质检完成后重复提交不得切换下游分支')
-    assert.equal(listPostFinishingFullFlowPostTasks().length, postCountAfterQc, '重复质检不得生成第二个后道任务')
+    assert.equal(repeatedQc.needPostFinishing, true, '质检完成后重复提交必须保持生成后道加工单')
+    assert.equal(listPostFinishingFullFlowPostTasks().length, postCountAfterQc, '重复质检不得生成第二张后道加工单')
     assert.equal(listPostFinishingFullFlowRecheckOrders().length, recheckCountAfterQc, '重复质检不得生成第二条复检分支')
-    if (returnIndex === 1 && order === firstOrder) {
-      expectCode('已完成质检任务的历史判断资料不得补写覆盖', 'INVALID_STATUS', () => {
-        uploadPostFinishingQcTaskReference({
-          qcTaskId: qcTask.qcTaskId,
-          referenceType: '色差参考图',
-          title: '完成后补写应阻断',
-          description: '历史资料不得覆盖。',
-          sourceNote: '陈买手通过飞书提供',
-          actor: qcActor,
-          nowMs: nextTime(),
-        })
-      })
-    }
-
     let recheckNo = completedQc.recheckOrderNo
-    if (needPostFinishing) {
-      assert(completedQc.postTaskNo, '选择需要后道时必须生成后道任务')
+    {
+      assert(completedQc.postTaskNo, '选择需要后道时必须生成后道加工单')
       const startedPost = startPostFinishingPostTask({
         postTaskNo: completedQc.postTaskNo!,
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
         nowMs: nextTime(),
       })
-      expectCode('后道任务只接受完整任务号', 'NOT_FOUND', () => {
+      expectCode('后道加工单只接受完整单号', 'NOT_FOUND', () => {
         startPostFinishingPostTask({ postTaskNo: completedQc.postTaskNo!.slice(0, -1), actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator, nowMs: nextTime() })
       })
       if (returnIndex === 4) {
-        expectCode('后道任务已开始后其他账号不得接管', 'CLAIM_CONFLICT', () => {
+        expectCode('后道加工单已开始后其他账号不得接管', 'CLAIM_CONFLICT', () => {
           startPostFinishingPostTask({ postTaskNo: completedQc.postTaskNo!, actor: POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA, nowMs: nextTime() })
         })
       }
@@ -517,9 +475,6 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       assert.equal(completedPost.status, '后道完成', '后道完成状态')
       assert.equal(getPostFinishingFactoryReturn(registered.deliveryId)?.status, '已送检', '后道加工不得提前写入库存或完成收货状态')
       recheckNo = completedPost.recheckOrderNo
-    } else {
-      assert(completedQc.recheckOrderNo, '跳过后道时必须直接生成复检单')
-      assert.equal(completedQc.postTaskNo, undefined, '跳过后道不得同时生成后道任务')
     }
 
     assert(recheckNo, '每条链必须生成复检单')
@@ -634,7 +589,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       skuCount: order.skus.length,
       deliveryOrderNo: registered.deliveryOrderNo,
       qcTaskNo: qcTask.qcTaskNo,
-      branch: needPostFinishing ? '质检-后道-复检' : '质检-直达复检',
+      branch: '质检-后道-复检',
       recheckOrderNo: recheckNo!,
       outboundOrderNo: outbound.outboundOrderNo,
       waitHandoverStatus: handedWarehouseRecord?.status || '',
@@ -646,7 +601,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
 assert.equal(chainEvidence.length, 15, '验收结果必须包含 15 条独立回货全链')
 assert.equal(listPostFinishingFactoryReturns().length, 15, '必须产生 15 张独立送货单')
 assert.equal(listPostFinishingFullFlowQcTasks().length, 15, '必须产生 15 个独立质检任务')
-assert.equal(listPostFinishingFullFlowPostTasks().length, 12, '每个生产单第 2 次回货直达复检，其余共 12 个后道任务')
+assert.equal(listPostFinishingFullFlowPostTasks().length, 15, '15 次回货必须逐次生成 15 张后道加工单')
 assert.equal(listPostFinishingFullFlowRecheckOrders().length, 15, '必须产生 15 张独立复检单')
 assert.equal(listPostFinishingFullFlowOutboundOrders().length, 15, '必须产生且仅产生 15 张出货单')
 assert.equal(listPostFinishingWarehouseReceipts().length, 15, '必须产生且仅产生 15 条仓库收货记录')
@@ -659,6 +614,13 @@ assert.equal(listPostFinishingWaitHandoverWarehouseMovements().filter((item) => 
 assert.equal(listPostFinishingWaitHandoverWarehouseMovements().filter((item) => item.movementType === '后道出货交出').length, 15, '每次仓库确认收货必须形成 1 条待交出仓交出流水')
 assert(listPostFinishingWaitHandoverWarehouseRecords().every((item) => item.status === '已交出' && item.lines.every((line) => line.availableQty === 0)), '全流程结束后待交出仓记录必须显示已交出且可用数量归零')
 assert.equal(new Set(listPostFinishingFullFlowQcTasks().map((item) => item.qcTaskNo)).size, 15, '质检任务号不得重复')
+for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
+  const orderQcNumbers = listPostFinishingFullFlowQcTasks()
+    .filter((item) => item.productionOrderNo === order.productionOrderNo)
+    .sort((a, b) => a.returnIndex - b.returnIndex)
+    .map((item) => item.qcTaskNo)
+  assert.deepEqual(orderQcNumbers, [1, 2, 3, 4, 5].map((sequence) => `${order.productionOrderNo}-${sequence}`), `${order.productionOrderNo} 的 5 次回货必须严格生成生产单号-1 至生产单号-5`)
+}
 assert.equal(new Set(listPostFinishingFullFlowRecheckOrders().map((item) => item.recheckOrderNo)).size, 15, '复检单号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => item.outboundOrderNo)).size, 15, '出货单号不得重复')
 
@@ -667,7 +629,7 @@ assert(defects.some((item) => item.discoveryStage === '质检'), '统一瑕疵�
 assert(defects.some((item) => item.discoveryStage === '后道'), '统一瑕疵记录必须包含后道阶段')
 assert(defects.every((item) => item.defectReason && item.recordedBy.actorName), '两阶段瑕疵必须共用逐原因数量与记录人结构')
 assert(defects.every((item) => item.dispositionStatus === '待处理'), '质检和后道瑕疵必须共用后续处理状态')
-assert(defects.filter((item) => item.discoveryStage === '质检').every((item) => item.evidenceImageUrl && item.responsibleParty), '质检阶段继续保留证据与责任事实')
+assert(defects.filter((item) => item.discoveryStage === '质检').every((item) => !item.evidenceImageUrl && !item.responsibleParty), '质检阶段不得再要求或写入瑕疵证据图片与责任方')
 assert(defects.filter((item) => item.discoveryStage === '后道').every((item) => !item.evidenceImageUrl && !item.responsibleParty), '后道调整不得再要求或写入责任方与现场证据图片')
 const firstQcDefect = defects.find((item) => item.discoveryStage === '质检')!
 const firstPostDefect = defects.find((item) => item.discoveryStage === '后道')!
@@ -699,7 +661,7 @@ expectCode('已绑定旧差异的授权码不得用于修改后的数量或原�
 assert(listPostFinishingAuthorizationConsumptions().every((item) => item.authorizerName && item.operatorName), '每次授权必须同时记录授权人与现场操作人')
 
 const logs = listPostFinishingOperationLogs()
-assert(logs.some((item) => item.result === '阻断' && item.action.includes('输入任务号领取冲突')), '操作日志必须保存 Web 输入任务号领取冲突')
+assert(logs.some((item) => item.result === '阻断' && item.action.includes('领取冲突')), '操作日志必须保存完整单号领取冲突')
 assert(logs.some((item) => item.action === '第一次点数') && logs.some((item) => item.action === '第二次点数') && logs.some((item) => item.action === '最终确认回货'), '回货两次点数和最终确认必须分别留痕')
 assert(logs.some((item) => item.action === '重新贴码'), '操作日志必须保存重新贴码动作')
 assert(logs.some((item) => item.action === '差异授权' && item.authorizerName), '操作日志必须保存授权人')
@@ -732,7 +694,7 @@ const evidence = {
     returnChains: 15,
     skuReturnLines: 75,
     qcTasks: 15,
-    postTasks: 12,
+    postTasks: 15,
     recheckOrders: 15,
     outboundOrders: 15,
     warehouseReceipts: 15,
@@ -745,7 +707,7 @@ const evidence = {
   },
   coveredScenarios: [
     '正常一致', '回货-5%边界', '回货+5%与-5%整单抵消', '回货超过5%二次点数与授权',
-    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', '买手上传与当前QC代上传资料冻结', '质检直达复检', '后道领取冲突',
+    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', 'SPU技术参数独立维护与质检使用', '回货-质检-后道-复检-出货一次回货1:1', '后道领取冲突',
     '后道本环节守恒但全链不守恒仍授权', '质检与后道统一瑕疵和返厂', '复检领取冲突与释放', '条码错误阻断', '重贴未复扫阻断',
     '重贴后复扫恢复', '一复检一出货幂等', '仓库只接受FCK单号', '仓库差异授权', '重复收货幂等',
     '后道待交出仓复检入仓与出货交出', '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',

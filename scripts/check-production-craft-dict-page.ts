@@ -71,7 +71,7 @@ try {
     ],
     '任务清单未按当前任务边界收口',
   )
-  assert(!taskBreakdownSource.includes('POST_FINISHING'), '任务清单不得再引入通用“后道任务”')
+  assert(!taskBreakdownSource.includes('POST_FINISHING'), '任务清单不得再引入通用“后道生产任务”')
 
   const processDefinitions = listProcessDefinitions()
   const activeRows = listProcessCraftDictRows()
@@ -172,7 +172,7 @@ try {
   assert(preparationOrderArtifacts.every((item) => item.stageCode === 'PREP'), '生产准备单必须归准备阶段')
   assert(taskArtifacts.every((item) => item.stageCode !== 'PREP'), '生产准备工序不得生成生产任务')
   assert(!taskArtifacts.some((item) => ['BUTTONHOLE', 'BUTTON_ATTACH'].includes(item.processCode)), '开扣眼、装扣子不得生成独立任务')
-  assert(!taskArtifacts.some((item) => item.processCode === 'POST_FINISHING'), '不得生成通用“后道任务”')
+  assert(!taskArtifacts.some((item) => item.processCode === 'POST_FINISHING'), '不得生成通用“后道生产任务”')
 
   console.log(JSON.stringify({
     页面字段口径: '已校验',

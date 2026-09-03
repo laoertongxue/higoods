@@ -81,7 +81,7 @@ test('工厂端移动应用区分专门后道流程和车缝厂已做后道流�
   }, PDA_SEWING_SESSION)
 
   await page.goto('/fcs/pda/exec/TASK-POST-001')
-  await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '后道生产任务' })).toBeVisible()
   await expect(page.getByText('接收接收 -> 质检 -> 后道 -> 复检 -> 交出')).toBeVisible()
   await expect(page.getByRole('button', { name: '确认接收接收' })).toBeVisible()
 
@@ -95,7 +95,7 @@ test('工厂端移动应用区分专门后道流程和车缝厂已做后道流�
   await expect(page.getByRole('button', { name: '完成后道' })).toHaveCount(0)
 })
 
-test('车缝工厂移动端既能看到车缝后道任务又不能执行质检复检', async ({ page }) => {
+test('车缝工厂移动端既能看到车缝及后道加工任务又不能执行质检复检', async ({ page }) => {
   await page.addInitScript((session) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
   }, PDA_SEWING_SESSION)
@@ -105,7 +105,7 @@ test('车缝工厂移动端既能看到车缝后道任务又不能执行质检�
   await expect(page.getByText('HD-2026-104').first()).toBeVisible()
 
   await page.goto('/fcs/pda/exec/SEW-POST-104')
-  await expect(page.getByRole('heading', { name: '车缝后道任务' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车缝及后道加工任务' })).toBeVisible()
   await expect(page.getByText('是否需要本厂完成后道')).toBeVisible()
   await expect(page.getByText('后道后流向')).toBeVisible()
   await expect(page.getByRole('button', { name: '开始后道' })).toBeVisible()

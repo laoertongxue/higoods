@@ -41,7 +41,7 @@ assert.deepEqual(
 )
 
 const workOrders = listPostFinishingWorkOrders()
-assert.ok(workOrders.length >= 5, '后道任务 Mock 不足')
+assert.ok(workOrders.length >= 5, '后道加工单 Mock 不足')
 const allowedNames = new Set(['开扣眼', '装扣子', '烫包'])
 for (const order of workOrders) {
   assert.ok(order.skuLines.length > 0, `${order.postOrderNo} 缺少 SKU 明细`)
@@ -73,12 +73,12 @@ assert.ok(detailSource.includes('开始${escapeHtml(line.projectName)}'), 'Web �
 assert.ok(detailSource.includes('完成${escapeHtml(line.projectName)}'), 'Web 必须按实际工序名称展示完成动作')
 const pdaSource = readFileSync(new URL('../src/pages/pda-exec-detail.ts', import.meta.url), 'utf8')
 assert.ok(pdaSource.includes("task.skuLines.reduce((sum, line) => sum + line.plannedQty, 0)"), 'PDA 成衣数量必须从 SKU 明细汇总，不能显示未定义字段')
-assert.ok(pdaSource.includes('实际工序完成成衣件数') && pdaSource.includes('关联后道单号'), 'PDA 必须区分实际工序事实与后道单对象')
+assert.ok(pdaSource.includes('实际工序完成成衣件数') && pdaSource.includes('关联后道加工单号'), 'PDA 必须区分实际工序事实与后道加工单对象')
 
 console.log(JSON.stringify({
   后道阶段实际工序: POST_STAGE_PROCESSES.map((item) => item.name),
   流程节点: POST_STAGE_FLOW_NODES.map((item) => item.name),
-  后道单数: workOrders.length,
+  后道加工单数: workOrders.length,
   无实际工序路线: '收货→质检→复检→交接',
   命名门禁: '通过',
 }, null, 2))

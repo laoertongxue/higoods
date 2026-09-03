@@ -122,28 +122,31 @@ for (const [name, content] of [
 }
 
 for (const path of [
-  'output/verification/post-finishing-full-flow/2026-09-01-online-baseline-final-pass-1/',
-  'output/verification/post-finishing-full-flow/2026-09-01-online-baseline-final-pass-2/',
+  'output/verification/post-finishing-full-flow/2026-09-03-auto-qc-final-pass-1/',
+  'output/verification/post-finishing-full-flow/2026-09-03-auto-qc-final-pass-2/',
 ]) {
   assert(plan.includes(path), `实施计划缺少持久化证据目录：${path}`)
   assert(review.includes(path), `原型审查记录缺少持久化证据目录：${path}`)
 }
 
-assert(review.includes('48张截图') && matrix.includes('48张截图'), '审查记录或矩阵缺少每轮48张截图证据')
+assert(review.includes('50张截图') && matrix.includes('50张截图'), '审查记录或矩阵缺少每轮50张截图证据')
 assert(review.includes('5张关键 Web 页面') && matrix.includes('5张关键 Web 页面'), '审查记录或矩阵缺少每轮5张关键Web页面证据')
-assert(review.includes('11张截图') && matrix.includes('11张截图'), '审查记录或矩阵缺少11张命名页面证据')
+assert(review.includes('13张截图') && matrix.includes('13张截图'), '审查记录或矩阵缺少13张命名页面证据')
 assert(crossTerminalSpec.includes('全部业务写入由 Web/PDA 页面操作产生'), '连续UI测试缺少写入边界声明')
 assert(crossTerminalSpec.includes("toHaveLength(15)"), '连续UI测试缺少15条链断言')
 assert(crossTerminalStaticCheck.includes('forbiddenDomainWrites'), '跨端静态门禁缺少领域写入禁用清单')
-assert(crossTerminalEvidenceCheck.includes("screenshots.length, 48"), '跨端证据检查缺少48张截图门槛')
+assert(crossTerminalEvidenceCheck.includes("screenshots.length, 50"), '跨端证据检查缺少50张截图门槛')
 assert(crossTerminalEvidenceCheck.includes("traces.length, 1"), '跨端证据检查缺少完整trace门槛')
+assert(crossTerminalEvidenceCheck.includes("stage === '回货确认自动生成质检单'"), '跨端证据检查缺少确认时自动建单门槛')
+assert(crossTerminalEvidenceCheck.includes("status, '待送检'"), '跨端证据检查缺少确认时待送检状态门槛')
+assert(crossTerminalEvidenceCheck.includes('generatedAtConfirmation, true') && crossTerminalEvidenceCheck.includes('sentAtConfirmation, false'), '跨端证据检查缺少确认已建单且未送检的事实门槛')
 assert(crossTerminalEvidenceCheck.includes('shape(readEvidence(passes[0]).evidence)'), '跨端证据检查缺少两轮结构一致性比较')
 
 for (const hash of [
-  'c94fb399323b25a009658e23cc052ef2bc73f1dd0ca6154206228680dae37d89',
-  '0ed0135daec9b4040c7229c5d4f7fe581d40d165cd4c6812ef5fa7c113466ace',
-  '83c9110ddbfb2d912af30fbcb69fb510c8eda016e6f02b0b679cc4321813844f',
-  '54d2d8c3aa2c78af85ad276aee60db89267479962abbe1c7613a5cf5d63a78be',
+  '2455273d1f25e1a9f320821ec3ca3631ce20a28ae1123ebbfe480589f36522a6',
+  'a8e3328a57ebae6d222c94c8bda893ccf79105b3493386e1fdcee9abe70226e3',
+  '65c1c27af7aa27d19f22d4dc14cee10a09d32aee8a25b60641b983a941fdb883',
+  '911a2a115b6527844eca57a56da9dc094c76a53e969b307d21e18b85edaefa3d',
 ]) {
   assert(plan.includes(hash), `实施计划缺少最终证据哈希：${hash}`)
   assert(review.includes(hash), `原型审查记录缺少最终证据哈希：${hash}`)

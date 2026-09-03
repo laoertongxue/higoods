@@ -1,20 +1,23 @@
 // @page-pattern: form
 
 import {
-  POST_FINISHING_DEFECT_REASON_OPTIONS,
+  POST_FINISHING_QC_DEFECT_REASON_OPTIONS,
   claimPostFinishingQcTask,
   completePostFinishingQcTask,
-  getPostFinishingFactoryReturn,
   getCurrentPostFinishingActor,
+  getPostFinishingFactoryReturn,
   getPostFinishingFullFlowQcTask,
-  getPostFinishingQcTaskReferences,
+  listPostFinishingQcReworkFactoryOptions,
   releasePostFinishingQcTask,
-  uploadPostFinishingQcTaskReference,
   type PostFinishingQcTask,
 } from '../../../data/fcs/post-finishing-full-flow.ts'
+import {
+  getPostFinishingSpuTechnicalParameter,
+  isPostFinishingSpuTechnicalParameterMaintained,
+} from '../../../data/fcs/post-finishing-spu-technical-parameters.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostFinishingPageHeader, renderPostStatusBadge } from './shared.ts'
+import { renderPostFinishingPageHeader, renderPostFinishingQcPrintActions, renderPostStatusBadge } from './shared.ts'
 
 let notice = ''
 let noticeTone: 'success' | 'error' = 'success'
@@ -37,7 +40,7 @@ function renderScanner(): string {
   const actor = getCurrentPostFinishingActor()
   return `<section class="mx-auto max-w-2xl rounded-xl border bg-card p-5 shadow-sm" data-qc-workbench-scan>
     <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold">输入完整质检单号</h2><p class="mt-1 text-sm text-muted-foreground">Web 端不调用摄像头；输入完整单号后由当前账号领取。</p></div><div class="text-right text-xs"><div class="font-semibold">当前账号：${escapeHtml(actor.actorName)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(actor.roleName)}</div></div></div>
-    <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="请输入完整任务号，例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-input" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取任务</button></div>
+    <div class="mt-5 flex gap-2"><input autofocus class="h-11 min-w-0 flex-1 rounded-md border px-3 font-mono" placeholder="请输入完整质检单号，例如 PO-QC-202608-001-1" data-post-finishing-field="qc-task-input" /><button type="button" class="rounded-md bg-blue-600 px-5 text-sm font-semibold text-white" data-post-finishing-action="full-flow-claim-qc">领取质检单</button></div>
     <div class="mt-4 text-xs"><a data-nav="/fcs/craft/post-finishing/qc-orders" class="text-slate-600 underline">返回质检单</a></div>
   </section>`
 }
@@ -48,29 +51,57 @@ function imageButton(task: PostFinishingQcTask, index: number): string {
   return `<button type="button" class="relative flex h-14 w-14 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(sku.imageUrl)}" data-image-label="${escapeHtml(label)}"><img src="${escapeHtml(sku.imageUrl)}" alt="${escapeHtml(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[10px] text-slate-500">图片加载中…</span></button>`
 }
 
-function renderReferences(task: PostFinishingQcTask): string {
-  const references = getPostFinishingQcTaskReferences(task.qcTaskId)
-  const cards = references.map((record) => `<article class="rounded-lg border p-3"><div class="text-sm font-semibold">${escapeHtml(record.title)} · v${record.version}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.referenceType)} / ${escapeHtml(record.source)} / 实际上传人 ${escapeHtml(record.uploaderName)}</div>${record.sourceNote ? `<div class="mt-1 text-xs text-muted-foreground">资料实际来源：${escapeHtml(record.sourceNote)}</div>` : ''}<p class="mt-2 text-xs">${escapeHtml(record.description)}</p>${record.imageUrl ? `<button type="button" class="relative mt-2 flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(record.imageUrl)}" data-image-label="${escapeHtml(record.title)}"><img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.title)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="text-xs text-slate-500">图片加载中…</span></button>` : '<div class="mt-2 rounded border border-dashed p-3 text-xs text-muted-foreground">该资料无图片，仅使用文字判断说明。</div>'}</article>`).join('')
-  const canUpload = task.status !== '质检完成' && task.claimedBy?.actorId === getCurrentPostFinishingActor().actorId
-  return `<section class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">本次质检参考资料</h3><p class="mt-1 text-xs text-muted-foreground">独立于技术包，绑定本次任务；后续上传不会覆盖既有版本。</p></div><span class="text-xs text-muted-foreground">${references.length} 份</span></div><div class="mt-3 grid gap-3 md:grid-cols-2">${cards || '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground md:col-span-2">本次未上传色差参考图或尺寸判断标准；系统明确显示未上传，不伪造默认资料，也不阻断质检。</div>'}</div>${canUpload ? `<div class="mt-4 grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 md:grid-cols-2" data-qc-task-reference-form><label class="text-xs text-blue-900">资料类型<select class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-type><option>色差参考图</option><option>尺寸判断标准</option></select></label><label class="text-xs text-blue-900">资料名称<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-title placeholder="填写本批判断资料名称" /></label><label class="text-xs text-blue-900 md:col-span-2">飞书实际来源<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-source-note placeholder="例如：陈买手通过飞书提供" /></label><label class="text-xs text-blue-900 md:col-span-2">判断说明<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-qc-task-reference-description></textarea></label><label class="text-xs text-blue-900">选择本批参考图片<input type="file" accept="image/*" class="mt-1 block w-full rounded-md border bg-white p-2" data-qc-task-reference-file /></label><label class="text-xs text-blue-900">或填写原型图片地址<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-task-reference-image placeholder="/materials/..." /></label><button type="button" class="h-10 rounded-md bg-blue-600 font-semibold text-white md:col-span-2" data-post-finishing-action="full-flow-upload-qc-reference" data-task-id="${escapeHtml(task.qcTaskId)}">QC 代上传并绑定本次任务</button></div>` : ''}</section>`
+function priorReasonQuantity(task: PostFinishingQcTask, index: number, reason: string): number {
+  const line = task.lines[index]
+  const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
+  const detailed = prior?.defectReasonQuantities?.find((item) => item.reason === reason)?.quantity
+  if (detailed !== undefined) return detailed
+  if (prior?.defectReason === reason) return prior.defectQty
+  if (reason === '其他' && prior?.defectQty && !prior.defectReasonQuantities?.length) return prior.defectQty
+  return 0
 }
 
 function renderResultLine(task: PostFinishingQcTask, index: number, canEdit: boolean): string {
   const line = task.lines[index]
   const prior = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
   const disabled = canEdit ? '' : 'disabled'
-  return `<article class="rounded-xl border p-3" data-qc-result-line="${escapeHtml(line.sku.skuId)}" data-expected-qty="${line.expectedQty}">
-    <div class="flex gap-3">${imageButton(task, index)}<div class="min-w-0 flex-1"><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.spuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)} · 送检 ${line.expectedQty} 件</div></div></div>
-    <div class="mt-3 grid grid-cols-3 gap-2"><label class="text-xs text-muted-foreground">合格<input type="number" min="0" step="1" value="${prior?.passedQty ?? line.expectedQty}" class="mt-1 h-10 w-full rounded-md border px-2 text-right" data-qc-result-field="passedQty" ${disabled}/></label><label class="text-xs text-muted-foreground">瑕疵<input type="number" min="0" step="1" value="${prior?.defectQty ?? 0}" class="mt-1 h-10 w-full rounded-md border px-2 text-right" data-qc-result-field="defectQty" ${disabled}/></label><label class="text-xs text-muted-foreground">返厂<input type="number" min="0" step="1" value="${prior?.returnQty ?? 0}" class="mt-1 h-10 w-full rounded-md border px-2 text-right" data-qc-result-field="returnQty" ${disabled}/></label></div>
-    <div class="mt-2 grid gap-2 md:grid-cols-2"><input value="${escapeHtml(prior?.defectReason || '')}" list="post-finishing-defect-reasons" placeholder="有瑕疵时填写瑕疵原因" class="h-9 rounded-md border px-3 text-xs" data-qc-result-field="defectReason" ${disabled}/><input value="${escapeHtml(prior?.responsibleParty || '')}" placeholder="瑕疵责任方" class="h-9 rounded-md border px-3 text-xs" data-qc-result-field="responsibleParty" ${disabled}/><label class="rounded-md border bg-slate-50 p-2 text-[11px] text-muted-foreground">上传瑕疵证据图片<input type="file" accept="image/*" class="mt-1 block w-full text-[11px]" data-qc-result-file="defectImage" ${disabled}/></label><input value="${escapeHtml(prior?.defectImageUrl || '')}" placeholder="或填写瑕疵证据图片地址" class="h-9 self-center rounded-md border px-3 text-xs" data-qc-result-field="defectImageUrl" ${disabled}/><input value="${escapeHtml(prior?.returnReason || '')}" placeholder="有返厂时填写返厂原因" class="h-9 rounded-md border px-3 text-xs" data-qc-result-field="returnReason" ${disabled}/><input value="${escapeHtml(prior?.returnReceiver || '')}" placeholder="返厂接收责任方" class="h-9 rounded-md border px-3 text-xs" data-qc-result-field="returnReceiver" ${disabled}/></div>
+  const reworkQty = prior?.returnQty ?? 0
+  const defectQty = POST_FINISHING_QC_DEFECT_REASON_OPTIONS.reduce((sum, reason) => sum + priorReasonQuantity(task, index, reason), 0)
+  return `<article class="overflow-hidden rounded-xl border bg-white" data-qc-result-line="${escapeHtml(line.sku.skuId)}" data-expected-qty="${line.expectedQty}">
+    <div class="flex gap-3 border-b bg-slate-50/70 p-3">${imageButton(task, index)}<div class="min-w-0 flex-1"><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)} · 送检 ${line.expectedQty} 件</div></div></div>
+    <div class="space-y-4 p-3">
+      <section><h4 class="text-sm font-semibold">质检与返工</h4><div class="mt-2 grid gap-3 sm:grid-cols-3">
+        <label class="text-xs text-muted-foreground">待质检数量<input value="${line.expectedQty} 件" class="mt-1 h-10 w-full rounded-md border bg-slate-100 px-3" disabled /></label>
+        <label class="text-xs text-muted-foreground">合格数量<input type="number" min="0" step="1" value="${prior?.passedQty ?? line.expectedQty}" class="mt-1 h-10 w-full rounded-md border px-3 text-right" data-qc-result-field="passedQty" ${disabled}/></label>
+        <label class="text-xs text-muted-foreground">返工数量<input type="number" min="0" step="1" value="${reworkQty}" class="mt-1 h-10 w-full rounded-md border px-3 text-right" data-qc-result-field="returnQty" ${disabled}/></label>
+      </div><div class="${reworkQty > 0 ? '' : 'hidden '}mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3" data-qc-rework-factory-block><label class="block text-xs text-amber-900">返工接收工厂（可输入搜索）<input value="${escapeHtml(prior?.returnReceiver || '')}" list="post-finishing-qc-rework-factories" placeholder="请输入工厂名称搜索并选择" class="mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm" data-qc-result-field="returnReceiver" ${reworkQty > 0 && canEdit ? '' : 'disabled'}/></label></div></section>
+      <section class="border-t border-dashed pt-4"><div class="flex flex-wrap items-end justify-between gap-3"><div><h4 class="text-sm font-semibold">瑕疵</h4><p class="mt-1 text-xs text-muted-foreground">分别填写各瑕疵原因数量，瑕疵数量由系统自动汇总。</p></div><label class="w-36 text-xs text-muted-foreground">瑕疵数量<input type="number" value="${defectQty}" class="mt-1 h-10 w-full rounded-md border bg-slate-100 px-3 text-right font-semibold" data-qc-result-field="defectQty" readonly /></label></div>
+        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">${POST_FINISHING_QC_DEFECT_REASON_OPTIONS.map((reason) => `<label class="text-xs text-muted-foreground">${escapeHtml(reason)}<input type="number" min="0" step="1" value="${priorReasonQuantity(task, index, reason)}" class="mt-1 h-9 w-full rounded-md border px-2 text-right" data-qc-defect-reason="${escapeHtml(reason)}" ${disabled}/></label>`).join('')}</div>
+      </section>
+    </div>
   </article>`
+}
+
+function renderTechnicalParameterImage(url: string, label: string, className = 'h-40'): string {
+  return `<button type="button" class="relative flex ${className} w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(url)}" data-image-label="${escapeHtml(label)}"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="text-xs text-slate-500">图片加载中…</span></button>`
+}
+
+function renderSpuTechnicalParameters(task: PostFinishingQcTask): string {
+  const spuCodes = [...new Set(task.lines.map((line) => line.sku.spuCode))]
+  return `<aside class="space-y-3 xl:sticky xl:top-4 xl:self-start" data-qc-spu-technical-parameters><section class="rounded-xl border bg-card p-4"><div class="flex items-start justify-between gap-3"><div><h3 class="font-semibold">SPU 技术参数</h3><p class="mt-1 text-xs text-muted-foreground">颜色对照图、各尺码尺寸</p></div><button type="button" class="rounded-md border px-3 py-2 text-xs text-blue-700" data-post-finishing-action="open-spu-tech-params" data-spu-code="${escapeHtml(spuCodes[0] || '')}" data-skip-page-rerender="true">维护参数</button></div></section>${spuCodes.map((spuCode) => {
+    const line = task.lines.find((item) => item.sku.spuCode === spuCode)!
+    const record = getPostFinishingSpuTechnicalParameter(spuCode)
+    const maintained = isPostFinishingSpuTechnicalParameterMaintained(record)
+    if (!record || !maintained) return `<section class="rounded-xl border border-amber-200 bg-amber-50 p-4"><div class="flex gap-3"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(line.sku.spuName)}" class="h-16 w-16 rounded-lg border object-cover"/><div class="min-w-0"><div class="font-semibold">${escapeHtml(spuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuName)}</div><span class="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800">技术参数未维护</span></div></div><button type="button" class="mt-3 h-9 w-full rounded-md bg-amber-600 text-sm font-medium text-white" data-post-finishing-action="open-spu-tech-params" data-spu-code="${escapeHtml(spuCode)}" data-skip-page-rerender="true">立即维护</button></section>`
+    return `<section class="space-y-3 rounded-xl border bg-card p-4"><div class="flex gap-3"><img src="${escapeHtml(record.productImageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-16 w-16 rounded-lg border object-cover"/><div class="min-w-0"><div class="font-semibold">${escapeHtml(record.spuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div><span class="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800">技术参数已维护</span></div></div><div><div class="mb-2 text-xs font-medium">颜色对照图</div>${renderTechnicalParameterImage(record.colorReferenceImageUrl, `${record.spuCode} 颜色对照图`)}${record.colorReferenceNote ? `<p class="mt-2 text-xs text-muted-foreground">${escapeHtml(record.colorReferenceNote)}</p>` : ''}</div><div><div class="mb-2 text-xs font-medium">各尺码尺寸</div><div class="overflow-x-auto"><table class="w-full min-w-[430px] text-left text-[11px]"><thead class="bg-slate-50 text-muted-foreground"><tr><th class="px-2 py-2">尺码</th><th class="px-2 py-2">衣长</th><th class="px-2 py-2">肩宽</th><th class="px-2 py-2">胸围</th><th class="px-2 py-2">袖长</th><th class="px-2 py-2">袖口</th></tr></thead><tbody>${record.sizeRows.map((row) => `<tr class="border-t"><td class="px-2 py-2 font-medium">${escapeHtml(row.sizeName)}</td><td class="px-2 py-2">${escapeHtml(row.backLength || '见图')}</td><td class="px-2 py-2">${escapeHtml(row.shoulderWidth || '见图')}</td><td class="px-2 py-2">${escapeHtml(row.bust || '见图')}</td><td class="px-2 py-2">${escapeHtml(row.sleeveLength || '见图')}</td><td class="px-2 py-2">${escapeHtml(row.cuff || '见图')}</td></tr>`).join('')}</tbody></table></div>${record.sizeRows.filter((row) => row.imageUrl).map((row) => `<div class="mt-2"><div class="mb-1 text-xs">${escapeHtml(row.sizeName)} 码尺寸图</div>${renderTechnicalParameterImage(row.imageUrl!, `${record.spuCode} ${row.sizeName} 码尺寸图`, 'h-28')}</div>`).join('')}</div><div class="border-t pt-3 text-[11px] text-muted-foreground">${escapeHtml(record.updatedBy)} · ${escapeHtml(new Date(record.updatedAt).toLocaleString('zh-CN'))}</div></section>`
+  }).join('')}</aside>`
 }
 
 function renderTask(task: PostFinishingQcTask): string {
   const actor = getCurrentPostFinishingActor()
   const delivery = getPostFinishingFactoryReturn(task.deliveryId)
   const isOwner = task.claimedBy?.actorId === actor.actorId
-  const canEdit = Boolean(isOwner && task.status !== '质检完成')
+  const canEdit = Boolean(isOwner && task.status === '质检中')
   const expectedTotal = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
   const actualTotal = task.results?.reduce((sum, line) => sum + line.passedQty + line.defectQty + line.returnQty, 0) ?? expectedTotal
   const differentSkuCount = task.results?.filter((result) => result.expectedQty !== result.passedQty + result.defectQty + result.returnQty).length ?? 0
@@ -80,51 +111,61 @@ function renderTask(task: PostFinishingQcTask): string {
       : `<button type="button" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800" data-post-finishing-action="full-flow-release-qc-prompt" data-task-id="${escapeHtml(task.qcTaskId)}">错误领取，退回待质检</button>`
     : ''
   return `<div class="space-y-4" data-qc-workbench-task="${escapeHtml(task.qcTaskId)}" data-skip-page-rerender="true">
-    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 输入其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><p class="mt-1 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 送检：${escapeHtml(new Date(task.sentAt).toLocaleString('zh-CN'))}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : '尚未领取'}</div></div></div>
+    <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><button type="button" data-post-finishing-action="full-flow-qc-clear" class="text-sm text-blue-700 hover:underline">← 输入其他任务</button><h2 class="mt-2 text-xl font-semibold">${escapeHtml(task.qcTaskNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.deliveryOrderNo)} · ${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次送货</p><p class="mt-1 text-xs text-muted-foreground">送货登记：${escapeHtml(delivery ? new Date(delivery.registeredAt).toLocaleString('zh-CN') : '—')} · 质检单生成：${escapeHtml(new Date(task.createdAt).toLocaleString('zh-CN'))} · 送检：${escapeHtml(task.sentAt ? new Date(task.sentAt).toLocaleString('zh-CN') : '待加工仓尚未送检')}</p></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">${task.claimedBy ? `质检员：${escapeHtml(task.claimedBy.actorName)}<br/>领取：${escapeHtml(new Date(task.claimedAt || '').toLocaleString('zh-CN'))}` : task.status === '待送检' ? '尚未送检，不能领取' : '尚未领取'}</div></div></div>
+      ${task.status === '待送检' ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">质检单已在回货确认时生成，但对应货物尚未从后道待加工仓送检出库。请先完成送检交接，再由质检员领取。</div>` : ''}
       ${task.claimedBy && !isOwner && task.status !== '质检完成' ? `<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">已由 ${escapeHtml(task.claimedBy.actorName)} 质检中。当前账号不能录入或提交。</div>` : ''}
-      <div class="mt-4 flex flex-wrap gap-2">${!task.claimedBy && task.status !== '质检完成' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-claim-qc" data-task-no="${escapeHtml(task.qcTaskNo)}">领取任务</button>` : ''}${releaseControl}${task.status === '质检完成' ? `<a data-nav="${task.postTaskNo ? `/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.postTaskNo)}` : `/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(task.recheckOrderNo || '')}`}" class="rounded-md border px-4 py-2 text-sm">查看下游单据</a>` : ''}</div>
+      <div class="mt-4 flex flex-wrap gap-2">${!task.claimedBy && task.status === '待质检' ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-claim-qc" data-task-no="${escapeHtml(task.qcTaskNo)}">领取质检单</button>` : ''}${task.status === '待送检' ? `<a data-nav="/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=${encodeURIComponent(task.deliveryId)}" class="rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800">去待加工仓送检</a>` : ''}${releaseControl}${task.status === '质检完成' ? `<a data-nav="/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(task.postTaskNo || '')}" class="rounded-md border px-4 py-2 text-sm">查看后道加工单</a>` : ''}</div>
     </section>
-    ${renderReferences(task)}
-    <section class="rounded-xl border bg-card p-4"><div><h3 class="font-semibold">逐 SKU 质检结果</h3><p class="mt-1 text-xs text-muted-foreground">合格 + 瑕疵 + 返厂应等于送检数；回货后任一逐 SKU 数量差异都必须授权。</p></div><div class="mt-3 rounded-lg px-3 py-2 text-sm ${differentSkuCount ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}" data-qc-live-summary>送检 ${expectedTotal} 件 · 当前分类合计 ${actualTotal} 件 · 整单差异 ${actualTotal - expectedTotal} 件 · ${differentSkuCount} 个 SKU 有差异</div><div class="mt-4 space-y-3">${task.lines.map((_, index) => renderResultLine(task, index, canEdit)).join('')}</div>
-      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><label class="block text-sm">下游处理<select class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-need-post><option value="yes">需要后道加工</option><option value="no">不需要后道，直接复检</option></select></label><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须录入授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">录入或粘贴 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}">完成质检并生成下一环节</button></div>` : ''}
-    </section>
-    <datalist id="post-finishing-defect-reasons">${POST_FINISHING_DEFECT_REASON_OPTIONS.map((reason) => `<option value="${escapeHtml(reason)}"></option>`).join('')}</datalist>
+    <div class="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]"><section class="min-w-0 rounded-xl border bg-card p-4"><div><h3 class="font-semibold">逐 SKU 质检结果</h3><p class="mt-1 text-xs text-muted-foreground">合格 + 瑕疵 + 返工应等于送检数；瑕疵数量由各原因自动汇总，数量存在差异时必须授权。</p></div><div class="mt-3 rounded-lg px-3 py-2 text-sm ${differentSkuCount ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}" data-qc-live-summary>送检 ${expectedTotal} 件 · 当前分类合计 ${actualTotal} 件 · 整单差异 ${actualTotal - expectedTotal} 件 · ${differentSkuCount} 个 SKU 有差异</div><div class="mt-4 space-y-3">${task.lines.map((_, index) => renderResultLine(task, index, canEdit)).join('')}</div>
+      ${canEdit ? `<div class="mt-4 space-y-3 rounded-xl border bg-slate-50 p-3"><fieldset class="rounded-lg border bg-white p-3" data-qc-process-items><legend class="px-1 text-sm font-medium">后道加工项目</legend><p class="mb-2 text-xs text-muted-foreground">质检完成后必定生成一张后道加工单，请勾选本批实际加工项目。</p><div class="grid gap-2 sm:grid-cols-3"><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="开扣眼" checked data-qc-process-item />开扣眼</label><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="装扣子" checked data-qc-process-item />装扣子</label><label class="flex items-center gap-2 rounded-md border p-2 text-sm"><input type="checkbox" value="烫包" checked data-qc-process-item />烫包</label></div></fieldset><div class="${differentSkuCount ? '' : 'hidden '}grid gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 md:grid-cols-2" data-qc-difference-authorization><div class="text-sm font-semibold text-amber-900 md:col-span-2">当前存在逐 SKU 数量差异，提交前必须录入授权码。</div><label class="text-sm">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-qc-difference-reason /></label><label class="text-sm md:col-span-2">录入或粘贴 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-qc-authorization></textarea></label></div><button type="button" class="h-11 w-full rounded-md bg-blue-600 font-semibold text-white" data-post-finishing-action="full-flow-complete-qc" data-task-id="${escapeHtml(task.qcTaskId)}">完成质检并生成后道加工单</button></div>` : ''}</section>${renderSpuTechnicalParameters(task)}</div>
+    <datalist id="post-finishing-qc-rework-factories">${listPostFinishingQcReworkFactoryOptions().map((factory) => `<option value="${escapeHtml(factory.value)}">${escapeHtml(factory.label)}</option>`).join('')}</datalist>
   </div>`
 }
 
 export function renderPostFinishingQcWorkbenchPage(): string {
   const taskNo = query().get('taskNo') || ''
   const task = taskNo ? getPostFinishingFullFlowQcTask(taskNo) : undefined
-  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('质检单执行', '输入完整单号领取 · 一单一质检员 · 支持退领')}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
+  return `<div class="space-y-4 p-4" data-testid="post-finishing-qc-workbench-page">${renderPostFinishingPageHeader('质检单执行', '输入完整单号领取 · 一单一质检员 · 支持退领', task ? renderPostFinishingQcPrintActions(task.qcTaskNo) : renderPostFinishingQcPrintActions())}${renderNotice()}${task ? renderTask(task) : renderScanner()}</div>`
 }
 
 function readValue(root: ParentNode, selector: string): string {
   return root.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(selector)?.value.trim() || ''
 }
 
-function selectedFileUrl(root: ParentNode, selector: string): string | undefined {
-  const file = root.querySelector<HTMLInputElement>(selector)?.files?.[0]
-  return file ? URL.createObjectURL(file) : undefined
+function collectResults(root: HTMLElement) {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]')).map((line) => {
+    const returnQty = Number(readValue(line, '[data-qc-result-field="returnQty"]') || 0)
+    const defectReasonQuantities = Array.from(line.querySelectorAll<HTMLInputElement>('[data-qc-defect-reason]')).flatMap((input) => {
+      const quantity = Number(input.value || 0)
+      return quantity > 0 ? [{ reason: input.dataset.qcDefectReason || '', quantity }] : []
+    })
+    return {
+      skuId: line.dataset.qcResultLine || '',
+      passedQty: Number(readValue(line, '[data-qc-result-field="passedQty"]') || 0),
+      defectQty: defectReasonQuantities.reduce((sum, item) => sum + item.quantity, 0),
+      defectReasonQuantities,
+      returnQty,
+      returnReason: returnQty > 0 ? '质检返工' : undefined,
+      returnReceiver: returnQty > 0 ? readValue(line, '[data-qc-result-field="returnReceiver"]') : undefined,
+    }
+  })
 }
 
-function collectResults(root: HTMLElement, includeFiles = false) {
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]')).map((line) => ({
-    skuId: line.dataset.qcResultLine || '',
-    passedQty: Number(readValue(line, '[data-qc-result-field="passedQty"]') || 0),
-    defectQty: Number(readValue(line, '[data-qc-result-field="defectQty"]') || 0),
-    returnQty: Number(readValue(line, '[data-qc-result-field="returnQty"]') || 0),
-    defectReason: readValue(line, '[data-qc-result-field="defectReason"]'),
-    responsibleParty: readValue(line, '[data-qc-result-field="responsibleParty"]'),
-    defectImageUrl: (includeFiles ? selectedFileUrl(line, '[data-qc-result-file="defectImage"]') : undefined)
-      || readValue(line, '[data-qc-result-field="defectImageUrl"]')
-      || undefined,
-    returnReason: readValue(line, '[data-qc-result-field="returnReason"]'),
-    returnReceiver: readValue(line, '[data-qc-result-field="returnReceiver"]'),
-  }))
+function updateResultLineState(line: HTMLElement): void {
+  const defectQty = Array.from(line.querySelectorAll<HTMLInputElement>('[data-qc-defect-reason]'))
+    .reduce((sum, input) => sum + Math.max(0, Number(input.value || 0)), 0)
+  const defectTotal = line.querySelector<HTMLInputElement>('[data-qc-result-field="defectQty"]')
+  if (defectTotal) defectTotal.value = String(defectQty)
+  const returnQty = Math.max(0, Number(readValue(line, '[data-qc-result-field="returnQty"]') || 0))
+  const factoryBlock = line.querySelector<HTMLElement>('[data-qc-rework-factory-block]')
+  const factoryInput = line.querySelector<HTMLInputElement>('[data-qc-result-field="returnReceiver"]')
+  factoryBlock?.classList.toggle('hidden', returnQty === 0)
+  if (factoryInput) factoryInput.disabled = returnQty === 0
 }
 
 function updateLiveSummary(root: HTMLElement): void {
   const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]'))
+  lines.forEach(updateResultLineState)
   const results = collectResults(root)
   const expected = lines.reduce((sum, line) => sum + Number(line.dataset.expectedQty || 0), 0)
   const actual = results.reduce((sum, line) => sum + line.passedQty + line.defectQty + line.returnQty, 0)
@@ -138,7 +179,7 @@ function updateLiveSummary(root: HTMLElement): void {
 
 export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?: Event): boolean {
   const formRoot = target.closest<HTMLElement>('[data-qc-workbench-task]')
-  if (formRoot && event?.type === 'input' && target.closest('[data-qc-result-field]')) {
+  if (formRoot && event?.type === 'input' && (target.closest('[data-qc-result-field]') || target.closest('[data-qc-defect-reason]'))) {
     updateLiveSummary(formRoot)
     return true
   }
@@ -151,7 +192,6 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
     'full-flow-release-qc-prompt',
     'full-flow-release-qc-cancel',
     'full-flow-release-qc',
-    'full-flow-upload-qc-reference',
     'full-flow-complete-qc',
     'full-flow-qc-clear',
   ].includes(action)) return false
@@ -192,40 +232,22 @@ export function handlePostFinishingQcWorkbenchEvent(target: HTMLElement, event?:
       navigate(released.qcTaskNo)
       return true
     }
-    if (action === 'full-flow-upload-qc-reference') {
-      const root = document.querySelector<HTMLElement>('[data-qc-task-reference-form]')
-      if (!root) throw new Error('未找到质检参考资料上传表单。')
-      const reference = uploadPostFinishingQcTaskReference({
-        qcTaskId: actionNode?.dataset.taskId || '',
-        referenceType: readValue(root, '[data-qc-task-reference-type]') as '色差参考图' | '尺寸判断标准',
-        title: readValue(root, '[data-qc-task-reference-title]'),
-        description: readValue(root, '[data-qc-task-reference-description]'),
-        imageUrl: selectedFileUrl(root, '[data-qc-task-reference-file]')
-          || readValue(root, '[data-qc-task-reference-image]')
-          || undefined,
-        sourceNote: readValue(root, '[data-qc-task-reference-source-note]'),
-        actor: getCurrentPostFinishingActor(),
-      })
-      notice = `已代上传并绑定：${reference.title} v${reference.version}`
-      noticeTone = 'success'
-      navigate(query().get('taskNo') || '')
-      return true
-    }
     const root = document.querySelector<HTMLElement>('[data-qc-workbench-task]')
     if (!root) throw new Error('未找到质检单表单。')
     const lineNodes = Array.from(root.querySelectorAll<HTMLElement>('[data-qc-result-line]'))
-    const results = collectResults(root, true)
+    const results = collectResults(root)
     const hasDifference = lineNodes.some((line, index) => Number(line.dataset.expectedQty || 0) !== results[index].passedQty + results[index].defectQty + results[index].returnQty)
     const completed = completePostFinishingQcTask({
       qcTaskId: actionNode?.dataset.taskId || '',
       actor: getCurrentPostFinishingActor(),
       results,
-      needPostFinishing: readValue(root, '[data-qc-need-post]') !== 'no',
+      needPostFinishing: true,
+      processItems: Array.from(root.querySelectorAll<HTMLInputElement>('[data-qc-process-item]:checked')).map((item) => item.value),
       authorization: hasDifference
         ? { scanValue: readValue(root, '[data-qc-authorization]'), differenceReason: readValue(root, '[data-qc-difference-reason]') }
         : undefined,
     })
-    notice = `质检完成，已生成${completed.postTaskNo ? `后道任务 ${completed.postTaskNo}` : `复检单 ${completed.recheckOrderNo}`}`
+    notice = `质检完成，已生成后道加工单 ${completed.postTaskNo || ''}`
     noticeTone = 'success'
     navigate(completed.qcTaskNo)
   } catch (error) {

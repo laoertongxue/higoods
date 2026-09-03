@@ -17,7 +17,7 @@ import {
 } from '../../../data/fcs/post-finishing-operation-log.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderPostStatusBadge } from './shared.ts'
+import { renderPostFinishingQcPrintActions, renderPostStatusBadge } from './shared.ts'
 
 type FlowTrace = ReturnType<typeof tracePostFinishingFullFlow>
 
@@ -237,7 +237,7 @@ function renderOverviewDetail(row: ChainRow): string {
       title: '2. 后道与复检',
       description: '质检通过后进入后道；完成后生成复检单。',
       nodes: [
-        ['后道任务', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
+        ['后道加工单', row.trace.postTask?.postTaskNo || '未生成 / 不适用', row.trace.postTask?.status || '未开始'],
         ['复检单', row.trace.recheckOrder?.recheckOrderNo || '未生成', row.trace.recheckOrder?.status || '未开始'],
       ],
     },
@@ -296,6 +296,7 @@ export function renderPostFinishingAuditRecordsPage(): string {
   const filtersHtml = `<form action="/fcs/craft/post-finishing/audit-records" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-8"><label class="text-xs text-muted-foreground xl:col-span-2">生产单 / 回货单 / 下游单号<input name="keyword" value="${escapeHtml(params.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="按业务链查询" /></label><label class="text-xs text-muted-foreground">当前状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${Array.from(new Set(allRows.map((row) => row.currentStatus))).map((value) => `<option ${value === status ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">开始日期<input type="date" name="startedAt" value="${escapeHtml(params.get('startedAt') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">结束日期<input type="date" name="endedAt" value="${escapeHtml(params.get('endedAt') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">操作人<input name="operator" value="${escapeHtml(params.get('operator') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">授权人<input name="authorizer" value="${escapeHtml(params.get('authorizer') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" /></label><label class="text-xs text-muted-foreground">差异方向<select name="direction" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${['多','少'].map((value) => `<option ${value === params.get('direction') ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">授权结果<select name="authorizationResult" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${['成功','过期','已使用','无效'].map((value) => `<option ${value === params.get('authorizationResult') ? 'selected' : ''}>${value}</option>`).join('')}</select></label><button class="h-9 self-end rounded-md border px-5 text-sm md:col-span-4 xl:col-span-8">查询</button></form>`
   return renderStandardListPage({
     title: '差异与操作日志',
+    primaryActionsHtml: renderPostFinishingQcPrintActions(),
     feedbackHtml: selected ? renderDetail(selected, activeDetailTab) : '',
     filtersHtml,
     statsHtml: renderStandardListStats([

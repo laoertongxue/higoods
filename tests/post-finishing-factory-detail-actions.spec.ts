@@ -15,26 +15,20 @@ test.beforeEach(async ({ page }) => {
   page.setDefaultNavigationTimeout(45_000)
 })
 
-test('Web 后道单同时保留 PDA 优先入口和 Web 应急入口', async ({ page }) => {
+test('Web 后道加工单可用完整单号开始并查看产品与加工项目', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1', 'PF-USER-POST')
+  })
   await page.goto('/fcs/craft/post-finishing/work-orders')
-  await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
-  await expect(page.locator('tbody tr')).toHaveCount(2)
-  await expect(page.locator('body')).toContainText('5')
-  await expect(page.getByText('打开 PDA 后道加工')).toBeVisible()
-  const taskExecutionEntries = page.locator('[data-nav^="/fcs/pda/post-finishing/execute"]').filter({ hasText: 'PDA执行（优先）' })
-  await expect(taskExecutionEntries).toHaveCount(2)
-  await expect(page.locator('[data-nav^="/fcs/craft/post-finishing/work-orders/"]').filter({ hasText: 'Web应急处理' })).toHaveCount(2)
-  await expect(page.locator('[data-nav*="type=POST_ORDER"]')).toHaveCount(2)
-  await expect(page.locator('body')).not.toContainText('雅加达后道工厂')
-
-  await page.evaluate((session) => {
-    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
-  }, PDA_SESSION)
-  await taskExecutionEntries.first().click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/post-finishing\/execute\?id=HD-/)
-  await expect(page.getByRole('heading', { name: '后道加工' })).toBeVisible()
-  await expect(page.locator('main article')).toHaveCount(5)
+  await expect(page.getByRole('heading', { name: '后道加工单', exact: true })).toBeVisible()
+  expect(await page.locator('tbody tr').count()).toBeGreaterThan(0)
+  await expect(page.locator('[data-post-finishing-work-orders-action="open-start"]').first()).toBeVisible()
+  await page.locator('tbody [data-post-finishing-work-orders-action="open-start"]').first().click()
+  await expect(page.getByRole('dialog', { name: '开始后道' })).toBeVisible()
+  await expect(page.locator('[data-post-finishing-start-preview] img')).toHaveCount(5)
   await expect(page.getByRole('button', { name: '核对无误，开始后道' })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('PDA 执行（优先）')
+  await expect(page.locator('body')).not.toContainText('Web 应急处理')
 })
 
 test('质检统一在 Web 领取管理，专用 PDA 只执行后道且不得执行质检', async ({ page }) => {
@@ -43,11 +37,13 @@ test('质检统一在 Web 领取管理，专用 PDA 只执行后道且不得执�
   })
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '输入质检单号领取' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '领取并开始质检' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '质检单列表' })).toBeVisible()
-  await expect(page.locator('tbody tr')).toHaveCount(9)
-  await expect(page.locator('body')).toContainText('Web 端输入完整任务号后领取')
+  await expect(page.getByRole('heading', { name: '领取质检单' })).toHaveCount(0)
+  await page.getByRole('button', { name: '领取质检单' }).click()
+  await expect(page.getByRole('dialog', { name: '领取质检单' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '确认领取' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '质检单号' })).toBeVisible()
+  expect(await page.locator('tbody tr').count()).toBeGreaterThan(0)
+  await expect(page.locator('[data-qc-task-input]')).toHaveAttribute('placeholder', /完整质检单号/)
   await expect(page.locator('body')).not.toContainText('调用摄像头')
 
   await page.addInitScript((session) => {

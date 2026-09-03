@@ -302,7 +302,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_ROUTE_CARD',
-    templateName: '后道任务流转卡',
+    templateName: '后道加工单流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_WORK_ORDER'],
     buildDocument: buildPostFinishingRouteCardPrintDocument,
@@ -310,7 +310,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_TASK_ROUTE_CARD',
-    templateName: '后道任务流转卡',
+    templateName: '后道生产任务流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_TASK'],
     buildDocument: buildPostFinishingTaskRouteCardPrintDocument,

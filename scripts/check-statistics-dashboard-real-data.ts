@@ -112,7 +112,7 @@ assert(dyeStats.waitHandoverRecordCount >= 3 && dyeStats.differenceRecordCount >
 assert(getDyeingDashboardMetrics().statusRows.length > 0, '染色大屏指标为空')
 
 
-assert(postStats.postOrderCount >= 12, '后道单统计样本少于 12 条')
+assert(postStats.postOrderCount >= 12, '后道加工单统计样本少于 12 条')
 assert(postStats.qcPassGarmentQty > 0 && postStats.recheckConfirmedGarmentQty > 0, '后道质检/复检记录未纳入统计')
 assert(postStats.waitHandoverGarmentQty > 0 && postStats.differenceRecordCount >= 3, '后道交出仓或差异记录未纳入统计')
 assert(getPostFinishingDashboardMetrics().statusRows.length > 0, '后道大屏派生指标为空')

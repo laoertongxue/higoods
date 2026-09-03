@@ -47,10 +47,10 @@ function getSourceTypeLabel(sourceType: string): string {
     DYEING_WORK_ORDER: '染色加工单',
     SPECIAL_CRAFT_TASK_ORDER: '特殊工艺单',
     BINDING_PROCESS_ORDER: '捆条加工单',
-    POST_FINISHING_TASK: '后道任务',
+    POST_FINISHING_TASK: '后道生产任务',
     CUTTING_ORDER: '裁片单',
     CUTTING_MARKER_PLAN: '唛架方案',
-    POST_FINISHING_WORK_ORDER: '后道单',
+    POST_FINISHING_WORK_ORDER: '后道加工单',
   }
   return labels[sourceType] || sourceType
 }

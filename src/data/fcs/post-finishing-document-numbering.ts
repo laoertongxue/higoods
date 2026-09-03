@@ -9,9 +9,10 @@ export interface PostFinishingDocumentNumberRequest {
   idempotencyKey: string
   sequence: number
   triggerSource?: PostFinishingDeliveryTrigger
+  existingDocumentNos?: readonly string[]
 }
 
-export interface PostFinishingDocumentNumberRecord extends PostFinishingDocumentNumberRequest {
+export interface PostFinishingDocumentNumberRecord extends Omit<PostFinishingDocumentNumberRequest, 'existingDocumentNos'> {
   documentNo: string
   createdAt: string
 }
@@ -60,24 +61,41 @@ function buildDocumentNo(input: PostFinishingDocumentNumberRequest): string {
   }
 }
 
+function readStrictQcSequence(productionOrderNo: string, documentNo: string): number {
+  const prefix = `${productionOrderNo}-`
+  if (!documentNo.startsWith(prefix)) return 0
+  const suffix = documentNo.slice(prefix.length)
+  if (!/^[1-9]\d*$/.test(suffix)) return 0
+  const sequence = Number(suffix)
+  return Number.isSafeInteger(sequence) ? sequence : 0
+}
+
 export function issuePostFinishingDocumentNumber(
   input: PostFinishingDocumentNumberRequest,
   now = new Date(),
 ): PostFinishingDocumentNumberRecord {
-  const normalizedKey = input.idempotencyKey.trim()
+  const { existingDocumentNos = [], ...numberInput } = input
+  const normalizedKey = numberInput.idempotencyKey.trim()
   if (!normalizedKey) throw new Error('缺少单号幂等键。')
-  const existing = records.find((record) => record.kind === input.kind && record.idempotencyKey === normalizedKey)
+  const existing = records.find((record) => record.kind === numberInput.kind && record.idempotencyKey === normalizedKey)
   if (existing) return { ...existing }
 
-  const effectiveSequence = input.kind === 'QC'
-    ? records
-      .filter((record) => record.kind === 'QC' && record.productionOrderNo === input.productionOrderNo)
-      .reduce((maximum, record) => Math.max(maximum, record.sequence), 0) + 1
-    : input.sequence
-  const normalizedInput = { ...input, sequence: effectiveSequence, idempotencyKey: normalizedKey }
+  const persistedMaximum = records
+    .filter((record) => record.kind === 'QC' && record.productionOrderNo === numberInput.productionOrderNo)
+    .reduce((maximum, record) => Math.max(maximum, record.sequence, readStrictQcSequence(numberInput.productionOrderNo, record.documentNo)), 0)
+  const existingMaximum = existingDocumentNos
+    .reduce((maximum, documentNo) => Math.max(maximum, readStrictQcSequence(numberInput.productionOrderNo, documentNo)), 0)
+  const effectiveSequence = numberInput.kind === 'QC'
+    ? Math.max(persistedMaximum, existingMaximum) + 1
+    : numberInput.sequence
+  const normalizedInput: Omit<PostFinishingDocumentNumberRequest, 'existingDocumentNos'> = {
+    ...numberInput,
+    sequence: effectiveSequence,
+    idempotencyKey: normalizedKey,
+  }
   const documentNo = buildDocumentNo(normalizedInput)
-  const conflict = records.find((record) => record.kind === input.kind && record.documentNo === documentNo)
-  if (conflict && conflict.sourceObjectId !== input.sourceObjectId) {
+  const conflict = records.find((record) => record.kind === numberInput.kind && record.documentNo === documentNo)
+  if (conflict && conflict.sourceObjectId !== numberInput.sourceObjectId) {
     throw new Error(`单号 ${documentNo} 已被其他业务对象占用。`)
   }
   const record: PostFinishingDocumentNumberRecord = {

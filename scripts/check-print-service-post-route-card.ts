@@ -51,7 +51,7 @@ const taskPrintCards = read('src/data/fcs/task-print-cards.ts')
   ['src/data/fcs/print-template-registry.ts', '缺少统一模板注册表'],
   ['src/pages/print/print-preview.ts', '缺少统一打印预览页'],
   ['src/pages/print/print-styles.ts', '缺少统一打印样式'],
-  ['src/pages/print/templates/post-finishing-route-card-template.ts', '缺少后道任务流转卡模板'],
+  ['src/pages/print/templates/post-finishing-route-card-template.ts', '缺少后道加工单流转卡模板'],
   ['src/pages/print/templates/task-route-card-template.ts', '缺少旧任务流转卡兼容模板'],
 ].forEach(([path, message]) => assertFile(path, message))
 
@@ -64,7 +64,7 @@ assertIncludes(registry, 'printTemplateRegistry', '缺少 printTemplateRegistry'
 assertIncludes(registry, 'TASK_ROUTE_CARD', '模板注册表缺少 TASK_ROUTE_CARD')
 assertIncludes(registry, 'POST_FINISHING_ROUTE_CARD', '模板注册表缺少 POST_FINISHING_ROUTE_CARD')
 assertIncludes(registry, 'POST_FINISHING_WORK_ORDER', '模板注册表缺少 POST_FINISHING_WORK_ORDER')
-assertIncludes(postTemplate, 'buildPostFinishingRouteCardPrintDocument', '缺少后道任务流转卡文档构建函数')
+assertIncludes(postTemplate, 'buildPostFinishingRouteCardPrintDocument', '缺少后道加工单流转卡文档构建函数')
 assertIncludes(previewPage, 'renderUnifiedPrintPreviewPage', '缺少统一打印预览渲染函数')
 assertIncludes(routes, "'/fcs/print/preview'", '缺少统一打印预览路由')
 assertIncludes(renderers, 'renderPrintPreviewPage', '缺少统一打印预览 renderer')
@@ -74,11 +74,11 @@ assertIncludes(routes, '^\\/fcs\\/task-print\\/route-card\\/', '旧动态任务�
 assertIncludes(routeLinks, 'buildTaskRouteCardPrintLink', '旧任务流转卡链接 helper 必须保留')
 assertIncludes(routeLinks, 'buildUnifiedPrintPreviewRouteLink', '缺少统一打印预览链接 helper')
 
-assertIncludes(workOrdersPage, 'buildUnifiedPrintPreviewRouteLink', '后道列表打印入口必须进入统一打印预览')
-assertIncludes(workOrdersPage, "documentType: 'TASK_ROUTE_CARD'", '后道列表打印入口缺少任务流转卡 documentType')
-assertIncludes(workOrdersPage, "sourceType: 'POST_FINISHING_WORK_ORDER'", '后道列表打印入口缺少后道单 sourceType')
+assertIncludes(workOrdersPage, '/fcs/craft/post-finishing/print?type=POST_ORDER', '后道加工单列表必须进入专用流转卡打印预览')
+assertIncludes(workOrdersPage, 'row.task.postTaskId', '后道加工单打印入口必须携带具体加工单身份')
 
 assertIncludes(shell, "pathname.startsWith('/fcs/print/')", '打印路由必须绕过系统顶部导航和左侧菜单')
+assertIncludes(shell, "pathname.startsWith('/fcs/craft/post-finishing/print')", '后道加工单打印路由必须绕过系统顶部导航和左侧菜单')
 assertIncludes(shell, "pathname.startsWith('/fcs/task-print/')", '旧任务打印路由必须绕过系统顶部导航和左侧菜单')
 ;['renderAppShell', 'renderTopBar', 'renderSidebar', 'renderTabs', 'data-shell-tab'].forEach((token) => {
   assertNotIncludes(previewPage + postTemplate, token, `打印预览或后道模板不得渲染业务系统壳：${token}`)
@@ -89,11 +89,11 @@ assertIncludes(printStyles, 'margin: 8mm', '打印样式必须设置 8mm 页边�
 assertIncludes(printStyles, 'print-hidden', '打印按钮和提示必须设置为非打印区域')
 assertIncludes(printStyles, '30mm', '二维码尺寸必须控制在 26mm 至 32mm 范围')
 
-;['后道任务流转卡', '扫码收货', '质检', '实际工序区', '复检', '交出', '差异记录区', '签字区', '二维码区', '计划成衣件数', '复检确认成衣件数', '差异成衣件数'].forEach((token) => {
+;['后道加工单流转卡', '扫码收货', '质检', '实际工序区', '复检', '交出', '差异记录区', '签字区', '二维码区', '计划成衣件数', '复检确认成衣件数', '差异成衣件数'].forEach((token) => {
   assertIncludes(postTemplate, token, `后道打印模板缺少 ${token}`)
 })
 assertIncludes(postTemplate, '实际工序已由车缝厂完成', '车缝厂已完成实际工序时必须有说明')
-assertIncludes(postTemplate, '扫码进入工厂端后道任务详情', '后道打印模板缺少二维码说明')
+assertIncludes(postTemplate, '扫码进入工厂端后道加工单详情', '后道打印模板缺少二维码说明')
 assertIncludes(postTemplate, '暂无商品图', '后道打印模板必须使用紧凑无图占位')
 assertNotIncludes(postTemplate + taskPrintCards, '系统占位图', '打印底座不得继续使用大块系统占位图文案')
 
@@ -102,14 +102,14 @@ const template = getPrintTemplateForRequest({
   sourceType: 'POST_FINISHING_WORK_ORDER',
   sourceId: 'POST-WO-001',
 })
-assert(template?.templateCode === 'POST_FINISHING_ROUTE_CARD', '后道任务流转卡必须命中 POST_FINISHING_ROUTE_CARD 模板')
+assert(template?.templateCode === 'POST_FINISHING_ROUTE_CARD', '后道加工单流转卡必须命中 POST_FINISHING_ROUTE_CARD 模板')
 
 const dedicatedDoc = buildPrintDocument({
   documentType: 'TASK_ROUTE_CARD',
   sourceType: 'POST_FINISHING_WORK_ORDER',
   sourceId: 'POST-WO-001',
 })
-assert(dedicatedDoc.printTitle === '后道任务流转卡', '后道任务流转卡标题错误')
+assert(dedicatedDoc.printTitle === '后道加工单流转卡', '后道加工单流转卡标题错误')
 assert(dedicatedDoc.printSubtitle.includes('扫码收货 -> 质检 -> 实际工序 -> 复检 -> 交出'), '后道工厂流程顺序错误')
 assert(dedicatedDoc.qrCodes[0]?.sizeMm >= 26 && dedicatedDoc.qrCodes[0]?.sizeMm <= 32, '后道二维码尺寸必须为 26mm 至 32mm')
 assert(dedicatedDoc.differenceBlocks[0]?.minRows === 3, '差异记录区必须保留空白手写行')

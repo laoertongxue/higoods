@@ -308,7 +308,7 @@ function mapPostDetail(record: PostFinishingActionRecord): QcFactDetail {
     skuResults: (record.qcSkuResults ?? []).map((item) => mapPostSku(item, record.sourceFactoryName)),
     evidenceAssets: (record.evidenceAssets ?? []).map(mapPostEvidence),
     rawFacts: [
-      { label: '来源后道单', value: record.postOrderNo || '—' },
+      { label: '来源后道加工单', value: record.postOrderNo || '—' },
       { label: '上游工厂', value: record.sourceFactoryName || '—' },
       { label: '后道工厂', value: record.targetFactoryName || '—' },
     ],

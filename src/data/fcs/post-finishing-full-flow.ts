@@ -25,6 +25,7 @@ import {
   type PostFinishingQcReferenceType,
 } from './post-finishing-qc-reference.ts'
 import { resetPostFinishingAuthorizationConsumptions } from './post-finishing-authorization.ts'
+import { listSewingFactoryMasterRecords } from './factory-master-store.ts'
 
 export interface PostFinishingActor {
   actorId: string
@@ -314,6 +315,7 @@ export interface PostFinishingQualityResultLine {
   passedQty: number
   defectQty: number
   returnQty: number
+  defectReasonQuantities?: PostFinishingDefectReasonQuantity[]
   defectReason?: string
   defectImageUrl?: string
   responsibleParty?: string
@@ -321,7 +323,7 @@ export interface PostFinishingQualityResultLine {
   returnReceiver?: string
 }
 
-export type PostFinishingQcTaskStatus = '待质检' | '质检中' | '质检完成'
+export type PostFinishingQcTaskStatus = '待送检' | '待质检' | '质检中' | '质检完成'
 
 export interface PostFinishingQcTask {
   qcTaskId: string
@@ -334,8 +336,10 @@ export interface PostFinishingQcTask {
   status: PostFinishingQcTaskStatus
   lines: Array<{ sku: PostFinishingAcceptanceSku; expectedQty: number }>
   referenceIds: string[]
-  sentBy: PostFinishingActor
-  sentAt: string
+  createdBy: PostFinishingActor
+  createdAt: string
+  sentBy?: PostFinishingActor
+  sentAt?: string
   claimedBy?: PostFinishingActor
   claimedAt?: string
   releasedAt?: string
@@ -573,15 +577,35 @@ export const POST_FINISHING_RETURN_DIFFERENCE_POLICY = Object.freeze({
   frontlineEditable: false,
 })
 
-export const POST_FINISHING_DEFECT_REASON_OPTIONS = Object.freeze([
+export const POST_FINISHING_QC_DEFECT_REASON_OPTIONS = Object.freeze([
+  '做工原因',
+  '脏污',
+  '抽纱',
+  '做错',
+  '布料原因',
+  '缺辅料',
+  '做毁',
+  '印花',
   '色差',
+  '半套',
+  '破洞',
+  '缺辅料不补',
+] as const)
+
+export const POST_FINISHING_DEFECT_REASON_OPTIONS = Object.freeze([
+  ...POST_FINISHING_QC_DEFECT_REASON_OPTIONS,
   '尺寸偏差',
-  '污渍',
   '压痕',
   '破损',
   '车缝不良',
   '其他',
 ] as const)
+
+export function listPostFinishingQcReworkFactoryOptions(): Array<{ value: string; label: string }> {
+  return listSewingFactoryMasterRecords()
+    .map((factory) => ({ value: factory.name, label: `${factory.name}（${factory.code}）` }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+}
 
 const COLORS = ['黑色', '白色', '雾蓝', '卡其', '酒红']
 const SIZES = ['S', 'M', 'L', 'XL', '2XL']
@@ -733,7 +757,16 @@ function readPersistedState(): PostFinishingFullFlowState {
             versionCreatedAt: version.versionCreatedAt || version.confirmedAt,
           }))
         : deriveLegacyConfirmationVersions(deliveries),
-      qcTasks: Array.isArray(parsed.qcTasks) ? parsed.qcTasks : [],
+      qcTasks: Array.isArray(parsed.qcTasks)
+        ? parsed.qcTasks.map((task) => {
+            const delivery = deliveries.find((item) => item.deliveryId === task.deliveryId)
+            return {
+              ...task,
+              createdBy: task.createdBy || task.sentBy || delivery?.confirmedBy || POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer,
+              createdAt: task.createdAt || task.sentAt || delivery?.confirmedAt || delivery?.registeredAt || nowIso(),
+            }
+          })
+        : [],
       postTasks: Array.isArray(parsed.postTasks) ? parsed.postTasks : [],
       recheckOrders: Array.isArray(parsed.recheckOrders) ? parsed.recheckOrders : [],
       outboundOrders: Array.isArray(parsed.outboundOrders) ? parsed.outboundOrders : [],
@@ -787,7 +820,7 @@ function buildWaitProcessWarehouseRecord(
   delivery: PostFinishingFactoryReturnDelivery,
 ): PostFinishingWaitProcessWarehouseRecord {
   const hasConfirmed = Boolean(delivery.confirmedAt)
-  const hasSent = Boolean(delivery.qcTaskNo)
+  const hasSent = delivery.status === '已送检' || delivery.status === '已完成'
   return {
     warehouseRecordId: `PF-WPW-${delivery.deliveryId}`,
     deliveryId: delivery.deliveryId,
@@ -860,7 +893,7 @@ function backfillWaitProcessWarehouseFacts(): void {
       })
     }
     const qcTask = state.qcTasks.find((task) => task.deliveryId === delivery.deliveryId)
-    if (qcTask) {
+    if (qcTask && (delivery.status === '已送检' || delivery.status === '已完成') && qcTask.sentAt && qcTask.sentBy) {
       record.status = '已送检'
       record.sentAt = qcTask.sentAt
       record.sentBy = clone(qcTask.sentBy)
@@ -947,9 +980,64 @@ function findQcTask(qcTaskIdOrNo: string): PostFinishingQcTask {
   return task
 }
 
+function getOrCreateQcTaskForConfirmedDelivery(input: {
+  delivery: PostFinishingFactoryReturnDelivery
+  actor: PostFinishingActor
+  createdAt: string
+  nowMs?: number
+}): { task: PostFinishingQcTask; created: boolean } {
+  const linked = (input.delivery.qcTaskId
+    ? state.qcTasks.find((task) => task.qcTaskId === input.delivery.qcTaskId)
+    : undefined)
+    || state.qcTasks.find((task) => task.deliveryId === input.delivery.deliveryId)
+  if (linked) {
+    input.delivery.qcTaskId = linked.qcTaskId
+    input.delivery.qcTaskNo = linked.qcTaskNo
+    return { task: linked, created: false }
+  }
+  if (!input.delivery.confirmedAt) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '回货最终确认后才能自动生成质检单。')
+  }
+  const qcTaskId = `PF-QC-${input.delivery.productionOrderId}-${input.delivery.returnIndex}`
+  const number = issuePostFinishingDocumentNumber({
+    kind: 'QC',
+    productionOrderNo: input.delivery.productionOrderNo,
+    sourceObjectId: input.delivery.deliveryId,
+    idempotencyKey: `QC:${input.delivery.deliveryId}`,
+    sequence: input.delivery.returnIndex,
+    existingDocumentNos: state.qcTasks
+      .filter((task) => task.productionOrderNo === input.delivery.productionOrderNo)
+      .map((task) => task.qcTaskNo),
+  }, new Date(input.nowMs ?? new Date(input.createdAt).getTime()))
+  const task: PostFinishingQcTask = {
+    qcTaskId,
+    qcTaskNo: number.documentNo,
+    deliveryId: input.delivery.deliveryId,
+    deliveryOrderNo: input.delivery.deliveryOrderNo,
+    productionOrderId: input.delivery.productionOrderId,
+    productionOrderNo: input.delivery.productionOrderNo,
+    returnIndex: input.delivery.returnIndex,
+    status: '待送检',
+    lines: input.delivery.lines.map((line) => ({ sku: clone(line.sku), expectedQty: line.confirmedQty || 0 })),
+    referenceIds: [],
+    createdBy: clone(input.actor),
+    createdAt: input.createdAt,
+  }
+  const references = bindPostFinishingQcReferences({
+    deliveryId: input.delivery.deliveryId,
+    qcTaskId,
+    qcTaskNo: task.qcTaskNo,
+  })
+  task.referenceIds = references.map((record) => record.referenceId)
+  state.qcTasks.push(task)
+  input.delivery.qcTaskId = task.qcTaskId
+  input.delivery.qcTaskNo = task.qcTaskNo
+  return { task, created: true }
+}
+
 function findPostTask(postTaskIdOrNo: string): PostFinishingPostTask {
   const task = state.postTasks.find((item) => item.postTaskId === postTaskIdOrNo || item.postTaskNo === postTaskIdOrNo)
-  if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到后道任务 ${postTaskIdOrNo}。`)
+  if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到后道加工单 ${postTaskIdOrNo}。`)
   return task
 }
 
@@ -1298,6 +1386,12 @@ export function confirmPostFinishingFactoryReturn(input: {
     confirmedBy: input.actor,
     versionKind: 'FINAL_CONFIRMATION',
   })
+  const qcCreation = getOrCreateQcTaskForConfirmedDelivery({
+    delivery,
+    actor: input.actor,
+    createdAt: now,
+    nowMs: input.nowMs,
+  })
   persist()
   appendBusinessLog({
     stage: '回货确认', delivery, objectType: '送货单', objectId: delivery.deliveryId, objectNo: delivery.deliveryOrderNo,
@@ -1308,6 +1402,14 @@ export function confirmPostFinishingFactoryReturn(input: {
     differenceReason: input.authorization?.differenceReason,
     authorization: consumed,
   })
+  if (qcCreation.created) {
+    appendBusinessLog({
+      stage: '回货确认', delivery, objectType: '质检单', objectId: qcCreation.task.qcTaskId, objectNo: qcCreation.task.qcTaskNo,
+      action: '自动生成质检单', actor: input.actor, operatedAt: now, beforeStatus: '未生成', afterStatus: qcCreation.task.status,
+      afterQuantity: total(qcCreation.task.lines.map((line) => line.expectedQty)),
+      remark: '回货最终确认即自动生成；编号按同一生产单现有最大序号加一且不可人工修改；待加工仓送检时沿用本单。',
+    })
+  }
   return clone(delivery)
 }
 
@@ -1346,6 +1448,19 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
     confirmedQty: line.confirmedQty || 0,
     availableQty: line.confirmedQty || 0,
   }))
+  const qcCreation = getOrCreateQcTaskForConfirmedDelivery({
+    delivery,
+    actor: delivery.confirmedBy || input.actor,
+    createdAt: delivery.confirmedAt,
+    nowMs: new Date(delivery.confirmedAt).getTime(),
+  })
+  if (qcCreation.task.status !== '待送检') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '质检单已送检，不能再订正回货确认数量。')
+  }
+  qcCreation.task.lines = delivery.lines.map((line) => ({
+    sku: clone(line.sku),
+    expectedQty: line.confirmedQty || 0,
+  }))
   const version = appendReturnConfirmationVersion({
     delivery,
     confirmedAt: businessConfirmedAt,
@@ -1362,7 +1477,7 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
     afterQuantity: version.confirmedQty,
     differenceQuantity: version.confirmedQty - beforeQuantity,
     differenceReason: correctionReason,
-    remark: `保留原确认版本；当前版本 ${version.confirmationVersionId}`,
+    remark: `保留原确认版本；当前版本 ${version.confirmationVersionId}；同步更新待送检质检单 ${qcCreation.task.qcTaskNo}`,
   })
   return clone(delivery)
 }
@@ -1382,10 +1497,15 @@ export function uploadPostFinishingDeliveryQcReference(input: {
   if (!['已确认待送检', '已送检'].includes(delivery.status)) {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '回货确认后才能上传本次质检参考资料。')
   }
+  const pendingQcTask = delivery.status === '已确认待送检' && delivery.qcTaskId
+    ? findQcTask(delivery.qcTaskId)
+    : undefined
   const record = uploadPostFinishingQcReference({
     deliveryId: delivery.deliveryId,
     deliveryOrderNo: delivery.deliveryOrderNo,
     productionOrderNo: delivery.productionOrderNo,
+    qcTaskId: pendingQcTask?.qcTaskId,
+    qcTaskNo: pendingQcTask?.qcTaskNo,
     referenceType: input.referenceType,
     title: input.title,
     description: input.description,
@@ -1396,6 +1516,10 @@ export function uploadPostFinishingDeliveryQcReference(input: {
     uploaderName: input.actor.actorName,
     uploadedAt: nowIso(input.nowMs),
   })
+  if (pendingQcTask && !pendingQcTask.referenceIds.includes(record.referenceId)) {
+    pendingQcTask.referenceIds.push(record.referenceId)
+    persist()
+  }
   appendBusinessLog({
     stage: '质检参考资料', delivery, objectType: '质检参考资料', objectId: record.referenceId, objectNo: record.title,
     action: input.source === 'QC代上传' ? 'QC代上传资料' : '买手上传资料', actor: input.actor,
@@ -1457,7 +1581,9 @@ export function sendPostFinishingFactoryReturnToQc(input: {
   nowMs?: number
 }): PostFinishingQcTask {
   const delivery = findDelivery(input.deliveryId)
-  if (delivery.qcTaskId) return clone(findQcTask(delivery.qcTaskId))
+  const linkedTask = (delivery.qcTaskId ? state.qcTasks.find((task) => task.qcTaskId === delivery.qcTaskId) : undefined)
+    || state.qcTasks.find((task) => task.deliveryId === delivery.deliveryId)
+  if ((delivery.status === '已送检' || delivery.status === '已完成') && linkedTask) return clone(linkedTask)
   if (delivery.status !== '已确认待送检') {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '只有已确认回货可以送检。')
   }
@@ -1466,31 +1592,22 @@ export function sendPostFinishingFactoryReturnToQc(input: {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '只有后道待加工仓中的待送检库存可以发起送检。')
   }
   const now = nowIso(input.nowMs)
-  const qcTaskId = `PF-QC-${delivery.productionOrderId}-${delivery.returnIndex}`
-  const number = issuePostFinishingDocumentNumber({
-    kind: 'QC',
-    productionOrderNo: delivery.productionOrderNo,
-    sourceObjectId: delivery.deliveryId,
-    idempotencyKey: `QC:${delivery.deliveryId}`,
-    sequence: delivery.returnIndex,
-  }, new Date(input.nowMs ?? Date.now()))
-  const task: PostFinishingQcTask = {
-    qcTaskId,
-    qcTaskNo: number.documentNo,
-    deliveryId: delivery.deliveryId,
-    deliveryOrderNo: delivery.deliveryOrderNo,
-    productionOrderId: delivery.productionOrderId,
-    productionOrderNo: delivery.productionOrderNo,
-    returnIndex: delivery.returnIndex,
-    status: '待质检',
-    lines: delivery.lines.map((line) => ({ sku: clone(line.sku), expectedQty: line.confirmedQty || 0 })),
-    referenceIds: [],
-    sentBy: clone(input.actor),
-    sentAt: now,
+  const qcCreation = getOrCreateQcTaskForConfirmedDelivery({
+    delivery,
+    actor: delivery.confirmedBy || input.actor,
+    createdAt: delivery.confirmedAt || now,
+    nowMs: delivery.confirmedAt ? new Date(delivery.confirmedAt).getTime() : input.nowMs,
+  })
+  const task = qcCreation.task
+  if (task.status !== '待送检') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `质检单当前为${task.status}，不能重复执行待加工仓送检。`)
   }
-  const references = bindPostFinishingQcReferences({ deliveryId: delivery.deliveryId, qcTaskId, qcTaskNo: task.qcTaskNo })
+  task.status = '待质检'
+  task.sentBy = clone(input.actor)
+  task.sentAt = now
+  task.lines = delivery.lines.map((line) => ({ sku: clone(line.sku), expectedQty: line.confirmedQty || 0 }))
+  const references = bindPostFinishingQcReferences({ deliveryId: delivery.deliveryId, qcTaskId: task.qcTaskId, qcTaskNo: task.qcTaskNo })
   task.referenceIds = references.map((record) => record.referenceId)
-  state.qcTasks.push(task)
   delivery.qcTaskId = task.qcTaskId
   delivery.qcTaskNo = task.qcTaskNo
   delivery.status = '已送检'
@@ -1520,34 +1637,45 @@ export function claimPostFinishingQcTask(input: {
   nowMs?: number
 }): PostFinishingQcTask {
   if (!input.actor.roleName.includes('QC') && !input.actor.roleName.includes('质检')) {
-    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '当前账号不是 QC 质检人员，不能领取质检任务。')
+    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '当前账号不是 QC 质检人员，不能领取质检单。')
   }
   const exact = state.qcTasks.find((item) => item.qcTaskNo === input.qcTaskNo.trim())
   if (!exact) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整质检任务号，不提供模糊候选。')
   const delivery = findDelivery(exact.deliveryId)
   const now = nowIso(input.nowMs)
-  if (exact.status === '质检完成') return clone(exact)
-  if (exact.claimedBy && exact.claimedBy.actorId !== input.actor.actorId) {
+  if (exact.status === '待送检') {
     appendBusinessLog({
-      stage: '质检', delivery, objectType: '质检任务', objectId: exact.qcTaskId, objectNo: exact.qcTaskNo,
-      action: '输入任务号领取冲突', actor: input.actor, operatedAt: now, result: '阻断',
+      stage: '质检', delivery, objectType: '质检单', objectId: exact.qcTaskId, objectNo: exact.qcTaskNo,
+      action: '领取未送检质检单', actor: input.actor, operatedAt: now, result: '阻断',
+      remark: '尚未从后道待加工仓完成送检出库。',
+    })
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '该质检单尚未从后道待加工仓送检，完成送检出库后才能领取。')
+  }
+  if (exact.status === '质检完成') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '该质检单已完成，不能再次领取。')
+  }
+  if (exact.claimedBy) {
+    appendBusinessLog({
+      stage: '质检', delivery, objectType: '质检单', objectId: exact.qcTaskId, objectNo: exact.qcTaskNo,
+      action: '输入完整单号领取冲突', actor: input.actor, operatedAt: now, result: '阻断',
       remark: `已由${exact.claimedBy.actorName}质检中；领取时间${exact.claimedAt}`,
     })
     throw new PostFinishingFlowGateError(
       'CLAIM_CONFLICT',
-      `该质检任务已由 ${exact.claimedBy.actorName} 质检中，领取时间 ${exact.claimedAt}。`,
+      `该质检单已由 ${exact.claimedBy.actorName} 质检中，领取时间 ${exact.claimedAt}。`,
     )
   }
-  if (!exact.claimedBy) {
-    exact.claimedBy = clone(input.actor)
-    exact.claimedAt = now
-    exact.status = '质检中'
-    persist()
-    appendBusinessLog({
-      stage: '质检', delivery, objectType: '质检任务', objectId: exact.qcTaskId, objectNo: exact.qcTaskNo,
-      action: '输入任务号领取质检', actor: input.actor, operatedAt: now, beforeStatus: '待质检', afterStatus: exact.status,
-    })
+  if (exact.status !== '待质检') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `该质检单当前为${exact.status}，只有待质检且未被领取的单据才能领取。`)
   }
+  exact.claimedBy = clone(input.actor)
+  exact.claimedAt = now
+  exact.status = '质检中'
+  persist()
+  appendBusinessLog({
+    stage: '质检', delivery, objectType: '质检单', objectId: exact.qcTaskId, objectNo: exact.qcTaskNo,
+    action: '输入完整单号领取质检单', actor: input.actor, operatedAt: now, beforeStatus: '待质检', afterStatus: exact.status,
+  })
   return clone(exact)
 }
 
@@ -1560,7 +1688,7 @@ export function releasePostFinishingQcTask(input: {
 }): PostFinishingQcTask {
   const task = findQcTask(input.qcTaskId)
   const delivery = findDelivery(task.deliveryId)
-  if (task.status === '质检完成') throw new PostFinishingFlowGateError('INVALID_STATUS', '已完成质检任务不能退领。')
+  if (task.status === '质检完成') throw new PostFinishingFlowGateError('INVALID_STATUS', '已完成质检单不能退领。')
   if (!task.claimedBy) return clone(task)
   if (task.claimedBy.actorId !== input.actor.actorId && !input.supervisor) {
     throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '只有当前质检员或 QC 主管可以退领。')
@@ -1573,11 +1701,15 @@ export function releasePostFinishingQcTask(input: {
   task.releaseReason = input.reason.trim() || '错误领取'
   task.status = '待质检'
   task.results = undefined
+  task.needPostFinishing = undefined
+  task.completedAt = undefined
+  task.qcAuthorizationId = undefined
+  task.qcAuthorizedBy = undefined
   persist()
   appendBusinessLog({
-    stage: '质检', delivery, objectType: '质检任务', objectId: task.qcTaskId, objectNo: task.qcTaskNo,
-    action: '退领质检任务', actor: input.actor, operatedAt: now, beforeStatus: '质检中', afterStatus: task.status,
-    remark: `${beforeOwner}退领；${task.releaseReason}`,
+    stage: '质检', delivery, objectType: '质检单', objectId: task.qcTaskId, objectNo: task.qcTaskNo,
+    action: '退领质检单', actor: input.actor, operatedAt: now, beforeStatus: '质检中', afterStatus: task.status,
+    remark: `${beforeOwner}退领；已清空质检数量、下游选择与未提交授权数据；${task.releaseReason}`,
   })
   return clone(task)
 }
@@ -1679,6 +1811,7 @@ export function completePostFinishingQcTask(input: {
   actor: PostFinishingActor
   results: Array<Omit<PostFinishingQualityResultLine, 'sku' | 'expectedQty'> & { skuId: string }>
   needPostFinishing: boolean
+  processItems?: string[]
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingQcTask {
@@ -1695,11 +1828,24 @@ export function completePostFinishingQcTask(input: {
     assertIntegerQuantity(submitted.passedQty, { label: `SKU ${line.sku.skuCode} 合格数量` })
     assertIntegerQuantity(submitted.defectQty, { label: `SKU ${line.sku.skuCode} 瑕疵数量` })
     assertIntegerQuantity(submitted.returnQty, { label: `SKU ${line.sku.skuCode} 返厂数量` })
-    if (submitted.defectQty > 0 && !submitted.defectReason?.trim()) {
-      throw new PostFinishingFlowGateError('DEFECT_REASON_REQUIRED', `SKU ${line.sku.skuCode} 有瑕疵时必须填写瑕疵原因。`)
+    const defectReasonQuantities = normalizePostDefectReasonQuantities(
+      submitted.defectReasonQuantities
+        ?? (submitted.defectQty > 0 && submitted.defectReason?.trim()
+          ? [{ reason: submitted.defectReason.trim(), quantity: submitted.defectQty }]
+          : []),
+      `SKU ${line.sku.skuCode} 瑕疵数量`,
+    )
+    if (total(defectReasonQuantities.map((item) => item.quantity)) !== submitted.defectQty) {
+      throw new PostFinishingFlowGateError(
+        'INVALID_QUANTITY',
+        `SKU ${line.sku.skuCode} 的瑕疵数量必须等于各瑕疵原因数量之和。`,
+      )
     }
     if (submitted.returnQty > 0 && (!submitted.returnReason?.trim() || !submitted.returnReceiver?.trim())) {
-      throw new Error(`SKU ${line.sku.skuCode} 有返厂数量时必须填写返厂原因和接收责任方。`)
+      throw new Error(`SKU ${line.sku.skuCode} 有返工数量时必须选择返工工厂。`)
+    }
+    if (submitted.returnQty > 0 && !listPostFinishingQcReworkFactoryOptions().some((item) => item.value === submitted.returnReceiver?.trim())) {
+      throw new PostFinishingFlowGateError('INVALID_STATUS', `SKU ${line.sku.skuCode} 的返工工厂必须从列表中选择。`)
     }
     return {
       sku: clone(line.sku),
@@ -1707,7 +1853,8 @@ export function completePostFinishingQcTask(input: {
       passedQty: submitted.passedQty,
       defectQty: submitted.defectQty,
       returnQty: submitted.returnQty,
-      defectReason: submitted.defectReason?.trim(),
+      defectReasonQuantities,
+      defectReason: defectReasonQuantities.map((item) => item.reason).join('、') || undefined,
       defectImageUrl: submitted.defectImageUrl,
       responsibleParty: submitted.responsibleParty,
       returnReason: submitted.returnReason?.trim(),
@@ -1730,7 +1877,11 @@ export function completePostFinishingQcTask(input: {
     task.qcAuthorizedBy = { authorizerId: consumed.authorizerId, authorizerName: consumed.authorizerName }
   }
   task.results = results
-  task.needPostFinishing = input.needPostFinishing
+  const processItems = [...new Set((input.processItems || ['开扣眼', '装扣子', '烫包']).map((item) => item.trim()).filter(Boolean))]
+  if (!processItems.length) {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '至少选择一个后道加工项目。')
+  }
+  task.needPostFinishing = true
   task.status = '质检完成'
   task.completedAt = now
   createDefectRecords({
@@ -1742,40 +1893,32 @@ export function completePostFinishingQcTask(input: {
     actor: input.actor,
     recordedAt: now,
   })
-  if (input.needPostFinishing) {
-    const postTaskId = `PF-POST-${delivery.productionOrderId}-${delivery.returnIndex}`
-    const number = issuePostFinishingDocumentNumber({
-      kind: 'POST',
-      productionOrderNo: delivery.productionOrderNo,
-      sourceObjectId: task.qcTaskId,
-      idempotencyKey: `POST:${task.qcTaskId}`,
-      sequence: delivery.returnIndex,
-    }, new Date(input.nowMs ?? Date.now()))
-    const existing = state.postTasks.find((record) => record.qcTaskId === task.qcTaskId)
-    const postTask = existing || {
-      postTaskId,
-      postTaskNo: number.documentNo,
-      deliveryId: delivery.deliveryId,
-      deliveryOrderNo: delivery.deliveryOrderNo,
-      productionOrderNo: delivery.productionOrderNo,
-      qcTaskId: task.qcTaskId,
-      qcTaskNo: task.qcTaskNo,
-      returnIndex: delivery.returnIndex,
-      status: '待后道' as const,
-      processItems: ['开扣眼', '装扣子', '烫包'],
-      lines: results.map((line) => ({ sku: clone(line.sku), expectedQty: line.passedQty })),
-    }
-    if (!existing) state.postTasks.push(postTask)
-    task.postTaskId = postTask.postTaskId
-    task.postTaskNo = postTask.postTaskNo
-  } else {
-    createRecheckOrder({
-      delivery,
-      qcTask: task,
-      lines: results.map((line) => ({ sku: clone(line.sku), expectedQty: line.passedQty })),
-      createdAt: now,
-    })
+  const postTaskId = `PF-POST-${delivery.productionOrderId}-${delivery.returnIndex}`
+  const number = issuePostFinishingDocumentNumber({
+    kind: 'POST',
+    productionOrderNo: delivery.productionOrderNo,
+    sourceObjectId: task.qcTaskId,
+    idempotencyKey: `POST:${task.qcTaskId}`,
+    sequence: delivery.returnIndex,
+  }, new Date(input.nowMs ?? Date.now()))
+  const existing = state.postTasks.find((record) => record.qcTaskId === task.qcTaskId)
+  const postTask = existing || {
+    postTaskId,
+    postTaskNo: number.documentNo,
+    deliveryId: delivery.deliveryId,
+    deliveryOrderNo: delivery.deliveryOrderNo,
+    productionOrderNo: delivery.productionOrderNo,
+    qcTaskId: task.qcTaskId,
+    qcTaskNo: task.qcTaskNo,
+    returnIndex: delivery.returnIndex,
+    status: '待后道' as const,
+    processItems,
+    lines: results.map((line) => ({ sku: clone(line.sku), expectedQty: line.passedQty })),
   }
+  postTask.processItems = processItems
+  if (!existing) state.postTasks.push(postTask)
+  task.postTaskId = postTask.postTaskId
+  task.postTaskNo = postTask.postTaskNo
   persist()
   appendBusinessLog({
     stage: '质检', delivery, objectType: '质检任务', objectId: task.qcTaskId, objectNo: task.qcTaskNo,
@@ -1785,7 +1928,7 @@ export function completePostFinishingQcTask(input: {
     differenceQuantity: total(quantities.map((line) => line.actualQty)) - total(quantities.map((line) => line.expectedQty)),
     differenceReason: input.authorization?.differenceReason,
     authorization: consumed,
-    remark: input.needPostFinishing ? '生成唯一后道任务' : '跳过后道并生成唯一复检单',
+    remark: `生成唯一后道加工单；加工项目：${processItems.join('、')}`,
   })
   return clone(task)
 }
@@ -1875,7 +2018,7 @@ function assertPostFinishingPostTaskOwner(task: PostFinishingPostTask, actor: Po
     throw new PostFinishingFlowGateError('INVALID_STATUS', '必须先开始后道才能更新加工进度。')
   }
   if (!task.startedBy || task.startedBy.actorId !== actor.actorId) {
-    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', `当前任务由 ${task.startedBy?.actorName || '其他操作员'} 处理，请先完成应急接管。`)
+    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', `当前加工单由 ${task.startedBy?.actorName || '其他操作员'} 处理，请先完成接管。`)
   }
 }
 
@@ -1886,9 +2029,9 @@ export function takeOverPostFinishingPostTask(input: {
   nowMs?: number
 }): PostFinishingPostTask {
   const task = findPostTask(input.postTaskId)
-  if (task.status !== '后道中') throw new PostFinishingFlowGateError('INVALID_STATUS', '只有加工中的后道单可以应急接管。')
+  if (task.status !== '后道中') throw new PostFinishingFlowGateError('INVALID_STATUS', '只有加工中的后道加工单可以接管。')
   const reason = input.reason.trim()
-  if (!reason) throw new PostFinishingFlowGateError('INVALID_STATUS', 'Web 应急接管必须填写原因。')
+  if (!reason) throw new PostFinishingFlowGateError('INVALID_STATUS', '接管后道加工单必须填写原因。')
   if (task.startedBy?.actorId === input.actor.actorId) return clone(task)
   const delivery = findDelivery(task.deliveryId)
   const previousOperator = task.startedBy?.actorName || '未记录'
@@ -1899,8 +2042,8 @@ export function takeOverPostFinishingPostTask(input: {
   ensurePostFinishingPostDraftLines(task)
   persist()
   appendBusinessLog({
-    stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
-    action: 'Web应急接管后道', actor: input.actor, operatedAt: now,
+    stage: '后道', delivery, objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    action: '接管后道加工单', actor: input.actor, operatedAt: now,
     beforeStatus: '后道中', afterStatus: '后道中',
     remark: `原操作人：${previousOperator}；接管原因：${reason}`,
   })
@@ -1937,7 +2080,7 @@ export function setPostFinishingPostCompletedQuantity(input: {
   draft.updatedAt = now
   persist()
   appendBusinessLog({
-    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: '填报后道完成数量', actor: input.actor, operatedAt: now,
     beforeQuantity: before, afterQuantity: input.completedQty, differenceQuantity: input.completedQty - before,
     remark: `${line.sku.skuCode}；完成 ${input.completedQty} / 应加工 ${line.expectedQty} 件`,
@@ -2013,7 +2156,7 @@ export function savePostFinishingPostSkuAdjustment(input: {
   })
   persist()
   appendBusinessLog({
-    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    stage: '后道', delivery: findDelivery(task.deliveryId), objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: deltas.length ? `${input.adjustmentMode === 'INCREASE' ? '增加' : '减少'}后道瑕疵` : '调整后道返厂',
     actor: input.actor, operatedAt: now,
     beforeQuantity: beforeQty, afterQuantity: defectQty + input.returnQty,
@@ -2072,18 +2215,18 @@ export function startPostFinishingPostTask(input: {
   nowMs?: number
 }): PostFinishingPostTask {
   const task = state.postTasks.find((item) => item.postTaskNo === input.postTaskNo.trim())
-  if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整后道任务号，不提供模糊候选。')
+  if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整后道加工单号，不提供模糊候选。')
   const delivery = findDelivery(task.deliveryId)
   if (task.status === '后道完成') return clone(task)
   if (task.startedBy && task.startedBy.actorId !== input.actor.actorId) {
     appendBusinessLog({
-      stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+      stage: '后道', delivery, objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
       action: '扫描领取冲突', actor: input.actor, operatedAt: nowIso(input.nowMs), result: '阻断',
       remark: `已由${task.startedBy.actorName}后道处理中；开始时间${task.startedAt}`,
     })
     throw new PostFinishingFlowGateError(
       'CLAIM_CONFLICT',
-      `该后道任务已由 ${task.startedBy.actorName} 处理中，开始时间 ${task.startedAt}。`,
+      `该后道加工单已由 ${task.startedBy.actorName} 处理中，开始时间 ${task.startedAt}。`,
     )
   }
   if (task.status === '待后道') {
@@ -2094,7 +2237,7 @@ export function startPostFinishingPostTask(input: {
     ensurePostFinishingPostDraftLines(task)
     persist()
     appendBusinessLog({
-      stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+      stage: '后道', delivery, objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
       action: '开始后道', actor: input.actor, operatedAt: now, beforeStatus: '待后道', afterStatus: task.status,
     })
   }
@@ -2216,7 +2359,7 @@ export function completePostFinishingPostTask(input: {
   })
   persist()
   appendBusinessLog({
-    stage: '后道', delivery, objectType: '后道任务', objectId: task.postTaskId, objectNo: task.postTaskNo,
+    stage: '后道', delivery, objectType: '后道加工单', objectId: task.postTaskId, objectNo: task.postTaskNo,
     action: '完成后道', actor: input.actor, operatedAt: now, beforeStatus: '后道中', afterStatus: task.status,
     beforeQuantity: total(task.lines.map((line) => line.expectedQty)),
     afterQuantity: total(stageQuantities.map((line) => line.actualQty)),
@@ -2232,12 +2375,17 @@ export function claimPostFinishingRecheckOrder(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  if (!input.actor.roleName.includes('复检')) {
+    throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '当前账号不是复检人员，不能领取复检单。')
+  }
   const record = state.recheckOrders.find((item) => item.recheckOrderNo === input.recheckOrderNo.trim())
   if (!record) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整复检单号，不提供模糊候选。')
   const delivery = findDelivery(record.deliveryId)
   const now = nowIso(input.nowMs)
-  if (record.status === '复检完成') return clone(record)
-  if (record.claimedBy && record.claimedBy.actorId !== input.actor.actorId) {
+  if (record.status === '复检完成') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', '该复检单已完成，不能再次领取。')
+  }
+  if (record.claimedBy) {
     appendBusinessLog({
       stage: '复检', delivery, objectType: '复检单', objectId: record.recheckOrderId, objectNo: record.recheckOrderNo,
       action: '扫描领取冲突', actor: input.actor, operatedAt: now, result: '阻断',
@@ -2248,18 +2396,17 @@ export function claimPostFinishingRecheckOrder(input: {
       `该复检单已由 ${record.claimedBy.actorName} 复检中，领取时间 ${record.claimedAt}。`,
     )
   }
-  if (!record.claimedBy) {
-    record.claimedBy = clone(input.actor)
-    record.claimedAt = now
-    record.status = record.lines.some((line) => ['错误待重贴', '已重贴待复扫'].includes(line.barcodeStatus))
-      ? '条码异常待重贴'
-      : '复检中'
-    persist()
-    appendBusinessLog({
-      stage: '复检', delivery, objectType: '复检单', objectId: record.recheckOrderId, objectNo: record.recheckOrderNo,
-      action: '扫码领取复检', actor: input.actor, operatedAt: now, beforeStatus: '待复检', afterStatus: record.status,
-    })
+  if (record.status !== '待复检') {
+    throw new PostFinishingFlowGateError('INVALID_STATUS', `该复检单当前为${record.status}，只有待复检且未被领取的单据才能领取。`)
   }
+  record.claimedBy = clone(input.actor)
+  record.claimedAt = now
+  record.status = '复检中'
+  persist()
+  appendBusinessLog({
+    stage: '复检', delivery, objectType: '复检单', objectId: record.recheckOrderId, objectNo: record.recheckOrderNo,
+    action: '输入完整单号领取复检单', actor: input.actor, operatedAt: now, beforeStatus: '待复检', afterStatus: record.status,
+  })
   return clone(record)
 }
 
@@ -2284,11 +2431,21 @@ export function releasePostFinishingRecheckOrder(input: {
   record.releasedAt = now
   record.releaseReason = input.reason.trim() || '错误领取'
   record.status = '待复检'
+  record.completedAt = undefined
+  record.recheckAuthorizationId = undefined
+  record.recheckAuthorizedBy = undefined
+  record.lines.forEach((line) => {
+    line.passedQty = undefined
+    line.defectQty = undefined
+    line.lastScannedBarcode = undefined
+    line.barcodeStatus = line.expectedQty > 0 ? '待扫描' : '正确'
+    line.barcodeEvents = []
+  })
   persist()
   appendBusinessLog({
     stage: '复检', delivery, objectType: '复检单', objectId: record.recheckOrderId, objectNo: record.recheckOrderNo,
-    action: '释放复检单', actor: input.actor, operatedAt: now, beforeStatus: '复检中', afterStatus: record.status,
-    remark: `${ownerName}退领；${record.releaseReason}`,
+    action: '退领复检单', actor: input.actor, operatedAt: now, beforeStatus: '复检中', afterStatus: record.status,
+    remark: `${ownerName}退领；已清空复检数量、条码确认与未提交授权数据；${record.releaseReason}`,
   })
   return clone(record)
 }
@@ -2901,32 +3058,30 @@ export function loadPostFinishingDemoData(): void {
           defectQty: 0,
           returnQty: 0,
         })),
-        needPostFinishing: orderIndex !== 2 && !(orderIndex === 1 && returnIndex === 4),
+        needPostFinishing: true,
         nowMs: chainTime + 40 * 60 * 1000,
       })
 
       if (orderIndex === 0) continue
-      if (orderIndex === 1 && returnIndex === 5 && completedQc.postTaskNo && completedQc.postTaskId) {
-        const startedPost = startPostFinishingPostTask({
-          postTaskNo: completedQc.postTaskNo,
-          actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-          nowMs: chainTime + 50 * 60 * 1000,
-        })
-        completePostFinishingPostTask({
-          postTaskId: startedPost.postTaskId,
-          actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-          results: startedPost.lines.map((line) => ({
-            skuId: line.sku.skuId,
-            passedQty: line.expectedQty,
-            defectQty: 0,
-            returnQty: 0,
-          })),
-          nowMs: chainTime + 60 * 60 * 1000,
-        })
-        continue
-      }
+      const startedPost = startPostFinishingPostTask({
+        postTaskNo: completedQc.postTaskNo || '',
+        actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
+        nowMs: chainTime + 50 * 60 * 1000,
+      })
+      const completedPost = completePostFinishingPostTask({
+        postTaskId: startedPost.postTaskId,
+        actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
+        results: startedPost.lines.map((line) => ({
+          skuId: line.sku.skuId,
+          passedQty: line.expectedQty,
+          defectQty: 0,
+          returnQty: 0,
+        })),
+        nowMs: chainTime + 60 * 60 * 1000,
+      })
+      if (orderIndex === 1 && returnIndex === 5) continue
 
-      const recheck = findRecheck(completedQc.recheckOrderId || completedQc.recheckOrderNo || '')
+      const recheck = findRecheck(completedPost.recheckOrderId || completedPost.recheckOrderNo || '')
       const claimedRecheck = claimPostFinishingRecheckOrder({
         recheckOrderNo: recheck.recheckOrderNo,
         actor: POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA,

@@ -12,6 +12,7 @@ const files = {
   numbering: read('../src/data/fcs/post-finishing-document-numbering.ts'),
   authorization: read('../src/data/fcs/post-finishing-authorization.ts'),
   references: read('../src/data/fcs/post-finishing-qc-reference.ts'),
+  spuTechnical: read('../src/data/fcs/post-finishing-spu-technical-parameters.ts'),
   logs: read('../src/data/fcs/post-finishing-operation-log.ts'),
   sewingReturn: read('../src/pages/pda-sewing-self-return.ts'),
   pdaFlow: read('../src/pages/pda-post-finishing-flow.ts'),
@@ -30,6 +31,7 @@ const files = {
   outboundOrders: read('../src/pages/process-factory/post-finishing/outbound-orders.ts'),
   audit: read('../src/pages/process-factory/post-finishing/audit-records.ts'),
   authorizationCode: read('../src/pages/process-factory/post-finishing/authorization-code.ts'),
+  statistics: read('../src/pages/process-factory/post-finishing/statistics.ts'),
   print: read('../src/pages/process-factory/post-finishing/full-flow-print.ts'),
   legacyQcPrint: read('../src/pages/print/templates/post-finishing-qc-print-template.ts'),
   printRegistry: read('../src/data/fcs/print-template-registry.ts'),
@@ -116,7 +118,8 @@ assert(files.authorization.includes('TIME_WINDOW_MS = 30_000'), '授权码必须
 assert(files.authorization.includes('ALREADY_USED'), '授权码必须一次性消费')
 assert(files.authorization.includes('differenceFingerprint'), '授权必须绑定差异指纹')
 assert(files.logs.includes('startedAt') && files.logs.includes('endedAt'), '操作日志必须支持时间范围筛选')
-assert(files.references.includes('!record.qcTaskId') && files.references.includes('record.qcTaskId = input.qcTaskId'), '质检参考资料必须冻结绑定到具体质检任务')
+assert(files.spuTechnical.includes('listPostFinishingSpuOptions') && files.spuTechnical.includes('upsertPostFinishingSpuTechnicalParameter'), 'SPU 技术参数必须可搜索选择并独立维护')
+assert(files.spuTechnical.includes('colorReferenceImageUrl') && files.spuTechnical.includes('sizeRows'), 'SPU 技术参数必须包含颜色对照图与各尺码尺寸')
 
 assert(files.sewingReturn.includes('min="1"') && files.sewingReturn.includes('回货登记数量必须大于 0，不能静默忽略'), '公共 PDA 必须显式阻断 0 数量')
 assert(files.sewingReturn.includes('不展示待办列表'), '公共 PDA 初始不得展示回货任务池')
@@ -144,31 +147,32 @@ assert(files.pdaFlow.includes('data-difference-authorization-block') && files.pd
 assert(files.warehouse.includes('首次差异率超过 5%才要求二次点数'), 'Web 回货确认不得保留“任何差异都二次点数”的旧规则')
 assert(files.warehouse.includes('分母始终为工厂登记数量'), 'Web 回货确认必须说明差异分母')
 assert(!files.warehouse.includes('任一 SKU 首次点数有差异必须二次点数'), 'Web 回货确认仍残留错误阈值文案')
-for (const fakeDefault of ['value="本批质检判断依据"', 'value="买手通过飞书提供"', 'value="/materials/fabric-main.jpg"']) {
-  assert(!files.warehouse.includes(fakeDefault), `质检参考资料不得伪造默认值：${fakeDefault}`)
-}
-assert(files.warehouse.includes('独立于技术包'), '质检参考资料必须明确独立于技术包')
-assert(files.warehouse.includes('不伪造默认资料'), '未上传资料必须显示真实空态')
+assert(files.warehouse.includes('SPU 技术参数在质检单统一维护'), '待加工仓必须指向质检单统一维护 SPU 技术参数')
+assert(!files.warehouse.includes('data-qc-reference-file') && !files.warehouse.includes('full-flow-upload-reference'), '待加工仓不得继续提供按回货单上传的旧质检资料入口')
 assert(files.warehouse.includes("title: mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓'"), 'Web 两类仓库必须共用线上基线式列表结构')
 assert(files.warehouse.includes('确认回货后生成入仓流水，送检后生成出仓流水'), '后道待加工仓必须显示回货入仓和送检出仓事实')
 assert(files.warehouse.includes('复检完成后生成入仓流水，仓库收货后生成交出流水'), '后道待交出仓必须显示复检入仓和出货交出事实')
 assert(files.warehouse.includes("{ key: 'inventory', label: '库存' }") && files.warehouse.includes("{ key: 'movements', label: '流水记录' }") && files.warehouse.includes("{ key: 'locations', label: '库区库位' }"), '两类仓库必须保留线上库存、流水记录和库区库位页签')
-assert(files.warehouse.includes('扫码收货（Web 兜底）') && files.warehouse.includes('PDA 扫码优先'), 'Web 后道待加工仓必须保留扫码收货兜底入口')
-assert(files.workOrders.includes('PDA 执行（优先）') && files.workOrders.includes('查看详情') && files.workOrders.includes('Web 应急处理'), 'Web 后道单必须同时提供 PDA 优先和 Web 应急处理入口')
+assert(files.warehouse.includes('>回货确认<') && files.warehouse.includes('完整送货单号'), 'Web 后道待加工仓必须提供输入完整单号的回货确认入口')
+assert(files.workOrders.includes('开始后道') && files.workOrders.includes('查看加工单') && !files.workOrders.includes('PDA 执行（优先）') && !files.workOrders.includes('Web 应急处理'), 'Web 后道加工单必须使用开始后道和查看加工单入口，不保留旧优先级标识')
 
 assert(files.qcWorkbench.includes('输入完整质检单号'), 'Web 质检执行页必须输入完整单号')
 assert(!files.qcWorkbench.includes('扫描完整质检单号'), 'Web 质检不得把单号输入描述为扫描')
 assert(files.qcWorkbench.includes('错误领取，退回待质检'), '质检任务必须支持退领')
 assert(files.qcWorkbench.includes('已由 ${escapeHtml(task.claimedBy.actorName)} 质检中'), '质检占用必须显示具体质检员')
-assert(files.qcWorkbench.includes('合格 + 瑕疵 + 返厂'), '质检必须逐 SKU 录入三类数量')
-assert(files.qcWorkbench.includes('data-qc-task-reference-file') && files.qcWorkbench.includes('QC 代上传并绑定本次任务'), 'Web 质检必须支持当前 QC 可见上传并绑定本任务')
-assert(files.qcWorkbench.includes('data-qc-result-file="defectImage"'), 'Web 质检必须提供可见瑕疵图片选择器')
+assert(files.qcWorkbench.includes('合格 + 瑕疵 + 返工'), '质检必须逐 SKU 录入三类数量')
+assert(files.qcWorkbench.includes('data-qc-defect-reason') && files.qcWorkbench.includes('瑕疵数量由各原因自动汇总'), 'Web 质检瑕疵数量必须由各瑕疵原因自动汇总')
+assert(!files.qcWorkbench.includes('data-qc-result-file="defectImage"') && !files.qcWorkbench.includes('瑕疵证据'), 'Web 质检不得保留瑕疵证据图片入口')
+assert(files.qcWorkbench.includes('data-qc-rework-factory-block') && files.qcWorkbench.includes('listPostFinishingQcReworkFactoryOptions'), 'Web 质检有返工数量时必须从可搜索工厂列表选择')
+assert(files.qcWorkbench.includes('xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]') && files.qcWorkbench.includes('data-qc-spu-technical-parameters'), 'Web 质检工作台必须左侧操作、右侧展示 SPU 技术参数')
 assert(files.qcWorkbench.includes('data-qc-release-confirm') && files.qcWorkbench.includes('确认退领'), '质检退领必须二次确认并可填写原因')
 assert(files.qcWorkbench.includes('data-qc-difference-authorization') && files.qcWorkbench.includes("classList.toggle('hidden', differentSkuCount === 0)"), 'Web 质检授权区必须仅在有差异时显示')
 assert(files.qcOrders.includes('主管释放'), '质检管理页必须提供主管释放')
-assert(files.qcOrders.includes('data-qc-task-input') && files.qcOrders.includes('输入质检单号'), '质检单页必须同时提供输入领取入口')
+assert(files.qcOrders.includes('data-qc-task-input') && files.qcOrders.includes('领取质检单'), '质检单页必须在右上角提供完整单号领取弹窗')
+assert(files.qcOrders.includes('新增 SPU 技术参数') && files.qcOrders.includes('技术参数未维护') && files.qcOrders.includes('技术参数已维护'), '质检单列表必须提供 SPU 技术参数新增入口与维护状态')
+assert(files.qcOrders.includes('data-spu-tech-field="spuCode"') && files.qcOrders.includes('data-spu-tech-file="colorReference"') && files.qcOrders.includes('data-spu-size-row'), 'SPU 技术参数弹窗必须支持搜索 SPU、颜色对照图和尺码尺寸')
 assert(files.recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检管理页必须提供主管释放错误领取')
-assert(files.tasks.includes("title: '后道任务'") && !files.tasks.includes("title: '后道任务列表'") && files.tasks.includes('查看任务'), '后道任务页必须以生产单汇总、移除重复列表标题并进入一单到底链路')
+assert(files.tasks.includes("title: '后道生产任务'") && files.tasks.includes('回货记录') && files.tasks.includes('view-qc-orders'), '后道生产任务页必须以生产单汇总并可查看多次回货与多张质检单')
 assert(files.qcOrders.includes('getCurrentPostFinishingActor') && !files.qcOrders.includes("query().get('actor')"), 'Web 质检身份必须来自当前登录身份，不得由网址参数切换')
 assert(files.qcWorkbench.includes('getCurrentPostFinishingActor') && !files.qcWorkbench.includes("query().get('actor')"), 'Web 质检工作台身份必须来自当前登录身份，不得由网址参数切换')
 
@@ -207,7 +211,7 @@ for (const scoped of [files.domain, files.sewingReturn, files.pdaFlow, files.war
 }
 
 for (const required of [
-  "type PrintType = 'SEND_QC' | 'QC_ORDER' | 'QC_DETAIL' | 'POST_ORDER' | 'OUTBOUND' | 'SKU_LABEL'",
+  "type PrintType = 'SEND_QC' | 'QC_ORDER' | 'QC_DETAIL' | 'POST_ORDER' | 'OUTBOUND' | 'OUTBOUND_BARCODE' | 'OUTBOUND_HANGTAG' | 'SKU_LABEL'",
   '/fcs/craft/post-finishing/qc-workbench?taskNo=',
   '/fcs/pda/post-finishing/execute?id=',
   '/fcs/pda/post-finishing/outbound-receive?id=',
@@ -216,6 +220,9 @@ for (const required of [
   'h-[30mm] w-[40mm]',
   '图片加载失败',
   'data-print-sheet="a4"',
+  'data-label-count',
+  'data-outbound-unit-label',
+  '打印全部',
   '数量来源',
   '回货确认人 / 时间',
   '质检交接时间',
@@ -236,6 +243,21 @@ assert(files.authorizationCode.includes('getCurrentPostFinishingAuthorizedPerson
 assert(files.authorizationCode.includes('当前账号没有授权权限') && !files.authorizationCode.includes("query().get('authorizerId')"), '非授权身份必须被阻断且不得通过网址参数切换')
 assert(files.menu.includes("title: '后道待加工仓'") && files.menu.includes("title: '质检单'") && files.menu.includes("title: '我的动态授权码'"), '后道菜单必须使用纠偏后的三个入口')
 assert(!files.menu.includes("title: 'Web 质检工作台'"), 'Web 质检工作台不得保留独立菜单')
+for (const [pageName, source] of Object.entries({
+  后道生产任务: files.tasks,
+  质检单: files.qcOrders,
+  质检单执行: files.qcWorkbench,
+  后道加工单: files.workOrders,
+  后道加工详情: read('../src/pages/process-factory/post-finishing/work-order-detail.ts'),
+  复检单: files.recheckOrders,
+  后道待加工仓与待交出仓: files.warehouse,
+  后道出货单: files.outboundOrders,
+  差异与操作日志: files.audit,
+  我的动态授权码: files.authorizationCode,
+  后道统计: files.statistics,
+})) {
+  assert(source.includes('renderPostFinishingQcPrintActions'), `${pageName}缺少质检单与质检单详情打印入口`)
+}
 for (const relation of ['deliveryOrderNo', 'qcTaskNo', 'postTaskNo', 'recheckOrderNo', 'productionOrderNo']) {
   assert(files.outboundOrders.includes(`record.${relation}`), `出货页面关联筛选缺少 ${relation}`)
 }
@@ -249,6 +271,6 @@ console.log(JSON.stringify({
   suite: 'QC 后道全流程可达表面与反向迁移检查',
   webRoutes: webPaths.length,
   pdaRoutes: pdaPaths.length,
-  printTypes: 6,
+  printTypes: 8,
   result: '通过',
 }, null, 2))

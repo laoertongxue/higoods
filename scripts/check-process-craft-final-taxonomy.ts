@@ -63,8 +63,8 @@ for (const processCode of ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']) {
   assert(node.stageCode === 'POST', `${processCode} 必须归属后道阶段`)
   assert(isPostCapacityNode(processCode), `${processCode} 必须被识别为后道阶段产能工序`)
 }
-assert.equal(getProcessDefinitionByCode('BUTTONHOLE')?.generatesExternalTask, false, '开扣眼不得伪造成通用后道任务')
-assert.equal(getProcessDefinitionByCode('BUTTON_ATTACH')?.generatesExternalTask, false, '装扣子不得伪造成通用后道任务')
+assert.equal(getProcessDefinitionByCode('BUTTONHOLE')?.generatesExternalTask, false, '开扣眼不得伪造成通用后道生产任务')
+assert.equal(getProcessDefinitionByCode('BUTTON_ATTACH')?.generatesExternalTask, false, '装扣子不得伪造成通用后道生产任务')
 assert.equal(getProcessDefinitionByCode('IRON_PACK')?.processName, '烫包', '后道成衣处理必须统一为烫包')
 const activeIronPackCrafts = activeCrafts.filter((item) => item.processCode === 'IRON_PACK')
 assert.deepEqual(activeIronPackCrafts.map((item) => item.craftName), ['烫包'], '烫包当前工艺选项必须唯一')

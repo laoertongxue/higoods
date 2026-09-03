@@ -25,10 +25,14 @@ import { handlePostFinishingReturnFlowEvent } from './warehouse.ts'
 import { handlePostFinishingTasksEvent } from './tasks.ts'
 import { handlePostFinishingWorkOrderDetailEvent } from './work-order-detail.ts'
 import { handlePostFinishingWorkOrdersEvent } from './work-orders.ts'
-import { POST_FINISHING_ACCEPTANCE_ACTORS } from '../../../data/fcs/post-finishing-full-flow.ts'
+import {
+  POST_FINISHING_ACCEPTANCE_ACTORS,
+  getPostFinishingFullFlowQcTask,
+} from '../../../data/fcs/post-finishing-full-flow.ts'
 
 const POST_FINISHING_WAREHOUSE_FORM_MODAL_ID = 'post-finishing-warehouse-form-modal'
 const POST_FINISHING_RECEIPT_MODAL_ID = 'post-finishing-receipt-modal'
+const POST_FINISHING_QC_PRINT_MODAL_ID = 'post-finishing-qc-print-modal'
 const DEFAULT_POST_FINISHING_WAREHOUSE_ACCOUNT = POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer.actorName
 
 function showPostFinishingToast(message: string): void {
@@ -55,6 +59,24 @@ function removePostFinishingWarehouseFormDialog(): void {
 
 function removePostFinishingReceiptDialog(): void {
   document.getElementById(POST_FINISHING_RECEIPT_MODAL_ID)?.remove()
+}
+
+function removePostFinishingQcPrintDialog(): void {
+  document.getElementById(POST_FINISHING_QC_PRINT_MODAL_ID)?.remove()
+}
+
+function openPostFinishingQcPrintDialog(type: 'QC_ORDER' | 'QC_DETAIL'): void {
+  removePostFinishingQcPrintDialog()
+  const title = type === 'QC_ORDER' ? '打印质检单' : '打印质检单详情'
+  const host = document.getElementById('app') || document.body
+  host.insertAdjacentHTML('beforeend', `
+    <div id="${POST_FINISHING_QC_PRINT_MODAL_ID}" class="fixed inset-0 z-[210] flex items-center justify-center bg-black/40 p-4" data-skip-page-rerender="true">
+      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl" role="dialog" aria-modal="true" aria-label="${title}">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3"><h2 class="font-semibold">${title}</h2><button type="button" class="rounded-md border px-2 py-1 text-xs" data-post-finishing-action="close-qc-print-dialog">关闭</button></header>
+        <div class="space-y-3 p-4"><p class="text-sm text-muted-foreground">输入或扫描完整质检单号，系统不提供模糊匹配。</p><input autofocus class="h-10 w-full rounded-md border px-3 font-mono text-sm" placeholder="完整质检单号" data-qc-print-task-no /><div class="flex justify-end gap-2"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-post-finishing-action="close-qc-print-dialog">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="confirm-qc-print" data-qc-print-type="${type}">${title}</button></div></div>
+      </section>
+    </div>`)
+  document.querySelector<HTMLInputElement>('[data-qc-print-task-no]')?.focus()
 }
 
 function readWarehouseFormField(modal: HTMLElement, field: string): string {
@@ -423,9 +445,9 @@ export function handlePostFinishingEvent(target: HTMLElement, event?: Event): bo
   if (handlePostFinishingWorkOrdersEvent(target, event)) return true
   if (handlePostFinishingQcWorkbenchEvent(target, event)) return true
   if (handlePostFinishingQcOrdersEvent(target, event)) return true
-  if (handlePostFinishingRecheckOrdersEvent(target)) return true
+  if (handlePostFinishingRecheckOrdersEvent(target, event)) return true
   if (handlePostFinishingReturnFlowEvent(target, event)) return true
-  if (handlePostFinishingOutboundOrderEvent(target)) return true
+  if (handlePostFinishingOutboundOrderEvent(target, event)) return true
   const dialogResult = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPostFinishingToast,
     refresh: refreshCurrentPage,
@@ -436,6 +458,28 @@ export function handlePostFinishingEvent(target: HTMLElement, event?: Event): bo
   if (!actionNode) return false
 
   const action = actionNode.dataset.postFinishingAction
+  if (action === 'open-qc-print-dialog') {
+    openPostFinishingQcPrintDialog(actionNode.dataset.qcPrintType === 'QC_DETAIL' ? 'QC_DETAIL' : 'QC_ORDER')
+    return true
+  }
+
+  if (action === 'close-qc-print-dialog') {
+    removePostFinishingQcPrintDialog()
+    return true
+  }
+
+  if (action === 'confirm-qc-print') {
+    const qcTaskNo = document.querySelector<HTMLInputElement>('[data-qc-print-task-no]')?.value.trim() || ''
+    if (!getPostFinishingFullFlowQcTask(qcTaskNo)) {
+      window.alert('未找到完整质检单号，不提供模糊候选。')
+      return true
+    }
+    const printType = actionNode.dataset.qcPrintType === 'QC_DETAIL' ? 'QC_DETAIL' : 'QC_ORDER'
+    removePostFinishingQcPrintDialog()
+    appStore.navigate(`/fcs/craft/post-finishing/print?type=${printType}&id=${encodeURIComponent(qcTaskNo)}`)
+    return true
+  }
+
   if (action === 'open-web-status-action-dialog') {
     openProcessWebStatusActionDialog({
       actionNode,

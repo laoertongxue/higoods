@@ -730,7 +730,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
 
   if (sourceType === 'POST_FINISHING') {
     const order = getPostFinishingWorkOrderById(sourceId)
-    if (!order) throw new Error('后道单不存在')
+    if (!order) throw new Error('后道加工单不存在')
     const binding = validatePostFinishingMobileTaskBinding(order.postOrderId)
     return {
       status: order.currentStatus,
@@ -1323,7 +1323,7 @@ export function executePostFinishingAction(payload: ProcessActionPayload): Parti
   const definition = getProcessActionDefinition('POST_FINISHING', payload.actionCode)
   if (!definition) throw new Error('后道动作未注册')
   const order = getPostFinishingWorkOrderById(payload.sourceId)
-  if (!order) throw new Error('后道单不存在')
+  if (!order) throw new Error('后道加工单不存在')
   const actionCode = normalizeActionCode(payload.actionCode)
   const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
   const qty = Number(payload.objectQty || order.plannedGarmentQty || 0)

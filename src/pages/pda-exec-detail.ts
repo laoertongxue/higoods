@@ -353,7 +353,7 @@ function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number)
     acceptedBy: order.managedPostFactoryName,
     dispatchedAt: order.createdAt,
     dispatchedBy: '系统',
-    dispatchRemark: '后道单同步到工厂端移动应用执行',
+    dispatchRemark: '后道加工单同步到工厂端移动应用执行',
     taskDeadline: order.updatedAt,
     receiverKind: 'MANAGED_POST_FACTORY',
     receiverId: order.managedPostFactoryId,
@@ -2866,7 +2866,7 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
     return `
       <div class="grid gap-2">
         <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-          当前后道单还未完成上游来货接收，请先到交接模块确认收货；收货入库后再执行质检、后道和复检。
+          当前后道加工单还未完成上游来货接收，请先到交接模块确认收货；收货入库后再执行质检、后道和复检。
         </div>
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-go-handover" data-post-task-id="${escapeHtml(order.postTaskId || '')}">
           去交接接收
@@ -3013,7 +3013,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/craft/post-finishing/qc-orders">前往 Web 质检单</a>`
       : '',
     postOrders[0]
-      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道单</button>`
+      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道加工单</button>`
       : '',
   ].filter(Boolean).join('')
   const postRows = postOrders.map((item) => `
@@ -3023,7 +3023,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
         objectId: item.postOrderNo,
         relatedProductionOrderNo: item.sourceProductionOrderNo,
       })}</td>
-      <td class="px-3 py-2">${escapeHtml(item.postProcessItems.join('、') || '无后道单')}</td>
+      <td class="px-3 py-2">${escapeHtml(item.postProcessItems.join('、') || '无后道加工单')}</td>
       <td class="px-3 py-2">${escapeHtml(item.postStatus)}</td>
     </tr>
   `).join('')
@@ -3035,7 +3035,7 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
           返回
         </button>
-        <h1 class="text-base font-semibold">后道任务</h1>
+        <h1 class="text-base font-semibold">后道生产任务</h1>
       </div>
 
       <article class="rounded-lg border bg-card">
@@ -3089,8 +3089,8 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">后道与复检入口</h2></header>
         <div class="space-y-3 p-4">
-          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道单</td></tr>'}</tbody></table></div>
-          <div class="grid grid-cols-2 gap-2"><a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/post-finishing/execute">扫描后道任务</a><a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/recheck">扫描复检单</a></div>
+          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道加工单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道加工单</td></tr>'}</tbody></table></div>
+          <div class="grid grid-cols-2 gap-2"><a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium" href="/fcs/pda/post-finishing/execute">扫描后道加工单</a><a class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" href="/fcs/pda/post-finishing/recheck">扫描复检单</a></div>
         </div>
       </article>
     </div>
@@ -3238,7 +3238,7 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
           返回
         </button>
-        <h1 class="text-base font-semibold">车缝及后道任务</h1>
+        <h1 class="text-base font-semibold">车缝及后道加工任务</h1>
       </div>
 
       <article class="rounded-lg border bg-card">
@@ -3277,7 +3277,7 @@ function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask
             <span>${completedPostGarmentQty} ${escapeHtml(qtyUnit)}</span>
             <span class="text-muted-foreground">实际工序后流向</span>
             <span>交给${escapeHtml(task.managedPostFactoryName)}质检和复检</span>
-            <span class="text-muted-foreground">关联后道单号</span>
+            <span class="text-muted-foreground">关联后道加工单号</span>
             <span>${renderPdaObjectCode({
               objectType: 'PROCESS_DOC',
               objectId: task.relatedPostOrderNo,

@@ -901,7 +901,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
 export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
   const context = resolvePostFinishingContext(actionResult)
   const base = emptyLinkageResult(actionResult)
-  if (!context) return mergeResult(base, { success: false, message: '未找到后道单，不能执行仓联动' })
+  if (!context) return mergeResult(base, { success: false, message: '未找到后道加工单，不能执行仓联动' })
 
   if (['POST_RECEIVE_FINISH', 'POST_QC_FINISH', 'POST_PROCESS_FINISH'].includes(actionResult.actionCode)) {
     const actionName =

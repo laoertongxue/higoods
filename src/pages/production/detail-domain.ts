@@ -369,16 +369,16 @@ function renderOrderPostFinishingMetricCard(order: ProductionOrder): string {
   if (!task) {
     return `
       <article class="rounded-lg border bg-card p-4">
-        <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+        <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道生产任务</h3>
         ${renderBadge('未生成', 'bg-amber-100 text-amber-700')}
-        <p class="mt-2 text-xs text-muted-foreground">生产单缺少后道主线任务</p>
+        <p class="mt-2 text-xs text-muted-foreground">生产单缺少后道生产任务</p>
       </article>
     `
   }
 
   return `
     <article class="rounded-lg border bg-card p-4">
-      <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+      <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道生产任务</h3>
       ${renderBadge(task.currentStatus, task.currentStatus.includes('完成') ? 'bg-green-100 text-green-700' : task.currentStatus.includes('中') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}
       <p class="mt-2 font-mono text-xs">${escapeHtml(task.postTaskNo)}</p>
       <p class="text-xs text-muted-foreground">当前节点：${escapeHtml(task.currentNode)}</p>
@@ -392,8 +392,8 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
   if (!task) {
     return `
       <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        <p class="font-medium">未找到生产单级后道任务</p>
-        <p class="mt-1">请检查生产单 Mock 数据与后道任务生成链路。</p>
+        <p class="font-medium">未找到生产单级后道生产任务</p>
+        <p class="mt-1">请检查生产单 Mock 数据与后道生产任务生成链路。</p>
       </section>
     `
   }
@@ -406,11 +406,11 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
     <section class="rounded-lg border bg-card p-4 space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-base font-semibold">后道任务</h3>
+          <h3 class="text-base font-semibold">后道生产任务</h3>
           <p class="mt-1 text-xs text-muted-foreground">该记录串联收货、质检、实际工序、复检与交接；质检和复检不是生产工序。</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道任务</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道生产任务</button>
           <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="/fcs/craft/post-finishing/wait-process-warehouse">后道待加工仓</button>
           <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('POST_FINISHING_TASK', task.postTaskId))}">打印流转卡</button>
         </div>
@@ -418,7 +418,7 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
 
       <div class="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
         <article class="rounded-md border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">后道任务编号</p>
+          <p class="text-xs text-muted-foreground">后道生产任务编号</p>
           <p class="mt-1 font-mono text-xs font-semibold">${escapeHtml(task.postTaskNo)}</p>
           <p class="text-[11px] text-muted-foreground">${escapeHtml(task.postTaskId)}</p>
         </article>
@@ -463,10 +463,10 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
           <h4 class="text-sm font-semibold">子单据</h4>
           <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
             <div><p class="text-xs text-muted-foreground">质检单</p><p class="text-lg font-semibold">${task.qcOrderCount}</p></div>
-            <div><p class="text-xs text-muted-foreground">后道单</p><p class="text-lg font-semibold">${task.postOrderCount}</p></div>
+            <div><p class="text-xs text-muted-foreground">后道加工单</p><p class="text-lg font-semibold">${task.postOrderCount}</p></div>
             <div><p class="text-xs text-muted-foreground">复检单</p><p class="text-lg font-semibold">${task.recheckOrderCount}</p></div>
           </div>
-          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子或烫包才生成后道单；未勾选则进入复检链路。</p>
+          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子或烫包才生成后道加工单；未勾选则进入复检链路。</p>
         </section>
       </div>
     </section>
@@ -579,7 +579,7 @@ function renderOrderDetailTabButtons(activeTab: OrderDetailTab, order: Productio
     ...(
       isKolGotoProductionOrder(order)
         ? []
-        : [{ key: 'post-finishing' as const, label: '后道任务' }]
+        : [{ key: 'post-finishing' as const, label: '后道生产任务' }]
     ),
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },

@@ -68,13 +68,12 @@ test('特殊工艺加工单列表与详情 Tab 收口', async ({ page }) => {
 
 test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/work-orders')
-  await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
-  await expect(page.getByText('后道单列表')).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '后道来源' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '当前流程' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '接收接收状态' })).toBeVisible()
-  await expect(page.getByText('后道工厂执行').first()).toBeVisible()
-  await expect(page.getByText('车缝厂已完成后道').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '后道加工单', exact: true })).toBeVisible()
+  for (const column of ['单据', '工厂', 'SKU 明细', '后道项目', '后道状态']) {
+    await expect(page.getByRole('columnheader', { name: column })).toBeVisible()
+  }
+  await expect(page.getByRole('button', { name: '开始后道' }).first()).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('PDA 执行（优先）')
 
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()

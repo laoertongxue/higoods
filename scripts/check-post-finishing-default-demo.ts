@@ -42,10 +42,17 @@ assert.equal(warehouseRecords.filter((item) => item.status === '已送检').leng
 assert.equal(movements.filter((item) => item.movementType === '确认入库').length, 12, '已确认的十二次回货必须各有确认入库流水')
 assert.equal(movements.filter((item) => item.movementType === '送检出库').length, 9, '已送检的九次回货必须各有送检出库流水')
 
-assert.equal(qcTasks.length, 9, '默认 Mock 必须覆盖九个已送检质检任务')
+assert.equal(qcTasks.length, 12, '默认 Mock 中十二次已确认回货必须各自自动生成质检单')
+assert.equal(qcTasks.filter((item) => item.status === '待送检').length, 3, '每个生产单必须各有一个已建单但尚未送检的质检任务')
 assert.equal(qcTasks.filter((item) => item.status === '待质检').length, 3, '每个生产单必须各有一个待质检任务')
 assert.equal(qcTasks.filter((item) => item.status === '质检中').length, 2, '默认 Mock 必须保留两个质检中任务')
 assert.equal(qcTasks.filter((item) => item.status === '质检完成').length, 4, '默认 Mock 必须覆盖四个已完成质检任务')
+for (const productionOrderNo of new Set(deliveries.map((item) => item.productionOrderNo))) {
+  const confirmedReturns = deliveries.filter((item) => item.productionOrderNo === productionOrderNo && item.confirmedAt)
+  const orderQcTasks = qcTasks.filter((item) => item.productionOrderNo === productionOrderNo).sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+  assert.equal(orderQcTasks.length, confirmedReturns.length, `${productionOrderNo} 每次已确认回货必须各有一张质检单`)
+  assert.deepEqual(orderQcTasks.map((item) => item.qcTaskNo), [1, 2, 3, 4].map((sequence) => `${productionOrderNo}-${sequence}`), `${productionOrderNo} 质检单号必须按确认先后严格连续递增`)
+}
 assert.equal(listPostFinishingFullFlowPostTasks().length, 2, '默认 Mock 必须覆盖待后道和后道完成状态')
 assert.equal(listPostFinishingFullFlowRecheckOrders().length, 3, '默认 Mock 必须覆盖待复检、待交出和已收货三种后续状态')
 assert.equal(listPostFinishingFullFlowOutboundOrders().length, 2, '默认 Mock 必须覆盖待交出和已收货两张出货单')
