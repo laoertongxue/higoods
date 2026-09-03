@@ -646,29 +646,39 @@ function renderKolGotoHandoverPage(): string {
 }
 
 function renderPostFinishingReturnReceivingPanel(canOpenSelfReturnMode: boolean): string {
+  const pendingMaterialTransfers = listPostFinishingMaterialTransferOrders().filter((order) => order.status === '待入库')
   return `
-    <section class="rounded-2xl border border-blue-100 bg-blue-50/60 p-3 shadow-sm" data-pda-post-finishing-receiving>
-      <h2 class="text-sm font-semibold text-blue-950">后道回货接收</h2>
-      <p class="mt-1 text-xs leading-5 text-blue-700">回货属于交接责任；先登记送货，再由后道逐 SKU 点数确认。</p>
-      <div class="mt-3 space-y-2">
-        <button type="button" class="flex min-h-14 w-full items-center justify-between rounded-xl bg-blue-600 px-3 py-3 text-left text-white" data-nav="/fcs/pda/post-finishing/return-confirm">
-          <span><span class="block text-sm font-semibold">扫描送货单点数确认</span><span class="mt-1 block text-[11px] text-blue-100">超过工厂登记数量上下 5%时二次点数并授权</span></span>
-          <i data-lucide="scan-line" class="h-5 w-5 shrink-0"></i>
-        </button>
-        <div class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-3">
-          <div class="min-w-0">
-            <div class="text-sm font-semibold text-blue-950">开启车缝自助回货</div>
-            <p class="mt-1 text-[11px] leading-4 text-blue-700">锁定公共 PDA 给车缝送货人员登记，登记后仍需后道点数确认。</p>
-            ${canOpenSelfReturnMode ? '' : '<p class="mt-1 text-[11px] text-amber-700">需后道工厂管理员开启</p>'}
-          </div>
-          <button
-            type="button"
-            class="shrink-0 rounded-xl ${canOpenSelfReturnMode ? 'bg-blue-600 text-white' : 'border border-amber-300 bg-amber-50 text-amber-800'} px-3 py-2 text-xs font-semibold"
-            data-pda-handover-action="open-sewing-self-return-mode"
-          >开启</button>
-        </div>
-      </div>
+    <section class="grid grid-cols-3 gap-2" data-pda-post-finishing-receiving data-testid="pda-pickup-entry-grid" aria-label="待接收功能入口">
+      <button type="button" class="flex h-[68px] min-w-0 flex-col items-center justify-center rounded-xl bg-blue-600 px-1.5 text-center text-white shadow-sm" data-nav="/fcs/pda/post-finishing/return-confirm" data-pda-pickup-entry="return" aria-label="回货接收：扫描送货单点数确认">
+        <i data-lucide="scan-line" class="h-4 w-4 shrink-0"></i>
+        <span class="mt-1 text-[13px] font-semibold leading-4">回货接收</span>
+        <span class="mt-0.5 truncate text-[10px] leading-3 text-blue-100">扫描送货单</span>
+      </button>
+      <button type="button" class="flex h-[68px] min-w-0 flex-col items-center justify-center rounded-xl border ${canOpenSelfReturnMode ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-amber-200 bg-amber-50 text-amber-800'} px-1.5 text-center shadow-sm" data-pda-handover-action="open-sewing-self-return-mode" data-pda-pickup-entry="self-return" aria-label="自助回货：开启车缝自助回货${canOpenSelfReturnMode ? '' : '，需管理员'}">
+        <i data-lucide="user-round-check" class="h-4 w-4 shrink-0"></i>
+        <span class="mt-1 text-[13px] font-semibold leading-4">自助回货</span>
+        <span class="mt-0.5 truncate text-[10px] leading-3">${canOpenSelfReturnMode ? '开启登记' : '需管理员'}</span>
+      </button>
+      <button type="button" class="flex h-[68px] min-w-0 flex-col items-center justify-center rounded-xl border border-blue-200 bg-white px-1.5 text-center text-blue-800 shadow-sm" data-pda-handover-action="open-material-transfer-scan" data-pda-pickup-entry="material" data-skip-page-rerender="true" aria-label="辅料接收：扫描后道辅料待入库调拨单">
+        <i data-lucide="package-check" class="h-4 w-4 shrink-0"></i>
+        <span class="mt-1 text-[13px] font-semibold leading-4">辅料接收</span>
+        <span class="mt-0.5 text-[10px] leading-3">待入库 ${pendingMaterialTransfers.length} 张</span>
+      </button>
     </section>
+    <div class="fixed inset-0 z-50 hidden items-end bg-black/40 p-3" data-pda-material-transfer-scan role="dialog" aria-modal="true" aria-labelledby="pda-material-transfer-scan-title">
+      <button type="button" class="absolute inset-0" data-pda-handover-action="close-material-transfer-scan" data-skip-page-rerender="true" aria-label="关闭辅料接收"></button>
+      <section class="relative z-10 w-full rounded-2xl bg-white p-4 shadow-xl">
+        <div class="flex items-start justify-between gap-3">
+          <div><h2 id="pda-material-transfer-scan-title" class="font-semibold">辅料接收</h2><p class="mt-1 text-xs text-muted-foreground">扫描或输入完整后道辅料调拨单号。</p></div>
+          <button type="button" class="h-8 rounded-lg border px-3 text-xs" data-pda-handover-action="close-material-transfer-scan" data-skip-page-rerender="true">关闭</button>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <input class="h-11 min-w-0 flex-1 rounded-xl border px-3 font-mono text-sm" placeholder="DB-PF-…" data-pda-handover-field="materialTransferNo"/>
+          <button type="button" class="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white" data-pda-handover-action="scan-material-transfer">查询</button>
+        </div>
+        <p class="mt-2 text-[11px] text-muted-foreground">只接受完整单号，不提供模糊候选。</p>
+      </section>
+    </div>
   `
 }
 
@@ -679,7 +689,7 @@ function renderPostFinishingMaterialTransferCard(order: PostFinishingMaterialTra
 
 function renderPostFinishingMaterialTransfersPanel(): string {
   const pending = listPostFinishingMaterialTransferOrders().filter((order) => order.status === '待入库')
-  return `<section class="space-y-2" data-pda-material-transfer-list><div class="flex items-center justify-between"><div><h2 class="text-sm font-semibold">后道辅料待入库</h2><p class="mt-1 text-[11px] text-muted-foreground">辅料仓备妥后，由后道领料回厂并整单入库。</p></div><span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${pending.length} 张</span></div><div class="rounded-xl border bg-white p-3" data-pda-material-transfer-scan><label class="text-xs font-medium">扫描或输入完整调拨单号</label><div class="mt-2 flex gap-2"><input class="h-11 min-w-0 flex-1 rounded-xl border px-3 font-mono text-sm" placeholder="DB-PF-…" data-pda-handover-field="materialTransferNo"/><button type="button" class="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white" data-pda-handover-action="scan-material-transfer">查询</button></div><p class="mt-2 text-[11px] text-muted-foreground">只接受完整单号，不提供模糊候选。</p></div>${pending.length ? pending.map(renderPostFinishingMaterialTransferCard).join('') : '<div class="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">暂无待入库的后道辅料调拨单</div>'}</section>`
+  return `<section class="space-y-2" data-pda-material-transfer-list><div class="flex items-center justify-between"><h2 class="text-sm font-semibold">后道辅料待入库</h2><span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${pending.length} 张</span></div>${pending.length ? pending.map(renderPostFinishingMaterialTransferCard).join('') : '<div class="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">暂无待入库的后道辅料调拨单</div>'}</section>`
 }
 
 function renderPostFinishingMaterialTransferDetail(order: PostFinishingMaterialTransferOrder): string {
@@ -1140,17 +1150,32 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
   const action = actionNode.dataset.pdaHandoverAction
   if (!action) return false
 
+  if (action === 'open-material-transfer-scan') {
+    const dialog = document.querySelector<HTMLElement>('[data-pda-material-transfer-scan]')
+    dialog?.classList.remove('hidden')
+    dialog?.classList.add('flex')
+    window.setTimeout(() => dialog?.querySelector<HTMLInputElement>('[data-pda-handover-field="materialTransferNo"]')?.focus(), 0)
+    return true
+  }
+
+  if (action === 'close-material-transfer-scan') {
+    const dialog = document.querySelector<HTMLElement>('[data-pda-material-transfer-scan]')
+    dialog?.classList.add('hidden')
+    dialog?.classList.remove('flex')
+    return true
+  }
+
   if (action === 'scan-material-transfer') {
     const input = document.querySelector<HTMLInputElement>('[data-pda-material-transfer-scan] [data-pda-handover-field="materialTransferNo"]')
     const raw = input?.value.trim() || ''
     const record = getPostFinishingMaterialTransferOrder(raw)
     if (!raw || !record || record.transferOrderNo !== raw) {
       window.alert('未找到完整后道辅料调拨单号，不提供模糊候选。')
-      return true
+      return false
     }
     if (record.status !== '待入库') {
       window.alert(`该调拨单当前为${record.status}，只有待入库调拨单可执行整单入库。`)
-      return true
+      return false
     }
     materialInboundMessage = ''
     appStore.navigate(`/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(record.transferOrderNo)}`)
