@@ -597,7 +597,7 @@ function buildTechnicalDocuments(
         sourceFileId: design.id || `design_${index + 1}`,
         fileName: design.name,
         fileType: '图片',
-        previewUrl: design.imageUrl,
+        previewUrl: design.imageUrl || '',
         isPrimary: true,
         sortOrder: 1,
         uploadedAt: version.updatedAt,
@@ -1131,7 +1131,7 @@ function buildSampleDocuments(
 
   listFirstOrderSampleTasksByProject(project.projectId).forEach((task) => {
     const samplePlanLines = task.samplePlanLines
-    const factoryReferenceCount = samplePlanLines.filter((line) => line.sampleRole === '工厂参照样').length
+    const factoryReferenceCount = samplePlanLines.filter((line) => line.sampleRole === '工厂参照确认').length
     documents.push(
       createDocumentRecord({
         archiveDocumentId: buildDocumentId(archive.projectArchiveId, '首单样衣打样', '首单样衣打样任务', task.firstOrderSampleTaskId, '', '首单样衣打样', false),

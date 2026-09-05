@@ -393,7 +393,7 @@ function decorateApplication(rawApplication: FactoryOnboardingApplication): Fact
     ...item,
     nodeName: normalizeNodeName(String(item.nodeName), status),
   }))
-  const normalizedActionLogs = ((raw.actionLogs as FactoryOnboardingActionLog[] | undefined) || []).map((item) => ({
+  const normalizedActionLogs: FactoryOnboardingActionLog[] = ((raw.actionLogs as FactoryOnboardingActionLog[] | undefined) || []).map((item): FactoryOnboardingActionLog => ({
     ...item,
     actionName: normalizeActionName(String(item.actionName)),
     nodeName: normalizeNodeName(String(item.nodeName), status),
@@ -909,7 +909,7 @@ function createSeedApplication(
         ? '待平台登记样衣'
         : status === '已转正式合作'
           ? '已转正式合作'
-          : status
+          : status as FactoryOnboardingSampleStatus
     sampleVerifiedAt = status === '待样衣验证' ? undefined : reviewAt
   }
 

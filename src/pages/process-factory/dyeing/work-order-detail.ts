@@ -590,7 +590,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   const afterNodeText = afterNodes
     .map((node) => `${node.nodeName}：${formatDyeTime(node.startedAt)} 至 ${formatDyeTime(node.finishedAt)}，${node.operatorName || '—'}，${formatDyeQty('outputQty' in node ? node.outputQty : undefined, order.plannedUnit)}`)
     .join('；') || '—'
-  const mobileBinding = validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId || order.workOrderId)
+  const mobileBinding = validateDyeWorkOrderMobileTaskBinding(dye.dyeOrderId || order.workOrderId)
   const mobileBindingTaskNo = mobileBinding.actualTaskNo || mobileBinding.expectedTaskNo || '未绑定'
   const mobileBindingStatus = mobileBinding.canOpenMobileExecution ? '有效' : '不可执行'
   const mobileBindingReasonLabel =
@@ -603,12 +603,12 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       ? buildTaskDetailLink(mobileBinding.actualTaskId || order.taskId, {
           returnTo: buildMobileExecutionListLocatePathForTask(mobileExecutionTask, {
             currentFactoryId: order.factoryId || 'F090',
-            keyword: order.workOrderNo || order.dyeOrderNo,
+            keyword: order.workOrderNo || dye.dyeOrderNo,
           }),
           sourceType: 'DYE_WORK_ORDER',
-          sourceId: order.dyeOrderId || order.workOrderId,
+          sourceId: dye.dyeOrderId || order.workOrderId,
           currentFactoryId: order.factoryId || 'F090',
-          keyword: order.workOrderNo || order.dyeOrderNo,
+          keyword: order.workOrderNo || dye.dyeOrderNo,
         })
       : ''
   const webActions = getAvailableDyeWebActions(order.workOrderId)
@@ -665,7 +665,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       '染缸执行',
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          ${renderField('染缸号', 'dyeVatNo' in (vatNode || {}) ? String(vatNode?.dyeVatNo || '—') : '—')}
+          ${renderField('染缸号', vatNode && 'dyeVatNo' in vatNode ? String(vatNode.dyeVatNo || '—') : '—')}
           ${renderField('排缸时间', formatDyeTime(vatNode?.finishedAt))}
           ${renderField('染色开始时间', formatDyeTime(dyeNode?.startedAt))}
           ${renderField('染色完成时间', formatDyeTime(dyeNode?.finishedAt))}

@@ -6,6 +6,8 @@ import {
 import {
   publishTechPackDraft,
   validateTechPackForPublish,
+  type TechPackPatternBindingStrip,
+  type TechPackPatternPieceSpecialCraftAssignment,
   type TechPackSpecialCraftTargetObject,
 } from '../../data/fcs/tech-packs.ts'
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
@@ -131,6 +133,7 @@ import type {
   TechPackAssignmentGranularity,
   TechPackDetailSplitDimension,
   TechPackPatternMaterialType,
+  PatternItem,
   TechPackSizeRow,
   TechPackTab,
   TechniqueItem,
@@ -1359,7 +1362,7 @@ function validatePatternMerchandiserStep(): string | null {
   }
 
   if (!state.newPattern.linkedBomItemId.trim()) return '请选择关联物料'
-  if (!state.newPattern.sourcePatternPackageId.trim()) return '请选择关联纸样'
+  if (!state.newPattern.sourcePatternPackageId?.trim()) return '请选择关联纸样'
   if (!state.newPattern.name.trim()) return '请选择关联纸样'
   if (!String(state.newPattern.type || '').trim()) return '请选择纸样分类'
   if (state.newPattern.patternMaterialType === 'UNKNOWN') return '请选择纸样类型'
@@ -1465,7 +1468,7 @@ function updatePatternMaintainerStatuses(nextStatus: typeof state.newPattern.mai
   }
 }
 
-function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPattern.maintainerStepStatus) {
+function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPattern.maintainerStepStatus): Omit<PatternItem, 'id'> {
   const isPatternPackage = state.patternFormPurpose === 'PACKAGE'
   const normalizedFormPieceRows = normalizePatternPieceRows(
     state.newPattern.pieceRows.map((row) => ({ ...row })),
@@ -1569,7 +1572,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(normalizedPatternMaterialType),
     internalStyleCode:
       normalizedPatternMaterialType === 'WOOL'
-        ? state.newPattern.internalStyleCode.trim()
+        ? state.newPattern.internalStyleCode?.trim() || ''
         : '',
     patternFileMode: normalizedPatternFileMode,
     parseStatus: nextParseStatus,
@@ -1684,7 +1687,7 @@ function getActivePieceInstance() {
   ) ?? null
 }
 
-function createPieceInstanceSpecialCraftAssignmentFromDraft() {
+function createPieceInstanceSpecialCraftAssignmentFromDraft(): TechPackPatternPieceSpecialCraftAssignment | null {
   const craftCode = state.pieceInstanceCraftDraft.craftCode
   const craftPosition = state.pieceInstanceCraftDraft.craftPosition
   if (!craftCode) {
@@ -1711,8 +1714,8 @@ function createPieceInstanceSpecialCraftAssignmentFromDraft() {
     craftName: craft.craftName,
     craftCategory: craft.craftCategory,
     craftCategoryName: craft.craftCategoryName,
-    targetObject: craft.targetObject,
-    targetObjectName: craft.targetObjectName,
+    targetObject: 'CUT_PIECE_PART',
+    targetObjectName: '裁片部位',
     craftPosition,
     craftPositionName: position.name,
     remark: state.pieceInstanceCraftDraft.remark.trim() || undefined,
@@ -2245,7 +2248,9 @@ function handleTechPackField(
   }
   if (field === 'new-pattern-binding-strip-cutting-method') {
     const bindingStripId = node.dataset.bindingStripId
-    const cuttingMethod = ['斜切', '直切', '横切'].includes(value) ? value : '斜切'
+    const cuttingMethod: TechPackPatternBindingStrip['cuttingMethod'] = ['斜切', '直切', '横切'].includes(value)
+      ? value as TechPackPatternBindingStrip['cuttingMethod']
+      : '斜切'
     state.newPattern.bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips.map((item) =>
       item.bindingStripId === bindingStripId ? { ...item, cuttingMethod } : item,
     ))
@@ -3075,11 +3080,11 @@ function performRelease(): void {
   const result = publishTechPackDraft(state.techPack.spuCode)
   if (!result.ok) {
     state.compatibilityMessage = result.message || '请检查技术包'
-    state.techPack = result.techPack
+    state.techPack = result.techPack ?? null
     state.releaseDialogOpen = false
     return
   }
-  state.techPack = result.techPack
+  state.techPack = result.techPack ?? null
   state.compatibilityMessage = ''
   state.releaseDialogOpen = false
 }
@@ -4451,6 +4456,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
             taskTypeMode: editingTarget.taskTypeMode,
             isSpecialCraft: editingTarget.isSpecialCraft,
             selectedTargetObject: editingTarget.selectedTargetObject,
+            targetObject: editingTarget.targetObject,
+            targetObjectName: editingTarget.targetObjectName,
+            woolTaskType: editingTarget.woolTaskType,
+            downstreamTarget: editingTarget.downstreamTarget,
+            materialIssueMode: editingTarget.materialIssueMode,
+            linkedBomItemIds: editingTarget.linkedBomItemIds ? [...editingTarget.linkedBomItemIds] : undefined,
+            linkedPatternIds: editingTarget.linkedPatternIds ? [...editingTarget.linkedPatternIds] : undefined,
             supportedTargetObjects: editingTarget.supportedTargetObjects ? [...editingTarget.supportedTargetObjects] : undefined,
             supportedTargetObjectLabels: editingTarget.supportedTargetObjectLabels ? [...editingTarget.supportedTargetObjectLabels] : undefined,
             triggerSource: editingTarget.triggerSource,
@@ -4460,7 +4472,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     if (effectiveMeta.isSpecialCraft) {
       const garmentLinkError = validateGarmentTechniqueBomLinks(
-        effectiveMeta.selectedTargetObject,
+        effectiveMeta.selectedTargetObject || '',
         state.newTechnique.linkedBomItemIds,
         state.bomItems,
       )

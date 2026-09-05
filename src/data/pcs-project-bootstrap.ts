@@ -288,7 +288,7 @@ function dateTimeText(year: number, month: number, day: number, hour = 9, minute
   return `${dateText(year, month, day)} ${pad(hour)}:${pad(minute)}:00`
 }
 
-export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
+export function createBootstrapProjectSnapshot(version = 5): PcsProjectStoreSnapshot {
   const projectSteps = listProjectFlowStageContracts()
 
   const projects: any[] = []

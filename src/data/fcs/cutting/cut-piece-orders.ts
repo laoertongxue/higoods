@@ -103,7 +103,16 @@ export interface CutPieceOrderFilters {
 
 type CutPieceOrderSeed = Omit<
   CutPieceOrderRecord,
-  'productionOrderId' | 'cutOrderId' | 'cutOrderNo' | 'markerPlanId' | 'markerPlanNo'
+  | 'productionOrderId'
+  | 'cutOrderId'
+  | 'cutOrderNo'
+  | 'bindingState'
+  | 'boundCutOrderId'
+  | 'boundCutOrderNo'
+  | 'markerPlanId'
+  | 'markerPlanNo'
+  | 'boundMarkerPlanSourceId'
+  | 'boundMarkerPlanSourceNo'
 >
 
 function normalizeCutPieceOrderRecord(record: CutPieceOrderSeed): CutPieceOrderRecord {

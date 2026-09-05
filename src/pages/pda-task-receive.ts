@@ -257,7 +257,7 @@ function getTaskDisplayNo(task: ProcessTask | null): string {
 
 function getTaskProductionOrderNo(task: ProcessTask | null): string {
   if (!task) return '-'
-  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId
+  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId || '-'
 }
 
 function getTaskRootNo(task: ProcessTask | null): string {
@@ -561,7 +561,7 @@ export function listPdaAwardedTendersForFactory(selectedFactoryId: string): Awar
     .map((task) => ({
       tenderId: resolveTaskChainTenderId(task) || `TENDER-${task.taskId}`,
       taskId: task.taskId,
-      productionOrderId: task.productionOrderId,
+      productionOrderId: task.productionOrderId || '',
       processName: getTaskProcessDisplayName(task),
       qty: task.qty,
       qtyUnit: task.qtyUnit,
@@ -610,7 +610,7 @@ function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask
       !task.taskId.includes(keyword) &&
       !(task.taskNo || '').includes(keyword) &&
       !getTaskProductionOrderNo(task).includes(keyword) &&
-      !task.productionOrderId.includes(keyword) &&
+      !(task.productionOrderId || '').includes(keyword) &&
       !displayProcessName.includes(keyword)
     ) {
       return false

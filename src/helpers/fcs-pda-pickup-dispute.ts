@@ -80,7 +80,7 @@ function buildSeedCase(head: PdaHandoverHead, record: PdaPickupRecord, caseId: s
     sourceId: record.recordId,
     sourceSystem: 'PDA',
     sourceModule: 'PDA_PICKUP_DISPUTE',
-    relatedOrderIds: [head.productionOrderNo],
+    relatedOrderIds: head.productionOrderNo ? [head.productionOrderNo] : [],
     relatedTaskIds: [head.taskId],
     relatedTenderIds: [],
     linkedProductionOrderNo: head.productionOrderNo,

@@ -404,6 +404,7 @@ export interface SpreadingPlanUnit {
   materialSku: string
   materialAlias?: string
   materialImageUrl?: string
+  sizeLabel?: string
   garmentQtyPerUnit: number
   plannedRepeatCount: number
   lengthPerUnitM: number
@@ -530,9 +531,12 @@ export interface SpreadingTraceAnchor {
 
 export interface SpreadingSession {
   spreadingSessionId: string
+  /** Legacy aliases consumed by historical read-only projections. */
+  spreadingSessionNo?: string
   sessionNo?: string
   contextType: 'cut-order' | 'marker-plan'
   cutOrderIds: string[]
+  cutOrderNos?: string[]
   markerPlanId: string
   markerPlanNo: string
   markerId?: string
@@ -560,6 +564,7 @@ export interface SpreadingSession {
   styleCode?: string
   spuCode?: string
   materialSkuSummary?: string
+  materialSku?: string
   materialAliasSummary?: string
   materialImageUrl?: string
   colorSummary?: string
@@ -590,6 +595,9 @@ export interface SpreadingSession {
   note: string
   createdAt: string
   updatedAt: string
+  updatedBy?: string
+  completedAt?: string
+  completedBy?: string
   warningMessages?: string[]
   importSource?: SpreadingImportSource | null
   planUnits?: SpreadingPlanUnit[]

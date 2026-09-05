@@ -109,17 +109,18 @@ function availableReturnCandidates(): CutPieceReturnInitiationCandidate[] {
 
 function renderCreateDialog(): string {
   if (state.dialog?.kind !== 'CREATE') return ''
+  const dialog = state.dialog
   const candidates = availableReturnCandidates()
-  const candidate = candidates.find((item) => item.candidateId === state.dialog?.candidateId) || candidates[0]
-  const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[state.dialog.reasonCode]
+  const candidate = candidates.find((item) => item.candidateId === dialog.candidateId) || candidates[0]
+  const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[dialog.reasonCode]
   const options = candidates.map((item) => `<option value="${escapeHtml(item.candidateId)}"${candidate?.candidateId === item.candidateId ? ' selected' : ''}>${escapeHtml(item.productionOrderNo)} · ${escapeHtml(item.sewingTaskId)} · ${escapeHtml(item.sourceFactoryName)}</option>`).join('')
   const reasonOptions = (Object.keys(SEWING_CUT_PIECE_RETURN_REASON_POLICIES) as SewingCutPieceReturnReasonCode[])
-    .map((code) => `<option value="${code}"${code === state.dialog?.reasonCode ? ' selected' : ''}>${escapeHtml(SEWING_CUT_PIECE_RETURN_REASON_POLICIES[code].label)}</option>`)
+    .map((code) => `<option value="${code}"${code === dialog.reasonCode ? ' selected' : ''}>${escapeHtml(SEWING_CUT_PIECE_RETURN_REASON_POLICIES[code].label)}</option>`)
     .join('')
   const body = candidate
     ? `<label class="block text-sm">退仓来源任务<select class="mt-1 h-10 w-full rounded border px-3" data-ppic-return-create-field="candidateId">${options}</select></label><section class="grid gap-3 rounded border p-3 text-sm md:grid-cols-3"><div><span class="text-slate-500">申请工厂</span><b class="mt-1 block">${escapeHtml(candidate.sourceFactoryName)}</b></div><div><span class="text-slate-500">来源交出</span><b class="mt-1 block">${escapeHtml(candidate.sourceHandoverOrderNo)}</b></div><div><span class="text-slate-500">当前工厂应回</span><b class="mt-1 block">${candidate.currentExpectedReturnQty}件</b></div></section><label class="block text-sm">退仓原因<select class="mt-1 h-10 w-full rounded border px-3" data-ppic-return-create-field="reasonCode">${reasonOptions}</select></label><p class="rounded border p-3 text-sm ${policy.responsibilityImpact === 'NO_CHANGE' ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900'}"><b>对回货责任的影响：</b>${escapeHtml(policy.responsibilityExplanation)}</p><label class="block text-sm">具体退仓原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-ppic-return-create-field="returnReasonDetail" placeholder="说明哪些部位为什么要退、是否已经投入生产"></textarea></label><section class="grid gap-3 md:grid-cols-2"><label class="block text-sm">实物退仓折算件数（件）<input type="number" min="1" value="1" class="mt-1 h-10 w-full rounded border px-3" data-ppic-return-create-field="garmentQty"></label><label class="block text-sm">回货责任调整数量（件）<input type="number" min="${policy.responsibilityImpact === 'NO_CHANGE' ? 0 : 1}" max="${candidate.currentExpectedReturnQty}" value="${policy.responsibilityImpact === 'NO_CHANGE' ? 0 : 1}" class="mt-1 h-10 w-full rounded border px-3 disabled:bg-slate-100" data-ppic-return-create-field="responsibilityAdjustmentQty"${policy.responsibilityImpact === 'NO_CHANGE' ? ' disabled' : ''}></label></section>${policy.requiresDecisionReference ? `<label class="block text-sm">正式调整依据号<input class="mt-1 h-10 w-full rounded border px-3" data-ppic-return-create-field="responsibilityDecisionReference" placeholder="任务调整单／取消单／转派记录编号"></label>` : ''}<div class="overflow-auto rounded border"><table class="w-full min-w-[640px] text-sm"><thead class="bg-slate-50"><tr><th class="p-2 text-left">来源裁片单／部位</th><th class="p-2 text-right">当前可退</th><th class="p-2 text-right">PPIC核对退仓</th></tr></thead><tbody>${candidate.parts.map((part) => `<tr class="border-t" data-ppic-return-create-part-row><td class="p-2"><b>${escapeHtml(part.partName)}</b><p class="text-xs text-slate-500">${escapeHtml(part.sourceCutOrderNo)}</p><input type="hidden" data-ppic-return-create-part-code value="${escapeHtml(part.partCode)}"><input type="hidden" data-ppic-return-create-cut-order-id value="${escapeHtml(part.sourceCutOrderId)}"></td><td class="p-2 text-right">${part.currentReturnablePieceQty}片</td><td class="p-2 text-right"><input type="number" min="0" max="${part.currentReturnablePieceQty}" value="${Math.min(part.piecesPerGarment, part.currentReturnablePieceQty)}" class="h-9 w-28 rounded border px-3 text-right" data-ppic-return-create-part-qty aria-label="${escapeHtml(part.partName)}退仓数量"></td></tr>`).join('')}</tbody></table></div><label class="block text-sm">线下申请接收说明<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-ppic-return-create-field="offlineRequestNote">PPIC已线下收到${escapeHtml(candidate.sourceFactoryName)}退仓申请，并核对了实物部位和数量。</textarea></label>`
     : '<div class="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">当前没有可新增的裁片退仓来源。没有正式裁片交出责任的任务不能创建退仓申请。</div>'
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="新增裁片退仓申请"><button class="absolute inset-0" data-ppic-return-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[92vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex justify-between border-b p-5"><div><h2 class="text-lg font-semibold">新增裁片退仓申请</h2><p class="mt-1 text-xs text-slate-500">操作角色：任务PPIC</p></div><button class="rounded border px-3 py-1 text-sm" data-ppic-return-action="close-dialog">关闭</button></header><div class="space-y-4 p-5">${state.dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(state.dialog.error)}</div>` : ''}${body}</div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-ppic-return-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" data-ppic-return-action="submit-create"${candidate ? '' : ' disabled'}>创建并提交仓库接收</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="新增裁片退仓申请"><button class="absolute inset-0" data-ppic-return-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 max-h-[92vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex justify-between border-b p-5"><div><h2 class="text-lg font-semibold">新增裁片退仓申请</h2><p class="mt-1 text-xs text-slate-500">操作角色：任务PPIC</p></div><button class="rounded border px-3 py-1 text-sm" data-ppic-return-action="close-dialog">关闭</button></header><div class="space-y-4 p-5">${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}${body}</div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-ppic-return-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" data-ppic-return-action="submit-create"${candidate ? '' : ' disabled'}>创建并提交仓库接收</button></footer></section></div>`
 }
 
 function renderDialog(): string {
@@ -217,7 +218,8 @@ export function handleSewingOutsourcingCutPieceReturnsEvent(target: HTMLElement)
   } else if (action === 'reconfirm') {
     state.dialog = { kind: 'RECONFIRM', requestId: node.dataset.requestId || '', error: '' }
   } else if (action === 'submit-create' && state.dialog?.kind === 'CREATE') {
-    const candidate = availableReturnCandidates().find((item) => item.candidateId === state.dialog?.candidateId)
+    const dialog = state.dialog
+    const candidate = availableReturnCandidates().find((item) => item.candidateId === dialog.candidateId)
     const garmentQty = Number(document.querySelector<HTMLInputElement>('[data-ppic-return-create-field="garmentQty"]')?.value || 0)
     const returnReasonDetail = document.querySelector<HTMLTextAreaElement>('[data-ppic-return-create-field="returnReasonDetail"]')?.value.trim() || ''
     const responsibilityAdjustmentQty = Number(document.querySelector<HTMLInputElement>('[data-ppic-return-create-field="responsibilityAdjustmentQty"]')?.value || 0)
@@ -239,7 +241,7 @@ export function handleSewingOutsourcingCutPieceReturnsEvent(target: HTMLElement)
         commandId: `CMD-PPIC-CUT-RETURN-CREATE-${Date.now()}-${state.commandSequence}`,
         candidateId: candidate.candidateId,
         returnedGarmentQty: garmentQty,
-        returnReasonCode: state.dialog.reasonCode,
+        returnReasonCode: dialog.reasonCode,
         returnReasonDetail,
         responsibilityAdjustmentQty,
         responsibilityDecisionReference,
@@ -252,16 +254,17 @@ export function handleSewingOutsourcingCutPieceReturnsEvent(target: HTMLElement)
       state.tab = 'WAITING_WAREHOUSE'
       state.dialog = null
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '退仓申请创建失败' }
+      state.dialog = { ...dialog, error: error instanceof Error ? error.message : '退仓申请创建失败' }
     }
   } else if (action === 'submit-reconfirm' && state.dialog?.kind === 'RECONFIRM') {
-    const request = getSewingCutPieceReturnRequest(state.dialog.requestId)
+    const dialog = state.dialog
+    const request = getSewingCutPieceReturnRequest(dialog.requestId)
     const note = document.querySelector<HTMLTextAreaElement>('[data-ppic-return-field="reconfirmNote"]')?.value.trim() || ''
     try {
       state.commandSequence += 1
       reconfirmSewingCutPieceReturnByPpic({
         commandId: `CMD-PPIC-CUT-RETURN-RECONFIRM-${Date.now()}-${state.commandSequence}`,
-        requestId: state.dialog.requestId,
+        requestId: dialog.requestId,
         note,
         actor: { actorId: request?.ppicId || '', actorName: request?.ppicName || '', role: 'PPIC' },
         reconfirmedAt: formatOperationLocalWallClock(),
@@ -270,7 +273,7 @@ export function handleSewingOutsourcingCutPieceReturnsEvent(target: HTMLElement)
       state.tab = 'WAITING_WAREHOUSE'
       state.dialog = null
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '重新提交失败' }
+      state.dialog = { ...dialog, error: error instanceof Error ? error.message : '重新提交失败' }
     }
   } else if (action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)

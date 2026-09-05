@@ -210,7 +210,8 @@ export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTML
   else if (action === 'history') state.dialog = { kind: 'HISTORY', rowId: node.dataset.rowId || '' }
   else if (action === 'transfer') state.dialog = { kind: 'TRANSFER', rowId: node.dataset.rowId || '', error: '' }
   else if (action === 'submit-transfer' && state.dialog?.kind === 'TRANSFER') {
-    const row = getSewingOutsourcingWorkbenchRow(state.dialog.rowId, {
+    const rowId = state.dialog.rowId
+    const row = getSewingOutsourcingWorkbenchRow(rowId, {
       viewerPpicId: currentManager().ppicId,
       leaderView: true,
     })
@@ -230,7 +231,7 @@ export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTML
       state.feedback = `${row.taskNo}已由${currentManager().ppicName}明确移交给${version.ppicName}；原责任版本已保留。`
       state.dialog = null
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '移交失败' }
+      state.dialog = { kind: 'TRANSFER', rowId, error: error instanceof Error ? error.message : '移交失败' }
     }
   } else if (action === 'prev-page') state.page = Math.max(1, state.page - 1)
   else if (action === 'next-page') state.page += 1

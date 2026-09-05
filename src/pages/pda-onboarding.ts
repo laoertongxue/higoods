@@ -575,10 +575,10 @@ function getFactoryTypeLabel(code: string): string {
 }
 
 function renderCompletenessCard(application: FactoryOnboardingApplication | null): string {
-  const draftLike = application || ({
+  const draftLike = application || {
     ...state.draft,
     completenessItems: [],
-  } as FactoryOnboardingApplication)
+  }
   const completeness = calculateOnboardingCompleteness(draftLike)
   const missingItems = getCompletenessMissingItems({
     ...draftLike,

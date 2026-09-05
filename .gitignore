@@ -10,6 +10,8 @@ test-results/
 .codegraph/
 dist-manifest/
 output/
+outputs/
+data/state_store.db/
 /*-check.png
 /*-local.png
 /*-formal-only.png

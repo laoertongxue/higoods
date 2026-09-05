@@ -252,7 +252,7 @@ function getBrowserStorage(): Storage | null {
 }
 
 function createCurrentMasterManualAssessmentsByFactoryId(): Map<string, ManualAssessmentSnapshot> {
-  const snapshots = new Map(
+  const snapshots = new Map<string, ManualAssessmentSnapshot>(
     listFactoryMasterRecords()
       .filter(isThirdPartySewingFactory)
       .map((factory) => [factory.id, {

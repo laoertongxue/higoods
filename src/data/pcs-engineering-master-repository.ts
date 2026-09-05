@@ -672,6 +672,7 @@ function normalizePreProductionSampleRequirements(
     ? listSkuArchivesByStyleId(record.styleId)
       .filter((sku) => sku.archiveStatus === 'ACTIVE')
       .map((sku) => ({
+        requirementLineId: undefined,
         targetColor: sku.colorName,
         targetSize: sku.sizeName,
         requiredQuantity: 1,

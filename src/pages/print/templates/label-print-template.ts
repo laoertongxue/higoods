@@ -589,7 +589,7 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
     labelWarnings: [],
     qrCode: { title: '', value: qrValue, description: '', sizeMm: 32 },
     barcode: { title: '中转袋档案条码', value: buildPrintBarcodePayload({ documentType: 'TRANSFER_BAG_LABEL', sourceType: 'TRANSFER_BAG_RECORD', sourceId, businessNo }), description: businessNo },
-    printMode: '',
+    printMode: undefined,
   }
   return buildBaseLabelDocument(input, {
     title: `${businessNo} 标签`,

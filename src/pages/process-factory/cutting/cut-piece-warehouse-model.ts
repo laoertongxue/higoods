@@ -62,14 +62,21 @@ export interface CutPieceWarehouseItem {
   materialImageUrl: string
   styleCode: string
   spuCode: string
+  styleName?: string
+  materialLabel?: string
   cuttingGroup: string
   zoneCode: CutPieceZoneCode
   locationCode: string
   quantity: number
   pieceQty: number
   warehouseStatus: CutPieceWarehouseStatusMeta<'PENDING_INBOUND' | 'INBOUNDED' | 'WAITING_HANDOVER' | 'HANDED_OVER'>
+  statusMeta?: CutPieceWarehouseStatusMeta<string>
+  zoneMeta?: CutPieceWarehouseStatusMeta<string>
   handoffStatus: CutPieceWarehouseStatusMeta<CutPieceHandoverStatus>
   inWarehouseAt: string
+  updatedAt?: string
+  operatorName?: string
+  pieceSummary?: string
   inWarehouseBy: string
   handoffTarget: string
   spreadingSessionId: string
@@ -484,6 +491,10 @@ export function buildCutPieceWarehouseViewModel(
               spreadingSessionId: matchedBinding.usage.spreadingSessionId,
               spreadingSessionNo: matchedBinding.usage.spreadingSessionNo,
               sourceWritebackId: matchedBinding.usage.spreadingSourceWritebackId,
+              sourceMarkerId: usageSession?.sourceMarkerId || '',
+              sourceMarkerNo: usageSession?.sourceMarkerNo || '',
+              markerPlanId: usageSession?.markerPlanId || '',
+              markerPlanNo: usageSession?.markerPlanNo || '',
             }
           : null
       const traceAnchor =
@@ -505,8 +516,8 @@ export function buildCutPieceWarehouseViewModel(
         productionOrderNo: record.productionOrderNo,
         markerPlanId: row?.latestMarkerPlanId || record.markerPlanId,
         markerPlanNo: row?.latestMarkerPlanNo || record.markerPlanNo,
-        sourceMarkerId: traceAnchor?.sourceMarkerId || '',
-        sourceMarkerNo: traceAnchor?.sourceMarkerNo || '',
+        sourceMarkerId: traceAnchor?.markerPlanId || '',
+        sourceMarkerNo: traceAnchor?.markerPlanNo || '',
         materialSku: record.materialSku,
         materialAlias: row?.materialAlias || '',
         materialImageUrl: row?.materialImageUrl || '',
@@ -546,7 +557,7 @@ export function buildCutPieceWarehouseViewModel(
           materialSku: record.materialSku,
           cuttingGroup: record.groupNo,
           zoneCode: record.zoneCode,
-          warehouseStatus: record.inboundStatus,
+          warehouseStatus: deriveCutPieceWarehouseStatus(record),
           styleCode: row?.styleCode || '',
           spreadingSessionId: traceAnchor?.spreadingSessionId || '',
           sourceWritebackId: traceAnchor?.sourceWritebackId || '',

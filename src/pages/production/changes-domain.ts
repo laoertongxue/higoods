@@ -1119,7 +1119,7 @@ function renderModuleLandingDialog(): string {
                         <td class="px-3 py-2">${escapeHtml(productionPatchTypeLabels[patch.patchType])}</td>
                         <td class="px-3 py-2">${escapeHtml(patchEffectivePointLabels[patch.effectivePoint])}</td>
                         <td class="px-3 py-2">${escapeHtml(productionPatchStatusLabels[patch.status])}</td>
-                        <td class="px-3 py-2">${escapeHtml(safeText(patch.patchScope.color || patch.patchScope.part || patch.patchScope.material || patch.patchScope.processNode || '生产单后续对象'))}</td>
+                        <td class="px-3 py-2">${escapeHtml(safeText(patch.patchScope || '生产单后续对象'))}</td>
                       </tr>
                     `).join('')}
                   </tbody>

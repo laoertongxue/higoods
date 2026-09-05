@@ -459,7 +459,7 @@ function mapFactoryByCode(code: string): IndonesiaFactory {
       contactName: master.contact,
       contactPhone: master.mobilePhone ?? master.phone ?? '',
       status: master.status === 'blacklist' ? 'BLACKLISTED' : master.status === 'paused' ? 'SUSPENDED' : master.status === 'inactive' ? 'INACTIVE' : 'ACTIVE',
-      tags: master.processAbilities.map((ability) => ability.processName).filter(Boolean),
+      tags: master.processAbilities.flatMap((ability) => ability.processName ? [ability.processName] : []),
       currency: 'IDR',
       timezone: 'Asia/Jakarta',
       monthlyCapacity: 3000,
@@ -615,6 +615,7 @@ function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
         seq: 1,
         processCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
         processNameZh: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
+        stage: 'SEWING',
         processBusinessCode: KOL_GOTO_WHOLE_ORDER_PROCESS_CODE,
         processBusinessName: KOL_GOTO_WHOLE_ORDER_TASK_NAME,
         taskUnitType: 'WHOLE_ORDER_TASK',
@@ -758,7 +759,7 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
     const batchCount = taskContext.taskIndex % 2 === 0 ? 3 : 4
     const qtyPlan = buildBatchQtyPlan(taskContext.task.qty, batchCount)
     const startCycleIndex = (taskContext.taskIndex + taskContext.factory.id.charCodeAt(taskContext.factory.id.length - 1)) % 4
-    const cycleOffsets = batchCount === 1 ? [0] : batchCount === 4 ? [0, 0, 1, 2] : [0, 0, 1]
+    const cycleOffsets = batchCount === 4 ? [0, 0, 1, 2] : [0, 0, 1]
 
     for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
       const cycleIndex = Math.min(CYCLE_REFERENCE_DATES.length - 1, startCycleIndex + cycleOffsets[batchIndex])
@@ -1345,7 +1346,7 @@ function buildStatementLineFromQualityLedger(
   ledger: ReturnType<typeof listFormalQualityDeductionLedgers>[number],
 ): LinkedStatementLineBuild {
   const trace = traceQualityDeductionLedgerSource(ledger.ledgerId)
-  const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId
+  const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId ?? ''
   const cycleFields = deriveSettlementCycleFields(
     settlementPartyId,
     ledger.generatedAt,
@@ -1455,7 +1456,7 @@ function createStatementSourceRows(
 
   const qualityRows: LinkedStatementSourceRow[] = qualityLedgers.map((ledger) => {
     const trace = traceQualityDeductionLedgerSource(ledger.ledgerId)
-    const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId
+    const settlementPartyId = ledger.settlementPartyId ?? ledger.factoryId ?? ''
     const cycle = deriveSettlementCycleFields(
       settlementPartyId,
       ledger.generatedAt,
@@ -1569,7 +1570,7 @@ function createStatementDrafts(
     const factoryFeedbackStatus = hasPositiveDeductionLine
       ? 'FACTORY_CONFIRMED'
       : chooseFactoryFeedbackStatus(status, factoryIndex, cycleIndex === -1 ? 0 : cycleIndex)
-    const appealRecord =
+    const appealRecord: StatementFactoryAppealRecord | undefined =
       factoryFeedbackStatus === 'FACTORY_APPEALED' || factoryFeedbackStatus === 'PLATFORM_HANDLING' || factoryFeedbackStatus === 'RESOLVED'
         ? {
             ...buildStatementAppeal(statementId, cycleIndex === -1 ? 0 : cycleIndex, factoryIndex),
@@ -1961,7 +1962,7 @@ function createTaskEarningLedgers(
   batchContexts: LinkedReturnBatchContext[],
   taskContexts: LinkedTaskContext[],
 ): PreSettlementLedger[] {
-  const batchLedgers = batchContexts.map((batchContext, index) => {
+  const batchLedgers = batchContexts.map((batchContext, index): PreSettlementLedger => {
     const unitPrice = batchContext.taskContext.unitPrice ?? 0
     const settlementInfo = getSettlementEffectiveInfoByFactoryAt(
       batchContext.taskContext.factory.code,

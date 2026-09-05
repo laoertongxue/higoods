@@ -9,13 +9,12 @@ import {
   getWoolYarnReceiptLineEffectiveQty,
   type WoolAllowedAction,
 } from './queries.ts'
-import { readWoolStore } from './store.ts'
+import { readWoolStore, type WoolDomainStore } from './store.ts'
 import type {
   WoolHandoverRecord,
   WoolOutputPlanLine,
   WoolQtyChangeLog,
   WoolWarehouseFlow,
-  WoolDomainStore,
   WoolWorkOrder,
 } from './types.ts'
 import { getWoolWarehouseLedgerBalance } from './warehouse-ledger.ts'

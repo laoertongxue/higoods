@@ -723,9 +723,10 @@ try {
 
 const splitRuntimeState = captureRuntimeDirectDispatchState()
 try {
-  const sourcePartTaskId = 'TASKGEN-202603-084-002__ORDER'
+  const sourcePartTaskId = 'TASKGEN-202603-084-001__ORDER'
   const sourcePartTask = getRuntimeTaskById(sourcePartTaskId)
   assert(sourcePartTask, '缺少部位毛织多工厂拆分检查任务')
+  assert.equal(sourcePartTask.assignmentGranularity, 'DETAIL', '部位毛织检查任务必须按明细分配')
   const allocatableGroups = listRuntimeTaskAllocatableGroups(sourcePartTaskId)
   assert(allocatableGroups.length > 1, '部位毛织检查任务必须有多个可分配明细')
 
@@ -789,6 +790,18 @@ Object.defineProperty(globalThis, 'localStorage', {
     },
     clear() {
       storageValues.clear()
+    },
+  },
+})
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    get localStorage() {
+      return globalThis.localStorage
+    },
+    location: {
+      pathname: '/',
+      search: '',
     },
   },
 })
@@ -3124,37 +3137,39 @@ assert.throws(
   }),
   /commandId 已被其他请求占用|幂等冲突/,
 )
-const publicWarehouse = listFactoryInternalWarehouses().find((warehouse) =>
+const enabledWarehouseLocations = listFactoryInternalWarehouses().flatMap((warehouse) =>
   warehouse.isEnabled
-  && warehouse.areaList.some((area) =>
-    area.status === 'AVAILABLE'
-    && area.shelfList.some((shelf) =>
-      shelf.status === 'AVAILABLE'
-      && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
-    ),
+    ? warehouse.areaList.flatMap((area) =>
+        area.status === 'AVAILABLE'
+          ? area.shelfList.flatMap((shelf) =>
+              shelf.status === 'AVAILABLE'
+                ? shelf.locationList
+                    .filter((location) => location.status === 'AVAILABLE')
+                    .map((location) => ({ warehouse, area, shelf, location }))
+                : [],
+            )
+          : [],
+      )
+    : [],
+)
+const publicLocationCandidate = enabledWarehouseLocations.find((candidate) =>
+  enabledWarehouseLocations.some((other) =>
+    other.warehouse.warehouseId !== candidate.warehouse.warehouseId
+    && other.location.locationId === candidate.location.locationId,
   ),
-)!
-const publicArea = publicWarehouse.areaList.find((area) =>
-  area.status === 'AVAILABLE'
-  && area.shelfList.some((shelf) =>
-    shelf.status === 'AVAILABLE'
-    && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
-  ),
-)!
-const publicShelf = publicArea.shelfList.find((shelf) =>
-  shelf.status === 'AVAILABLE'
-  && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
-)!
-const publicEnabledLocation = publicShelf.locationList.find((location) =>
-  location.status === 'AVAILABLE',
-)!
-const sameLocationIdWarehouse = listFactoryInternalWarehouses().find((warehouse) =>
-  warehouse.warehouseId !== publicWarehouse.warehouseId
-  && resolveEnabledFactoryWarehouseLocation(
-    warehouse.warehouseId,
-    publicEnabledLocation.locationId,
-  ),
-)!
+)
+assert(publicLocationCandidate, '缺少用于验证仓库与库位联合身份的同号启用库位')
+const {
+  warehouse: publicWarehouse,
+  area: publicArea,
+  shelf: publicShelf,
+  location: publicEnabledLocation,
+} = publicLocationCandidate
+const sameLocationIdWarehouse = enabledWarehouseLocations.find((candidate) =>
+  candidate.warehouse.warehouseId !== publicWarehouse.warehouseId
+  && candidate.location.locationId === publicEnabledLocation.locationId,
+)?.warehouse
+assert(sameLocationIdWarehouse, '缺少另一个具有同号库位的仓库')
 const warehouseLocationSnapshot = createFactoryWarehouseLocationRegistrySnapshot()
 try {
   transferWoolWarehouseStock({
@@ -5597,8 +5612,8 @@ const task12PdaListSource = readFileSync(
   new URL('../src/pages/pda-exec.ts', import.meta.url),
   'utf8',
 )
-const task12PdaPaginationSource = readFileSync(
-  new URL('../src/pages/pda-exec-pagination.ts', import.meta.url),
+const task12PdaProgressiveListSource = readFileSync(
+  new URL('../src/pages/pda-exec-progressive-list.ts', import.meta.url),
   'utf8',
 )
 const task12PdaReceiveSource = readFileSync(
@@ -5685,12 +5700,15 @@ assert(task12MobileProjectionSource.includes('buildWoolMobileTaskProjectionFromS
 assert(!task12PdaListSource.includes('getWoolWorkOrderByTaskId'), '普通任务卡不得逐卡读取毛织 Store')
 assert(!task12PdaListSource.includes('buildWoolMobileTaskProjection'), '毛织卡片必须直接消费移动任务投影')
 assert(task12TodoSource.includes("executionProcessType?: 'WOOL'"), '毛织待交出必须有明确来源标识')
-assert(task12TodoRouteSource.includes("`/fcs/pda/exec/${todo.relatedTaskId}`"), '毛织待交出必须精确进入执行详情')
+assert(
+  task12TodoRouteSource.includes("`/fcs/pda/handover?tab=handout&taskId=${encodeURIComponent(todo.relatedTaskId)}`"),
+  '毛织待交出必须精确进入交接待交出页',
+)
 assert(task12StoreNavigationSource.includes('notifyPdaWoolRouteLeave'), '离开执行详情必须清理毛织草稿')
 assert(
-  task12PdaListSource.includes('renderPdaExecPaginationControls')
-  && task12PdaPaginationSource.includes('data-pda-exec-pagination'),
-  'PDA 执行卡片列表必须有界分页',
+  task12PdaListSource.includes('renderPdaExecAutoLoadSentinel')
+  && task12PdaProgressiveListSource.includes('data-pda-exec-auto-load-sentinel'),
+  'PDA 执行卡片列表必须分批渐进加载',
 )
 const task12PdaCardListSource = task12PdaListSource.match(
   /function renderPdaExecCardList[\s\S]*?\n}\n\nexport function renderWaterSolubleCard/,
@@ -5700,22 +5718,28 @@ assert(
   '搜索无结果或空 Tab 仍必须与统一分页共同渲染',
 )
 const {
-  buildPdaExecPageSlice,
-  renderPdaExecPaginationControls,
-} = await import('../src/pages/pda-exec-pagination.ts')
+  buildPdaExecProgressiveSlice,
+  renderPdaExecAutoLoadSentinel,
+} = await import('../src/pages/pda-exec-progressive-list.ts')
 for (const emptyScenario of ['搜索无结果', '空 Tab']) {
-  const emptyPage = buildPdaExecPageSlice([], 9, 10)
-  const emptyPagination = renderPdaExecPaginationControls(emptyPage)
-  assert.equal(emptyPage.currentPage, 1, `${emptyScenario}必须回落到第 1 页`)
-  assert.equal(emptyPage.totalPages, 1, `${emptyScenario}必须显示 1 个稳定页码`)
-  assert(emptyPagination.includes('第 1 / 1 页'), `${emptyScenario}必须显示第 1 / 1 页`)
-  assert(emptyPagination.includes('每页 10 条'), `${emptyScenario}必须显示每页 10 条`)
-  assert(emptyPagination.includes('共 0 条'), `${emptyScenario}必须显示共 0 条`)
-  assert(
-    emptyPagination.includes('data-skip-page-rerender="true"'),
-    `${emptyScenario}分页必须保持局部刷新契约`,
-  )
+  const emptySlice = buildPdaExecProgressiveSlice([], 9, 10)
+  assert.equal(emptySlice.visibleCount, 0, `${emptyScenario}不得制造空卡片`)
+  assert.equal(emptySlice.total, 0, `${emptyScenario}总数必须为 0`)
+  assert.equal(emptySlice.remainingCount, 0, `${emptyScenario}不得残留待加载数量`)
+  assert.equal(emptySlice.hasMore, false, `${emptyScenario}不得渲染自动加载触发器`)
+  assert.equal(renderPdaExecAutoLoadSentinel(emptySlice, 'general'), '')
 }
+const boundedProgressiveSlice = buildPdaExecProgressiveSlice(
+  Array.from({ length: 25 }, (_, index) => index + 1),
+  9,
+  10,
+)
+assert.equal(boundedProgressiveSlice.rows.length, 10, '首批执行卡片必须限制为 10 条')
+assert.equal(boundedProgressiveSlice.remainingCount, 15)
+assert.equal(boundedProgressiveSlice.hasMore, true)
+const boundedProgressiveSentinel = renderPdaExecAutoLoadSentinel(boundedProgressiveSlice, 'general')
+assert(boundedProgressiveSentinel.includes('data-pda-exec-auto-load-sentinel="general"'))
+assert(boundedProgressiveSentinel.includes('data-next-visible-count="20"'))
 assert(
   task12MobileBindingSource.includes(
     'invokeWoolMobileTaskBinding(params, validateWoolWorkOrderMobileTaskBinding)',
@@ -5973,8 +5997,8 @@ assert.equal(
     executionProcessType: 'WOOL',
     relatedTaskId: task12ExactOrderA.taskId,
   }),
-  `/fcs/pda/exec/${task12ExactOrderA.taskId}`,
-  '毛织待交出必须进入对应事实执行详情',
+  `/fcs/pda/handover?tab=handout&taskId=${task12ExactOrderA.taskId}`,
+  '毛织待交出必须进入对应交接待交出页',
 )
 assert.equal(
   resolveFactoryMobileTodoActionRoute({

@@ -101,7 +101,7 @@ const discrepancyMetaMap: Record<TransferBagDiscrepancyType, ReturnDiscrepancyMe
   },
 }
 
-function sortByLatest<T extends { [key: string]: unknown }>(items: T[], key: keyof T): T[] {
+function sortByLatest<T extends object>(items: T[], key: keyof T): T[] {
   return items.slice().sort((left, right) => String(right[key] || '').localeCompare(String(left[key] || ''), 'zh-CN'))
 }
 
@@ -294,7 +294,6 @@ export function buildBagReturnAuditTrail(options: {
 }): TransferBagReturnAuditTrail {
   return {
     auditTrailId: buildCuttingTraceabilityId('return-audit', options.actionAt, options.cycleId, options.action),
-    cycleId: options.cycleId,
     usageId: options.cycleId,
     action: options.action,
     actionAt: options.actionAt,
@@ -310,7 +309,11 @@ export function buildTransferBagReturnViewModel(options: {
 }): TransferBagReturnViewModel {
   const returnReceiptsByUsageId = buildEmptyCollectionMap(options.store.returnReceipts)
   const closureResultsByUsageId = buildEmptyCollectionMap(options.store.closureResults)
-  const returnAuditTrailByUsageId = buildEmptyCollectionMap(options.store.returnAuditTrail)
+  const returnAuditTrailByUsageId = options.store.returnAuditTrail.reduce<Record<string, TransferBagReturnAuditTrail[]>>((result, item) => {
+    if (!result[item.usageId]) result[item.usageId] = []
+    result[item.usageId].push(item)
+    return result
+  }, {})
 
   const waitingReturnUsages = options.baseViewModel.usages
     .map((usage) => {

@@ -13,10 +13,13 @@ export type CuttingRuntimeEventSource = 'PDA' | 'WEB' | 'MOCK' | 'WMS'
 export type CuttingRuntimeEventStatus = '已记录' | '已同步' | '同步失败' | '已取消'
 export type CuttingRuntimeInventoryScope = '裁床待加工仓' | '裁床待交出仓'
 export type CuttingRuntimeInventoryDirection = 'IN' | 'OUT' | 'ADJUST'
-export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件' | '条' | '粒' | '卷' | '公斤'
+export type CuttingRuntimeQtyUnit = 'yard' | '米' | '片' | '件' | '条' | '粒' | '卷' | '公斤'
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
+  | '染色厂配料完成通知'
+  | '印花厂配料完成通知'
+  | '配料完成通知'
   | '中转仓接收'
   | '待加工仓扫码入仓'
   | '待加工仓加工接收'
@@ -59,6 +62,7 @@ export interface CuttingRuntimeRefs {
   transferBagCodes?: string[]
   sewingTaskIds?: string[]
   sewingTaskNos?: string[]
+  prepCategory?: string
 }
 
 export interface RuntimeMaterialSnapshot {
@@ -66,7 +70,7 @@ export interface RuntimeMaterialSnapshot {
   materialName: string
   materialColor: string
   materialSpec?: string
-  materialAlias: string
+  materialAlias?: string
   unit: CuttingRuntimeQtyUnit
 }
 
@@ -911,7 +915,9 @@ function compactDate(value: string): string {
 }
 
 function eventTypeCode(eventType: CuttingRuntimeEventType): string {
-  const map: Record<CuttingRuntimeEventType, string> = {
+  // Keep legacy ID generation unchanged for preparation event names that were
+  // already emitted before they were added to the declared event union.
+  const map: Partial<Record<CuttingRuntimeEventType, string>> = {
     中转仓配料完成通知: 'PREP',
     中转仓接收: 'PICKUP',
     待加工仓扫码入仓: 'WP-IN',
@@ -933,7 +939,7 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     中转袋回收: 'BAG-RETURN',
     中转袋报废: 'BAG-SCRAP',
   }
-  return map[eventType]
+  return map[eventType]!
 }
 
 export function createEmptyCuttingRuntimeEventLedgerStore(): CuttingRuntimeEventLedgerStore {

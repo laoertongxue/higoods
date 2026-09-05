@@ -527,7 +527,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     sourceCutOrderNos: [fallbackSource.cutOrderNo],
     productionOrderIds: [fallbackSource.productionOrderId],
     productionOrderNos: [fallbackSource.productionOrderNo],
-    spuId: fallbackSource.spuId,
+    spuId: fallbackSource.spuId || fallbackSource.spuCode,
     spuCode: fallbackSource.spuCode,
     styleId: fallbackSource.styleId,
     styleName: fallbackSource.styleName,

@@ -110,7 +110,7 @@ export function buildPdaCuttingExecutionContext(
       backHref: buildPdaCuttingTaskDetailFocusHref(taskId, {
         executionOrderId: requestedExecutionOrderId ?? undefined,
         executionOrderNo: requestedOrderNo ?? undefined,
-        returnTo,
+        returnTo: returnTo ?? undefined,
         focusTaskId: navContext.focusTaskId ?? taskId,
         focusExecutionOrderId: requestedExecutionOrderId ?? undefined,
         focusExecutionOrderNo: requestedOrderNo ?? undefined,
@@ -135,7 +135,7 @@ export function buildPdaCuttingExecutionContext(
   const taskDetailBackHref = buildPdaCuttingTaskDetailFocusHref(taskId, {
     executionOrderId: selectedExecutionOrderId ?? undefined,
     executionOrderNo: selectedExecutionOrderNo ?? undefined,
-    returnTo,
+    returnTo: returnTo ?? undefined,
     focusTaskId: navContext.focusTaskId ?? taskId,
     focusExecutionOrderId: selectedExecutionOrderId ?? undefined,
     focusExecutionOrderNo: selectedExecutionOrderNo ?? undefined,
@@ -190,7 +190,7 @@ export function buildPdaCuttingExecutionUnitContext(
       backHref: buildPdaCuttingTaskDetailFocusHref(taskId, {
         executionOrderId: requestedExecutionOrderId || undefined,
         executionOrderNo: requestedOrderNo ?? undefined,
-        returnTo,
+        returnTo: returnTo ?? undefined,
         focusTaskId: navContext.focusTaskId ?? taskId,
         focusExecutionOrderId: requestedExecutionOrderId || undefined,
         focusExecutionOrderNo: requestedOrderNo ?? undefined,
@@ -213,7 +213,7 @@ export function buildPdaCuttingExecutionUnitContext(
   const taskDetailBackHref = buildPdaCuttingTaskDetailFocusHref(taskId, {
     executionOrderId: selectedExecutionOrderId ?? undefined,
     executionOrderNo: selectedExecutionOrderNo ?? undefined,
-    returnTo,
+    returnTo: returnTo ?? undefined,
     focusTaskId: navContext.focusTaskId ?? taskId,
     focusExecutionOrderId: selectedExecutionOrderId ?? undefined,
     focusExecutionOrderNo: selectedExecutionOrderNo ?? undefined,

@@ -30,6 +30,7 @@ import type {
   StatementDraftItem,
   StatementProxyConfirmationMethod,
   StatementProxyNotificationStatus,
+  StatementLineGrainType,
   StatementResolutionResult,
   StatementSettlementObjectMode,
   StatementSourceItemType,
@@ -73,12 +74,7 @@ export interface StatementSourceItemViewModel {
   settlementCycleStartAt: string
   settlementCycleEndAt: string
   plannedPrepaymentAt?: string
-  statementLineGrainType:
-    | 'RETURN_INBOUND_BATCH'
-    | 'TASK_COMPLETION'
-    | 'NON_BATCH_QUALITY'
-    | 'NON_BATCH_ADJUSTMENT'
-    | 'OTHER_SOURCE_OBJECT'
+  statementLineGrainType: StatementLineGrainType
   returnInboundBatchId?: string
   returnInboundBatchNo?: string
   returnInboundQty?: number

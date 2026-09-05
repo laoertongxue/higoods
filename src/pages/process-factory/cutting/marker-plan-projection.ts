@@ -20,7 +20,8 @@ import {
 } from './marker-plan-source-model.ts'
 import { buildCutOrderViewModel, type CutOrderRow } from './cut-orders-model.ts'
 import { buildProductionProgressRows } from './production-progress-model.ts'
-import { buildMarkerPlanViewModel, deserializeMarkerPlanStorage, getMarkerPlanStorageKey, type MarkerPlan, type MarkerPlanViewModel } from './marker-plan-model.ts'
+import { buildMarkerPlanViewModel, deserializeMarkerPlanStorage, getMarkerPlanStorageKey, type MarkerPlanViewModel } from './marker-plan-model.ts'
+import type { MarkerPlan } from './marker-plan-domain.ts'
 import { buildMarkerPlanOccupancyLookup, type MarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
 
 export interface MarkerPlanProjection {
@@ -123,7 +124,6 @@ export function buildMarkerPlanSummaryBuildOptions(
   const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanSources, { progressRows: productionRows, markerPlanOccupancy }).rows
   const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanSources, {
     pickupEvents: [],
-    pendingPrepFollowups: [],
     includeClaimDisputes: false,
   }).rows
   const markerStore = buildMarkerPlanSeedMarkerStore({

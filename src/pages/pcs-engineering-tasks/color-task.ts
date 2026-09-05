@@ -223,7 +223,7 @@ export function handleColorTaskInput(target: Element): boolean {
     const container = getTaskUiFeedbackContainer(uploadInput, `[data-engineering-review-detail="color:${taskId}"]`)
     if (!detail || !uploadInput.files?.length) return true
     const operator = getEngineeringTeamCurrentOperator('染厂')
-    setTaskUiFeedback(container, '正在读取并保存真实文件。', false)
+    setTaskUiFeedback(container, '正在读取并保存真实文件。')
     void uploadEngineeringTaskFiles({
       taskId,
       itemId: uploadInput.dataset.itemId || 'TASK',

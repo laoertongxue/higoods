@@ -152,7 +152,7 @@ export type TechnicalPatternMaintainerStepStatus =
   | '待解析'
   | '已解析待确认'
   | '已完成'
-export type TechnicalPatternInfoStatus = '未填写' | '已填写' | '待解析' | '已解析'
+export type TechnicalPatternInfoStatus = '未填写' | '已填写' | '待解析' | '已解析' | '已完成'
 export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
 export type TechnicalPatternDesignSideType = 'FRONT' | 'INSIDE'
@@ -269,12 +269,17 @@ export interface TechnicalPatternManagedFile {
 
 export interface TechnicalPatternBindingStrip {
   bindingStripId: string
-  bindingStripNo: string
+  bindingStripNo?: string
   bindingStripName: string
   lengthCm: number
   widthCm: number
   cuttingMethod?: TechnicalPatternBindingStripCuttingMethod
   relatedMaterialId?: string
+  relatedPieceId?: string
+  relatedPieceName?: string
+  stripCount?: number
+  relatedMaterialName?: string
+  note?: string
   specialCrafts?: TechnicalPatternPieceSpecialCraft[]
   remark?: string
   createdBy?: string
@@ -288,6 +293,7 @@ export interface TechnicalPatternFile {
   patternCategory?: TechnicalPatternCategory | string
   patternMaterialType?: TechnicalPatternMaterialType
   patternMaterialTypeLabel?: string
+  internalStyleCode?: string
   patternFileMode?: TechnicalPatternFileMode
   fileName: string
   fileUrl: string
@@ -358,14 +364,14 @@ export interface TechnicalProcessEntry {
   ruleSource?: string
   detailSplitMode?: string
   detailSplitDimensions?: string[]
-  defaultDocType: 'DEMAND' | 'TASK'
+  defaultDocType: 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条'
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'
   targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL' | 'BINDING_STRIP'
   targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条'>
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP' | 'ACCESSORY'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'>
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
@@ -406,7 +412,7 @@ export interface TechnicalSizeRow {
   tolerance: number
 }
 
-export type TechnicalBomItemType = '面料' | '辅料' | '包装材料' | '成衣' | '其他'
+export type TechnicalBomItemType = '面料' | '纱线' | '辅料' | '包装材料' | '成衣' | '其他'
 
 export interface TechnicalBomItem {
   id: string

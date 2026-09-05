@@ -50,6 +50,7 @@ import {
 } from './runtime-process-tasks.ts'
 import {
   getSpecialCraftTaskOrderById,
+  type SpecialCraftTaskOrder,
   type SpecialCraftTaskNodeRecord,
 } from './special-craft-task-orders.ts'
 import {
@@ -266,6 +267,7 @@ const ASSIGNMENT_STATUS_LABEL: Record<RuntimeProcessTask['assignmentStatus'], st
   ASSIGNING: '分配中',
   ASSIGNED: '已分配',
   BIDDING: '竞价中',
+  AWAIT_AWARD: '待定标',
   AWARDED: '已中标',
 }
 
@@ -505,7 +507,7 @@ export function buildTaskDeliveryCardByRecord(
     }
   }
 
-  const productionOrderId = getRuntimeTaskProductionOrderId(head.taskId, head.productionOrderNo)
+  const productionOrderId = getRuntimeTaskProductionOrderId(head.taskId, head.productionOrderNo || '')
   const submittedQty = getRecordSubmittedQty(record)
 
   return {
@@ -600,7 +602,7 @@ function buildWorkOrderSourcePrintRows(input: {
 }
 
 function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHandoverRecord): TaskDeliveryCardPrintDoc {
-  const productionOrderId = getRuntimeTaskProductionOrderId(card.taskId, card.productionOrderNo)
+  const productionOrderId = getRuntimeTaskProductionOrderId(card.taskId, card.productionOrderNo || '')
   const writebackRows: TaskPrintInfoRow[] = []
   const writtenQty = record ? getRecordReceiverWrittenQty(record) : undefined
   const writtenAt = record ? getRecordReceiverWrittenAt(record) : undefined
@@ -1258,7 +1260,7 @@ function mapPostFinishingActionRecord(record: PostFinishingActionRecord): TaskRo
     finishedAt: record.finishedAt || '—',
     completedQty: formatQtyText(record.acceptedGarmentQty, record.qtyUnit),
     exceptionQty: formatQtyText(record.rejectedGarmentQty + record.diffGarmentQty, record.qtyUnit),
-    station: record.factoryName || '—',
+    station: [record.sourceFactoryName, record.targetFactoryName].filter(Boolean).join(' → ') || '—',
     operator: record.operatorName || '—',
     remark: record.remark || '—',
   }
@@ -1568,11 +1570,11 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
 }
 
 function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc {
-  const productionOrderId = card.productionOrderId || getRuntimeTaskProductionOrderId(card.taskId, card.productionOrderNo)
+  const productionOrderId = card.productionOrderId || getRuntimeTaskProductionOrderId(card.taskId, card.productionOrderNo || '')
   const plannedQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '计划')
-  const summaryRows = card.summaryRowsOverride || [
+  const summaryRows: TaskPrintInfoRow[] = card.summaryRowsOverride || [
     { label: '任务编号', value: card.taskNo },
-    { label: '生产单号', value: card.productionOrderNo },
+    { label: '生产单号', value: card.productionOrderNo || '待确认' },
     { label: '工序', value: card.processName },
     { label: '工艺', value: card.craftName },
     { label: '工厂', value: card.factoryName },

@@ -1642,7 +1642,7 @@ export function handlePdaCuttingInboundEvent(
         ? scanPdaBagForBagging(eventState.form.carrierCode)
         : null
       const focusField = mode === 'inbound-location'
-        ? 'locationLabel'
+        ? 'locationScan'
         : availability?.kind === 'AVAILABLE' ? 'scanCode' : 'carrierCode'
       return updatePdaCuttingInboundWorkflow(
         workflowContainer,
@@ -1714,7 +1714,6 @@ export function handlePdaCuttingInboundEvent(
         mode,
         listInboundTicketCandidates(),
         getBrowserLocalStorage(),
-        locationValidation?.ok ? locationValidation.ref : undefined,
       )
       ticketScanTimerController.cancel(stateKey)
       result = { ok: true }

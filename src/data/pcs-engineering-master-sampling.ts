@@ -408,14 +408,14 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
             resultId: `${task.taskId}-R1`,
             title: `${task.taskName}成果`,
             version: 'v1.0',
-            description: task.taskType === 'DISPLAY_SAMPLE' ? '已按目标款式完成销售展示样衣。' : '本轮成果已完成。',
+            description: '本轮成果已完成。',
             applicablePartOrSize: task.taskType === 'BASE_PATTERN' ? '基码 / M 码' : '',
-            sampleQuantity: task.taskType === 'DISPLAY_SAMPLE' ? 1 : 0,
-            sampleColor: task.taskType === 'DISPLAY_SAMPLE' ? '目标款主色' : '',
-            sampleSize: task.taskType === 'DISPLAY_SAMPLE' ? 'M' : '',
-            sourcePatternVersion: task.taskType === 'DISPLAY_SAMPLE' ? '基码纸样 v1.0' : '',
+            sampleQuantity: 0,
+            sampleColor: '',
+            sampleSize: '',
+            sourcePatternVersion: '',
             imageUrl: target.mainImageUrl,
-            files: [createSeedUploadedFile(task.taskId, task.taskType === 'BASE_PATTERN' ? 'PATTERN_SOURCE' : task.taskType === 'DISPLAY_SAMPLE' ? 'SAMPLE_RESULT' : task.taskType === 'PATTERN_ARTWORK' ? 'PATTERN_ARTWORK' : 'COLOR_RESULT', target.mainImageUrl, createdAt)],
+            files: [createSeedUploadedFile(task.taskId, task.taskType === 'BASE_PATTERN' ? 'PATTERN_SOURCE' : task.taskType === 'PATTERN_ARTWORK' ? 'PATTERN_ARTWORK' : 'COLOR_RESULT', target.mainImageUrl, createdAt)],
             status: 'APPROVED',
             rejectReason: '',
           }]
@@ -909,7 +909,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
             remark: [sourceLine?.remark, line.note, `来源：${record.sourceStyleCode} ${line.sourceProductColor}`].filter(Boolean).join('；'),
           } satisfies EngineeringBomMaterialLineDraft
         })
-        .filter((line): line is EngineeringBomMaterialLineDraft => Boolean(line.materialSkuId))
+        .filter((line) => Boolean(line.materialSkuId))
       const sourceVersion = targetVersion.sourceVersionId
         ? getEngineeringBomVersionById(targetVersion.sourceVersionId)
         : null
@@ -1216,7 +1216,7 @@ function normalizeIndependentSampleRequirements(
   issuedBy: string,
   issuedAt: string,
 ): EngineeringSampleRequirementLine[] {
-  const source = requirements?.length
+  const source: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'> & { requirementLineId?: string }> = requirements?.length
     ? requirements
     : record.colorMappings.flatMap((mapping) => mapping.targetSizeNames.map((targetSize) => ({
       targetColor: mapping.targetColor,

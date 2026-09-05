@@ -3,6 +3,7 @@ import {
   handleFactoryPageSubmit,
   isFactoryPageOpenDialog,
 } from '../pages/factory-profile'
+import { isRouteAtOrBelowAny } from '../router/path-match'
 import {
   handleFactoryOnboardingEvent,
   isFactoryOnboardingDialogOpen,
@@ -458,8 +459,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     return handleCraftCuttingCutPieceReleaseEvent(target, event)
   }
 
-  const isPostFinishingRoute =
-    pathname.includes('/fcs/craft/post-finishing')
+  const isPostFinishingRoute = isRouteAtOrBelowAny(pathname, ['/fcs/craft/post-finishing'])
   if (
     isPostFinishingRoute
     && target.closest([
@@ -472,9 +472,10 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   ) {
     return handlePostFinishingEvent(target, event)
   }
-  const isSpecialCraftRoute =
-    pathname.includes('/fcs/process-factory/special-craft') ||
-    pathname.includes('/fcs/craft/special-craft')
+  const isSpecialCraftRoute = isRouteAtOrBelowAny(pathname, [
+    '/fcs/process-factory/special-craft',
+    '/fcs/craft/special-craft',
+  ])
   if (
     isSpecialCraftRoute
     && target.closest([
@@ -575,7 +576,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   )
 }
 
-export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
+export async function dispatchFcsPageSubmit(form: HTMLFormElement): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   if (
     pathname.startsWith('/fcs/factories/third-party-comprehensive-assessment')
@@ -588,13 +589,13 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
     // 页面入口已负责局部刷新或路由导航；false 用于阻止 main.ts 再触发一次整页渲染。
     return false
   }
-  return (
+  return Boolean(
     handleCraftCuttingMarkerSpreadingSubmit(form) ||
     handleThirdPartyFactoryRatingSubmit(form) ||
     handleFactoryPageSubmit(form) ||
     handleCapabilitySubmit(form) ||
     handleSettlementSubmit(form) ||
-    handleProductionSubmit(form)
+    await handleProductionSubmit(form)
   )
 }
 

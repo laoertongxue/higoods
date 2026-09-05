@@ -46,7 +46,10 @@ export const FEI_TICKET_ORDINARY_MOCK_PREFIX = 'mock-fei-ticket-ordinary-' as co
 export const FEI_TICKET_ORDINARY_MOCK_COUNT = 12 as const
 
 export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS | typeof FEI_TICKET_MANUAL_SOURCE_BASIS
-export type FeiTicketSourceBasisType = typeof FEI_TICKET_SOURCE_BASIS_TYPE | typeof FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE
+export type FeiTicketSourceBasisType =
+  | typeof FEI_TICKET_SOURCE_BASIS_TYPE
+  | typeof FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE
+  | 'SPREADING_RESULT'
 export type WaitingFeiTicketSourceBasisType = typeof FEI_TICKET_WAITING_SOURCE_BASIS_TYPE
 export type FeiTicketSpecialCraftCategory = '辅助工艺' | '特种工艺'
 export type FeiTicketSpecialCraftReceiverFactoryType = '辅助工艺厂' | '特种工艺厂' | '内部裁床工艺' | '其他'
@@ -281,6 +284,8 @@ export interface GeneratedFeiTicketSourceRecord {
   spreadingOrderId: string
   spreadingOrderNo: string
   issuedAt: string
+  /** 兼容历史裁剪完成事件；新投影通常使用 createdBy。 */
+  cuttingCompletedBy?: string
   qrPayload: FeiTicketQrPayload
   qrValue: string
   manualBatchId?: string
@@ -1827,7 +1832,7 @@ function buildFeiRecordsFromSpreadingSessions(
       spreadingOrderId: line.spreadingSessionId,
       spreadingOrderNo: line.sourceSpreadingSessionNo,
       spuCode: sourceTechPackSpuCode,
-      styleName: sourceRecord.styleName || sourceTechPackSpuCode,
+      styleName: sourceRecord!.styleName || sourceTechPackSpuCode,
       color: line.fabricColor,
       size: line.sizeCode,
       sourceOutputLineId: line.outputLineId,

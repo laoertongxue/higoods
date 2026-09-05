@@ -24,10 +24,7 @@ export function getBrowserSessionStorage(): BrowserStorageLike | null {
   }
 }
 
-export function readBrowserStorageItem(
-  storage: BrowserStorageLike | null | undefined,
-  key: string,
-): string | null {
+export function readBrowserStorageItem(storage: BrowserStorageLike | null | undefined, key: string): string | null {
   try {
     return storage?.getItem(key) ?? null
   } catch {
@@ -49,10 +46,7 @@ export function writeBrowserStorageItem(
   }
 }
 
-export function removeBrowserStorageItem(
-  storage: BrowserStorageLike | null | undefined,
-  key: string,
-): boolean {
+export function removeBrowserStorageItem(storage: BrowserStorageLike | null | undefined, key: string): boolean {
   try {
     if (typeof storage?.removeItem !== 'function') return false
     storage.removeItem(key)

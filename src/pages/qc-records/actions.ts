@@ -162,7 +162,7 @@ function upsertDeductionBasisFromQc(
     sourceType,
     sourceRefId: qc.qcId,
     sourceId: qc.qcId,
-    productionOrderId: qc.productionOrderId || parentTask.productionOrderId,
+    productionOrderId: qc.productionOrderId || parentTask.productionOrderId || '',
     taskId: parentTask.taskId,
     factoryId: parentTask.assignedFactoryId ?? 'UNKNOWN',
     settlementPartyType,

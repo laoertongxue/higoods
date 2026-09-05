@@ -885,7 +885,7 @@ export function createFactoryPdaUser(input: {
   password: string
   roleId: string
   createdBy?: string
-}): Promise<FactoryPdaUser> {
+}): FactoryPdaUser {
   const factoryId = input.factoryId.trim()
   const name = input.name.trim()
   const loginId = input.loginId.trim()
@@ -924,7 +924,7 @@ export function resetFactoryPdaUserPassword(
   userId: string,
   rawPassword: string,
   updatedBy = 'ADMIN',
-): Promise<FactoryPdaUser | null> {
+): FactoryPdaUser | null {
   const current = getFactoryPdaUserById(userId)
   if (!current) return null
 
@@ -1009,7 +1009,7 @@ export function toggleFactoryPdaUserLock(userId: string, updatedBy = 'ADMIN'): F
 
 export function setFactoryPdaUserRole(userId: string, roleId: string, updatedBy = 'ADMIN'): FactoryPdaUser | null {
   return updateFactoryPdaUser(userId, {
-    roleId,
+    roleId: roleId as PdaRoleId,
     updatedBy,
   })
 }
@@ -1180,10 +1180,10 @@ export function authenticateFactoryPdaUserByLoginId(loginId: string): {
 export function authenticateFactoryPdaUserByCredentials(
   loginId: string,
   rawPassword: string,
-): Promise<{
+): {
   user: FactoryPdaUser | null
   error: '' | 'NOT_FOUND' | 'LOCKED' | 'INVALID_CREDENTIALS'
-}> {
+} {
   const loginResult = authenticateFactoryPdaUserByLoginId(loginId)
   if (!loginResult.user || loginResult.error) {
     return {

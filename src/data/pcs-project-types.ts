@@ -136,6 +136,7 @@ export interface PcsProjectNodeRecord {
   currentIssueText: string
   pendingActionType: string
   pendingActionText: string
+  startedAt?: string
   updatedAt?: string
   lastEventId?: string
   lastEventType?: string

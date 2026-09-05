@@ -145,7 +145,6 @@ export interface PatternAsset {
     source_material_line_id?: string
     material_sku?: string
     product_color?: string
-    process_type?: string
     result_file_ids?: string[]
     effect_image_ids?: string[]
     buyer_reviewed_by?: string

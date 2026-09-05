@@ -177,6 +177,7 @@ interface FeiTicketPrintFilters extends PrintableUnitFilters {
 }
 
 type PrintableActionPageKey =
+  | 'fei-tickets'
   | 'fei-ticket-detail'
   | 'fei-ticket-printed'
   | 'fei-ticket-print'
@@ -285,8 +286,8 @@ interface FeiTicketPrintObjectRow {
   sourceOrder?: FeiTicketSpreadingWorkbenchRow | BindingProcessOrder
 }
 
-function getTicketScanCode(source: Record<string, unknown>): string {
-  const value = source[FEI_CODE_FIELD]
+function getTicketScanCode(source: object): string {
+  const value = (source as Record<string, unknown>)[FEI_CODE_FIELD]
   return typeof value === 'string' ? value : ''
 }
 
@@ -1493,7 +1494,7 @@ function buildBindingPrintObjectRow(order: BindingProcessOrder): FeiTicketPrintO
         : printStatus === 'NEED_REPRINT'
           ? `需补打 ${formatCount(statusCount)} 张`
           : `待打印 ${formatCount(statusCount)} 张`,
-    firstPrintedAt,
+    firstPrintedAt: firstPrintedAt || '',
     latestReprintAt: '',
     printCount: printedCount,
     printedBy: printedCount ? order.operatorName : '',
@@ -3657,7 +3658,7 @@ function renderSpreadingStandaloneDetailSections(row: FeiTicketSpreadingWorkbenc
 }
 
 function buildFeiTicketPrintRecordLike(row: FeiTicketWorkbenchRow): Record<string, unknown> {
-  if (!row.record) return row.generated
+  if (!row.record) return row.generated as unknown as Record<string, unknown>
   return {
     ...row.generated,
     ...row.record,

@@ -152,7 +152,7 @@ function getOrderPostFinishingTask(order: ProductionOrder): PostFinishingTaskVie
   return getPostFinishingTaskByProductionOrder(order.productionOrderId)
 }
 
-const assignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
+const assignmentStatusLabel: Partial<Record<RuntimeProcessTask['assignmentStatus'], string>> = {
   UNASSIGNED: '待分配',
   ASSIGNING: '竞价中',
   ASSIGNED: '已派单',
@@ -160,7 +160,7 @@ const assignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], stri
   AWARDED: '已中标',
 }
 
-const assignmentStatusClass: Record<RuntimeProcessTask['assignmentStatus'], string> = {
+const assignmentStatusClass: Partial<Record<RuntimeProcessTask['assignmentStatus'], string>> = {
   UNASSIGNED: 'bg-amber-100 text-amber-700',
   ASSIGNING: 'bg-blue-100 text-blue-700',
   ASSIGNED: 'bg-green-100 text-green-700',
@@ -340,7 +340,7 @@ function renderOrderAssignmentFactoryDetailTable(order: ProductionOrder): string
                           </td>
                           <td class="px-3 py-3">
                             <div>${renderBadge(getAssignmentModeLabel(task), task.assignmentMode === 'BIDDING' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}</div>
-                            <div class="mt-1">${renderBadge(assignmentStatusLabel[task.assignmentStatus], assignmentStatusClass[task.assignmentStatus])}</div>
+                            <div class="mt-1">${renderBadge(assignmentStatusLabel[task.assignmentStatus] as string, assignmentStatusClass[task.assignmentStatus] as string)}</div>
                           </td>
                           <td class="px-3 py-3 whitespace-nowrap">${escapeHtml(getAssignmentIssuedAt(task))}</td>
                           <td class="px-3 py-3 min-w-[180px]">${escapeHtml(getAssignmentFactoryText(task))}</td>

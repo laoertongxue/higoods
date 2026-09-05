@@ -1,3 +1,5 @@
+// @page-pattern: pda
+
 import { renderBadge } from '../../../components/ui/badge.ts'
 import { renderButton } from '../../../components/ui/button.ts'
 import { renderDialog, renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
@@ -372,7 +374,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
-    if (!hasCurrentOverlay('supervisor-confirm', orderId) || state.overlay?.decision !== decision) { rejectAction('当前主管确认已失效，请重新选择处理方式。'); return true }
+    if (!hasCurrentOverlay('supervisor-confirm', orderId) || state.overlay?.type !== 'supervisor-confirm' || state.overlay.decision !== decision) { rejectAction('当前主管确认已失效，请重新选择处理方式。'); return true }
     if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前主管确认令牌已失效，请重新选择处理方式。'); return true }
     run(executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: actor! }))
   }

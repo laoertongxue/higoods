@@ -125,14 +125,15 @@ export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: Eve
       state.feedback = '已按PPIC建单部位和数量接收并入仓；仓库未修改业务量。'
     } catch (error) { state.feedback = error instanceof Error ? error.message : '接收入仓失败' }
   } else if (action === 'submit-exception' && state.dialog?.kind === 'EXCEPTION') {
+    const requestId = state.dialog.requestId
     const note = document.querySelector<HTMLTextAreaElement>('[data-cut-piece-return-warehouse-field="exceptionNote"]')?.value.trim() || ''
     try {
       if (!note) throw new Error('请填写现场异常说明。')
       state.commandSequence += 1
-      receiveApprovedCutPieceReturnByWarehouse({ commandId: `CMD-CPR-WAREHOUSE-EXCEPTION-${Date.now()}-${state.commandSequence}`, requestId: state.dialog.requestId, actor: { actorId: 'CUTTING-WAREHOUSE-001', actorName: '裁床待交出仓 王敏', role: 'WAREHOUSE' }, receivedAt: formatOperationLocalWallClock(), exceptionNote: note })
+      receiveApprovedCutPieceReturnByWarehouse({ commandId: `CMD-CPR-WAREHOUSE-EXCEPTION-${Date.now()}-${state.commandSequence}`, requestId, actor: { actorId: 'CUTTING-WAREHOUSE-001', actorName: '裁床待交出仓 王敏', role: 'WAREHOUSE' }, receivedAt: formatOperationLocalWallClock(), exceptionNote: note })
       state.feedback = '仓库已记录接收异常并退回PPIC处理；PPIC建单数量未被修改。'
       state.dialog = null
-    } catch (error) { state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '记录失败' } }
+    } catch (error) { state.dialog = { kind: 'EXCEPTION', requestId, error: error instanceof Error ? error.message : '记录失败' } }
   } else if (action === 'prev-page') state.page = Math.max(1, state.page - 1)
   else if (action === 'next-page') state.page += 1
   else return false

@@ -187,6 +187,7 @@ export interface TechPackPatternBindingStrip {
 
 export interface TechPackPatternFile {
   id: string
+  recordKind?: 'PACKAGE' | 'MATERIAL_ASSOCIATION'
   patternName?: string
   patternCategory?: TechPackPatternCategory | string
   patternMaterialType?: TechPackPatternMaterialType
@@ -246,6 +247,8 @@ export interface TechPackPatternFile {
   pieceInstanceTotal?: number
   specialCraftConfiguredPieceTotal?: number
   specialCraftUnconfiguredPieceTotal?: number
+  sourcePatternPackageId?: string
+  sourcePatternPackageName?: string
 }
 
 export interface TechPackProcess {
@@ -258,7 +261,7 @@ export interface TechPackProcess {
 
 export type TechPackProcessEntryType = 'PROCESS_BASELINE' | 'CRAFT'
 export type TechPackAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
-export type TechPackProcessDocType = 'DEMAND' | 'TASK'
+export type TechPackProcessDocType = 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
 export type TechPackTaskTypeMode = 'PROCESS' | 'CRAFT'
 export type TechPackRuleSource = RuleSource
 export type TechPackDetailSplitMode = DetailSplitMode

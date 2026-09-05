@@ -56,7 +56,7 @@ const renderWlsGarmentRelabelTasksPage = createAsyncRenderer(
   'renderWlsGarmentRelabelTasksPage',
 )
 
-const exactBaseRoutes: Record<string, () => Promise<string>> = {
+const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/': async () => {
     return renderFcsWorkbenchOverviewPage()
   },
@@ -156,13 +156,13 @@ function resolveFromRegistry(
 ): Promise<string | null> {
   const directRenderer = registry.exactRoutes[normalizedPathname]
   if (directRenderer) {
-    return directRenderer(normalizedPathname)
+    return Promise.resolve(directRenderer(normalizedPathname))
   }
 
   for (const route of registry.dynamicRoutes) {
     const matched = route.pattern.exec(normalizedPathname)
     if (matched) {
-      return route.render(matched)
+      return Promise.resolve(route.render(matched))
     }
   }
 

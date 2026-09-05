@@ -9,6 +9,7 @@ import { listProjectRelationsByProject } from './pcs-project-relation-repository
 import {
   getProjectStepMultiInstanceDefinition,
   type PcsProjectMultiInstanceDefinition,
+  type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
 import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
 
@@ -199,9 +200,9 @@ export function listProjectNodeInstances(
       projectNodeInstanceId: `relation-object:${relation.projectRelationId}:${instanceId}`,
       projectId: relation.projectId,
       projectCode: relation.projectCode,
-      projectNodeId: relation.projectNodeId,
-      stepCode: relation.stepCode,
-      stepName: relation.stepName,
+      projectNodeId: relation.projectNodeId ?? '',
+      stepCode: relation.stepCode ?? '',
+      stepName: relation.stepName ?? '',
       sourceKind: 'RELATION_OBJECT',
       sourceLayer: '正式业务对象',
       sourceModule: relation.sourceModule,
@@ -232,7 +233,7 @@ export function getProjectNodeInstanceRuntimeSnapshot(
   if (!project || !node) return null
 
   const instances = listProjectNodeInstances(projectId, projectNodeId)
-  const multiInstanceDefinition = getProjectStepMultiInstanceDefinition(node.stepCode)
+  const multiInstanceDefinition = getProjectStepMultiInstanceDefinition(node.stepCode as ProjectStepCode)
   const primaryInstances = filterPrimaryInstances(instances, multiInstanceDefinition)
   const supportingInstances = filterSupportingInstances(instances, multiInstanceDefinition, primaryInstances)
   const latestInstance = (primaryInstances[0] || instances[0]) || null

@@ -577,7 +577,7 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
     reasonCode,
     sourceType: 'TASK',
     sourceId: task.taskId,
-    relatedOrderIds: [task.productionOrderId],
+    relatedOrderIds: task.productionOrderId ? [task.productionOrderId] : [],
     relatedTaskIds: [task.taskId],
     relatedTenderIds: task.tenderId ? [task.tenderId] : [],
     ownerUserId: undefined,

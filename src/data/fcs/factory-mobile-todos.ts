@@ -379,7 +379,7 @@ function buildPickupTodos(factoryId: string): FactoryMobileTodo[] {
     priority: resolvePriority(head.deadlineAt),
     status: '待处理',
     dueAt: head.deadlineAt,
-    createdAt: head.createdAt,
+    createdAt: head.createdAt || '',
     detailRoute: `/fcs/pda/notify/todo-pickup-${head.handoverId}`,
     actionLabel: '确认',
   }))
@@ -422,7 +422,7 @@ function buildHandoutTodos(factoryId: string): FactoryMobileTodo[] {
     priority: resolvePriority(head.deadlineAt, '处理中'),
     status: '处理中',
     dueAt: head.deadlineAt,
-    createdAt: head.createdAt,
+    createdAt: head.createdAt || '',
     detailRoute: `/fcs/pda/notify/todo-handout-${head.handoverId}`,
     actionLabel: '去处理',
   }))
@@ -509,9 +509,9 @@ function buildDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
       relatedHandoverOrderId: item.handoverOrderId,
       relatedHandoverRecordId: item.handoverRecordId,
       priority: '紧急' as const,
-      status: item.status === 'SUBMITTED' ? '待处理' : '处理中',
+      status: item.status === 'SUBMITTED' ? '待处理' as const : '处理中' as const,
       dueAt: item.raisedAt,
-      createdAt: item.raisedAt,
+      createdAt: item.raisedAt || '',
       detailRoute: `/fcs/pda/notify/todo-objection-${item.objectionId}`,
       actionLabel: '去处理' as const,
     }))

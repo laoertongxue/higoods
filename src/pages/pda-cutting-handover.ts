@@ -814,7 +814,7 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
     sourceHandoverRecordNo: sourceRecord.handoverRecordNo,
     receiverFactoryId: craftItems[0].receiverFactoryId,
     receiverFactoryName: craftItems[0].receiverFactoryName,
-    transferBagCode: validation.bag?.bagCode,
+    transferBagCode: undefined,
     warehouseName: '裁床待交出仓',
     craftType: craftItems[0].craftType,
     returnedFeiTicketItems,
@@ -1501,7 +1501,7 @@ export function handlePdaCuttingHandoverEvent(
     form.feedbackMessage = appendRuntimeUniversalHandoverEvent(
       buildPdaUniversalHandoverRecordDraft(),
       form,
-      form.operatorName.trim() || operator.name || '交出操作员',
+      form.operatorName.trim() || operator.operatorName || '交出操作员',
     )
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

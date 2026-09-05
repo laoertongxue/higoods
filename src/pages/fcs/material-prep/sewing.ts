@@ -686,7 +686,7 @@ function renderTaskPrepRecordRefs(
         <div class="min-w-[220px] rounded-md border border-l-4 ${statusClass} px-2.5 py-2 shadow-sm">
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="rounded bg-white px-1.5 py-0.5 text-[11px] font-medium text-foreground">配料记录号 ${renderMaterialPrepRecordCodeButton(record, relatedProductionOrderNo, {
-              label: record.recordNo,
+              label: String(record.recordNo),
               className: 'font-mono text-blue-600 hover:underline',
             })}</span>
             ${renderBadge(statusLabel, statusVariant)}

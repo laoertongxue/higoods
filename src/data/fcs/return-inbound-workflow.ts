@@ -465,7 +465,7 @@ export function upsertDeductionBasisFromReturnInboundQc(
       settlementFreezeReason: input.qc.status === 'CLOSED' ? undefined : '质检未结案',
       qcStatusSnapshot: input.qc.status,
       liabilityStatusSnapshot:
-        input.qc.liabilityStatus === 'DRAFT' ? 'PENDING' : input.qc.liabilityStatus,
+        input.qc.liabilityStatus === 'DRAFT' ? 'PENDING' : input.qc.liabilityStatus === 'VOID' ? 'CONFIRMED' : input.qc.liabilityStatus,
       deductionAmountEditable: input.qc.status === 'CLOSED',
       updatedAt: ts,
       updatedBy: input.by,
@@ -527,7 +527,7 @@ export function upsertDeductionBasisFromReturnInboundQc(
     settlementFreezeReason: '质检未结案',
     qcStatusSnapshot: input.qc.status,
     liabilityStatusSnapshot:
-      input.qc.liabilityStatus === 'DRAFT' ? 'PENDING' : input.qc.liabilityStatus,
+      input.qc.liabilityStatus === 'DRAFT' ? 'PENDING' : input.qc.liabilityStatus === 'VOID' ? 'CONFIRMED' : input.qc.liabilityStatus,
     deductionAmountEditable: false,
     createdAt: ts,
     createdBy: input.by,

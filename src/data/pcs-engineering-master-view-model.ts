@@ -45,6 +45,7 @@ import {
 } from './pcs-technical-data-version-repository.ts'
 import { CURRENT_PCS_ENGINEERING_USER } from './pcs-engineering-current-user.ts'
 import { buildEngineeringBomTaskRows } from './pcs-engineering-bom-repository.ts'
+import type { EngineeringBomMaterialLineDraft, EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
 
 // ============ 泳道与逻辑阶段（固定结构，只读） ============
 
@@ -188,7 +189,7 @@ function ensureEngineeringDemoBomVersions(
       printSide: '无' as const,
       linkedPatternResultIds: [],
     }
-    const materialLines = [{
+    const materialLines: EngineeringBomMaterialLineDraft[] = [{
       ...base,
       bomItemId: `${version.bomDraftVersionId}-BASE`,
       materialSkuId: 'material_fabric_001_sku_001',
@@ -254,7 +255,7 @@ function ensureEngineeringDemoTaskMaterials(records: EngineeringMasterOrderRecor
     const emptyActiveTaskTypes = new Set(master.tasks
       .filter((task) => ['待开始', '进行中', '返工中'].includes(task.status) && task.materialLines.length === 0)
       .map((task) => task.taskType))
-    const rows = []
+    const rows: EngineeringBomTaskLinkageRow[] = []
     if (emptyActiveTaskTypes.has('PATTERN_ARTWORK')) {
       rows.push(
         {

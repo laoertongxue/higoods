@@ -214,7 +214,7 @@ function isSectionFocused(section: HandoverTimelineProcessSection): boolean {
   if (!state.focusHint) return false
 
   if (state.focusHint === 'pickup') return section.processStatusLabel === '待接收'
-  if (state.focusHint === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已接收待交出'
+  if (state.focusHint === 'handout') return section.processStatusLabel === '已接收待交出'
   if (state.focusHint === 'warehouse-confirm') return section.processStatusLabel === '已交出待接收方确认'
   if (state.focusHint === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false

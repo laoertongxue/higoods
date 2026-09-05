@@ -76,6 +76,10 @@ import {
 import { listMaterialLedgerProjections } from '../src/data/fcs/cutting/material-ledger.ts'
 import { getCurrentFactoryWarehouseByKind } from '../src/pages/pda-warehouse-shared.ts'
 import { listFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
+import {
+  buildSpecialCraftBagReturnCanonicalIntent,
+  buildSpecialCraftWholeBagHandoverCanonicalIntent,
+} from '../src/data/fcs/cutting/transfer-bag-operations.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
@@ -133,8 +137,8 @@ const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehous
 const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
 const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
 const packageSource = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
-const warehouseLocationDesignSource = readFileSync(new URL('../docs/superpowers/specs/2026-08-01-cutting-warehouse-location-layer-coding-design.md', import.meta.url), 'utf8')
-const warehouseLocationPlanSource = readFileSync(new URL('../docs/superpowers/plans/2026-08-01-cutting-warehouse-location-layer-coding-implementation.md', import.meta.url), 'utf8')
+const warehouseLocationDesignSource = readFileSync(new URL('../docs/product-design/中转袋货物标识与库位标签调整总体设计.md', import.meta.url), 'utf8')
+const warehouseLocationPlanSource = readFileSync(new URL('../docs/product-design/中转袋货物标识与库位标签调整实施计划.md', import.meta.url), 'utf8')
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
@@ -1988,17 +1992,101 @@ const twoTicketInboundEvent: CuttingRuntimeEvent = {
     totalPieceQty: 20,
   },
 }
+const handoverT1UsageCycleId = String(
+  (twoTicketInboundEvent.payload as Record<string, unknown>).usageCycleId
+  || twoTicketInboundEvent.refs.usageCycleId,
+)
+const handoverT1LegId = `${handoverT1UsageCycleId}:handover:1`
+const handoverT1OrderId = 'HANDOVER-ORDER-T1'
+const handoverT1RecordId = 'HANDOVER-RECORD-T1'
+const handoverT1SpecialCraftId = 'SPECIAL-CRAFT-T1'
+const handoverT1IdempotencyKey = `${handoverT1UsageCycleId}:HANDOVER_CONFIRMED:${handoverT1RecordId}`
+const handoverT1TicketSnapshot = [{
+  feiTicketId: 'T1',
+  feiTicketNo: 'T1',
+  productionOrderId: 'PRODUCTION-ORDER-T1',
+  productionOrderNo: twoTicketInboundEvent.refs.productionOrderNo || 'PRODUCTION-ORDER-T1',
+  cutOrderId: 'CUT-ORDER-T1',
+  cutOrderNo: 'CUT-ORDER-T1',
+  color: '测试色',
+  size: 'M',
+  partCode: 'PART-T1',
+  partName: '测试裁片',
+  pieceQty: 10,
+  sewingTaskId: '',
+  sewingTaskNo: '',
+  receiverFactoryId: 'SPECIAL-FACTORY-T1',
+  receiverFactoryName: '测试特种工艺厂',
+}]
+const handoverT1Items = [{
+  feiTicketId: 'T1',
+  feiTicketNo: 'T1',
+  specialCraftId: handoverT1SpecialCraftId,
+  partName: '测试裁片',
+  size: 'M',
+  pieceQty: 10,
+}]
+const handoverT1Payload = {
+  canonicalIntent: '',
+  bagCode: multiMapBagCode,
+  usageCycleId: handoverT1UsageCycleId,
+  handoverLegId: handoverT1LegId,
+  handoverOrderId: handoverT1OrderId,
+  handoverRecordId: handoverT1RecordId,
+  craftCategory: '特种工艺' as const,
+  craftType: '测试特种工艺',
+  receiverFactoryId: 'SPECIAL-FACTORY-T1',
+  receiverFactoryName: '测试特种工艺厂',
+  feiTicketItems: handoverT1Items,
+  ticketSnapshot: handoverT1TicketSnapshot,
+  sourceInventoryEventId: twoTicketInboundEvent.eventId,
+  sourceWarehouseArea: waitHandoverLocations[0].areaName,
+  sourceLocationCode: waitHandoverLocations[0].locationNo,
+  locationRef: waitHandoverLocations[0],
+  handedOverAt: '2026-08-01 11:06',
+  handedOverBy: '特殊工艺交出员',
+  idempotencyKey: handoverT1IdempotencyKey,
+}
+handoverT1Payload.canonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({
+  ...handoverT1Payload,
+  specialCraftId: handoverT1SpecialCraftId,
+  sourceLocationRef: handoverT1Payload.locationRef,
+  source: 'WEB',
+  operator: {
+    operatorName: handoverT1Payload.handedOverBy,
+    operatorRole: '特殊工艺交出员',
+  },
+})
 const handoverAllT1Event: CuttingRuntimeEvent = {
   ...structuredClone(twoTicketInboundEvent),
   eventId: 'EVENT-HANDOVER-ALL-T1',
   eventType: '特殊工艺交出',
-  occurredAt: '2026-08-01 11:06',
-  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
-  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'OUT', qty: 10 },
-  payload: {
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: handoverT1Payload.handedOverAt,
+  operatorName: handoverT1Payload.handedOverBy,
+  operatorRole: '特殊工艺交出员',
+  idempotencyKey: handoverT1IdempotencyKey,
+  refs: {
+    ...twoTicketInboundEvent.refs,
     transferBagCode: multiMapBagCode,
-    feiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', pieceQty: 10 }],
+    usageCycleId: handoverT1UsageCycleId,
+    handoverLegId: handoverT1LegId,
+    handoverOrderId: handoverT1OrderId,
+    handoverRecordId: handoverT1RecordId,
+    specialCraftId: handoverT1SpecialCraftId,
+    feiTicketIds: ['T1'],
+    feiTicketNos: ['T1'],
   },
+  inventoryEffect: {
+    inventoryScope: '裁床待交出仓',
+    direction: 'OUT',
+    qty: 10,
+    unit: '片',
+    fromWarehouseArea: handoverT1Payload.sourceWarehouseArea,
+    fromLocationCode: handoverT1Payload.sourceLocationCode,
+  },
+  payload: handoverT1Payload,
 }
 const statesAfterAllT1Handover = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event])
 statesAfterAllT1Handover.forEach((state) => {
@@ -2008,19 +2096,110 @@ statesAfterAllT1Handover.forEach((state) => {
   assert.equal(state.feiTicketIds.length, 1, 'T1 全部交出后占用详情只能投影 1张活动菲票')
   assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '活动菲票详情合计必须等于袋内总量')
 })
+const returnT1RecordId = 'RETURN-PART-T1'
+const returnT1OccurredAt = '2026-08-01 11:07'
+const returnT1OperatorName = '特殊工艺回仓员'
+const returnT1IdempotencyKey = `${handoverT1RecordId}:${handoverT1UsageCycleId}:SPECIAL_CRAFT_BAG_RETURNED`
+const returnT1LocationRef = {
+  factoryId: waitHandoverLocations[0].factoryId,
+  warehouseId: waitHandoverLocations[0].warehouseId,
+  warehouseKind: waitHandoverLocations[0].warehouseKind,
+  areaId: waitHandoverLocations[0].areaId,
+  areaName: waitHandoverLocations[0].areaName,
+  shelfId: waitHandoverLocations[0].shelfId,
+  shelfNo: waitHandoverLocations[0].shelfNo,
+  locationId: waitHandoverLocations[0].locationId,
+  locationNo: waitHandoverLocations[0].locationNo,
+}
+const returnT1TicketSnapshot = [{ ...handoverT1TicketSnapshot[0], pieceQty: 5 }]
+const returnT1Items = [{
+  feiTicketId: 'T1',
+  feiTicketNo: 'T1',
+  specialCraftId: handoverT1SpecialCraftId,
+  craftType: handoverT1Payload.craftType,
+  partName: handoverT1TicketSnapshot[0].partName,
+  size: handoverT1TicketSnapshot[0].size,
+  expectedQty: 5,
+  returnedQty: 5,
+  unit: '片' as const,
+  returnStatus: '已回仓' as const,
+}]
+const returnT1Payload = {
+  canonicalIntent: '',
+  returnRecordId: returnT1RecordId,
+  returnRecordNo: returnT1RecordId,
+  sourceHandoverOrderId: handoverT1OrderId,
+  sourceHandoverRecordId: handoverT1RecordId,
+  sourceHandoverEventId: handoverAllT1Event.eventId,
+  receiverFactoryId: handoverT1Payload.receiverFactoryId,
+  receiverFactoryName: handoverT1Payload.receiverFactoryName,
+  transferBagCode: multiMapBagCode,
+  bagCode: multiMapBagCode,
+  usageCycleId: handoverT1UsageCycleId,
+  handoverLegId: handoverT1LegId,
+  craftType: handoverT1Payload.craftType,
+  returnedFeiTicketItems: returnT1Items,
+  ticketSnapshot: returnT1TicketSnapshot,
+  warehouseArea: returnT1LocationRef.areaName,
+  locationCode: returnT1LocationRef.locationNo,
+  warehouseLocations: [returnT1LocationRef],
+  locationRef: returnT1LocationRef,
+  returnedAt: returnT1OccurredAt,
+  returnedBy: returnT1OperatorName,
+  idempotencyKey: returnT1IdempotencyKey,
+}
+returnT1Payload.canonicalIntent = buildSpecialCraftBagReturnCanonicalIntent({
+  sourceHandoverRecordId: handoverT1RecordId,
+  sourceHandoverEventId: handoverAllT1Event.eventId,
+  sourceHandoverOrderId: handoverT1OrderId,
+  bagCode: multiMapBagCode,
+  usageCycleId: handoverT1UsageCycleId,
+  handoverLegId: handoverT1LegId,
+  specialCraftId: handoverT1SpecialCraftId,
+  receiverFactoryId: handoverT1Payload.receiverFactoryId,
+  receiverFactoryName: handoverT1Payload.receiverFactoryName,
+  craftType: handoverT1Payload.craftType,
+  returnedTicketIds: ['T1'],
+  ticketSnapshot: returnT1TicketSnapshot,
+  locationRef: returnT1LocationRef,
+  operator: {
+    operatorName: returnT1OperatorName,
+    operatorRole: '特殊工艺回仓员',
+  },
+  source: 'WEB',
+  occurredAt: returnT1OccurredAt,
+  idempotencyKey: returnT1IdempotencyKey,
+})
 const returnPartT1Event: CuttingRuntimeEvent = {
   ...structuredClone(twoTicketInboundEvent),
-  eventId: 'EVENT-RETURN-PART-T1',
+  eventId: returnT1RecordId,
   eventType: '特殊工艺回仓',
-  occurredAt: '2026-08-01 11:07',
-  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
-  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'IN', qty: 5 },
-  payload: {
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: returnT1OccurredAt,
+  operatorName: returnT1OperatorName,
+  operatorRole: '特殊工艺回仓员',
+  idempotencyKey: returnT1IdempotencyKey,
+  refs: {
+    ...twoTicketInboundEvent.refs,
+    handoverOrderId: handoverT1OrderId,
+    handoverRecordId: handoverT1RecordId,
     transferBagCode: multiMapBagCode,
-    returnRecordId: 'RETURN-PART-T1',
-    warehouseLocations: waitHandoverLocations,
-    returnedFeiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', returnedQty: 5 }],
+    usageCycleId: handoverT1UsageCycleId,
+    handoverLegId: handoverT1LegId,
+    specialCraftId: handoverT1SpecialCraftId,
+    feiTicketIds: ['T1'],
+    feiTicketNos: ['T1'],
   },
+  inventoryEffect: {
+    inventoryScope: '裁床待交出仓',
+    direction: 'IN',
+    qty: 5,
+    unit: '片',
+    toWarehouseArea: returnT1LocationRef.areaName,
+    toLocationCode: returnT1LocationRef.locationNo,
+  },
+  payload: returnT1Payload,
 }
 const statesAfterPartT1Return = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event, returnPartT1Event])
 statesAfterPartT1Return.forEach((state) => {
@@ -2029,15 +2208,238 @@ statesAfterPartT1Return.forEach((state) => {
   assert.equal(state.totalPieceQty, 15, 'T1 回仓 5片后袋内总量必须为 15片')
   assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '回仓后活动菲票详情合计必须等于袋内总量')
 })
-const sameTimeHandoverEvent: CuttingRuntimeEvent = {
-  ...structuredClone(multiMapInboundEvent),
+
+function buildCompleteSpecialCraftHandoverFixture(input: {
+  baseEvent: CuttingRuntimeEvent
+  eventId: string
+  occurredAt: string
+  createdAt?: string
+  ticketId: string
+  qty: number
+  locationRef: typeof waitHandoverLocations[number]
+}): CuttingRuntimeEvent {
+  const basePayload = input.baseEvent.payload as Record<string, unknown>
+  const bagCode = String(basePayload.bagCode || input.baseEvent.refs.transferBagCode)
+  const usageCycleId = String(basePayload.usageCycleId || input.baseEvent.refs.usageCycleId)
+  const handoverRecordId = `${input.eventId}-RECORD`
+  const handoverOrderId = `${input.eventId}-ORDER`
+  const specialCraftId = `${input.eventId}-CRAFT`
+  const handoverLegId = `${usageCycleId}:handover:1`
+  const idempotencyKey = `${usageCycleId}:HANDOVER_CONFIRMED:${handoverRecordId}`
+  const operatorName = '特殊工艺交出员'
+  const ticketSnapshot = [{
+    feiTicketId: input.ticketId,
+    feiTicketNo: input.ticketId,
+    productionOrderId: 'PRODUCTION-ORDER-FIXTURE',
+    productionOrderNo: input.baseEvent.refs.productionOrderNo || 'PRODUCTION-ORDER-FIXTURE',
+    cutOrderId: 'CUT-ORDER-FIXTURE',
+    cutOrderNo: 'CUT-ORDER-FIXTURE',
+    color: '测试色',
+    size: 'M',
+    partCode: 'PART-FIXTURE',
+    partName: '测试裁片',
+    pieceQty: input.qty,
+    sewingTaskId: '',
+    sewingTaskNo: '',
+    receiverFactoryId: 'SPECIAL-FACTORY-FIXTURE',
+    receiverFactoryName: '测试特种工艺厂',
+  }]
+  const feiTicketItems = [{
+    feiTicketId: input.ticketId,
+    feiTicketNo: input.ticketId,
+    specialCraftId,
+    partName: ticketSnapshot[0].partName,
+    size: ticketSnapshot[0].size,
+    pieceQty: input.qty,
+  }]
+  const payload = {
+    canonicalIntent: '',
+    bagCode,
+    usageCycleId,
+    handoverLegId,
+    handoverOrderId,
+    handoverRecordId,
+    craftCategory: '特种工艺' as const,
+    craftType: '测试特种工艺',
+    receiverFactoryId: 'SPECIAL-FACTORY-FIXTURE',
+    receiverFactoryName: '测试特种工艺厂',
+    feiTicketItems,
+    ticketSnapshot,
+    sourceInventoryEventId: input.baseEvent.eventId,
+    sourceWarehouseArea: input.locationRef.areaName,
+    sourceLocationCode: input.locationRef.locationNo,
+    locationRef: input.locationRef,
+    handedOverAt: input.occurredAt,
+    handedOverBy: operatorName,
+    idempotencyKey,
+  }
+  payload.canonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({
+    ...payload,
+    specialCraftId,
+    sourceLocationRef: input.locationRef,
+    source: 'WEB',
+    operator: { operatorName, operatorRole: '特殊工艺交出员' },
+  })
+  return {
+    ...structuredClone(input.baseEvent),
+    eventId: input.eventId,
+    eventType: '特殊工艺交出',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: input.occurredAt,
+    createdAt: input.createdAt || input.occurredAt,
+    operatorName,
+    operatorRole: '特殊工艺交出员',
+    idempotencyKey,
+    refs: {
+      ...input.baseEvent.refs,
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverLegId,
+      handoverOrderId,
+      handoverRecordId,
+      specialCraftId,
+      feiTicketIds: [input.ticketId],
+      feiTicketNos: [input.ticketId],
+    },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'OUT',
+      qty: input.qty,
+      unit: '片',
+      fromWarehouseArea: input.locationRef.areaName,
+      fromLocationCode: input.locationRef.locationNo,
+    },
+    payload,
+  }
+}
+
+function buildCompleteSpecialCraftReturnFixture(input: {
+  baseEvent: CuttingRuntimeEvent
+  handoverEvent: CuttingRuntimeEvent
+  eventId: string
+  occurredAt: string
+  qty: number
+  locationRef: typeof waitHandoverLocations[number]
+}): CuttingRuntimeEvent {
+  const handoverPayload = input.handoverEvent.payload as Record<string, unknown>
+  const sourceSnapshot = (handoverPayload.ticketSnapshot as Array<Record<string, unknown>>)[0]
+  const ticketId = String(sourceSnapshot.feiTicketId)
+  const specialCraftId = String(input.handoverEvent.refs.specialCraftId)
+  const locationRef = {
+    factoryId: input.locationRef.factoryId,
+    warehouseId: input.locationRef.warehouseId,
+    warehouseKind: input.locationRef.warehouseKind,
+    areaId: input.locationRef.areaId,
+    areaName: input.locationRef.areaName,
+    shelfId: input.locationRef.shelfId,
+    shelfNo: input.locationRef.shelfNo,
+    locationId: input.locationRef.locationId,
+    locationNo: input.locationRef.locationNo,
+  }
+  const ticketSnapshot = [{ ...sourceSnapshot, pieceQty: input.qty }]
+  const returnedFeiTicketItems = [{
+    feiTicketId: ticketId,
+    feiTicketNo: ticketId,
+    specialCraftId,
+    craftType: String(handoverPayload.craftType),
+    partName: String(sourceSnapshot.partName),
+    size: String(sourceSnapshot.size),
+    expectedQty: input.qty,
+    returnedQty: input.qty,
+    unit: '片' as const,
+    returnStatus: '已回仓' as const,
+  }]
+  const sourceHandoverRecordId = String(handoverPayload.handoverRecordId)
+  const bagCode = String(handoverPayload.bagCode)
+  const usageCycleId = String(handoverPayload.usageCycleId)
+  const handoverLegId = String(handoverPayload.handoverLegId)
+  const idempotencyKey = `${sourceHandoverRecordId}:${usageCycleId}:SPECIAL_CRAFT_BAG_RETURNED`
+  const operatorName = '特殊工艺回仓员'
+  const payload = {
+    canonicalIntent: '',
+    returnRecordId: input.eventId,
+    returnRecordNo: input.eventId,
+    sourceHandoverOrderId: String(handoverPayload.handoverOrderId),
+    sourceHandoverRecordId,
+    sourceHandoverEventId: input.handoverEvent.eventId,
+    receiverFactoryId: String(handoverPayload.receiverFactoryId),
+    receiverFactoryName: String(handoverPayload.receiverFactoryName),
+    transferBagCode: bagCode,
+    bagCode,
+    usageCycleId,
+    handoverLegId,
+    craftType: String(handoverPayload.craftType),
+    returnedFeiTicketItems,
+    ticketSnapshot,
+    warehouseArea: locationRef.areaName,
+    locationCode: locationRef.locationNo,
+    warehouseLocations: [input.locationRef],
+    locationRef,
+    returnedAt: input.occurredAt,
+    returnedBy: operatorName,
+    idempotencyKey,
+  }
+  payload.canonicalIntent = buildSpecialCraftBagReturnCanonicalIntent({
+    sourceHandoverRecordId,
+    sourceHandoverEventId: input.handoverEvent.eventId,
+    sourceHandoverOrderId: payload.sourceHandoverOrderId,
+    bagCode,
+    usageCycleId,
+    handoverLegId,
+    specialCraftId,
+    receiverFactoryId: payload.receiverFactoryId,
+    receiverFactoryName: payload.receiverFactoryName,
+    craftType: payload.craftType,
+    returnedTicketIds: [ticketId],
+    ticketSnapshot: ticketSnapshot as typeof handoverT1TicketSnapshot,
+    locationRef,
+    operator: { operatorName, operatorRole: '特殊工艺回仓员' },
+    source: 'WEB',
+    occurredAt: input.occurredAt,
+    idempotencyKey,
+  })
+  return {
+    ...structuredClone(input.baseEvent),
+    eventId: input.eventId,
+    eventType: '特殊工艺回仓',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: input.occurredAt,
+    operatorName,
+    operatorRole: '特殊工艺回仓员',
+    idempotencyKey,
+    refs: {
+      ...input.baseEvent.refs,
+      handoverOrderId: payload.sourceHandoverOrderId,
+      handoverRecordId: sourceHandoverRecordId,
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverLegId,
+      specialCraftId,
+      feiTicketIds: [ticketId],
+      feiTicketNos: [ticketId],
+    },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'IN',
+      qty: input.qty,
+      unit: '片',
+      toWarehouseArea: locationRef.areaName,
+      toLocationCode: locationRef.locationNo,
+    },
+    payload,
+  }
+}
+const sameTimeHandoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: multiMapInboundEvent,
   eventId: 'EVENT-SAME-TIME-HANDOVER',
-  eventType: '新增交出记录',
   occurredAt: multiMapInboundEvent.occurredAt,
   createdAt: '2026-08-01 11:05:01',
-  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 20 },
-  payload: { transferBagCode: multiMapBagCode, warehouseLocations: waitHandoverLocations },
-}
+  ticketId: 'FT-MAP-001',
+  qty: 20,
+  locationRef: waitHandoverLocations[0],
+})
 const sameTimeInboundEvent: CuttingRuntimeEvent = {
   ...structuredClone(multiMapInboundEvent),
   eventId: 'EVENT-SAME-TIME-INBOUND',
@@ -2058,42 +2460,26 @@ assert.deepEqual(
   { 'FT-MAP-001': 20 },
   '入仓状态必须保存逐票剩余片数',
 )
-const multiMapPartialHandoverEvent: CuttingRuntimeEvent = {
-  ...structuredClone(multiMapInboundEvent),
+const multiMapPartialHandoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: multiMapInboundEvent,
   eventId: 'EVENT-MULTI-MAP-SPECIAL-HANDOVER-PARTIAL',
-  eventType: '特殊工艺交出',
   occurredAt: '2026-08-01 11:10',
-  refs: { ...multiMapInboundEvent.refs, feiTicketIds: ['FT-MAP-001'] },
-  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 5 },
-  payload: {
-    transferBagCode: multiMapBagCode,
-    handoverQty: 5,
-    feiTicketItems: [{ feiTicketId: 'FT-MAP-001', feiTicketNo: 'FT-MAP-001', pieceQty: 5 }],
-  },
-}
+  ticketId: 'FT-MAP-001',
+  qty: 5,
+  locationRef: waitHandoverLocations[0],
+})
 const latestAreaARef = {
   ...waitHandoverLocations[0],
   locationNo: `${waitHandoverLocations[0].locationNo}-新编号`,
 }
-const multiMapPartialReturnEvent: CuttingRuntimeEvent = {
-  ...structuredClone(multiMapInboundEvent),
+const multiMapPartialReturnEvent = buildCompleteSpecialCraftReturnFixture({
+  baseEvent: multiMapInboundEvent,
+  handoverEvent: multiMapPartialHandoverEvent,
   eventId: 'EVENT-MULTI-MAP-SPECIAL-RETURN-PARTIAL',
-  eventType: '特殊工艺回仓',
   occurredAt: '2026-08-01 11:20',
-  refs: {
-    ...multiMapInboundEvent.refs,
-    feiTicketIds: ['FT-MAP-001'],
-  },
-  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'IN', qty: 5 },
-  payload: {
-    transferBagCode: multiMapBagCode,
-    returnRecordId: 'RETURN-MULTI-MAP-001',
-    returnedAt: '2026-08-01 11:20',
-    returnedBy: '回仓员',
-    warehouseLocations: [latestAreaARef],
-    returnedFeiTicketItems: [{ feiTicketId: 'FT-MAP-001', feiTicketNo: 'FT-MAP-001', returnedQty: 5 }],
-  },
-}
+  qty: 5,
+  locationRef: latestAreaARef,
+})
 const multiMapPartiallyHandedOverStates = buildWaitHandoverLocationOccupancyStates([
   multiMapBaggingEvent,
   multiMapInboundEvent,
@@ -2259,13 +2645,14 @@ scopedInboundF2.payload = {
 const scopedBaseEvents = [multiMapBaggingEvent, scopedInboundF1, scopedInboundF2]
 const scopedBaseStates = buildWaitHandoverLocationOccupancyStates(scopedBaseEvents)
 assert.equal(scopedBaseStates.length, 2, '双工厂同袋同周期必须先形成两个独立 scope 占用')
-const scopedReturnF1 = structuredClone(multiMapPartialReturnEvent)
-scopedReturnF1.eventId = 'EVENT-SCOPE-F1-SPECIAL-RETURN'
-scopedReturnF1.occurredAt = '2026-08-01 12:10'
-scopedReturnF1.payload = {
-  ...(scopedReturnF1.payload as Record<string, unknown>),
-  warehouseLocations: [scopedLocationF1],
-}
+const scopedReturnF1 = buildCompleteSpecialCraftReturnFixture({
+  baseEvent: scopedInboundF1,
+  handoverEvent: multiMapPartialHandoverEvent,
+  eventId: 'EVENT-SCOPE-F1-SPECIAL-RETURN',
+  occurredAt: '2026-08-01 12:10',
+  qty: 5,
+  locationRef: scopedLocationF1,
+})
 const scopedStatesAfterF1Return = buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, scopedReturnF1])
 assert.equal(scopedStatesAfterF1Return.length, 2, '定向 F1 回仓不得吞并 F2 scope')
 const scopedStateF1 = scopedStatesAfterF1Return.find((state) => state.locationRef.factoryId === scopedLocationF1.factoryId)
@@ -2288,6 +2675,7 @@ ambiguousLocationlessReturn.eventId = 'EVENT-SCOPE-AMBIGUOUS-LOCATIONLESS-RETURN
 ambiguousLocationlessReturn.payload = {
   ...(ambiguousLocationlessReturn.payload as Record<string, unknown>),
   warehouseLocations: undefined,
+  locationRef: undefined,
 }
 assert.deepEqual(
   normalizeScopedStates(buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, ambiguousLocationlessReturn])),
@@ -2305,17 +2693,14 @@ assert.deepEqual(
   normalizeScopedStates(scopedBaseStates),
   '回仓 payload 混入不同 scope 时必须忽略整个事件且不改写任一 scope',
 )
-const multiMapFinalHandoverEvent: CuttingRuntimeEvent = {
-  ...structuredClone(multiMapInboundEvent),
+const multiMapFinalHandoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: multiMapInboundEvent,
   eventId: 'EVENT-MULTI-MAP-FINAL-HANDOVER',
-  eventType: '新增交出记录',
   occurredAt: '2026-08-01 11:30',
-  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 20 },
-  payload: {
-    transferBagCode: multiMapBagCode,
-    warehouseLocations: [latestAreaARef],
-  },
-}
+  ticketId: 'FT-MAP-001',
+  qty: 20,
+  locationRef: latestAreaARef,
+})
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([
     multiMapBaggingEvent,
@@ -2346,17 +2731,15 @@ assert.equal(
   2,
   '跨工厂相同袋码必须保留两个独立库位占用',
 )
-const crossFactoryHandoverEvent = {
-  ...structuredClone(crossFactorySameBagEvent),
+const crossFactoryLocation = ((crossFactorySameBagEvent.payload as Record<string, unknown>).warehouseLocations as typeof waitHandoverLocations)[0]
+const crossFactoryHandoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: crossFactorySameBagEvent,
   eventId: 'EVENT-HANDOVER-SAME-BAG-OTHER-FACTORY',
-  eventType: '新增交出记录' as const,
   occurredAt: '2026-07-30 09:08',
-  inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'OUT' as const, qty: 100, unit: '片' as const },
-  payload: {
-    transferBagCode: 'BAG-MAP-001',
-    warehouseLocations: (crossFactorySameBagEvent.payload as Record<string, unknown>).warehouseLocations,
-  },
-}
+  ticketId: 'FT-MAP-001',
+  qty: Number((crossFactorySameBagEvent.payload as Record<string, unknown>).totalPieceQty),
+  locationRef: crossFactoryLocation,
+})
 const statesAfterOtherFactoryHandover = buildWaitHandoverLocationOccupancyStates([
   inboundEvent,
   crossFactorySameBagEvent,
@@ -2543,14 +2926,14 @@ for (const [sourceBagCode, targetBagCode, occurredAt] of [
 }
 assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-A', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 A→B→A')
 assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-B', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 B→A→B')
-const handoverEvent = {
-  ...structuredClone(inboundEvent),
+const handoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: baggingConfirmEvent,
   eventId: 'EVENT-HANDOVER',
-  eventType: '新增交出记录' as const,
   occurredAt: '2026-07-30 09:20',
-  refs: { ...inboundEvent.refs, transferBagCode: 'BAG-MAP-TARGET' },
-  payload: {},
-}
+  ticketId: runtimeTicket.feiTicketId,
+  qty: runtimeTicket.pieceQty,
+  locationRef: ((inboundEvent.payload as { warehouseLocations: typeof waitHandoverLocations }).warehouseLocations)[0],
+})
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([
     baggingEvent,
@@ -2561,15 +2944,14 @@ assert.equal(
   0,
   '中转袋最终交出后应释放库位',
 )
-const partialSpecialCraftHandoverEvent = {
-  ...structuredClone(inboundEvent),
+const partialSpecialCraftHandoverEvent = buildCompleteSpecialCraftHandoverFixture({
+  baseEvent: inboundEvent,
   eventId: 'EVENT-SPECIAL-HANDOVER-PARTIAL',
-  eventType: '特殊工艺交出' as const,
   occurredAt: '2026-07-30 09:15',
-  refs: { ...inboundEvent.refs, transferBagCode: 'BAG-MAP-001', feiTicketIds: ['FT-MAP-001'] },
-  inventoryEffect: { ...inboundEvent.inventoryEffect, direction: 'OUT' as const, qty: 5 },
-  payload: { transferBagCode: 'BAG-MAP-001', handoverQty: 5 },
-}
+  ticketId: runtimeTicket.feiTicketId,
+  qty: 5,
+  locationRef: ((inboundEvent.payload as { warehouseLocations: typeof waitHandoverLocations }).warehouseLocations)[0],
+})
 const partiallyHandedOverStates = buildWaitHandoverLocationOccupancyStates([
   baggingEvent,
   inboundEvent,
@@ -2577,21 +2959,14 @@ const partiallyHandedOverStates = buildWaitHandoverLocationOccupancyStates([
 ])
 assert.equal(partiallyHandedOverStates.length, 1, '特殊工艺部分交出不得释放整袋库位')
 assert.equal(partiallyHandedOverStates[0].totalPieceQty, 15, '特殊工艺部分交出应扣减对应数量')
-const partialSpecialCraftReturnEvent = {
-  ...structuredClone(inboundEvent),
+const partialSpecialCraftReturnEvent = buildCompleteSpecialCraftReturnFixture({
+  baseEvent: inboundEvent,
+  handoverEvent: partialSpecialCraftHandoverEvent,
   eventId: 'EVENT-SPECIAL-RETURN-PARTIAL',
-  eventType: '特殊工艺回仓' as const,
   occurredAt: '2026-07-30 09:30',
-  refs: { ...inboundEvent.refs, transferBagCode: 'BAG-MAP-001', feiTicketIds: ['FT-MAP-001'] },
-  inventoryEffect: { ...inboundEvent.inventoryEffect, direction: 'IN' as const, qty: 5 },
-  payload: {
-    transferBagCode: 'BAG-MAP-001',
-    returnRecordId: 'RETURN-PARTIAL-001',
-    returnedAt: '2026-07-30 09:30',
-    returnedBy: '回仓员',
-    warehouseLocations: (inboundEvent.payload as { warehouseLocations: unknown }).warehouseLocations,
-  },
-}
+  qty: 5,
+  locationRef: ((inboundEvent.payload as { warehouseLocations: typeof waitHandoverLocations }).warehouseLocations)[0],
+})
 const partiallyReturnedStates = buildWaitHandoverLocationOccupancyStates([
   baggingEvent,
   inboundEvent,
@@ -2618,8 +2993,6 @@ const looseSpecialCraftReturnEvent = {
   },
 }
 const looseReturnStates = buildWaitHandoverLocationOccupancyStates([looseSpecialCraftReturnEvent])
-assert.equal(looseReturnStates.length, 1, '无中转袋的特殊工艺回仓也必须占用库位')
-assert.equal(looseReturnStates[0].objectNo, 'SCR-LOOSE-001')
-assert.match(looseReturnStates[0].objectName || '', /特殊工艺回仓/)
+assert.equal(looseReturnStates.length, 0, '缺少完整来源事实和中转袋的旧回仓事件不得形成库位占用')
 
 console.log('check:cutting-warehouse-location-map passed')

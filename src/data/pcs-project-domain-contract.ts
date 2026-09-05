@@ -120,6 +120,10 @@ export type PcsProjectRelatedInstanceTypeCode =
   | 'CHANNEL_PRODUCT'
   | 'STYLE_ARCHIVE'
   | 'TECH_PACK_VERSION'
+  | 'PATTERN_TASK'
+  | 'PATTERN_ARTWORK_TASK'
+  | 'FIRST_SAMPLE'
+  | 'FIRST_ORDER_SAMPLE'
   | 'PROJECT_ARCHIVE'
 
 export type PcsProjectConfigSourceKind =
@@ -132,6 +136,7 @@ export type PcsProjectConfigSourceKind =
   | '本地主数据'
   | '固定枚举'
   | '系统生成'
+  | '系统计算'
   | '样衣结果'
   | '上游实例回写'
   | '设计改款任务'
@@ -143,6 +148,17 @@ export type PcsProjectConfigSourceKind =
   | '短视频记录'
   | '技术包版本'
   | '项目资料归档'
+  | '项目图片结果池'
+  | '商品项目'
+  | '项目主记录'
+  | '短视频测款'
+  | '直播测款'
+  | '花型库'
+  | '首版样衣任务'
+  | '首单样衣打样任务'
+  | '样衣计划行'
+  | '样衣退回处理'
+  | '执行任务'
 
 export interface ProjectFlowStageContract {
   stepCode: ProjectFlowStageCode

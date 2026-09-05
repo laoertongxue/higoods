@@ -173,14 +173,16 @@ function renderDialog(): string {
     return dialogShell('交出与欠片详情', `${projection.context.taskNo || projection.context.runtimeTaskId} · ${projection.context.factoryName} · PPIC ${projection.context.ppicName}`, renderDetailContent(projection))
   }
   if (state.dialog.kind === 'CANCEL_EXCLUSION') {
-    const projection = getSewingCutPieceResponsibilityProjection(state.dialog.assignmentId)
-    const exclusion = listSewingCutPiecePartExclusionVersions(state.dialog.assignmentId).find((item) => item.exclusionVersionId === state.dialog?.exclusionVersionId)
+    const dialog = state.dialog
+    const projection = getSewingCutPieceResponsibilityProjection(dialog.assignmentId)
+    const exclusion = listSewingCutPiecePartExclusionVersions(dialog.assignmentId).find((item) => item.exclusionVersionId === dialog.exclusionVersionId)
     if (!exclusion) return ''
     const body = `<div class="space-y-4 p-5">${state.dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(state.dialog.error)}</div>` : ''}<p class="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">取消${escapeHtml(exclusion.partName)}的排除后，该部位重新参与有效齐套计算；历史排除记录不会删除，已经冻结的工厂回货责任也不会回退。</p><label class="block text-sm">取消原因<textarea class="mt-1 min-h-24 w-full rounded border p-3" data-sewing-cut-piece-field="cancelReason" placeholder="例如：裁床已完成该部位补交，需要恢复严格齐套口径"></textarea></label></div>`
     return dialogShell('取消部位排除', `${projection.context.taskNo || projection.context.runtimeTaskId} · ${exclusion.partName}`, body, '<button class="rounded border px-4 py-2 text-sm" data-sewing-cut-piece-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-sewing-cut-piece-action="submit-cancel-exclusion">确认取消排除</button>', 'max-w-xl')
   }
-  const projection = getSewingCutPieceResponsibilityProjection(state.dialog.assignmentId)
-  const line = projection.lines.find((item) => item.requirementLineId === state.dialog?.requirementLineId)
+  const dialog = state.dialog
+  const projection = getSewingCutPieceResponsibilityProjection(dialog.assignmentId)
+  const line = projection.lines.find((item) => item.requirementLineId === dialog.requirementLineId)
   if (!line) return ''
   const eligibility = getSewingCutPiecePartExclusionEligibility(line)
   const body = `<div class="space-y-4 p-5">${state.dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(state.dialog.error)}</div>` : ''}<p class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><b>${escapeHtml(eligibility.reason)}。</b>排除只调整有效齐套；应交部位和欠片${line.debtPieceQty.toLocaleString()}片继续保留并进入补料跟进。</p><label class="block text-sm">排除原因<textarea class="mt-1 min-h-24 w-full rounded border p-3" data-sewing-cut-piece-field="reason">裁床尚未完成${escapeHtml(line.partName)}裁片，为避免主体裁片等待，暂时排除该部位计算有效齐套。</textarea></label><label class="block text-sm">生产影响<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-sewing-cut-piece-field="productionImpact">主体裁片可以先投入车缝，${escapeHtml(line.partName)}后续仍由裁床补交。</textarea></label><label class="block text-sm">核对证据图片地址<input class="mt-1 h-10 w-full rounded border px-3" data-sewing-cut-piece-field="evidenceUrl" value="/shirt-sample.jpg"></label></div>`
@@ -270,13 +272,14 @@ export async function handleSewingCutPieceHandoverEvent(target: HTMLElement, eve
     state.dialog = { kind: 'CANCEL_EXCLUSION', assignmentId: node.dataset.assignmentId || '', exclusionVersionId: node.dataset.exclusionVersionId || '', error: '' }
   } else if (action === 'submit-exclusion' && state.dialog?.kind === 'EXCLUSION') {
     event?.preventDefault()
+    const dialog = state.dialog
     try {
-      const projection = getSewingCutPieceResponsibilityProjection(state.dialog.assignmentId)
-      const line = projection.lines.find((item) => item.requirementLineId === state.dialog?.requirementLineId)
+      const projection = getSewingCutPieceResponsibilityProjection(dialog.assignmentId)
+      const line = projection.lines.find((item) => item.requirementLineId === dialog.requirementLineId)
       if (!line) throw new Error('未找到待排除部位')
       const value = (name: string) => document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-sewing-cut-piece-field="${name}"]`)?.value.trim() || ''
       createSewingCutPiecePartExclusion({
-        commandId: nextCommandId('EXCLUSION'), assignmentId: state.dialog.assignmentId,
+        commandId: nextCommandId('EXCLUSION'), assignmentId: dialog.assignmentId,
         skuCode: line.skuCode, color: line.color, size: line.size, partCode: line.partCode,
         reason: value('reason'), evidenceUrls: [value('evidenceUrl')].filter(Boolean), productionImpact: value('productionImpact'),
         createdAt: formatOperationLocalWallClock(), createdByPpicId: projection.context.ppicId,
@@ -284,21 +287,22 @@ export async function handleSewingCutPieceHandoverEvent(target: HTMLElement, eve
       state.feedback = `已排除${line.partName}的有效齐套计算；欠片和补料跟进仍保留。`
       state.dialog = { kind: 'DETAIL', assignmentId: projection.context.assignmentId }
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '排除失败' }
+      state.dialog = { ...dialog, error: error instanceof Error ? error.message : '排除失败' }
     }
   } else if (action === 'submit-cancel-exclusion' && state.dialog?.kind === 'CANCEL_EXCLUSION') {
     event?.preventDefault()
+    const dialog = state.dialog
     try {
-      const projection = getSewingCutPieceResponsibilityProjection(state.dialog.assignmentId)
+      const projection = getSewingCutPieceResponsibilityProjection(dialog.assignmentId)
       const reason = document.querySelector<HTMLTextAreaElement>('[data-sewing-cut-piece-field="cancelReason"]')?.value.trim() || ''
       const cancelled = cancelSewingCutPiecePartExclusion({
-        commandId: nextCommandId('CANCEL-EXCLUSION'), exclusionVersionId: state.dialog.exclusionVersionId,
+        commandId: nextCommandId('CANCEL-EXCLUSION'), exclusionVersionId: dialog.exclusionVersionId,
         reason, cancelledAt: formatOperationLocalWallClock(), cancelledByPpicId: projection.context.ppicId,
       })
       state.feedback = `已取消${cancelled.partName}排除；有效齐套已恢复计算，历史回货责任保持不变。`
       state.dialog = { kind: 'DETAIL', assignmentId: projection.context.assignmentId }
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '取消排除失败' }
+      state.dialog = { ...dialog, error: error instanceof Error ? error.message : '取消排除失败' }
     }
   } else if (action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)

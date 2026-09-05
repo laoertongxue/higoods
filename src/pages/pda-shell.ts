@@ -38,7 +38,7 @@ const MOBILE_APP_TABS: PdaTabConfig[] = [
 function getVisibleMobileAppTabs(): PdaTabConfig[] {
   const runtime = getPdaRuntimeContext()
   if (isKolGotoFactory(runtime?.factoryId)) {
-    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'settlement' || runtime.roleId === 'ROLE_ADMIN')
+    return MOBILE_APP_TABS.filter((tab) => tab.key !== 'settlement' || runtime?.roleId === 'ROLE_ADMIN')
   }
   const factory = runtime ? getFactoryMasterRecordById(runtime.factoryId) : undefined
   if (factory?.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING') {

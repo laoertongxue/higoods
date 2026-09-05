@@ -113,8 +113,7 @@ const routeSource = read('src/router/routes-fcs.ts')
 const renderersSource = read('src/router/route-renderers-fcs.ts')
 const linksSource = read('src/data/fcs/fcs-route-links.ts')
 const printPagePath = 'src/pages/process-factory/wool/handover-print.ts'
-const designSource = read('docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md')
-const planSource = read('docs/superpowers/plans/2026-07-30-wool-management-fact-workflow-implementation-plan.md')
+const productRequirementSource = read('docs/product-requirements/2026-08-05-wool-management-product-requirements.md')
 
 assert(
   workOrdersSource.includes('打印交出单'),
@@ -261,21 +260,20 @@ for (const forbiddenDocText of [
   '成衣 SKU/毛织部位 SKU、件/片和片数乘法',
 ]) {
   assert(
-    !designSource.includes(forbiddenDocText) && !planSource.includes(forbiddenDocText),
-    `正式设计/实现计划仍残留部位毛织片数口径：${forbiddenDocText}`,
+    !productRequirementSource.includes(forbiddenDocText),
+    `现行产品需求仍残留部位毛织片数口径：${forbiddenDocText}`,
   )
 }
 for (const requiredDocText of [
-  '部位毛织按毛织部位 SKU 和颜色+尺码件数管理',
-  '每次交出必须可以打印独立交出单',
-  '明细数量按颜色+尺码展示“本次交出件数”',
-  '`renderCraftWoolHandoverPrintPage(woolOrderId, handoverId?)`',
-  '款式图与 SPU 款式信息处于同一区块',
-  '详情交出记录提供“打印本次交出单”',
+  '整件毛织和部位毛织的加工填报、库存和交出均按颜色＋尺码件数管理',
+  '一张可独立打印和扫码的毛织交出单',
+  '本次交出对象、颜色、尺码和本次交出件数',
+  '款式图与 SPU 款式信息必须位于同一个信息区块',
+  '每条交出记录提供“打印本次交出单”',
 ]) {
   assert(
-    designSource.includes(requiredDocText) || planSource.includes(requiredDocText),
-    `正式设计/实现计划缺少毛织交出单或件数口径说明：${requiredDocText}`,
+    productRequirementSource.includes(requiredDocText),
+    `现行产品需求缺少毛织交出单或件数口径说明：${requiredDocText}`,
   )
 }
 

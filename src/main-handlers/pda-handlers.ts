@@ -1,8 +1,8 @@
 import { closePdaShellDialogsOnEscape, handlePdaShellEvent } from '../pages/pda-shell'
 import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
-import { normalizePdaPageEventResult } from './pda-local-action-result'
+import { normalizePdaPageEventResult, type PdaPageEventResult } from './pda-local-action-result'
 
-type PdaPageHandler = (target: HTMLElement, event?: Event) => unknown | Promise<unknown>
+type PdaPageHandler = (target: HTMLElement, event?: Event) => PdaPageEventResult | Promise<PdaPageEventResult>
 
 interface PdaRouteHandler {
   matches: (pathname: string) => boolean

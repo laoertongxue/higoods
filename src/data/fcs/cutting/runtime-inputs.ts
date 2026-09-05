@@ -237,9 +237,9 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       followupActions: specialProcessRuntimeState.followupActions as Array<Record<string, unknown>>,
     },
     pdaExecutionState: {
-      pickupEvents: pdaExecutionRuntimeState.pickupEvents as Array<Record<string, unknown>>,
-      inboundEvents: pdaExecutionRuntimeState.inboundEvents as Array<Record<string, unknown>>,
-      handoverEvents: pdaExecutionRuntimeState.handoverEvents as Array<Record<string, unknown>>,
+      pickupEvents: pdaExecutionRuntimeState.pickupEvents,
+      inboundEvents: pdaExecutionRuntimeState.inboundEvents,
+      handoverEvents: pdaExecutionRuntimeState.handoverEvents,
     },
     runtimeEventState: {
       events: runtimeEventState.events,

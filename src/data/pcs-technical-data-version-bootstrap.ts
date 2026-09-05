@@ -4,6 +4,13 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalDataVersionStoreSnapshot,
+  TechnicalBomItem,
+  TechnicalColorMaterialMapping,
+  TechnicalColorMaterialMappingLine,
+  TechnicalPatternBindingStrip,
+  TechnicalPatternPieceRow,
+  TechnicalPatternPieceSpecialCraft,
+  TechnicalProcessEntry,
 } from './pcs-technical-data-version-types.ts'
 
 function parseVersionNo(versionLabel: string, fallback: number): number {
@@ -48,10 +55,14 @@ function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   return 'DEFAULT'
 }
 
-function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject?: string) {
+function buildSpecialCraftConfig(
+  craftCode: string,
+  craftName: string,
+  selectedTargetObject?: string,
+): TechnicalPatternPieceSpecialCraft {
   const supportsGarment = craftName === '直喷' || craftName === '烫画'
   const supportsAccessory = craftName === '橡筋定长切割'
-  const canonicalTargetObject = selectedTargetObject || (supportsAccessory ? '辅料' : supportsGarment ? '成衣' : '已裁部位')
+  const canonicalTargetObject = (selectedTargetObject || (supportsAccessory ? '辅料' : supportsGarment ? '成衣' : '已裁部位')) as TechnicalPatternPieceSpecialCraft['selectedTargetObject']
   return {
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
@@ -84,17 +95,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     bundleWidthCm?: number
     stripCount?: number
     remark?: string
-    specialCrafts?: Array<{
-      processCode: string
-      processName: string
-      craftCode: string
-      craftName: string
-      displayName: string
-      selectedTargetObject: string
-      supportedTargetObjects: string[]
-      supportedTargetObjectLabels: string[]
-    }>
-  }>) => pieces.map((piece) => ({
+    specialCrafts?: TechnicalPatternPieceSpecialCraft[]
+  }>): TechnicalPatternPieceRow[] => pieces.map((piece) => ({
     ...piece,
     applicableSkuCodes: [...allSkuCodes],
     colorAllocations: colors.map((color, index) => ({
@@ -188,7 +190,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const patternMaterialType = isWoolScenario ? 'WOOL' : 'WOVEN'
   const patternMaterialTypeLabel = isWoolScenario ? '毛织纸样' : '布料纸样'
   const patternFileName = isWoolScenario ? `${demand.spuCode}-毛织工艺单.pdf` : `${demand.spuCode}-正式纸样.dxf`
-  const mainBomType = scenario === 'GARMENT_HEAT_TRANSFER' ? '成衣' : isWoolScenario ? '纱线' : '面料'
+  const mainBomType: TechnicalBomItem['type'] = scenario === 'GARMENT_HEAT_TRANSFER' ? '成衣' : isWoolScenario ? '纱线' : '面料'
   const mainBomName = scenario === 'GARMENT_HEAT_TRANSFER'
     ? '纯色 T-shirt 成衣'
     : isWoolScenario
@@ -205,7 +207,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const isWaterSolubleDyeDemo = demand.spuCode === 'SPU-TSHIRT-081'
   const waterSolubleDyeBomItemId = `${seed.technicalVersionId}-bom-water-soluble-dye`
   const waterSolubleOnlyBomItemId = `${seed.technicalVersionId}-bom-water-soluble-only`
-  const processEntries = scenario === 'WHOLE_WOOL'
+  const processEntries: TechnicalProcessEntry[] = scenario === 'WHOLE_WOOL'
     ? [
         {
           id: `${seed.technicalVersionId}-process-wool-whole`,
@@ -339,7 +341,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             },
           ]
 
-  const waterSolubleDyeProcessEntries = isWaterSolubleDyeDemo
+  const waterSolubleDyeProcessEntries: TechnicalProcessEntry[] = isWaterSolubleDyeDemo
     ? [
         {
           id: `${seed.technicalVersionId}-process-print`,
@@ -385,7 +387,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         },
       ]
       : []
-  const internalGarmentPrintProcessEntries = demand.spuCode === 'SPU-2024-005'
+  const internalGarmentPrintProcessEntries: TechnicalProcessEntry[] = demand.spuCode === 'SPU-2024-005'
     ? [
         { craftCode: 'CRAFT_008192', craftName: '烫画' },
         { craftCode: 'CRAFT_016384', craftName: '直喷' },
@@ -415,7 +417,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         remark: `在成衣上${craft.craftName}，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。`,
       }))
     : []
-  const buttonLoopProcessEntries = demand.spuCode === 'SPU-2024-009'
+  const buttonLoopProcessEntries: TechnicalProcessEntry[] = demand.spuCode === 'SPU-2024-009'
     ? [{
         id: `${seed.technicalVersionId}-process-button-loop`,
         entryType: 'CRAFT' as const,
@@ -442,7 +444,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         remark: '只将纸样包内勾选盘扣的捆条菲票作为投入；产出按盘扣个数填报。',
       }]
     : []
-  const elasticFixedLengthProcessEntries = ['SPU-2024-005', 'SPU-2024-015'].includes(demand.spuCode)
+  const elasticFixedLengthProcessEntries: TechnicalProcessEntry[] = ['SPU-2024-005', 'SPU-2024-015'].includes(demand.spuCode)
     ? [{
         id: `${seed.technicalVersionId}-process-elastic-fixed-length`,
         entryType: 'CRAFT' as const,
@@ -472,7 +474,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         remark: '从正式 BOM 橡筋辅料按米投入，每件成衣产出 2 条 42cm 定长橡筋。',
       }]
     : []
-  const joggerPostProcessEntries = demand.spuCode === 'SPU-2024-010'
+  const joggerPostProcessEntries: TechnicalProcessEntry[] = demand.spuCode === 'SPU-2024-010'
     ? [
         {
           id: `${seed.technicalVersionId}-process-iron-pack`,
@@ -534,7 +536,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     }
   }
 
-  const buildBindingStrips = (inheritedNote: string) => {
+  const buildBindingStrips = (inheritedNote: string): TechnicalPatternBindingStrip[] => {
     if (isWoolScenario) return []
     const regularStrip = {
       bindingStripId: `${patternPackageId}-binding-1`,
@@ -568,8 +570,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           craftName: '盘扣',
           displayName: '盘扣',
           selectedTargetObject: '捆条' as const,
-          supportedTargetObjects: ['BINDING_STRIP'] as const,
-          supportedTargetObjectLabels: ['捆条'] as const,
+          supportedTargetObjects: ['BINDING_STRIP'],
+          supportedTargetObjectLabels: ['捆条'],
         }],
         note: '该捆条专用于盘扣；捆条菲票作为加工投入，盘扣成品按个填报并交中央辅料仓。',
       },
@@ -673,7 +675,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
                 ...row,
                 sourceType: 'MANUAL' as const,
               })),
-            },
+            } satisfies TechnicalDataVersionContent['patternFiles'][number],
           ]
         : []),
     ],
@@ -738,7 +740,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             applicableSkuCodes: [...allSkuCodes],
             linkedPatternIds: [],
             usageProcessCodes: ['SPECIAL_CRAFT'],
-          }]
+          } satisfies TechnicalBomItem]
         : []),
       ...(demand.spuCode === 'SPU-2024-010'
         ? [{
@@ -757,7 +759,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             applicableSkuCodes: [...allSkuCodes],
             linkedPatternIds: [patternId],
             usageProcessCodes: ['CUT_PANEL', 'SEW'],
-          }]
+          } satisfies TechnicalBomItem]
         : []),
       ...(['SPU-2024-005', 'SPU-2024-015'].includes(demand.spuCode)
         ? [{
@@ -774,7 +776,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             applicableSkuCodes: [...allSkuCodes],
             linkedPatternIds: [],
             usageProcessCodes: ['SPECIAL_CRAFT'],
-          }]
+          } satisfies TechnicalBomItem]
         : []),
       ...(isWaterSolubleDyeDemo
         ? [{
@@ -793,7 +795,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             usageProcessCodes: ['WATER_SOLUBLE'],
             waterSolubleRequirement: '是',
             dyeRequirement: '无',
-          }, {
+          } satisfies TechnicalBomItem, {
             id: waterSolubleDyeBomItemId,
             type: '辅料',
             name: '水溶染色花边',
@@ -809,11 +811,11 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             usageProcessCodes: ['WATER_SOLUBLE', 'DYE'],
             waterSolubleRequirement: '是',
             dyeRequirement: '匹染',
-          }]
+          } satisfies TechnicalBomItem]
         : []),
-    ],
+    ] satisfies TechnicalBomItem[],
     qualityRules: [],
-    colorMaterialMappings: scenario === 'GARMENT_HEAT_TRANSFER' ? [] : colors.map((color, index) => ({
+    colorMaterialMappings: scenario === 'GARMENT_HEAT_TRANSFER' ? [] : colors.map((color, index): TechnicalColorMaterialMapping => ({
       id: `${seed.technicalVersionId}-mapping-${index + 1}`,
       spuCode: demand.spuCode,
       colorCode: color,
@@ -821,12 +823,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       status: 'CONFIRMED',
       generatedMode: 'AUTO',
       lines: [
-        ...pieceRows.map((piece) => ({
+        ...pieceRows.map((piece): TechnicalColorMaterialMappingLine => ({
         id: `${seed.technicalVersionId}-mapping-${index + 1}-${piece.id}`,
         bomItemId,
         materialCode: resolveColorMaterialInfo(color, index).code,
         materialName: resolveColorMaterialInfo(color, index).name,
-        materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '成衣' : isWoolScenario ? '其他' : '面料',
+        materialType: isWoolScenario ? '其他' : '面料',
         patternId,
         patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         pieceId: piece.id,
@@ -851,7 +853,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               unit: '米',
               applicableSkuCodes: demand.skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
               sourceMode: 'AUTO' as const,
-            }]
+            } satisfies TechnicalColorMaterialMappingLine]
           : []),
       ],
     })),

@@ -1191,6 +1191,7 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
       materialName: shortage.materialName,
       materialTypeLabel: shortage.materialTypeLabel,
       materialImageUrl: shortage.materialImageUrl,
+      materialImageAlt: `${shortage.materialName}（${shortage.materialSku}）物料图`,
       materialAlias: shortage.materialAlias,
       materialRole: shortage.materialRole,
       roleSource: shortage.roleSource,
@@ -2029,7 +2030,7 @@ function renderConfirmPage(draft: SupplementDraft | null): string {
   `
 }
 
-function formatMaterialDemandSummary(demands: SupplementMaterialDemand[]): string {
+function formatMaterialDemandSummary(demands: readonly SupplementMaterialDemand[]): string {
   return demands
     .slice(0, 3)
     .map((item) => `${item.materialTypeLabel} ${formatDecimal(item.requiredQty)} ${item.unit}`)
@@ -2421,6 +2422,45 @@ function renderProcessLinksTable(record: SupplementOrderLifecycle): string {
                 ${renderProductionOrderIdentityCell({ productionOrderNo: link.linkedProductionOrderNo })}
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.createdAt)}</div>
               </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderSupplementBasisTable(lines: SupplementLine[]): string {
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-[1180px] text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">成衣颜色</th>
+            <th class="px-3 py-2 font-medium">尺码</th>
+            <th class="px-3 py-2 font-medium">面料别名</th>
+            <th class="px-3 py-2 font-medium">物料信息</th>
+            <th class="px-3 py-2 font-medium">纸样信息</th>
+            <th class="px-3 py-2 font-medium">计划数量（件）</th>
+            <th class="px-3 py-2 font-medium">实裁数据（件）</th>
+            <th class="px-3 py-2 font-medium">已发起</th>
+            <th class="px-3 py-2 font-medium">实际缺片</th>
+            <th class="px-3 py-2 font-medium">本次补料件数</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lines.map((line) => `
+            <tr class="border-t align-top">
+              <td class="px-3 py-3">${escapeHtml(line.color)}</td>
+              <td class="px-3 py-3">${escapeHtml(line.size)}</td>
+              <td class="px-3 py-3">${renderMaterialAliasInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementMaterialInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3">${renderSupplementPatternInfo(line.basis.shortageMaterial)}</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.plannedQty)} 件</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.currentRoleCutQty)} 件</td>
+              <td class="px-3 py-3 tabular-nums">${formatInteger(line.existingSupplementQty)} 件</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${line.actualMissingPieceQty === undefined ? '—' : `实际缺片 ${formatInteger(line.actualMissingPieceQty)} 片`}</td>
+              <td class="px-3 py-3 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
             </tr>
           `).join('')}
         </tbody>
@@ -2897,7 +2937,7 @@ function saveConfirmedSupplementRecord(input: {
     createdAt: input.createdAt,
     createdBy: input.createdBy.trim() || '系统',
   })
-  state.records = listSupplementOrders()
+  state.records = [...listSupplementOrders()]
   return record
 }
 
@@ -3217,7 +3257,7 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 }
 
 export function listSupplementRecords(): SupplementOrderLifecycle[] {
-  return listSupplementOrders()
+  return [...listSupplementOrders()]
 }
 
 function buildMockDraft(
@@ -3282,7 +3322,7 @@ export function listSupplementDraftsForTesting(): SupplementDraft[] {
 function ensureMockSupplementOrders(): void {
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
-  state.records = listSupplementOrders()
+  state.records = [...listSupplementOrders()]
 
   const seedSourceOrder = [
     'CUT-260302-004-01',
@@ -3365,13 +3405,13 @@ function ensureMockSupplementOrders(): void {
     coveredSeedCount += 1
   }
 
-  state.records = listSupplementOrders()
+  state.records = [...listSupplementOrders()]
 }
 
 export function bootstrapSupplementManagementMockData(): SupplementOrderLifecycle[] {
   ensureFixedSupplementOrderFixturesRegistered()
   ensureMockSupplementOrders()
-  return listSupplementOrders()
+  return [...listSupplementOrders()]
 }
 
 export function resetSupplementManagementMockDataForTest(): void {

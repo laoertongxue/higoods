@@ -5,6 +5,7 @@ export type PcsProjectImageType =
   | '细节图'
   | '上架图'
   | '款式档案图'
+  | '样衣到样图'
   | '手工补充图'
 
 export type PcsProjectImageSourceType =
@@ -12,6 +13,7 @@ export type PcsProjectImageSourceType =
   | '样衣拍摄与试穿'
   | '商品上架'
   | '商品档案资料完善'
+  | '样衣结果核对'
   | '手工补充'
 
 export type PcsProjectImageUsageScope =
@@ -19,6 +21,8 @@ export type PcsProjectImageUsageScope =
   | '样衣评估'
   | '商品上架'
   | '款式档案'
+  | '样衣结果核对'
+  | '样衣管理'
   | '项目资料归档'
 
 export type PcsProjectImageStatus =
@@ -29,6 +33,7 @@ export type PcsProjectImageStatus =
   | '已选为档案图'
   | '已弃用'
   | '需重拍'
+  | '待核对'
 
 export type PcsProjectImageStorageType = 'external-url' | 'local-blob'
 

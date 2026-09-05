@@ -855,7 +855,13 @@ function migrateLegacyStore(raw: string): CutPieceReturnStore | null {
         largeTickets: Array.isArray(legacy.largeTickets) ? legacy.largeTickets : [],
         responsibilityEvents: (Array.isArray(legacy.responsibilityEvents) ? legacy.responsibilityEvents : [])
           .filter((event: Record<string, any>) => event.eventType === '首次交出齐套责任' || event.eventType === '确认退件扣减')
-          .map((event: Record<string, any>) => ({ ...event })),
+          .map((event: Record<string, any>): CutPieceReturnResponsibilityEvent => ({
+            eventId: String(event.eventId || ''),
+            eventType: event.eventType as CutPieceReturnResponsibilityEvent['eventType'],
+            garmentQty: Number(event.garmentQty || 0),
+            occurredAt: String(event.occurredAt || ''),
+            businessNo: String(event.businessNo || ''),
+          })),
         operationLogs: [{
           logId: String(legacy.caseId || 'legacy-return') + '-migration',
           action: '来源责任冻结',

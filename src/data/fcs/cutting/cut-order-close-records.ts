@@ -424,7 +424,7 @@ function parseLifecycleCycle(...values: string[]): number {
   return 0
 }
 
-function nextLifecycleSequence(records: Array<{ cutOrderId: string; cutOrderNo: string } & Record<string, unknown>>, cutOrderId: string, cutOrderNo: string, idKey: string, noKey: string): number {
+function nextLifecycleSequence<T extends { cutOrderId: string; cutOrderNo: string }>(records: T[], cutOrderId: string, cutOrderNo: string, idKey: keyof T, noKey: keyof T): number {
   return records
     .filter((record) => record.cutOrderId === cutOrderId || record.cutOrderNo === cutOrderNo)
     .reduce((max, record) => Math.max(max, parseLifecycleCycle(String(record[idKey] || ''), String(record[noKey] || ''))), 0) + 1

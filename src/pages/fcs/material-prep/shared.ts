@@ -133,14 +133,14 @@ export function renderMaterialPrepOrderCodeButton(
 }
 
 export function renderMaterialPrepRecordCodeButton(
-  record: Pick<MaterialPrepRecord, 'prepRecordId'> & Partial<Pick<MaterialPrepRecord, 'recordNo'>>,
+  record: { prepRecordId: string; recordNo?: string | number; batchNo?: string },
   relatedProductionOrderNo: string,
   options: MaterialObjectCodeButtonOptions = {},
 ): string {
   return renderProductionObjectCodeButton({
     objectType: 'MATERIAL_PREP_RECORD',
     objectId: record.prepRecordId,
-    label: options.label ?? record.recordNo ?? record.prepRecordId,
+    label: options.label ?? String(record.recordNo ?? record.batchNo ?? record.prepRecordId),
     relatedProductionOrderNo,
     defaultTab: 'materials',
     highlightKey: `MATERIAL_PREP_RECORD:${record.prepRecordId}`,

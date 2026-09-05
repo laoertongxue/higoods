@@ -488,7 +488,7 @@ function renderCreateMasterDialog(): string {
     <div class="space-y-4">
       ${masterListUiState.createError ? `<div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(masterListUiState.createError)}</div>` : ''}
       ${renderLabeledInput('选择商品／款式档案', {
-        type: 'search',
+        type: 'text',
         value: masterListUiState.createStyleSearch,
         placeholder: '搜索 SPU／款式名称',
         prefix: MASTER_EVENT_PREFIX,
@@ -576,7 +576,7 @@ function updateCreateSubmitButtonState(): void {
   }
 }
 
-function refreshMasterListRegions(options: { settings?: boolean } = {}): void {
+function refreshMasterListRegions(options: { settings?: boolean; filters?: boolean } = {}): void {
   if (typeof document === 'undefined') return
   const paging = getPagedMasterRows()
   const tableHost = document.querySelector<HTMLElement>('[data-pcs-engineering-master-region="table"]')

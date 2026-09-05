@@ -360,8 +360,9 @@ function buildFactoryRows(orders: ProcessWorkOrder[], handovers: ProcessHandover
     rows.set(key, existing)
   })
   differences.forEach((record) => {
-    const order = orders.find((item) => item.workOrderId === record.sourceWorkOrderId)
-    const factoryId = order?.factoryId || record.sourceWorkOrderId
+    const sourceOrderId = record.sourceWorkOrderId || record.sourceTaskOrderId || record.workOrderId
+    const order = orders.find((item) => item.workOrderId === sourceOrderId)
+    const factoryId = order?.factoryId || sourceOrderId
     const { objectType, qtyUnit } = assertProcessQuantityDimensions(record.objectType, record.qtyUnit, `工厂统计差异记录 ${record.differenceRecordNo}`)
     const key = factoryMetricKey(factoryId, objectType, qtyUnit)
     const existing = rows.get(key) || createFactoryMetricRow(factoryId, order?.factoryName || record.craftName, objectType, qtyUnit)
@@ -394,15 +395,15 @@ function buildBaseStatistics(
     waitHandoverRecordCount: records.waitHandover.length,
     partialHandoverRecordCount: records.waitHandover.filter((record) => record.status === '已部分交出').length,
     waitWritebackHandoverCount: handovers.filter((record) => record.status === '待回写').length,
-    writtenBackHandoverCount: handovers.filter((record) => record.status === '已回写').length,
+    writtenBackHandoverCount: handovers.filter((record) => record.status === '全部交出').length,
     differenceHandoverCount: handovers.filter((record) => ['有差异', '平台处理中', '需重新交出'].includes(record.status)).length,
     differenceRecordCount: differences.length,
     pendingDifferenceRecordCount: differences.filter((record) => record.status === '待处理' || record.status === '处理中').length,
     reworkDifferenceRecordCount: differences.filter((record) => record.status === '需重新交出').length,
     platformProcessingDifferenceRecordCount: differences.filter((record) => record.status === '处理中').length,
-    waitReviewCount: reviews.filter((record) => record.reviewStatus === '待审核' || record.reviewStatus === '数量差异').length,
-    reviewPassCount: reviews.filter((record) => record.reviewStatus === '审核通过').length,
-    reviewRejectCount: reviews.filter((record) => record.reviewStatus === '审核驳回').length,
+    waitReviewCount: reviews.filter((record) => record.reviewStatus === '收货确认中').length,
+    reviewPassCount: reviews.filter((record) => record.reviewStatus === '收货已确认').length,
+    reviewRejectCount: reviews.filter((record) => record.reviewStatus === '收货差异').length,
     handoverAverageWritebackHours: calcAverageDuration(handovers.map((record) => ({ startedAt: record.handoverAt, finishedAt: record.receiveAt }))),
     overdueWritebackCount: calcOverdueCount(handovers.filter((record) => record.status === '待回写')),
   }

@@ -54,14 +54,14 @@ export function buildClaimDisputeWritebackSummary(record: ClaimDisputeRecord): s
 }
 
 export function parseLengthQtyFromText(text: string): number {
-  const lengthMatched = text.match(/长度\\s*([0-9]+(?:\\.[0-9]+)?)\\s*米/)
+  const lengthMatched = text.match(/长度\s*([0-9]+(?:\.[0-9]+)?)\s*米/)
   if (lengthMatched) return Number(lengthMatched[1]) || 0
-  const fallback = text.match(/([0-9]+(?:\\.[0-9]+)?)\\s*米/)
+  const fallback = text.match(/([0-9]+(?:\.[0-9]+)?)\s*米/)
   return fallback ? Number(fallback[1]) || 0 : 0
 }
 
 export function parseRollCountFromText(text: string): number {
-  const matched = text.match(/卷数\\s*([0-9]+(?:\\.[0-9]+)?)\\s*卷/)
+  const matched = text.match(/卷数\s*([0-9]+(?:\.[0-9]+)?)\s*卷/)
   return matched ? Number(matched[1]) || 0 : 0
 }
 
@@ -178,6 +178,6 @@ export function getClaimDisputeEvidenceHint(): string {
 function sanitizeId(value: string): string {
   return value
     .trim()
-    .replace(/\\s+/g, '-')
+    .replace(/\s+/g, '-')
     .replace(/[^a-zA-Z0-9-_./]/g, '-')
 }

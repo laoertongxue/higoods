@@ -140,7 +140,7 @@ export function ensurePatternAssetForEngineeringMaterialLine(
       },
     },
     license: {
-      license_status: 'unknown',
+      license_status: 'unverified',
       attachment_urls: [],
     },
     duplicateAction: 'force-new',

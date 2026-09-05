@@ -38,7 +38,6 @@ import {
   type WoolDomainStore,
 } from '../../../data/fcs/wool-task-domain.ts'
 import { buildWoolWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
-import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 type WarehouseMode = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
@@ -198,10 +197,6 @@ function runtimeStore(): WoolDomainStore {
 function isOrderCompleted(woolOrderId: string): boolean {
   return warehouseRuntime?.completedOrderIds.has(woolOrderId)
     ?? runtimeStore().completions.some((item) => item.woolOrderId === woolOrderId)
-}
-
-function currentMode(): WarehouseMode {
-  return appStore.getState().pathname.includes('wait-handover') ? 'WAIT_HANDOVER' : 'WAIT_PROCESS'
 }
 
 function tabsForMode(mode: WarehouseMode): Array<{ key: WarehouseTab; label: string }> {

@@ -9,6 +9,8 @@ import {
   resolveMaterialImageUrl,
   renderProductionImageThumb,
   type ProductionOrder,
+  type ProductionOrderStatus,
+  type AssignmentProgressStatus,
   type RiskFlag,
   type AuditLog,
   type FactoryTier,

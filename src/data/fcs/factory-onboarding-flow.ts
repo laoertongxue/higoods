@@ -660,7 +660,7 @@ export function refreshApplicationDerived(application: FactoryOnboardingApplicat
 }
 
 function cloneDraftPayload(payload: FactoryOnboardingDraftPayload): FactoryOnboardingDraftPayload {
-  const selectedCapabilities = payload.selectedCapabilities.map((item) => ({
+  const selectedCapabilities: FactoryOnboardingSelectedCapability[] = payload.selectedCapabilities.map((item) => ({
     ...item,
     processName: item.processName || getProcessName(item.processCode),
     craftName: item.craftName || getCraftName(item.processCode, item.craftCode),
@@ -837,6 +837,8 @@ function buildApplicationFromPayload(
     primaryFactoryType: 'CUTTING_FACTORY',
     factoryTypeMatchedAt: now,
     factoryTypeMatchReason: '',
+    ppicChangeLogs: [],
+    conversionRecords: [],
     transferRecords: [],
   }, now)
 }

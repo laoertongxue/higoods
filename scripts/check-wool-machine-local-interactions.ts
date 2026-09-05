@@ -257,13 +257,25 @@ async function assertPdaWoolStateCleanup(localUrl: string): Promise<void> {
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   try {
-    await page.goto(new URL('/scripts/fixtures/wool-pda-fact-execution.html', localUrl).toString())
+    await page.goto(new URL(
+      '/scripts/fixtures/wool-pda-fact-execution.html?taskId=TASK-WOOL-MOCK-03',
+      localUrl,
+    ).toString())
+    const openProcessReport = async (): Promise<void> => {
+      const action = page.locator(
+        '[data-pda-wool-action="open-fact"][data-wool-fact-action="REPORT_PROCESS"]',
+      )
+      if (!(await action.isVisible())) {
+        await page.getByText('其他可操作', { exact: true }).click()
+      }
+      await action.click()
+    }
     assert.equal(
       await page.locator('[data-pda-wool-action]:not([data-skip-page-rerender="true"])').count(),
       0,
       '所有由毛织处理器局部更新的按钮都必须显式跳过主入口整页重绘',
     )
-    await page.locator('[data-pda-wool-action="open-fact"]').first().click()
+    await openProcessReport()
     assert.equal(
       await page.locator('[data-pda-wool-draft]:not([data-skip-page-rerender="true"])').count(),
       0,
@@ -292,7 +304,7 @@ async function assertPdaWoolStateCleanup(localUrl: string): Promise<void> {
     assert.equal(stateAfterReentry.commandId, '', '离开再进入同一详情必须清空命令号')
     assert.deepEqual(stateAfterReentry.draftActions, [], '离开再进入同一详情必须清空草稿')
 
-    await page.locator('[data-pda-wool-action="open-fact"]').first().click()
+    await openProcessReport()
     const stateAfterUserSwitch = await page.evaluate(() => (
       window as typeof window & {
         switchTask12User(): null | { overlayAction: string | null; commandId: string; draftActions: string[] }

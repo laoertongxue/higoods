@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/components/ui/index.ts",
+    "src/helpers/fcs-claim-dispute.ts",
+    "src/data/browser-storage.ts",
+    "src/main-infrastructure/retryable-module-loader.ts",
+    "src/router/path-match.ts"
+  ]
+}

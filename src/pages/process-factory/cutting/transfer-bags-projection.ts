@@ -42,15 +42,15 @@ import type {
 
 const emptyCraftTraceProjection = {
   items: [],
-  itemsByTicketId: {},
-  itemsByTicketNo: {},
+  itemsByTicketId: {} as Record<string, never>,
+  itemsByTicketNo: {} as Record<string, never>,
 }
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], key: keyof T): T[] {
+function mergeByKey<T extends object>(seed: T[], stored: T[], key: keyof T): T[] {
   const merged = new Map<string, T>()
   seed.forEach((item) => merged.set(String(item[key]), item))
   stored.forEach((item) => merged.set(String(item[key]), item))
@@ -64,8 +64,8 @@ function parseMarkerPlanSourceDate(markerPlanNo: string): string {
 }
 
 function inferSourceMarkerPlanSourceStatus(rows: CutOrderRow[]): MarkerPlanSourceStatus {
-  if (rows.some((row) => row.currentStage.key === 'INBOUND')) return 'DONE'
-  if (rows.some((row) => ['CUTTING', 'IN_MARKER_PLAN'].includes(row.currentStage.key))) return 'CUTTING'
+  if (rows.some((row) => row.currentStage.key === 'CLOSED')) return 'DONE'
+  if (rows.some((row) => row.currentStage.key === 'STARTED')) return 'CUTTING'
   return 'READY'
 }
 
@@ -100,7 +100,7 @@ function buildRuntimeMarkerPlanSourceRecords(
 ): MarkerPlanSourceRecord[] {
   const cutOrderRowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
   const sourceRecords = snapshot.markerPlanSourceState.sourceRecords
-    .map((record) => {
+    .map((record): MarkerPlanSourceRecord | null => {
       const rows = record.sourceCutOrderIds
         .map((id) => cutOrderRowsById[id])
         .filter((row): row is CutOrderRow => Boolean(row))

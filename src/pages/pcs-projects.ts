@@ -30,7 +30,7 @@ import {
     removeProjectImageAsset,
   upsertProjectImageAssets,
 } from '../data/pcs-project-image-repository.ts'
-import { PROJECT_STATUS_TERMINATED } from '../data/pcs-project-types.ts'
+import { PROJECT_PHASE_STATUS_TERMINATED, PROJECT_STATUS_TERMINATED } from '../data/pcs-project-types.ts'
 import type {
   PcsProjectCreateDraft,
   PcsProjectNodeRecord,
@@ -2440,13 +2440,10 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
           '',
       ),
     ),
-    linkedTechPackVersionSourceTask: techPackSourceSummary?.createdFromTaskText || '暂无来源任务',
-    linkedTechPackVersionTaskChain:
-      techPackSourceSummary?.items?.length
-        ? techPackSourceSummary.items.map((item) => `${item.taskTypeLabel} ${item.taskCode}（${item.status}）`)
-        : techPackSourceSummary
-          ? [techPackSourceSummary.taskChainText]
-          : ['暂无来源任务'],
+    linkedTechPackVersionSourceTask: techPackSourceSummary?.primaryPlateText || '暂无来源任务',
+    linkedTechPackVersionTaskChain: techPackSourceSummary
+      ? [techPackSourceSummary.taskChainText]
+      : ['暂无来源任务'],
     linkedTechPackVersionDiffSummary: buildTechPackVersionDiffSummary(
       currentTechPackVersion,
       techPackContext.previousVersion,
@@ -2515,7 +2512,7 @@ function formatDraftFieldValue(type: PcsProjectNodeFieldGroupDefinition['fields'
   return text
 }
 
-function parseSampleCostJsonRows<T extends Record<string, unknown>>(value: unknown): T[] {
+function parseSampleCostJsonRows<T extends object>(value: unknown): T[] {
   if (Array.isArray(value)) return value.filter((item): item is T => typeof item === 'object' && item != null)
   const text = String(value || '').trim()
   if (!text) return []
@@ -2557,6 +2554,10 @@ function pickSampleCostDraftValue(
   return fallback
 }
 
+function asLooseRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as unknown as Record<string, unknown> : {}
+}
+
 function buildDefaultSampleCostSpu(project: PcsProjectRecord): string {
   return `SPU-${project.projectCode.slice(-7).replace(/-/g, '')}`
 }
@@ -2571,16 +2572,16 @@ function getSampleCostReviewInput(
   )
   const rawMaterialRows =
     draft.values[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ??
-    node.latestRecord?.payload?.[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ??
-    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]
+    asLooseRecord(node.latestRecord?.payload)[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ??
+    asLooseRecord(node.latestRecord?.detailSnapshot)[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY]
   const rawOptionalRows =
     draft.values[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
-    node.latestRecord?.payload?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
-    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]
+    asLooseRecord(node.latestRecord?.payload)[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ??
+    asLooseRecord(node.latestRecord?.detailSnapshot)[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY]
   const rawFixedProcessOverrides =
     draft.values[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ??
-    node.latestRecord?.payload?.[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ??
-    node.latestRecord?.detailSnapshot?.[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]
+    asLooseRecord(node.latestRecord?.payload)[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY] ??
+    asLooseRecord(node.latestRecord?.detailSnapshot)[SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY]
   const materialLines = normalizeSampleCostMaterialRows(
     parseSampleCostJsonRows<SampleCostMaterialLineInput>(rawMaterialRows),
     garmentCategory,
@@ -2600,21 +2601,21 @@ function getSampleCostReviewInput(
     buyerName: String(pickSampleCostDraftValue(project, node, draft, 'buyerName', project.ownerName) || ''),
     brandName: String(pickSampleCostDraftValue(project, node, draft, 'brandName', project.brandName || 'Asaya') || ''),
     garmentCategory,
-    exchangeRate: pickSampleCostDraftValue(project, node, draft, 'exchangeRate', SAMPLE_COST_DEFAULT_EXCHANGE_RATE),
+    exchangeRate: String(pickSampleCostDraftValue(project, node, draft, 'exchangeRate', SAMPLE_COST_DEFAULT_EXCHANGE_RATE) ?? ''),
     materialLines,
-    auxiliaryCostAmount: pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostAmount', 0),
+    auxiliaryCostAmount: String(pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostAmount', 0) ?? ''),
     auxiliaryCostCurrency: normalizeSampleCostCurrency(
       pickSampleCostDraftValue(project, node, draft, 'auxiliaryCostCurrency', 'IDR'),
       'IDR',
     ),
     fixedProcessOverrides,
-    sewingCostAmount: pickSampleCostDraftValue(project, node, draft, 'sewingCostAmount', 0),
+    sewingCostAmount: String(pickSampleCostDraftValue(project, node, draft, 'sewingCostAmount', 0) ?? ''),
     sewingCostCurrency: normalizeSampleCostCurrency(
       pickSampleCostDraftValue(project, node, draft, 'sewingCostCurrency', 'IDR'),
       'IDR',
     ),
     optionalProcessLines,
-    salesPrice: pickSampleCostDraftValue(project, node, draft, 'salesPrice', salesPriceFallback),
+    salesPrice: String(pickSampleCostDraftValue(project, node, draft, 'salesPrice', salesPriceFallback) ?? ''),
     salesCurrency: normalizeSampleCostCurrency(pickSampleCostDraftValue(project, node, draft, 'salesCurrency', 'RMB'), 'RMB'),
     costNote: String(pickSampleCostDraftValue(project, node, draft, 'costNote', '') || ''),
   }
@@ -3088,7 +3089,7 @@ function isSampleInboundLineRowFilled(row: SampleInboundLineRow): boolean {
   return Boolean(row.colorName || row.sizeName || row.plannedQty || row.receivedQty || row.arrivalStatus || row.remark)
 }
 
-function deriveSampleInboundArrivalStatus(row: SampleInboundLineRow): string {
+function deriveSampleInboundArrivalStatus(row: Pick<SampleInboundLineRow, 'plannedQty' | 'receivedQty'> & Partial<SampleInboundLineRow>): string {
   if (row.arrivalStatus) return row.arrivalStatus
   const plannedQty = getQtyNumber(row.plannedQty)
   const receivedQty = getQtyNumber(row.receivedQty)
@@ -3209,7 +3210,7 @@ function buildSampleInboundPlanRows(project: PcsProjectRecord): SampleInboundLin
   const acquireNode = listProjectNodes(project.projectId).find((item) => item.stepCode === 'SAMPLE_ACQUIRE')
   const acquireRecord = acquireNode ? getLatestProjectInlineNodeRecord(acquireNode.projectNodeId) : null
   const purchaseRows = parseSamplePurchaseSpecQtyRows(
-    acquireRecord?.payload?.samplePurchaseSpecQty ?? acquireRecord?.detailSnapshot?.samplePurchaseSpecQty ?? '',
+    asLooseRecord(acquireRecord?.payload).samplePurchaseSpecQty ?? asLooseRecord(acquireRecord?.detailSnapshot).samplePurchaseSpecQty ?? '',
   )
   return purchaseRows.map((row) =>
     normalizeSampleInboundLineRow({
@@ -3243,8 +3244,8 @@ function mapReturnDestinationToHandleType(returnDestination: string): string {
 function getFirstGeneratedSampleCode(projectId: string): string {
   const inboundRecord = getLatestProjectInlineRecordByStep(projectId, 'SAMPLE_INBOUND_CHECK')
   if (!inboundRecord) return ''
-  const payload = inboundRecord.payload as Record<string, unknown>
-  const detailSnapshot = inboundRecord.detailSnapshot as Record<string, unknown>
+  const payload = asLooseRecord(inboundRecord.payload)
+  const detailSnapshot = asLooseRecord(inboundRecord.detailSnapshot)
   const directCodes = getDraftStringArray(payload.generatedSampleCodes).concat(getDraftStringArray(detailSnapshot.sampleIds))
   if (directCodes[0]) return directCodes[0]
   const sampleAssets = Array.isArray(detailSnapshot.sampleAssets) ? detailSnapshot.sampleAssets : []
@@ -3403,7 +3404,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
       .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => {
-        let rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
+        let rawValue = asLooseRecord(node.latestRecord?.payload)[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
         if (
           node.node.stepCode === 'SAMPLE_INBOUND_CHECK' &&
           field.fieldKey === 'sampleInboundLines' &&
@@ -4634,7 +4635,7 @@ function buildProjectTaskOwnerOptions(project: PcsProjectRecord, node: PcsProjec
 }
 
 function isNodeUnlocked(
-  project: PcsProjectViewRecord,
+  project: PcsProjectRecord,
   orderedNodes: PcsProjectNodeRecord[],
   node: PcsProjectNodeRecord,
 ): boolean {
@@ -4707,7 +4708,7 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
     const phaseNodes = nodeViewModels.filter((item) => item.stepCode === stepCode)
     let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
     if (project.projectStatus === PROJECT_STATUS_TERMINATED && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
-      derivedStatus = PROJECT_STATUS_TERMINATED
+      derivedStatus = PROJECT_PHASE_STATUS_TERMINATED
     } else if (phaseNodes.length > 0 && phaseNodes.every((item) => isClosedNodeStatus(item.node.currentStatus))) {
       derivedStatus = '已完成'
     } else if (
@@ -7381,7 +7382,7 @@ function openDecisionDialog(source: DecisionDialogSource): void {
   const options = getDecisionOptions(context.node)
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.stepCode)
   const savedValue = String(
-    (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.valueFieldKey] : '') ||
+    (decisionFieldMeta ? asLooseRecord(context.node.latestRecord?.payload)[decisionFieldMeta.valueFieldKey] : '') ||
       (decisionFieldMeta ? draft.values[decisionFieldMeta.valueFieldKey] : '') ||
       '',
   )
@@ -7394,7 +7395,7 @@ function openDecisionDialog(source: DecisionDialogSource): void {
     value: nextValue,
     note:
       String(
-        (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.noteFieldKey] : '') ||
+        (decisionFieldMeta ? asLooseRecord(context.node.latestRecord?.payload)[decisionFieldMeta.noteFieldKey] : '') ||
           (decisionFieldMeta ? draft.values[decisionFieldMeta.noteFieldKey] : '') ||
           '',
       ) || '',

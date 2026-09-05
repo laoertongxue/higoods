@@ -257,7 +257,7 @@ function splitCuttingLocationText(rawValue: string | null | undefined): { wareho
   }
 }
 
-function findCuttingWaitProcessLedgerRow(sourceNo: string | undefined): MaterialLedgerProjection | undefined {
+function findCuttingWaitProcessLedgerRow(sourceNo: string | undefined = undefined): MaterialLedgerProjection | undefined {
   const keyword = (sourceNo || '').trim().toLowerCase()
   if (!keyword) return undefined
   return listMaterialLedgerProjections().find((row) => {
@@ -520,7 +520,7 @@ interface CuttingIssueSourceGroup {
   unit: string
 }
 
-function listCuttingIssueSourceGroups(row: MaterialLedgerProjection | null): CuttingIssueSourceGroup[] {
+function listCuttingIssueSourceGroups(row: MaterialLedgerProjection | null | undefined): CuttingIssueSourceGroup[] {
   if (!row) return []
   const projection = buildCuttingPickupMapProjection()
   if (!projection) return []
@@ -1949,6 +1949,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const transactionStorage = getBrowserLocalStorage()
     const beforePrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
     const beforeEventStore = transactionStorage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
+    let afterPrepStore = beforePrepStore
     try {
       updatePickupSessionStorageFootprint({
         pickupSessionId: session.pickupSessionId,
@@ -1965,7 +1966,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         })),
         remainingByUnit,
       })
-      const afterPrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
+      afterPrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
       appendCuttingRuntimeEvent({
         eventType: '待加工仓位置调整',
         operatorName: '裁床仓管',
@@ -2373,7 +2374,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     clearCuttingReturnDraft()
     return true
   }
-  if (action === 'open-wait-process-detail' && actionNode.dataset.stockItemId) {
+  if (action === 'open-wait-process-detail' && actionNode?.dataset.stockItemId) {
     state.detailId = actionNode.dataset.stockItemId
     return true
   }
@@ -2381,7 +2382,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     state.detailId = null
     return true
   }
-  if (action === 'open-wait-process-location' && actionNode.dataset.stockItemId) {
+  if (action === 'open-wait-process-location' && actionNode?.dataset.stockItemId) {
     openLocationEditor(actionNode.dataset.stockItemId)
     return true
   }
@@ -2436,7 +2437,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (field === 'cutting-adjust-remaining') {
-    const unit = fieldNode.dataset.unit || ''
+    const unit = fieldNode?.dataset.unit || ''
     if (unit) state.cuttingAdjustRemainingByUnit[unit] = value
     return true
   }
@@ -2457,7 +2458,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       ? fieldNode.files?.[0]?.name || ''
       : ''
     const selectedFileLabel = fieldNode
-      .closest<HTMLElement>('[data-cutting-pickup-node-id]')
+      ?.closest<HTMLElement>('[data-cutting-pickup-node-id]')
       ?.querySelector<HTMLElement>('[data-cutting-pickup-difference-photo-name]')
     if (selectedFileLabel) {
       selectedFileLabel.textContent = state.cuttingPickupDifferencePhotoName

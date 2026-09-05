@@ -41,6 +41,7 @@ import {
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
+  type RuntimeMaterialSnapshot,
   type TransferPickupPayload,
   type WaitProcessIssuePayload,
   type WaitProcessReturnPayload,
@@ -172,7 +173,9 @@ function formatMaterialQtyWithRolls(quantity: number, unit = 'yard'): string {
   return `${formatLength(quantity, unit)} / ${estimateMaterialRollCount(quantity)} 卷`
 }
 
-function formatAvailableToPickupByUnit(summaries: MaterialPrepUnitSummary[]): string {
+function formatAvailableToPickupByUnit(
+  summaries: ReadonlyArray<Pick<MaterialPrepUnitSummary, 'unit' | 'availableToPickupQty'>>,
+): string {
   const positive = summaries.filter((summary) => summary.availableToPickupQty > 0)
   const visible = positive.length > 0 ? positive : summaries.slice(0, 1)
   return visible
@@ -1444,7 +1447,7 @@ function findWaitProcessActionItem(cutOrderId: string): WaitProcessInventoryItem
     .find((item) => item.row.cutOrderId === cutOrderId)
 }
 
-function buildRuntimeMaterialFromWaitProcessRow(row: MaterialLedgerProjection) {
+function buildRuntimeMaterialFromWaitProcessRow(row: MaterialLedgerProjection): RuntimeMaterialSnapshot {
   const unit = row.unit === '片' || row.unit === '件' ? row.unit : 'yard'
   return {
     materialSku: row.materialIdentity.materialSku,
@@ -2579,7 +2582,6 @@ function getWaitHandoverPickingOptions(): Array<{ value: string; label: string }
   return buildWaitHandoverWebPickingProjection().tasks.flatMap((task) => {
     const pickedFeiTicketIds = new Set(task.pickedItems.map((item) => item.feiTicketId))
     return task.allocatedInventoryItems
-      .filter((item) => item.voidStatus !== '已作废')
       .filter((item) => !pickedFeiTicketIds.has(item.feiTicketId))
       .slice(0, 6)
       .map((item) => ({
@@ -2635,7 +2637,11 @@ function resolveWaitHandoverPickingSelections(
       missingScanCodes.push(scanCode)
       return
     }
-    if (!matched.some((entry) => entry.item.feiTicketId === found.item.feiTicketId)) matched.push(found)
+    const foundEntry = found as {
+      task: HandoverPickingTaskProjection['tasks'][number]
+      item: HandoverPickingTaskProjection['tasks'][number]['allocatedInventoryItems'][number]
+    }
+    if (!matched.some((entry) => entry.item.feiTicketId === foundEntry.item.feiTicketId)) matched.push(foundEntry)
   })
   const taskIds = uniqueStrings(matched.map((entry) => entry.task.pickingTaskId))
   const task = matched[0]?.task || selected?.task || null
@@ -4152,7 +4158,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
       ),
     )
   const printedCandidates = options.ticketCandidates
-    .filter((ticket) => ticket.ticketStatus === 'PRINTED' || ticket.ticketStatus === 'REPRINTED')
+    .filter((ticket) => ticket.printStatus === 'PRINTED' || ticket.printStatus === 'REPRINTED')
     .slice(0, 2)
   const pendingInboundItems = printedCandidates.map((ticket) =>
     createWaitHandoverItemFromTicket(ticket, generatedTicketsByNo[ticket.ticketNo], {
@@ -4162,7 +4168,7 @@ function buildWaitHandoverWorkbenchProjection(options: {
       nextActionHref: '/fcs/craft/cutting/fei-tickets',
       evidenceLines: [
         '已打印菲票，等待裁床待交出仓确认入仓。',
-        `打编号状态：${getFeiTicketNumberingStatus(ticket)}`,
+        `打编号状态：${getFeiTicketNumberingStatus(generatedTicketsByNo[ticket.ticketNo])}`,
         `来源铺布单：${generatedTicketsByNo[ticket.ticketNo]?.spreadingOrderNo || ticket.sourceSpreadingSessionNo}`,
       ],
     }),
@@ -5154,6 +5160,7 @@ function buildRuntimeSpecialCraftReturnProjectionFromEvents(
       const hasPartial = returnedFeiTicketItems.some((item) => item.returnedQty < item.pieceQty)
       const hasDifference = discrepancyItems.length > 0
       const allReturned = returnedFeiTicketItems.length > 0 && returnedFeiTicketItems.every((item) => item.returnedQty === item.pieceQty)
+      const returnMode = runtimeString(payload.returnMode) === '逐菲票回仓' ? '逐菲票回仓' : '整袋回仓'
       return {
         returnRecordId: runtimeString(payload.returnRecordId) || event.eventId,
         returnRecordNo: runtimeString(payload.returnRecordNo) || '回仓记录待补',
@@ -5167,6 +5174,7 @@ function buildRuntimeSpecialCraftReturnProjectionFromEvents(
         craftCategory,
         craftType,
         craftName: craftType,
+        returnMode,
         returnedFeiTicketItems,
         expectedReturnSummary,
         actualReturnSummary,

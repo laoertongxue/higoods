@@ -86,7 +86,7 @@ export interface MarkerSpreadingProjection {
   snapshot: CuttingDomainSnapshot
   rows: ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows']
   rowsById: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows'][number]>
-  rowsByProductionOrderNo: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows'][]>
+  rowsByProductionOrderNo: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['materialPrepRows']>
   markerPlanSources: ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['markerPlanSources']
   markerPlanSourcesById: Record<string, ReturnType<typeof buildMarkerSpreadingProjectionContext>['sources']['markerPlanSources'][number]>
   store: MarkerSpreadingStore
@@ -494,7 +494,7 @@ function buildSpreadingOrderFromPlanBed(
 
   return {
     spreadingOrderId: session.spreadingSessionId,
-    spreadingOrderNo: session.sessionNo,
+    spreadingOrderNo: session.sessionNo || session.spreadingSessionId,
     markerPlanId: plan.id,
     markerPlanNo: plan.markerNo,
     markerNumberId: bed.bedId || `${plan.id}-bed-${index + 1}`,
@@ -540,7 +540,7 @@ function buildSpreadingOrderFromPlanBed(
     status: resolveSpreadingOrderStatusFromSession(session),
     createdAt: plan.confirmedAt || plan.updatedAt || plan.createdAt,
     createdBy: plan.confirmedBy || plan.updatedBy || plan.createdBy,
-    confirmedAt: plan.confirmedAt,
+    confirmedAt: plan.confirmedAt || '',
     linkedPdaTaskId: session.sourceWritebackId || '',
   }
 }

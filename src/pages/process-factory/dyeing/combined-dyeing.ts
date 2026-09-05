@@ -165,7 +165,7 @@ function renderRowActions(task: CombinedDyeingTask): string {
     buttons.push({ label: '更正染色结果', action: { prefix: EVENT_PREFIX, action: 'open-correct' }, icon: 'file-pen-line' })
   }
   if (task.status !== 'DELETED') {
-    buttons.push({ label: '删除任务', action: { prefix: EVENT_PREFIX, action: 'open-delete' }, icon: 'trash-2', variant: 'danger' as const })
+    buttons.push({ label: '删除任务', action: { prefix: EVENT_PREFIX, action: 'open-delete' }, icon: 'trash-2' })
   }
   return renderTableActions(buttons, task.taskId)
 }

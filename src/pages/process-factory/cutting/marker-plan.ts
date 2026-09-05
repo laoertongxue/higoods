@@ -21,6 +21,7 @@ import {
   buildMarkerDemandMatchSummary,
   buildCombinedMarkerPlanContextCandidate,
   buildMarkerPlanGoSpreadingPath,
+  buildMarkerPlanContextTypeOptions,
   buildMarkerPlanModeOptions,
   createMarkerPlanFromContext,
   deserializeMarkerPlanStorage,
@@ -872,8 +873,9 @@ function createMarkerMatrixRows(plan: MarkerPlan | MarkerPlanViewRow, bed: Marke
       }))
   return baseRows.map((existing, index) => {
     const color = existing.colorName || existing.colorCode || colors[0] || '主色'
+    const existingSizeValues: Record<string, number> = existing.sizeValues || {}
     const sizeValues = Object.fromEntries(
-      sizeColumns.map((size) => [size, Math.max(Math.round(safeNumber(existing?.sizeValues?.[size])), 0)]),
+      sizeColumns.map((size) => [size, Math.max(Math.round(safeNumber(existingSizeValues[size])), 0)]),
     ) as Record<string, number>
     const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
     const totalQty = sizeColumns.reduce(
@@ -3575,7 +3577,7 @@ function getPlanModeSummaryText(plan: MarkerPlanViewRow): string {
 function getPlanDisplayColors(plan: MarkerPlanViewRow, sourceRows: MarkerPlanSourceCutOrderRow[]): string {
   const candidates = [
     ...splitDisplayText(plan.colorSummary),
-    ...sourceRows.flatMap((row) => [row.materialColor, row.colorCode]),
+    ...sourceRows.map((row) => row.materialColor),
   ]
     .map((item) => String(item || '').trim())
     .filter((item) => item && !isMissingPrototypeText(item))

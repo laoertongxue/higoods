@@ -212,6 +212,10 @@ export interface FactoryWarehouseInboundRecord {
   differenceQty: number
   unit: string
   receiverName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   receivedAt: string
   areaName: string
   shelfNo: string
@@ -273,6 +277,9 @@ export interface FactoryWarehouseOutboundRecord {
   operatorRoleId?: string
   operatorRoleName?: string
   outboundAt: string
+  areaName?: string
+  shelfNo?: string
+  locationNo?: string
   status: FactoryOutboundRecordStatus
   abnormalReason?: string
   photoList: string[]
@@ -1345,6 +1352,7 @@ function buildWaitHandoverStockItemFromOutbound(
     areaName: record.status === '已出库' ? '待确认区' : record.status === '差异' || record.status === '异议中' ? '异常区' : 'B区',
     shelfNo: record.status === '已出库' ? '待确认-01' : record.status === '差异' || record.status === '异议中' ? '异常-01' : 'B-01',
     locationNo: record.status === '已出库' ? '待确认-01-01' : record.status === '差异' || record.status === '异议中' ? '异常-01-01' : 'B-01-01',
+    locationText: record.status === '已出库' ? '待确认区 / 待确认-01 / 待确认-01-01' : record.status === '差异' || record.status === '异议中' ? '异常区 / 异常-01 / 异常-01-01' : 'B区 / B-01 / B-01-01',
     status: resolveWaitHandoverStatus(record),
     abnormalReason: record.abnormalReason,
     photoList: [...(record.photoList || [])],
@@ -1413,6 +1421,7 @@ function buildPendingWaitHandoverStockItem(input: {
     areaName: location.areaName,
     shelfNo: location.shelfNo,
     locationNo: location.locationNo,
+    locationText: location.locationText,
     status: '待交出',
     photoList: [],
     remark: '待交出库存',
@@ -1473,6 +1482,7 @@ function buildMockCompletedWaitHandoverStockItem(input: {
     areaName: location.areaName,
     shelfNo: location.shelfNo,
     locationNo: location.locationNo,
+    locationText: location.locationText,
     status: '待交出',
     photoList: [],
     remark: input.remark,

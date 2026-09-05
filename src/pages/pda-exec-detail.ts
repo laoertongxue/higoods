@@ -360,6 +360,9 @@ function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number)
     receiverName: order.managedPostFactoryName,
     handoverStatus: order.handoverRecordId ? 'WRITTEN_BACK' : order.waitHandoverWarehouseRecordId ? 'OPEN' : 'NOT_CREATED',
     handoverOrderId: order.handoverRecordId,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    auditLogs: [],
   }
 }
 
@@ -372,27 +375,30 @@ function mapSewingFactoryPostTaskToProcessTask(task: SewingFactoryPostTask, seq:
     processCode: 'SEWING_POST',
     processNameZh: '车缝后道',
     stage: 'POST',
-    qty: task.plannedGarmentQty,
+    qty: task.skuLines.reduce((sum, line) => sum + line.plannedQty, 0),
     qtyUnit: 'PIECE',
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['SEWING'] },
-    assignedFactoryId: task.sewingFactoryId,
-    assignedFactoryName: task.sewingFactoryName,
+    assignedFactoryId: task.sourceFactoryId,
+    assignedFactoryName: task.sourceFactoryName,
     qcPoints: [],
     attachments: [],
     status: task.status.includes('中') ? 'IN_PROGRESS' : task.status === '已交后道工厂' || task.status === '后道完成' ? 'DONE' : 'NOT_STARTED',
     acceptanceStatus: 'ACCEPTED',
-    acceptedAt: task.postFinishedAt || '2026-04-01 08:30',
-    acceptedBy: task.sewingFactoryName,
-    dispatchedAt: task.postFinishedAt || '2026-04-01 08:30',
+    acceptedAt: '2026-04-01 08:30',
+    acceptedBy: task.sourceFactoryName,
+    dispatchedAt: '2026-04-01 08:30',
     dispatchedBy: '系统',
     dispatchRemark: '车缝工厂同时完成车缝与后道，完成后交给后道工厂质检和复检',
-    taskDeadline: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
+    taskDeadline: '2026-04-25 18:00',
     receiverKind: 'MANAGED_POST_FACTORY',
     receiverId: task.managedPostFactoryId,
     receiverName: task.managedPostFactoryName,
     handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',
+    createdAt: '2026-04-01 08:30',
+    updatedAt: '2026-04-01 08:30',
+    auditLogs: [],
   }
 }
 
@@ -2241,7 +2247,7 @@ function buildSpecialCraftPhysicalScanCandidates(
       const availableQty = action === 'RECEIVE'
         ? Math.max(binding.currentQty || binding.openingQty || binding.qty || 0, 0)
         : action === 'PROCESS_REPORT'
-          ? Math.max((binding.receivedQty || binding.currentQty || binding.openingQty || 0) - (binding.completedQty || 0), 0)
+          ? Math.max((binding.receivedQty || binding.currentQty || binding.openingQty || 0) - (binding.closingQty || 0), 0)
           : Math.max((binding.currentQty || binding.closingQty || 0) - (binding.returnedQty || 0), 0)
       if (availableQty <= 0) return []
       return [{
@@ -2763,7 +2769,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     : renderSpecialCraftLineProgressSummary(workOrder, objectMeta.qtyUnit, surface)
   const buttonLoopQtyInput = isButtonLoop && surface === 'EXECUTION'
     ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
-        <span class="font-medium">${surface === 'HANDOVER_HANDOUT' ? '本次交出盘扣数量' : '本次盘扣产出／交出数量'}</span>
+        <span class="font-medium">本次盘扣产出／交出数量</span>
         <span class="mt-1 flex items-center gap-2"><input type="number" min="1" step="1" inputmode="numeric" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftButtonLoopQty" value="${escapeHtml(detailState.specialCraftButtonLoopQty)}" placeholder="填写正整数"><strong>个</strong></span>
         <span class="mt-1 block text-xs text-muted-foreground">投入捆条按菲票逐张接收；这里只填写本次产出或交出的盘扣个数。</span>
       </label>`
@@ -2773,7 +2779,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const accessoryQtyStep = isAccessoryReceive ? '0.01' : '1'
   const accessoryQtyInput = objectMeta.objectType === '辅料' && surface === 'EXECUTION'
     ? `<label class="block rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
-        <span class="font-medium">${surface === 'HANDOVER_HANDOUT' ? '本次交出数量' : '本次加工／交出数量'}</span>
+        <span class="font-medium">本次加工／交出数量</span>
         <span class="mt-1 flex items-center gap-2"><input type="number" min="${accessoryQtyStep}" step="${accessoryQtyStep}" inputmode="decimal" class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3" data-pda-execd-field="specialCraftAccessoryQty" value="${escapeHtml(detailState.specialCraftAccessoryQty)}" placeholder="填写本次数量"><strong>${escapeHtml(accessoryQtyUnit)}</strong></span>
         <span class="mt-1 block text-xs text-muted-foreground">接收按 BOM 投入单位；加工和交出按定长产出单位。系统会阻断超投入、超产出和超交出。</span>
       </label>`
@@ -3171,11 +3177,11 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
             <span class="text-muted-foreground">任务模式</span>
             <span>${escapeHtml(order.routeMode)}</span>
             <span class="text-muted-foreground">是否需要质检</span>
-            <span>${order.requiresQc ? '需要' : '不需要'}</span>
+            <span>${order.linkedQcOrderId ? '需要' : '不需要'}</span>
             <span class="text-muted-foreground">是否需要后道</span>
             <span>${order.requiresPostFinishing ? '需要' : '后道已由车缝厂完成'}</span>
             <span class="text-muted-foreground">是否需要复检</span>
-            <span>${order.requiresRecheck ? '需要' : '不需要'}</span>
+            <span>${order.linkedRecheckOrderId ? '需要' : '不需要'}</span>
           </div>
         </div>
       </article>
@@ -5081,7 +5087,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
         || getDyeExecutionNodeRecord(dyeOrderForQty.dyeOrderId, 'DYE')?.outputQty
         || 0
       : 0
-    const defaultQty = printOrderForQty?.actualCompletedQty || printOrderForQty?.plannedQty || dyeCompletedQty || 0
+    const defaultQty = (printOrderForQty
+      ? getPrintExecutionNodeRecord(printOrderForQty.printOrderId, 'TRANSFER')?.actualCompletedQty
+      : 0) || printOrderForQty?.plannedQty || dyeCompletedQty || 0
     const qtyText = window.prompt(`请输入${qtyLabel}`, String(defaultQty || ''))?.trim() || ''
     const submittedQty = Number(qtyText)
     if (!Number.isFinite(submittedQty) || submittedQty <= 0) {

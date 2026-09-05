@@ -391,6 +391,11 @@ export interface PreparationOutputBuildInput {
     | 'accessoryPurchaseOrderedAts'
     | 'accessoryPurchaseUpdatedAt'
     | 'uploads'
+    | 'dyeRequirement'
+    | 'sourceObjectType'
+    | 'evidenceType'
+    | 'reusedPriorResult'
+    | 'effectiveFinishedAt'
   >>
 }
 
@@ -932,14 +937,20 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
     return {
       itemId,
       recordId,
-      sourceObjectType: productionOrderNo ? '生产单' : '',
-      sourceObjectNo: productionOrderNo,
-      sourceHref: productionOrderNo ? orderHref(productionOrderNo) : '',
-      evidenceType: '系统记录',
-      evidenceSummary: '',
-      overdueHours: 0,
-      remark: '',
       ...seed,
+      sourceObjectType: seed.sourceObjectType ?? (productionOrderNo ? '生产单' : ''),
+      sourceObjectNo: seed.sourceObjectNo ?? productionOrderNo,
+      sourceHref: seed.sourceHref ?? (productionOrderNo ? orderHref(productionOrderNo) : ''),
+      evidenceType: seed.evidenceType ?? '系统记录',
+      evidenceSummary: seed.evidenceSummary ?? '',
+      overdueHours: seed.overdueHours ?? 0,
+      remark: seed.remark ?? '',
+      requiredKind: seed.requiredKind ?? (seed.required ? '必做' : '选填'),
+      selectedByMerchandiser: seed.selectedByMerchandiser ?? true,
+      selectedAt: seed.selectedAt ?? '',
+      sequenceGroup: seed.sequenceGroup ?? '',
+      dependsOnItemIds: seed.dependsOnItemIds ?? [],
+      parallelGroup: seed.parallelGroup ?? '',
       completionImageIds: seed.itemType === '数码印/DTF/DTG花型'
         ? uploads.filter(isPatternCompletionImageFile).map((upload) => upload.uploadId)
         : seed.completionImageIds,

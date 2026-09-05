@@ -1,6 +1,6 @@
-export type RouteRenderer = (pathname: string) => Promise<string>
+export type RouteRenderer = (pathname: string) => string | Promise<string>
 
-export type DynamicRouteRenderer = (match: RegExpExecArray) => Promise<string>
+export type DynamicRouteRenderer = (match: RegExpExecArray) => string | Promise<string>
 
 export interface RouteRegistry {
   exactRoutes: Record<string, RouteRenderer>

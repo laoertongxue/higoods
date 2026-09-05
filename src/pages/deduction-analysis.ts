@@ -112,7 +112,7 @@ function syncDraftQueryFromFilterPanel(panel: HTMLElement): void {
   panel.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-danalysis-filter]').forEach((node) => {
     const field = node.dataset.danalysisFilter
     if (!field) return
-    ;(state.draftQuery as Record<string, string | undefined>)[field] = node.value
+    ;(state.draftQuery as unknown as Record<string, string | undefined>)[field] = node.value
   })
 }
 
@@ -284,7 +284,7 @@ export function handleDeductionAnalysisEvent(target: HTMLElement): boolean {
   if (filterNode instanceof HTMLInputElement || filterNode instanceof HTMLSelectElement) {
     const field = filterNode.dataset.danalysisFilter
     if (!field) return false
-    ;(state.draftQuery as Record<string, string | undefined>)[field] = filterNode.value
+    ;(state.draftQuery as unknown as Record<string, string | undefined>)[field] = filterNode.value
     return false
   }
 

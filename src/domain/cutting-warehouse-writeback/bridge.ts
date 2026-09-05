@@ -66,7 +66,10 @@ export function submitCutPieceWarehouseWriteback(
 
   if (issues.length > 0) return buildFailure(issues, payload.writebackId)
 
-  appendCutPieceWarehouseWritebackRecord(payload, getBrowserLocalStorage() || undefined)
+  appendCutPieceWarehouseWritebackRecord(
+    payload,
+    getBrowserLocalStorage() as Pick<Storage, 'getItem' | 'setItem'> | null || undefined,
+  )
   return buildSuccess(payload.writebackId)
 }
 
@@ -81,6 +84,9 @@ export function submitSampleWarehouseWriteback(
 
   if (issues.length > 0) return buildFailure(issues, payload.writebackId)
 
-  appendSampleWarehouseWritebackRecord(payload, getBrowserLocalStorage() || undefined)
+  appendSampleWarehouseWritebackRecord(
+    payload,
+    getBrowserLocalStorage() as Pick<Storage, 'getItem' | 'setItem'> | null || undefined,
+  )
   return buildSuccess(payload.writebackId)
 }

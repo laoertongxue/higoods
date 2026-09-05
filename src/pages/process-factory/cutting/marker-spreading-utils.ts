@@ -115,6 +115,8 @@ export {
   validateMarkerModeShape,
 }
 
+export type { HighLowCuttingRow, HighLowPatternRow }
+
 export interface MarkerListRow {
   markerId: string
   markerNo: string
@@ -176,9 +178,13 @@ export interface SpreadingListRow {
   cutOrderCount: number
   cutOrderNos: string[]
   markerPlanNo: string
+  /** Compatibility label used by aggregate cutting projections. */
+  sourceMarkerLabel?: string
   styleCode: string
   spuCode: string
   materialSkuSummary: string
+  materialAliasSummary: string
+  materialImageUrl: string
   colorSummary: string
   spreadingMode: SpreadingSession['spreadingMode']
   spreadingModeLabel: string
@@ -960,7 +966,7 @@ export function buildSpreadingListViewModel(options: {
   const markerById = Object.fromEntries((options.markerRecords || []).map((marker) => [marker.markerId, marker]))
 
   return options.spreadingSessions
-    .map((session) => {
+    .map((session): SpreadingListRow => {
       const cutOrderIds = Array.isArray(session.cutOrderIds) ? session.cutOrderIds : []
       const rolls = Array.isArray(session.rolls) ? session.rolls : []
       const operators = Array.isArray(session.operators) ? session.operators : []

@@ -689,6 +689,8 @@ function buildFallbackRequirementLine(
   const materialName = overrides.materialName || 'Black 弹力斜纹主面料'
   const materialAlias = overrides.materialAlias || '待补 · 技术包别名：主面料'
   return {
+    specialCrafts: overrides.specialCrafts ?? [],
+    requiresButtonLoop: overrides.requiresButtonLoop ?? false,
     requirementId: overrides.requirementId || `binding-req:fallback:${slugToken(overrides.cutOrderId)}:${slugToken(overrides.bindingStripId)}`,
     cutOrderId: overrides.cutOrderId,
     cutOrderNo: overrides.cutOrderNo,

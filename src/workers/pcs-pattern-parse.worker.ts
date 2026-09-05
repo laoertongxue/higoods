@@ -67,7 +67,7 @@ async function buildPreviewBlobFromRgba(
   const sourceCanvas = new OffscreenCanvas(sourceWidth, sourceHeight)
   const sourceContext = sourceCanvas.getContext('2d')
   if (!sourceContext) throw new Error('当前浏览器环境无法生成预览画布')
-  sourceContext.putImageData(new ImageData(rgba, sourceWidth, sourceHeight), 0, 0)
+  sourceContext.putImageData(new ImageData(Uint8ClampedArray.from(rgba), sourceWidth, sourceHeight), 0, 0)
 
   const ratio = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight))
   const targetWidth = Math.max(1, Math.round(sourceWidth * ratio))

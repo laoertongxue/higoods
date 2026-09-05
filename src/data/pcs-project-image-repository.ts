@@ -1,5 +1,5 @@
 import type { PcsProjectRecord } from './pcs-project-types.ts'
-import type { PcsProjectImageAssetRecord, PcsProjectImageAssetSnapshot } from './pcs-project-image-types.ts'
+import type { PcsProjectImageAssetRecord, PcsProjectImageAssetSnapshot, PcsProjectImageUsageScope } from './pcs-project-image-types.ts'
 import {
   deleteProjectImageBlob,
   getProjectImageBlob,
@@ -104,7 +104,7 @@ function dataUrlToBlob(dataUrl: string): Blob | null {
   const mimeType = matched[1] || 'image/png'
   const bytes = decodeBase64(matched[2])
   if (!bytes) return null
-  return new Blob([bytes], { type: mimeType })
+  return new Blob([Uint8Array.from(bytes)], { type: mimeType })
 }
 
 function normalizeRecord(record: PcsProjectImageAssetRecord): PcsProjectImageAssetRecord {
@@ -337,7 +337,7 @@ export function markProjectImageAssetUsableForListing(
   const current = getProjectImageAssetById(imageId)
   if (!current) return null
   const nextTime = timestamp || new Date().toISOString()
-  const usageScopes = current.usageScopes.includes('商品上架')
+  const usageScopes: PcsProjectImageUsageScope[] = current.usageScopes.includes('商品上架')
     ? [...current.usageScopes]
     : [...current.usageScopes, '商品上架']
   return updateProjectImageAsset(imageId, {
@@ -356,7 +356,7 @@ export function markProjectImageAssetUsableForStyleArchive(
   const current = getProjectImageAssetById(imageId)
   if (!current) return null
   const nextTime = timestamp || new Date().toISOString()
-  const usageScopes = current.usageScopes.includes('款式档案')
+  const usageScopes: PcsProjectImageUsageScope[] = current.usageScopes.includes('款式档案')
     ? [...current.usageScopes]
     : [...current.usageScopes, '款式档案']
   const dedupedScopes = Array.from(new Set(usageScopes))

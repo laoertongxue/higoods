@@ -348,7 +348,7 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
           renderMetricCard('待交出仓记录数', String(view.waitHandoverItems.length), '待交出仓记录'),
           renderMetricCard('交出记录', String(view.outboundRecords.length), '近 30 天'),
           renderMetricCard('加工入仓记录', String(view.waitHandoverItems.length), '按完工入仓'),
-          renderMetricCard('已收货记录数', String(view.outboundRecords.filter((item) => item.status === '已收货').length), '接收方确认收货'),
+          renderMetricCard('已收货记录数', String(view.outboundRecords.filter((item) => String(item.status) === '已收货').length), '接收方确认收货'),
           renderMetricCard('出库差异记录数', String(outboundDifferenceCount), '出库差异'),
         ].join('')
 

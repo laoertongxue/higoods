@@ -113,6 +113,8 @@ export interface SpecialCraftTaskDemandLine {
   fixedLengthCm?: number
   outputQtyPerGarment?: number
   outputUnit?: string
+  scrapQty?: number
+  damageQty?: number
   bundleWidthCm?: number
   bundleLengthCm?: number
   stripCount?: number
@@ -226,6 +228,8 @@ export interface SpecialCraftTaskOrder {
   craftName: string
   factoryId: string
   factoryName: string
+  sourceFactoryId?: string
+  sourceFactoryName?: string
   productionOrderId: string
   productionOrderNo: string
   productionOrderVersion?: string

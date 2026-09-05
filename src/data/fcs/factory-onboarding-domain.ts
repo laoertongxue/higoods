@@ -34,7 +34,7 @@ export const FACTORY_ONBOARDING_LEGACY_STATUS_MAP = {
   [LEGACY_COOPERATED_STATUS]: '已转正式合作',
 } as const satisfies Record<string, FactoryOnboardingStatus>
 
-export type FactoryOnboardingLegacyStatus = keyof typeof FACTORY_ONBOARDING_LEGACY_STATUS_MAP
+export type FactoryOnboardingLegacyStatus = Extract<keyof typeof FACTORY_ONBOARDING_LEGACY_STATUS_MAP, string>
 export type FactoryOnboardingStoredStatus = FactoryOnboardingStatus | FactoryOnboardingLegacyStatus
 
 export const FACTORY_ONBOARDING_NODE_OPTIONS = [

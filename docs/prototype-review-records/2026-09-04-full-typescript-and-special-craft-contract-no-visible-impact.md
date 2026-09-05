@@ -1,0 +1,288 @@
+# 全量 TypeScript 与特殊工艺契约无用户可见影响声明
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 记录日期 | 2026-09-04 |
+| 相关需求 / 任务 | 全量 TypeScript 1502 项清零；特殊工艺“待绑定菲票视图”旧契约修复 |
+| 记录模式 | 无用户可见影响声明 |
+| 涉及系统 | FCS / PFOS / WLS / PCS |
+| 涉及页面路径 | 不适用（当前业务页面、合法路由和原型输出不变） |
+| 端类型 | 不适用 |
+| 主要角色与任务 | 不适用（类型契约与专项断言治理） |
+
+## 2. 影响判定
+
+- 用户可见影响：无
+- 判定依据：本轮以类型声明、联合收窄、可空边界、历史字段适配、事件返回契约和测试断言为修复范围；未更换业务状态、数量公式、路由、页面布局、文案、图片或 Mock 场景。特殊工艺当前 Mock 中全部菲票均已绑定，因此专项契约改为验证“完整来源不得制造伪待绑定视图”以及“发料视图与绑定记录一一对应”，未增加假数据或放宽既有待发料、已发料、已接收、待确认和异议场景。对历史字段使用局部兼容读取或白名单映射，当前有效数据的页面结果不变。
+- 后续毛织用户可见修复不属于本声明范围，另见 `docs/prototype-review-records/2026-09-05-wool-allocation-and-pda-action-closure.md`。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/components/ui/card.ts`
+- `src/components/ui/warehouse-location-map.ts`
+- `src/data/browser-storage.ts`
+- `src/data/fcs/cut-piece-release.ts`
+- `src/data/fcs/cutting/cut-order-close-records.ts`
+- `src/data/fcs/cutting/cut-piece-orders.ts`
+- `src/data/fcs/cutting/cut-piece-return-domain.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- `src/data/fcs/cutting/cutting-summary.ts`
+- `src/data/fcs/cutting/generated-cut-orders.ts`
+- `src/data/fcs/cutting/generated-fei-tickets.ts`
+- `src/data/fcs/cutting/handover-orders.ts`
+- `src/data/fcs/cutting/manual-fei-tickets.ts`
+- `src/data/fcs/cutting/pda-cutting-task-source.ts`
+- `src/data/fcs/cutting/pickup-discrepancy.ts`
+- `src/data/fcs/cutting/production-material-prep.ts`
+- `src/data/fcs/cutting/runtime-inputs.ts`
+- `src/data/fcs/cutting/sewing-dispatch.ts`
+- `src/data/fcs/cutting/special-craft-fei-ticket-flow.ts`
+- `src/data/fcs/cutting/spreading-differences.ts`
+- `src/data/fcs/cutting/transfer-bag-operations.ts`
+- `src/data/fcs/cutting/transfer-bag-runtime.ts`
+- `src/data/fcs/cutting/types.ts`
+- `src/data/fcs/dyeing-task-domain.ts`
+- `src/data/fcs/dyeing-warehouse-view.ts`
+- `src/data/fcs/factory-internal-warehouse.ts`
+- `src/data/fcs/factory-mobile-todos.ts`
+- `src/data/fcs/factory-mobile-warehouse.ts`
+- `src/data/fcs/factory-onboarding-domain.ts`
+- `src/data/fcs/factory-onboarding-flow.ts`
+- `src/data/fcs/factory-onboarding-store.ts`
+- `src/data/fcs/factory-sample-verification-flow.ts`
+- `src/data/fcs/factory-sample-verification-store.ts`
+- `src/data/fcs/handover-ledger-view.ts`
+- `src/data/fcs/kol-goto-pda-domain.ts`
+- `src/data/fcs/material-request-drafts.ts`
+- `src/data/fcs/mobile-execution-task-index.ts`
+- `src/data/fcs/page-adapters/long-tail-pages-adapter.ts`
+- `src/data/fcs/page-adapters/process-prep-pages-adapter.ts`
+- `src/data/fcs/page-adapters/task-chain-pages-adapter.ts`
+- `src/data/fcs/page-adapters/task-execution-adapter.ts`
+- `src/data/fcs/pda-cutting-execution-source.ts`
+- `src/data/fcs/pda-exec-link.ts`
+- `src/data/fcs/pda-handover-events.ts`
+- `src/data/fcs/pda-start-link.ts`
+- `src/data/fcs/pda-task-mock-factory.ts`
+- `src/data/fcs/platform-process-result-view.ts`
+- `src/data/fcs/post-finishing-domain.ts`
+- `src/data/fcs/post-finishing-full-flow.ts`
+- `src/data/fcs/post-finishing-outbound-orders.ts`
+- `src/data/fcs/printing-task-domain.ts`
+- `src/data/fcs/printing-warehouse-view.ts`
+- `src/data/fcs/process-execution-writeback.ts`
+- `src/data/fcs/process-statistics-domain.ts`
+- `src/data/fcs/process-tasks.ts`
+- `src/data/fcs/process-warehouse-domain.ts`
+- `src/data/fcs/process-web-status-actions.ts`
+- `src/data/fcs/process-work-order-stock.ts`
+- `src/data/fcs/production-artifact-generation.ts`
+- `src/data/fcs/production-object-overview.ts`
+- `src/data/fcs/production-preparation-timing-runtime.ts`
+- `src/data/fcs/production-preparation-timing.ts`
+- `src/data/fcs/production-tech-pack-change-domain.ts`
+- `src/data/fcs/production-tech-pack-snapshot-builder.ts`
+- `src/data/fcs/progress-statistics-linkage.ts`
+- `src/data/fcs/quality-chain-adapter.ts`
+- `src/data/fcs/quality-deduction-analysis.ts`
+- `src/data/fcs/quality-deduction-selectors.ts`
+- `src/data/fcs/return-inbound-workflow.ts`
+- `src/data/fcs/runtime-process-tasks.ts`
+- `src/data/fcs/runtime-task-tenders.ts`
+- `src/data/fcs/settlement-linked-mock-factory.ts`
+- `src/data/fcs/sewing-delivery-sla.ts`
+- `src/data/fcs/special-craft-pda-scope.ts`
+- `src/data/fcs/special-craft-task-orders.ts`
+- `src/data/fcs/store-domain-pda.ts`
+- `src/data/fcs/store-domain-progress.ts`
+- `src/data/fcs/store-domain-quality-seeds.ts`
+- `src/data/fcs/store-domain-statement-source-adapter.ts`
+- `src/data/fcs/task-print-cards.ts`
+- `src/data/fcs/tech-packs.ts`
+- `src/data/fcs/third-party-factory-comprehensive-assessment.ts`
+- `src/data/fcs/wool-domain/mobile.ts`
+- `src/data/pcs-channel-product-project-repository.ts`
+- `src/data/pcs-engineering-bom-version.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-master-sampling.ts`
+- `src/data/pcs-engineering-master-types.ts`
+- `src/data/pcs-engineering-master-view-model.ts`
+- `src/data/pcs-engineering-tech-pack-workspace.ts`
+- `src/data/pcs-first-order-sample-field-policy.ts`
+- `src/data/pcs-first-order-sample-project-writeback.ts`
+- `src/data/pcs-pattern-library-archive-linkage.ts`
+- `src/data/pcs-pattern-library-types.ts`
+- `src/data/pcs-project-archive-collector.ts`
+- `src/data/pcs-project-bootstrap.ts`
+- `src/data/pcs-project-data-consistency.ts`
+- `src/data/pcs-project-domain-contract.ts`
+- `src/data/pcs-project-image-repository.ts`
+- `src/data/pcs-project-image-types.ts`
+- `src/data/pcs-project-inline-node-record-bootstrap.ts`
+- `src/data/pcs-project-inline-node-record-repository.ts`
+- `src/data/pcs-project-instance-model.ts`
+- `src/data/pcs-project-node-instance-registry.ts`
+- `src/data/pcs-project-repository.ts`
+- `src/data/pcs-project-types.ts`
+- `src/data/pcs-sample-chain-types.ts`
+- `src/data/pcs-sample-management.ts`
+- `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-task-project-relation-writeback.ts`
+- `src/data/pcs-tech-pack-review-diff.ts`
+- `src/data/pcs-tech-pack-review.ts`
+- `src/data/pcs-tech-pack-version-log-repository.ts`
+- `src/data/pcs-technical-data-fcs-adapter.ts`
+- `src/data/pcs-technical-data-version-bootstrap.ts`
+- `src/data/pcs-technical-data-version-types.ts`
+- `src/main-handlers/fcs-handlers.ts`
+- `src/main-handlers/pda-handlers.ts`
+- `src/pages/batches.ts`
+- `src/pages/deduction-analysis.ts`
+- `src/pages/factory-onboarding.ts`
+- `src/pages/fcs/material-prep/cutting.ts`
+- `src/pages/fcs/material-prep/dyeing.ts`
+- `src/pages/fcs/material-prep/other.ts`
+- `src/pages/fcs/material-prep/printing.ts`
+- `src/pages/fcs/material-prep/sewing.ts`
+- `src/pages/fcs/material-prep/shared.ts`
+- `src/pages/pcs-channel-stores.ts`
+- `src/pages/pcs-engineering-master-list.ts`
+- `src/pages/pcs-engineering-tasks.ts`
+- `src/pages/pcs-engineering-tasks/color-task.ts`
+- `src/pages/pcs-engineering-tasks/master-task-common.ts`
+- `src/pages/pcs-projects.ts`
+- `src/pages/pcs-technical-data.ts`
+- `src/pages/pcs-video-testing.ts`
+- `src/pages/pda-cutting-context.ts`
+- `src/pages/pda-cutting-handover.ts`
+- `src/pages/pda-cutting-inbound.ts`
+- `src/pages/pda-cutting-shared.ts`
+- `src/pages/pda-cutting-task-detail.ts`
+- `src/pages/pda-exec-detail.ts`
+- `src/pages/pda-exec.ts`
+- `src/pages/pda-handover-detail.ts`
+- `src/pages/pda-handover.ts`
+- `src/pages/pda-notify-detail.ts`
+- `src/pages/pda-onboarding.ts`
+- `src/pages/pda-settlement.ts`
+- `src/pages/pda-shell.ts`
+- `src/pages/pda-task-receive-detail.ts`
+- `src/pages/pda-task-receive.ts`
+- `src/pages/pda-warehouse-inbound-records.ts`
+- `src/pages/pda-warehouse-outbound-records.ts`
+- `src/pages/pda-warehouse-stocktake.ts`
+- `src/pages/pda-warehouse-wait-handover.ts`
+- `src/pages/pda-warehouse-wait-process.ts`
+- `src/pages/print/templates/business-request-form-template.ts`
+- `src/pages/print/templates/label-print-template.ts`
+- `src/pages/print/templates/task-delivery-card-template.ts`
+- `src/pages/process-factory/cutting/binding-strip-orders.ts`
+- `src/pages/process-factory/cutting/cut-orders-model.ts`
+- `src/pages/process-factory/cutting/cut-orders.ts`
+- `src/pages/process-factory/cutting/cut-piece-return-warehouse.ts`
+- `src/pages/process-factory/cutting/cut-piece-warehouse-model.ts`
+- `src/pages/process-factory/cutting/cutting-daily-production-report-model.ts`
+- `src/pages/process-factory/cutting/cutting-summary-checks.ts`
+- `src/pages/process-factory/cutting/cutting-summary.ts`
+- `src/pages/process-factory/cutting/fei-qr-model.ts`
+- `src/pages/process-factory/cutting/fei-tickets-model.ts`
+- `src/pages/process-factory/cutting/fei-tickets.ts`
+- `src/pages/process-factory/cutting/handover-orders.ts`
+- `src/pages/process-factory/cutting/marker-piece-explosion.ts`
+- `src/pages/process-factory/cutting/marker-plan-domain.ts`
+- `src/pages/process-factory/cutting/marker-plan-model.ts`
+- `src/pages/process-factory/cutting/marker-plan-projection.ts`
+- `src/pages/process-factory/cutting/marker-plan.ts`
+- `src/pages/process-factory/cutting/marker-spreading-model.ts`
+- `src/pages/process-factory/cutting/marker-spreading-projection.ts`
+- `src/pages/process-factory/cutting/marker-spreading-utils.ts`
+- `src/pages/process-factory/cutting/marker-spreading.ts`
+- `src/pages/process-factory/cutting/material-prep-model.ts`
+- `src/pages/process-factory/cutting/navigation-context.ts`
+- `src/pages/process-factory/cutting/pickup-management-projection.ts`
+- `src/pages/process-factory/cutting/production-order-overview-projection.ts`
+- `src/pages/process-factory/cutting/production-progress-model.ts`
+- `src/pages/process-factory/cutting/production-progress.ts`
+- `src/pages/process-factory/cutting/runtime-projections.ts`
+- `src/pages/process-factory/cutting/special-processes-model.ts`
+- `src/pages/process-factory/cutting/summary-model.ts`
+- `src/pages/process-factory/cutting/supplement-management.ts`
+- `src/pages/process-factory/cutting/traceability-projection-helpers.ts`
+- `src/pages/process-factory/cutting/transfer-bag-return-model.ts`
+- `src/pages/process-factory/cutting/transfer-bags-model.ts`
+- `src/pages/process-factory/cutting/transfer-bags-projection.ts`
+- `src/pages/process-factory/cutting/transfer-bags.ts`
+- `src/pages/process-factory/cutting/transfer-bags/handlers.ts`
+- `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
+- `src/pages/process-factory/dyeing/combined-dyeing.ts`
+- `src/pages/process-factory/dyeing/events.ts`
+- `src/pages/process-factory/dyeing/warehouse.ts`
+- `src/pages/process-factory/dyeing/water-soluble-orders.ts`
+- `src/pages/process-factory/dyeing/work-order-detail.ts`
+- `src/pages/process-factory/post-finishing/material-transfers.ts`
+- `src/pages/process-factory/post-finishing/warehouse.ts`
+- `src/pages/process-factory/post-finishing/work-orders.ts`
+- `src/pages/process-factory/printing/warehouse.ts`
+- `src/pages/process-factory/special-craft/task-detail.ts`
+- `src/pages/process-factory/special-craft/task-orders.ts`
+- `src/pages/production/changes-domain.ts`
+- `src/pages/production/context.ts`
+- `src/pages/production/detail-domain.ts`
+- `src/pages/production/events.ts`
+- `src/pages/production/orders-domain.ts`
+- `src/pages/production/preparation-timing.ts`
+- `src/pages/progress-board/actions.ts`
+- `src/pages/progress-board/context.ts`
+- `src/pages/progress-board/core.ts`
+- `src/pages/progress-board/task-domain.ts`
+- `src/pages/progress-exceptions/detail-domain.ts`
+- `src/pages/progress-exceptions/overview-domain.ts`
+- `src/pages/progress-handover-order.ts`
+- `src/pages/progress-handover.ts`
+- `src/pages/qc-records/actions.ts`
+- `src/pages/qc-records/detail-domain.ts`
+- `src/pages/settlement-cutting-input.ts`
+- `src/pages/settlement/detail-domain.ts`
+- `src/pages/settlement/events.ts`
+- `src/pages/sewing-outsourcing/cut-piece-handover.ts`
+- `src/pages/sewing-outsourcing/cut-piece-returns.ts`
+- `src/pages/sewing-outsourcing/responsibility-transfers.ts`
+- `src/pages/sewing-outsourcing/supplements.ts`
+- `src/pages/statements.ts`
+- `src/pages/task-breakdown.ts`
+- `src/pages/tech-pack/bom-process-linkage.ts`
+- `src/pages/tech-pack/context.ts`
+- `src/pages/tech-pack/events.ts`
+- `src/pages/unified-dispatch-workbench.ts`
+- `src/router/route-types.ts`
+- `src/router/routes.ts`
+
+### 页面路由
+
+- 不适用（当前用户可见行为不变）。
+
+### 验证命令
+
+- `npm run typecheck`：通过，全量错误 0。
+- `npm run typecheck:engineering`：通过，工程入口和 `domain`、`components/ui`、`state` 错误均为 0。
+- `npm run check:cutting-special-craft-dispatch-return`：通过。
+- `npm run check:cutting-warehouse-location-map`：通过。
+- `npm run check:cutting-clean-mainline`：通过。
+- `npm run check:cutting-sewing-dispatch`：通过。
+- `npm run check:process-factory-tabs-and-post-finishing`：通过。
+- `npm run check:menu-routes`：通过，175 个菜单路由无遗漏、无重复。
+- `npm run check:retained-contracts`：通过，15/15。
+- `npm run lint`：通过。
+- `npm run format:check`：通过。
+- `npm run build`：通过，含 10/10 单元测试和 Vite 生产构建。
+- `npm run check:prototype-design-governance`：通过。
+- `git diff --check`：通过。
+- 禁用标记扫描：`src`、`scripts`、`tests` 内未发现 `@ts-nocheck` 或 `@ts-ignore`。
+- `npm run workflow:verify -- --output /private/tmp/higoods-full-ts-receipt-final.crw16H/task-receipt.json --task-boundary "全量 TypeScript 1502 项清零并修复特殊工艺待绑定菲票旧断言；保留现有业务逻辑、Mock 和原型展示"`：失败，收据状态为 `implemented`；本任务直接门禁通过，项目级收据另发现毛织全流程两个范围外遗留失败（可分配明细数量断言、折叠区内接收回写入口不可见）。
+- 后续毛织闭环任务已修复上述两个范围外问题；`/private/tmp/higoods-wool-fix-receipt-final-20260905.json` 状态为 `verified`，阻塞项为 0，详见 `docs/prototype-review-records/2026-09-05-wool-allocation-and-pda-action-closure.md`。
+- `codegraph sync/status`：通过，同步返回 `Already up to date`；任务收据确认同步前后 `pendingCount=0`、`worktreeMismatch=false`。

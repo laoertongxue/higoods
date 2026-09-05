@@ -214,7 +214,7 @@ function createQcReworkChargebackRows(query: QualityDeductionAnalysisQuery): Ana
     )
     if (amount <= 0) return []
 
-    const occurredAt = row.finishedAt || row.startedAt || row.updatedAt || ''
+    const occurredAt = row.finishedAt || row.startedAt || ''
     const occurredDate = occurredAt.slice(0, 10)
     const productionOrderNo = getPostQcProductionOrderNo(row)
     return [
@@ -273,7 +273,7 @@ function createQcReworkChargebackRows(query: QualityDeductionAnalysisQuery): Ana
 }
 
 function createBaseRows(query: QualityDeductionAnalysisQuery): AnalysisRowBase[] {
-  const statementRows = listStatementConfirmedDeductionRows().filter((row) => row.deductionLineType === 'QUALITY_DEFECT').map((row) => {
+  const statementRows: AnalysisRowBase[] = listStatementConfirmedDeductionRows().filter((row) => row.deductionLineType === 'QUALITY_DEFECT').map((row): AnalysisRowBase => {
     const occurredDate = row.occurredAt.slice(0, 10)
     const statementHref = `/fcs/settlement/statements?statement=${encodeURIComponent(row.statementId)}`
     return {

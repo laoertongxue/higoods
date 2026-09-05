@@ -1189,9 +1189,7 @@ function buildMockMaterialLine(mock: PurchaseArrivalMock): ProductionMaterialLin
 }
 
 function getLineIssuedQty(line: WarehouseExecutionDoc['lines'][number]): number {
-  if ('issuedQty' in line) return line.issuedQty
-  if ('transferredQty' in line) return line.transferredQty
-  return 0
+  return line.issuedQty
 }
 
 function buildWarehouseMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
@@ -1263,7 +1261,7 @@ function buildMaterialPrepLines(order: ProductionOrder): ProductionMaterialLine[
         materialType: inferPrepMaterialType(line),
         materialName: line.materialName,
         materialSku: line.materialSku,
-        spec: line.materialColor || line.materialSpec || classifyPrepLineType(line),
+        spec: line.color || line.spec || classifyPrepLineType(line),
         requiredQty,
         unit: line.unit,
         purchasedQty: undefined,
@@ -1968,7 +1966,7 @@ function buildFactSources(order: ProductionOrder, materials: ProductionMaterialL
       statusText: processFact ? (processFact.startReadiness.canStart ? '可以处理' : processFact.startReadiness.reasonText) : (p1ProcessDoc?.statusText || '待确认'),
       quantityText: processFact?.scopeLabel || p1ProcessDoc?.quantityText || `${getOrderQuantity(order).toLocaleString('zh-CN')} 件`,
       ownerRole: processFact?.assignedFactoryName || p1ProcessDoc ? '工厂' : '跟单',
-      nextActionText: processFact?.startReadiness.nextAction || '工艺工厂按计划处理并同步完成数量',
+      nextActionText: '工艺工厂按计划处理并同步完成数量',
       updatedAt: p1ProcessDoc?.updatedAt || order.updatedAt,
     },
   ]
@@ -2391,7 +2389,9 @@ export function getProductionObjectOverview(objectType: ProductionObjectType, ob
     spu: order.demandSnapshot.spuCode,
     skuSummary: getSkuSummary(order),
     productTitle: order.demandSnapshot.spuName,
-    imageUrl: order.techPackSnapshot?.coverImageUrl || '',
+    imageUrl: order.techPackSnapshot?.imageSnapshot.productImages[0]
+      || order.techPackSnapshot?.imageSnapshot.styleImages[0]
+      || '',
     planQuantity: getOrderQuantity(order),
     unit: '件',
     currentStage: productionOrderStatusConfig[order.status].label,

@@ -2799,7 +2799,7 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
     'store-create-store-owner': 'storeOwner',
   }
   if (field in storeCreateFields && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement)) {
-    ;(state.storeCreateDraft as Record<string, string>)[storeCreateFields[field]] = fieldNode.value
+    state.storeCreateDraft = { ...state.storeCreateDraft, [storeCreateFields[field]]: fieldNode.value }
     if (field === 'store-create-country') {
       if (!state.storeCreateDraft.settlementCurrency) {
         state.storeCreateDraft.settlementCurrency = getDefaultCurrencyByCountry(fieldNode.value)
@@ -2824,7 +2824,7 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
     'store-edit-reviewer': 'reviewer',
   }
   if (field in storeEditFields && fieldNode instanceof HTMLInputElement) {
-    ;(state.storeEditDrawer.draft as Record<string, string>)[storeEditFields[field]] = fieldNode.value
+    state.storeEditDrawer.draft = { ...state.storeEditDrawer.draft, [storeEditFields[field]]: fieldNode.value }
     return true
   }
 
@@ -2832,14 +2832,14 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
     state.storePolicyDraft.allowListing = fieldNode.checked
     return true
   }
-  const policyStringFields: Record<string, keyof StorePolicyDraft> = {
+  const policyStringFields: Record<string, 'inventorySyncMode' | 'safetyStock' | 'handlingTime' | 'defaultCategoryId'> = {
     'store-policy-inventory-sync-mode': 'inventorySyncMode',
     'store-policy-safety-stock': 'safetyStock',
     'store-policy-handling-time': 'handlingTime',
     'store-policy-default-category': 'defaultCategoryId',
   }
   if (field in policyStringFields && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement)) {
-    ;(state.storePolicyDraft as Record<string, string>)[policyStringFields[field]] = fieldNode.value
+    state.storePolicyDraft = { ...state.storePolicyDraft, [policyStringFields[field]]: fieldNode.value }
     return true
   }
 
@@ -2909,7 +2909,13 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
     'payout-create-currency': 'currency',
   }
   if (field in payoutCreateFields && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement)) {
-    ;(state.payoutCreateDraft as Record<string, string>)[payoutCreateFields[field]] = fieldNode.value
+    const draftField = payoutCreateFields[field]
+    state.payoutCreateDraft = {
+      ...state.payoutCreateDraft,
+      [draftField]: draftField === 'ownerType'
+        ? (fieldNode.value === 'PERSONAL' || fieldNode.value === 'LEGAL' ? fieldNode.value : '')
+        : fieldNode.value,
+    }
     if (field === 'payout-create-owner-type') {
       state.payoutCreateDraft.ownerRefId = ''
     }

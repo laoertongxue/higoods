@@ -303,13 +303,13 @@ function buildWarehouseRecordsWithOverlay(
   const base = snapshot.warehouseState.cutPieceRecords
     .filter((item) => item.productionOrderNo === productionOrderNo)
     .map((item) => ({ ...item }))
-  const byKey = new Map(base.map((item) => [`${item.productionOrderNo}::${item.cutPieceOrderNo}::${item.materialSku}`, item] as const))
+  const byKey = new Map<string, CutPieceWarehouseRecord>(base.map((item) => [`${item.productionOrderNo}::${item.cutPieceOrderNo}::${item.materialSku}`, item]))
 
   const ensureRecord = (item: RuntimeExecutionEvent): CutPieceWarehouseRecord => {
     const key = `${item.productionOrderNo}::${item.cutOrderNo}::${item.materialSku}`
     const current = byKey.get(key)
     if (current) return current
-    const created: CutPieceWarehouseRecord = {
+    const created = {
       id: `runtime-${item.productionOrderNo}-${item.cutOrderNo}-${item.materialSku}`,
       warehouseType: 'CUT_PIECE',
       productionOrderNo: item.productionOrderNo,
@@ -325,7 +325,7 @@ function buildWarehouseRecordsWithOverlay(
       handoverStatus: 'WAITING_HANDOVER',
       handoverTarget: '',
       note: item.note || '',
-    }
+    } as CutPieceWarehouseRecord
     byKey.set(key, created)
     return created
   }
@@ -368,6 +368,7 @@ function buildWarehouseSummary(snapshot: CuttingDomainSnapshot, record: CuttingO
     .sort((left, right) => compareDateTime(right.inboundAt, left.inboundAt))[0] || null
 
   return {
+    cuttingFabricStockNeedRecheckCount: 0,
     cutPiecePendingInboundCount: records.filter((item) => item.inboundStatus === 'PENDING_INBOUND').length,
     cutPieceInboundedCount: records.filter((item) => item.inboundStatus !== 'PENDING_INBOUND').length,
     waitingHandoverCount: records.filter((item) => item.handoverStatus === 'WAITING_HANDOVER').length,

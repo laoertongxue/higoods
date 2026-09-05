@@ -652,7 +652,7 @@ function buildSnapshotFromSource(input: {
   )
   const legacyInternalStyleCode =
     hasWoolPatternFiles && allOriginalPatternFilesMissingInternalStyleCode
-      ? normalizeText(content.internalStyleCode)
+      ? normalizeText((content as TechnicalDataVersionContent & { internalStyleCode?: string }).internalStyleCode)
       : ''
   const imageSnapshot = buildImageSnapshot({
     style,
@@ -779,7 +779,7 @@ export function alignWoolColorMaterialMappingsForDemand(input: {
   }
 
   return colors
-    .map(({ colorCode, colorName }, colorIndex) => {
+    .map(({ colorCode, colorName }, colorIndex): ProductionTechPackColorMaterialMapping | null => {
       const colorIdentity = { colorCode, colorName }
       const existing = input.mappings.find((mapping) => matchesColorIdentity(mapping, colorIdentity))
       const template = existing ?? fallbackMapping

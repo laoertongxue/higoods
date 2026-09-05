@@ -257,7 +257,11 @@ function buildManualTicketRecord(options: {
     fabricColor: color,
     materialSku: materialIdentity.materialSku,
     materialIdentity,
-    patternIdentity,
+    patternIdentity: {
+      ...patternIdentity,
+      piecePartCodes: [...patternIdentity.piecePartCodes],
+      piecePartNames: [...patternIdentity.piecePartNames],
+    },
     garmentSkuId: skuCode,
     garmentColor: color,
     applicableSkuCodes: [skuCode],

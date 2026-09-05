@@ -4,6 +4,7 @@ import {
   syncPresetFromQuery,
   getFilteredTasks,
   escapeHtml,
+  renderBadge,
   type ProcessTask,
 } from './context.ts'
 import { renderTaskDimension, renderBlockDialog, renderProgressTaskDetailPage } from './task-domain.ts'

@@ -92,6 +92,9 @@ export function getFirstOrderSampleNodeEntryMissingFields(
     | 'targetSite'
     | 'sampleChainMode'
     | 'specialSceneReasonCodes'
+    | 'productionReferenceRequiredFlag'
+    | 'chinaReviewRequiredFlag'
+    | 'correctFabricRequiredFlag'
   >>,
 ): string[] {
   return FIRST_ORDER_SAMPLE_NODE_ENTRY_REQUIRED_FIELDS

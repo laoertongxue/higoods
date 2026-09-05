@@ -1,8 +1,9 @@
 import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
-import { cuttingOrderProgressRecords, type CuttingOrderProgressRecord } from './order-progress.ts'
-import type { CuttingUrgencyLevel } from './types'
+import { listPdaPickupEvents } from './cutting-runtime-event-ledger.ts'
+import { cuttingOrderProgressRecords } from './order-progress.ts'
+import type { CuttingOrderProgressRecord, CuttingUrgencyLevel } from './types'
 import {
   listFormalCutPieceWarehouseRecords,
   listFormalFabricWarehouseRecords,
@@ -213,6 +214,9 @@ function buildMaterialSummary(progressRecord: CuttingOrderProgressRecord): Cutti
 
 function buildReceiveSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryReceiveSummary {
   const materialLines = progressRecord.materialLines
+  const pickupEvents = listPdaPickupEvents().filter(
+    (event) => event.productionOrderId === progressRecord.productionOrderId,
+  )
   const latestReceiveLine = materialLines
     .filter((item) => item.receiveStatus !== 'NOT_RECEIVED' && progressRecord.lastPickupScanAt)
     .at(-1)
@@ -223,7 +227,7 @@ function buildReceiveSummary(progressRecord: CuttingOrderProgressRecord): Cuttin
     receiveDiscrepancyCount: materialLines.filter((item) => item.issueFlags.includes('RECEIVE_DIFF')).length,
     latestReceiveAt: progressRecord.lastPickupScanAt || '',
     latestReceiveBy: latestReceiveLine ? progressRecord.lastOperatorName : '',
-    photoProofCount: materialLines.filter((item) => item.issueFlags.includes('PHOTO_SUBMITTED')).length,
+    photoProofCount: pickupEvents.reduce((sum, event) => sum + event.photoProofCount, 0),
   }
 }
 
@@ -523,14 +527,14 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
       })
     : []
 
-  const latestCandidates: Array<{ value: string; source: CuttingSummaryUpdatedSource }> = [
+  const latestCandidates = ([
     { value: order.updatedAt, source: 'PLATFORM' },
     { value: progressRecord?.lastFieldUpdateAt || '', source: 'FACTORY_APP' },
     { value: receiveSummary.latestReceiveAt, source: 'FACTORY_APP' },
     { value: spreadingSummary.latestSpreadingAt, source: 'FACTORY_APP' },
     { value: warehouseSummary.latestInboundAt, source: 'FACTORY_APP' },
     { value: sampleSummary.latestSampleActionAt, source: 'PCS' },
-  ].filter((item) => item.value)
+  ] satisfies Array<{ value: string; source: CuttingSummaryUpdatedSource }>).filter((item) => item.value)
   const lastUpdated = latestCandidates.sort((a, b) => a.value.localeCompare(b.value)).at(-1)
 
   return {

@@ -33,12 +33,12 @@ export function buildCuttingPickupSlip(
     pickupSlipNo: seed.detail.pickupSlipNo,
     scenarioType: 'CUTTING',
     sourceTaskType: seed.task.taskType,
-    sourceTaskNo: seed.task.taskNo,
+    sourceTaskNo: seed.task.taskNo!,
     productionOrderNo: seed.detail.productionOrderNo,
     boundObjectType: 'CUT_PIECE_ORDER',
     boundObjectNo: seed.detail.cutOrderNo,
     factoryType: seed.task.factoryType,
-    factoryName: seed.detail.assigneeFactoryName,
+    factoryName: seed.detail.assigneeFactoryName!,
     materialSku: seed.detail.materialSku,
     materialType: seed.detail.materialTypeLabel.includes('印花')
       ? 'PRINT'

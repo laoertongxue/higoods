@@ -11,6 +11,8 @@ import {
   RESOLVE_RULE_LABEL,
   RESOLVE_SOURCE_LABEL,
   getCaseById,
+  getCaseFactoryName,
+  getCaseProcessName,
   getTaskById,
   getOrderById,
   getFactoryById,
@@ -192,7 +194,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
       <div class="grid grid-cols-2 gap-2">
         ${renderKv('接收单', head.handoverId)}
         ${renderKv('接收记录', record.recordId)}
-        ${renderKv('生产单号', head.productionOrderNo)}
+        ${renderKv('生产单号', head.productionOrderNo || '-')}
         ${renderKv('任务号', head.taskNo)}
         ${renderKv('当前工序', head.processName)}
         ${renderKv('接收方式', record.pickupModeLabel)}

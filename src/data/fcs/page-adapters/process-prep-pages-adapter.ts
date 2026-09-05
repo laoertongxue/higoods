@@ -16,7 +16,7 @@ import {
   type PlatformRiskLevel,
 } from '../process-platform-status-adapter.ts'
 import { getPlatformProcessResultView } from '../platform-process-result-view.ts'
-import { getQuantityLabel, type ProcessObjectType } from '../process-quantity-labels.ts'
+import { getProcessObjectType, getQuantityLabel, type ProcessObjectType } from '../process-quantity-labels.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
@@ -160,6 +160,9 @@ function toReceiptStatusFromOrder(order: ProcessWorkOrder): ReceiptStatusZh {
 }
 
 function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrderFact {
+  if (order.processType !== 'PRINT' && order.processType !== 'DYE') {
+    throw new Error(`备料页不支持工序类型：${order.processType}`)
+  }
   const mobileBinding = order.processType === 'PRINT'
     ? validatePrintWorkOrderMobileTaskBinding(order.workOrderId)
     : validateDyeWorkOrderMobileTaskBinding(order.workOrderId)
@@ -249,7 +252,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     writtenBackObjectQty: platformResultView?.writtenBackObjectQty,
     diffObjectQty: platformResultView?.diffObjectQty,
     unit,
-    objectType: order.objectType,
+    objectType: getProcessObjectType(quantityContext),
     quantityDisplayFields: platformResultView?.quantityDisplayFields,
     plannedQtyLabel: order.qtyLabel || getQuantityLabel({ ...quantityContext, qtyPurpose: '计划' }),
     returnedQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '已交出' }),

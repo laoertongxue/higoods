@@ -204,7 +204,7 @@ export function resolveMarkerTechPackLink(options: {
       sourceKey: 'source-tech-pack',
     },
     {
-      productionOrderId: normalizeText(options.marker.allocationLines[0]?.sourceProductionOrderId),
+      productionOrderId: normalizeText(options.marker.allocationLines?.[0]?.sourceProductionOrderId),
       resolvedSpuCode: normalizeText(options.marker.techPackSpuCode) || normalizeText(options.marker.spuCode),
       sourceKey: 'marker-tech-pack',
     },
@@ -232,7 +232,7 @@ export function resolveMarkerTechPackLink(options: {
 }
 
 export function buildMarkerAllocationSourceRows(
-  marker: Pick<MarkerPlanLike, 'cutOrderIds' | 'allocationLines'>,
+  marker: Pick<MarkerPlanLike, 'cutOrderIds'>,
   rowsById: Record<string, MarkerPieceExplosionSourceRow>,
 ): MarkerPieceExplosionSourceRow[] {
   return marker.cutOrderIds
@@ -381,8 +381,9 @@ export function buildMarkerPieceExplosionViewModel(
       mappingWarnings.push(reason)
       return
     }
+    const techPack = techPackLink.techPack
 
-    const skuCode = resolveSkuCode(techPackLink.techPack, allocationLine.color, allocationLine.sizeLabel)
+    const skuCode = resolveSkuCode(techPack, allocationLine.color, allocationLine.sizeLabel)
     if (!skuCode) {
       const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color}/${allocationLine.sizeLabel} 未匹配到技术资料 SKU。`
       allocationRows.push({
@@ -417,7 +418,7 @@ export function buildMarkerPieceExplosionViewModel(
       return
     }
 
-    const { colorMapping, mappingLines } = resolveMappingLinesForSku(techPackLink.techPack, allocationLine.color, skuCode)
+    const { colorMapping, mappingLines } = resolveMappingLinesForSku(techPack, allocationLine.color, skuCode)
     if (!colorMapping) {
       const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color} 未匹配到技术资料颜色映射。`
       allocationRows.push({
@@ -466,7 +467,7 @@ export function buildMarkerPieceExplosionViewModel(
           },
         ]
       }
-      return buildPieceRowsFromPatternFallback(techPackLink.techPack, line, skuCode)
+      return buildPieceRowsFromPatternFallback(techPack, line, skuCode)
     })
 
     if (!pieceRows.length) {

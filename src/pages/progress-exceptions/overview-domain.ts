@@ -27,6 +27,7 @@ import {
   escapeHtml,
   type ExceptionCase,
   type ReasonCode,
+  type SubCategoryKey,
   type UnifiedCategory,
 } from './context'
 import { getClaimDisputeStatusLabel } from '../../helpers/fcs-claim-dispute'

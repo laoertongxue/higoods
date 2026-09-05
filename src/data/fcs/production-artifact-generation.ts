@@ -16,6 +16,7 @@ import {
   getProcessDefinitionByCode,
   getProcessStageByCode,
   listActiveProcessCraftDefinitions,
+  listProcessDefinitions,
   type CraftStageCode,
   type CapacityRollupMode,
   type DetailSplitDimension,
@@ -224,7 +225,8 @@ export function getDictionaryCraftMockSource(craftCode: string, mockIndex: numbe
 
 function toCoverageSortKey(definition: ProcessCraftDefinition, mockIndex: number): string {
   const stageSort = getProcessStageByCode(definition.stageCode)?.sort ?? 999
-  const processSort = getProcessDefinitionByCode(definition.processCode)?.sort ?? 999
+  const processIndex = listProcessDefinitions().findIndex((item) => item.processCode === definition.processCode)
+  const processSort = processIndex >= 0 ? processIndex : 999
   return `${String(stageSort).padStart(3, '0')}-${String(processSort).padStart(3, '0')}-${String(definition.legacyValue).padStart(7, '0')}-${String(mockIndex).padStart(3, '0')}`
 }
 
@@ -440,7 +442,12 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
         : fallbackGranularity === 'COLOR'
           ? (['GARMENT_COLOR', 'MATERIAL_SKU'] as DetailSplitDimension[])
           : (['PATTERN', 'MATERIAL_SKU'] as DetailSplitDimension[])
-  const resolvedRuleSource = entry.ruleSource || craftDefinition?.ruleSource || fallbackRuleSource
+  const resolvedRuleSource: RuleSource = entry.ruleSource === 'OVERRIDE_CRAFT'
+    ? 'OVERRIDE_CRAFT'
+    : entry.ruleSource === 'INHERIT_PROCESS'
+      ? 'INHERIT_PROCESS'
+      : craftDefinition?.ruleSource || fallbackRuleSource
+  const processIndex = listProcessDefinitions().findIndex((item) => item.processCode === entry.processCode)
   return {
     orderId,
     orderQty: resolveOrderQty(orderId),
@@ -452,7 +459,7 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     stageSort: stageDefinition?.sort ?? 999,
     processCode: entry.processCode,
     processName: entry.processName || processDefinition?.processName || entry.processCode,
-    processSort: processDefinition?.sort ?? 999,
+    processSort: processIndex >= 0 ? processIndex : 999,
     systemProcessCode: processDefinition?.systemProcessCode || craftDefinition?.systemProcessCode || `PROC_${entry.processCode}`,
     craftCode: entry.craftCode,
     craftName: entry.craftName,
@@ -470,9 +477,15 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     isActive: craftDefinition?.isActive ?? processDefinition?.isActive ?? true,
     assignmentGranularity: entry.assignmentGranularity || fallbackGranularity,
     ruleSource: resolvedRuleSource,
-    detailSplitMode: entry.detailSplitMode || craftDefinition?.detailSplitMode || fallbackSplitMode,
+    detailSplitMode: entry.detailSplitMode === 'COMPOSITE'
+      ? 'COMPOSITE'
+      : craftDefinition?.detailSplitMode || fallbackSplitMode,
     detailSplitDimensions: entry.detailSplitDimensions?.length
-      ? [...entry.detailSplitDimensions]
+      ? entry.detailSplitDimensions.filter((dimension): dimension is DetailSplitDimension =>
+          dimension === 'PATTERN'
+          || dimension === 'MATERIAL_SKU'
+          || dimension === 'GARMENT_COLOR'
+          || dimension === 'GARMENT_SKU')
       : [...fallbackSplitDimensions],
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',

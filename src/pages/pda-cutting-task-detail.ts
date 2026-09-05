@@ -3,6 +3,7 @@ import {
   buildPdaCuttingRoute,
   getPdaCuttingTaskSnapshot,
   type PdaCuttingRouteKey,
+  type PdaCuttingTaskDetailData,
   type PdaCuttingTaskCutOrderGroup,
   type PdaCuttingTaskOrderLine,
 } from '../data/fcs/pda-cutting-execution-source.ts'

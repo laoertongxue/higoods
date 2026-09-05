@@ -74,7 +74,7 @@ function readRecords(storage: BrowserStorageLike | null): PickupDiscrepancyRecor
 }
 
 function writeRecords(records: PickupDiscrepancyRecord[], storage: BrowserStorageLike | null): void {
-  storage?.setItem(STORAGE_KEY, JSON.stringify(records))
+  storage?.setItem?.(STORAGE_KEY, JSON.stringify(records))
 }
 
 export function listPickupDiscrepancies(

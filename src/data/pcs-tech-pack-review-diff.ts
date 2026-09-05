@@ -205,7 +205,7 @@ function normalizeItems(items: unknown[], scope: string): Map<string, { title: s
 
 function costPayloadItems(content: TechnicalDataVersionContent): unknown[] {
   const payload = content.legacyCompatibleCostPayload || {}
-  return Object.entries(payload).flatMap(([key, value]) => {
+  return Object.entries(payload).flatMap(([key, value]): unknown[] => {
     if (Array.isArray(value)) return value.map((item) => ({ ...(item as object), costScope: key }))
     return [{ id: key, name: key, value }]
   })

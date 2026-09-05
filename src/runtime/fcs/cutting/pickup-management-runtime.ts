@@ -45,7 +45,7 @@ import { assertPickupNodeHasNoOpenDiscrepancy } from '../../../data/fcs/cutting/
 export const PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY = 'pickupWarehouseTransaction'
 
 export function toPickupSupplementRecordFactInputs(
-  records: SupplementOrderLifecycle[],
+  records: readonly SupplementOrderLifecycle[],
 ): PickupSupplementRecordFactInput[] {
   return records.map((record) => ({
     id: record.id,
@@ -93,7 +93,7 @@ export interface PickupRuntimeContext {
 
 export function bootstrapPickupManagementRuntimeMockData(): SupplementOrderLifecycle[] {
   ensurePickupSeedSupplementFixturesRegistered()
-  return listSupplementOrders()
+  return [...listSupplementOrders()]
 }
 
 export function buildPickupRuntimeContext(
@@ -102,7 +102,7 @@ export function buildPickupRuntimeContext(
 ): PickupRuntimeContext {
   recoverPendingPickupWarehouseTransaction(storage)
   const projections = listMaterialPrepOrderProjections(storage)
-  const supplementRecords = overrides.supplementRecords ?? listSupplementOrders()
+  const supplementRecords = [...(overrides.supplementRecords ?? listSupplementOrders())]
   const dyeResults = overrides.dyeResults ?? listPlatformDyeResultViews()
   const printResults = overrides.printResults ?? listPlatformPrintResultViews()
   const demandFacts = buildPickupDemandFactsFromProjections({

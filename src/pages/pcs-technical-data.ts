@@ -117,9 +117,9 @@ function filteredRows(): TechPackRow[] {
     if (listState.difficulty && row.garmentDifficultyGrade !== listState.difficulty) return false
     if (listState.merchandiser && row.merchandiserName !== listState.merchandiser) return false
     if (listState.patternMaker && row.patternMakerName !== listState.patternMaker) return false
-    if (listState.createdFrom && row.createdAt.slice(0, 10) < listState.createdFrom) return false
-    if (listState.createdTo && row.createdAt.slice(0, 10) > listState.createdTo) return false
-    if (listState.needMyAudit && !['第一阶段并行审核', '跟单复核'].includes(row.reviewStage)) return false
+    if (listState.createdFrom && (row.createdAt || '').slice(0, 10) < listState.createdFrom) return false
+    if (listState.createdTo && (row.createdAt || '').slice(0, 10) > listState.createdTo) return false
+    if (listState.needMyAudit && !['第一阶段并行审核', '跟单复核'].includes(row.reviewStage || '')) return false
     return true
   })
   if (listState.spuDistinct) {

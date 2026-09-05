@@ -1231,8 +1231,8 @@ function isTimelineSectionFocused(view: HandoverOrderTimelineView, section: Hand
   if (!focus) return false
 
   if (focus === 'pickup') return section.processStatusLabel === '待接收'
-  if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已接收待交出'
-  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待接收方确认'
+  if (focus === 'handout') return section.processStatusLabel === '已接收待交出'
+  if (focus === 'warehouse-confirm') return section.processStatusLabel === '已交出待接收方确认'
   if (focus === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
 }
@@ -2088,7 +2088,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'toggle-preview-filter') {
-    const filterType = actionNode.dataset.filterType
+    const filterType = actionNode.dataset.filterType ?? null
     if (isLedgerEventType(filterType) && filterType !== 'ALL') {
       state.filterEventType = state.filterEventType === filterType ? 'ALL' : filterType
     }
@@ -2321,7 +2321,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'open-order-detail') {
     const orderId = actionNode.dataset.orderId
     if (orderId) {
-      const focusValue = actionNode.dataset.focus
+      const focusValue = actionNode.dataset.focus ?? null
       const focus = isHandoverFocus(focusValue) ? focusValue : undefined
       const taskId = actionNode.dataset.taskId || ''
       openLinkedPage(

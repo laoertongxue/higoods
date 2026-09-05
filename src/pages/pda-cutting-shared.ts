@@ -68,7 +68,7 @@ export function getPdaCuttingPageContext(taskId: string): PdaCuttingPageContext 
   const task = getPdaTaskFlowTaskById(taskId)
   const detail = getPdaCuttingTaskSnapshot(
     taskId,
-    readSelectedExecutionOrderIdFromLocation() || readSelectedExecutionOrderNoFromLocation(),
+    readSelectedExecutionOrderIdFromLocation() || readSelectedExecutionOrderNoFromLocation() || undefined,
   )
 
   if (!task || !detail) return null

@@ -51,7 +51,7 @@ export const POST_FINISHING_ACCEPTANCE_ACTORS = {
 
 export const POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY = 'higood-fcs-post-finishing-current-actor-v1'
 
-export function getCurrentPostFinishingActor(fallbackActorId = POST_FINISHING_ACCEPTANCE_ACTORS.qcA.actorId): PostFinishingActor {
+export function getCurrentPostFinishingActor(fallbackActorId: string = POST_FINISHING_ACCEPTANCE_ACTORS.qcA.actorId): PostFinishingActor {
   let actorId = ''
   try {
     actorId = globalThis.localStorage?.getItem(POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY) || ''
@@ -958,7 +958,7 @@ function readPersistedState(): PostFinishingFullFlowState {
             const responsibility = normalizeResponsibilitySnapshot(
               task.responsibility,
               delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-              task.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+              (task as PostFinishingPostTask & { createdAt?: string }).createdAt || delivery?.confirmedAt || delivery?.registeredAt,
               !task.responsibility && !delivery,
             )
             return {
@@ -977,7 +977,7 @@ function readPersistedState(): PostFinishingFullFlowState {
               responsibility: normalizeResponsibilitySnapshot(
                 record.responsibility,
                 delivery?.sewingTaskType || 'INDEPENDENT_SEWING',
-                record.createdAt || delivery?.confirmedAt || delivery?.registeredAt,
+                (record as PostFinishingRecheckOrder & { createdAt?: string }).createdAt || delivery?.confirmedAt || delivery?.registeredAt,
                 !record.responsibility && !delivery,
               ),
               sourceType: record.sourceType || (record.postTaskId ? '后道加工后' : '质检直达'),

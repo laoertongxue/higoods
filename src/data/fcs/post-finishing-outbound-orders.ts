@@ -127,7 +127,7 @@ function buildStoredLine(
     skuCode: line.skuCode,
     colorName: line.colorName,
     sizeName: line.sizeName,
-    skuImageUrl: line.skuImageUrl,
+    skuImageUrl: line.imageUrl,
     plannedQty,
     inboundQty: inboundAsConfirmed ? plannedQty : 0,
     qtyUnit: line.qtyUnit,

@@ -349,10 +349,8 @@ function applyCommonReviewPatch(
     row.settlementInput.reviewedBy = REVIEW_ACTOR
     row.scoreInput.reviewedAt = nowText
     row.scoreInput.reviewedBy = REVIEW_ACTOR
-    if (currentReviewStatus !== 'CONFIRMED') {
-      row.settlementInput.snapshotConfirmedAt = ''
-      row.settlementInput.snapshotConfirmedBy = ''
-    }
+    row.settlementInput.snapshotConfirmedAt = ''
+    row.settlementInput.snapshotConfirmedBy = ''
   }
 
   row.settlementInput.needsManualReview = row.settlementInput.settlementFocusLevel !== 'NORMAL' || row.hasExceptionImpact || currentReviewStatus !== 'CONFIRMED'

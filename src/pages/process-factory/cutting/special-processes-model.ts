@@ -190,6 +190,8 @@ export interface BindingProcessOrder {
   sourceParentTaskNo: string
   sourceProductionOrderId: string
   sourceProductionOrderNo: string
+  spuCode?: string
+  styleName?: string
   sourceMarkerPlanId: string
   sourceMarkerPlanNo: string
   sourceSpreadingOrderId: string
@@ -226,8 +228,11 @@ export interface BindingProcessOrder {
   unit: string
   operatorName: string
   receivedAt: string
+  startedAt?: string
   completedAt: string
   status: BindingProcessStatus
+  statusMeta?: { label: string }
+  specialCraftTaskNo?: string
   printStatus: BindingProcessPrintStatus
   inboundStatus: BindingProcessInboundStatus
   handoverStatus: BindingProcessHandoverStatus
@@ -1083,7 +1088,7 @@ function buildKeywordIndex(order: SpecialProcessOrder, scopeLines: SpecialProces
     .map((item) => item.toLowerCase())
 }
 
-function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], key: keyof T): T[] {
+function mergeByKey<T extends object>(seed: T[], stored: T[], key: keyof T): T[] {
   const merged = new Map<string, T>()
   seed.forEach((item) => merged.set(String(item[key]), item))
   stored.forEach((item) => merged.set(String(item[key]), item))

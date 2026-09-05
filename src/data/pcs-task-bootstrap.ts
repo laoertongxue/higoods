@@ -115,6 +115,18 @@ function firstSampleRelationMeta(task: FirstSampleTaskRecord): string {
   })
 }
 
+function plateRelationMeta(task: PlateMakingTaskRecord): string {
+  return JSON.stringify({
+    sampleImageIds: [],
+    sourceType: task.sourceType,
+    upstreamModule: task.upstreamModule,
+    upstreamObjectType: task.upstreamObjectType,
+    upstreamObjectId: task.upstreamObjectId,
+    upstreamObjectCode: task.upstreamObjectCode,
+    status: task.status,
+  })
+}
+
 function firstOrderRelationMeta(task: FirstOrderSampleTaskRecord): string {
   return JSON.stringify({
     sourceFirstSampleTaskId: task.sourceFirstSampleTaskId,
@@ -694,6 +706,17 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
         colorRequirementText: item.colorRequirementText,
         newPatternSpuCode: item.newPatternSpuCode,
       }),
+      sampleReviewStatus: item.sampleReviewStatus,
+      sampleReviewSubmittedAt: item.sampleReviewSubmittedAt || '',
+      sampleReviewSubmittedBy: item.sampleReviewSubmittedBy || '',
+      sampleReviewerName: item.sampleReviewerName || '',
+      sampleReviewAt: item.sampleReviewAt || '',
+      sampleReviewNote: item.sampleReviewNote || '',
+      reworkReason: item.reworkReason || '',
+      patternOutputSubmittedAt: item.sampleReviewSubmittedAt || '',
+      patternOutputSubmittedBy: item.sampleReviewSubmittedBy || '',
+      acceptedAt: '',
+      confirmedAt: sampleConfirmedAt,
       patternType: item.patternType,
       sizeRange: item.sizeRange,
       patternVersion: item.patternVersion,
@@ -781,6 +804,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   })
 
   if (projectA) {
+    const style = findStyleArchiveByProjectId(projectA.projectId)
     tasks.push({
       patternTaskId: 'AT-20260109-001',
       patternTaskCode: 'AT-20260109-001',
@@ -795,6 +819,9 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: 'ES-DR-018',
       productStyleCode: 'SPU-010',
       spuCode: 'SPU-010',
+      styleId: style?.styleId || '',
+      styleCode: style?.styleCode || 'SPU-010',
+      styleName: style?.styleName || projectA.projectName,
       ...executionFields({ sourceType: '设计改款任务', sourceCode: 'ES-DR-018', completed: true }),
       artworkType: '印花',
       patternMode: '定位印',
@@ -805,6 +832,8 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       linkedTechPackVersionLabel: '',
       linkedTechPackVersionStatus: '',
       linkedTechPackUpdatedAt: '',
+      acceptedAt: '2026-01-09 13:00:00',
+      confirmedAt: '2026-01-09 14:30:00',
       status: '已确认',
       ownerId: projectA.ownerId,
       ownerName: '林小美',
@@ -819,6 +848,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   }
 
   if (projectB) {
+    const style = findStyleArchiveByProjectId(projectB.projectId)
     tasks.push({
       patternTaskId: 'AT-20260108-003',
       patternTaskCode: 'AT-20260108-003',
@@ -833,6 +863,9 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: 'ES-DR-017',
       productStyleCode: 'SPU-003',
       spuCode: 'SPU-003',
+      styleId: style?.styleId || '',
+      styleCode: style?.styleCode || 'SPU-003',
+      styleName: style?.styleName || projectB.projectName,
       ...executionFields({ sourceType: '设计改款任务', sourceCode: 'ES-DR-017', teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
       artworkType: '印花',
       patternMode: '满印',
@@ -843,6 +876,8 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       linkedTechPackVersionLabel: '',
       linkedTechPackVersionStatus: '',
       linkedTechPackUpdatedAt: '',
+      acceptedAt: '2026-01-08 09:30:00',
+      confirmedAt: '',
       status: '进行中',
       ownerId: projectB.ownerId,
       ownerName: '张设计',
@@ -896,6 +931,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     if (!project) return
+    const style = findStyleArchiveByProjectId(project.projectId)
     const upstreamDesignRevisionCode = item.projectCode === 'PRJ-202604-014'
       ? 'ES-DR-018'
       : item.projectCode === 'PRJ-202604-013'
@@ -915,7 +951,10 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: upstreamDesignRevisionCode || project.projectCode,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
-      ...executionFields({ sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '商品项目', sourceCode: upstreamDesignRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
+      styleId: style?.styleId || '',
+      styleCode: style?.styleCode || item.productStyleCode,
+      styleName: style?.styleName || project.projectName,
+      ...executionFields({ sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '预售测款通过', sourceCode: upstreamDesignRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
       artworkType: item.artworkType,
       patternMode: item.patternMode,
       artworkName: item.artworkName,
@@ -925,6 +964,8 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       linkedTechPackVersionLabel: '',
       linkedTechPackVersionStatus: '',
       linkedTechPackUpdatedAt: '',
+      acceptedAt: item.createdAt,
+      confirmedAt: item.status === '已完成' || item.status === '已确认' ? item.updatedAt : '',
       status: item.status,
       ownerId: project.ownerId,
       ownerName: item.ownerName,
@@ -1007,7 +1048,7 @@ function firstOrderChainSeed(input: {
 > {
   const mode = input.dualSample ? '替代布与正确布双确认' : input.mode || '复用首版结论'
   const reuseCode = mode === '复用首版结论' ? input.sampleCode || '' : ''
-  const samplePlanLines = mode === '替代布与正确布双确认'
+  const samplePlanLines: FirstOrderSampleTaskRecord['samplePlanLines'] = mode === '替代布与正确布双确认'
     ? [
         {
           lineId: 'dual-substitute-01',
@@ -1693,7 +1734,7 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           businessDate: task.createdAt,
           ownerName: task.ownerName,
           relationRole: '执行记录',
-          note: firstSampleRelationMeta(task),
+          note: plateRelationMeta(task),
         }),
       ),
       ...snapshot.patternTasks.filter((task) => task.projectId).map((task) =>

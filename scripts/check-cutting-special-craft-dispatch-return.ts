@@ -349,7 +349,12 @@ assert(bindings.length > 0, '缺少裁床特殊工艺菲票绑定数据')
 assert(dispatchViews.length > 0, '缺少裁床特殊工艺发料视图数据')
 assert(returnViews.length > 0, '缺少裁床特殊工艺回仓视图数据')
 
-assert(dispatchViews.some((item) => item.dispatchStatus === '待绑定'), '缺少待绑定菲票视图')
+assert.equal(
+  dispatchViews.filter((item) => item.dispatchStatus === '待绑定').length,
+  0,
+  '完整上游菲票来源不应生成伪待绑定视图',
+)
+assert.equal(dispatchViews.length, bindings.length, '完整上游菲票来源下发料视图必须与绑定记录一一对应')
 assert(dispatchViews.some((item) => item.dispatchStatus === '待发料'), '缺少待发料菲票视图')
 assert(dispatchViews.some((item) => item.dispatchStatus === '已发料'), '缺少已发料菲票视图')
 assert(dispatchViews.some((item) => item.dispatchStatus === '已接收'), '缺少已接收菲票视图')

@@ -706,8 +706,8 @@ function getSampleAssetText(asset: unknown, key: string): string {
 
 function buildGeneratedSampleRecords(): PcsSampleRecord[] {
   return listProjectInlineNodeRecordsByStepType('SAMPLE_INBOUND_CHECK').flatMap((record) => {
-    const payload = record.payload as Record<string, unknown>
-    const detailSnapshot = record.detailSnapshot as Record<string, unknown>
+    const payload = record.payload as unknown as Record<string, unknown>
+    const detailSnapshot = record.detailSnapshot as unknown as Record<string, unknown>
     const generatedCodes = asStringArray(payload.generatedSampleCodes).length > 0
       ? asStringArray(payload.generatedSampleCodes)
       : asStringArray(detailSnapshot.sampleIds)
@@ -762,7 +762,7 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
 function getReturnHandlePayload(record: ReturnType<typeof listProjectInlineNodeRecordsByStepType>[number]): Record<string, unknown> {
   return {
     ...((record.detailSnapshot || {}) as Record<string, unknown>),
-    ...((record.payload || {}) as Record<string, unknown>),
+    ...((record.payload || {}) as unknown as Record<string, unknown>),
   }
 }
 

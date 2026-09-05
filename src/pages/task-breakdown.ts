@@ -75,6 +75,7 @@ function processNames(task: RuntimeProcessTask): string[] {
 function adaptKolGotoTask(task: ProcessTask): RuntimeProcessTask {
   return {
     ...task,
+    productionOrderId: task.productionOrderId || task.taskId,
     baseTaskId: task.taskId,
     baseQty: task.qty,
     baseDependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
@@ -203,7 +204,6 @@ export function renderTaskBreakdownPage(keywordOverride?: string): string {
   const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
   const content = renderStandardListPage({
     title: '任务清单',
-    description: '展示全部可执行生产任务；生产准备工序不进入任务清单；KOL-GOTO 整单任务由生产单自动拆解，只供查看，不参与普通分配或竞价。',
     primaryActionsHtml: '<a class="rounded bg-blue-600 px-4 py-2 text-sm text-white" href="/fcs/dispatch/workbench">前往任务分配</a>',
     filtersHtml: `<div class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3"><input class="h-9 rounded border px-3 text-sm" placeholder="生产单 / 任务号 / 工序 / 工厂" data-task-list-field="keyword" value="${escapeHtml(state.keyword)}"/><select class="h-9 rounded border px-3 text-sm" data-task-list-field="type"><option value="ALL">全部任务</option><option value="SEWING" ${state.type === 'SEWING' ? 'selected' : ''}>独立车缝</option><option value="NON_SEWING" ${state.type === 'NON_SEWING' ? 'selected' : ''}>非车缝独立生产任务</option><option value="MERGED" ${state.type === 'MERGED' ? 'selected' : ''}>合并任务</option><option value="WHOLE_ORDER" ${state.type === 'WHOLE_ORDER' ? 'selected' : ''}>整单任务</option></select><select class="h-9 rounded border px-3 text-sm" data-task-list-field="status"><option value="ALL">全部分配状态</option><option value="UNASSIGNED" ${state.status === 'UNASSIGNED' ? 'selected' : ''}>待分配</option><option value="BIDDING" ${state.status === 'BIDDING' ? 'selected' : ''}>竞价中</option><option value="ASSIGNED" ${state.status === 'ASSIGNED' ? 'selected' : ''}>已分配</option><option value="AWARDED" ${state.status === 'AWARDED' ? 'selected' : ''}>已定标</option></select></div>`,
     statsHtml: renderStandardListStats([

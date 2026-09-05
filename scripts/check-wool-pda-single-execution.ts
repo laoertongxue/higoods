@@ -69,7 +69,7 @@ assert(
 )
 
 assert(
-  woolFactSource.includes("EXECUTION: ['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE']"),
+  woolFactSource.includes("EXECUTION: ['COMPLETE', 'REPORT_PROCESS', 'ASSOCIATE_MACHINE']"),
   '执行表面只允许加工填报、关联横机设备、完成加工单',
 )
 assert(
@@ -89,7 +89,7 @@ for (const command of [
 assert(execDetailSource.includes('renderPdaWoolExecutionContent'), 'PDA 执行详情必须接入执行表面')
 assert(handoverSource.includes('renderPdaWoolHandoverContent'), 'PDA 交接页必须接入交接表面')
 assert(
-  execSource.includes("(['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'] as const)"),
+  execSource.includes("(['COMPLETE', 'REPORT_PROCESS', 'ASSOCIATE_MACHINE'] as const)"),
   '执行卡片主动作不得回退为确认接收或发起交出',
 )
 assert(mainSource.includes('[data-pda-scan-enter="true"]'), '扫码枪回车必须进入统一 PDA 页面事件处理')

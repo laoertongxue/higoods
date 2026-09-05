@@ -491,7 +491,7 @@ export interface PostFinishingQcOrder {
 export interface PostFinishingWarehouseFlowRecord {
   flowRecordId: string
   flowRecordNo: string
-  flowType: '扫码收货' | '车缝自助回货提交' | '后道确认入库' | '后道驳回入库' | '质检占用' | '质检入仓' | '后道入仓' | '复检入仓' | '交出出仓' | '接收回写'
+  flowType: '扫码收货' | '车缝自助回货提交' | '后道确认入库' | '后道驳回入库' | '后道修改确认数量' | '质检占用' | '质检入仓' | '后道入仓' | '复检入仓' | '交出出仓' | '接收回写'
   operatedAt: string
   operatorName: string
   qty: number
@@ -636,6 +636,8 @@ export interface PostFinishingWaitHandoverWarehouseRecord {
   sizeName: string
   skuSummary: string
   waitHandoverGarmentQty: number
+  /** Compatibility alias used by the generic execution adapter. */
+  availableHandoverGarmentQty?: number
   submittedHandoverGarmentQty: number
   receivedHandoverGarmentQty: number
   diffGarmentQty: number
@@ -741,6 +743,8 @@ export interface PostFinishingWorkOrder {
   sourceProductionOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
+  sourcePostTaskId?: string
+  sourcePostTaskNo?: string
   sourceSewingTaskNo: string
   sourceSewingFactoryId: string
   sourceSewingFactoryName: string
@@ -777,6 +781,13 @@ export interface PostFinishingWorkOrder {
   recheckAction: PostFinishingActionRecord
   waitProcessWarehouseRecordId: string
   waitHandoverWarehouseRecordId?: string
+  handoverRecordId?: string
+  handoverAction?: {
+    handoverGarmentQty?: number
+    receiveGarmentQty?: number
+    diffGarmentQty?: number
+    status?: string
+  }
 }
 
 export interface PostFinishingRecheckOrder {
@@ -1129,7 +1140,7 @@ function normalizePostProjectJudgements(items: PostFinishingQcPostProjectJudgeme
       existing.needed = true
       existing.qty = Math.max(existing.qty, triggerQty)
     } else {
-      next.push({ projectName, needed: true, qty: triggerQty })
+      next.push({ projectName, needed: true, qty: triggerQty, buttonAttachMode: undefined })
     }
   })
   return next
@@ -2068,7 +2079,7 @@ function withPendingDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcO
 }
 
 function withMultiSkuDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQcOrder {
-  const qcSkuResults = qc.qcSkuResults.map((item, index) => {
+  const qcSkuResults = qc.qcSkuResults.map((item, index): PostFinishingQcSkuResult => {
     const defectAcceptedQty = index === 0 ? 6 : index === 1 ? 4 : 0
     const reworkQty = index === 0 ? 4 : index === 1 ? 2 : 0
     if (defectAcceptedQty <= 0 && reworkQty <= 0) return item
@@ -3390,7 +3401,7 @@ export function startSewingFactoryPostTask(taskId: string): SewingFactoryPostTas
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
-export function finishSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
+export function finishSewingFactoryPostTask(taskId: string, _completedQty?: number): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
   if (!task) throw new Error(`未找到上游后道生产任务：${taskId}`)
   task.status = '后道完成'
@@ -3904,7 +3915,7 @@ function getHandoverSubmissionsForLine(recheck: PostFinishingRecheckOrder, line:
 function buildWaitHandoverRecords(): PostFinishingWaitHandoverWarehouseRecord[] {
   return recheckOrders
     .filter((recheck) => recheck.recheckStatus === '复检完成')
-    .flatMap((recheck, orderIndex) => recheck.skuLines.map((line, lineIndex) => {
+    .flatMap((recheck, orderIndex) => recheck.skuLines.map((line, lineIndex): PostFinishingWaitHandoverWarehouseRecord | undefined => {
       const recordNo = `PF-WH-${pad(orderIndex + 1)}-${lineIndex + 1}`
       const passedQty = getRecheckLinePassedQty(recheck, line)
       if (passedQty <= 0) return undefined
@@ -3994,7 +4005,7 @@ function buildWaitHandoverRecords(): PostFinishingWaitHandoverWarehouseRecord[] 
           ...handoverFlows,
         ],
       }
-    }).filter((record): record is PostFinishingWaitHandoverWarehouseRecord => Boolean(record)))
+    }).filter((record): record is PostFinishingWaitHandoverWarehouseRecord => record !== undefined))
 }
 
 let waitProcessWarehouseRecords = buildWaitProcessRecords()
@@ -4815,7 +4826,7 @@ export function updatePostFinishingSewingSelfReturnConfirmedQty(input: {
   recordId: string
   confirmerName: string
   remark?: string
-  lines: Array<{ itemId?: string; skuLineId?: string; skuId?: string; confirmedQty: number }>
+  lines: Array<{ itemId?: string; warehouseRecordId?: string; skuLineId?: string; skuId?: string; confirmedQty: number }>
 }): PostFinishingSewingSelfReturnRecord {
   const store = readPostFinishingWarehouseStore()
   const recordIndex = store.sewingSelfReturnRecords.findIndex((item) => item.recordId === input.recordId || item.recordNo === input.recordId)
@@ -5086,7 +5097,7 @@ export function confirmPostFinishingWarehouseReceipt(input: {
   const existingCount = store.waitProcessReceiptRecords.length
   const currentInventory = listPostFinishingWaitProcessWarehouseRecords().filter((record) => record.availableGarmentQty > 0)
   const createdRecords: PostFinishingWaitProcessWarehouseRecord[] = input.lines
-    .map((lineInput, index) => {
+    .map((lineInput, index): PostFinishingWaitProcessWarehouseRecord | null => {
       const line = handover.skuLines.find((item) => item.handoverLineId === lineInput.handoverLineId)
       const actualQty = Number(lineInput.actualQty) || 0
       const area = areas.find((item) => item.areaId === lineInput.areaId)

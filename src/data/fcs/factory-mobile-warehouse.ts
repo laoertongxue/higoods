@@ -72,7 +72,7 @@ function isToday(value?: string): boolean {
 }
 
 function isSewingFactory(factoryId: string): boolean {
-  const factory = mockFactories.find((item) => item.id === factoryId || item.factoryId === factoryId)
+  const factory = mockFactories.find((item) => item.id === factoryId)
   return Boolean(factory?.name.includes('车缝') || factory?.factoryType === 'SATELLITE_SEWING')
 }
 

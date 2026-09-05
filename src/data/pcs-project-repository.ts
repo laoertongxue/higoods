@@ -42,6 +42,7 @@ import type {
   ProjectCreateResult,
   ProjectNodeStatus,
   ProjectPriorityLevel,
+  ProjectRiskStatus,
   ProjectSourceType,
   SampleSourceType,
 } from './pcs-project-types.ts'
@@ -1498,6 +1499,7 @@ export function createProject(input: PcsProjectCreateInput, operatorName = '当�
   )
   const derivedProjectType = input.projectType || '商品开发'
   const derivedSampleSourceType = input.sampleSourceType
+  if (!input.projectSourceType) throw new Error('请选择项目来源类型。')
 
   const project: PcsProjectRecord = {
     projectId,
@@ -1578,7 +1580,7 @@ export function createProject(input: PcsProjectCreateInput, operatorName = '当�
   })
 
   return {
-    project: getProjectById(project.projectId) ?? project,
+    project: getProjectById(project.projectId)!,
     phases: phases.map(clonePhase),
     nodes: nodes.map(cloneNode),
   }
@@ -1590,7 +1592,7 @@ export function approveProjectInit(
 ): {
   ok: boolean
   message: string
-  project: PcsProjectRecord | null
+  project: PcsProjectViewRecord | null
   projectInitNode: PcsProjectNodeRecord | null
   nextNode: PcsProjectNodeRecord | null
 } {

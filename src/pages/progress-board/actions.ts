@@ -1,5 +1,6 @@
 import {
   state,
+  productionOrders,
   BLOCK_REASON_LABEL,
   nowTimestamp,
   getTaskById,
@@ -184,7 +185,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     const task = getTaskById(signal.sourceId)
     relatedTaskIds = [signal.sourceId]
     if (task) {
-      relatedOrderIds = [task.productionOrderId]
+      relatedOrderIds = [task.productionOrderId!]
       const tenderId = getTaskTenderId(task)
       if (tenderId) relatedTenderIds = [tenderId]
     }
@@ -221,8 +222,9 @@ function createOrUpdateExceptionFromSignal(signal: {
     MILESTONE_NOT_REPORTED: '关键节点未上报',
   }
 
+  const caseId = generateCaseId()
   const exception: ExceptionCase = {
-    caseId: generateCaseId(),
+    caseId,
     caseStatus: 'OPEN',
     severity,
     category,
@@ -242,7 +244,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     actions: [],
     auditLogs: [
       {
-        id: `EAL-${exception.caseId}-001`,
+        id: `EAL-${caseId}-001`,
         action: 'CREATE',
         detail: '系统自动生成异常单',
         at: now,

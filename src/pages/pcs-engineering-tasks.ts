@@ -120,7 +120,7 @@ function handleListInput(target: Element): boolean {
   if (!(node instanceof HTMLInputElement || node instanceof HTMLSelectElement) || !field.startsWith(`${prefix}-`)) return false
   const key = field.slice(prefix.length + 1) as 'search' | 'status' | 'owner' | 'source' | 'site'
   if (!['search', 'status', 'owner', 'source', 'site'].includes(key)) return false
-  ;(state[`${module}List`] as Record<string, string>)[key] = node.value
+  ;(state[`${module}List`] as unknown as Record<string, string>)[key] = node.value
   refresh(module)
   return true
 }
@@ -202,7 +202,7 @@ function handleListAction(module: NonNullable<ListModule>, action: string, node:
   }
   const prefix = module === 'techPack' ? 'tech-pack' : module.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
   if (action === `set-${prefix}-quick-filter`) {
-    ;(state[`${module}List`] as Record<string, string>).quickFilter = node.dataset.quickFilter || 'all'
+    ;(state[`${module}List`] as unknown as Record<string, string>).quickFilter = node.dataset.quickFilter || 'all'
     refresh(module, true)
     return true
   }
@@ -251,7 +251,7 @@ export function isPcsEngineeringTaskDialogOpen(): boolean {
 export function resetPcsEngineeringTaskState(): void {
   clearNotice()
   for (const module of ['plate', 'pattern', 'color', 'purchase', 'techPack', 'firstSample'] as const) {
-    const list = state[`${module}List`] as Record<string, string | number>
+    const list = state[`${module}List`] as unknown as Record<string, string | number>
     Object.assign(list, { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 })
   }
 }

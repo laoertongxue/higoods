@@ -117,7 +117,8 @@ export function copyEngineeringBomDraftVersion(input: {
   /** 仅供已完成的设计改款整款方案承接到工程主单。 */
   allowHandedOffSource?: boolean
 }): EngineeringBomDraft {
-  const sourceIsReusable = ['COMPLETED_CONFIRMED', 'PUBLISHED_SNAPSHOT'].includes(input.source.versionStatus)
+  const sourceIsReusable = input.source.versionStatus === 'COMPLETED_CONFIRMED'
+    || input.source.versionStatus === 'PUBLISHED_SNAPSHOT'
     || (input.allowHandedOffSource === true && input.source.versionStatus === 'DRAFT')
   if (!sourceIsReusable) {
     throw new Error('只能承接已完成确认或已形成正式技术包的 BOM 与价格方案。')

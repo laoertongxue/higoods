@@ -50,15 +50,15 @@ function cloneReferenceFile(file: FactorySampleReferenceFile): FactorySampleRefe
 }
 
 function normalizeSampleReviewRecord(record: FactorySampleReviewRecord | Record<string, unknown>): FactorySampleReviewRecord {
-  const legacyResult = String(record.sampleReviewResult || record.reviewResult || '')
+  const legacyResult = String(record.sampleReviewResult || ('reviewResult' in record ? record.reviewResult : '') || '')
   const sampleReviewResult = normalizeSampleReviewResult(legacyResult === '退回' || legacyResult === '拒绝' ? '未通过' : legacyResult)
   const toStatus = String(record.toStatus || (sampleReviewResult === '已通过' ? '样衣审核通过' : '样衣审核退回')) as FactorySampleVerificationStatus
   const toNode = String(record.toNode || (sampleReviewResult === '未通过' ? '工厂提交样衣审核' : '样衣验证完成')) as FactorySampleVerificationNode
   return {
-    sampleReviewId: String(record.sampleReviewId || record.reviewId || `SV-REV-${Date.now()}`),
-    sampleReviewRoundNo: Number(record.sampleReviewRoundNo || record.reviewRoundNo || 1),
+    sampleReviewId: String(record.sampleReviewId || ('reviewId' in record ? record.reviewId : '') || `SV-REV-${Date.now()}`),
+    sampleReviewRoundNo: Number(record.sampleReviewRoundNo || ('reviewRoundNo' in record ? record.reviewRoundNo : 0) || 1),
     sampleReviewResult,
-    sampleReviewOpinion: String(record.sampleReviewOpinion || record.reviewOpinion || ''),
+    sampleReviewOpinion: String(record.sampleReviewOpinion || ('reviewOpinion' in record ? record.reviewOpinion : '') || ''),
     resubmitAllowed: typeof record.resubmitAllowed === 'boolean' ? record.resubmitAllowed : sampleReviewResult === '未通过',
     requiredResubmitItems: Array.isArray(record.requiredResubmitItems) ? [...record.requiredResubmitItems] as FactorySampleReviewRecord['requiredResubmitItems'] : sampleReviewResult === '未通过' ? ['样衣照片'] : [],
     reviewer: String(record.reviewer || '平台样衣审核员'),

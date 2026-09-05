@@ -270,6 +270,7 @@ export interface EngineeringMasterOrderRecord {
   taskPlanConfirmedBy?: string
   confirmedTaskTypes?: EngineeringTaskType[]
   createdAt: string
+  updatedAt?: string
   createdBy: string
   createdById: string
   qualificationReachedAt: string

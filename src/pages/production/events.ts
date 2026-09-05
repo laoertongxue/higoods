@@ -977,7 +977,7 @@ export function executeProductionChangeForForm(
     }
     const execute = options.execute ?? executeProductionChange
     try {
-      form.execution = execute(preview, {
+      const execution = execute(preview, {
         shouldFail: options.shouldFail,
         persist: persistExecutionResult,
         processWorkOrderSnapshots,
@@ -985,11 +985,13 @@ export function executeProductionChangeForForm(
         processWorkOrderSyncRecordedAt: executedAt,
         beforeProcessWorkOrderPreparationCommit: options.beforeProcessWorkOrderPreparationCommit,
       })
+      form.execution = execution
+      if (!persisted && execute !== executeProductionChange) persistExecutionResult(execution)
     } catch {
-      form.execution = createProductionChangeRolledBackResult(preview)
-      persistExecutionResult(form.execution)
+      const execution = createProductionChangeRolledBackResult(preview)
+      form.execution = execution
+      persistExecutionResult(execution)
     }
-    if (!persisted && execute !== executeProductionChange) persistExecutionResult(form.execution)
     if (form.execution.message === '当前事实已变化，请重新确认处理方案') {
       const recordId = form.recordId
       const reason = form.reason

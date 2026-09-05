@@ -693,7 +693,8 @@ function renderStocktakeListByView(rows: ReturnType<typeof getRows>): string {
       ? rows.map((row) => renderStocktakeOrderCard(row)).join('')
       : renderMobilePageEmptyState('暂无盘点单', '点击“创建盘点单”即可按当前仓库明细生成盘点单。')
   }
-  const cards = rows.map((row) => renderSurplusLossOrderCard(row, state.view)).join('')
+  const kind = state.view === '盘盈单' ? '盘盈单' : '盘亏单'
+  const cards = rows.map((row) => renderSurplusLossOrderCard(row, kind)).join('')
   return cards || renderMobilePageEmptyState(`暂无${state.view}`, '盘点差异审核通过后会自动生成盘盈单或盘亏单。')
 }
 
@@ -901,7 +902,7 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement, event?: Ev
     state.createDialogOpen = false
     return true
   }
-  if (action === 'open-inventory-flow' && actionNode.dataset.stockItemId) {
+  if (action === 'open-inventory-flow' && actionNode?.dataset.stockItemId) {
     state.selectedInventoryId = actionNode.dataset.stockItemId
     return true
   }
@@ -926,7 +927,7 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement, event?: Ev
     }
     return true
   }
-  if (action === 'open-stocktake-detail' && actionNode.dataset.orderId) {
+  if (action === 'open-stocktake-detail' && actionNode?.dataset.orderId) {
     state.selectedOrderId = actionNode.dataset.orderId
     return true
   }
@@ -934,11 +935,11 @@ export function handlePdaWarehouseStocktakeEvent(target: HTMLElement, event?: Ev
     state.selectedOrderId = null
     return true
   }
-  if (action === 'complete-stocktake' && actionNode.dataset.orderId) {
+  if (action === 'complete-stocktake' && actionNode?.dataset.orderId) {
     completeFactoryWarehouseStocktakeOrder(actionNode.dataset.orderId)
     return true
   }
-  if (action === 'confirm-stocktake-adjustment' && actionNode.dataset.reviewId) {
+  if (action === 'confirm-stocktake-adjustment' && actionNode?.dataset.reviewId) {
     const runtime = getPdaRuntimeContext()
     approveAndExecuteFactoryWarehouseStocktakeDifferenceReview({
       reviewId: actionNode.dataset.reviewId,

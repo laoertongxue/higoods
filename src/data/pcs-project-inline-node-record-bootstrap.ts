@@ -1198,7 +1198,7 @@ function buildTestingBranchBootstrapRecords(
         updatedAt: seed.conclusionBusinessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: project.projectCode,
-      } as PcsProjectInlineNodeRecord)
+      } as unknown as PcsProjectInlineNodeRecord)
     }
   })
 
@@ -1564,7 +1564,7 @@ function buildMissingCompletedInlineNodeRecords(
         updatedAt: seed.businessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: project.projectCode,
-      } as PcsProjectInlineNodeRecord)
+      } as unknown as PcsProjectInlineNodeRecord)
     })
 
   return nextRecords
@@ -1617,7 +1617,7 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
         updatedAt: seed.businessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: null,
-      } as PcsProjectInlineNodeRecord)
+      } as unknown as PcsProjectInlineNodeRecord)
     })
   })
 

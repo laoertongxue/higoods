@@ -578,7 +578,6 @@ function summarizeCheckSections(sections: CuttingCheckSectionState[]): CuttingSu
 const feiPrintJobStatusLabelMap: Record<FeiTicketPrintJob['status'], string> = {
   PRINTED: '已打印',
   REPRINTED: '已补打',
-  CANCELLED: '已取消',
 }
 
 function deriveOverallRiskLevel(options: {
@@ -627,7 +626,11 @@ function buildSummarySourceObjects(options: {
     materialImageUrl: item.materialImageUrl || '',
     blockerCount: blockerCountBySourceNo[item.cutOrderNo] || 0,
     navigationTarget: 'cutOrders',
-    navigationPayload: item.navigationPayload.cutOrders,
+    navigationPayload: {
+      cutOrderId: item.cutOrderId,
+      cutOrderNo: item.cutOrderNo,
+      productionOrderNo: item.productionOrderNo,
+    },
   }))
 
   const markerPlanSourceObjects = options.markerPlanSources.map<CuttingSummarySourceObjectItem>((item) => ({
@@ -683,7 +686,7 @@ function buildSummarySourceObjects(options: {
     materialImageUrl: '',
     blockerCount: blockerCountBySourceNo[item.usageNo] || 0,
     navigationTarget: 'transferBags',
-    navigationPayload: item.navigationPayload,
+    navigationPayload: item.navigationPayload.summary,
   }))
 
   const specialProcesses = options.specialProcesses.map<CuttingSummarySourceObjectItem>((item) => ({
@@ -697,7 +700,11 @@ function buildSummarySourceObjects(options: {
     materialImageUrl: resolveMaterialIdentity(item.materialSku).materialImageUrl,
     blockerCount: blockerCountBySourceNo[item.processOrderNo] || 0,
     navigationTarget: 'specialProcesses',
-    navigationPayload: item.navigationPayload.specialProcesses,
+    navigationPayload: {
+      processOrderId: item.processOrderId,
+      processOrderNo: item.processOrderNo,
+      productionOrderNo: item.productionOrderNos[0],
+    },
   }))
 
   return [
@@ -844,7 +851,6 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const relatedMarkerPlanIds = uniqueStrings([
       ...markerPlanSources.map((batch) => batch.markerPlanId),
       ...cutOrderRows.flatMap((row) => row.markerPlanIds),
-      ...bagBindings.map((binding) => binding.markerPlanId),
     ])
     const relatedMarkerPlanNos = uniqueStrings([
       ...Array.from(markerPlanNoSet),
@@ -898,9 +904,9 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
         checkResult.blockerItems.length > 0 ||
         checkResult.nextActions.length > 0 ||
         checkResult.sectionStates.some((section) => section.stateKey === 'NOT_STARTED' || section.stateKey === 'IN_PROGRESS'),
-      objectDataPendingReason: checkResult.sectionStates.find((section) => section.stateKey === 'DATA_PENDING')?.reason,
+      objectDataPendingReason: checkResult.sectionStates.find((section) => section.stateKey === 'DATA_PENDING')?.detailText,
       objectExceptionReason: checkResult.blockerItems.find((item) => item.severity === 'HIGH')?.blockerReason,
-      objectPendingReason: checkResult.primaryBlocker?.blockerReason || checkResult.nextActions[0]?.reason,
+      objectPendingReason: checkResult.primaryBlocker?.blockerReason || checkResult.nextActions[0]?.label,
     })
     const issueTypes = summarizeCheckSections(checkResult.sectionStates)
     const overallRiskLevel = deriveOverallRiskLevel({
@@ -977,7 +983,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       warehouseIssueCount:
         fabricStocks.filter((item) => item.riskTags.length > 0).length +
         cutPieceItems.filter((item) => item.riskTags.length > 0).length +
-        returnUsages.filter((item) => item.returnExceptionMeta || item.latestConditionRecord?.reusableDecision !== 'REUSABLE').length,
+        returnUsages.filter((item) => item.returnDiscrepancyMeta || item.latestClosureResult?.closureStatus === 'SCRAP_CLOSED').length,
       openBagUsageCount: bagUsages.filter((usage) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)).length,
       openSpecialProcessCount: specialProcesses.filter((item) => isOpenSpecialProcess(item)).length,
       keywordIndex: lowerKeywordIndex([
@@ -1061,7 +1067,7 @@ export function filterSummaryByIssueType(
 }
 
 export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData, 'traceTree'>): CuttingSummaryTraceNode[] {
-  const cutOrderNodes = detail.cutOrderRows.map((row) => {
+  const cutOrderNodes = detail.cutOrderRows.map<CuttingSummaryTraceNode>((row) => {
     const markerPlanNodes = detail.markerPlanSources
       .filter((batch) => batch.items.some((item) => item.cutOrderId === row.cutOrderId))
       .map<CuttingSummaryTraceNode>((batch) => ({
@@ -1123,7 +1129,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       relatedIds: [detail.row.productionOrderId, detail.row.productionOrderNo],
       status: `${detail.completionMeta.label} / ${detail.row.currentStageLabel}`,
       children: [...cutOrderNodes, ...specialProcessNodes],
-    },
+    } satisfies CuttingSummaryTraceNode,
   ]
 }
 

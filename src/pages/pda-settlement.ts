@@ -1707,7 +1707,7 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
       by: context.operatorName,
       remark: '工厂端已确认本期对账单口径',
     })
-    state.statementErrorText = result.message
+    state.statementErrorText = result.message || ''
     if (result.ok) {
       state.statementDrawerMode = 'detail'
       state.statementDetailId = statementId
@@ -1734,7 +1734,7 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
       description: state.statementAppealForm.description.trim(),
       evidenceSummary: state.statementAppealForm.evidenceSummary.trim(),
     })
-    state.statementErrorText = result.message
+    state.statementErrorText = result.message || ''
     if (result.ok) {
       state.statementDrawerMode = 'detail'
       state.statementDetailId = statementId

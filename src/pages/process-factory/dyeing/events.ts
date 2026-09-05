@@ -144,15 +144,16 @@ function executeConfirmedDyeWaterAction(
   const common = {
     dyeOrderId: current.dyeOrderId,
     taskId: current.taskId,
-    expectedStatus,
     expectedNode: 'WATER_SOLUBLE' as const,
     actor: currentSession,
   }
   const result = action === 'START'
-    ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: requiredStatus })
-    : action === 'COMPLETE'
-      ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: requiredStatus, outputQty: values.outputQty, reason: values.reason })
-      : executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: requiredStatus, decision: values.decision })
+    ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WAIT_WATER_SOLUBLE' })
+    : action === 'COMPLETE' && values.outputQty !== undefined && values.reason !== undefined
+      ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', outputQty: values.outputQty, reason: values.reason })
+      : action === 'RESOLVE_PAUSE' && values.decision !== undefined
+        ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'PRODUCTION_PAUSED', decision: values.decision })
+        : { ok: false, message: '当前操作参数不完整，请重新操作。' }
   showDyeingToast(result.ok ? (action === 'START' ? '已开始水溶' : action === 'COMPLETE' ? (result.order?.status === 'PRODUCTION_PAUSED' ? '数量不足，已交主管处理' : '水溶完成，可继续染色') : '主管处理已记录') : result.message)
   if (result.ok) refreshCurrentDyeingPage()
 }

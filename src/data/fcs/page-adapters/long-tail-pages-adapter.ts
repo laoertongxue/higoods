@@ -27,6 +27,7 @@ export interface LegacyLikeDeductionBasisItem {
   sourceRefId: string
   sourceId: string
   factoryId?: string
+  settlementPartyId?: string
   createdAt: string
   updatedAt?: string
 }
@@ -64,9 +65,10 @@ function resolveOrderFactoryId(orderId: string): string | undefined {
 
 function toLegacyQcResult(exception: ExceptionCase): 'PASS' | 'FAIL' {
   if (
-    exception.reasonCode === 'MATERIAL_QTY_SHORT'
-    || exception.reasonCode === 'HANDOUT_DIFF'
-    || exception.reasonCode === 'HANDOUT_PENDING_CHECK'
+    exception.reasonCode === 'BLOCKED_MATERIAL'
+    || exception.reasonCode === 'BLOCKED_QUALITY'
+    || exception.reasonCode === 'HANDOVER_DIFF'
+    || exception.reasonCode === 'MATERIAL_NOT_READY'
   ) {
     return 'FAIL'
   }
@@ -147,15 +149,14 @@ export function listLegacyLikeDyePrintOrdersForTailPages(): LegacyLikeDyePrintOr
         && exception.relatedOrderIds.includes(orderId)
         && (
           exception.reasonCode === 'MATERIAL_NOT_READY'
-          || exception.reasonCode === 'MATERIAL_PREP_PENDING'
-          || exception.reasonCode === 'MATERIAL_QTY_SHORT'
+          || exception.reasonCode === 'BLOCKED_MATERIAL'
         ),
     )
 
     const handoutDiffCount = exceptions.filter(
       (exception) =>
         exception.relatedOrderIds.includes(orderId)
-        && exception.reasonCode === 'HANDOUT_DIFF'
+        && exception.reasonCode === 'HANDOVER_DIFF'
         && exception.caseStatus !== 'CLOSED',
     ).length
 

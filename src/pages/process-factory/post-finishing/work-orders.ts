@@ -103,7 +103,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
     const searchable = [row.task.postTaskNo, row.task.qcTaskNo, row.task.deliveryOrderNo, row.task.productionOrderNo, row.delivery?.sewingFactoryName, row.delivery?.managedPostFactoryName, ...row.task.processItems, ...row.task.lines.map((line) => line.sku.skuCode)].filter(Boolean).join(' ').toLowerCase()
     return (!keyword || searchable.includes(keyword))
       && (!status || row.task.status === status)
-      && (!processItem || row.task.processItems.includes(processItem))
+      && (!processItem || row.task.processItems.some((item) => item === processItem))
       && (!factory || row.delivery?.managedPostFactoryName === factory)
   })
   const defects = listPostFinishingDefectRecords({ discoveryStage: '后道' })

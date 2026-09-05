@@ -94,6 +94,8 @@ export interface FeiNavigationPayload {
   markerSpreading: Record<string, string | undefined>
   summary: Record<string, string | undefined>
   transferBags: Record<string, string | undefined>
+  /** Route payload used by cutting summary drill-downs back to this module. */
+  feiTickets: Record<string, string | undefined>
 }
 
 export interface CutOrderTicketOwner {
@@ -134,6 +136,8 @@ export interface CutOrderTicketOwner {
 export interface FeiTicketLabelRecord {
   ticketRecordId: string
   ticketNo: string
+  /** Compatibility aliases retained for older traceability projections. */
+  feiTicketNo?: string
   sourceOutputLineId?: string
   sourceBasis?: FeiTicketSourceBasis
   sourceBasisType?: FeiTicketSourceBasisType
@@ -166,10 +170,13 @@ export interface FeiTicketLabelRecord {
   sourceContextType: FeiTicketsContextType
   sourceMarkerPlanId: string
   sourceMarkerPlanNo: string
+  markerPlanNo?: string
   printableUnitId?: string
   printableUnitNo?: string
   printableUnitType?: PrintableUnitType
   sourceProductionOrderId?: string
+  productionOrderId?: string
+  markerPlanId?: string
   splitDetailId?: string
   partCode?: string
   partName?: string
@@ -181,6 +188,7 @@ export interface FeiTicketLabelRecord {
   pieceSetNoRange?: string
   bundleTicketType?: string
   quantity?: number
+  qty?: number
   actualCutPieceQty?: number
   printStatus?: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   processTags?: string[]
@@ -418,7 +426,7 @@ export function buildFeiTicketFiveDimTitle(record: Pick<
 >): string {
   if (!isFeiTicketFiveDimComplete(record)) return '暂无数据'
   const pieceSetText = record.pieceSetNoRange ? `配套${record.pieceSetNoRange}` : record.bundleNo
-  return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${pieceSetText || '待补扎号'} - ${formatQty(record.quantity)}`
+  return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${pieceSetText || '待补扎号'} - ${formatQty(record.quantity ?? 0)}`
 }
 
 function createEmptyPreviewRecord(
@@ -1144,6 +1152,7 @@ export function buildFeiNavigationPayload(
       markerPlanNo,
       cutOrderNo: owner.cutOrderNo,
     },
+    feiTickets: {},
   }
 }
 
@@ -2425,6 +2434,8 @@ function buildSplitDetailsFromOwner(
         detailId: seed.detailId,
         sourceOutputLineId: seed.sourceOutputLineId,
         printableUnitId: unit.printableUnitId,
+        sourceSpreadingSessionId: generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionId || '',
+        sourceSpreadingSessionNo: generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionNo || '',
         sourceCutOrderId: source.owner.cutOrderId,
         sourceCutOrderNo: source.owner.cutOrderNo,
         sourceProductionOrderId: source.owner.productionOrderId,
@@ -2445,6 +2456,7 @@ function buildSplitDetailsFromOwner(
         bundleTicketType: seed.bundleTicketType,
         quantity: seed.quantity,
         actualCutPieceQty: seed.actualCutPieceQty,
+        garmentQty: seed.garmentQty,
         requiredTicketCount: 1,
         validPrintedTicketCount: 0,
         gapCount: 0,
@@ -2529,7 +2541,7 @@ export function buildTicketCards(options: {
 
   return options.ticketRecords
     .filter((record) => matchesPrintableUnitRecord(options.unit, record))
-    .map((record) => {
+    .map((record): TicketCard => {
       const detail =
         detailMap.get(`${record.cutOrderId}:${record.sequenceNo}`) ||
         options.splitDetails.find((item) => item.detailId === record.splitDetailId) ||
@@ -2599,7 +2611,7 @@ export function buildTicketPrintRecords(options: {
 }): TicketPrintRecord[] {
   return options.printJobs
     .filter((job) => matchesPrintableUnitPrintJob(options.unit, job))
-    .map((job) => ({
+    .map((job): TicketPrintRecord => ({
       recordId: job.printJobId,
       printableUnitId: options.unit.printableUnitId,
       operationType: job.operationType === 'REPRINT' || job.status === 'REPRINTED'

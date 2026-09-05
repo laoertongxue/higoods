@@ -1348,8 +1348,8 @@ function readSampleReviewDraftFromDom(): FactorySampleReviewPayload {
   if (typeof document === 'undefined') return state.sampleReviewDraft
   const result = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-sampleReviewResult"]:checked')?.value as FactorySampleReviewResult | undefined
   const sampleReviewOpinion = document.querySelector<HTMLTextAreaElement>('[data-factory-onboarding-field="sampleReview-sampleReviewOpinion"]')?.value
-  const sampleQualityConclusion = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-sampleQualityConclusion"]:checked')?.value
-  const capacityConclusion = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-capacityConclusion"]:checked')?.value
+  const sampleQualityConclusion = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-sampleQualityConclusion"]:checked')?.value as FactorySampleReviewPayload['sampleQualityConclusion']
+  const capacityConclusion = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-capacityConclusion"]:checked')?.value as FactorySampleReviewPayload['capacityConclusion']
   const bossIdentityNo = document.querySelector<HTMLInputElement>('[data-factory-onboarding-field="sampleReview-bossIdentityNo"]')?.value
   const remark = document.querySelector<HTMLTextAreaElement>('[data-factory-onboarding-field="sampleReview-remark"]')?.value
   const requiredResubmitItems = Array.from(document.querySelectorAll<HTMLInputElement>('[data-factory-onboarding-field="sampleReviewRequiredItem"]:checked'))

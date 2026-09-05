@@ -5,9 +5,8 @@ import {
   replaceProjectStore,
   listProjectNodes,
   listProjects,
-  type PcsProjectNodeRecord,
-  type PcsProjectViewRecord,
 } from './pcs-project-repository.ts'
+import type { PcsProjectNodeRecord, PcsProjectViewRecord } from './pcs-project-types.ts'
 import {
   getProjectStepDefinition,
   listProjectFlowStageContracts,
@@ -543,7 +542,7 @@ export function repairPcsProjectDataConsistency(
   const projectSnapshot = getProjectStoreSnapshot()
   let nodeRepairCount = 0
 
-  const repairedNodes = projectSnapshot.nodes.map((node) => {
+  const repairedNodes: PcsProjectNodeRecord[] = projectSnapshot.nodes.map((node): PcsProjectNodeRecord => {
     if (node.currentStatus !== '已完成') return node
     const validation = validateProjectNodeCompletion(node.projectId, node.projectNodeId)
     if (validation.ok) return node

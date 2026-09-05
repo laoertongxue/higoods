@@ -45,6 +45,7 @@ import {
   getPlatformQcDetailViewModelByRouteKey,
   type PlatformQcDetailViewModel,
 } from '../../data/fcs/quality-deduction-selectors'
+import type { QcRecordFact } from '../../data/fcs/quality-deduction-domain'
 import {
   getQcFactDetail,
   type QcFactDetail,
@@ -67,12 +68,12 @@ const INSPECTION_METHOD_LABEL: Record<string, string> = {
   FULL_INSPECTION: '全检',
 }
 
-function getInspectionSceneLabel(qc: QualityInspection): string {
+function getInspectionSceneLabel(qc: Pick<QualityInspection, 'inspectionScene'> | Pick<QcRecordFact, 'inspectionScene'>): string {
   if (!qc.inspectionScene) return '回货质检'
   return INSPECTION_SCENE_LABEL[qc.inspectionScene] ?? '回货质检'
 }
 
-function getInspectionMethodLabel(qc: QualityInspection): string {
+function getInspectionMethodLabel(qc: Pick<QualityInspection, 'inspectionMethod'> | Pick<QcRecordFact, 'inspectionMethod'>): string {
   if (!qc.inspectionMethod) return '抽检'
   return INSPECTION_METHOD_LABEL[qc.inspectionMethod] ?? '抽检'
 }
@@ -240,13 +241,7 @@ function renderChainOverview(params: {
         <p class="text-xs text-muted-foreground">责任与质检事实</p>
         <div class="mt-1 flex flex-wrap items-center gap-2">
           <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${
-            qc.liabilityStatus === 'FACTORY'
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : qc.liabilityStatus === 'NON_FACTORY'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : qc.liabilityStatus === 'MIXED'
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : qc.liabilityStatus === 'CONFIRMED'
+            qc.liabilityStatus === 'CONFIRMED'
               ? 'border-green-200 bg-green-50 text-green-700'
               : qc.liabilityStatus === 'DISPUTED'
                 ? 'border-yellow-200 bg-yellow-50 text-yellow-700'

@@ -8,10 +8,12 @@ import {
   listFactoryWarehouseStocktakeOrders,
   type FactoryInternalWarehouse,
   type FactoryWaitHandoverStockItem,
+  type FactoryWaitHandoverStockStatus,
   type FactoryWaitProcessStockItem,
   type FactoryWarehouseInboundRecord,
   type FactoryWarehouseNodeRow,
   type FactoryWarehouseOutboundRecord,
+  type FactoryOutboundRecordStatus,
   type FactoryWarehouseStocktakeOrder,
 } from './factory-internal-warehouse.ts'
 import {
@@ -43,12 +45,19 @@ export interface DyeingWarehouseView {
   stocktakeOrders: FactoryWarehouseStocktakeOrder[]
 }
 
-function normalizeDyeWarehouseReceiptStatus(status: string): string {
-  if (status === '有差异' || status === '收货差异') return '收货差异'
-  if (status === '已回写' || status === '已全部交出' || status === '全部交出') return '全部交出'
-  if (status === '部分交出') return '部分交出'
-  if (status === '待回写' || status === '待交出' || status === '已出库') return '交出待收货'
-  return status
+function normalizeWaitHandoverStatus(status: string): FactoryWaitHandoverStockStatus {
+  if (status === '有差异' || status === '收货差异') return '差异'
+  if (status === '平台处理中') return '异议中'
+  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
+  if (status === '交出待收货' || status === '部分交出' || status === '已出库') return '已交出'
+  return '待交出'
+}
+
+function normalizeOutboundStatus(status: string): FactoryOutboundRecordStatus {
+  if (status === '有差异' || status === '收货差异') return '差异'
+  if (status === '平台处理中') return '异议中'
+  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
+  return status === '已作废' ? '已作废' : '已出库'
 }
 
 function normalizeDyeWarehouseReference(value: string | undefined): string | undefined {
@@ -115,7 +124,7 @@ function mapWaitProcessRecord(record: ProcessWarehouseRecord): FactoryWaitProces
     locationText: record.warehouseLocation,
     photoList: [],
     remark: record.remark,
-    sourceRecordId: record.sourceWorkOrderId,
+    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
     sourceRecordNo: record.warehouseRecordNo,
     sourceRecordType: 'HANDOVER_RECEIVE',
     sourceObjectKind: '染厂',
@@ -169,7 +178,7 @@ function mapWaitHandoverRecord(record: ProcessWarehouseRecord): FactoryWaitHando
     handoverRecordNo: normalizeDyeWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
     receiverWrittenQty: record.writtenBackObjectQty,
     differenceQty: record.diffObjectQty,
-    status: normalizeDyeWarehouseReceiptStatus(record.status),
+    status: normalizeWaitHandoverStatus(record.status),
   }
 }
 
@@ -187,7 +196,7 @@ function mapInboundRecord(record: ProcessWarehouseRecord): FactoryWarehouseInbou
     processName: '染色',
     craftCode: 'DYE',
     craftName: record.craftName,
-    sourceRecordId: record.sourceWorkOrderId,
+    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
     sourceRecordNo: record.sourceWorkOrderNo,
     sourceRecordType: 'HANDOVER_RECEIVE',
     sourceObjectName: record.sourceWorkOrderNo,
@@ -240,7 +249,7 @@ function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutbo
     unit: record.qtyUnit,
     operatorName: record.handoverPerson,
     outboundAt: record.handoverAt,
-    status: normalizeDyeWarehouseReceiptStatus(record.status),
+    status: normalizeOutboundStatus(record.status),
     photoList: [],
     relatedWaitHandoverStockItemId: record.warehouseRecordId,
     remark: record.remark,
@@ -330,7 +339,7 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
   return {
     factoryIds: Array.from(visibleFactoryIds),
     taskIds: Array.from(taskIds),
-    dyeOrderIds: Array.from(dyeOrderIds),
+    dyeOrderIds: Array.from(dyeOrderIds).flatMap((id) => id ? [id] : []),
     handoverOrderIds: Array.from(handoverOrderIds),
     waitProcessItems,
     waitHandoverItems,

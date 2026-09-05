@@ -1,4 +1,4 @@
-import { listFactoryWaitProcessStockItems } from './factory-internal-warehouse.ts'
+import { listFactoryWaitProcessStockItems, type FactoryWaitProcessStockStatus } from './factory-internal-warehouse.ts'
 
 export interface ProcessWorkOrderStockMaterial {
   stockMaterialId: string
@@ -11,7 +11,7 @@ export interface ProcessWorkOrderStockMaterial {
   factoryName: string
   processCode?: string
   processName?: string
-  status: '待接收' | '已入待加工仓' | '差异待处理'
+  status: FactoryWaitProcessStockStatus
   differenceQty: number
 }
 

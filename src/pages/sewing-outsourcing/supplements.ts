@@ -83,8 +83,9 @@ const preferences: StandardListColumnPreferences = {
 }
 
 function activeRow(): SewingSupplementTrackingRow | null {
-  if (!state.dialog || state.dialog.kind === 'IMAGE') return null
-  return listSewingSupplementTrackingRows().find((item) => item.assignmentId === state.dialog?.assignmentId) || null
+  const dialog = state.dialog
+  if (!dialog || dialog.kind === 'IMAGE') return null
+  return listSewingSupplementTrackingRows().find((item) => item.assignmentId === dialog.assignmentId) || null
 }
 
 function renderDialog(): string {
@@ -195,7 +196,7 @@ export function handleSewingOutsourcingSupplementsEvent(target: HTMLElement): bo
       state.feedback = '跟进日志已保存；补料单状态仍由裁床维护。'
       state.dialog = null
     } catch (error) {
-      state.dialog = { ...state.dialog, error: error instanceof Error ? error.message : '保存失败' }
+      state.dialog = { kind: 'FOLLOW_UP', assignmentId, error: error instanceof Error ? error.message : '保存失败' }
     }
   } else if (action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)

@@ -1686,7 +1686,7 @@ export function recoverTransferBag(
       if (!collisions.length) {
         assertRuntimeEventIdAvailable({
           eventType: '中转袋回收',
-          refs: appendInput.refs,
+          refs: { transferBagCode: normalized.bagCode, usageCycleId },
           occurredAt: normalized.occurredAt,
           idempotencyKey: appendInput.idempotencyKey,
           events,
@@ -1735,7 +1735,7 @@ export function submitTransferBagScrap(
         }
         assertRuntimeEventIdAvailable({
           eventType: '中转袋报废',
-          refs: appendInput.refs,
+          refs: { transferBagCode: normalized.bagCode },
           occurredAt: normalized.occurredAt,
           idempotencyKey: appendInput.idempotencyKey,
           events,
@@ -2913,7 +2913,7 @@ function normalizeSubmitSpecialCraftBagReturnInput(
   }
 }
 
-function buildSpecialCraftBagReturnCanonicalIntent(input: {
+export function buildSpecialCraftBagReturnCanonicalIntent(input: {
   sourceHandoverRecordId: string
   sourceHandoverEventId: string
   sourceHandoverOrderId: string

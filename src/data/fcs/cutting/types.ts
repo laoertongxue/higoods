@@ -59,6 +59,7 @@ export interface CuttingPatternIdentity {
   patternKind: string
   effectiveWidthValue: number
   effectiveWidthUnit: string
+  effectiveWidthText?: string
   piecePartCodes: string[]
   piecePartNames: string[]
 }
@@ -71,6 +72,9 @@ export interface CuttingMaterialLine {
   materialSku: string
   materialType: CuttingMaterialType
   materialLabel: string
+  materialUnit?: string
+  spec?: string
+  unit?: string
   materialAlias?: string
   materialImageUrl?: string
   color?: string

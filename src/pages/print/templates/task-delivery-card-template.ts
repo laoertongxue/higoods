@@ -118,11 +118,12 @@ function inferVariantFromProcess(record: ProcessHandoverRecord): DeliveryVariant
 }
 
 function resolveTargetRoute(record: ProcessHandoverRecord): string {
-  if (record.craftType === 'PRINT') return `/fcs/craft/printing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
-  if (record.craftType === 'DYE') return `/fcs/craft/dyeing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
-  if (record.craftType === 'POST_FINISHING') return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(record.sourceWorkOrderId)}?tab=handover`
+  const sourceWorkOrderId = record.sourceWorkOrderId || record.sourceWorkOrderNo || ''
+  if (record.craftType === 'PRINT') return `/fcs/craft/printing/work-orders/${encodeURIComponent(sourceWorkOrderId)}?tab=handover`
+  if (record.craftType === 'DYE') return `/fcs/craft/dyeing/work-orders/${encodeURIComponent(sourceWorkOrderId)}?tab=handover`
+  if (record.craftType === 'POST_FINISHING') return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(sourceWorkOrderId)}?tab=handover`
   if (record.craftType === 'SPECIAL_CRAFT') {
-    const workOrder = getSpecialCraftTaskOrderById(record.sourceWorkOrderId)
+    const workOrder = getSpecialCraftTaskOrderById(sourceWorkOrderId)
     return workOrder
       ? `${buildSpecialCraftTaskDetailPath(workOrder.operationId, workOrder.taskOrderId)}?tab=warehouse&handoverRecordId=${encodeURIComponent(record.handoverRecordId)}`
       : `/fcs/progress/handover?recordId=${encodeURIComponent(record.handoverRecordId)}`
@@ -300,7 +301,7 @@ function buildDocumentFromLegacyDoc(
         sectionId: 'base',
         title: variant === 'specialCraft' ? '加工单基础信息' : '任务基础信息',
         fields: mapFields([
-          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号', value: doc.handoverOrderNo || doc.taskNo },
+          { label: variant === 'specialCraft' ? '加工单号' : '任务编号 / 加工单号', value: doc.handoverOrderNo || doc.taskNo || '待确认' },
           { label: '生产单', value: doc.productionOrderNo || '待确认' },
           { label: '工序 / 工艺', value: [doc.processName, doc.craftName].filter(Boolean).join(' / ') || '待确认' },
           { label: '款号', value: doc.summaryRows.find((row) => row.label.includes('款号'))?.value || '随生产单' },
@@ -389,7 +390,9 @@ function buildDocumentFromProcessHandover(
   const warehouse = getProcessWarehouseRecordById(record.warehouseRecordId)
   const differences = getDifferenceRecordsByHandoverRecordId(record.handoverRecordId)
   const review = listProcessWarehouseReviewRecords({ handoverRecordId: record.handoverRecordId })[0]
-  const postOrder = record.craftType === 'POST_FINISHING' ? getPostFinishingWorkOrderById(record.sourceWorkOrderId) : undefined
+  const postOrder = record.craftType === 'POST_FINISHING' && record.sourceWorkOrderId
+    ? getPostFinishingWorkOrderById(record.sourceWorkOrderId)
+    : undefined
   const variant = preferredVariant || inferVariantFromProcess(record)
   const title = DELIVERY_TITLE_BY_VARIANT[variant]
   const noun = objectQtyNoun(record.objectType, record.qtyUnit)
@@ -419,7 +422,7 @@ function buildDocumentFromProcessHandover(
     headerFields: mapFields([
       { label: '交货卡号 / 交出记录号', value: record.handoverRecordNo, emphasis: true },
       { label: '来源单据号', value: record.sourceWorkOrderNo },
-      { label: '生产单号', value: record.sourceProductionOrderNo },
+      { label: '生产单号', value: record.sourceProductionOrderNo || '待确认' },
       { label: '当前状态', value: record.status },
       { label: '打印时间', value: generatedAt },
     ]),

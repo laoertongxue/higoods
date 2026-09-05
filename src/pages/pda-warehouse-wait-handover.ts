@@ -128,8 +128,8 @@ function buildPostFinishingPdaHandoverRoute(recheckOrderNo: string): string {
   return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(recheckOrderNo)}`
 }
 
-function getLinkedQrValue(source: Record<string, unknown>): string | undefined {
-  const value = source[LINKED_QR_FIELD]
+function getLinkedQrValue(source: object): string | undefined {
+  const value = (source as Record<string, unknown>)[LINKED_QR_FIELD]
   return typeof value === 'string' ? value : undefined
 }
 
@@ -485,7 +485,7 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
   }
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
-  if (action === 'open-wait-handover-detail' && actionNode.dataset.stockItemId) {
+  if (action === 'open-wait-handover-detail' && actionNode?.dataset.stockItemId) {
     state.detailId = actionNode.dataset.stockItemId
     return true
   }
@@ -493,7 +493,7 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
     state.detailId = null
     return true
   }
-  if (action === 'open-wait-handover-location' && actionNode.dataset.stockItemId) {
+  if (action === 'open-wait-handover-location' && actionNode?.dataset.stockItemId) {
     openLocationEditor(actionNode.dataset.stockItemId)
     return true
   }

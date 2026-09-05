@@ -10,6 +10,7 @@ import {
   writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
+  type HandoverReceiverKind,
 } from './pda-handover-events.ts'
 import {
   listPdaGenericProcessTasks,
@@ -17,7 +18,7 @@ import {
   unregisterPdaGenericProcessTask,
   type PdaGenericTaskMock,
 } from './pda-task-mock-factory.ts'
-import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
+import { type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
@@ -707,7 +708,7 @@ function ensureSeededHandoverRecord(input: {
     && input.receiverWrittenAt
   ) {
     writeBackHandoverRecord({
-      handoverRecordId: firstRecord.handoverRecordId,
+      handoverRecordId: firstRecord.handoverRecordId || firstRecord.recordId,
       receiverWrittenQty: input.receiverWrittenQty,
       receiverWrittenAt: input.receiverWrittenAt,
       receiverWrittenBy: '中转区域',
@@ -719,7 +720,7 @@ function ensureSeededHandoverRecord(input: {
   const nextRecords = getPdaHandoverRecordsByHead(head.handoverId)
   return {
     handoverOrderId,
-    recordIds: nextRecords.map((record) => record.handoverRecordId),
+    recordIds: nextRecords.map((record) => record.handoverRecordId || record.recordId),
   }
 }
 
@@ -1645,7 +1646,7 @@ function seedReviewRecords(): void {
     reviewRecordId: `PRV-${waitReviewOrder.printOrderId}`,
     printOrderId: waitReviewOrder.printOrderId,
     handoverOrderId: head.handoverOrderId || head.handoverId,
-    handoverRecordIds: records.map((record) => record.handoverRecordId),
+    handoverRecordIds: records.map((record) => record.handoverRecordId || record.recordId),
     receiverName: waitReviewOrder.targetTransferWarehouseName,
     submittedQty: head.submittedQtyTotal ?? 0,
     receivedQty: head.writtenBackQtyTotal ?? 0,
@@ -1669,7 +1670,7 @@ function seedReviewRecords(): void {
     reviewRecordId: `PRV-${completedOrder.printOrderId}`,
     printOrderId: completedOrder.printOrderId,
     handoverOrderId: completedHead.handoverOrderId || completedHead.handoverId,
-    handoverRecordIds: completedRecords.map((record) => record.handoverRecordId),
+    handoverRecordIds: completedRecords.map((record) => record.handoverRecordId || record.recordId),
     receiverName: completedOrder.targetTransferWarehouseName,
     submittedQty: completedHead.submittedQtyTotal ?? 0,
     receivedQty: completedHead.writtenBackQtyTotal ?? 0,
@@ -1695,7 +1696,7 @@ function seedReviewRecords(): void {
     reviewRecordId: `PRV-${rejectedOrder.printOrderId}`,
     printOrderId: rejectedOrder.printOrderId,
     handoverOrderId: rejectedHead.handoverOrderId || rejectedHead.handoverId,
-    handoverRecordIds: rejectedRecords.map((record) => record.handoverRecordId),
+    handoverRecordIds: rejectedRecords.map((record) => record.handoverRecordId || record.recordId),
     receiverName: rejectedOrder.targetTransferWarehouseName,
     submittedQty: rejectedHead.submittedQtyTotal ?? 0,
     receivedQty: rejectedHead.writtenBackQtyTotal ?? 0,
@@ -1772,7 +1773,7 @@ function ensureReviewForHandoverOrder(order: MutablePrintWorkOrder, head: PdaHan
   const current = reviewRecordStore.get(order.printOrderId)
   if (current) {
     current.handoverOrderId = head.handoverOrderId || head.handoverId
-    current.handoverRecordIds = records.map((record) => record.handoverRecordId)
+    current.handoverRecordIds = records.map((record) => record.handoverRecordId || record.recordId)
     current.receiverName = order.targetTransferWarehouseName
     current.submittedQty = submittedQty
     if (current.reviewStatus === 'WAIT_RECEIVE') {
@@ -1791,7 +1792,7 @@ function ensureReviewForHandoverOrder(order: MutablePrintWorkOrder, head: PdaHan
     reviewRecordId: `PRV-${order.printOrderId}`,
     printOrderId: order.printOrderId,
     handoverOrderId: head.handoverOrderId || head.handoverId,
-    handoverRecordIds: records.map((record) => record.handoverRecordId),
+    handoverRecordIds: records.map((record) => record.handoverRecordId || record.recordId),
     receiverName: order.targetTransferWarehouseName,
     submittedQty,
     receivedQty,

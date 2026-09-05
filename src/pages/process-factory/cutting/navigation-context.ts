@@ -60,6 +60,8 @@ export interface CuttingDrillContext {
   usageId?: string
   usageNo?: string
   warehouseRecordId?: string
+  suggestionId?: string
+  suggestionNo?: string
   autoOpenDetail?: boolean
   detailTab?: string
   focusTab?: string

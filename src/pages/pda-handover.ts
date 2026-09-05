@@ -480,7 +480,9 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 
   const receiverName = getReceiverDisplayName(head)
   const receiverKindLabel = getReceiverKindLabel(head.receiverKind)
-  const orderStatusLabel = getHandoverOrderStatusLabel(head.handoverOrderStatus || head.status)
+  const orderStatusLabel = getHandoverOrderStatusLabel(
+    head.handoverOrderStatus || (head.status === 'CONFIRMED' ? 'WRITTEN_BACK' : 'OPEN'),
+  )
 
   return `
     <article

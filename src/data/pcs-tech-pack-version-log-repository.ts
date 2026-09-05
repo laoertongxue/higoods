@@ -44,10 +44,7 @@ function createEmptySnapshot(): TechPackVersionLogStoreSnapshot {
 function normalizeLog(log: TechPackVersionLogRecord): TechPackVersionLogRecord {
   return {
     ...cloneLog(log),
-    sourceTaskType:
-      log.sourceTaskType === 'REVISION' || log.sourceTaskType === 'PLATE' || log.sourceTaskType === 'ARTWORK' || log.sourceTaskType === 'MANUAL'
-        ? log.sourceTaskType
-        : '',
+    sourceTaskType: log.sourceTaskType === 'ENGINEERING_MASTER' ? log.sourceTaskType : '',
     sourceTaskId: log.sourceTaskId || '',
     sourceTaskCode: log.sourceTaskCode || '',
     sourceTaskName: log.sourceTaskName || '',

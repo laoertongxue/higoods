@@ -1032,7 +1032,7 @@ function renderEditShelfLocationsDialog(kind: CuttingWarehouseMapKind, current: 
   const counts = shelfPositionCounts(shelf)
   const occupied = occupiedDescendants(current, shelf.locationList.map((location) => location.locationId))
   const notice = `<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">增加层数或位置数会生成新库位；减少时只删除末端空闲库位。${occupied.length ? `当前占用：${occupied.map(escapeHtml).join('、')}，这些库位不会被删除。` : ''}</div>`
-  return dialogShell(kind, current.snapshot, { type: 'edit-shelf-locations', shelfId }, `维护 ${shelf.shelfNo} 库位`, `${notice}${field('层数', 'levelCount', String(counts.length), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', String(counts[0] || 1), { type: 'number' })}${renderLevelPositionEditor(counts.length, (levelNo) => String(counts[levelNo - 1] || 1))}${renderShelfStructurePreview(area.code || '', shelf.shelfSequence, shelf.locationList.length, {
+  return dialogShell(kind, current.snapshot, { type: 'edit-shelf-locations', shelfId }, `维护 ${shelf.shelfNo} 库位`, `${notice}${field('层数', 'levelCount', String(counts.length), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', String(counts[0] || 1), { type: 'number' })}${renderLevelPositionEditor(counts.length, (levelNo) => String(counts[levelNo - 1] || 1))}${renderShelfStructurePreview(area.code || '', shelf.shelfSequence ?? area.shelfList.indexOf(shelf) + 1, shelf.locationList.length, {
     levelCount: counts.length,
     defaultPositionCountRaw: String(counts[0] || 1),
     positionCountOverrides: new Map(counts.map((count, index) => [index + 1, String(count)])),
@@ -1076,7 +1076,8 @@ export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKi
     hydrateIcons(modal)
     if (dialog.type === 'create-shelf' || dialog.type === 'edit-shelf-locations') {
       const current = dialog.type === 'edit-shelf-locations' ? buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true }) : null
-      const shelf = current?.snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === dialog.shelfId)
+      const shelfId = dialog.type === 'edit-shelf-locations' ? dialog.shelfId : ''
+      const shelf = current?.snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === shelfId)
       const counts = shelf ? shelfPositionCounts(shelf) : []
       shelfDraftStates.set(modal, {
         levelCount: Number(formValue(modal, 'levelCount')) || 1,
@@ -1286,7 +1287,7 @@ function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapK
     const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === modal.dataset.shelfId))
     const shelf = area?.shelfList.find((item) => item.shelfId === modal.dataset.shelfId)
     if (!area || !shelf) return
-    replaceMaintenancePreviewHtml(modal, renderShelfStructurePreview(area.code || '', shelf.shelfSequence, shelf.locationList.length, draft))
+    replaceMaintenancePreviewHtml(modal, renderShelfStructurePreview(area.code || '', shelf.shelfSequence ?? area.shelfList.indexOf(shelf) + 1, shelf.locationList.length, draft))
     return
   }
   if (type === 'edit-area') {

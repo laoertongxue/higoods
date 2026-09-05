@@ -218,7 +218,7 @@ export function captureReceiverWritebackDraftState(): Pick<
 
 let waterHandoverConfirmSequence = 0
 
-function isWaterSolubleHandoverHead(head: PdaHandoverHead | undefined): head is PdaHandoverHead {
+function isWaterSolubleHandoverHead(head: PdaHandoverHead | undefined): boolean {
   return head?.headType === 'HANDOUT' && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
 }
 
@@ -1923,7 +1923,7 @@ function renderHandoutRecordAuditItem(
   const specialCraftTicketNos =
     returnBindings.length > 0
       ? returnBindings.map((binding) => binding.feiTicketNo)
-      : record.cutPieceLines?.map((line) => line.feiTicketNo).filter(Boolean) || []
+      : record.cutPieceLines?.map((line) => line.feiTicketNo).filter((ticketNo): ticketNo is string => Boolean(ticketNo)) || []
   const specialCraftSummary = renderSpecialCraftTicketSummary(specialCraftTicketNos)
 
   return `
@@ -2205,7 +2205,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
             }))}
             ${renderPdaHandoverSourceIdentity(head)}
             ${renderFieldRow('当前工序', head.processName)}
-            ${renderFieldRow('状态', getHandoverOrderStatusLabel(head.handoverOrderStatus || head.status))}
+            ${renderFieldRow('状态', head.handoverOrderStatus ? getHandoverOrderStatusLabel(head.handoverOrderStatus) : head.status || '—')}
           </div>
           <div class="h-px bg-border"></div>
           ${renderPartyRow('交出工厂', 'FACTORY', head.sourceFactoryName)}
@@ -2302,6 +2302,19 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
   const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
   const profile = deriveHandoutObjectProfile(head, records, runtimeTask, sourceDoc)
   const source = getPdaHandoverSourceDisplay(head)
+  const recordActionRole = resolveFcsDemoRole(isWoolHandover ? 'RECEIVER' : 'FACTORY')
+  const hasActionableRecord = records.some((record) => (
+    (canReceiverWriteback(record) && canReceiverWritebackAction(recordActionRole))
+    || (
+      canHandleDiff(record)
+      && (canAcceptDiffAction(recordActionRole) || canRaiseQuantityObjection(recordActionRole))
+    )
+  ))
+  const recordHistoryOpen = Boolean(
+    hasActionableRecord
+    || detailState.writebackRecordId
+    || detailState.objectionRecordId,
+  )
 
   return `
     <article class="rounded-xl border bg-card p-3 shadow-sm" data-testid="pda-handout-summary">
@@ -2328,7 +2341,7 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
       ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-handout-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成交出单</button>`
       : ''}
 
-    <details class="rounded-xl border bg-card" data-testid="handout-record-history">
+    <details class="rounded-xl border bg-card" data-testid="handout-record-history" ${recordHistoryOpen ? 'open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>交出记录（${records.length}）</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
       <div class="space-y-2 border-t p-3">${records.length ? records.map((record) => renderHandoutRecordItem(record, head, runtimeTask, sourceDoc)).join('') : '<div class="py-4 text-center text-xs text-muted-foreground">暂无交出记录</div>'}</div>
     </details>
@@ -2577,7 +2590,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('毛织交出由加工单事实管理，不支持完成通用交出单')
       return true
     }
-    if (isWaterSolubleHandoverHead(head)) {
+    if (head && isWaterSolubleHandoverHead(head)) {
       const access = getWaterHandoverAccess(head)
       if (!access.ok) {
         showPdaHandoverDetailToast(access.message)
@@ -2773,7 +2786,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
             handoverOrderNo: head.handoverOrderNo || head.handoverId,
             handoverRecordId: created.handoverRecordId || created.recordId,
             handoverRecordNo: created.handoverRecordNo || created.recordId,
-            [LINKED_QR_FIELD]: getLinkedQrValue(created),
+            [LINKED_QR_FIELD]: getLinkedQrValue(created as unknown as Record<string, unknown>),
             taskId: created.taskId,
             taskNo: head.taskNo,
             factoryId: head.factoryId,
@@ -2781,11 +2794,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
             receiverKind: head.targetKind === 'WAREHOUSE' ? '中转仓' : '其他接收方',
             receiverName: head.receiverName || head.targetName,
             itemKind:
-              detailState.newRecordObjectType === 'FABRIC'
+              String(detailState.newRecordObjectType) === 'FABRIC'
                 ? '面料'
-                : detailState.newRecordObjectType === 'CUT_PIECE'
+                : String(detailState.newRecordObjectType) === 'CUT_PIECE'
                   ? '裁片'
-                  : detailState.newRecordObjectType === 'SEMI_FINISHED_GARMENT'
+                  : String(detailState.newRecordObjectType) === 'SEMI_FINISHED_GARMENT'
                     ? '成衣'
                     : '其他半成品',
             itemName: created.handoutItemLabel || created.materialName || head.processName,
@@ -2919,7 +2932,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
           const receivedFeiTicketNos =
             returnBindings.length > 0
               ? returnBindings.map((item) => item.feiTicketNo)
-              : updated.cutPieceLines?.map((line) => line.feiTicketNo).filter(Boolean) || []
+              : updated.cutPieceLines?.map((line) => line.feiTicketNo).filter((ticketNo): ticketNo is string => Boolean(ticketNo)) || []
           receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse({
             returnHandoverRecordId: handoverRecordId,
             receivedFeiTicketNos,
@@ -2971,7 +2984,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
                     ? '面料'
                     : updated.handoutObjectType === 'CUT_PIECE'
                       ? '裁片'
-                      : updated.handoutObjectType === 'SEMI_FINISHED_GARMENT'
+                      : String(updated.handoutObjectType || '') === 'SEMI_FINISHED_GARMENT'
                         ? '成衣'
                         : '其他半成品',
                 itemName: updated.handoutItemLabel || updated.materialName || linkedHead.processName,

@@ -510,7 +510,7 @@ function isSoonOverdue(deadline?: string): boolean {
 }
 
 function getCaseStatus(caseFact: QualityDeductionCaseFact): QualityDeductionCaseStatus {
-  return caseFact.caseStatus ?? deriveQualityDeductionCaseStatus(caseFact)
+  return deriveQualityDeductionCaseStatus(caseFact)
 }
 
 function mapQcResultToDisplayResult(result: QualityDeductionQcResult): PlatformQcDisplayResult {

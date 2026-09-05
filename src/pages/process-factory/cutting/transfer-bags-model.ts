@@ -24,6 +24,7 @@ import {
   type TransferBagSeedTicketLike,
   type TransferBagUsageStage,
   type TransferCarrierCycleRecord,
+  type TransferCarrierStatus,
   type TransferCarrierRecord,
 } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
 import {
@@ -62,7 +63,7 @@ import {
 export type { TransferBagUsageStage }
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
-const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
+const TRANSFER_QR_FIELD = 'qrPayload' as const
 const INBOUND_TEMP_BAG_RULE_LABEL = '一个中转袋只能装同一生产单的菲票；同一生产单可以使用多个中转袋。'
 const HANDOVER_PACKING_BAG_RULE_LABEL = '交出前按当前袋内全部菲票核对生产单、车缝任务和唯一接收工厂。'
 
@@ -224,7 +225,7 @@ function readTransferQrMeta(master: TransferBagMaster): ReturnType<typeof encode
     return storedValue as ReturnType<typeof encodeCarrierQr>['payload']
   }
   if (master.qrMeta && typeof master.qrMeta === 'object') {
-    return master.qrMeta as ReturnType<typeof encodeCarrierQr>['payload']
+    return master.qrMeta as unknown as ReturnType<typeof encodeCarrierQr>['payload']
   }
   return null
 }
@@ -235,8 +236,8 @@ function readRuntimeTransferQrMeta(master: TransferCarrierRecord): Record<string
   if (runtimeValue && typeof runtimeValue === 'object') {
     return runtimeValue as Record<string, unknown>
   }
-  if (master.qrMeta && typeof master.qrMeta === 'object') return master.qrMeta as Record<string, unknown>
-  if (master.qrPayload && typeof master.qrPayload === 'object') return master.qrPayload as Record<string, unknown>
+  if (master.qrMeta && typeof master.qrMeta === 'object') return master.qrMeta as unknown as Record<string, unknown>
+  if (master.qrPayload && typeof master.qrPayload === 'object') return master.qrPayload as unknown as Record<string, unknown>
   return {}
 }
 
@@ -343,7 +344,7 @@ export interface TransferBagMaster {
   currentCycleId: string
   currentOwnerTaskId: string
   qrValue?: string
-  qrMeta?: Record<string, unknown>
+  qrMeta?: ReturnType<typeof encodeCarrierQr>['payload'] | Record<string, unknown>
   enabled?: boolean
   createdAt?: string
   createdBy?: string
@@ -434,11 +435,14 @@ export interface TransferBagItemBinding {
   唛架方案No?: string
   qty: number
   garmentQty: number
+  quantity?: number
   boundAt: string
   boundBy: string
   operator?: string
   status?: 'BOUND' | 'REMOVED'
   note: string
+  /** Denormalized ticket snapshot present on page-level binding rows. */
+  ticket?: FeiTicketLabelRecord | TransferBagTicketCandidate | null
 }
 
 export type PocketCarrier = TransferBagMaster
@@ -478,7 +482,7 @@ export interface TransferBagDispatchManifest {
 
 export interface TransferBagUsageAuditTrail {
   auditTrailId: string
-  cycleId: string
+  cycleId?: string
   usageId: string
   action: string
   actionAt: string
@@ -1423,7 +1427,7 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
     colorSummary: usage.colorSummary,
     sizeSummary: usage.sizeSummary,
     cycleStatus: usage.usageStatus || (normalized.cycleStatus as TransferBagUsageStatusKey),
-    status: String(usage.status || ''),
+    status: normalized.status as TransferCarrierStatus,
     packedTicketCount: usage.packedTicketCount,
     packedCutOrderCount: usage.packedCutOrderCount,
     startedAt: usage.startedAt || '',
@@ -1632,13 +1636,13 @@ function toPageStore(store: TransferBagRuntimeStore): TransferBagStore {
     bindings: store.bindings.map((item) => toPageBinding(item)),
     manifests: store.manifests.map((item) => toPageManifest(item)),
     sewingTasks: store.sewingTasks.map((item) => ({ ...item })),
-    auditTrail: store.auditTrail as TransferBagUsageAuditTrail[],
-    returnReceipts: store.returnReceipts as TransferBagReturnReceipt[],
-    conditionRecords: store.conditionRecords as TransferBagConditionRecord[],
-    reuseCycles: store.reuseCycles as TransferBagReuseCycleSummary[],
-    closureResults: store.closureResults as TransferBagUsageClosureResult[],
-    returnAuditTrail: store.returnAuditTrail as TransferBagReturnAuditTrail[],
-    scrapRecords: (store.scrapRecords || []) as TransferBagScrapRecord[],
+    auditTrail: store.auditTrail as unknown as TransferBagUsageAuditTrail[],
+    returnReceipts: store.returnReceipts as unknown as TransferBagReturnReceipt[],
+    conditionRecords: store.conditionRecords as unknown as TransferBagConditionRecord[],
+    reuseCycles: store.reuseCycles as unknown as TransferBagReuseCycleSummary[],
+    closureResults: store.closureResults as unknown as TransferBagUsageClosureResult[],
+    returnAuditTrail: store.returnAuditTrail as unknown as TransferBagReturnAuditTrail[],
+    scrapRecords: (store.scrapRecords || []) as unknown as TransferBagScrapRecord[],
   }
 }
 
@@ -1912,7 +1916,7 @@ export function mapUsageStatusToPocketCarrierStatus(options: {
   if (options.usage.usageStatus === 'WAITING_RETURN') return 'SIGNED'
   if (options.usage.usageStatus === 'RETURN_INSPECTING') return 'RETURNED'
   if (options.usage.usageStatus === 'CLOSED' || options.usage.usageStatus === 'SCRAP_CLOSED') {
-    return options.masterStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
+    return 'IDLE'
   }
   return 'PACKING'
 }
@@ -2070,6 +2074,8 @@ export function validateTicketBindingEligibility(options: {
 }): TransferBagValidationResult {
   if (!options.ticket) return { ok: false, reason: '当前票号不存在，请先确认菲票记录。' }
   if (!options.usage) return { ok: false, reason: '请先创建或选择一个使用周期，再进行装袋。' }
+  const ticket = options.ticket
+  const usage = options.usage
   const isInboundTempUsage = isInboundTempTransferBagUsage(options.usage)
   if (!options.sewingTask && !isInboundTempUsage) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (options.ticket.ticketStatus === 'VOIDED') {
@@ -2095,13 +2101,13 @@ export function validateTicketBindingEligibility(options: {
   }
 
   const sameUsageBinding = options.bindings.find(
-    (binding) => binding.ticketRecordId === options.ticket.ticketRecordId && binding.usageId === options.usage.usageId,
+    (binding) => binding.ticketRecordId === ticket.ticketRecordId && binding.usageId === usage.usageId,
   )
   if (sameUsageBinding) {
     return { ok: false, reason: `${options.ticket.ticketNo} 已在当前口袋中，无需重复装袋。` }
   }
 
-  const existingBinding = options.bindings.find((binding) => binding.ticketRecordId === options.ticket.ticketRecordId && binding.usageId !== options.usage.usageId)
+  const existingBinding = options.bindings.find((binding) => binding.ticketRecordId === ticket.ticketRecordId && binding.usageId !== usage.usageId)
   if (existingBinding) {
     const otherUsage = options.usagesById[existingBinding.usageId]
     if (otherUsage && isTransferBagUsageActiveStatus(otherUsage.usageStatus)) {

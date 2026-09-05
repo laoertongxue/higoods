@@ -55,6 +55,7 @@ import {
 import {
   applyPostFinishingActionFinish,
   applyPostFinishingActionStart,
+  ensurePostFinishingHandoverWarehouseRecord,
   getPostFinishingWorkOrderById,
   getPostFinishingWorkOrderBySourceTaskId,
   receivePostFinishingAtManagedFactory,
@@ -181,7 +182,7 @@ function createDyeWaitHandoverRecord(order: DyeWorkOrder, qty: number, operatedA
 }
 
 function resolveSpecialCraftWorkOrderId(taskOrder: SpecialCraftTaskOrder): string {
-  return getSpecialCraftTaskOrderById(taskOrder.taskOrderId)[0]?.workOrderId || taskOrder.taskOrderId
+  return getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.workOrderIds?.[0] || taskOrder.taskOrderId
 }
 
 export function startPrintNode(taskId: string, nodeCode: PrintExecutionNodeCode, payload: ExecutionWritebackPayload = {}) {
@@ -768,7 +769,7 @@ export function transferPostFinishedGarmentsToManagedPostFactory(postOrderId: st
   return transferPostFinishingToManagedFactory({
     postOrderId,
     operatorName: payload.operatorName || '移动端操作员',
-    transferredAt: payload.operatedAt,
+    operatedAt: payload.operatedAt,
     remark: payload.remark,
   })
 }
@@ -777,7 +778,7 @@ export function receivePostFinishedGarmentsAtManagedPostFactory(postOrderId: str
   return receivePostFinishingAtManagedFactory({
     postOrderId,
     operatorName: payload.operatorName || '后道工厂收货员',
-    receivedAt: payload.operatedAt,
+    operatedAt: payload.operatedAt,
   })
 }
 

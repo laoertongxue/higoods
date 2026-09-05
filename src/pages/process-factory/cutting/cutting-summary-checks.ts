@@ -333,7 +333,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
   blockers: CuttingCheckBlockerItem[]
 } {
   const blockers = options.materialPrepRows.flatMap((row) => {
-    const payload = row.navigationPayload.materialPrep
+    const payload = row.navigationPayload.summary
     if (row.materialPrepStatus.key !== 'CONFIGURED') {
       return [
         buildBlocker({
@@ -471,8 +471,8 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sourceType: session.contextType === 'marker-plan' ? 'MARKER_PLAN' : 'CUT_ORDER',
             sourceId: session.contextType === 'marker-plan' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
             sourceNo: session.contextType === 'marker-plan'
-              ? session.markerPlanNo || session.spreadingSessionNo
-              : session.cutOrderNos?.[0] || session.spreadingSessionNo,
+              ? session.markerPlanNo || session.spreadingSessionNo || session.spreadingSessionId
+              : session.cutOrderNos?.[0] || session.spreadingSessionNo || session.spreadingSessionId,
             sourceLabel: session.contextType === 'marker-plan' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: session.status === 'IN_PROGRESS' ? '铺布中' : '待补录',
@@ -495,12 +495,12 @@ function buildSpreadingSection(options: CuttingCheckBuildOptions): {
             sourceType: session.contextType === 'marker-plan' ? 'MARKER_PLAN' : 'CUT_ORDER',
             sourceId: session.contextType === 'marker-plan' ? session.markerPlanId : session.cutOrderIds[0] || session.spreadingSessionId,
             sourceNo: session.contextType === 'marker-plan'
-              ? session.markerPlanNo || session.spreadingSessionNo
-              : session.cutOrderNos?.[0] || session.spreadingSessionNo,
+              ? session.markerPlanNo || session.spreadingSessionNo || session.spreadingSessionId
+              : session.cutOrderNos?.[0] || session.spreadingSessionNo || session.spreadingSessionId,
             sourceLabel: session.contextType === 'marker-plan' ? '唛架方案' : '裁片单',
             materialSku: session.materialSku || '',
             currentStateLabel: '差异待核',
-            blockerReason: session.warningMessages[0] || '当前铺布存在差异，需继续核查。',
+            blockerReason: (session.warningMessages ?? [])[0] || '当前铺布存在差异，需继续核查。',
             navigationTarget: 'markerSpreading',
             navigationPayload: options.navigationPayload.markerSpreading,
             nextActionLabel: '去唛架铺布',
@@ -675,7 +675,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: item.warehouseStatus.label,
           blockerReason: item.warehouseStatus.detailText,
           navigationTarget: 'cutPieceWarehouse',
-          navigationPayload: item.navigationPayload,
+          navigationPayload: item.navigationPayload.summary,
           nextActionLabel: '去裁片仓',
         }),
       )
@@ -697,7 +697,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: item.handoffStatus.label,
           blockerReason: item.handoffStatus.detailText,
           navigationTarget: 'cutPieceWarehouse',
-          navigationPayload: item.navigationPayload,
+          navigationPayload: item.navigationPayload.summary,
           nextActionLabel: '去裁片仓',
         }),
       )
@@ -721,7 +721,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: usage.pocketStatusMeta.label,
           blockerReason: `当前中转袋码 ${usage.bagCode} 仍在${usage.pocketStatusMeta.label}。`,
           navigationTarget: 'transferBags',
-          navigationPayload: usage.navigationPayload,
+          navigationPayload: usage.navigationPayload.summary,
           nextActionLabel: '去中转袋管理',
         }),
       )
@@ -729,7 +729,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
   })
 
   options.returnUsages.forEach((usage) => {
-    if (usage.returnExceptionMeta || usage.latestClosureResult?.closureStatus === 'EXCEPTION_CLOSED') {
+    if (usage.returnDiscrepancyMeta || usage.latestClosureResult?.closureStatus === 'SCRAP_CLOSED') {
       blockers.push(
         buildBlocker({
           productionOrderId: options.productionRow.productionOrderId,
@@ -743,9 +743,9 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           sourceLabel: '中转袋使用周期',
           materialSku: '',
           currentStateLabel: usage.pocketStatusMeta.label,
-          blockerReason: usage.returnExceptionMeta?.detailText || usage.latestClosureResult?.reason || '当前回仓链路存在异常。',
+          blockerReason: usage.returnDiscrepancyMeta?.detailText || usage.latestClosureResult?.reason || '当前回仓链路存在异常。',
           navigationTarget: 'transferBags',
-          navigationPayload: usage.navigationPayload,
+          navigationPayload: usage.navigationPayload.summary,
           nextActionLabel: '去中转袋管理',
         }),
       )
@@ -769,7 +769,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: item.decisionMeta.label,
           blockerReason: item.decisionMeta.detailText,
           navigationTarget: 'transferBags',
-          navigationPayload: item.latestUsage?.navigationPayload || options.navigationPayload.transferBags,
+          navigationPayload: item.latestUsage?.navigationPayload.summary || options.navigationPayload.transferBags,
           nextActionLabel: '去中转袋管理',
         }),
       )
@@ -834,7 +834,7 @@ function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: item.statusMeta.label,
           blockerReason: item.executionProgressSummary || item.statusMeta.detailText,
           navigationTarget: 'specialProcesses',
-          navigationPayload: item.navigationPayload.specialProcesses,
+          navigationPayload: item.navigationPayload.summary,
           nextActionLabel: '去特殊工艺',
         }),
       ]
@@ -855,7 +855,7 @@ function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
           currentStateLabel: item.followupProgressSummary,
           blockerReason: item.downstreamBlockReason || '当前特殊工艺后续动作仍未完成。',
           navigationTarget: 'specialProcesses',
-          navigationPayload: item.navigationPayload.specialProcesses,
+          navigationPayload: item.navigationPayload.summary,
           nextActionLabel: '去特殊工艺',
         }),
       ]

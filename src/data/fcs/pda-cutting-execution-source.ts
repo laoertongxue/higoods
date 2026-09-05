@@ -332,6 +332,8 @@ export interface PdaCuttingTaskDetailData {
   productionOrderNo: string
   cutOrderId: string
   cutOrderNo: string
+  /** Legacy compatibility field retained for consumers that still read the old name. */
+  cutPieceOrderNo?: string
   cutOrderIds: string[]
   cutOrderNos: string[]
   markerPlanId: string
@@ -511,7 +513,7 @@ function buildQrCodeValue(cutOrderNo: string): string {
   return `QR-${cutOrderNo}`
 }
 
-function buildConfiguredQtyText(record: GeneratedCutOrderSourceRecord, configuredLength = 0, configuredRollCount = 0): string {
+function buildConfiguredQtyText(record: Pick<GeneratedCutOrderSourceRecord, 'requiredQty'>, configuredLength = 0, configuredRollCount = 0): string {
   if (configuredRollCount > 0 || configuredLength > 0) {
     return `卷数 ${configuredRollCount || 0} 卷 / 长度 ${configuredLength || 0} 米`
   }
@@ -744,7 +746,7 @@ function buildPlanUnitsFromCanonicalPlan(
           }
           const unit: SpreadingPlanUnit = {
             planUnitId: `plan-unit-${plan.id}-bed-${bed.bedId || index + 1}`,
-            sourceType: bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low' ? 'high-low-row' : 'marker-line',
+            sourceType: 'marker-line',
             sourceLineId: bed.bedId || `${index + 1}`,
             color: bed.colorName || bed.colorCode || fallbackColor,
             materialSku: bed.materialSku || materialSku,
@@ -1746,7 +1748,7 @@ function buildRuntimeSpreadingRecords(execution: PdaCuttingExecutionSourceRecord
 }
 
 function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingRecord[] {
-  const actualRecords = listRollsForExecution(snapshot, execution).map(({ session, roll }) => {
+  const actualRecords = listRollsForExecution(snapshot, execution).map(({ session, roll }): PdaCuttingSpreadingRecord => {
     const linkedOperators = session.operators.filter((operator) => operator.rollRecordId === roll.rollRecordId)
     const latestOperator = [...linkedOperators].sort((left, right) => right.endAt.localeCompare(left.endAt, 'zh-CN'))[0] || linkedOperators[0] || null
     const latestHandoverOperator =
@@ -2198,54 +2200,7 @@ export function getPdaCuttingTaskSnapshot(
   const executionSummary = spreadingRecords.length > 0 ? `已有 ${spreadingRecords.length} 条铺布记录` : '待开始铺布'
   const handoverSummary = handoverRecords.length > 0 ? '交接扫码已完成' : '待交接扫码'
   const configuredQtyText = buildConfiguredQtyText(
-    originalRecord ?? {
-      cutOrderId: selectedExecutionRecord.cutOrderId,
-      cutOrderNo: selectedExecutionRecord.cutOrderNo,
-      generationKey: selectedExecutionRecord.cutOrderId || selectedExecutionRecord.cutOrderNo,
-      productionOrderId: selectedExecutionRecord.productionOrderId,
-      productionOrderNo: selectedExecutionRecord.productionOrderNo,
-      spuCode: '',
-      styleId: '',
-      styleCode: '',
-      styleName: '',
-      techPackVersionId: '',
-      techPackVersionLabel: '',
-      materialSku: selectedExecutionRecord.materialSku,
-      materialName: selectedExecutionRecord.materialSku,
-      materialColor: '',
-      materialType: 'SOLID',
-      materialLabel: selectedExecutionRecord.materialSku,
-      materialCategory: '',
-      materialAlias: selectedExecutionRecord.materialAlias || '',
-      materialImageUrl: selectedExecutionRecord.materialImageUrl || '',
-      materialUnit: '米',
-      materialIdentity: {
-        materialSku: selectedExecutionRecord.materialSku,
-        materialName: selectedExecutionRecord.materialSku,
-        materialColor: '',
-        materialAlias: selectedExecutionRecord.materialAlias || selectedExecutionRecord.materialSku,
-        materialImageUrl: selectedExecutionRecord.materialImageUrl || '',
-        materialUnit: '米',
-      },
-      patternIdentity: {
-        patternFileId: '',
-        patternFileName: '待补纸样文件',
-        patternVersion: '待补',
-        patternKind: '待补纸样类型',
-        effectiveWidthValue: 0,
-        effectiveWidthUnit: 'cm',
-        piecePartCodes: [],
-        piecePartNames: [],
-      },
-      markerPlanId: selectedExecutionRecord.markerPlanId,
-      markerPlanNo: selectedExecutionRecord.markerPlanNo,
-      requiredQty: 0,
-      sourceTechPackSpuCode: '',
-      colorScope: [],
-      skuScopeLines: [],
-      pieceRows: [],
-      pieceSummary: '裁片信息待补',
-    },
+    { requiredQty: originalRecord?.requiredQty ?? 0 },
     progressLine?.configuredLength,
     progressLine?.configuredRollCount,
   )

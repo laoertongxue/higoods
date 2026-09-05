@@ -17,6 +17,7 @@ import {
   type PickupDemandFact,
   type PickupDemandSource,
   type PickupNormalDemandInput,
+  type PickupProcessResultFact,
   type PickupProcessRoute,
 } from '../../../data/fcs/cutting/pickup-demand-domain.ts'
 import { getSupplementMaterialPrepDemand } from '../../../data/fcs/cutting/supplement-material-prep-demand-registry.ts'
@@ -115,8 +116,8 @@ export type ProcessResultCandidate = Pick<
 >
 
 export interface PickupProcessResults {
-  dyeResults: PlatformProcessResultView[]
-  printResults: PlatformProcessResultView[]
+  dyeResults: PickupProcessResultFact[]
+  printResults: PickupProcessResultFact[]
 }
 
 export function resolvePickupRequiredQty(input: {
@@ -133,8 +134,8 @@ export function resolveNormalProcessResult(
   line: MaterialPrepLine,
   productionOrderNo: string,
   processType: 'DYE' | 'PRINT',
-  results: PlatformProcessResultView[],
-): PlatformProcessResultView | undefined {
+  results: PickupProcessResultFact[],
+): PickupProcessResultFact | undefined {
   const demand: PickupNormalDemandInput = {
     prepOrderId: line.prepOrderId,
     productionOrderId: '',
@@ -155,9 +156,7 @@ export function resolveNormalProcessResult(
     upstreamDocumentNo: line.upstreamDocumentNo,
     taskRefs: line.taskLinks.map((task) => ({ taskId: task.taskId, taskNo: task.taskNo })),
   }
-  return resolveSharedNormalProcessResult(demand, processType, results).result as
-    | PlatformProcessResultView
-    | undefined
+  return resolveSharedNormalProcessResult(demand, processType, results).result
 }
 
 export function buildSupplementMaterialRows(
@@ -184,8 +183,8 @@ export function buildSupplementMaterialRows(
       productionOrderNo: record.productionOrderNo,
       reason: record.reason,
       reasonDetail: record.reasonDetail,
-      processWorkOrderRefs: record.processWorkOrderRefs,
-      materialDemands: record.materialDemands,
+      processWorkOrderRefs: record.processWorkOrderRefs.map((ref) => ({ ...ref, materialDemandIds: [...ref.materialDemandIds] })),
+      materialDemands: record.materialDemands.map((demand) => ({ ...demand })),
     })),
     pickedFacts,
     dyeResults: processResults.dyeResults,

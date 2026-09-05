@@ -453,7 +453,7 @@ function getWorkbenchCounts(candidates: StatementDraft[]): BatchWorkbenchCounts 
     paymentCount: getBatchesByView('PAYMENT', false).length,
     completedCount: getBatchesByView('COMPLETED', false).length,
     historyCount: getBatchesByView('HISTORY', false).length,
-    candidateAmount: candidates.reduce((sum, item) => sum + item.netPayableAmount, 0),
+    candidateAmount: candidates.reduce((sum, item) => sum + (item.netPayableAmount ?? item.totalAmount ?? 0), 0),
   }
 }
 
@@ -766,7 +766,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealSummary)}</td>
                           <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(progressView.summary)}</td>
                           <td class="px-4 py-3 text-right tabular-nums">${item.itemCount}</td>
-                          <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.netPayableAmount, getStatementCurrency(item))}</td>
+                          <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.netPayableAmount ?? item.totalAmount ?? 0, getStatementCurrency(item))}</td>
                           <td class="px-4 py-3">
                             <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">前往对账单</button>
                           </td>
@@ -1190,7 +1190,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
                           <td class="px-4 py-3 text-xs">${escapeHtml(appealLabel)}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getResolutionResultLabel(statement.resolutionResult))}</td>
                           <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(statement.prepaymentBatchNo ?? progressView.summary)}</td>
-                          <td class="px-4 py-3 tabular-nums">${formatAmount(statement.netPayableAmount, getStatementCurrency(statement))}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatAmount(statement.netPayableAmount ?? statement.totalAmount ?? 0, getStatementCurrency(statement))}</td>
                           <td class="px-4 py-3">
                             <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">前往对账单</button>
                           </td>

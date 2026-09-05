@@ -456,7 +456,7 @@ export function isTechnicalReviewNodeComplete(node: Pick<TechnicalReviewNode, 's
   return node.status === '审核-已通过' || node.status === '无需审核'
 }
 
-function assertAssignedReviewer(node: TechnicalReviewNode, operator: Required<TechPackReviewOperator>): void {
+function assertAssignedReviewer(node: TechnicalReviewNode, operator: TechPackReviewOperator): void {
   if (!node.assignedReviewerId && !node.assignedReviewerName) return
   const matchedById = Boolean(operator.id && node.assignedReviewerId && operator.id === node.assignedReviewerId)
   const matchedByName = Boolean(operator.name && node.assignedReviewerName && operator.name === node.assignedReviewerName)
@@ -579,7 +579,7 @@ function deriveReviewStage(input: {
 
 export function normalizeTechnicalReviewSnapshot(
   record: Partial<TechnicalDataVersionRecord>,
-): Pick<
+): Required<Pick<
   TechnicalDataVersionRecord,
   | 'reviewStage'
   | 'buyerReview'
@@ -589,7 +589,7 @@ export function normalizeTechnicalReviewSnapshot(
   | 'reviewSubmittedBy'
   | 'returnedFromMerchandiserFlag'
   | 'reviewUnlockedModuleKeys'
-> {
+>> {
   const buyerReview = normalizeTechnicalReviewNode('BUYER', record.buyerReview)
   const patternMakerReview = normalizeTechnicalReviewNode('PATTERN_MAKER', record.patternMakerReview)
   const merchandiserReview = normalizeTechnicalReviewNode('MERCHANDISER', record.merchandiserReview)
@@ -1370,10 +1370,11 @@ function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: Tech
     })
     return
   }
-  if (record.reviewUnlockedModuleKeys.includes('DESIGN')) {
+  const unlockedModuleKeys = record.reviewUnlockedModuleKeys ?? []
+  if (unlockedModuleKeys.includes('DESIGN')) {
     resolveArtworkTasksForTechPackRework(record)
   }
-  if (record.reviewUnlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
+  if (unlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
     assertAllValidColorTasksCompletedForTechPackReview(record)
   }
 }

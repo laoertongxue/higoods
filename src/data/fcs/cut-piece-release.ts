@@ -1118,8 +1118,8 @@ export function getCutPieceReleaseFactSourceSummary(
   const requestedFactIds = new Set(sourceFactIds)
   const facts = item.input.facts.filter((fact) => requestedFactIds.has(fact.factId))
   return {
-    cutOrderNos: [...new Set(facts.map((fact) => fact.cutOrderNo).filter(Boolean))],
-    spreadingOrderNos: [...new Set(facts.map((fact) => fact.spreadingOrderNo).filter(Boolean))],
+    cutOrderNos: [...new Set(facts.map((fact) => fact.cutOrderNo).filter((value): value is string => Boolean(value)))],
+    spreadingOrderNos: [...new Set(facts.map((fact) => fact.spreadingOrderNo).filter((value): value is string => Boolean(value)))],
   }
 }
 

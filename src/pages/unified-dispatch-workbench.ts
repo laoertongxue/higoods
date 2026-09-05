@@ -1255,18 +1255,19 @@ function commitReassignment(dialog: DispatchDialogState): void {
     dispatchPriceUnit: sourceTask.standardPriceUnit || sourceTask.dispatchPriceUnit || '件',
   })
   if (!result.ok || !result.taskId || !result.assignedQty) throw new Error(result.message || '改派失败')
+  const assignedQty = result.assignedQty
   const updated = getRuntimeTaskById(result.taskId)
   if (!updated) throw new Error('改派结果未形成新任务')
   const policy = classifyTaskFulfillmentPolicy(updated)
-  const sourceLines = updated.scopeSkuLines.length ? updated.scopeSkuLines : [{ skuCode: updated.skuCode || 'SKU-ALL', color: updated.skuColor || '混色', size: updated.skuSize || '混码', qty: result.assignedQty }]
+  const sourceLines = updated.scopeSkuLines.length ? updated.scopeSkuLines : [{ skuCode: updated.skuCode || 'SKU-ALL', color: updated.skuColor || '混色', size: updated.skuSize || '混码', qty: assignedQty }]
   const sourceTotal = sourceLines.reduce((sum, line) => sum + line.qty, 0)
   const assignedLines = sourceLines.map((line, index) => ({
     skuCode: line.skuCode,
     color: line.color,
     size: line.size,
     qty: index === sourceLines.length - 1
-      ? Math.max(1, result.assignedQty - sourceLines.slice(0, -1).reduce((sum, item) => sum + Math.max(1, Math.floor(item.qty * result.assignedQty / Math.max(1, sourceTotal))), 0))
-      : Math.max(1, Math.floor(line.qty * result.assignedQty / Math.max(1, sourceTotal))),
+      ? Math.max(1, assignedQty - sourceLines.slice(0, -1).reduce((sum, item) => sum + Math.max(1, Math.floor(item.qty * assignedQty / Math.max(1, sourceTotal))), 0))
+      : Math.max(1, Math.floor(line.qty * assignedQty / Math.max(1, sourceTotal))),
   }))
   const assignment = createEffectiveTaskAssignment({
     runtimeTaskId: updated.taskId,
@@ -1276,7 +1277,7 @@ function commitReassignment(dialog: DispatchDialogState): void {
     factoryId: factory.id,
     factoryName: factory.name,
     source: 'REASSIGNMENT',
-    assignedQty: result.assignedQty,
+    assignedQty,
     skuLines: assignedLines,
     processCodes: policy.normalizedProcessCodes,
     frozenPrice: price,

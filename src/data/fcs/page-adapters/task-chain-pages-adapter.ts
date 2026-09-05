@@ -47,7 +47,7 @@ function resolveTenderStatus(tasks: RuntimeProcessTask[], deadline: string): Tas
 
 function compareTask(a: ProcessTask, b: ProcessTask): number {
   if (a.productionOrderId !== b.productionOrderId) {
-    return a.productionOrderId.localeCompare(b.productionOrderId)
+    return (a.productionOrderId || '').localeCompare(b.productionOrderId || '')
   }
   if (a.seq !== b.seq) return a.seq - b.seq
   return a.taskId.localeCompare(b.taskId)

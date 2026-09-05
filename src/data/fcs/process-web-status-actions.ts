@@ -39,6 +39,7 @@ export type ProcessWebSourceType =
   | 'POST_FINISHING_WORK_ORDER'
 
 export type ProcessWebActionType =
+  | '上报差异'
   | '确认花型到位'
   | '完成调色测试'
   | '开始打印'

@@ -24,7 +24,6 @@ import {
 import {
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
-  getSpecialCraftTaskOrders,
 } from './special-craft-task-orders.ts'
 import { canFactoryAccessSpecialCraftPdaTask, isGarmentWarehouseOutboundPdaTaskForFactory } from './special-craft-pda-scope.ts'
 import { getWaterSolubleWorkOrderByTaskId } from './water-soluble-task-domain.ts'
@@ -291,7 +290,7 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
     directWorkOrder
       ? [directWorkOrder]
       : matchedTaskOrder
-        ? getSpecialCraftTaskOrders().filter((workOrder) => workOrder.taskOrderId === matchedTaskOrder.taskOrderId)
+        ? listSpecialCraftTaskOrders().filter((workOrder) => workOrder.taskOrderId === matchedTaskOrder.taskOrderId)
         : []
 
   const firstWorkOrder = relatedWorkOrders[0] ?? null

@@ -130,7 +130,7 @@ function renderNotificationDetail(notificationId: string): string {
           <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>返回
         </button>
         <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(TYPE_LABELS[notification.notificationType || 'NEW_TASK'] || '通知')}</span>
+          <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(TYPE_LABELS[(notification as Notification & { notificationType?: string }).notificationType || 'NEW_TASK'] || '通知')}</span>
           <span class="rounded-full px-2 py-0.5 text-[11px] ${toClassName(notification.readAt ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}">${notification.readAt ? '已读' : '未读'}</span>
         </div>
         <div class="mt-3 text-lg font-semibold text-foreground">${escapeHtml(notification.title)}</div>

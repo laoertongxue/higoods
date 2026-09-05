@@ -286,7 +286,7 @@ export function renderLoadingCard(message = '加载中...'): string {
 /**
  * 渲染骨架屏卡片
  */
-export function renderSkeletonCard(): string {
+export function renderCardSkeleton(): string {
   return `
     <div class="${CARD_BASE_CLASSES}">
       <div class="p-6 space-y-4">

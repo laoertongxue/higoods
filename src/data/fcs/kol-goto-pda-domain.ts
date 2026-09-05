@@ -27,7 +27,7 @@ import {
   updateKolGotoWholeOrderTaskExecution,
   type ProcessTask,
 } from './process-tasks.ts'
-import { productionOrders } from './production-orders.ts'
+import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import {
   KOL_GOTO_FACTORY_ID,
   KOL_GOTO_FACTORY_NAME,
@@ -87,10 +87,12 @@ function getKolGotoTask(taskId: string): ProcessTask {
   return task as ProcessTask
 }
 
-function getKolGotoOrder(task: ProcessTask) {
+function getKolGotoOrder(
+  task: ProcessTask,
+): ProductionOrder & { techPackSnapshot: NonNullable<ProductionOrder['techPackSnapshot']> } {
   const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
   if (!order?.techPackSnapshot) throw new Error('KOL 整单任务缺少冻结技术包，不能加工领料')
-  return order
+  return order as ProductionOrder & { techPackSnapshot: NonNullable<ProductionOrder['techPackSnapshot']> }
 }
 
 function getDefaultKolGotoWarehouseLocation() {
@@ -503,12 +505,13 @@ export function completeKolGotoWholeOrderTask(input: {
   completedBy: string
 }): ProcessTask {
   const task = getKolGotoTask(input.taskId)
+  const order = getKolGotoOrder(task)
   if (task.status === 'DONE') {
     recordKolGotoFixedTotalTaskCompletion({
       taskId: task.taskId,
       taskNo: task.taskNo || task.taskId,
-      productionOrderId: task.productionOrderId,
-      productionOrderNo: task.productionOrderNo || task.productionOrderId,
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
       completedAt: task.finishedAt || input.completedAt,
       fixedTotalPrice: Number(task.fixedTotalPrice || 0),
       currency: task.fixedTotalPriceCurrency || 'IDR',
@@ -555,8 +558,8 @@ export function completeKolGotoWholeOrderTask(input: {
     recordKolGotoFixedTotalTaskCompletion({
       taskId: completedTask.taskId,
       taskNo: completedTask.taskNo || completedTask.taskId,
-      productionOrderId: completedTask.productionOrderId,
-      productionOrderNo: completedTask.productionOrderNo || completedTask.productionOrderId,
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
       completedAt: input.completedAt,
       fixedTotalPrice: Number(completedTask.fixedTotalPrice || 0),
       currency: completedTask.fixedTotalPriceCurrency || 'IDR',

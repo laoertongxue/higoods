@@ -16,7 +16,7 @@ import {
   returnInboundChainQualityInspections,
 } from './return-inbound-quality-chain-facts.ts'
 
-function mergeById<T extends { [key: string]: unknown }>(
+function mergeById<T extends object>(
   items: T[],
   key: keyof T,
 ): T[] {
@@ -108,11 +108,15 @@ export const seedParentTask: ProcessTask = {
 
 export const seedProductionOrder: ProductionOrder = {
   productionOrderId: 'PO-SEED-0001',
+  productionOrderNo: 'PO-SEED-0001',
   demandId: 'DEM-SEED-0001',
+  sourceDemandIds: ['DEM-SEED-0001'],
   legacyOrderNo: 'SEED-240001',
   status: 'EXECUTING',
   lockedLegacy: true,
   mainFactoryId: SEED_FACTORY_ID,
+  mainFactoryStatus: 'CONFIRMED',
+    mainFactorySource: 'ORDER_CREATE',
   mainFactorySnapshot: {
     id: SEED_FACTORY_ID,
     code: 'ID-F001',
@@ -131,16 +135,21 @@ export const seedProductionOrder: ProductionOrder = {
     demandId: 'DEM-SEED-0001',
     spuCode: 'SPU-SEED-001',
     spuName: '测试款式（质量已完成演示）',
+    buyerName: '测试买手',
+    merchandiserName: '测试跟单',
+    saleType: '备货',
     priority: 'NORMAL',
     requiredDeliveryDate: '2026-04-30',
     constraintsNote: '',
     skuLines: [{ skuCode: 'SKU-SEED-001', size: 'M', color: '黑色', qty: 1500 }],
   },
+  sourceDemandSnapshots: [],
   assignmentSummary: { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 },
   assignmentProgress: { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
   biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
   directDispatchSummary: { assignedFactoryCount: 1, rejectedCount: 0, overdueAckCount: 0 },
   taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片', '质量处理'], lastBreakdownAt: SEED_AT, lastBreakdownBy: 'SYSTEM' },
+  ledgerDetails: { materialIssues: [], taskFactories: [], keyTimes: [], quantityQuality: [] },
   riskFlags: [],
   auditLogs: [
     { id: 'AL-PO-SEED-001', action: 'CREATED', detail: '生产单创建（质量已完成演示）', at: SEED_AT, by: 'SYSTEM' },

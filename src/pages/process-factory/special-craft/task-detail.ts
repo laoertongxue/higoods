@@ -509,7 +509,7 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       const lines = taskOrder.demandLines || []
       const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
-      if (!isGarment && !isCutPiece && taskOrder.quantityMode !== 'TICKET_INPUT_OUTPUT') {
+      if (!isGarment && !isCutPiece) {
         openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
         return true
       }

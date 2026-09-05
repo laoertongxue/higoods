@@ -55,7 +55,7 @@ function findTaskOrderOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOper
   const taskOrder = listSpecialCraftTaskOrders().find((item) =>
     refs.has(item.taskOrderId)
     || refs.has(item.taskOrderNo)
-    || refs.has(item.sourceTaskNo)
+    || Boolean(item.sourceTaskNo && refs.has(item.sourceTaskNo))
     || refs.has(item.sourceTaskId || '')
     || item.workOrderIds?.some((workOrderId) => refs.has(workOrderId)),
   )

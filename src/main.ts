@@ -1,75 +1,19 @@
 import './styles.css'
+import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
 import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
-import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
-import { appStore } from './state/store'
+import {
+  getBrowserSessionStorage,
+  readBrowserStorageItem,
+  removeBrowserStorageItem,
+  writeBrowserStorageItem,
+} from './data/browser-storage'
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
+import { createRetryableModuleLoader } from './main-infrastructure/retryable-module-loader'
+import { appStore } from './state/store'
 
-type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
-type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
-type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
-type DispatchAcceptanceSlaPageModule = typeof import('./pages/dispatch-acceptance-sla')
-type FactoryProfilePageModule = typeof import('./pages/factory-profile')
-type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
-type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
-type CraftCuttingTransferBagsPageModule = typeof import('./pages/process-factory/cutting/transfer-bags')
-type CraftPrintingWarehousePageModule = typeof import('./pages/process-factory/printing/warehouse')
-type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dyeing/warehouse')
-type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
-type PrintPreviewPageModule = typeof import('./pages/print/print-preview')
-type PdaTaskReceivePageModule = typeof import('./pages/pda-task-receive')
-type PdaExecPageModule = typeof import('./pages/pda-exec')
-type PdaHandoverPageModule = typeof import('./pages/pda-handover')
-type PdaWarehousePageModule = typeof import('./pages/pda-warehouse')
-type PdaSettlementPageModule = typeof import('./pages/pda-settlement')
-type ProductionOrderProgressTrackingPageModule = typeof import('./pages/production-order-progress-tracking')
-type ProgressBoardPageModule = typeof import('./pages/progress-board')
-type RoutesModule = typeof import('./router/routes')
-type ProductionDemandPageModule = typeof import('./pages/production/demand-domain')
-type ProductionOrdersPageModule = typeof import('./pages/production/orders-domain')
-type ProductionEventsModule = typeof import('./pages/production/events')
-type ProductionDialogsModule = typeof import('./pages/production/dialogs')
-type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
-type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
-type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-soluble-orders')
-type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
-type ProductionObjectOverviewModule = typeof import('./components/production-object-overview')
-type PdaCuttingInboundModule = typeof import('./pages/pda-cutting-inbound')
-type PdaCuttingHandoverModule = typeof import('./pages/pda-cutting-handover')
-
-let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
-let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
-let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
-let dispatchAcceptanceSlaPageModulePromise: Promise<DispatchAcceptanceSlaPageModule> | null = null
-let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
-let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
-let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
-let craftCuttingTransferBagsPageModulePromise: Promise<CraftCuttingTransferBagsPageModule> | null = null
-let craftPrintingWarehousePageModulePromise: Promise<CraftPrintingWarehousePageModule> | null = null
-let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModule> | null = null
-let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
-let printPreviewPageModulePromise: Promise<PrintPreviewPageModule> | null = null
-let pdaTaskReceivePageModulePromise: Promise<PdaTaskReceivePageModule> | null = null
-let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
-let pdaHandoverPageModulePromise: Promise<PdaHandoverPageModule> | null = null
-let pdaWarehousePageModulePromise: Promise<PdaWarehousePageModule> | null = null
-let pdaSettlementPageModulePromise: Promise<PdaSettlementPageModule> | null = null
-let productionOrderProgressTrackingPageModulePromise: Promise<ProductionOrderProgressTrackingPageModule> | null = null
-let progressBoardPageModulePromise: Promise<ProgressBoardPageModule> | null = null
-let routesModulePromise: Promise<RoutesModule> | null = null
-let productionDemandPageModulePromise: Promise<ProductionDemandPageModule> | null = null
-let productionOrdersPageModulePromise: Promise<ProductionOrdersPageModule> | null = null
-let productionEventsModulePromise: Promise<ProductionEventsModule> | null = null
-let productionDialogsModulePromise: Promise<ProductionDialogsModule> | null = null
-let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = null
-let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
-let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrdersPageModule> | null = null
-let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
-let productionObjectOverviewModulePromise: Promise<ProductionObjectOverviewModule> | null = null
-let pdaCuttingInboundModulePromise: Promise<PdaCuttingInboundModule> | null = null
-let pdaCuttingHandoverModulePromise: Promise<PdaCuttingHandoverModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -77,35 +21,57 @@ let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
 let fcsHandlersPreloadStarted = false
 
-function getProductionObjectOverviewModule(): Promise<ProductionObjectOverviewModule> {
-  if (!productionObjectOverviewModulePromise) {
-    productionObjectOverviewModulePromise = import('./components/production-object-overview').catch((error) => {
-      productionObjectOverviewModulePromise = null
-      throw error
-    })
-  }
-  return productionObjectOverviewModulePromise
-}
-
-function getPdaCuttingInboundModule(): Promise<PdaCuttingInboundModule> {
-  if (!pdaCuttingInboundModulePromise) {
-    pdaCuttingInboundModulePromise = import('./pages/pda-cutting-inbound').catch((error) => {
-      pdaCuttingInboundModulePromise = null
-      throw error
-    })
-  }
-  return pdaCuttingInboundModulePromise
-}
-
-function getPdaCuttingHandoverModule(): Promise<PdaCuttingHandoverModule> {
-  if (!pdaCuttingHandoverModulePromise) {
-    pdaCuttingHandoverModulePromise = import('./pages/pda-cutting-handover').catch((error) => {
-      pdaCuttingHandoverModulePromise = null
-      throw error
-    })
-  }
-  return pdaCuttingHandoverModulePromise
-}
+const getProductionObjectOverviewModule = createRetryableModuleLoader(
+  () => import('./components/production-object-overview'),
+)
+const getPdaCuttingInboundModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-inbound'))
+const getPdaCuttingHandoverModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-handover'))
+const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/fcs-handlers'))
+const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
+const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
+const getProcessWaterSolubleOrdersPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-water-soluble-orders'),
+)
+const getCraftDyeingWaterSolubleOrdersPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/dyeing/water-soluble-orders'),
+)
+const getDispatchAcceptanceSlaPageModule = createRetryableModuleLoader(() => import('./pages/dispatch-acceptance-sla'))
+const getTaskBreakdownPageModule = createRetryableModuleLoader(() => import('./pages/task-breakdown'))
+const getWlsFabricDemandBoardPageModule = createRetryableModuleLoader(() => import('./pages/wls-fabric-demand-board'))
+const getFactoryProfilePageModule = createRetryableModuleLoader(() => import('./pages/factory-profile'))
+const getCraftCuttingMarkerPlanPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/marker-plan'),
+)
+const getCraftCuttingMarkerSpreadingPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/marker-spreading'),
+)
+const getCraftCuttingTransferBagsPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/transfer-bags'),
+)
+const getCraftPrintingWarehousePageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/printing/warehouse'),
+)
+const getCraftDyeingWarehousePageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/dyeing/warehouse'),
+)
+const getFactoryWarehouseSharedModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/shared/warehouse-standard'),
+)
+const getPrintPreviewPageModule = createRetryableModuleLoader(() => import('./pages/print/print-preview'))
+const getPdaTaskReceivePageModule = createRetryableModuleLoader(() => import('./pages/pda-task-receive'))
+const getPdaExecPageModule = createRetryableModuleLoader(() => import('./pages/pda-exec'))
+const getPdaHandoverPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover'))
+const getPdaWarehousePageModule = createRetryableModuleLoader(() => import('./pages/pda-warehouse'))
+const getPdaSettlementPageModule = createRetryableModuleLoader(() => import('./pages/pda-settlement'))
+const getProductionOrderProgressTrackingPageModule = createRetryableModuleLoader(
+  () => import('./pages/production-order-progress-tracking'),
+)
+const getProgressBoardPageModule = createRetryableModuleLoader(() => import('./pages/progress-board'))
+const getProductionDemandPageModule = createRetryableModuleLoader(() => import('./pages/production/demand-domain'))
+const getProductionOrdersPageModule = createRetryableModuleLoader(() => import('./pages/production/orders-domain'))
+const getProductionEventsModule = createRetryableModuleLoader(() => import('./pages/production/events'))
+const getProductionDialogsModule = createRetryableModuleLoader(() => import('./pages/production/dialogs'))
+const getRoutesModule = createRetryableModuleLoader(() => import('./router/routes'))
 
 async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): Promise<unknown> {
   const pathname = appStore.getState().pathname
@@ -124,16 +90,6 @@ async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): 
   return false
 }
 
-function getFcsHandlersModule(): Promise<FcsHandlersModule> {
-  if (!fcsHandlersModulePromise) {
-    fcsHandlersModulePromise = import('./main-handlers/fcs-handlers').catch((error) => {
-      fcsHandlersModulePromise = null
-      throw error
-    })
-  }
-  return fcsHandlersModulePromise
-}
-
 function preloadFcsHandlers(): void {
   if (fcsHandlersPreloadStarted) return
   fcsHandlersPreloadStarted = true
@@ -141,276 +97,6 @@ function preloadFcsHandlers(): void {
     fcsHandlersPreloadStarted = false
     console.warn('FCS 页面事件处理器预加载失败，将在首次操作时重试', error)
   })
-}
-
-function getProcessWaterSolubleOrdersPageModule(): Promise<ProcessWaterSolubleOrdersPageModule> {
-  if (!processWaterSolubleOrdersPageModulePromise) {
-    processWaterSolubleOrdersPageModulePromise = import('./pages/process-water-soluble-orders').catch((error) => {
-      processWaterSolubleOrdersPageModulePromise = null
-      throw error
-    })
-  }
-  return processWaterSolubleOrdersPageModulePromise
-}
-
-function getCraftDyeingWaterSolubleOrdersPageModule(): Promise<CraftDyeingWaterSolubleOrdersPageModule> {
-  if (!craftDyeingWaterSolubleOrdersPageModulePromise) {
-    craftDyeingWaterSolubleOrdersPageModulePromise = import('./pages/process-factory/dyeing/water-soluble-orders').catch((error) => {
-      craftDyeingWaterSolubleOrdersPageModulePromise = null
-      throw error
-    })
-  }
-  return craftDyeingWaterSolubleOrdersPageModulePromise
-}
-
-function getPcsHandlersModule(): Promise<PcsHandlersModule> {
-  if (!pcsHandlersModulePromise) {
-    pcsHandlersModulePromise = import('./main-handlers/pcs-handlers').catch((error) => {
-      pcsHandlersModulePromise = null
-      throw error
-    })
-  }
-  return pcsHandlersModulePromise
-}
-
-function getPdaHandlersModule(): Promise<PdaHandlersModule> {
-  if (!pdaHandlersModulePromise) {
-    pdaHandlersModulePromise = import('./main-handlers/pda-handlers').catch((error) => {
-      pdaHandlersModulePromise = null
-      throw error
-    })
-  }
-  return pdaHandlersModulePromise
-}
-
-function getDispatchAcceptanceSlaPageModule(): Promise<DispatchAcceptanceSlaPageModule> {
-  if (!dispatchAcceptanceSlaPageModulePromise) {
-    dispatchAcceptanceSlaPageModulePromise = import('./pages/dispatch-acceptance-sla').catch((error) => {
-      dispatchAcceptanceSlaPageModulePromise = null
-      throw error
-    })
-  }
-  return dispatchAcceptanceSlaPageModulePromise
-}
-
-function getTaskBreakdownPageModule(): Promise<TaskBreakdownPageModule> {
-  if (!taskBreakdownPageModulePromise) {
-    taskBreakdownPageModulePromise = import('./pages/task-breakdown').catch((error) => {
-      taskBreakdownPageModulePromise = null
-      throw error
-    })
-  }
-  return taskBreakdownPageModulePromise
-}
-
-function getWlsFabricDemandBoardPageModule(): Promise<WlsFabricDemandBoardPageModule> {
-  if (!wlsFabricDemandBoardPageModulePromise) {
-    wlsFabricDemandBoardPageModulePromise = import('./pages/wls-fabric-demand-board').catch((error) => {
-      wlsFabricDemandBoardPageModulePromise = null
-      throw error
-    })
-  }
-  return wlsFabricDemandBoardPageModulePromise
-}
-
-function getFactoryProfilePageModule(): Promise<FactoryProfilePageModule> {
-  if (!factoryProfilePageModulePromise) {
-    factoryProfilePageModulePromise = import('./pages/factory-profile').catch((error) => {
-      factoryProfilePageModulePromise = null
-      throw error
-    })
-  }
-  return factoryProfilePageModulePromise
-}
-
-function getCraftCuttingMarkerPlanPageModule(): Promise<CraftCuttingMarkerPlanPageModule> {
-  if (!craftCuttingMarkerPlanPageModulePromise) {
-    craftCuttingMarkerPlanPageModulePromise = import('./pages/process-factory/cutting/marker-plan').catch((error) => {
-      craftCuttingMarkerPlanPageModulePromise = null
-      throw error
-    })
-  }
-  return craftCuttingMarkerPlanPageModulePromise
-}
-
-function getCraftCuttingMarkerSpreadingPageModule(): Promise<CraftCuttingMarkerSpreadingPageModule> {
-  if (!craftCuttingMarkerSpreadingPageModulePromise) {
-    craftCuttingMarkerSpreadingPageModulePromise = import('./pages/process-factory/cutting/marker-spreading').catch((error) => {
-      craftCuttingMarkerSpreadingPageModulePromise = null
-      throw error
-    })
-  }
-  return craftCuttingMarkerSpreadingPageModulePromise
-}
-
-function getCraftCuttingTransferBagsPageModule(): Promise<CraftCuttingTransferBagsPageModule> {
-  if (!craftCuttingTransferBagsPageModulePromise) {
-    craftCuttingTransferBagsPageModulePromise = import('./pages/process-factory/cutting/transfer-bags').catch((error) => {
-      craftCuttingTransferBagsPageModulePromise = null
-      throw error
-    })
-  }
-  return craftCuttingTransferBagsPageModulePromise
-}
-
-function getCraftPrintingWarehousePageModule(): Promise<CraftPrintingWarehousePageModule> {
-  if (!craftPrintingWarehousePageModulePromise) {
-    craftPrintingWarehousePageModulePromise = import('./pages/process-factory/printing/warehouse').catch((error) => {
-      craftPrintingWarehousePageModulePromise = null
-      throw error
-    })
-  }
-  return craftPrintingWarehousePageModulePromise
-}
-
-function getCraftDyeingWarehousePageModule(): Promise<CraftDyeingWarehousePageModule> {
-  if (!craftDyeingWarehousePageModulePromise) {
-    craftDyeingWarehousePageModulePromise = import('./pages/process-factory/dyeing/warehouse').catch((error) => {
-      craftDyeingWarehousePageModulePromise = null
-      throw error
-    })
-  }
-  return craftDyeingWarehousePageModulePromise
-}
-
-function getFactoryWarehouseSharedModule(): Promise<FactoryWarehouseSharedModule> {
-  if (!factoryWarehouseSharedModulePromise) {
-    factoryWarehouseSharedModulePromise = import('./pages/process-factory/shared/warehouse-standard').catch((error) => {
-      factoryWarehouseSharedModulePromise = null
-      throw error
-    })
-  }
-  return factoryWarehouseSharedModulePromise
-}
-
-function getPrintPreviewPageModule(): Promise<PrintPreviewPageModule> {
-  if (!printPreviewPageModulePromise) {
-    printPreviewPageModulePromise = import('./pages/print/print-preview').catch((error) => {
-      printPreviewPageModulePromise = null
-      throw error
-    })
-  }
-  return printPreviewPageModulePromise
-}
-
-function getPdaTaskReceivePageModule(): Promise<PdaTaskReceivePageModule> {
-  if (!pdaTaskReceivePageModulePromise) {
-    pdaTaskReceivePageModulePromise = import('./pages/pda-task-receive').catch((error) => {
-      pdaTaskReceivePageModulePromise = null
-      throw error
-    })
-  }
-  return pdaTaskReceivePageModulePromise
-}
-
-function getPdaExecPageModule(): Promise<PdaExecPageModule> {
-  if (!pdaExecPageModulePromise) {
-    pdaExecPageModulePromise = import('./pages/pda-exec').catch((error) => {
-      pdaExecPageModulePromise = null
-      throw error
-    })
-  }
-  return pdaExecPageModulePromise
-}
-
-function getPdaHandoverPageModule(): Promise<PdaHandoverPageModule> {
-  if (!pdaHandoverPageModulePromise) {
-    pdaHandoverPageModulePromise = import('./pages/pda-handover').catch((error) => {
-      pdaHandoverPageModulePromise = null
-      throw error
-    })
-  }
-  return pdaHandoverPageModulePromise
-}
-
-function getPdaWarehousePageModule(): Promise<PdaWarehousePageModule> {
-  if (!pdaWarehousePageModulePromise) {
-    pdaWarehousePageModulePromise = import('./pages/pda-warehouse').catch((error) => {
-      pdaWarehousePageModulePromise = null
-      throw error
-    })
-  }
-  return pdaWarehousePageModulePromise
-}
-
-function getPdaSettlementPageModule(): Promise<PdaSettlementPageModule> {
-  if (!pdaSettlementPageModulePromise) {
-    pdaSettlementPageModulePromise = import('./pages/pda-settlement').catch((error) => {
-      pdaSettlementPageModulePromise = null
-      throw error
-    })
-  }
-  return pdaSettlementPageModulePromise
-}
-
-function getProductionOrderProgressTrackingPageModule(): Promise<ProductionOrderProgressTrackingPageModule> {
-  if (!productionOrderProgressTrackingPageModulePromise) {
-    productionOrderProgressTrackingPageModulePromise = import('./pages/production-order-progress-tracking').catch((error) => {
-      productionOrderProgressTrackingPageModulePromise = null
-      throw error
-    })
-  }
-  return productionOrderProgressTrackingPageModulePromise
-}
-
-function getProgressBoardPageModule(): Promise<ProgressBoardPageModule> {
-  if (!progressBoardPageModulePromise) {
-    progressBoardPageModulePromise = import('./pages/progress-board').catch((error) => {
-      progressBoardPageModulePromise = null
-      throw error
-    })
-  }
-  return progressBoardPageModulePromise
-}
-
-function getProductionDemandPageModule(): Promise<ProductionDemandPageModule> {
-  if (!productionDemandPageModulePromise) {
-    productionDemandPageModulePromise = import('./pages/production/demand-domain').catch((error) => {
-      productionDemandPageModulePromise = null
-      throw error
-    })
-  }
-  return productionDemandPageModulePromise
-}
-
-function getProductionOrdersPageModule(): Promise<ProductionOrdersPageModule> {
-  if (!productionOrdersPageModulePromise) {
-    productionOrdersPageModulePromise = import('./pages/production/orders-domain').catch((error) => {
-      productionOrdersPageModulePromise = null
-      throw error
-    })
-  }
-  return productionOrdersPageModulePromise
-}
-
-function getProductionEventsModule(): Promise<ProductionEventsModule> {
-  if (!productionEventsModulePromise) {
-    productionEventsModulePromise = import('./pages/production/events').catch((error) => {
-      productionEventsModulePromise = null
-      throw error
-    })
-  }
-  return productionEventsModulePromise
-}
-
-function getProductionDialogsModule(): Promise<ProductionDialogsModule> {
-  if (!productionDialogsModulePromise) {
-    productionDialogsModulePromise = import('./pages/production/dialogs').catch((error) => {
-      productionDialogsModulePromise = null
-      throw error
-    })
-  }
-  return productionDialogsModulePromise
-}
-
-function getRoutesModule(): Promise<RoutesModule> {
-  if (!routesModulePromise) {
-    routesModulePromise = import('./router/routes').catch((error) => {
-      routesModulePromise = null
-      throw error
-    })
-  }
-  return routesModulePromise
 }
 
 function scheduleProductionListPreload(): void {
@@ -478,13 +164,10 @@ appStore.init()
 
 const PRELOAD_ERROR_RELOAD_KEY = 'higood-vite-preload-reload'
 let dynamicModuleReloadScheduled = false
+const browserSessionStorage = getBrowserSessionStorage()
 
 function clearPreloadReloadFlag(): void {
-  try {
-    sessionStorage.removeItem(PRELOAD_ERROR_RELOAD_KEY)
-  } catch {
-    // ignore session storage errors in prototype
-  }
+  removeBrowserStorageItem(browserSessionStorage, PRELOAD_ERROR_RELOAD_KEY)
 }
 
 function isDynamicModuleLoadError(error: unknown): boolean {
@@ -500,14 +183,15 @@ function isDynamicModuleLoadError(error: unknown): boolean {
 function shouldReloadForModuleLoadError(): boolean {
   try {
     const currentPath = `${window.location.pathname}${window.location.search}`
-    const current = sessionStorage.getItem(PRELOAD_ERROR_RELOAD_KEY)
+    const current = readBrowserStorageItem(browserSessionStorage, PRELOAD_ERROR_RELOAD_KEY)
     if (current) {
       const parsed = JSON.parse(current) as { path?: string; at?: number }
       const samePath = parsed.path === currentPath
       const recentlyReloaded = typeof parsed.at === 'number' && Date.now() - parsed.at < 30_000
       if (samePath && recentlyReloaded) return false
     }
-    sessionStorage.setItem(
+    writeBrowserStorageItem(
+      browserSessionStorage,
       PRELOAD_ERROR_RELOAD_KEY,
       JSON.stringify({ path: currentPath, at: Date.now() }),
     )
@@ -533,12 +217,8 @@ function reloadForDynamicModuleLoadError(error: unknown, source: string): boolea
 
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault()
-  const preloadError =
-    'payload' in event
-      ? (event as Event & { payload?: unknown }).payload
-      : event instanceof CustomEvent
-        ? event.detail
-        : event
+  const preloadEvent = event as Event & { payload?: unknown; detail?: unknown }
+  const preloadError = preloadEvent.payload ?? preloadEvent.detail ?? event
   reloadForDynamicModuleLoadError(preloadError, 'Vite 预加载')
 })
 
@@ -585,7 +265,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await getCraftDyeingWaterSolubleOrdersPageModule()
     return page.handleCraftDyeingWaterSolubleOrdersEvent(eventTarget)
   }
-  if (pathname.startsWith('/fcs/progress/production-orders') || pathname.startsWith('/fcs/production_order_track/index')) {
+  if (
+    pathname.startsWith('/fcs/progress/production-orders') ||
+    pathname.startsWith('/fcs/production_order_track/index')
+  ) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
   }
@@ -734,7 +417,10 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
-  if (pathname.startsWith('/fcs/progress/production-orders') || pathname.startsWith('/fcs/production_order_track/index')) {
+  if (
+    pathname.startsWith('/fcs/progress/production-orders') ||
+    pathname.startsWith('/fcs/production_order_track/index')
+  ) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.closeProductionOrderProgressOverlay()
   }
@@ -880,14 +566,18 @@ const productionPreparationTimingStatisticsRoutePath = '/fcs/production/preparat
 let previousRenderedPagePathname = ''
 
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
-  const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
-    && previousRenderedPagePathname !== supplementManagementRoutePath
-  const isCutPieceReturnProcessingEntry = normalizedPathname === cutPieceReturnProcessingRoutePath
-    && previousRenderedPagePathname !== cutPieceReturnProcessingRoutePath
-  const isProductionPreparationTimingEntry = normalizedPathname === productionPreparationTimingRoutePath
-    && previousRenderedPagePathname !== productionPreparationTimingRoutePath
-  const isProductionPreparationTimingStatisticsEntry = normalizedPathname === productionPreparationTimingStatisticsRoutePath
-    && previousRenderedPagePathname !== productionPreparationTimingStatisticsRoutePath
+  const isSupplementManagementEntry =
+    normalizedPathname === supplementManagementRoutePath &&
+    previousRenderedPagePathname !== supplementManagementRoutePath
+  const isCutPieceReturnProcessingEntry =
+    normalizedPathname === cutPieceReturnProcessingRoutePath &&
+    previousRenderedPagePathname !== cutPieceReturnProcessingRoutePath
+  const isProductionPreparationTimingEntry =
+    normalizedPathname === productionPreparationTimingRoutePath &&
+    previousRenderedPagePathname !== productionPreparationTimingRoutePath
+  const isProductionPreparationTimingStatisticsEntry =
+    normalizedPathname === productionPreparationTimingStatisticsRoutePath &&
+    previousRenderedPagePathname !== productionPreparationTimingStatisticsRoutePath
   previousRenderedPagePathname = normalizedPathname
   if (isSupplementManagementEntry) {
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
@@ -901,7 +591,8 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 
   const productionPreparationTimingPage = await import('./pages/production/preparation-timing')
   if (isProductionPreparationTimingEntry) productionPreparationTimingPage.enterProductionPreparationTimingRoute()
-  if (isProductionPreparationTimingStatisticsEntry) productionPreparationTimingPage.enterProductionPreparationTimingStatisticsRoute()
+  if (isProductionPreparationTimingStatisticsEntry)
+    productionPreparationTimingPage.enterProductionPreparationTimingStatisticsRoute()
 }
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
@@ -1057,16 +748,24 @@ function isTechPackPageMounted(): boolean {
   return Boolean(root.querySelector('[data-tech-pack-page-root="true"]'))
 }
 
-function shouldUseTechPackScopedRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+function shouldUseTechPackScopedRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
   if (!(target instanceof Element)) return false
   if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
   const isTechPackTarget = Boolean(target.closest('[data-tech-pack-page-root="true"]'))
-  const isCuttingMarkerTarget = Boolean(target.closest([
-    '[data-testid="cutting-marker-plan-list-page"]',
-    '[data-testid="cutting-marker-plan-create-page"]',
-    '[data-testid="cutting-marker-plan-edit-page"]',
-    '[data-testid="cutting-marker-plan-detail-page"]',
-  ].join(',')))
+  const isCuttingMarkerTarget = Boolean(
+    target.closest(
+      [
+        '[data-testid="cutting-marker-plan-list-page"]',
+        '[data-testid="cutting-marker-plan-create-page"]',
+        '[data-testid="cutting-marker-plan-edit-page"]',
+        '[data-testid="cutting-marker-plan-detail-page"]',
+      ].join(','),
+    ),
+  )
   if (!isTechPackTarget && !isCuttingMarkerTarget) return false
 
   const actionNode = target.closest<HTMLElement>('[data-tech-action]')
@@ -1082,7 +781,11 @@ function shouldUseProductionScopedRender(previousPathname: string, nextPathname:
   return previous === next && isProductionScopedRenderPath(next)
 }
 
-function shouldUseProductionOrdersOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+function shouldUseProductionOrdersOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
   if (!(target instanceof Element)) return false
   const previous = normalizePathname(previousPathname)
   const next = normalizePathname(nextPathname)
@@ -1117,12 +820,18 @@ function shouldUseProductionOrdersOverlayRender(target: Element | null, previous
 
   const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
   const field = fieldNode?.dataset.prodField || ''
-  return field.startsWith('materialDraftMode:') ||
+  return (
+    field.startsWith('materialDraftMode:') ||
     field.startsWith('materialDraftRemark:') ||
     field.startsWith('materialDraftLineQty:')
+  )
 }
 
-function shouldUseProductionDemandOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+function shouldUseProductionDemandOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
   if (!(target instanceof Element)) return false
   const previous = normalizePathname(previousPathname)
   const next = normalizePathname(nextPathname)
@@ -1145,7 +854,11 @@ function shouldUseProductionDemandOverlayRender(target: Element | null, previous
   return field.startsWith('demandGenerateTechPackVersion:')
 }
 
-function shouldUseProductionDemandConfirmOverlayRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+function shouldUseProductionDemandConfirmOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
   if (!(target instanceof Element)) return false
   const previous = normalizePathname(previousPathname)
   const next = normalizePathname(nextPathname)
@@ -1217,7 +930,7 @@ function buildFocusSelector(element: HTMLInputElement | HTMLTextAreaElement | HT
   const datasetEntries = Object.entries(element.dataset)
 
   for (const [key, value] of datasetEntries) {
-    selectorParts.push(`[${datasetKeyToAttribute(key)}="${escapeCssValue(value)}"]`)
+    selectorParts.push(`[${datasetKeyToAttribute(key)}="${escapeCssValue(value || '')}"]`)
   }
 
   const name = element.getAttribute('name')
@@ -1237,11 +950,11 @@ function buildFocusPath(element: Element): number[] {
   let current: Element | null = element
 
   while (current && current !== root) {
-    const parent = current.parentElement
-    if (!parent) break
-    const index = Array.prototype.indexOf.call(parent.children, current)
+    const parentElement: HTMLElement | null = current.parentElement
+    if (!parentElement) break
+    const index = Array.prototype.indexOf.call(parentElement.children, current)
     path.unshift(index)
-    current = parent
+    current = parentElement
   }
 
   return path
@@ -1398,17 +1111,21 @@ function buildNavigationFromFields(node: HTMLElement): string | null {
   if (!scope) return null
 
   const params = new URLSearchParams()
-  scope.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input[name], select[name], textarea[name]').forEach((field) => {
-    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
-      if (!field.checked) return
+  scope
+    .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      'input[name], select[name], textarea[name]',
+    )
+    .forEach((field) => {
+      if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+        if (!field.checked) return
+        const value = field.value.trim()
+        if (value) params.append(field.name, value)
+        return
+      }
+      if (field instanceof HTMLInputElement && field.type === 'radio' && !field.checked) return
       const value = field.value.trim()
-      if (value) params.append(field.name, value)
-      return
-    }
-    if (field instanceof HTMLInputElement && field.type === 'radio' && !field.checked) return
-    const value = field.value.trim()
-    if (value) params.set(field.name, value)
-  })
+      if (value) params.set(field.name, value)
+    })
   scope.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((details) => {
     details.open = false
   })
@@ -1456,6 +1173,93 @@ function shouldBypassClickDispatch(target: Element): boolean {
   return false
 }
 
+type RerenderEventKind = 'input' | 'change'
+
+const RERENDER_DRIVEN_INPUT_TYPES = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
+const TECH_CHANGE_RERENDER_DRIVEN_FIELDS = new Set([
+  'new-pattern-material-type',
+  'new-pattern-linked-bom-item',
+  'new-pattern-prj-file',
+  'new-pattern-marker-image-file',
+  'new-pattern-dxf-file',
+  'new-pattern-rul-file',
+  'new-pattern-single-file',
+  'new-pattern-piece-is-template',
+  'pattern-template-search-keyword',
+  'new-bom-print-requirement',
+  'new-bom-print-side-mode',
+  'new-design-file',
+])
+const MARKER_PLAN_INPUT_SELECTOR = [
+  '[data-marker-plan-filter-field]',
+  '[data-marker-plan-context-field]',
+  '[data-marker-plan-basic-field]',
+  '[data-marker-plan-textarea-field]',
+  '[data-marker-plan-size-piece-per-layer]',
+  '[data-marker-plan-matrix-cell]',
+  '[data-marker-plan-matrix-row-length]',
+  '[data-marker-plan-bed-field]',
+  '[data-marker-plan-fold-field]',
+  '[data-marker-plan-mapping-field]',
+].join(', ')
+
+function isInputOrTextArea(node: HTMLElement | null): node is HTMLInputElement | HTMLTextAreaElement {
+  return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement
+}
+
+function getInputType(node: HTMLInputElement | HTMLTextAreaElement): string {
+  return node instanceof HTMLInputElement ? (node.type || 'text').toLowerCase() : 'text'
+}
+
+function shouldSkipRerenderForControlType(node: HTMLInputElement | HTMLTextAreaElement): boolean {
+  return !RERENDER_DRIVEN_INPUT_TYPES.has(getInputType(node))
+}
+
+function resolveSharedFieldRerenderDecision(target: Element, eventKind: RerenderEventKind): boolean | undefined {
+  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
+  if (isInputOrTextArea(pdaLoginFieldNode)) return true
+
+  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  if (isInputOrTextArea(productionFieldNode)) return shouldSkipRerenderForControlType(productionFieldNode)
+
+  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
+  if (isInputOrTextArea(pdaCutHandoverFieldNode)) return true
+
+  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>(
+    '[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]',
+  )
+  if (
+    isInputOrTextArea(pdaCutSpreadingFieldNode) ||
+    (eventKind === 'change' && pdaCutSpreadingFieldNode instanceof HTMLSelectElement)
+  ) {
+    return true
+  }
+
+  if (eventKind === 'input') {
+    const markerPlanInputNode = target.closest<HTMLElement>(MARKER_PLAN_INPUT_SELECTOR)
+    if (isInputOrTextArea(markerPlanInputNode)) {
+      const inputType = getInputType(markerPlanInputNode)
+      return inputType !== 'checkbox' && inputType !== 'radio'
+    }
+  }
+
+  const pdaOnboardingFieldNode = target.closest<HTMLElement>(
+    '[data-pda-onboarding-field], [data-pda-onboarding-machine-field]',
+  )
+  if (isInputOrTextArea(pdaOnboardingFieldNode)) return true
+
+  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
+  if (isInputOrTextArea(factoryOnboardingFieldNode)) {
+    const inputType = getInputType(factoryOnboardingFieldNode)
+    return inputType !== 'radio' && inputType !== 'checkbox'
+  }
+
+  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
+  if (isInputOrTextArea(factoryProfileFieldNode)) return shouldSkipRerenderForControlType(factoryProfileFieldNode)
+
+  return undefined
+}
+
 function shouldSkipInputRerender(target: Element): boolean {
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
   if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
@@ -1469,80 +1273,13 @@ function shouldSkipInputRerender(target: Element): boolean {
     if (techFieldNode instanceof HTMLTextAreaElement) return true
 
     if (techFieldNode instanceof HTMLInputElement) {
-      const inputType = (techFieldNode.type || 'text').toLowerCase()
-      const rerenderDrivenTypes = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
-      return !rerenderDrivenTypes.has(inputType)
+      return shouldSkipRerenderForControlType(techFieldNode)
     }
 
     return false
   }
 
-  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
-  if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
-  if (productionFieldNode instanceof HTMLInputElement || productionFieldNode instanceof HTMLTextAreaElement) {
-    const inputType = productionFieldNode instanceof HTMLInputElement
-      ? (productionFieldNode.type || 'text').toLowerCase()
-      : 'text'
-    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
-  }
-
-  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
-  if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]')
-  if (pdaCutSpreadingFieldNode instanceof HTMLInputElement || pdaCutSpreadingFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const markerPlanInputNode = target.closest<HTMLElement>(
-    [
-      '[data-marker-plan-filter-field]',
-      '[data-marker-plan-context-field]',
-      '[data-marker-plan-basic-field]',
-      '[data-marker-plan-textarea-field]',
-      '[data-marker-plan-size-piece-per-layer]',
-      '[data-marker-plan-matrix-cell]',
-      '[data-marker-plan-matrix-row-length]',
-      '[data-marker-plan-bed-field]',
-      '[data-marker-plan-fold-field]',
-      '[data-marker-plan-mapping-field]',
-    ].join(', '),
-  )
-  if (markerPlanInputNode instanceof HTMLInputElement || markerPlanInputNode instanceof HTMLTextAreaElement) {
-    const inputType = markerPlanInputNode instanceof HTMLInputElement ? (markerPlanInputNode.type || 'text').toLowerCase() : 'text'
-    if (inputType === 'checkbox' || inputType === 'radio') return false
-    return true
-  }
-
-  const pdaOnboardingFieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field], [data-pda-onboarding-machine-field]')
-  if (pdaOnboardingFieldNode instanceof HTMLInputElement || pdaOnboardingFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
-  if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
-    if (factoryOnboardingFieldNode instanceof HTMLInputElement) {
-      const inputType = (factoryOnboardingFieldNode.type || 'text').toLowerCase()
-      if (inputType === 'radio' || inputType === 'checkbox') return false
-    }
-    return true
-  }
-
-  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
-  if (factoryProfileFieldNode instanceof HTMLInputElement || factoryProfileFieldNode instanceof HTMLTextAreaElement) {
-    const inputType = factoryProfileFieldNode instanceof HTMLInputElement
-      ? (factoryProfileFieldNode.type || 'text').toLowerCase()
-      : 'text'
-    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
-  }
-
-  return false
+  return resolveSharedFieldRerenderDecision(target, 'input') ?? false
 }
 
 function shouldSkipChangeRerender(target: Element): boolean {
@@ -1551,78 +1288,44 @@ function shouldSkipChangeRerender(target: Element): boolean {
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (techFieldNode) {
     const field = techFieldNode.dataset.techField || ''
-    const rerenderDrivenFields = new Set([
-      'new-pattern-material-type',
-      'new-pattern-linked-bom-item',
-      'new-pattern-prj-file',
-      'new-pattern-marker-image-file',
-      'new-pattern-dxf-file',
-      'new-pattern-rul-file',
-      'new-pattern-single-file',
-      'new-pattern-piece-is-template',
-      'pattern-template-search-keyword',
-      'new-bom-print-requirement',
-      'new-bom-print-side-mode',
-      'new-design-file',
-    ])
-
-    return !rerenderDrivenFields.has(field)
+    return !TECH_CHANGE_RERENDER_DRIVEN_FIELDS.has(field)
   }
 
-  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
-  if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
-  if (productionFieldNode instanceof HTMLInputElement || productionFieldNode instanceof HTMLTextAreaElement) {
-    const inputType = productionFieldNode instanceof HTMLInputElement
-      ? (productionFieldNode.type || 'text').toLowerCase()
-      : 'text'
-    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
-  }
-
-  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
-  if (pdaCutHandoverFieldNode instanceof HTMLInputElement || pdaCutHandoverFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]')
-  if (
-    pdaCutSpreadingFieldNode instanceof HTMLInputElement ||
-    pdaCutSpreadingFieldNode instanceof HTMLTextAreaElement ||
-    pdaCutSpreadingFieldNode instanceof HTMLSelectElement
-  ) {
-    return true
-  }
-
-  const pdaOnboardingFieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field], [data-pda-onboarding-machine-field]')
-  if (pdaOnboardingFieldNode instanceof HTMLInputElement || pdaOnboardingFieldNode instanceof HTMLTextAreaElement) {
-    return true
-  }
-
-  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
-  if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
-    if (factoryOnboardingFieldNode instanceof HTMLInputElement) {
-      const inputType = (factoryOnboardingFieldNode.type || 'text').toLowerCase()
-      if (inputType === 'radio' || inputType === 'checkbox') return false
-    }
-    return true
-  }
-
-  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
-  if (factoryProfileFieldNode instanceof HTMLInputElement || factoryProfileFieldNode instanceof HTMLTextAreaElement) {
-    const inputType = factoryProfileFieldNode instanceof HTMLInputElement
-      ? (factoryProfileFieldNode.type || 'text').toLowerCase()
-      : 'text'
-    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
-  }
-
-  return false
+  return resolveSharedFieldRerenderDecision(target, 'change') ?? false
 }
 
-function resolveEventElementTarget(eventTarget: EventTarget | null): Element | null {
-  if (eventTarget instanceof Element) return eventTarget
+async function renderAfterHandledPageEvent(
+  target: HTMLElement,
+  focusSnapshot: FocusSnapshot | null,
+  previousPathname: string,
+): Promise<void> {
+  const nextPathname = appStore.getState().pathname
+  if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionDemandOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionOrdersOverlayOnly(focusSnapshot)
+    return
+  }
+  if (
+    target.closest<HTMLElement>('[data-fast-page-render]') ||
+    shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+    shouldUseProductionScopedRender(previousPathname, nextPathname)
+  ) {
+    await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+  } else {
+    await renderWithFocusRestore(focusSnapshot)
+  }
+}
+
+function resolveEventElementTarget(eventTarget: EventTarget | null): HTMLElement | null {
+  if (eventTarget instanceof HTMLElement) return eventTarget
+  if (eventTarget instanceof Element) return eventTarget.parentElement
   if (eventTarget instanceof Node) return eventTarget.parentElement
   return null
 }
@@ -1774,7 +1477,9 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
-  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'))
+  const skipPageRerender = Boolean(
+    target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'),
+  )
   const preserveNativeClick = Boolean(target.closest<HTMLInputElement>('input[data-preserve-native-click="true"]'))
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
@@ -1806,7 +1511,9 @@ root.addEventListener('click', async (event) => {
     return
   }
 
-  const warehouseSharedNode = target.closest<HTMLElement>('[data-warehouse-flow-action], [data-factory-warehouse-location-action]')
+  const warehouseSharedNode = target.closest<HTMLElement>(
+    '[data-warehouse-flow-action], [data-factory-warehouse-location-action]',
+  )
   if (warehouseSharedNode) {
     event.preventDefault()
     const warehouseShared = await getFactoryWarehouseSharedModule()
@@ -1831,9 +1538,7 @@ root.addEventListener('click', async (event) => {
   if (pdaCutHandoverActionNode) {
     event.preventDefault()
     const handoverModule = await getPdaCuttingHandoverModule()
-    const handoverResult = handoverModule.handlePdaCuttingHandoverEvent(
-      pdaCutHandoverActionNode,
-    )
+    const handoverResult = handoverModule.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)
     if (handoverResult) {
       if (isPdaPageHandledLocally(handoverResult)) return
       await renderWithFocusRestore(focusSnapshot)
@@ -1943,28 +1648,7 @@ root.addEventListener('input', async (event) => {
   const pageEventHandled = await dispatchPageEvent(target, event)
   if (pageEventHandled) {
     if (shouldSkipInputRerender(target)) return
-    const nextPathname = appStore.getState().pathname
-    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionOrdersOverlayOnly(focusSnapshot)
-      return
-    }
-    if (
-      target.closest<HTMLElement>('[data-fast-page-render]') ||
-      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
-      shouldUseProductionScopedRender(previousPathname, nextPathname)
-    ) {
-      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
-    } else {
-      await renderWithFocusRestore(focusSnapshot)
-    }
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
   }
 })
 
@@ -1982,28 +1666,7 @@ root.addEventListener('compositionend', async (event) => {
 
   if (await dispatchPageEvent(target, event)) {
     if (shouldSkipInputRerender(target)) return
-    const nextPathname = appStore.getState().pathname
-    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionOrdersOverlayOnly(focusSnapshot)
-      return
-    }
-    if (
-      target.closest<HTMLElement>('[data-fast-page-render]') ||
-      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
-      shouldUseProductionScopedRender(previousPathname, nextPathname)
-    ) {
-      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
-    } else {
-      await renderWithFocusRestore(focusSnapshot)
-    }
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
   }
 })
 
@@ -2015,36 +1678,15 @@ root.addEventListener('change', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   if (
-    target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')
-    && await dispatchPcsInputEvent(target)
+    target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]') &&
+    (await dispatchPcsInputEvent(target))
   ) {
     return
   }
 
   if (await dispatchPageEvent(target, event)) {
     if (skipChangeRerender) return
-    const nextPathname = appStore.getState().pathname
-    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionOrdersOverlayOnly(focusSnapshot)
-      return
-    }
-    if (
-      target.closest<HTMLElement>('[data-fast-page-render]') ||
-      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
-      shouldUseProductionScopedRender(previousPathname, nextPathname)
-    ) {
-      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
-    } else {
-      await renderWithFocusRestore(focusSnapshot)
-    }
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
   }
 })
 
@@ -2066,9 +1708,10 @@ document.addEventListener('keydown', async (event) => {
     if (scanResult) event.preventDefault()
     return
   }
-  const scanEnterTarget = event.key === 'Enter'
-    ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
-    : null
+  const scanEnterTarget =
+    event.key === 'Enter'
+      ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
+      : null
   if (scanEnterTarget) {
     const focusSnapshot = captureFocusSnapshot()
     if (await dispatchPageEvent(scanEnterTarget, event)) {

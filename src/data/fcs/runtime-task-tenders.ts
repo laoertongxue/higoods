@@ -124,7 +124,7 @@ export function upsertRuntimeTaskTenderRecord(
   const record: RuntimeTaskTenderRecord = {
     ...input,
     factoryPool,
-    quotes: (input.quotes ?? current?.quotes ?? [])
+    quotes: (input.quotes ?? [])
       .filter((quote) => factoryIds.has(quote.factoryId))
       .map((quote) => ({ ...quote })),
   }

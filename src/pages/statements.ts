@@ -395,6 +395,7 @@ function applyStatementPageDemoBootstrap(): void {
     proxyDraft.updatedAt = operatedAt
     proxyDraft.updatedBy = '跟单A'
     appendDemoStatementLog(proxyDraft, {
+      logId: `ST-LOG-PROXY-${proxyDraft.statementId}`,
       action: '跟单审核代确认',
       actor: '跟单A',
       operatedAt,
@@ -420,6 +421,7 @@ function applyStatementPageDemoBootstrap(): void {
     closedDraft.updatedAt = operatedAt
     closedDraft.updatedBy = '平台运营'
     appendDemoStatementLog(closedDraft, {
+      logId: `ST-LOG-CLOSE-${closedDraft.statementId}`,
       action: '关闭对账单',
       actor: '平台运营',
       operatedAt,
@@ -892,7 +894,7 @@ function demoStatementSourceItemToDraftItem(item: StatementSourceItemViewModel):
     pendingDeductionRecordId: item.pendingDeductionRecordId,
     disputeId: item.disputeId,
     processLabel: item.processLabel,
-    pricingSourceType: item.pricingSourceType === 'NONE' ? 'NONE' : item.pricingSourceType,
+    pricingSourceType: item.pricingSourceType === 'OTHER_COMPAT' ? 'NONE' : item.pricingSourceType,
     pricingSourceRefId: item.pricingSourceRefId,
     settlementUnitPrice: item.settlementUnitPrice,
     earningAmount: item.earningAmount,

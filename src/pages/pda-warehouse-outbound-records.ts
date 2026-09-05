@@ -84,8 +84,8 @@ function buildPostFinishingPdaHandoverRoute(recheckOrderNo: string): string {
   return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(recheckOrderNo)}`
 }
 
-function getLinkedQrValue(source: Record<string, unknown>): string | undefined {
-  const value = source[LINKED_QR_FIELD]
+function getLinkedQrValue(source: object): string | undefined {
+  const value = (source as Record<string, unknown>)[LINKED_QR_FIELD]
   return typeof value === 'string' ? value : undefined
 }
 
@@ -383,7 +383,7 @@ export function renderPdaWarehouseOutboundRecordsPage(): string {
 export function handlePdaWarehouseOutboundRecordsEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
-  if (action === 'open-outbound-detail' && actionNode.dataset.recordId) {
+  if (action === 'open-outbound-detail' && actionNode?.dataset.recordId) {
     state.detailId = actionNode.dataset.recordId
     return true
   }
@@ -392,8 +392,8 @@ export function handlePdaWarehouseOutboundRecordsEvent(target: HTMLElement): boo
     return true
   }
   if (action === 'open-outbound-image') {
-    state.imageUrl = actionNode.dataset.imageUrl || ''
-    state.imageAlt = actionNode.dataset.imageAlt || ''
+    state.imageUrl = actionNode?.dataset.imageUrl || ''
+    state.imageAlt = actionNode?.dataset.imageAlt || ''
     return true
   }
   if (action === 'close-outbound-image') {

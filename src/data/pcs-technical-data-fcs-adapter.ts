@@ -1,5 +1,10 @@
 import type { TechPack } from './fcs/tech-packs.ts'
 import type {
+  DetailSplitDimension,
+  SpecialCraftTargetObjectLabel,
+  SpecialCraftVisibleFactoryType,
+} from './fcs/process-craft-dict.ts'
+import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from './pcs-technical-data-version-types.ts'
@@ -8,6 +13,26 @@ function mapLegacyStatus(status: TechnicalDataVersionRecord['versionStatus']): T
   if (status === 'PUBLISHED') return 'ENABLED'
   if (status === 'ARCHIVED') return 'DISABLED'
   return 'DRAFT'
+}
+
+const DETAIL_SPLIT_DIMENSIONS = new Set<DetailSplitDimension>(['PATTERN', 'MATERIAL_SKU', 'GARMENT_COLOR', 'GARMENT_SKU'])
+const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES = new Set<SpecialCraftVisibleFactoryType>([
+  'CENTRAL_SPECIAL',
+  'SATELLITE_FINISHING',
+  'CENTRAL_CUTTING',
+  'CENTRAL_AUX',
+])
+
+function isDetailSplitDimension(value: string): value is DetailSplitDimension {
+  return DETAIL_SPLIT_DIMENSIONS.has(value as DetailSplitDimension)
+}
+
+function normalizeTargetObjectLabel(value: SpecialCraftTargetObjectLabel | undefined): SpecialCraftTargetObjectLabel {
+  return value ?? '已裁部位'
+}
+
+function isSpecialCraftVisibleFactoryType(value: string): value is SpecialCraftVisibleFactoryType {
+  return SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES.has(value as SpecialCraftVisibleFactoryType)
 }
 
 export function buildLegacyTechPackFromTechnicalVersion(
@@ -26,6 +51,17 @@ export function buildLegacyTechPackFromTechnicalVersion(
     lastUpdatedBy: record.updatedBy,
     patternFiles: content.patternFiles.map((item) => ({
       ...item,
+      patternMakerInfoStatus: item.patternMakerInfoStatus === '已完成' ? '已解析' : item.patternMakerInfoStatus,
+      bindingStrips: item.bindingStrips?.map((strip) => ({
+        ...strip,
+        bindingStripNo: strip.bindingStripNo || strip.bindingStripId,
+        specialCrafts: strip.specialCrafts?.map((craft) => ({
+          ...craft,
+          selectedTargetObject: normalizeTargetObjectLabel(craft.selectedTargetObject),
+          supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+          supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+        })),
+      })),
       patternTotalPieceQty: item.patternTotalPieceQty,
       pieceInstanceTotal: item.pieceInstanceTotal,
       specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
@@ -43,13 +79,18 @@ export function buildLegacyTechPackFromTechnicalVersion(
         colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
         specialCrafts: row.specialCrafts?.map((craft) => ({
           ...craft,
+          selectedTargetObject: normalizeTargetObjectLabel(craft.selectedTargetObject),
           supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
       })),
       pieceInstances: item.pieceInstances?.map((instance) => ({
         ...instance,
-        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({
+          ...assignment,
+          targetObject: assignment.targetObject === 'BINDING_STRIP' ? undefined : assignment.targetObject,
+          targetObjectName: assignment.targetObjectName === '捆条' ? undefined : assignment.targetObjectName,
+        })),
       })),
     })),
     patternDesc: content.patternDesc,
@@ -62,16 +103,21 @@ export function buildLegacyTechPackFromTechnicalVersion(
     })),
     processEntries: content.processEntries.map((item) => ({
       ...item,
-      detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+      ruleSource: item.ruleSource === 'INHERIT_PROCESS' || item.ruleSource === 'OVERRIDE_CRAFT'
+        ? item.ruleSource
+        : undefined,
+      detailSplitMode: item.detailSplitMode === 'COMPOSITE' ? 'COMPOSITE' : undefined,
+      detailSplitDimensions: [...(item.detailSplitDimensions ?? [])].filter(isDetailSplitDimension),
       supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
       supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
       linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
-      visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
+      visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])].filter(isSpecialCraftVisibleFactoryType),
     })),
     sizeTable: content.sizeTable.map((item) => ({ ...item })),
     bomItems: content.bomItems.map((item) => ({
       ...item,
+      type: item.type === '纱线' ? '其他' : item.type,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],

@@ -1,9 +1,9 @@
+import { isProductionConfirmationPrintPath, isRouteAtOrBelowAny } from '../router/path-match.ts'
+
 function canShowProductionObjectEntry(pathname: string): boolean {
-  if (pathname.startsWith('/fcs/pda')) return false
-  if (pathname.startsWith('/fcs/print/')) return false
-  if (pathname.startsWith('/fcs/task-print/')) return false
-  if (pathname.includes('confirmation-print')) return false
-  return pathname.startsWith('/fcs') || pathname.startsWith('/pcs') || pathname.startsWith('/pms') || pathname.startsWith('/wls')
+  if (isRouteAtOrBelowAny(pathname, ['/fcs/pda', '/fcs/print', '/fcs/task-print'])) return false
+  if (isProductionConfirmationPrintPath(pathname)) return false
+  return isRouteAtOrBelowAny(pathname, ['/fcs', '/pcs', '/pms', '/wls'])
 }
 
 export function renderProductionObjectFloatingEntry(pathname: string): string {

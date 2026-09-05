@@ -12,7 +12,7 @@ export interface SewingDeliveryCoveredProcess {
 }
 
 export interface SewingDeliverySlaTaskLike {
-  taskUnitType: string
+  taskUnitType?: string
   processCode: string
   processBusinessCode?: string
   processNameZh: string

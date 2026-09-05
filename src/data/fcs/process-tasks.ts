@@ -48,7 +48,7 @@ import {
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
-export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
+export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER' | '件' | '片' | '米' | '个' | '条' | '卷' | '公斤'
 export type ProductionTaskUnitType = 'SINGLE_PROCESS_TASK' | 'MERGED_PRODUCTION_TASK' | 'WHOLE_ORDER_TASK'
 export interface CoveredProcessScope {
   processCode: string
@@ -121,6 +121,8 @@ export interface ProcessTask {
   qty: number
   qtyUnit: QtyUnit
   qtyDisplayUnit?: string
+  taskTypeLabel?: string
+  scopeLabel?: string
   assignmentMode: AssignmentMode
   assignmentStatus: TaskAssignmentStatus
   ownerSuggestion: OwnerSuggestion
@@ -260,7 +262,7 @@ export interface ProcessTask {
   historicalAssignment?: boolean
   replacedByRuntimeTaskId?: string
   reassignedAt?: string
-  defaultDocType?: 'DEMAND' | 'TASK'
+  defaultDocType?: 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
@@ -382,13 +384,13 @@ const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-000
 
 function pickProcessTaskMocks(tasks: ProcessTask[]): ProcessTask[] {
   const preferredOrder = new Map(PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS.map((orderId, index) => [orderId, index]))
-  const pickedTasks = tasks.filter((task) => preferredOrder.has(task.productionOrderId))
+  const pickedTasks = tasks.filter((task) => preferredOrder.has(task.productionOrderId || ''))
   const scopedTasks = pickedTasks.length >= PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS.length ? pickedTasks : tasks
 
   return [...scopedTasks]
     .sort((a, b) => {
-      const orderA = preferredOrder.get(a.productionOrderId) ?? Number.MAX_SAFE_INTEGER
-      const orderB = preferredOrder.get(b.productionOrderId) ?? Number.MAX_SAFE_INTEGER
+      const orderA = preferredOrder.get(a.productionOrderId || '') ?? Number.MAX_SAFE_INTEGER
+      const orderB = preferredOrder.get(b.productionOrderId || '') ?? Number.MAX_SAFE_INTEGER
       if (orderA !== orderB) return orderA - orderB
       return a.seq - b.seq
     })
@@ -1170,7 +1172,7 @@ export function updateKolGotoWholeOrderTaskExecution(
   audit: { action: string; detail: string; at: string; by: string },
 ): ProcessTask {
   const task = processTasks.find((item) => item.taskId === taskId)
-  if (!isKolGotoWholeOrderTask(task)) {
+  if (!task || !isKolGotoWholeOrderTask(task)) {
     throw new Error(`任务 ${taskId} 不是可更新的 KOL-GOTO 整单任务`)
   }
   Object.assign(task, patch, { updatedAt: audit.at })

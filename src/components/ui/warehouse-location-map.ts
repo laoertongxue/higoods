@@ -335,7 +335,9 @@ export function handleWarehouseLocationMapOccupancyEvent(
     mapRoot.dataset.occupancyDetailPage = actionNode.dataset.page || '1'
   }
 
-  mapRoot.querySelectorAll<HTMLElement>('[data-warehouse-map-occupancy-overlay]').forEach((node) => node.remove())
+  mapRoot.querySelectorAll<HTMLElement>('[data-warehouse-map-occupancy-overlay]').forEach((node) => {
+    node.remove()
+  })
   const locationId = mapRoot.dataset.occupancyLocationId || ''
   if (locationId) {
     mapRoot.insertAdjacentHTML('beforeend', renderWarehouseLocationMapOccupancyOverlay(
@@ -412,10 +414,14 @@ export function renderWarehouseLocationMapSummarySection(projection: WarehouseLo
         Math.max(qtyByFootprintId.get(occupancy.footprintId) ?? 0, occupancy.qty),
       )
       group.qtyByUnit.set(occupancy.unit, qtyByFootprintId)
-      occupancy.rollDetails?.forEach((roll) => group.rolls.set(`${occupancy.footprintId}:${roll.rollNo}`, { yard: roll.yard, meter: roll.meter }))
+      occupancy.rollDetails?.forEach((roll) => {
+        group.rolls.set(`${occupancy.footprintId}:${roll.rollNo}`, { yard: roll.yard, meter: roll.meter })
+      })
       if (occupancy.rollCount) group.reportedRollCount.set(occupancy.footprintId, occupancy.rollCount)
       if (occupancy.bagCode) group.bagCodes.add(occupancy.bagCode)
-      occupancy.ticketNos?.forEach((ticketNo) => group.tickets.add(ticketNo))
+      occupancy.ticketNos?.forEach((ticketNo) => {
+        group.tickets.add(ticketNo)
+      })
       groups.set(key, group)
     })
   if (!groups.size) return ''

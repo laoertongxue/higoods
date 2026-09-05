@@ -164,6 +164,8 @@ export interface CutOrderRow {
   consumedQty: number
   markerPlanIds: string[]
   markerPlanNos: string[]
+  /** Compatibility alias used by older drill-down projections. */
+  latestMarkerPlanId?: string
   latestMarkerPlanNo: string
   batchParticipationCount: number
   activeMarkerPlanId: string

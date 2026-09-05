@@ -976,7 +976,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     buildProductionTaskBreakdownPreviews([...targetIds]).map((preview) => [preview.productionOrderId, preview]),
   )
 
-  const nextOrders = state.orders.map((order) => {
+  const nextOrders: ProductionOrder[] = state.orders.map((order): ProductionOrder => {
     if (!targetIds.has(order.productionOrderId) || !canOrderStartTaskBreakdown(order)) {
       return order
     }
@@ -1894,8 +1894,6 @@ export type {
   BiddingRiskFilter,
   OrderMaterialStageFilter,
   DemandOwnerPartyType,
-  ChangeCreateForm,
-  ChangeStatusForm,
   ProductionState,
   OrderTaskBreakdownSnapshot,
   DemandOperation,
@@ -1978,7 +1976,6 @@ export {
   taskStatusClass,
   keyProcessKeywords,
   cloneDemand,
-  cloneOrder,
   toTimestamp,
   nextLocalEntityId,
   showPlanMessage,

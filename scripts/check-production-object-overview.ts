@@ -22,7 +22,7 @@ const requiredFiles = [
   'src/pages/fcs/material-prep/other.ts',
   'src/pages/fcs/material-prep/shared.ts',
   'src/pages/process-factory/cutting/cut-orders.ts',
-  'src/pages/process-factory/cutting/pickup-management.ts',
+  'src/pages/process-factory/cutting/pickup-management-list.ts',
   'src/pages/process-factory/cutting/fei-tickets.ts',
   'src/pages/process-factory/printing/work-orders.ts',
   'src/pages/process-factory/dyeing/work-orders.ts',
@@ -57,10 +57,10 @@ const { listDyeWorkOrders } = await import('../src/data/fcs/dyeing-task-domain.t
 const {
   getMaterialResourceOverview,
   getProductionObjectOverview,
+  getProductionObjectSearchIndex,
   queryProductionObjectIssues,
   searchMaterialResources,
   searchProductionObjects,
-  productionObjectSearchIndex,
 } = dataModule
 
 function countMatches(sourceText: string, pattern: string): number {
@@ -113,7 +113,8 @@ function assertNoDuplicateSearchObjects(panel: string, groups: string[]): void {
   }
 }
 
-assert.ok(Array.isArray(productionObjectSearchIndex), '生产对象搜索索引必须导出数组')
+const productionObjectSearchIndex = getProductionObjectSearchIndex()
+assert.ok(Array.isArray(productionObjectSearchIndex), '生产对象搜索索引访问器必须返回数组')
 const requiredUniversalFields = ['sourceDomain', 'defaultTab', 'highlightKey'] as const
 const requiredUniversalObjectTypes = [
   'MATERIAL_PREP_ORDER',
@@ -420,7 +421,7 @@ for (const [page, text, message] of p1PageEntryExpectations) {
 for (const [path, expected] of [
   ['src/pages/fcs/material-prep/shared.ts', 'renderProductionObjectCodeButton'],
   ['src/pages/process-factory/cutting/cut-orders.ts', 'renderProductionObjectCodeButton'],
-  ['src/pages/process-factory/cutting/pickup-management.ts', 'renderProductionObjectCodeButton'],
+  ['src/pages/process-factory/cutting/pickup-management-list.ts', 'renderProductionObjectCodeButton'],
   ['src/pages/process-factory/printing/work-orders.ts', 'renderProductionObjectCodeButton'],
   ['src/pages/process-factory/dyeing/work-orders.ts', 'renderProductionObjectCodeButton'],
   ['src/pages/process-factory/post-finishing/qc-orders.ts', 'renderProductionObjectCodeButton'],

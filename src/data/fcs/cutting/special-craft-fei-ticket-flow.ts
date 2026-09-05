@@ -448,7 +448,7 @@ function resolveSpecialCraftFactory(operationName: string) {
   if (
     preferred?.processAbilities.some(
       (ability) =>
-        ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames.includes(operationName),
+        ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames?.includes(operationName),
     )
   ) {
     return preferred
@@ -458,7 +458,7 @@ function resolveSpecialCraftFactory(operationName: string) {
     mockFactories.find((factory) =>
       factory.processAbilities.some(
         (ability) =>
-          ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames.includes(operationName),
+          ability.processCode === 'SPECIAL_CRAFT' && ability.craftNames?.includes(operationName),
       ),
     )
     || preferred
@@ -861,7 +861,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
   const operationById = new Map(specialCraftOperations.map((operation) => [operation.operationId, operation] as const))
   const taskOrdersByKey = new Map<string, Array<{ taskOrder: SpecialCraftTaskOrder; taskSortIndex: number }>>()
   taskOrders.forEach((taskOrder, taskSortIndex) => {
-    const key = buildTaskOrderLookupKey(taskOrder.productionOrderId, taskOrder.partName, taskOrder.fabricColor)
+    const key = buildTaskOrderLookupKey(taskOrder.productionOrderId || '', taskOrder.partName || '', taskOrder.fabricColor || '')
     const list = taskOrdersByKey.get(key) || []
     list.push({ taskOrder, taskSortIndex })
     taskOrdersByKey.set(key, list)
@@ -2477,6 +2477,7 @@ export function getSpecialCraftBindingSummaryByTaskOrderId(taskOrderId: string):
 }
 
 export function getSpecialCraftFeiTicketScanSummary(feiTicketNo: string): {
+  feiTicketNo: string
   hasSpecialCraft: boolean
   operationNames: string[]
   completedOperationNames: string[]
@@ -2500,6 +2501,7 @@ export function getSpecialCraftFeiTicketScanSummary(feiTicketNo: string): {
     .sort((left, right) => left.sequenceIndex - right.sequenceIndex)
   if (!bindings.length) {
     return {
+      feiTicketNo,
       hasSpecialCraft: false,
       operationNames: [],
       completedOperationNames: [],
@@ -2533,6 +2535,7 @@ export function getSpecialCraftFeiTicketScanSummary(feiTicketNo: string): {
         ? '当前数量为 0'
         : ''
   return {
+    feiTicketNo,
     hasSpecialCraft: true,
     operationNames: bindings.map((binding) => binding.operationName),
     completedOperationNames,
@@ -2639,7 +2642,7 @@ export function getSpecialCraftFeiTicketFlowEventsByWorkOrderId(workOrderId: str
 
 export function listCuttingSpecialCraftDispatchViews(): CuttingSpecialCraftDispatchView[] {
   ensureSpecialCraftFeiTicketFlowSeeded()
-  const bindingViews = flowStore!.bindings.map((binding) => ({
+  const bindingViews = flowStore!.bindings.map((binding): CuttingSpecialCraftDispatchView => ({
     dispatchViewId: `SCDV-${binding.bindingId}`,
     productionOrderNo: binding.productionOrderNo,
     cuttingOrderNo: binding.cuttingOrderNo,

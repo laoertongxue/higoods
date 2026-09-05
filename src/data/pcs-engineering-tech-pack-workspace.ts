@@ -12,6 +12,7 @@ import {
 import type {
   TechnicalDataVersionRecord,
   TechnicalDataVersionContent,
+  TechnicalBomItem,
   TechnicalModuleKey,
   TechnicalPatternFile,
   TechnicalPatternManagedFile,
@@ -135,7 +136,7 @@ function collectEngineeringOutputs(
   const sampleImages = master.tasks
     .filter((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
     .flatMap((task) => task.resultImageIds)
-  const bomItems = bomVersions.flatMap((version) => version.materialLines.map((line) => {
+  const bomItems: TechnicalBomItem[] = bomVersions.flatMap((version) => version.materialLines.map((line): TechnicalBomItem => {
     const resolved = resolveEngineeringBomMaterialLine(line)
     const type = resolved.materialType === '面料' || resolved.materialType === '辅料' || resolved.materialType === '包装材料' || resolved.materialType === '成衣'
       ? resolved.materialType
@@ -352,7 +353,7 @@ export function createEngineeringMasterTechPackDraft(
     linkedDesignRevisionTaskIds: [...new Set(
       master.priorResultReuseLines
         .map((line) => line.sourceSamplingTaskId)
-        .filter(Boolean),
+        .filter((taskId): taskId is string => Boolean(taskId)),
     )],
     linkedPatternTaskIds: [],
     linkedArtworkTaskIds: master.tasks.filter((task) => task.taskType === 'PATTERN_ARTWORK').map((task) => task.taskId),

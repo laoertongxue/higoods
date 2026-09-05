@@ -27,6 +27,7 @@ import {
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
+  | 'DIRECT_ASSIGNED_EXECUTION'
   | 'DIRECT_REJECTED'
   | 'EXEC_NOT_STARTED'
   | 'EXEC_IN_PROGRESS'
@@ -116,6 +117,7 @@ export interface PdaTaskMockPickupRecordSeed {
     | 'OBJECTION_REPORTED'
     | 'OBJECTION_PROCESSING'
     | 'OBJECTION_RESOLVED'
+    | 'REJECTED'
   receivedAt?: string
   pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
   qrCodeValue?: string
@@ -1085,45 +1087,37 @@ function buildHandoverSeeds(
               handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-002 / ${Math.max(Math.round(openHandoutTask.qty * 0.26), 48)}件`,
               factorySubmittedAt: nowLike(28, '17:00:00'),
               status:
-                profile.key === 'SEWING' || profile.key === 'QC'
+                profile.key === 'SEWING'
                   ? 'OBJECTION_REPORTED'
                   : 'PENDING_WRITEBACK',
               warehouseReturnNo:
-                profile.key === 'SEWING' || profile.key === 'QC'
+                profile.key === 'SEWING'
                   ? `RET-DIFF-${profile.taskPrefix}-01`
                   : undefined,
               warehouseWrittenQty:
-                profile.key === 'SEWING' || profile.key === 'QC'
+                profile.key === 'SEWING'
                   ? Math.max(Math.round(Math.max(Math.round(openHandoutTask.qty * 0.26), 48) * 0.92), 40)
                   : undefined,
               warehouseWrittenAt:
-                profile.key === 'SEWING' || profile.key === 'QC'
+                profile.key === 'SEWING'
                   ? nowLike(28, '17:25:00')
                   : undefined,
               receiverWrittenBy:
                 profile.key === 'SEWING'
                   ? '后道收货员'
-                  : profile.key === 'QC'
-                    ? '成衣仓收货员'
-                    : undefined,
+                  : undefined,
               factoryRemark:
                 profile.key === 'SEWING'
                   ? '尾批已交我方后道工厂，数量异议处理中'
-                  : profile.key === 'QC'
-                    ? '数量异议待接收方确认'
-                    : '尾批待接收方回写',
+                  : '尾批待接收方回写',
               objectionReason:
                 profile.key === 'SEWING'
                   ? '我方后道工厂回写数量少于工厂交出对象数量'
-                  : profile.key === 'QC'
-                    ? '抽检不合格数量差异'
-                    : undefined,
+                  : undefined,
               objectionRemark:
                 profile.key === 'SEWING'
                   ? '工厂复点与接收方回写不一致，待平台核定。'
-                  : profile.key === 'QC'
-                    ? '待复核差异责任'
-                    : undefined,
+                  : undefined,
             },
           ]
 
@@ -1223,7 +1217,7 @@ function buildHandoverSeeds(
         headType: 'PICKUP',
         taskId: pickupTask.taskId,
         taskNo: pickupTask.taskNo || pickupTask.taskId,
-        productionOrderNo: pickupTask.productionOrderNo,
+        productionOrderNo: pickupTask.productionOrderNo || '',
         processKey: profile.key,
         processName: profile.processNameZh,
         sourceFactoryName: profile.key === 'PRINTING' || profile.key === 'DYEING' ? '主面料仓' : '辅料仓',
@@ -1252,7 +1246,7 @@ function buildHandoverSeeds(
         headType: 'HANDOUT',
         taskId: openHandoutTask.taskId,
         taskNo: openHandoutTask.taskNo || openHandoutTask.taskId,
-        productionOrderNo: openHandoutTask.productionOrderNo,
+        productionOrderNo: openHandoutTask.productionOrderNo || '',
         processKey: profile.key,
         processName: profile.processNameZh,
         sourceFactoryName: profile.handoverSourceName,
@@ -1261,7 +1255,7 @@ function buildHandoverSeeds(
         qtyUnit: handoutQtyUnit,
         factoryId: profile.factoryId,
         taskStatus: 'DONE',
-        summaryStatus: profile.key === 'QC' ? 'HAS_OBJECTION' : 'PARTIAL_WRITTEN_BACK',
+        summaryStatus: 'PARTIAL_WRITTEN_BACK',
         completionStatus: 'OPEN',
         qtyExpectedTotal: openHandoutExpectedTotal,
         qtyActualTotal: openHandoutWrittenTotal,
@@ -1281,7 +1275,7 @@ function buildHandoverSeeds(
         headType: 'HANDOUT',
         taskId: completedHandoutTask.taskId,
         taskNo: completedHandoutTask.taskNo || completedHandoutTask.taskId,
-        productionOrderNo: completedHandoutTask.productionOrderNo,
+        productionOrderNo: completedHandoutTask.productionOrderNo || '',
         processKey: profile.key,
         processName: profile.processNameZh,
         sourceFactoryName: profile.handoverSourceName,
@@ -1584,8 +1578,8 @@ const handoverSeedCollections = PROCESS_PROFILES.filter((profile) => isExternalM
 const PDA_GENERIC_HANDOVER_HEADS = [
   ...handoverSeedCollections.flatMap((item) => item.heads),
 ]
-const PDA_GENERIC_PICKUP_RECORDS_BY_HEAD_ID = Object.assign({}, ...handoverSeedCollections.map((item) => item.pickupRecordsByHeadId))
-const PDA_GENERIC_HANDOUT_RECORDS_BY_HEAD_ID = Object.assign(
+const PDA_GENERIC_PICKUP_RECORDS_BY_HEAD_ID: Record<string, PdaTaskMockPickupRecordSeed[]> = Object.assign({}, ...handoverSeedCollections.map((item) => item.pickupRecordsByHeadId))
+const PDA_GENERIC_HANDOUT_RECORDS_BY_HEAD_ID: Record<string, PdaTaskMockHandoutRecordSeed[]> = Object.assign(
   {},
   ...handoverSeedCollections.map((item) => item.handoutRecordsByHeadId),
 )
@@ -1595,12 +1589,12 @@ const PDA_GENERIC_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = PDA_GENERIC_PR
   .map((task) => ({
     tenderId: task.tenderId || `TENDER-${task.taskId}`,
     taskId: task.taskId,
-    productionOrderId: task.productionOrderNo,
+    productionOrderId: task.productionOrderId || task.productionOrderNo || '',
     processName: task.processNameZh,
     qty: task.qty,
     qtyUnit: '件',
     factoryPoolCount: PROCESS_PROFILES.find((item) => item.key === task.mockProcessKey)?.biddingFactoryPoolCount || 3,
-    biddingDeadline: task.taskDeadline,
+    biddingDeadline: task.taskDeadline || '',
     taskDeadline: task.taskDeadline || '',
     minPrice: task.standardPrice || 1,
     currency: task.standardPriceCurrency || 'CNY',
@@ -1612,7 +1606,7 @@ const PDA_GENERIC_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = PDA_GENERIC_PROC
   .map((task, index) => ({
     tenderId: task.tenderId || `TENDER-${task.taskId}`,
     taskId: task.taskId,
-    productionOrderId: task.productionOrderNo,
+    productionOrderId: task.productionOrderId || task.productionOrderNo || '',
     processName: task.processNameZh,
     qty: task.qty,
     qtyUnit: '件',
@@ -1636,7 +1630,7 @@ const PDA_GENERIC_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = P
     processName: task.processNameZh,
     qty: task.qty,
     notifiedAt: task.awardedAt || task.updatedAt || task.createdAt,
-    productionOrderId: task.productionOrderNo,
+    productionOrderId: task.productionOrderId || task.productionOrderNo || '',
     factoryId: task.assignedFactoryId || '',
   }))
 

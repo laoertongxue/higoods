@@ -23,7 +23,7 @@ import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from './factor
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'BINDING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type ProcessWarehouseObjectType = '面料' | '裁片' | '成衣' | '捆条' | '盘扣' | '辅料'
-export type ProcessWarehouseHandoverStatus = '交出待收货' | '部分交出' | '全部交出' | '收货差异' | '平台处理中' | '需重新交出' | '已关闭'
+export type ProcessWarehouseHandoverStatus = '待回写' | '交出待收货' | '部分交出' | '全部交出' | '收货差异' | '平台处理中' | '需重新交出' | '已关闭'
 export type ProcessWarehouseDifferenceStatus = '待处理' | '处理中' | '已确认差异' | '需重新交出' | '已关闭'
 export type ProcessWarehouseReviewStatus = '收货确认中' | '收货已确认' | '收货差异' | '已关闭'
 export type ProcessWarehouseDifferenceType = '少收' | '多收' | '破损' | '报废' | '货损' | '错交' | '其他'
@@ -38,6 +38,8 @@ export interface ProcessWarehouseRecord {
   craftName: string
   workOrderId: string
   workOrderNo: string
+  /** Legacy source identifier retained for read-only projections. */
+  sourceWorkOrderId?: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
@@ -86,6 +88,8 @@ export interface ProcessHandoverRecord {
   craftName: string
   workOrderId: string
   workOrderNo: string
+  /** Legacy source identifier retained for read-only projections. */
+  sourceWorkOrderId?: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
@@ -130,6 +134,8 @@ export interface ProcessHandoverDifferenceRecord {
   warehouseRecordId: string
   workOrderId: string
   workOrderNo: string
+  /** Legacy source identifier retained for read-only projections. */
+  sourceWorkOrderId?: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceType?: ProcessWorkOrderSourceType
@@ -165,6 +171,8 @@ export interface ProcessWarehouseReviewRecord {
   warehouseRecordId: string
   workOrderId: string
   workOrderNo: string
+  /** Legacy source identifier retained for read-only projections. */
+  sourceWorkOrderId?: string
   sourceTaskOrderId: string
   sourceWorkOrderNo: string
   craftType: ProcessWarehouseCraftType
@@ -188,6 +196,7 @@ export interface ProcessWarehouseRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  sourceWorkOrderId?: string
   workOrderId?: string
   sourceTaskId?: string
   targetFactoryId?: string
@@ -198,6 +207,7 @@ export interface ProcessHandoverRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  sourceWorkOrderId?: string
   workOrderId?: string
   warehouseRecordId?: string
   status?: ProcessWarehouseHandoverStatus
@@ -207,6 +217,7 @@ export interface ProcessWarehouseReviewRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  sourceWorkOrderId?: string
   workOrderId?: string
   handoverRecordId?: string
   reviewStatus?: ProcessWarehouseReviewStatus
@@ -216,6 +227,7 @@ export interface ProcessHandoverDifferenceRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
   sourceTaskOrderId?: string
+  sourceWorkOrderId?: string
   workOrderId?: string
   handoverRecordId?: string
   warehouseRecordId?: string
@@ -225,7 +237,6 @@ export interface ProcessHandoverDifferenceRecordFilter {
 type WarehouseRecordPayload = Partial<ProcessWarehouseRecord> & {
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId?: string
   sourceTaskNo?: string
@@ -245,7 +256,6 @@ type ProcessHandoverRecordPayload = Partial<ProcessHandoverRecord> & {
   warehouseRecordId?: string
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId?: string
   sourceTaskNo?: string
@@ -332,15 +342,17 @@ function buildWarehouseRecord(
 ): ProcessWarehouseRecord {
   const createdAt = payload.createdAt || nowText()
   const recordNoPrefix = recordType === 'WAIT_PROCESS' ? 'GC-RK' : 'GC-CK'
+  const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
   return {
     warehouseRecordId: payload.warehouseRecordId || `PWH-${recordType}-${payload.craftType}-${index}`,
     warehouseRecordNo: payload.warehouseRecordNo || createRecordNo(recordNoPrefix, index),
     recordType,
     craftType: payload.craftType,
     craftName: payload.craftName,
-    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderId: payload.workOrderId || sourceTaskOrderId,
     workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
-    sourceTaskOrderId: payload.sourceTaskOrderId,
+    ...(payload.sourceWorkOrderId ? { sourceWorkOrderId: payload.sourceWorkOrderId } : {}),
+    sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || '',
@@ -1142,6 +1154,7 @@ function matchesWarehouseFilter(record: ProcessWarehouseRecord, filter: ProcessW
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.sourceWorkOrderId && (record.sourceWorkOrderId || record.sourceTaskOrderId || record.workOrderId) !== filter.sourceWorkOrderId) return false
   if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.sourceTaskId && record.sourceTaskId !== filter.sourceTaskId) return false
   if (filter.targetFactoryId && record.targetFactoryId !== filter.targetFactoryId) return false
@@ -1153,6 +1166,7 @@ function matchesHandoverFilter(record: ProcessHandoverRecord, filter: ProcessHan
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.sourceWorkOrderId && (record.sourceWorkOrderId || record.sourceTaskOrderId || record.workOrderId) !== filter.sourceWorkOrderId) return false
   if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
   if (filter.status && record.status !== filter.status) return false
@@ -1163,6 +1177,7 @@ function matchesReviewFilter(record: ProcessWarehouseReviewRecord, filter: Proce
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.sourceWorkOrderId && (record.sourceWorkOrderId || record.sourceTaskOrderId || record.workOrderId) !== filter.sourceWorkOrderId) return false
   if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.reviewStatus && record.reviewStatus !== filter.reviewStatus) return false
@@ -1173,6 +1188,7 @@ function matchesDifferenceFilter(record: ProcessHandoverDifferenceRecord, filter
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
   if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
+  if (filter.sourceWorkOrderId && (record.sourceWorkOrderId || record.sourceTaskOrderId || record.workOrderId) !== filter.sourceWorkOrderId) return false
   if (filter.workOrderId && record.workOrderId !== filter.workOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
@@ -1265,10 +1281,11 @@ function upsertWarehouseRecord(payload: WarehouseRecordPayload, recordType: Proc
     throw new Error('后道待交出仓只能由复检完成生成。')
   }
 
+  const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
   const existed = processWarehouseRecords.find((record) =>
     record.recordType === recordType
     && record.craftType === payload.craftType
-    && record.sourceTaskOrderId === payload.sourceTaskOrderId
+    && record.sourceTaskOrderId === sourceTaskOrderId
     && record.currentActionName === payload.currentActionName,
   )
   const next = buildWarehouseRecord(payload, recordType, processWarehouseRecords.length + 1)
@@ -1343,12 +1360,13 @@ export function closeWarehouseRecord(recordId: string, payload: { closedAt?: str
 }
 
 export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayload): ProcessHandoverRecord {
+  const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
   const warehouse = payload.warehouseRecordId
     ? processWarehouseRecords.find((record) => record.warehouseRecordId === payload.warehouseRecordId)
     : processWarehouseRecords.find((record) =>
         record.recordType === 'WAIT_HANDOVER'
         && record.craftType === payload.craftType
-        && record.sourceTaskOrderId === payload.sourceTaskOrderId,
+        && record.sourceTaskOrderId === sourceTaskOrderId,
       )
   const id = payload.handoverRecordId || `PHR-${String(processHandoverRecords.length + 1).padStart(4, '0')}`
   const handoverAt = payload.handoverAt || nowText()
@@ -1358,9 +1376,10 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     warehouseRecordId: warehouse?.warehouseRecordId || payload.warehouseRecordId || '',
     craftType: payload.craftType,
     craftName: payload.craftName,
-    workOrderId: payload.workOrderId || payload.sourceTaskOrderId,
+    workOrderId: payload.workOrderId || sourceTaskOrderId,
     workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
-    sourceTaskOrderId: payload.sourceTaskOrderId,
+    ...(payload.sourceWorkOrderId ? { sourceWorkOrderId: payload.sourceWorkOrderId } : {}),
+    sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || warehouse?.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || warehouse?.sourceTaskNo || '',

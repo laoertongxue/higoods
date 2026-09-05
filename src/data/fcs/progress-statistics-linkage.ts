@@ -19,7 +19,6 @@ import {
 } from './pda-handover-events.ts'
 import {
   getSpecialCraftTasksByProductionOrder,
-  getSpecialCraftTaskOrders,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskDemandLine,
   type SpecialCraftTaskStatus,
@@ -672,8 +671,7 @@ function getTechPackSpecialCraftSourceSummary(order: ProductionOrder): {
   const allCrafts = [...cutPieceCrafts, ...patternPieceCrafts]
   const selectedTargetObjectSummary = unique(
     allCrafts
-      .map((craft) => craft.selectedTargetObject)
-      .filter((value): value is string => Boolean(value)),
+      .flatMap((craft) => craft.selectedTargetObject ? [craft.selectedTargetObject] : []),
   )
   const supportedTargetObjectSummary = unique(
     allCrafts.flatMap((craft) => [
@@ -747,7 +745,7 @@ function resolveMaterialPrepStatus(order: ProductionOrder): ProductionProgressSn
 
 function resolveCuttingPickupStatus(order: ProductionOrder): ProductionProgressSnapshot['cuttingPickupStatus'] {
   const lines = getMaterialPrepRows(order)
-  if (lines.some((line) => line.receiveStatus === 'RECHECK' || line.discrepancyStatus !== 'NONE')) return '差异待处理'
+  if (lines.some((line) => line.discrepancyStatus !== 'NONE')) return '差异待处理'
   if (!lines.length) return order.status === 'EXECUTING' || order.status === 'COMPLETED' ? '有接收记录' : '无接收记录'
   if (lines.some((line) => line.receivedLength > 0 || line.receivedRollCount > 0)) return '有接收记录'
   return '无接收记录'
@@ -1047,9 +1045,9 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
     })
   }
 
-  if (materialPrepStatus === '无配料数量') add('待加工入仓', order.productionOrderNo, '面料未完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '加急')
-  if (materialPrepStatus === '配料数量不足') add('待加工入仓', order.productionOrderNo, '面料已完成部分中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
-  if (pickupStatus === '无接收记录') add('待加工入仓', order.productionOrderNo, '面料未形成裁床接收记录', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process')
+  if (materialPrepStatus === '无配料数量') add('配料', order.productionOrderNo, '面料未完成中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '加急')
+  if (materialPrepStatus === '配料数量不足') add('配料', order.productionOrderNo, '面料已完成部分中转仓配料', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process', '普通')
+  if (pickupStatus === '无接收记录') add('配料', order.productionOrderNo, '面料未形成裁床接收记录', '查看待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process')
   if (pickupStatus === '差异待处理') add('接收', order.productionOrderNo, '接收差异待处理', '处理差异', '/fcs/progress/handover', '紧急')
   if (cuttingStatus !== '已裁剪') add('裁床', order.productionOrderNo, cuttingStatus === '裁剪中' ? '裁剪未完成' : '唛架未完成', '裁剪', '/fcs/craft/cutting/production-progress')
   if (feiStatus !== '已生成') add('菲票', order.productionOrderNo, '菲票未生成', '打印菲票', '/fcs/craft/cutting/fei-tickets')
@@ -1103,14 +1101,13 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
   const blockingReasons = buildProgressBlockingReasons(order)
   const specialCraftTasks = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
   const specialCraftBindings = getCuttingSpecialCraftProjectionBindingsByProductionOrder(order.productionOrderId)
-  const specialCraftWorkOrders = getSpecialCraftTaskOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
+  const specialCraftWorkOrders = listSpecialCraftTaskOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const transferBagCombinedWritebackStatus = (() => {
     const recordStatuses = listPdaHandoverHeads()
       .filter((head) => head.productionOrderNo === order.productionOrderNo)
       .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
-      .map((record) => record.combinedWritebackStatus)
-      .filter((status): status is string => Boolean(status))
+      .flatMap((record) => record.combinedWritebackStatus ? [record.combinedWritebackStatus] : [])
     if (recordStatuses.includes('异议中')) return '异议中'
     if (recordStatuses.includes('差异')) return '差异'
     if (recordStatuses.includes('部分回写')) return '部分回写'
@@ -1264,16 +1261,8 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
 
 const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
   待接收: 0,
-  成衣仓已出库待收货: 0,
-  已入待加工仓: 0,
   加工中: 0,
-  已完成: 0,
-  待交出: 0,
-  已交出: 0,
-  已回写: 0,
-  差异: 0,
-  异议中: 0,
-  异常: 0,
+  已完结: 0,
 })
 
 export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
@@ -1343,7 +1332,7 @@ export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBu
     existing.receivedQty += task.receivedQty
     existing.completedQty += task.completedQty
     existing.waitHandoverQty += task.waitHandoverQty
-    existing.abnormalCount += (task.abnormalRecords || []).length + (task.abnormalStatus === '无异常' ? 0 : 1)
+    existing.abnormalCount += task.abnormalStatus === '无异常' ? 0 : 1
     existing.targetObjectSummary = unique([...existing.targetObjectSummary, task.targetObject])
     existing.statusDistribution[task.status] += 1
     groups.set(key, existing)

@@ -1222,21 +1222,26 @@ function buildReadySeedSchemeBeds(plan: MarkerPlan, context: MarkerPlanContextCa
 }
 
 function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
-  const allocationLines: MarkerPlanAllocationLike[] = plan.allocationRows.map((row) => ({
-    allocationId: row.id,
-    sourceCutOrderId: row.sourceCutOrderId,
-    sourceCutOrderNo: row.sourceCutOrderNo,
-    sourceProductionOrderId: row.sourceProductionOrderId,
-    sourceProductionOrderNo: row.sourceProductionOrderNo,
-    styleCode: row.styleCode,
-    spuCode: row.spuCode,
-    techPackSpuCode: row.techPackSpu,
-    color: row.colorCode,
-    materialSku: row.materialSku,
-    sizeLabel: row.sizeCode,
-    plannedGarmentQty: row.garmentQty,
-    note: row.note,
-  }))
+  const allocationLines: MarkerPlanAllocationLike[] = plan.allocationRows.map((row) => {
+    const sourceRow = plan.selectedSourceCutOrderRows?.find(
+      (item) => item.cutOrderId === row.sourceCutOrderId && item.productionOrderId === row.sourceProductionOrderId,
+    )
+    return {
+      allocationId: row.id,
+      sourceCutOrderId: row.sourceCutOrderId,
+      sourceCutOrderNo: sourceRow?.cutOrderNo || '',
+      sourceProductionOrderId: row.sourceProductionOrderId,
+      sourceProductionOrderNo: sourceRow?.productionOrderNo || '',
+      styleCode: row.styleCode,
+      spuCode: row.spuCode,
+      techPackSpuCode: row.techPackSpu,
+      color: row.colorCode,
+      materialSku: row.materialSku,
+      sizeLabel: row.sizeCode,
+      plannedGarmentQty: row.garmentQty,
+      note: row.note,
+    }
+  })
 
   return {
     cutOrderIds: plan.cutOrderIds,
@@ -1588,7 +1593,7 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     },
     context,
   )
-  const beds = (plan.beds || []).map((bed, index) => {
+  const beds = (plan.beds || []).map((bed, index): MarkerSchemeBed => {
     const sizeNames = uniqueStrings(
       (schemeDemandRows.length ? schemeDemandRows : bed.coverageRows || [])
         .map((row) => row.sizeName || row.sizeCode)
@@ -1667,17 +1672,12 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
       : '已生成'
     : '待生成'
   const derivedReadyForSpreading = deriveMarkerReadyForSpreading({
-    totalPieces,
-    netLength,
-    mappingStatus,
-    layoutStatus,
     confirmationStatus,
   })
   const derivedStatus = deriveMarkerPlanStatus({
     mappingStatus,
     layoutStatus,
     confirmationStatus,
-    readyForSpreading: derivedReadyForSpreading,
   })
   const status = plan.status === 'CANCELED' ? 'CANCELED' : derivedStatus
   const readyForSpreading = plan.status === 'CANCELED' ? false : derivedReadyForSpreading

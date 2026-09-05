@@ -1,5 +1,10 @@
 import { menusBySystem, systems } from '../data/app-shell-config.ts'
 import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types.ts'
+import {
+  getBrowserLocalStorage,
+  readBrowserStorageItem,
+  writeBrowserStorageItem,
+} from '../data/browser-storage.ts'
 import { notifyPdaCuttingRouteLeave } from './pda-cutting-navigation-cleanup.ts'
 import { notifyPdaWoolRouteLeave } from './pda-wool-navigation-cleanup.ts'
 
@@ -40,6 +45,7 @@ const REMOVED_CUTTING_TAB_PATHS = new Set([
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
 const PFOS_ROUTE_PREFIXES = ['/fcs/craft', '/fcs/process-factory/special-craft'] as const
+const browserLocalStorage = getBrowserLocalStorage()
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -57,7 +63,7 @@ function getStoredTabs(): AllSystemTabs {
   const emptyTabs = createEmptyTabs()
 
   try {
-    const raw = localStorage.getItem(TABS_STORAGE_KEY)
+    const raw = readBrowserStorageItem(browserLocalStorage, TABS_STORAGE_KEY)
     if (!raw) return emptyTabs
 
     const parsed = JSON.parse(raw) as AllSystemTabs
@@ -76,7 +82,7 @@ function getStoredTabs(): AllSystemTabs {
         ),
       ),
     )
-    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
+    writeBrowserStorageItem(browserLocalStorage, TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
     return emptyTabs
@@ -445,7 +451,7 @@ function migrateCraftTabsToPfos(allTabs: AllSystemTabs): AllSystemTabs {
 
 function saveTabs(allTabs: AllSystemTabs): void {
   try {
-    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(allTabs))
+    writeBrowserStorageItem(browserLocalStorage, TABS_STORAGE_KEY, JSON.stringify(allTabs))
   } catch {
     // ignore storage errors
   }
@@ -482,7 +488,7 @@ function findMenuItemByPath(pathname: string): MenuItem | null {
 }
 
 function readSidebarCollapsed(): boolean {
-  return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+  return readBrowserStorageItem(browserLocalStorage, SIDEBAR_STORAGE_KEY) === 'true'
 }
 
 const defaultPath = '/fcs/workbench/overview'
@@ -760,7 +766,7 @@ class AppStore {
   toggleSidebarCollapsed(): void {
     const next = !this.state.sidebarCollapsed
     try {
-      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
+      writeBrowserStorageItem(browserLocalStorage, SIDEBAR_STORAGE_KEY, String(next))
     } catch {
       // ignore storage errors
     }

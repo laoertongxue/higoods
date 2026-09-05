@@ -18,6 +18,8 @@ export interface HandoverQuantitySummaryItem {
   partCode: string
   partName: string
   pieceQty: number
+  /** Compatibility alias used by older aggregate projections. */
+  qty?: number
   unit: string
   summaryText: string
 }
@@ -1611,7 +1613,9 @@ function createSpecialCraftCandidateFromGeneratedRecord(
     receiverFactoryId: craft.receiverFactoryId,
     receiverFactoryCode: craft.receiverFactoryCode,
     receiverFactoryName: craft.receiverFactoryName,
-    receiverFactoryType: craft.receiverFactoryType,
+    receiverFactoryType: craft.receiverFactoryType === '内部裁床工艺'
+      ? '内部裁床工艺'
+      : getReceiverTypeForSpecialCraft(craft),
     currentInventoryStatus: missingReceiver ? '承接工厂待补充' : alreadyHandedOver ? '特殊工艺加工中' : '在库可分配',
     specialCraftHandoverStatus: missingReceiver ? '承接工厂待补充' : alreadyHandedOver ? '已交出未回仓' : '待交出',
     specialCraftReturnStatus: craft.returnStatus,

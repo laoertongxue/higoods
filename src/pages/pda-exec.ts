@@ -451,7 +451,7 @@ function getAcceptedTasks(factoryId: string): ProcessTask[] {
       if (processType === 'SPECIAL_CRAFT') return false
       if (processType !== 'WOOL') return true
       if (task.woolProcessingStatus === 'COMPLETED') return true
-      return ['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE']
+      return (['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'] as const)
         .some((action) => task.woolAllowedActions?.includes(action))
     })
 }
@@ -669,7 +669,7 @@ function getPdaExecEmptyStateText(acceptedTasks: ProcessTask[]): string {
 }
 
 function renderWoolFactCard(task: ProcessTask): string {
-  const primaryAction = (['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'] as const)
+  const primaryAction = (['COMPLETE', 'REPORT_PROCESS', 'ASSOCIATE_MACHINE'] as const)
     .find((action) => task.woolAllowedActions?.includes(action))
   const actionLabel = primaryAction === 'REPORT_PROCESS'
     ? '加工填报'

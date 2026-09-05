@@ -372,6 +372,7 @@ export function renderPdaWarehouseInboundRecordsPage(): string {
 
 export function handlePdaWarehouseInboundRecordsEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
+  if (!actionNode) return false
   const action = actionNode?.dataset.pdaWarehouseAction
   if (action === 'open-inbound-detail' && actionNode.dataset.recordId) {
     state.detailId = actionNode.dataset.recordId

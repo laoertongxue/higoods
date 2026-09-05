@@ -62,7 +62,7 @@ import {
   type PostFinishingWorkOrder,
 } from './post-finishing-domain.ts'
 
-export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
+export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'WATER_SOLUBLE' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 
 export interface PlatformQuantityDisplayField {
   label: string
@@ -160,6 +160,7 @@ const PROCESS_NAME: Record<PlatformResultSourceType, string> = {
   CUTTING: '裁片',
   SPECIAL_CRAFT: '特殊工艺',
   POST_FINISHING: '后道',
+  WATER_SOLUBLE: '水溶',
 }
 
 function normalizeSourceType(value: string): PlatformResultSourceType | undefined {

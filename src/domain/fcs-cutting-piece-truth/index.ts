@@ -584,7 +584,6 @@ export function buildPieceRequirementRows(
       skuCode: scope.skuCode,
       color: scope.color,
       size: scope.size,
-      plannedQty: scope.plannedQty,
     })
 
     if (!skuCode) {

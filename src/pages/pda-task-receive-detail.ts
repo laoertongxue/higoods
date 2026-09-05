@@ -92,7 +92,7 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
 }
 
 function getTaskProductionOrderNo(task: ProcessTask): string {
-  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId
+  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId || ''
 }
 
 function nowTimestamp(date: Date = new Date()): string {

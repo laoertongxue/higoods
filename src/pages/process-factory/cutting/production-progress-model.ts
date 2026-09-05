@@ -1082,7 +1082,7 @@ function buildKeywordIndex(
     ...pieceTruth.mappingIssues.map((issue) => issue.message),
     ...pieceTruth.dataIssues.map((issue) => issue.message),
   ]
-    .filter(Boolean)
+    .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase())
 }
 
@@ -1101,10 +1101,10 @@ export function buildProductionProgressRows(
   const cutOrderRequirementMap = buildCutOrderRequirementMap()
   return records.map((record) => {
     const cutOrderNos = Array.from(
-      new Set(record.materialLines.map((line) => line.cutOrderNo || line.cutOrderId).filter(Boolean)),
+      new Set(record.materialLines.map((line) => line.cutOrderNo || line.cutOrderId).filter((value): value is string => Boolean(value))),
     )
     const cutOrderIds = Array.from(
-      new Set(record.materialLines.map((line) => line.cutOrderId || line.cutOrderNo).filter(Boolean)),
+      new Set(record.materialLines.map((line) => line.cutOrderId || line.cutOrderNo).filter((value): value is string => Boolean(value))),
     )
     const prepSummary = buildConfigSummary(record.materialLines)
     const claimSummary = buildReceiveSummary(record.materialLines)

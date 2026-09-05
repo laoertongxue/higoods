@@ -3,6 +3,7 @@
 
 import type {
   EngineeringMasterOrderRecord,
+  EngineeringIndependentProfessionalTask,
   EngineeringTaskRecord,
   EngineeringTaskType,
 } from '../../data/pcs-engineering-master-types.ts'
@@ -55,9 +56,10 @@ const INDEPENDENT_TASK_STATUS_MAP = {
   COMPLETED: '已完成',
 } as const
 
-function independentProfessionalTaskDetailPath(task: { taskId: string; taskType: keyof typeof INDEPENDENT_TASK_TYPE_MAP }): string {
+function independentProfessionalTaskDetailPath(task: EngineeringIndependentProfessionalTask): string {
   if (task.taskType === 'BASE_PATTERN') return `/pcs/patterns/plate-making/${encodeURIComponent(task.taskId)}`
   if (task.taskType === 'PATTERN_ARTWORK') return `/pcs/patterns/artwork/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'DISPLAY_SAMPLE') return `/pcs/sampling/design-revision/${encodeURIComponent(task.taskId)}`
   return `/pcs/engineering/color/${encodeURIComponent(task.taskId)}`
 }
 

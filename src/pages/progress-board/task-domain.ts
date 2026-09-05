@@ -21,6 +21,7 @@ import {
   getTenderById,
   getTaskById,
   getTaskKpiStats,
+  parseDateTime,
   TASK_LIST_PAGE_SIZE,
   getCurrentSearchParams,
   BLOCK_REASON_OPTIONS,
@@ -472,7 +473,7 @@ function renderPickupTab(task: ProcessTask): string {
             <h4 class="font-medium">接收记录明细</h4>
             <p class="mt-1 text-xs text-muted-foreground">详细接收记录、仓库发料执行、差异和异议统一进入接收/配料进度页查看。</p>
           </div>
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId)}">
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId || '')}">
             <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看接收/配料进度
           </button>
         </div>
@@ -545,7 +546,7 @@ function renderHandoverTab(task: ProcessTask): string {
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${handoutRecordRows[0] || renderTaskDeliveryCardAction(undefined)}
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId)}">
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId || '')}">
               查看交接链路
             </button>
           </div>
@@ -560,7 +561,7 @@ function renderTaskActionMenu(task: ProcessTask): string {
     return renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700')
   }
   const isOpen = state.taskActionMenuId === task.taskId
-  const po = task.productionOrderId
+  const po = task.productionOrderId || ''
 
   return `
     <div class="relative inline-flex" data-progress-task-menu="true">
@@ -620,8 +621,8 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
       required: true,
       freezeable: true,
       render: (task) => {
-        const order = getOrderById(task.productionOrderId)
-        return `<div class="space-y-1 text-xs"><div class="flex items-center gap-1"><a class="font-mono font-medium text-primary hover:underline" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}">${escapeHtml(task.taskId)}</a><button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button></div><div class="cursor-pointer text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">${renderProductionOrderIdentityCell(task.productionOrderId)}</div><div class="max-w-[200px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div></div>`
+        const order = getOrderById(task.productionOrderId || '')
+        return `<div class="space-y-1 text-xs"><div class="flex items-center gap-1"><a class="font-mono font-medium text-primary hover:underline" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}">${escapeHtml(task.taskId)}</a><button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button></div><div class="cursor-pointer text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId || '')}" data-progress-stop="true">${renderProductionOrderIdentityCell(task.productionOrderId || '')}</div><div class="max-w-[200px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div></div>`
       },
     },
     {
@@ -855,7 +856,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
     `
   }
 
-  const order = getOrderById(task.productionOrderId)
+  const order = getOrderById(task.productionOrderId || '')
   const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
   const taskTenderId = getTaskTenderId(task)
   const tender = taskTenderId ? getTenderById(taskTenderId) : undefined
@@ -879,7 +880,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId || '')}">
             <i data-lucide="layers" class="mr-2 h-4 w-4"></i>生产单生命周期
           </button>
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildTaskRouteCardPrintLink('RUNTIME_TASK', task.taskId))}">
@@ -908,8 +909,8 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">生产单号</p>
-                    <button class="inline-flex items-center text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
-                      ${escapeHtml(task.productionOrderId)}
+                    <button class="inline-flex items-center text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId || '')}">
+                      ${escapeHtml(task.productionOrderId || '')}
                       <i data-lucide="external-link" class="ml-1 h-3 w-3"></i>
                     </button>
                   </div>
@@ -955,7 +956,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                   <p class="text-xs text-blue-700">交接情况</p>
                   <p class="mt-1 text-blue-700">当前状态：${escapeHtml(taskHandoverSummary.processStatusLabel)}</p>
                   <p class="mt-1 text-blue-700">下一步：${escapeHtml(taskHandoverSummary.nextActionHint)}</p>
-                  <button class="mt-2 inline-flex h-8 items-center rounded-md border border-blue-200 bg-white px-3 text-sm text-blue-700 hover:bg-blue-100" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId)}">
+                  <button class="mt-2 inline-flex h-8 items-center rounded-md border border-blue-200 bg-white px-3 text-sm text-blue-700 hover:bg-blue-100" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId || '')}">
                     <i data-lucide="scan-line" class="mr-1.5 h-4 w-4"></i>查看交接链路
                   </button>
                 </div>
@@ -1049,10 +1050,10 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                 }
 
                 <div class="flex flex-wrap gap-2 border-t pt-3">
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-dispatch" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId)}">
+                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-dispatch" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId || '')}">
                     <i data-lucide="send" class="mr-2 h-4 w-4"></i>去任务分配
                   </button>
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId)}">
+                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId || '')}">
                     <i data-lucide="package" class="mr-2 h-4 w-4"></i>接收进度
                   </button>
                 </div>

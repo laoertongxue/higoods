@@ -29,6 +29,7 @@ import {
 import {
   appendCuttingRuntimeEvent,
   listCuttingRuntimeEventsByType,
+  type CuttingRuntimeEventType,
 } from './cutting-runtime-event-ledger.ts'
 import {
   getMaterialLedgerProjectionByCutOrder,
@@ -1006,7 +1007,7 @@ function buildGeneratedMaterialLine(
 }
 
 function expandSeedOrderMaterials(order: MaterialPrepSeedOrder): MaterialPrepSeedOrder {
-  const existingLines = order.lines.map((line) => ({
+  const existingLines: MaterialPrepSeedLine[] = order.lines.map((line) => ({
     ...line,
     materialType: line.materialType || inferMaterialType(line),
     materialImageUrl: ensureLineImage(line),
@@ -2936,7 +2937,7 @@ function migratePickupSessions(
       const complete = seedOrder.lines.every((line) => {
         const grossPickedQty = Array.from(cumulativeRecordIds)
           .map((recordId) => recordsById.get(recordId))
-          .filter((record): record is PickupRecord => Boolean(record) && record.prepLineId === line.prepLineId)
+          .filter((record): record is PickupRecord => record !== undefined && record.prepLineId === line.prepLineId)
           .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0)
         const returnedQty = pickupReturnRecords
           .filter((record) =>
@@ -3249,8 +3250,11 @@ function appendPrepConfirmedRuntimeEvent(
   const { seedOrder, seedLine } = context
   const firstItem = getMaterialPrepRecordItems(record)[0]
   const occurredAt = record.confirmedAt || nowText()
-  const category = classifyPrepLineType(seedLine)
-  const eventType: string = category === '裁片配料' ? '中转仓配料完成通知'
+  const category = classifyPrepLineType({
+    ...seedLine,
+    materialType: seedLine.materialType || inferMaterialType(seedLine),
+  })
+  const eventType: CuttingRuntimeEventType = category === '裁片配料' ? '中转仓配料完成通知'
     : category === '染色配料' ? '染色厂配料完成通知'
     : category === '印花配料' ? '印花厂配料完成通知'
     : '配料完成通知'
@@ -3589,8 +3593,8 @@ function buildTaskProjections(
   )
 }
 
-function groupByKey<T>(items: T[], getKey: (item: T) => string): Map<string, T[]> {
-  const result = new Map<string, T[]>()
+function groupByKey<T, K>(items: T[], getKey: (item: T) => K): Map<K, T[]> {
+  const result = new Map<K, T[]>()
   items.forEach((item) => {
     const key = getKey(item)
     const group = result.get(key)
@@ -3600,14 +3604,14 @@ function groupByKey<T>(items: T[], getKey: (item: T) => string): Map<string, T[]
   return result
 }
 
-function buildRuntimeTasksByOrderMap(): Map<string, RuntimeProcessTask[]> {
+function buildRuntimeTasksByOrderMap(): Map<string | undefined, RuntimeProcessTask[]> {
   return groupByKey(listRuntimeProcessTasks(), (task) => task.productionOrderId)
 }
 
 function buildOrderProjection(
   seedOrder: MaterialPrepSeedOrder,
   store: ProductionMaterialPrepWorkflowStore,
-  runtimeTasksByOrder: Map<string, RuntimeProcessTask[]>,
+  runtimeTasksByOrder: Map<string | undefined, RuntimeProcessTask[]>,
   pickupRecordsByOrder: Map<string, PickupRecord[]>,
   pickupSessionsByOrder: Map<string, PickupSession[]>,
   pickupReturnRecordsByOrder: Map<string, MaterialPickupReturnRecord[]>,
@@ -3890,7 +3894,7 @@ function formatDispatchCheckQty(value: number, unit: string): string {
 }
 
 export function getMaterialPrepDispatchReadinessForTask(
-  task: Pick<RuntimeProcessTask, 'taskId' | 'productionOrderId'> & Partial<Pick<RuntimeProcessTask, 'taskNo' | 'processCode' | 'processBusinessCode' | 'processNameZh' | 'defaultDocType'>>,
+  task: Required<Pick<RuntimeProcessTask, 'taskId' | 'productionOrderId'>> & Partial<Pick<RuntimeProcessTask, 'taskNo' | 'processCode' | 'processBusinessCode' | 'processNameZh' | 'defaultDocType'>>,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepDispatchReadiness {
   const taskType = resolveMaterialPrepTaskTypeForRuntimeTask(task)

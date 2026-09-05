@@ -440,6 +440,9 @@ function buildLegacySpecSnapshot(
       specLineId: `${record.channelProductId}__spec_01`,
       specLineCode: `${listingBatchCode}-SPEC-01`,
       listingBatchId: record.channelProductId,
+      productImageId: '',
+      productImageUrl: '',
+      productImageName: '',
       colorName: '',
       sizeName: '',
       printName: '',
@@ -571,7 +574,7 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
     mainImageUrls: record.mainImageUrls || [],
     detailImageUrls: record.detailImageUrls || [],
   })
-  const specLines = normalizeChannelListingSpecLines({
+  const specLines: ChannelListingSpecLineRecord[] = normalizeChannelListingSpecLines({
     listingBatchId: record.channelProductId,
     listingBatchCode,
     projectCode: record.projectCode,
@@ -600,7 +603,7 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
           productImageId: defaultSpecProductImageId,
         })),
     resolveProductImage: resolveListingImageAssetSnapshot,
-  }).map((line) => {
+  }).map((line): ChannelListingSpecLineRecord => {
     const legacyUploaded = Boolean(record.upstreamProductId || record.upstreamChannelProductCode)
     if (line.upstreamSkuId || !legacyUploaded) return line
     return {
@@ -665,7 +668,7 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
     listingImageIds,
     listingImageSource: record.listingImageSource || buildListingImageSourceText(listingImages),
     listingImageConfirmedAt: record.listingImageConfirmedAt || (listingImages.length > 0 ? record.updatedAt : ''),
-    listingImageConfirmedBy: record.listingImageConfirmedBy || (listingImages.length > 0 ? record.updatedBy || '系统迁移' : ''),
+    listingImageConfirmedBy: record.listingImageConfirmedBy || (listingImages.length > 0 ? '系统迁移' : ''),
     listingImages,
     mainImageUrls: mainImageRecord ? [mainImageRecord.imageUrl] : [],
     detailImageUrls,
@@ -760,14 +763,14 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
       stockQty: 24,
     },
   ]
-  const specLines = normalizeChannelListingSpecLines({
+  const specLines: ChannelListingSpecLineRecord[] = normalizeChannelListingSpecLines({
     listingBatchId: channelProductId,
     listingBatchCode: channelProductCode,
     projectCode: project.projectCode,
     defaultPriceAmount: listingPrice,
     currencyCode,
     specLines: baseSpecInputs,
-  }).map((line) =>
+  }).map((line): ChannelListingSpecLineRecord =>
     upstreamProductId
       ? {
           ...line,
@@ -1754,7 +1757,7 @@ function updateProjectPhaseStatuses(projectId: string, currentPhaseCode: string)
 
 function updateProjectCurrentPhase(
   projectId: string,
-  phaseCode: 'PHASE_03' | 'PHASE_04',
+  phaseCode: 'PHASE_03' | 'PHASE_04' | 'PHASE_05',
   operatorName = DEMO_OPERATOR,
 ): void {
   updateProjectRecord(
@@ -2815,7 +2818,7 @@ export function launchProjectChannelProductListing(
     record.projectCode,
     String(parseSequenceFromChannelProductCode(record.channelProductCode)).padStart(2, '0'),
   )
-  const nextSpecLines = cloneChannelListingSpecLines(record.specLines).map((line) => ({
+  const nextSpecLines: ChannelListingSpecLineRecord[] = cloneChannelListingSpecLines(record.specLines).map((line): ChannelListingSpecLineRecord => ({
     ...line,
     lineStatus: '已上传',
     upstreamSkuId: buildUploadedUpstreamSkuId(upstreamProductId, line.specLineCode),

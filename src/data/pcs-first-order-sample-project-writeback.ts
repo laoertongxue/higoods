@@ -1,4 +1,5 @@
-import { getProjectById, type PcsProjectViewRecord } from './pcs-project-repository.ts'
+import { getProjectById } from './pcs-project-repository.ts'
+import type { PcsProjectViewRecord } from './pcs-project-types.ts'
 import {
   getFirstOrderSampleTaskById,
   listFirstOrderSampleTasksByProject,

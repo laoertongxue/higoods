@@ -17,7 +17,7 @@ import type {
 
 export const FEI_QR_SCHEMA_NAME = 'FEI_TICKET'
 export const FEI_QR_SCHEMA_VERSION = CUTTING_QR_VERSION
-const GENERATED_QR_META_FIELD = ['qr', 'Payload'].join('') as const
+const GENERATED_QR_META_FIELD: 'qrPayload' = 'qrPayload'
 
 export type FeiQrProcessKey = 'embroidery' | 'template' | 'strip' | 'dyeMark'
 

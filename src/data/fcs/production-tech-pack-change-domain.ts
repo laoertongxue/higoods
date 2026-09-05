@@ -2075,7 +2075,7 @@ let relations: ProductionOrderTechPackRelation[] = [
 ]
 
 function buildTechPackDiffItemsForRelation(relation: ProductionOrderTechPackRelation): TechPackVersionDiffItem[] {
-  return [
+  const items: TechPackVersionDiffItem[] = [
     {
       diffItemId: `DIFF-${relation.productionOrderId}-BOM-1`,
       module: 'BOM',
@@ -2120,7 +2120,8 @@ function buildTechPackDiffItemsForRelation(relation: ProductionOrderTechPackRela
       involvedOccurredBusiness: '否',
       relatedObjects: ['印花工单 PR-202603-004'],
     },
-  ].filter((item) =>
+  ]
+  return items.filter((item) =>
     relation.diffSummary.some(
       (summary) =>
         summary.module === item.module &&

@@ -544,19 +544,20 @@ export function getCandidateTickets(): TransferBagTicketCandidate[] {
   }
 
   if (!state.prefilter) return []
+  const prefilter = state.prefilter
 
   return viewModel.ticketCandidates.filter((ticket) => {
-    if (state.prefilter.ticketId && ticket.feiTicketId !== state.prefilter.ticketId) return false
-    if (state.prefilter.cutOrderId && ticket.cutOrderId !== state.prefilter.cutOrderId) return false
-    if (state.prefilter.ticketNo && ticket.ticketNo !== state.prefilter.ticketNo) return false
-    if (state.prefilter.cutOrderNo && ticket.cutOrderNo !== state.prefilter.cutOrderNo) return false
-    if (state.prefilter.productionOrderId && ticket.productionOrderId !== state.prefilter.productionOrderId) return false
-    if (state.prefilter.productionOrderNo && ticket.productionOrderNo !== state.prefilter.productionOrderNo) return false
-    if (state.prefilter.markerPlanId && ticket.markerPlanId !== state.prefilter.markerPlanId) return false
-    if (state.prefilter.唛架方案No && ticket.markerPlanNo !== state.prefilter.唛架方案No) return false
-    if (state.prefilter.materialSku && ticket.materialSku !== state.prefilter.materialSku) return false
-    if (state.prefilter.spreadingSessionId && ticket.sourceSpreadingSessionId !== state.prefilter.spreadingSessionId) return false
-    if (state.prefilter.styleCode && ticket.styleCode !== state.prefilter.styleCode) return false
+    if (prefilter.ticketId && ticket.feiTicketId !== prefilter.ticketId) return false
+    if (prefilter.cutOrderId && ticket.cutOrderId !== prefilter.cutOrderId) return false
+    if (prefilter.ticketNo && ticket.ticketNo !== prefilter.ticketNo) return false
+    if (prefilter.cutOrderNo && ticket.cutOrderNo !== prefilter.cutOrderNo) return false
+    if (prefilter.productionOrderId && ticket.productionOrderId !== prefilter.productionOrderId) return false
+    if (prefilter.productionOrderNo && ticket.productionOrderNo !== prefilter.productionOrderNo) return false
+    if (prefilter.markerPlanId && ticket.markerPlanId !== prefilter.markerPlanId) return false
+    if (prefilter.唛架方案No && ticket.markerPlanNo !== prefilter.唛架方案No) return false
+    if (prefilter.materialSku && ticket.materialSku !== prefilter.materialSku) return false
+    if (prefilter.spreadingSessionId && ticket.sourceSpreadingSessionId !== prefilter.spreadingSessionId) return false
+    if (prefilter.styleCode && ticket.styleCode !== prefilter.styleCode) return false
     return true
   })
 }

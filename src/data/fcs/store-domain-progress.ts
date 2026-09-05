@@ -689,6 +689,7 @@ export interface Notification {
   createdAt: string
   readAt?: string
   createdBy: string
+  sourceModule?: string
 }
 
 export function generateNotificationId(): string {
@@ -882,8 +883,9 @@ export function listHistoricalSewingAssignmentProgressFacts(): HistoricalSewingA
   )
   return Array.from(historicalSnapshotByTaskId.values()).flatMap((snapshot) => {
     const sewingDeliverySla = historicalViewByTaskId.get(snapshot.runtimeTaskId)
-    if (!sewingDeliverySla) return []
-    const replacement = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId)
+    const replacedByAssignmentId = snapshot.replacedByAssignmentId
+    if (!sewingDeliverySla || !replacedByAssignmentId) return []
+    const replacement = snapshotByAssignmentId.get(replacedByAssignmentId)
     return [{
       historical: true as const,
       runtimeTaskId: snapshot.runtimeTaskId,
@@ -891,7 +893,7 @@ export function listHistoricalSewingAssignmentProgressFacts(): HistoricalSewingA
       factoryId: snapshot.factoryId,
       factoryName: snapshot.factoryName,
       assignedQty: snapshot.assignedQty,
-      replacedByAssignmentId: snapshot.replacedByAssignmentId,
+      replacedByAssignmentId,
       replacedByRuntimeTaskId: replacement?.runtimeTaskId,
       reassignedAt: replacement?.acceptedAt,
       sewingDeliverySla,
@@ -921,7 +923,7 @@ export interface ProgressMaterialIssueRow {
   craftCode?: string
   craftName?: string
   taskTypeLabel?: string
-  assignmentGranularityLabel: '按生产单' | '按颜色' | '按SKU'
+  assignmentGranularityLabel: '按生产单' | '按颜色' | '按SKU' | '按明细行'
   executorKind: RuntimeProcessTask['executorKind']
   sourceDocNos: string[]
   updatedAt: string
@@ -1230,9 +1232,9 @@ export function getProgressFactByTaskId(taskId: string): ProgressFact | undefine
 
 export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
   return listMaterialRequests()
-    .map((request) => {
+    .flatMap((request): ProgressMaterialIssueRow[] => {
       const runtimeTask = resolveRuntimeTaskForRequest(request)
-      if (!runtimeTask) return null
+      if (!runtimeTask) return []
 
       const executionDocs = listWarehouseExecutionDocsByMaterialRequestNo(request.materialRequestNo)
       const requestedQty = executionDocs.reduce(
@@ -1252,7 +1254,7 @@ export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
       const normalizedRequested = Math.max(1, Math.round(requestedQty || request.lineCount || 1))
       const normalizedIssued = Math.max(0, Math.round(issuedQty))
 
-      return {
+      return [{
         issueId: `MIS-${request.materialRequestNo}`,
         productionOrderId: request.productionOrderNo,
         taskId: runtimeTask.taskId,
@@ -1284,9 +1286,8 @@ export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
         sourceDocNos: executionDocs.map((doc) => doc.docNo),
         updatedAt: request.updatedAt,
         createdBy: request.createdBy,
-      } satisfies ProgressMaterialIssueRow
+      } satisfies ProgressMaterialIssueRow]
     })
-    .filter((item): item is ProgressMaterialIssueRow => Boolean(item))
     .sort((a, b) => parseDateMs(b.updatedAt) - parseDateMs(a.updatedAt))
 }
 

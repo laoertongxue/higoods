@@ -463,7 +463,7 @@ function normalizeFieldEntryValue(value: unknown): unknown {
   return value
 }
 
-function parseSampleCostJsonRows<T extends Record<string, unknown>>(value: unknown): T[] {
+function parseSampleCostJsonRows<T extends object>(value: unknown): T[] {
   if (Array.isArray(value)) return value.filter((item): item is T => typeof item === 'object' && item != null)
   const text = String(value || '').trim()
   if (!text) return []
@@ -500,6 +500,14 @@ function roundMigrationAmount(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+function toSampleCostScalar(value: unknown): string | number | null | undefined {
+  return typeof value === 'string' || typeof value === 'number' || value === null ? value : undefined
+}
+
+function asLooseRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as unknown as Record<string, unknown> : {}
+}
+
 function isGeneratedSampleCostReviewRecord(record: PcsProjectInlineNodeRecord): boolean {
   if (record.stepCode !== 'SAMPLE_COST_REVIEW') return false
   return record.recordId.startsWith('inline_bootstrap_') || record.recordId.startsWith('inline_backfill_')
@@ -508,8 +516,8 @@ function isGeneratedSampleCostReviewRecord(record: PcsProjectInlineNodeRecord): 
 function refreshGeneratedSampleCostReviewPricing<T extends PcsProjectInlineNodeRecord>(record: T): T {
   if (!isGeneratedSampleCostReviewRecord(record)) return record
 
-  const payload = (record.payload || {}) as Record<string, unknown>
-  const detailSnapshot = (record.detailSnapshot || {}) as Record<string, unknown>
+  const payload = asLooseRecord(record.payload)
+  const detailSnapshot = asLooseRecord(record.detailSnapshot)
   const materialRows = parseSampleCostJsonRows<SampleCostMaterialLineInput>(
     payload[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY] ?? detailSnapshot[SAMPLE_COST_RAW_MATERIAL_ROWS_KEY],
   )
@@ -520,20 +528,20 @@ function refreshGeneratedSampleCostReviewPricing<T extends PcsProjectInlineNodeR
     payload[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY] ?? detailSnapshot[SAMPLE_COST_RAW_OPTIONAL_PROCESS_ROWS_KEY],
   )
   const pricing = calculateSampleCostReview({
-    spuCode: payload.spuCode ?? detailSnapshot.spuCode,
-    productName: payload.productName ?? detailSnapshot.productName,
-    buyerName: payload.buyerName ?? detailSnapshot.buyerName,
-    brandName: payload.brandName ?? detailSnapshot.brandName,
-    garmentCategory: payload.garmentCategory ?? detailSnapshot.garmentCategory,
-    exchangeRate: payload.exchangeRate ?? detailSnapshot.exchangeRate,
+    spuCode: String(payload.spuCode ?? detailSnapshot.spuCode ?? ''),
+    productName: String(payload.productName ?? detailSnapshot.productName ?? ''),
+    buyerName: String(payload.buyerName ?? detailSnapshot.buyerName ?? ''),
+    brandName: String(payload.brandName ?? detailSnapshot.brandName ?? ''),
+    garmentCategory: String(payload.garmentCategory ?? detailSnapshot.garmentCategory ?? ''),
+    exchangeRate: toSampleCostScalar(payload.exchangeRate ?? detailSnapshot.exchangeRate),
     materialLines: materialRows,
-    auxiliaryCostAmount: payload.auxiliaryCostAmount ?? detailSnapshot.auxiliaryCostAmount,
+    auxiliaryCostAmount: toSampleCostScalar(payload.auxiliaryCostAmount ?? detailSnapshot.auxiliaryCostAmount),
     auxiliaryCostCurrency: String(payload.auxiliaryCostCurrency ?? detailSnapshot.auxiliaryCostCurrency ?? 'IDR'),
     fixedProcessOverrides,
-    sewingCostAmount: payload.sewingCostAmount ?? detailSnapshot.sewingCostAmount,
+    sewingCostAmount: toSampleCostScalar(payload.sewingCostAmount ?? detailSnapshot.sewingCostAmount),
     sewingCostCurrency: String(payload.sewingCostCurrency ?? detailSnapshot.sewingCostCurrency ?? 'IDR'),
     optionalProcessLines: optionalProcessRows,
-    salesPrice: payload.salesPrice ?? detailSnapshot.salesPrice,
+    salesPrice: toSampleCostScalar(payload.salesPrice ?? detailSnapshot.salesPrice),
     salesCurrency: String(payload.salesCurrency ?? detailSnapshot.salesCurrency ?? 'RMB'),
     costNote: String(payload.costNote ?? detailSnapshot.costNote ?? ''),
   })
@@ -679,8 +687,8 @@ export function getLatestSampleCostReviewSalesPrice(projectId: string): {
   const record = getLatestProjectInlineNodeRecord(node.projectNodeId)
   if (!record || record.stepCode !== 'SAMPLE_COST_REVIEW') return null
 
-  const payload = (record.payload || {}) as Record<string, unknown>
-  const detailSnapshot = (record.detailSnapshot || {}) as Record<string, unknown>
+  const payload = asLooseRecord(record.payload)
+  const detailSnapshot = asLooseRecord(record.detailSnapshot)
   const salesPrice = toFiniteNumber(
     payload.salesPrice ??
       detailSnapshot.salesPrice,
@@ -759,7 +767,7 @@ export function saveProjectInlineNodeFieldEntry(
   const missingRequiredFields = contract.fieldDefinitions
     .filter((field) => !field.readonly && field.required)
     .filter((field) => {
-      const value = normalizedValues[field.fieldKey] ?? latestRecord?.payload?.[field.fieldKey]
+      const value = normalizedValues[field.fieldKey] ?? asLooseRecord(latestRecord?.payload)[field.fieldKey]
       if (value === null || value === undefined) return true
       if (Array.isArray(value)) return value.length === 0
       return String(value).trim() === ''

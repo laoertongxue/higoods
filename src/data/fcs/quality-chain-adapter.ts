@@ -163,6 +163,8 @@ function getLegacyChainFact(qcId: string): QcChainFact | null {
     factoryResponse: null,
     deductionBasis: null,
     disputeCase: null,
+    pendingDeductionRecord: null,
+    formalLedger: null,
     settlementAdjustment: null,
     caseStatus: 'NO_ACTION',
   }

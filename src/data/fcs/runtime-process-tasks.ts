@@ -96,8 +96,9 @@ export interface RuntimeTaskSkuLine {
   qty: number
 }
 
-export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'dependsOnTaskIds'> {
+export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'dependsOnTaskIds' | 'productionOrderId'> {
   taskId: string
+  productionOrderId: string
   baseTaskId: string
   baseQty: number
   baseDependsOnTaskIds: string[]
@@ -132,6 +133,15 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   mergeCreatedAt?: string
   mergeCreatedBy?: string
   distributionMode?: 'BAG_AWARE' | 'FREE'
+  sourceArtifactId?: string
+}
+
+type RuntimeSourceProcessTask = ProcessTask & { productionOrderId: string }
+
+function asRuntimeSourceProcessTask(task: ProcessTask): RuntimeSourceProcessTask {
+  // Runtime tasks are generated only from production-order task facts. The cast
+  // records that existing data invariant without changing stored values.
+  return task as RuntimeSourceProcessTask
 }
 
 export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup
@@ -884,7 +894,7 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
   })
 }
 
-function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask {
+function buildOrderScopeTask(baseTask: RuntimeSourceProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask {
   const detailRows = getTaskDetailRows(baseTask)
   const taskId = `${baseTask.taskId}__ORDER`
   return {
@@ -905,7 +915,7 @@ function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine
   }
 }
 
-function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
+function buildColorScopeTasks(baseTask: RuntimeSourceProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
   if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
   const baseDetailRows = getTaskDetailRows(baseTask)
 
@@ -940,7 +950,7 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
   })
 }
 
-function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
+function buildSkuScopeTasks(baseTask: RuntimeSourceProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
   if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
   const baseDetailRows = getTaskDetailRows(baseTask)
 
@@ -970,13 +980,14 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
 }
 
 function buildRuntimeTasksByGranularity(baseTask: ProcessTask): RuntimeProcessTask[] {
-  const skuLines = getOrderSkuLines(baseTask.productionOrderId)
+  const runtimeSourceTask = asRuntimeSourceProcessTask(baseTask)
+  const skuLines = getOrderSkuLines(runtimeSourceTask.productionOrderId)
   // 冻结规则：任务拆分仅在分配时发生。runtime 不再按粒度预拆任务。
   // assignmentGranularity 仅决定“可分配单元”边界，不决定任务是否先天拆成多条。
   const _granularity = (baseTask.assignmentGranularity as ProcessAssignmentGranularity | undefined)
     ?? getProcessAssignmentGranularity(baseTask.processCode)
   void _granularity
-  return [buildOrderScopeTask(baseTask, skuLines)]
+  return [buildOrderScopeTask(runtimeSourceTask, skuLines)]
 }
 
 function findOrderScopeTask(tasks: RuntimeProcessTask[]): RuntimeProcessTask | undefined {
@@ -2303,7 +2314,7 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
       usedIds.add(candidate)
       return candidate
     }
-    const detailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : task.detailRows
+    const detailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : task.detailRows ?? []
     const scopedDetailRowsForSku = (skuCode: string, qty: number, partitionTaskId: string) => detailRows
       .filter((row) => row.dimensions.GARMENT_SKU === skuCode || task.scopeSkuLines.length === 1)
       .map((row, index) => ({ ...structuredClone(row), rowKey: `${row.rowKey}__${partitionTaskId}__${index + 1}`, qty }))
@@ -3032,6 +3043,7 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   let preparations: PreparedRuntimeDirectDispatchMeta[]
   try {
     preparations = input.taskIds.map((taskId) => {
+      const task = getRuntimeTaskById(taskId)
       return prepareRuntimeDirectDispatchMeta({
         taskId,
         factoryId: input.factoryId,
@@ -3040,9 +3052,9 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
         taskDeadline: input.taskDeadline,
         remark: input.remark,
         by: input.by,
-        dispatchPrice: input.dispatchPrice,
-        dispatchPriceCurrency: input.dispatchPriceCurrency,
-        dispatchPriceUnit: input.dispatchPriceUnit,
+        dispatchPrice: input.dispatchPrice ?? task?.standardPrice ?? 0,
+        dispatchPriceCurrency: input.dispatchPriceCurrency ?? task?.standardPriceCurrency ?? selectionValidation.currency ?? 'IDR',
+        dispatchPriceUnit: input.dispatchPriceUnit ?? task?.standardPriceUnit ?? selectionValidation.unit ?? '件',
         priceDiffReason: input.priceDiffReason,
         operatedAt,
         businessAssignedAt,

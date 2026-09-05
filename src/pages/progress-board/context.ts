@@ -376,7 +376,7 @@ function getTaskDraftRows(task: ProcessTask): MaterialRequestDraft[] {
   if (!taskBoardSummaryCache.draftRowsByTaskId.has(task.taskId)) {
     taskBoardSummaryCache.draftRowsByTaskId.set(
       task.taskId,
-      listMaterialRequestDraftsByOrder(task.productionOrderId).filter((draft) => draft.taskId === task.taskId),
+      listMaterialRequestDraftsByOrder(task.productionOrderId!).filter((draft) => draft.taskId === task.taskId),
     )
   }
   return taskBoardSummaryCache.draftRowsByTaskId.get(task.taskId) ?? []
@@ -482,7 +482,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   const readinessReason = fact?.startReadiness.reasonText ?? '当前任务暂无开工校验信息'
 
   if (!task || (!draftRows.length && !requestRows.length && !executionRows.length && !pickupHeads.length && !pickupRecords.length)) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'NOT_INVOLVED',
       statusLabel: '不涉及接收',
       tone: 'slate',
@@ -503,7 +503,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (hasDifference) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'DIFFERENCE',
       statusLabel: '接收差异',
       tone: 'red',
@@ -524,7 +524,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (finalReceivedCount > 0 && finalReceivedCount === pickupRecords.length && pickupRecords.length > 0) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'RECEIVED',
       statusLabel: '已接收',
       tone: 'green',
@@ -545,7 +545,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (!requestRows.length && draftRows.length > 0) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'WAIT_REQUEST',
       statusLabel: '待生成发料单',
       tone: 'amber',
@@ -566,7 +566,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (preparingCount > 0) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'WAIT_PREPARE',
       statusLabel: '待备料',
       tone: 'amber',
@@ -587,7 +587,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (waitingConfirmCount > 0 || (finalReceivedCount > 0 && finalReceivedCount < pickupRecords.length)) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'WAIT_PICKUP',
       statusLabel: '接收记录待补',
       tone: 'blue',
@@ -608,7 +608,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   }
 
   if (waitingPickupCount > 0 || readyCount > 0) {
-    const summary = {
+    const summary: TaskPickupSummary = {
       statusKey: 'READY_TO_ISSUE',
       statusLabel: '已备齐待出库',
       tone: 'blue',
@@ -628,7 +628,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
     return summary
   }
 
-  const summary = {
+  const summary: TaskPickupSummary = {
     statusKey: 'WAIT_PREPARE',
     statusLabel: '待备料',
     tone: 'amber',
@@ -681,7 +681,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
       !handoutRecords.length &&
       (fact?.transitionToNext === 'SAME_FACTORY_CONTINUE' || fact?.transitionToNext === 'NOT_APPLICABLE'))
   ) {
-    const summary = {
+    const summary: TaskHandoutSummary = {
       statusKey: 'NOT_INVOLVED',
       statusLabel: '不涉及交出',
       tone: 'slate',
@@ -697,7 +697,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
   }
 
   if (objectionRows.length > 0 || handoutHeads.some((head) => head.summaryStatus === 'HAS_OBJECTION')) {
-    const summary = {
+    const summary: TaskHandoutSummary = {
       statusKey: 'DISPUTE',
       statusLabel: '交出异议中',
       tone: 'red',
@@ -714,7 +714,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
   }
 
   if (completedRows.length > 0 && completedRows.length === handoutRecords.length && handoutRecords.length > 0) {
-    const summary = {
+    const summary: TaskHandoutSummary = {
       statusKey: 'DONE',
       statusLabel: '已交出完成',
       tone: 'green',
@@ -730,7 +730,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
   }
 
   if (pendingRows.length > 0 && completedRows.length > 0) {
-    const summary = {
+    const summary: TaskHandoutSummary = {
       statusKey: 'WAIT_WAREHOUSE_CONFIRM',
       statusLabel: '待接收方回写',
       tone: 'blue',
@@ -746,7 +746,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
   }
 
   if (pendingRows.length > 0 && (hasSeededRecord || !allReturnDocsPlanned)) {
-    const summary = {
+    const summary: TaskHandoutSummary = {
       statusKey: 'INITIATED',
       statusLabel: '已发起交出',
       tone: 'amber',
@@ -761,7 +761,7 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
     return summary
   }
 
-  const summary = {
+  const summary: TaskHandoutSummary = {
     statusKey: 'WAIT_HANDOUT',
     statusLabel: '待交出',
     tone: 'amber',
@@ -814,7 +814,7 @@ function parseDateTime(value: string | undefined): number {
 function getTaskRisks(task: ProcessTask): TaskRiskFlag[] {
   if (task.historicalAssignment) return []
   const risks: TaskRiskFlag[] = []
-  const order = getOrderById(task.productionOrderId)
+  const order = getOrderById(task.productionOrderId!)
 
   if (order?.techPackSnapshot?.status !== 'RELEASED') {
     risks.push('TECH_PACK_NOT_RELEASED')
@@ -877,7 +877,7 @@ function getFilteredTasks(): ProcessTask[] {
 
   return listDisplayBoardTasks().filter((task) => {
     if (keyword) {
-      const order = getOrderById(task.productionOrderId)
+      const order = getOrderById(task.productionOrderId!)
       const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
       const target = `${task.taskId} ${task.productionOrderId} ${order?.legacyOrderNo ?? ''} ${getOrderSpuCode(order, '')} ${getOrderSpuName(order)} ${task.assignedFactoryName ?? factory?.name ?? ''} ${task.replacedByRuntimeTaskId ?? ''}`.toLowerCase()
       if (!target.includes(keyword)) return false

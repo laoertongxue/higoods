@@ -430,7 +430,7 @@ function buildBomCandidates(
 
   return techPack.bomItems
     .filter((item) => item.type !== '成衣')
-    .map((item) => {
+    .map((item): DraftMaterialCandidate | null => {
       if (targetProcessCode) {
         const usageProcessCodes = item.usageProcessCodes ?? []
         if (usageProcessCodes.length > 0 && !usageProcessCodes.includes(targetProcessCode)) {

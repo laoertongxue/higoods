@@ -28,6 +28,7 @@ import { renderStandardListPage, renderStandardListStats } from '../../../compon
 import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { paginateStandardListRows, type StandardListColumnPreferences } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { isRouteAtOrBelow } from '../../../router/path-match.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { renderPostFinishingPageHeader, renderPostStatusBadge } from './shared.ts'
@@ -76,7 +77,8 @@ const warehouseUi = {
 }
 
 function currentWarehouseMode(): WarehouseMode {
-  return typeof window !== 'undefined' && window.location.pathname.includes('wait-handover-warehouse')
+  const pathname = typeof window === 'undefined' ? '' : window.location.pathname
+  return isRouteAtOrBelow(pathname, '/fcs/craft/post-finishing/wait-handover-warehouse')
     ? 'wait-handover'
     : 'wait-process'
 }
@@ -246,7 +248,7 @@ function renderMovementContent(mode: WarehouseMode, movements: WarehouseMovement
 }
 
 function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[]): { tableHtml: string; paginationHtml: string; listTitle: string } {
-  const locations = [...new Map(rows.flatMap((row) => row.batches.map((batch) => [batch.locationCode, batch])).values())]
+  const locations = [...new Map(rows.flatMap((row) => row.batches.map((batch) => [batch.locationCode, batch] as const))).values()]
   const slice = paginateStandardListRows(locations, warehouseUi.page, warehouseUi.pageSize)
   warehouseUi.page = slice.currentPage
   const columns: StandardListColumn<WarehouseBatch>[] = [

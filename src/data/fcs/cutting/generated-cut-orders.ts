@@ -39,6 +39,7 @@ export interface GeneratedCutOrderSourceRecord {
   generationKey: string
   productionOrderId: string
   productionOrderNo: string
+  spuId?: string
   cuttingTaskId: string
   cuttingTaskNo: string
   cuttingTaskAssignmentStatus: string
@@ -514,7 +515,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
     }
   }
 
-  return orderedMaterialKeys.map((materialKey, index) => {
+  return orderedMaterialKeys.map((materialKey, index): GeneratedCutOrderSourceRecord | null => {
     const bucket = scopeByMaterialKey.get(materialKey)!
     const skuScopeLines = Array.from(bucket.scopeBySkuKey.values())
     if (bucket.pieceRows.length === 0) return null
@@ -592,7 +593,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
           : 'GENERATE_AFTER_RETURN',
       internalCraftOrderPolicyLabel: boundary.internalCraftPolicyLabel,
     }
-  }).filter((item): item is GeneratedCutOrderSourceRecord => Boolean(item))
+  }).filter((item): item is GeneratedCutOrderSourceRecord => item !== null)
 }
 
 function clonePatternIdentity(

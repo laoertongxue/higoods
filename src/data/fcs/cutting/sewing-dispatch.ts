@@ -1,7 +1,8 @@
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from '../production-tech-pack-snapshot-types.ts'
-import { mockFactories, type Factory } from '../factory-mock-data.ts'
+import { mockFactories } from '../factory-mock-data.ts'
+import type { Factory } from '../factory-types.ts'
 import type {
   FactoryWarehouseOutboundRecord,
   FactoryWaitHandoverStockItem,
@@ -31,6 +32,7 @@ import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
 } from './generated-fei-tickets.ts'
+import type { FeiTicketQrPayload } from './qr-payload.ts'
 import {
   getSpecialCraftFeiTicketSummary,
   listCuttingSpecialCraftFeiTicketBindingsForProjection,
@@ -1063,9 +1065,9 @@ function buildReturnedSpecialCraftFeiTicketSource(binding: CuttingSpecialCraftFe
     sourceTechPackSpuCode: binding.productionOrderNo,
     sourceBasisType: 'SPREADING_RESULT',
     issuedAt,
-    qrPayload,
+    qrPayload: qrPayload as FeiTicketQrPayload,
     qrValue: `SPECIAL-CRAFT-RETURN:${binding.feiTicketNo}`,
-  }
+  } as unknown as GeneratedFeiTicketSourceRecord
 }
 
 function listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch(): GeneratedFeiTicketSourceRecord[] {
@@ -3626,7 +3628,7 @@ function seedStore(): void {
     seedAvailableTickets.find((ticket) => ticket.productionOrderId === 'PO-202603-0102') || seedAvailableTickets[0]
   if (!seedTicket) return
   const seedProductionOrderId = seedTicket.productionOrderId
-  const getSeedSkuLine = (index: number, fallbackQty: number): CuttingSewingDispatchSkuQtyLine => {
+  const getSeedSkuLine = (index: number, fallbackQty: number): CreateDispatchBatchInput['plannedSkuQtyLines'][number] => {
     const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId })
     const ticket = tickets[index] || tickets[0] || seedTicket
     return {

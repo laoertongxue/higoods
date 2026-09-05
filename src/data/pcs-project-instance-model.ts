@@ -42,6 +42,8 @@ export interface PcsProjectInstanceField {
   fieldKey?: string
   label: string
   value: string
+  fieldLabel?: string
+  fieldValue?: string
 }
 
 export interface PcsProjectInstanceItem {
@@ -261,12 +263,9 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
 
 function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProjectInstanceField[] {
   const labelMap = buildFieldLabelMap(record.stepCode)
-  const merged = {
-    ...(record.payload && typeof record.payload === 'object' ? (record.payload as Record<string, unknown>) : {}),
-    ...(record.detailSnapshot && typeof record.detailSnapshot === 'object'
-      ? (record.detailSnapshot as Record<string, unknown>)
-      : {}),
-  }
+  const merged: Record<string, unknown> = {}
+  Object.entries(record.payload ?? {}).forEach(([key, value]) => { merged[key] = value })
+  Object.entries(record.detailSnapshot ?? {}).forEach(([key, value]) => { merged[key] = value })
 
   const fields: PcsProjectInstanceField[] = []
   const sampleShootImageMap =
@@ -779,9 +778,9 @@ function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjec
     instanceKey: `relation-object:${relation.projectRelationId}`,
     projectId: relation.projectId,
     projectCode: relation.projectCode,
-    projectNodeId: relation.projectNodeId,
-    stepCode: relation.stepCode,
-    stepName: relation.stepName,
+    projectNodeId: relation.projectNodeId ?? null,
+    stepCode: relation.stepCode ?? '',
+    stepName: relation.stepName ?? '',
     sourceKind: 'RELATION_OBJECT',
     sourceLayer: '正式业务对象',
     carrierMode: carrier.carrierMode,

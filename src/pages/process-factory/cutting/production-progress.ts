@@ -216,7 +216,6 @@ interface ProductionOrderChainCutOrder {
   ledgerLines: MaterialQuantityLedgerLine[]
   prepEvents: CuttingMaterialLedgerEvent[]
   claimEvents: CuttingMaterialLedgerEvent[]
-  lockEvents: CuttingMaterialLedgerEvent[]
   consumeEvents: CuttingMaterialLedgerEvent[]
   markerPlanNos: string[]
   spreadingOrders: SpreadingOrder[]
@@ -1664,7 +1663,7 @@ function renderStageOverview(rows: ProductionProgressRow[]): string {
   const waitingSpreadingCount = generatedSpreadingOrders.filter((order) => order.status === 'WAITING_SPREADING').length
   const activeSpreadingCount = generatedSpreadingOrders.filter((order) => order.status === 'SPREADING').length
   const cutDoneCount = generatedSpreadingOrders.filter((order) => order.status === 'CUT_DONE').length
-  const ticketCount = rows.filter((row) => row.pieceCompletionSummary.key !== 'NOT_STARTED').length
+  const ticketCount = rows.filter((row) => row.pieceCompletionSummary.key !== 'DATA_PENDING').length
   const warehouseCount = rows.filter((row) => row.hasInboundRecord).length
 
   const cards = [
@@ -2562,7 +2561,7 @@ function renderProductionOrderMarkerSpreadingCell(row: ProductionProgressRow): s
 function renderProductionOrderFeiWarehouseCell(row: ProductionProgressRow): string {
   const cutQty = row.skuProgressLines.reduce((sum, item) => sum + Number(item.cutQty || 0), 0)
   const inboundQty = row.skuProgressLines.reduce((sum, item) => sum + Number(item.inboundQty || 0), 0)
-  const feiStatus = row.pieceCompletionSummary.key === 'NOT_STARTED' ? '待生成' : '已生成'
+  const feiStatus = row.pieceCompletionSummary.key === 'DATA_PENDING' ? '待生成' : '已生成'
   const warehouseStatus = row.hasInboundRecord ? '已有入仓' : '待入仓'
   return `
     <div class="space-y-1 text-xs leading-5">
@@ -2807,9 +2806,12 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
         'max-h-[64vh]',
       )}
       ${renderWorkbenchPagination({
-        currentPage: pagination.page,
-        totalPages: pagination.totalPages,
+        page: pagination.page,
         pageSize: state.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-cutting-progress-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-cutting-progress-page-size',
         pageSizeOptions: [10, 20, 50],
       })}
     </section>

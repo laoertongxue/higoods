@@ -251,7 +251,7 @@ function renderRecordCompactCard(record: HandoverRecord): string {
 function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], recordListOnly = false): string {
   const meta = getCanonicalCuttingMeta('handover-order-detail')
   const header = renderCuttingPageHeader(meta, {
-    actions: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/handover-orders">返回交出单</button>`,
+    actionsHtml: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/handover-orders">返回交出单</button>`,
   })
   return `
     ${header}
@@ -344,7 +344,7 @@ function renderRecordDetail(record: HandoverRecord): string {
   const afterResult = buildHandoverAfterRecordResult(record)
   const meta = getCanonicalCuttingMeta('handover-record-detail')
   const header = renderCuttingPageHeader(meta, {
-    actions: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(order ? orderDetailHref(order.handoverOrderId) : '/fcs/craft/cutting/handover-orders')}">返回交出单</button>`,
+    actionsHtml: `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(order ? orderDetailHref(order.handoverOrderId) : '/fcs/craft/cutting/handover-orders')}">返回交出单</button>`,
   })
   return `
     ${header}

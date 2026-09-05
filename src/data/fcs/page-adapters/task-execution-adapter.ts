@@ -458,7 +458,7 @@ export function listExecutionTaskFacts(): ProcessTask[] {
 
   return facts.sort((a, b) => {
     if (a.productionOrderId !== b.productionOrderId) {
-      return a.productionOrderId.localeCompare(b.productionOrderId)
+      return (a.productionOrderId || '').localeCompare(b.productionOrderId || '')
     }
     if (a.seq !== b.seq) return a.seq - b.seq
     const splitSeqA = a.splitSeq ?? 0

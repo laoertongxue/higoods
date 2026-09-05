@@ -2378,7 +2378,7 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
   const markerPlanIds = new Set(markerPlanRecords.map((record) => String(record.markerPlanId || '')).filter(Boolean))
   const markerPlanNos = new Set(markerPlanRecords.map((record) => String(record.markerPlanNo || '')).filter(Boolean))
   const spreadingSessions = sortRecordsByLatest(
-    (sources.markerStore.sessions as Array<Record<string, any>>)
+    sources.markerStore.sessions
       .filter((session) => {
         if (!markerPlanRecords.length) return false
         return (
@@ -2393,7 +2393,7 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
   const spreadingSessionIds = new Set(spreadingSessions.map((session) => String(session.spreadingSessionId || '')).filter(Boolean))
   const spreadingSessionNos = new Set(
     spreadingSessions
-      .flatMap((session) => [session.sessionNo, session.spreadingOrderNo, session.sourceSpreadingSessionNo])
+      .flatMap((session) => [session.sessionNo, session.spreadingSessionNo])
       .map((value) => String(value || ''))
       .filter(Boolean),
   )
@@ -2438,7 +2438,17 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
     [
       ...(sources.specialProcessView.rows as Array<Record<string, any>>)
         .filter((item) => isObjectLinkedToCutOrder(item, row))
-        .map((item) => ({ ...item })),
+        .map((item) => ({
+          ...item,
+          processNo: item.processOrderNo,
+          specialCraftTaskNo: item.processOrderNo,
+          processType: item.processTypeLabel,
+          factoryName: '',
+          statusLabel: item.statusMeta?.label || item.status,
+          quantity: item.plannedQtyTotal,
+          pieceQty: item.actualQtyTotal,
+          updatedAt: item.latestExecutionAt || item.createdAt,
+        })),
       ...bindingProcessRows,
     ],
     ['updatedAt', 'returnedAt', 'createdAt'],
@@ -2616,13 +2626,15 @@ function renderCutOrderSpreadingTab(view: ReturnType<typeof buildCutOrderDetailV
       ${renderDetailSection('铺布 / 裁剪记录', renderCompactRecordList(view.spreadingSessions, '暂无铺布单记录。', (session) => {
         const spreadingStatus = spreadingStatusLabels[session.status] || formatUnknownText(session.status, '待补')
         const cuttingStatus = session.status === 'DONE'
-          ? cuttingStatusLabels[session.cuttingStatus] || formatUnknownText(session.cuttingStatus, '待裁剪')
+          ? session.cuttingStatus
+            ? cuttingStatusLabels[session.cuttingStatus] || formatUnknownText(session.cuttingStatus, '待裁剪')
+            : '待裁剪'
           : '-'
         return `
           <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.1fr_1.1fr_1.1fr_1.3fr_auto]">
             <div>
-              <div class="font-semibold text-blue-600">${escapeHtml(formatUnknownText(session.sessionNo || session.spreadingOrderNo || session.spreadingSessionId))}</div>
-              <div class="mt-1 text-xs text-muted-foreground">唛架编号 / 床次：${escapeHtml(formatUnknownText(session.sourceBedNo || session.bedNo || session.markerNo))}</div>
+              <div class="font-semibold text-blue-600">${escapeHtml(formatUnknownText(session.sessionNo || session.spreadingSessionNo || session.spreadingSessionId))}</div>
+              <div class="mt-1 text-xs text-muted-foreground">唛架编号 / 床次：${escapeHtml(formatUnknownText(session.sourceBedNo || session.markerNo))}</div>
             </div>
             <div>
               <div class="text-xs text-muted-foreground">唛架方案</div>
@@ -2640,7 +2652,7 @@ function renderCutOrderSpreadingTab(view: ReturnType<typeof buildCutOrderDetailV
             </div>
             <div>
               <div class="text-xs text-muted-foreground">用量 / 数量</div>
-              <div>计划用量：${escapeHtml(formatUnknownNumber(session.theoreticalSpreadTotalLength || session.plannedMaterialUsage, '米'))}</div>
+              <div>计划用量：${escapeHtml(formatUnknownNumber(session.theoreticalSpreadTotalLength, '米'))}</div>
               <div>实际用量：${escapeHtml(formatUnknownNumber(session.totalActualLength, '米'))}</div>
               <div>实际裁剪：${escapeHtml(formatUnknownNumber(session.actualCutGarmentQty ?? session.actualCutPieceQty, '件'))}</div>
             </div>
@@ -2695,8 +2707,8 @@ function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetai
     <div class="space-y-4">
       ${renderDetailSection('差异记录', renderCompactRecordList(view.differenceRows, '暂无差异记录。', (item) => `
         <div class="grid gap-3 px-3 py-3 text-sm xl:grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_auto]">
-          <div><div class="font-semibold">${escapeHtml(formatUnknownText(item.differenceId))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.sourceType || item.differenceSource))}</div></div>
-          <div><div class="text-xs text-muted-foreground">差异</div><div>${escapeHtml(formatUnknownText(item.differenceType || item.problemText))}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.differenceLevel || item.levelLabel))}</div></div>
+          <div><div class="font-semibold">${escapeHtml(formatUnknownText(item.differenceId))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.sourceType))}</div></div>
+          <div><div class="text-xs text-muted-foreground">差异</div><div>${escapeHtml(formatUnknownText(item.differenceType))}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.differenceLevel))}</div></div>
           <div><div class="text-xs text-muted-foreground">计划 / 实际</div><div>${escapeHtml(formatUnknownNumber(item.plannedValue, item.unit))} / ${escapeHtml(formatUnknownNumber(item.actualValue, item.unit))}</div></div>
           <div><div class="text-xs text-muted-foreground">处理状态</div><div>${escapeHtml(formatUnknownText(item.handlingStatus))}</div></div>
           <div><div class="text-xs text-muted-foreground">发现时间</div><div>${escapeHtml(formatUnknownText(item.detectedAt))}</div></div>
@@ -2709,9 +2721,9 @@ function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetai
       `))}
       ${renderDetailSection('特殊工艺关联', renderCompactRecordList(view.specialProcessRows, '暂无特殊工艺记录。', (item) => `
         <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-4">
-          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.processNo || item.specialCraftTaskNo || item.id))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.processType || item.craftType))}</div></div>
-          <div><div class="text-xs text-muted-foreground">承接工厂</div><div>${escapeHtml(formatUnknownText(item.receiverFactoryName || item.factoryName))}</div></div>
-          <div><div class="text-xs text-muted-foreground">状态</div><div>${escapeHtml(formatUnknownText(item.statusMeta?.label || item.statusLabel || item.status))}</div></div>
+          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.processNo || item.specialCraftTaskNo))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.processType))}</div></div>
+          <div><div class="text-xs text-muted-foreground">承接工厂</div><div>${escapeHtml(formatUnknownText(item.factoryName))}</div></div>
+          <div><div class="text-xs text-muted-foreground">状态</div><div>${escapeHtml(formatUnknownText(item.statusLabel))}</div></div>
           <div><div class="text-xs text-muted-foreground">数量</div><div>${escapeHtml(formatUnknownNumber(item.pieceQty || item.quantity, '片'))}</div></div>
         </div>
       `))}

@@ -6,12 +6,6 @@ import {
 } from '../src/components/ui/list-table.ts'
 import { renderTablePagination } from '../src/components/ui/pagination.ts'
 import type { StandardListColumnPreferences } from '../src/components/ui/list-table-model.ts'
-import {
-  captureContinuousDispatchPageState,
-  handleContinuousDispatchEvent,
-  renderContinuousDispatchPage,
-  restoreContinuousDispatchPageState,
-} from '../src/pages/continuous-dispatch.ts'
 
 interface FixtureRow {
   id: string
@@ -140,93 +134,4 @@ for (const attribute of [
   )
 }
 
-const initialContinuousState = captureContinuousDispatchPageState()
-try {
-  const initialContinuousHtml = renderContinuousDispatchPage()
-  for (const attribute of [
-    'data-continuous-dispatch-action="sort-column"',
-    'data-continuous-dispatch-action="prev-page"',
-    'data-continuous-dispatch-action="next-page"',
-    'data-continuous-dispatch-field="pageSize"',
-    'data-continuous-dispatch-action="open-column-settings"',
-  ]) {
-    const control = tagFor(initialContinuousHtml, attribute)
-    assert(control, `连续任务页缺少标准列表控件 ${attribute}`)
-    assert(
-      !control.includes('data-skip-page-rerender="true"'),
-      `连续任务页 ${attribute} 必须继续由主入口重绘`,
-    )
-  }
-
-  const sortAction = {
-    dataset: {
-      continuousDispatchAction: 'sort-column',
-      columnKey: 'productionOrder',
-    },
-  }
-  const sortTarget = {
-    closest(selector: string) {
-      if (selector === '[data-continuous-dispatch-action]') return sortAction
-      return null
-    },
-  } as unknown as HTMLElement
-  assert.equal(handleContinuousDispatchEvent(sortTarget), true)
-  assert.deepEqual(captureContinuousDispatchPageState().sort, {
-    key: 'productionOrder',
-    direction: 'asc',
-  })
-  assert(
-    renderContinuousDispatchPage().includes('data-standard-list-sort-icon="asc"'),
-    '连续任务页主重绘后必须展示新的排序状态',
-  )
-
-  const pageSizeField = {
-    value: '20',
-    dataset: { continuousDispatchField: 'pageSize' },
-  }
-  const pageSizeTarget = {
-    closest(selector: string) {
-      if (selector === '[data-continuous-dispatch-field]') return pageSizeField
-      return null
-    },
-  } as unknown as HTMLElement
-  assert.equal(handleContinuousDispatchEvent(pageSizeTarget), true)
-  assert.equal(captureContinuousDispatchPageState().pageSize, 20)
-  assert(
-    tagFor(
-      renderContinuousDispatchPage(),
-      'data-continuous-dispatch-field="pageSize"',
-    ).includes('<select'),
-    '连续任务页主重绘后必须保留更新后的每页条数控件',
-  )
-
-  const openSettingsAction = {
-    dataset: { continuousDispatchAction: 'open-column-settings' },
-  }
-  const openSettingsTarget = {
-    closest(selector: string) {
-      if (selector === '[data-continuous-dispatch-action]') return openSettingsAction
-      return null
-    },
-  } as unknown as HTMLElement
-  assert.equal(handleContinuousDispatchEvent(openSettingsTarget), true)
-  const settingsHtml = renderContinuousDispatchPage()
-  assert.equal(captureContinuousDispatchPageState().columnSettingsOpen, true)
-  for (const attribute of [
-    'data-continuous-dispatch-action="close-column-settings"',
-    'data-continuous-dispatch-action="restore-column-settings"',
-    'data-continuous-dispatch-action="toggle-column-visibility"',
-    'data-standard-list-column-drag',
-  ]) {
-    const control = tagFor(settingsHtml, attribute)
-    assert(control, `连续任务页列设置缺少 ${attribute}`)
-    assert(
-      !control.includes('data-skip-page-rerender="true"'),
-      `连续任务页列设置 ${attribute} 必须继续由主入口重绘`,
-    )
-  }
-} finally {
-  restoreContinuousDispatchPageState(initialContinuousState)
-}
-
-console.log('PASS list local-event contract: defaults and continuous dispatch keep main rerender enabled')
+console.log('PASS list local-event contract: default and explicit local-render controls remain separated')

@@ -291,11 +291,12 @@ function buildRuntimeTemplateItems(
   confirmedProductPrepType: ProductPrepType,
 ): ProductionPreparationItem[] {
   if (!selection.overridden || !selection.itemTypes) return record.items
+  const selectedItemTypes = selection.itemTypes
   const templateItems = preparationTypeDefaultItems[confirmedProductPrepType] ?? []
   const existingByType = new Map(record.items.map((item) => [item.itemType, item]))
   const generatedItems = templateItems
     .filter((item) => !existingByType.has(item.itemType))
-    .map((item) => createRuntimeTemplateItem(record, confirmation, selection, item, existingByType, templateItems))
+    .map((item) => createRuntimeTemplateItem(record, confirmation, selectedItemTypes, item, existingByType, templateItems))
   const items = [...record.items, ...generatedItems]
   const itemsByType = new Map(items.map((item) => [item.itemType, item]))
   const templateTypes = new Set(templateItems.map((item) => item.itemType))
@@ -362,12 +363,12 @@ function runtimeItemLayout(
 function createRuntimeTemplateItem(
   record: ProductionPreparationRecord,
   confirmation: ConfirmedPreparationRecord | undefined,
-  selection: Extract<RuntimeSelection, { overridden: true; itemTypes: Set<PreparationItemType> }>,
+  selectedItemTypes: Set<PreparationItemType>,
   templateItem: PreparationTypeDefaultItem,
   existingByType: Map<PreparationItemType, ProductionPreparationItem>,
   templateItems: PreparationTypeDefaultItem[],
 ): ProductionPreparationItem {
-  const selected = selection.itemTypes.has(templateItem.itemType)
+  const selected = selectedItemTypes.has(templateItem.itemType)
   const required = templateItem.defaultSelected && !templateItem.canUnselect
   const selectedAt = selected ? confirmation?.confirmedAt ?? record.workItemsConfirmedAt ?? record.enteredAt : ''
   const layout = runtimeItemLayout(templateItem.itemType, templateItems)

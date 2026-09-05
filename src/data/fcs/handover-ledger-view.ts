@@ -194,7 +194,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     sourceType: 'PICKUP_HEAD',
     eventTypeCode: 'PICKUP_HEAD',
     eventTypeLabel: '接收单',
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
@@ -240,7 +240,7 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
     sourceType: 'PICKUP_RECORD',
     eventTypeCode: 'PICKUP_RECORD',
     eventTypeLabel: '接收记录',
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
@@ -295,12 +295,12 @@ function buildHandoutHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     sourceType: 'HANDOUT_HEAD',
     eventTypeCode: 'HANDOUT_HEAD',
     eventTypeLabel: '交出单',
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
     directionLabel: `工厂 → ${getReceiverDisplayName(head)}`,
-    qtySummary: `已交出 ${head.submittedQtyTotal} ${head.qtyUnit} / 已收货 ${head.writtenBackQtyTotal} ${head.qtyUnit}（${formatQtyDiff(head.diffQtyTotal, head.qtyUnit)}）`,
+    qtySummary: `已交出 ${head.submittedQtyTotal} ${head.qtyUnit} / 已收货 ${head.writtenBackQtyTotal} ${head.qtyUnit}（${formatQtyDiff(head.diffQtyTotal || 0, head.qtyUnit)}）`,
     statusCode,
     statusLabel,
     statusGroup,
@@ -379,7 +379,7 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
     sourceType: 'HANDOUT_RECORD',
     eventTypeCode,
     eventTypeLabel,
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
@@ -403,7 +403,7 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     sourceType: 'COMPLETED_HEAD',
     eventTypeCode: head.headType === 'PICKUP' ? 'PICKUP_COMPLETED' : 'HANDOUT_COMPLETED',
     eventTypeLabel: head.headType === 'PICKUP' ? '接收完成' : '交出完成',
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
@@ -855,7 +855,7 @@ export function getTaskHandoverSummary(
     }
   }
 
-  const view = getHandoverOrderTimelineViewById(rows, task.productionOrderId)
+  const view = getHandoverOrderTimelineViewById(rows, task.productionOrderId || '')
   const section = view?.processSections.find((item) => item.taskId === taskId)
 
   if (!section) {
@@ -863,7 +863,7 @@ export function getTaskHandoverSummary(
       taskId,
       taskNo: task.taskId,
       processName: task.processNameZh,
-      relatedProductionOrderId: task.productionOrderId,
+      relatedProductionOrderId: task.productionOrderId || '',
       processStatusLabel: '暂无事件',
       nextActionHint: '当前工序暂无交接记录，请先推进接收或交出',
       latestOccurredAt: '',
@@ -875,7 +875,7 @@ export function getTaskHandoverSummary(
     taskId: section.taskId,
     taskNo: section.taskNo,
     processName: section.processName,
-    relatedProductionOrderId: task.productionOrderId,
+    relatedProductionOrderId: task.productionOrderId || '',
     processStatusLabel: section.processStatusLabel,
     nextActionHint: section.nextActionHint,
     latestOccurredAt: section.latestOccurredAt,

@@ -1,4 +1,5 @@
 import { createElement, type IconNode } from 'lucide'
+import { isProductionConfirmationPrintPath, isRouteAtOrBelowAny } from '../router/path-match.ts'
 import {
   getCurrentMenus,
   getCurrentSystem,
@@ -305,11 +306,13 @@ function renderTabsBar(state: AppState): string {
 }
 
 export function isStandalonePrintPath(pathname: string): boolean {
-  return pathname.startsWith('/fcs/print/')
-    || pathname.startsWith('/fcs/craft/post-finishing/print')
-    || pathname.startsWith('/fcs/task-print/')
-    || pathname.startsWith('/fcs/contracts/print')
-    || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print/.test(pathname)
+  return isRouteAtOrBelowAny(pathname, [
+    '/fcs/print',
+    '/fcs/craft/post-finishing/print',
+    '/fcs/task-print',
+    '/fcs/contracts/print',
+  ])
+    || isProductionConfirmationPrintPath(pathname)
 }
 
 export function renderAppShell(state: AppState, pageContent: string): string {

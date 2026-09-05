@@ -52,6 +52,24 @@ async function clickWithinBudget(
   assert(elapsed < 200, `${label}必须低于 200ms，实际 ${elapsed.toFixed(1)}ms`)
 }
 
+async function clickRowActionWithinBudget(
+  page: Page,
+  rowText: string,
+  action: string,
+  label: string,
+): Promise<void> {
+  const target = page
+    .locator('tr', { hasText: rowText })
+    .locator(`[data-wool-warehouse-action="${action}"]`)
+  assert.equal(await target.count(), 1, `${label}必须唯一定位业务记录`)
+  const elapsed = await target.evaluate((node) => {
+    const startedAt = performance.now()
+    ;(node as HTMLElement).click()
+    return performance.now() - startedAt
+  })
+  assert(elapsed < 200, `${label}必须低于 200ms，实际 ${elapsed.toFixed(1)}ms`)
+}
+
 async function changeSelectWithinBudget(
   page: Page,
   selector: string,
@@ -101,6 +119,7 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     await clickWithinBudget(page, '[data-wool-warehouse-action="tab:inventory"]', '返回库存 Tab')
 
     const objectFilter = page.locator('[data-wool-warehouse-filter="objectSkuCode"]')
+    let selectedTransferTarget = ''
     if (mode === 'process') {
       await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('WMO-024')
       await objectFilter.fill('YARN-A')
@@ -301,9 +320,10 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       await clickWithinBudget(page, traceRowAction('open-transfer-out'), '打开库存转出')
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('浏览器转出')
+      selectedTransferTarget = await page.locator('[data-wool-warehouse-dialog-field="target"]').inputValue()
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-out"]', '保存库存转出')
       await clickWithinBudget(page, '[data-wool-warehouse-action="tab:transfers"]', '打开转移 Tab')
-      await clickWithinBudget(page, '[data-wool-warehouse-action="open-transfer-back"]', '打开库存转回')
+      await clickRowActionWithinBudget(page, '浏览器转出', 'open-transfer-back', '打开本次库存转回')
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('浏览器转回')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-back"]', '保存库存转回')
@@ -315,36 +335,44 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       await clickWithinBudget(page, '[data-wool-warehouse-action="open-transfer-out"]', '打开待交出仓转出')
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('1')
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('待交出仓转出')
+      selectedTransferTarget = await page.locator('[data-wool-warehouse-dialog-field="target"]').inputValue()
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-out"]', '保存待交出仓转出')
       await clickWithinBudget(page, '[data-wool-warehouse-action="tab:transfers"]', '打开待交出仓转移 Tab')
-      await clickWithinBudget(page, '[data-wool-warehouse-action="open-transfer-back"]', '打开待交出仓转回')
+      await clickRowActionWithinBudget(page, '待交出仓转出', 'open-transfer-back', '打开本次待交出仓转回')
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('1')
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('待交出仓转回')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-back"]', '保存待交出仓转回')
     }
     const transferTableText = await page.locator('[data-wool-warehouse-table-surface]').innerText()
+    const [selectedTransferWarehouseId = '', selectedTransferLocationId = ''] = selectedTransferTarget.split('|')
+    assert(selectedTransferWarehouseId && selectedTransferLocationId, '库存转移必须选择完整的公共仓库与库位')
     assert(
       transferTableText.includes(mode === 'process' ? 'WOOL-WAIT-PROCESS' : 'WOOL-WAIT-HANDOVER'),
       '转移列表必须展示固定默认仓库 ID',
     )
-    assert.match(transferTableText, /FIW-[A-Z0-9_-]+/)
-    assert.match(transferTableText, /LOC-[A-Z0-9_-]+/)
-    await clickWithinBudget(page, '[data-wool-warehouse-action="open-detail"]', '打开转移详情')
+    assert(transferTableText.includes(selectedTransferWarehouseId), '转移列表必须展示实际选择的目标仓库 ID')
+    assert(transferTableText.includes(selectedTransferLocationId), '转移列表必须展示实际选择的目标库位 ID')
+    const transferBackReason = mode === 'process' ? '浏览器转回' : '待交出仓转回'
+    await clickRowActionWithinBudget(page, transferBackReason, 'open-detail', '打开本次转回详情')
     let transferDetailText = await page.locator('[data-wool-warehouse-dialog]').innerText()
     assert(
       transferDetailText.includes(mode === 'process' ? 'WOOL-WAIT-PROCESS' : 'WOOL-WAIT-HANDOVER'),
       '转移详情必须展示固定默认仓库 ID',
     )
-    for (let pageIndex = 1; pageIndex < 5 && !/FIW-[A-Z0-9_-]+/.test(transferDetailText); pageIndex += 1) {
+    const transferDetailHasSelectedTarget = () =>
+      transferDetailText.includes(selectedTransferWarehouseId)
+      && transferDetailText.includes(selectedTransferLocationId)
+    const nextFlowPageSelector = '[data-wool-warehouse-detail-kind="flows"] [data-wool-warehouse-detail-action="next-page"]'
+    while (!transferDetailHasSelectedTarget() && await page.locator(nextFlowPageSelector).isEnabled()) {
       await clickWithinBudget(
         page,
-        '[data-wool-warehouse-detail-kind="flows"] [data-wool-warehouse-detail-action="next-page"]',
+        nextFlowPageSelector,
         '转移详情流水分页',
       )
       transferDetailText = await page.locator('[data-wool-warehouse-dialog]').innerText()
     }
-    assert.match(transferDetailText, /FIW-[A-Z0-9_-]+/)
-    assert.match(transferDetailText, /LOC-[A-Z0-9_-]+/)
+    assert(transferDetailText.includes(selectedTransferWarehouseId), '转移详情必须展示实际选择的目标仓库 ID')
+    assert(transferDetailText.includes(selectedTransferLocationId), '转移详情必须展示实际选择的目标库位 ID')
     await clickWithinBudget(page, '[data-wool-warehouse-action="close-overlay"]', '关闭转移详情')
     await assertRootStable(page, '全部仓库关键交互')
     await page.locator('[data-wool-warehouse-filter="productionOrderNo"]').fill('LEAVE-PAGE-DEBOUNCE')

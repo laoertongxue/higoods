@@ -45,7 +45,7 @@ export interface PdaCutPieceExecutionRef {
   taskNo: string
   executionOrderId: string
   executionOrderNo: string
-  legacyCutPieceOrderNo: string
+  legacyCutPieceOrderNo?: string
   productionOrderId: string
   productionOrderNo: string
   cutOrderId: string

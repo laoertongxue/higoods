@@ -449,7 +449,7 @@ function collectPlateSourceKeys(task: PlateMakingTaskRecord): Set<string> {
     task.upstreamObjectId,
     task.upstreamObjectCode,
     task.newPatternSpuCode,
-  ].filter(Boolean))
+  ].filter((value): value is string => Boolean(value)))
 }
 
 function patternMatchesPlateSource(patternTask: PatternTaskRecord, plateTask: PlateMakingTaskRecord): boolean {
@@ -712,6 +712,8 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     linkedTechPackVersionLabel: '',
     linkedTechPackVersionStatus: '',
     linkedTechPackUpdatedAt: '',
+    acceptedAt: '',
+    confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
@@ -839,9 +841,8 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     targetSite: input.targetSite || '深圳',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
     ...firstSampleChainFields(input),
-	    confirmedAt: input.confirmedAt || '',
-	    confirmedBy: input.confirmedBy || '',
-	    status: '草稿',
+    confirmedAt: input.confirmedAt || '',
+    status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
     priorityLevel: input.priorityLevel || '中',
@@ -1592,9 +1593,25 @@ export function createFirstSampleTaskFromPlate(
 ): TaskWritebackResult<FirstSampleTaskRecord> {
   const readiness = evaluatePlateFirstSampleReadiness(plateTaskId)
   const plateTask = readiness.plateTask
-  if (!plateTask) return { ok: false, message: readiness.recommendedActionText }
+  if (!plateTask) {
+    return {
+      ok: false,
+      message: readiness.recommendedActionText,
+      pendingItem: makePendingItem('首版样衣打样', plateTaskId, '', plateTaskId, readiness.recommendedActionText),
+    }
+  }
   if (!readiness.canCreateFirstSample) {
-    return { ok: false, message: readiness.recommendedActionText }
+    return {
+      ok: false,
+      message: readiness.recommendedActionText,
+      pendingItem: makePendingItem(
+        '首版样衣打样',
+        plateTask.plateTaskCode,
+        plateTask.projectCode,
+        plateTask.plateTaskId,
+        readiness.recommendedActionText,
+      ),
+    }
   }
 
   const targetSite = plateTask.patternArea === '印尼' ? '雅加达' : '深圳'

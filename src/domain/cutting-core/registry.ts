@@ -18,8 +18,8 @@ function buildExecutionKey(taskId: string, executionOrderNo: string): string {
   return `${taskId}::${executionOrderNo}`
 }
 
-function indexById<T extends Record<string, string>>(items: T[], key: keyof T): Record<string, T> {
-  return Object.fromEntries(items.map((item) => [item[key], item]))
+function indexById<T extends object, K extends keyof T>(items: T[], key: K): Record<string, T> {
+  return Object.fromEntries(items.map((item) => [String(item[key]), item]))
 }
 
 let cachedRegistry: CuttingCoreRegistry | null = null
@@ -40,7 +40,7 @@ export function buildCuttingCoreRegistry(): CuttingCoreRegistry {
     pdaExecutionsByCutOrderId[record.cutOrderId] = bucket
   })
 
-  cachedRegistry = {
+  const registry: CuttingCoreRegistry = {
     productionOrdersById: indexById(productionOrders, 'productionOrderId'),
     productionOrdersByNo: indexById(productionOrders, 'productionOrderNo'),
     cutOrdersById: indexById(cutOrders, 'cutOrderId'),
@@ -52,8 +52,8 @@ export function buildCuttingCoreRegistry(): CuttingCoreRegistry {
     pdaExecutionsByTaskAndOrder: Object.fromEntries(pdaExecutions.map((record) => [buildExecutionKey(record.taskId, record.executionOrderNo), record])),
     pdaExecutionsByCutOrderId,
   }
-
-  return cachedRegistry
+  cachedRegistry = registry
+  return registry
 }
 
 export function resetCuttingCoreRegistryCache(): void {

@@ -8,9 +8,10 @@ import {
   writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
+  type HandoverReceiverKind,
 } from './pda-handover-events.ts'
 import { listPdaGenericProcessTasks, registerPdaGenericProcessTask, unregisterPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
-import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
+import { type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
@@ -781,7 +782,7 @@ function ensureSeededHandoverRecord(input: {
     && !firstRecord.receiverWrittenAt
   ) {
     writeBackHandoverRecord({
-      handoverRecordId: firstRecord.handoverRecordId,
+      handoverRecordId: firstRecord.handoverRecordId || firstRecord.recordId || '',
       receiverWrittenQty: input.receiverWrittenQty,
       receiverWrittenAt: input.receiverWrittenAt,
       receiverWrittenBy: '中转区域',
@@ -791,7 +792,10 @@ function ensureSeededHandoverRecord(input: {
   }
 
   const nextRecords = getPdaHandoverRecordsByHead(head.handoverId)
-  return { handoverOrderId, recordIds: nextRecords.map((record) => record.handoverRecordId) }
+  return {
+    handoverOrderId,
+    recordIds: nextRecords.flatMap((record) => record.handoverRecordId ? [record.handoverRecordId] : []),
+  }
 }
 
 function setNodeRecords(dyeOrderId: string, records: MutableDyeExecutionNodeRecord[]): void {
@@ -939,7 +943,7 @@ function createReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverH
     reviewRecordId: `DRV-${order.dyeOrderId}`,
     dyeOrderId: order.dyeOrderId,
     handoverOrderId: head.handoverOrderId || head.handoverId,
-    handoverRecordIds: records.map((record) => record.handoverRecordId),
+    handoverRecordIds: records.flatMap((record) => record.handoverRecordId ? [record.handoverRecordId] : []),
     receiverName: order.targetTransferWarehouseName,
     submittedQty,
     receivedQty,
@@ -1003,10 +1007,8 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     || order.status === 'PACKING'
     || order.status === 'WAIT_HANDOVER'
     || order.status === 'HANDOVER_WAIT_RECEIVE'
-    || order.status === 'HANDOVER_WAIT_RECEIVE'
     || order.status === 'WAIT_REVIEW'
     || order.status === 'PARTIAL_HANDOVER'
-    || order.status === 'HANDOVER_WAIT_RECEIVE'
     || order.status === 'FULL_HANDOVER'
     || order.status === 'HANDOVER_DIFFERENCE'
     || order.status === 'COMPLETED'
@@ -2540,7 +2542,7 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     productionOrderNo: productionOrder.productionOrderNo,
     spuCode: productionOrder.demandSnapshot.spuCode,
     spuName: productionOrder.demandSnapshot.spuName,
-    requiredDeliveryDate: productionOrder.demandSnapshot.requiredDeliveryDate,
+    requiredDeliveryDate: productionOrder.demandSnapshot.requiredDeliveryDate ?? undefined,
     factoryId: TEST_FACTORY_ID,
     factoryName: TEST_FACTORY_NAME,
     qty: dyeSnapshot.plannedQty,
@@ -3421,7 +3423,7 @@ export function listDyeReviewRecords(): DyeReviewRecord[] {
   syncDerivedWorkflow()
   const visibleIds = getVisibleDyeWorkOrderIds()
   return Array.from(reviewRecordStore.values())
-    .filter((record) => visibleIds.has(record.dyeOrderId))
+    .filter((record) => Boolean(record.dyeOrderId && visibleIds.has(record.dyeOrderId)))
     .sort((left, right) => left.dyeOrderId.localeCompare(right.dyeOrderId))
     .map((record) => cloneReviewRecord(record))
 }
@@ -3450,7 +3452,7 @@ export function listDyeFormulaRecords(): DyeFormulaRecord[] {
   seedDomain()
   const visibleIds = getVisibleDyeWorkOrderIds()
   return Array.from(formulaStore.values())
-    .filter((record) => visibleIds.has(record.dyeOrderId))
+    .filter((record) => Boolean(record.dyeOrderId && visibleIds.has(record.dyeOrderId)))
     .sort((left, right) => left.formulaNo.localeCompare(right.formulaNo))
     .map((record) => cloneFormulaRecord(record))
 }

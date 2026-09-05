@@ -201,11 +201,17 @@ function ensureTraceabilityTicketRecords(options: {
           sourceMarkerPlanNo: session.markerPlanNo || markerPlanSource?.markerPlanNo || '',
           printableUnitId: session.contextType === 'marker-plan' ? `marker-plan:${session.markerPlanId || session.markerPlanNo}` : `cut-order:${row.cutOrderId}`,
           printableUnitNo: session.contextType === 'marker-plan' ? session.markerPlanNo || markerPlanSource?.markerPlanNo || '' : row.cutOrderNo,
-          printableUnitType: session.contextType === 'marker-plan' ? 'marker-plan' : 'cut-order',
+          printableUnitType: session.contextType === 'marker-plan' ? 'MARKER_PLAN' : 'CUT_ORDER',
           sourceProductionOrderId: row.productionOrderId,
           partName,
           size,
-          quantity: Math.max(Math.round((row.plannedQty || row.orderQty || 1) / Math.max(relatedRows.length, 1)), 1),
+          quantity: Math.max(
+            Math.round(
+              row.materialLineItems.reduce((total, line) => total + line.requiredQty, 0)
+              / Math.max(relatedRows.length, 1),
+            ),
+            1,
+          ),
           processTags: ['TRACEABILITY_SEED'],
           version: 1,
           schemaName: 'FCS_FEI_TRACEABILITY_SEED',
@@ -431,8 +437,8 @@ function ensureTraceabilityBagFirstSeed(options: {
       cycleNo: usage.usageNo,
       carrierId: usage.bagId,
       carrierCode: usage.bagCode,
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
+      feiTicketId: ticket.ticketRecordId,
+      feiTicketNo: ticket.feiTicketNo || ticket.ticketNo,
       sourceSpreadingSessionId: sessionId,
       sourceSpreadingSessionNo: sessionNo,
       sourceMarkerId: session!.sourceMarkerId || session!.markerId || '',
@@ -695,7 +701,7 @@ export function buildSpreadingBagWarehouseTraceProjection(options: {
 
   return options.warehouseItems
     .filter((item) => item.spreadingSessionId || item.bagUsageId)
-    .map((item) => {
+    .map((item): SpreadingBagWarehouseTraceProjectionRow => {
       const usage = usageMap[item.bagUsageId] || null
       return {
         warehouseItemId: item.warehouseItemId,

@@ -420,19 +420,25 @@ const stockKey = {
 }
 const publicWarehouses = listFactoryInternalWarehouses()
   .filter((warehouse) => warehouse.isEnabled)
-const publicTarget = publicWarehouses
-  .flatMap((warehouse) => warehouse.areaList.flatMap((area) =>
+const publicLocationTargets = publicWarehouses.flatMap((warehouse) =>
+  warehouse.areaList.flatMap((area) =>
     area.shelfList.flatMap((shelf) =>
       shelf.locationList.map((location) => ({ warehouse, location })),
     ),
-  ))
-  .find(({ warehouse, location }) =>
-    resolveEnabledFactoryWarehouseLocation(warehouse.warehouseId, location.locationId),
-  )!
+  ),
+)
+const publicTarget = publicLocationTargets.find(({ warehouse, location }) =>
+  publicWarehouses.some((candidate) =>
+    candidate.warehouseId !== warehouse.warehouseId
+    && resolveEnabledFactoryWarehouseLocation(candidate.warehouseId, location.locationId),
+  ),
+)
+assert(publicTarget, '夹具必须提供至少一个可在两个公共仓库中使用的共享库位编号')
 const sameLocationOtherWarehouse = publicWarehouses.find((warehouse) =>
   warehouse.warehouseId !== publicTarget.warehouse.warehouseId
   && resolveEnabledFactoryWarehouseLocation(warehouse.warehouseId, publicTarget.location.locationId),
-)!
+)
+assert(sameLocationOtherWarehouse, '夹具必须提供共享库位编号对应的另一公共仓库')
 const availableBeforeTransfer = getWoolOutputHandoverAvailableQty(
   wholeOrder.woolOrderId,
   transferLine.outputSkuCode,
@@ -1063,14 +1069,16 @@ for (const scale of [25, 50, 100, 250]) {
 replaceWoolStore(performanceBaseStore)
 console.log(`Task 11 warehouse performance: ${JSON.stringify(performanceResults)}`)
 
-const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
 const persistedValues = new Map<string, string>()
-Object.defineProperty(globalThis, 'localStorage', {
+Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
-    getItem: (key: string) => persistedValues.get(key) ?? null,
-    setItem: (key: string, value: string) => { persistedValues.set(key, value) },
-    removeItem: (key: string) => { persistedValues.delete(key) },
+    localStorage: {
+      getItem: (key: string) => persistedValues.get(key) ?? null,
+      setItem: (key: string, value: string) => { persistedValues.set(key, value) },
+      removeItem: (key: string) => { persistedValues.delete(key) },
+    },
   },
 })
 replaceWoolStore(performanceBaseStore)
@@ -1097,10 +1105,10 @@ assert.equal(
   invalidPersistedStore,
   '非法持久化重载不得静默覆盖原始证据',
 )
-if (localStorageDescriptor) {
-  Object.defineProperty(globalThis, 'localStorage', localStorageDescriptor)
+if (windowDescriptor) {
+  Object.defineProperty(globalThis, 'window', windowDescriptor)
 } else {
-  Reflect.deleteProperty(globalThis, 'localStorage')
+  Reflect.deleteProperty(globalThis, 'window')
 }
 
 console.log('PASS task 11: wool Web warehouses use fixed locations and atomic fact flows')

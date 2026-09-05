@@ -180,6 +180,8 @@ export interface PdaCutPieceHandoutLine {
   sizeLabel?: string
   pieceQty: number
   garmentEquivalentQty: number
+  feiTicketNo?: string
+  bundleNo?: string
 }
 
 export interface PdaCuttingHandoverGapLine {
@@ -325,6 +327,8 @@ export interface QuantityObjection {
   factoryProofFiles?: HandoverProofFile[]
   receiverProofFiles?: HandoverProofFile[]
   status:
+    | 'SUBMITTED'
+    | 'OBJECTION_RESOLVED'
     | 'REPORTED'
     | 'PROCESSING'
     | 'RESOLVED_ACCEPT_FACTORY'
@@ -335,6 +339,7 @@ export interface QuantityObjection {
   resolvedRemark?: string
   resolvedBy?: string
   resolvedAt?: string
+  raisedAt?: string
   createdAt: string
   createdBy: string
 }
@@ -379,6 +384,8 @@ export interface PdaHandoverHead {
   qtyUnit: string
   factoryId: string
   taskStatus: 'IN_PROGRESS' | 'DONE'
+  /** Legacy list projection status; current flows use summaryStatus. */
+  status?: string
   summaryStatus: HandoverHeadSummaryStatus
   handoverOrderStatus?: HandoverOrderStatus
   recordCount: number
@@ -422,6 +429,11 @@ export interface PdaHandoverHead {
   assignmentGranularity?: ProcessAssignmentGranularity
   assignmentGranularityLabel?: string
   isSpecialCraft?: boolean
+  /** Legacy projection fields retained for old locally persisted handover heads. */
+  objectSummary?: string
+  factoryName?: string
+  deadlineAt?: string
+  createdAt?: string
 }
 
 export interface PdaHandoverRecord {
@@ -497,7 +509,7 @@ export interface PdaHandoverRecord {
   transferBagWritebackLines?: TransferBagWritebackLine[]
   feiTicketWritebackLines?: TransferBagFeiTicketWritebackLine[]
   writebackMode?: '按袋' | '按袋 + 菲票'
-  combinedWritebackStatus?: '待收货确认' | '部分收货' | '已确认收货' | '差异' | '异议中'
+  combinedWritebackStatus?: '待收货确认' | '部分收货' | '已确认收货' | '差异' | '异议中' | '待回写' | '部分回写' | '已回写'
 }
 
 export function getPdaHandoverSourceDisplay(
@@ -537,7 +549,7 @@ export interface TransferBagWritebackLine {
   expectedQty: number
   actualQty: number
   differenceQty: number
-  status: '待收货确认' | '已确认收货' | '差异'
+  status: '待收货确认' | '已确认收货' | '差异' | '待回写' | '已回写'
   remark?: string
 }
 
@@ -553,7 +565,7 @@ export interface TransferBagFeiTicketWritebackLine {
   expectedQty: number
   actualQty: number
   differenceQty: number
-  status: '待收货确认' | '已确认收货' | '差异'
+  status: '待收货确认' | '已确认收货' | '差异' | '待回写' | '已回写'
   remark?: string
 }
 
@@ -2034,7 +2046,7 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       sourceTaskId: 'TASKGEN-202603-0015-003__ORDER',
       sequenceNo: 1,
       handoutObjectType: 'GARMENT',
-      objectType: 'GARMENT',
+      objectType: 'SEMI_FINISHED_GARMENT',
       handoutItemLabel: '首批车缝成衣',
       plannedQty: 420,
       submittedQty: 420,
@@ -3107,9 +3119,7 @@ export function deriveHandoutRecordProfile(
     itemTitle:
       objectType === 'FABRIC'
         ? record.materialName || record.materialCode || '面料交出物'
-        : objectType === 'CUT_PIECE'
-          ? record.pieceName || record.materialName || '裁片交出物'
-          : record.materialName || '成衣交出物',
+        : record.materialName || '成衣交出物',
     infoLines: buildHandoutInfoLines(record, objectType),
     plannedQtyText: `${plannedQty} ${displayUnit}`,
     writtenQtyText: formatQtyValue(resolveReceiverWrittenQty(record), displayUnit),
@@ -3163,10 +3173,7 @@ export function deriveHandoutObjectProfile(
       ? sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
       : head.writtenBackQtyTotal
   const totalPendingQty = Math.max(totalPlannedQty - totalWrittenQty, 0)
-  const garmentEquivalentQtyTotal =
-    objectType === 'CUT_PIECE'
-      ? sumBy(records, (record) => (typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0))
-      : undefined
+  const garmentEquivalentQtyTotal = undefined
 
   return {
     objectType,
@@ -3692,7 +3699,7 @@ function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
   return undefined
 }
 
-function findTaskById(taskId: string): RuntimeProcessTask | PdaTaskMockProcessTaskLike | null {
+function findTaskById(taskId: string): RuntimeProcessTask | PdaTaskMockProcessTaskLike | ReturnType<typeof listWoolMobileProcessTasks>[number] | ReturnType<typeof listWaterSolubleMobileTasks>[number] | null {
   return getRuntimeTaskById(taskId)
     ?? listPdaGenericProcessTasks().find((task) => task.taskId === taskId)
     ?? listWoolMobileProcessTasks().find((task) => task.taskId === taskId)
@@ -3839,7 +3846,7 @@ function listLegacyHandoverEvents(): HandoverEvent[] {
     eventId: head.handoverId,
     action: head.headType,
     taskId: head.taskId,
-    productionOrderId: head.productionOrderNo,
+    productionOrderId: head.productionOrderNo || '',
     currentProcess: head.processName,
     isFirstProcess: head.transitionFromPrev === 'NOT_APPLICABLE',
     fromPartyKind: head.headType === 'PICKUP' ? 'WAREHOUSE' : 'FACTORY',
@@ -4199,7 +4206,7 @@ export function listQuantityObjections(): QuantityObjection[] {
           handoverRecordId: record.handoverRecordId || record.recordId,
           handoverOrderId: head.handoverOrderId || head.handoverId,
           sourceTaskId: record.sourceTaskId || record.taskId,
-          productionOrderId: head.productionOrderNo,
+          productionOrderId: head.productionOrderNo || '',
           factoryId: head.factoryId,
           factoryName: head.sourceFactoryName,
           raisedByKind: 'FACTORY',
@@ -4624,7 +4631,6 @@ function buildPostFinishingSewingSelfReturnHandoutRecord(
     factoryRemark: `车缝自助回货：${record.recordNo}；生产确认单：${record.productionConfirmationNo}；提交设备：${record.deviceFactoryName} 公共 PDA。`,
     factoryProofFiles: [],
     status: 'PENDING_WRITEBACK',
-    remark: '来源：后道公共 PDA 现场登记',
   }
 }
 

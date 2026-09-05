@@ -260,7 +260,7 @@ interface CuttingSummaryPartResultLine {
 }
 
 interface CuttingSummaryRenderAggregates {
-  specialReturnByProductionId: Map<string, SpecialCraftReturnStatusSummary>
+  specialReturnByProductionId: Map<string, CuttingSpecialCraftReturnStatusSummary>
   sewingDispatchByProductionId: Map<string, SewingDispatchProgressSummary>
   cuttingProgressSnapshots: CuttingProgressSnapshot[]
   resultLineByProductionId: Map<string, CuttingSummaryResultLine>
@@ -438,7 +438,7 @@ function findSummaryMaterialIdentity(
   )
 }
 
-function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], key: keyof T): T[] {
+function mergeByKey<T extends object>(seed: T[], stored: T[], key: keyof T): T[] {
   const merged = new Map<string, T>()
   seed.forEach((item) => merged.set(String(item[key]), item))
   stored.forEach((item) => merged.set(String(item[key]), item))
@@ -1597,7 +1597,7 @@ function renderGroupedCheckItems(items: CuttingResultCheckItem[]): string {
 function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[], aggregates: CuttingSummaryRenderAggregates): string {
   const summaries = rows
     .map((row) => aggregates.specialReturnByProductionId.get(row.productionOrderId))
-    .filter((item): item is SpecialCraftReturnStatusSummary => Boolean(item && item.totalNeedSpecialCraftFeiTickets > 0))
+    .filter((item): item is CuttingSpecialCraftReturnStatusSummary => Boolean(item && item.totalNeedSpecialCraftFeiTickets > 0))
 
   if (summaries.length === 0) return ''
 

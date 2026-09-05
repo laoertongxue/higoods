@@ -94,12 +94,12 @@ export interface MarkerPlanAllocationLike {
 export interface MarkerPlanLike {
   cutOrderIds: string[]
   techPackSpuCode?: string
-  spuCode: string
+  spuCode?: string
   sizeDistribution: Array<{
     sizeLabel: string
     quantity: number
   }>
-  allocationLines: MarkerPlanAllocationLike[]
+  allocationLines?: MarkerPlanAllocationLike[]
 }
 
 export interface MarkerPlanExplosionInput {

@@ -2202,6 +2202,8 @@ function createRecord(): void {
     return
   }
   const project = getProjectById(resolvedProject.projectId) ?? findProjectByCode(resolvedProject.projectCode)
+  const platform = draft.platform
+  if (!platform) return
   const recordId = `SV-${todayCompact()}-${String(recordStore.size + 1).padStart(3, '0')}`
   const purposes = ['测款项目']
   const views = toNumber(draft.views, 0)
@@ -2215,8 +2217,8 @@ function createRecord(): void {
     title: draft.title.trim(),
     status: 'COMPLETED',
     purposes,
-    platformCode: draft.platform,
-    platformLabel: VIDEO_PLATFORM_META[draft.platform].label,
+    platformCode: platform,
+    platformLabel: VIDEO_PLATFORM_META[platform].label,
     account: draft.account.trim(),
     creator: draft.creator.trim(),
     publishedAt: draft.publishedAt.trim(),
@@ -2376,7 +2378,7 @@ export function handlePcsVideoTestingInput(target: Element): boolean {
     'create-gmv': 'gmv',
   }
   if (field in createInputFields && fieldNode instanceof HTMLInputElement) {
-    ;(state.createDraft as Record<string, string>)[createInputFields[field]] = fieldNode.value
+    state.createDraft = { ...state.createDraft, [createInputFields[field]]: fieldNode.value }
     return true
   }
   if (field === 'create-platform' && fieldNode instanceof HTMLSelectElement) {

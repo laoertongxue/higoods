@@ -292,7 +292,7 @@ function buildCycleStatus(cycleStatus: string): TransferCarrierStatus {
   return 'idle'
 }
 
-function mergeById<T extends Record<string, unknown>>(seedItems: T[], storedItems: T[], idKey: keyof T): T[] {
+function mergeById<T extends object>(seedItems: T[], storedItems: T[], idKey: keyof T): T[] {
   const merged = new Map<string, T>()
   seedItems.forEach((item) => merged.set(String(item[idKey]), item))
   storedItems.forEach((item) => merged.set(String(item[idKey]), item))

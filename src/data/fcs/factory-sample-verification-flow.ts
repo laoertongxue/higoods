@@ -11,6 +11,7 @@ import type {
   FactoryOnboardingApplication,
   FactoryOnboardingNode,
   FactoryOnboardingNodeLog,
+  FactoryOnboardingNodeStatus,
   FactoryOnboardingStatus,
 } from './factory-onboarding-domain.ts'
 import {
@@ -349,7 +350,7 @@ function updateSampleNodeLogsForPlatformReview(
     openingRemark: string
   },
 ): FactorySampleVerification['nodeLogs'] {
-  const closingStatus = params.toStatus === '样衣审核退回'
+  const closingStatus: FactoryOnboardingNodeStatus = params.toStatus === '样衣审核退回'
     ? '已退回'
     : params.toStatus === '样衣审核拒绝'
       ? '已终止'
@@ -358,7 +359,7 @@ function updateSampleNodeLogsForPlatformReview(
     if (log.nodeName !== '平台审核样衣' || log.leftAt) return log
     return {
       ...log,
-      nodeStatus: closingStatus as const,
+      nodeStatus: closingStatus,
       leftAt: params.operatedAt,
       operator: params.operator,
       remark: params.closingRemark,
@@ -396,7 +397,7 @@ function updateOnboardingNodeLogsForSampleReview(
     openingRemark: string
   },
 ): FactoryOnboardingNodeLog[] {
-  const closingStatus = params.toStatus === '样衣审核退回'
+  const closingStatus: FactoryOnboardingNodeStatus = params.toStatus === '样衣审核退回'
     ? '已退回'
     : params.toStatus === '样衣审核拒绝'
       ? '已终止'
@@ -405,7 +406,7 @@ function updateOnboardingNodeLogsForSampleReview(
     if (log.nodeName !== '样衣审核' || log.leftAt) return log
     return {
       ...log,
-      nodeStatus: closingStatus as const,
+      nodeStatus: closingStatus,
       leftAt: params.operatedAt,
       operator: params.operator,
       lastActionAt: params.operatedAt,

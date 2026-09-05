@@ -120,6 +120,9 @@ export interface MaterialPrepRow {
   styleName: string
   color: string
   materialSkuSummary: string
+  /** Optional legacy projection fields retained for read compatibility. */
+  materialLabel?: string
+  materialCategory?: string
   plannedShipDate: string
   urgencyKey: ProductionProgressUrgencyKey
   urgencyLabel: string
@@ -744,6 +747,7 @@ function createRow(
       styleCode: record.styleCode,
       spuCode: record.spuCode,
       materialSkuSummary: line.materialSku,
+      latestMarkerPlanId: batchSummary.activeMarkerPlanId || '',
       latestMarkerPlanNo: batchSummary.latestMarkerPlanNo || line.markerPlanNo || '',
     }),
     keywordIndex: buildKeywordIndex([
@@ -847,6 +851,14 @@ export function recalculateMaterialPrepRow(
     cuttingTaskNo: '',
     assignedFactoryName: '',
     cuttingStage: row.currentStageText,
+    demandCreatedAt: '',
+    productionOrderCreatedAt: '',
+    cuttingTaskAssignedAt: '',
+    cuttingTaskAcceptedAt: '',
+    markerPlanCreatedAt: '',
+    spreadingStartedAt: '',
+    completedAt: '',
+    spuImageUrl: '',
     riskFlags: [],
     lastPickupScanAt: row.latestClaimRecordAt,
     lastFieldUpdateAt: row.printedAt || row.latestClaimRecordAt,
