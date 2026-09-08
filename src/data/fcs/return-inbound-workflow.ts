@@ -22,6 +22,10 @@ import type {
 import { getPostProcessRouteByProductionOrderId } from './post-process-route.ts'
 import { resolveEffectiveGarmentIdentity, resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
 
+function isProcessorManagedReturn(processType: ReturnInboundBatch['processType']): boolean {
+  return processType === 'PRINT' || processType === 'DYE' || processType === 'DYE_PRINT'
+}
+
 interface CreateReturnInboundBatchRecordInput {
   batches: ReturnInboundBatch[]
   batchId: string
@@ -315,16 +319,12 @@ export function createQcFromReturnInboundBatch(input: CreateQcFromReturnInboundB
     disposition: result === 'FAIL' ? input.disposition : undefined,
     affectedQty: result === 'FAIL' ? input.affectedQty ?? input.batch.returnedQty : undefined,
     rootCauseType: input.rootCauseType ?? 'UNKNOWN',
-    responsiblePartyType: input.batch.sourceType === 'DYE_PRINT_ORDER' ? 'PROCESSOR' : 'FACTORY',
+    responsiblePartyType: isProcessorManagedReturn(input.batch.processType) ? 'PROCESSOR' : 'FACTORY',
     responsiblePartyId: input.batch.returnFactoryId,
     liabilityStatus: 'DRAFT',
     liabilityDecisionStage: finalDecisionRequired ? 'SEW_RETURN_INBOUND_FINAL' : 'GENERAL',
     liabilityDecisionRequired: finalDecisionRequired,
     sourceProcessType: input.batch.processType,
-    sourceOrderId:
-      (input.sourceBusinessType ?? input.batch.sourceType) === 'DYE_PRINT_ORDER'
-        ? (input.sourceBusinessId ?? input.batch.sourceId)
-        : undefined,
     sourceReturnId: input.batch.batchId,
     inspectionScene: resolveInspectionScene(input.batch),
     inspectionType: 'QC',
@@ -402,7 +402,8 @@ export function upsertDeductionBasisFromReturnInboundQc(
   const sourceBusinessId = input.qc.sourceBusinessId ?? input.batch.sourceId
   const taskId = input.taskId ?? input.qc.refTaskId ?? input.batch.sourceTaskId
   const factoryId = input.factoryId ?? input.batch.returnFactoryId ?? 'UNKNOWN'
-  const settlementPartyType = input.settlementPartyType ?? (sourceBusinessType === 'DYE_PRINT_ORDER' ? 'PROCESSOR' : 'FACTORY')
+  const settlementPartyType = input.settlementPartyType
+    ?? (isProcessorManagedReturn(input.batch.processType) ? 'PROCESSOR' : 'FACTORY')
   const settlementPartyId = input.settlementPartyId ?? input.batch.returnFactoryId
   const decisionStage: LiabilityDecisionStage = isSewReturnInboundQc(input.qc, [input.batch])
     ? 'SEW_RETURN_INBOUND_FINAL'
@@ -447,7 +448,7 @@ export function upsertDeductionBasisFromReturnInboundQc(
         taskHref: taskId ? `/fcs/pda/task-receive/${taskId}` : undefined,
       },
       sourceProcessType: input.batch.processType,
-      sourceOrderId: sourceBusinessType === 'DYE_PRINT_ORDER' ? sourceBusinessId : existing.sourceOrderId,
+      sourceOrderId: existing.sourceOrderId,
       sourceReturnId: input.batch.batchId,
       sourceBatchId: input.batch.batchId,
       sourceBusinessType,
@@ -509,7 +510,6 @@ export function upsertDeductionBasisFromReturnInboundQc(
       taskHref: taskId ? `/fcs/pda/task-receive/${taskId}` : undefined,
     },
     sourceProcessType: input.batch.processType,
-    sourceOrderId: sourceBusinessType === 'DYE_PRINT_ORDER' ? sourceBusinessId : undefined,
     sourceReturnId: input.batch.batchId,
     sourceBatchId: input.batch.batchId,
     sourceBusinessType,
@@ -595,14 +595,11 @@ export function applyReturnInboundPassWriteback(
   }
   input.allocationByTaskId[taskId] = nextSnapshot
 
-  const refType: AllocationEvent['refType'] =
-    input.batch.sourceType === 'DYE_PRINT_ORDER' ? 'DYE_PRINT_ORDER' : 'RETURN_BATCH'
-
   const event: AllocationEvent = {
     eventId: ensureUniqueId('ALLOC-RIB-PASS', () => false),
     taskId,
-    refType,
-    refId: refType === 'DYE_PRINT_ORDER' ? input.batch.sourceId ?? input.batch.batchId : input.batch.batchId,
+    refType: 'RETURN_BATCH',
+    refId: input.batch.batchId,
     deltaAvailableQty: input.batch.returnedQty,
     deltaAcceptedAsDefectQty: 0,
     deltaScrappedQty: 0,

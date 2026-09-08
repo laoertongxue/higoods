@@ -25,6 +25,7 @@ import {
 import { LACE_INPUT_MATERIAL_CATALOG } from '../../../../data/fcs/lace-factory-purchase-projection.ts'
 import { renderTabs } from '../../../../components/ui/tabs.ts'
 import { escapeHtml } from '../../../../utils.ts'
+import { renderProcessOrderTaskRelations } from '../../../process-order-task-relations.ts'
 import {
   formatJakartaTime,
   formatLaceQty,
@@ -263,7 +264,7 @@ function renderActiveTabContent(order: LaceProductionOrderView): string {
     return `<div class="space-y-4">${renderCompletionRecords(order)}${renderHandoverRecords(order)}</div>`
   }
   if (state.activeTab === 'logs') return renderLogs(order)
-  return `<div class="space-y-4">${renderInputSection(order)}${renderSourceSection(order)}${renderOutputSection(order)}</div>`
+  return `<div class="space-y-4">${renderInputSection(order)}${renderSourceSection(order)}${renderProcessOrderTaskRelations(order.workOrderId)}${renderOutputSection(order)}</div>`
 }
 
 function renderInner(): string {

@@ -85,7 +85,7 @@ import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cuttin
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
-import type { BindingProcessOrder, BindingStripWorkOrderDetail } from './special-processes-model.ts'
+import type { BindingProcessOrder, BindingStripWorkOrderDetail } from './binding-strip-order-types.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
@@ -522,6 +522,50 @@ function persistTicketRecords(records: FeiTicketLabelRecord[]): void {
 
 function persistPrintJobs(printJobs: FeiTicketPrintJob[]): void {
   localStorage.setItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, serializeFeiTicketPrintJobsStorage(printJobs))
+}
+
+// 统一预览的首打复用原打印命令；只记录本次选中的实际裁剪菲票。
+export function recordActualFeiTicketFirstPrintFromPreview(input: {
+  sourceIds: string[]
+  operator: string
+  templateName: string
+}): number {
+  const selectedIds = new Set(input.sourceIds)
+  const selectedTickets = listGeneratedFeiTickets().filter(ticket =>
+    ticket.sourceBasisType === FEI_TICKET_SOURCE_BASIS_TYPE
+    && (selectedIds.has(ticket.feiTicketId) || selectedIds.has(ticket.feiTicketNo)),
+  )
+  if (!selectedTickets.length) return 0
+  const projection = buildFeiTicketPrintProjection()
+  const pendingIds = new Set(selectedTickets.filter(ticket => !projection.ticketRecords.some(record =>
+    record.ticketRecordId === ticket.feiTicketId && record.status === 'PRINTED',
+  )).map(ticket => ticket.sourceOutputLineId))
+  if (!pendingIds.size) return 0
+  const selectedCutOrders = new Set(selectedTickets.map(ticket => ticket.cutOrderId))
+  let ticketRecords = projection.ticketRecords
+  let printJobs = projection.printJobs
+  let printedCount = 0
+  for (const unit of projection.printableViewModel.units) {
+    if (!unit.sourceCutOrderIds.some(id => selectedCutOrders.has(id))) continue
+    const detail = buildPrintableUnitDetailViewModel({ ...projection, unit, ticketRecords, printJobs })
+    const splitDetails = detail.missingSplitDetails.filter(item => pendingIds.has(item.sourceOutputLineId))
+    if (!splitDetails.length) continue
+    const result = executePrintableUnitPrint({
+      ...projection, unit, splitDetails, ticketRecords, printJobs,
+      operationType: 'FIRST_PRINT', operator: input.operator, operatedAt: nowText(),
+      printerName: '浏览器打印', templateName: input.templateName, reason: '', remark: '统一预览首打',
+    })
+    ticketRecords = result.nextRecords
+    printJobs = result.nextJobs
+    const printedIds = new Set(result.printJob.ticketRecordIds ?? [])
+    for (const record of result.nextRecords) {
+      if (printedIds.has(record.ticketRecordId) && record.sourceOutputLineId && pendingIds.delete(record.sourceOutputLineId)) printedCount += 1
+    }
+  }
+  if (pendingIds.size) throw new Error('部分菲票的原打印对象不存在或状态不一致，请返回业务单据核对后重试。')
+  persistTicketRecords(ticketRecords)
+  persistPrintJobs(printJobs)
+  return printedCount
 }
 
 function mapPrintableStatusFromQuery(value: string | null): 'ALL' | PrintableUnitStatus {

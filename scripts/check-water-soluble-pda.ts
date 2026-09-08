@@ -54,9 +54,11 @@ import {
   listProcessWorkOrders,
 } from '../src/data/fcs/process-work-order-domain.ts'
 import {
+  clearPdaSession,
   createFactoryPdaUser,
   createPdaSessionFromUser,
   listFactoryPdaUsers,
+  setPdaSession,
   updateFactoryPdaUser,
 } from '../src/data/fcs/store-domain-pda.ts'
 import {
@@ -86,6 +88,10 @@ Object.defineProperty(globalThis, 'localStorage', {
     setItem: (key: string, value: string) => memoryStorage.set(key, value),
     removeItem: (key: string) => memoryStorage.delete(key),
   },
+})
+Object.defineProperty(globalThis, 'document', {
+  configurable: true,
+  value: { querySelector: () => null },
 })
 
 class FakeInputElement {
@@ -320,7 +326,7 @@ async function main(): Promise<void> {
 
     const user = listFactoryPdaUsers('F090').find((item) => item.status === 'ACTIVE')
     assert(user, 'F090 必须有可建立可信 PDA session 的启用用户')
-    memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(user)))
+    setPdaSession(createPdaSessionFromUser(user))
     appStore.navigate('/fcs/pda/exec?tab=IN_PROGRESS')
     const { handlePdaExecEvent, renderPdaExecPage, renderWaterSolubleCard } = await import('../src/pages/pda-exec.ts')
     const { handlePdaExecDetailEvent, renderPdaExecDetailPage } = await import('../src/pages/pda-exec-detail.ts')
@@ -379,7 +385,7 @@ async function main(): Promise<void> {
       },
     })
     const input = new FakeInputElement(pausedOrder.materialCode)
-    assert.equal(handlePdaExecEvent(input as unknown as HTMLElement), false, '搜索输入必须由 PDA 页面局部处理')
+    assert.equal(handlePdaExecEvent(input as unknown as HTMLElement), true, '搜索输入必须由 PDA 页面局部处理')
     assert.notEqual(listNode.innerHTML, '旧列表', '搜索输入必须局部刷新卡片列表')
     assert(listNode.innerHTML.includes(pausedOrder.materialCode), '局部搜索结果必须保留目标水溶任务')
     assert.equal(input.value, pausedOrder.materialCode, '局部搜索不得丢失输入值')
@@ -418,7 +424,7 @@ async function main(): Promise<void> {
     assert(executableOrder, '必须存在可准备为待水溶的独立水溶加工单')
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
     assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
-    assert.equal(getWaterSolubleCurrentAction(executableOrder)?.actionCode, 'START')
+    assert.equal(getWaterSolubleCurrentAction(executableOrder)?.actionCode, 'COMPLETE', '确认原料到位必须同次自动开工，下一步直接完成水溶')
     assert.throws(
       () => ensureHandoverOrderForStartedTask(executableOrder.taskId),
       /待交出|不能创建交出单/,
@@ -426,135 +432,95 @@ async function main(): Promise<void> {
     )
     assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, 0)
 
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
     appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(executableOrder.taskId)}`)
-    const offlineStartHtml = renderPdaExecDetailPage(executableOrder.taskId)
-    const offlineStartToken = offlineStartHtml.match(/data-pda-execd-action="water-start"[\s\S]{0,700}?data-action-token="([^"]+)"/)
-    assert(offlineStartToken, '待水溶详情必须生成可校验的开始水溶动作令牌')
-    const offlineStartNode = {
-      dataset: {
-        pdaExecdAction: 'water-start',
-        orderId: executableOrder.waterOrderId,
-        taskId: executableOrder.taskId,
-        expectedStatus: 'WAIT_WATER_SOLUBLE',
-        actionToken: offlineStartToken[1],
-      },
-      disabled: false,
-      isConnected: true,
-      textContent: '开始水溶',
-    }
-    const offlineStartTarget = {
-      closest: (selector: string) => selector === '[data-pda-execd-action]' ? offlineStartNode : null,
-    } as unknown as HTMLElement
-    const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
-    const beforeOfflineHandler = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
-    const offlineHeadCount = listHandoverOrdersByTaskId(executableOrder.taskId).length
-    try {
-      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } })
-      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, 'PDA 详情 handler 必须消费离线开始动作')
-      assert.deepEqual(
-        getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
-        beforeOfflineHandler,
-        '真实 handler 离线失败不得修改状态、数量、原因、时间或日志',
-      )
-      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount, '真实 handler 离线失败不得生成交接单头或记录')
+    const runningActionHtml = renderPdaExecDetailPage(executableOrder.taskId)
+    assert(runningActionHtml.includes('data-pda-execd-action="water-complete"'), '原料到位自动开工后，PDA 详情必须直接显示完成水溶')
+    assert(!runningActionHtml.includes('data-pda-execd-action="water-start"'), '原料到位自动开工后不得再显示重复开工动作')
 
-      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } })
-      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, '恢复在线后必须可用同一动作和令牌直接重试')
-      const afterOnlineHandlerRetry = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
-      assert.equal(afterOnlineHandlerRetry.status, 'WATER_SOLUBLE_IN_PROGRESS')
-      assert.equal(afterOnlineHandlerRetry.completedQty, beforeOfflineHandler.completedQty)
-      assert.equal(afterOnlineHandlerRetry.actionLogs.length, beforeOfflineHandler.actionLogs.length + 1, '在线重试只能新增一条开始水溶日志')
-      assert.equal(afterOnlineHandlerRetry.actionLogs.at(-1)?.action, '开始水溶')
-      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount)
-
-      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, '旧令牌重复请求必须由 handler 消费并拒绝')
-      assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), afterOnlineHandlerRetry, '旧令牌重复请求不得二次写日志或加工单记录')
-      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount, '旧令牌重复请求不得生成交接记录')
-    } finally {
-      if (navigatorDescriptor) Object.defineProperty(globalThis, 'navigator', navigatorDescriptor)
-      else Reflect.deleteProperty(globalThis, 'navigator')
-    }
-
-    resetWaterSolubleDomainForChecks({ seedDemo: false })
-    assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
-
-    memoryStorage.delete('fcs_pda_session')
+    clearPdaSession()
     const beforeNoSession = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
-    const noSessionStart = executeWaterSolublePdaAction({
-      action: 'START',
+    const noSessionComplete = executeWaterSolublePdaAction({
+      action: 'COMPLETE',
       orderId: executableOrder.waterOrderId,
       taskId: executableOrder.taskId,
-      expectedStatus: 'WAIT_WATER_SOLUBLE',
-      expectedNode: 'START',
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'COMPLETE',
+      completedQty: executableOrder.plannedQty,
+      reason: '',
       actor: operator,
     })
-    assert.equal(noSessionStart.ok, false, '没有当前真实 session 时启用用户对象也不能替代登录身份')
+    assert.equal(noSessionComplete.ok, false, '没有当前真实 session 时启用用户对象也不能替代登录身份')
     assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeNoSession, '无 session 拒绝不得修改领域')
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
 
     const foreignActor = { ...operator, factoryId: 'FOREIGN-FACTORY', factoryName: '其他工厂' }
-    const foreignStart = executeWaterSolublePdaAction({
-      action: 'START',
+    const foreignComplete = executeWaterSolublePdaAction({
+      action: 'COMPLETE',
       orderId: executableOrder.waterOrderId,
       taskId: executableOrder.taskId,
-      expectedStatus: 'WAIT_WATER_SOLUBLE',
-      expectedNode: 'START',
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'COMPLETE',
+      completedQty: executableOrder.plannedQty,
+      reason: '',
       actor: foreignActor,
     })
-    assert.equal(foreignStart.ok, false)
-    assert.match(foreignStart.message, /登录信息已变化|不属于当前工厂/)
+    assert.equal(foreignComplete.ok, false)
+    assert.match(foreignComplete.message, /登录信息已变化|不属于当前工厂/)
 
-    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    setPdaSession(supervisor)
     const beforeStaleActor = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
-    assert.equal(executeWaterSolublePdaAction({ action: 'START', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: operator }).ok, false, '切换 session 后旧 actor 必须失效')
-    assert.equal(executeWaterSolublePdaAction({ action: 'START', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: supervisor }).ok, false, '生产主管或管理员不得执行普通水溶动作')
+    assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: executableOrder.plannedQty, reason: '', actor: operator }).ok, false, '切换 session 后旧 actor 必须失效')
+    assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: executableOrder.plannedQty, reason: '', actor: supervisor }).ok, false, '生产主管或管理员不得执行普通水溶动作')
     assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeStaleActor, '旧 actor 拒绝不得修改领域')
 
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
     lockedUserId = operatorUser.userId
     updateFactoryPdaUser(lockedUserId, { status: 'LOCKED', updatedBy: '水溶专项检查' })
     const beforeLockedActor = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
-    assert.equal(executeWaterSolublePdaAction({ action: 'START', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: operator }).ok, false, '锁定用户必须拒绝')
+    assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: executableOrder.plannedQty, reason: '', actor: operator }).ok, false, '锁定用户必须拒绝')
     assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeLockedActor, '锁定用户拒绝不得修改领域')
     updateFactoryPdaUser(lockedUserId, { status: 'ACTIVE', updatedBy: '水溶专项检查恢复' })
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
 
-    const wrongTaskStart = executeWaterSolublePdaAction({
-      action: 'START',
+    const wrongTaskComplete = executeWaterSolublePdaAction({
+      action: 'COMPLETE',
       orderId: executableOrder.waterOrderId,
       taskId: 'TASK-WATER-WRONG',
-      expectedStatus: 'WAIT_WATER_SOLUBLE',
-      expectedNode: 'START',
-      actor: operator,
-    })
-    assert.equal(wrongTaskStart.ok, false)
-    assert.match(wrongTaskStart.message, /任务.*不一致/)
-    const wrongNodeStart = executeWaterSolublePdaAction({
-      action: 'START',
-      orderId: executableOrder.waterOrderId,
-      taskId: executableOrder.taskId,
-      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
       expectedNode: 'COMPLETE',
+      completedQty: executableOrder.plannedQty,
+      reason: '',
       actor: operator,
     })
-    assert.equal(wrongNodeStart.ok, false)
-    assert.match(wrongNodeStart.message, /当前动作.*不一致/)
-
-    const retryStartInput = {
+    assert.equal(wrongTaskComplete.ok, false)
+    assert.match(wrongTaskComplete.message, /任务.*不一致/)
+    const staleStart = executeWaterSolublePdaAction({
       action: 'START',
       orderId: executableOrder.waterOrderId,
       taskId: executableOrder.taskId,
       expectedStatus: 'WAIT_WATER_SOLUBLE',
       expectedNode: 'START',
+      actor: operator,
+    })
+    assert.equal(staleStart.ok, false, '原料到位自动开工后，旧的手动开工请求必须失效')
+    assert.match(staleStart.message, /已经处理|已失效|当前状态/)
+
+    const retryCompleteInput = {
+      action: 'COMPLETE',
+      orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'COMPLETE',
+      completedQty: executableOrder.plannedQty,
+      reason: '',
       actor: operator,
     } as const
     const beforeSessionLoss = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
     const handoverHeadCountBeforeRetry = listHandoverOrdersByTaskId(executableOrder.taskId).length
-    memoryStorage.delete('fcs_pda_session')
-    const sessionLossFailure = executeWaterSolublePdaAction(retryStartInput)
-    assert.equal(sessionLossFailure.ok, false, '会话暂失时，本次开始水溶必须可安全失败')
+    clearPdaSession()
+    const sessionLossFailure = executeWaterSolublePdaAction(retryCompleteInput)
+    assert.equal(sessionLossFailure.ok, false, '会话暂失时，本次完成水溶必须可安全失败')
     assert.match(sessionLossFailure.message, /登录|身份/, '会话暂失失败必须给出中文身份修复提示')
     assert.deepEqual(
       getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
@@ -567,28 +533,28 @@ async function main(): Promise<void> {
       '会话暂失失败不得生成交接单头或记录',
     )
 
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
-    const retriedStart = executeWaterSolublePdaAction(retryStartInput)
-    assert.equal(retriedStart.ok, true, '恢复同一 session 后，同 order/action/输入重试必须成功')
+    setPdaSession(operator)
+    const retriedComplete = executeWaterSolublePdaAction(retryCompleteInput)
+    assert.equal(retriedComplete.ok, true, '恢复同一 session 后，同 order/action/输入重试必须成功')
     const afterRetrySuccess = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
-    assert.equal(afterRetrySuccess.status, 'WATER_SOLUBLE_IN_PROGRESS')
-    assert.equal(afterRetrySuccess.completedQty, beforeSessionLoss.completedQty, '开始水溶不得改写完成数量')
-    assert.equal(afterRetrySuccess.exceptionReason, beforeSessionLoss.exceptionReason, '开始水溶不得改写异常原因')
+    assert.equal(afterRetrySuccess.status, 'WAIT_HANDOVER')
+    assert.equal(afterRetrySuccess.completedQty, executableOrder.plannedQty, '完成水溶必须记录实际完成数量')
+    assert.equal(afterRetrySuccess.exceptionReason, '', '无异常的完成水溶必须留存为空原因')
     assert.equal(
       afterRetrySuccess.actionLogs.length,
       beforeSessionLoss.actionLogs.length + 1,
-      '会话恢复后重试成功必须只新增一条开始水溶日志',
+      '会话恢复后重试成功必须只新增一条完成水溶日志',
     )
-    assert.equal(afterRetrySuccess.actionLogs.at(-1)?.action, '开始水溶')
+    assert.equal(afterRetrySuccess.actionLogs.at(-1)?.action, '完成水溶')
     assert.equal(
       listHandoverOrdersByTaskId(executableOrder.taskId).length,
       handoverHeadCountBeforeRetry,
-      '开始水溶成功仍不得提前生成交接单头或记录',
+      '完成水溶只进入待交出，不得提前生成交接单头或记录',
     )
 
-    const duplicateStart = executeWaterSolublePdaAction(retryStartInput)
-    assert.equal(duplicateStart.ok, false, '同一请求再次到达必须由幂等状态门槛拒绝')
-    assert.match(duplicateStart.message, /已经处理|已失效|当前状态/, '重复请求必须返回中文状态门槛提示')
+    const duplicateComplete = executeWaterSolublePdaAction(retryCompleteInput)
+    assert.equal(duplicateComplete.ok, false, '同一请求再次到达必须由幂等状态门槛拒绝')
+    assert.match(duplicateComplete.message, /已经处理|已失效|当前状态/, '重复请求必须返回中文状态门槛提示')
     assert.deepEqual(
       getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
       afterRetrySuccess,
@@ -600,6 +566,10 @@ async function main(): Promise<void> {
       '重复请求不得生成交接单头或记录',
     )
 
+    resetWaterSolubleDomainForChecks({ seedDemo: false })
+    assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
+    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    setPdaSession(operator)
     const runningWaterHtml = renderPdaExecDetailPage(executableOrder.taskId)
     const waterCompleteToken = runningWaterHtml.match(/data-pda-execd-action="water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
     assert(waterCompleteToken, '水溶中详情必须提供真实完成动作令牌')
@@ -648,7 +618,7 @@ async function main(): Promise<void> {
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
     assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
-    assert.equal(executeWaterSolublePdaAction(retryStartInput).ok, true)
+    assert.equal(getWaterSolubleCurrentAction(executableOrder.waterOrderId)?.actionCode, 'COMPLETE')
 
     const missingReason = executeWaterSolublePdaAction({
       action: 'COMPLETE',
@@ -656,7 +626,7 @@ async function main(): Promise<void> {
       taskId: executableOrder.taskId,
       expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
       expectedNode: 'COMPLETE',
-      completedQty: executableOrder.plannedQty - 1,
+      completedQty: 0,
       reason: '',
       actor: operator,
     })
@@ -685,7 +655,7 @@ async function main(): Promise<void> {
     })
     assert.equal(operatorResolve.ok, false)
     assert.match(operatorResolve.message, /主管/)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    setPdaSession(supervisor)
     assert.equal(executeWaterSolublePdaAction({
       action: 'RESOLVE_PAUSE',
       orderId: executableOrder.waterOrderId,
@@ -696,8 +666,8 @@ async function main(): Promise<void> {
       actor: supervisor,
     }).ok, true)
     const approvedOrder = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
-    memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
-    const wrapperBypass = executeWaterSolublePdaAction({ action: 'HANDOVER', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WAIT_HANDOVER', expectedNode: 'HANDOVER', handoverQty: approvedOrder.handoverQty!, actor: handoverActor })
+    setPdaSession(handoverActor)
+    const wrapperBypass = executeWaterSolublePdaAction({ action: 'HANDOVER', orderId: executableOrder.waterOrderId, taskId: executableOrder.taskId, expectedStatus: 'WAIT_HANDOVER', expectedNode: 'HANDOVER', handoverQty: approvedOrder.completedQty, actor: handoverActor })
     assert.equal(wrapperBypass.ok, false, 'actor wrapper 也不得绕过通用交接事件直接交出')
     assert.match(wrapperBypass.message, /通用交接单/)
     appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(executableOrder.taskId)}`)
@@ -715,6 +685,11 @@ async function main(): Promise<void> {
     }
     const goHandoverTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? goHandoverNode : null } as unknown as HTMLElement
     assert.equal(handlePdaExecDetailEvent(goHandoverTarget), true)
+    assert.equal(
+      listHandoverOrdersByTaskId(executableOrder.taskId).length,
+      1,
+      `去交出动作必须先创建唯一通用交出单；当前状态 ${getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status}`,
+    )
     const ensuredWaterHandover = ensureHandoverOrderForStartedTask(executableOrder.taskId)
     assert.match(appStore.getState().pathname, new RegExp(`/fcs/pda/handover/${ensuredWaterHandover.handoverOrderId}\\?action=new-record$`), '去交出必须精确打开唯一通用交出单')
     const repeatedWaterHandover = ensureHandoverOrderForStartedTask(executableOrder.taskId)
@@ -728,7 +703,7 @@ async function main(): Promise<void> {
     assert.equal(waterHandoverHead.productionOrderNo, executableOrder.productionOrderNo)
     assert.equal(waterHandoverHead.materialCode, executableOrder.materialCode)
     assert.equal(waterHandoverHead.materialName, executableOrder.materialName)
-    assert.equal(waterHandoverHead.qtyExpectedTotal, approvedOrder.handoverQty)
+    assert.equal(waterHandoverHead.qtyExpectedTotal, approvedOrder.completedQty, '首次生成交出单时应交数量取已完成可交出量，而不是尚未发生的累计交出量')
     assert.equal(waterHandoverHead.qtyUnit, executableOrder.qtyUnit, '通用交接必须保留原 BOM 单位')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.handoverOrderId, ensuredWaterHandover.handoverOrderId, 'ensure 必须由领域层回写唯一交出单 ID')
     assert(['AUTO_CREATED', 'OPEN'].includes(waterHandoverHead.handoverOrderStatus ?? ''), 'ensure 后交出单头必须处于合法待交出初态')
@@ -741,22 +716,25 @@ async function main(): Promise<void> {
     assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, 1, '关联失败不得新增交出单头')
     appStore.navigate('/fcs/pda/handover?tab=handout')
     const handoverListHtml = renderPdaHandoverPage()
-    assert(handoverListHtml.includes('水溶加工单'))
+    assert(
+      handoverListHtml.includes('水溶加工单'),
+      `交接员待交出列表必须显示水溶加工单；route=${appStore.getState().pathname} factory=${handoverActor.factoryId} loginRedirect=${handoverListHtml.includes('/fcs/pda/auth/login')} empty=${handoverListHtml.includes('暂无待处理交出单')}`,
+    )
     assert(handoverListHtml.includes(executableOrder.materialName) && handoverListHtml.includes(executableOrder.materialCode))
-    assert(handoverListHtml.includes(`${approvedOrder.handoverQty}`) && handoverListHtml.includes(executableOrder.qtyUnit))
+    assert(handoverListHtml.includes(`${approvedOrder.completedQty}`) && handoverListHtml.includes(executableOrder.qtyUnit))
     appStore.navigate(`/fcs/pda/handover/${ensuredWaterHandover.handoverOrderId}`)
     const handoverDetailHtml = renderPdaHandoverDetailPage(ensuredWaterHandover.handoverOrderId)
     assert(handoverDetailHtml.includes('水溶加工单'))
     assert(handoverDetailHtml.includes(executableOrder.materialName) && handoverDetailHtml.includes(executableOrder.materialCode))
     assert(handoverDetailHtml.includes('计划交出') && handoverDetailHtml.includes(executableOrder.qtyUnit))
     assert(handoverDetailHtml.includes(`计划交出物料数量（${executableOrder.qtyUnit}）`), '物料数量标签必须保留原 BOM 中文单位，不得改写为通用 m / 打 / 件')
-    assert(handoverDetailHtml.includes(`${approvedOrder.handoverQty} ${executableOrder.qtyUnit}`), '计划交出数量必须使用原 BOM 单位')
+    assert(handoverDetailHtml.includes(`${approvedOrder.completedQty} ${executableOrder.qtyUnit}`), '计划交出数量必须使用原 BOM 单位')
     assert(handoverDetailHtml.includes('交出物类型：物料'), '独立水溶交出对象必须是物料，不能伪装为面料或成衣')
     assert(!handoverDetailHtml.includes('data-pda-handoverd-field="newRecordUnit"'), '水溶交出单位必须只读，不得渲染可编辑单位输入框')
     const beforeForgedUnit = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
     assert.throws(() => createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
-      submittedQty: approvedOrder.handoverQty!,
+      submittedQty: approvedOrder.completedQty,
       qtyUnit: '打',
       factorySubmittedAt: '2026-07-11 11:59:00',
       factorySubmittedBy: handoverActor.userName,
@@ -765,17 +743,9 @@ async function main(): Promise<void> {
     }), /原 BOM 单位|单位/)
     assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeForgedUnit, '伪造单位失败不得修改水溶领域')
     assert.equal(getPdaHandoverRecordsByHead(waterHandoverHead.handoverId).length, 0, '伪造单位失败不得生成通用交出记录')
-    assert.throws(() => createFactoryHandoverRecord({
-      handoverOrderId: ensuredWaterHandover.handoverOrderId,
-      submittedQty: (approvedOrder.handoverQty ?? 0) - 1,
-      factorySubmittedAt: '2026-07-11 12:00:00',
-      factorySubmittedBy: handoverActor.userName,
-      actor: handoverActor,
-      scanCode: executableOrder.materialCode,
-    }), /批准数量|部分交出/)
     const waterRecord = createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
-      submittedQty: approvedOrder.handoverQty!,
+      submittedQty: approvedOrder.completedQty,
       factorySubmittedAt: '2026-07-11 12:01:00',
       factorySubmittedBy: handoverActor.userName,
       actor: handoverActor,
@@ -787,11 +757,11 @@ async function main(): Promise<void> {
     assert.equal(submittedWaterHead.completionStatus, 'COMPLETED', '独立水溶单生成唯一交出记录后，交出方必须自动完成单头')
     assert.equal(submittedWaterHead.factoryMarkedComplete, true)
     assert.equal(submittedWaterHead.handoverOrderStatus, 'WAIT_RECEIVER_WRITEBACK')
-    assert.equal(submittedWaterHead.submittedQtyTotal, approvedOrder.handoverQty)
+    assert.equal(submittedWaterHead.submittedQtyTotal, approvedOrder.completedQty)
     assert(!renderPdaHandoverDetailPage(ensuredWaterHandover.handoverOrderId).includes('data-pda-handoverd-action="complete-handout-head"'), '独立水溶单不得再出现隐藏的“完成交出单”动作')
     assert.throws(() => createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
-      submittedQty: approvedOrder.handoverQty!,
+      submittedQty: approvedOrder.completedQty,
       factorySubmittedAt: '2026-07-11 12:02:00',
       factorySubmittedBy: handoverActor.userName,
       actor: handoverActor,
@@ -844,6 +814,16 @@ async function main(): Promise<void> {
       records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
     }, beforeRepeatedWriteback, '重复回写不得产生任何副作用')
     assert(acceptHandoverRecordDiff(waterWriteback.recordId), '主管必须可通过通用差异确认完成水溶单')
+    assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'WAIT_MANUAL_COMPLETION', '交接差异闭环后不得由系统自动完成加工单')
+    setPdaSession(operator)
+    assert.equal(executeWaterSolublePdaAction({
+      action: 'FINISH_DOCUMENT',
+      orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
+      expectedStatus: 'WAIT_MANUAL_COMPLETION',
+      expectedNode: 'FINISH_DOCUMENT',
+      actor: operator,
+    }).ok, true, '必须由现场人员人工确认完成水溶加工单')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'DONE')
     const acceptedWaterHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)!
     assert.equal(acceptedWaterHead.completionStatus, 'COMPLETED')
@@ -860,7 +840,7 @@ async function main(): Promise<void> {
       head: getHandoverOrderById(ensuredWaterHandover.handoverOrderId),
       records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
     }, beforeRepeatedAccept, '重复接受差异不得产生任何副作用')
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
     assert.equal(executeWaterSolublePdaAction({
       action: 'HANDOVER',
       orderId: executableOrder.waterOrderId,
@@ -870,7 +850,7 @@ async function main(): Promise<void> {
       handoverQty: executableOrder.plannedQty - 1,
       actor: operator,
     }).ok, false)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    setPdaSession(supervisor)
     const handoverResult = executeWaterSolublePdaAction({
       action: 'HANDOVER',
       orderId: executableOrder.waterOrderId,
@@ -886,23 +866,24 @@ async function main(): Promise<void> {
     assert(handoverRoleOrder, '必须存在第二张独立水溶单验证交接角色')
     assert.equal(assignWaterSolubleFactory(handoverRoleOrder.waterOrderId, operator.factoryId).ok, true)
     assert.equal(markWaterSolubleMaterialReady(handoverRoleOrder.waterOrderId).ok, true)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
-    assert.equal(executeWaterSolublePdaAction({ action: 'START', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: operator }).ok, true)
+    setPdaSession(operator)
     assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
+    setPdaSession(handoverActor)
     const handoverRoleHead = ensureHandoverOrderForStartedTask(handoverRoleOrder.taskId)
     const handoverRoleRecord = createFactoryHandoverRecord({ handoverOrderId: handoverRoleHead.handoverOrderId, submittedQty: handoverRoleOrder.plannedQty, factorySubmittedAt: '2026-07-11 13:00:00', factorySubmittedBy: handoverActor.userName, actor: handoverActor, scanCode: handoverRoleOrder.materialCode })
     assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
     writeBackHandoverRecord({ handoverRecordId: handoverRoleRecord.recordId, receiverWrittenQty: handoverRoleOrder.plannedQty, receiverWrittenAt: '2026-07-11 13:10:00', receiverWrittenBy: '接收方扫码员' })
-    assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'DONE')
+    assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'WAIT_MANUAL_COMPLETION', '实收一致只能闭环交接，不能自动完成加工单')
     const matchedWaterHead = getHandoverOrderById(handoverRoleHead.handoverOrderId)!
     assert.equal(matchedWaterHead.completionStatus, 'COMPLETED')
-    assert.equal(matchedWaterHead.handoverOrderStatus, 'CLOSED', '实收一致后水溶单与交出单头必须同时闭环')
+    assert.equal(matchedWaterHead.handoverOrderStatus, 'CLOSED', '实收一致后交出单头必须闭环')
     assert.equal(matchedWaterHead.submittedQtyTotal, handoverRoleOrder.plannedQty)
     assert.equal(matchedWaterHead.writtenBackQtyTotal, handoverRoleOrder.plannedQty)
     assert.equal(matchedWaterHead.diffQtyTotal, 0)
 
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
+    assert.equal(executeWaterSolublePdaAction({ action: 'FINISH_DOCUMENT', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: operator }).ok, true)
+    assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'DONE')
     const waitMaterialOrder = listDyeWorkOrders().find((order) => order.status === 'WAIT_MATERIAL')
     assert(waitMaterialOrder, '必须存在待原料染色单验证后处理越序阻断')
     const beforeIllegalPackOrder = getDyeWorkOrderById(waitMaterialOrder.dyeOrderId)
@@ -1026,7 +1007,7 @@ async function main(): Promise<void> {
     setExecDetailDraftField('dyeWaterReason', '本批物料全部不可用', true)
     assert.equal(handlePdaExecDetailEvent(confirmCombinedWaterTarget), true)
     assert.equal(getDyeWorkOrderById(combined.dyeOrderId)?.status, 'PRODUCTION_PAUSED', '联合水溶 0 有原因必须经真实 handler 进入生产暂停')
-    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    setPdaSession(supervisor)
     assert.equal(executeDyeWaterSolublePdaAction({
       action: 'RESOLVE_PAUSE',
       dyeOrderId: combined.dyeOrderId,
@@ -1036,7 +1017,7 @@ async function main(): Promise<void> {
       decision: 'CONTINUE_PROCESSING',
       actor: supervisor,
     }).ok, true)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
     assert.equal(executeDyeWaterSolublePdaAction({
       action: 'START',
       dyeOrderId: combined.dyeOrderId,
@@ -1055,7 +1036,7 @@ async function main(): Promise<void> {
       reason: '物料实际可水溶数量不足',
       actor: operator,
     }).ok, true)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    setPdaSession(supervisor)
     assert.equal(executeDyeWaterSolublePdaAction({
       action: 'RESOLVE_PAUSE',
       dyeOrderId: combined.dyeOrderId,
@@ -1065,12 +1046,12 @@ async function main(): Promise<void> {
       decision: 'CONTINUE_WITH_ACTUAL_QTY',
       actor: supervisor,
     }).ok, true)
-    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    setPdaSession(operator)
     const combinedWaitDyeHtml = renderPdaExecDetailPage(combined.taskId)
     assert(combinedWaitDyeHtml.includes('data-pda-execd-action="dye-water-start-dye"'), '主管按实际继续后必须显示开始染色')
     assert(!combinedWaitDyeHtml.includes('水溶后交接'), '水溶完成后不得出现中间交接入口')
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 100).ok, false)
-    assert.match(validateDyeStartPrerequisite(combined.dyeOrderId, 100).message, /不能超过水溶完成数量/)
+    assert.match(validateDyeStartPrerequisite(combined.dyeOrderId, 100).message, /不能超过(?:剩余)?水溶完成数量/)
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, true)
     startDyeing(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, inputQty: 80, operatorName: operator.userName })
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 0, '含水溶染色开始染色后仍不得生成中间交出')
@@ -1152,32 +1133,32 @@ async function main(): Promise<void> {
     })
     try {
       appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(combined.taskId)}`)
-      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      setPdaSession(operator)
       const initialToken = getCompletionToken()
 
-      memoryStorage.delete('fcs_pda_session')
+      clearPdaSession()
       const beforeNoSessionCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '无 session 的组合染色完成请求必须被 handler 消费')
       assert.deepEqual(completionSnapshot(), beforeNoSessionCompletion, '无 session 拒绝不得修改状态、节点或日志')
 
-      memoryStorage.set('fcs_pda_session', JSON.stringify(admin))
+      setPdaSession(admin)
       const beforeAdminCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '管理员组合染色完成请求必须被 handler 消费')
       assert.deepEqual(completionSnapshot(), beforeAdminCompletion, '管理员不得代替普通操作员完成组合染色')
 
-      memoryStorage.set('fcs_pda_session', JSON.stringify(production))
+      setPdaSession(production)
       const beforeProductionCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '生产主管组合染色完成请求必须被 handler 消费')
       assert.deepEqual(completionSnapshot(), beforeProductionCompletion, '生产主管不得代替普通操作员完成组合染色')
 
-      memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
+      setPdaSession(handoverActor)
       const beforeHandoverCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '交接员组合染色完成请求必须被 handler 消费')
       assert.deepEqual(completionSnapshot(), beforeHandoverCompletion, '交接员不得完成组合染色')
 
       const otherTask = listDyeWorkOrders().find((item) => item.taskId !== combined.taskId && item.dyeFactoryId === combined.dyeFactoryId)
       assert(otherTask, '必须存在同厂任务 A 验证注入组合染色任务 B')
-      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      setPdaSession(operator)
       appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(otherTask.taskId)}`)
       const beforeWrongPageCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '任务 A 页面注入任务 B 完成请求必须被 handler 消费')
@@ -1276,7 +1257,7 @@ async function main(): Promise<void> {
       const vat = listDyeVatOptions(order.dyeFactoryId)[0]
       assert(vat, `${suffix} 探针必须有可用染缸`)
       planDyeVat(order.dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: operator.userName })
-      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      setPdaSession(operator)
       assert.equal(executeDyeWaterSolublePdaAction({
         action: 'START', dyeOrderId: order.dyeOrderId, taskId: order.taskId,
         expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'WATER_SOLUBLE', actor: operator,
@@ -1286,12 +1267,12 @@ async function main(): Promise<void> {
         expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty: 80,
         reason: `${suffix} 专项检查的水溶短量`, actor: operator,
       }).ok, true)
-      memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+      setPdaSession(supervisor)
       assert.equal(executeDyeWaterSolublePdaAction({
         action: 'RESOLVE_PAUSE', dyeOrderId: order.dyeOrderId, taskId: order.taskId,
         expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision: 'CONTINUE_WITH_ACTUAL_QTY', actor: supervisor,
       }).ok, true)
-      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      setPdaSession(operator)
       startDyeing(order.dyeOrderId, { dyeVatNo: vat.dyeVatNo, inputQty: 80, operatorName: operator.userName })
       return order
     }
@@ -1390,6 +1371,7 @@ async function main(): Promise<void> {
     }
   } finally {
     if (lockedUserId) updateFactoryPdaUser(lockedUserId, { status: 'ACTIVE', updatedBy: '水溶专项检查 finally 恢复' })
+    clearPdaSession()
     memoryStorage.clear()
     resetWaterSolubleDomainForChecks()
   }

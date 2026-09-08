@@ -1,5 +1,4 @@
 import { cuttingMaterialPrepGroups, type CuttingMaterialPrepGroup, type CuttingMaterialPrepLine, type CuttingMaterialReceiveRecord } from '../../../data/fcs/cutting/material-prep.ts'
-import type { CutPieceOrderRecord } from '../../../data/fcs/cutting/cut-piece-orders.ts'
 import type { PdaCuttingTaskDetailData } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import {
   buildPickupEvidenceSummary,
@@ -325,88 +324,6 @@ export function buildCuttingPickupViewFromMaterialPrepLine(
     updatedAt: line.latestReceiveScanAt || line.latestPrintedAt || line.configBatches[line.configBatches.length - 1]?.configuredAt || '',
   }
 
-  return buildView(slip, latestPrintVersion, qrBinding, scanRecords, evidences)
-}
-
-export function buildCuttingPickupViewFromCutPieceRecord(record: CutPieceOrderRecord): CuttingPickupView {
-  const matched = findMaterialPrepLine(record.cutPieceOrderNo, record.materialSku)
-  if (matched) return buildCuttingPickupViewFromMaterialPrepLine(matched.line, matched.group)
-
-  const pickupSlipNo = buildPickupSlipNo(record.cutPieceOrderNo)
-  const qrBinding =
-    record.qrStatus === 'GENERATED'
-      ? {
-          qrCodeValue: record.qrCodeValue,
-          boundObjectType: 'CUT_PIECE_ORDER' as const,
-          boundObjectNo: record.cutPieceOrderNo,
-          scenarioType: 'CUTTING' as const,
-          reusePolicy: 'REUSE_BY_BOUND_OBJECT' as const,
-          generatedAt: record.latestReceiveScanAt || '',
-          generatedBy: '仓库配料',
-          status: 'ACTIVE' as const,
-          latestPrintVersionNo: record.printSlipStatus === 'PRINTED' ? buildPrintVersionNo(record.cutPieceOrderNo, 1) : '',
-        }
-      : null
-  const latestPrintVersion =
-    record.printSlipStatus === 'PRINTED'
-      ? {
-          pickupSlipNo,
-          printVersionNo: buildPrintVersionNo(record.cutPieceOrderNo, 1),
-          printedAt: record.latestReceiveScanAt || '',
-          printedBy: '仓库打印回写',
-          printCopyCount: 1,
-          snapshotSummary: `${record.cutPieceOrderNo} / ${record.materialSku}`,
-          isLatestVersion: true,
-        }
-      : null
-  const scanRecords: PickupScanRecord[] =
-    record.latestReceiveScanAt && record.latestReceiverName
-      ? [
-          {
-            scanRecordNo: `${pickupSlipNo}-SCAN-01`,
-            pickupSlipNo,
-            qrCodeValue: record.qrCodeValue,
-            boundObjectNo: record.cutPieceOrderNo,
-            scannedAt: record.latestReceiveScanAt,
-            scannedBy: record.latestReceiverName,
-            resultStatus:
-              record.discrepancyStatus === 'PHOTO_SUBMITTED'
-                ? 'PHOTO_SUBMITTED'
-                : record.discrepancyStatus === 'RECHECK_REQUIRED'
-                  ? 'RECHECK_REQUIRED'
-                  : 'MATCHED',
-            receivedQtySummary: buildQtySummaryFromText(record.receiveStatus === 'NOT_RECEIVED' ? '待扫码领取回写' : `已领取 / ${record.materialSku}`),
-            photoProofCount: record.discrepancyStatus === 'PHOTO_SUBMITTED' ? 1 : 0,
-            note: record.notes,
-          },
-        ]
-      : []
-  const latestScanRecord = getLatestPickupScanRecord(scanRecords)
-  const evidences = buildEvidenceList(pickupSlipNo, latestScanRecord, record.notes, record.discrepancyStatus === 'PHOTO_SUBMITTED' ? 1 : 0)
-  const slip: PickupSlip = {
-    pickupSlipNo,
-    scenarioType: 'CUTTING',
-    sourceTaskType: 'CUTTING',
-    sourceTaskNo: record.cuttingTaskNo,
-    productionOrderNo: record.productionOrderNo,
-    boundObjectType: 'CUT_PIECE_ORDER',
-    boundObjectNo: record.cutPieceOrderNo,
-    factoryType: 'CUTTING_FACTORY',
-    factoryName: record.assignedFactoryName,
-    materialSku: record.materialSku,
-    materialType: mapMaterialType(record.materialType),
-    plannedQtySummary: buildQtySummaryFromText(`待按裁片单 ${record.cutPieceOrderNo} 读取需求数量`),
-    configuredQtySummary: buildQtySummaryFromText(record.configStatus === 'NOT_CONFIGURED' ? '未配置' : `配置状态：${record.configStatus}`),
-    receivedQtySummary: buildQtySummaryFromText(record.receiveStatus === 'NOT_RECEIVED' ? '待扫码领取回写' : `领取状态：${record.receiveStatus}`),
-    currentStatus: deriveSlipStatus(record.printSlipStatus === 'PRINTED' ? 1 : 0, 0, 0, record.receiveStatus, record.discrepancyStatus),
-    latestPrintVersionNo: latestPrintVersion?.printVersionNo || '',
-    latestQrCodeValue: record.qrCodeValue,
-    latestScanResult: latestScanRecord?.resultStatus ?? null,
-    hasDiscrepancy: record.discrepancyStatus !== 'NONE',
-    evidenceSummary: buildPickupEvidenceSummary(evidences),
-    createdAt: record.purchaseDate,
-    updatedAt: record.latestReceiveScanAt || record.latestSpreadingAt || record.purchaseDate,
-  }
   return buildView(slip, latestPrintVersion, qrBinding, scanRecords, evidences)
 }
 

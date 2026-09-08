@@ -48,7 +48,7 @@ function renderFormulaList(selectedId: string): string {
             <tr>
               <th class="px-3 py-2 font-medium">染色加工单号</th>
               <th class="px-3 py-2 font-medium">色号</th>
-              <th class="px-3 py-2 font-medium">原料面料</th>
+              <th class="px-3 py-2 font-medium">染色原料</th>
               <th class="px-3 py-2 font-medium">目标颜色</th>
               <th class="px-3 py-2 font-medium">配方</th>
               <th class="px-3 py-2 font-medium">投料</th>
@@ -81,7 +81,7 @@ function renderFormulaDetail(selectedId: string): string {
             <span class="text-xs font-medium">${escapeHtml(selected.dyeOrderNo || '暂无数据')}</span>
             <span class="text-xs text-muted-foreground">色号</span>
             <span class="text-xs">${escapeHtml(selected.colorNo)}</span>
-            <span class="text-xs text-muted-foreground">原料面料</span>
+            <span class="text-xs text-muted-foreground">染色原料</span>
             <span class="text-xs">${escapeHtml(selected.rawMaterialSku)}</span>
             <span class="text-xs text-muted-foreground">目标颜色</span>
             <span class="text-xs">${escapeHtml(selected.targetColor)}</span>

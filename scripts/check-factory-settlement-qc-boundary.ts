@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const postDomain = readFileSync(new URL('../src/data/fcs/post-finishing-domain.ts', import.meta.url), 'utf8')
+const postFullFlow = readFileSync(new URL('../src/data/fcs/post-finishing-full-flow.ts', import.meta.url), 'utf8')
 const postQcPage = readFileSync(new URL('../src/pages/process-factory/post-finishing/qc-orders.ts', import.meta.url), 'utf8')
 const qcDetail = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')
 const qcList = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
@@ -54,13 +54,10 @@ assert(!qcList.includes('showLegacy'), '质检记录列表域不应残留 showLe
 assert(!qcContext.includes('showLegacy'), '质检记录上下文不应残留 showLegacy 状态')
 assert(!qcEvents.includes('showLegacy'), '质检记录事件层不应残留 showLegacy 分支')
 
-assert(!postDomain.includes("deductionDecision = hasDefect ? input.deductionDecision || qc.deductionDecision || '建议扣款'"))
-assert(postDomain.includes('sourceChargeback'))
-assert(postDomain.includes('result?.sourceChargeback'))
-assert(!postDomain.includes('const sourceChargeback = existingSourceChargeback'))
-assert(!postDomain.includes('existingSourceChargeback.amount || reworkDeductionAmountIdr'))
-assert(!postDomain.includes('existingSourceChargeback.unitAmount || reworkDeductionUnitAmountIdr'))
-assert(postDomain.includes('const sourceChargeback = reworkDeductionAmountIdr > 0'))
-assert(postDomain.includes('amount: reworkDeductionAmountIdr'))
+for (const forbidden of ['deductionDecision', 'reworkDeductionAmountIdr', 'sourceChargeback', '质量扣款流水', '对账流水']) {
+  assert(!postFullFlow.includes(forbidden), `当前后道全流程不得直接产生结算事实：${forbidden}`)
+}
+assert(postFullFlow.includes('defectReasonQuantities'), '到货 QC 必须保留质检事实和不合格原因数量')
+assert(postFullFlow.includes('returnReceiver'), '到货 QC 必须保留返厂接收对象')
 
 console.log('check:factory-settlement-qc-boundary passed')

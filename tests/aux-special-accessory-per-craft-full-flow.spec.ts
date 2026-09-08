@@ -163,6 +163,8 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 async function assertPdaImageAndFallback(page: Page, evidenceId: string, verifyFailureRecovery: boolean): Promise<void> {
+  const details = page.getByTestId('pda-work-order-details')
+  if (await details.count() && await details.getAttribute('open') === null) await details.locator('summary').click()
   const previewButton = page.locator('[data-pda-image-preview-url]').first()
   await expect(previewButton, `${evidenceId} PDA 缺少真实款式／物料图片入口`).toBeVisible()
   const image = previewButton.locator('img')
@@ -246,7 +248,10 @@ async function openAndCheckSpecialWebAction(page: Page, order: SpecialCraftTaskO
     '#special-craft-garment-sku-dialog, #special-craft-fei-ticket-dialog, #special-craft-button-loop-dialog',
   )
   const genericDialog = page.getByTestId('process-web-status-action-dialog')
-  if (await genericDialog.isVisible().catch(() => false)) {
+  await expect(page.locator(
+    '[data-testid="process-web-status-action-dialog"], #special-craft-garment-sku-dialog, #special-craft-fei-ticket-dialog, #special-craft-button-loop-dialog',
+  )).toBeVisible()
+  if (await genericDialog.isVisible()) {
     await expect(genericDialog).toHaveAttribute('data-source-id', order.taskOrderId)
     await genericDialog.getByTestId('process-web-status-action-cancel').last().click()
   } else {

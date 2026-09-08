@@ -228,10 +228,11 @@ function resolvePdaHandoverTaskContext(
   if ([taskIds, productionOrderIds, productionOrderNos, factoryIds, factoryNames].some((items) => items.length !== 1)) {
     throw new Error('一次只能处理一个生产单的一个车缝任务和一个接收车缝工厂。')
   }
-  const ppicOptions = buildCuttingHandoverPpicOptions({ receiverFactoryId: factoryIds[0], receiverFactoryName: factoryNames[0] })
+  const ppicOptions = buildCuttingHandoverPpicOptions({ runtimeTaskId: taskIds[0], receiverFactoryId: factoryIds[0], receiverFactoryName: factoryNames[0] })
   const selectedPpic = ppicOptions.find((item) => normalizeCode(item.ppicId) === normalizeCode(state.receiverPpicId))
   if (!selectedPpic) throw new Error('请扫描或填写当前接收工厂的 PPIC 编号。')
   const ppic = assertCuttingHandoverPpic({
+    runtimeTaskId: taskIds[0],
     ppicId: selectedPpic.ppicId,
     ppicName: selectedPpic.ppicName,
     receiverFactoryId: factoryIds[0],

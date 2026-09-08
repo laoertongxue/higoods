@@ -21,7 +21,9 @@ export type SpecialCraftTargetObject =
   | '捆条'
   | '辅料'
 
-export type SpecialCraftQuantityMode = 'SAME_UNIT' | 'TICKET_INPUT_OUTPUT'
+export const COVERED_BUTTON_OPERATION_ID = 'AUX-OP-COVERED-BUTTON-MAKING'
+
+export type SpecialCraftQuantityMode = 'SAME_UNIT' | 'TICKET_INPUT_OUTPUT' | 'MATERIAL_INPUT_OUTPUT'
 
 export interface SpecialCraftFlowRule {
   unit: '片' | '米' | '件' | '个' | '条'
@@ -122,7 +124,7 @@ export interface SpecialCraftOperationDefinition {
   defaultTargetObject: SpecialCraftTargetObjectLabel
   targetObject: SpecialCraftTargetObject
   quantityMode: SpecialCraftQuantityMode
-  inputUnit: '张' | '片' | '米' | '件' | '个' | '条'
+  inputUnit: '张' | '片' | '米' | '件' | '个' | '条' | 'BOM单位'
   outputUnit: '片' | '米' | '件' | '个' | '条'
   receiverWarehouseName: string
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
@@ -141,7 +143,7 @@ interface SpecialCraftOperationSeed {
   requiresFeiTicketScan: boolean
   mustReturnToCuttingFactory: boolean
   quantityMode?: SpecialCraftQuantityMode
-  inputUnit?: '张' | '片' | '米' | '件' | '个' | '条'
+  inputUnit?: '张' | '片' | '米' | '件' | '个' | '条' | 'BOM单位'
   outputUnit?: '片' | '米' | '件' | '个' | '条'
   receiverWarehouseName?: string
   remark: string
@@ -186,14 +188,14 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
     defaultTargetObject: 'SEMI_FINISHED_GARMENT',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
-    remark: '按成衣烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    remark: '支持裁片部位或成衣烫画；加工单必须保存明确对象，不从印花类型转换。',
   },
   直喷: {
     operationId: 'AUX-OP-DIRECT-PRINT',
     defaultTargetObject: 'SEMI_FINISHED_GARMENT',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
-    remark: '按成衣直喷辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    remark: '支持裁片部位或成衣直喷；加工单必须保存明确对象，不从印花类型转换。',
   },
   贝壳绣: {
     operationId: 'AUX-OP-SHELL-EMBROIDERY',
@@ -226,6 +228,17 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
     outputUnit: '个',
     receiverWarehouseName: '中央辅料仓',
     remark: '投入捆条菲票、产出盘扣成品；米数仅追溯，产出和交出按个管理。',
+  },
+  布包扣: {
+    operationId: COVERED_BUTTON_OPERATION_ID,
+    defaultTargetObject: 'ACCESSORY',
+    requiresFeiTicketScan: false,
+    mustReturnToCuttingFactory: false,
+    quantityMode: 'MATERIAL_INPUT_OUTPUT',
+    inputUnit: 'BOM单位',
+    outputUnit: '个',
+    receiverWarehouseName: '中央辅料仓',
+    remark: '投入技术包关联的 BOM 制作物料，产出包布钮辅件并交中央辅料仓；不是把扣子装到成衣。',
   },
   花朵: {
     operationId: 'AUX-OP-FLOWER-MAKING',
@@ -479,6 +492,7 @@ export function getSpecialCraftWorkOrderBusinessType(operationId: string): strin
   if (operationId === 'AUX-OP-HEAT-TRANSFER') return 'HEAT_TRANSFER'
   if (operationId === 'AUX-OP-DIRECT-PRINT') return 'DIRECT_PRINT'
   if (operationId === 'AUX-OP-BUTTON-LOOP') return 'BUTTON_LOOP'
+  if (operationId === COVERED_BUTTON_OPERATION_ID) return 'COVERED_BUTTON_MAKING'
   return 'OTHER_SPECIAL_CRAFT'
 }
 

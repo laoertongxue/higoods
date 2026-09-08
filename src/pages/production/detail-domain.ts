@@ -1,3 +1,4 @@
+import { renderButton } from '../../components/ui/button.ts'
 import {
   escapeHtml,
   state,
@@ -55,6 +56,7 @@ import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
   renderOrderBreakdownReadinessDialog,
+  renderTaskGenerationPreviewDialog,
 } from './orders-domain.ts'
 import {
   getProductionConfirmationByOrderId,
@@ -69,7 +71,7 @@ import {
 import {
   getPostFinishingTaskByProductionOrder,
   type PostFinishingTaskView,
-} from '../../data/fcs/post-finishing-domain.ts'
+} from '../../data/fcs/post-finishing-current-read-model.ts'
 import {
   isKolGotoProductionOrder,
   isKolGotoWholeOrderTask,
@@ -466,7 +468,7 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
             <div><p class="text-xs text-muted-foreground">后道加工单</p><p class="text-lg font-semibold">${task.postOrderCount}</p></div>
             <div><p class="text-xs text-muted-foreground">复检单</p><p class="text-lg font-semibold">${task.recheckOrderCount}</p></div>
           </div>
-          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子或烫包才生成后道加工单；未勾选则进入复检链路。</p>
+          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子或烫包才生成后道加工单；项目为空时不生成加工单和复检单，直接生成面向成衣仓的交接单据。</p>
         </section>
       </div>
     </section>
@@ -1023,7 +1025,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
               <p class="text-sm">系统固定分配: ${runtime.assignmentSummary.directCount}</p>
               <p class="text-sm">系统自动接收: ${runtime.assignmentProgress.directAssignedCount}</p>
               <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
-              <p class="text-sm text-muted-foreground">任务数量: ${breakdown.detailRowCount} 张 · ${breakdown.detailRowTotalQty.toLocaleString('zh-CN')} 件</p>
+              <p class="text-sm text-muted-foreground">任务数量: ${breakdown.detailRowCount} 张 · ${escapeHtml(breakdown.detailRowQuantityText)}</p>
             </section>
             <section class="rounded-lg border bg-card p-4 space-y-2">
               <h3 class="text-base font-semibold">特殊边界</h3>
@@ -1233,6 +1235,10 @@ export function renderProductionOrderDetailPage(orderId: string): string {
             data-nav="${escapeHtml(confirmationPreviewState.href)}"
           >打印生产确认单</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
+          ${currentUser.role === 'ADMIN' && order.status === 'EXECUTING'
+            ? renderButton({ label: '完成生产单', variant: 'primary', action: { prefix: 'prod', action: 'complete-production-order' } })
+            : ''}
+
         </div>
       </header>
 
@@ -1298,7 +1304,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
                  <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(
                    breakdown.taskTypesTop3.join('、') || '-',
                  )}</p>
-                 <p class="text-xs text-muted-foreground">任务明细行 ${breakdown.detailRowCount} 条 · 合计 ${breakdown.detailRowTotalQty}件</p>
+                 <p class="text-xs text-muted-foreground">任务明细行 ${breakdown.detailRowCount} 条 · 按单位合计 ${escapeHtml(breakdown.detailRowQuantityText)}</p>
                  <p class="text-xs text-muted-foreground">原始任务 ${breakdown.sourceTaskCount} · 执行任务 ${breakdown.executionTaskCount}</p>
                  <p class="text-xs text-muted-foreground">拆分来源 ${breakdown.splitSourceCount} · 拆分结果 ${breakdown.splitResultCount} · 拆分组 ${breakdown.splitGroupCount}</p>
                  <p class="text-xs text-muted-foreground">${escapeHtml(breakdown.detailRowPreview)}</p>
@@ -1384,6 +1390,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
 
       ${renderMaterialDraftDrawer()}
       ${renderOrderBreakdownReadinessDialog()}
+      ${renderTaskGenerationPreviewDialog()}
       ${renderDetailLogsDialog(order)}
       ${renderDetailSimulateDialog(order)}
       ${renderDetailSimulateConfirmDialog(order)}

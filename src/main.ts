@@ -12,6 +12,7 @@ import {
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
 import { createRetryableModuleLoader } from './main-infrastructure/retryable-module-loader'
+import { resolvePage } from './router/routes'
 import { appStore } from './state/store'
 
 type StoreRenderMode = 'full' | 'sidebar'
@@ -19,7 +20,6 @@ type StoreRenderMode = 'full' | 'sidebar'
 let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
-let fcsHandlersPreloadStarted = false
 
 const getProductionObjectOverviewModule = createRetryableModuleLoader(
   () => import('./components/production-object-overview'),
@@ -71,7 +71,6 @@ const getProductionDemandPageModule = createRetryableModuleLoader(() => import('
 const getProductionOrdersPageModule = createRetryableModuleLoader(() => import('./pages/production/orders-domain'))
 const getProductionEventsModule = createRetryableModuleLoader(() => import('./pages/production/events'))
 const getProductionDialogsModule = createRetryableModuleLoader(() => import('./pages/production/dialogs'))
-const getRoutesModule = createRetryableModuleLoader(() => import('./router/routes'))
 
 async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): Promise<unknown> {
   const pathname = appStore.getState().pathname
@@ -90,15 +89,6 @@ async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): 
   return false
 }
 
-function preloadFcsHandlers(): void {
-  if (fcsHandlersPreloadStarted) return
-  fcsHandlersPreloadStarted = true
-  void getFcsHandlersModule().catch((error) => {
-    fcsHandlersPreloadStarted = false
-    console.warn('FCS 页面事件处理器预加载失败，将在首次操作时重试', error)
-  })
-}
-
 function scheduleProductionListPreload(): void {
   if (productionListPreloadStarted) return
   productionListPreloadStarted = true
@@ -111,7 +101,12 @@ function scheduleProductionListPreload(): void {
     ])
   }
 
-  preload()
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(preload, { timeout: 5_000 })
+    return
+  }
+
+  globalThis.setTimeout(preload, 2_000)
 }
 
 function getPdaMainTabModule(pathname: string): Promise<unknown> | null {
@@ -216,10 +211,12 @@ function reloadForDynamicModuleLoadError(error: unknown, source: string): boolea
 }
 
 window.addEventListener('vite:preloadError', (event) => {
-  event.preventDefault()
   const preloadEvent = event as Event & { payload?: unknown; detail?: unknown }
   const preloadError = preloadEvent.payload ?? preloadEvent.detail ?? event
   reloadForDynamicModuleLoadError(preloadError, 'Vite 预加载')
+  // 只有已经安排恢复刷新时才阻止 Vite 抛出本次错误；若同一路由刷新后仍失败，
+  // 保留原始模块错误，不能把它吞掉后再变成“读取 undefined”的二次假象。
+  if (dynamicModuleReloadScheduled) event.preventDefault()
 })
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -322,7 +319,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
   }
   if (pathname.startsWith('/fcs/craft/cutting/cut-piece-return-processing')) {
-    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-processing')
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
     return cutPieceReturnPage.handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget, event)
   }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
@@ -584,7 +581,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
   }
   if (isCutPieceReturnProcessingEntry) {
-    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-processing')
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
     cutPieceReturnPage.enterCraftCuttingCutPieceReturnProcessingRoute()
   }
   if (!isProductionPreparationTimingEntry && !isProductionPreparationTimingStatisticsEntry) return
@@ -679,7 +676,6 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       const printPreviewPage = await getPrintPreviewPageModule()
       return printPreviewPage.renderPrintPreviewPage()
     }
-    const { resolvePage } = await getRoutesModule()
     return resolvePage(pathname)
   } catch (error) {
     if (reloadForDynamicModuleLoadError(error, '路由模块')) {
@@ -694,9 +690,6 @@ async function render(): Promise<void> {
   const currentSerial = ++renderSerial
   const state = appStore.getState()
 
-  if (state.pathname.startsWith('/fcs/') && !isPdaPath(state.pathname)) {
-    preloadFcsHandlers()
-  }
   ensureInitialPdaLoadingShell(state)
   const pageContentPromise = renderCurrentPageContent(state.pathname)
   const pageContent = isPdaPath(state.pathname)
@@ -717,7 +710,6 @@ async function render(): Promise<void> {
   if (!dynamicModuleReloadScheduled) {
     clearPreloadReloadFlag()
   }
-  scheduleProductionListPreload()
 }
 
 async function renderSidebarOnly(): Promise<void> {
@@ -1704,8 +1696,10 @@ document.addEventListener('keydown', async (event) => {
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
   if (cuttingScanTarget) {
+    // Prevent the browser from submitting an enclosing form before the async
+    // scan handler finishes. Calling preventDefault after await is too late.
+    event.preventDefault()
     const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
-    if (scanResult) event.preventDefault()
     return
   }
   const scanEnterTarget =
@@ -1713,9 +1707,11 @@ document.addEventListener('keydown', async (event) => {
       ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
       : null
   if (scanEnterTarget) {
+    // Scanner Enter must never fall through to native form submission while
+    // the lazily loaded page handler is being resolved.
+    event.preventDefault()
     const focusSnapshot = captureFocusSnapshot()
     if (await dispatchPageEvent(scanEnterTarget, event)) {
-      event.preventDefault()
       await renderWithFocusRestore(focusSnapshot)
     }
     return
@@ -1728,7 +1724,10 @@ document.addEventListener('keydown', async (event) => {
   }
 
   const shouldUseScopedRender = isTechPackPageMounted()
+  const waterSolubleClosesLocally = Boolean(document.querySelector('[data-testid="water-soluble-orders-page"]'))
   if (await closeDialogsOnEscape()) {
+    // 水溶页面的关闭处理器已更新抽屉与列设置区域，保留列表、焦点和滚动位置。
+    if (waterSolubleClosesLocally) return
     if (shouldUseScopedRender) {
       await renderPageContentOnly()
     } else {
@@ -1766,5 +1765,4 @@ window.addEventListener('higood:request-render', () => {
   }
   void renderWithFocusRestore(focusSnapshot)
 })
-scheduleProductionListPreload()
 void render()

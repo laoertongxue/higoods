@@ -1,0 +1,15 @@
+// E2E-004/008/009: new wool tasks enter the existing work-order domain without execution outcomes.
+import assert from 'node:assert/strict';import fs from 'node:fs'
+import {productionOrders} from '../src/data/fcs/production-orders.ts'
+import {processTasks,upsertProcessTasksForProductionOrder,buildProcessTasksForProductionOrder} from '../src/data/fcs/process-tasks.ts'
+import {buildWoolOrderFromRuntimeTask} from '../src/data/fcs/wool-domain/tech-pack-source.ts'
+import {listRuntimeProcessTasks} from '../src/data/fcs/runtime-process-tasks.ts'
+import {readWoolStore} from '../src/data/fcs/wool-domain/store.ts'
+import {listWoolWorkOrders} from '../src/data/fcs/wool-domain/queries.ts'
+const seed=processTasks.filter(t=>t.processBusinessCode==='WOOL');assert(seed.length);assert(seed.every(t=>t.acceptedAt==='2026-05-09 08:20'));const seedBefore=JSON.stringify(seed)
+const inputs=JSON.parse(fs.readFileSync('output/verification/seven-demand-acceptance/seven-live-43183/seven-live-facts-final.json','utf8')).orders.filter((o:any)=>['PO-202603-0106','PO-202603-0107'].includes(o.productionOrderId))
+for(const order of inputs){productionOrders.push(order);order.status='WAIT_ASSIGNMENT';order.taskBreakdownSummary.isBrokenDown=true;const tasks=upsertProcessTasksForProductionOrder(order,'2026-09-07 16:30:00','Budi');const wool=tasks.filter(t=>t.processBusinessCode==='WOOL');assert(wool.length);for(const t of wool){assert.equal(t.dispatchedAt,'2026-09-07 16:30:00');assert.equal(t.acceptedAt,'2026-09-07 16:30:00');assert.equal(t.acceptanceStatus,'ACCEPTED');assert.equal(t.status,'NOT_STARTED');assert.equal(t.acceptDeadline,undefined);assert.equal(t.taskDeadline,order.demandSnapshot.requiredDeliveryDate);t.status='IN_PROGRESS';t.dispatchedBy='实际负责人';t.updatedAt='2026-09-07 16:40:00'}const preserved=JSON.stringify(tasks);assert.equal(JSON.stringify(upsertProcessTasksForProductionOrder(order,'2026-09-08 09:00','再次进入')),preserved);console.log(order.productionOrderId,'auto association current timestamps no completion;upsert preserves facts PASS')}
+assert.equal(JSON.stringify(processTasks.filter(t=>seed.some(s=>s.taskId===t.taskId))),seedBefore)
+for(const input of inputs){const shown=listWoolWorkOrders({productionOrderNo:input.productionOrderNo});assert.equal(shown.length,1);assert.equal(shown[0].kind,input.productionOrderId.endsWith('106')?'WHOLE_GARMENT':'PART_PANEL');console.log('LIST REAL QUERY',input.productionOrderId,shown[0].outputPlanLines.length)}
+const state=readWoolStore();for(const key of ['yarnReceipts','processReports','handovers','completions','warehouseFlows'] as const) assert(!state[key].some(r=>inputs.some((i:any)=>state.workOrders[r.woolOrderId]?.productionOrderId===i.productionOrderId)),'new workorder has no fabricated '+key)
+const before=JSON.stringify(state);listWoolWorkOrders();assert.equal(JSON.stringify(readWoolStore()),before,'reopen no mutation');console.log('PASS original seed unchanged,new list query creates only formal source, no execution facts,reopen idempotent')

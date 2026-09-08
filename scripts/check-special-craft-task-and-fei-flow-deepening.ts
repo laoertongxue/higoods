@@ -185,9 +185,10 @@ assertNotContains(workOrderDetailPageSource, '/tasks/', '加工单详情页不�
   '货损数量',
   '完工后数量',
   'linkSpecialCraftCompletionToReturnWaitHandoverStock',
-  '绑定菲票',
-  '原数量',
-  '当前数量',
+  '投入菲票',
+  '累计实收',
+  '累计完工',
+  '累计交出',
 ].forEach((item) => assertContains(pdaExecSource, item, `执行详情缺少特殊工艺完工字段：${item}`))
 
 ;[

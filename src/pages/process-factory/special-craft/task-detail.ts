@@ -14,6 +14,7 @@ import {
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
+import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import {
   renderGarmentSkuConfirmDialog,
   renderCutPieceFeiTicketConfirmDialog,
@@ -405,6 +406,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         </div>
       </div>
     </section>
+    ${renderProcessOrderTaskRelations(taskOrder.taskOrderId)}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <main class="min-w-0 space-y-4">
         ${renderTaskDetailTabs(taskDetailHref, activeTab)}

@@ -1501,8 +1501,8 @@ export function normalizeRollOperatorNames(
   return Array.from(new Set([...layerRowNames, ...textNames, ...(roll.operatorNames || []), ...fallbackNames].filter(Boolean)))
 }
 
-export function computeRemainingLength(labeledLength: number, actualLength: number): number {
-  return Number((labeledLength - actualLength).toFixed(2))
+export function computeRemainingLength(labeledLength: number, actualLength: number, headLength = 0, tailLength = 0, layerCount = 1): number {
+  return Number((labeledLength - computeUsableLength(actualLength, headLength, tailLength, layerCount)).toFixed(2))
 }
 
 export function findSpreadingPlanUnitById(
@@ -1845,7 +1845,7 @@ function buildPlanUnitSizeRowsFromText(options: {
   context: MarkerSpreadingContext
 }): NonNullable<SpreadingPlanUnit['sizeRows']> {
   const normalizedText = options.text
-    .replace(/[×xX]/g, '*')
+    .replace(/[×xX](?=\s*\d)/g, '*')
     .replace(/[，,\/]/g, ' + ')
   const parsedRows = Array.from(normalizedText.matchAll(/([A-Za-z0-9#._-]+)\s*\*\s*(\d+(?:\.\d+)?)/g))
     .map((match) => ({
@@ -1992,9 +1992,9 @@ export function buildSpreadingCoreMetrics(options: {
   const plannedCutGarmentQty = computePlannedCutGarmentQtyFromSession(session, options.markerTotalPieces)
   const theoreticalCutGarmentQty = computeTheoreticalCutQtyFromSession(session || {}, options.markerTotalPieces)
   const actualCutGarmentQty = computeActualCutQty(session || {})
-  const spreadActualLengthM = Number(session?.totalActualLength || rollSummary.totalActualLength || 0)
-  const spreadUsableLengthM = Number(session?.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength || 0)
-  const spreadRemainingLengthM = Number(session?.totalRemainingLength ?? rollSummary.totalRemainingLength ?? 0)
+  const spreadActualLengthM = Number(session?.rolls?.length ? rollSummary.totalActualLength : session?.totalActualLength || 0)
+  const spreadUsableLengthM = Number(session?.rolls?.length ? rollSummary.totalCalculatedUsableLength : session?.totalCalculatedUsableLength || 0)
+  const spreadRemainingLengthM = Number(session?.rolls?.length ? rollSummary.totalRemainingLength : session?.totalRemainingLength ?? 0)
   const varianceLength = computeLengthVariance(options.claimedLengthTotal, spreadActualLengthM)
   const shortageGarmentQty = computeShortageQty(plannedCutGarmentQty, actualCutGarmentQty)
   const missingData = !plannedCutGarmentQty || !options.claimedLengthTotal || !spreadActualLengthM
@@ -2019,7 +2019,9 @@ export function buildSpreadingCoreMetrics(options: {
       actualLayerTotal,
       options.markerTotalPieces,
     ),
-    actualCutGarmentQtyFormula: buildQtySumFormula(
+    actualCutGarmentQtyFormula: actualCutGarmentQty !== rollSummary.totalActualCutGarmentQty
+      ? `${formatQty(actualCutGarmentQty)} 件（实际裁剪记录）`
+      : buildQtySumFormula(
       actualCutGarmentQty,
       (session?.rolls || []).map((roll) => (roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0),
     ),
@@ -2405,6 +2407,14 @@ export function createSpreadingDraftFromMarker(
     cuttingTableName: baseSession?.cuttingTableName || '',
     plannedStartAt: baseSession?.plannedStartAt || '',
     plannedEndAt: baseSession?.plannedEndAt || '',
+    actualStartAt: baseSession?.actualStartAt || '',
+    actualEndAt: baseSession?.actualEndAt || '',
+    actualDurationMinutes: baseSession?.actualDurationMinutes || 0,
+    cuttingStatus: baseSession?.cuttingStatus,
+    cuttingStartedAt: baseSession?.cuttingStartedAt || '',
+    cuttingFinishedAt: baseSession?.cuttingFinishedAt || '',
+    cuttingStatusUpdatedAt: baseSession?.cuttingStatusUpdatedAt,
+    operationLogs: baseSession?.operationLogs ? [...baseSession.operationLogs] : [],
     estimatedDurationMinutes: DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
     tableScheduleStatus: baseSession?.tableScheduleStatus || '未排程',
     sourceMarkerId: marker.markerId,
@@ -2440,7 +2450,7 @@ export function createSpreadingDraftFromMarker(
     totalAmount: baseSession?.totalAmount || 0,
     note: baseSession?.note || '铺布草稿已从当前唛架编号记录导入，可继续补录卷与人员。',
     createdAt: baseSession?.createdAt || nowText(now),
-    updatedAt: nowText(now),
+    updatedAt: options?.reimported ? nowText(now) : baseSession?.updatedAt || nowText(now),
     warningMessages: baseSession?.warningMessages || [],
     importSource,
     planUnits,
@@ -2874,11 +2884,11 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
     0,
   )
   return {
-    totalActualLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.actualLength, 0), 0).toFixed(2)),
+    totalActualLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount), 0).toFixed(2)),
     totalHeadLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.headLength, 0), 0).toFixed(2)),
     totalTailLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.tailLength, 0), 0).toFixed(2)),
     totalCalculatedUsableLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount), 0).toFixed(2)),
-    totalRemainingLength: Number(rolls.reduce((sum, roll) => sum + computeRemainingLength(roll.labeledLength, roll.actualLength), 0).toFixed(2)),
+    totalRemainingLength: Number(rolls.reduce((sum, roll) => sum + computeRemainingLength(roll.labeledLength, roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount), 0).toFixed(2)),
     totalActualCutPieceQty: totalActualCutGarmentQty,
     totalActualCutGarmentQty,
     rollCount: rolls.length,
@@ -3778,6 +3788,15 @@ export function buildSpreadingWarningMessages(options: {
   const warnings: string[] = []
   const rolls = options.session.rolls || []
   const operators = options.session.operators || []
+  // Web 的按层人员记录是原始人员事实，不必伪造 PDA 换班记录才能识别。
+  const hasNamedLayerOperator = (roll: SpreadingRollRecord): boolean => {
+    const rows = normalizeRollOperatorLayerRows(roll.operatorLayerRows)
+    const layerRows = rows.length ? rows : parseRollOperatorLayerRows(roll.operatorLayerText || '')
+    return layerRows.some(row => row.operatorName.trim()
+      && Number.isInteger(row.startLayer) && Number.isInteger(row.endLayer)
+      && Number(row.startLayer) >= 1 && Number(row.endLayer) >= Number(row.startLayer)
+      && Number(row.endLayer) <= Number(roll.layerCount))
+  }
   const rollSummary = summarizeSpreadingRolls(rolls)
   const operatorSummary = summarizeSpreadingOperators(operators)
   const normalizedRollNos = rolls
@@ -3796,7 +3815,7 @@ export function buildSpreadingWarningMessages(options: {
   rolls.forEach((roll, index) => {
     const rollLabel = roll.rollNo || `第 ${index + 1} 卷`
     const usableLength = computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0))
-    const remainingLength = computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0))
+    const remainingLength = computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0))
     const linkedOperators = operatorSummary.operatorsByRollId[roll.rollRecordId] || []
     const handoverSummary = buildRollHandoverViewModel(roll, linkedOperators, options.markerTotalPieces)
 
@@ -3812,7 +3831,7 @@ export function buildSpreadingWarningMessages(options: {
     if (Number(roll.layerCount || 0) <= 0 || options.markerTotalPieces <= 0) {
       warnings.push(`${rollLabel} 缺少铺布层数或单层成衣件数，实际裁剪成衣件数暂无法准确推导。`)
     }
-    if (!linkedOperators.length) {
+    if (!linkedOperators.length && !hasNamedLayerOperator(roll)) {
       warnings.push(`${rollLabel} 缺少卷记录人员信息，无法追溯开始、交接与完成情况。`)
     }
     handoverSummary.warnings.forEach((message) => warnings.push(message))
@@ -3822,7 +3841,7 @@ export function buildSpreadingWarningMessages(options: {
     warnings.push('总实际铺布长度超过裁床已领总长度，可能存在差异。')
   }
 
-  if (!operators.length) {
+  if (!operators.length && !rolls.some(hasNamedLayerOperator)) {
     warnings.push('当前缺少铺布人员信息，请在卷记录中补录开始 / 交接 / 完成信息。')
   }
 
@@ -3919,7 +3938,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                   const linkedPlanUnit = findSpreadingPlanUnitById(planUnits, roll.planUnitId)
                   const normalizedPlanUnitId = roll.planUnitId || linkedPlanUnit?.planUnitId || ''
                   const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
-                  const derivedActualCutGarmentQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+                  const derivedActualCutGarmentQty = Math.max(Number(roll.actualCutGarmentQty ?? roll.actualCutPieceQty ?? 0), 0)
                   const operatorLayerRows = normalizeRollOperatorLayerRows(roll.operatorLayerRows).length
                     ? normalizeRollOperatorLayerRows(roll.operatorLayerRows)
                     : parseRollOperatorLayerRows(roll.operatorLayerText || '')
@@ -3930,12 +3949,10 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                     materialSku: linkedPlanUnit?.materialSku || roll.materialSku,
                     color: linkedPlanUnit?.color || roll.color,
                     sortOrder: Number(roll.sortOrder ?? 0),
-                    totalLength: Number(((Number(roll.actualLength || 0) + Number(roll.headLength || 0) + Number(roll.tailLength || 0))).toFixed(2)),
+                    totalLength: computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0)),
                     remainingLength:
-                      roll.remainingLength ??
-                      computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0)),
+                      computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0)),
                     usableLength:
-                      roll.usableLength ??
                       computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0), Number(roll.layerCount || 0)),
                     actualCutPieceQty:
                       derivedActualCutGarmentQty ||
@@ -4015,11 +4032,11 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                         : undefined,
                   }))
                 : [],
-              totalActualLength: session.totalActualLength || rollSummary.totalActualLength,
+              totalActualLength: rolls.length ? rollSummary.totalActualLength : session.totalActualLength || 0,
               totalHeadLength: session.totalHeadLength || rollSummary.totalHeadLength,
               totalTailLength: session.totalTailLength || rollSummary.totalTailLength,
               totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
-              totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
+              totalRemainingLength: rolls.length ? rollSummary.totalRemainingLength : session.totalRemainingLength ?? 0,
               actualCutPieceQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
               actualCutGarmentQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
               configuredLengthTotal: session.configuredLengthTotal || 0,
@@ -4230,7 +4247,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     const tailLength = Number(roll.tailLength || 0)
     const layerCount = Number(roll.layerCount || 0)
     const usableLength = computeUsableLength(actualLength, headLength, tailLength, layerCount)
-    const actualCutGarmentQty = computeRollActualCutGarmentQty(layerCount, garmentQtyPerUnit)
+    const actualCutGarmentQty = Math.max(Number(roll.actualCutGarmentQty ?? roll.actualCutPieceQty ?? 0), 0)
     const operatorLayerRows = normalizeRollOperatorLayerRows(roll.operatorLayerRows).length
       ? normalizeRollOperatorLayerRows(roll.operatorLayerRows)
       : parseRollOperatorLayerRows(roll.operatorLayerText || '')
@@ -4348,11 +4365,11 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     ...session,
     rolls: rollsWithOperatorNames,
     operators: normalizedOperators,
-    totalActualLength: session.totalActualLength || summary.totalActualLength,
+    totalActualLength: rollsWithOperatorNames.length ? summary.totalActualLength : session.totalActualLength || 0,
     totalHeadLength: summary.totalHeadLength,
     totalTailLength: summary.totalTailLength,
     totalCalculatedUsableLength: summary.totalCalculatedUsableLength,
-    totalRemainingLength: session.totalRemainingLength ?? summary.totalRemainingLength,
+    totalRemainingLength: rollsWithOperatorNames.length ? summary.totalRemainingLength : session.totalRemainingLength ?? 0,
     rollCount: rollsWithOperatorNames.length,
     operatorCount: normalizedOperators.length,
     actualLayers: summary.totalLayers,

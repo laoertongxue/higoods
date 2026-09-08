@@ -8,6 +8,7 @@ import {
   allocateRuntimeSkuTaskScope,
   applyRuntimeDirectDispatchMeta,
   captureRuntimeDirectDispatchState,
+  runRuntimeTaskAction,
   cancelFixedMergedTask,
   createFixedMergedTask,
   evaluateFixedMergedTask,
@@ -44,6 +45,9 @@ import {
 } from '../data/fcs/merged-production-task.ts'
 import {
   createEffectiveTaskAssignment,
+  captureEffectiveTaskAssignmentState,
+  restoreEffectiveTaskAssignmentState,
+  runEffectiveTaskAssignmentAction,
   listCurrentEffectiveTaskAssignments,
   supersedeEffectiveTaskAssignmentsForReassignment,
 } from '../data/fcs/effective-task-assignments.ts'
@@ -1321,7 +1325,7 @@ function commitReassignment(dialog: DispatchDialogState): void {
   state.contractPromptId = contract?.contractId || null
 }
 
-function commitDirectDispatch(dialog: DispatchDialogState): void {
+function commitDirectDispatchAssignment(dialog: DispatchDialogState) {
   const sourceTask = getRuntimeTaskById(dialog.taskId)
   if (!sourceTask) throw new Error('任务已变化，请刷新后重试')
   const factory = listEligibleFactoriesForTask(sourceTask).find((item) => item.id === dialog.factoryId)
@@ -1391,6 +1395,21 @@ function commitDirectDispatch(dialog: DispatchDialogState): void {
     allocationOperatorPpicId: policy.involvesSewingOutsourcing ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId : undefined,
     allocationOperatorPpicName: policy.involvesSewingOutsourcing ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName : undefined,
   })
+  return { assignment, policy, updated, operatedAt, operatedBy }
+}
+
+function commitDirectDispatch(dialog: DispatchDialogState): void {
+  const before = captureEffectiveTaskAssignmentState()
+  let committed: ReturnType<typeof commitDirectDispatchAssignment>
+  try {
+    committed = runRuntimeTaskAction(() => runEffectiveTaskAssignmentAction(() => commitDirectDispatchAssignment(dialog)))
+  } catch (error) {
+    restoreEffectiveTaskAssignmentState(before)
+    throw error
+  }
+  const { assignment, policy, updated, operatedAt, operatedBy } = committed
+  const businessAssignedAt = assignment.businessAssignedAt
+  const factory = { id: assignment.factoryId, name: assignment.factoryName }
   const returnSnapshot = createProductionReturnRuleSnapshot({
     assignmentId: assignment.assignmentId,
     runtimeTaskId: assignment.runtimeTaskId,

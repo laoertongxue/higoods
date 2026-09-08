@@ -962,10 +962,86 @@ function getRuntimeTask(taskId: string): ProcessTask | null {
   return getTaskChainTaskById(taskId) ?? null
 }
 
-function getSourceExecutionsByTaskId(taskId: string): PdaCuttingExecutionSourceRecord[] {
-  return listPdaCuttingExecutionSourceRecords()
-    .filter((record) => record.taskId === taskId)
-    .sort((left, right) => left.executionOrderNo.localeCompare(right.executionOrderNo, 'zh-CN'))
+interface PdaTaskProjectionLookup {
+  tasksById: ReadonlyMap<string, ProcessTask>
+  cuttingSourcesByTaskId: ReadonlyMap<string, PdaCuttingTaskSourceRecord>
+  cuttingSourcesByBusinessKey: ReadonlyMap<string, PdaCuttingTaskSourceRecord>
+  legacyExecutionsByTaskId: ReadonlyMap<string, PdaCuttingExecutionSourceRecord[]>
+  generatedCutsById: ReadonlyMap<string, GeneratedCutOrderSourceRecord>
+}
+
+function cuttingSourceBusinessKey(productionOrderId: string, taskNo: string): string {
+  return `${productionOrderId}::${taskNo}`
+}
+
+function buildPdaTaskProjectionLookup(tasks: ProcessTask[]): PdaTaskProjectionLookup {
+  const cuttingSources = listPdaCuttingTaskSourceRecords()
+  const cuttingSourcesByTaskId = new Map(cuttingSources.map((source) => [source.taskId, source]))
+  const cuttingSourcesByBusinessKey = new Map(
+    cuttingSources.map((source) => [cuttingSourceBusinessKey(source.productionOrderId, source.taskNo), source]),
+  )
+  const legacyExecutionsByTaskId = new Map<string, PdaCuttingExecutionSourceRecord[]>()
+  for (const execution of listPdaCuttingExecutionSourceRecords()) {
+    const rows = legacyExecutionsByTaskId.get(execution.taskId) || []
+    rows.push(execution)
+    legacyExecutionsByTaskId.set(execution.taskId, rows)
+  }
+  for (const rows of legacyExecutionsByTaskId.values()) {
+    rows.sort((left, right) => left.executionOrderNo.localeCompare(right.executionOrderNo, 'zh-CN'))
+  }
+  const generatedCuts = listGeneratedCutOrderSourceRecords()
+  return {
+    tasksById: new Map(tasks.map((task) => [task.taskId, task])),
+    cuttingSourcesByTaskId,
+    cuttingSourcesByBusinessKey,
+    legacyExecutionsByTaskId,
+    generatedCutsById: new Map(generatedCuts.map((cut) => [cut.cutOrderId, cut])),
+  }
+}
+
+function getFormalCuttingTaskSource(task: ProcessTask, lookup?: PdaTaskProjectionLookup) {
+  if (lookup) {
+    const taskNo = task.rootTaskNo || task.taskNo
+    const productionOrderId = task.productionOrderId
+    return lookup.cuttingSourcesByTaskId.get(task.taskId)
+      ?? (productionOrderId && taskNo
+        ? lookup.cuttingSourcesByBusinessKey.get(cuttingSourceBusinessKey(productionOrderId, taskNo))
+        : undefined)
+      ?? null
+  }
+  const exact = getPdaCuttingTaskSourceRecord(task.taskId)
+  if (exact) return exact
+  return listPdaCuttingTaskSourceRecords().find(record => record.productionOrderId === task.productionOrderId
+    && record.taskNo === task.rootTaskNo) ?? null
+}
+
+function getSourceExecutionsByTaskId(
+  taskId: string,
+  snapshot?: CuttingDomainSnapshot,
+  taskFact?: ProcessTask,
+  lookup?: PdaTaskProjectionLookup,
+): PdaCuttingExecutionSourceRecord[] {
+  const legacy = lookup?.legacyExecutionsByTaskId.get(taskId)
+    ?? listPdaCuttingExecutionSourceRecords().filter(record => record.taskId === taskId)
+  if (legacy.length || !snapshot) return legacy.sort((left, right) => left.executionOrderNo.localeCompare(right.executionOrderNo, 'zh-CN'))
+  const task = taskFact ?? lookup?.tasksById.get(taskId) ?? getRuntimeTask(taskId)
+  const source = task && getFormalCuttingTaskSource(task, lookup)
+  if (!source) return []
+  const cuts = lookup
+    ? source.cutOrderIds.map((cutOrderId) => lookup.generatedCutsById.get(cutOrderId)).filter((cut): cut is GeneratedCutOrderSourceRecord => Boolean(cut))
+    : listGeneratedCutOrderSourceRecords().filter(cut => source.cutOrderIds.includes(cut.cutOrderId))
+  return getMarkerStore(snapshot).sessions.flatMap(session => {
+    const linked = cuts.filter(cut => session.cutOrderIds.includes(cut.cutOrderId))
+    // Existing execution rows represent one cut order. Do not guess a combined bed's material ownership.
+    if (linked.length !== 1 || !session.spreadingSessionId || !(session.sessionNo || session.spreadingSessionNo)) return []
+    const cut = linked[0]
+    return [{ taskId, taskNo: task!.taskNo || taskId, executionOrderId: session.spreadingSessionId,
+      executionOrderNo: session.sessionNo || session.spreadingSessionNo!, executionObjectType: 'SPREADING_ORDER' as const,
+      productionOrderId: cut.productionOrderId, productionOrderNo: cut.productionOrderNo,
+      cutOrderId: cut.cutOrderId, cutOrderNo: cut.cutOrderNo, markerPlanId: session.markerPlanId, markerPlanNo: session.markerPlanNo,
+      materialSku: cut.materialSku, materialAlias: cut.materialAlias, materialImageUrl: cut.materialImageUrl,
+      bindingState: 'BOUND' as const, cuttingReportMode: 'INDEPENDENT_CUTTING_EXECUTION' as const }]
+  })
 }
 
 function getProgressLine(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord) {
@@ -1479,10 +1555,15 @@ function buildTaskOrderLine(
   const hasHandover = Boolean(latestHandover)
   const hasDownstreamWarehouseSignal = hasInbound || hasHandover
   const useExplicitPickupEvent = isPdaSequenceMockTask(execution.taskId)
+  // New formal tasks read the same exact BOM receipt ledger as spreading readiness.
+  const hasFormalMaterialReceipt = !scenario && resolveSpreadingMaterialReadiness({
+    sourceCutOrderIds: [execution.cutOrderId],
+  }).claimedQty > 0
   const currentReceiveStatus =
     pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? '来料异议处理中'
       : latestPickup?.resultLabel
+        || (hasFormalMaterialReceipt ? '来料已接收' : '')
         || (useExplicitPickupEvent
           ? '待裁床接收'
           : hasDownstreamWarehouseSignal
@@ -1490,6 +1571,7 @@ function buildTaskOrderLine(
             : mapReceiveStatusLabel(progressLine?.receiveStatus))
   const hasPickupSuccess =
     Boolean(latestPickup)
+    || hasFormalMaterialReceipt
     || (!useExplicitPickupEvent && (
       progressLine?.receiveStatus === 'RECEIVED'
       || hasDownstreamWarehouseSignal
@@ -1793,7 +1875,7 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       usableLength: roll.usableLength,
       enteredBy: latestOperator?.operatorName || operatorNames[0] || session.operators[0]?.operatorName || '现场铺布员',
       enteredByAccountId: latestOperator?.operatorAccountId || '',
-      enteredAt: roll.updatedFromPdaAt || latestOperator?.endAt || session.updatedAt,
+      enteredAt: roll.occurredAt || roll.updatedFromPdaAt || latestOperator?.endAt || session.updatedAt,
       operatorLayerRows,
       operatorLayerText,
       operatorNames,
@@ -1995,7 +2077,8 @@ function buildTaskProgressLabel(completedCount: number, totalCount: number, mode
 function resolveTaskStateLabel(completedCount: number, totalCount: number, exceptionCount: number, taskStatus: ProcessTask['status']): string {
   if (taskStatus === 'CANCELLED') return '已中止'
   if (exceptionCount > 0) return '有异常'
-  if (totalCount > 0 && completedCount === totalCount) return '已完成'
+  if (taskStatus === 'DONE') return '已完成'
+  if (totalCount > 0 && completedCount === totalCount) return '待人工完成'
   if (taskStatus === 'IN_PROGRESS') return '进行中'
   if (taskStatus === 'BLOCKED') return '有异常'
   return '待开始'
@@ -2034,9 +2117,27 @@ function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSumma
   }
 }
 
-function buildProjectedTask(task: ProcessTask, snapshot: CuttingDomainSnapshot): PdaTaskFlowProjectedTask {
-  const executionRecords = getSourceExecutionsByTaskId(task.taskId)
+function buildProjectedTask(
+  task: ProcessTask,
+  snapshot: CuttingDomainSnapshot,
+  lookup?: PdaTaskProjectionLookup,
+): PdaTaskFlowProjectedTask {
+  const executionRecords = getSourceExecutionsByTaskId(task.taskId, snapshot, task, lookup)
   if (!executionRecords.length) {
+    const source = getFormalCuttingTaskSource(task, lookup)
+    if (source) return Object.assign(task, {
+      taskType: 'CUTTING', taskTypeLabel: '裁片任务', factoryType: 'CUTTING_WORKSHOP', factoryTypeLabel: '裁片执行',
+      supportsCuttingSpecialActions: true, entryMode: 'CUTTING_SPECIAL' as const,
+      productionOrderNo: source.productionOrderNo, cutOrderIds: [...source.cutOrderIds], cutOrderNos: [...source.cutOrderNos],
+      markerPlanIds: [], markerPlanNos: [], executionOrderIds: [], executionOrderNos: [],
+      defaultExecutionOrderId: '', defaultExecutionOrderNo: '', cutPieceOrderCount: 0,
+      completedCutPieceOrderCount: 0, pendingCutPieceOrderCount: 0, exceptionCutPieceOrderCount: 0,
+      taskReadyForDirectExec: false, hasMultipleCutPieceOrders: false,
+      cuttingReportMode: source.cuttingReportMode, taskProgressLabel: '待生成唛架/铺布单',
+      taskStateLabel: '待准备', taskNextActionLabel: '查看任务',
+      summary: { currentStage: '待生成唛架/铺布单', receiveSummary: '来料接收请查看配料领取记录',
+        executionSummary: '尚未生成铺布单，不能开工或放行', handoverSummary: '尚无裁片交出记录' },
+    })
     const genericTask = task as ProcessTask & {
       mockReceiveSummary?: string
       mockExecutionSummary?: string
@@ -2107,8 +2208,10 @@ export function isCuttingSpecialTask(task: Partial<PdaTaskFlowProjectedTask> | s
 
 export function listPdaTaskFlowProjectedTasks(snapshot?: CuttingDomainSnapshot): PdaTaskFlowProjectedTask[] {
   const currentSnapshot = getSnapshot(snapshot)
-  return listTaskFacts()
-    .map((task) => buildProjectedTask(task, currentSnapshot))
+  const tasks = listTaskFacts()
+  const lookup = buildPdaTaskProjectionLookup(tasks)
+  return tasks
+    .map((task) => buildProjectedTask(task, currentSnapshot, lookup))
     .sort((left, right) => (left.taskNo || left.taskId).localeCompare(right.taskNo || right.taskId, 'zh-CN'))
 }
 
@@ -2119,7 +2222,11 @@ export function listPdaTaskFlowTasks(snapshot?: CuttingDomainSnapshot): PdaTaskF
 type PdaTaskFlowProjectedTasks = PdaTaskFlowProjectedTask
 
 export function getPdaTaskFlowTaskById(taskId: string, snapshot?: CuttingDomainSnapshot): PdaTaskFlowProjectedTask | null {
-  return listPdaTaskFlowProjectedTasks(snapshot).find((task) => task.taskId === taskId) ?? null
+  const currentSnapshot = getSnapshot(snapshot)
+  const tasks = listTaskFacts()
+  const task = tasks.find((candidate) => candidate.taskId === taskId)
+  if (!task) return null
+  return buildProjectedTask(task, currentSnapshot, buildPdaTaskProjectionLookup(tasks))
 }
 
 export function listPdaOrdinaryTaskMocks(snapshot?: CuttingDomainSnapshot): PdaTaskFlowProjectedTask[] {
@@ -2133,8 +2240,9 @@ export function listPdaCuttingTaskMocks(snapshot?: CuttingDomainSnapshot): PdaTa
 function resolveExecutionRecord(
   taskId: string,
   executionKey?: string,
+  snapshot?: CuttingDomainSnapshot,
 ): PdaCuttingExecutionSourceRecord | null {
-  const executionRecords = getSourceExecutionsByTaskId(taskId)
+  const executionRecords = getSourceExecutionsByTaskId(taskId, snapshot)
   if (!executionRecords.length) return null
   if (!executionKey && executionRecords.length === 1) return executionRecords[0]
   if (!executionKey) return executionRecords[0] ?? null
@@ -2147,7 +2255,7 @@ export function listPdaCuttingTaskRefs(snapshot?: CuttingDomainSnapshot): PdaTas
 
 export function listPdaCuttingExecutionRowsByTaskId(taskId: string, snapshot?: CuttingDomainSnapshot): PdaCuttingTaskOrderLine[] {
   const currentSnapshot = getSnapshot(snapshot)
-  return getSourceExecutionsByTaskId(taskId).map((record, index) => buildTaskOrderLine(record, index + 1, currentSnapshot))
+  return getSourceExecutionsByTaskId(taskId, currentSnapshot).map((record, index) => buildTaskOrderLine(record, index + 1, currentSnapshot))
 }
 
 export function getPdaCuttingExecutionSnapshot(taskId: string, executionKey?: string, snapshot?: CuttingDomainSnapshot): PdaCuttingTaskDetailData | null {
@@ -2163,9 +2271,9 @@ export function getPdaCuttingTaskSnapshot(
   const task = getPdaTaskFlowTaskById(taskId, currentSnapshot)
   if (!task || !isCuttingSpecialTask(task)) return null
 
-  const executionRecords = getSourceExecutionsByTaskId(taskId)
+  const executionRecords = getSourceExecutionsByTaskId(taskId, currentSnapshot)
   if (!executionRecords.length) return null
-  const selectedExecutionRecord = resolveExecutionRecord(taskId, executionKey) ?? executionRecords[0]
+  const selectedExecutionRecord = resolveExecutionRecord(taskId, executionKey, currentSnapshot) ?? executionRecords[0]
   if (!selectedExecutionRecord) return null
 
   const executionRows = executionRecords.map((record, index) => buildTaskOrderLine(record, index + 1, currentSnapshot))

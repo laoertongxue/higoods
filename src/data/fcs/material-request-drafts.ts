@@ -1,5 +1,9 @@
+import { localDateTimeText } from '../../utils.ts'
+import { syncPdaPickupHeadForMaterialRequest, capturePdaHandoverState, restorePdaHandoverState } from './pda-handover-events.ts'
+import {getMaterialPrepOrderProjection} from './cutting/production-material-prep.ts'
 import {
   productionOrders,
+  initialProductionOrderIds,
   type ProductionOrder,
 } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -20,6 +24,7 @@ export type MaterialLineSourceType = 'bom' | 'upstream_output'
 export type MaterialRequestProgressStatus = '待配料' | '待配送' | '待自提' | '已完成'
 
 export interface MaterialRequestDraftLine {
+  sourcePrepLineId?: string
   lineId: string
   selected: boolean
   sourceType: MaterialLineSourceType
@@ -200,7 +205,7 @@ const CATEGORY_UNIT: Record<'面料' | '辅料' | '裁片', string> = {
 }
 
 function toTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+  return localDateTimeText(date)
 }
 
 let materialDraftLogSeq = 1
@@ -774,6 +779,7 @@ function buildInitialDrafts(): MaterialRequestDraft[] {
     })
 
   for (const runtimeTask of runtimeTasks) {
+    if (!initialProductionOrderIds.has(runtimeTask.productionOrderId)) continue
     const order = productionOrders.find((item) => item.productionOrderId === runtimeTask.productionOrderId)
     if (!order) continue
     const baseTask = processTasks.find((task) => task.taskId === runtimeTask.baseTaskId)
@@ -904,8 +910,75 @@ let materialRequestSequence = 1
 const taskBindings = new Map<string, MaterialRequestTaskBinding>()
 const materialDraftOperationLogs: MaterialDraftOperationLog[] = []
 
-const materialRequestDrafts: MaterialRequestDraft[] = buildInitialDrafts()
+const materialRequestDrafts: MaterialRequestDraft[] = []
 const materialRequests: MaterialRequestRecord[] = []
+let materialRequestDraftSeedState: 'idle' | 'seeding' | 'ready' = 'idle'
+const FORMAL_MATERIAL_REQUEST_STORAGE_KEY = 'higood.formal-material-requests.v1'
+let materialRequestActionDepth = 0
+let materialRequestReadError: string | null = null
+
+function saveFormalMaterialRequests(): void {
+  if (typeof localStorage === 'undefined') return
+  const formal = new Set(productionOrders.filter(o => !initialProductionOrderIds.has(o.productionOrderId)).map(o => o.productionOrderId))
+  localStorage.setItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY, JSON.stringify({ version: 1,
+    drafts: materialRequestDrafts.filter(d => formal.has(d.productionOrderId)),
+    requests: materialRequests.filter(r => formal.has(r.productionOrderNo)),
+    logs: materialDraftOperationLogs.filter(l => formal.has(l.productionOrderId)),
+    orderVersions: productionOrders.filter(o => formal.has(o.productionOrderId)).map(o => [o.productionOrderId, o.techPackSnapshot?.sourceTechPackVersionId]),
+    materialRequestSequence, materialDraftLogSeq,
+  }))
+}
+function readFormalMaterialRequests(): void {
+  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY)
+  if (!raw) return
+  const saved = JSON.parse(raw)
+  if (saved?.version !== 1 || ![saved.drafts, saved.requests, saved.logs, saved.orderVersions].every(Array.isArray)) throw new Error('本机原接收需求记录损坏，未覆盖，请联系负责人。')
+  const versions = new Map(saved.orderVersions as Array<[string, string]>)
+  for (const d of saved.drafts as MaterialRequestDraft[]) {
+    const order = productionOrders.find(o => o.productionOrderId === d.productionOrderId && !initialProductionOrderIds.has(o.productionOrderId))
+    if (!order || !d.draftId || !d.taskId || !Array.isArray(d.lines) || versions.get(order.productionOrderId) !== order.techPackSnapshot?.sourceTechPackVersionId) throw new Error('已保存接收需求与原生产单冻结版本不一致，未覆盖。')
+  }
+  for (const r of saved.requests as MaterialRequestRecord[]) {
+    if (!saved.drafts.some((d: MaterialRequestDraft) => d.createdMaterialRequestNo === r.materialRequestNo && d.taskId === r.taskId && d.productionOrderNo === r.productionOrderNo)) throw new Error('原接收需求与草稿绑定不一致，未覆盖。')
+  }
+  for (const d of saved.drafts as MaterialRequestDraft[]) {
+    const i = materialRequestDrafts.findIndex(x => x.draftId === d.draftId)
+    if (i < 0) materialRequestDrafts.push(cloneDraft(d)); else materialRequestDrafts[i] = cloneDraft(d)
+  }
+  for (const r of saved.requests as MaterialRequestRecord[]) {
+    const i = materialRequests.findIndex(x => x.materialRequestNo === r.materialRequestNo)
+    if (i < 0) materialRequests.push(cloneRequest(r)); else materialRequests[i] = cloneRequest(r)
+    applyTaskBinding(r)
+  }
+  for (const log of saved.logs as MaterialDraftOperationLog[]) if (!materialDraftOperationLogs.some(x => x.id === log.id)) materialDraftOperationLogs.push(structuredClone(log))
+  materialRequestSequence = Math.max(materialRequestSequence, Number(saved.materialRequestSequence) || 1)
+  materialDraftLogSeq = Math.max(materialDraftLogSeq, Number(saved.materialDraftLogSeq) || 1)
+}
+function runMaterialRequestAction<T>(action: () => T): T {
+  if (materialRequestDraftSeedState === 'seeding') return action()
+  ensureMaterialRequestDraftSeedData()
+  if (materialRequestActionDepth) return action()
+  const before = structuredClone({ drafts: materialRequestDrafts, requests: materialRequests, logs: materialDraftOperationLogs, bindings: [...taskBindings], sequence: materialRequestSequence, logSequence: materialDraftLogSeq })
+  const taskFields = processTasks.map(task => ({ task, fields: { hasMaterialRequest: task.hasMaterialRequest, materialRequestNo: task.materialRequestNo, materialMode: task.materialMode, materialModeLabel: task.materialModeLabel, materialRequestStatus: task.materialRequestStatus } }))
+  const headBefore = capturePdaHandoverState()
+  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY)
+  materialRequestActionDepth++
+  try { const result = action(); if (JSON.stringify({ drafts: materialRequestDrafts, requests: materialRequests, logs: materialDraftOperationLogs, bindings: [...taskBindings], sequence: materialRequestSequence, logSequence: materialDraftLogSeq }) !== JSON.stringify(before)) saveFormalMaterialRequests(); return result }
+  catch (error) {
+    materialRequestDrafts.splice(0, materialRequestDrafts.length, ...before.drafts)
+    materialRequests.splice(0, materialRequests.length, ...before.requests)
+    materialDraftOperationLogs.splice(0, materialDraftOperationLogs.length, ...before.logs)
+    taskBindings.clear(); before.bindings.forEach(([id, value]) => taskBindings.set(id, value))
+    materialRequestSequence = before.sequence; materialDraftLogSeq = before.logSequence
+    taskFields.forEach(({task, fields}) => Object.assign(task, fields))
+    restorePdaHandoverState(headBefore)
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY) !== raw) {
+      if (raw === null) localStorage.removeItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY); else localStorage.setItem(FORMAL_MATERIAL_REQUEST_STORAGE_KEY, raw)
+    }
+    throw new Error('接收需求未保存，原动作已撤回，请检查本机存储后重试。' + (error instanceof Error ? error.message : String(error)))
+  } finally { materialRequestActionDepth-- }
+}
+
 
 function appendMaterialDraftOperationLog(log: Omit<MaterialDraftOperationLog, 'id'>): void {
   materialDraftOperationLogs.push({
@@ -937,28 +1010,37 @@ function seedSystemAutoDraftLogs(): void {
   }
 }
 
-// 预置演示数据：覆盖待确认 / 部分创建 / 已创建 / 不涉及等状态。
-seedSystemAutoDraftLogs()
-markDraftNotApplicable('TASK-202603-0003-002', 'Mira Handayani', '2026-03-10 10:10:00')
-seedCreatedDraft('TASK-202603-0004-002', 'warehouse_delivery', '2026-03-10 10:25:00', 'Mira Handayani', '待配送')
-seedCreatedDraft('TASK-202603-0005-001', 'factory_pickup', '2026-03-11 14:20:00', 'Budi Santoso', '待自提')
-seedCreatedDraft('TASK-202603-0006-001', 'warehouse_delivery', '2026-03-08 09:30:00', 'Mira Handayani', '待配料')
-seedCreatedDraft('TASK-202603-0006-002', 'warehouse_delivery', '2026-03-09 16:00:00', 'Mira Handayani', '已完成')
-seedCreatedDraft('TASKGEN-202603-0002-002__ORDER', 'warehouse_delivery', '2026-03-20 09:10:00', 'Mira Handayani', '待配料')
-seedCreatedDraft('TASKGEN-202603-0002-008__ORDER', 'warehouse_delivery', '2026-03-20 10:20:00', 'Mira Handayani', '待配送')
-seedCreatedDraft('TASKGEN-202603-0003-001__ORDER', 'warehouse_delivery', '2026-03-20 11:40:00', 'Mira Handayani', '待配送')
-seedCreatedDraft('TASKGEN-202603-0004-001__ORDER', 'warehouse_delivery', '2026-03-20 15:10:00', 'Mira Handayani', '已完成')
-seedCreatedDraft('TASKGEN-202603-0005-001__ORDER', 'factory_pickup', '2026-03-20 16:20:00', 'Budi Santoso', '待自提')
+function ensureMaterialRequestDraftSeedData(): void {
+  if (materialRequestReadError) throw new Error(materialRequestReadError)
+  if (materialRequestDraftSeedState !== 'idle') return
+  materialRequestDraftSeedState = 'seeding'
+  materialRequestDrafts.push(...buildInitialDrafts())
 
-const seedEditableDraft = materialRequestDrafts.find((draft) => draft.taskId === 'TASK-202603-0004-001')
-if (seedEditableDraft && seedEditableDraft.lines[0]) {
-  setMaterialDraftMode(seedEditableDraft.draftId, 'factory_pickup', 'Mira Handayani')
-  setMaterialDraftLineConfirmedQty(
-    seedEditableDraft.draftId,
-    seedEditableDraft.lines[0].lineId,
-    Math.max(1, seedEditableDraft.lines[0].confirmedQty - 80),
-    'Mira Handayani',
-  )
+  // 预置演示数据：覆盖待确认 / 部分创建 / 已创建 / 不涉及等状态。
+  seedSystemAutoDraftLogs()
+  markDraftNotApplicable('TASK-202603-0003-002', 'Mira Handayani', '2026-03-10 10:10:00')
+  seedCreatedDraft('TASK-202603-0004-002', 'warehouse_delivery', '2026-03-10 10:25:00', 'Mira Handayani', '待配送')
+  seedCreatedDraft('TASK-202603-0005-001', 'factory_pickup', '2026-03-11 14:20:00', 'Budi Santoso', '待自提')
+  seedCreatedDraft('TASK-202603-0006-001', 'warehouse_delivery', '2026-03-08 09:30:00', 'Mira Handayani', '待配料')
+  seedCreatedDraft('TASK-202603-0006-002', 'warehouse_delivery', '2026-03-09 16:00:00', 'Mira Handayani', '已完成')
+  seedCreatedDraft('TASKGEN-202603-0002-002__ORDER', 'warehouse_delivery', '2026-03-20 09:10:00', 'Mira Handayani', '待配料')
+  seedCreatedDraft('TASKGEN-202603-0002-008__ORDER', 'warehouse_delivery', '2026-03-20 10:20:00', 'Mira Handayani', '待配送')
+  seedCreatedDraft('TASKGEN-202603-0003-001__ORDER', 'warehouse_delivery', '2026-03-20 11:40:00', 'Mira Handayani', '待配送')
+  seedCreatedDraft('TASKGEN-202603-0004-001__ORDER', 'warehouse_delivery', '2026-03-20 15:10:00', 'Mira Handayani', '已完成')
+  seedCreatedDraft('TASKGEN-202603-0005-001__ORDER', 'factory_pickup', '2026-03-20 16:20:00', 'Budi Santoso', '待自提')
+
+  const seedEditableDraft = materialRequestDrafts.find((draft) => draft.taskId === 'TASK-202603-0004-001')
+  if (seedEditableDraft?.lines[0]) {
+    setMaterialDraftMode(seedEditableDraft.draftId, 'factory_pickup', 'Mira Handayani')
+    setMaterialDraftLineConfirmedQty(
+      seedEditableDraft.draftId,
+      seedEditableDraft.lines[0].lineId,
+      Math.max(1, seedEditableDraft.lines[0].confirmedQty - 80),
+      'Mira Handayani',
+    )
+  }
+  materialRequestDraftSeedState = 'ready'
+  try { readFormalMaterialRequests() } catch (error) { materialRequestReadError = error instanceof Error ? error.message : String(error); throw error }
 }
 
 function getOrderById(orderId: string): ProductionOrder | undefined {
@@ -971,10 +1053,15 @@ function getTaskById(taskId: string): ProcessTask | undefined {
 }
 
 function getDraftById(draftId: string): MaterialRequestDraft | undefined {
+  ensureMaterialRequestDraftSeedData()
   return materialRequestDrafts.find((draft) => draft.draftId === draftId)
 }
 
 function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLine[] {
+  if (!initialProductionOrderIds.has(draft.productionOrderId)) {
+    prepareMaterialRequestDraftsForOrder(draft.productionOrderId)
+    return draft.lines.map(line => ({ ...line, selected: true, confirmedQty: line.suggestedQty }))
+  }
   const order = getOrderById(draft.productionOrderId)
   if (!order) return []
 
@@ -984,9 +1071,61 @@ function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLin
   return toDraftLines(draft.draftId, candidates)
 }
 
+// 新正式单沿已确认配料的首消费任务生成建议，不把计划或上道理论产出当实收。
+export function prepareMaterialRequestDraftsForOrder(orderId: string): void {
+  ensureMaterialRequestDraftSeedData()
+  if (initialProductionOrderIds.has(orderId)) return
+  const order = getOrderById(orderId)
+  if (!order?.techPackSnapshot || order.status === 'CANCELLED') return
+  const projection = getMaterialPrepOrderProjection(`prep-order-${orderId}`)
+  if (!projection) return
+  for (const task of listRuntimeExecutionTasks().filter(task => task.productionOrderId === orderId
+    && task.assignedFactoryId && task.status !== 'CANCELLED')) {
+    const processCode = task.processBusinessCode || task.processCode
+    const taskType: MaterialTaskType | undefined = task.mergedTaskType === 'CUTTING_SEWING_IRON_PACK' ? 'CUT'
+      : task.mergedTaskType === 'SEWING_IRON_PACK' ? 'SEW'
+      : ({ CUT_PANEL: 'CUT', CUTTING: 'CUT', SEW: 'SEW', SEWING: 'SEW', PRINT: 'PRINT', DYE: 'DYE' } as Partial<Record<string, MaterialTaskType>>)[processCode]
+    if (!taskType) continue
+    const draftId = buildDraftId(orderId, task.taskId)
+    const existing = getDraftById(draftId)
+    if (existing?.draftStatus === 'created' || existing?.draftStatus === 'not_applicable') continue
+    const lines: MaterialRequestDraftLine[] = projection.lines.flatMap(line => {
+      if (!(line.confirmedPrepQty > 0) || !line.taskLinks.some(link => link.taskId === task.taskId
+        && link.factoryId === task.assignedFactoryId && link.allocationStatus === '已分配')) return []
+      const bom = order.techPackSnapshot!.bomItems.find(bom => line.prepLineId === `${projection.order.prepOrderId}:${order.techPackSnapshot!.sourceTechPackVersionId}:${bom.id}`)
+      if (!bom || !line.materialSku || !line.unit || line.sourceDataIssue || !['面料', '辅料'].includes(line.materialType)) return []
+      const lineId = `${draftId}:${line.prepLineId}`
+      const previous = existing?.lines.find(item => item.lineId === lineId)
+      return [{ lineId, selected: previous?.selected ?? true, sourceType: 'bom' as const,
+        sourceTypeLabel: 'BOM物料' as const, materialCode: line.materialSku, materialName: line.materialName,
+        materialSpec: line.spec, materialCategory: line.materialType as '面料' | '辅料',
+        suggestedQty: line.confirmedPrepQty, confirmedQty: previous?.confirmedQty ?? line.confirmedPrepQty,
+        unit: line.unit, sourceRef: line.prepLineId, sourcePrepLineId: line.prepLineId,
+        note: '本单已确认配料；尚未交出或接收', sourceBomItemId: bom.id, sourceBomItemCode: line.materialSku,
+        sourceBomItemName: line.materialName, sourceSkuCodes: [...(bom.applicableSkuCodes ?? [])],
+        sourceRuleLabel: '已确认配料及首消费任务', sourceReasonText: `配料单 ${projection.order.prepOrderNo}` }]
+    })
+    if (existing) { existing.lines = lines; continue }
+    if (!lines.length) continue
+    materialRequestDrafts.push({ draftId, productionOrderId: orderId, productionOrderNo: order.productionOrderNo,
+      spuCode: order.demandSnapshot.spuCode, spuName: order.demandSnapshot.spuName,
+      taskId: task.taskId, taskNo: task.taskNo || task.taskId, rootTaskNo: task.rootTaskNo,
+      taskName: task.processNameZh, taskType, draftStatus: 'pending', needMaterial: true,
+      materialMode: 'warehouse_delivery', materialModeLabel: MATERIAL_MODE_LABEL.warehouse_delivery,
+      remark: '按本单已确认配料生成接收建议', createdMaterialRequestNo: '', createdBy: '', createdAt: '',
+      updatedBy: '系统', updatedAt: toTimestamp(), lines })
+  }
+}
+
 export function listMaterialRequestDraftsByOrder(orderId: string): MaterialRequestDraft[] {
+  ensureMaterialRequestDraftSeedData()
   return materialRequestDrafts
-    .filter((draft) => draft.productionOrderId === orderId)
+    .filter((draft) => {
+      if (draft.productionOrderId !== orderId) return false
+      if (draft.draftStatus === 'created' || initialProductionOrderIds.has(orderId)) return true
+      const task = getRuntimeTaskById(draft.taskId)
+      return Boolean(task && isRuntimeTaskExecutionTask(task))
+    })
     .sort((a, b) => a.taskId.localeCompare(b.taskId))
     .map(cloneDraft)
 }
@@ -997,6 +1136,7 @@ export function getMaterialRequestDraftById(draftId: string): MaterialRequestDra
 }
 
 export function getMaterialRequestDraftSummaryByOrder(orderId: string): MaterialDraftOrderSummary {
+  ensureMaterialRequestDraftSeedData()
   const drafts = materialRequestDrafts.filter((draft) => draft.productionOrderId === orderId)
 
   const pendingCount = drafts.filter((draft) => draft.draftStatus === 'pending').length
@@ -1047,7 +1187,9 @@ export function getMaterialDraftIndicatorsByOrder(orderId: string): MaterialDraf
     if (summary.totalDraftCount > 0 && summary.notApplicableCount === summary.totalDraftCount) {
       materialDraftHintText = `不涉及 ${summary.notApplicableCount}`
     } else {
-      materialDraftHintText = order?.taskBreakdownSummary.isBrokenDown ? '需生成接收草稿' : '待拆任务后生成'
+      materialDraftHintText = order?.taskBreakdownSummary.isBrokenDown
+        ? initialProductionOrderIds.has(orderId) ? '需生成接收草稿' : '打开接收草稿，按已确认配料生成建议'
+        : '待拆任务后生成'
     }
   } else if (materialDraftSummaryStatus === 'pending') {
     materialDraftHintText = `草稿 ${summary.totalDraftCount} / 待确认 ${summary.pendingCount}`
@@ -1229,6 +1371,7 @@ export function restoreMaterialDraftSuggestion(draftId: string, operatorName = '
 
 export function listMaterialDraftSupplementOptions(draftId: string): DraftMaterialCandidate[] {
   const draft = getDraftById(draftId)
+  if (draft && !initialProductionOrderIds.has(draft.productionOrderId)) return []
   if (!draft) return []
 
   const order = getOrderById(draft.productionOrderId)
@@ -1309,6 +1452,7 @@ export function confirmMaterialRequestDraft(
   draftId: string,
   operator: { id: string; name: string },
 ): { ok: true; request: MaterialRequestRecord } | { ok: false; reason: string } {
+  try { return runMaterialRequestAction(() => {
   const draft = getDraftById(draftId)
   if (!draft) {
     return { ok: false, reason: '未找到接收需求草稿' }
@@ -1321,6 +1465,21 @@ export function confirmMaterialRequestDraft(
   if (!draft.needMaterial) {
     draft.draftStatus = 'not_applicable'
     return { ok: false, reason: '当前任务已标记为不需要接收' }
+  }
+
+  if (!initialProductionOrderIds.has(draft.productionOrderId)) {
+    const task = getRuntimeTaskById(draft.taskId)
+    if (!task || !isRuntimeTaskExecutionTask(task) || !task.assignedFactoryId || task.status === 'CANCELLED') {
+      return { ok: false, reason: '原任务已失效或未分配，请重新打开当前执行任务的接收草稿' }
+    }
+    const projection = getMaterialPrepOrderProjection(`prep-order-${draft.productionOrderId}`)
+    const invalid = draft.lines.filter(line => line.selected).some(line => {
+      const current = projection?.lines.find(item => item.prepLineId === line.sourcePrepLineId)
+      return !current || Boolean(current.sourceDataIssue) || current.materialSku !== line.materialCode || current.unit !== line.unit
+        || !current.taskLinks.some(link => link.taskId === task.taskId && link.factoryId === task.assignedFactoryId)
+        || line.confirmedQty > current.confirmedPrepQty
+    })
+    if (invalid) return { ok: false, reason: '接收数量或物料超出本任务已确认配料，请核对配料后重新确认' }
   }
 
   const selectedLines = draft.lines.filter((line) => line.selected)
@@ -1371,6 +1530,7 @@ export function confirmMaterialRequestDraft(
 
   materialRequests.unshift(request)
   applyTaskBinding(request)
+  syncPdaPickupHeadForMaterialRequest(request.materialRequestNo)
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
@@ -1384,9 +1544,12 @@ export function confirmMaterialRequestDraft(
     ok: true,
     request: cloneRequest(request),
   }
+
+  }) } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : '接收需求未保存，请重试。' } }
 }
 
 export function listMaterialRequests(): MaterialRequestRecord[] {
+  ensureMaterialRequestDraftSeedData()
   return materialRequests
     .slice()
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -1398,6 +1561,7 @@ export function listMaterialRequestsByOrder(orderNo: string): MaterialRequestRec
 }
 
 export function listMaterialDraftOperationLogsByOrder(orderId: string): MaterialDraftOperationLog[] {
+  ensureMaterialRequestDraftSeedData()
   return materialDraftOperationLogs
     .filter((log) => log.productionOrderId === orderId)
     .slice()
@@ -1406,6 +1570,7 @@ export function listMaterialDraftOperationLogsByOrder(orderId: string): Material
 }
 
 export function getTaskMaterialRequestBinding(taskId: string): MaterialRequestTaskBinding | null {
+  ensureMaterialRequestDraftSeedData()
   const binding = taskBindings.get(taskId)
   if (!binding) return null
   return { ...binding }

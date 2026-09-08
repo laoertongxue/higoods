@@ -6,7 +6,7 @@ import {
   getPostFinishingWorkOrderById,
   type PostFinishingActionRecord,
   type PostFinishingWorkOrder,
-} from '../../../data/fcs/post-finishing-domain.ts'
+} from '../../../data/fcs/post-finishing-current-read-model.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -43,23 +43,13 @@ function isPlaceholderImage(sourceLabel: string): boolean {
 }
 
 function getPostActionFields(order: PostFinishingWorkOrder): PrintField[] {
-  if (order.isPostDoneBySewingFactory) {
-    return [
-      { label: '实际工序状态', value: '实际工序已由车缝厂完成', emphasis: true },
-      { label: '车缝工厂', value: order.sourceSewingFactoryName },
-      { label: '车缝任务号', value: order.sourceSewingTaskNo },
-      { label: '车缝厂完成实际工序成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
-      { label: '实际工序完成时间', value: valueOrDash(order.postAction.finishedAt) },
-      { label: '流转说明', value: order.postAction.skipReason || '质检后无需执行实际工序时直接进入复检' },
-    ]
-  }
-
   return [
-    { label: '实际工序状态', value: order.postAction.status },
-    { label: '待执行实际工序成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
-    { label: '实际工序完成成衣件数', value: actionQty(order.postAction, order.postAction.completedPostGarmentQty), emphasis: true },
-    { label: '实际工序操作人', value: valueOrDash(order.postAction.operatorName) },
-    { label: '实际工序完成时间', value: valueOrDash(order.postAction.finishedAt) },
+    { label: '本批后道项目', value: order.postProcessItems.join('、'), emphasis: true },
+    { label: '后道处理状态', value: order.postAction.status },
+    { label: '应处理成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
+    { label: '已处理成衣件数', value: actionQty(order.postAction, order.postAction.completedPostGarmentQty), emphasis: true },
+    { label: '后道操作人', value: valueOrDash(order.postAction.operatorName) },
+    { label: '后道完成时间', value: valueOrDash(order.postAction.finishedAt) },
     { label: '备注', value: valueOrDash(order.postAction.remark) },
   ]
 }
@@ -70,16 +60,14 @@ function buildRouteRows(order: PostFinishingWorkOrder): string[][] {
     { node: '质检', action: order.qcAction, qty: actionQty(order.qcAction, order.qcAction.passedGarmentQty ?? order.qcAction.acceptedGarmentQty) },
   ]
 
-  if (!order.isPostDoneBySewingFactory) {
-    rows.push({
-      node: '实际工序',
-      action: order.postAction,
-      qty: actionQty(order.postAction, order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty),
-    })
-  }
+  rows.push({
+    node: '后道处理',
+    action: order.postAction,
+    qty: actionQty(order.postAction, order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty),
+  })
 
   rows.push(
-    { node: '复检', action: order.recheckAction, qty: actionQty(order.recheckAction, order.recheckAction.confirmedGarmentQty ?? order.recheckAction.acceptedGarmentQty) },
+    { node: '处理后交出复核', action: order.recheckAction, qty: actionQty(order.recheckAction, order.recheckAction.confirmedGarmentQty ?? order.recheckAction.acceptedGarmentQty) },
     {
       node: '交出',
       qty: formatPrintQty(order.handoverAction?.handoverGarmentQty ?? 0, '件'),
@@ -198,11 +186,11 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { label: '当前工厂', value: order.currentFactoryName },
     { label: '后道来源', value: sourceLabel },
     { label: '是否专门后道工厂', value: order.isDedicatedPostFactory ? '是' : '否' },
-    { label: '后道是否已由车缝厂完成', value: order.isPostDoneBySewingFactory ? '是' : '否' },
+    { label: '本批后道项目', value: order.postProcessItems.join('、'), emphasis: true },
     { label: '计划成衣件数', value: formatPrintQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit), emphasis: true },
-    { label: '已完成实际工序成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
+    { label: '已处理成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
     { label: '待质检成衣件数', value: formatPrintQty(order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
-    { label: '待复检成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
+    { label: '待处理后交出复核成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
     { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
     { label: '当前状态', value: order.currentStatus },
     { label: '交付仓', value: waitHandoverRecord?.targetWarehouseName || '后道待交出仓' },
@@ -239,21 +227,19 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     },
     {
       sectionId: 'post',
-      title: '实际工序区',
+      title: '后道处理区',
       fields: getPostActionFields(order),
-      note: order.isPostDoneBySewingFactory
-        ? '质检后无需执行实际工序时直接进入复检。'
-        : '',
+      note: '后道处理只记录已处理和未处理数量；质量与返厂仅由质检确认。',
     },
     {
       sectionId: 'recheck',
-      title: '复检区',
+      title: '处理后交出复核区',
       fields: [
-        { label: '待复检成衣件数', value: formatPrintQty(order.recheckAction.submittedGarmentQty, order.recheckAction.qtyUnit), emphasis: true },
-        { label: '复检确认成衣件数', value: formatPrintQty(order.recheckAction.confirmedGarmentQty ?? order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit), emphasis: true },
+        { label: '待复核成衣件数', value: formatPrintQty(order.recheckAction.submittedGarmentQty, order.recheckAction.qtyUnit), emphasis: true },
+        { label: '复核确认成衣件数', value: formatPrintQty(order.recheckAction.confirmedGarmentQty ?? order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit), emphasis: true },
         { label: '差异成衣件数', value: formatPrintQty(order.recheckAction.diffGarmentQty, order.recheckAction.qtyUnit), emphasis: true },
-        { label: '复检人', value: valueOrDash(order.recheckAction.operatorName) },
-        { label: '复检时间', value: valueOrDash(order.recheckAction.finishedAt) },
+        { label: '复核人', value: valueOrDash(order.recheckAction.operatorName) },
+        { label: '复核时间', value: valueOrDash(order.recheckAction.finishedAt) },
         { label: '签字', value: '' },
       ],
     },
@@ -263,7 +249,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       fields: [
         { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
         { label: '已交出成衣件数', value: formatPrintQty(latestHandover?.handoverObjectQty ?? order.handoverAction?.handoverGarmentQty ?? 0, '件'), emphasis: true },
-        { label: '实收成衣件数', value: formatPrintQty(latestHandover?.receiveObjectQty ?? order.handoverAction?.receiveGarmentQty ?? 0, '件'), emphasis: true },
+        { label: '实收成衣件数', value: formatPrintQty(latestHandover?.receiveObjectQty ?? order.handoverAction?.receivedGarmentQty ?? 0, '件'), emphasis: true },
         { label: '差异成衣件数', value: formatPrintQty(latestHandover?.diffObjectQty ?? order.handoverAction?.diffGarmentQty ?? 0, '件'), emphasis: true },
         { label: '交出人', value: latestHandover?.handoverPerson || '—' },
         { label: '交出时间', value: latestHandover?.handoverAt || '—' },
@@ -280,7 +266,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       title: '流转节点区',
       headers: ['节点', '状态', '操作人', '时间', '成衣件数', '签字'],
       rows: buildRouteRows(order),
-      minRows: order.isPostDoneBySewingFactory ? 4 : 5,
+      minRows: 5,
     },
   ]
 
@@ -319,8 +305,8 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     signatureBlocks: [
       { label: '接收人签字', signerRole: '接收人' },
       { label: '质检人签字', signerRole: '质检人' },
-      { label: order.isPostDoneBySewingFactory ? '车缝厂实际工序签字' : '实际工序操作人签字', signerRole: '实际工序操作人' },
-      { label: '复检人签字', signerRole: '复检人' },
+      { label: '后道操作人签字', signerRole: '后道操作人' },
+      { label: '处理后复核人签字', signerRole: '处理后复核人' },
       { label: '交出人签字', signerRole: '交出人' },
       { label: '接收方签字', signerRole: '接收方' },
     ],

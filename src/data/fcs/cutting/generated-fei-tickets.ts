@@ -45,11 +45,12 @@ export const FEI_TICKET_WAITING_SOURCE_BASIS_TYPE = 'WAITING_ACTUAL_CUTTING_OUTP
 export const FEI_TICKET_ORDINARY_MOCK_PREFIX = 'mock-fei-ticket-ordinary-' as const
 export const FEI_TICKET_ORDINARY_MOCK_COUNT = 12 as const
 
-export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS | typeof FEI_TICKET_MANUAL_SOURCE_BASIS
+export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS | typeof FEI_TICKET_MANUAL_SOURCE_BASIS | '部位毛织实收'
 export type FeiTicketSourceBasisType =
   | typeof FEI_TICKET_SOURCE_BASIS_TYPE
   | typeof FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE
   | 'SPREADING_RESULT'
+  | 'WOOL_PANEL_RECEIPT'
 export type WaitingFeiTicketSourceBasisType = typeof FEI_TICKET_WAITING_SOURCE_BASIS_TYPE
 export type FeiTicketSpecialCraftCategory = '辅助工艺' | '特种工艺'
 export type FeiTicketSpecialCraftReceiverFactoryType = '辅助工艺厂' | '特种工艺厂' | '内部裁床工艺' | '其他'
@@ -635,38 +636,13 @@ export function formatFeiTicketSpecialCraftDisplayLabel(crafts: FeiTicketSpecial
     .join('；')
 }
 
-function derivePieceSequenceMarkerMode(sequenceNo: number, fallbackMode: MarkerModeKey): MarkerModeKey {
-  const scenarioIndex = (sequenceNo - 1) % 8
-  if (scenarioIndex === 2 || scenarioIndex === 3) return 'high_low'
-  if (scenarioIndex === 4) return 'fold_normal'
-  if (scenarioIndex === 5) return 'fold_high_low'
-  return fallbackMode
-}
-
-function derivePieceSequenceSizeGroupId(size: string, markerMode: MarkerModeKey, sequenceNo = 1): string {
-  if (!isHighLowPieceSequenceMode(markerMode)) return '整床'
-  const scenarioIndex = (sequenceNo - 1) % 8
-  if (scenarioIndex === 2) return 'S组'
-  if (scenarioIndex === 3) return 'M组'
-  if (scenarioIndex === 5) return 'S组'
-  return `${normalizeText(size) || '均码'}组`
+function derivePieceSequenceSizeGroupId(size: string, markerMode: MarkerModeKey): string {
+  return isHighLowPieceSequenceMode(markerMode) ? `${normalizeText(size) || '均码'}组` : '整床'
 }
 
 function derivePieceSequenceLayerCount(
   line: SpreadingPieceOutputLine,
-  markerMode: MarkerModeKey,
-  sequenceNo: number,
 ): { actualLayerCount: number; actualLayerSource: PieceSequenceRange['actualLayerSource']; reason: string } {
-  if (isHighLowPieceSequenceMode(markerMode)) {
-    const scenarioIndex = (sequenceNo - 1) % 8
-    if (scenarioIndex === 2 || scenarioIndex === 5) {
-      return { actualLayerCount: 40, actualLayerSource: '实铺层数', reason: '' }
-    }
-    if (scenarioIndex === 3) {
-      return { actualLayerCount: 60, actualLayerSource: '实铺层数', reason: '' }
-    }
-  }
-
   const actualLayerCount = normalizePositiveInteger(line.layerCount || 0)
   if (actualLayerCount > 0) {
     return { actualLayerCount, actualLayerSource: '实铺层数', reason: '' }
@@ -682,11 +658,10 @@ function derivePieceSequenceLayerCount(
 
 function buildPieceSequenceRange(
   line: SpreadingPieceOutputLine,
-  sequenceNo: number,
   issuedAt: string,
 ): { range: PieceSequenceRange | null; label: string; reason: string } {
-  const markerMode = derivePieceSequenceMarkerMode(sequenceNo, line.markerMode)
-  const { actualLayerCount, actualLayerSource, reason } = derivePieceSequenceLayerCount(line, markerMode, sequenceNo)
+  const markerMode = line.markerMode
+  const { actualLayerCount, actualLayerSource, reason } = derivePieceSequenceLayerCount(line)
   if (reason || actualLayerCount <= 0) {
     return { range: null, label: '不可生成', reason: reason || '缺少实际裁剪产出' }
   }
@@ -708,7 +683,7 @@ function buildPieceSequenceRange(
       bedNo: line.sourceMarkerNo,
       markerMode,
       size: line.sizeCode,
-      sizeGroupId: derivePieceSequenceSizeGroupId(line.sizeCode, markerMode, sequenceNo),
+      sizeGroupId: derivePieceSequenceSizeGroupId(line.sizeCode, markerMode),
       partCode: line.partCode,
       partName: line.partName,
       partInstanceNo: line.partInstanceNo,
@@ -921,6 +896,34 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
   const markerPlanNo = seedRecords[0]?.markerPlanNo || 'MB-030102-02'
   const completedAt = '2026-03-14 20:00'
   const actualCutQuantities = [557, 613]
+  const highLowPlanRows = seedRecords.flatMap((record, recordIndex) => {
+    const color = record.colorScope[0] || (recordIndex === 0 ? 'Navy' : 'Khaki')
+    const scopedSkuLines = resolveColorScopedSkuLines(record, color)
+    const groupSkuLines = [scopedSkuLines[0], scopedSkuLines[1] || scopedSkuLines[0]].filter(
+      (line): line is GeneratedCutOrderSkuScopeLine => Boolean(line),
+    )
+    const recordActualQty = actualCutQuantities[recordIndex] || 0
+    const firstGroupQty = Math.max(Math.round(recordActualQty * 0.4), 1)
+    const groupQuantities = [firstGroupQty, Math.max(recordActualQty - firstGroupQty, 1)]
+    const groupLayers = [40, 60]
+
+    return groupSkuLines.map((skuLine, groupIndex) => ({
+      planUnitId: `plan-unit-high-low-${record.cutOrderId}-${groupIndex + 1}`,
+      rollRecordId: `roll-high-low-${record.cutOrderId}-${groupIndex + 1}`,
+      rollNo: `ROLL-HIGH-LOW-${recordIndex + 1}-${groupIndex + 1}`,
+      materialSku: record.materialSku,
+      color,
+      sizeRow: {
+        skuCode: skuLine.skuCode,
+        color: skuLine.color || color,
+        size: skuLine.size,
+        plannedQty: groupQuantities[groupIndex],
+      },
+      layerCount: groupLayers[groupIndex],
+      actualCutGarmentQty: groupQuantities[groupIndex],
+      actualLength: recordIndex === 0 ? (groupIndex === 0 ? 35 : 52) : (groupIndex === 0 ? 31 : 47),
+    }))
+  })
   const rolls = seedRecords.map((record, index) => {
     const color = record.colorScope[0] || (index === 0 ? 'Navy' : 'Khaki')
     const layerCount = index === 0 ? 50 : 30
@@ -1090,6 +1093,182 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
     updatedBy: '裁剪组长',
   } as unknown as SpreadingSession
 
+  const highLowCompletedAt = '2026-03-20 17:55'
+  const highLowSession = {
+    spreadingSessionId: 'spreading-session-fei-high-low-ready-001',
+    sessionNo: 'PB-2452',
+    status: 'DONE',
+    cuttingStatus: 'CUTTING_DONE',
+    cutOrderIds: seedRecords.map((record) => record.cutOrderId),
+    cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+    contextType: 'marker-plan',
+    markerPlanId,
+    markerPlanNo,
+    sourceMarkerId: 'seed-marker-fei-high-low-bed-HL-1',
+    sourceMarkerNo: 'HL-1',
+    markerId: 'seed-marker-fei-high-low-bed-HL-1',
+    markerNo: 'HL-1',
+    sourceBedMode: 'high_low',
+    spreadingMode: 'HIGH_LOW',
+    plannedLayers: 60,
+    actualLayers: 60,
+    actualCutPieceQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    actualCutGarmentQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    planUnits: highLowPlanRows.map((row) => ({
+      planUnitId: row.planUnitId,
+      materialSku: row.materialSku,
+      color: row.color,
+      garmentQtyPerUnit: Math.max(row.actualCutGarmentQty / row.layerCount, 1),
+      plannedRepeatCount: row.layerCount,
+      plannedCutGarmentQty: row.actualCutGarmentQty,
+      sizeRows: [row.sizeRow],
+    })),
+    rolls: highLowPlanRows.map((row) => ({
+      rollRecordId: row.rollRecordId,
+      rollNo: row.rollNo,
+      materialSku: row.materialSku,
+      color: row.color,
+      planUnitId: row.planUnitId,
+      layerCount: row.layerCount,
+      actualCutGarmentQty: row.actualCutGarmentQty,
+      actualCutPieceQty: row.actualCutGarmentQty,
+      actualLength: row.actualLength,
+    })),
+    completionLinkage: {
+      linkedCutOrderIds: seedRecords.map((record) => record.cutOrderId),
+      linkedCutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+      completedAt: highLowCompletedAt,
+      completedBy: '裁剪组长',
+      generatedWarning: false,
+    },
+    completedAt: highLowCompletedAt,
+    completedBy: '裁剪组长',
+    updatedAt: highLowCompletedAt,
+    updatedBy: '裁剪组长',
+  } as unknown as SpreadingSession
+
+  const foldNormalRecord = seedRecords[0]
+  const foldNormalColor = foldNormalRecord.colorScope[0] || 'Navy'
+  const foldNormalSkuLine = resolveColorScopedSkuLines(foldNormalRecord, foldNormalColor)[0]
+  const foldNormalCompletedAt = '2026-03-20 18:00'
+  const foldNormalSession = {
+    spreadingSessionId: 'spreading-session-fei-fold-normal-ready-001',
+    sessionNo: 'PB-2453',
+    status: 'DONE',
+    cuttingStatus: 'CUTTING_DONE',
+    cutOrderIds: [foldNormalRecord.cutOrderId],
+    cutOrderNos: [foldNormalRecord.cutOrderNo],
+    contextType: 'cut-order',
+    markerPlanId,
+    markerPlanNo,
+    sourceMarkerId: 'seed-marker-fei-fold-normal-bed-F-1',
+    sourceMarkerNo: 'F-1',
+    markerId: 'seed-marker-fei-fold-normal-bed-F-1',
+    markerNo: 'F-1',
+    sourceBedMode: 'fold_normal',
+    spreadingMode: 'FOLD_NORMAL',
+    plannedLayers: 50,
+    actualLayers: 50,
+    actualCutPieceQty: 400,
+    actualCutGarmentQty: 400,
+    planUnits: [
+      {
+        planUnitId: `plan-unit-fold-normal-${foldNormalRecord.cutOrderId}`,
+        materialSku: foldNormalRecord.materialSku,
+        color: foldNormalColor,
+        garmentQtyPerUnit: 8,
+        plannedRepeatCount: 50,
+        plannedCutGarmentQty: 400,
+        sizeRows: [
+          {
+            skuCode: foldNormalSkuLine?.skuCode || foldNormalRecord.cutOrderNo,
+            color: foldNormalSkuLine?.color || foldNormalColor,
+            size: foldNormalSkuLine?.size || '均码',
+            plannedQty: 400,
+          },
+        ],
+      },
+    ],
+    rolls: [
+      {
+        rollRecordId: `roll-fold-normal-${foldNormalRecord.cutOrderId}`,
+        rollNo: 'ROLL-FOLD-NORMAL-1',
+        materialSku: foldNormalRecord.materialSku,
+        color: foldNormalColor,
+        planUnitId: `plan-unit-fold-normal-${foldNormalRecord.cutOrderId}`,
+        layerCount: 50,
+        actualCutGarmentQty: 400,
+        actualCutPieceQty: 400,
+        actualLength: 44,
+      },
+    ],
+    completionLinkage: {
+      linkedCutOrderIds: [foldNormalRecord.cutOrderId],
+      linkedCutOrderNos: [foldNormalRecord.cutOrderNo],
+      completedAt: foldNormalCompletedAt,
+      completedBy: '裁剪组长',
+      generatedWarning: false,
+    },
+    completedAt: foldNormalCompletedAt,
+    completedBy: '裁剪组长',
+    updatedAt: foldNormalCompletedAt,
+    updatedBy: '裁剪组长',
+  } as unknown as SpreadingSession
+
+  const foldHighLowCompletedAt = '2026-03-20 18:05'
+  const foldHighLowSession = {
+    spreadingSessionId: 'spreading-session-fei-fold-high-low-ready-001',
+    sessionNo: 'PB-2454',
+    status: 'DONE',
+    cuttingStatus: 'CUTTING_DONE',
+    cutOrderIds: seedRecords.map((record) => record.cutOrderId),
+    cutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+    contextType: 'marker-plan',
+    markerPlanId,
+    markerPlanNo,
+    sourceMarkerId: 'seed-marker-fei-fold-high-low-bed-FHL-1',
+    sourceMarkerNo: 'FHL-1',
+    markerId: 'seed-marker-fei-fold-high-low-bed-FHL-1',
+    markerNo: 'FHL-1',
+    sourceBedMode: 'fold_high_low',
+    spreadingMode: 'FOLD_HIGH_LOW',
+    plannedLayers: 60,
+    actualLayers: 60,
+    actualCutPieceQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    actualCutGarmentQty: actualCutQuantities.reduce((sum, value) => sum + value, 0),
+    planUnits: highLowPlanRows.map((row) => ({
+      planUnitId: `plan-unit-fold-high-low-${row.planUnitId}`,
+      materialSku: row.materialSku,
+      color: row.color,
+      garmentQtyPerUnit: Math.max(row.actualCutGarmentQty / row.layerCount, 1),
+      plannedRepeatCount: row.layerCount,
+      plannedCutGarmentQty: row.actualCutGarmentQty,
+      sizeRows: [row.sizeRow],
+    })),
+    rolls: highLowPlanRows.map((row) => ({
+      rollRecordId: `roll-fold-high-low-${row.rollRecordId}`,
+      rollNo: `FOLD-${row.rollNo}`,
+      materialSku: row.materialSku,
+      color: row.color,
+      planUnitId: `plan-unit-fold-high-low-${row.planUnitId}`,
+      layerCount: row.layerCount,
+      actualCutGarmentQty: row.actualCutGarmentQty,
+      actualCutPieceQty: row.actualCutGarmentQty,
+      actualLength: row.actualLength,
+    })),
+    completionLinkage: {
+      linkedCutOrderIds: seedRecords.map((record) => record.cutOrderId),
+      linkedCutOrderNos: seedRecords.map((record) => record.cutOrderNo),
+      completedAt: foldHighLowCompletedAt,
+      completedBy: '裁剪组长',
+      generatedWarning: false,
+    },
+    completedAt: foldHighLowCompletedAt,
+    completedBy: '裁剪组长',
+    updatedAt: foldHighLowCompletedAt,
+    updatedBy: '裁剪组长',
+  } as unknown as SpreadingSession
+
   const waitingPrintSession = waitingPrintRecord
     ? {
         spreadingSessionId: 'spreading-session-fei-waiting-print-001',
@@ -1184,7 +1363,14 @@ function buildCompletedSpreadingSeedStore(sourceRecords: GeneratedCutOrderSource
 
   return {
     markers: [],
-    sessions: [session, cleanSession, ...(waitingPrintSession ? [waitingPrintSession] : [])],
+    sessions: [
+      session,
+      cleanSession,
+      highLowSession,
+      foldNormalSession,
+      foldHighLowSession,
+      ...(waitingPrintSession ? [waitingPrintSession] : []),
+    ],
   }
 }
 
@@ -1493,6 +1679,7 @@ function isFinishCuttingPayload(value: unknown): value is FinishCuttingPayload {
 function buildRuntimeActualOutputLinesFromEvents(
   sourceRecords: GeneratedCutOrderSourceRecord[],
 ): SpreadingPieceOutputLine[] {
+  const storedSessions = readStoredMarkerSpreadingStore().sessions
   return listCuttingRuntimeEventsByType('完成裁剪').flatMap((event) => {
     if (!isFinishCuttingPayload(event.payload)) return []
     const sourceRecord =
@@ -1503,6 +1690,9 @@ function buildRuntimeActualOutputLinesFromEvents(
     if (!sourceRecord) return []
 
     const payload = event.payload
+    const session = storedSessions.find(item => item.spreadingSessionId === (payload.spreadingOrderId || event.refs.spreadingOrderId)
+      && item.cutOrderIds.includes(sourceRecord.cutOrderId))
+    const bundleKeys = unique(payload.outputLines.map(line => `${line.color}::${line.size}`))
     return payload.outputLines
       .filter((line) =>
         Number(line.actualPieceQty || 0) > 0
@@ -1514,17 +1704,26 @@ function buildRuntimeActualOutputLinesFromEvents(
         const actualQty = Math.max(Number(line.actualPieceQty || 0), 1)
         const partCode = line.partCode || line.partName
         const partName = line.partName || line.partCode
-        const garmentSkuId = `${sourceRecord.spuCode}-${line.size}`
+        const exactSku = sourceRecord.skuScopeLines.find(sku => sku.size === line.size && sku.color === line.color)
+        const garmentSkuId = exactSku?.skuCode || `${sourceRecord.spuCode}-${line.size}`
+        const bundleNo = buildBundleNo(bundleKeys.indexOf(`${line.color}::${line.size}`))
+        const matchingUnits = (session?.planUnits || []).filter(unit => unit.materialSku === sourceRecord.materialSku
+          && (!unit.color || unit.color === line.color) && unit.sizeRows?.some(row => row.size === line.size))
+        const actualRolls = (session?.rolls || []).filter(roll => roll.materialSku === sourceRecord.materialSku
+          && (!roll.color || roll.color === line.color)
+          && (!matchingUnits.length || matchingUnits.some(unit => unit.planUnitId === roll.planUnitId)))
+        const actualLayers = actualRolls.reduce((total, roll) => total + Math.max(Number(roll.layerCount || 0), 0), 0)
         const pieceRowsForSku = findPieceRowsForSku(sourceRecord, garmentSkuId)
-        const applicableSkuCodes = resolveApplicableSkuCodes(sourceRecord, garmentSkuId, pieceRowsForSku)
+        const applicableSkuCodes = exactSku ? [exactSku.skuCode] : []
         const applicableSkuLabel = formatApplicableSkuLabel(applicableSkuCodes, garmentSkuId)
-        const partQuantityPerGarment = resolvePartQuantityPerGarment(pieceRowsForSku)
+        const matchingPart = pieceRowsForSku.find(row => line.partCode ? row.partCode === line.partCode : row.partName === line.partName)
+        const partQuantityPerGarment = Math.max(Number(matchingPart?.pieceCountPerUnit || 0), 0)
         const assemblyGroupKey = [
           sourceRecord.cutOrderNo,
           event.eventNo,
           line.color || sourceRecord.colorScope[0] || '待补颜色',
           line.size,
-          buildBundleNo(index),
+          bundleNo,
         ].join('::')
         return {
           outputLineId: line.outputId || `${event.eventId}__${sequence}`,
@@ -1556,14 +1755,14 @@ function buildRuntimeActualOutputLinesFromEvents(
           garmentInstanceNo: 1,
           partQuantityPerGarment,
           pieceCountPerGarment: 1,
-          bundleNo: buildBundleNo(index),
+          bundleNo,
           bundleQty: actualQty,
           pieceSetNoStart: 1,
           pieceSetNoEnd: actualQty,
           pieceSetNoRange: formatPieceSetRange(1, actualQty),
           bundleTicketType: '扎束菲票',
-          layerCount: 0,
-          markerMode: 'normal',
+          layerCount: actualLayers,
+          markerMode: normalizePieceSequenceMarkerMode(session?.sourceBedMode || session?.spreadingMode),
           sizeGroupId: line.size,
           actualCutPieceQty: actualQty,
           actualCutGarmentQty: Math.max(Number(line.actualGarmentQty || line.actualPieceQty || 0), 1),
@@ -1815,7 +2014,7 @@ function buildFeiRecordsFromSpreadingSessions(
       : secondaryCraftMeta.craftSequenceVersion
     const currentCraftStage = secondaryCrafts[0] || ''
     const specialCraftDisplayLabel = formatFeiTicketSpecialCraftDisplayLabel(specialCrafts)
-    const pieceSequence = buildPieceSequenceRange(line, sequenceNo, line.createdAt)
+    const pieceSequence = buildPieceSequenceRange(line, line.createdAt)
     const layerCount = Math.max(line.layerCount || pieceSequence.range?.actualLayerCount || 0, 0)
     const businessSizeLabel = buildBusinessSizeLabel(line.sizeCode, line.garmentInstanceNo, layerCount)
     const encoded = encodeFeiTicketQr({

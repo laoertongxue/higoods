@@ -652,3 +652,6 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/reports'),
   'renderCraftDyeingReportsPage',
 )
+
+export const renderWlsInboundPage = createAsyncRenderer(() => import('../pages/wls-inbound'), 'renderWlsInboundPage')
+export const renderWlsFinishedInboundPage = createAsyncRenderer(() => import('../pages/wls-finished-inbound'), 'renderWlsFinishedInboundPage')

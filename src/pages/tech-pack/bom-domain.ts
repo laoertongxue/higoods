@@ -290,7 +290,6 @@ export function renderBomTab(): string {
                                             .join('')}
                                         </select>`
                                   }
-                                  ${item.waterSolubleRequirement === '是' && item.dyeRequirement !== '无' ? '<div class="mt-1 whitespace-nowrap text-[11px] text-amber-700">固定顺序：先水溶、后染色</div>' : ''}
                                 </td>
                                 <td class="px-3 py-2">
                                   ${
@@ -396,6 +395,9 @@ export function renderBomFormDialog(): string {
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const isGarment = state.newBomItem.type === '成衣'
+  const usageProcessOptions = bomUsageProcessOptions.filter((option) =>
+    option.allowedTypes.includes(state.newBomItem.type)
+  )
   const applyAllSku = isGarment
     ? skuOptions.length > 0 && state.newBomItem.applicableSkuCodes.length === skuOptions.length
     : state.newBomItem.applicableSkuCodes.length === 0
@@ -418,7 +420,7 @@ export function renderBomFormDialog(): string {
             <label class="space-y-1">
               <span class="text-sm">物料类型</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-type">
-                ${['面料', '辅料', '包装材料', '成衣', '其他']
+                ${['面料', '纱线', '辅料', '包装材料', '成衣', '其他']
                   .map((option) => `<option value="${option}" ${state.newBomItem.type === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
@@ -486,7 +488,7 @@ export function renderBomFormDialog(): string {
             <div class="space-y-1">
               <span class="text-sm">使用工序</span>
               <div class="grid grid-cols-2 gap-2 rounded-md border p-2 text-xs">
-                ${bomUsageProcessOptions
+                ${usageProcessOptions
                   .map(
                     (option) => `
                       <label class="inline-flex items-center gap-2">
@@ -573,7 +575,6 @@ export function renderBomFormDialog(): string {
                   .map((option) => `<option value="${option}" ${state.newBomItem.waterSolubleRequirement === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
-              ${state.newBomItem.waterSolubleRequirement === '是' && state.newBomItem.dyeRequirement !== '无' ? '<span class="text-xs text-amber-700">固定顺序：先水溶、后染色</span>' : ''}
             </label>
             <label class="space-y-1">
               <span class="text-sm">染色需求</span>

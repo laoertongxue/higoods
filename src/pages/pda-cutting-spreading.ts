@@ -1129,6 +1129,11 @@ function resolveWebSpreadingSessionForSync(input: {
   }
 }
 
+function formatPdaCuttingTimestamp(date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 function syncWebSpreadingStage(input: {
   detail: PdaCuttingTaskDetailData
   target: PdaCuttingSpreadingTarget
@@ -1148,11 +1153,11 @@ function syncWebSpreadingStage(input: {
     ...session,
     status: input.status || session.status,
     cuttingStatus: input.cuttingStatus || session.cuttingStatus,
-    cuttingTableId: selectedTable?.cuttingTableId || session.cuttingTableId || '',
-    cuttingTableNo: selectedTable?.cuttingTableNo || session.cuttingTableNo || '',
-    cuttingTableName: selectedTable?.cuttingTableName || session.cuttingTableName || '',
-    ownerAccountId: input.form.ownerAccountId || input.operator.operatorAccountId,
-    ownerName: input.form.ownerName || input.operator.operatorName,
+    cuttingTableId: input.cuttingStatus ? session.cuttingTableId : selectedTable?.cuttingTableId || session.cuttingTableId || '',
+    cuttingTableNo: input.cuttingStatus ? session.cuttingTableNo : selectedTable?.cuttingTableNo || session.cuttingTableNo || '',
+    cuttingTableName: input.cuttingStatus ? session.cuttingTableName : selectedTable?.cuttingTableName || session.cuttingTableName || '',
+    ownerAccountId: input.cuttingStatus ? session.ownerAccountId : input.form.ownerAccountId || input.operator.operatorAccountId,
+    ownerName: input.cuttingStatus ? session.ownerName : input.form.ownerName || input.operator.operatorName,
     actualStartAt:
       input.status === 'IN_PROGRESS'
         ? session.actualStartAt || input.occurredAt
@@ -1173,7 +1178,6 @@ function syncWebSpreadingStage(input: {
     actualCutPieceQty: input.actualCutQty ?? session.actualCutPieceQty,
     actualCutGarmentQty: input.actualCutQty ?? session.actualCutGarmentQty,
     totalActualLength: input.actualUsage ?? session.totalActualLength,
-    claimedLengthTotal: input.actualUsage ?? session.claimedLengthTotal,
     sourceChannel: 'PDA_WRITEBACK',
     sourceWritebackId: session.sourceWritebackId || input.eventId,
     updatedFromPdaAt: input.occurredAt,
@@ -1483,7 +1487,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       return true
     }
     const operator = resolveCurrentOperator(taskId, detail)
-    const startedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    const startedAt = formatPdaCuttingTimestamp()
     const event = appendCuttingRuntimeEvent({
       eventType: '裁片单开工',
       eventSource: 'PDA',
@@ -1623,7 +1627,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
         return true
       }
-      const startedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      const startedAt = formatPdaCuttingTimestamp()
       const event = appendCuttingRuntimeEvent({
         eventType: '开始铺布',
         eventSource: 'PDA',
@@ -1703,7 +1707,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
         return true
       }
-      const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      const submittedAt = formatPdaCuttingTimestamp()
       const varianceFlag = submitStage === 'finish-cutting' && plannedCutQty > 0 && actualCutQty < plannedCutQty
       if (submitStage === 'finish-cutting') {
         if (!hasCuttingOutputBreakdown(selectedTarget)) {
@@ -1837,7 +1841,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
         return true
       }
-      const finishedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      const finishedAt = formatPdaCuttingTimestamp()
       const event = appendCuttingRuntimeEvent({
         eventType: '完成铺布',
         eventSource: 'PDA',
@@ -1934,7 +1938,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const fabricRollNo = resolveNextFabricRollNo(detail, selectedTarget)
     const recordType = actionLabel === '完成铺布' ? '完成铺布' : '开始铺布'
     const runtimeRecordType: SpreadingRecordType = recordType === '完成铺布' ? '开始铺布' : recordType
-    const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+    const submittedAt = formatPdaCuttingTimestamp()
     const varianceFlag = getPlannedLayerCount(selectedTarget) > 0 && layerCount < getPlannedLayerCount(selectedTarget)
     const runtimeEvent = appendCuttingRuntimeEvent({
       eventType: runtimeRecordType,

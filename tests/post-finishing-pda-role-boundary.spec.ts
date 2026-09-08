@@ -85,26 +85,22 @@ test('后道回货入口归入交接待接收，仓管不再承担回货或成�
   await expect(page.getByRole('heading', { name: '扫描后道出货单条码' })).toHaveCount(0)
 })
 
-test('后道接收当前批次与历史记录都展示 SKU 明细', async ({ page }) => {
+test('后道专用回货确认展示当前与已确认批次 SKU 明细', async ({ page }) => {
   await setSession(page, 'ROLE_OPERATOR')
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/fcs/pda/handover?tab=pickup')
-  await page.getByTestId('pickup-head-card').first().click()
-
-  const currentSku = page.getByTestId('pickup-current-sku-detail')
-  await expect(currentSku).toBeVisible()
-  await expect(currentSku).toContainText('SPU')
-  await expect(currentSku).toContainText('SKU')
-  await expect(currentSku).toContainText('本次')
-  await expect(currentSku.locator('[data-pda-image-preview-url]')).toHaveCount(1)
-
-  const history = page.getByTestId('pickup-record-history')
-  await expect(history.locator('summary')).toContainText('SKU')
-  await history.locator('summary').click()
-  const historySku = history.getByTestId('pickup-history-sku-detail')
-  await expect(historySku.first()).toBeVisible()
-  await expect(historySku.first()).toContainText('SKU')
-  await expectNoHorizontalOverflow(page)
+  const deliveryNos = await page.evaluate(async () => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    const rows = flow.listPostFinishingFactoryReturns()
+    return [rows.find((row) => !row.confirmedAt)!, rows.find((row) => row.confirmedAt)!].map((row) => row.deliveryOrderNo)
+  })
+  for (const no of deliveryNos) {
+    await page.goto('/fcs/pda/post-finishing/return-confirm')
+    await page.locator('[data-pda-post-field="returnScan"]').fill(no)
+    await page.getByRole('button', { name: '查询' }).click()
+    await expect(page.locator('[data-return-confirm-line]').first()).toBeVisible()
+    await expect(page.locator('[data-return-confirm-line]').first().locator('img')).toHaveCount(1)
+    await expectNoHorizontalOverflow(page)
+  }
 })
 
 test('后道辅料在交接待接收中按完整单号整单入库并同步 Web 待加工仓', async ({ page }) => {
@@ -170,7 +166,7 @@ test('后道交接已交出直接展示 Web 后道出货单及 SKU 明细', asyn
     const card = page.locator('[data-pda-post-outbound-card]').first()
     await card.locator('summary').click()
     await expect(card.locator('[data-pda-post-outbound-line]').first()).toBeVisible()
-    await expect(card.locator('[data-pda-post-outbound-line]').first()).toContainText('SKU')
+    await expect(card.locator('[data-pda-post-outbound-line]').first()).toContainText(/SPU-QC-/)
     await expect(card.locator('[data-pda-post-outbound-line]').first().locator('[data-pda-image-preview-url]')).toHaveCount(1)
     await expectNoHorizontalOverflow(page)
   }
@@ -202,7 +198,7 @@ test('车缝自助回货由管理员开启，锁定与退出状态完整闭环',
   await page.goto('/fcs/pda/handover?tab=pickup')
   await page.getByRole('button', { name: /自助回货/ }).click()
   await expect(page).toHaveURL(/\/fcs\/pda\/handover\/sewing-self-return/)
-  await expect(page.getByRole('heading', { name: '车缝现场交货登记模式' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '成衣回货登记模式' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => Boolean(window.localStorage.getItem('higoods-pda-sewing-self-return-mode')))).toBe(true)
 
   await page.getByRole('button', { name: '管理员退出' }).click()

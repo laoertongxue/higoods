@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-domain.ts'
+import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-current-read-model.ts'
 import { renderAdjustmentsPage } from '../src/pages/adjustments.ts'
 import { renderBatchesPage } from '../src/pages/batches.ts'
 import { renderDeductionAnalysisPage } from '../src/pages/deduction-analysis.ts'

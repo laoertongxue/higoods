@@ -9,8 +9,10 @@ import {
 } from '../task-generation-boundaries.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
 import type { ProductionOrderTechPackSnapshot, TechPackBomItemSnapshot } from '../production-tech-pack-snapshot-types.ts'
+import { processTasks } from '../process-tasks.ts'
 import {
   resolveCuttingTaskLink,
+  listCuttingRuntimeAssignmentFacts,
   type CuttingTaskAssigneeType,
   type CuttingTaskExecutionRoute,
 } from './cutting-task-routing.ts'
@@ -37,6 +39,7 @@ export interface GeneratedCutOrderSourceRecord {
   cutOrderId: string
   cutOrderNo: string
   generationKey: string
+  sourceBomItemIds?: string[]
   productionOrderId: string
   productionOrderNo: string
   spuId?: string
@@ -188,20 +191,15 @@ function resolveMaterialAlias(
 }
 
 function resolveMaterialImageUrl(
-  techPack: ProductionOrderTechPackSnapshot,
-  line: TechnicalColorMaterialMappingLine,
   bomItem: TechPackBomItemSnapshot | null,
   materialSku: string,
   materialName: string,
   materialColor: string,
 ): string {
+  const bomImage = normalizeText(bomItem?.materialImageUrl)
   return (
     resolveProductionMaterialImageUrl({ materialSku, materialName, materialColor })
-    || normalizeText(bomItem?.materialImageUrl)
-    || findLinkedPatternFiles(techPack, line, bomItem, materialSku)
-      .map((pattern) => normalizeText(pattern.imageUrl))
-      .find(Boolean)
-    || techPack.imageSnapshot.materialImages[0]
+    || (bomImage.startsWith('data:image/svg+xml') ? '' : bomImage)
     || ''
   )
 }
@@ -411,12 +409,15 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
       patternIdentity: CuttingPatternIdentity
       scopeBySkuKey: Map<string, GeneratedCutOrderSkuScopeLine>
       pieceRows: GeneratedCutOrderPieceRow[]
+      sourceBomItemIds: Set<string>
       colors: Set<string>
     }
   >()
   const orderedMaterialKeys: string[] = []
 
   for (const skuLine of order.demandSnapshot.skuLines) {
+    // One garment demand line can map several pieces onto the same material/pattern.
+    const countedMaterialKeys = new Set<string>()
     const colorMappings = (techPack.colorMaterialMappings || []).filter(
       (mapping) =>
         normalizeText(mapping.colorName).toLowerCase() === normalizeText(skuLine.color).toLowerCase()
@@ -437,7 +438,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
         const materialColor = normalizeText(skuLine.color) || '待补颜色'
         const materialUnit = normalizeText(mappingLine.unit) || '米'
         const materialAlias = resolveMaterialAlias(techPack, mappingLine, bomItem, materialSku)
-        const materialImageUrl = resolveMaterialImageUrl(techPack, mappingLine, bomItem, materialSku, materialName, materialColor)
+        const materialImageUrl = resolveMaterialImageUrl(bomItem, materialSku, materialName, materialColor)
         const pieceRows = resolvePieceRows(techPack, mappingLine, skuLine.skuCode)
         const materialIdentity: CuttingMaterialIdentity = {
           materialSku,
@@ -476,17 +477,19 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
             patternIdentity,
             scopeBySkuKey: new Map(),
             pieceRows: [],
+            sourceBomItemIds: new Set<string>(),
             colors: new Set<string>(),
           })
         }
 
         const bucket = scopeByMaterialKey.get(materialKey)!
+        if (bomItem?.id) bucket.sourceBomItemIds.add(bomItem.id)
         bucket.colors.add(normalizeText(skuLine.color))
         const skuKey = makeSkuKey(skuLine)
         const currentScope = bucket.scopeBySkuKey.get(skuKey)
-        if (currentScope) {
+        if (currentScope && !countedMaterialKeys.has(materialKey)) {
           currentScope.plannedQty += Number(skuLine.qty || 0)
-        } else {
+        } else if (!currentScope) {
           bucket.scopeBySkuKey.set(skuKey, {
             skuCode: normalizeText(skuLine.skuCode),
             color: normalizeText(skuLine.color),
@@ -494,6 +497,8 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
             plannedQty: Number(skuLine.qty || 0),
           })
         }
+
+        countedMaterialKeys.add(materialKey)
 
         pieceRows.forEach((pieceRow) => {
           const existing = bucket.pieceRows.find(
@@ -533,6 +538,10 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
     const cuttingTaskLink = resolveCuttingTaskLink({
       productionOrderId: order.productionOrderId,
       productionOrderNo,
+      sourceBomItemIds: [...bucket.sourceBomItemIds],
+      sourceEntryIds: (techPack.processEntries || []).filter(entry =>
+        entry.processCode === 'CUT_PANEL' && [...(entry.linkedBomItemIds || []), ...(entry.consumedBomItemIds || [])].some(id => bucket.sourceBomItemIds.has(id)),
+      ).map(entry => entry.id),
     })
     return {
       cutOrderId: makeStableCutOrderId({
@@ -542,6 +551,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
       }),
       cutOrderNo: makeCutOrderNo(order, index),
       generationKey: bucket.generationKey,
+      sourceBomItemIds: [...bucket.sourceBomItemIds],
       productionOrderId: order.productionOrderId,
       productionOrderNo,
       ...cuttingTaskLink,
@@ -886,14 +896,26 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
 }
 
 let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null
+let cachedSourceKey = ''
 
 export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRecord[] {
-  if (!cachedRecords) {
-    const baseRecords = listCuttingProductionOrdersWithFormalTechPack().flatMap((order) => buildRecordsForOrder(order))
+  const orders = listCuttingProductionOrdersWithFormalTechPack()
+  // A new frozen order, breakdown or dispatch must invalidate this derived view.
+  const sourceKey = JSON.stringify([orders.map(order => [order.productionOrderId, order.productionOrderNo,
+    order.demandSnapshot, order.techPackSnapshot, order.taskBreakdownSummary]),
+    processTasks.filter(task => task.processCode === 'PROC_CUT' || task.processBusinessCode === 'CUT_PANEL')
+      .map(task => [task.taskId, task.taskNo, task.productionOrderId, task.sourceEntryId, task.sourceEntryIds,
+        task.consumedBomItemIds, task.assignmentStatus, task.assignedFactoryId, task.assignedFactoryName]),
+    listCuttingRuntimeAssignmentFacts().map(task => [task.taskId, task.rootTaskNo, task.productionOrderId,
+      task.sourceEntryId, task.sourceEntryIds, task.assignmentStatus, task.assignedFactoryId, task.assignedFactoryName])])
+  if (!cachedRecords || cachedSourceKey !== sourceKey) {
+    const baseRecords = orders.flatMap((order) => buildRecordsForOrder(order))
+    cachedSourceKey = sourceKey
     cachedRecords = [...baseRecords, ...buildPrompt1DimensionScenarioRecords(baseRecords)]
   }
   return cachedRecords.map((record) => ({
     ...record,
+    sourceBomItemIds: [...(record.sourceBomItemIds || [])],
     productionOrderNo: normalizeText(record.productionOrderNo) || normalizeText(record.productionOrderId),
     materialIdentity: { ...record.materialIdentity },
     patternIdentity: {

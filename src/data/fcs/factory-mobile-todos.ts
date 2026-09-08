@@ -16,8 +16,7 @@ import { listSettlementStatementsByParty } from './store-domain-settlement-seeds
 import {
   FULL_CAPABILITY_FACTORY_ID,
   listPostFinishingTasks,
-  listPostFinishingWaitHandoverWarehouseRecords,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import {
   listPostFinishingMobileExecutionTasks,
 } from './process-mobile-task-binding.ts'
@@ -520,27 +519,8 @@ function buildDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
 }
 
 function buildPostFinishingDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
-  return listPostFinishingWaitHandoverWarehouseRecords()
-    .filter((record) => record.diffGarmentQty !== 0)
-    .map((record, index) => ({
-      todoId: `todo-post-diff-${record.warehouseRecordId}`,
-      todoNo: `TD-PD-${String(index + 1).padStart(3, '0')}`,
-      todoType: '差异待处理' as const,
-      todoTitle: `后道交出差异待处理`,
-      todoSubtitle: `${record.sourceProductionOrderNo} · ${record.recheckOrderNo} · 差异 ${record.diffGarmentQty}${record.qtyUnit}`,
-      factoryId,
-      factoryName: record.managedPostFactoryName,
-      relatedTaskId: record.postOrderId,
-      relatedTaskNo: record.postOrderNo,
-      relatedHandoverRecordId: record.handoverRecordId,
-      relatedOutboundRecordId: record.warehouseRecordId,
-      priority: '紧急' as const,
-      status: '处理中' as const,
-      dueAt: record.updatedAt,
-      createdAt: record.updatedAt,
-      detailRoute: `/fcs/pda/notify/todo-post-diff-${record.warehouseRecordId}`,
-      actionLabel: '去处理' as const,
-    }))
+  void factoryId
+  return []
 }
 
 function buildSettlementTodos(factoryId: string): FactoryMobileTodo[] {
@@ -662,7 +642,10 @@ export function getFactoryMobileTodoById(todoId: string): FactoryMobileTodo | nu
 }
 
 export function getFactoryMobileTodoSummary(factoryId: string, roleId?: string): FactoryMobileTodoSummary {
-  const todos = getFactoryMobileTodos(factoryId, roleId)
+  return summarizeFactoryMobileTodos(getFactoryMobileTodos(factoryId, roleId))
+}
+
+export function summarizeFactoryMobileTodos(todos: FactoryMobileTodo[]): FactoryMobileTodoSummary {
   return {
     total: todos.filter((item) => item.status === '待处理' || item.status === '处理中').length,
     urgent: todos.filter((item) => item.priority === '紧急').length,

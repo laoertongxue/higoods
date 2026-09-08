@@ -474,27 +474,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         remark: '从正式 BOM 橡筋辅料按米投入，每件成衣产出 2 条 42cm 定长橡筋。',
       }]
     : []
-  const joggerPostProcessEntries: TechnicalProcessEntry[] = demand.spuCode === 'SPU-2024-010'
-    ? [
-        {
-          id: `${seed.technicalVersionId}-process-iron-pack`,
-          entryType: 'CRAFT' as const,
-          stageCode: 'POST' as const,
-          stageName: '后道阶段',
-          processCode: 'IRON_PACK',
-          processName: '烫包',
-          craftCode: 'CRAFT_2000010',
-          craftName: '烫包',
-          assignmentGranularity: 'SKU' as const,
-          ruleSource: 'INHERIT_PROCESS' as const,
-          defaultDocType: 'TASK' as const,
-          taskTypeMode: 'CRAFT' as const,
-          isSpecialCraft: false,
-          remark: 'Jogger 技术包明确要求烫包；可与车缝，或与裁剪、车缝一起形成固定合并任务。',
-        },
-      ]
-    : []
-
   const resolveColorMaterialInfo = (color: string, index: number) => {
     if (isWoolScenario) {
       return {
@@ -691,7 +670,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       ...internalGarmentPrintProcessEntries,
       ...buttonLoopProcessEntries,
       ...elasticFixedLengthProcessEntries,
-      ...joggerPostProcessEntries,
       ...waterSolubleDyeProcessEntries,
     ],
     processRouteStatus: 'CONFIRMED',
@@ -1382,7 +1360,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       baseTechnicalVersionId: technicalVersionId,
       baseTechnicalVersionCode: baseRecord.technicalVersionCode,
       changeScope: '工程主单生成',
-      changeSummary: '演示工程主单形成的新技术包版本：买手和版师范围沿用 V1.0，仅工序工艺有变化。',
+      changeSummary: '演示工程主单形成的新技术包版本：买手和版师范围沿用 V1.0，仅工艺路线有变化。',
       versionStatus: 'DRAFT',
       reviewStage: '未提交审核',
       buyerReview: undefined,

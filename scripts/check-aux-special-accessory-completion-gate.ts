@@ -47,6 +47,10 @@ type BrowserEvidence = {
 
 type PlaywrightEvidence = {
   errors: unknown[]
+  suites: Array<{
+    title: string
+    specs?: unknown[]
+  }>
   stats: {
     expected: number
     skipped: number
@@ -172,7 +176,7 @@ for (const passLabel of passLabels) {
       assert.equal(document.totals.blockedExternal || 0, 0, `${passLabel}/${suite} 不应有外部门禁`)
       assert.equal(document.totals.passed, document.totals.all, `${passLabel}/${suite} 未全部通过`)
     } else {
-      assert.equal(document.totals.blockedExternal, 18, `${passLabel}/named-scenarios 现实 PDA 门禁不是 18 条`)
+      assert.equal(document.totals.blockedExternal, 19, `${passLabel}/named-scenarios 现实 PDA 门禁不是 19 条`)
       assert.equal(document.totals.passed + (document.totals.blockedExternal || 0), document.totals.all)
     }
     suites.set(suite, document)
@@ -262,7 +266,17 @@ for (const passLabel of passLabels) {
   const playwrightPath = resolve(evidenceRoot, passLabel, 'playwright-results.json')
   const playwright = loadJson<PlaywrightEvidence>(playwrightPath, `${passLabel} 缺少完整 Playwright 证据`)
   assert.equal(playwright.errors.length, 0, `${passLabel} Playwright 报告存在顶层错误`)
-  assert.equal(playwright.stats.expected, 178, `${passLabel} Playwright 完整用例不是 178 条`)
+  const playwrightSuiteCounts = new Map(playwright.suites.map((suite) => [suite.title, suite.specs?.length || 0]))
+  assert.equal(playwrightSuiteCounts.get('aux-special-accessory-per-craft-full-flow.spec.ts'), browser.totals.all, `${passLabel} Playwright 逐加工单用例数与浏览器证据不一致`)
+  for (const requiredSuite of [
+    'button-loop-auxiliary-crafts.spec.ts',
+    'lace-factory-input-v15.spec.ts',
+    'special-craft-web-mobile-action-dialog-and-layout.spec.ts',
+  ]) {
+    assert(Number(playwrightSuiteCounts.get(requiredSuite) || 0) > 0, `${passLabel} Playwright 缺少 ${requiredSuite}`)
+  }
+  const playwrightSpecTotal = [...playwrightSuiteCounts.values()].reduce((total, count) => total + count, 0)
+  assert.equal(playwright.stats.expected, playwrightSpecTotal, `${passLabel} Playwright 已执行用例数与报告清单不一致`)
   assert.equal(playwright.stats.skipped, 0, `${passLabel} Playwright 存在跳过用例`)
   assert.equal(playwright.stats.unexpected, 0, `${passLabel} Playwright 存在失败用例`)
   assert.equal(playwright.stats.flaky, 0, `${passLabel} Playwright 依靠重试才通过`)

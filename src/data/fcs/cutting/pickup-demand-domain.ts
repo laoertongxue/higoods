@@ -1,3 +1,4 @@
+import type { PickupPrintReceiptSource } from './pickup-node-domain.ts'
 export type PickupDemandSource = 'NORMAL' | 'SUPPLEMENT'
 export type PickupProcessRoute = 'NONE' | 'DYE' | 'PRINT' | 'DYE_PRINT'
 
@@ -72,6 +73,7 @@ export interface PickupDemandPickedFact {
 }
 
 export interface PickupDemandFact {
+  printReceiptSources?: PickupPrintReceiptSource[]
   prepOrderId: string
   productionOrderId: string
   productionOrderNo: string

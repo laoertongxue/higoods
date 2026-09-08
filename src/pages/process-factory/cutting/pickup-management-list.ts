@@ -183,13 +183,16 @@ function renderMaterialIdentity(row: PickupMaterialDemandRow): string {
 }
 
 function renderMaterialSource(group: PickupOrderGroup, row: PickupMaterialDemandRow): string {
-  const label = row.demandSource === 'SUPPLEMENT'
+  const label = row.fromPrintReceipt ? '印花交接实收' : row.demandSource === 'SUPPLEMENT'
     ? `补料第 ${group.supplementSequenceNo || 1} 次`
     : '配料'
   return `<div class="text-xs"><div class="font-medium">${escapeHtml(label)}</div><div class="mt-0.5 break-all text-muted-foreground">${escapeHtml(row.demandSourceNo || row.demandLineId)}</div></div>`
 }
 
 function renderMaterialLocations(group: PickupOrderGroup, row: PickupMaterialDemandRow): string {
+  if (row.fromPrintReceipt) {
+    return '<div class="text-xs leading-5">中转区域<br><span class="text-muted-foreground">原印花批次；库位未记录</span></div>'
+  }
   if (group.carrierType === 'PALLET') {
     return `<div class="text-xs leading-5"><span class="font-medium text-emerald-700">托盘</span><br><span class="text-muted-foreground">${escapeHtml(toReceiveLabel(group.palletDisplayLabel || '暂未编号'))}</span></div>`
   }
@@ -297,11 +300,20 @@ function historyResultLabel(group: PickupOrderGroup): string {
   return '尚未全部接收'
 }
 
+function pickupSourceTitle(group: PickupOrderGroup): string {
+  if (group.supplementOrderNo) return `补料单 ${group.supplementOrderNo}`
+  const printRows = group.materialRows.filter(row => row.fromPrintReceipt)
+  if (printRows.length === group.materialRows.length && printRows.length) {
+    return `印花交接实收 ${[...new Set(printRows.map(row => row.demandSourceNo))].join('；')}`
+  }
+  return `配料单 ${group.prepOrderNo}`
+}
+
 function renderPickupAction(group: PickupOrderGroup): string {
   if (!group.pickupNodeId) {
     return '<span class="inline-flex h-8 items-center rounded border border-dashed px-3 text-xs text-muted-foreground">暂不可接收</span>'
   }
-  return `<button type="button" class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700" data-pickup-list-action="open-web-receipt" data-group-key="${escapeHtml(group.groupKey)}" title="${escapeHtml(group.supplementOrderNo ? `接收补料单 ${group.supplementOrderNo}` : `接收配料单 ${group.prepOrderNo}`)}">接收</button>`
+  return `<button type="button" class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700" data-pickup-list-action="open-web-receipt" data-group-key="${escapeHtml(group.groupKey)}" title="${escapeHtml(`接收${pickupSourceTitle(group)}`)}">接收</button>`
 }
 
 function renderCardActions(kind: PickupListKind, card: PickupOrderCard): string {
@@ -346,7 +358,7 @@ function renderStyleSummary(group: PickupOrderGroup): string {
 }
 
 function renderDemandSegment(kind: PickupListKind, group: PickupOrderGroup, state: PickupListState): string {
-  const segmentTitle = group.supplementOrderNo
+  const segmentTitle = group.materialRows.some(row => row.fromPrintReceipt) ? pickupSourceTitle(group) : group.supplementOrderNo
     ? `补料单：${group.supplementOrderNo} · 第 ${group.supplementSequenceNo || 1} 次`
     : `配料单：${group.prepOrderNo}`
   const rows = group.materialRows.map((material) => ({ group, material }))
@@ -624,7 +636,7 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
       <div class="sticky top-0 z-10 flex items-start justify-between border-b bg-background px-5 py-4">
         <div>
           <div class="text-lg font-semibold">接收记录</div>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.productionOrderNo)} · ${escapeHtml(group.prepOrderNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.productionOrderNo)} · ${escapeHtml(pickupSourceTitle(group))}</div>
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-sm" data-pickup-list-action="close-pickup-records">关闭</button>
       </div>
@@ -646,7 +658,8 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
             record.pickupNodeId === session.pickupNodeId
             && record.pickupNodeVersion === session.pickupNodeVersion
           )
-          const carrierLabel = snapshot?.carrierType === 'PALLET'
+          const printSources = snapshot?.items.flatMap(item => item.printReceiptSources ?? []) ?? []
+          const carrierLabel = printSources.length ? '中转区域 · 原印花批次；库位未记录' : snapshot?.carrierType === 'PALLET'
             ? toReceiveLabel(snapshot.palletDisplayLabel || snapshot.palletId || '待接收托盘（暂未编号）')
             : Array.from(new Set(snapshot?.items.flatMap((item) =>
                 item.sourceLocations.map((location) =>
@@ -666,6 +679,7 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
             </div>
             <div class="mt-3 space-y-1">
               ${(snapshot?.items ?? []).map((item) => `<div class="rounded bg-muted/50 px-2 py-1.5 text-xs">${escapeHtml(item.materialName)} · ${escapeHtml(item.materialSku)} · ${formatQty(item.currentAvailableQty, item.unit)}</div>`).join('')}
+              ${printSources.map(source => `<div class="break-all rounded border px-2 py-1.5 text-xs">印花交接 ${escapeHtml(source.handoverRecordNo)} · ${formatQty(source.qty, source.unit)}<br>${source.rolls.map(roll => `${escapeHtml(roll.barcode)} · ${formatQty(roll.length, source.unit)}`).join('<br>')}</div>`).join('')}
             </div>
             <div class="mt-3 text-xs">
               <span class="font-medium">异常证据：</span>
@@ -726,7 +740,7 @@ function renderPickupReceiptModal(kind: PickupListKind): string {
       <header class="flex shrink-0 items-start justify-between gap-4 border-b px-5 py-4">
         <div>
           <h2 id="pickup-receipt-title" class="text-lg font-semibold">接收 · ${escapeHtml(group?.productionOrderNo || '生产单')}</h2>
-          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group?.supplementOrderNo ? `补料单 ${group.supplementOrderNo}` : `配料单 ${group?.prepOrderNo || '—'}`)} · 节点 V${draft.pickupNodeVersion}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group ? pickupSourceTitle(group) : '来源未找到')} · 节点 V${draft.pickupNodeVersion}</div>
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-sm" data-pickup-list-action="close-web-receipt">关闭</button>
       </header>

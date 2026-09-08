@@ -48,7 +48,6 @@ export default defineConfig({
         onlyExplicitManualChunks: true,
         manualChunks(id) {
           if (id.includes('/src/data/fcs/process-craft-dict.ts')) return 'process-craft-dict'
-          if (id.includes('/src/data/fcs/post-finishing-domain.ts')) return 'post-finishing-execution-domain'
           if (id.includes('/src/data/tech-pack-process-route.ts')) return 'tech-pack-process-route'
           if (id.includes('/src/data/pcs-tech-pack-version-log-repository.ts')) return 'pcs-tech-pack-version-log-repository'
           if (id.includes('/src/data/pcs-tech-pack-review-notification-repository.ts')) {

@@ -27,7 +27,7 @@ assert(sourcePass, '缺少 per-craft-full-flow.json；请先运行逐加工单�
 const fullFlowPath = resolve(root, sourcePass, 'per-craft-full-flow.json')
 const fullFlow = JSON.parse(readFileSync(fullFlowPath, 'utf8')) as FullFlowEvidence
 const gates = fullFlow.results.filter((result) => result.status === 'passed' && result.chainId !== 'ACC-LACE-01')
-assert.equal(new Set(gates.map((result) => result.chainId)).size, 18, '现实 PDA 必须覆盖 17 种工艺和捆条共 18 条链')
+assert.equal(new Set(gates.map((result) => result.chainId)).size, 19, '现实 PDA 必须覆盖 18 种工艺和捆条共 19 条链')
 assert.equal(new Set(gates.map((result) => result.workOrderId)).size, gates.length, '现实 PDA 加工单清单存在重复或空 ID')
 
 function sourceContext(gate: FullFlowEvidence['results'][number]): {

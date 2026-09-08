@@ -1,3 +1,4 @@
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import {
   listPdaCuttingExecutionSourceRecordsFromScenarios,
   listPdaCuttingTaskSourceRecordsFromScenarios,
@@ -55,7 +56,21 @@ export function getPdaCuttingExecutionSourceRecord(taskId: string, executionOrde
 }
 
 export function listPdaCuttingTaskSourceRecords(): PdaCuttingTaskSourceRecord[] {
-  return PDA_CUTTING_TASK_SOURCE_RECORDS.map((record) => ({
+  const records = PDA_CUTTING_TASK_SOURCE_RECORDS.map(record => ({ ...record }))
+  const existing = new Set(records.map(record => record.taskId))
+  const cuts = listGeneratedCutOrderSourceRecords()
+  for (const cut of cuts) {
+    if (cut.cutOrderSourceType !== 'INDEPENDENT_CUTTING_TASK'
+      || existing.has(cut.cuttingTaskId) || cut.cuttingTaskId.startsWith('CUTTASK-')) continue
+    const linked = cuts.filter(item => item.cuttingTaskId === cut.cuttingTaskId)
+    records.push({ taskId: cut.cuttingTaskId, taskNo: cut.cuttingTaskNo,
+      productionOrderId: cut.productionOrderId, productionOrderNo: cut.productionOrderNo,
+      cutOrderIds: linked.map(item => item.cutOrderId), cutOrderNos: linked.map(item => item.cutOrderNo),
+      executionOrderIds: [], executionOrderNos: [], bindingState: 'BOUND',
+      cuttingReportMode: 'INDEPENDENT_CUTTING_EXECUTION' })
+    existing.add(cut.cuttingTaskId)
+  }
+  return records.map((record) => ({
     ...record,
     cutOrderIds: [...record.cutOrderIds],
     cutOrderNos: [...record.cutOrderNos],

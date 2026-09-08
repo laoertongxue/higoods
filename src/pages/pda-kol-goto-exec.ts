@@ -3,6 +3,7 @@ import { productionOrders } from '../data/fcs/production-orders.ts'
 import {
   completeKolGotoWholeOrderTask,
   getKolGotoHandoutQty,
+  getKolGotoMaterialSourceIssue,
   listKolGotoHandoutRecords,
   listKolGotoPickupBatches,
   listKolGotoPickupLines,
@@ -165,12 +166,14 @@ function renderKolGotoPdaExecContent(taskId: string): string {
   const handoutRecords = listKolGotoHandoutRecords(taskId)
   const handedQty = getKolGotoHandoutQty(taskId)
   const remainingQty = Math.max(task.qty - handedQty, 0)
-  const canHandout = task.status === 'IN_PROGRESS' && remainingQty > 0
-  const canComplete = task.status !== 'DONE' && handedQty === task.qty
+  const sourceIssue = getKolGotoMaterialSourceIssue(taskId)
+  const canHandout = !sourceIssue && task.status === 'IN_PROGRESS' && remainingQty > 0
+  const canComplete = !sourceIssue && task.status !== 'DONE' && handedQty === task.qty
   const content = `
     <div class="min-h-[760px] bg-background pb-28" data-kol-exec-root data-task-id="${escapeHtml(taskId)}" data-skip-page-rerender="true">
       <header class="border-b bg-background px-4 py-3"><button class="text-sm text-muted-foreground" data-kol-action="back">← 返回执行</button><div class="mt-3 flex gap-3">${renderImage(styleImage, `${order?.techPackSnapshot?.styleName || order?.demandSnapshot.spuName || 'KOL样衣'}款式图`, 'h-24 w-24 shrink-0')}<div class="min-w-0 flex-1"><h1 class="text-base font-semibold">KOL 整单任务</h1><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div><div class="mt-2 text-sm">${escapeHtml(order?.techPackSnapshot?.styleName || order?.demandSnapshot.spuName || '-')}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.saleTypeSnapshot || '-')} · ${task.qty} 件</div><span class="mt-2 inline-flex rounded-full ${task.status === 'DONE' ? 'bg-green-50 text-green-700' : task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'} px-2 py-1 text-[11px]">${task.status === 'DONE' ? '已完成' : task.status === 'IN_PROGRESS' ? '加工中' : '未开工'}</span></div></div></header>
       <main class="space-y-4 p-4">
+        ${sourceIssue ? `<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(sourceIssue)}</div>` : ''}
         ${state.feedback ? `<div class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">${escapeHtml(state.feedback)}</div>` : ''}
         <section class="grid grid-cols-3 gap-2 text-center text-xs"><div class="rounded-xl border p-3"><b class="text-lg">${pickupBatches.length}</b><div class="text-muted-foreground">领料次数</div></div><div class="rounded-xl border p-3"><b class="text-lg">${handedQty}</b><div class="text-muted-foreground">已加工 / 已交出</div></div><div class="rounded-xl border p-3"><b class="text-lg">${remainingQty}</b><div class="text-muted-foreground">剩余件数</div></div></section>
         <section class="rounded-xl border p-4"><h2 class="font-semibold">操作说明</h2><p class="mt-2 text-sm leading-6 text-muted-foreground">只做加工领料、发起交出和完成。加工领料与发起交出都可多次；第一次领料自动开工。</p></section>
@@ -179,7 +182,7 @@ function renderKolGotoPdaExecContent(taskId: string): string {
         <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800"><div class="font-semibold">固定总价</div><div class="mt-1 text-lg font-bold">${Number(task.fixedTotalPrice || 0).toLocaleString()} ${escapeHtml(task.fixedTotalPriceCurrency || 'IDR')} / ${escapeHtml(task.fixedTotalPriceUnit || '整单')}</div><p class="mt-1 text-xs">价格在任务生成时冻结；现场只负责执行，不操作结算。</p></section>
       </main>
       <footer class="absolute inset-x-0 bottom-[72px] z-20 grid grid-cols-3 gap-2 border-t bg-background p-3">
-        <button class="min-h-12 rounded-xl border px-2 text-xs font-semibold" data-kol-action="open-pickup" ${task.status === 'DONE' ? 'disabled' : ''}>去加工领料</button>
+        <button class="min-h-12 rounded-xl border px-2 text-xs font-semibold" data-kol-action="open-pickup" ${task.status === 'DONE' || sourceIssue ? 'disabled' : ''}>去加工领料</button>
         <button class="min-h-12 rounded-xl border px-2 text-xs font-semibold ${canHandout ? 'border-blue-300 text-blue-700' : 'opacity-40'}" data-kol-action="open-handout" ${canHandout ? '' : 'disabled'}>发起交出</button>
         <button class="min-h-12 rounded-xl bg-primary px-2 text-xs font-semibold text-primary-foreground ${canComplete ? '' : task.status === 'DONE' ? 'bg-green-600' : 'opacity-40'}" data-kol-action="complete" data-task-id="${escapeHtml(taskId)}" ${canComplete ? '' : 'disabled'}>${task.status === 'DONE' ? '已完成' : '完成'}</button>
       </footer>
@@ -204,7 +207,8 @@ function refresh(taskId: string): void {
 
 export function handleKolGotoPdaExecEvent(target: HTMLElement): boolean {
   const field = target.closest<HTMLInputElement | HTMLTextAreaElement>('[data-kol-field]')
-  const root = target.closest<HTMLElement>('[data-kol-exec-root]') || document.querySelector<HTMLElement>('[data-kol-exec-root]')
+  const root = target.closest<HTMLElement>('[data-kol-exec-root]')
+    || (typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-kol-exec-root]'))
   const taskId = root?.dataset.taskId || ''
   if (taskId && !canAccessKolGotoExecution()) return true
   if (field) {

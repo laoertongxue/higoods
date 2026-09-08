@@ -22,6 +22,7 @@ import {
 import { renderSecondaryButton } from '../components/ui/button.ts'
 import { createProcessOrderListController } from '../components/ui/process-order-list-controller.ts'
 import { getProcessWorkOrderSourceDetailRows } from './process-work-orders/process-work-order-source-view.ts'
+import { renderProcessOrderTaskRelations } from './process-order-task-relations.ts'
 
 // 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
 
@@ -167,6 +168,7 @@ function renderDetail(selectedWorkOrderId = state.selectedWorkOrderId): string {
         <div><span class="text-muted-foreground">平台加工单号：</span>${escapeHtml(order.workOrderNo || order.orderNo)}</div>
       </div>
       <div class="mt-4">${renderPlatformSyncSection(order)}</div>
+      <div class="mt-4">${renderProcessOrderTaskRelations(order.workOrderId || order.orderNo)}</div>
       <button class="mt-6 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-dye-order-action="navigate-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">打开工厂端详情</button>
     </aside>
   `

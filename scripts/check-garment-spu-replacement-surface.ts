@@ -20,7 +20,7 @@ const productionDetail = read('src/pages/production/detail-domain.ts')
 const productionReplacementDisplay = read('src/pages/production/garment-spu-replacement-display.ts')
 const productionEvents = read('src/pages/production/events.ts')
 const core = read('src/data/fcs/garment-spu-replacement.ts')
-const post = read('src/data/fcs/post-finishing-domain.ts')
+const post = read('src/data/fcs/post-finishing-current-read-model.ts')
 const returnWorkflow = read('src/data/fcs/return-inbound-workflow.ts')
 const fulfillment = read('src/data/fcs/production-return-fulfillment.ts')
 const printRegistry = read('src/data/fcs/print-template-registry.ts')
@@ -187,11 +187,9 @@ const coreThrowLines = core.split('\n').filter((line) => line.includes('throw ne
 assert.ok(coreThrowLines.every((line) => !/图片|吊牌|洗涤|执行标准|安全类别/.test(line)), '目标校验不得增加图片、吊牌或商品资料门禁')
 
 includesAll(post, '后道链路', [
-  "stage: 'DEFECT'",
-  "stage: 'POST_FACTORY'",
   'listPostFinishingIdentityMigrationCandidates',
-  'isPostFactoryRelabelPending',
-  'availableHandoverGarmentQty: relabelPending',
+  "objectType: 'QC_SKU_RESULT'",
+  'originalSkuCode',
 ])
 includesAll(returnWorkflow, '回货批次', [
   "stage: 'FUTURE_RETURN'",

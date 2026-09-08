@@ -195,7 +195,15 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
   const snapshot = order.formalProductionOrderSnapshot
   const productCode = presentation.productCode || snapshot?.spuCode || order.stockMaterialId || '—'
   const materialName = presentation.materialName || snapshot?.materialName || order.stockMaterialName || order.rawMaterialSku
-  const isYarn = /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`)
+  const snapshotMaterialTypes = [...new Set(
+    (snapshot?.materialItems ?? [])
+      .map((item) => item.materialType?.trim())
+      .filter((value): value is string => Boolean(value)),
+  )]
+  const materialType = snapshotMaterialTypes.length === 1
+    ? snapshotMaterialTypes[0]
+    : /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`) ? '纱线' : '面料'
+  const isYarn = materialType === '纱线' || /纱|yarn/i.test(materialType)
   return {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
@@ -251,7 +259,7 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     isOverdue: Boolean(plannedFinishAt && new Date(plannedFinishAt).getTime() < Date.now() && !isClosed),
     isYarn,
     isReplenishment: order.isReplenishment === true,
-    materialType: isYarn ? '纱线' : '面料',
+    materialType,
     headVatOrRedye: '—',
     handoverOrderNo: order.handoverOrderNo || order.handoverOrderId || '',
     batchNo: order.sourceArtifactIds?.[1] || '—',

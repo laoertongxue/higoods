@@ -1,3 +1,6 @@
+import { localDateTimeText } from '../../utils.ts'
+import { prepareMaterialRequestDraftsForOrder } from '../../data/fcs/material-request-drafts.ts'
+import { completeProductionOrderManually } from '../../data/fcs/production-orders.ts'
 import {
   state,
   currentUser,
@@ -750,11 +753,14 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
               techPackVersionLabel: current.techPackVersionLabel,
             }
         return {
+          syncTargetWorkOrderId: workOrder.workOrderId,
           productionOrderId: current.productionOrderId,
           productionOrderNo: current.productionOrderNo,
           orderedAt: current.orderedAt,
           techPackVersionId: techPackIdentity.techPackVersionId,
           techPackVersionLabel: techPackIdentity.techPackVersionLabel,
+          processEntryId: current.processEntryId,
+          routeObjectKey: current.routeObjectKey,
           materialId: materialFields.materialId,
           materialName: materialFields.materialName,
           materialItems,
@@ -988,9 +994,9 @@ export function executeProductionChangeForForm(
       form.execution = execution
       if (!persisted && execute !== executeProductionChange) persistExecutionResult(execution)
     } catch {
-      const execution = createProductionChangeRolledBackResult(preview)
-      form.execution = execution
-      persistExecutionResult(execution)
+      const rolledBack = createProductionChangeRolledBackResult(preview)
+      form.execution = rolledBack
+      persistExecutionResult(rolledBack)
     }
     if (form.execution.message === '当前事实已变化，请重新确认处理方案') {
       const recordId = form.recordId
@@ -2020,6 +2026,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
   if (action === 'open-material-draft-drawer') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
+    prepareMaterialRequestDraftsForOrder(orderId)
     state.ordersActionMenuId = null
     state.materialDraftOrderId = orderId
     state.materialDraftAddDraftId = null
@@ -2636,6 +2643,26 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     const tab = actionNode.dataset.tab as OrderDetailTab | undefined
     if (!tab) return true
     state.detailTab = tab
+    return true
+  }
+
+  if (action === 'complete-production-order') {
+    const orderId = state.detailCurrentOrderId
+    if (!orderId) return true
+    if (!window.confirm(`确认完成生产单 ${orderId}？请核对生产、交接和收货记录。`)) return true
+    try {
+      completeProductionOrderManually({
+        productionOrderId: orderId,
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        actorRole: currentUser.role,
+        completedAt: localDateTimeText(),
+        confirmed: true,
+      })
+      showPlanMessage('生产单已完成，操作已记录。')
+    } catch (error) {
+      showPlanMessage(error instanceof Error ? error.message : '完成失败，请重试。', 'error')
+    }
     return true
   }
 

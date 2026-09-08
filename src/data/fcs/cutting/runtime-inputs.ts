@@ -11,7 +11,7 @@ import {
   CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
   listMarkerPlanCutOrderSourceRecords,
 } from './marker-plan-source.ts'
-import { cuttingOrderProgressRecords } from './order-progress.ts'
+import { listCurrentCuttingOrderProgressRecords } from './order-progress.ts'
 import {
   listFormalCutPieceWarehouseRecords,
   listFormalFabricWarehouseRecords,
@@ -30,18 +30,6 @@ import {
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   deserializeMarkerSpreadingStorage,
 } from './marker-spreading-ledger.ts'
-import {
-  CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
-  deserializeBindingStripPayloadsStorage,
-  deserializeSpecialProcessExecutionLogsStorage,
-  deserializeSpecialProcessFollowupActionsStorage,
-  deserializeSpecialProcessOrdersStorage,
-  deserializeSpecialProcessScopeLinesStorage,
-} from './storage/special-processes-storage.ts'
 import {
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
   deserializeTransferBagStorage,
@@ -64,11 +52,6 @@ const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
   CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
   CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
   CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
@@ -120,26 +103,6 @@ export function readCuttingTransferBagRuntimeState() {
   }
 }
 
-export function readCuttingSpecialProcessRuntimeState() {
-  return {
-    orders: deserializeSpecialProcessOrdersStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY),
-    ),
-    bindingPayloads: deserializeBindingStripPayloadsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY),
-    ),
-    scopeLines: deserializeSpecialProcessScopeLinesStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY),
-    ),
-    executionLogs: deserializeSpecialProcessExecutionLogsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY),
-    ),
-    followupActions: deserializeSpecialProcessFollowupActionsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY),
-    ),
-  }
-}
-
 export function readCuttingPdaExecutionRuntimeState() {
   return listRuntimePdaExecutionEventProjections(getBrowserLocalStorage())
 }
@@ -180,7 +143,6 @@ export function readCuttingWarehouseWritebackRuntimeState() {
 
 export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
   const feiRuntimeState = readCuttingFeiRuntimeState()
-  const specialProcessRuntimeState = readCuttingSpecialProcessRuntimeState()
   const pdaExecutionRuntimeState = readCuttingPdaExecutionRuntimeState()
   const runtimeEventState = readCuttingRuntimeEventState()
   const warehouseWritebackRuntimeState = readCuttingWarehouseWritebackRuntimeState()
@@ -192,7 +154,7 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       sourceRecords: listMarkerPlanCutOrderSourceRecords(),
       storedRecords: readCuttingStoredMarkerPlanSourceLedger().map((record) => ({ ...record })),
     },
-    progressRecords: cuttingOrderProgressRecords.map((record) => ({
+    progressRecords: listCurrentCuttingOrderProgressRecords().map((record) => ({
       ...record,
       materialLines: record.materialLines.map((line) => ({
         ...line,
@@ -228,13 +190,6 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
     },
     transferBagState: {
       store: readCuttingTransferBagRuntimeState().store as unknown as Record<string, unknown>,
-    },
-    specialProcessState: {
-      orders: specialProcessRuntimeState.orders as Array<Record<string, unknown>>,
-      bindingPayloads: specialProcessRuntimeState.bindingPayloads as Array<Record<string, unknown>>,
-      scopeLines: specialProcessRuntimeState.scopeLines as Array<Record<string, unknown>>,
-      executionLogs: specialProcessRuntimeState.executionLogs as Array<Record<string, unknown>>,
-      followupActions: specialProcessRuntimeState.followupActions as Array<Record<string, unknown>>,
     },
     pdaExecutionState: {
       pickupEvents: pdaExecutionRuntimeState.pickupEvents,

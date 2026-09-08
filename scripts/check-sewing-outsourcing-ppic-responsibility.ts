@@ -23,6 +23,7 @@ import {
   resetSewingTaskResponsibilityTransfersForTests,
   transferSewingTaskResponsibility,
 } from '../src/data/fcs/sewing-outsourcing-responsibility.ts'
+import { resolveInitialOrderRuntimeTaskIdentity } from '../src/data/fcs/process-tasks.ts'
 
 const activePpics = getAvailableOnboardingPpicOptions()
 assert(activePpics.length >= 21, 'PPIC原型主数据必须覆盖20+人的团队规模')
@@ -59,8 +60,11 @@ assert(transferTarget)
 resetEffectiveTaskAssignmentsForTests()
 resetSewingTaskResponsibilityTransfersForTests()
 
+const delayedReceiptDemoTaskIdentity = resolveInitialOrderRuntimeTaskIdentity('PO-202603-0015', 'SEW')
+assert(delayedReceiptDemoTaskIdentity, 'PO-202603-0015 必须且只能存在一张车缝来源任务')
+
 try {
-  assert.equal(getCurrentSewingTaskResponsibility('TASKGEN-202603-0015-003__ORDER'), null, '选定工厂前不能提前生成任务PPIC')
+  assert.equal(getCurrentSewingTaskResponsibility(delayedReceiptDemoTaskIdentity.runtimeTaskId), null, '选定工厂前不能提前生成任务PPIC')
 
   assert.throws(
     () => createEffectiveTaskAssignment({
@@ -86,10 +90,10 @@ try {
 
   const firstAssignment = createEffectiveTaskAssignment({
     assignmentId: 'ASG-PPIC-RESP-001',
-    runtimeTaskId: 'TASKGEN-202603-0015-003__ORDER',
+    runtimeTaskId: delayedReceiptDemoTaskIdentity.runtimeTaskId,
     productionOrderId: 'PO-202603-0015',
     productionOrderNo: 'PO-202603-0015',
-    taskNo: 'TASKGEN-202603-0015-003',
+    taskNo: delayedReceiptDemoTaskIdentity.taskNo,
     factoryId: factory.id,
     factoryName: factory.name,
     source: 'DIRECT_DISPATCH',

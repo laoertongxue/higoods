@@ -111,11 +111,9 @@ import {
 } from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
-import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
   completeSupplementOrder,
   getSupplementOrder,
-  listSupplementOrders,
   listSupplementOrdersByCutOrder,
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
@@ -126,6 +124,7 @@ import {
 } from '../../../data/fcs/cutting/supplement-node-facts.ts'
 import { listMaterialPrepOrderProjections } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { ensureFixedSupplementOrderFixturesRegistered } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
+import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 
 ensureFixedSupplementOrderFixturesRegistered()
 
@@ -319,16 +318,11 @@ function resetPagination(): void {
 
 function getProjection() {
   const projection = buildCutOrdersProjection()
-  const supplementLinkedCutOrderIdentities = listSupplementOrders().map((order) => ({
-    cutOrderId: order.cutOrderId,
-    cutOrderNo: order.cutOrderNo,
-  }))
   const viewModel = buildCutOrderViewModel(
     projection.snapshot.progressRecords,
     projection.sources.markerPlanSources,
     {
       progressRows: projection.sources.productionRows,
-      supplementLinkedCutOrderIdentities,
     },
   )
   return { ...projection, viewModel }
@@ -957,11 +951,13 @@ function buildCloseImpactContext(row: CutOrderRow): {
     (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
   )
   const pendingDifferenceCount = differenceRows.filter((item) => item.handlingStatus !== '已处理' && item.handlingStatus !== '仅记录').length
-  const specialProcessRows = sources.specialProcessView.rows.filter(
-    (item) => item.cutOrderIds.includes(row.cutOrderId) || item.cutOrderNos.includes(row.cutOrderNo),
+  const bindingProcessRows = sources.bindingProcessOrders.filter(
+    (item) => item.sourceCutOrderId === row.cutOrderId || item.sourceCutOrderNo === row.cutOrderNo,
   )
-  const pendingSpecialCraftCount = specialProcessRows.filter((item) => !/已回仓|已关闭|已取消/.test(item.statusMeta?.label || '')).length
-  const pendingSpecialCraftSummary = pendingSpecialCraftCount ? `${pendingSpecialCraftCount} 单未回仓` : ''
+  const pendingSpecialCraftCount = bindingProcessRows.filter(
+    (item) => item.status !== '已取消' && (item.status !== '已完成' || item.handoverStatus !== '已交出'),
+  ).length
+  const pendingSpecialCraftSummary = pendingSpecialCraftCount ? `${pendingSpecialCraftCount} 张捆条单未闭环` : ''
   const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
   const feiTicketCount = sources.feiViewModel.ticketRecords.filter(
     (ticket) => ticket.cutOrderId === row.cutOrderId || ticket.cutOrderNo === row.cutOrderNo,
@@ -977,7 +973,7 @@ function buildCloseImpactContext(row: CutOrderRow): {
       pendingHandoverSummary,
     }),
     inventorySummary: inventorySummary || '0 片',
-    pendingSpecialCraftSummary: pendingSpecialCraftSummary || '0 片',
+    pendingSpecialCraftSummary: pendingSpecialCraftSummary || '0 张',
     pendingHandoverSummary: pendingHandoverSummary || '0 条',
     markerSpreadingSummary: `${markerSpreadingCounts.markerCount} 个唛架方案 / ${markerSpreadingCounts.sessionCount} 张铺布单 / 实际裁剪 ${markerSpreadingCounts.statusSummary}`,
     feiTicketSummary: `${formatCount(feiTicketCount)} 张菲票`,
@@ -2422,7 +2418,7 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
       .map((item) => ({ ...item })),
     ['detectedAt'],
   )
-  const bindingProcessRows = buildBindingProcessOrders()
+  const bindingProcessRows = sources.bindingProcessOrders
     .filter((item) => item.sourceCutOrderId === row.cutOrderId || item.sourceCutOrderNo === row.cutOrderNo)
     .map((item) => ({
       ...item,
@@ -2435,22 +2431,7 @@ function buildCutOrderDetailView(row: CutOrderRow, viewModel = getViewModel()) {
       updatedAt: item.completedAt || item.startedAt || '',
     }))
   const specialProcessRows = sortRecordsByLatest(
-    [
-      ...(sources.specialProcessView.rows as Array<Record<string, any>>)
-        .filter((item) => isObjectLinkedToCutOrder(item, row))
-        .map((item) => ({
-          ...item,
-          processNo: item.processOrderNo,
-          specialCraftTaskNo: item.processOrderNo,
-          processType: item.processTypeLabel,
-          factoryName: '',
-          statusLabel: item.statusMeta?.label || item.status,
-          quantity: item.plannedQtyTotal,
-          pieceQty: item.actualQtyTotal,
-          updatedAt: item.latestExecutionAt || item.createdAt,
-        })),
-      ...bindingProcessRows,
-    ],
+    bindingProcessRows,
     ['updatedAt', 'returnedAt', 'createdAt'],
   )
   const siblingRows = viewModel.rows.filter(
@@ -2508,6 +2489,7 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
   const markerSpreadingCounts = buildMarkerSpreadingCountsByCutOrder(row.cutOrderId)
   return `
     <div class="space-y-4">
+      ${renderProcessOrderTaskRelations(row.cutOrderId)}
       ${renderDetailSection('当前概览', `
         <div class="grid gap-3 xl:grid-cols-[1.1fr_1fr]">
           <div class="rounded-lg border bg-muted/20 p-3">
@@ -2719,12 +2701,12 @@ function renderCutOrderDifferencesTab(view: ReturnType<typeof buildCutOrderDetai
           }))}">查看铺布单</button></div>
         </div>
       `))}
-      ${renderDetailSection('特殊工艺关联', renderCompactRecordList(view.specialProcessRows, '暂无特殊工艺记录。', (item) => `
+      ${renderDetailSection('捆条加工关联', renderCompactRecordList(view.specialProcessRows, '暂无捆条加工记录。', (item) => `
         <div class="grid gap-3 px-3 py-3 text-sm md:grid-cols-4">
-          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.processNo || item.specialCraftTaskNo))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.processType))}</div></div>
+          <div><div class="font-medium">${escapeHtml(formatUnknownText(item.processNo))}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatUnknownText(item.processType))}</div></div>
           <div><div class="text-xs text-muted-foreground">承接工厂</div><div>${escapeHtml(formatUnknownText(item.factoryName))}</div></div>
           <div><div class="text-xs text-muted-foreground">状态</div><div>${escapeHtml(formatUnknownText(item.statusLabel))}</div></div>
-          <div><div class="text-xs text-muted-foreground">数量</div><div>${escapeHtml(formatUnknownNumber(item.pieceQty || item.quantity, '片'))}</div></div>
+          <div><div class="text-xs text-muted-foreground">数量</div><div>${escapeHtml(formatUnknownNumber(item.pieceQty || item.quantity, item.unit || '米'))}</div></div>
         </div>
       `))}
     </div>

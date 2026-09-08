@@ -12,6 +12,7 @@ import {
 } from './factory-internal-warehouse.ts'
 import {
   capturePdaHandoverState,
+  persistPdaHandoverState,
   getPdaHandoverRecordsByHead,
   findPdaHandoverHead,
   restorePdaHandoverState,
@@ -27,7 +28,7 @@ import {
   updateKolGotoWholeOrderTaskExecution,
   type ProcessTask,
 } from './process-tasks.ts'
-import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { initialProductionOrderIds, productionOrders, type ProductionOrder } from './production-orders.ts'
 import {
   KOL_GOTO_FACTORY_ID,
   KOL_GOTO_FACTORY_NAME,
@@ -69,6 +70,111 @@ export interface KolGotoPickupBatch {
 }
 
 const pickupBatches: KolGotoPickupBatch[] = []
+const KOL_ACTION_STORAGE_KEY = 'higood.formal-kol-actions.v1'
+const KOL_HANDOVER_STORAGE_KEY = 'higood.formal-merged-handout-actions.v1'
+let kolActionsLoaded = false
+let kolActionsLoadError: Error | null = null
+const kolExecutionKeys = ['status', 'startedAt', 'finishedAt', 'handoverOrderId', 'handoverStatus', 'updatedAt', 'auditLogs'] as const
+function isFormalKolTask(task: ProcessTask): boolean {
+  return Boolean(task.productionOrderId) && !initialProductionOrderIds.has(task.productionOrderId!) && isKolGotoWholeOrderTask(task)
+}
+function ensureFormalKolActions(): void {
+  if (kolActionsLoadError) throw kolActionsLoadError
+  if (kolActionsLoaded || typeof localStorage === 'undefined') return
+  kolActionsLoaded = true
+  try {
+    const raw = localStorage.getItem(KOL_ACTION_STORAGE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw) as ReturnType<typeof captureFormalKolActions>
+    if (saved.version !== 1 || !Array.isArray(saved.tasks) || !Array.isArray(saved.pickups) || !Array.isArray(saved.ledgers)
+      || !saved.warehouse || Object.values(saved.warehouse).some(rows => !Array.isArray(rows))) throw new Error('KOL 保存记录格式不正确')
+    const validTasks = new Set<string>()
+    for (const row of saved.tasks) {
+      const task = processTasks.find(item => item.taskId === row.taskId && item.productionOrderId === row.productionOrderId)
+      const order = productionOrders.find(item => item.productionOrderId === row.productionOrderId)
+      if (!task || !isFormalKolTask(task) || !row.versionId?.trim() || order?.techPackSnapshot?.sourceTechPackVersionId !== row.versionId) throw new Error('KOL 保存记录与原任务或冻结版本不一致')
+      if (!['NOT_STARTED', 'IN_PROGRESS', 'DONE'].includes(row.execution.status || '') || !Array.isArray(row.execution.auditLogs)) throw new Error('KOL 执行记录不正确')
+      validTasks.add(task.taskId)
+    }
+    if (saved.pickups.some(batch => {
+      const task = processTasks.find(task => task.taskId === batch.taskId)
+      const order = productionOrders.find(order => order.productionOrderId === task?.productionOrderId)
+      return !validTasks.has(batch.taskId) || batch.productionOrderId !== task?.productionOrderId || !Array.isArray(batch.lines)
+        || !Array.isArray(batch.inboundRecordIds) || !Array.isArray(batch.outboundRecordIds) || !batch.pickedBy || !batch.pickedAt
+        || batch.lines.some(line => !Number.isFinite(line.qty) || line.qty <= 0 || !line.unit || line.pickupBatchId !== batch.pickupBatchId
+          || !order?.techPackSnapshot?.bomItems.some(bom => bom.id === line.bomItemId && (bom.unit ? bom.unit === line.unit : saved.warehouse.inboundRecords.some(record => record.sourceRecordId === line.pickupLineId && record.taskId === batch.taskId && record.productionOrderId === batch.productionOrderId && record.sourceSnapshot?.techPackVersionId === order.techPackSnapshot?.sourceTechPackVersionId && record.sourceSnapshot?.bomItemId === bom.id && record.unit === line.unit && record.receivedQty === line.qty && record.receiverName === batch.pickedBy && record.receivedAt === batch.pickedAt)) && (bom.materialCode || bom.materialSkuId || bom.id) === line.materialCode))
+    })) throw new Error('KOL 领料记录不正确')
+    const inIds = new Set(saved.pickups.flatMap(batch => batch.inboundRecordIds))
+    const outIds = new Set(saved.pickups.flatMap(batch => batch.outboundRecordIds))
+    const lineIds = new Set(saved.pickups.flatMap(batch => batch.lines.map(line => line.pickupLineId)))
+    if (saved.warehouse.inboundRecords.some(row => !inIds.has(row.inboundRecordId) || !lineIds.has(row.sourceRecordId || ''))
+      || saved.warehouse.outboundRecords.some(row => !outIds.has(row.outboundRecordId) || !lineIds.has(row.sourceRecordId || ''))
+      || saved.warehouse.waitProcessStockItems.some(row => !lineIds.has(row.sourceRecordId || ''))
+      || saved.ledgers.some(row => !validTasks.has(row.taskId || '') || row.factoryId !== KOL_GOTO_FACTORY_ID)) throw new Error('KOL 仓内或固定总价记录来源不正确')
+    const warehouse = createFactoryInternalWarehouseMutationSnapshot()
+    const merge = <T extends { sourceRecordId?: string }>(old: T[], rows: T[]) => [...old.filter(row => !rows.some(savedRow => savedRow.sourceRecordId === row.sourceRecordId)), ...structuredClone(rows)]
+    for (const row of saved.tasks) Object.assign(processTasks.find(task => task.taskId === row.taskId)!, Object.fromEntries(kolExecutionKeys.map(key => [key, row.execution[key]])))
+    pickupBatches.push(...structuredClone(saved.pickups))
+    restoreFactoryInternalWarehouseMutationSnapshot({
+      waitProcessStockItems: merge(warehouse.waitProcessStockItems, saved.warehouse.waitProcessStockItems),
+      waitHandoverStockItems: warehouse.waitHandoverStockItems,
+      inboundRecords: merge(warehouse.inboundRecords, saved.warehouse.inboundRecords),
+      outboundRecords: merge(warehouse.outboundRecords, saved.warehouse.outboundRecords),
+    })
+    restoreKolGotoFixedTotalLedgerStore([...captureKolGotoFixedTotalLedgerStore().filter(row => !validTasks.has(row.taskId || '')), ...saved.ledgers])
+  } catch (error) {
+    kolActionsLoadError = new Error(`本机 KOL 原操作记录无法读取，未用空记录覆盖：${error instanceof Error ? error.message : String(error)}`)
+    throw kolActionsLoadError
+  }
+}
+function captureFormalKolActions() {
+  const tasks = processTasks.filter(isFormalKolTask)
+  const taskIds = new Set(tasks.map(task => task.taskId))
+  const pickups = pickupBatches.filter(batch => taskIds.has(batch.taskId))
+  const inboundIds = new Set(pickups.flatMap(batch => batch.inboundRecordIds))
+  const outboundIds = new Set(pickups.flatMap(batch => batch.outboundRecordIds))
+  const lineIds = new Set(pickups.flatMap(batch => batch.lines.map(line => line.pickupLineId)))
+  const warehouse = createFactoryInternalWarehouseMutationSnapshot()
+  return { version: 1, tasks: tasks.map(task => ({ taskId: task.taskId, productionOrderId: task.productionOrderId,
+    versionId: productionOrders.find(order => order.productionOrderId === task.productionOrderId)?.techPackSnapshot?.sourceTechPackVersionId,
+    execution: Object.fromEntries(kolExecutionKeys.map(key => [key, task[key]])) as Pick<ProcessTask, typeof kolExecutionKeys[number]>,
+  })), pickups, warehouse: {
+    waitProcessStockItems: warehouse.waitProcessStockItems.filter(row => Boolean(row.sourceRecordId && lineIds.has(row.sourceRecordId))),
+    inboundRecords: warehouse.inboundRecords.filter(row => inboundIds.has(row.inboundRecordId)),
+    outboundRecords: warehouse.outboundRecords.filter(row => outboundIds.has(row.outboundRecordId)),
+  }, ledgers: captureKolGotoFixedTotalLedgerStore().filter(row => Boolean(row.taskId && taskIds.has(row.taskId))) }
+}
+function runFormalKolAction<T>(taskId: string, action: () => T): T {
+  ensureFormalKolActions()
+  const task = processTasks.find(row => row.taskId === taskId)
+  if (!task || !isFormalKolTask(task)) return action()
+  const sourceIssue = getKolGotoMaterialSourceIssue(taskId)
+  if (sourceIssue) throw new Error(sourceIssue)
+  if (typeof localStorage === 'undefined') return action()
+  const keys = [KOL_HANDOVER_STORAGE_KEY, KOL_ACTION_STORAGE_KEY]
+  const raw = keys.map(key => localStorage.getItem(key))
+  const tasks = captureProcessTaskStore()
+  const warehouse = createFactoryInternalWarehouseMutationSnapshot()
+  const handover = capturePdaHandoverState()
+  const ledgers = captureKolGotoFixedTotalLedgerStore()
+  const pickups = structuredClone(pickupBatches)
+  try {
+    const result = action()
+    persistPdaHandoverState()
+    localStorage.setItem(KOL_ACTION_STORAGE_KEY, JSON.stringify(captureFormalKolActions()))
+    return result
+  } catch (error) {
+    restoreProcessTaskStore(tasks)
+    restoreFactoryInternalWarehouseMutationSnapshot(warehouse)
+    restorePdaHandoverState(handover)
+    restoreKolGotoFixedTotalLedgerStore(ledgers)
+    pickupBatches.splice(0, pickupBatches.length, ...pickups)
+    try { keys.forEach((key, i) => { if (localStorage.getItem(key) === raw[i]) return; if (raw[i] === null) localStorage.removeItem(key); else localStorage.setItem(key, raw[i]!) }) }
+    catch { throw new Error('KOL 本次未成功保存，原存储回退失败，请停止操作并联系负责人。') }
+    throw new Error(`KOL 本次未保存，原记录已保留：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 let pickupFailureStepForTest: 'AFTER_INBOUND' | 'AFTER_STOCK' | 'AFTER_OUTBOUND' | null = null
 
 export function setKolGotoPickupFailureStepForTest(
@@ -82,6 +188,7 @@ function roundQty(value: number): number {
 }
 
 function getKolGotoTask(taskId: string): ProcessTask {
+  ensureFormalKolActions()
   const task = processTasks.find((item) => item.taskId === taskId)
   assertKolGotoWholeOrderTask(task, 'KOL PDA 操作')
   return task as ProcessTask
@@ -109,7 +216,16 @@ function getDefaultKolGotoWarehouseLocation() {
   return { warehouse, area, shelf, location }
 }
 
+// 原冻结单位缺失时保留此前动作的原记录，不把它认定为有效计量来源。
+export function getKolGotoMaterialSourceIssue(taskId: string): string {
+  const task = getKolGotoTask(taskId)
+  if (!isFormalKolTask(task)) return ''
+  const missing = getKolGotoOrder(task).techPackSnapshot.bomItems.filter(item => (item.type === '面料' || item.type === '辅料') && !item.unit?.trim())
+  return missing.length ? `${missing.map(item => item.name).join('、')}：冻结技术资料未记录单位。历史领料按原记录展示，暂停领料、交出和完成；请负责人核对技术资料。` : ''
+}
+
 export function listKolGotoPickupBatches(taskId?: string): KolGotoPickupBatch[] {
+  ensureFormalKolActions()
   return structuredClone(taskId ? pickupBatches.filter((item) => item.taskId === taskId) : pickupBatches)
 }
 
@@ -138,7 +254,7 @@ export function listKolGotoPickupLines(taskId: string): KolGotoPickupLine[] {
         plannedQty,
         pickedQty,
         remainingQty: roundQty(Math.max(plannedQty - pickedQty, 0)),
-        unit: item.unit || (item.type === '面料' ? '米' : '件'),
+        unit: item.unit || (isFormalKolTask(task) ? '单位未记录' : item.type === '面料' ? '米' : '件'),
       }
     })
 }
@@ -150,6 +266,7 @@ export function submitKolGotoPickup(input: {
   pickedBy: string
   clientSubmissionId: string
 }): KolGotoPickupBatch {
+  return runFormalKolAction(input.taskId, () => {
   const clientSubmissionId = input.clientSubmissionId.trim()
   if (!clientSubmissionId) throw new Error('加工领料提交标识不能为空')
   const task = getKolGotoTask(input.taskId)
@@ -335,6 +452,7 @@ export function submitKolGotoPickup(input: {
   }
   pickupBatches.push(batch)
   return structuredClone(batch)
+  })
 }
 
 function getKolGotoHandoutHeadId(taskId: string): string {
@@ -361,6 +479,7 @@ export function submitKolGotoHandout(input: {
   remark?: string
   clientSubmissionId: string
 }): PdaHandoverRecord {
+  return runFormalKolAction(input.taskId, () => {
   const clientSubmissionId = input.clientSubmissionId.trim()
   if (!clientSubmissionId) throw new Error('交出提交标识不能为空')
   const task = getKolGotoTask(input.taskId)
@@ -497,6 +616,7 @@ export function submitKolGotoHandout(input: {
     restoreProcessTaskStore(taskSnapshot)
     throw error
   }
+  })
 }
 
 export function completeKolGotoWholeOrderTask(input: {
@@ -504,6 +624,7 @@ export function completeKolGotoWholeOrderTask(input: {
   completedAt: string
   completedBy: string
 }): ProcessTask {
+  return runFormalKolAction(input.taskId, () => {
   const task = getKolGotoTask(input.taskId)
   const order = getKolGotoOrder(task)
   if (task.status === 'DONE') {
@@ -571,9 +692,11 @@ export function completeKolGotoWholeOrderTask(input: {
     restoreKolGotoFixedTotalLedgerStore(settlementSnapshot)
     throw error
   }
+  })
 }
 
 export function listKolGotoTasks(): ProcessTask[] {
+  ensureFormalKolActions()
   return processTasks.filter((task) => isKolGotoWholeOrderTask(task)).map((task) => structuredClone(task))
 }
 

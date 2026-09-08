@@ -12,7 +12,12 @@ import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
-import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
+import {
+  CURRENT_PROCESS_ROUTE_SCHEMA_VERSION,
+  PROCESS_ROUTE_EXPLICIT_EDGE_MIGRATION_MARKER,
+  migrateProcessRouteSchema,
+  normalizeProcessRouteEntries,
+} from './tech-pack-process-route.ts'
 import {
   getTechPackVersionLogStoreSnapshot,
   restoreTechPackVersionLogStoreSnapshot,
@@ -56,7 +61,7 @@ let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
 const CORE_MISSING_NAME_MAP: Record<string, string> = {
   BOM: '物料清单',
   PATTERN: '纸样管理',
-  PROCESS: '工序工艺',
+  PROCESS: '工艺路线',
   GRADING: '放码规则',
   DESIGN: '花型设计',
   COLOR_MATERIAL: '款色用料对应',
@@ -125,6 +130,8 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
     linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    consumedBomItemIds: item.consumedBomItemIds ? [...item.consumedBomItemIds] : undefined,
+    predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
     visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
 }
@@ -275,6 +282,8 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
     patternFiles: clonePatternFiles(content.patternFiles),
     patternDesc: content.patternDesc,
     processEntries: cloneProcessEntries(content.processEntries),
+    processRouteSchemaVersion: content.processRouteSchemaVersion,
+    processRouteMigrationMarker: content.processRouteMigrationMarker,
     processRouteStatus: content.processRouteStatus,
     processRouteConfirmedBy: content.processRouteConfirmedBy,
     processRouteConfirmedAt: content.processRouteConfirmedAt,
@@ -483,6 +492,8 @@ function createEmptyContent(technicalVersionId: string): TechnicalDataVersionCon
     patternFiles: [],
     patternDesc: '',
     processEntries: [],
+    processRouteSchemaVersion: CURRENT_PROCESS_ROUTE_SCHEMA_VERSION,
+    processRouteMigrationMarker: PROCESS_ROUTE_EXPLICIT_EDGE_MIGRATION_MARKER,
     sizeTable: [],
     bomItems: [],
     bomCustomCosts: [],
@@ -530,6 +541,9 @@ function normalizeRouteStringField(
 
 function normalizeRouteFields(content: TechnicalDataVersionContent): Partial<TechnicalDataVersionContent> {
   const routeFields: Partial<TechnicalDataVersionContent> = {}
+  routeFields.processRouteSchemaVersion = CURRENT_PROCESS_ROUTE_SCHEMA_VERSION
+  routeFields.processRouteMigrationMarker = content.processRouteMigrationMarker
+    || PROCESS_ROUTE_EXPLICIT_EDGE_MIGRATION_MARKER
   const processRouteStatus = normalizeProcessRouteStatus(content)
   const processRouteConfirmedBy = normalizeRouteStringField(content, 'processRouteConfirmedBy')
   const processRouteConfirmedAt = normalizeRouteStringField(content, 'processRouteConfirmedAt')
@@ -546,11 +560,18 @@ function normalizeRouteFields(content: TechnicalDataVersionContent): Partial<Tec
 }
 
 function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
+  const routeMigration = migrateProcessRouteSchema({
+    schemaVersion: content.processRouteSchemaVersion,
+    migrationMarker: content.processRouteMigrationMarker,
+    entries: cloneProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
+  })
   return {
     technicalVersionId: content.technicalVersionId,
     patternFiles: clonePatternFiles(Array.isArray(content.patternFiles) ? content.patternFiles : []),
     patternDesc: content.patternDesc || '',
-    processEntries: normalizeProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
+    processEntries: normalizeProcessEntries(routeMigration.entries),
+    processRouteSchemaVersion: routeMigration.schemaVersion,
+    processRouteMigrationMarker: routeMigration.migrationMarker,
     ...normalizeRouteFields(content),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),

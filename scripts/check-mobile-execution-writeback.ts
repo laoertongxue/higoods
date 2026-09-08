@@ -20,14 +20,14 @@ function assertNotIncludes(source: string, needle: string, message: string): voi
 
 const writebackPath = 'src/data/fcs/process-action-writeback-service.ts'
 const pdaExecDetailPath = 'src/pages/pda-exec-detail.ts'
-const postDomainPath = 'src/data/fcs/post-finishing-domain.ts'
+const postFullFlowPath = 'src/data/fcs/post-finishing-full-flow.ts'
 const routesPdaPath = 'src/router/routes-pda.ts'
 
 assert(existsSync(join(root, writebackPath)), '缺少统一移动端执行写回模块')
 
 const writeback = read(writebackPath)
 const pdaExecDetail = read(pdaExecDetailPath)
-const postDomain = read(postDomainPath)
+const postFullFlow = read(postFullFlowPath)
 const routesPda = read(routesPdaPath)
 
 ;[
@@ -35,7 +35,6 @@ const routesPda = read(routesPdaPath)
   'executeDyeAction',
   'executeCuttingAction',
   'executeSpecialCraftAction',
-  'executePostFinishingAction',
   'executeProcessAction',
   'executeMobileProcessAction',
 ].forEach((fn) => {
@@ -54,7 +53,8 @@ assertIncludes(writeback, 'skuScrapQtyBySkuCode', '特殊工艺完工写回必�
 assertIncludes(writeback, 'skuDamageQtyBySkuCode', '特殊工艺完工写回必须携带货损数量')
 assertIncludes(writeback, 'processActionResultsByConfirmationKey', '统一交出写回必须支持幂等确认键')
 assertIncludes(writeback, 'restoreProcessWarehouseMutationState', '统一写回失败必须回滚仓储联动')
-assertIncludes(postDomain, 'ensurePostFinishingHandoverWarehouseRecord', '复检完成必须生成后道交出仓记录')
+assertIncludes(postFullFlow, 'completePostFinishingRecheckOrderFullFlow', '处理后交出复核必须写入当前后道全流程')
+assertIncludes(postFullFlow, 'upsertOutboundFromRecheck', '处理后交出复核完成必须幂等生成当前后道出货事实')
 
 ;[
   '开始打印',
@@ -64,12 +64,9 @@ assertIncludes(postDomain, 'ensurePostFinishingHandoverWarehouseRecord', '复检
   '发起交出',
   '开始染色',
   '完成染色',
-  '开始实际工序',
-  '完成实际工序',
-  '开始质检',
-  '完成质检',
-  '开始复检',
-  '完成复检',
+  '扫描送货单确认实收',
+  '扫描并执行后道加工单',
+  '扫描处理后交出复核单',
 ].forEach((label) => {
   assertIncludes(pdaExecDetail, label, `移动端缺少动作按钮：${label}`)
 })
@@ -79,8 +76,8 @@ assertIncludes(postDomain, 'ensurePostFinishingHandoverWarehouseRecord', '复检
   '本次交出',
   '报废数量',
   '货损数量',
-  '完成成衣件数',
-  '复检确认成衣件数',
+  '已完成实际工序成衣件数',
+  '确认成衣件数',
   '待交出数量',
 ].forEach((label) => {
   assertIncludes(pdaExecDetail, label, `移动端数量字段必须带对象和单位：${label}`)
@@ -96,5 +93,8 @@ const postActionSection = pdaExecDetail.slice(
 
 assertIncludes(routesPda, '^\\/fcs\\/pda\\/exec\\/([^/]+)$', '移动端执行详情动态路由必须存在')
 assertIncludes(pdaExecDetail, 'getPostFinishingWorkOrderForMobile', '后道加工单必须复用移动端执行详情路由')
+for (const legacyAction of ['post-project-start', 'post-project-complete', 'post-start-action', 'post-finish-action', 'post-report-difference', 'sewing-post-start', 'sewing-post-finish', 'sewing-post-transfer']) {
+  assertNotIncludes(pdaExecDetail, legacyAction, `通用 PDA 不得继续暴露旧后道写动作：${legacyAction}`)
+}
 
 console.log('mobile execution writeback checks passed')

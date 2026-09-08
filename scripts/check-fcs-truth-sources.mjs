@@ -44,14 +44,12 @@ const LEGACY_TOKEN_RULES = [
   { token: 'ORDER_SEEDS', regex: /\bORDER_SEEDS\b/g },
   { token: 'initialExceptions', regex: /\binitialExceptions\b/g },
   { token: 'initialMaterialIssueSheets', regex: /\binitialMaterialIssueSheets\b/g },
-  { token: 'initialDyePrintOrders', regex: /\binitialDyePrintOrders\b/g },
   { token: 'legacy-wms-picking', regex: /legacy-wms-picking/g },
 ]
 
 const LEGACY_ALLOWLIST = {
   initialExceptions: new Set(['src/data/fcs/store-domain-progress.ts']),
   initialMaterialIssueSheets: new Set(['src/data/fcs/store-domain-dispatch-process.ts']),
-  initialDyePrintOrders: new Set(['src/data/fcs/store-domain-quality-seeds.ts']),
   'legacy-wms-picking': new Set(['src/data/fcs/legacy-wms-picking.ts']),
 }
 

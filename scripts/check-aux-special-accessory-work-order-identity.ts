@@ -165,7 +165,16 @@ for (const order of bindingOrders) {
     assert.equal(candidate?.sourceTaskId, order.sourceTaskId)
     const html = renderPdaWorkOrderExecDetailPage('BINDING_PROCESS_ORDER', order.bindingOrderId)
     assert(html.includes(order.bindingOrderNo), '捆条 PDA 详情必须显示加工单号')
-    assert(html.includes(order.sourceTaskNo), '捆条 PDA 详情必须显示来源任务')
+    for (const relationTitle of ['需求来源', '前置任务项', '后置任务项', '任务明细']) {
+      assert(html.includes(relationTitle), `捆条 PDA 详情缺少关系卡片：${relationTitle}`)
+    }
+    assert(html.includes(order.sourceTaskNo), '捆条 PDA 详情必须显示来源任务号')
+    assert(html.includes(order.sourceTaskId), '捆条 PDA 详情必须显示来源任务 ID')
+    assert(html.includes(order.sourceParentTaskNo), '捆条 PDA 详情必须显示前置裁剪任务')
+    assert(html.includes(order.sourceProductionOrderNo), '捆条 PDA 详情必须显示需求来源生产单')
+    assert(html.includes(order.sourceCutOrderNo), '捆条 PDA 详情必须显示需求来源裁片单')
+    assert(html.includes(order.externalReceiverFactoryName || '中央辅料仓'), '捆条 PDA 详情必须显示加工后交出去向')
+    assert(order.bindingDetails.every((detail) => html.includes(detail.bindingStripName) && html.includes(detail.feiTicketNo)), '捆条 PDA 任务明细必须覆盖全部规格和菲票')
     assert(!renderPdaWorkOrderExecDetailPage('BINDING_PROCESS_ORDER', `${order.bindingOrderId}:INVALID`).includes(order.bindingOrderNo))
     const webHtml = renderCraftCuttingSpecialProcessDetailPage(order.bindingOrderId)
     assert(webHtml.includes(order.bindingOrderNo), '捆条 Web 详情必须显示加工单号')
@@ -255,7 +264,7 @@ const expectedWorkOrderCount = specialOrders.length + bindingOrders.length + lac
 recorder.check({
   caseId: 'WO-COVERAGE-ALL',
   chainId: 'ALL',
-  assertion: '19 条链均有业务数据，且每张加工单恰有至少 3 条独立数据验证',
+  assertion: '20 条链均有业务数据，且每张加工单恰有至少 3 条独立数据验证',
   evidence: {
     specialOrderCount: specialOrders.length,
     bindingOrderCount: bindingOrders.length,

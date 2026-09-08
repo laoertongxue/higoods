@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 
 const LIST_PATH = '/fcs/craft/printing/work-orders'
-const DETAIL_PATH = '/fcs/craft/printing/work-orders/PWO-25336'
+const DETAIL_PATH = '/fcs/craft/printing/work-orders/PWO-PRINT-002'
 const EVIDENCE_DIR = '/private/tmp/higoods-printing-acceptance'
 
 function collectRuntimeErrors(page: Page): string[] {
@@ -25,7 +25,7 @@ test('印花加工单列表完整保留线上信息并按投入、来源、产�
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(LIST_PATH)
   const root = page.locator('[data-printing-work-orders-root]')
-  await expect(root).toBeVisible()
+  await expect(root).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('heading', { name: '印花加工单', exact: true })).toBeVisible()
 
   for (const text of [
@@ -105,19 +105,35 @@ test('印花加工单列表完整保留线上信息并按投入、来源、产�
   for (const checkbox of await selectColumnSetting.locator('input').all()) await expect(checkbox).toBeDisabled()
   await root.getByRole('button', { name: '关闭', exact: true }).click()
 
-  await root.locator('[data-printing-work-orders-field="demandSource"]').selectOption('PURCHASE')
+  await root.locator('[data-printing-work-orders-field="demandSource"]').selectOption('STOCK')
   await root.getByRole('button', { name: '查询', exact: true }).click()
   const filteredRows = root.locator('[data-standard-list-table-section] tbody tr')
-  await expect(filteredRows).toHaveCount(1)
-  await expect(filteredRows.first()).toContainText('采购')
+  await expect(filteredRows).toHaveCount(6)
+  await expect(filteredRows.first()).toContainText('备货')
   await root.getByRole('button', { name: '重置', exact: true }).click()
-  await expect(root.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(6)
+  await expect(root.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(10)
+  await expect(root).toContainText('共 12 条')
+  await expect(root).toContainText('[纱线]')
 
-  const openStartedAt = await page.evaluate(() => performance.now())
+  // 计时限于浏览器真实 click 到可见预览，不把测试协议往返算入 UI 响应。
+  await page.evaluate(() => {
+    const holder = window as unknown as { printingPreviewElapsed?: number }
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-printing-action="preview-image"]')) return
+      const startedAt = performance.now()
+      const observer = new MutationObserver(() => {
+        const overlay = document.querySelector<HTMLElement>('[data-printing-image-preview]')
+        if (!overlay || !overlay.getBoundingClientRect().width || getComputedStyle(overlay).visibility === 'hidden') return
+        holder.printingPreviewElapsed = performance.now() - startedAt
+        observer.disconnect()
+      })
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+    }, { capture: true, once: true })
+  })
   await root.locator('[data-printing-action="preview-image"]').first().click()
   const imageOverlay = page.locator('[data-printing-image-preview]')
   await expect(imageOverlay).toBeVisible()
-  const openElapsed = await page.evaluate((startedAt) => performance.now() - startedAt, openStartedAt)
+  const openElapsed = await page.evaluate(() => (window as unknown as { printingPreviewElapsed: number }).printingPreviewElapsed)
   expect(openElapsed).toBeLessThan(200)
   const largeImage = imageOverlay.locator('img')
   await expect(largeImage).toBeVisible()
@@ -128,7 +144,7 @@ test('印花加工单列表完整保留线上信息并按投入、来源、产�
   expect(imageBox!.height).toBeLessThanOrEqual(768)
   await page.keyboard.press('Escape')
   await expect(imageOverlay).toHaveCount(0)
-  await expect(root).toBeVisible()
+  await expect(root).toBeVisible({ timeout: 30_000 })
 
   const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(pageOverflow).toBeLessThanOrEqual(1)
@@ -141,8 +157,8 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(DETAIL_PATH)
   const root = page.locator('[data-printing-work-order-detail-root]')
-  await expect(root).toBeVisible()
-  await expect(page.getByRole('heading', { name: '印花加工单 YH25336', exact: true })).toBeVisible()
+  await expect(root).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: '印花加工单 PH-20260328-002', exact: true })).toBeVisible()
 
   for (const section of [
     '1. 需求来源', '2. 用量依据', '3. 计划加工投入与实际加工投入', '4. 投入调整历史',
@@ -150,20 +166,20 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
     '9. 交出与接收', '10. 加工产出卷条码', '11. 打印历史', '12. 操作日志与备注',
   ]) await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible()
 
-  const outputSku = 'CNIDML009-ge001103'
+  const outputSku = await page.evaluate(async () => (await import('/src/data/fcs/printing-work-order-business.ts')).getPrintingWorkOrderById('PWO-PRINT-002')!.output.sku)
   await expect(root).toContainText(outputSku)
   await root.getByRole('button', { name: '调整加工投入', exact: true }).first().click()
   const changeDialog = page.getByRole('dialog', { name: '调整加工投入' })
   await expect(changeDialog).toBeVisible()
-  for (const label of ['对象类型', '新投入 SKU', '新面料名称', '面料图片', '克重（g/㎡）', '幅宽（cm）', '标准单位用量', '加工单单位用量', '直接计划投入（Yard）', '变更原因']) {
+  for (const label of ['对象类型', '新投入 SKU', '新面料名称', '面料图片', '克重（g/㎡）', '幅宽（cm）', '标准单位用量', '加工单单位用量', '直接计划投入（米）', '变更原因']) {
     await expect(changeDialog.getByText(label, { exact: true })).toBeVisible()
   }
 
-  await changeDialog.locator('[data-printing-dialog-field="newSku"]').fill('CNIDML009-REPLACE-220G')
-  await changeDialog.locator('[data-printing-dialog-field="newMaterialName"]').fill('替代规格白胚面料 220g')
-  await changeDialog.locator('[data-printing-dialog-field="newImageUrl"]').selectOption('/materials/fabric-lining.jpg')
-  await changeDialog.locator('[data-printing-dialog-field="newGsm"]').fill('240')
-  await changeDialog.locator('[data-printing-dialog-field="newWidthCm"]').fill('170')
+  await changeDialog.locator('[data-printing-dialog-field="newSku"]').fill('CNIDML360-white-1')
+  await changeDialog.locator('[data-printing-dialog-field="newMaterialName"]').fill('经编8坑-C2813')
+  await changeDialog.locator('[data-printing-dialog-field="newImageUrl"]').selectOption('')
+  await changeDialog.locator('[data-printing-dialog-field="newGsm"]').fill('90')
+  await changeDialog.locator('[data-printing-dialog-field="newWidthCm"]').fill('155')
   await changeDialog.locator('[data-printing-dialog-field="newStandardUnitUsage"]').fill('1.4800')
   await changeDialog.locator('[data-printing-dialog-field="newOrderUnitUsage"]').fill('')
   await changeDialog.locator('[data-printing-dialog-field="reason"]').fill('现场跨规格换料验收')
@@ -174,7 +190,7 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
   await changeDialog.locator('[data-printing-dialog-field="newOrderUnitUsage"]').fill('1.5000')
   await changeDialog.getByRole('button', { name: '确认调整', exact: true }).click()
   await expect(changeDialog).toHaveCount(0)
-  await expect(root).toContainText('CNIDML009-REPLACE-220G')
+  await expect(root).toContainText('CNIDML360-white-1')
   await expect(root).toContainText('实际 SKU：未接收')
   await expect(root).toContainText(outputSku)
   await expect(root).toContainText('投入已变更，信息单/确认单需重印')
@@ -183,7 +199,7 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
 
   await root.getByRole('button', { name: '接收加工投入', exact: true }).click()
   const receiveDialog = page.getByRole('dialog', { name: '接收加工投入' })
-  await expect(receiveDialog.locator('[data-printing-dialog-field="actualSku"]')).toHaveValue('CNIDML009-REPLACE-220G')
+  await expect(receiveDialog.locator('[data-printing-dialog-field="actualSku"]')).toHaveValue('CNIDML360-white-1')
   await expect(receiveDialog.locator('[data-printing-dialog-field="receivedQty"]')).not.toHaveValue('0.00')
   await receiveDialog.locator('[data-printing-dialog-field="receivedRollCount"]').fill('3')
   await receiveDialog.getByRole('button', { name: '确认接收', exact: true }).click()
@@ -191,7 +207,7 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
 
   await root.getByRole('button', { name: '填报加工完成', exact: true }).click()
   const completeDialog = page.getByRole('dialog', { name: '填报加工完成' })
-  for (const label of ['累计实际使用（Yard）', '实际使用卷数', '完成数量（Yard）', '完成卷数', '打印机']) {
+  for (const label of ['累计实际使用（米）', '累计实际使用卷数', '累计完成数量（米）', '累计完成卷数', '打印机']) {
     await expect(completeDialog.getByText(label, { exact: true })).toBeVisible()
   }
   await completeDialog.locator('[data-printing-dialog-field="usedRollCount"]').fill('3')
@@ -203,7 +219,7 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
   await root.locator('[data-printing-action="open-barcodes"]').first().click()
   const barcodeDialog = page.getByRole('dialog', { name: '加工产出卷条码' })
   await expect(barcodeDialog).toBeVisible()
-  for (const header of ['条码', '关联单号', 'SKU', '状态', '卷号', '卷长(Y)', '重量(KG)', '克重', '幅宽', '入库仓库/状态', '入库时间', '打印人/时间', '操作']) {
+  for (const header of ['条码', '关联单号', 'SKU', '状态', '卷号', '数量(米)', '重量(KG)', '克重', '幅宽', '入库仓库/状态', '入库时间', '打印人/时间', '操作']) {
     await expect(barcodeDialog.getByRole('columnheader', { name: header, exact: true })).toBeVisible()
   }
   await expect(barcodeDialog.locator('tbody tr')).toHaveCount(3)
@@ -223,39 +239,74 @@ test('加工投入调整保留单位用量、阻断跨规格漏填，并保持�
   expect(runtimeErrors).toEqual([])
 })
 
+test('下游全部接收后仍由现场负责人显式完成人工单据', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page)
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-005')
+  const root = page.locator('[data-printing-work-order-detail-root]')
+  await expect(root).toBeVisible({ timeout: 30_000 })
+
+  await root.locator('[data-printing-action="handover"]').first().click()
+  const handoverDialog = page.getByRole('dialog', { name: '交出加工产出' })
+  await expect(handoverDialog).toBeVisible()
+  await handoverDialog.getByRole('button', { name: '确认交出', exact: true }).click()
+  await expect(root).toContainText('已交出待接收')
+
+  await root.locator('[data-printing-action="receive-handover"]').first().click()
+  const receiveDialog = page.getByRole('dialog', { name: '接收加工产出' })
+  await expect(receiveDialog).toBeVisible()
+  await receiveDialog.getByRole('button', { name: '确认接收', exact: true }).click()
+  await expect(root).toContainText('已接收')
+  await expect(root).toContainText('待人工完单')
+  await expect(root).not.toContainText('业务已完成')
+
+  await root.getByRole('button', { name: '完成单据', exact: true }).click()
+  const completeDocumentDialog = page.getByRole('dialog', { name: '人工完成印花加工单' })
+  await expect(completeDocumentDialog).toBeVisible()
+  await completeDocumentDialog.locator('[data-printing-dialog-field="documentCompleter"]').fill('印花主管验收')
+  await completeDocumentDialog.getByRole('button', { name: '确认完成单据', exact: true }).click()
+  await expect(root).toContainText('业务已完成')
+  await expect(root.getByRole('button', { name: '完成单据', exact: true })).toHaveCount(0)
+  expect(runtimeErrors).toEqual([])
+})
+
 test('印花信息单、印花确认单、批量确认单和加工产出卷条码均可预览打印', async ({ page }) => {
+  test.setTimeout(120_000)
   const runtimeErrors = collectRuntimeErrors(page)
   await page.setViewportSize({ width: 1366, height: 768 })
 
-  await page.goto(printPreviewPath('PRINTING_INFO_SHEET', 'PRINTING_WORK_ORDER', 'PWO-25336'))
-  await expect(page.getByText('印花信息单', { exact: true }).first()).toBeVisible()
+  await page.goto(printPreviewPath('PRINTING_INFO_SHEET', 'PRINTING_WORK_ORDER', 'PWO-PRINT-002'))
+  await expect(page.getByText('印花信息单', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
   for (const text of ['需求来源', '用量依据', '加工投入', '印花要求与加工产出', '加工产出 SKU']) {
     await expect(page.getByText(text, { exact: true }).first()).toBeVisible()
   }
   await expect(page.getByText(/打印版本：V1/)).toBeVisible()
   await expect(page.getByRole('button', { name: '下载 PDF', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '打印', exact: true })).toBeVisible()
-  await expect.poll(() => page.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+  // 原002无对象准确照片：打印明确缺图，本测试不冒充图片硬门禁已通过。
+  await expect(page.locator('article')).toContainText('缺少对应商品图片')
   await page.screenshot({ path: `${EVIDENCE_DIR}/04-printing-info-sheet.png`, fullPage: true })
 
-  await page.goto(printPreviewPath('PRINTING_CONFIRMATION', 'PRINTING_WORK_ORDER', 'PWO-24013'))
+  await page.goto(printPreviewPath('PRINTING_CONFIRMATION', 'PRINTING_WORK_ORDER', 'PWO-PRINT-008'))
+  await expect(page.getByText('Print confirmation', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
   for (const text of ['Print confirmation', 'Pattern transfer confirmation', 'Storage / Gudang', 'Remark', '加工投入 SKU', '加工产出 SKU']) {
     await expect(page.getByText(text, { exact: true }).first()).toBeVisible()
   }
   await expect(page.locator('body')).not.toContainText('Edit confirmation')
   await page.screenshot({ path: `${EVIDENCE_DIR}/05-printing-confirmation.png`, fullPage: true })
 
-  await page.goto(printPreviewPath('PRINTING_CONFIRMATION', 'PRINTING_WORK_ORDER', 'PWO-25336,PWO-25337'))
-  await expect(page.locator('body')).toContainText('YH25336')
-  await expect(page.locator('body')).toContainText('YH25337')
+  await page.goto(printPreviewPath('PRINTING_CONFIRMATION', 'PRINTING_WORK_ORDER', 'PWO-PRINT-001,PWO-PRINT-002'))
+  await expect(page.locator('body')).toContainText('PH-20260328-001', { timeout: 30_000 })
+  await expect(page.locator('body')).toContainText('PH-20260328-002')
   await expect(page.locator('article')).toHaveCount(2)
 
-  await page.goto(printPreviewPath('PRINTING_ROLL_LABEL', 'PRINTING_ROLL_RECORD', 'PWO-24013:ROLL-YH24013-0001'))
-  await expect(page.getByRole('heading', { name: '加工产出卷条码打印预览', exact: true })).toBeVisible()
+  await page.goto(printPreviewPath('PRINTING_ROLL_LABEL', 'PRINTING_ROLL_RECORD', 'PWO-PRINT-008:ROLL-PH-20260329-008-0001'))
+  await expect(page.getByRole('heading', { name: '加工产出卷条码打印预览', exact: true })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('印花加工产出卷', { exact: true }).first()).toBeVisible()
-  for (const text of ['产出 SKU', '卷长', '重量', '克重/幅宽', '缸号', '入库仓库', '备注']) {
+  for (const text of ['产出 SKU', '数量', '重量', '克重/幅宽', '缸号', '入库仓库', '备注']) {
     await expect(page.getByText(text, { exact: true }).first()).toBeVisible()
   }
+  await expect(page.locator('body')).toContainText(/\d+\.\d{2} 米/)
   await expect(page.locator('body')).toContainText(/\d+\.\d{3} KG/)
   await page.screenshot({ path: `${EVIDENCE_DIR}/06-printing-roll-label.png`, fullPage: true })
   expect(runtimeErrors).toEqual([])

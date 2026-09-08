@@ -1,6 +1,8 @@
 type RuntimeTaskReadResolver = (taskId: string) => unknown | null
+type RuntimeTaskListResolver = () => readonly unknown[]
 
 let resolveRuntimeTask: RuntimeTaskReadResolver | null = null
+let listRuntimeTasks: RuntimeTaskListResolver | null = null
 let resolverOwner = ''
 let resolverInstallToken: symbol | null = null
 
@@ -14,16 +16,22 @@ function normalizeModuleOwner(ownerUrl: string): string {
   }
 }
 
-export function installRuntimeTaskReadResolver(resolver: RuntimeTaskReadResolver, ownerUrl: string): () => void {
+export function installRuntimeTaskReadResolver(
+  resolver: RuntimeTaskReadResolver,
+  ownerUrl: string,
+  listResolver?: RuntimeTaskListResolver,
+): () => void {
   const owner = normalizeModuleOwner(ownerUrl)
   if (resolverOwner && resolverOwner !== owner) throw new Error('运行时任务只读解析器仅允许原安装模块热替换')
   const token = Symbol(owner)
   resolveRuntimeTask = resolver
+  listRuntimeTasks = listResolver || null
   resolverOwner = owner
   resolverInstallToken = token
   return () => {
     if (resolverInstallToken !== token) return
     resolveRuntimeTask = null
+    listRuntimeTasks = null
     resolverOwner = ''
     resolverInstallToken = null
   }
@@ -31,4 +39,8 @@ export function installRuntimeTaskReadResolver(resolver: RuntimeTaskReadResolver
 
 export function readRuntimeTaskById<T>(taskId: string): T | null {
   return (resolveRuntimeTask?.(taskId) as T | null | undefined) ?? null
+}
+
+export function readRuntimeTasks<T>(): T[] {
+  return listRuntimeTasks ? [...listRuntimeTasks()] as T[] : []
 }

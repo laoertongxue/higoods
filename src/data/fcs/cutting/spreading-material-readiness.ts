@@ -1,5 +1,6 @@
+import { listMaterialPrepOrderProjections } from './production-material-prep.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import {
-  buildMaterialLedgerProjectionMap,
   listMaterialLedgerProjections,
   type MaterialLedgerProjection,
 } from './material-ledger.ts'
@@ -112,20 +113,33 @@ function cloneLedgerRow(row: MaterialLedgerProjection): MaterialLedgerProjection
 function isRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLedgerProjection): boolean {
   const payload = runtimeRecord(event.payload)
   const materialSku = event.material?.materialSku || runtimeString(payload.materialSku)
-  return [
-    event.refs.cutOrderId && event.refs.cutOrderId === row.cutOrderId,
-    event.refs.cutOrderNo && event.refs.cutOrderNo === row.cutOrderNo,
-    event.refs.productionOrderNo && event.refs.productionOrderNo === row.productionOrderNo && materialSku === row.materialIdentity.materialSku,
-    materialSku && materialSku === row.materialIdentity.materialSku && event.refs.productionOrderNo === row.productionOrderNo,
-  ].some(Boolean)
+  if (event.refs.cutOrderId) return event.refs.cutOrderId === row.cutOrderId
+  // Old pickup writes used the production number in cutOrderNo; only that known alias falls through.
+  if (event.refs.cutOrderNo && event.refs.cutOrderNo !== event.refs.productionOrderNo) return event.refs.cutOrderNo === row.cutOrderNo
+  if (event.refs.productionOrderNo !== row.productionOrderNo || materialSku !== row.materialIdentity.materialSku) return false
+  const sources = listGeneratedCutOrderSourceRecords()
+  const source = sources.find(cut => cut.cutOrderId === row.cutOrderId)
+  const locations = Array.isArray(payload.warehouseLocations) ? payload.warehouseLocations.map(runtimeRecord) : []
+  if (source?.cuttingTaskAssigneeFactoryId && locations.length
+    && locations.some(location => location.factoryId !== source.cuttingTaskAssigneeFactoryId)) return false
+  const prepLineId = runtimeString(payload.prepLineId)
+  if (prepLineId) return Boolean(source && (source.sourceBomItemIds || []).some(bomId =>
+    prepLineId === `prep-order-${source.productionOrderId}:${source.techPackVersionId}:${bomId}`))
+  // Historical receipts lacking a BOM identity cannot credit several material branches.
+  return sources.filter(cut => cut.productionOrderNo === row.productionOrderNo && cut.materialSku === materialSku).length === 1
 }
 
 function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
   const rows = listMaterialLedgerProjections().map(cloneLedgerRow)
   const runtimeEvents = listRuntimeWaitProcessEvents()
-  if (!runtimeEvents.length) return rows
-
-  return rows.map((row) => {
+  const prepByOrder = new Map(listMaterialPrepOrderProjections().map(prep => [prep.order.productionOrderId, prep]))
+  return rows.map((originalRow) => {
+    const prep = prepByOrder.get(originalRow.productionOrderId)
+    const prepLines = prep?.lines.filter(line => line.runtimeBomLine && line.cutOrderId === originalRow.cutOrderId
+      && line.materialSku === originalRow.materialIdentity.materialSku && line.unit === originalRow.unit) || []
+    const prepLine = prepLines.length === 1 ? prepLines[0] : null
+    const row = prepLine ? { ...originalRow, requiredMaterialQty: prepLine.requiredQty,
+      transferWarehouseAllocatedQty: prepLine.confirmedPrepQty } : originalRow
     const matchedEvents = runtimeEvents.filter((event) => isRuntimeEventForLedgerRow(event, row))
     if (!matchedEvents.length) return row
     let cuttingClaimedQty = row.cuttingClaimedQty
@@ -136,6 +150,19 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
     matchedEvents.forEach((event) => {
       const qty = getRuntimeWaitProcessQty(event)
       if (qty <= 0) return
+      const payload = runtimeRecord(event.payload)
+      const unit = event.inventoryEffect?.unit || event.material?.unit || runtimeString(payload.unit)
+      if (unit !== row.unit) {
+        // Recover the original unit only from this exact saved pickup allocation, never from plan quantity.
+        const pickup = prep?.pickupRecords.find(record => record.pickupRecordId === payload.pickupRecordId
+          && record.prepLineId === payload.prepLineId && record.productionOrderId === row.productionOrderId)
+        const allocations = pickup?.sourceAllocations || []
+        const provenLegacyUnit = event.eventType === '中转仓接收' && event.refs.cutOrderNo === event.refs.productionOrderNo
+          && prepLine?.prepLineId === payload.prepLineId && allocations.length > 0
+          && allocations.every(allocation => allocation.prepLineId === prepLine?.prepLineId && allocation.unit === row.unit)
+          && roundQty(allocations.reduce((sum, allocation) => sum + allocation.pickedQty, 0)) === roundQty(qty)
+        if (!provenLegacyUnit) return
+      }
       if (event.eventType === '中转仓接收') {
         cuttingClaimedQty += qty
         availableQty += qty
@@ -160,8 +187,8 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
   })
 }
 
-function buildRuntimeAdjustedLedgerMap(): Record<string, MaterialLedgerProjection> {
-  const map = buildMaterialLedgerProjectionMap()
+export function buildRuntimeAdjustedLedgerMap(): Record<string, MaterialLedgerProjection> {
+  const map: Record<string, MaterialLedgerProjection> = {}
   buildRuntimeAdjustedLedgerRows().forEach((row) => {
     map[row.cutOrderId] = row
     map[row.cutOrderNo] = row
@@ -169,8 +196,7 @@ function buildRuntimeAdjustedLedgerMap(): Record<string, MaterialLedgerProjectio
   return map
 }
 
-function resolveLedgerRows(input: SpreadingMaterialReadinessInput): MaterialLedgerProjection[] {
-  const map = buildRuntimeAdjustedLedgerMap()
+function resolveLedgerRows(input: SpreadingMaterialReadinessInput, map = buildRuntimeAdjustedLedgerMap()): MaterialLedgerProjection[] {
   const keys = [...(input.sourceCutOrderIds || []), ...(input.sourceCutOrderNos || [])]
   const seen = new Set<string>()
   return keys
@@ -201,8 +227,9 @@ function buildReasonText(input: {
 
 export function resolveSpreadingMaterialReadiness(
   input: SpreadingMaterialReadinessInput,
+  ledgerMap?: Record<string, MaterialLedgerProjection>,
 ): SpreadingMaterialReadiness {
-  const sourceRows = resolveLedgerRows(input)
+  const sourceRows = resolveLedgerRows(input, ledgerMap)
   const plannedUsageQty = roundQty(Math.max(Number(input.plannedMaterialUsage || 0), 0))
   const unit = input.plannedMaterialUsageUnit || sourceRows[0]?.unit || '米'
   const claimedQty = roundQty(sourceRows.reduce((sum, row) => sum + Number(row.cuttingClaimedQty || 0), 0))
@@ -251,11 +278,11 @@ export function resolveSpreadingMaterialReadiness(
   }
 }
 
-export function resolveSpreadingOrderMaterialReadiness(order: SpreadingOrder): SpreadingMaterialReadiness {
+export function resolveSpreadingOrderMaterialReadiness(order: SpreadingOrder, ledgerMap?: Record<string, MaterialLedgerProjection>): SpreadingMaterialReadiness {
   return resolveSpreadingMaterialReadiness({
     sourceCutOrderIds: order.sourceCutOrderIds,
     sourceCutOrderNos: order.sourceCutOrderNos,
     plannedMaterialUsage: order.plannedMaterialUsage,
     plannedMaterialUsageUnit: order.plannedMaterialUsageUnit,
-  })
+  }, ledgerMap)
 }

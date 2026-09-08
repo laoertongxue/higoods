@@ -1,3 +1,5 @@
+import { initialProductionOrderIds } from '../../../data/fcs/production-orders.ts'
+import { buildRuntimeAdjustedLedgerMap } from '../../../data/fcs/cutting/spreading-material-readiness.ts'
 import type {
   CuttingConfigStatus,
   CuttingMaterialLine,
@@ -19,7 +21,6 @@ import {
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import {
-  buildMaterialLedgerProjectionMap,
   type MaterialLedgerProjection,
 } from '../../../data/fcs/cutting/material-ledger.ts'
 import {
@@ -87,17 +88,6 @@ export interface CutOrderNavigationPayload {
   feiTickets: Record<string, string | undefined>
   markerPlanSources: Record<string, string | undefined>
   sameProductionOrders: Record<string, string | undefined>
-}
-
-export interface CutOrderSupplementIdentity {
-  readonly cutOrderId: string
-  readonly cutOrderNo: string
-}
-
-function buildCutOrderSupplementIdentityKey(identity: CutOrderSupplementIdentity): string | null {
-  const cutOrderId = identity.cutOrderId.trim().toLowerCase()
-  const cutOrderNo = identity.cutOrderNo.trim().toLowerCase()
-  return cutOrderId && cutOrderNo ? `${cutOrderId}\u0000${cutOrderNo}` : null
 }
 
 export type CutOrderMaterialQuantityLedger = MaterialLedgerProjection
@@ -465,11 +455,11 @@ function buildDateInfoLines(record: CuttingOrderProgressRecord): Array<{ label: 
   ]
 }
 
-function buildPrepSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<CuttingConfigStatus> {
+function buildPrepSummary(line: CuttingMaterialLine, unit = '米'): CutOrderSummaryMeta<CuttingConfigStatus> {
   const meta = configMeta[line.configStatus]
   const detailText =
     line.configStatus === 'CONFIGURED'
-      ? `中转仓已配 ${formatQty(line.configuredRollCount)} 卷 / ${formatQty(line.configuredLength)} 米。`
+      ? `中转仓已配 ${formatQty(line.configuredRollCount)} 卷 / ${formatQty(line.configuredLength)} ${unit}。`
       : line.configStatus === 'PARTIAL'
         ? `中转仓已配 ${formatQty(line.configuredRollCount)} 卷，仍有剩余待补齐。`
         : '当前尚未进入待加工仓。'
@@ -477,11 +467,11 @@ function buildPrepSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<Cuttin
   return createSummaryMeta(line.configStatus, meta.label, meta.className, detailText)
 }
 
-function buildClaimSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<CuttingReceiveStatus> {
+function buildClaimSummary(line: CuttingMaterialLine, unit = '米'): CutOrderSummaryMeta<CuttingReceiveStatus> {
   const meta = receiveMeta[line.receiveStatus]
   const detailText =
     line.receiveStatus === 'RECEIVED'
-      ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷 / ${formatQty(line.receivedLength)} 米。`
+      ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷 / ${formatQty(line.receivedLength)} ${unit}。`
       : line.receiveStatus === 'PARTIAL'
         ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷，仍有余量可继续接收。`
         : '当前尚未完成接收。'
@@ -512,9 +502,20 @@ function createRow(
   const batchSummary = summarizeMarkerPlanSourceParticipation(source.cutOrderId, ledger)
   const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(source, options.materialLedgerProjectionMap)
   const quantityDataAvailable = !source.generationKey.startsWith('progress:')
+  if (quantityDataAvailable && !initialProductionOrderIds.has(source.productionOrderId)) {
+    const required = materialQuantityLedger.requiredMaterialQty
+    const prepared = materialQuantityLedger.transferWarehouseAllocatedQty
+    const received = materialQuantityLedger.cuttingClaimedQty
+    line = { ...line,
+      configuredLength: prepared,
+      receivedLength: received,
+      configStatus: prepared <= 0 ? 'NOT_CONFIGURED' : required > 0 && prepared >= required ? 'CONFIGURED' : 'PARTIAL',
+      receiveStatus: received <= 0 ? 'NOT_RECEIVED' : required > 0 && received >= required ? 'RECEIVED' : 'PARTIAL',
+    }
+  }
   const currentStage = deriveCutOrderStage(effectiveRecord, line, options.startState)
-  const materialPrepStatus = buildPrepSummary(line)
-  const materialClaimStatus = buildClaimSummary(line)
+  const materialPrepStatus = buildPrepSummary(line, materialQuantityLedger.unit)
+  const materialClaimStatus = buildClaimSummary(line, materialQuantityLedger.unit)
   const urgencyKey = progressRow?.urgency.key ?? 'UNKNOWN'
   const urgency = urgencyMeta[urgencyKey]
   const currentStageLabel = currentStage.label
@@ -668,12 +669,11 @@ export function buildCutOrderViewModel(
   options: {
     progressRows?: ProductionProgressRow[]
     markerPlanOccupancy?: MarkerPlanOccupancyLookup
-    supplementLinkedCutOrderIdentities?: ReadonlyArray<CutOrderSupplementIdentity>
   } = {},
 ): CutOrderViewModel {
   const startStateLookup = buildCutOrderStartStateLookup()
   const markerPlanOccupancyLookup = options.markerPlanOccupancy ?? {}
-  const materialLedgerProjectionMap = buildMaterialLedgerProjectionMap()
+  const materialLedgerProjectionMap = buildRuntimeAdjustedLedgerMap()
   const closeRecordLookup = buildCutOrderCloseRecordLookup()
   const reopenRecordLookup = buildCutOrderReopenRecordLookup()
   const progressRowMap = new Map(
@@ -693,87 +693,7 @@ export function buildCutOrderViewModel(
   })
 
   const generatedSources = listGeneratedCutOrderSourceRecords()
-  const generatedKeys = new Set(generatedSources.flatMap((source) => [source.cutOrderId, source.cutOrderNo]))
-  const supplementLinkedCutOrderIdentityKeys = new Set(
-    (options.supplementLinkedCutOrderIdentities ?? [])
-      .map(buildCutOrderSupplementIdentityKey)
-      .filter((key): key is string => key !== null),
-  )
-  const legacySources = records.flatMap((record) => record.materialLines.flatMap((line): GeneratedCutOrderSourceRecord[] => {
-    const cutOrderId = line.cutOrderId || ''
-    const cutOrderNo = line.cutOrderNo || line.cutPieceOrderNo
-    const supplementIdentityKey = buildCutOrderSupplementIdentityKey({ cutOrderId, cutOrderNo })
-    if (
-      !cutOrderId
-      || !cutOrderNo
-      || !supplementIdentityKey
-      || !supplementLinkedCutOrderIdentityKeys.has(supplementIdentityKey)
-      || generatedKeys.has(cutOrderId)
-      || generatedKeys.has(cutOrderNo)
-    ) return []
-    generatedKeys.add(cutOrderId)
-    generatedKeys.add(cutOrderNo)
-    const taskLink = resolveCuttingTaskLink(record)
-    const materialIdentity = line.materialIdentity || {
-      materialSku: line.materialSku,
-      materialName: line.materialLabel,
-      materialColor: line.color || '待补',
-      materialAlias: line.materialAlias || line.materialLabel,
-      materialImageUrl: line.materialImageUrl || '',
-      materialUnit: '米',
-    }
-    const patternIdentity = line.patternIdentity || {
-      patternFileId: '',
-      patternFileName: '未提供',
-      patternVersion: '未提供',
-      patternKind: '未提供',
-      effectiveWidthValue: 0,
-      effectiveWidthUnit: '厘米',
-      piecePartCodes: [],
-      piecePartNames: [],
-    }
-    return [{
-      cutOrderId,
-      cutOrderNo,
-      generationKey: `progress:${record.productionOrderId}:${cutOrderId}`,
-      productionOrderId: record.productionOrderId,
-      productionOrderNo: record.productionOrderNo,
-      ...taskLink,
-      spuCode: record.spuCode,
-      styleId: record.styleCode,
-      styleCode: record.styleCode,
-      styleName: record.styleName,
-      techPackVersionId: '',
-      techPackVersionLabel: '待补',
-      materialSku: line.materialSku,
-      materialName: materialIdentity.materialName,
-      materialColor: materialIdentity.materialColor,
-      materialType: line.materialType,
-      materialLabel: line.materialLabel,
-      materialCategory: line.materialCategory || materialCategoryLabel(line.materialType),
-      materialAlias: materialIdentity.materialAlias,
-      materialImageUrl: materialIdentity.materialImageUrl,
-      materialUnit: materialIdentity.materialUnit,
-      materialIdentity,
-      patternIdentity,
-      markerPlanId: line.markerPlanId || '',
-      markerPlanNo: line.markerPlanNo || '',
-      requiredQty: record.orderQty,
-      sourceTechPackSpuCode: record.techPackSpuCode || record.spuCode,
-      colorScope: uniqueStrings([line.color, ...((line.skuScopeLines || []).map((item) => item.color))]),
-      skuScopeLines: (line.skuScopeLines || record.skuRequirementLines || []).map((item) => ({ ...item })),
-      pieceRows: [],
-      pieceSummary: patternIdentity.piecePartNames.join('、') || '未提供',
-      cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK',
-      cutOrderSourceLabel: '未提供',
-      cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
-      cutReturnModeLabel: '未提供',
-      internalCraftOrderPolicy: 'DO_NOT_GENERATE',
-      internalCraftOrderPolicyLabel: '未提供',
-    }]
-  }))
-
-  const rows = [...generatedSources, ...legacySources]
+  const rows = generatedSources
     .map((source) => {
       const record = recordByCutOrderKey.get(source.cutOrderId)
         || recordByCutOrderKey.get(source.cutOrderNo)

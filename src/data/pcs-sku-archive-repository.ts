@@ -1,3 +1,4 @@
+import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildSkuFixture } from './pcs-product-archive-fixtures.ts'
 import { listProductionDemandTechPackSeeds } from './pcs-production-demand-tech-pack-seeds.ts'
 import { listProjectWorkspaceColors, listProjectWorkspaceSizes } from './pcs-project-config-workspace-adapter.ts'
@@ -258,7 +259,12 @@ function buildSeedRecord(
 
 function buildSeedRecords(styles: ReturnType<typeof listStyleArchives>): SkuArchiveRecord[] {
   const seedBySpu = new Map(listProductionDemandTechPackSeeds().map((seed) => [seed.demand.spuCode, seed]))
-  return styles.flatMap((style, styleIndex) => {
+  // Demo statuses must be stable when current styles are added or reordered.
+  const baselineIndex = new Map(createStyleArchiveBootstrapSnapshot(1).records
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((style, index) => [style.styleId, index]))
+  return styles.flatMap((style) => {
+    const styleIndex = baselineIndex.get(style.styleId) ?? 0
     const seed = seedBySpu.get(style.styleCode)
     const skuLines =
       seed?.demand.skuLines.map((item) => ({

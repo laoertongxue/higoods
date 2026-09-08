@@ -18,6 +18,7 @@ import {
   listDyeExecutionNodeRecords,
   listDyeFormulaRecords,
   listDyeWorkOrders,
+  listDyeWorkOrderListRecords,
   type DyeExecutionNodeRecord,
   type DyeFormulaRecord,
   type DyeReviewRecord,
@@ -55,6 +56,8 @@ export interface ProcessWorkOrderSourceSnapshot {
   productionOrderNo?: string
   techPackVersionId?: string
   techPackVersionLabel?: string
+  processEntryId?: string
+  routeObjectKey?: string
   bomItemId?: string
   bomItemIds?: string[]
   supplementRecordId?: string
@@ -71,14 +74,19 @@ export interface FormalProductionOrderMaterialItem {
   sourceBomItemId: string
   materialId: string
   materialName: string
+  materialType?: string
 }
 
 export interface FormalProductionOrderProcessSnapshot {
+  /** 生产单变更同步时指向当前既有加工单；只用于同步定位，不写入正式快照。 */
+  syncTargetWorkOrderId?: string
   productionOrderId: string
   productionOrderNo: string
   orderedAt: string
   techPackVersionId: string
   techPackVersionLabel: string
+  processEntryId?: string
+  routeObjectKey?: string
   materialId: string
   materialName: string
   materialItems?: FormalProductionOrderMaterialItem[]
@@ -98,7 +106,7 @@ export interface FormalProductionOrderProcessSnapshot {
 
 export interface FormalProductionOrderProcessSnapshotRecord extends Omit<
   FormalProductionOrderProcessSnapshot,
-  'dyeProcessName' | 'printProcessName' | 'factoryId' | 'factoryName'
+  'syncTargetWorkOrderId' | 'dyeProcessName' | 'printProcessName' | 'factoryId' | 'factoryName'
 > {
   processName: string
 }
@@ -139,8 +147,6 @@ export interface ProcessWorkOrder {
   factoryName: string
   objectType?: string
   qtyLabel?: string
-  isPiecePrinting?: boolean
-  isFabricPrinting?: boolean
   plannedQty: number
   plannedUnit: string
   plannedFinishAt?: string
@@ -212,6 +218,27 @@ export interface ProcessWorkOrder {
   updatedAt: string
 }
 
+/**
+ * 工艺路线关系卡只需要加工单身份、来源和对象摘要。
+ *
+ * 这里单独提供轻量读取，避免为了展示四张关系卡而构造执行节点、交接、
+ * 评审和染色配方等完整详情。完整加工单页面仍继续使用 `listProcessWorkOrders`。
+ */
+export interface ProcessWorkOrderRelationSource {
+  workOrderId: string
+  workOrderNo: string
+  processType: ProcessWorkOrderType
+  sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot: ProcessWorkOrderSourceSnapshot
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  objectType?: string
+  materialSku: string
+  materialName: string
+  plannedQty: number
+  plannedUnit: string
+}
+
 function cloneSourceSnapshot(sourceSnapshot: ProcessWorkOrderSourceSnapshot): ProcessWorkOrderSourceSnapshot {
   return sourceSnapshot.bomItemIds
     ? { ...sourceSnapshot, bomItemIds: [...sourceSnapshot.bomItemIds] }
@@ -239,6 +266,8 @@ function deriveLegacySourceSnapshot(input: {
     productionOrderNo: input.sourceProductionOrderNo,
     techPackVersionId: input.formalProductionOrderSnapshot?.techPackVersionId,
     techPackVersionLabel: input.formalProductionOrderSnapshot?.techPackVersionLabel,
+    processEntryId: input.formalProductionOrderSnapshot?.processEntryId,
+    routeObjectKey: input.formalProductionOrderSnapshot?.routeObjectKey,
     bomItemId: input.formalProductionOrderSnapshot?.materialItems?.[0]?.sourceBomItemId,
     bomItemIds: input.formalProductionOrderSnapshot?.materialItems?.map((item) => item.sourceBomItemId),
   }
@@ -319,8 +348,6 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     objectType: order.objectType,
     qtyUnit: order.qtyUnit,
     qtyPurpose: '计划' as const,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
   }
   return {
     workOrderId,
@@ -339,8 +366,6 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     factoryName: order.printFactoryName,
     objectType: getProcessObjectType(quantityContext),
     qtyLabel: order.qtyLabel || getQuantityLabel(quantityContext),
-    isPiecePrinting: getProcessObjectType(quantityContext) === '裁片',
-    isFabricPrinting: getProcessObjectType(quantityContext) === '面料',
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
     plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate,
@@ -391,15 +416,25 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
   }
 }
 
-function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
+function mapDyeWorkOrder(order: DyeWorkOrder, related?: {
+  review: DyeReviewRecord | undefined
+  handoverRecords: PdaHandoverRecord[]
+  formulaRecords: DyeFormulaRecord[]
+}): ProcessWorkOrder {
   const workOrderId = order.dyeOrderId
   const workOrderNo = order.dyeOrderNo
-  const review = getDyeReviewRecordByOrderId(order.dyeOrderId)
+  const review = related ? related.review : getDyeReviewRecordByOrderId(order.dyeOrderId)
+  const materialTypes = [...new Set(
+    (order.formalProductionOrderSnapshot?.materialItems ?? [])
+      .map((item) => item.materialType?.trim())
+      .filter((value): value is string => Boolean(value)),
+  )]
   const quantityContext = {
     processType: 'DYE',
     sourceType: 'DYE_WORK_ORDER',
     sourceId: order.dyeOrderId,
-    objectType: '面料',
+    // 正式生产单按 BOM 物料类型显示；旧 Mock/备货染色未记录类型时才回退为面料。
+    objectType: materialTypes.length === 1 ? materialTypes[0] : materialTypes.length > 1 ? 'BOM_MATERIAL' : '面料',
     qtyUnit: order.qtyUnit,
     qtyPurpose: '计划' as const,
   }
@@ -455,12 +490,12 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
       colorNo: order.colorNo,
       plannedRollCount: order.plannedRollCount,
       targetTransferWarehouseName: order.targetTransferWarehouseName,
-      formulaRecords: listDyeFormulaRecords().filter((formula) => formula.dyeOrderId === order.dyeOrderId),
+      formulaRecords: related?.formulaRecords ?? listDyeFormulaRecords().filter((formula) => formula.dyeOrderId === order.dyeOrderId),
       remark: order.remark,
     },
     executionNodes: listDyeExecutionNodeRecords(order.dyeOrderId),
     reviewRecords: review ? [review] : [],
-    handoverRecords: cloneHandoverRecords(getDyeOrderHandoverRecords(order.dyeOrderId)),
+    handoverRecords: cloneHandoverRecords(related?.handoverRecords ?? getDyeOrderHandoverRecords(order.dyeOrderId)),
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? {
           ...order.formalProductionOrderSnapshot,
@@ -477,9 +512,69 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
   }
 }
 
+export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationSource[] {
+  const printOrders = listPrintWorkOrders().map((order): ProcessWorkOrderRelationSource => ({
+    workOrderId: order.printOrderId,
+    workOrderNo: order.printOrderNo,
+    processType: 'PRINT',
+    sourceType: order.sourceType,
+    sourceSnapshot: order.sourceSnapshot || deriveLegacySourceSnapshot(order),
+    sourceProductionOrderId: order.sourceProductionOrderId,
+    sourceProductionOrderNo: order.sourceProductionOrderNo,
+    objectType: order.objectType,
+    materialSku: order.materialSku,
+    materialName: order.materialColor ? `${order.materialSku} / ${order.materialColor}` : order.materialSku,
+    plannedQty: order.plannedQty,
+    plannedUnit: order.qtyUnit,
+  }))
+  const dyeOrders = listDyeWorkOrders().map((order): ProcessWorkOrderRelationSource => {
+    const materialTypes = [...new Set(
+      (order.formalProductionOrderSnapshot?.materialItems ?? [])
+        .map((item) => item.materialType?.trim())
+        .filter((value): value is string => Boolean(value)),
+    )]
+    return {
+      workOrderId: order.dyeOrderId,
+      workOrderNo: order.dyeOrderNo,
+      processType: 'DYE',
+      sourceType: order.sourceType,
+      sourceSnapshot: order.sourceSnapshot || deriveLegacySourceSnapshot(order),
+      sourceProductionOrderId: order.sourceProductionOrderId,
+      sourceProductionOrderNo: order.sourceProductionOrderNo,
+      objectType: materialTypes.length === 1 ? materialTypes[0] : materialTypes.length > 1 ? 'BOM 物料' : '面料',
+      materialSku: order.rawMaterialSku,
+      materialName: order.composition ? `${order.rawMaterialSku} / ${order.composition}` : order.rawMaterialSku,
+      plannedQty: order.plannedQty,
+      plannedUnit: order.qtyUnit,
+    }
+  })
+  const waterSolubleOrders = listWaterSolubleWorkOrders().map((order): ProcessWorkOrderRelationSource => ({
+    workOrderId: order.waterOrderId,
+    workOrderNo: order.waterOrderNo,
+    processType: 'WATER_SOLUBLE',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceSnapshot: {
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
+      techPackVersionId: order.techPackVersionId,
+      bomItemId: order.bomItemId,
+    },
+    sourceProductionOrderId: order.productionOrderId,
+    sourceProductionOrderNo: order.productionOrderNo,
+    objectType: 'BOM 物料',
+    materialSku: order.materialCode,
+    materialName: order.materialName,
+    plannedQty: order.plannedQty,
+    plannedUnit: order.qtyUnit,
+  }))
+  return [...printOrders, ...dyeOrders, ...waterSolubleOrders]
+    .sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo))
+}
+
 export function listProcessWorkOrders(processType?: ProcessWorkOrderType): ProcessWorkOrder[] {
   const printOrders = processType && processType !== 'PRINT' ? [] : listPrintWorkOrders().map(mapPrintWorkOrder)
-  const dyeOrders = processType && processType !== 'DYE' ? [] : listDyeWorkOrders().map(mapDyeWorkOrder)
+  const dyeOrders = processType && processType !== 'DYE' ? [] : listDyeWorkOrderListRecords().map(record => mapDyeWorkOrder(record.order, record))
   const waterSolubleOrders = processType && processType !== 'WATER_SOLUBLE'
     ? []
     : listWaterSolubleWorkOrders().map(mapWaterSolubleWorkOrder)

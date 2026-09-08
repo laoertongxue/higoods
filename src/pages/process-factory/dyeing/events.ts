@@ -1,6 +1,7 @@
 import { appStore } from '../../../state/store'
 import {
   confirmDyeReceipt,
+  canContinueDyeWaterSoluble,
   executeDyeWaterSolublePdaAction,
   getDyeWorkOrderById,
   getDyeReviewRecordByOrderId,
@@ -86,7 +87,7 @@ function executeConfirmedDyeWaterAction(
   const order = getDyeWorkOrderById(dyeOrderId)
   const session = getPdaSession()
   const roleAction: WaterSolublePdaRoleAction = action === 'RESOLVE_PAUSE' ? 'SUPERVISE' : 'OPERATE'
-  const requiredStatus = action === 'START' ? 'WAIT_WATER_SOLUBLE' : action === 'COMPLETE' ? 'WATER_SOLUBLE_IN_PROGRESS' : 'PRODUCTION_PAUSED'
+  const requiredStatus = action === 'START' ? (order && canContinueDyeWaterSoluble(order) ? order.status : 'WAIT_WATER_SOLUBLE') : action === 'COMPLETE' ? 'WATER_SOLUBLE_IN_PROGRESS' : 'PRODUCTION_PAUSED'
   if (!order || !session || !order.requiresWaterSoluble) {
     showDyeingToast('当前加工单或登录信息已失效，请重新进入。')
     return
@@ -148,7 +149,7 @@ function executeConfirmedDyeWaterAction(
     actor: currentSession,
   }
   const result = action === 'START'
-    ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WAIT_WATER_SOLUBLE' })
+    ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: current.status })
     : action === 'COMPLETE' && values.outputQty !== undefined && values.reason !== undefined
       ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', outputQty: values.outputQty, reason: values.reason })
       : action === 'RESOLVE_PAUSE' && values.decision !== undefined
@@ -212,7 +213,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
   if (action === 'complete-water-soluble') {
     const dyeOrderId = actionNode.dataset.dyeOrderId
     if (!dyeOrderId) return true
-    const qtyText = window.prompt('请输入水溶实际完成数量')
+    const qtyText = window.prompt('请输入本批水溶实际完成数量')
     if (qtyText === null) return true
     const normalizedQtyText = qtyText.trim()
     if (!normalizedQtyText) {
@@ -220,7 +221,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
       return true
     }
     const outputQty = Number(normalizedQtyText)
-    const reason = window.prompt('如数量与计划不同，请填写原因') || ''
+    const reason = window.prompt('如累计完成数量与计划不同，请填写原因') || ''
     executeConfirmedDyeWaterAction(actionNode, 'COMPLETE', { outputQty, reason })
     return true
   }

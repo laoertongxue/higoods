@@ -113,7 +113,7 @@ test('补料筛选纯规则覆盖空、全完成、混合和矛盾组合', () =>
   expect(matches(['已完成'], 'NO', 'ALL_COMPLETED')).toBe(false)
 })
 
-test('主投影只补入 registry 已关联且存在真实进度候选的裁片单', async ({ page }) => {
+test('补料登记不能把进度记录反向伪造成正式裁片单', async ({ page }) => {
   await page.goto(route)
   const projection = await page.evaluate(async () => {
     const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }, registry] = await Promise.all([
@@ -163,13 +163,7 @@ test('主投影只补入 registry 已关联且存在真实进度候选的裁片�
       createdAt: '2026-07-23 09:01',
       createdBy: '测试主管',
     })
-    const linkedCutOrderIdentities = registry.listSupplementOrders().map((order) => ({
-      cutOrderId: order.cutOrderId,
-      cutOrderNo: order.cutOrderNo,
-    }))
-    const rows = buildCutOrderViewModel([...cuttingOrderProgressRecords, dynamicRecord], [], {
-      supplementLinkedCutOrderIdentities: linkedCutOrderIdentities,
-    }).rows
+    const rows = buildCutOrderViewModel([...cuttingOrderProgressRecords, dynamicRecord]).rows
     return rows.map((row) => ({
       cutOrderId: row.cutOrderId,
       cutOrderNo: row.cutOrderNo,
@@ -180,59 +174,24 @@ test('主投影只补入 registry 已关联且存在真实进度候选的裁片�
     }))
   })
 
-  expect(projection.filter((row) => row.cutOrderId === 'cut-dynamic-projection')).toEqual([{
-    cutOrderId: 'cut-dynamic-projection',
-    cutOrderNo: 'CUT-DYNAMIC-PROJECTION',
-    quantityDataAvailable: false,
-    pieceCountText: '未提供',
-    plannedShipDate: '',
-    currentStage: '已开工',
-  }])
+  expect(projection.some((row) => row.cutOrderId === 'cut-dynamic-projection')).toBe(false)
   expect(projection.some((row) => row.cutOrderId === 'cut-not-in-progress')).toBe(false)
   expect(projection.some((row) => row.cutOrderId === 'cut-14671-b')).toBe(false)
 })
 
-test('无补料事实时不把真实进度候选扩大为裁片单主投影', async ({ page }) => {
+test('正式裁片单主投影始终只读取技术包快照生成记录', async ({ page }) => {
   await page.goto(route)
   const cutOrderNos = await page.evaluate(async () => {
     const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }] = await Promise.all([
       import('/src/pages/process-factory/cutting/cut-orders-model.ts'),
       import('/src/data/fcs/cutting/order-progress.ts'),
     ])
-    const rows = buildCutOrderViewModel(cuttingOrderProgressRecords, [], {
-      supplementLinkedCutOrderIdentities: [],
-    }).rows
+    const rows = buildCutOrderViewModel(cuttingOrderProgressRecords).rows
     return rows.map((row) => row.cutOrderNo)
   })
 
   expect(cutOrderNos).not.toContain('CUT14671-A')
   expect(cutOrderNos).not.toContain('CUT14671-B')
-})
-
-test('补料身份对必须同时匹配同一裁片单 ID 与单号且同生产单不串单', async ({ page }) => {
-  await page.goto(route)
-  const result = await page.evaluate(async () => {
-    const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }] = await Promise.all([
-      import('/src/pages/process-factory/cutting/cut-orders-model.ts'),
-      import('/src/data/fcs/cutting/order-progress.ts'),
-    ])
-    const project = (identities: ReadonlyArray<{ cutOrderId: string; cutOrderNo: string }>) =>
-      buildCutOrderViewModel(cuttingOrderProgressRecords, [], {
-        supplementLinkedCutOrderIdentities: identities,
-      }).rows
-        .filter((row) => row.productionOrderNo === 'PO14671' && ['CUT14671-A', 'CUT14671-B'].includes(row.cutOrderNo))
-        .map((row) => row.cutOrderNo)
-
-    return {
-      crossed: project([{ cutOrderId: ' cut-14671-b ', cutOrderNo: ' cut14671-a ' }]),
-      correctA: project([{ cutOrderId: ' CUT-14671-A ', cutOrderNo: ' cut14671-a ' }]),
-      correctB: project([{ cutOrderId: ' CUT-14671-B ', cutOrderNo: ' cut14671-b ' }]),
-    }
-  })
-
-  expect(result.crossed).toEqual([])
-  expect(result.correctA).toEqual(['CUT14671-A'])
-  expect(result.correctB).toEqual(['CUT14671-B'])
 })
 
 test('放行快照创建真实补料后同一 SPA 的裁片单行与详情读取同一事实', async ({ page }) => {

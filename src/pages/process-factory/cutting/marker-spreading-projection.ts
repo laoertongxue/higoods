@@ -208,6 +208,9 @@ function buildMarkerRecordFromPlanBed(
     plannedGarmentQty: Math.max(Number(distributedQty[index] || 0), 0),
     note: '来自唛架编号覆盖尺码',
   }))
+  const perLayerSizeText = Object.entries(bed.sizePiecePerLayer || {})
+    .filter(([, quantity]) => Number(quantity) > 0)
+    .map(([size, quantity]) => `${size}*${quantity}`).join(' + ')
   const normalLineItems: MarkerLineItem[] =
     bed.bedMode === 'normal' || bed.bedMode === 'fold_normal'
       ? [
@@ -216,9 +219,9 @@ function buildMarkerRecordFromPlanBed(
             markerId: bed.bedId,
             lineNo: 1,
             layoutCode: bed.bedNo,
-            layoutDetailText: bed.sizeSummaryText,
+            layoutDetailText: perLayerSizeText,
             color: bedColor,
-            ratioLabel: bed.sizeSummaryText,
+            ratioLabel: perLayerSizeText,
             spreadRepeatCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
             markerLength: Math.max(Number(bed.markerLength || 0), 0),
             markerPieceCount: bedPieceQtyPerLayer,
@@ -670,7 +673,7 @@ export function buildMarkerSpreadingProjection(options: {
   includeViewModel?: boolean
 } = {}): MarkerSpreadingProjection {
   const context = buildMarkerSpreadingProjectionContext(options.snapshot)
-  const markerPlanProjection = buildMarkerPlanProjection()
+  const markerPlanProjection = buildMarkerPlanProjection(context.snapshot)
   const baseStore =
     options.store ??
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)

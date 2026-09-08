@@ -4,6 +4,7 @@ import {
   PRINTING_HANDOVER_STATUSES,
   PRINTING_PROCESSING_STATUSES,
   changePrintingInput,
+  completePrintWorkOrderDocument,
   completePrintingWorkOrder,
   formatPrintingWeightKg,
   getPrintingWorkOrderById,
@@ -37,21 +38,25 @@ assert.deepEqual(
 const rows = listPrintingWorkOrders()
 assert.deepEqual(
   [...new Set(rows.map((row) => row.demandSource.type))].sort(),
-  ['PRODUCTION', 'PURCHASE', 'STOCK', 'SUPPLEMENT'],
-  'Mock 必须覆盖生产、采购、备货、补料四类需求来源',
+  ['PRODUCTION', 'STOCK'],
+  '旧6例来源必须忠实底层5生产+1备货；三来源正式生成由check-printing-business-source-identity覆盖，不伪造采购或补料标签',
 )
 for (const row of rows) {
-  assert.equal(row.plannedInput.objectType, '面料')
-  assert.equal(row.output.objectType, '面料')
+  assert.equal(row.plannedInput.objectType, row.output.objectType, `${row.printOrderNo} 投入与产出的 BOM 对象类别必须一致`)
+  assert.equal(row.plannedInput.qtyUnit, row.output.qtyUnit, `${row.printOrderNo} 计划、完成与交接必须沿用同一 BOM 数量单位`)
+  assert.ok(row.plannedInput.objectType, `${row.printOrderNo} 缺 BOM 对象类别`)
+  assert.ok(row.plannedInput.qtyUnit, `${row.printOrderNo} 缺 BOM 数量单位`)
   assert.ok(row.plannedInput.sku, `${row.printOrderNo} 缺计划投入 SKU`)
   assert.ok(row.output.sku, `${row.printOrderNo} 缺固定产出 SKU`)
-  assert.ok(row.product.imageUrl && row.plannedInput.imageUrl && row.output.imageUrl, `${row.printOrderNo} 缺真实图片`)
+  // 图片缺失是明确素材阻塞；禁止通过给所有对象放通用图制造通过。
+  assert.ok(renderCraftPrintingWorkOrderDetailPage(row.workOrderId).includes('缺少对应图片'), `${row.printOrderNo} 缺图必须显式呈现`)
   assert.equal(row.output.sku, row.barcodes[0]?.sku || row.output.sku, `${row.printOrderNo} 卷条码必须绑定产出 SKU`)
   assert.ok(!('editConfirmation' in row), '业务模型不得保留 Edit confirmation')
-  assert.ok(existsSync(new URL(`../public${row.product.imageUrl}`, import.meta.url)), `${row.printOrderNo} 商品图片资源不存在`)
-  assert.ok(existsSync(new URL(`../public${row.plannedInput.imageUrl}`, import.meta.url)), `${row.printOrderNo} 投入图片资源不存在`)
-  assert.ok(existsSync(new URL(`../public${row.output.imageUrl}`, import.meta.url)), `${row.printOrderNo} 产出图片资源不存在`)
+  assert.ok(!row.product.imageUrl || existsSync(new URL(`../public${row.product.imageUrl}`, import.meta.url)), `${row.printOrderNo} 商品图片资源不存在`)
+  assert.ok(!row.plannedInput.imageUrl || existsSync(new URL(`../public${row.plannedInput.imageUrl}`, import.meta.url)), `${row.printOrderNo} 投入图片资源不存在`)
+  assert.ok(!row.output.imageUrl || existsSync(new URL(`../public${row.output.imageUrl}`, import.meta.url)), `${row.printOrderNo} 产出图片资源不存在`)
 }
+assert.ok(rows.some((row) => row.plannedInput.objectType === '纱线'), '演示数据必须保留 BOM 纱线印花反例，不能把页面对象写死为面料')
 
 const calculated = rows.find((row) => row.usage.calculationMode === 'BY_USAGE')
 assert.ok(calculated)
@@ -72,7 +77,7 @@ const originalOutputSku = changeTarget.output.sku
 assert.throws(() => changePrintingInput(changeTarget.workOrderId, {
   newSku: `${changeTarget.plannedInput.spu}-CROSS-SPEC`,
   newMaterialName: '跨规格测试面料',
-  newImageUrl: '/materials/fabric-lining.jpg',
+  newImageUrl: '',
   newGsm: changeTarget.plannedInput.gsm + 20,
   newWidthCm: changeTarget.plannedInput.widthCm + 5,
   reason: '专项检查：跨规格换料',
@@ -82,7 +87,7 @@ assert.throws(() => changePrintingInput(changeTarget.workOrderId, {
 changePrintingInput(changeTarget.workOrderId, {
   newSku: `${changeTarget.plannedInput.spu}-CROSS-SPEC`,
   newMaterialName: '跨规格测试面料',
-  newImageUrl: '/materials/fabric-lining.jpg',
+  newImageUrl: '',
   newGsm: changeTarget.plannedInput.gsm + 20,
   newWidthCm: changeTarget.plannedInput.widthCm + 5,
   newStandardUnitUsage: 1.4800,
@@ -172,14 +177,19 @@ receivePrintingHandover(changeTarget.workOrderId, { receivedQty: remainingHandov
 const fullyReceived = getPrintingWorkOrderById(changeTarget.workOrderId)
 assert.ok(fullyReceived)
 assert.equal(fullyReceived.handoverStatus, 'RECEIVED')
-assert.equal(isPrintingWorkOrderBusinessCompleted(fullyReceived), true, '加工完成且全部接收后必须派生业务已完成')
+assert.equal(isPrintingWorkOrderBusinessCompleted(fullyReceived), false, '下游全部接收不得自动冒充加工单人工完成')
+completePrintWorkOrderDocument(changeTarget.workOrderId, { operatorName: '专项检查主管' })
+const manuallyCompleted = getPrintingWorkOrderById(changeTarget.workOrderId)
+assert.ok(manuallyCompleted)
+assert.equal(isPrintingWorkOrderBusinessCompleted(manuallyCompleted), true, '必须由明确的人工完成单据动作进入业务已完成')
+assert.equal(manuallyCompleted.manuallyCompletedBy, '专项检查主管')
 
 const completed = rows.find((row) => row.output.completedQty > 0)
 assert.ok(completed)
 assert.throws(() => changePrintingInput(completed.workOrderId, {
   newSku: `${completed.plannedInput.spu}-FORBIDDEN`,
   newMaterialName: '禁止整单换料',
-  newImageUrl: '/materials/fabric-main.jpg',
+  newImageUrl: '',
   newGsm: completed.plannedInput.gsm,
   newWidthCm: completed.plannedInput.widthCm,
   reason: '专项检查',
@@ -214,7 +224,7 @@ assert.match(headerTag('actions'), /width: 190px/, '操作列宽度必须收窄�
 assert.ok(listHtml.includes('data-printing-row-actions'), '操作单元格必须声明双列动作布局')
 assert.ok(listHtml.includes('grid-cols-2'), '操作单元格每行最多只能展示两个文字操作')
 
-const detailHtml = renderCraftPrintingWorkOrderDetailPage('PWO-25336')
+const detailHtml = renderCraftPrintingWorkOrderDetailPage(rows[0].workOrderId)
 for (const requiredText of [
   '1. 需求来源', '2. 用量依据', '3. 计划加工投入与实际加工投入', '4. 投入调整历史',
   '5. 印花要求', '6. 固定加工产出', '7. 数量与卷数', '8. 加工厂与执行时间',
@@ -233,29 +243,30 @@ for (const requiredField of [
 ]) assert.ok(dialogsSource.includes(requiredField), `现场动作弹窗遗漏字段：${requiredField}`)
 assert.ok(dialogsSource.includes('step: \'0.001\''), '卷重量输入步长必须为 KG 三位小数')
 
-const infoDocument = buildPrintDocument({ documentType: 'PRINTING_INFO_SHEET', sourceType: 'PRINTING_WORK_ORDER', sourceId: 'PWO-25336' })
+const infoDocument = buildPrintDocument({ documentType: 'PRINTING_INFO_SHEET', sourceType: 'PRINTING_WORK_ORDER', sourceId: rows[0].workOrderId })
 const infoHtml = renderPrintDocument(infoDocument)
 for (const requiredText of ['印花信息单', '需求来源', '用量依据', '加工投入', '印花要求与加工产出', '加工产出 SKU', '打印版本']) {
   assert.ok(infoHtml.includes(requiredText), `印花信息单遗漏：${requiredText}`)
 }
 
-const confirmationDocument = buildPrintDocument({ documentType: 'PRINTING_CONFIRMATION', sourceType: 'PRINTING_WORK_ORDER', sourceId: 'PWO-24013' })
+const receivedDemo = rows.find((row) => row.handoverStatus === 'RECEIVED')!
+const confirmationDocument = buildPrintDocument({ documentType: 'PRINTING_CONFIRMATION', sourceType: 'PRINTING_WORK_ORDER', sourceId: receivedDemo.workOrderId })
 const confirmationHtml = renderPrintDocument(confirmationDocument)
 for (const requiredText of ['Print confirmation', 'Pattern transfer confirmation', 'Storage / Gudang', 'Remark', '加工投入 SKU', '加工产出 SKU']) {
   assert.ok(confirmationHtml.includes(requiredText), `印花确认单遗漏：${requiredText}`)
 }
 assert.ok(!confirmationHtml.includes('Edit confirmation'), '印花确认单必须忽略 Edit confirmation')
 
-const batchConfirmationDocument = buildPrintDocument({ documentType: 'PRINTING_CONFIRMATION', sourceType: 'PRINTING_WORK_ORDER', sourceId: 'PWO-25336,PWO-25337' })
+const batchConfirmationDocument = buildPrintDocument({ documentType: 'PRINTING_CONFIRMATION', sourceType: 'PRINTING_WORK_ORDER', sourceId: rows.slice(0, 2).map((row) => row.workOrderId).join(',') })
 assert.equal(batchConfirmationDocument.relatedObjectIds?.length, 2, '批量印花确认单必须保留全部选中加工单')
-const rollBarcodeId = getPrintingWorkOrderById('PWO-24013')!.barcodes[0].id
-const rollLabelDocument = buildPrintDocument({ documentType: 'PRINTING_ROLL_LABEL', sourceType: 'PRINTING_ROLL_RECORD', sourceId: `PWO-24013:${rollBarcodeId}` })
+const rollBarcodeId = getPrintingWorkOrderById(receivedDemo.workOrderId)!.barcodes[0].id
+const rollLabelDocument = buildPrintDocument({ documentType: 'PRINTING_ROLL_LABEL', sourceType: 'PRINTING_ROLL_RECORD', sourceId: `${receivedDemo.workOrderId}:${rollBarcodeId}` })
 const rollLabelHtml = renderPrintDocument(rollLabelDocument)
 assert.equal(rollLabelDocument.documentTitle, '加工产出卷条码')
-for (const requiredText of ['印花加工产出卷', '产出 SKU', '卷长', '重量', '克重/幅宽', '缸号', '入库仓库', '备注']) {
+for (const requiredText of ['印花加工产出卷', '产出 SKU', '数量', receivedDemo.output.qtyUnit, '重量', '克重/幅宽', '缸号', '入库仓库', '备注']) {
   assert.ok(rollLabelHtml.includes(requiredText), `加工产出卷条码遗漏：${requiredText}`)
 }
 assert.ok(rollLabelHtml.includes('.000 KG') || /\d+\.\d{3} KG/.test(rollLabelHtml), '卷条码重量必须以 KG 三位小数展示')
 
 resetPrintingWorkOrderBusinessStore()
-console.log(`印花加工单重构专项检查通过：${rows.length} 张样例单，四类来源、双状态、换料、数量、交出接收、完整列表详情与三类打印均符合要求。`)
+console.log(`印花加工单重构专项检查通过：${rows.length} 张正式域旧例按底层来源可读；双状态、换料、数量、交出接收、列表详情与三类打印契约通过；准确图片缺项仍为素材门禁。`)

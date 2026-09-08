@@ -229,7 +229,7 @@ function scopeItems(content: TechnicalDataVersionContent, nodeKey: TechnicalRevi
       items: content.patternFiles.filter((item) => item.recordKind !== 'PACKAGE'),
     },
     { scope: '款色用料对应', items: content.colorMaterialMappings },
-    { scope: '工序工艺', items: content.processEntries },
+    { scope: '工艺路线', items: content.processEntries },
     { scope: '放码规则', items: content.sizeTable },
     { scope: '花型设计', items: content.patternDesigns },
     { scope: '质量规则', items: content.qualityRules },

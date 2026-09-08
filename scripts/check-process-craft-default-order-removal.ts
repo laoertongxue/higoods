@@ -47,8 +47,8 @@ const materialDependencyEntries: CheckRouteEntry[] = [
 ]
 assert.deepEqual(
   ids(normalizeProcessRouteEntries(materialDependencyEntries)),
-  ['water-input-second', 'dye-input-first'],
-  '删除字典默认顺序后仍必须保留同 BOM 水溶先于染色的必要依赖',
+  ['dye-input-first', 'water-input-second'],
+  '同一 BOM 的水溶与染色也不得按工艺名称暗中重排，先后必须来自该款显式路线',
 )
 
 const dictionarySource = readFileSync(new URL('../src/data/fcs/process-craft-dict.ts', import.meta.url), 'utf8')
@@ -67,6 +67,6 @@ assert.doesNotMatch(technicalVersionTypesSource, /DICT_DEFAULT/, '技术版本�
 console.log(JSON.stringify({
   字典默认顺序: '已删除',
   每款显式路线: '保留',
-  同物料必要依赖: '保留',
+  同物料先后关系: '只读取每款显式路线',
   空技术包硬编码路线: '已删除',
 }, null, 2))

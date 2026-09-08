@@ -1,10 +1,16 @@
+import { localDateTimeText } from '../../utils.ts'
 import { listFactoryDyeVatCapacities } from './factory-capacity-profile-mock.ts'
 import {
+  capturePdaHandoverState,
+  restorePdaHandoverState,
+  persistPdaHandoverState,
+  upsertPdaHandoverHeadMock,
   createFactoryHandoverRecord,
   ensureHandoverOrderForStartedTask,
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
   listHandoverOrdersByTaskId,
+  listPdaHandoverHeads,
   writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
@@ -36,7 +42,7 @@ import {
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
-import { deriveFormalProductionOrderProcessSnapshots } from './production-process-snapshot-derivation.ts'
+import { deriveFormalProductionOrderProcessSnapshots, getRestoredFormalProcessDefinitions } from './production-process-snapshot-derivation.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
@@ -78,6 +84,7 @@ export type DyeWorkOrderStatus =
   | 'PARTIAL_HANDOVER'
   | 'FULL_HANDOVER'
   | 'HANDOVER_DIFFERENCE'
+  | 'WAIT_MANUAL_COMPLETION'
   | 'COMPLETED'
   | 'REJECTED'
 
@@ -117,6 +124,9 @@ export interface DyeWorkOrder {
   sampleStatus: SampleStatus
   sampleWaitStartedAt?: string
   sampleWaitFinishedAt?: string
+  completedWaterSolubleBatches?: DyeExecutionNodeRecord[]
+  completedExecutionBatches?: DyeExecutionNodeRecord[][]
+  materialReceipts?: Array<{ receiptId: string; upstreamRecordId?: string; qty: number; receiverName: string; receivedAt: string }>
   materialWaitStartedAt?: string
   materialWaitFinishedAt?: string
   colorNo?: string
@@ -165,6 +175,8 @@ export interface DyeWorkOrder {
   createdAt: string
   updatedAt: string
   remark?: string
+  documentCompletedBy?: string
+  documentCompletedAt?: string
   formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
   changeImpact?: ProcessWorkOrderChangeImpact[]
   autoSyncHistory?: ProcessWorkOrderAutoSyncRecord[]
@@ -317,6 +329,7 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   PARTIAL_HANDOVER: '部分交出',
   FULL_HANDOVER: '全部交出',
   HANDOVER_DIFFERENCE: '收货差异',
+  WAIT_MANUAL_COMPLETION: '待人工完成单据',
   COMPLETED: '已完成',
   REJECTED: '已驳回',
 }
@@ -416,6 +429,108 @@ export function restoreDyeProcessMutationState(snapshot: DyeProcessMutationSnaps
   restored.formulas.forEach(([id, record]) => formulaStore.set(id, record))
 }
 
+const DYE_EXECUTION_STORAGE_KEY = 'higoods.formal-dye-execution.v1'
+let dyeMutationDepth = 0
+let dyePersistenceReadError: string | null = null
+const initialDyeOrderIds = new Set<string>()
+
+function formalDyeIds(): Set<string> {
+  return new Set(productionOrders.flatMap(order => (order.processWorkOrderDefinitions ?? [])
+    .filter(definition => definition.processCode === 'DYE' && !initialDyeOrderIds.has(definition.workOrderId)).map(definition => definition.workOrderId)))
+}
+
+function saveFormalDyeExecution(): void {
+  if (typeof localStorage === 'undefined') return
+  const ids = formalDyeIds()
+  const state = captureDyeProcessMutationState()
+  state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
+  state.nodeRecords = state.nodeRecords.filter(([id]) => ids.has(id))
+  state.reviewRecords = state.reviewRecords.filter(([id]) => ids.has(id))
+  state.vatSchedules = state.vatSchedules.filter(([, item]) => ids.has(item.dyeOrderId || ''))
+  state.formulas = state.formulas.filter(([, item]) => ids.has(item.dyeOrderId || ''))
+  const tasks = state.workOrders.flatMap(([, order]) => {
+    const task = getDyeingTaskById(order.taskId)
+    return task ? [structuredClone(task)] : []
+  })
+  const value = JSON.stringify({ version: 1, state, tasks })
+  localStorage.setItem(DYE_EXECUTION_STORAGE_KEY, value)
+  if (localStorage.getItem(DYE_EXECUTION_STORAGE_KEY) !== value) throw new Error('染色保存结果未核实，请重试。')
+}
+
+function restoreFormalDyeExecution(): void {
+  if (typeof localStorage === 'undefined') return
+  let saved: { version: number; state: DyeProcessMutationSnapshot; tasks: PdaGenericTaskMock[] }
+  try {
+    const raw = localStorage.getItem(DYE_EXECUTION_STORAGE_KEY)
+    if (!raw) return
+    saved = JSON.parse(raw)
+    if (saved.version !== 1 || !Array.isArray(saved.tasks) || !saved.state || !['workOrders', 'nodeRecords', 'reviewRecords', 'vatSchedules', 'formulas'].every(key => Array.isArray(saved.state[key as keyof DyeProcessMutationSnapshot]))) throw new Error('染色记录格式不完整')
+  } catch { dyePersistenceReadError = '已保存的染色记录无法读取，本次操作已阻断；请保留原数据并联系主管。'; return }
+  if (['workOrders', 'nodeRecords', 'reviewRecords', 'vatSchedules', 'formulas'].some(key => saved.state[key as keyof DyeProcessMutationSnapshot].some((entry: unknown) => !Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string' || !entry[1] || typeof entry[1] !== 'object'))) { dyePersistenceReadError = '已保存的染色记录格式不完整，不能覆盖，请联系主管。'; return }
+  const ids = formalDyeIds()
+  for (const entry of saved.state.workOrders) {
+    if (!Array.isArray(entry) || entry.length !== 2) continue
+    const [id, order] = entry
+    if (!ids.has(id)) continue
+    const current = workOrderStore.get(id)
+    if ( !current || !order || order.dyeOrderId !== id || order.taskId !== current.taskId || !order.sourceKey || order.sourceKey !== current.sourceKey || JSON.stringify(order.sourceSnapshot) !== JSON.stringify(current.sourceSnapshot) || order.qtyUnit !== current.qtyUnit || !Number.isFinite(order.plannedQty) || !(order.status in DYE_WORK_ORDER_STATUS_LABEL)) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    const nodes = saved.state.nodeRecords.find(item => Array.isArray(item) && item[0] === id)?.[1]
+    if (!Array.isArray(nodes) || nodes.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || typeof node.nodeCode !== 'string' || [node.inputQty, node.outputQty, node.lossQty].some(qty => qty !== undefined && (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0)))) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    if (order.completedWaterSolubleBatches !== undefined && (!Array.isArray(order.completedWaterSolubleBatches) || order.completedWaterSolubleBatches.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || !node.finishedAt || !Number.isFinite(node.inputQty) || !Number.isFinite(node.outputQty)))) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    if (order.completedExecutionBatches !== undefined && (!Array.isArray(order.completedExecutionBatches) || order.completedExecutionBatches.some(batch => !Array.isArray(batch) || batch.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId)))) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    if (order.materialReceipts !== undefined && (!Array.isArray(order.materialReceipts) || order.materialReceipts.some(item => !item.receiptId || !Number.isFinite(item.qty) || item.qty <= 0))) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    const task = saved.tasks.find(item => item && item.taskId === order.taskId && JSON.stringify(item.sourceSnapshot) === JSON.stringify(order.sourceSnapshot) && item.assignedFactoryId === (order.dyeFactoryId || undefined))
+    if (!task) { dyePersistenceReadError = '已保存的染色记录与当前原单不一致，不能覆盖，请联系主管。'; continue }
+    workOrderStore.set(id, structuredClone(order))
+    nodeRecordStore.set(id, structuredClone(nodes))
+    const review = saved.state.reviewRecords.find(item => Array.isArray(item) && item[0] === id)?.[1]
+    if (review?.dyeOrderId === id) reviewRecordStore.set(id, structuredClone(review))
+    for (const [key, value] of saved.state.vatSchedules) if (value?.dyeOrderId === id) vatScheduleStore.set(key, structuredClone(value))
+    for (const [key, value] of saved.state.formulas) if (value?.dyeOrderId === id) formulaStore.set(key, structuredClone(value))
+    registerPdaGenericProcessTask(structuredClone(task))
+  }
+}
+
+export function runDyeProcessMutation<T>(action: () => T): T {
+  if (dyeMutationDepth > 0) return action()
+  seedDomain()
+  if (dyePersistenceReadError) throw new Error(dyePersistenceReadError)
+  const before = captureDyeProcessMutationState()
+  const tasksBefore = Array.from(workOrderStore.values()).flatMap(order => {
+    const task = getDyeingTaskById(order.taskId)
+    return task ? [structuredClone(task)] : []
+  })
+  const handoverBefore = capturePdaHandoverState()
+  const storedBefore = typeof localStorage === 'undefined' ? null : localStorage.getItem(DYE_EXECUTION_STORAGE_KEY)
+  dyeMutationDepth += 1
+  try {
+    const result = action()
+    if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result
+    for (const order of workOrderStore.values()) {
+      if (!formalDyeIds().has(order.dyeOrderId) || !order.handoverOrderId) continue
+      const head = getHandoverOrderById(order.handoverOrderId)
+      if (!head || head.taskId !== order.taskId || head.sourceSnapshot?.processEntryId !== order.sourceSnapshot?.processEntryId || (head.sourceDocId && head.sourceDocId !== order.dyeOrderId) || (head.sourceBusinessType && head.sourceBusinessType !== 'DYE_WORK_ORDER')) throw new Error('原交出单与染色加工单不一致，不能保存。')
+      if (!head.sourceDocId || !head.sourceBusinessType) upsertPdaHandoverHeadMock({ ...head, sourceBusinessType: 'DYE_WORK_ORDER', sourceDocId: order.dyeOrderId, sourceDocNo: order.dyeOrderNo })
+      persistPdaHandoverState({ handoverId: head.handoverId, taskId: order.taskId, productionOrderId: order.sourceSnapshot?.productionOrderId || '', sourceDocId: order.dyeOrderId, sourceBusinessType: 'DYE_WORK_ORDER' })
+    }
+    saveFormalDyeExecution()
+    return result
+  } catch (error) {
+    restoreDyeProcessMutationState(before)
+    tasksBefore.forEach(task => registerPdaGenericProcessTask(task))
+    let rollbackFailed = false
+    try { restorePdaHandoverState(handoverBefore) } catch { rollbackFailed = true }
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem(DYE_EXECUTION_STORAGE_KEY) !== storedBefore) {
+        if (storedBefore === null) localStorage.removeItem(DYE_EXECUTION_STORAGE_KEY)
+        else localStorage.setItem(DYE_EXECUTION_STORAGE_KEY, storedBefore)
+      }
+    } catch { rollbackFailed = true }
+    if (rollbackFailed) throw new Error('本次染色操作未保存，存储回退未核实，请保留当前页面并联系主管。')
+    throw new Error(`本次染色操作未保存：${error instanceof Error ? error.message : '保存失败，请重试。'}`)
+  } finally { dyeMutationDepth -= 1 }
+}
+
 const GENERATED_DYE_CRAFTS = listActiveProcessCraftDefinitions()
   .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'PREPARATION_ORDER')
 
@@ -507,7 +622,7 @@ function listVisibleRawDyeWorkOrders(): MutableDyeWorkOrder[] {
     if (
       createdDyeOrderIds.has(order.dyeOrderId)
       || reviewRecordStore.has(order.dyeOrderId)
-      || ['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'COMPLETED', 'REJECTED'].includes(order.status)
+      || ['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'WAIT_MANUAL_COMPLETION', 'COMPLETED', 'REJECTED'].includes(order.status)
     ) {
       selected.set(order.dyeOrderId, order)
     }
@@ -605,6 +720,9 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     : undefined
   return {
     ...order,
+    materialReceipts: order.materialReceipts?.map(item => ({ ...item })),
+    completedWaterSolubleBatches: order.completedWaterSolubleBatches?.map(cloneNodeRecord),
+    completedExecutionBatches: order.completedExecutionBatches?.map(batch => batch.map(cloneNodeRecord)),
     sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
@@ -643,7 +761,7 @@ function cloneFormulaRecord(record: MutableDyeFormulaRecord): DyeFormulaRecord {
 }
 
 function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+  return localDateTimeText(date)
 }
 
 function isDyeingTask(task: PdaGenericTaskMock): boolean {
@@ -706,9 +824,9 @@ function syncWaterSolubleTaskState(order: MutableDyeWorkOrder): void {
     task.blockReason = 'MATERIAL'
     task.blockRemark = '水溶完成数量不足，待主管处理。'
   } else if (order.status === 'WAIT_WATER_SOLUBLE' || order.status === 'WAIT_VAT_PLAN') {
-    task.status = 'NOT_STARTED'
+    task.status = order.materialReceipts?.length ? 'IN_PROGRESS' : 'NOT_STARTED'
     task.acceptanceStatus = 'ACCEPTED'
-    task.startedAt = undefined
+    task.startedAt = order.materialReceipts?.length ? (task.startedAt || order.materialReceipts[0].receivedAt) : undefined
     task.finishedAt = undefined
     task.blockReason = undefined
     task.blockRemark = undefined
@@ -747,6 +865,8 @@ function ensureStartedTaskHandover(taskId: string): string | undefined {
 }
 
 function ensureSeededHandoverRecord(input: {
+  createNewBatch?: boolean
+  submittedBy?: string
   taskId: string
   submittedQty: number
   receiverWrittenQty?: number
@@ -761,15 +881,24 @@ function ensureSeededHandoverRecord(input: {
   const head = getHandoverOrderById(handoverOrderId)
   if (!head) return { handoverOrderId, recordIds: [] }
   const existing = getPdaHandoverRecordsByHead(head.handoverId)
-  if (existing.length === 0) {
+  if (existing.length === 0 || input.createNewBatch) {
+    const workOrder = Array.from(workOrderStore.values()).find((order) => order.taskId === input.taskId)
+    const material = workOrder?.formalProductionOrderSnapshot?.materialItems?.find(item => item.materialId === workOrder.rawMaterialSku && (!workOrder.sourceSnapshot?.bomItemId || item.sourceBomItemId === workOrder.sourceSnapshot.bomItemId))
+    const materialType = material?.materialType?.trim()
+    const isFabricMaterial = !materialType || materialType === 'FABRIC' || materialType.includes('面料')
     createFactoryHandoverRecord({
       handoverOrderId,
       submittedQty: input.submittedQty,
       qtyUnit: head.qtyUnit,
       factorySubmittedAt: input.submittedAt,
-      factorySubmittedBy: '染色工厂',
-      factoryRemark: '染色面料送中转区域',
-      objectType: 'FABRIC',
+      factorySubmittedBy: input.submittedBy?.trim() || '染色工厂',
+      materialCode: workOrder?.rawMaterialSku,
+      materialName: material?.materialName,
+      skuCode: workOrder?.rawMaterialSku,
+      skuColor: workOrder?.targetColor,
+      handoutObjectType: isFabricMaterial ? 'FABRIC' : 'MATERIAL',
+      factoryRemark: `染色${materialType || '面料'}送中转区域`,
+      objectType: isFabricMaterial ? 'FABRIC' : 'MATERIAL',
     })
   }
 
@@ -880,6 +1009,10 @@ function getWaitingReason(order: DyeWorkOrder): string {
       return '收货差异待处理'
     case 'FULL_HANDOVER':
       return '全部交出'
+    case 'WAIT_MANUAL_COMPLETION':
+      return '全部产出已收货，待人工完成单据'
+    case 'COMPLETED':
+      return '加工单已完成'
     default:
       return '跟进中'
   }
@@ -899,7 +1032,7 @@ function getStatusDurationHours(order: DyeWorkOrder): number {
 
 function getCurrentOutputQty(order: DyeWorkOrder): number {
   const nodes = nodeRecordStore.get(order.dyeOrderId) ?? []
-  return nodes.reduce((current, node) => Math.max(current, node.outputQty ?? 0), 0)
+  return [...(order.completedExecutionBatches ?? []).flat(), ...nodes].filter(node => node.nodeCode === 'PACK' && node.finishedAt).reduce((total, node) => total + (node.outputQty ?? 0), 0)
 }
 
 function getCurrentDyeVatNo(order: DyeWorkOrder): string | undefined {
@@ -931,8 +1064,9 @@ function resolveDyeReceiptStatus(input: {
 function createReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverHead): MutableDyeReviewRecord {
   const records = getPdaHandoverRecordsByHead(head.handoverId)
   const submittedQty = head.submittedQtyTotal ?? 0
-  const receivedQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.writtenBackQtyTotal ?? 0)
-  const diffQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.diffQtyTotal ?? receivedQty - submittedQty)
+  const receivedRecords = records.filter(record => record.handoverRecordStatus !== 'VOIDED' && record.receiverWrittenAt && record.receiverWrittenQty !== undefined)
+  const receivedQty = receivedRecords.reduce((sum, record) => sum + Number(record.receiverWrittenQty), 0)
+  const diffQty = receivedRecords.reduce((sum, record) => sum + Number(record.receiverWrittenQty) - Number(record.submittedQty ?? record.plannedQty ?? 0), 0)
   const reviewStatus = resolveDyeReceiptStatus({
     completedQty: getCurrentOutputQty(order) || order.plannedQty,
     submittedQty,
@@ -948,9 +1082,9 @@ function createReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverH
     submittedQty,
     receivedQty,
     diffQty,
-    receivedRollCount: receivedQty > 0 && order.plannedRollCount ? Math.max(1, order.plannedRollCount - (diffQty ? 1 : 0)) : undefined,
-    receivedLength: receivedQty > 0 ? Number((receivedQty * 0.82).toFixed(1)) : undefined,
-    lengthUnit: '米',
+    receivedRollCount: undefined,
+    receivedLength: receivedRecords.length > 0 && ['米', 'm', 'M'].includes(head.qtyUnit) ? receivedQty : undefined,
+    lengthUnit: receivedRecords.length > 0 && ['米', 'm', 'M'].includes(head.qtyUnit) ? '米' : undefined,
     reviewStatus,
     remark: reviewStatus === 'WAIT_RECEIVE'
       ? '交出记录已生成，等待接收方确认收货'
@@ -971,13 +1105,19 @@ function syncReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverHea
   current.handoverRecordIds = next.handoverRecordIds
   current.receiverName = next.receiverName
   current.submittedQty = next.submittedQty
-  if (current.reviewStatus === 'WAIT_RECEIVE') {
+  {
     current.receivedQty = next.receivedQty
     current.diffQty = next.diffQty
-    current.receivedRollCount = next.receivedRollCount
-    current.receivedLength = next.receivedLength
-    current.lengthUnit = next.lengthUnit
-    current.reviewStatus = next.reviewStatus
+    if (!current.reviewedAt || !current.reviewedBy) {
+      current.receivedRollCount = next.receivedRollCount
+      current.receivedLength = next.receivedLength
+      current.lengthUnit = next.lengthUnit
+    } else {
+      current.receivedRollCount ??= next.receivedRollCount
+      current.receivedLength ??= next.receivedLength
+      current.lengthUnit ??= next.lengthUnit
+    }
+    if (current.reviewStatus !== 'REJECTED') current.reviewStatus = next.reviewStatus
     current.remark = current.remark || next.remark
   }
   return current
@@ -985,12 +1125,15 @@ function syncReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverHea
 
 function syncDyeOrderFromReview(order: MutableDyeWorkOrder, review?: MutableDyeReviewRecord): boolean {
   if (!review) return false
+  if (order.status === 'COMPLETED') return true
+  if (order.completedWaterSolubleBatches?.length && ['WAIT_WATER_SOLUBLE', 'WATER_SOLUBLE_IN_PROGRESS', 'PRODUCTION_PAUSED', 'WAIT_VAT_PLAN'].includes(order.status)) return false
+  if (order.completedExecutionBatches?.length && ['DYEING', 'DEHYDRATING', 'DRYING', 'SETTING', 'ROLLING', 'PACKING', 'WAIT_HANDOVER'].includes(order.status)) return false
   if (review.reviewStatus === 'WAIT_RECEIVE') {
     order.status = 'HANDOVER_WAIT_RECEIVE'
   } else if (review.reviewStatus === 'REJECTED') {
-    order.status = 'REJECTED'
-  } else if (review.reviewStatus === 'FULL_HANDOVER' && review.reviewedAt) {
-    order.status = 'COMPLETED'
+    order.status = 'HANDOVER_DIFFERENCE'
+  } else if (review.reviewStatus === 'FULL_HANDOVER') {
+    order.status = 'WAIT_MANUAL_COMPLETION'
   } else {
     order.status = review.reviewStatus
   }
@@ -1011,6 +1154,7 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     || order.status === 'PARTIAL_HANDOVER'
     || order.status === 'FULL_HANDOVER'
     || order.status === 'HANDOVER_DIFFERENCE'
+    || order.status === 'WAIT_MANUAL_COMPLETION'
     || order.status === 'COMPLETED'
     || order.status === 'REJECTED'
     || order.status === 'WAIT_WATER_SOLUBLE'
@@ -1051,10 +1195,11 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
 function syncDerivedWorkflow(): void {
   seedDomain()
 
+  const handoutHeads = listPdaHandoverHeads().filter(head => head.headType === 'HANDOUT')
   for (const order of workOrderStore.values()) {
     const head = order.handoverOrderId
-      ? getHandoverOrderById(order.handoverOrderId)
-      : getPrimaryHandoverOrder(order.taskId)
+      ? handoutHeads.find(head => (head.handoverOrderId || head.handoverId) === order.handoverOrderId)
+      : handoutHeads.find(head => head.taskId === order.taskId)
     if (head) {
       order.handoverOrderId = head.handoverOrderId || head.handoverId
       order.handoverOrderNo = head.handoverOrderNo
@@ -1068,7 +1213,17 @@ function syncDerivedWorkflow(): void {
       }
     }
 
-    const review = reviewRecordStore.get(order.dyeOrderId)
+    if (head && reviewRecordStore.get(order.dyeOrderId)?.reviewStatus !== 'REJECTED' && getPdaHandoverRecordsByHead(head.handoverId).some(record => record.taskReceipts?.length)) {
+      const current = createReviewFromHandover(order, head)
+      current.reviewedAt = getPdaHandoverRecordsByHead(head.handoverId).map(record => record.receiverWrittenAt || '').sort().at(-1)
+      reviewRecordStore.set(order.dyeOrderId, current)
+      syncDyeOrderFromReview(order, current)
+      continue
+    }
+
+    const review = head && (head.recordCount ?? 0) > 0
+      ? syncReviewFromHandover(order, head)
+      : reviewRecordStore.get(order.dyeOrderId)
     if (syncDyeOrderFromReview(order, review)) {
       continue
     }
@@ -1145,7 +1300,7 @@ function addSeedWorkOrder(input: Omit<
     const executionStarted = [
       'WATER_SOLUBLE_IN_PROGRESS', 'PRODUCTION_PAUSED', 'DYEING', 'DEHYDRATING', 'DRYING',
       'SETTING', 'ROLLING', 'PACKING', 'WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW',
-      'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'COMPLETED', 'REJECTED',
+      'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'WAIT_MANUAL_COMPLETION', 'COMPLETED', 'REJECTED',
     ].includes(input.status)
     task.assignmentMode = 'DIRECT'
     task.assignmentStatus = hasFactory ? 'ASSIGNED' : 'UNASSIGNED'
@@ -2193,6 +2348,24 @@ function seedWorkOrders(): void {
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[12], [
     {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-DYE`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[12],
+      taskId: 'TASK-DYE-000733',
+      nodeCode: 'DYE',
+      nodeName: DYE_NODE_LABEL.DYE,
+      operatorUserId: 'USR-DYE-02',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-29 11:00:00',
+      finishedAt: '2026-03-29 14:00:00',
+      dyeVatId: primaryVat?.dyeVatId,
+      dyeVatNo: primaryVat?.dyeVatNo || 'DV-01',
+      inputQty: 940,
+      outputQty: 940,
+      lossQty: 0,
+      qtyUnit: '米',
+      remark: '备货染色完成',
+    },
+    {
       nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-ROLL`,
       dyeOrderId: DYE_WORK_ORDER_IDS[12],
       taskId: 'TASK-DYE-000733',
@@ -2730,6 +2903,13 @@ function seedDomain(): void {
   normalizeSeedWorkOrderSources()
   seedPersistentWaterSolubleDyeWorkOrder()
   seedCombinedDyeingDemoWorkOrders()
+  workOrderStore.forEach((_, id) => initialDyeOrderIds.add(id))
+  for (const order of productionOrders) {
+    for (const definition of getRestoredFormalProcessDefinitions(order, 'DYE')) {
+      registerFormalProductionOrderDyeWorkOrder(definition)
+    }
+  }
+  restoreFormalDyeExecution()
 }
 
 function getMutableWorkOrder(dyeOrderId: string): MutableDyeWorkOrder {
@@ -2869,7 +3049,7 @@ function ensureDyeAcceptanceFact(order: MutableDyeWorkOrder): void {
 
 function deriveDyeMobileStatus(order: DyeWorkOrder): PdaGenericTaskMock['status'] {
   if (order.status === 'REJECTED' || order.status === 'HANDOVER_DIFFERENCE' || order.status === 'PRODUCTION_PAUSED') return 'BLOCKED'
-  if (['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status)) return 'DONE'
+  if (order.status === 'COMPLETED') return 'DONE'
   const hasStarted = (nodeRecordStore.get(order.dyeOrderId) ?? []).some((node) => Boolean(node.startedAt))
   return hasStarted ? 'IN_PROGRESS' : 'NOT_STARTED'
 }
@@ -2928,7 +3108,7 @@ export function listDyeMobileExecutionTasks(): PdaGenericTaskMock[] {
       status,
       startedAt,
       finishedAt: status === 'DONE' ? order.updatedAt : undefined,
-      handoutStatus: ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status) ? 'HANDED_OUT' : 'PENDING',
+      handoutStatus: ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'WAIT_MANUAL_COMPLETION', 'COMPLETED'].includes(order.status) ? 'HANDED_OUT' : 'PENDING',
       defaultDocType: 'PREPARATION_ORDER',
       stage: 'PREP',
       stageCode: 'PREP',
@@ -2938,6 +3118,7 @@ export function listDyeMobileExecutionTasks(): PdaGenericTaskMock[] {
 }
 
 export function acceptDyeWorkOrderPdaTask(taskId: string, acceptedBy: string, acceptedAt = nowTimestamp()): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
   if (!order) throw new Error('染色加工单不存在')
   if (!order.dyeFactoryId) throw new Error('染色加工单尚未分配工厂')
@@ -2950,9 +3131,12 @@ export function acceptDyeWorkOrderPdaTask(taskId: string, acceptedBy: string, ac
     updateOrderTimestamp(order, acceptedAt)
   }
   return cloneWorkOrder(order)
+
+  })
 }
 
 export function rejectDyeWorkOrderPdaTask(taskId: string, rejectedBy: string, reason: string, rejectedAt = nowTimestamp()): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
   if (!order) throw new Error('染色加工单不存在')
   if (!order.dyeFactoryId) throw new Error('染色加工单尚未分配工厂')
@@ -2971,6 +3155,8 @@ export function rejectDyeWorkOrderPdaTask(taskId: string, rejectedBy: string, re
   order.dyeFactoryName = '待分配工厂'
   updateOrderTimestamp(order, rejectedAt)
   return cloneWorkOrder(order)
+
+  })
 }
 
 export interface DyeReceiptOnlineStatusEvent {
@@ -3020,6 +3206,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     productionOrderNo: input.productionOrderNo,
     techPackVersionId: input.techPackVersionId,
     techPackVersionLabel: input.techPackVersionLabel,
+    processEntryId: input.processEntryId,
+    routeObjectKey: input.routeObjectKey,
     bomItemId: input.materialItems?.[0]?.sourceBomItemId || input.materialId,
     bomItemIds: input.materialItems?.map((item) => item.sourceBomItemId) || [input.materialId],
   }
@@ -3108,6 +3296,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
       orderedAt: input.orderedAt,
       techPackVersionId: input.techPackVersionId,
       techPackVersionLabel: input.techPackVersionLabel,
+      ...(input.processEntryId ? { processEntryId: input.processEntryId } : {}),
+      ...(input.routeObjectKey ? { routeObjectKey: input.routeObjectKey } : {}),
       materialId: materialFields.materialId,
       materialName: materialFields.materialName,
       materialItems,
@@ -3122,6 +3312,15 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
       requiredDeliveryDate: input.requiredDeliveryDate,
     },
   })
+  if (sourceSnapshot.sourceType === 'PRODUCTION_ORDER') {
+    const sourceOrder = productionOrders.find(order => order.productionOrderId === sourceSnapshot.productionOrderId)
+    if (sourceOrder && !sourceOrder.processWorkOrderDefinitions?.some(item => item.workOrderId === input.workOrderId)) {
+      sourceOrder.processWorkOrderDefinitions = [...(sourceOrder.processWorkOrderDefinitions || []), {
+        processCode: 'DYE', workOrderId: input.workOrderId, workOrderNo: input.workOrderNo,
+        sourceKey: input.sourceKey, sourceSnapshot: structuredClone(sourceSnapshot),
+      }]
+    }
+  }
   createdDyeOrderIds.add(input.workOrderId)
   return getDyeWorkOrderById(input.workOrderId)!
 }
@@ -3161,6 +3360,10 @@ export function registerDyeProcessWorkOrderGenerationRegistrar(): void {
         rollback: () => {
           workOrderStore.delete(input.workOrderId)
           createdDyeOrderIds.delete(input.workOrderId)
+          const sourceOrder = productionOrders.find(order => order.productionOrderId === input.productionOrderId)
+          if (sourceOrder?.processWorkOrderDefinitions) {
+            sourceOrder.processWorkOrderDefinitions = sourceOrder.processWorkOrderDefinitions.filter(item => item.workOrderId !== input.workOrderId)
+          }
           unregisterPdaGenericProcessTask(input.workOrderId)
         },
       }
@@ -3172,6 +3375,7 @@ export function assignDyeWorkOrderFactory(
   dyeOrderId: string,
   input: { factoryId: string; factoryName: string; assignedAt: string; assignedBy: string },
 ): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const factoryId = input.factoryId.trim()
   const factoryName = input.factoryName.trim() || (factoryId ? factoryId : '待分配工厂')
@@ -3209,6 +3413,8 @@ export function assignDyeWorkOrderFactory(
   }
 
   return cloneWorkOrder(order)
+
+  })
 }
 
 export const DYE_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly DyeWorkOrderStatus[] = [
@@ -3239,6 +3445,8 @@ function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): Fo
     orderedAt: snapshot.orderedAt,
     techPackVersionId: snapshot.techPackVersionId,
     techPackVersionLabel: snapshot.techPackVersionLabel,
+    ...(snapshot.processEntryId ? { processEntryId: snapshot.processEntryId } : {}),
+    ...(snapshot.routeObjectKey ? { routeObjectKey: snapshot.routeObjectKey } : {}),
     materialId: materialFields.materialId,
     materialName: materialFields.materialName,
     materialItems,
@@ -3277,9 +3485,18 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
   options: { changeRecordId: string; recordedAt: string },
 ): PreparedDyeWorkOrderProductionChangeSync {
   seedDomain()
-  const current = Array.from(workOrderStore.values()).find((order) => (
+  const candidates = Array.from(workOrderStore.values()).filter((order) => (
     order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
   ))
+  const syncTargetWorkOrderId = snapshot.syncTargetWorkOrderId?.trim()
+  const current = syncTargetWorkOrderId
+    ? candidates.find((order) => order.dyeOrderId === syncTargetWorkOrderId)
+    : candidates.find((order) => (
+        snapshot.processEntryId
+          ? order.sourceSnapshot?.processEntryId === snapshot.processEntryId
+            && (!snapshot.routeObjectKey || order.sourceSnapshot?.routeObjectKey === snapshot.routeObjectKey)
+          : candidates.length === 1
+      ))
   if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined, rollback: () => undefined }
   const before = current.formalProductionOrderSnapshot
   if (!before) throw new Error(`染色加工单 ${current.dyeOrderNo} 缺少正式生产单快照`)
@@ -3428,6 +3645,23 @@ export function listDyeReviewRecords(): DyeReviewRecord[] {
     .map((record) => cloneReviewRecord(record))
 }
 
+// One synchronous list read; detail getters continue to refresh independently.
+export function listDyeWorkOrderListRecords() {
+  const orders = listDyeWorkOrders()
+  const formulaRecords = listDyeFormulaRecords()
+  return orders.map(order => {
+    const review = reviewRecordStore.get(order.dyeOrderId)
+    const handoverOrderId = workOrderStore.get(order.dyeOrderId)?.handoverOrderId
+    const head = handoverOrderId ? getHandoverOrderById(handoverOrderId) : undefined
+    return {
+      order,
+      review: review ? cloneReviewRecord(review) : undefined,
+      handoverRecords: head ? getPdaHandoverRecordsByHead(head.handoverId) : [],
+      formulaRecords: formulaRecords.filter(formula => formula.dyeOrderId === order.dyeOrderId),
+    }
+  })
+}
+
 export function getDyeReviewRecordByOrderId(dyeOrderId: string): DyeReviewRecord | undefined {
   syncDerivedWorkflow()
   if (!getVisibleDyeWorkOrderIds().has(dyeOrderId)) return undefined
@@ -3505,7 +3739,7 @@ export function getDyeWorkOrderSummary(): DyeWorkOrderSummary {
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
     waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
     partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER' || order.status === 'WAIT_REVIEW').length,
-    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED').length,
+    fullHandoverCount: orders.filter((order) => ['FULL_HANDOVER', 'WAIT_MANUAL_COMPLETION', 'COMPLETED'].includes(order.status)).length,
     handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE' || order.status === 'REJECTED').length,
     diffQty: orders.reduce((sum, order) => sum + Math.abs(getDyeOrderHandoverSummary(order.dyeOrderId).diffQty), 0),
     objectionCount: orders.reduce((sum, order) => sum + getDyeOrderHandoverSummary(order.dyeOrderId).objectionCount, 0),
@@ -3525,9 +3759,7 @@ export function listDyeReportRows(): DyeReportRow[] {
       currentNode: getCurrentNode(order),
       waitingReason: getWaitingReason(order),
       startedAt: order.sampleWaitStartedAt || getDyeExecutionNodeRecord(order.dyeOrderId, 'DYE')?.startedAt,
-      finishedAt: order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED'
-        ? (getDyeReviewRecordByOrderId(order.dyeOrderId)?.reviewedAt || order.updatedAt)
-        : undefined,
+      finishedAt: order.status === 'COMPLETED' ? order.updatedAt : undefined,
       durationHours: Number(getStatusDurationHours(order)),
       dyeVatNo: getCurrentDyeVatNo(order),
       plannedQty: order.plannedQty,
@@ -3637,22 +3869,38 @@ export function validateDyeStartPrerequisite(
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   if (!Number.isFinite(inputQty) || inputQty <= 0) return { ok: false, message: '请填写有效的染色投入数量。' }
+  const receivedQty = order.materialReceipts?.reduce((sum, item) => sum + item.qty, 0)
+  const consumed = (order.completedExecutionBatches ?? []).flat().filter(node => node.nodeCode === 'DYE').reduce((sum, node) => sum + (node.inputQty ?? 0), 0)
+  const active = getDyeExecutionNodeRecord(dyeOrderId, 'DYE')
+  const restarting = Boolean(getDyeExecutionNodeRecord(dyeOrderId, 'PACK')?.finishedAt)
+  if (receivedQty !== undefined && inputQty > receivedQty - consumed - (restarting ? active?.inputQty ?? 0 : 0)) return { ok: false, message: '染色投入不能超过剩余实际接收数量。' }
   if (!order.requiresWaterSoluble) return { ok: true, message: '' }
   const waterNode = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   if (!waterNode?.finishedAt || order.status === 'PRODUCTION_PAUSED') {
     return { ok: false, message: '请先完成水溶，再开始染色。' }
   }
   const completedQty = order.waterSolubleCompletedQty ?? Number(waterNode.outputQty || 0)
-  if (inputQty > completedQty) {
-    return { ok: false, message: '染色投入数量不能超过水溶完成数量。' }
+  const availableQty = completedQty - consumed - (restarting ? active?.inputQty ?? 0 : 0)
+  if (inputQty > availableQty + 0.000001) {
+    return { ok: false, message: '染色投入数量不能超过剩余水溶完成数量，请先完成本批水溶。' }
   }
   return { ok: true, message: '' }
+}
+
+export function canContinueDyeWaterSoluble(order: DyeWorkOrder): boolean {
+  if (!order.requiresWaterSoluble || ['COMPLETED', 'REJECTED', 'PRODUCTION_PAUSED', 'WATER_SOLUBLE_IN_PROGRESS'].includes(order.status)) return false
+  const water = getDyeExecutionNodeRecord(order.dyeOrderId, 'WATER_SOLUBLE')
+  const pack = getDyeExecutionNodeRecord(order.dyeOrderId, 'PACK')
+  const receivedQty = order.materialReceipts?.reduce((sum, receipt) => sum + receipt.qty, 0)
+  if (!water?.finishedAt || !pack?.finishedAt || receivedQty === undefined || receivedQty <= (order.completedWaterSolubleBatches ?? []).reduce((sum, batch) => sum + Number(batch.inputQty || 0), 0) + Number(water.inputQty) + 0.000001) return false
+  return getDyeOrderHandoverSummary(order.dyeOrderId).writtenBackQty + 0.000001 >= getCurrentOutputQty(order)
 }
 
 export function startDyeWaterSolubleNode(
   dyeOrderId: string,
   operatorName: string,
 ): { ok: boolean; message: string; order?: DyeWorkOrder; node?: DyeExecutionNodeRecord } {
+  return runDyeProcessMutation(() => {
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   if (!order.requiresWaterSoluble) return { ok: false, message: '普通染色加工单不需要水溶。' }
@@ -3668,10 +3916,20 @@ export function startDyeWaterSolubleNode(
     return { ok: false, message: '请先完成备料和染缸安排，再开始水溶。' }
   }
   const current = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
-  if (current?.finishedAt) return { ok: false, message: '水溶已完成，请勿重复开始。' }
-  if (current?.startedAt) return { ok: false, message: '水溶已开始，请勿重复操作。' }
+  const continuing = Boolean(current?.finishedAt && canContinueDyeWaterSoluble(order))
+  if (current?.finishedAt && !continuing) return { ok: false, message: '没有新增待水溶原料，或上一批尚未交收完成，请核对后再操作。' }
+  if (current?.startedAt && !continuing) return { ok: false, message: '水溶已开始，请勿重复操作。' }
+  const receivedQty = order.materialReceipts !== undefined
+    ? order.materialReceipts.reduce((sum, receipt) => sum + receipt.qty, 0)
+    : Number(materialNode.outputQty)
+  const previousInputQty = (order.completedWaterSolubleBatches ?? []).reduce((sum, batch) => sum + Number(batch.inputQty || 0), 0) + (continuing ? Number(current?.inputQty || 0) : 0)
+  const actualInputQty = receivedQty - previousInputQty
+  if (!Number.isFinite(actualInputQty) || actualInputQty <= 0) {
+    return { ok: false, message: '请先记录实际接收数量，再开始水溶。' }
+  }
   const mutable = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
+  if (continuing && current) mutable.completedWaterSolubleBatches = [...(mutable.completedWaterSolubleBatches ?? []), cloneNodeRecord(current)]
   upsertNodeRecord(dyeOrderId, 'WATER_SOLUBLE', () => ({
     nodeRecordId: createNodeRecordId(dyeOrderId, 'WATER_SOLUBLE'),
     dyeOrderId,
@@ -3681,8 +3939,8 @@ export function startDyeWaterSolubleNode(
     operatorUserId: 'USR-DYE',
     operatorName,
     startedAt: now,
-    inputQty: mutable.waterSolublePlannedQty,
-    outputQty: mutable.waterSolubleCompletedQty,
+    inputQty: actualInputQty,
+    outputQty: undefined,
     qtyUnit: mutable.waterSolubleQtyUnit || mutable.qtyUnit,
     remark: '开始水溶',
   }))
@@ -3690,6 +3948,8 @@ export function startDyeWaterSolubleNode(
   updateOrderTimestamp(mutable, now)
   syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable), node: getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE') }
+
+  })
 }
 
 export function completeDyeWaterSolubleNode(
@@ -3697,30 +3957,39 @@ export function completeDyeWaterSolubleNode(
   outputQty: number,
   reason = '',
 ): { ok: boolean; message: string; order?: DyeWorkOrder; node?: DyeExecutionNodeRecord } {
+  return runDyeProcessMutation(() => {
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   const current = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   if (!current?.startedAt || current.finishedAt) return { ok: false, message: '请先开始水溶，且不要重复完成。' }
   if (!Number.isFinite(outputQty) || outputQty < 0) return { ok: false, message: '水溶完成数量必须是大于或等于 0 的有效数字。' }
+  const actualInputQty = Number(current.inputQty)
+  if (!Number.isFinite(actualInputQty) || actualInputQty <= 0) return { ok: false, message: '当前水溶投入数量未记录，请核对后再完成。' }
+  if (outputQty > actualInputQty + 0.000001) return { ok: false, message: '水溶完成数量不能超过已记录的实际投入数量。' }
   const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
-  const completedQty = order.waterSolubleCompletedQty ?? 0
-  if (outputQty < completedQty) return { ok: false, message: '水溶累计完成数量不能小于已有完成数量。' }
-  if (outputQty < plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量不足，请填写原因。' }
-  if (outputQty > plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量超过计划数量，请填写原因。' }
+  const previousOutputQty = (order.completedWaterSolubleBatches ?? []).reduce((sum, batch) => sum + Number(batch.outputQty || 0), 0)
+  const cumulativeOutputQty = previousOutputQty + outputQty
+  if (cumulativeOutputQty + 0.000001 < (order.waterSolubleCompletedQty ?? 0)) {
+    return { ok: false, message: '累计水溶完成数量不能少于已经记录的完成数量。' }
+  }
+  if (cumulativeOutputQty < plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量不足，请填写原因。' }
+  if (cumulativeOutputQty > plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量超过计划数量，请填写原因。' }
   const mutable = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
-  mutable.waterSolubleCompletedQty = outputQty
-  mutable.status = outputQty < plannedQty ? 'PRODUCTION_PAUSED' : 'WAIT_VAT_PLAN'
+  mutable.waterSolubleCompletedQty = cumulativeOutputQty
+  mutable.status = cumulativeOutputQty < plannedQty ? 'PRODUCTION_PAUSED' : 'WAIT_VAT_PLAN'
   upsertNodeRecord(dyeOrderId, 'WATER_SOLUBLE', () => ({
     ...current,
     finishedAt: now,
     outputQty,
-    lossQty: plannedQty - outputQty,
-    remark: outputQty < plannedQty ? `数量不足：${reason.trim()}` : (reason.trim() || '水溶完成，同厂继续染色'),
+    lossQty: Math.max(0, Math.round((actualInputQty - outputQty) * 1000000) / 1000000),
+    remark: cumulativeOutputQty < plannedQty ? `数量不足：${reason.trim()}` : (reason.trim() || '水溶完成，同厂继续染色'),
   }))
   updateOrderTimestamp(mutable, now)
   syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable), node: getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE') }
+
+  })
 }
 
 export function resolveDyeWaterSolublePause(
@@ -3728,6 +3997,7 @@ export function resolveDyeWaterSolublePause(
   decision: DyeWaterSolublePauseDecision,
   supervisor: string,
 ): { ok: boolean; message: string; order?: DyeWorkOrder } {
+  return runDyeProcessMutation(() => {
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   if (!['CONTINUE_PROCESSING', 'CONTINUE_WITH_ACTUAL_QTY', 'RETURN_FOR_REWORK'].includes(decision)) {
@@ -3755,16 +4025,19 @@ export function resolveDyeWaterSolublePause(
   updateOrderTimestamp(mutable)
   syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable) }
+
+  })
 }
 
 export type DyeWaterSolublePdaActionInput =
-  | { action: 'START'; dyeOrderId: string; taskId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; expectedNode: 'WATER_SOLUBLE'; actor: WaterSolublePdaActor }
+  | { action: 'START'; dyeOrderId: string; taskId: string; expectedStatus: DyeWorkOrderStatus; expectedNode: 'WATER_SOLUBLE'; actor: WaterSolublePdaActor }
   | { action: 'COMPLETE'; dyeOrderId: string; taskId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; expectedNode: 'WATER_SOLUBLE'; outputQty: number; reason: string; actor: WaterSolublePdaActor }
   | { action: 'RESOLVE_PAUSE'; dyeOrderId: string; taskId: string; expectedStatus: 'PRODUCTION_PAUSED'; expectedNode: 'WATER_SOLUBLE'; decision: DyeWaterSolublePauseDecision; actor: WaterSolublePdaActor }
 
 export function executeDyeWaterSolublePdaAction(
   input: DyeWaterSolublePdaActionInput,
 ): { ok: boolean; message: string; order?: DyeWorkOrder; node?: DyeExecutionNodeRecord } {
+  try { return runDyeProcessMutation(() => {
   const order = getDyeWorkOrderById(input.dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   if (!order.requiresWaterSoluble) return { ok: false, message: '普通染色加工单不需要水溶。' }
@@ -3779,6 +4052,7 @@ export function executeDyeWaterSolublePdaAction(
     return { ok: false, message: `当前状态为“${getDyeWorkOrderStatusLabel(order.status)}”，此操作已经处理或已失效。` }
   }
   if (input.action === 'START') {
+    if (order.status !== 'WAIT_WATER_SOLUBLE' && !canContinueDyeWaterSoluble(order)) return { ok: false, message: '当前没有可继续水溶的批次，请按最新步骤操作。' }
     const result = startDyeWaterSolubleNode(input.dyeOrderId, input.actor.userName)
     const node = getMutableNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE')
     if (result.ok && node) node.operatorUserId = input.actor.userId
@@ -3794,6 +4068,8 @@ export function executeDyeWaterSolublePdaAction(
     return result.ok ? { ...result, node: getDyeExecutionNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE') } : result
   }
   return resolveDyeWaterSolublePause(input.dyeOrderId, input.decision, input.actor.userName)
+
+  }) } catch(error) { return { ok: false, message: error instanceof Error ? error.message : '染色操作未保存。' } }
 }
 
 export function validateDyeStartPayload(input: { dyeVatNo?: string }): { ok: boolean; message?: string } {
@@ -3811,6 +4087,7 @@ export function startDyeSampleWait(
   dyeOrderId: string,
   input: { waitType: SampleWaitType; operatorName?: string },
 ): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.sampleWaitType = input.waitType
@@ -3821,9 +4098,12 @@ export function startDyeSampleWait(
   order.remark = input.operatorName || order.remark
   updateOrderTimestamp(order, now)
   return cloneWorkOrder(order)
+
+  })
 }
 
 export function completeDyeSampleWait(dyeOrderId: string, operatorName = '染色工厂'): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.sampleWaitFinishedAt = now
@@ -3832,9 +4112,12 @@ export function completeDyeSampleWait(dyeOrderId: string, operatorName = '染色
   syncPreVatStatus(order)
   updateOrderTimestamp(order, now)
   return cloneWorkOrder(order)
+
+  })
 }
 
 export function startDyeMaterialWait(dyeOrderId: string, operatorName = '染色工厂'): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.materialWaitStartedAt = order.materialWaitStartedAt || now
@@ -3843,9 +4126,12 @@ export function startDyeMaterialWait(dyeOrderId: string, operatorName = '染色�
   order.remark = operatorName
   updateOrderTimestamp(order, now)
   return cloneWorkOrder(order)
+
+  })
 }
 
 export function completeDyeMaterialWait(dyeOrderId: string, operatorName = '染色工厂'): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.materialWaitFinishedAt = now
@@ -3854,9 +4140,12 @@ export function completeDyeMaterialWait(dyeOrderId: string, operatorName = '染�
   syncPreVatStatus(order)
   updateOrderTimestamp(order, now)
   return cloneWorkOrder(order)
+
+  })
 }
 
 export function startDyeSampleTest(dyeOrderId: string, operatorName = '染色工厂'): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.sampleStatus = 'TESTING'
@@ -3876,12 +4165,15 @@ export function startDyeSampleTest(dyeOrderId: string, operatorName = '染色工
     remark: current?.remark || '打样开始',
   }))
   return getDyeExecutionNodeRecord(dyeOrderId, 'SAMPLE')!
+
+  })
 }
 
 export function completeDyeSampleTest(
   dyeOrderId: string,
   input: { colorNo: string; operatorName?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   const current = getMutableNodeRecord(dyeOrderId, 'SAMPLE')
@@ -3903,9 +4195,12 @@ export function completeDyeSampleTest(
   syncPreVatStatus(order)
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'SAMPLE')!
+
+  })
 }
 
 export function startDyeMaterialReady(dyeOrderId: string, operatorName = '染色工厂'): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, 'MATERIAL_READY', (current) => ({
@@ -3918,22 +4213,31 @@ export function startDyeMaterialReady(dyeOrderId: string, operatorName = '染色
     operatorName,
     startedAt: current?.startedAt || now,
     finishedAt: current?.finishedAt,
-    inputQty: current?.inputQty || order.plannedQty,
+    inputQty: current?.inputQty,
     qtyUnit: getQtyUnit(order),
     remark: current?.remark || '备料开始',
   }))
   order.status = 'WAIT_MATERIAL'
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')!
+
+  })
 }
 
 export function completeDyeMaterialReady(
   dyeOrderId: string,
-  input: { outputQty?: number; operatorName?: string },
+  input: { outputQty?: number; operatorName?: string; receiptId?: string; upstreamRecordId?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
+  if (order.status === 'COMPLETED' || order.status === 'REJECTED') throw new Error('当前加工单不能继续接收。')
+  if (!Number.isFinite(input.outputQty) || Number(input.outputQty) <= 0) throw new Error('请填写本次实际接收数量。')
+  const receiptId = input.receiptId || `DYE-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  if (order.materialReceipts?.some(item => item.receiptId === receiptId)) throw new Error('本次接收已处理，请勿重复提交。')
   const current = getMutableNodeRecord(dyeOrderId, 'MATERIAL_READY')
   const now = nowTimestamp()
+  order.materialReceipts = [...(order.materialReceipts ?? []), { receiptId, upstreamRecordId: input.upstreamRecordId, qty: Number(input.outputQty), receiverName: input.operatorName || '染色工厂', receivedAt: now }]
+  const receivedQty = order.materialReceipts.reduce((sum, item) => sum + item.qty, 0)
   upsertNodeRecord(dyeOrderId, 'MATERIAL_READY', () => ({
     nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, 'MATERIAL_READY'),
     dyeOrderId,
@@ -3944,20 +4248,24 @@ export function completeDyeMaterialReady(
     operatorName: input.operatorName || current?.operatorName || '染色工厂',
     startedAt: current?.startedAt || now,
     finishedAt: now,
-    inputQty: current?.inputQty || order.plannedQty,
-    outputQty: Number.isFinite(input.outputQty) ? Number(input.outputQty) : order.plannedQty,
+    inputQty: receivedQty,
+    outputQty: receivedQty,
     qtyUnit: getQtyUnit(order),
-    remark: '备料完成',
+    remark: `本次接收 ${input.outputQty} ${order.qtyUnit}，累计 ${receivedQty} ${order.qtyUnit}`,
   }))
   syncPreVatStatus(order)
+  syncLinkedTaskState(order.taskId, { status: 'IN_PROGRESS', startedAt: getDyeingTaskById(order.taskId)?.startedAt || now, acceptanceStatus: 'ACCEPTED' })
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')!
+
+  })
 }
 
 export function planDyeVat(
   dyeOrderId: string,
   input: { dyeVatNo: string; operatorName?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   if (order.status !== 'WAIT_VAT_PLAN') throw new Error('当前状态不允许排缸。')
   const materialNode = getMutableNodeRecord(dyeOrderId, 'MATERIAL_READY')
@@ -3986,12 +4294,15 @@ export function planDyeVat(
   order.status = order.requiresWaterSoluble ? 'WAIT_WATER_SOLUBLE' : 'WAIT_VAT_PLAN'
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')!
+
+  })
 }
 
 export function startDyeing(
   dyeOrderId: string,
   input: { dyeVatNo: string; inputQty?: number; operatorName?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const validation = validateDyeStartPayload(input)
   if (!validation.ok) {
     throw new Error(validation.message)
@@ -4001,7 +4312,14 @@ export function startDyeing(
   const prerequisite = validateDyeStartPrerequisite(dyeOrderId, inputQty)
   if (!prerequisite.ok) throw new Error(prerequisite.message)
   const existingDyeNode = getMutableNodeRecord(dyeOrderId, 'DYE')
-  if (existingDyeNode?.startedAt) throw new Error('染色已经开始，请勿重复操作。')
+  if (existingDyeNode?.startedAt) {
+    const packed = getMutableNodeRecord(dyeOrderId, 'PACK')
+    const summary = getDyeOrderHandoverSummary(dyeOrderId)
+    if (!packed?.finishedAt || summary.writtenBackQty + 0.000001 < getCurrentOutputQty(order) || order.status === 'COMPLETED') throw new Error('当前批次尚未交收完成，不能重复开始染色。')
+    const processNodes = (nodeRecordStore.get(dyeOrderId) ?? []).filter(node => ['DYE', 'DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'].includes(node.nodeCode))
+    order.completedExecutionBatches = [...(order.completedExecutionBatches ?? []), processNodes.map(cloneNodeRecord)]
+    nodeRecordStore.set(dyeOrderId, (nodeRecordStore.get(dyeOrderId) ?? []).filter(node => !processNodes.includes(node)))
+  }
   const vat = listDyeVatOptions(order.dyeFactoryId).find((item) => item.dyeVatNo === input.dyeVatNo)
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, 'DYE', (current) => ({
@@ -4034,12 +4352,15 @@ export function startDyeing(
   }
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'DYE')!
+
+  })
 }
 
 export function completeDyeing(
   dyeOrderId: string,
   input: { inputQty?: number; outputQty?: number; operatorName?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   if (order.status !== 'DYEING') {
     throw new Error(`当前状态为“${DYE_WORK_ORDER_STATUS_LABEL[order.status]}”，不能重复完成染色。`)
@@ -4064,6 +4385,7 @@ export function completeDyeing(
     : Number.isFinite(input.outputQty)
       ? Number(input.outputQty)
       : Number(current.outputQty || order.plannedQty)
+  if (order.materialReceipts?.length && (!Number.isFinite(outputQty) || outputQty < 0 || outputQty > Number(current.inputQty))) throw new Error('染色完成数量不能超过本批实际投入。')
   if (order.requiresWaterSoluble) {
     if (!Number.isFinite(current.inputQty) || inputQty < 0) {
       throw new Error('染色节点缺少有效投入数量，请先重新确认染色投入。')
@@ -4097,6 +4419,8 @@ export function completeDyeing(
   order.status = 'DEHYDRATING'
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, 'DYE')!
+
+  })
 }
 
 function getNodeStatusAfterStart(nodeCode: Extract<DyeExecutionNodeCode, 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK'>): DyeWorkOrderStatus {
@@ -4170,6 +4494,7 @@ export function startDyeNode(
   nodeCode: Extract<DyeExecutionNodeCode, 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK'>,
   operatorName = '染色工厂',
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   assertDyePostNodeReady(order, nodeCode)
   const current = getMutableNodeRecord(dyeOrderId, nodeCode)
@@ -4194,6 +4519,8 @@ export function startDyeNode(
   order.status = getNodeStatusAfterStart(nodeCode)
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, nodeCode)!
+
+  })
 }
 
 export function completeDyeNode(
@@ -4201,6 +4528,7 @@ export function completeDyeNode(
   nodeCode: Extract<DyeExecutionNodeCode, 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK'>,
   input: { outputQty?: number; operatorName?: string },
 ): DyeExecutionNodeRecord {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   assertDyePostNodeReady(order, nodeCode)
   const current = getMutableNodeRecord(dyeOrderId, nodeCode)
@@ -4210,6 +4538,9 @@ export function completeDyeNode(
   if (current.finishedAt) {
     throw new Error(`${DYE_NODE_LABEL[nodeCode]}已经完成，请勿重复操作。`)
   }
+  const actualOutput = Number.isFinite(input.outputQty) ? Number(input.outputQty) : Number(getMutableNodeRecord(dyeOrderId, DYE_POST_NODE_PREDECESSOR[nodeCode])?.outputQty || 0)
+  const priorOutput = getMutableNodeRecord(dyeOrderId, DYE_POST_NODE_PREDECESSOR[nodeCode])?.outputQty ?? 0
+  if (order.materialReceipts?.length && (actualOutput < 0 || actualOutput > priorOutput)) throw new Error('本节点完成数量不能超过前序实际产出。')
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, nodeCode, () => ({
     nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, nodeCode),
@@ -4221,7 +4552,7 @@ export function completeDyeNode(
     operatorName: input.operatorName || current?.operatorName || '染色工厂',
     startedAt: current?.startedAt || now,
     finishedAt: now,
-    outputQty: Number.isFinite(input.outputQty) ? Number(input.outputQty) : current?.outputQty || order.plannedQty,
+    outputQty: actualOutput,
     qtyUnit: getQtyUnit(order),
     remark: nodeCode === 'PACK' ? '包装完成待交出' : `${DYE_NODE_LABEL[nodeCode]}完成`,
   }))
@@ -4233,12 +4564,15 @@ export function completeDyeNode(
   }
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, nodeCode)!
+
+  })
 }
 
 export function submitDyeHandover(
   dyeOrderId: string,
   input: { handoverQty?: number; handoverPerson?: string; handoverAt?: string; remark?: string } = {},
 ): { handoverOrderId?: string; recordIds: string[] } {
+  return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   if (order.status !== 'WAIT_HANDOVER') {
     throw new Error('请先完成染色及全部后处理，包装完成后再交出。')
@@ -4256,6 +4590,8 @@ export function submitDyeHandover(
     order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
   }
   const result = ensureSeededHandoverRecord({
+    createNewBatch: true,
+    submittedBy: input.handoverPerson,
     taskId: order.taskId,
     submittedQty: requestedQty,
     submittedAt: now,
@@ -4266,10 +4602,15 @@ export function submitDyeHandover(
   updateOrderTimestamp(order, now)
   syncDerivedWorkflow()
   return result
+
+  })
 }
 
 function getMutableDyeReceiptReview(dyeOrderId: string): { order: MutableDyeWorkOrder; review: MutableDyeReviewRecord } {
   const order = getMutableWorkOrder(dyeOrderId)
+  if (order.status === 'COMPLETED') {
+    throw new Error('染色加工单已由人工完成，不能再修改收货结果。')
+  }
   let review = reviewRecordStore.get(dyeOrderId)
   if (!review) {
     const head = order.handoverOrderId
@@ -4284,15 +4625,20 @@ function getMutableDyeReceiptReview(dyeOrderId: string): { order: MutableDyeWork
 }
 
 function applyDyeReceiptState(order: MutableDyeWorkOrder, review: MutableDyeReviewRecord): void {
+  if (order.status === 'COMPLETED') {
+    throw new Error('染色加工单已由人工完成，不能再修改收货结果。')
+  }
   order.status = review.reviewStatus === 'WAIT_RECEIVE'
     ? 'HANDOVER_WAIT_RECEIVE'
     : review.reviewStatus === 'REJECTED'
       ? 'HANDOVER_DIFFERENCE'
-      : review.reviewStatus
+      : review.reviewStatus === 'FULL_HANDOVER'
+        ? 'WAIT_MANUAL_COMPLETION'
+        : review.reviewStatus
   if (review.reviewStatus === 'FULL_HANDOVER') {
     syncLinkedTaskState(order.taskId, {
-      status: 'DONE',
-      finishedAt: review.reviewedAt,
+      status: 'IN_PROGRESS',
+      finishedAt: undefined,
       blockReason: undefined,
       blockRemark: undefined,
     })
@@ -4300,7 +4646,7 @@ function applyDyeReceiptState(order: MutableDyeWorkOrder, review: MutableDyeRevi
     syncLinkedTaskState(order.taskId, {
       status: 'BLOCKED',
       finishedAt: undefined,
-      blockReason: 'QUALITY',
+      blockReason: 'MATERIAL',
       blockRemark: review.rejectReason,
     })
   } else {
@@ -4313,10 +4659,48 @@ function applyDyeReceiptState(order: MutableDyeWorkOrder, review: MutableDyeRevi
   }
 }
 
+export function completeDyeWorkOrderDocument(
+  dyeOrderId: string,
+  input: { completedBy?: string; completedAt?: string; remark?: string } = {},
+): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
+  const order = getMutableWorkOrder(dyeOrderId)
+  if (order.status !== 'WAIT_MANUAL_COMPLETION') {
+    throw new Error(`当前状态为“${DYE_WORK_ORDER_STATUS_LABEL[order.status]}”，不能人工完成单据。`)
+  }
+  const review = reviewRecordStore.get(dyeOrderId)
+  const records = order.handoverOrderId ? getPdaHandoverRecordsByHead(order.handoverOrderId).filter(record => record.handoverRecordStatus !== 'VOIDED') : []
+  const outputQty = getCurrentOutputQty(order)
+  const receivedQty = records.reduce((sum, record) => sum + Number(record.receiverWrittenQty || 0), 0)
+  if (!review || review.reviewStatus !== 'FULL_HANDOVER' || !records.length || outputQty <= 0
+    || records.some(record => !record.receiverWrittenAt || !record.receiverWrittenBy || record.receiverWrittenQty === undefined || Math.abs(record.receiverWrittenQty - Number(record.submittedQty ?? record.plannedQty ?? 0)) > 0.000001)
+    || Math.abs(receivedQty - outputQty) > 0.000001) {
+    throw new Error('全部加工产出确认收货后，才能人工完成单据。')
+  }
+  const completedAt = input.completedAt?.trim() || nowTimestamp()
+  const completedBy = input.completedBy?.trim()
+  if (!completedBy) throw new Error('请使用具名操作账号确认完单。')
+  order.status = 'COMPLETED'
+  order.documentCompletedBy = completedBy
+  order.documentCompletedAt = completedAt
+  order.remark = input.remark?.trim() || `加工单由${completedBy}人工确认完成`
+  updateOrderTimestamp(order, completedAt)
+  syncLinkedTaskState(order.taskId, {
+    status: 'DONE',
+    finishedAt: completedAt,
+    blockReason: undefined,
+    blockRemark: undefined,
+  })
+  return cloneWorkOrder(order)
+
+  })
+}
+
 export function confirmDyeReceipt(
   dyeOrderId: string,
   input: { receivedBy: string; receivedQty?: number; remark?: string },
 ): DyeReviewRecord {
+  return runDyeProcessMutation(() => {
   const { order, review } = getMutableDyeReceiptReview(dyeOrderId)
   const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.submittedQty
   const receivedAt = nowTimestamp()
@@ -4350,12 +4734,15 @@ export function confirmDyeReceipt(
   updateOrderTimestamp(order, review.reviewedAt)
   notifyDyeReceiptOnlineStatus(onlineEvent)
   return cloneReviewRecord(review)
+
+  })
 }
 
 export function markDyeReceiptDifference(
   dyeOrderId: string,
   input: { receivedBy: string; receivedQty?: number; differenceReason: string; remark?: string },
 ): DyeReviewRecord {
+  return runDyeProcessMutation(() => {
   if (!input.differenceReason.trim()) {
     throw new Error('请填写收货差异原因')
   }
@@ -4371,22 +4758,30 @@ export function markDyeReceiptDifference(
   applyDyeReceiptState(order, review)
   updateOrderTimestamp(order, review.reviewedAt)
   return cloneReviewRecord(review)
+
+  })
 }
 
 export function approveDyeReview(
   dyeOrderId: string,
   input: { reviewedBy: string; remark?: string },
 ): DyeReviewRecord {
+  return runDyeProcessMutation(() => {
   return confirmDyeReceipt(dyeOrderId, { receivedBy: input.reviewedBy, remark: input.remark })
+
+  })
 }
 
 export function rejectDyeReview(
   dyeOrderId: string,
   input: { reviewedBy: string; rejectReason: string; remark?: string },
 ): DyeReviewRecord {
+  return runDyeProcessMutation(() => {
   return markDyeReceiptDifference(dyeOrderId, {
     receivedBy: input.reviewedBy,
     differenceReason: input.rejectReason,
     remark: input.remark,
+  })
+
   })
 }

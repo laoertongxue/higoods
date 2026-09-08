@@ -25,6 +25,10 @@ import { renderLaceWorkOrderDetailPage } from '../src/pages/process-factory/acce
 import { renderPdaWorkOrderExecDetailPage } from '../src/pages/pda-exec-detail.ts'
 import { buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
 import {
+  listWaitHandoverWarehouseRecords,
+  listWaitProcessWarehouseRecords,
+} from '../src/data/fcs/process-warehouse-domain.ts'
+import {
   AUX_SPECIAL_ACCESSORY_CHAINS,
   VerificationRecorder,
   getExpectedScenarioCount,
@@ -146,8 +150,23 @@ function assertSpecialCraftRuntime(chain: AuxSpecialAccessoryChain): { workOrder
   }
   if (chain.expectedTargetObject === '辅料') {
     assert(orders.every((order) => order.inputUnit && order.inputUnit !== '片'))
+    if (chain.operationId === 'SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING') {
+      assert(orders.some((order) => (order.demandLines?.length || 0) >= 3), `${chain.id} 缺少多规格定长橡筋业务数据`)
+    } else {
+      assert(orders.every((order) => (order.demandLines?.length || 0) >= 1), `${chain.id} 缺少辅件制作明细`)
+    }
+  }
+  if (chain.operationId === 'SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING') {
     assert(orders.every((order) => order.outputUnit === '条' && Number(order.fixedLengthCm) > 0))
-    assert(orders.some((order) => (order.demandLines?.length || 0) >= 3), `${chain.id} 缺少多规格辅料业务数据`)
+  }
+  if (chain.operationId === 'AUX-OP-COVERED-BUTTON-MAKING') {
+    assert(orders.every((order) => order.outputUnit === '个' && !order.fixedLengthCm))
+    orders.forEach((order) => {
+      const inputRecords = listWaitProcessWarehouseRecords({ workOrderId: order.taskOrderId })
+      const outputRecords = listWaitHandoverWarehouseRecords({ workOrderId: order.taskOrderId })
+      assert(inputRecords.every((record) => record.qtyUnit === order.inputUnit), `${order.taskOrderNo} 待加工仓未保留 BOM 投入单位`)
+      assert(outputRecords.every((record) => record.qtyUnit === '个'), `${order.taskOrderNo} 待交出仓未使用布包扣产出单位“个”`)
+    })
   }
   if (chain.operationId === 'AUX-OP-BUTTON-LOOP') {
     assert(orders.every((order) => order.inputUnit === '张' && order.outputUnit === '个'))
@@ -173,6 +192,10 @@ function assertSpecialCraftRuntime(chain: AuxSpecialAccessoryChain): { workOrder
   assert.equal(print.sourceId, order.taskOrderId)
   assert.equal(print.qrLabel, '加工单二维码')
   assert.equal(print.craftName, order.craftName || order.operationName)
+  if (chain.operationId === 'AUX-OP-COVERED-BUTTON-MAKING') {
+    assert(pda.includes('布包扣') && !pda.includes('装扣子'))
+    assert.equal(print.qtyUnit, '个')
+  }
   return { workOrderId: order.taskOrderId, workOrderNo: order.taskOrderNo }
 }
 
@@ -227,11 +250,10 @@ function assertChainRuntime(chain: AuxSpecialAccessoryChain): { workOrderId: str
   return assertLaceRuntime()
 }
 
-function assertFlowHasMultiData(chainId: string): void {
+function assertFlowHasMultipleBatches(chainId: string): void {
   const results = getFlowEvidence(chainId)
   if (chainId === 'BIND-01') {
     assert(results.every((result) => Array.isArray(result.evidence?.actionRecords) && result.evidence.actionRecords.length >= 7))
-    assert(results.some((result) => Number(result.evidence?.detailCount || 0) >= 2))
     return
   }
   if (chainId === 'ACC-LACE-01') {
@@ -242,7 +264,29 @@ function assertFlowHasMultiData(chainId: string): void {
   assert(results.every((result) => Array.isArray(result.evidence?.inputBatches) && result.evidence.inputBatches.length >= 2))
   assert(results.every((result) => Array.isArray(result.evidence?.outputBatches) && result.evidence.outputBatches.length >= 2))
   assert(results.every((result) => Array.isArray(result.evidence?.handoverBatches) && result.evidence.handoverBatches.length >= 2))
-  assert(results.some((result) => Number(result.evidence?.businessLineCount || 0) >= 2), `${chainId} 缺少两条独立业务明细测试`)
+}
+
+function assertFlowHasIndependentDetails(chainId: string): void {
+  const results = getFlowEvidence(chainId)
+  if (chainId === 'BIND-01') {
+    assert(results.some((result) => Number(result.evidence?.detailCount || 0) >= 2), `${chainId} 缺少两条独立规格明细测试`)
+    return
+  }
+  if (chainId === 'ACC-LACE-01') {
+    const sourceLineCount = results.flatMap((result) => (result.evidence?.handovers as Array<{ sourceLines?: unknown[] }> | undefined) || [])
+      .reduce((max, handover) => Math.max(max, handover.sourceLines?.length || 0), 0)
+    assert(sourceLineCount >= 2, `${chainId} 缺少两条独立采购投入明细测试`)
+    return
+  }
+  const businessLineKeys = new Set(results.flatMap((result) =>
+    Array.isArray(result.evidence?.businessLineKeys)
+      ? result.evidence.businessLineKeys.map((key) => String(key))
+      : [],
+  ))
+  assert(
+    results.some((result) => Number(result.evidence?.businessLineCount || 0) >= 2) || businessLineKeys.size >= 2,
+    `${chainId} 缺少两条独立业务明细测试`,
+  )
 }
 
 function assertCommonScenario(chain: AuxSpecialAccessoryChain, scenarioId: string): void {
@@ -264,8 +308,10 @@ function assertCommonScenario(chain: AuxSpecialAccessoryChain, scenarioId: strin
       getFlowEvidence(chain.id)
       break
     case 'SC-04':
+      assertFlowHasMultipleBatches(chain.id)
+      break
     case 'SC-07':
-      assertFlowHasMultiData(chain.id)
+      assertFlowHasIndependentDetails(chain.id)
       break
     case 'SC-05':
       passedForChain('task-auto-completion', chain.id)
@@ -305,7 +351,7 @@ function assertSpecialScenario(chain: AuxSpecialAccessoryChain, scenarioId: stri
     getFlowEvidence(chain.id)
   }
   if (/多部位|多菲票|两个菲票|两张捆条菲票|两个颜色|两个尺码|多颜色|多规格|至少两个规格|多物料|三次加工填报/.test(text)) {
-    assertFlowHasMultiData(chain.id)
+    assertFlowHasIndependentDetails(chain.id)
   }
   if (/任务|一任务两|最后一张|自动完成|数组顺序/.test(text)) {
     passedForChain('task-auto-completion', chain.id)
@@ -337,6 +383,10 @@ function assertSpecialScenario(chain: AuxSpecialAccessoryChain, scenarioId: stri
   if (chain.id === 'SPC-04') {
     assert.equal(chain.expectedTargetObject, '辅料')
     assert.equal(chain.outputUnit, '条')
+  }
+  if (chain.id === 'AUX-14') {
+    assert.equal(chain.expectedTargetObject, '辅料')
+    assert.equal(chain.outputUnit, '个')
   }
   if (chain.id === 'BIND-01') {
     assert.equal(chain.inputUnit, '米')
@@ -404,8 +454,8 @@ for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS) {
 }
 
 const expectedCount = getExpectedScenarioCount()
-assert.equal(expectedCount, 450, '测试目录应固定为 450 个具名场景')
-assert.equal(specialScenarioText.size, 110, '实施计划应包含 110 个专项场景')
+assert.equal(expectedCount, 474, '新增布包扣辅件制作后，测试目录应为 474 个具名场景')
+assert.equal(specialScenarioText.size, 116, '实施计划应包含 116 个专项场景')
 assert.equal(recorder.results.length, expectedCount, '具名场景结果数量不等于计划总数')
 assert.equal(new Set(recorder.results.map((result) => result.caseId)).size, expectedCount, '具名场景 ID 不唯一')
 

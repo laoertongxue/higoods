@@ -1,19 +1,19 @@
 import type { RouteRegistry } from './route-types'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import {
   buildSpecialCraftDomainWaitHandoverWarehousePath,
   buildSpecialCraftDomainWaitProcessWarehousePath,
   buildSpecialCraftOperationSlug,
   buildSpecialCraftTaskOrdersPath,
   listEnabledSpecialCraftOperationDefinitions,
-} from '../data/fcs/special-craft-operations'
-import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
+} from '../data/fcs/special-craft-operations.ts'
 import { renderRouteRedirect } from './route-utils'
-import { bootstrapPickupManagementRuntimeMockData } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
-import { bootstrapSupplementManagementMockData } from '../pages/process-factory/cutting/supplement-management.ts'
 import {
   renderTaskBreakdownPage,
   renderCapabilityPage,
   renderFactoryOnboardingPage,
+  renderRetiredProcessHistoryPage,
+  renderRetiredProcessHistoryLegacyPage,
   renderFactoryPerformancePage,
   renderFactoryProfilePage,
   renderThirdPartyFactoryRatingPage,
@@ -189,38 +189,46 @@ import {
   renderCuttingSettlementInputPage,
 } from './route-renderers-fcs'
 
-const specialCraftExactRoutes = Object.fromEntries(
-  [
-    ...listEnabledSpecialCraftOperationDefinitions().flatMap((operation) => {
-      const operationSlug = buildSpecialCraftOperationSlug(operation)
-      const workOrdersPath = buildSpecialCraftTaskOrdersPath(operation)
-      const legacyTasksPath = `/fcs/process-factory/special-craft/${operationSlug}/tasks`
-      return [
-        [workOrdersPath, () => renderSpecialCraftTaskOrdersPage(operationSlug)],
-        [legacyTasksPath, () => renderRouteRedirect(workOrdersPath, '正在跳转到加工单列表')],
-      ]
-    }),
-    [
-      buildSpecialCraftDomainWaitProcessWarehousePath('AUXILIARY_CRAFT_FACTORY'),
-      () => renderSpecialCraftDomainWaitProcessWarehousePage('auxiliary'),
-    ],
-    [
-      buildSpecialCraftDomainWaitHandoverWarehousePath('AUXILIARY_CRAFT_FACTORY'),
-      () => renderSpecialCraftDomainWaitHandoverWarehousePage('auxiliary'),
-    ],
-    [
-      buildSpecialCraftDomainWaitProcessWarehousePath('SPECIAL_CRAFT_FACTORY'),
-      () => renderSpecialCraftDomainWaitProcessWarehousePage('special-type'),
-    ],
-    [
-      buildSpecialCraftDomainWaitHandoverWarehousePath('SPECIAL_CRAFT_FACTORY'),
-      () => renderSpecialCraftDomainWaitHandoverWarehousePage('special-type'),
-    ],
-  ],
-)
+async function renderCuttingPickupPage(
+  renderPage: () => Promise<string>,
+): Promise<string> {
+  const [supplementModule, pickupModule] = await Promise.all([
+    import('../pages/process-factory/cutting/supplement-management.ts'),
+    import('../runtime/fcs/cutting/pickup-management-runtime.ts'),
+  ])
+  supplementModule.bootstrapSupplementManagementMockData()
+  pickupModule.bootstrapPickupManagementRuntimeMockData()
+  return renderPage()
+}
+
+function buildSpecialCraftMenuExactRoutes(): RouteRegistry['exactRoutes'] {
+  const exactRoutes: RouteRegistry['exactRoutes'] = {}
+  for (const operation of listEnabledSpecialCraftOperationDefinitions()) {
+    exactRoutes[buildSpecialCraftTaskOrdersPath(operation)] = () =>
+      renderSpecialCraftTaskOrdersPage(buildSpecialCraftOperationSlug(operation))
+  }
+
+  const domains = [
+    { managementDomain: 'AUXILIARY_CRAFT_FACTORY', slug: 'auxiliary' },
+    { managementDomain: 'SPECIAL_CRAFT_FACTORY', slug: 'special-type' },
+  ] as const
+  for (const domain of domains) {
+    exactRoutes[buildSpecialCraftDomainWaitProcessWarehousePath(domain.managementDomain)] = () =>
+      renderSpecialCraftDomainWaitProcessWarehousePage(domain.slug)
+    exactRoutes[buildSpecialCraftDomainWaitHandoverWarehousePath(domain.managementDomain)] = () =>
+      renderSpecialCraftDomainWaitHandoverWarehousePage(domain.slug)
+  }
+  return exactRoutes
+}
+
+const specialCraftMenuExactRoutes = buildSpecialCraftMenuExactRoutes()
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    ...specialCraftMenuExactRoutes,
+    '/fcs/history/retired-process-records': () => renderRetiredProcessHistoryPage(),
+    '/fcs/craft/cutting/cut-piece-orders': () => renderRetiredProcessHistoryLegacyPage('CUT_PIECE'),
+    '/fcs/dye-print-orders': () => renderRetiredProcessHistoryLegacyPage('DYE_PRINT'),
     '/fcs/factories/onboarding': () => renderFactoryOnboardingPage(),
     '/fcs/factories/profile': () => renderFactoryProfilePage(),
     '/fcs/factories/third-party-rating': () => renderThirdPartyFactoryRatingPage(),
@@ -310,21 +318,12 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/cut-order-close': () => renderCraftCuttingCutOrderClosePage(),
     '/fcs/craft/cutting/pickup-management': () =>
       renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready', '正在跳转到已配齐待接收'),
-    '/fcs/craft/cutting/pickup-management/ready': () => {
-      bootstrapSupplementManagementMockData()
-      bootstrapPickupManagementRuntimeMockData()
-      return renderCraftCuttingPickupReadyPage()
-    },
-    '/fcs/craft/cutting/pickup-management/incomplete': () => {
-      bootstrapSupplementManagementMockData()
-      bootstrapPickupManagementRuntimeMockData()
-      return renderCraftCuttingPickupIncompletePage()
-    },
-    '/fcs/craft/cutting/pickup-management/history': () => {
-      bootstrapSupplementManagementMockData()
-      bootstrapPickupManagementRuntimeMockData()
-      return renderCraftCuttingPickupHistoryPage()
-    },
+    '/fcs/craft/cutting/pickup-management/ready': () =>
+      renderCuttingPickupPage(renderCraftCuttingPickupReadyPage),
+    '/fcs/craft/cutting/pickup-management/incomplete': () =>
+      renderCuttingPickupPage(renderCraftCuttingPickupIncompletePage),
+    '/fcs/craft/cutting/pickup-management/history': () =>
+      renderCuttingPickupPage(renderCraftCuttingPickupHistoryPage),
     '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
     '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
     '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage(),
@@ -436,7 +435,6 @@ export const routes: RouteRegistry = {
     '/fcs/craft/post-finishing/authorization-code': () => renderPostFinishingAuthorizationCodePage(),
     '/fcs/craft/post-finishing/statistics': () => renderPostFinishingStatisticsPage(),
     '/fcs/craft/post-finishing/garment-spu-replacements': () => renderPostFinishingGarmentSpuReplacementsPage(),
-    ...specialCraftExactRoutes,
     '/fcs/production/create': () =>
       renderPlaceholderPage(
         '生成生产单',
@@ -449,6 +447,29 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/(auxiliary|special-type)\/wait-process-warehouse$/,
+      render: (match) => renderSpecialCraftDomainWaitProcessWarehousePage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/(auxiliary|special-type)\/wait-handover-warehouse$/,
+      render: (match) => renderSpecialCraftDomainWaitHandoverWarehousePage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders$/,
+      render: (match) => renderSpecialCraftTaskOrdersPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks$/,
+      render: (match) => renderRouteRedirect(
+        `/fcs/process-factory/special-craft/${encodeURIComponent(decodeURIComponent(match[1]))}/work-orders`,
+        '正在跳转到加工单列表',
+      ),
+    },
+    {
+      pattern: /^\/fcs\/(?:history\/retired-process-records|craft\/cutting\/cut-piece-orders|dye-print-orders)\/([^/]+)$/,
+      render: (match) => renderRetiredProcessHistoryPage(decodeURIComponent(match[1])),
+    },
     {
       pattern: /^\/fcs\/craft\/accessory\/lace\/work-orders\/([^/?]+)(?:\?.*)?$/,
       render: (match) => renderLaceWorkOrderDetailPage(decodeURIComponent(match[1])),
@@ -568,7 +589,7 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\/([^/]+)$/,
       render: (match) => renderRouteRedirect(
-        buildSpecialCraftTaskOrdersPath(match[1]) + `/${encodeURIComponent(decodeURIComponent(match[2]))}`,
+        `/fcs/process-factory/special-craft/${encodeURIComponent(decodeURIComponent(match[1]))}/work-orders/${encodeURIComponent(decodeURIComponent(match[2]))}`,
         '正在跳转到加工单详情',
       ),
     },

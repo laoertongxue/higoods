@@ -19,48 +19,46 @@ async function setPdaSession(page: import('@playwright/test').Page) {
   }, PDA_SESSION)
 }
 
-test('印花面料与裁片数量文案分开展示', async ({ page }) => {
+test('印花只展示 BOM 原物料对象与对应单位', async ({ page }) => {
   await page.goto('/fcs/craft/printing/work-orders')
   await expect(page.getByRole('heading', { name: '印花加工单', exact: true })).toBeVisible()
-  await expect(page.locator('body')).toContainText('计划印花面料米数')
-  await expect(page.locator('body')).toContainText('计划印花裁片数量')
+  await expect(page.locator('body')).toContainText('[面料]')
+  await expect(page.locator('body')).toContainText('计划投入')
+  await expect(page.locator('body')).not.toContainText('计划印花裁片数量')
 
-  await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-001')
-  await expect(page.locator('body')).toContainText('计划印花面料米数')
-  await expect(page.locator('body')).toContainText('米')
-
-  await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-011')
-  await expect(page.locator('body')).toContainText('计划印花裁片数量')
-  await expect(page.locator('body')).toContainText('片')
-  await expect(page.locator('body')).not.toContainText('计划印花面料米数：910 片')
+  await page.getByRole('link', { name: '详情', exact: true }).first().click()
+  await expect(page.locator('body')).toContainText('加工投入')
+  await expect(page.locator('body')).toContainText('[面料]')
+  await expect(page.locator('body')).not.toContainText('裁片印花')
 })
 
-test('平台侧印花与染色展示对象化数量', async ({ page }) => {
+test('平台侧印花与染色详情展示原物料对象数量', async ({ page }) => {
   await page.goto('/fcs/process/print-orders')
-  await expect(page.getByRole('heading', { name: '印花加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText(/计划印花面料米数|计划印花裁片数量/)
-  await expect(page.locator('body')).not.toContainText('计划投料数量')
+  await expect(page.getByRole('heading', { level: 1, name: '印花加工单', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看', exact: true }).first().click()
+  await expect(page.locator('[data-process-print-orders-detail]')).toContainText(/计划印花(?:面料米数|BOM原物料)/)
+  await expect(page.locator('[data-process-print-orders-detail]')).not.toContainText('计划印花裁片数量')
+  await expect(page.locator('[data-process-print-orders-detail]')).not.toContainText('计划投料数量')
 
   await page.goto('/fcs/process/dye-orders')
-  await expect(page.getByRole('heading', { name: '染色加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('计划染色面料米数')
-  await expect(page.locator('body')).toContainText('已交出面料米数')
-  await expect(page.locator('body')).not.toContainText('染色裁片数量')
+  await expect(page.getByRole('heading', { level: 1, name: '染色加工单', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '查看', exact: true }).first().click()
+  await expect(page.locator('[data-process-dye-orders-detail]')).toContainText('计划染色面料米数')
+  await expect(page.locator('[data-process-dye-orders-detail]')).not.toContainText('染色裁片数量')
 })
 
 test('移动端任务详情展示对象和单位', async ({ page }) => {
   await setPdaSession(page)
   await page.goto('/fcs/pda/exec/TASK-PRINT-000716')
   await expect(page.locator('body')).toContainText('计划印花面料米数')
-  await expect(page.locator('body')).toContainText('打印完成面料米数')
+  await expect(page.locator('body')).not.toContainText('印花裁片数量')
 
   await page.goto('/fcs/pda/exec/TASK-PRINT-000717')
-  await expect(page.locator('body')).toContainText(/计划印花裁片数量|待印花裁片数量|裁片数量/)
-  await expect(page.locator('body')).not.toContainText('计划印花面料米数：910 片')
+  await expect(page.locator('body')).toContainText(/计划印花(?:面料米数|BOM原物料)/)
+  await expect(page.locator('body')).not.toContainText('印花裁片数量')
 
   await page.goto('/fcs/pda/exec/TASK-DYE-000726')
   await expect(page.locator('body')).toContainText('计划染色面料米数')
-  await expect(page.locator('body')).toContainText('染色完成面料米数')
 })
 
 test('裁片对象特殊工艺展示裁片数量与菲票数量', async ({ page }) => {

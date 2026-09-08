@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { routes } from '../src/router/routes-fcs.ts'
 import { handleProcessWaterSolubleOrdersEvent, renderProcessWaterSolubleOrdersPage } from '../src/pages/process-water-soluble-orders.ts'
 import { closeCraftDyeingWaterSolubleOverlay, handleCraftDyeingWaterSolubleOrdersEvent, renderCraftDyeingWaterSolubleOrdersPage } from '../src/pages/process-factory/dyeing/water-soluble-orders.ts'
-import { assignWaterSolubleFactory, canAssignWaterSolubleFactory, executeWaterSolublePdaAction, getWaterSolubleWorkOrderById, linkWaterSolubleHandoverOrder, listWaterSolubleWorkOrders, resetWaterSolubleDomainForChecks, resolveWaterSolublePause, WATER_SOLUBLE_STATUS_LABEL } from '../src/data/fcs/water-soluble-task-domain.ts'
-import { createFactoryPdaUser, createPdaSessionFromUser, listFactoryPdaUsers } from '../src/data/fcs/store-domain-pda.ts'
+import { markWaterSolubleMaterialReady, assignWaterSolubleFactory, canAssignWaterSolubleFactory, executeWaterSolublePdaAction, getWaterSolubleWorkOrderById, linkWaterSolubleHandoverOrder, listWaterSolubleWorkOrders, resetWaterSolubleDomainForChecks, resolveWaterSolublePause, WATER_SOLUBLE_STATUS_LABEL } from '../src/data/fcs/water-soluble-task-domain.ts'
+import { createFactoryPdaUser, createPdaSessionFromUser, listFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
 
@@ -30,6 +30,11 @@ assert.deepEqual(stateAfterRouteRoundTrip, stateBeforeRendering, 'FCS → PFOS �
 
 assert(fcsHtml.includes('data-testid="water-soluble-orders-page"'), 'FCS 水溶加工单页面未渲染')
 assert(fcsHtml.includes('data-testid="water-soluble-pagination"'), 'FCS 水溶加工单缺少分页')
+assert(fcsHtml.includes('data-standard-list-page') && fcsHtml.includes('data-standard-list-scroll'), 'FCS 水溶加工单必须使用标准列表与容器内横向滚动')
+assert(fcsHtml.includes('data-water-soluble-action="open-column-settings"'), 'FCS 水溶加工单必须提供列设置')
+assert(fcsHtml.includes('data-water-soluble-object="style"') && fcsHtml.includes('data-water-soluble-object="material"'), '款式和物料必须各在同一信息块展示图片或明确缺失状态')
+assert(fcsHtml.includes('款式原图缺失，待补准确素材') && fcsHtml.includes('物料原图缺失，待补准确素材'), '当前水溶演示源没有准确素材，必须明确缺图')
+assert(!fcsHtml.includes('src="/tshirt-sample.jpg"') && !fcsHtml.includes('src="/materials/fabric-contrast.jpg"') && !fcsHtml.includes('src="data:image/svg'), '通用白T、布样或文字SVG不得冒充水溶对象图片')
 assert(fcsHtml.includes('计划交期') && fcsHtml.includes('未排期'), 'FCS 页面不得伪造计划交期')
 assert(fcsHtml.includes('技术包版本') && fcsHtml.includes('分配染厂'), 'FCS 页面缺少管理字段或派厂动作')
 assert(fcsHtml.includes('款号或款式'), 'FCS 页面缺少款号或款式字段')
@@ -74,7 +79,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 Object.defineProperty(globalThis, 'document', {
   configurable: true,
-  value: { querySelector: () => null },
+  value: { querySelector: () => null, addEventListener: () => undefined },
 })
 
 function actionTarget(action: string, orderId: string, overlayToken = ''): HTMLElement {
@@ -100,7 +105,7 @@ function arrangeTrustedInProgressOrder() {
   assert(order?.factoryId, '确定性 seed 必须包含已归属工厂的水溶中加工单')
   const user = listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE')
   assert(user, '确定性 seed 工厂必须有可用 PDA 用户')
-  memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(user)))
+  setPdaSession(createPdaSessionFromUser(user))
   closeCraftDyeingWaterSolubleOverlay()
   return order
 }
@@ -111,7 +116,7 @@ function arrangeTrustedWaitingOrder() {
   assert(paused?.factoryId, '确定性 seed 必须包含已归属工厂的生产暂停水溶单')
   const user = listFactoryPdaUsers(paused.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_OPERATOR')
   assert(user, '确定性 seed 工厂必须有可用操作员')
-  memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(user)))
+  setPdaSession(createPdaSessionFromUser(user))
   closeCraftDyeingWaterSolubleOverlay()
   return { paused, user }
 }
@@ -127,7 +132,7 @@ const structuredActorUser = await createFactoryPdaUser({
   roleId: 'ROLE_OPERATOR',
   createdBy: '水溶页面静态检查',
 })
-memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(structuredActorUser)))
+setPdaSession(createPdaSessionFromUser(structuredActorUser))
 handleCraftDyeingWaterSolubleOrdersEvent(actionTarget('start', actorScenario.paused.waterOrderId))
 const actorStartedOrder = getWaterSolubleWorkOrderById(actorScenario.paused.waterOrderId)
 assert(actorStartedOrder, '真实 PDA 操作人场景必须进入水溶中')
@@ -142,7 +147,7 @@ const actorCompletedOrder = executeWaterSolublePdaAction({
   reason: '现场复尺；操作人：伪造姓名',
   actor,
 })
-assert(actorCompletedOrder.ok, '真实 PDA 完成动作必须成功')
+assert(actorCompletedOrder.ok, `真实 PDA 完成动作必须成功：${actorCompletedOrder.message}`)
 const linkedActorOrder = linkWaterSolubleHandoverOrder(actorStartedOrder.waterOrderId, actorStartedOrder.taskId, 'HANDOVER-ACTOR-TRACE-CHECK')
 assert(linkedActorOrder.ok, '真实 PDA 动作后必须能产生不含操作人的系统关联日志')
 const completedActorLog = actorCompletedOrder.order?.actionLogs.findLast((log) => log.action === '完成水溶')
@@ -188,6 +193,7 @@ assert.equal(shortUpdated?.exceptionReason, 'Node handler 现场短量原因', '
 assert(shortUpdated?.actionLogs.at(-1)?.detail.includes('Node handler 现场短量原因'), 'handler 短量日志必须保留真实原因')
 
 const overOrder = arrangeTrustedInProgressOrder()
+markWaterSolubleMaterialReady(overOrder.waterOrderId, { qty: 1, receiptId: 'EXTRA-MATERIAL-FOR-OVERAGE' })
 const overBefore = getWaterSolubleWorkOrderById(overOrder.waterOrderId)
 handleCraftDyeingWaterSolubleOrdersEvent(actionTarget('complete', overOrder.waterOrderId))
 handleCraftDyeingWaterSolubleOrdersEvent(fieldTarget('completedQty', String(overOrder.plannedQty + 1)))

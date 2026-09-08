@@ -374,8 +374,8 @@ function getUpstreamProgressNav(line: MaterialPrepBreakdownLineCheck): string {
 }
 
 function renderBreakdownLineStatus(line: MaterialPrepBreakdownLineCheck): string {
-  if (line.ready) return renderBadge('可拆解', 'bg-green-100 text-green-700')
-  return renderBadge('暂不可拆解', 'bg-amber-100 text-amber-700')
+  if (line.ready) return renderBadge('物料就绪', 'bg-green-100 text-green-700')
+  return renderBadge('待物料', 'bg-amber-100 text-amber-700')
 }
 
 function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): string {
@@ -422,7 +422,7 @@ function renderBreakdownReadinessRows(lines: MaterialPrepBreakdownLineCheck[]): 
             }
           </td>
           <td class="px-3 py-2">${renderBreakdownLineStatus(line)}</td>
-          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(line.blockingReason || '库存和上游状态满足拆解前置条件')}</td>
+          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(line.blockingReason || '库存和上游状态满足物料准备条件')}</td>
         </tr>
       `
     })
@@ -442,7 +442,7 @@ function renderOrderBreakdownReadinessDialog(): string {
       <section class="w-full max-w-6xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="flex flex-wrap items-start justify-between gap-3 border-b px-6 py-4">
           <div>
-            <h3 class="text-lg font-semibold">拆解前物料库存检查</h3>
+            <h3 class="text-lg font-semibold">物料库存检查</h3>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(order.productionOrderId)} · ${escapeHtml(order.demandSnapshot.spuCode)} · ${escapeHtml(order.demandSnapshot.spuName)}</p>
           </div>
           <button class="rounded-md border px-3 py-1 text-xs hover:bg-muted" data-prod-action="close-breakdown-readiness">关闭</button>
@@ -450,12 +450,12 @@ function renderOrderBreakdownReadinessDialog(): string {
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
           <div class="grid gap-3 md:grid-cols-4">
             ${renderStatCard('BOM物料行', readiness.lines.length)}
-            ${renderStatCard('可拆解物料行', readyCount, 'text-green-600')}
+            ${renderStatCard('就绪物料行', readyCount, 'text-green-600')}
             ${renderStatCard('不足/待上游', blockingCount, blockingCount > 0 ? 'text-amber-600' : 'text-green-600')}
-            ${renderStatCard('检查结果', readiness.ready ? '可拆解' : '暂不可拆解', readiness.ready ? 'text-green-600' : 'text-amber-600')}
+            ${renderStatCard('检查结果', readiness.ready ? '物料就绪' : '待物料', readiness.ready ? 'text-green-600' : 'text-amber-600')}
           </div>
           <section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            ${escapeHtml(readiness.summaryText)}
+            ${escapeHtml(readiness.summaryText)}<p class="mt-1">任务拆解不代表物料已到仓或已经开工；实际配料、领料仍需满足物料条件。</p>
           </section>
           <section class="overflow-hidden rounded-md border">
             <div class="max-h-[420px] overflow-auto">
@@ -480,8 +480,8 @@ function renderOrderBreakdownReadinessDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-breakdown-readiness">关闭</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${
-            readiness.ready && canOrderStartTaskBreakdown(order) ? 'hover:bg-blue-700' : 'pointer-events-none opacity-50'
-          }" title="${escapeHtml(readiness.ready ? '' : readiness.summaryText)}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(order.productionOrderId)}">确认拆解任务</button>
+            canOrderStartTaskBreakdown(order) ? 'hover:bg-blue-700' : 'pointer-events-none opacity-50'
+          }" title="${escapeHtml(getOrderTaskBreakdownDisabledReason(order))}" data-prod-action="breakdown-order" data-order-id="${escapeHtml(order.productionOrderId)}">确认拆解任务</button>
         </footer>
       </section>
     </div>
@@ -619,7 +619,7 @@ function renderOrderTaskGenerationSummary(order: ProductionOrder): string {
   `
 }
 
-function renderTaskGenerationPreviewDialog(): string {
+export function renderTaskGenerationPreviewDialog(): string {
   const previewState = state.taskGenerationPreview
   if (!previewState) return ''
   const title = previewState.mode === 'batch' ? '批量任务拆解预览' : '任务拆解预览'
@@ -1296,13 +1296,7 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
         isCreated
           ? `
             <div class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-              <div>正式接收需求编号：${renderProductionObjectCodeButton({
-                objectType: 'MATERIAL_PREP_ORDER',
-                objectId: draft.createdMaterialRequestNo,
-                label: draft.createdMaterialRequestNo,
-                relatedProductionOrderNo: draft.productionOrderNo,
-                defaultTab: 'materials',
-              })}</div>
+              <div>正式接收需求编号：<button class="font-mono text-blue-600 hover:underline" data-nav="/fcs/progress/material?po=${encodeURIComponent(draft.productionOrderNo)}&docId=${encodeURIComponent(`ISSUE-${draft.createdMaterialRequestNo}`)}">${escapeHtml(draft.createdMaterialRequestNo)}</button></div>
               <div class="mt-0.5 text-xs">创建人：${escapeHtml(draft.createdBy || '-')} · 创建时间：${escapeHtml(draft.createdAt || '-')}</div>
             </div>
           `

@@ -1,9 +1,11 @@
 import { appStore } from '../../state/store'
-import { escapeHtml, formatDateTime } from '../../utils'
+import { escapeHtml, formatDateTime, localDateTimeText } from '../../utils'
 import { renderFormDialog, renderConfirmDialog } from '../../components/ui/dialog'
 import { productionDemands, type ProductionDemand } from '../../data/fcs/production-demands'
 import {
   productionOrders,
+  persistCreatedProductionOrders,
+  findProductionOrderForDemand,
   type ProductionOrder,
   type ProductionOrderStatus,
   type AssignmentProgressStatus,
@@ -61,7 +63,7 @@ import {
 } from '../../data/fcs/store-domain-quality-seeds'
 import {
   listLegacyLikeQualityInspectionsForTailPages,
-  listLegacyLikeDyePrintOrdersForTailPages,
+  listPreparationProcessSummariesForTailPages,
 } from '../../data/fcs/page-adapters/long-tail-pages-adapter'
 import {
   initialStatementDrafts,
@@ -90,6 +92,7 @@ import {
 import {
   getMaterialPrepBreakdownReadinessForOrder as getMaterialPrepBreakdownReadinessForOrderRaw,
   type MaterialPrepBreakdownReadiness,
+  invalidateMaterialPrepProjectionCache,
 } from '../../data/fcs/cutting/production-material-prep'
 import {
   buildProductionTaskBreakdownPreviews,
@@ -414,11 +417,10 @@ function cloneDemand(demand: ProductionDemand): ProductionDemand {
 }
 
 function toTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+  return localDateTimeText(date)
 }
 
 let productionCoreLocalSeq = 0
-const materialPrepBreakdownReadinessCache = new Map<string, MaterialPrepBreakdownReadiness>()
 
 function nextLocalEntityId(prefix: string, width = 6): string {
   productionCoreLocalSeq += 1
@@ -426,15 +428,11 @@ function nextLocalEntityId(prefix: string, width = 6): string {
 }
 
 function getMaterialPrepBreakdownReadinessForOrder(productionOrderIdOrNo: string): MaterialPrepBreakdownReadiness {
-  const cached = materialPrepBreakdownReadinessCache.get(productionOrderIdOrNo)
-  if (cached) return cached
-  const readiness = getMaterialPrepBreakdownReadinessForOrderRaw(productionOrderIdOrNo)
-  materialPrepBreakdownReadinessCache.set(productionOrderIdOrNo, readiness)
-  return readiness
+  return getMaterialPrepBreakdownReadinessForOrderRaw(productionOrderIdOrNo)
 }
 
 function clearMaterialPrepBreakdownReadinessCache(): void {
-  materialPrepBreakdownReadinessCache.clear()
+  invalidateMaterialPrepProjectionCache()
 }
 
 function showPlanMessage(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -734,6 +732,7 @@ interface OrderTaskBreakdownSnapshot {
   taskTypesTop3: string[]
   detailRowCount: number
   detailRowTotalQty: number
+  detailRowQuantityText: string
   detailRowPreview: string
   sourceTaskCount: number
   splitSourceCount: number
@@ -770,6 +769,7 @@ function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdo
         taskTypesTop3: Array.from(new Set(tasks.map((task) => task.processBusinessName || task.processNameZh))),
         detailRowCount: tasks.length,
         detailRowTotalQty: totalQty,
+        detailRowQuantityText: `${totalQty.toLocaleString('zh-CN')} 件`,
         detailRowPreview: `整单任务 ${totalQty.toLocaleString('zh-CN')}件`,
         sourceTaskCount: tasks.length,
         splitSourceCount: 0,
@@ -791,6 +791,7 @@ function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdo
       taskTypesTop3: [],
       detailRowCount: 0,
       detailRowTotalQty: 0,
+      detailRowQuantityText: '—',
       detailRowPreview: '-',
       sourceTaskCount: 0,
       splitSourceCount: 0,
@@ -839,6 +840,7 @@ function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdo
     taskTypesTop3,
     detailRowCount: detailRowSummary.count,
     detailRowTotalQty: detailRowSummary.totalQty,
+    detailRowQuantityText: detailRowSummary.unitSummaries.map(item => `${item.qty.toLocaleString('zh-CN')} ${item.unit}`).join('；') || '—',
     detailRowPreview: detailRowSummary.previewText || '-',
     sourceTaskCount,
     splitSourceCount,
@@ -933,8 +935,7 @@ function canOrderStartTaskBreakdown(order: ProductionOrder): boolean {
   return (
     getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
     statusAllowsBreakdown &&
-    !order.taskBreakdownSummary.isBrokenDown &&
-    getMaterialPrepBreakdownReadinessForOrder(order.productionOrderId).ready
+    !order.taskBreakdownSummary.isBrokenDown
   )
 }
 
@@ -945,8 +946,6 @@ function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
   }
   if (order.taskBreakdownSummary.isBrokenDown) return '已拆解任务'
   if (order.status !== 'READY_FOR_BREAKDOWN' && order.status !== 'WAIT_ASSIGNMENT') return '当前状态不支持拆解'
-  const breakdownReadiness = getMaterialPrepBreakdownReadinessForOrder(order.productionOrderId)
-  if (!breakdownReadiness.ready) return breakdownReadiness.summaryText
   return ''
 }
 
@@ -1044,6 +1043,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     }
   })
   state.orders.splice(0, state.orders.length, ...nextOrders)
+  persistCreatedProductionOrders()
 
   return changedCount
 }
@@ -1093,7 +1093,7 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
     publishedAt: defaultOption?.publishedAt || current.publishedAt,
     canGenerate:
       hasPublishedVersion &&
-      !demand.hasProductionOrder &&
+      !demand.hasProductionOrder && !findProductionOrderForDemand(demand.demandId) &&
       demand.productionOrderId === null &&
       demand.demandStatus === 'PENDING_CONVERT',
     blockReason: hasPublishedVersion ? '' : current.blockReason || '该款式暂无已发布技术包版本',
@@ -1173,8 +1173,8 @@ function renderDemandOperations(
   return `${demandOpButtons}${techPackButton}`
 }
 
-function getLegacyLikeDyePrintOrders() {
-  return listLegacyLikeDyePrintOrdersForTailPages()
+function getPreparationProcessSummaries() {
+  return listPreparationProcessSummariesForTailPages()
 }
 
 function getLegacyLikeQualityInspections() {
@@ -1477,9 +1477,15 @@ function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
   }
 }
 
+function withCurrentProductionOrderLink(demand: ProductionDemand): ProductionDemand {
+  const order = findProductionOrderForDemand(demand.demandId)
+  return order ? { ...demand, hasProductionOrder: true, productionOrderId: order.productionOrderId, demandStatus: 'CONVERTED' } : demand
+}
+
 function getDemandById(demandId: string | null): ProductionDemand | null {
   if (!demandId) return null
-  return state.demands.find((demand) => demand.demandId === demandId) ?? null
+  const demand = state.demands.find((demand) => demand.demandId === demandId)
+  return demand ? withCurrentProductionOrderLink(demand) : null
 }
 
 function getOrderById(orderId: string | null): ProductionOrder | null {
@@ -1550,7 +1556,7 @@ function getAvailableDemandTypes(): FactoryType[] {
 }
 
 function getFilteredDemands(): ProductionDemand[] {
-  let result = [...state.demands]
+  let result = state.demands.map(withCurrentProductionOrderLink)
 
   const keyword = state.demandKeyword.trim().toLowerCase()
   if (keyword) {
@@ -1603,7 +1609,7 @@ function getBatchGeneratableDemandIds(): string[] {
     if (!demand) return false
     return (
       demand.demandStatus === 'PENDING_CONVERT' &&
-      !demand.hasProductionOrder &&
+      !demand.hasProductionOrder && !findProductionOrderForDemand(demand.demandId) &&
       getTechPackSnapshotForDemand(demand).canGenerate
     )
   })
@@ -1617,7 +1623,7 @@ function getBatchSelectedDemandIds(): string[] {
 function listOrdersFromDemandGeneratableDemands(): ProductionDemand[] {
   return state.demands.filter((demand) => {
     if (demand.demandStatus !== 'PENDING_CONVERT') return false
-    if (demand.hasProductionOrder) return false
+    if (demand.hasProductionOrder || findProductionOrderForDemand(demand.demandId)) return false
     if (demand.productionOrderId !== null) return false
     return getTechPackSnapshotForDemand(demand).canGenerate
   })
@@ -2010,7 +2016,7 @@ export {
   listDemandOperationsByStatus,
   getTechPackOperationLabel,
   renderDemandOperations,
-  getLegacyLikeDyePrintOrders,
+  getPreparationProcessSummaries,
   getLegacyLikeQualityInspections,
   getOrderMaterialIndicators,
   getOrderDisplayBreakdownSnapshot,

@@ -8,6 +8,7 @@ import {
   correctPostFinishingFactoryReturnConfirmation,
   discardPostFinishingFactoryReturn,
   getPostFinishingFactoryReturn,
+  getCurrentPostFinishingActor,
   listPostFinishingFactoryReturns,
   listPostFinishingMaterialStocks,
   listPostFinishingReturnConfirmationVersions,
@@ -242,7 +243,7 @@ function renderMovementContent(mode: WarehouseMode, movements: WarehouseMovement
   ]
   return {
     listTitle: '流水记录',
-    tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: mode === 'wait-process' ? '确认回货后生成入仓流水，送检后生成出仓流水。' : '复检完成后生成入仓流水，仓库收货后生成交出流水。' }),
+    tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: mode === 'wait-process' ? '确认回货后生成入仓流水，送检后生成出仓流水。' : '处理后数量与条码复核完成后生成入仓流水，成衣仓收货后生成交出流水。' }),
     paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing', pageSizeOptions: [10, 20, 50] }),
   }
 }
@@ -252,7 +253,7 @@ function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[
   const slice = paginateStandardListRows(locations, warehouseUi.page, warehouseUi.pageSize)
   warehouseUi.page = slice.currentPage
   const columns: StandardListColumn<WarehouseBatch>[] = [
-    { key: 'area', title: '库区', width: 250, required: true, render: () => mode === 'wait-process' ? '车缝回货待加工区' : '复检合格待交出区' },
+    { key: 'area', title: '库区', width: 250, required: true, render: () => mode === 'wait-process' ? '车缝回货待加工区' : '处理后待交出区' },
     { key: 'location', title: '库位码', width: 240, required: true, freezeable: true, render: (row) => `<span class="font-mono font-semibold">${escapeHtml(row.locationCode)}</span>` },
     { key: 'number', title: '关联批次', width: 330, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.deliveryOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.productionOrderNo)} · 第 ${row.returnIndex} 次回货</div>` },
     { key: 'status', title: '当前状态', width: 180, required: true, render: (row) => renderPostStatusBadge(row.status) },
@@ -388,7 +389,10 @@ function renderConfirmationVersionHistory(record: PostFinishingFactoryReturnDeli
 
 function renderConfirmationCorrection(record: PostFinishingFactoryReturnDelivery): string {
   if (record.status !== '已确认待送检') return ''
-  return `<section class="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 class="font-semibold text-amber-900">后道回货主管订正</h3><p class="mt-1 text-xs text-amber-800">仅用于送检前发现最终确认数量有误。订正会生成新版本，原版本保留，不允许静默覆盖。</p><div class="mt-3 overflow-x-auto"><table class="min-w-[720px] w-full text-left text-sm"><thead><tr class="text-xs text-amber-900"><th class="px-3 py-2">SKU</th><th class="px-3 py-2">登记数量</th><th class="px-3 py-2">当前确认</th><th class="px-3 py-2">订正后数量</th></tr></thead><tbody class="divide-y divide-amber-200">${record.lines.map((line) => `<tr data-return-correction-line="${escapeHtml(line.sku.skuId)}"><td class="px-3 py-2">${escapeHtml(line.sku.skuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</td><td class="px-3 py-2">${line.registeredQty} 件</td><td class="px-3 py-2">${line.confirmedQty ?? 0} 件</td><td class="px-3 py-2"><input type="number" min="0" step="1" value="${line.confirmedQty ?? 0}" class="h-9 w-24 rounded-md border bg-white px-2" data-return-correction-count /></td></tr>`).join('')}</tbody></table></div><label class="mt-3 block text-sm text-amber-900">订正原因<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-return-correction-reason placeholder="必须说明为什么订正"></textarea></label><button type="button" class="mt-3 rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-correct-return" data-delivery-id="${escapeHtml(record.deliveryId)}">主管确认订正并保留版本</button></section>`
+  if (getCurrentPostFinishingActor(POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer.actorId).roleName !== '后道回货主管') {
+    return '<p class="rounded-lg border bg-slate-50 p-3 text-sm text-slate-600">确认数量有误时，请后道回货主管在送检前订正；原确认版本会保留。</p>'
+  }
+  return `<section data-skip-page-rerender="true" class="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 class="font-semibold text-amber-900">后道回货主管订正</h3><p class="mt-1 text-xs text-amber-800">仅用于送检前发现最终确认数量有误。订正会生成新版本，原版本保留，不允许静默覆盖。</p><div class="mt-3 overflow-x-auto"><table class="min-w-[720px] w-full text-left text-sm"><thead><tr class="text-xs text-amber-900"><th class="px-3 py-2">SKU</th><th class="px-3 py-2">登记数量</th><th class="px-3 py-2">当前确认</th><th class="px-3 py-2">订正后数量</th></tr></thead><tbody class="divide-y divide-amber-200">${record.lines.map((line) => `<tr data-return-correction-line="${escapeHtml(line.sku.skuId)}"><td class="px-3 py-2">${escapeHtml(line.sku.skuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</td><td class="px-3 py-2">${line.registeredQty} 件</td><td class="px-3 py-2">${line.confirmedQty ?? 0} 件</td><td class="px-3 py-2"><input type="number" min="0" step="1" value="${line.confirmedQty ?? 0}" class="h-9 w-24 rounded-md border bg-white px-2" data-return-correction-count /></td></tr>`).join('')}</tbody></table></div><label class="mt-3 block text-sm text-amber-900">订正原因<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2" data-return-correction-reason placeholder="必须说明为什么订正"></textarea></label><button type="button" class="mt-3 rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white" data-post-finishing-action="full-flow-correct-return" data-delivery-id="${escapeHtml(record.deliveryId)}">主管确认订正并保留版本</button></section>`
 }
 
 function renderImageButton(record: PostFinishingFactoryReturnDelivery, line: PostFinishingFactoryReturnDelivery['lines'][number]): string {
@@ -553,17 +557,22 @@ export function handlePostFinishingReturnFlowEvent(target: HTMLElement, event?: 
       pageMessage = '回货记录已废弃；明细与废弃原因已保留，不进入待加工仓，也不会生成质检单。'
     }
     if (action === 'full-flow-correct-return') {
+      const actor = getCurrentPostFinishingActor(POST_FINISHING_ACCEPTANCE_ACTORS.returnConfirmer.actorId)
+      if (actor.roleName !== '后道回货主管') throw new Error('请后道回货主管登录后订正确认数量。')
       const root = document.querySelector<HTMLElement>('[data-return-confirm-root]')
       if (!root) throw new Error('未找到回货订正表单。')
       const correctedCounts = Array.from(root.querySelectorAll<HTMLElement>('[data-return-correction-line]')).map((line) => ({
         skuId: line.dataset.returnCorrectionLine || '',
         actualQty: Number(line.querySelector<HTMLInputElement>('[data-return-correction-count]')?.value || 0),
       }))
+      const correctionReason = root.querySelector<HTMLTextAreaElement>('[data-return-correction-reason]')?.value.trim() || ''
+      if (!correctionReason) throw new Error('请填写后道回货订正原因。')
+      if (!window.confirm('确认以回货主管身份订正最终确认数量？原版本保留，新版本同步用于待加工仓和待送检质检单。')) return true
       correctPostFinishingFactoryReturnConfirmation({
         deliveryId,
         correctedCounts,
-        correctionReason: root.querySelector<HTMLTextAreaElement>('[data-return-correction-reason]')?.value || '',
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.returnSupervisor,
+        correctionReason,
+        actor,
       })
       pageMessage = '后道最终确认已由回货主管订正；新版本生效，原版本已保留。'
     }

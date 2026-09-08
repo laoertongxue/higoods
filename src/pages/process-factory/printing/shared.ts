@@ -43,11 +43,11 @@ export function buildPrintingHref(path: string, printOrderId?: string): string {
 }
 
 export function formatPrintQty(value: number | undefined, unit: string | undefined): string {
-  return `${value ?? 0} ${escapeHtml(unit || '片')}`
+  return `${value ?? 0} ${escapeHtml(unit || '个')}`
 }
 
 export function getPrintQuantityContext(
-  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit'>,
   qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
   operationCode?: string,
 ): ProcessQuantityContext {
@@ -59,13 +59,11 @@ export function getPrintQuantityContext(
     qtyUnit: order.qtyUnit,
     qtyPurpose,
     operationCode,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
   }
 }
 
 export function getPrintQuantityLabel(
-  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit'>,
   qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
   operationCode?: string,
 ): string {
@@ -73,7 +71,7 @@ export function getPrintQuantityLabel(
 }
 
 export function formatPrintProcessQty(
-  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit'>,
   value: number | undefined,
   qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
   operationCode?: string,

@@ -1,4 +1,4 @@
-import type { ProductionOrder } from '../production-orders.ts'
+import { initialProductionOrderIds, type ProductionOrder } from '../production-orders.ts'
 import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import {
   listCuttingProductionOrdersWithFormalTechPack,
@@ -288,8 +288,9 @@ function buildProjectedRecord(
   order: ProductionOrder,
   generatedCutOrderRecords: GeneratedCutOrderSourceRecord[],
   orderIndex: number,
+  isRuntimeSource = false,
 ): CuttingOrderProgressRecord {
-  const profile = pickProfile(orderIndex)
+  const profile = isRuntimeSource ? DEMO_STAGE_PROFILES[0] : pickProfile(orderIndex)
   const skuRequirementLines = buildSkuRequirementLines(order)
   const materialLines = generatedCutOrderRecords.map((generated) => buildProjectedMaterialLine(generated, profile))
   const updatedAt = order.updatedAt || order.createdAt
@@ -317,17 +318,17 @@ function buildProjectedRecord(
     styleName: order.demandSnapshot.spuName,
     sellingPrice: undefined,
     urgencyLevel: deriveUrgencyLevel(order.demandSnapshot.requiredDeliveryDate),
-    cuttingTaskNo: `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
-    assignedFactoryName: order.mainFactorySnapshot?.name || TEST_FACTORY_NAME,
+    cuttingTaskNo: isRuntimeSource ? [...new Set(generatedCutOrderRecords.map(cut => cut.cuttingTaskNo))].join(' / ') : `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
+    assignedFactoryName: isRuntimeSource ? [...new Set(generatedCutOrderRecords.map(cut => cut.cuttingTaskAssigneeFactoryName).filter(Boolean))].join(' / ') : order.mainFactorySnapshot?.name || TEST_FACTORY_NAME,
     cuttingStage: profile.stageLabel,
     demandCreatedAt,
-    productionOrderCreatedAt: prodDate,
-    cuttingTaskAssignedAt: taskAssignedDate,
-    cuttingTaskAcceptedAt: taskAcceptedDate,
+    productionOrderCreatedAt: isRuntimeSource ? order.createdAt : prodDate,
+    cuttingTaskAssignedAt: isRuntimeSource ? '' : taskAssignedDate,
+    cuttingTaskAcceptedAt: isRuntimeSource ? '' : taskAcceptedDate,
     markerPlanCreatedAt: markerPlanDate,
     spreadingStartedAt: spreadingDate,
     completedAt: completedDate,
-    spuImageUrl: resolveSpuImage(order.demandSnapshot.spuCode, order.demandSnapshot.spuName),
+    spuImageUrl: isRuntimeSource ? '' : resolveSpuImage(order.demandSnapshot.spuCode, order.demandSnapshot.spuName),
     closeReasonCode: profile.closeReasonCode,
     closeReasonText: profile.closeReasonText,
     closedAt: profile.closedAt,
@@ -346,7 +347,7 @@ function buildProjectedRecord(
     riskFlags: [...profile.riskFlags],
     lastPickupScanAt: profile.receiveStatus === 'RECEIVED' ? updatedAt : '',
     lastFieldUpdateAt: updatedAt,
-    lastOperatorName: profile.lastOperatorName,
+    lastOperatorName: isRuntimeSource ? '' : profile.lastOperatorName,
     hasSpreadingRecord: profile.hasSpreadingRecord,
     hasInboundRecord: profile.hasInboundRecord,
     skuRequirementLines,
@@ -414,11 +415,25 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
       (item) => item.productionOrderId === order.productionOrderId,
     )
     if (generatedCutOrderRecords.length === 0) return null
-    return buildProjectedRecord(order, generatedCutOrderRecords, orderIndex)
+    return buildProjectedRecord(order, generatedCutOrderRecords, orderIndex, !initialProductionOrderIds.has(order.productionOrderId))
   })
   .filter((record): record is CuttingOrderProgressRecord => record !== null),
   ...releaseLifecycleProgressRecords,
 ]
+
+// Keep the existing mutable progress projection; only newly frozen runtime orders
+// are appended, with no seeded receipt, spreading, cutting or completion facts.
+export function listCurrentCuttingOrderProgressRecords(): CuttingOrderProgressRecord[] {
+  const existing = new Set(cuttingOrderProgressRecords.map(record => record.productionOrderId))
+  const seedIds = new Set(formalCuttingProductionOrders.map(order => order.productionOrderId))
+  const cuts = listGeneratedCutOrderSourceRecords()
+  for (const order of listCuttingProductionOrdersWithFormalTechPack()) {
+    if (existing.has(order.productionOrderId) || seedIds.has(order.productionOrderId)) continue
+    const orderCuts = cuts.filter(cut => cut.productionOrderId === order.productionOrderId)
+    if (orderCuts.length) cuttingOrderProgressRecords.push(buildProjectedRecord(order, orderCuts, 0, true))
+  }
+  return cuttingOrderProgressRecords
+}
 
 export interface CuttingOrderProgressSnapshot {
   index: number

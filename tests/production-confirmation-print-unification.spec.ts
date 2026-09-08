@@ -30,9 +30,9 @@ test('生产确认单统一打印预览包含核心生产资料', async ({ page 
   await expectStandalonePrintPage(page, '生产确认单')
   for (const token of [
     '商品主图',
-    'SKU / 颜色 / 尺码数量矩阵',
+    '规格数量矩阵（SKU / 颜色 / 尺码数量）',
     '面辅料信息区',
-    '工序工艺区',
+    '工序工艺任务分配',
     '质检标准区',
     '确认与签字区',
     '计划生产成衣件数',
@@ -45,24 +45,21 @@ test('生产确认单统一打印预览包含核心生产资料', async ({ page 
   await expect(page.getByText('数量：')).toHaveCount(0)
 })
 
-test('生产单详情可打印做货确认单且内容偏现场执行', async ({ page }) => {
+test('生产单详情可打印生产确认单', async ({ page }) => {
   await page.goto(`/fcs/production/orders/${productionOrderId}`)
-  await page.getByRole('button', { name: '打印做货确认单' }).click()
+  await page.getByRole('button', { name: '打印生产确认单' }).click()
 
-  await expect(page).toHaveURL(/documentType=MAKE_GOODS_CONFIRMATION/)
-  await expectStandalonePrintPage(page, '做货确认单')
+  await expect(page).toHaveURL(/documentType=PRODUCTION_CONFIRMATION/)
+  await expectStandalonePrintPage(page, '生产确认单')
   for (const token of [
-    '做货数量区',
-    '面料区',
-    '辅料区',
-    '工艺要求区',
-    '纸样 / 尺寸 / 唛架说明区',
-    '工厂确认区',
-    '工厂现场做货',
+    '规格数量矩阵（SKU / 颜色 / 尺码数量）',
+    '面辅料信息区',
+    '工序工艺任务分配',
+    '质检标准区',
+    '确认与签字区',
   ]) {
     await expect(page.getByText(token).first()).toBeVisible()
   }
-  await expect(page.getByText('确认与签字区')).toHaveCount(0)
 })
 
 test('生产资料图片和 A4 多页规则可见且不撑破页面', async ({ page }) => {
@@ -81,15 +78,21 @@ test('前五步打印能力不回退', async ({ page }) => {
   await page.goto('/fcs/print/preview?documentType=TASK_ROUTE_CARD&sourceType=PRINTING_WORK_ORDER&sourceId=PWO-PRINT-001')
   await expect(page.getByText('印花任务流转卡').first()).toBeVisible()
 
-  await page.goto('/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=HOH-MOCK-PRINT-410-001')
+  await page.goto('/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=PHR-DEMO-PWH-WAIT_HANDOVER-PRINT-11-%E4%BA%A4%E5%87%BA%E5%BE%85%E6%94%B6%E8%B4%A7-1')
   await expect(page.getByText('印花任务交货卡').first()).toBeVisible()
 
   await page.goto('/fcs/print/preview?documentType=MATERIAL_PREP_SLIP&sourceId=material-prep%3ACUT-260302-001-01')
   await expect(page.getByText('配料单').first()).toBeVisible()
 
-  await page.goto('/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=CUT-260226-014-01%3A%3A001')
+  const feiTicketId = await page.evaluate(async () => {
+    const { listGeneratedFeiTickets } = await import('/src/data/fcs/cutting/generated-fei-tickets.ts')
+    return listGeneratedFeiTickets()[0]?.feiTicketId || ''
+  })
+  expect(feiTicketId).not.toBe('')
+  await page.goto(`/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(feiTicketId)}`)
   await expect(page.getByText('菲票').first()).toBeVisible()
 
   await page.goto('/fcs/print/preview?documentType=TRANSFER_BAG_LABEL&sourceType=TRANSFER_BAG_RECORD&sourceId=carrier-bag-005')
-  await expect(page.getByText('中转袋二维码').first()).toBeVisible()
+  await expect(page.getByText('中转袋编号').first()).toBeVisible()
+  await expect(page.getByRole('img', { name: '二维码' }).first()).toBeVisible()
 })

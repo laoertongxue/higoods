@@ -3,11 +3,12 @@ import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
-  type PostFinishingWarehouseFlowRecord,
-} from '../data/fcs/post-finishing-domain.ts'
+} from '../data/fcs/post-finishing-full-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -63,7 +64,18 @@ const FILTERS: Array<{ value: InboundFilter; label: string }> = [
 interface PostFinishingInboundFlowRow {
   recordId: string
   warehouseRecordNo: string
-  flow: PostFinishingWarehouseFlowRecord
+  flow: {
+    flowRecordId: string
+    flowRecordNo: string
+    qty: number
+    qtyUnit: string
+    beforeQty: number
+    afterQty: number
+    sourceActionRecordNo: string
+    operatorName: string
+    operatedAt: string
+    remark: string
+  }
   flowLabel: string
   sourceProductionOrderNo: string
   sourceTaskNo: string
@@ -73,36 +85,42 @@ interface PostFinishingInboundFlowRow {
 }
 
 function getPostFinishingInboundRows(): PostFinishingInboundFlowRow[] {
-  const waitProcessRows = listPostFinishingWaitProcessWarehouseRecords().flatMap((record) =>
-    record.flowRecords
-      .filter((flow) => flow.flowType === '扫码收货')
-      .map((flow) => ({
-        recordId: flow.flowRecordId,
-        warehouseRecordNo: record.warehouseRecordNo,
-        flow,
-        flowLabel: '扫码收货入待加工仓',
-        sourceProductionOrderNo: record.sourceProductionOrderNo,
-        sourceTaskNo: record.sourceTaskNo,
-        spuName: record.spuName,
-        skuSummary: record.skuSummary,
-        positionText: `${record.areaName || '-'} / ${record.locationCode || '-'}`,
-      })),
-  )
-  const waitHandoverRows = listPostFinishingWaitHandoverWarehouseRecords().flatMap((record) =>
-    record.flowRecords
-      .filter((flow) => flow.flowType === '复检入仓')
-      .map((flow) => ({
-        recordId: flow.flowRecordId,
-        warehouseRecordNo: record.warehouseRecordNo,
-        flow,
-        flowLabel: '复检完成入待交出仓',
-        sourceProductionOrderNo: record.sourceProductionOrderNo,
-        sourceTaskNo: record.sourceTaskNo,
-        spuName: record.spuName,
-        skuSummary: record.skuSummary,
-        positionText: '待交出仓',
-      })),
-  )
+  const waitProcessRecords = listPostFinishingWaitProcessWarehouseRecords()
+  const waitProcessRows = listPostFinishingWaitProcessWarehouseMovements()
+    .filter((movement) => movement.movementType === '确认入库')
+    .map((movement) => {
+      const record = waitProcessRecords.find((item) => item.warehouseRecordId === movement.warehouseRecordId)!
+      const qty = movement.quantities.reduce((sum, line) => sum + line.quantity, 0)
+      return {
+        recordId: movement.movementId,
+        warehouseRecordNo: record.warehouseRecordId,
+        flow: { flowRecordId: movement.movementId, flowRecordNo: movement.movementId, qty, qtyUnit: '件', beforeQty: 0, afterQty: qty, sourceActionRecordNo: record.deliveryOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
+        flowLabel: '回货确认入待加工仓',
+        sourceProductionOrderNo: record.productionOrderNo,
+        sourceTaskNo: record.deliveryOrderNo,
+        spuName: record.lines[0]?.sku.spuName || '成衣',
+        skuSummary: record.lines.map((line) => `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`).join('、'),
+        positionText: `${record.areaName} / ${record.locationCode}`,
+      }
+    })
+  const waitHandoverRecords = listPostFinishingWaitHandoverWarehouseRecords()
+  const waitHandoverRows = listPostFinishingWaitHandoverWarehouseMovements()
+    .filter((movement) => movement.movementType === '复检完成入仓')
+    .map((movement) => {
+      const record = waitHandoverRecords.find((item) => item.warehouseRecordId === movement.warehouseRecordId)!
+      const qty = movement.quantities.reduce((sum, line) => sum + line.quantity, 0)
+      return {
+        recordId: movement.movementId,
+        warehouseRecordNo: record.warehouseRecordId,
+        flow: { flowRecordId: movement.movementId, flowRecordNo: movement.movementId, qty, qtyUnit: '件', beforeQty: 0, afterQty: qty, sourceActionRecordNo: record.recheckOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
+        flowLabel: '处理后复核完成入待交出仓',
+        sourceProductionOrderNo: record.productionOrderNo,
+        sourceTaskNo: record.postTaskNo || record.qcTaskNo,
+        spuName: record.lines[0]?.sku.spuName || '成衣',
+        skuSummary: record.lines.map((line) => `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`).join('、'),
+        positionText: `${record.areaName} / ${record.locationCode}`,
+      }
+    })
   return [...waitProcessRows, ...waitHandoverRows]
 }
 

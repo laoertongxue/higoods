@@ -17,7 +17,7 @@ import {
   type GarmentSpuReplacementLine,
   type GarmentSpuReplacementRecord,
 } from '../data/fcs/garment-spu-replacement.ts'
-import { listPostFinishingIdentityMigrationCandidates } from '../data/fcs/post-finishing-domain.ts'
+import { listPostFinishingIdentityMigrationCandidates } from '../data/fcs/post-finishing-current-read-model.ts'
 import { escapeHtml } from '../utils.ts'
 
 type EntryMode = 'POST_FINISHING' | 'WLS'

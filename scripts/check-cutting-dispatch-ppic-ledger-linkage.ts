@@ -17,6 +17,11 @@ import { getFactoryActivePpicSnapshot } from '../src/data/fcs/factory-master-sto
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import {
+  getRuntimeTaskById,
+  isRuntimeIndependentSewingTask,
+  listRuntimeTasksByOrder,
+} from '../src/data/fcs/runtime-process-tasks.ts'
+import {
   getSewingCutPieceResponsibilityProjection,
   listSewingCutPieceHandoverEvents,
   resetSewingCutPieceResponsibilityForTests,
@@ -37,7 +42,8 @@ const ticket = listAvailableFeiTicketsForSewingDispatch().find((item) => {
       && part.pieceCountPerGarment > 0
       && (!part.applicableSizeList.length || part.applicableSizeList.includes(item.skuSize))
       && (!part.applicableColorList.length || part.applicableColorList.includes(item.garmentColor) || part.applicableColorList.includes('按 SKU 适配'))
-    )),
+    ))
+    && listRuntimeTasksByOrder(item.productionOrderId).some(isRuntimeIndependentSewingTask),
   )
 })
 assert(ticket, '测试必须找到仍在裁床待交出仓、且具备技术包裁片部位的菲票')
@@ -50,6 +56,9 @@ const skuLine = productionOrder.demandSnapshot.skuLines.find((line) => (
 const ticketPart = techPackSnapshot.cutPieceParts.find((part) => part.partNameCn === ticket.partName)!
 const ticketPieceQty = Math.max(ticket.qty || ticket.actualCutPieceQty || 1, 1)
 const assignmentQty = Math.ceil(ticketPieceQty / ticketPart.pieceCountPerGarment)
+const runtimeSewingTask = listRuntimeTasksByOrder(productionOrder.productionOrderId)
+  .find(isRuntimeIndependentSewingTask)
+assert(runtimeSewingTask, '测试生产单必须存在正式独立车缝运行任务')
 assert.ok(assignmentQty <= skuLine.qty, '测试菲票换算件数不得超过生产单SKU数量')
 const sewingFactory = mockFactories.find((factory) => factory.id === 'ID-F021')
 assert(sewingFactory, '测试三方车缝工厂必须存在')
@@ -64,7 +73,7 @@ assert.throws(
 
 const assignment = createEffectiveTaskAssignment({
   assignmentId: 'ASG-CUT-DISPATCH-LEDGER-LINK-001',
-  runtimeTaskId: 'TASK-CUT-DISPATCH-LEDGER-LINK-001',
+  runtimeTaskId: runtimeSewingTask.taskId,
   productionOrderId: productionOrder.productionOrderId,
   productionOrderNo: productionOrder.productionOrderNo,
   taskNo: 'SEW-CUT-DISPATCH-LEDGER-LINK-001',
@@ -145,6 +154,16 @@ assert.equal(projection.context.factoryId, sewingFactory.id)
 assert.equal(projection.context.ppicId, factoryPpic.ppicId)
 assert.ok(projection.totalHandedOverPieceQty > 0)
 assert.ok(projection.lines.length > handoverEvents[0]!.lines.length, '未及时裁出的完整部位必须以0片保留在冻结责任账中')
+assert.equal(submitted.handoverRecord.receiverWrittenQty, submitted.handoverRecord.submittedQty, '裁床交出必须在同一动作自动记为三方车缝工厂接收')
+assert.equal(submitted.handoverRecord.combinedWritebackStatus, '已回写', '裁片自动接收后不得停留在待回写')
+const startedTask = getRuntimeTaskById(runtimeSewingTask.taskId)
+assert.equal(startedTask?.status, 'IN_PROGRESS', '裁片自动接收后车缝任务必须自动开工')
+assert.equal(startedTask?.startedAt, '2026-09-01 10:00:00')
+assert.equal(
+  startedTask?.auditLogs.filter((log) => log.action === 'AUTO_RECEIVE_AND_START_FROM_CUT_PIECE_HANDOVER').length,
+  1,
+  '第一次裁片交出只能形成一条自动接收开工审计',
+)
 
 submitCuttingSewingDispatchBatch({
   dispatchBatchId: batch.dispatchBatchId,
@@ -152,5 +171,10 @@ submitCuttingSewingDispatchBatch({
   submittedAt: '2026-09-01 10:00:00',
 })
 assert.equal(listSewingCutPieceHandoverEvents(assignment.assignmentId).length, 1, '重复提交不得重复累加裁片责任')
+assert.equal(
+  getRuntimeTaskById(runtimeSewingTask.taskId)?.auditLogs.filter((log) => log.action === 'AUTO_RECEIVE_AND_START_FROM_CUT_PIECE_HANDOVER').length,
+  1,
+  '重复提交不得重复记录自动开工',
+)
 
-console.log('裁床交出批次绑定车缝执行任务、工厂、PPIC与裁片责任账专项检查通过')
+console.log('裁床交出批次绑定车缝执行任务、PPIC、裁片责任账，并自动接收开工专项检查通过')

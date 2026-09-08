@@ -40,10 +40,18 @@ type ExpectedBrowserOrder = Pick<
   'chainId' | 'workOrderId' | 'workOrderNo' | 'sourceType' | 'pdaApplicable'
 >
 
+type PerCraftDomainEvidence = {
+  workOrderCount: number
+  specialCraftWorkOrderCount: number
+  bindingWorkOrderCount: number
+  laceWorkOrderCount: number
+}
+
 const passLabel = (process.env.VERIFICATION_PASS || 'adhoc').replace(/[^a-zA-Z0-9_-]+/g, '-')
 const evidenceRoot = resolve('output/verification/aux-special-accessory', passLabel, 'browser')
 const perWorkOrderEvidenceRoot = resolve(evidenceRoot, 'work-orders')
 const aggregatePath = resolve(evidenceRoot, 'browser-results.json')
+const domainEvidencePath = resolve('output/verification/aux-special-accessory', passLabel, 'per-craft-full-flow.json')
 
 if (process.argv.includes('--prepare')) {
   rmSync(evidenceRoot, { recursive: true, force: true })
@@ -87,7 +95,12 @@ const laceExpected = listLaceProductionOrders().map((order): ExpectedBrowserOrde
 const expected = [...specialExpected, ...bindingExpected, ...laceExpected]
 const expectedByWorkOrderId = new Map(expected.map((item) => [item.workOrderId, item]))
 assert.equal(expectedByWorkOrderId.size, expected.length, '浏览器预期加工单 ID 不唯一')
-assert.equal(expected.length, 167, '浏览器预期加工单总数不是 167 张')
+assert(existsSync(domainEvidencePath), `${passLabel} 缺少本轮领域逐单证据`)
+const domainEvidence = JSON.parse(readFileSync(domainEvidencePath, 'utf8')) as PerCraftDomainEvidence
+assert.equal(expected.length, domainEvidence.workOrderCount, `${passLabel} 浏览器预期加工单总数与本轮领域证据不一致`)
+assert.equal(specialExpected.length, domainEvidence.specialCraftWorkOrderCount, `${passLabel} 辅助/特殊工艺单数与本轮领域证据不一致`)
+assert.equal(bindingExpected.length, domainEvidence.bindingWorkOrderCount, `${passLabel} 捆条单数与本轮领域证据不一致`)
+assert.equal(laceExpected.length, domainEvidence.laceWorkOrderCount, `${passLabel} 花边单数与本轮领域证据不一致`)
 
 assert(existsSync(perWorkOrderEvidenceRoot), `${passLabel} 缺少逐加工单浏览器结果目录`)
 const resultFiles = readdirSync(perWorkOrderEvidenceRoot)
@@ -97,7 +110,7 @@ const results = resultFiles.map((name) => JSON.parse(
   readFileSync(resolve(perWorkOrderEvidenceRoot, name), 'utf8'),
 ) as BrowserVerificationResult)
 
-assert.equal(results.length, expected.length, `${passLabel} 浏览器结果不是 167 张逐单证据`)
+assert.equal(results.length, expected.length, `${passLabel} 浏览器结果与本轮预期加工单总数不一致`)
 assert.equal(new Set(results.map((result) => result.workOrderId)).size, results.length, `${passLabel} 浏览器结果存在重复加工单`)
 assert.deepEqual(
   results.map((result) => result.workOrderId).sort(),
@@ -154,4 +167,4 @@ writeFileSync(
   }, null, 2)}\n`,
 )
 
-console.log(`[browser-evidence] ${passLabel} 已聚合 ${results.length} 张逐单 UI 证据：Web 167 张，PDA 162 张，失败 ${failed} 张，清理过期截图 ${staleScreenshotCount} 张。`)
+console.log(`[browser-evidence] ${passLabel} 已聚合 ${results.length} 张逐单 UI 证据：Web ${results.length} 张，PDA ${results.filter((result) => result.pdaApplicable).length} 张，失败 ${failed} 张，清理过期截图 ${staleScreenshotCount} 张。`)

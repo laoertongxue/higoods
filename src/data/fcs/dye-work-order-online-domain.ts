@@ -15,6 +15,7 @@ export const DYE_WORK_ORDER_ONLINE_STATUSES = [
   '染色完成',
   '待审核',
   '部分入库',
+  '待人工完单',
   '已完成',
 ] as const
 
@@ -123,12 +124,14 @@ const STATUS_RANK: Record<DyeWorkOrderOnlineStatus, number> = {
   染色完成: 2,
   待审核: 3,
   部分入库: 4,
-  已完成: 5,
+  待人工完单: 5,
+  已完成: 6,
 }
 
 function mapExecutionStatus(status: DyeWorkOrderStatus): DyeWorkOrderOnlineStatus {
   if (status === 'REJECTED') return '取消'
-  if (status === 'COMPLETED' || status === 'FULL_HANDOVER') return '已完成'
+  if (status === 'COMPLETED') return '已完成'
+  if (status === 'FULL_HANDOVER' || status === 'WAIT_MANUAL_COMPLETION') return '待人工完单'
   if (status === 'PARTIAL_HANDOVER') return '部分入库'
   if (status === 'HANDOVER_WAIT_RECEIVE' || status === 'WAIT_REVIEW' || status === 'HANDOVER_DIFFERENCE') return '待审核'
   if (status === 'WAIT_HANDOVER') return '染色完成'
@@ -151,12 +154,13 @@ function cloneLog(log: DyeWorkOrderOnlineLog): DyeWorkOrderOnlineLog {
 function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
   const status = mapExecutionStatus(order.status)
   const nodes = listDyeExecutionNodeRecords(order.dyeOrderId)
-  const dyeInputQty = nodes.find((node) => node.nodeCode === 'DYE')?.inputQty || 0
+  const archived = (order.completedExecutionBatches ?? []).flat()
+  const dyeInputQty = [...archived, ...nodes].filter(node => node.nodeCode === 'DYE').reduce((sum,node) => sum + (node.inputQty ?? 0), 0)
   const completedNode = [...nodes]
     .reverse()
     .find((node) => node.finishedAt && typeof node.outputQty === 'number')
-  const hasCompletedDyeing = ['染色完成', '待审核', '部分入库', '已完成', '取消'].includes(status)
-  const completedQty = hasCompletedDyeing ? completedNode?.outputQty || 0 : 0
+  const hasCompletedDyeing = ['染色完成', '待审核', '部分入库', '待人工完单', '已完成', '取消'].includes(status)
+  const completedQty = order.materialReceipts?.length ? [...archived, ...nodes].filter(node => node.nodeCode === 'PACK' && node.finishedAt).reduce((sum,node) => sum + (node.outputQty ?? 0), 0) : hasCompletedDyeing ? completedNode?.outputQty || 0 : 0
   const rawMaterialQty = dyeInputQty || completedQty
   const lossQty = completedQty > 0 ? Number(Math.max(0, rawMaterialQty - completedQty).toFixed(2)) : 0
   return {
@@ -176,8 +180,8 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     completedQty,
     lossQty,
     remark: order.remark || '',
-    completedAt: status === '染色完成' || status === '待审核' || status === '部分入库' || status === '已完成' ? order.updatedAt : '',
-    deliveredAt: status === '待审核' || status === '部分入库' || status === '已完成' ? order.updatedAt : '',
+    completedAt: ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
+    deliveredAt: ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
     updatedAt: order.updatedAt,
   }
 }
@@ -187,8 +191,9 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   const dyeNode = nodes.find((node) => node.nodeCode === 'DYE')
   const completedNode = [...nodes].reverse().find((node) => node.finishedAt && typeof node.outputQty === 'number')
   const status = mapExecutionStatus(order.status)
-  const rawMaterialQty = dyeNode?.inputQty || record.rawMaterialQty
-  const completedQty = completedNode?.outputQty ?? record.completedQty
+  const allBatchNodes = [...(order.completedExecutionBatches ?? []).flat(), ...nodes]
+  const rawMaterialQty = order.materialReceipts?.length ? allBatchNodes.filter(node => node.nodeCode === 'DYE').reduce((sum,node) => sum + (node.inputQty ?? 0), 0) : dyeNode?.inputQty || record.rawMaterialQty
+  const completedQty = order.materialReceipts?.length ? allBatchNodes.filter(node => node.nodeCode === 'PACK' && node.finishedAt).reduce((sum,node) => sum + (node.outputQty ?? 0), 0) : completedNode?.outputQty ?? record.completedQty
   record.workOrderNo = order.dyeOrderNo
   record.status = status
   record.accepted = order.acceptanceStatus === 'ACCEPTED' || status !== '等待处理'
@@ -199,8 +204,8 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   record.rawMaterialQty = rawMaterialQty
   record.completedQty = completedQty
   record.lossQty = Math.max(Number((rawMaterialQty - completedQty).toFixed(2)), 0)
-  record.completedAt = ['染色完成', '待审核', '部分入库', '已完成'].includes(status) ? order.updatedAt : record.completedAt
-  record.deliveredAt = ['待审核', '部分入库', '已完成'].includes(status) ? order.updatedAt : record.deliveredAt
+  record.completedAt = ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.completedAt
+  record.deliveredAt = ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.deliveredAt
   record.updatedAt = order.updatedAt
 }
 
@@ -283,7 +288,7 @@ export function getDyeWorkOrderOnlineActionError(
   if (action === '接单') {
     if (!record.factoryId) return '当前加工单待分配工厂，不能接单'
     if (record.accepted) return '当前加工单不能重复接单'
-    return record.status === '取消' || record.status === '已完成' ? '当前加工单不能接单' : null
+    return record.status === '取消' || record.status === '待人工完单' || record.status === '已完成' ? '当前加工单不能接单' : null
   }
   if (action === '开工') {
     if (record.status !== '等待处理') return '当前加工单不是等待处理状态，不能开工'
@@ -293,7 +298,7 @@ export function getDyeWorkOrderOnlineActionError(
   if (action === '交出') return record.status === '染色完成' ? null : '请先完工后再交出'
   if (action === '部分入库') return record.status === '待审核' || record.status === '部分入库' ? null : '当前加工单不能部分入库'
   if (action === '全部入库') return record.status === '待审核' || record.status === '部分入库' ? null : '当前加工单不能全部入库'
-  if (action === '主管取消') return record.status === '已完成' ? '已完成加工单不能取消' : null
+  if (action === '主管取消') return record.status === '待人工完单' || record.status === '已完成' ? '已收齐或已完成加工单不能取消' : null
   return '当前加工单不能执行该操作'
 }
 
@@ -414,7 +419,7 @@ export function advanceDyeWorkOrderOnlineStatus(
   } else if (input.action === '部分入库') {
     nextStatus = '部分入库'
   } else if (input.action === '全部入库') {
-    nextStatus = '已完成'
+    nextStatus = '待人工完单'
   } else if (input.action === '主管取消') {
     nextStatus = '取消'
   }

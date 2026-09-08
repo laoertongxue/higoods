@@ -1,3 +1,4 @@
+import { validateProcessRouteGraph } from './tech-pack-process-route.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
@@ -125,7 +126,7 @@ export const TECH_PACK_REVIEW_MODULE_LABELS: Record<TechnicalModuleKey, string> 
   PATTERN: '纸样池',
   MATERIAL_PATTERN_LINK: '物料&纸样关联管理',
   COLOR_MATERIAL_MAPPING: '款色用料对应',
-  PROCESS: '工序工艺',
+  PROCESS: '工艺路线',
   SIZE: '放码规则',
   DESIGN: '花型设计',
   ATTACHMENT: '附件',
@@ -330,7 +331,24 @@ export function getTechnicalProcessRouteGate(
   const hasRoute = hasProcess && content.processEntries.every((entry) =>
     hasPositiveRouteNo(entry.routeStepNo) && hasPositiveRouteNo(entry.routeLaneNo),
   )
-  const confirmed = hasRoute && gate.processRouteStatus === 'CONFIRMED'
+  const graphValid = validateProcessRouteGraph(content.processEntries, { requireComplete: true }).length === 0
+  const bomRequirementsCovered = content.bomItems.every((bom) => {
+    const requiredCodes: string[] = []
+    if (bom.type !== '成衣') {
+      if (bom.printRequirement && bom.printRequirement !== '无') requiredCodes.push('PRINT')
+      if (bom.dyeRequirement && bom.dyeRequirement !== '无') requiredCodes.push('DYE')
+      if (bom.waterSolubleRequirement === '是') requiredCodes.push('WATER_SOLUBLE')
+    }
+    return requiredCodes.every((code) => content.processEntries.some((entry) => (
+      entry.processCode === code && entry.linkedBomItemIds?.includes(bom.id)
+    )))
+  })
+  if ((!graphValid || !bomRequirementsCovered) && gate.processRouteStatus === 'CONFIRMED') {
+    gate.processRouteStatus = 'UNCONFIRMED'
+    gate.processRouteConfirmedBy = ''
+    gate.processRouteConfirmedAt = ''
+  }
+  const confirmed = hasRoute && graphValid && bomRequirementsCovered && gate.processRouteStatus === 'CONFIRMED'
   return { ...gate, hasProcess, hasRoute, confirmed }
 }
 

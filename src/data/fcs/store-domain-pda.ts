@@ -11,6 +11,8 @@ import {
 } from '../browser-storage.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
+  DEDICATED_CUTTING_FACTORY_ID,
+  DEDICATED_CUTTING_FACTORY_NAME,
   DEDICATED_POST_FACTORY_ID,
   DEDICATED_POST_FACTORY_NAME,
   KOL_GOTO_FACTORY_ID,
@@ -323,6 +325,7 @@ const onboardingOfficialFactoryPdaUsers: FactoryPdaUser[] = [34, 35, 36].map((se
 export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
   ...fullCapabilityTestFactoryPdaUsers,
+  ...createFactoryPdaUsersForFactory(DEDICATED_CUTTING_FACTORY_ID, DEDICATED_CUTTING_FACTORY_NAME),
   ...ownWoolFactoryPdaUsers,
   ...dedicatedPostFactoryPdaUsers,
   ...kolGotoFactoryPdaUsers,
@@ -480,6 +483,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
     .filter((factory) => factory.status === 'ACTIVE' && factory.id !== TEST_FACTORY_ID)
     .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
+  ...generatePresetRolesForFactory(DEDICATED_CUTTING_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(OWN_WOOL_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(DEDICATED_POST_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(KOL_GOTO_FACTORY_ID, INIT_NOW),

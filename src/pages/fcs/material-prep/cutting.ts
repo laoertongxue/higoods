@@ -1,7 +1,7 @@
+import { saveMaterialPrepForm, getMaterialPrepFormTime, askMaterialPrepOperator, formatMaterialPrepStockByUnit } from './shared.ts'
 import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
-  appendAutoPrepRecordForOrder,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
   getMaterialPrepOrderProjection,
@@ -288,12 +288,12 @@ function renderLineStockSituation(line: MaterialPrepLine): string {
 function renderOrderStockSummary(row: MaterialPrepOrderProjection): string {
   const lines = getCategoryLines(row)
   const availableLines = lines.filter((line) => line.availableStockQty > 0).length
-  const totalAvailable = lines.reduce((sum, line) => sum + Number(line.availableStockQty || 0), 0)
+  const stockSummary = formatMaterialPrepStockByUnit(lines)
   const warehouses = Array.from(new Set(lines.filter((line) => line.availableStockQty > 0).map((line) => line.stockWarehouseName)))
   return `
     <div class="space-y-1 text-xs">
       <div>有库存：${availableLines}/${lines.length} 行</div>
-      <div>当前库存：${formatQty(totalAvailable)}</div>
+      <div>当前库存：${escapeHtml(stockSummary)}</div>
       <div class="text-muted-foreground">${warehouses.length ? warehouses.map(escapeHtml).join(' / ') : '暂无可配库存'}</div>
     </div>
   `
@@ -369,7 +369,8 @@ function renderLineTaskLinks(line: MaterialPrepLine): string {
   `
 }
 
-function renderPrepRecordActions(record: MaterialPrepRecord): string {
+function renderPrepRecordActions(record: MaterialPrepRecord, isClosed: boolean): string {
+  if (isClosed && record.recordStatus !== 'CONFIRMED') return '<span class="text-xs text-muted-foreground">配料单已关闭，停止配料</span>'
   const id = escapeHtml(record.prepRecordId)
 
   switch (record.recordStatus) {
@@ -575,7 +576,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                 <td class="px-3 py-3 align-top">
                   <div class="flex flex-col gap-2">
                     <button type="button" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab))}" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">查看详情</button>
-                    <button type="button" data-nav="${escapeHtml(buildAddPrepRecordHref(row.order.prepOrderId, activeTab))}" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white">新增配料记录</button>
+                    ${!row.order.isClosed ? `<button type="button" data-nav="${escapeHtml(buildAddPrepRecordHref(row.order.prepOrderId, activeTab))}" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white">新增配料记录</button>` : ''}
                     ${!row.order.isClosed && row.order.overallPrepStatus !== 'READY'
                       ? `<button type="button" data-nav="${escapeHtml(buildClosePrepOrderHref(row.order.prepOrderId, activeTab))}" class="rounded-md border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50">关闭配料单</button>`
                       : ''}
@@ -862,10 +863,10 @@ function renderPrepRecords(
     <section class="rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
         <h3 class="text-base font-semibold">配料记录</h3>
-        <button type="button" data-nav="${escapeHtml(addHref)}" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white">新增配料记录</button>
+        ${!projection.order.isClosed ? `<button type="button" data-nav="${escapeHtml(addHref)}" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white">新增配料记录</button>` : ''}
       </div>
       <div class="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        配料记录按 DRAFT → PICKED → STAGED → CONFIRMED 流转；打回后可从 STAGED 重新确认；已确认的配料可被裁床接收；每条记录整体确认，记录内物料明细不单独确认。
+        配料记录按 待拣货 → 已拣货 → 已暂存 → 已确认 流转；打回后可从已暂存重新确认；已确认的配料可被裁床接收；每条记录整体确认，记录内物料明细不单独确认。
       </div>
       <div class="mt-3 grid gap-3 text-sm lg:grid-cols-2">
         <div class="rounded-md border bg-muted/20 px-3 py-2">
@@ -876,7 +877,7 @@ function renderPrepRecords(
         <div class="rounded-md border bg-muted/20 px-3 py-2">
           <div class="text-xs text-muted-foreground">完成通知</div>
           <div class="mt-1 font-medium">${projection.order.prepCompletionEventCount} 条</div>
-          <div class="mt-1 text-xs text-muted-foreground">CONFIRMED 后生成配料完成通知事件</div>
+          <div class="mt-1 text-xs text-muted-foreground">确认后通知加工方接收</div>
         </div>
       </div>
       <div class="mt-3 space-y-3">
@@ -903,7 +904,8 @@ function renderPrepRecords(
                   ${record.remark ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.remark)}</div>` : ''}
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  ${renderPrepRecordActions(record)}
+                  ${record.recordStatus === 'DRAFT' && !projection.order.isClosed ? `<button type="button" data-nav="${escapeHtml(buildContinueHref(record))}" class="rounded-md border px-3 py-1.5 text-xs font-medium">继续补充配料</button>` : ''}
+                  ${renderPrepRecordActions(record, projection.order.isClosed)}
                 </div>
               </div>
               ${recordItems.length > 0 ? `
@@ -1157,7 +1159,7 @@ function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activ
   const nextRecordNumber = getPrepRecordNumber(projection)
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-      <section class="max-h-[88vh] w-full max-w-7xl overflow-hidden rounded-lg bg-background shadow-xl">
+      <section data-fcs-prep-form data-skip-page-rerender="true" class="max-h-[88vh] w-full max-w-7xl overflow-hidden rounded-lg bg-background shadow-xl">
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">新增配料记录</h2>
@@ -1169,15 +1171,15 @@ function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activ
           <div class="grid gap-3 md:grid-cols-4">
             <label class="space-y-1 text-xs text-muted-foreground">
               <span>配料记录号</span>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" value="${nextRecordNumber}" />
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" value="${nextRecordNumber}" readonly />
             </label>
             <label class="space-y-1 text-xs text-muted-foreground">
               <span>配料人</span>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" value="${escapeHtml(projection.order.creatorName)}" />
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" data-fcs-prep-operator value="" placeholder="请输入本次配料人" />
             </label>
             <label class="space-y-1 text-xs text-muted-foreground">
               <span>配料时间</span>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" value="2026-03-16 14:30" />
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground" data-fcs-prep-time value="${getMaterialPrepFormTime()}" />
             </label>
             <label class="space-y-1 text-xs text-muted-foreground">
               <span>记录状态</span>
@@ -1189,7 +1191,7 @@ function renderAddPrepRecordModal(projection: MaterialPrepOrderProjection, activ
 
           <label class="mt-4 block space-y-1 text-xs text-muted-foreground">
             <span>备注</span>
-            <textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground">按当前可配库存新增配料记录，待复核后确认整条记录。</textarea>
+            <textarea data-fcs-prep-remark class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground"></textarea>
           </label>
 
           <div class="mt-5 flex justify-end gap-2">
@@ -1209,11 +1211,11 @@ function renderContinuePrepRecordModal(
 ): string {
   const closeHref = buildDetailStateHref(projection, { detailTab: activeTab })
   const record = projection.prepRecords.find((item) => item.prepRecordId === prepRecordId)
-  if (!record) return ''
+  if (!record || record.recordStatus !== 'DRAFT' || projection.order.isClosed) return '<div class="rounded border p-4">仅待拣货记录可继续补充配料。</div>'
   const recordNumber = getPrepRecordNumber(projection, record.prepRecordId)
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-      <section class="max-h-[88vh] w-full max-w-7xl overflow-hidden rounded-lg bg-background shadow-xl">
+      <section data-fcs-prep-form data-skip-page-rerender="true" class="max-h-[88vh] w-full max-w-7xl overflow-hidden rounded-lg bg-background shadow-xl">
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">新增配料</h2>
@@ -1222,10 +1224,15 @@ function renderContinuePrepRecordModal(
           <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">关闭</button>
         </div>
         <div class="max-h-[calc(88vh-72px)] overflow-y-auto p-5">
+          <div class="grid gap-3 md:grid-cols-3">
+            <label class="text-sm">本次配料人<input data-fcs-prep-operator class="mt-1 h-9 w-full rounded border px-3" placeholder="请输入本次配料人" /></label>
+            <label class="text-sm">本次配料时间<input data-fcs-prep-time class="mt-1 h-9 w-full rounded border px-3" value="${getMaterialPrepFormTime()}" /></label>
+            <label class="text-sm">本次备注<input data-fcs-prep-remark class="mt-1 h-9 w-full rounded border px-3" /></label>
+          </div>
           ${renderPrepMaterialInputTable(projection)}
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
-            <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">保存本次新增配料</button>
+            <button type="button" data-fcs-material-prep-action="create-prep-record" data-prep-order-id="${escapeHtml(projection.order.prepOrderId)}" data-append-prep-record-id="${escapeHtml(record.prepRecordId)}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">保存本次新增配料</button>
           </div>
         </div>
       </section>
@@ -1244,7 +1251,7 @@ function renderClosePrepOrderModal(projection: MaterialPrepOrderProjection, acti
   ).map(([unit, qty]) => formatQty(qty, unit)).join('、') || '无缺口'
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-      <section class="max-h-[88vh] w-full max-w-6xl overflow-hidden rounded-lg bg-background shadow-xl" data-fcs-close-modal>
+      <section data-skip-page-rerender="true" class="max-h-[88vh] w-full max-w-6xl overflow-hidden rounded-lg bg-background shadow-xl" data-fcs-close-modal>
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">关闭配料单二次确认</h2>
@@ -1458,7 +1465,9 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   if (action === 'pick-record') {
     const prepRecordId = actionNode.dataset.prepRecordId || ''
     if (!prepRecordId) return false
-    pickMaterialPrepRecord(prepRecordId, '仓库 张三')
+    const operatorName = askMaterialPrepOperator('拣货')
+    if (!operatorName) return true
+    pickMaterialPrepRecord(prepRecordId, operatorName)
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
@@ -1476,11 +1485,7 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   if (action === 'create-prep-record') {
     const prepOrderId = actionNode.dataset.prepOrderId || ''
     if (!prepOrderId) return false
-    const record = appendAutoPrepRecordForOrder(prepOrderId, '配料小组 周敏', undefined, categoryLabel)
-    if (!record) {
-      window.alert('当前配料单没有可配库存，无法新增配料记录。')
-      return true
-    }
+    if (!saveMaterialPrepForm(actionNode, prepOrderId)) return true
     const params = getSearchParams()
     params.delete('prepModal')
     params.delete('continuePrepRecordId')
@@ -1493,9 +1498,12 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   if (action === 'stage-record') {
     const prepRecordId = actionNode.dataset.prepRecordId || ''
     if (!prepRecordId) return false
-    const area = window.prompt('请输入暂存区域名称：', '中转仓暂存区 A')
+    const area = window.prompt('请输入实际暂存区域名称：', '')
     if (area === null) return true
-    stageMaterialPrepRecord(prepRecordId, area || '中转仓暂存区', '配料小组 周敏')
+    if (!area.trim()) { window.alert('请填写实际暂存区域。'); return true }
+    const operatorName = askMaterialPrepOperator('暂存')
+    if (!operatorName) return true
+    stageMaterialPrepRecord(prepRecordId, area.trim(), operatorName)
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
@@ -1503,7 +1511,9 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
   if (action === 'confirm-record') {
     const prepRecordId = actionNode.dataset.prepRecordId || ''
     if (!prepRecordId) return false
-    confirmMaterialPrepRecord(prepRecordId, '配料小组 周敏')
+    const operatorName = askMaterialPrepOperator('确认')
+    if (!operatorName) return true
+    confirmMaterialPrepRecord(prepRecordId, operatorName)
     window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
@@ -1518,11 +1528,14 @@ export function handleFcsCuttingPrepEvent(target: HTMLElement): boolean {
       window.alert('请填写关闭原因。')
       return true
     }
-    closeMaterialPrepOrder(prepOrderId, closeReason, '中转仓 周敏')
+    const operatorName = askMaterialPrepOperator('关闭配料单操作')
+    if (!operatorName) return true
+    closeMaterialPrepOrder(prepOrderId, closeReason, operatorName)
     const params = getSearchParams()
     params.delete('closeModal')
     const query = params.toString()
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
+    window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
 

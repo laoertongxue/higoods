@@ -1,4 +1,5 @@
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import {
   changeWoolFactQty,
   getWoolCompletion,
@@ -930,6 +931,7 @@ export function renderCraftWoolWorkOrderDetailPage(woolOrderId: string): string 
       <section class="rounded-lg border bg-card p-4">
         <div class="flex flex-wrap items-center gap-2">${renderKindBadge(order.kind)}${renderStatusBadge(getWoolProcessingStatus(order.woolOrderId))}<span class="text-sm text-muted-foreground">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)} / ${escapeHtml(order.internalStyleCode || '无内部货号')}</span></div>
       </section>
+      ${renderProcessOrderTaskRelations(order.taskId)}
       <div data-wool-detail-feedback>${renderFeedback()}</div>
       <div data-wool-detail-tabs>${renderTabs()}</div>
       <div data-wool-detail-content>${renderActiveTab(order)}</div>

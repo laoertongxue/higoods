@@ -2,7 +2,7 @@ import {
   buildBindingProcessOrders,
   getBindingProcessOrderById,
 } from '../../pages/process-factory/cutting/binding-strip-orders.ts'
-import type { BindingProcessOrder } from '../../pages/process-factory/cutting/special-processes-model.ts'
+import type { BindingProcessOrder } from '../../pages/process-factory/cutting/binding-strip-order-types.ts'
 
 export type BindingProcessPdaScanPurpose = 'EXECUTION' | 'RECEIVE' | 'HANDOVER'
 

@@ -83,7 +83,7 @@ const consumerSnapshot = {
   ],
 }
 assert.deepEqual(resolvePrintDemoMaterial(consumerSnapshot as never, '默认款式', '默认色'), {
-  materialName: '棉布 / 100% 棉', materialColor: '米白',
+  materialName: '棉布 / 100% 棉', materialObjectType: '面料', materialColor: '米白',
 })
 assert.deepEqual(resolveDyeDemoMaterial(consumerSnapshot as never, '默认款式', '默认色'), {
   materialName: '棉布 / 100% 棉', materialId: 'fabric-second', composition: '100% 棉', targetColor: '米白',

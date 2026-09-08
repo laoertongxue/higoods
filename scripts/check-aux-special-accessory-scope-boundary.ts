@@ -15,7 +15,7 @@ import { renderLaceWorkOrderDetailPage } from '../src/pages/process-factory/acce
 import { AUX_SPECIAL_ACCESSORY_CHAINS, VerificationRecorder } from './aux-special-accessory-test-catalog.ts'
 
 const recorder = new VerificationRecorder('scope-boundary')
-const forbiddenVisibleTerms = ['开工凭证', '关键节点上报', '补报关键节点', '查看开工和节点', '节点记录', '任务明细', '完成任务']
+const forbiddenVisibleTerms = ['开工凭证', '关键节点上报', '补报关键节点', '查看开工和节点', '节点记录', '完成任务']
 const allowedActionCodes = new Set([
   'SPECIAL_CRAFT_CONFIRM_RECEIVE',
   'SPECIAL_CRAFT_PROCESS_REPORT',
@@ -23,10 +23,10 @@ const allowedActionCodes = new Set([
   'SPECIAL_CRAFT_COMPLETE_ORDER',
 ])
 
-recorder.check({ caseId: 'SCOPE-CATALOG-001', chainId: 'ALL', assertion: '范围目录必须恰好包含 19 条链' }, () => {
-  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.length, 19)
-  assert.equal(new Set(AUX_SPECIAL_ACCESSORY_CHAINS.map((chain) => chain.id)).size, 19)
-  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length, 17)
+recorder.check({ caseId: 'SCOPE-CATALOG-001', chainId: 'ALL', assertion: '范围目录必须恰好包含 20 条链' }, () => {
+  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.length, 20)
+  assert.equal(new Set(AUX_SPECIAL_ACCESSORY_CHAINS.map((chain) => chain.id)).size, 20)
+  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length, 18)
 })
 
 const actionDefinitions = listProcessActionDefinitions('SPECIAL_CRAFT')
@@ -44,7 +44,7 @@ for (const order of listSpecialCraftTaskOrders()) {
     chainId: chain?.id || order.operationId,
     workOrderId: order.taskOrderId,
     workOrderNo: order.taskOrderNo,
-    assertion: 'Web/PDA 加工单详情不出现任务开工、关键节点或手工完成任务',
+    assertion: 'Web/PDA 可展示通用关系卡片的任务明细，但不出现任务开工、关键节点或手工完成任务',
   }, () => {
     for (const token of forbiddenVisibleTerms) {
       assert(!web.includes(token), `Web 出现禁用文案：${token}`)
@@ -65,7 +65,7 @@ for (const order of buildBindingProcessOrders()) {
     chainId: 'BIND-01',
     workOrderId: order.bindingOrderId,
     workOrderNo: order.bindingOrderNo,
-    assertion: '捆条 Web/PDA 只有加工单四动作且无任务开工概念',
+    assertion: '捆条 Web/PDA 可展示通用关系卡片，只保留加工单四动作且无任务开工概念',
   }, () => {
     for (const token of forbiddenVisibleTerms) {
       assert(!web.includes(token), `捆条 Web 出现禁用文案：${token}`)

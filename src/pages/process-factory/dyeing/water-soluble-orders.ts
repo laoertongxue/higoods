@@ -1,3 +1,5 @@
+import { getWaterSolubleReceivedMaterialQty } from '../../../data/fcs/water-soluble-task-domain.ts'
+import { getWaterSolubleMaterialReceiptOptions, executeWaterSolubleMaterialReceipt } from '../../../data/fcs/water-soluble-material-receipts.ts'
 // @page-pattern: pda
 
 import { renderBadge } from '../../../components/ui/badge.ts'
@@ -120,6 +122,11 @@ function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterS
   return null
 }
 
+function renderMaterialReceiptFields(order: WaterSolubleWorkOrder): string {
+  const source = getWaterSolubleMaterialReceiptOptions(order.waterOrderId)
+  return `<div class="mb-3 space-y-2" data-skip-page-rerender="true" data-water-material-receipt data-receipt-id="${escapeHtml(`${order.waterOrderId}:${Date.now()}:${Math.random()}`)}"><p class="text-xs">已接收 ${getWaterSolubleReceivedMaterialQty(order.waterOrderId)} ${escapeHtml(order.qtyUnit)}</p>${source.requiresUpstream ? `<label class="block text-sm">上游交出记录<select class="h-10 w-full rounded border" data-water-material-source><option value="">请选择本次接收记录</option>${source.options.map((item) => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可接收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label>` : '<p class="text-xs text-muted-foreground">路线首段原料，按本次实际收到数量登记。</p>'}<label class="block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input class="h-10 w-full rounded border px-2" inputmode="decimal" data-water-material-qty></label></div>`
+}
+
 function renderPrimaryAction(order: WaterSolubleWorkOrder, roleId: string | null): string {
   const roleAction = getRoleActionForStatus(order.status)
   if (!roleId) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">只读查看</div>'
@@ -128,9 +135,9 @@ function renderPrimaryAction(order: WaterSolubleWorkOrder, roleId: string | null
   if (!current) return ''
   if (order.status === 'PRODUCTION_PAUSED') return withSkipPageRerender(renderButton({ label: '主管处理', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-supervisor' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
   if (order.status === 'WAIT_HANDOVER') return withSkipPageRerender(renderButton({ label: '现在交出', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-handover' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
-  if (order.status === 'WAIT_MATERIAL') return withSkipPageRerender(renderButton({ label: '确认原料到位', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'material-ready' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
+  if (order.status === 'WAIT_MATERIAL') return renderMaterialReceiptFields(order) + withSkipPageRerender(renderButton({ label: '确认原料到位', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'material-ready' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
   if (order.status === 'WAIT_WATER_SOLUBLE') return withSkipPageRerender(renderButton({ label: '开始水溶', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'start' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
-  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return withSkipPageRerender(renderButton({ label: '上报完成数量', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'complete' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
+  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return withSkipPageRerender(renderButton({ label: '上报完成数量', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'complete' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`) + `<details class="mt-2"><summary class="text-sm">继续接收原料</summary>${renderMaterialReceiptFields(order)}<button class="mt-2 h-10 rounded border px-3" data-factory-water-soluble-action="material-ready" data-order-id="${escapeHtml(order.waterOrderId)}" data-skip-page-rerender="true">确认本次接收</button></details>`
   return `<div class="rounded-md bg-muted px-3 py-2 text-center text-sm">${escapeHtml(current.actionName)}</div>`
 }
 
@@ -186,7 +193,7 @@ function renderCompletionDialog(order: WaterSolubleWorkOrder): string {
       closeAction: { prefix: 'factory-water-soluble', action: 'close-overlay' },
       width: 'md',
     },
-    `<div class="space-y-4"><label class="block text-sm font-medium">实际完成数量（${escapeHtml(order.qtyUnit)}）<input type="text" inputmode="decimal" class="mt-1 h-10 w-full rounded-md border px-3" value="${escapeHtml(draft.completedQty)}" data-factory-water-soluble-field="completedQty"></label><label class="block text-sm font-medium">数量差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" placeholder="数量与计划不一致时必填" data-factory-water-soluble-field="completionReason">${escapeHtml(draft.reason)}</textarea></label><p class="text-xs text-muted-foreground">等量可直接上报；短量会转主管处理；超量需要再次确认。</p><button type="button" class="h-10 w-full rounded-md bg-blue-600 font-medium text-white" data-factory-water-soluble-action="confirm-completion" data-order-id="${escapeHtml(order.waterOrderId)}" data-overlay-token="${escapeHtml(state.overlayToken)}">确认上报</button></div>`,
+    `<div class="space-y-4"><label class="block text-sm font-medium">累计完成数量（${escapeHtml(order.qtyUnit)}）<input type="text" inputmode="decimal" class="mt-1 h-10 w-full rounded-md border px-3" value="${escapeHtml(draft.completedQty)}" data-factory-water-soluble-field="completedQty"></label><label class="block text-sm font-medium">异常结束原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" placeholder="正常分批留空；提前结束或超量时填写" data-factory-water-soluble-field="completionReason">${escapeHtml(draft.reason)}</textarea></label><p class="text-xs text-muted-foreground">正常分批可直接上报并交出；填写短量结束原因后转主管确认；超量需要再次确认。</p><button type="button" class="h-10 w-full rounded-md bg-blue-600 font-medium text-white" data-factory-water-soluble-action="confirm-completion" data-order-id="${escapeHtml(order.waterOrderId)}" data-overlay-token="${escapeHtml(state.overlayToken)}">确认上报</button></div>`,
   ))
 }
 
@@ -338,7 +345,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     if (!Number.isFinite(completedQty)) { rejectAction('完成数量必须是有限数字。'); return true }
     if (completedQty < 0) { rejectAction('完成数量不能小于 0。'); return true }
     const reason = state.completionDraft.reason.trim()
-    if (completedQty !== access.order.plannedQty && !reason) { rejectAction('数量与计划不一致，请填写原因。'); return true }
+    if ((completedQty === 0 || completedQty > access.order.plannedQty) && !reason) { rejectAction('数量与计划不一致，请填写原因。'); return true }
     if (completedQty > access.order.plannedQty && action === 'confirm-completion') {
       setOverlay({ type: 'completion-overage', orderId })
       refreshOverlay()
@@ -353,7 +360,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   }
 
   const accessRuleByAction: Record<string, { statuses: WaterSolubleWorkOrder['status'][]; roleAction: WaterSolublePdaRoleAction }> = {
-    'material-ready': { statuses: ['WAIT_MATERIAL'], roleAction: 'OPERATE' },
+    'material-ready': { statuses: ['WAIT_MATERIAL', 'WATER_SOLUBLE_IN_PROGRESS'], roleAction: 'OPERATE' },
     start: { statuses: ['WAIT_WATER_SOLUBLE'], roleAction: 'OPERATE' },
     'confirm-supervisor-decision': { statuses: ['PRODUCTION_PAUSED'], roleAction: 'SUPERVISE' },
     'confirm-handover': { statuses: ['WAIT_HANDOVER'], roleAction: 'HANDOVER' },
@@ -369,7 +376,10 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     return true
   }
   const currentOrder = getWaterSolubleWorkOrderById(orderId)
-  if (action === 'material-ready') run(executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_MATERIAL', expectedNode: 'WAIT_MATERIAL', actor: actor! }))
+  if (action === 'material-ready') {
+    const card = node.closest('[data-testid="factory-water-soluble-card"]')
+    run(executeWaterSolubleMaterialReceipt({ action: 'MATERIAL_READY', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder?.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: currentOrder?.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(card?.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: card?.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: card?.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: actor! }))
+  }
   else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: actor! }))
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined

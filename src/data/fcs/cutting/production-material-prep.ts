@@ -1,3 +1,8 @@
+import { generatePreparationOrderArtifactsForOrder } from '../production-artifact-generation.ts'
+import { listProcessWorkOrders } from '../process-work-order-domain.ts'
+import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
+import { productionOrders, type ProductionOrder } from '../production-orders.ts'
+import { getProductionOrderChangeCurrentFacts } from '../production-tech-pack-change-domain.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -8,6 +13,7 @@ import {
   adjustPickupSessionStorageFootprint,
   type PickupCoverageLine,
   type PickupNodeProjection,
+  type PickupPrintReceiptSource,
   type PickupNodeItem,
   type PickupNodeSnapshotState,
   type PickupNodeSourceAllocation,
@@ -41,10 +47,10 @@ export const PRODUCTION_MATERIAL_PREP_STORAGE_KEY = 'productionMaterialPrepWorkf
 
 export type UpstreamSourceType = '中转仓库存' | '辅料仓库存' | '纱线仓库存' | '包材仓库存' | '采购' | '印花' | '染色' | '无上游'
 export type UpstreamProgressStatus = '已到仓可配' | '采购中' | '印花中' | '染色中' | '待到仓' | '无需跟进'
-export type MaterialPrepMaterialType = '面料' | '辅料' | '纱线' | '包材'
+export type MaterialPrepMaterialType = '面料' | '辅料' | '纱线' | '包材' | '其他'
 export type MaterialStockWarehouseName = '面料仓' | '中转仓' | '辅料仓' | '纱线仓' | '包材仓'
 export type MaterialPrepRecordStatus = 'DRAFT' | 'PICKED' | 'STAGED' | 'CONFIRMED' | 'REJECTED'
-export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '车缝任务' | '烫包任务'
+export type MaterialPrepTaskType = '裁片任务' | '印花任务' | '染色任务' | '水溶任务' | '车缝任务' | '烫包任务'
 export type MaterialPrepOrderStatus =
   | 'NEED_PREP_NO_STOCK'
   | 'NEED_PREP_PARTIAL_STOCK'
@@ -165,6 +171,8 @@ export interface MaterialPrepBreakdownReadiness {
 }
 
 export interface MaterialPrepLine {
+  runtimeBomLine?: boolean
+  sourceDataIssue?: string
   prepLineId: string
   prepOrderId: string
   cutOrderId: string
@@ -204,6 +212,8 @@ export interface MaterialPrepLine {
 }
 
 export interface MaterialPrepRecordItem {
+  sourceMaterialSku?: string
+  sourceUnit?: string
   prepRecordItemId: string
   prepLineId: string
   preparedQty: number
@@ -253,6 +263,7 @@ export interface MaterialPrepRecordUnitSummary {
 }
 
 export interface PickupRecord {
+  printReceiptSources?: PickupPrintReceiptSource[]
   pickupRecordId: string
   prepRecordId: string
   prepOrderId: string
@@ -389,6 +400,8 @@ export interface ProductionMaterialPrepWorkflowStore {
 }
 
 export interface MaterialPrepSeedLine {
+  sourceDataIssue?: string
+  runtimeBomLine?: boolean
   prepLineId: string
   prepOrderId: string
   cutOrderId: string
@@ -418,6 +431,7 @@ export interface MaterialPrepSeedLine {
 }
 
 export interface MaterialPrepSeedOrder {
+  runtimeBomOrder?: boolean
   prepOrderId: string
   prepOrderNo: string
   productionOrderId: string
@@ -575,6 +589,7 @@ const materialPrepTypeMinimums: Record<MaterialPrepMaterialType, number> = {
   辅料: 3,
   纱线: 1,
   包材: 1,
+  其他: 0,
 }
 
 const standardMaterialTemplates: Record<MaterialPrepMaterialType, Array<{
@@ -589,6 +604,7 @@ const standardMaterialTemplates: Record<MaterialPrepMaterialType, Array<{
   progressStatus: UpstreamProgressStatus
   progressDetail: string
 }>> = {
+  其他: [],
   面料: [
     { code: 'fabric-main', name: '主身面料', imageUrl: '/materials/fabric-main.jpg', color: '按款色', spec: '150cm / 主面料', unit: 'yard', qtyRatio: 0.42, sourceType: '中转仓库存', progressStatus: '已到仓可配', progressDetail: '主面料按生产单 BOM 计算，库存到仓后优先配。' },
     { code: 'fabric-contrast', name: '拼接面料', imageUrl: '/materials/fabric-contrast.jpg', color: '配色', spec: '150cm / 配色面料', unit: 'yard', qtyRatio: 0.18, sourceType: '印花', progressStatus: '印花中', progressDetail: '配色面料需等印花回中转仓后继续配料。' },
@@ -660,6 +676,7 @@ const taskMetaByType: Record<MaterialPrepTaskType, {
   preferredFactoryIds: string[]
   preferredFactoryTypes: FactoryType[]
 }> = {
+  水溶任务: { code: 'WATER', name: '水溶任务', processCode: 'WATER_SOLUBLE', preferredFactoryIds: [], preferredFactoryTypes: [] },
   裁片任务: { code: 'CUT', name: '裁片任务', processCode: 'CUT_PANEL', preferredFactoryIds: ['ID-F004'], preferredFactoryTypes: ['CENTRAL_CUTTING'] },
   印花任务: { code: 'PRT', name: '印花任务', processCode: 'PRINT', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_PRINT'] },
   染色任务: { code: 'DYE', name: '染色任务', processCode: 'DYE', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_DYE', 'CENTRAL_PRINT'] },
@@ -717,6 +734,7 @@ function formatTaskFactoryName(factory: Factory | null): string {
 }
 
 const runtimeTaskTypeKeywordMap: Record<MaterialPrepTaskType, string[]> = {
+  水溶任务: ['water_soluble', '水溶'],
   裁片任务: ['cut', 'cutting', '裁片', '裁剪'],
   印花任务: ['print', 'printing', '印花'],
   染色任务: ['dye', 'dyeing', '染色'],
@@ -724,7 +742,8 @@ const runtimeTaskTypeKeywordMap: Record<MaterialPrepTaskType, string[]> = {
   烫包任务: ['iron_pack', '烫包', '后道'],
 }
 
-export function getMaterialPrepTaskTypesForLine(line: Pick<MaterialPrepSeedLine | MaterialPrepLine, 'materialType' | 'upstreamSourceType' | 'upstreamProgressStatus' | 'materialName'>): MaterialPrepTaskType[] {
+export function getMaterialPrepTaskTypesForLine(line: Pick<MaterialPrepSeedLine | MaterialPrepLine, 'materialType' | 'upstreamSourceType' | 'upstreamProgressStatus' | 'materialName' | 'runtimeBomLine' | 'taskLinks'>): MaterialPrepTaskType[] {
+  if (line.runtimeBomLine) return Array.from(new Set((line.taskLinks ?? []).map(task => task.taskType)))
   const materialType = line.materialType
   const taskTypes: MaterialPrepTaskType[] = []
   if (materialType === '面料') {
@@ -835,7 +854,12 @@ function buildDefaultTaskLinks(order: MaterialPrepSeedOrder, line: MaterialPrepS
 
 export type MaterialPrepCategory = '染色配料' | '印花配料' | '裁片配料' | '车缝配料' | '其他配料'
 
-export function classifyPrepLineType(line: { materialType: MaterialPrepMaterialType; upstreamSourceType: UpstreamSourceType; upstreamProgressStatus: UpstreamProgressStatus }): MaterialPrepCategory {
+export function classifyPrepLineType(line: { materialType: MaterialPrepMaterialType; upstreamSourceType: UpstreamSourceType; upstreamProgressStatus: UpstreamProgressStatus; runtimeBomLine?: boolean; taskLinks?: MaterialPrepTaskLink[] }): MaterialPrepCategory {
+  if (line.runtimeBomLine && line.taskLinks?.length) {
+    const categories: Record<MaterialPrepTaskType, MaterialPrepCategory> = { 印花任务: '印花配料', 染色任务: '染色配料', 水溶任务: '其他配料', 裁片任务: '裁片配料', 车缝任务: '车缝配料', 烫包任务: '其他配料' }
+    const scoped = [...new Set(line.taskLinks.map(task => categories[task.taskType]))]
+    if (scoped.length === 1) return scoped[0]
+  }
   const materialType = line.materialType
   const source = line.upstreamSourceType
 
@@ -1647,9 +1671,145 @@ const materialPrepSeedOrders = [
   ...categoryDemoSeedOrders,
 ].map(expandSeedOrderMaterials)
 
+/** Explicit prototype opening stock input, not a purchase receipt or a generated completion fact. */
+export interface MaterialPrepInitialStockInput {
+  sourceId: string
+  materialSku: string
+  unit: string
+  stockWarehouseName: MaterialStockWarehouseName
+  warehouseArea: string
+  locationCode: string
+  quantity: number
+  sourceDescription: string
+}
+export const materialPrepInitialStockInputs: MaterialPrepInitialStockInput[] = []
+
+/** Frozen BOM scope for newly created orders. Never expand demo materials or manufacture stock/tasks. */
+function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): MaterialPrepSeedOrder[] {
+  const seededIds = new Set(materialPrepSeedOrders.map(order => order.productionOrderId))
+  const liveOrders = productionOrders.filter(order => !seededIds.has(order.productionOrderId) && order.techPackSnapshot)
+  const stocks = materialPrepInitialStockInputs.filter(stock => stock.sourceId.trim() && stock.sourceDescription.trim()
+    && stock.materialSku.trim() && stock.unit.trim() && stock.warehouseArea.trim() && stock.locationCode.trim()
+    && Number.isFinite(stock.quantity) && stock.quantity >= 0)
+    .map(stock => ({ ...stock }))
+  const reserved = new Map<string, number>()
+  for (const record of prepRecords.filter(record => record.recordStatus !== 'REJECTED')) for (const item of getMaterialPrepRecordItems(record)) {
+    if (!item.sourceMaterialSku || !item.sourceUnit || !item.stockWarehouseName) continue
+    const key = JSON.stringify([item.sourceMaterialSku, item.sourceUnit, item.stockWarehouseName])
+    reserved.set(key, (reserved.get(key) || 0) + item.preparedQty)
+  }
+  const tasks = listRuntimeProcessTasks()
+  const preparationOrders = listProcessWorkOrders()
+  let cutSources: ReturnType<typeof listGeneratedCutOrderSourceRecords> | undefined
+  return [...materialPrepSeedOrders, ...liveOrders.map(order => {
+    const snapshot = order.techPackSnapshot!
+    const prepOrderId = `prep-order-${order.productionOrderId}`
+    const facts = getProductionOrderChangeCurrentFacts(order.productionOrderId)?.materialFacts ?? []
+    const prepArtifacts = generatePreparationOrderArtifactsForOrder(order.productionOrderId)
+    const lines = snapshot.bomItems.filter(bom => bom.type !== '成衣').map(bom => {
+      const replacement = facts.find(fact => fact.sourceBomItemId === bom.id
+        && fact.sourceTechPackVersionId === snapshot.sourceTechPackVersionId
+        && fact.executionMaterialReplacement?.changeRecordId)?.executionMaterialReplacement
+      const materialSku = replacement?.materialCode.trim() || bom.materialCode?.trim() || ''
+      const unit = bom.unit?.trim() || ''
+      const skuScope = new Set(bom.applicableSkuCodes ?? [])
+      const demandQty = order.demandSnapshot.skuLines.reduce((sum, line) =>
+        sum + (skuScope.size === 0 || skuScope.has(line.skuCode) ? line.qty : 0), 0)
+      const quantityValid = Number.isFinite(demandQty) && demandQty >= 0
+        && Number.isFinite(bom.unitConsumption) && bom.unitConsumption > 0
+        && Number.isFinite(bom.lossRate) && bom.lossRate >= 0 && bom.lossRate < 1
+      const requiredQty = quantityValid ? Math.round(demandQty * bom.unitConsumption * (1 + bom.lossRate) * 1e6) / 1e6 : 0
+      const issues = [!materialSku ? '冻结BOM缺少物料编码' : '', !unit ? '冻结BOM缺少数量单位' : '', !quantityValid ? '冻结BOM单耗、损耗或需求数量无效' : ''].filter(Boolean)
+      const stockType: MaterialPrepMaterialType = bom.type === '包装材料' ? '包材' : bom.type === '面料' || bom.type === '辅料' || bom.type === '纱线' ? bom.type : '其他'
+      const candidates = stockType !== '其他' && materialSku && unit && quantityValid ? stocks.filter(stock => stock.materialSku === materialSku && stock.unit === unit && stock.stockWarehouseName === getMaterialStockWarehouseName(stockType)) : []
+      const stockKey = JSON.stringify([materialSku, unit, getMaterialStockWarehouseName(stockType)])
+      const availableStockQty = Math.max(0, candidates.reduce((sum, stock) => sum + stock.quantity, 0) - (reserved.get(stockKey) || 0))
+      const route = snapshot.processEntries.filter(entry => entry.linkedBomItemIds?.includes(bom.id) || entry.consumedBomItemIds?.includes(bom.id))
+      const routeIds = new Set(route.map(entry => entry.id))
+      const firstEntries = route.filter(entry => !(entry.predecessorEntryIds ?? []).some(id => routeIds.has(id)))
+      const firstEntry = firstEntries.length === 1 ? firstEntries[0] : undefined
+      const materialType: MaterialPrepMaterialType = bom.type === '包装材料' ? '包材' : bom.type === '面料' || bom.type === '辅料' || bom.type === '纱线' ? bom.type : '其他'
+      const runtimeLinks = firstEntry ? tasks.filter(task => {
+        if (task.productionOrderId !== order.productionOrderId) return false
+        const source = task.sourceSnapshot
+        const matchesEntry = source?.processEntryId === firstEntry.id || task.sourceEntryId === firstEntry.id || task.sourceEntryIds?.includes(firstEntry.id)
+        const exactBom = (source?.techPackVersionId === snapshot.sourceTechPackVersionId && (source.bomItemId === bom.id || source.bomItemIds?.includes(bom.id)))
+          || task.routeObjectKey === `BOM:${bom.id}` || task.routeObjectKeys?.includes(`BOM:${bom.id}`)
+          || (new Set([...(firstEntry.linkedBomItemIds ?? []), ...(firstEntry.consumedBomItemIds ?? [])]).size === 1)
+        return Boolean(matchesEntry && exactBom)
+      }).flatMap(task => {
+        // 原料沿首消费节点定位；已合并的源任务改由其真实合并承接方接收。
+        if (task.mergedIntoTaskId) {
+          const merged = tasks.find(candidate => candidate.taskId === task.mergedIntoTaskId
+            && candidate.productionOrderId === order.productionOrderId
+            && candidate.executionEnabled !== false
+            && candidate.mergeSourceTaskIds?.includes(task.taskId))
+          if (!merged) return []
+          task = merged
+        }
+        if (task.executionEnabled === false) return []
+        const knownTypes: Partial<Record<string, MaterialPrepTaskType>> = { PRINT: '印花任务', DYE: '染色任务', CUT_PANEL: '裁片任务', SEW: '车缝任务', IRON_PACK: '烫包任务' }
+        const taskType = knownTypes[firstEntry.processCode]
+        return taskType ? [{ taskId: task.taskId, taskNo: task.taskNo || task.taskId,
+          taskName: task.processNameZh, taskType, factoryId: task.assignedFactoryId || '',
+          factoryCode: task.assignedFactoryId || '', factoryName: task.assignedFactoryName || '待分配',
+          assignedAt: task.dispatchedAt || '', allocationStatus: isRuntimeTaskAssigned(task) ? '已分配' as const : '未分配' as const }] : []
+      }) : []
+      const materialArtifacts = prepArtifacts.filter(artifact => artifact.bomItemId === bom.id || artifact.linkedBomItemIds?.includes(bom.id))
+      const materialEntryIds = new Set(materialArtifacts.map(artifact => artifact.sourceEntryId))
+      const firstPrepArtifacts = materialArtifacts.filter(artifact => !(artifact.predecessorEntryIds ?? []).some(id => materialEntryIds.has(id)))
+      const prepLinks: MaterialPrepTaskLink[] = firstPrepArtifacts.flatMap(artifact => preparationOrders.filter(document => {
+        const source = document.sourceSnapshot
+        return document.sourceType === 'PRODUCTION_ORDER' && document.processType === artifact.processCode
+          && source.productionOrderId === order.productionOrderId && source.techPackVersionId === snapshot.sourceTechPackVersionId
+          && (source.bomItemId === bom.id || source.bomItemIds?.includes(bom.id))
+          && (source.processEntryId === artifact.sourceEntryId || document.sourceArtifactIds?.includes(artifact.artifactId))
+      }).map(document => ({
+        taskId: document.taskId, taskNo: document.taskNo || document.workOrderNo,
+        taskName: `${document.processType === 'PRINT' ? '印花' : document.processType === 'DYE' ? '染色' : '水溶'}加工单 ${document.workOrderNo}`,
+        taskType: document.processType === 'PRINT' ? '印花任务' as const : document.processType === 'DYE' ? '染色任务' as const : '水溶任务' as const,
+        factoryId: document.factoryId, factoryCode: document.factoryId, factoryName: document.factoryName || '待分配',
+        assignedAt: '', allocationStatus: document.factoryId ? '已分配' as const : '未分配' as const,
+      })))
+      // Preparation documents precede production consumption; never invent a runtime task for them.
+      // 生产单只有在正式拆解后才能出现加工任务。冻结技术包可以先形成物料需求，
+      // 但不能把派生的加工单投影成“已生成任务”，否则待拆解状态会被页面误读。
+      const taskLinks = order.taskBreakdownSummary.isBrokenDown
+        ? (materialArtifacts.length ? prepLinks : runtimeLinks)
+        : []
+      const matchingCuts = (cutSources ??= listGeneratedCutOrderSourceRecords()).filter(cut => cut.productionOrderId === order.productionOrderId
+        && cut.techPackVersionId === snapshot.sourceTechPackVersionId && cut.sourceBomItemIds?.includes(bom.id)
+        && cut.materialSku === materialSku && cut.materialUnit === unit)
+      const cut = matchingCuts.length === 1 ? matchingCuts[0] : undefined
+      return {
+        runtimeBomLine: true, sourceDataIssue: issues.join('；'),
+        prepLineId: `${prepOrderId}:${snapshot.sourceTechPackVersionId}:${bom.id}`, prepOrderId,
+        cutOrderId: cut?.cutOrderId || '', cutOrderNo: cut?.cutOrderNo || '', materialSku, materialName: replacement?.materialName || bom.name,
+        materialType, materialImageUrl: replacement ? '' : bom.materialImageUrl || '',
+        color: bom.colorLabel || '', spec: bom.spec || '', unit: unit || '待确认', requiredQty,
+        availableStockQty, stockWarehouseName: getMaterialStockWarehouseName(materialType),
+        stockWarehouseArea: candidates[0]?.warehouseArea || '', stockLocationCode: candidates[0]?.locationCode || '',
+        upstreamSourceType: materialType === '其他' ? '无上游' as const : getMaterialStockSourceType(materialType),
+        upstreamProgressStatus: availableStockQty >= requiredQty && requiredQty > 0 ? '已到仓可配' as const : '待到仓' as const,
+        expectedAvailableAt: '', upstreamProgressDetail: issues.join('；') || (availableStockQty > 0 ? `原料初始输入：${candidates.map(stock => stock.sourceDescription).join('；')}` : '尚无可核对的对应仓库同物料同单位库存。'),
+        upstreamDocumentNo: order.productionOrderNo, upstreamDocumentTitle: `冻结BOM ${bom.id} · ${snapshot.sourceTechPackVersionLabel} · 首消费：${firstEntry?.processName || firstEntry?.processCode || '待核对'}`,
+        upstreamDocumentAdjustLabel: '查看生产单', taskLinks,
+      }
+    })
+    return { runtimeBomOrder: true, prepOrderId, prepOrderNo: `PREP-${order.productionOrderNo}`,
+      productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo,
+      styleNo: snapshot.styleCode, styleName: snapshot.styleName, spu: order.demandSnapshot.spuCode,
+      spuImageUrl: snapshot.imageSnapshot.styleImages[0] || snapshot.imageSnapshot.productImages[0] || '',
+      customerName: order.demandSnapshot.buyerName, demandQty: order.demandSnapshot.skuLines.reduce((sum,line) => sum + line.qty, 0),
+      deliveryDate: order.demandSnapshot.requiredDeliveryDate || '', creatorName: snapshot.snapshotBy,
+      createdAt: order.createdAt, bomSourceLabel: `冻结技术包 ${snapshot.sourceTechPackVersionLabel}`, bomExpandedAt: snapshot.snapshotAt, lines }
+  })]
+}
+
 let materialPrepProjectionCache: {
   storage: BrowserStorageLike | null
   rows: MaterialPrepOrderProjection[]
+  sourceFingerprint: string
 } | null = null
 
 export function invalidateMaterialPrepProjectionCache(): void {
@@ -2754,7 +2914,8 @@ function roundQty(value: number): number {
 }
 
 function nowText(date = new Date()): string {
-  return date.toISOString().slice(0, 19).replace('T', ' ')
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepWorkflowStore {
@@ -2791,10 +2952,13 @@ function getLegacyPickupBusinessEventKey(record: PickupRecord): string {
 }
 
 function getPrepLineUnit(prepOrderId: string, prepLineId: string): string {
-  return materialPrepSeedOrders
-    .find((order) => order.prepOrderId === prepOrderId)
-    ?.lines.find((line) => line.prepLineId === prepLineId)
-    ?.unit || '件'
+  const seedOrder = materialPrepSeedOrders.find(order => order.prepOrderId === prepOrderId)
+  if (seedOrder) return seedOrder.lines.find(line => line.prepLineId === prepLineId)?.unit || '件'
+  const order = productionOrders.find(order => `prep-order-${order.productionOrderId}` === prepOrderId)
+  const snapshot = order?.techPackSnapshot
+  const bom = snapshot?.bomItems.find(item => item.type !== '成衣'
+    && `${prepOrderId}:${snapshot.sourceTechPackVersionId}:${item.id}` === prepLineId)
+  return bom ? bom.unit?.trim() || '待确认' : '件'
 }
 
 export function getMaterialPrepRecordUnitSummaries(
@@ -2830,6 +2994,15 @@ function migratePickupSessions(
   const coveredRecordIds = new Set(sessions.flatMap((session) => session.pickupRecordIds))
   const groups = new Map<string, PickupRecord[]>()
   const migratedSessionIds = new Set<string>()
+  // Migration needs order identity/line metadata only; resolve once within this read,
+  // never rebuild every production/preparation projection for each historical group.
+  let currentOrdersById: Map<string, MaterialPrepSeedOrder> | undefined
+  const findMigrationOrder = (prepOrderId: string): MaterialPrepSeedOrder | undefined => {
+    const seed = materialPrepSeedOrders.find((order) => order.prepOrderId === prepOrderId)
+    if (seed) return seed
+    currentOrdersById ??= new Map(listCurrentMaterialPrepOrders().map((order) => [order.prepOrderId, order]))
+    return currentOrdersById.get(prepOrderId)
+  }
 
   for (const record of records) {
     if (Number(record.pickedQty || 0) <= 0 || coveredRecordIds.has(record.pickupRecordId)) continue
@@ -2886,9 +3059,7 @@ function migratePickupSessions(
     const stableKey = `${businessKey}|${group.map((record) => record.pickupRecordId).sort().join('|')}`
     const pickupNodeId = first.pickupNodeId || `pickup-node:${first.prepOrderId}:${sequence}`
     const pickupSessionId = existingSessionId || `pickup-session:migrated:${stableTextHash(stableKey)}`
-    const productionOrderNo = materialPrepSeedOrders
-      .find((order) => order.prepOrderId === first.prepOrderId)
-      ?.productionOrderNo || first.productionOrderId
+    const productionOrderNo = findMigrationOrder(first.prepOrderId)?.productionOrderNo || first.productionOrderId
     const session: PickupSession = {
       pickupSessionId,
       pickupSessionNo: `接收-${productionOrderNo}-${String(sequence).padStart(2, '0')}`,
@@ -2916,7 +3087,7 @@ function migratePickupSessions(
   const recordsById = new Map(records.map((record) => [record.pickupRecordId, record]))
   const sessionsByOrder = groupByKey(sessions, (session) => session.prepOrderId)
   for (const [prepOrderId, orderSessions] of sessionsByOrder) {
-    const seedOrder = materialPrepSeedOrders.find((order) => order.prepOrderId === prepOrderId)
+    const seedOrder = findMigrationOrder(prepOrderId)
     const orderedSessions = [...orderSessions].sort((left, right) =>
       left.pickedAt.localeCompare(right.pickedAt)
       || left.pickupNodeId.localeCompare(right.pickupNodeId)
@@ -3118,6 +3289,22 @@ export function hydrateProductionMaterialPrepStore(
   return deserializeProductionMaterialPrepStore(storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null)
 }
 
+// 发料投影只读取已落盘确认事实，不触发历史迁移、任务生成或单位重算。
+export function listStoredConfirmedMaterialPrepRecords(
+  prepOrderId: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPrepRecord[] {
+  try {
+    const raw = storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as Partial<ProductionMaterialPrepWorkflowStore>
+    return Array.isArray(parsed.prepRecords)
+      ? parsed.prepRecords.filter(record => record?.prepOrderId === prepOrderId && record.recordStatus === 'CONFIRMED'
+        && Array.isArray(record.items) && record.items.every(item => item && Number.isFinite(item.preparedQty) && item.preparedQty >= 0))
+      : []
+  } catch { return [] }
+}
+
 export function persistProductionMaterialPrepStore(
   store: ProductionMaterialPrepWorkflowStore,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
@@ -3190,7 +3377,9 @@ export function getMaterialPrepRecordItems(record: MaterialPrepRecord): Material
     prepRecordItemId: item.prepRecordItemId || `${record.prepRecordId}:item:${index + 1}`,
     prepLineId: item.prepLineId || record.prepLineId,
     preparedQty: roundQty(Number(item.preparedQty || 0)),
-    rollCount: Math.max(Math.round(item.rollCount || 1), 1),
+    rollCount: Math.max(Math.round(item.rollCount ?? 1), 0),
+    sourceMaterialSku: "sourceMaterialSku" in item ? item.sourceMaterialSku : undefined,
+    sourceUnit: "sourceUnit" in item ? item.sourceUnit : undefined,
     stockWarehouseName: item.stockWarehouseName,
     stockWarehouseArea: item.stockWarehouseArea || item.warehouseArea || record.warehouseArea,
     stockLocationCode: item.stockLocationCode || item.locationCode || record.locationCode,
@@ -3231,7 +3420,7 @@ function findMaterialPrepSeedContext(record: MaterialPrepRecord): {
   seedOrder: MaterialPrepSeedOrder
   seedLine: MaterialPrepSeedLine
 } | null {
-  for (const seedOrder of materialPrepSeedOrders) {
+  for (const seedOrder of listCurrentMaterialPrepOrders()) {
     if (seedOrder.prepOrderId !== record.prepOrderId) continue
     const recordLineIds = new Set(getMaterialPrepRecordItems(record).map((item) => item.prepLineId))
     const seedLine = seedOrder.lines.find((line) => recordLineIds.has(line.prepLineId))
@@ -3258,6 +3447,7 @@ function appendPrepConfirmedRuntimeEvent(
     : category === '染色配料' ? '染色厂配料完成通知'
     : category === '印花配料' ? '印花厂配料完成通知'
     : '配料完成通知'
+  const eventUnit = (['yard', 'Yard', '米', '片', '件', '条', '粒', '卷', '公斤'] as const).find(unit => unit === seedLine.unit)
   appendCuttingRuntimeEvent({
     eventType,
     eventSource: 'WEB',
@@ -3272,12 +3462,12 @@ function appendPrepConfirmedRuntimeEvent(
       cutOrderNo: seedLine.cutOrderNo,
       prepCategory: category,
     },
-    material: {
+    material: eventUnit ? {
       materialSku: seedLine.materialSku,
       materialName: seedLine.materialName,
       materialColor: seedLine.color,
-      unit: seedLine.unit === '件' || seedLine.unit === '片' ? seedLine.unit : 'yard',
-    },
+      unit: eventUnit,
+    } : undefined,
     payload: {
       prepRecordId: record.prepRecordId,
       prepOrderId: record.prepOrderId,
@@ -3285,6 +3475,7 @@ function appendPrepConfirmedRuntimeEvent(
       batchNo: record.batchNo,
       preparedQty: getRecordTotalPreparedQty(record),
       preparedUnitSummaries: getMaterialPrepRecordUnitSummaries(record),
+      preparedMaterialItems: seedOrder.runtimeBomOrder ? getMaterialPrepRecordItems(record).map(item => { const line = seedOrder.lines.find(line => line.prepLineId === item.prepLineId); return { prepLineId: item.prepLineId, materialSku: line?.materialSku || '', unit: line?.unit || '', preparedQty: item.preparedQty } }) : undefined,
       rollCount: record.rollCount,
       warehouseArea: record.stagingArea || record.warehouseArea,
       locationCode: record.locationCode,
@@ -3446,7 +3637,9 @@ function buildLine(
     materialSku: seedLine.materialSku,
     materialName: seedLine.materialName,
     materialType: seedLine.materialType || inferMaterialType(seedLine),
-    materialImageUrl: ensureLineImage(seedLine),
+    runtimeBomLine: seedLine.runtimeBomLine,
+    sourceDataIssue: seedLine.sourceDataIssue,
+    materialImageUrl: seedLine.runtimeBomLine ? seedLine.materialImageUrl || '' : ensureLineImage(seedLine),
     color: seedLine.color,
     spec: seedLine.spec,
     unit: seedLine.unit,
@@ -3458,8 +3651,8 @@ function buildLine(
     remainingNeedQty,
     availableStockQty: seedLine.availableStockQty,
     stockWarehouseName: seedLine.stockWarehouseName || getMaterialStockWarehouseName(seedLine.materialType || inferMaterialType(seedLine)),
-    stockWarehouseArea: seedLine.stockWarehouseArea || getMaterialStockWarehouseArea(seedLine.materialType || inferMaterialType(seedLine)),
-    stockLocationCode: seedLine.stockLocationCode || getMaterialStockLocationCode(seedLine.materialType || inferMaterialType(seedLine), 1),
+    stockWarehouseArea: seedLine.stockWarehouseArea ?? getMaterialStockWarehouseArea(seedLine.materialType || inferMaterialType(seedLine)),
+    stockLocationCode: seedLine.stockLocationCode ?? getMaterialStockLocationCode(seedLine.materialType || inferMaterialType(seedLine), 1),
     canPrepQty,
     shortageQty,
     linePrepStatus: deriveLineStatus(seedLine, records, confirmedPrepQty, pickedQty, closed),
@@ -3474,7 +3667,7 @@ function buildLine(
     upstreamDocumentNo: seedLine.upstreamDocumentNo || '',
     upstreamDocumentTitle: seedLine.upstreamDocumentTitle || '',
     upstreamDocumentAdjustLabel: seedLine.upstreamDocumentAdjustLabel || '',
-    taskLinks: confirmedForAssignment
+    taskLinks: seedLine.runtimeBomLine || confirmedForAssignment
       ? (seedLine.taskLinks || []).map((taskLink) => writeBackTaskAssignment(taskLink, runtimeTasks))
       : [],
   }
@@ -3690,7 +3883,7 @@ function buildOrderProjection(
       styleNo: seedOrder.styleNo,
       styleName: seedOrder.styleName,
       spu: seedOrder.spu,
-      spuImageUrl: seedOrder.spuImageUrl || resolveSpuImage(seedOrder),
+      spuImageUrl: seedOrder.runtimeBomOrder ? seedOrder.spuImageUrl || '' : seedOrder.spuImageUrl || resolveSpuImage(seedOrder),
       customerName: seedOrder.customerName,
       demandQty,
       deliveryDate: seedOrder.deliveryDate,
@@ -3744,10 +3937,12 @@ function buildOrderProjection(
 export function listMaterialPrepOrderProjections(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepOrderProjection[] {
-  if (materialPrepProjectionCache?.storage === storage) {
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const currentOrders = listCurrentMaterialPrepOrders(store.prepRecords)
+  const sourceFingerprint = JSON.stringify(currentOrders)
+  if (materialPrepProjectionCache?.storage === storage && materialPrepProjectionCache.sourceFingerprint === sourceFingerprint) {
     return materialPrepProjectionCache.rows
   }
-  const store = hydrateProductionMaterialPrepStore(storage)
   const runtimePickupRecords = listRuntimePickupRecords(storage)
   const pickupRecordsByOrder = groupByKey([...store.pickupRecords, ...runtimePickupRecords], (record) => record.prepOrderId)
   const pickupSessionsByOrder = groupByKey(store.pickupSessions, (session) => session.prepOrderId)
@@ -3765,7 +3960,7 @@ export function listMaterialPrepOrderProjections(
     if (typeof prepOrderId !== 'string' || !prepOrderId) return
     prepCompletionEventCountByOrder.set(prepOrderId, (prepCompletionEventCountByOrder.get(prepOrderId) ?? 0) + 1)
   })
-  const rows = materialPrepSeedOrders
+  const rows = currentOrders
     .map((seedOrder) => buildOrderProjection(
       seedOrder,
       store,
@@ -3782,7 +3977,7 @@ export function listMaterialPrepOrderProjections(
       materialPrepStatusLabelMap[left.order.overallPrepStatus].localeCompare(materialPrepStatusLabelMap[right.order.overallPrepStatus], 'zh-CN')
       || left.order.deliveryDate.localeCompare(right.order.deliveryDate, 'zh-CN'),
     )
-  materialPrepProjectionCache = { storage, rows }
+  materialPrepProjectionCache = { storage, rows, sourceFingerprint }
   return rows
 }
 
@@ -3798,7 +3993,7 @@ function formatBreakdownCheckQty(value: number, unit: string): string {
 }
 
 function getBreakdownLineBlockingReason(line: MaterialPrepLine): string {
-  const reasons: string[] = []
+  const reasons: string[] = line.sourceDataIssue ? [line.sourceDataIssue] : []
   if (line.availableStockQty < line.requiredQty) {
     reasons.push(`库存不足：需要 ${formatBreakdownCheckQty(line.requiredQty, line.unit)}，在库 ${formatBreakdownCheckQty(line.availableStockQty, line.unit)}`)
   }
@@ -3825,14 +4020,14 @@ export function getMaterialPrepBreakdownReadinessForOrder(
       hasMaterialScope: false,
       ready: false,
       blockingLineCount: 0,
-      summaryText: '未找到该生产单的 BOM 物料库存投影，暂不可拆解任务。',
+      summaryText: '未找到该生产单的 BOM 物料库存投影，请先核对冻结物料资料。',
       lines: [],
     }
   }
 
   const lines = projections.flatMap((projection) =>
     projection.lines
-      .filter((line) => line.requiredQty > 0)
+      .filter((line) => line.requiredQty > 0 || line.sourceDataIssue)
       .map((line): MaterialPrepBreakdownLineCheck => {
         const blockingReason = getBreakdownLineBlockingReason(line)
         return {
@@ -3865,7 +4060,7 @@ export function getMaterialPrepBreakdownReadinessForOrder(
       hasMaterialScope: false,
       ready: false,
       blockingLineCount: 0,
-      summaryText: '该生产单没有可用于拆解判断的 BOM 物料明细。',
+      summaryText: '该生产单没有可用于物料检查的 BOM 物料明细。',
       lines: [],
     }
   }
@@ -3873,8 +4068,8 @@ export function getMaterialPrepBreakdownReadinessForOrder(
   const blockingLines = lines.filter((line) => !line.ready)
   const ready = blockingLines.length === 0
   const summaryText = ready
-    ? `库存前置已满足：${lines.length} 行 BOM 物料在库可用，印花/染色物料已回中转仓。`
-    : `库存前置未满足：${blockingLines.length}/${lines.length} 行不可拆解。${blockingLines.slice(0, 3).map((line) =>
+    ? `物料检查已满足：${lines.length} 行 BOM 物料有可用库存；实际加工、接收与开工条件仍须按各任务确认。`
+    : `物料检查待处理：${blockingLines.length}/${lines.length} 行物料未就绪。${blockingLines.slice(0, 3).map((line) =>
       `${line.materialName} ${line.blockingReason}`,
     ).join('；')}`
 
@@ -4090,27 +4285,82 @@ export function appendManualPrepRecord(
     locationCode: string
     operatorName: string
     remark?: string
+    appendToRecordId?: string
+    preparedAt?: string
+    items?: Array<{ prepLineId: string; preparedQty: number; rollCount: number }>
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepRecord {
   const store = hydrateProductionMaterialPrepStore(storage)
-  const line = listMaterialPrepOrderProjections(storage)
-    .find((projection) => projection.order.prepOrderId === input.prepOrderId)
-    ?.lines.find((item) => item.prepLineId === input.prepLineId)
-  const occurredAt = nowText()
-  const stockWarehouseName = line?.stockWarehouseName || getMaterialStockWarehouseName(line?.materialType || '面料')
-  const stockWarehouseArea = line?.stockWarehouseArea || getMaterialStockWarehouseArea(line?.materialType || '面料')
-  const stockLocationCode = line?.stockLocationCode || getMaterialStockLocationCode(line?.materialType || '面料')
+  const projection = listMaterialPrepOrderProjections(storage).find((item) => item.order.prepOrderId === input.prepOrderId)
+  if (!projection || projection.order.isClosed) throw new Error('配料单不存在或已关闭，请重新打开物料检查。')
+  const existing = input.appendToRecordId ? store.prepRecords.find(record => record.prepRecordId === input.appendToRecordId) : undefined
+  if (input.appendToRecordId && (!existing || existing.prepOrderId !== input.prepOrderId || existing.recordStatus !== 'DRAFT')) throw new Error('只能补充同一配料单下的待拣货记录。')
+  if (!input.operatorName.trim()) throw new Error('请填写本次配料人。')
+  const occurredAt = input.preparedAt?.trim() || nowText()
+  if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(occurredAt) || !Number.isFinite(new Date(occurredAt.replace(' ', 'T')).getTime())) throw new Error('请填写有效的配料时间。')
+  const parsedTime = new Date(occurredAt.replace(' ', 'T'))
+  const timeParts = occurredAt.match(/\d+/g)!.map(Number)
+  if ([parsedTime.getFullYear(), parsedTime.getMonth() + 1, parsedTime.getDate(), parsedTime.getHours(), parsedTime.getMinutes()].some((value, index) => value !== timeParts[index])) throw new Error('配料时间不是有效的日历日期。')
+  const requests = input.items ?? [{ prepLineId: input.prepLineId, preparedQty: input.preparedQty, rollCount: input.rollCount }]
+  if (!requests.length || new Set(requests.map((item) => item.prepLineId)).size !== requests.length) throw new Error('请选择本次配料物料，物料行不能重复。')
+  const batchUsed = new Map<string, number>()
+  const identity = `${Date.now()}:${store.prepRecords.length + 1}`
+  // 所有明细先校验，再一次保存，任何一行无效均不占用库存。
+  const items = requests.map((request, index) => {
+    const line = projection.lines.find((item) => item.prepLineId === request.prepLineId)
+    if (!line) throw new Error('未找到该生产单的配料物料，请重新打开物料检查。')
+    if (line.sourceDataIssue) throw new Error(line.sourceDataIssue)
+    if (!Number.isFinite(request.preparedQty) || request.preparedQty <= 0 || roundQty(request.preparedQty) <= 0 || request.preparedQty > line.maxPrepQty) throw new Error('本次配料数量必须大于0，且不能超过当前可配数量。')
+    if (!Number.isInteger(request.rollCount) || request.rollCount < 0) throw new Error('卷数或件数须为非负整数。')
+    const key = JSON.stringify([line.materialSku, line.unit, line.stockWarehouseName])
+    const used = roundQty((batchUsed.get(key) || 0) + request.preparedQty)
+    if (line.runtimeBomLine && used > line.availableStockQty) throw new Error('同一物料合计配料数量超过仓库当前可用库存。')
+    batchUsed.set(key, used)
+    return {
+      prepRecordItemId: `prep-item:${request.prepLineId}:${identity}:${index}`,
+      prepLineId: request.prepLineId,
+      preparedQty: roundQty(request.preparedQty),
+      rollCount: request.rollCount,
+      sourceMaterialSku: line.runtimeBomLine ? line.materialSku : undefined,
+      sourceUnit: line.runtimeBomLine ? line.unit : undefined,
+      stockWarehouseName: line.stockWarehouseName,
+      stockWarehouseArea: line.stockWarehouseArea,
+      stockLocationCode: line.stockLocationCode,
+      stockAvailableQty: line.availableStockQty,
+      warehouseArea: input.warehouseArea || line.stockWarehouseArea,
+      locationCode: input.locationCode || line.stockLocationCode,
+      sourceStockEventId: '',
+      remark: input.remark ?? '',
+    }
+  })
+  if (existing) {
+    const merged = getMaterialPrepRecordItems(existing).map(item => ({ ...item }))
+    const note = `补充配料 ${occurredAt} / ${input.operatorName.trim()}：${input.remark || '无备注'}`
+    for (const addition of items) {
+      const target = merged.find(item => item.prepLineId === addition.prepLineId && item.sourceMaterialSku === addition.sourceMaterialSku && item.sourceUnit === addition.sourceUnit && item.stockWarehouseName === addition.stockWarehouseName && item.stockWarehouseArea === addition.stockWarehouseArea && item.stockLocationCode === addition.stockLocationCode)
+      if (target) {
+        target.preparedQty = roundQty(target.preparedQty + addition.preparedQty)
+        target.rollCount += addition.rollCount
+        target.remark = [target.remark, `${note}；新增数量 ${addition.preparedQty}，卷/件数 ${addition.rollCount}`].filter(Boolean).join('；')
+      } else merged.push({ ...addition, remark: `${note}；新增数量 ${addition.preparedQty}，卷/件数 ${addition.rollCount}` })
+    }
+    const updated = normalizePrepRecordQuantities({ ...existing, items: merged, rollCount: merged.reduce((sum, item) => sum + item.rollCount, 0), remark: [existing.remark, note].filter(Boolean).join('；') })
+    store.prepRecords = store.prepRecords.map(record => record.prepRecordId === existing.prepRecordId ? updated : record)
+    persistProductionMaterialPrepStore(store, storage)
+    return cloneRecord(updated)
+  }
+  const firstItem = items[0]
   const record = normalizePrepRecordQuantities({
-    prepRecordId: `prep-rec:${input.prepLineId}:${occurredAt.replace(/[^0-9]/g, '')}`,
+    prepRecordId: `prep-rec:${input.prepOrderId}:${identity}`,
     prepOrderId: input.prepOrderId,
-    prepLineId: input.prepLineId,
+    prepLineId: firstItem.prepLineId,
     batchNo: `BATCH-${occurredAt.replace(/[^0-9]/g, '').slice(2, 12)}`,
-    preparedQty: roundQty(input.preparedQty),
-    rollCount: Math.max(Math.round(input.rollCount || 1), 1),
-    warehouseArea: input.warehouseArea,
-    locationCode: input.locationCode,
-    operatorName: input.operatorName,
+    preparedQty: roundQty(items.reduce((sum, item) => sum + item.preparedQty, 0)),
+    rollCount: items.reduce((sum, item) => sum + item.rollCount, 0),
+    warehouseArea: firstItem.warehouseArea,
+    locationCode: firstItem.locationCode,
+    operatorName: input.operatorName.trim(),
     preparedAt: occurredAt,
     recordStatus: 'DRAFT',
     confirmedAt: '',
@@ -4119,23 +4369,8 @@ export function appendManualPrepRecord(
     rejectedBy: '',
     rejectReason: '',
     sourceStockEventId: '',
-    remark: input.remark || '手动新增配料记录，待确认后进入接收管理。',
-    items: [
-      {
-        prepRecordItemId: `prep-item:${input.prepLineId}:${occurredAt.replace(/[^0-9]/g, '')}`,
-        prepLineId: input.prepLineId,
-        preparedQty: roundQty(input.preparedQty),
-        rollCount: Math.max(Math.round(input.rollCount || 1), 1),
-        stockWarehouseName,
-        stockWarehouseArea,
-        stockLocationCode,
-        stockAvailableQty: Number(line?.availableStockQty || 0),
-        warehouseArea: input.warehouseArea,
-        locationCode: input.locationCode,
-        sourceStockEventId: '',
-        remark: input.remark || '手动新增配料记录明细，随配料记录一起确认。',
-      },
-    ],
+    remark: input.remark ?? '',
+    items,
   })
   store.prepRecords = [record, ...store.prepRecords]
   persistProductionMaterialPrepStore(store, storage)
@@ -4159,10 +4394,18 @@ export function appendAutoPrepRecordForOrder(
   const occurredAt = nowText()
   const compactTime = occurredAt.replace(/[^0-9]/g, '')
   const firstLine = lines[0]
-  const items = lines.map((line, index): MaterialPrepRecordItem => ({
+  const batchUsed = new Map<string, number>()
+  const items = lines.flatMap((line, index): MaterialPrepRecordItem[] => {
+    const key = JSON.stringify([line.materialSku, line.unit, line.stockWarehouseName])
+    const qty = Math.min(line.defaultPrepQty || line.canPrepQty, line.runtimeBomLine ? Math.max(0, line.availableStockQty - (batchUsed.get(key) || 0)) : line.canPrepQty)
+    if (qty <= 0) return []
+    if (line.runtimeBomLine) batchUsed.set(key, (batchUsed.get(key) || 0) + qty)
+    return [{
     prepRecordItemId: `prep-item:${prepOrderId}:${compactTime}:${String(index + 1).padStart(2, '0')}`,
     prepLineId: line.prepLineId,
-    preparedQty: roundQty(line.defaultPrepQty || line.canPrepQty),
+    preparedQty: roundQty(qty),
+    sourceMaterialSku: line.runtimeBomLine ? line.materialSku : undefined,
+    sourceUnit: line.runtimeBomLine ? line.unit : undefined,
     rollCount: Math.max(buildLineRollCount(line), 1),
     stockWarehouseName: line.stockWarehouseName,
     stockWarehouseArea: line.stockWarehouseArea,
@@ -4172,7 +4415,8 @@ export function appendAutoPrepRecordForOrder(
     locationCode: line.stockLocationCode,
     sourceStockEventId: `ledger:${line.prepOrderId}:${line.materialSku}:auto-prep:${compactTime}`,
     remark: '按当前可配库存自动生成配料明细，随整条配料记录确认。',
-  }))
+    }]
+  })
   const record = normalizePrepRecordQuantities({
     prepRecordId: `prep-rec:${prepOrderId}:${compactTime}`,
     prepOrderId,
@@ -4206,6 +4450,7 @@ export function confirmMaterialPrepRecord(
 ): MaterialPrepRecord | null {
   const store = hydrateProductionMaterialPrepStore(storage)
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
+  if (record && store.closedOrders.some(item => item.prepOrderId === record.prepOrderId)) return null
   if (!record) return null
   if (record.recordStatus !== 'STAGED' && record.recordStatus !== 'REJECTED') return null
   record.recordStatus = 'CONFIRMED'
@@ -4227,6 +4472,7 @@ export function pickMaterialPrepRecord(
 ): MaterialPrepRecord | null {
   const store = hydrateProductionMaterialPrepStore(storage)
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
+  if (record && store.closedOrders.some(item => item.prepOrderId === record.prepOrderId)) return null
   if (!record || record.recordStatus !== 'DRAFT') return null
   record.recordStatus = 'PICKED'
   record.pickedAt = nowText()
@@ -4244,6 +4490,7 @@ export function stageMaterialPrepRecord(
 ): MaterialPrepRecord | null {
   const store = hydrateProductionMaterialPrepStore(storage)
   const record = store.prepRecords.find((item) => item.prepRecordId === prepRecordId)
+  if (record && store.closedOrders.some(item => item.prepOrderId === record.prepOrderId)) return null
   if (!record || record.recordStatus !== 'PICKED') return null
   record.recordStatus = 'STAGED'
   record.stagedAt = nowText()
@@ -4409,6 +4656,110 @@ function listPickupDemandPickedFacts(
   })
 }
 
+/** 只解析当前已明确的 CUT ← PRINT 同BOM直接前置，不推导其他准备工艺。 */
+export function resolveCuttingPrintReceiptScope(projection: MaterialPrepOrderProjection, line: MaterialPrepLine) {
+  if (!line.runtimeBomLine || line.sourceDataIssue || !line.cutOrderId) return undefined
+  const order = productionOrders.find(order => order.productionOrderId === projection.order.productionOrderId)
+  const snapshot = order?.techPackSnapshot
+  if (!order || !snapshot) return undefined
+  const bom = snapshot.bomItems.find(bom => line.prepLineId === `${projection.order.prepOrderId}:${snapshot.sourceTechPackVersionId}:${bom.id}`)
+  if (!bom) return undefined
+  const cutting = snapshot.processEntries.filter(entry => entry.processCode === 'CUT_PANEL' && (entry.linkedBomItemIds?.includes(bom.id) || entry.consumedBomItemIds?.includes(bom.id)))
+  if (cutting.length !== 1 || cutting[0].predecessorEntryIds?.length !== 1) return undefined
+  const print = snapshot.processEntries.find(entry => entry.id === cutting[0].predecessorEntryIds![0] && entry.processCode === 'PRINT' && entry.linkedBomItemIds?.includes(bom.id))
+  if (!print) return undefined
+  const definitions = (order.processWorkOrderDefinitions ?? []).filter(definition => {
+    const source = definition.sourceSnapshot
+    return definition.processCode === 'PRINT' && source.productionOrderId === order.productionOrderId
+      && source.techPackVersionId === snapshot.sourceTechPackVersionId && source.processEntryId === print.id
+      && source.bomItemId === bom.id && source.bomItemIds?.length === 1 && source.bomItemIds[0] === bom.id
+  })
+  if (definitions.length !== 1) return undefined
+  const target = listGeneratedCutOrderSourceRecords().find(cut => cut.cutOrderId === line.cutOrderId && cut.productionOrderId === order.productionOrderId && cut.techPackVersionId === snapshot.sourceTechPackVersionId && cut.sourceBomItemIds?.includes(bom.id) && cut.materialSku === line.materialSku && cut.materialUnit === line.unit)
+  if (!target?.cuttingTaskAssigneeFactoryId) return undefined
+  return { order, snapshot, bom, cutting: cutting[0], print, definition: definitions[0], target }
+}
+
+export function buildCuttingPrintReceiptDemand(
+  projection: MaterialPrepOrderProjection, line: MaterialPrepLine,
+  sources: PickupPrintReceiptSource[], material: { sku: string; name: string; imageUrl: string },
+  allPickupRecords: PickupRecord[],
+): PickupDemandFact | undefined {
+  const scope = resolveCuttingPrintReceiptScope(projection, line)
+  if (!scope) return undefined
+  const demandLineId = `PRINT-RECEIPT:${line.cutOrderId}:${scope.bom.id}`
+  const seen = new Set<string>()
+  const available = sources.map(source => {
+    if (seen.has(source.handoverRecordId)) throw new Error('印花实收批次重复，请核对。')
+    seen.add(source.handoverRecordId)
+    const taken = allPickupRecords.flatMap(record => record.printReceiptSources ?? []).filter(taken => taken.handoverRecordId === source.handoverRecordId)
+    if (taken.some(taken => taken.handoverId !== source.handoverId || taken.productionOrderId !== source.productionOrderId || taken.techPackVersionId !== source.techPackVersionId || taken.bomItemId !== source.bomItemId || taken.sourceProcessEntryId !== source.sourceProcessEntryId || taken.materialSku !== source.materialSku || taken.unit !== source.unit || !Number.isFinite(taken.qty) || taken.qty <= 0)) throw new Error('原印花实收领取来源不一致，请核对。')
+    const takenQty = roundQty(taken.reduce((sum, taken) => sum + taken.qty, 0))
+    if (takenQty > source.qty) throw new Error('原印花实收数量小于已领取数量，请核对。')
+    return { ...source, qty: roundQty(source.qty - takenQty) }
+  }).filter(source => source.qty > 0)
+  const pickedQty = roundQty(allPickupRecords.filter(record => record.productionOrderId === scope.order.productionOrderId && record.prepLineId === demandLineId).reduce((sum, record) => sum + record.pickedQty, 0))
+  return { prepOrderId: projection.order.prepOrderId, productionOrderId: scope.order.productionOrderId,
+    productionOrderNo: scope.order.productionOrderNo, demandLineId, demandSource: 'NORMAL',
+    demandSourceNo: [scope.definition.workOrderNo, ...sources.map(source => source.handoverRecordNo)].join(' / '), demandSequence: 0, demandCreatedAt: scope.order.createdAt,
+    supplementReason: '', materialSku: material.sku, materialName: material.name, materialImageUrl: material.imageUrl,
+    materialType: line.materialType, color: line.color, spec: line.spec, unit: line.unit,
+    processRoute: 'PRINT', processBasisLabel: '按原印花批次中转仓实收领取', processComplete: true,
+    requiredQty: line.requiredQty, pickedQty, printReceiptSources: available }
+}
+
+/** 原料 PREP 仅可由正式首消费裁剪领取；加工后物料须沿原实收来源另行领取。 */
+export function getCuttingRawPrepReceiptBlock(
+  projection: MaterialPrepOrderProjection,
+  line: MaterialPrepLine,
+): string {
+  if (!line.runtimeBomLine) return ''
+  const order = productionOrders.find(order => order.productionOrderId === projection.order.productionOrderId)
+  const snapshot = order?.techPackSnapshot
+  if (!snapshot) return '缺少原冻结技术包，不能确认裁床接收。'
+  const bom = snapshot.bomItems.find(bom => line.prepLineId === `${projection.order.prepOrderId}:${snapshot.sourceTechPackVersionId}:${bom.id}`)
+  if (!bom || line.sourceDataIssue) return '原配料与冻结物料来源不一致，请先核对。'
+  const entries = snapshot.processEntries.filter(entry => entry.linkedBomItemIds?.includes(bom.id) || entry.consumedBomItemIds?.includes(bom.id))
+  const entryIds = new Set(entries.map(entry => entry.id))
+  const firstEntries = entries.filter(entry => !(entry.predecessorEntryIds ?? []).some(id => entryIds.has(id)))
+  const cuttingEntries = entries.filter(entry => entry.processCode === 'CUT_PANEL')
+  if (cuttingEntries.length !== 1) return '该物料没有唯一裁剪消费节点，不能从裁床领取原配料。'
+  const cutting = cuttingEntries[0]
+  if (firstEntries.length !== 1 || firstEntries[0].id !== cutting.id || (cutting.predecessorEntryIds ?? []).length > 0) {
+    return '该物料需领取对应加工后已实收物料，不能重复领取原配料。'
+  }
+  return ''
+}
+
+export function assertCuttingRawPrepNodeReceipt(
+  node: PickupNodeProjection,
+  projections: MaterialPrepOrderProjection[],
+  demandFacts: PickupDemandFact[],
+): void {
+  const projection = projections.find(projection => projection.order.prepOrderId === node.prepOrderId && projection.order.productionOrderId === node.productionOrderId)
+  if (!projection) throw new Error('原裁床配料来源不存在，请重新核对。')
+  for (const item of node.items) {
+    if (item.printReceiptSources) {
+      const fact = demandFacts.find(fact => fact.prepOrderId === node.prepOrderId && fact.productionOrderId === node.productionOrderId && fact.demandLineId === item.prepLineId)
+      if (!fact?.printReceiptSources?.length || item.sourceAllocations.length || item.sourcePrepRecordIds.length
+        || fact.unit !== item.unit || fact.materialSku !== item.materialSku
+        || JSON.stringify(fact.printReceiptSources) !== JSON.stringify(item.printReceiptSources)
+        || roundQty(fact.printReceiptSources.reduce((sum, source) => sum + source.qty, 0)) !== item.currentAvailableQty) throw new Error('印花实收来源或可领取数量已变化，请重新核对。')
+      continue
+    }
+    const line = projection.lines.find(line => line.prepLineId === item.prepLineId)
+    // 补料需求具有独立行身份，由原补料校验负责；不冒用某条BOM原料。
+    if (!line) {
+      const supplement = demandFacts.find(fact => fact.demandSource === 'SUPPLEMENT' && fact.productionOrderId === node.productionOrderId && fact.prepOrderId === node.prepOrderId && fact.demandLineId === item.prepLineId && fact.unit === item.unit)
+      if (!supplement) throw new Error('原配料行已变化，请重新核对。')
+      continue
+    }
+    if (item.unit !== line.unit || item.materialSku !== line.materialSku) throw new Error('原配料物料或单位已变化，请重新核对。')
+    const blocked = getCuttingRawPrepReceiptBlock(projection, line)
+    if (blocked) throw new Error(blocked)
+  }
+}
+
 export function buildPickupDemandFactsFromProjections(
   input: PickupDemandFactsInput,
 ): PickupDemandFact[] {
@@ -4433,7 +4784,7 @@ export function buildPickupDemandFactsFromProjections(
   }))
   return buildPickupDemandFacts({
     normalDemands: input.projections.flatMap((projection) =>
-      projection.lines.map((line) => ({
+      projection.lines.filter(line => !getCuttingRawPrepReceiptBlock(projection, line)).map((line) => ({
         prepOrderId: projection.order.prepOrderId,
         productionOrderId: projection.order.productionOrderId,
         productionOrderNo: projection.order.productionOrderNo,
@@ -4521,7 +4872,7 @@ function buildPickupNodeItems(
     }
   }
 
-  if (!batchesByLine.size) return []
+  if (!batchesByLine.size && !demandFacts.some(fact => fact.printReceiptSources?.length)) return []
 
   for (const [prepLineId, batches] of batchesByLine) {
     batches.sort((left, right) =>
@@ -4586,8 +4937,22 @@ function buildPickupNodeItems(
   }
 
   return demandFacts
-    .filter((demand) => demand.processComplete && batchesByLine.has(demand.demandLineId))
-    .map((demand) => {
+    .filter((demand) => demand.processComplete && (demand.printReceiptSources?.length || batchesByLine.has(demand.demandLineId)))
+    .map((demand): PickupNodeItem => {
+      if (demand.printReceiptSources?.length) {
+        const sources = demand.printReceiptSources
+        const qty = roundQty(sources.reduce((sum, source) => sum + source.qty, 0))
+        const rollCount = sources.reduce((sum, source) => sum + source.rolls.length, 0)
+        return { nodeItemId: `node-item:${projection.order.prepOrderId}:${demand.demandLineId}`,
+          prepLineId: demand.demandLineId, sourcePrepRecordIds: [], sourceAllocations: [],
+          printReceiptSources: cloneRecord(sources), materialSku: demand.materialSku, materialName: demand.materialName,
+          materialType: demand.materialType, materialImageUrl: demand.materialImageUrl, color: demand.color, spec: demand.spec,
+          unit: demand.unit, requiredQty: demand.requiredQty, effectivePickedQty: demand.pickedQty,
+          currentAvailableQty: qty, rollCount, sourceWarehouseName: '中转区域',
+          sourceWarehouseArea: '', sourceLocationCode: '', sourceLocations: [{ sourceWarehouseName: '中转区域',
+            sourceWarehouseArea: '', sourceLocationCode: '',
+            currentAvailableQty: qty, rollCount, unit: demand.unit, sourcePrepRecordIds: [] }] }
+      }
       const line = projection.lines.find((candidate) => candidate.prepLineId === demand.demandLineId)
       const batches = [...(batchesByLine.get(demand.demandLineId) ?? [])]
         .sort((left, right) =>
@@ -4697,6 +5062,7 @@ function buildPickupNodeFingerprint(
       effectivePickedQty: item.effectivePickedQty,
       currentAvailableQty: item.currentAvailableQty,
       rollCount: item.rollCount,
+      printReceiptSources: item.printReceiptSources,
       sourcePrepRecordIds: [...item.sourcePrepRecordIds].sort(),
       sourceLocations: item.sourceLocations.map((location) => ({
         ...location,
@@ -4788,7 +5154,7 @@ export function listActivePickupNodes(
       .filter(Boolean)
       .sort()
       .at(-1) || ''
-    const businessUpdatedAt = [latestMaterialAt, latestReturnAt].filter(Boolean).sort().at(-1) || ''
+    const businessUpdatedAt = [latestMaterialAt, latestReturnAt, ...items.flatMap(item => (item.printReceiptSources ?? []).map(source => source.receivedAt))].filter(Boolean).sort().at(-1) || ''
     let snapshot = store.pickupNodeSnapshots.find((item) => item.nodeId === nodeId)
     if (!snapshot) {
       snapshot = {
@@ -4885,6 +5251,7 @@ export function appendPickupSessionFromNode(
   if (node.version !== input.pickupNodeVersion) {
     throw new Error('当前待领物料已更新，请重新核对全部物料后再确认接收。')
   }
+  assertCuttingRawPrepNodeReceipt(node, listMaterialPrepOrderProjections(storage), demandFacts)
   // listActivePickupNodes 会在物料事实变化时持久化节点快照；提交前重新读取，
   // 避免随后保存接收事实时用旧 Store 覆盖刚刚递增的节点版本。
   store = hydrateProductionMaterialPrepStore(storage)
@@ -4895,6 +5262,7 @@ export function appendPickupSessionFromNode(
   const toLocationRefs = Array.from(
     new Map((input.toLocationRefs ?? []).map((location) => [location.locationId, cloneRecord(location)])).values(),
   )
+  if (node.items.some(item => item.printReceiptSources?.some(source => !toLocationRefs.length || toLocationRefs.some(location => location.factoryId !== source.targetFactoryId)))) throw new Error('所选待加工仓与原裁剪任务工厂不一致，请重新核对。')
   const firstTargetLocation = toLocationRefs[0]
   const targetWarehouseArea = firstTargetLocation?.areaName || input.warehouseArea
   const targetLocationCode = firstTargetLocation?.locationNo || input.locationCode
@@ -4928,7 +5296,7 @@ export function appendPickupSessionFromNode(
       prepLineId: item.prepLineId,
       productionOrderId: node.productionOrderId,
       pickedQty: roundQty(item.currentAvailableQty),
-      rollCount: Math.max(item.rollCount, 1),
+      rollCount: Math.max(item.rollCount, 0),
       receiverName: input.receiverName,
       pickedAt: occurredAt,
       warehouseArea: targetWarehouseArea,
@@ -4942,6 +5310,7 @@ export function appendPickupSessionFromNode(
       remark: '按待领节点一次性接收入待加工仓。',
       pickupSessionId,
       pickupNodeId: node.nodeId,
+      printReceiptSources: item.printReceiptSources ? cloneRecord(item.printReceiptSources) : undefined,
       sourcePrepRecordIds: [...item.sourcePrepRecordIds],
       sourceAllocations: item.sourceAllocations.map((allocation) => ({
         prepRecordId: allocation.prepRecordId,
@@ -5074,6 +5443,7 @@ export function appendPickupReturnRecord(
   if (!pickupRecord) {
     throw new Error(`接收记录不存在：${input.pickupRecordId}`)
   }
+  if (pickupRecord.printReceiptSources?.length) throw new Error('印花成品领取暂不支持原配料退回，请联系主管处理，不要退回原料批次。')
   const prepRecord = store.prepRecords.find((record) => record.prepRecordId === input.prepRecordId)
   const prepRecordItem = prepRecord
     ? getMaterialPrepRecordItems(prepRecord).find((item) => item.prepLineId === input.prepLineId)
@@ -5179,6 +5549,6 @@ export function appendPickupReturnRecord(
 }
 
 export function buildPrepLedgerRows(): MaterialLedgerProjection[] {
-  const knownCutOrderIds = new Set(materialPrepSeedOrders.flatMap((order) => order.lines.map((line) => line.cutOrderId)))
+  const knownCutOrderIds = new Set(listCurrentMaterialPrepOrders().flatMap((order) => order.lines.map((line) => line.cutOrderId)).filter(Boolean))
   return listMaterialLedgerProjections().filter((row) => knownCutOrderIds.has(row.cutOrderId))
 }

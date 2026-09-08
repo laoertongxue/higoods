@@ -16,14 +16,7 @@ import { buildMaterialPrepViewModel } from './material-prep-model.ts'
 import { buildCutOrderViewModel, type CutOrderRow } from './cut-orders-model.ts'
 import { buildProductionProgressRows } from './production-progress-model.ts'
 import { buildSampleWarehouseViewModel } from './sample-warehouse-model.ts'
-import {
-  buildSpecialProcessViewModel,
-  type BindingStripProcessPayload,
-  type SpecialProcessExecutionLog,
-  type SpecialProcessFollowupAction,
-  type SpecialProcessOrder,
-  type SpecialProcessScopeLine,
-} from './special-processes-model.ts'
+import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
   buildSummaryDetailPanelData,
   buildCuttingSummaryViewModel,
@@ -265,15 +258,7 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     baseViewModel: transferBagView,
   })
 
-  const specialProcessView = buildSpecialProcessViewModel({
-    cutOrderRows,
-    markerPlanSources,
-    orders: snapshot.specialProcessState.orders as unknown as SpecialProcessOrder[],
-    bindingPayloads: snapshot.specialProcessState.bindingPayloads as unknown as BindingStripProcessPayload[],
-    scopeLines: snapshot.specialProcessState.scopeLines as unknown as SpecialProcessScopeLine[],
-    executionLogs: snapshot.specialProcessState.executionLogs as unknown as SpecialProcessExecutionLog[],
-    followupActions: snapshot.specialProcessState.followupActions as unknown as SpecialProcessFollowupAction[],
-  })
+  const bindingProcessOrders = buildBindingProcessOrders()
 
   return {
     productionRows: progressRows,
@@ -287,7 +272,7 @@ export function mapCuttingDomainSnapshotToSummaryBuildOptions(
     sampleWarehouseView,
     transferBagView,
     transferBagReturnView,
-    specialProcessView,
+    bindingProcessOrders,
   }
 }
 

@@ -62,7 +62,7 @@ function renderSummary(): string {
             ${processes.map((process) => `<span class="rounded border bg-muted/20 px-2 py-1 text-xs">${escapeHtml(process.processName)}</span>`).join('')}
           </div>
           ${stage.stageCode === 'PREP' ? '<p class="mt-3 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">准备阶段只生成对应加工单，不进入生产任务清单、任务分配或合并任务。</p>' : ''}
-          ${stage.stageCode === 'POST' ? '<p class="mt-3 rounded bg-blue-50 px-2 py-1.5 text-xs text-blue-800">质检、复检是回货流程节点，不是工序；后道阶段仅包含开扣眼、装扣子、烫包。</p>' : ''}
+          ${stage.stageCode === 'POST' ? '<p class="mt-3 rounded bg-blue-50 px-2 py-1.5 text-xs text-blue-800">后道实际项目由三方任务范围和到货质检动态确定；开扣眼、装扣子、烫包不进入技术包固定路线。</p>' : ''}
         </article>
       `
     })
@@ -90,7 +90,10 @@ function renderDetailDialog(): string {
         ${[
           ['所属阶段', row.stageName],
           ['所属工序', row.processName],
-          ['作用对象', row.targetObjectName],
+          ['默认作用对象', row.targetObjectName],
+          ['投入类型', row.inputObjectTypeText],
+          ['产出类型', row.outputObjectTypeText],
+          ['消耗物料类型', row.consumedObjectTypeText],
           ['任务口径', row.taskScopeLabel],
           ['分配粒度', granularityLabels[row.assignmentGranularity]],
           ['是否生成生产任务', row.generatesExternalTaskLabel],
@@ -130,9 +133,9 @@ export function renderProductionCraftDictPage(): string {
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[980px] text-sm">
-            <thead class="bg-muted/30 text-xs"><tr><th class="px-3 py-2 text-left">阶段</th><th class="px-3 py-2 text-left">工序</th><th class="px-3 py-2 text-left">工艺</th><th class="px-3 py-2 text-left">作用对象</th><th class="px-3 py-2 text-left">任务口径</th><th class="px-3 py-2 text-left">是否出生产任务</th><th class="px-3 py-2 text-left">状态</th></tr></thead>
+            <thead class="bg-muted/30 text-xs"><tr><th class="px-3 py-2 text-left">阶段</th><th class="px-3 py-2 text-left">工序</th><th class="px-3 py-2 text-left">工艺</th><th class="px-3 py-2 text-left">投入 → 产出</th><th class="px-3 py-2 text-left">任务口径</th><th class="px-3 py-2 text-left">是否出生产任务</th><th class="px-3 py-2 text-left">状态</th></tr></thead>
             <tbody>
-              ${rows.length ? rows.map((row) => `<tr class="border-t hover:bg-muted/20"><td class="px-3 py-2">${escapeHtml(row.stageName)}</td><td class="px-3 py-2 font-medium">${escapeHtml(row.processName)}</td><td class="px-3 py-2"><button class="text-primary hover:underline" data-craft-dict-action="open-detail" data-craft-code="${escapeHtml(row.craftCode)}">${escapeHtml(row.craftName)}</button><p class="text-[11px] text-muted-foreground">${escapeHtml(row.craftCode)}</p></td><td class="px-3 py-2">${escapeHtml(row.targetObjectName)}</td><td class="px-3 py-2">${escapeHtml(row.taskScopeLabel)}</td><td class="px-3 py-2">${escapeHtml(row.generatesExternalTaskLabel)}</td><td class="px-3 py-2">${escapeHtml(row.statusLabel)}</td></tr>`).join('') : '<tr><td colspan="7" class="py-10 text-center text-muted-foreground">暂无符合条件的数据</td></tr>'}
+              ${rows.length ? rows.map((row) => `<tr class="border-t hover:bg-muted/20"><td class="px-3 py-2">${escapeHtml(row.stageName)}</td><td class="px-3 py-2 font-medium">${escapeHtml(row.processName)}</td><td class="px-3 py-2"><button class="text-primary hover:underline" data-craft-dict-action="open-detail" data-craft-code="${escapeHtml(row.craftCode)}">${escapeHtml(row.craftName)}</button><p class="text-[11px] text-muted-foreground">${escapeHtml(row.craftCode)}</p></td><td class="px-3 py-2">${escapeHtml(row.inputObjectTypeText)} → ${escapeHtml(row.outputObjectTypeText)}</td><td class="px-3 py-2">${escapeHtml(row.taskScopeLabel)}</td><td class="px-3 py-2">${escapeHtml(row.generatesExternalTaskLabel)}</td><td class="px-3 py-2">${escapeHtml(row.statusLabel)}</td></tr>`).join('') : '<tr><td colspan="7" class="py-10 text-center text-muted-foreground">暂无符合条件的数据</td></tr>'}
             </tbody>
           </table>
         </div>

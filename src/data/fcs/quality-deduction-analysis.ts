@@ -1,5 +1,5 @@
 import { parseQualityDeductionTimestamp } from './quality-deduction-lifecycle.ts'
-import { listPostFinishingQcOrders } from './post-finishing-domain.ts'
+import { listPostFinishingQcOrders } from './post-finishing-current-read-model.ts'
 import { listStatementConfirmedDeductionRows } from './store-domain-statement-source-adapter.ts'
 import type { StatementDeductionLineType } from './store-domain-settlement-types.ts'
 import type {

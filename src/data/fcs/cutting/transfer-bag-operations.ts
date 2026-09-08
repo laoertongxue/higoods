@@ -1,3 +1,6 @@
+import { localDateTimeText } from '../../../utils.ts'
+import { getRuntimeTaskById, isRuntimeSewingTask, autoStartRuntimeSewingTaskFromCutPieceHandover } from '../runtime-process-tasks.ts'
+import { listWoolPanelCuttingReceiptSources } from '../wool-domain/cutting-receipts.ts'
 import {
   appendCuttingRuntimeEventIdempotent,
   appendCuttingRuntimeEventIdempotentValidated,
@@ -373,7 +376,7 @@ function normalizeRequiredSubmittedTicketSnapshot(
   const incomplete = snapshot.find((item) =>
     WHOLE_BAG_SNAPSHOT_FIELDS.some((field) => field === 'pieceQty'
       ? !Number.isFinite(item.pieceQty) || item.pieceQty <= 0
-      : !text(item[field])))
+      : (field === 'cutOrderId' || field === 'cutOrderNo') && item.feiTicketNo.startsWith('WOOL-PANEL:') ? false : !text(item[field])))
   if (incomplete) {
     throw new Error(`整袋交出的提交快照不完整：${incomplete.feiTicketNo || incomplete.feiTicketId || '未知菲票'}。`)
   }
@@ -434,7 +437,12 @@ export function resolveWholeBagHandoverEligibility(
   }
 
   if (handoverContext) {
-    const classification = classifyTransferBagForHandoverTask({ currentUse, handoverContext })
+    const assignmentsByTicket = new Map(input.assignments.map((assignment) => [assignment.feiTicketId, assignment]))
+    const assignedCurrentUse = { ...currentUse, tickets: currentUse.tickets.map((ticket) => {
+      const assignment = assignmentsByTicket.get(ticket.feiTicketId)
+      return assignment ? { ...ticket, sewingTaskId: assignment.sewingTaskId, sewingTaskNo: assignment.sewingTaskNo, receiverFactoryId: assignment.receiverFactoryId, receiverFactoryName: assignment.receiverFactoryName } : ticket
+    }) }
+    const classification = classifyTransferBagForHandoverTask({ currentUse: assignedCurrentUse, handoverContext })
     if (classification.disposition !== 'DIRECT_HANDOVER') {
       return failedWholeBagHandover(classification.reason)
     }
@@ -462,8 +470,7 @@ export function resolveWholeBagHandoverEligibility(
   const incompleteTicket = currentUse.tickets.find((ticket) =>
     !ticket.feiTicketNo.trim()
     || !ticket.productionOrderId.trim()
-    || !ticket.cutOrderId.trim()
-    || !ticket.cutOrderNo.trim()
+    || (!ticket.feiTicketNo.startsWith('WOOL-PANEL:') && (!ticket.cutOrderId.trim() || !ticket.cutOrderNo.trim()))
     || !ticket.color.trim()
     || !ticket.size.trim()
     || !ticket.partCode.trim()
@@ -733,8 +740,8 @@ function ticketSnapshot(
     feiTicketNo: text(value.feiTicketNo),
     productionOrderId: text(value.productionOrderId) || event.refs.productionOrderId || '',
     productionOrderNo: text(value.productionOrderNo) || event.refs.productionOrderNo || '',
-    cutOrderId: text(value.cutOrderId) || event.refs.cutOrderId || '',
-    cutOrderNo: text(value.cutOrderNo) || event.refs.cutOrderNo || '',
+    cutOrderId: typeof value.cutOrderId === 'string' ? text(value.cutOrderId) : event.refs.cutOrderId || '',
+    cutOrderNo: typeof value.cutOrderNo === 'string' ? text(value.cutOrderNo) : event.refs.cutOrderNo || '',
     color: text(value.color),
     size: text(value.size),
     partCode: text(value.partCode),
@@ -3871,6 +3878,31 @@ function findWholeBagHandoverEventsByRecordId(
     )) as CuttingRuntimeEvent<'新增交出记录'>[]
 }
 
+function buildWholeBagAutomaticSewingReceipts(tickets: TransferBagTicketFactSnapshot[], receivedAt: string, receivedBy: string) {
+  const receipts = new Map<string, NonNullable<WholeBagHandoverSubmitPayload['automaticSewingReceipts']>[number]>()
+  for (const ticket of tickets) {
+    const task = getRuntimeTaskById(ticket.sewingTaskId)
+    if (task && (!isRuntimeSewingTask(task) || task.productionOrderId !== ticket.productionOrderId || ['CANCELLED', 'BLOCKED', 'DONE'].includes(task.status))) {
+      throw new Error(`车缝任务 ${ticket.sewingTaskId} 当前不能接收本生产单裁片`)
+    }
+    const receipt = receipts.get(ticket.sewingTaskId) || { sewingTaskId: ticket.sewingTaskId, ...(task ? { runtimeTaskId: task.taskId } : {}), receivedPieceQty: 0, receivedAt, receivedBy, ticketIds: [] }
+    receipt.receivedPieceQty += ticket.pieceQty
+    receipt.ticketIds.push(ticket.feiTicketId)
+    receipts.set(ticket.sewingTaskId, receipt)
+  }
+  return [...receipts.values()]
+}
+
+function startWholeBagReceivedSewingTasks(event: CuttingRuntimeEvent<'新增交出记录'>, storage: BrowserStorageLike | null): void {
+  // Task-batch preflight replays into temporary storage; only the actual current ledger may start tasks.
+  if (storage !== getBrowserLocalStorage()) return
+  const payload = event.payload as WholeBagHandoverSubmitPayload
+  for (const receipt of payload.automaticSewingReceipts || []) {
+    if (!receipt.runtimeTaskId) continue // Explicitly unbound historical prototype task; never invent a runtime task.
+    autoStartRuntimeSewingTaskFromCutPieceHandover({ taskId: receipt.runtimeTaskId, handoverRecordNo: payload.handoverRecordNo, receivedAt: receipt.receivedAt, receivedBy: receipt.receivedBy })
+  }
+}
+
 export function submitWholeBagHandover(
   input: SubmitWholeBagHandoverInput,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
@@ -3886,7 +3918,7 @@ export function submitWholeBagHandover(
     ? normalizeHandoverTaskContext(input.handoverContext)
     : undefined
   const occurredAt = input.occurredAt?.trim()
-    || new Date().toISOString().slice(0, 16).replace('T', ' ')
+    || localDateTimeText().slice(0, 16)
   const events = sortedRuntimeEvents(storage)
   const existingRecords = findWholeBagHandoverEventsByRecordId(events, handoverRecordId)
   if (existingRecords.length) {
@@ -3917,6 +3949,7 @@ export function submitWholeBagHandover(
       throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
     }
     if (existingFact.canonicalIntent === retryCanonicalIntent) {
+      startWholeBagReceivedSewingTasks(existingFact.event, storage)
       return existingFact.event
     }
     throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
@@ -3958,6 +3991,12 @@ export function submitWholeBagHandover(
     ...(handoverContext ? { handoverContext: { ...handoverContext, targetFeiTicketIds: submittedTicketSnapshot.map((ticket) => ticket.feiTicketId) } } : {}),
   })
   const sourceLocation = wholeBagHandoverSourceLocation({ currentUse, events })
+  const woolSources = listWoolPanelCuttingReceiptSources()
+  for (const ticket of eligibility.ticketSnapshot.filter((item) => item.feiTicketNo.startsWith('WOOL-PANEL:'))) {
+    const source = woolSources.find((item) => item.feiTicketNo === ticket.feiTicketNo)
+    if (!source || source.feiTicketId !== ticket.feiTicketId || Boolean(ticket.cutOrderId || ticket.cutOrderNo) || source.productionOrderId !== ticket.productionOrderId || source.partCode !== ticket.partCode || source.skuColor !== ticket.color || source.skuSize !== ticket.size || source.qty !== ticket.pieceQty) throw new Error(`毛织片票 ${ticket.feiTicketNo} 与裁床实收事实不一致`)
+  }
+  const automaticSewingReceipts = buildWholeBagAutomaticSewingReceipts(eligibility.ticketSnapshot, occurredAt, eligibility.receiverFactoryName)
   const ticketSnapshot = eligibility.ticketSnapshot.map((ticket) => ({ ...ticket }))
   const totalPieceQty = ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
   const transferBagUse: WholeBagHandoverSubmitPayload['transferBagUses'][0] = {
@@ -3976,6 +4015,7 @@ export function submitWholeBagHandover(
   }
   const payload: WholeBagHandoverSubmitPayload = {
     canonicalIntent,
+    automaticSewingReceipts,
     handoverLegId: handoverLeg.handoverLegId,
     ...(handoverContext ? {
       handoverBatchId: handoverContext.handoverBatchId,
@@ -4046,5 +4086,6 @@ export function submitWholeBagHandover(
   ) {
     throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
   }
+  startWholeBagReceivedSewingTasks(persistedFact.event, storage)
   return persistedFact.event
 }

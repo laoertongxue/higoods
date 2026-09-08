@@ -20,7 +20,7 @@ import { getPrintWorkOrderByTaskId } from './printing-task-domain.ts'
 import {
   getPostFinishingTaskById,
   getPostFinishingWorkOrderBySourceTaskId,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import {
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,

@@ -11,7 +11,7 @@ import {
 } from './pre-settlement-ledger-repository.ts'
 import { processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
-import { listPostFinishingQcOrderEntities } from './post-finishing-domain.ts'
+import { listPostFinishingQcOrderEntities } from './post-finishing-current-read-model.ts'
 import { canStatementEnterPrepayment, initialStatementDrafts } from './store-domain-settlement-seeds.ts'
 import {
   calculateProductionOrderSettlementSummary,

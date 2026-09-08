@@ -1,3 +1,4 @@
+import { appendManualPrepRecord } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { renderBadge } from '../../../components/ui/badge.ts'
 
 import {
@@ -64,6 +65,15 @@ export function renderPrepRecordStatusBadge(status: MaterialPrepRecordStatus): s
 export function formatQty(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '0'
   return value.toLocaleString('zh-CN')
+}
+
+export function formatMaterialPrepStockByUnit(lines: Pick<MaterialPrepLine, 'availableStockQty' | 'unit'>[]): string {
+  const totals = new Map<string, number>()
+  for (const line of lines) {
+    const unit = line.unit?.trim() || '单位待确认'
+    totals.set(unit, (totals.get(unit) || 0) + Number(line.availableStockQty || 0))
+  }
+  return [...totals].map(([unit, quantity]) => formatUnitQty(quantity, unit)).join('；') || '0'
 }
 
 export function formatMaterialPrepRecordByUnit(record: MaterialPrepRecord): string {
@@ -162,4 +172,43 @@ export function renderMaterialPickupRecordCodeButton(
     highlightKey: `MATERIAL_PICKUP_RECORD:${pickup.pickupRecordId}`,
     className: options.className,
   })
+}
+
+// 五个既有配料表单共用读取；保存失败保留当前输入。
+export function saveMaterialPrepForm(button: HTMLElement, prepOrderId: string): boolean {
+  const form = button.closest<HTMLElement>('[data-fcs-prep-form]')
+  if (!form) return false
+  try {
+    const value = (selector: string) => form.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)?.value ?? ''
+    const items = Array.from(form.querySelectorAll<HTMLElement>('[data-prep-line-id]')).map((row) => ({
+      prepLineId: row.dataset.prepLineId || '',
+      preparedQty: Number(row.querySelector<HTMLInputElement>('[data-fcs-prep-line-qty]')?.value ?? 0),
+      rollCount: Number(row.querySelector<HTMLInputElement>('[data-fcs-prep-line-count]')?.value ?? 0),
+    }))
+    if (items.some((item) => !Number.isFinite(item.preparedQty) || item.preparedQty < 0 || !Number.isInteger(item.rollCount) || item.rollCount < 0)) throw new Error('请填写有效的配料数量和非负整数卷数或件数。')
+    const selected = items.filter((item) => item.preparedQty > 0)
+    if (!selected.length) throw new Error('请至少填写一行大于0的本次配料数量。')
+    if (!value('[data-fcs-prep-time]').trim()) throw new Error('请填写本次配料时间。')
+    appendManualPrepRecord({ prepOrderId, ...selected[0], items: selected, appendToRecordId: button.dataset.appendPrepRecordId,
+      operatorName: value('[data-fcs-prep-operator]'), preparedAt: value('[data-fcs-prep-time]'),
+      remark: value('[data-fcs-prep-remark]'), warehouseArea: '', locationCode: '',
+    })
+    return true
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '配料未保存，请检查输入后重试。')
+    return false
+  }
+}
+
+export function getMaterialPrepFormTime(): string {
+  const date = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export function askMaterialPrepOperator(action: string): string | null {
+  const name = window.prompt(`请输入本次${action}人姓名：`, '')
+  if (name === null) return null
+  if (!name.trim()) { window.alert('请填写实际操作人姓名。'); return null }
+  return name.trim()
 }

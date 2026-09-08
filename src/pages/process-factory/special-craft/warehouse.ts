@@ -177,7 +177,7 @@ function filterUnifiedRecordsByDomain<T extends { craftName?: string }>(
 
 function resolvePhysicalAreaMeta(craftName: string): PhysicalAreaMeta {
   if (craftName.includes('直喷') || craftName.includes('烫画')) return PHYSICAL_AREA_OPTIONS[0]
-  if (craftName.includes('绣') || craftName.includes('贝壳') || craftName.includes('曲牙')) return PHYSICAL_AREA_OPTIONS[1]
+  if (craftName.includes('绣') || craftName.includes('贝壳') || craftName.includes('曲牙绣')) return PHYSICAL_AREA_OPTIONS[1]
   if (craftName.includes('打条') || craftName.includes('压褶')) return PHYSICAL_AREA_OPTIONS[2]
   return PHYSICAL_AREA_OPTIONS[3]
 }

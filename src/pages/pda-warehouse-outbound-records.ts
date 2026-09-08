@@ -3,10 +3,11 @@ import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingFullFlowOutboundOrders,
+  listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
-  type PostFinishingWarehouseFlowRecord,
-} from '../data/fcs/post-finishing-domain.ts'
+} from '../data/fcs/post-finishing-full-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -65,7 +66,15 @@ interface PostFinishingOutboundFlowRow {
   recordId: string
   warehouseRecordNo: string
   recheckOrderNo: string
-  flow: PostFinishingWarehouseFlowRecord
+  flow: {
+    flowRecordNo: string
+    qty: number
+    qtyUnit: string
+    sourceActionRecordNo: string
+    operatorName: string
+    operatedAt: string
+    remark: string
+  }
   sourceProductionOrderNo: string
   sourceTaskNo: string
   spuName: string
@@ -80,8 +89,8 @@ function normalizePostFinishingIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
 }
 
-function buildPostFinishingPdaHandoverRoute(recheckOrderNo: string): string {
-  return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(recheckOrderNo)}`
+function buildPostFinishingPdaHandoverRoute(outboundOrderNo: string): string {
+  return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(outboundOrderNo)}`
 }
 
 function getLinkedQrValue(source: object): string | undefined {
@@ -90,22 +99,28 @@ function getLinkedQrValue(source: object): string | undefined {
 }
 
 function getPostFinishingOutboundRows(): PostFinishingOutboundFlowRow[] {
-  return listPostFinishingWaitHandoverWarehouseRecords().flatMap((record) =>
-    record.flowRecords
-      .filter((flow) => flow.flowType === '交出出仓')
-      .map((flow) => ({
-        recordId: flow.flowRecordId,
-        warehouseRecordNo: record.warehouseRecordNo,
-        recheckOrderNo: record.recheckOrderNo,
-        flow,
-        sourceProductionOrderNo: record.sourceProductionOrderNo,
-        sourceTaskNo: record.sourceTaskNo,
-        spuName: record.spuName,
-        skuSummary: record.skuSummary,
-        receivedQty: record.receivedHandoverGarmentQty,
-        diffQty: record.diffGarmentQty,
-      })),
-  )
+  const records = listPostFinishingWaitHandoverWarehouseRecords()
+  const outbounds = listPostFinishingFullFlowOutboundOrders()
+  return listPostFinishingWaitHandoverWarehouseMovements()
+    .filter((movement) => movement.movementType === '后道出货交出')
+    .map((movement) => {
+      const record = records.find((item) => item.warehouseRecordId === movement.warehouseRecordId)!
+      const outbound = outbounds.find((item) => item.outboundOrderId === record.outboundOrderId)
+      const qty = movement.quantities.reduce((sum, line) => sum + line.quantity, 0)
+      const receivedQty = outbound?.lines.reduce((sum, line) => sum + (line.receivedQty || 0), 0) || 0
+      return {
+        recordId: movement.movementId,
+        warehouseRecordNo: record.warehouseRecordId,
+        recheckOrderNo: record.outboundOrderNo,
+        flow: { flowRecordNo: movement.movementId, qty, qtyUnit: '件', sourceActionRecordNo: record.outboundOrderNo, operatorName: movement.operator.actorName, operatedAt: movement.operatedAt, remark: movement.movementType },
+        sourceProductionOrderNo: record.productionOrderNo,
+        sourceTaskNo: record.postTaskNo || record.qcTaskNo,
+        spuName: record.lines[0]?.sku.spuName || '成衣',
+        skuSummary: record.lines.map((line) => `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`).join('、'),
+        receivedQty,
+        diffQty: receivedQty - qty,
+      }
+    })
 }
 
 function getRows() {

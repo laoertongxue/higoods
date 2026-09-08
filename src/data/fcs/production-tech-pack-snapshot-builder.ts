@@ -4,7 +4,7 @@ import {
   getTechnicalDataVersionContentById,
   listTechnicalDataVersionsByStyleId,
 } from '../pcs-technical-data-version-repository.ts'
-import { normalizeProcessRouteEntries } from '../tech-pack-process-route.ts'
+import { materializeLegacyProcessRoutePredecessors } from '../tech-pack-process-route.ts'
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
 import type { ProductionDemand } from './production-demands.ts'
 import {
@@ -209,6 +209,9 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     routeParallelGroupId: item.routeParallelGroupId,
     routeParallelGroupName: item.routeParallelGroupName,
     routeSourceKind: item.routeSourceKind,
+    routeObjectKey: item.routeObjectKey,
+    inputObjectType: item.inputObjectType,
+    outputObjectType: item.outputObjectType,
     routeUpdatedBy: item.routeUpdatedBy,
     routeUpdatedAt: item.routeUpdatedAt,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
@@ -216,6 +219,8 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
     linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    consumedBomItemIds: [...(item.consumedBomItemIds ?? [])],
+    predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
     visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
 }
@@ -230,7 +235,7 @@ function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<Technica
 }
 
 function freezeProcessEntries(items: TechnicalProcessEntry[], _snapshotId: string): TechnicalProcessEntry[] {
-  return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
+  return materializeLegacyProcessRoutePredecessors(cloneProcessEntries(items).map((item) => ({
     ...item,
     routeSourceKind: inferRouteSourceKind(item),
   })))
@@ -315,28 +320,6 @@ function getBomDisplayCode(item: TechPackBomItemSnapshot, index: number): string
   )
 }
 
-function buildMaterialSwatchImageUrl(item: TechPackBomItemSnapshot, index: number): string {
-  const palettes = [
-    ['#dbeafe', '#1d4ed8', '#eff6ff'],
-    ['#dcfce7', '#047857', '#f0fdf4'],
-    ['#fef3c7', '#b45309', '#fffbeb'],
-    ['#fce7f3', '#be185d', '#fff1f2'],
-    ['#e0e7ff', '#4338ca', '#eef2ff'],
-  ] as const
-  const [base, accent, soft] = palettes[index % palettes.length]
-  const code = getBomDisplayCode(item, index)
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90">',
-    `<rect width="120" height="90" rx="10" fill="${soft}"/>`,
-    `<rect x="10" y="10" width="100" height="70" rx="8" fill="${base}"/>`,
-    `<path d="M10 28h100M10 48h100M10 68h100" stroke="${accent}" stroke-width="1.2" opacity=".32"/>`,
-    `<path d="M28 10v70M58 10v70M88 10v70" stroke="${accent}" stroke-width="1.2" opacity=".22"/>`,
-    `<text x="60" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="${accent}">${code}</text>`,
-    '</svg>',
-  ].join('')
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
-
 function enrichBomItemsWithMaterialAssets(
   bomItems: TechPackBomItemSnapshot[],
   patternFiles: TechPackPatternFileSnapshot[],
@@ -366,7 +349,7 @@ function enrichBomItemsWithMaterialAssets(
     })
     const materialImageUrl = formalMaterialImage || (isAllowedSnapshotImage(item.materialImageUrl)
       ? normalizeText(item.materialImageUrl)
-      : linkedImage || buildMaterialSwatchImageUrl(item, index))
+      : linkedImage || '')
 
     return {
       ...item,
@@ -789,7 +772,8 @@ export function alignWoolColorMaterialMappingsForDemand(input: {
           .filter((line) => matchesColorIdentity(line, colorIdentity))
           .map((line) => line.skuCode),
       )
-      const materialInfo = input.resolveMaterialInfo?.(colorCode, colorName, colorIndex)
+      // 已确认的颜色物料映射属于发布资料；需求对齐只能调整适用 SKU，不能替换物料身份。
+      const materialInfo = existing ? undefined : input.resolveMaterialInfo?.(colorCode, colorName, colorIndex)
       const mappingId = input.mappingIdPrefix
         ? `${input.mappingIdPrefix}-${colorIndex + 1}`
         : existing?.id ?? `${template.id}-fallback-${colorIndex + 1}`

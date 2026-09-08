@@ -9,7 +9,7 @@ import {
   type PostFinishingActionRecord,
   type PostFinishingEvidenceAsset,
   type PostFinishingQcSkuResult,
-} from '../../data/fcs/post-finishing-domain.ts'
+} from '../../data/fcs/post-finishing-current-read-model.ts'
 
 export type QcFactSourceKind = 'QUALITY_CHAIN' | 'POST_FINISHING_QC'
 export type QcSettlementTraceStatus = '未进入对账' | '待对账引用' | '已进入对账'

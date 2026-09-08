@@ -51,6 +51,10 @@ function generateQcId(): string {
   return `QC-${Date.now()}-${randomSuffix(4)}`
 }
 
+function isProcessorManagedReturn(processType: string): boolean {
+  return processType === 'PRINT' || processType === 'DYE' || processType === 'DYE_PRINT'
+}
+
 function createQc(
   payload: Omit<QualityInspection, 'qcId' | 'status' | 'auditLogs' | 'createdAt' | 'updatedAt'>,
 ): QualityInspection {
@@ -258,7 +262,7 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
           now,
           taskId: parentTask?.taskId ?? resolvedTaskId,
           factoryId: parentTask?.assignedFactoryId ?? inboundBatch.returnFactoryId,
-          settlementPartyType: inboundBatch.sourceType === 'DYE_PRINT_ORDER' ? 'PROCESSOR' : 'FACTORY',
+          settlementPartyType: isProcessorManagedReturn(inboundBatch.processType) ? 'PROCESSOR' : 'FACTORY',
           settlementPartyId: inboundBatch.returnFactoryId,
         })
 
@@ -452,7 +456,6 @@ function buildPayload(
       basePayload.productionOrderId = inboundBatch.productionOrderId
       basePayload.refTaskId = inboundBatch.sourceTaskId
       basePayload.sourceProcessType = inboundBatch.processType
-      basePayload.sourceOrderId = inboundBatch.sourceType === 'DYE_PRINT_ORDER' ? inboundBatch.sourceId : undefined
       basePayload.sourceReturnId = inboundBatch.batchId
       basePayload.inspectionScene =
         inboundBatch.processType === 'SEW'

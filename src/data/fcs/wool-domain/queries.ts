@@ -1,3 +1,4 @@
+import { ensureRuntimeWoolWorkOrders } from './tech-pack-source.ts'
 import { readWoolStore, type WoolDomainStore } from './store.ts'
 import {
   getWoolWarehouseLedgerBalance,
@@ -67,6 +68,7 @@ export interface WoolWorkOrderReadinessProjection {
 }
 
 export interface WoolWorkOrderFilters {
+  productionOrderId?: string
   keyword?: string
   kind?: WoolWorkOrderKind
   tab?: WoolWorkOrderTab
@@ -729,7 +731,9 @@ function includesKeyword(order: WoolWorkOrder, keyword: string): boolean {
 }
 
 export function listWoolWorkOrders(filters: WoolWorkOrderFilters = {}): WoolWorkOrder[] {
+  ensureRuntimeWoolWorkOrders(filters.productionOrderId)
   const candidates = Object.values(readWoolStore().workOrders)
+    .filter(order => !filters.productionOrderId || order.productionOrderId === filters.productionOrderId)
     .filter((order) => includesKeyword(order, filters.keyword ?? ''))
     .filter((order) => !filters.kind || order.kind === filters.kind)
     .filter((order) =>
@@ -746,6 +750,7 @@ export function listWoolWorkOrders(filters: WoolWorkOrderFilters = {}): WoolWork
 }
 
 export function getWoolWorkOrderById(woolOrderId: string): WoolWorkOrder | undefined {
+  ensureRuntimeWoolWorkOrders()
   const normalizedId = woolOrderId.trim()
   if (!normalizedId) return undefined
   return Object.values(readWoolStore().workOrders).find((order) =>
@@ -754,6 +759,7 @@ export function getWoolWorkOrderById(woolOrderId: string): WoolWorkOrder | undef
 }
 
 export function getWoolWorkOrderByTaskId(taskId: string): WoolWorkOrder | undefined {
+  ensureRuntimeWoolWorkOrders()
   const normalizedId = taskId.trim()
   if (!normalizedId) return undefined
   const matches = Object.values(readWoolStore().workOrders).filter((order) =>

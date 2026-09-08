@@ -5,7 +5,8 @@ import {
   listPostFinishingRecheckOrders,
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWorkOrders,
-} from '../src/data/fcs/post-finishing-domain.ts'
+} from '../src/data/fcs/post-finishing-current-read-model.ts'
+import { loadPostFinishingDemoData } from '../src/data/fcs/post-finishing-full-flow.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 
 const root = process.cwd()
@@ -107,6 +108,7 @@ assertNotIncludes(appShell, "title: 'Web 质检工作台'", 'Web 质检工作台
   assertIncludes(routes, route, `后道路由缺少 ${route}`)
 })
 
+loadPostFinishingDemoData()
 const postCounts = new Map<string, number>()
 listPostFinishingActionRecords().forEach((record) => {
   postCounts.set(record.actionType, (postCounts.get(record.actionType) || 0) + 1)

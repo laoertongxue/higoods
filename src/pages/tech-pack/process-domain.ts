@@ -16,10 +16,11 @@ import {
 } from './context.ts'
 import type { TechniqueItem } from './context.ts'
 import { sortProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
+import { scheduleProcessRouteLogicFlowMount } from './process-route-logicflow.ts'
 
 const routeSourceKindLabel: Record<TechniqueItem['routeSourceKind'], string> = {
   DICT_REFERENCE: '工序字典引用',
-  GARMENT_CATEGORY: '品类默认路线',
+  GARMENT_CATEGORY: '品类工序要求',
   BOM_REQUIREMENT: '物料要求推导',
   PATTERN_PACKAGE: '纸样资料推导',
   PIECE_CRAFT: '裁片部位工艺',
@@ -40,49 +41,6 @@ function getProcessRouteGroups(): ProcessRouteGroup[] {
     stepNo,
     items: items.slice().sort((left, right) => left.routeLaneNo - right.routeLaneNo),
   }))
-}
-
-function renderRouteActionButtons(item: TechniqueItem, readonly: boolean): string {
-  if (readonly) return ''
-  const isParallel = Boolean(item.routeParallelGroupId)
-  return `
-    <button
-      class="inline-flex h-7 w-7 items-center justify-center rounded border bg-background hover:bg-muted"
-      title="上移"
-      data-tech-action="move-technique-route-up"
-      data-tech-id="${escapeHtml(item.id)}"
-    >
-      <i data-lucide="arrow-up" class="h-3.5 w-3.5"></i>
-    </button>
-    <button
-      class="inline-flex h-7 w-7 items-center justify-center rounded border bg-background hover:bg-muted"
-      title="下移"
-      data-tech-action="move-technique-route-down"
-      data-tech-id="${escapeHtml(item.id)}"
-    >
-      <i data-lucide="arrow-down" class="h-3.5 w-3.5"></i>
-    </button>
-    ${
-      isParallel
-        ? `<button
-            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
-            data-tech-action="remove-technique-from-parallel"
-            data-tech-id="${escapeHtml(item.id)}"
-          >移出并行</button>`
-        : `<button
-            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
-            data-tech-action="make-techniques-parallel"
-            data-tech-id="${escapeHtml(item.id)}"
-            data-route-direction="previous"
-          >与上一步并行</button>
-          <button
-            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
-            data-tech-action="make-techniques-parallel"
-            data-tech-id="${escapeHtml(item.id)}"
-            data-route-direction="next"
-          >与下一步并行</button>`
-    }
-  `
 }
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
@@ -158,7 +116,6 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           ${removalConfirm}
         </div>
         <div class="flex flex-wrap items-center justify-end gap-1">
-          ${renderRouteActionButtons(item, readonly)}
           ${
             canEdit && !readonly
               ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${escapeHtml(item.id)}">
@@ -218,7 +175,7 @@ function renderProcessRouteEditor(readonly: boolean): string {
   if (routeGroups.length === 0) {
     return `
       <section class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-        暂无工序工艺，请先新增生产阶段或后道阶段工序。
+        暂无工艺节点。准备阶段由 BOM 要求生成，生产阶段可由纸样绑定、成衣 BOM 或人工配置形成。
       </section>
     `
   }
@@ -247,6 +204,37 @@ function renderProcessRouteEditor(readonly: boolean): string {
           `
         })
         .join('')}
+    </section>
+  `
+}
+
+function renderProcessRouteGraph(): string {
+  const readonly = isTechPackModuleReadOnly('PROCESS')
+  if (state.techniques.length === 0) {
+    return `
+      <section class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+        暂无工艺节点。准备阶段节点由 BOM 要求生成，生产阶段节点可从纸样绑定或手工新增。
+      </section>
+    `
+  }
+  return `
+    <section class="overflow-hidden rounded-lg border bg-card" data-testid="tech-pack-process-route-graph-panel">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-xs text-muted-foreground">
+        <div class="flex flex-wrap items-center gap-4">
+          <span class="inline-flex items-center gap-1"><i class="h-2.5 w-2.5 rounded-full bg-blue-600"></i>准备阶段</span>
+          <span class="inline-flex items-center gap-1"><i class="h-2.5 w-2.5 rounded-full bg-emerald-600"></i>生产阶段</span>
+          <span>线条只表示上游对象类型可由下游承接，不锁定生产单实际物料</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="rounded border bg-background px-2 py-1 hover:bg-muted" data-tech-route-graph-action="auto-layout">自动整理布局</button>
+          <button type="button" class="rounded border bg-background px-2 py-1 hover:bg-muted" data-tech-route-graph-action="fit-view">适配画布</button>
+          ${readonly ? '' : '<button type="button" class="rounded border bg-background px-2 py-1 hover:bg-muted" data-tech-route-graph-action="undo">撤销</button><button type="button" class="rounded border bg-background px-2 py-1 hover:bg-muted" data-tech-route-graph-action="redo">重做</button>'}
+        </div>
+      </header>
+      <div class="h-[560px] min-h-[420px] w-full" data-tech-process-route-graph></div>
+      <footer class="border-t bg-slate-50/60 px-4 py-3 text-xs text-muted-foreground">
+        <div data-tech-process-route-inspector>选择节点可查看来源与对象；从合法锚点拖出连线，双击连线可删除。</div>
+      </footer>
     </section>
   `
 }
@@ -365,13 +353,14 @@ export function renderProcessTab(): string {
     : state.processRouteUpdatedAt
       ? `最近调整：${state.processRouteUpdatedBy || '-'}　${state.processRouteUpdatedAt}`
       : '路线待跟单确认'
+  if (state.processRouteViewMode === 'GRAPH') scheduleProcessRouteLogicFlowMount()
   return `
     <section class="space-y-4">
       <header class="rounded-lg border bg-card px-4 py-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-base font-semibold">工序工艺</h3>
+              <h3 class="text-base font-semibold">工艺路线</h3>
               <span class="rounded border px-2 py-0.5 text-xs font-medium ${
                 routeConfirmed
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -381,8 +370,12 @@ export function renderProcessTab(): string {
             <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(confirmMeta)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex overflow-hidden rounded border bg-background">
+              <button type="button" class="px-2.5 py-1 text-xs ${state.processRouteViewMode === 'GRAPH' ? 'bg-blue-50 font-medium text-blue-700' : 'hover:bg-muted'}" data-tech-action="switch-process-route-view" data-route-view="GRAPH">路线图</button>
+              <button type="button" class="border-l px-2.5 py-1 text-xs ${state.processRouteViewMode === 'DETAIL' ? 'bg-blue-50 font-medium text-blue-700' : 'hover:bg-muted'}" data-tech-action="switch-process-route-view" data-route-view="DETAIL">工艺明细</button>
+            </div>
             ${stageOptions
-              .filter((stage) => !isPrepStage(stage))
+              .filter((stage) => !isPrepStage(stage) && stage === '生产阶段')
               .map((stage) =>
                 readonly
                   ? ''
@@ -410,8 +403,8 @@ export function renderProcessTab(): string {
           </div>
         </div>
       </header>
-      ${renderProcessRouteEditor(readonly)}
-      ${renderProcessRouteBatchTable()}
+      ${state.processRouteViewMode === 'GRAPH' ? renderProcessRouteGraph() : renderProcessRouteEditor(readonly)}
+      ${state.processRouteViewMode === 'DETAIL' ? renderProcessRouteBatchTable() : ''}
       ${renderProcessRouteRelations()}
     </section>
   `

@@ -1,3 +1,24 @@
+export interface PickupPrintReceiptSource {
+  handoverId: string
+  handoverRecordId: string
+  handoverRecordNo: string
+  printOrderId: string
+  productionOrderId: string
+  techPackVersionId: string
+  bomItemId: string
+  sourceProcessEntryId: string
+  targetProcessEntryId: string
+  targetCutOrderId: string
+  targetCutOrderNo: string
+  targetFactoryId: string
+  materialSku: string
+  unit: string
+  qty: number
+  receivedAt: string
+  receivedBy: string
+  rolls: Array<{ barcode: string; rollNo: string; length: number }>
+}
+
 export type PickupNodeType = 'INCOMPLETE_PICKABLE' | 'READY_TO_PICKUP'
 export type PickupNodeStatus = 'OPEN' | 'CLOSED'
 export type PickupNodeLocationPolicy = 'KEEP_CURRENT_LOCATION' | 'ASSIGN_INCOMPLETE_LOCATION' | 'DIRECT_READY_AREA'
@@ -44,6 +65,7 @@ export interface PickupNodeSourceAllocation {
 }
 
 export interface PickupNodeItem {
+  printReceiptSources?: PickupPrintReceiptSource[]
   nodeItemId: string
   prepLineId: string
   sourcePrepRecordIds: string[]

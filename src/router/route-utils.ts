@@ -19,14 +19,19 @@ function renderRouteRedirectPlaceholder(title: string): string {
 }
 
 export function renderRouteRedirect(targetPath: string, title: string): string {
-  const currentPath = appStore.getState().pathname
-  if (currentPath !== targetPath) {
-    queueMicrotask(() => {
-      if (appStore.getState().pathname !== targetPath) {
-        appStore.navigate(targetPath, { historyMode: 'replace' })
-      }
-    })
+  // Route rendering can finish before the queued store update runs during a
+  // direct browser load. Reconcile the address bar immediately, then let the
+  // store perform the normal state/tab update without adding another entry.
+  if (typeof window !== 'undefined') {
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    if (currentPath !== targetPath) window.history.replaceState({}, '', targetPath)
   }
+  // Always pass through navigate: during initial deep-link rendering the store
+  // can already contain the canonical route while the browser still shows a
+  // legacy URL. AppStore.navigate also reconciles that same-state URL case.
+  queueMicrotask(() => {
+    appStore.navigate(targetPath, { historyMode: 'replace' })
+  })
   return renderRouteRedirectPlaceholder(title)
 }
 

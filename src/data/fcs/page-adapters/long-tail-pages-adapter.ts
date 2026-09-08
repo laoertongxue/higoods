@@ -32,8 +32,8 @@ export interface LegacyLikeDeductionBasisItem {
   updatedAt?: string
 }
 
-export interface LegacyLikeDyePrintOrder {
-  dpId: string
+export interface PreparationProcessSummary {
+  processSummaryId: string
   productionOrderId: string
   processorFactoryId?: string
   availableQty: number
@@ -134,7 +134,7 @@ export function listLegacyLikeDeductionBasisForTailPages(): LegacyLikeDeductionB
   })
 }
 
-export function listLegacyLikeDyePrintOrdersForTailPages(): LegacyLikeDyePrintOrder[] {
+export function listPreparationProcessSummariesForTailPages(): PreparationProcessSummary[] {
   const demandArtifacts = listGeneratedProductionDemandArtifacts()
     .filter((item) => item.processCode === 'PRINT' || item.processCode === 'DYE')
     .sort((a, b) => a.artifactId.localeCompare(b.artifactId))
@@ -164,13 +164,13 @@ export function listLegacyLikeDyePrintOrdersForTailPages(): LegacyLikeDyePrintOr
     const returnedFailQty = handoutDiffCount * 10
 
     return {
-      dpId: `DPO-${artifact.orderId}-${artifact.processCode}`,
+      processSummaryId: `PREP-${artifact.orderId}-${artifact.processCode}`,
       productionOrderId: artifact.orderId,
       processorFactoryId: resolveOrderFactoryId(orderId),
       availableQty,
       returnedFailQty,
       returnBatches: [{ batchId: `RTB-${artifact.artifactId}` }],
-    } satisfies LegacyLikeDyePrintOrder
+    } satisfies PreparationProcessSummary
   })
 }
 

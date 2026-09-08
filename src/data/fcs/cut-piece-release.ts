@@ -1,3 +1,4 @@
+import { localDateTimeText } from '../../utils.ts'
 import {
   appendMatrixEvent,
   buildReleaseMatrix,
@@ -15,7 +16,9 @@ import {
   type ReleaseSourceStatus,
   type SupplementPartShortage,
 } from './cut-piece-release-domain.ts'
+import { getBrowserLocalStorage } from '../browser-storage.ts'
 import { listEffectiveTaskAssignments } from './effective-task-assignments.ts'
+import type { buildGeneratedCutReleaseInputs } from './cutting/generated-cut-release.ts'
 
 export type CutPieceReleaseDecision = '待判断' | '可以做' | '部分可以做' | '暂时不能做'
 
@@ -333,6 +336,7 @@ export interface SpreadingReleaseAdjustmentResult {
 }
 
 interface ReleaseRepositoryItem {
+  generatedSkuCodes?: Record<string, string>
   input: BuildReleaseMatrixInput
   spuName: string
   sourceCutOrderNos: string[]
@@ -352,6 +356,118 @@ const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
 const releaseRepository = new Map<string, ReleaseRepositoryItem>()
 const lateEvents = new Map<string, LateCutPieceReleaseEvent>()
 const releaseVersionRepository = new Map<string, CutPieceReleaseAvailableQtyVersion[]>()
+const GENERATED_RELEASE_STORAGE_KEY = 'higood-generated-cut-piece-release-v1'
+let loadedGeneratedReleaseRaw: string | null | undefined
+
+function readSavedGeneratedRelease(): void {
+  const storage = getBrowserLocalStorage()
+  if (!storage) return
+  const raw = storage.getItem(GENERATED_RELEASE_STORAGE_KEY)
+  if (!raw || raw === loadedGeneratedReleaseRaw) return
+  try {
+    const saved = JSON.parse(raw)
+    if (saved.version !== 1 || !Array.isArray(saved.items)) throw new Error('格式不匹配')
+    for (const entry of saved.items) {
+      const item = entry.item as ReleaseRepositoryItem
+      const id = item?.input?.productionOrderId
+      if (!id || !item.generatedSkuCodes || !Array.isArray(item.input.facts) || !Array.isArray(item.versions)
+        || !Array.isArray(entry.targets) || !Array.isArray(entry.releases) || !Array.isArray(entry.late)
+        || !Array.isArray(item.sourceStates) || !Array.isArray(item.spreadingAdjustmentKeys)) throw new Error('记录不完整')
+      item.spreadingAdjustmentKeys = new Set(item.spreadingAdjustmentKeys)
+      releaseRepository.set(id, item)
+      for (const [key, snapshot] of targetSnapshots) if (snapshot.productionOrderId === id) targetSnapshots.delete(key)
+      for (const snapshot of entry.targets) targetSnapshots.set(snapshot.snapshotId, snapshot)
+      releaseVersionRepository.set(id, entry.releases)
+      for (const [key, late] of lateEvents) if (late.productionOrderId === id) lateEvents.delete(key)
+      for (const late of entry.late) lateEvents.set(late.eventId, late)
+    }
+    loadedGeneratedReleaseRaw = raw
+  } catch { throw new Error('原裁片放行记录读取失败，请保留现场并联系主管，不能按未放行重新覆盖。') }
+}
+
+function saveGeneratedRelease(): void {
+  const storage = getBrowserLocalStorage()
+  if (typeof window === 'undefined') return // Node 技术契约不模拟浏览器持久化。
+  if (!storage?.setItem) throw new Error('浏览器无法保存原放行记录，请检查存储权限后重试。')
+  const items = [...releaseRepository.values()].filter(item => item.generatedSkuCodes).map(item => ({
+    item: { ...item, spreadingAdjustmentKeys: [...item.spreadingAdjustmentKeys] },
+    targets: [...targetSnapshots.values()].filter(snapshot => snapshot.productionOrderId === item.input.productionOrderId),
+    releases: releaseVersionRepository.get(item.input.productionOrderId) || [],
+    late: [...lateEvents.values()].filter(event => event.productionOrderId === item.input.productionOrderId),
+  }))
+  const raw = JSON.stringify({ version: 1, items })
+  storage.setItem(GENERATED_RELEASE_STORAGE_KEY, raw)
+  loadedGeneratedReleaseRaw = raw
+}
+
+function withSavedRelease<T>(operation: () => T, failure: (message: string) => T): T {
+  try { syncGeneratedCutPieceRelease() } catch (error) { return failure(error instanceof Error ? error.message : String(error)) }
+  const before = structuredClone({ releaseRepository, targetSnapshots, releaseVersionRepository, lateEvents })
+  try {
+    const result = operation()
+    if ([...releaseRepository.values()].some(item => item.generatedSkuCodes)) saveGeneratedRelease()
+    return result
+  } catch (error) {
+    const restore = <V>(target: Map<string, V>, source: Map<string, V>) => { target.clear(); for (const [key, value] of source) target.set(key, value) }
+    restore(releaseRepository, before.releaseRepository); restore(targetSnapshots, before.targetSnapshots)
+    restore(releaseVersionRepository, before.releaseVersionRepository); restore(lateEvents, before.lateEvents)
+    return failure(`本次未保存，已保留原放行记录：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+let syncingGeneratedRelease = false
+let readGeneratedReleaseInputs: (() => ReturnType<typeof buildGeneratedCutReleaseInputs>) | null = null
+// 页面加载后接入原产出读取，避免放行域反向导入任务初始化形成循环依赖。
+export function setGeneratedCutReleaseReader(reader: () => ReturnType<typeof buildGeneratedCutReleaseInputs>): void {
+  readGeneratedReleaseInputs = reader
+}
+
+function syncGeneratedCutPieceRelease(): void {
+  if (syncingGeneratedRelease) return
+  syncingGeneratedRelease = true
+  try {
+    readSavedGeneratedRelease()
+    for (const projection of readGeneratedReleaseInputs?.() || []) {
+      const { input, latestAt, operator } = projection
+      let item = releaseRepository.get(input.productionOrderId)
+      if (!item && !input.facts.length) continue
+      const event: MatrixEvent = { eventId: `actual-cut-sync:${input.productionOrderId}:${(item?.versions.length || 0) + 1}`,
+        eventType: '铺布完成', productionOrderId: input.productionOrderId,
+        occurredAt: latestAt || item?.latestUpdateAt || '', operator: operator || '原裁剪记录', reason: '读取原实际裁剪产出' }
+      if (!item) {
+        addRepositoryItem(input, projection.sources[0].styleName, projection.sources.map(source => source.cutOrderNo), event)
+        item = releaseRepository.get(input.productionOrderId)!
+      } else {
+        const frozen = new Set(item.sourceStates.filter(source => source.status === '已冻结').map(source => source.cutOrderId))
+        const nextFacts = input.facts.filter(fact => !frozen.has(fact.cutOrderId || ''))
+        for (const fact of input.facts.filter(fact => frozen.has(fact.cutOrderId || ''))) {
+          if (!item.input.facts.some(old => old.factId === fact.factId && old.actualPieceQty === fact.actualPieceQty)) {
+            recordLateCutPieceReleaseEvent({ eventId: fact.factId, productionOrderId: input.productionOrderId,
+              cutOrderId: fact.cutOrderId!, cutOrderNo: fact.cutOrderNo!, spreadingOrderNo: fact.spreadingOrderNo!,
+              arrivedAt: fact.occurredAt, reason: '冻结后新增实际裁剪产出，待原裁片单恢复后复核',
+              facts: [{ garmentColor: fact.garmentColor, size: fact.size, materialId: fact.materialId, actualPieceQty: fact.actualPieceQty }] })
+          }
+        }
+        nextFacts.push(...item.input.facts.filter(fact => frozen.has(fact.cutOrderId || '') || fact.direction === '反向'))
+        input.facts = nextFacts
+        if (JSON.stringify(item.input) !== JSON.stringify(input)) {
+          appendRepositoryEvent(item, event, () => { item!.input = clone(input) })
+        }
+        for (const late of lateEvents.values()) {
+          if (late.productionOrderId === input.productionOrderId && !frozen.has(late.cutOrderId)
+            && input.facts.some(fact => fact.factId === late.eventId)) late.status = '已处理'
+        }
+      }
+      item.generatedSkuCodes = Object.fromEntries(projection.sources.flatMap(source => source.skuScopeLines.map(sku => [targetKey(sku.color, sku.size), sku.skuCode])))
+      for (const source of projection.sources) {
+        if (!item.sourceStates.some(state => state.cutOrderId === source.cutOrderId)) item.sourceStates.push({
+          cutOrderId: source.cutOrderId, cutOrderNo: source.cutOrderNo, status: '持续更新', changedAt: latestAt,
+          operator, reason: '原裁剪产出', materialIds: input.requirements.filter(row => row.materialId.startsWith(source.materialSku + '::') || row.materialId === source.materialSku).map(row => row.materialId),
+        })
+      }
+    }
+  } finally { syncingGeneratedRelease = false }
+}
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -455,7 +571,7 @@ function buildSkuLines(item: ReleaseRepositoryItem): CutPieceReleaseSkuLine[] {
     const releaseQty = safeQuantity(targetValues[targetKey(group.garmentColor, size)])
     return {
       lineId: `${item.input.productionOrderId}:${group.garmentColor}:${size}`,
-      skuCode: `${item.input.spuCode}-${group.garmentColor}-${size}`,
+      skuCode: item.generatedSkuCodes?.[targetKey(group.garmentColor, size)] || `${item.input.spuCode}-${group.garmentColor}-${size}`,
       colorName: group.garmentColor,
       sizeCode: size,
       demandQty,
@@ -546,6 +662,8 @@ function addRepositoryItem(input: BuildReleaseMatrixInput, spuName: string, sour
 }
 
 function bootstrapRepository(): void {
+  const confirmSeedRelease = (input: ConfirmCutPieceReleaseAvailableQtyInput) =>
+    confirmCutPieceReleaseAvailableQtyInMemory(input, { skipActiveAllocationCheck: true })
   const productionOrderId = 'po-14671'
   const sizes = ['M', 'L', 'XL'] as const
   type Size = (typeof sizes)[number]
@@ -798,7 +916,7 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!hoodieTarget.ok) throw new Error(`初始化 PO-202603-0002 目标快照失败：${hoodieTarget.message}`)
-  const hoodieRelease = confirmCutPieceReleaseAvailableQty({
+  const hoodieRelease = confirmSeedRelease({
     productionOrderId: 'PO-202603-0002', basisMatrixVersion: 1, basisTargetVersion: 1,
     releaseQtyByColorSize: { 'Grey::S': 490, 'Grey::M': 680, 'Grey::L': 720, 'Grey::XL': 430 },
     riskReason: 'Grey M 码有 20 件罗纹尚未完成齐套点收，裁床主管确认可先行放行。',
@@ -836,7 +954,7 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!riskTarget.ok) throw new Error(`初始化 PO14672 目标快照失败：${riskTarget.message}`)
-  confirmCutPieceReleaseAvailableQty({
+  confirmSeedRelease({
     productionOrderId: 'po-14672', basisMatrixVersion: 1, basisTargetVersion: 1,
     releaseQtyByColorSize: {
       '雾蓝::S': 165, '雾蓝::M': 245, '雾蓝::L': 200,
@@ -844,7 +962,7 @@ function bootstrapRepository(): void {
     },
     riskReason: '', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-07-25 09:30:00',
   })
-  confirmCutPieceReleaseAvailableQty({
+  confirmSeedRelease({
     productionOrderId: 'po-14672', basisMatrixVersion: 1, basisTargetVersion: 1,
     releaseQtyByColorSize: {
       '雾蓝::S': 170, '雾蓝::M': 250, '雾蓝::L': 210,
@@ -885,7 +1003,7 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!changedTarget.ok) throw new Error(`初始化 PO14673 目标快照失败：${changedTarget.message}`)
-  confirmCutPieceReleaseAvailableQty({
+  confirmSeedRelease({
     productionOrderId: 'po-14673', basisMatrixVersion: 1, basisTargetVersion: 1,
     releaseQtyByColorSize: {
       '奶油白::S': 138, '奶油白::M': 210, '奶油白::L': 165,
@@ -979,7 +1097,7 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!blockedTarget.ok) throw new Error(`初始化 PO14677 目标快照失败：${blockedTarget.message}`)
-  confirmCutPieceReleaseAvailableQty({
+  confirmSeedRelease({
     productionOrderId: 'po-14677', basisMatrixVersion: 1, basisTargetVersion: 1,
     releaseQtyByColorSize: { '松石绿::M': 0, '松石绿::L': 0, '米白::M': 0, '米白::L': 0 },
     riskReason: '', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-07-25 15:40:00',
@@ -1003,7 +1121,7 @@ function bootstrapRepository(): void {
   }))
   addSourceState('po-14678', { cutOrderId: 'cut-14678-a', cutOrderNo: 'CUT14678-A', changedAt: '2026-06-05 16:30:00', operator: '铺布操作员 Fitri', reason: '可计算矩阵已生成，待主管维护目标。', materialIds: ['FAB', 'LIN', 'CUF'] })
   // 为 PO14671 初始化 V1 放行版本（按齐套放行）
-  confirmCutPieceReleaseAvailableQty({
+  confirmSeedRelease({
     productionOrderId: 'po-14671',
     basisMatrixVersion: 9,
     basisTargetVersion: 9,
@@ -1097,6 +1215,7 @@ export function listLateCutPieceReleaseEvents(productionOrderId: string): LateCu
 }
 
 export function listCutPieceReleaseRecords(): CutPieceReleaseRecord[] {
+  syncGeneratedCutPieceRelease()
   return [...releaseRepository.values()].map((item) => clone(buildReleaseRecord(item)))
 }
 
@@ -1105,6 +1224,7 @@ export function getCutPieceReleaseRecord(recordId: string): CutPieceReleaseRecor
 }
 
 export function getCutPieceReleaseMatrix(productionOrderId: string): CutPieceReleaseMatrix | null {
+  syncGeneratedCutPieceRelease()
   const item = releaseRepository.get(productionOrderId)
   return item ? clone(item.currentMatrix) : null
 }
@@ -1209,9 +1329,11 @@ export function calculateCutPieceReleaseHistoryDifference(
   }
 }
 
-export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
+function confirmCutPieceReleaseTargetInMemory(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
+  syncGeneratedCutPieceRelease()
   const item = releaseRepository.get(input.productionOrderId)
   if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', snapshot: null }
+  const confirmedAt = item.generatedSkuCodes ? localDateTimeText() : deterministicConfirmedAt
   const confirmedBy = input.confirmedBy.trim()
   if (!confirmedBy) return { ok: false, message: '请填写目标确认人。', snapshot: null }
   const existingSnapshot = [...targetSnapshots.values()].find((snapshot) => (
@@ -1238,7 +1360,7 @@ export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): 
       eventId: `target-confirm:${input.productionOrderId}:${input.matrixVersion}`,
       eventType: '目标确认',
       productionOrderId: input.productionOrderId,
-      occurredAt: deterministicConfirmedAt,
+      occurredAt: confirmedAt,
       operator: confirmedBy,
     }
     if (!appendMatrixEvent(item.eventState, event)) return { ok: false, message: '该矩阵版本的目标已确认。', snapshot: null }
@@ -1254,7 +1376,7 @@ export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): 
       snapshotId: `cpr-target-${input.productionOrderId}-v${input.matrixVersion}`,
       productionOrderId: input.productionOrderId,
       matrixVersion: input.matrixVersion,
-      confirmedAt: deterministicConfirmedAt,
+      confirmedAt,
       confirmedBy,
       matrixSnapshot: clone(item.currentMatrix),
       targetPreview: clone(targetPreview),
@@ -1273,6 +1395,7 @@ export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceRe
 }
 
 export function getCurrentCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
+  syncGeneratedCutPieceRelease()
   const snapshot = targetSnapshots.get(snapshotId)
   if (!snapshot) return null
   const item = releaseRepository.get(snapshot.productionOrderId)
@@ -1302,20 +1425,33 @@ export interface CutOrderReleaseWriteResult {
 export interface CutOrderReleaseWriteSnapshot {
   productionOrderId: string
   item: ReleaseRepositoryItem
+  releaseVersions?: CutPieceReleaseAvailableQtyVersion[]
+  lateEvents?: LateCutPieceReleaseEvent[]
 }
 
 export function createCutOrderReleaseWriteSnapshot(cutOrderId: string, cutOrderNo = ''): CutOrderReleaseWriteSnapshot | null {
+  syncGeneratedCutPieceRelease()
   const item = [...releaseRepository.values()].find((candidate) => resolveCutOrderSource(candidate, cutOrderId.trim(), cutOrderNo.trim()))
-  return item ? { productionOrderId: item.input.productionOrderId, item: clone(item) } : null
+  return item ? { productionOrderId: item.input.productionOrderId, item: clone(item),
+    releaseVersions: clone(releaseVersionRepository.get(item.input.productionOrderId) || []),
+    lateEvents: clone([...lateEvents.values()].filter(event => event.productionOrderId === item.input.productionOrderId)) } : null
 }
 
 export function restoreCutOrderReleaseWriteSnapshot(snapshot: CutOrderReleaseWriteSnapshot | null): boolean {
   if (!snapshot?.productionOrderId || !snapshot.item) return false
-  releaseRepository.set(snapshot.productionOrderId, clone(snapshot.item))
-  return true
+  return withSavedRelease(() => {
+    releaseRepository.set(snapshot.productionOrderId, clone(snapshot.item))
+    if (snapshot.releaseVersions) releaseVersionRepository.set(snapshot.productionOrderId, clone(snapshot.releaseVersions))
+    if (snapshot.lateEvents) {
+      for (const [key, event] of lateEvents) if (event.productionOrderId === snapshot.productionOrderId) lateEvents.delete(key)
+      for (const event of snapshot.lateEvents) lateEvents.set(event.eventId, clone(event))
+    }
+    return true
+  }, () => false)
 }
 
-export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): CutOrderReleaseWriteResult {
+function recordCutOrderReleaseStatusChangeInMemory(input: CutOrderReleaseStatusChangeInput): CutOrderReleaseWriteResult {
+  syncGeneratedCutPieceRelease()
   const eventId = input.eventId.trim()
   const cutOrderId = input.cutOrderId.trim()
   const cutOrderNo = input.cutOrderNo.trim()
@@ -1386,7 +1522,8 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     : { status: 'rejected', reason: '放行状态事件写入失败。' }
 }
 
-export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): SpreadingReleaseAdjustmentResult {
+function recordSpreadingReleaseAdjustmentInMemory(input: SpreadingReleaseAdjustmentInput): SpreadingReleaseAdjustmentResult {
+  syncGeneratedCutPieceRelease()
   const item = releaseRepository.get(input.productionOrderId)
   if (!item) return { status: 'not-applicable', reason: '当前生产单未关联裁片放行矩阵。' }
   if (input.direction !== -1) return { status: 'rejected', reason: '铺布冲销只能使用反向冲销口径。' }
@@ -1452,9 +1589,10 @@ export function requiresCutPieceReleaseForProcessCodes(processCodes: readonly st
 }
 
 export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
+  syncGeneratedCutPieceRelease()
   const sourceId = resolveCutPieceReleaseProductionOrderId(productionOrderId)
   const item = releaseRepository.get(sourceId)
-  const record = listCutPieceReleaseRecords().find((candidate) => candidate.productionOrderId === sourceId)
+  const record = item ? buildReleaseRecord(item) : null
   if (!record || !item) return null
   const currentCompleteKitQtyByColorSize = Object.fromEntries(item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => [targetKey(group.garmentColor, size), group.completeKitBySize[size] === null ? null : safeQuantity(group.completeKitBySize[size])])))
   const targetSnapshot = getTargetSnapshot(item)
@@ -1657,9 +1795,11 @@ export function assertCutPieceReleaseDispatchAvailable(input: {
   throw new Error(`裁片放行不足，不能分配车缝任务。${detail}${blocked.length > 3 ? `；另有${blocked.length - 3}项` : ''}`)
 }
 
-export function confirmCutPieceReleaseAvailableQty(
+function confirmCutPieceReleaseAvailableQtyInMemory(
   input: ConfirmCutPieceReleaseAvailableQtyInput,
+  options: { skipActiveAllocationCheck?: boolean } = {},
 ): ConfirmCutPieceReleaseAvailableQtyResult {
+  syncGeneratedCutPieceRelease()
   const item = releaseRepository.get(input.productionOrderId)
   if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', version: null }
 
@@ -1679,7 +1819,13 @@ export function confirmCutPieceReleaseAvailableQty(
   }
 
   const targetValues = targetSnapshot.targetPreview.colorSizeTargets
-  const activeAllocations = listActiveCutPieceAllocationLines(input.productionOrderId)
+  // Static prototype seed records are created while the dependency graph is
+  // still being initialized. They cannot have runtime allocations yet, and
+  // reading the assignment repository here would re-enter that module before
+  // its maps exist. Normal user actions always keep the allocation guard.
+  const activeAllocations = options.skipActiveAllocationCheck
+    ? []
+    : listActiveCutPieceAllocationLines(input.productionOrderId)
   let totalRiskReleaseQty = 0
   let totalReleaseQty = 0
   const riskReleaseQtyByColorSize: Record<string, number> = {}
@@ -1840,4 +1986,17 @@ export function saveCutPieceReleaseDecision(input: SaveCutPieceReleaseDecisionIn
   const record = getCutPieceReleaseRecord(input.recordId)
   if (!record) return { ok: false, message: '未找到裁片放行记录。' }
   return { ok: false, message: '请在裁片矩阵中确认目标数量；旧放行判断入口不再写入权威数据。' }
+}
+
+export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
+  return withSavedRelease(() => confirmCutPieceReleaseTargetInMemory(input), message => ({ ok: false, message, snapshot: null }))
+}
+export function confirmCutPieceReleaseAvailableQty(input: ConfirmCutPieceReleaseAvailableQtyInput): ConfirmCutPieceReleaseAvailableQtyResult {
+  return withSavedRelease(() => confirmCutPieceReleaseAvailableQtyInMemory(input), message => ({ ok: false, message, version: null }))
+}
+export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): CutOrderReleaseWriteResult {
+  return withSavedRelease(() => recordCutOrderReleaseStatusChangeInMemory(input), reason => ({ status: 'rejected', reason }))
+}
+export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): SpreadingReleaseAdjustmentResult {
+  return withSavedRelease(() => recordSpreadingReleaseAdjustmentInMemory(input), reason => ({ status: 'rejected', reason }))
 }

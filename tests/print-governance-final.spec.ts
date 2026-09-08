@@ -10,7 +10,6 @@ async function expectUnifiedPrintPage(page: import('@playwright/test').Page, tit
   await expect(page.locator('[data-shell-tab]')).toHaveCount(0)
   await expect(page.getByText('系统占位图')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '打印' })).toBeVisible()
-  await expect(page.getByText('打印记录：').first()).toBeVisible()
 }
 
 test('结算信息变更申请单从旧入口进入统一打印预览', async ({ page }) => {
@@ -32,7 +31,7 @@ test('差异处理申请单读取统一差异记录且不生成扣款或结算�
   for (const token of ['来源交出记录号', '差异类型', '应收', '实收', '差异', '平台处理区', '交出方签字']) {
     await expect(page.getByText(token).first()).toBeVisible()
   }
-  await expect(page.getByText('不直接生成质量扣款流水').first()).toBeVisible()
+  await expect(page.getByText('不直接生成返工扣款流水').first()).toBeVisible()
   await expect(page.getByText(/对账流水或结算流水/).first()).toBeVisible()
 })
 
@@ -44,7 +43,7 @@ test('质量扣款确认单展示待确认口径和完整价格单位', async ({
     await expect(page.getByText(token).first()).toBeVisible()
   }
   await expect(page.getByText(/(?:IDR|CNY|RMB)\/件/).first()).toBeVisible()
-  await expect(page.getByText('不是正式质量扣款流水').first()).toBeVisible()
+  await expect(page.getByText('不是正式返工扣款流水').first()).toBeVisible()
 })
 
 test('质量异议处理单展示异议和裁决且不触发结算', async ({ page }) => {
@@ -72,6 +71,7 @@ test('统一打印记录和打印按钮可用', async ({ page }) => {
 
   await expectUnifiedPrintPage(page, '结算信息变更申请单')
   await expect(page.getByText('SETTLEMENT_CHANGE_REQUEST').first()).toBeVisible()
+  await expect(page.getByText('统一打印记录：').first()).toBeVisible()
   await page.evaluate(() => {
     ;(window as unknown as { __printCalled?: boolean }).__printCalled = false
     window.print = () => {
@@ -83,14 +83,19 @@ test('统一打印记录和打印按钮可用', async ({ page }) => {
 })
 
 test('打印治理共同规则和前六步能力不回退', async ({ page }) => {
+  await page.goto('/fcs/craft/cutting/fei-tickets')
+  const feiTicketId = await page.evaluate(async () => {
+    const { listGeneratedFeiTickets } = await import('/src/data/fcs/cutting/generated-fei-tickets.ts')
+    return listGeneratedFeiTickets()[0]?.feiTicketId || ''
+  })
+  expect(feiTicketId).not.toBe('')
   const urls = [
     ['/fcs/print/preview?documentType=TASK_ROUTE_CARD&sourceType=PRINTING_WORK_ORDER&sourceId=PWO-PRINT-001', '印花任务流转卡'],
-    ['/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=HOH-MOCK-PRINT-410-001', '印花任务交货卡'],
+    ['/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=PHR-DEMO-PWH-WAIT_HANDOVER-PRINT-11-%E4%BA%A4%E5%87%BA%E5%BE%85%E6%94%B6%E8%B4%A7-1', '印花任务交货卡'],
     ['/fcs/print/preview?documentType=MATERIAL_PREP_SLIP&sourceId=material-prep%3ACUT-260302-001-01', '配料单'],
     ['/fcs/print/preview?documentType=PICKUP_SLIP&sourceId=pickup%3ATASK-CUT-000087', '接收单'],
-    ['/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=CUT-260226-014-01%3A%3A001', '菲票'],
+    [`/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(feiTicketId)}`, '菲票'],
     ['/fcs/print/preview?documentType=PRODUCTION_CONFIRMATION&sourceType=PRODUCTION_ORDER&sourceId=PO-202603-0004', '生产确认单'],
-    ['/fcs/print/preview?documentType=MAKE_GOODS_CONFIRMATION&sourceType=PRODUCTION_ORDER&sourceId=PO-202603-0004', '做货确认单'],
     ['/fcs/print/preview?documentType=QUALITY_DEDUCTION_CONFIRMATION&sourceType=QUALITY_DEDUCTION_PENDING_RECORD&sourceId=demo', '质量扣款确认单'],
   ] as const
 

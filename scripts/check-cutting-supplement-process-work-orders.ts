@@ -24,8 +24,7 @@ import {
 import { getAvailablePrintWebActions } from '../src/data/fcs/process-web-status-actions.ts'
 import { startColorTest } from '../src/data/fcs/printing-task-domain.ts'
 import {
-  getDyeReviewRecordByOrderId,
-  listDyeExecutionNodeRecords,
+  getDyeOrderHandoverSummary,
   listDyeWorkOrders,
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import {
@@ -40,9 +39,10 @@ import {
 bootstrapSupplementManagementMockData()
 const qualifiedInput = { dyeWorkOrderId: 'DYE-1', dyeWorkOrderNo: 'RS-1', materialSku: 'FAB-1', qualifiedQty: 120, unit: '米', batchSource: '交接单-JJ-1' }
 assert.deepEqual(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '米', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }), { allowed: true, reason: '', actualInputs: [qualifiedInput] })
-assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 121, unit: '米', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }).reason, /超过染色合格输出/)
+assert.equal(resolveSupplementPrintPrerequisite({ expectedInputQty: 121, unit: '米', upstream: [{ completed: false, hasDifference: false, fact: qualifiedInput }] }).allowed, true, '染色已交出一批即可承接，不等人工完单或全部齐套')
 assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '码', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }).reason, /单位/)
 assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '米', upstream: [{ completed: true, hasDifference: true, fact: qualifiedInput }] }).reason, /差异/)
+assert.equal(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '米', upstream: [{ completed: true, hasDifference: false, fact: { ...qualifiedInput, qualifiedQty: 0 } }] }).allowed, false, '即使人工完单，无交出数量仍不可承接')
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
 
@@ -370,40 +370,36 @@ assert.equal(getPrintExecutionBlockReason(printOnlyResult.printWorkOrderId), '',
 combinationTransaction.rollback()
 assertTransactionCounts(combinationCounts, '四种加工组合检查回滚')
 
-const completedDyeOrder = listDyeWorkOrders().find((order) => order.status === 'COMPLETED')
-assert(completedDyeOrder, '缺少已完成染色单，无法验证染色合格输出放行印花')
-const completedDyeReview = getDyeReviewRecordByOrderId(completedDyeOrder.dyeOrderId)
-const completedDyeNode = listDyeExecutionNodeRecords(completedDyeOrder.dyeOrderId)
-  .filter((node) => node.finishedAt && Number(node.outputQty) > 0)
-  .at(-1)
-const completedDyeQualifiedQty = completedDyeReview?.receivedQty ?? completedDyeNode?.outputQty ?? 0
-assert(completedDyeQualifiedQty > 0, '已完成染色单必须有真实合格输出数量')
+const handedOverDyeOrder = listDyeWorkOrders().find((order) => order.status === 'WAIT_MANUAL_COMPLETION' && getDyeOrderHandoverSummary(order.dyeOrderId).submittedQty > 0)
+assert(handedOverDyeOrder, '缺少已交出待人工完单染色样例，无法验证分批承接')
+const handedOverDyeQty = getDyeOrderHandoverSummary(handedOverDyeOrder.dyeOrderId).submittedQty
+assert(handedOverDyeQty > 0, '已交出染色单必须有真实交出数量')
 const releaseTransaction = prepareProcessWorkOrderBatch([
-  { ...buildTransactionInput('release-print', ['PRINT']), plannedQty: Math.min(10, completedDyeQualifiedQty), qtyUnit: completedDyeOrder.qtyUnit },
+  { ...buildTransactionInput('release-print', ['PRINT']), plannedQty: Math.min(10, handedOverDyeQty), qtyUnit: handedOverDyeOrder.qtyUnit },
 ])
 const releaseResult = releaseTransaction.commit()[0]
-assert(releaseResult.printWorkOrderId, '染色完成放行检查必须形成原印花单')
+assert(releaseResult.printWorkOrderId, '染色交出承接检查必须形成原印花单')
 registerSupplementPrintPrerequisite({
   supplementOrderId: 'SUP-CHECK-RELEASE',
   printWorkOrderId: releaseResult.printWorkOrderId,
-  materialSku: completedDyeOrder.sourceSnapshot?.materialSku || completedDyeOrder.rawMaterialSku || completedDyeOrder.materialId,
-  expectedInputQty: Math.min(10, completedDyeQualifiedQty),
-  unit: completedDyeOrder.qtyUnit,
-  dyeWorkOrderIds: [completedDyeOrder.dyeOrderId],
+  materialSku: handedOverDyeOrder.sourceSnapshot?.materialSku || handedOverDyeOrder.rawMaterialSku || handedOverDyeOrder.materialId,
+  expectedInputQty: Math.min(10, handedOverDyeQty),
+  unit: handedOverDyeOrder.qtyUnit,
+  dyeWorkOrderIds: [handedOverDyeOrder.dyeOrderId],
 })
-assert.equal(getPrintExecutionBlockReason(releaseResult.printWorkOrderId), '', '染色最终完成且无差异后必须放行原印花单')
+assert.equal(getPrintExecutionBlockReason(releaseResult.printWorkOrderId), '', '染色已交出且无数量差异即可承接原印花单，不等人工完单')
 startColorTest(releaseResult.printWorkOrderId)
 assert.deepEqual(
   getSupplementPrintActualInputs(releaseResult.printWorkOrderId),
   [{
-    dyeWorkOrderId: completedDyeOrder.dyeOrderId,
-    dyeWorkOrderNo: completedDyeOrder.dyeOrderNo,
-    materialSku: completedDyeOrder.sourceSnapshot?.materialSku || completedDyeOrder.rawMaterialSku || completedDyeOrder.materialId,
-    qualifiedQty: completedDyeQualifiedQty,
-    unit: completedDyeOrder.qtyUnit,
-    batchSource: completedDyeOrder.handoverOrderNo || completedDyeNode?.nodeRecordId || completedDyeOrder.taskNo || '未记录',
+    dyeWorkOrderId: handedOverDyeOrder.dyeOrderId,
+    dyeWorkOrderNo: handedOverDyeOrder.dyeOrderNo,
+    materialSku: handedOverDyeOrder.sourceSnapshot?.materialSku || handedOverDyeOrder.rawMaterialSku || handedOverDyeOrder.materialId,
+    qualifiedQty: handedOverDyeQty,
+    unit: handedOverDyeOrder.qtyUnit,
+    batchSource: handedOverDyeOrder.handoverOrderNo || '未记录',
   }],
-  '印花开始时必须冻结染色单、合格数量、单位和批次/交接来源',
+  '印花开始时必须冻结染色单、交出数量、单位和批次/交接来源',
 )
 releaseTransaction.rollback()
 

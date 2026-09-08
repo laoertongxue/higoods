@@ -176,12 +176,12 @@ test('FCS input、select、分页和抽屉保持 main 节点及输入焦点', as
   const keyword = page.getByPlaceholder('加工单号 / 生产单号 / 物料')
   const fcsTiming = await keyword.evaluate(async (input: HTMLInputElement) => {
     const main = document.querySelector('main')
-    const previousList = document.querySelector('[data-water-soluble-list-region]')
+    const previousList = document.querySelector('[data-water-soluble-list-region]')?.firstElementChild
     input.focus()
     const startedAt = performance.now()
     const listReady = new Promise<void>((resolve) => {
       const observer = new MutationObserver(() => {
-        const currentList = document.querySelector('[data-water-soluble-list-region]')
+        const currentList = document.querySelector('[data-water-soluble-list-region]')?.firstElementChild
         if (!currentList || currentList === previousList || !currentList.isConnected) return
         observer.disconnect()
         clearTimeout(timeout)
@@ -197,7 +197,7 @@ test('FCS input、select、分页和抽屉保持 main 节点及输入焦点', as
     input.dispatchEvent(new Event('input', { bubbles: true }))
     await listReady
     const elapsed = performance.now() - startedAt
-    const currentList = document.querySelector('[data-water-soluble-list-region]')
+    const currentList = document.querySelector('[data-water-soluble-list-region]')?.firstElementChild
     return {
       elapsed,
       sameMain: main === document.querySelector('main') && main?.isConnected === true,
@@ -541,4 +541,23 @@ test('PFOS 主管选择退回重做', async ({ page }) => {
   await confirmSupervisorDecision(page, '退回重做')
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待水溶' })).toBeVisible()
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待水溶' }).getByText('0 米', { exact: true })).toBeVisible()
+})
+
+
+test('FCS Esc 关闭详情与列设置保持页面节点和滚动位置', async ({ page }) => {
+  await page.goto('/fcs/process/water-soluble-orders')
+  await expect(page.getByTestId('water-soluble-orders-page')).toBeVisible()
+  await rememberMain(page)
+  await page.getByRole('button', { name: '查看详情', exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: '水溶加工单详情', exact: true })).toBeVisible()
+  const beforeScroll = await page.evaluate(() => window.scrollY)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('heading', { name: '水溶加工单详情', exact: true })).toHaveCount(0)
+  await expectSameMain(page)
+  expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll)
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
+  await expect(page.getByText('水溶加工单列设置', { exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('水溶加工单列设置', { exact: true })).toHaveCount(0)
+  await expectSameMain(page)
 })

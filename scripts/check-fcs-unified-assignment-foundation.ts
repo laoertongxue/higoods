@@ -57,7 +57,6 @@ import {
   POST_STAGE_PROCESSES,
   normalizePostStageProcessCode,
 } from '../src/data/fcs/post-stage-taxonomy.ts'
-import { buildPostStageExecutionSequence } from '../src/data/fcs/post-process-route.ts'
 import { getProcessDefinitionByCode, listProcessDefinitions } from '../src/data/fcs/process-craft-dict.ts'
 import { processTypes } from '../src/data/fcs/process-types.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
@@ -165,8 +164,12 @@ assert.deepEqual(
   ['CUT_PANEL', 'SEW', 'IRON_PACK'],
   '页面必须有一张来源干净、尚未合并的裁剪+车缝+烫包生产单',
 )
-assert(mergeCandidateSourceTasks.find((task) => task.processBusinessCode === 'IRON_PACK')?.sourceEntryId.endsWith('-process-iron-pack'))
-assert.equal(mergeCandidateTasks.filter((task) => task.processBusinessCode === 'IRON_PACK').length, 1, '技术包烫包不得再叠加字典覆盖 Mock')
+assert.equal(
+  mergeCandidateSourceTasks.find((task) => task.processBusinessCode === 'IRON_PACK')?.sourceEntryId,
+  'TASK-BOUNDARY-PO-202603-0101-IRON_PACK',
+  '烫包责任应来自生产单任务拆分边界，而不是重新写回静态技术路线',
+)
+assert.equal(mergeCandidateTasks.filter((task) => task.processBusinessCode === 'IRON_PACK').length, 1, '生产单烫包责任不得再叠加字典覆盖 Mock')
 const mergeCandidateEvaluation = evaluateFixedMergedTask(mergeCandidateSourceTasks.map((task) => task.taskId))
 assert.equal(mergeCandidateEvaluation.ok, true)
 assert.equal(mergeCandidateEvaluation.mergedTaskType, 'CUTTING_SEWING_IRON_PACK')
@@ -387,27 +390,8 @@ assert(getProcessDefinitionByCode('BUTTONHOLE'))
 assert(getProcessDefinitionByCode('BUTTON_ATTACH'))
 assert(getProcessDefinitionByCode('IRON_PACK'))
 assert.equal(processTypes.some((item) => ['PROC_QC', 'PROC_RECHECK', 'PROC_FINISHING'].includes(item.code)), false)
-assert.deepEqual(buildPostStageExecutionSequence({
-  postRouteId: 'CHECK-POST',
-  productionOrderId: 'PO-CHECK',
-  productionOrderNo: 'PO-CHECK',
-  sewingTaskId: 'TASK-CHECK',
-  sewingTaskNo: 'TASK-CHECK',
-  postExecutionMode: 'MANAGED_POST_FACTORY_EXECUTES',
-  sewingFactoryId: 'FAC-SEW',
-  sewingFactoryName: '车缝厂',
-  managedPostFactoryId: 'FAC-POST',
-  managedPostFactoryName: '后道工厂',
-  finishedWarehouseId: 'WH-FINISHED',
-  finishedWarehouseName: '成衣仓',
-  requiresReceivingQc: true,
-  requiresPostExecution: true,
-  requiresFinalRecheck: true,
-  requiredPostProcessCodes: ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'],
-  currentNode: 'WAIT_RECEIVING_QC',
-  createdAt: '2026-08-04 09:00:00',
-  updatedAt: '2026-08-04 09:00:00',
-}).map((item) => item.code), ['ARRIVAL_CONFIRM', 'QC', 'BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK', 'RECHECK', 'HANDOVER'])
+const postRouteSource = read('src/data/fcs/post-process-route.ts')
+assert(!postRouteSource.includes('requiredPostProcessCodes') && !postRouteSource.includes('buildPostStageExecutionSequence'))
 
 const activeProcessCodes = new Set(listProcessDefinitions().filter((item) => item.isActive).map((item) => item.processCode))
 for (const flowOnlyCode of ['POST_FINISHING', 'QC', 'RECHECK']) assert.equal(activeProcessCodes.has(flowOnlyCode), false)

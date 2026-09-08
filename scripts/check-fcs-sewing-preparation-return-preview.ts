@@ -18,6 +18,7 @@ import {
   getRuntimeSewingTaskReassignmentScopePreview,
   getRuntimeTaskById,
 } from '../src/data/fcs/runtime-process-tasks.ts'
+import { resolveInitialOrderRuntimeTaskIdentity } from '../src/data/fcs/process-tasks.ts'
 import {
   captureRuntimeTaskTenderRecordStore,
   getRuntimeTaskTenderRecord,
@@ -272,8 +273,10 @@ try {
   restoreRuntimeTaskTenderRecordStore(tenderStoreSnapshot)
 }
 
+const delayedReceiptDemoTaskIdentity = resolveInitialOrderRuntimeTaskIdentity('PO-202603-0015', 'SEW')
+assert(delayedReceiptDemoTaskIdentity, 'PO-202603-0015 必须且只能存在一张车缝来源任务')
 const reassignmentPreview = getRuntimeSewingTaskReassignmentScopePreview(
-  'TASKGEN-202603-0015-003__ORDER',
+  delayedReceiptDemoTaskIdentity.runtimeTaskId,
   '2026-08-10 23:59:59',
 )
 assert(reassignmentPreview)
@@ -283,12 +286,12 @@ assert.equal(
 )
 const delayedReceiptHead = findPdaHandoutHead('HOH-SLA-DELAY-DEMO-001')
 assert(delayedReceiptHead)
-assert.equal(delayedReceiptHead.taskId, 'TASKGEN-202603-0015-003__ORDER')
-assert.equal(delayedReceiptHead.taskNo, 'TASKGEN-202603-0015-003')
+assert.equal(delayedReceiptHead.taskId, delayedReceiptDemoTaskIdentity.runtimeTaskId)
+assert.equal(delayedReceiptHead.taskNo, delayedReceiptDemoTaskIdentity.taskNo)
 assert.equal(getRuntimeTaskById(delayedReceiptHead.taskId)?.processBusinessCode, 'SEW')
 assert.deepEqual(
   listPdaHandoverRecordsByHeadId(delayedReceiptHead.handoverId).map((record) => record.taskId),
-  ['TASKGEN-202603-0015-003__ORDER'],
+  [delayedReceiptDemoTaskIdentity.runtimeTaskId],
 )
 
 const workbenchSource = fs.readFileSync(path.join(repoRoot, 'src/pages/unified-dispatch-workbench.ts'), 'utf8')

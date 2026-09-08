@@ -33,14 +33,6 @@ export interface CuttingTransferBagRuntimeInput {
   store: Record<string, unknown>
 }
 
-export interface CuttingSpecialProcessRuntimeInput {
-  orders: Array<Record<string, unknown>>
-  bindingPayloads: Array<Record<string, unknown>>
-  scopeLines: Array<Record<string, unknown>>
-  executionLogs: Array<Record<string, unknown>>
-  followupActions: Array<Record<string, unknown>>
-}
-
 export interface CuttingPdaExecutionRuntimeInput {
   pickupEvents: PdaPickupEventRecord[]
   inboundEvents: PdaCutPieceInboundEventRecord[]
@@ -73,7 +65,6 @@ export interface CuttingRuntimeInputs {
   markerSpreadingState: CuttingMarkerStoreInput
   feiTicketState: CuttingFeiRuntimeInput
   transferBagState: CuttingTransferBagRuntimeInput
-  specialProcessState: CuttingSpecialProcessRuntimeInput
   pdaExecutionState: CuttingPdaExecutionRuntimeInput
   runtimeEventState: CuttingRuntimeEventLedgerInput
 }

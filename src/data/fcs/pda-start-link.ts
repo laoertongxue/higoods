@@ -18,7 +18,7 @@ import {
   type RuntimeProcessTask,
 } from './runtime-process-tasks'
 import {
-  getPdaPickupHeads,
+  listPdaHandoverHeadsByType,
   getPdaPickupRecordsByHead,
 } from './pda-handover-events'
 import {
@@ -39,7 +39,7 @@ import {
   isCuttingSpecialTask,
   listPdaCuttingExecutionRowsByTaskId,
 } from './pda-cutting-execution-source.ts'
-import { getPostFinishingTaskById } from './post-finishing-domain.ts'
+import { getPostFinishingTaskById } from './post-finishing-current-read-model.ts'
 import { listSpecialCraftTaskOrders } from './special-craft-task-orders.ts'
 import {
   getDyeWorkOrderByTaskId,
@@ -153,7 +153,19 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
 
 function getPostFinishingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
   const postTask = getPostFinishingTaskById(task.taskId)
-  if (!postTask) return null
+  if (!postTask || (postTask.postTaskId !== task.taskId && postTask.postTaskNo !== task.taskId)) return null
+
+  if (postTask.currentStatus === '待人工完成' || postTask.currentStatus === '已完成') {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '当前后道交接已结束',
+      summaryLabel: postTask.currentStatus,
+      statusLabel: postTask.currentStatus,
+      blocker: '当前没有待开工的后道批次',
+      hint: postTask.currentStatus === '待人工完成' ? '请由生产负责人确认生产单完成' : '生产单已完成',
+    }
+  }
 
   if (postTask.currentStatus === '待上游交出') {
     return {
@@ -345,7 +357,8 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     }
   }
 
-  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId).filter((runtimeTask) =>
+  const mergedRuntimeTask = task.taskUnitType === 'MERGED_PRODUCTION_TASK' ? getRuntimeTaskById(task.taskId) : undefined
+  const runtimeTasks = (mergedRuntimeTask ? [mergedRuntimeTask] : listRuntimeTasksByBaseTaskId(task.taskId)).filter((runtimeTask) =>
     isRuntimeTaskExecutionTask(runtimeTask),
   )
   if (!runtimeTasks.length) {
@@ -485,7 +498,7 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): { code: Runtim
     return { code: 'NO_RUNTIME_TASK', label: '待仓库发料单生成' }
   }
 
-  const pickupHeads = getPdaPickupHeads().filter((head) => head.runtimeTaskId === task.taskId)
+  const pickupHeads = listPdaHandoverHeadsByType('PICKUP').filter((head) => head.runtimeTaskId === task.taskId)
   const hasReadyPickup = pickupHeads.some((head) => {
     if (head.summaryStatus === 'WRITTEN_BACK' || head.completionStatus === 'COMPLETED') return true
     const records = getPdaPickupRecordsByHead(head.handoverId)

@@ -45,7 +45,7 @@ import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/pro
 import { generateTaskArtifactsForAllOrders } from '../src/data/fcs/production-artifact-generation.ts'
 import { processTasks } from '../src/data/fcs/process-tasks.ts'
 import { listMilestoneConfigs } from '../src/data/fcs/milestone-configs.ts'
-import { isKolGotoProductionOrder, isKolGotoSaleType } from '../src/data/fcs/kol-goto-special-flow.ts'
+import { isKolGotoProductionOrder } from '../src/data/fcs/kol-goto-special-flow.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -109,18 +109,27 @@ const dyeBom = {
   unit: '米',
   unitConsumption: 0.5,
   lossRate: 0.1,
+  applicableSkuCodes: [],
 }
 const printBom = {
   ...bomTemplate,
-  type: '面料' as const,
+  type: '辅料' as const,
   id: 'BOM-PRINT-001',
   materialCode: 'MAT-PRINT-001',
-  name: '印花裁片',
-  spec: '前后幅',
+  name: '印花花边',
+  spec: '3cm',
   colorLabel: '米白底蓝花',
-  unit: '片',
-  unitConsumption: 2,
+  unit: '米',
+  unitConsumption: 0.8,
   lossRate: 0.05,
+  applicableSkuCodes: [],
+}
+const mixedUnitPrintBom = {
+  ...printBom,
+  id: 'BOM-PRINT-MIXED-UNIT-001',
+  materialCode: 'MAT-PRINT-MIXED-UNIT-001',
+  name: '按公斤计印花原物料',
+  unit: '公斤',
 }
 const routeOrder = {
   ...sourceOrder,
@@ -151,7 +160,7 @@ const routeOrder = {
         ...processTemplate,
         id: 'PROCESS-PRINT-001',
         processCode: 'PRINT',
-        processName: '裁片印花',
+        processName: '花边印花',
         linkedBomItemIds: [printBom.id],
       },
     ],
@@ -173,15 +182,15 @@ assert.deepEqual(
   })),
   [
     { materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g', targetColor: '雾霾蓝', plannedQty: 55, qtyUnit: '米' },
-    { materialId: printBom.materialCode, materialName: '印花裁片 / 前后幅', targetColor: '米白底蓝花', plannedQty: 210, qtyUnit: '片' },
+    { materialId: printBom.materialCode, materialName: '印花花边 / 3cm', targetColor: '米白底蓝花', plannedQty: 84, qtyUnit: '米' },
   ],
   '染色和印花快照必须分别读取其工艺路线绑定的 BOM',
 )
 assert.deepEqual(
   routeSnapshots.map((snapshot) => snapshot.materialItems),
   [
-    [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' }],
-    [{ sourceBomItemId: printBom.id, materialId: printBom.materialCode, materialName: '印花裁片 / 前后幅' }],
+    [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g', materialType: '面料' }],
+    [{ sourceBomItemId: printBom.id, materialId: printBom.materialCode, materialName: '印花花边 / 3cm', materialType: '辅料' }],
   ],
   '正式工艺快照必须保留每条 BOM constituent 的位置身份与当前物料身份',
 )
@@ -214,7 +223,7 @@ assert.deepEqual(
     requiresWaterSoluble: snapshot.requiresWaterSoluble,
   })),
   [{
-    materialItems: [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' }],
+    materialItems: [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g', materialType: '面料' }],
     plannedQty: 55,
     qtyUnit: '米',
     techPackVersionId: 'TPV-ROUTE-001',
@@ -238,7 +247,7 @@ const secondDyeBom = {
   unitConsumption: 0.25,
   lossRate: 0,
 }
-const aggregatedDyeSnapshots = buildFormalProductionOrderProcessSnapshots({
+const multiBomDyeSnapshots = buildFormalProductionOrderProcessSnapshots({
   ...routeOrder,
   productionOrderId: 'PO-AUTO-MULTI-DYE-001',
   productionOrderNo: 'PO-AUTO-MULTI-DYE-001',
@@ -255,28 +264,30 @@ const aggregatedDyeSnapshots = buildFormalProductionOrderProcessSnapshots({
   },
 })
 assert.deepEqual(
-  aggregatedDyeSnapshots.map((snapshot) => ({
+  multiBomDyeSnapshots.map((snapshot) => ({
     materialId: snapshot.materialId,
     materialName: snapshot.materialName,
     targetColor: snapshot.targetColor,
     plannedQty: snapshot.plannedQty,
     qtyUnit: snapshot.qtyUnit,
   })),
-  [{
-    materialId: 'MAT-DYE-001+MAT-DYE-002',
-    materialName: '染色针织布 / 180g、染色罗纹布 / 2x2 罗纹',
-    targetColor: '雾霾蓝、深海蓝',
-    plannedQty: 80,
-    qtyUnit: '米',
-  }],
-  '同一工艺绑定多个同单位 BOM 时必须按物料用量和损耗明确聚合',
+  [
+    { materialId: 'MAT-DYE-001', materialName: '染色针织布 / 180g', targetColor: '雾霾蓝', plannedQty: 55, qtyUnit: '米' },
+    { materialId: 'MAT-DYE-002', materialName: '染色罗纹布 / 2x2 罗纹', targetColor: '深海蓝', plannedQty: 25, qtyUnit: '米' },
+  ],
+  '同一工艺节点绑定多条 BOM 时必须按物料分支分别派生快照，不得聚合数量或物料身份',
 )
-assert.equal(aggregatedDyeSnapshots.length, 1, '一个生产单的同类染色工艺必须只生成一张快照')
-assert.deepEqual(aggregatedDyeSnapshots[0]?.materialItems, [
-  { sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' },
-  { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.materialCode, materialName: '染色罗纹布 / 2x2 罗纹' },
-], '同一 DYE 聚合多个 BOM 时必须保留 constituent，禁止只留下拼接字符串')
-assert.equal(aggregatedDyeSnapshots[0]?.requiresWaterSoluble, false, '全部染色 BOM 均不需水溶时必须生成普通染色快照')
+assert.equal(multiBomDyeSnapshots.length, 2, '一个生产单的两条 BOM 染色分支必须生成两张快照')
+assert.deepEqual(multiBomDyeSnapshots.map((snapshot) => snapshot.materialItems), [
+  [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g', materialType: '面料' }],
+  [{ sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.materialCode, materialName: '染色罗纹布 / 2x2 罗纹', materialType: '面料' }],
+], '每张 DYE 快照只能保留当前 BOM 分支的单一 constituent')
+assert.deepEqual(
+  multiBomDyeSnapshots.map((snapshot) => [snapshot.processEntryId, snapshot.routeObjectKey]),
+  [['PROCESS-DYE-MULTI-001', `BOM:${dyeBom.id}`], ['PROCESS-DYE-MULTI-001', `BOM:${secondDyeBom.id}`]],
+  '每张快照必须保留工艺 occurrence 和 BOM 对象分支身份',
+)
+assert(multiBomDyeSnapshots.every((snapshot) => snapshot.requiresWaterSoluble === false), '不需水溶的每条染色 BOM 分支均必须生成普通染色快照')
 assert.throws(
   () => deriveFormalProductionOrderProcessSnapshots({
     ...routeOrder,
@@ -378,44 +389,74 @@ assert.throws(() => buildFormalProductionOrderProcessSnapshots({
   },
 }), /缺少稳定物料编码.*无法生成加工单/, '参与染色或印花的正式 BOM 缺少 materialCode 时必须中文失败关闭')
 
-const aggregateIdentityOrder = (suffix: string, bomItems: typeof dyeBom[], linkedBomItemIds: string[]) => ({
+const branchIdentityOrder = (suffix: string, bomItems: typeof dyeBom[], linkedBomItemIds: string[]) => ({
   ...routeOrder,
-  productionOrderId: `PO-AUTO-AGGREGATE-IDENTITY-${suffix}`,
-  productionOrderNo: `PO-AUTO-AGGREGATE-IDENTITY-${suffix}`,
+  productionOrderId: `PO-AUTO-BRANCH-IDENTITY-${suffix}`,
+  productionOrderNo: `PO-AUTO-BRANCH-IDENTITY-${suffix}`,
   techPackSnapshot: {
     ...routeOrder.techPackSnapshot,
     bomItems,
     processEntries: [{
       ...processTemplate,
-      id: `PROCESS-DYE-AGGREGATE-${suffix}`,
+      id: `PROCESS-DYE-BRANCH-${suffix}`,
       processCode: 'DYE',
-      processName: '组合面料匹染',
+      processName: '分支面料匹染',
       linkedBomItemIds,
     }],
   },
 })
 const aggregateBomA = { ...dyeBom, id: 'BOM-AGG-A', materialCode: 'MAT-AGG-A', name: '甲面料' }
 const aggregateBomB = { ...dyeBom, id: 'BOM-AGG-B', materialCode: 'MAT-AGG-B', name: '乙面料' }
-const aggregateIdentitySnapshots = [
-  buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder('BA', [aggregateBomB, aggregateBomA], ['BOM-AGG-B', 'BOM-AGG-A']))[0]!,
-  buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder('AB', [aggregateBomA, aggregateBomB], ['BOM-AGG-A', 'BOM-AGG-B']))[0]!,
+const branchIdentitySnapshots = [
+  buildFormalProductionOrderProcessSnapshots(branchIdentityOrder('BA', [aggregateBomB, aggregateBomA], ['BOM-AGG-B', 'BOM-AGG-A'])),
+  buildFormalProductionOrderProcessSnapshots(branchIdentityOrder('AB', [aggregateBomA, aggregateBomB], ['BOM-AGG-A', 'BOM-AGG-B'])),
 ]
 assert.deepEqual(
-  aggregateIdentitySnapshots.map((snapshot) => snapshot.materialId),
-  ['MAT-AGG-A+MAT-AGG-B', 'MAT-AGG-A+MAT-AGG-B'],
-  '同组实际物料即使 BOM 顺序不同也必须生成稳定的聚合 materialId',
+  branchIdentitySnapshots.map((snapshots) => snapshots.map((snapshot) => snapshot.materialId)),
+  [['MAT-AGG-B', 'MAT-AGG-A'], ['MAT-AGG-A', 'MAT-AGG-B']],
+  '每个 BOM 分支必须保留自己的实际物料身份与路线顺序，不得聚合 materialId',
 )
 assert.deepEqual(
-  aggregateIdentitySnapshots.map((snapshot) => snapshot.materialName),
-  ['乙面料 / 180g、甲面料 / 180g', '甲面料 / 180g、乙面料 / 180g'],
-  'materialName 必须保留正式 BOM 原始顺序',
+  branchIdentitySnapshots.map((snapshots) => snapshots.map((snapshot) => snapshot.routeObjectKey)),
+  [['BOM:BOM-AGG-B', 'BOM:BOM-AGG-A'], ['BOM:BOM-AGG-A', 'BOM:BOM-AGG-B']],
+  '各快照必须以 routeObjectKey 保留正式 BOM 分支身份',
 )
-const duplicateActualIdentitySnapshot = buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder(
+const duplicateActualIdentitySnapshots = buildFormalProductionOrderProcessSnapshots(branchIdentityOrder(
   'DUPLICATE',
   [{ ...aggregateBomA, id: 'BOM-AGG-A1' }, { ...aggregateBomA, id: 'BOM-AGG-A2', name: '甲面料第二行' }],
   ['BOM-AGG-A1', 'BOM-AGG-A2'],
-))[0]!
-assert.equal(duplicateActualIdentitySnapshot.materialId, 'MAT-AGG-A', '重复正式物料编码必须在聚合 materialId 中去重')
+))
+assert.equal(duplicateActualIdentitySnapshots.length, 2, '即使实际物料编码相同，两条 BOM 位置分支也必须生成两张快照')
+assert.deepEqual(duplicateActualIdentitySnapshots.map((snapshot) => snapshot.materialId), ['MAT-AGG-A', 'MAT-AGG-A'], '物料替换后快照必须保留当前实际物料编码')
+assert.deepEqual(
+  duplicateActualIdentitySnapshots.map((snapshot) => snapshot.materialItems?.[0]?.sourceBomItemId),
+  ['BOM-AGG-A1', 'BOM-AGG-A2'],
+  '实际物料编码相同不得合并两个逻辑 BOM 位置',
+)
+
+const repeatedOccurrenceOrder: ProductionOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-REPEATED-OCCURRENCE-001',
+  productionOrderNo: 'PO-AUTO-REPEATED-OCCURRENCE-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [dyeBom],
+    processEntries: [
+      { ...processTemplate, id: 'PROCESS-DYE-OCCURRENCE-1', processCode: 'DYE', processName: '第一次染色', linkedBomItemIds: [dyeBom.id] },
+      { ...processTemplate, id: 'PROCESS-DYE-OCCURRENCE-2', processCode: 'DYE', processName: '第二次染色', linkedBomItemIds: [dyeBom.id] },
+    ],
+  },
+}
+const repeatedOccurrenceSnapshots = buildFormalProductionOrderProcessSnapshots(repeatedOccurrenceOrder)
+assert.deepEqual(
+  repeatedOccurrenceSnapshots.map((snapshot) => snapshot.processEntryId),
+  ['PROCESS-DYE-OCCURRENCE-1', 'PROCESS-DYE-OCCURRENCE-2'],
+  '同款同 BOM 分支上重复出现的同名工艺必须按 processEntryId 保留两个 occurrence',
+)
+const repeatedOccurrenceWorkOrderIds = repeatedOccurrenceSnapshots.map((snapshot) => (
+  ensureProcessWorkOrdersForFormalProductionOrder(snapshot).dyeWorkOrderId!
+))
+assert.equal(new Set(repeatedOccurrenceWorkOrderIds).size, 2, '同款×同 BOM 分支×不同工艺 occurrence 必须生成两张独立加工单')
 
 const allWaterDyeOrder: ProductionOrder = {
   ...routeOrder,
@@ -434,8 +475,8 @@ const allWaterDyeOrder: ProductionOrder = {
   },
 }
 const allWaterDyeSnapshots = buildFormalProductionOrderProcessSnapshots(allWaterDyeOrder)
-assert.equal(allWaterDyeSnapshots.length, 1, '全部需水溶的多个染色 BOM 仍必须合并成一张染色快照')
-assert.equal(allWaterDyeSnapshots[0]?.requiresWaterSoluble, true, '全部染色 BOM 均需水溶时必须标记联合水溶')
+assert.equal(allWaterDyeSnapshots.length, 2, '全部需水溶的多个染色 BOM 也必须按物料分支生成两张染色快照')
+assert(allWaterDyeSnapshots.every((snapshot) => snapshot.requiresWaterSoluble === true), '每个需水溶的染色 BOM 分支都必须标记联合水溶')
 
 const mixedWaterDyeOrder: ProductionOrder = {
   ...allWaterDyeOrder,
@@ -449,36 +490,44 @@ const mixedWaterDyeOrder: ProductionOrder = {
     ],
   },
 }
-assert.throws(
-  () => buildFormalProductionOrderProcessSnapshots(mixedWaterDyeOrder),
-  /染色工序绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
-  '同一染色快照混合需水溶与不需水溶 BOM 时必须明确阻断，不能整单升级或拆单',
+const mixedWaterDyeSnapshots = buildFormalProductionOrderProcessSnapshots(mixedWaterDyeOrder)
+assert.deepEqual(
+  mixedWaterDyeSnapshots.map((snapshot) => [snapshot.materialItems?.[0]?.sourceBomItemId, snapshot.requiresWaterSoluble]),
+  [[dyeBom.id, true], [secondDyeBom.id, false]],
+  '同款的不同 BOM 分支可以拥有不同水溶语义，必须分别生成而不能整单阻断或升级',
 )
-assert.throws(
-  () => buildFormalProductionOrderProcessSnapshots({
+const mixedWaterDyeWorkOrderIds = mixedWaterDyeSnapshots.map((snapshot) => (
+  ensureProcessWorkOrdersForFormalProductionOrder(snapshot).dyeWorkOrderId!
+))
+assert.equal(new Set(mixedWaterDyeWorkOrderIds).size, 2, '水溶属性不同的两条 BOM 染色分支必须生成两张独立加工单')
+assert.deepEqual(
+  mixedWaterDyeWorkOrderIds.map((workOrderId) => getDyeWorkOrderById(workOrderId)?.requiresWaterSoluble),
+  [true, false],
+  '每张染色加工单只能继承自己 BOM 分支的水溶要求',
+)
+const mixedUnitSnapshots = buildFormalProductionOrderProcessSnapshots({
     ...routeOrder,
     productionOrderId: 'PO-AUTO-MIXED-UNIT-001',
     productionOrderNo: 'PO-AUTO-MIXED-UNIT-001',
     techPackSnapshot: {
       ...routeOrder.techPackSnapshot,
-      bomItems: [dyeBom, printBom],
+      bomItems: [dyeBom, mixedUnitPrintBom],
       processEntries: [{
         ...processTemplate,
         id: 'PROCESS-DYE-MIXED-UNIT-001',
         processCode: 'DYE',
         processName: '混合单位染色',
-        linkedBomItemIds: [dyeBom.id, printBom.id],
+        linkedBomItemIds: [dyeBom.id, mixedUnitPrintBom.id],
       }],
     },
-  }),
-  /绑定多种或缺失数量单位，无法合并为一张加工单/,
-  '同一工艺绑定不同单位 BOM 时必须明确阻断',
-)
+})
+assert.deepEqual(mixedUnitSnapshots.map((snapshot) => snapshot.qtyUnit), ['米', '公斤'], '不同 BOM 分支各自保留数量单位，不应因单位不同被聚合或阻断')
 
 for (const snapshot of routeSnapshots) ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
 const routeDyeOrder = listProcessWorkOrders('DYE').find((order) => order.sourceProductionOrderId === routeOrder.productionOrderId)
 const routePrintOrder = listProcessWorkOrders('PRINT').find((order) => order.sourceProductionOrderId === routeOrder.productionOrderId)
 assert(routeDyeOrder && routePrintOrder, '不同 BOM 的染色和印花快照必须分别生成加工单')
+assert.equal(routePrintOrder.objectType, '辅料', '印花加工单必须继承来源花边 BOM 的原物料类别')
 const routePdaTasks = listPdaGenericProcessTasks()
 const routeDyeTask = routePdaTasks.find((task) => task.taskId === routeDyeOrder.taskId)
 const routePrintTask = routePdaTasks.find((task) => task.taskId === routePrintOrder.taskId)
@@ -497,8 +546,8 @@ assert.deepEqual(
 )
 assert.deepEqual(
   [routePrintTask.qtyUnit, routePrintTask.qtyDisplayUnit],
-  ['PIECE', '片'],
-  '印花 PDA 数量单位必须与片一致',
+  ['METER', '米'],
+  '花边印花 PDA 数量单位必须保留 BOM 的米制单位',
 )
 
 assert.throws(
@@ -548,19 +597,19 @@ const missingBomOrder = {
     }],
   },
 }
-const mixedUnitOrder = {
+const invalidUnitBranchOrder = {
   ...routeOrder,
-  productionOrderId: 'PO-AUTO-TRANSACTION-MIXED-001',
-  productionOrderNo: 'PO-AUTO-TRANSACTION-MIXED-001',
+  productionOrderId: 'PO-AUTO-TRANSACTION-INVALID-UNIT-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-INVALID-UNIT-001',
   techPackSnapshot: {
     ...routeOrder.techPackSnapshot,
-    bomItems: [dyeBom, printBom],
+    bomItems: [dyeBom, { ...mixedUnitPrintBom, unit: '' }],
     processEntries: [{
       ...processTemplate,
-      id: 'PROCESS-DYE-TRANSACTION-MIXED-001',
+      id: 'PROCESS-DYE-TRANSACTION-INVALID-UNIT-001',
       processCode: 'DYE',
-      processName: '混合单位染色',
-      linkedBomItemIds: [dyeBom.id, printBom.id],
+      processName: '缺少单位分支染色',
+      linkedBomItemIds: [dyeBom.id, mixedUnitPrintBom.id],
     }],
   },
 }
@@ -660,12 +709,10 @@ function assertFailedBatchLeavesStateUnchanged(invalidOrder: ProductionOrder, er
 }
 
 assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
-assertFailedBatchLeavesStateUnchanged(mixedUnitOrder, /绑定多种或缺失数量单位，无法合并为一张加工单/)
+assertFailedBatchLeavesStateUnchanged(invalidUnitBranchOrder, /缺少数量单位/)
 assertFailedBatchLeavesStateUnchanged(zeroPlannedQtyOrder, /正式生产单加工数量和单位必须有效/)
 assertFailedBatchLeavesStateUnchanged(emptyTechPackVersionOrder, /正式生产单必须携带已发布技术包版本快照/)
 assertFailedBatchLeavesStateUnchanged(emptyMaterialNameOrder, /正式生产单必须携带 BOM 面料快照/)
-assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
-assertFailedBatchLeavesStateUnchanged(mixedWaterDyeOrder, /染色工序绑定的 BOM 水溶属性不一致/)
 
 applyCreatedProductionOrderGroups([transactionGroup], transactionNow)
 assert.equal(
@@ -682,76 +729,11 @@ assert.deepEqual(
 assert.equal(listProcessWorkOrders('DYE').length, transactionDyeCountBefore + 1, '修正重试后应新增一张染色加工单')
 assert.equal(listProcessWorkOrders('PRINT').length, transactionPrintCountBefore + 1, '修正重试后应新增一张印花加工单')
 
-const mixedRetryDemand = state.demands.find((demand) => (
-  !demand.hasProductionOrder && !isKolGotoSaleType(demand.saleType)
-))
-assert(mixedRetryDemand, '缺少可用于混合水溶属性原子性重试的未转换需求')
-const mixedRetryOrder: ProductionOrder = {
-  ...mixedWaterDyeOrder,
-  productionOrderId: 'PO-AUTO-MIXED-WATER-RETRY-001',
-  productionOrderNo: 'PO-AUTO-MIXED-WATER-RETRY-001',
-  demandId: mixedRetryDemand.demandId,
-  sourceDemandIds: [mixedRetryDemand.demandId],
-}
-const mixedRetryGroup: CreatedProductionOrderGroup = { demands: [mixedRetryDemand], order: mixedRetryOrder }
-const mixedRetryPdaTaskIdsBefore = new Set(listPdaGenericProcessTasks().map((task) => task.taskId))
-const mixedRetryBefore = {
-  orderCount: state.orders.length,
-  dyeCount: listProcessWorkOrders('DYE').length,
-  printCount: listProcessWorkOrders('PRINT').length,
-  pdaCount: listPdaGenericProcessTasks().length,
-  demand: {
-    hasProductionOrder: mixedRetryDemand.hasProductionOrder,
-    productionOrderId: mixedRetryDemand.productionOrderId,
-    demandStatus: mixedRetryDemand.demandStatus,
-    updatedAt: mixedRetryDemand.updatedAt,
-  },
-}
-assert.throws(
-  () => applyCreatedProductionOrderGroups([mixedRetryGroup], transactionNow),
-  /染色工序绑定的 BOM 水溶属性不一致.*统一.*正式 BOM 工艺属性/,
-  '混合水溶属性必须在生产单和加工单写入前整批阻断',
-)
-assert.deepEqual({
-  orderCount: state.orders.length,
-  dyeCount: listProcessWorkOrders('DYE').length,
-  printCount: listProcessWorkOrders('PRINT').length,
-  pdaCount: listPdaGenericProcessTasks().length,
-  demand: (() => {
-    const demand = state.demands.find((item) => item.demandId === mixedRetryDemand.demandId)!
-    return {
-      hasProductionOrder: demand.hasProductionOrder,
-      productionOrderId: demand.productionOrderId,
-      demandStatus: demand.demandStatus,
-      updatedAt: demand.updatedAt,
-    }
-  })(),
-}, mixedRetryBefore, '混合水溶属性失败后生产单、需求、染色/印花加工单和 PDA 均不得变化')
-
-const correctedMixedRetryOrder: ProductionOrder = {
-  ...mixedRetryOrder,
-  techPackSnapshot: allWaterDyeOrder.techPackSnapshot,
-}
-applyCreatedProductionOrderGroups([{ demands: [mixedRetryDemand], order: correctedMixedRetryOrder }], transactionNow)
-const correctedMixedRetryDyeOrders = listProcessWorkOrders('DYE')
-  .filter((order) => order.sourceProductionOrderId === correctedMixedRetryOrder.productionOrderId)
-assert.equal(correctedMixedRetryDyeOrders.length, 1, '修正为全部需水溶后重试必须只生成一张染色加工单')
-assert.equal(getDyeWorkOrderById(correctedMixedRetryDyeOrders[0]!.workOrderId)?.requiresWaterSoluble, true, '修正重试生成的唯一染色加工单必须包含联合水溶')
-assert.equal(listProcessWorkOrders('PRINT').length, mixedRetryBefore.printCount, '纯染色重试不得生成印花加工单')
-const mixedRetryAddedPdaTaskIds = listPdaGenericProcessTasks()
-  .map((task) => task.taskId)
-  .filter((taskId) => !mixedRetryPdaTaskIdsBefore.has(taskId))
-assert.equal(
-  mixedRetryAddedPdaTaskIds.length,
-  1,
-  `修正重试只允许新增一个染色 PDA 任务；实际新增：${mixedRetryAddedPdaTaskIds.join('、')}`,
-)
-
 const ordinaryDyeBefore = listProcessWorkOrders('DYE').length
-const ordinaryDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(aggregatedDyeSnapshots[0]!)
-assert(ordinaryDyeResult.dyeWorkOrderId, '全部不需水溶的染色 BOM 必须生成普通染色加工单')
-assert.equal(listProcessWorkOrders('DYE').length, ordinaryDyeBefore + 1, '全部不需水溶时必须只新增一张普通染色加工单')
-assert.equal(getDyeWorkOrderById(ordinaryDyeResult.dyeWorkOrderId)?.requiresWaterSoluble, false, '全部不需水溶时不得生成水溶执行节点')
+const ordinaryDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(multiBomDyeSnapshots[0]!)
+assert(ordinaryDyeResult.dyeWorkOrderId, '不需水溶的染色 BOM 分支必须生成普通染色加工单')
+assert.equal(listProcessWorkOrders('DYE').length, ordinaryDyeBefore + 1, '当前 BOM 分支必须新增一张普通染色加工单')
+assert.equal(getDyeWorkOrderById(ordinaryDyeResult.dyeWorkOrderId)?.requiresWaterSoluble, false, '当前 BOM 分支不需水溶时不得生成水溶执行节点')
 
 const beforeDyeCount = listProcessWorkOrders('DYE').length
 const beforePrintCount = listProcessWorkOrders('PRINT').length
@@ -1150,6 +1132,8 @@ const supplementSource: ProcessWorkOrderGenerationInput = {
     productionOrderNo: 'PO-SUP-001',
     techPackVersionId: 'TPV-SUP-001',
     techPackVersionLabel: '正式版 V1',
+    processEntryId: 'PROCESS-SUP-001',
+    routeObjectKey: 'BOM:BOM-SUP-001',
     bomItemId: 'BOM-SUP-001',
     bomItemIds: ['BOM-SUP-001'],
     supplementRecordId: 'SUP-RECORD-001',

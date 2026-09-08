@@ -28,11 +28,7 @@ import {
   getPdaMobileExecutionTaskById,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
-import {
-  acceptPostFinishingTask,
-  FULL_CAPABILITY_FACTORY_ID,
-  rejectPostFinishingTask,
-} from '../data/fcs/post-finishing-domain.ts'
+import { DEDICATED_POST_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaCuttingDirectExecEntryHref,
@@ -73,7 +69,6 @@ import {
   getRuntimeTaskTenderRecordByTenderId,
   recordRuntimeTaskTenderQuote,
 } from '../data/fcs/runtime-task-tenders.ts'
-import { formatProcessQuantityWithUnit } from '../data/fcs/process-quantity-labels.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
@@ -247,7 +242,7 @@ function getTaskFactById(taskId: string): ProcessTask | null {
 }
 
 function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
-  return factoryId === FULL_CAPABILITY_FACTORY_ID
+  return factoryId === DEDICATED_POST_FACTORY_ID
 }
 
 function getTaskDisplayNo(task: ProcessTask | null): string {
@@ -373,8 +368,7 @@ export function acceptPdaTaskWithRuntimeFallback(
     return getTaskFactById(taskId) ?? task
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    acceptPostFinishingTask(taskId, by, acceptedAt)
-    return getTaskFactById(taskId) ?? task
+    throw new Error('当前后道任务由回货确认或 QC 生成，不在通用任务接收页接单。')
   }
   if (getRuntimeTaskById(taskId)) {
     return acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt, acceptedBy: by })
@@ -416,7 +410,7 @@ export function rejectPdaTaskWithRuntimeFallback(taskId: string, factoryId: stri
     return refreshed
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    rejectPostFinishingTask(taskId, reason, rejectedBy, rejectedAt)
+    throw new Error('当前后道任务不支持在通用任务接收页拒单，请返回后道专用页面。')
   }
   task.acceptanceStatus = 'REJECTED'
   task.assignmentStatus = 'UNASSIGNED'
@@ -595,10 +589,7 @@ function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
     selectedFactoryId,
   )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
-  return tasks.filter((task) => (
-    task.defaultDocType === 'PREPARATION_ORDER'
-    || ['POST_FINISHING', 'DYE'].includes(getMobileTaskProcessType(task))
-  ))
+  return tasks.filter((task) => task.defaultDocType === 'PREPARATION_ORDER' || getMobileTaskProcessType(task) === 'DYE')
 }
 
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
@@ -652,7 +643,9 @@ function renderEmptyState(label: string): string {
 }
 
 function formatPendingAcceptTaskQty(task: ProcessTask): string {
-  return `${task.qty} 件`
+  const rawUnit = task.qtyDisplayUnit || task.qtyUnit
+  const unit = rawUnit === 'PIECE' ? '件' : rawUnit === 'METER' ? '米' : rawUnit === 'BUNDLE' ? '扎' : rawUnit
+  return `${task.qty} ${unit || '单位未记录'}`
 }
 
 function formatPendingAcceptDispatchPrice(task: ProcessTask): string {
@@ -667,7 +660,7 @@ function renderPendingAcceptFieldGrid(task: ProcessTask): string {
     <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
       ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
       ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
-      ${renderFieldRow('任务件数', formatPendingAcceptTaskQty(task))}
+      ${renderFieldRow('任务数量', formatPendingAcceptTaskQty(task))}
       ${renderFieldRow('接单截止', task.acceptDeadline || '-')}
       ${renderFieldRow('任务截止', task.taskDeadline || '-')}
       ${renderFieldRow('派单价', formatPendingAcceptDispatchPrice(task), true)}
@@ -1110,11 +1103,7 @@ function renderAcceptDialog(): string {
         <div class="space-y-2 px-4 py-3 text-sm">
           ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
           ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
-          ${renderFieldRow('数量', formatProcessQuantityWithUnit(task.qty, {
-            processType: 'SEWING',
-            objectType: '成衣',
-            qtyUnit: task.qtyUnit,
-          }))}
+          ${renderFieldRow('数量', formatPendingAcceptTaskQty(task))}
           ${renderFieldRow('确认接单时间', state.acceptDialogAcceptedAt, true)}
         </div>
         <footer class="flex gap-2 border-t px-4 py-3">

@@ -7,12 +7,11 @@ import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { KOL_GOTO_FACTORY_ID, OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
-import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
-  getPostFinishingWaitProcessReceiptConfirmStatus,
-  listPostFinishingWaitProcessWarehouseRecords,
-} from '../data/fcs/post-finishing-domain.ts'
+  listPostFinishingWaitProcessWarehouseMovements,
+  listPostFinishingWaitProcessWarehouseRecords as listCurrentPostFinishingWaitProcessWarehouseRecords,
+} from '../data/fcs/post-finishing-full-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
 import { getPdaRuntimeContext } from './pda-runtime.ts'
 import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
 import {
@@ -1433,8 +1432,69 @@ function renderCuttingWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '裁床待加工仓', disableTodoAutoOpen: true })
 }
 
-function getPostFinishingWaitProcessRows(): PostFinishingWaitProcessWarehouseRecord[] {
-  return listPostFinishingWaitProcessWarehouseRecords()
+interface PostFinishingWaitProcessRow {
+  warehouseRecordId: string
+  warehouseRecordNo: string
+  upstreamHandoverRecordNo?: string
+  sourceProductionOrderNo: string
+  sourceTaskNo: string
+  postSourceLabel: string
+  spuCode: string
+  spuName: string
+  skuCode: string
+  colorName: string
+  sizeName: string
+  skuImageUrl?: string
+  skuSummary: string
+  inboundGarmentQty: number
+  availableGarmentQty: number
+  qtyUnit: string
+  updatedAt: string
+  areaName?: string
+  locationCode?: string
+  selfReturnRecordId?: string
+  selfReturnRecordNo?: string
+  submittedGarmentQty?: number
+  confirmedGarmentQty?: number
+  receiptConfirmStatus?: '待后道确认' | '可质检' | '已占用' | '已驳回'
+  flowRecords: Array<{ flowType: string; sourceActionRecordNo: string; qty: number; qtyUnit: string; operatedAt: string; remark: string; beforeQty: number; afterQty: number }>
+}
+
+function getPostFinishingWaitProcessRows(): PostFinishingWaitProcessRow[] {
+  const movements = listPostFinishingWaitProcessWarehouseMovements()
+  const currentRows: PostFinishingWaitProcessRow[] = listCurrentPostFinishingWaitProcessWarehouseRecords().flatMap((record) => record.lines.map((line) => ({
+    warehouseRecordId: `${record.warehouseRecordId}:${line.sku.skuId}`,
+    warehouseRecordNo: record.warehouseRecordId,
+    upstreamHandoverRecordNo: record.deliveryOrderNo,
+    selfReturnRecordId: record.deliveryId,
+    selfReturnRecordNo: record.deliveryOrderNo,
+    sourceProductionOrderNo: record.productionOrderNo,
+    sourceTaskNo: record.deliveryOrderNo,
+    postSourceLabel: '当前回货确认',
+    spuCode: line.sku.spuCode,
+    spuName: line.sku.spuName,
+    skuCode: line.sku.skuCode,
+    colorName: line.sku.colorName,
+    sizeName: line.sku.sizeName,
+    skuImageUrl: line.sku.imageUrl,
+    skuSummary: `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`,
+    inboundGarmentQty: line.confirmedQty,
+    availableGarmentQty: line.availableQty,
+    qtyUnit: line.sku.qtyUnit,
+    updatedAt: record.sentAt || record.confirmedAt || record.createdAt,
+    areaName: record.areaName,
+    locationCode: record.locationCode,
+    submittedGarmentQty: line.registeredQty,
+    confirmedGarmentQty: line.confirmedQty,
+    receiptConfirmStatus: record.status === '待确认' ? '待后道确认' : undefined,
+    flowRecords: movements
+      .filter((movement) => movement.warehouseRecordId === record.warehouseRecordId)
+      .map((movement) => {
+        const qty = movement.quantities.find((item) => item.sku.skuId === line.sku.skuId)?.quantity || 0
+        return { flowType: movement.movementType, sourceActionRecordNo: record.deliveryOrderNo, qty, qtyUnit: line.sku.qtyUnit, operatedAt: movement.operatedAt, remark: movement.movementType, beforeQty: movement.movementType === '确认入库' ? 0 : line.confirmedQty, afterQty: movement.movementType === '确认入库' ? line.confirmedQty : 0 }
+      }),
+  })))
+  return currentRows
 }
 
 function getRows() {
@@ -1575,15 +1635,19 @@ function renderLocationDialog(): string {
   `
 }
 
-function renderPostFinishingFlowSummary(record: PostFinishingWaitProcessWarehouseRecord): string {
+function renderPostFinishingFlowSummary(record: PostFinishingWaitProcessRow): string {
   return record.flowRecords
     .slice(-3)
     .map((flow) => `${flow.flowType}${flow.qty}${flow.qtyUnit}`)
     .join(' / ') || '-'
 }
 
-function renderPostFinishingReceiptStatus(record: PostFinishingWaitProcessWarehouseRecord): string {
-  const status = getPostFinishingWaitProcessReceiptConfirmStatus(record)
+function getPostFinishingRowReceiptStatus(record: PostFinishingWaitProcessRow): string {
+  return record.receiptConfirmStatus || (record.availableGarmentQty > 0 ? '可质检' : '已占用')
+}
+
+function renderPostFinishingReceiptStatus(record: PostFinishingWaitProcessRow): string {
+  const status = getPostFinishingRowReceiptStatus(record)
   if (status === '待后道确认') return renderStatusPill('待后道确认')
   if (status === '数量差异待处理') return renderStatusPill('数量差异待处理')
   if (status === '已驳回') return renderStatusPill('已驳回')
@@ -1594,7 +1658,7 @@ function renderPostFinishingWaitProcessDetailDrawer(): string {
   const row = getPostFinishingWaitProcessRows().find((item) => item.warehouseRecordId === state.detailId)
   if (!row) return ''
   const submittedQty = row.submittedGarmentQty ?? row.inboundGarmentQty
-  const status = getPostFinishingWaitProcessReceiptConfirmStatus(row)
+  const status = getPostFinishingRowReceiptStatus(row)
   return `
     <div class="fixed inset-0 z-[120]">
       <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-wait-process-detail"></button>
@@ -1642,13 +1706,12 @@ function renderPostFinishingWaitProcessPage(): string {
   const totalAvailable = rows.reduce((sum, item) => sum + item.availableGarmentQty, 0)
   const totalInbound = rows
     .filter((item) => {
-      const status = getPostFinishingWaitProcessReceiptConfirmStatus(item)
+      const status = getPostFinishingRowReceiptStatus(item)
       return status !== '待后道确认' && status !== '已驳回'
     })
     .reduce((sum, item) => sum + item.inboundGarmentQty, 0)
   const flowCount = rows.reduce((sum, item) => sum + item.flowRecords.length, 0)
-  const selfReturnRows = rows.filter((item) => item.postSourceLabel === '车缝自助回货')
-  const pendingSelfReturnRows = selfReturnRows.filter((item) => getPostFinishingWaitProcessReceiptConfirmStatus(item) === '待后道确认')
+  const pendingReturnRows = rows.filter((item) => getPostFinishingRowReceiptStatus(item) === '待后道确认')
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="grid grid-cols-2 gap-2">
@@ -1663,11 +1726,11 @@ function renderPostFinishingWaitProcessPage(): string {
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${totalAvailable}</div><div class="text-muted-foreground">可用件数</div></div>
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${flowCount}</div><div class="text-muted-foreground">流水</div></div>
         </div>
-        <div class="mt-2 text-xs text-muted-foreground">累计确认入仓 ${totalInbound} 件；车缝自助回货待确认 ${pendingSelfReturnRows.length} 条。</div>
+        <div class="mt-2 text-xs text-muted-foreground">累计确认入仓 ${totalInbound} 件；回货待确认 ${pendingReturnRows.length} 条。</div>
       </section>
       <section class="space-y-3">
         ${rows.length > 0 ? rows.map((item) => {
-          const receiptStatus = getPostFinishingWaitProcessReceiptConfirmStatus(item)
+          const receiptStatus = getPostFinishingRowReceiptStatus(item)
           const submittedQty = item.submittedGarmentQty ?? item.inboundGarmentQty
           return `
           <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">

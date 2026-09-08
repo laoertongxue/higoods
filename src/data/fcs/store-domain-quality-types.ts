@@ -32,7 +32,7 @@ export interface AllocationSnapshot {
 export interface AllocationEvent {
   eventId: string
   taskId: string
-  refType: 'QC' | 'RETURN_BATCH' | 'DYE_PRINT_ORDER'
+  refType: 'QC' | 'RETURN_BATCH'
   refId: string
   deltaAvailableQty: number
   deltaAcceptedAsDefectQty: number
@@ -53,7 +53,7 @@ export interface ReturnBatch {
   returnedQty: number
   qcStatus: ReturnBatchQcStatus
   linkedQcId?: string
-  sourceType?: 'TASK' | 'DYE_PRINT_ORDER'
+  sourceType?: 'TASK'
   sourceId?: string
   createdAt: string
   createdBy: string
@@ -91,7 +91,7 @@ export type ReturnInboundBatchStatus =
   | 'FAIL_IN_QC'
   | 'QC_CLOSED'
 export type SewPostProcessMode = PostExecutionMode
-export type ReturnInboundSourceBusinessType = 'TASK' | 'DYE_PRINT_ORDER' | 'RETURN_BATCH' | 'OTHER'
+export type ReturnInboundSourceBusinessType = 'TASK' | 'RETURN_BATCH' | 'OTHER'
 export type InspectionSourceType = 'HANDOVER_ORDER' | 'HANDOVER_RECORD' | 'RETURN_BATCH'
 
 export interface ReturnInboundSkuLine {
@@ -177,64 +177,7 @@ export function inferReturnInboundProcessTypeFromTask(task: {
   return 'OTHER'
 }
 
-// =============================================
-// 染印加工单（相关流程工单）
-// =============================================
-export type DyePrintProcessType = 'PRINT' | 'DYE' | 'DYE_PRINT'
-export type DyePrintOrderStatus = 'DRAFT' | 'PROCESSING' | 'PARTIAL_RETURNED' | 'COMPLETED' | 'CLOSED'
-export type DyePrintSettlementRelation = 'GROUP_INTERNAL' | 'EXTERNAL' | 'SPECIAL'
-export type DyePrintReturnResult = 'PASS' | 'FAIL'
-
 export type SettlementPartyType = 'FACTORY' | 'SUPPLIER' | 'PROCESSOR' | 'GROUP_INTERNAL' | 'OTHER'
-
-export function deriveDyePrintSettlementRelation(
-  processorFactoryId: string,
-  settlementPartyType: SettlementPartyType,
-  settlementPartyId: string,
-): DyePrintSettlementRelation {
-  if (settlementPartyType === 'GROUP_INTERNAL') return 'GROUP_INTERNAL'
-  if (settlementPartyId === processorFactoryId) return 'GROUP_INTERNAL'
-  if (settlementPartyType === 'OTHER') return 'SPECIAL'
-  return 'EXTERNAL'
-}
-
-export interface DyePrintReturnBatch {
-  returnId: string
-  returnedAt: string
-  qty: number
-  result: DyePrintReturnResult
-  disposition?: QcDisposition
-  remark?: string
-  qcId?: string
-  linkedReturnInboundBatchId?: string
-  effectiveAvailableQty?: number
-  qcClosedAt?: string
-}
-
-export interface DyePrintOrder {
-  dpId: string
-  /** alias kept for back-compat with ReturnBatch.sourceId lookup */
-  orderId: string
-  productionOrderId: string
-  relatedTaskId: string
-  processorFactoryId: string
-  processorFactoryName: string
-  settlementPartyType: SettlementPartyType
-  settlementPartyId: string
-  settlementRelation: DyePrintSettlementRelation
-  processType: DyePrintProcessType
-  plannedQty: number
-  returnedPassQty: number
-  returnedFailQty: number
-  availableQty: number
-  status: DyePrintOrderStatus
-  remark?: string
-  returnBatches: DyePrintReturnBatch[]
-  createdAt: string
-  createdBy: string
-  updatedAt?: string
-  updatedBy?: string
-}
 
 // =============================================
 // Default responsibility helper

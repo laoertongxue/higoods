@@ -30,8 +30,18 @@ import type { FeiTicketSewingAssignment } from '../src/data/fcs/cutting/sewing-d
 import {
   TRANSFER_BAG_REPACK_MOCK_RESULT_BAG_CODE,
   TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES,
+  TRANSFER_BAG_REPACK_MOCK_TASK_ID,
   ensureTransferBagRepackMockEvents,
 } from '../src/data/fcs/cutting/transfer-bag-repack-mock.ts'
+import {
+  createEffectiveTaskAssignment,
+  listCurrentEffectiveTaskAssignments,
+} from '../src/data/fcs/effective-task-assignments.ts'
+import {
+  getFactoryActivePpicSnapshot,
+  getFactoryMasterRecordById,
+} from '../src/data/fcs/factory-master-store.ts'
+import { getCurrentSewingTaskResponsibility } from '../src/data/fcs/sewing-outsourcing-responsibility.ts'
 import {
   createCarrierCycleRecord,
   deserializeTransferBagRuntimeStorage,
@@ -81,11 +91,13 @@ function createMemoryStorage(): BrowserStorageLike {
   }
   ensureTransferBagRepackMockEvents(storage)
   assert.equal(listCuttingRuntimeEvents(storage).length, 6, '重复初始化不得重复写入 Mock 事实')
+  const mockResponsibility = getCurrentSewingTaskResponsibility(TRANSFER_BAG_REPACK_MOCK_TASK_ID)
+  assert(mockResponsibility, '拆袋重装 Mock 任务必须冻结正式车缝工厂的有效 PPIC')
 
   let state = pdaRepack.preparePdaHandoverTask({
     ...pdaRepack.createPdaTransferBagRepackState(),
     sewingTaskNo: 'SEW-RP-DEMO-001',
-    receiverPpicId: 'CUTTING-PPIC-FACTORY-SEWING-REPACK-DEMO-1',
+    receiverPpicId: mockResponsibility.ppicId,
   }, storage)
   assert.deepEqual([...state.sourceBagCodes].sort(), [...TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES].sort(), '按车缝任务必须自动找到三只相关来源袋')
   const repackTargetIds = TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES.slice(1).flatMap((bagCode) =>
@@ -314,6 +326,36 @@ function ticket(
     receiverFactoryId,
     receiverFactoryName: `接收工厂-${receiverFactoryId}`,
   }
+}
+
+function ensurePdaRepackAssignment(runtimeTaskId: string, productionOrderNo: string): string {
+  const factory = getFactoryMasterRecordById('ID-F001')
+  const ppic = getFactoryActivePpicSnapshot('ID-F001')
+  assert(factory && ppic, 'PDA 拆袋重装测试必须找到带有效 PPIC 的正式车缝工厂')
+  if (!listCurrentEffectiveTaskAssignments(runtimeTaskId).length) {
+    createEffectiveTaskAssignment({
+      assignmentId: `ASG-${runtimeTaskId}`,
+      runtimeTaskId,
+      productionOrderId: `PO-ID-${productionOrderNo}`,
+      productionOrderNo,
+      taskNo: `SEW-${productionOrderNo}`,
+      factoryId: factory.id,
+      factoryName: factory.name,
+      source: 'DIRECT_DISPATCH',
+      assignedQty: 20,
+      skuLines: [{ skuCode: `${productionOrderNo}-M`, color: '深蓝', size: 'M', qty: 20 }],
+      processCodes: ['SEW'],
+      frozenPrice: 15000,
+      priceCurrency: 'IDR',
+      priceUnit: '件',
+      businessAssignedAt: '2026-08-01 07:30',
+      operatedAt: '2026-08-01 07:30',
+      operatedBy: ppic.ppicName,
+      allocationOperatorPpicId: ppic.ppicId,
+      allocationOperatorPpicName: ppic.ppicName,
+    })
+  }
+  return ppic.ppicId
 }
 
 function assignment(
@@ -5300,9 +5342,10 @@ for (const [suffix, eventStatus, payload] of [
   const bagA = 'PDA-REPACK-SOURCE-A'
   const bagB = 'PDA-REPACK-SOURCE-B'
   const bagC = 'PDA-REPACK-RESULT-C'
-  const firstTicket = ticket('PDA-REPACK-01', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 12)
-  const secondTicket = ticket('PDA-REPACK-02', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 8)
-  const retainedTicket = { ...ticket('PDA-REPACK-OTHER', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 6), sewingTaskId: 'SEW-OTHER-ID', sewingTaskNo: 'SEW-OTHER' }
+  const pdaFactory = getFactoryMasterRecordById('ID-F001')!
+  const firstTicket = ticket('PDA-REPACK-01', 'PO-PDA-REPACK', pdaFactory.id, 12)
+  const secondTicket = ticket('PDA-REPACK-02', 'PO-PDA-REPACK', pdaFactory.id, 8)
+  const retainedTicket = { ...ticket('PDA-REPACK-OTHER', 'PO-PDA-REPACK', pdaFactory.id, 6), sewingTaskId: 'SEW-OTHER-ID', sewingTaskNo: 'SEW-OTHER' }
   appendBagging({ storage, bagCode: bagA, usageCycleId: 'usage:PDA-REPACK-A:1', tickets: [firstTicket] })
   appendInbound({ storage, bagCode: bagA, usageCycleId: 'usage:PDA-REPACK-A:1', tickets: [firstTicket] })
   appendBagging({ storage, bagCode: bagB, usageCycleId: 'usage:PDA-REPACK-B:1', tickets: [secondTicket, retainedTicket] })
@@ -5311,7 +5354,7 @@ for (const [suffix, eventStatus, payload] of [
   let state = pdaRepack.preparePdaHandoverTask({
     ...pdaRepack.createPdaTransferBagRepackState(),
     sewingTaskNo: firstTicket.sewingTaskNo,
-    receiverPpicId: 'CUTTING-PPIC-FACTORY-PDA-REPACK-1',
+    receiverPpicId: ensurePdaRepackAssignment(firstTicket.sewingTaskId, firstTicket.productionOrderNo),
   }, storage)
   state = pdaRepack.assignRepackTicket(state, secondTicket.feiTicketId, bagC, storage)
   state = pdaRepack.beginPdaRepackSourceReturns(state, storage)

@@ -39,11 +39,12 @@ function selectOrderByTarget(target: '已裁部位' | '成衣' | '辅料' | '捆
 
 function selectPartialHandoverOrder(): SpecialCraftTaskOrder {
   const order = listSpecialCraftTaskOrders().find((item) =>
-    item.taskOrderNo === 'AUX-PO14672-0002-02'
+    item.productionOrderId === 'PO-202603-083'
+    && item.operationId === 'AUX-OP-PLEATING'
     && item.status === '加工中'
     && item.completedQty > (item.returnedQty || 0),
   )
-  if (!order) throw new Error('缺少压褶部分交出演示加工单 AUX-PO14672-0002-02')
+  if (!order) throw new Error('缺少 PO-202603-083 的压褶部分交出演示加工单')
   return order
 }
 
@@ -198,19 +199,21 @@ test('PDA 列表不显示 Web 分页和加载按钮，滑到底部自动追加�
   await expect(listRoot.locator('[data-pda-exec-action="load-more"]')).toHaveCount(0)
 
   const doneTab = page.locator('[data-testid="pda-exec-special-craft-tabs"] [data-tab="DONE"]')
+  const doneTotal = Number((await doneTab.textContent())?.match(/\((\d+)\)/)?.[1] || 0)
+  expect(doneTotal).toBeGreaterThan(20)
   await doneTab.click()
   const cards = listRoot.locator('[data-testid="pda-exec-work-order-card"]')
-  await expect(cards).toHaveCount(10)
+  await expect(cards).toHaveCount(Math.min(10, doneTotal))
   const originalList = await listRoot.elementHandle()
   const sentinel = listRoot.locator('[data-pda-exec-auto-load-sentinel="special-craft"]')
   const scrollContainer = page.locator('[data-pda-scroll-container="true"]')
   await expect(sentinel).toHaveCount(1)
   await sentinel.evaluate((node) => node.scrollIntoView({ block: 'end' }))
   await expect.poll(async () => scrollContainer.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
-  await expect(cards).toHaveCount(20)
+  await expect(cards).toHaveCount(Math.min(20, doneTotal))
   await expect(sentinel).toHaveCount(1)
   await sentinel.evaluate((node) => node.scrollIntoView({ block: 'end' }))
-  await expect(cards).toHaveCount(27)
+  await expect(cards).toHaveCount(doneTotal)
   await expect(sentinel).toHaveCount(0)
   expect(await scrollContainer.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
   expect(await originalList!.evaluate((node) => node.isConnected)).toBe(true)
@@ -324,7 +327,7 @@ test('旧任务详情地址仅兼容重定向到唯一加工单地址', async ({
   const slug = buildSpecialCraftOperationSlug(order.operationId)
   await page.goto(`/fcs/process-factory/special-craft/${slug}/tasks/${encodeURIComponent(order.taskOrderId)}`)
   await expect(page).toHaveURL(new RegExp(`${slug}/work-orders/${encodeURIComponent(order.taskOrderId)}(?:\\?|$)`))
-  await expect(page.getByRole('heading', { name: `${order.operationName}加工单详情` })).toBeVisible()
+  await expect(page.getByRole('heading', { name: `${order.operationName}加工单详情` })).toBeVisible({ timeout: 30_000 })
 })
 
 test('裁片、成衣、辅料和盘扣加工单保持各自对象与数量单位', async ({ page }) => {

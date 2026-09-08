@@ -268,7 +268,7 @@ function renderReviewSubmitDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-5 text-sm">
           <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-            提交前请确认物料清单、核价、纸样管理、款色用料对应、工序工艺、放码规则、花型设计等内容已维护完整。审核中、审核通过和无需审核的模块将锁定，不允许修改。
+            提交前请确认物料清单、核价、纸样管理、款色用料对应、工艺路线、放码规则、花型设计等内容已维护完整。审核中、审核通过和无需审核的模块将锁定，不允许修改。
           </div>
           ${renderDesignRequirementCheckBlock()}
           ${renderReviewSubmitScopePreview(record)}

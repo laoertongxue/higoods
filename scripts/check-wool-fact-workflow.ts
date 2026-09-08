@@ -672,7 +672,8 @@ const sameNamePartArtifact = generateTaskArtifactsForOrder(sameNamePartOrder.pro
   .find((artifact) => artifact.woolTaskType === 'PART_PANEL')
 assert(sameNamePartArtifact, '缺少同名毛织部位检查加工任务')
 const sameNameBasePattern = sameNamePartOrder.techPackSnapshot.patternFiles
-  .find((pattern) => pattern.patternMaterialType === 'WOOL' && pattern.pieceRows?.length)
+  .find((pattern) => sameNamePartArtifact.linkedPatternIds?.includes(pattern.id)
+    && pattern.patternMaterialType === 'WOOL' && pattern.pieceRows?.length)
 assert(sameNameBasePattern?.pieceRows?.[0], '缺少同名毛织部位检查纸样')
 const sameNameBasePiece = sameNameBasePattern.pieceRows[0]
 const originalSameNamePatternFiles = sameNamePartOrder.techPackSnapshot.patternFiles

@@ -98,7 +98,7 @@ function inventoryClass(inventoryQty: number, plannedQty: number): string {
 }
 
 function pendingDyeQty(row: DyeWorkOrderOnlineRow): number {
-  if (['染色完成', '待审核', '部分入库', '已完成', '取消'].includes(row.status)) return 0
+  if (['染色完成', '待审核', '部分入库', '待人工完单', '已完成', '取消'].includes(row.status)) return 0
   return Math.max(0, row.plannedQty - row.completedQty)
 }
 
@@ -111,7 +111,7 @@ function renderListImage(url: string, alt: string): string {
 function statusTone(status: DyeWorkOrderOnlineStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
   if (status === '已完成') return 'success'
   if (status === '取消') return 'neutral'
-  if (status === '等待处理' || status === '待审核') return 'warning'
+  if (status === '等待处理' || status === '待审核' || status === '待人工完单') return 'warning'
   if (status === '染色中' || status === '部分入库') return 'info'
   return 'success'
 }
@@ -146,12 +146,12 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   {
     key: 'purchase', title: '采购单信息', width: 190, sortable: true,
     sortValue: (row) => row.purchaseOrderNo,
-    render: (row) => `<div class="space-y-1"><div>${escapeHtml(row.purchaseOrderNo)}：${escapeHtml(row.purchaseType)}</div><div class="text-xs">面料接收人：${escapeHtml(row.receiverName || '待分配')}</div><div class="text-xs ${inventoryClass(row.receiverInventoryQty, row.plannedQty)}">接收人库存：${formatQty(row.receiverInventoryQty, row.qtyUnit)}</div><div class="text-xs ${inventoryClass(row.gtgInventoryQty, row.plannedQty)}">GTG 仓库存：${formatQty(row.gtgInventoryQty, row.qtyUnit)}</div></div>`,
+    render: (row) => `<div class="space-y-1"><div>${escapeHtml(row.purchaseOrderNo)}：${escapeHtml(row.purchaseType)}</div><div class="text-xs">物料接收人：${escapeHtml(row.receiverName || '待分配')}</div><div class="text-xs ${inventoryClass(row.receiverInventoryQty, row.plannedQty)}">接收人库存：${formatQty(row.receiverInventoryQty, row.qtyUnit)}</div><div class="text-xs ${inventoryClass(row.gtgInventoryQty, row.plannedQty)}">GTG 仓库存：${formatQty(row.gtgInventoryQty, row.qtyUnit)}</div></div>`,
   },
   {
-    key: 'material', title: '原料/面料', width: 250, required: true, sortable: true,
+    key: 'material', title: '染色原料', width: 250, required: true, sortable: true,
     sortValue: (row) => row.rawMaterialSku,
-    render: (row) => `<div class="flex gap-2">${renderListImage(row.materialImageUrl, '面料图')}<div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(pendingDyeQty(row), row.qtyUnit)}</div></div></div>`,
+    render: (row) => `<div class="flex gap-2">${renderListImage(row.materialImageUrl, `${row.materialType}图`)}<div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(pendingDyeQty(row), row.qtyUnit)}</div></div></div>`,
   },
   {
     key: 'attributes', title: '属性信息', width: 190, sortable: true,
@@ -170,7 +170,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   },
   {
     key: 'extra', title: '附加信息', width: 175,
-    render: (row) => `<div class="space-y-1 text-xs"><div>面料接收人：${escapeHtml(row.receiverName || '—')}</div><div>交出单号：${escapeHtml(row.handoverOrderNo || '—')}</div><div>头缸/复染：${escapeHtml(row.headVatOrRedye)}</div></div>`,
+    render: (row) => `<div class="space-y-1 text-xs"><div>物料接收人：${escapeHtml(row.receiverName || '—')}</div><div>交出单号：${escapeHtml(row.handoverOrderNo || '—')}</div><div>头缸/复染：${escapeHtml(row.headVatOrRedye)}</div></div>`,
   },
   {
     key: 'otherQty', title: '其他数量', width: 160, sortable: true, align: 'right',
@@ -235,14 +235,14 @@ function renderFilters(rows: DyeWorkOrderOnlineRow[]): string {
       ${selectField('销售类型', 'salesType', uniqueValues(rows, (row) => row.salesType), filters.salesType)}
       ${selectField('生产工厂', 'factoryName', uniqueValues(rows, (row) => row.factoryName), filters.factoryName)}
       ${selectField('染色工序', 'processName', uniqueValues(rows, (row) => row.processName), filters.processName)}
-      ${selectField('面料接收人', 'receiverName', uniqueValues(rows, (row) => row.receiverName), filters.receiverName)}
+      ${selectField('物料接收人', 'receiverName', uniqueValues(rows, (row) => row.receiverName), filters.receiverName)}
       ${sourceTypeSelectField(filters.sourceType)}
     </div>
     <div class="flex flex-wrap items-end gap-3">
       ${selectField('是否纱线', 'yarn', ['全部', '是', '否'], filters.yarn, 'min-w-[7rem]')}
       ${selectField('是否补料', 'replenishment', ['全部', '是', '否'], filters.replenishment, 'min-w-[7rem]')}
       ${selectField('GTG仓是否有库存', 'gtgInStock', ['全部', '是', '否'], filters.gtgInStock, 'min-w-[10rem]')}
-      ${selectField('物料类型', 'materialType', ['', '面料', '纱线'], filters.materialType)}
+      ${selectField('物料类型', 'materialType', uniqueValues(rows, (row) => row.materialType), filters.materialType)}
       ${textField('染色色号', 'colorNo', filters.colorNo)}
       ${textField('成分', 'composition', filters.composition)}
       ${textField('幅宽', 'width', filters.width)}

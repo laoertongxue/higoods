@@ -5,13 +5,6 @@ import {
 import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
 import { applySpecialCraftHandoverDifferenceToFeiTickets } from './cutting/special-craft-fei-ticket-flow.ts'
 import {
-  createPostFinishingReceiptMutationSnapshot,
-  listPostFinishingWorkOrders,
-  receiveAuxiliaryCraftGarmentsAtPostFinishing,
-  restorePostFinishingReceiptMutationSnapshot,
-  type PostFinishingWorkOrder,
-} from './post-finishing-domain.ts'
-import {
   createFactoryInternalWarehouseMutationSnapshot,
   listFactoryWaitHandoverStockItems,
   recordAuxiliaryGarmentReceiptToPostFactory,
@@ -464,22 +457,22 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       ...commonFactory,
       targetWarehouseName: '印花待加工仓',
       warehouseLocation: '印花待加工仓 A 区 / PPA-A-02',
-      skuSummary: '黑底白花裁片',
+      skuSummary: '黑底白花花边',
       styleNo: 'SPU-PRINT-004',
-      materialSku: 'FAB-PRINT-032',
-      materialName: '印花裁片',
+      materialSku: 'LACE-PRINT-032',
+      materialName: '印花花边',
       batchNo: 'PH-20260328-004',
-      objectType: '裁片',
+      objectType: '辅料',
       plannedObjectQty: 872,
       receivedObjectQty: 872,
       availableObjectQty: 872,
-      qtyUnit: '片',
+      qtyUnit: '米',
       currentActionName: '待转印接收',
       status: '已入仓',
       inboundAt: '2026-05-11 10:00:00',
       createdAt: '2026-05-11 10:00:00',
       updatedAt: '2026-05-11 10:00:00',
-      relatedFeiTicketIds: ['FT-PRINT-20260328-004-01'],
+      relatedFeiTicketIds: [],
       remark: '印花加工单完成接收后进入待加工仓',
     },
     {
@@ -558,23 +551,23 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       ...commonFactory,
       targetWarehouseName: '中转区域',
       warehouseLocation: '印花待交出仓 A 区 / PHA-A-01',
-      skuSummary: '浅蓝底白花裁片',
+      skuSummary: '浅蓝底白花主面料',
       styleNo: 'SPU-PRINT-005',
       materialSku: 'FAB-PRINT-037',
-      materialName: '印花裁片',
+      materialName: '印花面料',
       batchNo: 'PH-20260328-005',
-      objectType: '裁片',
+      objectType: '面料',
       plannedObjectQty: 808,
       receivedObjectQty: 808,
       availableObjectQty: 808,
-      qtyUnit: '片',
+      qtyUnit: '米',
       currentActionName: '印花待交出',
       status: '待交出',
       inboundAt: '2026-05-12 16:30:00',
       createdAt: '2026-05-12 16:30:00',
       updatedAt: '2026-05-12 16:30:00',
-      relatedFeiTicketIds: ['FT-PRINT-20260328-005-01'],
-      remark: '转印完成后进入印花待交出仓',
+      relatedFeiTicketIds: [],
+      remark: '印花完成后进入印花待交出仓',
     },
     {
       recordType: 'WAIT_HANDOVER',
@@ -590,23 +583,23 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       ...commonFactory,
       targetWarehouseName: '中转区域',
       warehouseLocation: '印花待交出仓 A 区 / PHA-A-02',
-      skuSummary: '深灰底银花裁片',
+      skuSummary: '深灰底银花花边',
       styleNo: 'SPU-PRINT-006',
-      materialSku: 'FAB-PRINT-041',
-      materialName: '印花裁片',
+      materialSku: 'LACE-PRINT-041',
+      materialName: '印花花边',
       batchNo: 'PH-20260328-006',
-      objectType: '裁片',
+      objectType: '辅料',
       plannedObjectQty: 1044,
       receivedObjectQty: 1044,
       availableObjectQty: 1044,
-      qtyUnit: '片',
+      qtyUnit: '米',
       currentActionName: '印花交出待收货',
       status: '待交出',
       inboundAt: '2026-05-12 17:20:00',
       createdAt: '2026-05-12 17:20:00',
       updatedAt: '2026-05-12 17:20:00',
-      relatedFeiTicketIds: ['FT-PRINT-20260328-006-01'],
-      remark: '转印完成后进入印花待交出仓',
+      relatedFeiTicketIds: [],
+      remark: '印花完成后进入印花待交出仓',
     },
     {
       recordType: 'WAIT_HANDOVER',
@@ -685,7 +678,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
     const normalizedCraftName = craftName.trim()
     const meta = normalizedCraftName.includes('直喷') || normalizedCraftName.includes('烫画')
       ? { areaName: '印花厂库区', locationPrefix: 'PF' }
-      : normalizedCraftName.includes('绣') || normalizedCraftName.includes('贝壳') || normalizedCraftName.includes('曲牙')
+      : normalizedCraftName.includes('绣') || normalizedCraftName.includes('贝壳') || normalizedCraftName.includes('曲牙绣')
         ? { areaName: '毛织厂库区', locationPrefix: 'WF' }
         : normalizedCraftName.includes('打条') || normalizedCraftName.includes('压褶')
           ? { areaName: '裁片仓库区', locationPrefix: 'CP' }
@@ -700,6 +693,11 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   }
   taskOrders.forEach((taskOrder) => {
     const flow = resolveAuxiliaryWarehouseFlow(taskOrder.targetObject)
+    const hasDistinctMaterialInput = taskOrder.targetObject === '辅料'
+    const inputPlannedQty = hasDistinctMaterialInput ? taskOrder.inputPlannedQty ?? taskOrder.planQty : taskOrder.planQty
+    const inputReceivedQty = hasDistinctMaterialInput ? taskOrder.inputReceivedQty ?? taskOrder.receivedQty : taskOrder.receivedQty
+    const inputQtyUnit = hasDistinctMaterialInput ? taskOrder.inputUnit || flow.qtyUnit : flow.qtyUnit
+    const outputQtyUnit = taskOrder.outputUnit || taskOrder.unit || flow.qtyUnit
     const sourceTaskOrderId = taskOrder.taskOrderId
     const sourceWorkOrderNo = taskOrder.taskOrderNo
     const common: Omit<WarehouseRecordPayload, 'currentActionName' | 'recordType'> = {
@@ -721,10 +719,10 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       materialName: taskOrder.partName || taskOrder.operationName,
       batchNo: taskOrder.transferBagNos[0] || '',
       objectType: flow.objectType,
-      plannedObjectQty: taskOrder.planQty,
-      receivedObjectQty: taskOrder.receivedQty,
-      availableObjectQty: taskOrder.currentQty ?? taskOrder.completedQty ?? taskOrder.receivedQty,
-      qtyUnit: flow.qtyUnit,
+      plannedObjectQty: inputPlannedQty,
+      receivedObjectQty: inputReceivedQty,
+      availableObjectQty: inputReceivedQty,
+      qtyUnit: inputQtyUnit,
       relatedFeiTicketIds: flow.objectType === '裁片' ? taskOrder.feiTicketNos : [],
       inboundAt: taskOrder.createdAt,
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
@@ -762,10 +760,14 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
             targetFactoryName: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_NAME : flow.receiverName,
             targetWarehouseName: location.targetWarehouseName,
             warehouseLocation: location.warehouseLocation,
+            materialName: taskOrder.operationName,
+            plannedObjectQty: taskOrder.planQty,
+            receivedObjectQty: completedQty,
             availableObjectQty: availableToHandoverQty,
             handedOverObjectQty: handedOverQty,
             writtenBackObjectQty: 0,
             diffObjectQty: 0,
+            qtyUnit: outputQtyUnit,
             currentActionName: '特殊工艺待交出',
             status: availableToHandoverQty > 0
               ? (handedOverQty > 0 ? '部分交出' : '待交出')
@@ -781,105 +783,10 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   return records
 }
 
-function postWaitAction(order: PostFinishingWorkOrder): '待接收入仓' | '待质检' | '待后道' | '待复检' {
-  if (order.currentStatus.includes('接收')) return '待接收入仓'
-  if (order.currentStatus.includes('复检')) return '待复检'
-  if (order.currentStatus.includes('质检')) return '待质检'
-  if (!order.isPostDoneBySewingFactory && order.currentStatus.includes('后道')) return '待后道'
-  if (order.currentStatus === '待交出' || order.currentStatus.includes('已')) return '待复检'
-  return '待接收入仓'
-}
-
-function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): ProcessWarehouseRecord[] {
-  const records: ProcessWarehouseRecord[] = []
-  orders.forEach((order) => {
-    const actionName = postWaitAction(order)
-    records.push(
-      buildWarehouseRecord(
-        {
-          warehouseRecordId: order.waitProcessWarehouseRecordId,
-          craftType: 'POST_FINISHING',
-          craftName: '后道',
-          sourceTaskOrderId: order.postOrderId,
-          sourceWorkOrderNo: order.postOrderNo,
-          sourceTaskId: order.sourceTaskId,
-          sourceTaskNo: order.sourceSewingTaskNo,
-          sourceProductionOrderId: order.sourceProductionOrderId,
-          sourceProductionOrderNo: order.sourceProductionOrderNo,
-          sourceFactoryId: order.sourceSewingFactoryId,
-          sourceFactoryName: order.sourceSewingFactoryName,
-          targetFactoryId: order.managedPostFactoryId,
-          targetFactoryName: order.managedPostFactoryName,
-          targetWarehouseName: '后道待加工仓',
-          skuSummary: order.skuSummary,
-          styleNo: order.styleNo,
-          objectType: '成衣',
-          plannedObjectQty: order.plannedGarmentQty,
-          receivedObjectQty: order.plannedGarmentQty,
-          availableObjectQty: order.plannedGarmentQty,
-          qtyUnit: order.plannedGarmentQtyUnit,
-          currentActionName: actionName,
-          status: order.currentStatus,
-          inboundAt: order.createdAt,
-          updatedAt: order.updatedAt,
-          remark: order.isPostDoneBySewingFactory
-            ? '车缝厂已完成该环节，接收入仓后只做质检和复检'
-            : '完整流程进入待加工仓：接收入仓、质检、后道、复检',
-        },
-        'WAIT_PROCESS',
-        records.length + 1,
-      ),
-    )
-    if (order.waitHandoverWarehouseRecordId && order.recheckAction) {
-      records.push(
-        buildWarehouseRecord(
-          {
-            warehouseRecordId: order.waitHandoverWarehouseRecordId,
-            craftType: 'POST_FINISHING',
-            craftName: '后道',
-            sourceTaskOrderId: order.postOrderId,
-            sourceWorkOrderNo: order.postOrderNo,
-            sourceTaskId: order.sourceTaskId,
-            sourceTaskNo: order.sourceSewingTaskNo,
-            sourceProductionOrderId: order.sourceProductionOrderId,
-            sourceProductionOrderNo: order.sourceProductionOrderNo,
-            sourceFactoryId: order.managedPostFactoryId,
-            sourceFactoryName: order.managedPostFactoryName,
-            targetFactoryId: order.managedPostFactoryId,
-            targetFactoryName: order.managedPostFactoryName,
-            targetWarehouseName: '后道待交出仓',
-            skuSummary: order.skuSummary,
-            styleNo: order.styleNo,
-            objectType: '成衣',
-            plannedObjectQty: order.plannedGarmentQty,
-            receivedObjectQty: order.recheckAction.acceptedGarmentQty,
-            availableObjectQty: order.recheckAction.acceptedGarmentQty,
-            handedOverObjectQty: order.handoverStatus.includes('已交出') || order.handoverStatus.includes('交出待收货')
-              ? order.recheckAction.acceptedGarmentQty
-              : 0,
-            writtenBackObjectQty: order.currentStatus === '全部交出' ? order.recheckAction.acceptedGarmentQty - order.recheckAction.diffGarmentQty : 0,
-            diffObjectQty: order.recheckAction.diffGarmentQty,
-            qtyUnit: order.plannedGarmentQtyUnit,
-            currentActionName: '后道待交出',
-            status: order.currentStatus === '复检完成' ? '待交出' : order.currentStatus,
-            inboundAt: order.updatedAt,
-            updatedAt: order.updatedAt,
-            remark: '复检完成后生成后道待交出仓记录',
-          },
-          'WAIT_HANDOVER',
-          records.length + 1,
-        ),
-      )
-    }
-  })
-  return records
-}
-
 function buildInitialWarehouseRecords(): ProcessWarehouseRecord[] {
   return [
     ...buildSeedProcessWarehouseRecords(),
     ...buildSpecialCraftWarehouseRecords(listSpecialCraftTaskOrders()),
-    ...buildPostFinishingWarehouseRecords(listPostFinishingWorkOrders()),
   ].map((record, index) => ({
     ...record,
     warehouseRecordNo: record.warehouseRecordNo || createRecordNo(record.recordType === 'WAIT_PROCESS' ? 'GC-RK' : 'GC-CK', index + 1),
@@ -1481,12 +1388,10 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
 
 export interface ProcessHandoverPostReceiptDependencies {
   recordPostFactoryInbound: typeof recordAuxiliaryGarmentReceiptToPostFactory
-  receiveAtPostFinishing: typeof receiveAuxiliaryCraftGarmentsAtPostFinishing
 }
 
 const defaultProcessHandoverPostReceiptDependencies: ProcessHandoverPostReceiptDependencies = {
   recordPostFactoryInbound: recordAuxiliaryGarmentReceiptToPostFactory,
-  receiveAtPostFinishing: receiveAuxiliaryCraftGarmentsAtPostFinishing,
 }
 
 export function writeBackProcessHandoverRecord(
@@ -1535,14 +1440,12 @@ export function writeBackProcessHandoverRecord(
   const differenceSnapshot = structuredClone(processHandoverDifferenceRecords)
   const reviewSnapshot = structuredClone(processWarehouseReviewRecords)
   const factoryWarehouseSnapshot = createFactoryInternalWarehouseMutationSnapshot()
-  const postFinishingSnapshot = createPostFinishingReceiptMutationSnapshot()
   const rollback = () => {
     processWarehouseRecords.splice(0, processWarehouseRecords.length, ...processWarehouseSnapshot)
     processHandoverRecords.splice(0, processHandoverRecords.length, ...processHandoverSnapshot)
     processHandoverDifferenceRecords.splice(0, processHandoverDifferenceRecords.length, ...differenceSnapshot)
     processWarehouseReviewRecords.splice(0, processWarehouseReviewRecords.length, ...reviewSnapshot)
     restoreFactoryInternalWarehouseMutationSnapshot(factoryWarehouseSnapshot)
-    restorePostFinishingReceiptMutationSnapshot(postFinishingSnapshot)
   }
   try {
   const receiveAt = payload.receiveAt || nowText()
@@ -1653,18 +1556,6 @@ export function writeBackProcessHandoverRecord(
         receivedAt: handover.receiveAt,
         remark: handover.remark,
       })
-    })
-    dependencies.receiveAtPostFinishing({
-      handoverRecordId: handover.handoverRecordId,
-      productionOrderId: handover.sourceProductionOrderId || handover.sourceProductionOrderNo || '',
-      productionOrderNo: handover.sourceProductionOrderNo || handover.sourceProductionOrderId || '',
-      sourceTaskId: handover.sourceTaskOrderId,
-      sourceTaskNo: handover.sourceWorkOrderNo,
-      sourceFactoryId: handover.handoverFactoryId,
-      sourceFactoryName: handover.handoverFactoryName,
-      receiverName: handover.receivePerson,
-      receivedAt: handover.receiveAt,
-      skuLines: postSkuLines,
     })
   }
   return cloneHandoverRecord(handover)

@@ -1,8 +1,21 @@
 export type ProcessQuantityProcessType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING' | 'SEWING' | string
 
-export type ProcessObjectType = '面料' | '裁片' | '成衣' | '菲票' | '卷' | '包' | '箱' | '辅料'
+export type ProcessObjectType =
+  | '面料'
+  | '纱线'
+  | '花边'
+  | '织带'
+  | '拉链'
+  | 'BOM原物料'
+  | '裁片'
+  | '成衣'
+  | '菲票'
+  | '卷'
+  | '包'
+  | '箱'
+  | '辅料'
 
-export type ProcessQtyUnit = 'Yard' | '米' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个' | '条'
+export type ProcessQtyUnit = 'Yard' | '米' | '公斤' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个' | '条'
 
 export type QtyPurpose =
   | '计划'
@@ -31,8 +44,6 @@ export interface ProcessQuantityContext {
   objectType?: string
   qtyUnit?: string
   qtyPurpose?: QtyPurpose
-  isPiecePrinting?: boolean
-  isFabricPrinting?: boolean
 }
 
 export interface QuantityField {
@@ -45,6 +56,7 @@ export interface QuantityField {
 function normalizeUnit(unit: string | undefined): ProcessQtyUnit {
   if (unit === 'Yard') return 'Yard'
   if (unit === 'METER' || unit === '米') return '米'
+  if (unit === 'KG' || unit === 'kg' || unit === '公斤') return '公斤'
   if (unit === 'ROLL' || unit === '卷') return '卷'
   if (unit === 'PIECE' || unit === '片') return '片'
   if (unit === 'GARMENT' || unit === '件') return '件'
@@ -58,28 +70,32 @@ function normalizeUnit(unit: string | undefined): ProcessQtyUnit {
 function normalizeObjectType(objectType: string | undefined): ProcessObjectType | undefined {
   if (!objectType) return undefined
   if (objectType === 'FABRIC' || objectType.includes('面料')) return '面料'
+  if (objectType === 'YARN' || objectType.includes('纱线')) return '纱线'
+  if (objectType === 'LACE' || objectType.includes('花边')) return '花边'
+  if (objectType === 'WEBBING' || objectType.includes('织带')) return '织带'
+  if (objectType === 'ZIPPER' || objectType.includes('拉链')) return '拉链'
+  if (objectType === '包装材料') return 'BOM原物料'
+  if (objectType === 'BOM_MATERIAL' || objectType.includes('BOM原物料') || objectType.includes('BOM物料')) return 'BOM原物料'
   if (objectType === 'CUT_PIECE' || objectType.includes('裁片')) return '裁片'
   if (objectType === 'GARMENT' || objectType.includes('成衣')) return '成衣'
   if (objectType === 'FEI_TICKET' || objectType.includes('菲票')) return '菲票'
   if (objectType.includes('卷')) return '卷'
-  if (objectType.includes('包')) return '包'
-  if (objectType.includes('箱')) return '箱'
+  if (objectType === '包') return '包'
+  if (objectType === '箱') return '箱'
   if (objectType.includes('辅料')) return '辅料'
   return undefined
 }
 
 export function getProcessObjectType(context: ProcessQuantityContext): ProcessObjectType {
   const normalized = normalizeObjectType(context.objectType)
-  if (normalized) return normalized
-
   const unit = normalizeUnit(context.qtyUnit)
   if (context.processType === 'PRINT') {
-    if (context.isPiecePrinting || unit === '片') return '裁片'
-    if (context.isFabricPrinting || unit === '米' || unit === 'Yard') return '面料'
-    if (unit === '卷') return '卷'
-    return '裁片'
+    if (normalized && normalized !== '裁片' && normalized !== '成衣') return normalized
+    return 'BOM原物料'
   }
-  if (context.processType === 'DYE') return unit === '卷' ? '卷' : '面料'
+  if (normalized) return normalized
+
+  if (context.processType === 'DYE') return '面料'
   if (context.processType === 'CUTTING') return unit === '件' ? '成衣' : '裁片'
   if (context.processType === 'SPECIAL_CRAFT') {
     if (unit === '张') return '菲票'
@@ -97,7 +113,14 @@ export function getProcessObjectType(context: ProcessQuantityContext): ProcessOb
 }
 
 export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUnit {
-  if (context.processType === 'DYE' && normalizeUnit(context.qtyUnit) !== '卷') return '米'
+  const normalizedUnit = normalizeUnit(context.qtyUnit)
+  if (context.processType === 'PRINT') {
+    // 印花数量单位取实际 BOM，不再通过“片/件”反推加工对象。
+    return normalizedUnit
+  }
+  if (context.processType === 'DYE' && getProcessObjectType(context) === '面料') {
+    return normalizedUnit === '卷' ? '卷' : '米'
+  }
   if (context.processType === 'CUTTING' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'SPECIAL_CRAFT' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'POST_FINISHING') return '件'
@@ -110,7 +133,10 @@ export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUn
 }
 
 function printPurposeLabel(context: ProcessQuantityContext, objectType: ProcessObjectType): string {
-  const objectNoun = objectType === '裁片' ? '裁片数量' : normalizeUnit(context.qtyUnit) === 'Yard' ? '面料Yard数' : '面料米数'
+  const unit = getProcessQtyUnit(context)
+  const objectNoun = objectType === '面料'
+    ? unit === 'Yard' ? '面料Yard数' : '面料米数'
+    : unit === '个' ? `${objectType}数量` : `${objectType}${unit}数`
   switch (context.operationCode) {
     case 'PRINT_FINISH_PRINTING':
       return `打印完成${objectNoun}`
@@ -141,8 +167,12 @@ function printPurposeLabel(context: ProcessQuantityContext, objectType: ProcessO
   }
 }
 
-function dyePurposeLabel(context: ProcessQuantityContext, unit: ProcessQtyUnit): string {
-  if (unit === '卷') {
+function dyePurposeLabel(
+  context: ProcessQuantityContext,
+  unit: ProcessQtyUnit,
+  objectType: ProcessObjectType,
+): string {
+  if (unit === '卷' && objectType === '面料') {
     switch (context.qtyPurpose) {
       case '已交出':
         return '交出卷数'
@@ -154,35 +184,38 @@ function dyePurposeLabel(context: ProcessQuantityContext, unit: ProcessQtyUnit):
         return '卷数'
     }
   }
+  const objectNoun = objectType === '面料'
+    ? unit === 'Yard' ? '面料Yard数' : '面料米数'
+    : unit === '个' ? `${objectType}数量` : `${objectType}${unit}数`
   switch (context.operationCode) {
     case 'DYE_FINISH_PREPARE':
-      return '备料面料米数'
+      return `备料${objectNoun}`
     case 'DYE_FINISH_DYEING':
-      return '染色完成面料米数'
+      return `染色完成${objectNoun}`
     case 'DYE_FINISH_PACKING':
-      return '包装完成面料米数'
+      return `包装完成${objectNoun}`
     case 'DYE_SUBMIT_HANDOVER':
-      return '交出面料米数'
+      return `交出${objectNoun}`
     default:
       break
   }
   switch (context.qtyPurpose) {
     case '计划':
-      return '计划染色面料米数'
+      return `计划染色${objectNoun}`
     case '待加工':
-      return '待染色面料米数'
+      return `待染色${objectNoun}`
     case '已完成':
-      return '染色完成面料米数'
+      return `染色完成${objectNoun}`
     case '待交出':
-      return '待交出面料米数'
+      return `待交出${objectNoun}`
     case '已交出':
-      return '已交出面料米数'
+      return `已交出${objectNoun}`
     case '实收':
-      return '实收面料米数'
+      return `实收${objectNoun}`
     case '差异':
-      return '差异面料米数'
+      return `差异${objectNoun}`
     default:
-      return '染色面料米数'
+      return `染色${objectNoun}`
   }
 }
 
@@ -300,10 +333,10 @@ export function getQuantityLabel(context: ProcessQuantityContext): string {
   const objectType = getProcessObjectType(context)
   const unit = getProcessQtyUnit(context)
   if (context.processType === 'PRINT') {
-    if (unit === '卷') return dyePurposeLabel(context, unit)
+    if (unit === '卷') return dyePurposeLabel(context, unit, objectType)
     return printPurposeLabel(context, objectType)
   }
-  if (context.processType === 'DYE') return dyePurposeLabel(context, unit)
+  if (context.processType === 'DYE') return dyePurposeLabel(context, unit, objectType)
   if (context.processType === 'CUTTING') return cuttingPurposeLabel(context, objectType)
   if (context.processType === 'SPECIAL_CRAFT') return specialCraftPurposeLabel(context, objectType)
   if (context.processType === 'POST_FINISHING') return postFinishingPurposeLabel(context)

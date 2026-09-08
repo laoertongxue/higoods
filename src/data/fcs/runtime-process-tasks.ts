@@ -1,6 +1,10 @@
+import { localDateTimeText } from '../../utils.ts'
 import { indonesiaFactories } from './indonesia-factories.ts'
 import {
   productionOrders,
+  markProductionOrderExecutionStarted,
+  persistCreatedProductionOrders,
+  CREATED_PRODUCTION_ORDERS_STORAGE_KEY,
   registerProductionOrderSewingFactory,
   selectProductionOrderMainFactory,
   withdrawProductionOrderSewingFactory,
@@ -11,6 +15,7 @@ import {
 } from './process-types.ts'
 import {
   processTasks,
+  resolveInitialOrderRuntimeTaskIdentity,
   setProcessTasksMutatedListener,
   type AcceptanceStatus,
   type ProcessTask,
@@ -173,6 +178,7 @@ interface RuntimeTaskOverride {
   acceptanceStatus?: AcceptanceStatus
   acceptedAt?: string
   acceptedBy?: string
+  startProofFiles?: ProcessTask['startProofFiles']
   startedAt?: string
   finishedAt?: string
   blockReason?: ProcessTask['blockReason']
@@ -456,6 +462,65 @@ let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
 let runtimeTasksCache: RuntimeProcessTask[] | null = null
 
+const RUNTIME_TASK_STORAGE_KEY = 'higood.runtime-process-task-actions.v1'
+let runtimeStorageReady = false
+let runtimeStorageFailure: Error | null = null
+let runtimeActionDepth = 0
+function encodeRuntimeTaskActions(): string {
+  return JSON.stringify({ version: 1,
+    taskOverrides: [...runtimeTaskOverrides], splitPlans: [...runtimeTaskSplitPlans],
+    mergedPlans: [...runtimeMergedTaskPlans], reassignedTasks: [...runtimeReassignedTasks], auditSeq: runtimeAuditSeq,
+  })
+}
+function persistRuntimeTaskActions(): void {
+  if (runtimeStorageReady && typeof localStorage !== 'undefined') localStorage.setItem(RUNTIME_TASK_STORAGE_KEY, encodeRuntimeTaskActions())
+}
+function restoreStoredRuntimeValue(key: string, value: string | null): void {
+  if (typeof localStorage === 'undefined' || localStorage.getItem(key) === value) return
+  if (value === null) localStorage.removeItem(key)
+  else localStorage.setItem(key, value)
+}
+/** 复用原事务快照；保存成功后原动作才返回。内层动作归入外层事务。 */
+export function runRuntimeTaskAction<T>(action: () => T): T {
+  ensureDispatchBoardSeedData()
+  if (runtimeActionDepth) return action()
+  const before = captureRuntimeDirectDispatchState()
+  const encodedBefore = encodeRuntimeTaskActions()
+  const runtimeRaw = typeof localStorage === 'undefined' ? null : localStorage.getItem(RUNTIME_TASK_STORAGE_KEY)
+  const orderRaw = typeof localStorage === 'undefined' ? null : localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
+  runtimeActionDepth++
+  try {
+    const result = action()
+    if (encodeRuntimeTaskActions() !== encodedBefore) { persistRuntimeTaskActions(); persistCreatedProductionOrders() }
+    return result
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(before)
+    restoreStoredRuntimeValue(RUNTIME_TASK_STORAGE_KEY, runtimeRaw)
+    restoreStoredRuntimeValue(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, orderRaw)
+    throw new Error('加工任务未保存，原动作已撤回；请检查本机存储后重试。' + (error instanceof Error ? error.message : String(error)))
+  } finally { runtimeActionDepth-- }
+}
+function readRuntimeTaskActions(): void {
+  if (runtimeStorageFailure) throw runtimeStorageFailure
+  if (runtimeStorageReady) return
+  try {
+  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(RUNTIME_TASK_STORAGE_KEY)
+  if (raw) {
+    const saved = JSON.parse(raw)
+    const keys = ['taskOverrides', 'splitPlans', 'mergedPlans', 'reassignedTasks'] as const
+    if (saved?.version !== 1 || !Number.isInteger(saved.auditSeq) || saved.auditSeq < 0
+      || keys.some(key => !Array.isArray(saved[key]) || saved[key].some((row: unknown) => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[1] || typeof row[1] !== 'object'))) {
+      throw new Error('本机加工任务动作记录损坏，未使用空记录覆盖，请联系负责人核对。')
+    }
+    for (const [id, value] of saved.taskOverrides) runtimeTaskOverrides.set(id, value)
+    for (const [id, value] of saved.splitPlans) runtimeTaskSplitPlans.set(id, value)
+    for (const [id, value] of saved.mergedPlans) runtimeMergedTaskPlans.set(id, value)
+    for (const [id, value] of saved.reassignedTasks) runtimeReassignedTasks.set(id, value)
+    runtimeAuditSeq = Math.max(runtimeAuditSeq, saved.auditSeq)
+  }
+  runtimeStorageReady = true
+  } catch (error) { runtimeStorageFailure = error instanceof Error ? error : new Error(String(error)); throw runtimeStorageFailure }
+}
 function invalidateRuntimeTasksCache(): void {
   runtimeTasksCache = null
 }
@@ -502,10 +567,11 @@ export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchSt
   runtimeReassignedTasks.clear()
   state.reassignedTasks.forEach(([id, task]) => runtimeReassignedTasks.set(id, structuredClone(task)))
   invalidateRuntimeTasksCache()
+  if (!runtimeActionDepth && runtimeStorageReady) { persistRuntimeTaskActions(); persistCreatedProductionOrders() }
 }
 
 function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+  return localDateTimeText(date)
 }
 
 function parseDateLike(value: string): number {
@@ -1462,6 +1528,7 @@ function seedRuntimeTaskOverride(
 
 function ensureDispatchBoardSeedData(): void {
   installProcessTasksMutationHook()
+  if (runtimeStorageFailure) throw runtimeStorageFailure
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
 
@@ -1697,7 +1764,11 @@ function ensureDispatchBoardSeedData(): void {
     ],
   )
 
-  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-003__ORDER'
+  const delayedReceiptDemoTaskIdentity = resolveInitialOrderRuntimeTaskIdentity('PO-202603-0015', 'SEW')
+  if (!delayedReceiptDemoTaskIdentity) {
+    throw new Error('PO-202603-0015 必须且只能存在一张车缝来源任务，无法建立延迟回货演示事实')
+  }
+  const delayedReceiptDemoTaskId = delayedReceiptDemoTaskIdentity.runtimeTaskId
   const delayedReceiptDemoAcceptedAt = '2026-07-01 09:00:00'
   const delayedReceiptDemoFactoryId = 'ID-F021'
   const delayedReceiptDemoFactoryName = 'CV Micro Sewing Jakarta Pusat'
@@ -1755,7 +1826,7 @@ function ensureDispatchBoardSeedData(): void {
     by: '运营A',
     at: '2026-07-01 12:00:00',
   })
-
+  readRuntimeTaskActions()
 }
 
 function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
@@ -1790,6 +1861,7 @@ function buildFixedMergedTaskIdentity(sourceTasks: RuntimeProcessTask[]): string
 }
 
 export function createFixedMergedTask(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
+  try { return runRuntimeTaskAction(() => {
   const evaluation = evaluateFixedMergedTask(taskIds)
   if (!evaluation.ok || !evaluation.mergedTaskType) return null
   const sourceTasks = evaluation.tasks
@@ -1812,12 +1884,15 @@ export function createFixedMergedTask(taskIds: string[], by = '生产计划员')
     order.taskBreakdownSummary.coveredProcessNames = [...getMergedProductionTaskDefinition(evaluation.mergedTaskType).requiredSourceProcessCodes]
   }
   return getRuntimeTaskById(mergedTaskId)
+
+  }) } catch { return null }
 }
 
 export function cancelFixedMergedTask(
   mergedTaskId: string,
   by = '生产计划员',
 ): { ok: boolean; message: string; sourceTaskIds: string[] } {
+  try { return runRuntimeTaskAction(() => {
   const plan = runtimeMergedTaskPlans.get(mergedTaskId)
   if (!plan) return { ok: false, message: '未找到可撤销的合并任务记录', sourceTaskIds: [] }
   const mergedTask = getRuntimeTaskById(mergedTaskId)
@@ -1845,7 +1920,32 @@ export function cancelFixedMergedTask(
       updatedAt: nowTimestamp(),
     })
   }
+  invalidateRuntimeTasksCache()
   return { ok: true, message: `已撤销${definition.label}，原任务恢复为可分配`, sourceTaskIds: [...plan.taskIds] }
+
+  }) } catch (error) { return { ok: false, message: error instanceof Error ? error.message : '撤销未保存', sourceTaskIds: [] } }
+}
+
+/** 仅原执行动作调用：把实际开工/结束写入同一任务覆盖事实，禁止只改列表缓存。 */
+export function recordRuntimeTaskExecution(taskId: string, patch: {
+  status: 'IN_PROGRESS' | 'DONE'; startedAt?: string; finishedAt?: string;
+  updatedAt: string; auditLogs: TaskAuditLog[]; startProofFiles?: ProcessTask['startProofFiles'];
+}): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
+  const task = getRuntimeTaskById(taskId)
+  if (!task || !isRuntimeTaskExecutionTask(task)) throw new Error('未找到可执行加工任务。')
+  if (task.status === 'CANCELLED' || task.status === 'DONE' || task.status === 'BLOCKED'
+    || (patch.status === 'DONE' && task.status !== 'IN_PROGRESS')
+    || (patch.status === 'IN_PROGRESS' && (task.status !== 'NOT_STARTED' || task.assignmentStatus !== 'ASSIGNED' || task.acceptanceStatus !== 'ACCEPTED'))) throw new Error('当前任务状态不允许该执行动作。')
+  const actionTime = patch.status === 'IN_PROGRESS' ? patch.startedAt : patch.finishedAt
+  const actor = patch.auditLogs.at(-1)?.by?.trim()
+  if (!actionTime || !Number.isFinite(Date.parse(actionTime)) || !actor) throw new Error('执行时间或操作人不完整。')
+  if (patch.status === 'IN_PROGRESS') markProductionOrderExecutionStarted({ productionOrderId: task.productionOrderId, taskId, startedAt: actionTime, actorName: actor })
+  const result = patchRuntimeTask(taskId, structuredClone(patch))
+  if (!result) throw new Error('加工任务保存失败。')
+  return result
+
+  })
 }
 
 export function listRuntimeTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {
@@ -1858,6 +1958,46 @@ export function listRuntimeExecutionTasksByOrder(productionOrderId: string): Run
 
 export function getRuntimeTaskById(taskId: string): RuntimeProcessTask | null {
   return listRuntimeProcessTasks().find((task) => task.taskId === taskId) ?? null
+}
+
+/**
+ * 裁床确认把裁片交给三方车缝工厂时，交出事实本身同时代表下游已接收投入。
+ * 该动作只负责把仍未开始的车缝执行任务推进到加工中；重复分批交出不会
+ * 重复开工，也不会把已完成任务倒退为加工中。
+ */
+export function autoStartRuntimeSewingTaskFromCutPieceHandover(input: {
+  taskId: string
+  handoverRecordNo: string
+  receivedAt: string
+  receivedBy: string
+}): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) throw new Error(`车缝任务 ${input.taskId} 不存在或已被移除`)
+  if (!isRuntimeSewingTask(task)) throw new Error(`任务 ${input.taskId} 不是车缝执行任务`)
+  if (!input.handoverRecordNo.trim() || !input.receivedAt.trim() || !input.receivedBy.trim()) {
+    throw new Error('裁片自动接收开工缺少交出记录、时间或接收方')
+  }
+  if (task.status === 'CANCELLED') throw new Error(`车缝任务 ${input.taskId} 已取消，不能接收裁片`)
+  if (task.status === 'BLOCKED') throw new Error(`车缝任务 ${input.taskId} 已阻断，不能自动开工`)
+  if (task.status === 'IN_PROGRESS' || task.status === 'DONE') return task
+
+  markProductionOrderExecutionStarted({ productionOrderId: task.productionOrderId, taskId: task.taskId, startedAt: input.receivedAt, actorName: input.receivedBy })
+  const updated = updateRuntimeTaskWithAudit(
+    input.taskId,
+    {
+      status: 'IN_PROGRESS',
+      startedAt: input.receivedAt,
+    },
+    'AUTO_RECEIVE_AND_START_FROM_CUT_PIECE_HANDOVER',
+    `裁片交出记录 ${input.handoverRecordNo} 已由系统记为三方车缝工厂接收，并自动开工。`,
+    input.receivedBy,
+  )
+  if (!updated) throw new Error(`车缝任务 ${input.taskId} 自动开工失败`)
+  recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
+  return getRuntimeTaskById(updated.taskId) ?? updated
+
+  })
 }
 
 export function listRuntimeTasksByBaseTaskId(baseTaskId: string): RuntimeProcessTask[] {
@@ -2056,6 +2196,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     detailRowKeys?: string[]
   }>
 } {
+  return runRuntimeTaskAction(() => {
   if (isKolGotoBaseTaskId(input.taskId)) {
     return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不允许按明细重新分配' }
   }
@@ -2236,6 +2377,8 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
         }),
     ),
   }
+
+  })
 }
 
 export interface RuntimeSkuScopeAllocationInput {
@@ -2251,6 +2394,7 @@ export interface RuntimeSkuScopeAllocationInput {
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
 export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInput): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(input.taskId, '按 SKU 分配')
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
@@ -2400,6 +2544,8 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
     restoreRuntimeDirectDispatchState(runtimeState)
     throw error
   }
+
+  })
 }
 
 export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTenderInput): {
@@ -2407,6 +2553,7 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
   message?: string
   createdTaskIds?: string[]
 } {
+  return runRuntimeTaskAction(() => {
   if (isKolGotoBaseTaskId(input.taskId)) {
     return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不参与竞价' }
   }
@@ -2498,9 +2645,12 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
     ok: true,
     createdTaskIds: resultPlans.map((result) => result.taskId),
   }
+
+  })
 }
 
 export function setRuntimeTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(taskId, mode === 'BIDDING' ? '发起竞价' : '调整分配方式')
   const task = getRuntimeTaskById(taskId)
   if (!task) return
@@ -2530,12 +2680,17 @@ export function setRuntimeTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD
     by,
   )
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+
+  })
 }
 
 export function batchSetRuntimeTaskAssignMode(taskIds: string[], mode: 'BIDDING' | 'HOLD', by: string): void {
+  return runRuntimeTaskAction(() => {
   for (const taskId of taskIds) {
     setRuntimeTaskAssignMode(taskId, mode, by)
   }
+
+  })
 }
 
 export function upsertRuntimeTaskTender(
@@ -2552,6 +2707,7 @@ export function upsertRuntimeTaskTender(
   },
   by: string,
 ): RuntimeProcessTask | null {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(taskId, '发起竞价')
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
@@ -2604,6 +2760,8 @@ export function upsertRuntimeTaskTender(
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
   return updated
+
+  })
 }
 
 export function cancelRuntimeTaskTender(input: {
@@ -2613,6 +2771,7 @@ export function cancelRuntimeTaskTender(input: {
   cancelledBy: string
   reason: string
 }): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(input.taskId, '取消竞价')
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
@@ -2660,6 +2819,8 @@ export function cancelRuntimeTaskTender(input: {
   if (!updated) throw new Error(`任务 ${input.taskId} 取消竞价失败`)
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
   return getRuntimeTaskById(input.taskId) ?? updated
+
+  })
 }
 
 export function prepareRuntimeTaskTenderAward(
@@ -2703,6 +2864,7 @@ export function prepareRuntimeTaskTenderAward(
 }
 
 export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
   const preparation = prepareRuntimeTaskTenderAward(input)
   const { originalTask, requiresFactoryAcceptance } = preparation
   const runtimeState = captureRuntimeDirectDispatchState()
@@ -2755,12 +2917,15 @@ export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): Runt
     restoreRuntimeDirectDispatchState(runtimeState)
     throw error
   }
+
+  })
 }
 
 export function acceptRuntimeTaskAssignment(
   taskId: string,
   input: RuntimeTaskAssignmentAcceptanceInput,
 ): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(taskId, '手工接单', input.factoryId)
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
@@ -2845,6 +3010,8 @@ export function acceptRuntimeTaskAssignment(
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
     throw error
   }
+
+  })
 }
 
 export interface RuntimeTaskAssignmentRejectionInput {
@@ -2858,6 +3025,7 @@ export function rejectRuntimeTaskAssignment(
   taskId: string,
   input: RuntimeTaskAssignmentRejectionInput,
 ): RuntimeProcessTask {
+  return runRuntimeTaskAction(() => {
   assertOrdinaryAssignmentTaskId(taskId, '拒单', input.factoryId)
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
@@ -2910,6 +3078,8 @@ export function rejectRuntimeTaskAssignment(
     restoreRuntimeDirectDispatchState(runtimeState)
     throw error
   }
+
+  })
 }
 
 export function validateRuntimeBatchDispatchSelection(taskIds: string[]): RuntimeBatchDispatchSelectionValidation {
@@ -3025,6 +3195,7 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   ok: boolean
   message?: string
 } {
+  return runRuntimeTaskAction(() => {
   const selectionValidation = validateRuntimeBatchDispatchSelection(input.taskIds)
   if (!selectionValidation.valid) {
     return { ok: false, message: selectionValidation.reason }
@@ -3084,6 +3255,8 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
     return { ok: false, message: error instanceof Error ? error.message : '直接派单提交失败' }
   }
+
+  })
 }
 
 export function prepareRuntimeDirectDispatchMeta(
@@ -3269,6 +3442,7 @@ function commitPreparedRuntimeDirectDispatchMeta(
 }
 
 export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaInput): RuntimeProcessTask | null {
+  return runRuntimeTaskAction(() => {
   const runtimeState = captureRuntimeDirectDispatchState()
   const snapshotState = captureSewingDeliverySlaSnapshotStore()
   try {
@@ -3278,6 +3452,8 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
     throw error
   }
+
+  })
 }
 
 export function getRuntimeSewingTaskReassignmentScopePreview(
@@ -3299,6 +3475,7 @@ export function getRuntimeSewingTaskReassignmentScopePreview(
 export function reassignRuntimeSewingTask(
   input: RuntimeSewingTaskReassignmentInput,
 ): RuntimeSewingTaskReassignmentResult {
+  return runRuntimeTaskAction(() => {
   const runtimeState = captureRuntimeDirectDispatchState()
   const slaState = captureSewingDeliverySlaSnapshotStore()
   const reject = (message: string): RuntimeSewingTaskReassignmentResult => {
@@ -3485,11 +3662,14 @@ export function reassignRuntimeSewingTask(
     restoreSewingDeliverySlaSnapshotStore(slaState)
     return { ok: false, message: error instanceof Error ? error.message : '改派失败' }
   }
+
+  })
 }
 
 const disposeRuntimeTaskReadResolver = installRuntimeTaskReadResolver(
   (taskId) => getRuntimeTaskById(taskId),
   import.meta.url,
+  () => listRuntimeExecutionTasks(),
 )
 import.meta.hot?.dispose(disposeRuntimeTaskReadResolver)
 
@@ -3503,6 +3683,7 @@ export function applyPendingDispatchAutoAcceptance(now: string = nowTimestamp())
   acceptedCount: number
   taskIds: string[]
 } {
+  return runRuntimeTaskAction(() => {
   const nowMs = parseRuntimeDateLike(now)
   if (!Number.isFinite(nowMs)) return { acceptedCount: 0, taskIds: [] }
 
@@ -3531,6 +3712,8 @@ export function applyPendingDispatchAutoAcceptance(now: string = nowTimestamp())
   }
 
   return { acceptedCount: acceptedTaskIds.length, taskIds: acceptedTaskIds }
+
+  })
 }
 
 export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): RuntimeProcessTask[] {

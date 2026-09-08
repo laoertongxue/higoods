@@ -95,14 +95,13 @@ function resolveSessionForOrder(order: SpreadingOrder, sessions: SpreadingSessio
 }
 
 function resolveOrderForRuntimeEvent(event: CuttingRuntimeEvent, orders: SpreadingOrder[]): SpreadingOrder | null {
-  return (
-    orders.find((order) => order.spreadingOrderId === event.refs.spreadingOrderId) ||
-    orders.find((order) => order.spreadingOrderNo === event.refs.spreadingOrderNo) ||
-    orders.find((order) => event.refs.cutOrderId && order.sourceCutOrderIds.includes(event.refs.cutOrderId)) ||
-    orders.find((order) => event.refs.cutOrderNo && order.sourceCutOrderNos.includes(event.refs.cutOrderNo)) ||
-    orders[0] ||
-    null
-  )
+  const { spreadingOrderId, spreadingOrderNo } = event.refs
+  // 详情可只传当前一张单，不能据此认定裁片引用全局唯一；缺铺布身份不降级猜床。
+  if (!spreadingOrderId && !spreadingOrderNo) return null
+  return orders.find((order) =>
+    (!spreadingOrderId || order.spreadingOrderId === spreadingOrderId) &&
+    (!spreadingOrderNo || order.spreadingOrderNo === spreadingOrderNo),
+  ) || null
 }
 
 function getRuntimeEventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
@@ -457,7 +456,7 @@ function buildDifferencesFromRuntimeStageEvents(orders: SpreadingOrder[]): Sprea
   return [...spreadingDifferences, ...cuttingDifferences]
 }
 
-function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
+function buildSeedDifferences(): SpreadingDifference[] {
   const sourceRecords = listGeneratedCutOrderSourceRecords()
   const fallbackSource = sourceRecords[0]
   const pb2440Sources = sourceRecords.filter((record) =>
@@ -515,7 +514,8 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     confirmedAt: '2026-03-14 18:00',
     linkedPdaTaskId: '',
   } satisfies SpreadingOrder : null
-  const order = orders[0] || (fallbackSource ? {
+  // 演示差异只能属于固定演示铺布单，禁止借用当前详情的首张真实单。
+  const order = fallbackSource ? {
     spreadingOrderId: 'spreading-seed-difference',
     spreadingOrderNo: 'PB-DIFF-SEED',
     markerPlanId: 'marker-plan-diff-seed',
@@ -565,7 +565,7 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     createdBy: '系统',
     confirmedAt: '2026-03-18 09:30',
     linkedPdaTaskId: '',
-  } satisfies SpreadingOrder : null)
+  } satisfies SpreadingOrder : null
   if (!order) return []
 
   return [
@@ -717,7 +717,7 @@ export function listSpreadingDifferences(input?: {
   return uniqueByDifferenceId([
     ...buildDifferencesFromOrders(orders, sessions),
     ...buildDifferencesFromRuntimeStageEvents(orders),
-    ...buildSeedDifferences(orders),
+    ...buildSeedDifferences(),
   ]).sort((left, right) => right.detectedAt.localeCompare(left.detectedAt, 'zh-CN'))
 }
 

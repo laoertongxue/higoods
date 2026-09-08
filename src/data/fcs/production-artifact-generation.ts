@@ -1,5 +1,6 @@
 import {
   productionOrders,
+  initialProductionOrderIds,
   type ProductionOrder,
 } from './production-orders.ts'
 import {
@@ -75,6 +76,11 @@ export interface GeneratedProductionArtifactBase {
   plannedUnit?: string
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
+  routeObjectKey?: string
+  inputObjectType?: TechnicalProcessEntry['inputObjectType']
+  outputObjectType?: TechnicalProcessEntry['outputObjectType']
+  consumedBomItemIds?: string[]
+  predecessorEntryIds?: string[]
   routeStepNo?: number
   routeLaneNo?: number
   routeParallelGroupId?: string
@@ -153,6 +159,11 @@ interface ResolvedEntryContext {
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
+  routeObjectKey?: string
+  inputObjectType?: TechnicalProcessEntry['inputObjectType']
+  outputObjectType?: TechnicalProcessEntry['outputObjectType']
+  consumedBomItemIds: string[]
+  predecessorEntryIds: string[]
   routeStepNo?: number
   routeLaneNo?: number
   routeParallelGroupId?: string
@@ -207,7 +218,8 @@ function listTechPackSourceOrders() {
 
 function listDictionaryCoverageSourceOrders() {
   return listTechPackSourceOrders().filter(({ order }) =>
-    order.taskBreakdownSummary.isBrokenDown && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
+    initialProductionOrderIds.has(order.productionOrderId)
+    && order.taskBreakdownSummary.isBrokenDown && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
   )
 }
 
@@ -490,6 +502,11 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',
     isSpecialCraft: entry.isSpecialCraft ?? craftDefinition?.isSpecialCraft ?? false,
+    routeObjectKey: entry.routeObjectKey,
+    inputObjectType: entry.inputObjectType,
+    outputObjectType: entry.outputObjectType,
+    consumedBomItemIds: [...(entry.consumedBomItemIds ?? [])],
+    predecessorEntryIds: [...(entry.predecessorEntryIds ?? [])],
     routeStepNo: entry.routeStepNo,
     routeLaneNo: entry.routeLaneNo,
     routeParallelGroupId: entry.routeParallelGroupId,
@@ -538,6 +555,11 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
     defaultDocType: context.defaultDocType,
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,
+    routeObjectKey: context.routeObjectKey,
+    inputObjectType: context.inputObjectType,
+    outputObjectType: context.outputObjectType,
+    consumedBomItemIds: [...context.consumedBomItemIds],
+    predecessorEntryIds: [...context.predecessorEntryIds],
     routeStepNo: context.routeStepNo,
     routeLaneNo: context.routeLaneNo,
     routeParallelGroupId: context.routeParallelGroupId,
@@ -582,6 +604,11 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     materialIssueMode: context.sourceEntry.materialIssueMode,
     linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,
+    routeObjectKey: context.routeObjectKey,
+    inputObjectType: context.inputObjectType,
+    outputObjectType: context.outputObjectType,
+    consumedBomItemIds: [...context.consumedBomItemIds],
+    predecessorEntryIds: [...context.predecessorEntryIds],
     routeStepNo: context.routeStepNo,
     routeLaneNo: context.routeLaneNo,
     routeParallelGroupId: context.routeParallelGroupId,
@@ -593,6 +620,81 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     taskScope: 'EXTERNAL_TASK',
     sortKey: buildSortKey(context),
   }
+}
+
+function hasExplicitIronPackTaskBoundary(order: ProductionOrder): boolean {
+  const summary = order.taskBreakdownSummary
+  if (!summary.isBrokenDown || (summary.wholeOrderTaskCount ?? 0) > 0) return false
+  if (summary.mergedTaskType === 'SEWING_IRON_PACK'
+    || summary.mergedTaskType === 'CUTTING_SEWING_IRON_PACK') return true
+  return summary.taskTypesTop3.some((taskType) => taskType === '烫包' || taskType.includes('+烫包'))
+}
+
+/**
+ * 烫包不再作为静态技术路线节点预置；但生产单任务拆分明确包含烫包时，
+ * 它仍是三方派单或固定合并任务的责任来源，必须生成一张可追溯任务产物。
+ */
+function buildExplicitIronPackTaskBoundaryArtifact(
+  order: ProductionOrder,
+  currentArtifacts: GeneratedTaskArtifact[],
+): GeneratedTaskArtifact | null {
+  if (!hasExplicitIronPackTaskBoundary(order)) return null
+  if (currentArtifacts.some((artifact) => artifact.processCode === 'IRON_PACK')) return null
+
+  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  const definition = getProcessDefinitionByCode('IRON_PACK')
+  const stage = getProcessStageByCode('POST')
+  if (!snapshot?.sourceTechPackVersionId || !definition || !stage) return null
+
+  const orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  const sourceEntryId = `TASK-BOUNDARY-${order.productionOrderId}-IRON_PACK`
+  const sewingSourceEntryId = currentArtifacts.find((artifact) => artifact.processCode === 'SEW')?.sourceEntryId
+  return {
+    artifactId: `TASKART-${order.productionOrderId}-task-boundary-iron-pack`,
+    artifactType: 'TASK',
+    orderId: order.productionOrderId,
+    techPackId: snapshot.sourceTechPackVersionId,
+    orderQty,
+    sourceEntryId,
+    sourceEntryType: 'PROCESS_BASELINE',
+    stageCode: 'POST',
+    stageName: stage.stageName,
+    processCode: definition.processCode,
+    processName: definition.processName,
+    systemProcessCode: definition.systemProcessCode,
+    assignmentGranularity: definition.assignmentGranularity,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: definition.detailSplitMode,
+    detailSplitDimensions: [...definition.detailSplitDimensions],
+    defaultDocType: 'TASK',
+    taskTypeMode: definition.taskTypeMode,
+    isSpecialCraft: false,
+    selectedTargetObject: '成衣',
+    inputObjectType: 'GARMENT',
+    outputObjectType: 'PACKED_GARMENT',
+    consumedBomItemIds: [],
+    predecessorEntryIds: sewingSourceEntryId ? [sewingSourceEntryId] : [],
+    docTypeLabel: definition.defaultDocLabel,
+    taskTypeCode: definition.processCode,
+    taskTypeLabel: definition.processName,
+    taskScope: 'EXTERNAL_TASK',
+    generationSortKey: `999-task-boundary-${order.productionOrderId}-iron-pack`,
+    sortKey: `${order.productionOrderId}-999-task-boundary-iron-pack`,
+  }
+}
+
+function listTaskArtifactsForOrder(orderId: string): GeneratedTaskArtifact[] {
+  const currentArtifacts = generateProductionArtifactsForOrder(orderId).filter(
+    (item): item is GeneratedTaskArtifact => item.artifactType === 'TASK' && (item.stageCode === 'PROD'
+      || (item.stageCode === 'POST' && item.processCode === 'IRON_PACK')),
+  )
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  const explicitIronPackArtifact = order
+    ? buildExplicitIronPackTaskBoundaryArtifact(order, currentArtifacts)
+    : null
+  return explicitIronPackArtifact
+    ? currentArtifacts.concat(explicitIronPackArtifact).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    : currentArtifacts
 }
 
 function toPreparationOrderArtifact(context: ResolvedEntryContext): GeneratedPreparationOrderArtifact {
@@ -621,6 +723,11 @@ function toPreparationOrderArtifact(context: ResolvedEntryContext): GeneratedPre
     isSpecialCraft: false,
     linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,
+    routeObjectKey: context.routeObjectKey,
+    inputObjectType: context.inputObjectType,
+    outputObjectType: context.outputObjectType,
+    consumedBomItemIds: [...context.consumedBomItemIds],
+    predecessorEntryIds: [...context.predecessorEntryIds],
     routeStepNo: context.routeStepNo,
     routeLaneNo: context.routeLaneNo,
     routeParallelGroupId: context.routeParallelGroupId,
@@ -671,7 +778,7 @@ export function calculateBomProcessPlannedQty(
   if (bomItem.lossRate < 0) {
     throw new Error(`${bomLabel}计划数量计算失败：BOM 损耗率必须大于等于 0`)
   }
-  const plannedQty = garmentQty * bomItem.unitConsumption * (1 + bomItem.lossRate / 100)
+  const plannedQty = garmentQty * bomItem.unitConsumption * (1 + bomItem.lossRate)
   if (!Number.isFinite(plannedQty)) {
     throw new Error(`${bomLabel}计划数量计算失败：计划数量必须是有限数`)
   }
@@ -696,8 +803,6 @@ function generateBomDrivenPrepArtifactsForEntry(
   input: GenerateBomDrivenPrepArtifactsForEntryInput,
 ): GeneratedProductionArtifact[] {
   const { order, snapshot, entry, entryIndex } = input
-  if (entry.processCode !== 'WATER_SOLUBLE') return []
-
   const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
   const bomItemById = new Map(
     selectProductionMaterialBomItems(snapshot.bomItems).map((item) => [item.id, item]),
@@ -711,10 +816,10 @@ function generateBomDrivenPrepArtifactsForEntry(
     if (!bomItem) return []
 
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
-    const requiresDye = bomItem.dyeRequirement && bomItem.dyeRequirement !== '无'
+    const requiresDye = Boolean(bomItem.dyeRequirement && bomItem.dyeRequirement !== '无')
     // 同一面料同时需要水溶和染色时，由一张染色加工单在同一染厂完成；
     // 这里只保留仅水溶场景的独立生产准备加工单。
-    if (!requiresWaterSoluble || requiresDye) return []
+    if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
     if (!bomItem.unit?.trim()) {
       throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
     }
@@ -739,14 +844,15 @@ function generateBomDrivenPrepArtifactsForEntry(
     ].map(toUnambiguousArtifactIdentitySegment).join('-')
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
+    const typeLabel = `${context.processName}加工单`
     return [{
       ...toPreparationOrderArtifact(context),
       ...materialFields,
       artifactId: `PREPART-${artifactKey}`,
       defaultDocType: 'PREPARATION_ORDER',
-      docTypeLabel: '水溶加工单',
-      preparationOrderTypeCode: 'WATER_SOLUBLE',
-      preparationOrderTypeLabel: '水溶加工单',
+      docTypeLabel: typeLabel,
+      preparationOrderTypeCode: context.processCode,
+      preparationOrderTypeLabel: typeLabel,
       preparationScope: 'INTERNAL_PREPARATION_ORDER',
       generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
       sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
@@ -756,7 +862,10 @@ function generateBomDrivenPrepArtifactsForEntry(
 
 function shouldGenerateExternalTask(context: ResolvedEntryContext): boolean {
   if (!context.isActive) return false
-  if (context.stageCode === 'PREP') return false
+  // 冻结路线中的显式烫包 TASK 是三方合并派单的责任来源；不是我方后道加工单。
+  // 其余后道项目仍由回货 QC 决定，不能提前固化为执行任务。
+  if (context.stageCode !== 'PROD'
+    && !(context.stageCode === 'POST' && context.processCode === 'IRON_PACK')) return false
   if (!context.generatesExternalTask) return false
   if (context.defaultDocType !== 'TASK') return false
   if (context.sourceEntry.entryType === 'CRAFT') return true
@@ -773,7 +882,7 @@ function dedupeBomDrivenArtifacts(
   const seenKeys = new Set<string>()
   return artifacts.filter((artifact) => {
     if (!artifact.bomItemId) return true
-    const key = [artifact.artifactType, artifact.processCode, artifact.bomItemId].join('\u0000')
+    const key = [artifact.artifactType, artifact.sourceEntryId, artifact.bomItemId].join('\u0000')
     if (seenKeys.has(key)) return false
     seenKeys.add(key)
     return true
@@ -797,8 +906,9 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
     context.techPackId = techPackId
 
     if (context.stageCode === 'PREP') {
-      if (context.processCode === 'WATER_SOLUBLE') {
-        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      const bomDriven = generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index })
+      if (bomDriven.length > 0 || (entry.linkedBomItemIds?.length ?? 0) > 0) {
+        artifacts.push(...bomDriven)
       } else {
         artifacts.push(toPreparationOrderArtifact(context))
       }
@@ -839,9 +949,7 @@ export function generateDemandArtifactsForOrder(orderId: string): GeneratedDeman
 }
 
 export function generateTaskArtifactsForOrder(orderId: string): GeneratedTaskArtifact[] {
-  return generateProductionArtifactsForOrder(orderId).filter(
-    (item): item is GeneratedTaskArtifact => item.artifactType === 'TASK' && item.stageCode !== 'PREP',
-  )
+  return listTaskArtifactsForOrder(orderId)
 }
 
 export function generatePreparationOrderArtifactsForOrder(orderId: string): GeneratedPreparationOrderArtifact[] {
@@ -880,10 +988,12 @@ export function listGeneratedProductionDemandArtifacts(): GeneratedDemandArtifac
 }
 
 export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
-  const generatedArtifacts = generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK' && item.stageCode !== 'PREP')
+  // 显式三方烫包责任保留为合并派单来源；我方后道项目仍由回货 QC 动态生成。
+  // 不通过字典覆盖补造任何后道任务。
+  const generatedArtifacts = productionOrders.flatMap((order) => listTaskArtifactsForOrder(order.productionOrderId))
   const taskDefinitions = listActiveProcessCraftDefinitions().filter((definition) => (
     definition.defaultDocType === 'TASK'
-    && definition.stageCode !== 'PREP'
+    && definition.stageCode === 'PROD'
     && !['CUT_PANEL', 'SEW', 'BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(definition.processCode)
   ))
   return ensureDictionaryCoverage(

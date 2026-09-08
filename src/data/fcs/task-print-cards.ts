@@ -58,7 +58,7 @@ import {
   getPostFinishingWorkOrderById,
   type PostFinishingActionRecord,
   type PostFinishingTaskView,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import {
   getCuttingMarkerPlanSourceTaskPrintSourceById,
   getCuttingCutOrderTaskPrintSourceById,
@@ -910,8 +910,6 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
     sourceId: order.printOrderId,
     objectType: order.objectType,
     qtyUnit: order.qtyUnit,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
   } as const
 
   return {
@@ -953,8 +951,8 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
           materialName: order.formalProductionOrderSnapshot?.materialName,
         }),
         { label: '花型号/版本', value: `${order.patternNo} / ${order.patternVersion}` },
-        { label: '面料 SKU', value: order.materialSku },
-        { label: '面料颜色', value: order.materialColor || '—' },
+        { label: `${order.objectType || 'BOM原物料'} SKU`, value: order.materialSku },
+        { label: `${order.objectType || 'BOM原物料'}颜色`, value: order.materialColor || '—' },
         { label: '印花工厂', value: order.printFactoryName },
         { label: getQuantityLabel({ ...printQuantityContext, qtyPurpose: '计划' }), value: formatQtyText(order.plannedQty, order.qtyUnit) },
         { label: '单位', value: order.qtyUnit },
@@ -965,7 +963,7 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
       supplementalItems: [
         { label: '来源类型', value: '印花加工单' },
         { label: '任务二维码', value: '任务二维码' },
-        { label: order.qtyUnit === '片' || order.objectType === '裁片' ? '投入裁片数量' : '原料使用面料米数', value: formatQtyText(nodeRecords.find((record) => typeof record.usedMaterialQty === 'number')?.usedMaterialQty, order.qtyUnit) },
+        { label: `投入${order.objectType || 'BOM原物料'}数量`, value: formatQtyText(nodeRecords.find((record) => typeof record.usedMaterialQty === 'number')?.usedMaterialQty, order.qtyUnit) },
         { label: '备注', value: order.remark || '—' },
       ],
       routeRecords: ensureRouteRecordNodes(nodeRecords.map((record) => ({

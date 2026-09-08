@@ -23,6 +23,7 @@ import {
   RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT,
   type ProductionOrderRuntimeStatus,
 } from './production-order-runtime-store.ts'
+import type { ProcessWorkOrderSourceSnapshot } from './process-work-order-domain.ts'
 import type { MergedProductionTaskType } from './merged-production-task.ts'
 import { applyKolGotoTechPackFixture } from './kol-goto-tech-pack-fixtures.ts'
 
@@ -189,6 +190,13 @@ export interface ProductionExecutionSummaryBlock {
 }
 
 export interface ProductionOrder {
+  processWorkOrderDefinitions?: Array<{
+    processCode: 'PRINT' | 'DYE'
+    workOrderId: string
+    workOrderNo: string
+    sourceKey?: string
+    sourceSnapshot: ProcessWorkOrderSourceSnapshot
+  }>
   productionOrderId: string
   productionOrderNo: string
   demandId: string
@@ -775,6 +783,7 @@ export function registerProductionOrderSewingFactory(input: {
     ),
   )
 
+  persistCreatedProductionOrders()
   return order
 }
 
@@ -812,6 +821,7 @@ export function selectProductionOrderMainFactory(input: {
       input.by,
     ),
   )
+  persistCreatedProductionOrders()
   return order
 }
 
@@ -870,6 +880,7 @@ export function withdrawProductionOrderSewingFactory(input: {
     input.at,
     input.by,
   ))
+  persistCreatedProductionOrders()
   return order
 }
 
@@ -1437,9 +1448,20 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
-    taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片'], lastBreakdownAt: '2026-03-11 09:15:00', lastBreakdownBy: '系统' },
+    taskBreakdownSummary: {
+      isBrokenDown: true,
+      taskTypesTop3: ['部位毛织'],
+      lastBreakdownAt: '2026-03-11 09:15:00',
+      lastBreakdownBy: '系统',
+      generatedTaskUnitCount: 1,
+      singleProcessTaskCount: 1,
+      independentWorkOrderTaskCount: 0,
+      mergedProductionTaskCount: 0,
+      wholeOrderTaskCount: 0,
+      coveredProcessNames: ['毛织'],
+    },
     riskFlags: [],
-    auditLogs: [createAuditLog('LOG-084', 'CREATE', '裁片域正式生产单已生成', '2026-03-11 09:00:00', '系统')],
+    auditLogs: [createAuditLog('LOG-084', 'CREATE', '部位毛织生产单已生成', '2026-03-11 09:00:00', '系统')],
     createdAt: '2026-03-11 09:00:00',
     updatedAt: '2026-03-21 12:28:00',
   },
@@ -1525,24 +1547,14 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
   },
 ]
 
-function buildReleaseMaterialSwatchImageUrl(materialCode: string, materialName: string): string {
-  const palette: Record<string, { background: string; swatch: string; stroke: string }> = {
-    A: { background: '#f8fafc', swatch: '#cbd5e1', stroke: '#475569' },
-    B: { background: '#f8fafc', swatch: '#f1f5f9', stroke: '#64748b' },
-    C: { background: '#eff6ff', swatch: '#bfdbfe', stroke: '#2563eb' },
-    D: { background: '#f1f5f9', swatch: '#94a3b8', stroke: '#334155' },
+function getReleaseMaterialImageUrl(materialCode: string): string {
+  const imageByMaterialCode: Record<string, string> = {
+    A: '/materials/fabric-main.jpg',
+    B: '/materials/fabric-contrast.jpg',
+    C: '/materials/fabric-lining.jpg',
+    D: '/materials/accessory-label.jpg',
   }
-  const colors = palette[materialCode] || palette.A
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90">
-      <rect width="120" height="90" rx="10" fill="${colors.background}"/>
-      <rect x="10" y="10" width="100" height="70" rx="8" fill="${colors.swatch}"/>
-      <path d="M10 28h100M10 48h100M10 68h100" stroke="${colors.stroke}" stroke-width="1.2" opacity=".35"/>
-      <path d="M28 10v70M58 10v70M88 10v70" stroke="${colors.stroke}" stroke-width="1.2" opacity=".22"/>
-      <text x="60" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="${colors.stroke}">${materialName}</text>
-    </svg>
-  `.trim()
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+  return imageByMaterialCode[materialCode] || ''
 }
 
 function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
@@ -1590,7 +1602,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     type,
     name,
     materialCode: `RELEASE-${materialCode}`,
-    materialImageUrl: buildReleaseMaterialSwatchImageUrl(materialCode, name),
+    materialImageUrl: getReleaseMaterialImageUrl(materialCode),
     spec: `${name} / 放行目标补料`,
     colorLabel: colors.join(' / '),
     unit: '件',
@@ -1752,6 +1764,107 @@ productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
 )
 export const productionOrders = productionOrderRuntimeStore as ProductionOrder[]
+// Stable identities of actual initial fixtures, before any demand conversion adds orders.
+export const initialProductionOrderIds: ReadonlySet<string> = new Set(productionOrders.map(order => order.productionOrderId))
+
+export function findProductionOrderForDemand(demandId: string): ProductionOrder | undefined {
+  return productionOrders.find(order => order.demandId === demandId
+    || order.demandSnapshot?.demandId === demandId
+    || order.sourceDemandIds?.includes(demandId)
+    || order.sourceDemandSnapshots?.some(snapshot => snapshot.demandId === demandId))
+}
+
+export const CREATED_PRODUCTION_ORDERS_STORAGE_KEY = 'higood.formal-created-production-orders.v1'
+const persistedCreatedProductionOrderIds = new Set<string>()
+
+// Only the formal demand-conversion command enrolls new orders. Initial demo rows
+// are never saved or replaced by this storage record.
+export function persistCreatedProductionOrders(createdOrderIds: string[] = []): void {
+  const ids = new Set([...persistedCreatedProductionOrderIds, ...createdOrderIds])
+  const orders = productionOrders.filter(order => ids.has(order.productionOrderId)
+    && !initialProductionOrderIds.has(order.productionOrderId))
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
+  }
+  orders.forEach(order => persistedCreatedProductionOrderIds.add(order.productionOrderId))
+}
+
+if (typeof localStorage !== 'undefined') {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY) || 'null')
+    if (saved?.version === 1 && Array.isArray(saved.orders)) {
+      for (const order of saved.orders as ProductionOrder[]) {
+        if (!order || typeof order.productionOrderId !== 'string'
+          || initialProductionOrderIds.has(order.productionOrderId)
+          || persistedCreatedProductionOrderIds.has(order.productionOrderId)
+          || !order.demandSnapshot || !Array.isArray(order.auditLogs)
+          || !order.techPackSnapshot || !order.selectedTechPackVersionId
+          || order.techPackSnapshot.sourceTechPackVersionId !== order.selectedTechPackVersionId
+          || !order.assignmentSummary || !order.assignmentProgress || !order.taskBreakdownSummary
+          || !order.mainFactorySnapshot || !Array.isArray(order.riskFlags)
+          || typeof order.status !== 'string' || !order.demandId) continue
+        productionOrders.push(order)
+        persistedCreatedProductionOrderIds.add(order.productionOrderId)
+      }
+    }
+  } catch (error) {
+    console.warn('无法读取本机已生成生产单记录。', error)
+  }
+}
+
+// Capture updates made by existing prototype editing flows before a reload.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => persistCreatedProductionOrders())
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') persistCreatedProductionOrders()
+  })
+}
+
+
+/** 原任务实际开工触发；不从 FCK、回货或演示种子反推生产执行。 */
+export function markProductionOrderExecutionStarted(input: { productionOrderId: string; taskId: string; startedAt: string; actorName: string }): void {
+  const order = productionOrders.find(item => item.productionOrderId === input.productionOrderId)
+  if (!order) throw new Error('生产单不存在。')
+  if (initialProductionOrderIds.has(order.productionOrderId)) return
+  if (order.status === 'EXECUTING') return
+  if (!['WAIT_ASSIGNMENT', 'ASSIGNING'].includes(order.status)) throw new Error('生产单当前状态不允许开始加工。')
+  if (!input.taskId.trim() || !input.actorName.trim() || !Number.isFinite(Date.parse(input.startedAt))) throw new Error('开工来源、时间或操作人不完整。')
+  order.status = 'EXECUTING'
+  order.updatedAt = input.startedAt
+  order.auditLogs.push({ id: `TASK-START-${order.productionOrderId}`, action: 'TASK_EXECUTION_STARTED',
+    detail: `加工任务 ${input.taskId} 实际开工，生产单进入执行中。`, at: input.startedAt, by: input.actorName })
+}
+
+/** GOV-004 / E2E-012: production completion is an explicit manager action. */
+export function completeProductionOrderManually(input: {
+  productionOrderId: string
+  actorId: string
+  actorName: string
+  actorRole: string
+  completedAt: string
+  confirmed: boolean
+}): ProductionOrder {
+  if (!input.confirmed) throw new Error('请先确认完成这张生产单。')
+  if (input.actorRole !== 'ADMIN' || !input.actorId.trim() || !input.actorName.trim()) {
+    throw new Error('请由生产管理负责人确认完成。')
+  }
+  if (!Number.isFinite(Date.parse(input.completedAt))) throw new Error('完成时间无效，请重新操作。')
+  const order = productionOrders.find((item) => item.productionOrderId === input.productionOrderId)
+  if (!order) throw new Error('生产单不存在，请返回列表重新打开。')
+  if (order.status === 'COMPLETED') return order
+  if (order.status !== 'EXECUTING') throw new Error('仅生产执行中的单据可确认完成。')
+  order.status = 'COMPLETED'
+  order.updatedAt = input.completedAt
+  order.auditLogs.push({
+    id: `MANUAL-COMPLETE-${order.productionOrderId}`,
+    action: 'MANUAL_COMPLETE',
+    detail: `生产管理负责人 ${input.actorName.trim()}（${input.actorId.trim()}）确认生产单完成。`,
+    at: input.completedAt,
+    by: input.actorName.trim(),
+  })
+  persistCreatedProductionOrders()
+  return order
+}
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

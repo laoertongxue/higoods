@@ -5,11 +5,11 @@ import {
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
-import type { PostFinishingWaitHandoverWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
-} from '../data/fcs/post-finishing-domain.ts'
+} from '../data/fcs/post-finishing-full-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-current-read-model.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -124,8 +124,8 @@ function normalizePostFinishingIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
 }
 
-function buildPostFinishingPdaHandoverRoute(recheckOrderNo: string): string {
-  return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(recheckOrderNo)}`
+function buildPostFinishingPdaHandoverRoute(outboundOrderNo: string): string {
+  return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(outboundOrderNo)}`
 }
 
 function getLinkedQrValue(source: object): string | undefined {
@@ -274,11 +274,62 @@ function renderLocationDialog(): string {
   `
 }
 
-function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverWarehouseRecord[] {
-  return listPostFinishingWaitHandoverWarehouseRecords()
+interface PostFinishingWaitHandoverRow {
+  warehouseRecordId: string
+  warehouseRecordNo: string
+  recheckOrderNo: string
+  outboundOrderNo: string
+  sourceProductionOrderNo: string
+  sourceTaskNo: string
+  spuCode: string
+  spuName: string
+  skuCode: string
+  colorName: string
+  sizeName: string
+  skuSummary: string
+  waitHandoverGarmentQty: number
+  submittedHandoverGarmentQty: number
+  receivedHandoverGarmentQty: number
+  diffGarmentQty: number
+  qtyUnit: string
+  handoverRecordNo?: string
+  status: '待交出' | '已交出'
+  flowRecords: Array<{ flowType: string; sourceActionRecordNo: string; qty: number; qtyUnit: string; operatedAt: string; remark: string; beforeQty: number; afterQty: number }>
 }
 
-function getPostFinishingWaitHandoverStatus(row: PostFinishingWaitHandoverWarehouseRecord): string {
+function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverRow[] {
+  const movements = listPostFinishingWaitHandoverWarehouseMovements()
+  return listPostFinishingWaitHandoverWarehouseRecords().flatMap((record) => record.lines.map((line) => {
+    const lineMovements = movements.filter((movement) => movement.warehouseRecordId === record.warehouseRecordId)
+    return {
+      warehouseRecordId: `${record.warehouseRecordId}:${line.sku.skuId}`,
+      warehouseRecordNo: record.warehouseRecordId,
+      recheckOrderNo: record.recheckOrderNo,
+      outboundOrderNo: record.outboundOrderNo,
+      sourceProductionOrderNo: record.productionOrderNo,
+      sourceTaskNo: record.postTaskNo || record.qcTaskNo,
+      spuCode: line.sku.spuCode,
+      spuName: line.sku.spuName,
+      skuCode: line.sku.skuCode,
+      colorName: line.sku.colorName,
+      sizeName: line.sku.sizeName,
+      skuSummary: `${line.sku.skuCode} ${line.sku.colorName}/${line.sku.sizeName}`,
+      waitHandoverGarmentQty: line.inboundQty,
+      submittedHandoverGarmentQty: line.handedOverQty,
+      receivedHandoverGarmentQty: line.handedOverQty,
+      diffGarmentQty: 0,
+      qtyUnit: line.sku.qtyUnit,
+      handoverRecordNo: record.status === '已交出' ? record.outboundOrderNo : undefined,
+      status: record.status,
+      flowRecords: lineMovements.map((movement) => {
+        const qty = movement.quantities.find((item) => item.sku.skuId === line.sku.skuId)?.quantity || 0
+        return { flowType: movement.movementType, sourceActionRecordNo: record.outboundOrderNo, qty, qtyUnit: line.sku.qtyUnit, operatedAt: movement.operatedAt, remark: movement.movementType, beforeQty: movement.movementType === '复检完成入仓' ? 0 : line.inboundQty, afterQty: movement.movementType === '复检完成入仓' ? line.inboundQty : 0 }
+      }),
+    }
+  }))
+}
+
+function getPostFinishingWaitHandoverStatus(row: PostFinishingWaitHandoverRow): string {
   if (row.diffGarmentQty !== 0) return '差异'
   if (row.submittedHandoverGarmentQty <= 0) return '待交出'
   if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty && row.receivedHandoverGarmentQty >= row.submittedHandoverGarmentQty) return '已回写'
@@ -370,7 +421,7 @@ function renderPostFinishingWaitHandoverPage(): string {
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-handover-detail" data-stock-item-id="${escapeAttr(item.warehouseRecordId)}">查看流水</button>
-              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(item.recheckOrderNo))}">去交出</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(item.outboundOrderNo))}">去交出</button>
               <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.sourceTaskNo))}">查看任务</button>
             </div>
           </article>

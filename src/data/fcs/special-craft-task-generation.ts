@@ -7,11 +7,13 @@ import type {
   ProductionOrderTechPackSnapshot,
   TechPackPatternFileSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
+import type { TechnicalProcessObjectType } from '../pcs-technical-data-version-types.ts'
 import {
   getProcessCraftByCode,
   normalizeSpecialCraftTargetObjectLabel,
 } from './process-craft-dict.ts'
 import {
+  COVERED_BUTTON_OPERATION_ID,
   getDefaultSpecialCraftTargetObject,
   getSpecialCraftFlowRule,
   getSpecialCraftOperationByCraftCode,
@@ -169,7 +171,7 @@ function getUniqueQtyMatrixLines(order: ProductionOrder): {
 }
 
 function isForbiddenSpecialCraft(operation: SpecialCraftOperationDefinition): boolean {
-  return operation.craftName === '印花' || operation.craftName === '染色'
+  return ['印花', '染色', '捆条', '盘扣'].includes(operation.craftName)
 }
 
 function getTaskPrefixByOperation(operation: SpecialCraftOperationDefinition): string {
@@ -189,6 +191,83 @@ function resolveSelectedTargetObject(
 
 function getDemandLineUnit(targetObject: SpecialCraftTargetObject): string {
   return getSpecialCraftFlowRule(targetObject).unit
+}
+
+interface SpecialCraftRouteOccurrence {
+  sourceEntryId?: string
+  routeObjectKey: string
+  predecessorEntryIds: string[]
+  inputObjectType: TechnicalProcessObjectType
+  outputObjectType: TechnicalProcessObjectType
+}
+
+export function getSpecialCraftDefaultRouteObjectTypes(
+  targetObject: SpecialCraftTargetObject,
+  operationId?: string,
+): {
+  inputObjectType: TechnicalProcessObjectType
+  outputObjectType: TechnicalProcessObjectType
+} {
+  // 花朵不是裁片原位加工：投入指定裁片部位，产出可被后续任务消耗的花朵辅件。
+  if (operationId === 'AUX-OP-FLOWER-MAKING') {
+    return { inputObjectType: 'CUT_PIECE', outputObjectType: 'ACCESSORY' }
+  }
+  if (targetObject === '成衣') return { inputObjectType: 'GARMENT', outputObjectType: 'GARMENT' }
+  if (targetObject === '完整面料' || targetObject === '面料') {
+    return { inputObjectType: 'FABRIC', outputObjectType: 'FABRIC' }
+  }
+  if (targetObject === '辅料') return { inputObjectType: 'BOM_MATERIAL', outputObjectType: 'ACCESSORY' }
+  if (targetObject === '捆条') return { inputObjectType: 'ACCESSORY', outputObjectType: 'ACCESSORY' }
+  return { inputObjectType: 'CUT_PIECE', outputObjectType: 'CUT_PIECE' }
+}
+
+function resolveSpecialCraftRouteOccurrence(input: {
+  snapshot: ProductionOrderTechPackSnapshot
+  craftCode: string
+  targetObject: SpecialCraftTargetObject
+  processEntry?: ProductionOrderTechPackSnapshot['processEntries'][number]
+  patternFileIds?: string[]
+  pieceRowId?: string
+  sourceBomItemId?: string
+}): SpecialCraftRouteOccurrence {
+  const patternFileIds = unique((input.patternFileIds ?? []).map(normalizeText).filter(Boolean))
+  const pieceRowId = normalizeText(input.pieceRowId)
+  const expectedPieceKeys = new Set(
+    patternFileIds.map((patternFileId) => `PATTERN:${patternFileId}:PIECE:${pieceRowId}`),
+  )
+  const normalizedTargetObject = normalizeSpecialCraftTargetObjectLabel(input.targetObject) || input.targetObject
+  const candidates = input.snapshot.processEntries.filter((entry) => {
+    if (entry.processCode !== 'SPECIAL_CRAFT' || entry.craftCode !== input.craftCode) return false
+    const entryTargetObject = normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject)
+    return !entryTargetObject || entryTargetObject === normalizedTargetObject
+  })
+  const processEntry = input.processEntry
+    ?? candidates.find((entry) => Boolean(entry.routeObjectKey) && expectedPieceKeys.has(entry.routeObjectKey || ''))
+    ?? candidates.find((entry) =>
+      Boolean(pieceRowId)
+      && Boolean(entry.routeObjectKey)
+      && entry.routeObjectKey?.endsWith(`:PIECE:${pieceRowId}`),
+    )
+    ?? (!pieceRowId ? (() => {
+      const linkedCandidates = candidates.filter((entry) =>
+        patternFileIds.some((patternFileId) => (entry.linkedPatternIds ?? []).includes(patternFileId)),
+      )
+      return linkedCandidates.length === 1 ? linkedCandidates[0] : undefined
+    })() : undefined)
+  const fallbackRouteObjectKey = pieceRowId && patternFileIds[0]
+    ? `PATTERN:${patternFileIds[0]}:PIECE:${pieceRowId}`
+    : input.sourceBomItemId
+      ? `BOM:${input.sourceBomItemId}`
+      : `PROCESS:${processEntry?.id || input.craftCode}`
+  const operation = getSpecialCraftOperationByCraftCode(input.craftCode)
+  const defaults = getSpecialCraftDefaultRouteObjectTypes(input.targetObject, operation?.operationId)
+  return {
+    sourceEntryId: processEntry?.id,
+    routeObjectKey: processEntry?.routeObjectKey || fallbackRouteObjectKey,
+    predecessorEntryIds: [...(processEntry?.predecessorEntryIds ?? [])],
+    inputObjectType: processEntry?.inputObjectType || defaults.inputObjectType,
+    outputObjectType: processEntry?.outputObjectType || defaults.outputObjectType,
+  }
 }
 
 function validateSpecialCraftReference(
@@ -458,6 +537,13 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         if (!operation || !operationIdSet.has(operation.operationId)) return
         const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
         if (selectedTargetObject === '成衣') return
+        const routeOccurrence = resolveSpecialCraftRouteOccurrence({
+          snapshot: techPackSnapshot,
+          craftCode: operation.craftCode,
+          targetObject: selectedTargetObject,
+          patternFileIds: [patternFile.id, patternFileId],
+          pieceRowId: pieceRow.id,
+        })
 
         colorAllocations.forEach((allocation) => {
           const pieceCountPerGarment = Number(allocation.pieceCount)
@@ -526,6 +612,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
               craftCode: operation.craftCode,
               craftName: operation.craftName,
               targetObject: selectedTargetObject,
+              ...routeOccurrence,
               unit: getDemandLineUnit(selectedTargetObject),
               feiTicketNos: [],
               bundleLengthCm: pieceRow.bundleLengthCm,
@@ -588,6 +675,13 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         }))
         return
       }
+      const routeOccurrence = resolveSpecialCraftRouteOccurrence({
+        snapshot: techPackSnapshot,
+        craftCode: operation.craftCode,
+        targetObject: selectedTargetObject,
+        processEntry: entry,
+        sourceBomItemId: garmentBom.id,
+      })
 
       const applicableSkuCodes = new Set((garmentBom.applicableSkuCodes ?? []).map(normalizeText).filter(Boolean))
       if (applicableSkuCodes.size === 0) {
@@ -656,6 +750,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
             craftCode: operation.craftCode,
             craftName: operation.craftName,
             targetObject: selectedTargetObject,
+            ...routeOccurrence,
             unit: getDemandLineUnit(selectedTargetObject),
             feiTicketNos: [],
             sourceBomItemId: garmentBom.id,
@@ -691,10 +786,14 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
       if (!operation || !operationIdSet.has(operation.operationId)) return
       const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
       const linkedBomItemIds = new Set(entry.linkedBomItemIds ?? [])
-      const accessoryBomItems = techPackSnapshot.bomItems.filter(
-        (item) => item.type === '辅料' && linkedBomItemIds.has(item.id),
+      const isCoveredButtonMaking = operation.operationId === COVERED_BUTTON_OPERATION_ID
+      const inputBomItems = techPackSnapshot.bomItems.filter((item) =>
+        linkedBomItemIds.has(item.id)
+        && (isCoveredButtonMaking
+          ? item.type !== '成衣' && item.type !== '包装材料'
+          : item.type === '辅料'),
       )
-      if (accessoryBomItems.length !== 1) {
+      if (inputBomItems.length !== 1) {
         errors.push(buildBlockingError({
           productionOrderId: productionOrder.productionOrderId,
           productionOrderNo,
@@ -702,13 +801,22 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           pieceRowId: '',
           partName: '辅料',
           operationName: operation.operationName,
-          errorType: '辅料BOM缺失',
-          errorMessage: `${operation.operationName}必须唯一关联一行正式辅料 BOM`,
+          errorType: isCoveredButtonMaking ? '制作物料BOM缺失' : '辅料BOM缺失',
+          errorMessage: isCoveredButtonMaking
+            ? `${operation.operationName}必须唯一关联一行正式 BOM 制作物料`
+            : `${operation.operationName}必须唯一关联一行正式辅料 BOM`,
           blocking: true,
         }))
         return
       }
-      const accessoryBom = accessoryBomItems[0]
+      const accessoryBom = inputBomItems[0]
+      const routeOccurrence = resolveSpecialCraftRouteOccurrence({
+        snapshot: techPackSnapshot,
+        craftCode: operation.craftCode,
+        targetObject: selectedTargetObject,
+        processEntry: entry,
+        sourceBomItemId: accessoryBom.id,
+      })
       const inputUnit = normalizeText(accessoryBom.unit)
       if (!inputUnit) {
         errors.push(buildBlockingError({
@@ -724,8 +832,11 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         }))
         return
       }
-      const fixedLengthCm = Number(entry.fixedLengthCm)
-      if (!Number.isFinite(fixedLengthCm) || fixedLengthCm <= 0) {
+      const fixedLengthCmValue = Number(entry.fixedLengthCm)
+      const fixedLengthCm = Number.isFinite(fixedLengthCmValue) && fixedLengthCmValue > 0
+        ? fixedLengthCmValue
+        : undefined
+      if (!isCoveredButtonMaking && fixedLengthCm == null) {
         errors.push(buildBlockingError({
           productionOrderId: productionOrder.productionOrderId,
           productionOrderNo,
@@ -747,7 +858,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           productionOrderNo,
           patternFileId: '',
           pieceRowId: '',
-          partName: accessoryBom.name,
+          partName: isCoveredButtonMaking ? '包布钮辅件' : accessoryBom.name,
           operationName: operation.operationName,
           errorType: '计划产出缺失',
           errorMessage: `${operation.operationName}未配置每件产出数量或产出单位`,
@@ -788,7 +899,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           patternFileId: '',
           patternFileName: accessoryBom.name,
           pieceRowId: '',
-          partName: accessoryBom.name,
+          partName: isCoveredButtonMaking ? '包布钮辅件' : accessoryBom.name,
           colorName: orderLine.color,
           colorCode: orderLine.color,
           sizeCode: orderLine.size,
@@ -805,6 +916,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           craftCode: operation.craftCode,
           craftName: operation.craftName,
           targetObject: selectedTargetObject,
+          ...routeOccurrence,
           unit: outputUnit,
           feiTicketNos: [],
           sourceBomItemId: accessoryBom.id,
@@ -814,7 +926,9 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           fixedLengthCm,
           outputQtyPerGarment,
           outputUnit,
-          remark: entry.remark || `${accessoryBom.name}按 ${inputUnit} 投入，按 ${outputUnit} 产出。`,
+          remark: entry.remark || (isCoveredButtonMaking
+            ? `${accessoryBom.name}按 ${inputUnit} 投入，产出包布钮辅件并按 ${outputUnit} 管理。`
+            : `${accessoryBom.name}按 ${inputUnit} 投入，按 ${outputUnit} 产出。`),
         }
         errors.push(...validateSpecialCraftDemandLine(demandLine))
         demandLines.push(demandLine)
@@ -854,6 +968,11 @@ export function getSpecialCraftGenerationKey(input: {
       line.pieceCountPerGarment,
       line.orderQty,
       line.planPieceQty,
+      line.sourceEntryId,
+      line.routeObjectKey,
+      [...line.predecessorEntryIds].sort().join(','),
+      line.inputObjectType,
+      line.outputObjectType,
     ].join(':'))
     .sort()
     .join('|')
@@ -915,6 +1034,9 @@ function mergeDemandLinesIntoTaskOrder(input: {
   const sourcePieceRowIds = unique(demandLines.map((line) => line.pieceRowId).filter(Boolean))
   const sourcePatternFileIds = unique(demandLines.map((line) => line.patternFileId).filter(Boolean))
   const sourceSpecialCraftKeys = unique(demandLines.map((line) => line.specialCraftKey))
+  const sourceEntryIds = unique(demandLines.map((line) => normalizeText(line.sourceEntryId)).filter(Boolean))
+  const routeObjectKeys = unique(demandLines.map((line) => normalizeText(line.routeObjectKey)).filter(Boolean))
+  const predecessorEntryIds = unique(demandLines.flatMap((line) => line.predecessorEntryIds ?? []))
   const partName = summarizeSingleValue(demandLines.map((line) => line.partName), `${sourcePieceRowIds.length}个部位`)
   const fabricColor = summarizeSingleValue(demandLines.map((line) => line.colorName), '多颜色')
   const sizeCode = summarizeSingleValue(demandLines.map((line) => line.sizeCode), '多尺码')
@@ -944,7 +1066,13 @@ function mergeDemandLinesIntoTaskOrder(input: {
     techPackVersion: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
     sourceTaskId: existingTask?.sourceTaskId,
     sourceTaskNo: existingTask?.sourceTaskNo,
+    sourceEntryId: sourceEntryIds[0],
+    routeObjectKey: routeObjectKeys[0] || '',
+    predecessorEntryIds,
+    inputObjectType: demandLines[0]?.inputObjectType || getSpecialCraftDefaultRouteObjectTypes(targetObject, operation.operationId).inputObjectType,
+    outputObjectType: demandLines[0]?.outputObjectType || getSpecialCraftDefaultRouteObjectTypes(targetObject, operation.operationId).outputObjectType,
     targetObject,
+    quantityMode: operation.quantityMode,
     partName,
     fabricColor,
     sizeCode,
@@ -958,6 +1086,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
     fixedLengthCm: demandLines.find((line) => Number(line.fixedLengthCm) > 0)?.fixedLengthCm,
     outputQtyPerGarment: demandLines.find((line) => Number(line.outputQtyPerGarment) > 0)?.outputQtyPerGarment,
     outputUnit: summarizeSingleValue(demandLines.map((line) => line.outputUnit || line.unit).filter(Boolean), operation.outputUnit),
+    receiverWarehouseName: operation.receiverWarehouseName,
     planQty,
     receivedQty: existingTask?.receivedQty || 0,
     completedQty: existingTask?.completedQty || 0,
@@ -1024,6 +1153,12 @@ export function validateSpecialCraftTaskGenerationResult(result: SpecialCraftTas
     const operation = getSpecialCraftOperationByCraftCode(taskOrder.craftCode)
     if (!operation || operation.managementDomain !== taskOrder.managementDomain) {
       throw new Error(`工艺加工单管理域错误：${taskOrder.taskOrderNo}`)
+    }
+    const occurrenceKeys = new Set((taskOrder.demandLines ?? []).map((line) =>
+      `${normalizeText(line.sourceEntryId)}::${normalizeText(line.routeObjectKey)}`,
+    ))
+    if (occurrenceKeys.size > 1) {
+      throw new Error(`工艺加工单混入多个路线 occurrence：${taskOrder.taskOrderNo}`)
     }
   })
 }
@@ -1158,7 +1293,19 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   demandLines.forEach((line) => {
     const operation = getSpecialCraftOperationByCraftCode(line.craftCode)
     if (!operation) return
-    const key = [line.productionOrderId, line.managementDomain, line.operationId, line.targetObject, 'WAIT_ASSIGN'].join('::')
+    const sourceEntryKey = normalizeText(line.sourceEntryId)
+    const routeObjectKey = normalizeText(line.routeObjectKey)
+    const occurrenceKey = sourceEntryKey || routeObjectKey
+      ? `ENTRY:${sourceEntryKey}::OBJECT:${routeObjectKey}`
+      : `LEGACY:${line.craftCode}:${line.sourceBomItemId || ''}`
+    const key = [
+      line.productionOrderId,
+      line.managementDomain,
+      line.operationId,
+      line.targetObject,
+      occurrenceKey,
+      'WAIT_ASSIGN',
+    ].join('::')
     const current = grouped.get(key)
     if (current) {
       current.demandLines.push(line)

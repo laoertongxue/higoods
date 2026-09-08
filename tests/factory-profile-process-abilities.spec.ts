@@ -22,7 +22,7 @@ test('编辑工厂弹层已用工序工艺能力替换旧能力标签，并回�
 
   await expect(form.locator('input[data-factory-process-toggle="SEW"]')).toBeChecked()
   await expect(form.locator('input[data-factory-process-toggle="PRINT"]')).not.toBeChecked()
-  await expect(form.getByLabel('曲牙')).toBeChecked()
+  await expect(form.getByLabel('曲牙绣')).toBeChecked()
 
   await expectNoPageErrors(errors)
 })

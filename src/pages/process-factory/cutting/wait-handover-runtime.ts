@@ -1,3 +1,6 @@
+import { runRuntimeTaskAction } from '../../../data/fcs/runtime-process-tasks.ts'
+import { localDateTimeText } from '../../../utils.ts'
+import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
 import {
   appendCuttingRuntimeEventIdempotent,
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
@@ -898,22 +901,10 @@ function buildWaitHandoverRuntimeTicketFromSnapshotItem(
       runtimeString(item.productionOrderNo)
       || event.refs.productionOrderNo
       || '',
-    cutOrderId:
-      runtimeString(item.cutOrderId)
-      || event.refs.cutOrderId
-      || '',
-    cutOrderNo:
-      runtimeString(item.cutOrderNo)
-      || event.refs.cutOrderNo
-      || '',
-    spreadingOrderId:
-      runtimeString(item.spreadingOrderId)
-      || event.refs.spreadingOrderId
-      || '',
-    spreadingOrderNo:
-      runtimeString(item.spreadingOrderNo)
-      || event.refs.spreadingOrderNo
-      || '',
+    cutOrderId: typeof item.cutOrderId === 'string' ? runtimeString(item.cutOrderId) : event.refs.cutOrderId || '',
+    cutOrderNo: typeof item.cutOrderNo === 'string' ? runtimeString(item.cutOrderNo) : event.refs.cutOrderNo || '',
+    spreadingOrderId: typeof item.spreadingOrderId === 'string' ? runtimeString(item.spreadingOrderId) : event.refs.spreadingOrderId || '',
+    spreadingOrderNo: typeof item.spreadingOrderNo === 'string' ? runtimeString(item.spreadingOrderNo) : event.refs.spreadingOrderNo || '',
     spuCode: runtimeString(item.spuCode),
     color: runtimeString(item.color),
     size: runtimeString(item.size),
@@ -1078,9 +1069,9 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
           feiTicketNo: feiTicketNo || ticket?.feiTicketNo || event.refs.feiTicketNos?.[0] || '',
           productionOrderId: ticket?.productionOrderId || event.refs.productionOrderId || '',
           productionOrderNo: ticket?.productionOrderNo || event.refs.productionOrderNo || '按菲票事件追踪',
-          cutOrderId: runtimeString(item.cutOrderId) || ticket?.cutOrderId || event.refs.cutOrderId || '',
-          cutOrderNo: runtimeString(item.cutOrderNo) || ticket?.cutOrderNo || event.refs.cutOrderNo || '按菲票事件追踪',
-          spreadingOrderNo: runtimeString(item.spreadingOrderNo) || ticket?.spreadingOrderNo || event.refs.spreadingOrderNo || '',
+          cutOrderId: typeof item.cutOrderId === 'string' ? runtimeString(item.cutOrderId) : ticket?.cutOrderId ?? event.refs.cutOrderId ?? '',
+          cutOrderNo: typeof item.cutOrderNo === 'string' ? runtimeString(item.cutOrderNo) : ticket?.cutOrderNo ?? event.refs.cutOrderNo ?? '按菲票事件追踪',
+          spreadingOrderNo: typeof item.spreadingOrderNo === 'string' ? runtimeString(item.spreadingOrderNo) : ticket?.spreadingOrderNo ?? event.refs.spreadingOrderNo ?? '',
           spuCode: ticket?.sourceTechPackSpuCode || ticket?.skuCode || '按菲票追踪',
           color: ticket?.skuColor || ticket?.fabricColor || '未标记',
           size: ticket?.skuSize || '未标记',
@@ -1379,7 +1370,7 @@ function resolveActiveWaitHandoverSourceInventory(
 }
 
 export function buildWaitHandoverRuntimeProjection(
-  generatedTickets = listSpreadingResultGeneratedFeiTickets(),
+  generatedTickets = [...listSpreadingResultGeneratedFeiTickets(), ...listWoolPanelCuttingReceiptSources()],
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): WaitHandoverRuntimeProjection {
   const runtimeEvents = listWaitHandoverRuntimeEvents(storage)
@@ -1422,7 +1413,7 @@ export function appendWaitHandoverBaggingEvent(input: WaitHandoverBaggingEventIn
   if (!input.bagCode.trim()) {
     throw new Error('请扫描或输入中转袋编号。')
   }
-  const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const occurredAt = input.occurredAt || localDateTimeText().slice(0, 16)
   const usageCycleId =
     input.usageCycleId
     || buildWaitHandoverUsageCycleId(input.bagCode, occurredAt)
@@ -1547,7 +1538,7 @@ export function appendWaitHandoverInboundEvent(input: {
   if (!warehouseArea.trim() || !locationCode.trim()) {
     throw new Error('请填写入仓库区和库位。')
   }
-  const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const occurredAt = input.occurredAt || localDateTimeText().slice(0, 16)
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.bagCode,
     storage,
@@ -1855,7 +1846,23 @@ export function submitWaitHandoverTaskBatch(
     }
     replay(temporaryStorage)
   }
-  return replay(storage)
+  const originalLedger = storage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
+  try {
+    return storage && storage === getBrowserLocalStorage()
+      ? runRuntimeTaskAction(() => replay(storage))
+      : replay(storage)
+  } catch (error) {
+    if (storage && storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) !== originalLedger) {
+      if (originalLedger === null) {
+        if (!storage.removeItem) throw new Error('交出保存失败，当前存储无法撤回新增记录；请暂停操作并联系主管。')
+        storage.removeItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+      } else {
+        if (!storage.setItem) throw new Error('交出保存失败，当前存储无法恢复原记录；请暂停操作并联系主管。')
+        storage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, originalLedger)
+      }
+    }
+    throw error
+  }
 }
 
 export function appendWaitHandoverHandoverRecordEvent(input: {

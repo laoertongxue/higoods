@@ -493,12 +493,22 @@ function readSidebarCollapsed(): boolean {
 
 const defaultPath = '/fcs/workbench/overview'
 
+function migrateLegacySpecialCraftPath(pathname: string): string {
+  return pathname.replace(
+    /^(\/fcs\/process-factory\/special-craft\/[^/]+)\/tasks(?=\/|\?|$)/,
+    '$1/work-orders',
+  )
+}
+
 function readInitialPathname(): string {
   if (typeof window === 'undefined') return defaultPath
 
   const pathname = window.location.pathname || '/'
   const search = window.location.search || ''
-  return `${pathname}${search}` || defaultPath
+  const requestedPath = `${pathname}${search}` || defaultPath
+  const initialPath = migrateLegacySpecialCraftPath(requestedPath)
+  if (initialPath !== requestedPath) window.history.replaceState({}, '', initialPath)
+  return initialPath
 }
 
 class AppStore {
@@ -596,7 +606,13 @@ class AppStore {
   }
 
   navigate(pathname: string, options: { historyMode?: NavigationHistoryMode } = {}): void {
-    if (this.state.pathname === pathname) return
+    if (this.state.pathname === pathname) {
+      // A redirect can update the in-memory route while the initial browser URL is
+      // still the legacy path. Keep the address bar canonical even when no render
+      // state change is required.
+      this.syncBrowserHistory(pathname, options.historyMode ?? 'push')
+      return
+    }
 
     notifyPdaCuttingRouteLeave(this.state.pathname, pathname)
     notifyPdaWoolRouteLeave(this.state.pathname, pathname)

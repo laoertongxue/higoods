@@ -52,7 +52,17 @@ import type {
 } from '../../../data/fcs/cut-piece-release-domain.ts'
 import { buildSupplementPartShortages, buildTargetPreview } from '../../../data/fcs/cut-piece-release-domain.ts'
 import { appStore } from '../../../state/store.ts'
-import { escapeHtml, formatDateTime } from '../../../utils.ts'
+import { escapeHtml, formatDateTime, localDateTimeText } from '../../../utils.ts'
+import { initialProductionOrderIds } from '../../../data/fcs/production-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from '../../../data/fcs/cutting/generated-cut-orders.ts'
+import { listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import { buildGeneratedCutReleaseInputs } from '../../../data/fcs/cutting/generated-cut-release.ts'
+import { setGeneratedCutReleaseReader } from '../../../data/fcs/cut-piece-release.ts'
+
+setGeneratedCutReleaseReader(() => {
+  const sources = listGeneratedCutOrderSourceRecords().filter(source => !initialProductionOrderIds.has(source.productionOrderId))
+  return buildGeneratedCutReleaseInputs(sources, listSpreadingPieceOutputLines(sources))
+})
 
 type MatrixStatusFilter = '全部' | MatrixCalculationStatus
 type TargetStatusFilter = '全部' | MatrixTargetStatus
@@ -1850,7 +1860,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
       releaseQtyByColorSize,
       riskReason: riskReason.trim(),
       confirmedBy: '裁床主管 王敏',
-      confirmedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      confirmedAt: localDateTimeText(),
     })
     state.feedback = result.ok
       ? { tone: 'success', message: result.message }

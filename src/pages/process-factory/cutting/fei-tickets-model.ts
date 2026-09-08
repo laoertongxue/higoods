@@ -1,4 +1,5 @@
 import type { CutOrderRow, CutOrderNavigationPayload } from './cut-orders-model.ts'
+import { initialProductionOrderIds } from '../../../data/fcs/production-orders.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import type { MarkerPlanSourceRecord } from './marker-plan-source-model.ts'
@@ -1456,7 +1457,8 @@ export function buildSystemSeedFeiTicketLedger(options: {
   }
 
   // 该稳定样本专用于首次打印回归；演示打印种子不得提前为它写入打印记录。
-  const printedSeedOwners = owners.filter((owner) => owner.cutOrderNo !== 'CUT-260307-102-03')
+  const printedSeedOwners = owners.filter((owner) => initialProductionOrderIds.has(owner.productionOrderId)
+    && owner.cutOrderNo !== 'CUT-260307-102-03')
   const firstOwner = printedSeedOwners[0]
   const secondOwner = printedSeedOwners[1]
   const thirdOwner = printedSeedOwners[2]
@@ -2741,7 +2743,12 @@ export function executePrintableUnitPrint(options: {
     const relatedRecords = findDetailSourceRecord(detail, Array.from(nextRecordsMap.values()))
     const currentVersion = Math.max(0, ...relatedRecords.map((record) => record.version ?? record.reprintCount + 1))
     const nextVersion = currentVersion + 1
-    const ticketRecordId = buildTicketRecordId(detail.sourceCutOrderId, detail.sequenceNo, nextVersion)
+    const actualOutputTicket = options.operationType === 'FIRST_PRINT' && detail.sourceOutputLineId
+      ? listActualCuttingOutputGeneratedFeiTicketsByCutOrderId(detail.sourceCutOrderId)
+        .find(ticket => ticket.sourceOutputLineId === detail.sourceOutputLineId)
+      : undefined
+    const ticketRecordId = actualOutputTicket?.feiTicketId
+      || buildTicketRecordId(detail.sourceCutOrderId, detail.sequenceNo, nextVersion)
     const fromRecord = selectReprintSourceRecord(detail, Array.from(nextRecordsMap.values()), options.fromTicketId)
     const nextRecord = attachQrSnapshotToRecord(
       {
@@ -2753,7 +2760,8 @@ export function executePrintableUnitPrint(options: {
           options.unit.batchNo,
         ),
         ticketRecordId,
-        ticketNo: buildVersionedTicketNo(detail.sourceCutOrderNo, detail.sequenceNo, nextVersion),
+        ticketNo: actualOutputTicket?.feiTicketNo
+          || buildVersionedTicketNo(detail.sourceCutOrderNo, detail.sequenceNo, nextVersion),
         sourceOutputLineId: detail.sourceOutputLineId,
         sourceBasis: FEI_TICKET_SOURCE_BASIS,
         sourceBasisType: FEI_TICKET_SOURCE_BASIS_TYPE,
@@ -2785,6 +2793,7 @@ export function executePrintableUnitPrint(options: {
         reprintCount: Math.max(nextVersion - 1, 0),
         sourcePrintJobId: printJobId,
         status: 'PRINTED',
+        printStatus: options.operationType === 'REPRINT' ? 'REPRINTED' : 'PRINTED',
         splitDetailId: detail.detailId,
         sourceProductionOrderId: detail.sourceProductionOrderId,
       },

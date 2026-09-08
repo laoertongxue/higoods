@@ -1,10 +1,16 @@
+import { getPrintingWorkOrderById } from '../../../data/fcs/printing-task-domain.ts'
+import { listPdaHandoverHeads, getPdaHandoverRecordsByHead } from '../../../data/fcs/pda-handover-events.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
 } from '../../../data/browser-storage.ts'
 import {
   appendPickupSessionFromNode,
+  assertCuttingRawPrepNodeReceipt,
   buildPickupDemandFactsFromProjections,
+  resolveCuttingPrintReceiptScope,
+  buildCuttingPrintReceiptDemand,
+  hydrateProductionMaterialPrepStore,
   getPickupSessionByNodeId,
   invalidateMaterialPrepProjectionCache,
   listActivePickupNodes,
@@ -26,6 +32,7 @@ import type {
 } from '../../../data/fcs/cutting/pickup-demand-domain.ts'
 import type {
   PickupNodeProjection,
+  PickupPrintReceiptSource,
   PickupSession,
   PickupStorageLocationRef,
 } from '../../../data/fcs/cutting/pickup-node-domain.ts'
@@ -96,6 +103,45 @@ export function bootstrapPickupManagementRuntimeMockData(): SupplementOrderLifec
   return [...listSupplementOrders()]
 }
 
+export function buildCuttingPrintReceiptFacts(projections: MaterialPrepOrderProjection[], storage: BrowserStorageLike | null): PickupDemandFact[] {
+  const allPickupRecords = hydrateProductionMaterialPrepStore(storage).pickupRecords
+  const heads = listPdaHandoverHeads()
+  return projections.flatMap(projection => projection.lines.flatMap(line => {
+    const scope = resolveCuttingPrintReceiptScope(projection, line)
+    if (!scope) return []
+    const print = getPrintingWorkOrderById(scope.definition.workOrderId)
+    if (!print || !print.output.sku || print.output.qtyUnit !== line.unit) return []
+    const matchingHeads = heads.filter(head => head.headType === 'HANDOUT' && head.sourceBusinessType === 'PRINT_WORK_ORDER'
+      && head.sourceDocId === scope.definition.workOrderId && head.taskId === scope.definition.workOrderId
+      && head.productionOrderId === scope.order.productionOrderId && head.receiverId === 'WH-TRANSFER'
+      && head.qtyUnit === line.unit && JSON.stringify(head.sourceSnapshot) === JSON.stringify(scope.definition.sourceSnapshot))
+    if (matchingHeads.length > 1) throw new Error('对应印花交出单不唯一，请核对。')
+    const sources: PickupPrintReceiptSource[] = matchingHeads.flatMap(head => getPdaHandoverRecordsByHead(head.handoverId).flatMap(record => {
+      if (record.handoverRecordStatus === 'VOIDED' || record.receiverWrittenQty === undefined) return []
+      if (record.status !== 'WRITTEN_BACK') return []
+      if (record.taskId !== scope.definition.workOrderId || record.handoverId !== head.handoverId
+        || JSON.stringify(record.sourceSnapshot) !== JSON.stringify(scope.definition.sourceSnapshot)
+        || record.qtyUnit !== line.unit || record.materialCode !== print.output.sku || record.skuCode !== print.output.sku
+        || !Number.isFinite(record.receiverWrittenQty) || record.receiverWrittenQty < 0
+        || !record.receiverWrittenBy?.trim() || !record.receiverWrittenAt?.trim()) throw new Error('原印花实收批次来源、单位或实收记录不完整，请核对。')
+      if (record.receiverWrittenQty === 0) return []
+      const rolls = print.barcodes.filter(roll => roll.handoverRecordId === record.recordId)
+      if (new Set(rolls.map(roll => roll.barcode)).size !== rolls.length || Math.abs(rolls.reduce((sum, roll) => sum + roll.lengthY, 0) - (record.submittedQty ?? 0)) > 0.000001) throw new Error('原印花交出卷与交出数量不一致，请核对。')
+      if (!rolls.length || rolls.some(roll => roll.sku !== print.output.sku || !roll.barcode || !roll.rollNo || !Number.isFinite(roll.lengthY) || roll.lengthY <= 0)) throw new Error('原印花产出卷记录不完整，请核对。')
+      return [{ handoverId: head.handoverId, handoverRecordId: record.recordId,
+        handoverRecordNo: record.handoverRecordNo || record.recordId, printOrderId: scope.definition.workOrderId,
+        productionOrderId: scope.order.productionOrderId, techPackVersionId: scope.snapshot.sourceTechPackVersionId,
+        bomItemId: scope.bom.id, sourceProcessEntryId: scope.print.id, targetProcessEntryId: scope.cutting.id,
+        targetCutOrderId: line.cutOrderId, targetCutOrderNo: scope.target.cutOrderNo, targetFactoryId: scope.target.cuttingTaskAssigneeFactoryId, materialSku: print.output.sku, unit: line.unit, qty: record.receiverWrittenQty,
+        receivedAt: record.receiverWrittenAt, receivedBy: record.receiverWrittenBy,
+        rolls: rolls.map(roll => ({ barcode: roll.barcode, rollNo: roll.rollNo, length: roll.lengthY })) }]
+    }))
+    const fact = buildCuttingPrintReceiptDemand(projection, line, sources,
+      { sku: print.output.sku, name: print.output.materialName, imageUrl: print.output.imageUrl }, allPickupRecords)
+    return fact ? [fact] : []
+  }))
+}
+
 export function buildPickupRuntimeContext(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
   overrides: PickupRuntimeOverrides = {},
@@ -105,12 +151,12 @@ export function buildPickupRuntimeContext(
   const supplementRecords = [...(overrides.supplementRecords ?? listSupplementOrders())]
   const dyeResults = overrides.dyeResults ?? listPlatformDyeResultViews()
   const printResults = overrides.printResults ?? listPlatformPrintResultViews()
-  const demandFacts = buildPickupDemandFactsFromProjections({
+  const demandFacts = [...buildPickupDemandFactsFromProjections({
     projections,
     supplementRecords: toPickupSupplementRecordFactInputs(supplementRecords),
     dyeResults,
     printResults,
-  })
+  }), ...buildCuttingPrintReceiptFacts(projections, storage)]
   return {
     projections,
     supplementRecords,
@@ -244,7 +290,8 @@ export interface ConfirmPickupNodeReceiptRuntimeInput {
 }
 
 function normalizePickupRuntimeQtyUnit(unit: string): CuttingRuntimeQtyUnit {
-  return (['yard', '片', '件', '条', '粒', '卷', '公斤'].includes(unit) ? unit : '件') as CuttingRuntimeQtyUnit
+  if (!['yard', 'Yard', '米', '片', '件', '条', '粒', '卷', '公斤', '套'].includes(unit)) throw new Error('接收物料单位未识别，请核对原配料单位。')
+  return unit as CuttingRuntimeQtyUnit
 }
 
 export function syncCuttingPickupSessionWarehouseFactsRuntime(
@@ -257,8 +304,9 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
 ): void {
   const nodeSnapshot = session.pickupNodeSnapshot
   if (!nodeSnapshot) throw new Error('接收节点快照缺失，无法写入待加工仓流水。')
+  const runtimeUnits = nodeSnapshot.items.map(item => normalizePickupRuntimeQtyUnit(item.unit))
   nodeSnapshot.items.forEach((item, index) => {
-    const runtimeUnit = normalizePickupRuntimeQtyUnit(item.unit)
+    const runtimeUnit = runtimeUnits[index]
     const pickupRecordId = session.pickupRecordIds[index] || ''
     appendCuttingRuntimeEventIdempotent({
       idempotencyKey: `cutting-pickup-inbound:${session.pickupSessionId}:${item.prepLineId}`,
@@ -268,9 +316,10 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
       operatorRole: options.operatorRole,
       occurredAt: session.pickedAt,
       refs: {
+        cutOrderId: item.printReceiptSources?.[0]?.targetCutOrderId,
+        cutOrderNo: item.printReceiptSources?.[0]?.targetCutOrderNo,
         productionOrderId: nodeSnapshot.productionOrderId,
         productionOrderNo: nodeSnapshot.productionOrderNo,
-        cutOrderNo: nodeSnapshot.productionOrderNo,
         handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
       },
       material: {
@@ -303,6 +352,7 @@ export function syncCuttingPickupSessionWarehouseFactsRuntime(
         pickupQty: item.currentAvailableQty,
         unit: runtimeUnit,
         rollCount: item.rollCount,
+        printReceiptSources: item.printReceiptSources,
         sourceLocations: item.sourceLocations,
         warehouseArea: session.toWarehouseArea,
         locationCode: session.toLocationCode,
@@ -352,6 +402,8 @@ export function confirmPickupNodeReceiptRuntime(
   if (!node || node.version !== input.pickupNodeVersion) {
     throw new Error('当前待接收物料已更新，请重新核对全部物料后再确认接收。')
   }
+  assertCuttingRawPrepNodeReceipt(node, context.projections, context.demandFacts)
+  node.items.forEach(item => normalizePickupRuntimeQtyUnit(item.unit))
   const firstLocation = locationRefs[0]
   const idempotencyKey = `cutting-pickup:${input.pickupNodeId}:v${input.pickupNodeVersion}`
   return appendPickupSessionWithWarehouseFactsRuntime({

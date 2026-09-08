@@ -1,4 +1,5 @@
-import { escapeHtml } from '../utils'
+import { escapeHtml, localDateTimeText } from '../utils'
+import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
   buildPdaCuttingExecutionStateKey,
@@ -140,12 +141,6 @@ export interface PdaCuttingInboundMockLedger {
   }>
 }
 
-const DEFAULT_INBOUND_TICKET_NOS = [
-  'FT-CUT-260307-102-01-001',
-  'FT-CUT-260307-102-01-002',
-  'FT-CUT-260307-102-02-017',
-]
-
 declare global {
   interface Window {
     __higoodPdaCuttingInboundState?: Map<string, InboundFormState>
@@ -157,10 +152,10 @@ const fallbackInboundState = new Map<string, InboundFormState>()
 let fallbackInboundMockLedger: PdaCuttingInboundMockLedger | null = null
 
 export function createPdaCuttingInboundMockLedger(
-  ticketNos: string[] = DEFAULT_INBOUND_TICKET_NOS,
+  ticketNos: string[] = listInboundTicketCandidates().map((ticket) => ticket.ticketNo),
 ): PdaCuttingInboundMockLedger {
   const readyTickets = Object.fromEntries(
-    Array.from(new Set([...DEFAULT_INBOUND_TICKET_NOS, ...ticketNos].map(normalizeInboundCode)))
+    Array.from(new Set(ticketNos.map(normalizeInboundCode)))
       .map((ticketNo) => [
         ticketNo,
         { ticketNo, status: 'READY_FOR_BAGGING' as const, bagCode: '' },
@@ -423,7 +418,7 @@ export function confirmPdaBagging(
   return appendWaitHandoverBaggingEvent({
     source: 'PDA',
     operator: {
-      operatorName: state.operatorName.trim() || '仓务操作员',
+      operatorName: getPdaSession()?.userName?.trim() || state.operatorName.trim() || '仓务操作员',
       operatorRole: '裁片仓装袋员',
     },
     bagCode,
@@ -604,7 +599,7 @@ if (typeof window !== 'undefined') {
 
 export function createPdaCuttingInboundFormState(): InboundFormState {
   return {
-    operatorName: '仓务操作员',
+    operatorName: getPdaSession()?.userName || '仓务操作员',
     carrierCode: '',
     bagProductionOrderNo: '',
     scanCode: '',
@@ -742,7 +737,7 @@ export function appendPdaCuttingInboundRuntimeEvent(
           recoveryLocation: '裁床空袋回收点',
           reason: state.forceRecoveryReason.trim(),
           operator: {
-            operatorName: state.operatorName.trim() || '仓务操作员',
+            operatorName: getPdaSession()?.userName?.trim() || state.operatorName.trim() || '仓务操作员',
             operatorRole: '裁片仓回收员',
           },
           source: 'PDA' as const,
@@ -776,11 +771,11 @@ export function appendPdaCuttingInboundRuntimeEvent(
         locationNo: specialCraftLocationRef.locationNo,
       },
       operator: {
-        operatorName: state.operatorName.trim() || '仓务操作员',
+        operatorName: getPdaSession()?.userName?.trim() || state.operatorName.trim() || '仓务操作员',
         operatorRole: '特殊工艺回仓员',
       },
       source: 'PDA',
-      occurredAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      occurredAt: localDateTimeText().slice(0, 16),
     }, storage)
     return
   }
@@ -806,7 +801,7 @@ export function appendPdaCuttingInboundRuntimeEvent(
   appendWaitHandoverInboundEvent({
     source: 'PDA',
     operator: {
-      operatorName: state.operatorName.trim() || '仓务操作员',
+      operatorName: getPdaSession()?.userName?.trim() || state.operatorName.trim() || '仓务操作员',
       operatorRole: '裁片仓入仓员',
     },
     bagCode,

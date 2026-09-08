@@ -1,6 +1,6 @@
 import {
   listLegacyLikeDeductionBasisForTailPages,
-  listLegacyLikeDyePrintOrdersForTailPages,
+  listPreparationProcessSummariesForTailPages,
   listLegacyLikeProcessTasksForTailPages,
   listLegacyLikeQualityInspectionsForTailPages,
   listLegacyLikeSettlementBatchesForTailPages,
@@ -11,7 +11,7 @@ import { escapeHtml, formatDateTime, toClassName } from '../utils'
 const processTasks = listLegacyLikeProcessTasksForTailPages()
 const legacyLikeQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
 const legacyLikeDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
-const legacyLikeDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const preparationProcessSummaries = listPreparationProcessSummariesForTailPages()
 const initialStatementDrafts = listLegacyLikeStatementDraftsForTailPages()
 const initialSettlementBatches = listLegacyLikeSettlementBatchesForTailPages()
 
@@ -201,9 +201,9 @@ export function renderOverviewPage(): string {
   const frozenBasis = legacyLikeDeductionBasisItems.filter((item) => !item.settlementReady && item.status !== 'VOID')
   const draftStatements = initialStatementDrafts.filter((item) => item.status === 'DRAFT')
   const processingBatches = initialSettlementBatches.filter((item) => item.status === 'PROCESSING')
-  const dpTotal = legacyLikeDyePrintOrders.length
-  const dpAvailable = legacyLikeDyePrintOrders.filter((item) => item.availableQty > 0).length
-  const dpFail = legacyLikeDyePrintOrders.filter((item) => item.returnedFailQty > 0).length
+  const dpTotal = preparationProcessSummaries.length
+  const dpAvailable = preparationProcessSummaries.filter((item) => item.availableQty > 0).length
+  const dpFail = preparationProcessSummaries.filter((item) => item.returnedFailQty > 0).length
 
   const disputedCount = new Set([
     ...disputedQc.map((item) => item.qcId),
@@ -310,12 +310,12 @@ export function renderOverviewPage(): string {
       </section>
 
       <section class="space-y-3">
-        <h2 class="text-sm font-medium text-muted-foreground">染印加工</h2>
+        <h2 class="text-sm font-medium text-muted-foreground">染色／印花加工</h2>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          ${statCard('染印加工单总数', dpTotal)}
-          ${statCard('染印可继续工单数', dpAvailable, 'text-green-600')}
-          ${statCard('染印不合格处理中数', dpFail, dpFail > 0 ? 'text-red-600' : 'text-foreground')}
-          ${statCard('回货批次数', legacyLikeDyePrintOrders.reduce((sum, item) => sum + item.returnBatches.length, 0))}
+          ${statCard('染色／印花加工单总数', dpTotal)}
+          ${statCard('染色／印花可继续工单数', dpAvailable, 'text-green-600')}
+          ${statCard('染色／印花异常记录数', dpFail, dpFail > 0 ? 'text-red-600' : 'text-foreground')}
+          ${statCard('回货批次数', preparationProcessSummaries.reduce((sum, item) => sum + item.returnBatches.length, 0))}
         </div>
       </section>
 

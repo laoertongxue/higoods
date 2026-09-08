@@ -8,11 +8,12 @@ import {
   type PrintDocumentBuildInput,
   type PrintLabelItem,
 } from '../../../data/fcs/print-service.ts'
-import { getPostFinishingOutboundOrderById } from '../../../data/fcs/post-finishing-outbound-orders.ts'
+import { DEDICATED_POST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
+import { getPostFinishingFullFlowOutboundOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { renderGarmentSkuLabelTemplate } from './garment-sku-label-template.ts'
 
 function requireOrder(sourceId: string) {
-  const order = getPostFinishingOutboundOrderById(sourceId)
+  const order = getPostFinishingFullFlowOutboundOrder(sourceId)
   if (!order) throw new Error(`未找到后道出货单：${sourceId}`)
   return order
 }
@@ -34,13 +35,13 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
     headerFields: [
       { label: '出货单号', value: order.outboundOrderNo, emphasis: true },
       { label: '状态', value: order.status },
-      { label: '工厂', value: order.managedPostFactoryName },
-      { label: '来源动作', value: order.sourceActionLabel },
-      { label: '出库仓', value: order.sourceWarehouseName },
-      { label: '接收仓', value: order.targetWarehouseName },
+      { label: '工厂', value: DEDICATED_POST_FACTORY_NAME },
+      { label: '来源动作', value: order.sourceType },
+      { label: '出库仓', value: order.sourceType === '后道加工后' ? '处理后待交出区' : 'QC 合格交接区' },
+      { label: '接收仓', value: '成衣仓' },
       { label: '生产单号', value: order.productionOrderNo },
-      { label: '任务单号', value: order.taskNo },
-      { label: '来源对象', value: order.sourceObjectLabel },
+      { label: '任务单号', value: order.postTaskNo || order.qcTaskNo },
+      { label: '来源对象', value: order.recheckOrderNo || order.qcTaskNo },
       { label: '创建时间', value: order.createdAt },
     ],
     imageBlocks: [],
@@ -53,14 +54,14 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
       headers: ['序号', '图片 / 名称', '类型', 'SKU', '颜色', '尺码', '计划数量', '已入库数量', '单位'],
       rows: order.lines.map((line, index) => [
         String(index + 1),
-        `${line.skuImageUrl || ''}\n${line.spuName}`,
-        line.itemType,
-        line.skuCode,
-        line.colorName,
-        line.sizeName,
-        String(line.plannedQty),
-        String(line.inboundQty),
-        line.qtyUnit,
+        `${line.sku.imageUrl || ''}\n${line.sku.spuName}`,
+        '成衣',
+        line.sku.skuCode,
+        line.sku.colorName,
+        line.sku.sizeName,
+        String(line.outboundQty),
+        String(line.receivedQty || 0),
+        line.sku.qtyUnit,
       ]),
     }],
     signatureBlocks: [],
@@ -68,11 +69,11 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
     footerFields: [],
     printMeta: {
       generatedAt,
-      generatedBy: order.operatorName,
+      generatedBy: order.receivedBy?.actorName || '后道全流程',
       printNotice: '',
       returnHref: `/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(order.outboundOrderId)}`,
     },
-    relatedObjectIds: [order.recheckOrderId, order.qcOrderId, order.postOrderId || ''].filter(Boolean),
+    relatedObjectIds: [order.recheckOrderId || '', order.qcTaskId, order.postTaskId || ''].filter(Boolean),
   }
 }
 
@@ -87,13 +88,13 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
   const generatedAt = getPrintGeneratedAt()
   const date = generatedAt.slice(0, 10)
   const labelItems: PrintLabelItem[] = order.lines.map((line) => {
-    const sku = findSkuArchiveByCode(line.skuCode)
-    const barcode = sku?.barcode || fallbackBarcode(line.skuCode)
+    const sku = findSkuArchiveByCode(line.sku.skuCode)
+    const barcode = sku?.barcode || line.sku.barcode || fallbackBarcode(line.sku.skuCode)
     return {
-      labelTitle: line.skuCode,
+      labelTitle: line.sku.skuCode,
       labelFields: [
         { label: '日期', value: date },
-        { label: 'SKU', value: line.skuCode },
+        { label: 'SKU', value: line.sku.skuCode },
       ],
       barcode: { title: barcode, value: barcode, description: barcode },
       labelWarnings: [],
@@ -121,7 +122,7 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
     footerFields: [],
     printMeta: {
       generatedAt,
-      generatedBy: order.operatorName,
+      generatedBy: order.receivedBy?.actorName || '后道全流程',
       printNotice: '',
       returnHref: `/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(order.outboundOrderId)}`,
     },
@@ -129,7 +130,7 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
     labelLayout: '单张标签',
     printMode: '普通打印',
     labelItems,
-    relatedObjectIds: [order.recheckOrderId],
+    relatedObjectIds: [order.recheckOrderId || order.qcTaskId],
     totalCopies: labelItems.length,
   }
 }

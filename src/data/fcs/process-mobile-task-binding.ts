@@ -24,7 +24,7 @@ import {
   getPostFinishingTaskById,
   listPostFinishingTasks,
   type PostFinishingTaskView,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import { processTasks, type ProcessTask } from './process-tasks.ts'
 import { isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from './kol-goto-special-flow.ts'
 import {
@@ -260,15 +260,18 @@ function mapSpecialCraftExecutionStatus(status: string): ProcessTask['status'] {
 }
 
 function mapSpecialCraftTaskOrderToMobileTask(taskOrder: SpecialCraftTaskOrder, seq: number): ProcessTask {
-  const taskId = taskOrder.sourceTaskId || taskOrder.taskOrderId
-  const taskNo = taskOrder.sourceTaskNo || taskOrder.taskOrderNo
+  // 一个路线 occurrence 对应一张可执行加工单。多个加工单可能来自同一个
+  // 生产任务，移动端身份必须使用加工单 ID，不能再用父任务 ID 把它们压成
+  // 重复卡片或让其中一张的操作误命中另一张。
+  const taskId = taskOrder.taskOrderId
+  const taskNo = taskOrder.taskOrderNo
   const isAssigned = taskOrder.assignmentStatus === 'ASSIGNED'
   const assignedFactoryId = isAssigned ? taskOrder.assignedFactoryId || taskOrder.factoryId : undefined
   const assignedFactoryName = isAssigned ? taskOrder.assignedFactoryName || taskOrder.factoryName : undefined
   return {
     taskId,
     taskNo,
-    rootTaskNo: taskOrder.taskOrderNo,
+    rootTaskNo: taskOrder.sourceTaskNo || taskOrder.taskOrderNo,
     productionOrderId: taskOrder.productionOrderId,
     seq,
     processCode: 'SPECIAL_CRAFT',
@@ -438,6 +441,8 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
+  const specialCraftOrder = getSpecialCraftTaskOrderById(taskId)
+  if (specialCraftOrder) return mapSpecialCraftTaskOrderToMobileTask(specialCraftOrder, 1)
   return listPdaMobileExecutionTasks().find((task) => task.taskId === taskId) ?? null
 }
 
@@ -912,7 +917,7 @@ export function validateCuttingOrderMobileTaskBinding(cuttingOrderId: string): P
 
 export function validateSpecialCraftTaskOrderMobileTaskBinding(taskOrderId: string): ProcessMobileTaskBindingResult {
   const taskOrder = getSpecialCraftTaskOrderByTaskOrderId(taskOrderId)
-  const expectedTaskId = taskOrder?.sourceTaskId || taskOrder?.taskOrderId
+  const expectedTaskId = taskOrder?.taskOrderId
   return validateBinding({
     workOrderId: taskOrder?.taskOrderId || taskOrderId,
     workOrderNo: taskOrder?.taskOrderNo || taskOrderId,
@@ -920,11 +925,15 @@ export function validateSpecialCraftTaskOrderMobileTaskBinding(taskOrderId: stri
     sourceType: 'SPECIAL_CRAFT_TASK_ORDER',
     sourceId: taskOrderId,
     expectedTaskId,
-    expectedTaskNo: taskOrder?.sourceTaskNo || taskOrder?.taskOrderNo,
+    expectedTaskNo: taskOrder?.taskOrderNo,
     expectedFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
-    actualTask: expectedTaskId ? processTasks.find((task) => task.taskId === expectedTaskId) || null : null,
+    // 特殊工艺校验已经持有当前加工单，不应为了核对一张单再次汇总全部
+    // 印花、染色、水溶、毛织、后道、裁剪和运行时任务。直接用同一事实源
+    // 投影当前加工单，既保持移动端身份口径一致，也避免每个现场动作触发
+    // 一次全系统任务列表重算。
+    actualTask: taskOrder ? mapSpecialCraftTaskOrderToMobileTask(taskOrder, 1) : null,
     currentFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
     requireExactTaskId: true,
     skipMobileVisibilityGate: true,
@@ -936,7 +945,7 @@ export function validateSpecialCraftMobileTaskBinding(
   currentFactoryId?: string,
 ): ProcessMobileTaskBindingResult {
   const taskOrder = getSpecialCraftTaskOrderById(taskOrderId)
-  const expectedTaskId = taskOrder?.sourceTaskId || taskOrder?.taskOrderId
+  const expectedTaskId = taskOrder?.taskOrderId
   return validateBinding({
     workOrderId: taskOrder?.taskOrderId || taskOrderId,
     workOrderNo: taskOrder?.taskOrderNo || taskOrderId,
@@ -944,11 +953,13 @@ export function validateSpecialCraftMobileTaskBinding(
     sourceType: 'SPECIAL_CRAFT',
     sourceId: taskOrderId,
     expectedTaskId,
-    expectedTaskNo: taskOrder?.sourceTaskNo || taskOrder?.taskOrderNo,
+    expectedTaskNo: taskOrder?.taskOrderNo,
     expectedFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
-    actualTask: expectedTaskId ? processTasks.find((task) => task.taskId === expectedTaskId) || null : null,
+    // 当前加工单已经是特殊工艺移动任务的权威来源；按单投影即可完成
+    // 工厂、任务号和工艺核对，避免一次现场动作重算全系统移动任务。
+    actualTask: taskOrder ? mapSpecialCraftTaskOrderToMobileTask(taskOrder, 1) : null,
     currentFactoryId: currentFactoryId || taskOrder?.factoryId || TEST_FACTORY_ID,
     requireExactTaskId: true,
     skipMobileVisibilityGate: true,

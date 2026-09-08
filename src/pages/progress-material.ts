@@ -1,3 +1,4 @@
+import { getPdaPickupHeads, getPdaPickupRecordsByHead, markPdaPickupRecordWarehouseHanded } from '../data/fcs/pda-handover-events.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
@@ -39,6 +40,7 @@ type ExecutionStatusFilter = 'ALL' | 'NO_DOC' | WarehouseExecutionStatus
 type HasShortageFilter = 'ALL' | 'YES' | 'NO'
 
 interface MaterialProgressState {
+  warehouseActor: 'READ_ONLY' | 'WAREHOUSE'
   keyword: string
   executionStatus: ExecutionStatusFilter
   hasShortage: HasShortageFilter
@@ -115,6 +117,7 @@ const STATUS_VARIANT_CLASS_MAP: Record<WarehouseExecutionStatus, string> = {
 }
 
 const state: MaterialProgressState = {
+  warehouseActor: 'READ_ONLY',
   keyword: '',
   executionStatus: 'ALL',
   hasShortage: 'ALL',
@@ -827,7 +830,7 @@ function renderDocDrawer(poId: string): string {
             ? `
               <div class="space-y-6 p-4">
                 <section>
-                  <h4 class="mb-3 text-sm font-medium">单头信息</h4>
+                  <h4 class="mb-3 text-sm font-medium">单头信息</h4>${doc.docType === 'ISSUE' ? `<label class="mb-3 flex items-center gap-2 text-sm">当前操作身份<select data-material-field="warehouseActor" class="h-9 rounded border px-2"><option value="READ_ONLY" ${state.warehouseActor === 'READ_ONLY' ? 'selected' : ''}>只读查看</option><option value="WAREHOUSE" ${state.warehouseActor === 'WAREHOUSE' ? 'selected' : ''}>仓库发料员</option></select><span class="text-xs text-muted-foreground">原型角色演示</span></label>` : ''}
                   <div class="grid grid-cols-2 gap-4 rounded-lg bg-muted/50 p-4">
                     <div>
                       <div class="text-xs text-muted-foreground">执行单号</div>
@@ -919,7 +922,7 @@ function renderDocDrawer(poId: string): string {
                                 <td class="px-3 py-2">${escapeHtml(line.unit)}</td>
                                 <td class="px-3 py-2 text-right">${line.plannedQty}</td>
                                 <td class="px-3 py-2 text-right">${line.preparedQty}</td>
-                                <td class="px-3 py-2 text-right">${finishedQty}</td>
+                                <td class="px-3 py-2 text-right">${finishedQty}${doc.docType === 'ISSUE' && line.issuedQty === 0 ? `<button class="mt-1 block rounded border px-2 py-1 text-xs disabled:opacity-50" data-material-action="warehouse-handout" data-doc-id="${escapeHtml(doc.id)}" data-line-id="${escapeHtml(line.lineId)}" ${state.warehouseActor !== 'WAREHOUSE' || line.preparedQty <= 0 ? 'disabled' : ''}>登记实际交付</button>` : ''}</td>
                                 <td class="px-3 py-2 text-right">${
                                   line.shortQty > 0
                                     ? `<span class="font-medium text-destructive">${line.shortQty}</span>`
@@ -1311,6 +1314,7 @@ function resetListFilters(): void {
 }
 
 function updateField(field: string, node: HTMLInputElement | HTMLSelectElement): void {
+  if (field === 'warehouseActor') { state.warehouseActor = node.value === 'WAREHOUSE' ? 'WAREHOUSE' : 'READ_ONLY'; return }
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
     return
@@ -1342,6 +1346,30 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
 }
 
 function handleAction(action: string, actionNode: HTMLElement): boolean {
+  if (action === 'warehouse-handout') {
+    if (state.warehouseActor !== 'WAREHOUSE') { window.alert('请由仓库发料员操作'); return true }
+    const doc = getWarehouseExecutionDocById(actionNode.dataset.docId || '')
+    const line = doc?.docType === 'ISSUE' ? doc.lines.find(item => item.lineId === actionNode.dataset.lineId) : null
+    if (!doc || doc.docType !== 'ISSUE' || !line) return true
+    const head = getPdaPickupHeads().find(item => item.sourceDocId === doc.id)
+    const index = doc.lines.findIndex(item => item.lineId === line.lineId)
+    const record = head ? getPdaPickupRecordsByHead(head.handoverId).find(item => item.recordId === `PKR-${doc.id}-${String(index + 1).padStart(3, '0')}`) : null
+    if (!record) { window.alert('未找到本发料单接收记录，请核对原任务'); return true }
+    const operator = window.prompt('仓库实际交付人姓名')?.trim()
+    if (!operator) return true
+    const raw = window.prompt(`实际交付 ${line.materialName} 数量（${line.unit}），已配 ${line.preparedQty}`, '')
+    if (raw === null) return true
+    const qty = Number(raw)
+    if (!Number.isFinite(qty) || qty <= 0 || qty > line.preparedQty) { window.alert('实际交付数量必须大于0且不能超过已确认配料'); return true }
+    if (!window.confirm(`确认由 ${operator} 向 ${doc.targetFactoryName} 实际交付 ${line.materialName} ${qty} ${line.unit}？`)) return true
+    const now = new Date(); const pad = (n: number) => String(n).padStart(2, '0')
+    const at = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    try {
+      const saved = markPdaPickupRecordWarehouseHanded(record.recordId, { warehouseHandedQty: qty, warehouseHandedAt: at, warehouseHandedBy: operator, actorRole: 'WAREHOUSE', targetFactoryId: doc.targetFactoryId })
+      window.alert(saved ? '实际交付已保存，等待工厂确认接收' : '当前记录已交付或状态变化，请重新打开核对')
+    } catch (error) { window.alert(error instanceof Error ? error.message : '交付未保存，请重新核对') }
+    return true
+  }
   if (action === 'reset-filters') {
     resetListFilters()
     return true

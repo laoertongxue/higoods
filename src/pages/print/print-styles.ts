@@ -578,6 +578,19 @@ export function renderUnifiedPrintStyles(): string {
         line-height: 1.15;
       }
 
+      .fei-ticket-business-normal:not(.binding-strip-fei-ticket-business-card) .fei-ticket-business-title {
+        font-size: 17px;
+        padding: 1.5mm;
+        overflow-wrap: anywhere;
+      }
+      .fei-ticket-business-normal:not(.binding-strip-fei-ticket-business-card) .fei-ticket-business-cell {
+        min-height: 9mm;
+        padding: 1mm;
+      }
+      .fei-ticket-business-normal:not(.binding-strip-fei-ticket-business-card) .fei-ticket-business-cell strong.fei-ticket-business-emphasis {
+        font-size: 11.5px;
+      }
+
       .binding-strip-fei-ticket-business-card .fei-ticket-business-title {
         overflow: hidden;
         padding: 1.6mm 1.8mm;

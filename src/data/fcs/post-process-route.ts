@@ -27,7 +27,6 @@ export interface PostProcessRoute {
   requiresReceivingQc: boolean
   requiresPostExecution: boolean
   requiresFinalRecheck: boolean
-  requiredPostProcessCodes?: Array<'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK'>
   currentNode: PostRouteCurrentNode
   createdAt: string
   updatedAt: string
@@ -198,10 +197,7 @@ const ROUTE_SEEDS: PostProcessRoute[] = [
 ]
 
 function clonePostProcessRoute(item: PostProcessRoute): PostProcessRoute {
-  return {
-    ...item,
-    requiredPostProcessCodes: [...(item.requiredPostProcessCodes ?? ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'])],
-  }
+  return { ...item }
 }
 
 export function listPostProcessRoutes(): PostProcessRoute[] {
@@ -226,28 +222,6 @@ export function getPostExecutionModeLabel(mode?: PostExecutionMode): string {
 
 export function getPostRouteNodeLabel(node?: PostRouteCurrentNode): string {
   return node ? POST_ROUTE_NODE_LABEL[node] : '未配置'
-}
-
-export function buildPostStageExecutionSequence(route: PostProcessRoute): Array<{
-  code: 'ARRIVAL_CONFIRM' | 'QC' | 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK' | 'RECHECK' | 'HANDOVER'
-  name: string
-  kind: 'FLOW_NODE' | 'PROCESS'
-}> {
-  const processName: Record<'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK', string> = {
-    BUTTONHOLE: '开扣眼',
-    BUTTON_ATTACH: '装扣子',
-    IRON_PACK: '烫包',
-  }
-  const requiredProcesses = route.requiresPostExecution
-    ? (route.requiredPostProcessCodes?.length ? route.requiredPostProcessCodes : ['IRON_PACK'] as const)
-    : []
-  return [
-    { code: 'ARRIVAL_CONFIRM', name: '到货确认', kind: 'FLOW_NODE' },
-    ...(route.requiresReceivingQc ? [{ code: 'QC' as const, name: '质检', kind: 'FLOW_NODE' as const }] : []),
-    ...requiredProcesses.map((code) => ({ code, name: processName[code], kind: 'PROCESS' as const })),
-    ...(route.requiresFinalRecheck ? [{ code: 'RECHECK' as const, name: '复检', kind: 'FLOW_NODE' as const }] : []),
-    { code: 'HANDOVER', name: '后续交接', kind: 'FLOW_NODE' },
-  ]
 }
 
 function hasReached(node: PostRouteCurrentNode, target: PostRouteCurrentNode): boolean {

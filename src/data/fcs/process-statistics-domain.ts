@@ -1,3 +1,4 @@
+import { listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
 import { listProcessWorkOrders, type ProcessWorkOrder, type ProcessWorkOrderType } from './process-work-order-domain.ts'
 import {
   listProcessHandoverDifferenceRecords,
@@ -20,7 +21,7 @@ import {
   type PostFinishingActionRecord,
   type PostFinishingTaskView,
   type PostFinishingWorkOrder,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import { listDyeVatSchedules } from './dyeing-task-domain.ts'
 
 type QtyField = 'plannedObjectQty' | 'receivedObjectQty' | 'availableObjectQty' | 'handedOverObjectQty' | 'writtenBackObjectQty' | 'diffObjectQty'
@@ -514,6 +515,10 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     && (!filter.workOrderId || order.postOrderId === filter.workOrderId || order.postTaskId === filter.workOrderId || order.sourceProductionOrderNo === filter.workOrderId)
     && (taskOrderNos.size === 0 || taskOrderNos.has(order.sourceProductionOrderNo)),
   )
+  const fullQcTasks = listPostFinishingFullFlowQcTasks().filter(task => taskOrderNos.has(task.productionOrderNo))
+  const fullPostTasks = listPostFinishingFullFlowPostTasks().filter(task => postOrders.some(order => order.postOrderId === task.postTaskId))
+  const fullRechecks = listPostFinishingFullFlowRecheckOrders().filter(task => fullPostTasks.some(post => post.postTaskId === task.postTaskId))
+  const fullOutbounds = listPostFinishingFullFlowOutboundOrders().filter(order => taskOrderNos.has(order.productionOrderNo))
   const records = filterWarehouseRecords('POST_FINISHING', filter)
   const base = buildBaseStatistics([], records)
   const qcRecords = listPostFinishingQcOrders().filter((record) => (
@@ -534,17 +539,17 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     waitReceiveTaskCount: postTaskStatusCount(postTasks, '待收货') + postTaskStatusCount(postTasks, '待上游交出'),
     receiveDoneGarmentQty: round(postTasks.reduce((sum, task) => sum + task.receivedQty, 0)),
     receiveDiffGarmentQty: round(records.differences.reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    waitPostTaskCount: postTaskStatusCount(postTasks, '待后道'),
-    postDoingTaskCount: postTaskStatusCount(postTasks, '后道中'),
-    postDoneTaskCount: postTasks.filter((task) => task.postDoneQty > 0).length,
-    waitQcTaskCount: postTaskStatusCount(postTasks, '待质检'),
-    qcDoingTaskCount: postTaskStatusCount(postTasks, '质检中'),
-    qcDoneTaskCount: postTasks.filter((task) => task.qcDoneQty > 0).length,
-    waitRecheckTaskCount: postTaskStatusCount(postTasks, '待复检'),
-    recheckDoingTaskCount: postTaskStatusCount(postTasks, '待复检'),
-    recheckDoneTaskCount: postTasks.filter((task) => task.recheckDoneQty > 0).length,
+    waitPostTaskCount: fullPostTasks.filter(task => task.status === '待后道').length,
+    postDoingTaskCount: fullPostTasks.filter(task => task.status === '后道中').length,
+    postDoneTaskCount: fullPostTasks.filter(task => task.status === '后道完成').length,
+    waitQcTaskCount: fullQcTasks.filter(task => task.status === '待送检' || task.status === '待质检').length,
+    qcDoingTaskCount: fullQcTasks.filter(task => task.status === '质检中').length,
+    qcDoneTaskCount: fullQcTasks.filter(task => task.status === '质检完成').length,
+    waitRecheckTaskCount: fullRechecks.filter(task => task.status === '待复检').length,
+    recheckDoingTaskCount: fullRechecks.filter(task => task.status === '复检中' || task.status === '条码异常待重贴').length,
+    recheckDoneTaskCount: fullRechecks.filter(task => task.status === '复检完成').length,
     waitHandoverTaskCount: postTaskStatusCount(postTasks, '待交出'),
-    handedOverTaskCount: postTasks.filter((task) => task.waitHandoverQty <= 0 && task.recheckDoneQty > 0).length,
+    handedOverTaskCount: new Set(fullOutbounds.filter(order => order.status === '已接收入库').map(order => order.productionOrderNo)).size,
     completedTaskCount: postTaskStatusCount(postTasks, '已完成'),
     waitPostGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitPostQty, 0)),
     postDoneGarmentQty: round(postTasks.reduce((sum, task) => sum + task.postDoneQty, 0)),
@@ -559,7 +564,7 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     diffGarmentQty: sumHandoverQty(records.handovers, '成衣', 'diffObjectQty'),
     dedicatedTaskCount: postTasks.length,
     postFactoryExecutedTaskCount: postTasks.filter((task) => task.postOrderCount > 0).length,
-    sewingFactoryPostDoneTaskCount: postTasks.filter((task) => task.postOrderCount === 0 && task.qcDoneQty > 0).length,
+    sewingFactoryPostDoneTaskCount: new Set(fullOutbounds.filter(order => order.sourceType === '质检直达').map(order => order.productionOrderNo)).size,
     dedicatedWaitQcGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitQcQty, 0)),
     dedicatedWaitRecheckGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitRecheckQty, 0)),
     transferWaitManagedFactoryTaskCount: 0,

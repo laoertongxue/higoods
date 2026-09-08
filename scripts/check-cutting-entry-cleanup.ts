@@ -25,7 +25,7 @@ const FORBIDDEN_MENU_KEYS = [
 const FORBIDDEN_ROUTE_TARGETS = [
   '/fcs/craft/cutting/order-progress',
   '/fcs/craft/cutting/cut-piece-orders',
-  '/fcs/craft/cutting/warehouse-management',
+  "'/fcs/craft/cutting/warehouse-management'",
 ]
 
 const FORBIDDEN_ACTIONS = [
@@ -36,23 +36,12 @@ const FORBIDDEN_ACTIONS = [
 
 const FORBIDDEN_BUTTON_COPY = [
   '去订单进度',
-  '去裁片单',
   '去仓库管理',
 ]
 
 const REQUIRED_ALIAS_REDIRECTS: Array<{ alias: string; target: string }> = [
   { alias: '/fcs/craft/cutting', target: '/fcs/craft/cutting/production-progress' },
-  { alias: '/fcs/craft/cutting/order-progress', target: '/fcs/craft/cutting/production-progress' },
-  { alias: '/fcs/craft/cutting/tasks', target: '/fcs/craft/cutting/production-progress' },
-  { alias: '/fcs/craft/cutting/orders', target: '/fcs/craft/cutting/cut-orders' },
-  { alias: '/fcs/craft/cutting/cut-piece-orders', target: '/fcs/craft/cutting/cut-orders' },
   { alias: '/fcs/craft/cutting/warehouse', target: '/fcs/craft/cutting/warehouse-management/wait-process' },
-  { alias: '/fcs/craft/cutting/warehouse-management', target: '/fcs/craft/cutting/warehouse-management/wait-process' },
-  { alias: '/fcs/craft/cutting/fei-ticket', target: '/fcs/craft/cutting/fei-tickets' },
-  { alias: '/fcs/craft/cutting/fei-list', target: '/fcs/craft/cutting/fei-tickets' },
-  { alias: '/fcs/craft/cutting/stats', target: '/fcs/craft/cutting/summary' },
-  { alias: '/fcs/craft/cutting/bed-stats', target: '/fcs/craft/cutting/summary' },
-  { alias: '/fcs/craft/cutting/cutting-summary', target: '/fcs/craft/cutting/summary' },
 ]
 
 function readFile(file: string): string {

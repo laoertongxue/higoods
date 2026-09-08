@@ -70,6 +70,9 @@ function assertNoDeprecatedTerms(value: string, location: string): void {
 for (const absolutePath of listProjectFiles()) {
   const relativePath = path.relative(repoRoot, absolutePath).split(path.sep).join('/')
   assertNoDeprecatedTerms(relativePath, `文件名 ${relativePath}`)
+  // `git ls-files --cached` 仍会列出工作树中已删除、尚未提交的旧文件；
+  // 删除本身就是本检查要允许的收口结果，不应再尝试读取它。
+  if (!fs.existsSync(absolutePath)) continue
 
   const stat = fs.statSync(absolutePath)
   if (stat.size > 5 * 1024 * 1024) continue

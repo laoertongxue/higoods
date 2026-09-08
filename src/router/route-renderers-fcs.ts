@@ -25,6 +25,15 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   }
 }
 
+export const renderRetiredProcessHistoryPage = createAsyncRenderer<[string?, ('CUT_PIECE' | 'DYE_PRINT')?]>(
+  () => import('../pages/retired-process-history.ts'),
+  'renderRetiredProcessHistoryPage',
+)
+export const renderRetiredProcessHistoryLegacyPage = createAsyncRenderer<['CUT_PIECE' | 'DYE_PRINT']>(
+  () => import('../pages/retired-process-history.ts'),
+  'renderRetiredProcessHistoryLegacyPage',
+)
+
 export const renderLacePurchaseDemandsPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/lace/purchase-demands'),
   'renderLacePurchaseDemandsPage',

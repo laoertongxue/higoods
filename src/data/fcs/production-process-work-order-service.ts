@@ -23,6 +23,7 @@ import {
   type PreparedProcessWorkOrderBatch,
   type ProcessWorkOrderGenerationInput,
 } from './process-work-order-generation-service.ts'
+import { buildProcessWorkOrderSourceKey } from './process-work-order-generation-key.ts'
 
 export type { FormalProductionOrderProcessSnapshot } from './process-work-order-domain.ts'
 
@@ -113,6 +114,8 @@ function toProcessWorkOrderGenerationInput(
       productionOrderNo: snapshot.productionOrderNo,
       techPackVersionId: snapshot.techPackVersionId,
       techPackVersionLabel: snapshot.techPackVersionLabel,
+      processEntryId: snapshot.processEntryId,
+      routeObjectKey: snapshot.routeObjectKey,
       bomItemIds: materialItems.map((item) => item.sourceBomItemId),
     },
     processCodes: [...snapshot.processCodes],
@@ -171,9 +174,17 @@ export function prepareSyncProcessWorkOrdersAfterProductionOrderChanges(
   options: ProductionOrderChangeWorkOrderSyncOptions = {},
 ): PreparedProductionOrderChangeWorkOrderSyncBatch {
   snapshots.forEach(validateFormalProductionOrderProcessSnapshot)
-  const snapshotKeys = snapshots.flatMap((snapshot) => (
-    [...new Set(snapshot.processCodes)].map((processCode) => `${snapshot.productionOrderId}:${processCode}`)
-  ))
+  const snapshotKeys = snapshots.flatMap((snapshot) => {
+    const generationInput = toProcessWorkOrderGenerationInput(snapshot)
+    return [...new Set(snapshot.processCodes)].map((processCode) => (
+      snapshot.syncTargetWorkOrderId?.trim()
+        ? JSON.stringify([
+            ['processCode', processCode],
+            ['syncTargetWorkOrderId', snapshot.syncTargetWorkOrderId.trim()],
+          ])
+        : buildProcessWorkOrderSourceKey(generationInput, processCode)
+    ))
+  })
   if (new Set(snapshotKeys).size !== snapshotKeys.length) {
     throw new Error('同一生产单的同一加工工艺不能重复同步')
   }

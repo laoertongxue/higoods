@@ -7,6 +7,8 @@ export function escapeRegExp(value: string): string {
 }
 
 const removedChineseTerms = [
+  fromCodes([32553, 27700]),
+  fromCodes([27927, 27700]),
   fromCodes([20116, 37329]),
   fromCodes([30424, 21475]),
   fromCodes([40481, 30524, 25187]),

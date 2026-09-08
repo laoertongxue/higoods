@@ -67,6 +67,19 @@ import {
 } from './aux-special-accessory-test-catalog.ts'
 
 const recorder = new VerificationRecorder('per-craft-full-flow')
+const performanceDiagnosticsEnabled = process.env.AUX_FLOW_PERF === '1'
+
+function measureStep<T>(label: string, action: () => T): T {
+  const startedAt = performance.now()
+  try {
+    return action()
+  } finally {
+    if (performanceDiagnosticsEnabled) {
+      const elapsedMs = performance.now() - startedAt
+      console.log(`[aux-flow-perf] ${label}: ${elapsedMs.toFixed(1)}ms`)
+    }
+  }
+}
 
 function roundQty(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
@@ -208,16 +221,17 @@ function installCleanSpecialCraftFixture(workOrderId: string, snapshot: ReturnTy
 }
 
 function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence: number): void {
-  const specialSnapshot = captureSpecialCraftTaskStore()
-  const taskSnapshot = captureProcessTaskStore()
-  const actionSnapshot = captureProcessActionRuntime()
-  const warehouseSnapshot = captureProcessWarehouseMutationState()
-  const handoverSnapshot = capturePdaHandoverState()
+  const scenarioStartedAt = performance.now()
+  const specialSnapshot = measureStep(`${workOrderId} capture-special`, () => captureSpecialCraftTaskStore())
+  const taskSnapshot = measureStep(`${workOrderId} capture-task`, () => captureProcessTaskStore())
+  const actionSnapshot = measureStep(`${workOrderId} capture-action`, () => captureProcessActionRuntime())
+  const warehouseSnapshot = measureStep(`${workOrderId} capture-warehouse`, () => captureProcessWarehouseMutationState())
+  const handoverSnapshot = measureStep(`${workOrderId} capture-handover`, () => capturePdaHandoverState())
   try {
     const beforeHandoverIds = new Set(warehouseSnapshot.handoverRecords
       .filter((record) => record.workOrderId === workOrderId)
       .map((record) => record.handoverRecordId))
-    installCleanSpecialCraftFixture(workOrderId, specialSnapshot)
+    measureStep(`${workOrderId} install-clean-fixture`, () => installCleanSpecialCraftFixture(workOrderId, specialSnapshot))
     restoreProcessActionRuntime({ operationRecords: [], idempotentResults: [] })
     const seed = getSpecialCraftTaskOrderById(workOrderId)
     assert(seed, `重置后找不到加工单 ${workOrderId}`)
@@ -290,18 +304,18 @@ function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence:
     }), /不属于当前登录工厂|工厂/)
     assert.equal(getSpecialCraftTaskOrderById(orderId)?.status, '待接收', '非法动作不得改变加工单状态')
 
-    const receive1 = executeProcessAction(payload(
+    const receive1 = measureStep(`${workOrderId} receive-1`, () => executeProcessAction(payload(
       'SPECIAL_CRAFT_CONFIRM_RECEIVE',
       1,
       inputFirst,
       `${chainId}-RECEIVE-1`,
-    ))
-    const receive2 = executeProcessAction(payload(
+    )))
+    const receive2 = measureStep(`${workOrderId} receive-2`, () => executeProcessAction(payload(
       'SPECIAL_CRAFT_CONFIRM_RECEIVE',
       2,
       inputSecond,
       `${chainId}-RECEIVE-2`,
-    ))
+    )))
     assert.equal(receive1.updatedWorkOrderId, orderId)
     assert.equal(receive2.updatedWorkOrderId, orderId)
     assert.equal(getSpecialCraftTaskOrderById(orderId)?.status, '加工中')
@@ -320,12 +334,12 @@ function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence:
       `${chainId}-PROCESS-2`,
       isAccessory || isButtonLoop ? { skuQtyBySkuCode: undefined, feiQtyByTicketNo: undefined } : {},
     )
-    const process1 = executeProcessAction(processPayload1)
+    const process1 = measureStep(`${workOrderId} process-1`, () => executeProcessAction(processPayload1))
     const completedAfterFirst = getSpecialCraftTaskOrderById(orderId)?.completedQty
-    const replay = executeProcessAction(processPayload1)
+    const replay = measureStep(`${workOrderId} process-replay`, () => executeProcessAction(processPayload1))
     assert.equal(replay.operationRecordId, process1.operationRecordId, '相同确认号必须返回同一写回结果')
     assert.equal(getSpecialCraftTaskOrderById(orderId)?.completedQty, completedAfterFirst, '幂等重放不得重复累计')
-    executeProcessAction(processPayload2)
+    measureStep(`${workOrderId} process-2`, () => executeProcessAction(processPayload2))
     assert.equal(getSpecialCraftTaskOrderById(orderId)?.completedQty, outputTotal)
 
     const overSkuQty = totals.skuQtyBySkuCode ? { ...totals.skuQtyBySkuCode } : undefined
@@ -362,17 +376,17 @@ function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence:
       `${chainId}-HANDOVER-2`,
       isAccessory || isButtonLoop ? { skuQtyBySkuCode: undefined, feiQtyByTicketNo: undefined } : {},
     )
-    executeProcessAction(handoverPayload1)
-    executeProcessAction(handoverPayload2)
+    measureStep(`${workOrderId} handover-1`, () => executeProcessAction(handoverPayload1))
+    measureStep(`${workOrderId} handover-2`, () => executeProcessAction(handoverPayload2))
     assert.equal(getSpecialCraftTaskOrderById(orderId)?.returnedQty, outputTotal)
 
-    const complete = executeProcessAction(payload(
+    const complete = measureStep(`${workOrderId} complete`, () => executeProcessAction(payload(
       'SPECIAL_CRAFT_COMPLETE_ORDER',
       2,
       outputTotal,
       `${chainId}-COMPLETE`,
       { skuQtyBySkuCode: undefined, feiQtyByTicketNo: undefined },
-    ))
+    )))
     const finalOrder = getSpecialCraftTaskOrderById(orderId)
     assert.equal(complete.updatedWorkOrderId, orderId)
     assert.equal(complete.taskId, seed.sourceTaskId)
@@ -438,18 +452,25 @@ function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence:
       },
     }, () => assert.equal(finalOrder?.status, '已完结'))
   } finally {
-    restorePdaHandoverState(handoverSnapshot)
-    restoreProcessWarehouseMutationState(warehouseSnapshot)
-    restoreProcessActionRuntime(actionSnapshot)
-    restoreSpecialCraftTaskStore(specialSnapshot)
-    restoreProcessTaskStore(taskSnapshot)
+    measureStep(`${workOrderId} restore-handover`, () => restorePdaHandoverState(handoverSnapshot))
+    measureStep(`${workOrderId} restore-warehouse`, () => restoreProcessWarehouseMutationState(warehouseSnapshot))
+    measureStep(`${workOrderId} restore-action`, () => restoreProcessActionRuntime(actionSnapshot))
+    measureStep(`${workOrderId} restore-special`, () => restoreSpecialCraftTaskStore(specialSnapshot))
+    measureStep(`${workOrderId} restore-task`, () => restoreProcessTaskStore(taskSnapshot))
+    if (performanceDiagnosticsEnabled) {
+      console.log(`[aux-flow-perf] ${workOrderId} total: ${(performance.now() - scenarioStartedAt).toFixed(1)}ms`)
+    }
   }
 }
 
-const specialWorkOrders = listSpecialCraftTaskOrders().map((order) => ({
+const allSpecialWorkOrders = listSpecialCraftTaskOrders().map((order) => ({
   workOrderId: order.taskOrderId,
   operationId: order.operationId,
 }))
+const configuredSpecialWorkOrderLimit = Number(process.env.AUX_FLOW_LIMIT || 0)
+const specialWorkOrders = Number.isInteger(configuredSpecialWorkOrderLimit) && configuredSpecialWorkOrderLimit > 0
+  ? allSpecialWorkOrders.slice(0, configuredSpecialWorkOrderLimit)
+  : allSpecialWorkOrders
 for (const [index, workOrder] of specialWorkOrders.entries()) {
   const chain = AUX_SPECIAL_ACCESSORY_CHAINS.find((item) => item.operationId === workOrder.operationId)
   assert(chain, `加工单 ${workOrder.workOrderId} 的工艺 ${workOrder.operationId} 未登记`)
@@ -756,3 +777,4 @@ recorder.finish({
   laceWorkOrderCount: laceWorkOrderIds.length,
   flowRule: '范围内每张加工单逐单调用真实领域动作；辅助/特殊工艺与捆条执行多批接收、多批填报、多批交出和完成，花边执行接收、三批填报、两批交出、完成及 WLS/PMS 回写',
 })
+process.exit(0)

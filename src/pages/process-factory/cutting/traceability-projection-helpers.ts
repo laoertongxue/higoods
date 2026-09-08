@@ -1,3 +1,4 @@
+import { initialProductionOrderIds } from '../../../data/fcs/production-orders.ts'
 import {
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
@@ -163,7 +164,8 @@ function ensureTraceabilityTicketRecords(options: {
       const existingTickets = tickets.filter((item) => session.cutOrderIds.includes(item.cutOrderId))
       if (existingTickets.length) return
 
-      const relatedRows = options.materialPrepRows.filter((row) => session.cutOrderIds.includes(row.cutOrderId))
+      const relatedRows = options.materialPrepRows.filter((row) => session.cutOrderIds.includes(row.cutOrderId)
+        && initialProductionOrderIds.has(row.productionOrderId))
       if (!relatedRows.length) return
 
       relatedRows.forEach((row, rowIndex) => {

@@ -1,6 +1,7 @@
+import { WOOL_DISPATCH_DEMO_ORDER_IDS } from '../process-tasks.ts'
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../production-orders.ts'
-import { getRuntimeTaskById } from '../runtime-process-tasks.ts'
+import { getRuntimeTaskById, listRuntimeProcessTasks } from '../runtime-process-tasks.ts'
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
 import type {
   WoolOutputPlanLine,
@@ -473,4 +474,25 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
   return committedOrder
     ?? resolveExistingRuntimeWoolOrder(committedStore.workOrders, taskId)
     ?? order
+}
+
+// 正式新需求复用原加工单生成命令；已有加工单及其现场事实不重建。
+let syncingRuntimeWoolOrders = false
+export function ensureRuntimeWoolWorkOrders(productionOrderId?: string): void {
+  if (syncingRuntimeWoolOrders) return
+  syncingRuntimeWoolOrders = true
+  try {
+    const existingTaskIds = new Set(Object.values(readWoolStore().workOrders).map(order => order.taskId))
+    for (const task of listRuntimeProcessTasks()) {
+      if (productionOrderId && task.productionOrderId !== productionOrderId) continue
+      if (task.processBusinessCode !== 'WOOL' && task.processCode !== 'WOOL') continue
+      if (WOOL_DISPATCH_DEMO_ORDER_IDS.has(task.productionOrderId) || existingTaskIds.has(task.taskId)) continue
+      const productionOrder = productionOrders.find(order => order.productionOrderId === task.productionOrderId)
+      if (!productionOrder?.taskBreakdownSummary.isBrokenDown || task.executionEnabled === false || task.isSplitSource || task.status === 'CANCELLED') continue
+      buildWoolOrderFromRuntimeTask(task.taskId)
+      existingTaskIds.add(task.taskId)
+    }
+  } finally {
+    syncingRuntimeWoolOrders = false
+  }
 }

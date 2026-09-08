@@ -1,3 +1,6 @@
+import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
+import { listEffectiveTaskAssignments } from '../../../data/fcs/effective-task-assignments.ts'
+import { listAvailableFeiTicketsForSewingDispatch } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
@@ -147,8 +150,21 @@ function dialogCurrent(current: TransferBagCurrentUse | null): WaitHandoverDialo
   }
 }
 
-function resolveActionBagCurrent(bagCode: string): TransferBagCurrentUse {
+export function resolveActionBagCurrent(bagCode: string): TransferBagCurrentUse {
   const runtimeCurrent = resolveTransferBagCurrentUse(bagCode)
+  if (runtimeCurrent.tickets.length && ['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(runtimeCurrent.flowStage || '')) {
+    const currentAssignments = listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE' && assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code)))
+    const sourceTickets = [...listSpreadingResultGeneratedFeiTickets(), ...listWoolPanelCuttingReceiptSources()]
+    runtimeCurrent.tickets = runtimeCurrent.tickets.map((ticket) => {
+      const source = sourceTickets.find((item) => item.feiTicketId === ticket.feiTicketId && item.feiTicketNo === ticket.feiTicketNo)
+      const matches = currentAssignments.filter((assignment) => source && assignment.productionOrderId === ticket.productionOrderId && assignment.skuLines.some((sku) => sku.skuCode === source.skuCode && sku.color === ticket.color && sku.size === ticket.size))
+      if (matches.length !== 1) return currentAssignments.some((assignment) => assignment.productionOrderId === ticket.productionOrderId) ? { ...ticket, sewingTaskId: '', sewingTaskNo: '', receiverFactoryId: '', receiverFactoryName: '' } : ticket
+      const assignment = matches[0]
+      return { ...ticket, sewingTaskId: assignment.runtimeTaskId, sewingTaskNo: assignment.taskNo || assignment.runtimeTaskId, receiverFactoryId: assignment.factoryId, receiverFactoryName: assignment.factoryName }
+    })
+    if (runtimeCurrent.tickets.every((ticket) => ticket.sewingTaskId && ticket.receiverFactoryId)
+      && ['历史袋内快照缺少接收工厂事实，当前关系仅供核查，不能拆袋重装。', '历史袋内快照缺少车缝任务事实，当前关系仅供核查，不能拆袋重装。'].includes(runtimeCurrent.compatibilityBlockedReason || '')) runtimeCurrent.compatibilityBlockedReason = undefined
+  }
   if (runtimeCurrent.mainStatus !== 'IDLE' || runtimeCurrent.tickets.length) return runtimeCurrent
   return actionAdapter?.resolveBagCurrent?.(bagCode) || runtimeCurrent
 }
@@ -178,10 +194,10 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
   const current = bagCode ? resolveActionBagCurrent(bagCode) : null
   const currentUses = buildRepackSourceCurrents(bagCode)
   const activeTicketIds = new Set(currentUses.flatMap((item) => item.tickets.map((ticket) => ticket.feiTicketId)))
-  const ticketOptions = listSpreadingResultGeneratedFeiTickets()
+  const ticketOptions = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
     .filter((ticket) => ticket.printStatus !== 'VOIDED')
     .filter((ticket) => !activeTicketIds.has(ticket.feiTicketId))
-    .filter((ticket) => validateFeiTicketNumberingBeforeBagging(ticket).ok)
+    .filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' || validateFeiTicketNumberingBeforeBagging(ticket).ok)
     .map((ticket) => ({ value: ticket.feiTicketId, label: generatedTicketLabel(ticket) }))
   const repackSources = currentUses
     .filter((item) => ['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(item.flowStage || ''))
@@ -203,8 +219,8 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
       factoryName: ticket.receiverFactoryName,
     })
   })
-  const ppicOptions = Array.from(new Map(Array.from(taskFacts.values()).map((task) => [task.factoryId, task])).values()).flatMap((task) =>
-    buildCuttingHandoverPpicOptions({ receiverFactoryId: task.factoryId, receiverFactoryName: task.factoryName }))
+  const ppicOptions = Array.from(taskFacts.values()).flatMap((task) =>
+    buildCuttingHandoverPpicOptions({ runtimeTaskId: task.taskId, receiverFactoryId: task.factoryId, receiverFactoryName: task.factoryName }))
   return {
     current: dialogCurrent(current),
     ticketOptions,
@@ -258,6 +274,7 @@ function refreshHandoverTaskContext(dialog: HTMLElement): void {
   if (!selectedTicket) return
 
   buildCuttingHandoverPpicOptions({
+    runtimeTaskId: selectedTicket.sewingTaskId,
     receiverFactoryId: selectedTicket.receiverFactoryId,
     receiverFactoryName: selectedTicket.receiverFactoryName,
   }).forEach((item) => {
@@ -311,8 +328,11 @@ function readMulti(dialog: ParentNode, name: string): string[] {
 }
 
 function operator(dialog: ParentNode, role: string) {
-  const operatorName = readField(dialog, 'operatorName') || '裁片仓操作员'
-  return { operatorName, operatorRole: role }
+  const enteredName = readField(dialog, 'operatorName').trim()
+  if (!enteredName && ['handover', 'repack'].includes((dialog as HTMLElement).dataset?.waitHandoverModal || '')) {
+    throw new Error('请填写实际交出人姓名，再确认本次交出。')
+  }
+  return { operatorName: enteredName || '裁片仓操作员', operatorRole: role }
 }
 
 function showFeedback(dialog: ParentNode, message: string, error = false): void {
@@ -344,7 +364,7 @@ function findGeneratedTickets(dialog: ParentNode): GeneratedFeiTicketSourceRecor
     .split(/[\s,，、;；\n\r]+/)
     .map((item) => item.trim())
     .filter(Boolean)
-  const all = listSpreadingResultGeneratedFeiTickets()
+  const all = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
   const requested = [selected, ...codes].filter(Boolean)
   const resolved = requested.map((code) => ({
     code,
@@ -373,7 +393,7 @@ function submitBagging(dialog: HTMLElement): string {
   if (!bagCode) throw new Error('请扫描或输入中转袋编号。')
   const tickets = findGeneratedTickets(dialog)
   if (!tickets.length) throw new Error('请选择或扫描可装袋菲票。')
-  const numberingBlocked = tickets.filter((ticket) => !validateFeiTicketNumberingBeforeBagging(ticket).ok)
+  const numberingBlocked = tickets.filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT' && !validateFeiTicketNumberingBeforeBagging(ticket).ok)
   if (numberingBlocked.length) {
     const reason = validateFeiTicketNumberingBeforeBagging(numberingBlocked[0]).reason
     throw new Error(`${numberingBlocked.map((ticket) => ticket.feiTicketNo).join('、')} 不能装袋：${reason}`)
@@ -477,6 +497,7 @@ function resolveHandoverTaskContext(dialog: HTMLElement): TransferBagHandoverTas
   const [ppicId, ppicName, ppicFactoryId] = readField(dialog, 'handoverPpicSelection').split('|')
   if (ppicFactoryId !== factoryIds[0]) throw new Error('请选择当前接收车缝工厂的 PPIC。')
   const ppic = assertCuttingHandoverPpic({
+    runtimeTaskId: taskIds[0],
     ppicId: ppicId || '',
     ppicName: ppicName || '',
     receiverFactoryId: factoryIds[0],
@@ -1237,7 +1258,10 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   try {
     const feedback = submitAction(action, dialog)
     refreshWorkbenchData()
-    showFeedback(dialog, feedback)
+    // 成功后锁定本次对象，避免修改成下一袋却被防重复锁静默吞掉。
+    dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => { field.disabled = true })
+    if (actionNode instanceof HTMLButtonElement) { actionNode.disabled = true; actionNode.textContent = '已保存' }
+    showFeedback(dialog, `${feedback} 如需处理下一笔，请关闭后重新打开。`)
   } catch (error) {
     if (dialog.dataset) delete dialog.dataset.submitLock
     submitLocks.delete(dialog)

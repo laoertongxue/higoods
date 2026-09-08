@@ -1,3 +1,6 @@
+import { getOriginalPickupWarehouseHandedQty, getOriginalHandoutQuantities } from './pda-handover-events.ts'
+import { initialProductionOrderIds } from './production-orders.ts'
+import { listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './cutting/production-material-prep.ts'
 import {
   listMaterialRequestDraftsByOrder,
   listMaterialRequests,
@@ -107,6 +110,7 @@ export interface WarehouseIssueOrder extends WarehouseExecutionDocBase {
 
 export interface WarehouseReturnOrder extends WarehouseExecutionDocBase {
   docType: 'RETURN'
+  usesOriginalHandoverFacts?: boolean
   lines: WarehouseReturnLine[]
 }
 
@@ -318,6 +322,22 @@ function createIssueOrTransferFromRequest(
   const targetType: WarehouseExecutionTargetType =
     task?.executorKind === 'WAREHOUSE_WORKSHOP' ? 'WAREHOUSE_WORKSHOP' : 'EXTERNAL_FACTORY'
   const status = mapRequestStatusToIssueStatus(request.requestStatus, targetType)
+  const isFormalRequest = !initialProductionOrderIds.has(request.productionOrderNo)
+  // 正式新单只读取原配料确认事实；原演示种子的比例情境保持不变。
+  const confirmedPrepRecords = isFormalRequest
+    ? listStoredConfirmedMaterialPrepRecords(`prep-order-${request.productionOrderNo}`)
+    : []
+  const getLineQuantities = (line: MaterialRequestDraftLine, plannedQty: number) => {
+    if (!isFormalRequest) return derivePreparedAndDoneQty({ plannedQty, status, targetType })
+    const confirmedQty = line.sourcePrepLineId
+      ? confirmedPrepRecords.flatMap(getMaterialPrepRecordItems)
+          .filter(item => item.prepLineId === line.sourcePrepLineId
+            && Boolean(line.unit) && item.sourceUnit === line.unit && item.sourceMaterialSku === line.materialCode)
+          .reduce((total, item) => total + item.preparedQty, 0)
+      : 0
+    return { preparedQty: clampQty(Math.min(plannedQty, confirmedQty)), issuedQty: 0, transferredQty: 0 }
+  }
+
 
   const baseDoc = {
     productionOrderId: request.productionOrderNo,
@@ -353,7 +373,8 @@ function createIssueOrTransferFromRequest(
     const docNo = `WL-${request.materialRequestNo}`
     const issueLines: WarehouseIssueLine[] = lines.map((line, index) => {
       const plannedQty = clampQty(line.confirmedQty)
-      const qty = derivePreparedAndDoneQty({ plannedQty, status, targetType })
+      const qty = getLineQuantities(line, plannedQty)
+      if (isFormalRequest) qty.issuedQty = getOriginalPickupWarehouseHandedQty(`PKR-${id}-${String(index + 1).padStart(3, '0')}`)
       const shortQty = clampQty(plannedQty - qty.preparedQty)
       const skuScope = deriveSkuScope(line, task)
 
@@ -385,7 +406,7 @@ function createIssueOrTransferFromRequest(
       id,
       docNo,
       docType: 'ISSUE',
-      status,
+      status: isFormalRequest ? issueLines.some(line => line.issuedQty > 0) ? 'ISSUED' : issueLines.every(line => line.preparedQty >= line.plannedQty) ? 'READY' : 'PREPARING' : status,
       ...baseDoc,
       lines: issueLines,
     }
@@ -395,7 +416,7 @@ function createIssueOrTransferFromRequest(
   const docNo = `NL-${request.materialRequestNo}`
   const transferLines: WarehouseInternalTransferLine[] = lines.map((line, index) => {
     const plannedQty = clampQty(line.confirmedQty)
-    const qty = derivePreparedAndDoneQty({ plannedQty, status, targetType })
+    const qty = getLineQuantities(line, plannedQty)
     const shortQty = clampQty(plannedQty - qty.preparedQty)
     const skuScope = deriveSkuScope(line, task)
 
@@ -455,9 +476,14 @@ function buildReturnOrdersForOrder(
     .map((task) => {
       const id = `RETURN-${task.taskId}`
       const docNo = `RH-${task.taskId}`
-      const status = deriveReturnStatus(task)
+      const isFormalOrder = !initialProductionOrderIds.has(productionOrderId)
+      const unit = isFormalOrder ? task.qtyDisplayUnit?.trim() || ({ PIECE: '件', BUNDLE: '打', METER: '米' } as Record<string, string>)[task.qtyUnit] || task.qtyUnit : task.qtyUnit
+      const actual = isFormalOrder ? getOriginalHandoutQuantities(`HOH-${id}`, unit) : null
       const plannedQty = clampQty(task.scopeQty)
-      const returnedQty =
+      const status: WarehouseExecutionStatus = actual
+        ? task.status === 'CANCELLED' ? 'CLOSED' : actual.receivedQty >= plannedQty && plannedQty > 0 ? 'RETURNED' : actual.receivedQty > 0 ? 'PARTIALLY_RETURNED' : actual.submittedQty > 0 ? 'IN_TRANSIT' : 'PLANNED'
+        : deriveReturnStatus(task)
+      const returnedQty = actual ? actual.receivedQty :
         status === 'RETURNED' || status === 'CLOSED'
           ? plannedQty
           : status === 'IN_TRANSIT'
@@ -470,9 +496,9 @@ function buildReturnOrdersForOrder(
         materialCode: `${task.processCode}-OUTPUT`,
         materialName: `${task.processNameZh}半成品回货`,
         materialSpec: task.scopeLabel,
-        unit: task.qtyUnit,
+        unit,
         plannedQty,
-        preparedQty: plannedQty,
+        preparedQty: actual ? actual.submittedQty : plannedQty,
         issuedQty: 0,
         returnedQty,
         transferredQty: 0,
@@ -489,6 +515,7 @@ function buildReturnOrdersForOrder(
         id,
         docNo,
         docType: 'RETURN',
+        usesOriginalHandoverFacts: isFormalOrder || undefined,
         status,
         productionOrderId,
         baseTaskId: task.baseTaskId,
@@ -507,8 +534,8 @@ function buildReturnOrdersForOrder(
         targetFactoryId: task.assignedFactoryId,
         targetFactoryName: task.assignedFactoryName,
         executorKind: task.executorKind ?? 'EXTERNAL_FACTORY',
-        warehouseId,
-        warehouseName,
+        warehouseId: isFormalOrder && task.receiverKind === 'WAREHOUSE' && task.receiverId ? task.receiverId : warehouseId,
+        warehouseName: isFormalOrder && task.receiverKind === 'WAREHOUSE' && task.receiverName ? task.receiverName : warehouseName,
         createdAt: task.updatedAt,
         updatedAt: task.updatedAt,
         remark: '外部工序完成后回货入仓',
@@ -593,6 +620,7 @@ export function buildWarehouseExecutionDocumentSnapshot(
   const orderIds = Array.from(
     new Set([
       ...requests.map((request) => request.productionOrderNo),
+      ...runtimeTasks.map((task) => task.productionOrderId),
       ...issueOrders.map((order) => order.productionOrderId),
       ...internalTransferOrders.map((order) => order.productionOrderId),
     ]),

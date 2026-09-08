@@ -8,7 +8,6 @@ import {
 } from './factory-mock-data.ts'
 import { getPrintWorkOrderById } from './printing-task-domain.ts'
 import { getDyeWorkOrderById } from './dyeing-task-domain.ts'
-import { cutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import type { GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
 import {
@@ -25,9 +24,6 @@ import {
   upsertFactoryWarehouseOutboundRecord,
   validateGarmentReadyToHandoverAtAuxiliaryFactory,
 } from './factory-internal-warehouse.ts'
-import {
-  getPostFinishingWorkOrderById,
-} from './post-finishing-domain.ts'
 import {
   applySpecialCraftDifferenceToFeiTickets,
   attachProcessHandoverRecordFeiTickets,
@@ -48,7 +44,6 @@ import {
 import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
-  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -232,7 +227,7 @@ function resolvePrintContext(actionResult: ProcessWarehouseLinkageActionResult):
   const order = getPrintWorkOrderById(actionResult.sourceId)
   if (!order) return null
   const binding = validatePrintWorkOrderMobileTaskBinding(order.printOrderId)
-  const isCutPiece = actionResult.objectType === '裁片' || order.qtyUnit === '片' || order.objectType === '裁片'
+  const isFabric = order.objectType === '面料'
   const objectQty = roundQty(actionResult.objectQty || order.plannedQty)
   return {
     craftType: 'PRINT',
@@ -253,14 +248,14 @@ function resolvePrintContext(actionResult: ProcessWarehouseLinkageActionResult):
     warehouseLocation: '印花待交出仓-A01',
     skuSummary: order.materialSku,
     materialSku: order.materialSku,
-    materialName: isCutPiece ? '印花裁片' : '印花面料',
+    materialName: order.materialSku,
     batchNo: '',
-    objectType: isCutPiece ? '裁片' : '面料',
+    objectType: isFabric ? '面料' : '辅料',
     plannedObjectQty: roundQty(order.plannedQty),
     objectQty,
-    qtyUnit: actionResult.qtyUnit || order.qtyUnit || (isCutPiece ? '片' : '米'),
-    packageQty: isCutPiece ? 1 : order.plannedRollCount || 1,
-    packageUnit: isCutPiece ? '包' : '卷',
+    qtyUnit: order.qtyUnit,
+    packageQty: isFabric ? order.plannedRollCount || 1 : 1,
+    packageUnit: isFabric ? '卷' : '包',
     relatedFeiTicketIds: [],
   }
 }
@@ -301,16 +296,6 @@ function resolveDyeContext(actionResult: ProcessWarehouseLinkageActionResult): W
   }
 }
 
-function findCuttingOrder(sourceId: string): CutPieceOrderRecord | undefined {
-  return cutPieceOrderRecords.find(
-    (item) =>
-      item.cutOrderId === sourceId ||
-      item.cutOrderNo === sourceId ||
-      item.id === sourceId ||
-      item.cutPieceOrderNo === sourceId,
-  )
-}
-
 function findGeneratedCutOrder(sourceId: string): GeneratedCutOrderSourceRecord | undefined {
   return buildFcsCuttingDomainSnapshot().cutOrders.find(
     (item) => item.cutOrderId === sourceId || item.cutOrderNo === sourceId,
@@ -339,17 +324,17 @@ function resolveCuttingContextFromGeneratedOrder(
   const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId, order.cutOrderNo, order.productionOrderNo)
   return {
     craftType: 'CUTTING',
-    craftName: '裁片',
-    sourceTaskOrderId: actionResult.sourceId,
+    craftName: '裁剪',
+    sourceTaskOrderId: order.cutOrderId,
     sourceWorkOrderNo: order.cutOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceFactoryId: TEST_FACTORY_ID,
-    sourceFactoryName: TEST_FACTORY_NAME,
-    targetFactoryId: TEST_FACTORY_ID,
-    targetFactoryName: TEST_FACTORY_NAME,
+    sourceFactoryId: order.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
+    sourceFactoryName: order.cuttingTaskAssigneeFactoryName || TEST_FACTORY_NAME,
+    targetFactoryId: order.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
+    targetFactoryName: order.cuttingTaskAssigneeFactoryName || TEST_FACTORY_NAME,
     targetWarehouseName: isPickup ? '裁床待加工仓' : '裁床待交出仓',
     warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁床待交出仓-C01',
     skuSummary: order.pieceSummary || order.materialSku,
@@ -367,42 +352,8 @@ function resolveCuttingContextFromGeneratedOrder(
 }
 
 function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult): WarehouseBaseContext | null {
-  const order = findCuttingOrder(actionResult.sourceId)
-  if (!order) {
-    const generatedOrder = findGeneratedCutOrder(actionResult.sourceId)
-    return generatedOrder ? resolveCuttingContextFromGeneratedOrder(actionResult, generatedOrder) : null
-  }
-  const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId || order.id)
-  const isPickup = actionResult.actionCode === 'CUTTING_CONFIRM_PICKUP'
-  const objectQty = roundQty(actionResult.objectQty || (isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty))
-  const feiTicketIds = resolveCuttingFeiTicketIds(order.cutOrderId || order.id, order.cutOrderNo || order.cutPieceOrderNo, order.productionOrderNo)
-  return {
-    craftType: 'CUTTING',
-    craftName: '裁片',
-    sourceTaskOrderId: actionResult.sourceId,
-    sourceWorkOrderNo: order.cutOrderNo || order.cutPieceOrderNo,
-    sourceTaskId: binding.actualTaskId,
-    sourceTaskNo: binding.actualTaskNo,
-    sourceProductionOrderId: order.productionOrderId,
-    sourceProductionOrderNo: order.productionOrderNo,
-    sourceFactoryId: TEST_FACTORY_ID,
-    sourceFactoryName: TEST_FACTORY_NAME,
-    targetFactoryId: TEST_FACTORY_ID,
-    targetFactoryName: TEST_FACTORY_NAME,
-    targetWarehouseName: isPickup ? '裁床待加工仓' : '裁床待交出仓',
-    warehouseLocation: isPickup ? '裁床待加工仓-C01' : '裁床待交出仓-C01',
-    skuSummary: `${order.materialSku} / ${order.materialLabel}`,
-    materialSku: order.materialSku,
-    materialName: order.materialLabel,
-    batchNo: order.latestConfigBatchNo || order.boundMarkerPlanSourceNo,
-    objectType: isPickup ? '面料' : '裁片',
-    plannedObjectQty: roundQty(isPickup ? order.markerInfo.netLength : order.markerInfo.totalPieces || order.orderQty),
-    objectQty,
-    qtyUnit: isPickup ? '米' : '片',
-    packageQty: Math.max(feiTicketIds.length, 1),
-    packageUnit: '包',
-    relatedFeiTicketIds: feiTicketIds,
-  }
+  const order = findGeneratedCutOrder(actionResult.sourceId)
+  return order ? resolveCuttingContextFromGeneratedOrder(actionResult, order) : null
 }
 
 function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionResult): SpecialCraftWarehouseContext | null {
@@ -461,40 +412,6 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
         : 'TRANSFER-WAREHOUSE',
     downstreamFactoryName: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_NAME : flow.receiverName,
     downstreamWarehouseName: flow.receiverWarehouseName,
-  }
-}
-
-function resolvePostFinishingContext(actionResult: ProcessWarehouseLinkageActionResult): WarehouseBaseContext | null {
-  const order = getPostFinishingWorkOrderById(actionResult.sourceId)
-  if (!order) return null
-  const binding = validatePostFinishingMobileTaskBinding(order.postOrderId)
-  const objectQty = roundQty(actionResult.objectQty || order.plannedGarmentQty)
-  return {
-    craftType: 'POST_FINISHING',
-    craftName: '后道',
-    sourceTaskOrderId: order.postOrderId,
-    sourceWorkOrderNo: order.postOrderNo,
-    sourceTaskId: binding.actualTaskId || order.sourceTaskId,
-    sourceTaskNo: binding.actualTaskNo || order.postOrderNo,
-    sourceProductionOrderId: order.sourceProductionOrderId,
-    sourceProductionOrderNo: order.sourceProductionOrderNo,
-    sourceFactoryId: order.managedPostFactoryId,
-    sourceFactoryName: order.managedPostFactoryName,
-    targetFactoryId: order.currentFactoryId || TEST_FACTORY_ID,
-    targetFactoryName: order.currentFactoryName || TEST_FACTORY_NAME,
-    targetWarehouseName: '后道待交出仓',
-    warehouseLocation: '后道待交出仓-H01',
-    skuSummary: order.skuSummary,
-    materialSku: order.styleNo,
-    materialName: '成衣',
-    batchNo: order.sourceSewingTaskNo,
-    objectType: '成衣',
-    plannedObjectQty: roundQty(order.plannedGarmentQty),
-    objectQty,
-    qtyUnit: '件',
-    packageQty: 1,
-    packageUnit: '包',
-    relatedFeiTicketIds: [],
   }
 }
 
@@ -899,68 +816,11 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
 }
 
 export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
-  const context = resolvePostFinishingContext(actionResult)
   const base = emptyLinkageResult(actionResult)
-  if (!context) return mergeResult(base, { success: false, message: '未找到后道加工单，不能执行仓联动' })
-
-  if (['POST_RECEIVE_FINISH', 'POST_QC_FINISH', 'POST_PROCESS_FINISH'].includes(actionResult.actionCode)) {
-    const actionName =
-      actionResult.actionCode === 'POST_RECEIVE_FINISH'
-        ? '后道待质检'
-        : actionResult.actionCode === 'POST_QC_FINISH'
-          ? (actionResult.nextStatus === '待复检' ? '后道待复检' : '后道待后道')
-          : '后道待复检'
-    const waitProcess = ensureWaitProcessWarehouseRecord(
-      { ...context, targetWarehouseName: '后道待加工仓', warehouseLocation: '后道待加工仓-H01' },
-      actionResult,
-      actionName,
-    )
-    return mergeResult(base, {
-      createdWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
-      updatedWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
-      message: `${actionName}仓已联动`,
-    })
-  }
-
-  if (actionResult.actionCode === 'POST_REPORT_DIFFERENCE') {
-    const handover = listProcessHandoverRecords({ craftType: 'POST_FINISHING', sourceTaskOrderId: context.sourceTaskOrderId })[0]
-    const warehouse =
-      getProcessWarehouseRecordById(handover?.warehouseRecordId || '') ||
-      ensureWaitProcessWarehouseRecord({ ...context, targetWarehouseName: '后道待加工仓' }, actionResult, '后道差异待处理')
-    const diffQty = roundQty(actionResult.objectQty || context.objectQty)
-    const difference = createProcessHandoverDifferenceRecord({
-      handoverRecordId: handover?.handoverRecordId || '',
-      warehouseRecordId: warehouse.warehouseRecordId,
-      sourceTaskOrderId: context.sourceTaskOrderId,
-      sourceWorkOrderNo: context.sourceWorkOrderNo,
-      sourceProductionOrderId: context.sourceProductionOrderId,
-      sourceProductionOrderNo: context.sourceProductionOrderNo,
-      craftType: 'POST_FINISHING',
-      craftName: '后道',
-      objectType: '成衣',
-      expectedObjectQty: context.plannedObjectQty,
-      actualObjectQty: Math.max(context.plannedObjectQty - diffQty, 0),
-      diffObjectQty: diffQty,
-      qtyUnit: '件',
-      reportedBy: actionResult.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员',
-      relatedFeiTicketIds: [],
-      remark: `${actionResult.sourceChannel || '统一写回'}上报后道成衣件数差异`,
-    })
-    return mergeResult(base, {
-      createdDifferenceRecordId: difference.differenceRecordId,
-      updatedDifferenceRecordId: difference.differenceRecordId,
-      message: '后道差异记录已联动',
-    })
-  }
-
-  if (actionResult.actionCode !== 'POST_RECHECK_FINISH') return base
-  const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
-  let result = mergeResult(base, {
-    createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
-    updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
-    message: '后道待交出仓已联动',
+  return mergeResult(base, {
+    success: false,
+    message: '旧通用后道仓联动已停用；当前后道全流程在回货确认、QC、处理后复核和出货节点内统一写入。',
   })
-  return result
 }
 
 export function applyWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {

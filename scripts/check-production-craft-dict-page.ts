@@ -43,7 +43,7 @@ try {
   includesAll(
     craftDictPageSource,
     [
-      '阶段', '工序', '工艺', '作用对象', '任务口径', '是否出生产任务', '状态',
+      '阶段', '工序', '工艺', '投入 → 产出', '默认作用对象', '消耗物料类型', '任务口径', '是否出生产任务', '状态',
       'data-craft-dict-field="keyword"', 'data-craft-dict-field="stage"', 'data-craft-dict-field="status"',
     ],
     '工序工艺字典页面字段或筛选不完整',
@@ -53,8 +53,8 @@ try {
     [
       '准备阶段只生成对应加工单',
       '不进入生产任务清单、任务分配或合并任务',
-      '质检、复检是回货流程节点，不是工序',
-      '后道阶段仅包含开扣眼、装扣子、烫包',
+      '后道实际项目由三方任务范围和到货质检动态确定',
+      '开扣眼、装扣子、烫包不进入技术包固定路线',
       '每款工序顺序以对应技术包确认路线为准',
     ],
     '工序工艺字典页面缺少阶段与任务边界',
@@ -102,6 +102,10 @@ try {
     assert(row.taskScopeLabel === '生产准备加工单', `${row.craftName} 的任务口径错误`)
     assert(row.generatesExternalTaskLabel === '否', `${row.craftName} 不得生成生产任务`)
     assert(row.defaultDocType === 'PREPARATION_ORDER', `${row.craftName} 默认单据必须是加工单`)
+  })
+  activeRows.filter((row) => row.processCode === 'PRINT').forEach((row) => {
+    assert(row.inputObjectTypeText === 'BOM物料', `${row.craftName} 印花投入必须是来源 BOM 原物料`)
+    assert(row.outputObjectTypeText === 'BOM物料', `${row.craftName} 印花产出必须保持原物料类型`)
   })
 
   const activePostProcessCodes = processDefinitions

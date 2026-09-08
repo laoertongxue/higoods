@@ -28,6 +28,8 @@ import {
   PAGE_SIZE,
 } from './context.ts'
 import {
+  persistCreatedProductionOrders,
+  findProductionOrderForDemand,
   buildProductionOrderFromDemand,
   buildProductionOrderFromDemands,
   PENDING_MAIN_FACTORY_ID,
@@ -255,7 +257,7 @@ function getDemandBatchGenerateValidation(targetDemands: ProductionDemand[]): {
     targetDemands
       .filter((demand) => {
         const info = getTechPackSnapshotForDemand(demand)
-        return demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder && info.canGenerate
+        return demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder && !findProductionOrderForDemand(demand.demandId) && info.canGenerate
       })
       .map((demand) => demand.demandId),
   )
@@ -367,8 +369,8 @@ function syncDemandGenerateTechPackSelections(targetDemands: ProductionDemand[])
       demand,
       options,
       selectedOption: fallback,
-      canGenerate: demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder && info.canGenerate,
-      reason: demand.hasProductionOrder
+      canGenerate: demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder && !findProductionOrderForDemand(demand.demandId) && info.canGenerate,
+      reason: demand.hasProductionOrder || findProductionOrderForDemand(demand.demandId)
         ? '已生成生产单'
         : demand.demandStatus !== 'PENDING_CONVERT'
         ? demandStatusConfig[demand.demandStatus].label
@@ -1263,6 +1265,18 @@ function closeDemandGenerateFlow(): void {
 export function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
   if (created.length === 0) return
 
+  const plannedOrderByDemand = new Map<string, string>()
+  for (const item of created) {
+    for (const demand of item.demands) {
+      const existingId = findProductionOrderForDemand(demand.demandId)?.productionOrderId
+        || plannedOrderByDemand.get(demand.demandId)
+      if (existingId && existingId !== item.order.productionOrderId) {
+        throw new Error(`需求 ${demand.demandId} 已生成生产单 ${existingId}，请打开原单。`)
+      }
+      plannedOrderByDemand.set(demand.demandId, item.order.productionOrderId)
+    }
+  }
+
   const preparedSnapshots = created.flatMap((item) => buildFormalProductionOrderProcessSnapshots(item.order))
   const preparedWorkOrders = prepareProcessWorkOrdersForFormalProductionOrders(preparedSnapshots)
   const previousOrders = structuredClone(state.orders)
@@ -1323,6 +1337,7 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
         by: '系统',
       })
     })
+    persistCreatedProductionOrders([...newlyAddedOrderIds])
   } catch (error) {
     preparedWorkOrders.rollback()
     state.orders.splice(0, state.orders.length, ...previousOrders)

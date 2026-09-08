@@ -32,6 +32,27 @@ async function confirmTenderLaunch(page: Page, minPrice = '1200') {
   await dialog.getByRole('button', { name: '确认发起竞价并冻结工厂池与最低价' }).click()
 }
 
+async function raiseDemoCutPieceReleaseToTarget(page: Page) {
+  const result = await page.evaluate(async () => {
+    const releaseModule = await import('/src/data/fcs/cut-piece-release.ts')
+    return releaseModule.confirmCutPieceReleaseAvailableQty({
+      productionOrderId: 'PO-202603-0002',
+      basisMatrixVersion: 1,
+      basisTargetVersion: 1,
+      releaseQtyByColorSize: {
+        'Grey::S': 500,
+        'Grey::M': 700,
+        'Grey::L': 800,
+        'Grey::XL': 500,
+      },
+      riskReason: '裁床确认对应裁片已裁出，按目标数量放行用于竞价验收。',
+      confirmedBy: '裁床主管 王敏',
+      confirmedAt: '2026-08-06 09:10:00',
+    })
+  })
+  expect(result.ok, result.message).toBe(true)
+}
+
 test.beforeAll(() => {
   fs.mkdirSync(evidenceDir, { recursive: true })
 })
@@ -47,7 +68,7 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await expect(dialog.getByRole('heading', { name: /直接派单/ })).toContainText('TASKGEN-202603-0002-002')
 
   const cutPanel = dialog.locator('[data-unified-cut-piece-readiness]')
-  await expect(cutPanel.getByRole('heading', { name: '裁片齐套、放行及目标（SKU 维度）' })).toBeVisible()
+  await expect(cutPanel.getByRole('heading', { name: '裁片放行与分配占用（SKU 维度）' })).toBeVisible()
   await expect(cutPanel.locator('tbody tr')).toHaveCount(4)
   await expect(cutPanel).toContainText('SKU-005-S-GRY')
   await expect(cutPanel).toContainText('Grey / S')
@@ -116,7 +137,7 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await dispatchDialog(page).getByRole('button', { name: '取消' }).click()
 })
 
-test('只有三类含车缝任务允许按完整 SKU 分配，其他任务强制整任务派单', async ({ page }) => {
+test('只有独立车缝允许按完整 SKU 分配，组合任务和其他任务强制整任务派单', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto('/fcs/dispatch/workbench')
   await expect(page.getByRole('heading', { name: '任务分配工作台' })).toBeVisible()
@@ -149,11 +170,9 @@ test('只有三类含车缝任务允许按完整 SKU 分配，其他任务强制
   await openTaskAction(page, 'MERGED-CUT-SEW-IRON-PACK-DEMO-001', 'open-direct')
   dialog = dispatchDialog(page)
   await expect(dialog).toContainText('裁剪+车缝+烫包')
-  const skuInputs = dialog.locator('[data-unified-sku]')
-  await expect(skuInputs).toHaveCount(4)
-  for (let index = 1; index < 4; index += 1) await skuInputs.nth(index).uncheck()
-  dialog = dispatchDialog(page)
-  await expect(dialog).toContainText('已选 1 个SKU')
+  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
+  await expect(dialog.locator('[data-unified-whole-task-direct-scope]')).toContainText('本次派单为整个任务')
+  await expect(dialog).toContainText('本次整任务分配 4 个SKU，共 2,100件；不允许拆分')
   await dialog.getByRole('button', { name: '取消' }).click()
 })
 
@@ -161,6 +180,7 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.clock.setFixedTime(new Date(2026, 7, 6, 10, 0, 0))
   await page.goto('/fcs/dispatch/workbench')
+  await raiseDemoCutPieceReleaseToTarget(page)
 
   await searchTask(page, 'PO-202603-0002')
   await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')
@@ -374,6 +394,7 @@ test('取消竞价必须二次确认，旧招标留痕且任务可重新发起�
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.clock.setFixedTime(new Date(2026, 7, 7, 10, 0, 0))
   await page.goto('/fcs/dispatch/workbench')
+  await raiseDemoCutPieceReleaseToTarget(page)
 
   await searchTask(page, 'PO-202603-0002')
   await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')

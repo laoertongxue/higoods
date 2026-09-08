@@ -10,8 +10,21 @@ export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' 
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
 export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT' | 'BINDING_STRIP' | 'ACCESSORY'
 export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣' | '捆条' | '辅料'
-export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL' | 'BINDING_STRIP'
-export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条'
+export type ProcessTargetObject =
+  | 'CUT_PIECE_PART'
+  | 'FABRIC'
+  | 'ACCESSORY'
+  | 'GARMENT_SEMI'
+  | 'BOM_MATERIAL'
+  | 'BINDING_STRIP'
+  | 'YARN'
+  | 'WOOL_PANEL'
+export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料' | '捆条' | '纱线' | '毛织横机片'
+export interface ProcessObjectFlowDefinition {
+  inputObjectTypes: ProcessTargetObject[]
+  outputObjectTypes: ProcessTargetObject[]
+  consumedObjectTypes: ProcessTargetObject[]
+}
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
 export type SpecialCraftCategoryName = '辅助工艺' | '特种工艺'
 export type SpecialCraftVisibleFactoryType =
@@ -26,7 +39,7 @@ export interface ProcessStageDefinition {
   description: string
 }
 
-export interface ProcessDefinition {
+export interface ProcessDefinition extends ProcessObjectFlowDefinition {
   processCode: string
   systemProcessCode: string
   processName: string
@@ -51,7 +64,7 @@ export interface ProcessDefinition {
   defaultDocLabel: string
 }
 
-export interface ProcessCraftDefinition {
+export interface ProcessCraftDefinition extends ProcessObjectFlowDefinition {
   craftCode: string
   craftName: string
   legacyValue: number
@@ -77,6 +90,12 @@ export interface ProcessCraftDefinition {
   isSpecialCraft: boolean
   targetObject: ProcessTargetObject
   targetObjectName: ProcessTargetObjectName
+  inputObjectTypeNames: ProcessTargetObjectName[]
+  inputObjectTypeText: string
+  outputObjectTypeNames: ProcessTargetObjectName[]
+  outputObjectTypeText: string
+  consumedObjectTypeNames: ProcessTargetObjectName[]
+  consumedObjectTypeText: string
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
@@ -177,6 +196,15 @@ export type ProcessCraftDictRow = {
   isSpecialCraft: boolean
   targetObject: ProcessTargetObject
   targetObjectName: ProcessTargetObjectName
+  inputObjectTypes: ProcessTargetObject[]
+  inputObjectTypeNames: ProcessTargetObjectName[]
+  inputObjectTypeText: string
+  outputObjectTypes: ProcessTargetObject[]
+  outputObjectTypeNames: ProcessTargetObjectName[]
+  outputObjectTypeText: string
+  consumedObjectTypes: ProcessTargetObject[]
+  consumedObjectTypeNames: ProcessTargetObjectName[]
+  consumedObjectTypeText: string
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
   supportedTargetObjectText: string
@@ -217,6 +245,8 @@ export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTarg
   GARMENT_SEMI: '成衣',
   BOM_MATERIAL: 'BOM物料',
   BINDING_STRIP: '捆条',
+  YARN: '纱线',
+  WOOL_PANEL: '毛织横机片',
 }
 
 export const SPECIAL_CRAFT_CATEGORY_NAME: Record<SpecialCraftCategory, SpecialCraftCategoryName> = {
@@ -244,6 +274,7 @@ const AUXILIARY_CRAFT_FACTORY_CRAFT_NAMES = new Set([
   '花朵',
   '打褶',
   '烫钻',
+  '布包扣',
 ])
 
 const SPECIAL_CRAFT_FACTORY_CRAFT_NAMES = new Set([
@@ -260,8 +291,9 @@ const CUTTING_FACTORY_CRAFT_NAMES = new Set(['捆条'])
 const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, SpecialCraftSupportedTargetObject[]> = {
   8: ['CUT_PIECE'],
   32: ['CUT_PIECE'],
-  8192: ['SEMI_FINISHED_GARMENT'],
-  16384: ['SEMI_FINISHED_GARMENT'],
+  8192: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+  16384: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+  32768: ['ACCESSORY'],
   131072: ['CUT_PIECE'],
   3100001: ['BINDING_STRIP'],
   3100002: ['CUT_PIECE'],
@@ -275,6 +307,7 @@ const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, Specia
   32: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   8192: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   16384: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  32768: ['CENTRAL_AUX'],
   131072: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
   3100001: ['CENTRAL_AUX'],
   3100002: ['CENTRAL_AUX'],
@@ -363,11 +396,11 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     managementDomainName: '辅助工艺工厂管理',
     targetObject: 'GARMENT_SEMI',
     targetObjectName: '成衣',
-    canSelectInPatternPiece: false,
+    canSelectInPatternPiece: true,
     canSelectInBindingArea: false,
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
-    description: '纯色 T-shirt 成衣烫画，按 SKU 件数执行。',
+    description: '图案类辅助工艺，可明确选择裁片部位或成衣作为加工对象。',
   },
   {
     craftCode: 'AUX_DIRECT_PRINT',
@@ -384,7 +417,7 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     canSelectInBindingArea: false,
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
-    description: '裁片部位级辅助工艺，按裁片部位执行。',
+    description: '图案类辅助工艺，可明确选择裁片部位或成衣作为加工对象。',
   },
   {
     craftCode: 'AUX_SHELL_EMBROIDERY',
@@ -470,6 +503,23 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
     description: '捆条菲票投入、盘扣成品按个产出的辅助工艺，仅在纸样包捆条行维护。',
+  },
+  {
+    craftCode: 'AUX_COVERED_BUTTON_MAKING',
+    craftName: '布包扣',
+    craftCategory: 'AUXILIARY',
+    craftCategoryName: '辅助工艺',
+    specialCraftType: 'AUXILIARY',
+    specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
+    targetObject: 'ACCESSORY',
+    targetObjectName: '辅料',
+    canSelectInPatternPiece: false,
+    canSelectInBindingArea: false,
+    canTriggerFromMaterial: true,
+    canGenerateSpecialCraftTask: true,
+    description: '以对应制作物料投入，产出包布钮辅件；不是把扣子装到成衣。',
   },
   {
     craftCode: 'AUX_FLOWER_MAKING',
@@ -628,6 +678,83 @@ export const cuttingCraftDefinitions: CuttingCraftDefinition[] = [
   },
 ]
 
+function sameObjectFlow(...objectTypes: ProcessTargetObject[]): ProcessObjectFlowDefinition {
+  return {
+    inputObjectTypes: [...objectTypes],
+    outputObjectTypes: [...objectTypes],
+    consumedObjectTypes: [],
+  }
+}
+
+function resolveProcessObjectFlow(
+  processCode: string,
+  craftName?: string,
+): ProcessObjectFlowDefinition {
+  if (processCode === 'PRINT' || processCode === 'DYE' || processCode === 'WATER_SOLUBLE') {
+    return sameObjectFlow('BOM_MATERIAL')
+  }
+  if (processCode === 'CUT_PANEL') {
+    return { inputObjectTypes: ['FABRIC'], outputObjectTypes: ['CUT_PIECE_PART'], consumedObjectTypes: [] }
+  }
+  if (processCode === 'WOOL') {
+    if (craftName === '部位毛织') {
+      return { inputObjectTypes: ['YARN'], outputObjectTypes: ['WOOL_PANEL'], consumedObjectTypes: [] }
+    }
+    if (craftName === '整件毛织') {
+      return { inputObjectTypes: ['YARN'], outputObjectTypes: ['GARMENT_SEMI'], consumedObjectTypes: [] }
+    }
+    return { inputObjectTypes: ['YARN'], outputObjectTypes: ['WOOL_PANEL', 'GARMENT_SEMI'], consumedObjectTypes: [] }
+  }
+  if (processCode === 'SEW') {
+    return { inputObjectTypes: ['CUT_PIECE_PART', 'WOOL_PANEL'], outputObjectTypes: ['GARMENT_SEMI'], consumedObjectTypes: [] }
+  }
+  if (processCode === 'BUTTONHOLE' || processCode === 'IRON_PACK') {
+    return sameObjectFlow('GARMENT_SEMI')
+  }
+  if (processCode === 'BUTTON_ATTACH') {
+    return {
+      inputObjectTypes: ['GARMENT_SEMI'],
+      outputObjectTypes: ['GARMENT_SEMI'],
+      consumedObjectTypes: ['ACCESSORY'],
+    }
+  }
+
+  const modernCraft = craftName
+    ? modernSpecialCraftDefinitions.find((craft) => craft.craftName === craftName)
+    : undefined
+  if (modernCraft?.craftName === '烫画' || modernCraft?.craftName === '直喷') {
+    return sameObjectFlow('CUT_PIECE_PART', 'GARMENT_SEMI')
+  }
+  if (modernCraft?.craftName === '捆条') {
+    return { inputObjectTypes: ['FABRIC'], outputObjectTypes: ['BINDING_STRIP'], consumedObjectTypes: [] }
+  }
+  if (modernCraft?.craftName === '盘扣') {
+    return { inputObjectTypes: ['BINDING_STRIP'], outputObjectTypes: ['ACCESSORY'], consumedObjectTypes: [] }
+  }
+  if (modernCraft?.craftName === '花朵') {
+    return { inputObjectTypes: ['CUT_PIECE_PART'], outputObjectTypes: ['ACCESSORY'], consumedObjectTypes: [] }
+  }
+  if (modernCraft?.craftName === '布包扣') {
+    return { inputObjectTypes: ['BOM_MATERIAL'], outputObjectTypes: ['ACCESSORY'], consumedObjectTypes: [] }
+  }
+  if (modernCraft?.craftName === '橡筋定长切割') {
+    return sameObjectFlow('ACCESSORY')
+  }
+  if (modernCraft) return sameObjectFlow(modernCraft.targetObject)
+  if (processCode === 'SPECIAL_CRAFT') {
+    return sameObjectFlow('CUT_PIECE_PART', 'GARMENT_SEMI', 'BINDING_STRIP', 'ACCESSORY')
+  }
+  return sameObjectFlow('CUT_PIECE_PART')
+}
+
+function getProcessObjectTypeNames(objectTypes: ProcessTargetObject[]): ProcessTargetObjectName[] {
+  return objectTypes.map((objectType) => PROCESS_TARGET_OBJECT_NAME[objectType])
+}
+
+function formatProcessObjectTypes(objectTypes: ProcessTargetObject[]): string {
+  return getProcessObjectTypeNames(objectTypes).join('、') || '无'
+}
+
 function resolveSpecialCraftSupportedTargetObjects(
   item: Pick<LegacyCraftMappingDefinition, 'legacyValue' | 'isSpecialCraft'>,
 ): SpecialCraftSupportedTargetObject[] {
@@ -739,7 +866,6 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   16384: 'PROC_DIRECT_PRINT',
   32768: 'PROC_CLOTH_BUTTON',
   131072: 'PROC_KUNTIAO',
-  262144: 'PROC_QUYA',
   262145: 'PROC_BASE_CONNECT',
   524288: 'PROC_BUTTONHOLE',
   1048576: 'PROC_SHELL_EMBROIDER',
@@ -882,6 +1008,9 @@ const processDefinitionSeeds: Array<
     | 'taskTypeMode'
     | 'isSpecialCraftContainer'
     | 'defaultDocLabel'
+    | 'inputObjectTypes'
+    | 'outputObjectTypes'
+    | 'consumedObjectTypes'
   > & {
     defaultDocument: string
   }
@@ -899,8 +1028,8 @@ const processDefinitionSeeds: Array<
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
     defaultDocument: '加工单',
-    description: '由BOM上的印花要求触发',
-    triggerSource: 'BOM上存在印花要求',
+    description: '由适用 BOM 原物料上的印花要求触发；已裁裁片不得使用印花。',
+    triggerSource: '适用 BOM 原物料存在印花要求',
   },
   {
     processCode: 'WATER_SOLUBLE',
@@ -936,7 +1065,7 @@ const processDefinitionSeeds: Array<
   },
   {
     processCode: 'CUT_PANEL',
-    processName: '裁片',
+    processName: '裁剪',
     stageCode: 'PROD',
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
@@ -947,6 +1076,7 @@ const processDefinitionSeeds: Array<
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
     defaultDocument: '任务单',
+    description: '投入布料，产出裁片。',
   },
   {
     processCode: 'EMBROIDERY',
@@ -1111,6 +1241,7 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
   const defaultDocType = toProcessDocType(seed.defaultDocument)
   const isSpecialCraftContainer = seed.processCode === 'SPECIAL_CRAFT'
   const defaultRule = resolveProcessDefaultRule(seed.processCode)
+  const objectFlow = resolveProcessObjectFlow(seed.processCode)
   return {
     processCode: seed.processCode,
     systemProcessCode: PROCESS_SYSTEM_CODE_MAP[seed.processCode] ?? `PROC_${seed.processCode}`,
@@ -1134,6 +1265,9 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
     description: seed.description,
     triggerSource: seed.triggerSource,
     defaultDocLabel: PROCESS_DOC_TYPE_LABEL[defaultDocType],
+    inputObjectTypes: [...objectFlow.inputObjectTypes],
+    outputObjectTypes: [...objectFlow.outputObjectTypes],
+    consumedObjectTypes: [...objectFlow.consumedObjectTypes],
   }
 })
 
@@ -1147,11 +1281,10 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺加工单管理' },
-  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺加工单管理' },
-  { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '支持裁片部位或成衣对象，必须在工艺路线中明确具体变体。' },
+  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '支持裁片部位或成衣对象，必须在工艺路线中明确具体变体。' },
+  { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '制作包布钮辅件，不是把扣子装到成衣。' },
   { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
-  { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
   { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
   { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
@@ -1216,6 +1349,7 @@ const MODERN_SPECIAL_CRAFT_LEGACY_VALUE_BY_NAME: Record<string, number> = {
   花朵: 3100002,
   打褶: 3100003,
   烫钻: 3100004,
+  布包扣: 32768,
 }
 
 const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modernSpecialCraftDefinitions
@@ -1297,17 +1431,17 @@ function resolveProcessCraftTargetObject(
     return { targetObject: 'BOM_MATERIAL', targetObjectName: 'BOM物料' }
   }
   if (item.processCode === 'PRINT' || item.processCode === 'DYE') {
-    return { targetObject: 'FABRIC', targetObjectName: '面料' }
+    return { targetObject: 'BOM_MATERIAL', targetObjectName: 'BOM物料' }
   }
   if (item.processCode === 'BUTTON_ATTACH') {
-    return { targetObject: 'ACCESSORY', targetObjectName: '辅料' }
+    return { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣' }
   }
   if (item.processCode === 'IRON_PACK') {
     return { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣' }
   }
   if (item.processCode === 'WOOL') {
     return item.craftName === '部位毛织'
-      ? { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
+      ? { targetObject: 'WOOL_PANEL', targetObjectName: '毛织横机片' }
       : { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣' }
   }
   return { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
@@ -1324,6 +1458,7 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
     const process = processDefinitionByCode.get(item.processCode)
     const targetObjectInfo = resolveProcessCraftTargetObject(item)
     const managementDomainInfo = resolveProcessCraftManagementDomain(item)
+    const objectFlow = resolveProcessObjectFlow(item.processCode, item.craftName)
     const inheritedRule: ProcessDefaultRule = {
       assignmentGranularity: process?.assignmentGranularity ?? 'ORDER',
       detailSplitMode: process?.detailSplitMode ?? 'COMPOSITE',
@@ -1374,6 +1509,15 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
       isSpecialCraft: item.isSpecialCraft,
       targetObject: targetObjectInfo.targetObject,
       targetObjectName: targetObjectInfo.targetObjectName,
+      inputObjectTypes: [...objectFlow.inputObjectTypes],
+      inputObjectTypeNames: getProcessObjectTypeNames(objectFlow.inputObjectTypes),
+      inputObjectTypeText: formatProcessObjectTypes(objectFlow.inputObjectTypes),
+      outputObjectTypes: [...objectFlow.outputObjectTypes],
+      outputObjectTypeNames: getProcessObjectTypeNames(objectFlow.outputObjectTypes),
+      outputObjectTypeText: formatProcessObjectTypes(objectFlow.outputObjectTypes),
+      consumedObjectTypes: [...objectFlow.consumedObjectTypes],
+      consumedObjectTypeNames: getProcessObjectTypeNames(objectFlow.consumedObjectTypes),
+      consumedObjectTypeText: formatProcessObjectTypes(objectFlow.consumedObjectTypes),
       ...managementDomainInfo,
       supportedTargetObjects: resolveSpecialCraftSupportedTargetObjects(item),
       supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(
@@ -1536,7 +1680,7 @@ export function listSpecialTypeCrafts(): ModernSpecialCraftDefinition[] {
 
 export function listCutPiecePartCrafts(): ModernSpecialCraftDefinition[] {
   return modernSpecialCraftDefinitions
-    .filter((item) => item.targetObject === 'CUT_PIECE_PART' && item.canSelectInPatternPiece)
+    .filter((item) => item.canSelectInPatternPiece)
     .map((item) => cloneModernSpecialCraft(item))
 }
 
@@ -1575,6 +1719,28 @@ export function getCraftTargetObject(craftCodeOrName: string): ProcessTargetObje
     if (migratedCraft) return migratedCraft.targetObject
   }
   return undefined
+}
+
+export function getCraftInputObjectTypes(craftCodeOrName: string): ProcessTargetObject[] {
+  const modernCraft = findModernSpecialCraft(craftCodeOrName)
+  if (modernCraft) return [...resolveProcessObjectFlow('SPECIAL_CRAFT', modernCraft.craftName).inputObjectTypes]
+  const cuttingCraft = cuttingCraftDefinitions.find(
+    (item) => item.craftCode === craftCodeOrName || item.craftName === craftCodeOrName,
+  )
+  if (cuttingCraft) return [...resolveProcessObjectFlow('CUT_PANEL', cuttingCraft.craftName).inputObjectTypes]
+  const legacyCraft = getProcessCraftByCode(craftCodeOrName) ?? getProcessCraftByLegacyValue(Number(craftCodeOrName))
+  return [...(legacyCraft?.inputObjectTypes ?? [])]
+}
+
+export function getCraftOutputObjectTypes(craftCodeOrName: string): ProcessTargetObject[] {
+  const modernCraft = findModernSpecialCraft(craftCodeOrName)
+  if (modernCraft) return [...resolveProcessObjectFlow('SPECIAL_CRAFT', modernCraft.craftName).outputObjectTypes]
+  const cuttingCraft = cuttingCraftDefinitions.find(
+    (item) => item.craftCode === craftCodeOrName || item.craftName === craftCodeOrName,
+  )
+  if (cuttingCraft) return [...resolveProcessObjectFlow('CUT_PANEL', cuttingCraft.craftName).outputObjectTypes]
+  const legacyCraft = getProcessCraftByCode(craftCodeOrName) ?? getProcessCraftByLegacyValue(Number(craftCodeOrName))
+  return [...(legacyCraft?.outputObjectTypes ?? [])]
 }
 
 export function canSelectCraftInPatternPiece(craftCodeOrName: string): boolean {
@@ -1748,6 +1914,15 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
     isSpecialCraft: item.isSpecialCraft,
     targetObject: item.targetObject,
     targetObjectName: item.targetObjectName,
+    inputObjectTypes: [...item.inputObjectTypes],
+    inputObjectTypeNames: [...item.inputObjectTypeNames],
+    inputObjectTypeText: item.inputObjectTypeText,
+    outputObjectTypes: [...item.outputObjectTypes],
+    outputObjectTypeNames: [...item.outputObjectTypeNames],
+    outputObjectTypeText: item.outputObjectTypeText,
+    consumedObjectTypes: [...item.consumedObjectTypes],
+    consumedObjectTypeNames: [...item.consumedObjectTypeNames],
+    consumedObjectTypeText: item.consumedObjectTypeText,
     supportedTargetObjects: [...item.supportedTargetObjects],
     supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
     supportedTargetObjectText: item.supportedTargetObjectLabels.join('、'),

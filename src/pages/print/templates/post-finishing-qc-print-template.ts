@@ -11,7 +11,7 @@ import {
   listPostFinishingQcOrderEntities,
   type PostFinishingQcOrder,
   type PostFinishingTaskView,
-} from '../../../data/fcs/post-finishing-domain.ts'
+} from '../../../data/fcs/post-finishing-current-read-model.ts'
 import {
   buildPrintBarcodePayload,
   buildPrintQrPayload,

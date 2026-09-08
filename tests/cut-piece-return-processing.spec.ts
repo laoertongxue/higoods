@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
-const route = '/fcs/craft/cutting/cut-piece-return-processing'
+const ppicRoute = '/fcs/sewing-outsourcing/cut-piece-returns'
+const warehouseRoute = '/fcs/craft/cutting/cut-piece-return-processing'
 const browserErrors = new WeakMap<Page, string[]>()
 
 test.beforeEach(async ({ page }) => {
@@ -12,12 +13,15 @@ test.beforeEach(async ({ page }) => {
   })
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`))
   await page.addInitScript(() => {
+    const resetGuard = 'higood:test:cut-piece-return-processing:reset'
+    if (sessionStorage.getItem(resetGuard) === 'done') return
+    localStorage.removeItem('higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v1')
     localStorage.removeItem('higood:fcs:cutting:cut-piece-return:v1')
     localStorage.removeItem('higood:fcs:cutting:cut-piece-return:v2')
     localStorage.removeItem('higood:fcs:cutting:cut-piece-return:v3')
+    localStorage.removeItem('higood:list-page:/fcs/sewing-outsourcing/cut-piece-returns')
     localStorage.removeItem('higood:list-page:/fcs/craft/cutting/cut-piece-return-processing')
-    localStorage.removeItem('higood:list-page:/fcs/craft/cutting/supplement-management')
-    localStorage.removeItem('higood:list-page:/fcs/craft/cutting/cut-orders')
+    sessionStorage.setItem(resetGuard, 'done')
   })
 })
 
@@ -34,206 +38,175 @@ async function expectNoPageOverflow(page: Page): Promise<void> {
   expect(overflow.document[0]).toBe(overflow.document[1])
 }
 
-async function closeReturnDialog(page: Page): Promise<void> {
-  const dialog = page.locator('[data-cut-piece-return-dialog]')
-  await dialog.locator('header').getByRole('button', { name: '关闭', exact: true }).click()
-  await expect(dialog).toHaveCount(0)
-}
-
-test('裁片退仓从发起到补料来源、原裁片单关联和大菲票形成完整可见闭环', async ({ page }) => {
+test('PPIC建单、仓库异常、PPIC重提和仓库入仓共用同一裁片退仓事实', async ({ page }) => {
   test.setTimeout(180_000)
   mkdirSync('output/playwright', { recursive: true })
   await page.setViewportSize({ width: 1366, height: 768 })
-  await page.goto(route)
+  await page.goto(ppicRoute)
 
-  await expect(page.getByRole('heading', { name: '裁片退仓处理' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: '裁片退仓', exact: true })).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('[data-standard-list-page]')).toBeVisible()
   await expect(page.locator('[data-standard-list-table-section] table')).toBeVisible()
-  await expect(page.locator('[data-cut-piece-return-pagination]')).toContainText(/共 \d+ 条/)
-  const menuItem = page.getByRole('complementary').getByRole('button', { name: '裁片退仓处理', exact: true })
-  await expect(menuItem).toBeVisible()
-  await expect(menuItem.locator('svg')).toHaveCount(1)
-  const warehouseActionBox = await page.locator('[data-nav="/fcs/craft/cutting/warehouse-management/wait-handover"]', { hasText: '查看退裁片库区' }).boundingBox()
-  const createActionBox = await page.getByRole('button', { name: '新增退仓', exact: true }).boundingBox()
-  expect(warehouseActionBox).not.toBeNull()
-  expect(createActionBox).not.toBeNull()
-  expect(createActionBox!.x).toBeGreaterThan(warehouseActionBox!.x)
+  await expect(page.locator('[data-standard-list-stats]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '查询', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重置', exact: true })).toBeVisible()
+  for (const label of ['待仓库接收', '接收异常', '已入仓']) {
+    await expect(page.getByRole('button', { name: new RegExp(label) })).toBeVisible()
+  }
   await expectNoPageOverflow(page)
 
-  const visibleImages = page.locator('[data-cut-piece-return-page] img:visible')
-  await expect(visibleImages.first()).toBeVisible()
-  await expect.poll(() => visibleImages.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
-  const firstImageButton = page.locator('[data-cut-piece-return-action="preview-image"]').first()
-  await firstImageButton.click()
-  await expect(page.locator('[data-cut-piece-return-image-preview]')).toBeVisible()
-  await expect.poll(() => page.locator('[data-cut-piece-return-image-preview] img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
-  await page.keyboard.press('Escape')
-  await expect(page.locator('[data-cut-piece-return-image-preview]')).toHaveCount(0)
+  await page.getByRole('button', { name: '新增退仓申请', exact: true }).click()
+  let dialog = page.getByRole('dialog', { name: '新增裁片退仓申请' })
+  await expect(dialog.getByRole('heading', { name: '新增裁片退仓申请' })).toBeVisible()
+  await expect(dialog).toContainText('操作角色：任务PPIC')
+  await expect(dialog).toContainText('PPIC已线下收到')
 
-  const imageUnderFailureTest = page.locator('[data-cut-piece-return-page] img').first()
-  await imageUnderFailureTest.evaluate((image: HTMLImageElement) => { image.src = '/materials/does-not-exist-for-return-test.png' })
-  await expect(page.getByText('图片加载失败', { exact: true }).first()).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('heading', { name: '裁片退仓处理' })).toBeVisible({ timeout: 60_000 })
+  await dialog.locator('[data-ppic-return-create-field="reasonCode"]').selectOption('TASK_QTY_REDUCED')
+  dialog = page.getByRole('dialog', { name: '新增裁片退仓申请' })
+  await dialog.locator('[data-ppic-return-create-field="returnReasonDetail"]').fill('生产任务数量已正式调减，申请退回未投入生产的裁片。')
+  await dialog.locator('[data-ppic-return-create-field="garmentQty"]').fill('1')
+  await dialog.locator('[data-ppic-return-create-field="responsibilityAdjustmentQty"]').fill('1')
+  await dialog.getByRole('button', { name: '创建并提交仓库接收' }).click()
+  await expect(dialog).toContainText('必须填写已确认的调整依据号')
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v1')
+    const stored = raw
+      ? JSON.parse(raw) as { requests?: Array<{ commandId: string }> }
+      : {}
+    return (stored.requests || []).filter((item) => item.commandId.startsWith('CMD-PPIC-CUT-RETURN-CREATE-')).length
+  })).toBe(0)
 
-  await page.getByRole('button', { name: '新增退仓' }).click()
-  const createDialog = page.locator('[data-cut-piece-return-dialog]')
-  await expect(createDialog.getByRole('heading', { name: '新增裁片退仓' })).toBeVisible()
-  await expect(createDialog.getByText('请先精确查找车缝任务，不展示全量交出候选。')).toBeVisible()
-  await expect(createDialog.locator('input[name="cut-piece-return-candidate"]')).toHaveCount(0)
+  await dialog.locator('[data-ppic-return-create-field="reasonCode"]').selectOption('EXCESS_OR_WRONG_PIECES')
+  dialog = page.getByRole('dialog', { name: '新增裁片退仓申请' })
+  await expect(dialog).toContainText('仅退回多交或错发的实物，不减少工厂已形成的回货责任')
+  await dialog.locator('[data-ppic-return-create-field="returnReasonDetail"]').fill('工厂线下反馈多收到裁片，尚未投入生产，PPIC核对后申请原样退回。')
+  await dialog.locator('[data-ppic-return-create-field="garmentQty"]').fill('1')
+  await dialog.getByRole('button', { name: '创建并提交仓库接收' }).click()
 
-  await createDialog.getByRole('button', { name: '生产单 + 车缝工厂' }).click()
-  await createDialog.locator('[data-cut-piece-return-form="lookupProductionOrderNo"]').fill('PO-202603-0101')
-  await createDialog.getByRole('button', { name: '查询承接工厂' }).click()
-  await expect(createDialog.locator('[data-cut-piece-return-form="lookupFactoryId"]')).toContainText('PT Indo Sewing Center')
-  await createDialog.getByRole('button', { name: '查找车缝任务' }).click()
-  await expect(createDialog.getByText('任务 ST-260324-001 · PO-202603-0101')).toBeVisible()
-
-  await createDialog.getByRole('button', { name: '菲票号' }).click()
-  await createDialog.locator('[data-cut-piece-return-form="lookupFeiTicketNo"]').fill('FT-260324-001')
-  await createDialog.getByRole('button', { name: '查找车缝任务' }).click()
-  await expect(createDialog.getByText('通过菲票 FT-260324-001 找到任务；该查找不代表本次实物票在场。')).toBeVisible()
-
-  await createDialog.getByRole('button', { name: '车缝任务单号' }).click()
-  await createDialog.locator('[data-cut-piece-return-form="lookupSewingTaskNo"]').fill('ST-260324-001')
-  await createDialog.getByRole('button', { name: '查找车缝任务' }).click()
-  await expect(createDialog.locator('input[name="cut-piece-return-candidate"]:checked')).toHaveCount(1)
-  await expect(createDialog.getByText('首次责任 200 件 · 历史退件 12 件 · 当前可退 188 件')).toBeVisible()
-  await expect.poll(() => createDialog.locator('img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
-  await page.screenshot({ path: 'output/playwright/cut-piece-return-exact-source-and-limits.png', fullPage: true })
-
-  const initialCaseCount = await page.evaluate(async () => (await import('/src/data/fcs/cutting/cut-piece-return-domain.ts')).listCutPieceReturnCases().length)
-  const returnedGarmentInput = createDialog.locator('[data-cut-piece-return-form="createReturnedGarmentQty"]')
-  const receiveRows = createDialog.locator('[data-cut-piece-return-create-row]')
-  const receiveRowCount = await receiveRows.count()
-  expect(receiveRowCount).toBeGreaterThan(0)
-  await returnedGarmentInput.fill('189')
-  await createDialog.getByRole('button', { name: '确认退件并入退裁片库区' }).click()
-  await expect(createDialog.getByRole('status')).toContainText('超过当前应回 188 件')
-  expect(await page.evaluate(async () => (await import('/src/data/fcs/cutting/cut-piece-return-domain.ts')).listCutPieceReturnCases().length)).toBe(initialCaseCount)
-
-  await returnedGarmentInput.fill('2')
-  const firstPartInput = receiveRows.first().locator('[data-cut-piece-return-part-count]')
-  const firstPartMaximum = Number(await firstPartInput.getAttribute('max'))
-  await firstPartInput.fill(String(firstPartMaximum + 1))
-  await createDialog.getByRole('button', { name: '确认退件并入退裁片库区' }).click()
-  await expect(createDialog.getByRole('status')).toContainText(`超过当前可退 ${firstPartMaximum} 片`)
-  expect(await page.evaluate(async () => (await import('/src/data/fcs/cutting/cut-piece-return-domain.ts')).listCutPieceReturnCases().length)).toBe(initialCaseCount)
-
-  for (let index = 0; index < receiveRowCount; index += 1) {
-    await receiveRows.nth(index).locator('[data-cut-piece-return-part-count]').fill(index === 1 ? '1' : '2')
-  }
-  await receiveRows.first().locator('[data-cut-piece-return-evidence-mode]').selectOption('SCAN')
-  await receiveRows.first().locator('[data-cut-piece-return-scanned-ticket]').fill('TI-WRONG')
-  if (receiveRowCount > 1) await receiveRows.nth(1).locator('[data-cut-piece-return-evidence-mode]').selectOption('MANUAL_UNREADABLE')
-  await createDialog.getByRole('button', { name: '确认退件并入退裁片库区' }).click()
-  await expect(createDialog.getByRole('status')).toContainText('与冻结来源不匹配')
-  expect(await page.evaluate(async () => (await import('/src/data/fcs/cutting/cut-piece-return-domain.ts')).listCutPieceReturnCases().length)).toBe(initialCaseCount)
-  const expectedTicketNo = await receiveRows.first().locator('[data-cut-piece-return-scanned-ticket]').getAttribute('placeholder')
-  expect(expectedTicketNo).toBeTruthy()
-  await receiveRows.first().locator('[data-cut-piece-return-scanned-ticket]').fill(expectedTicketNo || '')
-  await expect(receiveRows.first().locator('[data-cut-piece-return-scanned-ticket]')).toHaveValue(expectedTicketNo || '')
-  await createDialog.getByRole('button', { name: '关闭提示' }).click()
-  await expect(createDialog.getByRole('status')).toHaveCount(0)
-  await createDialog.getByRole('button', { name: '确认退件并入退裁片库区' }).click()
-
-  const createFeedback = await createDialog.getByRole('status').innerText()
-  const returnOrderNo = createFeedback.match(/TH-\d{6}-\d{3}/)?.[0] || ''
-  expect(returnOrderNo).not.toBe('')
-  expect(await page.evaluate(async () => (await import('/src/data/fcs/cutting/cut-piece-return-domain.ts')).listCutPieceReturnCases().length)).toBe(initialCaseCount + 1)
-  await expect(page.getByRole('heading', { name: new RegExp(returnOrderNo) })).toBeVisible()
-  await expect(page.getByText(`已扫码 · ${expectedTicketNo}`, { exact: true })).toBeVisible()
-  if (receiveRowCount > 1) await expect(page.getByText('票据不可识别 · 手动选部位', { exact: true })).toBeVisible()
-  await expect(page.getByText(/按件确认 2 件/).first()).toBeVisible()
-  await page.screenshot({ path: 'output/playwright/cut-piece-return-atomic-confirmed.png', fullPage: true })
-  await closeReturnDialog(page)
-
-  const receivedRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: returnOrderNo })
-  await receivedRow.getByRole('button', { name: '快速打大菲票' }).click()
-  const ticketDialog = page.locator('[data-cut-piece-return-dialog]')
-  await expect(ticketDialog.getByRole('heading', { name: '快速确认部位并生成退裁片大菲票' })).toBeVisible()
-  await expect(ticketDialog.getByText('旧实物菲票缺失是正常现场场景')).toBeVisible()
-  await ticketDialog.getByRole('button', { name: '全选可用部位' }).click()
-  await expect(ticketDialog.locator('[data-cut-piece-return-ticket-part]:checked')).toHaveCount(receiveRowCount)
-  await ticketDialog.getByRole('button', { name: '生成大菲票' }).click()
-
-  const printSheet = page.locator('[data-cut-piece-return-print-sheet]')
-  await expect(printSheet).toBeVisible()
-  await expect(page.getByText('固定 100mm × 100mm')).toBeVisible()
-  const printSize = await printSheet.evaluate((element) => {
-    const rect = element.getBoundingClientRect()
-    return { width: rect.width, height: rect.height }
+  const created = await page.evaluate(() => {
+    const raw = localStorage.getItem('higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v1')
+    const stored = raw
+      ? JSON.parse(raw) as {
+          requests?: Array<{
+            requestId: string
+            requestNo: string
+            commandId: string
+            status: string
+            returnedGarmentQty: number
+            responsibilityAdjustmentQty: number
+            expectedReturnQtyBefore: number
+            expectedReturnQtyAfter: number
+            spuCode: string
+            partCounts: Array<{ pieceQty: number }>
+          }>
+        }
+      : {}
+    const request = (stored.requests || []).find((item) => item.commandId.startsWith('CMD-PPIC-CUT-RETURN-CREATE-'))
+    if (!request) throw new Error('未找到PPIC新建的裁片退仓申请')
+    return request
   })
-  expect(Math.abs(printSize.width - printSize.height)).toBeLessThanOrEqual(1)
-  expect(printSize.width).toBeGreaterThan(370)
-  expect(printSize.width).toBeLessThan(385)
-  await expect(printSheet.locator('[data-real-qr] svg[role="img"]')).toBeVisible()
-  await page.screenshot({ path: 'output/playwright/cut-piece-return-large-ticket-100mm.png', fullPage: true })
-  await closeReturnDialog(page)
+  expect(created.status).toBe('APPROVED_WAITING_WAREHOUSE')
+  expect(created.returnedGarmentQty).toBe(1)
+  expect(created.responsibilityAdjustmentQty).toBe(0)
+  expect(created.expectedReturnQtyAfter).toBe(created.expectedReturnQtyBefore)
+  const ppicRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: created.requestNo })
+  await expect(ppicRow).toContainText('PPIC已建单，待仓库接收')
+  await expect(ppicRow).toContainText('该原因不调整回货责任')
 
-  await page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: returnOrderNo }).getByRole('button', { name: '详情' }).click()
-  const detailDialog = page.locator('[data-cut-piece-return-dialog]')
-  await detailDialog.getByRole('button', { name: '创建补料并结算' }).click()
-  const supplementDialog = page.locator('[data-cut-piece-return-dialog]')
-  await expect(supplementDialog.getByRole('heading', { name: '创建车缝退仓补料' })).toBeVisible()
-  await expect(supplementDialog.getByText('不受之前清点数量限制')).toBeVisible()
-  await supplementDialog.locator('[data-cut-piece-return-form="finalMakeupGarmentQty"]').fill('25')
-  const supplementCounts = supplementDialog.locator('[data-cut-piece-return-supplement-count]')
-  for (let index = 0; index < await supplementCounts.count(); index += 1) {
-    await supplementCounts.nth(index).fill(String(7 + index))
-  }
-  await supplementDialog.getByRole('button', { name: '创建补料单并结算退仓' }).click()
+  await ppicRow.getByRole('button', { name: new RegExp(`查看${created.spuCode}款式高清图`) }).click()
+  const preview = page.getByRole('dialog', { name: new RegExp(`${created.spuCode}.*高清大图`) })
+  await expect(preview.locator('img')).toBeVisible()
+  await expect.poll(() => preview.locator('img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
+  await preview.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.screenshot({ path: 'output/playwright/cut-piece-return-ppic-created.png', fullPage: true })
 
-  await expect(detailDialog.getByRole('status')).toContainText('本退仓单已结算')
-  await expect(page.getByText('退仓处理已结算')).toBeVisible()
-  await expect(detailDialog.getByText(/最终补：25 件/)).toBeVisible()
-  const supplementLink = page.locator('[data-cut-piece-return-dialog] a').filter({ hasText: /^SUP-RETURN-/ }).first()
-  const supplementOrderNo = (await supplementLink.innerText()).split(/\s/)[0]
-  expect(supplementOrderNo).toMatch(/^SUP-RETURN-/)
-  await supplementLink.click()
+  await page.goto(warehouseRoute)
+  await expect(page.getByRole('heading', { name: '裁片退仓接收与入仓', exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('button', { name: '新增退仓申请' })).toHaveCount(0)
+  const warehouseRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: created.requestNo })
+  await expect(warehouseRow).toContainText('仓库不可修改')
+  await warehouseRow.getByRole('button', { name: '查看建单明细' }).click()
+  dialog = page.getByRole('dialog', { name: 'PPIC建单明细' })
+  await expect(dialog).toContainText(`按PPIC建单的${created.returnedGarmentQty}件`)
+  await expect(dialog).toContainText(`${created.partCounts.reduce((sum, item) => sum + item.pieceQty, 0)}片`)
+  await expect(dialog.locator('input')).toHaveCount(0)
+  await dialog.locator('header').getByRole('button', { name: '关闭', exact: true }).click()
 
-  const supplementDetail = page.locator('[data-cutting-supplement-region="overlay"]')
-  await expect(supplementDetail.getByRole('heading', { name: '补料单详情' })).toBeVisible({ timeout: 60_000 })
-  await expect(supplementDetail).toContainText('业务来源')
-  await expect(supplementDetail).toContainText('车缝退仓')
-  await expect(supplementDetail).toContainText(returnOrderNo)
-  await expect(supplementDetail).toContainText('本补料单绑定原裁片单')
-  await expect(supplementDetail).toContainText('可复用裁片')
-  const linkedCutOrderNo = await page.evaluate(async (recordNo) => {
-    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    return registry.listSupplementOrders().find((order) => order.recordNo === recordNo)?.cutOrderNo || ''
-  }, supplementOrderNo)
-  expect(linkedCutOrderNo).not.toBe('')
-  await page.screenshot({ path: 'output/playwright/sewing-return-supplement-detail.png', fullPage: true })
-  await supplementDetail.getByRole('button', { name: '关闭', exact: true }).click()
+  await warehouseRow.getByRole('button', { name: '记录接收异常' }).click()
+  dialog = page.getByRole('dialog', { name: '记录仓库接收异常' })
+  await dialog.locator('[data-cut-piece-return-warehouse-field="exceptionNote"]').fill('外包装破损，暂不入仓，请PPIC协调工厂重新包装。')
+  await dialog.getByRole('button', { name: '记录异常并退回PPIC' }).click()
+  await expect(page.getByText('仓库已记录接收异常并退回PPIC处理；PPIC建单数量未被修改。')).toBeVisible()
 
-  await page.locator('[data-cutting-supplement-field="businessSourceType"]').selectOption('SEWING_RETURN')
-  await page.getByRole('button', { name: '筛选', exact: true }).click()
-  const sourceColumnIndex = await page.locator('[data-standard-list-table-section] thead th').evaluateAll((headers) =>
-    headers.findIndex((header) => header.getAttribute('data-column-key') === 'businessSource'),
-  )
-  expect(sourceColumnIndex).toBeGreaterThanOrEqual(0)
-  const supplementRows = page.locator('[data-standard-list-table-section] tbody tr')
-  await expect(supplementRows).not.toHaveCount(0)
-  await expect.poll(() => supplementRows.locator(`td:nth-child(${sourceColumnIndex + 1})`).evaluateAll((cells) =>
-    cells.every((cell) => cell.textContent?.includes('车缝退仓')),
-  )).toBe(true)
+  await page.goto(ppicRoute)
+  await page.getByRole('button', { name: /接收异常/ }).click()
+  const exceptionRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: created.requestNo })
+  await expect(exceptionRow).toContainText('仓库接收异常，待PPIC处理')
+  await exceptionRow.getByRole('button', { name: '处理并重提' }).click()
+  dialog = page.getByRole('dialog', { name: '处理仓库接收异常' })
+  await expect(dialog).toContainText('外包装破损')
+  await dialog.locator('[data-ppic-return-field="reconfirmNote"]').fill('已协调工厂更换包装并重新核对实物，原建单部位和数量不变。')
+  await dialog.getByRole('button', { name: '重新提交仓库接收' }).click()
+  await expect(page.getByText('异常已处理，原PPIC建单部位和数量已重新提交仓库接收。')).toBeVisible()
 
-  await page.getByRole('button', { name: '裁前准备', exact: true }).click()
-  await page.getByRole('complementary').getByRole('button', { name: '裁片单', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '裁片单', exact: true })).toBeVisible({ timeout: 60_000 })
-  await page.locator('[data-cutting-piece-field="keyword"]').fill(linkedCutOrderNo)
-  const cutOrderRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: linkedCutOrderNo })
-  await expect(cutOrderRow).toHaveCount(1)
-  await expect(cutOrderRow).toContainText('车缝退仓补料')
-  await cutOrderRow.locator('button[data-cutting-piece-action="open-supplement-detail"]').filter({ hasText: '25 件' }).click()
-  const cutOrderSupplementDetail = page.locator('[data-cutting-piece-supplement-detail]')
-  await expect(cutOrderSupplementDetail).toContainText('业务来源')
-  await expect(cutOrderSupplementDetail).toContainText('车缝退仓')
-  await expect(cutOrderSupplementDetail).toContainText(returnOrderNo)
-  await expect(cutOrderSupplementDetail).toContainText('来源交出记录')
-  await page.screenshot({ path: 'output/playwright/cut-order-sewing-return-supplement.png', fullPage: true })
+  await page.goto(warehouseRoute)
+  const resubmittedRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: created.requestNo })
+  await expect(resubmittedRow).toContainText('待仓库接收')
+  await resubmittedRow.getByRole('button', { name: '确认接收并入仓' }).click()
+  await expect(page.getByText('已按PPIC建单部位和数量接收并入仓；仓库未修改业务量。')).toBeVisible()
 
+  const finalFacts = await page.evaluate((requestId) => {
+    const workflowRaw = localStorage.getItem('higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v1')
+    const workflowStore = workflowRaw
+      ? JSON.parse(workflowRaw) as {
+          requests?: Array<{
+            requestId: string
+            status: string
+            expectedReturnQtyBefore: number
+            expectedReturnQtyAfter: number
+            responsibilityAdjustmentQty: number
+            legacyReturnCaseId: string
+            events: Array<{ eventType: string }>
+          }>
+        }
+      : {}
+    const request = (workflowStore.requests || []).find((item) => item.requestId === requestId)
+    if (!request) throw new Error('退仓申请不存在')
+    const legacyRaw = localStorage.getItem('higood:fcs:cutting:cut-piece-return:v3')
+    const legacyStore = legacyRaw
+      ? JSON.parse(legacyRaw) as {
+          cases?: Array<{
+            caseId: string
+            receipts: Array<{
+              returnedGarmentQty: number
+              responsibilityAdjustmentGarmentQty?: number
+            }>
+          }>
+        }
+      : {}
+    const returnCase = (legacyStore.cases || []).find((item) => item.caseId === request.legacyReturnCaseId)
+    return {
+      status: request.status,
+      expectedReturnQtyBefore: request.expectedReturnQtyBefore,
+      expectedReturnQtyAfter: request.expectedReturnQtyAfter,
+      responsibilityAdjustmentQty: request.responsibilityAdjustmentQty,
+      returnedGarmentQty: returnCase?.receipts.reduce((sum, receipt) => sum + receipt.returnedGarmentQty, 0) ?? -1,
+      legacyAdjustmentQty: returnCase?.receipts.reduce((sum, receipt) => sum + (receipt.responsibilityAdjustmentGarmentQty || 0), 0) ?? -1,
+      eventTypes: request.events.map((event) => event.eventType),
+    }
+  }, created.requestId)
+  expect(finalFacts).toEqual({
+    status: 'WAREHOUSED',
+    expectedReturnQtyBefore: created.expectedReturnQtyBefore,
+    expectedReturnQtyAfter: created.expectedReturnQtyBefore,
+    responsibilityAdjustmentQty: 0,
+    returnedGarmentQty: 1,
+    legacyAdjustmentQty: 0,
+    eventTypes: ['PPIC_CREATED', 'WAREHOUSE_EXCEPTION', 'PPIC_RECONFIRMED', 'WAREHOUSED'],
+  })
+
+  await expect(resubmittedRow).toContainText('已接收入仓')
+  await page.screenshot({ path: 'output/playwright/cut-piece-return-warehouse-received.png', fullPage: true })
   await page.setViewportSize({ width: 1280, height: 720 })
   await expectNoPageOverflow(page)
 })

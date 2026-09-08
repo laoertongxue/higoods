@@ -20,7 +20,7 @@ import {
 } from '../src/data/fcs/tech-packs.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料', '成衣', '捆条']
+const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料', '成衣', '捆条', '辅料']
 
 function read(relativePath: string): string {
   return readFileSync(resolve(repoRoot, relativePath), 'utf8')

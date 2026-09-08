@@ -1,3 +1,4 @@
+import { receiveDyeMaterial } from './dyeing-material-receipts.ts'
 import {
   PRINT_WORK_ORDER_STATUS_LABEL,
   capturePrintProcessMutationState,
@@ -19,6 +20,7 @@ import {
   completeDyeNode,
   completeDyeSampleTest,
   completeDyeSampleWait,
+  completeDyeWorkOrderDocument,
   completeDyeing,
   getDyeWorkOrderById,
   planDyeVat,
@@ -28,8 +30,8 @@ import {
   submitDyeHandover,
   restoreDyeProcessMutationState,
 } from './dyeing-task-domain.ts'
-import { cutPieceOrderRecords, updateCutPieceOrderWebStage } from './cutting/cut-piece-orders.ts'
-import { updateCuttingOrderProgressWebStage } from './cutting/order-progress.ts'
+import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orders.ts'
+import { cuttingOrderProgressRecords, updateCuttingOrderProgressWebStage } from './cutting/order-progress.ts'
 import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   applySpecialCraftLineProgressAction,
@@ -38,18 +40,13 @@ import {
   executeButtonLoopSpecialCraftAction,
   getSpecialCraftTaskOrderById,
   updateSpecialCraftTaskOrderWebStatus,
+  type SpecialCraftTaskOrder,
   type SpecialCraftTaskStatus,
 } from './special-craft-task-orders.ts'
-import {
-  applyPostFinishingActionFinish,
-  applyPostFinishingActionStart,
-  getPostFinishingWorkOrderById,
-  type PostFinishingActionType,
-} from './post-finishing-domain.ts'
+import { getPostFinishingFullFlowPostTask } from './post-finishing-full-flow.ts'
 import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
-  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -217,6 +214,7 @@ const ACTION_CODE_ALIASES: Record<string, string> = {
   FINISH_ROLL: 'DYE_FINISH_ROLLING',
   FINISH_PACK: 'DYE_FINISH_PACKING',
   SUBMIT_DYE_HANDOVER: 'DYE_SUBMIT_HANDOVER',
+  FINISH_DYE_DOCUMENT: 'DYE_COMPLETE_DOCUMENT',
   CONFIRM_CUTTING_PICKUP: 'CUTTING_CONFIRM_PICKUP',
   START_SPREADING: 'CUTTING_START_SPREADING',
   FINISH_SPREADING: 'CUTTING_FINISH_SPREADING',
@@ -423,13 +421,23 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     affectsHandover: true,
   },
   {
+    actionCode: 'DYE_COMPLETE_DOCUMENT',
+    actionLabel: '人工完成单据',
+    sourceType: 'DYE',
+    fromStatuses: ['WAIT_MANUAL_COMPLETION'],
+    toStatus: 'COMPLETED',
+    requiredFields: ['操作人', '完成时间'],
+    optionalFields: ['备注'],
+    writebackHandler: 'executeDyeAction.completeDyeWorkOrderDocument',
+  },
+  {
     actionCode: 'CUTTING_CONFIRM_PICKUP',
     actionLabel: '确认接收',
     sourceType: 'CUTTING',
     fromStatuses: ['待接收'],
     toStatus: '待铺布',
     requiredFields: ['接收人', '接收时间', '实领面料米数', '备注'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_START_SPREADING',
@@ -438,7 +446,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['待铺布'],
     toStatus: '铺布中',
     requiredFields: ['操作人', '开始时间', '裁床组'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_FINISH_SPREADING',
@@ -447,7 +455,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['铺布中'],
     toStatus: '待裁剪',
     requiredFields: ['操作人', '完成时间', '铺布层数', '铺布实际长度', '单位'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_START_CUTTING',
@@ -456,7 +464,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['待裁剪'],
     toStatus: '裁剪中',
     requiredFields: ['操作人', '开始时间', '裁床组'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_FINISH_CUTTING',
@@ -465,7 +473,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['裁剪中'],
     toStatus: '裁剪完成',
     requiredFields: ['操作人', '完成时间', '已裁裁片数量'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_GENERATE_FEI_TICKETS',
@@ -474,7 +482,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['裁剪完成', '待菲票'],
     toStatus: '菲票已生成',
     requiredFields: ['操作人', '生成时间', '生成菲票数量'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'CUTTING_CONFIRM_INBOUND',
@@ -483,7 +491,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['待入仓', '菲票已生成'],
     toStatus: '待交出',
     requiredFields: ['入仓人', '入仓时间', '入仓裁片数量', '仓位'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
     affectsWarehouse: true,
   },
   {
@@ -503,7 +511,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     fromStatuses: ['收货差异', '有差异'],
     toStatus: '待交出',
     requiredFields: ['操作人', '操作时间', '重交原因'],
-    writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
+    writebackHandler: 'executeCuttingAction.updateCuttingOrderProgressWebStage',
   },
   {
     actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
@@ -656,10 +664,12 @@ export function getCanonicalProcessActionCode(actionCode: string): string {
 }
 
 export function listProcessActionDefinitions(sourceType?: ProcessActionSourceType): ProcessActionDefinition[] {
-  return sourceType ? PROCESS_ACTION_DEFINITIONS.filter((item) => item.sourceType === sourceType) : [...PROCESS_ACTION_DEFINITIONS]
+  const activeDefinitions = PROCESS_ACTION_DEFINITIONS.filter((item) => item.sourceType !== 'POST_FINISHING')
+  return sourceType ? activeDefinitions.filter((item) => item.sourceType === sourceType) : activeDefinitions
 }
 
 export function getProcessActionDefinition(sourceType: ProcessActionSourceType, actionCode: string): ProcessActionDefinition | undefined {
+  if (sourceType === 'POST_FINISHING') return undefined
   const canonicalActionCode = normalizeActionCode(actionCode)
   return PROCESS_ACTION_DEFINITIONS.find((item) => item.sourceType === sourceType && item.actionCode === canonicalActionCode)
 }
@@ -682,6 +692,18 @@ function normalizeCuttingStatus(status: string): string {
 
 function getLatestRecord(sourceType: ProcessActionSourceType, sourceId: string): ProcessActionOperationRecord | undefined {
   return processActionOperationRecords.find((record) => record.sourceType === sourceType && record.sourceId === sourceId)
+}
+
+function findGeneratedCuttingOrder(sourceId: string) {
+  return listGeneratedCutOrderSourceRecords().find(
+    (item) => item.cutOrderId === sourceId || item.cutOrderNo === sourceId,
+  )
+}
+
+function findCuttingProgressRecord(sourceId: string) {
+  return cuttingOrderProgressRecords.find((record) => record.materialLines.some(
+    (line) => line.cutOrderId === sourceId || line.cutOrderNo === sourceId || line.cutPieceOrderNo === sourceId,
+  ))
 }
 
 export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceType, sourceId: string): StatusSnapshot {
@@ -713,39 +735,38 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
 
   if (sourceType === 'CUTTING') {
     const binding = validateCuttingOrderMobileTaskBinding(sourceId)
-    const record = cutPieceOrderRecords.find(
-      (item) => item.cutOrderId === sourceId || item.cutOrderNo === sourceId || item.id === sourceId,
-    )
+    const order = findGeneratedCuttingOrder(sourceId)
+    if (!order) throw new Error('正式裁片单不存在')
+    const progress = findCuttingProgressRecord(order.cutOrderId)
     const latestRecord = getLatestRecord('CUTTING', sourceId)
-    const status = normalizeCuttingStatus(latestRecord?.nextStatus || record?.currentStage || '待铺布')
+    const status = normalizeCuttingStatus(latestRecord?.nextStatus || progress?.cuttingStage || '待铺布')
     return {
       status,
       label: status,
-      qty: latestRecord?.objectQty || record?.markerInfo.totalPieces || record?.orderQty || 100,
+      qty: latestRecord?.objectQty || order.requiredQty,
       unit: latestRecord?.qtyUnit || '片',
       taskId: binding.actualTaskId,
-      workOrderNo: binding.workOrderNo,
+      workOrderNo: order.cutOrderNo,
     }
   }
 
   if (sourceType === 'POST_FINISHING') {
-    const order = getPostFinishingWorkOrderById(sourceId)
-    if (!order) throw new Error('后道加工单不存在')
-    const binding = validatePostFinishingMobileTaskBinding(order.postOrderId)
+    const order = getPostFinishingFullFlowPostTask(sourceId)
+    if (!order) throw new Error('当前后道全流程加工单不存在')
     return {
-      status: order.currentStatus,
-      label: order.currentStatus,
-      qty: order.plannedGarmentQty,
-      unit: order.plannedGarmentQtyUnit,
-      taskId: binding.actualTaskId || order.sourceTaskId,
-      workOrderNo: order.postOrderNo,
+      status: order.status,
+      label: order.status,
+      qty: order.lines.reduce((sum, line) => sum + line.expectedQty, 0),
+      unit: '件',
+      taskId: order.postTaskId,
+      workOrderNo: order.postTaskNo,
     }
   }
 
   const workOrder = getSpecialCraftTaskOrderById(sourceId)
   if (!workOrder) throw new Error('特殊工艺加工单不存在')
   const binding = validateSpecialCraftMobileTaskBinding(sourceId)
-  const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
+  const objectMeta = resolveSpecialCraftObjectMeta(workOrder)
   return {
     status: workOrder.status,
     label: workOrder.status,
@@ -762,6 +783,13 @@ function validateBinding(
   sourceChannel?: ProcessActionPayload['sourceChannel'],
   currentFactoryId?: string,
 ): { ok: boolean; reason: string; taskId: string } {
+  if (sourceType === 'POST_FINISHING') {
+    return {
+      ok: false,
+      reason: '后道必须在回货确认、QC、后道加工或处理后交出复核专用页面操作。',
+      taskId: sourceId,
+    }
+  }
   const binding =
     sourceType === 'PRINT'
       ? validatePrintWorkOrderMobileTaskBinding(sourceId)
@@ -769,9 +797,7 @@ function validateBinding(
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
         : sourceType === 'CUTTING'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
-          : sourceType === 'SPECIAL_CRAFT'
-            ? validateSpecialCraftMobileTaskBinding(sourceId, currentFactoryId)
-            : validatePostFinishingMobileTaskBinding(sourceId)
+          : validateSpecialCraftMobileTaskBinding(sourceId, currentFactoryId)
   const prototypeCanUseFactoryScopedSpecialCraft =
     (sourceChannel === 'Web 端' || sourceChannel === '移动端') &&
     sourceType === 'SPECIAL_CRAFT' &&
@@ -846,11 +872,17 @@ function assertActionSpecificFields(payload: ProcessActionPayload, definition: P
   }
 }
 
-function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { objectType: '面料' | '裁片' | '成衣' | '辅料'; qtyUnit: '米' | '片' | '件' | '条' } {
-  const normalized = String(targetObject || '')
+function resolveSpecialCraftObjectMeta(
+  source: string | Pick<SpecialCraftTaskOrder, 'targetObject' | 'outputUnit' | 'unit'> | null | undefined,
+): { objectType: '面料' | '裁片' | '成衣' | '辅料'; qtyUnit: '米' | '片' | '件' | '个' | '条' } {
+  const normalized = String(typeof source === 'string' ? source : source?.targetObject || '')
   if (normalized.includes('成衣')) return { objectType: '成衣', qtyUnit: '件' }
   if (normalized.includes('面料')) return { objectType: '面料', qtyUnit: '米' }
-  if (normalized.includes('辅料') || normalized.includes('橡筋')) return { objectType: '辅料', qtyUnit: '条' }
+  if (normalized.includes('辅料') || normalized.includes('橡筋')) {
+    const outputUnit = String(typeof source === 'string' ? '' : source?.outputUnit || source?.unit || '')
+    const qtyUnit = (['米', '片', '件', '个', '条'].includes(outputUnit) ? outputUnit : '条') as '米' | '片' | '件' | '个' | '条'
+    return { objectType: '辅料', qtyUnit }
+  }
   return { objectType: '裁片', qtyUnit: '片' }
 }
 
@@ -929,7 +961,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
   try {
     if (payload.sourceType === 'SPECIAL_CRAFT') {
       const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
-      const isGarment = resolveSpecialCraftObjectMeta(workOrder?.targetObject).objectType === '成衣'
+      const isGarment = resolveSpecialCraftObjectMeta(workOrder).objectType === '成衣'
       const requiresPositiveSkuQty = [
         'SPECIAL_CRAFT_CONFIRM_RECEIVE',
         'SPECIAL_CRAFT_PROCESS_REPORT',
@@ -950,7 +982,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
 function getActionObjectType(sourceType: ProcessActionSourceType, payload: ProcessActionPayload): string {
   if (sourceType === 'SPECIAL_CRAFT') {
     const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
-    if (workOrder) return resolveSpecialCraftObjectMeta(workOrder.targetObject).objectType
+    if (workOrder) return resolveSpecialCraftObjectMeta(workOrder).objectType
   }
   return getProcessObjectType({
     processType: sourceType,
@@ -1036,8 +1068,7 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   } else if (actionCode === 'DYE_MATERIAL_RECEIVED') {
     completeDyeMaterialWait(payload.sourceId, operatorName)
   } else if (actionCode === 'DYE_FINISH_PREPARE') {
-    startDyeMaterialReady(payload.sourceId, operatorName)
-    completeDyeMaterialReady(payload.sourceId, { outputQty: qty, operatorName })
+    receiveDyeMaterial(payload.sourceId, { qty, operatorName, receiptId: String(fields.receiptId || payload.confirmationKey || ''), upstreamRecordId: String(fields.upstreamRecordId || '') || undefined })
   } else if (actionCode === 'DYE_SCHEDULE_VAT') {
     planDyeVat(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
   } else if (actionCode === 'DYE_START_DYEING') {
@@ -1084,41 +1115,44 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
       })
     }
     return { affectedHandoverRecordId: result.recordIds[0] || '' }
+  } else if (actionCode === 'DYE_COMPLETE_DOCUMENT') {
+    completeDyeWorkOrderDocument(payload.sourceId, {
+      completedBy: operatorName,
+      completedAt: payload.operatedAt,
+      remark: payload.remark,
+    })
   }
   return {}
 }
 
 export function executeCuttingAction(payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
   const definition = getProcessActionDefinition('CUTTING', payload.actionCode)
-  if (!definition) throw new Error('裁片动作未注册')
-  updateCutPieceOrderWebStage(payload.sourceId, {
-    currentStage: definition.toStatus,
-    operatorName: payload.operatorName,
-    operatedAt: payload.operatedAt,
-    notes: payload.remark,
-  })
-  updateCuttingOrderProgressWebStage(payload.sourceId, {
+  if (!definition) throw new Error('裁剪动作未注册')
+  const order = findGeneratedCuttingOrder(payload.sourceId)
+  if (!order) throw new Error('正式裁片单不存在，不能写回裁剪状态')
+  const updatedProgress = updateCuttingOrderProgressWebStage(order.cutOrderId, {
     cuttingStage: definition.toStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
   })
-  const binding = validateCuttingOrderMobileTaskBinding(payload.sourceId)
-  const qty = Number(payload.objectQty || getProcessActionStatusSnapshot('CUTTING', payload.sourceId).qty || 0)
+  if (!updatedProgress) throw new Error('正式裁片单缺少生产进度投影，不能写回裁剪状态')
+  const binding = validateCuttingOrderMobileTaskBinding(order.cutOrderId)
+  const qty = Number(payload.objectQty || getProcessActionStatusSnapshot('CUTTING', order.cutOrderId).qty || 0)
   if (definition.actionCode === 'CUTTING_SUBMIT_HANDOVER') {
-    const relatedFeiTicketIds = listSpreadingResultGeneratedFeiTicketsByCutOrderId(payload.sourceId).map((ticket) => ticket.feiTicketNo)
+    const relatedFeiTicketIds = listSpreadingResultGeneratedFeiTicketsByCutOrderId(order.cutOrderId).map((ticket) => ticket.feiTicketNo)
     const handover = createProcessHandoverRecord({
       craftType: 'CUTTING',
-      craftName: '裁片',
-      sourceTaskOrderId: payload.sourceId,
-      sourceWorkOrderNo: binding.workOrderNo,
+      craftName: '裁剪',
+      sourceTaskOrderId: order.cutOrderId,
+      sourceWorkOrderNo: order.cutOrderNo,
       sourceTaskId: binding.actualTaskId,
       sourceTaskNo: binding.actualTaskNo,
-      sourceProductionOrderId: '',
-      sourceProductionOrderNo: '',
-      handoverFactoryId: 'F090',
-      handoverFactoryName: '全能力测试工厂',
-      receiveFactoryId: 'F090',
-      receiveFactoryName: '全能力测试工厂',
+      sourceProductionOrderId: order.productionOrderId,
+      sourceProductionOrderNo: order.productionOrderNo,
+      handoverFactoryId: order.cuttingTaskAssigneeFactoryId || 'F090',
+      handoverFactoryName: order.cuttingTaskAssigneeFactoryName || '全能力测试工厂',
+      receiveFactoryId: order.cuttingTaskAssigneeFactoryId || 'F090',
+      receiveFactoryName: order.cuttingTaskAssigneeFactoryName || '全能力测试工厂',
       receiveWarehouseName: '裁片仓',
       objectType: '裁片',
       handoverObjectQty: qty,
@@ -1137,7 +1171,7 @@ export function executeCuttingAction(payload: ProcessActionPayload): Partial<Pro
 
 function assertGarmentSkuQtyPayload(payload: ProcessActionPayload, actionCode: string): void {
   const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
-  if (!workOrder || resolveSpecialCraftObjectMeta(workOrder.targetObject).objectType !== '成衣') return
+  if (!workOrder || resolveSpecialCraftObjectMeta(workOrder).objectType !== '成衣') return
   if (!['SPECIAL_CRAFT_CONFIRM_RECEIVE', 'SPECIAL_CRAFT_PROCESS_REPORT', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionCode)) return
   if (!payload.skuQtyBySkuCode) {
     throw new Error('成衣操作必须逐 SKU 确认数量。')
@@ -1174,7 +1208,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   const nextStatus = definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' && workOrder.status === '已完结'
     ? '已完结'
     : definition.toStatus as SpecialCraftTaskStatus
-  const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
+  const objectMeta = resolveSpecialCraftObjectMeta(workOrder)
   const isAccessoryInputOutput = workOrder.targetObject === '辅料'
   assertGarmentSkuQtyPayload(payload, definition.actionCode)
   const skuReceivedQty = payload.skuQtyBySkuCode
@@ -1301,100 +1335,8 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   return { updatedWorkOrderId: updated?.taskOrderId || workOrder.taskOrderId }
 }
 
-function getPostFinishingActionType(actionCode: string, currentStatus?: string): PostFinishingActionType {
-  if (actionCode.includes('RECEIVE')) return '扫码收货'
-  if (actionCode.includes('QC')) return '质检'
-  if (actionCode.includes('PROCESS')) return '后道'
-  if (actionCode.includes('RECHECK')) return '复检'
-  if (currentStatus?.includes('质检')) return '质检'
-  if (currentStatus?.includes('后道')) return '后道'
-  if (currentStatus?.includes('复检') || currentStatus === '待交出') return '复检'
-  return '扫码收货'
-}
-
-function getPostFinishingRejectedQty(payload: ProcessActionPayload, actionCode: string): number {
-  const fields = payload.formData || {}
-  if (actionCode === 'POST_QC_FINISH') return Number(fields['不合格数量'] || fields['质检不合格成衣件数'] || 0)
-  if (actionCode === 'POST_RECHECK_FINISH') return Number(fields['复检不合格成衣件数'] || 0)
-  return 0
-}
-
-export function executePostFinishingAction(payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
-  const definition = getProcessActionDefinition('POST_FINISHING', payload.actionCode)
-  if (!definition) throw new Error('后道动作未注册')
-  const order = getPostFinishingWorkOrderById(payload.sourceId)
-  if (!order) throw new Error('后道加工单不存在')
-  const actionCode = normalizeActionCode(payload.actionCode)
-  const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
-  const qty = Number(payload.objectQty || order.plannedGarmentQty || 0)
-  const actionType = getPostFinishingActionType(actionCode, order.currentStatus)
-
-  if (actionCode.endsWith('_START')) {
-    const updated = applyPostFinishingActionStart({
-      postOrderId: payload.sourceId,
-      actionType,
-      operatorName,
-      startedAt: payload.operatedAt,
-    })
-    return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
-  }
-
-  if (actionCode === 'POST_REPORT_DIFFERENCE') {
-    const fields = payload.formData || {}
-    const expectedQty = Number(fields['应收成衣件数'] || order.plannedGarmentQty || qty)
-    const actualQty = Number(fields['实收成衣件数'] || Math.max(expectedQty - qty, 0))
-    const diffQty = Number(fields['差异成衣件数'] || Math.max(expectedQty - actualQty, 0) || qty)
-    const updated = applyPostFinishingActionFinish({
-      postOrderId: payload.sourceId,
-      actionType,
-      operatorName,
-      finishedAt: payload.operatedAt,
-      submittedGarmentQty: expectedQty,
-      acceptedGarmentQty: actualQty,
-      rejectedGarmentQty: 0,
-      diffGarmentQty: diffQty,
-      remark: payload.remark || '后道差异上报',
-    })
-    return { updatedWorkOrderId: updated.postOrderId, nextStatus: '有差异' } as Partial<ProcessActionWritebackResult>
-  }
-
-  if (actionCode.endsWith('_FINISH')) {
-    const fields = payload.formData || {}
-    const rejectedQty = getPostFinishingRejectedQty(payload, actionCode)
-    const submittedQty = actionCode === 'POST_QC_FINISH' ? Number(fields['质检数量'] || qty) : qty
-    const acceptedQty = actionCode === 'POST_QC_FINISH'
-      ? Number(fields['合格数量'] || Math.max(submittedQty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0))
-      : Math.max(qty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
-    const updated = applyPostFinishingActionFinish({
-      postOrderId: payload.sourceId,
-      actionType,
-      operatorName,
-      finishedAt: payload.operatedAt,
-      submittedGarmentQty: submittedQty,
-      acceptedGarmentQty: acceptedQty,
-      rejectedGarmentQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
-      diffGarmentQty: 0,
-      remark: payload.remark,
-      qualityFields: actionCode === 'POST_QC_FINISH'
-        ? ({
-            qcResult: String(fields['质检结果'] || ''),
-            unqualifiedDisposition: String(fields['不合格处置'] || ''),
-            unqualifiedReasonSummary: String(fields['不合格原因'] || ''),
-            rootCauseType: String(fields['根因类型'] || ''),
-            liabilityStatus: String(fields['责任判定状态'] || ''),
-            factoryLiabilityQty: Number(fields['工厂责任数量'] || 0),
-            nonFactoryLiabilityQty: Number(fields['非工厂责任数量'] || 0),
-            responsiblePartyName: String(fields['责任方'] || ''),
-            deductionDecision: String(fields['扣款决策'] || ''),
-            deductionDecisionRemark: String(fields['扣款备注'] || ''),
-            dispositionRemark: String(fields['处置备注'] || ''),
-          } as any)
-        : undefined,
-    })
-    return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
-  }
-
-  return { updatedWorkOrderId: payload.sourceId }
+export function executePostFinishingAction(_payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
+  throw new Error('旧通用后道动作写入口已停用；请使用当前回货确认、QC、后道加工或处理后交出复核专用页面。')
 }
 
 function buildOperationRemark(payload: ProcessActionPayload, definition?: ProcessActionDefinition): string {
@@ -1514,7 +1456,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     : undefined
   const warehouseFirstAction = hydratedPayload.sourceType === 'SPECIAL_CRAFT' && (
     definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
-    && resolveSpecialCraftObjectMeta(specialCraftWorkOrder?.targetObject).objectType === '成衣'
+    && resolveSpecialCraftObjectMeta(specialCraftWorkOrder).objectType === '成衣'
   )
   const runAction = (): Partial<ProcessActionWritebackResult> => (
     hydratedPayload.sourceType === 'PRINT'

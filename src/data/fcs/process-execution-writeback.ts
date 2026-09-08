@@ -1,3 +1,4 @@
+import { receiveDyeMaterial } from './dyeing-material-receipts.ts'
 import {
   completeColorTest,
   completePrinting,
@@ -53,17 +54,11 @@ import {
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
 import {
-  applyPostFinishingActionFinish,
-  applyPostFinishingActionStart,
-  ensurePostFinishingHandoverWarehouseRecord,
   getPostFinishingWorkOrderById,
   getPostFinishingWorkOrderBySourceTaskId,
-  receivePostFinishingAtManagedFactory,
-  transferPostFinishingToManagedFactory,
   type PostFinishingActionType,
-  type PostFinishingWaitHandoverWarehouseRecord,
   type PostFinishingWorkOrder,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import {
   createProcessHandoverRecord,
   createWaitHandoverWarehouseRecord,
@@ -350,6 +345,8 @@ export function startDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, pay
 }
 
 export function finishDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, payload: ExecutionWritebackPayload & {
+  receiptId?: string
+  upstreamRecordId?: string
   colorNo?: string
   outputQty?: number
   inputQty?: number
@@ -363,8 +360,8 @@ export function finishDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, pa
     return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
   }
   if (nodeCode === 'MATERIAL_READY') {
-    const nodeRecord = completeDyeMaterialReady(order.dyeOrderId, {
-      outputQty: payload.outputQty ?? order.plannedQty,
+    const nodeRecord = receiveDyeMaterial(order.dyeOrderId, {
+      qty: Number(payload.outputQty), receiptId: payload.receiptId || '', upstreamRecordId: payload.upstreamRecordId,
       operatorName: payload.operatorName || '染色工厂',
     })
     return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
@@ -680,12 +677,10 @@ export function submitSpecialCraftHandover(taskId: string, payload: ExecutionWri
 }
 
 export function startPostFinishingAction(postOrderId: string, actionType: PostFinishingActionType, payload: ExecutionWritebackPayload = {}): PostFinishingWorkOrder {
-  return applyPostFinishingActionStart({
-    postOrderId,
-    actionType,
-    operatorName: payload.operatorName || '移动端操作员',
-    startedAt: payload.operatedAt,
-  })
+  void postOrderId
+  void actionType
+  void payload
+  throw new Error('旧通用后道执行入口已停用，请使用当前后道专用页面。')
 }
 
 export function finishPostFinishingAction(postOrderId: string, actionType: PostFinishingActionType, payload: ExecutionWritebackPayload & {
@@ -694,130 +689,28 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
   rejectedGarmentQty?: number
   diffGarmentQty?: number
 } = {}): PostFinishingWorkOrder {
-  const order = applyPostFinishingActionFinish({
-    postOrderId,
-    actionType,
-    operatorName: payload.operatorName || '移动端操作员',
-    finishedAt: payload.operatedAt,
-    submittedGarmentQty: payload.submittedGarmentQty,
-    acceptedGarmentQty: payload.acceptedGarmentQty,
-    rejectedGarmentQty: payload.rejectedGarmentQty,
-    diffGarmentQty: payload.diffGarmentQty,
-    remark: payload.remark,
-  })
-  if (actionType === '复检') {
-    createWaitHandoverWarehouseRecord({
-      craftType: 'POST_FINISHING',
-      craftName: '后道',
-      sourceWorkOrderId: order.postOrderId,
-      sourceWorkOrderNo: order.postOrderNo,
-      sourceTaskId: order.sourceTaskId,
-      sourceTaskNo: order.sourceTaskNo,
-      sourceProductionOrderId: order.sourceProductionOrderId,
-      sourceProductionOrderNo: order.sourceProductionOrderNo,
-      sourceFactoryId: order.managedPostFactoryId,
-      sourceFactoryName: order.managedPostFactoryName,
-      targetFactoryId: order.managedPostFactoryId,
-      targetFactoryName: order.managedPostFactoryName,
-      targetWarehouseName: '后道待交出仓',
-      warehouseLocation: '后道待交出仓-C01',
-      skuSummary: order.skuSummary,
-      styleNo: order.styleNo,
-      objectType: '成衣',
-      plannedObjectQty: order.plannedGarmentQty,
-      receivedObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
-      availableObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
-      qtyUnit: '件',
-      currentActionName: '后道待交出',
-      status: '待交出',
-      inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '移动端复检完成后生成后道待交出仓记录',
-    })
-  } else if (actionType === '后道' && order.isPostDoneBySewingFactory) {
-    createWaitProcessWarehouseRecord({
-      craftType: 'POST_FINISHING',
-      craftName: '后道',
-      sourceWorkOrderId: order.postOrderId,
-      sourceWorkOrderNo: order.postOrderNo,
-      sourceTaskId: order.sourceTaskId,
-      sourceTaskNo: order.sourceTaskNo,
-      sourceProductionOrderId: order.sourceProductionOrderId,
-      sourceProductionOrderNo: order.sourceProductionOrderNo,
-      sourceFactoryId: order.currentFactoryId,
-      sourceFactoryName: order.currentFactoryName,
-      targetFactoryId: order.managedPostFactoryId,
-      targetFactoryName: order.managedPostFactoryName,
-      targetWarehouseName: '后道待加工仓',
-      warehouseLocation: '后道待加工仓-QC01',
-      skuSummary: order.skuSummary,
-      styleNo: order.styleNo,
-      objectType: '成衣',
-      plannedObjectQty: order.plannedGarmentQty,
-      receivedObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
-      availableObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
-      qtyUnit: '件',
-      currentActionName: '待扫码收货',
-      status: '已入仓',
-      inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '车缝厂交出后转入后道工厂扫码收货',
-    })
-  }
-  return order
+  void postOrderId
+  void actionType
+  void payload
+  throw new Error('旧通用后道执行入口已停用，请使用当前后道专用页面。')
 }
 
 export function transferPostFinishedGarmentsToManagedPostFactory(postOrderId: string, payload: ExecutionWritebackPayload = {}): PostFinishingWorkOrder {
-  return transferPostFinishingToManagedFactory({
-    postOrderId,
-    operatorName: payload.operatorName || '移动端操作员',
-    operatedAt: payload.operatedAt,
-    remark: payload.remark,
-  })
+  void postOrderId
+  void payload
+  throw new Error('旧后道转交入口已停用，请使用回货自助登记和后道确认实收。')
 }
 
 export function receivePostFinishedGarmentsAtManagedPostFactory(postOrderId: string, payload: ExecutionWritebackPayload = {}): PostFinishingWorkOrder {
-  return receivePostFinishingAtManagedFactory({
-    postOrderId,
-    operatorName: payload.operatorName || '后道工厂收货员',
-    operatedAt: payload.operatedAt,
-  })
+  void postOrderId
+  void payload
+  throw new Error('旧后道接收入口已停用，请使用回货确认实收。')
 }
 
-export function createPostFinishingHandoverWarehouseRecord(postOrderId: string, payload: ExecutionWritebackPayload = {}): PostFinishingWaitHandoverWarehouseRecord {
-  const record = ensurePostFinishingHandoverWarehouseRecord({
-    postOrderId,
-    createdAt: payload.operatedAt,
-  })
-  const order = getPostFinishingWorkOrderById(postOrderId)
-  if (order) {
-    createWaitHandoverWarehouseRecord({
-      craftType: 'POST_FINISHING',
-      craftName: '后道',
-      sourceWorkOrderId: order.postOrderId,
-      sourceWorkOrderNo: order.postOrderNo,
-      sourceTaskId: order.sourceTaskId,
-      sourceTaskNo: order.sourceTaskNo,
-      sourceProductionOrderId: order.sourceProductionOrderId,
-      sourceProductionOrderNo: order.sourceProductionOrderNo,
-      sourceFactoryId: order.managedPostFactoryId,
-      sourceFactoryName: order.managedPostFactoryName,
-      targetFactoryId: order.managedPostFactoryId,
-      targetFactoryName: order.managedPostFactoryName,
-      targetWarehouseName: '后道待交出仓',
-      warehouseLocation: '后道待交出仓-C01',
-      skuSummary: order.skuSummary,
-      styleNo: order.styleNo,
-      objectType: '成衣',
-      plannedObjectQty: order.plannedGarmentQty,
-      receivedObjectQty: record.availableHandoverGarmentQty,
-      availableObjectQty: record.availableHandoverGarmentQty,
-      qtyUnit: '件',
-      currentActionName: '后道待交出',
-      status: '待交出',
-      inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '复检完成后生成后道待交出仓记录',
-    })
-  }
-  return record
+export function createPostFinishingHandoverWarehouseRecord(postOrderId: string, payload: ExecutionWritebackPayload = {}): never {
+  void postOrderId
+  void payload
+  throw new Error('旧后道待交出仓入口已停用；处理后交出复核由当前全流程生成。')
 }
 
 export function getPostFinishingWorkOrderForMobile(execId: string): PostFinishingWorkOrder | undefined {

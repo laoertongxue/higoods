@@ -16,7 +16,7 @@ import {
   listPostFinishingQcOrders,
   type PostFinishingActionRecord,
   type PostFinishingQcSkuResult,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 import { deriveSettlementCycleFields } from './store-domain-statement-grain.ts'
 import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-factory.ts'
 import {

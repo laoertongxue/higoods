@@ -47,10 +47,7 @@ import type {
   TransferBagReturnUsageItem,
   TransferBagReturnViewModel,
 } from './transfer-bag-return-model.ts'
-import type {
-  SpecialProcessRow,
-  SpecialProcessViewModel,
-} from './special-processes-model.ts'
+import type { BindingProcessOrder } from './binding-strip-order-types.ts'
 import {
   buildCuttingCheckResult,
   cuttingCheckSectionLabelMap,
@@ -266,7 +263,7 @@ export interface CuttingSummaryDetailPanelData {
   bagBindings: TransferBagBindingItem[]
   reuseCycles: TransferBagReuseCycleItem[]
   conditionItems: TransferBagConditionDecisionItem[]
-  specialProcesses: SpecialProcessRow[]
+  bindingProcesses: BindingProcessOrder[]
   traceTree: CuttingSummaryTraceNode[]
   navigationPayload: CuttingSummaryNavigationPayload
 }
@@ -391,7 +388,7 @@ export interface CuttingSummaryBuildOptions {
   sampleWarehouseView: SampleWarehouseViewModel
   transferBagView: TransferBagViewModel
   transferBagReturnView: TransferBagReturnViewModel
-  specialProcessView: SpecialProcessViewModel
+  bindingProcessOrders: BindingProcessOrder[]
 }
 
 export const cuttingSummaryRiskMetaMap: Record<CuttingSummaryRiskLevel, CuttingSummaryRiskMeta> = {
@@ -446,10 +443,10 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
   },
   SPECIAL_PROCESS: {
     key: 'SPECIAL_PROCESS',
-    label: '特殊工艺问题',
+    label: '捆条加工问题',
     className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200',
-    detailText: '特殊工艺待执行、执行中，或后续动作尚未闭环。',
-    actionHint: '去特殊工艺',
+    detailText: '捆条加工待执行、执行中，或加工完成后尚未交出。',
+    actionHint: '去捆条加工单',
   },
 }
 
@@ -536,23 +533,25 @@ function summarizeSpreading(sessions: SpreadingSession[]): string {
     .join(' / ')
 }
 
-function isOpenSpecialProcess(item: SpecialProcessRow): boolean {
-  return !['DONE', 'CANCELLED'].includes(item.status)
+function isOpenBindingProcess(item: BindingProcessOrder): boolean {
+  return item.status !== '已取消' && (item.status !== '已完成' || item.handoverStatus !== '已交出')
 }
 
-function summarizeSpecialProcess(items: SpecialProcessRow[]): string {
+function summarizeBindingProcess(items: BindingProcessOrder[]): string {
   if (!items.length) return '未创建'
-  const draftCount = items.filter((item) => item.status === 'DRAFT').length
-  const pendingCount = items.filter((item) => item.status === 'PENDING_EXECUTION').length
-  const inProgressCount = items.filter((item) => item.status === 'IN_PROGRESS').length
-  const doneCount = items.filter((item) => item.status === 'DONE').length
-  const cancelledCount = items.filter((item) => item.status === 'CANCELLED').length
+  const pendingCount = items.filter((item) => item.status === '待加工').length
+  const inProgressCount = items.filter((item) => item.status === '加工中').length
+  const doneCount = items.filter((item) => item.status === '已完成').length
+  const cancelledCount = items.filter((item) => item.status === '已取消').length
+  const pendingHandoverCount = items.filter(
+    (item) => item.status === '已完成' && item.handoverStatus !== '已交出',
+  ).length
   return [
-    `工艺单 ${items.length}`,
-    draftCount ? `草稿 ${draftCount}` : '',
-    pendingCount ? `待执行 ${pendingCount}` : '',
-    inProgressCount ? `执行中 ${inProgressCount}` : '',
+    `捆条单 ${items.length}`,
+    pendingCount ? `待加工 ${pendingCount}` : '',
+    inProgressCount ? `加工中 ${inProgressCount}` : '',
     doneCount ? `已完成 ${doneCount}` : '',
+    pendingHandoverCount ? `待交出 ${pendingHandoverCount}` : '',
     cancelledCount ? `已取消 ${cancelledCount}` : '',
   ]
     .filter(Boolean)
@@ -598,7 +597,7 @@ function buildSummarySourceObjects(options: {
   ticketOwners: CutOrderTicketOwner[]
   printJobs: FeiTicketPrintJob[]
   bagUsages: TransferBagUsageItem[]
-  specialProcesses: SpecialProcessRow[]
+  bindingProcesses: BindingProcessOrder[]
 }): CuttingSummarySourceObjectItem[] {
   const blockerCountBySourceNo = options.row.blockerItems.reduce<Record<string, number>>((result, item) => {
     result[item.sourceNo] = (result[item.sourceNo] || 0) + 1
@@ -689,21 +688,22 @@ function buildSummarySourceObjects(options: {
     navigationPayload: item.navigationPayload.summary,
   }))
 
-  const specialProcesses = options.specialProcesses.map<CuttingSummarySourceObjectItem>((item) => ({
+  const bindingProcesses = options.bindingProcesses.map<CuttingSummarySourceObjectItem>((item) => ({
     sourceType: 'SPECIAL_PROCESS',
-    sourceLabel: '特殊工艺单',
-    sourceId: item.processOrderId,
-    sourceNo: item.processOrderNo,
-    statusLabel: item.statusMeta.label,
-    materialSku: item.materialSku,
-    materialAlias: resolveMaterialIdentity(item.materialSku).materialAlias,
-    materialImageUrl: resolveMaterialIdentity(item.materialSku).materialImageUrl,
-    blockerCount: blockerCountBySourceNo[item.processOrderNo] || 0,
+    sourceLabel: '捆条加工单',
+    sourceId: item.bindingOrderId,
+    sourceNo: item.bindingOrderNo,
+    statusLabel: `${item.status} / ${item.handoverStatus}`,
+    materialSku: item.materialIdentity.materialSku,
+    materialAlias: item.materialIdentity.materialAlias,
+    materialImageUrl: item.materialIdentity.materialImageUrl,
+    blockerCount: blockerCountBySourceNo[item.bindingOrderNo] || 0,
     navigationTarget: 'specialProcesses',
     navigationPayload: {
-      processOrderId: item.processOrderId,
-      processOrderNo: item.processOrderNo,
-      productionOrderNo: item.productionOrderNos[0],
+      processOrderId: item.bindingOrderId,
+      processOrderNo: item.bindingOrderNo,
+      cutOrderNo: item.sourceCutOrderNo,
+      productionOrderNo: item.sourceProductionOrderNo,
     },
   }))
 
@@ -713,7 +713,7 @@ function buildSummarySourceObjects(options: {
     ...ticketOwners,
     ...printJobs,
     ...bagUsages,
-    ...specialProcesses,
+    ...bindingProcesses,
   ]
 }
 
@@ -844,7 +844,9 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const returnUsages = options.transferBagReturnView.waitingReturnUsages.filter((usage) => usageIdSet.has(usage.usageId))
     const reuseCycles = options.transferBagReturnView.reuseCycles.filter((cycle) => bagUsages.some((usage) => usage.bagId === cycle.bagId))
     const conditionItems = options.transferBagReturnView.conditionItems.filter((item) => usageIdSet.has(item.usageId))
-    const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
+    const bindingProcesses = options.bindingProcessOrders.filter(
+      (item) => item.sourceProductionOrderNo === productionRow.productionOrderNo,
+    )
 
     const relatedCutOrderNos = uniqueStrings(cutOrderRows.map((row) => row.cutOrderNo))
     const relatedCutOrderIds = uniqueStrings(cutOrderRows.map((row) => row.cutOrderId))
@@ -864,7 +866,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       ...materialPrepRows.flatMap((row) => row.materialLineItems.map((item) => item.materialSku)),
       ...fabricStocks.map((item) => item.materialSku),
     ])
-    const relatedProcessOrderNos = uniqueStrings(specialProcesses.map((item) => item.processOrderNo))
+    const relatedProcessOrderNos = uniqueStrings(bindingProcesses.map((item) => item.bindingOrderNo))
     const qrSchemaVersions = uniqueStrings(ticketRecords.map((record) => record.schemaVersion || '1.0.0'))
 
     const navigationPayload = buildSummaryNavigationPayload({
@@ -893,7 +895,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       bagUsages,
       returnUsages,
       conditionItems,
-      specialProcesses,
+      bindingProcesses,
       navigationPayload,
     })
     const pieceTruth = productionRow.pieceTruth
@@ -937,7 +939,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       ticketSummary: summarizeTicketStatus(ticketOwners, ticketRecords),
       warehouseSummary: summarizeWarehouseStatus({ fabricStocks, cutPieceItems, sampleItems }),
       bagUsageSummary: summarizeBagUsageStatus(bagUsages, returnUsages),
-      specialProcessSummary: summarizeSpecialProcess(specialProcesses),
+      specialProcessSummary: summarizeBindingProcess(bindingProcesses),
       completionState: completionMeta.key,
       completionLabel: completionMeta.label,
       completionClassName: completionMeta.className,
@@ -985,7 +987,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
         cutPieceItems.filter((item) => item.riskTags.length > 0).length +
         returnUsages.filter((item) => item.returnDiscrepancyMeta || item.latestClosureResult?.closureStatus === 'SCRAP_CLOSED').length,
       openBagUsageCount: bagUsages.filter((usage) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)).length,
-      openSpecialProcessCount: specialProcesses.filter((item) => isOpenSpecialProcess(item)).length,
+      openSpecialProcessCount: bindingProcesses.filter((item) => isOpenBindingProcess(item)).length,
       keywordIndex: lowerKeywordIndex([
         productionRow.productionOrderNo,
         productionRow.productionOrderId,
@@ -1112,12 +1114,12 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
     }
   })
 
-  const specialProcessNodes = detail.specialProcesses.map<CuttingSummaryTraceNode>((item) => ({
-    nodeId: `trace-special-${item.processOrderId}`,
+  const bindingProcessNodes = detail.bindingProcesses.map<CuttingSummaryTraceNode>((item) => ({
+    nodeId: `trace-special-${item.bindingOrderId}`,
     nodeType: 'special-process',
-    nodeLabel: item.processOrderNo,
-    relatedIds: [item.processOrderId, item.processOrderNo],
-    status: item.statusMeta.label,
+    nodeLabel: item.bindingOrderNo,
+    relatedIds: [item.bindingOrderId, item.bindingOrderNo],
+    status: `${item.status} / ${item.handoverStatus}`,
     children: [],
   }))
 
@@ -1128,7 +1130,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       nodeLabel: detail.row.productionOrderNo,
       relatedIds: [detail.row.productionOrderId, detail.row.productionOrderNo],
       status: `${detail.completionMeta.label} / ${detail.row.currentStageLabel}`,
-      children: [...cutOrderNodes, ...specialProcessNodes],
+      children: [...cutOrderNodes, ...bindingProcessNodes],
     } satisfies CuttingSummaryTraceNode,
   ]
 }
@@ -1165,7 +1167,9 @@ export function buildSummaryDetailPanelData(
   const returnUsages = options.transferBagReturnView.waitingReturnUsages.filter((usage) => usageIdSet.has(usage.usageId))
   const reuseCycles = options.transferBagReturnView.reuseCycles.filter((cycle) => bagUsages.some((usage) => usage.bagId === cycle.bagId))
   const conditionItems = options.transferBagReturnView.conditionItems.filter((item) => usageIdSet.has(item.usageId))
-  const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(row.productionOrderNo))
+  const bindingProcesses = options.bindingProcessOrders.filter(
+    (item) => item.sourceProductionOrderNo === row.productionOrderNo,
+  )
   const sourceObjects = buildSummarySourceObjects({
     row,
     cutOrderRows,
@@ -1173,7 +1177,7 @@ export function buildSummaryDetailPanelData(
     ticketOwners,
     printJobs,
     bagUsages,
-    specialProcesses,
+    bindingProcesses,
   })
 
   const base = {
@@ -1211,7 +1215,7 @@ export function buildSummaryDetailPanelData(
     bagBindings,
     reuseCycles,
     conditionItems,
-    specialProcesses,
+    bindingProcesses,
     navigationPayload: row.navigationPayload,
   }
 
@@ -1248,9 +1252,9 @@ export function buildSummaryDashboardCards(
     },
     {
       key: 'special-process-open',
-      label: '特殊工艺单数',
+      label: '未闭环捆条加工单',
       value: dashboard.openSpecialProcessCount,
-      hint: '含草稿、待执行与执行中',
+      hint: '含待加工、加工中与待交出',
       accentClass: 'text-fuchsia-600',
       filterType: 'special-process',
       filterValue: 'true',
@@ -1315,7 +1319,7 @@ export function buildCuttingSummaryViewModel(options: CuttingSummaryBuildOptions
     productionOrderCount: rows.length,
     cutOrderCount: rows.reduce((sum, row) => sum + row.cutOrderCount, 0),
     markerPlanSourceCount: options.markerPlanSources.length,
-    openSpecialProcessCount: options.specialProcessView.rows.filter((item) => isOpenSpecialProcess(item)).length,
+    openSpecialProcessCount: options.bindingProcessOrders.filter((item) => isOpenBindingProcess(item)).length,
     ticketPrintedCount: options.feiViewModel.ticketRecords.length,
     unprintedOwnerCount: options.feiViewModel.owners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).length,
     bagOpenUsageCount: options.transferBagReturnView.waitingReturnUsages.filter((item) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(item.usageStatus)).length,

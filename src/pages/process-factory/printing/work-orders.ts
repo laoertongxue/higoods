@@ -16,6 +16,7 @@ import {
   PRINTING_PROCESSING_STATUSES,
   PRINTING_PROCESSING_STATUS_LABEL,
   formatPrintingQty,
+  formatPrintingSummaryMetric,
   formatPrintingUsage,
   getPrintingWorkOrderSummary,
   isPrintingWorkOrderBusinessCompleted,
@@ -66,6 +67,7 @@ const state: {
 const selectedWorkOrderIds = new Set<string>()
 
 function imageButton(image: { imageUrl: string; imageAlt: string }, size = 'h-12 w-12'): string {
+  if (!image.imageUrl) return `<span class="${size} flex shrink-0 items-center justify-center rounded border border-amber-200 bg-amber-50 p-1 text-center text-xs text-amber-800" role="img" aria-label="${escapeHtml(image.imageAlt)}：缺少对应图片">缺少对应图片</span>`
   return `<button type="button" class="${size} shrink-0 overflow-hidden rounded-md border bg-slate-50" data-printing-action="preview-image" data-image-url="${escapeHtml(image.imageUrl)}" data-image-alt="${escapeHtml(image.imageAlt)}" aria-label="查看${escapeHtml(image.imageAlt)}大图">
     <img class="h-full w-full object-cover" src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageAlt)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
     <span hidden class="flex h-full w-full items-center justify-center p-1 text-[10px] text-red-600">图片加载失败</span>
@@ -124,11 +126,11 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   },
   {
     key: 'source', title: '需求来源', width: 230, sortable: true, sortValue: (order) => order.demandSource.type,
-    render: (order) => `<div class="space-y-1 text-xs">${statusBadge(PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type], 'blue')}<p class="font-medium">${escapeHtml(order.demandSource.sourceLabel)}</p><p>供料：${escapeHtml(order.plannedInput.supplySource)}</p><p>${escapeHtml(order.plannedInput.sourceWarehouseName)}：${formatPrintingQty(order.plannedInput.sourceWarehouseStockQty)} Yard</p><p>待加工仓：${formatPrintingQty(order.plannedInput.pendingWarehouseStockQty)} Yard</p><p>白胚库存：${formatPrintingQty(order.plannedInput.whiteStockQty)} Yard</p></div>`,
+    render: (order) => `<div class="space-y-1 text-xs">${statusBadge(PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type], 'blue')}<p class="font-medium">${escapeHtml(order.demandSource.sourceLabel)}</p><p>供料：${escapeHtml(order.plannedInput.supplySource)}</p><p>${escapeHtml(order.plannedInput.sourceWarehouseName)}：${formatPrintingQty(order.plannedInput.sourceWarehouseStockQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p><p>待加工仓：${formatPrintingQty(order.plannedInput.pendingWarehouseStockQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p><p>待印库存：${formatPrintingQty(order.plannedInput.whiteStockQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p></div>`,
   },
   {
     key: 'input', title: '加工投入', width: 260, required: true, sortable: true, sortValue: (order) => order.plannedInput.sku,
-    render: (order) => `<div class="flex items-start gap-2">${imageButton(order.plannedInput)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${order.plannedInput.objectType}] ${escapeHtml(order.plannedInput.materialName)}</p><p>SPU：${escapeHtml(order.plannedInput.spu)}</p><p class="break-all font-mono">计划：${escapeHtml(order.plannedInput.sku)}</p><p class="break-all font-mono">实际：${escapeHtml(order.actualInput.actualSku || '未接收')}</p><p>库存：${formatPrintingQty(order.plannedInput.currentStockQty)} · 待印：${formatPrintingQty(order.plannedInput.pendingPrintQty)} Yard</p>${order.inputChanges.length ? statusBadge(`已换料 ${order.inputChanges.length} 次`, 'amber') : ''}</div></div>`,
+    render: (order) => `<div class="flex items-start gap-2">${imageButton(order.plannedInput)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${escapeHtml(order.plannedInput.objectType)}] ${escapeHtml(order.plannedInput.materialName)}</p><p>SPU：${escapeHtml(order.plannedInput.spu)}</p><p class="break-all font-mono">计划：${escapeHtml(order.plannedInput.sku)}</p><p class="break-all font-mono">实际：${escapeHtml(order.actualInput.actualSku || (order.historicalInputQuantityUnknown ? '历史未记录' : '未接收'))}</p><p>库存：${formatPrintingQty(order.plannedInput.currentStockQty)} · 待印：${formatPrintingQty(order.plannedInput.pendingPrintQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p>${order.inputChanges.length ? statusBadge(`已换料 ${order.inputChanges.length} 次`, 'amber') : ''}</div></div>`,
   },
   {
     key: 'requirement', title: '印花要求', width: 240, sortable: true, sortValue: (order) => order.requirement.craftName,
@@ -136,11 +138,11 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   },
   {
     key: 'output', title: '加工产出', width: 260, required: true, sortable: true, sortValue: (order) => order.output.sku,
-    render: (order) => `<div class="flex items-start gap-2">${imageButton(order.output)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${order.output.objectType}] ${escapeHtml(order.output.materialName)}</p><p>SPU：${escapeHtml(order.output.spu)}</p><p class="break-all font-mono font-medium text-emerald-700">${escapeHtml(order.output.sku)}</p><p class="text-slate-500">固定产出，不随投入换料改变</p></div></div>`,
+    render: (order) => `<div class="flex items-start gap-2">${imageButton(order.output)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${escapeHtml(order.output.objectType)}] ${escapeHtml(order.output.materialName)}</p><p>SPU：${escapeHtml(order.output.spu)}</p><p class="break-all font-mono font-medium text-emerald-700">${escapeHtml(order.output.sku)}</p><p class="text-slate-500">固定产出，不随投入换料改变</p></div></div>`,
   },
   {
     key: 'quantity', title: '数量进度', width: 275, sortable: true, align: 'right', sortValue: (order) => order.plannedInput.plannedQty,
-    render: (order) => `<div class="space-y-1 text-xs tabular-nums"><p>需求基数：${formatPrintingQty(order.usage.demandBaseQty)} ${escapeHtml(order.usage.demandBaseUnit)}</p><p>标准/本单用量：${formatPrintingUsage(order.usage.standardUnitUsage)} / ${formatPrintingUsage(order.usage.orderUnitUsage)}</p><p>计划投入：<b>${formatPrintingQty(order.plannedInput.plannedQty)} Yard</b></p><p>实际接收：${formatPrintingQty(order.actualInput.receivedQty)} Yard / ${order.actualInput.receivedRollCount} 卷</p><p>实际使用：${formatPrintingQty(order.actualInput.usedQty)} Yard / ${order.actualInput.usedRollCount} 卷</p><p>完成：<b>${formatPrintingQty(order.output.completedQty)} Yard / ${order.output.completedRollCount} 卷</b></p><p class="text-slate-500">历史损耗：${formatPrintingQty(order.historicalLossQty)} Yard（兼容）</p></div>`,
+    render: (order) => `<div class="space-y-1 text-xs tabular-nums"><p>需求基数：${formatPrintingQty(order.usage.demandBaseQty)} ${escapeHtml(order.usage.demandBaseUnit)}</p><p>标准/本单用量：${formatPrintingUsage(order.usage.standardUnitUsage)} / ${formatPrintingUsage(order.usage.orderUnitUsage)}</p><p>计划投入：<b>${formatPrintingQty(order.plannedInput.plannedQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</b></p><p>实际接收：${order.historicalInputQuantityUnknown ? '历史未记录' : `${formatPrintingQty(order.actualInput.receivedQty)} ${escapeHtml(order.plannedInput.qtyUnit)} / ${order.actualInput.receivedRollCount} 卷`}</p><p>实际使用：${formatPrintingQty(order.actualInput.usedQty)} ${escapeHtml(order.plannedInput.qtyUnit)} / ${(order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty > 0 && order.actualInput.usedRollCount === 0)) ? '历史卷数未记录' : `${order.actualInput.usedRollCount} 卷`}</p><p>完成：<b>${formatPrintingQty(order.output.completedQty)} ${escapeHtml(order.output.qtyUnit)} / ${order.historicalRollQuantitiesUnknown ? '历史卷数未记录' : `${order.output.completedRollCount} 卷`}</b></p><p class="text-slate-500">历史损耗：${formatPrintingQty(order.historicalLossQty)} ${escapeHtml(order.plannedInput.qtyUnit)}（兼容）</p></div>`,
   },
   {
     key: 'factoryTime', title: '加工厂/时间', width: 220, sortable: true, sortValue: (order) => order.orderedAt,
@@ -149,7 +151,7 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   { key: 'processingStatus', title: '加工状态', width: 125, required: true, sortable: true, sortValue: (order) => order.processingStatus, render: (order) => processingBadge(order.processingStatus) },
   {
     key: 'handoverStatus', title: '交出状态', width: 220, required: true, sortable: true, sortValue: (order) => order.handoverStatus,
-    render: (order) => `<div class="space-y-1 text-xs">${handoverBadge(order.handoverStatus)}<p>接收人：${escapeHtml(order.handover.receiverName)}</p><p>交出单：${escapeHtml(order.handover.handoverNo || '—')}</p><p>交出/接收：${formatPrintingQty(order.handover.handedOverQty)} / ${formatPrintingQty(order.handover.receivedQty)} Yard</p><p>差异：${formatPrintingQty(order.handover.diffQty)} · 异议：${order.handover.objectionQty}</p></div>`,
+    render: (order) => `<div class="space-y-1 text-xs">${handoverBadge(order.handoverStatus)}<p>接收人：${escapeHtml(order.handover.receiverName)}</p><p>交出单：${escapeHtml(order.handover.handoverNo || '—')}</p><p>交出/接收：${formatPrintingQty(order.handover.handedOverQty)} / ${formatPrintingQty(order.handover.receivedQty)} ${escapeHtml(order.output.qtyUnit)}</p><p>差异：${formatPrintingQty(order.handover.diffQty)} ${escapeHtml(order.output.qtyUnit)} · 异议：${order.handover.objectionQty}</p></div>`,
   },
   {
     key: 'printInfo', title: '打印信息', width: 180,
@@ -255,11 +257,11 @@ function renderStats(rows: PrintingWorkOrderBusinessRecord[]): string {
   const summary = getPrintingWorkOrderSummary(rows)
   const items = [
     { label: '印花加工单数量', value: summary.orderCount },
-    { label: '计划投入', value: `${formatPrintingQty(summary.plannedInputQty)} Yard` },
-    { label: '实际使用', value: `${formatPrintingQty(summary.usedInputQty)} Yard` },
-    { label: '完成', value: `${formatPrintingQty(summary.completedOutputQty)} Yard` },
-    { label: '已交出', value: `${formatPrintingQty(summary.handedOverQty)} Yard` },
-    { label: '已接收', value: `${formatPrintingQty(summary.receivedQty)} Yard` },
+    { label: '计划投入', value: formatPrintingSummaryMetric(summary, 'plannedInputQty') },
+    { label: '实际使用', value: formatPrintingSummaryMetric(summary, 'usedInputQty') },
+    { label: '完成', value: formatPrintingSummaryMetric(summary, 'completedOutputQty') },
+    { label: '已交出', value: formatPrintingSummaryMetric(summary, 'handedOverQty') },
+    { label: '已接收', value: formatPrintingSummaryMetric(summary, 'receivedQty') },
   ]
   return `<div class="grid grid-cols-6 gap-2" data-standard-list-stats data-printing-summary-row>${items.map((item) => `
     <div class="flex h-12 min-w-0 items-center justify-between gap-1 rounded-lg border bg-card px-2" data-printing-summary-item>

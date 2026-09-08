@@ -55,6 +55,7 @@ interface MaterialCandidate {
   bomItemId: string
   materialCode: string
   materialName: string
+  unit: string
   consumptionFactor: number
   applicableSkuCodes: string[]
 }
@@ -144,15 +145,16 @@ function resolveMaterialCandidates(
   processCode: string,
   orderSkuCodes: string[],
 ): MaterialCandidate[] {
-  const eligibleBomItems = ['CUT', 'CUTTING', 'DYE', 'PRINT', 'WATER_SOLUBLE'].includes(processCode)
+  const canonicalCode = (code: string) => ['CUT', 'CUTTING', 'PROC_CUT'].includes(code) ? 'CUT_PANEL' : code.replace(/^PROC_/, '')
+  const eligibleBomItems = ['CUT_PANEL', 'DYE', 'PRINT', 'WATER_SOLUBLE'].includes(canonicalCode(processCode))
     ? bomItems.filter((item) => item.type !== '成衣')
     : bomItems
   const filteredByProcess = eligibleBomItems.filter((item) => {
     if (!item.usageProcessCodes || item.usageProcessCodes.length === 0) return true
-    return item.usageProcessCodes.includes(processCode)
+    return item.usageProcessCodes.some(code => canonicalCode(code) === canonicalCode(processCode))
   })
 
-  const scopedBomItems = filteredByProcess.length > 0 ? filteredByProcess : eligibleBomItems
+  const scopedBomItems = filteredByProcess
 
   const rows = scopedBomItems.map((item) => {
     const applicableSkuCodes =
@@ -171,6 +173,7 @@ function resolveMaterialCandidates(
         processCode,
       }),
       materialName: item.name,
+      unit: item.unit?.trim() || '单位待确认',
       consumptionFactor: consumptionFactor > 0 ? consumptionFactor : 1,
       applicableSkuCodes,
     }
@@ -258,7 +261,10 @@ function upsertRow(
   const stableQty = roundQty(qty)
   if (stableQty <= 0) return
 
-  const rowKey = makeRowKey(taskId, orderedDimensions, dimensions, sourceRefs.outputSkuCode)
+  const materialIdentity = sourceRefs.bomItemId
+    ? `__SOURCE_${encodeURIComponent(JSON.stringify([sourceRefs.sourceEntryId, sourceRefs.bomItemId, sourceRefs.patternId || '', uom]))}`
+    : ''
+  const rowKey = makeRowKey(taskId, orderedDimensions, dimensions, sourceRefs.outputSkuCode) + materialIdentity
   const existing = rowMap.get(rowKey)
   if (existing) {
     existing.qty = roundQty(existing.qty + stableQty)
@@ -413,6 +419,7 @@ function buildColorMaterialRows(
           garmentColor: color,
           bomItemId: material.bomItemId,
         },
+        material.unit,
       )
     }
   }
@@ -432,7 +439,7 @@ function buildPatternMaterialRows(
       ? materials.filter((material) => material.bomItemId === pattern.linkedBomItemId)
       : materials
 
-    const materialPool = scopedMaterials.length > 0 ? scopedMaterials : materials
+    const materialPool = scopedMaterials
 
     for (const material of materialPool) {
       const matchedSkuCodes = intersectSkuCodes(pattern.applicableSkuCodes, material.applicableSkuCodes)
@@ -454,6 +461,7 @@ function buildPatternMaterialRows(
           pieceIds: pattern.pieceIds,
           bomItemId: material.bomItemId,
         },
+        material.unit,
       )
     }
   }
@@ -479,7 +487,7 @@ function buildColorPatternMaterialRows(
       const scopedMaterials = pattern.linkedBomItemId
         ? materials.filter((material) => material.bomItemId === pattern.linkedBomItemId)
         : materials
-      const materialPool = scopedMaterials.length > 0 ? scopedMaterials : materials
+      const materialPool = scopedMaterials
 
       for (const material of materialPool) {
         const matchedSkuCodes = intersectSkuCodes(
@@ -506,6 +514,7 @@ function buildColorPatternMaterialRows(
             pieceIds: pattern.pieceIds,
             bomItemId: material.bomItemId,
           },
+          material.unit,
         )
       }
     }
@@ -540,8 +549,28 @@ export function generateTaskDetailRowsForArtifact(input: {
       : fallbackDimensionsByGranularity(artifact.assignmentGranularity),
   )
 
-  const materials = resolveMaterialCandidates(techPack.bomItems, artifact.processCode, orderSkuCodes)
-  const patterns = resolvePatternCandidates(techPack.patternFiles, orderSkuCodes)
+  const sourceEntry = techPack.processEntries?.find(entry => entry.id === artifact.sourceEntryId)
+  // consumedBomItemIds describes auxiliary consumption, not the main route object.
+  const bomScopes = [
+    artifact.bomItemId ? [artifact.bomItemId] : [],
+    artifact.routeObjectKey?.startsWith('BOM:') ? [artifact.routeObjectKey.slice(4)] : [],
+    artifact.linkedBomItemIds || [],
+    sourceEntry?.linkedBomItemIds || [],
+  ].filter(scope => scope.length > 0)
+  const patternScopes = [artifact.linkedPatternIds || [], sourceEntry?.linkedPatternIds || []]
+    .filter(scope => scope.length > 0)
+  const scopedBomItems = techPack.bomItems.filter(item => bomScopes.every(scope => scope.includes(item.id)))
+  if (patternScopes.length === 0 && bomScopes.length > 0) {
+    const bomIds = new Set(scopedBomItems.map(item => item.id))
+    const mappedPatternIds = Array.from(new Set((techPack.colorMaterialMappings || [])
+      .flatMap(mapping => mapping.lines)
+      .flatMap(line => line.bomItemId && bomIds.has(line.bomItemId) && line.patternId
+        ? [line.patternId] : [])))
+    if (mappedPatternIds.length > 0) patternScopes.push(mappedPatternIds)
+  }
+  const scopedPatterns = techPack.patternFiles.filter(pattern => patternScopes.every(scope => scope.includes(pattern.id)))
+  const materials = resolveMaterialCandidates(scopedBomItems, artifact.processCode, orderSkuCodes)
+  const patterns = resolvePatternCandidates(scopedPatterns, orderSkuCodes)
 
   const rowMap = new Map<string, TaskDetailRow>()
   const baseRefs = {
@@ -563,7 +592,7 @@ export function generateTaskDetailRowsForArtifact(input: {
       taskId,
       dimensions: isPartWoolArtifact(artifact) ? ['PATTERN', 'GARMENT_SKU'] : ['GARMENT_SKU'],
       orderSkuLines,
-      patterns: techPack.patternFiles,
+      patterns: scopedPatterns,
       artifact,
       baseRefs,
     })
@@ -600,10 +629,15 @@ export function summarizeTaskDetailRows(
 ): {
   count: number
   totalQty: number
+  unitSummaries: Array<{ unit: string; qty: number }>
   previewText: string
 } {
   const count = rows.length
-  const totalQty = roundQty(rows.reduce((sum, row) => sum + row.qty, 0))
+  const quantities = new Map<string, number>()
+  for (const row of rows) quantities.set(row.uom, roundQty((quantities.get(row.uom) || 0) + row.qty))
+  const unitSummaries = [...quantities].map(([unit, qty]) => ({ unit, qty }))
+  // A single scalar cannot represent mixed physical units; consumers use unitSummaries.
+  const totalQty = unitSummaries.length === 1 ? unitSummaries[0].qty : 0
   const previewText = rows
     .slice(0, previewCount)
     .map((row) => `${row.rowLabel} × ${formatQty(row.qty)}${row.uom}`)
@@ -612,6 +646,7 @@ export function summarizeTaskDetailRows(
   return {
     count,
     totalQty,
+    unitSummaries,
     previewText,
   }
 }

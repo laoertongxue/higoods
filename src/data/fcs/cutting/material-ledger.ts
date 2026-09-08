@@ -1,3 +1,4 @@
+import { listMaterialPrepOrderProjections } from './production-material-prep.ts'
 import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderSourceRecord,
@@ -432,9 +433,13 @@ function buildWaitProcessInboundEvents(events: CuttingMaterialLedgerEvent[]): Cu
 }
 
 export function listCuttingMaterialLedgerEvents(): CuttingMaterialLedgerEvent[] {
+  // Runtime BOM preparation/receipt records are authoritative; a progress display is not a warehouse event.
+  const runtimeCutIds = new Set(listMaterialPrepOrderProjections().flatMap(prep =>
+    prep.lines.filter(line => line.runtimeBomLine && line.cutOrderId).map(line => line.cutOrderId)))
   const baseEvents = uniqueByEventId(
     [
       ...listGeneratedCutOrderSourceRecords().flatMap((record) => {
+      if (runtimeCutIds.has(record.cutOrderId)) return []
       const scenarioEvents = buildPrompt2ScenarioEvents(record)
       return scenarioEvents.length ? scenarioEvents : buildProgressDrivenEvents(record)
       }),

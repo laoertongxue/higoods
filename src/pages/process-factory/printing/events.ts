@@ -1,9 +1,12 @@
+import { recordPrintingHistoricalInput } from '../../../data/fcs/printing-work-order-business.ts'
+import { receivePrintingMaterial } from '../../../data/fcs/printing-material-receipts.ts'
 import {
   addPrintingRollBarcode,
   assignPrintingWorkOrder,
   batchUpdatePrintingRollBarcodes,
   cancelPrintingWorkOrder,
   changePrintingInput,
+  completePrintWorkOrderDocument,
   completePrintingWorkOrder,
   getPrintingWorkOrderById,
   handoverPrintingOutput,
@@ -96,8 +99,10 @@ function submitDialog(): void {
       })
       showPrintingToast('加工投入已调整；产出 SKU 未改变，信息单和确认单已标记需重印')
     } else if (dialog.type === 'receive-input') {
-      receivePrintingInput(dialog.workOrderId, { actualSku: fieldValue('actualSku'), receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), receiverName: fieldValue('receiverName') })
-      showPrintingToast('加工投入已接收，加工状态进入“加工中”')
+      const historicalCorrection = getPrintingWorkOrderById(dialog.workOrderId)?.historicalInputQuantityUnknown
+      if (historicalCorrection) recordPrintingHistoricalInput(dialog.workOrderId, { receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), reason: fieldValue('historicalReason'), operatorName: fieldValue('receiverName'), historicalCompletedRollCount: fieldValue('historicalCompletedRollCount') ? numberValue('historicalCompletedRollCount') : undefined })
+      else receivePrintingMaterial(dialog.workOrderId, { actualSku: fieldValue('actualSku'), receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), receiverName: fieldValue('receiverName'), receiptId: dialog.receiptId || '', upstreamRecordId: fieldValue('upstreamRecordId') || undefined })
+      showPrintingToast(historicalCorrection ? '历史累计投入已补录，原交接记录保持不变' : '加工投入已接收，加工状态进入“加工中”')
     } else if (dialog.type === 'complete') {
       completePrintingWorkOrder(dialog.workOrderId, { usedQty: numberValue('usedQty'), usedRollCount: numberValue('usedRollCount'), completedQty: numberValue('completedQty'), completedRollCount: numberValue('completedRollCount'), printerNo: fieldValue('printerNo'), operatorName: '印花执行员' })
       showPrintingToast('加工完成事实已保存，交出状态进入“待交出”')
@@ -106,7 +111,10 @@ function submitDialog(): void {
       showPrintingToast('加工产出已交出，等待下游接收')
     } else if (dialog.type === 'receive-handover') {
       receivePrintingHandover(dialog.workOrderId, { receivedQty: numberValue('receiveQty'), receiverName: fieldValue('outputReceiver'), objectionQty: numberValue('objectionQty'), differenceReason: fieldValue('differenceReason') })
-      showPrintingToast('下游接收事实已保存')
+      showPrintingToast('下游接收事实已保存；单据仍需人工完成')
+    } else if (dialog.type === 'complete-document') {
+      completePrintWorkOrderDocument(dialog.workOrderId, { operatorName: fieldValue('documentCompleter') || '印花主管' })
+      showPrintingToast('印花加工单已由现场负责人确认完成')
     } else if (dialog.type === 'cancel') {
       cancelPrintingWorkOrder(dialog.workOrderId, { operatorName: '印花主管', reason: fieldValue('cancelReason') })
       showPrintingToast('印花加工单已取消')
@@ -175,8 +183,8 @@ function navigatePrint(documentType: PrintDocumentType, workOrderIds: string[], 
 
 function exportCsv(): void {
   const rows = getFilteredPrintingWorkOrders()
-  const headers = ['印花单', '任务单', '需求来源', '来源单号', '商品SPU', '计划投入SKU', '实际投入SKU', '产出SKU', '标准单位用量', '加工单单位用量', '计划投入(Yard)', '实际接收(Yard)', '实际使用(Yard)', '完成(Yard)', '加工状态', '交出状态', '已交出(Yard)', '已接收(Yard)', '差异(Yard)', '异议数', '历史损耗(Yard)']
-  const values = rows.map((row) => [row.printOrderNo, row.taskNo, row.demandSource.type, row.demandSource.sourceNo, row.product.spu, row.plannedInput.sku, row.actualInput.actualSku, row.output.sku, row.usage.standardUnitUsage ?? '', row.usage.orderUnitUsage ?? '', row.plannedInput.plannedQty, row.actualInput.receivedQty, row.actualInput.usedQty, row.output.completedQty, row.processingStatus, row.handoverStatus, row.handover.handedOverQty, row.handover.receivedQty, row.handover.diffQty, row.handover.objectionQty, row.historicalLossQty])
+  const headers = ['印花单', '任务单', '需求来源', '来源单号', '商品SPU', '加工对象', '数量单位', '计划投入SKU', '实际投入SKU', '产出SKU', '标准单位用量', '加工单单位用量', '计划投入', '实际接收', '实际使用', '完成', '加工状态', '交出状态', '已交出', '已接收', '差异', '异议数', '历史损耗']
+  const values = rows.map((row) => [row.printOrderNo, row.taskNo, row.demandSource.type, row.demandSource.sourceNo, row.product.spu, row.plannedInput.objectType, row.plannedInput.qtyUnit, row.plannedInput.sku, row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.actualSku, row.output.sku, row.usage.standardUnitUsage ?? '', row.usage.orderUnitUsage ?? '', row.plannedInput.plannedQty, row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.receivedQty, row.actualInput.usedQty, row.output.completedQty, row.processingStatus, row.handoverStatus, row.handover.handedOverQty, row.handover.receivedQty, row.handover.diffQty, row.handover.objectionQty, row.historicalLossQty])
   const csv = [headers, ...values].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -190,7 +198,7 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   if (action === 'close-image') { closeImagePreview(); return true }
   if (action === 'close-dialog') { closePrintingDialog(); return true }
   if (action === 'submit-dialog') { submitDialog(); return true }
-  if (['assign', 'change-input', 'receive-input', 'complete', 'handover', 'receive-handover', 'cancel'].includes(action)) {
+  if (['assign', 'change-input', 'receive-input', 'complete', 'handover', 'receive-handover', 'complete-document', 'cancel'].includes(action)) {
     if (workOrderId) openPrintingDialog({ type: action as Parameters<typeof openPrintingDialog>[0]['type'], workOrderId })
     return true
   }

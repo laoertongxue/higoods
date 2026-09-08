@@ -24,3 +24,9 @@ export function formatDateTime(value: string): string {
   if (!value) return '-'
   return value.slice(0, 16)
 }
+
+/** 原型现场记录使用本机当地时间，不能去掉 ISO 的 Z 后冒充本地时间。 */
+export function localDateTimeText(date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}

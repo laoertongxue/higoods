@@ -62,6 +62,7 @@ import {
   recordSewingDeliveryResponsibilityReview,
   type SewingDeliveryResponsibilityConclusion,
 } from '../../data/fcs/sewing-delivery-sla.ts'
+import { renderProcessOrderTaskRelations } from '../process-order-task-relations.ts'
 
 function getSewingDeliveryResponsibilityConclusionLabel(
   conclusion: SewingDeliveryResponsibilityConclusion,
@@ -888,6 +889,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           </button>
         </div>
       </header>
+      ${renderProcessOrderTaskRelations(task.taskId)}
       ${task.historicalAssignment ? `
         <section class="space-y-3 rounded-lg border border-slate-300 bg-slate-50 p-4" data-historical-sewing-assignment="true">
           <div class="flex flex-wrap items-center justify-between gap-2"><div><h2 class="font-semibold text-slate-800">已改派（历史）</h2><p class="mt-1 text-xs text-slate-600">该记录仅供追溯，不计入进行中/逾期 KPI，也不允许继续执行。</p></div>${renderBadge('历史只读', 'border-slate-300 bg-white text-slate-700')}</div>

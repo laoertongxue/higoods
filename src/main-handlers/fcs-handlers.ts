@@ -1,3 +1,5 @@
+import { handleWlsInboundEvent, closeWlsInboundOverlays } from '../pages/wls-inbound.ts'
+import { handleWlsFinishedInboundEvent, closeWlsFinishedInboundOverlays } from '../pages/wls-finished-inbound.ts'
 import {
   handleFactoryPageEvent,
   handleFactoryPageSubmit,
@@ -62,10 +64,6 @@ import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from '../pages/task-breakdown'
-import {
-  handleDyePrintOrdersEvent,
-  isDyePrintOrdersDialogOpen,
-} from '../pages/dye-print-orders'
 import {
   handleMaterialIssueEvent,
   isMaterialIssueDialogOpen,
@@ -300,6 +298,8 @@ const CUTTING_PICKUP_LIST_PATHS = new Set([
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname === '/wls/inbound') return handleWlsInboundEvent(target, event)
+  if (pathname === '/wls/finished-inbound') return handleWlsFinishedInboundEvent(target, event)
   if (pathname === '/fcs/print/preview') {
     return handleUnifiedPrintPreviewEvent(target)
   }
@@ -571,12 +571,17 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingDailyProductionReportEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
-    await handleDyePrintOrdersEvent(target) ||
     await handleTaskBreakdownEvent(target)
   )
 }
 
 export async function dispatchFcsPageSubmit(form: HTMLFormElement): Promise<boolean> {
+  if (typeof window !== 'undefined' && window.location.pathname === '/fcs/craft/post-finishing/tasks' && form.matches('[data-post-finishing-task-filters]')) {
+    const { handlePostFinishingTasksSubmit } = await import('../pages/process-factory/post-finishing/tasks')
+    handlePostFinishingTasksSubmit(form)
+    // 原导航会渲染，避免 main.ts 再整页渲染一次。
+    return false
+  }
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   if (
     pathname.startsWith('/fcs/factories/third-party-comprehensive-assessment')
@@ -600,6 +605,8 @@ export async function dispatchFcsPageSubmit(form: HTMLFormElement): Promise<bool
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeWlsInboundOverlays()) return true
+  if (closeWlsFinishedInboundOverlays()) return true
   if (isSewingOutsourcingResponsibilityTransferDialogOpen()) {
     closeSewingOutsourcingResponsibilityTransferDialog()
     return true
@@ -763,13 +770,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.payAction = 'close-dialog'
     handlePaymentSyncEvent(fakeButton)
-    return true
-  }
-
-  if (isDyePrintOrdersDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.dyeAction = 'close-dialog'
-    handleDyePrintOrdersEvent(fakeButton)
     return true
   }
 

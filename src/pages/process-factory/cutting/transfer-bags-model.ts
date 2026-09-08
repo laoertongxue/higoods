@@ -1,3 +1,4 @@
+import { initialProductionOrderIds } from '../../../data/fcs/production-orders.ts'
 import {
   buildCuttingTraceabilityId,
   encodeCarrierQr,
@@ -2285,10 +2286,12 @@ export function buildSystemSeedTransferBagStore(options: {
   markerPlanSources?: MarkerPlanSourceRecord[]
 }): TransferBagStore {
   const markerPlanSources = options.markerPlanSources ?? []
+  const seedRows = options.cutOrderRows.filter(row => initialProductionOrderIds.has(row.productionOrderId))
+  const seedCutOrderIds = new Set(seedRows.map(row => row.cutOrderId))
   return toPageStore(
     buildSystemSeedTransferBagRuntime({
-      cutOrderRows: toRuntimeSeedCutOrderRows(options.cutOrderRows),
-      ticketRecords: toRuntimeSeedTickets(options.ticketRecords),
+      cutOrderRows: toRuntimeSeedCutOrderRows(seedRows),
+      ticketRecords: toRuntimeSeedTickets(options.ticketRecords.filter(ticket => seedCutOrderIds.has(ticket.cutOrderId))),
       markerPlanSources: toRuntimeSeedMarkerPlanSources(markerPlanSources),
     }),
   )

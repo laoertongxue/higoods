@@ -80,7 +80,6 @@ import {
   type CuttingSewingDispatchOrder,
   type CuttingSewingTransferBag,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
-import { buildBindingProcessOrders } from './special-processes.ts'
 
 type SummaryFilterField =
   | 'keyword'
@@ -1277,7 +1276,7 @@ function buildCuttingResultCheckItems(
       })
     })
 
-    const bindingAbnormalOrders = buildBindingProcessOrders().filter(
+    const bindingAbnormalOrders = sources.bindingProcessOrders.filter(
       (order) =>
         order.sourceProductionOrderNo === row.productionOrderNo ||
         row.relatedCutOrderIds.includes(order.sourceCutOrderId) ||
@@ -1324,7 +1323,7 @@ function buildCuttingResultCheckItems(
       })
   })
 
-  buildBindingProcessOrders()
+  sources.bindingProcessOrders
     .filter((order) => order.abnormalItems.length > 0)
     .forEach((bindingOrder) => {
       const existing = items.some((item) => item.sourceObjectType === '捆条加工单' && item.sourceObjectId === bindingOrder.bindingOrderId)

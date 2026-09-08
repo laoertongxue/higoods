@@ -1,61 +1,34 @@
 import assert from 'node:assert/strict'
 import {
-  completePostFinishingRecheckOrder,
-  getPostFinishingRecheckOrderById,
-} from '../src/data/fcs/post-finishing-domain.ts'
-import {
-  getPostFinishingOutboundOrderByRecheckId,
-  listPostFinishingOutboundOrders,
-} from '../src/data/fcs/post-finishing-outbound-orders.ts'
+  loadPostFinishingDemoData,
+  listPostFinishingFullFlowOutboundOrders,
+  listPostFinishingFullFlowPostTasks,
+  listPostFinishingFullFlowRecheckOrders,
+} from '../src/data/fcs/post-finishing-full-flow.ts'
 import {
   buildPrintDocument,
   renderPrintDocument,
 } from '../src/data/fcs/print-template-registry.ts'
 
-const recheck = getPostFinishingRecheckOrderById('PF-RC-001')
-assert.ok(recheck, '验收 Mock 必须包含 PF-RC-001 复检单')
+loadPostFinishingDemoData()
 
-const results = recheck.skuLines.map((line, index) => ({
-  recheckSkuResultId: `${recheck.recheckOrderId}-ACCEPT-${index + 1}`,
-  recheckOrderId: recheck.recheckOrderId,
-  skuLineId: line.skuLineId,
-  skuId: line.skuId,
-  skuCode: line.skuCode,
-  colorName: line.colorName,
-  sizeName: line.sizeName,
-  skuImageUrl: line.skuImageUrl,
-  recheckQty: line.plannedQty,
-  qualifiedQty: line.plannedQty,
-  unqualifiedQty: 0,
-  defectItems: [],
-  evidenceAssets: [],
-}))
+const postTasks = listPostFinishingFullFlowPostTasks()
+const rechecks = listPostFinishingFullFlowRecheckOrders()
+const outbounds = listPostFinishingFullFlowOutboundOrders()
+assert.ok(outbounds.length > 0, '当前后道全流程必须包含成衣仓交接单')
+assert.equal(new Set(outbounds.map((item) => item.outboundOrderId)).size, outbounds.length, '同一当前事实不得重复生成平行出货单')
+assert.equal(new Set(outbounds.map((item) => item.outboundOrderNo)).size, outbounds.length, '后道出货单号必须唯一')
 
-const before = listPostFinishingOutboundOrders().filter((item) => item.recheckOrderId === recheck.recheckOrderId)
-completePostFinishingRecheckOrder({
-  recheckOrderId: recheck.recheckOrderId,
-  operatorName: '后道出货单验收员',
-  recheckSkuResults: results,
-})
-completePostFinishingRecheckOrder({
-  recheckOrderId: recheck.recheckOrderId,
-  operatorName: '后道出货单验收员',
-  recheckSkuResults: results,
-})
-
-const after = listPostFinishingOutboundOrders().filter((item) => item.recheckOrderId === recheck.recheckOrderId)
-assert.equal(after.length, 1, '同一复检单重复完成只允许存在一张后道出货单')
-assert.equal(after.length, Math.max(before.length, 1))
-const outbound = getPostFinishingOutboundOrderByRecheckId(recheck.recheckOrderId)
-assert.ok(outbound)
-assert.equal(outbound.sourceWarehouseName, `${outbound.managedPostFactoryName}-后道待加工仓`)
-assert.equal(outbound.targetWarehouseName, `${outbound.managedPostFactoryName}-后道待交出仓`)
-assert.equal(outbound.sourceActionLabel, '复检完成 → 后道待交出仓')
-assert.equal(
-  outbound.outboundQty,
-  results.reduce((sum, item) => sum + item.qualifiedQty, 0),
-  '后道出货数量必须等于逐 SKU 复检合格数量',
-)
+for (const outbound of outbounds) {
+  assert.ok(outbound.lines.length > 0, `${outbound.outboundOrderNo} 必须包含逐 SKU 出货数量`)
+  assert.ok(outbound.lines.every((line) => line.outboundQty > 0 && line.sku.qtyUnit === '件'), `${outbound.outboundOrderNo} 必须使用正数成衣件数`)
+  if (outbound.sourceType === '质检直达') {
+    assert.ok(!postTasks.some((task) => task.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} QC 空项目不得生成后道加工单`)
+    assert.ok(!rechecks.some((order) => order.deliveryId === outbound.deliveryId), `${outbound.outboundOrderNo} QC 空项目不得生成处理后交出复核单`)
+  } else {
+    assert.ok(outbound.postTaskId && outbound.recheckOrderId, `${outbound.outboundOrderNo} 后道加工后出货必须追溯加工单与处理后复核单`)
+  }
+}
 
 for (const input of [
   { sourceType: 'PRODUCTION_ORDER' as const, sourceId: 'PO-202603-0001' },
@@ -83,4 +56,4 @@ for (const input of [
   assert.equal((hangtagHtml.match(/data-real-barcode/g) || []).length, (hangtag.labelItems?.length || 0) * 2)
 }
 
-console.log('后道出货单与线上打印版式专项契约通过。')
+console.log('当前后道出货单唯一事实与线上打印版式专项契约通过。')

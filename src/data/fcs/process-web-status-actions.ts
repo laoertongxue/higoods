@@ -7,17 +7,15 @@ import {
   DYE_WORK_ORDER_STATUS_LABEL,
   getDyeWorkOrderById,
 } from './dyeing-task-domain.ts'
-import { cutPieceOrderRecords } from './cutting/cut-piece-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orders.ts'
+import { cuttingOrderProgressRecords } from './cutting/order-progress.ts'
 import {
   getSpecialCraftTaskOrderById,
 } from './special-craft-task-orders.ts'
-import {
-  getPostFinishingWorkOrderById,
-} from './post-finishing-domain.ts'
+import { getPostFinishingFullFlowPostTask } from './post-finishing-full-flow.ts'
 import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
-  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -39,6 +37,7 @@ export type ProcessWebSourceType =
   | 'POST_FINISHING_WORK_ORDER'
 
 export type ProcessWebActionType =
+  | '人工完成单据'
   | '上报差异'
   | '确认花型到位'
   | '完成调色测试'
@@ -373,6 +372,16 @@ const DYE_ACTIONS: ActionDefinition[] = [
     writebackHandler: 'submitDyeHandover',
     affectsHandover: true,
   },
+  {
+    actionCode: 'DYE_COMPLETE_DOCUMENT',
+    actionLabel: '人工完成单据',
+    processType: 'DYE',
+    fromStatuses: ['WAIT_MANUAL_COMPLETION'],
+    toStatus: 'COMPLETED',
+    requiredFields: ['操作人', '完成时间'],
+    optionalFields: ['备注'],
+    writebackHandler: 'completeDyeWorkOrderDocument',
+  },
 ]
 
 const CUTTING_ACTIONS: ActionDefinition[] = [
@@ -648,8 +657,6 @@ function withPrintQuantityFields(action: ProcessWebAction, printOrderId: string)
     sourceId: printOrderId,
     objectType: order.objectType,
     qtyUnit: order.qtyUnit,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
   }
   const dynamicLabels: Record<string, string> = {
     PRINT_FINISH_PRINTING: getQuantityLabel({ ...context, operationCode: 'PRINT_FINISH_PRINTING', qtyPurpose: '已完成' }),
@@ -661,7 +668,7 @@ function withPrintQuantityFields(action: ProcessWebAction, printOrderId: string)
   return {
     ...action,
     requiredFields: action.requiredFields.map((field) =>
-      field.includes('面料米数') || field.includes('裁片数量') || field.includes('对象数量') ? label : field,
+      field.includes('面料米数') || field.includes('对象数量') ? label : field,
     ),
   }
 }
@@ -692,15 +699,19 @@ function getDyeStatus(dyeOrderId: string): { status: string; label: string; qty:
 
 function getCuttingStatus(cuttingOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string } {
   const binding = validateCuttingOrderMobileTaskBinding(cuttingOrderId)
-  const record = cutPieceOrderRecords.find(
-    (item) => item.cutOrderId === cuttingOrderId || item.cutOrderNo === cuttingOrderId || item.id === cuttingOrderId,
+  const order = listGeneratedCutOrderSourceRecords().find(
+    (item) => item.cutOrderId === cuttingOrderId || item.cutOrderNo === cuttingOrderId,
   )
+  if (!order) throw new Error('正式裁片单不存在')
+  const progress = cuttingOrderProgressRecords.find((record) => record.materialLines.some(
+    (line) => line.cutOrderId === order.cutOrderId || line.cutOrderNo === order.cutOrderNo,
+  ))
   const latestRecord = listProcessActionOperationRecords({ sourceType: 'CUTTING', sourceId: cuttingOrderId })[0]
-  const status = normalizeCuttingStatus(latestRecord?.nextStatus || record?.currentStage || '待铺布')
+  const status = normalizeCuttingStatus(latestRecord?.nextStatus || progress?.cuttingStage || '待铺布')
   return {
     status,
     label: status,
-    qty: latestRecord?.objectQty || record?.markerInfo.totalPieces || record?.orderQty || 100,
+    qty: latestRecord?.objectQty || order.requiredQty,
     unit: latestRecord?.qtyUnit || '片',
     taskId: binding.actualTaskId,
   }
@@ -719,21 +730,26 @@ function getSpecialCraftStatus(workOrderId: string): { status: string; label: st
   }
 }
 
-function getPostFinishingStatus(postOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string; isPostDoneBySewingFactory: boolean } | null {
-  const order = getPostFinishingWorkOrderById(postOrderId)
+function getPostFinishingStatus(postOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string } | null {
+  const order = getPostFinishingFullFlowPostTask(postOrderId)
   if (!order) return null
-  const binding = validatePostFinishingMobileTaskBinding(postOrderId)
   return {
-    status: order.currentStatus,
-    label: order.currentStatus,
-    qty: order.plannedGarmentQty,
-    unit: order.plannedGarmentQtyUnit,
-    taskId: binding.actualTaskId || order.sourceTaskId,
-    isPostDoneBySewingFactory: order.isPostDoneBySewingFactory,
+    status: order.status,
+    label: order.status,
+    qty: order.lines.reduce((sum, line) => sum + line.expectedQty, 0),
+    unit: '件',
+    taskId: order.postTaskId,
   }
 }
 
 function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string): { ok: boolean; reason: string; taskId: string } {
+  if (sourceType === 'POST_FINISHING_WORK_ORDER') {
+    return {
+      ok: false,
+      reason: '后道操作已迁移至回货确认、QC、后道加工和处理后交出复核专用页面。',
+      taskId: sourceId,
+    }
+  }
   const result =
     sourceType === 'PRINT_WORK_ORDER'
       ? validatePrintWorkOrderMobileTaskBinding(sourceId)
@@ -741,9 +757,7 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
         : sourceType === 'CUTTING_ORDER'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
-          : sourceType === 'SPECIAL_CRAFT'
-            ? validateSpecialCraftMobileTaskBinding(sourceId)
-            : validatePostFinishingMobileTaskBinding(sourceId)
+          : validateSpecialCraftMobileTaskBinding(sourceId)
   return {
     ok: result.canOpenMobileExecution,
     reason: result.reasonLabel,
@@ -784,14 +798,9 @@ export function getAvailableSpecialCraftWebActions(workOrderId: string): Process
 }
 
 export function getAvailablePostFinishingWebActions(postOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('POST_FINISHING_WORK_ORDER', postOrderId)
-  const status = getPostFinishingStatus(postOrderId)
-  if (!status) return []
-  if (!binding.ok) return [toAction(POST_FINISHING_ACTIONS[0], status.label, binding.reason)]
-  const definitions = status.isPostDoneBySewingFactory
-    ? POST_FINISHING_ACTIONS.filter((action) => !['POST_PROCESS_START', 'POST_PROCESS_FINISH'].includes(action.actionCode))
-    : POST_FINISHING_ACTIONS
-  return listMatchingActions(definitions, status.status)
+  // 旧通用状态动作会产生第二套 QC、加工、复检及出货事实；当前后道只允许专用页面写入。
+  void postOrderId
+  return []
 }
 
 export function listAvailableWebActions(sourceType: ProcessWebSourceType, sourceId: string): ProcessWebAction[] {

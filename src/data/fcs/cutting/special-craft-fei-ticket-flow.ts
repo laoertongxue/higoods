@@ -854,6 +854,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
   const generatedFeiTickets = input?.generatedFeiTickets || listSpreadingResultGeneratedFeiTickets()
   const cuttingWarehouseItems = input?.cuttingWarehouseItems || listFormalCutPieceWarehouseRecords()
   const specialCraftOperations = input?.specialCraftOperations || listEnabledSpecialCraftOperationDefinitions()
+  const generatedTicketByNo = new Map(generatedFeiTickets.map((ticket) => [ticket.feiTicketNo, ticket] as const))
   const bindings: CuttingSpecialCraftFeiTicketBinding[] = []
   const warnings: string[] = []
   const errors: string[] = []
@@ -980,7 +981,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
         const occupiedKey = `${feiTicketNo}__${operation.operationId}`
         if (occupiedBindingKeys.has(occupiedKey)) return
         occupiedBindingKeys.add(occupiedKey)
-        const generatedTicket = getFeiTicketByNo(feiTicketNo)
+        const generatedTicket = generatedTicketByNo.get(feiTicketNo)
         const fallbackQty = roundQty(line.planPieceQty / Math.max(ticketNos.length, 1))
         const originalQty = roundQty(generatedTicket?.qty || fallbackQty)
         const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName)
@@ -1097,12 +1098,14 @@ function buildInternalBindings(): {
   errors: string[]
   pendingBindingViews: Prompt7PendingBindingView[]
 } {
-  const buildResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets()
+  const generatedFeiTickets = listSpreadingResultGeneratedFeiTickets()
+  const generatedTicketByNo = new Map(generatedFeiTickets.map((ticket) => [ticket.feiTicketNo, ticket] as const))
+  const buildResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets({ generatedFeiTickets })
   const taskOrders = listSpecialCraftTaskOrders().filter(isCutPieceSpecialCraftTask)
   const pendingBindingViews = buildPendingBindingViews(taskOrders, buildResult.bindings)
   const fallbackSequenceMap = new Map<string, string[]>()
   buildResult.bindings.forEach((binding) => {
-    const matchedTicket = getFeiTicketByNo(binding.feiTicketNo)
+    const matchedTicket = generatedTicketByNo.get(binding.feiTicketNo)
     if (matchedTicket?.secondaryCrafts.includes(binding.operationName)) return
     const list = fallbackSequenceMap.get(binding.feiTicketNo) || []
     list.push(binding.bindingId)
@@ -1110,7 +1113,7 @@ function buildInternalBindings(): {
   })
   const internalBindings = buildResult.bindings
     .map((binding) => {
-      const matchedTicket = getFeiTicketByNo(binding.feiTicketNo)
+      const matchedTicket = generatedTicketByNo.get(binding.feiTicketNo)
       const fallbackSequence = fallbackSequenceMap.get(binding.feiTicketNo) || []
       const matchedSequenceIndex = matchedTicket?.secondaryCrafts.indexOf(binding.operationName) ?? -1
       const sequenceIndex = matchedSequenceIndex >= 0

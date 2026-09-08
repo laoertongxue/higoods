@@ -1,4 +1,6 @@
 // @page-pattern: list
+import { listGeneratedCutOrderSourceRecords } from '../../../data/fcs/cutting/generated-cut-orders.ts'
+import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { renderStandardListPage } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable } from '../../../components/ui/list-table.ts'
@@ -458,7 +460,8 @@ function removeStoredPlan(planId: string): void {
 function getProjection() {
   const markerPlanStorage = localStorage.getItem(getMarkerPlanStorageKey()) || ''
   const spreadingStorage = localStorage.getItem('cuttingMarkerSpreadingLedger') || ''
-  const key = `${markerPlanStorage.length}:${markerPlanStorage}|${spreadingStorage.length}:${spreadingStorage}`
+  const sourceKey = JSON.stringify(listGeneratedCutOrderSourceRecords().map(cut => [cut.cutOrderId, cut.generationKey, cut.cuttingTaskAssignmentStatus, cut.cuttingTaskAssigneeFactoryId]))
+  const key = `${markerPlanStorage.length}:${markerPlanStorage}|${spreadingStorage.length}:${spreadingStorage}|${sourceKey}|${getCuttingRuntimeStorageSignature()}`
   if (markerPlanProjectionCache?.key === key) return markerPlanProjectionCache.projection
   const projection = buildMarkerPlanProjection()
   markerPlanProjectionCache = { key, projection }
@@ -5449,6 +5452,20 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
     if (!field) return false
     if (field === 'remark') return updateDraft((plan) => ({ ...plan, remark: input.value }))
     if (field === 'confirmationRemark') return updateDraft((plan) => ({ ...plan, confirmationRemark: input.value }))
+  }
+
+  const sizePieceNode = target.closest<HTMLInputElement>('[data-marker-plan-size-piece-per-layer]')
+  if (sizePieceNode) {
+    const bedId = sizePieceNode.dataset.bedId || ''
+    const sizeName = sizePieceNode.dataset.sizeName || ''
+    if (!bedId || !sizeName) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    const nextValue = Math.max(Math.round(safeNumber(sizePieceNode.value)), 0)
+    return updateDraft((plan) => applySchemeBedsToPlan(plan,
+      buildMarkerSchemeFromPlan(plan).beds.map((bed) => bed.bedId === bedId
+        ? { ...bed, sizePiecePerLayer: { ...bed.sizePiecePerLayer, [sizeName]: nextValue } }
+        : bed),
+    ))
   }
 
   const matrixCellNode = target.closest<HTMLElement>('[data-marker-plan-matrix-cell]')

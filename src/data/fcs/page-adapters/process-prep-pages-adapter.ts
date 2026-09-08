@@ -168,15 +168,13 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     : validateDyeWorkOrderMobileTaskBinding(order.workOrderId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
   const platformResultView = getPlatformProcessResultView(order.processType, order.workOrderId)
-  const unit = order.plannedUnit || '片'
+  const unit = order.plannedUnit || (order.processType === 'PRINT' ? '个' : '米')
   const quantityContext = {
     processType: order.processType,
     sourceType: order.processType === 'PRINT' ? 'PRINTING_WORK_ORDER' : 'DYEING_WORK_ORDER',
     sourceId: order.workOrderId,
     objectType: order.objectType,
     qtyUnit: unit,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
   } as const
   const receivedQty = order.handoverRecords.reduce((sum, record) => sum + (record.receiverWrittenQty ?? record.submittedQty ?? 0), 0)
   const submittedQty = order.handoverRecords.reduce((sum, record) => sum + (record.submittedQty ?? 0), 0)

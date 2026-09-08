@@ -36,11 +36,13 @@ const requiredUiStages = [
   'Web后道加工单打印',
   'PDA后道完成',
   'Web接管后道完成',
-  'Web复检完成',
+  'Web处理后交出复核完成',
+  'QC直达跳过后道待交出仓',
   'Web待交出仓入仓核对',
   'Web出货核对及出货单打印',
   '后道工厂PDA收货入口已删除',
   'Web待交出仓待交出回查',
+  'QC直达成衣仓待接收回查',
 ]
 
 const forbiddenDomainWrites = [
@@ -92,6 +94,10 @@ assert(spec.includes('POST_FINISHING_CROSS_TERMINAL_SCREENSHOT_DIR'), '必须输
 assert(spec.includes('全部业务写入由 Web/PDA 页面操作产生'), '必须声明 UI 写入边界')
 assert(spec.includes("getByRole('button', { name: '领取质检单' })"), '跨端验收必须从质检单列表的精确领取弹窗进入 Web 质检')
 assert(spec.includes("getByRole('button', { name: '领取复检单' })"), '跨端验收必须从复检单列表的精确领取弹窗进入 Web 复检')
+assert(spec.includes("[data-recheck-result-field=\"handoverQty\"]"), '处理后复核必须提交实际交出数量')
+for (const legacyField of ['data-post-completed-qty', 'data-post-defect-reason-qty', 'data-recheck-result-field=\"passedQty\"', 'data-recheck-result-field=\"defectQty\"']) {
+  assert(!spec.includes(legacyField), `跨端验收不得继续使用旧后道质量字段：${legacyField}`)
+}
 assert.equal(
   packageJson.scripts?.['test:post-finishing-full-flow:cross-terminal'],
   'PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_EXPECT_TIMEOUT=45000 CUTTING_E2E_TEST_TIMEOUT=1800000 playwright test tests/post-finishing-full-flow-cross-terminal.spec.ts --workers=1 --reporter=line',

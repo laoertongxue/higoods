@@ -44,44 +44,44 @@ type AcceptanceEvidence = {
 
 const evidenceRoot = resolve(process.cwd(), 'output/verification/post-finishing-full-flow')
 const passes = [
-  { directory: '2026-09-03-qc-spu-final-pass-1-rerun', label: 'qc-spu-final-pass-1-rerun' },
-  { directory: '2026-09-03-qc-spu-final-pass-2', label: 'qc-spu-final-pass-2' },
+  { directory: '2026-09-08-final-pass-1', label: 'cross-terminal' },
+  { directory: '2026-09-08-final-pass-2', label: 'cross-terminal' },
 ] as const
 const expectedTotals = {
   productionOrders: 3,
   deliveries: 15,
   skuReturnLines: 75,
   qcTasks: 15,
-  postTasks: 15,
-  recheckOrders: 15,
+  postTasks: 10,
+  recheckOrders: 10,
   outboundOrders: 15,
-  warehouseReceipts: 15,
+  warehouseReceipts: 0,
   waitProcessWarehouseRecords: 15,
   waitProcessWarehouseMovements: 30,
-  waitHandoverWarehouseRecords: 15,
-  waitHandoverWarehouseMovements: 30,
-  defects: 2,
-  operationLogs: 367,
-  authorizationConsumptions: 6,
+  waitHandoverWarehouseRecords: 10,
+  waitHandoverWarehouseMovements: 10,
+  defects: 1,
+  operationLogs: 283,
+  authorizationConsumptions: 3,
 }
 const expectedScenarioLabels = [
   '正常一致',
   '回货 -5%边界且后道全链路',
   '回货超过5%复点与动态授权',
-  '质检瑕疵守恒、后道少1件动态授权',
+  '质检瑕疵守恒、后道记录未处理数量',
   'SKU错码重贴与复扫恢复',
-  '回货 +5%边界及 SPU 技术参数',
-  '质检少1件授权后进入后道',
-  'PDA中断后由Web接管继续',
-  '复检少1件动态授权',
-  '仓库少1件动态授权',
+  '回货 +5%边界、SPU技术参数及质检直达成衣仓',
+  '质检少1件授权后直达成衣仓',
+  '漏做烫包，PDA中断后由Web接管并做交出差异授权',
+  '空项目不进复检和待交出仓',
+  '漏做烫包后的出货单与待交出库存核对',
   '质检返工守恒及返工工厂选择',
-  '后道正常完成进入复检',
-  '后道新增瑕疵守恒',
-  '第二组SKU错码重贴复扫',
-  '复检退领重领及重复收货幂等',
+  '漏做项目进入后道后正常完成处理后复核',
+  '漏做项目进入后道并记录未处理数量',
+  '处理后复核退领重领及第二组SKU错码重贴复扫',
+  '空项目直接生成成衣仓待接收交接单',
 ]
-const expectedAuthorizationStages = ['PDA仓库收货', 'PDA后道', 'PDA后道', 'Web复检', 'Web质检', 'Web回货确认'].sort()
+const expectedAuthorizationStages = ['Web复检', 'Web质检', 'Web回货确认'].sort()
 
 function walkFiles(root: string): string[] {
   if (!existsSync(root)) return []
@@ -107,7 +107,7 @@ function readEvidence(pass: typeof passes[number]): {
   const evidence = JSON.parse(readFileSync(jsonPath, 'utf8')) as AcceptanceEvidence
   const screenshots = walkFiles(resolve(passRoot, 'screenshots')).filter((path) => path.endsWith('.png'))
   const traces = walkFiles(resolve(passRoot, 'playwright')).filter((path) => path.endsWith('/trace.zip'))
-  assert.equal(screenshots.length, 50, `${pass.label} 必须保留 50 张页面截图（含质检差异沿链进入后道的再次授权）`)
+  assert.equal(screenshots.length, 42, `${pass.label} 必须保留 42 张当前版本跨端页面截图`)
   assert.equal(evidence.surfaceScreenshots.length, 5, `${pass.label} 必须保留 5 张关键 Web 页面截图索引`)
   assert(evidence.surfaceScreenshots.every((path) => existsSync(path)), `${pass.label} 存在缺失的关键 Web 页面截图`)
   assert.equal(traces.length, 1, `${pass.label} 必须保留 1 份完整 Playwright trace`)
@@ -119,11 +119,6 @@ function readEvidence(pass: typeof passes[number]): {
     tracePath: traces[0]!,
   }
 }
-
-const namedUiScreenshots = walkFiles(resolve(evidenceRoot, '2026-09-03-auto-qc-named-ui-final')).filter((path) => path.endsWith('.png'))
-assert.equal(namedUiScreenshots.length, 13, '最终命名页面回归必须保留 13 张截图（含后道生产任务的回货与质检单弹窗）')
-const qcSpuNamedUiScreenshots = walkFiles(resolve(evidenceRoot, '2026-09-03-qc-spu-parameters-named-ui-final')).filter((path) => path.endsWith('.png'))
-assert.equal(qcSpuNamedUiScreenshots.length, 6, '质检 SPU 专项必须保留 6 张命名 UI 截图（含搜索、预填、尺码、状态、双栏和退领）')
 
 const results = passes.map((pass) => {
   const result = readEvidence(pass)
@@ -146,10 +141,7 @@ const results = passes.map((pass) => {
     assert(chain.stages.length >= 8, `${pass.label} 第 ${chain.chainIndex} 条链缺少跨端阶段`)
     assert(chain.stages.every((stage) => stage.skuCount === 5), `${pass.label} 第 ${chain.chainIndex} 条链不是 5 SKU`)
     assert.equal(chain.stages[0]?.stage, '公共PDA登记回货')
-    assert.equal(chain.stages.at(-1)?.stage, 'Web收货结果回查')
-    assert(chain.stages.some((stage) => stage.stage === 'PDA仓库收货'))
-    assert(chain.stages.some((stage) => stage.stage === 'Web待交出仓入仓核对'))
-    assert(chain.stages.some((stage) => stage.stage === 'Web待交出仓交出回查'))
+    assert(chain.stages.some((stage) => stage.stage === '后道工厂PDA收货入口已删除'))
     assert(chain.stages.some((stage) => stage.stage === 'Web出货核对及出货单打印'))
     const autoCreateStages = chain.stages.filter((stage) => stage.stage === '回货确认自动生成质检单')
     assert.equal(autoCreateStages.length, 1, `${pass.label} 第 ${chain.chainIndex} 条链必须且只能记录一次回货确认自动建单`)
@@ -166,8 +158,9 @@ const results = passes.map((pass) => {
   assert.deepEqual(authorizationStages, expectedAuthorizationStages, `${pass.label} 必须覆盖 6 次跨阶段差异授权`)
   assert.deepEqual(evidence.finalSnapshot?.totals, expectedTotals, `${pass.label} 最终业务落地数量不一致`)
   assert.equal(evidence.finalSnapshot?.chains.length, 15)
-  assert(evidence.finalSnapshot?.chains.every((chain) => chain.warehouseReceived), `${pass.label} 存在未收货链`)
-  assert(evidence.finalSnapshot?.chains.every((chain) => chain.waitHandoverStatus === '已交出'), `${pass.label} 存在未完成交出的待交出仓记录`)
+  assert(evidence.finalSnapshot?.chains.every((chain) => chain.warehouseReceived === false), `${pass.label} 不得把未经成衣仓确认的交接单冒充已收货`)
+  assert.equal(evidence.finalSnapshot?.chains.filter((chain) => chain.waitHandoverStatus === '待交出').length, 10, `${pass.label} 10 条后道处理链应停在待交出`)
+  assert.equal(evidence.finalSnapshot?.chains.filter((chain) => !chain.waitHandoverStatus).length, 5, `${pass.label} 5 条质检直达链不应进入后道待交出仓`)
 
   return {
     passLabel: pass.label,
@@ -176,8 +169,6 @@ const results = passes.map((pass) => {
     chains: evidence.chains.length,
     skuReturnLines: evidence.finalSnapshot.totals.skuReturnLines,
     screenshots: result.screenshotCount,
-    namedUiScreenshots: namedUiScreenshots.length,
-    qcSpuNamedUiScreenshots: qcSpuNamedUiScreenshots.length,
     evidenceSha256: sha256(result.jsonPath),
     traceSha256: sha256(result.tracePath),
   }
@@ -203,5 +194,5 @@ console.log(JSON.stringify({
   skuPerProductionOrder: 5,
   returnsPerProductionOrder: 5,
   passes: results,
-  status: '两轮全量跨端 UI 验收证据一致且完整',
+  status: '两轮跨端 UI 验收已一致到达成衣仓待接收；最终收货由领域检查单独验证',
 }, null, 2))

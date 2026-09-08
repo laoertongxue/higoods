@@ -19,7 +19,7 @@ import {
 import {
   getPostFinishingSourceLabel,
   getPostFinishingWorkOrderById,
-} from '../../../data/fcs/post-finishing-domain.ts'
+} from '../../../data/fcs/post-finishing-current-read-model.ts'
 import {
   buildSpecialCraftTaskDetailPath,
 } from '../../../data/fcs/special-craft-operations.ts'
@@ -36,7 +36,7 @@ import {
 } from '../../../data/fcs/print-service.ts'
 
 type TaskDeliveryCardAdapterInput = PrintDocumentBuildInput | string
-type DeliveryVariant = 'runtime' | 'printing' | 'dyeing' | 'specialCraft' | 'postFinishing' | 'cutting' | 'sewing'
+type DeliveryVariant = 'runtime' | 'printing' | 'dyeing' | 'specialCraft' | 'postFinishing' | 'cutting' | 'sewing' | 'wool'
 
 const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   runtime: '任务交货卡',
@@ -46,6 +46,7 @@ const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   postFinishing: '后道生产任务交货卡',
   cutting: '裁片任务交货卡',
   sewing: '车缝任务交货卡',
+  wool: '毛织任务交货卡',
 }
 
 function toText(value: string | number | undefined | null, fallback = '—'): string {
@@ -83,6 +84,7 @@ function mapFields(rows: Array<{ label: string; value: string; emphasis?: boolea
 
 function objectQtyNoun(objectType: ProcessWarehouseObjectType | string, qtyUnit?: string): string {
   if (objectType === '面料' || String(objectType).includes('面料')) return qtyUnit === '卷' ? '面料卷数' : '面料米数'
+  if (objectType === '辅料' || String(objectType).includes('辅料')) return '辅料数量'
   if (objectType === '裁片' || String(objectType).includes('裁片')) return '裁片数量'
   if (objectType === '成衣' || String(objectType).includes('成衣') || qtyUnit === '件') return '成衣件数'
   return '对象数量'
@@ -101,6 +103,7 @@ function inferVariantFromText(text: string): DeliveryVariant {
   if (text.includes('印花')) return 'printing'
   if (text.includes('染色')) return 'dyeing'
   if (text.includes('后道')) return 'postFinishing'
+  if (text.includes('毛织')) return 'wool'
   if (text.includes('车缝') || text.includes('缝制')) return 'sewing'
   if (text.includes('裁片') || text.includes('裁剪') || text.includes('裁床') || text.includes('定位裁（激光切）')) return 'cutting'
   if (['打揽', '打条', '捆条', '烫画', '直喷', '特殊工艺'].some((keyword) => text.includes(keyword))) {

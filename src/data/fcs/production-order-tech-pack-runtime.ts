@@ -60,6 +60,9 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     routeParallelGroupId: item.routeParallelGroupId,
     routeParallelGroupName: item.routeParallelGroupName,
     routeSourceKind: item.routeSourceKind,
+    routeObjectKey: item.routeObjectKey,
+    inputObjectType: item.inputObjectType,
+    outputObjectType: item.outputObjectType,
     routeUpdatedBy: item.routeUpdatedBy,
     routeUpdatedAt: item.routeUpdatedAt,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
@@ -67,6 +70,8 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
     linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    consumedBomItemIds: [...(item.consumedBomItemIds ?? [])],
+    predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
     visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
 }

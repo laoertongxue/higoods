@@ -1,3 +1,4 @@
+import { localDateTimeText } from '../src/utils.ts'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import assert from 'node:assert/strict'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
@@ -326,18 +327,26 @@ assert.equal(successfulInbound.resultMessage, '入仓成功', '入仓成功提�
 assert.equal(successfulInbound.carrierCode, '', '入仓成功后必须清空袋码')
 assert.deepEqual(successfulInbound.selectedLocationIds, [], '入仓成功后必须清空库位')
 
-const demoTicketNos = [
-  'FT-CUT-260307-102-01-001',
-  'FT-CUT-260307-102-01-002',
-  'FT-CUT-260307-102-02-017',
-]
+const currentTicketCandidates = buildTransferBagsProjection().viewModel.ticketCandidates
+const demoTicketNos = currentTicketCandidates
+  .filter((ticket) => ticket.ticketStatus === 'PRINTED')
+  .slice(0, 3)
+  .map((ticket) => ticket.ticketNo)
+assert.equal(demoTicketNos.length, 3, '测试前提：当前页面必须提供三张已打印、可装袋的有效菲票')
+assert.equal(
+  new Set(currentTicketCandidates
+    .filter((ticket) => demoTicketNos.includes(ticket.ticketNo))
+    .map((ticket) => ticket.productionOrderNo)).size,
+  1,
+  '测试前提：连续装袋使用的三张菲票必须属于同一生产单',
+)
 for (const ticketNo of demoTicketNos) {
   assert.equal(mockLedger.tickets[ticketNo]?.status, 'READY_FOR_BAGGING', `当前页面候选菲票必须进入本地台账：${ticketNo}`)
 }
 assert.equal(mockLedger.bags['BAG-001']?.status, 'EMPTY_READY', '演示台账必须提供第一个空袋')
 assert.equal(mockLedger.bags['BAG-002']?.status, 'EMPTY_READY', '演示台账必须提供第二个空袋支持连续装袋')
 
-const knownTicketCandidate = buildTransferBagsProjection().viewModel.ticketCandidates
+const knownTicketCandidate = currentTicketCandidates
   .find((ticket) => ticket.ticketNo === demoTicketNos[0])!
 assert(knownTicketCandidate, '测试前提：当前页面候选必须包含演示有效菲票')
 
@@ -989,7 +998,7 @@ const specialUsageCycleId = buildWaitHandoverLifecycleByBagCode(
   specialReturnStorage,
 ).usageCycleId
 assert(specialUsageCycleId, '特殊工艺交出前必须已形成使用周期')
-const specialHandoverAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+const specialHandoverAt = localDateTimeText().slice(0, 16)
 appendWaitHandoverSpecialCraftHandoverEvent({
   source: 'PDA',
   operator: { operatorName: '特殊工艺交出员' },

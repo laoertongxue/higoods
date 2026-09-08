@@ -8,6 +8,7 @@ import { productionOrders } from './production-orders.ts'
 import {
   getSewingSampleApprovalRecord,
   handoffPreProductionSampleToApprover,
+  initializeSewingSampleApprovalSuggestionForAssignment,
   markPreProductionSampleFactoryCompleted,
   receivePreProductionSampleByPpic,
   startSampleApproval,
@@ -38,7 +39,13 @@ function ensureAssignment(input: {
   processCodes: string[]
 }) {
   const existing = getEffectiveTaskAssignment(input.assignmentId)
-  if (existing) return existing
+  if (existing) {
+    // Effective assignments survive a browser reload, while this prototype's
+    // sample-approval records intentionally live in memory. Rehydrate the
+    // derived record before replaying the idempotent demo actions.
+    initializeSewingSampleApprovalSuggestionForAssignment(existing)
+    return existing
+  }
   const { productionOrder, factory, sku } = getDemoSource()
   return createEffectiveTaskAssignment({
     assignmentId: input.assignmentId,

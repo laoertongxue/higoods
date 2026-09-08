@@ -65,7 +65,7 @@ assert(totalColumnWidth(recheckOrders) <= 2040, '复检单默认总列宽仍过�
 for (const text of ['计划数量', '已入待加工仓', '未质检', '已质检', '待交出', '上游来源', '分配状态', 'SKU 重量']) {
   assert(tasks.includes(text), `后道生产任务缺少线上字段：${text}`)
 }
-for (const text of ['出库状态', '后道来源', '售卖类型', '设置 SKU 重量', '回货记录', '查看回货详情', '质检单', '查看质检单', '打印质检单', '打印质检详情单']) {
+for (const text of ['出库状态', '后道来源', '售卖类型', '设置 SKU 重量', '回货记录', '查看回货详情', '质检单', '查看质检单']) {
   assert(tasks.includes(text), `后道生产任务缺少线上筛选、关联记录或动作：${text}`)
 }
 assert(tasks.includes("title: '后道生产任务'") && tasks.includes('一张后道生产任务对应一个生产单'), '生产单级总任务必须统一命名为后道生产任务')
@@ -91,16 +91,22 @@ assert(qcOrders.includes("['待送检','待质检','质检中','质检完成']")
 assert(warehouse.includes('确认送检出库') && !warehouse.includes('送检并生成质检单'), '待加工仓只能执行送检出库，不得在送检时再次建单')
 assert(fullFlow.includes("status: '待送检'") && fullFlow.includes("action: '自动生成质检单'") && fullFlow.includes("task.status = '待质检'"), '领域流程必须在回货确认时建待送检质检单，并在送检时激活为待质检')
 
-for (const text of ['单据', '工厂', 'SKU 明细', '后道项目', '总数量', '后道不合格', '后道状态', '时间']) {
+for (const text of ['单据', '工厂', 'SKU 明细', '后道项目', '总数量', '未处理数量', '后道状态', '时间']) {
   assert(workOrders.includes(text), `后道加工单缺少线上字段：${text}`)
+}
+for (const obsoleteQualityField of ['后道不合格', '合格数量', '不合格数量', '返厂数量']) {
+  assert(!workOrders.includes(obsoleteQualityField), `后道加工单不得产生第二质量事实：${obsoleteQualityField}`)
 }
 for (const text of ['查看加工单', '开始后道', '打印加工单']) {
   assert(workOrders.includes(text), `后道加工单缺少保留动作：${text}`)
 }
 assert(workOrders.includes("title: '后道加工单'") && workOrders.includes('后道加工单'), '质检后实际执行对象必须统一命名为后道加工单')
 
-for (const text of ['复检单号', '来源', '关联质检单', '关联后道加工单', '生产单号', '加工工厂', '款式名称', 'SKU 明细', '复检数量', '合格数量', '不合格数量', '复检状态', '复检时间']) {
+for (const text of ['复检单号', '来源', '关联质检单', '关联后道加工单', '生产单号', '加工工厂', '款式名称', 'SKU 明细', '应交数量', '交出数量', '复检状态', '复检时间']) {
   assert(recheckOrders.includes(text), `复检单缺少线上字段：${text}`)
+}
+for (const obsoleteQualityField of ['合格数量', '不合格数量', '返厂数量']) {
+  assert(!recheckOrders.includes(obsoleteQualityField), `处理后复核不得再次质检：${obsoleteQualityField}`)
 }
 assert(recheckOrders.includes('查看复检详情') && recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检单必须保留详情和主管释放兜底')
 
@@ -111,16 +117,15 @@ for (const action of ['详情', '打印整单', '打印条码', '打印吊牌'])
   assert(outboundOrders.includes(action), `后道出货单缺少动作：${action}`)
 }
 assert(!outboundOrders.includes('打印质检单') && !outboundOrders.includes('type=QC_ORDER') && !outboundOrders.includes('type=QC_DETAIL'), '后道出货单不得继续提供质检单打印入口')
-for (const field of ['单头信息', '出货明细', '出库仓', '接收仓', '来源动作', '来源对象', '交接单号', '库区', '库位', '计划数量', '入库数量', '备注']) {
+for (const field of ['单头信息', '出货明细', '交出位置', '接收仓', '来源动作', '来源对象', '来源单号', '库区', '库位', '应交数量', '成衣仓实收', '备注']) {
   assert(outboundOrders.includes(field), `后道出货单详情缺少线上字段：${field}`)
 }
 
 for (const text of ["'QC_ORDER'", "'QC_DETAIL'", 'renderOnlinePostFinishingQcMaster', 'renderOnlinePostFinishingQcDetail', '后道加工单流转卡']) {
   assert(printPage.includes(text), `打印入口缺少：${text}`)
 }
-for (const source of [tasks, qcOrders]) {
-  assert(source.includes('type=QC_ORDER') && source.includes('type=QC_DETAIL'), '后道生产任务与质检单列表必须共用两类 QC 打印入口')
-}
+assert(qcOrders.includes('type=QC_ORDER') && qcOrders.includes('type=QC_DETAIL'), '质检单列表必须保留质检主单和详情单打印入口')
+assert(!tasks.includes('type=QC_ORDER') && !tasks.includes('type=QC_DETAIL'), '后道生产任务只负责关联查看，不得越权提供质检打印动作')
 for (const text of [
   '质检单 （Pemeriksaan Kualitas）', '款式评级（Gaya penilaian）', '买手（Pembeli）', '生产单类型（Jenis pesanan）',
   '售卖类型（Jenis penjualan）', '面辅料（pakaian &amp; aksesori）', '单耗(Pemakaian per unit)', '尺码表（Graf ukuran）',
@@ -135,6 +140,6 @@ console.log(JSON.stringify({
   suite: 'QC 后道四张管理列表线上基线对齐检查',
   pages: ['后道生产任务', '质检单', '后道加工单', '复检单'],
   density: '移除重复列表标题；关键列压缩；操作列双列网格且最多 3 行',
-  flow: '回货最终确认自动生成待送检质检单；待加工仓送检只激活同一单；后道生产任务聚合多次回货与多张质检单；每次回货 -> 质检单 -> 后道加工单 -> 复检单 -> 出货单 1:1',
+  flow: '回货最终确认自动生成待送检质检单；待加工仓送检只激活同一单；QC 空项目直达成衣仓，有项目才进入后道加工与处理后复核；每次合法来源只生成一张出货单',
   result: '通过',
 }, null, 2))

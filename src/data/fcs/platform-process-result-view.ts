@@ -1,4 +1,10 @@
-import { TEST_FACTORY_DISPLAY_NAME, TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import {
+  DEDICATED_POST_FACTORY_ID,
+  DEDICATED_POST_FACTORY_NAME,
+  TEST_FACTORY_DISPLAY_NAME,
+  TEST_FACTORY_ID,
+  TEST_FACTORY_NAME,
+} from './factory-mock-data.ts'
 import {
   buildDyeingWorkOrderDetailLink,
   buildPostFinishingWorkOrderDetailLink,
@@ -19,6 +25,7 @@ import {
 } from './process-platform-status-adapter.ts'
 import {
   formatProcessQuantityWithUnit,
+  getProcessObjectType,
   getQuantityLabel,
   type ProcessObjectType,
   type ProcessQtyUnit,
@@ -45,7 +52,8 @@ import {
   type ProcessActionOperationRecord,
   type ProcessActionSourceType,
 } from './process-action-writeback-service.ts'
-import { cloneCutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
+import { listGeneratedCutOrderSourceRecords, type GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
+import { cuttingOrderProgressRecords } from './cutting/order-progress.ts'
 import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   buildSpecialCraftOperationSlug,
@@ -57,10 +65,12 @@ import {
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
 import {
-  getPostFinishingFlowText,
-  listPostFinishingWorkOrders,
-  type PostFinishingWorkOrder,
-} from './post-finishing-domain.ts'
+  listPostFinishingFactoryReturns,
+  listPostFinishingFullFlowPostTasks,
+  listPostFinishingFullFlowQcTasks,
+  listPostFinishingFullFlowRecheckOrders,
+  type PostFinishingPostTask,
+} from './post-finishing-full-flow.ts'
 
 export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'WATER_SOLUBLE' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 
@@ -348,7 +358,7 @@ function resolveFollowUp(statusLabel: PlatformProcessStatus, hasHandoverRecord: 
 }
 
 function getQtyUnit(value: string): ProcessQtyUnit {
-  if (value === '米' || value === '卷' || value === '片' || value === '件' || value === '张' || value === '包' || value === '箱' || value === '个') return value
+  if (value === 'Yard' || value === '米' || value === '公斤' || value === '卷' || value === '片' || value === '件' || value === '张' || value === '包' || value === '箱' || value === '个' || value === '条') return value
   return '个'
 }
 
@@ -359,7 +369,6 @@ function quantityField(
   qtyUnit: ProcessQtyUnit,
   qtyPurpose: QtyPurpose,
   value: number,
-  options: { isPiecePrinting?: boolean; isFabricPrinting?: boolean } = {},
 ): PlatformQuantityDisplayField {
   const context = {
     processType,
@@ -368,8 +377,6 @@ function quantityField(
     objectType,
     qtyUnit,
     qtyPurpose,
-    isPiecePrinting: options.isPiecePrinting,
-    isFabricPrinting: options.isFabricPrinting,
   }
   const label = getQuantityLabel(context)
   return {
@@ -391,16 +398,14 @@ function buildQuantityFields(input: {
   handedOverObjectQty: number
   writtenBackObjectQty: number
   diffObjectQty: number
-  isPiecePrinting?: boolean
-  isFabricPrinting?: boolean
 }): PlatformQuantityDisplayField[] {
   return [
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '计划', input.plannedObjectQty, input),
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '已完成', input.completedObjectQty, input),
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '待交出', input.waitHandoverObjectQty, input),
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '已交出', input.handedOverObjectQty, input),
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '实收', input.writtenBackObjectQty, input),
-    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '差异', input.diffObjectQty, input),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '计划', input.plannedObjectQty),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '已完成', input.completedObjectQty),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '待交出', input.waitHandoverObjectQty),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '已交出', input.handedOverObjectQty),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '实收', input.writtenBackObjectQty),
+    quantityField(input.processType, input.sourceId, input.objectType, input.qtyUnit, '差异', input.diffObjectQty),
   ]
 }
 
@@ -425,8 +430,6 @@ function buildCommonResult(input: {
   mobileTaskLink?: string
   taskId?: string
   taskNo?: string
-  isPiecePrinting?: boolean
-  isFabricPrinting?: boolean
   facts: UnifiedFacts
 }): PlatformProcessResultView {
   const waitHandoverRecords = input.facts.warehouses.filter((record) => record.recordType === 'WAIT_HANDOVER')
@@ -486,8 +489,6 @@ function buildCommonResult(input: {
       handedOverObjectQty,
       writtenBackObjectQty,
       diffObjectQty,
-      isPiecePrinting: input.isPiecePrinting,
-      isFabricPrinting: input.isFabricPrinting,
     }),
     latestWarehouseRecordId: latestWarehouse?.warehouseRecordId || '',
     latestHandoverRecordId: latestHandover?.handoverRecordId || '',
@@ -538,7 +539,11 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
     dispatchPriceDisplay: order.dispatchPriceDisplay,
     internalStatusLabel: order.statusLabel,
     baseStatusLabel: baseStatus.platformStatusLabel,
-    objectType: order.objectType === '面料' ? '面料' : '裁片',
+    objectType: getProcessObjectType({
+      processType: sourceType,
+      objectType: order.objectType,
+      qtyUnit: order.plannedUnit,
+    }),
     qtyUnit: getQtyUnit(order.plannedUnit),
     plannedObjectQty: order.plannedQty,
     completedObjectQty: latestExecutionQty,
@@ -546,8 +551,6 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
     craftDetailLink: sourceType === 'PRINT' ? buildPrintingWorkOrderDetailLink(order.workOrderId) : buildDyeingWorkOrderDetailLink(order.workOrderId),
     taskId: order.taskId,
     taskNo: order.taskNo,
-    isPiecePrinting: order.isPiecePrinting,
-    isFabricPrinting: order.isFabricPrinting,
     facts,
   })
   if (sourceType === 'DYE' && plannedRollCount > 0) {
@@ -561,40 +564,44 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
   return view
 }
 
-function buildCuttingView(record: CutPieceOrderRecord): PlatformProcessResultView {
-  const sourceId = record.cutOrderId || record.id
+function buildCuttingView(record: GeneratedCutOrderSourceRecord): PlatformProcessResultView {
+  const sourceId = record.cutOrderId
+  const progress = cuttingOrderProgressRecords.find((item) => item.materialLines.some(
+    (line) => line.cutOrderId === record.cutOrderId || line.cutOrderNo === record.cutOrderNo,
+  ))
+  const currentStage = progress?.cuttingStage || '待铺布'
   const facts = resolveFacts('CUTTING', sourceId, record.cuttingTaskNo)
   const mapped = mapCraftStatusToPlatformStatus({
     sourceType: 'CUTTING_ORDER',
     sourceId,
     processType: 'CUTTING',
-    craftStatusLabel: record.currentStage,
-    status: record.currentStage,
+    craftStatusLabel: currentStage,
+    status: currentStage,
   })
   const feiTickets = listSpreadingResultGeneratedFeiTicketsByCutOrderId(sourceId)
   const view = buildCommonResult({
     sourceType: 'CUTTING',
     sourceId,
-    processName: '裁片',
-    workOrderNo: record.cutOrderNo || record.cutPieceOrderNo,
+    processName: '裁剪',
+    workOrderNo: record.cutOrderNo,
     productionOrderNo: record.productionOrderNo,
-    factoryId: TEST_FACTORY_ID,
-    factoryName: TEST_FACTORY_NAME,
-    internalStatusLabel: record.currentStage,
+    factoryId: record.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
+    factoryName: record.cuttingTaskAssigneeFactoryName || TEST_FACTORY_NAME,
+    internalStatusLabel: currentStage,
     baseStatusLabel: mapped.platformStatusLabel,
     objectType: '裁片',
     qtyUnit: '片',
-    plannedObjectQty: record.markerInfo.totalPieces || record.orderQty,
-    completedObjectQty: record.hasInboundRecord ? record.markerInfo.totalPieces : 0,
+    plannedObjectQty: record.requiredQty,
+    completedObjectQty: progress?.hasInboundRecord ? record.requiredQty : 0,
     detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(sourceId)}`,
     craftDetailLink: `/fcs/process-factory/cutting/cut-orders?cutOrderId=${encodeURIComponent(sourceId)}`,
     mobileTaskLink: buildTaskDetailLink(record.cuttingTaskNo, {
-      currentFactoryId: TEST_FACTORY_ID,
+      currentFactoryId: record.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
       sourceType: 'CUTTING',
       sourceId,
       keyword: record.cuttingTaskNo,
     }),
-    taskId: record.cuttingTaskNo,
+    taskId: record.cuttingTaskId,
     taskNo: record.cuttingTaskNo,
     facts,
   })
@@ -716,72 +723,73 @@ function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProces
   return view
 }
 
-function buildPostFinishingView(order: PostFinishingWorkOrder): PlatformProcessResultView {
-  const facts = resolveFacts('POST_FINISHING', order.postOrderId, order.sourceTaskId)
+function buildPostFinishingView(order: PostFinishingPostTask): PlatformProcessResultView {
+  const delivery = listPostFinishingFactoryReturns().find((item) => item.deliveryId === order.deliveryId)
+  const qcTask = listPostFinishingFullFlowQcTasks().find((item) => item.qcTaskId === order.qcTaskId)
+  const recheck = listPostFinishingFullFlowRecheckOrders().find((item) => item.postTaskId === order.postTaskId)
+  const facts = resolveFacts('POST_FINISHING', order.postTaskId, order.postTaskId)
   const mapped = mapCraftStatusToPlatformStatus({
     sourceType: 'POST_FINISHING_WORK_ORDER',
-    sourceId: order.postOrderId,
+    sourceId: order.postTaskId,
     processType: 'POST_FINISHING',
-    craftStatusLabel: order.currentStatus,
-    status: order.currentStatus,
+    craftStatusLabel: order.status,
+    status: order.status,
   })
-  const completedQty =
-    order.recheckAction.confirmedGarmentQty ||
-    order.recheckAction.acceptedGarmentQty ||
-    order.postAction.completedPostGarmentQty ||
-    order.qcAction.passedGarmentQty ||
-    order.receiveAction.receivedGarmentQty ||
-    0
+  const plannedQty = order.lines.reduce((sum, line) => sum + line.expectedQty, 0)
+  const completedQty = (order.results || order.draftLines || []).reduce((sum, line) => sum + ('processedQty' in line ? line.processedQty : 0), 0)
+  const receivedQty = delivery?.lines.reduce((sum, line) => sum + (line.confirmedQty || 0), 0) || 0
+  const qcPassedQty = qcTask?.results?.reduce((sum, line) => sum + line.passedQty, 0) || 0
+  const recheckQty = recheck?.lines.reduce((sum, line) => sum + (line.handoverQty || 0), 0) || 0
   const view = buildCommonResult({
     sourceType: 'POST_FINISHING',
-    sourceId: order.postOrderId,
+    sourceId: order.postTaskId,
     processName: '后道',
-    workOrderNo: order.postOrderNo,
-    productionOrderNo: order.sourceProductionOrderNo,
-    factoryId: order.managedPostFactoryId || TEST_FACTORY_ID,
-    factoryName: order.managedPostFactoryName || TEST_FACTORY_NAME,
-    internalStatusLabel: order.currentStatus,
+    workOrderNo: order.postTaskNo,
+    productionOrderNo: order.productionOrderNo,
+    factoryId: DEDICATED_POST_FACTORY_ID,
+    factoryName: DEDICATED_POST_FACTORY_NAME,
+    internalStatusLabel: order.status,
     baseStatusLabel: mapped.platformStatusLabel,
     objectType: '成衣',
     qtyUnit: '件',
-    plannedObjectQty: order.plannedGarmentQty,
+    plannedObjectQty: plannedQty,
     completedObjectQty: completedQty,
-    detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(order.postOrderId)}`,
-    craftDetailLink: buildPostFinishingWorkOrderDetailLink(order.postOrderId, 'base'),
-    mobileTaskLink: buildTaskDetailLink(order.sourceTaskId, {
-      currentFactoryId: TEST_FACTORY_ID,
+    detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(order.postTaskId)}`,
+    craftDetailLink: buildPostFinishingWorkOrderDetailLink(order.postTaskId, 'base'),
+    mobileTaskLink: buildTaskDetailLink(order.postTaskId, {
+      currentFactoryId: DEDICATED_POST_FACTORY_ID,
       sourceType: 'POST_FINISHING_WORK_ORDER',
-      sourceId: order.postOrderId,
-      keyword: order.postOrderNo,
+      sourceId: order.postTaskId,
+      keyword: order.postTaskNo,
     }),
-    taskId: order.sourceTaskId,
-    taskNo: order.postOrderNo,
+    taskId: order.postTaskId,
+    taskNo: order.postTaskNo,
     facts,
   })
   view.quantityDisplayFields.unshift({
     label: '当前流程类型',
     value: 0,
     unit: '个',
-    text: `当前流程类型：${getPostFinishingFlowText(order)}`,
+    text: `当前流程类型：${order.sourceType} / ${order.responsibility.responsibilityLabel}`,
   })
   view.quantityDisplayFields.push(
     {
       label: '接收成衣件数',
-      value: order.receiveAction.receivedGarmentQty || order.receiveAction.acceptedGarmentQty || 0,
+      value: receivedQty,
       unit: '件',
-      text: `接收成衣件数：${order.receiveAction.receivedGarmentQty || order.receiveAction.acceptedGarmentQty || 0} 件`,
+      text: `接收成衣件数：${receivedQty} 件`,
     },
     {
       label: '质检通过成衣件数',
-      value: order.qcAction.passedGarmentQty || order.qcAction.acceptedGarmentQty || 0,
+      value: qcPassedQty,
       unit: '件',
-      text: `质检通过成衣件数：${order.qcAction.passedGarmentQty || order.qcAction.acceptedGarmentQty || 0} 件`,
+      text: `质检通过成衣件数：${qcPassedQty} 件`,
     },
     {
       label: '复检确认成衣件数',
-      value: order.recheckAction.confirmedGarmentQty || order.recheckAction.acceptedGarmentQty || 0,
+      value: recheckQty,
       unit: '件',
-      text: `复检确认成衣件数：${order.recheckAction.confirmedGarmentQty || order.recheckAction.acceptedGarmentQty || 0} 件`,
+      text: `处理后交出复核数量：${recheckQty} 件`,
     },
   )
   return view
@@ -819,7 +827,7 @@ export function listPlatformDyeResultViews(filter: PlatformProcessResultViewFilt
 }
 
 export function listPlatformCuttingResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
-  const baseViews = cloneCutPieceOrderRecords().map(buildCuttingView)
+  const baseViews = listGeneratedCutOrderSourceRecords().map(buildCuttingView)
   const baseSourceIds = new Set(baseViews.map((view) => view.sourceId))
   const supplementalSourceIds = uniqueStrings([
     ...listProcessWarehouseRecords({ craftType: 'CUTTING' }).map((record) => record.sourceTaskOrderId),
@@ -843,7 +851,7 @@ export function listPlatformSpecialCraftResultViews(filter: PlatformProcessResul
 }
 
 export function listPlatformPostFinishingResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
-  return listPostFinishingWorkOrders()
+  return listPostFinishingFullFlowPostTasks()
     .map(buildPostFinishingView)
     .filter((view) => matchesFilter(view, { ...filter, sourceType: 'POST_FINISHING' }))
     .map(cloneView)

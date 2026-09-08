@@ -117,7 +117,7 @@ test('产能档案已收口为当前阶段最小必要字段维护，工厂与�
   await expect(page.getByRole('heading', { name: '产能档案', exact: true })).toBeVisible()
 
   const scenarios = [
-    { factoryName: 'PT Sinar Garment Indonesia', crafts: ['基础连接', '曲牙'] },
+    { factoryName: 'PT Sinar Garment Indonesia', crafts: ['基础连接', '曲牙绣'] },
     { factoryName: 'PT Prima Printing Center', crafts: ['丝网印', '数码印'] },
     { factoryName: 'PT Cahaya Dyeing Sejahtera', crafts: ['匹染', '色织'] },
     { factoryName: 'CV Satellite Cluster Malang A', crafts: ['手缝扣', '烫包'] },
@@ -173,7 +173,7 @@ test('不同模板工艺会根据当前阶段字段自动计算默认日可供�
   await expectResultToChange(baseConnectCard, 'staffCount', '9')
   await expectResultToChange(baseConnectCard, 'efficiencyFactor', '0.91')
 
-  const quyaCard = getCraftCard(sewingDrawer, '曲牙')
+  const quyaCard = getCraftCard(sewingDrawer, '曲牙绣')
   await expect(quyaCard).toContainText('设备侧日能力 = 设备数量 × 单台默认日有效分钟 × 设备标准效率值')
   await expect(quyaCard).toContainText('人员侧日能力 = 人数 × 单人默认日有效分钟 × 人员标准效率值')
   await expect(quyaCard).toContainText('设备侧日能力 = 设备数量（')

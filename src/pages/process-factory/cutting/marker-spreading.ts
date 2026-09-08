@@ -132,6 +132,7 @@ import { listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generat
 import {
   resolveSpreadingMaterialReadiness,
   resolveSpreadingOrderMaterialReadiness,
+  buildRuntimeAdjustedLedgerMap,
   type SpreadingMaterialReadiness,
   type SpreadingMaterialReadinessStatusKey,
 } from '../../../data/fcs/cutting/spreading-material-readiness.ts'
@@ -997,10 +998,12 @@ function resolvePdaRuntimeEventSummary(session: SpreadingSession): {
 function resolveWebSpreadingSummary(
   row: SupervisorSpreadingRow,
   projection: MarkerSpreadingProjection = buildMarkerSpreadingProjection(),
+  ledgerMap?: ReturnType<typeof buildRuntimeAdjustedLedgerMap>,
+  prototypeData?: Pick<ReturnType<typeof readMarkerSpreadingPrototypeData>, 'rowsById' | 'store'>,
 ) {
   const session = row.session
   const order = findSpreadingOrderForRow(row, projection)
-  const derived = resolveSpreadingDerivedState(session)
+  const derived = resolveSpreadingDerivedState(session, prototypeData)
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
   const plannedLayerCount = Math.max(Number(order?.plannedLayerCount || session.plannedLayers || derived.markerRecord?.plannedLayerCount || 0), 0)
@@ -1019,13 +1022,13 @@ function resolveWebSpreadingSummary(
   const statusKey = resolveSpreadingOrderStatusFromSession(session)
   const status = spreadingOrderStatusMeta[statusKey]
   const materialReadiness = order
-    ? resolveSpreadingOrderMaterialReadiness(order)
+    ? resolveSpreadingOrderMaterialReadiness(order, ledgerMap)
     : resolveSpreadingMaterialReadiness({
         sourceCutOrderIds: session.cutOrderIds,
         sourceCutOrderNos: [],
         plannedMaterialUsage: plannedUsage,
         plannedMaterialUsageUnit: '米',
-      })
+      }, ledgerMap)
   const needsReview =
     pda.statusLabel === '同步失败' ||
     row.hasVariance ||
@@ -1389,12 +1392,49 @@ function resolveNextRollNo(rolls: SpreadingRollRecord[]): string {
   return String((numericRollNos.length ? Math.max(...numericRollNos) : rolls.length) + 1)
 }
 
+// A keystroke changes only this draft. Refresh its read-only calculations without
+// hydrating every order or replacing the active form/input nodes. Save/completion
+// still rebuild current shared facts and run the original validation.
+function refreshSpreadingRollDraftDom(draft: SpreadingSession, index: number): void {
+  const page = document.querySelector<HTMLElement>('[data-testid="cutting-spreading-edit-page"]')
+  const roll = draft.rolls[index]
+  if (!page || !roll) return
+  const summary = summarizeSpreadingRolls(draft.rolls)
+  const layers = page.querySelector<HTMLElement>('[data-spreading-live-summary="layers"]')
+  if (layers) layers.innerHTML = `${renderValueWithFormula(`${formatQty(summary.totalLayers)} 层`, buildLayerSumFormula(summary.totalLayers, draft.rolls.map(item => item.layerCount)))}<div class="mt-0.5 text-[11px] text-muted-foreground">实铺层数</div>`
+  const usage = page.querySelector<HTMLElement>('[data-spreading-live-summary="usage"]')
+  if (usage) usage.innerHTML = `${renderValueWithFormula(formatLength(summary.totalActualLength), buildSumFormula(summary.totalActualLength, draft.rolls.map(item => computeUsableLength(item.actualLength, item.headLength, item.tailLength, item.layerCount)), 2))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际用量</div>`
+  const host = page.querySelector<HTMLElement>(`[data-spreading-live-roll="${index}"]`)
+  if (host) {
+    const planUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
+    const consumed = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
+    const remaining = computeRemainingLength(roll.labeledLength, roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
+    const title = host.querySelector<HTMLElement>('[data-spreading-live-roll-title]')
+    if (title) title.textContent = `卷记录 ${roll.rollNo || index + 1}`
+    const values: Record<string, string> = {
+      usage: renderValueWithFormula(formatLength(consumed), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, consumed), 'text-sm text-foreground'),
+      remaining: renderValueWithFormula(formatLength(remaining), buildRemainingLengthFormula(roll.labeledLength, consumed, remaining), 'text-sm text-foreground'),
+      theory: renderValueWithFormula(formatRollActualCutSizeText(planUnit, roll), buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground'),
+    }
+    for (const [key, html] of Object.entries(values)) {
+      const value = host.querySelector<HTMLElement>(`[data-spreading-live-value="${key}"]`)
+      if (value) value.innerHTML = html
+    }
+  }
+  const warnings = page.querySelector<HTMLElement>('[data-spreading-live-warnings]')
+  if (warnings) warnings.innerHTML = buildSpreadingWarningMessages({
+    session: draft,
+    markerTotalPieces: Number(page.dataset.spreadingMarkerPieces || 0),
+    claimedLengthTotal: Number(page.dataset.spreadingClaimedLength || 0),
+  }).map(message => `<p>${escapeHtml(message)}</p>`).join('')
+}
+
 function renderRollNumberInput(index: number, field: SpreadingRollField, value: number | string, extraClass = ''): string {
-  return `<input type="number" value="${escapeHtml(String(value ?? 0))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
+  return `<input data-skip-page-rerender="true" type="number" value="${escapeHtml(String(value ?? 0))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
 }
 
 function renderRollTextInput(index: number, field: SpreadingRollField, value: string | number | undefined, extraClass = ''): string {
-  return `<input type="text" value="${escapeHtml(String(value ?? ''))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
+  return `<input data-skip-page-rerender="true" type="text" value="${escapeHtml(String(value ?? ''))}" class="h-9 w-full rounded-md border px-2.5 text-sm ${extraClass}" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="${field}" />`
 }
 
 function renderRollFormField(label: string, content: string, note = ''): string {
@@ -1426,15 +1466,15 @@ function renderRollOperatorLayerEditor(roll: SpreadingRollRecord, rollIndex: num
                   <div class="grid gap-2 rounded-md border bg-background p-2 md:grid-cols-[120px_120px_minmax(160px,1fr)_auto]">
                     <label class="space-y-1">
                       <span class="block text-[11px] text-muted-foreground">开始层</span>
-                      <input type="number" min="1" value="${escapeHtml(String(row.startLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="startLayer" />
+                      <input data-skip-page-rerender="true" type="number" min="1" value="${escapeHtml(String(row.startLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="startLayer" />
                     </label>
                     <label class="space-y-1">
                       <span class="block text-[11px] text-muted-foreground">结束层</span>
-                      <input type="number" min="1" value="${escapeHtml(String(row.endLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="endLayer" />
+                      <input data-skip-page-rerender="true" type="number" min="1" value="${escapeHtml(String(row.endLayer ?? ''))}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="endLayer" />
                     </label>
                     <label class="space-y-1">
                       <span class="block text-[11px] text-muted-foreground">人员</span>
-                      <input type="text" value="${escapeHtml(row.operatorName || '')}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="operatorName" />
+                      <input data-skip-page-rerender="true" type="text" value="${escapeHtml(row.operatorName || '')}" class="h-8 w-full rounded-md border px-2 text-sm" data-cutting-spreading-roll-index="${rollIndex}" data-cutting-spreading-roll-operator-index="${operatorIndex}" data-cutting-spreading-roll-operator-field="operatorName" />
                     </label>
                     <div class="flex items-end justify-end">
                       <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="remove-roll-operator-layer" data-roll-index="${rollIndex}" data-operator-index="${operatorIndex}">删除</button>
@@ -2347,8 +2387,10 @@ function buildNewSpreadingDraft(): SpreadingSession {
   return draft
 }
 
-function buildContextPayloadFromSession(session: SpreadingSession): Record<string, string | undefined> {
-  const data = readMarkerSpreadingPrototypeData()
+function buildContextPayloadFromSession(
+  session: SpreadingSession,
+  data: Pick<ReturnType<typeof readMarkerSpreadingPrototypeData>, 'rowsById'> = readMarkerSpreadingPrototypeData(),
+): Record<string, string | undefined> {
   const primaryRow = session.cutOrderIds[0] ? data.rowsById[session.cutOrderIds[0]] : null
   return {
     spreadingSessionId: session.spreadingSessionId,
@@ -2387,15 +2429,17 @@ function getLinkedMarkerForSession(session: SpreadingSession): MarkerRecord | nu
   return readMarkerSpreadingPrototypeData().store.markers.find((item) => item.markerId === session.markerId) || null
 }
 
-function resolveSpreadingDerivedState(session: SpreadingSession): {
+function resolveSpreadingDerivedState(
+  session: SpreadingSession,
+  data: Pick<ReturnType<typeof readMarkerSpreadingPrototypeData>, 'rowsById' | 'store'> = readMarkerSpreadingPrototypeData(),
+): {
   markerRecord: MarkerRecord | null
   markerTotalPieces: number
   rollSummary: ReturnType<typeof summarizeSpreadingRolls>
   varianceSummary: ReturnType<typeof buildSpreadingVarianceSummary>
   warningMessages: string[]
 } {
-  const data = readMarkerSpreadingPrototypeData()
-  const markerRecord = getLinkedMarkerForSession(session)
+  const markerRecord = data.store.markers.find(item => item.markerId === session.markerId) || null
   const primaryRows = session.cutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
   const context = primaryRows.length
     ? {
@@ -2705,8 +2749,9 @@ function getPageBaseData(): SpreadingPageBaseData {
     markerRecords: store.markers,
   })
   const supervisorRows = buildSupervisorSpreadingRows(baseRows)
+  const ledgerMap = buildRuntimeAdjustedLedgerMap()
   const webSummariesBySessionId = Object.fromEntries(
-    supervisorRows.map((row) => [row.spreadingSessionId, resolveWebSpreadingSummary(row, projection)]),
+    supervisorRows.map((row) => [row.spreadingSessionId, resolveWebSpreadingSummary(row, projection, ledgerMap, { rowsById: projection.rowsById, store })]),
   )
   const data = {
     rows: projection.rows,
@@ -3760,14 +3805,14 @@ function renderSpreadingDetailPage(): string {
     markerRecords: pageData.store.markers,
   })
   const session = row.session
-  const derived = resolveSpreadingDerivedState(session)
+  const derived = resolveSpreadingDerivedState(session, pageData)
   const linkedMarker = derived.markerRecord
   const markerTotalPieces = derived.markerTotalPieces
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
   const varianceWarning = buildSpreadingVariancePreview(session, detailView.linkedCutOrderNos, derived)
   const lifecycleState = resolveSpreadingEditLifecycleState(session)
-  const data = readMarkerSpreadingPrototypeData()
+  const data = pageData
   const primaryRows = session.cutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
   const linkedCutOrderNos = detailView.linkedCutOrderNos
   const productionOrderNos = Array.from(new Set(primaryRows.map((rowItem) => rowItem.productionOrderNo).filter(Boolean)))
@@ -3792,7 +3837,8 @@ function renderSpreadingDetailPage(): string {
     varianceSummary?.theoreticalCutGarmentQty ??
     computeSessionPlannedCutGarmentQty(session, markerTotalPieces)
   const handoverSummaryByRollId = buildRollHandoverSummaryMap(session, markerTotalPieces)
-  const webSummary = resolveWebSpreadingSummary(row, pageData.projection)
+  const webSummary = pageData.webSummariesBySessionId[row.spreadingSessionId]
+    || resolveWebSpreadingSummary(row, pageData.projection, undefined, pageData)
   const materialReadiness = webSummary.materialReadiness
   const materialIdentity = webSummary.order?.materialIdentity || {
     materialSku: row.materialSkuSummary || session.materialSkuSummary || '待补',
@@ -3853,7 +3899,7 @@ function renderSpreadingDetailPage(): string {
         ? session.rolls.map((roll) => {
             const planUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
             const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
-            const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
+            const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
             return `
               <article class="rounded-lg border bg-background p-3 text-sm">
                 <div class="flex flex-wrap items-start justify-between gap-2">
@@ -4059,7 +4105,7 @@ function renderSpreadingDetailPage(): string {
       ${renderSection('实际信息', `
         ${renderInfoGrid([
           { label: '实铺层数', value: `${formatQty(webSummary.actualLayerCount)} 层`, formula: buildLayerSumFormula(webSummary.actualLayerCount, session.rolls.map((roll) => roll.layerCount)) },
-          { label: '实际铺布长度', value: formatLength(webSummary.actualUsage), formula: buildSumFormula(webSummary.actualUsage, session.rolls.map((roll) => roll.actualLength), 2) },
+          { label: '实际铺布长度', value: formatLength(webSummary.actualUsage), formula: buildSumFormula(webSummary.actualUsage, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2) },
           { label: '实际用量', value: formatLength(webSummary.actualUsage) },
           { label: '实际裁剪数量', value: `${formatQty(webSummary.actualCutQty)} 件` },
           { label: '布头长度', value: formatLength(rollSummary.totalHeadLength) },
@@ -4116,7 +4162,7 @@ function renderSpreadingDetailPage(): string {
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(plannedLayerTotal)} 层`, `${formatQty(plannedLayerTotal)} 层 = 唛架方案计划层数`)}<div class="mt-1 text-[11px] text-muted-foreground">计划层数</div></div>
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(actualLayerTotal)} 层`, buildLayerSumFormula(actualLayerTotal, session.rolls.map((roll) => roll.layerCount)))}<div class="mt-1 text-[11px] text-muted-foreground">实铺层数</div></div>
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(formatLength(plannedUsageLengthM), theoreticalSpreadTotalLength > 0 ? buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength) : plannedSpreadLengthFormula)}<div class="mt-1 text-[11px] text-muted-foreground">计划用量</div></div>
-          <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(formatLength(actualUsageLengthM), buildSumFormula(actualUsageLengthM, session.rolls.map((roll) => roll.actualLength), 2))}<div class="mt-1 text-[11px] text-muted-foreground">实际用量</div></div>
+          <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(formatLength(actualUsageLengthM), buildSumFormula(actualUsageLengthM, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2))}<div class="mt-1 text-[11px] text-muted-foreground">实际用量</div></div>
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(varianceSummary?.plannedCutGarmentQty || 0)} 件`, varianceSummary?.plannedCutGarmentQtyFormula || buildTheoreticalActualCutQtyFormula(varianceSummary?.plannedCutGarmentQty || 0, session.plannedLayers || 0, markerTotalPieces))}<div class="mt-1 text-[11px] text-muted-foreground">计划数量</div></div>
           <div class="rounded-md border bg-background px-3 py-3">${renderValueWithFormula(`${formatQty(varianceSummary?.actualCutGarmentQty || 0)} 件`, varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []))}<div class="mt-1 text-[11px] text-muted-foreground">实际裁剪数量</div></div>
         </div>
@@ -4173,7 +4219,7 @@ function renderSpreadingDetailPage(): string {
           {
             label: '实际用量',
             value: formatLength(actualUsageLengthM),
-            formula: buildSumFormula(actualUsageLengthM, session.rolls.map((roll) => roll.actualLength), 2),
+            formula: buildSumFormula(actualUsageLengthM, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2),
           },
           {
             label: '总卷布料长度（m）',
@@ -4222,7 +4268,7 @@ function renderSpreadingDetailPage(): string {
                 <th class="px-3 py-3">布尾长度（m）</th>
                 <th class="px-3 py-3">卷布料长度（m）</th>
                 <th class="px-3 py-3">剩余长度（m）</th>
-                <th class="px-3 py-3">实际裁剪成衣件数（件）</th>
+                <th class="px-3 py-3">理论可裁成衣件数（件）</th>
                 <th class="px-3 py-3">人员（按层）</th>
                 <th class="px-3 py-3">录入来源</th>
                 <th class="px-3 py-3">记录时间</th>
@@ -4237,7 +4283,7 @@ function renderSpreadingDetailPage(): string {
                         const planUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
                         const requiresStep = isHighLowSpreadingPlanUnit(planUnit)
                         const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
-                        const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
+                        const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
                         const actualCutSizeText = formatRollActualCutSizeText(planUnit, roll)
                         return `
                           <tr class="border-b align-top">
@@ -4258,7 +4304,7 @@ function renderSpreadingDetailPage(): string {
                             <td class="px-3 py-3">${escapeHtml(formatLength(roll.headLength))}</td>
                             <td class="px-3 py-3">${escapeHtml(formatLength(roll.tailLength))}</td>
                             <td class="px-3 py-3">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, usableLength), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-3">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
+                            <td class="px-3 py-3">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, usableLength, remainingLength), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-3">${renderValueWithFormula(actualCutSizeText, buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-3">${escapeHtml(formatRollOperatorText(roll))}</td>
                             <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(getSourceChannelDisplayLabel(roll.sourceChannel))}</td>
@@ -4371,7 +4417,7 @@ function renderSpreadingDetailPage(): string {
           {
             label: '实际铺布长度（m）',
             value: formatLength(varianceSummary?.spreadActualLengthM || 0),
-            formula: buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => roll.actualLength), 2),
+            formula: buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2),
           },
           {
             label: '差异长度（m）',
@@ -4570,9 +4616,9 @@ function renderSpreadingEditPage(): string {
         </div>
         <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-6">
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(plannedLayerTotal)} 层`, `${formatQty(plannedLayerTotal)} 层 = 唛架方案计划层数`)}<div class="mt-0.5 text-[11px] text-muted-foreground">计划层数</div></div>
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(actualLayerTotal)} 层`, buildLayerSumFormula(actualLayerTotal, draft.rolls.map((roll) => roll.layerCount)))}<div class="mt-0.5 text-[11px] text-muted-foreground">实铺层数</div></div>
+          <div data-spreading-live-summary="layers" class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(actualLayerTotal)} 层`, buildLayerSumFormula(actualLayerTotal, draft.rolls.map((roll) => roll.layerCount)))}<div class="mt-0.5 text-[11px] text-muted-foreground">实铺层数</div></div>
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(formatLength(plannedUsageLengthM), theoreticalSpreadTotalLength > 0 ? buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength) : plannedSpreadLengthFormula)}<div class="mt-0.5 text-[11px] text-muted-foreground">计划用量</div></div>
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(formatLength(actualUsageLengthM), buildSumFormula(actualUsageLengthM, draft.rolls.map((roll) => roll.actualLength), 2))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际用量</div></div>
+          <div data-spreading-live-summary="usage" class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(formatLength(actualUsageLengthM), buildSumFormula(actualUsageLengthM, draft.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际用量</div></div>
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.plannedCutGarmentQty || 0)} 件`, varianceSummary?.plannedCutGarmentQtyFormula || buildTheoreticalActualCutQtyFormula(varianceSummary?.plannedCutGarmentQty || 0, draft.plannedLayers || 0, markerTotalPieces))}<div class="mt-0.5 text-[11px] text-muted-foreground">计划数量</div></div>
           <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.actualCutGarmentQty || 0)} 件`, varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际裁剪数量</div></div>
         </div>
@@ -4631,7 +4677,7 @@ function renderSpreadingEditPage(): string {
           {
             label: '实际用量',
             value: formatLength(actualUsageLengthM),
-            formula: buildSumFormula(actualUsageLengthM, draft.rolls.map((roll) => roll.actualLength), 2),
+            formula: buildSumFormula(actualUsageLengthM, draft.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2),
           },
           {
             label: '总卷布料长度（m）',
@@ -4682,13 +4728,13 @@ function renderSpreadingEditPage(): string {
                     const planUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
                     const requiresStep = isHighLowSpreadingPlanUnit(planUnit)
                     const usableLength = computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
-                    const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength)
+                    const remainingLength = computeRemainingLength(roll.labeledLength, roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)
                     const actualCutSizeText = formatRollActualCutSizeText(planUnit, roll)
                     return `
-                      <article class="rounded-lg border bg-background">
+                      <article data-spreading-live-roll="${index}" class="rounded-lg border bg-background">
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/20 px-3 py-3">
                           <div>
-                            <div class="text-sm font-semibold text-foreground">卷记录 ${escapeHtml(roll.rollNo || String(index + 1))}</div>
+                            <div data-spreading-live-roll-title class="text-sm font-semibold text-foreground">卷记录 ${escapeHtml(roll.rollNo || String(index + 1))}</div>
                             <div class="mt-1 text-xs text-muted-foreground">
                               ${escapeHtml(buildSpreadingPlanUnitMarkerLabel(planUnit, draft))} / ${escapeHtml(planUnit?.materialSku || roll.materialSku || '待补面料')}
                             </div>
@@ -4727,9 +4773,9 @@ function renderSpreadingEditPage(): string {
                               ${renderRollFormField('铺布层数（层）', renderRollNumberInput(index, 'layerCount', roll.layerCount || 0))}
                               ${renderRollFormField('布头长度（m）', renderRollNumberInput(index, 'headLength', roll.headLength || 0))}
                               ${renderRollFormField('布尾长度（m）', renderRollNumberInput(index, 'tailLength', roll.tailLength || 0))}
-                              ${renderRollFormField('卷布料长度（m）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, usableLength), 'text-sm text-foreground')}</div>`)}
-                              ${renderRollFormField('剩余长度（m）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</div>`)}
-                              ${renderRollFormField('实际裁剪成衣数（件）', `<div class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(actualCutSizeText, buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('卷布料长度（m）', `<div data-spreading-live-value="usage" class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount, usableLength), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('剩余长度（m）', `<div data-spreading-live-value="remaining" class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, usableLength, remainingLength), 'text-sm text-foreground')}</div>`)}
+                              ${renderRollFormField('理论可裁成衣数（件）', `<div data-spreading-live-value="theory" class="min-h-9 rounded-md border bg-muted/20 px-2.5 py-2">${renderValueWithFormula(actualCutSizeText, buildRollActualCutSizeFormula(planUnit, roll), 'text-sm text-foreground')}</div>`)}
                               ${renderRollFormField('记录时间', renderRollTextInput(index, 'occurredAt', roll.occurredAt || ''))}
                             </div>
                             ${renderRollFormField('备注', renderRollTextInput(index, 'note', roll.note || ''))}
@@ -4743,6 +4789,7 @@ function renderSpreadingEditPage(): string {
               : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录；唛架项已由铺布单固定。</div>'
           }
         </div>
+        <div data-spreading-live-warnings class="mt-2 text-xs text-amber-800">${derived.warningMessages.map(message => `<p>${escapeHtml(message)}</p>`).join('')}</div>
         ${renderSpreadingOutputMatrix(draft.spreadingSessionId)}
       `,
     )
@@ -4839,7 +4886,7 @@ function renderSpreadingEditPage(): string {
           {
             label: '实际铺布长度（m）',
             value: formatLength(varianceSummary?.spreadActualLengthM || 0),
-            formula: buildSumFormula(rollSummary.totalActualLength, draft.rolls.map((roll) => roll.actualLength), 2),
+            formula: buildSumFormula(rollSummary.totalActualLength, draft.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2),
           },
           {
             label: '差异长度（m）',
@@ -4926,9 +4973,9 @@ function renderSpreadingEditPage(): string {
   ])
 
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-spreading-edit-page">
+    <div class="space-y-4 p-4" data-testid="cutting-spreading-edit-page" data-spreading-marker-pieces="${markerTotalPieces}" data-spreading-claimed-length="${varianceSummary?.claimedLengthTotal || 0}">
       ${renderCuttingPageHeader(meta, { actionsHtml: headerActions })}
-      ${renderFeedbackBar()}
+      <div data-spreading-live-feedback>${renderFeedbackBar()}</div>
       ${renderTopInfo()}
       ${renderSpreadingEditTabNav(state.spreadingEditTab)}
       ${content}
@@ -5191,7 +5238,7 @@ function navigateToSpreadingPage(target: 'detail' | 'edit', sessionId: string | 
   const row = getSpreadingRow(sessionId)
   if (!row) return false
   const path = target === 'detail' ? getCanonicalCuttingPath('spreading-detail') : getCanonicalCuttingPath('spreading-edit')
-  appStore.navigate(buildMarkerRouteWithContext(path, buildContextPayloadFromSession(row.session)))
+  appStore.navigate(buildMarkerRouteWithContext(path, buildContextPayloadFromSession(row.session, getPageBaseData())))
   return true
 }
 
@@ -5452,7 +5499,7 @@ function syncDraftRollFromPlanUnit(draft: SpreadingSession, roll: SpreadingRollR
     roll.color = linkedPlanUnit.color
   }
   const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
-  roll.actualCutPieceQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+  roll.actualCutPieceQty = Math.max(Number(roll.actualCutGarmentQty ?? roll.actualCutPieceQty ?? 0), 0)
   roll.actualCutGarmentQty = roll.actualCutPieceQty
 }
 
@@ -5495,8 +5542,8 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
     const linkedPlanUnit = findSpreadingPlanUnitById(draft.planUnits, roll.planUnitId)
     const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || markerTotalPieces
     const usableLength = computeUsableLength(actualLength, headLength, tailLength, Number(roll.layerCount || 0))
-    const remainingLength = computeRemainingLength(labeledLength, actualLength)
-    const actualCutPieceQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+    const remainingLength = computeRemainingLength(labeledLength, actualLength, headLength, tailLength, Number(roll.layerCount || 0))
+    const actualCutPieceQty = Math.max(Number(roll.actualCutGarmentQty ?? roll.actualCutPieceQty ?? 0), 0)
     const operatorLayerRows = getRollOperatorLayerRows(roll)
     const operatorLayerText = formatRollOperatorLayerRows(operatorLayerRows)
     const operatorNames = normalizeRollOperatorNames(
@@ -6567,7 +6614,15 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
 
   const spreadingRollOperatorFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-roll-operator-field]')
   if (spreadingRollOperatorFieldNode && state.spreadingDraft) {
-    if (!ensureCanEditCurrentSpreadingExecution()) return true
+    if (!ensureCanEditCurrentSpreadingExecution()) {
+      const savedRoll = state.spreadingDraft.rolls[Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollIndex)]
+      const savedRow = savedRoll && getRollOperatorLayerRows(savedRoll)[Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorIndex)]
+      const savedField = spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorField as SpreadingRollOperatorLayerField | undefined
+      ;(spreadingRollOperatorFieldNode as HTMLInputElement).value = String(savedRow && savedField ? savedRow[savedField] ?? '' : '')
+      const feedback = document.querySelector<HTMLElement>('[data-spreading-live-feedback]')
+      if (feedback) feedback.innerHTML = renderFeedbackBar()
+      return true
+    }
     const rollIndex = Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollIndex)
     const operatorIndex = Number(spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorIndex)
     const field = spreadingRollOperatorFieldNode.dataset.cuttingSpreadingRollOperatorField as SpreadingRollOperatorLayerField | undefined
@@ -6585,12 +6640,20 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
     }
     roll.operatorLayerRows = rows
     syncRollOperatorLayerRows(roll)
+    refreshSpreadingRollDraftDom(state.spreadingDraft, rollIndex)
     return true
   }
 
   const spreadingRollFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-roll-field]')
   if (spreadingRollFieldNode && state.spreadingDraft) {
-    if (!ensureCanEditCurrentSpreadingExecution()) return true
+    if (!ensureCanEditCurrentSpreadingExecution()) {
+      const savedRoll = state.spreadingDraft.rolls[Number(spreadingRollFieldNode.dataset.cuttingSpreadingRollIndex)]
+      const savedField = spreadingRollFieldNode.dataset.cuttingSpreadingRollField as SpreadingRollField | undefined
+      ;(spreadingRollFieldNode as HTMLInputElement).value = String(savedRoll && savedField ? savedRoll[savedField] ?? '' : '')
+      const feedback = document.querySelector<HTMLElement>('[data-spreading-live-feedback]')
+      if (feedback) feedback.innerHTML = renderFeedbackBar()
+      return true
+    }
     const index = Number(spreadingRollFieldNode.dataset.cuttingSpreadingRollIndex)
     const field = spreadingRollFieldNode.dataset.cuttingSpreadingRollField as SpreadingRollField | undefined
     const roll = state.spreadingDraft.rolls[index]
@@ -6600,6 +6663,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
     if (field === 'planUnitId') {
       roll.planUnitId = value
       syncDraftRollFromPlanUnit(state.spreadingDraft, roll)
+      refreshSpreadingRollDraftDom(state.spreadingDraft, index)
       return true
     }
 
@@ -6615,6 +6679,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
       if (field === 'layerCount') {
         syncDraftRollFromPlanUnit(state.spreadingDraft, roll)
       }
+      refreshSpreadingRollDraftDom(state.spreadingDraft, index)
       return true
     }
 
@@ -6623,6 +6688,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
       roll.operatorLayerRows = parseRollOperatorLayerRows(value)
       syncRollOperatorLayerRows(roll)
     }
+    refreshSpreadingRollDraftDom(state.spreadingDraft, index)
     return true
   }
 

@@ -7,6 +7,14 @@ import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
 } from '../../browser-storage.ts'
+import {
+  createEffectiveTaskAssignment,
+  listCurrentEffectiveTaskAssignments,
+} from '../effective-task-assignments.ts'
+import {
+  getFactoryActivePpicSnapshot,
+  getFactoryMasterRecordById,
+} from '../factory-master-store.ts'
 
 export const TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES = [
   'BAG-REPACK-DEMO-01',
@@ -15,11 +23,11 @@ export const TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES = [
 ] as const
 
 export const TRANSFER_BAG_REPACK_MOCK_RESULT_BAG_CODE = TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES[0]
+export const TRANSFER_BAG_REPACK_MOCK_TASK_ID = 'SEW-ID-REPACK-DEMO-001'
 
 const MOCK_PRODUCTION_ORDER_ID = 'PO-ID-REPACK-DEMO-001'
 const MOCK_PRODUCTION_ORDER_NO = 'PO-REPACK-DEMO-001'
-const MOCK_RECEIVER_FACTORY_ID = 'FACTORY-SEWING-REPACK-DEMO'
-const MOCK_RECEIVER_FACTORY_NAME = '拆袋重装演示车缝厂'
+const MOCK_RECEIVER_FACTORY_ID = 'ID-F001'
 const MOCK_OTHER_FACTORY_ID = 'FACTORY-SEWING-REPACK-OTHER'
 const MOCK_OTHER_FACTORY_NAME = '其他任务演示车缝厂'
 const MOCK_PIECE_QTYS = [18, 20, 22, 16, 24] as const
@@ -50,6 +58,8 @@ function mockLocation(index: number): RuntimeWarehouseLocationRef {
 }
 
 function mockTickets(bagIndex: number): TransferBagTicketFactSnapshot[] {
+  const receiverFactory = getFactoryMasterRecordById(MOCK_RECEIVER_FACTORY_ID)
+  if (!receiverFactory) throw new Error('拆袋重装演示缺少正式接收车缝工厂。')
   return MOCK_PIECE_QTYS.map((pieceQty, ticketIndex) => {
     const sequence = String(ticketIndex + 1).padStart(2, '0')
     const bagSequence = String(bagIndex + 1).padStart(2, '0')
@@ -68,17 +78,52 @@ function mockTickets(bagIndex: number): TransferBagTicketFactSnapshot[] {
       partCode: part.code,
       partName: part.name,
       pieceQty,
-      sewingTaskId: isTargetTask ? 'SEW-ID-REPACK-DEMO-001' : isUnassigned ? '' : 'SEW-ID-REPACK-DEMO-OTHER',
+      sewingTaskId: isTargetTask ? TRANSFER_BAG_REPACK_MOCK_TASK_ID : isUnassigned ? '' : 'SEW-ID-REPACK-DEMO-OTHER',
       sewingTaskNo: isTargetTask ? 'SEW-RP-DEMO-001' : isUnassigned ? '' : 'SEW-RP-DEMO-OTHER',
       receiverFactoryId: isUnassigned ? '' : isTargetTask ? MOCK_RECEIVER_FACTORY_ID : MOCK_OTHER_FACTORY_ID,
-      receiverFactoryName: isUnassigned ? '' : isTargetTask ? MOCK_RECEIVER_FACTORY_NAME : MOCK_OTHER_FACTORY_NAME,
+      receiverFactoryName: isUnassigned ? '' : isTargetTask ? receiverFactory.name : MOCK_OTHER_FACTORY_NAME,
     }
+  })
+}
+
+export function ensureTransferBagRepackMockAssignment(): void {
+  if (listCurrentEffectiveTaskAssignments(TRANSFER_BAG_REPACK_MOCK_TASK_ID).length) return
+  const receiverFactory = getFactoryMasterRecordById(MOCK_RECEIVER_FACTORY_ID)
+  const ppic = getFactoryActivePpicSnapshot(MOCK_RECEIVER_FACTORY_ID)
+  if (!receiverFactory || !ppic) throw new Error('拆袋重装演示工厂缺少唯一有效 PPIC。')
+  const targetTickets = mockTickets(0)
+  createEffectiveTaskAssignment({
+    assignmentId: 'ASG-SEW-REPACK-DEMO-001',
+    runtimeTaskId: TRANSFER_BAG_REPACK_MOCK_TASK_ID,
+    productionOrderId: MOCK_PRODUCTION_ORDER_ID,
+    productionOrderNo: MOCK_PRODUCTION_ORDER_NO,
+    taskNo: 'SEW-RP-DEMO-001',
+    factoryId: receiverFactory.id,
+    factoryName: receiverFactory.name,
+    source: 'DIRECT_DISPATCH',
+    assignedQty: targetTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
+    skuLines: targetTickets.map((ticket) => ({
+      skuCode: ticket.feiTicketNo,
+      color: ticket.color,
+      size: ticket.size,
+      qty: ticket.pieceQty,
+    })),
+    processCodes: ['SEW'],
+    frozenPrice: 15000,
+    priceCurrency: 'IDR',
+    priceUnit: '件',
+    businessAssignedAt: '2026-08-03 07:30',
+    operatedAt: '2026-08-03 07:30',
+    operatedBy: ppic.ppicName,
+    allocationOperatorPpicId: ppic.ppicId,
+    allocationOperatorPpicName: ppic.ppicName,
   })
 }
 
 export function ensureTransferBagRepackMockEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): void {
+  ensureTransferBagRepackMockAssignment()
   TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES.forEach((bagCode, index) => {
     const tickets = mockTickets(index)
     const locationRef = mockLocation(index)

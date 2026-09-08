@@ -1,3 +1,6 @@
+import { listCuttingRuntimeEventsByType } from './cutting-runtime-event-ledger.ts'
+import { listWoolPanelCuttingReceiptSources } from '../wool-domain/cutting-receipts.ts'
+import { buildStableWoolPartCode } from '../wool-domain/tech-pack-source.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from '../production-tech-pack-snapshot-types.ts'
@@ -43,6 +46,7 @@ import {
   listCurrentEffectiveTaskAssignments,
   type EffectiveTaskAssignment,
 } from '../effective-task-assignments.ts'
+import { autoStartRuntimeSewingTaskFromCutPieceHandover } from '../runtime-process-tasks.ts'
 import {
   initializeSewingCutPieceResponsibility,
   recordSewingCutPieceHandover,
@@ -173,7 +177,7 @@ export interface TransferBagContentItem {
   dispatchBatchId: string
   productionOrderId: string
   productionOrderNo: string
-  contentType: '裁片菲票' | '物料行'
+  contentType: '裁片菲票' | '毛织片票' | '物料行'
   sourceKind: 'FEI_TICKET' | 'LINE_ITEM'
   sourceId: string
   sourceNo?: string
@@ -910,11 +914,22 @@ function requireDispatchExecutionAssignment(
   return assignment
 }
 
+function getWoolPieceRequirements(snapshot: ProductionOrderTechPackSnapshot, skuCode: string, color: string) {
+  return snapshot.patternFiles.filter((pattern) => pattern.patternMaterialType === 'WOOL')
+    .flatMap((pattern) => (pattern.pieceRows || []).filter((piece) => !piece.applicableSkuCodes?.length || piece.applicableSkuCodes.includes(skuCode))
+      .map((piece) => ({
+        partCode: buildStableWoolPartCode(piece.partTemplateId || piece.id),
+        partNameCn: piece.partTemplateName || piece.systemPieceName || piece.name,
+        pieceCountPerGarment: piece.colorAllocations?.find((allocation) => allocation.skuCodes?.includes(skuCode) || allocation.colorName === color)?.pieceCount ?? piece.count,
+        applicableSizeList: [] as string[], applicableColorList: [] as string[],
+      })))
+}
+
 function buildBoundRequirementLines(
   assignment: EffectiveTaskAssignment,
   snapshot: ProductionOrderTechPackSnapshot,
 ): SewingCutPieceRequirementLineInput[] {
-  return assignment.skuLines.flatMap((skuLine) => snapshot.cutPieceParts
+  return assignment.skuLines.flatMap((skuLine) => [...snapshot.cutPieceParts, ...getWoolPieceRequirements(snapshot, skuLine.skuCode, skuLine.color)]
     .filter((part) => !part.applicableSizeList.length || part.applicableSizeList.includes(skuLine.size))
     .filter((part) => isColorApplicable(part.applicableColorList, skuLine.color))
     .filter((part) => part.partCode && part.partNameCn && part.pieceCountPerGarment > 0)
@@ -1091,11 +1106,12 @@ function listSewingDispatchFeiTicketSources(): GeneratedFeiTicketSourceRecord[] 
   const byNo = new Map<string, GeneratedFeiTicketSourceRecord>()
   listSpreadingResultGeneratedFeiTickets().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
   listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
+  listWoolPanelCuttingReceiptSources().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
   return [...byNo.values()]
 }
 
 function resolveFeiTicketForSewingDispatch(feiTicketNo: string): GeneratedFeiTicketSourceRecord | null {
-  return getFeiTicketByNo(feiTicketNo) || listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().find((ticket) => ticket.feiTicketNo === feiTicketNo) || null
+  return getFeiTicketByNo(feiTicketNo) || listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().find((ticket) => ticket.feiTicketNo === feiTicketNo) || listWoolPanelCuttingReceiptSources().find((ticket) => ticket.feiTicketNo === feiTicketNo) || null
 }
 
 function buildContentItemFromFeiTicket(
@@ -1109,7 +1125,7 @@ function buildContentItemFromFeiTicket(
     dispatchBatchId: bag.dispatchBatchId,
     productionOrderId: bag.productionOrderId,
     productionOrderNo: bag.productionOrderNo,
-    contentType: '裁片菲票',
+    contentType: ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' ? '毛织片票' : '裁片菲票',
     sourceKind: 'FEI_TICKET',
     sourceId: ticket.feiTicketNo,
     sourceNo: ticket.feiTicketNo,
@@ -1195,6 +1211,12 @@ function getOccupiedFeiTicketNos(options?: { excludeBagId?: string }): Set<strin
     if (bag.status !== '待装袋') {
       bag.scannedFeiTicketNos.forEach((feiTicketNo) => occupied.add(feiTicketNo))
     }
+  })
+  // The current warehouse UI uses the existing carrier event ledger. A wool receipt
+  // bound there must not also become available to the dispatch batch consumer.
+  listCuttingRuntimeEventsByType('菲票装袋').forEach((event) => {
+    if (event.eventStatus === '已取消' || event.eventStatus === '同步失败') return
+    ;(event.refs.feiTicketNos || []).filter((no) => no.startsWith('WOOL-PANEL:')).forEach((no) => occupied.add(no))
   })
   return occupied
 }
@@ -1295,7 +1317,8 @@ export function buildRequiredCutPiecesForSewingDispatch(
         .filter((ticket) => ticket.garmentColor === plannedLine.colorName && ticket.skuSize === plannedLine.sizeCode)
         .map((ticket) => ticket.partName),
     )
-    const candidateParts = (techPackSnapshot?.cutPieceParts || [])
+    const fullSku = productionOrder.demandSnapshot.skuLines.find((line) => line.color === plannedLine.colorName && line.size === plannedLine.sizeCode)?.skuCode || ''
+    const candidateParts = [...(techPackSnapshot?.cutPieceParts || []), ...(techPackSnapshot ? getWoolPieceRequirements(techPackSnapshot, fullSku, plannedLine.colorName) : [])]
       .filter((part) => !part.applicableSizeList.length || part.applicableSizeList.includes(plannedLine.sizeCode))
       .filter((part) => isColorApplicable(part.applicableColorList, plannedLine.colorName))
       .filter((part) => part.partNameCn && part.pieceCountPerGarment > 0)
@@ -2934,9 +2957,15 @@ export function submitCuttingSewingDispatchBatch(input: {
     const record = findPdaHandoverRecord(batch.handoverRecordId)
     if (record) {
       syncBoundCutPieceHandoverToResponsibility({ order, batch, record })
+      const receivedRecord = autoReceiveAndStartSubmittedCutPieces({
+        order,
+        batch,
+        record,
+        receivedAt: record.factorySubmittedAt,
+      })
       return {
         handoverOrder: upsertPdaHandoverHeadMock(buildHandoverHead(order)),
-        handoverRecord: record,
+        handoverRecord: receivedRecord,
         outboundRecords: [],
         updatedWaitHandoverStockItems: [],
         updatedDispatchBatch: clone(batch),
@@ -3042,14 +3071,59 @@ export function submitCuttingSewingDispatchBatch(input: {
   order.status = '已交出'
   order.updatedAt = input.submittedAt
   updateDispatchOrderFromChildren(order)
+  const receivedRecord = autoReceiveAndStartSubmittedCutPieces({
+    order,
+    batch,
+    record: recordWithTransferBagFields,
+    receivedAt: input.submittedAt,
+  })
   return {
     handoverOrder,
-    handoverRecord: recordWithTransferBagFields,
+    handoverRecord: receivedRecord,
     outboundRecords: [linkage.outboundRecord],
     updatedWaitHandoverStockItems: [linkage.updatedWaitHandoverStockItem],
     updatedDispatchBatch: clone(batch),
     updatedTransferBags: clone(batch.transferBagIds.map((bagId) => findTransferBagById(storeRef, bagId))),
   }
+}
+
+function autoReceiveAndStartSubmittedCutPieces(input: {
+  order: CuttingSewingDispatchOrder
+  batch: CuttingSewingDispatchBatch
+  record: PdaHandoverRecord
+  receivedAt: string
+}): PdaHandoverRecord {
+  const handoverRecordId = input.record.handoverRecordId || input.record.recordId
+  const receiverName = `${input.order.sewingFactoryName}（系统自动接收）`
+  let receivedRecord = input.record
+  if (
+    input.record.receiverWrittenQty !== input.record.submittedQty
+    || input.record.combinedWritebackStatus !== '已回写'
+  ) {
+    receivedRecord = writebackSewingReceiveByTransferBag({
+      handoverRecordId,
+      receivedTransferBagNos: input.batch.transferBagIds.map((bagId) => (
+        findTransferBagById(ensureCuttingSewingDispatchSeeded(), bagId).transferBagNo
+      )),
+      receiverName,
+      receivedAt: input.receivedAt,
+      remark: '裁床确认交出后，系统按本次交出记录自动完成三方车缝工厂接收。',
+    })
+    receivedRecord = finalizeCombinedSewingWriteback({
+      handoverRecordId,
+      receiverName,
+      receiverWrittenAt: input.receivedAt,
+    })
+  }
+  if (input.order.runtimeTaskId) {
+    autoStartRuntimeSewingTaskFromCutPieceHandover({
+      taskId: input.order.runtimeTaskId,
+      handoverRecordNo: input.record.handoverRecordNo || input.record.recordId,
+      receivedAt: input.receivedAt,
+      receivedBy: receiverName,
+    })
+  }
+  return receivedRecord
 }
 
 function getDispatchBatchPieceQty(storeRef: CuttingSewingDispatchStore, batch: CuttingSewingDispatchBatch): number {
@@ -3142,8 +3216,8 @@ function buildHandoverHead(order: CuttingSewingDispatchOrder): PdaHandoverHead {
     qtyDiffTotal: (expectedQtyTotal || submittedQtyTotal || order.plannedDispatchGarmentQty) - writtenBackQtyTotal,
     transitionFromPrev: 'NOT_APPLICABLE',
     transitionToNext: 'NOT_APPLICABLE',
-    stageCode: 'POST',
-    stageName: '交出单',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
     processBusinessCode: 'CUT_PANEL',
     processBusinessName: '裁片',
     taskTypeCode: 'CUT_PIECE_SEWING_DISPATCH',
@@ -3595,7 +3669,7 @@ function seedStore(): void {
   const storeRef = store!
   const pickSeedFeiTicketNos = (batch: CuttingSewingDispatchBatch): string[] => {
     const requiredLines = getRequiredLinesForBag(batch)
-    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: batch.productionOrderId })
+    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: batch.productionOrderId }).filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT')
     const picked: string[] = []
     requiredLines.forEach((line) => {
       const ticket = tickets.find(
@@ -3623,13 +3697,14 @@ function seedStore(): void {
     })
     bag.updatedAt = operatedAt
   }
-  const seedAvailableTickets = listAvailableFeiTicketsForSewingDispatchInternal()
+  // PROD-003: historical demo bags must never consume current wool receipts on reload.
+  const seedAvailableTickets = listAvailableFeiTicketsForSewingDispatchInternal().filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT')
   const seedTicket =
     seedAvailableTickets.find((ticket) => ticket.productionOrderId === 'PO-202603-0102') || seedAvailableTickets[0]
   if (!seedTicket) return
   const seedProductionOrderId = seedTicket.productionOrderId
   const getSeedSkuLine = (index: number, fallbackQty: number): CreateDispatchBatchInput['plannedSkuQtyLines'][number] => {
-    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId })
+    const tickets = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId }).filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT')
     const ticket = tickets[index] || tickets[0] || seedTicket
     return {
       colorName: ticket.garmentColor,
@@ -3701,7 +3776,7 @@ function seedStore(): void {
   validateDispatchBatchCompleteness(pendingBatch.dispatchBatchId)
   markSeedBagAsSortingSample(pendingBags[0].transferBagId, '2026-04-24 14:20:00')
 
-  const partialSource = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId })[0]
+  const partialSource = listAvailableFeiTicketsForSewingDispatchInternal({ productionOrderId: seedProductionOrderId }).filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT')[0]
   if (partialSource) {
     const partialBatch = createCuttingSewingDispatchBatch({
       dispatchOrderId: readyOrder.dispatchOrderId,

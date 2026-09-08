@@ -12,6 +12,7 @@ import {
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { getDyeWorkOrderById } from '../src/data/fcs/dyeing-task-domain.ts'
 import { getPrintWorkOrderById } from '../src/data/fcs/printing-task-domain.ts'
+import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
   createCombinedDyeingTask,
@@ -548,6 +549,15 @@ const remainingCurrentPreview = buildProductionChangePreview({
   },
   decisionValues: {},
 })
+assert.equal(
+  remainingCurrentPreview.result,
+  'PRODUCTION_PATCH',
+  '当前生产单替换实际面辅料只能形成生产执行补丁，不得改绑技术包版本',
+)
+assert.ok(
+  !remainingCurrentPreview.autoItems.some((item) => /正式版本|技术包版本/.test(`${item.title}${item.description}`)),
+  '当前生产单替换实际面辅料不得要求修改技术包或生产单技术包版本关系',
+)
 assert.ok(
   remainingCurrentPreview.autoItems.some((item) => item.id === 'old-material-fact-kept'),
   '剩余数量替换时旧料已形成事实必须由系统继续计入当前生产单',
@@ -1657,8 +1667,8 @@ const actualIdentityBuilderSnapshot = {
       }],
     },
   })[0]!,
-  factoryId: 'FACTORY-ACTUAL-IDENTITY',
-  factoryName: 'actual identity 染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: 'actual identity 蓝',
 }
 assert.equal(actualIdentityBuilderSnapshot.materialId, realReplacementArchive.materialCode, '正式 builder 必须把 BOM materialCode 写入加工快照 actual identity')
@@ -1666,8 +1676,8 @@ const actualIdentityReplacementSnapshot = {
   ...realUiChangedSnapshots[0]!,
   productionOrderId: 'PO-CHANGE-ACTUAL-IDENTITY-TARGET',
   productionOrderNo: 'PO-CHANGE-ACTUAL-IDENTITY-TARGET',
-  factoryId: 'FACTORY-ACTUAL-IDENTITY',
-  factoryName: 'actual identity 染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: 'actual identity 蓝',
   dyeProcessName: 'actual identity 匹染',
 }
@@ -1787,7 +1797,7 @@ const aggregateOtherBomItem = {
   materialId: 'MAT-PO0007-RIB-OTHER',
   materialName: '罗纹辅料',
 }
-ensureProcessWorkOrdersForFormalProductionOrder({
+const patchSeedResult = ensureProcessWorkOrdersForFormalProductionOrder({
   ...workflowSyncSnapshot,
   productionOrderId: aggregateMaterialOrderId,
   productionOrderNo: aggregateMaterialOrderId,
@@ -2044,11 +2054,20 @@ ensureProcessWorkOrdersForFormalProductionOrder({
   techPackVersionLabel: patchRelation.currentTechPackVersionNo,
   processCodes: ['DYE'],
 })
+const patchSeedOrder = getDyeWorkOrderById(patchSeedResult.dyeWorkOrderId!)
+assert(patchSeedOrder?.formalProductionOrderSnapshot, '缺少 PRODUCTION_PATCH 版本保持检查所需的当前加工单快照')
 const patchSnapshotForm = createProductionChangeForm()
 Object.assign(patchSnapshotForm, {
   productionOrderId: patchRelation.productionOrderId,
   changeType: 'QUANTITY_CHANGE',
 })
+const patchCurrentVersionIdentities = new Set(
+  listProcessWorkOrders()
+    .filter((order) => order.sourceProductionOrderId === patchRelation.productionOrderId)
+    .map((order) => order.formalProductionOrderSnapshot)
+    .filter((snapshot): snapshot is NonNullable<typeof snapshot> => Boolean(snapshot))
+    .map((snapshot) => `${snapshot.techPackVersionId}\u0000${snapshot.techPackVersionLabel}`),
+)
 const patchSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(patchSnapshotForm, {
   ...executionPreview,
   result: 'PRODUCTION_PATCH',
@@ -2056,8 +2075,7 @@ const patchSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(patchSnap
 })
 assert.ok(patchSnapshots.length > 0)
 assert.ok(patchSnapshots.every((snapshot) => (
-  snapshot.techPackVersionId === 'tdv_demand_SPU_2024_013'
-  && snapshot.techPackVersionLabel === '生产需求冻结快照'
+  patchCurrentVersionIdentities.has(`${snapshot.techPackVersionId}\u0000${snapshot.techPackVersionLabel}`)
 )), 'PRODUCTION_PATCH 的 post-change 加工快照必须保持加工单当前正式版本 ID 和标签')
 const eventVersionForm = createInitializedProductionChangeForm(patchRelation.productionOrderId, 'QUANTITY_CHANGE')
 eventVersionForm.recordId = 'BG-UI-VERSION-PERSIST-001'
@@ -3860,10 +3878,11 @@ const atomicCurrentDyeSnapshot = getDyeWorkOrderById(realMaterialWorkOrder.dyeWo
   .formalProductionOrderSnapshot
 prepareSyncProcessWorkOrdersAfterProductionOrderChanges([{
   ...atomicCurrentDyeSnapshot,
-  plannedQty: Math.round(atomicCurrentDyeSnapshot.plannedQty * 1000) / 1000 + 0.001,
+  syncTargetWorkOrderId: realMaterialWorkOrder.dyeWorkOrderId,
+  plannedQty: Math.round(atomicCurrentDyeSnapshot.plannedQty) + 1,
   dyeProcessName: atomicCurrentDyeSnapshot.processName,
-  factoryId: 'FAC-ATOMIC-DYE-001',
-  factoryName: '事务回滚测试染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 }], {
   changeRecordId: 'BG-ATOMIC-COMBINED-FIXTURE-001',
   recordedAt: '2026-07-16 15:15:00',
@@ -3876,8 +3895,8 @@ const atomicCombinedPartner = ensureProcessWorkOrdersForFormalProductionOrder({
   productionOrderNo: 'PO-ATOMIC-COMBINED-PARTNER',
   processCodes: ['DYE'],
   dyeProcessName: atomicNormalizedDyeSnapshot.processName,
-  factoryId: 'FAC-ATOMIC-DYE-001',
-  factoryName: '事务回滚测试染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 })
 const atomicCombinedTask = createCombinedDyeingTask({
   dyeWorkOrderIds: [

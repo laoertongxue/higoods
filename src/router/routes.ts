@@ -1,7 +1,6 @@
-import { menusBySystem } from '../data/app-shell-config'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import type { RouteRegistry } from './route-types'
-import { renderWlsFabricDemandBoardPage } from './route-renderers'
+import { renderWlsFabricDemandBoardPage, renderWlsInboundPage, renderWlsFinishedInboundPage } from './route-renderers'
 import { normalizePathname, renderRouteRedirect } from './route-utils'
 
 function createAsyncRenderer<TArgs extends unknown[]>(
@@ -55,6 +54,50 @@ const renderWlsGarmentRelabelTasksPage = createAsyncRenderer(
   () => import('../pages/wls-garment-relabel-tasks'),
   'renderWlsGarmentRelabelTasksPage',
 )
+const renderSewingOutsourcingWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/workbench'),
+  'renderSewingOutsourcingWorkbenchPage',
+)
+const renderSewingOutsourcingTeamWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/workbench'),
+  'renderSewingOutsourcingTeamWorkbenchPage',
+)
+const renderSewingOutsourcingTasksPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/tasks'),
+  'renderSewingOutsourcingTasksPage',
+)
+const renderSewingCutPieceHandoverPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/cut-piece-handover'),
+  'renderSewingCutPieceHandoverPage',
+)
+const renderSampleApprovalSuggestionsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/sample-approval-suggestions'),
+  'renderSampleApprovalSuggestionsPage',
+)
+const renderSewingMaterialHandoverPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/material-handover'),
+  'renderSewingMaterialHandoverPage',
+)
+const renderSewingOutsourcingSupplementsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/supplements'),
+  'renderSewingOutsourcingSupplementsPage',
+)
+const renderSewingOutsourcingCutPieceReturnsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/cut-piece-returns'),
+  'renderSewingOutsourcingCutPieceReturnsPage',
+)
+const renderSewingOutsourcingReturnsPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/returns'),
+  'renderSewingOutsourcingReturnsPage',
+)
+const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/responsibility-transfers'),
+  'renderSewingOutsourcingResponsibilityTransfersPage',
+)
+const renderSewingOutsourcingMigrationAuditPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/migration-audit'),
+  'renderSewingOutsourcingMigrationAuditPage',
+)
 
 const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/': async () => {
@@ -67,9 +110,23 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/pms/purchase-order': () => renderPmsPurchaseOrdersPage(),
   '/wls': () => renderRouteRedirect('/wls/fabric-demand-board', '正在跳转到面料需求看板'),
   '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
+  '/wls/inbound': () => renderWlsInboundPage(),
+  '/wls/finished-inbound': () => renderWlsFinishedInboundPage(),
   '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
   '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
   '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),
+  // PPIC 是独立且高频的协同入口，直接按页面懒加载，避免先加载整套 FCS 路由及其无关业务依赖。
+  '/fcs/sewing-outsourcing/workbench': () => renderSewingOutsourcingWorkbenchPage(),
+  '/fcs/sewing-outsourcing/team-workbench': () => renderSewingOutsourcingTeamWorkbenchPage(),
+  '/fcs/sewing-outsourcing/tasks': () => renderSewingOutsourcingTasksPage(),
+  '/fcs/sewing-outsourcing/cut-piece-handover': () => renderSewingCutPieceHandoverPage(),
+  '/fcs/sewing-outsourcing/sample-approval-suggestions': () => renderSampleApprovalSuggestionsPage(),
+  '/fcs/sewing-outsourcing/material-handover': () => renderSewingMaterialHandoverPage(),
+  '/fcs/sewing-outsourcing/supplements': () => renderSewingOutsourcingSupplementsPage(),
+  '/fcs/sewing-outsourcing/cut-piece-returns': () => renderSewingOutsourcingCutPieceReturnsPage(),
+  '/fcs/sewing-outsourcing/returns': () => renderSewingOutsourcingReturnsPage(),
+  '/fcs/sewing-outsourcing/responsibility-transfers': () => renderSewingOutsourcingResponsibilityTransfersPage(),
+  '/fcs/sewing-outsourcing/migration-audit': () => renderSewingOutsourcingMigrationAuditPage(),
 }
 
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null
@@ -128,7 +185,11 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
   return Promise.resolve(null)
 }
 
-function findMenuByPath(pathname: string): { group: MenuGroup; item: MenuItem } | null {
+async function findMenuByPath(pathname: string): Promise<{ group: MenuGroup; item: MenuItem } | null> {
+  // 路由模块由主入口按系统懒加载。这里若静态反向引用 AppShell 配置，
+  // 生产构建会形成 main -> routes -> main 的 chunk 循环，刷新时可能拿到未完成的模块。
+  // 只有正式路由未命中、需要查菜单兜底页时才读取菜单配置。
+  const { menusBySystem } = await import('../data/app-shell-config')
   const normalizedPathname = normalizePathname(pathname)
   const allGroups = Object.values(menusBySystem).flat()
 
@@ -185,7 +246,7 @@ export async function resolvePage(pathname: string): Promise<string> {
     }
   }
 
-  const menu = findMenuByPath(normalizedPathname)
+  const menu = await findMenuByPath(normalizedPathname)
   if (menu) {
     return renderPlaceholderPage(
       menu.item.title,

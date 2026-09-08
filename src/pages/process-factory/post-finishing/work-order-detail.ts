@@ -1,24 +1,13 @@
 // @page-pattern: detail
 
-import { buildUnifiedPrintPreviewRouteLink } from '../../../data/fcs/fcs-route-links.ts'
-import {
-  completePostFinishingProjectLine,
-  getPostFinishingSourceLabel,
-  getPostFinishingWorkOrderById,
-  startPostFinishingProjectLine,
-  type PostFinishingWorkOrder,
-} from '../../../data/fcs/post-finishing-domain.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
-  POST_FINISHING_DEFECT_REASON_OPTIONS,
   completePostFinishingPostTaskFromDraft,
   getCurrentPostFinishingActor,
   getPostFinishingFullFlowPostTask,
-  getPostFinishingFullFlowQcTask,
   getPostFinishingMaterialReadiness,
-  listPostFinishingPostReturnReceiverOptions,
-  savePostFinishingPostSkuAdjustment,
-  setPostFinishingPostCompletedQuantity,
+  setPostFinishingPostProcessedQuantity,
+  setPostFinishingPostUnprocessedQuantity,
   startPostFinishingPostTask,
   takeOverPostFinishingPostTask,
   type PostFinishingActor,
@@ -30,188 +19,9 @@ import {
   formatGarmentQty,
   renderPostAction,
   renderPostFinishingPageHeader,
-  renderPostSection,
   renderPostStatusBadge,
-  renderPostTable,
+  renderPostSection,
 } from './shared.ts'
-
-type PostFinishingDetailTab = 'base' | 'sku' | 'items' | 'result'
-
-const DETAIL_TABS: Array<{ key: PostFinishingDetailTab; label: string }> = [
-  { key: 'base', label: '基本信息' },
-  { key: 'sku', label: 'SKU 明细' },
-  { key: 'items', label: '实际工序' },
-  { key: 'result', label: '执行结果' },
-]
-
-function getCurrentTab(): PostFinishingDetailTab {
-  if (typeof window === 'undefined') return 'base'
-  const value = new URLSearchParams(window.location.search).get('tab') || 'base'
-  return DETAIL_TABS.some((tab) => tab.key === value) ? (value as PostFinishingDetailTab) : 'base'
-}
-
-function buildDetailHref(postOrderId: string, tab: PostFinishingDetailTab): string {
-  return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(postOrderId)}?tab=${tab}`
-}
-
-function renderTabs(postOrderId: string, activeTab: PostFinishingDetailTab): string {
-  return `
-    <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
-      ${DETAIL_TABS.map((tab) => {
-        const active = tab.key === activeTab
-        return `
-          <button
-            type="button"
-            class="rounded px-3 py-1.5 text-sm ${active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}"
-            data-nav="${escapeHtml(buildDetailHref(postOrderId, tab.key))}"
-          >
-            ${escapeHtml(tab.label)}
-          </button>
-        `
-      }).join('')}
-    </nav>
-  `
-}
-
-function renderInfoGrid(rows: Array<[string, string]>): string {
-  return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      ${rows.map(([label, value]) => `
-        <div class="rounded-lg border bg-slate-50 px-3 py-2">
-          <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(value)}</div>
-        </div>
-      `).join('')}
-    </div>
-  `
-}
-
-function renderEmptyRow(colspan: number, text: string): string {
-  return `<tr><td colspan="${colspan}" class="px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(text)}</td></tr>`
-}
-
-function registerPostWorkOrderDetailActions(): void {
-  if (typeof window === 'undefined') return
-  const win = window as Window & {
-    __startPostFinishingProjectLine?: (postOrderId: string, projectLineId: string) => void
-    __completePostFinishingProjectLine?: (postOrderId: string, projectLineId: string, plannedQty: number) => void
-    __reportPostFinishingWorkOrderException?: (postOrderNo: string) => void
-  }
-  win.__startPostFinishingProjectLine = (postOrderId: string, projectLineId: string) => {
-    const updated = startPostFinishingProjectLine({ postOrderId, projectLineId, operatorName: '后道操作员' })
-    appStore.navigate(`${buildDetailHref(updated.postOrderId, 'items')}&refresh=${Date.now()}`)
-  }
-  win.__completePostFinishingProjectLine = (postOrderId: string, projectLineId: string, plannedQty: number) => {
-    const updated = completePostFinishingProjectLine({ postOrderId, projectLineId, completedQty: plannedQty, operatorName: '后道操作员' })
-    appStore.navigate(`${buildDetailHref(updated.postOrderId, updated.postStatus === '后道完成' ? 'result' : 'items')}&refresh=${Date.now()}`)
-  }
-  win.__reportPostFinishingWorkOrderException = (postOrderNo: string) => {
-    window.alert(`已记录后道异常：${postOrderNo}`)
-  }
-}
-
-function renderActionBar(order: PostFinishingWorkOrder): string {
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-3">
-      ${renderTabs(order.postOrderId, getCurrentTab())}
-      <div class="flex flex-wrap gap-2">
-        ${renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders')}
-        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="window.__reportPostFinishingWorkOrderException('${escapeHtml(order.postOrderNo)}')">上报异常</button>
-        ${renderPostAction('打印后道加工单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
-      </div>
-    </div>
-  `
-}
-
-function renderSkuRows(order: PostFinishingWorkOrder): string {
-  return order.skuLines.map((line) => `
-    <tr class="align-top">
-      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(line.skuCode)}</td>
-      <td class="px-3 py-3 text-sm"><div class="font-medium">${escapeHtml(line.spuName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.spuCode)}</div></td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.colorName)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.sizeName)}</td>
-      <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(line.plannedQty, line.qtyUnit)}</td>
-    </tr>
-  `).join('')
-}
-
-function renderPostItemRows(order: PostFinishingWorkOrder): string {
-  const rows = order.postProjectLines.map((line) => `
-    <tr class="align-top">
-      <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(line.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div></td>
-      <td class="px-3 py-3 text-sm font-medium">${escapeHtml(line.projectName)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(line.plannedQty, line.qtyUnit)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(line.completedQty, line.qtyUnit)}</td>
-      <td class="px-3 py-3">${renderPostStatusBadge(line.status)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.startedAt || '—')}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(line.finishedAt || '—')}</td>
-      <td class="px-3 py-3">
-        <div class="flex flex-wrap gap-2">
-          ${line.status === '待开始' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__startPostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}')">开始${escapeHtml(line.projectName)}</button>` : ''}
-          ${line.status !== '已完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__completePostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}',${line.plannedQty})">完成${escapeHtml(line.projectName)}</button>` : ''}
-        </div>
-      </td>
-    </tr>
-  `).join('')
-  return rows || renderEmptyRow(8, '暂无实际工序')
-}
-
-function renderResultRows(order: PostFinishingWorkOrder): string {
-  const action = order.postAction
-  return `
-    <tr class="align-top">
-      <td class="px-3 py-3">${renderPostStatusBadge(action.status)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(action.operatorName || '—')}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(action.startedAt || '—')}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(action.finishedAt || '—')}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(action.submittedGarmentQty, action.qtyUnit)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(action.completedPostGarmentQty ?? action.acceptedGarmentQty, action.qtyUnit)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(action.rejectedGarmentQty, action.qtyUnit)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(action.remark || '—')}</td>
-    </tr>
-  `
-}
-
-function renderTabBody(order: PostFinishingWorkOrder): string {
-  const activeTab = getCurrentTab()
-  if (activeTab === 'sku') {
-    return renderPostSection('SKU 明细', renderPostTable(
-      ['SKU', '款式衣服', '颜色', '尺码', '待处理数量'],
-      renderSkuRows(order) || renderEmptyRow(5, '暂无 SKU 明细'),
-      'min-w-[980px]',
-    ))
-  }
-  if (activeTab === 'items') {
-    return renderPostSection('实际工序', renderPostTable(
-      ['SKU', '实际工序', '计划数量', '完成数量', '状态', '开始时间', '完成时间', '操作'],
-      renderPostItemRows(order),
-      'min-w-[1180px]',
-    ))
-  }
-  if (activeTab === 'result') {
-    return renderPostSection('执行结果', renderPostTable(
-      ['执行状态', '操作人', '开始时间', '完成时间', '待处理数量', '完成数量', '异常数量', '备注'],
-      renderResultRows(order),
-      'min-w-[1160px]',
-    ))
-  }
-
-  const baseRows: Array<[string, string]> = [
-    ['后道加工单号', order.postOrderNo],
-    ['来源质检单', order.qcOrderNo],
-    ['生产单', order.sourceProductionOrderNo],
-    ['来源任务', order.sourceTaskNo],
-    ['来源工厂', order.sourceSewingFactoryName],
-    ['后道工厂', order.currentFactoryName],
-    ['款式 / SPU', `${order.spuCode} / ${order.spuName}`],
-    ['阶段来源', getPostFinishingSourceLabel(order)],
-    ['待处理数量', formatGarmentQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit)],
-    ['阶段状态', order.postStatus],
-    ['创建时间', order.createdAt],
-    ['最近更新', order.updatedAt],
-  ]
-  return renderPostSection('基本信息', renderInfoGrid(baseRows))
-}
 
 let fullFlowMessage = ''
 let fullFlowMessageTone: 'success' | 'error' = 'success'
@@ -257,31 +67,28 @@ function renderFullFlowSkuAdjustment(task: PostFinishingPostTask, skuId: string)
   const editable = task.status === '后道中' && task.startedBy?.actorId === currentActor.actorId
   const draft = task.draftLines?.find((item) => item.skuId === skuId)
   if (!editable) {
-    return renderPostSection('SKU 瑕疵调整', `<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">当前加工单由 ${escapeHtml(task.startedBy?.actorName || '其他操作员')} 处理。请返回加工单详情完成接管后再调整。</div><a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="mt-3 inline-flex rounded-md border px-4 py-2 text-sm">返回后道加工单</a>`)
+    return renderPostSection('SKU 未处理数量', `<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">当前加工单由 ${escapeHtml(task.startedBy?.actorName || '其他操作员')} 处理。请返回加工单详情完成接管后再填写。</div><a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="mt-3 inline-flex rounded-md border px-4 py-2 text-sm">返回后道加工单</a>`)
   }
-  const completedQty = draft?.completedQty ?? 0
-  const adjustedQty = (draft?.defectQty ?? 0) + (draft?.returnQty ?? 0)
-  const receiverListId = `post-return-receiver-${task.postTaskId}-${skuId}`
-  const receiverOptions = listPostFinishingPostReturnReceiverOptions(task.postTaskId)
-  const currentDefectSummary = draft?.defectReasonQuantities?.length
-    ? draft.defectReasonQuantities.map((item) => `${item.reason} ${item.quantity} 件`).join('、')
-    : '暂无瑕疵'
+  const processedQty = draft?.processedQty ?? 0
+  const unprocessedQty = draft?.unprocessedQty ?? 0
   return `
     <div class="space-y-4" data-web-post-adjust-root data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}">
       <div class="flex items-center justify-between gap-3"><a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="text-sm text-blue-700 hover:underline">← 返回后道加工单</a><span class="text-xs text-muted-foreground">加工数据与现场执行端同步</span></div>
-      <section class="rounded-xl border bg-card p-4"><div class="flex items-center gap-3">${renderFullFlowSkuImage(task, line)}<div><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-1 text-sm">应加工 ${line.expectedQty} 件 · ${completedQty > 0 ? `已填完成 ${completedQty} 件` : '完成数量未填写'}</div></div></div></section>
-      <section class="grid gap-4 rounded-xl border bg-card p-4 lg:grid-cols-2">
-        <div class="space-y-3"><div><h3 class="font-semibold">调整瑕疵</h3><p class="mt-1 text-xs text-muted-foreground">选择增加或减少，并逐项填写各瑕疵原因的本次数量。</p></div><div class="rounded-lg bg-slate-50 p-3 text-sm"><span class="font-medium">当前瑕疵 ${draft?.defectQty ?? 0} 件：</span>${escapeHtml(currentDefectSummary)}</div><div class="grid grid-cols-2 gap-2"><label class="flex min-h-10 items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 text-sm font-medium text-blue-800"><input type="radio" name="web-post-defect-mode" value="INCREASE" checked data-web-post-defect-adjustment-mode />增加瑕疵</label><label class="flex min-h-10 items-center justify-center gap-2 rounded-md border text-sm font-medium"><input type="radio" name="web-post-defect-mode" value="DECREASE" data-web-post-defect-adjustment-mode />减少瑕疵</label></div><div class="grid gap-2 sm:grid-cols-2">${POST_FINISHING_DEFECT_REASON_OPTIONS.map((reason) => { const currentQty = draft?.defectReasonQuantities?.find((item) => item.reason === reason)?.quantity ?? 0; return `<label class="flex items-center justify-between gap-3 rounded-md border p-2 text-sm"><span>${escapeHtml(reason)}<span class="ml-1 text-xs text-muted-foreground">当前 ${currentQty}</span></span><input type="number" min="0" max="${line.expectedQty}" step="1" value="0" class="h-9 w-20 rounded-md border px-2 text-right" data-web-post-defect-reason-qty data-reason="${escapeHtml(reason)}" /></label>` }).join('')}</div></div>
-        <div class="space-y-3"><div><h3 class="font-semibold">返厂处理</h3><p class="mt-1 text-xs text-muted-foreground">没有返厂时保持 0；接收对象必须从可搜索列表选择。</p></div><label class="block text-sm">返厂数量<input type="number" min="0" max="${line.expectedQty}" step="1" value="${draft?.returnQty ?? 0}" class="mt-1 h-10 w-full rounded-md border px-3 text-right" data-web-post-adjust-field="returnQty" /></label><label class="block text-sm">返厂原因<input value="${escapeHtml(draft?.returnReason || '')}" class="mt-1 h-10 w-full rounded-md border px-3" data-web-post-adjust-field="returnReason" /></label><label class="block text-sm">接收对象<input list="${escapeHtml(receiverListId)}" value="${escapeHtml(draft?.returnReceiver || '')}" placeholder="输入名称搜索并选择" class="mt-1 h-10 w-full rounded-md border px-3" data-web-post-adjust-field="returnReceiver" /><datalist id="${escapeHtml(receiverListId)}">${receiverOptions.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.description)}</option>`).join('')}</datalist></label><div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">当前已记录瑕疵/返厂 ${adjustedQty} / ${line.expectedQty} 件。整批均为瑕疵或返厂时，无需先填完成数量。</div></div>
+      <section class="rounded-xl border bg-card p-4"><div class="flex items-center gap-3">${renderFullFlowSkuImage(task, line)}<div><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-1 text-sm">应处理 ${line.expectedQty} 件 · 已处理 ${processedQty} 件</div></div></div></section>
+      <section class="space-y-4 rounded-xl border bg-card p-4">
+        <div><h3 class="font-semibold">未处理数量与说明</h3><p class="mt-1 text-xs text-muted-foreground">后道加工不再次判定质量或返厂；只记录本次已处理和未处理数量。未处理数量大于 0 时必须说明现场原因。</p></div>
+        <label class="block text-sm">未处理数量<input type="number" min="0" max="${line.expectedQty}" step="1" value="${unprocessedQty}" class="mt-1 h-10 w-full rounded-md border px-3 text-right" data-web-post-adjust-field="unprocessedQty" /></label>
+        <label class="block text-sm">未处理说明<textarea class="mt-1 min-h-24 w-full rounded-md border px-3 py-2" placeholder="未处理数量大于 0 时必填" data-web-post-adjust-field="unprocessedReason">${escapeHtml(draft?.unprocessedReason || '')}</textarea></label>
+        <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">应处理 ${line.expectedQty} 件 · 已处理 ${processedQty} 件 · 未处理 ${unprocessedQty} 件 · 当前合计 ${processedQty + unprocessedQty} 件</div>
       </section>
-      <button type="button" class="rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="save-adjustment" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}">保存并返回后道加工单</button>
+      <button type="button" class="rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="save-unprocessed" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}">保存并返回后道加工单</button>
     </div>
   `
 }
 
 function renderFullFlowTaskDetail(task: PostFinishingPostTask): string {
   const skuId = fullFlowQuery().get('skuId') || ''
-  if (skuId) return `<div class="space-y-4 p-4">${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / SKU 调整`, `<a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回后道加工单</a>`)}${renderFullFlowMessage()}${renderFullFlowSkuAdjustment(task, skuId)}</div>`
+  if (skuId) return `<div class="space-y-4 p-4">${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / SKU 未处理数量`, `<a data-nav="${escapeHtml(fullFlowDetailHref(task.postTaskId))}" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回后道加工单</a>`)}${renderFullFlowMessage()}${renderFullFlowSkuAdjustment(task, skuId)}</div>`
   const actor = webFallbackActor()
   const isStarted = task.status === '后道中'
   const isOwner = Boolean(isStarted && task.startedBy?.actorId === actor.actorId)
@@ -289,48 +96,37 @@ function renderFullFlowTaskDetail(task: PostFinishingPostTask): string {
   const progress = task.lines.map((line) => {
     const result = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
     const draft = drafts.find((item) => item.skuId === line.sku.skuId)
-    const completedQty = result?.completedQty ?? draft?.completedQty ?? 0
-    const defectQty = result?.defectQty ?? draft?.defectQty ?? 0
-    const returnQty = result?.returnQty ?? draft?.returnQty ?? 0
-    const adjustedQty = defectQty + returnQty
-    const resolvedQty = completedQty > 0 ? completedQty : adjustedQty
+    const processedQty = result?.processedQty ?? draft?.processedQty ?? 0
+    const unprocessedQty = result?.unprocessedQty ?? draft?.unprocessedQty ?? 0
     return {
       line,
       result,
       draft,
-      completedQty,
-      defectQty,
-      returnQty,
-      resolvedQty,
-      quantityResolved: line.expectedQty === 0 || completedQty > 0 || adjustedQty === line.expectedQty,
+      processedQty,
+      unprocessedQty,
+      quantityResolved: processedQty + unprocessedQty === line.expectedQty,
     }
   })
   const completedLineCount = progress.filter((item) => item.quantityResolved).length
   const allCompleted = completedLineCount === task.lines.length
   const totalExpectedQty = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
-  const totalResolvedQty = progress.reduce((sum, item) => sum + item.resolvedQty, 0)
-  const rows = progress.map(({ line, result, completedQty, defectQty, returnQty, resolvedQty, quantityResolved }) => {
-    const passedQty = result?.passedQty ?? Math.max(0, resolvedQty - defectQty - returnQty)
-    return `<article class="rounded-xl border bg-card p-4" data-web-post-completion-line="${escapeHtml(line.sku.skuId)}"><div class="flex items-start gap-3">${renderFullFlowSkuImage(task, line)}<div class="min-w-0 flex-1"><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)} · 应加工 ${line.expectedQty} 件</div></div><div class="text-right text-xs"><div class="font-medium">${completedQty > 0 ? `完成 ${completedQty} 件` : quantityResolved ? '整批已归为瑕疵或返厂' : '完成数量未填写'} · 合格 ${passedQty} 件</div><div class="mt-1 ${defectQty || returnQty ? 'text-amber-700' : 'text-emerald-700'}">瑕疵 ${defectQty} / 返厂 ${returnQty}</div></div></div><div class="mt-3 flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3"><label class="min-w-0 flex-1 text-sm font-medium text-blue-950">完成数量<input type="number" min="0" max="${line.expectedQty}" step="1" value="${completedQty || ''}" placeholder="填写完成件数" class="mt-1 h-10 w-full rounded-md border bg-white px-3 text-right" data-web-post-completed-qty ${isOwner ? '' : 'disabled'} /></label>${isOwner ? `<button type="button" class="mt-6 h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="save-completed-qty" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}">保存</button>` : ''}</div>${task.status === '后道中' ? `<div class="mt-3 flex justify-end"><button type="button" data-post-finishing-work-order-detail-action="open-adjustment" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}" class="rounded-md border border-blue-300 px-3 py-2 text-xs font-medium text-blue-700">调整瑕疵</button></div>` : ''}</article>`
+  const totalProcessedQty = progress.reduce((sum, item) => sum + item.processedQty, 0)
+  const totalUnprocessedQty = progress.reduce((sum, item) => sum + item.unprocessedQty, 0)
+  const rows = progress.map(({ line, processedQty, unprocessedQty, quantityResolved }) => {
+    return `<article class="rounded-xl border bg-card p-4" data-web-post-completion-line="${escapeHtml(line.sku.skuId)}"><div class="flex items-start gap-3">${renderFullFlowSkuImage(task, line)}<div class="min-w-0 flex-1"><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)} · 应处理 ${line.expectedQty} 件</div></div><div class="text-right text-xs"><div class="font-medium">已处理 ${processedQty} 件</div><div class="mt-1 ${quantityResolved ? 'text-emerald-700' : 'text-amber-700'}">未处理 ${unprocessedQty} 件 · 合计 ${processedQty + unprocessedQty} 件</div></div></div><div class="mt-3 flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3"><label class="min-w-0 flex-1 text-sm font-medium text-blue-950">已处理数量<input type="number" min="0" max="${line.expectedQty}" step="1" value="${processedQty}" class="mt-1 h-10 w-full rounded-md border bg-white px-3 text-right" data-web-post-processed-qty ${isOwner ? '' : 'disabled'} /></label>${isOwner ? `<button type="button" class="mt-6 h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="save-processed-qty" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}">保存</button>` : ''}</div>${task.status === '后道中' ? `<div class="mt-3 flex justify-end"><button type="button" data-post-finishing-work-order-detail-action="open-adjustment" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}" class="rounded-md border border-blue-300 px-3 py-2 text-xs font-medium text-blue-700">填写未处理数量</button></div>` : ''}</article>`
   }).join('')
-  const qcTask = getPostFinishingFullFlowQcTask(task.qcTaskId)
   const materialReadiness = getPostFinishingMaterialReadiness(task.productionOrderNo)
-  const hasDifference = allCompleted && progress.some(({ line, resolvedQty }) => {
-    const qcResult = qcTask?.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    return resolvedQty !== line.expectedQty
-      || resolvedQty + (qcResult?.defectQty ?? 0) + (qcResult?.returnQty ?? 0) !== (qcResult?.expectedQty ?? line.expectedQty)
-  })
   const headerActions = `<div class="flex flex-wrap items-center justify-end gap-2">${task.status === '待后道' ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="start" data-task-no="${escapeHtml(task.postTaskNo)}">开始后道</button>` : ''}<a data-nav="/fcs/craft/post-finishing/work-orders" class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm">返回列表</a></div>`
   return `
     <div class="space-y-4 p-4" data-web-post-task="${escapeHtml(task.postTaskId)}" data-skip-page-rerender="true">
       ${renderPostFinishingPageHeader('执行后道加工单', `${task.postTaskNo} / ${task.productionOrderNo}`, headerActions)}
       ${renderFullFlowMessage()}
       ${materialReadiness.applicable && materialReadiness.status !== '已入库' ? `<section class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>后道辅料未到齐。</strong>${escapeHtml(materialReadiness.label)}。当前仅提示，不阻断开始或完成后道加工。${materialReadiness.transferOrderNo ? `<a data-nav="/fcs/craft/post-finishing/material-transfers?keyword=${encodeURIComponent(materialReadiness.transferOrderNo)}" class="ml-2 font-mono text-blue-700 underline">${escapeHtml(materialReadiness.transferOrderNo)}</a>` : ''}</section>` : ''}
-      <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><div class="font-mono text-lg font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-sm text-muted-foreground">质检单 ${escapeHtml(task.qcTaskNo)} · 根送货单 ${escapeHtml(task.deliveryOrderNo)}</div><div class="mt-2 text-sm"><span class="font-medium">质检已确认加工项目：</span>${task.processItems.map(escapeHtml).join('、')}</div></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">当前操作人：${escapeHtml(task.startedBy?.actorName || '尚未开始')}</div></div></div><div class="mt-4 grid gap-3 md:grid-cols-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">SKU 数量归类</div><div class="mt-1 font-semibold ${allCompleted ? 'text-emerald-700' : 'text-amber-700'}">${completedLineCount} / ${task.lines.length} 已处理</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">应加工</div><div class="mt-1 font-semibold">${totalExpectedQty} 件</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">已处理</div><div class="mt-1 font-semibold">${totalResolvedQty} 件</div></div></div></section>
+      <section class="rounded-xl border bg-card p-4"><div class="flex flex-wrap items-start justify-between gap-4"><div><div class="font-mono text-lg font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-sm text-muted-foreground">质检单 ${escapeHtml(task.qcTaskNo)} · 根送货单 ${escapeHtml(task.deliveryOrderNo)}</div><div class="mt-2 text-sm"><span class="font-medium">本批后道项目：</span>${task.processItems.map(escapeHtml).join('、')}</div></div><div class="text-right">${renderPostStatusBadge(task.status)}<div class="mt-2 text-xs text-muted-foreground">当前操作人：${escapeHtml(task.startedBy?.actorName || '尚未开始')}</div></div></div><div class="mt-4 grid gap-3 md:grid-cols-4"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">SKU 数量归类</div><div class="mt-1 font-semibold ${allCompleted ? 'text-emerald-700' : 'text-amber-700'}">${completedLineCount} / ${task.lines.length} 已归类</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">应处理</div><div class="mt-1 font-semibold">${totalExpectedQty} 件</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">已处理</div><div class="mt-1 font-semibold">${totalProcessedQty} 件</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-muted-foreground">未处理</div><div class="mt-1 font-semibold">${totalUnprocessedQty} 件</div></div></div></section>
       ${isStarted && !isOwner ? `<section class="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 class="font-semibold text-amber-900">加工单当前由 ${escapeHtml(task.startedBy?.actorName || '其他操作员')} 处理</h3><p class="mt-1 text-sm text-amber-800">需要由当前 Web 账号继续时，填写接管原因；原操作人和接管原因会进入日志。</p><div class="mt-3 flex gap-2"><input class="h-10 min-w-0 flex-1 rounded-md border bg-white px-3 text-sm" placeholder="请填写 Web 接管原因" data-web-post-takeover-reason /><button type="button" class="rounded-md bg-amber-700 px-4 text-sm font-medium text-white" data-post-finishing-work-order-detail-action="takeover" data-task-id="${escapeHtml(task.postTaskId)}">确认接管</button></div></section>` : ''}
       <section class="grid gap-4 xl:grid-cols-2">${rows}</section>
-      ${isOwner ? `${hasDifference ? `<section class="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 md:grid-cols-2"><label class="text-sm text-amber-900">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-web-post-difference-reason /></label><label class="text-sm text-amber-900">动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-web-post-authorization></textarea></label></section>` : ''}<button type="button" class="w-full rounded-md px-5 py-3 text-sm font-semibold ${allCompleted ? 'bg-blue-600 text-white' : 'cursor-not-allowed bg-slate-200 text-slate-500'}" data-post-finishing-work-order-detail-action="complete" data-task-id="${escapeHtml(task.postTaskId)}" ${allCompleted ? '' : 'disabled'}>${allCompleted ? '完成后道并生成复检单' : `还有 ${task.lines.length - completedLineCount} 个 SKU 未完成数量归类`}</button>` : ''}
-      ${task.status === '后道完成' ? `<section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">后道已完成，复检单：${escapeHtml(task.recheckOrderNo || '生成中')}</section>` : ''}
+      ${isOwner ? `<button type="button" class="w-full rounded-md px-5 py-3 text-sm font-semibold ${allCompleted ? 'bg-blue-600 text-white' : 'cursor-not-allowed bg-slate-200 text-slate-500'}" data-post-finishing-work-order-detail-action="complete" data-task-id="${escapeHtml(task.postTaskId)}" ${allCompleted ? '' : 'disabled'}>${allCompleted ? '完成后道并生成处理后交出复核单' : `还有 ${task.lines.length - completedLineCount} 个 SKU 未完成数量归类`}</button>` : ''}
+      ${task.status === '后道完成' ? `<section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">后道处理已完成，处理后交出复核单：${escapeHtml(task.recheckOrderNo || '生成中')}</section>` : ''}
     </div>
   `
 }
@@ -353,7 +149,7 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
     const actor = webFallbackActor()
     if (action === 'start') {
       const task = startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor })
-      fullFlowMessage = '后道加工已开始，请逐 SKU 填写完成数量。'
+      fullFlowMessage = '后道加工已开始，请逐 SKU 填写已处理和未处理数量。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
@@ -365,15 +161,15 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
       refreshFullFlowDetail(task.postTaskId)
       return true
     }
-    if (action === 'save-completed-qty') {
+    if (action === 'save-processed-qty') {
       const line = actionNode.closest<HTMLElement>('[data-web-post-completion-line]')
-      const task = setPostFinishingPostCompletedQuantity({
+      const task = setPostFinishingPostProcessedQuantity({
         postTaskId: taskId,
         skuId: actionNode.dataset.skuId || '',
-        completedQty: webNumber(line || document, '[data-web-post-completed-qty]'),
+        processedQty: webNumber(line || document, '[data-web-post-processed-qty]'),
         actor,
       })
-      fullFlowMessage = '完成数量已保存到 PDA 与 Web 共用草稿。'
+      fullFlowMessage = '已处理数量已保存到 PDA 与 Web 共用草稿。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
@@ -382,34 +178,24 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
       appStore.navigate(fullFlowDetailHref(taskId, actionNode.dataset.skuId || ''))
       return true
     }
-    if (action === 'save-adjustment') {
+    if (action === 'save-unprocessed') {
       const root = document.querySelector<HTMLElement>('[data-web-post-adjust-root]')
-      if (!root) throw new Error('未找到 SKU 调整表单。')
-      const adjustmentMode = root.querySelector<HTMLInputElement>('[data-web-post-defect-adjustment-mode]:checked')?.value === 'DECREASE'
-        ? 'DECREASE'
-        : 'INCREASE'
-      const task = savePostFinishingPostSkuAdjustment({
+      if (!root) throw new Error('未找到 SKU 未处理数量表单。')
+      const task = setPostFinishingPostUnprocessedQuantity({
         postTaskId: taskId,
         skuId: actionNode.dataset.skuId || '',
-        adjustmentMode,
-        defectReasonQuantities: Array.from(root.querySelectorAll<HTMLInputElement>('[data-web-post-defect-reason-qty]')).map((input) => ({
-          reason: input.dataset.reason || '',
-          quantity: Number(input.value || 0),
-        })),
-        returnQty: webNumber(root, '[data-web-post-adjust-field="returnQty"]'),
-        returnReason: webField(root, '[data-web-post-adjust-field="returnReason"]'),
-        returnReceiver: webField(root, '[data-web-post-adjust-field="returnReceiver"]'),
+        unprocessedQty: webNumber(root, '[data-web-post-adjust-field="unprocessedQty"]'),
+        unprocessedReason: webField(root, '[data-web-post-adjust-field="unprocessedReason"]'),
         actor,
       })
-      fullFlowMessage = 'SKU 瑕疵原因数量与返厂信息已保存到共享草稿。'
+      fullFlowMessage = 'SKU 未处理数量与说明已保存到共享草稿。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
     }
     if (action === 'complete') {
-      const authorization = webField(document, '[data-web-post-authorization]')
-      const task = completePostFinishingPostTaskFromDraft({ postTaskId: taskId, actor, authorization: authorization ? { scanValue: authorization, differenceReason: webField(document, '[data-web-post-difference-reason]') } : undefined })
-      fullFlowMessage = `后道完成，复检单 ${task.recheckOrderNo || '已生成'}。`
+      const task = completePostFinishingPostTaskFromDraft({ postTaskId: taskId, actor })
+      fullFlowMessage = `后道处理完成，处理后交出复核单 ${task.recheckOrderNo || '已生成'}。`
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
@@ -426,27 +212,16 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
 export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): string {
   const fullFlowTask = getPostFinishingFullFlowPostTask(postOrderId)
   if (fullFlowTask) return renderFullFlowTaskDetail(fullFlowTask)
-  registerPostWorkOrderDetailActions()
-  const order = getPostFinishingWorkOrderById(postOrderId)
-  if (!order) {
-    return `
-      <div class="space-y-4 p-4">
-        ${renderPostFinishingPageHeader('后道加工单详情', '', renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders'))}
-        ${renderPostSection('未找到后道加工单', `
-          <div class="space-y-3 text-sm text-muted-foreground">
-            <p>未找到后道加工单：${escapeHtml(postOrderId)}</p>
-            ${renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders')}
-          </div>
-        `)}
-      </div>
-    `
-  }
-
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道加工单详情', `${order.postOrderNo} / ${order.currentFactoryName}`, renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders'))}
-      ${renderActionBar(order)}
-      ${renderTabBody(order)}
+      ${renderPostFinishingPageHeader('后道加工单详情', '', renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders'))}
+      ${renderPostSection('未找到当前后道加工单', `
+        <div class="space-y-3 text-sm text-muted-foreground">
+          <p>当前后道全流程中未找到加工单：${escapeHtml(postOrderId)}</p>
+          <p>历史旧后道加工单仅保留迁移审计，不再从本页面继续加工、质检或出货。</p>
+          ${renderPostAction('返回后道加工单列表', '/fcs/craft/post-finishing/work-orders')}
+        </div>
+      `)}
     </div>
   `
 }

@@ -1,3 +1,4 @@
+import { getDyeMaterialReceiptOptions, receiveDyeMaterial } from '../../../data/fcs/dyeing-material-receipts.ts'
 // @page-pattern: detail
 
 import { escapeHtml } from '../../../utils'
@@ -8,7 +9,6 @@ import { renderTable } from '../../../components/ui/table.ts'
 import { buildDyeWorkOrderCombinedDyeingView } from '../../../data/fcs/dye-work-order-combined-dyeing-view.ts'
 import type { CombinedDyeingSatisfaction, CombinedDyeingTask } from '../../../data/fcs/combined-dyeing-domain.ts'
 import {
-  buildDyeingWorkOrderDetailLink,
   buildHandoverDifferenceRequestPrintLink,
   buildHandoverOrderLink,
   buildTaskDetailLink,
@@ -34,6 +34,7 @@ import {
   getProcessWorkOrderByNo,
   type ProcessWorkOrder,
 } from '../../../data/fcs/process-work-order-domain.ts'
+import { getQuantityLabel, type QtyPurpose } from '../../../data/fcs/process-quantity-labels.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -46,15 +47,35 @@ import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts
 import { appStore } from '../../../state/store.ts'
 import { formatDyeQty, formatDyeTime, renderBadge, renderPageHeader, renderSection } from './shared'
 import {
+  canContinueDyeWaterSoluble,
   getDyeWorkOrderById,
+  getDyeExecutionNodeRecord,
+  startDyeing,
   getDyeCurrentStepLabel,
   listDyeExecutionNodeRecords,
   type DyeWorkOrder,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
+import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 
 function renderSourceFields(order: ProcessWorkOrder): string {
   return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label, row.value)).join('')
+}
+
+function dyeQuantityLabel(
+  order: ProcessWorkOrder,
+  qtyPurpose: QtyPurpose,
+  operationCode?: string,
+): string {
+  return getQuantityLabel({
+    processType: 'DYE',
+    sourceType: 'DYE_WORK_ORDER',
+    sourceId: order.workOrderId,
+    objectType: order.objectType,
+    qtyUnit: order.plannedUnit,
+    qtyPurpose,
+    operationCode,
+  })
 }
 
 type DyeDetailTab =
@@ -199,7 +220,34 @@ export function renderDyeWorkOrderCombinedDyeingSection(order: DyeWorkOrder): st
   return `<div data-dye-work-order-combined-region data-dye-order-id="${escapeHtml(order.dyeOrderId)}">${renderSection('合并染色', `<div class="space-y-4">${combinedHistoryContent}<section><h3 class="mb-2 font-medium">生产单变更影响</h3><div class="overflow-x-auto rounded-md border">${impactTable}${combinedPagination('impacts', view.changeImpacts.length, impactPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">未执行自动同步历史</h3><div class="overflow-x-auto rounded-md border">${syncTable}${combinedPagination('syncs', view.autoSyncHistory.length, syncPage.currentPage)}</div></section></div>`)}</div>`
 }
 
+function renderDyeReceiptPanel(orderId: string): string {
+  const order = getDyeWorkOrderById(orderId)
+  if (!order || order.status === 'COMPLETED' || order.status === 'REJECTED') return ''
+  const source = getDyeMaterialReceiptOptions(orderId)
+  const canNextBatch = Boolean(getDyeExecutionNodeRecord(orderId, 'PACK')?.finishedAt)
+  return `<section class="rounded-lg border bg-background p-4" data-skip-page-rerender="true" data-dye-receipt-region data-order-id="${escapeHtml(orderId)}" data-receipt-id="DYE-${Date.now()}-${Math.random().toString(36).slice(2)}"><h3 class="font-medium">接收原料</h3><p class="mt-1 text-sm">累计已收 ${(order.materialReceipts ?? []).reduce((sum, item) => sum + item.qty, 0)} ${escapeHtml(order.qtyUnit)}</p>
+    ${source.requiresUpstream ? `<label class="mt-2 block text-sm">上游交出记录<select data-dye-receipt-source class="ml-2 h-9 rounded border"><option value="">请选择本次接收记录</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label>` : ''}
+    <label class="mt-2 block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input type="number" min="0" step="any" data-dye-receipt-qty class="ml-2 h-9 rounded border px-2"></label><button data-dye-receipt-confirm class="mt-2 rounded bg-primary px-3 py-2 text-primary-foreground">确认本次接收</button>${canNextBatch ? `<details class="mt-3"><summary>开始下一批染色</summary><label class="mt-2 block text-sm">本批投入（${escapeHtml(order.qtyUnit)}）<input data-dye-next-qty type="number" min="0" step="any" class="ml-2 h-9 rounded border px-2"></label><label class="mt-2 block text-sm">染缸编号<input data-dye-next-vat class="ml-2 h-9 rounded border px-2"></label><button data-dye-next-confirm class="mt-2 rounded border px-3 py-2">开始本批染色</button></details>` : ''}<p data-dye-receipt-feedback class="mt-2 text-sm" role="status"></p></section>`
+}
+
 export function handleDyeWorkOrderCombinedDetailEvent(target: HTMLElement): boolean {
+  if (target.closest('[data-dye-receipt-confirm], [data-dye-next-confirm]')) {
+    const panel = target.closest<HTMLElement>('[data-dye-receipt-region]')
+    const orderId = panel?.dataset.orderId || ''
+    const order = getDyeWorkOrderById(orderId)
+    const session = getPdaSession()
+    const feedback = panel?.querySelector<HTMLElement>('[data-dye-receipt-feedback]')
+    try {
+      if (!order || !session) throw new Error('请先登录当前工厂操作账号。')
+      const actorError = validateWaterSolublePdaActor(session, order.dyeFactoryId, 'OPERATE')
+      if (actorError) throw new Error(actorError)
+      if (target.closest('[data-dye-next-confirm]')) startDyeing(orderId, { inputQty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-next-qty]')?.value), dyeVatNo: panel?.querySelector<HTMLInputElement>('[data-dye-next-vat]')?.value || '', operatorName: session.userName })
+      else receiveDyeMaterial(orderId, { qty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-receipt-qty]')?.value), receiptId: panel?.dataset.receiptId || '', upstreamRecordId: panel?.querySelector<HTMLSelectElement>('[data-dye-receipt-source]')?.value, operatorName: session.userName })
+      if (panel) { panel.outerHTML = renderDyeReceiptPanel(orderId); const next = document.querySelector<HTMLElement>('[data-dye-receipt-feedback]'); if(next) next.textContent = target.closest('[data-dye-next-confirm]') ? '本批染色已开始。' : '本次接收已保存，任务已开工。' }
+    } catch (error) { if (feedback) feedback.textContent = error instanceof Error ? error.message : '接收失败，请重试。' }
+    return true
+  }
+
   const region = target.closest<HTMLElement>('[data-dye-work-order-combined-region]')
   if (!region) return false
   const actionNode = target.closest<HTMLElement>('[data-dye-work-order-combined-action]')
@@ -220,7 +268,7 @@ export function handleDyeWorkOrderCombinedDetailEvent(target: HTMLElement): bool
 function renderContinuousWaterSolubleActions(order: DyeWorkOrder): string {
   const role: WaterSolublePdaRoleAction | null = order.status === 'PRODUCTION_PAUSED'
     ? 'SUPERVISE'
-    : order.status === 'WAIT_WATER_SOLUBLE' || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
+    : canContinueDyeWaterSoluble(order) || order.status === 'WAIT_WATER_SOLUBLE' || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
       ? 'OPERATE'
       : null
   const session = getPdaSession()
@@ -229,8 +277,8 @@ function renderContinuousWaterSolubleActions(order: DyeWorkOrder): string {
     return '<p class="mt-3 text-sm text-muted-foreground">当前账号不能执行此动作，请切换对应岗位账号。</p>'
   }
   const attrs = `data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${escapeHtml(order.status)}" data-expected-node="WATER_SOLUBLE"`
-  if (order.status === 'WAIT_WATER_SOLUBLE') {
-    return `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="start-water-soluble" ${attrs}>开始水溶</button>`
+  if (order.status === 'WAIT_WATER_SOLUBLE' || canContinueDyeWaterSoluble(order)) {
+    return `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="start-water-soluble" ${attrs}>${canContinueDyeWaterSoluble(order) ? '开始下一批水溶' : '开始水溶'}</button>`
   }
   if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') {
     return `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="complete-water-soluble" ${attrs}>完成水溶</button>`
@@ -246,7 +294,7 @@ function getCurrentDyeDetailTab(): DyeDetailTab {
 }
 
 function renderDetailTabs(orderId: string, activeTab: DyeDetailTab): string {
-  const baseHref = buildDyeingWorkOrderDetailLink(orderId)
+  const baseHref = `/fcs/craft/dyeing/work-orders/${encodeURIComponent(orderId)}`
   return `
     <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
       ${dyeDetailTabs
@@ -398,7 +446,7 @@ function renderNodeTable(orderId: string): string {
             <th class="px-3 py-2 font-medium">结束时间</th>
             <th class="px-3 py-2 font-medium">操作人</th>
             <th class="px-3 py-2 font-medium">染缸</th>
-            <th class="px-3 py-2 font-medium">完成面料米数</th>
+            <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '已完成', 'DYE_FINISH_DYEING'))}</th>
             <th class="px-3 py-2 font-medium">备注</th>
           </tr>
         </thead>
@@ -467,7 +515,7 @@ function applyWebActionFromUrl(orderId: string): void {
 }
 
 function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderId: string): string {
-  const baseHref = `${buildDyeingWorkOrderDetailLink(orderId)}?tab=exception`
+  const baseHref = `/fcs/craft/dyeing/work-orders/${encodeURIComponent(orderId)}?tab=exception`
   return records
     .map((record) => `
       <tr class="border-b last:border-b-0">
@@ -507,6 +555,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       return `
         <div class="space-y-4 p-4">
           ${renderPageHeader('染色加工单详情', domainOrder.requiresWaterSoluble ? '同一染厂连续完成水溶与染色' : '普通染色加工单')}
+          ${renderProcessOrderTaskRelations(domainOrder.dyeOrderId)}
+          ${renderDyeReceiptPanel(domainOrder.dyeOrderId)}
           ${renderSection('基本信息', `<div class="grid gap-3 text-sm md:grid-cols-2">
             ${renderField('加工单号', domainOrder.dyeOrderNo)}
             ${renderField('工厂', formatFactoryDisplayName(domainOrder.dyeFactoryName, domainOrder.dyeFactoryId))}
@@ -625,12 +675,12 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
           ${renderField('分配方式', order.assignmentMode || '派单')}
           ${renderField('派单价格', order.dispatchPriceDisplay || '1500 IDR/Yard')}
-          ${renderField('原料面料 SKU', dye.rawMaterialSku)}
+          ${renderField('染色原料 SKU', dye.rawMaterialSku)}
           ${renderField('成分', dye.composition || '—')}
           ${renderField('幅宽', dye.width || '—')}
           ${renderField('克重', dye.weightGsm ? `${dye.weightGsm} 克/平方米` : '—')}
           ${renderField('目标颜色', dye.targetColor)}
-          ${renderField('计划染色面料米数', `${order.plannedQty} ${order.plannedUnit}`)}
+          ${renderField(order.qtyLabel || dyeQuantityLabel(order, '计划'), `${order.plannedQty} ${order.plannedUnit}`)}
           <div><span class="text-muted-foreground">当前状态：</span>${renderBadge(order.statusLabel, 'info')}</div>
           ${renderField('首单/翻单', dye.isFirstOrder ? '首单' : '翻单')}
           ${renderField('移动端执行任务引用', `${order.taskNo} / ${order.taskId}`)}
@@ -640,7 +690,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('不可执行原因', mobileBindingReasonLabel)}
           ${renderField('开工准备状态', startPrerequisite?.statusLabel || '按加工单状态判断')}
           ${renderField('开工前置口径', startPrerequisite?.conditionLabel || '染色加工单已接单')}
-          ${renderField('实际染色前要求', '必须确认坯布和染化料到位')}
+          ${renderField('实际染色前要求', '必须确认染色原料和染化料到位')}
           ${domainOrder?.requiresWaterSoluble ? renderField('工艺路线', '水溶 → 染色 → 既有后处理（同厂连续加工）') : ''}
           ${domainOrder?.requiresWaterSoluble ? renderField('中间交出', '无；完成染色及后处理后统一交出') : ''}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
@@ -670,7 +720,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('染色开始时间', formatDyeTime(dyeNode?.startedAt))}
           ${renderField('染色完成时间', formatDyeTime(dyeNode?.finishedAt))}
           ${renderField('脱水/烘干/定型/打卷/包装', afterNodeText)}
-          ${renderField('染色完成面料米数', formatDyeQty('outputQty' in (dyeNode || {}) ? dyeNode?.outputQty : undefined, order.plannedUnit))}
+          ${renderField(dyeQuantityLabel(order, '已完成', 'DYE_FINISH_DYEING'), formatDyeQty('outputQty' in (dyeNode || {}) ? dyeNode?.outputQty : undefined, order.plannedUnit))}
           ${domainOrder?.requiresWaterSoluble ? renderField('水溶计划数量', formatDyeQty(domainOrder.waterSolublePlannedQty, domainOrder.waterSolubleQtyUnit || order.plannedUnit)) : ''}
           ${domainOrder?.requiresWaterSoluble ? renderField('水溶完成数量', formatDyeQty(domainOrder.waterSolubleCompletedQty, domainOrder.waterSolubleQtyUnit || order.plannedUnit)) : ''}
           ${domainOrder?.requiresWaterSoluble ? renderField('水溶差异', `${(domainOrder.waterSolubleCompletedQty || 0) - (domainOrder.waterSolublePlannedQty || domainOrder.plannedQty)} ${domainOrder.waterSolubleQtyUnit || order.plannedUnit}`) : ''}
@@ -713,8 +763,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
               <tr>
                 <th class="px-3 py-2 font-medium">交出记录</th>
                 <th class="px-3 py-2 font-medium">提交时间</th>
-                <th class="px-3 py-2 font-medium">交出面料米数</th>
-                <th class="px-3 py-2 font-medium">实收面料米数</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '已交出', 'DYE_SUBMIT_HANDOVER'))}</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '实收'))}</th>
                 <th class="px-3 py-2 font-medium">收货时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
               </tr>
@@ -732,9 +782,9 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
             <thead class="bg-slate-50 text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 font-medium">收货状态</th>
-                <th class="px-3 py-2 font-medium">交出面料米数</th>
-                <th class="px-3 py-2 font-medium">实收面料米数</th>
-                <th class="px-3 py-2 font-medium">差异面料米数</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '已交出', 'DYE_SUBMIT_HANDOVER'))}</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '实收'))}</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '差异'))}</th>
                 <th class="px-3 py-2 font-medium">收货确认人</th>
                 <th class="px-3 py-2 font-medium">收货确认时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
@@ -754,23 +804,23 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
             <div class="mt-1 text-lg font-semibold">${dyeStatistics.differenceHandoverCount}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
-            <div class="text-xs text-muted-foreground">交出面料米数</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '已交出', 'DYE_SUBMIT_HANDOVER'))}</div>
             <div class="mt-1 text-lg font-semibold">${formatDyeQty(dyeStatistics.handedOverFabricMeters, order.plannedUnit)}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
-            <div class="text-xs text-muted-foreground">实收面料米数</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '实收'))}</div>
             <div class="mt-1 text-lg font-semibold">${formatDyeQty(dyeStatistics.receivedFabricMeters, order.plannedUnit)}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
-            <div class="text-xs text-muted-foreground">染色完成面料米数</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '已完成', 'DYE_FINISH_DYEING'))}</div>
             <div class="mt-1 text-lg font-semibold">${formatDyeQty(dyeStatistics.dyeCompletedFabricMeters, order.plannedUnit)}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
-            <div class="text-xs text-muted-foreground">包装完成面料米数</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '已完成', 'DYE_FINISH_PACKING'))}</div>
             <div class="mt-1 text-lg font-semibold">${formatDyeQty(dyeStatistics.finalPackedFabricMeters, order.plannedUnit)}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
-            <div class="text-xs text-muted-foreground">差异面料米数</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '差异'))}</div>
             <div class="mt-1 text-lg font-semibold">${formatDyeQty(dyeStatistics.diffFabricMeters, order.plannedUnit)}</div>
           </div>
         </div>
@@ -787,9 +837,9 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
               <tr>
                 <th class="px-3 py-2 font-medium">差异记录</th>
                 <th class="px-3 py-2 font-medium">差异类型</th>
-                <th class="px-3 py-2 font-medium">交出面料米数</th>
-                <th class="px-3 py-2 font-medium">实收面料米数</th>
-                <th class="px-3 py-2 font-medium">差异面料米数</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '已交出', 'DYE_SUBMIT_HANDOVER'))}</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '实收'))}</th>
+                <th class="px-3 py-2 font-medium">${escapeHtml(dyeQuantityLabel(order, '差异'))}</th>
                 <th class="px-3 py-2 font-medium">差异状态</th>
                 <th class="px-3 py-2 font-medium">处理结果</th>
                 <th class="px-3 py-2 font-medium">操作</th>
@@ -829,6 +879,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
         `,
       )}
 
+      ${renderProcessOrderTaskRelations(order.workOrderId)}
+      ${renderDyeReceiptPanel(order.workOrderId)}
       ${renderDetailTabs(order.workOrderId, activeTab)}
       ${renderWebActionPanel(order.workOrderId, order.statusLabel, webActions, platformStatus.platformStatusLabel)}
       ${sections[activeTab]}

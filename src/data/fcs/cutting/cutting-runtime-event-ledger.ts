@@ -13,7 +13,7 @@ export type CuttingRuntimeEventSource = 'PDA' | 'WEB' | 'MOCK' | 'WMS'
 export type CuttingRuntimeEventStatus = '已记录' | '已同步' | '同步失败' | '已取消'
 export type CuttingRuntimeInventoryScope = '裁床待加工仓' | '裁床待交出仓'
 export type CuttingRuntimeInventoryDirection = 'IN' | 'OUT' | 'ADJUST'
-export type CuttingRuntimeQtyUnit = 'yard' | '米' | '片' | '件' | '条' | '粒' | '卷' | '公斤'
+export type CuttingRuntimeQtyUnit = 'yard' | 'Yard' | '米' | '片' | '件' | '条' | '粒' | '卷' | '公斤' | '套'
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
@@ -528,6 +528,7 @@ export interface WholeBagHandoverSubmitPayload
   extends Omit<HandoverRecordSubmitPayload, 'transferBagUses'> {
   canonicalIntent: string
   handoverLegId: string
+  automaticSewingReceipts?: Array<{ sewingTaskId: string; runtimeTaskId?: string; receivedPieceQty: number; receivedAt: string; receivedBy: string; ticketIds: string[] }>
   transferBagUses: [WholeBagHandoverTransferBagUse]
 }
 
@@ -808,8 +809,7 @@ function normalizePattern(raw: unknown): RuntimePatternSnapshot | undefined {
 
 function normalizeUnit(value: unknown, fallback: CuttingRuntimeQtyUnit): CuttingRuntimeQtyUnit {
   const text = toString(value)
-  if (text === '米') return 'yard'
-  return text === 'yard' || text === '片' || text === '件' || text === '条' || text === '粒' || text === '卷' || text === '公斤'
+  return text === '米' || text === 'Yard' || text === 'yard' || text === '片' || text === '件' || text === '条' || text === '粒' || text === '卷' || text === '公斤' || text === '套'
     ? text
     : fallback
 }
@@ -836,6 +836,9 @@ function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefi
 
 function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
   return [
+    '染色厂配料完成通知',
+    '印花厂配料完成通知',
+    '配料完成通知',
     '中转仓配料完成通知',
     '中转仓接收',
     '待加工仓扫码入仓',

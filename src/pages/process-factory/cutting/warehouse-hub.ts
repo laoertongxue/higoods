@@ -1,3 +1,5 @@
+import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
+import { readWoolStore } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: dashboard
 import {
   type HandoverPickingTask,
@@ -6,6 +8,7 @@ import {
   type FeiTicketSewingAssignment,
   buildHandoverPickingTaskProjectionFromAllocationProjection,
   buildSewingTaskAllocationProjectionFromInventory,
+  listAvailableFeiTicketsForSewingDispatch,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
@@ -2496,8 +2499,27 @@ function readWaitHandoverWebField(dialog: ParentNode, field: string): string {
   return dialog.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-wait-handover-field="${field}"]`)?.value.trim() || ''
 }
 
+// PROD-003: same receipt identity is used for display, scanning and existing bag events.
+function listWaitHandoverPieceSources(): GeneratedFeiTicketSourceRecord[] {
+  return [...listSpreadingResultGeneratedFeiTickets(), ...listWoolPanelCuttingReceiptSources()]
+}
+function isWoolPanelTicket(ticket: { feiTicketId?: string; feiTicketNo?: string; ticketNo?: string }): boolean {
+  return (ticket.feiTicketNo || ticket.ticketNo || ticket.feiTicketId || '').startsWith('WOOL-PANEL:')
+}
+function renderWoolPanelReceiptTickets(): string {
+  const tickets = listAvailableFeiTicketsForSewingDispatch().filter(isWoolPanelTicket)
+    .filter((ticket) => !runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
+  if (!tickets.length) return ''
+  const wool = readWoolStore()
+  return `<section class="rounded-lg border bg-card p-4" data-wool-panel-receipt-tickets><h3 class="font-semibold">毛织片票 · 已实收待装袋（${tickets.length} 张）</h3><p class="my-2 text-xs text-muted-foreground">按裁床实际接收量，与同生产单布料裁片一起装袋；无铺布层序，无需裁片打编号。</p><div class="grid gap-3 md:grid-cols-2">${tickets.slice(0, 20).map((ticket) => {
+    const handover = wool.handovers.find((item) => item.handoverId === ticket.sourceOutputLineId)!
+    const order = wool.workOrders[handover.woolOrderId]
+    return `<article class="flex min-w-0 gap-3 rounded border p-3" data-wool-panel-ticket="${escapeHtml(ticket.feiTicketNo)}">${renderRealQrPlaceholder({ value: ticket.qrValue, size: 80, title: '毛织片票', label: ticket.feiTicketNo })}<div class="min-w-0 break-all text-xs"><div class="font-medium">毛织片票 · ${escapeHtml(ticket.partName)} · ${ticket.qty} 片</div><div>${escapeHtml(ticket.feiTicketNo)}</div><div>生产单：${escapeHtml(ticket.productionOrderNo)}</div><div>成衣 SKU：${escapeHtml(ticket.skuCode)} · ${escapeHtml(ticket.skuColor)} / ${escapeHtml(ticket.skuSize)}</div><div>来源：${escapeHtml(order.woolOrderNo)} / ${escapeHtml(handover.handoverId)}</div><div>裁床实收：${escapeHtml(handover.downstreamReceipt?.receivedAt || '')} / ${escapeHtml(handover.downstreamReceipt?.receivedBy || '')}</div><div class="text-amber-700">${escapeHtml(ticket.partName)}真实部位图缺失，待补素材</div><a class="text-blue-700 underline" data-nav="/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}/handover-print/${encodeURIComponent(handover.handoverId)}" href="/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}/handover-print/${encodeURIComponent(handover.handoverId)}">查看来源单与片票打印预览</a></div></article>`
+  }).join('')}</div></section>`
+}
+
 function buildWaitHandoverWebInboundTempBags(): InboundTempBag[] {
-  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const generatedTickets = listWaitHandoverPieceSources()
   const runtimeEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
@@ -2505,7 +2527,7 @@ function buildWaitHandoverWebInboundTempBags(): InboundTempBag[] {
 }
 
 function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
-  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const generatedTickets = listWaitHandoverPieceSources()
   const runtimeEvents = listRuntimeWaitHandoverEvents()
   const inboundTempBags = buildWaitHandoverWebInboundTempBags()
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
@@ -2532,10 +2554,10 @@ function buildWaitHandoverActionSelectOptions(
 
 function getWaitHandoverTicketOptions(): Array<{ value: string; label: string }> {
   const inventoryTicketIds = new Set(buildWaitHandoverWebInventoryRecords().map((record) => record.feiTicketId))
-  return buildRuntimeTicketCandidatesFromGeneratedTickets(listSpreadingResultGeneratedFeiTickets())
+  return buildRuntimeTicketCandidatesFromGeneratedTickets(listWaitHandoverPieceSources())
     .filter((ticket) => ticket.ticketStatus !== 'VOIDED')
     .filter((ticket) => !inventoryTicketIds.has(ticket.feiTicketId))
-    .filter((ticket) => validateFeiTicketNumberingBeforeBagging(ticket).ok)
+    .filter((ticket) => isWoolPanelTicket(ticket) || validateFeiTicketNumberingBeforeBagging(ticket).ok)
     .slice(0, 30)
     .map((ticket) => ({
       value: ticket.feiTicketId,
@@ -2556,7 +2578,7 @@ function resolveWaitHandoverInboundTickets(selectedFeiTicketId: string, scanInpu
   tickets: GeneratedFeiTicketSourceRecord[]
   missingScanCodes: string[]
 } {
-  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const generatedTickets = listWaitHandoverPieceSources()
   const selectedTicket = generatedTickets.find((item) => item.feiTicketId === selectedFeiTicketId)
   const scanCodes = splitWaitHandoverScanCodes(scanInput)
   if (!scanCodes.length) {
@@ -3125,7 +3147,7 @@ function renderWaitHandoverBagTicketDetailDialog(bagCode: string): string {
                 <tbody>
                   ${tickets.map((ticket) => `
                     <tr class="border-b last:border-b-0">
-                      <td class="px-3 py-2 align-top font-medium text-blue-700">${escapeHtml(ticket.feiTicketNo)}</td>
+                      <td class="px-3 py-2 align-top font-medium text-blue-700">${isWoolPanelTicket(ticket) ? '毛织片票 · ' : ''}${escapeHtml(ticket.feiTicketNo)}</td>
                       <td class="px-3 py-2 align-top">${escapeHtml(ticket.productionOrderNo)}</td>
                       <td class="px-3 py-2 align-top">${escapeHtml(ticket.cutOrderNo)}</td>
                       <td class="px-3 py-2 align-top">${escapeHtml(ticket.color)}</td>
@@ -3181,6 +3203,9 @@ function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
     window.alert(`以下菲票未匹配：${missingScanCodes.join('、')}`)
     return true
   }
+  const availableWool = new Set(listAvailableFeiTicketsForSewingDispatch().filter(isWoolPanelTicket).map((ticket) => ticket.feiTicketNo))
+  const occupiedWool = tickets.find((ticket) => isWoolPanelTicket(ticket) && !availableWool.has(ticket.feiTicketNo))
+  if (occupiedWool) { window.alert(`${occupiedWool.feiTicketNo} 已装袋或交出，不能重复使用。`); return true }
   const bagCode = readWaitHandoverWebField(dialog, 'bagCode')
   if (!bagCode) {
     window.alert('请扫描或输入中转袋编号。')
@@ -3204,7 +3229,7 @@ function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
     window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已装袋，不能重复装袋。`)
     return true
   }
-  const unnumberedTicket = tickets.find((ticket) => !validateFeiTicketNumberingBeforeBagging(ticket).ok)
+  const unnumberedTicket = tickets.find((ticket) => !isWoolPanelTicket(ticket) && !validateFeiTicketNumberingBeforeBagging(ticket).ok)
   if (unnumberedTicket) {
     window.alert(validateFeiTicketNumberingBeforeBagging(unnumberedTicket).reason)
     return true
@@ -5283,6 +5308,8 @@ function buildRuntimeHandoverTableProjection(
     const recordNo = runtimeString(payload.handoverRecordNo) || '交出记录待补'
     const receiverType = runtimeString(payload.receiverType)
     const receiverName = runtimeString(payload.receiverName) || '待接收方回写'
+    const automaticReceipts = Array.isArray(payload.automaticSewingReceipts) ? payload.automaticSewingReceipts.map(toRuntimeRecord) : []
+    const receiveStatus = automaticReceipts.length ? `已自动接收 ${formatPieceQty(automaticReceipts.reduce((sum, item) => sum + runtimeNumber(item.receivedPieceQty), 0))}${automaticReceipts.every((item) => runtimeString(item.runtimeTaskId)) ? ' · 车缝已开工' : ' · 历史任务待绑定'}` : '待接收回写'
     const currentQty =
       runtimeNumber(payload.currentHandedOverQty) ||
       rawItems.reduce((sum, rawItem) => sum + runtimeNumber(toRuntimeRecord(rawItem).pieceQty), 0)
@@ -5308,7 +5335,7 @@ function buildRuntimeHandoverTableProjection(
       totalQty: 0,
       recordCount: 0,
       latestAt: event.occurredAt,
-      status: event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
+      status: event.eventStatus === '同步失败' ? '同步失败' : receiveStatus,
     }
     productionOrderNos.forEach((productionOrderNo) => orderGroup.productionOrderNos.add(productionOrderNo))
     orderGroup.totalQty += currentQty
@@ -5327,7 +5354,7 @@ function buildRuntimeHandoverTableProjection(
       productionOrderNos.join('、') || '按菲票追踪',
       sewingTaskNos.join('、') || runtimeString(payload.sewingTaskNo) || runtimeString(payload.pickingTaskNo) || '按交出记录追踪',
       `${feiTicketNos.length} 张 / ${formatPieceQty(currentQty)}`,
-      event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
+      event.eventStatus === '同步失败' ? '同步失败' : receiveStatus,
     ]
   })
 
@@ -5349,7 +5376,7 @@ function buildRuntimeHandoverTableProjection(
       orderCount: orderRows.length,
       recordCount: recordRows.length,
       totalHandedOverQty: Array.from(orderGroups.values()).reduce((sum, order) => sum + order.totalQty, 0),
-      pendingWritebackCount: recordRows.length,
+      pendingWritebackCount: recordRows.filter((row) => row[9] === '待接收回写').length,
       discrepancyCount: recordEvents.filter((event) => event.eventStatus === '同步失败').length,
     },
   }
@@ -5560,7 +5587,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   }
 
   ensureTransferBagRepackMockEvents()
-  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const generatedTickets = listWaitHandoverPieceSources()
   const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
@@ -5695,6 +5722,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   }
   const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
   const inventoryContent = `<section class="space-y-4">
+    ${renderWoolPanelReceiptTickets()}
     ${renderCutPieceReturnZoneArea()}
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
     ${waitHandoverStats}

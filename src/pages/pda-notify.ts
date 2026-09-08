@@ -1,9 +1,10 @@
 import { appStore } from '../state/store'
 import {
   getFactoryMobileTodoActionRoute,
-  getFactoryMobileTodoSummary,
   getFactoryMobileTodos,
+  summarizeFactoryMobileTodos,
   type FactoryMobileTodo,
+  type FactoryMobileTodoSummary,
   type FactoryMobileTodoType,
 } from '../data/fcs/factory-mobile-todos.ts'
 import { escapeHtml, toClassName } from '../utils'
@@ -51,12 +52,6 @@ function getVisibleFilters(factoryId: string, roleId: string): Array<{ value: To
     : KOL_GOTO_OPERATOR_FILTERS
 }
 
-function getCurrentFactoryTodos(): FactoryMobileTodo[] {
-  const runtime = getPdaRuntimeContext()
-  if (!runtime) return []
-  return getFactoryMobileTodos(runtime.factoryId, runtime.roleId).filter((item) => (state.filter === '全部' ? true : item.todoType === state.filter))
-}
-
 function renderFilterChips(filters: Array<{ value: TodoFilter; label: string }>): string {
   return `
     <div class="flex gap-2 overflow-x-auto pb-1">
@@ -78,8 +73,7 @@ function renderFilterChips(filters: Array<{ value: TodoFilter; label: string }>)
   `
 }
 
-function renderSummaryCards(factoryId: string, roleId: string): string {
-  const summary = getFactoryMobileTodoSummary(factoryId, roleId)
+function renderSummaryCards(factoryId: string, roleId: string, summary: FactoryMobileTodoSummary): string {
   const cards = isKolGotoFactory(factoryId)
     ? [
         { label: '全部待办', value: summary.total, tone: 'text-foreground' },
@@ -154,7 +148,9 @@ export function renderPdaNotifyPage(): string {
 
   const visibleFilters = getVisibleFilters(runtime.factoryId, runtime.roleId)
   if (!visibleFilters.some((item) => item.value === state.filter)) state.filter = '全部'
-  const todos = getCurrentFactoryTodos()
+  const allTodos = getFactoryMobileTodos(runtime.factoryId, runtime.roleId)
+  const todos = allTodos.filter((item) => (state.filter === '全部' ? true : item.todoType === state.filter))
+  const summary = summarizeFactoryMobileTodos(allTodos)
   const kolGotoFactory = isKolGotoFactory(runtime.factoryId)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
@@ -164,7 +160,7 @@ export function renderPdaNotifyPage(): string {
           ? '只汇总加工领料、交出/完成，以及管理员可处理的结算事项。'
           : '按待办类型汇总接单、执行、交接、仓管和结算处理项。'}</div>
       </section>
-      ${renderSummaryCards(runtime.factoryId, runtime.roleId)}
+      ${renderSummaryCards(runtime.factoryId, runtime.roleId, summary)}
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         ${renderFilterChips(visibleFilters)}
       </section>

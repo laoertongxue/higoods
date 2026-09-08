@@ -1,4 +1,5 @@
 import { appStore } from '../../state/store.ts'
+import { recordActualFeiTicketFirstPrintFromPreview } from '../process-factory/cutting/fei-tickets.ts'
 import { escapeHtml } from '../../utils.ts'
 import {
   buildPrintDocument,
@@ -112,6 +113,13 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
     const input = resolveInput()
     if (input.documentType === 'FEI_TICKET_LABEL' || input.documentType === 'FEI_TICKET_REPRINT_LABEL') {
       const document = buildPrintDocument(input)
+      if (input.documentType === 'FEI_TICKET_LABEL') {
+        recordActualFeiTicketFirstPrintFromPreview({
+          sourceIds: decodeParam(input.sourceId).split(',').map((item) => item.trim()).filter(Boolean),
+          operator: '裁床打票员',
+          templateName: document.templateCode,
+        })
+      }
       recordManualFeiTicketPrint({
         sourceIds: decodeParam(input.sourceId).split(',').map((item) => item.trim()).filter(Boolean),
         printedBy: '裁床打票员',

@@ -37,6 +37,8 @@ export type PickupHistoryPath = 'READY_PICKUP' | 'INCOMPLETE_PICKUP'
 export type PickupFinalResult = 'ALL_PICKED' | 'NOT_ALL_PICKED' | 'NEW_SUPPLEMENT_WAIT_PICKUP'
 
 export interface PickupMaterialDemandRow {
+  /** 原印花交接实收来源；即使本轮已领完也保留来源类别。 */
+  fromPrintReceipt?: boolean
   rowKey: string
   demandLineId: string
   demandSource: PickupDemandSource
@@ -216,6 +218,7 @@ function buildPickupMaterialDemandRow(
     demandLineId: fact.demandLineId,
     demandSource: fact.demandSource,
     demandSourceNo: fact.demandSourceNo,
+    fromPrintReceipt: fact.printReceiptSources !== undefined,
     demandSequence: fact.demandSequence,
     demandCreatedAt: fact.demandCreatedAt,
     supplementReason: fact.supplementReason,
@@ -345,6 +348,14 @@ function closeSessionPickupRecords(
           !== roundQty(Math.max(record.pickedQty - record.returnQty, 0))
       )
     ) return null
+    if (record.printReceiptSources?.length) {
+      const sources = record.printReceiptSources
+      const units = new Set(sources.map(source => source.unit))
+      if (units.size !== 1 || sources.some(source => !source.handoverRecordId || source.productionOrderId !== record.productionOrderId || !Number.isFinite(source.qty) || source.qty <= 0)
+        || roundQty(sources.reduce((sum, source) => sum + source.qty, 0)) !== roundQty(record.pickedQty)) return null
+      closedFacts.push({ record, unit: sources[0].unit })
+      continue
+    }
     const allocations = record.sourceAllocations ?? []
     if (!allocations.length) {
       if (!session.migrationEvidence) return null
@@ -579,6 +590,7 @@ export interface PickupOrderGroupProjectionInput {
   activeNodes: PickupNodeProjection[]
   supplementRecords: SupplementOrderLifecycle[]
   processResults: PickupProcessResults
+  demandFacts?: PickupDemandFact[]
 }
 
 export function buildPickupOrderGroups(
@@ -592,7 +604,7 @@ export function buildPickupOrderGroups(
     processResults,
   } = input
   const projectionsByProductionOrder = groupProjectionsByProductionOrder(projections)
-  const demandFacts = buildPickupDemandFactsFromProjections({
+  const demandFacts = input.demandFacts ?? buildPickupDemandFactsFromProjections({
     projections,
     supplementRecords: toPickupSupplementRecordFactInputs(supplementRecords),
     dyeResults: processResults.dyeResults,
@@ -799,6 +811,7 @@ export function listPickupOrderGroups(
   return buildPickupOrderGroups({
     listKind,
     projections: context.projections,
+    demandFacts: context.demandFacts,
     activeNodes: context.activeNodes,
     supplementRecords: context.supplementRecords,
     processResults: {

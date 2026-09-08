@@ -871,7 +871,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
 }
 
 export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData {
-  const projection = buildMarkerSpreadingProjection()
+  const projection = buildMarkerSpreadingProjection({ includeCreateSources: false, includeViewModel: false })
   const store = buildMarkerSpreadingPrototypeStore({
     rows: projection.rows,
     markerPlanSources: projection.markerPlanSources,

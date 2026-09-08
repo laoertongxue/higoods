@@ -12,7 +12,7 @@ import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
 } from './production-progress-model.ts'
-import type { SpecialProcessRow } from './special-processes-model.ts'
+import type { BindingProcessOrder } from './binding-strip-order-types.ts'
 import type {
   TransferBagConditionDecisionItem,
   TransferBagReturnUsageItem,
@@ -130,7 +130,7 @@ export interface CuttingCheckBuildOptions {
   bagUsages: TransferBagUsageItem[]
   returnUsages: TransferBagReturnUsageItem[]
   conditionItems: TransferBagConditionDecisionItem[]
-  specialProcesses: SpecialProcessRow[]
+  bindingProcesses: BindingProcessOrder[]
   navigationPayload: CuttingCheckNavigationPayloadMap
 }
 
@@ -150,7 +150,7 @@ export const cuttingCheckSectionLabelMap: Record<CuttingCheckSectionKey, string>
   SPREADING: '唛架铺布',
   FEI_TICKETS: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
-  SPECIAL_PROCESS: '特殊工艺',
+  SPECIAL_PROCESS: '捆条加工',
 }
 
 export const cuttingCheckCompletionMetaMap: Record<CuttingCheckCompletionKey, CuttingCheckCompletionMeta> = {
@@ -813,70 +813,78 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
   }
 }
 
-function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
+function buildBindingProcessSection(options: CuttingCheckBuildOptions): {
   section: CuttingCheckSectionState
   blockers: CuttingCheckBlockerItem[]
 } {
-  const blockers = options.specialProcesses.flatMap((item) => {
-    if (['DRAFT', 'PENDING_EXECUTION', 'IN_PROGRESS'].includes(item.status)) {
+  const blockers = options.bindingProcesses.flatMap((item) => {
+    const navigationPayload = {
+      processOrderId: item.bindingOrderId,
+      processOrderNo: item.bindingOrderNo,
+      cutOrderNo: item.sourceCutOrderNo,
+      productionOrderNo: item.sourceProductionOrderNo,
+    }
+    if (item.status === '待加工' || item.status === '加工中') {
       return [
         buildBlocker({
           productionOrderId: options.productionRow.productionOrderId,
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'SPECIAL_PROCESS',
-          severity: item.status === 'IN_PROGRESS' ? 'MEDIUM' : 'LOW',
-          title: `${item.processOrderNo} ${item.statusMeta.label}`,
+          severity: item.status === '加工中' ? 'MEDIUM' : 'LOW',
+          title: `${item.bindingOrderNo} ${item.status}`,
           sourceType: 'SPECIAL_PROCESS',
-          sourceId: item.processOrderId,
-          sourceNo: item.processOrderNo,
-          sourceLabel: '特殊工艺单',
-          materialSku: item.materialSku,
-          currentStateLabel: item.statusMeta.label,
-          blockerReason: item.executionProgressSummary || item.statusMeta.detailText,
+          sourceId: item.bindingOrderId,
+          sourceNo: item.bindingOrderNo,
+          sourceLabel: '捆条加工单',
+          materialSku: item.materialIdentity.materialSku,
+          currentStateLabel: item.status,
+          blockerReason: item.status === '待加工'
+            ? '当前捆条加工单尚未开始加工。'
+            : `已加工 ${item.actualTotalLength}/${item.plannedTotalLength} ${item.unit}。`,
           navigationTarget: 'specialProcesses',
-          navigationPayload: item.navigationPayload.summary,
-          nextActionLabel: '去特殊工艺',
+          navigationPayload,
+          nextActionLabel: '去捆条加工单',
         }),
       ]
     }
-    if (item.followupPendingCount > 0 || item.downstreamBlocked) {
+    if (item.status === '已完成' && item.handoverStatus !== '已交出') {
       return [
         buildBlocker({
           productionOrderId: options.productionRow.productionOrderId,
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'SPECIAL_PROCESS',
           severity: 'MEDIUM',
-          title: `${item.processOrderNo} 后续未闭环`,
+          title: `${item.bindingOrderNo} 待交出`,
           sourceType: 'SPECIAL_PROCESS',
-          sourceId: item.processOrderId,
-          sourceNo: item.processOrderNo,
-          sourceLabel: '特殊工艺单',
-          materialSku: item.materialSku,
-          currentStateLabel: item.followupProgressSummary,
-          blockerReason: item.downstreamBlockReason || '当前特殊工艺后续动作仍未完成。',
+          sourceId: item.bindingOrderId,
+          sourceNo: item.bindingOrderNo,
+          sourceLabel: '捆条加工单',
+          materialSku: item.materialIdentity.materialSku,
+          currentStateLabel: item.handoverStatus,
+          blockerReason: `捆条加工已完成，但当前交出状态为“${item.handoverStatus}”。`,
           navigationTarget: 'specialProcesses',
-          navigationPayload: item.navigationPayload.summary,
-          nextActionLabel: '去特殊工艺',
+          navigationPayload,
+          nextActionLabel: '去捆条加工单',
         }),
       ]
     }
     return []
   })
 
-  const totalCount = options.specialProcesses.length
-  const doneCount = options.specialProcesses.filter(
-    (item) => ['DONE', 'CANCELLED'].includes(item.status) && item.followupPendingCount === 0,
+  const totalCount = options.bindingProcesses.length
+  const doneCount = options.bindingProcesses.filter(
+    (item) => item.status === '已取消' || (item.status === '已完成' && item.handoverStatus === '已交出'),
   ).length
 
   let stateKey: CuttingCheckSectionStateKey = 'NOT_APPLICABLE'
-  let detailText = '当前未创建特殊工艺单。'
+  let detailText = '当前未创建捆条加工单。'
   if (totalCount) {
     if (blockers.length) {
       stateKey = 'BLOCKED'
-      detailText = `当前有 ${blockers.length} 张特殊工艺单未闭环。`
+      detailText = `当前有 ${blockers.length} 张捆条加工单未闭环。`
     } else {
       stateKey = 'DONE'
-      detailText = '当前特殊工艺链路已通过。'
+      detailText = '当前捆条加工链路已通过。'
     }
   }
 
@@ -890,7 +898,7 @@ function buildSpecialProcessSection(options: CuttingCheckBuildOptions): {
       detailText,
       navigationTarget: 'specialProcesses',
       navigationPayload: options.navigationPayload.specialProcesses,
-      defaultActionLabel: '去特殊工艺',
+      defaultActionLabel: '去捆条加工单',
     }),
     blockers,
   }
@@ -912,7 +920,7 @@ export function buildCuttingCheckResult(options: CuttingCheckBuildOptions): Cutt
   const spreading = buildSpreadingSection(options)
   const feiTickets = buildFeiTicketSection(options)
   const warehouse = buildWarehouseSection(options)
-  const specialProcess = buildSpecialProcessSection(options)
+  const specialProcess = buildBindingProcessSection(options)
 
   const sectionStates = [
     materialPrep.section,

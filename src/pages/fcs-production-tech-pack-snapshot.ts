@@ -26,7 +26,7 @@ type SnapshotTabKey =
 const tabItems: Array<{ key: SnapshotTabKey; label: string }> = [
   { key: 'pattern', label: '纸样管理' },
   { key: 'bom', label: '物料清单' },
-  { key: 'process', label: '工序工艺' },
+  { key: 'process', label: '工艺路线' },
   { key: 'size', label: '放码规则' },
   { key: 'color-mapping', label: '款色用料对应' },
   { key: 'design', label: '花型设计' },
@@ -423,7 +423,7 @@ function renderBomTab(items: TechnicalBomItem[]): string {
 }
 
 function renderProcessTab(rows: TechnicalProcessEntry[]): string {
-  if (rows.length === 0) return renderEmptyState('暂无工序工艺。')
+  if (rows.length === 0) return renderEmptyState('暂无工艺路线。')
   return `
     <div class="overflow-x-auto rounded-lg border">
       <table class="w-full min-w-[980px] text-sm">

@@ -19,7 +19,8 @@ import {
   buildProductionOrderSettlementProjections,
   buildStatementDraftLinesFromSettlementSelection,
 } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
-import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-domain.ts'
+import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-current-read-model.ts'
+import { loadPostFinishingDemoData } from '../src/data/fcs/post-finishing-full-flow.ts'
 
 const summary = calculateProductionOrderSettlementSummary({
   cuttingCompletedQty: 100,
@@ -62,6 +63,7 @@ assert.equal(incomplete.settlementHandoverQty, 90)
 assert.equal(incomplete.isComplete, false)
 assert.equal(incomplete.shortageQty, 30)
 
+loadPostFinishingDemoData()
 const allLedgers = listPreSettlementLedgers()
 const externalReworkChargeback = listPostFinishingQcOrders()
   .flatMap((record) =>

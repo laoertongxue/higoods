@@ -51,11 +51,11 @@ export function renderBadge(label: string, tone: BadgeTone = 'muted'): string {
 
 export function renderWorkOrderStatusBadge(status: DyeWorkOrderStatus): string {
   const tone: BadgeTone =
-    status === 'FULL_HANDOVER'
+    status === 'FULL_HANDOVER' || status === 'COMPLETED'
       ? 'success'
       : status === 'HANDOVER_DIFFERENCE'
         ? 'danger'
-        : status === 'WAIT_HANDOVER' || status === 'HANDOVER_WAIT_RECEIVE' || status === 'WAIT_REVIEW' || status === 'PARTIAL_HANDOVER'
+        : status === 'WAIT_HANDOVER' || status === 'HANDOVER_WAIT_RECEIVE' || status === 'WAIT_REVIEW' || status === 'PARTIAL_HANDOVER' || status === 'WAIT_MANUAL_COMPLETION'
           ? 'warning'
           : ['DYEING', 'DEHYDRATING', 'DRYING', 'SETTING', 'ROLLING', 'PACKING', 'SAMPLE_TESTING'].includes(status)
             ? 'info'

@@ -40,6 +40,7 @@ import type {
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import type { WoolAllowedAction } from './wool-domain/queries.ts'
+import type { TechnicalProcessObjectType } from '../pcs-technical-data-version-types.ts'
 import {
   buildSpecialCraftSourceTaskIdentity,
   registerSpecialCraftSourceTaskAdapter,
@@ -235,6 +236,13 @@ export interface ProcessTask {
   fixedTotalPriceUnit?: '整单'
   // 第3步统一生成引擎追溯字段
   sourceEntryId?: string
+  sourceEntryIds?: string[]
+  predecessorEntryIds?: string[]
+  routeObjectKey?: string
+  routeObjectKeys?: string[]
+  inputObjectType?: TechnicalProcessObjectType
+  outputObjectType?: TechnicalProcessObjectType
+  consumedBomItemIds?: string[]
   sourceEntryType?: 'PROCESS_BASELINE' | 'CRAFT'
   stageCode?: 'PREP' | 'PROD' | 'POST'
   stageName?: string
@@ -316,6 +324,8 @@ export function getProcessTaskQtyDisplayMeta(
 // 预置工序任务（base task seeds）
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'
+// 明确已有毛织演示初始事实；新需求不能继承其2026-05派接单日期。
+export const WOOL_DISPATCH_DEMO_ORDER_IDS = new Set(['PO-202603-0004', 'PO-202603-0006', 'PO-202603-084'])
 const TASK_FACT_BLOCKED_ORDER_STATUSES = new Set<ProductionOrderStatus>(['DRAFT', 'READY_FOR_BREAKDOWN'])
 
 function canOrderEnterGeneratedTaskFacts(orderId: string): boolean {
@@ -325,59 +335,28 @@ function canOrderEnterGeneratedTaskFacts(orderId: string): boolean {
   return !TASK_FACT_BLOCKED_ORDER_STATUSES.has(order.status)
 }
 
-function isPositiveRouteNo(value: number | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-}
-
 export function buildRouteTaskDependencyIds<T extends {
   taskId: string
-  seq?: number
-  routeStepNo?: number
-  routeLaneNo?: number
+  sourceEntryId?: string
+  sourceEntryIds?: string[]
+  predecessorEntryIds?: string[]
 }>(tasks: T[]): Map<string, string[]> {
   const result = new Map<string, string[]>()
-  const ordered = tasks
-    .map((task, index) => ({ task, index }))
-    .sort((left, right) => {
-      const leftHasRoute = isPositiveRouteNo(left.task.routeStepNo) && isPositiveRouteNo(left.task.routeLaneNo)
-      const rightHasRoute = isPositiveRouteNo(right.task.routeStepNo) && isPositiveRouteNo(right.task.routeLaneNo)
-      if (leftHasRoute && rightHasRoute) {
-        const stepCompare = (left.task.routeStepNo as number) - (right.task.routeStepNo as number)
-        if (stepCompare !== 0) return stepCompare
-        const laneCompare = (left.task.routeLaneNo as number) - (right.task.routeLaneNo as number)
-        if (laneCompare !== 0) return laneCompare
-      }
-      const seqCompare = (left.task.seq ?? left.index) - (right.task.seq ?? right.index)
-      if (seqCompare !== 0) return seqCompare
-      return left.task.taskId.localeCompare(right.task.taskId)
+  const taskIdsByEntryId = new Map<string, string[]>()
+  tasks.forEach((task) => {
+    const sourceEntryIds = task.sourceEntryIds?.length
+      ? task.sourceEntryIds
+      : task.sourceEntryId ? [task.sourceEntryId] : []
+    sourceEntryIds.forEach((entryId) => {
+      taskIdsByEntryId.set(entryId, [...(taskIdsByEntryId.get(entryId) ?? []), task.taskId])
     })
-
-  let index = 0
-  let previousStepTasks: T[] = []
-  while (index < ordered.length) {
-    const current = ordered[index]
-    const hasRoute = isPositiveRouteNo(current.task.routeStepNo) && isPositiveRouteNo(current.task.routeLaneNo)
-    const stepNo = hasRoute ? current.task.routeStepNo : undefined
-    const currentStepTasks: T[] = []
-    while (index < ordered.length) {
-      const item = ordered[index]
-      const itemHasRoute = isPositiveRouteNo(item.task.routeStepNo) && isPositiveRouteNo(item.task.routeLaneNo)
-      if (currentStepTasks.length > 0) {
-        if (!hasRoute || !itemHasRoute || item.task.routeStepNo !== stepNo) break
-      }
-      if (!hasRoute && currentStepTasks.length > 0) break
-      currentStepTasks.push(item.task)
-      index += 1
-      if (!hasRoute) break
-    }
-
-    const dependencies = previousStepTasks.map((task) => task.taskId)
-    currentStepTasks.forEach((task) => {
-      result.set(task.taskId, [...dependencies])
-    })
-    previousStepTasks = currentStepTasks
-  }
-
+  })
+  tasks.forEach((task) => {
+    const dependencies = [...new Set((task.predecessorEntryIds ?? [])
+      .flatMap((entryId) => taskIdsByEntryId.get(entryId) ?? [])
+      .filter((taskId): taskId is string => Boolean(taskId) && taskId !== task.taskId))]
+    result.set(task.taskId, dependencies)
+  })
   return result
 }
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
@@ -702,6 +681,13 @@ export function buildKolGotoWholeOrderTask(
     throw new Error(`生产单 ${productionOrder.productionOrderId} 的 KOL 整单任务数量必须大于 0`)
   }
   const saleTypeSnapshot = [...new Set(productionOrder.sourceDemandSnapshots.map((snapshot) => snapshot.saleType))].join('、')
+  const sourceEntryIds = [...new Set(wholeOrderArtifacts.map((artifact) => artifact.sourceEntryId).filter(Boolean))]
+  const predecessorEntryIds = [...new Set(wholeOrderArtifacts.flatMap((artifact) => artifact.predecessorEntryIds ?? []))]
+  const routeObjectKeys = [...new Set(wholeOrderArtifacts.map((artifact) => artifact.routeObjectKey).filter((value): value is string => Boolean(value)))]
+  const consumedBomItemIds = [...new Set(wholeOrderArtifacts.flatMap((artifact) => [
+    ...(artifact.linkedBomItemIds ?? []),
+    ...(artifact.consumedBomItemIds ?? []),
+  ]))]
 
   return {
     taskId,
@@ -743,6 +729,12 @@ export function buildKolGotoWholeOrderTask(
     coveredProcesses,
     allowAutoDispatch: false,
     saleTypeSnapshot,
+    sourceEntryId: sourceEntryIds[0],
+    sourceEntryIds,
+    predecessorEntryIds,
+    routeObjectKey: routeObjectKeys[0],
+    routeObjectKeys,
+    consumedBomItemIds,
     pricingMode: 'FIXED_TOTAL',
     fixedTotalPrice: KOL_GOTO_WHOLE_ORDER_FIXED_TOTAL_PRICE_IDR,
     fixedTotalPriceCurrency: 'IDR',
@@ -784,6 +776,7 @@ export function buildKolGotoWholeOrderTask(
 
 export function buildGeneratedProcessTasksFromArtifacts(
   includeOrderIds: ReadonlySet<string> = new Set(),
+  generatedAt?: string,
 ): ProcessTask[] {
   const artifacts = generateTaskArtifactsForAllOrders()
   if (!artifacts.length) return []
@@ -819,6 +812,8 @@ export function buildGeneratedProcessTasksFromArtifacts(
       const detailRows = buildTaskUnitDetailRows(taskId, unitSourceArtifacts)
       const qty = Math.max(artifact.orderQty, 0)
       const isWool = artifact.processCode === 'WOOL'
+      const isWoolDemo = isWool && WOOL_DISPATCH_DEMO_ORDER_IDS.has(orderId)
+      const woolGeneratedAt = generatedAt || productionOrder.taskBreakdownSummary.lastBreakdownAt || productionOrder.createdAt
       const woolTaskType = isWool ? resolveWoolTaskType(artifact) : undefined
       const woolKindLabel = woolTaskType === 'PART_PANEL' ? '部位毛织' : woolTaskType === 'WHOLE_GARMENT' ? '整件毛织' : undefined
       const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
@@ -828,6 +823,10 @@ export function buildGeneratedProcessTasksFromArtifacts(
       const processName = artifact.processName
       const processCode = artifact.systemProcessCode
       const standardPrice = resolveGeneratedTaskStandardPrice(processCode)
+      const sourceEntryIds = [...new Set(unitSourceArtifacts.map((item) => item.sourceEntryId))]
+      const predecessorEntryIds = [...new Set(unitSourceArtifacts.flatMap((item) => item.predecessorEntryIds ?? []))]
+      const routeObjectKeys = [...new Set(unitSourceArtifacts.map((item) => item.routeObjectKey).filter((item): item is string => Boolean(item)))]
+      const consumedBomItemIds = [...new Set(unitSourceArtifacts.flatMap((item) => item.consumedBomItemIds ?? []))]
 
       const task: ProcessTask = {
         taskId,
@@ -853,14 +852,14 @@ export function buildGeneratedProcessTasksFromArtifacts(
         standardPriceCurrency: 'IDR',
         standardPriceUnit: '件',
         acceptanceStatus: isWool ? 'ACCEPTED' : undefined,
-        acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
-        acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
-        acceptDeadline: isWool ? '2026-05-09 10:00' : undefined,
-        taskDeadline: isWool ? '2026-05-12 20:00' : undefined,
+        acceptedAt: isWool ? (isWoolDemo ? '2026-05-09 08:20' : woolGeneratedAt) : undefined,
+        acceptedBy: isWool ? (isWoolDemo ? OWN_WOOL_FACTORY_NAME : '系统自动接单') : undefined,
+        acceptDeadline: isWoolDemo ? '2026-05-09 10:00' : undefined,
+        taskDeadline: isWool ? (isWoolDemo ? '2026-05-12 20:00' : productionOrder.demandSnapshot.requiredDeliveryDate || undefined) : undefined,
         dispatchRemark: isWool
           ? `${woolKindLabel}已分配至毛织工厂；上游任务接单仅用于协作，执行进度以毛织加工单事实为准。`
           : undefined,
-        dispatchedAt: isWool ? '2026-05-09 08:00' : undefined,
+        dispatchedAt: isWool ? (isWoolDemo ? '2026-05-09 08:00' : woolGeneratedAt) : undefined,
         dispatchedBy: isWool ? '系统' : undefined,
         taskQrValue: buildTaskQrValue(taskId),
         taskQrStatus: 'ACTIVE',
@@ -878,6 +877,13 @@ export function buildGeneratedProcessTasksFromArtifacts(
         allowAutoDispatch: true,
         saleTypeSnapshot: productionOrder.demandSnapshot.saleType || '',
         sourceEntryId: artifact.sourceEntryId,
+        sourceEntryIds,
+        predecessorEntryIds,
+        routeObjectKey: routeObjectKeys.length === 1 ? routeObjectKeys[0] : undefined,
+        routeObjectKeys,
+        inputObjectType: artifact.inputObjectType,
+        outputObjectType: artifact.outputObjectType,
+        consumedBomItemIds,
         sourceEntryType: artifact.sourceEntryType,
         stageCode: artifact.stageCode,
         stageName: artifact.stageName,
@@ -952,6 +958,34 @@ function createInitialProcessTasks(): ProcessTask[] {
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
 
+export interface InitialOrderRuntimeTaskIdentity {
+  baseTaskId: string
+  runtimeTaskId: string
+  taskNo: string
+}
+
+/**
+ * 演示事实必须按生产单和业务工序定位，不能依赖任务在路线中的顺序号。
+ * 运行时尚未拆分的整单承载实例固定使用 __ORDER 后缀。
+ */
+export function resolveInitialOrderRuntimeTaskIdentity(
+  productionOrderId: string,
+  processBusinessCode: string,
+): InitialOrderRuntimeTaskIdentity | null {
+  const normalizedCode = processBusinessCode.trim().toUpperCase()
+  const matches = processTasks.filter((task) => (
+    task.productionOrderId === productionOrderId
+    && (task.processBusinessCode || task.processCode).trim().toUpperCase() === normalizedCode
+  ))
+  if (matches.length !== 1) return null
+  const task = matches[0]
+  return {
+    baseTaskId: task.taskId,
+    runtimeTaskId: `${task.taskId}__ORDER`,
+    taskNo: task.taskNo || task.taskId,
+  }
+}
+
 const specialCraftTaskPlanByWorkOrder = new Map<string, {
   taskId: string
   planQty: number
@@ -962,16 +996,39 @@ function buildSpecialCraftSourceTaskId(request: SpecialCraftSourceTaskRequest): 
 }
 
 function ensureCanonicalSpecialCraftSourceTask(request: SpecialCraftSourceTaskRequest): ProcessTask {
-  const existing = processTasks.find((task) =>
-    task.productionOrderId === request.productionOrderId
-    && task.stage === 'SPECIAL'
-    && (task.craftCode === request.craftCode || task.taskId === buildSpecialCraftSourceTaskId(request)),
+  const sourceEntryId = request.sourceEntryId?.trim() || ''
+  const routeObjectKey = request.routeObjectKey?.trim() || ''
+  const canonicalTaskId = buildSpecialCraftSourceTaskId(request)
+  const candidates = processTasks.filter((task) =>
+    task.productionOrderId === request.productionOrderId && task.stage === 'SPECIAL',
   )
+  const existing = sourceEntryId
+    ? candidates.find((task) =>
+        task.sourceEntryId === sourceEntryId
+        || task.sourceEntryIds?.includes(sourceEntryId)
+        || task.taskId === canonicalTaskId,
+      )
+    : routeObjectKey
+      ? candidates.find((task) =>
+          (
+            task.craftCode === request.craftCode
+            && (task.routeObjectKey === routeObjectKey || task.routeObjectKeys?.includes(routeObjectKey))
+          )
+          || task.taskId === canonicalTaskId,
+        )
+      : candidates.find((task) =>
+          task.taskId === canonicalTaskId
+          || (
+            task.craftCode === request.craftCode
+            && !task.routeObjectKey
+            && (!task.sourceEntryId || task.sourceEntryId === request.craftCode)
+          ),
+        )
   const now = request.createdAt || '2026-08-31 09:00:00'
   const task = existing || {
-    taskId: buildSpecialCraftSourceTaskId(request),
-    taskNo: buildSpecialCraftSourceTaskId(request),
-    rootTaskNo: buildSpecialCraftSourceTaskId(request),
+    taskId: canonicalTaskId,
+    taskNo: canonicalTaskId,
+    rootTaskNo: canonicalTaskId,
     productionOrderId: request.productionOrderId,
     productionOrderNo: request.productionOrderNo,
     seq: processTasks.filter((item) => item.productionOrderId === request.productionOrderId).length + 1,
@@ -1004,7 +1061,13 @@ function ensureCanonicalSpecialCraftSourceTask(request: SpecialCraftSourceTaskRe
     stageCode: 'PROD',
     stageName: '生产执行',
     sourceEntryType: 'CRAFT',
-    sourceEntryId: request.craftCode,
+    sourceEntryId: sourceEntryId || (!routeObjectKey ? request.craftCode : undefined),
+    sourceEntryIds: sourceEntryId ? [sourceEntryId] : [],
+    predecessorEntryIds: [...(request.predecessorEntryIds ?? [])],
+    routeObjectKey: routeObjectKey || undefined,
+    routeObjectKeys: routeObjectKey ? [routeObjectKey] : [],
+    inputObjectType: request.inputObjectType,
+    outputObjectType: request.outputObjectType,
     assignmentGranularity: 'ORDER',
     taskScope: 'EXTERNAL_TASK',
     defaultDocType: 'TASK',
@@ -1014,7 +1077,7 @@ function ensureCanonicalSpecialCraftSourceTask(request: SpecialCraftSourceTaskRe
     createdAt: now,
     updatedAt: now,
     auditLogs: [{
-      id: `AL-${buildSpecialCraftSourceTaskId(request)}-ASSIGN`,
+      id: `AL-${canonicalTaskId}-ASSIGN`,
       action: 'ASSIGN_WORK_ORDERS',
       detail: `任务已接单；${request.operationName}的执行、交出、仓库、质检、结算与打印均按具体加工单记录。`,
       at: now,
@@ -1034,7 +1097,20 @@ function ensureCanonicalSpecialCraftSourceTask(request: SpecialCraftSourceTaskRe
   task.stageCode ||= 'PROD'
   task.stageName ||= '生产执行'
   task.sourceEntryType ||= 'CRAFT'
-  task.sourceEntryId ||= request.craftCode
+  if (sourceEntryId) {
+    task.sourceEntryId = sourceEntryId
+    task.sourceEntryIds = [sourceEntryId]
+  } else if (!routeObjectKey) {
+    task.sourceEntryId ||= request.craftCode
+    task.sourceEntryIds ||= task.sourceEntryId ? [task.sourceEntryId] : []
+  }
+  if (routeObjectKey) {
+    task.routeObjectKey = routeObjectKey
+    task.routeObjectKeys = [routeObjectKey]
+  }
+  if (request.predecessorEntryIds) task.predecessorEntryIds = [...request.predecessorEntryIds]
+  if (request.inputObjectType) task.inputObjectType = request.inputObjectType
+  if (request.outputObjectType) task.outputObjectType = request.outputObjectType
   task.assignmentGranularity ||= 'ORDER'
   task.defaultDocType = 'TASK'
   task.taskTypeMode ||= 'CRAFT'
@@ -1136,7 +1212,7 @@ export function buildProcessTasksForProductionOrder(
     return [buildKolGotoWholeOrderTask(productionOrder, createdAt, createdBy)]
   }
 
-  return buildGeneratedProcessTasksFromArtifacts(new Set([productionOrder.productionOrderId]))
+  return buildGeneratedProcessTasksFromArtifacts(new Set([productionOrder.productionOrderId]), createdAt)
     .filter((task) => task.productionOrderId === productionOrder.productionOrderId)
     .map((task) => ({
       ...task,

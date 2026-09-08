@@ -1,3 +1,4 @@
+import { localDateTimeText } from '../../../utils.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -84,9 +85,7 @@ function toNumber(value: unknown): number {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
-function nowText(): string {
-  return new Date().toISOString().slice(0, 16).replace('T', ' ')
-}
+function nowText(): string { return localDateTimeText().slice(0, 16) }
 
 function compactDate(value: string): string {
   return value.replace(/[^0-9]/g, '').slice(0, 14) || String(Date.now())

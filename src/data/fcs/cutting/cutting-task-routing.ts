@@ -1,4 +1,5 @@
-import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../factory-mock-data.ts'
+import { readRuntimeTasks } from '../runtime-task-read-bridge.ts'
+import { DEDICATED_CUTTING_FACTORY_ID, TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import { processTasks, type ProcessTask, type TaskAssignmentStatus } from '../process-tasks.ts'
 
 export type CuttingTaskAssigneeType = 'UNASSIGNED' | 'OWN_CUTTING_FACTORY' | 'THIRD_PARTY_FACTORY' | 'CONFLICT'
@@ -95,15 +96,26 @@ export function isCuttingProcessTask(task: ProcessTask | null | undefined): bool
   )
 }
 
-function findCuttingTask(productionOrderId: string, productionOrderNo: string): ProcessTask | null {
-  return processTasks.find((task) =>
-    isCuttingProcessTask(task)
-    && (
-      task.productionOrderId === productionOrderId
-      || task.productionOrderId === productionOrderNo
-      || task.taskNo === productionOrderNo
-    ),
-  ) || null
+function findCuttingTask(productionOrderId: string, productionOrderNo: string, sourceEntryIds: string[] = [], sourceBomItemIds: string[] = []): ProcessTask | null {
+  const candidates = processTasks.filter(task => isCuttingProcessTask(task)
+    && (task.productionOrderId === productionOrderId || task.productionOrderId === productionOrderNo))
+  const matches = candidates.filter(task => sourceEntryIds.length
+    ? [task.sourceEntryId, ...(task.sourceEntryIds || [])].some(id => id && sourceEntryIds.includes(id))
+    : sourceBomItemIds.some(id => task.consumedBomItemIds?.includes(id)
+      || task.routeObjectKey === `BOM:${id}` || task.routeObjectKeys?.includes(`BOM:${id}`)))
+  if (matches.length === 1) return matches[0]
+  // Legacy orders without occurrence/BOM references may use their sole CUT task only.
+  if (!sourceEntryIds.length && candidates.length === 1
+    && !candidates[0].consumedBomItemIds?.length
+    && !candidates[0].routeObjectKey?.startsWith('BOM:')
+    && !candidates[0].routeObjectKeys?.some(key => key.startsWith('BOM:'))) return candidates[0]
+  return null
+}
+
+/** Same installed execution-task reader used by the PDA; no runtime-domain import cycle. */
+export function listCuttingRuntimeAssignmentFacts(): ProcessTask[] {
+  return readRuntimeTasks<ProcessTask>().filter(task => isCuttingProcessTask(task)
+    && task.executionEnabled !== false && task.isSplitSource !== true)
 }
 
 function resolveDemoOverride(productionOrderId: string, productionOrderNo: string): DemoCuttingAssignmentOverride | null {
@@ -113,7 +125,7 @@ function resolveDemoOverride(productionOrderId: string, productionOrderNo: strin
 export function resolveCuttingTaskAssigneeType(factoryId: string): CuttingTaskAssigneeType {
   const normalizedFactoryId = normalizeText(factoryId)
   if (!normalizedFactoryId) return 'UNASSIGNED'
-  if (normalizedFactoryId === OWN_CUTTING_FACTORY_ID || normalizedFactoryId === `ID-${OWN_CUTTING_FACTORY_ID}`) {
+  if (normalizedFactoryId === DEDICATED_CUTTING_FACTORY_ID || normalizedFactoryId === OWN_CUTTING_FACTORY_ID || normalizedFactoryId === `ID-${OWN_CUTTING_FACTORY_ID}`) {
     return 'OWN_CUTTING_FACTORY'
   }
   return 'THIRD_PARTY_FACTORY'
@@ -137,16 +149,31 @@ export function getCuttingTaskExecutionRouteLabel(route: CuttingTaskExecutionRou
 export function resolveCuttingTaskLink(input: {
   productionOrderId: string
   productionOrderNo: string
+  sourceEntryIds?: string[]
+  sourceBomItemIds?: string[]
 }): CuttingTaskLink {
   const productionOrderId = normalizeText(input.productionOrderId)
   const productionOrderNo = normalizeText(input.productionOrderNo) || productionOrderId
-  const task = findCuttingTask(productionOrderId, productionOrderNo)
+  const task = findCuttingTask(productionOrderId, productionOrderNo, input.sourceEntryIds, input.sourceBomItemIds)
   const fallbackTaskId = `CUTTASK-${slugToken(productionOrderNo || productionOrderId)}`
-  const override = resolveDemoOverride(productionOrderId, productionOrderNo)
-  const factoryId = normalizeText(override?.cuttingTaskAssigneeFactoryId || task?.assignedFactoryId)
-  const factoryName = normalizeText(override?.cuttingTaskAssigneeFactoryName || task?.assignedFactoryName)
-  const assignmentStatus = override?.cuttingTaskAssignmentStatus || task?.assignmentStatus || 'UNASSIGNED'
-  const executionRoute = resolveCuttingTaskExecutionRoute(factoryId)
+  const rootEntries = task ? [task.sourceEntryId, ...(task.sourceEntryIds || [])].filter(Boolean) : []
+  const runtimeChildren = task ? listCuttingRuntimeAssignmentFacts().filter(child =>
+    child.productionOrderId === task.productionOrderId
+    && (child.taskId === task.taskId || child.rootTaskNo === (task.taskNo || task.taskId))
+    && (!rootEntries.length || [child.sourceEntryId, ...(child.sourceEntryIds || [])].some(id => rootEntries.includes(id))),
+  ) : []
+  const assignments = new Map(runtimeChildren.map(child => [
+    JSON.stringify([child.assignedFactoryId || '', child.assignmentStatus]), child,
+  ]))
+  const conflict = assignments.size > 1
+  const runtime = assignments.size === 1 ? [...assignments.values()][0] : null
+  // A current execution assignment, including UNASSIGNED, takes precedence over historical demo values.
+  const override = runtimeChildren.length || (!task && (input.sourceEntryIds?.length || input.sourceBomItemIds?.length))
+    ? null : resolveDemoOverride(productionOrderId, productionOrderNo)
+  const factoryId = conflict ? '' : normalizeText(runtime ? runtime.assignedFactoryId : override?.cuttingTaskAssigneeFactoryId || task?.assignedFactoryId)
+  const factoryName = conflict ? '' : normalizeText(runtime ? runtime.assignedFactoryName : override?.cuttingTaskAssigneeFactoryName || task?.assignedFactoryName)
+  const assignmentStatus = conflict ? 'UNASSIGNED' : runtime?.assignmentStatus || override?.cuttingTaskAssignmentStatus || task?.assignmentStatus || 'UNASSIGNED'
+  const executionRoute = conflict ? 'CONFLICT' : resolveCuttingTaskExecutionRoute(factoryId)
 
   return {
     cuttingTaskId: normalizeText(task?.taskId) || fallbackTaskId,
@@ -154,7 +181,7 @@ export function resolveCuttingTaskLink(input: {
     cuttingTaskAssignmentStatus: assignmentStatus,
     cuttingTaskAssigneeFactoryId: factoryId,
     cuttingTaskAssigneeFactoryName: factoryName,
-    cuttingTaskAssigneeType: resolveCuttingTaskAssigneeType(factoryId),
+    cuttingTaskAssigneeType: conflict ? 'CONFLICT' : resolveCuttingTaskAssigneeType(factoryId),
     executionRoute,
     executionRouteLabel: getCuttingTaskExecutionRouteLabel(executionRoute),
   }

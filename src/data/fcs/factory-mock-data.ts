@@ -27,6 +27,8 @@ export const GARMENT_WAREHOUSE_FACTORY_NAME = 'PT Sinar Garment Indonesia'
 export const OWN_WOOL_FACTORY_ID = 'OWN_WOOL_FACTORY'
 export const OWN_WOOL_FACTORY_CODE = 'WOOL-OWN-001'
 export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
+export const DEDICATED_CUTTING_FACTORY_ID = 'OWN-CUTTING-001'
+export const DEDICATED_CUTTING_FACTORY_NAME = 'HiGood 裁床厂'
 export const DEDICATED_POST_FACTORY_ID = 'PF-DEDICATED-001'
 export const DEDICATED_POST_FACTORY_CODE = 'POST-FIN-001'
 export const DEDICATED_POST_FACTORY_NAME = 'HiGood 后道工厂'
@@ -262,6 +264,30 @@ const allProcessCraftTestFactory: Factory = {
   },
 }
 
+// Dedicated prototype business record: F090 remains excluded from normal dispatch.
+const dedicatedCuttingFactory: Factory = {
+  id: DEDICATED_CUTTING_FACTORY_ID,
+  code: DEDICATED_CUTTING_FACTORY_ID,
+  name: DEDICATED_CUTTING_FACTORY_NAME,
+  address: '原型验收：我方裁床作业区',
+  contact: '裁床负责人',
+  phone: '',
+  status: 'active',
+  cooperationMode: 'exclusive',
+  processAbilities: [createProcessAbility('CUT_PANEL', { tags: [], factoryType: 'CENTRAL_CUTTING' })]
+    .filter((item): item is FactoryProcessAbility => Boolean(item)),
+  qualityScore: 90,
+  deliveryScore: 90,
+  createdAt: '2026-09-07 09:00:00',
+  updatedAt: '2026-09-07 09:00:00',
+  factoryTier: 'CENTRAL',
+  factoryType: 'CENTRAL_CUTTING',
+  pdaEnabled: true,
+  pdaTenantId: DEDICATED_CUTTING_FACTORY_ID,
+  isTestFactory: false,
+  eligibility: { allowDispatch: true, allowBid: false, allowExecute: true, allowSettle: true },
+}
+
 const ownWoolFactory: Factory = {
   id: OWN_WOOL_FACTORY_ID,
   code: OWN_WOOL_FACTORY_CODE,
@@ -440,6 +466,7 @@ export const mockFactories: Factory[] = [
   dedicatedPostFactory,
   ...generatedFactories,
   allProcessCraftTestFactory,
+  dedicatedCuttingFactory,
   ownWoolFactory,
   ...specialCraftDedicatedFactories,
 ]

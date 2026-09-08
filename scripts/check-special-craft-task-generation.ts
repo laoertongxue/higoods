@@ -16,6 +16,7 @@ import { listActiveProcessCraftDefinitions } from '../src/data/fcs/process-craft
 import { resolveTechPackProcessEntryRule } from '../src/data/fcs/tech-packs.ts'
 import { buildProductionConfirmationSnapshot } from '../src/data/fcs/production-confirmation.ts'
 import {
+  COVERED_BUTTON_OPERATION_ID,
   buildSpecialCraftOperationSlug,
   getSpecialCraftOperationById,
 } from '../src/data/fcs/special-craft-operations.ts'
@@ -29,6 +30,7 @@ import {
 } from '../src/data/fcs/special-craft-task-orders.ts'
 import {
   buildSpecialCraftTaskDemandLinesFromProductionOrder,
+  getSpecialCraftDefaultRouteObjectTypes,
   generateSpecialCraftTaskOrdersFromProductionOrder,
 } from '../src/data/fcs/special-craft-task-generation.ts'
 import { shouldGenerateInternalCraftOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
@@ -65,6 +67,11 @@ const validatedGenerationErrorTypes: SpecialCraftTaskGenerationError['errorType'
   '菲票缺失',
 ]
 assert.equal(new Set(validatedGenerationErrorTypes).size, 4, '新增生成阻断错误必须纳入统一错误类型契约')
+assert.deepEqual(
+  getSpecialCraftDefaultRouteObjectTypes('裁片', 'AUX-OP-FLOWER-MAKING'),
+  { inputObjectType: 'CUT_PIECE', outputObjectType: 'ACCESSORY' },
+  '花朵所有生成入口的兜底对象转换都必须是指定裁片部位→花朵辅件',
+)
 
 function assertNotContains(source: string, token: string, message: string): void {
   assert(!source.includes(token), message)
@@ -216,7 +223,11 @@ assert(!JSON.stringify(migratedGarmentDemand.demandLines).includes('成衣半成
 
 const resolvedGarmentEntry = resolveTechPackProcessEntryRule(legacyGarmentEntry)
 assert.equal(resolvedGarmentEntry.selectedTargetObject, '成衣', '新保存工艺作用对象必须为成衣')
-assert.deepEqual(resolvedGarmentEntry.supportedTargetObjectLabels, ['成衣'], '烫画新保存支持对象必须收口为成衣')
+assert.deepEqual(
+  resolvedGarmentEntry.supportedTargetObjectLabels,
+  ['已裁部位', '成衣'],
+  '烫画新保存支持对象必须同时保留裁片与成衣',
+)
 assert(!JSON.stringify(resolvedGarmentEntry).includes('成衣半成品'), '规范化工艺不得包含旧标签')
 
 const directPrintDefinition = listActiveProcessCraftDefinitions().find((definition) => definition.craftName === '直喷')
@@ -293,14 +304,111 @@ assert.equal(dualTargetResult.errors.length, 0, '直喷和烫画双对象快照�
 for (const craftName of ['直喷', '烫画'] as const) {
   const craftTasks = dualTargetResult.taskOrders.filter((task) => task.craftName === craftName)
   const garment = craftTasks.find((task) => task.targetObject === '成衣')
+  const cutPiece = craftTasks.find((task) => task.targetObject === '已裁部位')
   assert(garment, `${craftName} 必须按成衣生成加工单`)
-  assert(!craftTasks.some((task) => task.targetObject === '已裁部位'), `${craftName} 不得继续生成裁片加工单`)
+  assert(cutPiece, `${craftName} 必须同时支持按裁片生成加工单`)
+  assert.equal(cutPiece.unit, '片')
+  assert(
+    cutPiece.demandLines?.every((line) => line.patternFileId !== '' && line.pieceRowId !== ''),
+    `${craftName} 裁片明细必须保存纸样与裁片来源`,
+  )
   assert.equal(garment.unit, '件')
+  assert.equal(
+    garment.sourceEntryId,
+    craftName === '烫画' ? 'ENTRY-DUAL-HEAT-TRANSFER-GARMENT' : 'ENTRY-DUAL-DIRECT-PRINT-GARMENT',
+    `${craftName} 成衣加工单必须保留技术包工艺 occurrence ID`,
+  )
   assert.equal(garment.planQty, applicableSku.qty, `${craftName} 成衣数量只能取成衣 BOM 适用 SKU`)
   assert(garment.demandLines?.every((line) => line.sourceBomItemId === garmentBomId), `${craftName} 成衣明细必须保存来源 BOM 行`)
   assert(garment.demandLines?.every((line) => line.patternFileId === '' && line.pieceRowId === ''), `${craftName} 成衣明细不得伪造纸样或裁片占位`)
   assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣任务不得关联菲票`)
 }
+
+const coveredButtonOperation = getSpecialCraftOperationById(COVERED_BUTTON_OPERATION_ID)
+assert(coveredButtonOperation, '布包扣必须登记为可生成的独立辅助工艺 operation')
+assert.equal(coveredButtonOperation.targetObject, '辅料')
+assert.equal(coveredButtonOperation.quantityMode, 'MATERIAL_INPUT_OUTPUT')
+assert.equal(coveredButtonOperation.outputUnit, '个')
+const coveredButtonSnapshot = JSON.parse(JSON.stringify(snapshot)) as typeof snapshot
+const coveredButtonOrder = JSON.parse(JSON.stringify(sampleOrder)) as typeof sampleOrder
+const coveredButtonSku = coveredButtonOrder.demandSnapshot.skuLines[0]
+const coveredButtonSourceBom = coveredButtonSnapshot.bomItems[0]
+const coveredButtonEntryTemplate = coveredButtonSnapshot.processEntries.find((entry) => entry.processCode === 'SPECIAL_CRAFT')
+assert(coveredButtonSku && coveredButtonSourceBom && coveredButtonEntryTemplate, '布包扣生成契约缺少生产 SKU、BOM 或工艺条目模板')
+const coveredButtonSourceBomId = 'BOM-COVERED-BUTTON-MATERIAL'
+coveredButtonSnapshot.bomItems.push({
+  ...coveredButtonSourceBom,
+  id: coveredButtonSourceBomId,
+  type: '面料',
+  name: '包布扣制作面料',
+  materialCode: 'MAT-COVERED-BUTTON-CLOTH',
+  unit: '米',
+  unitConsumption: 0.02,
+  lossRate: 0.05,
+  applicableSkuCodes: [coveredButtonSku.skuCode],
+  usageProcessCodes: ['SPECIAL_CRAFT'],
+})
+coveredButtonSnapshot.patternFiles.forEach((patternFile) => {
+  patternFile.pieceRows.forEach((pieceRow) => {
+    pieceRow.specialCrafts = []
+  })
+})
+coveredButtonSnapshot.processEntries = [{
+  ...coveredButtonEntryTemplate,
+  id: 'ENTRY-COVERED-BUTTON-MAKING',
+  processCode: 'SPECIAL_CRAFT',
+  processName: '辅助工艺',
+  craftCode: coveredButtonOperation.craftCode,
+  craftName: coveredButtonOperation.craftName,
+  selectedTargetObject: '辅料',
+  linkedBomItemIds: [coveredButtonSourceBomId],
+  routeObjectKey: `BOM:${coveredButtonSourceBomId}`,
+  predecessorEntryIds: ['ENTRY-COVERED-BUTTON-PREDECESSOR'],
+  inputObjectType: 'BOM_MATERIAL',
+  outputObjectType: 'ACCESSORY',
+  fixedLengthCm: undefined,
+  outputQtyPerGarment: 2,
+  outputUnit: '个',
+  remark: '包布扣制作：BOM 制作物料投入，包布钮辅件产出。',
+}]
+const coveredButtonResult = generateSpecialCraftTaskOrdersFromProductionOrder({
+  productionOrder: coveredButtonOrder,
+  techPackSnapshot: coveredButtonSnapshot,
+})
+assert.equal(coveredButtonResult.errors.length, 0, '布包扣不应套用橡筋定长要求或产生生成阻断')
+const coveredButtonTask = coveredButtonResult.taskOrders.find((task) => task.operationId === COVERED_BUTTON_OPERATION_ID)
+assert(coveredButtonTask, '布包扣必须进入现有 SpecialCraftTaskOrder 载体')
+assert.equal(coveredButtonTask.businessType, 'COVERED_BUTTON_MAKING')
+assert.equal(coveredButtonTask.targetObject, '辅料')
+assert.equal(coveredButtonTask.quantityMode, 'MATERIAL_INPUT_OUTPUT')
+assert.equal(coveredButtonTask.inputUnit, '米')
+assert.equal(coveredButtonTask.outputUnit, '个')
+assert.equal(coveredButtonTask.unit, '个')
+assert.equal(coveredButtonTask.planQty, coveredButtonSku.qty * 2)
+assert.equal(coveredButtonTask.receiverWarehouseName, '中央辅料仓')
+assert.equal(coveredButtonTask.sourceEntryId, 'ENTRY-COVERED-BUTTON-MAKING', '辅料工艺加工单必须保留技术包工艺 occurrence ID')
+assert.equal(coveredButtonTask.routeObjectKey, `BOM:${coveredButtonSourceBomId}`, '辅料工艺加工单必须保留 BOM 对象分支')
+assert.deepEqual(coveredButtonTask.predecessorEntryIds, ['ENTRY-COVERED-BUTTON-PREDECESSOR'], '辅料工艺加工单必须保留直接前置 occurrence')
+assert.equal(coveredButtonTask.inputObjectType, 'BOM_MATERIAL')
+assert.equal(coveredButtonTask.outputObjectType, 'ACCESSORY')
+assert(coveredButtonTask.demandLines?.every((line) =>
+  line.sourceBomItemId === coveredButtonSourceBomId
+  && line.materialSku === 'MAT-COVERED-BUTTON-CLOTH'
+  && line.partName === '包布钮辅件'
+  && line.inputUnit === '米'
+  && line.outputUnit === '个'
+  && line.fixedLengthCm == null,
+), '布包扣需求明细必须保存 BOM 制作物料投入与包布钮辅件产出，且不得虚构定长')
+const coveredButtonMissingInputSnapshot = JSON.parse(JSON.stringify(coveredButtonSnapshot)) as typeof coveredButtonSnapshot
+coveredButtonMissingInputSnapshot.processEntries[0].linkedBomItemIds = ['BOM-NOT-FOUND']
+const coveredButtonMissingInputResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: coveredButtonOrder,
+  techPackSnapshot: coveredButtonMissingInputSnapshot,
+})
+assert(
+  coveredButtonMissingInputResult.errors.some((error) => error.errorType === '制作物料BOM缺失' && error.blocking),
+  '布包扣未唯一关联 BOM 制作物料时必须阻断生成',
+)
 
 const packageMemberOrder = productionOrders.find((order) => order.demandSnapshot.spuCode === 'SPU-2024-010')
 assert(packageMemberOrder, '缺少纸样包与物料关联重复回归用例')

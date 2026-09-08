@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs'
-import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-domain.ts'
+import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-current-read-model.ts'
+import { loadPostFinishingDemoData } from '../src/data/fcs/post-finishing-full-flow.ts'
 import { getQcFactDetail } from '../src/pages/qc-records/fact-view.ts'
 import { renderQcRecordDetailPage, renderQcRecordsPage } from '../src/pages/qc-records.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
+
+loadPostFinishingDemoData()
 
 const postQc = listPostFinishingQcOrders().find((record) =>
   (record.qcSkuResults ?? []).some((item) => (item.reworkQty ?? 0) > 0 && item.reworkReceiveFactoryName),

@@ -6,7 +6,6 @@ import {
   formatPrintingUsage,
   formatPrintingWeightKg,
   getPrintingWorkOrderById,
-  metersFromYards,
   type PrintingRollBarcode,
   type PrintingWorkOrderBusinessRecord,
 } from '../../../data/fcs/printing-work-order-business.ts'
@@ -53,11 +52,11 @@ function qrPayload(order: PrintingWorkOrderBusinessRecord, documentType: 'PRINTI
 
 function sharedImageBlocks(order: PrintingWorkOrderBusinessRecord): PrintDocument['imageBlocks'] {
   return [
-    { title: '商品图片', imageUrl: order.product.imageUrl, imageLabel: order.product.imageAlt, sourceLabel: order.product.spu, fallbackLabel: '商品图片加载失败' },
-    { title: '加工投入', imageUrl: order.plannedInput.imageUrl, imageLabel: order.plannedInput.imageAlt, sourceLabel: order.plannedInput.sku, fallbackLabel: '投入面料图片加载失败' },
-    { title: '加工产出', imageUrl: order.output.imageUrl, imageLabel: order.output.imageAlt, sourceLabel: order.output.sku, fallbackLabel: '产出面料图片加载失败' },
-    { title: '正面花型', imageUrl: order.requirement.frontPattern.imageUrl, imageLabel: order.requirement.frontPattern.imageAlt, sourceLabel: order.requirement.frontPattern.patternNo, fallbackLabel: '正面花型图片加载失败' },
-    ...(order.requirement.insidePattern ? [{ title: '里面花型', imageUrl: order.requirement.insidePattern.imageUrl, imageLabel: order.requirement.insidePattern.imageAlt, sourceLabel: order.requirement.insidePattern.patternNo, fallbackLabel: '里面花型图片加载失败' }] : []),
+    { title: '商品图片', imageUrl: order.product.imageUrl, imageLabel: order.product.imageAlt, sourceLabel: order.product.spu, fallbackLabel: order.product.imageUrl ? '商品图片加载失败' : '缺少对应商品图片' },
+    { title: '加工投入', imageUrl: order.plannedInput.imageUrl, imageLabel: order.plannedInput.imageAlt, sourceLabel: order.plannedInput.sku, fallbackLabel: order.plannedInput.imageUrl ? '投入物料图片加载失败' : '缺少对应投入物料图片' },
+    { title: '加工产出', imageUrl: order.output.imageUrl, imageLabel: order.output.imageAlt, sourceLabel: order.output.sku, fallbackLabel: order.output.imageUrl ? '产出物料图片加载失败' : '缺少对应产出物料图片' },
+    { title: '正面花型', imageUrl: order.requirement.frontPattern.imageUrl, imageLabel: order.requirement.frontPattern.imageAlt, sourceLabel: order.requirement.frontPattern.patternNo, fallbackLabel: order.requirement.frontPattern.imageUrl ? '正面花型图片加载失败' : '缺少对应正面花型图片' },
+    ...(order.requirement.insidePattern ? [{ title: '里面花型', imageUrl: order.requirement.insidePattern.imageUrl, imageLabel: order.requirement.insidePattern.imageAlt, sourceLabel: order.requirement.insidePattern.patternNo, fallbackLabel: order.requirement.insidePattern.imageUrl ? '里面花型图片加载失败' : '缺少对应里面花型图片' }] : []),
   ]
 }
 
@@ -83,19 +82,19 @@ function buildInfoDocumentForOrder(input: PrintDocumentBuildInput, order: Printi
         ['需求基数', `${formatPrintingQty(order.usage.demandBaseQty)} ${order.usage.demandBaseUnit}`],
         ['标准单位用量', `${formatPrintingUsage(order.usage.standardUnitUsage)}${order.usage.standardUnitUsage === null ? '' : ` ${order.usage.usageUnit}`}`],
         ['加工单单位用量', `${formatPrintingUsage(order.usage.orderUnitUsage)}${order.usage.orderUnitUsage === null ? '' : ` ${order.usage.usageUnit}`}`],
-        ['计算依据', order.usage.formulaLabel], ['计划投入', `${formatPrintingQty(order.plannedInput.plannedQty)} Yard`],
+        ['计算依据', order.usage.formulaLabel], ['计划投入', `${formatPrintingQty(order.plannedInput.plannedQty)} ${order.plannedInput.qtyUnit}`],
       ]) },
       { sectionId: 'input', title: '加工投入', fields: fields([
-        ['对象类型', order.plannedInput.objectType], ['面料', order.plannedInput.materialName], ['面料 SPU', order.plannedInput.spu],
-        ['计划投入 SKU', order.plannedInput.sku, true], ['实际投入 SKU', order.actualInput.actualSku || '未接收'],
-        ['实际接收', `${formatPrintingQty(order.actualInput.receivedQty)} Yard / ${order.actualInput.receivedRollCount} 卷`],
-        ['实际使用', `${formatPrintingQty(order.actualInput.usedQty)} Yard / ${order.actualInput.usedRollCount} 卷`], ['接收人', order.actualInput.receiverName],
+        ['对象类型', order.plannedInput.objectType], ['物料', order.plannedInput.materialName], ['物料 SPU', order.plannedInput.spu],
+        ['计划投入 SKU', order.plannedInput.sku, true], ['实际投入 SKU', order.actualInput.actualSku || (order.historicalInputQuantityUnknown ? '历史未记录' : '未接收')],
+        ['实际接收', order.historicalInputQuantityUnknown ? '历史未记录' : `${formatPrintingQty(order.actualInput.receivedQty)} ${order.plannedInput.qtyUnit} / ${order.actualInput.receivedRollCount} 卷`],
+        ['实际使用', `${formatPrintingQty(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit} / ${(order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty > 0 && order.actualInput.usedRollCount === 0)) ? '历史卷数未记录' : `${order.actualInput.usedRollCount} 卷`}`], ['接收人', order.actualInput.receiverName],
       ]) },
       { sectionId: 'requirement', title: '印花要求与加工产出', fields: fields([
         ['工艺', `${order.requirement.craftName} / ${order.requirement.type}`], ['深浅/温度', `${order.requirement.shade} / ${order.requirement.temperature}`], ['印花面别', order.requirement.printSide],
         ['正面花型', `${order.requirement.frontPattern.patternNo} ${order.requirement.frontPattern.patternVersion}`], ['里面花型', order.requirement.insidePattern ? `${order.requirement.insidePattern.patternNo} ${order.requirement.insidePattern.patternVersion}` : '—'],
         ['加工产出对象', `[${order.output.objectType}] ${order.output.materialName}`], ['加工产出 SKU', order.output.sku, true],
-        ['完成数量', `${formatPrintingQty(order.output.completedQty)} Yard / ${order.output.completedRollCount} 卷`],
+        ['完成数量', `${formatPrintingQty(order.output.completedQty)} ${order.output.qtyUnit} / ${order.historicalRollQuantitiesUnknown ? '历史卷数未记录' : `${order.output.completedRollCount} 卷`}`],
       ]) },
       { sectionId: 'factory', title: '加工与交出', fields: fields([
         ['加工厂', order.printFactoryName], ['打印机', order.printerNo], ['加工状态', PRINTING_PROCESSING_STATUS_LABEL[order.processingStatus]],
@@ -110,29 +109,31 @@ function buildInfoDocumentForOrder(input: PrintDocumentBuildInput, order: Printi
 
 function buildConfirmationDocumentForOrder(input: PrintDocumentBuildInput, order: PrintingWorkOrderBusinessRecord): PrintDocument {
   const generatedAt = getPrintGeneratedAt()
+  const isFabricLike = ['面料', '花边', '织带'].includes(order.plannedInput.objectType)
+  const quantityRequirement = `${formatPrintingQty(order.plannedInput.plannedQty)} ${order.plannedInput.qtyUnit}`
   return {
     printDocumentId: createPrintDocumentId({ ...input, sourceId: order.workOrderId }, CONFIRMATION_TEMPLATE),
     documentType: 'PRINTING_CONFIRMATION', documentTitle: '印花确认单', sourceType: 'PRINTING_WORK_ORDER', sourceId: order.workOrderId,
     templateCode: CONFIRMATION_TEMPLATE, paperType: 'A4', orientation: 'portrait', printTitle: 'Printing order / 印花确认单', printSubtitle: `${order.printOrderNo} · ${order.product.spu}`,
     headerFields: fields([
       ['Printing order', order.printOrderNo, true], ['Printing order time', order.orderedAt], ['SPU', order.product.spu],
-      ['Requirement / Need', `${formatPrintingQty(order.plannedInput.plannedQty)} Yard / ${formatPrintingQty(metersFromYards(order.plannedInput.plannedQty))} Meter`],
-      ['Fabric', order.plannedInput.materialName], ['需求来源', `${PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type]} · ${order.demandSource.sourceNo}`],
+      ['Requirement / Need', quantityRequirement],
+      ['Material', `[${order.plannedInput.objectType}] ${order.plannedInput.materialName}`], ['需求来源', `${PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type]} · ${order.demandSource.sourceNo}`],
       ['加工投入 SKU', order.plannedInput.sku], ['加工产出 SKU', order.output.sku, true],
     ]),
     imageBlocks: [
-      { title: 'Photo', imageUrl: order.product.imageUrl, imageLabel: order.product.imageAlt, sourceLabel: order.product.spu, fallbackLabel: '商品图片加载失败' },
-      { title: 'Output fabric', imageUrl: order.output.imageUrl, imageLabel: order.output.imageAlt, sourceLabel: order.output.sku, fallbackLabel: '产出面料图片加载失败' },
+      { title: 'Photo', imageUrl: order.product.imageUrl, imageLabel: order.product.imageAlt, sourceLabel: order.product.spu, fallbackLabel: order.product.imageUrl ? '商品图片加载失败' : '缺少对应商品图片' },
+      { title: 'Output material', imageUrl: order.output.imageUrl, imageLabel: order.output.imageAlt, sourceLabel: order.output.sku, fallbackLabel: order.output.imageUrl ? '产出物料图片加载失败' : '缺少对应产出物料图片' },
     ],
     qrCodes: [{ title: 'QR', value: qrPayload(order, 'PRINTING_CONFIRMATION'), description: '扫码查看印花加工单', sizeMm: 30 }], barcodes: [],
     sections: [{ sectionId: 'facts', title: '印花单信息', fields: fields([
       ['印花来源', PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type]], ['工艺名称', order.requirement.craftName], ['印花面别', order.requirement.printSide], ['接收人', order.actualInput.receiverName],
-      ['实际接收投入', `${formatPrintingQty(order.actualInput.receivedQty)} Yard / ${order.actualInput.receivedRollCount} 卷`], ['实际使用投入', `${formatPrintingQty(order.actualInput.usedQty)} Yard / ${order.actualInput.usedRollCount} 卷`],
+      ['实际接收投入', order.historicalInputQuantityUnknown ? '历史未记录' : `${formatPrintingQty(order.actualInput.receivedQty)} ${order.plannedInput.qtyUnit} / ${order.actualInput.receivedRollCount} 卷`], ['实际使用投入', `${formatPrintingQty(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit} / ${(order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty > 0 && order.actualInput.usedRollCount === 0)) ? '历史卷数未记录' : `${order.actualInput.usedRollCount} 卷`}`],
     ]) }],
     tables: [
-      { tableId: 'print-confirmation', title: 'Print confirmation', headers: ['Confirmation time', 'Printing length (M)', 'Printing width (CM)', 'Qty (roll)'], rows: [['', '', '', '']], minRows: 2 },
-      { tableId: 'pattern-transfer-confirmation', title: 'Pattern transfer confirmation', headers: ['Confirmation time', 'Completion time', 'Printing length (M)', 'Printing width (CM)', 'Qty (roll)'], rows: [['', '', '', '', '']], minRows: 2 },
-      { tableId: 'storage', title: 'Storage / Gudang', headers: ['Storage time', 'Gudang', 'M'], rows: [['', '', '']], minRows: 2 },
+      { tableId: 'print-confirmation', title: 'Print confirmation', headers: isFabricLike ? ['Confirmation time', `Printing qty (${order.output.qtyUnit})`, 'Printing width (CM)', 'Qty (roll)'] : ['Confirmation time', `Processed qty (${order.output.qtyUnit})`, 'Package qty'], rows: [isFabricLike ? ['', '', '', ''] : ['', '', '']], minRows: 2 },
+      { tableId: 'pattern-transfer-confirmation', title: 'Pattern transfer confirmation', headers: isFabricLike ? ['Confirmation time', 'Completion time', `Printing qty (${order.output.qtyUnit})`, 'Printing width (CM)', 'Qty (roll)'] : ['Confirmation time', 'Completion time', `Processed qty (${order.output.qtyUnit})`, 'Package qty'], rows: [isFabricLike ? ['', '', '', '', ''] : ['', '', '', '']], minRows: 2 },
+      { tableId: 'storage', title: 'Storage / Gudang', headers: ['Storage time', 'Gudang', order.output.qtyUnit], rows: [['', '', '']], minRows: 2 },
       { tableId: 'remark', title: 'Remark', headers: ['Remark'], rows: [[order.remark || '']], minRows: 3 },
     ],
     signatureBlocks: [], differenceBlocks: [],
@@ -195,8 +196,8 @@ export function buildPrintingRollLabelDocument(input: PrintDocumentBuildInput): 
     labelItems: barcodes.map((barcode) => ({
       labelTitle: '印花加工产出卷', labelSubtitle: `${order.printOrderNo} · 卷号 ${barcode.rollNo}`,
       labelFields: fields([
-        ['产出 SKU', barcode.sku, true], ['卷长', `${formatPrintingQty(barcode.lengthY)} Yard / ${formatPrintingQty(barcode.meters)} M`],
-        ['重量', `${formatPrintingWeightKg(barcode.weightKg)} KG`], ['克重/幅宽', `${barcode.gsm.toFixed(2)} g/㎡ / ${barcode.widthCm} cm`],
+        ['产出 SKU', barcode.sku, true], ['数量', `${formatPrintingQty(barcode.lengthY)} ${order.output.qtyUnit}`],
+        ['重量', `${formatPrintingWeightKg(barcode.weightKg)} KG`], ['克重/幅宽', ['面料', '花边', '织带'].includes(order.output.objectType) ? `${barcode.gsm.toFixed(2)} g/㎡ / ${barcode.widthCm} cm` : '不适用'],
         ['缸号', barcode.vatNo || '—'], ['入库仓库', barcode.warehouseName], ['备注', barcode.remark || '—'],
       ]),
       barcode: { title: '卷条码', value: barcode.barcode, description: `${order.output.sku} · ${barcode.rollNo}` },

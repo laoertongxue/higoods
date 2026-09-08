@@ -62,6 +62,8 @@ export function normalizeProcessWorkOrderSourceSnapshot(source: ProcessWorkOrder
     productionOrderNo: requireField(source.productionOrderNo, '加工单来源必须携带生产单号'),
     techPackVersionId: requireField(source.techPackVersionId, '加工单来源必须携带技术包版本 ID'),
     techPackVersionLabel: requireField(source.techPackVersionLabel, '加工单来源必须携带技术包版本名称'),
+    processEntryId: optionalField(source.processEntryId),
+    routeObjectKey: optionalField(source.routeObjectKey),
     bomItemId: bomItemIds[0],
     bomItemIds,
   }
@@ -91,12 +93,14 @@ export function buildProcessWorkOrderSourceKey(input: ProcessWorkOrderGeneration
       ['supplementRecordId', source.supplementRecordId!],
       ['originalCutOrderId', source.originalCutOrderId!],
       ['techPackVersionId', source.techPackVersionId!],
+      ['processEntryId', source.processEntryId || ''],
       ['bomItemIds', source.bomItemIds!],
     )
   } else {
     keyFields.push(
       ['productionOrderId', source.productionOrderId!],
       ['techPackVersionId', source.techPackVersionId!],
+      ['processEntryId', source.processEntryId || ''],
       ['bomItemIds', source.bomItemIds!],
     )
   }

@@ -75,6 +75,65 @@ const auditLogs: EffectiveTaskAssignmentAuditLog[] = []
 let assignmentSeq = 0
 let auditSeq = 0
 
+const EFFECTIVE_ASSIGNMENT_STORAGE_KEY = 'higood.effective-task-assignments.v1'
+let assignmentReadError: Error | null = null
+let assignmentMutationDepth = 0
+
+export function captureEffectiveTaskAssignmentState() {
+  return { assignments: structuredClone([...assignments]), current: structuredClone([...currentAssignmentIdsByTask]),
+    auditLogs: structuredClone(auditLogs), assignmentSeq, auditSeq,
+    stored: typeof localStorage === 'undefined' ? null : localStorage.getItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY) }
+}
+
+export function restoreEffectiveTaskAssignmentState(saved: ReturnType<typeof captureEffectiveTaskAssignmentState>): void {
+  assignments.clear(); saved.assignments.forEach(([id, item]) => assignments.set(id, structuredClone(item)))
+  currentAssignmentIdsByTask.clear(); saved.current.forEach(([id, items]) => currentAssignmentIdsByTask.set(id, [...items]))
+  auditLogs.splice(0, auditLogs.length, ...structuredClone(saved.auditLogs))
+  assignmentSeq = saved.assignmentSeq; auditSeq = saved.auditSeq
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY) !== saved.stored) {
+    if (saved.stored === null) localStorage.removeItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)
+    else localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, saved.stored)
+  }
+}
+
+function readEffectiveTaskAssignmentState(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    if (saved.version !== 1 || !Array.isArray(saved.assignments) || !Array.isArray(saved.current) || !Array.isArray(saved.auditLogs)
+      || !Number.isInteger(saved.assignmentSeq) || saved.assignmentSeq < 0 || !Number.isInteger(saved.auditSeq) || saved.auditSeq < 0
+      || saved.assignments.some((row: [string, EffectiveTaskAssignment]) => !Array.isArray(row) || row.length !== 2 || !row[1] || row[0] !== row[1].assignmentId
+        || !row[1].runtimeTaskId || !row[1].productionOrderId || !row[1].factoryId || !['EFFECTIVE', 'SUPERSEDED', 'CANCELLED'].includes(row[1].status)
+        || !Number.isFinite(row[1].assignedQty) || row[1].assignedQty <= 0 || !Number.isFinite(row[1].frozenPrice) || row[1].frozenPrice <= 0
+        || !Array.isArray(row[1].processCodes) || !Array.isArray(row[1].skuLines) || row[1].skuLines.some(line => !line.skuCode || !Number.isFinite(line.qty) || line.qty <= 0))) throw new Error('有效分配格式不完整')
+    const byId = new Map<string, EffectiveTaskAssignment>(saved.assignments)
+    if (byId.size !== saved.assignments.length || saved.current.some((row: [string, string[]]) => !Array.isArray(row) || row.length !== 2 || !Array.isArray(row[1])
+      || row[1].some(id => byId.get(id)?.runtimeTaskId !== row[0] || byId.get(id)?.status !== 'EFFECTIVE'))) throw new Error('有效分配索引不一致')
+    restoreEffectiveTaskAssignmentState({ ...saved, stored: raw })
+  } catch { assignmentReadError = new Error('已保存的任务分配无法读取，不能覆盖，请保留原记录并联系负责人。') }
+}
+
+export function runEffectiveTaskAssignmentAction<T>(action: () => T): T {
+  if (assignmentReadError) throw assignmentReadError
+  if (assignmentMutationDepth) return action()
+  const before = captureEffectiveTaskAssignmentState()
+  assignmentMutationDepth++
+  try {
+    const result = action()
+    const current = captureEffectiveTaskAssignmentState()
+    if (typeof localStorage !== 'undefined') {
+      const { stored: _stored, ...state } = current
+      localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, JSON.stringify({ version: 1, ...state }))
+    }
+    return result
+  } catch (error) {
+    restoreEffectiveTaskAssignmentState(before)
+    throw new Error('本次任务分配未保存，已撤回，请重试。' + (error instanceof Error ? error.message : String(error)))
+  } finally { assignmentMutationDepth-- }
+}
+
 function cloneAssignment(item: EffectiveTaskAssignment): EffectiveTaskAssignment {
   return {
     ...item,
@@ -116,6 +175,7 @@ function assignmentRequiresPpic(processCodes: readonly string[]): boolean {
 }
 
 export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignmentInput): EffectiveTaskAssignment {
+  return runEffectiveTaskAssignmentAction(() => {
   if (!input.factoryId || !input.factoryName) throw new Error('必须确认具体加工厂后才能形成有效分配')
   if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
   if (!Number.isFinite(input.frozenPrice) || input.frozenPrice <= 0) throw new Error('派单价必须为大于0的有限数')
@@ -203,6 +263,8 @@ export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignme
   initializeSewingSampleApprovalSuggestionForAssignment(record)
   initializeSewingMaterialHandoverForAssignment(record)
   return cloneAssignment(record)
+
+  })
 }
 
 export function cancelEffectiveTaskAssignment(
@@ -211,6 +273,7 @@ export function cancelEffectiveTaskAssignment(
   operatedBy: string,
   operatedAt: string,
 ): EffectiveTaskAssignment {
+  return runEffectiveTaskAssignmentAction(() => {
   const current = assignments.get(assignmentId)
   if (!current) throw new Error(`未找到分配记录${assignmentId}`)
   if (current.status !== 'EFFECTIVE') throw new Error('只有当前有效分配可以取消')
@@ -227,6 +290,8 @@ export function cancelEffectiveTaskAssignment(
   )
   appendAudit(cancelled, 'CANCELLED', reason, operatedAt, operatedBy)
   return cloneAssignment(cancelled)
+
+  })
 }
 
 export function supersedeEffectiveTaskAssignmentsForReassignment(input: {
@@ -236,6 +301,7 @@ export function supersedeEffectiveTaskAssignmentsForReassignment(input: {
   operatedAt: string
   operatedBy: string
 }): EffectiveTaskAssignment[] {
+  return runEffectiveTaskAssignmentAction(() => {
   const superseded: EffectiveTaskAssignment[] = []
   for (const assignmentId of currentIds(input.sourceRuntimeTaskId)) {
     const current = assignments.get(assignmentId)
@@ -253,6 +319,8 @@ export function supersedeEffectiveTaskAssignmentsForReassignment(input: {
   }
   currentAssignmentIdsByTask.set(input.sourceRuntimeTaskId, [])
   return superseded
+
+  })
 }
 
 export function listEffectiveTaskAssignments(runtimeTaskId?: string): EffectiveTaskAssignment[] {
@@ -288,3 +356,5 @@ export function resetEffectiveTaskAssignmentsForTests(): void {
   resetSewingSampleApprovalSuggestionsForTests()
   resetSewingMaterialHandoversForTests()
 }
+
+readEffectiveTaskAssignmentState()

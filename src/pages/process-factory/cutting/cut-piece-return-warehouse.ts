@@ -101,11 +101,11 @@ export function enterCraftCuttingCutPieceReturnProcessingRoute(): void {
 export function isCutPieceReturnWarehouseDialogOpen(): boolean { return state.dialog !== null }
 export function closeCutPieceReturnWarehouseDialog(): boolean { if (!state.dialog) return false; state.dialog = null; refresh(); return true }
 
-export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: EventTarget | null): boolean {
+export function handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget: EventTarget | null, event?: Event): boolean {
   const target = eventTarget instanceof HTMLElement ? eventTarget : null
   if (!target) return false
   const filter = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cut-piece-return-warehouse-filter]')
-  if (filter) {
+  if (filter && (event?.type === 'input' || event?.type === 'change')) {
     if (filter.dataset.cutPieceReturnWarehouseFilter === 'keyword') state.keyword = filter.value
     if (filter.dataset.cutPieceReturnWarehouseFilter === 'status') state.status = filter.value
     if (filter.dataset.cutPieceReturnWarehouseFilter === 'pageSize') state.pageSize = Number(filter.value) || 20

@@ -81,11 +81,7 @@ function main(): void {
   assert(requirementLines.every((line) => line.materialImageUrl), '捆条需求必须带布料图片')
   assert(requirementLines.every((line) => ['斜切', '直切', '横切'].includes(line.cuttingMethod)), '捆条需求必须带切割方式')
   assert(requirementLines.every((line) => line.plannedGarmentQty > 0 && line.unitBindingLengthM > 0 && line.plannedBindingLengthM > 0), '捆条需求必须带计划数量、单件捆条长度和捆条需要长度')
-  assert(
-    requirementLines.some((line) => line.rawRequiredLengthM > 0 && line.minRequiredLengthApplied && line.requiredLengthM === 4) ||
-      buildBindingProcessOrders([]).some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.requiredLength === 4)),
-    '捆条 mock 数据必须展示不足 4m 按 4m 起算',
-  )
+  assert.equal(buildBindingProcessOrders([]).length, 0, '没有上游捆条需求时不得生成部署兜底加工单')
   assert(requirementLines.some((line) => line.rawRequiredLengthM >= 4 && !line.minRequiredLengthApplied && line.requiredLengthM === line.rawRequiredLengthM), '捆条 mock 数据必须展示超过 4m 按公式结果计算')
 
   const orders = buildBindingProcessOrders()
@@ -101,11 +97,6 @@ function main(): void {
   const detailTicketNos = orders.flatMap((order) => order.bindingDetails.map((detail) => detail.feiTicketNo))
   assert(detailTicketNos.length > 0, '捆条明细缺少菲票号')
   assert.equal(new Set(detailTicketNos).size, detailTicketNos.length, '每个捆条宽度规格必须有唯一菲票号')
-  assert(
-    orders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.rawRequiredLength > 0 && detail.requiredLength === 4)) ||
-      buildBindingProcessOrders([]).some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.rawRequiredLength > 0 && detail.requiredLength === 4)),
-    '捆条加工单计划长度必须承接 4m 起算规则',
-  )
   assert(orders.some((order) => order.bindingDetails.some((detail) => detail.rawRequiredLength >= 4 && !detail.minRequiredLengthApplied && detail.requiredLength === detail.rawRequiredLength)), '捆条加工单计划长度必须覆盖不触发 4m 起算的场景')
   assert(orders.every((order) => ['未接收', '已接收'].includes(order.materialReceiveStatus) && order.materialShelfLocation), '捆条加工单必须展示接收状态和货架位置')
   assert(orders.some((order) => order.receivedMaterialLength > 0 && order.actualTotalLength > 0 && order.actualRollCount > 0), '捆条加工单必须累计接收布料、实际完成长度和实切卷数')
@@ -126,24 +117,10 @@ function main(): void {
   assertIncludes(renderCraftCuttingSpecialProcessesPage(), '<img', '捆条加工单列表必须渲染布料图片')
   assertIncludes(renderCraftCuttingSpecialProcessDetailPage(orders[0].bindingOrderId), '<img', '捆条加工单详情必须渲染布料图片')
 
-  const fallbackOrders = buildBindingProcessOrders([])
-  assert(fallbackOrders.length > 0, '上游裁片单投影为空时，捆条加工单必须有部署兜底演示数据')
-  assert(fallbackOrders.some((order) => order.remark.includes('部署环境兜底演示数据')), '兜底捆条加工单必须标注数据来源')
-  const fallbackDetails = fallbackOrders.flatMap((order) => order.bindingDetails)
-  assert.deepEqual(new Set(fallbackDetails.map((detail) => detail.cuttingMethod)), new Set(['横切', '斜切', '直切']), '兜底捆条加工单必须覆盖横切、斜切、直切三种裁法')
-  assert(fallbackDetails.some((detail) => detail.plannedGarmentQty === 600 && detail.unitBindingLength === 1.2 && detail.plannedBindingLength === 720), '兜底数据必须覆盖 600 × 1.2m = 720m 的捆条需要长度')
-  assert(fallbackDetails.some((detail) => detail.plannedBindingLength === 720 && detail.requiredLength === 21), '兜底数据必须覆盖捆条需要长度 720m 和需要布料长度 21m')
-  assert(fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied && detail.requiredLength === 4)), '兜底捆条加工单必须展示不足 4m 按 4m 起算')
-  assert(fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.rawRequiredLength >= 4 && !detail.minRequiredLengthApplied)), '兜底捆条加工单必须展示超过 4m 按公式结果计算')
-
-  const firstOrder = orders.find((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied)) || orders[0]
+  const firstOrder = orders[0]
   const summary = summarizeBindingStripRequirementsForCutOrders([firstOrder.sourceCutOrderId])
   assert(summary.totalRequiredLengthM > 0, '按裁片单汇总捆条需求失败')
   assert(summary.widthSummaries.length > 0, '按物料+宽度汇总捆条需求失败')
-  assert(
-    summary.minRequiredLengthApplied || fallbackOrders.some((order) => order.bindingDetails.some((detail) => detail.minRequiredLengthApplied)),
-    '按裁片单汇总或兜底演示必须保留 4m 起算提示',
-  )
 
   const printableBindingOrder = orders.find((order) => order.bindingDetails.some((detail) => detail.printStatus !== '未生成'))
   assert(printableBindingOrder, '缺少可打印的捆条菲票明细')
@@ -193,7 +170,8 @@ function main(): void {
   assertNotIncludes(bindingPrintHtml, '适用SKU', '捆条菲票打印预览不允许展示普通裁片字段')
   assertNotIncludes(bindingPrintHtml, '特殊工艺 / 承接工厂', '捆条菲票打印预览不允许展示普通裁片字段')
 
-  const specialProcessModel = read('src/pages/process-factory/cutting/special-processes-model.ts')
+  const bindingOrderTypes = read('src/pages/process-factory/cutting/binding-strip-order-types.ts')
+  const bindingOrdersSource = read('src/pages/process-factory/cutting/binding-strip-orders.ts')
   const specialProcessPage = read('src/pages/process-factory/cutting/special-processes.ts')
   const markerSpreadingPage = read('src/pages/process-factory/cutting/marker-spreading.ts')
   const markerPlanPage = read('src/pages/process-factory/cutting/marker-plan.ts')
@@ -203,8 +181,10 @@ function main(): void {
   const cutOrdersPage = read('src/pages/process-factory/cutting/cut-orders.ts')
   const productionProgressPage = read('src/pages/process-factory/cutting/production-progress.ts')
 
-  assert(!/BindingProcessStatus = [^\n]*异常处理中/.test(specialProcessModel), '捆条加工主状态不能包含异常处理中')
-  assert(!/BindingProcessStatus = [^\n]*已入仓/.test(specialProcessModel), '捆条加工主状态不能把入仓当加工状态')
+  assert(!/BindingProcessStatus = [^\n]*异常处理中/.test(bindingOrderTypes), '捆条加工主状态不能包含异常处理中')
+  assert(!/BindingProcessStatus = [^\n]*已入仓/.test(bindingOrderTypes), '捆条加工主状态不能把入仓当加工状态')
+  assertNotIncludes(bindingOrdersSource, 'buildFallbackBindingProcessOrders', '捆条加工单不得保留部署兜底生成器')
+  assertNotIncludes(bindingOrdersSource, '部署环境兜底演示数据', '捆条加工单不得保留部署兜底数据')
   assertNotIncludes(specialProcessPage, 'data-testid="cutting-binding-list-overview"', '捆条加工单页面顶部汇总块已要求删除')
   assertNotIncludes(specialProcessPage, '捆条加工单列表', '捆条加工单页面顶部说明标题已要求删除')
   assertIncludes(specialProcessPage, '不足 4m 按 4m', '捆条加工单页面缺少 4m 起算提示')

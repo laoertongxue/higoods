@@ -770,6 +770,8 @@ test('PDA 完成二次确认五类事实均可分页，且只更新对应区块�
   expect(seeded.machineAssociations.filter((item) => item.woolOrderId === order.woolOrderId)).toHaveLength(3)
   await installLegalPdaSession(page, 'OWN_WOOL_FACTORY')
   await page.goto(`/fcs/pda/exec/${encodeURIComponent(order.taskId)}`)
+  // 等初次异步路由完成后再替换分页夹具，避免两次渲染并发覆盖页面。
+  await expect(page.locator('[data-pda-wool-root]')).toBeVisible()
   await replaceWoolStoreFromStorage(page)
   await page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')))
   await expect(page.locator('[data-pda-wool-root]')).toBeVisible()

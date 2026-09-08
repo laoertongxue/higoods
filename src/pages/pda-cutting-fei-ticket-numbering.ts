@@ -109,7 +109,7 @@ export function renderPdaCuttingFeiTicketNumberingPage(): string {
   const body = `
     <div class="space-y-3 px-4 pb-5 pt-4">
       ${renderTodaySummary()}
-      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm" data-pda-ticket-numbering-form>
         <label class="block space-y-1">
           <span class="text-xs text-muted-foreground">操作员工</span>
           <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" value="${escapeHtml(state.operatorName)}" data-skip-page-rerender="true" data-pda-ticket-numbering-field="operatorName" placeholder="员工姓名" />
@@ -135,7 +135,7 @@ export function renderPdaCuttingFeiTicketNumberingPage(): string {
 export function handlePdaCuttingFeiTicketNumberingEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-ticket-numbering-action]')
   if (!actionNode) return false
-  syncStateFromControls(actionNode.closest('[data-pda-ticket-numbering-action]')?.parentElement || document)
+  syncStateFromControls(actionNode.closest('[data-pda-ticket-numbering-form]') || document)
   const action = actionNode.dataset.pdaTicketNumberingAction
 
   if (action === 'demo-scan') {

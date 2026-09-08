@@ -53,11 +53,7 @@ import {
   type BindingProcessPdaScanCandidate,
 } from '../data/fcs/binding-process-pda-scan.ts'
 import { buildBindingProcessOrders } from './process-factory/cutting/binding-strip-orders.ts'
-import {
-  getPostFinishingTaskById,
-  getPostFinishingWorkOrderBySourceTaskId,
-  isPostFinishingFactoryId,
-} from '../data/fcs/post-finishing-domain.ts'
+import { DEDICATED_POST_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { getKolGotoHandoutQty } from '../data/fcs/kol-goto-pda-domain.ts'
 import { isKolGotoFactory, isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from '../data/fcs/kol-goto-special-flow.ts'
 import {
@@ -206,8 +202,6 @@ function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTa
       objectType: printOrder.objectType,
       qtyUnit: printOrder.qtyUnit,
       qtyPurpose: '计划' as const,
-      isPiecePrinting: printOrder.isPiecePrinting,
-      isFabricPrinting: printOrder.isFabricPrinting,
     }
     const label = getQuantityLabel(context)
     return {
@@ -518,10 +512,6 @@ function getTaskStatusLabel(task: ProcessTask): string {
   if (printOrder?.status === 'HANDOVER_WAIT_RECEIVE') return '待对方收货'
   const dyeOrder = getDyeWorkOrderByTaskId(task.taskId)
   if (dyeOrder?.status === 'HANDOVER_WAIT_RECEIVE') return '待对方收货'
-  const postTask = getPostFinishingTaskById(task.taskId)
-  if (postTask) return postTask.currentStatus
-  const postOrder = getPostFinishingWorkOrderBySourceTaskId(task.taskId)
-  if (postOrder) return postOrder.currentStatus
   return getMobileTaskExecutionState(task)
 }
 
@@ -1832,7 +1822,7 @@ export function renderPdaExecPage(): string {
   if (isKolGotoFactory(selectedFactoryId)) {
     return renderKolGotoExecListPage(acceptedTasks)
   }
-  if (isPostFinishingFactoryId(selectedFactoryId)) {
+  if (selectedFactoryId === DEDICATED_POST_FACTORY_ID || selectedFactoryId === 'ID-F002') {
     const content = `
       <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
         <main class="flex-1 p-4">
@@ -1874,8 +1864,7 @@ export function renderPdaExecPage(): string {
   const emptyStateText = getPdaExecEmptyStateText(acceptedTasks)
   const scanOrSearch = hasWoolOrders
     ? renderWoolExecutionScanHeader()
-    : !hasSpecialCraftOrders && !hasBindingOrders
-      ? `<div class="relative">
+    : `<div class="relative">
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
@@ -1885,7 +1874,6 @@ export function renderPdaExecPage(): string {
             value="${escapeHtml(state.searchKeyword)}"
           />
         </div>`
-      : ''
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
@@ -1935,7 +1923,6 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
       if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Enter') {
         const factoryId = getCurrentFactoryId()
         if (hasWoolOrdersForFactory(factoryId)) runWoolExecutionScan(fieldNode.value)
-        else if (hasSpecialCraftOrdersForFactory(factoryId)) runSpecialCraftExecutionScan(fieldNode.value)
         else updatePdaExecCardListInPlace()
         return true
       }
@@ -1947,9 +1934,7 @@ export function handlePdaExecEvent(target: HTMLElement, event?: Event): boolean 
         state.specialCraftScanMessage = ''
         state.specialCraftScanCandidates = []
       }
-      if (!hasSpecialCraftOrdersForFactory(getCurrentFactoryId())) {
-        updatePdaExecCardListInPlace()
-      }
+      updatePdaExecCardListInPlace()
       updateWoolExecutionScanFeedbackInPlace()
       updateSpecialCraftExecutionScanFeedbackInPlace()
       return true

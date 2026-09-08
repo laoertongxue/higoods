@@ -37,8 +37,6 @@ function main(): void {
   assert(modeSet.has('MANAGED_POST_FACTORY_EXECUTES'), '缺少“我方后道工厂执行后道”路由样例')
 
   for (const route of routes) {
-    assert(route.requiresReceivingQc, `${route.postRouteId} 未开启回货质检`)
-    assert(route.requiresFinalRecheck, `${route.postRouteId} 未开启后道复检`)
     assert(route.managedPostFactoryName === '我方后道工厂', `${route.postRouteId} 接收方不是我方后道工厂`)
     assert(route.finishedWarehouseName === '成衣仓交接点', `${route.postRouteId} 成衣仓交接点口径错误`)
 
@@ -52,10 +50,7 @@ function main(): void {
       assert(Boolean(route.postTaskId), `${route.postRouteId} 缺少历史处理记录关联`)
       assert(getPostExecutionModeLabel(route.postExecutionMode) === '我方后道工厂执行实际所需工序', `${route.postRouteId} 路由标签错误`)
     }
-    assert(
-      route.requiredPostProcessCodes?.every((code) => ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(code)),
-      `${route.postRouteId} 出现后道阶段三工序以外的工序`,
-    )
+    assert(!('requiredPostProcessCodes' in route), `${route.postRouteId} 历史静态路由不得保存或计算本批 QC 后道项目`)
   }
 
   const qcRecords = returnInboundChainQualityInspections.filter(

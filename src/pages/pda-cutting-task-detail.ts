@@ -1,7 +1,11 @@
-import { escapeHtml } from '../utils'
+import { getRuntimeTaskById, recordRuntimeTaskExecution, runRuntimeTaskAction } from '../data/fcs/runtime-process-tasks.ts'
+import { getPdaSession, findFactoryPdaRoleById } from '../data/fcs/store-domain-pda.ts'
+import { escapeHtml, localDateTimeText } from '../utils'
 import {
   buildPdaCuttingRoute,
   getPdaCuttingTaskSnapshot,
+  getPdaTaskFlowTaskById,
+  isCuttingSpecialTask,
   type PdaCuttingRouteKey,
   type PdaCuttingTaskDetailData,
   type PdaCuttingTaskCutOrderGroup,
@@ -16,7 +20,7 @@ import {
   resolvePdaCuttingRuntimeIdentity,
   resolvePdaCuttingRuntimeOperator,
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
-import { appendCuttingRuntimeEvent } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, appendCuttingRuntimeEvent } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingStatusChip,
@@ -175,6 +179,16 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
   const backHref = options.backHref || '/fcs/pda/exec'
 
   if (!detail) {
+    const task = getPdaTaskFlowTaskById(decodedTaskId)
+    if (task && isCuttingSpecialTask(task)) return renderPdaFrame(
+      `<section class="space-y-3 px-3 py-4">
+        <button class="rounded-lg border px-3 py-2" data-nav="${escapeHtml(backHref)}">返回</button>
+        <h1 class="text-lg font-semibold">裁片任务 ${escapeHtml(task.taskNo || task.taskId)}</h1>
+        ${renderMiniField('生产单', task.productionOrderNo || task.productionOrderId || '-')}
+        ${renderMiniField('裁片单', (task.cutOrderNos || []).join(' / '))}
+        ${renderPdaCuttingEmptyState('待生成唛架/铺布单', '')}
+        <p class="text-sm text-muted-foreground">请联系主管生成唛架并安排铺布。尚无铺布单，不能开工或放行；已领取来料可在配料领取记录中查看。</p>
+      </section>`, 'exec', { disableTodoAutoOpen: true })
     return renderPdaFrame(
       `<section class="space-y-3 px-3 py-4">
         <button class="inline-flex items-center rounded-lg border px-2.5 py-1.5 text-sm" data-nav="${escapeHtml(backHref)}">返回</button>
@@ -183,6 +197,13 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
       'exec',
       { disableTodoAutoOpen: true },
     )
+  }
+
+  const runtimeTask = getRuntimeTaskById(decodedTaskId)
+  let completionBlock = runtimeTask ? getCuttingTaskManualCompletionBlock(runtimeTask, detail) : ''
+  if (runtimeTask) {
+    try { requireCuttingTaskActor(decodedTaskId, 'TASK_FINISH', runtimeTask) }
+    catch (error) { completionBlock = error instanceof Error ? error.message : '当前账号不能完成该任务。' }
   }
 
   const selectedLine = resolveSelectedExecutionOrderLine(
@@ -203,7 +224,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
                 <h1 class="mt-1 break-words text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</h1>
                 <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 当前 ${escapeHtml(detail.currentStage)}</div>
               </div>
-              ${renderPdaCuttingStatusChip(detail.taskStatusLabel, detail.taskStatusLabel === '已完成' ? 'green' : detail.taskStatusLabel === '有异常' ? 'red' : 'blue')}
+              <span data-cutting-task-state>${renderPdaCuttingStatusChip(detail.taskStatusLabel, detail.taskStatusLabel === '已完成' ? 'green' : detail.taskStatusLabel === '有异常' ? 'red' : 'blue')}</span>
             </div>
           </section>
         </header>
@@ -223,6 +244,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
           ${detail.cutOrderGroups.map((group) => renderCutOrderGroup(decodedTaskId, group, backHref, selectedLine, detail.cutOrderGroups.length > 1)).join('')}
         </section>
 
+        ${runtimeTask ? `<section class="rounded-xl border p-3" data-skip-page-rerender="true"><button class="min-h-10 w-full rounded bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50" data-pda-cutting-task-action="complete-task" data-task-id="${escapeHtml(decodedTaskId)}" ${completionBlock ? 'disabled' : ''}>人工完成整体任务</button><p class="mt-2 text-xs" data-pda-cutting-complete-feedback>${escapeHtml(completionBlock || '请确认本任务所有床次已完成；尚未发生的交接仍需原交接动作。')}</p></section>` : ''}
         ${renderRecentActions(detail)}
       </section>
     `,
@@ -231,10 +253,55 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
   )
 }
 
+function requireCuttingTaskActor(taskId: string, permission: 'TASK_START' | 'TASK_FINISH', runtimeTask = getRuntimeTaskById(taskId)) {
+  const projected = getPdaTaskFlowTaskById(taskId)
+  const task = runtimeTask || projected
+  const session = getPdaSession()
+  const role = session ? findFactoryPdaRoleById(session.roleId, session.factoryId) : undefined
+  if (!task || !projected || !isCuttingSpecialTask(projected) || !session || !session.userName.trim() || !role || role.status !== 'ACTIVE' || !role.permissionKeys.includes(permission) || session.factoryId !== task.assignedFactoryId || task.assignmentStatus !== 'ASSIGNED' || task.acceptanceStatus !== 'ACCEPTED') throw new Error('请由已接单工厂的具名执行人员打开原裁片任务。')
+  if (permission === 'TASK_FINISH' && !runtimeTask) throw new Error('当前任务请使用原专属完成入口。')
+  return { task, session, runtimeTask }
+}
+
+export function getCuttingTaskManualCompletionBlock(task: { status: string }, detail: PdaCuttingTaskDetailData | null): string {
+  if (task.status !== 'IN_PROGRESS') return task.status === 'DONE' ? '该加工任务已人工完成。' : '请先完成加工任务开工，再确认整体完成。'
+  if (!detail || !detail.cutPieceOrders.length) return '尚无本任务铺布单，不能完成。'
+  if (detail.cutPieceOrders.some(line => !line.isDone)) return '本任务还有未完成裁剪的铺布单，请逐床完成后再确认。'
+  if (detail.exceptionCutPieceOrderCount) return '本任务仍有未处理异常，请联系主管。'
+  return ''
+}
+
+export function completePdaCuttingTaskManually(taskId: string): void {
+  const { task, session } = requireCuttingTaskActor(taskId, 'TASK_FINISH')
+  const detail = getPdaCuttingTaskSnapshot(taskId)
+  const block = getCuttingTaskManualCompletionBlock(task, detail)
+  if (block) throw new Error(block)
+  if (detail!.productionOrderId !== task.productionOrderId) throw new Error('裁片任务来源已变化，请重新打开原单。')
+  const at = localDateTimeText()
+  recordRuntimeTaskExecution(taskId, { status: 'DONE', finishedAt: at, updatedAt: at, auditLogs: [...task.auditLogs, { id: `${taskId}-manual-finish-${at}`, action: 'FINISH', detail: `人工确认整体裁片任务完成；覆盖 ${detail!.cutPieceOrders.length} 张铺布单，不更改原裁剪及交接数量。`, at, by: session.userName }] })
+}
+
 export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
-  const button = target.closest<HTMLElement>('[data-pda-cutting-task-action="start-work"]')
+  const button = target.closest<HTMLElement>('[data-pda-cutting-task-action]')
   if (!button) return false
   const taskId = button.dataset.taskId || ''
+  if (button.dataset.pdaCuttingTaskAction === 'complete-task') {
+    const feedback = button.parentElement?.querySelector<HTMLElement>('[data-pda-cutting-complete-feedback]')
+    try {
+      const { session } = requireCuttingTaskActor(taskId, 'TASK_FINISH')
+      if (!window.confirm(`确认由 ${session.userName} 人工完成整个裁片加工任务？该动作不会替代尚未发生的交接。`)) return true
+      if (getPdaSession()?.userId !== session.userId) throw new Error('操作账号已变化，请重新确认。')
+      completePdaCuttingTaskManually(taskId)
+      button.textContent = '整体任务已人工完成'
+      button.setAttribute('disabled', 'true')
+      if (feedback) feedback.textContent = `已保存：${session.userName}，${getRuntimeTaskById(taskId)?.finishedAt || ''}`
+      const state = document.querySelector<HTMLElement>('[data-cutting-task-state]')
+      if (state) state.innerHTML = renderPdaCuttingStatusChip('已完成', 'green')
+    } catch (error) { if (feedback) feedback.textContent = error instanceof Error ? error.message : '保存失败，请重试' }
+    return true
+  }
+  if (button.dataset.pdaCuttingTaskAction !== 'start-work') return false
+
   const executionOrderId = button.dataset.executionOrderId || ''
   const executionOrderNo = button.dataset.executionOrderNo || ''
   const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
@@ -250,8 +317,17 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
     }
     return true
   }
-  const operator = resolvePdaCuttingRuntimeOperator(taskId, '裁床组长')
-  const startedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  let actor: ReturnType<typeof requireCuttingTaskActor>
+  try { actor = requireCuttingTaskActor(taskId, 'TASK_START') } catch (error) { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = error instanceof Error ? error.message : '当前账号不能开工' }; return true }
+  if (identity.productionOrderId !== actor.task.productionOrderId) { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '原生产单不一致，不能开工。' }; return true }
+  const currentLine = getPdaCuttingTaskSnapshot(taskId, executionOrderId)?.cutPieceOrders.find(line => line.executionOrderId === executionOrderId)
+  if (!currentLine || currentLine.nextActionLabel !== '开工') { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '该床当前不能重复开工，请刷新原任务。' }; return true }
+  const operator = resolvePdaCuttingRuntimeOperator(taskId)
+  let ledgerBefore: string | null
+  try { ledgerBefore = localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) } catch { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '无法读取原开工记录，请检查本机存储后重试。' }; return true }
+  try {
+  const event = runRuntimeTaskAction(() => {
+  const startedAt = localDateTimeText().slice(0, 16)
   const event = appendCuttingRuntimeEvent({
     eventType: '裁片单开工',
     eventSource: 'PDA',
@@ -278,6 +354,10 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
       startSource: 'PDA',
     },
   })
+  if (actor.runtimeTask && actor.task.status === 'NOT_STARTED') recordRuntimeTaskExecution(taskId, { status: 'IN_PROGRESS', startedAt, updatedAt: startedAt, auditLogs: [...actor.task.auditLogs, { id: `${taskId}-start-${event.eventId}`, action: 'START', detail: `原铺布单 ${identity.executionOrderNo} 开工；事件 ${event.eventId}`, at: startedAt, by: operator.operatorName }] })
+  else if (actor.runtimeTask && actor.task.status !== 'IN_PROGRESS') throw new Error('当前整体任务不允许新开工。')
+  return event
+  })
   if (feedback) {
     feedback.classList.remove('hidden')
     feedback.textContent = `已同步：开工已提交，${event.occurredAt}`
@@ -285,5 +365,12 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   button.textContent = '已开工'
   button.setAttribute('disabled', 'true')
   button.classList.add('opacity-70')
+  const state = document.querySelector<HTMLElement>('[data-cutting-task-state]')
+  if (state) state.innerHTML = renderPdaCuttingStatusChip('进行中', 'blue')
+  } catch (error) {
+    try { if (ledgerBefore === null) localStorage.removeItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY); else localStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerBefore) }
+    catch { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '开工未保存，原记录回退未核实，请保留页面并联系主管。' }; return true }
+    if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = error instanceof Error ? error.message : '开工未保存，请重试' }
+  }
   return true
 }

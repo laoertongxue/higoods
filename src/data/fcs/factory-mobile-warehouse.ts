@@ -17,11 +17,13 @@ import {
   readWoolStore,
 } from './wool-task-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
-  listPostFinishingUpstreamHandovers,
+  listPostFinishingFactoryReturns,
+  listPostFinishingWaitHandoverWarehouseMovements,
   listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseMovements,
   listPostFinishingWaitProcessWarehouseRecords,
-} from './post-finishing-domain.ts'
+} from './post-finishing-full-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from './post-finishing-current-read-model.ts'
 import { isIndonesiaBusinessDateToday } from './indonesia-business-time.ts'
 
 export interface FactoryMobileWarehouseOverview {
@@ -160,36 +162,29 @@ export function getFactoryMobileWarehouseOverview(
   if (factoryId === FULL_CAPABILITY_FACTORY_ID) {
     const waitProcessRecords = listPostFinishingWaitProcessWarehouseRecords()
     const waitHandoverRecords = listPostFinishingWaitHandoverWarehouseRecords()
-    const upstreamHandovers = listPostFinishingUpstreamHandovers()
-    const inboundFlows = waitProcessRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '扫码收货'))
-    const recheckInboundFlows = waitHandoverRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '复检入仓'))
-    const outboundFlows = waitHandoverRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '交出出仓'))
-    const activeWaitHandover = waitHandoverRecords.map((record) => Math.max(record.waitHandoverGarmentQty - record.submittedHandoverGarmentQty, 0))
+    const deliveries = listPostFinishingFactoryReturns()
+    const waitProcessMovements = listPostFinishingWaitProcessWarehouseMovements()
+    const waitHandoverMovements = listPostFinishingWaitHandoverWarehouseMovements()
+    const inboundFlows = waitProcessMovements.filter((flow) => flow.movementType === '确认入库')
+    const recheckInboundFlows = waitHandoverMovements.filter((flow) => flow.movementType === '复检完成入仓')
+    const outboundFlows = waitHandoverMovements.filter((flow) => flow.movementType === '后道出货交出')
+    const activeWaitHandover = waitHandoverRecords.map((record) => record.lines.reduce((sum, line) => sum + line.availableQty, 0))
     return {
       factoryId,
       factoryName,
-      waitProcessCount: waitProcessRecords.filter((record) => record.availableGarmentQty > 0).length,
-      waitProcessQty: waitProcessRecords.reduce((sum, record) => sum + record.availableGarmentQty, 0),
+      waitProcessCount: waitProcessRecords.filter((record) => record.lines.some((line) => line.availableQty > 0)).length,
+      waitProcessQty: waitProcessRecords.reduce((sum, record) => sum + record.lines.reduce((lineSum, line) => lineSum + line.availableQty, 0), 0),
       waitHandoverCount: waitHandoverRecords.filter((record, index) => activeWaitHandover[index] > 0).length,
       waitHandoverQty: activeWaitHandover.reduce((sum, qty) => sum + qty, 0),
       todayInboundCount: inboundFlows.length + recheckInboundFlows.length,
-      todayInboundQty: [...inboundFlows, ...recheckInboundFlows].reduce((sum, flow) => sum + flow.qty, 0),
+      todayInboundQty: [...inboundFlows, ...recheckInboundFlows].reduce((sum, flow) => sum + flow.quantities.reduce((lineSum, line) => lineSum + line.quantity, 0), 0),
       todayOutboundCount: outboundFlows.length,
-      todayOutboundQty: outboundFlows.reduce((sum, flow) => sum + flow.qty, 0),
+      todayOutboundQty: outboundFlows.reduce((sum, flow) => sum + flow.quantities.reduce((lineSum, line) => lineSum + line.quantity, 0), 0),
       stocktakeCount: 0,
-      differenceCount: waitHandoverRecords.filter((record) => record.diffGarmentQty !== 0).length,
+      differenceCount: deliveries.filter((delivery) => delivery.confirmedAt && delivery.lines.some((line) => line.confirmedQty !== line.registeredQty)).length,
       objectionCount: 0,
-      pickupCompletedOrderCount: upstreamHandovers.filter((handover) => {
-        const plannedQty = handover.skuLines.reduce((sum, line) => sum + line.plannedQty, 0)
-        const receivedQty = waitProcessRecords
-          .filter((record) => record.upstreamHandoverRecordNo === handover.handoverRecordNo)
-          .reduce((sum, record) => sum + record.inboundGarmentQty, 0)
-        return receivedQty >= plannedQty
-      }).length,
-      handoutCompletedOrderCount: waitHandoverRecords.filter((record) => (
-        record.submittedHandoverGarmentQty >= record.waitHandoverGarmentQty
-        && record.receivedHandoverGarmentQty >= record.submittedHandoverGarmentQty
-      )).length,
+      pickupCompletedOrderCount: deliveries.filter((delivery) => Boolean(delivery.confirmedAt)).length,
+      handoutCompletedOrderCount: waitHandoverRecords.filter((record) => record.status === '已交出').length,
       stocktakeWaitReviewCount: 0,
       stocktakeAdjustedCount: 0,
       transferBagPackTaskCount: 0,

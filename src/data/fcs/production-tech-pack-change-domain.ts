@@ -349,6 +349,11 @@ export interface ProductionOrderMaterialFact {
   sourceBomItemId?: string
   canonicalMaterialId?: string
   snapshotMaterialId?: string
+  executionMaterialReplacement?: {
+    materialCode: string
+    materialName: string
+    changeRecordId: string
+  }
   material: string
   requiredQty: string
   preparedQty: string
@@ -616,7 +621,7 @@ export interface ProductionOrderChangeTimingImpact {
 export const techPackChangeModuleLabels: Record<TechPackChangeModule, string> = {
   BOM: '物料清单',
   PATTERN: '纸样管理',
-  PROCESS: '工序工艺',
+  PROCESS: '工艺路线',
   SIZE: '放码规则',
   COLOR_MATERIAL_MAPPING: '款色用料对应',
   COST: '核价',
@@ -668,7 +673,7 @@ export const productionPatchTypeLabels: Record<ProductionPatchType, string> = {
   MATERIAL_REPLACEMENT: '物料替代',
   MATERIAL_USAGE_ADJUSTMENT: '用量调整',
   PATTERN_OVERRIDE: '纸样覆盖',
-  PROCESS_OVERRIDE: '工序工艺调整',
+  PROCESS_OVERRIDE: '工艺路线调整',
   SIZE_RULE_OVERRIDE: '放码规则调整',
   COLOR_MATERIAL_MAPPING_OVERRIDE: '款色用料对应调整',
   COSTING_OVERRIDE: '核价调整',
@@ -3956,6 +3961,11 @@ export function applyProductionOrderMaterialFactReplacement(input: {
   fact.snapshotMaterialId = replacementMaterialCode
   fact.sourceTechPackVersionId = resultingTechPackVersionId
   fact.material = `${replacementMaterialCode} ${replacementMaterialName}`
+  fact.executionMaterialReplacement = {
+    materialCode: replacementMaterialCode,
+    materialName: replacementMaterialName,
+    changeRecordId,
+  }
   return clone(fact)
 }
 

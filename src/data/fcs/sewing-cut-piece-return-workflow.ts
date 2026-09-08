@@ -110,6 +110,8 @@ export interface SewingCutPieceReturnRequest {
   requestNo: string
   commandId: string
   candidateId: string
+  /** PPIC建单时冻结的正式交出责任范围，供仓库跨页面接收入仓时复用。 */
+  candidateSnapshot?: CutPieceReturnInitiationCandidate
   responsibilityScopeKey: string
   sourceHandoverOrderNo: string
   productionOrderId: string
@@ -379,6 +381,7 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
     requestNo: `CPTK-${input.createdAt.slice(0, 10).replaceAll('-', '')}-${String(requestSequence).padStart(4, '0')}`,
     commandId: input.commandId,
     candidateId: candidate.candidateId,
+    candidateSnapshot: clone(candidate),
     responsibilityScopeKey: candidate.responsibilityScopeKey,
     sourceHandoverOrderNo: candidate.sourceHandoverOrderNo,
     productionOrderId: candidate.productionOrderId,
@@ -471,6 +474,11 @@ export function receiveApprovedCutPieceReturnByWarehouse(input: {
     commandResults.set(input.commandId, request.requestId)
     persistWorkflowStore()
     return clone(request)
+  }
+  const candidateExists = listCutPieceReturnInitiationCandidates()
+    .some((item) => item.candidateId === request.candidateId)
+  if (!candidateExists && request.candidateSnapshot) {
+    registerCutPieceReturnInitiationCandidateMock(request.candidateSnapshot)
   }
   const result = createAndConfirmCutPieceReturn({
     candidateId: request.candidateId,

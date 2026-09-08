@@ -48,7 +48,7 @@ for (const seededOrder of seededOrders) {
   if (online.status === '染色中') {
     assert(online.rawMaterialQty > 0, `${seededOrder.dyeOrderId} 染色中必须存在实际投入`)
   }
-  if (['染色完成', '待审核', '部分入库', '已完成'].includes(online.status)) {
+  if (['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(online.status)) {
     assert(online.rawMaterialQty > 0, `${seededOrder.dyeOrderId} 已完成染色节点必须存在实际投入`)
     assert(online.completedQty > 0, `${seededOrder.dyeOrderId} 已完成染色节点必须存在实际产出`)
     assert.equal(
@@ -68,10 +68,10 @@ for (const seededOrder of seededOrders) {
     assert(review.receivedQty < handover.submittedQty, `${seededOrder.dyeOrderId} 部分入库必须仍有未收数量`)
     assert.equal(row.pendingInboundQty, Number((handover.submittedQty - review.receivedQty).toFixed(2)), `${seededOrder.dyeOrderId} 待入库数量口径错误`)
   }
-  if (online.status === '已完成') {
-    assert(review, `${seededOrder.dyeOrderId} 已完成必须存在收货事实`)
-    assert.equal(review.receivedQty, handover.submittedQty, `${seededOrder.dyeOrderId} 已完成必须足额收货`)
-    assert.equal(row.pendingInboundQty, 0, `${seededOrder.dyeOrderId} 已完成不得仍有待入库数量`)
+  if (online.status === '待人工完单' || online.status === '已完成') {
+    assert(review, `${seededOrder.dyeOrderId} 已收齐必须存在收货事实`)
+    assert.equal(review.receivedQty, handover.submittedQty, `${seededOrder.dyeOrderId} 待人工完单或已完成必须足额收货`)
+    assert.equal(row.pendingInboundQty, 0, `${seededOrder.dyeOrderId} 已收齐不得仍有待入库数量`)
   }
   if (['等待处理', '取消'].includes(online.status) && nodes.length === 0) {
     assert.equal(online.rawMaterialQty, 0, `${seededOrder.dyeOrderId} 未执行不得出现实际投入`)
@@ -88,8 +88,13 @@ assert(seededRows.some((row) => row.isReplenishment && row.status === '染色中
 assert(seededRows.some((row) => row.status === '染色完成'), 'Mock 必须覆盖染色完成待交出')
 assert(seededRows.some((row) => row.status === '待审核'), 'Mock 必须覆盖已交出待审核')
 assert(seededRows.some((row) => row.status === '部分入库'), 'Mock 必须覆盖部分入库')
-assert(seededRows.some((row) => row.status === '取消'), 'Mock 必须覆盖取消并保留历史')
-assert(seededRows.some((row) => row.status === '已完成'), 'Mock 必须覆盖足额入库完成')
+const differenceOrder = seededOrders.find((order) => order.dyeOrderNo === 'DY-20260328-010')!
+assert.equal(differenceOrder.status, 'HANDOVER_DIFFERENCE', '收货数量差异不能冒充取消')
+assert.notEqual(getDyeWorkOrderOnlineRecord(differenceOrder.dyeOrderId).status, '取消')
+assert(listDyeExecutionNodeRecords(differenceOrder.dyeOrderId).length > 0, '数量差异须保留原执行节点')
+assert(getDyeOrderHandoverSummary(differenceOrder.dyeOrderId).submittedQty > 0, '数量差异须保留原交出历史')
+assert.equal(getDyeReviewRecordByOrderId(differenceOrder.dyeOrderId)?.reviewStatus, 'REJECTED', '原差异审核事实仍应保留')
+assert(seededRows.some((row) => row.status === '待人工完单'), 'Mock 必须覆盖足额入库后等待人工完成单据')
 assert(seededRows.some((row) => row.sourceType === 'STOCK' && !row.productionOrderNo), 'Mock 必须覆盖不伪造生产单号的备货创建')
 assert(seededRows.some((row) => row.isOverdue && !['取消', '已完成'].includes(row.status)), 'Mock 必须覆盖超期未完结')
 assert(seededRows.some((row) => row.dyeOrderId.startsWith('DYE-WATER-')), 'Mock 必须覆盖含水溶加工单')
@@ -312,17 +317,17 @@ assert(rows.some((row) => row.productImageUrl && row.materialImageUrl), '列表�
 assert(rows.some((row) => row.status === '部分入库' && row.pendingInboundQty > 0), '列表需要部分入库样本')
 assert(rows.some((row) => row.isOverdue && !['取消', '已完成'].includes(row.status)), '列表需要超期未完结样本')
 
-const terminalRow = rows.find((row) => row.status === '已完成')
-assert(terminalRow, '列表需要已完成终态样本')
-const terminalRecord = getDyeWorkOrderOnlineRecord(terminalRow.dyeOrderId)
+const manualCompletionRow = rows.find((row) => row.status === '待人工完单')
+assert(manualCompletionRow, '列表需要足额收货后待人工完单样本')
+const manualCompletionRecord = getDyeWorkOrderOnlineRecord(manualCompletionRow.dyeOrderId)
 assert.throws(
-  () => updateDyeWorkOrderFromPfos(terminalRow.dyeOrderId, {
-    ...terminalRecord,
-    expectedVersion: terminalRecord.version,
+  () => updateDyeWorkOrderFromPfos(manualCompletionRow.dyeOrderId, {
+    ...manualCompletionRecord,
+    expectedVersion: manualCompletionRecord.version,
     operatorName: '染厂主管',
     operatedAt: '2026-07-16 13:00:00',
     status: '取消',
-    remark: '已完成终态不得取消',
+    remark: '足额收货待人工完单不得改成取消',
   }),
   /加工状态由接单、开工、完工、交出和入库事实自动生成/,
 )
@@ -347,28 +352,28 @@ assert(pdaExecSource.includes("action: '开工'"), '含水溶染色直接开工�
 ;["action: '开工'", "action: '完工'", "action: '交出'"].forEach((text) => {
   assert(actionWritebackSource.includes(text), `染色动作写回缺少线上状态映射：${text}`)
 })
-assert(dyeDomainSource.includes('notifyDyeReceiptOnlineStatus'), '染色收货确认必须同步部分入库或已完成')
+assert(dyeDomainSource.includes('notifyDyeReceiptOnlineStatus'), '染色收货确认必须同步部分入库或待人工完单')
 assert(!pdaExecSource.includes('recordDyeWorkOrderPdaStart'), '准备阶段加工单不得通过通用任务顶部按钮开工')
 assert(pdaExecSource.includes('不能使用通用任务开工'), '准备阶段加工单必须阻断伪造的通用任务开工动作')
 ;[
-  '查询项', '状态', '销售类型', '生产工厂', '染色工序', '面料接收人',
+  '查询项', '状态', '销售类型', '生产工厂', '染色工序', '物料接收人',
   '是否纱线', '是否补料', 'GTG仓是否有库存', '物料类型', '染色色号',
   '成分', '幅宽', '克重', '导出备料数据', '导出超期未完结',
-  '批量打印染整生产流程卡', '商品信息', '采购单信息', '原料/面料',
+  '批量打印染整生产流程卡', '商品信息', '采购单信息', '染色原料',
   '属性信息', '时间/加工厂', '附加信息', '查看', '编辑', '日志', '打印流程卡',
 ].forEach((text) => assert(workOrdersSource.includes(text), `染色加工单列表缺少：${text}`))
 ;['补料', '多 ', '少 ', '一致', 'isInventoryShortage'].forEach((text) => {
   assert(workOrdersSource.includes(text), `染色加工单列表缺少业务表达：${text}`)
 })
 assert(workOrdersSource.includes('renderStandardListTable'), '染色加工单列表必须使用标准列表模板')
-assert(workOrdersSource.includes("['染色完成', '待审核', '部分入库', '已完成', '取消']"), '染色完成及后续状态不得把损耗误算为待染数量')
+assert(workOrdersSource.includes("['染色完成', '待审核', '部分入库', '待人工完单', '已完成', '取消']"), '染色完成及后续状态不得把损耗误算为待染数量')
 assert(workOrdersSource.includes('formatQty(pendingDyeQty(row), row.qtyUnit)'), '列表待染数量必须使用状态感知口径')
 ;['查看配方', '查看统计'].forEach((text) => assert(!workOrdersSource.includes(text), `单张染色加工单列表不应保留：${text}`))
 assert(!workOrdersSource.includes('需求单号'), '染色加工单列表不得展示已删除的需求单号')
 
 assert.equal(buildDyeingWorkOrderDetailLink(order.dyeOrderId), `/fcs/craft/dyeing/work-orders?dyeOrderId=${order.dyeOrderId}`)
 const editHtml = renderDyeWorkOrderOverlay({ type: 'edit', dyeOrderId: order.dyeOrderId })
-;['预计完成时间', '生产工厂', '面料接收人', '深浅', '温度', '计划数量', '原料数量', '原料卷数', '完成数量', '损耗数量', '备注'].forEach((text) => {
+;['预计完成时间', '生产工厂', '物料接收人', '深浅', '温度', '计划数量', '原料数量', '原料卷数', '完成数量', '损耗数量', '备注'].forEach((text) => {
   assert(editHtml.includes(text), `编辑弹窗缺少：${text}`)
 })
 assert(editHtml.includes('readonly'), '计划数量和平台加工单号必须只读')

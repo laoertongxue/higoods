@@ -211,20 +211,8 @@ interface GenericProcessProfile {
   blockedReason: BlockReason
   blockedRemark: string
   biddingFactoryPoolCount?: number
-}
-
-function getHandoutObjectTypeForProcess(
-  key: GenericProcessProfile['key'],
-): 'GARMENT' | 'CUT_PIECE' | 'FABRIC' {
-  if (key === 'PRINTING') return 'CUT_PIECE'
-  if (key === 'DYEING') return 'FABRIC'
-  return 'GARMENT'
-}
-
-function getHandoutQtyUnitForProcess(key: GenericProcessProfile['key']): string {
-  if (key === 'PRINTING') return '片'
-  if (key === 'DYEING') return '卷'
-  return '件'
+  handoutObjectType: 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
+  handoutQtyUnit: string
 }
 
 function roundQty(value: number): number {
@@ -256,6 +244,8 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     receiveHint: '车缝主线待开工，当前已安排整单派工。',
     blockedReason: 'CAPACITY',
     blockedRemark: '后道锁眼机待维护，当前主线暂缓切换。',
+    handoutObjectType: 'GARMENT',
+    handoutQtyUnit: '件',
   },
   {
     key: 'IRON_PACK',
@@ -273,6 +263,8 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     receiveHint: '烫包批次待接单，需预留烫包线体。',
     blockedReason: 'EQUIPMENT',
     blockedRemark: '蒸汽烫包设备温控报警，待机修确认。',
+    handoutObjectType: 'GARMENT',
+    handoutQtyUnit: '件',
   },
 ]
 
@@ -952,8 +944,8 @@ function buildHandoverSeeds(
   const pickupHeadId = `PKH-MOCK-${profile.taskPrefix}-${String(baseIndex).padStart(3, '0')}`
   const openHandoutHeadId = `HOH-MOCK-${profile.taskPrefix}-${String(baseIndex + 1).padStart(3, '0')}`
   const doneHandoutHeadId = `HOH-MOCK-${profile.taskPrefix}-${String(baseIndex + 2).padStart(3, '0')}`
-  const handoutObjectType = getHandoutObjectTypeForProcess(profile.key)
-  const handoutQtyUnit = getHandoutQtyUnitForProcess(profile.key)
+  const handoutObjectType = profile.handoutObjectType
+  const handoutQtyUnit = profile.handoutQtyUnit
   const processBusinessCode = resolveMockBusinessProcessCode(profile)
   const stageCode = resolveMockStageCode(profile)
   const stageName = resolveMockStageName(profile)
@@ -966,8 +958,8 @@ function buildHandoverSeeds(
             recordId: `${openHandoutHeadId}-001`,
             taskId: openHandoutTask.taskId,
             materialCode: `${profile.taskPrefix}-CUT-001`,
-            materialName: '印花裁片',
-            materialSpec: '前片印花首批',
+            materialName: '裁片',
+            materialSpec: '前片首批',
             skuCode: `${profile.taskPrefix}-SKU-001`,
             skuColor: '标准色',
             skuSize: 'M',
@@ -989,7 +981,7 @@ function buildHandoverSeeds(
             recordId: `${openHandoutHeadId}-002`,
             taskId: openHandoutTask.taskId,
             materialCode: `${profile.taskPrefix}-CUT-002`,
-            materialName: '印花裁片',
+            materialName: '裁片',
             materialSpec: '后片尾批交出',
             skuCode: `${profile.taskPrefix}-SKU-002`,
             skuColor: '标准色',
@@ -1129,7 +1121,7 @@ function buildHandoverSeeds(
             recordId: `${doneHandoutHeadId}-001`,
             taskId: completedHandoutTask.taskId,
             materialCode: `${profile.taskPrefix}-CUT-003`,
-            materialName: '印花裁片',
+            materialName: '裁片',
             materialSpec: '整单交接完成',
             skuCode: `${profile.taskPrefix}-SKU-003`,
             skuColor: '标准色',

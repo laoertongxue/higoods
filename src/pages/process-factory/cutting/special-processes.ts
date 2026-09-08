@@ -9,13 +9,14 @@ import { renderMaterialIdentityBlock } from './material-identity.ts'
 import { getCanonicalCuttingMeta } from './meta.ts'
 import { renderCompactKpiCard, renderCompactKpiGroup } from './layout.helpers.ts'
 import {
-  buildBindingProcessOrders as buildProjectedBindingProcessOrders,
+  buildBindingProcessOrders,
   getBindingDetailAvailableProcessQty,
   getBindingProcessOrderById,
   type BindingProcessActionCode,
   type BindingStripRequirementSummary,
 } from './binding-strip-orders.ts'
 import { executeBindingProcessActionWithWarehouse } from '../../../data/fcs/binding-process-warehouse-linkage-service.ts'
+import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import type {
   BindingProcessDifferenceStatus,
   BindingProcessHandoverStatus,
@@ -25,7 +26,7 @@ import type {
   BindingProcessStatus,
   BindingStripCuttingRecord,
   BindingStripWorkOrderDetail,
-} from './special-processes-model.ts'
+} from './binding-strip-order-types.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const BINDING_ACTION_MODAL_ID = 'cutting-binding-action-modal'
@@ -83,10 +84,6 @@ const sufficiencyToneMap: Record<BindingProcessOrder['sufficiencyStatus'], strin
   充足: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   捆条不足: 'border-rose-200 bg-rose-50 text-rose-700',
   有差异: 'border-amber-200 bg-amber-50 text-amber-700',
-}
-
-export function buildBindingProcessOrders(): BindingProcessOrder[] {
-  return buildProjectedBindingProcessOrders()
 }
 
 function formatCount(value: number): string {
@@ -696,6 +693,8 @@ export function renderCraftCuttingSpecialProcessDetailPage(bindingOrderId?: stri
           ${renderDetailMetric('货架位置', row.materialShelfLocation || '待接收后回写')}
         </div>`,
       )}
+
+      ${renderProcessOrderTaskRelations(row.bindingOrderId)}
 
       ${renderDetailSection(
         '物料与纸样',

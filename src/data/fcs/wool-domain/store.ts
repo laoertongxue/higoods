@@ -1,4 +1,5 @@
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
+import { installPostFinishingWoolSourceResolver } from '../post-finishing-return-source-fact-bridge.ts'
 import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
 import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
@@ -893,3 +894,6 @@ export function commitWoolStore(
   memoryStore = draft
   return cloneStore(draft)
 }
+
+const disposePostFinishingWoolSourceResolver = installPostFinishingWoolSourceResolver(readWoolStore)
+import.meta.hot?.dispose(disposePostFinishingWoolSourceResolver)

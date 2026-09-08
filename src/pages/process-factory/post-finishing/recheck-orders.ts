@@ -82,12 +82,8 @@ function totalExpected(record: RecheckRecord): number {
   return record.lines.reduce((sum, line) => sum + line.expectedQty, 0)
 }
 
-function totalPassed(record: RecheckRecord): number {
-  return record.lines.reduce((sum, line) => sum + (line.passedQty || 0), 0)
-}
-
-function totalDefect(record: RecheckRecord): number {
-  return record.lines.reduce((sum, line) => sum + (line.defectQty || 0), 0)
+function totalHandover(record: RecheckRecord): number {
+  return record.lines.reduce((sum, line) => sum + (line.handoverQty || 0), 0)
 }
 
 const columns: StandardListColumn<RecheckOrderRow>[] = [
@@ -99,9 +95,8 @@ const columns: StandardListColumn<RecheckOrderRow>[] = [
   { key: 'factory', title: '加工工厂', width: 130, required: true, render: (row) => escapeHtml(row.delivery?.managedPostFactoryName || '—') },
   { key: 'style', title: '款式名称', width: 180, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.record.lines[0]?.sku.spuCode || '—')}</div><div class="mt-1 text-xs">${escapeHtml(row.record.lines[0]?.sku.spuName || '—')}</div>` },
   { key: 'sku', title: 'SKU 明细', width: 210, required: true, render: renderSkuSummary },
-  { key: 'expected', title: '复检数量', width: 90, required: true, align: 'center', render: (row) => `${totalExpected(row.record)} 件` },
-  { key: 'passed', title: '合格数量', width: 90, required: true, align: 'center', render: (row) => `${totalPassed(row.record)} 件` },
-  { key: 'defect', title: '不合格数量', width: 100, required: true, align: 'center', render: (row) => `${totalDefect(row.record)} 件` },
+  { key: 'expected', title: '应交数量', width: 90, required: true, align: 'center', render: (row) => `${totalExpected(row.record)} 件` },
+  { key: 'handover', title: '交出数量', width: 90, required: true, align: 'center', render: (row) => `${totalHandover(row.record)} 件` },
   { key: 'rechecker', title: '复检员', width: 100, required: true, render: (row) => escapeHtml(row.record.claimedBy?.actorName || '待领取') },
   { key: 'status', title: '复检状态', width: 100, required: true, render: (row) => renderPostStatusBadge(row.record.status) },
   { key: 'time', title: '复检时间', width: 140, required: true, render: (row) => escapeHtml(row.record.completedAt ? new Date(row.record.completedAt).toLocaleString('zh-CN') : row.record.claimedAt ? new Date(row.record.claimedAt).toLocaleString('zh-CN') : '—') },
@@ -121,8 +116,7 @@ function renderDetail(record: RecheckRecord): string {
   const rows = record.lines.map((line) => `<tr data-recheck-result-line="${escapeHtml(line.sku.skuId)}" data-expected-qty="${line.expectedQty}">
     <td class="px-3 py-3"><div class="flex items-center gap-3">${image(line)}<div><div class="font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(line.sku.spuCode)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div></div></td>
     <td class="px-3 py-3">${line.expectedQty} 件</td>
-    <td class="px-3 py-3">${editable ? `<input type="number" min="0" step="1" value="${line.passedQty ?? line.expectedQty}" class="h-9 w-24 rounded-md border px-2 text-right" data-recheck-result-field="passedQty"/>` : `${line.passedQty ?? '—'}${line.passedQty === undefined ? '' : ' 件'}`}</td>
-    <td class="px-3 py-3">${editable ? `<input type="number" min="0" step="1" value="${line.defectQty ?? 0}" class="h-9 w-24 rounded-md border px-2 text-right" data-recheck-result-field="defectQty"/>` : `${line.defectQty ?? '—'}${line.defectQty === undefined ? '' : ' 件'}`}</td>
+    <td class="px-3 py-3">${editable ? `<input type="number" min="0" step="1" value="${line.handoverQty ?? line.expectedQty}" class="h-9 w-24 rounded-md border px-2 text-right" data-recheck-result-field="handoverQty"/>` : `${line.handoverQty ?? '—'}${line.handoverQty === undefined ? '' : ' 件'}`}</td>
     <td class="px-3 py-3">${editable ? `<select class="h-9 min-w-28 rounded-md border px-2 text-sm" data-recheck-result-field="barcodeCorrect"><option value="">请选择</option><option value="yes" ${line.barcodeStatus === '正确' ? 'selected' : ''}>是，条码正确</option><option value="no" ${['错误待重贴','已重贴待复扫'].includes(line.barcodeStatus) ? 'selected' : ''}>否，条码错误</option></select>${line.barcodeStatus !== '待扫描' ? `<div class="mt-2">${renderPostStatusBadge(line.barcodeStatus)}</div>` : ''}` : renderPostStatusBadge(line.barcodeStatus)}${line.barcodeStatus === '错误待重贴' ? `<div class="mt-2 flex flex-col gap-1"><a data-nav="/fcs/craft/post-finishing/print?type=SKU_LABEL&id=${encodeURIComponent(record.recheckOrderId)}&skuId=${encodeURIComponent(line.sku.skuId)}" class="text-xs text-blue-700 underline">打印重贴条码</a>${editable ? `<button type="button" class="text-left text-xs text-amber-700 underline" data-post-finishing-recheck-action="relabeled" data-recheck-id="${escapeHtml(record.recheckOrderId)}" data-sku-id="${escapeHtml(line.sku.skuId)}">已重新贴码</button>` : ''}</div>` : ''}</td>
     <td class="px-3 py-3 text-xs">${line.barcodeEvents.map((event) => `${escapeHtml(event.action)} · ${escapeHtml(event.operator.actorName)} · ${escapeHtml(new Date(event.operatedAt).toLocaleString('zh-CN'))}`).join('<br/>') || '尚未确认'}</td>
   </tr>`).join('')
@@ -130,12 +124,12 @@ function renderDetail(record: RecheckRecord): string {
     ? `${record.recheckAuthorizedBy.authorizerName} / ${record.recheckAuthorizationId}`
     : '无差异'
   const expectedTotal = totalExpected(record)
-  const actualTotal = record.lines.reduce((sum, line) => sum + (line.passedQty ?? line.expectedQty) + (line.defectQty ?? 0), 0)
+  const actualTotal = record.lines.reduce((sum, line) => sum + (line.handoverQty ?? line.expectedQty), 0)
   return `<div class="space-y-4" data-recheck-web-form="${escapeHtml(record.recheckOrderId)}" data-skip-page-rerender="true">
     <section class="rounded-xl border bg-card p-4"><div class="flex items-start justify-between gap-4"><div><h2 class="font-mono text-lg font-semibold">${escapeHtml(record.recheckOrderNo)}</h2><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 根送货单 ${escapeHtml(record.deliveryOrderNo)} · ${escapeHtml(record.sourceType)}${record.postTaskNo ? ` ${escapeHtml(record.postTaskNo)}` : ''}</p></div>${renderPostStatusBadge(record.status)}</div><div class="mt-3 grid gap-3 text-sm md:grid-cols-5"><div><span class="text-xs text-muted-foreground">复检员</span><div>${escapeHtml(record.claimedBy?.actorName || '未领取')}</div></div><div><span class="text-xs text-muted-foreground">领取时间</span><div>${escapeHtml(record.claimedAt ? new Date(record.claimedAt).toLocaleString('zh-CN') : '—')}</div></div><div><span class="text-xs text-muted-foreground">数量授权人</span><div>${escapeHtml(authorizationText)}</div></div><div><span class="text-xs text-muted-foreground">后道出货单</span><div>${escapeHtml(record.outboundOrderNo || '待生成')}</div></div><div><span class="text-xs text-muted-foreground">待交出仓</span><div>${escapeHtml(waitHandover ? `${waitHandover.status} / ${waitHandover.lines.reduce((sum, line) => sum + line.availableQty, 0)} 件` : '复检完成后入仓')}</div></div></div></section>
     ${record.claimedBy && !isOwner && record.status !== '复检完成' ? `<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">该复检单已由 ${escapeHtml(record.claimedBy.actorName)} 复检中，当前账号只能查看。</div>` : ''}
-    <section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">SKU 数量与条码核对</h3><p class="mt-1 text-xs text-muted-foreground">复检合格 + 复检瑕疵应等于交接数量；任一 SKU 存在数量差异均需上级授权。条码错误必须重新贴码并复核为“是”。</p><div class="mt-3 overflow-x-auto"><table class="min-w-[1040px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU / 产品</th><th class="px-3 py-2">交接数量</th><th class="px-3 py-2">复检合格</th><th class="px-3 py-2">复检瑕疵</th><th class="px-3 py-2">SKU 条码是否正确</th><th class="px-3 py-2">条码操作日志</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div>${editable ? `<div class="mt-4 rounded-lg px-3 py-2 text-sm ${actualTotal === expectedTotal ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}" data-recheck-live-summary>交接 ${expectedTotal} 件 · 当前录入 ${actualTotal} 件 · 差异 ${actualTotal - expectedTotal} 件</div><div class="${actualTotal === expectedTotal ? 'hidden ' : ''}mt-3 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:grid-cols-2" data-recheck-authorization><label class="text-sm text-amber-900">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-recheck-difference-reason /></label><label class="text-sm text-amber-900">上级 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-recheck-authorization-code></textarea></label></div><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white" data-post-finishing-recheck-action="complete" data-recheck-id="${escapeHtml(record.recheckOrderId)}">提交复检并生成后道出货单</button>` : ''}</section>
-    ${record.outboundOrderNo ? `<div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">复检已完成，唯一后道出货单：<a data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(record.outboundOrderId || '')}" class="font-mono font-semibold underline">${escapeHtml(record.outboundOrderNo)}</a></div>` : ''}
+    <section class="rounded-xl border bg-card p-4"><h3 class="font-semibold">SKU 数量与条码核对</h3><p class="mt-1 text-xs text-muted-foreground">这里只清点实际交出数量并核对条码，不再次判定合格、瑕疵或返厂。任一 SKU 存在数量差异均需上级授权；条码错误必须重新贴码并复核为“是”。</p><div class="mt-3 overflow-x-auto"><table class="min-w-[900px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU / 产品</th><th class="px-3 py-2">应交数量</th><th class="px-3 py-2">实际交出数量</th><th class="px-3 py-2">SKU 条码是否正确</th><th class="px-3 py-2">条码操作日志</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div>${editable ? `<div class="mt-4 rounded-lg px-3 py-2 text-sm ${actualTotal === expectedTotal ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}" data-recheck-live-summary>应交 ${expectedTotal} 件 · 当前交出 ${actualTotal} 件 · 差异 ${actualTotal - expectedTotal} 件</div><div class="${actualTotal === expectedTotal ? 'hidden ' : ''}mt-3 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:grid-cols-2" data-recheck-authorization><label class="text-sm text-amber-900">差异原因<input class="mt-1 h-10 w-full rounded-md border bg-white px-3" data-recheck-difference-reason /></label><label class="text-sm text-amber-900">上级 30 秒动态授权码<textarea class="mt-1 min-h-20 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs" data-recheck-authorization-code></textarea></label></div><button type="button" class="mt-4 w-full rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white" data-post-finishing-recheck-action="complete" data-recheck-id="${escapeHtml(record.recheckOrderId)}">确认数量条码并生成后道出货单</button>` : ''}</section>
+    ${record.outboundOrderNo ? `<div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">处理后数量与条码已复核，唯一后道出货单：<a data-nav="/fcs/craft/post-finishing/outbound-orders/${encodeURIComponent(record.outboundOrderId || '')}" class="font-mono font-semibold underline">${escapeHtml(record.outboundOrderNo)}</a></div>` : ''}
   </div>`
 }
 
@@ -192,11 +186,10 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
     const lines = Array.from(form.querySelectorAll<HTMLElement>('[data-recheck-result-line]'))
     const expected = lines.reduce((sum, line) => sum + Number(line.dataset.expectedQty || 0), 0)
     const actual = lines.reduce((sum, line) => sum
-      + Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="passedQty"]')?.value || 0)
-      + Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="defectQty"]')?.value || 0), 0)
+      + Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="handoverQty"]')?.value || 0), 0)
     const summary = form.querySelector<HTMLElement>('[data-recheck-live-summary]')
     if (summary) {
-      summary.textContent = `交接 ${expected} 件 · 当前录入 ${actual} 件 · 差异 ${actual - expected} 件`
+      summary.textContent = `应交 ${expected} 件 · 当前交出 ${actual} 件 · 差异 ${actual - expected} 件`
       summary.className = `mt-4 rounded-lg px-3 py-2 text-sm ${actual === expected ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`
       form.querySelector<HTMLElement>('[data-recheck-authorization]')?.classList.toggle('hidden', actual === expected)
     }
@@ -268,8 +261,7 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
       const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-recheck-result-line]'))
       const results = lines.map((line) => ({
         skuId: line.dataset.recheckResultLine || '',
-        passedQty: Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="passedQty"]')?.value || 0),
-        defectQty: Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="defectQty"]')?.value || 0),
+        handoverQty: Number(line.querySelector<HTMLInputElement>('[data-recheck-result-field="handoverQty"]')?.value || 0),
         barcodeCorrect: line.querySelector<HTMLSelectElement>('[data-recheck-result-field="barcodeCorrect"]')?.value || '',
         expectedQty: Number(line.dataset.expectedQty || 0),
       }))
@@ -291,17 +283,17 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
           scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: result.skuId, scannedBarcode: currentLine.sku.barcode, actor })
         }
       }
-      const hasDifference = results.some((line) => line.passedQty + line.defectQty !== line.expectedQty)
+      const hasDifference = results.some((line) => line.handoverQty !== line.expectedQty)
       const completed = completePostFinishingRecheckOrderFullFlow({
         recheckOrderId: record.recheckOrderId,
         actor,
-        results: results.map(({ skuId, passedQty, defectQty }) => ({ skuId, passedQty, defectQty })),
+        results: results.map(({ skuId, handoverQty }) => ({ skuId, handoverQty })),
         authorization: hasDifference ? {
           scanValue: root.querySelector<HTMLTextAreaElement>('[data-recheck-authorization-code]')?.value.trim() || '',
           differenceReason: root.querySelector<HTMLInputElement>('[data-recheck-difference-reason]')?.value.trim() || '',
         } : undefined,
       })
-      message = `复检完成，已自动生成后道出货单 ${completed.outboundOrderNo || ''}。`
+      message = `数量与条码复核完成，已自动生成后道出货单 ${completed.outboundOrderNo || ''}。`
       messageTone = 'success'
       appStore.navigate(`/fcs/craft/post-finishing/recheck-orders?id=${encodeURIComponent(completed.recheckOrderId)}&refresh=${Date.now()}`)
       return true

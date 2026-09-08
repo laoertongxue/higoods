@@ -28,14 +28,8 @@ import {
   renderPdaLoginRedirect,
 } from './pda-runtime'
 import {
-  FULL_CAPABILITY_FACTORY_NAME,
-  isPostFinishingFactoryId,
-  listPostFinishingSkuOptions,
-} from '../data/fcs/post-finishing-domain.ts'
-import {
-  listPostFinishingOutboundOrders,
-  type PostFinishingOutboundOrder,
-} from '../data/fcs/post-finishing-outbound-orders.ts'
+  DEDICATED_POST_FACTORY_ID,
+} from '../data/fcs/factory-mock-data.ts'
 import { activatePdaSewingSelfReturnMode } from '../data/fcs/pda-sewing-self-return-mode.ts'
 import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
 import {
@@ -65,10 +59,17 @@ import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { processTasks } from '../data/fcs/process-tasks.ts'
 import {
   getPostFinishingMaterialTransferOrder,
+  listPostFinishingFullFlowOutboundOrders,
+  listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingMaterialTransferOrders,
   receivePostFinishingMaterialTransfer,
   type PostFinishingMaterialTransferOrder,
+  type PostFinishingOutboundOrder,
 } from '../data/fcs/post-finishing-full-flow.ts'
+
+function isPostFinishingFactoryId(factoryId: string): boolean {
+  return factoryId === DEDICATED_POST_FACTORY_ID || factoryId === 'ID-F002'
+}
 
 type HandoverTab = 'pickup' | 'handout' | 'shipped'
 
@@ -207,17 +208,7 @@ function isCurrentPdaAdmin(): boolean {
   return getPdaRuntimeContext()?.roleId === 'ROLE_ADMIN'
 }
 
-function isSewingSelfReturnPickupHead(head: PdaHandoverHead): boolean {
-  return isPostFinishingPickupHead(head) && head.pickupSourceType === 'SEWING_SELF_RETURN'
-}
-
-function getPickupSourceBadge(head: PdaHandoverHead): { label: string; className: string } {
-  if (isSewingSelfReturnPickupHead(head)) {
-    return {
-      label: '车缝自助回货',
-      className: 'border-blue-200 bg-blue-50 text-blue-700',
-    }
-  }
+function getPickupSourceBadge(): { label: string; className: string } {
   return {
     label: '正常接收',
     className: 'border-slate-200 bg-slate-50 text-slate-700',
@@ -414,19 +405,16 @@ function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): strin
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '接收单' : '交出单'
-  const selfReturnPickup = head.headType === 'PICKUP' && isSewingSelfReturnPickupHead(head)
-  const actionLabel = head.headType === 'PICKUP' ? (selfReturnPickup ? '确认回货' : '查看来料单') : '查看交出单'
+  const actionLabel = head.headType === 'PICKUP' ? '查看来料单' : '查看交出单'
 
   if (head.headType === 'PICKUP') {
     const partyDisplay = getPickupPartyDisplay(head)
-    const sourceBadge = getPickupSourceBadge(head)
+    const sourceBadge = getPickupSourceBadge()
     const pickupHint =
       head.objectionCount > 0
         ? `有 ${head.objectionCount} 条记录在处理差异`
         : head.pendingWritebackCount > 0
-          ? selfReturnPickup
-            ? `还有 ${head.pendingWritebackCount} 条车缝自助回货待确认`
-            : `还有 ${head.pendingWritebackCount} 条记录待处理`
+          ? `还有 ${head.pendingWritebackCount} 条记录待处理`
           : '当前等待完成接收单'
 
     return `
@@ -449,7 +437,6 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
             <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
             ${renderHandoverSourceField(head)}
             <div class="col-span-2"><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
-            ${selfReturnPickup ? `<div class="col-span-2"><span class="text-muted-foreground">自助回货单：</span>${escapeHtml(head.sourceDocNo || '—')}</div>` : ''}
           </div>
 
           <div class="flex items-center gap-2 py-0.5 text-xs">
@@ -576,6 +563,12 @@ function renderCompactOpenHeadCard(head: PdaHandoverHead): string {
   const actionLabel = isPickup
     ? canComplete ? '完成接收单' : '确认接收'
     : canComplete ? '完成交出单' : head.processBusinessCode === 'WOOL' ? '查看交出' : '发起交出'
+  const sourceBusinessLine = head.sourceBusinessType
+    ? `<div class="mt-1 truncate text-[11px] text-blue-700">${escapeHtml(getHandoverSourceTypeLabel(head))}${head.sourceDocNo ? ` · ${escapeHtml(head.sourceDocNo)}` : ''}</div>`
+    : ''
+  const sourceMaterialLine = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+    ? `<div class="mt-1 truncate text-[11px] text-muted-foreground">${escapeHtml(head.materialName || '未填写物料名称')} / ${escapeHtml(head.materialCode || '未填写物料编码')}</div>`
+    : ''
 
   return `
     <article
@@ -588,6 +581,8 @@ function renderCompactOpenHeadCard(head: PdaHandoverHead): string {
         <div class="min-w-0">
           <div class="truncate text-sm font-semibold">${escapeHtml(head.processName)}</div>
           <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(source.value)}</div>
+          ${sourceBusinessLine}
+          ${sourceMaterialLine}
         </div>
         <span class="shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
       </div>
@@ -701,39 +696,37 @@ function renderPostFinishingMaterialTransferDetail(order: PostFinishingMaterialT
 }
 
 function renderPostFinishingOutboundLine(order: PostFinishingOutboundOrder, line: PostFinishingOutboundOrder['lines'][number]): string {
-  const imageTitle = `${line.spuCode} / ${line.skuCode}`
-  const imageUrl = line.skuImageUrl
-    || listPostFinishingSkuOptions(line.spuCode).find((item) => item.skuCode === line.skuCode)?.imageUrl
-    || ''
-  return `<div class="flex gap-2.5 border-t px-3 py-2.5" data-pda-post-outbound-line="${escapeHtml(line.outboundLineId)}">
+  const imageTitle = `${line.sku.spuCode} / ${line.sku.skuCode}`
+  const imageUrl = line.sku.imageUrl || ''
+  return `<div class="flex gap-2.5 border-t px-3 py-2.5" data-pda-post-outbound-line="${escapeHtml(line.sku.skuId)}">
     ${imageUrl
-      ? `<button type="button" class="flex h-14 w-14 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${line.spuName} ${line.colorName} ${line.sizeName}`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+      ? `<button type="button" class="flex h-14 w-14 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border bg-muted/30" data-pda-image-preview-url="${escapeHtml(imageUrl)}" data-pda-image-preview-title="${escapeHtml(imageTitle)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(imageTitle)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
       : '<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border bg-muted/30 px-1 text-center text-[10px] text-amber-700">暂无款式图</div>'}
     <div class="min-w-0 flex-1 text-xs">
-      <div class="truncate font-semibold">${escapeHtml(line.spuCode)} · ${escapeHtml(line.spuName)}</div>
-      <div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.skuCode)}</div>
-      <div class="mt-1 text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div>
+      <div class="truncate font-semibold">${escapeHtml(line.sku.spuCode)} · ${escapeHtml(line.sku.spuName)}</div>
+      <div class="mt-1 break-all font-mono text-[11px]">${escapeHtml(line.sku.skuCode)}</div>
+      <div class="mt-1 text-muted-foreground">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
     </div>
-    <div class="shrink-0 text-right text-xs"><div class="font-semibold">${line.plannedQty} ${escapeHtml(line.qtyUnit)}</div><div class="mt-1 text-[10px] text-muted-foreground">交出数量</div></div>
+    <div class="shrink-0 text-right text-xs"><div class="font-semibold">${line.outboundQty} ${escapeHtml(line.sku.qtyUnit)}</div><div class="mt-1 text-[10px] text-muted-foreground">交出数量</div></div>
   </div>`
 }
 
 function renderPostFinishingOutboundCard(order: PostFinishingOutboundOrder): string {
-  const statusClass = order.status === '已确认'
+  const statusClass = order.status === '已接收入库'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-amber-200 bg-amber-50 text-amber-800'
   return `<article class="overflow-hidden rounded-xl border bg-card shadow-sm" data-pda-post-outbound-card="${escapeHtml(order.outboundOrderNo)}">
     <div class="p-3">
       <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(order.outboundOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.recheckOrderNo)}</div></div>
+        <div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(order.outboundOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.recheckOrderNo || order.qcTaskNo)}</div></div>
         <span class="shrink-0 rounded-full border px-2 py-1 text-[10px] ${statusClass}">${escapeHtml(order.status)}</span>
       </div>
       <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
         <div><div class="text-[10px] text-muted-foreground">SKU</div><div class="mt-1 font-semibold">${order.lines.length} 个</div></div>
-        <div><div class="text-[10px] text-muted-foreground">已交出</div><div class="mt-1 font-semibold">${order.outboundQty} ${escapeHtml(order.qtyUnit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">成衣仓确认</div><div class="mt-1 font-semibold">${order.inboundQty} ${escapeHtml(order.qtyUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">已交出</div><div class="mt-1 font-semibold">${order.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div>
+        <div><div class="text-[10px] text-muted-foreground">成衣仓确认</div><div class="mt-1 font-semibold">${order.lines.reduce((sum, line) => sum + (line.receivedQty || 0), 0)} 件</div></div>
       </div>
-      <div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(order.createdAt)} · ${escapeHtml(order.operatorName)}</div>
+      <div class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(order.createdAt)} · ${escapeHtml(order.receivedBy?.actorName || '后道交出')}</div>
     </div>
     <details data-pda-post-outbound-details>
       <summary class="cursor-pointer list-none border-t px-3 py-2.5 text-xs font-medium text-blue-700"><span class="flex items-center justify-between"><span>查看出货 SKU 明细</span><i data-lucide="chevron-down" class="h-4 w-4"></i></span></summary>
@@ -992,11 +985,11 @@ export function renderPdaHandoverPage(): string {
   const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
-  if (!isPostFinishingFactory) {
+  if (!isPostFinishingFactory && hasSpecialCraftOrders) {
     scheduleSpecialCraftHandoverSeed()
   }
   const pickupHeads = isPostFinishingFactory
-    ? getPdaPostFinishingPickupHeads().filter((head) => head.pickupSourceType !== 'SEWING_SELF_RETURN')
+    ? getPdaPostFinishingPickupHeads()
     : getPdaPickupHeads(selectedFactoryId)
   const visiblePickupHeads = pickupHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
   const factoryWoolHandoutHeads = getPdaHandoutHeads(selectedFactoryId)
@@ -1006,9 +999,9 @@ export function renderPdaHandoverPage(): string {
     : getPdaHandoutHeads(selectedFactoryId)
   const visibleHandoutHeads = handoutHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
   const shippedOrders = isPostFinishingFactory
-    ? listPostFinishingOutboundOrders().filter((order) => (
-        order.managedPostFactoryName === FULL_CAPABILITY_FACTORY_NAME
-        || isPostFinishingFactoryId(order.managedPostFactoryId)
+    ? listPostFinishingFullFlowOutboundOrders().filter((order) => (
+        order.status === '已接收入库'
+        || listPostFinishingWaitHandoverWarehouseRecords().some((record) => record.outboundOrderId === order.outboundOrderId && record.status === '已交出')
       ))
     : []
   const tabConfig = getTabConfig(isPostFinishingFactory)

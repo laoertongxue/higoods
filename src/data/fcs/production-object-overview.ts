@@ -45,7 +45,7 @@ import {
   listPostFinishingQcOrderEntities,
   listPostFinishingRecheckOrderEntities,
   listPostFinishingTasks,
-} from './post-finishing-domain.ts'
+} from './post-finishing-current-read-model.ts'
 
 export type ProductionObjectType =
   | 'PRODUCTION_ORDER'

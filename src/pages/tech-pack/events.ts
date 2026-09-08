@@ -11,6 +11,13 @@ import {
   type TechPackSpecialCraftTargetObject,
 } from '../../data/fcs/tech-packs.ts'
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
+import {
+  addProcessRouteEdge,
+  materializeLegacyProcessRoutePredecessors,
+  projectProcessRouteLayoutFromPredecessors,
+  removeProcessRouteEdge,
+  validateProcessRouteGraph,
+} from '../../data/tech-pack-process-route.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
 import { renderBomFormDialog } from './bom-domain.ts'
@@ -96,6 +103,7 @@ import {
   normalizePatternBindingStrips,
   normalizeGarmentBomItem,
   normalizeTechniqueRoutes,
+  resolveTechniqueRouteObjectDefaults,
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
   findConfiguredPieceInstancesRemoved,
@@ -235,10 +243,6 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'edit-technique': 'PROCESS',
   'save-technique': 'PROCESS',
   'delete-technique': 'PROCESS',
-  'move-technique-route-up': 'PROCESS',
-  'move-technique-route-down': 'PROCESS',
-  'make-techniques-parallel': 'PROCESS',
-  'remove-technique-from-parallel': 'PROCESS',
   'confirm-process-route': 'PROCESS',
   'keep-bom-prep-process': 'PROCESS',
   'remove-bom-prep-process': 'PROCESS',
@@ -374,10 +378,6 @@ function updateTechnique(techId: string, updater: (item: TechniqueItem) => Techn
   syncTechPackToStore()
 }
 
-type TechniqueRouteGroup = {
-  items: TechniqueItem[]
-}
-
 export type ProcessRouteDraftState = {
   techniques: TechniqueItem[]
   processRouteStatus: 'UNCONFIRMED' | 'CONFIRMED'
@@ -389,48 +389,7 @@ export type ProcessRouteDraftState = {
 
 export type ProcessRouteDraftAction =
   | { type: 'confirm' }
-  | { type: 'move-up' | 'move-down'; techniqueId: string }
-  | { type: 'make-parallel-previous' | 'make-parallel-next'; techniqueId: string }
-  | { type: 'remove-from-parallel'; techniqueId: string }
-
-function getTechniqueRouteGroupsFrom(techniques: TechniqueItem[]): TechniqueRouteGroup[] {
-  const normalized = normalizeTechniqueRoutes(techniques)
-  const groups = new Map<number, TechniqueItem[]>()
-  normalized.forEach((item) => {
-    groups.set(item.routeStepNo, [...(groups.get(item.routeStepNo) ?? []), item])
-  })
-  return Array.from(groups.entries())
-    .sort(([left], [right]) => left - right)
-    .map(([, items]) => ({
-      items: items.slice().sort((left, right) => left.routeLaneNo - right.routeLaneNo),
-    }))
-}
-
-function flattenTechniqueRouteGroups(
-  groups: TechniqueRouteGroup[],
-  operatorName = currentUser.name,
-  updatedAt = toTimestamp(),
-): TechniqueItem[] {
-  return groups.flatMap((group, groupIndex) => {
-    const isParallel = group.items.length > 1
-    const groupId = isParallel ? `route-step-${groupIndex + 1}` : undefined
-    const groupName = isParallel ? `第 ${groupIndex + 1} 步并行组` : undefined
-    return group.items.map((item, laneIndex) => ({
-      ...item,
-      routeStepNo: groupIndex + 1,
-      routeLaneNo: laneIndex + 1,
-      routeParallelGroupId: groupId,
-      routeParallelGroupName: groupName,
-      routeSourceKind: 'MANUAL',
-      routeUpdatedBy: operatorName,
-      routeUpdatedAt: updatedAt,
-    }))
-  })
-}
-
-function findTechniqueRouteGroupIndex(groups: TechniqueRouteGroup[], techId: string): number {
-  return groups.findIndex((group) => group.items.some((item) => item.id === techId))
-}
+  | { type: 'add-edge' | 'remove-edge'; sourceEntryId: string; targetEntryId: string }
 
 function getProcessRouteDraftFromState(): ProcessRouteDraftState {
   return {
@@ -455,6 +414,7 @@ function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
       item.routeStepNo,
       item.routeLaneNo,
       item.routeParallelGroupId || '',
+      (item.predecessorEntryIds ?? []).join(','),
     ].join('|')).join('||'),
   ].join('::')
 }
@@ -470,6 +430,45 @@ function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
   syncTechPackToStore()
 }
 
+let processRouteHistoryScope = ''
+let processRouteUndoStack: ProcessRouteDraftState[] = []
+let processRouteRedoStack: ProcessRouteDraftState[] = []
+
+function cloneProcessRouteDraft(draft: ProcessRouteDraftState): ProcessRouteDraftState {
+  return structuredClone(draft)
+}
+
+function ensureProcessRouteHistoryScope(): void {
+  const scope = state.currentTechnicalVersionId || state.currentSpuCode || 'UNSCOPED'
+  if (scope === processRouteHistoryScope) return
+  processRouteHistoryScope = scope
+  processRouteUndoStack = []
+  processRouteRedoStack = []
+}
+
+function pushProcessRouteUndo(draft: ProcessRouteDraftState): void {
+  ensureProcessRouteHistoryScope()
+  processRouteUndoStack.push(cloneProcessRouteDraft(draft))
+  if (processRouteUndoStack.length > 50) processRouteUndoStack.shift()
+  processRouteRedoStack = []
+}
+
+function undoProcessRouteDraft(): void {
+  ensureProcessRouteHistoryScope()
+  const previous = processRouteUndoStack.pop()
+  if (!previous) return
+  processRouteRedoStack.push(cloneProcessRouteDraft(getProcessRouteDraftFromState()))
+  saveProcessRouteDraft(previous)
+}
+
+function redoProcessRouteDraft(): void {
+  ensureProcessRouteHistoryScope()
+  const next = processRouteRedoStack.pop()
+  if (!next) return
+  processRouteUndoStack.push(cloneProcessRouteDraft(getProcessRouteDraftFromState()))
+  saveProcessRouteDraft(next)
+}
+
 function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
   const currentDraft = getProcessRouteDraftFromState()
   const nextDraft = applyProcessRouteDraftAction(
@@ -480,37 +479,8 @@ function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
     (message) => window.alert(message),
   )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
+  pushProcessRouteUndo(currentDraft)
   saveProcessRouteDraft(nextDraft)
-}
-
-function buildUnconfirmedRouteDraft(
-  input: ProcessRouteDraftState,
-  groups: TechniqueRouteGroup[],
-  operatorName: string,
-  updatedAt: string,
-  onInvalidDyePrintOrder: (message: string) => void,
-): ProcessRouteDraftState {
-  const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
-  const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
-  const dye = techniques.find((item) => item.processCode === 'DYE')
-  const dyeBomItemIds = new Set(dye?.linkedBomItemIds ?? [])
-  const sharesBomItem = (waterSoluble?.linkedBomItemIds ?? []).some((id) => dyeBomItemIds.has(id))
-  if (waterSoluble && dye && sharesBomItem && waterSoluble.routeStepNo >= dye.routeStepNo) {
-    return normalizeRouteDraft(input)
-  }
-  if (hasInvalidDyePrintOrder(techniques)) {
-    onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
-    return normalizeRouteDraft(input)
-  }
-  return {
-    ...input,
-    techniques,
-    processRouteStatus: 'UNCONFIRMED',
-    processRouteConfirmedBy: '',
-    processRouteConfirmedAt: '',
-    processRouteUpdatedBy: operatorName,
-    processRouteUpdatedAt: updatedAt,
-  }
 }
 
 function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftState {
@@ -520,36 +490,24 @@ function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftSt
   }
 }
 
-const INVALID_DYE_PRINT_ORDER_MESSAGE = '同一物料必须先染色、后印花，请调整工艺顺序'
-
-export function hasInvalidDyePrintOrder(techniques: TechniqueItem[]): boolean {
-  const dyeEntries = techniques.filter((item) => item.processCode === 'DYE')
-  const printEntries = techniques.filter((item) => item.processCode === 'PRINT')
-  return dyeEntries.some((dye) => {
-    const dyeBomIds = new Set(dye.linkedBomItemIds ?? [])
-    return printEntries.some((print) =>
-      (print.linkedBomItemIds ?? []).some((id) => dyeBomIds.has(id))
-      && print.routeStepNo <= dye.routeStepNo,
-    )
-  })
-}
-
 export function applyProcessRouteDraftAction(
   input: ProcessRouteDraftState,
   action: ProcessRouteDraftAction,
   operatorName = currentUser.name,
   operatedAt = toTimestamp(),
-  onInvalidDyePrintOrder: (message: string) => void = () => undefined,
+  onInvalidRoute: (message: string) => void = () => undefined,
 ): ProcessRouteDraftState {
   if (action.type === 'confirm') {
     if (input.techniques.length === 0) return normalizeRouteDraft(input)
-    if (hasInvalidDyePrintOrder(input.techniques)) {
-      onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
+    const materialized = materializeLegacyProcessRoutePredecessors(input.techniques)
+    const issues = validateProcessRouteGraph(materialized, { requireComplete: true })
+    if (issues.length > 0) {
+      onInvalidRoute(issues[0].message)
       return normalizeRouteDraft(input)
     }
     return {
       ...input,
-      techniques: normalizeTechniqueRoutes(input.techniques).map((item) => ({
+      techniques: projectProcessRouteLayoutFromPredecessors(materialized).map((item) => ({
         ...item,
         routeUpdatedBy: item.routeUpdatedBy || operatorName,
         routeUpdatedAt: item.routeUpdatedAt || operatedAt,
@@ -562,63 +520,36 @@ export function applyProcessRouteDraftAction(
     }
   }
 
-  const groups = getTechniqueRouteGroupsFrom(input.techniques)
-  const index = findTechniqueRouteGroupIndex(groups, action.techniqueId)
-  if (index < 0) return normalizeRouteDraft(input)
-
-  if (action.type === 'move-up' || action.type === 'move-down') {
-    const targetIndex = action.type === 'move-up' ? index - 1 : index + 1
-    if (targetIndex < 0 || targetIndex >= groups.length) return normalizeRouteDraft(input)
-    const nextGroups = [...groups]
-    ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
+  if (action.type === 'add-edge') {
+    const result = addProcessRouteEdge(input.techniques, action.sourceEntryId, action.targetEntryId)
+    if (result.issues.length > 0) {
+      onInvalidRoute(result.issues[0].message)
+      return normalizeRouteDraft(input)
+    }
+    return {
+      ...input,
+      techniques: result.entries,
+      processRouteStatus: 'UNCONFIRMED',
+      processRouteConfirmedBy: '',
+      processRouteConfirmedAt: '',
+      processRouteUpdatedBy: operatorName,
+      processRouteUpdatedAt: operatedAt,
+    }
   }
 
-  if (action.type === 'make-parallel-previous') {
-    if (index === 0) return normalizeRouteDraft(input)
-    const nextGroups = [...groups]
-    nextGroups.splice(index - 1, 2, { items: [...groups[index - 1].items, ...groups[index].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
-  }
-
-  if (action.type === 'make-parallel-next') {
-    if (index >= groups.length - 1) return normalizeRouteDraft(input)
-    const nextGroups = [...groups]
-    nextGroups.splice(index, 2, { items: [...groups[index].items, ...groups[index + 1].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
-  }
-
-  if (action.type === 'remove-from-parallel') {
-    const group = groups[index]
-    if (group.items.length <= 1) return normalizeRouteDraft(input)
-    const removed = group.items.find((item) => item.id === action.techniqueId)
-    if (!removed) return normalizeRouteDraft(input)
-    const nextGroups = [...groups]
-    nextGroups.splice(
-      index,
-      1,
-      { items: group.items.filter((item) => item.id !== action.techniqueId) },
-      { items: [removed] },
-    )
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
+  if (action.type === 'remove-edge') {
+    return {
+      ...input,
+      techniques: removeProcessRouteEdge(input.techniques, action.sourceEntryId, action.targetEntryId),
+      processRouteStatus: 'UNCONFIRMED',
+      processRouteConfirmedBy: '',
+      processRouteConfirmedAt: '',
+      processRouteUpdatedBy: operatorName,
+      processRouteUpdatedAt: operatedAt,
+    }
   }
 
   return normalizeRouteDraft(input)
-}
-
-function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
-  applyProcessRouteActionToState({ type: direction === 'up' ? 'move-up' : 'move-down', techniqueId: techId })
-}
-
-function makeTechniqueParallel(techId: string, direction: 'previous' | 'next'): void {
-  applyProcessRouteActionToState({
-    type: direction === 'previous' ? 'make-parallel-previous' : 'make-parallel-next',
-    techniqueId: techId,
-  })
-}
-
-function removeTechniqueFromParallel(techId: string): void {
-  applyProcessRouteActionToState({ type: 'remove-from-parallel', techniqueId: techId })
 }
 
 function confirmProcessRoute(): void {
@@ -2426,7 +2357,12 @@ function handleTechPackField(
         frontPatternDesignIds: normalized.frontPatternDesignIds,
         insidePatternDesignId: normalized.insidePatternDesignId,
         insidePatternDesignIds: normalized.insidePatternDesignIds,
+        usageProcessCodes: normalized.usageProcessCodes,
       }
+    } else {
+      state.newBomItem.usageProcessCodes = state.newBomItem.usageProcessCodes.filter((code) =>
+        code !== 'AUX_HEAT_TRANSFER' && code !== 'AUX_DIRECT_PRINT'
+      )
     }
     refreshBomFormDialogDom()
     return true
@@ -4397,35 +4333,15 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     resetTechniqueForm()
     return true
   }
-  if (action === 'move-technique-route-up') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-    moveTechniqueRoute(techId, 'up')
-    return true
-  }
-  if (action === 'move-technique-route-down') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-    moveTechniqueRoute(techId, 'down')
-    return true
-  }
-  if (action === 'make-techniques-parallel') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-    makeTechniqueParallel(
-      techId,
-      actionNode.dataset.routeDirection === 'previous' ? 'previous' : 'next',
-    )
-    return true
-  }
-  if (action === 'remove-technique-from-parallel') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-    removeTechniqueFromParallel(techId)
-    return true
-  }
   if (action === 'confirm-process-route') {
     confirmProcessRoute()
+    return true
+  }
+  if (action === 'switch-process-route-view') {
+    const mode = actionNode.dataset.routeView
+    if (mode === 'GRAPH' || mode === 'DETAIL') {
+      state.processRouteViewMode = mode
+    }
     return true
   }
   if (action === 'save-technique') {
@@ -4463,6 +4379,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
             materialIssueMode: editingTarget.materialIssueMode,
             linkedBomItemIds: editingTarget.linkedBomItemIds ? [...editingTarget.linkedBomItemIds] : undefined,
             linkedPatternIds: editingTarget.linkedPatternIds ? [...editingTarget.linkedPatternIds] : undefined,
+            routeObjectKey: editingTarget.routeObjectKey,
+            inputObjectType: editingTarget.inputObjectType,
+            outputObjectType: editingTarget.outputObjectType,
+            consumedBomItemIds: editingTarget.consumedBomItemIds ? [...editingTarget.consumedBomItemIds] : undefined,
+            predecessorEntryIds: editingTarget.predecessorEntryIds ? [...editingTarget.predecessorEntryIds] : undefined,
             supportedTargetObjects: editingTarget.supportedTargetObjects ? [...editingTarget.supportedTargetObjects] : undefined,
             supportedTargetObjectLabels: editingTarget.supportedTargetObjectLabels ? [...editingTarget.supportedTargetObjectLabels] : undefined,
             triggerSource: editingTarget.triggerSource,
@@ -4513,8 +4434,19 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           routeUpdatedAt,
         }
 
+    const nextItemId = state.editTechniqueId || `tech-${Date.now()}`
+    const routeObjectDefaults = resolveTechniqueRouteObjectDefaults({
+      id: nextItemId,
+      processCode: effectiveMeta.processCode,
+      selectedTargetObject: effectiveMeta.selectedTargetObject,
+      woolTaskType: effectiveMeta.woolTaskType,
+      linkedBomItemIds: effectiveMeta.selectedTargetObject === '成衣'
+        ? state.newTechnique.linkedBomItemIds
+        : effectiveMeta.linkedBomItemIds,
+      linkedPatternIds: effectiveMeta.linkedPatternIds,
+    })
     const nextItem: TechniqueItem = {
-      id: state.editTechniqueId || `tech-${Date.now()}`,
+      id: nextItemId,
       entryType: effectiveMeta.entryType,
       stageCode: effectiveMeta.stageCode,
       stage: effectiveMeta.stageName,
@@ -4539,6 +4471,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         ? [...state.newTechnique.linkedBomItemIds]
         : effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
       linkedPatternIds: effectiveMeta.linkedPatternIds ? [...effectiveMeta.linkedPatternIds] : undefined,
+      routeObjectKey: editingTarget?.routeObjectKey || routeObjectDefaults.routeObjectKey,
+      inputObjectType: editingTarget?.inputObjectType || routeObjectDefaults.inputObjectType,
+      outputObjectType: editingTarget?.outputObjectType || routeObjectDefaults.outputObjectType,
+      consumedBomItemIds: editingTarget?.consumedBomItemIds ? [...editingTarget.consumedBomItemIds] : undefined,
+      predecessorEntryIds: editingTarget?.predecessorEntryIds ? [...editingTarget.predecessorEntryIds] : [],
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
       triggerSource: effectiveMeta.triggerSource,
@@ -4553,10 +4490,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           item.id === state.editTechniqueId ? nextItem : item,
         )
       : [...state.techniques, nextItem]
-    if (hasInvalidDyePrintOrder(nextTechniques)) {
-      window.alert(INVALID_DYE_PRINT_ORDER_MESSAGE)
-      return true
-    }
     state.techniques = nextTechniques
 
     syncProcessCostRows()
@@ -4572,7 +4505,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const target = getTechniqueById(techId)
     if (target && isBomDrivenPrepTechnique(target)) return true
 
-    state.techniques = state.techniques.filter((item) => item.id !== techId)
+    state.techniques = state.techniques
+      .filter((item) => item.id !== techId)
+      .map((item) => ({
+        ...item,
+        predecessorEntryIds: (item.predecessorEntryIds ?? []).filter((id) => id !== techId),
+      }))
     syncProcessCostRows()
     markProcessRouteUnconfirmed()
     syncTechPackToStore()
@@ -4754,4 +4692,28 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   return false
+}
+
+type ProcessRouteGraphCommandDetail =
+  | { type: 'add-edge' | 'remove-edge'; sourceEntryId: string; targetEntryId: string }
+  | { type: 'undo'; sourceEntryId?: string; targetEntryId?: string }
+  | { type: 'redo'; sourceEntryId?: string; targetEntryId?: string }
+
+export function applyProcessRouteGraphCommand(detail: ProcessRouteGraphCommandDetail): void {
+  if (isTechPackModuleReadOnly('PROCESS')) return
+  if (detail.type === 'undo') undoProcessRouteDraft()
+  else if (detail.type === 'redo') redoProcessRouteDraft()
+  else {
+    if (!detail.sourceEntryId || !detail.targetEntryId) return
+    applyProcessRouteActionToState(detail)
+  }
+  requestTechPackRender()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('higood:process-route-command', (event) => {
+    const detail = (event as CustomEvent<ProcessRouteGraphCommandDetail>).detail
+    if (!detail) return
+    applyProcessRouteGraphCommand(detail)
+  })
 }

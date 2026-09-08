@@ -1,3 +1,5 @@
+import { getCurrentSewingTaskResponsibility } from '../sewing-outsourcing-responsibility.ts'
+
 export interface CuttingHandoverPpicOption {
   ppicId: string
   ppicName: string
@@ -6,22 +8,26 @@ export interface CuttingHandoverPpicOption {
   status: '启用' | '停用'
 }
 
-const FACTORY_PPIC_NAMES = ['Ayu', 'Budi']
-
 export function buildCuttingHandoverPpicOptions(input: {
   receiverFactoryId: string
   receiverFactoryName: string
+  runtimeTaskId?: string
 }): CuttingHandoverPpicOption[] {
   const factoryId = input.receiverFactoryId.trim()
   const factoryName = input.receiverFactoryName.trim()
   if (!factoryId || !factoryName) return []
-  return FACTORY_PPIC_NAMES.map((name, index) => ({
-    ppicId: `CUTTING-PPIC-${factoryId}-${index + 1}`,
-    ppicName: `${name} PPIC`,
-    receiverFactoryId: factoryId,
-    receiverFactoryName: factoryName,
-    status: '启用',
-  }))
+  if (input.runtimeTaskId?.trim()) {
+    const responsibility = getCurrentSewingTaskResponsibility(input.runtimeTaskId.trim())
+    if (!responsibility || responsibility.factoryId !== factoryId) return []
+    return [{
+      ppicId: responsibility.ppicId,
+      ppicName: responsibility.ppicName,
+      receiverFactoryId: responsibility.factoryId,
+      receiverFactoryName: responsibility.factoryName,
+      status: '启用',
+    }]
+  }
+  return []
 }
 
 export function assertCuttingHandoverPpic(input: {
@@ -29,6 +35,7 @@ export function assertCuttingHandoverPpic(input: {
   ppicName: string
   receiverFactoryId: string
   receiverFactoryName: string
+  runtimeTaskId?: string
 }): CuttingHandoverPpicOption {
   const matched = buildCuttingHandoverPpicOptions(input).find((item) =>
     item.ppicId === input.ppicId.trim()
