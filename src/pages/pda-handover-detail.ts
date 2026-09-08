@@ -9,6 +9,9 @@ import { resolveProductionObjectRequest } from '../data/fcs/production-object-ov
 import type { ProcessTask } from '../data/fcs/process-tasks'
 import {
   acceptHandoverRecordDiff,
+  listPostReturnLinkCandidates,
+  canPostFactoryReadSewHandover,
+  linkHandoutToPostReturn,
   canCompletePdaHandoutHead,
   canCompletePdaPickupHead,
   canPdaFactoryAccessHandoverHead,
@@ -1989,6 +1992,20 @@ function renderHandoutRecordAuditItem(
   `
 }
 
+function isPostReturnLinkOnlyView(head: PdaHandoverHead): boolean {
+  const runtime = getPdaRuntimeContext()
+  return Boolean(runtime && runtime.roleId === 'ROLE_ADMIN' && runtime.factoryId !== head.factoryId
+    && canPostFactoryReadSewHandover(head, runtime.factoryId))
+}
+
+function renderPostReturnLink(record: PdaHandoverRecord, head: PdaHandoverHead): string {
+  if (record.postReturnLink) return `<div class="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"><div>原后道送货单：${escapeHtml(record.postReturnLink.deliveryOrderNo)}</div><div class="mt-1">${record.receiverWrittenAt ? `${escapeHtml(record.receiverWrittenBy || '')} · ${escapeHtml(nowTimestamp(new Date(record.receiverWrittenAt)))}` : '原后道实收待确认，请核对原送货单。'}</div><div class="mt-1 text-muted-foreground">关联人：${escapeHtml(record.postReturnLink.linkedBy)}</div></div>`
+  if (head.processBusinessCode !== 'SEW' || head.receiverKind !== 'MANAGED_POST_FACTORY') return ''
+  const candidates = listPostReturnLinkCandidates(record.recordId)
+  if (!candidates.length) return '<p class="text-xs text-amber-700">后道已收货但这里仍待收时，请后道管理员核对对应送货单。</p>'
+  return `<div class="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-2" data-skip-page-rerender="true"><label class="block text-xs">核对本次交出的原送货单<select class="mt-1 h-10 w-full min-w-0 rounded border bg-white px-2 text-xs" data-post-return-link-select><option value="">请选择原送货单</option>${candidates.map(delivery => `<option value="${escapeHtml(delivery.deliveryId)}">${escapeHtml(delivery.deliveryOrderNo)} · ${delivery.lines.reduce((n, line) => n + line.registeredQty, 0)} 件</option>`).join('')}</select></label><p class="text-xs text-muted-foreground">只关联原单，实收沿用后道确认。</p><button class="h-10 w-full rounded bg-primary text-sm text-primary-foreground" data-pda-handoverd-action="link-post-return" data-record-id="${escapeHtml(record.recordId)}" data-skip-page-rerender="true">确认关联原送货单</button></div>`
+}
+
 function renderHandoutRecordItem(
   record: PdaHandoverRecord,
   head: PdaHandoverHead,
@@ -2002,15 +2019,15 @@ function renderHandoutRecordItem(
   const submittedQty = record.submittedQty ?? record.plannedQty ?? 0
   const receiverWrittenQty = getRecordReceiverWrittenQty(record)
   const diffQty = getRecordDiffQty(record)
-  const canWriteback = canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
-  const canDiff = canHandleDiff(record) && canAcceptDiffAction(demoRole)
-  const canObjection = canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
+  const canWriteback = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
+  const canDiff = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record) && canAcceptDiffAction(demoRole)
+  const canObjection = !isPostReturnLinkOnlyView(head) && !record.postReturnLink && canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
   const showObjectionForm = detailState.objectionRecordId === record.recordId && canObjection
 
   return `
     <article data-testid="handout-record-card" data-handout-record-id="${escapeHtml(record.recordId)}" class="space-y-3 rounded-lg border bg-background p-3">
       <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium">第 ${record.sequenceNo} 次交出</span><span class="rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span></div>
-      <div class="truncate text-xs text-muted-foreground">${escapeHtml(profile.itemTitle || profile.objectTypeLabel)}</div>
+      <div class="truncate text-xs text-muted-foreground">${escapeHtml((record.postReturnLink || head.processBusinessCode === 'SEW') && record.skuCode ? `${record.skuCode} · ${record.skuColor || ''} / ${record.skuSize || ''}` : profile.itemTitle || profile.objectTypeLabel)}</div>
       <div class="grid grid-cols-3 gap-2 text-center text-xs">
         <div><div class="text-[10px] text-muted-foreground">交出</div><div class="mt-1 font-semibold">${submittedQty} ${escapeHtml(record.qtyUnit)}</div></div>
         <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div></div>
@@ -2023,7 +2040,8 @@ function renderHandoutRecordItem(
         ${canDiff ? `<button type="button" class="h-9 rounded-md border px-3 text-xs" data-pda-handoverd-action="accept-record-diff" data-record-id="${escapeHtml(record.recordId)}">接受差异</button>` : ''}
         ${canObjection ? `<button type="button" class="h-9 rounded-md border border-red-200 px-3 text-xs text-red-700" data-pda-handoverd-action="open-record-objection" data-record-id="${escapeHtml(record.recordId)}">数量有异议</button>` : ''}
       </div>` : ''}
-      ${renderReceiverWritebackForm(record)}
+      ${record.postReturnLink ? '' : renderReceiverWritebackForm(record)}
+      ${renderPostReturnLink(record, head)}
       ${showObjectionForm ? `<div class="space-y-3 rounded-md border border-red-200 bg-red-50/50 p-3">
         <label class="space-y-1"><span class="text-xs font-medium">异议原因 *</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(detailState.objectionReason)}" data-pda-handoverd-field="objectionReason" /></label>
         <label class="space-y-1"><span class="text-xs">说明</span><textarea class="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pda-handoverd-field="objectionRemark">${escapeHtml(detailState.objectionRemark)}</textarea></label>
@@ -2165,7 +2183,8 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
 function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
   const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
   const isWoolHandover = head.processBusinessCode === 'WOOL'
-  const canCreateRecord = !isWoolHandover
+  const linkOnly = isPostReturnLinkOnlyView(head)
+  const canCreateRecord = !linkOnly && !isWoolHandover
     && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
   const isCompleted = head.completionStatus === 'COMPLETED'
   const factoryFinished = head.factoryCompletionRequired === true && head.factoryMarkedComplete === true
@@ -2212,18 +2231,18 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
 
     ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
 
-    ${!isWoolHandover && !isCompleted && !factoryFinished && !detailState.newRecordOpen
+    ${!linkOnly && !isWoolHandover && !isCompleted && !factoryFinished && !detailState.newRecordOpen
       ? `<button type="button" class="h-11 w-full rounded-lg bg-primary text-sm font-medium text-primary-foreground" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord ? '' : `disabled title="${ACTION_PERMISSION_DENIED_TEXT}"`}>本次交出</button>`
       : ''}
-    ${isWoolHandover || factoryFinished ? '' : renderNewHandoutRecordForm(head)}
+    ${linkOnly || isWoolHandover || factoryFinished ? '' : renderNewHandoutRecordForm(head)}
 
     ${head.factoryCompletionRequired && !head.factoryMarkedComplete && isCompleted ? '<p class="text-xs text-amber-700">仓库已收齐；请工厂确认加工结束。</p>' : ''}
 
-    ${!isWoolHandover && !factoryFinished && (!isCompleted || completionCheck.ok)
+    ${!linkOnly && !isWoolHandover && !factoryFinished && (!isCompleted || completionCheck.ok)
       ? `<button type="button" class="h-10 w-full rounded-lg ${completionCheck.ok ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'} text-sm font-medium" data-pda-handoverd-action="complete-handout-head" data-handover-id="${escapeHtml(head.handoverId)}" ${completionCheck.ok ? '' : `disabled title="${escapeAttr(completionCheck.message)}"`}>完成交出单</button>`
       : ''}
 
-    ${factoryFinished ? `<p class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">工厂已完成交出${head.factoryMarkedCompleteAt ? ` · ${escapeHtml(head.factoryMarkedCompleteAt)}` : ''}。${isCompleted ? '接收方已确认。' : '等待接收方确认实收。'}</p>` : ''}
+    ${factoryFinished ? `<p data-factory-finished-notice class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">工厂已完成交出${head.factoryMarkedCompleteAt ? ` · ${escapeHtml(head.factoryMarkedCompleteAt)}` : ''}。${isCompleted ? '接收方已确认。' : '等待接收方确认实收。'}</p>` : ''}
 
     <details class="rounded-xl border bg-card" data-testid="handout-record-history" ${recordHistoryOpen ? 'open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium"><span class="flex items-center justify-between"><span>交出记录（${records.length}）</span><i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i></span></summary>
@@ -2284,6 +2303,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
     runtime?.factoryId === FULL_CAPABILITY_FACTORY_ID
     && head.processBusinessCode !== 'POST_FINISHING'
     && head.factoryId !== runtime.factoryId
+    && !isPostReturnLinkOnlyView(head)
   ) {
     const content = `
       <div class="space-y-4 p-4">
@@ -2333,7 +2353,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
           <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
         </button>
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold">${escapeHtml(head.headType === 'PICKUP' ? '确认接收' : '发起交出')}</span>
+          <span class="text-sm font-semibold">${escapeHtml(head.headType === 'PICKUP' ? '确认接收' : isPostReturnLinkOnlyView(head) ? '核对车缝回货' : '发起交出')}</span>
         </div>
         <div class="w-16"></div>
       </div>
@@ -2452,6 +2472,34 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.pdaHandoverdAction
   if (!action) return false
+
+  const viewedHead = findPdaHandoverHead(decodeURIComponent(window.location.pathname.split('/').pop() || ''))
+  if (viewedHead && isPostReturnLinkOnlyView(viewedHead) && action !== 'link-post-return' && action !== 'back') {
+    showPdaHandoverDetailToast('这里只核对并关联原送货单，不能代车缝工厂交出或另录实收。')
+    return true
+  }
+
+  if (action === 'link-post-return') {
+    const card = actionNode.closest<HTMLElement>('[data-handout-record-id]')
+    const deliveryId = card?.querySelector<HTMLSelectElement>('[data-post-return-link-select]')?.value || ''
+    if (!deliveryId) { showPdaHandoverDetailToast('请选择本次交出对应的原送货单。'); return true }
+    if (!window.confirm('确认本次交出对应所选送货单？只关联原单，实收数量沿用后道确认。')) return true
+    try {
+      const updated = linkHandoutToPostReturn(actionNode.dataset.recordId || '', deliveryId)
+      const head = findPdaHandoverHead(updated.handoverId)
+      if (head) {
+        const template = document.createElement('template')
+        template.innerHTML = renderCompactHandoutHeadDetail(head)
+        for (const selector of ['[data-testid="pda-handout-summary"]', '[data-testid="handout-record-history"]', '[data-factory-finished-notice]']) {
+          const next = template.content.querySelector(selector)
+          const current = document.querySelector(selector)
+          if (next && current) current.replaceWith(next)
+        }
+      }
+      showPdaHandoverDetailToast('已关联原送货单，实收已按后道原记录更新。')
+    } catch (error) { showPdaHandoverDetailToast(error instanceof Error ? error.message : '关联未保存，请重试。') }
+    return true
+  }
 
   if (action === 'back') {
     appStore.navigate('/fcs/pda/handover')

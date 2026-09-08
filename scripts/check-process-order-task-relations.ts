@@ -15,6 +15,8 @@ import {
 } from '../src/data/fcs/process-order-task-links.ts'
 import type { TechnicalProcessEntry } from '../src/data/pcs-technical-data-version-types.ts'
 import { generateTaskArtifactsForAllOrders } from '../src/data/fcs/production-artifact-generation.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { processTasks } from '../src/data/fcs/process-tasks.ts'
 import { listLaceProductionOrders, PLATFORM_ADMIN } from '../src/data/fcs/lace-factory-domain.ts'
 import { renderProcessOrderTaskRelations } from '../src/pages/process-order-task-relations.ts'
@@ -213,11 +215,30 @@ assert(
 assert(laceView.taskDetails.some((detail) => detail.includes('交出后去向')), '花边任务明细必须标明交出后的中央辅料仓去向')
 
 const generatedTaskArtifacts = generateTaskArtifactsForAllOrders()
-assert(generatedTaskArtifacts.every((artifact) => artifact.stageCode === 'PROD'), '技术包任务生成器不得再生成后道阶段任务')
+// PROD-004：三方合并任务的烫包责任仍须保留；我方 QC 项目不能反向生成派单任务。
+assert(generatedTaskArtifacts.every((artifact) => artifact.stageCode === 'PROD'
+  || (artifact.stageCode === 'POST' && artifact.processCode === 'IRON_PACK')), '仅允许明确来源的三方烫包责任跨入 POST 阶段')
 assert(
-  generatedTaskArtifacts.every((artifact) => !['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(artifact.processCode)),
-  '开扣眼、装扣子、烫包只能由后道到货 QC 动态决定',
+  generatedTaskArtifacts.every((artifact) => !['BUTTONHOLE', 'BUTTON_ATTACH'].includes(artifact.processCode)),
+  '开扣眼、装扣子只能由后道到货 QC 动态决定',
 )
+const ironPackArtifacts = generatedTaskArtifacts.filter((artifact) => artifact.processCode === 'IRON_PACK')
+assert(ironPackArtifacts.length > 0, '必须保留已明确的三方烫包责任，不能为通过门禁全部删除')
+for (const artifact of ironPackArtifacts) {
+  const order = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
+  assert(order, '烫包责任必须引用原生产单，不能来自字典覆盖演示')
+  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  assert.equal(artifact.techPackId, snapshot?.sourceTechPackVersionId, '烫包责任必须绑定本单冻结版本')
+  const explicitEntry = snapshot?.processEntries?.find((entry) => entry.id === artifact.sourceEntryId && entry.processCode === 'IRON_PACK')
+  if (!explicitEntry) {
+    const summary = order.taskBreakdownSummary
+    assert(summary.isBrokenDown && !(summary.wholeOrderTaskCount ?? 0), '整单或未拆任务不能补造烫包责任')
+    assert(['SEWING_IRON_PACK', 'CUTTING_SEWING_IRON_PACK'].includes(summary.mergedTaskType || '')
+      || summary.taskTypesTop3.some((name) => name === '烫包' || name.includes('+烫包')), '烫包必须由明确任务范围决定')
+    assert.equal(artifact.sourceEntryId, `TASK-BOUNDARY-${order.productionOrderId}-IRON_PACK`)
+  }
+  assert.equal(artifact.taskScope, 'EXTERNAL_TASK', '三方烫包不能冒充我方动态后道项目')
+}
 
 const postPageDir = join(root, 'src/pages/process-factory/post-finishing')
 for (const name of readdirSync(postPageDir).filter((file) => file.endsWith('.ts'))) {
