@@ -1,3 +1,5 @@
+import { getBrowserLocalStorage } from '../browser-storage.ts'
+import { formatOperationLocalWallClock } from './sewing-delivery-sla.ts'
 import { productionOrders } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 
@@ -72,6 +74,8 @@ export interface PreProductionSamplePhysicalRecord {
   factoryCompletedBy?: string
   ppicReceivedAt?: string
   ppicReceivedBy?: string
+  approverReceivedAt?: string
+  approverReceivedBy?: string
   handedToApproverAt?: string
   handedToApproverBy?: string
   approverTeamName?: string
@@ -118,6 +122,31 @@ export interface SewingSampleActor {
 const records = new Map<string, SewingSampleApprovalRecord>()
 const commandResults = new Map<string, { assignmentId: string; action: string }>()
 let suggestionSequence = 0
+const SAMPLE_STORAGE_KEY = 'higood:sewing-sample-approval:v3'
+const storedSamples = getBrowserLocalStorage()?.getItem(SAMPLE_STORAGE_KEY)
+if (storedSamples) {
+  const saved = JSON.parse(storedSamples)
+  if (saved.version === 3 && Array.isArray(saved.records) && Array.isArray(saved.commands)) {
+    saved.records.forEach((record: SewingSampleApprovalRecord) => records.set(record.assignmentId, record))
+    saved.commands.forEach(([id, result]: [string, { assignmentId: string; action: string }]) => commandResults.set(id, result))
+    suggestionSequence = saved.sequence || 0
+  }
+}
+function persistSamples(): void {
+  getBrowserLocalStorage()?.setItem?.(SAMPLE_STORAGE_KEY, JSON.stringify({
+    version: 3, records: [...records.values()], commands: [...commandResults], sequence: suggestionSequence,
+  }))
+}
+
+export function getSampleApprovalTiming(record: SewingSampleApprovalRecord, nowAt = formatOperationLocalWallClock()) {
+  const startedAt = record.sample.approverReceivedAt
+  if (!startedAt) return { startedAt: '', deadlineAt: '', completedAt: '', overdue: false }
+  const parse = (value: string) => Date.parse(value.replace(' ', 'T') + '+08:00')
+  const deadline = parse(startedAt) + 48 * 3600000
+  const deadlineAt = new Date(deadline + 8 * 3600000).toISOString().slice(0, 19).replace('T', ' ')
+  const completedAt = record.suggestionVersions.find((item) => item.roundNo === record.sample.roundNo)?.uploadedAt || ''
+  return { startedAt, deadlineAt, completedAt, overdue: parse(completedAt || nowAt) > deadline }
+}
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -239,6 +268,7 @@ function requireCommand(commandId: string, assignmentId: string, action: string)
 
 function rememberCommand(commandId: string, assignmentId: string, action: string): void {
   commandResults.set(commandId, { assignmentId, action })
+  persistSamples()
 }
 
 function assertPpic(record: SewingSampleApprovalRecord, actor: SewingSampleActor): void {
@@ -270,7 +300,7 @@ export function initializeSewingSampleApprovalSuggestionForAssignment(
   const styleName = snapshot?.styleName || productionOrder?.demandSnapshot.spuName || '待补款式名称'
   const styleImageUrl = snapshot?.imageSnapshot.productImages[0]
     || snapshot?.imageSnapshot.styleImages[0]
-    || '/shirt-sample.jpg'
+    || ''
   const sample: PreProductionSamplePhysicalRecord = {
     sampleId: `PPS-${input.assignmentId}`,
     sampleNo: `CY-${input.taskNo || input.runtimeTaskId}`,
@@ -301,6 +331,7 @@ export function initializeSewingSampleApprovalSuggestionForAssignment(
     suggestionVersions: [],
   }
   records.set(input.assignmentId, record)
+  persistSamples()
   return clone(record)
 }
 
@@ -370,6 +401,7 @@ export function handoffPreProductionSampleToApprover(input: {
 export function startSampleApproval(input: {
   commandId: string
   assignmentId: string
+  receivedAt?: string
   actor: SewingSampleActor
 }): SewingSampleApprovalRecord {
   const record = requireRecord(input.assignmentId)
@@ -378,6 +410,8 @@ export function startSampleApproval(input: {
   if (record.sample.status !== 'HANDED_TO_APPROVER') throw new Error('产前版样衣尚未由PPIC转交批版人员')
   record.currentApproverId = input.actor.actorId
   record.currentApproverName = text(input.actor.actorName, '批版人员')
+  record.sample.approverReceivedAt = text(input.receivedAt || formatOperationLocalWallClock(), '批版人员接收时间')
+  record.sample.approverReceivedBy = record.currentApproverName
   record.sample.status = 'APPROVAL_IN_PROGRESS'
   rememberCommand(input.commandId, input.assignmentId, 'START_APPROVAL')
   return clone(record)
@@ -455,6 +489,8 @@ export function recordSampleApprovalFeedbackToFactory(input: {
     record.sample.factoryCompletedBy = undefined
     record.sample.ppicReceivedAt = undefined
     record.sample.ppicReceivedBy = undefined
+    record.sample.approverReceivedAt = undefined
+    record.sample.approverReceivedBy = undefined
     record.sample.handedToApproverAt = undefined
     record.sample.handedToApproverBy = undefined
     record.sample.status = 'WAITING_FACTORY_PRODUCTION'
@@ -477,6 +513,7 @@ export function transferSewingSampleApprovalSuggestionPpic(input: {
     record.sample.currentPpicId = input.targetPpicId
     record.sample.currentPpicName = input.targetPpicName
   })
+  persistSamples()
 }
 
 export function getSewingSampleApprovalRecord(assignmentId: string): SewingSampleApprovalRecord | null {
@@ -489,6 +526,7 @@ export function listSewingSampleApprovalRecords(): SewingSampleApprovalRecord[] 
 }
 
 export function resetSewingSampleApprovalSuggestionsForTests(): void {
+  getBrowserLocalStorage()?.removeItem?.(SAMPLE_STORAGE_KEY)
   records.clear()
   commandResults.clear()
   suggestionSequence = 0

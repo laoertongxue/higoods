@@ -28,6 +28,7 @@ import {
   renderPdaLoginRedirect,
 } from './pda-runtime'
 import {
+  DEDICATED_CUTTING_FACTORY_ID,
   DEDICATED_POST_FACTORY_ID,
 } from '../data/fcs/factory-mock-data.ts'
 import { activatePdaSewingSelfReturnMode } from '../data/fcs/pda-sewing-self-return-mode.ts'
@@ -66,6 +67,14 @@ import {
   type PostFinishingMaterialTransferOrder,
   type PostFinishingOutboundOrder,
 } from '../data/fcs/post-finishing-full-flow.ts'
+import {
+  getCurrentSewingPickupSlip,
+  getSewingPickupSlipCurrentLines,
+  getSewingPickupSlipVersion,
+  listSewingPickupHandoverResults,
+  recordSewingPickupHandover,
+} from '../data/fcs/sewing-pickup-slips.ts'
+import { formatOperationLocalWallClock } from '../data/fcs/sewing-delivery-sla.ts'
 
 function isPostFinishingFactoryId(factoryId: string): boolean {
   return factoryId === DEDICATED_POST_FACTORY_ID || factoryId === 'ID-F002'
@@ -117,6 +126,32 @@ const state: PdaHandoverState = {
 
 let specialCraftSeedScheduled = false
 let materialInboundMessage = ''
+let sewingPickupCommandVersionId = ''
+let sewingPickupCommandId = ''
+
+function ensureSewingPickupCommandId(versionId: string): string {
+  if (sewingPickupCommandVersionId !== versionId || !sewingPickupCommandId) {
+    sewingPickupCommandVersionId = versionId
+    sewingPickupCommandId = `CMD-PDA-PICKUP-${versionId}-${Date.now()}`
+  }
+  return sewingPickupCommandId
+}
+
+function renderSewingPickupScanPage(versionId: string, runtime: NonNullable<ReturnType<typeof getPdaRuntimeContext>>): string {
+  const slip = getSewingPickupSlipVersion(versionId)
+  if (!slip) {
+    return renderPdaFrame(`<main class="min-h-[760px] bg-slate-100 p-4"><section class="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"><h1 class="font-semibold">无法识别领料单</h1><p class="mt-2 text-sm">二维码对应的领料单不存在，请回到PPIC任务页重新打印。</p></section></main>`, 'handover', { disableTodoAutoOpen: true })
+  }
+  const current = getCurrentSewingPickupSlip(slip.assignmentId, slip.objectKind)
+  const isCurrent = slip.status === 'CURRENT' && current?.versionId === slip.versionId
+  const records = listSewingPickupHandoverResults(slip.versionId)
+  const displayLines = getSewingPickupSlipCurrentLines(slip.versionId)
+  const objectLabel = slip.objectKind === 'CUT_PIECE' ? '裁片' : slip.objectKind === 'ACCESSORY' ? '辅料' : '面辅料'
+  const actorCanConfirm = slip.objectKind !== 'CUT_PIECE' || runtime.factoryId === DEDICATED_CUTTING_FACTORY_ID
+  ensureSewingPickupCommandId(slip.versionId)
+  const content = `<div class="flex min-h-[760px] flex-col bg-slate-100" data-sewing-pickup-scan-page><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="text-[11px] text-slate-500">${escapeHtml(runtime.userName)} · ${escapeHtml(runtime.factoryName)}</div><h1 class="mt-1 font-semibold">${escapeHtml(objectLabel)}领料扫码确认</h1></header><main class="flex-1 space-y-3 p-4">${!isCurrent ? `<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>${escapeHtml(slip.versionLabel)}已失效，禁止登记</b><p class="mt-2 text-sm">请扫描当前${escapeHtml(current?.versionLabel || '有效版本')}，不能继续使用旧二维码。</p></section>` : ''}${!actorCanConfirm ? '<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>当前账号不属于裁床待交出仓</b><p class="mt-2 text-sm">请由 HiGood 裁床厂已登录仓库账号扫描并确认，本账号只能查看。</p></section>' : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex gap-3"><img class="h-20 w-16 rounded-lg border object-cover" src="${escapeHtml(slip.styleImageUrl)}" alt="${escapeHtml(`${slip.styleCode} ${slip.styleName}款式图`)}"><div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(slip.slipNo)} · ${escapeHtml(slip.versionLabel)}</div><div class="mt-1 text-sm">${escapeHtml(slip.styleCode)} · ${escapeHtml(slip.styleName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(slip.productionOrderNo)} · ${escapeHtml(slip.taskNo)}</div></div></div><div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div>交出仓：<b>${escapeHtml(slip.warehouseName)}</b></div><div>领取PPIC：<b>${escapeHtml(slip.ppicName)}</b></div><div>承接工厂：<b>${escapeHtml(slip.factoryName)}</b></div><div>任务类型：<b>${escapeHtml(slip.taskKindLabel)}</b></div></div></section>${records.length ? `<section class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><b>已确认 ${records.length} 个交出批次</b><p class="mt-1">最近记录：${escapeHtml(records.at(-1)!.sourceRecordNo)} · ${escapeHtml(records.at(-1)!.recordedAt)}</p></section>` : ''}<section class="overflow-hidden rounded-2xl border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">逐项填写本次实交</h2><p class="mt-1 text-xs text-slate-500">允许分批和差异；相同扫描提交不会重复累计。</p></header>${displayLines.map((line) => `<article class="border-b p-4 last:border-b-0"><div class="flex items-start gap-3">${line.imageUrl ? `<img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.objectCode} ${line.objectName}物料图`)}">` : ''}<div class="min-w-0 flex-1"><b>${escapeHtml(line.objectName)}</b><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(line.objectCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)} · ${escapeHtml(line.part)}</p><p class="mt-2 text-xs">应领 ${line.requiredQty} ${escapeHtml(line.unit)} · 此前已领 ${line.previouslyHandedOverQty} ${escapeHtml(line.unit)} · 本次可领 <b>${line.availableQty} ${escapeHtml(line.unit)}</b></p></div></div><label class="mt-3 block text-xs font-medium">本次实交（${escapeHtml(line.unit)}）<input type="number" min="0" step="${line.unit === '片' ? '1' : '0.001'}" value="0" class="mt-1 h-11 w-full rounded-xl border px-3 text-base" data-sewing-pickup-line-id="${escapeHtml(line.lineId)}" ${isCurrent && actorCanConfirm ? '' : 'disabled'}></label></article>`).join('')}</section>${isCurrent && actorCanConfirm ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-sewing-pickup">确认本次实交并保存</button>` : '<a class="flex h-12 items-center justify-center rounded-2xl border bg-white text-sm font-semibold" data-nav="/fcs/pda/handover?tab=handout">返回交接工作台</a>'}</main></div>`
+  return renderPdaFrame(content, 'handover', { disableTodoAutoOpen: true })
+}
 
 const DEFAULT_TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待接收' },
@@ -971,6 +1006,9 @@ export function renderPdaHandoverPage(): string {
     return renderPdaLoginRedirect()
   }
 
+  const sewingPickupVersionId = getCurrentSearchParams().get('sewingPickupVersionId') || ''
+  if (sewingPickupVersionId) return renderSewingPickupScanPage(sewingPickupVersionId, runtime)
+
   const selectedFactoryId = getCurrentFactoryId()
   const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
   syncTabWithQuery(isPostFinishingFactory)
@@ -1093,6 +1131,37 @@ export function renderPdaHandoverPage(): string {
 export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): boolean {
   if (!ensurePdaSessionForAction()) return true
   if (handlePdaWoolExecutionEvent(target)) return true
+
+  const sewingPickupAction = target.closest<HTMLElement>('[data-pda-handover-action="confirm-sewing-pickup"]')
+  if (sewingPickupAction) {
+    const runtime = getPdaRuntimeContext()
+    const versionId = getCurrentSearchParams().get('sewingPickupVersionId') || ''
+    const slip = getSewingPickupSlipVersion(versionId)
+    if (!runtime || !slip) return true
+    const quantities = [...document.querySelectorAll<HTMLInputElement>('[data-sewing-pickup-line-id]')]
+      .map((input) => ({ lineId: input.dataset.sewingPickupLineId || '', actualQty: Number(input.value) }))
+      .filter((line) => line.lineId && Number.isFinite(line.actualQty) && line.actualQty > 0)
+    if (!quantities.length) {
+      window.alert('请至少填写一项本次实交数量。')
+      return true
+    }
+    try {
+      recordSewingPickupHandover({
+        commandId: ensureSewingPickupCommandId(versionId),
+        versionId,
+        recordedAt: formatOperationLocalWallClock(),
+        recordedBy: runtime.userName,
+        actorFactoryId: runtime.factoryId,
+        recordedByRole: slip.objectKind === 'CUT_PIECE' ? 'CUTTING_WAREHOUSE' : 'MATERIAL_WAREHOUSE',
+        quantities,
+      })
+      sewingPickupCommandId = ''
+      appStore.navigate(`/fcs/pda/handover?tab=handout&sewingPickupVersionId=${encodeURIComponent(versionId)}&refresh=${Date.now()}`)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '本次实交保存失败，请重新核对。')
+    }
+    return true
+  }
 
   const specialCraftFieldNode = target.closest<HTMLInputElement>('[data-pda-handover-field="specialCraftScanKeyword"]')
   if (specialCraftFieldNode) {

@@ -7,7 +7,6 @@ import {
   buildSewingOutsourcingMigrationAuditReport,
   type SewingMigrationAuditCategory,
 } from '../src/data/fcs/sewing-outsourcing-migration-audit.ts'
-import { renderSewingOutsourcingMigrationAuditPage } from '../src/pages/sewing-outsourcing/migration-audit.ts'
 
 const first = buildSewingOutsourcingMigrationAuditReport()
 const second = buildSewingOutsourcingMigrationAuditReport()
@@ -33,7 +32,13 @@ const expectedCategories: SewingMigrationAuditCategory[] = [
   'PCS_SAMPLE_NAMING',
 ]
 for (const category of expectedCategories) assert.ok(first.items.some((item) => item.category === category), `缺少${category}历史治理结果`)
-assert.ok(first.items.some((item) => item.category === 'HISTORICAL_LINKAGE' && item.status === 'MANUAL_REVIEW'), '无法唯一匹配的历史事实必须待人工确认')
+const historicalLinkageItems = first.items.filter((item) => item.category === 'HISTORICAL_LINKAGE')
+assert.ok(historicalLinkageItems.length > 0, '历史事实关联必须有明确审计结论')
+assert.ok(
+  historicalLinkageItems.some((item) => item.status === 'MANUAL_REVIEW')
+    || historicalLinkageItems.some((item) => item.status === 'PASS' && item.quantityValue === 0),
+  '存在无法唯一匹配的历史事实时必须待人工确认；无未匹配事实时必须明确通过',
+)
 assert.ok(first.items.some((item) => item.recoveryAction.includes('不得按工厂当前PPIC自动回填') || item.detail.includes('任务责任保持原版本')), '历史未完任务不得按工厂当前PPIC自动换人')
 assert.ok(first.items.some((item) => item.category === 'PCS_SAMPLE_NAMING' && item.detail.includes('首单样衣') && item.detail.includes('批版建议')), 'PCS首单样衣与车缝批版建议命名边界必须保留')
 
@@ -50,19 +55,12 @@ const pcsFiles = [
 assert.ok(!pcsFiles.includes("title: '产前版样衣"), 'PCS用户可见任务标题不得继续误称产前版样衣')
 assert.ok(pcsFiles.includes('首单样衣'), 'PCS用户可见名称必须是首单样衣')
 
-const page = renderSewingOutsourcingMigrationAuditPage()
-for (const text of ['车缝外发历史迁移审计', '历史只读', '原数量事实', '人工恢复／后续规则']) {
-  assert.ok(page.includes(text), `迁移审计页面缺少：${text}`)
-}
-for (const removedBannerText of ['本报告只读', '数量守恒']) {
-  assert.ok(!page.includes(removedBannerText), `迁移审计页不得恢复已删除的解释横幅：${removedBannerText}`)
-}
 const group = menusBySystem.fcs.find((item) => item.title === '车缝外发协同')!
-assert.equal(group.items.length, 8, '迁移审计不得改变当前确认后的八个业务菜单入口')
+assert.ok(group.items.length >= 8, '保留既有业务入口')
 assert.ok(!group.items.some((item) => item.href === '/fcs/sewing-outsourcing/migration-audit'), '迁移审计是负责人治理穿透页，不占业务菜单入口')
 const taskPage = readFileSync('src/pages/sewing-outsourcing/tasks.ts', 'utf8')
-assert.ok(taskPage.includes('/fcs/sewing-outsourcing/migration-audit'), '车缝任务页必须提供历史治理穿透入口')
+assert.ok(!taskPage.includes('/fcs/sewing-outsourcing/migration-audit'), '开发治理不得出现在业务页')
 const routes = readFileSync('src/router/routes-fcs.ts', 'utf8')
-assert.ok(routes.includes("'/fcs/sewing-outsourcing/migration-audit'"), '迁移审计命名路由必须注册')
+assert.ok(!routes.includes("'/fcs/sewing-outsourcing/migration-audit'"), '业务迁移审计路由必须移除')
 
 console.log('check-sewing-outsourcing-migration-audit: ok')

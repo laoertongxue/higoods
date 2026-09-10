@@ -21,6 +21,7 @@ const group = menusBySystem.fcs.find((item) => item.title === '车缝外发协�
 assert.ok(group, 'FCS必须保留“车缝外发协同”一级菜单')
 const expectedMenu = [
   ['我的工作台', '/fcs/sewing-outsourcing/workbench'],
+  ['生成单全流程耗时', '/fcs/sewing-outsourcing/production-order-duration'],
   ['车缝任务', '/fcs/sewing-outsourcing/tasks'],
   ['交出与欠片', '/fcs/sewing-outsourcing/cut-piece-handover'],
   ['批版建议', '/fcs/sewing-outsourcing/sample-approval-suggestions'],
@@ -29,7 +30,7 @@ const expectedMenu = [
   ['裁片退仓', '/fcs/sewing-outsourcing/cut-piece-returns'],
   ['责任移交', '/fcs/sewing-outsourcing/responsibility-transfers'],
 ]
-assert.deepEqual(group!.items.map((item) => [item.title, item.href]), expectedMenu, '一级菜单必须严格保留八个当前入口')
+assert.deepEqual(group!.items.map((item) => [item.title, item.href]), expectedMenu, '一级菜单必须严格保留九个当前入口')
 assert.ok(!group!.items.some((item) => item.title === 'PPIC管理'), '一级菜单不能命名为PPIC管理')
 assert.ok(!group!.items.some((item) => item.title === '综合查询'), '独立综合查询菜单必须删除')
 assert.ok(!group!.items.some((item) => item.title === '对数与结算跟进'), '对数与结算跟进必须完整删除')

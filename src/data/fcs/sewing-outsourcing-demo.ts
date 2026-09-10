@@ -145,6 +145,7 @@ export function ensureSewingOutsourcingSampleDemo(): typeof SEWING_SAMPLE_DEMO_A
     handedAt: '2026-09-01 10:30:00',
   })
   startSampleApproval({
+    receivedAt: '2026-09-01 10:40:00',
     commandId: 'CMD-DEMO-SAMPLE-START-CUT-SEW-IRON',
     assignmentId: cuttingSewingIronPack.assignmentId,
     actor: approverActor,

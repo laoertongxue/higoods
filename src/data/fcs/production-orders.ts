@@ -1,4 +1,5 @@
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
   KOL_GOTO_FACTORY_CODE,
   KOL_GOTO_FACTORY_ID,
@@ -293,7 +294,14 @@ function createKolGotoFactorySnapshot(): FactorySnapshot {
 function resolveProductionOrderFactorySnapshot(factoryId: string): FactorySnapshot | null {
   if (factoryId === KOL_GOTO_FACTORY_ID) return createKolGotoFactorySnapshot()
   const factory = indonesiaFactories.find((item) => item.id === factoryId)
-  return factory ? createFactorySnapshot(factory) : null
+  if (factory) return createFactorySnapshot(factory)
+  // 派单可选择主档中新登记的工厂，承接登记必须识别同一份工厂主档。
+  const master = getFactoryMasterRecordById(factoryId)
+  return master ? {
+    id: master.id, code: master.code, name: master.name,
+    tier: master.factoryTier, type: master.factoryType, status: master.status,
+    province: '-', city: '-', tags: [],
+  } : null
 }
 
 export function createPendingMainFactorySnapshot(): FactorySnapshot {

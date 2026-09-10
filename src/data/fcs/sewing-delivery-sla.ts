@@ -1,3 +1,5 @@
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_RULE_VERSION } from './sewing-return-calendar.ts'
+
 export type SewingDeliverySlaKind =
   | 'INDEPENDENT_SEWING'
   | 'SEWING_TO_IRON_PACK'
@@ -36,6 +38,7 @@ export interface SewingDeliverySlaSnapshot {
   readonly factoryName: string
   readonly assignedQty: number
   readonly acceptedAt: string
+  readonly ruleVersion?: string
   readonly slaKind: SewingDeliverySlaKind
   readonly milestones: readonly SewingDeliveryMilestoneSnapshot[]
   readonly active: boolean
@@ -96,11 +99,7 @@ export interface SewingDeliveryResponsibilityReview {
   readonly reviewedAt: string
 }
 
-const RULE_NATURAL_DAYS: Record<SewingDeliverySlaKind, [number, number, number]> = {
-  INDEPENDENT_SEWING: [4, 8, 9],
-  SEWING_TO_IRON_PACK: [5, 9, 10],
-  CUTTING_TO_IRON_PACK: [6, 9, 12],
-}
+const RULE_NATURAL_DAYS = SEWING_RETURN_COUNTING_DAYS
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
 const snapshotsById = new Map<string, SewingDeliverySlaSnapshot>()
@@ -410,21 +409,17 @@ export function createSewingDeliverySlaSnapshot(input: {
 }): SewingDeliverySlaSnapshot {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
   const ruleDays = RULE_NATURAL_DAYS[input.slaKind]
-  const assignmentDate = parseDateTime(input.acceptedAt, '业务分配时间')
+  parseDateTime(input.acceptedAt, '有效接单时间')
   return cloneAndFreezeSnapshot({
     snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId.length}:${input.runtimeTaskId}-${input.assignmentId.length}:${input.assignmentId}`,
     ...input,
+    ruleVersion: SEWING_RETURN_RULE_VERSION,
     milestones: MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,
-      // 保留历史字段供旧页面兼容；当前业务含义是第N个自然日，不是滚动N×24小时。
+      // 保留历史字段供旧页面兼容；当前业务含义是第N个计时日，起算周周日不计。
       hoursAfterAcceptance: ruleDays[index] * 24,
       targetQty: Math.ceil(input.assignedQty * ratio),
-      deadlineAt: (() => {
-        const deadline = new Date(assignmentDate)
-        deadline.setUTCDate(deadline.getUTCDate() + ruleDays[index] - 1)
-        deadline.setUTCHours(23, 59, 59, 0)
-        return formatDateTime(deadline)
-      })(),
+      deadlineAt: `${calculateSewingReturnDeadlineDate(input.acceptedAt, ruleDays[index])} 23:59:59`,
     })),
     active: true,
   })

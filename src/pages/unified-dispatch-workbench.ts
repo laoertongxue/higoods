@@ -22,6 +22,7 @@ import {
   validateRuntimeIndependentSewingFactoryUniqueness,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
+import { getSewingAssignmentReadiness, assertSewingAssignmentMaterialReadiness } from '../data/fcs/sewing-assignment-readiness.ts'
 import {
   captureRuntimeTaskTenderRecordStore,
   getRuntimeTaskTenderRecord,
@@ -164,7 +165,16 @@ interface AutoDispatchDialogState {
   error: string
 }
 
+type AssignmentSituation = 'BLOCKED' | 'READY' | 'ASSIGNED'
+const ASSIGNMENT_SITUATION_LABEL = { BLOCKED: '暂不可分配', READY: '可分配尚未分配', ASSIGNED: '已分配' }
+
+function assignmentSituation(task: RuntimeProcessTask): AssignmentSituation {
+  if (task.assignedFactoryId || listCurrentEffectiveTaskAssignments(task.taskId).length) return 'ASSIGNED'
+  return getSewingAssignmentReadiness(task).ready ? 'READY' : 'BLOCKED'
+}
+
 interface WorkbenchState {
+  assignmentSituation: AssignmentSituation
   taskType: WorkbenchTaskType
   keyword: string
   page: number
@@ -187,6 +197,7 @@ const DEFAULT_FILTERS: WorkbenchFilters = {
 }
 
 const state: WorkbenchState = {
+  assignmentSituation: 'BLOCKED',
   taskType: 'ALL',
   keyword: '',
   page: 1,
@@ -536,6 +547,7 @@ function taskRows(): RuntimeProcessTask[] {
   const keyword = state.keyword.trim().toLowerCase()
   return listWorkbenchSourceTasks()
     .filter((task) => state.taskType === 'ALL' || getTaskType(task) === state.taskType)
+    .filter((task) => !['SEWING', 'MERGED'].includes(state.taskType) || assignmentSituation(task) === state.assignmentSituation)
     .filter((task) => {
       const context = taskListContext(task)
       const filters = state.filters
@@ -616,6 +628,8 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
     key: 'assignment', title: '分配信息', width: 190,
     render: (task) => {
+      const readiness = getSewingAssignmentReadiness(task)
+      if (classifyTaskFulfillmentPolicy(task).involvesSewingOutsourcing && assignmentSituation(task) === 'BLOCKED') return `<b>暂不可分配</b>${readiness.reasons.map((reason) => `<p class="mt-1 text-xs text-amber-700">${escapeHtml(reason)}</p>`).join('')}<a class="text-xs text-blue-700" data-nav="/fcs/material-prep/sewing">查看车缝配料</a>`
       const tender = getRuntimeTaskTenderRecord(task.taskId)
       const tenderStatus = tender ? resolveRuntimeTaskTenderStatus(tender) : null
       if (tender && tenderStatus && ['BIDDING', 'AWAIT_AWARD', 'NO_QUOTE'].includes(tenderStatus)) {
@@ -648,7 +662,7 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
       const kolGotoWholeOrder = isKolGotoWholeOrderTask(task)
       return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
         <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button>
-        ${!kolGotoWholeOrder && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
+        ${!kolGotoWholeOrder && task.assignmentStatus === 'UNASSIGNED' && getSewingAssignmentReadiness(task).ready ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
         ${!kolGotoWholeOrder && task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
         ${!kolGotoWholeOrder && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).involvesSewingOutsourcing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
         ${task.mergeSourceTaskIds?.length && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-red-600" data-unified-action="open-cancel-merge" data-task-id="${escapeHtml(task.taskId)}">撤销合并</button>` : ''}
@@ -673,6 +687,12 @@ function renderTaskTabs(rows: RuntimeProcessTask[]): string {
     const count = type === 'ALL' ? all.length : all.filter((task) => getTaskType(task) === type).length
     return `<button class="rounded-md border px-3 py-2 text-sm ${state.taskType === type ? 'border-blue-600 bg-blue-50 text-blue-700' : 'bg-white'}" data-unified-action="switch-type" data-task-type="${type}">${typeLabel(type)} ${count}</button>`
   }).join('') + `<span class="ml-auto text-xs text-muted-foreground">当前筛选 ${rows.length} 条，每页20条</span>`
+}
+
+function renderAssignmentSituations(): string {
+  if (!['SEWING', 'MERGED'].includes(state.taskType)) return ''
+  const tasks = listWorkbenchSourceTasks().filter((task) => getTaskType(task) === state.taskType)
+  return `<div class="flex gap-2 border-t pt-3" role="tablist">${(Object.keys(ASSIGNMENT_SITUATION_LABEL) as AssignmentSituation[]).map((key) => `<button class="rounded border px-3 py-2 text-sm ${state.assignmentSituation === key ? 'bg-blue-50 text-blue-700 border-blue-500' : ''}" data-unified-action="switch-situation" data-situation="${key}">${ASSIGNMENT_SITUATION_LABEL[key]} ${tasks.filter((task) => assignmentSituation(task) === key).length}</button>`).join('')}</div>`
 }
 
 function filterSelect(key: WorkbenchFilterKey, label: string, options: Array<[string, string]>): string {
@@ -752,7 +772,7 @@ function renderTaskFilters(rows: RuntimeProcessTask[]): string {
     ${filterSelect('indonesiaTracker', '任务PPIC／印尼跟单', [['ALL', '全部'], ...indonesiaOptions])}
     ${filterSelect('priceStatus', '价格状态', [['ALL', '全部'], ['NO_STANDARD', '无标准价'], ['PENDING', '派单价待确认'], ['MATCH', '符合标准'], ['ABOVE', '高于标准'], ['BELOW', '低于标准']])}
   </div>` : ''
-  return `<div class="space-y-3 rounded-lg border bg-card p-3"><div class="flex flex-wrap gap-2">${renderTaskTabs(rows)}</div>${highFrequency}${advanced}${renderActiveFilters()}</div>`
+  return `<div class="space-y-3 rounded-lg border bg-card p-3"><div class="flex flex-wrap gap-2">${renderTaskTabs(rows)}</div>${renderAssignmentSituations()}${highFrequency}${advanced}${renderActiveFilters()}</div>`
 }
 
 function renderTaskDetailDialog(): string {
@@ -1332,6 +1352,7 @@ function commitDirectDispatchAssignment(dialog: DispatchDialogState) {
   if (!factory) throw new Error('所选工厂不具备该任务的有效承接能力，请重新选择')
   const sourceLines = sourceTask.scopeSkuLines.length ? sourceTask.scopeSkuLines : [{ skuCode: sourceTask.skuCode || 'SKU-ALL', color: sourceTask.skuColor || '混色', size: sourceTask.skuSize || '混码', qty: sourceTask.scopeQty }]
   const policy = classifyTaskFulfillmentPolicy(sourceTask)
+  assertSewingAssignmentMaterialReadiness(sourceTask)
   const operatedBy = policy.involvesSewingOutsourcing
     ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName
     : '生产计划员'
@@ -1595,6 +1616,10 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     if (key === 'process') state.filters.craft = 'ALL'
     state.page = 1
     refreshRoot(); return true
+  }
+  if (action === 'switch-situation') {
+    state.assignmentSituation = actionNode.dataset.situation as AssignmentSituation
+    state.page = 1; refreshRoot(); return true
   }
   if (action === 'switch-type') {
     state.taskType = actionNode.dataset.taskType as WorkbenchTaskType

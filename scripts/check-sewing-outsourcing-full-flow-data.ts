@@ -10,6 +10,7 @@ import {
 } from '../src/data/fcs/cut-piece-release.ts'
 import {
   createEffectiveTaskAssignment,
+  listEffectiveTaskAssignments,
   resetEffectiveTaskAssignmentsForTests,
 } from '../src/data/fcs/effective-task-assignments.ts'
 import {
@@ -352,7 +353,7 @@ record({
   objectIds: [assignment.assignmentId, transfer.responsibilityVersionId, exclusion.exclusionVersionId],
   before: { currentPpic: assignment.ppicName, strictKitQty: beforeExclusion.strictCompleteKitQty, debtPieceQty: beforeExclusion.totalDebtPieceQty },
   after: { currentPpic: transfer.ppicName, strictKitQty: afterExclusion.strictCompleteKitQty, effectiveKitQty: afterExclusion.effectiveCompleteKitQty, returnResponsibilityQty: afterExclusion.returnResponsibilityQty, debtPieceQty: afterExclusion.totalDebtPieceQty, oldPpicRejected: oldPpicExclusionMessage },
-  assertions: ['尚未完成任务只能由PPIC管理人员明确移交', '移交保留原责任版本', '人为排除仅调整有效齐套和应回责任，不清除欠片'],
+  assertions: ['尚未完成任务只能由PPIC管理人员明确移交', '移交保留原责任版本', '参考部位不参与仅调整参考齐套，不改变最终应回和欠片'],
 })
 
 const supplementInput: RegisterSupplementOrderInput = {
@@ -436,7 +437,7 @@ handoffPreProductionSampleToApprover({
   commandId: 'CMD-PPIC-E2E-SAMPLE-HANDOFF', assignmentId: assignment.assignmentId, actor: currentPpicActor,
   approverTeamName: '大货批版组', handedAt: '2026-09-01 15:10:00',
 })
-startSampleApproval({ commandId: 'CMD-PPIC-E2E-SAMPLE-START', assignmentId: assignment.assignmentId, actor: approverActor })
+startSampleApproval({ commandId: 'CMD-PPIC-E2E-SAMPLE-START', assignmentId: assignment.assignmentId, actor: approverActor, receivedAt: '2026-09-01 15:15:00' })
 const suggestion = submitSampleApprovalSuggestion({
   commandId: 'CMD-PPIC-E2E-SAMPLE-SUGGESTION', assignmentId: assignment.assignmentId, actor: approverActor,
   conclusion: 'HAS_PROBLEM',
@@ -517,11 +518,9 @@ const ppicReturnRegisterMessage = assertGate('PPIC登记工厂回货数量', () 
 }), /回货登记只能由车缝工厂送货人员或已登录工厂账号/)
 assert(ppicReturnRegisterMessage)
 const returnRows = listSewingOutsourcingReturnTrackingRows('2026-09-01 12:00:00')
-assert.equal(returnRows.length, 3)
-const returnByType = new Map(returnRows.map((row) => [row.taskType, row]))
-assert.deepEqual(returnByType.get('INDEPENDENT_SEWING')!.returnProjection.snapshot.milestones.map((item) => item.naturalDay), [4, 8, 9])
-assert.deepEqual(returnByType.get('SEWING_TO_IRON_PACK')!.returnProjection.snapshot.milestones.map((item) => item.naturalDay), [5, 9, 10])
-assert.deepEqual(returnByType.get('CUTTING_TO_IRON_PACK')!.returnProjection.snapshot.milestones.map((item) => item.naturalDay), [6, 9, 12])
+assert.deepEqual(returnRows.map((row) => row.assignment.assignmentId).sort(), listEffectiveTaskAssignments().filter((item) => item.status === 'EFFECTIVE' && item.processCodes.includes('SEW')).map((item) => item.assignmentId).sort(), '全部有效任务必须进入回货跟进，不能只展示三条演示')
+const returnByType = new Map(returnRows.filter((row) => POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.some((order) => order.assignmentId === row.assignment.assignmentId)).map((row) => [row.taskType, row]))
+for (const row of returnRows.filter((row) => !row.acceptedAt)) assert.equal(row.returnProjection.milestones.length, 0, '未接单不得以派单时间伪造期限')
 assert(returnByType.get('INDEPENDENT_SEWING')!.confirmedQty > 0)
 assert(returnByType.get('SEWING_TO_IRON_PACK')!.confirmedQty > 0)
 const pendingPostRow = returnByType.get('CUTTING_TO_IRON_PACK')!

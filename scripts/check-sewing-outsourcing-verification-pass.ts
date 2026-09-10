@@ -17,6 +17,7 @@ const forwardScripts = [
   'scripts/check-sewing-cut-piece-responsibility.ts',
   'scripts/check-sewing-cut-piece-handover-page.ts',
   'scripts/check-cutting-dispatch-ppic-ledger-linkage.ts',
+  'scripts/check-sewing-outsourcing-pickup-slips.ts',
   'scripts/check-sewing-outsourcing-supplement-return.ts',
   'scripts/check-sewing-outsourcing-sample-approval.ts',
   'scripts/check-sewing-outsourcing-sample-pages.ts',

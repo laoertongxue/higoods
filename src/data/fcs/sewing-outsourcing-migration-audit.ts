@@ -1,3 +1,4 @@
+import { listSewingCutPieceReturnRequests } from './sewing-cut-piece-return-workflow.ts'
 import { getCutPieceDispatchReadinessForTask, requiresCutPieceReleaseForProcessCodes } from './cut-piece-release.ts'
 import { listEffectiveTaskAssignments, type EffectiveTaskAssignment } from './effective-task-assignments.ts'
 import {
@@ -254,7 +255,14 @@ export function buildSewingOutsourcingMigrationAuditReport(): SewingMigrationAud
     recoveryAction: `${row.nextAction}；确认后新增关联版本，原历史记录不覆盖、不删除。`,
     sourceHref: row.sourceLinks[0]?.href || '/fcs/sewing-outsourcing/tasks',
   })))
-  if (!incompleteRows.length) items.push(item({
+  const unmatchedReturns = listSewingCutPieceReturnRequests().filter((request) => !assignments.some((assignment) => assignment.taskNo === request.sewingTaskNo && assignment.factoryId === request.factoryId))
+  unmatchedReturns.forEach((request) => items.push(item({
+    auditId: `HISTORICAL-RETURN::${request.requestId}`, category: 'HISTORICAL_LINKAGE', status: 'MANUAL_REVIEW',
+    subjectType: '历史业务事实', subjectId: request.requestId, subjectLabel: `${request.sewingTaskNo} · ${request.factoryName}`,
+    quantityValue: null, quantityUnit: '', detail: '历史退仓记录尚未匹配唯一有效分配；业务主清单不包含该记录，开发审计仍保留。',
+    recoveryAction: '核对原任务、工厂和交出单；只新增明确关联，不自动回填责任。', sourceHref: '/fcs/sewing-outsourcing/cut-piece-returns',
+  })))
+  if (!incompleteRows.length && !unmatchedReturns.length) items.push(item({
     auditId: 'HISTORICAL-LINKAGE-PASS', category: 'HISTORICAL_LINKAGE', status: 'PASS', subjectType: '控制项', subjectId: 'HISTORICAL-LINKAGE', subjectLabel: '历史业务事实关联', quantityValue: 0, quantityUnit: '项未匹配', detail: '当前未发现无法唯一匹配执行任务的历史业务事实。', recoveryAction: '后续导入继续按执行任务、工厂和业务单号三方核对。', sourceHref: '/fcs/sewing-outsourcing/tasks',
   }))
 

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 
+import '../src/data/fcs/sewing-assignment-readiness.ts'
+
 import {
   MERGED_PRODUCTION_TASK_DEFINITIONS,
 } from '../src/data/fcs/merged-production-task.ts'

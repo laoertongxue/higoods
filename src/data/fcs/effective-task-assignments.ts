@@ -75,7 +75,7 @@ const auditLogs: EffectiveTaskAssignmentAuditLog[] = []
 let assignmentSeq = 0
 let auditSeq = 0
 
-const EFFECTIVE_ASSIGNMENT_STORAGE_KEY = 'higood.effective-task-assignments.v1'
+const EFFECTIVE_ASSIGNMENT_STORAGE_KEY = 'higood.effective-task-assignments.v2'
 let assignmentReadError: Error | null = null
 let assignmentMutationDepth = 0
 
@@ -102,7 +102,7 @@ function readEffectiveTaskAssignmentState(): void {
     const raw = localStorage.getItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)
     if (!raw) return
     const saved = JSON.parse(raw)
-    if (saved.version !== 1 || !Array.isArray(saved.assignments) || !Array.isArray(saved.current) || !Array.isArray(saved.auditLogs)
+    if (saved.version !== 2 || !Array.isArray(saved.assignments) || !Array.isArray(saved.current) || !Array.isArray(saved.auditLogs)
       || !Number.isInteger(saved.assignmentSeq) || saved.assignmentSeq < 0 || !Number.isInteger(saved.auditSeq) || saved.auditSeq < 0
       || saved.assignments.some((row: [string, EffectiveTaskAssignment]) => !Array.isArray(row) || row.length !== 2 || !row[1] || row[0] !== row[1].assignmentId
         || !row[1].runtimeTaskId || !row[1].productionOrderId || !row[1].factoryId || !['EFFECTIVE', 'SUPERSEDED', 'CANCELLED'].includes(row[1].status)
@@ -125,7 +125,7 @@ export function runEffectiveTaskAssignmentAction<T>(action: () => T): T {
     const current = captureEffectiveTaskAssignmentState()
     if (typeof localStorage !== 'undefined') {
       const { stored: _stored, ...state } = current
-      localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, JSON.stringify({ version: 1, ...state }))
+      localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, JSON.stringify({ version: 2, ...state }))
     }
     return result
   } catch (error) {

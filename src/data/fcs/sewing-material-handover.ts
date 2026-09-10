@@ -88,16 +88,24 @@ function isCuttingSewingIronPack(processCodes: readonly string[]): boolean {
     && codes.some((code) => code === 'CUT' || code === 'CUTTING' || code.includes('CUT'))
 }
 
+function includesSewing(processCodes: readonly string[]): boolean {
+  return processCodes.some((code) => {
+    const normalized = code.trim().toUpperCase()
+    return normalized === 'SEW' || normalized === 'SEWING' || normalized.includes('SEW')
+  })
+}
+
 export function initializeSewingMaterialHandoverForAssignment(
   input: SewingSampleAssignmentSnapshot & { assignedQty: number },
 ): SewingMaterialHandoverContext | null {
-  if (!isCuttingSewingIronPack(input.processCodes)) return null
-  if (!input.ppicId || !input.ppicName) throw new Error('裁剪+车缝+烫包任务必须冻结PPIC后才能建立面辅料交出账')
+  if (!includesSewing(input.processCodes)) return null
+  if (!input.ppicId || !input.ppicName) throw new Error('车缝任务必须冻结PPIC后才能建立物料交出账')
   const existing = contexts.get(input.assignmentId)
   if (existing) return clone(existing)
   const snapshot = getProductionOrderTechPackSnapshot(input.productionOrderId)
+  const includeFabric = isCuttingSewingIronPack(input.processCodes)
   const requirementLines: SewingMaterialRequirementLine[] = (snapshot?.bomItems || [])
-    .filter((item) => item.type === '面料' || item.type === '辅料')
+    .filter((item) => item.type === '辅料' || (includeFabric && item.type === '面料'))
     .map((item, index) => ({
       requirementLineId: `MAT-REQ-${input.assignmentId}-${String(index + 1).padStart(3, '0')}`,
       bomItemId: item.id,
@@ -149,7 +157,7 @@ export function recordSewingMaterialHandover(input: {
   if (priorEventId) return clone(events.get(priorEventId)!)
   if (input.handedOverByRole === 'PPIC') throw new Error('PPIC只能查看面辅料交出，不得代替仓库填写实交数量')
   const context = contexts.get(input.assignmentId)
-  if (!context) throw new Error(`分配${input.assignmentId}不是裁剪+车缝+烫包面辅料交出任务`)
+  if (!context) throw new Error(`分配${input.assignmentId}没有可交出的车缝物料`)
   if (context.dataCompleteness !== 'COMPLETE') throw new Error('技术包面辅料需求不完整，不能确认交出')
   if (!input.lines.length) throw new Error('面辅料交出明细不能为空')
   const requirementById = new Map(context.requirementLines.map((line) => [line.requirementLineId, line]))

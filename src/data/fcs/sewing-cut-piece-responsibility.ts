@@ -356,7 +356,6 @@ function buildProjection(assignmentId: string): SewingCutPieceResponsibilityProj
     const key = skuKey(line)
     grouped.set(key, [...(grouped.get(key) || []), line])
   })
-  const currentResponsibility = latestResponsibility(assignmentId)?.responsibilityQtyBySku || {}
   const skuSummaries = [...grouped.entries()].map(([key, skuLines]) => ({
     skuKey: key,
     skuCode: skuLines[0]!.skuCode,
@@ -365,7 +364,7 @@ function buildProjection(assignmentId: string): SewingCutPieceResponsibilityProj
     allocatedGarmentQty: skuLines[0]!.allocatedGarmentQty,
     strictCompleteKitQty: kitQty(skuLines, false),
     effectiveCompleteKitQty: kitQty(skuLines, true),
-    returnResponsibilityQty: currentResponsibility[key] || 0,
+    returnResponsibilityQty: skuLines[0]!.allocatedGarmentQty,
   }))
   return {
     context: clone(context),
@@ -398,7 +397,7 @@ function refreshResponsibility(input: {
   let increased = false
   projection.skuSummaries.forEach((line) => {
     const previousQty = previous?.responsibilityQtyBySku[line.skuKey] || 0
-    nextBySku[line.skuKey] = Math.max(previousQty, line.effectiveCompleteKitQty)
+    nextBySku[line.skuKey] = Math.max(previousQty, line.strictCompleteKitQty)
     if (nextBySku[line.skuKey] > previousQty) increased = true
   })
   if (!increased) return previous ? clone(previous) : undefined
@@ -522,7 +521,7 @@ export function createSewingCutPiecePartExclusion(input: {
     skuKey(line) === skuKey(requirement) && !currentlyExcludedKeys.has(requirementKey(line))
   ))
   if (!remainingForSku.length) throw new Error('不能排除一个SKU的全部必需裁片部位')
-  const reason = normalizedText(input.reason, '排除原因')
+  const reason = normalizedText(input.reason, '参考标记原因')
   exclusionSequence += 1
   const exclusionVersionId = `CUT-EXC-${String(exclusionSequence).padStart(6, '0')}`
   for (const current of activeExclusions(input.assignmentId)) {
@@ -548,19 +547,12 @@ export function createSewingCutPiecePartExclusion(input: {
     evidenceUrls: [...new Set((input.evidenceUrls || []).map((item) => item.trim()).filter(Boolean))],
     productionImpact: (input.productionImpact || '').trim(),
     status: 'EFFECTIVE',
-    createdAt: normalizedText(input.createdAt, '排除时间'),
+    createdAt: normalizedText(input.createdAt, '参考标记时间'),
     createdByPpicId: operator.ppicId,
     createdByPpicName: operator.ppicName,
   }
   exclusions.set(version.exclusionVersionId, version)
   commandResults.set(input.commandId, { kind: 'EXCLUSION', id: version.exclusionVersionId })
-  refreshResponsibility({
-    assignmentId: input.assignmentId,
-    sourceKind: 'PART_EXCLUSION',
-    sourceId: version.exclusionVersionId,
-    createdAt: version.createdAt,
-    createdBy: version.createdByPpicName,
-  })
   return clone(version)
 }
 
@@ -635,8 +627,8 @@ export function ensureSewingCutPieceResponsibilityDemo(): SewingCutPieceResponsi
     createEffectiveTaskAssignment({
       assignmentId,
       runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-DEMO-001',
-      productionOrderId: 'PO-PPIC-CUT-HANDOVER-DEMO-001',
-      productionOrderNo: 'PO-PPIC-CUT-HANDOVER-DEMO-001',
+      productionOrderId: 'PO-202603-0001',
+      productionOrderNo: 'PO-202603-0001',
       taskNo: 'SEW-OUT-PPIC-DEMO-001',
       factoryId,
       factoryName: 'PT Sinar Garment Indonesia',
@@ -810,7 +802,7 @@ export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPiec
   const unhanded = ensureOverviewProjection({
     assignmentId: SEWING_CUT_PIECE_UNHANDED_DEMO_ASSIGNMENT_ID,
     runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-UNHANDED-001',
-    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-UNHANDED-001',
+    productionOrderNo: 'PO-202603-0001',
     taskNo: 'SEW-OUT-UNHANDED-001',
     assignedQty: 800,
     handover: false,
@@ -818,7 +810,7 @@ export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPiec
   const clear = ensureOverviewProjection({
     assignmentId: SEWING_CUT_PIECE_CLEAR_DEMO_ASSIGNMENT_ID,
     runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-CLEAR-001',
-    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-CLEAR-001',
+    productionOrderNo: 'PO-202603-0001',
     taskNo: 'SEW-OUT-CLEAR-001',
     assignedQty: 600,
     handover: true,
@@ -826,7 +818,7 @@ export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPiec
   const noSupplement = ensureShortageOverviewProjection({
     assignmentId: SEWING_CUT_PIECE_NO_SUPPLEMENT_DEMO_ASSIGNMENT_ID,
     runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-NO-SUPPLEMENT-001',
-    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-NO-SUPPLEMENT-001',
+    productionOrderNo: 'PO-202603-0001',
     taskNo: 'SEW-OUT-NO-SUPPLEMENT-001',
     assignedQty: 700,
     shortagePartCode: 'COLLAR',
@@ -836,7 +828,7 @@ export function ensureSewingCutPieceResponsibilityOverviewDemos(): SewingCutPiec
   const waitingHandover = ensureShortageOverviewProjection({
     assignmentId: SEWING_CUT_PIECE_WAIT_HANDOVER_DEMO_ASSIGNMENT_ID,
     runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-WAIT-HANDOVER-001',
-    productionOrderNo: 'PO-PPIC-CUT-HANDOVER-WAIT-HANDOVER-001',
+    productionOrderNo: 'PO-202603-0001',
     taskNo: 'SEW-OUT-WAIT-HANDOVER-001',
     assignedQty: 800,
     shortagePartCode: 'LACE',

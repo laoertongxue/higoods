@@ -15,6 +15,11 @@ import {
   type CutPieceReturnInitiationCandidate,
   type CutPieceReturnPhysicalTicketStatus,
 } from './cutting/cut-piece-return-domain.ts'
+import {
+  createEffectiveTaskAssignment,
+  getEffectiveTaskAssignment,
+} from './effective-task-assignments.ts'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from './factory-onboarding-ppic.ts'
 
 export type SewingCutPieceReturnWorkflowStatus =
   | 'APPROVED_WAITING_WAREHOUSE'
@@ -153,7 +158,7 @@ const requests = new Map<string, SewingCutPieceReturnRequest>()
 const commandResults = new Map<string, string>()
 let requestSequence = 0
 let eventSequence = 0
-const WORKFLOW_STORAGE_KEY = 'higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v1'
+const WORKFLOW_STORAGE_KEY = 'higood:fcs:sewing-outsourcing:cut-piece-return-workflow:v2'
 
 interface SewingCutPieceReturnWorkflowStore {
   requests: SewingCutPieceReturnRequest[]
@@ -350,7 +355,7 @@ export function createSewingCutPieceReturnRequestByPpic(input: {
   if (input.actor.actorId !== ppic.ppicId) throw new Error('只有该车缝任务当前PPIC可以根据线下申请创建裁片退仓。')
   const returnedGarmentQty = positiveInteger(input.returnedGarmentQty, '实物退仓折算件数')
   const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[input.returnReasonCode]
-  if (!policy) throw new Error('请选择有效的裁片退仓原因。')
+  if (!policy || input.returnReasonCode === 'EXCLUDED_PART_UNUSED') throw new Error('请选择有效的实物退仓原因；参考部位不参与不构成退仓依据。')
   const returnReasonDetail = input.returnReasonDetail.trim()
   if (!returnReasonDetail) throw new Error('请填写具体退仓原因。')
   const responsibilityDecisionReference = input.responsibilityDecisionReference?.trim() || ''
@@ -611,13 +616,48 @@ function ensureAvailableReturnCreationCandidate(): void {
   })
 }
 
+function ensureReturnDemoEffectiveAssignment(candidate: CutPieceReturnInitiationCandidate): void {
+  const assignmentId = 'ASG-PPIC-CUT-PIECE-RETURN-DEMO-001'
+  if (getEffectiveTaskAssignment(assignmentId)) return
+  createEffectiveTaskAssignment({
+    assignmentId,
+    runtimeTaskId: candidate.sewingTaskId,
+    productionOrderId: candidate.productionOrderId,
+    productionOrderNo: candidate.productionOrderNo,
+    taskNo: candidate.sewingTaskId,
+    factoryId: candidate.sourceFactoryId,
+    factoryName: candidate.sourceFactoryName,
+    source: 'DIRECT_DISPATCH',
+    assignedQty: candidate.currentExpectedReturnQty,
+    skuLines: [{
+      skuCode: `${candidate.spuCode}-${candidate.garmentColor}-${candidate.size}`,
+      color: candidate.garmentColor,
+      size: candidate.size,
+      qty: candidate.currentExpectedReturnQty,
+    }],
+    processCodes: ['SEW'],
+    frozenPrice: 1500,
+    priceCurrency: 'IDR',
+    priceUnit: '件',
+    businessAssignedAt: '2026-09-01 08:30:00',
+    operatedAt: '2026-09-01 08:30:00',
+    operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+    allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+    allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+  })
+}
+
 export function ensureSewingCutPieceReturnWorkflowDemo(): SewingCutPieceReturnRequest {
   ensureReturnDemoFactoryMaster()
   const existing = listSewingCutPieceReturnRequests().find((item) => item.commandId === 'CMD-CPR-WF-DEMO-CREATE-001')
-  if (existing) return existing
+  if (existing) {
+    if (existing.candidateSnapshot) ensureReturnDemoEffectiveAssignment(existing.candidateSnapshot)
+    return existing
+  }
   closeLegacyPageDemoCases()
   const candidate = listCutPieceReturnInitiationCandidates().find((item) => item.eligible && item.sourceFactoryId === 'sew-factory-01')
   if (!candidate) throw new Error('缺少可用于PPIC退仓建单演示的正式交出责任范围。')
+  ensureReturnDemoEffectiveAssignment(candidate)
   const ppic = getFactoryActivePpicSnapshot(candidate.sourceFactoryId)
   if (!ppic) throw new Error('演示工厂缺少有效PPIC。')
   return createSewingCutPieceReturnRequestByPpic({

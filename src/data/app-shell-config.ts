@@ -359,6 +359,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       icon: 'Workflow',
       items: [
         { key: 'sewing-outsourcing-workbench', title: '我的工作台', icon: 'LayoutDashboard', href: '/fcs/sewing-outsourcing/workbench' },
+        { key: 'sewing-outsourcing-production-order-duration', title: '生成单全流程耗时', icon: 'Clock', href: '/fcs/sewing-outsourcing/production-order-duration' },
         { key: 'sewing-outsourcing-tasks', title: '车缝任务', icon: 'ListTodo', href: '/fcs/sewing-outsourcing/tasks' },
         { key: 'sewing-outsourcing-cut-piece-handover', title: '交出与欠片', icon: 'PackageOpen', href: '/fcs/sewing-outsourcing/cut-piece-handover' },
         { key: 'sewing-outsourcing-sample-approval', title: '批版建议', icon: 'ClipboardCheck', href: '/fcs/sewing-outsourcing/sample-approval-suggestions' },

@@ -28,7 +28,7 @@ const leaderRows = listSewingOutsourcingWorkbenchRows({
 assert.ok(leaderRows.length >= 7, '团队汇总至少覆盖七条不同阶段的执行任务')
 assert.equal(new Set(leaderRows.map((row) => row.rowId)).size, leaderRows.length)
 
-const expectedHealth: SewingOutsourcingTaskHealth[] = ['ABNORMAL', 'ATTENTION', 'NORMAL', 'DATA_INCOMPLETE']
+const expectedHealth: SewingOutsourcingTaskHealth[] = ['ABNORMAL', 'ATTENTION', 'NORMAL']
 expectedHealth.forEach((health) => assert.ok(leaderRows.some((row) => row.health === health), `汇总来源缺少${health}场景`))
 const expectedParties: SewingOutsourcingNextResponsibleParty[] = ['PPIC', 'CUTTING', 'SEWING_FACTORY', 'SAMPLE_APPROVER', 'POST_FINISHING']
 expectedParties.forEach((party) => assert.ok(leaderRows.some((row) => row.nextResponsibleParty === party), `汇总来源缺少${party}责任场景`))

@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 const routes = [
   ['/fcs/sewing-outsourcing/workbench', '我的工作台'],
   ['/fcs/sewing-outsourcing/team-workbench', '团队工作台'],
+  ['/fcs/sewing-outsourcing/production-order-duration', '生成单全流程耗时'],
   ['/fcs/sewing-outsourcing/tasks', '车缝任务'],
   ['/fcs/sewing-outsourcing/cut-piece-handover', '交出与欠片'],
   ['/fcs/sewing-outsourcing/sample-approval-suggestions', '批版建议'],

@@ -1,3 +1,4 @@
+import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assignments.ts'
 // @page-pattern: list
 
 import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -9,6 +10,7 @@ import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sl
 import { ensureSewingOutsourcingSampleDemo } from '../../data/fcs/sewing-outsourcing-demo.ts'
 import {
   getSewingSampleApprovalRecord,
+  getSampleApprovalTiming,
   handoffPreProductionSampleToApprover,
   listSewingSampleApprovalRecords,
   receivePreProductionSampleByPpic,
@@ -234,6 +236,13 @@ const columns: StandardListColumn<SewingSampleApprovalRecord>[] = [
     },
   },
   {
+    key: 'approvalTiming', title: '批版时效', width: 205,
+    render: (record) => {
+      const timing = getSampleApprovalTiming(record)
+      return timing.startedAt ? `<p class="text-xs">实物接收：${escapeHtml(timing.startedAt)}</p><p class="text-xs">48小时截止：${escapeHtml(timing.deadlineAt)}</p><p class="text-xs ${timing.overdue ? 'text-red-700' : 'text-slate-500'}">${timing.completedAt ? `建议上传：${escapeHtml(timing.completedAt)}` : timing.overdue ? '已超时，请跟进批版人员' : '待上传建议'}</p>` : '<span class="text-xs text-slate-500">待批版人员接收实物后计时</span>'
+    },
+  },
+  {
     key: 'task',
     title: '执行任务',
     width: 240,
@@ -328,7 +337,7 @@ function renderDialog(): string {
 
 export function renderSampleApprovalSuggestionsPage(): string {
   ensureSewingOutsourcingSampleDemo()
-  const allRecords = listSewingSampleApprovalRecords().filter((item) => item.assignmentId.startsWith('ASG-PPIC-SAMPLE-DEMO'))
+  const allRecords = listSewingSampleApprovalRecords().filter((item) => getEffectiveTaskAssignment(item.assignmentId)?.status === 'EFFECTIVE')
   const normalizedKeyword = keyword.trim().toLowerCase()
   const filteredRecords = allRecords
     .filter((item) => matchesSituation(item, activeSituation))
@@ -479,7 +488,7 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
       handoffPreProductionSampleToApprover({ commandId: nextCommandId('HANDOFF'), assignmentId, actor, approverTeamName: '大货批版组', handedAt: now })
       feedback = '已记录样衣转交批版人员。'
     } else if (action === 'start-approval') {
-      startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor })
+      startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor, receivedAt: formatOperationLocalWallClock() })
       feedback = ''
     } else if (action === 'open-approval') {
       dialog = {

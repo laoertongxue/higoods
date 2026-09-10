@@ -34,7 +34,7 @@ import {
   isKolGotoFactory,
   isKolGotoWholeOrderTask,
 } from './kol-goto-special-flow.ts'
-import { installRuntimeTaskReadResolver } from './runtime-task-read-bridge.ts'
+import { installRuntimeTaskReadResolver, assertRegisteredSewingMaterialReadiness } from './runtime-task-read-bridge.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from './sewing-delivery-receipt-facts.ts'
 import {
   listTaskAllocatableGroups,
@@ -660,6 +660,7 @@ function assertRuntimeTaskCutPieceReleaseAvailable(
   options: { assignedQty?: number; excludeRuntimeTaskIds?: string[] } = {},
 ): void {
   const policy = classifyTaskFulfillmentPolicy(task)
+  if (policy.involvesSewingOutsourcing) assertRegisteredSewingMaterialReadiness(task)
   if (!requiresCutPieceReleaseForProcessCodes(policy.normalizedProcessCodes)) return
   assertCutPieceReleaseDispatchAvailable({
     productionOrderId: task.productionOrderId,

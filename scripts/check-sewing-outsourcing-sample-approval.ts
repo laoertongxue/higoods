@@ -223,7 +223,14 @@ assert.equal(explicitNextRound.sample.roundNo, 2)
 assert.equal(explicitNextRound.sample.status, 'WAITING_FACTORY_PRODUCTION', '只有批版人员明确要求再次批版时才进入下一轮')
 assert.equal(explicitNextRound.suggestionVersions.length, 1, '进入下一轮不能覆盖历史建议')
 
-assert.equal(listSewingMaterialHandoverContexts().length, 1, '只有裁剪+车缝+烫包建立面辅料交出账')
+assert.equal(listSewingMaterialHandoverContexts().length, 3, '三类车缝任务均建立适用物料交出账，前两类只含辅料')
+for (const assignmentId of [independent.assignmentId, sewingIronPack.assignmentId]) {
+  assert.equal(
+    getSewingMaterialHandoverProjection(assignmentId).lines.every((line) => line.materialType === '辅料'),
+    true,
+    '独立车缝与车缝+烫包只能领取车缝辅料，不能把面料带入交出账',
+  )
+}
 const materialProjection = getSewingMaterialHandoverProjection(cuttingSewingIronPack.assignmentId)
 assert.equal(materialProjection.hasCutPieceRelease, false)
 assert.equal(materialProjection.hasCutPieceDebt, false)
@@ -288,4 +295,4 @@ pcsFiles.forEach((file) => assert.doesNotMatch(readFileSync(file, 'utf8'), /产�
 assert.match(readFileSync('src/data/app-shell-config.ts', 'utf8'), /首单样衣任务/)
 assert.doesNotMatch(readFileSync('src/data/fcs/sewing-sample-approval-suggestion.ts', 'utf8'), /factory-sample-verification/, '外发产前版样衣不能复用工厂准入样衣对象')
 
-console.log('三类车缝外发产前版样衣、批版建议、裁剪车缝烫包面辅料与PCS首单样衣边界检查通过')
+console.log('三类车缝外发产前版样衣、批版建议、适用物料交出与PCS首单样衣边界检查通过')

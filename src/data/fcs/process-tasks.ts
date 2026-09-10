@@ -508,7 +508,7 @@ function applyGeneratedTaskReceivingTargets(tasks: ProcessTask[], productionOrde
 
 interface ReceiverSplitTaskVariant {
   task: ProcessTask
-  successorTaskId?: string
+  successorTaskIds: string[]
 }
 
 function roundReceiverSplitQty(value: number): number {
@@ -542,7 +542,8 @@ function scaleReceiverSplitDetailRows(task: ProcessTask, taskId: string, qty: nu
 }
 
 /**
- * 路线可以分叉，但执行加工单只能有一个直接下游接收方。
+ * 路线可以分叉，但普通执行加工单只能有一个直接下游接收方。
+ * 裁片、车缝、毛织和后道保留各自专属交接规则；工艺依赖分叉不能均分其任务数量或替换任务身份。
  * 该投影从路线末端向前展开：一个任务对应多个直接下游执行单时，按下游执行单拆成多个任务，
  * 并同步重写每个下游任务的前置任务 ID。这样分叉不会在更上游重新形成“一单多接收方”。
  */
@@ -578,7 +579,7 @@ export function splitGeneratedProcessTasksByReceivingTarget(sourceTasks: Process
 
     const splitQty = allocateReceiverSplitQty(task.qty, successorVariants.map((variant) => variant.task.qty))
     const keepsDomainReceiver = ['WOOL', 'SEW', 'CUT_PANEL', 'POST_FINISHING'].includes(task.processBusinessCode || '')
-    const variants: ReceiverSplitTaskVariant[] = successorVariants.length <= 1
+    const variants: ReceiverSplitTaskVariant[] = keepsDomainReceiver || successorVariants.length <= 1
       ? [{
           task: {
             ...task,
@@ -591,7 +592,7 @@ export function splitGeneratedProcessTasksByReceivingTarget(sourceTasks: Process
                 }
               : {}),
           },
-          successorTaskId: successorVariants[0]?.task.taskId,
+          successorTaskIds: successorVariants.map(variant => variant.task.taskId),
         }]
       : successorVariants.map((successor, index) => {
           const splitSeq = index + 1
@@ -627,7 +628,7 @@ export function splitGeneratedProcessTasksByReceivingTarget(sourceTasks: Process
                 },
               ],
             },
-            successorTaskId: successor.task.taskId,
+            successorTaskIds: [successor.task.taskId],
           }
         })
     visiting.delete(taskId)
@@ -647,7 +648,7 @@ export function splitGeneratedProcessTasksByReceivingTarget(sourceTasks: Process
     const predecessorIds = originalTask?.dependsOnTaskIds ?? variant.task.dependsOnTaskIds ?? []
     const rewiredDependencies = predecessorIds.flatMap((predecessorId) =>
       (variantsByOriginalTaskId.get(predecessorId) ?? [])
-        .filter((predecessorVariant) => predecessorVariant.successorTaskId === variant.task.taskId)
+        .filter((predecessorVariant) => predecessorVariant.successorTaskIds.includes(variant.task.taskId))
         .map((predecessorVariant) => predecessorVariant.task.taskId),
     )
     return {

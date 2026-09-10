@@ -46,7 +46,6 @@ import {
   listCurrentEffectiveTaskAssignments,
   type EffectiveTaskAssignment,
 } from '../effective-task-assignments.ts'
-import { autoStartRuntimeSewingTaskFromCutPieceHandover } from '../runtime-process-tasks.ts'
 import {
   initializeSewingCutPieceResponsibility,
   recordSewingCutPieceHandover,
@@ -2957,15 +2956,9 @@ export function submitCuttingSewingDispatchBatch(input: {
     const record = findPdaHandoverRecord(batch.handoverRecordId)
     if (record) {
       syncBoundCutPieceHandoverToResponsibility({ order, batch, record })
-      const receivedRecord = autoReceiveAndStartSubmittedCutPieces({
-        order,
-        batch,
-        record,
-        receivedAt: record.factorySubmittedAt,
-      })
       return {
         handoverOrder: upsertPdaHandoverHeadMock(buildHandoverHead(order)),
-        handoverRecord: receivedRecord,
+        handoverRecord: record,
         outboundRecords: [],
         updatedWaitHandoverStockItems: [],
         updatedDispatchBatch: clone(batch),
@@ -3071,59 +3064,14 @@ export function submitCuttingSewingDispatchBatch(input: {
   order.status = '已交出'
   order.updatedAt = input.submittedAt
   updateDispatchOrderFromChildren(order)
-  const receivedRecord = autoReceiveAndStartSubmittedCutPieces({
-    order,
-    batch,
-    record: recordWithTransferBagFields,
-    receivedAt: input.submittedAt,
-  })
   return {
     handoverOrder,
-    handoverRecord: receivedRecord,
+    handoverRecord: recordWithTransferBagFields,
     outboundRecords: [linkage.outboundRecord],
     updatedWaitHandoverStockItems: [linkage.updatedWaitHandoverStockItem],
     updatedDispatchBatch: clone(batch),
     updatedTransferBags: clone(batch.transferBagIds.map((bagId) => findTransferBagById(storeRef, bagId))),
   }
-}
-
-function autoReceiveAndStartSubmittedCutPieces(input: {
-  order: CuttingSewingDispatchOrder
-  batch: CuttingSewingDispatchBatch
-  record: PdaHandoverRecord
-  receivedAt: string
-}): PdaHandoverRecord {
-  const handoverRecordId = input.record.handoverRecordId || input.record.recordId
-  const receiverName = `${input.order.sewingFactoryName}（系统自动接收）`
-  let receivedRecord = input.record
-  if (
-    input.record.receiverWrittenQty !== input.record.submittedQty
-    || input.record.combinedWritebackStatus !== '已回写'
-  ) {
-    receivedRecord = writebackSewingReceiveByTransferBag({
-      handoverRecordId,
-      receivedTransferBagNos: input.batch.transferBagIds.map((bagId) => (
-        findTransferBagById(ensureCuttingSewingDispatchSeeded(), bagId).transferBagNo
-      )),
-      receiverName,
-      receivedAt: input.receivedAt,
-      remark: '裁床确认交出后，系统按本次交出记录自动完成三方车缝工厂接收。',
-    })
-    receivedRecord = finalizeCombinedSewingWriteback({
-      handoverRecordId,
-      receiverName,
-      receiverWrittenAt: input.receivedAt,
-    })
-  }
-  if (input.order.runtimeTaskId) {
-    autoStartRuntimeSewingTaskFromCutPieceHandover({
-      taskId: input.order.runtimeTaskId,
-      handoverRecordNo: input.record.handoverRecordNo || input.record.recordId,
-      receivedAt: input.receivedAt,
-      receivedBy: receiverName,
-    })
-  }
-  return receivedRecord
 }
 
 function getDispatchBatchPieceQty(storeRef: CuttingSewingDispatchStore, batch: CuttingSewingDispatchBatch): number {

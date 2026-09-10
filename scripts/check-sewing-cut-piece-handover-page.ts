@@ -20,13 +20,13 @@ for (const text of [
   '已交出且欠片',
   '待裁床交出',
   '严格齐套',
-  '有效齐套／责任',
-  '部位排除版本',
-  '只调整有效齐套，不清除欠片',
+  '参考齐套／最终应回',
+  '参考核查历史',
+  '不改变欠片、严格齐套、最终应回',
   '缺口未达一半，不允许人为排除',
   '缺一半及以上，达到排除核对阈值',
-  '取消排除',
-  '已冻结回货责任不回退',
+  '取消参考标记',
+  '参考标记不参与计算',
 ]) assert.ok(page.includes(text), `PPIC交出与欠片页面缺少业务口径：${text}`)
 
 const situations = ensureSewingCutPieceResponsibilityOverviewDemos().map(classifyHandoverSituation)

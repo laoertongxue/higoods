@@ -223,10 +223,6 @@ export const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRen
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),
   'renderSewingOutsourcingResponsibilityTransfersPage',
 )
-export const renderSewingOutsourcingMigrationAuditPage = createAsyncRenderer(
-  () => import('../pages/sewing-outsourcing/migration-audit'),
-  'renderSewingOutsourcingMigrationAuditPage',
-)
 export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
   'renderDispatchTendersPage',
@@ -681,3 +677,5 @@ export const renderCuttingSettlementInputPage = createAsyncRenderer(
   () => import('../pages/settlement-cutting-input'),
   'renderCuttingSettlementInputPage',
 )
+
+export const renderSewingProductionOrderDurationPage = createAsyncRenderer(() => import('../pages/sewing-outsourcing/production-order-duration'), 'renderSewingProductionOrderDurationPage')

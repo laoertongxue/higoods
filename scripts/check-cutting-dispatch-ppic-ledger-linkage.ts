@@ -135,6 +135,7 @@ const [bag] = createCuttingSewingTransferBags({
 assert(bag)
 scanFeiTicketIntoTransferBag({ transferBagId: bag.transferBagId, feiTicketNo: ticket.feiTicketNo })
 validateDispatchBatchCompleteness(batch.dispatchBatchId)
+const taskBeforeSubmit = getRuntimeTaskById(runtimeSewingTask.taskId)
 const submitted = submitCuttingSewingDispatchBatch({
   dispatchBatchId: batch.dispatchBatchId,
   operatorName: '裁床待交出仓 王敏',
@@ -154,15 +155,15 @@ assert.equal(projection.context.factoryId, sewingFactory.id)
 assert.equal(projection.context.ppicId, factoryPpic.ppicId)
 assert.ok(projection.totalHandedOverPieceQty > 0)
 assert.ok(projection.lines.length > handoverEvents[0]!.lines.length, '未及时裁出的完整部位必须以0片保留在冻结责任账中')
-assert.equal(submitted.handoverRecord.receiverWrittenQty, submitted.handoverRecord.submittedQty, '裁床交出必须在同一动作自动记为三方车缝工厂接收')
-assert.equal(submitted.handoverRecord.combinedWritebackStatus, '已回写', '裁片自动接收后不得停留在待回写')
+assert.equal(submitted.handoverRecord.receiverWrittenQty, undefined, '裁床确认交出不能代替三方车缝工厂接收')
+assert.notEqual(submitted.handoverRecord.combinedWritebackStatus, '已回写', '裁床确认交出后必须等待接收方独立确认')
 const startedTask = getRuntimeTaskById(runtimeSewingTask.taskId)
-assert.equal(startedTask?.status, 'IN_PROGRESS', '裁片自动接收后车缝任务必须自动开工')
-assert.equal(startedTask?.startedAt, '2026-09-01 10:00:00')
+assert.equal(startedTask?.status, taskBeforeSubmit?.status, '裁床确认交出不能自动改变车缝任务状态')
+assert.equal(startedTask?.startedAt, taskBeforeSubmit?.startedAt, '裁床确认交出不能代替工厂开始车缝')
 assert.equal(
   startedTask?.auditLogs.filter((log) => log.action === 'AUTO_RECEIVE_AND_START_FROM_CUT_PIECE_HANDOVER').length,
-  1,
-  '第一次裁片交出只能形成一条自动接收开工审计',
+  0,
+  '裁床确认交出不得形成自动接收开工审计',
 )
 
 submitCuttingSewingDispatchBatch({
@@ -173,8 +174,8 @@ submitCuttingSewingDispatchBatch({
 assert.equal(listSewingCutPieceHandoverEvents(assignment.assignmentId).length, 1, '重复提交不得重复累加裁片责任')
 assert.equal(
   getRuntimeTaskById(runtimeSewingTask.taskId)?.auditLogs.filter((log) => log.action === 'AUTO_RECEIVE_AND_START_FROM_CUT_PIECE_HANDOVER').length,
-  1,
-  '重复提交不得重复记录自动开工',
+  0,
+  '重复提交也不得记录自动开工',
 )
 
-console.log('裁床交出批次绑定车缝执行任务、PPIC、裁片责任账，并自动接收开工专项检查通过')
+console.log('裁床交出批次绑定车缝执行任务、PPIC、裁片责任账，且不代替工厂接收或开工专项检查通过')

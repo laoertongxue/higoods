@@ -104,7 +104,7 @@ assert.equal(
 let projection = getSewingCutPieceResponsibilityProjection(assignment.assignmentId)
 assert.equal(projection.strictCompleteKitQty, 0, '完整缺一个必需部位时严格齐套必须为0')
 assert.equal(projection.effectiveCompleteKitQty, 0)
-assert.equal(projection.returnResponsibilityQty, 0)
+assert.equal(projection.returnResponsibilityQty, 1000, '最终应回不因尚未齐套减少')
 const pocketDebt = projection.lines.find((line) => line.partCode === 'POCKET')
 assert(pocketDebt)
 assert.equal(pocketDebt.handedOverPieceQty, 0)
@@ -123,7 +123,7 @@ const exclusion = createSewingCutPiecePartExclusion({
   color: 'Black',
   size: 'M',
   partCode: 'POCKET',
-  reason: '裁床尚未完成整批口袋裁片，为避免主体裁片等待，PPIC暂时排除该部位计算有效齐套。',
+  reason: '裁床尚未完成整批口袋裁片，为避免主体裁片等待，PPIC暂时排除该部位计算参考齐套。',
   evidenceUrls: ['/cut-piece-release-risk-detail.svg'],
   productionImpact: '主体可先车缝，口袋后补。',
   createdAt: '2026-09-01 10:10:00',
@@ -137,8 +137,7 @@ assert.equal(projection.effectiveCompleteKitQty, 1000)
 assert.equal(projection.returnResponsibilityQty, 1000)
 assert.equal(projection.totalDebtPieceQty, 1000, '排除不能删除欠片')
 assert.equal(projection.lines.find((line) => line.partCode === 'POCKET')?.excludedFromEffectiveKit, true)
-assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId).length, 1)
-assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId)[0]?.sourceKind, 'PART_EXCLUSION')
+assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId).length, 0, '参考标记不产生可生产数量或归责版本')
 
 recordSewingCutPieceHandover({
   commandId: 'CMD-HAND-002',
@@ -160,7 +159,7 @@ assert.equal(listSewingReturnResponsibilityVersions(assignment.assignmentId).len
 const cancelledExclusion = cancelSewingCutPiecePartExclusion({
   commandId: 'CMD-CANCEL-EXC-001',
   exclusionVersionId: exclusion.exclusionVersionId,
-  reason: '裁床已完成口袋补交，恢复该部位参与当前有效齐套计算。',
+  reason: '裁床已完成口袋补交，恢复该部位参与当前参考齐套计算。',
   cancelledAt: '2026-09-02 09:05:00',
   cancelledByPpicId: ppic.ppicId,
 })
@@ -294,4 +293,4 @@ assert.equal(getSewingCutPieceResponsibilityProjection(halfAssignment.assignment
 assert.equal(listSewingCutPieceHandoverEvents(assignment.assignmentId).length, 3)
 assert.equal(listSewingCutPiecePartExclusionVersions(assignment.assignmentId).length, 1)
 
-console.log('车缝外发裁片交出、欠片、严格/有效齐套、部位排除与单调回货责任专项检查通过')
+console.log('车缝外发裁片交出、欠片、严格/参考齐套、部位排除与单调回货责任专项检查通过')

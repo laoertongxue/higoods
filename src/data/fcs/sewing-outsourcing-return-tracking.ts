@@ -1,3 +1,6 @@
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import { getSewingDeliverySlaSnapshot } from './sewing-delivery-sla.ts'
+import { SEWING_RETURN_RULE_VERSION, calculateSewingReturnDeadlineDate } from './sewing-return-calendar.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
@@ -13,6 +16,7 @@ import {
 } from './post-finishing-full-flow.ts'
 import {
   createEffectiveTaskAssignment,
+  listEffectiveTaskAssignments,
   getEffectiveTaskAssignment,
   type EffectiveTaskAssignment,
 } from './effective-task-assignments.ts'
@@ -39,8 +43,9 @@ export const SEWING_RETURN_TRACKING_DEMO_NOW = '2026-09-01 12:00:00'
 
 export interface SewingOutsourcingReturnTrackingRow {
   assignment: EffectiveTaskAssignment
-  productionOrder: PostFinishingAcceptanceProductionOrder
+  productionOrder: Pick<PostFinishingAcceptanceProductionOrder, 'productionOrderId' | 'productionOrderNo' | 'sewingTaskNo' | 'styleNo' | 'styleName' | 'skus' | 'sewingTaskType'>
   taskType: PostFinishingSewingTaskType
+  acceptedAt: string
   ppicId: string
   ppicName: string
   declaredQty: number
@@ -224,16 +229,35 @@ export function listSewingOutsourcingReturnTrackingRows(
   nowAt: string = SEWING_RETURN_TRACKING_DEMO_NOW,
 ): SewingOutsourcingReturnTrackingRow[] {
   ensureSewingOutsourcingReturnTrackingDemo()
-  return POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.map((productionOrder) => {
-    const assignment = getEffectiveTaskAssignment(productionOrder.assignmentId)!
+  return listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE').filter((assignment) => assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code))).map((assignment) => {
+    const taskType: PostFinishingSewingTaskType = assignment.processCodes.includes('CUTTING') ? 'CUTTING_TO_IRON_PACK' : assignment.processCodes.includes('IRON_PACK') ? 'SEWING_TO_IRON_PACK' : 'INDEPENDENT_SEWING'
+    const techPack = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
+    const productionOrder = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((order) => order.assignmentId === assignment.assignmentId) || {
+      productionOrderId: assignment.productionOrderId, productionOrderNo: assignment.productionOrderNo || assignment.productionOrderId,
+      sewingTaskNo: assignment.taskNo || assignment.runtimeTaskId, sewingTaskType: taskType,
+      styleNo: techPack?.styleCode || '', styleName: techPack?.styleName || '款式资料待同步',
+      skus: assignment.skuLines.map((sku) => ({ skuId: sku.skuCode, skuCode: sku.skuCode, spuCode: techPack?.styleCode || '', spuName: techPack?.styleName || '', colorName: sku.color, sizeName: sku.size, imageUrl: techPack?.imageSnapshot.productImages[0] || techPack?.imageSnapshot.styleImages[0] || '', barcode: '', plannedQty: sku.qty, qtyUnit: '件' as const })),
+    }
+    const sla = getSewingDeliverySlaSnapshot(assignment.runtimeTaskId)
+    const acceptedAt = assignment.source === 'DIRECT_DISPATCH' ? assignment.businessAssignedAt : sla?.active && sla.factoryId === assignment.factoryId && sla.acceptedAt >= assignment.businessAssignedAt ? sla.acceptedAt : ''
     const responsibility = getCurrentSewingTaskResponsibility(assignment.runtimeTaskId)
     const deliveries = listPostFinishingFactoryReturns().filter((delivery) => delivery.assignmentId === assignment.assignmentId)
     const confirmationVersions = listPostFinishingReturnConfirmationVersions({ assignmentId: assignment.assignmentId })
     const activeConfirmationVersions = confirmationVersions.filter((version) => version.status === 'ACTIVE')
     const responsibilityVersions = productionOrder.sewingTaskType === 'CUTTING_TO_IRON_PACK'
       ? []
-      : listSewingReturnResponsibilityVersions(assignment.assignmentId)
-    const snapshot = listProductionReturnRuleSnapshots({ assignmentId: assignment.assignmentId, activeOnly: true })[0]!
+      : listSewingReturnResponsibilityVersions(assignment.assignmentId).filter((version) => version.sourceKind === 'HANDOVER_CONFIRMED')
+    const policy = policyFor(taskType)
+    // 直接派单即自动接单；竞价任务只认工厂确认接单。缺少有效接单时不伪造期限。
+    const snapshot = {
+      snapshotId: sla?.snapshotId || `PENDING-ACCEPTANCE-${assignment.assignmentId}`,
+      assignmentId: assignment.assignmentId, runtimeTaskId: assignment.runtimeTaskId,
+      productionOrderId: assignment.productionOrderId, factoryId: assignment.factoryId, factoryName: assignment.factoryName,
+      assignedQty: assignment.assignedQty, assignmentDate: acceptedAt.slice(0, 10),
+      fulfillmentRuleCode: policy.fulfillmentRuleCode as 'SEWING_ONLY' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK',
+      active: true, ruleVersion: SEWING_RETURN_RULE_VERSION,
+      milestones: acceptedAt ? policy.milestones.map((node) => { const deadlineDate = calculateSewingReturnDeadlineDate(acceptedAt, node.naturalDay); return { ratio: node.ratio, naturalDay: node.naturalDay, targetQty: Math.ceil(assignment.assignedQty * node.ratio), deadlineAt: `${deadlineDate} 23:59:59`, deadlineDate } }) : [],
+    }
     const returnProjection = projectProductionReturnFulfillment({
       snapshot,
       receipts: receiptFacts(activeConfirmationVersions),
@@ -246,6 +270,7 @@ export function listSewingOutsourcingReturnTrackingRows(
     const confirmedQty = activeConfirmationVersions.reduce((sum, version) => sum + version.confirmedQty, 0)
     return {
       assignment,
+      acceptedAt,
       productionOrder,
       taskType: productionOrder.sewingTaskType,
       ppicId: responsibility?.ppicId || assignment.ppicId || '',

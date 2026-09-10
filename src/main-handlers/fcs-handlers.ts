@@ -1,3 +1,4 @@
+import { handleSewingProductionOrderDurationEvent, closeSewingProductionOrderDurationDialog } from '../pages/sewing-outsourcing/production-order-duration'
 import { handleWlsInboundEvent, closeWlsInboundOverlays } from '../pages/wls-inbound.ts'
 import { handleWlsFinishedInboundEvent, closeWlsFinishedInboundOverlays } from '../pages/wls-finished-inbound.ts'
 import {
@@ -138,7 +139,6 @@ import {
   handleSewingOutsourcingResponsibilityTransfersEvent,
   isSewingOutsourcingResponsibilityTransferDialogOpen,
 } from '../pages/sewing-outsourcing/responsibility-transfers'
-import { handleSewingOutsourcingMigrationAuditEvent } from '../pages/sewing-outsourcing/migration-audit'
 import {
   closeCutPieceReturnWarehouseDialog,
   isCutPieceReturnWarehouseDialogOpen,
@@ -322,6 +322,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/sewing-outsourcing/cut-piece-handover')) {
     return handleSewingCutPieceHandoverEvent(target, event)
   }
+  if (pathname === '/fcs/sewing-outsourcing/production-order-duration') return handleSewingProductionOrderDurationEvent(target, event)
   if (pathname.startsWith('/fcs/sewing-outsourcing/workbench') || pathname.startsWith('/fcs/sewing-outsourcing/team-workbench')) {
     return handleSewingOutsourcingWorkbenchEvent(target)
   }
@@ -345,9 +346,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/sewing-outsourcing/responsibility-transfers')) {
     return handleSewingOutsourcingResponsibilityTransfersEvent(target)
-  }
-  if (pathname.startsWith('/fcs/sewing-outsourcing/migration-audit')) {
-    return handleSewingOutsourcingMigrationAuditEvent(target)
   }
   if (pathname === '/fcs/contracts') {
     return handleProductionContractCenterEvent(target)
@@ -605,6 +603,7 @@ export async function dispatchFcsPageSubmit(form: HTMLFormElement): Promise<bool
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeSewingProductionOrderDurationDialog()) return true
   if (closeWlsInboundOverlays()) return true
   if (closeWlsFinishedInboundOverlays()) return true
   if (isSewingOutsourcingResponsibilityTransferDialogOpen()) {

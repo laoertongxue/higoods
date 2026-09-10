@@ -115,6 +115,7 @@ function renderCreateDialog(): string {
   const policy = SEWING_CUT_PIECE_RETURN_REASON_POLICIES[dialog.reasonCode]
   const options = candidates.map((item) => `<option value="${escapeHtml(item.candidateId)}"${candidate?.candidateId === item.candidateId ? ' selected' : ''}>${escapeHtml(item.productionOrderNo)} · ${escapeHtml(item.sewingTaskId)} · ${escapeHtml(item.sourceFactoryName)}</option>`).join('')
   const reasonOptions = (Object.keys(SEWING_CUT_PIECE_RETURN_REASON_POLICIES) as SewingCutPieceReturnReasonCode[])
+    .filter((code) => code !== 'EXCLUDED_PART_UNUSED')
     .map((code) => `<option value="${code}"${code === dialog.reasonCode ? ' selected' : ''}>${escapeHtml(SEWING_CUT_PIECE_RETURN_REASON_POLICIES[code].label)}</option>`)
     .join('')
   const body = candidate

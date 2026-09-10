@@ -1,3 +1,5 @@
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import { getCurrentSewingTaskResponsibility } from './sewing-outsourcing-responsibility.ts'
 import {
   getAvailableOnboardingPpicOptions,
   isActivePpicTeamLeader,
@@ -9,7 +11,7 @@ import {
   listEffectiveTaskAssignments,
   type EffectiveTaskAssignment,
 } from './effective-task-assignments.ts'
-import { POST_FINISHING_SEWING_TASK_TYPE_LABEL, type PostFinishingSewingTaskType } from './post-finishing-full-flow.ts'
+import type { PostFinishingSewingTaskType } from './post-finishing-full-flow.ts'
 import type { ProductionReturnMilestoneProjection } from './production-return-fulfillment.ts'
 import {
   ensureSewingCutPieceReturnWorkflowDemo,
@@ -32,7 +34,6 @@ import {
   type SewingOutsourcingTaskKind,
   type SewingSampleApprovalRecord,
 } from './sewing-sample-approval-suggestion.ts'
-import { getRuntimeTaskById } from './runtime-process-tasks.ts'
 
 export const SEWING_OUTSOURCING_WORKBENCH_NOW = '2026-09-01 12:00:00'
 
@@ -155,25 +156,23 @@ function ensureNormalWorkbenchDemo(): EffectiveTaskAssignment {
   if (existing) return existing
   const source = getEffectiveTaskAssignment('ASG-PPIC-SAMPLE-DEMO-INDEPENDENT')
   if (!source) throw new Error('缺少PPIC工作台正常任务演示来源。')
-  const runtimeTask = getRuntimeTaskById('MERGED-CUT-SEW-IRON-PACK-DEMO-001')
-  if (!runtimeTask) throw new Error('缺少PPIC工作台可移交执行任务演示来源。')
   return createEffectiveTaskAssignment({
     assignmentId,
-    runtimeTaskId: runtimeTask.taskId,
-    productionOrderId: runtimeTask.productionOrderId,
-    productionOrderNo: runtimeTask.productionOrderNo,
-    taskNo: runtimeTask.taskNo,
+    runtimeTaskId: 'TASK-PPIC-WORKBENCH-NORMAL-001',
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
+    taskNo: 'CUT-SEW-IRON-WORKBENCH-NORMAL-001',
     factoryId: source.factoryId,
     factoryName: source.factoryName,
     source: 'DIRECT_DISPATCH',
-    assignedQty: runtimeTask.scopeQty,
-    skuLines: runtimeTask.scopeSkuLines.map((line) => ({ ...line })),
+    assignedQty: source.assignedQty,
+    skuLines: source.skuLines.map((line) => ({ ...line })),
     processCodes: ['CUTTING', 'SEW', 'IRON_PACK'],
     frozenPrice: source.frozenPrice,
     priceCurrency: source.priceCurrency,
     priceUnit: source.priceUnit,
-    businessAssignedAt: '2026-09-01 08:20:00',
-    operatedAt: '2026-09-01 08:20:00',
+    businessAssignedAt: '2026-09-08 08:20:00',
+    operatedAt: '2026-09-08 08:20:00',
     operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
     allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
@@ -246,7 +245,12 @@ function ensureDraft(
   if (existing) {
     if (!existing.ppicId && input.ppicId) existing.ppicId = input.ppicId
     if (!existing.ppicName && input.ppicName) existing.ppicName = input.ppicName
-    if (!existing.styleImageUrl && input.styleImageUrl) existing.styleImageUrl = input.styleImageUrl
+    if (input.styleName && !/待补|待同步/.test(input.styleName)) {
+      existing.styleCode = input.styleCode
+      existing.styleName = input.styleName
+      existing.styleImageAlt = input.styleImageAlt || `${input.styleCode} ${input.styleName}款式图片`
+      if (input.styleImageUrl) existing.styleImageUrl = input.styleImageUrl
+    }
     return existing
   }
   const draft = assignmentBase(assignment, input)
@@ -302,7 +306,7 @@ function addSampleFacts(draft: WorkbenchDraft, record: SewingSampleApprovalRecor
   } else if (sample.status === 'PPIC_RECEIVED') {
     pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '把产前版样衣移交批版人员', dueAt: '今日完成', impactSummary: '实物已到PPIC办公室', reason: '待移交批版人员', priority: 74 })
   } else if (sample.status === 'HANDED_TO_APPROVER' || sample.status === 'APPROVAL_IN_PROGRESS') {
-    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'SAMPLE_APPROVER', nextAction: '核对样衣、生产单图片、纸样及面辅料并上传批版建议', dueAt: '今日完成', impactSummary: '大货尚未获得批版建议', reason: '批版建议待完成', priority: 76 })
+    pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'SAMPLE_APPROVER', nextAction: '核对样衣、生产单图片、纸样及面辅料并上传批版建议', dueAt: '今日完成', impactSummary: '大货尚未获得批版建议', reason: '批版建议待完成', priority: 110 })
   } else if (sample.status === 'SUGGESTION_UPLOADED') {
     pushSignal(draft, { health: 'ATTENTION', nextResponsibleParty: 'PPIC', nextAction: '将批版建议反馈给外发工厂并确认收到', dueAt: '立即反馈', impactSummary: '批版建议已出，尚未完成反馈', reason: '批版建议待反馈', priority: 78 })
   } else {
@@ -422,6 +426,7 @@ function addReturnFacts(draft: WorkbenchDraft, row: SewingOutsourcingReturnTrack
     reason: '工厂申报待后道最终确认',
     priority: 100,
   })
+  if (!focus) return
   if (focus.cuttingShortfallQty > 0) pushSignal(draft, {
     health: 'ABNORMAL',
     nextResponsibleParty: 'CUTTING',
@@ -432,13 +437,13 @@ function addReturnFacts(draft: WorkbenchDraft, row: SewingOutsourcingReturnTrack
     priority: 90,
   })
   if (focus.factoryPendingQty > 0) pushSignal(draft, {
-    health: focus.status === 'OVERDUE' ? 'ABNORMAL' : 'ATTENTION',
+    health: focus.status === 'OVERDUE' ? 'ABNORMAL' : focus.status === 'DUE_TODAY' ? 'ATTENTION' : 'NORMAL',
     nextResponsibleParty: 'SEWING_FACTORY',
     nextAction: `跟进工厂当前应承担但尚未按期回货的${focus.factoryPendingQty}件`,
     dueAt: focus.deadlineAt,
     impactSummary: `工厂当前承担${focus.attributableTargetQty}件，按期确认${focus.confirmedQtyByDeadline}件`,
     reason: focus.status === 'OVERDUE' ? '工厂回货逾期' : '工厂回货节点待达成',
-    priority: focus.status === 'OVERDUE' ? 96 : 68,
+    priority: focus.status === 'OVERDUE' ? 96 : focus.status === 'DUE_TODAY' ? 64 : 14,
   })
   if (!row.pendingPostFinishingQty && !focus.cuttingShortfallQty && !focus.factoryPendingQty) pushSignal(draft, {
     health: focus.status === 'DUE_TODAY' ? 'ATTENTION' : 'NORMAL',
@@ -514,6 +519,15 @@ function finalizeDraft(draft: WorkbenchDraft): SewingOutsourcingWorkbenchTaskRow
     reason: '任务责任字段不完整',
     priority: 130,
   })
+  if (!draft.styleImageUrl) pushSignal(draft, {
+    health: 'DATA_INCOMPLETE',
+    nextResponsibleParty: 'PPIC',
+    nextAction: '补齐当前款式对应的真实图片后再继续核对任务',
+    dueAt: '开始现场核对前',
+    impactSummary: '当前执行任务缺少可用于现场识别的款式图片',
+    reason: '款式图片缺失',
+    priority: 2,
+  })
   if (!draft.signals.length) pushSignal(draft, {
     health: 'NORMAL',
     nextResponsibleParty: 'PPIC',
@@ -552,6 +566,24 @@ function buildRows(): SewingOutsourcingWorkbenchTaskRow[] {
   const assignmentById = new Map(assignments.map((assignment) => [assignment.assignmentId, assignment]))
   const drafts = new Map<string, WorkbenchDraft>()
 
+  // WB-001 / TASK-009: establish the master set before joining satellite records.
+  assignments.forEach((assignment) => {
+    const codes = assignment.processCodes.map((code) => code === 'SEW' ? 'SEWING' : code)
+    if (!codes.includes('SEWING')) return
+    const taskKind: SewingOutsourcingTaskKind = codes.includes('CUTTING')
+      ? 'CUTTING_SEWING_IRON_PACK' : codes.includes('IRON_PACK') ? 'SEWING_IRON_PACK' : 'INDEPENDENT_SEWING'
+    const snapshot = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
+    const responsibility = getCurrentSewingTaskResponsibility(assignment.runtimeTaskId)
+    ensureDraft(drafts, assignment, {
+      taskKind,
+      styleCode: snapshot?.styleCode || assignment.productionOrderNo || assignment.productionOrderId,
+      styleName: snapshot?.styleName || '款式资料待补充',
+      styleImageUrl: snapshot?.imageSnapshot.productImages[0] || snapshot?.imageSnapshot.styleImages[0] || '',
+      ppicId: responsibility?.ppicId || assignment.ppicId,
+      ppicName: responsibility?.ppicName || assignment.ppicName,
+    })
+  })
+
   listSewingSampleApprovalRecords().forEach((record) => {
     const assignment = assignmentById.get(record.assignmentId)
     if (!assignment) return
@@ -582,7 +614,7 @@ function buildRows(): SewingOutsourcingWorkbenchTaskRow[] {
   })
 
   listSewingOutsourcingReturnTrackingRows(SEWING_OUTSOURCING_WORKBENCH_NOW).forEach((row) => {
-    const styleImageUrl = row.productionOrder.skus[0]?.imageUrl || '/tshirt-sample.jpg'
+    const styleImageUrl = row.productionOrder.skus[0]?.imageUrl || ''
     const taskKind = toSampleTaskKind(row.taskType)
     const draft = ensureDraft(drafts, row.assignment, {
       taskKind,
@@ -593,7 +625,6 @@ function buildRows(): SewingOutsourcingWorkbenchTaskRow[] {
       ppicId: row.ppicId,
       ppicName: row.ppicName,
     })
-    draft.taskKindLabel = POST_FINISHING_SEWING_TASK_TYPE_LABEL[row.taskType]
     addReturnFacts(draft, row)
   })
 
@@ -610,7 +641,8 @@ function buildRows(): SewingOutsourcingWorkbenchTaskRow[] {
         ppicName: request.ppicName,
       })
       : legacyReturnDraft(request)
-    if (!assignment) drafts.set(draft.rowId, draft)
+    // Unmatched historical records remain in the return page, outside the effective task master set.
+    if (!assignment) return
     addCutPieceReturnFacts(draft, request)
   })
 

@@ -39,9 +39,9 @@ assert.deepEqual(rows.map((row) => row.returnProjection.snapshot.milestones.map(
   [5, 9, 10],
   [6, 9, 12],
 ])
-assert.equal(rows[0]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-08-23 23:59:59')
+assert.equal(rows[0]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-08-24 23:59:59')
 assert.equal(rows[1]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-08-29 23:59:59')
-assert.equal(rows[2]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-09-01 23:59:59')
+assert.equal(rows[2]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-09-02 23:59:59')
 
 // 工厂登记是申报，只有后道最终确认计入正式回货。
 assert.equal(rows[0]!.declaredQty, 200)

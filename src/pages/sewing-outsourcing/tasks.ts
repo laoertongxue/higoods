@@ -5,16 +5,24 @@ import { renderStandardListTable, type StandardListColumn } from '../../componen
 import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
 import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
-import { PPIC_TEAM_LEADER_LINGYUN } from '../../data/fcs/factory-onboarding-ppic.ts'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../../data/fcs/factory-onboarding-ppic.ts'
+import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
+import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sla.ts'
+import {
+  getCurrentSewingPickupSlip,
+  getSewingPickupAvailability,
+  issueSewingPickupSlip,
+  type SewingPickupObjectKind,
+} from '../../data/fcs/sewing-pickup-slips.ts'
 import {
   getSewingOutsourcingWorkbenchRow,
-  listSewingOutsourcingWorkbenchPpicOptions,
   listSewingOutsourcingWorkbenchRows,
   SEWING_OUTSOURCING_HEALTH_LABEL,
   SEWING_OUTSOURCING_NEXT_PARTY_LABEL,
   type SewingOutsourcingWorkbenchTaskRow,
 } from '../../data/fcs/sewing-outsourcing-workbench.ts'
 import { escapeHtml } from '../../utils.ts'
+import { appStore } from '../../state/store.ts'
 
 type DialogState =
   | { kind: 'DETAIL'; rowId: string }
@@ -24,12 +32,11 @@ type DialogState =
 const state = {
   keyword: '',
   draftKeyword: '',
-  ppicId: '',
-  draftPpicId: '',
   taskKind: 'ALL',
   page: 1,
   pageSize: 20,
   dialog: null as DialogState,
+  feedback: '',
 }
 
 type TaskKindTab = 'ALL' | 'INDEPENDENT_SEWING' | 'SEWING_IRON_PACK' | 'CUTTING_SEWING_IRON_PACK'
@@ -43,9 +50,8 @@ const taskKindLabels: Record<TaskKindTab, string> = {
 
 function baseRows(): SewingOutsourcingWorkbenchTaskRow[] {
   return listSewingOutsourcingWorkbenchRows({
-    viewerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
-    leaderView: true,
-    selectedPpicId: state.ppicId,
+    viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+    leaderView: false,
   })
 }
 
@@ -69,13 +75,32 @@ function imageButton(row: SewingOutsourcingWorkbenchTaskRow): string {
   return `<button type="button" class="relative h-16 w-14 shrink-0 overflow-hidden rounded border bg-slate-50" data-ppic-task-action="preview-image" data-image-url="${escapeHtml(row.styleImageUrl)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(row.styleCode)}款式高清图"><img class="h-full w-full object-cover" src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleImageAlt)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
 }
 
+function pickupAction(row: SewingOutsourcingWorkbenchTaskRow, kind: SewingPickupObjectKind, label: string): string {
+  const availability = getSewingPickupAvailability(row.assignmentId, kind)
+  if (!availability.available) {
+    return `<span class="text-xs text-slate-400" title="${escapeHtml(availability.reason)}">${escapeHtml(label)}（${escapeHtml(availability.reason)}）</span>`
+  }
+  const current = getCurrentSewingPickupSlip(row.assignmentId, kind)
+  return `<button class="text-xs font-semibold text-blue-700 hover:underline" data-ppic-task-action="print-pickup" data-row-id="${escapeHtml(row.rowId)}" data-pickup-kind="${kind}">${current ? '补打' : '打印'}${escapeHtml(label)}</button>`
+}
+
+function pickupActions(row: SewingOutsourcingWorkbenchTaskRow): string {
+  if (row.taskKind === 'CUTTING_SEWING_IRON_PACK') {
+    return pickupAction(row, 'FABRIC_ACCESSORY', '面辅料领料单')
+  }
+  return [
+    pickupAction(row, 'CUT_PIECE', '裁片领料单'),
+    pickupAction(row, 'ACCESSORY', '辅料领料单'),
+  ].join('')
+}
+
 const columns: StandardListColumn<SewingOutsourcingWorkbenchTaskRow>[] = [
   { key: 'identity', title: '款式／生产单／执行任务', width: 330, required: true, freezeable: true, render: (row) => `<div class="flex gap-3">${imageButton(row)}<div><b>${escapeHtml(row.styleCode)}</b><p class="text-xs text-slate-500">${escapeHtml(row.styleName)}</p><p class="mt-1 text-xs">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.taskNo)}</p><p class="font-mono text-[11px] text-slate-500">${escapeHtml(row.runtimeTaskId || '历史任务待绑定')}</p></div></div>` },
   { key: 'assignment', title: '有效分配／工厂', width: 250, required: true, render: (row) => `<b>${escapeHtml(row.factoryName)}</b><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(row.assignmentId || '缺少有效分配关联')}</p><p class="mt-1 text-xs font-semibold text-blue-700">任务PPIC：${escapeHtml(row.ppicName)}</p>` },
   { key: 'kind', title: '任务类型', width: 160, required: true, render: (row) => `<b>${escapeHtml(row.taskKindLabel)}</b><p class="mt-1 text-xs text-slate-500">一厂一执行任务</p>` },
   { key: 'health', title: '健康度／下一责任方', width: 230, required: true, render: (row) => `<b class="${row.health === 'ABNORMAL' ? 'text-red-700' : row.health === 'DATA_INCOMPLETE' ? 'text-violet-700' : row.health === 'ATTENTION' ? 'text-amber-800' : 'text-emerald-700'}">${escapeHtml(SEWING_OUTSOURCING_HEALTH_LABEL[row.health])}</b><p class="mt-1 text-xs">下一责任方：${escapeHtml(SEWING_OUTSOURCING_NEXT_PARTY_LABEL[row.nextResponsibleParty])}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(row.nextAction)}</p>` },
   { key: 'quantity', title: '任务数量事实', width: 240, render: (row) => row.quantitySummaries.map((value) => `<p class="text-xs">${escapeHtml(value)}</p>`).join('') || '<span class="text-xs text-slate-500">暂无可用数量</span>' },
-  { key: 'actions', title: '操作', width: 320, required: true, actionColumn: true, render: (row) => `<div class="flex flex-wrap justify-end gap-x-3 gap-y-2">${row.sourceLinks.map((source) => `<a class="text-xs font-semibold text-blue-700 hover:underline" data-nav="${escapeHtml(source.href)}">${escapeHtml(source.label)}</a>`).join('') || '<span class="text-xs text-violet-700">待完成历史关联</span>'}<button class="text-xs font-semibold text-blue-700" data-ppic-task-action="detail" data-row-id="${escapeHtml(row.rowId)}">全链详情</button></div>` },
+  { key: 'actions', title: '操作', width: 390, required: true, actionColumn: true, render: (row) => `<div class="flex flex-wrap justify-end gap-x-3 gap-y-2">${pickupActions(row)}${row.sourceLinks.map((source) => `<a class="text-xs font-semibold text-blue-700 hover:underline" data-nav="${escapeHtml(source.href)}">${escapeHtml(source.label)}</a>`).join('') || '<span class="text-xs text-violet-700">待完成历史关联</span>'}<button class="text-xs font-semibold text-blue-700" data-ppic-task-action="detail" data-row-id="${escapeHtml(row.rowId)}">全链详情</button></div>` },
 ]
 
 const preferences: StandardListColumnPreferences = {
@@ -89,8 +114,8 @@ function renderDialog(): string {
   if (!state.dialog) return ''
   if (state.dialog.kind === 'IMAGE') return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.dialog.label)}高清大图"><button class="absolute inset-0" data-ppic-task-action="close-dialog" aria-label="关闭大图"></button><section class="relative z-10 max-h-[92vh] max-w-5xl overflow-auto rounded-lg bg-white p-3"><header class="mb-3 flex justify-between gap-3"><b>${escapeHtml(state.dialog.label)}</b><button class="rounded border px-3 py-1 text-sm" data-ppic-task-action="close-dialog">关闭</button></header><img class="max-h-[78vh] max-w-full object-contain" src="${escapeHtml(state.dialog.imageUrl)}" alt="${escapeHtml(state.dialog.label)}高清图"></section></div>`
   const row = getSewingOutsourcingWorkbenchRow(state.dialog.rowId, {
-    viewerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
-    leaderView: true,
+    viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+    leaderView: false,
   })
   if (!row) return ''
   return `<div class="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="车缝任务全链详情"><button class="fixed inset-0" data-ppic-task-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 mx-auto my-4 w-full max-w-5xl rounded-lg bg-white shadow-xl"><header class="flex items-start justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${escapeHtml(row.taskNo)} · 车缝任务全链详情</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.factoryName)} · ${escapeHtml(row.ppicName)}</p></div><button class="rounded border px-3 py-1 text-sm" data-ppic-task-action="close-dialog">关闭</button></header><div class="space-y-4 p-5"><section class="grid gap-3 md:grid-cols-4"><div class="rounded border p-3"><p class="text-xs text-slate-500">任务类型</p><b>${escapeHtml(row.taskKindLabel)}</b></div><div class="rounded border p-3"><p class="text-xs text-slate-500">健康度</p><b>${escapeHtml(SEWING_OUTSOURCING_HEALTH_LABEL[row.health])}</b></div><div class="rounded border p-3"><p class="text-xs text-slate-500">下一责任方</p><b>${escapeHtml(SEWING_OUTSOURCING_NEXT_PARTY_LABEL[row.nextResponsibleParty])}</b></div><div class="rounded border p-3"><p class="text-xs text-slate-500">期限</p><b>${escapeHtml(row.dueAt)}</b></div></section><section class="rounded border p-4"><h3 class="font-semibold">当前动作</h3><p class="mt-2">${escapeHtml(row.nextAction)}</p><p class="mt-1 text-sm text-slate-500">${escapeHtml(row.impactSummary)}</p></section><section class="rounded border p-4"><h3 class="font-semibold">业务时间线</h3><ol class="mt-3 space-y-3">${row.timeline.map((item) => `<li class="border-l-2 border-slate-200 pl-4"><b>${escapeHtml(item.title)}</b><span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-[11px]">${escapeHtml(item.source)}</span><p class="mt-1 text-xs text-slate-500">${escapeHtml(item.occurredAt)}</p><p class="mt-1 text-sm">${escapeHtml(item.detail)}</p></li>`).join('')}</ol></section></div></section></div>`
@@ -103,7 +128,6 @@ export function renderSewingOutsourcingTasksPage(): string {
   state.page = Math.min(Math.max(1, state.page), totalPages)
   const start = (state.page - 1) * state.pageSize
   const pageRows = allRows.slice(start, start + state.pageSize)
-  const ppicOptions = listSewingOutsourcingWorkbenchPpicOptions()
   return `<div data-ppic-task-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '车缝任务',
     statusTabsHtml: renderUiTabs({
@@ -120,11 +144,10 @@ export function renderSewingOutsourcingTasksPage(): string {
     }),
     filtersHtml: renderStandardListFilters({
       actionPrefix: 'ppic-task',
-      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 分配 / 工厂" value="${escapeHtml(state.draftKeyword)}" data-ppic-task-field="keyword"><select class="h-9 rounded border px-3 text-sm" data-ppic-task-field="ppicId"><option value="">全部PPIC</option>${ppicOptions.map((option) => `<option value="${escapeHtml(option.ppicId)}"${state.draftPpicId === option.ppicId ? ' selected' : ''}>${escapeHtml(option.ppicName)}（${option.taskCount}）</option>`).join('')}</select>`,
+      fieldsHtml: `<input class="h-9 min-w-80 rounded border px-3 text-sm" placeholder="生产单 / 执行任务 / 分配 / 工厂" value="${escapeHtml(state.draftKeyword)}" data-ppic-task-field="keyword"><span class="rounded bg-blue-50 px-3 py-2 text-xs text-blue-800">当前登录：${escapeHtml(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName)}</span>`,
     }),
     listTitle: '车缝外发执行任务主清单',
-    listActionsHtml: '<a class="text-xs font-semibold text-blue-700" data-nav="/fcs/sewing-outsourcing/migration-audit">历史迁移审计</a>',
-    tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-task', emptyText: '暂无符合条件的车缝执行任务' }),
+    tableHtml: `${state.feedback ? `<div class="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.feedback)}</div>` : ''}${renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-task', emptyText: '暂无符合条件的车缝执行任务' })}`,
     paginationHtml: renderTablePagination({ total: allRows.length, from: allRows.length ? start + 1 : 0, to: Math.min(start + state.pageSize, allRows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'ppic-task', fieldPrefix: 'ppic-task', pageSizeOptions: [20, 50] }),
     overlaysHtml: renderDialog(),
   })}</div>`
@@ -149,7 +172,6 @@ export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean 
   if (field && !state.dialog) {
     const name = field.dataset.ppicTaskField
     if (name === 'keyword') state.draftKeyword = field.value
-    else if (name === 'ppicId') state.draftPpicId = field.value
     else if (name === 'pageSize') {
       state.pageSize = Number(field.value) || 20
       state.page = 1
@@ -162,21 +184,44 @@ export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean 
   const action = node?.dataset.ppicTaskAction
   if (!node || !action) return false
   if (action === 'close-dialog') return closeSewingOutsourcingTasksDialog()
+  state.feedback = ''
   if (action.startsWith('switch-tab:')) {
     state.taskKind = action.slice('switch-tab:'.length) as TaskKindTab
     state.page = 1
   }
   else if (action === 'query') {
     state.keyword = state.draftKeyword
-    state.ppicId = state.draftPpicId
     state.page = 1
   }
   else if (action === 'reset') {
     state.keyword = ''
     state.draftKeyword = ''
-    state.ppicId = ''
-    state.draftPpicId = ''
     state.page = 1
+  }
+  else if (action === 'print-pickup') {
+    const row = getSewingOutsourcingWorkbenchRow(node.dataset.rowId || '', {
+      viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+      leaderView: false,
+    })
+    const objectKind = node.dataset.pickupKind as SewingPickupObjectKind
+    if (!row || !['CUT_PIECE', 'ACCESSORY', 'FABRIC_ACCESSORY'].includes(objectKind)) return false
+    try {
+      const version = issueSewingPickupSlip({
+        assignmentId: row.assignmentId,
+        objectKind,
+        printedAt: formatOperationLocalWallClock(),
+        printedByPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+        printedByPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
+      })
+      appStore.navigate(buildUnifiedPrintPreviewLink({
+        documentType: 'PICKUP_SLIP',
+        sourceType: 'PICKUP_SLIP_RECORD',
+        sourceId: version.versionId,
+      }))
+      return true
+    } catch (error) {
+      state.feedback = error instanceof Error ? error.message : String(error)
+    }
   }
   else if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
   else if (action === 'detail') state.dialog = { kind: 'DETAIL', rowId: node.dataset.rowId || '' }

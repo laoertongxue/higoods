@@ -44,3 +44,13 @@ export function readRuntimeTaskById<T>(taskId: string): T | null {
 export function readRuntimeTasks<T>(): T[] {
   return listRuntimeTasks ? [...listRuntimeTasks()] as T[] : []
 }
+
+// 配料投影依赖任务读取；注册校验器可避免任务模块反向导入整个仓储模块。
+let sewingMaterialReadinessCheck: ((task: unknown) => void) | null = null
+export function installSewingMaterialReadinessCheck(check: (task: unknown) => void): void {
+  sewingMaterialReadinessCheck = check
+}
+export function assertRegisteredSewingMaterialReadiness(task: unknown): void {
+  if (!sewingMaterialReadinessCheck) throw new Error('配料校验尚未就绪，请刷新后重试')
+  sewingMaterialReadinessCheck(task)
+}

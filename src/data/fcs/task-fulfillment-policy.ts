@@ -1,3 +1,4 @@
+import { SEWING_RETURN_COUNTING_DAYS } from './sewing-return-calendar.ts'
 import {
   getMergedProductionTaskDefinition,
   normalizeProductionExecutionProcessCode,
@@ -53,22 +54,12 @@ export interface TaskFulfillmentPolicyInput {
   assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 }
 
-const MILESTONES: Record<Exclude<FulfillmentRuleCode, 'NO_STAGED_RETURN_RULE'>, FulfillmentMilestoneRule[]> = {
-  SEWING_ONLY: [
-    { ratio: 0.3, naturalDay: 4 },
-    { ratio: 0.7, naturalDay: 8 },
-    { ratio: 1, naturalDay: 9 },
-  ],
-  SEWING_TO_IRON_PACK: [
-    { ratio: 0.3, naturalDay: 5 },
-    { ratio: 0.7, naturalDay: 9 },
-    { ratio: 1, naturalDay: 10 },
-  ],
-  CUTTING_TO_IRON_PACK: [
-    { ratio: 0.3, naturalDay: 6 },
-    { ratio: 0.7, naturalDay: 9 },
-    { ratio: 1, naturalDay: 12 },
-  ],
+const milestoneRules = (days: readonly number[]): FulfillmentMilestoneRule[] =>
+  ([0.3, 0.7, 1] as const).map((ratio, index) => ({ ratio, naturalDay: days[index] }))
+const MILESTONES = {
+  SEWING_ONLY: milestoneRules(SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING),
+  SEWING_TO_IRON_PACK: milestoneRules(SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK),
+  CUTTING_TO_IRON_PACK: milestoneRules(SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK),
 }
 
 function extractIndependentProcessCode(task: TaskFulfillmentPolicyInput): string {

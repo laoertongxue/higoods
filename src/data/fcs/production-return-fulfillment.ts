@@ -1,3 +1,4 @@
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_RULE_VERSION } from './sewing-return-calendar.ts'
 import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillment-policy'
 import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
 import { resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
@@ -21,6 +22,7 @@ export interface ProductionReturnRulePreview {
 }
 
 export interface ProductionReturnRuleSnapshot {
+  ruleVersion?: string
   snapshotId: string
   assignmentId: string
   runtimeTaskId: string
@@ -204,9 +206,7 @@ export function addNaturalDays(dateValue: string, days: number): string {
 }
 
 export function calculateNaturalDayDeadline(assignmentDate: string, naturalDay: number): string {
-  if (!Number.isInteger(naturalDay) || naturalDay < 1) throw new Error('回货节点自然日必须大于等于1')
-  // 分配日期即第1自然日，所以第N自然日只增加N-1天。
-  return addNaturalDays(assignmentDate, naturalDay - 1)
+  return calculateSewingReturnDeadlineDate(assignmentDate, naturalDay)
 }
 
 export function buildProductionReturnRulePreview(input: {
@@ -251,6 +251,7 @@ export function createProductionReturnRuleSnapshot(input: {
     productionOrderId: input.productionOrderId,
     factoryId: input.factoryId,
     factoryName: input.factoryName,
+    ruleVersion: SEWING_RETURN_RULE_VERSION,
     assignedQty: preview.assignedQty,
     assignmentDate: preview.assignmentDate,
     fulfillmentRuleCode: preview.fulfillmentRuleCode,

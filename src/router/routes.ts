@@ -94,10 +94,8 @@ const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),
   'renderSewingOutsourcingResponsibilityTransfersPage',
 )
-const renderSewingOutsourcingMigrationAuditPage = createAsyncRenderer(
-  () => import('../pages/sewing-outsourcing/migration-audit'),
-  'renderSewingOutsourcingMigrationAuditPage',
-)
+
+const renderSewingProductionOrderDurationPage = createAsyncRenderer(() => import('../pages/sewing-outsourcing/production-order-duration'), 'renderSewingProductionOrderDurationPage')
 
 const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/': async () => {
@@ -116,6 +114,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
   '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),
   // PPIC 是独立且高频的协同入口，直接按页面懒加载，避免先加载整套 FCS 路由及其无关业务依赖。
+  '/fcs/sewing-outsourcing/production-order-duration': () => renderSewingProductionOrderDurationPage(),
   '/fcs/sewing-outsourcing/workbench': () => renderSewingOutsourcingWorkbenchPage(),
   '/fcs/sewing-outsourcing/team-workbench': () => renderSewingOutsourcingTeamWorkbenchPage(),
   '/fcs/sewing-outsourcing/tasks': () => renderSewingOutsourcingTasksPage(),
@@ -126,7 +125,6 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/fcs/sewing-outsourcing/cut-piece-returns': () => renderSewingOutsourcingCutPieceReturnsPage(),
   '/fcs/sewing-outsourcing/returns': () => renderSewingOutsourcingReturnsPage(),
   '/fcs/sewing-outsourcing/responsibility-transfers': () => renderSewingOutsourcingResponsibilityTransfersPage(),
-  '/fcs/sewing-outsourcing/migration-audit': () => renderSewingOutsourcingMigrationAuditPage(),
 }
 
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null
