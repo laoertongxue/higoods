@@ -1,9 +1,9 @@
+import { getPreparationMaterialSourceDocumentNo } from '../../../data/fcs/preparation-material-receipt-sources.ts'
 import { renderBadge } from '../../../components/ui/badge.ts'
 import { renderFormDialog, renderSimpleConfirmDialog, renderDialog } from '../../../components/ui/dialog.ts'
 import { renderInput, renderSelect, renderTextarea } from '../../../components/ui/form.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import {
-  DYE_WORK_ORDER_ONLINE_STATUSES,
   getDyeWorkOrderOnlineRecord,
   listDyeWorkOrderOnlineLogs,
   type DyeWorkOrderPfosEditInput,
@@ -31,22 +31,31 @@ function formField(label: string, html: string, className = ''): string {
   return `<label class="space-y-1.5 ${className}"><span class="text-sm font-medium">${escapeHtml(label)}</span>${html}</label>`
 }
 
-function renderProductImage(url: string): string {
-  return url
-    ? `<img src="${escapeHtml(url)}" alt="商品图" class="h-24 w-20 rounded border object-cover">`
-    : '<div class="flex h-24 w-20 shrink-0 items-center justify-center rounded border bg-muted/30 px-2 text-center text-xs text-muted-foreground">暂无商品图</div>'
+function renderObjectImage(url: string, label: string): string {
+  return `<button type="button" class="relative h-24 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded border bg-white" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(label)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(label)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
+}
+
+function axisTone(status: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  if (['RECEIVED', 'COMPLETED', 'FULL_HANDOVER'].includes(status)) return 'success'
+  if (['RECEIPT_DIFFERENCE', 'CANCELLED'].includes(status)) return 'danger'
+  if (['PARTIAL_RECEIVED', 'PARTIAL_HANDOVER', 'PROCESSING'].includes(status)) return 'info'
+  if (['WAIT_SOURCE', 'WAIT_RECEIVE', 'WAIT_HANDOVER'].includes(status)) return 'warning'
+  return 'neutral'
 }
 
 function renderView(dyeOrderId: string): string {
   const row = listDyeWorkOrderOnlineRows().find((item) => item.dyeOrderId === dyeOrderId)
   if (!row) return renderDialog({ title: '查看染色加工单', closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' } }, '<p class="text-sm text-red-600">染色加工单不存在。</p>')
-  const body = `<div class="max-h-[68vh] space-y-5 overflow-y-auto pr-1">
-    <div class="flex items-start gap-4 rounded-lg border bg-muted/20 p-4">
-      ${renderProductImage(row.productImageUrl)}
-      <div class="grid flex-1 grid-cols-2 gap-3">${field('平台加工单号', row.workOrderNo)}${field('当前状态', row.status)}${field('生产单号', row.productionOrderNo)}${field('任务单号', row.taskNo)}</div>
-    </div>
-    <div class="grid grid-cols-2 gap-4">${field('预计完成时间', row.plannedFinishAt)}${field('生产工厂', row.factoryName || '待分配工厂')}${field('物料接收人', row.receiverName)}${field('染色工序', row.processName)}${field('深浅', row.shade)}${field('温度', row.temperature ? `${row.temperature}℃` : '')}</div>
-    <div class="rounded-lg border p-4"><h3 class="mb-3 font-medium">原料与数量</h3><div class="grid grid-cols-2 gap-4">${field('染色原料', `${row.materialType} · ${row.materialName} · ${row.rawMaterialSku}`)}${field('染色色号', row.colorNo)}${field('计划数量', `${row.plannedQty} ${row.qtyUnit}`)}${field('原料数量', `${row.rawMaterialQty} ${row.qtyUnit}`)}${field('原料卷数', `${row.rawMaterialRollCount} 卷`)}${field('完成数量', `${row.completedQty} ${row.qtyUnit}`)}${field('损耗数量', `${row.lossQty} ${row.qtyUnit}`)}${field('备注', row.remark)}</div></div>
+  const links = (items: Array<{label: string; href?: string}>) => items.map(item => item.href ? `<a class="text-blue-700 hover:underline" href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a>` : escapeHtml(item.label)).join(' / ')
+  const table = (headers: string[], rows: string[][]) => `<div class="overflow-x-auto"><table class="w-full min-w-[620px] border-collapse text-left text-xs"><thead><tr>${headers.map(text => `<th class="border bg-muted/30 p-2">${escapeHtml(text)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map(text => `<td class="border p-2">${escapeHtml(text)}</td>`).join('')}</tr>`).join('') || `<tr><td class="border p-3 text-muted-foreground" colspan="${headers.length}">暂无记录</td></tr>`}</tbody></table></div>`
+  const qty = (value: number | undefined, unit = row.qtyUnit) => value === undefined ? '待补录' : `${value} ${unit}`
+  const body = `<div class="max-h-[68vh] space-y-4 overflow-y-auto pr-1">
+    <section class="space-y-3"><h3 class="font-medium">基本信息</h3><div class="flex gap-3">${renderObjectImage(row.productImageUrl, `${row.productCode} ${row.productName}`)}<div class="grid flex-1 grid-cols-2 gap-3">${field('商品', `${row.productCode} · ${row.productName}`)}${field('需求来源', `${row.sourceLabel} · ${row.productionOrderNo || row.purchaseOrderNo}`)}${field('任务', row.taskNo)}${field('当前加工厂', row.factoryName)}</div></div><div class="flex gap-4">${renderBadge(`接收：${row.receiptKnown ? row.receiptStatusLabel : '历史待补录'}`, axisTone(row.receiptStatus))}${renderBadge(`加工：${row.processingStatusLabel}`, axisTone(row.processingStatus))}${renderBadge(`交出：${row.handoverStatusLabel}`, axisTone(row.handoverStatus))}</div></section>
+    <section class="space-y-3 border-t pt-3"><h3 class="font-medium">加工投入／上游</h3><div class="flex gap-3">${renderObjectImage(row.materialImageUrl, row.materialName)}<div class="grid flex-1 grid-cols-2 gap-3">${field('投入物料', row.rawMaterialSku !== row.materialName && !/[\u4e00-\u9fff]/.test(row.rawMaterialSku) ? `${row.materialName} · ${row.rawMaterialSku}` : row.materialName)}${field('上游供料方', row.upstreamName)}${field('计划投入', qty(row.plannedQty))}${field('已接收', row.receiptKnown ? qty(row.receivedInputQty) : '历史接收待补录')}${field('实际使用', row.usageKnown ? qty(row.rawMaterialQty) : '待补录')}</div></div><div class="text-xs">关联上游：${links(row.upstreamLinks) || '暂无上游加工单'}<br>来源单据：${escapeHtml(row.inputSourceDocumentNos.join(' / ') || '待生成')}</div><details><summary class="cursor-pointer text-sm text-blue-700">供料记录 ${row.receiptRecords.length} 笔</summary>${table(['接收单','上游交接记录','实收数量','接收人','接收时间'], row.receiptRecords.map(record => [record.receiptId, getPreparationMaterialSourceDocumentNo(record.upstreamRecordId) || '历史来源单据待补录', qty(record.qty), record.receiverName, record.receivedAt]))}</details></section>
+    <section class="space-y-3 border-t pt-3"><h3 class="font-medium">染色要求</h3><div class="grid grid-cols-2 gap-3">${field('工艺', row.processName)}${field('目标颜色／色号', row.colorNo)}${field('成分', row.composition)}${field('色样', '色样待补充')}${field('深浅', row.shade || '待明确')}${field('温度', row.temperature ? `${row.temperature}℃` : '待明确')}</div></section>
+    <section class="space-y-3 border-t pt-3"><h3 class="font-medium">加工记录</h3>${field('确认损耗', row.lossKnown ? qty(row.lossQty) : '待确认')}<details><summary class="cursor-pointer text-sm text-blue-700">查看分批加工记录（${row.executionRecords.length}）</summary>${table(['工序','投入','产出','确认损耗','操作人','开始／完成'], row.executionRecords.map(record => [record.nodeName, qty(record.inputQty, record.qtyUnit), qty(record.outputQty, record.qtyUnit), qty(record.lossQty, record.qtyUnit), record.operatorName, `${record.startedAt || '—'} / ${record.finishedAt || '未完成'}`]))}</details></section>
+    <section class="space-y-3 border-t pt-3"><h3 class="font-medium">加工产出／下游</h3><p class="text-xs text-amber-700">产出物料档案与实物图待补充；不以投入物料图冒充产出。</p><div class="text-xs">下游加工单：${links(row.downstreamLinks) || '下道工序待确定'}</div><div class="grid grid-cols-2 gap-3">${field('接收单位', row.receiverName)}${row.receiverWarehouseName && row.receiverWarehouseName !== row.receiverName ? field('接收仓', row.receiverWarehouseName) : ''}${field('交出单', row.handoverOrderNo)}${field('完成产出', qty(row.completedQty))}${field('已交出', qty(row.handedOverQty))}${field('下游已收', qty(row.downstreamReceivedQty))}${field('下游待接收', qty(row.pendingInboundQty))}</div><details><summary class="cursor-pointer text-sm text-blue-700">交接记录 ${row.handoverRecords.length} 笔</summary>${table(['交接记录','交出数量','接收数量','交出人／时间','接收人／时间','差异处理'], row.handoverRecords.map(record => [record.handoverRecordNo || record.recordId, qty(record.submittedQty), qty(record.taskReceipts?.length ? record.taskReceipts.reduce((sum, item) => sum + item.qty, 0) : record.receiverWrittenQty ?? record.warehouseWrittenQty), `${record.factorySubmittedBy || '待补录'} / ${record.factorySubmittedAt}`, record.taskReceipts?.length ? record.taskReceipts.map(item => `${item.receiverName} / ${item.receivedAt}`).join('；') : `${record.receiverWrittenBy || '待接收'} / ${record.receiverWrittenAt || record.warehouseWrittenAt || '—'}`, record.factoryDiffDecision === 'ACCEPT_DIFF' ? '差异已接受' : record.objectionStatus === 'RESOLVED' ? '异议已解决' : record.diffReason || '—']))}</details></section>
+    <section class="space-y-3 border-t pt-3"><h3 class="font-medium">时间与备注</h3><div class="grid grid-cols-2 gap-3">${field('下单时间', row.orderedAt)}${field('预计完成', row.plannedFinishAt)}${field('实际完成', row.completedAt)}${field('实际交出', row.deliveredAt)}${field('备注', row.remark)}</div></section>
   </div>`
   return renderDialog({ title: `查看染色加工单 - ${row.workOrderNo}`, closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' }, width: 'lg' }, body, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
@@ -66,19 +75,21 @@ function renderEdit(dyeOrderId: string, error = ''): string {
     ${error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(error)}</div>` : ''}
     <input type="hidden" value="${record.version}" data-dye-work-orders-edit="expectedVersion">
     <input type="hidden" value="${escapeHtml(record.factoryId)}" data-dye-work-orders-edit="factoryId">
+    <input type="hidden" value="${escapeHtml(record.status)}" data-dye-work-orders-field="status">
+    <input type="hidden" value="${escapeHtml(record.receiverName)}" data-dye-work-orders-field="receiverName">
+    <div class="grid grid-cols-3 gap-3 rounded-lg border p-3"><div><div class="mb-1 text-xs text-muted-foreground">接收状态</div>${renderBadge(row.receiptStatusLabel, axisTone(row.receiptStatus))}</div><div><div class="mb-1 text-xs text-muted-foreground">加工状态</div>${renderBadge(row.processingStatusLabel, axisTone(row.processingStatus))}</div><div><div class="mb-1 text-xs text-muted-foreground">交出状态</div>${renderBadge(row.handoverStatusLabel, axisTone(row.handoverStatus))}</div></div>
     <div class="grid grid-cols-2 gap-4">
       ${formField('平台加工单号', renderInput({ value: row.workOrderNo, readonly: true }))}
       ${formField('计划数量', renderInput({ value: `${row.plannedQty} ${row.qtyUnit}`, readonly: true }))}
       ${formField('预计完成时间', renderInput({ value: record.plannedFinishAt, prefix: EVENT_PREFIX, field: 'plannedFinishAt' }))}
-      ${formField('状态', renderSelect({ value: record.status, options: DYE_WORK_ORDER_ONLINE_STATUSES.map((value) => ({ value, label: value })), prefix: EVENT_PREFIX, field: 'status' }))}
       ${formField('生产工厂', renderSelect({ value: record.factoryId, options: factoryOptions, prefix: EVENT_PREFIX, field: 'factory' }))}
-      ${formField('物料接收人', renderInput({ value: record.receiverName, prefix: EVENT_PREFIX, field: 'receiverName' }))}
+      ${formField('下游接收方', renderInput({ value: `${row.receiverName} / ${row.receiverWarehouseName}`, readonly: true }))}
       ${formField('深浅', renderSelect({ value: record.shade, options: ['', '浅色', '深色'].map((value) => ({ value, label: value || '未选择' })), prefix: EVENT_PREFIX, field: 'shade' }))}
       ${formField('温度', renderSelect({ value: record.temperature ? String(record.temperature) : '', options: ['', '190', '200', '205'].map((value) => ({ value, label: value ? `${value}℃` : '未选择' })), prefix: EVENT_PREFIX, field: 'temperature' }))}
-      ${formField('原料数量', renderInput({ type: 'number', value: String(record.rawMaterialQty), prefix: EVENT_PREFIX, field: 'rawMaterialQty' }))}
+      ${formField('实际使用数量', renderInput({ type: 'number', value: String(record.rawMaterialQty), prefix: EVENT_PREFIX, field: 'rawMaterialQty' }))}
       ${formField('原料卷数', renderInput({ type: 'number', value: String(record.rawMaterialRollCount), prefix: EVENT_PREFIX, field: 'rawMaterialRollCount' }))}
       ${formField('完成数量', renderInput({ type: 'number', value: String(record.completedQty), prefix: EVENT_PREFIX, field: 'completedQty' }))}
-      ${formField('损耗数量', renderInput({ type: 'number', value: String(record.lossQty), prefix: EVENT_PREFIX, field: 'lossQty' }))}
+      ${formField('确认损耗数量', renderInput({ type: 'number', value: String(record.lossQty), prefix: EVENT_PREFIX, field: 'lossQty' }))}
       ${formField('备注', renderTextarea({ value: record.remark, prefix: EVENT_PREFIX, field: 'remark', rows: 3 }), 'col-span-2')}
     </div>
   </div>`

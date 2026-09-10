@@ -49,12 +49,12 @@ for (const seededOrder of seededOrders) {
     assert(online.rawMaterialQty > 0, `${seededOrder.dyeOrderId} 染色中必须存在实际投入`)
   }
   if (['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(online.status)) {
-    assert(online.rawMaterialQty > 0, `${seededOrder.dyeOrderId} 已完成染色节点必须存在实际投入`)
+    assert(row.usageKnown ? online.rawMaterialQty > 0 : row.rawMaterialQty === 0, `${seededOrder.dyeOrderId} 实际投入缺失必须明确待补录，不得从已收或完成推算`)
     assert(online.completedQty > 0, `${seededOrder.dyeOrderId} 已完成染色节点必须存在实际产出`)
     assert.equal(
       online.lossQty,
-      Number((online.rawMaterialQty - online.completedQty).toFixed(2)),
-      `${seededOrder.dyeOrderId} 损耗必须等于实际投入减实际产出`,
+      [...(seededOrder.completedExecutionBatches ?? []).flat(), ...nodes].filter(node => node.finishedAt && node.qtyUnit === seededOrder.qtyUnit).reduce((sum, node) => sum + (node.lossQty ?? 0), 0),
+      `${seededOrder.dyeOrderId} 损耗必须来自明确完成节点记录，不能用接收差值计算`,
     )
   }
   if (handover.submittedQty > 0) {
@@ -86,8 +86,8 @@ assert(seededRows.some((row) => row.factoryId && getDyeWorkOrderOnlineRecord(row
 assert(seededRows.some((row) => row.status === '染色中'), 'Mock 必须覆盖染色中')
 assert(seededRows.some((row) => row.isReplenishment && row.status === '染色中'), 'Mock 必须覆盖补料染色中')
 assert(seededRows.some((row) => row.status === '染色完成'), 'Mock 必须覆盖染色完成待交出')
-assert(seededRows.some((row) => row.status === '待审核'), 'Mock 必须覆盖已交出待审核')
-assert(seededRows.some((row) => row.status === '部分入库'), 'Mock 必须覆盖部分入库')
+assert(seededRows.some((row) => row.handoverStatus === 'FULL_HANDOVER' && row.downstreamReceivedQty < row.handedOverQty), 'Mock 必须覆盖全部交出后下游尚未收齐')
+assert(seededRows.some((row) => row.downstreamReceivedQty > 0 && row.downstreamReceivedQty < row.handedOverQty), 'Mock 必须覆盖下游部分接收，同时保持本单交出状态为全部交出')
 const differenceOrder = seededOrders.find((order) => order.dyeOrderNo === 'DY-20260328-010')!
 assert.equal(differenceOrder.status, 'HANDOVER_DIFFERENCE', '收货数量差异不能冒充取消')
 assert.notEqual(getDyeWorkOrderOnlineRecord(differenceOrder.dyeOrderId).status, '取消')
@@ -314,7 +314,10 @@ const rows = listDyeWorkOrderOnlineRows()
 assert(rows.length >= 8, '染色加工单线上列表演示数据不足')
 assert(rows.every((row) => row.workOrderNo === row.platformWorkOrderNo), '列表只能使用平台加工单号')
 assert(rows.some((row) => row.productImageUrl && row.materialImageUrl), '列表需要商品图和面料图')
-assert(rows.some((row) => row.status === '部分入库' && row.pendingInboundQty > 0), '列表需要部分入库样本')
+assert(rows.some((row) => row.handoverStatus === 'FULL_HANDOVER'
+  && row.downstreamReceivedQty > 0
+  && row.downstreamReceivedQty < row.handedOverQty
+  && row.pendingInboundQty > 0), '列表需要本单已全部交出、下游部分接收样本')
 assert(rows.some((row) => row.isOverdue && !['取消', '已完成'].includes(row.status)), '列表需要超期未完结样本')
 
 const manualCompletionRow = rows.find((row) => row.status === '待人工完单')
@@ -337,7 +340,7 @@ assert(filtered.length > 0, '列表需要染色中样本')
 assert(filtered.every((row) => row.status === '染色中'))
 const summary = getDyeWorkOrderOnlineSummary(rows)
 assert(summary.plannedQtyByUnit.some((item) => item.unit === 'Yard'))
-assert(buildDyeWorkOrderCsv(rows, '备料').startsWith('\uFEFF'))
+assert(buildDyeWorkOrderCsv(rows, '投入接收').startsWith('\uFEFF'))
 assert(buildDyeWorkOrderCsv(rows, '超期未完结').includes('平台加工单号'))
 assert(!buildDyeWorkOrderCsv(rows, '全部').includes('需求单号'), '染色加工单导出不得展示需求单号')
 
@@ -356,24 +359,21 @@ assert(dyeDomainSource.includes('notifyDyeReceiptOnlineStatus'), '染色收货�
 assert(!pdaExecSource.includes('recordDyeWorkOrderPdaStart'), '准备阶段加工单不得通过通用任务顶部按钮开工')
 assert(pdaExecSource.includes('不能使用通用任务开工'), '准备阶段加工单必须阻断伪造的通用任务开工动作')
 ;[
-  '查询项', '状态', '销售类型', '生产工厂', '染色工序', '物料接收人',
-  '是否纱线', '是否补料', 'GTG仓是否有库存', '物料类型', '染色色号',
-  '成分', '幅宽', '克重', '导出备料数据', '导出超期未完结',
-  '批量打印染整生产流程卡', '商品信息', '采购单信息', '染色原料',
-  '属性信息', '时间/加工厂', '附加信息', '查看', '编辑', '日志', '打印流程卡',
+  '综合查询', '接收状态', '加工状态', '交出状态', '加工厂', '工艺', '需求来源',
+  '导出投入接收', '导出超期单', '批量打印流程卡', '商品', '加工投入', '加工投入／上游',
+  '处理进度', '加工要求', '加工产出', '加工产出／下游', '工厂／交期',
+  '查看', '编辑', '日志', '打印流程卡', 'data-pda-image-preview-url',
 ].forEach((text) => assert(workOrdersSource.includes(text), `染色加工单列表缺少：${text}`))
-;['补料', '多 ', '少 ', '一致', 'isInventoryShortage'].forEach((text) => {
+;['补料', '来源单据待生成', '下游已收'].forEach((text) => {
   assert(workOrdersSource.includes(text), `染色加工单列表缺少业务表达：${text}`)
 })
 assert(workOrdersSource.includes('renderStandardListTable'), '染色加工单列表必须使用标准列表模板')
-assert(workOrdersSource.includes("['染色完成', '待审核', '部分入库', '待人工完单', '已完成', '取消']"), '染色完成及后续状态不得把损耗误算为待染数量')
-assert(workOrdersSource.includes('formatQty(pendingDyeQty(row), row.qtyUnit)'), '列表待染数量必须使用状态感知口径')
 ;['查看配方', '查看统计'].forEach((text) => assert(!workOrdersSource.includes(text), `单张染色加工单列表不应保留：${text}`))
 assert(!workOrdersSource.includes('需求单号'), '染色加工单列表不得展示已删除的需求单号')
 
 assert.equal(buildDyeingWorkOrderDetailLink(order.dyeOrderId), `/fcs/craft/dyeing/work-orders?dyeOrderId=${order.dyeOrderId}`)
 const editHtml = renderDyeWorkOrderOverlay({ type: 'edit', dyeOrderId: order.dyeOrderId })
-;['预计完成时间', '生产工厂', '物料接收人', '深浅', '温度', '计划数量', '原料数量', '原料卷数', '完成数量', '损耗数量', '备注'].forEach((text) => {
+;['预计完成时间', '生产工厂', '下游接收方', '深浅', '温度', '计划数量', '实际使用数量', '原料卷数', '完成数量', '损耗数量', '备注'].forEach((text) => {
   assert(editHtml.includes(text), `编辑弹窗缺少：${text}`)
 })
 assert(editHtml.includes('readonly'), '计划数量和平台加工单号必须只读')
@@ -385,8 +385,8 @@ assert.equal(flowCard.sourceId, order.dyeOrderId)
 const flowCardText = JSON.stringify(flowCard)
 ;[
   '染整生产流程卡', 'Kartu Alur Produksi Pencelupan dan Penyempurnaan',
-  order.dyeOrderNo, '下单日期', '是否加急', '生产单号', '色样备注',
-  'No. Warna', 'Bahan baku', 'Kuantitas', 'Formula pencelupan',
+  order.dyeOrderNo, '下单日期', '交期提醒', '生产单号', '色样备注',
+  'No. Warna', 'Bahan baku', 'Kuantitas', 'Komposisi',
   'Pencelupan', 'Penghilangan air', 'Pengeringan', 'Finishing', 'Kemasan',
   '卡序号', '布料样品 SPU', '批号',
 ].forEach((text) => assert(flowCardText.includes(text), `染整生产流程卡缺少：${text}`))

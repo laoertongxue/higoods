@@ -8,7 +8,7 @@ water.resetWaterSolubleDomainForChecks()
 const order = water.listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')
 assert(order, '缺少可分配水溶样例')
 water.assignWaterSolubleFactory(order.waterOrderId, 'F090')
-assert.equal(water.markWaterSolubleMaterialReady(order.waterOrderId, { qty: 1, receiptId: 'RECEIVE-FIRST' }).ok, true)
+assert.equal(water.receiveWaterSolubleInput(order.waterOrderId, { qty: 1, receiptId: 'RECEIVE-FIRST', upstreamRecordId: 'CHECK-SOURCE-FIRST' }).ok, true)
 assert.equal(water.completeWaterSoluble(order.waterOrderId, 2).ok, false, '产出不可超过本单实际接收')
 const user = pda.listFactoryPdaUsers('F090').find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_ADMIN')
 assert(user, '缺少水溶交接管理员')
@@ -18,8 +18,8 @@ let headId: string | undefined
 
 for (const [index, cumulativeOutput] of [1, order.plannedQty].entries()) {
   if (index === 1) {
-    assert.equal(water.markWaterSolubleMaterialReady(order.waterOrderId, { qty: order.plannedQty - 1, receiptId: 'RECEIVE-SECOND' }).ok, true)
-    assert.equal(water.markWaterSolubleMaterialReady(order.waterOrderId, { qty: order.plannedQty - 1, receiptId: 'RECEIVE-SECOND' }).ok, false, '重复接收不能累计')
+    assert.equal(water.receiveWaterSolubleInput(order.waterOrderId, { qty: order.plannedQty - 1, receiptId: 'RECEIVE-SECOND', upstreamRecordId: 'CHECK-SOURCE-SECOND' }).ok, true)
+    assert.equal(water.receiveWaterSolubleInput(order.waterOrderId, { qty: order.plannedQty - 1, receiptId: 'RECEIVE-SECOND', upstreamRecordId: 'CHECK-SOURCE-SECOND' }).ok, false, '重复接收不能累计')
   }
   const outputResult = water.completeWaterSoluble(order.waterOrderId, cumulativeOutput)
   assert.equal(outputResult.ok, true, outputResult.message)
@@ -63,7 +63,7 @@ pda.setPdaSession(actor)
 water.resetWaterSolubleDomainForChecks()
 const split = water.listWaterSolubleWorkOrders().find(item => item.status === 'WAIT_FACTORY_ASSIGNMENT' && item.waterOrderId !== order.waterOrderId)!
 water.assignWaterSolubleFactory(split.waterOrderId, 'F090')
-water.markWaterSolubleMaterialReady(split.waterOrderId, { qty: 10, receiptId: 'INPUT-10' })
+water.receiveWaterSolubleInput(split.waterOrderId, { qty: 10, receiptId: 'INPUT-10', upstreamRecordId: 'CHECK-SOURCE-SPLIT' })
 water.completeWaterSoluble(split.waterOrderId, 10)
 const splitHead = handover.ensureHandoverOrderForStartedTask(split.taskId).handoverOrderId
 const upstream = handover.createFactoryHandoverRecord({ handoverOrderId: splitHead, submittedQty: 10, qtyUnit: split.qtyUnit, factorySubmittedAt: '2026-09-07 10:00:00', factorySubmittedBy: '交接员', scanCode: split.materialCode, actor })

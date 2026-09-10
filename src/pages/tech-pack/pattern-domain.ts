@@ -197,7 +197,7 @@ function renderPatternBindingStripEditor(): string {
       </div>
       ${buttonLoopOption.routeConfigured
         ? '<p class="text-xs text-muted-foreground">每条捆条独立选择是否用于盘扣；选择后对应菲票使用黄色 100mm × 100mm 纸张。</p>'
-        : '<p class="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">如需选择盘扣，请先在工序路线增加“盘扣（对象：捆条）”并确认路线。</p>'}
+        : '<p class="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">如需选择盘扣，请先在工艺路线增加“盘扣（对象：捆条）”并确认路线。</p>'}
       ${
         rows.length === 0
           ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无捆条</div>'
@@ -721,18 +721,17 @@ export function renderPatternTab(): string {
   const materialPatternLinks = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="pattern-management-page">
-      <header class="flex items-center justify-between border-b px-4 py-3">
-        <h3 class="text-base font-semibold">纸样管理</h3>
-        ${packageReadonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
-          <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-          添加纸样包
-        </button>`}
-      </header>
+    <section class="min-w-0 space-y-4" data-testid="pattern-management-page">
       <div class="space-y-3">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-sm font-semibold">纸样池</h4>
-          <span class="text-xs text-muted-foreground">${patternPackages.length} 个纸样包</span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-muted-foreground">${patternPackages.length} 个纸样包</span>
+            ${packageReadonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
+              <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+              添加纸样包
+            </button>`}
+          </div>
         </div>
         ${
           patternPackages.length === 0
@@ -819,20 +818,21 @@ export function renderPatternTab(): string {
           materialPatternLinks.length === 0
             ? '<div class="rounded-lg border py-8 text-center text-muted-foreground">暂无物料与纸样关联</div>'
             : `
-              <table class="w-full text-sm">
+              <div class="max-w-full overflow-x-auto rounded-md border" data-testid="material-pattern-link-table">
+              <table class="w-full min-w-[1200px] border-collapse text-sm">
                 <thead>
                   <tr class="border-b bg-muted/30">
-                    <th class="px-3 py-2 text-left">物料</th>
-                    <th class="px-3 py-2 text-left">规格</th>
-                    <th class="px-3 py-2 text-left">关联纸样</th>
-                    <th class="px-3 py-2 text-left">纸样文件类型</th>
-                    <th class="px-3 py-2 text-left">纸样分类</th>
-                    <th class="px-3 py-2 text-left">维护状态</th>
-                    <th class="px-3 py-2 text-left">捆条数量</th>
-                    <th class="px-3 py-2 text-right">裁片总片数</th>
-                    <th class="px-3 py-2 text-left">裁片明细</th>
-                    <th class="px-3 py-2 text-left">技术文件</th>
-                    <th class="px-3 py-2 text-left">操作</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">物料</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">规格</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">关联纸样</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">纸样文件类型</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">纸样分类</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">维护状态</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">捆条数量</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-right">裁片总片数</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">裁片明细</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">技术文件</th>
+                    <th class="border-b border-r last:border-r-0 px-3 py-2 text-left">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -846,31 +846,31 @@ export function renderPatternTab(): string {
 
                       return `
                         <tr class="border-b last:border-0">
-                          <td class="px-3 py-2 text-sm">
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 text-sm">
                             <div>${escapeHtml(linkedBom ? `${linkedBom.materialName} · ${linkedBom.materialCode}` : '未关联物料')}</div>
                             ${item.linkedMaterialAlias ? `<div class="mt-1 text-xs text-muted-foreground">别名：${escapeHtml(item.linkedMaterialAlias)}</div>` : ''}
                           </td>
-                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(linkedBom?.spec || '-')}</td>
-                          <td class="px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || item.name)}</td>
-                          <td class="px-3 py-2">${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}</td>
-                          <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
-                          <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(renderMaintainerStepStatus(item.maintainerStepStatus))}</span></td>
-                          <td class="px-3 py-2 text-sm">${escapeHtml(renderBindingStripCount(item.bindingStrips.length))}</td>
-                          <td class="px-3 py-2 text-right">${pieceCount} 片</td>
-                          <td class="px-3 py-2">
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 text-sm text-muted-foreground">${escapeHtml(linkedBom?.spec || '-')}</td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || item.name)}</td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2">${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}</td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(renderMaintainerStepStatus(item.maintainerStepStatus))}</span></td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 text-sm">${escapeHtml(renderBindingStripCount(item.bindingStrips.length))}</td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 text-right">${pieceCount} 片</td>
+                          <td class="border-b border-r last:border-r-0 px-3 py-2">
                             ${
                               item.pieceRows.length > 0
                                 ? `<button type="button" class="text-blue-600 hover:underline" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">${item.pieceRows.length} 项明细</button>`
                                 : '<span class="text-sm text-muted-foreground">暂无数据</span>'
                             }
                           </td>
-                          <td class="px-3 py-2 text-sm">
+                          <td class="border-b border-r last:border-r-0 px-3 py-2 text-sm">
                             <div class="space-y-2">
                               ${renderPatternTechnicalFileLinks(item)}
                               ${renderPatternImagePreview(item)}
                             </div>
                           </td>
-                          <td class="px-3 py-2">
+                          <td class="border-b border-r last:border-r-0 px-3 py-2">
                             <div class="flex items-center gap-1">
                               ${associationReadonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="edit-2" class="h-4 w-4"></i>
@@ -889,6 +889,7 @@ export function renderPatternTab(): string {
                     .join('')}
                 </tbody>
               </table>
+              </div>
             `
         }
       </div>
@@ -1837,9 +1838,12 @@ function renderPieceInstanceAssignmentList(instance: (typeof state.newPattern.pi
   return `
     <div class="flex flex-wrap gap-1">
       ${instance.specialCraftAssignments
-        .map((assignment) => `
+        .map((assignment, index) => `
           <span class="inline-flex items-center gap-1 rounded border bg-white px-2 py-1 text-[11px]" data-testid="piece-instance-assignment">
+            <span class="font-medium text-blue-700">第 ${index + 1} 道</span>
             ${escapeHtml(`${assignment.craftName}（${assignment.craftPositionName}）`)}
+            ${instance.specialCraftAssignments.length > 1 && index > 0 ? `<button type="button" class="text-slate-500 hover:text-blue-700" data-tech-action="move-piece-instance-special-craft-up" data-piece-instance-id="${escapeHtml(instance.pieceInstanceId)}" data-assignment-id="${escapeHtml(assignment.assignmentId)}">上移</button>` : ''}
+            ${instance.specialCraftAssignments.length > 1 && index < instance.specialCraftAssignments.length - 1 ? `<button type="button" class="text-slate-500 hover:text-blue-700" data-tech-action="move-piece-instance-special-craft-down" data-piece-instance-id="${escapeHtml(instance.pieceInstanceId)}" data-assignment-id="${escapeHtml(assignment.assignmentId)}">下移</button>` : ''}
             <button
               type="button"
               class="text-red-600"

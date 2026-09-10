@@ -389,8 +389,15 @@ export function saveTechnicalDataVersionBomMaterialLine(
     }, role)
     const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
     if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
-    const nextItems = content.bomItems.map((candidate) => candidate.id === bomItemId
-      ? {
+    const nextItems = content.bomItems.map((candidate) => {
+      if (candidate.id !== bomItemId) return candidate
+      const preservedBoundCraftCodes = (candidate.usageProcessCodes ?? []).filter((code) => [
+        'CRAFT_131072',
+        'AUX_BINDING_STRIP',
+        'CRAFT_3000009',
+        'SPECIAL_ELASTIC_FIXED_LENGTH_CUTTING',
+      ].includes(code))
+      return {
           ...candidate,
           materialSkuId: nextLine.materialSkuId,
           materialCode: sku.materialCode,
@@ -409,10 +416,13 @@ export function saveTechnicalDataVersionBomMaterialLine(
           frontPatternDesignId: nextLine.frontPatternResultId || '',
           insidePatternDesignId: nextLine.liningPatternResultId || '',
           linkedPatternIds: [...(nextLine.linkedPatternResultIds || [])],
-          usageProcessCodes: nextLine.processCode ? [nextLine.processCode] : [],
+          usageProcessCodes: Array.from(new Set([
+            ...preservedBoundCraftCodes,
+            ...(nextLine.processCode ? [nextLine.processCode] : []),
+          ])),
           remark: nextLine.remark || '',
         }
-      : candidate)
+    })
     const changes = compareBomPriceChanges(content, { ...content, bomItems: nextItems })
     const contentChanged = JSON.stringify(nextItems) !== JSON.stringify(content.bomItems)
     if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems })

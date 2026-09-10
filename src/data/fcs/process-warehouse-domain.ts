@@ -47,6 +47,8 @@ export interface ProcessWarehouseRecord {
   targetFactoryId: string
   targetFactoryName: string
   targetWarehouseName: string
+  /** 待交出仓中的货最终要进入的唯一接收仓；与货当前所在的 targetWarehouseName 分开。 */
+  receiveWarehouseName?: string
   warehouseLocation: string
   skuSummary: string
   styleNo: string
@@ -359,6 +361,7 @@ function buildWarehouseRecord(
     targetFactoryId: payload.targetFactoryId || payload.sourceFactoryId || '',
     targetFactoryName: payload.targetFactoryName || payload.sourceFactoryName || '',
     targetWarehouseName: payload.targetWarehouseName || (recordType === 'WAIT_PROCESS' ? '待加工仓' : '待交出仓'),
+    ...(payload.receiveWarehouseName ? { receiveWarehouseName: payload.receiveWarehouseName } : {}),
     warehouseLocation: payload.warehouseLocation || `${payload.craftName}-A-${(index % 9) + 1}`,
     skuSummary: payload.skuSummary || payload.materialSku || payload.sourceWorkOrderNo,
     styleNo: payload.styleNo || '',
@@ -549,7 +552,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       sourceProductionOrderId: 'PO-20260328-075',
       sourceProductionOrderNo: 'PO-20260328-075',
       ...commonFactory,
-      targetWarehouseName: '中转区域',
+      targetWarehouseName: '印花待交出仓',
       warehouseLocation: '印花待交出仓 A 区 / PHA-A-01',
       skuSummary: '浅蓝底白花主面料',
       styleNo: 'SPU-PRINT-005',
@@ -581,7 +584,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       sourceProductionOrderId: 'PO-20260328-076',
       sourceProductionOrderNo: 'PO-20260328-076',
       ...commonFactory,
-      targetWarehouseName: '中转区域',
+      targetWarehouseName: '印花待交出仓',
       warehouseLocation: '印花待交出仓 A 区 / PHA-A-02',
       skuSummary: '深灰底银花花边',
       styleNo: 'SPU-PRINT-006',
@@ -593,7 +596,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       receivedObjectQty: 1044,
       availableObjectQty: 1044,
       qtyUnit: '米',
-      currentActionName: '印花交出待收货',
+      currentActionName: '印花待交出',
       status: '待交出',
       inboundAt: '2026-05-12 17:20:00',
       createdAt: '2026-05-12 17:20:00',
@@ -756,9 +759,14 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
         buildWarehouseRecord(
           {
             ...common,
-            targetFactoryId: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_ID : taskOrder.factoryId,
+            targetFactoryId: flow.receiverKind === '后道工厂'
+              ? DEDICATED_POST_FACTORY_ID
+              : flow.receiverKind === '裁床厂'
+                ? 'CUTTING-FACTORY'
+                : 'TRANSFER-WAREHOUSE',
             targetFactoryName: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_NAME : flow.receiverName,
             targetWarehouseName: location.targetWarehouseName,
+            receiveWarehouseName: flow.receiverWarehouseName,
             warehouseLocation: location.warehouseLocation,
             materialName: taskOrder.operationName,
             plannedObjectQty: taskOrder.planQty,
@@ -819,7 +827,7 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
         handoverFactoryName: record.sourceFactoryName,
         receiveFactoryId: record.targetFactoryId,
         receiveFactoryName: record.targetFactoryName,
-        receiveWarehouseName: record.targetWarehouseName,
+        receiveWarehouseName: record.receiveWarehouseName || record.targetWarehouseName,
         objectType: record.objectType,
         handoverObjectQty: roundQty(handoverQty),
         receiveObjectQty: roundQty(writtenQty),
@@ -884,7 +892,7 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
           handoverFactoryName: warehouse.sourceFactoryName,
           receiveFactoryId: warehouse.targetFactoryId,
           receiveFactoryName: warehouse.targetFactoryName,
-          receiveWarehouseName: warehouse.targetWarehouseName,
+          receiveWarehouseName: warehouse.receiveWarehouseName || warehouse.targetWarehouseName,
           objectType: warehouse.objectType,
           handoverObjectQty: handoverQty,
           receiveObjectQty: receiveQty,
@@ -1277,13 +1285,29 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
       )
   const id = payload.handoverRecordId || `PHR-${String(processHandoverRecords.length + 1).padStart(4, '0')}`
   const handoverAt = payload.handoverAt || nowText()
+  const workOrderId = payload.workOrderId || sourceTaskOrderId
+  const receiveFactoryId = payload.receiveFactoryId || warehouse?.targetFactoryId || ''
+  const receiveFactoryName = payload.receiveFactoryName || warehouse?.targetFactoryName || ''
+  const receiveWarehouseName = payload.receiveWarehouseName || warehouse?.receiveWarehouseName || warehouse?.targetWarehouseName || ''
+  const existingReceivers = new Map(
+    processHandoverRecords
+      .filter((item) => item.workOrderId === workOrderId)
+      .map((item) => [
+        [item.receiveFactoryId, item.receiveWarehouseName].join('::'),
+        `${item.receiveFactoryName} / ${item.receiveWarehouseName}`,
+      ]),
+  )
+  const requestedReceiverKey = [receiveFactoryId, receiveWarehouseName].join('::')
+  if (existingReceivers.size > 0 && !existingReceivers.has(requestedReceiverKey)) {
+    throw new Error(`加工单 ${workOrderId} 已绑定接收方 ${[...existingReceivers.values()].join('、')}；多批交出只能流向同一接收方`)
+  }
   const record: ProcessHandoverRecord = {
     handoverRecordId: id,
     handoverRecordNo: payload.handoverRecordNo || `JH-${String(processHandoverRecords.length + 1).padStart(4, '0')}`,
     warehouseRecordId: warehouse?.warehouseRecordId || payload.warehouseRecordId || '',
     craftType: payload.craftType,
     craftName: payload.craftName,
-    workOrderId: payload.workOrderId || sourceTaskOrderId,
+    workOrderId,
     workOrderNo: payload.workOrderNo || payload.sourceWorkOrderNo,
     ...(payload.sourceWorkOrderId ? { sourceWorkOrderId: payload.sourceWorkOrderId } : {}),
     sourceTaskOrderId,
@@ -1297,9 +1321,9 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     ...((payload.stockMaterialName || warehouse?.stockMaterialName) ? { stockMaterialName: payload.stockMaterialName || warehouse?.stockMaterialName } : {}),
     handoverFactoryId: payload.handoverFactoryId || warehouse?.sourceFactoryId || '',
     handoverFactoryName: payload.handoverFactoryName || warehouse?.sourceFactoryName || '',
-    receiveFactoryId: payload.receiveFactoryId || warehouse?.targetFactoryId || '',
-    receiveFactoryName: payload.receiveFactoryName || warehouse?.targetFactoryName || '',
-    receiveWarehouseName: payload.receiveWarehouseName || warehouse?.targetWarehouseName || '',
+    receiveFactoryId,
+    receiveFactoryName,
+    receiveWarehouseName,
     objectType: payload.objectType,
     handoverObjectQty: roundQty(payload.handoverObjectQty),
     receiveObjectQty: roundQty(payload.receiveObjectQty),

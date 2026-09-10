@@ -151,7 +151,7 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   test.setTimeout(120_000)
   await page.setViewportSize({ width: 1366, height: 768 })
   await openList(page)
-  await expect(page.getByRole('button', { name: '导出备料数据' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '导出投入接收' })).toBeVisible()
   await expect(page.getByRole('button', { name: '批量打印染整生产流程卡' })).toBeVisible()
   await expect(page.getByText('补料', { exact: true }).first()).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
@@ -330,7 +330,7 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
 test('三种导出和批量打印产生真实浏览器结果', async ({ page, context }) => {
   await openList(page)
 
-  for (const label of ['导出', '导出备料数据', '导出超期未完结'] as const) {
+  for (const label of ['导出', '导出投入接收', '导出超期单'] as const) {
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('button', { name: label, exact: true }).click(),
@@ -533,8 +533,7 @@ test('PDA 接单、开工、完工和交出依次同步 PFOS 状态', async ({ p
     if (!order) throw new Error('染色加工单不存在')
     dye.startDyeMaterialWait(dyeOrderId, '浏览器验收')
     dye.completeDyeMaterialWait(dyeOrderId, '浏览器验收')
-    dye.startDyeMaterialReady(dyeOrderId, '浏览器验收')
-    dye.completeDyeMaterialReady(dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器验收' })
+    dye.completeDyeInputReceipt(dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器验收', receiptId: 'CHECK-DYE-RECEIPT-ALIGNMENT', upstreamRecordId: 'CHECK-DYE-SOURCE-ALIGNMENT' })
     const vat = dye.listDyeVatOptions(order.dyeFactoryId)[0]
     if (!vat) throw new Error('缺少染缸')
     dye.planDyeVat(dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: '浏览器验收' })

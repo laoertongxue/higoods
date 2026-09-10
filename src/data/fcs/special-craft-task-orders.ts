@@ -814,7 +814,11 @@ function findAccessoryInputBom(
     && Number(item.unitConsumption) > 0,
   )
   if (!isCoveredButtonMaking) {
-    return candidates.find((item) => (item.usageProcessCodes ?? []).includes('SPECIAL_CRAFT')) ?? candidates[0]
+    return candidates.find((item) => (item.usageProcessCodes ?? []).includes(operation.craftCode))
+      ?? candidates.find((item) => (item.usageProcessCodes ?? []).includes('CRAFT_3000009'))
+      ?? candidates.find((item) => (item.usageProcessCodes ?? []).includes('SPECIAL_ELASTIC_FIXED_LENGTH_CUTTING'))
+      ?? candidates.find((item) => (item.usageProcessCodes ?? []).includes('SPECIAL_CRAFT'))
+      ?? candidates[0]
   }
   return candidates.find((item) => /布包|包布|钮|扣/.test(`${item.name} ${item.spec}`))
     ?? candidates.find((item) => (item.usageProcessCodes ?? []).includes('SPECIAL_CRAFT'))

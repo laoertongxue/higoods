@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 
 import {
   acceptDyeWorkOrderPdaTask,
-  completeDyeMaterialReady,
+  completeDyeInputReceipt,
   completeDyeMaterialWait,
   completeDyeNode,
   completeDyeing,
@@ -18,7 +18,6 @@ import {
   listDyeWorkOrders,
   planDyeVat,
   registerFormalProductionOrderDyeWorkOrder,
-  startDyeMaterialReady,
   startDyeMaterialWait,
   startDyeNode,
   startDyeSampleTest,
@@ -74,7 +73,7 @@ import {
   getWaterSolubleWorkOrderById,
   linkWaterSolubleHandoverOrder,
   listWaterSolubleWorkOrders,
-  markWaterSolubleMaterialReady,
+  receiveWaterSolubleInput,
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
@@ -397,8 +396,9 @@ async function main(): Promise<void> {
       materialCode: '<script>alert(2)</script>',
       qtyUnit: '<svg onload=alert(3)>',
     })
-    assert(!maliciousCard.includes('<script') && !maliciousCard.includes('<img') && !maliciousCard.includes('<svg'), '水溶卡片可控恶意业务字段必须真实转义')
+    assert(!maliciousCard.includes('<script>alert') && !maliciousCard.includes('<img src=x') && !maliciousCard.includes('<svg onload'), '水溶卡片可控恶意业务字段必须真实转义')
     assert(maliciousCard.includes('&lt;script&gt;') && maliciousCard.includes('&lt;img'), '水溶卡片必须保留转义后的可读文本')
+    assert(maliciousCard.includes('data-pda-image-preview-url=') && maliciousCard.includes('<img class='), '水溶卡片必须保留真实图片及大图入口')
     assert(escapedOrder.qtyUnit.length > 0, '原 BOM 单位不得丢失')
 
     const operatorUser = listFactoryPdaUsers(targetOrder.factoryId || '').find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_OPERATOR')
@@ -423,7 +423,7 @@ async function main(): Promise<void> {
     const executableOrder = listWaterSolubleWorkOrders()[0]
     assert(executableOrder, '必须存在可准备为待水溶的独立水溶加工单')
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-1', upstreamRecordId: 'CHECK-PDA-SOURCE-1' }).ok, true)
     assert.equal(getWaterSolubleCurrentAction(executableOrder)?.actionCode, 'COMPLETE', '确认原料到位必须同次自动开工，下一步直接完成水溶')
     assert.throws(
       () => ensureHandoverOrderForStartedTask(executableOrder.taskId),
@@ -568,7 +568,7 @@ async function main(): Promise<void> {
 
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-2', upstreamRecordId: 'CHECK-PDA-SOURCE-2' }).ok, true)
     setPdaSession(operator)
     const runningWaterHtml = renderPdaExecDetailPage(executableOrder.taskId)
     const waterCompleteToken = runningWaterHtml.match(/data-pda-execd-action="water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
@@ -617,7 +617,7 @@ async function main(): Promise<void> {
 
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-3', upstreamRecordId: 'CHECK-PDA-SOURCE-3' }).ok, true)
     assert.equal(getWaterSolubleCurrentAction(executableOrder.waterOrderId)?.actionCode, 'COMPLETE')
 
     const missingReason = executeWaterSolublePdaAction({
@@ -865,7 +865,7 @@ async function main(): Promise<void> {
     const handoverRoleOrder = listWaterSolubleWorkOrders().find((item) => item.waterOrderId !== executableOrder.waterOrderId)
     assert(handoverRoleOrder, '必须存在第二张独立水溶单验证交接角色')
     assert.equal(assignWaterSolubleFactory(handoverRoleOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(markWaterSolubleMaterialReady(handoverRoleOrder.waterOrderId).ok, true)
+    assert.equal(receiveWaterSolubleInput(handoverRoleOrder.waterOrderId, { qty: handoverRoleOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-4', upstreamRecordId: 'CHECK-PDA-SOURCE-4' }).ok, true)
     setPdaSession(operator)
     assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
     setPdaSession(handoverActor)
@@ -908,8 +908,7 @@ async function main(): Promise<void> {
     }
     startDyeMaterialWait(combined.dyeOrderId, operator.userName)
     completeDyeMaterialWait(combined.dyeOrderId, operator.userName)
-    startDyeMaterialReady(combined.dyeOrderId, operator.userName)
-    completeDyeMaterialReady(combined.dyeOrderId, { outputQty: combined.plannedQty, operatorName: operator.userName })
+    completeDyeInputReceipt(combined.dyeOrderId, { outputQty: combined.plannedQty, operatorName: operator.userName, receiptId: 'CHECK-DYE-RECEIPT-COMBINED', upstreamRecordId: 'CHECK-DYE-SOURCE-COMBINED' })
     const dyeVat = listDyeVatOptions(combined.dyeFactoryId)[0]
     assert(dyeVat, '含水溶染色单工厂必须存在可用染缸')
     planDyeVat(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, operatorName: operator.userName })
@@ -1252,8 +1251,7 @@ async function main(): Promise<void> {
       assert(order, `必须创建 ${suffix} 含水溶染色单`)
       startDyeMaterialWait(order.dyeOrderId, operator.userName)
       completeDyeMaterialWait(order.dyeOrderId, operator.userName)
-      startDyeMaterialReady(order.dyeOrderId, operator.userName)
-      completeDyeMaterialReady(order.dyeOrderId, { outputQty: order.plannedQty, operatorName: operator.userName })
+      completeDyeInputReceipt(order.dyeOrderId, { outputQty: order.plannedQty, operatorName: operator.userName, receiptId: `CHECK-DYE-RECEIPT-${order.dyeOrderId}`, upstreamRecordId: `CHECK-DYE-SOURCE-${order.dyeOrderId}` })
       const vat = listDyeVatOptions(order.dyeFactoryId)[0]
       assert(vat, `${suffix} 探针必须有可用染缸`)
       planDyeVat(order.dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: operator.userName })

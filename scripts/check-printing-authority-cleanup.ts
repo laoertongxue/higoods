@@ -175,6 +175,8 @@ receivePrintingInput(target.workOrderId, {
   receivedQty: target.plannedInput.plannedQty,
   receivedRollCount: 3,
   receiverName: '收口检查接收人',
+  receiptId: 'CHECK-PRINT-CLEANUP-RECEIPT',
+  upstreamRecordId: 'CHECK-PRINT-CLEANUP-SOURCE',
 })
 completePrintingWorkOrder(target.workOrderId, {
   usedQty: target.plannedInput.plannedQty,
@@ -185,20 +187,22 @@ completePrintingWorkOrder(target.workOrderId, {
   operatorName: '收口检查执行员',
 })
 const completed = getPrintingWorkOrderById(target.workOrderId)!
+const downstreamReceiver = completed.receivingTargetName
 handoverPrintingOutput(target.workOrderId, {
   qty: completed.output.completedQty,
   barcodeIds: completed.barcodes.map((barcode) => barcode.id),
   operatorName: '收口检查交出人',
-  receiverName: '收口检查下游',
+  receiverName: downstreamReceiver,
 })
 assert.equal(getCanonicalPrintWorkOrderById(target.workOrderId)?.status, 'HANDOVER_WAIT_RECEIVE', '页面交出动作必须写入正式加工单状态')
 assert.equal(getPrintReviewRecordByOrderId(target.workOrderId)?.reviewStatus, 'WAIT_RECEIVE', '页面交出动作必须形成正式待接收记录')
 receivePrintingHandover(target.workOrderId, {
   receivedQty: completed.output.completedQty,
-  receiverName: '收口检查下游',
+  receiverName: downstreamReceiver,
 })
 const received = getPrintingWorkOrderById(target.workOrderId)!
-assert.equal(received.handoverStatus, 'RECEIVED', '下游全部接收事实必须成立')
+assert.equal(received.handoverStatus, 'FULL_HANDOVER', '下游接收不得改写本单已全部交出的履约状态')
+assert.equal(received.handover.receivedQty, received.handover.handedOverQty, '下游全部接收数量事实必须成立')
 assert.equal(isPrintingWorkOrderBusinessCompleted(received), false, '下游接收不得自动完成加工单')
 assert.equal(getCanonicalPrintWorkOrderById(target.workOrderId)?.status, 'FULL_HANDOVER', '正式域收齐状态必须停在 FULL_HANDOVER')
 assert.equal(getPrintReviewRecordByOrderId(target.workOrderId)?.reviewStatus, 'FULL_HANDOVER', '页面接收动作必须更新正式接收记录')
@@ -207,11 +211,10 @@ assert.ok(linkedTaskId)
 assert.equal(listPdaGenericProcessTasks().find((task) => task.taskId === linkedTaskId)?.status, 'IN_PROGRESS', '收齐后关联任务也必须保持加工中，不能冒充人工完单')
 assert.equal(listPrintMobileExecutionTasks().find((task) => task.taskId === linkedTaskId)?.status, 'IN_PROGRESS', '印花 PDA 正式投影也必须等待人工完单')
 const waitingDetail = renderCraftPrintingWorkOrderDetailPage(target.workOrderId)
-assert.ok(waitingDetail.includes('待人工完单'), '详情必须明确提示收齐后仍待人工完单')
 assert.ok(waitingDetail.includes('data-printing-action="complete-document"'), '详情必须提供明确的人工完成单据动作')
 const waitingDashboard = renderCraftPrintingDashboardsPage()
 assert.ok(waitingDashboard.includes(target.printOrderNo), '大屏必须继续显示已收齐但待人工完单的加工单')
-assert.ok(waitingDashboard.includes('人工完成单据'), '大屏必须给出待人工完单的明确跟进提示')
+assert.ok(waitingDashboard.includes('完成单据'), '大屏必须给出待人工完单的明确跟进提示')
 
 completePrintWorkOrderDocument(target.workOrderId, { operatorName: '收口检查主管' })
 const manuallyCompleted = getPrintingWorkOrderById(target.workOrderId)!

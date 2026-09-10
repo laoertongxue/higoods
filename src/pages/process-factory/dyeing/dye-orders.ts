@@ -39,9 +39,6 @@ function renderFormulaList(selectedId: string): string {
   return renderSection(
     '染色配方列表',
     `
-      <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-        染色配方是染色加工单下的子信息；本入口仅保留为加工单配方视图的兼容展示。
-      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">

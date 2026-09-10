@@ -40,9 +40,17 @@ const alerts: string[] = []
 Object.defineProperty(globalThis, 'window', {
   value: {
     alert: (message: string) => alerts.push(message),
+    addEventListener: () => {},
     dispatchEvent: () => true,
     location: { pathname: '/pcs/products/styles/STYLE-BOM-UNIT-GUARD-NORMAL', search: '' },
     history: { pushState: () => {}, replaceState: () => {} },
+  },
+  configurable: true,
+})
+Object.defineProperty(globalThis, 'document', {
+  value: {
+    addEventListener: () => {},
+    visibilityState: 'visible',
   },
   configurable: true,
 })
@@ -88,7 +96,9 @@ const createVersion = (suffix: string, illegal = false) => {
     ...baseContent.bomItems[index % baseContent.bomItems.length],
     id: `BOM-LEGAL-${suffix}-${index + 1}`,
     materialCode: `MAT-LEGAL-${suffix}-${index + 1}`,
+    materialSkuId: index === 2 ? 'material_accessory_elastic_001_sku_001' : 'material_fabric_002_sku_001',
     name: `${unit}单位物料`,
+    type: index === 2 ? '辅料' as const : '面料' as const,
     unit,
     waterSolubleRequirement: '否' as const,
   }))
@@ -222,6 +232,16 @@ const triggerAction = (techAction: string, bomId?: string) => handleTechPackEven
 } as unknown as HTMLElement)
 
 const normalHtml = renderBom(normalVersion)
+assert.match(
+  normalHtml,
+  /SPU[\s\S]*颜色[\s\S]*物料标准成本合计[\s\S]*序号[\s\S]*类型[\s\S]*物料编码[\s\S]*物料名称[\s\S]*物料图[\s\S]*规格[\s\S]*单位用量[\s\S]*单位[\s\S]*损耗率\(%\)[\s\S]*印花需求[\s\S]*染色需求[\s\S]*水溶需求[\s\S]*绣花需求[\s\S]*绑定工艺[\s\S]*操作/,
+  '常规 BOM 必须按线上列顺序展示并保留绣花、绑定工艺',
+)
+assert.doesNotMatch(normalHtml, /<th[^>]*>印花面别<\/th>/, '印花面别不得继续占用常规 BOM 主表宽度')
+assert.doesNotMatch(normalHtml, /<th[^>]*>正面花型<\/th>/, '花型明细不得继续占用常规 BOM 主表宽度')
+assert.match(normalHtml, /data-tech-action="open-material-image-preview"/, '每个可识别物料必须展示可点击真实缩略图')
+assert.match(normalHtml, /data-tech-action="open-copy-bom-color"/, '常规 BOM 必须保留按颜色整色复制入口')
+assert.match(normalHtml, /<option value="CRAFT_3000009"[^>]*>橡筋定长切割<\/option>/, '辅料绑定工艺必须包含橡筋定长切割')
 assert.match(normalHtml, /缺少单位，不能勾选水溶/, '空单位 BOM 行必须显示中文阻断原因')
 assert.match(normalHtml, /data-bom-unit-missing="true"/, '空单位 BOM 行必须有明确异常标记')
 assert.equal(
@@ -322,7 +342,7 @@ const processHtml = renderTechPackPage(illegalVersion.record.styleCode, {
   styleId: illegalVersion.record.styleId,
   technicalVersionId: illegalVersion.record.technicalVersionId,
 })
-assert.match(processHtml, /工序工艺/, 'BOM 单位阻断不得影响技术包工序 Tab')
+assert.match(processHtml, /工艺路线/, 'BOM 单位阻断不得影响技术包工艺路线 Tab')
 assert.match(processHtml, /data-tech-action="open-add-technique"/, 'BOM 单位阻断不得影响工序字典入口')
 
 console.log('check:tech-pack-bom-unit-guard passed')

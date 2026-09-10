@@ -99,11 +99,8 @@ export function renderColorMappingTab(): string {
           </article>
         </section>
 
-        <section class="rounded-lg border bg-card">
-          <header class="border-b px-4 py-3">
-            <h3 class="text-base font-semibold">款色用料对应</h3>
-          </header>
-          <div class="space-y-4 p-4">
+        <section class="min-w-0">
+          <div class="space-y-4">
             ${
               mappings.length === 0
                 ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无款色用料对应</div>'
@@ -123,10 +120,6 @@ export function renderColorMappingTab(): string {
                               <span>SPU：${escapeHtml(mapping.spuCode)}</span>
                               <span>确认人：${escapeHtml(mapping.confirmedBy || '-')}</span>
                               <span>确认时间：${escapeHtml(mapping.confirmedAt || '-')}</span>
-                            </div>
-                            <div class="rounded border bg-muted/20 px-3 py-2 text-xs">
-                              <span class="text-muted-foreground">映射备注：</span>
-                              ${renderReadonlyText(mapping.remark || '-')}
                             </div>
                             <div class="overflow-x-auto rounded border">
                               <table class="w-full min-w-[1080px] text-xs">
@@ -179,11 +172,8 @@ export function renderColorMappingTab(): string {
         </article>
       </section>
 
-      <section class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">款色用料对应</h3>
-        </header>
-        <div class="space-y-4 p-4">
+      <section class="min-w-0">
+          <div class="space-y-4">
           ${
             mappings.length === 0
               ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无款色用料对应</div>'
@@ -240,17 +230,6 @@ export function renderColorMappingTab(): string {
                             <span>SPU：${escapeHtml(mapping.spuCode)}</span>
                             <span>确认人：${escapeHtml(mapping.confirmedBy || '-')}</span>
                             <span>确认时间：${escapeHtml(mapping.confirmedAt || '-')}</span>
-                          </div>
-                          <div class="rounded border bg-muted/20 px-2 py-1.5">
-                            <label class="block text-[11px] text-muted-foreground">映射备注</label>
-                            <input
-                              class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
-                              value="${escapeHtml(mapping.remark || '')}"
-                              placeholder="映射备注"
-                              data-tech-field="mapping-remark"
-                              data-mapping-id="${mapping.id}"
-                              ${readonly ? 'disabled' : ''}
-                            />
                           </div>
                           <div class="overflow-x-auto rounded border">
                             <table class="w-full text-xs">

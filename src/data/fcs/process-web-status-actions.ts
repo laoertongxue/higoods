@@ -49,8 +49,8 @@ export type ProcessWebActionType =
   | '确认样衣到位'
   | '开始打样'
   | '完成打样'
-  | '确认原料到位'
-  | '完成备料'
+  | '确认来源到位'
+  | '确认投入接收'
   | '排染缸'
   | '开始染色'
   | '完成染色'
@@ -272,28 +272,19 @@ const DYE_ACTIONS: ActionDefinition[] = [
     writebackHandler: 'completeDyeSampleTest',
   },
   {
-    actionCode: 'DYE_MATERIAL_RECEIVED',
-    actionLabel: '确认原料到位',
+    actionCode: 'DYE_CONFIRM_INPUT_RECEIPT',
+    actionLabel: '确认投入接收',
     processType: 'DYE',
-    fromStatuses: ['WAIT_MATERIAL'],
-    toStatus: 'MATERIAL_READY',
-    requiredFields: ['操作人', '原料面料 SKU', '到位面料米数', '到位卷数', '到位时间'],
-    writebackHandler: 'completeDyeMaterialWait',
-  },
-  {
-    actionCode: 'DYE_FINISH_PREPARE',
-    actionLabel: '完成备料',
-    processType: 'DYE',
-    fromStatuses: ['WAIT_MATERIAL', 'MATERIAL_READY'],
-    toStatus: 'MATERIAL_READY',
-    requiredFields: ['操作人', '备料面料米数', '备料卷数', '完成时间'],
-    writebackHandler: 'completeDyeMaterialReady',
+    fromStatuses: ['WAIT_MATERIAL', 'INPUT_RECEIVED'],
+    toStatus: 'INPUT_RECEIVED',
+    requiredFields: ['操作人', '来源单据', '实际接收数量', '接收时间'],
+    writebackHandler: 'completeDyeInputReceipt',
   },
   {
     actionCode: 'DYE_SCHEDULE_VAT',
     actionLabel: '排染缸',
     processType: 'DYE',
-    fromStatuses: ['SAMPLE_DONE', 'MATERIAL_READY', 'WAIT_VAT_PLAN'],
+    fromStatuses: ['SAMPLE_DONE', 'INPUT_RECEIVED', 'WAIT_VAT_PLAN'],
     toStatus: 'WAIT_VAT_PLAN',
     requiredFields: ['操作人', '染缸号', '排缸时间', '染缸容量'],
     writebackHandler: 'planDyeVat',

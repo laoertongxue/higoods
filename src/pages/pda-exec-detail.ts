@@ -2,7 +2,14 @@ import { recordRuntimeTaskExecution } from '../data/fcs/runtime-process-tasks.ts
 import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
 import { getDyeMaterialReceiptOptions, receiveDyeMaterial } from '../data/fcs/dyeing-material-receipts.ts'
 import { getWaterSolubleReceivedMaterialQty } from '../data/fcs/water-soluble-task-domain.ts'
-import { getWaterSolubleMaterialReceiptOptions, executeWaterSolubleMaterialReceipt } from '../data/fcs/water-soluble-material-receipts.ts'
+import { getWaterSolubleMaterialReceiptOptions, executeWaterSolubleInputReceipt } from '../data/fcs/water-soluble-material-receipts.ts'
+import { getDyeOrderImageManifest, getWaterSolubleOrderImageManifest } from '../data/fcs/process-order-image-manifest.ts'
+import { getDyeWorkOrderThreeAxisView } from '../data/fcs/process-order-three-axis-view.ts'
+import {
+  PROCESS_ORDER_HANDOVER_STATUS_LABEL,
+  PROCESS_ORDER_PROCESSING_STATUS_LABEL,
+  PROCESS_ORDER_RECEIPT_STATUS_LABEL,
+} from '../data/fcs/process-order-flow-contract.ts'
 // @page-pattern: pda
 import { appStore } from '../state/store'
 import { renderRealQrPlaceholder } from '../components/real-qr'
@@ -128,7 +135,6 @@ import {
 } from '../data/fcs/dyeing-task-domain.ts'
 import {
   getPostFinishingWorkOrderForMobile,
-  startDyeMaterialWaitWriteback,
   startDyeNode as startDyeNodeWriteback,
   startDyeSampleWaitWriteback,
 } from '../data/fcs/process-execution-writeback.ts'
@@ -350,7 +356,7 @@ function createWaterOverlayToken(orderId: string): string {
 function getWaterPrimaryAction(order: WaterSolubleWorkOrder): { action: string; label: string } | null {
   const currentAction = getWaterSolubleCurrentAction(order)
   if (!currentAction) return null
-  if (currentAction.actionCode === 'WAIT_MATERIAL' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-material-ready', label: currentAction.actionName }
+  if (currentAction.actionCode === 'WAIT_MATERIAL' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-receive-input', label: currentAction.actionName }
   if (currentAction.actionCode === 'START' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-start', label: currentAction.actionName }
   if (currentAction.actionCode === 'COMPLETE' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-complete', label: currentAction.actionName }
   if (currentAction.actionCode === 'SUPERVISOR' && canCurrentSessionUseWaterAction(order, 'SUPERVISE')) return { action: 'water-open-supervisor', label: currentAction.actionName }
@@ -368,6 +374,9 @@ function renderWaterSolublePrimaryAction(order: WaterSolubleWorkOrder): string {
         ? '等待交接人员去交出。'
         : getWaterSolubleCurrentAction(order)?.message || '当前没有需要操作的动作。'
     return `<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">${escapeHtml(message)}</div>`
+  }
+  if (primaryAction.action === 'water-receive-input' && getWaterSolubleMaterialReceiptOptions(order.waterOrderId).options.length === 0) {
+    return `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">${escapeHtml(getWaterSolubleMaterialReceiptOptions(order.waterOrderId).blockReason || '来源单据尚未到位。')}</div>`
   }
   const token = `${order.waterOrderId}:${order.status}:${order.updatedAt}`
   waterPrimaryActionTokens.set(order.waterOrderId, token)
@@ -388,13 +397,17 @@ function renderWaterSolublePrimaryAction(order: WaterSolubleWorkOrder): string {
 function renderWaterSolubleMaterialReceipt(order: WaterSolubleWorkOrder): string {
   if (!['WAIT_MATERIAL', 'WATER_SOLUBLE_IN_PROGRESS'].includes(order.status) || !canCurrentSessionUseWaterAction(order, 'OPERATE')) return ''
   const source = getWaterSolubleMaterialReceiptOptions(order.waterOrderId)
-  const fields = `<div class="mt-3 space-y-2" data-skip-page-rerender="true" data-water-material-receipt data-receipt-id="${escapeHtml(createWaterOverlayToken(order.waterOrderId))}"><p class="text-xs">已接收 ${getWaterSolubleReceivedMaterialQty(order.waterOrderId)} ${escapeHtml(order.qtyUnit)}</p>${source.requiresUpstream ? `<label class="block text-sm">上游交出记录<select class="mt-1 h-10 w-full rounded border px-2" data-water-material-source><option value="">请选择本次接收记录</option>${source.options.map((item) => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可接收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label>` : '<p class="text-xs text-muted-foreground">路线首段原料，按本次实际收到数量登记。</p>'}<label class="block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input class="mt-1 h-10 w-full rounded border px-2" inputmode="decimal" data-water-material-qty></label></div>`
+  if (source.options.length === 0) return order.status === 'WAIT_MATERIAL' ? '' : `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
+  const sourceName = source.sourceMode === 'CENTRAL_TRANSFER' ? '中央仓调拨单' : '上游交出单'
+  const fields = `<div class="mt-3 space-y-2" data-skip-page-rerender="true" data-water-material-receipt data-receipt-id="${escapeHtml(createWaterOverlayToken(order.waterOrderId))}"><p class="text-xs">已接收 ${getWaterSolubleReceivedMaterialQty(order.waterOrderId)} ${escapeHtml(order.qtyUnit)}</p><label class="block text-sm">${sourceName}<select class="mt-1 h-10 w-full rounded border px-2" data-water-material-source><option value="">请选择本次接收单据</option>${source.options.map((item) => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label><label class="block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input class="mt-1 h-10 w-full rounded border px-2" inputmode="decimal" data-water-material-qty></label></div>`
   if (order.status === 'WAIT_MATERIAL') return fields
-  return `<details class="mt-3"><summary class="text-sm">继续接收原料</summary>${fields}<button class="mt-2 h-10 rounded border px-3 text-sm" data-pda-execd-action="water-material-ready" data-order-id="${escapeHtml(order.waterOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${order.status}" data-action-token="${escapeHtml(waterPrimaryActionTokens.get(order.waterOrderId) || '')}">确认本次接收</button></details>`
+  return `<details class="mt-3"><summary class="text-sm">继续接收原料</summary>${fields}<button class="mt-2 h-10 rounded border px-3 text-sm" data-pda-execd-action="water-receive-input" data-order-id="${escapeHtml(order.waterOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${order.status}" data-action-token="${escapeHtml(waterPrimaryActionTokens.get(order.waterOrderId) || '')}">确认本次接收</button></details>`
 }
 
 function renderWaterSolubleDetailContent(order: WaterSolubleWorkOrder): string {
   const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
+  const images = getWaterSolubleOrderImageManifest(order.waterOrderId)!
+  const renderImage = (url: string, label: string) => `<button type="button" class="relative h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border bg-white" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(label)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(label)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
   return `
     <div class="space-y-4 bg-background p-4 pb-6" data-testid="pda-water-soluble-detail-content">
       <div class="flex items-center gap-2">
@@ -410,6 +423,7 @@ function renderWaterSolubleDetailContent(order: WaterSolubleWorkOrder): string {
           <span class="font-mono text-sm font-semibold">${escapeHtml(order.waterOrderNo)}</span>
           <span class="rounded bg-muted px-2 py-0.5 text-xs">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</span>
         </header>
+        <div class="flex gap-3 border-b p-4">${renderImage(images.product, `${order.productionOrderNo} 款式图`)}${renderImage(images.material, `${order.materialName} 实物图`)}<div class="min-w-0 text-xs"><div class="font-semibold">${escapeHtml(order.materialName)}</div><div class="mt-1 break-all text-muted-foreground">${escapeHtml(order.materialCode)}</div><div class="mt-1">${escapeHtml(order.materialSpec)}</div></div></div>
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 p-4 text-sm">
           <span class="text-xs text-muted-foreground">生产单号</span>
           <span class="text-xs font-medium">${escapeHtml(order.productionOrderNo)}</span>
@@ -1194,13 +1208,23 @@ function renderDyeMaterialReceiptPanel(order: DyeWorkOrder): string {
   if (order.status === 'COMPLETED' || order.status === 'REJECTED') return ''
   const source = getDyeMaterialReceiptOptions(order.dyeOrderId)
   const canNextBatch = Boolean(getDyeExecutionNodeRecord(order.dyeOrderId, 'PACK')?.finishedAt)
+  const sourceFields = source.options.length > 0
+    ? `<label class="mt-2 block text-xs">来源单据<select data-dye-material-source class="mt-1 h-9 w-full rounded border"><option value="">请选择本次接收单据</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label>`
+    : `<div class="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
   return `<section class="rounded-lg border bg-background p-3" data-skip-page-rerender="true" data-dye-material-receipt="${escapeHtml(order.dyeOrderId)}" data-receipt-id="DYE-${Date.now()}-${Math.random().toString(36).slice(2)}">
     <h3 class="text-sm font-medium">接收原料</h3><p class="mt-1 text-xs">累计已收 ${(order.materialReceipts ?? []).reduce((sum, item) => sum + item.qty, 0)} ${escapeHtml(order.qtyUnit)}</p>
-    ${source.requiresUpstream ? `<label class="mt-2 block text-xs">上游交出记录<select data-dye-material-source class="mt-1 h-9 w-full rounded border"><option value="">请选择本次接收记录</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label>` : ''}
+    ${sourceFields}
     <label class="mt-2 block text-xs">本次实际接收（${escapeHtml(order.qtyUnit)}）<input data-dye-material-qty type="number" min="0" step="any" class="mt-1 h-9 w-full rounded border px-2"></label>
-    <button class="mt-2 h-9 w-full rounded bg-primary text-primary-foreground" data-pda-execd-action="dye-receive-material" data-dye-order-id="${escapeHtml(order.dyeOrderId)}">确认本次接收</button>
+    ${source.options.length > 0 ? `<button class="mt-2 h-9 w-full rounded bg-primary text-primary-foreground" data-pda-execd-action="dye-receive-material" data-dye-order-id="${escapeHtml(order.dyeOrderId)}">确认本次接收</button>` : ''}
     ${canNextBatch ? `<details class="mt-3"><summary>开始下一批染色</summary><label class="mt-2 block text-xs">本批投入（${escapeHtml(order.qtyUnit)}）<input data-dye-next-qty type="number" min="0" step="any" class="mt-1 h-9 w-full rounded border px-2"></label><label class="mt-2 block text-xs">染缸编号<input data-dye-next-vat class="mt-1 h-9 w-full rounded border px-2"></label><button data-pda-execd-action="dye-start-next-batch" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" class="mt-2 rounded border px-3 py-2">开始本批染色</button></details>` : ''}
   </section>`
+}
+
+function renderDyeTaskImage(order: DyeWorkOrder, kind: 'product' | 'material'): string {
+  const images = getDyeOrderImageManifest(order.dyeOrderId)!
+  const url = images[kind]
+  const title = kind === 'product' ? `${order.sourceProductionOrderNo || order.dyeOrderNo} 款式图` : `${order.rawMaterialSku} 实物图`
+  return `<button type="button" class="relative h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border bg-white" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
 }
 
 function renderDyeingTaskCard(
@@ -1210,7 +1234,7 @@ function renderDyeingTaskCard(
 ): string {
   if (shouldRenderCombinedDyeCurrentAction(dyeOrder)) return renderDyeMaterialReceiptPanel(dyeOrder) + renderCombinedDyeCurrentActionCard(task, dyeOrder)
   const sampleNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'SAMPLE')
-  const materialReadyNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'MATERIAL_READY')
+  const materialReadyNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'INPUT_RECEIVED')
   const vatPlanNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'VAT_PLAN')
   const dyeNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'DYE')
   const dehydrateNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'DEHYDRATE')
@@ -1231,6 +1255,7 @@ function renderDyeingTaskCard(
   const canContinuePostProcess = onlineStatus === '染色中' || onlineStatus === '染色完成'
   const canSubmitHandover = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '交出')
   const canManuallyComplete = dyeOrder.status === 'WAIT_MANUAL_COMPLETION' && Boolean(getPdaSession()) && !validateWaterSolublePdaActor(getPdaSession()!, dyeOrder.dyeFactoryId, 'OPERATE')
+  const axes = getDyeWorkOrderThreeAxisView(dyeOrder)
 
   const sampleWaitBadge = dyeOrder.sampleWaitFinishedAt
     ? renderPrintingStatusBadge('等样衣/色样完成', 'success')
@@ -1247,11 +1272,6 @@ function renderDyeingTaskCard(
     : sampleNode?.startedAt
       ? renderPrintingStatusBadge('打样中', 'info')
       : renderPrintingStatusBadge('待打样', 'muted')
-  const materialReadyBadge = materialReadyNode?.finishedAt
-    ? renderPrintingStatusBadge('备料完成', 'success')
-    : materialReadyNode?.startedAt
-      ? renderPrintingStatusBadge('备料中', 'info')
-      : renderPrintingStatusBadge('待备料', 'muted')
   const vatBadge = vatPlanNode?.finishedAt
     ? renderPrintingStatusBadge('已排染缸', 'success')
     : renderPrintingStatusBadge('待排染缸', 'warning')
@@ -1288,6 +1308,8 @@ function renderDyeingTaskCard(
       </header>
 
       <div class="space-y-4 p-4 text-sm">
+        <div class="flex gap-3">${renderDyeTaskImage(dyeOrder, 'product')}${renderDyeTaskImage(dyeOrder, 'material')}<div class="min-w-0"><div class="font-medium">${escapeHtml(dyeOrder.rawMaterialSku)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(dyeOrder.sourceProductionOrderNo || dyeOrder.dyeOrderNo)}</div></div></div>
+        <div class="grid grid-cols-3 gap-2"><div><div class="text-[11px] text-muted-foreground">接收状态</div>${renderPrintingStatusBadge(PROCESS_ORDER_RECEIPT_STATUS_LABEL[axes.receiptStatus], axes.receiptStatus === 'RECEIVED' ? 'success' : axes.receiptStatus === 'RECEIPT_DIFFERENCE' ? 'danger' : 'warning')}</div><div><div class="text-[11px] text-muted-foreground">加工状态</div>${renderPrintingStatusBadge(PROCESS_ORDER_PROCESSING_STATUS_LABEL[axes.processingStatus], axes.processingStatus === 'COMPLETED' ? 'success' : axes.processingStatus === 'PROCESSING' ? 'info' : 'muted')}</div><div><div class="text-[11px] text-muted-foreground">交出状态</div>${renderPrintingStatusBadge(PROCESS_ORDER_HANDOVER_STATUS_LABEL[axes.handoverStatus], axes.handoverStatus === 'FULL_HANDOVER' ? 'success' : axes.handoverStatus === 'NOT_READY' ? 'muted' : 'warning')}</div></div>
         ${canManuallyComplete ? `<button type="button" class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground" data-pda-execd-action="dye-complete-document" data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}" data-task-id="${escapeHtml(task.taskId)}">人工完成单据</button>` : ''}
         ${dyeOrder.documentCompletedAt ? `<p class="rounded border border-green-200 bg-green-50 p-3 text-xs text-green-800">已由 ${escapeHtml(dyeOrder.documentCompletedBy || '')} 于 ${escapeHtml(dyeOrder.documentCompletedAt)} 人工完成单据。</p>` : ''}
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -1365,7 +1387,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !dyeOrder.materialWaitStartedAt || Boolean(dyeOrder.materialWaitFinishedAt) ? 'disabled' : ''}
               >
-                确认原料到位
+                确认来源单据已到
               </button>
             </div>
           </section>
@@ -1401,36 +1423,6 @@ function renderDyeingTaskCard(
           </section>
 
           ${renderDyeMaterialReceiptPanel(dyeOrder)}
-          <section class="rounded-lg border bg-background p-3">
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">备料</h3>
-              ${materialReadyBadge}
-            </div>
-            <div class="mt-3 space-y-1 text-xs">
-              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(materialReadyNode?.startedAt || '—')}</div>
-              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(materialReadyNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">备料面料米数：</span>${materialReadyNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-            </div>
-            <div class="mt-3 grid grid-cols-2 gap-2">
-              <button
-                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                hidden data-pda-execd-action="dye-start-material-ready"
-                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
-                ${!canOperate || !dyeOrder.materialWaitFinishedAt || Boolean(materialReadyNode?.startedAt) ? 'disabled' : ''}
-              >
-                开始备料
-              </button>
-              <button
-                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                hidden data-pda-execd-action="dye-complete-material-ready"
-                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
-                ${!canOperate || !materialReadyNode?.startedAt || Boolean(materialReadyNode?.finishedAt) ? 'disabled' : ''}
-              >
-                完成备料
-              </button>
-            </div>
-          </section>
-
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">待排染缸</h3>
@@ -4633,8 +4625,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     const oldText = button.textContent || ''
     button.disabled = true
     button.textContent = '处理中…'
-    const result = action === 'water-material-ready'
-      ? executeWaterSolubleMaterialReceipt({ action: 'MATERIAL_READY', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
+    const result = action === 'water-receive-input'
+      ? executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
       : action === 'water-finish-document'
         ? executeWaterSolublePdaAction({ action: 'FINISH_DOCUMENT', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: session })
         : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: session })
@@ -5201,12 +5193,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
   if (
     action === 'dye-start-sample-wait'
     || action === 'dye-complete-sample-wait'
-    || action === 'dye-start-material-wait'
-    || action === 'dye-complete-material-wait'
     || action === 'dye-start-sample-test'
     || action === 'dye-complete-sample-test'
-    || action === 'dye-start-material-ready'
-    || action === 'dye-complete-material-ready'
     || action === 'dye-plan-vat'
     || action === 'dye-start-dye'
     || action === 'dye-complete-dye'
@@ -5339,29 +5327,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
         return true
       }
 
-      if (action === 'dye-start-material-wait') {
-        startDyeMaterialWaitWriteback(dyeOrder.taskId, { operatorName: '染色工厂' })
-        showPdaExecDetailToast('等原料已开始')
-        return true
-      }
-
-      if (action === 'dye-complete-material-wait') {
-        executeMobileProcessAction({
-          sourceType: 'DYE',
-          sourceId: dyeOrder.dyeOrderId,
-          taskId: dyeOrder.taskId,
-          actionCode: 'DYE_MATERIAL_RECEIVED',
-          operatorName: '染色工厂',
-          operatedAt: nowTimestamp(),
-          objectType: '面料',
-          objectQty: dyeOrder.plannedQty,
-          qtyUnit: dyeOrder.qtyUnit,
-          remark: '移动端确认原料到位',
-        })
-        showPdaExecDetailToast('等原料已完成')
-        return true
-      }
-
       if (action === 'dye-start-sample-test') {
         executeMobileProcessAction({
           sourceType: 'DYE',
@@ -5397,40 +5362,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
           formData: { colorNo, 色号: colorNo, 打样结果: '通过' },
         })
         showPdaExecDetailToast('打样完成已记录')
-        return true
-      }
-
-      if (action === 'dye-start-material-ready') {
-        executeMobileProcessAction({
-          sourceType: 'DYE',
-          sourceId: dyeOrder.dyeOrderId,
-          taskId: dyeOrder.taskId,
-          actionCode: 'DYE_FINISH_PREPARE',
-          operatorName: '染色工厂',
-          operatedAt: nowTimestamp(),
-          objectType: '面料',
-          objectQty: dyeOrder.plannedQty,
-          qtyUnit: dyeOrder.qtyUnit,
-          remark: '移动端备料记录',
-        })
-        showPdaExecDetailToast('备料已记录')
-        return true
-      }
-
-      if (action === 'dye-complete-material-ready') {
-        const outputQtyText = window.prompt('请输入备料面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-        executeMobileProcessAction({
-          sourceType: 'DYE',
-          sourceId: dyeOrder.dyeOrderId,
-          taskId: dyeOrder.taskId,
-          actionCode: 'DYE_FINISH_PREPARE',
-          operatorName: '染色工厂',
-          operatedAt: nowTimestamp(),
-          objectType: '面料',
-          objectQty: outputQtyText ? Number(outputQtyText) : dyeOrder.plannedQty,
-          qtyUnit: dyeOrder.qtyUnit,
-        })
-        showPdaExecDetailToast('备料完成已记录')
         return true
       }
 
@@ -5681,7 +5612,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       window.dispatchEvent(new CustomEvent('higood:request-render'))
       return true
     } catch (error) {
-      showPdaExecDetailToast(error instanceof Error ? error.message : '捆条加工单写回失败')
+      showPdaExecDetailToast(error instanceof Error ? error.message : '捆条加工单保存失败')
       return true
     }
   }
@@ -5703,7 +5634,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       if (!strictWorkOrder || strictWorkOrder.sourceTaskId !== sourceTaskId) {
         throw new Error('加工单与来源任务不一致，已阻断操作。')
       }
-      // PDA 路由和权限绑定的是当前加工单投影；sourceTaskId 只用于追溯父任务。
+      // PDA 路由和权限绑定的是当前加工单；sourceTaskId 只用于追溯父任务。
       // 若拿父任务去查移动任务，独立 occurrence 加工单会被误判为“当前账号无权”。
       const actionTask = getTaskFactById(workOrderId)
       const actionSession = getPdaSession()
@@ -5928,7 +5859,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       window.dispatchEvent(new CustomEvent('higood:request-render'))
       return true
     } catch (error) {
-      showPdaExecDetailToast(error instanceof Error ? error.message : '特殊工艺写回失败')
+      showPdaExecDetailToast(error instanceof Error ? error.message : '特殊工艺保存失败')
       return true
     }
   }

@@ -1,11 +1,12 @@
 import type { TechnicalProcessObjectType } from '../../data/pcs-technical-data-version-types.ts'
 
 export type BomRequirementFlag = '是' | '否'
-export type BomDrivenPrepProcessCode = 'PRINT' | 'WATER_SOLUBLE' | 'DYE'
+export type BomDrivenPrepProcessCode = 'PRINT' | 'WATER_SOLUBLE' | 'DYE' | 'EMBROIDERY'
 export type BomTriggerField =
   | 'printRequirement'
   | 'waterSolubleRequirement'
   | 'dyeRequirement'
+  | 'embroideryRequirement'
 
 export const bomRequirementOptions: BomRequirementFlag[] = ['否', '是']
 
@@ -13,6 +14,7 @@ export const bomTriggerFieldLabel: Record<BomTriggerField, string> = {
   printRequirement: '印花需求',
   waterSolubleRequirement: '水溶要求',
   dyeRequirement: '染色需求',
+  embroideryRequirement: '绣花需求',
 }
 
 export interface BomProcessLinkageBomRow {
@@ -24,6 +26,7 @@ export interface BomProcessLinkageBomRow {
   printRequirement?: string
   waterSolubleRequirement?: string
   dyeRequirement?: string
+  embroideryRequirement?: string
 }
 
 export interface BomDrivenPrepTechnique {
@@ -43,8 +46,8 @@ export interface BomDrivenPrepTechnique {
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
   selectedTargetObject?: string
-  targetObject?: 'FABRIC' | 'BOM_MATERIAL' | 'GARMENT_SEMI'
-  targetObjectName?: '面料' | 'BOM物料' | '成衣'
+  targetObject?: 'FABRIC' | 'BOM_MATERIAL' | 'ACCESSORY' | 'GARMENT_SEMI'
+  targetObjectName?: '面料' | 'BOM物料' | '辅料' | '成衣'
   supportedTargetObjects?: string[]
   supportedTargetObjectLabels?: string[]
   triggerSource: string
@@ -111,7 +114,7 @@ type BomRouteOccurrenceSpec = {
   craftCode: string
   craftName: string
   isSpecialCraft: boolean
-  selectedTargetObject?: '成衣'
+  selectedTargetObject?: '成衣' | '完整面料' | '辅料'
   inputObjectType: TechnicalProcessObjectType
   outputObjectType: TechnicalProcessObjectType
   triggerField?: BomTriggerField
@@ -120,10 +123,13 @@ type BomRouteOccurrenceSpec = {
   detailSplitDimensions: string[]
   defaultDocType: 'TASK' | 'PREPARATION_ORDER'
   taskTypeMode: 'PROCESS' | 'CRAFT'
+  consumesBomItem?: boolean
 }
 
 const GARMENT_HEAT_TRANSFER_CODES = new Set(['AUX_HEAT_TRANSFER', 'HEAT_TRANSFER', 'PROC_HEAT_TRANSFER'])
 const GARMENT_DIRECT_PRINT_CODES = new Set(['AUX_DIRECT_PRINT', 'DIRECT_PRINT', 'PROC_DIRECT_PRINT'])
+const BINDING_STRIP_CODES = new Set(['CRAFT_131072', 'AUX_BINDING_STRIP'])
+const ELASTIC_FIXED_LENGTH_CODES = new Set(['CRAFT_3000009', 'SPECIAL_ELASTIC_FIXED_LENGTH_CUTTING'])
 
 export function normalizeBomRequirement(value: unknown): BomRequirementFlag {
   return value === '是' || value === true ? '是' : '否'
@@ -148,6 +154,7 @@ function getRequiredPrepProcessCodesForRow(row: BomProcessLinkageBomRow): BomDri
   if (normalizeBomRequirement(row.waterSolubleRequirement) === '是') codes.push('WATER_SOLUBLE')
   if (String(row.dyeRequirement || '无') !== '无') codes.push('DYE')
   if (String(row.printRequirement || '无') !== '无') codes.push('PRINT')
+  if (String(row.embroideryRequirement || '无') !== '无') codes.push('EMBROIDERY')
   return codes
 }
 
@@ -173,11 +180,50 @@ function getBomDrivenProcessMeta(processCode: BomDrivenPrepProcessCode): {
       detailSplitDimensions: ['MATERIAL_SKU'],
     }
   }
+  if (processCode === 'EMBROIDERY') {
+    return {
+      processName: '绣花',
+      triggerField: 'embroideryRequirement',
+      assignmentGranularity: 'COLOR',
+      detailSplitDimensions: ['MATERIAL_SKU'],
+    }
+  }
   return {
     processName: '染色',
     triggerField: 'dyeRequirement',
     assignmentGranularity: 'COLOR',
     detailSplitDimensions: ['MATERIAL_SKU'],
+  }
+}
+
+function buildBoundMaterialCraftOccurrenceSpec(
+  row: BomProcessLinkageBomRow,
+  bomItemId: string,
+  craftCode: 'CRAFT_131072' | 'CRAFT_3000009',
+): BomRouteOccurrenceSpec {
+  const isBindingStrip = craftCode === 'CRAFT_131072'
+  const craftName = isBindingStrip ? '捆条' : '橡筋定长切割'
+  return {
+    id: `tech-prod-${toSafeId(bomItemId)}-${craftCode.toLowerCase().replace(/_/g, '-')}`,
+    bomItemId,
+    routeObjectKey: `BOM:${bomItemId}`,
+    processCode: 'SPECIAL_CRAFT',
+    processName: isBindingStrip ? '辅助工艺' : '特种工艺',
+    entryType: 'CRAFT',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    craftCode,
+    craftName,
+    isSpecialCraft: true,
+    selectedTargetObject: isBindingStrip ? '完整面料' : '辅料',
+    inputObjectType: isBindingStrip ? 'FABRIC' : 'ACCESSORY',
+    outputObjectType: isBindingStrip ? 'BINDING_STRIP' : 'ACCESSORY',
+    triggerSource: `物料清单绑定工艺：${describeBomRow(row, bomItemId)} / ${craftName}`,
+    assignmentGranularity: 'SKU',
+    detailSplitDimensions: ['MATERIAL_SKU', 'GARMENT_SKU'],
+    defaultDocType: 'TASK',
+    taskTypeMode: 'CRAFT',
+    consumesBomItem: true,
   }
 }
 
@@ -276,8 +322,14 @@ function listRequiredOccurrenceSpecs(bomRows: BomProcessLinkageBomRow[]): BomRou
       .map((processCode) => buildPrepOccurrenceSpec(row, bomItemId, processCode))
     const productionSpecs: BomRouteOccurrenceSpec[] = []
     if (row.type === '面料') productionSpecs.push(buildCutOccurrenceSpec(row, bomItemId))
+    const usageCodes = new Set(row.usageProcessCodes ?? [])
+    if (row.type === '面料' && [...BINDING_STRIP_CODES].some((code) => usageCodes.has(code))) {
+      productionSpecs.push(buildBoundMaterialCraftOccurrenceSpec(row, bomItemId, 'CRAFT_131072'))
+    }
+    if (row.type === '辅料' && [...ELASTIC_FIXED_LENGTH_CODES].some((code) => usageCodes.has(code))) {
+      productionSpecs.push(buildBoundMaterialCraftOccurrenceSpec(row, bomItemId, 'CRAFT_3000009'))
+    }
     if (row.type === '成衣') {
-      const usageCodes = new Set(row.usageProcessCodes ?? [])
       if ([...GARMENT_HEAT_TRANSFER_CODES].some((code) => usageCodes.has(code))) {
         productionSpecs.push(buildGarmentCraftOccurrenceSpec(row, bomItemId, 'AUX_HEAT_TRANSFER', '烫画'))
       }
@@ -309,12 +361,32 @@ function buildAutoGeneratedOccurrence(spec: BomRouteOccurrenceSpec): BomDrivenPr
     selectedTargetObject: spec.selectedTargetObject,
     targetObject: spec.selectedTargetObject === '成衣'
       ? 'GARMENT_SEMI'
-      : spec.inputObjectType === 'FABRIC' ? 'FABRIC' : 'BOM_MATERIAL',
+      : spec.selectedTargetObject === '完整面料'
+        ? 'FABRIC'
+        : spec.selectedTargetObject === '辅料'
+          ? 'ACCESSORY'
+          : spec.inputObjectType === 'FABRIC' ? 'FABRIC' : 'BOM_MATERIAL',
     targetObjectName: spec.selectedTargetObject === '成衣'
       ? '成衣'
-      : spec.inputObjectType === 'FABRIC' ? '面料' : 'BOM物料',
-    supportedTargetObjects: spec.selectedTargetObject === '成衣' ? ['SEMI_FINISHED_GARMENT'] : undefined,
-    supportedTargetObjectLabels: spec.selectedTargetObject === '成衣' ? ['成衣'] : undefined,
+      : spec.selectedTargetObject === '完整面料'
+        ? '面料'
+        : spec.selectedTargetObject === '辅料'
+          ? '辅料'
+          : spec.inputObjectType === 'FABRIC' ? '面料' : 'BOM物料',
+    supportedTargetObjects: spec.selectedTargetObject === '成衣'
+      ? ['SEMI_FINISHED_GARMENT']
+      : spec.selectedTargetObject === '完整面料'
+        ? ['FULL_FABRIC']
+        : spec.selectedTargetObject === '辅料'
+          ? ['ACCESSORY']
+          : undefined,
+    supportedTargetObjectLabels: spec.selectedTargetObject === '成衣'
+      ? ['成衣']
+      : spec.selectedTargetObject === '完整面料'
+        ? ['完整面料']
+        : spec.selectedTargetObject === '辅料'
+          ? ['辅料']
+          : undefined,
     triggerSource: spec.triggerSource,
     difficulty: '中等',
     remark: '',
@@ -325,7 +397,7 @@ function buildAutoGeneratedOccurrence(spec: BomRouteOccurrenceSpec): BomDrivenPr
     routeObjectKey: spec.routeObjectKey,
     inputObjectType: spec.inputObjectType,
     outputObjectType: spec.outputObjectType,
-    consumedBomItemIds: [],
+    consumedBomItemIds: spec.consumesBomItem ? [spec.bomItemId] : [],
     predecessorEntryIds: [],
     isAutoGenerated: true,
     canRemoveAutomatically: true,
@@ -349,6 +421,7 @@ export function isBomDrivenPrepProcessCode(processCode: string): processCode is 
   return processCode === 'PRINT'
     || processCode === 'WATER_SOLUBLE'
     || processCode === 'DYE'
+    || processCode === 'EMBROIDERY'
 }
 
 export function getCanonicalBomDrivenPrepProcessCode(processCode: string): BomDrivenPrepProcessCode | null {
@@ -366,16 +439,22 @@ export function isBomDrivenPrepTechnique(
 }
 
 export function hasManualPrepProcessContent(item: Partial<BomDrivenPrepTechniqueCandidate>): boolean {
-  return Boolean(
+  if (
     item.hasManualOverride
       || item.manualFieldsTouched
       || String(item.manualNotes || '').trim()
-      || String(item.remark || '').trim(),
-  )
+  ) {
+    return true
+  }
+  if (item.sourceType === 'BOM' || item.isAutoGenerated === true) return false
+  return Boolean(String(item.remark || '').trim())
 }
 
 function isBomDrivenOccurrence(item: BomDrivenPrepTechniqueCandidate): boolean {
-  return item.sourceType === 'BOM' || (item.sourceType === undefined && item.isAutoGenerated === true)
+  return item.sourceType === 'BOM'
+    || (item.sourceType === undefined && (
+      item.isAutoGenerated === true || isBomDrivenPrepTechnique(item)
+    ))
 }
 
 function getLegacyOccurrenceMatchKey(item: BomDrivenPrepTechniqueCandidate): string {
@@ -473,6 +552,7 @@ export function syncTechPackProcessesFromBom<T extends BomDrivenPrepTechniqueCan
       routeObjectKey: spec.routeObjectKey,
       inputObjectType: spec.inputObjectType,
       outputObjectType: spec.outputObjectType,
+      consumedBomItemIds: spec.consumesBomItem ? [spec.bomItemId] : [],
       sourceType: 'BOM',
       triggerField: spec.triggerField,
       triggerSource: spec.triggerSource,

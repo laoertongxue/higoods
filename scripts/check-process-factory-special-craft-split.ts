@@ -130,7 +130,7 @@ assertNotIncludes(menuSource, '特殊工艺任务单', '菜单不得保留旧特
 assertNotIncludes(menuSource, '特殊工艺待加工仓', '菜单不得保留旧特殊工艺待加工仓入口')
 assertNotIncludes(menuSource, '特殊工艺待交出仓', '菜单不得保留旧特殊工艺待交出仓入口')
 
-assertIncludes(routesSource, 'specialCraftExactRoutes', '分工艺加工单路由必须通过 specialCraftExactRoutes 注册')
+assertIncludes(routesSource, 'buildSpecialCraftMenuExactRoutes', '分工艺加工单路由必须通过菜单工艺定义注册')
 assertIncludes(routesSource, 'buildSpecialCraftTaskOrdersPath(operation)', '分工艺加工单路由必须来自 operation 定义')
 for (const operation of allOperations) {
   const taskOrdersPath = buildSpecialCraftTaskOrdersPath(operation)

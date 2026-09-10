@@ -12,6 +12,7 @@ import {
   calculateBindingStripRawRequiredLengthM,
   calculateBindingStripRequiredLengthM,
   listBindingStripRequirementLines,
+  selectBindingInputBomItem,
   summarizeBindingStripRequirementsForCutOrders,
 } from '../src/pages/process-factory/cutting/binding-strip-orders.ts'
 import {
@@ -60,6 +61,43 @@ function assertCloseTo(actual: number, expected: number, message: string): void 
 }
 
 function main(): void {
+  const selectedBindingInput = selectBindingInputBomItem({
+    bomItems: [
+      {
+        id: 'bom-main',
+        type: '面料',
+        name: '大身主面料',
+        spec: '藏青',
+        materialCode: 'FAB-MAIN-001',
+        unit: '米',
+        unitConsumption: 1.2,
+        lossRate: 0,
+        supplier: '',
+        applicableSkuCodes: ['SKU-NAVY-M'],
+        linkedPatternIds: [],
+        usageProcessCodes: ['CUT_PANEL'],
+      },
+      {
+        id: 'bom-binding',
+        type: '面料',
+        name: '捆条用拼接面料',
+        spec: '藏青',
+        materialCode: 'FAB-BINDING-001',
+        unit: '米',
+        unitConsumption: 0.18,
+        lossRate: 0,
+        supplier: '',
+        applicableSkuCodes: ['SKU-NAVY-M'],
+        linkedPatternIds: [],
+        usageProcessCodes: ['CRAFT_131072'],
+      },
+    ],
+  }, {
+    skuScopeLines: [{ skuCode: 'SKU-NAVY-M', color: '藏青', size: 'M', plannedQty: 100 }],
+    colorScope: ['藏青'],
+  })
+  assert.equal(selectedBindingInput?.id, 'bom-binding', '捆条加工单必须取技术包 BOM 中绑定“捆条”的面料')
+
   const rawRequiredLength = calculateBindingStripRawRequiredLengthM(720, 3, 133.7)
   const requiredLength = calculateBindingStripRequiredLengthM(1, 3, 150)
   assert.equal(rawRequiredLength, 21, `捆条需要布料长度公式错误：${rawRequiredLength}`)
@@ -90,6 +128,7 @@ function main(): void {
   assert(orders.length > 0, '缺少捆条加工单')
   assert(orders.every((order) => allowedMainStatuses.has(order.status)), '捆条加工单主状态只能是待加工、加工中、已完成、已取消')
   assert(orders.every((order) => order.materialIdentity.materialImageUrl), '捆条加工单必须展示对应布料图片')
+  assert(orders.every((order) => !order.sourceBomItemId || requirementLines.some((line) => line.sourceBomItemId === order.sourceBomItemId)), '捆条加工单绑定的 BOM 物料必须来自其需求明细')
   forbiddenMainStatuses.forEach((status) => {
     assert(!orders.some((order) => order.status === status), `捆条加工单主状态不允许出现：${status}`)
   })

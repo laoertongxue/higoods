@@ -33,7 +33,7 @@ const printId = generate('PRINT','CHAIN-PRINT').printWorkOrderId!
 assert(dyeId && printId)
 p.assignPrintingWorkOrder(printId, {factoryId:"F090",factoryName:"全能力测试工厂",operatorName:"验收计划员"})
 w.assignWaterSolubleFactory(water.waterOrderId,'F090')
-w.markWaterSolubleMaterialReady(water.waterOrderId,{qty:10,receiptId:'WATER-INPUT-10'})
+w.receiveWaterSolubleInput(water.waterOrderId,{qty:10,receiptId:'WATER-INPUT-10',upstreamRecordId:'CHECK-SOURCE-WATER-INPUT-10'})
 const user = pda.listFactoryPdaUsers('F090').find(u => u.status==='ACTIVE' && u.roleId==='ROLE_ADMIN')!
 const actor = pda.createPdaSessionFromUser(user);pda.setPdaSession(actor)
 for(const [index,qty] of [4,6].entries()) {
@@ -55,7 +55,7 @@ for(const [index,qty] of [4,6].entries()) {
   const input = {actualSku:print.plannedInput.sku,receivedQty:qty,receivedRollCount:1,receiverName:'印花接收员',receiptId:`PRINT-IN-${index}`,upstreamRecordId:dyeOut.recordId}
   const before = JSON.stringify(ho.findPdaHandoverRecord(dyeOut.recordId)); const beforeQty=print.actualInput.receivedQty
   assert.throws(()=>receivePrintingMaterial(printId,{...input,actualSku:'WRONG-SKU'}),/SKU/)
-  assert.throws(()=>receivePrintingMaterial(printId,{...input,receivedQty:qty+1}),/剩余可接收/)
+  assert.throws(()=>receivePrintingMaterial(printId,{...input,receivedQty:qty+1}),/来源可收数量/)
   assert.throws(()=>receivePrintingMaterial(printId,{...input,receivedQty:0.001}),/两位小数/)
   assert.throws(()=>ho.receivePreparationHandoverForTask(dyeOut.recordId,{receiptId:'BAD-UNIT',targetTaskOrderId:printId,qty:1,qtyUnit:'公斤',receiverName:'验收',receivedAt:'2026-09-07 09:00:00'}),/单位/)
   const savedPrint = p.capturePrintProcessMutationState()
@@ -73,8 +73,9 @@ assert.equal(d.getDyeOrderHandoverSummary(dyeId).submittedQty,10)
 assert.equal(w.getWaterSolubleWorkOrderById(water.waterOrderId)?.receivedQty,10)
 console.log(JSON.stringify({water:water.waterOrderId,dye:dyeId,print:printId,receivedByPrinting:10,batches:2,source:'原PdaHandoverRecord',duplicate:'不重复累加',failedSku:'上游与下游均不变'}))
 p.completePrintingWorkOrder(printId,{usedQty:10,usedRollCount:2,completedQty:10,completedRollCount:2,printerNo:'CHAIN-PRINTER',operatorName:'验收员'})
-p.handoverPrintingOutput(printId,{qty:10,barcodeIds:p.getPrintingWorkOrderById(printId)!.barcodes.map(b=>b.id),operatorName:'交接员',receiverName:'接收员'})
-p.receivePrintingHandover(printId,{receivedQty:10,receiverName:'接收员'})
+const printTarget=p.getPrintingWorkOrderById(printId)!.receivingTargetName
+p.handoverPrintingOutput(printId,{qty:10,barcodeIds:p.getPrintingWorkOrderById(printId)!.barcodes.map(b=>b.id),operatorName:'交接员',receiverName:printTarget})
+p.receivePrintingHandover(printId,{receivedQty:10,receiverName:printTarget})
 p.completePrintWorkOrderDocument(printId,{operatorName:'主管'})
 const closedInput = p.getPrintingWorkOrderById(printId)!.actualInput
 const closedSource = d.getDyeOrderHandoverRecords(dyeId)[0]

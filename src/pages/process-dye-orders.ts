@@ -315,7 +315,10 @@ function submitCreate(): void {
   state.createOpen = false
   state.form = defaultForm()
   state.formError = null
-  state.currentPage = Math.max(1, Math.ceil(getFilteredOrders().length / state.preferences.pageSize))
+  state.keyword = result.order.dyeOrderNo
+  state.statusFilter = '全部'
+  state.sourceFilter = ''
+  state.currentPage = 1
 }
 
 export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {

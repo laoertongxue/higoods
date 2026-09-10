@@ -24,6 +24,7 @@ import {
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
+import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
@@ -303,7 +304,7 @@ function resolveMockStageName(profile: GenericProcessProfile): string {
   return '生产阶段'
 }
 
-function resolveMockTaskReceiver(profile: GenericProcessProfile): Pick<
+function resolveMockTaskReceiver(profile: GenericProcessProfile, productionOrderNo: string): Pick<
   PdaGenericTaskMock,
   'receiverKind' | 'receiverId' | 'receiverName'
 > | null {
@@ -317,10 +318,14 @@ function resolveMockTaskReceiver(profile: GenericProcessProfile): Pick<
     }
   }
 
+  const terminal = resolveTerminalProcessOrderReceivingTarget({
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderNo,
+  })
   return {
     receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TRANSFER',
-    receiverName: '中转区域',
+    receiverId: terminal.targetBusinessId,
+    receiverName: terminal.targetName,
   }
 }
 
@@ -409,7 +414,7 @@ function createTask(
   const taskId = taskNo(profile.taskPrefix, index)
   const factoryName = getFactoryName(profile.factoryId)
   const createdAt = input.dispatchedAt
-  const receiver = resolveMockTaskReceiver(profile)
+  const receiver = resolveMockTaskReceiver(profile, input.productionOrderNo)
   const isExternal = isExternalMockProcess(profile)
   const processBusinessCode = resolveMockBusinessProcessCode(profile)
   const stageCode = resolveMockStageCode(profile)

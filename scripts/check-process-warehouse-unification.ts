@@ -10,6 +10,10 @@ import {
   listWaitProcessWarehouseRecords,
   writeBackProcessHandoverRecord,
 } from '../src/data/fcs/process-warehouse-domain.ts'
+import {
+  listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseRecords,
+} from '../src/data/fcs/post-finishing-full-flow.ts'
 
 const root = process.cwd()
 
@@ -58,7 +62,7 @@ includes('src/data/fcs/dyeing-warehouse-view.ts', ['listWaitProcessWarehouseReco
 includes('src/pages/process-factory/special-craft/warehouse.ts', ['listWaitProcessWarehouseRecords', "craftType: 'SPECIAL_CRAFT'", 'listProcessHandoverRecords'])
 includes('src/pages/process-factory/post-finishing/warehouse.ts', ['listPostFinishingWaitProcessWarehouseRecords', 'listPostFinishingWaitHandoverWarehouseRecords'])
 
-includes('src/pages/process-factory/printing/work-order-detail.ts', ['order.handover', '交出与接收', '差异/说明'])
+includes('src/pages/process-factory/printing/work-order-detail.ts', ['order.handover', '交出与下游实收', '差异说明'])
 includes('src/pages/process-factory/dyeing/work-order-detail.ts', ['getHandoverRecordsByWorkOrderId', 'getReviewRecordsByWorkOrderId', '染色统计'])
 includes('src/pages/process-factory/special-craft/task-detail.ts', ['taskOrder.warehouseLinks', '待加工仓记录', '待交出仓记录', '交出记录'])
 
@@ -78,7 +82,6 @@ const requiredCrafts = [
   ['PRINT', '印花'],
   ['DYE', '染色'],
   ['SPECIAL_CRAFT', '特殊工艺'],
-  ['POST_FINISHING', '后道'],
 ] as const
 
 for (const [craftType, label] of requiredCrafts) {
@@ -88,11 +91,10 @@ for (const [craftType, label] of requiredCrafts) {
   assert(listProcessWarehouseReviewRecords({ craftType }).length > 0, `${label} 缺少审核或差异记录`)
 }
 
-const postWaitProcess = listWaitProcessWarehouseRecords({ craftType: 'POST_FINISHING' })
-const postWaitHandover = listWaitHandoverWarehouseRecords({ craftType: 'POST_FINISHING' })
-assert(postWaitProcess.some((record) => record.currentActionName === '待后道'), '后道待加工仓缺少待后道记录')
-assert(postWaitProcess.some((record) => record.currentActionName === '待复检'), '后道待加工仓缺少待复检记录')
-assert(postWaitHandover.every((record) => record.currentActionName === '后道待交出'), '后道交出仓必须只承接复检完成后的记录')
+assert(listWaitProcessWarehouseRecords({ craftType: 'POST_FINISHING' }).length === 0, '后道不得复制到通用仓形成第二套数量账')
+assert(listWaitHandoverWarehouseRecords({ craftType: 'POST_FINISHING' }).length === 0, '后道不得复制到通用交出仓形成第二套数量账')
+assert(Array.isArray(listPostFinishingWaitProcessWarehouseRecords()), '后道待加工仓必须读取后道专项事实源')
+assert(Array.isArray(listPostFinishingWaitHandoverWarehouseRecords()), '后道待交出仓必须读取后道专项事实源')
 
 assert(typeof createWaitProcessWarehouseRecord === 'function', 'createWaitProcessWarehouseRecord 不是函数')
 assert(typeof createWaitHandoverWarehouseRecord === 'function', 'createWaitHandoverWarehouseRecord 不是函数')

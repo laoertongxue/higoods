@@ -12,10 +12,9 @@ import {
 } from '../../data/fcs/tech-packs.ts'
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
 import {
-  addProcessRouteEdge,
   materializeLegacyProcessRoutePredecessors,
   projectProcessRouteLayoutFromPredecessors,
-  removeProcessRouteEdge,
+  resolveProcessRouteLaneOrder,
   validateProcessRouteGraph,
 } from '../../data/tech-pack-process-route.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
@@ -54,6 +53,11 @@ import {
   saveTechnicalDataVersionBomMaterialLine,
 } from '../../data/pcs-engineering-bom-pricing.ts'
 import { getTechnicalDataVersionContent } from '../../data/pcs-technical-data-version-repository.ts'
+import {
+  getMaterialArchiveById,
+  getMaterialSkuRecordById,
+  listMaterialArchives,
+} from '../../data/pcs-material-archive-repository.ts'
 import type {
   EngineeringBomCustomCostDecision,
   EngineeringBomOperatorRole,
@@ -128,6 +132,7 @@ import {
   syncProcessCostRows,
   syncTechPackToStore,
   partitionBomItemsByType,
+  replaceBomBoundCraftCode,
   removeGarmentBomReverseReferences,
   validateGarmentTechniqueBomLinks,
   validateGarmentBomItem,
@@ -148,6 +153,7 @@ import type {
 } from './context.ts'
 
 const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+const BOM_COLOR_COPY_MODAL_ID = 'tech-pack-bom-color-copy-modal'
 
 function refreshBomFormDialogDom(): void {
   if (typeof document === 'undefined') return
@@ -192,6 +198,9 @@ function openProductionChangeEvaluationFromPublishedVersion(
 const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-add-bom': 'BOM',
   'edit-bom': 'BOM',
+  'copy-bom': 'BOM',
+  'open-copy-bom-color': 'BOM',
+  'confirm-copy-bom-color': 'BOM',
   'save-bom': 'BOM',
   'delete-bom': 'BOM',
   'add-custom-cost': 'COST',
@@ -238,6 +247,8 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-piece-instance-special-craft-dialog': 'PATTERN',
   'add-piece-instance-special-craft': 'PATTERN',
   'delete-piece-instance-special-craft': 'PATTERN',
+  'move-piece-instance-special-craft-up': 'PATTERN',
+  'move-piece-instance-special-craft-down': 'PATTERN',
   'apply-piece-instance-craft-to-same-color': 'PATTERN',
   'open-add-technique': 'PROCESS',
   'edit-technique': 'PROCESS',
@@ -319,6 +330,8 @@ function getTechPackActionModuleKey(action: string, actionNode?: HTMLElement): T
       normalized === 'open-piece-instance-special-craft-dialog' ||
       normalized === 'add-piece-instance-special-craft' ||
       normalized === 'delete-piece-instance-special-craft' ||
+      normalized === 'move-piece-instance-special-craft-up' ||
+      normalized === 'move-piece-instance-special-craft-down' ||
       normalized === 'apply-piece-instance-craft-to-same-color'
     )
   ) {
@@ -334,6 +347,10 @@ function isTechPackFieldReadOnly(field: string): boolean {
 
 function closePatternImagePreviewModal(): void {
   document.getElementById(PATTERN_IMAGE_PREVIEW_MODAL_ID)?.remove()
+}
+
+function closeBomColorCopyModal(): void {
+  document.getElementById(BOM_COLOR_COPY_MODAL_ID)?.remove()
 }
 
 function openPatternImagePreviewModal(input: {
@@ -361,8 +378,56 @@ function openPatternImagePreviewModal(input: {
         </button>
       </header>
       <div class="min-h-0 flex-1 overflow-auto bg-slate-50 p-4">
-        <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(input.title || input.fileName || '纸样图')}" class="mx-auto max-h-[76vh] max-w-full rounded-lg border bg-white object-contain shadow-sm" />
+        <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(input.title || input.fileName || '纸样图')}" class="mx-auto max-h-[76vh] max-w-full rounded-lg border bg-white object-contain shadow-sm" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
+        <p hidden class="rounded-lg bg-white p-8 text-center text-sm text-red-700">图片加载失败，请核对原图地址。</p>
       </div>
+    </section>
+  `
+  root.appendChild(modal)
+}
+
+function openBomColorCopyModal(input: {
+  sourceColor: string
+  sourceBomIds: string[]
+}): void {
+  const targetGroups = new Map<string, string[]>()
+  const nonSpecificColorLabels = new Set(['全部SKU（当前未区分颜色）', '未识别颜色', '多颜色'])
+  getSkuOptionsForCurrentSpu().forEach((sku) => {
+    const color = sku.color.trim()
+    if (!color || nonSpecificColorLabels.has(color) || color === input.sourceColor) return
+    targetGroups.set(color, dedupeStrings([...(targetGroups.get(color) ?? []), sku.skuCode]))
+  })
+  const options = Array.from(targetGroups.entries())
+  if (options.length === 0 || input.sourceBomIds.length === 0) return
+
+  closeBomColorCopyModal()
+  const root = document.querySelector('#app') || document.body
+  const modal = document.createElement('div')
+  modal.id = BOM_COLOR_COPY_MODAL_ID
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4'
+  modal.dataset.sourceColor = input.sourceColor
+  modal.dataset.sourceBomIds = input.sourceBomIds.join(',')
+  modal.dataset.skipPageRerender = 'true'
+  modal.innerHTML = `
+    <button type="button" class="absolute inset-0 bg-black/45" data-tech-action="close-copy-bom-color" data-skip-page-rerender="true" aria-label="关闭整色复制"></button>
+    <section class="relative w-full max-w-md rounded-lg border bg-background shadow-2xl" data-dialog-panel="true">
+      <header class="flex items-center justify-between border-b px-5 py-4">
+        <div>
+          <h3 class="font-semibold">整色复制</h3>
+          <p class="mt-1 text-xs text-muted-foreground">将“${escapeHtml(input.sourceColor)}”的常规物料复制到目标颜色</p>
+        </div>
+        <button type="button" class="rounded border px-2 py-1 text-sm" data-tech-action="close-copy-bom-color" data-skip-page-rerender="true">关闭</button>
+      </header>
+      <div class="p-5">
+        <label class="block text-sm font-medium" for="bom-copy-target-color">目标颜色</label>
+        <select id="bom-copy-target-color" class="mt-2 h-10 w-full rounded-md border px-3" data-bom-copy-target-color>
+          ${options.map(([color, skuCodes]) => `<option value="${escapeHtml(color)}" data-sku-codes="${escapeHtml(skuCodes.join(','))}">${escapeHtml(color)}</option>`).join('')}
+        </select>
+      </div>
+      <footer class="flex justify-end gap-2 border-t px-5 py-4">
+        <button type="button" class="rounded-md border px-4 py-2 text-sm" data-tech-action="close-copy-bom-color" data-skip-page-rerender="true">取消</button>
+        <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700" data-tech-action="confirm-copy-bom-color">复制</button>
+      </footer>
     </section>
   `
   root.appendChild(modal)
@@ -389,7 +454,7 @@ export type ProcessRouteDraftState = {
 
 export type ProcessRouteDraftAction =
   | { type: 'confirm' }
-  | { type: 'add-edge' | 'remove-edge'; sourceEntryId: string; targetEntryId: string }
+  | { type: 'reorder-prep-lane'; orderedEntryIds: string[] }
 
 function getProcessRouteDraftFromState(): ProcessRouteDraftState {
   return {
@@ -430,45 +495,6 @@ function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
   syncTechPackToStore()
 }
 
-let processRouteHistoryScope = ''
-let processRouteUndoStack: ProcessRouteDraftState[] = []
-let processRouteRedoStack: ProcessRouteDraftState[] = []
-
-function cloneProcessRouteDraft(draft: ProcessRouteDraftState): ProcessRouteDraftState {
-  return structuredClone(draft)
-}
-
-function ensureProcessRouteHistoryScope(): void {
-  const scope = state.currentTechnicalVersionId || state.currentSpuCode || 'UNSCOPED'
-  if (scope === processRouteHistoryScope) return
-  processRouteHistoryScope = scope
-  processRouteUndoStack = []
-  processRouteRedoStack = []
-}
-
-function pushProcessRouteUndo(draft: ProcessRouteDraftState): void {
-  ensureProcessRouteHistoryScope()
-  processRouteUndoStack.push(cloneProcessRouteDraft(draft))
-  if (processRouteUndoStack.length > 50) processRouteUndoStack.shift()
-  processRouteRedoStack = []
-}
-
-function undoProcessRouteDraft(): void {
-  ensureProcessRouteHistoryScope()
-  const previous = processRouteUndoStack.pop()
-  if (!previous) return
-  processRouteRedoStack.push(cloneProcessRouteDraft(getProcessRouteDraftFromState()))
-  saveProcessRouteDraft(previous)
-}
-
-function redoProcessRouteDraft(): void {
-  ensureProcessRouteHistoryScope()
-  const next = processRouteRedoStack.pop()
-  if (!next) return
-  processRouteUndoStack.push(cloneProcessRouteDraft(getProcessRouteDraftFromState()))
-  saveProcessRouteDraft(next)
-}
-
 function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
   const currentDraft = getProcessRouteDraftFromState()
   const nextDraft = applyProcessRouteDraftAction(
@@ -479,7 +505,6 @@ function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
     (message) => window.alert(message),
   )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
-  pushProcessRouteUndo(currentDraft)
   saveProcessRouteDraft(nextDraft)
 }
 
@@ -488,6 +513,35 @@ function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftSt
     ...input,
     techniques: normalizeTechniqueRoutes(input.techniques),
   }
+}
+
+function connectPreparationLanesToCutting(techniques: TechniqueItem[]): TechniqueItem[] {
+  let next = materializeLegacyProcessRoutePredecessors(techniques)
+  const routeObjectKeys = [...new Set(next
+    .filter((item) => item.stageCode === 'PREP' && item.routeObjectKey)
+    .map((item) => item.routeObjectKey as string))]
+
+  routeObjectKeys.forEach((routeObjectKey) => {
+    const lane = resolveProcessRouteLaneOrder(next.filter((item) => (
+      item.stageCode === 'PREP' && item.routeObjectKey === routeObjectKey
+    ))).entries
+    if (lane.length === 0) return
+    const predecessorById = new Map(lane.map((item, index) => [
+      item.id,
+      index === 0 ? [] : [lane[index - 1].id],
+    ]))
+    const terminalId = lane[lane.length - 1].id
+    next = next.map((item) => {
+      const predecessorEntryIds = predecessorById.get(item.id)
+      if (predecessorEntryIds) return { ...item, predecessorEntryIds }
+      if (item.stageCode === 'PROD' && item.processCode === 'CUT_PANEL' && item.routeObjectKey === routeObjectKey) {
+        return { ...item, predecessorEntryIds: [terminalId] }
+      }
+      return item
+    })
+  })
+
+  return next
 }
 
 export function applyProcessRouteDraftAction(
@@ -499,7 +553,7 @@ export function applyProcessRouteDraftAction(
 ): ProcessRouteDraftState {
   if (action.type === 'confirm') {
     if (input.techniques.length === 0) return normalizeRouteDraft(input)
-    const materialized = materializeLegacyProcessRoutePredecessors(input.techniques)
+    const materialized = connectPreparationLanesToCutting(input.techniques)
     const issues = validateProcessRouteGraph(materialized, { requireComplete: true })
     if (issues.length > 0) {
       onInvalidRoute(issues[0].message)
@@ -520,36 +574,66 @@ export function applyProcessRouteDraftAction(
     }
   }
 
-  if (action.type === 'add-edge') {
-    const result = addProcessRouteEdge(input.techniques, action.sourceEntryId, action.targetEntryId)
-    if (result.issues.length > 0) {
-      onInvalidRoute(result.issues[0].message)
-      return normalizeRouteDraft(input)
-    }
-    return {
-      ...input,
-      techniques: result.entries,
-      processRouteStatus: 'UNCONFIRMED',
-      processRouteConfirmedBy: '',
-      processRouteConfirmedAt: '',
-      processRouteUpdatedBy: operatorName,
-      processRouteUpdatedAt: operatedAt,
-    }
+  const orderedEntryIds = action.orderedEntryIds
+  const uniqueEntryIds = [...new Set(orderedEntryIds)]
+  const firstEntry = input.techniques.find((item) => item.id === uniqueEntryIds[0])
+  if (firstEntry?.sourceType === 'PATTERN') {
+    onInvalidRoute('裁片工艺顺序由纸样包逐片工艺决定，请在纸样包中调整。')
+    return normalizeRouteDraft(input)
+  }
+  if (
+    uniqueEntryIds.length === 0
+    || uniqueEntryIds.length !== orderedEntryIds.length
+    || !firstEntry
+    || firstEntry.stageCode !== 'PREP'
+    || !firstEntry.routeObjectKey
+  ) {
+    onInvalidRoute('只能调整同一 BOM 物料的准备加工顺序。')
+    return normalizeRouteDraft(input)
+  }
+  const laneEntries = input.techniques.filter((item) => (
+    item.stageCode === 'PREP' && item.routeObjectKey === firstEntry.routeObjectKey
+  ))
+  const requestedIdSet = new Set(uniqueEntryIds)
+  if (
+    laneEntries.length !== uniqueEntryIds.length
+    || laneEntries.some((item) => !requestedIdSet.has(item.id) || item.sourceType === 'PATTERN')
+  ) {
+    onInvalidRoute('排序必须包含该 BOM 物料的全部准备加工。')
+    return normalizeRouteDraft(input)
   }
 
-  if (action.type === 'remove-edge') {
-    return {
-      ...input,
-      techniques: removeProcessRouteEdge(input.techniques, action.sourceEntryId, action.targetEntryId),
-      processRouteStatus: 'UNCONFIRMED',
-      processRouteConfirmedBy: '',
-      processRouteConfirmedAt: '',
-      processRouteUpdatedBy: operatorName,
-      processRouteUpdatedAt: operatedAt,
+  const predecessorById = new Map(uniqueEntryIds.map((entryId, index) => [
+    entryId,
+    index === 0 ? [] : [uniqueEntryIds[index - 1]],
+  ]))
+  const terminalId = uniqueEntryIds[uniqueEntryIds.length - 1]
+  const reordered = materializeLegacyProcessRoutePredecessors(input.techniques).map((item) => {
+    const predecessorEntryIds = predecessorById.get(item.id)
+    if (predecessorEntryIds) return { ...item, predecessorEntryIds, routeUpdatedBy: operatorName, routeUpdatedAt: operatedAt }
+    if (
+      item.stageCode === 'PROD'
+      && item.processCode === 'CUT_PANEL'
+      && item.routeObjectKey === firstEntry.routeObjectKey
+    ) {
+      return { ...item, predecessorEntryIds: [terminalId], routeUpdatedBy: operatorName, routeUpdatedAt: operatedAt }
     }
+    return item
+  })
+  const issues = validateProcessRouteGraph(reordered)
+  if (issues.length > 0) {
+    onInvalidRoute(issues[0].message)
+    return normalizeRouteDraft(input)
   }
-
-  return normalizeRouteDraft(input)
+  return {
+    ...input,
+    techniques: projectProcessRouteLayoutFromPredecessors(reordered),
+    processRouteStatus: 'UNCONFIRMED',
+    processRouteConfirmedBy: '',
+    processRouteConfirmedAt: '',
+    processRouteUpdatedBy: operatorName,
+    processRouteUpdatedAt: operatedAt,
+  }
 }
 
 function confirmProcessRoute(): void {
@@ -1329,7 +1413,7 @@ function validatePatternMakerStep(): string | null {
     (item.specialCrafts ?? []).some((craft) => craft.craftName === '盘扣'),
   )
   if (selectedButtonLoopStrip && !getButtonLoopBindingCraftOption().routeConfigured) {
-    return '请先在工序路线增加“盘扣（对象：捆条）”并确认路线'
+    return '请先在工艺路线增加“盘扣（对象：捆条）”并确认路线'
   }
   if (state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.pieceRows.length === 0) {
     return '布料纸样请先在纸样池解析部位信息'
@@ -2330,6 +2414,7 @@ function handleTechPackField(
   }
 
   if (field === 'new-bom-type') {
+    const previousType = state.newBomItem.type
     state.newBomItem.type = value as BomItemRow['type']
     if (state.newBomItem.type === '成衣') {
       const normalized = normalizeGarmentBomItem({
@@ -2352,6 +2437,7 @@ function handleTechPackField(
         printRequirement: normalized.printRequirement,
         waterSolubleRequirement: normalized.waterSolubleRequirement,
         dyeRequirement: normalized.dyeRequirement,
+        embroideryRequirement: normalized.embroideryRequirement,
         printSideMode: normalized.printSideMode,
         frontPatternDesignId: normalized.frontPatternDesignId,
         frontPatternDesignIds: normalized.frontPatternDesignIds,
@@ -2360,10 +2446,34 @@ function handleTechPackField(
         usageProcessCodes: normalized.usageProcessCodes,
       }
     } else {
+      if (previousType !== state.newBomItem.type) {
+        state.newBomItem.materialSkuId = ''
+        state.newBomItem.materialCode = ''
+        state.newBomItem.materialName = ''
+        state.newBomItem.spec = ''
+      }
       state.newBomItem.usageProcessCodes = state.newBomItem.usageProcessCodes.filter((code) =>
         code !== 'AUX_HEAT_TRANSFER' && code !== 'AUX_DIRECT_PRINT'
       )
+      state.newBomItem.usageProcessCodes = replaceBomBoundCraftCode(
+        state.newBomItem.usageProcessCodes,
+        state.newBomItem.type,
+        '',
+      )
     }
+    refreshBomFormDialogDom()
+    return true
+  }
+  if (field === 'new-bom-material-sku') {
+    const sku = value ? getMaterialSkuRecordById(value) : null
+    const archive = sku ? getMaterialArchiveById(sku.materialId) : null
+    state.newBomItem.materialSkuId = sku?.materialSkuId || ''
+    state.newBomItem.materialCode = sku?.materialCode || archive?.materialCode || ''
+    state.newBomItem.materialName = sku?.materialName || archive?.materialName || ''
+    state.newBomItem.spec = sku
+      ? dedupeStrings([sku.colorName, sku.specName, sku.sizeName].filter((item) => item && item !== '-')).join(' / ')
+      : ''
+    state.newBomItem.unit = sku?.pricingUnit || archive?.mainUnit || state.newBomItem.unit
     refreshBomFormDialogDom()
     return true
   }
@@ -2415,6 +2525,18 @@ function handleTechPackField(
   }
   if (field === 'new-bom-dye-requirement') {
     state.newBomItem.dyeRequirement = value
+    return true
+  }
+  if (field === 'new-bom-embroidery-requirement') {
+    state.newBomItem.embroideryRequirement = value === '有' ? '有' : '无'
+    return true
+  }
+  if (field === 'new-bom-bound-craft') {
+    state.newBomItem.usageProcessCodes = replaceBomBoundCraftCode(
+      state.newBomItem.usageProcessCodes,
+      state.newBomItem.type,
+      value,
+    )
     return true
   }
   if (field === 'new-bom-print-side-mode') {
@@ -2595,6 +2717,30 @@ function handleTechPackField(
     return true
   }
 
+  if (field === 'bom-usage') {
+    const bomId = node.dataset.bomId
+    const usage = Number.parseFloat(value)
+    if (!bomId || !Number.isFinite(usage) || usage < 0) return true
+    state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, usage } : item)
+    syncMaterialCostRows()
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-unit') {
+    const bomId = node.dataset.bomId
+    if (!bomId || !value.trim()) return true
+    state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, unit: value.trim() } : item)
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-loss-rate') {
+    const bomId = node.dataset.bomId
+    const lossRate = Number.parseFloat(value)
+    if (!bomId || !Number.isFinite(lossRate) || lossRate < 0) return true
+    state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, lossRate } : item)
+    syncTechPackToStore()
+    return true
+  }
   if (field === 'bom-print') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
@@ -2642,6 +2788,27 @@ function handleTechPackField(
     }
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, waterSolubleRequirement: nextRequirement } : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-embroidery') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
+    state.bomItems = state.bomItems.map((item) =>
+      item.id === bomId ? { ...item, embroideryRequirement: value === '有' ? '有' : '无' } : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-bound-craft') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    state.bomItems = state.bomItems.map((item) =>
+      item.id === bomId
+        ? { ...item, usageProcessCodes: replaceBomBoundCraftCode(item.usageProcessCodes, item.type, value) }
+        : item,
     )
     syncTechPackToStore()
     return true
@@ -3095,7 +3262,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'close-dialog') {
-    if (state.releaseDialogOpen) {
+    if (document.getElementById(PATTERN_IMAGE_PREVIEW_MODAL_ID)) {
+      closePatternImagePreviewModal()
+    } else if (document.getElementById(BOM_COLOR_COPY_MODAL_ID)) {
+      closeBomColorCopyModal()
+    } else if (state.releaseDialogOpen) {
       state.releaseDialogOpen = false
     } else if (state.versionLogDialogOpen) {
       state.versionLogDialogOpen = false
@@ -3153,6 +3324,25 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'close-pattern-image-preview') {
     closePatternImagePreviewModal()
+    return true
+  }
+  if (action === 'open-material-image-preview') {
+    openPatternImagePreviewModal({
+      previewUrl: actionNode.dataset.imageUrl || '',
+      title: actionNode.dataset.imageLabel || '物料图预览',
+      fileName: '物料高清大图',
+    })
+    return true
+  }
+  if (action === 'open-copy-bom-color') {
+    openBomColorCopyModal({
+      sourceColor: actionNode.dataset.colorLabel || '',
+      sourceBomIds: String(actionNode.dataset.bomIds || '').split(',').map((item) => item.trim()).filter(Boolean),
+    })
+    return true
+  }
+  if (action === 'close-copy-bom-color') {
+    closeBomColorCopyModal()
     return true
   }
 
@@ -3366,6 +3556,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       action.startsWith('close-') ||
       action === 'open-pattern-detail' ||
       action === 'open-pattern-image-preview' ||
+      action === 'open-material-image-preview' ||
       action === 'open-design-thumbnail-preview' ||
       action === 'preview-design-thumbnail' ||
       action === 'download-design-original-file'
@@ -3484,7 +3675,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!bindingStripId) return true
     const buttonLoopOption = getButtonLoopBindingCraftOption()
     if (!buttonLoopOption.routeConfigured || !buttonLoopOption.craft) {
-      state.newPattern.parseError = '请先在工序路线增加“盘扣（对象：捆条）”并确认路线'
+      state.newPattern.parseError = '请先在工艺路线增加“盘扣（对象：捆条）”并确认路线'
       return true
     }
     state.newPattern.bindingStrips = normalizePatternBindingStrips(
@@ -3886,6 +4077,26 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     schedulePieceInstanceSpecialCraftDomRefresh()
     return true
   }
+  if (action === 'move-piece-instance-special-craft-up' || action === 'move-piece-instance-special-craft-down') {
+    const pieceInstanceId = actionNode.dataset.pieceInstanceId
+    const assignmentId = actionNode.dataset.assignmentId
+    if (!pieceInstanceId || !assignmentId) return true
+    const offset = action === 'move-piece-instance-special-craft-up' ? -1 : 1
+    updatePieceInstances(state.newPattern.pieceInstances.map((instance) => {
+      if (instance.pieceInstanceId !== pieceInstanceId) return instance
+      const currentIndex = instance.specialCraftAssignments.findIndex((assignment) => assignment.assignmentId === assignmentId)
+      const targetIndex = currentIndex + offset
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= instance.specialCraftAssignments.length) return instance
+      const specialCraftAssignments = [...instance.specialCraftAssignments]
+      ;[specialCraftAssignments[currentIndex], specialCraftAssignments[targetIndex]] = [
+        specialCraftAssignments[targetIndex],
+        specialCraftAssignments[currentIndex],
+      ]
+      return { ...instance, specialCraftAssignments }
+    }))
+    schedulePieceInstanceSpecialCraftDomRefresh()
+    return true
+  }
   if (action === 'apply-piece-instance-craft-to-same-color') {
     const activeInstance = getActivePieceInstance()
     if (!activeInstance || activeInstance.specialCraftAssignments.length === 0) return true
@@ -3933,6 +4144,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
   if (action === 'open-add-bom') {
     resetBomForm()
+    const colorLabel = String(actionNode.dataset.colorLabel || '').trim()
+    const skuCodes = String(actionNode.dataset.skuCodes || '').split(',').map((item) => item.trim()).filter(Boolean)
+    if (colorLabel) state.newBomItem.colorLabel = colorLabel
+    if (skuCodes.length > 0) state.newBomItem.applicableSkuCodes = dedupeStrings(skuCodes)
     state.addBomDialogOpen = true
     return true
   }
@@ -3946,6 +4161,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       type: bom.type,
       colorLabel: bom.colorLabel,
       materialCode: bom.materialCode,
+      materialSkuId: bom.materialSkuId || '',
       materialName: bom.materialName,
       spec: bom.spec,
       unit: bom.unit,
@@ -3958,6 +4174,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       printRequirement: bom.printRequirement,
       waterSolubleRequirement: bom.waterSolubleRequirement || '否',
       dyeRequirement: bom.dyeRequirement,
+      embroideryRequirement: bom.embroideryRequirement || '无',
       printSideMode: bom.printSideMode,
       frontPatternDesignId: getPrimaryBomPatternDesignId(bom, 'FRONT'),
       frontPatternDesignIds: getBomPatternDesignIds(bom, 'FRONT'),
@@ -3966,6 +4183,55 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       remark: bom.remark || '',
     }
     state.addBomDialogOpen = true
+    return true
+  }
+  if (action === 'copy-bom') {
+    const bomId = actionNode.dataset.bomId
+    const source = state.bomItems.find((item) => item.id === bomId)
+    if (!source) return true
+    state.bomItems = [
+      ...state.bomItems,
+      {
+        ...source,
+        id: `bom-copy-${Date.now()}`,
+        patternPieces: [...source.patternPieces],
+        linkedPatternIds: [...source.linkedPatternIds],
+        applicableSkuCodes: [...source.applicableSkuCodes],
+        usageProcessCodes: [...source.usageProcessCodes],
+        frontPatternDesignIds: [...source.frontPatternDesignIds],
+        insidePatternDesignIds: [...source.insidePatternDesignIds],
+      },
+    ]
+    syncMaterialCostRows()
+    syncTechPackToStore()
+    return true
+  }
+  if (action === 'confirm-copy-bom-color') {
+    const modal = document.getElementById(BOM_COLOR_COPY_MODAL_ID)
+    const targetSelect = modal?.querySelector<HTMLSelectElement>('[data-bom-copy-target-color]')
+    const sourceIds = String(modal?.dataset.sourceBomIds || '').split(',').map((item) => item.trim()).filter(Boolean)
+    const targetColor = targetSelect?.value.trim() || ''
+    const targetSkuCodes = String(targetSelect?.selectedOptions[0]?.dataset.skuCodes || '').split(',').map((item) => item.trim()).filter(Boolean)
+    if (!targetColor || sourceIds.length === 0) return true
+    const sourceRows = sourceIds
+      .map((id) => state.bomItems.find((item) => item.id === id) ?? null)
+      .filter((item): item is BomItemRow => Boolean(item))
+    const timestamp = Date.now()
+    const copies = sourceRows.map((item, index): BomItemRow => ({
+      ...item,
+      id: `bom-color-copy-${timestamp}-${index + 1}`,
+      colorLabel: targetColor,
+      patternPieces: [...item.patternPieces],
+      linkedPatternIds: [...item.linkedPatternIds],
+      applicableSkuCodes: [...targetSkuCodes],
+      usageProcessCodes: [...item.usageProcessCodes],
+      frontPatternDesignIds: [...item.frontPatternDesignIds],
+      insidePatternDesignIds: [...item.insidePatternDesignIds],
+    }))
+    state.bomItems = [...state.bomItems, ...copies]
+    syncMaterialCostRows()
+    syncTechPackToStore()
+    closeBomColorCopyModal()
     return true
   }
   if (action === 'close-add-bom') {
@@ -3977,6 +4243,18 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (findBomItemMissingUnitForWaterSoluble([state.newBomItem])) {
       window.alert('该物料缺少单位，不能保存水溶要求。请先填写物料单位。')
       return true
+    }
+    if (state.newBomItem.type !== '成衣') {
+      const materialSku = state.newBomItem.materialSkuId
+        ? getMaterialSkuRecordById(state.newBomItem.materialSkuId)
+        : null
+      const materialArchive = materialSku
+        ? getMaterialArchiveById(materialSku.materialId)
+        : listMaterialArchives().find((item) => item.materialCode === state.newBomItem.materialCode) ?? null
+      if (!(materialSku?.skuImageUrl || materialArchive?.mainImageUrl)) {
+        window.alert('请选择带真实图片的物料档案。')
+        return true
+      }
     }
     const frontPatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
     const insidePatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
@@ -4031,6 +4309,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         return '未识别颜色'
       })(),
       materialCode: state.newBomItem.materialCode,
+      materialSkuId: state.newBomItem.materialSkuId || undefined,
       materialName: state.newBomItem.materialName,
       spec: state.newBomItem.spec,
       unit: state.newBomItem.unit,
@@ -4046,6 +4325,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       printRequirement: state.newBomItem.printRequirement,
       waterSolubleRequirement: state.newBomItem.waterSolubleRequirement,
       dyeRequirement: state.newBomItem.dyeRequirement,
+      embroideryRequirement: state.newBomItem.embroideryRequirement,
       printSideMode:
         state.newBomItem.printRequirement === '无'
           ? ''
@@ -4337,11 +4617,20 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     confirmProcessRoute()
     return true
   }
-  if (action === 'switch-process-route-view') {
-    const mode = actionNode.dataset.routeView
-    if (mode === 'GRAPH' || mode === 'DETAIL') {
-      state.processRouteViewMode = mode
-    }
+  if (action === 'move-prep-route-entry') {
+    if (isTechPackModuleReadOnly('PROCESS')) return true
+    const techId = actionNode.dataset.techId || ''
+    const direction = actionNode.dataset.direction
+    const current = state.techniques.find((item) => item.id === techId)
+    if (!current || current.stageCode !== 'PREP' || !current.routeObjectKey) return true
+    const orderedEntryIds = resolveProcessRouteLaneOrder(state.techniques.filter((item) => (
+      item.stageCode === 'PREP' && item.routeObjectKey === current.routeObjectKey
+    ))).entries.map((item) => item.id)
+    const currentIndex = orderedEntryIds.indexOf(techId)
+    const targetIndex = direction === 'up' ? currentIndex - 1 : direction === 'down' ? currentIndex + 1 : -1
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedEntryIds.length) return true
+    ;[orderedEntryIds[currentIndex], orderedEntryIds[targetIndex]] = [orderedEntryIds[targetIndex], orderedEntryIds[currentIndex]]
+    applyProcessRouteActionToState({ type: 'reorder-prep-lane', orderedEntryIds })
     return true
   }
   if (action === 'save-technique') {
@@ -4692,28 +4981,4 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   return false
-}
-
-type ProcessRouteGraphCommandDetail =
-  | { type: 'add-edge' | 'remove-edge'; sourceEntryId: string; targetEntryId: string }
-  | { type: 'undo'; sourceEntryId?: string; targetEntryId?: string }
-  | { type: 'redo'; sourceEntryId?: string; targetEntryId?: string }
-
-export function applyProcessRouteGraphCommand(detail: ProcessRouteGraphCommandDetail): void {
-  if (isTechPackModuleReadOnly('PROCESS')) return
-  if (detail.type === 'undo') undoProcessRouteDraft()
-  else if (detail.type === 'redo') redoProcessRouteDraft()
-  else {
-    if (!detail.sourceEntryId || !detail.targetEntryId) return
-    applyProcessRouteActionToState(detail)
-  }
-  requestTechPackRender()
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('higood:process-route-command', (event) => {
-    const detail = (event as CustomEvent<ProcessRouteGraphCommandDetail>).detail
-    if (!detail) return
-    applyProcessRouteGraphCommand(detail)
-  })
 }

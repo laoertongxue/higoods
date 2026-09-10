@@ -154,7 +154,7 @@ submitDyeHandover(supplementDye.dyeWorkOrderId, { submittedQty: 12 })
 const supplementHead = listHandoverOrdersByTaskId(supplementDye.dyeWorkOrderId)[0]
 assert.equal(supplementHead?.sourceType, 'CUT_PIECE_SUPPLEMENT')
 assert.equal(supplementHead?.productionOrderNo, supplementSource.productionOrderNo)
-assert.deepEqual(supplementHead?.sourceSnapshot, supplementSource, '补料交出单必须完整保留补料、原裁片单和生产单来源')
+assert.deepEqual(supplementHead?.sourceSnapshot, { ...supplementSource, processEntryId: undefined, routeObjectKey: undefined }, '补料交出单必须完整保留补料、原裁片单和生产单来源')
 supplementHead!.sourceSnapshot!.bomItemIds!.push('BOM-PDA-MUTATED-OUTSIDE')
 const supplementHeadSecondRead = listHandoverOrdersByTaskId(supplementDye.dyeWorkOrderId)[0]!
 assert(!supplementHeadSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-PDA-MUTATED-OUTSIDE'), '交出单读取出口不得泄漏来源快照数组引用')
@@ -169,12 +169,13 @@ assert(!supplementRecordSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-PDA
 const supplementFactory = mockFactories.find((factory) => factory.id === dyeFactoryId)!
 const supplementWarehouse = findFactoryInternalWarehouseByFactoryAndKind(dyeFactoryId, 'WAIT_HANDOVER')!
 const supplementOutbound = buildOutboundRecordFromHandoverRecord(supplementHeadSecondRead, supplementRecordSecondRead, supplementFactory, supplementWarehouse)
+const normalizedSupplementSource = { ...supplementSource, processEntryId: undefined, routeObjectKey: undefined }
 assert.equal(supplementOutbound?.sourceType, 'CUT_PIECE_SUPPLEMENT')
 assert.equal(supplementOutbound?.productionOrderNo, supplementSource.productionOrderNo)
-assert.deepEqual(supplementOutbound?.sourceSnapshot, supplementSource, '补料出库记录必须完整保留来源快照')
+assert.deepEqual(supplementOutbound?.sourceSnapshot, normalizedSupplementSource, '补料出库记录必须完整保留来源快照')
 const supplementWaitHandover = buildFactoryWaitHandoverStockItemFromOutbound(supplementOutbound)
 assert.equal(supplementWaitHandover?.sourceType, 'CUT_PIECE_SUPPLEMENT')
-assert.deepEqual(supplementWaitHandover?.sourceSnapshot, supplementSource, '补料待交出库存必须完整保留来源快照')
+assert.deepEqual(supplementWaitHandover?.sourceSnapshot, normalizedSupplementSource, '补料待交出库存必须完整保留来源快照')
 const supplementWaitProcessWarehouse = findFactoryInternalWarehouseByFactoryAndKind(dyeFactoryId, 'WAIT_PROCESS')!
 const supplementInbound = buildInboundRecordFromHandoverReceive(
   supplementHeadSecondRead,
@@ -183,7 +184,7 @@ const supplementInbound = buildInboundRecordFromHandoverReceive(
   supplementWaitProcessWarehouse,
 )
 assert.equal(supplementInbound.sourceType, 'CUT_PIECE_SUPPLEMENT')
-assert.deepEqual(supplementInbound.sourceSnapshot, supplementSource, '补料入库记录必须完整保留来源快照')
+assert.deepEqual(supplementInbound.sourceSnapshot, normalizedSupplementSource, '补料入库记录必须完整保留来源快照')
 const supplementWaitProcess = buildFactoryWaitProcessStockItemFromInboundRecord(supplementInbound)
 assert.equal(supplementWaitProcess.sourceType, 'CUT_PIECE_SUPPLEMENT')
 assert.deepEqual(supplementWaitProcess.sourceSnapshot, supplementSource, '补料待加工库存必须完整保留来源快照')

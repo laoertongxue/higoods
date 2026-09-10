@@ -1,3 +1,5 @@
+import { isPrintablePrintingRoll } from '../../../data/fcs/printing-task-domain.ts'
+import { printingMaterialCode } from './relations.ts'
 import { getPrintingMaterialReceiptOptions } from '../../../data/fcs/printing-material-receipts.ts'
 import {
   formatPrintingQty,
@@ -21,6 +23,9 @@ export type PrintingDialogType =
   | 'barcodes'
   | 'barcode-edit'
   | 'barcode-batch-edit'
+  | 'barcode-import'
+  | 'logs'
+  | 'edit-info'
 
 export interface PrintingDialogState {
   type: PrintingDialogType
@@ -28,15 +33,22 @@ export interface PrintingDialogState {
   receiptId?: string
   barcodeId?: string
   selectedBarcodeIds?: string[]
+  barcodePage?: number
+  rollFrom?: string
+  rollTo?: string
+  createdFrom?: string
+  createdTo?: string
 }
 
 let currentDialog: PrintingDialogState | null = null
+let escapeListenerInstalled=false
 
 export function getPrintingDialogState(): PrintingDialogState | null {
   return currentDialog ? structuredClone(currentDialog) : null
 }
 
 export function openPrintingDialog(state: PrintingDialogState): void {
+  if(!escapeListenerInstalled && typeof document!=='undefined'){document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.querySelector('[data-printing-image-preview]'))closePrintingDialog()});escapeListenerInstalled=true}
   currentDialog = { ...structuredClone(state), receiptId: state.receiptId || `PRINT-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}` }
   refreshPrintingDialogSurface()
 }
@@ -120,11 +132,14 @@ function renderReceiveInput(order: PrintingWorkOrderBusinessRecord): string {
 
   const source = getPrintingMaterialReceiptOptions(order.workOrderId)
   const qtyUnit = escapeHtml(order.plannedInput.qtyUnit)
+  const sourceField = source.options.length > 0
+    ? field('来源单据', `<select data-printing-dialog-field="upstreamRecordId" class="h-9 w-full rounded border"><option value="">请选择本次接收单据</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select>`)
+    : `<div class="sm:col-span-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
   return dialogShell({
-    title: '接收加工投入', order, confirmLabel: '确认接收',
+    title: '接收加工投入', order, confirmLabel: source.options.length > 0 ? '确认接收' : undefined,
     body: `<div class="rounded-lg border bg-slate-50 p-4 text-sm"><p class="font-medium">计划投入：[${escapeHtml(order.plannedInput.objectType)}] ${escapeHtml(order.plannedInput.materialName)}</p><p class="font-mono text-xs">${escapeHtml(order.plannedInput.sku)}</p><p class="mt-2 text-xs text-slate-600">计划 ${formatPrintingQty(order.plannedInput.plannedQty)} ${qtyUnit}；已接收 ${formatPrintingQty(order.actualInput.receivedQty)} ${qtyUnit} / ${order.actualInput.receivedRollCount} 卷</p></div>
       <div class="mt-4 grid gap-4 sm:grid-cols-2">
-        ${source.requiresUpstream ? field('上游交出记录', `<select data-printing-dialog-field="upstreamRecordId" class="h-9 w-full rounded border"><option value="">请选择本次接收记录</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select>`) : ''}
+        ${sourceField}
         ${field('实际投入 SKU', inputControl('actualSku', order.plannedInput.sku), '如与计划不同，请先调整加工投入')}
         ${field(`本次接收数量（${qtyUnit}）`, inputControl('receivedQty', Math.max(0, order.plannedInput.plannedQty - order.actualInput.receivedQty).toFixed(2), { type: 'number', step: '0.01' }))}
         ${field('本次接收卷数', inputControl('receivedRollCount', 1, { type: 'number', step: '1' }))}
@@ -159,7 +174,7 @@ function renderHandover(order: PrintingWorkOrderBusinessRecord): string {
       ${field('交出人', inputControl('handoverOperator', '印花交出员'))}
       ${field('下游接收人', inputControl('handoverReceiver', order.handover.receiverName === '未指定' ? '下游接收人' : order.handover.receiverName))}
     </div>
-    <div class="mt-5 overflow-x-auto rounded-lg border"><table class="min-w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-3">选择</th><th class="p-3">条码</th><th class="p-3">产出 SKU</th><th class="p-3">卷号</th><th class="p-3">数量(${qtyUnit})</th><th class="p-3">重量(KG)</th><th class="p-3">状态</th></tr></thead><tbody>${order.barcodes.map((barcode) => `<tr class="border-t"><td class="p-3"><input type="checkbox" data-printing-barcode-select value="${escapeHtml(barcode.id)}" ${barcode.status === '已交出' || barcode.status === '已入库' ? 'disabled' : 'checked'}></td><td class="p-3 font-mono text-xs">${escapeHtml(barcode.barcode)}</td><td class="p-3 font-mono text-xs">${escapeHtml(barcode.sku)}</td><td class="p-3">${escapeHtml(barcode.rollNo)}</td><td class="p-3">${formatPrintingQty(barcode.lengthY)}</td><td class="p-3">${formatPrintingWeightKg(barcode.weightKg)}</td><td class="p-3">${escapeHtml(barcode.status)}</td></tr>`).join('')}</tbody></table></div>`,
+    <div class="mt-5 overflow-x-auto rounded-lg border"><table class="min-w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-3">选择</th><th class="p-3">条码</th><th class="p-3">产出 SKU</th><th class="p-3">卷号</th><th class="p-3">数量(${qtyUnit})</th><th class="p-3">重量(KG)</th><th class="p-3">状态</th></tr></thead><tbody>${order.barcodes.map((barcode) => `<tr class="border-t"><td class="p-3"><input type="checkbox" data-printing-barcode-select value="${escapeHtml(barcode.id)}" ${barcode.status === '已交出' || barcode.status === '已入库' ? 'disabled' : 'checked'}></td><td class="p-3 font-mono text-xs">${escapeHtml(barcode.barcode)}</td><td class="p-3 font-mono text-xs">${escapeHtml(printingMaterialCode(barcode.sku, true))}</td><td class="p-3">${escapeHtml(barcode.rollNo)}</td><td class="p-3">${formatPrintingQty(barcode.lengthY)}</td><td class="p-3">${formatPrintingWeightKg(barcode.weightKg)}</td><td class="p-3">${escapeHtml(barcode.status)}</td></tr>`).join('')}</tbody></table></div>`,
   })
 }
 
@@ -192,26 +207,30 @@ function renderCompleteDocument(order: PrintingWorkOrderBusinessRecord): string 
   })
 }
 
-function barcodeRows(order: PrintingWorkOrderBusinessRecord): string {
+function barcodeRows(order: PrintingWorkOrderBusinessRecord, rolls = order.barcodes): string {
   const showFabricSpecification = ['面料', '花边', '织带'].includes(order.output.objectType)
-  return order.barcodes.map((barcode) => `<tr class="border-t">
+  return rolls.map((barcode) => `<tr class="border-t">
     <td class="p-2"><input type="checkbox" data-printing-barcode-select value="${escapeHtml(barcode.id)}"></td>
     <td class="p-2">${escapeHtml(barcode.id)}</td><td class="p-2 font-mono text-xs">${escapeHtml(barcode.barcode)}</td>
     <td class="p-2"><p>${escapeHtml(barcode.printOrderNo)}</p><p class="text-xs text-slate-500">印花单</p></td>
-    <td class="p-2 font-mono text-xs">${escapeHtml(barcode.sku)}</td><td class="p-2">${escapeHtml(barcode.status)}</td><td class="p-2">${escapeHtml(barcode.rollNo)}</td>
+    <td class="p-2 font-mono text-xs">${escapeHtml(printingMaterialCode(barcode.sku, true))}</td><td class="p-2">${escapeHtml(barcode.status)}${barcode.outboundArea ? `<br>${escapeHtml(barcode.outboundArea)}` : ''}</td><td class="p-2">${escapeHtml(barcode.rollNo)}</td>
     <td class="p-2 text-right">${formatPrintingQty(barcode.lengthY)}</td><td class="p-2 text-right">${formatPrintingWeightKg(barcode.weightKg)}</td><td class="p-2 text-right">${showFabricSpecification ? barcode.gsm.toFixed(2) : '—'}</td><td class="p-2 text-right">${showFabricSpecification ? barcode.widthCm : '—'}</td>
     <td class="p-2"><p>${escapeHtml(barcode.warehouseName)}</p><p class="text-xs ${barcode.inboundStatus === '待上架' ? 'text-amber-600' : 'text-green-600'}">${escapeHtml(barcode.inboundStatus)}</p></td>
-    <td class="p-2 text-xs">${escapeHtml(barcode.inboundAt || '—')}</td><td class="p-2 text-xs">${escapeHtml(barcode.printedBy || '—')}<br>${escapeHtml(barcode.printedAt || '—')}</td>
-    <td class="sticky right-0 bg-white p-2"><div class="flex gap-1"><button class="rounded border px-2 py-1 text-xs" data-printing-action="edit-barcode" data-barcode-id="${escapeHtml(barcode.id)}">编辑</button><button class="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-700" data-printing-action="print-one-barcode" data-barcode-id="${escapeHtml(barcode.id)}">打印条码</button></div></td>
+    <td class="p-2 text-xs">${escapeHtml(barcode.inboundAt || '—')}<br><span class="text-slate-500">创建：${escapeHtml(barcode.createdAt || '历史未记录')}</span></td><td class="p-2 text-xs">${escapeHtml(barcode.printedBy || '—')}<br>${escapeHtml(barcode.printedAt || '—')}</td>
+    <td class="sticky right-0 bg-white p-2"><div class="flex gap-1"><button class="rounded border px-2 py-1 text-xs" data-printing-action="edit-barcode" data-barcode-id="${escapeHtml(barcode.id)}">编辑</button><button class="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-700" ${isPrintablePrintingRoll(order, barcode) ? '' : 'disabled title="草稿或超出完成数量，不能打印"'} data-printing-action="print-one-barcode" data-barcode-id="${escapeHtml(barcode.id)}">打印条码</button><button class="rounded border px-2 py-1 text-xs" data-printing-action="copy-barcode" data-barcode-id="${escapeHtml(barcode.id)}" title="复制规格并新增草稿卷">复制新增</button></div></td>
   </tr>`).join('')
 }
 
 function renderBarcodes(order: PrintingWorkOrderBusinessRecord): string {
+  const filters = currentDialog || { type: 'barcodes', workOrderId: order.workOrderId }
+  const rolls = order.barcodes.filter(roll => (!filters.rollFrom || Number(roll.rollNo) >= Number(filters.rollFrom)) && (!filters.rollTo || Number(roll.rollNo) <= Number(filters.rollTo)) && (!filters.createdFrom || !!roll.createdAt && roll.createdAt.slice(0,10) >= filters.createdFrom) && (!filters.createdTo || !!roll.createdAt && roll.createdAt.slice(0,10) <= filters.createdTo))
+  const totalPages = Math.max(1, Math.ceil(rolls.length / 20))
+  const page = Math.max(1, Math.min(filters.barcodePage || 1, totalPages))
   return dialogShell({
     title: '加工产出卷条码', order, wide: true,
-    body: `<div class="mb-4 flex flex-wrap items-center justify-between gap-3"><div class="flex flex-wrap gap-2"><button class="rounded bg-blue-600 px-3 py-2 text-sm text-white" data-printing-action="open-barcode-batch-edit">批量修改</button><button class="rounded bg-amber-500 px-3 py-2 text-sm text-white" data-printing-action="batch-print-barcodes">批量打印</button><button class="rounded bg-emerald-600 px-3 py-2 text-sm text-white" data-printing-action="add-barcode">补充条码</button><span class="self-center text-xs text-slate-500" data-printing-barcode-selected-count>已选 0</span></div><p class="text-xs text-slate-500">一卷一个条码；SKU 固定为加工产出 SKU</p></div>
-      <div class="max-w-full overflow-x-auto rounded-lg border"><table class="min-w-[1680px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-2"><span class="sr-only">选择</span></th><th class="p-2">ID</th><th class="p-2">条码</th><th class="p-2">关联单号</th><th class="p-2">SKU</th><th class="p-2">状态</th><th class="p-2">卷号</th><th class="p-2">数量(${escapeHtml(order.output.qtyUnit)})</th><th class="p-2">重量(KG)</th><th class="p-2">克重</th><th class="p-2">幅宽</th><th class="p-2">入库仓库/状态</th><th class="p-2">入库时间</th><th class="p-2">打印人/时间</th><th class="sticky right-0 bg-slate-50 p-2">操作</th></tr></thead><tbody>${barcodeRows(order)}</tbody></table></div>
-      <div class="mt-4 flex flex-wrap items-center justify-end gap-3 text-sm text-slate-600"><span>每页 20 条</span><span>共 ${order.barcodes.length} 条，第 1 页 / 共 1 页</span><button class="rounded border px-2 py-1" disabled>上一页</button><strong class="rounded bg-blue-600 px-3 py-1 text-white">1</strong><button class="rounded border px-2 py-1" disabled>下一页</button></div>`,
+    body: `<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">${field('卷码起',inputControl('rollFrom',filters.rollFrom || '',{type:'number'}))}${field('卷码止',inputControl('rollTo',filters.rollTo || '',{type:'number'}))}${field('创建时间起',inputControl('createdFrom',filters.createdFrom || '',{type:'date'}))}${field('创建时间止',inputControl('createdTo',filters.createdTo || '',{type:'date'}))}</div><div class="mb-3 flex gap-2"><button class="rounded border px-3 py-2 text-sm" data-printing-action="filter-barcodes">查询</button><button class="rounded border px-3 py-2 text-sm" data-printing-action="reset-barcode-filters">重置</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-3"><div class="flex flex-wrap gap-2"><button class="rounded bg-blue-600 px-3 py-2 text-sm text-white" data-printing-action="open-barcode-batch-edit">批量修改</button><button class="rounded bg-amber-500 px-3 py-2 text-sm text-white" ${order.barcodes.some(barcode => isPrintablePrintingRoll(order, barcode)) ? '' : 'disabled'} data-printing-action="batch-print-barcodes">批量打印</button><button class="rounded bg-emerald-600 px-3 py-2 text-sm text-white" data-printing-action="add-barcode">补充条码</button><button class="rounded border px-3 py-2 text-sm text-red-700" data-printing-action="delete-barcodes">批量删除</button><button class="rounded border px-3 py-2 text-sm" data-printing-action="import-barcodes">导入细码</button><button class="rounded border px-3 py-2 text-sm" data-printing-action="outbound-barcodes">批量下架到待出库区</button><span class="self-center text-xs text-slate-500" data-printing-barcode-selected-count>已选 0</span></div><p class="text-xs text-slate-500">草稿可维护；仅已完成、正数量且总量不超过完成量的卷可打印</p></div>
+      <div class="max-w-full overflow-x-auto rounded-lg border"><table class="min-w-[1680px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-2"><input type="checkbox" aria-label="全选本页条码" data-printing-barcode-select-all></th><th class="p-2">ID</th><th class="p-2">条码</th><th class="p-2">关联单号</th><th class="p-2">SKU</th><th class="p-2">状态</th><th class="p-2">卷号</th><th class="p-2">数量(${escapeHtml(order.output.qtyUnit)})</th><th class="p-2">重量(KG)</th><th class="p-2">克重</th><th class="p-2">幅宽</th><th class="p-2">入库仓库/状态</th><th class="p-2">入库时间</th><th class="p-2">打印人/时间</th><th class="sticky right-0 bg-slate-50 p-2">操作</th></tr></thead><tbody>${barcodeRows(order, rolls.slice((page - 1) * 20, page * 20)) || '<tr><td colspan="15" class="p-4">暂无匹配的卷条码</td></tr>'}</tbody></table></div>
+      <div class="mt-4 flex flex-wrap items-center justify-end gap-3 text-sm text-slate-600"><span>每页 20 条</span><span>共 ${rolls.length} 条，第 ${page} 页 / 共 ${totalPages} 页</span><button class="rounded border px-2 py-1" data-printing-action="barcode-page" data-page="${page-1}" ${page<=1?'disabled':''}>上一页</button><strong class="rounded bg-blue-600 px-3 py-1 text-white">${page}</strong><button class="rounded border px-2 py-1" data-printing-action="barcode-page" data-page="${page+1}" ${page>=totalPages?'disabled':''}>下一页</button></div>`,
   })
 }
 
@@ -221,7 +240,7 @@ function renderBarcodeEdit(order: PrintingWorkOrderBusinessRecord, barcode: Prin
     title: '编辑卷属性', order, confirmLabel: '确定',
     body: `<div class="grid gap-4 sm:grid-cols-2">
       ${field('条码', inputControl('barcode', barcode.barcode, { readonly: true }))}
-      ${field('产出 SKU', inputControl('barcodeSku', barcode.sku, { readonly: true }))}
+      ${field('产出 SKU', inputControl('barcodeSku', printingMaterialCode(barcode.sku, true), { readonly: true }))}
       ${field(`数量（${escapeHtml(order.output.qtyUnit)}）`, inputControl('lengthY', barcode.lengthY.toFixed(2), { type: 'number', step: '0.01' }), showFabricSpecification ? '填写数量、米数或重量任一项，系统自动换算' : '按本加工单数量单位填写')}
       ${showFabricSpecification ? field('米数（M）', inputControl('meters', barcode.meters.toFixed(2), { type: 'number', step: '0.01' })) : ''}
       ${field('重量（KG）', inputControl('weightKg', formatPrintingWeightKg(barcode.weightKg), { type: 'number', step: '0.001' }), 'KG 固定保留 3 位小数')}
@@ -252,6 +271,8 @@ export function renderPrintingDialog(): string {
   if (!currentDialog) return ''
   const order = getPrintingWorkOrderById(currentDialog.workOrderId)
   if (!order) return ''
+  if (currentDialog.type === 'logs') return dialogShell({title:'印花操作日志',order,wide:true,body:`<table class="w-full text-left text-sm"><thead><tr><th class="p-2">时间</th><th class="p-2">操作人</th><th class="p-2">操作</th><th class="p-2">说明</th></tr></thead><tbody>${order.operationLogs.map(log=>`<tr class="border-t"><td class="p-2">${escapeHtml(log.operatedAt)}</td><td class="p-2">${escapeHtml(log.operatorName)}</td><td class="p-2">${escapeHtml(log.action)}</td><td class="p-2">${escapeHtml(log.remark)}</td></tr>`).join('')}</tbody></table>`})
+  if (currentDialog.type === 'edit-info') return dialogShell({title:'编辑印花信息',order,confirmLabel:'保存',body:`<div class="grid gap-4 sm:grid-cols-2">${field('工艺名称',inputControl('craftName',order.requirement.craftName,{readonly:order.output.completedQty>0}))}${field('类型',inputControl('craftType',order.requirement.type,{readonly:order.output.completedQty>0}))}${field('深浅',inputControl('shade',order.requirement.shade,{readonly:order.output.completedQty>0}))}${field('温度',inputControl('temperature',order.requirement.temperature,{readonly:order.output.completedQty>0}))}${field('打印机',inputControl('printerNo',order.printerNo))}${field('计划交货时间',inputControl('plannedFinishAt',order.plannedFinishAt?.slice(0,16).replace(' ','T')||'',{type:'datetime-local'}))}</div><label class="mt-4 block text-sm">备注<textarea data-printing-dialog-field="infoRemark" class="mt-1 min-h-24 w-full rounded border p-3">${escapeHtml(order.remark)}</textarea></label>`})
   if (currentDialog.type === 'assign') return renderAssign(order)
   if (currentDialog.type === 'change-input') return renderChangeInput(order)
   if (currentDialog.type === 'receive-input') return renderReceiveInput(order)
@@ -261,6 +282,7 @@ export function renderPrintingDialog(): string {
   if (currentDialog.type === 'complete-document') return renderCompleteDocument(order)
   if (currentDialog.type === 'cancel') return renderCancel(order)
   if (currentDialog.type === 'barcodes') return renderBarcodes(order)
+  if (currentDialog.type === 'barcode-import') return dialogShell({title:'导入细码',order,confirmLabel:'校验并导入',body:`<p class="mb-3 text-sm">每行填写“卷号,数量”，单位为 ${escapeHtml(order.output.qtyUnit)}。请先补充对应草稿卷；全部校验通过后一起保存。</p><textarea class="min-h-48 w-full rounded border p-3 font-mono text-sm" data-printing-dialog-field="rollImport" placeholder="0001,12.50&#10;0002,20.00"></textarea><label class="mt-3 block text-sm">或选择 CSV / TXT 文件<input type="file" accept=".csv,.txt" data-printing-roll-import-file></label>`})
   if (currentDialog.type === 'barcode-edit') {
     const barcode = order.barcodes.find((item) => item.id === currentDialog?.barcodeId)
     return barcode ? renderBarcodeEdit(order, barcode) : renderBarcodes(order)

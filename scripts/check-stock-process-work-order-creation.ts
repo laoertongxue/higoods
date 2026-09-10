@@ -216,7 +216,7 @@ function exerciseDrawer(scope: 'dye' | 'print'): void {
 }
 
 const mainSource = readFileSync('src/main.ts', 'utf8')
-assert.match(mainSource, /const skipPageRerender = Boolean\(target\.closest<HTMLElement>\('\[data-skip-page-rerender="true"\]'\)\)/, '全局事件分发必须识别跳过页面重渲染的输入标记')
+assert.match(mainSource, /const skipPageRerender = Boolean\(\s*target\.closest<HTMLElement>\('\[data-skip-page-rerender="true"\], \[data-review-ui-action\]'\),?\s*\)/, '全局事件分发必须识别跳过页面重渲染的输入标记')
 assert.match(mainSource, /if \(skipPageRerender\) \{\s*return/, '全局事件分发处理输入后必须跳过页面重渲染')
 
 exerciseDrawer('dye')

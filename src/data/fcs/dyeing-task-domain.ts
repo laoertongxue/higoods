@@ -32,9 +32,11 @@ import {
 } from './formal-production-order-material-items.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { DYE_INPUT_TRANSFER_FIXTURES } from './process-order-input-transfer-fixtures.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
+import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
 import {
   ensureProcessWorkOrders,
   registerProcessWorkOrderGenerationRegistrar,
@@ -67,7 +69,7 @@ export type DyeWorkOrderStatus =
   | 'WAIT_MATERIAL'
   | 'SAMPLE_TESTING'
   | 'SAMPLE_DONE'
-  | 'MATERIAL_READY'
+  | 'INPUT_RECEIVED'
   | 'WAIT_VAT_PLAN'
   | 'WAIT_WATER_SOLUBLE'
   | 'WATER_SOLUBLE_IN_PROGRESS'
@@ -92,7 +94,7 @@ export type SampleWaitType = 'NONE' | 'WAIT_SAMPLE_GARMENT' | 'WAIT_COLOR_CARD'
 export type SampleStatus = 'NOT_REQUIRED' | 'WAITING' | 'TESTING' | 'DONE'
 export type DyeExecutionNodeCode =
   | 'SAMPLE'
-  | 'MATERIAL_READY'
+  | 'INPUT_RECEIVED'
   | 'VAT_PLAN'
   | 'WATER_SOLUBLE'
   | 'DYE'
@@ -105,7 +107,33 @@ export type DyeExecutionNodeCode =
 export type DyeReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
 export type DyeReviewStatus = DyeReceiptStatus | 'WAIT_REVIEW' | 'REJECTED'
 
+export interface DyeOutputRoll {
+  id: string
+  barcode: string
+  rollNo: string
+  qty: number
+  weightKg: number
+  widthCm: number
+  gsm: number
+  vatNo: string
+  remark: string
+  createdAt: string
+  printedAt?: string
+  stagedAt?: string
+  dispatchId?: string
+}
+export interface DyeDispatchDocument {
+  id: string
+  status: '草稿' | '已交出' | '已作废'
+  createdAt: string
+  operator: string
+  handedOverAt?: string
+  lines: { orderId: string; orderNo: string; taskNo: string; factoryName: string; receiver: string; sku: string; unit: string; rolls: DyeOutputRoll[] }[]
+}
 export interface DyeWorkOrder {
+  nextOutputRollNo?: number
+  outputRolls?: DyeOutputRoll[]
+  dispatchDocuments?: DyeDispatchDocument[]
   dyeOrderId: string
   dyeOrderNo: string
   sourceType: ProcessWorkOrderSourceType
@@ -312,7 +340,7 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   WAIT_MATERIAL: '待原料',
   SAMPLE_TESTING: '打样中',
   SAMPLE_DONE: '打样完成',
-  MATERIAL_READY: '备料完成',
+  INPUT_RECEIVED: '投入已接收',
   WAIT_VAT_PLAN: '待排缸',
   WAIT_WATER_SOLUBLE: '待水溶',
   WATER_SOLUBLE_IN_PROGRESS: '水溶中',
@@ -342,7 +370,7 @@ export const SAMPLE_WAIT_TYPE_LABEL: Record<SampleWaitType, string> = {
 
 export const DYE_NODE_LABEL: Record<DyeExecutionNodeCode, string> = {
   SAMPLE: '打样',
-  MATERIAL_READY: '备料',
+  INPUT_RECEIVED: '投入接收',
   VAT_PLAN: '染缸安排',
   WATER_SOLUBLE: '水溶',
   DYE: '染色',
@@ -555,7 +583,7 @@ export function resolveDyeDemoMaterial(
   return {
     materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : fallbackMaterialName,
     materialId: bomItem?.id || '',
-    composition: bomItem?.spec || '',
+    composition: '',
     targetColor: bomItem?.colorLabel || fallbackColor || '按技术包配色',
   }
 }
@@ -676,9 +704,42 @@ function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
   return listVisibleRawDyeWorkOrders()
 }
 
+function syncDyeSeedReceivingTarget(order: MutableDyeWorkOrder): void {
+  const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
+    sourceType: order.sourceType,
+    productionOrderNo: order.sourceProductionOrderNo || order.productionOrderIds?.[0],
+    supplementRecordId: order.sourceSnapshot?.supplementRecordId,
+    supplementRecordNo: order.sourceSnapshot?.supplementRecordNo,
+  })
+  order.receiverKind = 'WAREHOUSE'
+  order.receiverName = receivingTarget.targetName
+  order.targetTransferWarehouseId = receivingTarget.targetWarehouseId
+  order.targetTransferWarehouseName = receivingTarget.targetWarehouseName
+  const task = getDyeingTaskById(order.taskId)
+  if (task) {
+    task.receiverKind = 'WAREHOUSE'
+    task.receiverId = receivingTarget.targetBusinessId
+    task.receiverName = receivingTarget.targetName
+    registerPdaGenericProcessTask(task)
+  }
+  listHandoverOrdersByTaskId(order.taskId).forEach((head) => {
+    upsertPdaHandoverHeadMock({
+      ...head,
+      targetName: receivingTarget.targetName,
+      targetKind: 'WAREHOUSE',
+      receiverKind: 'WAREHOUSE',
+      receiverId: receivingTarget.targetBusinessId,
+      receiverName: receivingTarget.targetName,
+    })
+  })
+}
+
 function normalizeSeedWorkOrderSources(): void {
   listVisibleRawDyeWorkOrders().forEach((order, index) => {
-    if (createdDyeOrderIds.has(order.dyeOrderId) || order.sourceType === 'STOCK') return
+    if (createdDyeOrderIds.has(order.dyeOrderId) || order.sourceType === 'STOCK') {
+      syncDyeSeedReceivingTarget(order)
+      return
+    }
     const originalPlannedQty = order.plannedQty
     const normalized = buildGeneratedDyeWorkOrder(order, index)
     workOrderStore.set(normalized.dyeOrderId, normalized)
@@ -702,6 +763,7 @@ function normalizeSeedWorkOrderSources(): void {
     task.stockMaterialId = normalized.stockMaterialId
     task.stockMaterialName = normalized.stockMaterialName
     registerPdaGenericProcessTask(task)
+    syncDyeSeedReceivingTarget(normalized)
   })
 }
 
@@ -897,7 +959,7 @@ function ensureSeededHandoverRecord(input: {
       skuCode: workOrder?.rawMaterialSku,
       skuColor: workOrder?.targetColor,
       handoutObjectType: isFabricMaterial ? 'FABRIC' : 'MATERIAL',
-      factoryRemark: `染色${materialType || '面料'}送中转区域`,
+      factoryRemark: `染色${materialType || '面料'}交给${head.receiverName || head.targetName}`,
       objectType: isFabricMaterial ? 'FABRIC' : 'MATERIAL',
     })
   }
@@ -914,7 +976,7 @@ function ensureSeededHandoverRecord(input: {
       handoverRecordId: firstRecord.handoverRecordId || firstRecord.recordId || '',
       receiverWrittenQty: input.receiverWrittenQty,
       receiverWrittenAt: input.receiverWrittenAt,
-      receiverWrittenBy: '中转区域',
+      receiverWrittenBy: head.receiverName || head.targetName,
       receiverRemark: input.receiverRemark,
       diffReason: input.diffReason,
     })
@@ -974,9 +1036,9 @@ function getWaitingReason(order: DyeWorkOrder): string {
     case 'SAMPLE_TESTING':
       return '打样执行中'
     case 'SAMPLE_DONE':
-      return '等待备料完成'
-    case 'MATERIAL_READY':
-      return '备料完成，等待打样确认'
+      return '等待投入接收'
+    case 'INPUT_RECEIVED':
+      return '投入已接收，等待打样确认'
     case 'WAIT_VAT_PLAN':
       return '待排染缸'
     case 'WAIT_WATER_SOLUBLE':
@@ -1164,7 +1226,7 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     return
   }
 
-  const materialReadyNode = getDyeExecutionNodeRecord(order.dyeOrderId, 'MATERIAL_READY')
+  const materialReadyNode = getDyeExecutionNodeRecord(order.dyeOrderId, 'INPUT_RECEIVED')
   if (order.sampleWaitType !== 'NONE' && !order.sampleWaitFinishedAt) {
     order.status = 'WAIT_SAMPLE'
     return
@@ -1178,11 +1240,11 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     return
   }
   if (materialReadyNode?.finishedAt) {
-    order.status = 'MATERIAL_READY'
+    order.status = 'INPUT_RECEIVED'
     return
   }
   if (order.materialWaitFinishedAt) {
-    order.status = order.sampleStatus === 'DONE' ? 'WAIT_VAT_PLAN' : 'WAIT_MATERIAL'
+    order.status = 'WAIT_MATERIAL'
     return
   }
   if (order.sampleStatus === 'DONE') {
@@ -1258,6 +1320,8 @@ function addSeedWorkOrder(input: Omit<
   | 'dyeProcessName'
   | 'combinedDyeing'
   | 'materialId'
+  | 'targetTransferWarehouseId'
+  | 'targetTransferWarehouseName'
 > & {
   dispatchPrice?: number
   requiresWaterSoluble?: boolean
@@ -1268,6 +1332,12 @@ function addSeedWorkOrder(input: Omit<
   dyeProcessName?: string
   materialId?: string
 }): void {
+  const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
+    sourceType: input.sourceType,
+    productionOrderNo: input.sourceProductionOrderNo || input.productionOrderIds?.[0],
+    supplementRecordId: input.sourceSnapshot?.supplementRecordId,
+    supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
+  })
   let task = getDyeingTaskById(input.taskId)
   if (!task) {
     task = buildFreshDyeMobileTask({
@@ -1329,6 +1399,9 @@ function addSeedWorkOrder(input: Omit<
     task.sourceSnapshot = input.sourceSnapshot ? structuredClone(input.sourceSnapshot) : undefined
     task.stockMaterialId = input.sourceType === 'STOCK' ? input.stockMaterialId : undefined
     task.stockMaterialName = input.sourceType === 'STOCK' ? input.stockMaterialName : undefined
+    task.receiverKind = 'WAREHOUSE'
+    task.receiverId = receivingTarget.targetBusinessId
+    task.receiverName = receivingTarget.targetName
   }
 
   workOrderStore.set(input.dyeOrderId, {
@@ -1347,8 +1420,10 @@ function addSeedWorkOrder(input: Omit<
     dispatchPriceUnit: 'Yard',
     dispatchPriceDisplay: `${input.dispatchPrice ?? 1500} IDR/Yard`,
     taskQrValue: task?.taskQrValue || buildTaskQrValue(input.taskId),
-    receiverKind: task?.receiverKind || 'WAREHOUSE',
-    receiverName: task?.receiverName || '中转区域',
+    targetTransferWarehouseId: receivingTarget.targetWarehouseId,
+    targetTransferWarehouseName: receivingTarget.targetWarehouseName,
+    receiverKind: 'WAREHOUSE',
+    receiverName: receivingTarget.targetName,
     handoverOrderId: handoverOrder?.handoverOrderId || handoverOrder?.handoverId || input.handoverOrderId,
     handoverOrderNo: handoverOrder?.handoverOrderNo,
   })
@@ -1436,7 +1511,7 @@ function seedWorkOrders(): void {
     startedAt: '2026-03-27 16:00:00',
     finishedAt: undefined,
     blockReason: 'QUALITY',
-    blockRemark: '中转区域收货差异',
+    blockRemark: '指定接收方收货差异',
   })
   syncLinkedTaskState('TASK-DYE-000731', {
     status: 'DONE',
@@ -1451,7 +1526,7 @@ function seedWorkOrders(): void {
     receiverWrittenQty: partialReceivedQty,
     submittedAt: '2026-03-28 18:10:00',
     receiverWrittenAt: '2026-03-28 20:40:00',
-    diffReason: `中转区域复核少 ${Number((partialSubmittedQty - partialReceivedQty).toFixed(2))} 米`,
+    diffReason: `接收方复核少 ${Number((partialSubmittedQty - partialReceivedQty).toFixed(2))} 米`,
   })
   const orderRejected = ensureSeededHandoverRecord({
     taskId: 'TASK-DYE-000730',
@@ -1474,7 +1549,7 @@ function seedWorkOrders(): void {
     submittedAt: '2026-03-28 17:25:00',
     receiverWrittenQty: waitReceiveSubmittedQty,
     receiverWrittenAt: '2026-03-28 18:10:00',
-    receiverRemark: '中转区域已足额回写，等待平台审核',
+    receiverRemark: '接收方已足额确认',
   })
   const orderWaitHandover = ensureStartedTaskHandover('TASK-DYE-000727')
 
@@ -1498,8 +1573,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 18,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'WAIT_SAMPLE',
     taskId: 'TASK-DYE-000721',
     taskNo: 'TASK-DYE-000721',
@@ -1529,8 +1602,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 12,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'WAIT_MATERIAL',
     taskId: 'TASK-DYE-000722',
     taskNo: 'TASK-DYE-000722',
@@ -1562,8 +1633,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 10,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'SAMPLE_TESTING',
     taskId: 'TASK-DYE-000723',
     taskNo: 'TASK-DYE-000723',
@@ -1615,22 +1684,20 @@ function seedWorkOrders(): void {
     plannedRollCount: 14,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
-    status: 'MATERIAL_READY',
+    status: 'INPUT_RECEIVED',
     taskId: 'TASK-DYE-000724',
     taskNo: 'TASK-DYE-000724',
-    waitingReason: '备料完成，等待排染缸',
+    waitingReason: '投入已接收，等待排染缸',
     createdAt: '2026-03-28 08:00:00',
     updatedAt: '2026-03-28 10:40:00',
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[3], [
     {
-      nodeRecordId: `${DYE_WORK_ORDER_IDS[3]}-MATERIAL_READY`,
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[3]}-INPUT_RECEIVED`,
       dyeOrderId: DYE_WORK_ORDER_IDS[3],
       taskId: 'TASK-DYE-000724',
-      nodeCode: 'MATERIAL_READY',
-      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+      nodeCode: 'INPUT_RECEIVED',
+      nodeName: DYE_NODE_LABEL.INPUT_RECEIVED,
       operatorUserId: 'USR-DYE-01',
       operatorName: '染色工厂',
       startedAt: '2026-03-28 09:20:00',
@@ -1638,7 +1705,7 @@ function seedWorkOrders(): void {
       inputQty: 840,
       outputQty: 840,
       qtyUnit: '米',
-      remark: '备料完成',
+      remark: '投入已接收',
     },
   ])
 
@@ -1665,8 +1732,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 16,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'DRYING',
     taskId: 'TASK-DYE-000725',
     taskNo: 'TASK-DYE-000725',
@@ -1689,11 +1754,11 @@ function seedWorkOrders(): void {
       remark: '色号已确认',
     },
     {
-      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-MATERIAL_READY`,
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-INPUT_RECEIVED`,
       dyeOrderId: DYE_WORK_ORDER_IDS[4],
       taskId: 'TASK-DYE-000725',
-      nodeCode: 'MATERIAL_READY',
-      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+      nodeCode: 'INPUT_RECEIVED',
+      nodeName: DYE_NODE_LABEL.INPUT_RECEIVED,
       operatorUserId: 'USR-DYE-01',
       operatorName: '染色工厂',
       startedAt: '2026-03-28 09:00:00',
@@ -1701,7 +1766,7 @@ function seedWorkOrders(): void {
       inputQty: 980,
       outputQty: 980,
       qtyUnit: '米',
-      remark: '备料完成',
+      remark: '投入已接收',
     },
     {
       nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-VAT_PLAN`,
@@ -1787,8 +1852,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 18,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'DYEING',
     taskId: 'TASK-DYE-000726',
     taskNo: 'TASK-DYE-000726',
@@ -1798,11 +1861,11 @@ function seedWorkOrders(): void {
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[5], [
     {
-      nodeRecordId: `${DYE_WORK_ORDER_IDS[5]}-MATERIAL_READY`,
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[5]}-INPUT_RECEIVED`,
       dyeOrderId: DYE_WORK_ORDER_IDS[5],
       taskId: 'TASK-DYE-000726',
-      nodeCode: 'MATERIAL_READY',
-      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+      nodeCode: 'INPUT_RECEIVED',
+      nodeName: DYE_NODE_LABEL.INPUT_RECEIVED,
       operatorUserId: 'USR-DYE-01',
       operatorName: '染色工厂',
       startedAt: '2026-03-28 08:35:00',
@@ -1810,7 +1873,7 @@ function seedWorkOrders(): void {
       inputQty: 1100,
       outputQty: 1100,
       qtyUnit: '米',
-      remark: '备料完成',
+      remark: '投入已接收',
     },
     {
       nodeRecordId: `${DYE_WORK_ORDER_IDS[5]}-VAT_PLAN`,
@@ -1865,8 +1928,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 15,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'WAIT_HANDOVER',
     taskId: 'TASK-DYE-000727',
     taskNo: 'TASK-DYE-000727',
@@ -1998,8 +2059,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 13,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'WAIT_REVIEW',
     taskId: 'TASK-DYE-000728',
     taskNo: 'TASK-DYE-000728',
@@ -2060,8 +2119,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 17,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'PARTIAL_HANDOVER',
     taskId: partialTaskId,
     taskNo: partialTaskId,
@@ -2108,8 +2165,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 12,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'HANDOVER_DIFFERENCE',
     taskId: 'TASK-DYE-000730',
     taskNo: 'TASK-DYE-000730',
@@ -2155,8 +2210,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 20,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'FULL_HANDOVER',
     taskId: 'TASK-DYE-000731',
     taskNo: 'TASK-DYE-000731',
@@ -2273,8 +2326,6 @@ function seedWorkOrders(): void {
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
-    materialWaitStartedAt: '2026-03-29 08:20:00',
-    materialWaitFinishedAt: '2026-03-29 09:05:00',
     colorNo: 'C-612',
     rawMaterialSku: 'FAB-DYE-012',
     composition: '棉麻混纺',
@@ -2286,33 +2337,15 @@ function seedWorkOrders(): void {
     plannedRollCount: 15,
     dyeFactoryId: '',
     dyeFactoryName: '待分配工厂',
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_VAT_PLAN',
+    status: 'WAIT_MATERIAL',
     taskId: 'TASK-DYE-000732',
     taskNo: 'TASK-DYE-000732',
-    waitingReason: '待排缸',
+    waitingReason: '待分配工厂并等待来源单据',
     createdAt: '2026-03-29 08:00:00',
-    updatedAt: '2026-03-29 09:05:00',
-    remark: '补充统计样本，备料完成后等待排染缸',
+    updatedAt: '2026-03-29 08:00:00',
+    remark: '补充待分配工厂与来源单据未到位场景',
   })
-  setNodeRecords(DYE_WORK_ORDER_IDS[11], [
-    {
-      nodeRecordId: `${DYE_WORK_ORDER_IDS[11]}-MATERIAL_READY`,
-      dyeOrderId: DYE_WORK_ORDER_IDS[11],
-      taskId: 'TASK-DYE-000732',
-      nodeCode: 'MATERIAL_READY',
-      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
-      operatorUserId: 'USR-DYE-01',
-      operatorName: '染色工厂',
-      startedAt: '2026-03-29 08:25:00',
-      finishedAt: '2026-03-29 09:05:00',
-      inputQty: 930,
-      outputQty: 930,
-      qtyUnit: '米',
-      remark: '备料完成',
-    },
-  ])
+  setNodeRecords(DYE_WORK_ORDER_IDS[11], [])
 
   addSeedWorkOrder({
     dyeOrderId: DYE_WORK_ORDER_IDS[12],
@@ -2336,8 +2369,6 @@ function seedWorkOrders(): void {
     plannedRollCount: 16,
     dyeFactoryId: 'ID-F002',
     dyeFactoryName: 'PT Prima Printing Center',
-    targetTransferWarehouseId: 'WH-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'PACKING',
     taskId: 'TASK-DYE-000733',
     taskNo: 'TASK-DYE-000733',
@@ -2463,7 +2494,7 @@ function seedWorkOrders(): void {
       reviewStatus: 'WAIT_REVIEW',
       reviewedBy: '中转仓管',
       reviewedAt: '2026-03-28 18:10:00',
-      remark: '中转区域已足额回写，等待平台审核',
+      remark: '指定接收方已足额确认',
     })
   }
 
@@ -2489,7 +2520,7 @@ function seedWorkOrders(): void {
       reviewedBy: '中转仓管',
       reviewedAt: '2026-03-28 19:40:00',
       rejectReason: '卷数与长度复核不一致',
-      remark: '中转区域收货差异',
+      remark: '指定接收方收货差异',
     })
   }
 
@@ -2500,7 +2531,7 @@ function seedWorkOrders(): void {
       reviewStatus: 'FULL_HANDOVER',
       reviewedBy: '中转仓管',
       reviewedAt: '2026-03-29 18:10:00',
-      remark: '中转区域已全部确认收货',
+      remark: '指定接收方已全部确认收货',
     })
   }
 
@@ -2633,6 +2664,12 @@ function buildFreshDyeMobileTask(input: {
     ? productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
     : undefined
   const hasFactory = Boolean(input.factoryId)
+  const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
+    sourceType,
+    productionOrderNo: input.productionOrderNo || sourceOrder?.productionOrderNo || input.productionOrderId,
+    supplementRecordId: input.sourceSnapshot?.supplementRecordId,
+    supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
+  })
   const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
     ? 'PIECE'
     : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
@@ -2678,8 +2715,8 @@ function buildFreshDyeMobileTask(input: {
     taskQrStatus: 'ACTIVE',
     handoverStatus: 'NOT_CREATED',
     receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TRANSFER',
-    receiverName: '中转区域',
+    receiverId: receivingTarget.targetBusinessId,
+    receiverName: receivingTarget.targetName,
     stageCode: 'PREP',
     stageName: '准备阶段',
     processBusinessCode: 'DYE',
@@ -2752,8 +2789,6 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     waterSolubleQtyUnit: dyeSnapshot.qtyUnit,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
-    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: 'WAIT_MATERIAL',
     taskId,
     taskNo: taskId,
@@ -2865,8 +2900,6 @@ function seedCombinedDyeingDemoWorkOrders(): void {
       qtyUnit: common.qtyUnit,
       dyeFactoryId: common.factoryId,
       dyeFactoryName: common.factoryName,
-      targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
-      targetTransferWarehouseName: '中转区域',
       status: 'WAIT_MATERIAL',
       taskId: demo.workOrderId,
       taskNo: demo.workOrderNo,
@@ -2901,6 +2934,17 @@ function seedDomain(): void {
   seeded = true
   seedWorkOrders()
   normalizeSeedWorkOrderSources()
+  DYE_INPUT_TRANSFER_FIXTURES.forEach((fixture) => {
+    const order = workOrderStore.get(fixture.workOrderId)
+    if (!order || order.materialReceipts?.length) return
+    order.materialReceipts = [{
+      receiptId: `DYE-SEED-RECEIPT-${fixture.workOrderId}`,
+      upstreamRecordId: `ISSUE-DYE-${fixture.workOrderId}-L001`,
+      qty: fixture.qty,
+      receiverName: fixture.targetFactoryName,
+      receivedAt: fixture.issuedAt,
+    }]
+  })
   seedPersistentWaterSolubleDyeWorkOrder()
   seedCombinedDyeingDemoWorkOrders()
   workOrderStore.forEach((_, id) => initialDyeOrderIds.add(id))
@@ -2945,7 +2989,7 @@ export function getDyeCurrentStepLabel(order: DyeWorkOrder): string {
 export function getDyeExecutionRoute(dyeOrderId: string): DyeExecutionNodeCode[] {
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return []
-  const route: DyeExecutionNodeCode[] = ['SAMPLE', 'MATERIAL_READY', 'VAT_PLAN']
+  const route: DyeExecutionNodeCode[] = ['SAMPLE', 'INPUT_RECEIVED', 'VAT_PLAN']
   if (order.requiresWaterSoluble) route.push('WATER_SOLUBLE')
   return [...route, 'DYE', 'DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK']
 }
@@ -3278,8 +3322,6 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     waterSolubleQtyUnit: input.requiresWaterSoluble ? input.qtyUnit : undefined,
     dyeFactoryId: factoryId,
     dyeFactoryName: factoryName,
-    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
     status: (input.sampleWaitType ?? 'NONE') === 'NONE' ? 'WAIT_MATERIAL' : 'WAIT_SAMPLE',
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
@@ -3420,7 +3462,7 @@ export function assignDyeWorkOrderFactory(
 export const DYE_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly DyeWorkOrderStatus[] = [
   'WAIT_SAMPLE',
   'WAIT_MATERIAL',
-  'MATERIAL_READY',
+  'INPUT_RECEIVED',
   'WAIT_VAT_PLAN',
   'WAIT_WATER_SOLUBLE',
 ]
@@ -3910,10 +3952,10 @@ export function startDyeWaterSolubleNode(
       return { ok: false, message: '请先完成打样并确认色样，再开始水溶。' }
     }
   }
-  const materialNode = getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')
+  const materialNode = getDyeExecutionNodeRecord(dyeOrderId, 'INPUT_RECEIVED')
   const vatNode = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')
   if (!materialNode?.finishedAt || !vatNode?.finishedAt) {
-    return { ok: false, message: '请先完成备料和染缸安排，再开始水溶。' }
+    return { ok: false, message: '请先确认投入接收并完成染缸安排，再开始水溶。' }
   }
   const current = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   const continuing = Boolean(current?.finishedAt && canContinueDyeWaterSoluble(order))
@@ -4135,7 +4177,7 @@ export function completeDyeMaterialWait(dyeOrderId: string, operatorName = '染�
   const order = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
   order.materialWaitFinishedAt = now
-  order.waitingReason = '原料已到，可转备料'
+  order.waitingReason = '来源原料已到，可确认接收'
   order.remark = operatorName
   syncPreVatStatus(order)
   updateOrderTimestamp(order, now)
@@ -4199,32 +4241,7 @@ export function completeDyeSampleTest(
   })
 }
 
-export function startDyeMaterialReady(dyeOrderId: string, operatorName = '染色工厂'): DyeExecutionNodeRecord {
-  return runDyeProcessMutation(() => {
-  const order = getMutableWorkOrder(dyeOrderId)
-  const now = nowTimestamp()
-  upsertNodeRecord(dyeOrderId, 'MATERIAL_READY', (current) => ({
-    nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, 'MATERIAL_READY'),
-    dyeOrderId,
-    taskId: order.taskId,
-    nodeCode: 'MATERIAL_READY',
-    nodeName: DYE_NODE_LABEL.MATERIAL_READY,
-    operatorUserId: current?.operatorUserId || 'USR-DYE',
-    operatorName,
-    startedAt: current?.startedAt || now,
-    finishedAt: current?.finishedAt,
-    inputQty: current?.inputQty,
-    qtyUnit: getQtyUnit(order),
-    remark: current?.remark || '备料开始',
-  }))
-  order.status = 'WAIT_MATERIAL'
-  updateOrderTimestamp(order, now)
-  return getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')!
-
-  })
-}
-
-export function completeDyeMaterialReady(
+export function completeDyeInputReceipt(
   dyeOrderId: string,
   input: { outputQty?: number; operatorName?: string; receiptId?: string; upstreamRecordId?: string },
 ): DyeExecutionNodeRecord {
@@ -4232,18 +4249,20 @@ export function completeDyeMaterialReady(
   const order = getMutableWorkOrder(dyeOrderId)
   if (order.status === 'COMPLETED' || order.status === 'REJECTED') throw new Error('当前加工单不能继续接收。')
   if (!Number.isFinite(input.outputQty) || Number(input.outputQty) <= 0) throw new Error('请填写本次实际接收数量。')
-  const receiptId = input.receiptId || `DYE-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  if (!input.receiptId?.trim()) throw new Error('本次接收确认号已失效，请重新打开。')
+  if (!input.upstreamRecordId?.trim()) throw new Error('请选择本次接收的来源单据。')
+  const receiptId = input.receiptId
   if (order.materialReceipts?.some(item => item.receiptId === receiptId)) throw new Error('本次接收已处理，请勿重复提交。')
-  const current = getMutableNodeRecord(dyeOrderId, 'MATERIAL_READY')
+  const current = getMutableNodeRecord(dyeOrderId, 'INPUT_RECEIVED')
   const now = nowTimestamp()
   order.materialReceipts = [...(order.materialReceipts ?? []), { receiptId, upstreamRecordId: input.upstreamRecordId, qty: Number(input.outputQty), receiverName: input.operatorName || '染色工厂', receivedAt: now }]
   const receivedQty = order.materialReceipts.reduce((sum, item) => sum + item.qty, 0)
-  upsertNodeRecord(dyeOrderId, 'MATERIAL_READY', () => ({
-    nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, 'MATERIAL_READY'),
+  upsertNodeRecord(dyeOrderId, 'INPUT_RECEIVED', () => ({
+    nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, 'INPUT_RECEIVED'),
     dyeOrderId,
     taskId: order.taskId,
-    nodeCode: 'MATERIAL_READY',
-    nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+    nodeCode: 'INPUT_RECEIVED',
+    nodeName: DYE_NODE_LABEL.INPUT_RECEIVED,
     operatorUserId: current?.operatorUserId || 'USR-DYE',
     operatorName: input.operatorName || current?.operatorName || '染色工厂',
     startedAt: current?.startedAt || now,
@@ -4251,12 +4270,12 @@ export function completeDyeMaterialReady(
     inputQty: receivedQty,
     outputQty: receivedQty,
     qtyUnit: getQtyUnit(order),
-    remark: `本次接收 ${input.outputQty} ${order.qtyUnit}，累计 ${receivedQty} ${order.qtyUnit}`,
+    remark: `来源单据 ${input.upstreamRecordId}；本次接收 ${input.outputQty} ${order.qtyUnit}，累计 ${receivedQty} ${order.qtyUnit}`,
   }))
   syncPreVatStatus(order)
   syncLinkedTaskState(order.taskId, { status: 'IN_PROGRESS', startedAt: getDyeingTaskById(order.taskId)?.startedAt || now, acceptanceStatus: 'ACCEPTED' })
   updateOrderTimestamp(order, now)
-  return getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')!
+  return getDyeExecutionNodeRecord(dyeOrderId, 'INPUT_RECEIVED')!
 
   })
 }
@@ -4268,8 +4287,8 @@ export function planDyeVat(
   return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
   if (order.status !== 'WAIT_VAT_PLAN') throw new Error('当前状态不允许排缸。')
-  const materialNode = getMutableNodeRecord(dyeOrderId, 'MATERIAL_READY')
-  if (!materialNode?.finishedAt) throw new Error('请先完成备料，再安排染缸。')
+  const materialNode = getMutableNodeRecord(dyeOrderId, 'INPUT_RECEIVED')
+  if (!materialNode?.finishedAt) throw new Error('请先确认投入接收，再安排染缸。')
   if (order.sampleWaitType !== 'NONE' && order.sampleStatus !== 'DONE') throw new Error('请先完成打样，再安排染缸。')
   const existingVatNode = getMutableNodeRecord(dyeOrderId, 'VAT_PLAN')
   if (existingVatNode?.startedAt || existingVatNode?.finishedAt) throw new Error('染缸已安排，请勿重复排缸。')
@@ -4574,13 +4593,14 @@ export function submitDyeHandover(
 ): { handoverOrderId?: string; recordIds: string[] } {
   return runDyeProcessMutation(() => {
   const order = getMutableWorkOrder(dyeOrderId)
-  if (order.status !== 'WAIT_HANDOVER') {
+  if (!['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER'].includes(order.status)) {
     throw new Error('请先完成染色及全部后处理，包装完成后再交出。')
   }
   const completedQty = getCurrentOutputQty(order)
   const submittedQty = listHandoverOrdersByTaskId(order.taskId).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0)
   const requestedQty = Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : completedQty
-  const availableQty = Math.max(completedQty - submittedQty, 0)
+  const reservedQty = listDyeDispatchDocuments().filter(doc => doc.status === '草稿').flatMap(doc => doc.lines).filter(line => line.orderId === dyeOrderId).reduce((sum, line) => sum + line.rolls.reduce((n, roll) => n + roll.qty, 0), 0)
+  const availableQty = Math.max(completedQty - submittedQty - reservedQty, 0)
   if (!Number.isFinite(requestedQty) || requestedQty <= 0) throw new Error('交出数量必须大于 0。')
   if (requestedQty > availableQty + 0.000001) {
     throw new Error(`交出数量不能超过已完工未交出数量 ${availableQty} ${order.qtyUnit}。`)
@@ -4754,7 +4774,7 @@ export function markDyeReceiptDifference(
   review.reviewedBy = input.receivedBy
   review.reviewedAt = nowTimestamp()
   review.rejectReason = input.differenceReason.trim()
-  review.remark = input.remark?.trim() || '中转区域收货差异'
+  review.remark = input.remark?.trim() || '指定接收方收货差异'
   applyDyeReceiptState(order, review)
   updateOrderTimestamp(order, review.reviewedAt)
   return cloneReviewRecord(review)
@@ -4783,5 +4803,113 @@ export function rejectDyeReview(
     remark: input.remark,
   })
 
+  })
+}
+
+// 染色产出卷与交出单：附着原加工单，复用原事务及正式单保存范围。
+export function getDyeOutputRolls(id: string): DyeOutputRoll[] {
+  return structuredClone(getMutableWorkOrder(id).outputRolls ?? [])
+}
+export function listDyeDispatchDocuments(): DyeDispatchDocument[] {
+  seedDomain()
+  return structuredClone(Array.from(workOrderStore.values()).flatMap(order => order.dispatchDocuments ?? []))
+}
+function dyeRollReserved(id: string, rollId: string): boolean {
+  return Array.from(workOrderStore.values()).some(order => order.dispatchDocuments?.some(doc => doc.status === '草稿' && doc.lines.some(line => line.orderId === id && line.rolls.some(roll => roll.id === rollId))))
+}
+export function saveDyeOutputRolls(id: string, inputs: Array<Partial<DyeOutputRoll>>): DyeOutputRoll[] {
+  return runDyeProcessMutation(() => {
+    const order = getMutableWorkOrder(id)
+    const rolls = order.outputRolls ??= []
+    if (!inputs.length) throw new Error('请先选择或填写条码。')
+    for (const input of inputs) {
+      const existing = input.id ? rolls.find(roll => roll.id === input.id) : undefined
+      if (input.id && !existing) throw new Error('条码不存在，请重新查询。')
+      if (existing && (existing.dispatchId || dyeRollReserved(id, existing.id))) throw new Error('条码已被交出单占用，不能修改。')
+      const nextNumber = Math.max(order.nextOutputRollNo || 1, Math.max(0, ...rolls.map(roll => Number(roll.rollNo))) + 1)
+      const nextNo = String(nextNumber).padStart(4, '0')
+      if (!existing) order.nextOutputRollNo = nextNumber + 1
+      const roll: DyeOutputRoll = { id: `${id}-${nextNo}`, barcode: `${order.dyeOrderNo}_${nextNo}`, rollNo: nextNo, qty: 0, weightKg: 0, widthCm: Number(order.width) || 0, gsm: order.weightGsm || 0, vatNo: '', remark: '', createdAt: nowTimestamp(), ...existing }
+      for (const key of ['qty', 'weightKg', 'widthCm', 'gsm'] as const) {
+        if (input[key] !== undefined) roll[key] = Number(input[key])
+        if (!Number.isFinite(roll[key]) || roll[key] < 0) throw new Error('数量、重量、幅宽和克重必须为非负数字。')
+      }
+      roll.qty = Number(roll.qty.toFixed(2)); roll.weightKg = Number(roll.weightKg.toFixed(3))
+      if (input.vatNo !== undefined) roll.vatNo = input.vatNo.trim()
+      if (input.remark !== undefined) roll.remark = input.remark.trim()
+      if (existing) Object.assign(existing, roll)
+      else rolls.push(roll)
+    }
+    return structuredClone(rolls)
+  })
+}
+export function deleteDyeOutputRolls(id: string, ids: string[]): void {
+  runDyeProcessMutation(() => {
+    const order = getMutableWorkOrder(id)
+    if (!ids.length) throw new Error('请先选择条码。')
+    if (ids.some(key => !(order.outputRolls ?? []).some(roll => roll.id === key && !roll.dispatchId && !dyeRollReserved(id, key)))) throw new Error('条码不存在或已被交出单占用，不能删除。')
+    order.outputRolls = order.outputRolls?.filter(roll => !ids.includes(roll.id))
+  })
+}
+export function markDyeOutputRolls(id: string, ids: string[], action: 'print' | 'stage'): void {
+  runDyeProcessMutation(() => {
+    const order = getMutableWorkOrder(id)
+    const rolls = ids.map(key => order.outputRolls?.find(roll => roll.id === key))
+    if (!rolls.length || rolls.some(roll => !roll || roll.qty <= 0)) throw new Error('请先维护有效数量，再打印或下架。')
+    if (action === 'stage' && rolls.some(roll => roll?.dispatchId)) throw new Error('已交出卷不能重复下架。')
+    for (const roll of rolls) if (roll) {
+      if (action === 'print') roll.printedAt = nowTimestamp()
+      else roll.stagedAt = nowTimestamp()
+    }
+  })
+}
+export function getDyeDispatchAvailableQty(id: string): number {
+  const order = getMutableWorkOrder(id)
+  return Math.max(0, getCurrentOutputQty(order) - listHandoverOrdersByTaskId(order.taskId).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0))
+}
+export function isDyeRollAvailable(id: string, roll: DyeOutputRoll): boolean {
+  return roll.qty > 0 && !roll.dispatchId && !dyeRollReserved(id, roll.id) && getDyeDispatchAvailableQty(id) >= roll.qty
+}
+export function createDyeDispatchDocument(selections: { orderId: string; rollIds: string[] }[], operator: string, mergeId?: string): DyeDispatchDocument {
+  return runDyeProcessMutation(() => {
+    if (!operator.trim()) throw new Error('请填写交出操作人。')
+    const owner = Array.from(workOrderStore.values()).find(order => order.dispatchDocuments?.some(doc => doc.id === mergeId))
+    const existing = owner?.dispatchDocuments?.find(doc => doc.id === mergeId)
+    if (mergeId && (!existing || existing.status !== '草稿')) throw new Error('只能合入已有草稿。')
+    if (!selections.length || selections.some(item => !item.rollIds.length)) throw new Error('请选择待交出的卷。')
+    const doc: DyeDispatchDocument = existing ?? { id: `SJ-DYE-${Date.now()}-${listDyeDispatchDocuments().length + 1}`, status: '草稿', createdAt: nowTimestamp(), operator: operator.trim(), lines: [] }
+    for (const selection of selections) {
+      const order = getMutableWorkOrder(selection.orderId)
+      if (doc.lines.length && doc.lines[0].factoryName !== order.dyeFactoryName) throw new Error('不同加工厂请分别建单。')
+      const rolls = selection.rollIds.map(key => order.outputRolls?.find(roll => roll.id === key))
+      if (new Set(selection.rollIds).size !== selection.rollIds.length || rolls.some(roll => !roll || !isDyeRollAvailable(order.dyeOrderId, roll))) throw new Error('存在未维护、已占用或未完成包装的卷，请重新选择。')
+      let line = doc.lines.find(item => item.orderId === order.dyeOrderId)
+      if (!line) { line = { orderId: order.dyeOrderId, orderNo: order.dyeOrderNo, taskNo: order.taskNo, factoryName: order.dyeFactoryName, receiver: order.receiverName, sku: order.rawMaterialSku, unit: order.qtyUnit, rolls: [] }; doc.lines.push(line) }
+      if (rolls.some(roll => line!.rolls.some(old => old.id === roll!.id))) throw new Error('同卷不能重复建单。')
+      line.rolls.push(...structuredClone(rolls as DyeOutputRoll[]))
+      const otherReserved = listDyeDispatchDocuments().filter(item => item.status === '草稿' && item.id !== doc.id).flatMap(item => item.lines).filter(item => item.orderId === order.dyeOrderId).reduce((sum, item) => sum + item.rolls.reduce((n, roll) => n + roll.qty, 0), 0)
+      if (line.rolls.reduce((sum, roll) => sum + roll.qty, 0) + otherReserved > getDyeDispatchAvailableQty(order.dyeOrderId) + 0.001) throw new Error('所选卷数量超过包装完成后可交数量。')
+    }
+    if (!existing) (getMutableWorkOrder(selections[0].orderId).dispatchDocuments ??= []).push(doc)
+    return structuredClone(doc)
+  })
+}
+export function finishDyeDispatchDocument(id: string, action: 'confirm' | 'void'): DyeDispatchDocument {
+  return runDyeProcessMutation(() => {
+    const doc = Array.from(workOrderStore.values()).flatMap(order => order.dispatchDocuments ?? []).find(item => item.id === id)
+    if (!doc || doc.status !== '草稿') throw new Error('只能操作草稿交出单。')
+    if (action === 'void') { doc.status = '已作废'; return structuredClone(doc) }
+    for (const line of doc.lines) {
+      const order = getMutableWorkOrder(line.orderId)
+      if (order.receiverName !== line.receiver || order.dyeFactoryName !== line.factoryName || order.qtyUnit !== line.unit) throw new Error('原单工厂、接收方或单位已变化，请作废后重新建单。')
+      if (line.rolls.some(snapshot => !order.outputRolls?.some(roll => roll.id === snapshot.id && !roll.dispatchId && roll.qty === snapshot.qty))) throw new Error('卷记录已变化，请重新建单。')
+    }
+    doc.status = '已交出'
+    for (const line of doc.lines) {
+      submitDyeHandover(line.orderId, { handoverQty: line.rolls.reduce((sum, roll) => sum + roll.qty, 0), handoverPerson: doc.operator })
+      for (const roll of getMutableWorkOrder(line.orderId).outputRolls ?? []) if (line.rolls.some(item => item.id === roll.id)) roll.dispatchId = doc.id
+    }
+    doc.handedOverAt = nowTimestamp()
+    return structuredClone(doc)
   })
 }

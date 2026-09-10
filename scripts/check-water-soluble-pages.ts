@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 
 import { routes } from '../src/router/routes-fcs.ts'
 import { handleProcessWaterSolubleOrdersEvent, renderProcessWaterSolubleOrdersPage } from '../src/pages/process-water-soluble-orders.ts'
 import { closeCraftDyeingWaterSolubleOverlay, handleCraftDyeingWaterSolubleOrdersEvent, renderCraftDyeingWaterSolubleOrdersPage } from '../src/pages/process-factory/dyeing/water-soluble-orders.ts'
-import { markWaterSolubleMaterialReady, assignWaterSolubleFactory, canAssignWaterSolubleFactory, executeWaterSolublePdaAction, getWaterSolubleWorkOrderById, linkWaterSolubleHandoverOrder, listWaterSolubleWorkOrders, resetWaterSolubleDomainForChecks, resolveWaterSolublePause, WATER_SOLUBLE_STATUS_LABEL } from '../src/data/fcs/water-soluble-task-domain.ts'
+import { receiveWaterSolubleInput, assignWaterSolubleFactory, canAssignWaterSolubleFactory, executeWaterSolublePdaAction, getWaterSolubleWorkOrderById, linkWaterSolubleHandoverOrder, listWaterSolubleWorkOrders, resetWaterSolubleDomainForChecks, resolveWaterSolublePause, WATER_SOLUBLE_STATUS_LABEL } from '../src/data/fcs/water-soluble-task-domain.ts'
 import { createFactoryPdaUser, createPdaSessionFromUser, listFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
+import { getWaterSolubleOrderImageManifest } from '../src/data/fcs/process-order-image-manifest.ts'
 
 async function renderRoute(path: string): Promise<string> {
   const renderer = routes.exactRoutes[path]
@@ -32,19 +34,27 @@ assert(fcsHtml.includes('data-testid="water-soluble-orders-page"'), 'FCS 水溶�
 assert(fcsHtml.includes('data-testid="water-soluble-pagination"'), 'FCS 水溶加工单缺少分页')
 assert(fcsHtml.includes('data-standard-list-page') && fcsHtml.includes('data-standard-list-scroll'), 'FCS 水溶加工单必须使用标准列表与容器内横向滚动')
 assert(fcsHtml.includes('data-water-soluble-action="open-column-settings"'), 'FCS 水溶加工单必须提供列设置')
-assert(fcsHtml.includes('data-water-soluble-object="style"') && fcsHtml.includes('data-water-soluble-object="material"'), '款式和物料必须各在同一信息块展示图片或明确缺失状态')
-assert(fcsHtml.includes('款式原图缺失，待补准确素材') && fcsHtml.includes('物料原图缺失，待补准确素材'), '当前水溶演示源没有准确素材，必须明确缺图')
-assert(!fcsHtml.includes('src="/tshirt-sample.jpg"') && !fcsHtml.includes('src="/materials/fabric-contrast.jpg"') && !fcsHtml.includes('src="data:image/svg'), '通用白T、布样或文字SVG不得冒充水溶对象图片')
-assert(fcsHtml.includes('计划交期') && fcsHtml.includes('未排期'), 'FCS 页面不得伪造计划交期')
-assert(fcsHtml.includes('技术包版本') && fcsHtml.includes('分配染厂'), 'FCS 页面缺少管理字段或派厂动作')
-assert(fcsHtml.includes('款号或款式'), 'FCS 页面缺少款号或款式字段')
+assert(fcsHtml.includes('data-water-soluble-object="style"') && fcsHtml.includes('data-water-soluble-object="material"'), '款式和物料必须各在同一信息块展示真实图片')
+listWaterSolubleWorkOrders().forEach((order) => {
+  const images = getWaterSolubleOrderImageManifest(order.waterOrderId)
+  assert(images, `水溶加工单 ${order.waterOrderNo} 缺少真实图片映射`)
+  ;[images.product, images.material].forEach((url) => {
+    assert(existsSync(`public${url}`), `真实图片文件不存在：${url}`)
+    assert(fcsHtml.includes(`data-pda-image-preview-url="${url}"`), `页面缺少 ${url} 的可点击大图入口`)
+  })
+})
+assert(!fcsHtml.includes('placeholder.svg') && !fcsHtml.includes('原图缺失') && !fcsHtml.includes('src="data:image/svg'), '页面不得使用占位图或缺图文案冒充真实图片')
+assert(fcsHtml.includes('技术包') && fcsHtml.includes('分配染厂'), 'FCS 页面缺少工艺要求或派厂动作')
+;['接收状态', '加工状态', '交出状态', '投入来源', '唯一接收方'].forEach((label) => assert(fcsHtml.includes(label), `FCS 页面缺少 ${label}`))
+;['统一执行详情入口待后续任务接入', '执行对象', '事件账', '投影', '状态机'].forEach((copy) => assert(!fcsHtml.includes(copy), `FCS 页面不得出现技术文案：${copy}`))
 assert(!fcsHtml.includes('统一执行详情入口待后续任务接入'), 'FCS 页面不得保留过期的任务入口占位文案')
 assert(listWaterSolubleWorkOrders().filter((order) => order.taskId).every((order) => fcsHtml.includes(`data-task-id="${order.taskId}"`)), 'FCS 查看任务必须携带领域真实 taskId')
 assert(!fcsHtml.includes('需先水溶'), 'FCS 独立水溶页不得混入含水溶染色单')
 assert(pfosHtml.includes('data-testid="factory-water-soluble-orders-page"'), 'PFOS 水溶加工单页面未渲染')
 assert(pfosHtml.includes('data-testid="factory-water-soluble-pagination"'), 'PFOS 水溶加工单缺少分页')
-assert(pfosHtml.includes('管理预览') && pfosHtml.includes('只读'), '无可信工厂 session 时 PFOS 必须明确只读预览')
-;['material-ready', 'start', 'complete', 'open-supervisor', 'open-handover', 'confirm-handover'].forEach((action) => {
+assert(pfosHtml.includes('管理查看（只读）'), '无可信工厂 session 时 PFOS 必须明确只读查看')
+;['接收状态', '加工状态', '交出状态', '投入来源', '唯一接收方'].forEach((label) => assert(pfosHtml.includes(label), `PFOS 页面缺少 ${label}`))
+;['receive-input', 'start', 'complete', 'open-supervisor', 'open-handover', 'confirm-handover'].forEach((action) => {
   assert(!pfosHtml.includes(`data-factory-water-soluble-action="${action}"`), `无可信工厂 session 时 PFOS 不得渲染领域动作 ${action}`)
 })
 assert(!pfosHtml.includes('需先水溶'), 'PFOS 独立水溶页不得混入含水溶染色单')
@@ -153,9 +163,8 @@ assert(linkedActorOrder.ok, '真实 PDA 动作后必须能产生不含操作人�
 const completedActorLog = actorCompletedOrder.order?.actionLogs.findLast((log) => log.action === '完成水溶')
 assert.equal(completedActorLog?.operatorName, structuredActorUser.name, 'PDA 日志必须以结构化字段保留完整操作人姓名')
 const actorHtml = renderCraftDyeingWaterSolubleOrdersPage()
-assert(actorHtml.includes(`PDA 操作人：${structuredActorUser.name}`), 'PFOS 必须从结构化 PDA 日志展示完整真实操作人姓名')
-assert(actorHtml.includes('最近操作：完成水溶'), 'PFOS 必须展示最近一条含操作人的真实 PDA 动作，而不是后续系统日志')
-assert(!actorHtml.includes('PDA 操作人：领域暂未记录'), 'PFOS 不得硬编码操作人未记录')
+assert(actorHtml.includes(`最近操作：${structuredActorUser.name} · 完成水溶`), 'PFOS 必须从结构化日志展示完整真实操作人和最近动作')
+assert(!actorHtml.includes('领域暂未记录'), 'PFOS 不得硬编码操作人未记录')
 
 const invalidOrder = arrangeTrustedInProgressOrder()
 const invalidBefore = getWaterSolubleWorkOrderById(invalidOrder.waterOrderId)
@@ -193,7 +202,7 @@ assert.equal(shortUpdated?.exceptionReason, 'Node handler 现场短量原因', '
 assert(shortUpdated?.actionLogs.at(-1)?.detail.includes('Node handler 现场短量原因'), 'handler 短量日志必须保留真实原因')
 
 const overOrder = arrangeTrustedInProgressOrder()
-markWaterSolubleMaterialReady(overOrder.waterOrderId, { qty: 1, receiptId: 'EXTRA-MATERIAL-FOR-OVERAGE' })
+receiveWaterSolubleInput(overOrder.waterOrderId, { qty: 1, receiptId: 'EXTRA-MATERIAL-FOR-OVERAGE', upstreamRecordId: 'CHECK-SOURCE-OVERAGE' })
 const overBefore = getWaterSolubleWorkOrderById(overOrder.waterOrderId)
 handleCraftDyeingWaterSolubleOrdersEvent(actionTarget('complete', overOrder.waterOrderId))
 handleCraftDyeingWaterSolubleOrdersEvent(fieldTarget('completedQty', String(overOrder.plannedQty + 1)))

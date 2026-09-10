@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import {
   PRINTING_HANDOVER_STATUSES,
   PRINTING_PROCESSING_STATUSES,
+  PRINTING_RECEIPT_STATUSES,
   changePrintingInput,
   completePrintWorkOrderDocument,
   completePrintingWorkOrder,
@@ -30,9 +31,14 @@ assert.deepEqual(
   '加工状态必须保持现场可执行的五态',
 )
 assert.deepEqual(
+  PRINTING_RECEIPT_STATUSES.map((item) => item.label),
+  ['待来源', '待接收', '部分接收', '已收齐', '差异待处理'],
+  '接收状态必须独立保持五态',
+)
+assert.deepEqual(
   PRINTING_HANDOVER_STATUSES.map((item) => item.label),
-  ['未开始', '待交出', '部分交出', '已交出待接收', '部分接收', '已接收'],
-  '交出状态必须独立保持六态',
+  ['未到交出', '待交出', '部分交出', '全部交出'],
+  '交出状态只由本单完成量和交出量形成四态',
 )
 
 const rows = listPrintingWorkOrders()
@@ -48,13 +54,14 @@ for (const row of rows) {
   assert.ok(row.plannedInput.qtyUnit, `${row.printOrderNo} 缺 BOM 数量单位`)
   assert.ok(row.plannedInput.sku, `${row.printOrderNo} 缺计划投入 SKU`)
   assert.ok(row.output.sku, `${row.printOrderNo} 缺固定产出 SKU`)
-  // 图片缺失是明确素材阻塞；禁止通过给所有对象放通用图制造通过。
-  assert.ok(renderCraftPrintingWorkOrderDetailPage(row.workOrderId).includes('缺少对应图片'), `${row.printOrderNo} 缺图必须显式呈现`)
+  assert.ok(!renderCraftPrintingWorkOrderDetailPage(row.workOrderId).includes('缺少对应图片'), `${row.printOrderNo} 命名场景不得缺图`)
   assert.equal(row.output.sku, row.barcodes[0]?.sku || row.output.sku, `${row.printOrderNo} 卷条码必须绑定产出 SKU`)
   assert.ok(!('editConfirmation' in row), '业务模型不得保留 Edit confirmation')
-  assert.ok(!row.product.imageUrl || existsSync(new URL(`../public${row.product.imageUrl}`, import.meta.url)), `${row.printOrderNo} 商品图片资源不存在`)
-  assert.ok(!row.plannedInput.imageUrl || existsSync(new URL(`../public${row.plannedInput.imageUrl}`, import.meta.url)), `${row.printOrderNo} 投入图片资源不存在`)
-  assert.ok(!row.output.imageUrl || existsSync(new URL(`../public${row.output.imageUrl}`, import.meta.url)), `${row.printOrderNo} 产出图片资源不存在`)
+  assert.ok(row.product.imageUrl && existsSync(new URL(`../public${row.product.imageUrl}`, import.meta.url)), `${row.printOrderNo} 商品图片资源不存在`)
+  assert.ok(row.plannedInput.imageUrl && existsSync(new URL(`../public${row.plannedInput.imageUrl}`, import.meta.url)), `${row.printOrderNo} 投入图片资源不存在`)
+  assert.ok(row.output.imageUrl && existsSync(new URL(`../public${row.output.imageUrl}`, import.meta.url)), `${row.printOrderNo} 产出图片资源不存在`)
+  assert.ok(row.requirement.frontPattern.imageUrl && existsSync(new URL(`../public${row.requirement.frontPattern.imageUrl}`, import.meta.url)), `${row.printOrderNo} 正面花型图片资源不存在`)
+  if (row.requirement.insidePattern) assert.ok(row.requirement.insidePattern.imageUrl && existsSync(new URL(`../public${row.requirement.insidePattern.imageUrl}`, import.meta.url)), `${row.printOrderNo} 里面花型图片资源不存在`)
 }
 assert.ok(rows.some((row) => row.plannedInput.objectType === '纱线'), '演示数据必须保留 BOM 纱线印花反例，不能把页面对象写死为面料')
 
@@ -107,6 +114,8 @@ receivePrintingInput(changeTarget.workOrderId, {
   receivedQty: changed.plannedInput.plannedQty,
   receivedRollCount: 3,
   receiverName: '专项检查接收人',
+  receiptId: 'CHECK-PRINT-REDESIGN-RECEIPT',
+  upstreamRecordId: 'CHECK-PRINT-REDESIGN-SOURCE',
 })
 assert.equal(getPrintingWorkOrderById(changeTarget.workOrderId)?.processingStatus, 'PROCESSING')
 assert.throws(() => completePrintingWorkOrder(changeTarget.workOrderId, {
@@ -135,7 +144,7 @@ assert.ok(completedAfterChange.barcodes.every((barcode) => barcode.sku === origi
 
 const firstBarcode = completedAfterChange.barcodes[0]
 updatePrintingRollBarcode(changeTarget.workOrderId, firstBarcode.id, {
-  meters: 10,
+  meters: firstBarcode.meters,
   gsm: completedAfterChange.output.gsm,
   widthCm: completedAfterChange.output.widthCm,
   vatNo: 'VAT-CHECK-01',
@@ -151,12 +160,13 @@ assert.throws(() => handoverPrintingOutput(changeTarget.workOrderId, {
   receiverName: '专项检查接收人',
 }), /剩余可交/, '交出数量不得超过加工完成数量')
 
-const firstHandoverQty = Math.round((completedAfterChange.output.completedQty / 2 + Number.EPSILON) * 100) / 100
+const refreshedAfterBarcodeUpdate = getPrintingWorkOrderById(changeTarget.workOrderId)!
+const firstHandoverQty = refreshedAfterBarcodeUpdate.barcodes[0].lengthY
 handoverPrintingOutput(changeTarget.workOrderId, {
   qty: firstHandoverQty,
   barcodeIds: [firstBarcode.id],
   operatorName: '专项检查交出人',
-  receiverName: '专项检查接收人',
+  receiverName: completedAfterChange.receivingTargetName,
 })
 assert.equal(getPrintingWorkOrderById(changeTarget.workOrderId)?.handoverStatus, 'PARTIAL_HANDOVER')
 assert.throws(() => receivePrintingHandover(changeTarget.workOrderId, {
@@ -164,19 +174,20 @@ assert.throws(() => receivePrintingHandover(changeTarget.workOrderId, {
   receiverName: '专项检查接收人',
 }), /待接收/, '接收数量不得超过累计交出未接收数量')
 receivePrintingHandover(changeTarget.workOrderId, { receivedQty: firstHandoverQty, receiverName: '专项检查接收人' })
-assert.equal(getPrintingWorkOrderById(changeTarget.workOrderId)?.handoverStatus, 'PARTIAL_RECEIVED')
+assert.equal(getPrintingWorkOrderById(changeTarget.workOrderId)?.handoverStatus, 'PARTIAL_HANDOVER', '下游接收不得改变本单交出状态')
 
-const remainingHandoverQty = Math.round((completedAfterChange.output.completedQty - firstHandoverQty + Number.EPSILON) * 100) / 100
+const remainingHandoverQty = refreshedAfterBarcodeUpdate.barcodes.slice(1).reduce((sum, barcode) => sum + barcode.lengthY, 0)
 handoverPrintingOutput(changeTarget.workOrderId, {
   qty: remainingHandoverQty,
   barcodeIds: completedAfterChange.barcodes.slice(1).map((barcode) => barcode.id),
   operatorName: '专项检查交出人',
-  receiverName: '专项检查接收人',
+  receiverName: completedAfterChange.receivingTargetName,
 })
+assert.equal(getPrintingWorkOrderById(changeTarget.workOrderId)?.handoverStatus, 'FULL_HANDOVER')
 receivePrintingHandover(changeTarget.workOrderId, { receivedQty: remainingHandoverQty, receiverName: '专项检查接收人' })
 const fullyReceived = getPrintingWorkOrderById(changeTarget.workOrderId)
 assert.ok(fullyReceived)
-assert.equal(fullyReceived.handoverStatus, 'RECEIVED')
+assert.equal(fullyReceived.handoverStatus, 'FULL_HANDOVER', '下游全部接收也不得改变本单交出状态')
 assert.equal(isPrintingWorkOrderBusinessCompleted(fullyReceived), false, '下游全部接收不得自动冒充加工单人工完成')
 completePrintWorkOrderDocument(changeTarget.workOrderId, { operatorName: '专项检查主管' })
 const manuallyCompleted = getPrintingWorkOrderById(changeTarget.workOrderId)
@@ -200,11 +211,14 @@ resetPrintingWorkOrderBusinessStore()
 
 const listHtml = renderCraftPrintingWorkOrdersPage()
 for (const requiredText of [
-  '需求来源', '加工投入', '加工产出', '加工状态', '交出状态',
+  '需求来源', '加工投入', '加工产出', '接收状态', '加工状态', '交出状态',
   '印花信息单', '印花确认单', '产出卷条码',
-  '计划投入', '实际使用', '完成', '已交出', '已接收',
-  '历史状态', '售卖类型', '加工厂', '工艺', '接收人', '物料类型', '是否换料', '是否历史补料', '创建方式', '差异/异议',
+  '计划投入', '实际使用', '完成', '已交', '下游已收',
+  '售卖类型', '加工厂', '工艺', '下游接收方', '物料类型', '是否换料', '创建方式', '差异/异议',
 ]) assert.ok(listHtml.includes(requiredText), `印花列表遗漏：${requiredText}`)
+for (const forbiddenText of ['历史提示：', '固定产出，不随投入换料改变', '历史损耗：', '（兼容）']) {
+  assert.ok(!listHtml.includes(forbiddenText), `印花列表不应出现无操作价值文案：${forbiddenText}`)
+}
 assert.ok(!listHtml.includes('采购单数量'), '列表不得展示或关注线上采购单数量 572')
 assert.ok(!listHtml.includes('打印任务流转卡'), '调整后的印花加工单不得暴露第四类打印单据')
 assert.ok(!listHtml.includes('待回写'), '上下游交接文案必须统一为交出、接收，不得继续显示待回写')
@@ -212,23 +226,20 @@ assert.ok(listHtml.includes('data-printing-summary-row'), '六项汇总必须使
 assert.equal((listHtml.match(/data-printing-summary-item/g) || []).length, 6, '单行汇总必须完整展示六项指标')
 const listHeaderTags = [...listHtml.matchAll(/<th[\s\S]*?<\/th>/g)].map((match) => match[0])
 const headerTag = (key: string) => listHeaderTags.find((tag) => tag.includes(`data-column-key="${key}"`)) || ''
-assert.match(listHeaderTags[0] || '', /data-column-key="select"/, '选择列必须是数据列表第一列')
-assert.match(headerTag('select'), /\bsticky\b/, '选择列必须固定在最左侧')
-assert.match(headerTag('select'), /\bleft-0\b/, '选择列必须固定在左侧起点')
-assert.match(headerTag('order'), /\bsticky\b/, '印花加工单列必须固定在左侧')
-assert.match(headerTag('order'), /left: 64px/, '印花加工单列必须紧随 64px 选择列固定')
+assert.match(listHeaderTags[0] || '', /data-column-key="order"/, '选择并入加工单第一列')
+assert.equal(listHeaderTags.length, 7, '两端合并为七列')
+assert.match(headerTag('order'), /\bsticky\b/, '加工单固定左侧')
 assert.match(headerTag('actions'), /\bsticky\b/, '操作列必须固定在右侧')
 assert.match(headerTag('actions'), /\bright-0\b/, '操作列必须固定在右侧起点')
 for (const key of ['input', 'output']) assert.doesNotMatch(headerTag(key), /\bsticky\b/, `${key} 列必须随中间内容横向滚动`)
-assert.match(headerTag('actions'), /width: 190px/, '操作列宽度必须收窄为 190px')
+assert.match(headerTag('actions'), /width: 110px/, '操作列宽度必须收窄为 110px')
 assert.ok(listHtml.includes('data-printing-row-actions'), '操作单元格必须声明双列动作布局')
 assert.ok(listHtml.includes('grid-cols-2'), '操作单元格每行最多只能展示两个文字操作')
 
 const detailHtml = renderCraftPrintingWorkOrderDetailPage(rows[0].workOrderId)
 for (const requiredText of [
-  '1. 需求来源', '2. 用量依据', '3. 计划加工投入与实际加工投入', '4. 投入调整历史',
-  '5. 印花要求', '6. 固定加工产出', '7. 数量与卷数', '8. 加工厂与执行时间',
-  '9. 交出与接收', '10. 加工产出卷条码', '11. 打印历史', '12. 操作日志与备注',
+  '1. 基本信息', '2. 加工投入／上游', '3. 加工要求', '4. 加工记录', '5. 加工产出／下游', '6. 日志与单据',
+  '用量依据', '接收批次', '投入调整历史', '打印历史', '操作日志',
 ]) assert.ok(detailHtml.includes(requiredText), `印花详情遗漏：${requiredText}`)
 assert.ok(detailHtml.includes('标准单位用量') && detailHtml.includes('加工单单位用量'), '详情必须保留单位用量信息')
 assert.ok(detailHtml.includes('data-printing-action="preview-image"'), '详情图片必须支持点击大图')
@@ -249,7 +260,7 @@ for (const requiredText of ['印花信息单', '需求来源', '用量依据', '
   assert.ok(infoHtml.includes(requiredText), `印花信息单遗漏：${requiredText}`)
 }
 
-const receivedDemo = rows.find((row) => row.handoverStatus === 'RECEIVED')!
+const receivedDemo = rows.find((row) => row.handoverStatus === 'FULL_HANDOVER' && row.handover.receivedQty >= row.handover.handedOverQty)!
 const confirmationDocument = buildPrintDocument({ documentType: 'PRINTING_CONFIRMATION', sourceType: 'PRINTING_WORK_ORDER', sourceId: receivedDemo.workOrderId })
 const confirmationHtml = renderPrintDocument(confirmationDocument)
 for (const requiredText of ['Print confirmation', 'Pattern transfer confirmation', 'Storage / Gudang', 'Remark', '加工投入 SKU', '加工产出 SKU']) {
@@ -269,4 +280,4 @@ for (const requiredText of ['印花加工产出卷', '产出 SKU', '数量', rec
 assert.ok(rollLabelHtml.includes('.000 KG') || /\d+\.\d{3} KG/.test(rollLabelHtml), '卷条码重量必须以 KG 三位小数展示')
 
 resetPrintingWorkOrderBusinessStore()
-console.log(`印花加工单重构专项检查通过：${rows.length} 张正式域旧例按底层来源可读；双状态、换料、数量、交出接收、列表详情与三类打印契约通过；准确图片缺项仍为素材门禁。`)
+console.log(`印花加工单重构专项检查通过：${rows.length} 张正式域旧例按底层来源可读；接收、加工、交出三维状态，换料、数量、交出与下游实收、列表详情、图片及三类打印契约通过。`)

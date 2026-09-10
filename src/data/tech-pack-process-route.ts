@@ -110,6 +110,59 @@ export function sortProcessRouteEntries<T extends {
     .map(({ entry }) => entry)
 }
 
+export type ResolvedProcessRouteLane<T extends ProcessRouteGraphEntry> = {
+  entries: T[]
+  ordered: boolean
+}
+
+/**
+ * 按显式前置关系读取一条对象分支；尚未形成完整链时保留当前稳定顺序，供页面直接调整。
+ */
+export function resolveProcessRouteLaneOrder<T extends ProcessRouteGraphEntry>(
+  entries: T[],
+): ResolvedProcessRouteLane<T> {
+  const fallbackEntries = sortProcessRouteEntries(entries)
+  if (fallbackEntries.length <= 1) return { entries: fallbackEntries, ordered: true }
+
+  const entryById = new Map(fallbackEntries.map((entry) => [entry.id, entry]))
+  const incoming = new Map(fallbackEntries.map((entry) => [entry.id, 0]))
+  const outgoing = new Map(fallbackEntries.map((entry) => [entry.id, [] as string[]]))
+  let edgeCount = 0
+
+  fallbackEntries.forEach((entry) => {
+    ;(entry.predecessorEntryIds ?? []).forEach((predecessorId) => {
+      if (!entryById.has(predecessorId)) return
+      incoming.set(entry.id, (incoming.get(entry.id) ?? 0) + 1)
+      outgoing.get(predecessorId)?.push(entry.id)
+      edgeCount += 1
+    })
+  })
+
+  const roots = fallbackEntries.filter((entry) => (incoming.get(entry.id) ?? 0) === 0)
+  const terminals = fallbackEntries.filter((entry) => (outgoing.get(entry.id)?.length ?? 0) === 0)
+  const ordered = roots.length === 1
+    && terminals.length === 1
+    && edgeCount === fallbackEntries.length - 1
+    && fallbackEntries.every((entry) => (
+      (incoming.get(entry.id) ?? 0) <= 1
+      && (outgoing.get(entry.id)?.length ?? 0) <= 1
+    ))
+  if (!ordered) return { entries: fallbackEntries, ordered: false }
+
+  const result: T[] = []
+  const visited = new Set<string>()
+  let current: T | undefined = roots[0]
+  while (current && !visited.has(current.id)) {
+    result.push(current)
+    visited.add(current.id)
+    current = entryById.get(outgoing.get(current.id)?.[0] ?? '')
+  }
+
+  return result.length === fallbackEntries.length
+    ? { entries: result, ordered: true }
+    : { entries: fallbackEntries, ordered: false }
+}
+
 /**
  * 只整理当前已保存的步骤和 lane，不注入任何服装工艺默认顺序。
  * 真实业务前后关系只能来自 predecessorEntryIds，不能由工序名称推断。

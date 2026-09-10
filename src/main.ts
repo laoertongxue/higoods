@@ -332,6 +332,16 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return false
     }
   }
+  // These lists already render their own local controls; avoid loading the full
+  // FCS handler bundle before the first filter/selection interaction.
+  if (pathname === '/fcs/craft/dyeing/work-orders' && target.closest('[data-dye-work-orders-root]')) {
+    const page = await import('./pages/process-factory/dyeing/work-orders.ts')
+    return page.handleDyeWorkOrderListEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/printing/') && target.closest('[data-printing-work-orders-root], [data-printing-warehouse-root], [data-printing-dispatch-root], [data-printing-dialog-panel]')) {
+    const page = await import('./pages/process-factory/printing/events.ts')
+    return page.handleCraftPrintingEvent(eventTarget)
+  }
   const handlerSystem = getCurrentHandlerSystem(pathname)
   try {
     if (handlerSystem === 'pcs') {

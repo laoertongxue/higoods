@@ -188,8 +188,8 @@ function dyePurposeLabel(
     ? unit === 'Yard' ? '面料Yard数' : '面料米数'
     : unit === '个' ? `${objectType}数量` : `${objectType}${unit}数`
   switch (context.operationCode) {
-    case 'DYE_FINISH_PREPARE':
-      return `备料${objectNoun}`
+    case 'DYE_CONFIRM_INPUT_RECEIPT':
+      return `实际接收${objectNoun}`
     case 'DYE_FINISH_DYEING':
       return `染色完成${objectNoun}`
     case 'DYE_FINISH_PACKING':

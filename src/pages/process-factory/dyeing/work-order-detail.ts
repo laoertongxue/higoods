@@ -90,7 +90,7 @@ type DyeDetailTab =
 
 const dyeDetailTabs: Array<{ key: DyeDetailTab; label: string }> = [
   { key: 'base', label: '基本信息' },
-  { key: 'sample', label: '打样备料' },
+  { key: 'sample', label: '打样与接收' },
   { key: 'execution', label: '染缸执行' },
   { key: 'formula', label: '染色配方' },
   { key: 'handover', label: '交出记录' },
@@ -360,9 +360,7 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
                   )
                   .join('')}
               </div>
-              <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回统一事实源并生成操作记录。
-              </div>`
+              `
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
       </div>
@@ -587,7 +585,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   const dye = order.dyePayload
   const domainOrder = getDyeWorkOrderById(dye.dyeOrderId)
   const sampleNode = order.executionNodes.find((node) => node.nodeName === '打样')
-  const materialNode = order.executionNodes.find((node) => node.nodeName === '备料')
+  const materialNode = order.executionNodes.find((node) => node.nodeName === '投入接收')
   const vatNode = order.executionNodes.find((node) => node.nodeName.includes('排'))
   const dyeNode = order.executionNodes.find((node) => node.nodeName === '染色')
   const waterNode = order.executionNodes.find((node) => node.nodeName === '水溶')
@@ -698,7 +696,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       `,
     ),
     sample: renderSection(
-      '打样备料',
+      '打样与接收',
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
           ${renderField('是否等待样衣', dye.sampleWaitType === 'NONE' ? '否' : '是')}
@@ -706,8 +704,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('打样开始时间', formatDyeTime(sampleNode?.startedAt))}
           ${renderField('打样完成时间', formatDyeTime(sampleNode?.finishedAt))}
           ${renderField('色号', dye.colorNo || '待确认')}
-          ${renderField('备料完成时间', formatDyeTime(materialNode?.finishedAt))}
-          ${renderField('备料备注', materialNode?.remark || '—')}
+          ${renderField('投入接收时间', formatDyeTime(materialNode?.finishedAt))}
+          ${renderField('接收记录', materialNode?.remark || '—')}
         </div>
       `,
     ),

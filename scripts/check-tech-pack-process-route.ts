@@ -50,8 +50,8 @@ type CheckRouteEntry = {
   stageCode: string
   processCode: string
   routeObjectKey?: string
-  inputObjectType?: 'BOM_MATERIAL' | 'FABRIC' | 'YARN' | 'ACCESSORY' | 'PACKAGING_MATERIAL' | 'CUT_PIECE' | 'KNITTED_PANEL' | 'GARMENT' | 'PACKED_GARMENT'
-  outputObjectType?: 'BOM_MATERIAL' | 'FABRIC' | 'YARN' | 'ACCESSORY' | 'PACKAGING_MATERIAL' | 'CUT_PIECE' | 'KNITTED_PANEL' | 'GARMENT' | 'PACKED_GARMENT'
+  inputObjectType?: 'BOM_MATERIAL' | 'FABRIC' | 'YARN' | 'ACCESSORY' | 'PACKAGING_MATERIAL' | 'CUT_PIECE' | 'KNITTED_PANEL' | 'BINDING_STRIP' | 'GARMENT' | 'PACKED_GARMENT'
+  outputObjectType?: 'BOM_MATERIAL' | 'FABRIC' | 'YARN' | 'ACCESSORY' | 'PACKAGING_MATERIAL' | 'CUT_PIECE' | 'KNITTED_PANEL' | 'BINDING_STRIP' | 'GARMENT' | 'PACKED_GARMENT'
   linkedBomItemIds?: string[]
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
@@ -200,8 +200,19 @@ assert.deepEqual(
   '印花后染色也必须保存真实直接前置，而不是被默认顺序改写',
 )
 
+const routeCutNode = buildCheckTechnique('route-cut', {
+  stageCode: 'PROD',
+  stage: '生产阶段',
+  processCode: 'CUT_PANEL',
+  process: '裁剪',
+  technique: '裁剪',
+  inputObjectType: 'FABRIC',
+  outputObjectType: 'CUT_PIECE',
+  predecessorEntryIds: [],
+  routeStepNo: 3,
+})
 const pageRouteDraft: ProcessRouteDraftState = {
-  techniques: dyeThenPrint.entries as TechniqueItem[],
+  techniques: [...dyeThenPrint.entries, routeCutNode] as TechniqueItem[],
   processRouteStatus: 'UNCONFIRMED',
   processRouteConfirmedBy: '',
   processRouteConfirmedAt: '',
@@ -217,29 +228,52 @@ const confirmedDraft = applyProcessRouteDraftAction(
 assert.equal(confirmedDraft.processRouteStatus, 'CONFIRMED', '确认路线后状态应为已确认')
 assert.equal(confirmedDraft.processRouteConfirmedBy, 'Budi Santoso', '确认路线后应写入确认人')
 assert.equal(confirmedDraft.processRouteConfirmedAt, '2026-07-07 10:20', '确认路线后应写入确认时间')
+assert.deepEqual(
+  confirmedDraft.techniques.find((item) => item.id === routeCutNode.id)?.predecessorEntryIds,
+  [printNode.id],
+  '统一确认必须把末道准备工序接入对应 BOM 的裁剪节点',
+)
 
-const removedEdge = applyProcessRouteDraftAction(
+const reorderedDraft = applyProcessRouteDraftAction(
   confirmedDraft,
-  { type: 'remove-edge', sourceEntryId: dyeNode.id, targetEntryId: printNode.id },
+  { type: 'reorder-prep-lane', orderedEntryIds: [printNode.id, dyeNode.id] },
   'Budi Santoso',
   '2026-07-07 10:21',
 )
-assert.equal(removedEdge.processRouteStatus, 'UNCONFIRMED', '删除路线边后必须自动取消确认')
+assert.equal(reorderedDraft.processRouteStatus, 'UNCONFIRMED', '调整准备加工顺序后必须自动取消确认')
 assert.deepEqual(
-  removedEdge.techniques.find((item) => item.id === printNode.id)?.predecessorEntryIds,
-  [],
-  '删除路线边必须删除后置节点保存的直接前置 ID',
+  reorderedDraft.techniques.find((item) => item.id === dyeNode.id)?.predecessorEntryIds,
+  [printNode.id],
+  '三阶段路线内排序必须保存新的直接前置 ID',
 )
-let incompleteWarning = ''
-const incompleteConfirmed = applyProcessRouteDraftAction(
-  removedEdge,
+assert.deepEqual(
+  reorderedDraft.techniques.find((item) => item.id === routeCutNode.id)?.predecessorEntryIds,
+  [dyeNode.id],
+  '准备顺序变化后对应裁剪必须改为承接新的末道准备工序',
+)
+const reorderedConfirmed = applyProcessRouteDraftAction(
+  reorderedDraft,
   { type: 'confirm' },
   'Budi Santoso',
   '2026-07-07 10:22',
+)
+assert.equal(reorderedConfirmed.processRouteStatus, 'CONFIRMED', '三阶段路线内排序后必须可以统一确认')
+
+let incompleteWarning = ''
+const incompleteReorder = applyProcessRouteDraftAction(
+  pageRouteDraft,
+  { type: 'reorder-prep-lane', orderedEntryIds: [dyeNode.id] },
+  'Budi Santoso',
+  '2026-07-07 10:23',
   (message) => { incompleteWarning = message },
 )
-assert.equal(incompleteConfirmed.processRouteStatus, 'UNCONFIRMED', '同一对象多个未连接起点不得确认')
-assert.match(incompleteWarning, /多个未连接的起点/, '确认失败应直接指出缺少真实前后关系')
+assert.equal(incompleteReorder.processRouteStatus, pageRouteDraft.processRouteStatus, '遗漏节点时不得改变路线确认状态')
+assert.deepEqual(
+  incompleteReorder.techniques.map((item) => ({ id: item.id, predecessorEntryIds: item.predecessorEntryIds })).sort((left, right) => left.id.localeCompare(right.id)),
+  pageRouteDraft.techniques.map((item) => ({ id: item.id, predecessorEntryIds: item.predecessorEntryIds })).sort((left, right) => left.id.localeCompare(right.id)),
+  '准备排序不得遗漏同一 BOM 分支的工艺节点',
+)
+assert.match(incompleteWarning, /全部准备加工/, '遗漏节点时必须直接指出完整排序要求')
 
 const crossBomEdge = addProcessRouteEdge(
   [
@@ -344,8 +378,9 @@ const techPackEventsSource = readFileSync(new URL('../src/pages/tech-pack/events
 const routeSorterSource = readFileSync(new URL('../src/data/tech-pack-process-route.ts', import.meta.url), 'utf8')
 const techPackContextSource = readFileSync(new URL('../src/pages/tech-pack/context.ts', import.meta.url), 'utf8')
 const processDomainSource = readFileSync(new URL('../src/pages/tech-pack/process-domain.ts', import.meta.url), 'utf8')
-const logicFlowSource = readFileSync(new URL('../src/pages/tech-pack/process-route-logicflow.ts', import.meta.url), 'utf8')
 const bomLinkageSource = readFileSync(new URL('../src/pages/tech-pack/bom-process-linkage.ts', import.meta.url), 'utf8')
+const bomDomainSource = readFileSync(new URL('../src/pages/tech-pack/bom-domain.ts', import.meta.url), 'utf8')
+const patternDomainSource = readFileSync(new URL('../src/pages/tech-pack/pattern-domain.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(
   routeSorterSource,
   /getDefaultProcessRouteOrder|listDefaultProcessRouteOrders|process-craft-dict/,
@@ -361,14 +396,28 @@ assert.match(
   /syncBomDrivenPrepTechniques\(\[\], bomItems\)/,
   '没有款式工序时只能按 BOM 真实要求补入准备工序，不得虚构生产路线',
 )
-assert.match(processDomainSource, /DICT_REFERENCE: '工序字典引用'/, '技术包来源文案必须只表达字典引用，不表达默认顺序')
 assert.doesNotMatch(techPackEventsSource, /hasInvalidDyePrintOrder|move-up|move-down|make-parallel|remove-from-parallel/, '旧列表排序及统一先染后印逻辑必须删除')
-assert.match(processDomainSource, /路线图/, '技术包工序标签必须提供路线图视图')
-assert.match(processDomainSource, /工艺明细/, '技术包工序标签必须保留现有工艺明细视图')
-assert.match(logicFlowSource, /@logicflow\/core/, '路线图必须使用 LogicFlow 核心画布')
-assert.match(logicFlowSource, /@logicflow\/layout/, '路线图必须使用受控的自动布局插件')
-assert.doesNotMatch(logicFlowSource, /DndPanel|MiniMap|Bpmn|Control\b|NodeSelection/, '不得向业务人员暴露通用流程设计器能力')
+assert.match(processDomainSource, /tech-pack-three-stage-route/, '技术包工艺路线必须直接展示唯一的三阶段路线工作区')
+assert.doesNotMatch(processDomainSource, /switch-process-route-view|准备顺序|工艺明细|路线依据/, '必须删除三视图切换及两个旧独立视图')
+assert.doesNotMatch(techPackContextSource, /processRouteViewMode/, '必须删除仅用于旧三视图切换的页面状态')
+assert.doesNotMatch(techPackEventsSource, /higood:process-route-command|ProcessRouteGraphCommandDetail|processRouteUndoStack/, '必须删除旧画布命令和撤销重做状态')
+assert.match(processDomainSource, /data-route-stage="PREP"[\s\S]*data-route-stage="PROD"[\s\S]*data-route-stage="POST"/, '工艺路线必须依次展示准备、生产、后道三个阶段')
+assert.match(processDomainSource, /BOM 物料并行/, '准备阶段必须明确多个 BOM 物料相互并行')
+assert.match(processDomainSource, /裁剪、裁片工艺与面辅料加工并行，全部完成后进入车缝/, '生产阶段必须明确裁片路线、面辅料加工和车缝汇合关系')
+assert.match(processDomainSource, /sourcePatternPackageName/, '裁片工艺路线必须显示对应纸样包名称')
+assert.match(processDomainSource, /data-tech-prep-route-lane/, '准备阶段必须按 BOM 物料分行排序')
+assert.match(processDomainSource, /data-tech-action="move-prep-route-entry"/, '三阶段路线必须直接提供准备工序排序动作')
+assert.match(processDomainSource, /data-direction="up"[\s\S]*data-direction="down"/, '准备工序必须可前移和后移')
+assert.match(techPackEventsSource, /reorder-prep-lane/, '准备排序必须直接改写同一 BOM 分支的显式前置关系')
+assert.match(techPackEventsSource, /connectPreparationLanesToCutting/, '统一确认时必须把每条准备链的最后一道接入对应裁剪')
+assert.match(patternDomainSource, /第 \$\{index \+ 1\} 道/, '纸样包逐片工艺必须显示明确顺序号')
+assert.match(patternDomainSource, /move-piece-instance-special-craft-up/, '纸样包必须支持调整逐片工艺顺序')
+assert.match(techPackEventsSource, /裁片工艺顺序由纸样包逐片工艺决定/, '路线编辑必须阻断改写纸样包工艺顺序')
 assert.match(bomLinkageSource, /routeObjectKey: `BOM:\$\{bomItemId\}`/, 'BOM 自动节点必须保留 BOM 行对象分支')
+assert.match(bomDomainSource, /绣花需求/, '技术包 BOM 必须展示绣花需求')
+assert.match(bomDomainSource, /绑定工艺/, '技术包 BOM 必须展示绑定工艺')
+assert.match(techPackContextSource, /CRAFT_131072[\s\S]*捆条/, '绑定工艺必须提供捆条')
+assert.match(techPackContextSource, /CRAFT_3000009[\s\S]*橡筋定长切割/, '绑定工艺必须提供橡筋定长切割')
 
 const generatedDyePrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([], [
   {
@@ -377,6 +426,8 @@ const generatedDyePrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([
     materialName: '主面料',
     dyeRequirement: '匹染',
     printRequirement: '数码印',
+    embroideryRequirement: '有',
+    usageProcessCodes: ['CRAFT_131072'],
   },
   {
     id: 'bom-lace-accessory',
@@ -384,14 +435,64 @@ const generatedDyePrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([
     materialName: '花边',
     dyeRequirement: '匹染',
     printRequirement: '数码印',
+    usageProcessCodes: ['CRAFT_3000009'],
   },
 ])
-const generatedPrepNodes = generatedDyePrint.techniques.filter((item) => item.processCode === 'DYE' || item.processCode === 'PRINT')
-assert.equal(generatedPrepNodes.length, 4, '同款两条 BOM 各自的染色和印花必须形成四个独立 occurrence')
-assert.equal(new Set(generatedPrepNodes.map((item) => item.id)).size, 4, '同工序码不得吞并不同 BOM occurrence')
+const generatedPrepNodes = generatedDyePrint.techniques.filter((item) => ['DYE', 'PRINT', 'EMBROIDERY'].includes(item.processCode))
+assert.equal(generatedPrepNodes.length, 5, '两条 BOM 的染印与主面料绣花必须形成五个独立准备阶段 occurrence')
+assert.equal(new Set(generatedPrepNodes.map((item) => item.id)).size, 5, '同工序码不得吞并不同 BOM occurrence')
 assert.deepEqual(new Set(generatedPrepNodes.map((item) => item.routeObjectKey)), new Set(['BOM:bom-main-fabric', 'BOM:bom-lace-accessory']), '准备节点必须保持各自 BOM 分支')
 assert(generatedPrepNodes.every((item) => (item.predecessorEntryIds ?? []).length === 0), 'BOM 只生成节点，不得偷偷注入统一印染顺序')
 assert(generatedPrepNodes.some((item) => item.inputObjectType === 'ACCESSORY'), '花边等辅料的染印节点必须保留真实原物料类别')
+assert(generatedPrepNodes.some((item) => item.processCode === 'EMBROIDERY' && item.stageCode === 'PREP'), 'BOM 绣花需求必须生成准备阶段物料绣花节点')
+
+const boundMaterialCraftNodes = generatedDyePrint.techniques.filter((item) => item.craftCode === 'CRAFT_131072' || item.craftCode === 'CRAFT_3000009')
+assert.equal(boundMaterialCraftNodes.length, 2, '绑定工艺必须分别生成捆条和橡筋定长切割节点')
+assert(boundMaterialCraftNodes.every((item) => item.stageCode === 'PROD'), '捆条和橡筋定长切割必须属于生产阶段')
+assert(boundMaterialCraftNodes.every((item) => item.linkedBomItemIds?.length === 1 && item.consumedBomItemIds?.[0] === item.linkedBomItemIds[0]), '绑定工艺节点必须把所选 BOM 行作为实际投入')
+assert(boundMaterialCraftNodes.some((item) => item.craftCode === 'CRAFT_131072' && item.selectedTargetObject === '完整面料' && item.inputObjectType === 'FABRIC' && item.outputObjectType === 'BINDING_STRIP'), '捆条必须表达完整面料到捆条的生产阶段加工')
+assert(boundMaterialCraftNodes.some((item) => item.craftCode === 'CRAFT_3000009' && item.selectedTargetObject === '辅料' && item.inputObjectType === 'ACCESSORY' && item.outputObjectType === 'ACCESSORY'), '橡筋定长切割必须表达辅料到定长辅料的生产阶段加工')
+
+const staleAutoPrint = generatedDyePrint.techniques.find((item) => item.processCode === 'PRINT' && item.linkedBomItemIds?.[0] === 'bom-lace-accessory')
+assert(staleAutoPrint, '测试数据必须包含辅料印花自动节点')
+const clearedAutoPrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([
+  { ...staleAutoPrint, remark: '旧版自动生成说明' },
+], [{
+  id: 'bom-lace-accessory',
+  type: '辅料',
+  materialName: '腰口定长橡筋',
+  printRequirement: '无',
+  usageProcessCodes: ['CRAFT_3000009'],
+}])
+assert(!clearedAutoPrint.techniques.some((item) => item.processCode === 'PRINT'), 'BOM 印花需求改为无后必须清除带旧说明的自动印花节点')
+assert(clearedAutoPrint.removedOccurrenceIds.includes(staleAutoPrint.id), '清除的自动印花节点必须进入删除结果')
+assert(clearedAutoPrint.techniques.some((item) => item.craftCode === 'CRAFT_3000009'), '清除旧印花节点不得影响橡筋定长切割节点')
+
+const clearedLegacyPrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([
+  {
+    ...staleAutoPrint,
+    sourceType: undefined,
+    isAutoGenerated: undefined,
+    remark: '',
+  },
+], [{
+  id: 'bom-lace-accessory',
+  type: '辅料',
+  materialName: '腰口定长橡筋',
+  printRequirement: '无',
+}])
+assert(!clearedLegacyPrint.techniques.some((item) => item.processCode === 'PRINT'), '旧数据缺少来源标记时也必须按当前 BOM 清除无效准备工序')
+
+const preservedManualPrint = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([
+  { ...staleAutoPrint, manualFieldsTouched: true, remark: '人工调整说明' },
+], [{
+  id: 'bom-lace-accessory',
+  type: '辅料',
+  materialName: '腰口定长橡筋',
+  printRequirement: '无',
+}])
+assert(preservedManualPrint.techniques.some((item) => item.id === staleAutoPrint.id && item.requiresRemovalConfirmation), '人工调整过的旧印花节点仍需保留并等待确认')
+assert(preservedManualPrint.pendingConfirmationOccurrenceIds.includes(staleAutoPrint.id), '人工调整过的旧印花节点必须进入待确认结果')
 
 const garmentNodes = syncTechPackProcessesFromBom<BomDrivenPrepTechnique>([], [{
   id: 'bom-finished-garment',
@@ -416,6 +517,53 @@ const patternNodes = syncPatternDrivenTechniques([], [{
 assert.equal(patternNodes.length, 2, '相同烫画工艺绑定两个纸样部位时必须生成两个 occurrence')
 assert.equal(new Set(patternNodes.map((item) => item.routeObjectKey)).size, 2, '纸样工艺 occurrence 必须保留具体裁片部位身份')
 assert(patternNodes.every((item) => item.sourceType === 'PATTERN' && item.inputObjectType === 'CUT_PIECE'), '物料与纸样关联必须生成裁片对象生产节点')
+
+const paperOrderedCut = buildCheckTechnique('paper-ordered-cut', {
+  stageCode: 'PROD',
+  stage: '生产阶段',
+  processCode: 'CUT_PANEL',
+  process: '裁剪',
+  technique: '裁剪',
+  inputObjectType: 'FABRIC',
+  outputObjectType: 'CUT_PIECE',
+  sourceType: 'BOM',
+})
+const paperOrderedNodes = syncPatternDrivenTechniques([paperOrderedCut], [{
+  id: 'PAT-ORDER',
+  linkedBomItemId: 'bom-main',
+  pieceRows: [{
+    id: 'FRONT',
+    name: '前片',
+    specialCrafts: [
+      { craftCode: 'AUX_EMBROIDERY', craftName: '绣花' },
+      { craftCode: 'AUX_HEAT_TRANSFER', craftName: '烫画' },
+    ],
+  }],
+  pieceInstances: [],
+} as unknown as PatternItem])
+const orderedPieceNodes = paperOrderedNodes.filter((item) => item.sourceType === 'PATTERN')
+assert.deepEqual(orderedPieceNodes.map((item) => item.technique), ['绣花', '烫画'], '生产阶段裁片工艺必须按纸样包逐片工艺数组顺序生成')
+assert.deepEqual(orderedPieceNodes[0]?.predecessorEntryIds, [paperOrderedCut.id], '纸样第一道裁片工艺必须承接对应 BOM 的裁剪')
+assert.deepEqual(orderedPieceNodes[1]?.predecessorEntryIds, [orderedPieceNodes[0]?.id], '纸样后续裁片工艺必须承接纸样定义的前一道工艺')
+
+let paperRouteWarning = ''
+const paperRouteDraft: ProcessRouteDraftState = {
+  techniques: paperOrderedNodes,
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: '',
+  processRouteUpdatedAt: '',
+}
+const blockedPaperRouteEdit = applyProcessRouteDraftAction(
+  paperRouteDraft,
+  { type: 'reorder-prep-lane', orderedEntryIds: [orderedPieceNodes[1]!.id, orderedPieceNodes[0]!.id] },
+  'Budi Santoso',
+  '2026-07-07 10:25',
+  (message) => { paperRouteWarning = message },
+)
+assert.deepEqual(blockedPaperRouteEdit.techniques, paperRouteDraft.techniques, '路线页不得改写纸样包定义的裁片工艺顺序')
+assert.match(paperRouteWarning, /纸样包逐片工艺/, '路线页尝试改写裁片顺序时必须指向真实维护入口')
 
 assert.equal(
   techPackEventsSource.includes('toggle-parallel-group-acceptance') || techPackEventsSource.includes('routeParallelAcceptanceMode'),

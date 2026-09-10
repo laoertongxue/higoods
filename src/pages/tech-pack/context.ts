@@ -259,6 +259,7 @@ type BomItemRow = {
   printRequirement: string
   waterSolubleRequirement: BomRequirementFlag
   dyeRequirement: string
+  embroideryRequirement: string
   printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId: string
   frontPatternDesignIds: string[]
@@ -282,6 +283,7 @@ export function normalizeGarmentBomItem(item: BomItemRow): BomItemRow {
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
+    embroideryRequirement: '无',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -855,6 +857,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     type: '面料',
     colorLabel: '',
     materialCode: '',
+    materialSkuId: '',
     materialName: '',
     spec: '',
     unit: '米',
@@ -867,6 +870,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
+    embroideryRequirement: '无',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -910,13 +914,44 @@ const bomUsageProcessOptions: Array<{
   label: string
   allowedTypes: BomItemRow['type'][]
 }> = [
-  { code: 'PROC_CUT', label: '裁剪', allowedTypes: ['面料'] },
-  { code: 'PROC_PRINT', label: '印花', allowedTypes: ['面料', '辅料', '其他'] },
-  { code: 'PROC_DYE', label: '染色', allowedTypes: ['面料', '纱线', '辅料', '其他'] },
-  { code: 'PROC_SEW', label: '车缝', allowedTypes: ['辅料', '其他'] },
   { code: 'AUX_HEAT_TRANSFER', label: '烫画', allowedTypes: ['成衣'] },
   { code: 'AUX_DIRECT_PRINT', label: '直喷', allowedTypes: ['成衣'] },
 ]
+type BomBoundCraftCode = '' | 'CRAFT_131072' | 'CRAFT_3000009'
+const bomBoundCraftOptions: Array<{
+  code: BomBoundCraftCode
+  label: '无' | '捆条' | '橡筋定长切割'
+  allowedTypes: BomItemRow['type'][]
+}> = [
+  { code: '', label: '无', allowedTypes: ['面料', '纱线', '辅料', '包装材料', '其他'] },
+  { code: 'CRAFT_131072', label: '捆条', allowedTypes: ['面料'] },
+  { code: 'CRAFT_3000009', label: '橡筋定长切割', allowedTypes: ['辅料'] },
+]
+const bomBoundCraftCodes = new Set(['CRAFT_131072', 'AUX_BINDING_STRIP', 'CRAFT_3000009', 'SPECIAL_ELASTIC_FIXED_LENGTH_CUTTING'])
+
+function getBomBoundCraftCode(item: Pick<BomItemRow, 'type' | 'usageProcessCodes'>): BomBoundCraftCode {
+  if (item.type === '面料' && item.usageProcessCodes.some((code) => code === 'CRAFT_131072' || code === 'AUX_BINDING_STRIP')) {
+    return 'CRAFT_131072'
+  }
+  if (item.type === '辅料' && item.usageProcessCodes.some((code) => code === 'CRAFT_3000009' || code === 'SPECIAL_ELASTIC_FIXED_LENGTH_CUTTING')) {
+    return 'CRAFT_3000009'
+  }
+  return ''
+}
+
+function replaceBomBoundCraftCode(
+  usageProcessCodes: string[],
+  type: BomItemRow['type'],
+  nextCode: string,
+): string[] {
+  const preserved = usageProcessCodes.filter((code) => !bomBoundCraftCodes.has(code))
+  const canonicalCode = type === '面料' && nextCode === 'CRAFT_131072'
+    ? 'CRAFT_131072'
+    : type === '辅料' && nextCode === 'CRAFT_3000009'
+      ? 'CRAFT_3000009'
+      : ''
+  return canonicalCode ? dedupeStrings([...preserved, canonicalCode]) : preserved
+}
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageCodeToName = new Map(listProcessStages().map((item) => [item.stageCode, item.stageName]))
 const stageOptions = listProcessStages()
@@ -1714,8 +1749,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     id: 'bom-1',
     type: '面料',
     colorLabel: 'White',
-    materialCode: 'FAB-001',
-    materialName: '纯棉毛织布',
+    materialCode: 'FAB-COTTON-180',
+    materialSkuId: 'material_fabric_002_sku_001',
+    materialName: '纯棉毛织布 180g',
     spec: '180g/m²',
     unit: '米',
     patternPieces: ['前片', '后片', '袖片'],
@@ -1727,6 +1763,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '数码印',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
+    embroideryRequirement: '无',
     printSideMode: 'SINGLE',
     frontPatternDesignId: 'design-front-1',
     frontPatternDesignIds: ['design-front-1'],
@@ -1736,10 +1773,11 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
   {
     id: 'bom-2',
     type: '面料',
-    colorLabel: 'White',
-    materialCode: 'FAB-002',
-    materialName: '弹力罗纹',
-    spec: '200g/m²',
+    colorLabel: 'Black',
+    materialCode: 'FAB-COTTON-180',
+    materialSkuId: 'material_fabric_002_sku_002',
+    materialName: '纯棉毛织布 180g',
+    spec: '180g/m²',
     unit: '米',
     patternPieces: ['领片'],
     linkedPatternIds: [],
@@ -1750,6 +1788,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '无',
     waterSolubleRequirement: '是',
     dyeRequirement: '匹染',
+    embroideryRequirement: '无',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -1760,10 +1799,11 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     id: 'bom-3',
     type: '辅料',
     colorLabel: '全部SKU（当前未区分颜色）',
-    materialCode: 'ACC-001',
-    materialName: '纽扣',
-    spec: '15mm圆形',
-    unit: '个',
+    materialCode: 'FLSZ26041135',
+    materialSkuId: 'material_accessory_002_sku_001',
+    materialName: '20.5cm刺绣花边辅料',
+    spec: '花边 / 20.5cm',
+    unit: 'PCS',
     patternPieces: ['前片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
@@ -1773,6 +1813,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     printRequirement: '无',
     waterSolubleRequirement: '否',
     dyeRequirement: '无',
+    embroideryRequirement: '无',
     printSideMode: '',
     frontPatternDesignId: '',
     frontPatternDesignIds: [],
@@ -1809,7 +1850,6 @@ interface TechPackPageState {
   processRouteConfirmedAt: string
   processRouteUpdatedBy: string
   processRouteUpdatedAt: string
-  processRouteViewMode: 'GRAPH' | 'DETAIL'
 
   releaseDialogOpen: boolean
   versionLogDialogOpen: boolean
@@ -1854,6 +1894,7 @@ interface TechPackPageState {
     type: BomItemRow['type']
     colorLabel: string
     materialCode: string
+    materialSkuId: string
     materialName: string
     spec: string
     unit: string
@@ -1866,6 +1907,7 @@ interface TechPackPageState {
     printRequirement: string
     waterSolubleRequirement: BomRequirementFlag
     dyeRequirement: string
+    embroideryRequirement: string
     printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
     frontPatternDesignId: string
     frontPatternDesignIds: string[]
@@ -1936,7 +1978,6 @@ const state: TechPackPageState = {
   processRouteConfirmedAt: '',
   processRouteUpdatedBy: '',
   processRouteUpdatedAt: '',
-  processRouteViewMode: 'GRAPH',
 
   releaseDialogOpen: false,
   versionLogDialogOpen: false,
@@ -2213,6 +2254,7 @@ type PatternCraftRouteSpec = {
   craftCode: string
   craftName: string
   craftPositionName: string
+  sequenceNo: number
 }
 
 function toRouteIdSegment(value: string): string {
@@ -2225,9 +2267,12 @@ function listPatternCraftRouteSpecs(patternItems: PatternItem[]): PatternCraftRo
     pattern.pieceRows.forEach((piece) => {
       const instanceAssignments = pattern.pieceInstances
         .filter((instance) => instance.sourcePieceId === piece.id)
-        .flatMap((instance) => instance.specialCraftAssignments)
+        .flatMap((instance) => instance.specialCraftAssignments.map((assignment, index) => ({
+          assignment,
+          sequenceNo: index + 1,
+        })))
       if (instanceAssignments.length > 0) {
-        instanceAssignments.forEach((assignment) => {
+        instanceAssignments.forEach(({ assignment, sequenceNo }) => {
           const occurrenceKey = `${pattern.id}:${piece.id}:${assignment.craftCode}:${assignment.craftPosition}`
           if (specs.has(occurrenceKey)) return
           specs.set(occurrenceKey, {
@@ -2239,11 +2284,12 @@ function listPatternCraftRouteSpecs(patternItems: PatternItem[]): PatternCraftRo
             craftCode: assignment.craftCode,
             craftName: assignment.craftName,
             craftPositionName: assignment.craftPositionName,
+            sequenceNo,
           })
         })
         return
       }
-      piece.specialCrafts.forEach((craft) => {
+      piece.specialCrafts.forEach((craft, index) => {
         const occurrenceKey = `${pattern.id}:${piece.id}:${craft.craftCode}:PIECE`
         if (specs.has(occurrenceKey)) return
         specs.set(occurrenceKey, {
@@ -2255,6 +2301,7 @@ function listPatternCraftRouteSpecs(patternItems: PatternItem[]): PatternCraftRo
           craftCode: craft.craftCode,
           craftName: craft.craftName,
           craftPositionName: '',
+          sequenceNo: index + 1,
         })
       })
     })
@@ -2275,10 +2322,23 @@ function syncPatternDrivenTechniques(
   const existingById = new Map(techniques.map((item) => [item.id, item]))
   const kept = techniques.filter((item) => item.sourceType !== 'PATTERN' || requiredIds.has(item.id))
   const baseWithoutGenerated = kept.filter((item) => item.sourceType !== 'PATTERN')
+  const orderedSpecsByPiece = new Map<string, PatternCraftRouteSpec[]>()
+  specs.forEach((spec) => {
+    const key = `${spec.patternId}:${spec.sourcePieceId}`
+    orderedSpecsByPiece.set(key, [...(orderedSpecsByPiece.get(key) ?? []), spec]
+      .sort((left, right) => left.sequenceNo - right.sequenceNo))
+  })
   const generated = specs.map((spec, index): TechniqueItem => {
     const craft = craftOptions.find((item) => item.craftCode === spec.craftCode)
     const existing = existingById.get(spec.id)
     const createsComponent = /花朵|盘扣|布包扣|橡筋定长/.test(spec.craftName)
+    const orderedSpecs = orderedSpecsByPiece.get(`${spec.patternId}:${spec.sourcePieceId}`) ?? []
+    const specIndex = orderedSpecs.findIndex((item) => item.id === spec.id)
+    const previousSpec = specIndex > 0 ? orderedSpecs[specIndex - 1] : null
+    const cutEntry = baseWithoutGenerated.find((item) => (
+      item.processCode === 'CUT_PANEL'
+      && item.linkedBomItemIds?.includes(spec.bomItemId)
+    ))
     return {
       ...(existing ?? {} as TechniqueItem),
       id: spec.id,
@@ -2307,7 +2367,7 @@ function syncPatternDrivenTechniques(
       inputObjectType: 'CUT_PIECE',
       outputObjectType: createsComponent ? 'ACCESSORY' : 'CUT_PIECE',
       consumedBomItemIds: existing?.consumedBomItemIds ? [...existing.consumedBomItemIds] : [],
-      predecessorEntryIds: existing?.predecessorEntryIds ? [...existing.predecessorEntryIds] : [],
+      predecessorEntryIds: previousSpec ? [previousSpec.id] : cutEntry ? [cutEntry.id] : [],
       triggerSource: `物料&纸样关联：${spec.pieceName}${spec.craftPositionName ? ` / ${spec.craftPositionName}` : ''}`,
       difficulty: existing?.difficulty || '中等',
       remark: existing?.remark || '',
@@ -2319,7 +2379,7 @@ function syncPatternDrivenTechniques(
       manualFieldsTouched: false,
       requiresRemovalConfirmation: false,
       linkageStatus: '已生成',
-      routeStepNo: existing?.routeStepNo || index + 1,
+      routeStepNo: spec.sequenceNo + 1,
       routeLaneNo: existing?.routeLaneNo || 1,
       routeParallelGroupId: existing?.routeParallelGroupId,
       routeParallelGroupName: existing?.routeParallelGroupName,
@@ -3210,6 +3270,7 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         item.printRequirement,
         item.waterSolubleRequirement,
         item.dyeRequirement,
+        item.embroideryRequirement,
         item.printSideMode,
         item.frontPatternDesignId,
         item.frontPatternDesignIds,
@@ -3237,6 +3298,7 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         printRequirement: item.printRequirement || '无',
         waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
+        embroideryRequirement: item.embroideryRequirement || '无',
         printSideMode: item.printSideMode || '',
         frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
         frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
@@ -4668,6 +4730,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       printRequirement: item.printRequirement ?? '无',
       waterSolubleRequirement: item.waterSolubleRequirement ?? '否',
       dyeRequirement: item.dyeRequirement ?? '无',
+      embroideryRequirement: item.embroideryRequirement ?? '无',
       printSideMode: item.printSideMode ?? '',
       frontPatternDesignId: getPrimaryBomPatternDesignId(item, 'FRONT'),
       frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
@@ -5300,6 +5363,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         printRequirement: item.printRequirement || '无',
         waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
+        embroideryRequirement: item.embroideryRequirement || '无',
         printSideMode: item.printSideMode || undefined,
         frontPatternDesignId: frontPatternDesignIds[0] || undefined,
         frontPatternDesignIds: frontPatternDesignIds.length > 0 ? frontPatternDesignIds : undefined,
@@ -5729,6 +5793,9 @@ export {
   processUnitOptions,
   customCostUnitOptions,
   bomUsageProcessOptions,
+  bomBoundCraftOptions,
+  getBomBoundCraftCode,
+  replaceBomBoundCraftCode,
   difficultyOptions,
   stageOptions,
   stageCodeToName,
@@ -5861,6 +5928,7 @@ export type {
   ChecklistItem,
   TechPackPageState,
   BomRequirementFlag,
+  BomBoundCraftCode,
   TechPackAssignmentGranularity,
   TechPackColorMappingGeneratedMode,
   TechPackColorMappingStatus,

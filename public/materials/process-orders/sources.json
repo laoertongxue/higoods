@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-09-09",
+  "source": "OpenAI image generation",
+  "usage": "HiGood prototype material identity thumbnails and large previews",
+  "assets": [
+    {
+      "file": "white-water-soluble-lace-12-15mm.jpg",
+      "object": "白色 12/15 mm 水溶花边实物"
+    },
+    {
+      "file": "white-black-cotton-jersey.jpg",
+      "object": "White / Black 棉针织布实物"
+    },
+    {
+      "file": "pale-grey-50d-stretch-lining.jpg",
+      "object": "浅灰色 50D 四面弹里布实物"
+    },
+    {
+      "file": "white-cotton-jersey.jpg",
+      "object": "白色棉感针织布实物"
+    },
+    {
+      "file": "greige-cotton-polyester-woven.jpg",
+      "object": "坯色棉涤混纺梭织布实物"
+    },
+    {
+      "file": "navy-combed-cotton-interlock.jpg",
+      "object": "藏青 40S 精梳棉双面布实物"
+    }
+  ]
+}

@@ -248,7 +248,7 @@ test('PFOS 无可信 session 时仅管理预览且 URL 不能开启动作', asyn
   await navigateInApp(page, '/fcs/craft/dyeing/water-soluble-orders?factoryId=F090')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('管理预览')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('只读')
-  for (const action of ['material-ready', 'start', 'complete', 'open-supervisor', 'open-handover', 'confirm-handover']) {
+  for (const action of ['receive-input', 'start', 'complete', 'open-supervisor', 'open-handover', 'confirm-handover']) {
     await expect(page.locator(`[data-factory-water-soluble-action="${action}"]`)).toHaveCount(0)
   }
 })
@@ -264,7 +264,7 @@ test('PFOS 伪造 URL 和注入外厂 orderId 都不能扩大当前工厂权限'
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('查看条件不属于当前登录工厂')
   await page.evaluate((orderId) => {
     const button = document.createElement('button')
-    button.dataset.factoryWaterSolubleAction = 'material-ready'
+    button.dataset.factoryWaterSolubleAction = 'receive-input'
     button.dataset.orderId = orderId || ''
     button.dataset.skipPageRerender = 'true'
     document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)

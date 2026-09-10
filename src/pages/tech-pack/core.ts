@@ -10,7 +10,6 @@ import {
   currentUser,
   state,
 } from './context.ts'
-import { getStyleArchiveById } from '../../data/pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from '../../data/pcs-technical-data-version-repository.ts'
 import { listPatternAssetsForTechPackVersions } from '../../data/pcs-pattern-library-archive-linkage.ts'
 import {
@@ -25,9 +24,6 @@ import {
   listTechPackReviewReturnTargets,
   normalizeTechnicalReviewSnapshot,
 } from '../../data/pcs-tech-pack-review.ts'
-import {
-  buildTechPackVersionSourceTaskSummary,
-} from '../../data/pcs-tech-pack-task-generation.ts'
 import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
 import {
   TECHNICAL_GARMENT_DIFFICULTY_GRADES,
@@ -172,20 +168,13 @@ function renderGarmentDifficultyField(record: ReturnType<typeof getTechnicalData
 function renderTechPackSummary(): string {
   if (!state.currentTechnicalVersionId || !state.currentStyleId) return ''
   const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
-  const style = getStyleArchiveById(state.currentStyleId)
   if (!record) return ''
-  const sourceSummary = buildTechPackVersionSourceTaskSummary(record)
-  const isCurrent = style?.currentTechPackVersionId === record.technicalVersionId
   const patternAssets = listPatternAssetsForTechPackVersions([record])
   const patternDesignCount = state.techPack?.patternDesigns.length ?? 0
   return `
-    <div class="ml-10 mt-2 grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
-      <div>技术包状态：${renderStatusBadge(state.techPack?.status || 'DRAFT')}</div>
-      <div>是否当前生效版本：<span class="font-medium text-foreground">${isCurrent ? '是' : '否'}</span></div>
-      <div>来源任务链：<span class="font-medium text-foreground">${escapeHtml(sourceSummary.taskChainText)}</span></div>
+    <div class="ml-10 mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-muted-foreground">
       ${renderGarmentDifficultyField(record)}
       <div>关联花型库资产：<span class="font-medium text-foreground">${patternAssets.length > 0 ? escapeHtml(patternAssets.map((item) => item.pattern_code).join('、')) : '未关联'}</span></div>
-      <div>归档状态：<span class="font-medium text-foreground">${record.archiveCollectedFlag ? '已归档' : '未归档'}</span></div>
       <div>当前花型图：<span class="font-medium text-foreground">${patternDesignCount} 张</span></div>
     </div>
   `

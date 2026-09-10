@@ -40,6 +40,7 @@ import type {
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import type { WoolAllowedAction } from './wool-domain/queries.ts'
+import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
 import type { TechnicalProcessObjectType } from '../pcs-technical-data-version-types.ts'
 import {
   buildSpecialCraftSourceTaskIdentity,
@@ -205,6 +206,7 @@ export interface ProcessTask {
   receiverKind?: TaskReceiverKind
   receiverId?: string
   receiverName?: string
+  handoverTargetBlockReason?: string
   // 上一步依赖（当前生产暂停）
   dependsOnTaskIds?: string[]
   routeStepNo?: number
@@ -419,7 +421,7 @@ function toGeneratedOwnerSuggestion(artifact: GeneratedTaskArtifact): OwnerSugge
   return { kind: 'MAIN_FACTORY' }
 }
 
-function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact): Pick<
+function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact, productionOrderNo: string): Pick<
   ProcessTask,
   'receiverKind' | 'receiverId' | 'receiverName'
 > {
@@ -463,11 +465,196 @@ function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact): Pick<
     }
   }
 
+  const terminal = resolveTerminalProcessOrderReceivingTarget({
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderNo,
+  })
   return {
     receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TRANSFER',
-    receiverName: '中转区域',
+    receiverId: terminal.targetBusinessId,
+    receiverName: terminal.targetName,
   }
+}
+
+function applyGeneratedTaskReceivingTargets(tasks: ProcessTask[], productionOrderNo: string): void {
+  tasks.forEach((task) => {
+    if (['WOOL', 'SEW', 'CUT_PANEL', 'POST_FINISHING'].includes(task.processBusinessCode || '')) return
+    const successors = tasks.filter((candidate) => candidate.dependsOnTaskIds?.includes(task.taskId))
+    if (successors.length > 1) {
+      task.receiverKind = undefined
+      task.receiverId = undefined
+      task.receiverName = undefined
+      task.handoverTargetBlockReason = '存在多个下游接收方，请先按接收方拆分加工单。'
+      task.mockHandoverSummary = '存在多个下游接收方，请先按接收方拆分加工单。'
+      return
+    }
+    task.handoverTargetBlockReason = undefined
+    const successor = successors[0]
+    if (successor) {
+      task.receiverKind = 'WAREHOUSE'
+      task.receiverId = successor.taskId
+      task.receiverName = `${successor.processNameZh}加工单 ${successor.taskNo || successor.taskId}`
+      return
+    }
+    const terminal = resolveTerminalProcessOrderReceivingTarget({
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderNo,
+    })
+    task.receiverKind = 'WAREHOUSE'
+    task.receiverId = terminal.targetBusinessId
+    task.receiverName = terminal.targetName
+  })
+}
+
+interface ReceiverSplitTaskVariant {
+  task: ProcessTask
+  successorTaskId?: string
+}
+
+function roundReceiverSplitQty(value: number): number {
+  return Math.round(Math.max(value, 0) * 1000) / 1000
+}
+
+function allocateReceiverSplitQty(totalQty: number, weights: number[]): number[] {
+  if (weights.length <= 1) return [roundReceiverSplitQty(totalQty)]
+  const safeTotal = roundReceiverSplitQty(totalQty)
+  const positiveWeightTotal = weights.reduce((sum, value) => sum + Math.max(value, 0), 0)
+  let allocated = 0
+  return weights.map((weight, index) => {
+    if (index === weights.length - 1) return roundReceiverSplitQty(safeTotal - allocated)
+    const qty = roundReceiverSplitQty(
+      positiveWeightTotal > 0 ? safeTotal * Math.max(weight, 0) / positiveWeightTotal : safeTotal / weights.length,
+    )
+    allocated = roundReceiverSplitQty(allocated + qty)
+    return qty
+  })
+}
+
+function scaleReceiverSplitDetailRows(task: ProcessTask, taskId: string, qty: number, splitSeq: number): TaskDetailRow[] | undefined {
+  if (!task.detailRows?.length) return task.detailRows
+  const ratio = task.qty > 0 ? qty / task.qty : 0
+  return task.detailRows.map((row) => ({
+    ...row,
+    taskId,
+    rowKey: `${row.rowKey}__R${String(splitSeq).padStart(2, '0')}`,
+    qty: roundReceiverSplitQty(row.qty * ratio),
+  }))
+}
+
+/**
+ * 路线可以分叉，但执行加工单只能有一个直接下游接收方。
+ * 该投影从路线末端向前展开：一个任务对应多个直接下游执行单时，按下游执行单拆成多个任务，
+ * 并同步重写每个下游任务的前置任务 ID。这样分叉不会在更上游重新形成“一单多接收方”。
+ */
+export function splitGeneratedProcessTasksByReceivingTarget(sourceTasks: ProcessTask[]): ProcessTask[] {
+  const tasks = sourceTasks.map((task) => ({
+    ...task,
+    dependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
+    detailRows: task.detailRows?.map((row) => ({ ...row, dimensions: { ...row.dimensions }, sourceRefs: { ...row.sourceRefs } })),
+    detailRowKeys: task.detailRowKeys ? [...task.detailRowKeys] : undefined,
+    auditLogs: task.auditLogs.map((log) => ({ ...log })),
+  }))
+  const taskById = new Map(tasks.map((task) => [task.taskId, task]))
+  const successorsByTaskId = new Map<string, ProcessTask[]>()
+  tasks.forEach((task) => {
+    task.dependsOnTaskIds?.forEach((predecessorId) => {
+      if (!taskById.has(predecessorId)) return
+      successorsByTaskId.set(predecessorId, [...(successorsByTaskId.get(predecessorId) ?? []), task])
+    })
+  })
+
+  const variantsByTaskId = new Map<string, ReceiverSplitTaskVariant[]>()
+  const visiting = new Set<string>()
+  const buildVariants = (taskId: string): ReceiverSplitTaskVariant[] => {
+    const memoized = variantsByTaskId.get(taskId)
+    if (memoized) return memoized
+    if (visiting.has(taskId)) throw new Error(`生产工艺路线存在循环依赖，无法按接收方拆分：${taskId}`)
+    const task = taskById.get(taskId)
+    if (!task) return []
+    visiting.add(taskId)
+    const successorVariants = [...(successorsByTaskId.get(taskId) ?? [])]
+      .sort((left, right) => left.taskId.localeCompare(right.taskId))
+      .flatMap((successor) => buildVariants(successor.taskId))
+
+    const splitQty = allocateReceiverSplitQty(task.qty, successorVariants.map((variant) => variant.task.qty))
+    const keepsDomainReceiver = ['WOOL', 'SEW', 'CUT_PANEL', 'POST_FINISHING'].includes(task.processBusinessCode || '')
+    const variants: ReceiverSplitTaskVariant[] = successorVariants.length <= 1
+      ? [{
+          task: {
+            ...task,
+            ...(successorVariants[0] && !keepsDomainReceiver
+              ? {
+                  receiverKind: 'WAREHOUSE' as const,
+                  receiverId: successorVariants[0].task.taskId,
+                  receiverName: `${successorVariants[0].task.processNameZh}加工单 ${successorVariants[0].task.taskNo || successorVariants[0].task.taskId}`,
+                  handoverTargetBlockReason: undefined,
+                }
+              : {}),
+          },
+          successorTaskId: successorVariants[0]?.task.taskId,
+        }]
+      : successorVariants.map((successor, index) => {
+          const splitSeq = index + 1
+          const splitTaskId = `${task.taskId}__R${String(splitSeq).padStart(2, '0')}`
+          const qty = splitQty[index]
+          const detailRows = scaleReceiverSplitDetailRows(task, splitTaskId, qty, splitSeq)
+          return {
+            task: {
+              ...task,
+              taskId: splitTaskId,
+              taskNo: `${task.taskNo || task.taskId}-R${String(splitSeq).padStart(2, '0')}`,
+              qty,
+              detailRows,
+              detailRowKeys: detailRows?.map((row) => row.rowKey) ?? task.detailRowKeys,
+              rootTaskNo: task.rootTaskNo || task.taskNo || task.taskId,
+              splitGroupId: `SG-${task.taskId}-RECEIVER`,
+              splitFromTaskNo: task.taskNo || task.taskId,
+              splitSeq,
+              isSplitResult: true,
+              isSplitSource: false,
+              receiverKind: 'WAREHOUSE',
+              receiverId: successor.task.taskId,
+              receiverName: `${successor.task.processNameZh}加工单 ${successor.task.taskNo || successor.task.taskId}`,
+              handoverTargetBlockReason: undefined,
+              auditLogs: [
+                ...task.auditLogs,
+                {
+                  id: `GAL-${splitTaskId}-RECEIVER-SPLIT`,
+                  action: 'SPLIT_BY_RECEIVER',
+                  detail: `路线分叉，按唯一接收方拆为加工单并指向 ${successor.task.taskNo || successor.task.taskId}`,
+                  at: task.createdAt,
+                  by: '系统',
+                },
+              ],
+            },
+            successorTaskId: successor.task.taskId,
+          }
+        })
+    visiting.delete(taskId)
+    variantsByTaskId.set(taskId, variants)
+    return variants
+  }
+
+  tasks.forEach((task) => buildVariants(task.taskId))
+  const allVariants = tasks.flatMap((task) => variantsByTaskId.get(task.taskId) ?? [])
+  const variantsByOriginalTaskId = new Map<string, ReceiverSplitTaskVariant[]>()
+  tasks.forEach((task) => variantsByOriginalTaskId.set(task.taskId, variantsByTaskId.get(task.taskId) ?? []))
+
+  return allVariants.map((variant) => {
+    const originalTask = taskById.get(variant.task.splitFromTaskNo || variant.task.taskId)
+      ?? tasks.find((task) => (task.taskNo || task.taskId) === variant.task.splitFromTaskNo)
+      ?? taskById.get(variant.task.taskId)
+    const predecessorIds = originalTask?.dependsOnTaskIds ?? variant.task.dependsOnTaskIds ?? []
+    const rewiredDependencies = predecessorIds.flatMap((predecessorId) =>
+      (variantsByOriginalTaskId.get(predecessorId) ?? [])
+        .filter((predecessorVariant) => predecessorVariant.successorTaskId === variant.task.taskId)
+        .map((predecessorVariant) => predecessorVariant.task.taskId),
+    )
+    return {
+      ...variant.task,
+      dependsOnTaskIds: [...new Set(rewiredDependencies)],
+    }
+  })
 }
 
 function resolveWoolTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' | 'PART_PANEL' {
@@ -819,7 +1006,7 @@ export function buildGeneratedProcessTasksFromArtifacts(
       const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
       const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
-      const receiver = resolveGeneratedTaskReceiver(artifact)
+      const receiver = resolveGeneratedTaskReceiver(artifact, productionOrder.productionOrderNo)
       const processName = artifact.processName
       const processCode = artifact.systemProcessCode
       const standardPrice = resolveGeneratedTaskStandardPrice(processCode)
@@ -936,13 +1123,15 @@ export function buildGeneratedProcessTasksFromArtifacts(
           },
         ],
       }
-      tasks.push(task)
       currentOrderTasks.push(task)
     })
     const dependencyMap = buildRouteTaskDependencyIds(currentOrderTasks)
     currentOrderTasks.forEach((task) => {
       task.dependsOnTaskIds = dependencyMap.get(task.taskId) ?? []
     })
+    const executableTasks = splitGeneratedProcessTasksByReceivingTarget(currentOrderTasks)
+    applyGeneratedTaskReceivingTargets(executableTasks, productionOrder.productionOrderNo)
+    tasks.push(...executableTasks)
   }
 
   return tasks

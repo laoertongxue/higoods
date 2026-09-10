@@ -4,7 +4,11 @@ import {
 } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-orders.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
-import type { TechPackPatternFileSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackBomItemSnapshot,
+  TechPackPatternFileSnapshot,
+} from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import type {
   TechnicalPatternBindingStrip,
   TechnicalPatternPieceSpecialCraft,
@@ -34,6 +38,7 @@ export interface BindingStripRequirementLine {
   cutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  sourceBomItemId?: string
   markerPlanId: string
   markerPlanNo: string
   materialSku: string
@@ -66,6 +71,28 @@ export interface BindingStripRequirementLine {
   formulaText: string
   specialCrafts: TechnicalPatternPieceSpecialCraft[]
   requiresButtonLoop: boolean
+}
+
+const BINDING_STRIP_BOM_PROCESS_CODES = new Set(['CRAFT_131072', 'AUX_BINDING_STRIP'])
+
+export function selectBindingInputBomItem(
+  snapshot: Pick<ProductionOrderTechPackSnapshot, 'bomItems'> | null | undefined,
+  source: Pick<GeneratedCutOrderSourceRecord, 'skuScopeLines' | 'colorScope'>,
+): TechPackBomItemSnapshot | undefined {
+  const candidates = (snapshot?.bomItems ?? []).filter((item) =>
+    item.type === '面料'
+    && (item.usageProcessCodes ?? []).some((code) => BINDING_STRIP_BOM_PROCESS_CODES.has(code)),
+  )
+  if (candidates.length <= 1) return candidates[0]
+
+  const sourceSkuCodes = new Set(source.skuScopeLines.map((line) => normalizeText(line.skuCode)).filter(Boolean))
+  const skuMatched = candidates.find((item) =>
+    (item.applicableSkuCodes ?? []).some((skuCode) => sourceSkuCodes.has(normalizeText(skuCode))),
+  )
+  if (skuMatched) return skuMatched
+
+  const sourceColors = new Set(source.colorScope.map((color) => normalizeText(color)).filter(Boolean))
+  return candidates.find((item) => sourceColors.has(normalizeText(item.colorLabel))) ?? candidates[0]
 }
 
 export interface BindingStripRequirementSummary {
@@ -300,6 +327,8 @@ function buildRequirementLinesForSource(
   const patternFile = findSourcePatternFile(source)
   const bindingStrips = augmentBindingStripsForDemo(patternFile?.bindingStrips || [], source, sourceIndex)
   if (!patternFile || !bindingStrips.length) return []
+  const snapshot = getProductionOrderTechPackSnapshot(source.productionOrderId)
+  const boundBomItem = selectBindingInputBomItem(snapshot, source)
   const doorWidthCm = Math.max(Number(patternFile.widthCm || source.patternIdentity.effectiveWidthValue || 0), 0)
   if (!doorWidthCm) return []
 
@@ -311,11 +340,11 @@ function buildRequirementLinesForSource(
     const plannedBindingLengthM = roundTo(plannedGarmentQty * unitBindingLengthM, 2)
     const cuttingMethod = resolveBindingStripCuttingMethod(strip.cuttingMethod, stripIndex)
     const lengthMeta = buildBindingStripRequirementLengthMeta(plannedBindingLengthM, bindingWidthCm, doorWidthCm)
-    const materialSku = source.materialIdentity.materialSku || source.materialSku
-    const materialName = source.materialIdentity.materialName || source.materialName
-    const materialAlias = source.materialIdentity.materialAlias || source.materialAlias
+    const materialSku = boundBomItem?.materialCode || boundBomItem?.id || source.materialIdentity.materialSku || source.materialSku
+    const materialName = boundBomItem?.name || source.materialIdentity.materialName || source.materialName
+    const materialAlias = boundBomItem?.materialAlias || source.materialIdentity.materialAlias || source.materialAlias
     const materialImageUrl = resolveBindingStripMaterialImageUrl(
-      source.materialIdentity.materialImageUrl || source.materialImageUrl,
+      boundBomItem?.materialImageUrl || source.materialIdentity.materialImageUrl || source.materialImageUrl,
       materialSku,
       materialName,
       materialAlias,
@@ -331,14 +360,15 @@ function buildRequirementLinesForSource(
       cutOrderNo: source.cutOrderNo,
       productionOrderId: source.productionOrderId,
       productionOrderNo: source.productionOrderNo,
+      sourceBomItemId: boundBomItem?.id,
       markerPlanId: source.markerPlanId,
       markerPlanNo: source.markerPlanNo,
       materialSku,
       materialName,
-      materialColor: source.materialIdentity.materialColor || source.materialColor,
+      materialColor: boundBomItem?.colorLabel || source.materialIdentity.materialColor || source.materialColor,
       materialAlias,
       materialImageUrl,
-      materialUnit: source.materialIdentity.materialUnit || source.materialUnit || '米',
+      materialUnit: boundBomItem?.unit || source.materialIdentity.materialUnit || source.materialUnit || '米',
       patternFileId: source.patternIdentity.patternFileId || patternFile.patternFileId || patternFile.id,
       patternFileName: source.patternIdentity.patternFileName || patternFile.patternFileName || patternFile.fileName,
       patternVersion: source.patternIdentity.patternVersion || patternFile.patternVersion,
@@ -722,6 +752,7 @@ function buildInitialBindingProcessOrders(
         sourceParentTaskNo: source.cuttingTaskNo,
         sourceProductionOrderId: source.productionOrderId,
         sourceProductionOrderNo: source.productionOrderNo,
+        sourceBomItemId: firstLine.sourceBomItemId,
         sourceMarkerPlanId: source.markerPlanId,
         sourceMarkerPlanNo: source.markerPlanNo,
         sourceSpreadingOrderId: '',
@@ -729,12 +760,12 @@ function buildInitialBindingProcessOrders(
         sourceFeiTicketIds: details.map((detail) => detail.feiTicketId),
         sourceFeiTicketNos: details.map((detail) => detail.feiTicketNo),
         materialIdentity: {
-          materialSku: source.materialIdentity.materialSku || source.materialSku,
-          materialName: source.materialIdentity.materialName || source.materialName,
-          materialColor: source.materialIdentity.materialColor || source.materialColor,
-          materialAlias: source.materialIdentity.materialAlias || source.materialAlias,
-          materialImageUrl: source.materialIdentity.materialImageUrl || source.materialImageUrl,
-          materialUnit: source.materialIdentity.materialUnit || source.materialUnit || '米',
+          materialSku: firstLine.materialSku,
+          materialName: firstLine.materialName,
+          materialColor: firstLine.materialColor,
+          materialAlias: firstLine.materialAlias,
+          materialImageUrl: firstLine.materialImageUrl,
+          materialUnit: firstLine.materialUnit,
         },
         patternIdentity: {
           patternFileId: source.patternIdentity.patternFileId,

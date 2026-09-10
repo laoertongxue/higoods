@@ -39,7 +39,7 @@ function renderNodeOverview(): string {
         ${renderMetricCard('待样衣染色加工单数', String(countByLabel('待样衣')), '统一加工单')}
         ${renderMetricCard('待原料染色加工单数', String(countByLabel('待原料')), '统一加工单')}
         ${renderMetricCard('打样中染色加工单数', String(countByLabel('打样中')), '打样执行中')}
-        ${renderMetricCard('待排缸染色加工单数', String(countByLabel('待排缸')), '备料完成待排缸')}
+        ${renderMetricCard('待排缸染色加工单数', String(countByLabel('待排缸')), '投入已接收待排缸')}
         ${renderMetricCard('染色中染色加工单数', String(countByLabel('染色中')), '染缸执行中')}
         ${renderMetricCard('脱水中染色加工单数', String(countByLabel('脱水中')), '后处理节点')}
         ${renderMetricCard('烘干中染色加工单数', String(countByLabel('烘干中')), '后处理节点')}
@@ -62,7 +62,7 @@ function renderTopMetrics(): string {
       ${renderMetricCard('染色加工单总数', String(statistics.workOrderCount), '统一加工单')}
       ${renderMetricCard('计划染色面料米数', `${statistics.plannedDyeFabricMeters} 米`, '统一加工单计划')}
       ${renderMetricCard('待加工面料米数', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
-      ${renderMetricCard('备料面料米数', `${statistics.materialReadyFabricMeters} 米`, '执行节点')}
+      ${renderMetricCard('已接收投入米数', `${statistics.materialReadyFabricMeters} 米`, '投入接收记录')}
       ${renderMetricCard('染色完成面料米数', `${statistics.dyeCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('包装完成面料米数', `${statistics.finalPackedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('待交出面料米数', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}

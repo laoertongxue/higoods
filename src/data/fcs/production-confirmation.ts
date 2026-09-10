@@ -67,6 +67,7 @@ export interface ProductionConfirmationBomSnapshotRow {
   printRequirement?: string
   waterSolubleRequirement?: '是' | '否'
   dyeRequirement?: string
+  embroideryRequirement?: string
   applicableSkuCodes: string[]
 }
 
@@ -488,6 +489,7 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
       printRequirement: item.printRequirement,
       waterSolubleRequirement: item.waterSolubleRequirement,
       dyeRequirement: item.dyeRequirement,
+      embroideryRequirement: item.embroideryRequirement,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     }
   })

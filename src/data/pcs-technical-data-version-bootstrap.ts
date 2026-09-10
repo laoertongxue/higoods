@@ -746,14 +746,15 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             name: '腰口定长橡筋',
             spec: '42cm / 条，连续卷装来料',
             colorLabel: '本白',
-            materialCode: `ACC-ELASTIC-42CM-${demand.spuCode.endsWith('005') ? '005' : '015'}`,
+            materialCode: 'ACC-ELASTIC-42CM',
+            materialSkuId: 'material_accessory_elastic_001_sku_001',
             unit: '米',
             unitConsumption: 0.84,
             lossRate: 0.02,
             supplier: '生产需求单指定',
             applicableSkuCodes: [...allSkuCodes],
             linkedPatternIds: [],
-            usageProcessCodes: ['SPECIAL_CRAFT'],
+            usageProcessCodes: ['CRAFT_3000009'],
           } satisfies TechnicalBomItem]
         : []),
       ...(isWaterSolubleDyeDemo

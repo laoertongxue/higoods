@@ -46,7 +46,7 @@ for (const sourceType of ['PRODUCTION_ORDER', 'STOCK', 'CUT_PIECE_SUPPLEMENT'] a
   assert.equal(view.demandSource.type, sourceType === 'PRODUCTION_ORDER' ? 'PRODUCTION' : sourceType === 'STOCK' ? 'STOCK' : 'SUPPLEMENT')
   assignPrintingWorkOrder(id, { factoryId: 'F090', factoryName: 'FLOWER 印花厂', operatorName: '验收计划员' })
   if (sourceType !== 'CUT_PIECE_SUPPLEMENT') {
-    receivePrintingInput(id, { actualSku: view.plannedInput.sku, receivedQty: 1, receivedRollCount: 1, receiverName: '验收接收员' })
+    receivePrintingInput(id, { actualSku: view.plannedInput.sku, receivedQty: 1, receivedRollCount: 1, receiverName: '验收接收员', receiptId: `CHECK-RECEIPT-${id}`, upstreamRecordId: `CHECK-SOURCE-${id}` })
     assert.equal(getPrintingWorkOrderById(id)!.actualInput.receivedQty, 1, `${sourceType}正式新单动作入口可接收`)
   }
   console.log(JSON.stringify({sourceType,id,demandSource:view.demandSource,initialReceived:0,initialCompleted:0,listed:true,detail:true}))

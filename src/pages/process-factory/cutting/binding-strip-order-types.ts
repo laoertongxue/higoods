@@ -148,6 +148,7 @@ export interface BindingProcessOrder {
   sourceParentTaskNo: string
   sourceProductionOrderId: string
   sourceProductionOrderNo: string
+  sourceBomItemId?: string
   spuCode?: string
   styleName?: string
   sourceMarkerPlanId: string

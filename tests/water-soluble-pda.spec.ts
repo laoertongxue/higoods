@@ -745,7 +745,7 @@ test('任务9安全：水溶交出详情拒绝无会话、错误角色、跨厂�
       if (!second) throw new Error('缺少第二张水溶单验证跨单令牌')
       if (second.status === 'WAIT_FACTORY_ASSIGNMENT') water.assignWaterSolubleFactory(second.waterOrderId, factoryId)
       second = water.getWaterSolubleWorkOrderById(second.waterOrderId)!
-      if (second.status === 'WAIT_MATERIAL') water.markWaterSolubleMaterialReady(second.waterOrderId)
+      if (second.status === 'WAIT_MATERIAL') water.receiveWaterSolubleInput(second.waterOrderId, { qty: second.plannedQty, receiptId: 'CHECK-CROSS-ORDER-RECEIPT', upstreamRecordId: 'CHECK-CROSS-ORDER-SOURCE' })
       second = water.getWaterSolubleWorkOrderById(second.waterOrderId)!
       if (second.status === 'WAIT_WATER_SOLUBLE') water.startWaterSoluble(second.waterOrderId)
       second = water.getWaterSolubleWorkOrderById(second.waterOrderId)!
@@ -885,8 +885,7 @@ test('PFOS 联合水溶必须使用当前会话且普通动作只允许操作员
     }
     dye.startDyeMaterialWait(order.dyeOrderId, '浏览器测试操作员')
     dye.completeDyeMaterialWait(order.dyeOrderId, '浏览器测试操作员')
-    dye.startDyeMaterialReady(order.dyeOrderId, '浏览器测试操作员')
-    dye.completeDyeMaterialReady(order.dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器测试操作员' })
+    dye.completeDyeInputReceipt(order.dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器测试操作员', receiptId: 'CHECK-DYE-RECEIPT-1', upstreamRecordId: 'CHECK-DYE-SOURCE-1' })
     const vat = dye.listDyeVatOptions(order.dyeFactoryId)[0]
     if (!vat) throw new Error('缺少测试染缸')
     dye.planDyeVat(order.dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: '浏览器测试操作员' })
@@ -1000,8 +999,7 @@ test('含水溶染色按当前节点执行，80产出阻断100投入并允许80�
     }
     dye.startDyeMaterialWait(dyeOrderId, '浏览器测试操作员')
     dye.completeDyeMaterialWait(dyeOrderId, '浏览器测试操作员')
-    dye.startDyeMaterialReady(dyeOrderId, '浏览器测试操作员')
-    dye.completeDyeMaterialReady(dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器测试操作员' })
+    dye.completeDyeInputReceipt(dyeOrderId, { outputQty: order.plannedQty, operatorName: '浏览器测试操作员', receiptId: 'CHECK-DYE-RECEIPT-2', upstreamRecordId: 'CHECK-DYE-SOURCE-2' })
     const vat = dye.listDyeVatOptions(order.dyeFactoryId)[0]
     if (!vat) throw new Error('缺少测试染缸')
     dye.planDyeVat(dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: '浏览器测试操作员' })

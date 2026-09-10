@@ -394,7 +394,7 @@ function renderCreateDrawer(): string {
         <div><span class="text-muted-foreground">已选加工单：</span><strong>${selectedOrders.length} 张</strong></div>
         <div><span class="text-muted-foreground">需求合计：</span><strong>${quantity(selectedQty, first?.qtyUnit || 'Yard')}</strong></div>
       </div>
-      <p class="text-sm text-muted-foreground">首张加工单确定染厂、面料、目标颜色和染色工序；其他不兼容项会明确原因并禁选。创建后成员立即锁定，不能增删。</p>
+      <p class="text-sm text-muted-foreground">首张加工单确定染厂、面料、目标颜色和染色工序；不符合合并条件的加工单会显示原因并禁选。创建后不能增删成员。</p>
       ${state.overlayError ? `<p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(state.overlayError)}</p>` : ''}
       <div data-combined-dyeing-page-scope="candidates" class="rounded-lg border">
         <div class="max-h-[46vh] overflow-auto">${table}</div>

@@ -19,6 +19,7 @@ import {
   WATER_SOLUBLE_STATUS_LABEL,
   type WaterSolubleWorkOrder,
 } from '../data/fcs/water-soluble-task-domain.ts'
+import { getWaterSolubleOrderImageManifest } from '../data/fcs/process-order-image-manifest.ts'
 import {
   getMobileExecutionTaskById,
   getMobileTaskTabKey,
@@ -903,6 +904,7 @@ export function renderWaterSolubleCard(
     ? '查看主管处理'
     : currentAction?.actionName || '查看任务'
   const isPaused = order.status === 'PRODUCTION_PAUSED'
+  const images = getWaterSolubleOrderImageManifest(order.waterOrderId)!
 
   return `
     <article class="cursor-pointer rounded-lg border ${isPaused ? 'border-red-200' : ''} transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
@@ -915,11 +917,9 @@ export function renderWaterSolubleCard(
           ${renderTaskStatusBadge(task)}
         </div>
 
+        <div class="flex gap-3"><button type="button" class="relative h-16 w-16 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border bg-white" data-pda-image-preview-url="${escapeHtml(images.material)}" data-pda-image-preview-title="${escapeHtml(`${order.materialName} 实物图`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(order.materialName)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(images.material)}" alt="${escapeHtml(`${order.materialName} 实物图`)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button><div class="min-w-0 flex-1"><div class="font-medium">${escapeHtml(order.materialName)}</div><div class="mt-1 break-all text-[11px] text-muted-foreground">${escapeHtml(order.materialCode)}</div><div class="mt-1 text-xs">计划 ${escapeHtml(`${order.plannedQty.toLocaleString('zh-CN')} ${order.qtyUnit}`)}</div></div></div>
+
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">物料</div>
-          <div class="truncate font-medium">${escapeHtml(`${order.materialName} / ${order.materialCode}`)}</div>
-          <div class="text-muted-foreground">计划数量</div>
-          <div class="font-medium">${escapeHtml(`${order.plannedQty.toLocaleString('zh-CN')} ${order.qtyUnit}`)}</div>
           <div class="text-muted-foreground">当前步骤</div>
           <div class="font-medium">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</div>
           <div class="text-muted-foreground">下一步</div>

@@ -161,8 +161,9 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     .find((node) => node.finishedAt && typeof node.outputQty === 'number')
   const hasCompletedDyeing = ['染色完成', '待审核', '部分入库', '待人工完单', '已完成', '取消'].includes(status)
   const completedQty = order.materialReceipts?.length ? [...archived, ...nodes].filter(node => node.nodeCode === 'PACK' && node.finishedAt).reduce((sum,node) => sum + (node.outputQty ?? 0), 0) : hasCompletedDyeing ? completedNode?.outputQty || 0 : 0
-  const rawMaterialQty = dyeInputQty || completedQty
-  const lossQty = completedQty > 0 ? Number(Math.max(0, rawMaterialQty - completedQty).toFixed(2)) : 0
+  const receivedInputQty = (order.materialReceipts ?? []).reduce((sum, receipt) => sum + receipt.qty, 0)
+  const rawMaterialQty = dyeInputQty
+  const lossQty = [...archived, ...nodes].filter(node => node.finishedAt && node.qtyUnit === order.qtyUnit).reduce((sum, node) => sum + (node.lossQty ?? 0), 0)
   return {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
@@ -192,7 +193,8 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   const completedNode = [...nodes].reverse().find((node) => node.finishedAt && typeof node.outputQty === 'number')
   const status = mapExecutionStatus(order.status)
   const allBatchNodes = [...(order.completedExecutionBatches ?? []).flat(), ...nodes]
-  const rawMaterialQty = order.materialReceipts?.length ? allBatchNodes.filter(node => node.nodeCode === 'DYE').reduce((sum,node) => sum + (node.inputQty ?? 0), 0) : dyeNode?.inputQty || record.rawMaterialQty
+  const receivedInputQty = (order.materialReceipts ?? []).reduce((sum, receipt) => sum + receipt.qty, 0)
+  const rawMaterialQty = allBatchNodes.filter(node => node.nodeCode === 'DYE' && node.qtyUnit === order.qtyUnit).reduce((sum, node) => sum + (node.inputQty ?? 0), 0)
   const completedQty = order.materialReceipts?.length ? allBatchNodes.filter(node => node.nodeCode === 'PACK' && node.finishedAt).reduce((sum,node) => sum + (node.outputQty ?? 0), 0) : completedNode?.outputQty ?? record.completedQty
   record.workOrderNo = order.dyeOrderNo
   record.status = status
@@ -203,7 +205,7 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   record.receiverName = order.receiverName
   record.rawMaterialQty = rawMaterialQty
   record.completedQty = completedQty
-  record.lossQty = Math.max(Number((rawMaterialQty - completedQty).toFixed(2)), 0)
+  record.lossQty = allBatchNodes.filter(node => node.finishedAt && node.qtyUnit === order.qtyUnit).reduce((sum, node) => sum + (node.lossQty ?? 0), 0)
   record.completedAt = ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.completedAt
   record.deliveredAt = ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.deliveredAt
   record.updatedAt = order.updatedAt

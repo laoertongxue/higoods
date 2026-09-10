@@ -646,7 +646,7 @@ function checkCombinedDyeingLifecycle(): void {
   const unrestrictedA = registerLifecycleWorkOrder({ plannedQty: 20 })
   const unrestrictedB = registerLifecycleWorkOrder({ plannedQty: 20 })
   const startedTask = createCombinedDyeingTask({ dyeWorkOrderIds: [unrestrictedA.dyeOrderId, unrestrictedB.dyeOrderId], createdBy: '计划员' })
-  assert.equal(startedTask.status, 'WAIT_DYEING', '创建合并任务不得要求备料完成或可投缸状态')
+  assert.equal(startedTask.status, 'WAIT_DYEING', '创建合并任务不得跳过投入接收或直接进入投缸状态')
   deleteCombinedDyeingTask(startedTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 17:10:00', reason: '验证后取消' })
 
   const zeroA = registerLifecycleWorkOrder({ plannedQty: 10 })

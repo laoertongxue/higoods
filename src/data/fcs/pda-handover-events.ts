@@ -36,6 +36,7 @@ import {
   type ProcessWorkOrderSourceSnapshot,
   type ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
 
 const getRuntimeTaskById = (taskId: string): RuntimeProcessTask | null =>
   readRuntimeTaskById<RuntimeProcessTask>(taskId)
@@ -3775,11 +3776,17 @@ function resolveTaskReceiver(task: {
   processBusinessCode?: string
   processNameZh?: string
   assignedFactoryId?: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  productionOrderId?: string
+  productionOrderNo?: string
+  handoverTargetBlockReason?: string
 }): {
   receiverKind: HandoverReceiverKind
   receiverId: string
   receiverName: string
 } {
+  if (task.handoverTargetBlockReason) throw new Error(task.handoverTargetBlockReason)
   if (task.receiverKind && task.receiverId && task.receiverName) {
     return {
       receiverKind: task.receiverKind,
@@ -3812,10 +3819,16 @@ function resolveTaskReceiver(task: {
     }
   }
 
+  const terminal = resolveTerminalProcessOrderReceivingTarget({
+    sourceType: task.sourceType || 'PRODUCTION_ORDER',
+    productionOrderNo: task.productionOrderNo || task.productionOrderId,
+    supplementRecordId: task.sourceSnapshot?.supplementRecordId,
+    supplementRecordNo: task.sourceSnapshot?.supplementRecordNo,
+  })
   return {
     receiverKind: 'WAREHOUSE',
-    receiverId: 'WH-TRANSFER',
-    receiverName: '中转区域',
+    receiverId: terminal.targetBusinessId,
+    receiverName: terminal.targetName,
   }
 }
 

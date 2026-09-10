@@ -18,6 +18,7 @@ export interface StandardListColumn<T> {
   /**
    * 返回可信 HTML。调用方必须先对来自业务数据的纯文本执行 HTML 转义。
    */
+  renderHeader?(rows: readonly T[]): string
   render(row: T, index: number): string
   sortValue?: (row: T) => unknown
 }
@@ -296,7 +297,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
         data-column-key="${escapeHtml(column.key)}"
         ${ariaSort ? `aria-sort="${ariaSort}"` : ''}
       >
-        ${column.sortable ? renderSortHeader(column, config.sort, config.eventPrefix, Boolean(config.skipPageRerender)) : escapeHtml(column.title)}
+        ${column.renderHeader ? column.renderHeader(config.rows) : column.sortable ? renderSortHeader(column, config.sort, config.eventPrefix, Boolean(config.skipPageRerender)) : escapeHtml(column.title)}
       </th>
     `
   }).join('')

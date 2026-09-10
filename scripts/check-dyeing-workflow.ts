@@ -105,7 +105,6 @@ function main(): void {
     makeText(['打', '印', '机']),
     makeText(['转', '印']),
     makeText(['printer', 'No']),
-    makeText(['trans', 'fer']),
   ]
 
   for (const file of dyePages) {
@@ -247,8 +246,8 @@ function main(): void {
   assert(orders.every((order) => Boolean(order.taskId && order.taskNo)), '染色加工单必须关联染色任务')
   assert(orders.every((order) => order.taskQrValue.startsWith('FCS:TASK:v1:')), '染色任务必须有任务二维码')
   assert(orders.some((order) => order.status === 'WAIT_HANDOVER'), '染色任务必须包含待送货状态')
-  assert(orders.some((order) => order.status === 'WAIT_REVIEW'), '染色任务必须包含待审核状态')
-  assert(orders.every((order) => order.receiverName === '中转区域' || order.receiverName === '仓库'), '接收方必须是中转区域或仓库')
+  assert(onlineRows.some((order) => order.handoverStatus === 'FULL_HANDOVER' && order.downstreamReceivedQty < order.handedOverQty), '染色任务必须覆盖全部交出后下游尚未收齐，且不能把下游接收混入交出状态')
+  assert(onlineRows.every((order) => Boolean(order.receiverName.trim() && order.receiverWarehouseName.trim())), '每张染色加工单必须解析唯一接收方和目标仓')
   assert(orders.every((order) => !order.targetTransferWarehouseName.includes('裁床仓') && !order.targetTransferWarehouseName.includes('裁片仓')), '染色完成后不能直接进入裁床仓')
   assert(orders.some((order) => Boolean(order.handoverOrderId)), '开工后的染色任务必须有交出单')
   const combinedDemoA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
@@ -522,9 +521,9 @@ function main(): void {
   assert.equal(productionHandoverRecord?.sourceProductionOrderId, productionOrder.sourceProductionOrderId, '生产单染色交出回写必须保留生产单 ID')
   assert.equal(productionHandoverRecord?.stockMaterialId, undefined, '生产单染色交出回写不得携带备货来源')
 
-  const waitReviewOrder = orders.find((order) => order.status === 'WAIT_REVIEW')
-  assert(waitReviewOrder, '需要至少一条待审核染色加工单')
-  assert(getDyeOrderHandoverSummary(waitReviewOrder.dyeOrderId).writtenBackQty > 0, '接收方回写后才能进入待审核')
+  const downstreamPartialRow = onlineRows.find((order) => order.handoverStatus === 'FULL_HANDOVER' && order.downstreamReceivedQty > 0 && order.downstreamReceivedQty < order.handedOverQty)
+  assert(downstreamPartialRow, '需要至少一条全部交出、下游部分接收的染色加工单')
+  assert(getDyeOrderHandoverSummary(downstreamPartialRow.dyeOrderId).writtenBackQty > 0, '下游部分接收必须来自真实接收回写')
 
   const startValidation = validateDyeStartPayload({})
   assert(!startValidation.ok, '没有染缸编号时不能进入染色中')

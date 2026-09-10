@@ -404,9 +404,9 @@ assert.deepEqual(
   '染色中',
   '烘干中',
   '待送货',
-  '待审核',
-  '已完成',
-  '已驳回',
+  '待人工完成单据',
+  '收货差异',
+  '包装中',
 ].forEach((label) => {
   assert(unifiedDyeOrders.some((order) => order.statusLabel === label), `染色状态覆盖缺少：${label}`)
 })
@@ -422,7 +422,7 @@ assert(
 )
 
 const dyeSummary = getDyeWorkOrderSummary()
-const dyeCompletedCount = dyeWorkOrders.filter((order) => ['FULL_HANDOVER', 'COMPLETED'].includes(order.status)).length
+const dyeCompletedCount = dyeWorkOrders.filter((order) => ['WAIT_MANUAL_COMPLETION', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status)).length
 const dyeRejectedCount = dyeWorkOrders.filter((order) => ['HANDOVER_DIFFERENCE', 'REJECTED'].includes(order.status)).length
 assert.equal(dyeSummary.fullHandoverCount, dyeCompletedCount, '染色终态列表数量必须与汇总一致')
 assert.equal(dyeSummary.handoverDifferenceCount, dyeRejectedCount, '染色驳回列表数量必须与汇总一致')
@@ -463,7 +463,7 @@ listDyeReportRows()
     'WAIT_MATERIAL',
     'SAMPLE_TESTING',
     'SAMPLE_DONE',
-    'MATERIAL_READY',
+    'INPUT_RECEIVED',
     'WAIT_VAT_PLAN',
     'VAT_PLANNED',
     'DYEING',
@@ -506,7 +506,7 @@ assertNotIncludes(pfosDyeSource, '/fcs/pda/handover', '工厂端染色加工单�
   '固定加工产出',
   '数量与卷数',
   '加工厂与执行时间',
-  '交出与接收',
+  '交出与下游实收',
   '加工产出卷条码',
   '打印历史',
   '操作日志与备注',

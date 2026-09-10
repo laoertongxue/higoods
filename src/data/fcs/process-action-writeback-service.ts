@@ -15,8 +15,7 @@ import {
 import {
   DYE_WORK_ORDER_STATUS_LABEL,
   captureDyeProcessMutationState,
-  completeDyeMaterialReady,
-  completeDyeMaterialWait,
+  completeDyeInputReceipt,
   completeDyeNode,
   completeDyeSampleTest,
   completeDyeSampleWait,
@@ -24,7 +23,6 @@ import {
   completeDyeing,
   getDyeWorkOrderById,
   planDyeVat,
-  startDyeMaterialReady,
   startDyeSampleTest,
   startDyeing,
   submitDyeHandover,
@@ -203,8 +201,6 @@ const ACTION_CODE_ALIASES: Record<string, string> = {
   CONFIRM_DYE_SAMPLE_READY: 'DYE_SAMPLE_RECEIVED',
   START_DYE_SAMPLE: 'DYE_START_SAMPLE',
   FINISH_DYE_SAMPLE: 'DYE_FINISH_SAMPLE',
-  CONFIRM_DYE_MATERIAL_READY: 'DYE_MATERIAL_RECEIVED',
-  COMPLETE_DYE_PREP: 'DYE_FINISH_PREPARE',
   PLAN_DYE_VAT: 'DYE_SCHEDULE_VAT',
   START_DYE: 'DYE_START_DYEING',
   FINISH_DYE: 'DYE_FINISH_DYEING',
@@ -320,28 +316,19 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     writebackHandler: 'executeDyeAction.completeDyeSampleTest',
   },
   {
-    actionCode: 'DYE_MATERIAL_RECEIVED',
-    actionLabel: '确认原料到位',
+    actionCode: 'DYE_CONFIRM_INPUT_RECEIPT',
+    actionLabel: '确认投入接收',
     sourceType: 'DYE',
-    fromStatuses: ['WAIT_MATERIAL'],
-    toStatus: 'MATERIAL_READY',
-    requiredFields: ['操作人', '原料面料 SKU', '到位面料米数', '到位卷数', '到位时间'],
-    writebackHandler: 'executeDyeAction.completeDyeMaterialWait',
-  },
-  {
-    actionCode: 'DYE_FINISH_PREPARE',
-    actionLabel: '完成备料',
-    sourceType: 'DYE',
-    fromStatuses: ['WAIT_MATERIAL', 'MATERIAL_READY'],
-    toStatus: 'MATERIAL_READY',
-    requiredFields: ['操作人', '备料面料米数', '备料卷数', '完成时间'],
-    writebackHandler: 'executeDyeAction.completeDyeMaterialReady',
+    fromStatuses: ['WAIT_MATERIAL', 'INPUT_RECEIVED'],
+    toStatus: 'INPUT_RECEIVED',
+    requiredFields: ['操作人', '来源单据', '实际接收数量', '接收时间'],
+    writebackHandler: 'executeDyeAction.completeDyeInputReceipt',
   },
   {
     actionCode: 'DYE_SCHEDULE_VAT',
     actionLabel: '排染缸',
     sourceType: 'DYE',
-    fromStatuses: ['SAMPLE_DONE', 'MATERIAL_READY', 'WAIT_VAT_PLAN'],
+    fromStatuses: ['SAMPLE_DONE', 'INPUT_RECEIVED', 'WAIT_VAT_PLAN'],
     toStatus: 'WAIT_VAT_PLAN',
     requiredFields: ['操作人', '染缸号', '排缸时间', '染缸容量'],
     writebackHandler: 'executeDyeAction.planDyeVat',
@@ -1065,9 +1052,7 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
     startDyeSampleTest(payload.sourceId, operatorName)
   } else if (actionCode === 'DYE_FINISH_SAMPLE') {
     completeDyeSampleTest(payload.sourceId, { colorNo: String(fields.colorNo || 'F090-色号'), operatorName })
-  } else if (actionCode === 'DYE_MATERIAL_RECEIVED') {
-    completeDyeMaterialWait(payload.sourceId, operatorName)
-  } else if (actionCode === 'DYE_FINISH_PREPARE') {
+  } else if (actionCode === 'DYE_CONFIRM_INPUT_RECEIPT') {
     receiveDyeMaterial(payload.sourceId, { qty, operatorName, receiptId: String(fields.receiptId || payload.confirmationKey || ''), upstreamRecordId: String(fields.upstreamRecordId || '') || undefined })
   } else if (actionCode === 'DYE_SCHEDULE_VAT') {
     planDyeVat(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })

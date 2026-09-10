@@ -60,11 +60,11 @@ includes('src/pages/process-factory/printing/work-order-detail.ts', [
   'order.handover.receivedQty',
   'order.handover.diffQty',
   "actionButton('交出', 'handover'",
-  "actionButton('接收', 'receive-handover'",
   '累计交出',
-  '累计接收',
-  '差异/说明',
+  '下游实收',
+  '差异说明',
 ])
+assert(!read('src/pages/process-factory/printing/work-order-detail.ts').includes("actionButton('接收', 'receive-handover'"), '上游加工单详情不得代替下游执行接收')
 
 includes('src/pages/process-factory/dyeing/work-order-detail.ts', [
   'getHandoverRecordsByWorkOrderId',

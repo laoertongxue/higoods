@@ -14,7 +14,7 @@ import {
   type PrintWorkOrder,
 } from './printing-task-domain.ts'
 import {
-  completeDyeMaterialReady,
+  completeDyeInputReceipt,
   completeDyeMaterialWait,
   completeDyeNode,
   completeDyeSampleTest,
@@ -25,7 +25,6 @@ import {
   getDyeWorkOrderByTaskId,
   listDyeVatOptions,
   planDyeVat,
-  startDyeMaterialReady,
   startDyeMaterialWait,
   startDyeNode as startDyeExecutionNode,
   startDyeSampleTest,
@@ -38,7 +37,6 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   createFactoryHandoverRecord,
   ensureHandoverOrderForStartedTask,
-  writeBackHandoverRecord,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
 import {
@@ -74,7 +72,6 @@ export interface ExecutionWritebackPayload {
 
 export interface QtyWritebackPayload extends ExecutionWritebackPayload {
   submittedQty?: number
-  receiverWrittenQty?: number
   qtyUnit?: string
 }
 
@@ -269,13 +266,7 @@ export function submitPrintHandover(taskId: string, payload: QtyWritebackPayload
     materialName: '印花面料',
     materialSpec: order.materialColor,
   })
-  const handoverRecord = writeBackHandoverRecord({
-    handoverRecordId: created.handoverRecordId || created.recordId,
-    receiverWrittenQty: payload.receiverWrittenQty ?? submittedQty,
-    receiverWrittenAt: submittedAt,
-    receiverWrittenBy: order.targetTransferWarehouseName,
-    receiverRemark: '移动端交出后接收方回写',
-  })
+  const handoverRecord = created
   const unified = createProcessHandoverRecord({
     craftType: 'PRINT',
     craftName: '印花',
@@ -291,8 +282,8 @@ export function submitPrintHandover(taskId: string, payload: QtyWritebackPayload
     receiveWarehouseName: order.targetTransferWarehouseName,
     objectType: '面料',
     handoverObjectQty: submittedQty,
-    receiveObjectQty: payload.receiverWrittenQty ?? submittedQty,
-    diffObjectQty: submittedQty - (payload.receiverWrittenQty ?? submittedQty),
+    receiveObjectQty: 0,
+    diffObjectQty: submittedQty,
     qtyUnit: '米',
     packageQty: order.plannedRollCount || 1,
     packageUnit: '卷',
@@ -300,12 +291,6 @@ export function submitPrintHandover(taskId: string, payload: QtyWritebackPayload
     handoverAt: submittedAt,
     status: '待回写',
     remark: payload.remark || '移动端发起印花交出',
-  })
-  writeBackProcessHandoverRecord(unified.handoverRecordId, {
-    receiveObjectQty: payload.receiverWrittenQty ?? submittedQty,
-    receivePerson: order.targetTransferWarehouseName,
-    receiveAt: submittedAt,
-    remark: '移动端交出后接收方回写',
   })
   return { workOrder: getPrintWorkOrderById(order.printOrderId), handoverRecord }
 }
@@ -321,10 +306,6 @@ export function startDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, pay
   const order = requireDyeOrderByTaskId(taskId)
   if (nodeCode === 'SAMPLE') {
     const nodeRecord = startDyeSampleTest(order.dyeOrderId, payload.operatorName || '染色工厂')
-    return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
-  }
-  if (nodeCode === 'MATERIAL_READY') {
-    const nodeRecord = startDyeMaterialReady(order.dyeOrderId, payload.operatorName || '染色工厂')
     return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
   }
   if (nodeCode === 'VAT_PLAN') {
@@ -359,7 +340,7 @@ export function finishDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, pa
     })
     return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
   }
-  if (nodeCode === 'MATERIAL_READY') {
+  if (nodeCode === 'INPUT_RECEIVED') {
     const nodeRecord = receiveDyeMaterial(order.dyeOrderId, {
       qty: Number(payload.outputQty), receiptId: payload.receiptId || '', upstreamRecordId: payload.upstreamRecordId,
       operatorName: payload.operatorName || '染色工厂',
@@ -419,13 +400,7 @@ export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload =
     materialName: '染色面料',
     materialSpec: order.targetColor,
   })
-  const handoverRecord = writeBackHandoverRecord({
-    handoverRecordId: created.handoverRecordId || created.recordId,
-    receiverWrittenQty: payload.receiverWrittenQty ?? submittedQty,
-    receiverWrittenAt: submittedAt,
-    receiverWrittenBy: order.targetTransferWarehouseName,
-    receiverRemark: '移动端交出后接收方回写',
-  })
+  const handoverRecord = created
   const unified = createProcessHandoverRecord({
     craftType: 'DYE',
     craftName: '染色',
@@ -441,8 +416,8 @@ export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload =
     receiveWarehouseName: order.targetTransferWarehouseName,
     objectType: '面料',
     handoverObjectQty: submittedQty,
-    receiveObjectQty: payload.receiverWrittenQty ?? submittedQty,
-    diffObjectQty: submittedQty - (payload.receiverWrittenQty ?? submittedQty),
+    receiveObjectQty: 0,
+    diffObjectQty: submittedQty,
     qtyUnit: '米',
     packageQty: order.plannedRollCount || 1,
     packageUnit: '卷',
@@ -450,12 +425,6 @@ export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload =
     handoverAt: submittedAt,
     status: '待回写',
     remark: payload.remark || '移动端发起染色交出',
-  })
-  writeBackProcessHandoverRecord(unified.handoverRecordId, {
-    receiveObjectQty: payload.receiverWrittenQty ?? submittedQty,
-    receivePerson: order.targetTransferWarehouseName,
-    receiveAt: submittedAt,
-    remark: '移动端交出后接收方回写',
   })
   return { workOrder: getDyeWorkOrderById(order.dyeOrderId), handoverRecord }
 }

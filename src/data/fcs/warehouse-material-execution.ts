@@ -19,6 +19,7 @@ import {
   type RuntimeTaskScopeType,
 } from './runtime-process-tasks.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { DYE_INPUT_TRANSFER_FIXTURES, type ProcessOrderInputTransferFixture } from './process-order-input-transfer-fixtures.ts'
 
 export type WarehouseExecutionDocType = 'ISSUE' | 'RETURN' | 'INTERNAL_TRANSFER'
 export type WarehouseExecutionStatus =
@@ -550,6 +551,104 @@ export interface WarehouseExecutionDocumentSnapshot {
   internalTransferOrders: WarehouseInternalTransferOrder[]
 }
 
+function buildWaterSolubleDemoIssueOrder(input: {
+  productionOrderId: string
+  taskId: string
+  qty: number
+  issuedAt: string
+}): WarehouseIssueOrder {
+  const id = `ISSUE-WATER-${input.productionOrderId}`
+  const lineId = `${id}-L001`
+  return {
+    id,
+    docNo: `WL-WATER-${input.productionOrderId.replace(/^PO-/, '')}`,
+    docType: 'ISSUE',
+    status: 'ISSUED',
+    productionOrderId: input.productionOrderId,
+    baseTaskId: input.taskId,
+    runtimeTaskId: input.taskId,
+    taskNo: input.taskId,
+    rootTaskNo: input.taskId,
+    processCode: 'PROC_WATER_SOLUBLE',
+    processNameZh: '水溶',
+    scopeType: 'ORDER',
+    scopeKey: input.productionOrderId,
+    scopeLabel: input.productionOrderId,
+    targetType: 'EXTERNAL_FACTORY',
+    targetFactoryId: TEST_FACTORY_ID,
+    targetFactoryName: TEST_FACTORY_NAME,
+    executorKind: 'EXTERNAL_FACTORY',
+    warehouseId: WAREHOUSE_SEEDS[0].id,
+    warehouseName: WAREHOUSE_SEEDS[0].name,
+    createdAt: input.issuedAt,
+    updatedAt: input.issuedAt,
+    remark: '中央仓调拨至水溶工厂待加工仓',
+    lines: [{
+      lineId,
+      docId: id,
+      materialCode: 'MAT-WATER-ONLY-081',
+      materialName: '仅水溶花边',
+      materialSpec: '15 毫米 / 本白',
+      unit: '米',
+      plannedQty: input.qty,
+      preparedQty: input.qty,
+      issuedQty: input.qty,
+      returnedQty: 0,
+      transferredQty: 0,
+      shortQty: 0,
+      sourceType: 'PRODUCTION_ORDER',
+      sourceTaskId: input.taskId,
+      sourceProcessCode: 'WATER_SOLUBLE',
+    }],
+  }
+}
+
+function buildDyeDemoIssueOrder(input: ProcessOrderInputTransferFixture): WarehouseIssueOrder {
+  const id = `ISSUE-DYE-${input.workOrderId}`
+  const lineId = `${id}-L001`
+  return {
+    id,
+    docNo: `WL-DYE-${input.workOrderId.replace(/^DWO-/, '')}`,
+    docType: 'ISSUE',
+    status: 'ISSUED',
+    productionOrderId: input.productionOrderId,
+    baseTaskId: input.taskId,
+    runtimeTaskId: input.taskId,
+    taskNo: input.taskId,
+    rootTaskNo: input.taskId,
+    processCode: 'PROC_DYE',
+    processNameZh: '染色',
+    scopeType: 'ORDER',
+    scopeKey: input.productionOrderId,
+    scopeLabel: input.productionOrderId,
+    targetType: 'EXTERNAL_FACTORY',
+    targetFactoryId: input.targetFactoryId,
+    targetFactoryName: input.targetFactoryName,
+    executorKind: 'EXTERNAL_FACTORY',
+    warehouseId: WAREHOUSE_SEEDS[0].id,
+    warehouseName: WAREHOUSE_SEEDS[0].name,
+    createdAt: input.issuedAt,
+    updatedAt: input.issuedAt,
+    remark: '中央仓调拨至染色工厂待加工仓',
+    lines: [{
+      lineId,
+      docId: id,
+      materialCode: input.materialCode,
+      materialName: input.materialName,
+      unit: input.unit,
+      plannedQty: input.qty,
+      preparedQty: input.qty,
+      issuedQty: input.qty,
+      returnedQty: 0,
+      transferredQty: 0,
+      shortQty: 0,
+      sourceType: input.sourceType,
+      sourceTaskId: input.taskId,
+      sourceProcessCode: 'DYE',
+    }],
+  }
+}
+
 export function buildWarehouseExecutionDocumentSnapshot(
   runtimeTasks: RuntimeProcessTask[] = listRuntimeExecutionTasks(),
 ): WarehouseExecutionDocumentSnapshot {
@@ -564,6 +663,24 @@ export function buildWarehouseExecutionDocumentSnapshot(
     } else {
       internalTransferOrders.push(doc)
     }
+  })
+
+  ;[
+    ...DYE_INPUT_TRANSFER_FIXTURES.map(buildDyeDemoIssueOrder),
+    buildWaterSolubleDemoIssueOrder({
+      productionOrderId: 'PO-202603-087',
+      taskId: 'TASK-WATER-PO-202603-087__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only',
+      qty: 1512,
+      issuedAt: '2026-07-11 08:00:00',
+    }),
+    buildWaterSolubleDemoIssueOrder({
+      productionOrderId: 'PO-202603-088',
+      taskId: 'TASK-WATER-PO-202603-088__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only',
+      qty: 1134,
+      issuedAt: '2026-07-11 08:15:00',
+    }),
+  ].forEach((order) => {
+    if (!issueOrders.some((existing) => existing.id === order.id)) issueOrders.push(order)
   })
 
   if (!issueOrders.some((order) => order.lines.length > 0)) {

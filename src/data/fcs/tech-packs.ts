@@ -350,6 +350,7 @@ export interface TechPackBomItem {
   printRequirement?: string
   waterSolubleRequirement?: '是' | '否'
   dyeRequirement?: string
+  embroideryRequirement?: string
   printSideMode?: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]

@@ -101,6 +101,16 @@ function verifyDownstream(source: DownstreamSource): void {
   const qcSnapshot = captureProcessWorkOrderQualityState()
   try {
     resetProcessWorkOrderQualityState()
+    const existingHandovers = getHandoverRecordsByWorkOrderId(source.workOrderId)
+    const existingReviews = getReviewRecordsByWorkOrderId(source.workOrderId)
+    const existingReceiverKeys = new Set(existingHandovers.map((item) =>
+      [item.receiveFactoryId, item.receiveWarehouseName].join('::'),
+    ))
+    assert(existingReceiverKeys.size <= 1, `${source.workOrderNo} 已存在多个下游接收方`)
+    const boundReceiver = existingHandovers[0]
+    const receiveFactoryId = boundReceiver?.receiveFactoryId || `RECEIVER-${source.chainId}`
+    const receiveFactoryName = boundReceiver?.receiveFactoryName || source.receiverWarehouseName
+    const receiveWarehouseName = boundReceiver?.receiveWarehouseName || source.receiverWarehouseName
     const discrete = isDiscreteUnit(source.qtyUnit)
     const receivedQty = discrete
       ? Math.max(1, Math.min(Math.floor(source.plannedQty), 3))
@@ -118,9 +128,9 @@ function verifyDownstream(source: DownstreamSource): void {
       sourceProductionOrderNo: source.productionOrderNo,
       sourceFactoryId: source.factoryId,
       sourceFactoryName: source.factoryName,
-      targetFactoryId: `RECEIVER-${source.chainId}`,
-      targetFactoryName: source.receiverWarehouseName,
-      targetWarehouseName: source.receiverWarehouseName,
+      targetFactoryId: receiveFactoryId,
+      targetFactoryName: receiveFactoryName,
+      targetWarehouseName: receiveWarehouseName,
       warehouseLocation: `${source.chainId}-A01`,
       skuSummary: source.materialSku,
       styleNo: source.productionOrderNo,
@@ -157,9 +167,9 @@ function verifyDownstream(source: DownstreamSource): void {
       sourceProductionOrderNo: source.productionOrderNo,
       handoverFactoryId: source.factoryId,
       handoverFactoryName: source.factoryName,
-      receiveFactoryId: `RECEIVER-${source.chainId}`,
-      receiveFactoryName: source.receiverWarehouseName,
-      receiveWarehouseName: source.receiverWarehouseName,
+      receiveFactoryId,
+      receiveFactoryName,
+      receiveWarehouseName,
       objectType: source.objectType,
       handoverObjectQty: receivedQty,
       qtyUnit: source.qtyUnit,
@@ -277,8 +287,11 @@ function verifyDownstream(source: DownstreamSource): void {
         unqualifiedQty,
       },
     }, () => {
-      assert.equal(getHandoverRecordsByWorkOrderId(source.workOrderId).length, 1)
-      assert.equal(getReviewRecordsByWorkOrderId(source.workOrderId).length, 1)
+      const allHandovers = getHandoverRecordsByWorkOrderId(source.workOrderId)
+      assert.equal(allHandovers.length, existingHandovers.length + 1)
+      assert.equal(allHandovers.filter((item) => item.handoverRecordId === handover.handoverRecordId).length, 1)
+      assert.equal(new Set(allHandovers.map((item) => [item.receiveFactoryId, item.receiveWarehouseName].join('::'))).size, 1)
+      assert.equal(getReviewRecordsByWorkOrderId(source.workOrderId).length, existingReviews.length + 1)
       assert.equal(listProcessWorkOrderQcRecords({ workOrderId: source.workOrderId }).length, 1)
     })
   } finally {

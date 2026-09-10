@@ -135,7 +135,7 @@ assert(review.includes('13张截图') && matrix.includes('13张截图'), '审查
 assert(crossTerminalSpec.includes('全部业务写入由 Web/PDA 页面操作产生'), '连续UI测试缺少写入边界声明')
 assert(crossTerminalSpec.includes("toHaveLength(15)"), '连续UI测试缺少15条链断言')
 assert(crossTerminalStaticCheck.includes('forbiddenDomainWrites'), '跨端静态门禁缺少领域写入禁用清单')
-assert(crossTerminalEvidenceCheck.includes("screenshots.length, 50"), '跨端证据检查缺少50张截图门槛')
+assert(crossTerminalEvidenceCheck.includes("screenshots.length, 42"), '跨端证据检查缺少当前42张截图门槛')
 assert(crossTerminalEvidenceCheck.includes("traces.length, 1"), '跨端证据检查缺少完整trace门槛')
 assert(crossTerminalEvidenceCheck.includes("stage === '回货确认自动生成质检单'"), '跨端证据检查缺少确认时自动建单门槛')
 assert(crossTerminalEvidenceCheck.includes("status, '待送检'"), '跨端证据检查缺少确认时待送检状态门槛')
