@@ -1,3 +1,6 @@
+import {getDyeingQuantityFacts,groupDyeQuantities,type DyeQuantityGroup} from './dyeing-quantity-facts.ts'
+import {getDyeingWarehouseView} from './dyeing-warehouse-view.ts'
+import {convertReceiptQuantity} from './factory-receiving.ts'
 import { listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
 import { listProcessWorkOrders, type ProcessWorkOrder, type ProcessWorkOrderType } from './process-work-order-domain.ts'
 import {
@@ -42,7 +45,7 @@ export interface StatusCountRow {
 export interface FactoryMetricRow {
   factoryId: string
   factoryName: string
-  objectType: ProcessWarehouseObjectType
+  objectType: ProcessWarehouseObjectType | '纱线'
   qtyUnit: string
   workOrderCount: number
   plannedQty: number
@@ -125,6 +128,7 @@ export function groupProcessWorkOrderPlannedQuantities(
 }
 
 export interface DyeingExecutionStatistics extends BaseExecutionStatistics {
+  quantityGroups: DyeQuantityGroup[]
   plannedDyeFabricMeters: number
   materialReadyFabricMeters: number
   dyeCompletedFabricMeters: number
@@ -462,20 +466,46 @@ export function getPrintingDashboardMetrics(filter: ProcessStatisticsFilter = {}
 
 export function getDyeingExecutionStatistics(filter: ProcessStatisticsFilter = {}): DyeingExecutionStatistics {
   const orders = filterProcessOrders('DYE', filter)
-  const records = filterWarehouseRecords('DYE', filter)
-  const base = buildBaseStatistics(orders, records)
+  const facts=getDyeingQuantityFacts().filter(f=>orders.some(o=>o.workOrderId===f.order.dyeOrderId))
+  const view=getDyeingWarehouseView({factoryId:filter.factoryId})
+  const quantityGroups=groupDyeQuantities(facts)
+  // Current stock includes reserve receipts; dates filter orders/flows, never erase stock.
+  if(!filter.workOrderId)for(const g of quantityGroups)g.availableInput=0
+  for(const stock of filter.workOrderId?[]:view.waitProcessItems){
+    const unit=stock.unit==='m'?'米':stock.unit.toLowerCase()==='yard'?'Yard':['公斤','kg'].includes(stock.unit)?'kg':stock.unit
+    let group=quantityGroups.find(g=>g.unit===unit)
+    if(!group){group={unit,planned:0,received:0,used:0,dyed:0,packed:0,availableInput:0,availableOutput:0,handed:0,downstreamReceived:0,difference:0};quantityGroups.push(group)}
+    group.availableInput+=stock.availableQty??0
+  }
+  const handovers=facts.flatMap(f=>f.records),actual=facts.flatMap(f=>f.actual)
+  const differences=actual.filter(r=>Math.abs((r.receiverWrittenQty??0)-(r.submittedQty??0))>.000001)
+  const statusCounts:Record<string,number>={};for(const f of facts)statusCounts[f.status]=(statusCounts[f.status]??0)+1
+  const factoryRows:FactoryMetricRow[]=[]
+  for(const f of facts){let row=factoryRows.find(r=>r.factoryId===f.order.dyeFactoryId&&r.qtyUnit===f.order.qtyUnit&&r.objectType===f.kind)
+    if(!row){row={factoryId:f.order.dyeFactoryId,factoryName:f.factoryName,objectType:f.kind,qtyUnit:f.order.qtyUnit,workOrderCount:0,plannedQty:0,doneQty:0,handoverQty:0,diffQty:0,completionRate:0};factoryRows.push(row)}
+    row.workOrderCount++;row.plannedQty+=f.order.plannedQty;row.doneQty+=f.packed;row.handoverQty+=f.handed;row.diffQty+=f.difference;row.completionRate=row.plannedQty>0?round(row.doneQty/row.plannedQty*100):0
+  }
+  const durations=actual.flatMap(r=>{const hours=(Date.parse((r.receiverWrittenAt||'').replace(' ','T'))-Date.parse((r.factorySubmittedAt||'').replace(' ','T')))/3600000;return Number.isFinite(hours)&&hours>=0?[hours]:[]})
+  const base:BaseExecutionStatistics={workOrderCount:facts.length,statusCounts,statusRows:statusRows(statusCounts),factoryRows,
+   waitProcessRecordCount:filter.workOrderId?facts.filter(f=>f.availableInput>0).length:view.waitProcessItems.filter(i=>(i.availableQty??0)>0).length,waitHandoverRecordCount:facts.filter(f=>f.availableOutput>0).length,
+   partialHandoverRecordCount:facts.filter(f=>f.handed>0&&f.availableOutput>0).length,waitWritebackHandoverCount:handovers.length-actual.length,writtenBackHandoverCount:actual.length,
+   differenceHandoverCount:differences.length,differenceRecordCount:differences.length,pendingDifferenceRecordCount:0,reworkDifferenceRecordCount:0,platformProcessingDifferenceRecordCount:0,
+   waitReviewCount:handovers.length-actual.length,reviewPassCount:actual.length-differences.length,reviewRejectCount:0,handoverAverageWritebackHours:durations.length?round(durations.reduce((n,h)=>n+h,0)/durations.length):0,
+   overdueWritebackCount:handovers.filter(r=>!r.receiverWrittenAt&&!r.taskReceipts?.length&&Date.now()-Date.parse((r.factorySubmittedAt||'').replace(' ','T'))>48*3600000).length}
+  const meters=(key:Exclude<keyof DyeQuantityGroup,'unit'>)=>round(quantityGroups.reduce((n,g)=>n+(convertReceiptQuantity(g[key],g.unit,'米')??0),0))
   const schedules = listDyeVatSchedules().filter((schedule) => orders.some((order) => order.workOrderId === schedule.dyeOrderId))
   return {
     ...base,
-    plannedDyeFabricMeters: round(orders.reduce((sum, order) => sum + order.plannedQty, 0)),
-    materialReadyFabricMeters: nodeQty(orders, ['备料']),
-    dyeCompletedFabricMeters: nodeQty(orders, ['染色']),
-    finalPackedFabricMeters: nodeQty(orders, [], ['outputQty', 'actualCompletedQty'], ['PACK']),
-    waitProcessFabricMeters: sumWarehouseQty(records.waitProcess, '面料', 'availableObjectQty'),
-    waitHandoverFabricMeters: sumWarehouseQty(records.waitHandover, '面料', 'availableObjectQty'),
-    handedOverFabricMeters: sumHandoverQty(records.handovers, '面料', 'handoverObjectQty'),
-    receivedFabricMeters: sumHandoverQty(records.handovers, '面料', 'receiveObjectQty'),
-    diffFabricMeters: sumHandoverQty(records.handovers, '面料', 'diffObjectQty'),
+    quantityGroups,
+    plannedDyeFabricMeters: meters('planned'),
+    materialReadyFabricMeters: meters('received'),
+    dyeCompletedFabricMeters: meters('dyed'),
+    finalPackedFabricMeters: meters('packed'),
+    waitProcessFabricMeters: meters('availableInput'),
+    waitHandoverFabricMeters: meters('availableOutput'),
+    handedOverFabricMeters: meters('handed'),
+    receivedFabricMeters: meters('downstreamReceived'),
+    diffFabricMeters: meters('difference'),
     currentVatScheduleCount: schedules.filter((schedule) => schedule.status === 'PLANNED' || schedule.status === 'IN_USE').length,
     dyeAverageHours: averageNodeHours(orders, ['染色']),
     dehydrateAverageHours: averageNodeHours(orders, ['脱水']),

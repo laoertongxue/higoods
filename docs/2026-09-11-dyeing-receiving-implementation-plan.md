@@ -1,3 +1,5 @@
+> 2026-09-11 范围更新：本文关于旧批次模块的历史条款已失效，相关实现和入口已删除；当前口径见同日染色交出调整设计。其余历史记录保留。
+
 # 染厂待接收与纱线交出接收实施计划
 
 版本：V2，2026-09-11。状态：WP01—WP08 已实现并完成两轮本地技术验收。依据：[总体方案](2026-09-11-dyeing-receiving-adjustment-design.md)；逐项范围：[需求矩阵](2026-09-11-dyeing-receiving-requirements-matrix.md)。本计划不是执行结果。
@@ -128,7 +130,7 @@ WP08 的迁移、防重复和场景数据要求从 WP01 开始执行，最终阶
 - `src/pages/process-factory/dyeing/barcode-dialog.ts`、`output-documents.ts`：面料现有逻辑保留；纱线明细编辑和交出前额度提示。
 - 纱线标签建议作为本条码模块单独 `renderYarnOrderLabel`，必要时拆 `src/pages/print/templates/dye-yarn-order-label-template.ts`；不先建通用打印框架。
 
-**修改**：pcs、三管型数量、毛重、管重、净重、单据稳定条码；W≤10 用3倍/W>10用2倍；累计毛重与可用净重分别检查；下单缺重不得默认为0放行；同单分批明细与标签快照分开；保留整单可重印身份、标签时间/版本及送货本次数；合并染色保留分单限额和标签。
+**修改**：pcs、三管型数量、毛重、管重、净重、单据稳定条码；W≤10 用3倍/W>10用2倍；累计毛重与可用净重分别检查；下单缺重不得默认为0放行；同单分批明细与标签快照分开；保留整单可重印身份、标签时间/版本及送货本次数；旧批次模块（已移除）保留分单限额和标签。
 
 **验证证据**：S10—S14，0.001 kg 边界、三管型混合、净重非负、已交记录不能重复占额度；面料细码/导入/批量修改原回归；单码身份与打印内容契约。
 
@@ -187,7 +189,7 @@ WP08 的迁移、防重复和场景数据要求从 WP01 开始执行，最终阶
 | `scripts/check-preparation-real-receipt-chain.ts` | 原上游到接收链路，与其他准备工艺兼容 |
 | `npm run check:dyeing-workflow` | 染色加工及状态更新回归 |
 | `npm run check:dye-work-order-online-alignment` | 当前列表与原加工单展示映射 |
-| `npm run check:combined-dyeing` | 合并染色保持独立订单/限额/标签 |
+| `npm run check:combined-dyeing` | 旧批次模块（已移除）保持独立订单/限额/标签 |
 | `npm run check:wool-fact-workflow` | 毛织接收及相关事实回归 |
 | `npm run check:wool-warehouse-unified-model` | 毛织仓库口径、库位及局部操作 |
 | `npm run check:factory-handover-warehouse-linkage` | 实收与仓库联动影响面 |

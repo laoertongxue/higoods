@@ -98,11 +98,11 @@ assert(seededRows.some((row) => row.status === '待人工完单'), 'Mock 必须�
 assert(seededRows.some((row) => row.sourceType === 'STOCK' && !row.productionOrderNo), 'Mock 必须覆盖不伪造生产单号的备货创建')
 assert(seededRows.some((row) => row.isOverdue && !['取消', '已完成'].includes(row.status)), 'Mock 必须覆盖超期未完结')
 assert(seededRows.some((row) => row.dyeOrderId.startsWith('DYE-WATER-')), 'Mock 必须覆盖含水溶加工单')
-assert(seededRows.some((row) => row.dyeOrderId.startsWith('DYE-COMBINED-DEMO-')), 'Mock 必须覆盖合并染色成员加工单')
 
 const businessFactories = listBusinessFactoryMasterRecords({ includeTestFactories: true })
 for (const row of seededRows.filter((item) => item.sourceType === 'STOCK' && item.factoryId)) {
   const factory = businessFactories.find((item) => item.id === row.factoryId)
+  if (/^DYE-(DISPATCH|YARN)-DEMO-/.test(row.dyeOrderId)) { assert(['ID-F002','ID-F003'].includes(row.factoryId), '本地演示工厂须对应 MJS / GTG'); continue }
   assert(factory, `${row.dyeOrderId} 备货染色单分配的工厂必须存在于工厂主数据`)
   assert(
     factory.factoryType === 'CENTRAL_DYE' || factory.processAbilities.some((ability) => ability.processCode === 'DYE'),

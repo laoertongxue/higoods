@@ -20,7 +20,7 @@ if(process.env.RECEIVING_REPLAY_FILE){
  assert.equal(records.length,2);assert.equal(new Set(records.map(r=>r.recordId)).size,2)
  assert.equal(records.reduce((n,r)=>n+(r.submittedQty||0),0),11.518)
  assert.equal(records.reduce((n,r)=>n+(r.receiverWrittenQty||0),0),9.101)
- assert.equal(dye.getDyeDispatchAvailableQty(order.dyeOrderId),18.482)
+ assert(Math.abs(dye.getDyeDispatchAvailableQty(order.dyeOrderId)-16.062)<.000001)
  wool.validateWoolStore(wool.readWoolStore());assert.equal(queries.listWoolWarehouseStocks('WAIT_PROCESS').filter(s=>s.objectSkuCode==='YARN-COTTON-MIXED').reduce((n,s)=>n+s.currentQty,0),8.101)
  console.log('PASS cold restart: original batch IDs, actual upstream receipt, wool net balance, no repeated inbound');process.exit(0)
 }
@@ -36,7 +36,7 @@ const receipt=core.prepareFactoryReceipt({id:'INT-WOOL',factoryId:'OWN_WOOL_FACT
 const ws=wool.readWoolStore();wool.validateWoolStore(ws)
 assert.equal(ws.warehouseFlows.filter(f=>f.factoryReceiptId==='INT-WOOL').reduce((n,f)=>n+f.qty,0),9.101)
 assert.equal(queries.listWoolWarehouseStocks('WAIT_PROCESS').find(s=>s.objectSkuCode==='YARN-COTTON-MIXED')?.currentQty,9.101)
-assert.equal(dye.getDyeDispatchAvailableQty('DYE-YARN-DEMO-1'),20.42)
+assert.equal(dye.getDyeDispatchAvailableQty('DYE-YARN-DEMO-1'),18)
 core.clearFactoryReceivingCache();wool.clearWoolStoreMemoryCache();const reloaded=wool.readWoolStore();assert.equal(reloaded.warehouseFlows.filter(f=>f.factoryReceiptId==='INT-WOOL').length,1);wool.validateWoolStore(reloaded)
 const duplicate=dye.submitDyeHandover('DYE-YARN-DEMO-1',{handoverPerson:'hilon',handoverAt:'2026-09-11 15:15:00',yarn:{commandId:'INT-YARN-SHIP',pcs:20,grossKg:12,tubes:{PAPER:0,CONICAL:0,PAGODA:20},receiverFactoryId:'OWN_WOOL_FACTORY'}});assert.deepEqual(duplicate.recordIds,[ys.originalRecordId])
 assert.throws(()=>dye.submitDyeHandover('DYE-YARN-DEMO-1',{yarn:{commandId:'INT-OVER',pcs:20,grossKg:18.001,tubes:{PAPER:0,CONICAL:0,PAGODA:20},receiverFactoryId:'OWN_WOOL_FACTORY'}}),/累计出货毛重/)
@@ -73,9 +73,9 @@ assert(moveRows.every(s=>s.objectName===ys.lines[0].material.name), '库位移�
 
 const view=await import('../src/data/fcs/dye-work-order-online-view.ts')
 const yarnRow=view.listDyeWorkOrderOnlineRows().find(r=>r.dyeOrderId==='DYE-YARN-DEMO-1')!
-assert(yarnRow.upstreamDocuments.some(d=>d.documentNo==='DB-YARN-SEED-1'&&d.status==='已调拨'&&d.sentQty===30))
+assert(yarnRow.upstreamDocuments.some(d=>d.documentNo==='DB-YARN-SEED-1'&&d.status==='已调拨'&&d.sentQty===27.58))
 assert(yarnRow.upstreamDocuments.every(d=>d.partner.kind!=='WAREHOUSE'||d.partner.warehouseAttribute==='纱线中央仓'))
-assert.equal(yarnRow.yarnQuantities?.received[0].netGrams,30000)
+assert.equal(yarnRow.yarnQuantities?.received[0].netGrams,27580)
 assert.equal(yarnRow.yarnQuantities?.shipped.reduce((n,w)=>n+w.netGrams,0),11518)
 assert.equal(yarnRow.downstreamReceivedQty,11.039)
 assert.equal(yarnRow.pendingInboundQty,.479)

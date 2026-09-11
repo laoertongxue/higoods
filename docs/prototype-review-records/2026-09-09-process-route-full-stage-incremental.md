@@ -1,3 +1,5 @@
+> 2026-09-11 范围更新：本文关于旧批次模块的历史条款已失效，相关实现和入口已删除；当前口径见同日染色交出调整设计。其余历史记录保留。
+
 # 生产工艺路线与全阶段加工单增量迭代原型审查记录
 
 ## 1. 基本信息
@@ -157,7 +159,7 @@
 
 - 常规 BOM/路线/生成：`check:tech-pack-bom-unit-guard`、`check:tech-pack-process-route`、`check:cutting-binding-strip-flow`、`check:process-route-material-replacement`、`check:process-order-task-relations`、`check:production-process-work-order-generation`、`check:process-work-order-generation-service-isolated`：通过
 - 三状态/来源：`check:process-order-three-axis-flow`、`check:preparation-real-receipt-chain`、印花/染色/水溶来源和分批专项检查：通过
-- 准备域：印花、染色、合并染色、水溶的业务、页面、PDA、权限和打印专项检查：通过
+- 准备域：印花、染色、旧批次模块（已移除）、水溶的业务、页面、PDA、权限和打印专项检查：通过
 - 生产域：裁片放行、裁剪/车缝、毛织、花边、辅助/特种工艺、统一仓库专项检查：通过
 - 后道：full-flow、surface、traceability、当前读模型、管理列表、QC、出货打印、跨端 UI/证据等专项检查：通过
 - `npm run check:process-route-full-stage-delivery`：通过，PREP 12 + PROD 28 + POST 17，共 57 项

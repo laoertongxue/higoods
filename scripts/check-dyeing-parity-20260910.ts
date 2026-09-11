@@ -6,7 +6,7 @@ import { listDyeWorkOrderOnlineRows } from '../src/data/fcs/dye-work-order-onlin
 import { getDyeOutputRolls, saveDyeOutputRolls, markDyeOutputRolls, getDyeOrderHandoverSummary } from '../src/data/fcs/dyeing-task-domain.ts'
 import { buildDyeWorkOrderFlowCardPrintDocument, renderDyeWorkOrderFlowCardTemplate } from '../src/pages/print/templates/dye-work-order-flow-card-template.ts'
 const rows = listDyeWorkOrderOnlineRows()
-assert.equal(rows.length, 19)
+assert.equal(rows.length, 22)
 assert.equal(rows.filter(row => row.isYarn).length, 3, '保留三个纱线毛净重演示场景')
 for (const row of rows) {
   assert(DYE_DEMO_DETAILS[row.dyeOrderId], row.dyeOrderId)
@@ -52,4 +52,4 @@ assert.equal(JSON.stringify(getDyeOrderHandoverSummary(id)),before)
 assert.equal(listDyeWorkOrderOnlineRows().find(row=>row.dyeOrderId===id)!.completedQty,completion)
 const code=readFileSync('src/pages/process-factory/dyeing/barcode-dialog.ts','utf8')
 assert(code.includes("if(t.dataset.dyeBarcodeField==='importText'){importRows=[]"),'编辑导入文本必须清除旧预览')
-console.log('PASS 19张完整资料/图片（含3张纱线）、工厂Tab、Yard换算、普通/补料/批量流程卡、条码留空保值/整体回滚/打印下架独立于加工与交接')
+console.log('PASS 22张完整资料/图片（含3张纱线）、工厂Tab、Yard换算、普通/补料/批量流程卡、条码留空保值/整体回滚/打印下架独立于加工与交接')

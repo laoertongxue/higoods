@@ -111,7 +111,7 @@ export interface FormalProductionOrderProcessSnapshotRecord extends Omit<
   processName: string
 }
 
-export type ProcessWorkOrderChangeImpactReason = '已执行' | '已加入合并染色'
+export type ProcessWorkOrderChangeImpactReason = '已执行'
 
 export interface ProcessWorkOrderChangeImpact {
   changeRecordId: string

@@ -535,9 +535,13 @@ export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-order-detail'),
   'renderCraftDyeingWorkOrderDetailPage',
 )
-export const renderCraftCombinedDyeingPage = createAsyncRenderer(
-  () => import('../pages/process-factory/dyeing/combined-dyeing'),
-  'renderCraftCombinedDyeingPage',
+export const renderCraftDyeingPendingHandoverPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/output-documents'),
+  'renderCraftDyeingPendingHandoverPage',
+)
+export const renderCraftDyeingHandoverDocumentsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/output-documents'),
+  'renderCraftDyeingHandoverDocumentsPage',
 )
 export const renderCraftDyeingWaterSolubleOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/water-soluble-orders'),

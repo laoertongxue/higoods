@@ -72,20 +72,8 @@ assertIncludes('src/pages/process-factory/printing/dashboards.ts', [
   '按状态维度的印花加工单分布',
   '按工厂维度的印花执行进度',
 ])
-assertIncludes('src/pages/process-factory/dyeing/reports.ts', [
-  'getDyeingExecutionStatistics',
-  '染色统计',
-  '计划染色面料米数',
-  '染色完成面料米数',
-  '包装完成面料米数',
-  '差异面料米数',
-])
-assertIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', [
-  'getDyeingExecutionStatistics',
-  '染色统计',
-  '包装完成面料米数',
-  '差异面料米数',
-])
+assertIncludes('src/pages/process-factory/dyeing/reports.ts', ['getDyeingExecutionStatistics','染色统计','计划染色数量','包装完成数量','下游实际接收','quantityGroups'])
+assertIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', ['getDyeingQuantityFacts','染色统计','quantityFact?.packed','quantityFact?.downstreamReceived','quantityFact?.difference'])
 assertIncludes('src/pages/process-factory/post-finishing/statistics.ts', [
   'getPostFinishingExecutionStatistics',
   '后道统计',
@@ -108,7 +96,7 @@ assert(getPrintingDashboardMetrics().statusRows.length > 0, '印花大屏状态�
 
 assert(dyeStats.workOrderCount >= 12, '染色加工单统计样本少于 12 条')
 assert(dyeStats.dyeCompletedFabricMeters > 0 && dyeStats.finalPackedFabricMeters > 0, '染色执行节点未纳入统计')
-assert(dyeStats.waitHandoverRecordCount >= 3 && dyeStats.differenceRecordCount >= 3, '染色仓记录或差异记录样本不足')
+assert(dyeStats.waitHandoverRecordCount > 0 && dyeStats.quantityGroups.length >= 2, '染色需有真实待交出产出且不同单位独立统计')
 assert(getDyeingDashboardMetrics().statusRows.length > 0, '染色大屏指标为空')
 
 

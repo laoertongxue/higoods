@@ -36,6 +36,11 @@ export function getPrintingOrderImageManifest(orderId: string): PrintingOrderIma
 }
 
 export const DYE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImageManifestEntry>> = {
+  'DYE-DISPATCH-DEMO-1': {product:'/materials/process-orders/white-cotton-jersey.jpg',material:'/materials/process-orders/white-cotton-jersey.jpg'},
+  'DYE-DISPATCH-DEMO-2': {product:'/materials/process-orders/rose-cotton-jersey.png',material:'/materials/process-orders/white-black-cotton-jersey.jpg'},
+  'DYE-DISPATCH-DEMO-3': {product:'/materials/process-orders/pale-grey-50d-stretch-lining.jpg',material:'/materials/process-orders/pale-grey-50d-stretch-lining.jpg'},
+  'DYE-DISPATCH-DEMO-4': {product:'/materials/fei-ticket/fog-grey-sweatshirt-fleece.png',material:'/materials/fei-ticket/fog-grey-sweatshirt-fleece.png'},
+  'DYE-DISPATCH-DEMO-5': {product:'/materials/fei-ticket/blue-white-print-cotton.png',material:'/materials/fei-ticket/blue-white-print-cotton.png'},
   'DYE-YARN-DEMO-1': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
   'DYE-YARN-DEMO-2': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
   'DYE-YARN-DEMO-3': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
@@ -53,8 +58,6 @@ export const DYE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImage
   'DWO-011': { product: '/jacket-sample.jpg', material: '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png' },
   'DWO-012': { product: '/shirt-sample.jpg', material: '/materials/fei-ticket/white-poplin.png' },
   'DWO-013': { product: '/materials/process-orders/greige-cotton-polyester-woven.jpg', material: '/materials/process-orders/greige-cotton-polyester-woven.jpg' },
-  'DYE-COMBINED-DEMO-001': { product: '/cardigan-sample.jpg', material: '/materials/process-orders/navy-combed-cotton-interlock.jpg' },
-  'DYE-COMBINED-DEMO-002': { product: '/cardigan-sample.jpg', material: '/materials/process-orders/navy-combed-cotton-interlock.jpg' },
   'DYE-WATER-PO-202603-081': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-water-soluble-lace-12-15mm.jpg' },
 }
 

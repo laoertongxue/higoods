@@ -26,7 +26,6 @@ assert.strictEqual(listState.preferences, preferences, '重新进入不得替换
 assert.equal(listState.preferences.pageSize, 20, '重新进入不得重置每页条数')
 
 for (const path of [
-  'src/pages/process-factory/dyeing/combined-dyeing.ts',
   'src/pages/process-factory/dyeing/work-orders.ts',
 ]) {
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')

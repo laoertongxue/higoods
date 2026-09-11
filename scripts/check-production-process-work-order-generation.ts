@@ -8,12 +8,6 @@ import {
   startDyeSampleTest,
   createDyeWorkOrderFromStock,
 } from '../src/data/fcs/dyeing-task-domain.ts'
-import {
-  createCombinedDyeingTask,
-  completeCombinedDyeingTask,
-  deleteCombinedDyeingTask,
-  getCombinedDyeingTaskById,
-} from '../src/data/fcs/combined-dyeing-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
   getProcessWorkOrderById,
@@ -338,12 +332,6 @@ assert.deepEqual(
 const sameActualMaterialWorkOrders = sameActualMaterialSnapshots.map((snapshot) => (
   ensureProcessWorkOrdersForFormalProductionOrder(snapshot).dyeWorkOrderId!
 ))
-assert.doesNotThrow(() => createCombinedDyeingTask({
-  dyeWorkOrderIds: sameActualMaterialWorkOrders,
-  createdBy: '实际物料身份检查人',
-  createdAt: '2026-07-16 11:00:00',
-}), 'BOM 行不同但正式物料编码相同、同厂同色同工艺的染色加工单必须允许合并染色')
-
 const differentActualMaterialSnapshot = {
   ...buildFormalProductionOrderProcessSnapshots({
     ...sameActualMaterialOrders[1]!,
@@ -366,12 +354,8 @@ const differentActualMaterialSnapshot = {
   targetColor: '同一蓝',
 }
 const differentActualMaterialWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(differentActualMaterialSnapshot).dyeWorkOrderId!
-assert.throws(() => createCombinedDyeingTask({
-  dyeWorkOrderIds: [sameActualMaterialWorkOrders[0]!, differentActualMaterialWorkOrder],
-  createdBy: '实际物料身份检查人',
-  createdAt: '2026-07-16 11:01:00',
-}), /同一面料/, '正式物料编码不同的染色加工单必须拒绝合并')
-
+assert.equal(getDyeWorkOrderById(sameActualMaterialWorkOrders[0])?.materialId, 'MAT-SAME-001')
+assert.equal(getDyeWorkOrderById(differentActualMaterialWorkOrder)?.materialId, 'MAT-DIFFERENT-001')
 assert.throws(() => buildFormalProductionOrderProcessSnapshots({
   ...routeOrder,
   productionOrderId: 'PO-AUTO-MISSING-MATERIAL-CODE',
@@ -880,67 +864,6 @@ syncProcessWorkOrdersAfterProductionOrderChange({ ...executedPrintSnapshot, mate
 })
 assert.equal(getPrintWorkOrderById(executedPrintCreated.printWorkOrderId!)?.materialSku, executedPrintSnapshot.materialId, '印花实际开始后不得覆盖原加工事实')
 assert.equal(getPrintWorkOrderById(executedPrintCreated.printWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已执行', '印花实际开始后必须记录已执行影响')
-
-const combinedA: FormalProductionOrderProcessSnapshot = {
-  ...dyeOnly,
-  productionOrderId: 'PO-AUTO-SYNC-COMBINED-A',
-  productionOrderNo: 'PO-AUTO-SYNC-COMBINED-A',
-  materialId: 'MAT-SYNC-COMBINED',
-  materialName: '合并同步面料',
-  targetColor: '合并蓝',
-  dyeProcessName: '合并活性染色',
-  plannedQty: 60,
-}
-const combinedB: FormalProductionOrderProcessSnapshot = {
-  ...combinedA,
-  productionOrderId: 'PO-AUTO-SYNC-COMBINED-B',
-  productionOrderNo: 'PO-AUTO-SYNC-COMBINED-B',
-  plannedQty: 40,
-}
-const combinedAOrder = ensureProcessWorkOrdersForFormalProductionOrder(combinedA)
-const combinedBOrder = ensureProcessWorkOrdersForFormalProductionOrder(combinedB)
-const combinedTask = createCombinedDyeingTask({
-  dyeWorkOrderIds: [combinedAOrder.dyeWorkOrderId!, combinedBOrder.dyeWorkOrderId!],
-  createdBy: '同步检查计划员',
-  createdAt: '2026-07-16 10:20:00',
-})
-syncProcessWorkOrdersAfterProductionOrderChange({ ...combinedA, plannedQty: 88, materialName: '合并后新名称' }, {
-  changeRecordId: 'BG-SYNC-COMBINED',
-  recordedAt: '2026-07-16 10:21:00',
-})
-assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.plannedQty, 60, '活动合并任务成员不得改写加工单成员事实')
-assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已加入合并染色')
-assert.equal(getCombinedDyeingTaskById(combinedTask.taskId)?.changeImpact?.at(-1)?.reason, '已加入合并染色', '合并任务也必须记录生产变更影响')
-deleteCombinedDyeingTask(combinedTask.taskId, { deletedBy: '同步检查计划员', deletedAt: '2026-07-16 10:22:00', reason: '未执行任务取消' })
-syncProcessWorkOrdersAfterProductionOrderChange({ ...combinedA, plannedQty: 88, materialName: '合并后新名称' }, {
-  changeRecordId: 'BG-SYNC-COMBINED-AFTER-DELETE',
-  recordedAt: '2026-07-16 10:23:00',
-})
-assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.plannedQty, 88, '未完成合并任务删除后必须释放占用并允许同步最新快照')
-
-const completedCombinedA = { ...combinedA, productionOrderId: 'PO-AUTO-SYNC-COMPLETED-A', productionOrderNo: 'PO-AUTO-SYNC-COMPLETED-A' }
-const completedCombinedB = { ...combinedB, productionOrderId: 'PO-AUTO-SYNC-COMPLETED-B', productionOrderNo: 'PO-AUTO-SYNC-COMPLETED-B' }
-const completedCombinedAOrder = ensureProcessWorkOrdersForFormalProductionOrder(completedCombinedA)
-const completedCombinedBOrder = ensureProcessWorkOrdersForFormalProductionOrder(completedCombinedB)
-const completedCombinedTask = createCombinedDyeingTask({
-  dyeWorkOrderIds: [completedCombinedAOrder.dyeWorkOrderId!, completedCombinedBOrder.dyeWorkOrderId!],
-  createdBy: '同步检查计划员',
-  createdAt: '2026-07-16 10:30:00',
-})
-completeCombinedDyeingTask(completedCombinedTask.taskId, {
-  actualInputQty: 100,
-  actualOutputQty: 100,
-  completedBy: '染厂主管',
-  completedAt: '2026-07-16 10:31:00',
-})
-deleteCombinedDyeingTask(completedCombinedTask.taskId, { deletedBy: '同步检查计划员', deletedAt: '2026-07-16 10:32:00', reason: '完成后归档' })
-syncProcessWorkOrdersAfterProductionOrderChange({ ...completedCombinedA, plannedQty: 70 }, {
-  changeRecordId: 'BG-SYNC-COMPLETED-AFTER-DELETE',
-  recordedAt: '2026-07-16 10:33:00',
-})
-assert.equal(getDyeWorkOrderById(completedCombinedAOrder.dyeWorkOrderId!)?.plannedQty, 60, '已有完成分配的合并任务删除后仍不得覆盖成员执行快照')
-assert.equal(getDyeWorkOrderById(completedCombinedAOrder.dyeWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已加入合并染色')
-assert.equal(getCombinedDyeingTaskById(completedCombinedTask.taskId)?.changeImpact?.at(-1)?.reason, '已加入合并染色', '已删除但有完成分配的合并任务仍须保留变更影响')
 
 const stockDyeMaterial = listProcessWorkOrderStockMaterials({ processCode: 'DYE' })[0]!
 const stockDyeCreated = createDyeWorkOrderFromStock({

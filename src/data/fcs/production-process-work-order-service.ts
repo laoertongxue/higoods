@@ -9,7 +9,6 @@ import {
   prepareFormalProductionOrderPrintWorkOrderSync,
   registerFormalProductionOrderPrintWorkOrder,
 } from './printing-task-domain.ts'
-import { prepareCombinedDyeingProductionChangeImpact } from './combined-dyeing-domain.ts'
 import {
   deriveFormalProductionOrderMaterialFields,
   normalizeFormalProductionOrderMaterialItems,
@@ -203,27 +202,6 @@ export function prepareSyncProcessWorkOrdersAfterProductionOrderChanges(
       if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
       if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
       if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
-      if (
-        prepared.outcome === 'PROTECTED'
-        && prepared.protectedCombinedMembership
-        && prepared.before
-        && prepared.after
-        && prepared.impact
-        && prepared.workOrderId
-      ) {
-        preparations.push(prepareCombinedDyeingProductionChangeImpact(
-          prepared.protectedCombinedMembership.taskId,
-          {
-            changeRecordId,
-            dyeWorkOrderId: prepared.workOrderId,
-            before: prepared.before,
-            after: prepared.after,
-            reason: '已加入合并染色',
-            recordedAt,
-            suggestedAction: prepared.impact.suggestedAction,
-          },
-        ))
-      }
     }
 
     if (processCodes.has('PRINT')) {

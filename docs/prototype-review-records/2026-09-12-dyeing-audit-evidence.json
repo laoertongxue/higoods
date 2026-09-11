@@ -1,0 +1,299 @@
+{
+  "baseHead": "75f85bad068276f60fe968f7186aa30e74368574",
+  "branch": "codex/dyeing-dispatch-pages",
+  "scope": "AUD-001..024 and previously authorized dyeing dispatch/deletion",
+  "coreChecks": [
+    {
+      "check": "dyeing-audit-closure",
+      "exitCode": 0,
+      "seconds": 1.77,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-audit-closure.log"
+    },
+    {
+      "check": "dyeing-quantity-reconciliation",
+      "exitCode": 0,
+      "seconds": 9.67,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-quantity-reconciliation.log"
+    },
+    {
+      "check": "factory-material-receiving",
+      "exitCode": 0,
+      "seconds": 0.09,
+      "log": "/private/tmp/dye-final-acceptance/factory-material-receiving.log"
+    },
+    {
+      "check": "factory-receiving-integration",
+      "exitCode": 0,
+      "seconds": 4.35,
+      "log": "/private/tmp/dye-final-acceptance/factory-receiving-integration.log"
+    },
+    {
+      "check": "dyeing-online-gap",
+      "exitCode": 0,
+      "seconds": 2.16,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-online-gap.log"
+    },
+    {
+      "check": "dye-material-receipts",
+      "exitCode": 0,
+      "seconds": 2.27,
+      "log": "/private/tmp/dye-final-acceptance/dye-material-receipts.log"
+    },
+    {
+      "check": "dyeing-workflow",
+      "exitCode": 0,
+      "seconds": 32.93,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-workflow.log"
+    },
+    {
+      "check": "water-soluble-process",
+      "exitCode": 0,
+      "seconds": 11.31,
+      "log": "/private/tmp/dye-final-acceptance/water-soluble-process.log"
+    },
+    {
+      "check": "water-soluble-pages",
+      "exitCode": 0,
+      "seconds": 4.04,
+      "log": "/private/tmp/dye-final-acceptance/water-soluble-pages.log"
+    },
+    {
+      "check": "water-soluble-partial-handover",
+      "exitCode": 0,
+      "seconds": 0.63,
+      "log": "/private/tmp/dye-final-acceptance/water-soluble-partial-handover.log"
+    },
+    {
+      "check": "water-soluble-pda",
+      "exitCode": 0,
+      "seconds": 31.2,
+      "log": "/private/tmp/dye-final-acceptance/water-soluble-pda.log"
+    },
+    {
+      "check": "yarn-weight-rules",
+      "exitCode": 0,
+      "seconds": 0.06,
+      "log": "/private/tmp/dye-final-acceptance/yarn-weight-rules.log"
+    },
+    {
+      "check": "process-order-three-axis-flow",
+      "exitCode": 0,
+      "seconds": 0.83,
+      "log": "/private/tmp/dye-final-acceptance/process-order-three-axis-flow.log"
+    }
+  ],
+  "adjacentChecks": [
+    {
+      "check": "dye-list-reentry",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/dye-list-reentry.log"
+    },
+    {
+      "check": "dye-work-order-online-alignment",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/dye-work-order-online-alignment.log"
+    },
+    {
+      "check": "dyeing-list-sections",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-list-sections.log"
+    },
+    {
+      "check": "dyeing-parity-20260910",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/dyeing-parity-20260910.log"
+    },
+    {
+      "check": "process-factory-warehouse-menu-consolidation",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/process-factory-warehouse-menu-consolidation.log"
+    },
+    {
+      "check": "process-route-full-stage-delivery",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/process-route-full-stage-delivery.log"
+    },
+    {
+      "check": "process-work-order-unification",
+      "exitCode": 1,
+      "log": "/private/tmp/dye-final-acceptance/process-work-order-unification.log"
+    },
+    {
+      "check": "production-order-changes",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/production-order-changes.log"
+    },
+    {
+      "check": "production-process-work-order-generation",
+      "exitCode": 0,
+      "log": "/private/tmp/dye-final-acceptance/production-process-work-order-generation.log"
+    }
+  ],
+  "browser": {
+    "audit": {
+      "results": [
+        "filters-0",
+        "filters-1",
+        "warehouse-filters",
+        "warehouse-1280",
+        "DYE-YARN-DEMO-1",
+        "DYE-YARN-DEMO-2",
+        "DYE-YARN-DEMO-3",
+        "water-actual-receipt-web-pda-use-cold-stock"
+      ],
+      "errors": []
+    },
+    "quantity": {
+      "results": [
+        {
+          "route": "pending-receipts",
+          "title": "染厂待接收",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n        \n        \n          \n            全部关闭\n          \n        \n      \n    \n  \n          \n            \n              本地演示身份（与查看工厂分开）操作身份GTG / hilonMJS / dewi周哥毛织厂 / 周哥测试专用工厂 / 测试仓管\n    \n      \n        染厂待接收\n        \n      备料 / 关联加工单\n    \n      默认入库位置\n    \n      扫码接收\n    \n      送货单\n    \n      来源单据\n    \n      \n      \n      \n      全部加工厂\n    \n      GTG\n    \n      MJS\n    \n      周哥毛织厂\n    \n      测试专用工厂\n    \n      送货单 / 原单 / 物料来源类型全部仓库调拨仓库出库工厂交出物料类型全部面料辅料纱线接收登记全部未登记已有记录关联加工单全部无单备料已关联上游组织全部面料中央仓(GKP)berys konveksi中转仓（Sea Cutting）辅料中央仓(GTP)TMF - 辅"
+        },
+        {
+          "route": "work-orders",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n        \n        \n          \n            全部关闭\n          \n        \n      \n    \n  \n          \n            \n              [data-dye-work-orders-workspace] [data-standard-list-scroll] td{vertical-align:top}\n    \n      \n      \n      \n      全部加工厂 22GTG 5MJS 7goto_global 0测试专用工厂 9待分配 1\n    综合查询\n    接收状态全部待来源待接收部分接收已收齐差异待处理\n    加工状态全部未开始加工中加工完成已取消\n    交出状态全部未到交出待交出部分交出全部交出\n    加工厂全部PT Cahaya Dyeing SejahteraPT Prima Printing Center全能力测试工厂待分"
+        },
+        {
+          "route": "pending-handover",
+          "title": "染色待交出列表",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n                \n                  染色待交出列表\n                  \n                  \n                \n              \n        \n        \n          \n            全部关闭\n          \n        \n      \n    \n  \n          \n            \n              \n    \n      \n        染色待交出列表\n        交出单据纱线整单交出\n      \n      \n      全部加工厂GTGMJSgoto_global测试专用工厂\n      加工单 / 任务单 / SPU / 生产单接收方全部中转仓（Sea Cutting）PT CIK INTERNUSA面料中央仓(GKP)berys konveksi中转仓（新裁床）sipataxMJS周"
+        },
+        {
+          "route": "handover-documents",
+          "title": "染色交出单据",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n                \n                  染色待交出列表\n                  \n                  \n                \n              \n                \n                  染色交出单据\n                  \n                  \n                \n              \n        \n        \n          \n            全部关闭\n          \n        \n      \n    \n  \n          \n            \n              \n    \n      \n        染色交出单据\n        待交出列表纱线整单交出\n      \n      \n      全部加工厂GTGMJSgoto_global测试"
+        },
+        {
+          "route": "wait-process-warehouse",
+          "title": "染色待加工仓",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n                \n                  染色待交出列表\n                  \n                  \n                \n              \n                \n                  染色交出单据\n                  \n                  \n                \n              \n                \n                  染色待加工仓\n                  \n                  \n                \n              \n        \n        \n          \n            全部关闭\n          \n        \n      \n    \n  \n          \n       "
+        },
+        {
+          "route": "wait-handover-warehouse",
+          "title": "染色待交出仓",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n                \n                  染色待交出列表\n                  \n                  \n                \n              \n                \n                  染色交出单据\n                  \n                  \n                \n              \n                \n                  染色待加工仓\n                  \n                  \n                \n              \n                \n                  染色待交出仓\n                  \n                  \n                \n  "
+        },
+        {
+          "route": "reports",
+          "title": "染色统计",
+          "overflow": false,
+          "broken": [],
+          "text": "\n          \n    \n      \n        \n          \n                \n                  待接收\n                  \n                  \n                \n              \n                \n                  染色加工单\n                  \n                  \n                \n              \n                \n                  染色待交出列表\n                  \n                  \n                \n              \n                \n                  染色交出单据\n                  \n                  \n                \n              \n                \n                  染色待加工仓\n                  \n                  \n                \n              \n                \n                  染色待交出仓\n                  \n                  \n                \n  "
+        }
+      ],
+      "errors": [],
+      "verified": [
+        "seven routes",
+        "receipt/dispatch projection loaded from cold state",
+        "page size and frozen-column persistence",
+        "material preview and Esc",
+        "1280 no document overflow",
+        "legacy receipt action removed",
+        "print preview"
+      ]
+    },
+    "barcode": {
+      "results": [
+        "米制编辑、实称独立、理论只读、保存重开、批量留空、标签区分和三位小数",
+        "Yard/米独立换算、实称保留、理论按米换算、1280×720弹窗可见"
+      ],
+      "errors": []
+    },
+    "approvedBeforeRolls": {
+      "passed": true,
+      "source": "AUD-APPROVED-AWAIT-ROLLS",
+      "factory": "ID-F003",
+      "pendingAppeared": true,
+      "unidentifiedRollBlocked": true
+    }
+  },
+  "sourceSha256": {
+    "package.json": "6382b6562f502b5bec5c30c9c6bfd39e9cfe1d05f25d00269726a3dfc6cbf98d",
+    "scripts/check-combined-dyeing.ts": "deleted",
+    "scripts/check-dye-barcode-weight.mjs": "bf87799c1462f60c7e387cdd183fc06d47cdcee620e743cf22889947b236ad14",
+    "scripts/check-dye-list-reentry.ts": "efe13fd4faa73856cc3fab91a7669c8d824cd9e1098ccfc57f920ec1fc503fb9",
+    "scripts/check-dye-material-receipts.ts": "58faab256f0c5cecf98a8912d0a0f91295c593a974fe4627b69240413a8dfd96",
+    "scripts/check-dye-work-order-online-alignment.ts": "586b1e3ad74f0cd60aba5bc6f199e17f1d287f7a92dd967f55b63cecdb066679",
+    "scripts/check-dyeing-audit-closure.ts": "7718040d58d819414c303ec00b7e7d1ee3012f59146a44bce9acd7accd4f36d8",
+    "scripts/check-dyeing-list-sections.ts": "4d5df0b135fab3d6e0e8cbb1794d6d0986583632dcb782143a69502048f353c1",
+    "scripts/check-dyeing-online-gap.ts": "03dbbe826834c4499560a7ca10c10d41ae6044bd5fbb9ee20d4a7c5cabd1f27e",
+    "scripts/check-dyeing-parity-20260910.ts": "da9d294a244e9989763b1d826b815f9e1e028e9cae1a80696a0b3ac51ae6c6f8",
+    "scripts/check-dyeing-quantity-reconciliation.ts": "c6497882804eefd578331b11c6ba26e4d5fde646d6309c2b06c14760d07f80e0",
+    "scripts/check-dyeing-workflow.ts": "cd0884d16296901a14408253eab42d1972850beb630033fbfbb58ae53cb64ec6",
+    "scripts/check-factory-receiving-integration.ts": "4ed31e33606d41c9974c2bfe379eba030ae0654437d588e36a05fdffa068d95f",
+    "scripts/check-process-factory-warehouse-menu-consolidation.ts": "76b17607e41c6643026a1c8139ae5487c8877063c5ac6346e6e83e85b3661a51",
+    "scripts/check-process-route-full-stage-delivery.ts": "4ed568250f87eddba2b6accc43650c2f1914b9afce797b14a85d76323a91218c",
+    "scripts/check-process-work-order-unification.ts": "fd5bcc793c36d70d3826b8acf79a94bc0b92d3bb9b51e663b18444c48267b4c8",
+    "scripts/check-production-order-changes.ts": "578dc3a51effaa19419de303ace60468c3e321140cc8fa625bd832d4892eaf53",
+    "scripts/check-production-process-work-order-generation.ts": "efd310d107c00c7463932a327cab6a342446f1ddf09a264bd461bc09c71e7792",
+    "scripts/check-statistics-dashboard-real-data.ts": "055195581f989d82c240f316e2ccc1e61f31eb09cff38f8b8d77febee37abe3b",
+    "scripts/check-water-soluble-pages.ts": "a10044fe19271eae310a428cd17156089018a70ca7caae709476c55428add1fa",
+    "scripts/check-water-soluble-partial-handover.ts": "0d6c26418df0b8a725c0ec259dd8abdf05698ef9df0119a259935ef7947d6059",
+    "scripts/check-water-soluble-pda.ts": "9f5fcd3544a3b6cf365f5ad992c3eee105bc72e9f6f1e30b29c641381402b96c",
+    "scripts/check-water-soluble-process.ts": "7ebdefa402588c378755972a0eca64663c70f04887c0841bfc5f54ecf62cdd4d",
+    "scripts/water-receiving-check-helper.ts": "f82b8570efe10b3f79a77b82c20f361fdab4adcc5f6ee83f3147487d88d00df3",
+    "src/data/app-shell-config.ts": "f30276b1ec181a5638bae63bc4a4a6bac34b32910ad05ee3988dfbb85f85f651",
+    "src/data/fcs/combined-dyeing-deep-link.ts": "deleted",
+    "src/data/fcs/combined-dyeing-domain.ts": "deleted",
+    "src/data/fcs/dye-work-order-combined-dyeing-view.ts": "deleted",
+    "src/data/fcs/dye-work-order-demo-details.ts": "d362204ba07374d50e99fbd265ac556be599fa745c17fc03032482f88692d489",
+    "src/data/fcs/dye-work-order-online-view.ts": "7122051777db742c45acca6a4dcd346ed961d8315f8acb9fefb82049f8721143",
+    "src/data/fcs/dyeing-quantity-facts.ts": "7c1e3e292ac6002758f825b15981825f19da3cc02b664934094aaae03116a080",
+    "src/data/fcs/dyeing-task-domain.ts": "7e46cc6cd61f4d5d45b032b6b0b99686b1f2ae70049f2590e44d0f1749b7eb29",
+    "src/data/fcs/dyeing-warehouse-view.ts": "b52361896774cef6c24c107bcaea690267b2b66549dc045b9051fcc3b158d18b",
+    "src/data/fcs/factory-internal-warehouse.ts": "db3fcee80c33e7f3b19c6a9df658b33fda5c43bee270bed8b9b23866d652f915",
+    "src/data/fcs/factory-receiving-links.ts": "8287dda91ed9cf1db1a86067f8f14b8801ec836d2bad59c409d841c969decebd",
+    "src/data/fcs/factory-receiving-source-sync.ts": "c9544fef2af14b2bc5aad7711e78572682c51fd61be63100dd54a314e6677dae",
+    "src/data/fcs/factory-receiving-types.ts": "e78fb99efcb022a344c97bf296eed2ef394ce8d4f37f81769042ae788ecbde52",
+    "src/data/fcs/factory-receiving-warehouse.ts": "7d05af7f79f192f6858083363cff2dd4f565e25efb460c2219b7fb2a8a1362de",
+    "src/data/fcs/factory-receiving.ts": "d3c8aa766fc8951cfee8be474f55df2b48ed3681910c4cf2035962a1e87ed9d9",
+    "src/data/fcs/pda-handover-events.ts": "8e7e2b27333f98e5c298ff0aa8dce640bf91e55a296c97f1df82fdbcb077ba1c",
+    "src/data/fcs/process-action-writeback-service.ts": "4beba32385114048596c950cf539f55bb2e34bd5f26f7ef596b79df0b4f188c5",
+    "src/data/fcs/process-execution-writeback.ts": "d858d30a9c20a0732754607bd7aa78b1583c2ba8ecb4e7db13dc425271a866f5",
+    "src/data/fcs/process-order-image-manifest.ts": "f21af4c7641947849a148d7e040158a3ba7f35a18bb6edb7e4df4bcc3230e408",
+    "src/data/fcs/process-order-input-transfer-fixtures.ts": "0c4ded248b997d524b6cf49cc90da9e0aab8bef96d441be2388dd35a751dc542",
+    "src/data/fcs/process-statistics-domain.ts": "33783e546ebf4393f095f092aef19b594b59ea450fd391415d794df63245fa05",
+    "src/data/fcs/process-warehouse-linkage-service.ts": "8919a0b08c48bed2e1eada35608e11d63d41cb0e7ec196e6deef20e636e09882",
+    "src/data/fcs/process-web-status-actions.ts": "ce41ca2be568fc3edd601ea211798b15ab815f52a9e0405e44b23de8ffdcfe4d",
+    "src/data/fcs/process-work-order-domain.ts": "ff7cb8a3b4b0d080015f118b5aa5686ab4a5dd6aab25fc07cbf53b7b9a7742a9",
+    "src/data/fcs/process-work-order-stock.ts": "535294ad60427a366014c84d32b00e7dbd0371de8be611728fdb2461e44cebca",
+    "src/data/fcs/production-process-work-order-service.ts": "3865cffbd1b1ced6669fb8c5bac39f91cd906e2ae692927d0fda3f22a5f7051b",
+    "src/data/fcs/warehouse-material-execution.ts": "4bd5152ac2a9eab5563130244abafc5c91fed43516cb4676f391576810238e4c",
+    "src/data/fcs/water-soluble-material-receipts.ts": "20aaeaa2f6d34abd2ac688d36906c2d67fb514e95847bf12542b8da248a16f14",
+    "src/data/fcs/water-soluble-task-domain.ts": "2cb8fc1968a326fe890c2d490141ce81fff24dce054c08a4b72d1289722ee2ae",
+    "src/main-handlers/fcs-handlers.ts": "a89941b246cceb8d67d9014fe13d0296e5be2b1ba5d45cc86bc90f5bede3eeea",
+    "src/main.ts": "a474fd69c4743a10b5a2f50b17d37c14c2d49dc8ab9e895916d3320412ec2fc5",
+    "src/pages/pda-exec-detail.ts": "3b60f3aa3c54df41f5e2d2c1da11f33f995d2dbe65bbeb3d78f4359f7d8f0be3",
+    "src/pages/pda-handover-detail.ts": "0edce5fcf4e0038b07cf05eafb208af4a5cee3b47b3592f959f434a313e5219c",
+    "src/pages/process-factory/dyeing/barcode-dialog.ts": "a1d020193656a2a89dce716687044b2d5c2d48472a71a1ea3f4f55e7ea584319",
+    "src/pages/process-factory/dyeing/combined-dyeing.ts": "deleted",
+    "src/pages/process-factory/dyeing/dispatch-print.ts": "1ad380359face45ca57aa2192777f7a0b715b7ad4812dac8f8015b376585b855",
+    "src/pages/process-factory/dyeing/events.ts": "3b7b5bf60258b05fa9644f4fac0a994c782c7ccf4acf8b891e6fc7bd5577e1be",
+    "src/pages/process-factory/dyeing/output-documents.ts": "93067991ceb9c48b39085ab75c82a53739cfe67de0ebfc08c61e11b9524f2f9f",
+    "src/pages/process-factory/dyeing/pending-receipts.ts": "88967facb7c7c08aeb62f558e91329409c8e1c9b04dbdec7c54a58ac66e73a06",
+    "src/pages/process-factory/dyeing/reports.ts": "a58d56cb919390094e0ae0f0f436e48542703432548b7a94ce516d2c7852f4cb",
+    "src/pages/process-factory/dyeing/warehouse.ts": "1f5cd8727b31843f2c36b53bae287e27ab839f01a53cef4dadcf0aa39b9abdcc",
+    "src/pages/process-factory/dyeing/water-soluble-orders.ts": "a5786854d92241a70405a9af73ef0896d37ca105bf0930613283733b8e49c3a2",
+    "src/pages/process-factory/dyeing/work-order-detail.ts": "73dc228e14851603bf521953cf274ce35148e3af97b20c255bfe2c9bcd6e2c9c",
+    "src/pages/process-factory/dyeing/yarn-shipments.ts": "48488c589cdf535bc8de2f5c40a06fef39a673184e6a2194bf2c0e3d9be99ee5",
+    "src/router/route-renderers-fcs.ts": "72e46dafb0dc2d4e8e831aaf1a31254d6b1d74cd80b6fd3e9b962531fad82ed3",
+    "src/router/routes-fcs.ts": "44ff4aedaab0e9803b6026a9e1c24cc350f3360ddfb05ecee9bdd6da1b906fc2",
+    "tests/combined-dyeing.spec.ts": "deleted",
+    "tests/dye-work-order-online-alignment.spec.ts": "53cecf59aeb57057e822fa29af70c06f502e913b33a4e22e85ad7420bd3c48bb"
+  },
+  "exception": "Two legacy all-module static checks fail on untouched printing assertions; they are not marked passed. Dyeing targeted checks and current browser scenarios passed.",
+  "receipt": "/private/tmp/dye-final-acceptance/task-receipt.json"
+}

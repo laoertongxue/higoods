@@ -295,7 +295,8 @@ const DYE_ACTIONS: ActionDefinition[] = [
     processType: 'DYE',
     fromStatuses: ['WAIT_VAT_PLAN'],
     toStatus: 'DYEING',
-    requiredFields: ['操作人', '开始时间', '染缸号'],
+    requiredFields: ['操作人', '开始时间', '染缸号', '本批投入数量'],
+    optionalFields: ['投入物料 SKU', '备注'],
     writebackHandler: 'startDyeNode',
   },
   {
@@ -767,7 +768,7 @@ export function getAvailablePrintWebActions(printOrderId: string): ProcessWebAct
 export function getAvailableDyeWebActions(dyeOrderId: string): ProcessWebAction[] {
   const status = getDyeStatus(dyeOrderId)
   if (!status) return []
-  return listMatchingActions(DYE_ACTIONS, status.status)
+  return listMatchingActions(DYE_ACTIONS, status.status).filter(action => action.actionCode !== 'DYE_SUBMIT_HANDOVER')
 }
 
 export function getAvailableCuttingWebActions(cuttingOrderId: string): ProcessWebAction[] {

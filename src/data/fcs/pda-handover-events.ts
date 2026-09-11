@@ -1,3 +1,4 @@
+import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
 import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
@@ -85,6 +86,7 @@ import {
 } from './task-qr.ts'
 import {
   getWaterSolubleWorkOrderByTaskId,
+  getWaterSolubleReceivingMaterial,
   getWaterSolubleHandoverQtyUnit,
   linkWaterSolubleHandoverOrder,
   listWaterSolubleMobileTasks,
@@ -2506,12 +2508,14 @@ function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: ()
   if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
   const formalPreparation = Boolean(head && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId)))
-  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head))) return action()
+  const isWater = head?.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head) && !isWater)) return action()
   if (formalPreparation && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，本次未保存。')
-  const waterBefore = formalPreparation && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
+  const waterBefore = isWater ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
   if (formalPreparation && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' && (!waterBefore || waterBefore.waterOrderId !== head.sourceDocId || waterBefore.productionOrderId !== head.productionOrderNo)) throw new Error('水溶交接头与原加工单来源不一致，本次未保存。')
   const waterMutationBefore = waterBefore ? captureWaterSolubleOrderMutation(waterBefore) : null
   const before = capturePdaHandoverState()
+  const receivingBefore = isWater ? captureFactoryReceivingData() : null
   const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY)
   try {
     return runRuntimeTaskAction(() => {
@@ -2521,6 +2525,7 @@ function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: ()
       return result
     })
   } catch (error) {
+    if (receivingBefore) restoreFactoryReceivingData(receivingBefore)
     if (waterMutationBefore) restoreWaterSolubleOrderMutation(waterMutationBefore.order, waterMutationBefore.persistedRaw)
     restorePdaHandoverState(before)
     if (typeof localStorage !== 'undefined' && localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY) !== raw) {
@@ -3416,7 +3421,19 @@ function projectFactoryActualReceipt(record:PdaHandoverRecord):PdaHandoverRecord
  if(!source)return record
  const receipts=getSourceActualReceipts(source.id),latest=receipts.at(-1)
  if(!latest)return record
- const qty=receipts.reduce((n,r)=>n+r.qty,0)
+ const targetUnit=(record.qtyUnit||'').toLowerCase()
+ const quantities=receipts.map(receipt=>{
+   const unit=receipt.unit.toLowerCase()
+   if(receipt.businessUnit?.toLowerCase()===targetUnit&&receipt.businessQty!==undefined)return receipt.businessQty
+   if(unit===targetUnit)return receipt.qty
+   if(unit==='yard'&&['米','m','meter'].includes(targetUnit))return receipt.qty*.9144
+   if(['米','m','meter'].includes(unit)&&targetUnit==='yard')return receipt.qty/.9144
+   if(unit==='kg'&&targetUnit==='g')return receipt.qty*1000
+   if(unit==='g'&&targetUnit==='kg')return receipt.qty/1000
+   return null
+ })
+ if(quantities.some(q=>q===null))return record
+ const qty=Number(quantities.reduce<number>((n,q)=>n+(q??0),0).toFixed(4))
  return {...record,receiverWrittenQty:qty,warehouseWrittenQty:qty,receiverWrittenAt:latest.receivedAt,receiverWrittenBy:latest.receivedBy,receiverRemark:`按实际接收记录汇总 ${receipts.length} 次；允许继续登记`}
 }
 
@@ -4518,6 +4535,8 @@ export function validateWaterSolubleHandoverScan(head: PdaHandoverHead, scanCode
 }
 
 export function createFactoryHandoverRecord(input: {
+  /** Set only by the dyeing execution transaction after roll/gross-weight validation. */
+  dyeExecutionConfirmed?: boolean
   handoverOrderId: string
   submittedQty: number
   qtyUnit?: string
@@ -4545,6 +4564,7 @@ export function createFactoryHandoverRecord(input: {
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
   }
+  if (!input.dyeExecutionConfirmed && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE')) throw new Error('染色交出请从待交出列表逐卷建单；纱线请使用毛重、净重整单交出。')
   if (head.processBusinessCode === 'WOOL') {
     throw new Error('毛织交出记录由加工单发起交出事实生成，不允许新增通用交出记录')
   }
@@ -4653,6 +4673,10 @@ export function createFactoryHandoverRecord(input: {
     updatedWaterOrder = result.order
   }
   saveHandoutRecord(created)
+  if(waterOrder&&head.receiverKind!=='WAREHOUSE'&&head.receiverId&&head.receiverName){
+    const id=`WATER-HANDOUT-${created.handoverRecordId||created.recordId}`
+    registerFactoryReceivingSource({id,documentNo:head.handoverOrderNo||head.handoverId,type:'HANDOUT',origin:{kind:'FACTORY',id:waterOrder.factoryId!,name:waterOrder.factoryName!,factoryType:'染色厂'},targetFactoryId:head.receiverId,targetFactoryName:head.receiverName,createdAt:input.factorySubmittedAt,createdBy:input.factorySubmittedBy,handedOutAt:input.factorySubmittedAt,workOrderNo:waterOrder.waterOrderNo,waterBatchId:updatedWaterOrder?.handoverBatches?.at(-1)?.batchId,originalRecordId:created.handoverRecordId||created.recordId,lines:[{id:`${id}-L1`,material:getWaterSolubleReceivingMaterial(waterOrder.waterOrderId),plannedQty:input.submittedQty,sentQty:input.submittedQty,unit:input.qtyUnit||head.qtyUnit,rolls:[],label:head.handoverOrderNo||head.handoverId,productionOrderNo:waterOrder.productionOrderNo,taskNo:waterOrder.taskNo}]})
+  }
   if (waterOrder
     && (updatedWaterOrder?.handoverQty ?? 0) + 0.000001 >= waterOrder.completedQty
     && (waterOrder.completedQty + 0.000001 >= waterOrder.plannedQty || waterOrder.supervisorDecision === 'CONTINUE_WITH_ACTUAL_QTY')

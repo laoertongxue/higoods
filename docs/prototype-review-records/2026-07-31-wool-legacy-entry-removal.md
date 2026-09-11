@@ -1,3 +1,5 @@
+> 2026-09-11 范围更新：本文关于旧批次模块的历史条款已失效，相关实现和入口已删除；当前口径见同日染色交出调整设计。其余历史记录保留。
+
 # 毛织旧入口与专属投影删除原型审查记录
 
 ## 1. 基本信息
@@ -83,12 +85,12 @@
 - `npm run check:wool-fact-workflow`：通过，新增旧页面、路由、菜单、链接、打印数据源和旧语义负向门禁。
 - `npm run check:wool-internal-style-code`：通过。
 - `npm run check:wool-warehouse-unified-model`：通过，含 Web 仓库本地浏览器交互。
-- `npm run check:process-factory-warehouse-menu-consolidation`：失败于既有染色菜单断言；实际菜单较旧断言多“合并染色、水溶加工单”，本次毛织差异未修改染色菜单。
+- `npm run check:process-factory-warehouse-menu-consolidation`：失败于既有染色菜单断言；实际菜单较旧断言多“旧批次模块（已移除）、水溶加工单”，本次毛织差异未修改染色菜单。
 - `npm run check:list-page-governance`：失败；静态列表检查通过，标准模板复验在既有补料页“列设置”按钮等待 30 秒超时，第一次运行同一 Chromium 拖拽检查曾通过。
 - `npm run check:prototype-design-governance -- --all`：通过，覆盖 9 个受管文件和本审查记录。
 - `npm run build`：通过，旧 `listWoolFeiTicketPrintRecords` 导入阻断已消除。
 
 ### 例外
 
-- 既有 `check:process-factory-warehouse-menu-consolidation` 的染色菜单期望未包含“合并染色、水溶加工单”，与本次毛织删除无关；本任务不越界修改染色菜单或旧断言。
+- 既有 `check:process-factory-warehouse-menu-consolidation` 的染色菜单期望未包含“旧批次模块（已移除）、水溶加工单”，与本次毛织删除无关；本任务不越界修改染色菜单或旧断言。
 - `check:list-page-governance` 的静态门禁通过；标准模板 Chromium 复验在既有补料列表“列设置”按钮发生已知偶发超时，本次未修改补料页面、标准列表组件或该测试。

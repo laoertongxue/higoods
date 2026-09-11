@@ -15,10 +15,6 @@ import { getPrintWorkOrderById } from '../src/data/fcs/printing-task-domain.ts'
 import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
-  createCombinedDyeingTask,
-  getCombinedDyeingTaskById,
-} from '../src/data/fcs/combined-dyeing-domain.ts'
-import {
   adaptLegacyQuantityLinesForEdit,
   areMaterialSelectionsEquivalent,
   buildProductionChangeRecord,
@@ -1683,11 +1679,7 @@ const actualIdentityReplacementSnapshot = {
 }
 const actualIdentityPartnerWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(actualIdentityBuilderSnapshot)
 const actualIdentityReplacementWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(actualIdentityReplacementSnapshot)
-assert.doesNotThrow(() => createCombinedDyeingTask({
-  dyeWorkOrderIds: [actualIdentityPartnerWorkOrder.dyeWorkOrderId!, actualIdentityReplacementWorkOrder.dyeWorkOrderId!],
-  createdBy: '生产变更 actual identity 检查人',
-  createdAt: '2026-07-16 11:30:00',
-}), '正式 builder 与生产变更 replacement 指向同一正式物料编码时必须允许合并染色')
+assert.equal(getDyeWorkOrderById(actualIdentityPartnerWorkOrder.dyeWorkOrderId!)?.materialId, getDyeWorkOrderById(actualIdentityReplacementWorkOrder.dyeWorkOrderId!)?.materialId, '正式物料身份保持一致')
 
 const uiQuantitySnapshot: FormalProductionOrderProcessSnapshot = {
   ...workflowSyncSnapshot,
@@ -3373,7 +3365,8 @@ const executeProductionChangeSource = productionChangeWorkflowSource.slice(
   "form.execution.status === 'RUNNING'",
   "existingRecord?.status === 'DONE'",
   'persist: persistExecutionResult',
-  'form.execution = createProductionChangeRolledBackResult(preview)',
+  'const rolledBackResult = createProductionChangeRolledBackResult(preview)',
+  'rolledBackRecord.execution = structuredClone(rolledBackResult)',
 ].forEach((text) => {
   assert.ok(productionEventsSource.includes(text), `events.ts 缺少第四步同步写回或防重复证据「${text}」`)
 })
@@ -3887,25 +3880,6 @@ prepareSyncProcessWorkOrdersAfterProductionOrderChanges([{
   changeRecordId: 'BG-ATOMIC-COMBINED-FIXTURE-001',
   recordedAt: '2026-07-16 15:15:00',
 }).commit()
-const atomicNormalizedDyeSnapshot = getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)!
-  .formalProductionOrderSnapshot
-const atomicCombinedPartner = ensureProcessWorkOrdersForFormalProductionOrder({
-  ...atomicNormalizedDyeSnapshot,
-  productionOrderId: 'PO-ATOMIC-COMBINED-PARTNER',
-  productionOrderNo: 'PO-ATOMIC-COMBINED-PARTNER',
-  processCodes: ['DYE'],
-  dyeProcessName: atomicNormalizedDyeSnapshot.processName,
-  factoryId: 'F090',
-  factoryName: '全能力测试工厂',
-})
-const atomicCombinedTask = createCombinedDyeingTask({
-  dyeWorkOrderIds: [
-    realMaterialWorkOrder.dyeWorkOrderId!,
-    atomicCombinedPartner.dyeWorkOrderId!,
-  ],
-  createdBy: '事务回滚测试计划员',
-  createdAt: '2026-07-16 15:20:00',
-})
 const atomicCommitForm = createInitializedProductionChangeForm(realMaterialOrderId, 'MATERIAL_REPLACEMENT')
 atomicCommitForm.recordId = 'BG-UI-WORKORDER-COMMIT-ROLLBACK-001'
 atomicCommitForm.reason = '验证第二个加工单 prepared commit 异常后两侧全部回滚'
@@ -3929,7 +3903,6 @@ const atomicCommitBefore = {
   dyeWorkOrders: atomicDyeOrderIds.map((id) => getDyeWorkOrderById(id)),
   printWorkOrders: atomicPrintOrderIds.map((id) => getPrintWorkOrderById(id)),
   pdaTasks: structuredClone(listPdaGenericProcessTasks().filter((task) => atomicTaskIds.includes(task.taskId))),
-  combinedTask: getCombinedDyeingTaskById(atomicCombinedTask.taskId),
 }
 const atomicCommitAttempts: number[] = []
 const atomicCommitExecution = executeProductionChangeForForm(atomicCommitForm, {
@@ -3955,7 +3928,6 @@ assert.deepEqual(
   atomicCommitBefore.pdaTasks,
   'commit 异常必须恢复染/印 PDA 任务',
 )
-assert.deepEqual(getCombinedDyeingTaskById(atomicCombinedTask.taskId), atomicCommitBefore.combinedTask, 'commit 异常必须恢复合并染色 impact')
 assert.equal(getProductionChangeRecord(atomicCommitForm.recordId)?.status, 'ROLLED_BACK', '变更记录必须落为 ROLLED_BACK，不能残留 DONE')
 
 const persistedSnapshotProbeOrderId = 'PO-202603-0102'

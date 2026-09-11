@@ -8,7 +8,7 @@ import { listFactoryReceivingSources } from '../src/data/fcs/factory-receiving.t
 import { renderCraftDyeingWorkOrdersPage } from '../src/pages/process-factory/dyeing/work-orders.ts'
 
 const rows = listDyeWorkOrderOnlineRows()
-assert.equal(rows.length,19)
+assert.equal(rows.length,22)
 assert.equal(rows.filter(row=>row.isYarn).length,3)
 for (const row of rows) {
   for (const key of ['workOrderNo','taskNo','salesType','productName','productCode','colorSku','processName','headVatOrRedye','shade','orderedAt','plannedFinishAt','receiverName','fabricReceiver'] as const) {
@@ -83,8 +83,12 @@ for (const row of rows) {
   assert(dyePartnerFields(row.downstreamPartner).every(([,value])=>value.trim()))
   assert.equal(row.receiverName,row.downstreamPartner.name)
   for (const key of ['preparedRollCount','completedRollCount','handedOverRollCount'] as const) assert(Number.isInteger(row[key]) && row[key] >= 0)
-  assert.equal(row.completedQty > 0,row.completedRollCount > 0,`${row.dyeOrderId}: 完成卷数与完成事实`)
-  assert.equal(row.handedOverQty > 0,row.handedOverRollCount > 0,`${row.dyeOrderId}: 交出卷数与交出事实`)
+  // Historical aggregate length is not evidence of a physical roll count.
+  if (['DWO-008','DWO-009','DWO-010'].includes(row.dyeOrderId)) {
+    assert(row.completedQty > 0)
+    assert.equal(row.completedRollCount,0,`${row.dyeOrderId}: 不从长度编造完成卷数`)
+    assert.equal(row.handedOverRollCount,0,`${row.dyeOrderId}: 不从长度编造交出卷数`)
+  }
   assert.equal(row.preparedQty > 0,row.preparedRollCount > 0,`${row.dyeOrderId}: 备料卷数`)
 }
 const multi = rows.find(row=>row.inputMaterials.length > 1)!
@@ -102,7 +106,7 @@ assert(!html.includes('undefined') && !html.includes('NaN'))
 assert(!html.includes('雅加达中心仓'))
 const downstreamKinds = new Set(rows.map(row=>row.downstreamPartner!.kind === 'WAREHOUSE' ? row.downstreamPartner!.warehouseAttribute : '加工厂'))
 assert.deepEqual([...downstreamKinds].sort(),['中转仓','加工厂','辅料中央仓','面料中央仓'].sort())
-assert.equal(rows.filter(row=>row.upstreamDocuments.some(doc=>doc.partner.kind === 'FACTORY')).length,4)
+assert.equal(rows.filter(row=>row.upstreamDocuments.some(doc=>doc.partner.kind === 'FACTORY')).length,3)
 assert(filterDyeWorkOrderOnlineRows(rows,{keyword:'印花厂'}).some(row=>row.dyeOrderId === 'DWO-002'))
 assert.equal(filterDyeWorkOrderOnlineRows(rows,{keyword:'WH-FITTING-001'})[0].dyeOrderId,'DYE-WATER-PO-202603-081')
 const csv = buildDyeWorkOrderCsv(rows,'全部')
@@ -119,8 +123,8 @@ for (const row of rows) for (const item of row.inputMaterials) {
 }
 for (const section of ['plan','receipt','processing','handover']) assert.equal(html.split(`data-dye-quantity-section="${section}"`).length-1,10)
 console.log('PASS REFINE-001..003：仓库无所属工厂、投入产出规格齐全、独立幅宽及四段数量')
-console.log('PASS PARTY-001..005：上下游资料完整、4个加工厂来源、下游4类覆盖、染色调拨同源、搜索及导出无旧仓库名')
-console.log('PASS 19行资料和来源完整（含3行纱线三项数量）、多SKU搜索、上游单据发出量、卷数、独立进度及时间/数量列')
+console.log('PASS PARTY-001..005：上下游资料完整、3个加工厂来源、下游4类覆盖、染色调拨同源、搜索及导出无旧仓库名')
+console.log('PASS 22行资料和来源完整（含3行纱线三项数量）、多SKU搜索、上游单据发出量、卷数、独立进度及时间/数量列')
 
 // REFINE-004..005: note-only edits must preserve execution facts and survive local reload.
 const {getDyeWorkOrderOnlineRecord, updateDyeWorkOrderRemark, listDyeWorkOrderOnlineLogs, captureDyeOnlineMutationState, restoreDyeOnlineMutationState} = await import('../src/data/fcs/dye-work-order-online-domain.ts')

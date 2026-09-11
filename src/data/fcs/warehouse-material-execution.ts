@@ -39,6 +39,8 @@ export type WarehouseExecutionStatus =
 export type WarehouseExecutionTargetType = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
 
 export interface WarehouseExecutionLineBase {
+  receivingMaterial?: import('./factory-receiving-types.ts').ReceivingMaterial
+  receivingRolls?: import('./factory-receiving-types.ts').SourceRoll[]
   lineId: string
   docId: string
   materialCode?: string
@@ -570,6 +572,8 @@ function buildWaterSolubleDemoIssueOrder(input: {
     docNo: `WL-WATER-${input.productionOrderId.replace(/^PO-/, '')}`,
     docType: 'ISSUE',
     status: 'ISSUED',
+    approvedAt: input.issuedAt,
+    approvedBy: '仓库主管 Budi',
     productionOrderId: input.productionOrderId,
     baseTaskId: input.taskId,
     runtimeTaskId: input.taskId,
@@ -619,6 +623,8 @@ function buildDyeDemoIssueOrder(input: ProcessOrderInputTransferFixture): Wareho
     docNo: `WL-DYE-${input.workOrderId.replace(/^DWO-/, '')}`,
     docType: 'ISSUE',
     status: 'ISSUED',
+    approvedAt: input.issuedAt,
+    approvedBy: '仓库主管 Budi',
     productionOrderId: input.productionOrderId,
     baseTaskId: input.taskId,
     runtimeTaskId: input.taskId,

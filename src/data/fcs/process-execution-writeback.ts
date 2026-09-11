@@ -143,36 +143,6 @@ function createPrintWaitHandoverRecord(order: PrintWorkOrder, qty: number, opera
   })
 }
 
-function createDyeWaitHandoverRecord(order: DyeWorkOrder, qty: number, operatedAt?: string) {
-  return createWaitHandoverWarehouseRecord({
-    craftType: 'DYE',
-    craftName: '染色',
-    sourceWorkOrderId: order.dyeOrderId,
-    sourceWorkOrderNo: order.dyeOrderNo,
-    sourceTaskId: order.taskId,
-    sourceTaskNo: order.taskNo,
-    ...buildProcessSource(order),
-    sourceFactoryId: order.dyeFactoryId,
-    sourceFactoryName: order.dyeFactoryName,
-    targetFactoryId: order.targetTransferWarehouseId,
-    targetFactoryName: order.targetTransferWarehouseName,
-    targetWarehouseName: '染色待交出仓',
-    warehouseLocation: '染色待交出仓-B01',
-    skuSummary: order.rawMaterialSku,
-    materialSku: order.rawMaterialSku,
-    materialName: '染色面料',
-    objectType: '面料',
-    plannedObjectQty: order.plannedQty,
-    receivedObjectQty: qty,
-    availableObjectQty: qty,
-    qtyUnit: '米',
-    currentActionName: '染色待交出',
-    status: '待交出',
-    inboundAt: operatedAt || nowTimestamp(),
-    remark: '移动端包装完成后生成待交出仓记录',
-  })
-}
-
 function resolveSpecialCraftWorkOrderId(taskOrder: SpecialCraftTaskOrder): string {
   return getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.workOrderIds?.[0] || taskOrder.taskOrderId
 }
@@ -360,9 +330,6 @@ export function finishDyeNode(taskId: string, nodeCode: DyeExecutionNodeCode, pa
       outputQty: payload.outputQty ?? order.plannedQty,
       operatorName: payload.operatorName || '染色工厂',
     })
-    if (nodeCode === 'PACK') {
-      createDyeWaitHandoverRecord(order, payload.outputQty ?? order.plannedQty, payload.operatedAt)
-    }
     return { workOrder: getDyeWorkOrderById(order.dyeOrderId), nodeRecord }
   }
   throw new Error(`染色移动端暂不支持直接完成节点：${nodeCode}`)
@@ -378,55 +345,8 @@ export function submitDyeDelivery(taskId: string, payload: ExecutionWritebackPay
   }
 }
 
-export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload = {}): {
-  workOrder?: DyeWorkOrder
-  handoverRecord: PdaHandoverRecord
-} {
-  const order = requireDyeOrderByTaskId(taskId)
-  const handoverOrderId = ensureDyeHandoverOrderId(order)
-  const submittedQty = payload.submittedQty ?? getDyeExecutionNodeRecord(order.dyeOrderId, 'PACK')?.outputQty ?? order.plannedQty
-  const submittedAt = payload.operatedAt || nowTimestamp()
-  const created = createFactoryHandoverRecord({
-    handoverOrderId,
-    submittedQty,
-    qtyUnit: payload.qtyUnit || order.qtyUnit,
-    factorySubmittedAt: submittedAt,
-    factorySubmittedBy: payload.operatorName || '染色工厂',
-    factoryRemark: payload.remark || `交出面料米数：${submittedQty} ${order.qtyUnit}`,
-    objectType: 'FABRIC',
-    handoutObjectType: 'FABRIC',
-    handoutItemLabel: `${order.targetColor} / ${order.colorNo || '待确认色号'}`,
-    materialCode: order.rawMaterialSku,
-    materialName: '染色面料',
-    materialSpec: order.targetColor,
-  })
-  const handoverRecord = created
-  const unified = createProcessHandoverRecord({
-    craftType: 'DYE',
-    craftName: '染色',
-    sourceWorkOrderId: order.dyeOrderId,
-    sourceWorkOrderNo: order.dyeOrderNo,
-    sourceTaskId: order.taskId,
-    sourceTaskNo: order.taskNo,
-    ...buildProcessSource(order),
-    handoverFactoryId: order.dyeFactoryId,
-    handoverFactoryName: order.dyeFactoryName,
-    receiveFactoryId: order.targetTransferWarehouseId,
-    receiveFactoryName: order.targetTransferWarehouseName,
-    receiveWarehouseName: order.targetTransferWarehouseName,
-    objectType: '面料',
-    handoverObjectQty: submittedQty,
-    receiveObjectQty: 0,
-    diffObjectQty: submittedQty,
-    qtyUnit: '米',
-    packageQty: order.plannedRollCount || 1,
-    packageUnit: '卷',
-    handoverPerson: payload.operatorName || '染色工厂',
-    handoverAt: submittedAt,
-    status: '待回写',
-    remark: payload.remark || '移动端发起染色交出',
-  })
-  return { workOrder: getDyeWorkOrderById(order.dyeOrderId), handoverRecord }
+export function submitDyeHandover(_taskId:string,_payload:QtyWritebackPayload={}):{workOrder?:DyeWorkOrder;handoverRecord:PdaHandoverRecord} {
+  throw new Error('染色交出请从待交出列表逐卷建单；纱线请使用整单毛重、净重交出。')
 }
 
 export function createDyeReviewRecord(taskId: string, payload: QtyWritebackPayload = {}) {

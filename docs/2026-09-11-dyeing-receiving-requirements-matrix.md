@@ -1,3 +1,5 @@
+> 2026-09-11 范围更新：本文关于旧批次模块的历史条款已失效，相关实现和入口已删除；当前口径见同日染色交出调整设计。其余历史记录保留。
+
 # 染厂待接收与纱线交出接收需求矩阵
 
 版本：V2，2026-09-11。本期 125 条已完成本地技术验证；后续复制 4 条本期不适用。技术验收不代表产品接受或生产部署；版本由 task-files.json 内容哈希限定。
@@ -97,7 +99,7 @@
 | PRN-003 | §7.3/8/11 | 分批交出保留原明细，整单汇总和本次送货数量分开。 | 方案建议 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
 | PRN-004 | §7.3/8/11 | 整单码有多批来源时扫码需明确本次记录，不能按累计标签重复入库。 | 方案落实 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
 | PRN-005 | §7.3/8/11 | 重印不新增业务条码、交出或库存，旧打印快照可追溯。 | 方案建议 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
-| PRN-006 | §7.3/8/11 | 合并染色保留各染色单独立条码和限额。 | 方案落实 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
+| PRN-006 | §7.3/8/11 | 旧批次模块（已移除）保留各染色单独立条码和限额。 | 方案落实 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
 | PRN-007 | §7.3/8/11 | 纱线不伪装为一卷套用面料卷长模型。 | 方案落实 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
 | PRN-008 | §7.3/8/11 | 面料卷码维护/导入/批改/打印及生产流程卡结构保持原用途。 | 已确认 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |
 | PRN-009 | §7.3/8/11 | 纱线出货标签纸张与可扫码性经过命名打印场景验收。 | 项目规则 | WP06 | src/pages/process-factory/dyeing/yarn-shipments.ts（labelHtml / handleDyeYarnShipmentEvent）；barcode-dialog.ts；pending-receipts.ts（print-delivery）；dye-work-order-flow-card-template.ts | 本期 |

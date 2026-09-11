@@ -340,6 +340,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/process-factory/dyeing/yarn-shipments.ts')
     return page.handleDyeYarnShipmentEvent(eventTarget, event)
   }
+  if (target.closest('[data-dye-output-page]')) {
+    const page = await import('./pages/process-factory/dyeing/output-documents.ts')
+    return page.handleDyeOutputEvent(eventTarget, event)
+  }
   // These lists already render their own local controls; avoid loading the full
   // FCS handler bundle before the first filter/selection interaction.
   if (pathname === '/fcs/craft/dyeing/work-orders' && target.closest('[data-dye-work-orders-root]')) {

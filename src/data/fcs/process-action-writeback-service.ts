@@ -1060,7 +1060,7 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
     const shouldAdvanceOnlineStart = payload.sourceChannel === '移动端'
       && getDyeWorkOrderOnlineRecord(payload.sourceId).status !== '染色中'
     if (shouldAdvanceOnlineStart) assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '开工')
-    startDyeing(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
+    startDyeing(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName, inputQty: qty, materialSku: String(fields.materialSku || fields['投入物料 SKU'] || '').trim() || undefined })
     if (shouldAdvanceOnlineStart) {
       advanceDyeWorkOrderOnlineStatus(payload.sourceId, {
         action: '开工', operatorName, operatedAt: payload.operatedAt || '', source: 'PDA',

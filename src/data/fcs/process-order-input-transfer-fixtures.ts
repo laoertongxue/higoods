@@ -1,3 +1,5 @@
+import { DYE_DEMO_DETAILS } from './dye-work-order-demo-details.ts'
+
 export interface ProcessOrderInputTransferFixture {
   workOrderId: string
   productionOrderId: string
@@ -14,6 +16,7 @@ export interface ProcessOrderInputTransferFixture {
 
 // 演示中的加工投入必须由仓库调拨事实支撑；加工、交出和下游接收不得凭空出现。
 export const DYE_INPUT_TRANSFER_FIXTURES: readonly ProcessOrderInputTransferFixture[] = [
+  ...Array.from({length:5},(_,i):ProcessOrderInputTransferFixture=>{const id=`DYE-DISPATCH-DEMO-${i+1}`,spec=DYE_DEMO_DETAILS[id];return {workOrderId:id,productionOrderId:`STOCK-DISPATCH-${i+1}`,taskId:id,materialCode:spec.rawSku,materialName:spec.materialName,qty:360,unit:'Yard',targetFactoryId:i<3?'ID-F003':'ID-F002',targetFactoryName:i<3?'GTG':'MJS',issuedAt:'2026-09-11 08:20:00',sourceType:'STOCK'}}),
   { workOrderId: 'DWO-004', productionOrderId: 'PO-202603-0001', taskId: 'TASK-DYE-000724', materialCode: 'tdv_demand_SPU_2024_004-kol-fabric-main', materialName: '针织棉主面料 / White 纯棉针织布', qty: 5600, unit: '米', targetFactoryId: 'F090', targetFactoryName: '全能力测试工厂', issuedAt: '2026-03-28 09:35:00', sourceType: 'PRODUCTION_ORDER' },
   { workOrderId: 'DWO-005', productionOrderId: 'PO-202603-0002', taskId: 'TASK-DYE-000725', materialCode: 'tdv_demand_SPU_2024_005-bom-main', materialName: '主面料 / Grey 主面料', qty: 2800, unit: '米', targetFactoryId: 'F090', targetFactoryName: '全能力测试工厂', issuedAt: '2026-03-28 09:40:00', sourceType: 'PRODUCTION_ORDER' },
   { workOrderId: 'DWO-006', productionOrderId: 'PO-202603-0003', taskId: 'TASK-DYE-000726', materialCode: 'tdv_demand_SPU_2024_009-bom-main', materialName: '主面料 / White 主面料', qty: 6720, unit: '米', targetFactoryId: 'F090', targetFactoryName: '全能力测试工厂', issuedAt: '2026-03-28 08:45:00', sourceType: 'PRODUCTION_ORDER' },

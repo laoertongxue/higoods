@@ -1,3 +1,4 @@
+import {getReceiptMaterialUsed} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { factoryTypeConfig } from './factory-types.ts'
@@ -2516,12 +2517,16 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
     hydrateCompletedStocktakeAdjustmentFlows(internalWarehouseStore)
   }
   for (const inbound of buildFactoryReceiptInboundRecords()) {
-    if (internalWarehouseStore.inboundRecords.some(r => r.inboundRecordId === inbound.inboundRecordId)) continue
-    internalWarehouseStore.inboundRecords.push(inbound)
-    const stock = buildWaitProcessStockItemFromInbound(inbound)
-    stock.availableQty = inbound.receivedQty
-    stock.issuedQty = 0
-    internalWarehouseStore.waitProcessStockItems.push(stock)
+    const fresh = buildWaitProcessStockItemFromInbound(inbound)
+    let stock = internalWarehouseStore.waitProcessStockItems.find(item => item.stockItemId === fresh.stockItemId)
+    if (!stock) {
+      internalWarehouseStore.inboundRecords.push(inbound)
+      stock = fresh
+      internalWarehouseStore.waitProcessStockItems.push(stock)
+    }
+    const receiptLineId = inbound.inboundRecordId.replace(/^FIN-/, '').replace(/-\d+$/, '')
+    stock.issuedQty = getReceiptMaterialUsed(receiptLineId, inbound.fabricRollNo)
+    stock.availableQty = Math.max(0, inbound.receivedQty - stock.issuedQty)
   }
   return internalWarehouseStore
 }

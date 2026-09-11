@@ -1,3 +1,4 @@
+import {receiveAndStartWaterForCheck} from './water-receiving-check-helper.ts'
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 
@@ -202,7 +203,7 @@ assert.equal(shortUpdated?.exceptionReason, 'Node handler 现场短量原因', '
 assert(shortUpdated?.actionLogs.at(-1)?.detail.includes('Node handler 现场短量原因'), 'handler 短量日志必须保留真实原因')
 
 const overOrder = arrangeTrustedInProgressOrder()
-receiveWaterSolubleInput(overOrder.waterOrderId, { qty: 1, receiptId: 'EXTRA-MATERIAL-FOR-OVERAGE', upstreamRecordId: 'CHECK-SOURCE-OVERAGE' })
+receiveAndStartWaterForCheck(overOrder.waterOrderId, { qty: 1, receiptId: 'EXTRA-MATERIAL-FOR-OVERAGE', upstreamRecordId: 'CHECK-SOURCE-OVERAGE' })
 const overBefore = getWaterSolubleWorkOrderById(overOrder.waterOrderId)
 handleCraftDyeingWaterSolubleOrdersEvent(actionTarget('complete', overOrder.waterOrderId))
 handleCraftDyeingWaterSolubleOrdersEvent(fieldTarget('completedQty', String(overOrder.plannedQty + 1)))

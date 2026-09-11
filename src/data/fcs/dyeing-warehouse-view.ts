@@ -1,36 +1,27 @@
 import {
   listFactoryInternalWarehouses,
-  listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseNodeRows,
-  listFactoryWarehouseOutboundRecords,
   listFactoryWarehouseStocktakeOrders,
   type FactoryInternalWarehouse,
   type FactoryWaitHandoverStockItem,
-  type FactoryWaitHandoverStockStatus,
   type FactoryWaitProcessStockItem,
   type FactoryWarehouseInboundRecord,
   type FactoryWarehouseNodeRow,
   type FactoryWarehouseOutboundRecord,
-  type FactoryOutboundRecordStatus,
   type FactoryWarehouseStocktakeOrder,
 } from './factory-internal-warehouse.ts'
-import {
-  listProcessHandoverRecords,
-  listWaitHandoverWarehouseRecords,
-  listWaitProcessWarehouseRecords,
-  type ProcessHandoverRecord,
-  type ProcessWarehouseRecord,
-} from './process-warehouse-domain.ts'
-
+import { getDyeingQuantityFacts } from './dyeing-quantity-facts.ts'
+import { listFactoryReceipts, listFactoryMaterialUses } from './factory-receiving.ts'
+import {getDefaultFactoryReceiptPosition,getHistoricalReceiptPosition} from './factory-receiving.ts'
+import { DYE_DEMO_DETAILS,dyeFactoryTabLabel } from './dye-work-order-demo-details.ts'
 export interface DyeingWarehouseViewFilters {
   factoryId?: string
   status?: string
   keyword?: string
   timeRange?: '7D' | '30D' | 'ALL'
 }
-
 export interface DyeingWarehouseView {
   factoryIds: string[]
   taskIds: string[]
@@ -43,310 +34,242 @@ export interface DyeingWarehouseView {
   warehouses: FactoryInternalWarehouse[]
   nodeRows: FactoryWarehouseNodeRow[]
   stocktakeOrders: FactoryWarehouseStocktakeOrder[]
+  usageRecords: Array<FactoryWaitProcessStockItem & { usedAt: string; usedBy: string }>
 }
-
-function normalizeWaitHandoverStatus(status: string): FactoryWaitHandoverStockStatus {
-  if (status === '有差异' || status === '收货差异') return '差异'
-  if (status === '平台处理中') return '异议中'
-  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
-  if (status === '交出待收货' || status === '部分交出' || status === '已出库') return '已交出'
-  return '待交出'
-}
-
-function normalizeOutboundStatus(status: string): FactoryOutboundRecordStatus {
-  if (status === '有差异' || status === '收货差异') return '差异'
-  if (status === '平台处理中') return '异议中'
-  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
-  return status === '已作废' ? '已作废' : '已出库'
-}
-
-function normalizeDyeWarehouseReference(value: string | undefined): string | undefined {
-  return value
-    ?.replaceAll('待回写', '交出待收货')
-    .replaceAll('已回写', '全部交出')
-    .replaceAll('有差异', '收货差异')
-}
-
-function parseDateValue(value: string | undefined): number {
-  if (!value) return 0
-  const time = new Date(value.includes('T') ? value : value.replace(' ', 'T')).getTime()
-  return Number.isFinite(time) ? time : 0
-}
-
-function withinTimeRange(value: string | undefined, timeRange: DyeingWarehouseViewFilters['timeRange']): boolean {
-  if (!timeRange || timeRange === 'ALL') return true
-  const time = parseDateValue(value)
-  if (!time) return true
-  const range = timeRange === '7D' ? 7 * 24 * 3600 * 1000 : 30 * 24 * 3600 * 1000
-  return Date.now() - time <= range
-}
-
-function matchesKeyword(tokens: Array<string | undefined>, keyword: string): boolean {
-  if (!keyword) return true
-  return tokens.some((token) => token?.toLowerCase().includes(keyword))
-}
-
-function matchesStatus(status: string | undefined, filterStatus: string | undefined): boolean {
-  if (!filterStatus || filterStatus === 'ALL') return true
-  return status === filterStatus
-}
-
-function dedupeById<T>(items: T[], getId: (item: T) => string): T[] {
-  const seen = new Set<string>()
-  return items.filter((item) => {
-    const id = getId(item)
-    if (seen.has(id)) return false
-    seen.add(id)
-    return true
-  })
-}
-
-function mapWaitProcessRecord(record: ProcessWarehouseRecord): FactoryWaitProcessStockItem {
-  return {
-    stockItemId: record.warehouseRecordId,
-    warehouseId: `${record.targetFactoryId}-DYE-WAIT-PROCESS`,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_DYE',
-    warehouseName: record.targetWarehouseName,
-    processCode: 'PROC_DYE',
-    processName: '染色',
-    craftCode: 'DYE',
-    craftName: record.craftName,
-    itemKind: '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    unit: record.qtyUnit,
-    areaName: '染色待加工区',
-    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
-    locationNo: record.warehouseLocation,
-    locationText: record.warehouseLocation,
-    photoList: [],
-    remark: record.remark,
-    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
-    sourceRecordNo: record.warehouseRecordNo,
-    sourceRecordType: 'HANDOVER_RECEIVE',
-    sourceObjectKind: '染厂',
-    sourceObjectName: record.sourceWorkOrderNo,
-    taskId: record.sourceTaskId,
-    taskNo: [record.sourceWorkOrderNo, record.sourceTaskNo].filter(Boolean).join(' / '),
-    productionOrderId: record.sourceProductionOrderId,
-    productionOrderNo: record.sourceProductionOrderNo,
-    expectedQty: record.plannedObjectQty,
-    receivedQty: record.receivedObjectQty,
-    differenceQty: record.diffObjectQty,
-    receiverName: record.targetFactoryName,
-    receivedAt: record.inboundAt,
-    status: record.status === '有差异' ? '差异待处理' : '已入待加工仓',
-  }
-}
-
-function mapWaitHandoverRecord(record: ProcessWarehouseRecord): FactoryWaitHandoverStockItem {
-  return {
-    stockItemId: record.warehouseRecordId,
-    warehouseId: `${record.targetFactoryId}-DYE-WAIT-HANDOVER`,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_DYE',
-    warehouseName: record.targetWarehouseName,
-    processCode: 'PROC_DYE',
-    processName: '染色',
-    craftCode: 'DYE',
-    craftName: record.craftName,
-    itemKind: '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    unit: record.qtyUnit,
-    areaName: '染色待交出区',
-    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
-    locationNo: record.warehouseLocation,
-    locationText: record.warehouseLocation,
-    photoList: [],
-    remark: record.remark,
-    taskId: record.sourceTaskId,
-    taskNo: [record.sourceWorkOrderNo, record.sourceTaskNo].filter(Boolean).join(' / '),
-    productionOrderId: record.sourceProductionOrderId,
-    productionOrderNo: record.sourceProductionOrderNo,
-    completedQty: record.plannedObjectQty,
-    lossQty: 0,
-    waitHandoverQty: record.availableObjectQty,
-    receiverKind: '裁床厂',
-    receiverName: record.targetWarehouseName,
-    handoverRecordId: normalizeDyeWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
-    handoverRecordNo: normalizeDyeWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
-    receiverWrittenQty: record.writtenBackObjectQty,
-    differenceQty: record.diffObjectQty,
-    status: normalizeWaitHandoverStatus(record.status),
-  }
-}
-
-function mapInboundRecord(record: ProcessWarehouseRecord): FactoryWarehouseInboundRecord {
-  const item = mapWaitProcessRecord(record)
-  return {
-    inboundRecordId: record.warehouseRecordId,
-    inboundRecordNo: record.warehouseRecordNo,
-    warehouseId: item.warehouseId,
-    warehouseName: record.targetWarehouseName,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_DYE',
-    processCode: 'PROC_DYE',
-    processName: '染色',
-    craftCode: 'DYE',
-    craftName: record.craftName,
-    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
-    sourceRecordNo: record.sourceWorkOrderNo,
-    sourceRecordType: 'HANDOVER_RECEIVE',
-    sourceObjectName: record.sourceWorkOrderNo,
-    taskId: record.sourceTaskId,
-    taskNo: record.sourceTaskNo,
-    itemKind: '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    expectedQty: record.plannedObjectQty,
-    receivedQty: record.receivedObjectQty,
-    differenceQty: record.diffObjectQty,
-    unit: record.qtyUnit,
-    receiverName: record.targetFactoryName,
-    receivedAt: record.inboundAt,
-    areaName: item.areaName,
-    shelfNo: item.shelfNo,
-    locationNo: item.locationNo,
-    status: record.status === '有差异' ? '差异待处理' : '已入库',
-    photoList: [],
-    generatedStockItemId: record.warehouseRecordId,
-    remark: record.remark,
-  }
-}
-
-function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutboundRecord {
-  return {
-    outboundRecordId: normalizeDyeWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
-    outboundRecordNo: normalizeDyeWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
-    warehouseId: record.warehouseRecordId,
-    warehouseName: record.receiveWarehouseName,
-    factoryId: record.handoverFactoryId,
-    factoryName: record.handoverFactoryName,
-    factoryKind: 'CENTRAL_DYE',
-    processCode: 'PROC_DYE',
-    processName: '染色',
-    craftCode: 'DYE',
-    craftName: record.craftName,
-    sourceTaskId: record.sourceTaskId,
-    sourceTaskNo: record.sourceTaskNo,
-    handoverRecordId: normalizeDyeWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
-    handoverRecordNo: normalizeDyeWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
-    receiverKind: '裁床厂',
-    receiverName: record.receiveFactoryName || record.receiveWarehouseName,
-    itemKind: '面料',
-    itemName: record.sourceWorkOrderNo,
-    outboundQty: record.handoverObjectQty,
-    receiverWrittenQty: record.receiveObjectQty,
-    differenceQty: record.diffObjectQty,
-    unit: record.qtyUnit,
-    operatorName: record.handoverPerson,
-    outboundAt: record.handoverAt,
-    status: normalizeOutboundStatus(record.status),
-    photoList: [],
-    relatedWaitHandoverStockItemId: record.warehouseRecordId,
-    remark: record.remark,
-  }
-}
-
+/** Inventory is a current balance. Date filters apply to movements, never hide older remaining stock. */
 export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {}): DyeingWarehouseView {
-  const keyword = filters.keyword?.trim().toLowerCase() || ''
-
-  const byFactory = (factoryId: string): boolean => !filters.factoryId || factoryId === filters.factoryId
-
-  const waitProcessRecords = listWaitProcessWarehouseRecords({ craftType: 'DYE' }).filter((item) =>
-    byFactory(item.targetFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword)
-    && withinTimeRange(item.inboundAt, filters.timeRange),
+  const facts = getDyeingQuantityFacts(),
+    allWarehouses = listFactoryInternalWarehouses()
+  const matches = (row: { factoryId: string; status: string }, tokens: unknown[]) =>
+    (!filters.factoryId || row.factoryId === filters.factoryId) &&
+    (!filters.status || filters.status === 'ALL' || row.status === filters.status) &&
+    (!filters.keyword || tokens.join(' ').toLowerCase().includes(filters.keyword.toLowerCase().trim()))
+  const inDate = (at: string) =>
+    !filters.timeRange ||
+    filters.timeRange === 'ALL' ||
+    Date.now() - Date.parse(at.replace(' ', 'T')) <= (filters.timeRange === '7D' ? 7 : 30) * 86400000
+  const physicalLines = listFactoryReceipts()
+    .filter((r) => r.factoryId !== 'OWN_WOOL_FACTORY')
+    .flatMap((r) => r.lines.map((line) => ({ line, receipt: r })))
+  const physicalIds = new Set(physicalLines.map((x) => x.line.id))
+  const physical = (id: string) => physicalIds.has(id.replace(/^WPS-FIN-|^FIN-/, '').replace(/-\d+$/, ''))
+  const waitProcessItems = listFactoryWaitProcessStockItems()
+    .filter((r) => physical(r.stockItemId))
+    .map((row) => {
+      const line = physicalLines.find(
+        (x) => x.line.id === row.stockItemId.replace(/^WPS-FIN-/, '').replace(/-\d+$/, ''),
+      )?.line
+      const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
+      return {
+        ...row,
+        sourceRecordId: order?.dyeOrderId || line?.sourceId || row.sourceRecordId,
+        taskId: order?.taskId,
+        taskNo: order?.taskNo || line?.taskNo || '备料（未关联加工单）',
+        factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
+      }
+    })
+  const inboundRecords = listFactoryWarehouseInboundRecords()
+    .filter((r) => physical(r.inboundRecordId))
+    .map((row) => {
+      const line = physicalLines.find(
+        (x) => x.line.id === row.inboundRecordId.replace(/^FIN-/, '').replace(/-\d+$/, ''),
+      )?.line
+      const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
+      return {
+        ...row,
+        sourceRecordId: order?.dyeOrderId || line?.sourceId || row.sourceRecordId,
+        taskId: order?.taskId,
+        taskNo: order?.taskNo || line?.taskNo || '备料（未关联加工单）',
+        factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
+      }
+    })
+  const waitHandoverItems: FactoryWaitHandoverStockItem[] = [],
+    outboundRecords: FactoryWarehouseOutboundRecord[] = []
+  for (const f of facts) {
+    const o = f.order
+    if (!o.dyeFactoryId) continue
+    const inputWarehouse = allWarehouses.find(
+      (w) => w.factoryId === o.dyeFactoryId && w.warehouseKind === 'WAIT_PROCESS',
+    )
+    const outputWarehouse = allWarehouses.find(
+      (w) => w.factoryId === o.dyeFactoryId && w.warehouseKind === 'WAIT_HANDOVER',
+    )
+    const common = {
+      factoryId: o.dyeFactoryId,
+      factoryName: f.factoryName,
+      factoryKind: 'CENTRAL_DYE' as const,
+      processCode: 'PROC_DYE',
+      processName: '染色',
+      craftCode: 'DYE',
+      craftName: '染色',
+      itemKind: f.kind,
+      itemName: f.materialName,
+      unit: o.qtyUnit,
+      materialSku: f.rawSku,
+      fabricColor: f.color,
+      taskId: o.taskId,
+      taskNo: o.taskNo,
+      productionOrderNo: o.sourceProductionOrderNo,
+      photoList: f.imageUrl ? [f.imageUrl] : [],
+    }
+    if (f.legacyReceived > 0) {
+      const receipt = o.materialReceipts?.find((r) => !r.receiptId.startsWith('FRP-'))
+      const recordId = `DYE-HISTORY-${o.dyeOrderId}`
+      const demo=DYE_DEMO_DETAILS[o.dyeOrderId]
+      const position=demo?getHistoricalReceiptPosition(o.dyeFactoryId,getDefaultFactoryReceiptPosition(o.dyeFactoryId)):undefined
+      const location={areaName:position?.area.areaName||'历史按单汇总',shelfNo:position?.shelf.shelfNo||'原记录未分库位',locationNo:position?.location.locationNo||'原记录未分库位'}
+      waitProcessItems.push({
+        ...common,
+        stockItemId: recordId,
+        warehouseId: inputWarehouse?.warehouseId || `${o.dyeFactoryId}-WAIT_PROCESS`,
+        warehouseName: `${f.factoryName} · 待加工仓`,
+        sourceRecordId: o.dyeOrderId,
+        sourceRecordNo: o.dyeOrderNo,
+        sourceRecordType: 'TRANSFER_RECEIVE',
+        sourceObjectKind: '上游工厂仓',
+        sourceObjectName: '历史投入接收',
+        expectedQty: f.legacyReceived,
+        receivedQty: f.legacyReceived,
+        issuedQty: f.legacyUsed,
+        availableQty: Math.max(0, f.legacyReceived - f.legacyUsed),
+        differenceQty: 0,
+        receiverName: receipt?.receiverName || f.factoryName,
+        receivedAt: receipt?.receivedAt || o.createdAt,
+        status: '已入待加工仓',
+        ...location,
+        locationText: position?`${position.area.areaName} / ${position.shelf.shelfNo} / ${position.location.locationNo}`:'历史按单汇总，未记录库位',
+        fabricRollNo: f.kind==='面料'&&demo?`批次 ${demo.batchNo} · ${demo.preparedRollCount} 卷（按单汇总）`:undefined,
+        remark: '历史演示批次的已确认接收及用料，数量沿用原单，不重复增加库存。',
+      })
+      inboundRecords.push({
+        ...common,
+        inboundRecordId: recordId,
+        inboundRecordNo: receipt?.receiptId || recordId,
+        warehouseId: inputWarehouse?.warehouseId || `${o.dyeFactoryId}-WAIT_PROCESS`,
+        warehouseName: `${f.factoryName} · 待加工仓`,
+        sourceRecordId: o.dyeOrderId,
+        sourceRecordNo: o.dyeOrderNo,
+        sourceRecordType: 'TRANSFER_RECEIVE',
+        sourceObjectName: '历史投入接收',
+        expectedQty: f.legacyReceived,
+        receivedQty: f.legacyReceived,
+        differenceQty: 0,
+        receiverName: receipt?.receiverName || f.factoryName,
+        receivedAt: receipt?.receivedAt || o.createdAt,
+        ...location,
+        status: '已入库',
+        generatedStockItemId: recordId,
+        remark: '历史接收汇总，不重复计入逐卷实收。',
+      })
+    }
+    if (f.packed > 0) {
+      waitHandoverItems.push({
+        ...common,
+        materialSku: f.outputSku,
+        stockItemId: `DYE-OUTPUT-${o.dyeOrderId}`,
+        warehouseId: outputWarehouse?.warehouseId || `${o.dyeFactoryId}-WAIT_HANDOVER`,
+        warehouseName: `${f.factoryName} · 待交出仓`,
+        areaName: '包装产出',
+        shelfNo: '按原加工单',
+        locationNo: '按原加工单',
+        locationText: '按加工单汇总；卷码见交出单',
+        completedQty: f.packed,
+        lossQty: Math.max(0, f.used - f.packed),
+        waitHandoverQty: f.availableOutput,
+        receiverKind: '裁床厂',
+        receiverName: o.receiverName,
+        handoverOrderId: o.handoverOrderId,
+        handoverOrderNo: o.handoverOrderNo,
+        receiverWrittenQty: f.actual.length ? f.downstreamReceived : undefined,
+        differenceQty: f.actual.length ? f.difference : undefined,
+        status: f.availableOutput > 0 ? '待交出' : f.actual.length === f.records.length ? '已回写' : '已交出',
+        remark: '包装完成入仓，实际交出扣仓；下游实收独立记录。',
+      })
+    }
+    for (const r of f.records) {
+      const received = Boolean(r.receiverWrittenAt) || Boolean(r.taskReceipts?.length)
+      outboundRecords.push({
+        ...common,
+        materialSku: f.outputSku,
+        outboundRecordId: r.recordId,
+        outboundRecordNo: r.handoverRecordNo || r.recordId,
+        warehouseId: outputWarehouse?.warehouseId || `${o.dyeFactoryId}-WAIT_HANDOVER`,
+        warehouseName: `${f.factoryName} · 待交出仓`,
+        sourceTaskId: o.taskId,
+        sourceTaskNo: o.taskNo,
+        sourceRecordId: o.dyeOrderId,
+        sourceRecordNo: o.dyeOrderNo,
+        handoverOrderId: o.handoverOrderId,
+        handoverRecordId: r.recordId,
+        handoverRecordNo: r.handoverRecordNo || r.recordId,
+        receiverKind: '裁床厂',
+        receiverName: o.receiverName,
+        outboundQty: r.submittedQty ?? 0,
+        receiverWrittenQty: received ? (r.receiverWrittenQty ?? 0) : undefined,
+        differenceQty: received ? (r.receiverWrittenQty ?? 0) - (r.submittedQty ?? 0) : undefined,
+        operatorName: r.factorySubmittedBy || f.factoryName,
+        outboundAt: r.factorySubmittedAt || o.updatedAt,
+        status: !received
+          ? '已出库'
+          : Math.abs((r.receiverWrittenQty ?? 0) - (r.submittedQty ?? 0)) > 0.000001
+            ? '差异'
+            : '已回写',
+        relatedWaitHandoverStockItemId: `DYE-OUTPUT-${o.dyeOrderId}`,
+        remark: received ? '下游已登记实际接收' : '已交出，等待下游登记实际接收',
+      })
+    }
+  }
+  const stocks = waitProcessItems.filter((x) =>
+    matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo, x.fabricRollNo]),
   )
-  const waitHandoverRecords = listWaitHandoverWarehouseRecords({ craftType: 'DYE' }).filter((item) =>
-    byFactory(item.targetFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword),
+  const outputs = waitHandoverItems.filter((x) => matches(x, [x.taskNo, x.itemName, x.materialSku, x.handoverOrderNo]))
+  const inbounds = inboundRecords.filter(
+    (x) => matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo]) && inDate(x.receivedAt),
   )
-  const handoverRecords = listProcessHandoverRecords({ craftType: 'DYE' }).filter((item) =>
-    byFactory(item.handoverFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.handoverRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo], keyword)
-    && withinTimeRange(item.handoverAt, filters.timeRange),
+  const outbounds = outboundRecords.filter(
+    (x) =>
+      matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.sourceTaskNo, x.handoverRecordNo]) &&
+      inDate(x.outboundAt),
   )
-
-  const baseWaitProcessItems = listFactoryWaitProcessStockItems().filter((item) =>
-    item.factoryKind === 'CENTRAL_DYE'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
-  )
-  const baseWaitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) =>
-    item.factoryKind === 'CENTRAL_DYE'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword),
-  )
-  const baseInboundRecords = listFactoryWarehouseInboundRecords().filter((item) =>
-    item.factoryKind === 'CENTRAL_DYE'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.inboundRecordNo, item.itemName, item.materialSku, item.taskNo, item.sourceRecordNo], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
-  )
-  const baseOutboundRecords = listFactoryWarehouseOutboundRecords().filter((item) =>
-    item.factoryKind === 'CENTRAL_DYE'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.outboundRecordNo, item.itemName, item.sourceTaskNo, item.handoverRecordNo], keyword)
-    && withinTimeRange(item.outboundAt, filters.timeRange),
-  )
-
-  const waitProcessItems = dedupeById([...baseWaitProcessItems, ...waitProcessRecords.map(mapWaitProcessRecord)], (item) => item.stockItemId)
-  const waitHandoverItems = dedupeById([...baseWaitHandoverItems, ...waitHandoverRecords.map(mapWaitHandoverRecord)], (item) => item.stockItemId)
-  const inboundRecords = dedupeById([...baseInboundRecords, ...waitProcessRecords.map(mapInboundRecord)], (item) => item.inboundRecordId)
-  const outboundRecords = dedupeById([...baseOutboundRecords, ...handoverRecords.map(mapOutboundRecord)], (item) => item.outboundRecordId)
-  const taskIds = new Set([
-    ...waitProcessRecords.map((record) => record.sourceTaskId),
-    ...waitHandoverRecords.map((record) => record.sourceTaskId),
-    ...handoverRecords.map((record) => record.sourceTaskId),
-  ].filter(Boolean))
-  const factoryIds = new Set([
-    ...waitProcessRecords.map((record) => record.targetFactoryId),
-    ...waitHandoverRecords.map((record) => record.targetFactoryId),
-    ...handoverRecords.map((record) => record.handoverFactoryId),
-  ].filter(Boolean))
-  const dyeOrderIds = new Set([
-    ...waitProcessRecords.map((record) => record.sourceWorkOrderId),
-    ...waitHandoverRecords.map((record) => record.sourceWorkOrderId),
-    ...handoverRecords.map((record) => record.sourceWorkOrderId),
-  ].filter(Boolean))
-  const handoverOrderIds = new Set(outboundRecords.map((record) => record.handoverOrderId).filter(Boolean) as string[])
-
-  const visibleFactoryIds = new Set([
-    ...Array.from(factoryIds),
-    ...waitProcessItems.map((item) => item.factoryId),
-    ...waitHandoverItems.map((item) => item.factoryId),
-    ...inboundRecords.map((item) => item.factoryId),
-    ...outboundRecords.map((item) => item.factoryId),
-  ].filter((factoryId) => byFactory(factoryId)))
-
+  const usageRecords: Array<FactoryWaitProcessStockItem & { usedAt: string; usedBy: string }> = []
+  for (const use of listFactoryMaterialUses())
+    for (const line of use.lines) {
+      const stock = stocks.find(
+        (s) => s.stockItemId.startsWith(`WPS-FIN-${line.receiptLineId}-`) && s.fabricRollNo === line.barcode,
+      )
+      if (stock)
+        usageRecords.push({
+          ...stock,
+          taskNo: facts.find((f) => f.order.dyeOrderId === use.dyeOrderId)?.order.taskNo || use.waterOrderId || use.dyeOrderId!,
+          sourceRecordId: use.waterOrderId || use.dyeOrderId!,
+          issuedQty: line.qty,
+          usedAt: use.at,
+          usedBy: use.operatorName,
+        })
+    }
+  for (const stock of stocks.filter((s) => s.stockItemId.startsWith('DYE-HISTORY-') && (s.issuedQty ?? 0) > 0)) {
+    const node = facts.find((f) => f.order.dyeOrderId === stock.sourceRecordId)?.nodes.find((n) => n.nodeCode === 'DYE')
+    usageRecords.push({
+      ...stock,
+      usedAt: node?.startedAt || stock.receivedAt,
+      usedBy: node?.operatorName || stock.factoryName,
+    })
+  }
+  const factoryIds = [...new Set([...stocks, ...outputs, ...inbounds, ...outbounds].map((x) => x.factoryId))]
   return {
-    factoryIds: Array.from(visibleFactoryIds),
-    taskIds: Array.from(taskIds),
-    dyeOrderIds: Array.from(dyeOrderIds).flatMap((id) => id ? [id] : []),
-    handoverOrderIds: Array.from(handoverOrderIds),
-    waitProcessItems,
-    waitHandoverItems,
-    inboundRecords,
-    outboundRecords,
-    warehouses: listFactoryInternalWarehouses().filter((warehouse) => visibleFactoryIds.has(warehouse.factoryId)),
-    nodeRows: Array.from(visibleFactoryIds).flatMap((factoryId) => listFactoryWarehouseNodeRows(factoryId)),
-    stocktakeOrders: listFactoryWarehouseStocktakeOrders().filter((order) => visibleFactoryIds.has(order.factoryId)),
+    usageRecords,
+    factoryIds,
+    taskIds: facts.map((f) => f.order.taskId),
+    dyeOrderIds: facts.map((f) => f.order.dyeOrderId),
+    handoverOrderIds: facts.flatMap((f) => (f.order.handoverOrderId ? [f.order.handoverOrderId] : [])),
+    waitProcessItems: stocks,
+    waitHandoverItems: outputs,
+    inboundRecords: inbounds,
+    outboundRecords: outbounds,
+    warehouses: allWarehouses
+      .filter((w) => factoryIds.includes(w.factoryId))
+      .map((w) => ({ ...w, factoryName: dyeFactoryTabLabel(w.factoryId, w.factoryName) })),
+    nodeRows: factoryIds.flatMap((id) => listFactoryWarehouseNodeRows(id)),
+    stocktakeOrders: listFactoryWarehouseStocktakeOrders().filter((o) => factoryIds.includes(o.factoryId)),
   }
 }

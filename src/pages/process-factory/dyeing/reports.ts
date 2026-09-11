@@ -1,3 +1,4 @@
+// @page-pattern: dashboard
 import { escapeHtml } from '../../../utils'
 import {
   buildCapacityProfileLink,
@@ -15,6 +16,7 @@ import {
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { TEST_FACTORY_ID } from '../../../data/fcs/factory-display-data.ts'
+import { getDyeingQuantityFacts } from '../../../data/fcs/dyeing-quantity-facts.ts'
 import { getDyeingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import {
   formatDyeQty,
@@ -47,9 +49,9 @@ function renderNodeOverview(): string {
         ${renderMetricCard('打卷中染色加工单数', String(countByLabel('打卷中')), '后处理节点')}
         ${renderMetricCard('包装中染色加工单数', String(countByLabel('包装中')), '包装完成前')}
         ${renderMetricCard('待交出染色加工单数', String(countByLabel('待交出')), '包装完成待发起交出')}
-        ${renderMetricCard('待交出染色加工单数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
+
         ${renderMetricCard('交出待收货染色加工单数', String(statistics.waitReviewCount), '统一收货确认记录')}
-        ${renderMetricCard('全部交出染色加工单数', String(countByLabel('全部交出')), '仓库确认全部收货')}
+        ${renderMetricCard('全部交出加工单数', String(countByLabel('全部交出')), '按交出记录统计；实收另列')}
       </div>
     `,
   )
@@ -57,29 +59,30 @@ function renderNodeOverview(): string {
 
 function renderTopMetrics(): string {
   const statistics = getDyeingExecutionStatistics()
+  const quantities=(key:Exclude<keyof (typeof statistics.quantityGroups)[number], 'unit'>)=>statistics.quantityGroups.map(g=>`${g[key].toLocaleString('zh-CN',{maximumFractionDigits:3})} ${g.unit}`).join(' / ')
   return `
     <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
       ${renderMetricCard('染色加工单总数', String(statistics.workOrderCount), '统一加工单')}
-      ${renderMetricCard('计划染色面料米数', `${statistics.plannedDyeFabricMeters} 米`, '统一加工单计划')}
-      ${renderMetricCard('待加工面料米数', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
-      ${renderMetricCard('已接收投入米数', `${statistics.materialReadyFabricMeters} 米`, '投入接收记录')}
-      ${renderMetricCard('染色完成面料米数', `${statistics.dyeCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('包装完成面料米数', `${statistics.finalPackedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('待交出面料米数', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
-      ${renderMetricCard('已交出面料米数', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
-      ${renderMetricCard('实收面料米数', `${statistics.receivedFabricMeters} 米`, '接收方确认收货')}
-      ${renderMetricCard('差异面料米数', `${statistics.diffFabricMeters} 米`, '统一差异口径')}
+      ${renderMetricCard('计划染色数量', quantities('planned'), '统一加工单计划')}
+      ${renderMetricCard('待加工库存（含备料）', quantities('availableInput'), '统一待加工仓')}
+      ${renderMetricCard('加工单投入实收', quantities('received'), '投入接收记录')}
+      ${renderMetricCard('染色完成数量', quantities('dyed'), '执行节点')}
+      ${renderMetricCard('包装完成数量', quantities('packed'), '执行节点')}
+      ${renderMetricCard('待交出数量', quantities('availableOutput'), '统一待交出仓')}
+      ${renderMetricCard('实际交出数量', quantities('handed'), '统一交出记录')}
+      ${renderMetricCard('下游实际接收', quantities('downstreamReceived'), '接收方确认收货')}
+      ${renderMetricCard('已登记收货差异（实收减交出）', quantities('difference'), '统一差异口径')}
       ${renderMetricCard('染色待加工仓记录数', String(statistics.waitProcessRecordCount), '统一待加工仓')}
       ${renderMetricCard('染色待交出仓记录数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
       ${renderMetricCard('染色待收货交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
       ${renderMetricCard('染色已收货交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
       ${renderMetricCard('染色有差异交出记录数', String(statistics.differenceHandoverCount), '统一交出记录')}
       ${renderMetricCard('染色数量差异记录数', String(statistics.differenceRecordCount), '统一差异记录')}
-      ${renderMetricCard('染色待处理差异记录数', String(statistics.pendingDifferenceRecordCount), '统一差异记录')}
-      ${renderMetricCard('染色需重新交出记录数', String(statistics.reworkDifferenceRecordCount), '统一差异记录')}
+
+
       ${renderMetricCard('染色待收货确认记录数', String(statistics.waitReviewCount), '统一收货确认记录')}
-      ${renderMetricCard('染色全部交出确认记录数', String(statistics.reviewPassCount), '统一收货确认记录')}
-      ${renderMetricCard('染色收货差异记录数', String(statistics.reviewRejectCount), '统一收货确认记录')}
+      ${renderMetricCard('下游登记数量一致记录数', String(statistics.reviewPassCount), '统一收货确认记录')}
+
       ${renderMetricCard('当前排缸记录数', String(statistics.currentVatScheduleCount), '染缸排程')}
       ${renderMetricCard('染色平均耗时', `${statistics.dyeAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('脱水平均耗时', `${statistics.dehydrateAverageHours} 小时`, '执行节点')}
@@ -93,6 +96,7 @@ function renderTopMetrics(): string {
 }
 
 function renderDurationTable(): string {
+  const quantities=new Map(getDyeingQuantityFacts().map(f=>[f.order.dyeOrderId,f]))
   const rows = listDyeReportRows()
     .map((row) => {
       const order = listDyeWorkOrders().find((item) => item.dyeOrderId === row.dyeOrderId)
@@ -108,7 +112,7 @@ function renderDurationTable(): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(row.dyeVatNo || '未排缸')}</td>
           <td class="px-3 py-3 text-sm">${formatDyeQty(row.plannedQty, order?.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatDyeQty(row.outputQty, order?.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${row.diffQty}</td>
+          <td class="px-3 py-3 text-sm">${formatDyeQty(quantities.get(row.dyeOrderId)?.difference??0,order?.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${row.objectionCount}</td>
         </tr>
       `
@@ -130,9 +134,9 @@ function renderDurationTable(): string {
               <th class="px-3 py-2 font-medium">完成时间</th>
               <th class="px-3 py-2 font-medium">节点耗时</th>
               <th class="px-3 py-2 font-medium">染缸编号</th>
-              <th class="px-3 py-2 font-medium">计划染色面料米数</th>
-              <th class="px-3 py-2 font-medium">染色完成面料米数</th>
-              <th class="px-3 py-2 font-medium">差异面料米数</th>
+              <th class="px-3 py-2 font-medium">计划染色数量</th>
+              <th class="px-3 py-2 font-medium">包装完成数量</th>
+              <th class="px-3 py-2 font-medium">已登记实收差异</th>
               <th class="px-3 py-2 font-medium">交出异议记录数</th>
             </tr>
           </thead>
@@ -196,32 +200,33 @@ function renderVatUtilization(): string {
 }
 
 function renderReviewTable(selectedId: string): string {
+  const quantities=new Map(getDyeingQuantityFacts().map(f=>[f.order.dyeOrderId,f]))
   const rows = listDyeReviewRecords()
     .map((review) => {
       const order = listDyeWorkOrders().find((item) => item.dyeOrderId === review.dyeOrderId)
       if (!order) return ''
       const active = review.dyeOrderId === selectedId
-      const canConfirmReceipt = review.reviewStatus === 'WAIT_RECEIVE' || review.reviewStatus === 'PARTIAL_HANDOVER'
+      const fact=quantities.get(review.dyeOrderId)!
+      const canConfirmReceipt=Boolean(fact.actual.length)
       return `
         <tr class="border-b last:border-b-0 ${active ? 'bg-blue-50/70' : ''}">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.dyeOrderNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.handoverOrderNo || order.handoverOrderId || '—')}</td>
           <td class="px-3 py-3 text-sm">${review.handoverRecordIds?.length ?? 0} 条</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.receiverName)}</td>
-          <td class="px-3 py-3 text-sm">${formatDyeQty(review.submittedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatDyeQty(review.receivedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${review.receivedRollCount ?? 0}</td>
-          <td class="px-3 py-3 text-sm">${review.receivedLength ? `${review.receivedLength} ${review.lengthUnit || '米'}` : '—'}</td>
-          <td class="px-3 py-3 text-sm">${review.diffQty}</td>
+          <td class="px-3 py-3 text-sm">${formatDyeQty(fact.handed, order.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${fact.actual.length?formatDyeQty(fact.downstreamReceived, order.qtyUnit):'待登记实收'}</td>
+          <td class="px-3 py-3 text-sm">${fact.kind!=='面料'?'按重量接收':fact.downstreamRollCount===undefined?'原记录未登记卷数':`${fact.downstreamRollCount} 卷`}</td>
+          <td class="px-3 py-3 text-sm">${fact.kind!=='面料'?'按重量接收':fact.actual.length?formatDyeQty(fact.downstreamReceived,order.qtyUnit):'待登记实收'}</td>
+          <td class="px-3 py-3 text-sm">${fact.actual.length?formatDyeQty(fact.difference,order.qtyUnit):'待登记实收'}</td>
           <td class="px-3 py-3">${renderReviewStatusBadge(review.reviewStatus)}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '确认全部收货',
+                label: '查看实际接收',
                 action: 'confirm-receipt',
                 attrs: { 'dye-order-id': review.dyeOrderId },
                 tone: 'primary',
-                disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
                 label: '登记收货差异',
@@ -254,11 +259,11 @@ function renderReviewTable(selectedId: string): string {
               <th class="px-3 py-2 font-medium">交出单</th>
               <th class="px-3 py-2 font-medium">交出记录</th>
               <th class="px-3 py-2 font-medium">接收方</th>
-              <th class="px-3 py-2 font-medium">交出面料米数</th>
-              <th class="px-3 py-2 font-medium">实收面料米数</th>
+              <th class="px-3 py-2 font-medium">交出数量</th>
+              <th class="px-3 py-2 font-medium">实收数量</th>
               <th class="px-3 py-2 font-medium">卷数</th>
               <th class="px-3 py-2 font-medium">长度</th>
-              <th class="px-3 py-2 font-medium">差异面料米数</th>
+              <th class="px-3 py-2 font-medium">已登记实收差异</th>
               <th class="px-3 py-2 font-medium">收货状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
@@ -277,7 +282,8 @@ function renderSelectedDetail(selectedId: string): string {
   const review = getDyeReviewRecordByOrderId(order.dyeOrderId)
   const handover = getDyeOrderHandoverSummary(order.dyeOrderId)
   const vat = getDyeVatSummary(order)
-  const canConfirmReceipt = review?.reviewStatus === 'WAIT_RECEIVE' || review?.reviewStatus === 'PARTIAL_HANDOVER'
+  const fact=getDyeingQuantityFacts().find(f=>f.order.dyeOrderId===order.dyeOrderId)!
+  const canConfirmReceipt=Boolean(fact.actual.length)
 
   return renderSection(
     '收货确认明细',
@@ -290,27 +296,26 @@ function renderSelectedDetail(selectedId: string): string {
         </article>
         <article class="rounded-md border bg-background px-3 py-3 text-sm">
           <div class="text-xs text-muted-foreground">接收方收货</div>
-          <div class="mt-1">${formatDyeQty(review?.receivedQty ?? handover.writtenBackQty, order.qtyUnit)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">交出面料米数 ${formatDyeQty(review?.submittedQty ?? handover.submittedQty, order.qtyUnit)}</div>
+          <div class="mt-1">${fact.actual.length?formatDyeQty(fact.downstreamReceived,order.qtyUnit):'待登记实收'}</div>
+          <div class="mt-1 text-xs text-muted-foreground">交出数量 ${formatDyeQty(fact.handed,order.qtyUnit)}</div>
         </article>
         <article class="rounded-md border bg-background px-3 py-3 text-sm">
           <div class="text-xs text-muted-foreground">卷数 / 长度</div>
-          <div class="mt-1">${review?.receivedRollCount ?? order.plannedRollCount ?? 0} 卷</div>
-          <div class="mt-1 text-xs text-muted-foreground">${review?.receivedLength ? `${review.receivedLength} ${review.lengthUnit || '米'}` : '暂无数据'}</div>
+          <div class="mt-1">${fact.kind!=='面料'?'按重量接收':fact.downstreamRollCount===undefined?'原记录未登记卷数':`${fact.downstreamRollCount} 卷`}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${fact.actual.length?formatDyeQty(fact.downstreamReceived,order.qtyUnit):'待登记实收'}</div>
         </article>
         <article class="rounded-md border bg-background px-3 py-3 text-sm">
-          <div class="text-xs text-muted-foreground">染缸 / 差异面料米数</div>
+          <div class="text-xs text-muted-foreground">染缸 / 已登记实收差异</div>
           <div class="mt-1">${escapeHtml(vat.dyeVatNo)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">差异面料米数 ${review?.diffQty ?? handover.diffQty} ${escapeHtml(order.qtyUnit || '米')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">已登记实收差异 ${fact.actual.length?formatDyeQty(fact.difference,order.qtyUnit):'待登记实收'}</div>
         </article>
       </div>
       <div class="mt-4 flex flex-wrap gap-2">
         ${renderActionButton({
-          label: '确认全部收货',
+          label: '查看实际接收',
           action: 'confirm-receipt',
           attrs: { 'dye-order-id': order.dyeOrderId },
           tone: 'primary',
-          disabled: !canConfirmReceipt,
         })}
         ${renderActionButton({
           label: '登记收货差异',

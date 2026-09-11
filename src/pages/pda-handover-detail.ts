@@ -2163,7 +2163,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${
           isWoolHandover || (waterAccess !== null && !waterAccess.ok)
             ? ''
-            : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}>新增交出记录</button>`
+            : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}>${head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE') ? '前往染厂待交出列表' : '新增交出记录'}</button>`
         }
       </div>
       ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
@@ -2577,6 +2577,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   if (action === 'open-new-handout-record') {
     const handoverId = actionNode.dataset.handoverId
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
+    if (head && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE')) { appStore.navigate('/fcs/craft/dyeing/pending-handover'); return true }
     if (!head || head.headType !== 'HANDOUT') {
       showPdaHandoverDetailToast('未找到交出单')
       return true

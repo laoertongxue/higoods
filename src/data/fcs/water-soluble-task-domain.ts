@@ -1,3 +1,6 @@
+import {getPdaSession} from './store-domain-pda.ts'
+import {getDyeFactoryReceiptProjection} from './factory-receiving-warehouse.ts'
+import {listFactoryReceivingSources,getSourceActualReceipts,recordFactoryMaterialUsage,captureFactoryReceivingData,restoreFactoryReceivingData,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
@@ -73,6 +76,7 @@ export interface WaterSolubleWorkOrder {
   materialSpec: string
   plannedQty: number
   completedQty: number
+  inputQty?: number
   materialReceipts?: Array<{ receiptId: string; upstreamRecordId?: string; qty: number; receiverName: string; receivedAt: string }>
   handoverQty?: number
   receivedQty?: number
@@ -125,6 +129,13 @@ const INITIAL_TIME = '2026-07-11 08:00:00'
 const DEMO_FACTORY_ID = 'F090'
 let orderStore: Map<string, WaterSolubleWorkOrder> | null = null
 
+export function getWaterSolubleReceivingMaterial(orderId:string):import('./factory-receiving-types.ts').ReceivingMaterial {
+ const o=getWaterSolubleWorkOrderById(orderId)
+ if(!o)throw new Error('未找到水溶加工单。')
+ if(!/水溶|花边/.test(o.materialName))throw new Error('请先维护水溶原料的图片、成分和规格。')
+ return {sku:o.materialCode,name:o.materialName,kind:'ACCESSORY',imageUrl:'/materials/process-orders/white-water-soluble-lace-12-15mm.jpg',color:'本白',composition:'100% 涤纶',specification:o.materialSpec||'15 mm 水溶花边',batchNo:`${o.waterOrderNo}-01`}
+}
+
 function cloneOrder(order: WaterSolubleWorkOrder): WaterSolubleWorkOrder {
   return {
     ...order,
@@ -148,14 +159,14 @@ function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrde
     const seen = new Set<string>()
     for (const order of saved.orders as WaterSolubleWorkOrder[]) {
       const source = generated.get(order?.generationKey)
-      if (!source || initialProductionOrderIds.has(order.productionOrderId) || seen.has(order.waterOrderId)
+      if (!source || seen.has(order.waterOrderId)
         || ['waterOrderId', 'taskId', 'sourceArtifactId', 'productionOrderId', 'techPackVersionId', 'bomItemId', 'materialCode', 'qtyUnit', 'plannedQty'].some(key => (order as unknown as Record<string, unknown>)[key] !== (source as unknown as Record<string, unknown>)[key])
         || !Object.hasOwn(WATER_SOLUBLE_STATUS_LABEL, order.status)
         || !Number.isFinite(order.completedQty) || order.completedQty < 0
         || !Array.isArray(order.sourceDemandIds) || JSON.stringify(order.sourceDemandIds) !== JSON.stringify(source.sourceDemandIds)
         || !Array.isArray(order.actionLogs) || !order.actionLogs.length || order.actionLogs.some(log => !log.action || !log.at || typeof log.detail !== 'string')
-        || (order.materialReceipts !== undefined && (!Array.isArray(order.materialReceipts) || order.materialReceipts.some(row => !row.receiptId || !row.receiverName || !row.receivedAt || !Number.isFinite(row.qty) || row.qty <= 0)))
-        || (order.handoverBatches !== undefined && (!Array.isArray(order.handoverBatches) || order.handoverBatches.some(row => !row.batchId || !Number.isFinite(row.handoverQty) || row.handoverQty <= 0 || (row.receivedQty !== undefined && (!Number.isFinite(row.receivedQty) || row.receivedQty < 0 || row.receivedQty > row.handoverQty)))))) throw new Error('原水溶单身份或记录无效')
+        || (order.materialReceipts !== undefined && (!Array.isArray(order.materialReceipts) || order.materialReceipts.some(row => !row.receiptId || !row.receiverName || !row.receivedAt || !Number.isFinite(row.qty) || row.qty < 0)))
+        || (order.handoverBatches !== undefined && (!Array.isArray(order.handoverBatches) || order.handoverBatches.some(row => !row.batchId || !Number.isFinite(row.handoverQty) || row.handoverQty <= 0 || (row.receivedQty !== undefined && (!Number.isFinite(row.receivedQty) || row.receivedQty < 0)))))) throw new Error('原水溶单身份或记录无效')
       seen.add(order.waterOrderId)
     }
     for (const order of saved.orders as WaterSolubleWorkOrder[]) generated.set(order.generationKey, cloneOrder(order))
@@ -166,7 +177,7 @@ function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrde
 
 function persistFormalWaterExecution(): void {
   if (typeof localStorage === 'undefined') return
-  const orders = [...(orderStore?.values() ?? [])].filter(order => !initialProductionOrderIds.has(order.productionOrderId) && order.actionLogs.length > 1)
+  const orders = [...(orderStore?.values() ?? [])].filter(order => order.actionLogs.length > 1)
   localStorage.setItem(WATER_EXECUTION_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
 }
 
@@ -184,14 +195,16 @@ function runWaterSolubleMutation(action: () => WaterSolubleActionResult): WaterS
   if (waterMutationDepth) return action()
   const before = new Map([...ensureStore()].map(([key, value]) => [key, cloneOrder(value)]))
   const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(WATER_EXECUTION_STORAGE_KEY)
+  const receiving=captureFactoryReceivingData()
   waterMutationDepth++
   try {
     const result = action()
-    if (!result.ok) { orderStore = before; return result }
+    if (!result.ok) { orderStore = before; restoreFactoryReceivingData(receiving); return result }
     persistFormalWaterExecution()
     return result
   } catch (error) {
     orderStore = before
+    restoreFactoryReceivingData(receiving)
     restoreWaterExecutionBytes(raw)
     return failure('水溶操作未保存，原动作已撤回，请检查本机存储后重试。' + (error instanceof Error ? error.message : String(error)))
   } finally { waterMutationDepth-- }
@@ -281,7 +294,7 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolublePreparationArtifac
     taskQrValue: buildTaskQrValue(taskId),
     createdAt: INITIAL_TIME,
     updatedAt: INITIAL_TIME,
-    actionLogs: [{ action: '生成水溶加工单', detail: `由物料级产物 ${artifact.artifactId} 生成`, at: INITIAL_TIME }],
+    actionLogs: [{ action: '生成水溶加工单', operatorName:'系统自动生成', detail: `由物料级产物 ${artifact.artifactId} 生成`, at: INITIAL_TIME }],
   }
 }
 
@@ -341,9 +354,9 @@ function seedWaterSolubleDemoOrders(store: Map<string, WaterSolubleWorkOrder>): 
     inProgress.materialReceipts = [{ receiptId: 'DEMO-MATERIAL-RECEIPT-087', upstreamRecordId: 'ISSUE-WATER-PO-202603-087-L001', qty: inProgress.plannedQty, receiverName: factory.name, receivedAt: '2026-07-11 08:10:00' }]
     inProgress.updatedAt = '2026-07-11 08:15:00'
     inProgress.actionLogs.push(
-      { action: '分配染厂', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:05:00' },
-      { action: '确认本次接收', detail: '已按中央仓调拨单确认接收，可以开始水溶', at: '2026-07-11 08:10:00' },
-      { action: '开始水溶', detail: '工厂已开始水溶加工', at: '2026-07-11 08:15:00' },
+      { action: '分配染厂', operatorName:'计划员 Lilis', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:05:00' },
+      { action: '确认本次接收', operatorName:'仓管 Budi', detail: '已按中央仓调拨单确认接收，可以开始水溶', at: '2026-07-11 08:10:00' },
+      { action: '开始水溶', operatorName:'水溶操作员 Sari', detail: '工厂已开始水溶加工', at: '2026-07-11 08:15:00' },
     )
   }
   if (paused) {
@@ -357,10 +370,10 @@ function seedWaterSolubleDemoOrders(store: Map<string, WaterSolubleWorkOrder>): 
     paused.materialReceipts = [{ receiptId: 'DEMO-MATERIAL-RECEIPT-088', upstreamRecordId: 'ISSUE-WATER-PO-202603-088-L001', qty: paused.plannedQty, receiverName: factory.name, receivedAt: '2026-07-11 08:25:00' }]
     paused.updatedAt = '2026-07-11 08:35:00'
     paused.actionLogs.push(
-      { action: '分配染厂', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:20:00' },
-      { action: '确认本次接收', detail: '已按中央仓调拨单确认接收，可以开始水溶', at: '2026-07-11 08:25:00' },
-      { action: '开始水溶', detail: '工厂已开始水溶加工', at: '2026-07-11 08:30:00' },
-      { action: '上报数量不足', detail: `实际完成 ${completedQty} ${paused.qtyUnit}；原因：${reason}`, at: '2026-07-11 08:35:00' },
+      { action: '分配染厂', operatorName:'计划员 Lilis', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:20:00' },
+      { action: '确认本次接收', operatorName:'仓管 Budi', detail: '已按中央仓调拨单确认接收，可以开始水溶', at: '2026-07-11 08:25:00' },
+      { action: '开始水溶', operatorName:'水溶操作员 Sari', detail: '工厂已开始水溶加工', at: '2026-07-11 08:30:00' },
+      { action: '上报数量不足', operatorName:'水溶操作员 Sari', detail: `实际完成 ${completedQty} ${paused.qtyUnit}；原因：${reason}`, at: '2026-07-11 08:35:00' },
     )
   }
 }
@@ -427,6 +440,14 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
 
 function ensureStore(): Map<string, WaterSolubleWorkOrder> {
   syncWaterSolubleOrderStoreWithArtifacts()
+  for(const order of orderStore!.values()){
+    const receipts=getDyeFactoryReceiptProjection(order.waterOrderId,order.qtyUnit,'water')
+    const legacy=(order.materialReceipts??[]).filter(r=>!r.receiptId.startsWith('FRP-'))
+    if(order.inputQty===undefined&&!['WAIT_MATERIAL','WAIT_WATER_SOLUBLE'].includes(order.status))order.inputQty=legacy.reduce((n,r)=>n+r.qty,0)
+    order.materialReceipts=[...legacy,...receipts]
+    if(order.status==='WAIT_MATERIAL'&&order.materialReceipts.some(r=>r.qty>0))order.status='WAIT_WATER_SOLUBLE'
+    for(const source of listFactoryReceivingSources(undefined,true).filter(s=>s.workOrderNo===order.waterOrderNo&&s.waterBatchId)){const batch=order.handoverBatches?.find(b=>b.batchId===source.waterBatchId),actual=getSourceActualReceipts(source.id);if(batch&&actual.length){batch.receivedQty=actual.reduce((n,r)=>n+(convertReceiptQuantity(r.qty,r.unit,order.qtyUnit)??(r.businessUnit===order.qtyUnit?r.businessQty??0:0)),0);order.receivedQty=(order.handoverBatches??[]).reduce((n,b)=>n+(b.receivedQty??0),0)}}
+  }
   return orderStore!
 }
 
@@ -438,10 +459,10 @@ function failure(message: string): WaterSolubleActionResult {
   return { ok: false, message }
 }
 
-function updateOrder(order: WaterSolubleWorkOrder, action: string, detail: string): WaterSolubleActionResult {
+function updateOrder(order: WaterSolubleWorkOrder, action: string, detail: string, operatorName=getPdaSession()?.userName||'原型操作员'): WaterSolubleActionResult {
   const updatedAt = localDateTimeText()
   order.updatedAt = updatedAt
-  order.actionLogs.push({ action, detail, at: updatedAt })
+  order.actionLogs.push({ action, detail, at: updatedAt, operatorName })
   return { ok: true, message: `${action}成功`, order: cloneOrder(order) }
 }
 
@@ -591,7 +612,7 @@ export function getWaterSolubleCurrentAction(orderOrId: string | WaterSolubleWor
 
 export type WaterSolublePdaActionInput =
   | { action: 'RECEIVE_INPUT'; orderId: string; taskId: string; expectedStatus: 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS'; expectedNode: 'WAIT_MATERIAL' | 'COMPLETE'; qty?: number; receiptId?: string; upstreamRecordId?: string; actor: WaterSolublePdaActor }
-  | { action: 'START'; orderId: string; taskId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; expectedNode: 'START'; actor: WaterSolublePdaActor }
+  | { action: 'START'; orderId: string; taskId: string; expectedStatus: 'WAIT_WATER_SOLUBLE' | 'WATER_SOLUBLE_IN_PROGRESS' | 'WAIT_HANDOVER'; expectedNode: 'START' | 'COMPLETE' | 'HANDOVER'; actor: WaterSolublePdaActor }
   | { action: 'COMPLETE'; orderId: string; taskId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; expectedNode: 'COMPLETE'; completedQty: number; reason: string; actor: WaterSolublePdaActor }
   | { action: 'RESOLVE_PAUSE'; orderId: string; taskId: string; expectedStatus: 'PRODUCTION_PAUSED'; expectedNode: 'SUPERVISOR'; decision: WaterSolubleSupervisorDecision; actor: WaterSolublePdaActor }
   | { action: 'FINISH_DOCUMENT'; orderId: string; taskId: string; expectedStatus: 'WAIT_MANUAL_COMPLETION'; expectedNode: 'FINISH_DOCUMENT'; actor: WaterSolublePdaActor }
@@ -623,7 +644,7 @@ export function executeWaterSolublePdaAction(input: WaterSolublePdaActionInput):
   const actorError = validateWaterSolublePdaActor(input.actor, order.factoryId, roleAction)
   if (actorError) return failure(actorError)
   if (input.action === 'RECEIVE_INPUT') return attachWaterSolublePdaActor(receiveWaterSolubleInput(input.orderId, input.qty === undefined ? undefined : { qty: input.qty, receiptId: input.receiptId || '', upstreamRecordId: input.upstreamRecordId, receiverName: input.actor.userName }), input.actor)
-  if (input.action === 'START') return attachWaterSolublePdaActor(startWaterSoluble(input.orderId), input.actor)
+  if (input.action === 'START') return attachWaterSolublePdaActor(startWaterSoluble(input.orderId,input.actor.userName), input.actor)
   if (input.action === 'COMPLETE') return attachWaterSolublePdaActor(completeWaterSoluble(input.orderId, input.completedQty, input.reason), input.actor)
   if (input.action === 'RESOLVE_PAUSE') return attachWaterSolublePdaActor(resolveWaterSolublePause(input.orderId, input.decision), input.actor)
   if (input.action === 'FINISH_DOCUMENT') return attachWaterSolublePdaActor(completeWaterSolubleWorkOrder(input.orderId), input.actor)
@@ -708,41 +729,24 @@ export function rejectWaterSolubleWorkOrderPdaTask(taskId: string, rejectedBy: s
 export function getWaterSolubleReceivedMaterialQty(orderId: string): number {
   const order = [...(orderStore ?? ensureStore()).values()].find((item) => item.waterOrderId === orderId)
   if (!order) return 0
-  const directQty = (order.materialReceipts ?? []).reduce((total, item) => total + item.qty, 0)
-  return directQty
+  return (order.materialReceipts??[]).filter(r=>!r.receiptId.startsWith('FRP-')).reduce((n,r)=>n+r.qty,0)+getDyeFactoryReceiptProjection(orderId,order.qtyUnit,'water').reduce((n,r)=>n+r.qty,0)
 }
 
 export function receiveWaterSolubleInput(orderId: string, input?: { qty: number; receiptId: string; upstreamRecordId?: string; receiverName?: string }): WaterSolubleActionResult {
-  return runWaterSolubleMutation(() => {
-  let order = findMutableOrder(orderId)
-  if (!order) return failure(`未找到水溶加工单“${orderId}”。`)
-  if (!['WAIT_MATERIAL', 'WATER_SOLUBLE_IN_PROGRESS'].includes(order.status)) return failure(`当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，不能接收原料。`)
-  if (!input?.receiptId.trim()) return failure('接收确认已失效，请重新打开。')
-  if (!input.upstreamRecordId?.trim()) return failure('请选择本次接收的来源单据。')
-  const qty = input.qty
-  const receiptId = input.receiptId
-  if (!Number.isFinite(qty) || qty <= 0) return failure('本次实际接收数量必须大于 0。')
-  const receiverName = input?.receiverName || '原料接收人'
-  const receivedAt = new Date().toISOString()
-  const receipts = order.materialReceipts ?? []
-  const existing = receipts.find((item) => item.receiptId === receiptId)
-  if (existing) return failure('该接收确认已经处理，请勿重复提交。')
-  receipts.push({ receiptId, upstreamRecordId: input.upstreamRecordId, qty, receiverName, receivedAt })
-  order.materialReceipts = receipts
-  order.status = 'WATER_SOLUBLE_IN_PROGRESS'
-  return updateOrder(order, '确认本次接收并开工', `来源单据 ${input.upstreamRecordId}；本次接收 ${qty} ${order.qtyUnit}；累计接收 ${getWaterSolubleReceivedMaterialQty(orderId)} ${order.qtyUnit}`)
-
-  })
+  return failure('请从染厂待接收核对原单、填写实收并选择入库库位。接收后再开始水溶。')
 }
 
-export function startWaterSoluble(orderId: string): WaterSolubleActionResult {
+export function startWaterSoluble(orderId: string, operatorName='水溶操作员'): WaterSolubleActionResult {
   return runWaterSolubleMutation(() => {
   const order = findMutableOrder(orderId)
   if (!order) return failure(`未找到水溶加工单“${orderId}”。`)
-  const statusError = requireStatus(order, 'WAIT_WATER_SOLUBLE', '开始水溶')
-  if (statusError) return statusError
+  if(!['WAIT_WATER_SOLUBLE','WATER_SOLUBLE_IN_PROGRESS','WAIT_HANDOVER'].includes(order.status))return failure('当前状态不能开始水溶。')
+  const received=getWaterSolubleReceivedMaterialQty(orderId),qty=received-(order.inputQty??0)
+  if(!(qty>0)&&!(order.supervisorDecision&&(order.inputQty??0)>0))return failure('本单暂无可投入的实收库存。')
+  if(qty>0)recordFactoryMaterialUsage({id:`WATER-USE-${orderId}-${order.actionLogs.length}`,waterOrderId:orderId,factoryId:order.factoryId!,operatorName,at:localDateTimeText(),qty,unit:order.qtyUnit,legacyAvailableQty:Math.max(0,(order.materialReceipts??[]).filter(r=>!r.receiptId.startsWith('FRP-')).reduce((n,r)=>n+r.qty,0)-(order.inputQty??0))})
+  order.inputQty=received
   order.status = 'WATER_SOLUBLE_IN_PROGRESS'
-  return updateOrder(order, '开始水溶', '工厂已开始水溶加工')
+  return updateOrder(order, '开始水溶', '工厂已开始水溶加工', operatorName)
 
   })
 }
@@ -764,7 +768,7 @@ export function completeWaterSoluble(orderId: string, completedQty: number, exce
       ? `完成数量少于计划数量 ${order.plannedQty} ${order.qtyUnit}，请填写原因并交主管处理。`
       : `完成数量超过计划数量 ${order.plannedQty} ${order.qtyUnit}，请填写原因后再确认。`)
   }
-  const receivedMaterialQty = getWaterSolubleReceivedMaterialQty(orderId)
+  const receivedMaterialQty = order.inputQty ?? getWaterSolubleReceivedMaterialQty(orderId)
   if (completedQty > receivedMaterialQty + 0.000001) return failure(`累计产出不能超过实际接收 ${receivedMaterialQty} ${order.qtyUnit}。`)
   order.completedQty = completedQty
   order.exceptionReason = reason
@@ -851,7 +855,7 @@ export function linkWaterSolubleHandoverOrder(
   const statusError = requireStatus(order, 'WAIT_HANDOVER', '关联交出单')
   if (statusError) return statusError
   order.handoverOrderId = normalizedHandoverOrderId
-  return updateOrder(order, '关联交出单', `已关联通用交出单 ${normalizedHandoverOrderId}`)
+  return updateOrder(order, '关联交出单', `已关联通用交出单 ${normalizedHandoverOrderId}`, '系统自动关联')
 
   })
 }
@@ -867,7 +871,7 @@ export function receiveWaterSolubleHandoverBatch(orderId: string, sequenceNo: nu
   const order = findMutableOrder(orderId)
   if (!order || order.status === 'DONE') return failure('当前水溶加工单不能接收。')
   const batch = order.handoverBatches?.[sequenceNo - 1]
-  if (!batch || !Number.isFinite(cumulativeQty) || cumulativeQty < (batch.receivedQty ?? 0) || cumulativeQty > batch.handoverQty) return failure('本批累计接收数量无效。')
+  if (!batch || !Number.isFinite(cumulativeQty) || cumulativeQty < (batch.receivedQty ?? 0)) return failure('本批累计接收数量无效。')
   batch.receivedQty = cumulativeQty
   order.receivedQty = (order.handoverBatches ?? []).reduce((sum, item) => sum + (item.receivedQty ?? 0), 0)
   order.status = cumulativeQty + 0.000001 < batch.handoverQty ? 'HANDOVER_WAIT_RECEIVE' : getWaterSolubleStatusAfterReceipt(order)
@@ -886,9 +890,6 @@ export function writeBackWaterSolubleReceipt(orderId: string, receivedQty: numbe
   if (qtyError) return failure(qtyError)
   const batch = [...(order.handoverBatches ?? [])].reverse().find((item) => item.receivedQty === undefined)
   if (!batch) return failure('当前没有等待收货的水溶交出批次。')
-  if (receivedQty - batch.handoverQty > 0.000001) {
-    return failure(`本批实收不能超过本批交出数量 ${batch.handoverQty} ${order.qtyUnit}。`)
-  }
   batch.receivedQty = receivedQty
   order.receivedQty = (order.handoverBatches ?? []).reduce((sum, item) => sum + (item.receivedQty ?? 0), 0)
   const isSameBatchQty = Math.abs(receivedQty - batch.handoverQty) <= 0.000001
@@ -938,5 +939,6 @@ export function completeWaterSolubleWorkOrder(orderId: string): WaterSolubleActi
 }
 
 export function resetWaterSolubleDomainForChecks(options: { seedDemo?: boolean } = {}): void {
+  const data=captureFactoryReceivingData(),ids=new Set(data.receipts.flatMap(r=>r.lines.filter(l=>l.waterOrderId).map(l=>l.id)));data.receipts=data.receipts.filter(r=>!r.lines.some(l=>l.waterOrderId));data.allocations=data.allocations.filter(a=>!a.waterOrderId&&!ids.has(a.receiptLineId));data.materialUses=data.materialUses?.filter(u=>!u.waterOrderId);data.sources=data.sources.filter(s=>!s.lines.some(l=>l.waterOrderId));restoreFactoryReceivingData(data)
   orderStore = buildWaterSolubleOrderStore(options.seedDemo === true)
 }

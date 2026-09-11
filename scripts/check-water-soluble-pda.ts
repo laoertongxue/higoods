@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {receiveAndStartWaterForCheck} from './water-receiving-check-helper.ts'
 
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -90,7 +91,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 Object.defineProperty(globalThis, 'document', {
   configurable: true,
-  value: { querySelector: () => null },
+  value: { querySelector: () => null, addEventListener: () => {} },
 })
 
 class FakeInputElement {
@@ -423,7 +424,7 @@ async function main(): Promise<void> {
     const executableOrder = listWaterSolubleWorkOrders()[0]
     assert(executableOrder, '必须存在可准备为待水溶的独立水溶加工单')
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-1', upstreamRecordId: 'CHECK-PDA-SOURCE-1' }).ok, true)
+    assert.equal(receiveAndStartWaterForCheck(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-1', upstreamRecordId: 'CHECK-PDA-SOURCE-1' }).ok, true)
     assert.equal(getWaterSolubleCurrentAction(executableOrder)?.actionCode, 'COMPLETE', '确认原料到位必须同次自动开工，下一步直接完成水溶')
     assert.throws(
       () => ensureHandoverOrderForStartedTask(executableOrder.taskId),
@@ -568,7 +569,7 @@ async function main(): Promise<void> {
 
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-2', upstreamRecordId: 'CHECK-PDA-SOURCE-2' }).ok, true)
+    assert.equal(receiveAndStartWaterForCheck(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-2', upstreamRecordId: 'CHECK-PDA-SOURCE-2' }).ok, true)
     setPdaSession(operator)
     const runningWaterHtml = renderPdaExecDetailPage(executableOrder.taskId)
     const waterCompleteToken = runningWaterHtml.match(/data-pda-execd-action="water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
@@ -617,7 +618,7 @@ async function main(): Promise<void> {
 
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(receiveWaterSolubleInput(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-3', upstreamRecordId: 'CHECK-PDA-SOURCE-3' }).ok, true)
+    assert.equal(receiveAndStartWaterForCheck(executableOrder.waterOrderId, { qty: executableOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-3', upstreamRecordId: 'CHECK-PDA-SOURCE-3' }).ok, true)
     assert.equal(getWaterSolubleCurrentAction(executableOrder.waterOrderId)?.actionCode, 'COMPLETE')
 
     const missingReason = executeWaterSolublePdaAction({
@@ -865,7 +866,7 @@ async function main(): Promise<void> {
     const handoverRoleOrder = listWaterSolubleWorkOrders().find((item) => item.waterOrderId !== executableOrder.waterOrderId)
     assert(handoverRoleOrder, '必须存在第二张独立水溶单验证交接角色')
     assert.equal(assignWaterSolubleFactory(handoverRoleOrder.waterOrderId, operator.factoryId).ok, true)
-    assert.equal(receiveWaterSolubleInput(handoverRoleOrder.waterOrderId, { qty: handoverRoleOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-4', upstreamRecordId: 'CHECK-PDA-SOURCE-4' }).ok, true)
+    assert.equal(receiveAndStartWaterForCheck(handoverRoleOrder.waterOrderId, { qty: handoverRoleOrder.plannedQty, receiptId: 'CHECK-PDA-RECEIPT-4', upstreamRecordId: 'CHECK-PDA-SOURCE-4' }).ok, true)
     setPdaSession(operator)
     assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
     setPdaSession(handoverActor)
@@ -1065,7 +1066,7 @@ async function main(): Promise<void> {
     const beforeOverInputNode = getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')
     const beforeOverInputLogs = structuredClone(getProcessActionOperationRecordsByTask(combined.taskId))
     assert.throws(
-      () => completeDyeing(combined.dyeOrderId, { inputQty: 100, outputQty: 81, operatorName: operator.userName }),
+      () => completeDyeing(combined.dyeOrderId, { inputQty: 80, outputQty: 81, operatorName: operator.userName }),
       /不能超过.*投入|完成数量.*投入/,
       '染色产出 81 不能超过真实投入 80',
     )

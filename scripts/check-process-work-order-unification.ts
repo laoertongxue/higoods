@@ -151,6 +151,8 @@ const EXPECTED_PRINT_CANONICAL_IDENTITIES: Array<[string, string]> = [
 ]
 
 const EXPECTED_DYE_CANONICAL_IDENTITIES: Array<[string, string]> = [
+  ...Array.from({length:5},(_,i):[string,string]=>[`DYE-DISPATCH-DEMO-${i+1}`,`RS-DEMO-260911-${String(i+1).padStart(3,'0')}`]),
+  ...Array.from({length:3},(_,i):[string,string]=>[`DYE-YARN-DEMO-${i+1}`,`RS-YARN-260911-${i+1}`]),
   ['DWO-001', 'DY-20260328-001'],
   ['DWO-002', 'DY-20260328-002'],
   ['DWO-003', 'DY-20260328-003'],
@@ -165,8 +167,6 @@ const EXPECTED_DYE_CANONICAL_IDENTITIES: Array<[string, string]> = [
   ['DWO-012', 'DY-20260329-012'],
   ['DWO-013', 'DY-20260329-013'],
   ['DYE-WATER-PO-202603-081', 'RSJG-WATER-202603081'],
-  ['DYE-COMBINED-DEMO-001', 'RSJG-202607-901'],
-  ['DYE-COMBINED-DEMO-002', 'RSJG-202607-902'],
 ]
 
 function sortIdentities(identities: Array<[string, string]>): Array<[string, string]> {
@@ -299,10 +299,7 @@ assertWorkOrderIdentity(
 )
 
 const dyeingTasks = listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === 'DYEING')
-;[
-  ['DYE-COMBINED-DEMO-001', 'RSJG-202607-901'],
-  ['DYE-COMBINED-DEMO-002', 'RSJG-202607-902'],
-].forEach(([workOrderId, workOrderNo]) => {
+;EXPECTED_DYE_CANONICAL_IDENTITIES.forEach(([workOrderId, workOrderNo]) => {
   const platformOrder = platformDyeOrders.find((order) => order.workOrderId === workOrderId)
   const factoryOrder = unifiedDyeOrders.find((order) => order.workOrderId === workOrderId)
   const canonicalOrder = getDyeWorkOrderById(workOrderId)
@@ -489,7 +486,7 @@ assertNotIncludes(platformPrintSource, '/fcs/pda/handover', '平台印花列表'
 assertNotIncludes(platformDyeSource, '/fcs/pda/handover', '平台染色列表')
 
 assertIncludes(pfosPrintSource, 'buildPrintingWorkOrderDetailLink(order.workOrderId)', '工厂端印花详情入口')
-;['renderDyeWorkOrderOverlay', "renderSecondaryButton('查看'", "renderPrimaryButton('编辑'", "renderSecondaryButton('日志'", "renderSecondaryButton('打印流程卡'"]
+;['renderDyeWorkOrderOverlay', "'查看','编辑','日志','打印流程卡','打印条码'", "'view','edit','logs','print-one','barcodes','remark'"]
   .forEach((token) => assertIncludes(pfosDyeSource, token, '工厂端染色列表内操作'))
 assertNotIncludes(pfosDyeSource, 'buildDyeingWorkOrderDetailLink(order.dyeOrderId)', '工厂端染色列表')
 assertNotIncludes(pfosPrintSource, '/fcs/pda/exec', '工厂端印花加工单列表')

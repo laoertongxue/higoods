@@ -1,3 +1,4 @@
+import {receiveAndStartWaterForCheck} from './water-receiving-check-helper.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -93,7 +94,7 @@ let waterReceiptSequence = 0
 function receiveWaterMaterialForCheck(order: { waterOrderId: string; plannedQty: number }, qty = order.plannedQty, receiptId?: string) {
   waterReceiptSequence += 1
   const key = receiptId ?? `CHECK-WATER-RECEIPT-${waterReceiptSequence}`
-  return receiveWaterSolubleInput(order.waterOrderId, {
+  return receiveAndStartWaterForCheck(order.waterOrderId, {
     qty,
     receiptId: key,
     upstreamRecordId: `CHECK-WATER-SOURCE-${key}`,
@@ -981,7 +982,7 @@ const assigned = assignWaterSolubleFactory(workflowOrder.waterOrderId, 'F090')
 assert.equal(assigned.ok, true, '具备水溶能力染厂应分配成功')
 assert.equal(assigned.order?.status, 'WAIT_MATERIAL', '分配染厂后必须待原料')
 assert.equal(assignWaterSolubleFactory(workflowOrder.waterOrderId, 'F090').ok, false, '重复分配必须明确失败')
-assert.equal(receiveWaterMaterialForCheck(workflowOrder, workflowOrder.plannedQty, 'WORKFLOW-RECEIPT').order?.status, 'WATER_SOLUBLE_IN_PROGRESS', '确认原料到位必须同次开工')
+assert.equal(receiveWaterMaterialForCheck(workflowOrder, workflowOrder.plannedQty, 'WORKFLOW-RECEIPT').order?.status, 'WATER_SOLUBLE_IN_PROGRESS', '登记实收后显式执行开工')
 assert.equal(receiveWaterMaterialForCheck(workflowOrder, workflowOrder.plannedQty, 'WORKFLOW-RECEIPT').ok, false, '重复确认原料必须明确失败')
 assert.equal(getWaterSolubleWorkOrderById(workflowOrder.waterOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '不需再次点击开工')
 assert.equal(startWaterSoluble(workflowOrder.waterOrderId).ok, false, '重复开工必须明确失败')

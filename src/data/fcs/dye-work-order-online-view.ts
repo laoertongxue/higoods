@@ -279,14 +279,6 @@ const DYE_WORK_ORDER_PRESENTATION_FACTS: Record<string, Partial<Pick<DyeWorkOrde
     materialImageUrl: '/materials/yarn-stitching.jpg',
     materialName: '棉感针织布 K118',
   },
-  'DYE-COMBINED-DEMO-001': {
-    productCode: 'SPU-COMBINED-901',
-    productName: '藏青基础款上衣',
-  },
-  'DYE-COMBINED-DEMO-002': {
-    productCode: 'SPU-COMBINED-902',
-    productName: '藏青基础款下装',
-  },
 }
 
 export const DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS: DyeWorkOrderOnlineFilters = {
@@ -398,8 +390,8 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     upstreamDocuments,
     downstreamPartner,
     preparedRollCount: demo?.preparedRollCount ?? (axes.receivedInputQty > 0 ? online.rawMaterialRollCount : 0),
-    completedRollCount: demo?.completedRollCount ?? outputRolls.filter(roll => roll.qty > 0).length,
-    handedOverRollCount: demo?.handedOverRollCount ?? (order.dispatchDocuments ?? []).filter(doc=>doc.status === '已交出').flatMap(doc=>doc.lines.filter(line=>line.orderId === order.dyeOrderId).flatMap(line=>line.rolls)).length,
+    completedRollCount: outputRolls.length ? outputRolls.filter(roll => roll.qty > 0).length : (demo?.completedRollCount ?? 0),
+    handedOverRollCount: outputRolls.length ? outputRolls.filter(roll=>roll.dispatchId).length : (demo?.handedOverRollCount ?? 0),
     outputImageUrl: demo?.outputImage || '', sampleImageUrl: demo?.sampleImage || '',
     sampleNote: demo?.sampleNote || order.remark || '', supplierName: demo?.supplier || '供应商待确认',
     fabricReceiver: demo?.fabricReceiver || online.receiverName, targetColorName: demo?.colorName || order.targetColor,

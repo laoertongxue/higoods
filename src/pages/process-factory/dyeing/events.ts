@@ -1,6 +1,5 @@
 import { appStore } from '../../../state/store'
 import {
-  confirmDyeReceipt,
   canContinueDyeWaterSoluble,
   executeDyeWaterSolublePdaAction,
   getDyeWorkOrderById,
@@ -15,13 +14,8 @@ import {
   handleProcessWebStatusActionDialogEvent,
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
-import { handleCraftCombinedDyeingEvent as handleCombinedDyeingWorkspaceEvent } from './combined-dyeing.ts'
 import { handleDyeWorkOrderListEvent } from './work-orders.ts'
-import { handleDyeWorkOrderCombinedDetailEvent } from './work-order-detail.ts'
-
-export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Event): boolean {
-  return handleCombinedDyeingWorkspaceEvent(target, event)
-}
+import { handleDyeWorkOrderReceiptDetailEvent } from './work-order-detail.ts'
 
 function showDyeingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -161,7 +155,7 @@ function executeConfirmedDyeWaterAction(
 
 export function handleCraftDyeingEvent(target: HTMLElement): boolean {
   if (handleDyeWorkOrderListEvent(target)) return true
-  if (handleDyeWorkOrderCombinedDetailEvent(target)) return true
+  if (handleDyeWorkOrderReceiptDetailEvent(target)) return true
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showDyeingToast,
     refresh: refreshCurrentDyeingPage,
@@ -237,9 +231,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
   if (action === 'confirm-receipt') {
     const dyeOrderId = actionNode.dataset.dyeOrderId
     if (!dyeOrderId) return true
-    confirmDyeReceipt(dyeOrderId, { receivedBy: '仓库收货员', remark: '仓库确认本次收货' })
-    showDyeingToast('已确认本次收货')
-    appStore.navigate(`/fcs/craft/dyeing/reports?dyeOrderId=${encodeURIComponent(dyeOrderId)}`)
+    appStore.navigate(`/fcs/craft/dyeing/handover-documents?keyword=${encodeURIComponent(dyeOrderId)}`)
     return true
   }
 

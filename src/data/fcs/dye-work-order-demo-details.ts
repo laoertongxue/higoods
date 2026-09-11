@@ -20,13 +20,12 @@ const lining = material('50D 四面弹里布 S256', 'FAB-S256-GREIGE', '浅灰',
 const fleece = material('雾灰卫衣布 F280', 'FAB-F280-GREIGE', '雾灰', '80% cotton 20% polyester / 80% 棉 20% 涤纶', 148, 280, '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png')
 const poplin = material('白色府绸 P200', 'FAB-P200-GREIGE', '本白', '100% cotton / 100% 棉', 160, 200, '/materials/fei-ticket/white-poplin.png')
 const fog = material('棉涤梭织布 W185', 'FAB-W185-GREIGE', '雾蓝', '60% cotton 40% polyester / 60% 棉 40% 涤纶', 150, 185, '/materials/process-orders/fog-blue-woven.png')
-const navy = material('40S 精梳棉双面布', 'MAT-COMBINED-DEMO-001', '藏青色', '100% cotton / 100% 棉', 165, 200, '/materials/process-orders/navy-combed-cotton-interlock.jpg')
 const lace = material('15 mm 水溶花边', 'MAT-WATER-DYE-081', '本白', '100% polyester / 100% 涤纶', 1.5, 130, '/materials/process-orders/white-water-soluble-lace-12-15mm.jpg')
 const definitions: Array<[string, typeof cotton]> = [
   ['DWO-001', printed], ['DWO-002', rose], ['DWO-003', lining], ['DWO-004', cotton],
   ['DWO-005', fleece], ['DWO-006', poplin], ['DWO-007', printed], ['DWO-008', rose],
   ['DWO-009', lining], ['DWO-010', cotton], ['DWO-011', fleece], ['DWO-012', poplin], ['DWO-013', fog],
-  ['DYE-COMBINED-DEMO-001', navy], ['DYE-COMBINED-DEMO-002', navy], ['DYE-WATER-PO-202603-081', lace],
+  ['DYE-WATER-PO-202603-081', lace],
 ]
 export const DYE_DEMO_DETAILS: Readonly<Record<string, DyeDemoDetails>> = Object.fromEntries(definitions.map(([id, spec], i) => [id, {
   ...spec, outputSku: `${spec.rawSku.replace(/-(WHITE|GREIGE)$/, '')}-C${String(i + 1).padStart(3, '0')}`,
@@ -40,7 +39,6 @@ export const DYE_DEMO_DETAILS: Readonly<Record<string, DyeDemoDetails>> = Object
   preparedRollCount: [0,0,0,70,35,84,42,26,48,70,35,0,16,0,0,0][i],
   completedRollCount: [0,0,0,0,0,0,41,26,48,70,35,0,0,0,0,0][i],
   handedOverRollCount: [0,0,0,0,0,0,0,26,48,70,35,0,0,0,0,0][i],
-  salesType: id.startsWith('DYE-COMBINED-DEMO') ? '备货' : undefined,
   additionalInputs: id === 'DWO-002' ? [{name: '棉氨针织布 J180（本白，加宽）', sku: 'FAB-J180-WHITE-160', imageUrl: '/materials/process-orders/white-black-cotton-jersey.jpg', materialType:'面料', composition:rose.composition, width:'160 cm', weightGsm:180}] : undefined,
 }]))
 
@@ -106,9 +104,20 @@ export const DYE_DEMO_PARTNER_SCENARIOS: Readonly<Record<string, DyeDemoPartnerS
   'DWO-011': {upstream:DYE_PARTNERS.sea, downstream:DYE_PARTNERS.sea},
   'DWO-012': {upstream:DYE_PARTNERS.sea, downstream:DYE_PARTNERS.berys},
   'DWO-013': {upstream:DYE_PARTNERS.fabric, downstream:DYE_PARTNERS.fabric},
-  'DYE-COMBINED-DEMO-001': {upstream:DYE_PARTNERS.special, downstream:DYE_PARTNERS.cik, upstreamWorkOrder:{no:'TS-DEMO-260910-001', status:'加工完成，待交出'}},
-  'DYE-COMBINED-DEMO-002': {upstream:DYE_PARTNERS.newCutting, downstream:DYE_PARTNERS.newCutting},
   'DYE-WATER-PO-202603-081': {upstream:DYE_PARTNERS.trims, downstream:DYE_PARTNERS.accessory, upstreamWorkOrder:{no:'FL-DEMO-260910-081', status:'加工完成，待交出'}},
+}
+
+// 独立交出页面的本地演示批次：规格、卷数及上下游均有明确值。
+for (const [i, spec] of [cotton, rose, lining, fleece, printed].entries()) {
+  const id = `DYE-DISPATCH-DEMO-${i + 1}`
+  ;(DYE_DEMO_DETAILS as Record<string, DyeDemoDetails>)[id] = {
+    ...spec, outputSku: `${spec.rawSku}-DY${i + 1}`, colorNo: `M260911${String(i + 21).padStart(4,'0')}P`,
+    sampleImage: spec.outputImage, supplier: '亿程纺织（演示）', demandNo: `BEILIAO-260911-${i + 1}`,
+    batchNo: `GTG-260911-${i + 1}`, fabricReceiver: i < 3 ? 'hilon' : 'dewi', sampleNote: '按签样颜色交接，逐卷核对卷码与长度',
+    shade: i === 1 ? '深色' : '浅色', temperature: 190, headVat: '头缸',
+    plannedTransferNo: `DB-DISPATCH-260911-${i + 1}`, preparedRollCount: 6, completedRollCount: 6, handedOverRollCount: 0, salesType: '备货',
+  }
+  ;(DYE_DEMO_PARTNER_SCENARIOS as Record<string, DyeDemoPartnerScenario>)[id] = {upstream: DYE_PARTNERS.fabric, downstream: i < 2 ? {kind:'FACTORY',id:'ID-F002',name:'MJS',factoryType:'染色厂'} : i === 3 ? DYE_PARTNERS.sea : DYE_PARTNERS.fabric}
 }
 
 for(let i=1;i<=3;i++)(DYE_DEMO_PARTNER_SCENARIOS as Record<string,DyeDemoPartnerScenario>)[`DYE-YARN-DEMO-${i}`]={upstream:{kind:'WAREHOUSE',id:'WH-MAOSHA-001',name:'纱线中央仓',warehouseAttribute:'纱线中央仓'},downstream:{kind:'FACTORY',id:'OWN_WOOL_FACTORY',name:'周哥毛织厂',factoryType:'毛织厂'}}

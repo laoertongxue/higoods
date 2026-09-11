@@ -139,9 +139,9 @@ function renderOrderImage(order: WaterSolubleWorkOrder, kind: 'product' | 'mater
 }
 
 function lastLog(order: WaterSolubleWorkOrder): { actor: string; summary: string } {
-  const log = [...order.actionLogs].reverse().find((item) => item.operatorName?.trim())
-  if (!log) return { actor: '暂未记录', summary: '暂未记录' }
-  return { actor: escapeHtml(log.operatorName!.trim()), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
+  const log = [...order.actionLogs].reverse().find(item => item.operatorName?.trim() && !item.operatorName.startsWith('系统')) || order.actionLogs.at(-1)
+  if (!log) return { actor: '系统', summary: '加工单已生成，尚无人工操作' }
+  return { actor: escapeHtml(log.operatorName?.trim()||'原记录未留操作人'), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
 }
 
 function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolublePdaRoleAction | null {
@@ -152,26 +152,24 @@ function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterS
 }
 
 function renderMaterialReceiptFields(order: WaterSolubleWorkOrder): string {
-  const source = getWaterSolubleMaterialReceiptOptions(order.waterOrderId)
-  if (source.options.length === 0) return `<div class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
-  const sourceName = source.sourceMode === 'CENTRAL_TRANSFER' ? '中央仓调拨单' : '上游交出单'
-  return `<div class="mb-3 space-y-2" data-skip-page-rerender="true" data-water-material-receipt data-receipt-id="${escapeHtml(`${order.waterOrderId}:${Date.now()}:${Math.random()}`)}"><p class="text-xs">已接收 ${getWaterSolubleReceivedMaterialQty(order.waterOrderId)} ${escapeHtml(order.qtyUnit)}</p><label class="block text-sm">${sourceName}<select class="h-10 w-full rounded border px-2" data-water-material-source><option value="">请选择本次接收单据</option>${source.options.map((item) => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label><label class="block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input class="h-10 w-full rounded border px-2" inputmode="decimal" data-water-material-qty></label></div>`
+  return `<a class="block rounded border px-3 py-2 text-blue-700" href="/fcs/craft/dyeing/pending-receipts?factory=${encodeURIComponent(order.factoryId||'')}&orderId=${encodeURIComponent(order.waterOrderId)}">前往染厂待接收登记实收和库位</a>`
 }
 
 function renderPrimaryAction(order: WaterSolubleWorkOrder, roleId: string | null): string {
-  const roleAction = getRoleActionForStatus(order.status)
+  const hasNewInput=['WATER_SOLUBLE_IN_PROGRESS','WAIT_HANDOVER'].includes(order.status)&&getWaterSolubleReceivedMaterialQty(order.waterOrderId)>(order.inputQty??0)
+  const roleAction = hasNewInput?'OPERATE':getRoleActionForStatus(order.status)
   if (!roleId) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">只读查看</div>'
   if (roleAction && !canWaterSolubleRolePerform(roleId, roleAction)) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">等待有权限角色处理</div>'
   const current = getWaterSolubleCurrentAction(order.waterOrderId)
   if (!current) return ''
+  if (hasNewInput) return withSkipPageRerender(renderButton({label:'投入本批来料',variant:'primary',action:{prefix:'factory-water-soluble',action:'start'},className:'w-full'})).replace('<button',`<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
   if (order.status === 'PRODUCTION_PAUSED') return withSkipPageRerender(renderButton({ label: '主管处理', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-supervisor' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
   if (order.status === 'WAIT_HANDOVER') return withSkipPageRerender(renderButton({ label: '现在交出', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-handover' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
   if (order.status === 'WAIT_MATERIAL') {
-    const source = getWaterSolubleMaterialReceiptOptions(order.waterOrderId)
-    return renderMaterialReceiptFields(order) + (source.options.length > 0 ? withSkipPageRerender(renderButton({ label: '确认本次接收', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'receive-input' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`) : '')
+    return renderMaterialReceiptFields(order)
   }
   if (order.status === 'WAIT_WATER_SOLUBLE') return withSkipPageRerender(renderButton({ label: '开始水溶', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'start' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
-  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return withSkipPageRerender(renderButton({ label: '上报完成数量', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'complete' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`) + `<details class="mt-2"><summary class="text-sm">继续接收原料</summary>${renderMaterialReceiptFields(order)}<button class="mt-2 h-10 rounded border px-3" data-factory-water-soluble-action="receive-input" data-order-id="${escapeHtml(order.waterOrderId)}" data-skip-page-rerender="true">确认本次接收</button></details>`
+  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return withSkipPageRerender(renderButton({ label: '上报完成数量', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'complete' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`) + `<details class="mt-2"><summary class="text-sm">继续接收原料</summary>${renderMaterialReceiptFields(order)}</details>`
   return `<div class="rounded-md bg-muted px-3 py-2 text-center text-sm">${escapeHtml(current.actionName)}</div>`
 }
 
@@ -179,6 +177,7 @@ function renderCard(order: WaterSolubleWorkOrder): string {
   const runtime = getPdaRuntimeContext()
   const canOperate = Boolean(runtime && order.factoryId === runtime.factoryId)
   const current = getWaterSolubleCurrentAction(order.waterOrderId)
+  if(current&&['WATER_SOLUBLE_IN_PROGRESS','WAIT_HANDOVER'].includes(order.status)&&getWaterSolubleReceivedMaterialQty(order.waterOrderId)>(order.inputQty??0)){current.actionName='投入本批来料';current.message='补收来料已入库，确认投入后开始加工。'}
   const recentLog = lastLog(order)
   const axes = getWaterSolubleWorkOrderThreeAxisView(order)
   const sourceName = axes.sourceMode === 'CENTRAL_TRANSFER' ? '中央仓调拨' : axes.sourceMode === 'UPSTREAM_HANDOUT' ? '上游交出' : '来源待到位'
@@ -479,7 +478,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
 
   const accessRuleByAction: Record<string, { statuses: WaterSolubleWorkOrder['status'][]; roleAction: WaterSolublePdaRoleAction }> = {
     'receive-input': { statuses: ['WAIT_MATERIAL', 'WATER_SOLUBLE_IN_PROGRESS'], roleAction: 'OPERATE' },
-    start: { statuses: ['WAIT_WATER_SOLUBLE'], roleAction: 'OPERATE' },
+    start: { statuses: ['WAIT_WATER_SOLUBLE','WATER_SOLUBLE_IN_PROGRESS','WAIT_HANDOVER'], roleAction: 'OPERATE' },
     'confirm-supervisor-decision': { statuses: ['PRODUCTION_PAUSED'], roleAction: 'SUPERVISE' },
     'confirm-handover': { statuses: ['WAIT_HANDOVER'], roleAction: 'HANDOVER' },
   }
@@ -498,7 +497,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const card = node.closest('[data-testid="factory-water-soluble-card"]')
     run(executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder?.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: currentOrder?.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(card?.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: card?.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: card?.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: actor! }))
   }
-  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: actor! }))
+  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: currentOrder!.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: currentOrder!.status==='WAIT_HANDOVER'?'HANDOVER':currentOrder!.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: actor! }))
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }

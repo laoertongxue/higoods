@@ -5,12 +5,13 @@ import {buildFactoryReceivingDemoSources} from './factory-receiving-mock.ts'
 import type {FactoryReceivingSource,FactoryReceiptInput,FactoryReceipt,FactoryReceiptLine,FactoryDeliveryNote,FactoryDeliveryLine,ReceivingAllocation,ReceiptPosition} from './factory-receiving-types.ts'
 export type * from './factory-receiving-types.ts'
 export const FACTORY_RECEIVING_KEY='higood-factory-material-receiving-v1'
-interface ReceivingData {version:1;sources:FactoryReceivingSource[];deliveries:FactoryDeliveryNote[];receipts:FactoryReceipt[];allocations:ReceivingAllocation[];defaults:Record<string,ReceiptPosition>}
+interface ReceivingData {version:1;sources:FactoryReceivingSource[];deliveries:FactoryDeliveryNote[];receipts:FactoryReceipt[];allocations:ReceivingAllocation[];defaults:Record<string,ReceiptPosition>;materialUses?:FactoryMaterialUse[]}
 let cache:ReceivingData|undefined
 const clone=<T>(v:T):T=>structuredClone(v)
 function validateStoredReceiving(data:ReceivingData){
  const sourceIds=new Set<string>(),lineIds=new Set<string>(),receiptIds=new Set<string>(),rolls=new Set<string>()
  for(const s of data.sources){if(!s.id||sourceIds.has(s.id)||!s.documentNo||!s.targetFactoryId||!s.targetFactoryName||!s.origin?.id||!s.origin.name||!s.createdAt||!s.createdBy||!Array.isArray(s.lines))throw new Error('来源单据缺少必需值或编号重复，请核对保存记录。');sourceIds.add(s.id);for(const l of s.lines){if(!l.id||lineIds.has(l.id)||!l.material||!l.unit||!l.label||!Array.isArray(l.rolls)||!['sku','name','kind','imageUrl','color','composition','specification','batchNo'].every(k=>String(l.material[k as keyof typeof l.material]||'').trim())||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0))throw new Error('来源物料必需字段不完整。');lineIds.add(l.id)}}
+ for(const u of data.materialUses??[]){if(!u.id||!(u.dyeOrderId||u.waterOrderId)||!u.factoryId||!u.operatorName||!u.at||!Array.isArray(u.lines)||u.lines.some(l=>!l.receiptLineId||!Number.isFinite(l.qty)||l.qty<=0))throw new Error('用料记录不完整，请保留记录并联系主管。')}
  for(const r of data.receipts){if(!r.id||receiptIds.has(r.id)||!r.factoryId||!r.operatorId||!r.operatorName||!r.receivedAt||!r.fingerprint||!r.lines?.length)throw new Error('接收记录缺少必需值或确认号重复。');receiptIds.add(r.id);for(const l of r.lines){if(!sourceIds.has(l.sourceId)||!lineIds.has(l.sourceLineId)||!Number.isFinite(l.qty)||l.qty<0||!l.locationId||!l.warehouseId||!l.material?.sku)throw new Error('接收明细的来源、数量或库位不完整。');for(const roll of l.rolls||[]){const key=l.sourceId+'|'+roll.barcode;if(rolls.has(key)||!roll.barcode||!(roll.yard>0))throw new Error('已保存的原卷码重复或数量无效。');rolls.add(key)}}}
 }
 function read():ReceivingData {
@@ -29,8 +30,13 @@ export function listFactoryReceivingSources(factoryId?:string, includeIneligible
 export function getFactoryReceivingSource(id:string){return clone(read().sources.find(s=>s.id===id))}
 export function registerFactoryReceivingSource(source:FactoryReceivingSource){
  if(!source.id.trim()||!source.documentNo.trim()||!source.targetFactoryId||!source.origin.id||!source.createdBy||!source.createdAt)throw new Error('来源单据、来源组织、收货工厂和建单信息必须完整。')
- for(const l of source.lines){if(!l.id||!l.unit||!l.label||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0)||['sku','name','kind','imageUrl','color','composition','specification','batchNo'].some(k=>!String(l.material[k as keyof typeof l.material]||'').trim()))throw new Error('原单物料的标识、图片、规格、批次和数量必须完整。');if(l.material.kind==='FABRIC'&&(!l.rolls.length||l.rolls.some(r=>!r.barcode||!Number.isFinite(r.yard)||r.yard<=0)))throw new Error('面料原单必须有具体卷码和 Yard。')}
- const previous=read().sources.find(s=>s.id===source.id);if(previous&&(previous.type!==source.type||previous.targetFactoryId!==source.targetFactoryId||previous.origin.id!==source.origin.id))throw new Error('已存在的原单身份、收货工厂与上游不可替换。');if(previous&&read().receipts.some(r=>r.lines.some(l=>l.sourceId===source.id))&&JSON.stringify(previous.lines)!==JSON.stringify(source.lines))throw new Error('已有接收记录，不能覆盖原单物料和数量。')
+ for(const l of source.lines){if(!l.id||!l.unit||!l.label||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0)||['sku','name','kind','imageUrl','color','composition','specification','batchNo'].some(k=>!String(l.material[k as keyof typeof l.material]||'').trim()))throw new Error('原单物料的标识、图片、规格、批次和数量必须完整。');if(l.material.kind==='FABRIC'&&((source.type==='HANDOUT'&&!l.rolls.length)||l.rolls.some(r=>!r.barcode||!Number.isFinite(r.yard)||r.yard<=0)))throw new Error('面料原单必须有具体卷码和 Yard。')}
+ const previous=read().sources.find(s=>s.id===source.id);if(previous&&(previous.type!==source.type||previous.targetFactoryId!==source.targetFactoryId||previous.origin.id!==source.origin.id))throw new Error('已存在的原单身份、收货工厂与上游不可替换。')
+ if(previous&&(read().receipts.some(r=>r.lines.some(l=>l.sourceId===source.id))||read().deliveries.some(d=>d.lines.some(l=>l.sourceId===source.id)))){
+  for(const old of previous.lines){const next=source.lines.find(l=>l.id===old.id)
+   if(!next||JSON.stringify(old.material)!==JSON.stringify(next.material)||old.unit!==next.unit||old.dyeOrderId!==next.dyeOrderId||old.woolOrderId!==next.woolOrderId||old.waterOrderId!==next.waterOrderId||old.sentQty>next.sentQty||old.plannedQty>next.plannedQty||old.rolls.some(r=>!next.rolls.some(n=>n.barcode===r.barcode&&n.yard===r.yard)))throw new Error('已送货或接收的原单不能覆盖物料、归属和已有数量；可追加后续发出数量及新卷码。')
+  }
+ }
  const next=clone(read());const index=next.sources.findIndex(s=>s.id===source.id)
  if(index>=0){if(JSON.stringify(next.sources[index])===JSON.stringify(source))return;next.sources[index]=clone(source)}else next.sources.push(clone(source))
  save(next)
@@ -69,7 +75,7 @@ export function createFactoryDeliveryNote(input:{id:string;deliveredAt:string;cr
   }
   const scheduled=read().deliveries.flatMap(d=>d.lines).filter(x=>x.sourceId===l.sourceId&&x.sourceLineId===l.sourceLineId).reduce((n,x)=>n+x.qty,0)
   const lineKey=`${l.sourceId}|${l.sourceLineId}`;if(scheduledHere.has(lineKey))throw new Error('同一原单物料行请合并为一条送货明细。');const here=scheduledHere.get(lineKey)||0;scheduledHere.set(lineKey,here+l.qty)
-  if(l.qty+scheduled+here>Math.max(line.sentQty,line.plannedQty)+.000001)throw new Error('本次送货不能重复占用已安排的原单数量。')
+  if(l.qty+scheduled+here>line.sentQty+.000001)throw new Error('本次送货不能超过原单实际发出后尚未安排的数量。')
  }
  const next=clone(read());next.deliveries.push(note);save(next);return clone(note)
 }
@@ -95,7 +101,8 @@ export function prepareFactoryReceipt(input:FactoryReceiptInput):FactoryReceipt 
    qty=l.rolls.reduce((sum,r)=>sum+r.yard,0);unit='Yard'
   }else if(line.material.kind==='ACCESSORY'){if(l.weightKg===undefined)throw new Error('请填写实收重量，未收到请明确填写 0。');qty=weightGrams(l.weightKg)/1000;unit='kg'}
   else{if(l.grossKg===undefined||!l.tubes||l.pcs===undefined)throw new Error('请填写筒数、毛重和各管型数量。');yarn=calculateYarnWeight(l.grossKg,l.tubes,l.pcs);qty=yarn.netGrams/1000;unit='kg'}
-  return {...clone(l),id:`${input.id}-L${i+1}`,material:clone(line.material),qty,unit,yarn,sourceDocumentNo:s.documentNo,sourceType:s.type,origin:clone(s.origin),dyeOrderId:line.dyeOrderId,woolOrderId:line.woolOrderId,productionOrderNo:line.productionOrderNo,taskNo:line.taskNo}
+  if(line.material.kind==='ACCESSORY'&&convertReceiptQuantity(qty,'kg',line.unit)===undefined){if(l.businessUnit!==line.unit||!Number.isFinite(l.businessQty)||l.businessQty!<0||((qty===0)!==(l.businessQty===0)))throw new Error('请同时填写实收重量和原单单位的实测数量，零接收两项均填 0。')}
+  return {...clone(l),id:`${input.id}-L${i+1}`,material:clone(line.material),qty,unit,yarn,sourceDocumentNo:s.documentNo,sourceType:s.type,origin:clone(s.origin),dyeOrderId:line.dyeOrderId,waterOrderId:line.waterOrderId,woolOrderId:line.woolOrderId,productionOrderNo:line.productionOrderNo,taskNo:line.taskNo}
  });return {...clone(input),lines,fingerprint}
 }
 /** One persisted receipt is the source of the warehouse and order views. */
@@ -104,9 +111,49 @@ export function listReceivingAllocations(){return clone(read().allocations)}
 export function allocateFactoryReceivedMaterial(input:ReceivingAllocation){
  const existing=read().allocations.find(a=>a.id===input.id);if(existing){if(JSON.stringify(existing)!==JSON.stringify(input))throw new Error('分配确认号已使用。');return}
  const line=read().receipts.flatMap(r=>r.lines).find(l=>l.id===input.receiptLineId)
- if(!line||line.dyeOrderId||line.woolOrderId)throw new Error('请选择尚未直接关联加工单的备料实收明细。')
- if(!Number.isFinite(input.qty)||input.qty<=0||!input.operatorName.trim()||!input.at||Boolean(input.dyeOrderId)===Boolean(input.woolOrderId))throw new Error('请填写分配数量并选择一个加工单。')
+ if(!line||line.dyeOrderId||line.waterOrderId||line.woolOrderId)throw new Error('请选择尚未直接关联加工单的备料实收明细。')
+ if(!Number.isFinite(input.qty)||input.qty<=0||!input.operatorName.trim()||!input.at||[input.dyeOrderId,input.waterOrderId,input.woolOrderId].filter(Boolean).length!==1)throw new Error('请填写分配数量并选择一个加工单。')
  const allocated=read().allocations.filter(a=>a.receiptLineId===line.id).reduce((n,a)=>n+a.qty,0)
  if(allocated+input.qty>line.qty+.000001)throw new Error('分配数量不能超过该明细尚未分配的实收量。')
  const next=clone(read());next.allocations.push(clone(input));save(next)
+}
+
+/** Actual cutting/processing usage, in the receipt's physical unit. */
+export interface FactoryMaterialUse {
+ id:string; dyeOrderId?:string; waterOrderId?:string; factoryId:string; operatorName:string; at:string;
+ lines:Array<{receiptLineId:string;barcode?:string;qty:number;unit:'Yard'|'kg'}>
+}
+export function listFactoryMaterialUses(){return clone(read().materialUses ?? [])}
+export function convertReceiptQuantity(qty:number,from:string,to:string):number|undefined {
+ const canonical=(u:string)=>['米','m'].includes(u)?'m':['Yard','yard','YARD','y'].includes(u)?'Yard':['kg','公斤'].includes(u)?'kg':u
+ const a=canonical(from),b=canonical(to)
+ return a===b?qty:a==='Yard'&&b==='m'?qty*.9144:a==='m'&&b==='Yard'?qty/.9144:undefined
+}
+export function getReceiptMaterialUsed(receiptLineId:string,barcode?:string){
+ return listFactoryMaterialUses().flatMap(u=>u.lines).filter(l=>l.receiptLineId===receiptLineId&&(barcode===undefined||l.barcode===barcode)).reduce((n,l)=>n+l.qty,0)
+}
+export function recordFactoryMaterialUsage(input:{id:string;dyeOrderId?:string; waterOrderId?:string;factoryId:string;operatorName:string;at:string;qty:number;unit:string;materialSku?:string;legacyAvailableQty:number}):void {
+ const data=read(),uses=data.materialUses??[]
+ if(uses.some(u=>u.id===input.id))throw new Error('本批用料已登记，请勿重复开工。')
+ if(!(input.qty>0)||!Number.isFinite(input.qty))throw new Error('请填写本批实际投入数量。')
+ const belongs=(o:{dyeOrderId?:string;waterOrderId?:string})=>Boolean(input.dyeOrderId&&o.dyeOrderId===input.dyeOrderId||input.waterOrderId&&o.waterOrderId===input.waterOrderId)
+ const convert=(qty:number,line:FactoryReceiptLine,to:string)=>convertReceiptQuantity(qty,line.unit,to)??(line.businessUnit===to&&line.businessQty!==undefined&&line.qty>0?qty/line.qty*line.businessQty:undefined)
+ const candidates=data.receipts.filter(r=>r.factoryId===input.factoryId).flatMap(r=>r.lines.map(line=>({line,quota:belongs(line)?line.qty:data.allocations.filter(a=>a.receiptLineId===line.id&&belongs(a)).reduce((n,a)=>n+a.qty,0)}))).filter(x=>x.quota>0&&convert(x.quota,x.line,input.unit)!==undefined)
+ const skus=new Set(candidates.map(x=>x.line.material.sku))
+ if(skus.size>1&&!input.materialSku)throw new Error('本单存在多个投入 SKU，请填写本批实际使用的物料 SKU。')
+ if(input.materialSku&&!skus.has(input.materialSku))throw new Error('所选物料尚无本单可用实收库存。')
+ const lines:FactoryMaterialUse['lines']=[]
+ let remaining=input.qty
+ for(const {line,quota} of candidates.filter(x=>!input.materialSku||x.line.material.sku===input.materialSku)){
+  const orderUsed=uses.filter(u=>belongs(u)).flatMap(u=>u.lines).filter(l=>l.receiptLineId===line.id).reduce((n,l)=>n+l.qty,0)
+  let availableQuota=Math.max(0,quota-orderUsed)
+  const splits=line.rolls?.length?line.rolls.map(r=>({barcode:r.barcode,qty:r.yard})):[{barcode:undefined,qty:line.qty}]
+  for(const split of splits){
+   const used=uses.flatMap(u=>u.lines).filter(l=>l.receiptLineId===line.id&&l.barcode===split.barcode).reduce((n,l)=>n+l.qty,0)
+   const qty=Math.min(Math.max(0,split.qty-used),availableQuota,(convertReceiptQuantity(remaining,input.unit,line.unit)??(line.businessUnit===input.unit&&line.businessQty?remaining/line.businessQty*line.qty:0)))
+   if(qty>1e-8){lines.push({receiptLineId:line.id,barcode:split.barcode,qty,unit:line.unit});availableQuota-=qty;remaining-=convert(qty,line,input.unit)!}
+  }
+ }
+ if(remaining>Math.max(0,input.materialSku?0:input.legacyAvailableQty)+.000001)throw new Error('本批投入超过本单所选物料的可用实收库存，请核对接收和已用数量。')
+ const next=clone(data);next.materialUses=[...uses,{id:input.id,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
 }

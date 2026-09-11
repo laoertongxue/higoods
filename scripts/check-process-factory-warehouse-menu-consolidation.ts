@@ -97,13 +97,15 @@ assert.deepEqual(childHrefs('印花管理'), [
   '/fcs/craft/printing/dashboards',
 ], '印花厂管理菜单 href 不正确')
 
-assert.deepEqual(childTitles('染厂管理'), ['染色加工单', '合并染色', '水溶加工单', '染色待加工仓', '染色待交出仓', '染色统计'], '染厂管理菜单顺序不正确')
+assert.deepEqual(childTitles('染厂管理'), ['待接收', '染色加工单', '水溶加工单', '染色待加工仓', '染色待交出仓', '染色待交出列表', '染色交出单据', '染色统计'], '染厂管理菜单顺序不正确')
 assert.deepEqual(childHrefs('染厂管理'), [
+  '/fcs/craft/dyeing/pending-receipts',
   '/fcs/craft/dyeing/work-orders',
-  '/fcs/craft/dyeing/combined-dyeing',
   '/fcs/craft/dyeing/water-soluble-orders',
   '/fcs/craft/dyeing/wait-process-warehouse',
   '/fcs/craft/dyeing/wait-handover-warehouse',
+  '/fcs/craft/dyeing/pending-handover',
+  '/fcs/craft/dyeing/handover-documents',
   '/fcs/craft/dyeing/reports',
 ], '染厂管理菜单 href 不正确')
 

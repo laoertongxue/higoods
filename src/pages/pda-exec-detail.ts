@@ -356,6 +356,7 @@ function createWaterOverlayToken(orderId: string): string {
 function getWaterPrimaryAction(order: WaterSolubleWorkOrder): { action: string; label: string } | null {
   const currentAction = getWaterSolubleCurrentAction(order)
   if (!currentAction) return null
+  if (['WATER_SOLUBLE_IN_PROGRESS','WAIT_HANDOVER'].includes(order.status)&&getWaterSolubleReceivedMaterialQty(order.waterOrderId)>(order.inputQty??0)&&canCurrentSessionUseWaterAction(order,'OPERATE'))return {action:'water-start',label:'投入本批来料'}
   if (currentAction.actionCode === 'WAIT_MATERIAL' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-receive-input', label: currentAction.actionName }
   if (currentAction.actionCode === 'START' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-start', label: currentAction.actionName }
   if (currentAction.actionCode === 'COMPLETE' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-complete', label: currentAction.actionName }
@@ -375,9 +376,8 @@ function renderWaterSolublePrimaryAction(order: WaterSolubleWorkOrder): string {
         : getWaterSolubleCurrentAction(order)?.message || '当前没有需要操作的动作。'
     return `<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">${escapeHtml(message)}</div>`
   }
-  if (primaryAction.action === 'water-receive-input' && getWaterSolubleMaterialReceiptOptions(order.waterOrderId).options.length === 0) {
-    return `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">${escapeHtml(getWaterSolubleMaterialReceiptOptions(order.waterOrderId).blockReason || '来源单据尚未到位。')}</div>`
-  }
+  if(primaryAction.action==='water-receive-input')return `<a class="block rounded-lg bg-primary p-3 text-center text-primary-foreground" href="/fcs/pda/factory-receipts?orderId=${encodeURIComponent(order.waterOrderId)}">扫码接收来料并入库</a>`
+
   const token = `${order.waterOrderId}:${order.status}:${order.updatedAt}`
   waterPrimaryActionTokens.set(order.waterOrderId, token)
   return `
@@ -395,17 +395,12 @@ function renderWaterSolublePrimaryAction(order: WaterSolubleWorkOrder): string {
 }
 
 function renderWaterSolubleMaterialReceipt(order: WaterSolubleWorkOrder): string {
-  if (!['WAIT_MATERIAL', 'WATER_SOLUBLE_IN_PROGRESS'].includes(order.status) || !canCurrentSessionUseWaterAction(order, 'OPERATE')) return ''
-  const source = getWaterSolubleMaterialReceiptOptions(order.waterOrderId)
-  if (source.options.length === 0) return order.status === 'WAIT_MATERIAL' ? '' : `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
-  const sourceName = source.sourceMode === 'CENTRAL_TRANSFER' ? '中央仓调拨单' : '上游交出单'
-  const fields = `<div class="mt-3 space-y-2" data-skip-page-rerender="true" data-water-material-receipt data-receipt-id="${escapeHtml(createWaterOverlayToken(order.waterOrderId))}"><p class="text-xs">已接收 ${getWaterSolubleReceivedMaterialQty(order.waterOrderId)} ${escapeHtml(order.qtyUnit)}</p><label class="block text-sm">${sourceName}<select class="mt-1 h-10 w-full rounded border px-2" data-water-material-source><option value="">请选择本次接收单据</option>${source.options.map((item) => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select></label><label class="block text-sm">本次实际接收（${escapeHtml(order.qtyUnit)}）<input class="mt-1 h-10 w-full rounded border px-2" inputmode="decimal" data-water-material-qty></label></div>`
-  if (order.status === 'WAIT_MATERIAL') return fields
-  return `<details class="mt-3"><summary class="text-sm">继续接收原料</summary>${fields}<button class="mt-2 h-10 rounded border px-3 text-sm" data-pda-execd-action="water-receive-input" data-order-id="${escapeHtml(order.waterOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${order.status}" data-action-token="${escapeHtml(waterPrimaryActionTokens.get(order.waterOrderId) || '')}">确认本次接收</button></details>`
+  return order.status==='WATER_SOLUBLE_IN_PROGRESS'?`<a class="block mt-3 text-blue-700" href="/fcs/pda/factory-receipts?orderId=${encodeURIComponent(order.waterOrderId)}">继续接收来料</a>`:''
 }
 
 function renderWaterSolubleDetailContent(order: WaterSolubleWorkOrder): string {
   const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
+  if(currentAction&&getWaterPrimaryAction(order)?.action==='water-start')currentAction.actionName=getWaterPrimaryAction(order)!.label
   const images = getWaterSolubleOrderImageManifest(order.waterOrderId)!
   const renderImage = (url: string, label: string) => `<button type="button" class="relative h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border bg-white" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(label)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(label)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
   return `
@@ -4627,7 +4622,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       ? executeWaterSolubleInputReceipt({ action: 'RECEIVE_INPUT', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_MATERIAL' | 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: order.status === 'WAIT_MATERIAL' ? 'WAIT_MATERIAL' : 'COMPLETE', qty: Number(document.querySelector<HTMLInputElement>('[data-water-material-qty]')?.value), receiptId: document.querySelector<HTMLElement>('[data-water-material-receipt]')?.dataset.receiptId, upstreamRecordId: document.querySelector<HTMLSelectElement>('[data-water-material-source]')?.value, actor: session })
       : action === 'water-finish-document'
         ? executeWaterSolublePdaAction({ action: 'FINISH_DOCUMENT', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MANUAL_COMPLETION', expectedNode: 'FINISH_DOCUMENT', actor: session })
-        : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: session })
+        : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: order.status as 'WAIT_WATER_SOLUBLE'|'WATER_SOLUBLE_IN_PROGRESS'|'WAIT_HANDOVER', expectedNode: order.status==='WAIT_HANDOVER'?'HANDOVER':order.status==='WATER_SOLUBLE_IN_PROGRESS'?'COMPLETE':'START', actor: session })
     pendingWaterActions.delete(actionKey)
     showPdaExecDetailToast(result.message)
     if (result.ok) refreshWaterSolubleDetail(orderId)

@@ -7,7 +7,7 @@ import {
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import { getPrintWorkOrderById } from './printing-task-domain.ts'
-import { getDyeWorkOrderById } from './dyeing-task-domain.ts'
+import { getDyeWorkOrderById, getDyeExecutionNodeRecord } from './dyeing-task-domain.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import type { GeneratedCutOrderSourceRecord } from './cutting/generated-cut-orders.ts'
 import {
@@ -527,26 +527,18 @@ export function applyPrintWarehouseLinkageAfterAction(actionResult: ProcessWareh
   return result
 }
 
-export function applyDyeWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
-  const context = resolveDyeContext(actionResult)
-  const base = emptyLinkageResult(actionResult)
-  if (!context) return mergeResult(base, { success: false, message: '未找到染色加工单，不能执行仓联动' })
-  if (!['DYE_FINISH_PACKING', 'DYE_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
-  const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
-  let result = mergeResult(base, {
-    createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
-    updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
-    message: '染色待交出仓已联动',
-  })
-  if (actionResult.actionCode === 'DYE_SUBMIT_HANDOVER') {
-    const handover = ensureHandoverRecord(context, actionResult, waitHandover.warehouseRecordId)
-    result = mergeResult(result, {
-      createdHandoverRecordId: handover.handoverRecordId,
-      updatedHandoverRecordId: handover.handoverRecordId,
-      message: '染色交出记录已联动',
-    })
-  }
-  return result
+export function applyDyeWarehouseLinkageAfterAction(actionResult:ProcessWarehouseLinkageActionResult):ProcessWarehouseLinkageResult {
+ const base=emptyLinkageResult(actionResult)
+ if(!actionResult.success)return base
+ const order=getDyeWorkOrderById(actionResult.sourceId)
+ if(!order)return mergeResult(base,{success:false,message:'未找到染色加工单，不能核对仓库数量'})
+ if(actionResult.actionCode==='DYE_FINISH_PACKING'){
+  const pack=getDyeExecutionNodeRecord(order.dyeOrderId,'PACK')
+  if(!pack?.finishedAt)return mergeResult(base,{success:false,message:'尚无实际包装完成记录，不能计入待交出库存'})
+  return mergeResult(base,{updatedWaitHandoverWarehouseRecordId:`DYE-OUTPUT-${order.dyeOrderId}`,message:'待交出库存已按原包装完成记录更新'})
+ }
+ // The roll dispatch transaction already writes its original handoff. Never create another quantity record here.
+ return base
 }
 
 export function applyCuttingWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {

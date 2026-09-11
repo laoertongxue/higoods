@@ -59,7 +59,6 @@ export const PROCESS_ROUTE_FULL_STAGE_DELIVERY: DeliveryEntry[] = [
   entry('PREP-006', '裁床补料来源染色加工单', 'PREP', '保留并接入', '通用任务项关系', ['src/data/fcs/dyeing-task-domain.ts', relationCarrier, 'src/pages/process-factory/dyeing/work-order-detail.ts'], ['check:dye-work-order-online-alignment', 'check:process-order-task-relations']),
   entry('PREP-007', '独立水溶加工单', 'PREP', '保留并接入', '通用任务项关系', ['src/data/fcs/water-soluble-task-domain.ts', relationCarrier, 'src/pages/process-water-soluble-orders.ts'], ['check:water-soluble-process', 'check:water-soluble-pages', 'check:process-order-task-relations']),
   entry('PREP-008', '染色单内嵌水溶', 'PREP', '并入现有承载体', '内部节点', ['src/data/fcs/dyeing-task-domain.ts', 'src/data/fcs/water-soluble-task-domain.ts'], ['check:water-soluble-process', 'check:dye-work-order-online-alignment']),
-  entry('PREP-009', '合并染色任务', 'PREP', '并入现有承载体', '通用任务项关系', ['src/data/fcs/combined-dyeing-domain.ts', 'src/data/fcs/dye-work-order-combined-dyeing-view.ts', relationCarrier], ['check:combined-dyeing', 'check:process-order-task-relations']),
   entry('PREP-010', '工厂端印花生产单演示域', 'PREP', '删除旧事实', '不适用', ['src/data/fcs/printing-task-domain.ts', 'src/pages/process-factory/printing/work-orders.ts'], ['check:printing-authority-cleanup'], ['src/pages/dye-print-orders.ts']),
   entry('PREP-011', '旧染印加工单兼容域', 'PREP', '删除旧事实', '不适用', ['src/data/fcs/printing-task-domain.ts', 'src/data/fcs/dyeing-task-domain.ts'], ['check:printing-authority-cleanup', 'check:dye-work-order-online-alignment'], ['src/pages/dye-print-orders.ts']),
   entry('PREP-012', '生产物料准备/领料任务', 'PREP', '保留但不是加工单', '不适用', ['src/data/fcs/cutting/production-material-prep.ts', 'src/pages/fcs/material-prep/list.ts'], ['check:production-process-work-order-generation']),
@@ -117,12 +116,12 @@ function expectedIds(prefix: Stage, count: number): string[] {
 }
 
 const ids = PROCESS_ROUTE_FULL_STAGE_DELIVERY.map((item) => item.id)
-assert.equal(PROCESS_ROUTE_FULL_STAGE_DELIVERY.length, 57, '交付登记册必须完整覆盖 12 个准备项、28 个生产项、17 个后道项')
+assert.equal(PROCESS_ROUTE_FULL_STAGE_DELIVERY.length, 56, '交付登记册必须完整覆盖 11 个准备项、28 个生产项、17 个后道项')
 assert.equal(new Set(ids).size, ids.length, '交付登记编号不得重复')
 for (const [stage, count] of [['PREP', 12], ['PROD', 28], ['POST', 17]] as const) {
   assert.deepEqual(
     PROCESS_ROUTE_FULL_STAGE_DELIVERY.filter((item) => item.stage === stage).map((item) => item.id),
-    expectedIds(stage, count),
+    expectedIds(stage, count).filter(id => id !== 'PREP-009'),
     `${stage} 登记项必须连续且无遗漏`,
   )
 }
@@ -169,4 +168,4 @@ for (const scope of ['src', 'scripts', 'tests', 'docs']) {
 for (const item of PROCESS_ROUTE_FULL_STAGE_DELIVERY) {
   console.log(`[PASS] ${item.id} ${item.name}｜${item.handling}｜${item.relationMode}｜${item.checks.map((check) => `npm run ${check}`).join('；')}`)
 }
-console.log('全阶段逐项登记检查通过：PREP 12 + PROD 28 + POST 17 = 57 项，编号、承载位置、关系模式、旧事实删除和验证绑定均完整。')
+console.log('全阶段逐项登记检查通过：PREP 11 + PROD 28 + POST 17 = 56 项，编号、承载位置、关系模式、旧事实删除和验证绑定均完整。')

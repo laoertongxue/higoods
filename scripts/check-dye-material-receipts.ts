@@ -23,13 +23,21 @@ for (const node of ['DEHYDRATE','DRY','SET','ROLL','PACK'] as const) {
   dye.startDyeNode(order.dyeOrderId, node)
   dye.completeDyeNode(order.dyeOrderId, node, { outputQty: 4 })
 }
-assert.throws(() => dye.submitDyeHandover(order.dyeOrderId, { handoverQty: 5 }), /不能超过/, '接收 10 但包装完成 4 时，不能把实收当成产出交出 5')
+assert.throws(() => dye.submitDyeHandover(order.dyeOrderId, { handoverQty: 5 }), /逐卷建单/, '接收 10 但包装完成 4 时，不能把实收当成产出交出 5')
 assert.equal(getDyeWorkOrderThreeAxisView(dye.getDyeWorkOrderById(order.dyeOrderId)!).processingStatus, 'PROCESSING', '首批4完成，计划10仍加工中')
 console.log('染色交出只按包装实际产出，不按原料接收最大值')
-dye.submitDyeHandover(order.dyeOrderId, { handoverQty: 4, handoverAt: '2026-09-07 23:58:00' })
+function dispatch(qty: number) {
+  const roll = dye.saveDyeOutputRolls(order.dyeOrderId, [{qty,weightKg:1,widthCm:160,gsm:220,vatNo:'TEST-VAT',remark:'实际包装产出'}]).at(-1)!
+  dye.markDyeOutputRolls(order.dyeOrderId,[roll.id],'print')
+  const doc=dye.createDyeDispatchDocument([{orderId:order.dyeOrderId,rollIds:[roll.id]}],'实收验收员')
+  dye.scanDyeDispatchRoll(doc.id,roll.barcode,'实收验收员')
+  dye.saveDyeDispatchTransport(doc.id,{driver:'Andi',vehicle:'货车',plate:'B 1024 QA',note:'实际交出'})
+  return dye.finishDyeDispatchDocument(doc.id,'confirm')
+}
+dispatch(4)
 const ho = await import('../src/data/fcs/pda-handover-events.ts')
 const record = dye.getDyeOrderHandoverRecords(order.dyeOrderId).at(-1)!
-ho.receivePreparationHandoverForTask(record.recordId, { receiptId: 'RECEIVE-DYE-4', targetTaskOrderId: 'PRINT-NEXT', qty: 4, qtyUnit: order.qtyUnit, receiverName: '接收员', receivedAt: '2026-09-07 23:59:00' })
+ho.receivePreparationHandoverForTask(record.recordId, { receiptId: 'RECEIVE-DYE-4', targetTaskOrderId: 'PRINT-NEXT', qty: 4, qtyUnit: order.qtyUnit, receiverName: '接收员', receivedAt: record.factorySubmittedAt! })
 dye.startDyeing(order.dyeOrderId, { dyeVatNo: 'TEST-VAT-2', inputQty: 6 })
 assert.equal(getDyeWorkOrderThreeAxisView(dye.getDyeWorkOrderById(order.dyeOrderId)!).completedQty, 4, '第二批开始仍累计首批完成量')
 dye.completeDyeing(order.dyeOrderId, { inputQty: 6, outputQty: 6 })
@@ -37,7 +45,7 @@ for (const node of ['DEHYDRATE','DRY','SET','ROLL','PACK'] as const) {
   dye.startDyeNode(order.dyeOrderId, node)
   dye.completeDyeNode(order.dyeOrderId, node, { outputQty: 6 })
 }
-dye.submitDyeHandover(order.dyeOrderId, { handoverQty: 6 })
+const secondDispatch = dispatch(6)
 assert.equal(dye.getDyeOrderHandoverSummary(order.dyeOrderId).submittedQty, 10)
 const finalAxes = getDyeWorkOrderThreeAxisView(dye.getDyeWorkOrderById(order.dyeOrderId)!)
 assert.equal(finalAxes.completedQty, 10, '两批完成量累计')
@@ -46,11 +54,12 @@ assert.equal(getDyeWorkOrderThreeAxisView({ ...dye.getDyeWorkOrderById(order.dye
 assert.equal(finalAxes.handoverStatus, 'FULL_HANDOVER', '两批累计交出完成，与下游接收独立')
 assert.equal(dye.getDyeWorkOrderById(order.dyeOrderId)?.completedExecutionBatches?.[0].find(n => n.nodeCode === 'PACK')?.outputQty, 4)
 console.log('染色同单两批：实收 10，完成交出 4 后保留工序事实，再投入完成交出 6，总交出 10')
-const diffOrder = dye.listDyeWorkOrders().find(o => o.dyeOrderId !== order.dyeOrderId && o.status !== 'COMPLETED' && dye.getDyeReviewRecordByOrderId(o.dyeOrderId)?.submittedQty)!;
-assert(diffOrder)
-const expected = dye.getDyeReviewRecordByOrderId(diffOrder.dyeOrderId)!.submittedQty
-dye.markDyeReceiptDifference(diffOrder.dyeOrderId, { receivedBy: '数量确认员', receivedQty: Math.max(expected - 1, 0), differenceReason: '少收 1，核实数量' })
-assert.equal(listPdaGenericProcessTasks().find(t=>t.taskId===diffOrder.taskId)?.blockReason,'MATERIAL','数量差异不能标成质量放行')
-dye.confirmDyeReceipt(diffOrder.dyeOrderId, { receivedBy: '数量确认员', receivedQty: expected })
-assert.equal(listPdaGenericProcessTasks().find(t=>t.taskId===diffOrder.taskId)?.status,'IN_PROGRESS')
-console.log('数量差异使用 MATERIAL 阻断，核实确认后恢复；不设中间质量放行')
+// 数量差异必须来自接收方的原交出记录，管理端不能代改实收。
+const secondRecord = dye.getDyeOrderHandoverRecords(order.dyeOrderId).find(r=>r.recordId===secondDispatch.lines[0].handoverRecordId)!
+ho.receivePreparationHandoverForTask(secondRecord.recordId, {receiptId:'RECEIVE-DYE-SECOND',targetTaskOrderId:'PRINT-NEXT',qty:5,qtyUnit:order.qtyUnit,receiverName:'接收员',receivedAt:secondRecord.factorySubmittedAt!})
+assert.equal(dye.getDyeOrderHandoverSummary(order.dyeOrderId).writtenBackQty,9)
+dye.markDyeReceiptDifference(order.dyeOrderId,{receivedBy:'数量确认员',receivedQty:9,differenceReason:'第二批实际少收 1，核实数量'})
+assert.throws(()=>dye.markDyeReceiptDifference(order.dyeOrderId,{receivedBy:'数量确认员',receivedQty:10,differenceReason:'试图代改实收'}),/实际/)
+assert.throws(()=>dye.confirmDyeReceipt(order.dyeOrderId,{receivedBy:'数量确认员',receivedQty:10}),/接收方/)
+assert.equal(dye.getDyeOrderHandoverSummary(order.dyeOrderId).writtenBackQty,9)
+console.log('实收 9 与交出 10 独立保留，登记说明不能改变实收，禁止发送方代确认')

@@ -17,17 +17,17 @@ export interface ProcessWorkOrderStockMaterial {
 
 function mapProcessWorkOrderStockMaterials(): ProcessWorkOrderStockMaterial[] {
   return listFactoryWaitProcessStockItems()
-    .filter((item) => item.itemKind === '面料' && item.receivedQty > 0 && Boolean(item.materialSku?.trim()))
+    .filter((item) => ['面料','辅料','纱线'].includes(item.itemKind) && item.receivedQty > 0 && Boolean(item.materialSku?.trim()))
     .map((item) => ({
       stockMaterialId: item.stockItemId,
       stockMaterialName: item.itemName,
       materialSku: item.materialSku!.trim(),
-      availableQty: item.receivedQty,
+      availableQty: item.availableQty ?? Math.max(0,item.receivedQty-(item.issuedQty??0)),
       qtyUnit: item.unit,
       warehouseName: item.warehouseName,
       factoryId: item.factoryId,
       factoryName: item.factoryName,
-      processCode: item.processCode,
+      processCode: item.processCode?.replace(/^PROC_/,''),
       processName: item.processName,
       status: item.status,
       differenceQty: item.differenceQty,
