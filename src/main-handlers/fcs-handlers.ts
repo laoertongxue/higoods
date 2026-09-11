@@ -1,3 +1,5 @@
+import {handleDyeYarnShipmentEvent} from '../pages/process-factory/dyeing/yarn-shipments.ts'
+import {handleFactoryReceivingEvent} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import { handleSewingProductionOrderDurationEvent, closeSewingProductionOrderDurationDialog } from '../pages/sewing-outsourcing/production-order-duration'
 import { handleWlsInboundEvent, closeWlsInboundOverlays } from '../pages/wls-inbound.ts'
 import { handleWlsFinishedInboundEvent, closeWlsFinishedInboundOverlays } from '../pages/wls-finished-inbound.ts'
@@ -298,9 +300,11 @@ const CUTTING_PICKUP_LIST_PATHS = new Set([
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (target.closest('[data-yarn-shipment-root]')) return handleDyeYarnShipmentEvent(target, event)
+  if (target.closest('[data-factory-receiving-root]')) return handleFactoryReceivingEvent(target, event)
   if (pathname === '/wls/inbound') return handleWlsInboundEvent(target, event)
   if (pathname === '/wls/finished-inbound') return handleWlsFinishedInboundEvent(target, event)
-  if (pathname === '/fcs/print/preview') {
+  if (pathname === '/fcs/print/preview' || pathname === '/fcs/print/task-route-card') {
     return handleUnifiedPrintPreviewEvent(target)
   }
   if (pathname === '/fcs/craft/post-finishing/garment-spu-replacements' || pathname === '/wls/garment-spu-replacements') {

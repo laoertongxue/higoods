@@ -1,3 +1,4 @@
+import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { factoryTypeConfig } from './factory-types.ts'
 import {
@@ -67,7 +68,7 @@ export type FactoryWarehouseSourceObjectKind =
   | '特殊工艺厂'
   | '后道工厂'
   | '上游工厂仓'
-export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
+export type FactoryWarehouseItemKind = '纱线' | '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
 export type FactoryWaitProcessStockStatus = '待接收' | '已入待加工仓' | '差异待处理' | '已领用'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'
@@ -2513,6 +2514,14 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
   if (!internalWarehouseStore) {
     internalWarehouseStore = seedFactoryWarehouseStore()
     hydrateCompletedStocktakeAdjustmentFlows(internalWarehouseStore)
+  }
+  for (const inbound of buildFactoryReceiptInboundRecords()) {
+    if (internalWarehouseStore.inboundRecords.some(r => r.inboundRecordId === inbound.inboundRecordId)) continue
+    internalWarehouseStore.inboundRecords.push(inbound)
+    const stock = buildWaitProcessStockItemFromInbound(inbound)
+    stock.availableQty = inbound.receivedQty
+    stock.issuedQty = 0
+    internalWarehouseStore.waitProcessStockItems.push(stock)
   }
   return internalWarehouseStore
 }

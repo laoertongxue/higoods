@@ -9,6 +9,8 @@ import type {
 export type WoolWarehouseBatchMatch = 'ANY' | 'EXACT'
 
 export interface WoolWarehouseLedgerKey {
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   woolOrderId: string
   objectSkuCode: string
   defaultLocationId: WoolDefaultLocationId
@@ -32,6 +34,7 @@ export function woolBatchMatches(
 export function woolWarehouseFlowSignedQty(flow: WoolWarehouseFlow): number {
   if (flow.flowType === 'INBOUND') return Math.abs(flow.qty)
   if (flow.flowType === 'OUTBOUND') return -Math.abs(flow.qty)
+  if (flow.flowType === 'TRANSFER' && flow.physicalTransferDirection) return flow.physicalTransferDirection === 'OUT' ? -Math.abs(flow.qty) : Math.abs(flow.qty)
   if (flow.flowType === 'TRANSFER') {
     if (flow.fromLocationId === flow.defaultLocationId) return -Math.abs(flow.qty)
     if (flow.toLocationId === flow.defaultLocationId) return Math.abs(flow.qty)
@@ -50,7 +53,9 @@ export function getWoolWarehouseLedgerBalance(
       flow.woolOrderId === key.woolOrderId
       && flow.objectSkuCode === key.objectSkuCode
       && flow.defaultLocationId === key.defaultLocationId
-      && woolBatchMatches(flow.batchNo, key.batchNo, batchMatch),
+      && woolBatchMatches(flow.batchNo, key.batchNo, batchMatch)
+      && (key.physicalWarehouseId === undefined || (flow.physicalWarehouseId || '') === key.physicalWarehouseId)
+      && (key.physicalLocationId === undefined || (flow.physicalLocationId || '') === key.physicalLocationId),
     )
     .reduce((sum, flow) => sum + woolWarehouseFlowSignedQty(flow), 0)
 }
@@ -99,6 +104,7 @@ function publicEndpointKey(flow: WoolWarehouseFlow, warehouseId: string, locatio
 
 export function validateWoolWarehouseLedger(store: WoolWarehouseReplayStore): void {
   const defaultBalances = new Map<string, number>()
+  const physicalBalances = new Map<string, number>()
   const publicBalances = new Map<string, number>()
   // warehouseFlows 是追加式事实数组；数组顺序就是领域命令提交后的稳定因果顺序。
   // operatedAt 是业务录入时间，可能因时区或补录早于前置事实，不能据此重排账本。
@@ -121,7 +127,13 @@ export function validateWoolWarehouseLedger(store: WoolWarehouseReplayStore): vo
     }
     defaultBalances.set(key, Math.abs(afterDefault) < 1e-9 ? 0 : afterDefault)
 
-    if (flow.flowType !== 'TRANSFER') continue
+    if (flow.physicalLocationId) {
+      const physicalKey = `${key}|${flow.physicalWarehouseId}|${flow.physicalLocationId}`
+      const balance = (physicalBalances.get(physicalKey) || 0) + woolWarehouseFlowSignedQty(flow)
+      if (balance < -1e-9) throw new Error('所选实际库位库存不足')
+      physicalBalances.set(physicalKey, balance)
+    }
+    if (flow.flowType !== 'TRANSFER' || flow.physicalTransferDirection) continue
     const isTransferOut = flow.fromLocationId === flow.defaultLocationId
     const publicWarehouseId = isTransferOut ? flow.toWarehouseId : flow.fromWarehouseId
     const publicLocationId = isTransferOut ? flow.toLocationId : flow.fromLocationId

@@ -1,3 +1,4 @@
+import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
 import { isRuntimeTaskExecutionTask } from './runtime-process-tasks.ts'
@@ -672,7 +673,7 @@ let cachedBuiltHeads: PdaHandoverHead[] | null = null
 let cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null = null
 let cachedWarehouseExecutionDocsById: Map<string, WarehouseExecutionDoc> | null = null
 
-function invalidatePdaHandoverHeadCache(): void {
+export function invalidatePdaHandoverHeadCache(): void {
   cachedBuiltHeads = null
   cachedPostFinishingBuiltHeads = null
   cachedWarehouseExecutionDocsById = null
@@ -3410,6 +3411,15 @@ export function linkHandoutToPostReturn(handoverRecordId: string, deliveryId: st
   })
 }
 
+function projectFactoryActualReceipt(record:PdaHandoverRecord):PdaHandoverRecord {
+ const source=listFactoryReceivingSources(undefined,true).find(s=>s.originalRecordId===(record.handoverRecordId||record.recordId))
+ if(!source)return record
+ const receipts=getSourceActualReceipts(source.id),latest=receipts.at(-1)
+ if(!latest)return record
+ const qty=receipts.reduce((n,r)=>n+r.qty,0)
+ return {...record,receiverWrittenQty:qty,warehouseWrittenQty:qty,receiverWrittenAt:latest.receivedAt,receiverWrittenBy:latest.receivedBy,receiverRemark:`按实际接收记录汇总 ${receipts.length} 次；允许继续登记`}
+}
+
 function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRecord[] {
   const woolFactRecord = getWoolFactHandoverRecordForHead(head)
   if (woolFactRecord) return [cloneRecord(woolFactRecord)]
@@ -3436,7 +3446,7 @@ function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRec
 
   return merged
     .sort((a, b) => b.sequenceNo - a.sequenceNo)
-    .map((record) => cloneRecord(hydrateHandoverRecordDomain(projectLinkedPostReturn(record, head), head)))
+    .map((record) => cloneRecord(hydrateHandoverRecordDomain(projectFactoryActualReceipt(projectLinkedPostReturn(record, head)), head)))
 }
 
 function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
@@ -4071,7 +4081,7 @@ export function getPdaHandoverRecordsByHead(handoverId: string): PdaHandoverReco
 
 export function findPdaHandoverRecord(recordId: string): PdaHandoverRecord | undefined {
   const found = findRecord(recordId)
-  return found ? cloneRecord(found) : undefined
+  return found ? cloneRecord(projectFactoryActualReceipt(found)) : undefined
 }
 
 export function getPdaPickupRecordsByHead(handoverId: string): PdaPickupRecord[] {

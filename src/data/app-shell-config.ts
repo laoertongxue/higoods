@@ -508,6 +508,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '染厂管理',
           icon: 'Droplet',
           children: [
+            { key: 'pfos-dyeing-pending-receipts', title: '待接收', icon: 'ScanLine', href: '/fcs/craft/dyeing/pending-receipts' },
             { key: 'pfos-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
             { key: 'pfos-dyeing-combined-dyeing', title: '合并染色', icon: 'Merge', href: '/fcs/craft/dyeing/combined-dyeing' },
             { key: 'pfos-dyeing-water-soluble-orders', title: '水溶加工单', icon: 'Waves', href: '/fcs/craft/dyeing/water-soluble-orders' },
@@ -527,6 +528,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '毛织管理',
           icon: 'Shirt',
           children: [
+            { key: 'pfos-wool-pending-receipts', title: '毛织待接收', icon: 'PackageCheck', href: '/fcs/craft/wool/pending-receipts' },
             { key: 'pfos-wool-work-orders', title: '毛织加工单', icon: 'ClipboardList', href: '/fcs/craft/wool/work-orders' },
             { key: 'pfos-wool-machine-associations', title: '横机生产关联', icon: 'Link2', href: '/fcs/process-factory/wool/machine-associations' },
             { key: 'pfos-wool-machines', title: '横机设备', icon: 'Settings2', href: '/fcs/craft/wool/machines' },

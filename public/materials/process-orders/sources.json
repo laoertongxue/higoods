@@ -26,6 +26,16 @@
     {
       "file": "navy-combed-cotton-interlock.jpg",
       "object": "藏青 40S 精梳棉双面布实物"
+    },
+    {
+      "file": "rose-cotton-jersey.png",
+      "object": "DWO-002 / DWO-008 玫瑰红棉氨针织布效果图",
+      "source": "imagegen edit of white-cotton-jersey.jpg; 2026-09-10; prototype only"
+    },
+    {
+      "file": "fog-blue-woven.png",
+      "object": "DWO-013 / DYE-GOTO-DEMO-001 雾蓝棉涤梭织布效果图",
+      "source": "imagegen edit of greige-cotton-polyester-woven.jpg; 2026-09-10; prototype only"
     }
   ]
 }

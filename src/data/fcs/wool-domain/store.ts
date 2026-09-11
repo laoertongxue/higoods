@@ -1,3 +1,5 @@
+import {listReceivingAllocations} from '../factory-receiving.ts'
+import {projectFactoryReceiptsIntoWool} from '../factory-receiving-wool.ts'
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
 import { installPostFinishingWoolSourceResolver } from '../post-finishing-return-source-fact-bridge.ts'
 import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
@@ -331,13 +333,15 @@ export function validateWoolStore(store: WoolDomainStore): void {
   }
 
   for (const receipt of store.yarnReceipts) {
-    const order = requireOrder(receipt.woolOrderId, `接收记录 ${receipt.receiptId}`)
-    const yarns = requiredYarns(order)
+    const preparation = Boolean(receipt.factoryReceiptId && receipt.factoryId === 'OWN_WOOL_FACTORY' && !receipt.woolOrderId)
+    const order = preparation ? undefined : requireOrder(receipt.woolOrderId, `接收记录 ${receipt.receiptId}`)
+    const yarns = order ? requiredYarns(order) : new Set(receipt.lines.map(l => l.yarnSkuCode))
     for (const line of receipt.lines) {
       if (!yarns.has(line.yarnSkuCode)) {
         throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 的纱线 SKU 不属于加工单`)
       }
       const flow = store.warehouseFlows.find((item) => item.flowId === line.warehouseInboundFlowId)
+      if (receipt.factoryReceiptId && line.receivedQty === 0 && line.yarnWeight?.netGrams === 0 && !flow) continue
       if (flow && flow.sourceRecordType !== 'YARN_RECEIPT') {
         throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 事实与仓库流水的来源类型不一致`)
       }
@@ -532,9 +536,10 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
   }
   for (const flow of store.warehouseFlows) {
-    const order = requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
-    const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
-    const isRequiredYarn = requiredYarns(order).has(flow.objectSkuCode)
+    const preparation = Boolean(flow.factoryReceiptId && flow.factoryId === 'OWN_WOOL_FACTORY' && !flow.woolOrderId && store.yarnReceipts.some(r => r.factoryReceiptId === flow.factoryReceiptId && r.lines.some(l => l.lineId === flow.sourceRecordId || listReceivingAllocations().some(a=>a.id===flow.receivingAllocationId&&a.receiptLineId===l.lineId))))
+    const order = preparation ? undefined : requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
+    const outputLine = order?.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+    const isRequiredYarn = preparation || Boolean(order && requiredYarns(order).has(flow.objectSkuCode))
     const knownSku = Boolean(outputLine) || isRequiredYarn
     if (!knownSku) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的对象 SKU 不属于加工单`)
@@ -585,8 +590,8 @@ export function validateWoolStore(store: WoolDomainStore): void {
       }
     }
     if (flow.businessType === 'PROCESS_REPORT' || flow.businessType === 'HANDOVER') {
-      const expectedLocationType = order.kind === 'WHOLE_GARMENT' ? 'GARMENT' : 'CUT_PIECE'
-      const expectedLocationId = order.kind === 'WHOLE_GARMENT'
+      const expectedLocationType = order?.kind === 'WHOLE_GARMENT' ? 'GARMENT' : 'CUT_PIECE'
+      const expectedLocationId = order?.kind === 'WHOLE_GARMENT'
         ? 'WOOL-WH-GARMENT-DEFAULT'
         : 'WOOL-WH-CUT-DEFAULT'
       if (
@@ -622,7 +627,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
     if (!flow.sourceRecordType || !flow.sourceRecordId) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的来源类型和来源 ID 不能为空`)
     }
-    if (flow.flowType === 'TRANSFER') {
+    if (flow.flowType === 'TRANSFER' && flow.physicalTransferDirection) {
+      const peer=store.warehouseFlows.find(f=>f.physicalTransferId===flow.physicalTransferId&&f.physicalTransferDirection!==flow.physicalTransferDirection)
+      if(!flow.physicalTransferId||!peer||peer.qty!==flow.qty||peer.woolOrderId!==flow.woolOrderId||peer.objectSkuCode!==flow.objectSkuCode||peer.fromWarehouseId!==flow.fromWarehouseId||peer.fromLocationId!==flow.fromLocationId||peer.toWarehouseId!==flow.toWarehouseId||peer.toLocationId!==flow.toLocationId||!isKnownFactoryWarehouseLocation(flow.physicalWarehouseId!,flow.physicalLocationId!))throw new Error('物理移库必须有数量相等、来源一致的出入两笔记录。')
+    }
+    if (flow.flowType === 'TRANSFER' && !flow.physicalTransferDirection) {
       const defaultWarehouseId = WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[flow.defaultLocationId]
       const hasFourEndpoints = Boolean(
         flow.fromWarehouseId
@@ -859,6 +868,7 @@ export function readWoolStore(): WoolDomainStore {
     memoryStore = readPersistedStore() ?? buildWoolFactWorkflowMockStore()
     validateWoolStore(memoryStore)
   }
+  projectFactoryReceiptsIntoWool(memoryStore)
   return cloneStore(memoryStore)
 }
 

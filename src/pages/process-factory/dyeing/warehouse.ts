@@ -29,7 +29,7 @@ import {
 type DyeingWarehouseMode = 'wait-process' | 'wait-handover'
 
 function formatQty(value: number | undefined, unit = ''): string {
-  const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '0'
+  const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 3 }) : '0'
   return unit ? `${qty} ${escapeHtml(unit)}` : qty
 }
 
@@ -48,10 +48,10 @@ function buildWaitProcessFlowLines(item: DyeingWarehouseView['waitProcessItems']
       statusText: item.status,
     },
   ]
-  if (item.receivedQty > 0) {
+  if ((item.issuedQty ?? 0) > 0) {
     lines.push({
       flowType: '加工用料',
-      qtyText: `-${formatQty(Math.max(item.receivedQty - item.differenceQty, 0), item.unit)}`,
+      qtyText: `-${formatQty(item.issuedQty ?? 0, item.unit)}`,
       sourceNo: item.taskNo || item.sourceRecordNo,
       operatedAt: item.receivedAt,
       operatorName: item.factoryName,

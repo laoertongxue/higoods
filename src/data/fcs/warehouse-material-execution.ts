@@ -1,3 +1,4 @@
+import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { getOriginalPickupWarehouseHandedQty, getOriginalHandoutQuantities } from './pda-handover-events.ts'
 import { initialProductionOrderIds } from './production-orders.ts'
 import { listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './cutting/production-material-prep.ts'
@@ -20,6 +21,7 @@ import {
 } from './runtime-process-tasks.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { DYE_INPUT_TRANSFER_FIXTURES, type ProcessOrderInputTransferFixture } from './process-order-input-transfer-fixtures.ts'
+import { DYE_DEMO_PARTNER_SCENARIOS, DYE_PARTNERS } from './dye-work-order-demo-details.ts'
 
 export type WarehouseExecutionDocType = 'ISSUE' | 'RETURN' | 'INTERNAL_TRANSFER'
 export type WarehouseExecutionStatus =
@@ -79,6 +81,10 @@ interface WarehouseExecutionDocBase {
   docNo: string
   docType: WarehouseExecutionDocType
   status: WarehouseExecutionStatus
+  receivingSourceId?: string
+  approvedAt?: string
+  approvedBy?: string
+  actualReceipts?: Array<{receiptId:string;sourceLineId:string;qty:number;unit:string;receivedAt:string;receivedBy:string}>
   productionOrderId: string
   baseTaskId: string
   runtimeTaskId: string
@@ -606,6 +612,8 @@ function buildWaterSolubleDemoIssueOrder(input: {
 function buildDyeDemoIssueOrder(input: ProcessOrderInputTransferFixture): WarehouseIssueOrder {
   const id = `ISSUE-DYE-${input.workOrderId}`
   const lineId = `${id}-L001`
+  const source = DYE_DEMO_PARTNER_SCENARIOS[input.workOrderId]?.upstream
+  const warehouse = source?.kind === 'WAREHOUSE' ? source : DYE_PARTNERS.fabric
   return {
     id,
     docNo: `WL-DYE-${input.workOrderId.replace(/^DWO-/, '')}`,
@@ -625,11 +633,11 @@ function buildDyeDemoIssueOrder(input: ProcessOrderInputTransferFixture): Wareho
     targetFactoryId: input.targetFactoryId,
     targetFactoryName: input.targetFactoryName,
     executorKind: 'EXTERNAL_FACTORY',
-    warehouseId: WAREHOUSE_SEEDS[0].id,
-    warehouseName: WAREHOUSE_SEEDS[0].name,
+    warehouseId: warehouse.id,
+    warehouseName: warehouse.name,
     createdAt: input.issuedAt,
     updatedAt: input.issuedAt,
-    remark: '中央仓调拨至染色工厂待加工仓',
+    remark: `${warehouse.name}调拨至染色工厂待加工仓`,
     lines: [{
       lineId,
       docId: id,
@@ -753,7 +761,7 @@ export function buildWarehouseExecutionDocumentSnapshot(
 }
 
 export function listWarehouseIssueOrders(): WarehouseIssueOrder[] {
-  return buildWarehouseExecutionDocumentSnapshot().issueOrders
+  return [...buildWarehouseExecutionDocumentSnapshot().issueOrders,...factoryReceivingWarehouseDocuments().filter((doc):doc is WarehouseIssueOrder=>doc.docType==='ISSUE')]
 }
 
 export function listWarehouseIssueOrdersByOrder(productionOrderId: string): WarehouseIssueOrder[] {
@@ -777,7 +785,7 @@ export function listWarehouseReturnOrdersByRuntimeTaskId(runtimeTaskId: string):
 }
 
 export function listWarehouseInternalTransferOrders(): WarehouseInternalTransferOrder[] {
-  return buildWarehouseExecutionDocumentSnapshot().internalTransferOrders
+  return [...buildWarehouseExecutionDocumentSnapshot().internalTransferOrders,...factoryReceivingWarehouseDocuments().filter((doc):doc is WarehouseInternalTransferOrder=>doc.docType==='INTERNAL_TRANSFER')]
 }
 
 export function listWarehouseInternalTransferOrdersByOrder(
@@ -953,4 +961,11 @@ export function getWarehouseExecutionSummaryByOrder(productionOrderId: string): 
     completionRate: lineStats.completionRate,
     completenessRate: lineStats.completenessRate,
   }
+}
+
+/** Original factory-receiving transfer book. Approval is explicit, not inferred from READY. */
+function factoryReceivingWarehouseDocuments():Array<WarehouseInternalTransferOrder | WarehouseIssueOrder>{
+ return listFactoryReceivingSources(undefined,true).filter(s=>s.type!=='HANDOUT'&&s.origin.kind==='WAREHOUSE').map(s=>({
+  id:s.id,docNo:s.documentNo,docType:s.type==='ISSUE'?'ISSUE':'INTERNAL_TRANSFER',receivingSourceId:s.id,status:s.voidedAt?'CLOSED':s.approvedAt?s.lines.some(l=>l.sentQty>0)?'ISSUED':'PLANNED':'PREPARING',approvedAt:s.approvedAt,approvedBy:s.approvedBy,actualReceipts:getSourceActualReceipts(s.id),productionOrderId:s.lines[0]?.productionOrderNo||'',baseTaskId:s.lines[0]?.dyeOrderId||'',runtimeTaskId:s.lines[0]?.dyeOrderId||'',taskNo:s.lines[0]?.taskNo||'备料（未关联任务）',processCode:'DYE',processNameZh:'染色',scopeType:'SKU',scopeKey:s.id,scopeLabel:'按原单物料行接收',targetType:'EXTERNAL_FACTORY',targetFactoryId:s.targetFactoryId,targetFactoryName:s.targetFactoryName,executorKind:'EXTERNAL_FACTORY',warehouseId:s.origin.id,warehouseName:s.origin.name,createdAt:s.createdAt,updatedAt:s.approvedAt||s.createdAt,remark:s.approvedAt?'审核已通过；实收按接收记录累计':'等待上游审核',lines:s.lines.map(l=>({lineId:l.id,docId:s.id,materialCode:l.material.sku,materialName:l.material.name,materialSpec:l.material.specification,unit:l.unit,plannedQty:l.plannedQty,preparedQty:l.sentQty,shortQty:Math.max(0,l.plannedQty-l.sentQty),skuCode:l.material.sku,skuColor:l.material.color,issuedQty:l.sentQty,returnedQty:0,transferredQty:l.sentQty}))
+ }))
 }

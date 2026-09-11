@@ -341,25 +341,55 @@ test('每例独立清理路由、筛选、Tab、分页、弹窗、PDA 会话与�
 
 test('任一款色全部必需纱线有有效接收才可加工填报，且不按重量换算', async ({ page }) => {
   await openWoolOrders(page)
+  await page.waitForLoadState('networkidle')
   const order = await findScenario(page, 'NO_YARN_RECEIPT')
+  // 接收入口已统一到待接收原单；补齐原单后，实收仍由页面录入三项数量。
+  await page.evaluate(async ({ orderId }) => {
+    const receivingPath = '/src/data/fcs/factory-receiving.ts'
+    const yarnPath = '/src/data/fcs/yarn-weight.ts'
+    const receiving = await import(/* @vite-ignore */ receivingPath) as typeof import('../src/data/fcs/factory-receiving.ts')
+    const yarn = await import(/* @vite-ignore */ yarnPath) as typeof import('../src/data/fcs/yarn-weight.ts')
+    for (const [sku, grossKg] of [['YARN-A', 20.062], ['YARN-B', 0.072]] as const) {
+      const source = structuredClone(receiving.getFactoryReceivingSource('RCV-SRC-008')!)
+      const weight = yarn.calculateYarnWeight(grossKg,{PAPER:1,CONICAL:0,PAGODA:0})
+      source.id = `E2E-RECEIVE-${sku}`
+      source.documentNo = source.id
+      source.targetFactoryId = 'OWN_WOOL_FACTORY'
+      source.targetFactoryName = '周哥毛织厂'
+      source.lines = [{...source.lines[0],id:`${source.id}-L1`,woolOrderId:orderId,
+        material:{...source.lines[0].material,sku,name:`${sku} 必需棉纱（验收）`,batchNo:`E2E-${sku}`},
+        plannedQty:weight.netGrams/1000,sentQty:weight.netGrams/1000,yarn:weight,label:`TAG-${sku}`}]
+      receiving.registerFactoryReceivingSource(source)
+    }
+  }, {orderId:order.woolOrderId})
   await filterOrder(page, order.woolOrderNo)
   await selectTab(page, '不可以开工')
 
-  await openRowAction(page, order, '确认接收')
-  await page.locator('[data-wool-receipt-yarn="YARN-A"]').check()
-  await page.locator('[data-wool-receipt-qty="YARN-A"]').fill('20')
-  await page.locator('[data-wool-dialog-field="batchNo"]').fill('E2E-A')
-  await page.getByRole('button', { name: '保存确认接收', exact: true }).click()
-  await expect(rowFor(page, order)).not.toContainText('加工填报')
-
-  await openRowAction(page, order, '确认接收')
-  await page.locator('[data-wool-receipt-yarn="YARN-B"]').check()
-  await page.locator('[data-wool-receipt-qty="YARN-B"]').fill('0.01')
-  await page.locator('[data-wool-dialog-field="batchNo"]').fill('E2E-B')
-  await page.getByRole('button', { name: '保存确认接收', exact: true }).click()
-
-  await selectTab(page, '可以开工')
+  for (const [sku,grossKg] of [['YARN-A','20.062'],['YARN-B','0.072']]) {
+    await openRowAction(page, order, '确认接收')
+    await expect(page).toHaveURL(/\/wool\/pending-receipts/)
+    await page.locator(`[data-factory-receiving-action="receive"][data-id="E2E-RECEIVE-${sku}"]`).click()
+    await page.locator('[data-rinclude]').check()
+    for (const [field,value] of Object.entries({pcs:'1',grossKg,PAPER:'1',CONICAL:'0',PAGODA:'0'})) {
+      await page.locator(`[data-rfield="${field}"]`).fill(value)
+    }
+    await page.getByRole('button',{name:'下一步：复核实收',exact:true}).click()
+    await page.getByRole('button',{name:'确认接收并入库',exact:true}).click()
+    await expect(page.getByRole('status')).toContainText('接收已保存')
+    await openWoolOrders(page)
+    await page.waitForLoadState('networkidle')
+    await filterOrder(page,order.woolOrderNo)
+    await selectTab(page,sku==='YARN-A'?'不可以开工':'可以开工')
+    await expect(rowFor(page,order)).toBeVisible()
+    if(sku==='YARN-A')await expect(rowFor(page,order)).not.toContainText('加工填报')
+  }
   await expect(rowFor(page, order).getByRole('button', { name: '加工填报', exact: true })).toBeVisible()
+  const received = await page.evaluate(async orderId=>{
+    const storePath='/src/data/fcs/wool-domain/store.ts'
+    const store=await import(/* @vite-ignore */ storePath) as typeof import('../src/data/fcs/wool-domain/store.ts')
+    return store.readWoolStore().yarnReceipts.filter(r=>r.factoryReceiptId && r.woolOrderId===orderId).flatMap(r=>r.lines.map(l=>l.receivedQty))
+  },order.woolOrderId)
+  expect(received).toEqual([20,0.01])
 })
 
 test('每个加工后 SKU 累计加工填报不超过计划数量的 150%', async ({ page }) => {

@@ -386,15 +386,16 @@ function main(): void {
   assertIncludes(activeDetailSource, '历史任务', '删除后详情必须继续展示历史事实')
 
   const stockTemplate = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
+  const stockFactory = listDyeWorkOrders().find(o=>o.dyeFactoryId==='ID-F002')!
   const realStock = upsertFactoryWaitProcessStockItem({
     ...stockTemplate,
     stockItemId: 'WPS-DYE-WORKFLOW-QUALIFIED',
     sourceRecordId: 'INB-DYE-WORKFLOW-QUALIFIED',
     sourceRecordNo: 'RK-DYE-WORKFLOW-QUALIFIED',
-    factoryId: productionDyeOrder.dyeFactoryId,
-    factoryName: productionDyeOrder.dyeFactoryName,
-    warehouseId: `FIW-${productionDyeOrder.dyeFactoryId}-WAIT_PROCESS`,
-    warehouseName: `${productionDyeOrder.dyeFactoryName} · 待加工仓`,
+    factoryId: stockFactory.dyeFactoryId,
+    factoryName: stockFactory.dyeFactoryName,
+    warehouseId: `FIW-${stockFactory.dyeFactoryId}-WAIT_PROCESS`,
+    warehouseName: `${stockFactory.dyeFactoryName} · 待加工仓`,
     processCode: 'DYE',
     processName: '染色',
     itemName: '染色流程合格备货面料',
@@ -409,7 +410,7 @@ function main(): void {
     stockMaterialId: realStock.stockItemId,
     stockMaterialName: realStock.itemName,
     materialSku: realStock.materialSku!,
-    factoryId: productionDyeOrder.dyeFactoryId,
+    factoryId: stockFactory.dyeFactoryId,
     plannedQty: 80,
     qtyUnit: realStock.unit,
     plannedFinishAt: '2026-07-31 18:00',

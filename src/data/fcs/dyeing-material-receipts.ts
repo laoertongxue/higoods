@@ -1,3 +1,4 @@
+import {prepareFactoryReceipt,savePreparedFactoryReceipt,type FactoryReceiptInput} from './factory-receiving.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { runDyeProcessMutation, completeDyeInputReceipt, getDyeWorkOrderById } from './dyeing-task-domain.ts'
 import { getPreparationMaterialReceiptSources } from './preparation-material-receipt-sources.ts'
@@ -12,23 +13,13 @@ export function getDyeMaterialReceiptOptions(orderId: string) {
     { targetFactoryId: order.dyeFactoryId, targetTaskId: order.taskId, materialCodes: [order.rawMaterialSku, order.materialId], bomItemIds: [order.sourceSnapshot?.bomItemId, ...(order.sourceSnapshot?.bomItemIds ?? [])].filter((value): value is string => Boolean(value)) },
   ) : { requiresSource: true as const, requiresUpstream: false, sourceMode: 'UNRESOLVED' as const, options: [], blockReason: '未找到染色加工单。' }
 }
-export function receiveDyeMaterial(orderId: string, input: { qty: number; receiptId: string; upstreamRecordId?: string; operatorName: string }) {
-  return runDyeProcessMutation(() => {
-  const source = getDyeMaterialReceiptOptions(orderId)
-  const order = getDyeWorkOrderById(orderId)
-  if (!order || order.status === 'COMPLETED' || order.status === 'REJECTED') throw new Error('当前加工单不能接收。')
-  if (!Number.isFinite(input.qty) || input.qty <= 0 || !input.receiptId.trim()) throw new Error('请填写本次实际接收数量。')
-  if (order.materialReceipts?.some(item => item.receiptId === input.receiptId)) throw new Error('本次接收已处理，请勿重复提交。')
-  if (source.requiresSource && !input.upstreamRecordId) throw new Error(source.blockReason || '请选择本次接收的来源记录。')
-  if (input.upstreamRecordId) {
-    const selectedSource = source.options.find(item => item.recordId === input.upstreamRecordId)
-    if (!selectedSource) throw new Error('所选来源不属于本加工单，或已无剩余可接收数量。')
-    if (input.qty > selectedSource.availableQty) throw new Error(`接收数量不能超过来源可收数量 ${selectedSource.availableQty} ${selectedSource.unit}。`)
-    if (selectedSource.sourceType === 'UPSTREAM_HANDOUT') {
-    receivePreparationHandoverForTask(input.upstreamRecordId, { receiptId: input.receiptId, targetTaskOrderId: orderId, qty: input.qty, qtyUnit: order.qtyUnit, receiverName: input.operatorName, receivedAt: localDateTimeText() })
-    }
-  }
-  return completeDyeInputReceipt(orderId, { outputQty: input.qty, receiptId: input.receiptId, upstreamRecordId: input.upstreamRecordId, operatorName: input.operatorName })
-
-  })
+/** Compatibility entry: scalar quantities cannot describe rolls, actual weights or positions. */
+export function receiveDyeMaterial(orderId:string,input:{qty:number;receiptId:string;upstreamRecordId?:string;operatorName:string;factoryReceipt?:FactoryReceiptInput}) {
+  if(!input.factoryReceipt)throw new Error('请进入本厂待接收，按原卷码、实收数量和库位登记。旧数量入口已停用。')
+  const order=getDyeWorkOrderById(orderId),draft=input.factoryReceipt
+  if(!order||order.dyeFactoryId!==draft.factoryId)throw new Error('接收工厂与染色加工单不一致。')
+  const receipt=prepareFactoryReceipt(draft)
+  if(receipt.lines.some(l=>l.dyeOrderId!==orderId))throw new Error('来源明细未关联当前染色加工单，请从本厂待接收登记备料。')
+  savePreparedFactoryReceipt(receipt)
+  return getDyeWorkOrderById(orderId)
 }

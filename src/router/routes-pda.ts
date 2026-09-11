@@ -1,3 +1,4 @@
+import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
 import {
   renderPdaLoginPage,
@@ -52,6 +53,7 @@ function decodeRouteSegment(value: string): string {
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/pda/factory-receipts': () => renderFactoryPendingReceiptsPage(true),
     '/fcs/pda': () =>
       renderRouteRedirect(
         resolvePdaPostLoginRoute(getPdaCurrentAuthSession(), '/fcs/pda/exec') || buildPdaAuthLoginPath('/fcs/pda/exec'),

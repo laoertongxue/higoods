@@ -74,6 +74,7 @@ function getActivePdaPageHandler(pathname: string): Promise<PdaPageHandler> | nu
 
 export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   try {
+    if(target.closest('[data-factory-receiving-root]')){const page=await import('../pages/process-factory/dyeing/pending-receipts.ts');return page.handleFactoryReceivingEvent(target,event)}
     const shellResult = await handlePdaShellEvent(target)
     if (shellResult) return normalizePdaPageEventResult(shellResult)
 

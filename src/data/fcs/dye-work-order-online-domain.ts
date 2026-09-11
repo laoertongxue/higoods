@@ -98,6 +98,12 @@ const records = new Map<string, DyeWorkOrderOnlineRecord>()
 const logs = new Map<string, DyeWorkOrderOnlineLog[]>()
 let logSequence = 0
 
+const REMARK_KEY = 'higood:dye-work-order:remark:'
+function readSavedRemark(order: DyeWorkOrder): string {
+  try { return typeof window === 'undefined' ? order.remark || '' : window.localStorage.getItem(REMARK_KEY + order.dyeOrderId) ?? order.remark ?? '' }
+  catch { return order.remark || '' }
+}
+
 export interface DyeOnlineMutationSnapshot {
   records: Array<[string, DyeWorkOrderOnlineRecord]>
   logs: Array<[string, DyeWorkOrderOnlineLog[]]>
@@ -180,7 +186,7 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     rawMaterialRollCount: rawMaterialQty > 0 ? order.plannedRollCount || Math.max(1, Math.ceil(rawMaterialQty / 80)) : 0,
     completedQty,
     lossQty,
-    remark: order.remark || '',
+    remark: readSavedRemark(order),
     completedAt: ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
     deliveredAt: ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
     updatedAt: order.updatedAt,
@@ -347,6 +353,10 @@ export function updateDyeWorkOrderFromPfos(
       assignedBy: input.operatorName,
     })
   }
+  if (input.remark !== before.remark && typeof window !== 'undefined') {
+    try { window.localStorage.setItem(REMARK_KEY + dyeOrderId, input.remark) }
+    catch { throw new Error('备注未保存，请检查浏览器存储后重试；填写内容已保留。') }
+  }
   Object.assign(record, {
     status: input.status,
     plannedFinishAt: input.plannedFinishAt,
@@ -393,6 +403,17 @@ export function updateDyeWorkOrderFromPfos(
     remark: input.remark,
   })
   return cloneRecord(record)
+}
+
+export function updateDyeWorkOrderRemark(dyeOrderId: string, remark: string, expectedVersion: number): DyeWorkOrderOnlineRecord {
+  const text = remark.trim()
+  if (!text) throw new Error('请填写备注内容')
+  if (text.length > 2000) throw new Error('备注不能超过2000字')
+  const current = getDyeWorkOrderOnlineRecord(dyeOrderId)
+  return updateDyeWorkOrderFromPfos(dyeOrderId, {
+    ...current, remark: text, expectedVersion, operatorName: '染厂主管',
+    operatedAt: new Date().toLocaleString('zh-CN', {hour12:false}).replaceAll('/', '-'),
+  })
 }
 
 export function advanceDyeWorkOrderOnlineStatus(

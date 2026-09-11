@@ -468,13 +468,12 @@ function renderCompleteDialog(projection: WoolMobileTaskProjection, draft: WoolA
 
 function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjection): string {
   if (!state.overlay || state.overlay.woolOrderId !== order.woolOrderId) return ''
+  if(state.overlay.action==='RECEIVE_YARN')return `<section class="rounded border p-4"><a class="text-blue-700" href="/fcs/pda/factory-receipts">扫码接收来纱，填写 pcs、毛重和净重</a></section>`
   const action = state.overlay.action
   const draft = draftFor(action, projection)
   const canSubmit = action !== 'HANDOVER'
     || projection.completionFacts.waitHandoverStocks.some((item) => item.availableHandoverQty > 0)
-  const body = action === 'RECEIVE_YARN'
-    ? renderReceiptDialog(order, projection, draft)
-    : action === 'REPORT_PROCESS' || action === 'HANDOVER'
+  const body = action === 'REPORT_PROCESS' || action === 'HANDOVER'
       ? renderQtyDialog(order, projection, draft, action)
       : action === 'ASSOCIATE_MACHINE'
         ? renderMachineDialog(order, projection, draft)

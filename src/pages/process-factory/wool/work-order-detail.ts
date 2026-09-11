@@ -1,3 +1,4 @@
+import {yarnWeightText} from '../../../data/fcs/yarn-weight.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import {
@@ -559,7 +560,7 @@ function renderReceipts(order: WoolWorkOrder): string {
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3 font-medium">${escapeHtml(record.receiptNo)}</td>
           <td class="px-3 py-3">${escapeHtml(record.deliveryNo || '—')} / ${escapeHtml(record.batchNo || '—')}</td>
-          <td class="px-3 py-3">${record.lines.map((line) => `${escapeHtml(line.yarnSkuCode)} ${formatQty(effectiveReceiptQty(record, line), line.qtyUnit)}`).join('<br>')}</td>
+          <td class="px-3 py-3">${record.lines.map((line) => `${escapeHtml(line.yarnSkuCode)} ${line.yarnWeight?yarnWeightText(line.yarnWeight):formatQty(effectiveReceiptQty(record, line), line.qtyUnit)+'（历史记录仅存净重）'}`).join('<br>')}</td>
           <td class="px-3 py-3">${escapeHtml(record.receivedBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.receivedAt)}</div></td>
           <td class="px-3 py-3">${record.proofFiles?.length || 0} 个凭证<div class="text-xs text-muted-foreground">${escapeHtml(record.remark || '无备注')}</div></td>
           <td class="px-3 py-3">${recordActionButton('YARN_RECEIPT', record.receiptId)}</td>

@@ -1,3 +1,4 @@
+import {getFactoryReceiptLocations} from '../../../data/fcs/factory-receiving.ts'
 // @page-pattern: list
 
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -257,8 +258,8 @@ function stockToRow(stock: WoolWarehouseStockRow): WarehouseListRow {
 
 function flowToRow(flow: WoolWarehouseFlow): WarehouseListRow | undefined {
   const order = runtimeStore().workOrders[flow.woolOrderId]
-  if (!order) return undefined
-  const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+  if (!order && !flow.factoryReceiptId) return undefined
+  const outputLine = order?.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
   const objectType = flow.defaultLocationType === 'YARN'
     ? 'YARN'
     : flow.defaultLocationType === 'CUT_PIECE'
@@ -267,8 +268,8 @@ function flowToRow(flow: WoolWarehouseFlow): WarehouseListRow | undefined {
   return {
     rowId: `flow:${flow.flowId}`,
     woolOrderId: flow.woolOrderId,
-    woolOrderNo: order.woolOrderNo,
-    productionOrderNo: order.productionOrderNo,
+    woolOrderNo: order?.woolOrderNo || '备料（未关联加工单）',
+    productionOrderNo: order?.productionOrderNo || '未关联生产单',
     objectSkuCode: flow.objectSkuCode,
     objectName: objectType === 'YARN'
       ? flow.objectSkuCode
@@ -339,10 +340,10 @@ function countFilteredRows(mode: WarehouseMode, tab: WarehouseTab): number {
   return store.warehouseFlows.filter((flow) => {
     if (flow.warehouseMode !== mode || !flowBelongsToTab(flow, tab)) return false
     const order = store.workOrders[flow.woolOrderId]
-    if (!order) return false
+    if (!order && !flow.factoryReceiptId) return false
     const completed = isOrderCompleted(flow.woolOrderId)
-    return matches(order.woolOrderNo, filters.woolOrderNo)
-      && matches(order.productionOrderNo, filters.productionOrderNo)
+    return matches(order?.woolOrderNo, filters.woolOrderNo)
+      && matches(order?.productionOrderNo, filters.productionOrderNo)
       && matches(flow.objectSkuCode, filters.objectSkuCode)
       && matches(normalizeWoolBatchNo(flow.batchNo), filters.batchNo)
       && (!filters.objectType || flow.defaultLocationType === filters.objectType)
@@ -418,6 +419,7 @@ function actionButton(label: string, action: string, rowId: string, tone = ''): 
 function renderRowActions(row: WarehouseListRow): string {
   const state = isOrderCompleted(row.woolOrderId) ? 'COMPLETED' : 'PROCESSING'
   const actions = [actionButton('查看明细', 'open-detail', row.rowId)]
+  if(!row.woolOrderId)return `<div>${actions.join('')}<a class="ml-2 text-blue-700" href="/fcs/craft/wool/pending-receipts?view=stock">查看备料 / 关联加工单</a></div>`
   if (row.stock) {
     if (row.objectType === 'YARN' && state !== 'COMPLETED' && row.quantity > 0) {
       actions.push(actionButton('纱线领用', 'open-issue', row.rowId, 'border-blue-200 text-blue-700'))
@@ -425,8 +427,8 @@ function renderRowActions(row: WarehouseListRow): string {
     if (row.objectType === 'YARN' && state !== 'COMPLETED' && issueReturnBalance(row) > 0) {
       actions.push(actionButton('纱线退回', 'open-return', row.rowId, 'border-emerald-200 text-emerald-700'))
     }
-    actions.push(actionButton('库存调整', 'open-adjust', row.rowId))
-    if (row.quantity > 0) actions.push(actionButton('库存转移', 'open-transfer-out', row.rowId))
+    if(!row.stock.physicalLocationId)actions.push(actionButton('库存调整', 'open-adjust', row.rowId))
+    if (row.quantity > 0) actions.push(actionButton(row.stock.physicalLocationId?'库位移库':'库存转移', 'open-transfer-out', row.rowId))
   }
   if (row.flow && externalTransferBalance(row.flow) > 0) {
     actions.push(actionButton('转回默认库位', 'open-transfer-back', row.rowId))
@@ -480,6 +482,8 @@ function renderEndpoint(warehouseId?: string, locationId?: string): string {
 }
 
 function renderRowLocation(row: WarehouseListRow): string {
+  const wh=row.flow?.physicalWarehouseId||row.stock?.physicalWarehouseId,loc=row.flow?.physicalLocationId||row.stock?.physicalLocationId
+  if(wh&&loc)return renderEndpoint(wh,loc)
   if (row.flow?.flowType === 'TRANSFER') {
     return `<div class="space-y-2"><div><span class="text-xs text-muted-foreground">从</span>${renderEndpoint(row.flow.fromWarehouseId, row.flow.fromLocationId)}</div><div><span class="text-xs text-muted-foreground">到</span>${renderEndpoint(row.flow.toWarehouseId, row.flow.toLocationId)}</div></div>`
   }
@@ -503,7 +507,7 @@ const columns: StandardListColumn<WarehouseListRow>[] = [
   {
     key: 'object', title: '库存对象', width: 230, required: true, sortable: true,
     sortValue: (row) => row.objectSkuCode,
-    render: (row) => `<div><div class="font-mono text-xs font-medium">${escapeHtml(row.objectSkuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(TYPE_LABELS[row.objectType])} / ${escapeHtml(row.objectName)}</div></div>`,
+    render: (row) => `<div class="flex gap-2">${row.objectSkuCode==='YARN-COTTON-MIXED'?'<button data-skip-page-rerender="true" data-pda-image-preview-url="/materials/process-orders/cotton-yarn-cone.jpg" data-pda-image-preview-title="粉黑白段染棉纱"><img class="h-12 w-12 object-cover" src="/materials/process-orders/cotton-yarn-cone.jpg" alt="粉黑白段染棉纱实物图"></button>':''}<div class="font-mono text-xs font-medium">${escapeHtml(row.objectSkuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(TYPE_LABELS[row.objectType])} / ${escapeHtml(row.objectName)}</div></div>`,
   },
   {
     key: 'batch', title: '批次', width: 130, sortable: true,
@@ -513,7 +517,7 @@ const columns: StandardListColumn<WarehouseListRow>[] = [
   {
     key: 'qty', title: '数量', width: 120, required: true, sortable: true, align: 'right',
     sortValue: (row) => row.quantity,
-    render: (row) => `<span class="font-medium tabular-nums">${escapeHtml(`${row.quantity} ${row.unit}`)}</span>`,
+    render: (row) => `<span class="font-medium tabular-nums">${escapeHtml(`${row.unit === 'kg' ? Number(row.quantity.toFixed(3)) : row.quantity} ${row.unit}`)}</span>`,
   },
   {
     key: 'location', title: '仓库 / 库位', width: 360, required: true, sortable: true,
@@ -531,7 +535,7 @@ const columns: StandardListColumn<WarehouseListRow>[] = [
     key: 'reason', title: '原因 / 状态', width: 220,
     render: (row) => row.completed && row.quantity > 0
       ? `<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">已完成加工单剩余库存</span>${row.reason && row.reason !== '已完成加工单剩余库存' ? `<div class="mt-1 text-xs">${escapeHtml(row.reason)}</div>` : ''}`
-      : escapeHtml(row.reason || (row.completed ? '加工单已完成' : '加工单未完成')),
+      : escapeHtml(row.reason || (!row.woolOrderId?'备料，可关联加工单':row.completed ? '加工单已完成' : '加工单未完成')),
   },
   {
     key: 'actions', title: '操作', width: 330, required: true, actionColumn: true,
@@ -780,7 +784,7 @@ function renderQuantityFieldError(mode: WarehouseMode, message: string): string 
 }
 
 function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overlay: Exclude<WarehouseOverlay, { kind: 'detail' }>): string {
-  const common = `<div class="mb-4 rounded-md border bg-muted/20 p-3 text-sm"><div class="font-medium">${escapeHtml(row.woolOrderNo)} / ${escapeHtml(row.objectSkuCode)}</div><div class="mt-1">${escapeHtml(row.batchNo || '不分批次')} / ${escapeHtml(`${row.quantity} ${row.unit}`)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.locationId)}</div></div>`
+  const common = `<div class="mb-4 rounded-md border bg-muted/20 p-3 text-sm"><div class="font-medium">${escapeHtml(row.woolOrderNo)} / ${escapeHtml(row.objectSkuCode)}</div><div class="mt-1">${escapeHtml(row.batchNo || '不分批次')} / ${escapeHtml(`${row.unit === 'kg' ? Number(row.quantity.toFixed(3)) : row.quantity} ${row.unit}`)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.locationId)}</div></div>`
   const inputClass = 'h-9 w-full rounded-md border bg-background px-3 text-sm'
   if (overlay.kind === 'issue' || overlay.kind === 'return') {
     const maxQty = overlay.kind === 'issue' ? row.quantity : issueReturnBalance(row)
@@ -804,7 +808,7 @@ function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overl
   if (overlay.kind === 'transfer-out') {
     return renderDialog(
       '库存转移',
-      `${common}<div class="space-y-3">${dialogField('目标公共库位', `<select class="${inputClass}" data-wool-warehouse-dialog-field="target" data-skip-page-rerender="true">${renderPublicLocationOptions(operationDraft(overlay, 'target'))}</select>`, '')}<div class="grid gap-3 md:grid-cols-2">${dialogField('转移数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${row.quantity}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'qty'))}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, '转移数量不能为空')}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div>${dialogField('转移原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(operationDraft(overlay, 'reason'))}</textarea>`, '')}</div>`,
+      `${common}<div class="space-y-3">${dialogField(row.stock?.physicalLocationId?'本厂目标实际库位':'目标公共库位', `<select class="${inputClass}" data-wool-warehouse-dialog-field="target" data-skip-page-rerender="true">${row.stock?.physicalLocationId?getFactoryReceiptLocations('OWN_WOOL_FACTORY').map(p=>`<option value="${escapeHtml(p.warehouse.warehouseId+'|'+p.location.locationId)}" ${operationDraft(overlay,'target')===p.warehouse.warehouseId+'|'+p.location.locationId?'selected':''}>${escapeHtml(p.warehouse.warehouseName+' / '+p.area.areaName+' / '+p.location.locationNo)}</option>`).join(''):renderPublicLocationOptions(operationDraft(overlay, 'target'))}</select>`, '')}<div class="grid gap-3 md:grid-cols-2">${dialogField('转移数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${row.quantity}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'qty'))}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, '转移数量不能为空')}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div>${dialogField('转移原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(operationDraft(overlay, 'reason'))}</textarea>`, '')}</div>`,
       '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" data-wool-warehouse-action="save-transfer-out" data-skip-page-rerender="true">确认库存转移</button>',
       states[mode].overlayError,
     )
@@ -988,6 +992,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         commandId: nextCommandId('ISSUE', row.woolOrderId),
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
+        physicalWarehouseId: row.stock?.physicalWarehouseId, physicalLocationId: row.stock?.physicalLocationId,
         issuedQty: requiredDialogNumber('qty', '纱线领用数量'),
         issuedAt: operatedAt,
         issuedBy: operator,
@@ -998,6 +1003,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         commandId: nextCommandId('RETURN', row.woolOrderId),
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
+        physicalWarehouseId: row.stock?.physicalWarehouseId, physicalLocationId: row.stock?.physicalLocationId,
         returnedQty: requiredDialogNumber('qty', '纱线退回数量'),
         returnedAt: operatedAt,
         returnedBy: operator,
@@ -1020,6 +1026,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
       const [toWarehouseId = '', toLocationId = ''] = dialogValue('target').split('|')
       transferWoolWarehouseStock({
         commandId: nextCommandId('TRANSFER-OUT', row.woolOrderId),
+        physicalWarehouseId:row.stock?.physicalWarehouseId,physicalLocationId:row.stock?.physicalLocationId,
         woolOrderId: row.woolOrderId,
         objectSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,

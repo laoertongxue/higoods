@@ -1,3 +1,4 @@
+import {assertReceiptPosition} from '../factory-receiving.ts'
 import {
   getWoolHandoverEffectiveQty,
   getWoolOutputHandoverAvailableQtyFromStore,
@@ -77,6 +78,8 @@ export interface ConfirmWoolDownstreamReceiptInput extends CommandInput {
 }
 
 export interface IssueWoolYarnInput extends CommandInput {
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   yarnSkuCode: string
   batchNo?: string
   issuedQty: number
@@ -85,6 +88,8 @@ export interface IssueWoolYarnInput extends CommandInput {
 }
 
 export interface ReturnWoolYarnInput extends CommandInput {
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   yarnSkuCode: string
   batchNo?: string
   returnedQty: number
@@ -104,6 +109,8 @@ export interface AdjustWoolWarehouseStockInput extends CommandInput {
 }
 
 export interface TransferWoolWarehouseStockInput extends CommandInput {
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   woolOrderId: string
   objectSkuCode: string
   defaultLocationId: WoolDefaultLocationId
@@ -723,6 +730,15 @@ export function confirmWoolDownstreamReceipt(
   return committed.handovers.find((record) => record.handoverId === handoverId)!
 }
 
+function yarnPhysicalPosition(store: WoolDomainStore, woolOrderId: string, input: {yarnSkuCode:string;batchNo?:string;physicalWarehouseId?:string;physicalLocationId?:string}) {
+ const flows=store.warehouseFlows.filter(f=>f.woolOrderId===woolOrderId&&f.objectSkuCode===input.yarnSkuCode&&woolBatchMatches(f.batchNo,input.batchNo,'EXACT'))
+ const positions=[...new Map(flows.filter(f=>f.physicalLocationId).map(f=>[f.physicalLocationId,{physicalWarehouseId:f.physicalWarehouseId!,physicalLocationId:f.physicalLocationId!}])).values()]
+ const p=input.physicalLocationId?{physicalWarehouseId:input.physicalWarehouseId!,physicalLocationId:input.physicalLocationId}:positions.length===1?positions[0]:undefined
+ if(!p&&positions.length>1)throw new Error('本批纱线分布在多个库位，请从具体库位库存行操作。')
+ if(p)assertReceiptPosition(store.workOrders[woolOrderId].factoryId,{warehouseId:p.physicalWarehouseId,locationId:p.physicalLocationId})
+ return p||{}
+}
+
 export function issueWoolYarn(
   woolOrderId: string,
   input: IssueWoolYarnInput,
@@ -739,11 +755,13 @@ export function issueWoolYarn(
       throw new Error(`纱线 SKU ${input.yarnSkuCode} 不属于加工单冻结必需纱线`)
     }
     const batchNo = normalizeWoolBatchNo(input.batchNo)
+    const physical = yarnPhysicalPosition(draft, woolOrderId, input)
     const currentStock = stockQty(draft, {
       woolOrderId,
       objectSkuCode: input.yarnSkuCode,
       batchNo,
       defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+      ...physical,
     })
     if (input.issuedQty > currentStock) throw new Error('领用数量不能超过当前库存')
     const warehouseOutboundFlowId = `WF-${issueId}`
@@ -767,6 +785,7 @@ export function issueWoolYarn(
       warehouseMode: 'WAIT_PROCESS',
       defaultLocationType: 'YARN',
       defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+      ...physical,
       objectSkuCode: input.yarnSkuCode,
       batchNo,
       qty: input.issuedQty,
@@ -803,6 +822,7 @@ export function returnWoolYarn(
       throw new Error(`纱线 SKU ${input.yarnSkuCode} 不属于加工单冻结必需纱线`)
     }
     const batchNo = normalizeWoolBatchNo(input.batchNo)
+    const physical = yarnPhysicalPosition(draft, woolOrderId, input)
     const issuedQty = draft.yarnIssues
       .filter((record) =>
         record.woolOrderId === woolOrderId
@@ -841,6 +861,7 @@ export function returnWoolYarn(
       warehouseMode: 'WAIT_PROCESS',
       defaultLocationType: 'YARN',
       defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+      ...physical,
       objectSkuCode: input.yarnSkuCode,
       batchNo,
       qty: input.returnedQty,
@@ -934,6 +955,20 @@ export function transferWoolWarehouseStock(
   const reason = requireText(input.reason, '转移原因')
   const operatedBy = requireText(input.operatedBy, '操作人')
   const toWarehouseId = requireText(input.toWarehouseId, '目标仓库')
+  if (input.physicalLocationId) {
+    const committed=commitWoolStore(draft=>{
+      const order=requireOrder(draft,input.woolOrderId)
+      const from=assertReceiptPosition(order.factoryId,{warehouseId:input.physicalWarehouseId||'',locationId:input.physicalLocationId!})
+      const to=assertReceiptPosition(order.factoryId,{warehouseId:toWarehouseId,locationId:input.toLocationId})
+      if(from.location.locationId===to.location.locationId&&from.warehouse.warehouseId===to.warehouse.warehouseId)throw new Error('请选择不同的目标库位。')
+      const stockObject=requireStockObject(draft,input)
+      const qty=stockQty(draft,{...input,batchNo:stockObject.batchNo})
+      if(input.qty>qty)throw new Error('移库数量不能超过来源实际库位库存。')
+      for(const direction of ['OUT','IN'] as const){const p=direction==='OUT'?from:to;draft.warehouseFlows.push({flowId:direction==='OUT'?`WF-${sourceRecordId}`:`WF-${sourceRecordId}-IN`,woolOrderId:input.woolOrderId,factoryId:order.factoryId,flowType:'TRANSFER',businessType:'STOCK_TRANSFER',physicalTransferDirection:direction,physicalTransferId:sourceRecordId,warehouseMode:'WAIT_PROCESS',defaultLocationType:'YARN',defaultLocationId:'WOOL-WP-YARN-DEFAULT',physicalWarehouseId:p.warehouse.warehouseId,physicalLocationId:p.location.locationId,objectSkuCode:input.objectSkuCode,batchNo:stockObject.batchNo,qty:input.qty,unit:'kg',sourceRecordType:'STOCK_TRANSFER',sourceRecordId:direction==='OUT'?sourceRecordId:`${sourceRecordId}-IN`,fromWarehouseId:from.warehouse.warehouseId,fromLocationId:from.location.locationId,toWarehouseId,toLocationId:input.toLocationId,reason,operatedAt:input.operatedAt,operatedBy})}
+      appendCommandReceipt(draft,descriptor,{woolOrderId:input.woolOrderId,resultType:'WOOL_WAREHOUSE_FLOW',resultId:`WF-${sourceRecordId}`,operatedAt:input.operatedAt,operatedBy})
+    })
+    return committed.warehouseFlows.find(f=>f.flowId===`WF-${sourceRecordId}`)!
+  }
   const isReturningToDefault = input.toLocationId === input.defaultLocationId
   const fromWarehouseId = input.fromWarehouseId?.trim()
   const fromLocationId = input.fromLocationId?.trim()
@@ -1047,6 +1082,7 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
       const receipt = draft.yarnReceipts.find((record) => record.receiptId === input.recordId)
       const line = receipt?.lines.find((item) => item.lineId === input.recordLineId)
       if (!receipt || !line) throw new Error(`找不到接收明细 ${input.recordLineId}`)
+      if (receipt.factoryReceiptId) throw new Error('本次实际接收已留存来源和称重，不能直接覆盖历史数量。')
       requireUncompleted(draft, receipt.woolOrderId)
       woolOrderId = receipt.woolOrderId
       objectSkuCode = line.yarnSkuCode

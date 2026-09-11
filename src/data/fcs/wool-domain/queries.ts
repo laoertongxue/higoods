@@ -1,3 +1,4 @@
+import {listFactoryReceipts,listReceivingAllocations} from '../factory-receiving.ts'
 import { ensureRuntimeWoolWorkOrders } from './tech-pack-source.ts'
 import { readWoolStore, type WoolDomainStore } from './store.ts'
 import {
@@ -113,6 +114,8 @@ export interface WoolFactRecordQuery {
 }
 
 export interface WoolWarehouseStockKey {
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   woolOrderId: string
   objectSkuCode: string
   defaultLocationId: WoolWarehouseFlow['defaultLocationId']
@@ -132,7 +135,9 @@ export interface WoolWarehouseStockRow {
   woolOrderId: string
   woolOrderNo: string
   productionOrderNo: string
-  kind: WoolWorkOrderKind
+  kind: WoolWorkOrderKind | 'PREPARATION'
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   objectSkuCode: string
   objectName: string
   objectType: 'YARN' | 'CUT_PIECE' | 'GARMENT'
@@ -349,6 +354,10 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
       }
       yarnWorking.set(line.yarnSkuCode, current)
     }
+  }
+  for(const a of listReceivingAllocations().filter(a=>a.woolOrderId===woolOrderId)){
+    const receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===a.receiptLineId)),line=receipt?.lines.find(l=>l.id===a.receiptLineId);if(!receipt||!line)continue;
+    const current=yarnWorking.get(line.material.sku)||{receivedQty:0,receiptIds:new Set<string>(),batchNos:new Set<string>(),latestReceivedAt:receipt.receivedAt};current.receivedQty+=a.qty;current.receiptIds.add(receipt.id);current.batchNos.add(line.material.batchNo);yarnWorking.set(line.material.sku,current)
   }
   const yarnReceiptsBySku = new Map<string, WoolYarnReceiptAggregate>()
   for (const [yarnSkuCode, aggregate] of yarnWorking) {
@@ -643,15 +652,15 @@ export function listWoolWarehouseStocksFromStore(
       flow.woolOrderId,
       flow.objectSkuCode,
       normalizeWoolBatchNo(flow.batchNo) ?? '',
-      flow.defaultLocationId,
+      flow.defaultLocationId, flow.physicalWarehouseId || '', flow.physicalLocationId || '',
     ].join('|')
     if (!candidates.has(stockKey)) candidates.set(stockKey, flow)
   }
   return [...candidates.entries()]
     .flatMap(([stockKey, flow]): WoolWarehouseStockRow[] => {
       const order = store.workOrders[flow.woolOrderId]
-      if (!order) return []
-      const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+      if (!order && !flow.factoryReceiptId) return []
+      const outputLine = order?.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
       const objectType = flow.defaultLocationType === 'YARN'
         ? 'YARN'
         : flow.defaultLocationType === 'CUT_PIECE'
@@ -659,7 +668,7 @@ export function listWoolWarehouseStocksFromStore(
           : 'GARMENT'
       const objectName = objectType === 'YARN'
         ? store.yarnReceipts
-          .filter((receipt) => receipt.woolOrderId === flow.woolOrderId)
+          .filter((receipt) => receipt.woolOrderId === flow.woolOrderId || Boolean(flow.receivingAllocationId || flow.physicalTransferId))
           .flatMap((receipt) => receipt.lines)
           .find((line) => line.yarnSkuCode === flow.objectSkuCode)?.yarnName ?? flow.objectSkuCode
         : [
@@ -670,9 +679,10 @@ export function listWoolWarehouseStocksFromStore(
       return [{
         stockKey,
         woolOrderId: flow.woolOrderId,
-        woolOrderNo: order.woolOrderNo,
-        productionOrderNo: order.productionOrderNo,
-        kind: order.kind,
+        woolOrderNo: order?.woolOrderNo || '备料（未关联加工单）',
+        productionOrderNo: order?.productionOrderNo || '未关联生产单',
+        kind: order?.kind || 'PREPARATION',
+        physicalWarehouseId:flow.physicalWarehouseId,physicalLocationId:flow.physicalLocationId,
         objectSkuCode: flow.objectSkuCode,
         objectName,
         objectType,
@@ -683,6 +693,7 @@ export function listWoolWarehouseStocksFromStore(
           objectSkuCode: flow.objectSkuCode,
           batchNo: flow.batchNo,
           defaultLocationId: flow.defaultLocationId,
+          physicalWarehouseId: flow.physicalWarehouseId || '', physicalLocationId: flow.physicalLocationId || '',
         }),
         unit: flow.unit,
         completed: store.completions.some((completion) =>

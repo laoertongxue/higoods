@@ -1,3 +1,4 @@
+import type {YarnWeight} from '../yarn-weight.ts'
 export type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
 export type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
 export type WoolQtyUnit = '件' | 'kg'
@@ -55,6 +56,8 @@ export interface WoolWorkOrder {
 }
 
 export interface WoolYarnReceiptRecord {
+  factoryReceiptId?: string
+  factoryId?: string
   receiptId: string
   receiptNo: string
   woolOrderId: string
@@ -70,6 +73,11 @@ export interface WoolYarnReceiptRecord {
 }
 
 export interface WoolYarnReceiptLine {
+  yarnWeight?: YarnWeight
+  sourceDocumentNo?: string
+  physicalWarehouseId?: string
+  physicalLocationId?: string
+  imageUrl?: string
   lineId: string
   yarnSkuCode: string
   yarnName: string
@@ -197,6 +205,13 @@ export const WOOL_DEFAULT_WAREHOUSE_BY_LOCATION: Record<
 }
 
 export interface WoolWarehouseFlow {
+  physicalTransferDirection?: 'OUT' | 'IN'
+  physicalTransferId?: string
+  receivingAllocationId?: string
+  factoryReceiptId?: string
+  factoryId?: string
+  physicalWarehouseId?: string
+  physicalLocationId?: string
   flowId: string
   woolOrderId: string
   flowType: WoolWarehouseFlowType

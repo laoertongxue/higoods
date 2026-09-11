@@ -1213,9 +1213,7 @@ function renderDyeMaterialReceiptPanel(order: DyeWorkOrder): string {
     : `<div class="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
   return `<section class="rounded-lg border bg-background p-3" data-skip-page-rerender="true" data-dye-material-receipt="${escapeHtml(order.dyeOrderId)}" data-receipt-id="DYE-${Date.now()}-${Math.random().toString(36).slice(2)}">
     <h3 class="text-sm font-medium">接收原料</h3><p class="mt-1 text-xs">累计已收 ${(order.materialReceipts ?? []).reduce((sum, item) => sum + item.qty, 0)} ${escapeHtml(order.qtyUnit)}</p>
-    ${sourceFields}
-    <label class="mt-2 block text-xs">本次实际接收（${escapeHtml(order.qtyUnit)}）<input data-dye-material-qty type="number" min="0" step="any" class="mt-1 h-9 w-full rounded border px-2"></label>
-    ${source.options.length > 0 ? `<button class="mt-2 h-9 w-full rounded bg-primary text-primary-foreground" data-pda-execd-action="dye-receive-material" data-dye-order-id="${escapeHtml(order.dyeOrderId)}">确认本次接收</button>` : ''}
+    <a href="/fcs/pda/factory-receipts?orderId=${encodeURIComponent(order.dyeOrderId)}" class="mt-3 block rounded bg-primary p-3 text-center text-primary-foreground">扫码接收本厂来货</a>
     ${canNextBatch ? `<details class="mt-3"><summary>开始下一批染色</summary><label class="mt-2 block text-xs">本批投入（${escapeHtml(order.qtyUnit)}）<input data-dye-next-qty type="number" min="0" step="any" class="mt-1 h-9 w-full rounded border px-2"></label><label class="mt-2 block text-xs">染缸编号<input data-dye-next-vat class="mt-1 h-9 w-full rounded border px-2"></label><button data-pda-execd-action="dye-start-next-batch" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" class="mt-2 rounded border px-3 py-2">开始本批染色</button></details>` : ''}
   </section>`
 }

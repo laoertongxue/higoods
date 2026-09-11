@@ -361,10 +361,10 @@ assert(pdaExecSource.includes('不能使用通用任务开工'), '准备阶段�
 ;[
   '综合查询', '接收状态', '加工状态', '交出状态', '加工厂', '工艺', '需求来源',
   '导出投入接收', '导出超期单', '批量打印流程卡', '商品', '加工投入', '加工投入／上游',
-  '处理进度', '加工要求', '加工产出', '加工产出／下游', '工厂／交期',
+  '处理进度', '加工要求', '加工产出', '加工产出／下游', '时间',
   '查看', '编辑', '日志', '打印流程卡', 'data-pda-image-preview-url',
 ].forEach((text) => assert(workOrdersSource.includes(text), `染色加工单列表缺少：${text}`))
-;['补料', '来源单据待生成', '下游已收'].forEach((text) => {
+;['补料', '下游接收数量'].forEach((text) => {
   assert(workOrdersSource.includes(text), `染色加工单列表缺少业务表达：${text}`)
 })
 assert(workOrdersSource.includes('renderStandardListTable'), '染色加工单列表必须使用标准列表模板')
@@ -385,15 +385,15 @@ assert.equal(flowCard.sourceId, order.dyeOrderId)
 const flowCardText = JSON.stringify(flowCard)
 ;[
   '染整生产流程卡', 'Kartu Alur Produksi Pencelupan dan Penyempurnaan',
-  order.dyeOrderNo, '下单日期', '交期提醒', '生产单号', '色样备注',
+  order.dyeOrderNo, '下单日期', '是否加急', '生产单号', '色样备注',
   'No. Warna', 'Bahan baku', 'Kuantitas', 'Komposisi',
   'Pencelupan', 'Penghilangan air', 'Pengeringan', 'Finishing', 'Kemasan',
   '卡序号', '布料样品 SPU', '批号',
 ].forEach((text) => assert(flowCardText.includes(text), `染整生产流程卡缺少：${text}`))
 assert(!flowCardText.includes('工厂加工单号'))
-assert(!flowCardText.includes('需求单号'), '染整生产流程卡不得展示已删除的需求单号')
+assert(flowCardText.includes('需求单号'), '按本次线上流程卡恢复需求单号')
 const flowCardHtml = renderDyeWorkOrderFlowCardTemplate(flowCard)
-assert(flowCardHtml.includes('print-production-image-card'), '染整生产流程卡必须真正输出色样和商品图片区')
-assert(flowCardHtml.includes('print-main-grid'), '染整生产流程卡必须保留三列头部布局')
+assert(flowCardHtml.includes('dye-flow-image'), '染整生产流程卡必须真正输出色样和物料图片区')
+assert(flowCardHtml.includes('dye-flow-table'), '本次改为线上六列连续表格')
 
 console.log('dye work order online alignment check passed')

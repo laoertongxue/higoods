@@ -1,3 +1,5 @@
+import {renderDyeYarnShipmentsPage} from '../pages/process-factory/dyeing/yarn-shipments.ts'
+import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import {
@@ -381,6 +383,9 @@ export const routes: RouteRegistry = {
     '/fcs/craft/printing/statistics': () => renderCraftPrintingStatisticsPage(),
     '/fcs/craft/printing/dashboards': () => renderCraftPrintingDashboardsPage(),
     '/fcs/craft/dyeing': () => renderCraftDyeingWorkOrdersPage(),
+    '/fcs/craft/dyeing/yarn-shipments': () => renderDyeYarnShipmentsPage(),
+    '/fcs/craft/dyeing/pending-receipts': () => renderFactoryPendingReceiptsPage(),
+    '/fcs/craft/wool/pending-receipts': () => renderFactoryPendingReceiptsPage(),
     '/fcs/craft/dyeing/work-orders': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/combined-dyeing': () => renderCraftCombinedDyeingPage(),
     '/fcs/craft/dyeing/water-soluble-orders': () => renderCraftDyeingWaterSolubleOrdersPage(),

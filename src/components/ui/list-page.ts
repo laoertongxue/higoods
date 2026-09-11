@@ -8,6 +8,7 @@ export interface StandardListStatItem {
 
 export interface StandardListPageConfig {
   title: string
+  showHeader?: boolean
   primaryActionsHtml?: string
   feedbackHtml?: string
   statusTabsHtml?: string
@@ -69,10 +70,10 @@ export function renderStandardListPage(config: StandardListPageConfig): string {
 
   return `
     <section class="${escapeHtml(className)}" data-standard-list-page>
-      <header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
+      ${config.showHeader === false ? '' : `<header class="flex min-h-9 flex-wrap items-center justify-between gap-3">
         <h1 class="text-xl font-semibold">${escapeHtml(config.title)}</h1>
         ${config.primaryActionsHtml ?? ''}
-      </header>
+      </header>`}
       ${config.feedbackHtml ?? ''}
       ${config.statusTabsHtml ? `<div data-standard-list-status-tabs>${config.statusTabsHtml}</div>` : ''}
       <div data-standard-list-filters>${config.filtersHtml}</div>

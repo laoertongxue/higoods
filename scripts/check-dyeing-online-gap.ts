@@ -5,7 +5,7 @@ assert(order, '必须有包装完成的演示单')
 const id = order.dyeOrderId
 const initial = JSON.stringify(getDyeOrderHandoverSummary(id))
 saveDyeOutputRolls(id, [{qty:0},{qty:1,vatNo:'TEST-01'},{qty:1}])
-let rolls = getDyeOutputRolls(id)
+let rolls = getDyeOutputRolls(id).slice(-3)
 assert.throws(()=>createDyeDispatchDocument([{orderId:id,rollIds:[rolls[0].id]}],'测试'),/未维护/)
 const doc = createDyeDispatchDocument([{orderId:id,rollIds:[rolls[1].id]}],'测试')
 assert.equal(JSON.stringify(getDyeOrderHandoverSummary(id)), initial)

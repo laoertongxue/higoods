@@ -332,6 +332,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return false
     }
   }
+  if (target.closest('[data-factory-receiving-root]')) {
+    const page = await import('./pages/process-factory/dyeing/pending-receipts.ts')
+    return page.handleFactoryReceivingEvent(eventTarget, event)
+  }
+  if (target.closest('[data-yarn-shipment-root]')) {
+    const page = await import('./pages/process-factory/dyeing/yarn-shipments.ts')
+    return page.handleDyeYarnShipmentEvent(eventTarget, event)
+  }
   // These lists already render their own local controls; avoid loading the full
   // FCS handler bundle before the first filter/selection interaction.
   if (pathname === '/fcs/craft/dyeing/work-orders' && target.closest('[data-dye-work-orders-root]')) {

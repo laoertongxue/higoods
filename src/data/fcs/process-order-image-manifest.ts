@@ -36,6 +36,10 @@ export function getPrintingOrderImageManifest(orderId: string): PrintingOrderIma
 }
 
 export const DYE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImageManifestEntry>> = {
+  'DYE-YARN-DEMO-1': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
+  'DYE-YARN-DEMO-2': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
+  'DYE-YARN-DEMO-3': { product:'/materials/process-orders/cotton-yarn-cone.jpg', material:'/materials/process-orders/cotton-yarn-cone.jpg' },
+
   'DWO-001': { product: '/shirt-sample.jpg', material: '/materials/fei-ticket/blue-white-print-cotton.png' },
   'DWO-002': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-black-cotton-jersey.jpg' },
   'DWO-003': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/pale-grey-50d-stretch-lining.jpg' },
@@ -44,7 +48,7 @@ export const DYE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImage
   'DWO-006': { product: '/shirt-sample.jpg', material: '/materials/fei-ticket/white-poplin.png' },
   'DWO-007': { product: '/shirt-sample.jpg', material: '/materials/fei-ticket/blue-white-print-cotton.png' },
   'DWO-008': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-black-cotton-jersey.jpg' },
-  'DWO-009': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/greige-cotton-polyester-woven.jpg' },
+  'DWO-009': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/pale-grey-50d-stretch-lining.jpg' },
   'DWO-010': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-cotton-jersey.jpg' },
   'DWO-011': { product: '/jacket-sample.jpg', material: '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png' },
   'DWO-012': { product: '/shirt-sample.jpg', material: '/materials/fei-ticket/white-poplin.png' },

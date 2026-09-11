@@ -949,7 +949,7 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
     refreshResults()
     return true
   }
-  if (action === 'open-receipt' && order) openOverlay('receipt', order.woolOrderId)
+  if (action === 'open-receipt' && order) {window.location.href=`/fcs/craft/wool/pending-receipts?orderId=${encodeURIComponent(order.woolOrderId)}`;return true}
   if (action === 'open-report' && order) openOverlay('report', order.woolOrderId)
   if (action === 'open-handover' && order) openOverlay('handover', order.woolOrderId)
   if (action === 'open-complete' && order) openOverlay('complete', order.woolOrderId)
