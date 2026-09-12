@@ -143,7 +143,7 @@ function renderOrderProduct(row: DyeWorkOrderOnlineRow): string {
   const tags = [row.isOverdue ? renderBadge('超期', 'danger') : '', row.isReplenishment ? renderBadge('补料', 'warning') : ''].filter(Boolean)
   const factoryName = row.factoryId ? dyeFactoryTabLabel(row.factoryId, row.factoryName) : '待分配工厂'
   return `<div class="divide-y divide-gray-200 text-xs" data-dye-cell="order-product">
-    <section class="space-y-1 pb-3" data-dye-section="documents">${field('加工厂',factoryName)}<div><span class="text-muted-foreground">染色加工单：</span>${detailButton(row, row.workOrderNo)}</div>${field('任务单',row.taskNo)}${field('生产单',row.productionOrderNo || '不适用（备货单）')}${field('售卖类型',row.salesType)}</section>
+    <section class="space-y-1 pb-3" data-dye-section="documents">${field('加工厂',factoryName)}<div class="rounded border border-blue-100 bg-blue-50 px-2 py-1 leading-5 text-blue-800" data-dye-demand-source><span>需求来源：</span><span class="font-medium">${escapeHtml(row.sourceLabel)}</span></div><div><span class="text-muted-foreground">染色加工单：</span>${detailButton(row, row.workOrderNo)}</div>${field('任务单',row.taskNo)}${field('生产单',row.productionOrderNo || '不适用（备货单）')}${field('售卖类型',row.salesType)}</section>
     <section class="py-3" data-dye-section="product">${materialItem({imageUrl:row.productImageUrl, name:row.productName, sku:row.productCode})}</section>
     ${tags.length ? `<section class="flex flex-wrap gap-1 pt-3" data-dye-section="tags">${tags.join('')}</section>` : ''}
   </div>`

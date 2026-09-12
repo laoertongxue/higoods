@@ -499,7 +499,7 @@ function keywordValue(row: DyeWorkOrderOnlineRow, field: DyeWorkOrderKeywordFiel
   if (field === 'productionOrderNo') return row.productionOrderNo
   if (field === 'purchaseOrderNo') return row.purchaseOrderNo
   if (field === 'productCode') return row.productCode
-  return [row.workOrderNo, row.taskNo, row.productionOrderNo, row.purchaseOrderNo, row.productCode, row.productName, row.materialName, row.rawMaterialSku, ...row.inputMaterials.map(item=>item.sku), row.upstreamName, row.receiverName, row.handoverOrderNo, ...row.inputSourceDocumentNos, ...row.upstreamDocuments.flatMap(item=>[item.documentNo, ...dyePartnerFields(item.partner).map(([,value])=>value)]), ...(row.downstreamPartner ? dyePartnerFields(row.downstreamPartner).map(([,value])=>value) : []), ...row.downstreamLinks.map(item => item.label)].join(' ')
+  return [row.workOrderNo, row.taskNo, row.productionOrderNo, row.purchaseOrderNo, row.sourceLabel, row.productCode, row.productName, row.materialName, row.rawMaterialSku, ...row.inputMaterials.map(item=>item.sku), row.upstreamName, row.receiverName, row.handoverOrderNo, ...row.inputSourceDocumentNos, ...row.upstreamDocuments.flatMap(item=>[item.documentNo, ...dyePartnerFields(item.partner).map(([,value])=>value)]), ...(row.downstreamPartner ? dyePartnerFields(row.downstreamPartner).map(([,value])=>value) : []), ...row.downstreamLinks.map(item => item.label)].join(' ')
 }
 
 export function filterDyeWorkOrderOnlineRows(
@@ -566,6 +566,7 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
   const columns: Array<[string, (row: DyeWorkOrderOnlineRow) => unknown]> = kind === '投入接收'
     ? [
         ['平台加工单号', (row) => row.platformWorkOrderNo],
+        ['需求来源', (row) => row.sourceLabel],
         ['生产单号', (row) => row.productionOrderNo || '备货创建'],
         ['面料名称', (row) => row.materialName],
         ['原料SKU', (row) => row.rawMaterialSku],
@@ -577,6 +578,7 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
     : [
         ['平台加工单号', (row) => row.platformWorkOrderNo],
         ['任务单号', (row) => row.taskNo],
+        ['需求来源', (row) => row.sourceLabel],
         ['生产单号', (row) => row.productionOrderNo || '备货创建'],
         ['商品编码', (row) => row.productCode],
         ['商品名称', (row) => row.productName],

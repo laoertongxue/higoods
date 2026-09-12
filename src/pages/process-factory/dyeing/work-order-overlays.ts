@@ -80,6 +80,7 @@ function renderEdit(dyeOrderId: string, error = ''): string {
     <input type="hidden" value="${escapeHtml(record.receiverName)}" data-dye-work-orders-field="receiverName">
     <div class="grid grid-cols-3 gap-3 rounded-lg border p-3"><div><div class="mb-1 text-xs text-muted-foreground">接收状态</div>${renderBadge(row.receiptStatusLabel, axisTone(row.receiptStatus))}</div><div><div class="mb-1 text-xs text-muted-foreground">加工状态</div>${renderBadge(row.processingStatusLabel, axisTone(row.processingStatus))}</div><div><div class="mb-1 text-xs text-muted-foreground">交出状态</div>${renderBadge(row.handoverStatusLabel, axisTone(row.handoverStatus))}</div></div>
     <div class="grid grid-cols-2 gap-4">
+      ${formField('需求来源', renderInput({ value: row.sourceLabel, readonly: true }), 'col-span-2 rounded border border-blue-100 bg-blue-50 p-3 text-blue-800')}
       ${formField('平台加工单号', renderInput({ value: row.workOrderNo, readonly: true }))}
       ${formField('计划数量', renderInput({ value: `${row.plannedQty} ${row.qtyUnit}`, readonly: true }))}
       ${formField('预计完成时间', renderInput({ value: record.plannedFinishAt, prefix: EVENT_PREFIX, field: 'plannedFinishAt' }))}

@@ -28,6 +28,7 @@ import { validateWaterSolublePdaActor, type WaterSolublePdaRoleAction } from '..
 import {
   getProcessWorkOrderById,
   getProcessWorkOrderByNo,
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
   type ProcessWorkOrder,
 } from '../../../data/fcs/process-work-order-domain.ts'
 import { getQuantityLabel, type QtyPurpose } from '../../../data/fcs/process-quantity-labels.ts'
@@ -53,7 +54,7 @@ import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/p
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 
 function renderSourceFields(order: ProcessWorkOrder): string {
-  return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label, row.value)).join('')
+  return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label === '来源类型' ? '需求来源' : row.label, row.value)).join('')
 }
 
 function dyeQuantityLabel(
@@ -436,6 +437,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderSection('基本信息', `<div class="grid gap-3 text-sm md:grid-cols-2">
             ${renderField('加工单号', domainOrder.dyeOrderNo)}
             ${renderField('工厂', formatFactoryDisplayName(domainOrder.dyeFactoryName, domainOrder.dyeFactoryId))}
+            ${renderField('需求来源', PROCESS_WORK_ORDER_SOURCE_LABEL[domainOrder.sourceType])}
             ${renderField('当前步骤', getDyeCurrentStepLabel(domainOrder))}
             ${renderField('工艺路线', domainOrder.requiresWaterSoluble ? '水溶 → 染色 → 既有后处理' : '染色 → 既有后处理')}
             ${renderField('计划染色数量', `${domainOrder.plannedQty} ${domainOrder.qtyUnit}`)}

@@ -50,6 +50,7 @@ function buildSingle(input: PrintDocumentBuildInput, row: DyeWorkOrderOnlineRow)
     headerFields: fields([
       ['卡序号 Urutan kartu', '1', true],
       ['平台加工单号', row.workOrderNo, true],
+      ['需求来源 Sumber permintaan', row.sourceLabel, true],
       ['下单日期 Tgl', row.orderedAt.split(' ')[0] || row.orderedAt],
       ['是否加急 Mendesak', '否 Tidak'],
       ['需求单号 No. Permintaan', row.purchaseOrderNo],
@@ -192,7 +193,7 @@ function renderSingle(document: PrintDocument, sequence = 1, total = 1): string 
   return `<article class="dye-flow-card" data-dye-flow-source="${escapeHtml(document.sourceId)}" data-dye-flow-sequence="${sequence}">
     ${supplement ? '<div class="dye-flow-supplement">补料 / Bahan Tambahan</div>' : ''}
     <div class="dye-flow-heading"><span class="dye-flow-sequence">${sequence}</span><h1>染整生产流程卡<br><span>Kartu Alur Produksi<br>Pencelupan dan Penyempurnaan</span></h1>${qr ? renderRealQrPlaceholder({value: qr.value, size: 140, title: qr.title, label: ''}) : ''}${supplement ? '<div class="dye-flow-stamp">补料 / Bahan Tambahan</div>' : ''}</div>
-    <div class="dye-flow-meta"><div><b>下单日期 Tgl</b> ${field('下单日期 Tgl')}</div><div><b>是否加急 Mendesak</b> ${field('是否加急 Mendesak')}</div><div><b>开单日期 Tgl buka</b> ${field('开单日期 Tgl buka')}</div><div><b>生产单号 No. Produksi</b> ${field('生产单号 No. Produksi')}</div><div class="dye-flow-meta-wide"><b>需求单号 No. Permintaan</b> ${field('需求单号 No. Permintaan')}</div><div class="dye-flow-meta-wide"><b>面料接收人 Penerima kain</b> ${field('面料接收人 Penerima kain')}</div></div>
+    <div class="dye-flow-meta"><div class="dye-flow-demand-source" data-dye-flow-demand-source><b>需求来源 Sumber permintaan</b> ${field('需求来源 Sumber permintaan')}</div><div><b>下单日期 Tgl</b> ${field('下单日期 Tgl')}</div><div><b>是否加急 Mendesak</b> ${field('是否加急 Mendesak')}</div><div><b>开单日期 Tgl buka</b> ${field('开单日期 Tgl buka')}</div><div><b>生产单号 No. Produksi</b> ${field('生产单号 No. Produksi')}</div><div class="dye-flow-meta-wide"><b>需求单号 No. Permintaan</b> ${field('需求单号 No. Permintaan')}</div><div class="dye-flow-meta-wide"><b>面料接收人 Penerima kain</b> ${field('面料接收人 Penerima kain')}</div></div>
     <table class="dye-flow-table"><colgroup>${'<col style="width:16.666%">'.repeat(6)}</colgroup><tbody>
       <tr><th rowspan="4">色样备注 Cat sampel${picture('目标色样')}<small>${field('正式色样')}</small></th><th colspan="2">纱线 RAINBOW 色卡</th><td></td><th>辅料 GCC 色卡</th><td></td></tr>
       <tr><th colspan="2">TPG 色卡</th><td></td><th>TCX 色卡</th><td></td></tr>
@@ -227,6 +228,8 @@ export function renderDyeWorkOrderFlowCardTemplate(document: PrintDocument): str
   .dye-flow-meta>div{min-width:0;overflow-wrap:break-word}
   .dye-flow-meta b{display:block;color:#b42324;font-size:9px;line-height:1.5;font-weight:600;margin-bottom:3px;white-space:nowrap}
   .dye-flow-meta-wide{grid-column:span 2}
+  .dye-flow-demand-source{grid-column:1/-1;padding:5px 7px;border:1px solid #d5dfeb;background:#f2f6fb;color:#253e60;font-weight:600}
+  .dye-flow-demand-source b{display:inline;color:inherit;margin-right:10px}
   .dye-flow-table{border-collapse:collapse;width:100%;table-layout:fixed}
   .dye-flow-table td,.dye-flow-table th{border:1px solid #a2a6ac;padding:6px;text-align:center;vertical-align:middle;overflow-wrap:break-word;line-height:1.5;height:8mm}
   .dye-flow-table th{background:#f6f7f8;color:#34383d;font-size:9.5px;font-weight:600;text-wrap:balance}
