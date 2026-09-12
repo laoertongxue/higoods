@@ -1167,11 +1167,11 @@ function differenceDirection(value: number): '多' | '少' | '一致' {
   return '一致'
 }
 
-function buildPostFinishingMaterialTransferDemo(): PostFinishingMaterialTransferOrder | undefined {
+function buildPostFinishingMaterialTransferDemos(): PostFinishingMaterialTransferOrder[] {
   const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.sewingTaskType === 'INDEPENDENT_SEWING')
-  if (!order) return undefined
+  if (!order) return []
   const garmentQty = total(order.skus.map((sku) => sku.plannedQty))
-  const lines = order.qcPrintMaterials.flatMap((material, index) => {
+  const primaryLines = order.qcPrintMaterials.flatMap((material, index) => {
     const materialSpuCode = material.materialCode.split('-')[0] || material.materialCode
     if (!isPostFinishingDedicatedMaterial({ materialName: material.materialName, materialSpuCode })) return []
     const consumptionMatch = material.unitConsumption.match(/^([0-9.]+)\s*(\S+)/)
@@ -1191,57 +1191,149 @@ function buildPostFinishingMaterialTransferDemo(): PostFinishingMaterialTransfer
       imageUrl: material.imageUrl,
     }]
   })
-  const createdAt = new Date(Date.UTC(2026, 7, 24, 1, 0, 0)).toISOString()
-  const approvedAt = new Date(Date.UTC(2026, 7, 24, 3, 0, 0)).toISOString()
-  const readyAt = new Date(Date.UTC(2026, 7, 24, 7, 30, 0)).toISOString()
-  return {
-    transferOrderId: `PF-MT-${order.productionOrderId}`,
-    transferOrderNo: 'DB-PF-202608-001',
-    productionOrderId: order.productionOrderId,
-    productionOrderNo: order.productionOrderNo,
-    styleNo: order.styleNo,
-    styleName: order.styleName,
-    styleImageUrl: order.skus[0]?.imageUrl || '',
-    sewingTaskNo: order.sewingTaskNo,
-    responsibility: resolvePostFinishingResponsibility(order.sewingTaskType),
-    sourceWarehouseName: '辅料仓',
-    targetWarehouseName: '后道待加工仓',
-    targetAreaName: '后道辅料暂存区',
-    targetLocationCode: 'PF-MAT-A01-01',
-    status: '待入库',
-    lines,
-    statusHistory: [
-      { status: '申请调拨', operatedAt: createdAt, operatorName: 'PPIC 配料计划员', remark: '按仅车缝任务生成后道辅料调拨申请' },
-      { status: '待调拨', operatedAt: approvedAt, operatorName: '辅料仓主管', remark: '调拨申请审核通过' },
-      { status: '待入库', operatedAt: readyAt, operatorName: '辅料仓配料员', remark: '已按实际配料数量一次性备妥，等待后道领料入库' },
-    ],
-    createdAt,
-    updatedAt: readyAt,
-  }
+  const extraDemoSeeds: Array<{
+    transferOrderNo: string
+    productionOrderNo: string
+    styleNo: string
+    styleName: string
+    styleImageUrl: string
+    sewingTaskNo: string
+    targetLocationCode: string
+    lines: Array<Omit<PostFinishingMaterialTransferLine, 'transferLineId'>>
+  }> = [
+    {
+      transferOrderNo: 'DB-PF-202608-002',
+      productionOrderNo: 'PO-QC-202609-011',
+      styleNo: 'HG-QC-011',
+      styleName: '后道验收针织开衫',
+      styleImageUrl: '/cardigan-sample.jpg',
+      sewingTaskNo: 'SEW-TASK-QC-011',
+      targetLocationCode: 'PF-MAT-A01-02',
+      lines: [
+        { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-black', materialSpuCode: 'FLSZ24116', specification: 'black', unit: 'PCS', requestedQty: 280, preparedQty: 278, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-fadfad', materialSpuCode: 'WLID009', specification: 'fadfad', unit: 'PCS', requestedQty: 280, preparedQty: 280, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '珍珠四眼扣 1.2cm', materialCode: 'FLSZ26090111-shell-12', materialSpuCode: 'FLSZ26090111', specification: 'shell / 12', unit: 'PCS', requestedQty: 1120, preparedQty: 1116, imageUrl: '/materials/accessory-button.jpg' },
+      ],
+    },
+    {
+      transferOrderNo: 'DB-PF-202608-003',
+      productionOrderNo: 'PO-QC-202609-012',
+      styleNo: 'HG-QC-012',
+      styleName: '后道验收休闲连衣裙',
+      styleImageUrl: '/dress-sample-1.jpg',
+      sewingTaskNo: 'SEW-TASK-QC-012',
+      targetLocationCode: 'PF-MAT-A01-03',
+      lines: [
+        { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-white', materialSpuCode: 'FLSZ24116', specification: 'white', unit: 'PCS', requestedQty: 360, preparedQty: 360, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-dress', materialSpuCode: 'WLID009', specification: 'dress', unit: 'PCS', requestedQty: 360, preparedQty: 356, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '隐形按扣 0.8cm', materialCode: 'FLSZ26090112-silver-08', materialSpuCode: 'FLSZ26090112', specification: 'silver / 08', unit: 'PCS', requestedQty: 360, preparedQty: 360, imageUrl: '/materials/accessory-button.jpg' },
+        { materialName: '后道包装辅件', materialCode: 'FLBF2609002-clear', materialSpuCode: 'FLBF2609002', specification: 'clear', unit: 'PCS', requestedQty: 360, preparedQty: 360, imageUrl: '/materials/accessory-label.jpg' },
+      ],
+    },
+    {
+      transferOrderNo: 'DB-PF-202608-004',
+      productionOrderNo: 'PO-QC-202609-013',
+      styleNo: 'HG-QC-013',
+      styleName: '后道验收男士休闲衬衫',
+      styleImageUrl: '/shirt-sample.jpg',
+      sewingTaskNo: 'SEW-TASK-QC-013',
+      targetLocationCode: 'PF-MAT-B01-01',
+      lines: [
+        { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-navy', materialSpuCode: 'FLSZ24116', specification: 'navy', unit: 'PCS', requestedQty: 420, preparedQty: 418, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-shirt', materialSpuCode: 'WLID009', specification: 'shirt', unit: 'PCS', requestedQty: 420, preparedQty: 420, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '树脂四眼扣 1.1cm', materialCode: 'FLSZ26090113-navy-11', materialSpuCode: 'FLSZ26090113', specification: 'navy / 11', unit: 'PCS', requestedQty: 2940, preparedQty: 2928, imageUrl: '/materials/accessory-button.jpg' },
+      ],
+    },
+    {
+      transferOrderNo: 'DB-PF-202608-005',
+      productionOrderNo: 'PO-QC-202609-014',
+      styleNo: 'HG-QC-014',
+      styleName: '后道验收短款夹克',
+      styleImageUrl: '/jacket-sample.jpg',
+      sewingTaskNo: 'SEW-TASK-QC-014',
+      targetLocationCode: 'PF-MAT-B01-02',
+      lines: [
+        { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-gray', materialSpuCode: 'FLSZ24116', specification: 'gray', unit: 'PCS', requestedQty: 240, preparedQty: 240, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-jacket', materialSpuCode: 'WLID009', specification: 'jacket', unit: 'PCS', requestedQty: 240, preparedQty: 238, imageUrl: '/materials/accessory-label.jpg' },
+        { materialName: '金属工字扣 1.5cm', materialCode: 'FLSZ26090114-gunmetal-15', materialSpuCode: 'FLSZ26090114', specification: 'gunmetal / 15', unit: 'PCS', requestedQty: 1200, preparedQty: 1195, imageUrl: '/materials/accessory-button.jpg' },
+        { materialName: '后道包装辅件', materialCode: 'FLBF2609003-gray', materialSpuCode: 'FLBF2609003', specification: 'gray', unit: 'PCS', requestedQty: 240, preparedQty: 240, imageUrl: '/materials/accessory-label.jpg' },
+      ],
+    },
+  ]
+  const demoSeeds = [
+    {
+      transferOrderNo: 'DB-PF-202608-001',
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
+      styleNo: order.styleNo,
+      styleName: order.styleName,
+      styleImageUrl: order.skus[0]?.imageUrl || '',
+      sewingTaskNo: order.sewingTaskNo,
+      targetLocationCode: 'PF-MAT-A01-01',
+      lines: primaryLines,
+    },
+    ...extraDemoSeeds.map((seed) => ({ ...seed, productionOrderId: `PF-DEMO-${seed.productionOrderNo}` })),
+  ]
+  return demoSeeds.map((seed, seedIndex) => {
+    const createdAt = new Date(Date.UTC(2026, 7, 24 + seedIndex, 1, 0, 0)).toISOString()
+    const approvedAt = new Date(Date.UTC(2026, 7, 24 + seedIndex, 3, 0, 0)).toISOString()
+    const readyAt = new Date(Date.UTC(2026, 7, 24 + seedIndex, 7, 30, 0)).toISOString()
+    return {
+      transferOrderId: `PF-MT-${seed.productionOrderId}`,
+      transferOrderNo: seed.transferOrderNo,
+      productionOrderId: seed.productionOrderId,
+      productionOrderNo: seed.productionOrderNo,
+      styleNo: seed.styleNo,
+      styleName: seed.styleName,
+      styleImageUrl: seed.styleImageUrl,
+      sewingTaskNo: seed.sewingTaskNo,
+      responsibility: resolvePostFinishingResponsibility('INDEPENDENT_SEWING'),
+      sourceWarehouseName: '辅料仓',
+      targetWarehouseName: '后道待加工仓',
+      targetAreaName: '后道辅料暂存区',
+      targetLocationCode: seed.targetLocationCode,
+      status: '待入库' as const,
+      lines: seed.lines.map((line, lineIndex) => ({
+        ...line,
+        transferLineId: `PF-MTL-${seed.transferOrderNo.split('-').at(-1)}-${String(lineIndex + 1).padStart(3, '0')}`,
+      })),
+      statusHistory: [
+        { status: '申请调拨' as const, operatedAt: createdAt, operatorName: 'PPIC 配料计划员', remark: '按仅车缝任务生成后道辅料调拨申请' },
+        { status: '待调拨' as const, operatedAt: approvedAt, operatorName: '辅料仓主管', remark: '调拨申请审核通过' },
+        { status: '待入库' as const, operatedAt: readyAt, operatorName: '辅料仓配料员', remark: '已按实际配料数量一次性备妥，等待后道领料入库' },
+      ],
+      createdAt,
+      updatedAt: readyAt,
+    }
+  })
 }
 
 function ensurePostFinishingMaterialTransferDemo(): void {
-  if (state.materialTransferOrders.length > 0) return
-  const transfer = buildPostFinishingMaterialTransferDemo()
-  if (!transfer) return
-  state.materialTransferOrders.push(transfer)
-  transfer.statusHistory.forEach((history, index) => appendPostFinishingOperationLog({
-    logId: `PF-LOG-MATERIAL-${index + 1}`,
-    stage: '辅料调拨',
-    objectType: '后道辅料调拨单',
-    objectId: transfer.transferOrderId,
-    objectNo: transfer.transferOrderNo,
-    productionOrderNo: transfer.productionOrderNo,
-    action: index === 0 ? '创建调拨申请' : index === 1 ? '审核通过进入待调拨' : '辅料仓整单备妥',
-    operatorId: `PF-MATERIAL-${index + 1}`,
-    operatorName: history.operatorName,
-    operatedAt: history.operatedAt,
-    beforeStatus: index === 0 ? '未创建' : transfer.statusHistory[index - 1].status,
-    afterStatus: history.status,
-    afterQuantity: index === 2 ? total(transfer.lines.map((line) => line.preparedQty)) : undefined,
-    result: '成功',
-    remark: history.remark,
-  }))
+  const existingNos = new Set(state.materialTransferOrders.map((item) => item.transferOrderNo))
+  const missingTransfers = buildPostFinishingMaterialTransferDemos().filter((item) => !existingNos.has(item.transferOrderNo))
+  if (missingTransfers.length === 0) return
+  missingTransfers.forEach((transfer) => {
+    state.materialTransferOrders.push(transfer)
+    transfer.statusHistory.forEach((history, index) => appendPostFinishingOperationLog({
+      logId: transfer.transferOrderNo === 'DB-PF-202608-001'
+        ? `PF-LOG-MATERIAL-${index + 1}`
+        : `PF-LOG-MATERIAL-${transfer.transferOrderNo}-${index + 1}`,
+      stage: '辅料调拨',
+      objectType: '后道辅料调拨单',
+      objectId: transfer.transferOrderId,
+      objectNo: transfer.transferOrderNo,
+      productionOrderNo: transfer.productionOrderNo,
+      action: index === 0 ? '创建调拨申请' : index === 1 ? '审核通过进入待调拨' : '辅料仓整单备妥',
+      operatorId: `PF-MATERIAL-${index + 1}`,
+      operatorName: history.operatorName,
+      operatedAt: history.operatedAt,
+      beforeStatus: index === 0 ? '未创建' : transfer.statusHistory[index - 1].status,
+      afterStatus: history.status,
+      afterQuantity: index === 2 ? total(transfer.lines.map((line) => line.preparedQty)) : undefined,
+      result: '成功',
+      remark: history.remark,
+    }))
+  })
   persist()
 }
 
@@ -1267,16 +1359,16 @@ export function getPostFinishingMaterialReadiness(productionOrderNo: string): {
   transferOrderNo?: string
 } {
   const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === productionOrderNo)
+  const transfer = listPostFinishingMaterialTransferOrders().find((item) => item.productionOrderNo === productionOrderNo)
   const hasFrozenButtonProject = state.qcTasks.some((task) => (
     task.productionOrderNo === productionOrderNo
     && Boolean(task.completedAt)
     && task.frozenProcessItems?.includes('装扣子')
   ))
   // 历史示例保留其既有调拨事实；正式新单以本单本批已确认 QC 项目为依据。
-  if (!hasFrozenButtonProject && (!order || order.sewingTaskType !== 'INDEPENDENT_SEWING')) {
+  if (!transfer && !hasFrozenButtonProject && (!order || order.sewingTaskType !== 'INDEPENDENT_SEWING')) {
     return { applicable: false, status: '不适用', label: '当前没有已确认的装扣子项目，无需后道扣子调拨' }
   }
-  const transfer = listPostFinishingMaterialTransferOrders().find((item) => item.productionOrderNo === productionOrderNo)
   if (!transfer) return { applicable: true, status: '申请调拨', label: '后道辅料尚未形成调拨单' }
   const labelByStatus: Record<PostFinishingMaterialTransferStatus, string> = {
     申请调拨: '后道辅料尚未备妥，请关注调拨进度',

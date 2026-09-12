@@ -109,7 +109,9 @@ test('后道辅料在交接待接收中按完整单号整单入库并同步 Web 
     await page.setViewportSize(viewport)
     await page.goto('/fcs/pda/handover?tab=pickup')
     await expect(page.getByRole('heading', { name: '后道辅料待入库' })).toBeVisible()
+    await expect(page.locator('[data-pda-material-transfer-card]')).toHaveCount(5)
     await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-001"]')).toBeVisible()
+    await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-005"]')).toBeVisible()
     await expect(page.locator('[data-pda-handover-field="materialTransferNo"]')).not.toBeVisible()
     await page.getByRole('button', { name: /辅料接收/ }).click()
     await expect(page.locator('[data-pda-handover-field="materialTransferNo"]')).toBeVisible()
@@ -151,6 +153,37 @@ test('后道辅料在交接待接收中按完整单号整单入库并同步 Web 
   await expect(page.locator('tbody tr')).toHaveCount(4)
   await expect(page.locator('tbody')).toContainText('495 PCS')
   await expect(page.locator('tbody')).toContainText('DB-PF-202608-001')
+  await expectNoHorizontalOverflow(page)
+})
+
+test('已有 001 入库历史不被覆盖并自动补齐新增待入库测试单', async ({ page }) => {
+  await setSession(page, 'ROLE_OPERATOR')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/fcs/pda/handover?tab=pickup')
+  await page.evaluate(async () => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    flow.receivePostFinishingMaterialTransfer({
+      transferOrderNo: 'DB-PF-202608-001',
+      actor: { actorId: 'PF-USER-WH', actorName: '孙仓库收货员', roleName: '仓库收货人员' },
+      nowMs: Date.UTC(2026, 8, 12, 8, 0, 0),
+    })
+    const key = 'higood-fcs-post-finishing-full-flow-v1'
+    const saved = JSON.parse(window.localStorage.getItem(key) || '{}')
+    saved.materialTransferOrders = saved.materialTransferOrders.filter((item: { transferOrderNo: string }) => item.transferOrderNo === 'DB-PF-202608-001')
+    saved.materialStocks = saved.materialStocks.filter((item: { transferOrderId: string }) => item.transferOrderId.includes('PF-ACCEPT-PO-1'))
+    window.localStorage.setItem(key, JSON.stringify(saved))
+  })
+  await page.reload()
+  await expect(page.locator('[data-pda-material-transfer-card]')).toHaveCount(4)
+  await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-001"]')).toHaveCount(0)
+  await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-002"]')).toBeVisible()
+  await expect(page.locator('[data-pda-material-transfer-card="DB-PF-202608-005"]')).toBeVisible()
+  const migrated = await page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('higood-fcs-post-finishing-full-flow-v1') || '{}')
+    return saved.materialTransferOrders.map((item: { transferOrderNo: string; status: string }) => ({ no: item.transferOrderNo, status: item.status }))
+  })
+  expect(migrated).toHaveLength(5)
+  expect(migrated).toContainEqual({ no: 'DB-PF-202608-001', status: '已入库' })
   await expectNoHorizontalOverflow(page)
 })
 

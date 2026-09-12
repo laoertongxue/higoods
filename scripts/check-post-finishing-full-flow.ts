@@ -206,11 +206,17 @@ assert(isMaterialRequiringCutting({ materialId: 'MAT-002', bomLinkedPatternIds: 
 assert.equal(isMaterialRequiringCutting({ materialId: 'MAT-003', bomLinkedPatternIds: [], patternLinkedMaterialIds: ['MAT-002'] }), false, '没有任何纸样关联的物料不得误判为裁片')
 
 const transferBeforeFlow = listPostFinishingMaterialTransferOrders()
-assert.equal(transferBeforeFlow.length, 1, '仅车缝生产单必须且只能形成一张后道辅料主调拨单')
-assert.equal(transferBeforeFlow[0].status, '待入库', '辅料仓整单备妥后后道看到的状态必须为待入库')
-assert.equal(new Set(transferBeforeFlow[0].lines.map((line) => line.materialCode)).size, transferBeforeFlow[0].lines.length, '同一物料命中多个规则时不得生成重复调拨明细')
+assert.equal(transferBeforeFlow.length, 5, '后道辅料接收必须提供 5 张可区分的演示调拨单')
+assert.equal(new Set(transferBeforeFlow.map((item) => item.transferOrderNo)).size, 5, '演示调拨单号不得重复')
+assert.equal(new Set(transferBeforeFlow.map((item) => item.productionOrderNo)).size, 5, '每张演示主调拨单必须对应不同生产单')
+assert(transferBeforeFlow.every((item) => item.status === '待入库'), '新增演示调拨单必须都可直接执行整单入库测试')
+assert(transferBeforeFlow.every((item) => item.responsibility.responsibilityMode === 'POST_FACTORY'), '演示调拨单必须全部属于仅车缝、后道负责场景')
+assert(transferBeforeFlow.every((item) => item.lines.length >= 3), '每张演示调拨单必须有至少 3 条物料明细')
+assert(transferBeforeFlow.every((item) => item.lines.every((line) => line.imageUrl && line.unit === 'PCS')), '每条演示物料必须有对应图片和现场单位')
+const primaryMaterialTransfer = transferBeforeFlow.find((item) => item.transferOrderNo === 'DB-PF-202608-001')!
+assert.equal(new Set(primaryMaterialTransfer.lines.map((line) => line.materialCode)).size, primaryMaterialTransfer.lines.length, '同一物料命中多个规则时不得生成重复调拨明细')
 assert.equal(listPostFinishingMaterialStocks().length, 0, '确认入库前不得提前形成后道辅料库存')
-assert.equal(getPostFinishingMaterialReadiness(transferBeforeFlow[0].productionOrderNo).status, '待入库', '仅车缝加工前必须能够读取关联调拨状态')
+assert(transferBeforeFlow.every((item) => getPostFinishingMaterialReadiness(item.productionOrderNo).status === '待入库'), '每张仅车缝演示单都必须能够读取关联调拨状态')
 assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[1].productionOrderNo).applicable, false, '车缝＋烫包不得误读主调拨单')
 assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[2].productionOrderNo).applicable, false, '裁剪＋车缝＋烫包不得误读主调拨单')
 
