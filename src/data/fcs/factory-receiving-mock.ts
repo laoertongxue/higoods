@@ -16,7 +16,7 @@ export function buildFactoryReceivingDemoSources():FactoryReceivingSource[]{
  }
  add(1,'TRANSFER',DYE_PARTNERS.fabric,fabric('DWO-001'),400,{order:'DWO-001'})
  add(2,'TRANSFER',DYE_PARTNERS.fabric,fabric('DWO-002'),400,{order:'DWO-002'})
- add(3,'HANDOUT',DYE_PARTNERS.berys,fabric('DWO-001'),300,{order:'DWO-001',rollCount:3})
+ add(3,'HANDOUT',DYE_PARTNERS.berys,fabric('DWO-001'),300,{rollCount:3})
  add(4,'TRANSFER',DYE_PARTNERS.fabric,fabric('DWO-001'),400,{unshipped:true})
  add(5,'TRANSFER',DYE_PARTNERS.sea,fabric('DWO-003'),1000,{rollCount:10})
  add(6,'TRANSFER',DYE_PARTNERS.accessory,lace,12.345)

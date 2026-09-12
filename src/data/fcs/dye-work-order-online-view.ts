@@ -74,6 +74,7 @@ export interface DyeWorkOrderOnlineRow {
   yarnQuantities?: {upstream:YarnWeight[];received:YarnWeight[];shipped:YarnWeight[];downstream:YarnWeight[]}
   inputMaterials: Array<{name: string; sku: string; imageUrl: string; materialType: string; composition: string; width: string; weightGsm: number | null}>
   upstreamDocuments: DyeUpstreamDocument[]
+  upstreamPartners: DyePartner[]
   downstreamPartner?: DyePartner
   preparedRollCount: number
   completedRollCount: number
@@ -386,8 +387,9 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     }:undefined
   const yarnNet=(weights:YarnWeight[])=>weights.reduce((n,w)=>n+w.netGrams,0)/1000
   return {
-    inputMaterials: [{name: materialName, sku: demo?.rawSku || order.rawMaterialSku, imageUrl: images?.material || presentation.materialImageUrl || '', materialType, composition, width, weightGsm}, ...(demo?.additionalInputs ?? [])],
+    inputMaterials: [{name: materialName, sku: demo?.rawSku || order.rawMaterialSku, imageUrl: images?.material || presentation.materialImageUrl || '', materialType, composition, width, weightGsm}],
     upstreamDocuments,
+    upstreamPartners: [...new Map(upstreamDocuments.map(doc=>[`${doc.partner.kind}|${doc.partner.id}`,doc.partner])).values()],
     downstreamPartner,
     preparedRollCount: demo?.preparedRollCount ?? (axes.receivedInputQty > 0 ? online.rawMaterialRollCount : 0),
     completedRollCount: outputRolls.length ? outputRolls.filter(roll => roll.qty > 0).length : (demo?.completedRollCount ?? 0),
@@ -585,7 +587,7 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
         ['加工状态', (row) => row.processingStatusLabel],
         ['交出状态', (row) => row.handoverStatusLabel],
         ['上游供料方', (row) => row.upstreamName],
-        ['上游属性', (row) => row.upstreamDocuments.map(doc=>dyePartnerFields(doc.partner).map(([key,value])=>`${key}：${value}`).join(' / ')).join('；')],
+        ['上游属性', (row) => row.upstreamPartners.map(partner=>dyePartnerFields(partner).map(([key,value])=>`${key}：${value}`).join(' / ')).join('；')],
         ['来源单据', (row) => row.inputSourceDocumentNos.join(' / ') || '待补录'],
         ['下游接收方', (row) => `${row.receiverName} / ${row.receiverWarehouseName}`],
         ['下游属性', (row) => row.downstreamPartner ? dyePartnerFields(row.downstreamPartner).map(([key,value])=>`${key}：${value}`).join(' / ') : '按接收方资料'],

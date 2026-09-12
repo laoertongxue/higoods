@@ -1,17 +1,17 @@
 import {listWaterSolubleWorkOrders} from './water-soluble-task-domain.ts'
 import {DYE_DEMO_DETAILS} from './dye-work-order-demo-details.ts'
 import {invalidatePdaHandoverHeadCache} from './pda-handover-events.ts'
-import {listFactoryReceipts,listReceivingAllocations,allocateFactoryReceivedMaterial,prepareFactoryReceipt,savePreparedFactoryReceipt,type FactoryReceiptInput,type ReceivingAllocation} from './factory-receiving.ts'
+import {listFactoryReceipts,listReceivingAllocations,getDyeReceivingConflict,allocateFactoryReceivedMaterial,prepareFactoryReceipt,savePreparedFactoryReceipt,type FactoryReceiptInput,type ReceivingAllocation} from './factory-receiving.ts'
 import {listDyeWorkOrders} from './dyeing-task-domain.ts'
 import {readWoolStore} from './wool-domain/store.ts'
 export function listReceivingAllocationTargets(receiptLineId:string){
  const receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===receiptLineId)),line=receipt?.lines.find(l=>l.id===receiptLineId)
  if(!receipt||!line||line.dyeOrderId||line.waterOrderId||line.woolOrderId)return []
  if(receipt.factoryId==='OWN_WOOL_FACTORY')return Object.values(readWoolStore().workOrders).filter(o=>o.factoryId===receipt.factoryId&&o.outputPlanLines.some(l=>l.requiredYarnSkus.includes(line.material.sku))).map(o=>({id:o.woolOrderId,no:o.woolOrderNo,kind:'wool' as const}))
- return [...listWaterSolubleWorkOrders().filter(o=>o.factoryId===receipt.factoryId&&o.materialCode===line.material.sku&&o.status!=='DONE').map(o=>({id:o.waterOrderId,no:o.waterOrderNo,kind:'water' as const})),...listDyeWorkOrders().filter(o=>o.dyeFactoryId===receipt.factoryId&&[o.rawMaterialSku,o.materialId,DYE_DEMO_DETAILS[o.dyeOrderId]?.rawSku,...(DYE_DEMO_DETAILS[o.dyeOrderId]?.additionalInputs??[]).map(x=>x.sku)].includes(line.material.sku)&&!['COMPLETED','REJECTED'].includes(o.status)).map(o=>({id:o.dyeOrderId,no:o.dyeOrderNo,kind:'dye' as const}))]
+ return [...listWaterSolubleWorkOrders().filter(o=>o.factoryId===receipt.factoryId&&o.materialCode===line.material.sku&&o.status!=='DONE').map(o=>({id:o.waterOrderId,no:o.waterOrderNo,kind:'water' as const})),...listDyeWorkOrders().filter(o=>o.dyeFactoryId===receipt.factoryId&&(DYE_DEMO_DETAILS[o.dyeOrderId]?.rawSku||o.rawMaterialSku)===line.material.sku&&!getDyeReceivingConflict(o.dyeOrderId,line.material.sku,line.origin)&&!['COMPLETED','REJECTED'].includes(o.status)).map(o=>({id:o.dyeOrderId,no:o.dyeOrderNo,kind:'dye' as const}))]
 }
 export function allocateReceivedMaterialToOrder(input:ReceivingAllocation){
- if(!listReceivingAllocationTargets(input.receiptLineId).some(t=>t.id===(input.dyeOrderId||input.waterOrderId||input.woolOrderId)))throw new Error('请选择本厂、同一物料 SKU 的有效加工单。')
+ if(!listReceivingAllocationTargets(input.receiptLineId).some(t=>t.id===(input.dyeOrderId||input.waterOrderId||input.woolOrderId)))throw new Error('请选择本厂、同一物料 SKU 的有效加工单；染色单还须来自同一上游。')
  allocateFactoryReceivedMaterial(input)
 }
 export function confirmFactoryMaterialReceipt(input:FactoryReceiptInput){

@@ -15,7 +15,8 @@ for (const row of rows) {
     assert(row[key] && !/^(—|-|尚未指定)$/.test(row[key]), `${row.dyeOrderId}: ${key}`)
   }
   if (row.sourceType !== 'STOCK') assert(row.productionOrderNo, `${row.dyeOrderId}: 生产单`)
-  assert(row.inputMaterials.length)
+  assert.equal(row.inputMaterials.length,1)
+  assert.equal(row.upstreamPartners.length,1)
   for (const item of row.inputMaterials) {
     assert(item.name && item.sku && item.imageUrl)
     assert(existsSync(`public${item.imageUrl}`),item.imageUrl)
@@ -91,30 +92,28 @@ for (const row of rows) {
   }
   assert.equal(row.preparedQty > 0,row.preparedRollCount > 0,`${row.dyeOrderId}: 备料卷数`)
 }
-const multi = rows.find(row=>row.inputMaterials.length > 1)!
-assert(multi,'至少一个多SKU演示场景')
+const single = rows.find(row=>row.dyeOrderId === 'DWO-002')!
 assert(rows.some(row=>row.isOverdue && row.isReplenishment),'超期与补料可同时出现')
-assert.equal(filterDyeWorkOrderOnlineRows(rows,{keyword:multi.inputMaterials[1].sku})[0]?.dyeOrderId,multi.dyeOrderId)
+assert(filterDyeWorkOrderOnlineRows(rows,{keyword:single.inputMaterials[0].sku}).some(row=>row.dyeOrderId===single.dyeOrderId))
 const finishedNotSent = rows.find(row=>row.completedQty > 0 && row.handedOverQty === 0)!
 assert(finishedNotSent)
 assert.equal(finishedNotSent.processingStatus,'COMPLETED')
 assert.notEqual(finishedNotSent.handoverStatus,'FULL_HANDOVER')
 const html = renderCraftDyeingWorkOrdersPage()
 for (const label of ['染色加工单','任务单','生产单','售卖类型','下单时间','交货时间','完成时间','交出时间','加工用料','备料数量','备料卷数','备料重量','完成数量','交出数量','损耗数量']) assert(html.includes(label),label)
-assert(html.includes(multi.inputMaterials[1].sku))
+assert(html.includes(single.inputMaterials[0].sku))
 assert(!html.includes('undefined') && !html.includes('NaN'))
 assert(!html.includes('雅加达中心仓'))
 const downstreamKinds = new Set(rows.map(row=>row.downstreamPartner!.kind === 'WAREHOUSE' ? row.downstreamPartner!.warehouseAttribute : '加工厂'))
 assert.deepEqual([...downstreamKinds].sort(),['中转仓','加工厂','辅料中央仓','面料中央仓'].sort())
-assert.equal(rows.filter(row=>row.upstreamDocuments.some(doc=>doc.partner.kind === 'FACTORY')).length,3)
+assert.equal(rows.filter(row=>row.upstreamDocuments.some(doc=>doc.partner.kind === 'FACTORY')).length,2)
 assert(filterDyeWorkOrderOnlineRows(rows,{keyword:'印花厂'}).some(row=>row.dyeOrderId === 'DWO-002'))
 assert.equal(filterDyeWorkOrderOnlineRows(rows,{keyword:'WH-FITTING-001'})[0].dyeOrderId,'DYE-WATER-PO-202603-081')
 const csv = buildDyeWorkOrderCsv(rows,'全部')
 assert(!csv.includes('雅加达中心仓'))
 for (const term of ['工厂类型','仓库属性','面料中央仓(GKP)','辅料中央仓(GTP)','中转仓（Sea Cutting）','中转仓（新裁床）','berys konveksi']) assert(csv.includes(term),term)
 assert(!csv.includes('所属工厂') && !html.includes('所属工厂'))
-assert.equal(multi.inputMaterials[0].width,'150 cm')
-assert.equal(multi.inputMaterials[1].width,'160 cm')
+assert.equal(single.inputMaterials[0].width,'150 cm')
 assert.equal(rows.find(row=>row.dyeOrderId === 'DYE-WATER-PO-202603-081')!.materialType,'辅料')
 for (const row of rows) for (const item of row.inputMaterials) {
   assert(item.materialType && item.composition && item.width)
@@ -122,9 +121,9 @@ for (const row of rows) for (const item of row.inputMaterials) {
   else assert(item.weightGsm && item.weightGsm > 0)
 }
 for (const section of ['plan','receipt','processing','handover']) assert.equal(html.split(`data-dye-quantity-section="${section}"`).length-1,10)
-console.log('PASS REFINE-001..003：仓库无所属工厂、投入产出规格齐全、独立幅宽及四段数量')
-console.log('PASS PARTY-001..005：上下游资料完整、3个加工厂来源、下游4类覆盖、染色调拨同源、搜索及导出无旧仓库名')
-console.log('PASS 22行资料和来源完整（含3行纱线三项数量）、多SKU搜索、上游单据发出量、卷数、独立进度及时间/数量列')
+console.log('PASS REFINE-001..003：仓库无所属工厂、投入产出规格齐全、单一投入幅宽及四段数量')
+console.log('PASS PARTY-001..005：上下游资料完整、加工厂来源、下游4类覆盖、染色调拨同源、搜索及导出无旧仓库名')
+console.log('PASS 22行资料和来源完整（含3行纱线三项数量）、单一SKU搜索、上游单据发出量、卷数、独立进度及时间/数量列')
 
 // REFINE-004..005: note-only edits must preserve execution facts and survive local reload.
 const {getDyeWorkOrderOnlineRecord, updateDyeWorkOrderRemark, listDyeWorkOrderOnlineLogs, captureDyeOnlineMutationState, restoreDyeOnlineMutationState} = await import('../src/data/fcs/dye-work-order-online-domain.ts')

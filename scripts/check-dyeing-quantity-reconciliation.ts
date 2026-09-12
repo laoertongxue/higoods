@@ -176,46 +176,13 @@ assert.throws(
     }),
   /同一物料/,
 )
-// Independent multi-SKU input must not be arbitrarily pooled.
-for (let i = 1; i <= 2; i++) {
-  const copy = structuredClone(src)
-  copy.id = `QR-MULTI-${i}`
-  copy.documentNo = copy.id
-  copy.lines = [
-    {
-      ...copy.lines[0],
-      id: `QR-MULTI-L${i}`,
-      dyeOrderId: 'DWO-002',
-      material: { ...copy.lines[0].material, sku: `QR-SKU-${i}` },
-      rolls: [{ barcode: `QR-ROLL-${i}`, yard: 20 }],
-    },
-  ]
-  r.registerFactoryReceivingSource(copy)
-  l.confirmFactoryMaterialReceipt({
-    id: `QR-MULTI-R${i}`,
-    factoryId: 'ID-F003',
-    operatorName: 'hilon',
-    operatorId: 'RCV-HILON',
-    receivedAt: '2026-09-12 12:00:00',
-    remark: '不同投入规格',
-    lines: [
-      {
-        sourceId: copy.id,
-        sourceLineId: copy.lines[0].id,
-        ...pos,
-        rolls: [{ ...pos, barcode: `QR-ROLL-${i}`, yard: 20 }],
-      },
-    ],
-  })
-}
-assert.throws(() => d.startDyeing('DWO-002', { inputQty: 5, dyeVatNo: 'VAT-01' }), /多个投入 SKU/)
-d.startDyeing('DWO-002', { inputQty: 5, dyeVatNo: 'VAT-01', materialSku: 'QR-SKU-2', operatorName: 'hilon' })
-assert(
-  r
-    .listFactoryMaterialUses()
-    .find((u) => u.dyeOrderId === 'DWO-002')!
-    .lines.every((line) => line.receiptLineId === 'QR-MULTI-R2-L1'),
-)
+// A dye order cannot pool a different input SKU, even when registered directly.
+const wrongSku = structuredClone(src)
+wrongSku.id = 'QR-WRONG-SKU'
+wrongSku.documentNo = wrongSku.id
+wrongSku.lines[0].id = 'QR-WRONG-L1'
+wrongSku.lines[0].dyeOrderId = 'DWO-002'
+assert.throws(() => r.registerFactoryReceivingSource(wrongSku), /一种投入物料/)
 for (const node of ['DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'] as const) {
   d.startDyeNode('DWO-001', node)
   d.completeDyeNode('DWO-001', node, { outputQty: 70, operatorName: 'hilon' })
@@ -288,7 +255,7 @@ assert(oldStock.some((s) => s.stockItemId.startsWith('DYE-HISTORY-')))
 const expectedReceived = 128.016
 near(facts.getDyeingQuantityFacts().find((f) => f.order.dyeOrderId === 'DWO-001')!.received, expectedReceived)
 console.log(
-  'PASS round 1: receipt does not start processing; 100 Yard - 80 m; immutable batch input; stock limit; reserve allocation conservation; multi-SKU selection; roll dispatch; zero/short/over/duplicate receipts; MJS and older stock; separate units',
+  'PASS round 1: receipt does not start processing; 100 Yard - 80 m; immutable batch input; stock limit; reserve allocation conservation; different SKU blocked; roll dispatch; zero/short/over/duplicate receipts; MJS and older stock; separate units',
 )
 const path = join(mkdtempSync(join(tmpdir(), 'dye-quantities-')), 'state.json')
 writeFileSync(path, JSON.stringify([...values]))

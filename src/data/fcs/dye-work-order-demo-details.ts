@@ -4,7 +4,6 @@ export interface DyeDemoDetails {
   composition: string; widthCm: number; gsm: number; outputImage: string; sampleImage: string
   supplier: string; demandNo: string; batchNo: string; fabricReceiver: string; sampleNote: string
   shade: '浅色' | '深色'; temperature: 190 | 200 | 205; headVat: string
-  additionalInputs?: Array<{name: string; sku: string; imageUrl: string; materialType: string; composition: string; width: string; weightGsm: number}>
   /** 未发料场景的演示调拨计划，数量仍为0，不生成接收或出库事实。 */
   plannedTransferNo: string
   preparedRollCount: number
@@ -39,7 +38,6 @@ export const DYE_DEMO_DETAILS: Readonly<Record<string, DyeDemoDetails>> = Object
   preparedRollCount: [0,0,0,70,35,84,42,26,48,70,35,0,16,0,0,0][i],
   completedRollCount: [0,0,0,0,0,0,41,26,48,70,35,0,0,0,0,0][i],
   handedOverRollCount: [0,0,0,0,0,0,0,26,48,70,35,0,0,0,0,0][i],
-  additionalInputs: id === 'DWO-002' ? [{name: '棉氨针织布 J180（本白，加宽）', sku: 'FAB-J180-WHITE-160', imageUrl: '/materials/process-orders/white-black-cotton-jersey.jpg', materialType:'面料', composition:rose.composition, width:'160 cm', weightGsm:180}] : undefined,
 }]))
 
 for (let i=1;i<=3;i++) {
@@ -92,7 +90,7 @@ export const DYE_PARTNERS = {
 type DyeDemoPartnerScenario = {upstream: DyePartner; downstream: DyePartner; upstreamWorkOrder?: {no:string; status:string}}
 export const DYE_DEMO_PARTNER_SCENARIOS: Readonly<Record<string, DyeDemoPartnerScenario>> = {
   'DWO-001': {upstream:DYE_PARTNERS.fabric, downstream:DYE_PARTNERS.sea},
-  'DWO-002': {upstream:DYE_PARTNERS.berys, downstream:DYE_PARTNERS.cik, upstreamWorkOrder:{no:'YH-DEMO-260910-002', status:'加工中'}},
+  'DWO-002': {upstream:DYE_PARTNERS.fabric, downstream:DYE_PARTNERS.cik},
   'DWO-003': {upstream:DYE_PARTNERS.cik, downstream:DYE_PARTNERS.fabric, upstreamWorkOrder:{no:'YH-DEMO-260910-003', status:'待加工'}},
   'DWO-004': {upstream:DYE_PARTNERS.fabric, downstream:DYE_PARTNERS.berys},
   'DWO-005': {upstream:DYE_PARTNERS.sea, downstream:DYE_PARTNERS.newCutting},
