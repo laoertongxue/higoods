@@ -1,5 +1,6 @@
+import {renderPrintingPendingHandoverPage,renderPrintingHandoverDocumentsPage} from '../pages/process-factory/printing/dispatch.ts'
 import {renderDyeYarnShipmentsPage} from '../pages/process-factory/dyeing/yarn-shipments.ts'
-import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
+import {renderFactoryPendingReceiptsPage,renderPrintingPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import {
@@ -136,7 +137,6 @@ import {
   renderCraftCuttingWarehouseManagementWaitHandoverPage,
   renderCraftCuttingWarehouseManagementWaitProcessPage,
   renderCraftPrintingDashboardsPage,
-  renderCraftPrintingPendingReviewPage,
   renderCraftPrintingProgressPage,
   renderCraftPrintingStatisticsPage,
   renderCraftPrintingWaitHandoverWarehousePage,
@@ -369,6 +369,9 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/statistics/ab-material': () => renderCraftCuttingAbMaterialStatisticsPage(),
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
+    '/fcs/craft/printing/pending-receipts': () => renderPrintingPendingReceiptsPage(),
+    '/fcs/craft/printing/pending-handover': () => renderPrintingPendingHandoverPage(),
+    '/fcs/craft/printing/handover-documents': () => renderPrintingHandoverDocumentsPage(),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/orders': () => renderCraftPrintingWorkOrdersPage(),
@@ -378,8 +381,8 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
     '/fcs/craft/printing/warehouse-management': () =>
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
-    '/fcs/craft/printing/pending-review': () => renderCraftPrintingPendingReviewPage(),
-    '/fcs/craft/printing/batches': () => renderCraftPrintingPendingReviewPage(),
+    '/fcs/craft/printing/pending-review': () => renderRouteRedirect('/fcs/craft/printing/handover-documents', '正在打开印花交出及下游实收记录'),
+    '/fcs/craft/printing/batches': () => renderRouteRedirect('/fcs/craft/printing/handover-documents', '正在打开印花交出及下游实收记录'),
     '/fcs/craft/printing/progress': () =>
       renderRouteRedirect('/fcs/craft/printing/work-orders?tab=progress', '正在跳转到印花加工单进度视图'),
     '/fcs/craft/printing/stats': () => renderCraftPrintingStatisticsPage(),

@@ -1,3 +1,4 @@
+import { PRINTING_FACTORIES } from './printing-factories.ts'
 import { KOL_GOTO_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
@@ -228,7 +229,7 @@ function buildFactoryAreaList(
   return buildDefaultAreaList()
 }
 
-export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = mockFactories): FactoryInternalWarehouse[] {
+export function buildDefaultFactoryInternalWarehouses(factories: ReadonlyArray<Pick<Factory, 'id' | 'name' | 'factoryType' | 'createdAt' | 'updatedAt'>> = mockFactories): FactoryInternalWarehouse[] {
   const seenIds = new Set<string>()
   return factories
     .filter((factory) => factory.id === KOL_GOTO_FACTORY_ID || !SEWING_FACTORY_TYPES.has(factory.factoryType))
@@ -289,6 +290,7 @@ function ensureWarehouseLocationRegistry(): FactoryInternalWarehouse[] {
   if (!warehouseLocationRegistry) {
     warehouseLocationRegistry = [
       ...buildDefaultFactoryInternalWarehouses(),
+      ...buildDefaultFactoryInternalWarehouses(PRINTING_FACTORIES.filter(factory => !mockFactories.some(existing => existing.id === factory.id)).map(factory => ({...factory,factoryType:'CENTRAL_PRINT',createdAt:'2026-09-14 08:00:00',updatedAt:'2026-09-14 08:00:00'}))),
       ...buildOnboardingCuttingInternalWarehouses(),
     ]
     rememberWarehouseLocations(warehouseLocationRegistry)
@@ -300,8 +302,8 @@ export function getFactoryInternalWarehouseRegistryReference(): FactoryInternalW
   return ensureWarehouseLocationRegistry()
 }
 
-export function listFactoryInternalWarehouses(): FactoryInternalWarehouse[] {
-  return cloneValue(ensureWarehouseLocationRegistry())
+export function listFactoryInternalWarehouses(factoryId?: string): FactoryInternalWarehouse[] {
+  return cloneValue(ensureWarehouseLocationRegistry().filter(warehouse => !factoryId || warehouse.factoryId === factoryId))
 }
 
 export function resolveEnabledFactoryWarehouseLocation(

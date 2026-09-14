@@ -125,7 +125,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderGarmentSkuLabelTemplate,
   },
   {
-    templateCode: 'PRINTING_INFO_SHEET_V2',
+    templateCode: 'PRINTING_INFO_SHEET_V3',
     templateName: '印花信息单',
     documentType: 'PRINTING_INFO_SHEET',
     supportedSourceTypes: ['PRINTING_WORK_ORDER'],
@@ -133,7 +133,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderPrintingInfoSheetDocument,
   },
   {
-    templateCode: 'PRINTING_CONFIRMATION_V2',
+    templateCode: 'PRINTING_CONFIRMATION_V3',
     templateName: '印花确认单',
     documentType: 'PRINTING_CONFIRMATION',
     supportedSourceTypes: ['PRINTING_WORK_ORDER'],

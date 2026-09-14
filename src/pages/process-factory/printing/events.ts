@@ -1,10 +1,14 @@
+import { startPrintingProduction, recordPrintingProductionStage } from '../../../data/fcs/printing-task-domain.ts'
+import { printingDemandFields, printingDocumentVersion, printingProductionStage, printingQuantityGroups, printingPresentationFacts } from './presentation.ts'
+import { printingWorkOrderTimeGroups } from './work-order-times.ts'
 import { handlePrintingWarehouseEvent } from './warehouse.ts'
-import { openPrintingDispatch, handlePrintingDispatchEvent } from './dispatch.ts'
+import { handlePrintingStatisticsEvent } from './statistics.ts'
+import { handlePrintingDashboardsEvent } from './dashboards.ts'
+import { handlePrintingDispatchEvent, refreshPrintingDispatchPage } from './dispatch.ts'
 import { updatePrintingOrderInformation, deletePrintingRollBarcodes, copyPrintingRollBarcode, importPrintingRollLengths, movePrintingRollsToOutboundArea } from '../../../data/fcs/printing-task-domain.ts'
 import { printingMaterialCode, printingUpstreamNames } from './relations.ts'
 import { PRINTING_DEMAND_SOURCE_LABEL, PRINTING_RECEIPT_STATUS_LABEL, PRINTING_PROCESSING_STATUS_LABEL, PRINTING_HANDOVER_STATUS_LABEL } from '../../../data/fcs/printing-work-order-business.ts'
 import { recordPrintingHistoricalInput } from '../../../data/fcs/printing-work-order-business.ts'
-import { receivePrintingMaterial } from '../../../data/fcs/printing-material-receipts.ts'
 import {
   addPrintingRollBarcode,
   assignPrintingWorkOrder,
@@ -14,13 +18,9 @@ import {
   completePrintWorkOrderDocument,
   completePrintingWorkOrder,
   getPrintingWorkOrderById,
-  handoverPrintingOutput,
   markPrintingRollBarcodesPrinted,
   receivePrintingHandover,
-  receivePrintingInput,
-  recordPrintingDocumentAction,
   updatePrintingRollBarcode,
-  type PrintingDocumentHistory,
 } from '../../../data/fcs/printing-work-order-business.ts'
 import { buildUnifiedPrintPreviewLink, type PrintDocumentType } from '../../../data/fcs/print-service.ts'
 import { appStore } from '../../../state/store.ts'
@@ -57,6 +57,7 @@ function showPrintingToast(message: string, tone: 'success' | 'error' = 'success
 }
 
 function refreshVisiblePage(): void {
+  refreshPrintingDispatchPage()
   refreshPrintingWorkOrderListPage()
   refreshPrintingWorkOrderDetailPage()
 }
@@ -91,10 +92,24 @@ function submitDialog(): void {
   if (!dialog) return
   try {
     if (dialog.type === 'edit-info') {
-      updatePrintingOrderInformation(dialog.workOrderId,{craftName:fieldValue('craftName'),type:fieldValue('craftType'),shade:fieldValue('shade'),temperature:fieldValue('temperature'),printerNo:fieldValue('printerNo'),plannedFinishAt:fieldValue('plannedFinishAt'),remark:fieldValue('infoRemark'),operatorName:'印花跟单员'})
+      const record = getPrintingWorkOrderById(dialog.workOrderId)!
+      const readPattern = (prefix: 'frontPattern' | 'insidePattern') => {
+        const original = record.requirement[prefix]
+        const values = { patternNo:fieldValue(`${prefix}No`),patternVersion:fieldValue(`${prefix}Version`),patternName:fieldValue(`${prefix}Name`),imageUrl:fieldValue(`${prefix}Image`) }
+        if (original && Object.entries(values).every(([key, value]) => original[key as keyof typeof values] === value)) return original
+        return { ...values, imageAlt:`${prefix === 'frontPattern' ? '正面' : '反面'}花型 ${values.patternNo}` }
+      }
+      updatePrintingOrderInformation(dialog.workOrderId,{ printSide:(fieldValue('printSide') || record.requirement.printSide) as '单面'|'双面',frontPattern:readPattern('frontPattern'),insidePattern:(fieldValue('printSide') || record.requirement.printSide) === '双面' ? readPattern('insidePattern') : undefined,changeReason:fieldValue('changeReason'),craftName:fieldValue('craftName'),type:fieldValue('craftType'),shade:fieldValue('shade'),temperature:fieldValue('temperature'),printerNo:fieldValue('printerNo'),plannedFinishAt:fieldValue('plannedFinishAt'),remark:fieldValue('infoRemark'),operatorName:'印花跟单员'})
       showPrintingToast('印花信息已保存，原打印单请核对重印')
+    } else if (dialog.type === 'start-production') {
+      startPrintingProduction(dialog.workOrderId, {id:dialog.receiptId!,qty:numberValue('productionQty'),operatorName:fieldValue('productionOperator')})
+      showPrintingToast('实际领用已保存，已开始本次生产')
+    } else if (dialog.type === 'production-stage') {
+      const [stage, action] = fieldValue('productionAction').split(':')
+      recordPrintingProductionStage(dialog.workOrderId, {id:dialog.receiptId!,stage:stage as 'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER',action:action as 'START'|'FINISH',qty:fieldValue('productionQty') ? numberValue('productionQty') : undefined,operatorName:fieldValue('productionOperator')})
+      showPrintingToast('本工序记录已保存')
     } else if (dialog.type === 'assign') {
-      assignPrintingWorkOrder(dialog.workOrderId, { factoryId: fieldValue('factoryId'), factoryName: fieldValue('factoryName'), operatorName: '生产计划员' })
+      assignPrintingWorkOrder(dialog.workOrderId, { factoryId: fieldValue('factoryId'), operatorName: '生产计划员' })
       showPrintingToast('已分配加工厂，加工状态进入“待接收投入”')
     } else if (dialog.type === 'change-input') {
       const record = getPrintingWorkOrderById(dialog.workOrderId)
@@ -112,14 +127,11 @@ function submitDialog(): void {
     } else if (dialog.type === 'receive-input') {
       const historicalCorrection = getPrintingWorkOrderById(dialog.workOrderId)?.historicalInputQuantityUnknown
       if (historicalCorrection) recordPrintingHistoricalInput(dialog.workOrderId, { receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), reason: fieldValue('historicalReason'), operatorName: fieldValue('receiverName'), historicalCompletedRollCount: fieldValue('historicalCompletedRollCount') ? numberValue('historicalCompletedRollCount') : undefined })
-      else receivePrintingMaterial(dialog.workOrderId, { actualSku: fieldValue('actualSku'), receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), receiverName: fieldValue('receiverName'), receiptId: dialog.receiptId || '', upstreamRecordId: fieldValue('upstreamRecordId') })
-      showPrintingToast(historicalCorrection ? '历史累计投入已补录，原交接记录保持不变' : '加工投入已接收，加工状态进入“加工中”')
+      else throw new Error('请在待接收中登记实收和库位')
+      showPrintingToast(historicalCorrection ? '历史累计投入已补录，原交接记录保持不变' : '本厂实收已保存，等待实际开工')
     } else if (dialog.type === 'complete') {
-      completePrintingWorkOrder(dialog.workOrderId, { usedQty: numberValue('usedQty'), usedRollCount: numberValue('usedRollCount'), completedQty: numberValue('completedQty'), completedRollCount: numberValue('completedRollCount'), printerNo: fieldValue('printerNo'), operatorName: '印花执行员' })
-      showPrintingToast('加工完成事实已保存，交出状态进入“待交出”')
-    } else if (dialog.type === 'handover') {
-      handoverPrintingOutput(dialog.workOrderId, { qty: numberValue('handoverQty'), barcodeIds: selectedBarcodeIds(), operatorName: fieldValue('handoverOperator') || '印花交出员', receiverName: fieldValue('handoverReceiver') })
-      showPrintingToast('加工产出已交出，等待下游接收')
+      completePrintingWorkOrder(dialog.workOrderId, { batchId:dialog.receiptId,lossQty:fieldValue('lossQty') ? numberValue('lossQty') : undefined,finishOrder:dialogPanel()?.querySelector<HTMLInputElement>('[data-printing-dialog-field="finishOrder"]')?.checked || false,usedQty: numberValue('usedQty'), usedRollCount: numberValue('usedRollCount'), completedQty: numberValue('completedQty'), completedRollCount: numberValue('completedRollCount'), printerNo: fieldValue('printerNo'), operatorName: '印花执行员' })
+      showPrintingToast('本批产出已保存，请按实际逐卷维护数量后交出')
     } else if (dialog.type === 'receive-handover') {
       receivePrintingHandover(dialog.workOrderId, { receivedQty: numberValue('receiveQty'), receiverName: fieldValue('outputReceiver'), objectionQty: numberValue('objectionQty'), differenceReason: fieldValue('differenceReason') })
       showPrintingToast('下游接收事实已保存；单据仍需人工完成')
@@ -140,7 +152,7 @@ function submitDialog(): void {
       const lengthY = numberValue('lengthY'); const meters = numberValue('meters'); const weightKg = numberValue('weightKg')
       updatePrintingRollBarcode(dialog.workOrderId, dialog.barcodeId, {
         lengthY: lengthY > 0 ? lengthY : undefined, meters: meters > 0 ? meters : undefined, weightKg: weightKg > 0 ? weightKg : undefined,
-        gsm: numberValue('gsm'), widthCm: numberValue('widthCm'), vatNo: fieldValue('vatNo'), warehouseName: fieldValue('warehouseName'), remark: fieldValue('barcodeRemark'),
+        weightMeasured:dialogPanel()?.querySelector<HTMLInputElement>('[data-printing-dialog-field="weightMeasured"]')?.checked || false, gsm: numberValue('gsm'), widthCm: numberValue('widthCm'), vatNo: fieldValue('vatNo'), warehouseName: fieldValue('warehouseName'), remark: fieldValue('barcodeRemark'),
       })
       showPrintingToast('卷属性已保存，重量按 KG 三位小数记录')
       replacePrintingDialog({ type: 'barcodes', workOrderId: dialog.workOrderId })
@@ -174,6 +186,7 @@ function openImagePreview(url: string, alt: string): void {
   overlay.className = 'fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/80 p-5'
   overlay.dataset.printingImagePreview = 'true'
   overlay.innerHTML = `<button type="button" class="absolute inset-0" data-printing-action="close-image" aria-label="关闭大图"></button><section class="relative z-10 max-h-full max-w-6xl rounded-lg bg-white p-4"><div class="mb-3 flex items-center justify-between gap-4"><h2 class="font-semibold">${escapeHtml(alt)}</h2><button type="button" class="rounded border px-3 py-1.5 text-sm" data-printing-action="close-image">关闭</button></div><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}高清大图" class="max-h-[80vh] max-w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="p-12 text-center text-red-600">图片加载失败，请检查原图。</p></section>`
+  overlay.addEventListener('click', event => { if ((event.target as HTMLElement).closest('[data-printing-action="close-image"]')) closeImagePreview() })
   document.body.appendChild(overlay)
   if (!imageEscapeInstalled) {
     imageEscapeInstalled = true
@@ -185,33 +198,48 @@ function openImagePreview(url: string, alt: string): void {
   }
 }
 
-function documentHistoryName(documentType: string): PrintingDocumentHistory['documentName'] {
-  return documentType === 'PRINTING_INFO_SHEET' ? '印花信息单' : documentType === 'PRINTING_CONFIRMATION' ? '印花确认单' : '加工产出卷条码'
-}
-
 function navigatePrint(documentType: PrintDocumentType, workOrderIds: string[], barcodeIds: string[] = []): void {
   if (!workOrderIds.length) throw new Error('请选择印花加工单')
-  workOrderIds.forEach((workOrderId) => recordPrintingDocumentAction(workOrderId, { documentName: documentHistoryName(documentType), action: '打印', operatorName: 'Web 打印操作员', remark: workOrderIds.length > 1 ? `批量 ${workOrderIds.length} 张` : undefined }))
+
   const sourceId = documentType === 'PRINTING_ROLL_LABEL'
     ? `${workOrderIds[0]}:${barcodeIds.join(',')}`
     : workOrderIds.join(',')
   appStore.navigate(buildUnifiedPrintPreviewLink({ documentType, sourceType: documentType === 'PRINTING_ROLL_LABEL' ? 'PRINTING_ROLL_RECORD' : 'PRINTING_WORK_ORDER', sourceId }))
 }
 
-function exportCsv(): void {
-  const rows = getFilteredPrintingWorkOrders()
-  const headers = ['印花单', '任务单', '需求来源', '来源单号', '商品SPU', '加工对象', '投入单位', '计划投入SKU', '实际投入SKU', '产出SKU', '产出单位', '标准单位用量', '加工单单位用量', '计划投入', '实际接收', '实际使用', '完成', '加工状态', '交出状态', '已交出', '已接收', '差异', '异议数', '历史损耗（待核验）', '上游供料方', '下游接收方', '接收仓', '下游待接收', '接收状态']
-  const values = rows.map((row) => [row.printOrderNo, row.taskNo, PRINTING_DEMAND_SOURCE_LABEL[row.demandSource.type], row.demandSource.sourceNo, row.product.spu, row.plannedInput.objectType, row.plannedInput.qtyUnit, printingMaterialCode(row.plannedInput.sku), row.historicalInputQuantityUnknown ? '历史未记录' : printingMaterialCode(row.actualInput.actualSku), printingMaterialCode(row.output.sku, true), row.output.qtyUnit, row.usage.standardUnitUsage ?? '', row.usage.orderUnitUsage ?? '', row.plannedInput.plannedQty, row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.receivedQty, row.actualInput.usedQty, row.output.completedQty, PRINTING_PROCESSING_STATUS_LABEL[row.processingStatus], PRINTING_HANDOVER_STATUS_LABEL[row.handoverStatus], row.handover.handedOverQty, row.handover.receivedQty, row.confirmedReceiptDifference ? row.handover.diffQty : '无已确认差异', row.handover.objectionQty, row.historicalLossQty || '待核验', printingUpstreamNames(row).join('、') || '供料单据待确定', row.receivingTargetName, row.receivingTargetWarehouseName, row.pendingWritebackQty, row.historicalInputQuantityUnknown ? '历史待补录' : PRINTING_RECEIPT_STATUS_LABEL[row.receiptStatus]])
-  const csv = [headers, ...values].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')
+export function buildPrintingExportRows(kind: 'export', sourceRows = getFilteredPrintingWorkOrders()): { headers: string[]; values: Array<Array<string | number>>; name: string } {
+  if (!sourceRows.length) return { headers: ['印花加工单'], values: [], name: '印花加工单' }
+  const rows = sourceRows
+  const timeLabels = rows[0] ? printingWorkOrderTimeGroups(rows[0]).flatMap(group => group.fields.map(([label]) => label)) : []
+  const allTimeLabels = [...new Set([...timeLabels, ...rows.flatMap(row => printingWorkOrderTimeGroups(row).flatMap(group => group.fields.map(([label]) => label)))])]
+  const headers = ['加工厂', '印花加工单', '任务单', '需求来源', '来源单号', '需求单', '生产单', '创建方式', '售卖类型', '是否补料', '商品SPU', '投入物料', '计划投入SKU', '实际投入SKU', '投入单位', '产出SKU', '产出单位', '工艺', '加工方式', '印花面别', '正面花型', '正面版本', '反面花型', '反面版本', '设备', '接收状态', '加工状态', '生产环节', '交出状态', '上游供料方', '下游接收方', '接收仓', '下游接收人', '需求与印花版本', ...printingQuantityGroups(rows[0] || sourceRows[0]).flatMap(group => group.fields.flatMap(([label]) => [label, `${label}单位`, `${label}完整性`])), ...allTimeLabels, '备注']
+  const values = rows.map(row => {
+    const demand = new Map(printingDemandFields(row))
+    const f = printingPresentationFacts(row), inputUnit = row.plannedInput.qtyUnit, outputUnit = row.output.qtyUnit
+    const unknownSource = f.sourceQty === 0 && (row.actualInput.receivedQty > 0 || row.historicalInputQuantityUnknown)
+    const quantityFacts: Array<[number | undefined, string]> = [[row.plannedInput.plannedQty,inputUnit],[row.output.plannedQty,outputUnit],[unknownSource?undefined:f.sourceQty,inputUnit],[unknownSource?undefined:Math.max(0,f.sourceQty-f.receivedQty),inputUnit],[row.historicalInputQuantityUnknown?undefined:row.actualInput.receivedQty,inputUnit],[row.historicalRollQuantitiesUnknown?undefined:row.actualInput.receivedRollCount,['面料','花边','织带'].includes(row.plannedInput.objectType)?'卷':'包'],[row.historicalInputQuantityUnknown?undefined:f.availableInputQty,inputUnit],[row.actualInput.usedQty,inputUnit],[f.inProcessQty,inputUnit],[row.output.completedQty,outputUnit],[f.lossQty,inputUnit],[f.reservedOutputQty,outputUnit],[f.availableOutputQty,outputUnit],[row.handover.handedOverQty,outputUnit],[row.handover.receivedQty,outputUnit],[row.pendingWritebackQty,outputUnit]]
+    const times = new Map(printingWorkOrderTimeGroups(row).flatMap(group => group.fields))
+    return [row.printFactoryName, row.printOrderNo, row.taskNo, PRINTING_DEMAND_SOURCE_LABEL[row.demandSource.type], row.demandSource.sourceNo || row.demandSource.sourceLabel, demand.get('需求单') || '', demand.get('生产单') || '', row.creationMethod, row.salesType, demand.get('是否补料') || '', row.product.spu || '不适用（备货）', row.plannedInput.materialName, printingMaterialCode(row.plannedInput.sku), row.historicalInputQuantityUnknown ? '历史未记录' : row.actualInput.actualSku ? printingMaterialCode(row.actualInput.actualSku) : '尚未接收', row.plannedInput.qtyUnit, printingMaterialCode(row.output.sku, true), row.output.qtyUnit, row.requirement.craftName, row.requirement.type, row.requirement.printSide, row.requirement.frontPattern.patternNo, row.requirement.frontPattern.patternVersion, row.requirement.insidePattern?.patternNo || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.requirement.insidePattern?.patternVersion || (row.requirement.printSide === '双面' ? '资料待补充' : '不适用'), row.printerNo, PRINTING_RECEIPT_STATUS_LABEL[row.receiptStatus], PRINTING_PROCESSING_STATUS_LABEL[row.processingStatus], printingProductionStage(row), PRINTING_HANDOVER_STATUS_LABEL[row.handoverStatus], printingUpstreamNames(row).join('、') || '尚无来源', row.receivingTargetName, row.receivingTargetWarehouseName, row.handover.receivedBy || '尚未登记', printingDocumentVersion(row), ...quantityFacts.flatMap(([qty,unit]) => [qty ?? '',unit,qty === undefined ? '历史未记录或尚未核算' : '已记录']), ...allTimeLabels.map(label => times.get(label) || '不适用'), row.remark]
+  })
+  return { headers, values, name: '印花加工单' }
+}
+
+function exportCsv(kind: 'export'): void {
+  const sourceRows = getFilteredPrintingWorkOrders()
+  if (!sourceRows.length) { showPrintingToast('当前筛选没有可导出数据', 'error'); return }
+  const { headers, values, name } = buildPrintingExportRows(kind, sourceRows)
+  const csv = [headers, ...values].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
-  const link = document.createElement('a'); link.href = url; link.download = '印花加工单.csv'; link.click(); URL.revokeObjectURL(url)
-  showPrintingToast(`已导出 ${rows.length} 张印花加工单`)
+  const link = document.createElement('a'); link.href = url; link.download = `${name}.csv`; link.click(); URL.revokeObjectURL(url)
+  showPrintingToast(`已导出 ${values.length} 条${name}`)
 }
 
 function handlePrintingAction(actionNode: HTMLElement, action: string): boolean {
   const workOrderId = actionNode.dataset.workOrderId || document.querySelector<HTMLElement>('[data-printing-work-order-detail-root]')?.dataset.workOrderId || getPrintingDialogState()?.workOrderId || ''
-  if (action === 'open-dispatch-pending' || action === 'open-dispatch-documents') { openPrintingDispatch(action === 'open-dispatch-pending' ? 'pending' : 'documents'); return true }
+  if (action === 'open-dispatch-pending' || action === 'open-dispatch-documents') { appStore.navigate(`/fcs/craft/printing/${action === 'open-dispatch-pending' ? 'pending-handover' : 'handover-documents'}${workOrderId ? `?workOrderId=${encodeURIComponent(workOrderId)}` : ''}`); return true }
+  if (action === 'receive-input' && !getPrintingWorkOrderById(workOrderId)?.historicalInputQuantityUnknown) { appStore.navigate(`/fcs/craft/printing/pending-receipts?workOrderId=${encodeURIComponent(workOrderId)}`); return true }
+  if (action === 'handover') { appStore.navigate(`/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(workOrderId)}`); return true }
   if (['filter-barcodes','reset-barcode-filters','barcode-page'].includes(action)) {
     const current=getPrintingDialogState()
     if(current)replacePrintingDialog(action==='reset-barcode-filters'?{type:'barcodes',workOrderId}:{...current,barcodePage:action==='barcode-page'?Number(actionNode.dataset.page):1,rollFrom:fieldValue('rollFrom'),rollTo:fieldValue('rollTo'),createdFrom:fieldValue('createdFrom'),createdTo:fieldValue('createdTo')})
@@ -230,7 +258,7 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   if (action === 'close-image') { closeImagePreview(); return true }
   if (action === 'close-dialog') { closePrintingDialog(); return true }
   if (action === 'submit-dialog') { submitDialog(); return true }
-  if (['logs', 'edit-info', 'assign', 'change-input', 'receive-input', 'complete', 'handover', 'receive-handover', 'complete-document', 'cancel'].includes(action)) {
+  if (['logs', 'remarks', 'start-production', 'production-stage', 'edit-info', 'assign', 'change-input', 'receive-input', 'complete', 'handover', 'receive-handover', 'complete-document', 'cancel'].includes(action)) {
     if (workOrderId) openPrintingDialog({ type: action as Parameters<typeof openPrintingDialog>[0]['type'], workOrderId })
     return true
   }
@@ -263,12 +291,13 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
     try { navigatePrint('PRINTING_CONFIRMATION', getSelectedPrintingWorkOrderIds()) } catch (error) { showPrintingToast(error instanceof Error ? error.message : '请选择印花加工单', 'error') }
     return true
   }
-  if (action === 'export') { exportCsv(); return true }
+  if (action === 'export') { exportCsv(action); return true }
   return false
 }
 
 export function handleCraftPrintingEvent(target: HTMLElement): boolean {
   if (handlePrintingWarehouseEvent(target))return true
+  if (handlePrintingStatisticsEvent(target) || handlePrintingDashboardsEvent(target)) return true
   if (handlePrintingDispatchEvent(target)) { if(target.closest('[data-printing-dispatch="confirm"]'))refreshVisiblePage();return true }
   if(target.matches('[data-printing-roll-import-file]')) {
     const file=(target as HTMLInputElement).files?.[0]

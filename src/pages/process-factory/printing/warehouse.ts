@@ -1,9 +1,8 @@
 // @page-pattern: list
-import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import { listPrintingFactoryOptions } from '../../../data/fcs/printing-factories.ts'
+import { renderStandardListStats, renderStandardListPage } from '../../../components/ui/list-page.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../../../components/ui/process-order-list-controller.ts'
-import { renderPrintingBusinessImage } from './work-orders.ts'
-import { printingInputIdentity } from './relations.ts'
-import { getPrintingWorkOrderById } from '../../../data/fcs/printing-task-domain.ts'
+import { renderPrintingObjectImage } from './presentation.ts'
 import { renderCode128Barcode } from '../../../components/real-barcode.ts'
 
 import {
@@ -21,8 +20,6 @@ import { escapeHtml } from '../../../utils.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   renderBadge,
-  renderMetricCard,
-  renderPageHeader,
 } from './shared.ts'
 import {
   renderWarehouseFlowButton,
@@ -41,7 +38,7 @@ type WarehouseTab = {
 }
 
 function formatQty(value: number | undefined, unit = ''): string {
-  const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '0'
+  const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '未记录'
   return unit ? `${qty} ${escapeHtml(unit)}` : qty
 }
 
@@ -49,53 +46,8 @@ function formatFactoryCell(factoryName?: string, factoryId?: string): string {
   return escapeHtml(formatFactoryDisplayName(factoryName, factoryId))
 }
 
-function buildWaitProcessFlowLines(item: PrintingWarehouseView['waitProcessItems'][number]): FactoryWarehouseFlowLine[] {
-  const lines: FactoryWarehouseFlowLine[] = [
-    {
-      flowType: '接收入仓',
-      qtyText: formatQty(item.receivedQty, item.unit),
-      sourceNo: item.sourceRecordNo,
-      operatedAt: item.receivedAt,
-      operatorName: item.receiverName,
-      statusText: item.status,
-    },
-  ]
-  if (item.receivedQty > 0) {
-    lines.push({
-      flowType: '加工用料',
-      qtyText: `-${formatQty(Math.max(item.receivedQty - item.differenceQty, 0), item.unit)}`,
-      sourceNo: item.taskNo || item.sourceRecordNo,
-      operatedAt: item.receivedAt,
-      operatorName: item.factoryName,
-      statusText: '加工领用',
-    })
-  }
-  return lines
-}
-
-function buildWaitHandoverFlowLines(item: PrintingWarehouseView['waitHandoverItems'][number]): FactoryWarehouseFlowLine[] {
-  const lines: FactoryWarehouseFlowLine[] = [
-    {
-      flowType: '加工入仓',
-      qtyText: formatQty(item.completedQty, item.unit),
-      sourceNo: item.taskNo || item.stockItemId,
-      operatedAt: item.handoverRecordNo || '待交出前',
-      operatorName: item.factoryName,
-      statusText: item.status,
-    },
-  ]
-  if (item.handoverRecordNo) {
-    lines.push({
-      flowType: '交出出仓',
-      qtyText: `-${formatQty(item.waitHandoverQty, item.unit)}`,
-      sourceNo: item.handoverRecordNo,
-      operatedAt: item.handoverRecordNo,
-      operatorName: item.receiverName,
-      statusText: item.status,
-    })
-  }
-  return lines
-}
+function buildWaitProcessFlowLines(item: PrintingWarehouseView['waitProcessItems'][number]): FactoryWarehouseFlowLine[] { return item.flows }
+function buildWaitHandoverFlowLines(item: PrintingWarehouseView['waitHandoverItems'][number]): FactoryWarehouseFlowLine[] { return item.flows }
 
 let warehouseMode: PrintingWarehouseMode = 'wait-process'
 let warehouseFilters = {factoryId:'',status:'',keyword:'',timeRange:'ALL' as '7D'|'30D'|'ALL'}
@@ -115,127 +67,33 @@ function renderTable(headers: string[], rows: string[][], _minWidthClass = ''): 
   const view=entry.controller.getView()
   return `<div data-wh-table="${key}" data-skip-page-rerender="true"><div class="flex justify-end border-b p-2"><button class="rounded border px-3 py-1 text-sm" data-wh-table-action="columns">列设置</button></div><div data-wh-table-body>${view.tableHtml}</div><div class="border-t p-3" data-wh-pagination>${view.paginationHtml}</div><div data-wh-overlays>${entry.controller.renderColumnSettings()}</div></div>`
 }
-function inputIdentity(sourceId:string,sku:string):string {
-  const order=getPrintingWorkOrderById(sourceId)
-  const material=order?printingInputIdentity(order):undefined
-  return `<div class="flex items-center gap-2">${material && material.sku===sku?renderPrintingBusinessImage(material,'h-10 w-10'):'<span class="text-xs text-amber-700">对应物料图待补齐</span>'}<span>${escapeHtml(sku)}</span></div>`
+function inputIdentity(item:{imageUrl:string;materialSku?:string;itemName?:string;materialName?:string}):string {
+ const name=item.itemName||item.materialName||''
+ return `<div class="flex items-center gap-2">${renderPrintingObjectImage({imageUrl:item.imageUrl,imageAlt:`${name} ${item.materialSku||''}`},'h-10 w-10')}<div><p>${escapeHtml(name)}</p><p class="text-xs text-slate-500">${escapeHtml(item.materialSku||'')}</p></div></div>`
 }
+function orderLinks(ids:string[]):string { return ids.length?ids.map(id=>`<a class="text-blue-600" href="${buildPrintingWorkOrderDetailLink(id)}" data-nav="${buildPrintingWorkOrderDetailLink(id)}">${escapeHtml(id)}</a>`).join('<br>'):'备货（尚未关联）' }
+
 function renderFilters(view: PrintingWarehouseView): string {
   const all=getPrintingWarehouseView({timeRange:'ALL'})
-  return `<section class="rounded-lg border bg-card p-4" data-skip-page-rerender="true"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><label class="text-xs text-muted-foreground">工厂<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="factoryId"><option value="">全部印花工厂</option>${all.warehouses.filter((w,i,a)=>a.findIndex(x=>x.factoryId===w.factoryId)===i).map(w=>`<option value="${escapeHtml(w.factoryId)}" ${warehouseFilters.factoryId===w.factoryId?'selected':''}>${escapeHtml(w.factoryName)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">状态<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="status"><option value="">全部状态</option>${[...new Set([...all.waitProcessItems,...all.waitHandoverItems].map(i=>i.status))].map(status=>`<option ${warehouseFilters.status===status?'selected':''}>${escapeHtml(status)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">关键字<input class="mt-1 block h-9 w-full rounded border px-3 text-sm" placeholder="任务 / 物料 / 卷号" value="${escapeHtml(warehouseFilters.keyword)}" data-printing-warehouse-filter="keyword"></label><label class="text-xs text-muted-foreground">时间范围<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="timeRange">${[['7D','近7天'],['30D','近30天'],['ALL','全部时间']].map(([value,label])=>`<option value="${value}" ${warehouseFilters.timeRange===value?'selected':''}>${label}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-printing-warehouse-action="query">查询</button><button class="rounded border px-4 py-2 text-sm" data-printing-warehouse-action="reset">重置</button><button class="rounded border px-4 py-2 text-sm" data-printing-warehouse-action="export">导出</button><button class="rounded border px-4 py-2 text-sm" data-printing-action="open-dispatch-pending">待交出列表</button><button class="rounded border px-4 py-2 text-sm" data-printing-action="open-dispatch-documents">交出单据</button></div></section>`
+  return `<section class="rounded-lg border bg-card p-4" data-skip-page-rerender="true"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><label class="text-xs text-muted-foreground">工厂<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="factoryId"><option value="">全部印花工厂</option>${listPrintingFactoryOptions(all.warehouses.map(w=>({printFactoryId:w.factoryId,printFactoryName:w.factoryName}))).map(w=>`<option value="${escapeHtml(w.id)}" ${warehouseFilters.factoryId===w.id?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">状态<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="status"><option value="">全部状态</option>${[...new Set([...all.waitProcessItems,...all.waitHandoverItems].map(i=>i.status))].map(status=>`<option ${warehouseFilters.status===status?'selected':''}>${escapeHtml(status)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">关键字<input class="mt-1 block h-9 w-full rounded border px-3 text-sm" placeholder="任务 / 物料 / 卷号" value="${escapeHtml(warehouseFilters.keyword)}" data-printing-warehouse-filter="keyword"></label><label class="text-xs text-muted-foreground">时间范围<select class="mt-1 block h-9 w-full rounded border px-3 text-sm" data-printing-warehouse-filter="timeRange">${[['7D','近7天'],['30D','近30天'],['ALL','全部时间']].map(([value,label])=>`<option value="${value}" ${warehouseFilters.timeRange===value?'selected':''}>${label}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-printing-warehouse-action="query">查询</button><button class="rounded border px-4 py-2 text-sm" data-printing-warehouse-action="reset">重置</button><button class="rounded border px-4 py-2 text-sm" data-printing-warehouse-action="export">导出</button><button class="rounded border px-4 py-2 text-sm" data-printing-action="open-dispatch-pending">待交出列表</button><button class="rounded border px-4 py-2 text-sm" data-printing-action="open-dispatch-documents">交出单据</button></div></section>`
 }
 
-function renderWaitProcessRows(view: PrintingWarehouseView): string[][] {
-  return view.waitProcessItems
-    .map(
-      (item) => [
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.warehouseName)}`,
-          `${escapeHtml(item.sourceRecordNo)}`,
-          `${escapeHtml(item.taskNo || '—')}`,
-          `${escapeHtml(item.itemKind)}`,
-          `${inputIdentity(item.sourceRecordId || '',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${escapeHtml(item.fabricColor || '—')}`,
-          `${escapeHtml(item.sizeCode || '—')}`,
-          `${escapeHtml(item.fabricRollNo || '—')}`,
-          `${formatQty(item.expectedQty, item.unit)}`,
-          `${formatQty(item.receivedQty, item.unit)}`,
-          `${formatQty(item.differenceQty, item.unit)}`,
-          `${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}`,
-          `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'warning')}`,
-          `
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildPrintingWorkOrderDetailLink(item.sourceRecordId)}">查看印花加工单</button>
-              ${renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildWaitProcessFlowLines(item))}<button class="rounded border px-2 py-1 text-xs" data-printing-warehouse-action="print-input-roll" data-stock-id="${escapeHtml(item.stockItemId)}" ${item.fabricRollNo ? '' : 'disabled title="未记录原投入卷码，不能生成替代条码"'}>打印条码</button>
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
-            </div>
-          `,
-        ],
-    )
+function renderWaitProcessRows(view:PrintingWarehouseView):string[][] {
+ return view.waitProcessItems.map(item=>[
+  formatFactoryCell(item.factoryName,item.factoryId),escapeHtml(item.warehouseName),`<p>${escapeHtml(item.sourceRecordNo)}</p><p class="text-xs text-slate-500">${escapeHtml(item.receiptLineId)}</p>`,orderLinks(item.workOrderIds),inputIdentity(item),
+  item.rolls.length?`<details><summary class="cursor-pointer text-blue-600">${item.rolls.length} 卷 · 查看实际长度</summary>${item.rolls.map(r=>`<p class="mt-1 text-xs">${escapeHtml(r.barcode)}：实收 ${formatQty(r.receivedQty,item.unit)} / 已用 ${formatQty(r.usedQty,item.unit)} / 在仓 ${formatQty(r.remainingQty,item.unit)}<br>${escapeHtml(r.location)}</p>`).join('')}</details>`:'按实收包装',
+  formatQty(item.originalReceivedQty,item.unit),formatQty(item.issuedQty,item.unit),formatQty(item.receivedQty,item.unit),formatQty(item.preparedQty,item.unit),formatQty(item.freeQty,item.unit),escapeHtml(item.locationText),renderBadge(item.status,item.status.includes('差异')?'danger':'warning'),
+  `${renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`,item.flows)}<button class="rounded border px-2 py-1 text-xs" data-printing-warehouse-action="print-input-roll" data-stock-id="${escapeHtml(item.stockItemId)}" ${item.rolls.length?'':'disabled'}>打印投入卷条码</button><a class="text-blue-600" href="/fcs/craft/printing/pending-receipts?view=stock" data-nav="/fcs/craft/printing/pending-receipts?view=stock">查看备料关联</a>`
+ ])
 }
-
-function renderWaitHandoverRows(view: PrintingWarehouseView): string[][] {
-  return view.waitHandoverItems
-    .map(
-      (item) => [
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.warehouseName)}`,
-          `${escapeHtml(item.taskNo || '—')}`,
-          `${escapeHtml(item.itemKind)}`,
-          `${inputIdentity('',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${escapeHtml(item.fabricColor || '—')}`,
-          `${escapeHtml(item.fabricRollNo || '—')}`,
-          `${formatQty(item.completedQty, item.unit)}`,
-          `${formatQty(item.lossQty, item.unit)}`,
-          `${formatQty(item.waitHandoverQty, item.unit)}`,
-          `${escapeHtml(item.receiverName)}`,
-          `${escapeHtml(item.handoverOrderNo || '—')}`,
-          `${escapeHtml(item.handoverRecordNo || '—')}`,
-          `${typeof item.receiverWrittenQty === 'number' ? formatQty(item.receiverWrittenQty, item.unit) : '—'}`,
-          `${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'warning')}`,
-          `
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>打开移动端交出页</button>
-              ${renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
-            </div>
-          `,
-        ],
-    )
+function renderWaitHandoverRows(view:PrintingWarehouseView):string[][] {
+ return view.waitHandoverItems.map(item=>[formatFactoryCell(item.factoryName,item.factoryId),escapeHtml(item.warehouseName),orderLinks(item.workOrderIds),inputIdentity(item),escapeHtml(item.fabricRollNo||'未记录'),formatQty(item.completedQty,item.unit),formatQty(item.waitHandoverQty,item.unit),formatQty(item.reservedQty,item.unit),formatQty(item.availableQty,item.unit),escapeHtml(item.locationText),escapeHtml(item.dispatchIds.join(' / ')||'未占用'),escapeHtml(item.receiverName),renderBadge(item.reservedQty>0?'交出单占用':'可建单',item.reservedQty>0?'warning':'success'),`${renderWarehouseFlowButton(`${item.fabricRollNo} 库存流水`,item.flows)}<a class="text-blue-600" href="/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(item.workOrderIds[0])}" data-nav="/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(item.workOrderIds[0])}">查看交出安排</a>`])
 }
-
-function renderInboundRows(view: PrintingWarehouseView): string[][] {
-  return view.inboundRecords
-    .map(
-      (item) => [
-          `${escapeHtml(item.inboundRecordNo)}`,
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.warehouseName)}`,
-          `${escapeHtml(item.sourceRecordNo)}`,
-          `${escapeHtml(item.taskNo || '—')}`,
-          `${inputIdentity(item.sourceRecordId || '',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${formatQty(item.expectedQty, item.unit)}`,
-          `${formatQty(item.receivedQty, item.unit)}`,
-          `${formatQty(item.differenceQty, item.unit)}`,
-          `${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}`,
-          `${escapeHtml(item.receiverName)}`,
-          `${escapeHtml(item.receivedAt)}`,
-          `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'success')}`,
-          `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildPrintingWorkOrderDetailLink(item.sourceRecordId)}">查看印花加工单</button>`,
-        ],
-    )
+function renderInboundRows(view:PrintingWarehouseView):string[][] {
+ return view.inboundRecords.map(item=>[escapeHtml(item.inboundRecordNo),formatFactoryCell(item.factoryName,item.factoryId),escapeHtml(item.warehouseName),escapeHtml(item.sourceRecordNo),orderLinks(item.workOrderIds),inputIdentity(item),formatQty(item.receivedQty,item.unit),escapeHtml(item.locationNo),escapeHtml(item.receiverName),escapeHtml(item.receivedAt),renderBadge(item.status,item.status.includes('差异')?'danger':'success')])
 }
-
-function renderOutboundRows(view: PrintingWarehouseView): string[][] {
-  return view.outboundRecords
-    .map(
-      (item) => [
-          `${escapeHtml(item.outboundRecordNo)}`,
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.warehouseName)}`,
-          `${escapeHtml(item.sourceTaskNo || '—')}`,
-          `${escapeHtml(item.handoverOrderNo || '—')}`,
-          `${escapeHtml(item.handoverRecordNo || '—')}`,
-          `${escapeHtml(item.receiverName)}`,
-          `${inputIdentity(item.sourceRecordId || '',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${formatQty(item.outboundQty, item.unit)}`,
-          `${typeof item.receiverWrittenQty === 'number' ? formatQty(item.receiverWrittenQty, item.unit) : '—'}`,
-          `${typeof item.differenceQty === 'number' ? formatQty(item.differenceQty, item.unit) : '—'}`,
-          `${escapeHtml(item.operatorName)}`,
-          `${escapeHtml(item.outboundAt)}`,
-          `${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'success')}`,
-          `
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看交出</button>
-              ${
-                item.handoverRecordId
-                  ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildTaskDeliveryCardPrintLink(item.handoverRecordId)}">打印任务交货卡</button><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildHandoverQrLabelPrintLink(item.handoverRecordId)}">打印交出二维码</button>`
-                  : '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
-              }
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看收货</button>
-            </div>
-          `,
-        ],
-    )
+function renderOutboundRows(view:PrintingWarehouseView):string[][] {
+ return view.outboundRecords.map(item=>[escapeHtml(item.outboundRecordNo),formatFactoryCell(item.factoryName,item.factoryId),orderLinks(item.workOrderIds),inputIdentity(item),escapeHtml(item.receiverName),formatQty(item.outboundQty,item.unit),item.receiverWrittenQty===undefined?'尚未登记':formatQty(item.receiverWrittenQty,item.unit),item.differenceQty===undefined?'尚未登记':formatQty(item.differenceQty,item.unit),escapeHtml(item.operatorName),escapeHtml(item.outboundAt),renderBadge(item.status==='已回写'?'下游已实收':item.status==='已出库'?'实际已交出':item.status,item.status==='差异'?'danger':'success'),`<a class="text-blue-600" href="/fcs/craft/printing/handover-documents?workOrderId=${encodeURIComponent(item.workOrderIds[0])}" data-nav="/fcs/craft/printing/handover-documents?workOrderId=${encodeURIComponent(item.workOrderIds[0])}">查看交出与实收</a>`])
 }
 
 function renderNodeRows(view: PrintingWarehouseView): string[][] {
@@ -254,54 +112,11 @@ function renderNodeRows(view: PrintingWarehouseView): string[][] {
     )
 }
 
-function renderUsageRows(view: PrintingWarehouseView): string[][] {
-  return view.waitProcessItems
-    .map(
-      (item) => [
-          `${escapeHtml(item.taskNo || item.sourceRecordNo)}`,
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.itemKind)}`,
-          `${inputIdentity(item.sourceRecordId || '',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${formatQty(Math.max(item.receivedQty - item.differenceQty, 0), item.unit)}`,
-          `${escapeHtml(item.sourceRecordNo)}`,
-          `${escapeHtml(item.receivedAt)}`,
-          `${renderBadge(item.status === '差异待处理' ? '差异待处理' : '已领用', item.status === '差异待处理' ? 'danger' : 'success')}`,
-        ],
-    )
+function renderUsageRows(view:PrintingWarehouseView):string[][] {
+ return view.usageRecords.map(item=>[orderLinks(item.workOrderId?[item.workOrderId]:[]),formatFactoryCell(item.factoryName,item.factoryId),inputIdentity(item),escapeHtml(item.barcode||'包装用料'),formatQty(item.qty,item.unit),escapeHtml(item.sourceNo),escapeHtml(item.at),escapeHtml(item.operatorName)])
 }
-
-function renderProcessInboundRows(view: PrintingWarehouseView): string[][] {
-  return view.waitHandoverItems
-    .map(
-      (item) => [
-          `${escapeHtml(item.stockItemId)}`,
-          `${formatFactoryCell(item.factoryName, item.factoryId)}`,
-          `${escapeHtml(item.taskNo || '—')}`,
-          `${escapeHtml(item.itemKind)}`,
-          `${inputIdentity('',item.materialSku || item.partName || item.itemName || '—')}`,
-          `${formatQty(item.completedQty, item.unit)}`,
-          `${formatQty(item.lossQty, item.unit)}`,
-          `${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}`,
-          `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'success')}`,
-        ],
-    )
-}
-
-function renderStocktakeRows(view: PrintingWarehouseView): string[][] {
-  return view.stocktakeOrders
-    .map(
-      (order) => [
-          `${escapeHtml(order.stocktakeOrderNo)}`,
-          `${formatFactoryCell(order.factoryName, order.factoryId)}`,
-          `${escapeHtml(order.warehouseName)}`,
-          `${escapeHtml(order.stocktakeScope)}`,
-          `${escapeHtml(order.createdBy)}`,
-          `${escapeHtml(order.createdAt)}`,
-          `${String(order.lineList.length)}`,
-          `${String(order.lineList.filter((line) => line.status === '差异').length)}`,
-          `${renderBadge(order.status, order.status === '已完成' ? 'success' : 'warning')}`,
-        ],
-    )
+function renderProcessInboundRows(view:PrintingWarehouseView):string[][] {
+ return view.outputInboundItems.map(item=>[escapeHtml(item.stockItemId),formatFactoryCell(item.factoryName,item.factoryId),orderLinks(item.workOrderIds),inputIdentity(item),escapeHtml(item.fabricRollNo||'未记录'),formatQty(item.completedQty,item.unit),escapeHtml(item.receivedAt||'入仓时间未记录'),escapeHtml(item.inboundOperator||'历史操作人未记录'),escapeHtml(item.locationText)])
 }
 
 function renderWarehouseTabs(tabs: WarehouseTab[], idPrefix: string): string {
@@ -374,29 +189,12 @@ function renderWarehouseTabs(tabs: WarehouseTab[], idPrefix: string): string {
 function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
   warehouseMode=mode;tableIndex=0
   const view = getPrintingWarehouseView(warehouseFilters)
-  const inboundDifferenceCount = view.inboundRecords.filter((item) => item.status.includes('差异')).length
-  const outboundDifferenceCount = view.outboundRecords.filter((item) => item.status.includes('差异') || item.status.includes('异议')).length
   const title = mode === 'wait-process' ? '印花待加工仓' : '印花待交出仓'
   const description =
     mode === 'wait-process'
       ? '查看印花任务接收后的待加工库存、入库记录与仓内位置。'
       : '查看印花任务完工后的待交出库存、出库记录与收货差异。'
-  const metrics =
-    mode === 'wait-process'
-      ? [
-          renderMetricCard('待加工仓记录数', String(view.waitProcessItems.length), '待加工仓记录'),
-          renderMetricCard('接收记录', String(view.inboundRecords.length), '筛选范围内'),
-          renderMetricCard('加工用料记录', String(view.waitProcessItems.length), '按库存推演'),
-          renderMetricCard('库区库位', String(view.nodeRows.length), '支持新增、编辑、删除'),
-          renderMetricCard('接收差异记录数', String(inboundDifferenceCount), '接收差异'),
-        ].join('')
-      : [
-          renderMetricCard('待交出仓记录数', String(view.waitHandoverItems.length), '待交出仓记录'),
-          renderMetricCard('交出记录', String(view.outboundRecords.length), '筛选范围内'),
-          renderMetricCard('加工入仓记录', String(view.waitHandoverItems.length), '按完工入仓'),
-          renderMetricCard('已收货记录数', String(view.outboundRecords.filter((item) => String(item.status) === '已收货').length), '接收方确认收货'),
-          renderMetricCard('出库差异记录数', String(outboundDifferenceCount), '出库差异'),
-        ].join('')
+  const metrics=renderStandardListStats(mode==='wait-process'?[{label:'在仓接收明细',value:view.waitProcessItems.length},{label:'接收明细',value:view.inboundRecords.length},{label:'实际领用记录',value:view.usageRecords.length},{label:'历史原料明细缺失',value:view.unknownInputOrders}]:[{label:'在厂产出卷',value:view.waitHandoverItems.length},{label:'交出记录',value:view.outboundRecords.length},{label:'已登记产出卷',value:view.outputInboundItems.length},{label:'历史产出明细缺失',value:view.unknownOutputOrders},{label:'待整理产出卷数量',value:Object.entries(view.unlocatedOutputByUnit).map(([unit,qty])=>`${qty.toLocaleString('zh-CN',{maximumFractionDigits:2})} ${unit}`).join(' / ')||'0'}])
 
   const tabs: WarehouseTab[] =
     mode === 'wait-process'
@@ -405,19 +203,19 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
             key: 'wait-process',
             label: '库存',
             count: view.waitProcessItems.length,
-            table: renderTable(['工厂', '仓库', '印花加工单号', '所属任务', '类型', '面料 SKU', '颜色', '尺码', '卷号', '计划数量', '当前库存', '差异数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]'),
+            table: renderTable(['工厂','仓库','来源 / 收货批次','加工单归属','物料 / SKU','实际卷明细','实收入仓','实际已用','实物库存','备料剩余占用','未分配可用','库位','状态','操作'], renderWaitProcessRows(view), 'min-w-[1680px]'),
           },
           {
             key: 'inbound',
             label: '接收记录',
             count: view.inboundRecords.length,
-            table: renderTable(['接收单号', '工厂', '待加工仓', '印花加工单号', '所属任务', '面料 SKU', '计划数量', '确认入仓数量', '差异数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]'),
+            table: renderTable(['接收单号','工厂','待加工仓','来源单','加工单归属','物料 / SKU','实收入仓','库位','接收人','接收时间','状态'], renderInboundRows(view), 'min-w-[1680px]'),
           },
           {
             key: 'usage',
             label: '加工用料记录',
-            count: view.waitProcessItems.length,
-            table: renderTable(['所属任务', '工厂', '类型', '物料 / 裁片', '用料数量', '来源接收单', '用料时间', '状态'], renderUsageRows(view), 'min-w-[1120px]'),
+            count: view.usageRecords.length,
+            table: renderTable(['加工单归属','工厂','物料 / SKU','卷号 / 包装','实际用料','来源接收单','用料时间','操作人'], renderUsageRows(view), 'min-w-[1120px]'),
           },
           {
             key: 'nodes',
@@ -431,19 +229,19 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
             key: 'wait-handover',
             label: '库存',
             count: view.waitHandoverItems.length,
-            table: renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '加工完成数量', '损耗数量', '当前库存', '接收方', '交出单', '交出记录', '收货确认数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
+            table: renderTable(['工厂','仓库','加工单归属','产出物料 / SKU','卷号','实际产出','在厂实物','建单占用','可新建单','库位','占用交出单','下游接收方','状态','操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
           },
           {
             key: 'outbound',
             label: '交出记录',
             count: view.outboundRecords.length,
-            table: renderTable(['交出记录号', '工厂', '待交出仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出数量', '收货确认数量', '差异数量', '操作人', '交出时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]'),
+            table: renderTable(['交出记录号','工厂','加工单归属','产出物料 / SKU','接收方','实际交出','下游实收','下游多 / 少','交出人','实际交出时间','状态','操作'], renderOutboundRows(view), 'min-w-[1720px]'),
           },
           {
             key: 'process-inbound',
             label: '加工入仓记录',
-            count: view.waitHandoverItems.length,
-            table: renderTable(['入仓记录号', '工厂', '来源任务', '类型', '物料 / 裁片', '加工入仓数量', '损耗数量', '库位', '状态'], renderProcessInboundRows(view), 'min-w-[1280px]'),
+            count: view.outputInboundItems.length,
+            table: renderTable(['产出卷记录','工厂','加工单归属','产出物料 / SKU','卷号','实际产出数量','实际入仓时间','操作人','库位'], renderProcessInboundRows(view), 'min-w-[1280px]'),
           },
           {
             key: 'nodes',
@@ -453,7 +251,7 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
           },
         ]
 
-  return `<div data-printing-warehouse-root data-mode="${mode}" data-skip-page-rerender="true">${renderStandardListPage({title,feedbackHtml:`<p class="text-sm text-muted-foreground">${description}</p>`,filtersHtml:renderFilters(view),statsHtml:`<section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">${metrics}</section>`,tableHtml:renderWarehouseTabs(tabs,mode==='wait-process'?'printing-wait-process-tabs':'printing-wait-handover-tabs'),paginationHtml:'',className:'space-y-4 p-4 min-w-0'})}</div>`
+  return `<div data-printing-warehouse-root data-mode="${mode}" data-skip-page-rerender="true">${renderStandardListPage({title,feedbackHtml:`<p class="text-sm text-muted-foreground">${description} 历史未记录的卷、库位、领用时间不会按计划数量补造；近 7/30 天仅包含明确发生日期。</p>`,filtersHtml:renderFilters(view),statsHtml:metrics,tableHtml:renderWarehouseTabs(tabs,mode==='wait-process'?'printing-wait-process-tabs':'printing-wait-handover-tabs'),paginationHtml:'',className:'space-y-4 p-4 min-w-0'})}</div>`
 }
 
 export function renderCraftPrintingWaitProcessWarehousePage(): string {
@@ -508,8 +306,8 @@ export function handlePrintingWarehouseEvent(target:HTMLElement):boolean {
   }
   if(action==='print-input-roll') {
     const item=getPrintingWarehouseView({timeRange:'ALL'}).waitProcessItems.find(item=>item.stockItemId===actionNode.dataset.stockId)
-    if(!item?.fabricRollNo)return true
-    const frame=document.createElement('iframe');frame.title='投入卷条码打印';frame.className='fixed h-0 w-0 border-0';frame.srcdoc=`<!doctype html><html><meta charset="utf-8"><style>@page{size:100mm 70mm;margin:5mm}body{font:12px sans-serif}svg{max-width:100%;height:70px}</style><h2>印花待加工仓 · 投入卷</h2><p>${escapeHtml(item.materialSku || '')}</p>${renderCode128Barcode(item.fabricRollNo,'投入卷条码')}<p>${escapeHtml(item.warehouseName)} · ${escapeHtml(item.locationNo)}</p><p>库存 ${formatQty(item.receivedQty,item.unit)} · 来源 ${escapeHtml(item.sourceRecordNo)}</p></html>`;frame.onload=()=>{frame.contentWindow?.print();setTimeout(()=>frame.remove(),60000)};document.body.appendChild(frame);return true
+    if(!item?.rolls.length)return true
+    const frame=document.createElement('iframe');frame.title='投入卷条码打印';frame.className='fixed h-0 w-0 border-0';frame.srcdoc=`<!doctype html><html><meta charset="utf-8"><style>@page{size:100mm 70mm;margin:5mm}body{font:12px sans-serif}.label{break-after:page}.label:last-child{break-after:auto}svg{max-width:100%;height:60px}img{width:36px;height:36px;object-fit:cover}</style>${item.rolls.map(roll=>`<section class="label"><h2>印花待加工仓 · 投入卷</h2><p><img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.itemName)}"> ${escapeHtml(item.itemName)} ${escapeHtml(item.materialSku||'')}</p>${renderCode128Barcode(roll.barcode,'投入卷条码')}<p>${escapeHtml(roll.location)}</p><p>实收 ${formatQty(roll.receivedQty,item.unit)} · 在仓 ${formatQty(roll.remainingQty,item.unit)}</p><p>来源 ${escapeHtml(item.sourceRecordNo)}</p></section>`).join('')}</html>`;frame.onload=()=>{frame.contentWindow?.print();setTimeout(()=>frame.remove(),60000)};document.body.appendChild(frame);return true
   }
   return false
 }

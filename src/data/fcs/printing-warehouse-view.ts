@@ -1,352 +1,101 @@
-import {
-  listFactoryInternalWarehouses,
-  listFactoryWaitHandoverStockItems,
-  listFactoryWaitProcessStockItems,
-  listFactoryWarehouseInboundRecords,
-  listFactoryWarehouseNodeRows,
-  listFactoryWarehouseOutboundRecords,
-  listFactoryWarehouseStocktakeOrders,
-  type FactoryInternalWarehouse,
-  type FactoryWaitHandoverStockItem,
-  type FactoryWaitHandoverStockStatus,
-  type FactoryWaitProcessStockItem,
-  type FactoryWarehouseInboundRecord,
-  type FactoryWarehouseNodeRow,
-  type FactoryWarehouseOutboundRecord,
-  type FactoryOutboundRecordStatus,
-  type FactoryWarehouseStocktakeOrder,
-} from './factory-internal-warehouse.ts'
-import {
-  listProcessHandoverRecords,
-  listWaitHandoverWarehouseRecords,
-  listWaitProcessWarehouseRecords,
-  type ProcessHandoverRecord,
-  type ProcessWarehouseRecord,
-} from './process-warehouse-domain.ts'
+import { listFactoryInternalWarehouses, listFactoryWarehouseNodeRows, type FactoryInternalWarehouse, type FactoryWaitProcessStockItem, type FactoryWaitHandoverStockItem, type FactoryWarehouseInboundRecord, type FactoryWarehouseOutboundRecord, type FactoryWarehouseNodeRow, type FactoryWarehouseStocktakeOrder } from './factory-internal-warehouse.ts'
+import { listFactoryReceipts, listFactoryReceivingSources, listReceivingAllocations, listFactoryMaterialUses } from './factory-receiving.ts'
+import { listPrintingWorkOrders, listPrintingDispatchDocuments, getPrintWorkOrderById } from './printing-task-domain.ts'
+import { listHandoverOrdersByTaskId, getPdaHandoverRecordsByHead } from './pda-handover-events.ts'
+import { printingEventTimestamp, normalizePrintingUnit } from './printing-statistics.ts'
 
-export interface PrintingWarehouseViewFilters {
-  factoryId?: string
-  status?: string
-  keyword?: string
-  timeRange?: '7D' | '30D' | 'ALL'
+export interface PrintingWarehouseViewFilters { factoryId?: string; status?: string; keyword?: string; timeRange?: '7D' | '30D' | 'ALL' }
+export interface PrintingStockFlow {flowType:string;qtyText:string;sourceNo:string;operatedAt:string;operatorName:string;statusText:string}
+interface PhysicalMetadata { imageUrl:string; workOrderIds:string[]; flows:PrintingStockFlow[] }
+export interface PrintingInputStock extends FactoryWaitProcessStockItem, PhysicalMetadata {
+  originalReceivedQty:number; preparedQty:number; freeQty:number; receiptLineId:string
+  rolls:Array<{barcode:string;receivedQty:number;usedQty:number;remainingQty:number;location:string}>
 }
-
+export interface PrintingOutputStock extends Omit<FactoryWaitHandoverStockItem,'lossQty'>, PhysicalMetadata {
+  lossQty?:number; reservedQty:number; availableQty:number; dispatchIds:string[]; receivedAt?:string; inboundOperator?:string
+}
+export interface PrintingUsageRecord {id:string;workOrderId:string;receiptLineId:string;sourceNo:string;factoryId:string;factoryName:string;materialSku:string;materialName:string;imageUrl:string;barcode?:string;qty:number;unit:string;at:string;operatorName:string}
 export interface PrintingWarehouseView {
-  factoryIds: string[]
-  taskIds: string[]
-  printOrderIds: string[]
-  handoverOrderIds: string[]
-  waitProcessItems: FactoryWaitProcessStockItem[]
-  waitHandoverItems: FactoryWaitHandoverStockItem[]
-  inboundRecords: FactoryWarehouseInboundRecord[]
-  outboundRecords: FactoryWarehouseOutboundRecord[]
-  warehouses: FactoryInternalWarehouse[]
-  nodeRows: FactoryWarehouseNodeRow[]
-  stocktakeOrders: FactoryWarehouseStocktakeOrder[]
+  factoryIds:string[];taskIds:string[];printOrderIds:string[];handoverOrderIds:string[]
+  waitProcessItems:PrintingInputStock[];waitHandoverItems:PrintingOutputStock[];outputInboundItems:PrintingOutputStock[]
+  inboundRecords:Array<FactoryWarehouseInboundRecord & PhysicalMetadata>;outboundRecords:Array<FactoryWarehouseOutboundRecord & PhysicalMetadata>
+  usageRecords:PrintingUsageRecord[]; warehouses:FactoryInternalWarehouse[];nodeRows:FactoryWarehouseNodeRow[];stocktakeOrders:FactoryWarehouseStocktakeOrder[]
+  unknownInputOrders:number;unknownOutputOrders:number;unlocatedOutputByUnit:Record<string,number>
 }
+const numberText=(value:number,unit:string)=>`${value.toLocaleString('zh-CN',{maximumFractionDigits:2})} ${unit}`
+const unique=<T>(values:T[])=>[...new Set(values)]
+const itemKind=(kind:string):FactoryWaitProcessStockItem['itemKind']=>kind==='YARN'?'纱线':kind==='ACCESSORY'?'辅料':'面料'
 
-function normalizeWaitHandoverStatus(status: string): FactoryWaitHandoverStockStatus {
-  if (status === '有差异' || status === '收货差异') return '差异'
-  if (status === '平台处理中') return '异议中'
-  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
-  if (status === '交出待收货' || status === '部分交出' || status === '已出库') return '已交出'
-  return '待交出'
-}
-
-function normalizeOutboundStatus(status: string): FactoryOutboundRecordStatus {
-  if (status === '有差异' || status === '收货差异') return '差异'
-  if (status === '平台处理中') return '异议中'
-  if (status === '已回写' || status === '已全部交出' || status === '全部交出' || status === '已关闭') return '已回写'
-  return status === '已作废' ? '已作废' : '已出库'
-}
-
-function normalizePrintWarehouseReference(value: string | undefined): string | undefined {
-  return value
-    ?.replaceAll('待回写', '交出待收货')
-    .replaceAll('已回写', '全部交出')
-    .replaceAll('有差异', '收货差异')
-}
-
-function parseDateValue(value: string | undefined): number {
-  if (!value) return 0
-  const time = new Date(value.includes('T') ? value : value.replace(' ', 'T')).getTime()
-  return Number.isFinite(time) ? time : 0
-}
-
-function withinTimeRange(value: string | undefined, timeRange: PrintingWarehouseViewFilters['timeRange']): boolean {
-  if (!timeRange || timeRange === 'ALL') return true
-  const time = parseDateValue(value)
-  if (!time) return true
-  const range = timeRange === '7D' ? 7 * 24 * 3600 * 1000 : 30 * 24 * 3600 * 1000
-  return Date.now() - time <= range
-}
-
-function matchesKeyword(tokens: Array<string | undefined>, keyword: string): boolean {
-  if (!keyword) return true
-  return tokens.some((token) => token?.toLowerCase().includes(keyword))
-}
-
-function matchesStatus(status: string | undefined, filterStatus: string | undefined): boolean {
-  if (!filterStatus || filterStatus === 'ALL') return true
-  return status === filterStatus
-}
-
-function dedupeById<T>(items: T[], getId: (item: T) => string): T[] {
-  const seen = new Set<string>()
-  return items.filter((item) => {
-    const id = getId(item)
-    if (seen.has(id)) return false
-    seen.add(id)
+/** Physical rows are keyed by receipt line, never by allocation or work-order totals. */
+export function getPrintingWarehouseView(filters:PrintingWarehouseViewFilters={}):PrintingWarehouseView {
+  const orders=listPrintingWorkOrders(),orderMap=new Map(orders.map(o=>[o.workOrderId,o]))
+  const sources=listFactoryReceivingSources(),sourceMap=new Map(sources.map(s=>[s.id,s]))
+  const allocations=listReceivingAllocations(),uses=listFactoryMaterialUses(),documents=listPrintingDispatchDocuments()
+  const warehouses=listFactoryInternalWarehouses()
+  const factoryNames=new Map(orders.map(o=>[o.printFactoryId,o.printFactoryName]))
+  const visible=(factoryId:string,status:string,tokens:string[],at?:string)=>{
+    if(filters.factoryId&&factoryId!==filters.factoryId||filters.status&&filters.status!=='ALL'&&status!==filters.status)return false
+    if(filters.keyword&&!tokens.join(' ').toLowerCase().includes(filters.keyword.trim().toLowerCase()))return false
+    if(filters.timeRange&&filters.timeRange!=='ALL') { const timestamp=printingEventTimestamp(at,factoryId); if(timestamp===undefined||timestamp>Date.now()||Date.now()-timestamp>(filters.timeRange==='7D'?7:30)*86400000)return false }
     return true
-  })
-}
-
-function mapWaitProcessRecord(record: ProcessWarehouseRecord): FactoryWaitProcessStockItem {
-  return {
-    stockItemId: record.warehouseRecordId,
-    warehouseId: `${record.targetFactoryId}-PRINT-WAIT-PROCESS`,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_PRINT',
-    warehouseName: record.targetWarehouseName,
-    processCode: 'PROC_PRINT',
-    processName: '印花',
-    craftCode: 'PRINT',
-    craftName: record.craftName,
-    itemKind: record.objectType === '裁片' ? '裁片' : '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    unit: record.qtyUnit,
-    areaName: '印花待加工区',
-    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
-    locationNo: record.warehouseLocation,
-    locationText: record.warehouseLocation,
-    photoList: [],
-    remark: record.remark,
-    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
-    sourceRecordNo: record.warehouseRecordNo,
-    sourceRecordType: 'HANDOVER_RECEIVE',
-    sourceObjectKind: '印花厂',
-    sourceObjectName: record.sourceWorkOrderNo,
-    taskId: record.sourceTaskId,
-    taskNo: [record.sourceWorkOrderNo, record.sourceTaskNo].filter(Boolean).join(' / '),
-    productionOrderId: record.sourceProductionOrderId,
-    productionOrderNo: record.sourceProductionOrderNo,
-    expectedQty: record.plannedObjectQty,
-    receivedQty: record.receivedObjectQty,
-    differenceQty: record.diffObjectQty,
-    receiverName: record.targetFactoryName,
-    receivedAt: record.inboundAt,
-    status: record.status === '有差异' ? '差异待处理' : '已入待加工仓',
   }
-}
-
-function mapWaitHandoverRecord(record: ProcessWarehouseRecord): FactoryWaitHandoverStockItem {
-  return {
-    stockItemId: record.warehouseRecordId,
-    warehouseId: `${record.targetFactoryId}-PRINT-WAIT-HANDOVER`,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_PRINT',
-    warehouseName: record.targetWarehouseName,
-    processCode: 'PROC_PRINT',
-    processName: '印花',
-    craftCode: 'PRINT',
-    craftName: record.craftName,
-    itemKind: record.objectType === '裁片' ? '裁片' : '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    unit: record.qtyUnit,
-    areaName: '印花待交出区',
-    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
-    locationNo: record.warehouseLocation,
-    locationText: record.warehouseLocation,
-    photoList: [],
-    remark: record.remark,
-    taskId: record.sourceTaskId,
-    taskNo: [record.sourceWorkOrderNo, record.sourceTaskNo].filter(Boolean).join(' / '),
-    productionOrderId: record.sourceProductionOrderId,
-    productionOrderNo: record.sourceProductionOrderNo,
-    completedQty: record.plannedObjectQty,
-    lossQty: 0,
-    waitHandoverQty: record.availableObjectQty,
-    receiverKind: '裁床厂',
-    receiverName: record.targetWarehouseName,
-    handoverRecordId: normalizePrintWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
-    handoverRecordNo: normalizePrintWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
-    receiverWrittenQty: record.writtenBackObjectQty,
-    differenceQty: record.diffObjectQty,
-    status: normalizeWaitHandoverStatus(record.status),
+  const location=(warehouseId:string,locationId:string)=>{
+    const warehouse=warehouses.find(w=>w.warehouseId===warehouseId)
+    for(const area of warehouse?.areaList??[])for(const shelf of area.shelfList)for(const loc of shelf.locationList)if(loc.locationId===locationId)return {warehouseName:warehouse!.warehouseName,areaName:area.areaName,shelfNo:shelf.shelfNo,locationNo:loc.locationNo,locationText:`${area.areaName}/${shelf.shelfNo}/${loc.locationNo}`}
+    return {warehouseName:warehouse?.warehouseName||'历史仓库未记录',areaName:'未记录',shelfNo:'未记录',locationNo:locationId||'未记录',locationText:locationId||'历史库位未记录'}
   }
-}
-
-function mapInboundRecord(record: ProcessWarehouseRecord): FactoryWarehouseInboundRecord {
-  const item = mapWaitProcessRecord(record)
-  return {
-    inboundRecordId: record.warehouseRecordId,
-    inboundRecordNo: record.warehouseRecordNo,
-    warehouseId: item.warehouseId,
-    warehouseName: record.targetWarehouseName,
-    factoryId: record.targetFactoryId,
-    factoryName: record.targetFactoryName,
-    factoryKind: 'CENTRAL_PRINT',
-    processCode: 'PROC_PRINT',
-    processName: '印花',
-    craftCode: 'PRINT',
-    craftName: record.craftName,
-    sourceRecordId: record.sourceWorkOrderId || record.workOrderId,
-    sourceRecordNo: record.sourceWorkOrderNo,
-    sourceRecordType: 'HANDOVER_RECEIVE',
-    sourceObjectName: record.sourceWorkOrderNo,
-    taskId: record.sourceTaskId,
-    taskNo: record.sourceTaskNo,
-    itemKind: record.objectType === '裁片' ? '裁片' : '面料',
-    itemName: record.skuSummary || record.materialName,
-    materialSku: record.materialSku,
-    fabricRollNo: record.batchNo,
-    expectedQty: record.plannedObjectQty,
-    receivedQty: record.receivedObjectQty,
-    differenceQty: record.diffObjectQty,
-    unit: record.qtyUnit,
-    receiverName: record.targetFactoryName,
-    receivedAt: record.inboundAt,
-    areaName: item.areaName,
-    shelfNo: item.shelfNo,
-    locationNo: item.locationNo,
-    status: record.status === '有差异' ? '差异待处理' : '已入库',
-    photoList: [],
-    generatedStockItemId: record.warehouseRecordId,
-    remark: record.remark,
+  const knownInputOrders=new Set<string>(),knownOutputOrders=new Set<string>()
+  const waitProcessItems:PrintingInputStock[]=[],inboundRecords:PrintingWarehouseView['inboundRecords']=[],usageRecords:PrintingUsageRecord[]=[]
+  for(const receipt of listFactoryReceipts())for(const line of receipt.lines){
+    const source=sourceMap.get(line.sourceId),lineAllocations=allocations.filter(a=>a.receiptLineId===line.id)
+    const workOrderIds=unique([line.printingOrderId,...lineAllocations.map(a=>a.printingOrderId)].filter((id):id is string=>Boolean(id&&orderMap.has(id))))
+    if(!workOrderIds.length&&source?.processCode!=='PRINT')continue
+    workOrderIds.forEach(id=>knownInputOrders.add(id))
+    const linkedOrders=workOrderIds.map(id=>orderMap.get(id)!),lineUses=uses.flatMap(u=>u.lines.filter(l=>l.receiptLineId===line.id).map(l=>({use:u,line:l})))
+    const issuedQty=lineUses.reduce((n,u)=>n+u.line.qty,0),remaining=Math.max(0,line.qty-issuedQty)
+    const assignedQty=line.printingOrderId?line.qty:lineAllocations.reduce((n,a)=>n+a.qty,0)
+    const preparedQty=Math.min(remaining,Math.max(0,assignedQty-issuedQty)),loc=location(line.warehouseId,line.locationId)
+    const sourceLine=source?.lines.find(l=>l.id===line.sourceLineId)
+    const expected=line.rolls?.length?line.rolls.reduce((n,r)=>n+(sourceLine?.rolls.find(sr=>sr.barcode===r.barcode)?.yard??0),0):undefined
+    const diff=expected===undefined?0:line.qty-expected
+    const status:FactoryWaitProcessStockItem['status']=remaining<=0?'已领用':Math.abs(diff)>.00001?'差异待处理':'已入待加工仓'
+    const factoryName=source?.targetFactoryName||factoryNames.get(receipt.factoryId)||receipt.factoryId
+    const flows:PrintingStockFlow[]=[{flowType:'接收入仓',qtyText:numberText(line.qty,line.unit),sourceNo:receipt.id,operatedAt:receipt.receivedAt,operatorName:receipt.operatorName,statusText:'按实际接收'}]
+    for(const {use,line:usage} of lineUses){
+      flows.push({flowType:'加工用料',qtyText:`−${numberText(usage.qty,usage.unit)}`,sourceNo:use.id,operatedAt:use.at,operatorName:use.operatorName,statusText:usage.barcode||'按实际包装'})
+      if(visible(receipt.factoryId,'已领用',[use.id,line.material.sku,...workOrderIds],use.at))usageRecords.push({id:`${use.id}:${line.id}:${usage.barcode||''}`,workOrderId:use.printingOrderId||'',receiptLineId:line.id,sourceNo:receipt.id,factoryId:receipt.factoryId,factoryName,materialSku:line.material.sku,materialName:line.material.name,imageUrl:line.material.imageUrl,barcode:usage.barcode,qty:usage.qty,unit:usage.unit,at:use.at,operatorName:use.operatorName})
+    }
+    const stock:PrintingInputStock={stockItemId:line.id,receiptLineId:line.id,warehouseId:line.warehouseId,factoryId:receipt.factoryId,factoryName,factoryKind:'CENTRAL_PRINT',...loc,processCode:'PRINT',processName:'印花',craftCode:'PRINT',craftName:'印花',itemKind:itemKind(line.material.kind),itemName:line.material.name,materialSku:line.material.sku,fabricColor:line.material.color,fabricRollNo:line.rolls?.map(r=>r.barcode).join(' / '),unit:line.unit,photoList:[line.material.imageUrl],imageUrl:line.material.imageUrl,sourceRecordId:workOrderIds[0]||'',sourceRecordNo:line.sourceDocumentNo,sourceRecordType:'HANDOVER_RECEIVE',sourceObjectKind:'上游工厂仓',sourceObjectName:line.origin.name,taskId:(linkedOrders[0] ? getPrintWorkOrderById(linkedOrders[0].workOrderId)?.taskId : undefined),taskNo:linkedOrders.map(o=>o.taskNo).join(' / '),productionOrderNo:linkedOrders.map(o=>o.demandSource.productionOrderNo).filter(Boolean).join(' / '),expectedQty:expected??line.qty,receivedQty:remaining,originalReceivedQty:line.qty,availableQty:remaining,issuedQty,preparedQty,freeQty:Math.max(0,remaining-preparedQty),differenceQty:diff,receiverName:receipt.operatorName,receivedAt:receipt.receivedAt,status,workOrderIds,flows,rolls:(line.rolls??[]).map(r=>{const used=lineUses.filter(u=>u.line.barcode===r.barcode).reduce((n,u)=>n+u.line.qty,0);return {barcode:r.barcode,receivedQty:r.yard,usedQty:used,remainingQty:Math.max(0,r.yard-used),location:location(r.warehouseId,r.locationId).locationText}})}
+    if(visible(receipt.factoryId,status,[line.sourceDocumentNo,line.material.name,line.material.sku,...workOrderIds,stock.fabricRollNo||''],receipt.receivedAt)){
+      if(remaining>0)waitProcessItems.push(stock)
+      inboundRecords.push({...stock,inboundRecordId:line.id,inboundRecordNo:receipt.id,receivedQty:line.qty,status:Math.abs(diff)>.00001?'差异待处理':'已入库',generatedStockItemId:line.id})
+    }
   }
-}
-
-function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutboundRecord {
-  return {
-    outboundRecordId: normalizePrintWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
-    outboundRecordNo: normalizePrintWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
-    warehouseId: record.warehouseRecordId,
-    warehouseName: record.receiveWarehouseName,
-    factoryId: record.handoverFactoryId,
-    factoryName: record.handoverFactoryName,
-    factoryKind: 'CENTRAL_PRINT',
-    processCode: 'PROC_PRINT',
-    processName: '印花',
-    craftCode: 'PRINT',
-    craftName: record.craftName,
-    sourceTaskId: record.sourceTaskId,
-    sourceTaskNo: record.sourceTaskNo,
-    handoverRecordId: normalizePrintWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
-    handoverRecordNo: normalizePrintWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
-    receiverKind: '裁床厂',
-    receiverName: record.receiveFactoryName || record.receiveWarehouseName,
-    itemKind: record.objectType === '裁片' ? '裁片' : '面料',
-    itemName: record.sourceWorkOrderNo,
-    outboundQty: record.handoverObjectQty,
-    receiverWrittenQty: record.receiveObjectQty,
-    differenceQty: record.diffObjectQty,
-    unit: record.qtyUnit,
-    operatorName: record.handoverPerson,
-    outboundAt: record.handoverAt,
-    status: normalizeOutboundStatus(record.status),
-    photoList: [],
-    relatedWaitHandoverStockItemId: record.warehouseRecordId,
-    remark: record.remark,
+  const outputInboundItems:PrintingOutputStock[]=[],outboundRecords:PrintingWarehouseView['outboundRecords']=[]
+  for(const order of orders){
+    const heads=listHandoverOrdersByTaskId(getPrintWorkOrderById(order.workOrderId)?.taskId || order.taskNo),records=heads.flatMap(h=>getPdaHandoverRecordsByHead(h.handoverId)).filter(r=>r.handoverRecordStatus!=='VOIDED')
+    const defaultWarehouse=warehouses.find(w=>w.factoryId===order.printFactoryId&&w.warehouseKind==='WAIT_HANDOVER')
+    for(const roll of order.barcodes){
+      if(!(roll.lengthY>0)||(roll.quantityConfirmed!==true&&!roll.handoverRecordId))continue
+      knownOutputOrders.add(order.workOrderId)
+      const actualOut=records.find(r=>r.recordId===roll.handoverRecordId||r.handoverRecordId===roll.handoverRecordId)
+      const handedOut=Boolean(actualOut),reservedDocs=documents.filter(d=>d.status==='草稿'&&d.lines.some(l=>l.workOrderId===order.workOrderId&&l.barcodeIds.includes(roll.id)))
+      const physicalQty=handedOut?0:roll.lengthY,batch=order.productionBatches?.find(b=>b.id===roll.batchId)
+      const flows:PrintingStockFlow[]=[]
+      if(batch?.at)flows.push({flowType:'加工入仓',qtyText:numberText(roll.lengthY,order.output.qtyUnit),sourceNo:batch?.id||roll.barcode,operatedAt:batch!.at,operatorName:batch?.operatorName||'历史操作人未记录',statusText:'实际产出卷入仓'})
+      if(actualOut)flows.push({flowType:'交出出仓',qtyText:`−${numberText(roll.lengthY,order.output.qtyUnit)}`,sourceNo:actualOut.handoverRecordNo||actualOut.recordId,operatedAt:actualOut.factorySubmittedAt,operatorName:actualOut.factorySubmittedBy||'历史操作人未记录',statusText:'实际交出'})
+      const stock:PrintingOutputStock={stockItemId:roll.id,warehouseId:defaultWarehouse?.warehouseId||'',factoryId:order.printFactoryId,factoryName:order.printFactoryName,factoryKind:'CENTRAL_PRINT',warehouseName:roll.warehouseName||'库位待登记',processCode:'PRINT',processName:'印花',craftCode:'PRINT',craftName:order.requirement.craftName,itemKind:order.output.objectType==='纱线'?'纱线':'面料',itemName:order.output.materialName,materialSku:roll.sku,fabricRollNo:roll.barcode,unit:order.output.qtyUnit,areaName:roll.outboundArea||'未记录',shelfNo:'未记录',locationNo:roll.outboundArea||'未记录',locationText:roll.outboundArea||'库位待登记',photoList:[order.output.imageUrl],imageUrl:order.output.imageUrl,taskId:getPrintWorkOrderById(order.workOrderId)?.taskId || order.taskNo,taskNo:order.taskNo,productionOrderNo:order.demandSource.productionOrderNo,completedQty:roll.lengthY,lossQty:undefined,waitHandoverQty:physicalQty,reservedQty:reservedDocs.length?physicalQty:0,availableQty:reservedDocs.length?0:physicalQty,dispatchIds:reservedDocs.map(d=>d.id),receiverKind:'其他接收方',receiverName:order.receivingTargetName||order.handover.receiverName,handoverRecordId:actualOut?.recordId,handoverRecordNo:actualOut?.handoverRecordNo,status:handedOut?'已交出':'待交出',workOrderIds:[order.workOrderId],flows,receivedAt:batch?.at,inboundOperator:batch?.operatorName}
+      if(visible(order.printFactoryId,stock.status,[order.printOrderNo,order.taskNo,roll.sku,roll.barcode],batch?.at))outputInboundItems.push(stock)
+    }
+    for(const record of records){
+      const head=heads.find(h=>h.handoverId===record.handoverId),receivedQty=record.receiverWrittenQty??record.warehouseWrittenQty
+      if(!visible(order.printFactoryId,'已出库',[order.printOrderNo,record.recordId,order.output.sku],record.factorySubmittedAt))continue
+      outboundRecords.push({outboundRecordId:record.recordId,outboundRecordNo:record.handoverRecordNo||record.recordId,warehouseId:defaultWarehouse?.warehouseId||'',warehouseName:defaultWarehouse?.warehouseName||'历史仓库未记录',factoryId:order.printFactoryId,factoryName:order.printFactoryName,factoryKind:'CENTRAL_PRINT',sourceTaskId:getPrintWorkOrderById(order.workOrderId)?.taskId || order.taskNo,sourceTaskNo:order.taskNo,sourceRecordId:order.workOrderId,sourceRecordNo:order.printOrderNo,handoverOrderId:record.handoverId,handoverOrderNo:head?.handoverOrderNo,handoverRecordId:record.recordId,handoverRecordNo:record.handoverRecordNo,receiverKind:'其他接收方',receiverName:order.receivingTargetName||order.handover.receiverName,itemKind:order.output.objectType==='纱线'?'纱线':'面料',itemName:order.output.materialName,materialSku:record.skuCode||order.output.sku,outboundQty:record.submittedQty??0,receiverWrittenQty:receivedQty,differenceQty:receivedQty===undefined?undefined:receivedQty-(record.submittedQty??0),unit:record.qtyUnit||order.output.qtyUnit,operatorName:record.factorySubmittedBy||'历史操作人未记录',outboundAt:record.factorySubmittedAt,status:receivedQty!==undefined&&Math.abs(receivedQty-(record.submittedQty??0))>.01?'差异':receivedQty!==undefined&&receivedQty>=(record.submittedQty??0)?'已回写':'已出库',photoList:[order.output.imageUrl],imageUrl:order.output.imageUrl,relatedWaitHandoverStockItemId:order.workOrderId,workOrderIds:[order.workOrderId],flows:[]})
+    }
   }
-}
-
-export function getPrintingWarehouseView(filters: PrintingWarehouseViewFilters = {}): PrintingWarehouseView {
-  const keyword = filters.keyword?.trim().toLowerCase() || ''
-
-  const byFactory = (factoryId: string): boolean => !filters.factoryId || factoryId === filters.factoryId
-
-  const waitProcessRecords = listWaitProcessWarehouseRecords({ craftType: 'PRINT' }).filter((item) =>
-    byFactory(item.targetFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword)
-    && withinTimeRange(item.inboundAt, filters.timeRange),
-  )
-  const waitHandoverRecords = listWaitHandoverWarehouseRecords({ craftType: 'PRINT' }).filter((item) =>
-    byFactory(item.targetFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword),
-  )
-  const handoverRecords = listProcessHandoverRecords({ craftType: 'PRINT' }).filter((item) =>
-    byFactory(item.handoverFactoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.handoverRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo], keyword)
-    && withinTimeRange(item.handoverAt, filters.timeRange),
-  )
-
-  const baseWaitProcessItems = listFactoryWaitProcessStockItems().filter((item) =>
-    item.factoryKind === 'CENTRAL_PRINT'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
-  )
-  const baseWaitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) =>
-    item.factoryKind === 'CENTRAL_PRINT'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.stockItemId, item.itemName, item.materialSku, item.taskNo, item.productionOrderNo], keyword),
-  )
-  const baseInboundRecords = listFactoryWarehouseInboundRecords().filter((item) =>
-    item.factoryKind === 'CENTRAL_PRINT'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.inboundRecordNo, item.itemName, item.materialSku, item.taskNo, item.sourceRecordNo], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
-  )
-  const baseOutboundRecords = listFactoryWarehouseOutboundRecords().filter((item) =>
-    item.factoryKind === 'CENTRAL_PRINT'
-    && byFactory(item.factoryId)
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.outboundRecordNo, item.itemName, item.sourceTaskNo, item.handoverRecordNo], keyword)
-    && withinTimeRange(item.outboundAt, filters.timeRange),
-  )
-
-  const waitProcessItems = dedupeById([...baseWaitProcessItems, ...waitProcessRecords.map(mapWaitProcessRecord)], (item) => item.stockItemId)
-  const waitHandoverItems = dedupeById([...baseWaitHandoverItems, ...waitHandoverRecords.map(mapWaitHandoverRecord)], (item) => item.stockItemId)
-  const inboundRecords = dedupeById([...baseInboundRecords, ...waitProcessRecords.map(mapInboundRecord)], (item) => item.inboundRecordId)
-  const outboundRecords = dedupeById([...baseOutboundRecords, ...handoverRecords.map(mapOutboundRecord)], (item) => item.outboundRecordId)
-  const taskIds = new Set([
-    ...waitProcessRecords.map((record) => record.sourceTaskId),
-    ...waitHandoverRecords.map((record) => record.sourceTaskId),
-    ...handoverRecords.map((record) => record.sourceTaskId),
-  ].filter(Boolean))
-  const factoryIds = new Set([
-    ...waitProcessRecords.map((record) => record.targetFactoryId),
-    ...waitHandoverRecords.map((record) => record.targetFactoryId),
-    ...handoverRecords.map((record) => record.handoverFactoryId),
-  ].filter(Boolean))
-  const printOrderIds = new Set([
-    ...waitProcessRecords.map((record) => record.sourceWorkOrderId),
-    ...waitHandoverRecords.map((record) => record.sourceWorkOrderId),
-    ...handoverRecords.map((record) => record.sourceWorkOrderId),
-  ].filter(Boolean))
-  const handoverOrderIds = new Set(outboundRecords.map((record) => record.handoverOrderId).filter(Boolean) as string[])
-
-  const visibleFactoryIds = new Set([
-    ...Array.from(factoryIds),
-    ...waitProcessItems.map((item) => item.factoryId),
-    ...waitHandoverItems.map((item) => item.factoryId),
-    ...inboundRecords.map((item) => item.factoryId),
-    ...outboundRecords.map((item) => item.factoryId),
-  ].filter((factoryId) => byFactory(factoryId)))
-
-  return {
-    factoryIds: Array.from(visibleFactoryIds),
-    taskIds: Array.from(taskIds),
-    printOrderIds: Array.from(printOrderIds).flatMap((id) => id ? [id] : []),
-    handoverOrderIds: Array.from(handoverOrderIds),
-    waitProcessItems,
-    waitHandoverItems,
-    inboundRecords,
-    outboundRecords,
-    warehouses: listFactoryInternalWarehouses().filter((warehouse) => visibleFactoryIds.has(warehouse.factoryId)),
-    nodeRows: Array.from(visibleFactoryIds).flatMap((factoryId) => listFactoryWarehouseNodeRows(factoryId)),
-    stocktakeOrders: listFactoryWarehouseStocktakeOrders().filter((order) => visibleFactoryIds.has(order.factoryId)),
-  }
+  const visibleOrders=orders.filter(o=>!filters.factoryId||o.printFactoryId===filters.factoryId)
+  const unlocatedOutputByUnit:Record<string,number>={}
+  for(const o of visibleOrders){const missing=Math.max(0,o.output.completedQty-o.barcodes.filter(b=>b.quantityConfirmed===true||Boolean(b.handoverRecordId)).reduce((n,b)=>n+b.lengthY,0));if(missing>0){const unit=normalizePrintingUnit(o.output.qtyUnit);unlocatedOutputByUnit[unit]=(unlocatedOutputByUnit[unit]||0)+missing}}
+  const factoryIds=unique([...visibleOrders.map(o=>o.printFactoryId),...waitProcessItems.map(i=>i.factoryId)].filter(Boolean))
+  return {unlocatedOutputByUnit,factoryIds,taskIds:visibleOrders.map(o=>getPrintWorkOrderById(o.workOrderId)?.taskId||o.taskNo),printOrderIds:visibleOrders.map(o=>o.workOrderId),handoverOrderIds:unique(outboundRecords.map(r=>r.handoverOrderId).filter((id):id is string=>Boolean(id))),waitProcessItems,waitHandoverItems:outputInboundItems.filter(i=>i.waitHandoverQty>0),outputInboundItems,inboundRecords,outboundRecords,usageRecords,warehouses:warehouses.filter(w=>factoryIds.includes(w.factoryId)),nodeRows:factoryIds.flatMap(id=>listFactoryWarehouseNodeRows(id)),stocktakeOrders:[],unknownInputOrders:visibleOrders.filter(o=>o.actualInput.receivedQty>0&&!knownInputOrders.has(o.workOrderId)).length,unknownOutputOrders:visibleOrders.filter(o=>o.output.completedQty>0&&!knownOutputOrders.has(o.workOrderId)).length}
 }

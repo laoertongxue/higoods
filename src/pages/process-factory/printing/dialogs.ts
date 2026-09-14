@@ -1,6 +1,9 @@
+import { listPrintingFactoryOptions } from '../../../data/fcs/printing-factories.ts'
+import { getPrintingWorkflowFacts } from '../../../data/fcs/printing-task-domain.ts'
+import { renderPrintingDemandSource, printingProductionStage, renderPrintingObjectImage } from './presentation.ts'
+import { renderPrintingWorkOrderTimes } from './work-order-times.ts'
 import { isPrintablePrintingRoll } from '../../../data/fcs/printing-task-domain.ts'
 import { printingMaterialCode } from './relations.ts'
-import { getPrintingMaterialReceiptOptions } from '../../../data/fcs/printing-material-receipts.ts'
 import {
   formatPrintingQty,
   formatPrintingUsage,
@@ -26,6 +29,9 @@ export type PrintingDialogType =
   | 'barcode-import'
   | 'logs'
   | 'edit-info'
+  | 'remarks'
+  | 'start-production'
+  | 'production-stage'
 
 export interface PrintingDialogState {
   type: PrintingDialogType
@@ -79,7 +85,7 @@ function dialogShell(input: { title: string; order: PrintingWorkOrderBusinessRec
         <div><h2 class="text-lg font-semibold">${escapeHtml(input.title)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(input.order.printOrderNo)} · ${escapeHtml(input.order.output.sku)}</p></div>
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-printing-action="close-dialog">关闭</button>
       </header>
-      <div class="p-5">${input.body}</div>
+      <div class="p-5"><div class="mb-4 flex flex-wrap gap-4 border-b pb-3">${input.order.demandSource.type !== 'STOCK' ? `<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.product)}<div class="text-xs"><p>${escapeHtml(input.order.product.productName)}</p><p>${escapeHtml(input.order.product.spu)}</p></div></div>` : ''}<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.plannedInput)}<div class="text-xs"><p>${escapeHtml(input.order.plannedInput.materialName)}</p><p>${escapeHtml(printingMaterialCode(input.order.plannedInput.sku))}</p></div></div></div>${input.body}</div>
       <footer class="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t bg-white px-5 py-4">
         ${input.footerExtra || ''}
         <button type="button" class="rounded-md border px-4 py-2 text-sm" data-printing-action="close-dialog">取消</button>
@@ -93,8 +99,7 @@ function renderAssign(order: PrintingWorkOrderBusinessRecord): string {
   return dialogShell({
     title: '分配印花加工厂', order, confirmLabel: '确认分配',
     body: `<div class="grid gap-4 sm:grid-cols-2">
-      ${field('加工厂编码', inputControl('factoryId', order.printFactoryId || 'F090'))}
-      ${field('加工厂', inputControl('factoryName', order.printFactoryName || 'FLOWER 印花厂'))}
+      ${field('加工厂', `<select class="h-9 w-full rounded-md border px-3 text-sm" data-printing-dialog-field="factoryId"><option value="">请选择印花加工厂</option>${listPrintingFactoryOptions().map(factory => `<option value="${escapeHtml(factory.id)}" ${factory.id === order.printFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select>`)}
     </div><p class="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-700">分配后加工状态进入“待接收投入”；交出状态仍为“未开始”。</p>`,
   })
 }
@@ -130,52 +135,48 @@ function renderChangeInput(order: PrintingWorkOrderBusinessRecord): string {
 function renderReceiveInput(order: PrintingWorkOrderBusinessRecord): string {
   if (order.historicalInputQuantityUnknown) return dialogShell({ title: '补录历史累计投入', order, confirmLabel: '确认补录', body: `<div class="rounded bg-amber-50 p-3 text-sm">历史累计投入未记录；本次补录不代表新的上游实物交接，不扣上游可收量。</div><div class="mt-4 grid gap-4 sm:grid-cols-2">${field(`历史累计投入（${escapeHtml(order.plannedInput.qtyUnit)}）`, inputControl('receivedQty', '', {type:'number',step:'0.01'}), `至少已明确使用 ${order.actualInput.usedQty} ${order.plannedInput.qtyUnit}`)}${field('历史累计卷数', inputControl('receivedRollCount', '', {type:'number',step:'1'}))}${order.historicalRollQuantitiesUnknown ? field('历史完成卷数', inputControl('historicalCompletedRollCount', '', {type:'number',step:'1'}), '按历史记录补录，不生成或改写旧条码') : ''}${field('补录原因（必填）', inputControl('historicalReason', ''))}${field('补录人', inputControl('receiverName', 'Hilon'))}</div>` })
 
-  const source = getPrintingMaterialReceiptOptions(order.workOrderId)
-  const qtyUnit = escapeHtml(order.plannedInput.qtyUnit)
-  const sourceField = source.options.length > 0
-    ? field('来源单据', `<select data-printing-dialog-field="upstreamRecordId" class="h-9 w-full rounded border"><option value="">请选择本次接收单据</option>${source.options.map(item => `<option value="${escapeHtml(item.recordId)}" ${source.options.length === 1 ? 'selected' : ''}>${escapeHtml(item.label)} · 可收 ${item.availableQty} ${escapeHtml(item.unit)}</option>`).join('')}</select>`)
-    : `<div class="sm:col-span-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">${escapeHtml(source.blockReason || '来源单据尚未到位。')}</div>`
-  return dialogShell({
-    title: '接收加工投入', order, confirmLabel: source.options.length > 0 ? '确认接收' : undefined,
-    body: `<div class="rounded-lg border bg-slate-50 p-4 text-sm"><p class="font-medium">计划投入：[${escapeHtml(order.plannedInput.objectType)}] ${escapeHtml(order.plannedInput.materialName)}</p><p class="font-mono text-xs">${escapeHtml(order.plannedInput.sku)}</p><p class="mt-2 text-xs text-slate-600">计划 ${formatPrintingQty(order.plannedInput.plannedQty)} ${qtyUnit}；已接收 ${formatPrintingQty(order.actualInput.receivedQty)} ${qtyUnit} / ${order.actualInput.receivedRollCount} 卷</p></div>
-      <div class="mt-4 grid gap-4 sm:grid-cols-2">
-        ${sourceField}
-        ${field('实际投入 SKU', inputControl('actualSku', order.plannedInput.sku), '如与计划不同，请先调整加工投入')}
-        ${field(`本次接收数量（${qtyUnit}）`, inputControl('receivedQty', Math.max(0, order.plannedInput.plannedQty - order.actualInput.receivedQty).toFixed(2), { type: 'number', step: '0.01' }))}
-        ${field('本次接收卷数', inputControl('receivedRollCount', 1, { type: 'number', step: '1' }))}
-        ${field('接收人', inputControl('receiverName', 'Hilon'))}
-      </div>`,
-  })
+  const href = `/fcs/craft/printing/pending-receipts?workOrderId=${encodeURIComponent(order.workOrderId)}`
+  return dialogShell({title:'接收加工投入',order,body:`<p class="text-sm">请在待接收中按来源单逐条扫码、登记实收和库位。</p><a class="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-sm text-white" href="${href}" data-nav="${href}">进入待接收</a>`})
 }
 
 function renderComplete(order: PrintingWorkOrderBusinessRecord): string {
-  const inputUnit = escapeHtml(order.plannedInput.qtyUnit)
-  const outputUnit = escapeHtml(order.output.qtyUnit)
+  const facts = getPrintingWorkflowFacts(order.workOrderId)
+  const packageLabel = ['面料', '花边', '织带'].includes(order.output.objectType) ? '卷数' : '包装数'
   return dialogShell({
-    title: '填报加工完成', order, confirmLabel: '确认加工完成',
-    body: `<div class="rounded-md bg-blue-50 p-3 text-sm text-blue-700">填写截至本次的累计使用和累计完成数量；系统只新增本批产出卷，保留此前交出与入库记录。</div>
+    title: '填报加工产出', order, confirmLabel: '保存本批产出',
+    body: `${renderPrintingDemandSource(order)}<p class="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">按实际记录填写累计合格产出；打印和转印分别填报。实际卷码在产出后逐卷维护，草稿卷不能直接交出。</p>
       <div class="mt-4 grid gap-4 sm:grid-cols-2">
-        ${field(`累计实际使用（${inputUnit}）`, inputControl('usedQty', order.actualInput.receivedQty.toFixed(2), { type: 'number', step: '0.01' }), `不得超过已接收 ${formatPrintingQty(order.actualInput.receivedQty)} ${inputUnit}`)}
-        ${field('累计实际使用卷数', inputControl('usedRollCount', Math.max(order.actualInput.receivedRollCount, 1), { type: 'number', step: '1' }))}
-        ${field(`累计完成数量（${outputUnit}）`, inputControl('completedQty', order.actualInput.receivedQty.toFixed(2), { type: 'number', step: '0.01' }), '不得超过实际使用数量')}
-        ${field('累计完成卷数', inputControl('completedRollCount', Math.max(order.actualInput.receivedRollCount, 1), { type: 'number', step: '1' }))}
-        ${field('打印机', inputControl('printerNo', order.printerNo === '未分配' ? 'PR-01' : order.printerNo))}
-      </div>`,
+        ${field(`累计实际使用（${order.plannedInput.qtyUnit}）`, inputControl('usedQty', order.actualInput.usedQty, { type: 'number', step: '0.01', readonly: true }), '由实际开工领料记录产生')}
+        ${field(`累计使用${packageLabel}`, inputControl('usedRollCount', order.actualInput.usedRollCount, { type: 'number', step: '1' }))}
+        ${field(`累计合格完成（${order.output.qtyUnit}）`, inputControl('completedQty', order.output.completedQty, { type: 'number', step: '0.01' }), '只填写实际最终产出，不累计正反面或不同工序')}
+        ${field(`累计完成${packageLabel}`, inputControl('completedRollCount', order.output.completedRollCount, { type: 'number', step: '1' }))}
+        ${field(`本批已核算损耗（${order.plannedInput.qtyUnit}）`, inputControl('lossQty', '', { type: 'number', step: '0.01' }), '只填本次新增核算；未核算留空，确认无损耗填写 0')}
+        ${field('打印设备', inputControl('printerNo', order.printerNo))}
+      </div><label class="mt-4 flex gap-2 text-sm"><input type="checkbox" data-printing-dialog-field="finishOrder">本单全部加工完成（需所有投入和在制数量核算完成）</label>`,
   })
 }
 
+function renderProductionOperation(order: PrintingWorkOrderBusinessRecord, start: boolean): string {
+  const facts = getPrintingWorkflowFacts(order.workOrderId)
+  const choices = [['ARTWORK:FINISH','确认花型版本'], ['SAMPLE:FINISH','确认样品/米样'], ['PRINT:START','开始打印'], ['PRINT:FINISH','填报打印完成'], ...(facts.requiresTransfer ? [['TRANSFER:START','开始转印'],['TRANSFER:FINISH','填报转印完成']] : [])]
+  return dialogShell({ title: start ? '开工领料' : '印花工序记录', order, confirmLabel: start ? '确认开工领料' : '保存工序记录', body: `${renderPrintingDemandSource(order)}<p class="mt-3 text-sm">当前环节：${escapeHtml(printingProductionStage(order))}</p><div class="mt-4 grid gap-4 sm:grid-cols-2">${start ? field(`本次实际领用（${order.plannedInput.qtyUnit}）`, inputControl('productionQty', '', {type:'number',step:'0.01'}), `本厂可用 ${formatPrintingQty(facts.availableInputQty)} ${order.plannedInput.qtyUnit}`) : field('本次动作', `<select class="h-9 w-full rounded border px-2" data-printing-dialog-field="productionAction">${choices.map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select>`) }
+  ${!start ? field(`本工序累计完成（${order.output.qtyUnit}）`, inputControl('productionQty', '', {type:'number',step:'0.01'}), '仅打印/转印完成时填写；开始和确认花型/样品无需数量') : ''}${field('操作人',inputControl('productionOperator','印花执行员'))}</div><p class="mt-4 text-xs text-slate-500">每次保存保留操作人和时间；已有接收、其他工序和交接事实不会被覆盖。</p>` })
+}
+
+function renderEditInformation(order: PrintingWorkOrderBusinessRecord): string {
+  const facts = getPrintingWorkflowFacts(order.workOrderId)
+  const blocker = order.processingStatus === 'CANCELLED' || order.processingStatus === 'PROCESS_COMPLETED' ? '本单已结束，不能变更印花要求。'
+    : order.historicalInputQuantityUnknown ? '历史投入未核实，请先补齐历史实际投入。'
+    : facts.inProcessQty > 0.001 ? `本批还有 ${formatPrintingQty(facts.inProcessQty)} ${order.plannedInput.qtyUnit} 在制或未核算数量，请先完成本批核算。`
+    : order.barcodes.some(roll => roll.quantityConfirmed === false || roll.lengthY <= 0) || order.barcodes.reduce((sum, roll) => sum + roll.lengthY, 0) < order.output.completedQty - 0.01 ? '存在尚未测量的产出卷，请先在产出卷条码中补齐实际数量。' : ''
+  const locked = Boolean(blocker)
+  const pattern = (label: string, prefix: string, value: PrintingWorkOrderBusinessRecord['requirement']['frontPattern'] | undefined) => `<fieldset class="rounded-lg border p-3"><legend class="px-1 text-sm font-semibold">${label}</legend>${value ? `<div class="mb-3 flex items-center gap-2">${renderPrintingObjectImage(value)}<span class="text-xs">${escapeHtml(value.patternName)} · ${escapeHtml(value.patternNo)}</span></div>` : ''}<div class="grid gap-3 sm:grid-cols-2">${field('花型编号',inputControl(`${prefix}No`,value?.patternNo || '',{readonly:locked}))}${field('版本',inputControl(`${prefix}Version`,value?.patternVersion || '',{readonly:locked}))}${field('花型名称',inputControl(`${prefix}Name`,value?.patternName || '',{readonly:locked}))}${field('正式图片地址',inputControl(`${prefix}Image`,value?.imageUrl || '',{readonly:locked}))}</div></fieldset>`
+  return dialogShell({title:'编辑印花信息',order,confirmLabel:'保存',wide:true,body:`${renderPrintingDemandSource(order)}<div class="my-4 grid gap-2 rounded-lg border bg-slate-50 p-3 text-sm sm:grid-cols-3"><p>加工厂：${escapeHtml(order.printFactoryName)}</p><p>任务单：${escapeHtml(order.taskNo)}</p><p>本厂实收：${order.historicalInputQuantityUnknown ? '历史未记录' : formatPrintingQty(order.actualInput.receivedQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p><p>实际使用：${formatPrintingQty(order.actualInput.usedQty)} ${escapeHtml(order.plannedInput.qtyUnit)}</p><p>合格完成：${formatPrintingQty(order.output.completedQty)} ${escapeHtml(order.output.qtyUnit)}</p><p>实际交出：${formatPrintingQty(order.handover.handedOverQty)} ${escapeHtml(order.output.qtyUnit)}</p></div><div class="grid gap-4 sm:grid-cols-3">${field('工艺名称',inputControl('craftName',order.requirement.craftName,{readonly:locked}))}${field('加工方式',inputControl('craftType',order.requirement.type,{readonly:locked}))}${field('印花面别',`<select class="h-9 w-full rounded border px-2" data-printing-dialog-field="printSide" ${locked ? 'disabled' : ''}><option ${order.requirement.printSide === '单面' ? 'selected' : ''}>单面</option><option ${order.requirement.printSide === '双面' ? 'selected' : ''}>双面</option></select>`)}${field('深浅',inputControl('shade',order.requirement.shade,{readonly:locked}))}${field('适用温度',inputControl('temperature',order.requirement.temperature,{readonly:locked}))}${field('打印设备',inputControl('printerNo',order.printerNo))}${field('计划完成时间',inputControl('plannedFinishAt',order.plannedFinishAt?.replace(' ','T')||'',{type:'datetime-local',step:'1'}))}</div><div class="mt-4 space-y-3">${pattern('正面花型','frontPattern',order.requirement.frontPattern)}${pattern('反面花型（双面时必填）','insidePattern',order.requirement.insidePattern)}</div><div class="mt-3 rounded border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800"><p>当前印花要求版本：V${order.requirementVersion || 1}</p><p>变更影响范围：后续未开工批次</p><p>已完成批次保留原花型与版本；新版本需重新确认花型和打样。</p></div>${blocker ? `<p class="mt-2 text-sm text-amber-700">${escapeHtml(blocker)}</p>` : ''}${field('修改原因',inputControl('changeReason',''),'变更工艺、面别或花型时必填；已有批次不会被覆盖')}<label class="mt-4 block text-sm">备注<textarea data-printing-dialog-field="infoRemark" class="mt-1 min-h-24 w-full rounded border p-3">${escapeHtml(order.remark)}</textarea></label><details class="mt-4"><summary class="cursor-pointer text-sm text-blue-700">查看实际时间（只读）</summary>${renderPrintingWorkOrderTimes(order)}</details>`})
+}
+
 function renderHandover(order: PrintingWorkOrderBusinessRecord): string {
-  const remaining = Math.max(0, order.output.completedQty - order.handover.handedOverQty)
-  const qtyUnit = escapeHtml(order.output.qtyUnit)
-  return dialogShell({
-    title: '交出加工产出', order, confirmLabel: '确认交出', wide: true,
-    body: `<div class="grid gap-3 sm:grid-cols-3">
-      ${field(`本次交出数量（${qtyUnit}）`, inputControl('handoverQty', remaining.toFixed(2), { type: 'number', step: '0.01' }), `剩余可交 ${formatPrintingQty(remaining)} ${qtyUnit}`)}
-      ${field('交出人', inputControl('handoverOperator', '印花交出员'))}
-      ${field('下游接收人', inputControl('handoverReceiver', order.handover.receiverName === '未指定' ? '下游接收人' : order.handover.receiverName))}
-    </div>
-    <div class="mt-5 overflow-x-auto rounded-lg border"><table class="min-w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-3">选择</th><th class="p-3">条码</th><th class="p-3">产出 SKU</th><th class="p-3">卷号</th><th class="p-3">数量(${qtyUnit})</th><th class="p-3">重量(KG)</th><th class="p-3">状态</th></tr></thead><tbody>${order.barcodes.map((barcode) => `<tr class="border-t"><td class="p-3"><input type="checkbox" data-printing-barcode-select value="${escapeHtml(barcode.id)}" ${barcode.status === '已交出' || barcode.status === '已入库' ? 'disabled' : 'checked'}></td><td class="p-3 font-mono text-xs">${escapeHtml(barcode.barcode)}</td><td class="p-3 font-mono text-xs">${escapeHtml(printingMaterialCode(barcode.sku, true))}</td><td class="p-3">${escapeHtml(barcode.rollNo)}</td><td class="p-3">${formatPrintingQty(barcode.lengthY)}</td><td class="p-3">${formatPrintingWeightKg(barcode.weightKg)}</td><td class="p-3">${escapeHtml(barcode.status)}</td></tr>`).join('')}</tbody></table></div>`,
-  })
+  const href = `/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(order.workOrderId)}`
+  return dialogShell({title:'交出加工产出',order,body:`<p class="text-sm">请在待交出列表按实际产出卷创建单据，再完成扫码交接。</p><a class="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-sm text-white" href="${href}" data-nav="${href}">进入待交出列表</a>`})
 }
 
 function renderReceiveHandover(order: PrintingWorkOrderBusinessRecord): string {
@@ -186,7 +187,7 @@ function renderReceiveHandover(order: PrintingWorkOrderBusinessRecord): string {
     body: `<div class="rounded-lg border bg-slate-50 p-4 text-sm"><p>交出单：${escapeHtml(order.handover.handoverNo || '未生成')}</p><p class="mt-1">累计交出 ${formatPrintingQty(order.handover.handedOverQty)} ${qtyUnit} · 已接收 ${formatPrintingQty(order.handover.receivedQty)} ${qtyUnit} · 待接收 ${formatPrintingQty(pending)} ${qtyUnit}</p></div>
       <div class="mt-4 grid gap-4 sm:grid-cols-2">
         ${field(`本次实收（${qtyUnit}）`, inputControl('receiveQty', pending.toFixed(2), { type: 'number', step: '0.01' }))}
-        ${field('接收人', inputControl('outputReceiver', order.handover.receiverName === '未指定' ? '下游接收人' : order.handover.receiverName))}
+        ${field('接收人', inputControl('outputReceiver', order.handover.receivedBy || ''))}
         ${field('异议数量', inputControl('objectionQty', 0, { type: 'number', step: '1' }), '异议是独立事实，不改加工完成状态')}
         ${field('差异/异议说明', `<textarea class="min-h-20 w-full rounded-md border p-3 text-sm" data-printing-dialog-field="differenceReason" placeholder="无差异可不填"></textarea>`)}
       </div>`,
@@ -243,7 +244,7 @@ function renderBarcodeEdit(order: PrintingWorkOrderBusinessRecord, barcode: Prin
       ${field('产出 SKU', inputControl('barcodeSku', printingMaterialCode(barcode.sku, true), { readonly: true }))}
       ${field(`数量（${escapeHtml(order.output.qtyUnit)}）`, inputControl('lengthY', barcode.lengthY.toFixed(2), { type: 'number', step: '0.01' }), showFabricSpecification ? '填写数量、米数或重量任一项，系统自动换算' : '按本加工单数量单位填写')}
       ${showFabricSpecification ? field('米数（M）', inputControl('meters', barcode.meters.toFixed(2), { type: 'number', step: '0.01' })) : ''}
-      ${field('重量（KG）', inputControl('weightKg', formatPrintingWeightKg(barcode.weightKg), { type: 'number', step: '0.001' }), 'KG 固定保留 3 位小数')}
+      ${field('重量（KG）', inputControl('weightKg', formatPrintingWeightKg(barcode.weightKg), { type: 'number', step: '0.001' }), 'KG 固定保留 3 位小数；按规格换算的重量不代表实称')}<label class="flex items-center gap-2 text-sm"><input type="checkbox" data-printing-dialog-field="weightMeasured" ${barcode.weightSource==='ACTUAL'?'checked':''}>重量为现场称重值</label>
       ${showFabricSpecification ? field('克重（g/㎡）', inputControl('gsm', barcode.gsm.toFixed(2), { type: 'number', step: '0.01' })) : ''}
       ${showFabricSpecification ? field('幅宽（cm）', inputControl('widthCm', barcode.widthCm, { type: 'number', step: '0.01' })) : ''}
       ${field('缸号', inputControl('vatNo', barcode.vatNo))}
@@ -272,7 +273,9 @@ export function renderPrintingDialog(): string {
   const order = getPrintingWorkOrderById(currentDialog.workOrderId)
   if (!order) return ''
   if (currentDialog.type === 'logs') return dialogShell({title:'印花操作日志',order,wide:true,body:`<table class="w-full text-left text-sm"><thead><tr><th class="p-2">时间</th><th class="p-2">操作人</th><th class="p-2">操作</th><th class="p-2">说明</th></tr></thead><tbody>${order.operationLogs.map(log=>`<tr class="border-t"><td class="p-2">${escapeHtml(log.operatedAt)}</td><td class="p-2">${escapeHtml(log.operatorName)}</td><td class="p-2">${escapeHtml(log.action)}</td><td class="p-2">${escapeHtml(log.remark)}</td></tr>`).join('')}</tbody></table>`})
-  if (currentDialog.type === 'edit-info') return dialogShell({title:'编辑印花信息',order,confirmLabel:'保存',body:`<div class="grid gap-4 sm:grid-cols-2">${field('工艺名称',inputControl('craftName',order.requirement.craftName,{readonly:order.output.completedQty>0}))}${field('类型',inputControl('craftType',order.requirement.type,{readonly:order.output.completedQty>0}))}${field('深浅',inputControl('shade',order.requirement.shade,{readonly:order.output.completedQty>0}))}${field('温度',inputControl('temperature',order.requirement.temperature,{readonly:order.output.completedQty>0}))}${field('打印机',inputControl('printerNo',order.printerNo))}${field('计划交货时间',inputControl('plannedFinishAt',order.plannedFinishAt?.slice(0,16).replace(' ','T')||'',{type:'datetime-local'}))}</div><label class="mt-4 block text-sm">备注<textarea data-printing-dialog-field="infoRemark" class="mt-1 min-h-24 w-full rounded border p-3">${escapeHtml(order.remark)}</textarea></label>`})
+  if (currentDialog.type === 'edit-info') return renderEditInformation(order)
+  if (currentDialog.type === 'remarks') return dialogShell({ title:'加工单备注', order, body:`${renderPrintingDemandSource(order)}<p class="mt-4 whitespace-pre-wrap text-sm">${escapeHtml(order.remark || '暂无备注，可在编辑信息中填写')}</p>` })
+  if (currentDialog.type === 'start-production' || currentDialog.type === 'production-stage') return renderProductionOperation(order, currentDialog.type === 'start-production')
   if (currentDialog.type === 'assign') return renderAssign(order)
   if (currentDialog.type === 'change-input') return renderChangeInput(order)
   if (currentDialog.type === 'receive-input') return renderReceiveInput(order)

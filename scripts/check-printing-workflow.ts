@@ -1,10 +1,2 @@
-/**
- * 印花工作流检查兼容入口。
- *
- * 旧检查把花型测试、打印、转印、审核等线上细状态当成必须由现场逐项维护的
- * 主流程，并强制列表暴露任务流转卡。这些契约已经被确认后的“加工投入、
- * 固定加工产出、加工状态、交出状态”模型取代。
- *
- * 保留该脚本名，避免 CI 和本地命令断链；真实契约统一由专项检查维护。
- */
-import './check-printing-work-order-redesign.ts'
+/** Approved contract: receipts, real use, independent print/transfer, measured rolls and downstream actual. */
+import './check-printing-stock-statistics.ts'

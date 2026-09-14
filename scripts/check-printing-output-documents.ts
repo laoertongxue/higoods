@@ -9,10 +9,8 @@ for(const row of rows){
  for(const block of doc.imageBlocks || []) if(block.title.includes('花型')) assert(!/sample\./.test(block.imageUrl || ''),'样衣图不能作为正式花型打印')
  const fields=doc.sections.flatMap(x=>x.fields || [])
  assert(!fields.some(x=>x.label==='物料 SPU'))
- const output=fields.find(x=>x.label==='加工产出 SKU')
+ const output=doc.headerFields.find(x=>x.label==='Fabric SKU')
  if(/^tdv[-_]/i.test(row.output.sku)) assert.equal(output?.value,'产出编码待完善')
- assert(fields.some(x=>x.label==='下游待接收' && x.value===`${row.pendingWritebackQty.toFixed(2)} ${row.output.qtyUnit}`))
- if(row.historicalInputQuantityUnknown) assert(fields.some(x=>x.label==='实际接收' && x.value==='历史未记录'))
 }
 const selected=[rows[1].workOrderId,rows[3].workOrderId]
 assert.deepEqual(buildPrintingConfirmationDocument({...input(selected.join(',')),documentType:'PRINTING_CONFIRMATION'}).relatedObjectIds,selected)

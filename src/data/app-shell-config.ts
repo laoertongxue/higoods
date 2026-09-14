@@ -490,9 +490,12 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '印花管理',
           icon: 'Palette',
           children: [
+            { key: 'pfos-printing-pending-receipts', title: '待接收', icon: 'ScanLine', href: '/fcs/craft/printing/pending-receipts' },
             { key: 'pfos-printing-work-orders', title: '印花加工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
             { key: 'pfos-printing-wait-process-warehouse', title: '印花待加工仓', icon: 'Warehouse', href: '/fcs/craft/printing/wait-process-warehouse' },
             { key: 'pfos-printing-wait-handover-warehouse', title: '印花待交出仓', icon: 'PackageCheck', href: '/fcs/craft/printing/wait-handover-warehouse' },
+            { key: 'pfos-printing-pending-handover', title: '印花待交出列表', icon: 'ListChecks', href: '/fcs/craft/printing/pending-handover' },
+            { key: 'pfos-printing-handover-documents', title: '印花交出单据', icon: 'FileText', href: '/fcs/craft/printing/handover-documents' },
             { key: 'pfos-printing-statistics', title: '印花统计', icon: 'BarChart3', href: '/fcs/craft/printing/statistics' },
             { key: 'pfos-printing-dashboards', title: '印花大屏', icon: 'Monitor', href: '/fcs/craft/printing/dashboards' },
           ],

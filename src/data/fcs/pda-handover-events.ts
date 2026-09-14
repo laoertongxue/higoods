@@ -1,4 +1,5 @@
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
+import { PRINTING_FACTORIES } from './printing-factories.ts'
 import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
@@ -2449,7 +2450,7 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
   if (typeof localStorage === 'undefined') return
   const snapshot = capturePdaHandoverState()
   for (const [, head] of snapshot.handoverHeadAdditions) {
-    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
+    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
     if ((head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
       && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
       && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，未保存，请核对原单。')
@@ -2458,7 +2459,7 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     // 水溶原单已有本地执行存储，关联的交出和分次实收也必须一起保留。
     const water = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
     const waterSourceMatches = Boolean(water && water.waterOrderId === head.sourceDocId && water.productionOrderId === head.productionOrderNo)
-    return waterSourceMatches || head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
+    return waterSourceMatches || isPrototypePrintHandoutHead(head) || head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
     (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && Boolean(head.sourceDocId?.trim() && head.taskId?.trim())
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
@@ -2482,7 +2483,7 @@ function readFormalHandoutActions(): void {
   const saved = JSON.parse(raw)
   if (saved?.version !== 1 || formalHandoutStateKeys.some(key => !Array.isArray(saved[key]) || saved[key].some((row: unknown) => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[1] || typeof row[1] !== 'object'))) throw new Error('本机合并任务交出记录损坏，未用空记录覆盖，请联系负责人。')
   for (const [, head] of saved.handoverHeadAdditions as Array<[string, PdaHandoverHead]>) {
-    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head)) throw new Error('已保存的印花交接记录与冻结来源不一致，未覆盖原记录。')
+    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('已保存的印花交接记录与冻结来源不一致，未覆盖原记录。')
   }
   const snapshot = capturePdaHandoverState()
   for (const key of formalHandoutStateKeys) {
@@ -2504,17 +2505,26 @@ function isFormalIssuePickupHead(head: PdaHandoverHead | undefined): boolean {
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId)))
 }
 
+/** Fixed prototype orders have stable task ownership; formal order validation remains separate. */
+function isPrototypePrintHandoutHead(head:PdaHandoverHead):boolean {
+ const demo=/^PWO-PRINT-DEMO-(\d{2})-([1-5])$/.exec(head.sourceDocId||'')
+ if(demo){const factory=PRINTING_FACTORIES.filter(item=>item.id!=='F090')[Number(demo[1])-1];return Boolean(factory&&head.sourceBusinessType==='PRINT_WORK_ORDER'&&head.taskId===`TASK-PRINT-DEMO-${demo[1]}-${demo[2]}`&&head.factoryId===factory.id)}
+ const numbers=['000716','000714','000715','000717','000718','000719','000720','000721','000724','000712','000722','000723']
+ const index=Number(/^PWO-PRINT-(\d{3})$/.exec(head.sourceDocId||'')?.[1])-1
+ return head.sourceBusinessType==='PRINT_WORK_ORDER' && index>=0&&index<numbers.length&&head.taskId===`TASK-PRINT-${numbers[index]}`&&head.factoryId===TEST_FACTORY_ID
+}
+
 function isFormalPrintHandoutHead(head: PdaHandoverHead): boolean {
   const order = productionOrders.find(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
   return Boolean(order?.processWorkOrderDefinitions?.some(definition => definition.processCode === 'PRINT' && definition.workOrderId === head.sourceDocId && definition.workOrderId === head.taskId && JSON.stringify(definition.sourceSnapshot) === JSON.stringify(head.sourceSnapshot)))
 }
 
 function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: () => T): T {
-  if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
+  if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
   const formalPreparation = Boolean(head && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId)))
   const isWater = head?.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
-  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head) && !isWater)) return action()
+  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head) && !isWater && !isPrototypePrintHandoutHead(head))) return action()
   if (formalPreparation && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，本次未保存。')
   const waterBefore = isWater ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
   if (formalPreparation && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' && (!waterBefore || waterBefore.waterOrderId !== head.sourceDocId || waterBefore.productionOrderId !== head.productionOrderNo)) throw new Error('水溶交接头与原加工单来源不一致，本次未保存。')

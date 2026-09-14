@@ -58,6 +58,7 @@ const getFactoryWarehouseSharedModule = createRetryableModuleLoader(
   () => import('./pages/process-factory/shared/warehouse-standard'),
 )
 const getPrintPreviewPageModule = createRetryableModuleLoader(() => import('./pages/print/print-preview'))
+const getPrintingSheetPreviewModule = createRetryableModuleLoader(() => import('./pages/print/printing-sheet-preview'))
 const getPdaTaskReceivePageModule = createRetryableModuleLoader(() => import('./pages/pda-task-receive'))
 const getPdaExecPageModule = createRetryableModuleLoader(() => import('./pages/pda-exec'))
 const getPdaHandoverPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover'))
@@ -350,7 +351,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/process-factory/dyeing/work-orders.ts')
     return page.handleDyeWorkOrderListEvent(eventTarget)
   }
-  if (pathname.startsWith('/fcs/craft/printing/') && target.closest('[data-printing-work-orders-root], [data-printing-warehouse-root], [data-printing-dispatch-root], [data-printing-dialog-panel]')) {
+  if (pathname.startsWith('/fcs/craft/printing/') && target.closest('[data-printing-work-orders-root], [data-printing-work-order-detail-root], [data-printing-statistics-root], [data-printing-dashboards-root], [data-printing-warehouse-root], [data-printing-dispatch-root], [data-printing-dialog-panel]')) {
     const page = await import('./pages/process-factory/printing/events.ts')
     return page.handleCraftPrintingEvent(eventTarget)
   }
@@ -695,6 +696,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return markerSpreadingPage.renderCraftCuttingMarkerSpreadingPage()
     }
     if (normalizedPathname === '/fcs/print/preview') {
+      const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
+      if (documentType === 'PRINTING_CONFIRMATION' || documentType === 'PRINTING_INFO_SHEET') {
+        return (await getPrintingSheetPreviewModule()).renderPrintingSheetPreview()
+      }
       const printPreviewPage = await getPrintPreviewPageModule()
       return printPreviewPage.renderPrintPreviewPage()
     }
@@ -1499,6 +1504,12 @@ root.addEventListener('click', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   if (shouldBypassClickDispatch(target)) return
+
+  if (previousPathname.startsWith('/fcs/print/preview?') && target.closest('[data-printing-sheet-print]')) {
+    event.preventDefault()
+    window.print()
+    return
+  }
 
   if (handlePdaImagePreviewEvent(target)) {
     event.preventDefault()

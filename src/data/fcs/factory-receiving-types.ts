@@ -9,13 +9,13 @@ export interface SourceRoll {barcode:string; yard:number}
 export interface FactoryReceivingSourceLine {
   id:string; material:ReceivingMaterial; plannedQty:number; unit:string; sentQty:number
   rolls:SourceRoll[]; label:string; yarn?:YarnWeight
-  dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
+  printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
 }
 export interface FactoryReceivingSource {
   id:string; documentNo:string; type:'TRANSFER'|'ISSUE'|'HANDOUT'; origin:DyePartner
   targetFactoryId:string; targetFactoryName:string; createdAt:string; createdBy:string
   approvedAt?:string; approvedBy?:string; handedOutAt?:string; voidedAt?:string
-  waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
+  processCode?:'PRINT';waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
 }
 export interface FactoryDeliveryLine {
   id:string; sourceId:string; sourceLineId:string; qty:number; unit:string; rollBarcodes:string[]
@@ -36,7 +36,7 @@ export interface FactoryReceiptInput {
 export interface FactoryReceiptLine extends FactoryReceiptLineInput {
   id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg';yarn?:YarnWeight
   sourceDocumentNo:string; sourceType:FactoryReceivingSource['type']; origin:DyePartner
-  dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
+  printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
 }
 export interface FactoryReceipt extends Omit<FactoryReceiptInput,'lines'> {lines:FactoryReceiptLine[]; fingerprint:string}
-export interface ReceivingAllocation {id:string;receiptLineId:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}
+export interface ReceivingAllocation {id:string;receiptLineId:string;printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}
