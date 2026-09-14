@@ -683,3 +683,10 @@ export const renderCuttingSettlementInputPage = createAsyncRenderer(
 )
 
 export const renderSewingProductionOrderDurationPage = createAsyncRenderer(() => import('../pages/sewing-outsourcing/production-order-duration'), 'renderSewingProductionOrderDurationPage')
+
+export const renderWaterSolublePendingHandoverPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/output-documents'), 'renderWaterSolublePendingHandoverPage',
+)
+export const renderWaterSolubleHandoverDocumentsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/output-documents'), 'renderWaterSolubleHandoverDocumentsPage',
+)

@@ -178,7 +178,7 @@ export function getWaterSolubleWorkOrderThreeAxisView(order: WaterSolubleWorkOrd
     handedOverQty,
     downstreamReceivedQty: order.receivedQty ?? 0,
     receiver: deriveReceiverView({
-      documentId: order.waterOrderId,
+      documentId: order.handoverDemoSourceOrderId || order.waterOrderId,
       sourceType: 'PRODUCTION_ORDER',
       productionOrderNo: order.productionOrderNo,
       bomItemIds: [order.bomItemId],

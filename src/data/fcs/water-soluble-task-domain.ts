@@ -1,3 +1,5 @@
+import type { ProcessOutputRoll, ProcessDispatchDocument } from './process-output-types.ts'
+import { addWaterOutputDemoOrders } from './water-soluble-output-demos.ts'
 import {getPdaSession} from './store-domain-pda.ts'
 import {getDyeFactoryReceiptProjection} from './factory-receiving-warehouse.ts'
 import {listFactoryReceivingSources,getSourceActualReceipts,recordFactoryMaterialUsage,captureFactoryReceivingData,restoreFactoryReceivingData,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
@@ -61,6 +63,10 @@ export interface WaterSolubleHandoverBatch {
 }
 
 export interface WaterSolubleWorkOrder {
+  handoverDemoSourceOrderId?: string
+  outputRolls?: ProcessOutputRoll[]
+  dispatchDocuments?: ProcessDispatchDocument[]
+  nextOutputRollNo?: number
   waterOrderId: string
   waterOrderNo: string
   generationKey: string
@@ -139,6 +145,8 @@ export function getWaterSolubleReceivingMaterial(orderId:string):import('./facto
 function cloneOrder(order: WaterSolubleWorkOrder): WaterSolubleWorkOrder {
   return {
     ...order,
+    outputRolls: order.outputRolls ? structuredClone(order.outputRolls) : undefined,
+    dispatchDocuments: order.dispatchDocuments ? structuredClone(order.dispatchDocuments) : undefined,
     sourceDemandIds: [...order.sourceDemandIds],
     materialReceipts: order.materialReceipts?.map((item) => ({ ...item })),
     handoverBatches: order.handoverBatches?.map((batch) => ({ ...batch })),
@@ -167,11 +175,25 @@ function restoreFormalWaterExecution(generated: Map<string, WaterSolubleWorkOrde
         || !Array.isArray(order.actionLogs) || !order.actionLogs.length || order.actionLogs.some(log => !log.action || !log.at || typeof log.detail !== 'string')
         || (order.materialReceipts !== undefined && (!Array.isArray(order.materialReceipts) || order.materialReceipts.some(row => !row.receiptId || !row.receiverName || !row.receivedAt || !Number.isFinite(row.qty) || row.qty < 0)))
         || (order.handoverBatches !== undefined && (!Array.isArray(order.handoverBatches) || order.handoverBatches.some(row => !row.batchId || !Number.isFinite(row.handoverQty) || row.handoverQty <= 0 || (row.receivedQty !== undefined && (!Number.isFinite(row.receivedQty) || row.receivedQty < 0)))))) throw new Error('原水溶单身份或记录无效')
+      validateWaterOutputSnapshot(order)
       seen.add(order.waterOrderId)
     }
     for (const order of saved.orders as WaterSolubleWorkOrder[]) generated.set(order.generationKey, cloneOrder(order))
   } catch (error) {
     throw new Error('本机水溶加工记录损坏或与冻结来源不一致，未覆盖原记录，请联系负责人。' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+function validateWaterOutputSnapshot(order: WaterSolubleWorkOrder): void {
+  const rolls=order.outputRolls??[],docs=order.dispatchDocuments??[]
+  if(!Array.isArray(rolls)||!Array.isArray(docs))throw new Error('水溶卷码或交出单格式无效')
+  if(new Set(rolls.map(r=>r.id)).size!==rolls.length||new Set(rolls.map(r=>r.barcode)).size!==rolls.length||rolls.some(r=>!r.id||!r.barcode||!r.rollNo||!Number.isFinite(r.qty)||r.qty<=0))throw new Error('水溶卷码重复或数量无效')
+  for(const doc of docs){
+    if(!doc.id||!doc.createdAt||!doc.operator||!['草稿','已交出','已作废'].includes(doc.status)||!Array.isArray(doc.lines)||!doc.lines.length||!Array.isArray(doc.scans)||!doc.transport)throw new Error('水溶交出单字段缺失')
+    const codes=doc.lines.flatMap(l=>l.rolls.map(r=>r.barcode))
+    if(new Set(codes).size!==codes.length||new Set(doc.scans.map(s=>s.barcode)).size!==doc.scans.length||doc.scans.some(s=>!codes.includes(s.barcode)||!s.operator||!s.at))throw new Error('水溶交出扫码记录无效')
+    if(doc.lines.some(l=>!l.orderId||!l.orderNo||!l.taskNo||!l.factoryId||!l.partner?.id||!l.sku||!l.unit||!l.rolls.length||l.rolls.some(r=>!r.id||!r.barcode||!Number.isFinite(r.qty)||r.qty<=0)))throw new Error('水溶交出明细无效')
+    if(doc.status==='已交出'&&(!doc.handedOverAt||doc.lines.some(l=>!l.handoverRecordId)||doc.scans.length!==codes.length))throw new Error('水溶实物交出记录不完整')
   }
 }
 
@@ -384,11 +406,12 @@ function buildWaterSolubleOrderStore(seedDemo: boolean): Map<string, WaterSolubl
     .forEach((order) => {
       store.set(order.generationKey, order)
     })
-  if (seedDemo) seedWaterSolubleDemoOrders(store)
+  if (seedDemo) { seedWaterSolubleDemoOrders(store); addWaterOutputDemoOrders(store) }
   return store
 }
 
 export function syncWaterSolubleOrderStoreWithArtifacts(): void {
+  if (waterMutationDepth && orderStore) return
   if (!orderStore) {
     const generated = buildWaterSolubleOrderStore(true)
     restoreFormalWaterExecution(generated)
@@ -399,6 +422,7 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
   const next = new Map<string, WaterSolubleWorkOrder>()
   const currentByBusinessIdentity = new Map<string, WaterSolubleWorkOrder>()
   current.forEach((order) => {
+    if (order.handoverDemoSourceOrderId) { next.set(order.generationKey, order); return }
     const identity = buildWaterSolubleGenerationKey(order.productionOrderId, order.bomItemId)
     if (currentByBusinessIdentity.has(identity)) {
       throw new Error(`水溶加工单业务身份冲突：${identity}，请检查历史加工单`)
@@ -941,4 +965,15 @@ export function completeWaterSolubleWorkOrder(orderId: string): WaterSolubleActi
 export function resetWaterSolubleDomainForChecks(options: { seedDemo?: boolean } = {}): void {
   const data=captureFactoryReceivingData(),ids=new Set(data.receipts.flatMap(r=>r.lines.filter(l=>l.waterOrderId).map(l=>l.id)));data.receipts=data.receipts.filter(r=>!r.lines.some(l=>l.waterOrderId));data.allocations=data.allocations.filter(a=>!a.waterOrderId&&!ids.has(a.receiptLineId));data.materialUses=data.materialUses?.filter(u=>!u.waterOrderId);data.sources=data.sources.filter(s=>!s.lines.some(l=>l.waterOrderId));restoreFactoryReceivingData(data)
   orderStore = buildWaterSolubleOrderStore(options.seedDemo === true)
+}
+
+/** 产出卷和交出单保存到原水溶单，复用原事务与本机恢复。 */
+export function mutateWaterSolubleOutput<T>(action: (orders: WaterSolubleWorkOrder[]) => T): T {
+  let value: T
+  const result = runWaterSolubleMutation(() => {
+    try { value = action([...orderStore!.values()]); return { ok: true, message: '' } }
+    catch(error) { return { ok:false, message:error instanceof Error?error.message:'操作未保存，请重试。' } }
+  })
+  if (!result.ok) throw new Error(result.message)
+  return value!
 }

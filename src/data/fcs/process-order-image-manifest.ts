@@ -62,6 +62,7 @@ export const DYE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImage
 }
 
 export const WATER_SOLUBLE_ORDER_IMAGE_MANIFEST: Readonly<Record<string, ProcessOrderImageManifestEntry>> = {
+  ...Object.fromEntries([1,2,3,4].map(n=>[`WATER-OUTPUT-DEMO-${n}`,{product:'/tshirt-sample.jpg',material:'/materials/process-orders/white-water-soluble-lace-12-15mm.jpg'}])),
   'WATER-PO-202603-081__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-water-soluble-lace-12-15mm.jpg' },
   'WATER-PO-202603-087__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-water-soluble-lace-12-15mm.jpg' },
   'WATER-PO-202603-088__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only': { product: '/tshirt-sample.jpg', material: '/materials/process-orders/white-water-soluble-lace-12-15mm.jpg' },

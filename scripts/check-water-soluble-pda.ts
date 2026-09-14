@@ -229,7 +229,9 @@ async function main(): Promise<void> {
     assert(waterTasks.length > 0, 'PDA 执行列表缺少独立水溶任务')
     waterTasks.forEach((task) => assert.equal(getMobileTaskProcessType(task), 'WATER_SOLUBLE'))
 
-    const targetTask = waterTasks[0]
+    // 后续检查的是 IN_PROGRESS 页，新增待交出案例后不能再依赖任务排序第一项。
+    const targetTask = waterTasks.find(task => waterOrders.some(order => order.taskId === task.taskId && order.status === 'WATER_SOLUBLE_IN_PROGRESS'))
+    assert(targetTask, '缺少可用于加工中页面验收的水溶任务')
     const targetOrder = waterOrders.find((order) => order.taskId === targetTask.taskId)
     assert(targetOrder, '水溶移动任务必须可回溯领域加工单')
     const source = getMobileExecutionTaskSourceInfo(targetTask)

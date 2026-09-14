@@ -111,37 +111,8 @@ export type DyeExecutionNodeCode =
 export type DyeReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
 export type DyeReviewStatus = DyeReceiptStatus | 'WAIT_REVIEW' | 'REJECTED'
 
-export interface DyeOutputRoll {
-  id: string
-  barcode: string
-  rollNo: string
-  qty: number
-  weightKg: number
-  widthCm: number
-  gsm: number
-  vatNo: string
-  remark: string
-  createdAt: string
-  printedAt?: string
-  printedBy?: string
-  warehouseName?: string
-  locationName?: string
-  inboundStatus?: '未入库' | '已入库'
-  inboundAt?: string
-  stagedAt?: string
-  dispatchId?: string
-}
-export interface DyeDispatchDocument {
-  id: string
-  status: '草稿' | '已交出' | '已作废'
-  createdAt: string
-  operator: string
-  handedOverAt?: string
-  scans: { barcode: string; operator: string; at: string }[]
-  transport: { driver: string; vehicle: string; plate: string; note: string }
-  voidedAt?: string
-  lines: { orderId: string; orderNo: string; taskNo: string; factoryId: string; factoryName: string; receiver: string; partner: DyePartner; sku: string; unit: string; rolls: DyeOutputRoll[]; handoverRecordId?: string; receivingSourceId?: string }[]
-}
+import type { ProcessOutputRoll as DyeOutputRoll, ProcessDispatchDocument as DyeDispatchDocument } from './process-output-types.ts'
+export type { ProcessOutputRoll as DyeOutputRoll, ProcessDispatchDocument as DyeDispatchDocument } from './process-output-types.ts'
 export interface DyeWorkOrder {
   outputMaterial?: ReceivingMaterial
   downstreamPartner?: DyePartner

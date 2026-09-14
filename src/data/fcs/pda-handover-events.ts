@@ -2454,11 +2454,16 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
       && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
       && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，未保存，请核对原单。')
   }
-  const heads = snapshot.handoverHeadAdditions.filter(([, head]) => head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
+  const heads = snapshot.handoverHeadAdditions.filter(([, head]) => {
+    // 水溶原单已有本地执行存储，关联的交出和分次实收也必须一起保留。
+    const water = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
+    const waterSourceMatches = Boolean(water && water.waterOrderId === head.sourceDocId && water.productionOrderId === head.productionOrderNo)
+    return waterSourceMatches || head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
     (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && Boolean(head.sourceDocId?.trim() && head.taskId?.trim())
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
-  ))
+    )
+  })
   const headIds = new Set(heads.map(([id]) => id))
   const records = snapshot.handoutRecordAdditions.filter(([id]) => headIds.has(id))
   const recordIds = new Set(records.flatMap(([, rows]) => rows.map(row => row.recordId)))
@@ -4771,6 +4776,7 @@ function writeBackCurrentPostFinishingOutboundIfComplete(
 
 // 准备工艺分次接收始终写原交出记录，目标加工单明确绑定，不另建库存账。
 export function receivePreparationHandoverForTask(recordId: string, input: { receiptId: string; targetTaskOrderId: string; qty: number; qtyUnit: string; receiverName: string; receivedAt: string }): PdaHandoverRecord {
+  return runFormalHandoutAction(findPdaHandoverHead(findRecord(recordId)?.handoverId || ''), () => {
   const current = findRecord(recordId)
   const head = current && findPdaHandoverHead(current.handoverId)
   if (!current || !head) throw new Error('未找到上游交出记录。')
@@ -4801,6 +4807,7 @@ export function receivePreparationHandoverForTask(recordId: string, input: { rec
   saveHandoutRecord(updated)
   invalidatePdaHandoverHeadCache()
   return cloneRecord(updated)
+  })
 }
 
 export function writeBackHandoverRecord(input: {

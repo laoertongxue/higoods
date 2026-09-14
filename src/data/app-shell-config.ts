@@ -511,6 +511,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-dyeing-pending-receipts', title: '待接收', icon: 'ScanLine', href: '/fcs/craft/dyeing/pending-receipts' },
             { key: 'pfos-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
             { key: 'pfos-dyeing-water-soluble-orders', title: '水溶加工单', icon: 'Waves', href: '/fcs/craft/dyeing/water-soluble-orders' },
+            { key: 'pfos-water-pending-handover', title: '水溶待交出列表', icon: 'ListTodo', href: '/fcs/craft/dyeing/water-soluble-pending-handover' },
+            { key: 'pfos-water-handover-documents', title: '水溶交出单据', icon: 'Files', href: '/fcs/craft/dyeing/water-soluble-handover-documents' },
             { key: 'pfos-dyeing-wait-process-warehouse', title: '染色待加工仓', icon: 'Warehouse', href: '/fcs/craft/dyeing/wait-process-warehouse' },
             { key: 'pfos-dyeing-wait-handover-warehouse', title: '染色待交出仓', icon: 'PackageCheck', href: '/fcs/craft/dyeing/wait-handover-warehouse' },
             { key: 'pfos-dyeing-pending-handover', title: '染色待交出列表', icon: 'ListTodo', href: '/fcs/craft/dyeing/pending-handover' },

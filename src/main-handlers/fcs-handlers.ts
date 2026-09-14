@@ -377,7 +377,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
     return handleCraftDyeingWaterSolubleOrdersEvent(target)
   }
-  if (pathname === '/fcs/craft/dyeing/pending-handover' || pathname === '/fcs/craft/dyeing/handover-documents') {
+  if (pathname === '/fcs/craft/dyeing/water-soluble-pending-handover' || pathname === '/fcs/craft/dyeing/water-soluble-handover-documents' || pathname === '/fcs/craft/dyeing/pending-handover' || pathname === '/fcs/craft/dyeing/handover-documents') {
     return handleDyeOutputEvent(target, event)
   }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
