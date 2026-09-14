@@ -1,3 +1,11 @@
+import { ui as materialDecisionUi } from './pages/material-decision/events'
+import { handleHealthClick } from './pages/material-decision/health'
+import { handleWarningsClick, handleWarningsChange } from './pages/material-decision/warnings'
+import { handleDailyClick } from './pages/material-decision/daily'
+import { handlePreparationClick, handlePreparationChange } from './pages/material-decision/preparation'
+import { handleProcessingClick } from './pages/material-decision/processing'
+import { handlePackagingClick } from './pages/material-decision/packaging'
+import { handleMaterialDecisionClick, handleMaterialDecisionInput, handleMaterialDecisionChange, handleMaterialDecisionKey } from './pages/material-decision'
 import './styles.css'
 import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
 import { hydrateRealQRCodes } from './components/real-qr'
@@ -1496,6 +1504,15 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const prepAction=target.closest<HTMLElement>('[data-md-prep-action]')?.dataset.mdPrepAction
+  if (prepAction && ['add','edit','save','generate','raw-receive','produce','receive','cancel-record'].includes(prepAction) && (materialDecisionUi.role==='只读查看者'||materialDecisionUi.stale)) {
+    const feedback=document.querySelector('#md-notice'); if(feedback) feedback.textContent=materialDecisionUi.stale?'数据已过期，禁止执行备料建议':'只读查看者不能修改备料记录'
+    event.preventDefault(); return
+  }
+  if (handleHealthClick(target) || handleWarningsClick(target) || handleDailyClick(target) || handlePreparationClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-md-processing-action]') && handleProcessingClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-md-packaging-action]') && handlePackagingClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-md-action]') && handleMaterialDecisionClick(target)) { event.preventDefault(); return }
   const skipPageRerender = Boolean(
     target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'),
   )
@@ -1645,6 +1662,8 @@ root.addEventListener('click', async (event) => {
 })
 
 root.addEventListener('input', async (event) => {
+  const mdTarget = resolveEventElementTarget(event.target)
+  if (mdTarget?.closest('[data-md-field]') && handleMaterialDecisionInput(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
@@ -1696,6 +1715,9 @@ root.addEventListener('compositionend', async (event) => {
 })
 
 root.addEventListener('change', async (event) => {
+  const mdTarget = resolveEventElementTarget(event.target)
+  if (mdTarget && (handlePreparationChange(mdTarget)||handleWarningsChange(mdTarget))) return
+  if (mdTarget?.closest('[data-md-field]') && handleMaterialDecisionChange(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const skipChangeRerender = shouldSkipChangeRerender(target)
@@ -1726,6 +1748,7 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
+  if (handleMaterialDecisionKey(event)) return
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
   if (cuttingScanTarget) {

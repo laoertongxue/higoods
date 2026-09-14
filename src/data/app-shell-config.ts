@@ -632,6 +632,15 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
   ],
   dds: [
+    { title: '供应链域', items: [{ key: 'material-decision', title: '物料监控与决策', icon: 'Boxes', children: [
+      { key: 'material-overview', title: '决策总览', icon: 'BarChart3', href: '/dds/supply-chain/materials/overview' },
+      { key: 'material-panorama', title: '物料全景', icon: 'BarChart3', href: '/dds/supply-chain/materials/panorama' },
+      { key: 'material-planning', title: '供需计划', icon: 'BarChart3', href: '/dds/supply-chain/materials/planning' },
+      { key: 'material-consumption', title: '消耗与经营分析', icon: 'BarChart3', href: '/dds/supply-chain/materials/consumption' },
+      { key: 'material-risks', title: '风险与决策', icon: 'BarChart3', href: '/dds/supply-chain/materials/risks' },
+      { key: 'material-quality', title: '数据质量', icon: 'BarChart3', href: '/dds/supply-chain/materials/quality' },
+      { key: 'material-configuration', title: '规则与配置', icon: 'BarChart3', href: '/dds/supply-chain/materials/configuration' },
+    ] }] },
     {
       title: '数据分析',
       items: [

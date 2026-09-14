@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test'
+export default defineConfig({ testDir: '.', testMatch: 'material-decision.spec.ts', timeout: 60000, expect: {timeout:15000}, use:{ baseURL:'http://127.0.0.1:43241',viewport:{width:1366,height:768}, headless:true }, outputDir:'../output/material-decision-playwright', reporter:[['list'],['json',{outputFile:'../output/material-decision-tests.json'}]] })

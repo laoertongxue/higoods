@@ -1,0 +1,35 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { assess, addDays, roundReplenishment, kitCapacity, deduplicateEvents, validDate, validatePolicy } from '../../src/data/material-decision/calculations'
+import { defaultPolicy, materials, warehouses } from '../../src/data/material-decision/fixtures'
+import { initialRuntime, editDraft, compareTrial, publishTrial, moveRisk } from '../../src/data/material-decision/workflow'
+import type { Demand, Stock, Supply, Policy } from '../../src/data/material-decision/model'
+const material=materials[0]
+const lot:Stock={id:'L',sku:material.sku,warehouse:'WH-FABRIC-001',qty:100,quality:'合格',internalReserved:30,externalReserved:0,usable:true,measured:true}
+const demand:Demand={id:'D',sku:material.sku,date:'2026-09-15',qty:50,fulfilled:0,covered:0,kind:'确定',brand:'',source:'生产单',order:'O1'}
+const policy:Policy={...defaultPolicy,horizon:7,lead:2,safety:10}
+const supply:Supply={id:'S',sku:material.sku,date:'2026-09-17',qty:100,received:40,kind:'采购',certain:true,source:'PO1',chain:'C1'}
+test('AT01/02 internal reservation stays in coverage while external reservation is deducted',()=>{let a=assess(material,[lot],[demand],[],policy);assert.equal(a.free,70);assert.equal(a.days[1].balance,50);a=assess(material,[{...lot,externalReserved:20}],[demand],[],policy);assert.equal(a.days[1].balance,30)})
+test('AT03 quality segments are not usable',()=>{const a=assess(material,[{...lot,qty:70,internalReserved:0},{...lot,id:'Q',qty:20,quality:'待检',internalReserved:0},{...lot,id:'F',qty:10,quality:'冻结',internalReserved:0}],[],[],policy);assert.equal(a.physical,100);assert.equal(a.free,70)})
+test('AT04 partial receipt leaves remaining supply only',()=>{assert.equal(assess(material,[lot],[],[supply],policy).future,60)})
+test('AT08/38 late supply never erases earlier shortage',()=>{const a=assess(material,[{...lot,qty:50,internalReserved:0}],[{...demand,qty:80}],[{...supply,received:0}],policy);assert.equal(a.firstGap,'2026-09-15');assert.equal(a.shortage,30);assert.equal(a.beforeArrival,30)})
+test('AT09 intermediate deficit determines net need rather than positive closing balance',()=>{const a=assess(material,[{...lot,qty:50,internalReserved:0}],[{...demand,date:'2026-09-16',qty:80}],[{...supply,received:0}],{...policy,moq:0,pack:1});assert.equal(a.recommended,40)})
+test('AT10 MOQ and pack rounding, zero stays zero',()=>{assert.equal(roundReplenishment(40,50,20),60);assert.equal(roundReplenishment(0,50,20),0);assert.throws(()=>roundReplenishment(10,50,0))})
+test('AT11 horizon begins at cutoff and is not expanded by lead time',()=>{assert.equal(assess(material,[lot],[],[],{...policy,horizon:60,lead:20}).days.length,60)})
+test('AT12 forecast covered by confirmed demand is excluded before coefficient',()=>{const a=assess(material,[lot],[demand,{...demand,id:'F',kind:'预测',qty:80,covered:50}],[],{...policy,coefficient:0.5});assert.equal(a.days[1].demand,65)})
+test('AT13 no demand has no numeric coverage',()=>{assert.equal(assess(material,[lot],[],[],policy).coverage,null)})
+test('AT14 cancelling demand does not change stock',()=>{const a=assess(material,[lot],[{...demand,cancelled:true}],[],policy);assert.equal(a.physical,100);assert.equal(a.days[1].demand,0)})
+test('AT15 latest event revision only',()=>{assert.deepEqual(deduplicateEvents([{id:'E',revision:1,qty:5},{id:'E',revision:1,qty:5},{id:'E',revision:2,qty:3}]),[{id:'E',revision:2,qty:3}])})
+test('AT16/17 directory preserves bag sizes and ASAYA duplicated input is one unresolved SKU',()=>{assert.ok(materials.some(m=>m.sku==='WLID002-fadfad-6.5c-28x30'));assert.ok(materials.some(m=>m.sku==='WLID002-fadfad-6.5c-28x37'));const asaya=materials.filter(m=>m.sku.startsWith('WLID001-asaya'));assert.equal(asaya.length,1);assert.equal(asaya[0].mapping,'待核实')})
+test('AT18 three brands draw from one shared pool',()=>{const ds=['CHICMORE','MODISH','ASAYA'].map((brand,i)=>({...demand,id:`D${i}`,qty:60,brand}));const a=assess(material,[{...lot,internalReserved:0}],ds,[],policy);assert.equal(a.shortage,80);assert.equal(a.physical,100)})
+test('AT19/20 kit capacity respects minimum and missing conversion',()=>{assert.equal(kitCapacity([{available:100,perUnit:1},{available:80,perUnit:1},{available:120,perUnit:1}]),80);assert.equal(kitCapacity([{available:5,perUnit:null}]),null)})
+test('AT21 inactive/unusable stock remains physically visible',()=>{const a=assess(material,[{...lot,usable:false}],[],[],policy);assert.equal(a.physical,100);assert.equal(a.free,0)})
+test('AT23 affected order identifiers are unique',()=>{const a=assess(material,[lot],[demand,{...demand,id:'D2'}],[],policy);assert.deepEqual(a.orders,['O1'])})
+test('AT25/26 draft does not mutate active and invalidates trial',()=>{const r=initialRuntime();r.trial={fingerprint:'old',rows:[]};editDraft(r,{...r.draft,coefficient:.65});assert.equal(r.active.coefficient,1);assert.equal(r.trial,null)})
+test('AT26/28 publish requires role and exact trial; history retained',()=>{const r=initialRuntime();assert.throws(()=>publishTrial(r,'规则批准人'));r.trial=compareTrial([],[],r.draft);assert.throws(()=>publishTrial(r,'物料计划员'));publishTrial(r,'规则批准人');assert.equal(r.active.version,2);assert.equal(r.versions.length,2);assert.equal(r.trial,null)})
+test('AT31 risk cannot close with remaining shortage or skip verification',()=>{const r=initialRuntime();const a=assess(material,[],[demand],[],policy);assert.throws(()=>moveRisk(r,material.sku,'已解决','购买中','',a));moveRisk(r,material.sku,'处理中','核实','',a);moveRisk(r,material.sku,'待复核','核实','',a);assert.throws(()=>moveRisk(r,material.sku,'已解决','已认领','',a))})
+test('AT37 invalid dates, unknown timezone, bad numeric values rejected',()=>{assert.equal(validDate('1970-01-01'),false);assert.equal(validDate('2026-02-31'),false);assert.ok(validatePolicy({...policy,timezone:''}).length);assert.ok(validatePolicy({...policy,safety:NaN}).length);assert.equal(addDays('2026-09-30',1),'2026-10-01')})
+test('duplicate supply chain does not double count and blocks deterministic advice',()=>{const a=assess(material,[lot],[],[supply,{...supply,id:'S2'}],policy);assert.equal(a.future,60);assert.equal(a.recommended,null)})
+test('warehouse catalogue includes 17 locations and two garment warehouses',()=>{assert.equal(warehouses.length,17);assert.deepEqual(warehouses.filter(w=>w[2]==='成衣仓').map(w=>w[0]),['F&M WH','A&C WH'])})
+test('candidate comparison retains pre-arrival risk',async()=>{const {compareCandidate}=await import('../../src/data/material-decision/calculations');const a=assess(material,[],[demand],[],policy);const result=compareCandidate(a,100,'2026-09-17');assert.equal(result.beforeArrival,50);assert.equal(result.residualGap,50);assert.equal(result.firstResidual,'2026-09-15')})
+test('SKU-specific policy wins and duplicate rules block publish',()=>{const override={sku:material.sku,lead:1,safety:200,moq:0,pack:1};const p={...policy,overrides:[override]};assert.equal(assess(material,[lot],[],[],p).recommended,100);assert.ok(validatePolicy({...p,overrides:[override,override]}).includes('同一SKU存在重复规则'))})

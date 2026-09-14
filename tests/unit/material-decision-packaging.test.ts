@@ -1,0 +1,12 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { packagingPlan, resolvePackagingRule, sharedPendantPlan, summarizePackagingEvents, renderPackagingPanel, type PackagingRule } from '../../src/pages/material-decision/packaging'
+const rule:PackagingRule={id:'R1',brand:'FADFAD',size:'28x30',method:'手工',sku:'WLID002-fadfad-6.5c-28x30',priority:10,perUnit:1}
+test('AT16 rules do not substitute brand, size or packaging method',()=>{assert.equal(resolvePackagingRule([rule],'FADFAD','28x37','手工').rule,null);assert.equal(resolvePackagingRule([rule],'CHICMORE','28x30','手工').rule,null);assert.equal(resolvePackagingRule([rule],'FADFAD','28x30','机器').rule,null)})
+test('AT24 equal priority conflict blocks resolution and identifies rules',()=>{const result=resolvePackagingRule([rule,{...rule,id:'R2'}],'FADFAD','28x30','手工');assert.equal(result.conflict,true);assert.equal(result.rule,null);assert.deepEqual(result.ids,['R1','R2'])})
+test('higher explicit priority resolves a lower priority overlap',()=>{assert.equal(resolvePackagingRule([rule,{...rule,id:'R2',priority:20}],'FADFAD','28x30','手工').rule?.id,'R2')})
+test('plans distinguish garments and parcels and add loss once',()=>{assert.deepEqual(packagingPlan(100,60,1,.05),{inner:105,outer:63});assert.throws(()=>packagingPlan(100,60,0,0));assert.throws(()=>packagingPlan(100.5,60,1,0))})
+test('AT18 white pendant stock only allocated once',()=>{assert.deepEqual(sharedPendantPlan(100,[60,60,60]),{demand:180,shortage:80,allocated:[60,40,0]})})
+test('event duplicate and old revision do not add consumption; reprints are activity only',()=>{const result=summarizePackagingEvents([{id:'E1',revision:1,type:'领用',qty:100},{id:'E1',revision:2,type:'领用',qty:90},{id:'E1',revision:1,type:'领用',qty:100},{id:'E2',revision:1,type:'退料',qty:10},{id:'P1',revision:1,type:'重打',qty:5},{id:'P1',revision:1,type:'重打',qty:5}]);assert.deepEqual(result,{count:3,issued:90,returned:10,net:80,reprints:5})})
+test('conflicting same revision fails instead of silently choosing a payload',()=>{assert.throws(()=>summarizePackagingEvents([{id:'E',revision:1,type:'领用',qty:100},{id:'E',revision:1,type:'领用',qty:90}]))})
+test('AT17/19/20 panel states unresolved ASAYA, independent kit80 and unknown ribbon',()=>{const html=renderPackagingPanel();assert.ok(html.includes('80 件'));assert.ok(html.includes('有效打印换算未知'));assert.ok(html.includes('不自动创建机器SKU'));assert.ok(html.includes('素材验收未完成'));assert.ok(html.includes('id="md-packaging"'))})
