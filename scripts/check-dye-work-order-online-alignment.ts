@@ -342,7 +342,7 @@ const summary = getDyeWorkOrderOnlineSummary(rows)
 assert(summary.plannedQtyByUnit.some((item) => item.unit === 'Yard'))
 assert(buildDyeWorkOrderCsv(rows, '投入接收').startsWith('\uFEFF'))
 assert(buildDyeWorkOrderCsv(rows, '超期未完结').includes('平台加工单号'))
-assert(!buildDyeWorkOrderCsv(rows, '全部').includes('需求单号'), '染色加工单导出不得展示需求单号')
+assert(buildDyeWorkOrderCsv(rows, '全部').includes('生产需求单号'), '染色加工单导出展示与关联需求创建时间一致的需求单号')
 
 const workOrdersSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/process-factory/dyeing/work-orders.ts'), 'utf8')
 const pdaReceiveSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/pda-task-receive.ts'), 'utf8')

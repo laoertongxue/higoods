@@ -1,3 +1,5 @@
+import { listDyeWorkOrderOnlineRows } from '../../../data/fcs/dye-work-order-online-view.ts'
+import { renderDyeWorkOrderTimes } from './work-order-times.ts'
 import {getDyeingQuantityFacts} from '../../../data/fcs/dyeing-quantity-facts.ts'
 import { getDyeMaterialReceiptOptions, receiveDyeMaterial } from '../../../data/fcs/dyeing-material-receipts.ts'
 // @page-pattern: detail
@@ -52,6 +54,12 @@ import {
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
+
+function renderTimeOverview(dyeOrderId: string): string {
+  const row = listDyeWorkOrderOnlineRows().find(item => item.dyeOrderId === dyeOrderId || item.workOrderNo === dyeOrderId)
+  if (!row) return ''
+  return renderSection('业务时间', `<details data-skip-page-rerender="true"><summary class="cursor-pointer text-sm text-blue-700">查看四段时间及逐笔记录</summary><div class="mt-3 max-w-xl">${renderDyeWorkOrderTimes(row.timeSections, true)}</div></details>`)
+}
 
 function renderSourceFields(order: ProcessWorkOrder): string {
   return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label === '来源类型' ? '需求来源' : row.label, row.value)).join('')
@@ -432,6 +440,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       return `
         <div class="space-y-4 p-4">
           ${renderPageHeader('染色加工单详情', domainOrder.requiresWaterSoluble ? '同一染厂连续完成水溶与染色' : '普通染色加工单')}
+          ${renderTimeOverview(domainOrder.dyeOrderId)}
           ${renderProcessOrderTaskRelations(domainOrder.dyeOrderId)}
           ${renderDyeReceiptPanel(domainOrder.dyeOrderId)}
           ${renderSection('基本信息', `<div class="grid gap-3 text-sm md:grid-cols-2">
@@ -758,6 +767,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
         `,
       )}
 
+      ${renderTimeOverview(order.workOrderId)}
       ${renderProcessOrderTaskRelations(order.workOrderId)}
       ${renderDyeReceiptPanel(order.workOrderId)}
       ${renderDetailTabs(order.workOrderId, activeTab)}

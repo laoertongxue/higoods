@@ -1,4 +1,7 @@
-import {listFactoryReceipts} from './factory-receiving.ts'
+import { DYE_INPUT_TRANSFER_FIXTURES } from './process-order-input-transfer-fixtures.ts'
+import { DYE_TIME_LABELS, buildDyeWorkOrderTimes, latestDyeEventTime, formatDyeTimeItem, type DyeTimeContext, type DyeTimeSection, type DyeTimeKey } from './dye-work-order-times.ts'
+import { productionDemands } from './production-demands.ts'
+import {listFactoryReceipts, listFactoryDeliveryNotes} from './factory-receiving.ts'
 import type {YarnWeight} from './yarn-weight.ts'
 import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { DYE_DEMO_DETAILS, DYE_DEMO_PARTNER_SCENARIOS, DYE_PARTNERS, dyePartnerFields, dyeTheoreticalWeight, type DyePartner } from './dye-work-order-demo-details.ts'
@@ -8,6 +11,7 @@ import { getDyeMaterialReceiptOptions } from './dyeing-material-receipts.ts'
 import { getProcessOrderTaskRelationView } from './process-order-task-links.ts'
 import {
   listDyeWorkOrders,
+  listDyeDispatchDocuments,
   listDyeExecutionNodeRecords,
   getDyeOrderHandoverRecords,
   getDyeOutputRolls,
@@ -62,7 +66,7 @@ export interface DyeWorkOrderOnlineFilters {
   gtgInStock: '全部' | '是' | '否'
   materialType: string
   colorNo: string
-  timeField: 'orderedAt' | 'plannedFinishAt' | 'completedAt' | 'deliveredAt'
+  timeField: DyeTimeKey
   startDate: string
   endDate: string
   composition: string
@@ -71,6 +75,7 @@ export interface DyeWorkOrderOnlineFilters {
 }
 
 export interface DyeWorkOrderOnlineRow {
+  timeSections: DyeTimeSection[]
   yarnQuantities?: {upstream:YarnWeight[];received:YarnWeight[];shipped:YarnWeight[];downstream:YarnWeight[]}
   inputMaterials: Array<{name: string; sku: string; imageUrl: string; materialType: string; composition: string; width: string; weightGsm: number | null}>
   upstreamDocuments: DyeUpstreamDocument[]
@@ -322,7 +327,7 @@ export function getDyePendingReceiptQty(records: ReturnType<typeof getDyeOrderHa
   }, 0))
 }
 
-function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
+function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrderOnlineRow {
   const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
   const axes = getDyeWorkOrderThreeAxisView(order)
   const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
@@ -386,7 +391,21 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
       downstream:listFactoryReceivingSources(undefined,true).filter(s=>s.type==='HANDOUT'&&s.workOrderNo===order.dyeOrderNo).flatMap(s=>getSourceActualReceipts(s.id).flatMap(l=>l.yarn?[l.yarn]:[])),
     }:undefined
   const yarnNet=(weights:YarnWeight[])=>weights.reduce((n,w)=>n+w.netGrams,0)/1000
+  const demandIds = sourceProductionOrder ? [...new Set([sourceProductionOrder.demandId, ...(sourceProductionOrder.sourceDemandIds ?? [])].filter(Boolean))] : []
+  const timeSections = buildDyeWorkOrderTimes({
+    order, production: sourceProductionOrder ? {
+      number: sourceProductionOrder.productionOrderNo, createdAt: sourceProductionOrder.createdAt,
+      demands: demandIds.map(id => ({id, createdAt: productionDemands.find(demand => demand.demandId === id)?.createdAt || ''})),
+    } : undefined,
+    nodes: executionRecords, handovers: handoverRecords, plannedFinishAt,
+    upstreamRecordIds: [...source.options.map(option => option.recordId), ...(order.materialReceipts ?? []).flatMap(receipt => receipt.upstreamRecordId ? [receipt.upstreamRecordId] : [])],
+    upstreamDocumentNos: upstreamDocuments.map(doc => doc.documentNo), materialSku: demo?.rawSku || order.rawMaterialSku,
+    sentQty: upstreamDocuments.reduce((sum, doc) => sum + doc.sentQty, 0), receivedQty: axes.receivedInputQty,
+    completedQty, handedOverQty: axes.handedOverQty, downstreamReceivedQty: axes.downstreamReceivedQty, context: timeContext,
+  })
+  const timeValue = (key: DyeTimeKey) => latestDyeEventTime(timeSections.flatMap(section => section.items).find(item => item.key === key)?.events.map(event => event.at) || [])
   return {
+    timeSections,
     inputMaterials: [{name: materialName, sku: demo?.rawSku || order.rawMaterialSku, imageUrl: images?.material || presentation.materialImageUrl || '', materialType, composition, width, weightGsm}],
     upstreamDocuments,
     upstreamPartners: [...new Map(upstreamDocuments.map(doc=>[`${doc.partner.kind}|${doc.partner.id}`,doc.partner])).values()],
@@ -412,11 +431,11 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     productCode,
     productName,
     productImageUrl: images?.product || presentation.productImageUrl || '',
-    purchaseOrderNo: demo?.demandNo || presentation.purchaseOrderNo || (order.sourceType === 'STOCK'
+    purchaseOrderNo: demandIds.join(' / ') || (order.sourceType === 'STOCK'
       ? '备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? (order.sourceSnapshot?.supplementRecordNo || '补料创建')
-        : '—'),
+        : '关联需求单未记录'),
     purchaseType: presentation.purchaseType || sourceProductionOrder?.demandSnapshot.saleType || (order.sourceType === 'STOCK'
       ? '备货'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
@@ -465,8 +484,8 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     downstreamReceivedQty: yarnQuantities?yarnNet(yarnQuantities.downstream):axes.downstreamReceivedQty,
     orderedAt,
     plannedFinishAt,
-    completedAt: online.completedAt,
-    deliveredAt: online.deliveredAt,
+    completedAt: timeValue('completedAt'),
+    deliveredAt: timeValue('deliveredAt'),
     isOverdue: Boolean(plannedFinishAt && new Date(plannedFinishAt).getTime() < Date.now() && !isClosed),
     isYarn,
     yarnQuantities,
@@ -482,7 +501,14 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
 }
 
 export function listDyeWorkOrderOnlineRows(): DyeWorkOrderOnlineRow[] {
-  return listDyeWorkOrders().map(makeRow)
+  const orders = listDyeWorkOrders()
+  const warehouseDocs = [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()]
+  const timeContext: DyeTimeContext = {sources: listFactoryReceivingSources(), receipts: listFactoryReceipts(), deliveries: listFactoryDeliveryNotes(), dispatches: listDyeDispatchDocuments(),
+    warehouseFacts: warehouseDocs.map(doc => ({documentNo: doc.docNo, approvedAt: doc.approvedAt,
+      sentAt: DYE_INPUT_TRANSFER_FIXTURES.find(fixture => fixture.taskId === doc.runtimeTaskId && doc.lines.some(line => line.lineId === `ISSUE-DYE-${fixture.workOrderId}-L001`))?.issuedAt})),
+    upstreamHandovers: listPdaHandoverHeads().flatMap(head => getPdaHandoverRecordsByHead(head.handoverId)),
+  }
+  return orders.map(order => makeRow(order, timeContext))
 }
 
 function matchesBooleanFilter(value: boolean, filter: '全部' | '是' | '否'): boolean {
@@ -509,7 +535,10 @@ export function filterDyeWorkOrderOnlineRows(
   const filters = { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, ...input }
   const keyword = normalized(filters.keyword)
   return rows.filter((row) => {
-    const time = row[filters.timeField]
+    const timeEvents = row.timeSections.flatMap(section => section.items).find(item => item.key === filters.timeField)?.events || []
+    const matchesTime = (!filters.startDate && !filters.endDate) || timeEvents.some(event => Boolean(event.at)
+      && (!filters.startDate || event.at.slice(0, 10) >= filters.startDate)
+      && (!filters.endDate || event.at.slice(0, 10) <= filters.endDate))
     return (!keyword || normalized(keywordValue(row, filters.keywordField)).includes(keyword))
       && (!filters.statuses.length || filters.statuses.includes(row.status))
       && (!filters.receiptStatus || row.receiptStatus === filters.receiptStatus)
@@ -530,8 +559,7 @@ export function filterDyeWorkOrderOnlineRows(
       && (!normalized(filters.composition) || normalized(row.composition).includes(normalized(filters.composition)))
       && (!filters.width || row.width === filters.width)
       && (!filters.weightGsm || String(row.weightGsm || '') === filters.weightGsm)
-      && (!filters.startDate || time.slice(0, 10) >= filters.startDate)
-      && (!filters.endDate || time.slice(0, 10) <= filters.endDate)
+      && matchesTime
   })
 }
 
@@ -582,7 +610,7 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
         ['生产单号', (row) => row.productionOrderNo || '备货创建'],
         ['商品编码', (row) => row.productCode],
         ['商品名称', (row) => row.productName],
-        ['采购单号', (row) => row.purchaseOrderNo],
+        ['生产需求单号', (row) => row.purchaseOrderNo],
         ['面料名称', (row) => row.materialName],
         ['染色色号', (row) => row.colorNo],
         ['接收状态', (row) => row.receiptStatusLabel],
@@ -601,8 +629,13 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
         ['下游待接收', (row) => `${row.pendingInboundQty} ${row.qtyUnit}`],
         ['实际使用', (row) => row.usageKnown ? `${row.rawMaterialQty} ${row.qtyUnit}` : '待补录'],
         ['确认损耗', (row) => row.lossKnown ? `${row.lossQty} ${row.qtyUnit}` : '待确认'],
-        ['预计完成时间', (row) => row.plannedFinishAt],
       ]
+  for (const [key, label] of [...Object.entries(DYE_TIME_LABELS), ['zeroReceiptAt', '零收货登记'], ['downstreamZeroReceiptAt', '下游零收货登记']]) {
+    columns.push([label, row => {
+      const value = row.timeSections.flatMap(section => section.items).find(point => point.key === key)
+      return value ? formatDyeTimeItem(value) : '无登记'
+    }])
+  }
   return `\uFEFF${[
     columns.map(([label]) => csvCell(label)).join(','),
     ...selectedRows.map((row) => columns.map(([, getter]) => csvCell(getter(row))).join(',')),

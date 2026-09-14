@@ -1,3 +1,5 @@
+import { getHandoverOrderById, getPdaHandoverRecordsByHead } from './pda-handover-events.ts'
+import { latestDyeEventTime } from './dye-work-order-times.ts'
 import {
   assignDyeWorkOrderFactory,
   getDyeWorkOrderById,
@@ -157,6 +159,12 @@ function cloneLog(log: DyeWorkOrderOnlineLog): DyeWorkOrderOnlineLog {
   return { ...log, changes: log.changes.map((change) => ({ ...change })) }
 }
 
+function actualDeliveredAt(order: DyeWorkOrder): string {
+  const head = order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : undefined
+  return latestDyeEventTime((head ? getPdaHandoverRecordsByHead(head.handoverId) : [])
+    .filter(record => record.handoverRecordStatus !== 'VOIDED').map(record => record.factorySubmittedAt))
+}
+
 function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
   const status = mapExecutionStatus(order.status)
   const nodes = listDyeExecutionNodeRecords(order.dyeOrderId)
@@ -187,8 +195,8 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     completedQty,
     lossQty,
     remark: readSavedRemark(order),
-    completedAt: ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
-    deliveredAt: ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : '',
+    completedAt: latestDyeEventTime([...archived, ...nodes].filter(node => node.nodeCode === 'PACK').map(node => node.finishedAt)),
+    deliveredAt: actualDeliveredAt(order),
     updatedAt: order.updatedAt,
   }
 }
@@ -212,8 +220,8 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   record.rawMaterialQty = rawMaterialQty
   record.completedQty = completedQty
   record.lossQty = allBatchNodes.filter(node => node.finishedAt && node.qtyUnit === order.qtyUnit).reduce((sum, node) => sum + (node.lossQty ?? 0), 0)
-  record.completedAt = ['染色完成', '待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.completedAt
-  record.deliveredAt = ['待审核', '部分入库', '待人工完单', '已完成'].includes(status) ? order.updatedAt : record.deliveredAt
+  record.completedAt = latestDyeEventTime(allBatchNodes.filter(node => node.nodeCode === 'PACK').map(node => node.finishedAt))
+  record.deliveredAt = actualDeliveredAt(order)
   record.updatedAt = order.updatedAt
 }
 

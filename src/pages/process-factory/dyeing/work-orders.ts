@@ -1,3 +1,5 @@
+import { DYE_TIME_LABELS } from '../../../data/fcs/dye-work-order-times.ts'
+import { renderDyeWorkOrderTimes } from './work-order-times.ts'
 import { DYE_FACTORY_TABS, dyeFactoryTabLabel, dyePartnerFields } from '../../../data/fcs/dye-work-order-demo-details.ts'
 import { openDyeOutput, handleDyeOutputEvent } from './output-documents.ts'
 import { syncProcessSelectionHeader, renderProcessOrderStats, renderProcessSelectionHeader, renderProcessFilterToggle, handleProcessFilterPresentation } from '../../../components/ui/process-order-list-presentation.ts'
@@ -211,9 +213,9 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
     render: renderOutputDownstream,
   },
   {
-    key: 'time', title: '时间', width: 195, freezeable: true, sortable: true,
+    key: 'time', title: '时间', width: 275, freezeable: true, sortable: true,
     sortValue: row => row.plannedFinishAt,
-    render: row => `<div class="space-y-2 text-xs" data-dye-cell="time">${field('下单时间',row.orderedAt)}${field('交货时间',row.plannedFinishAt || '尚未安排交期')}${field('完成时间',row.completedAt || (row.processingStatus === 'CANCELLED' ? '已取消，无完成时间' : '尚未完成'))}${field('交出时间',row.deliveredAt || '尚未交出')}</div>`,
+    render: row => renderDyeWorkOrderTimes(row.timeSections),
   },
   { key: 'quantity', title: '数量', width: 235, freezeable: true, sortable: true, sortValue: row=>row.plannedQty, render:renderQuantities },
   { key: 'actions', title: '操作', width: 176, required: true, actionColumn: true, render: renderActions },
@@ -295,7 +297,7 @@ function renderFilters(rows: DyeWorkOrderOnlineRow[]): string {
     ${selectField('售卖类型', 'salesType', uniqueValues(rows, row => row.salesType), filters.salesType)}
     ${selectField('异常', 'exception', ['', '超期', '补料', '接收差异', '历史待补录'], filters.exception)}
     ${textField('目标颜色／色号', 'colorNo', filters.colorNo)}
-    ${selectField('时间类型', 'timeField', ['orderedAt','plannedFinishAt','completedAt','deliveredAt'], filters.timeField).replace('>orderedAt<','>下单时间<').replace('>plannedFinishAt<','>预计完成<').replace('>completedAt<','>完成时间<').replace('>deliveredAt<','>交出时间<')}
+    ${selectField('时间类型', 'timeField', Object.keys(DYE_TIME_LABELS), filters.timeField).replace(/>([a-zA-Z]+At)</g, (_, key: keyof typeof DYE_TIME_LABELS) => `>${DYE_TIME_LABELS[key]}<`)}
     ${textField('开始日期', 'startDate', filters.startDate).replace('<input', '<input type="date"')}${textField('结束日期', 'endDate', filters.endDate).replace('<input', '<input type="date"')}
     </div></div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderSecondaryButton('导出投入接收', { prefix: EVENT_PREFIX, action: 'export-preparation' })}${renderSecondaryButton('导出超期单', { prefix: EVENT_PREFIX, action: 'export-overdue' })}${renderProcessFilterToggle(advancedCount, 'button')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }

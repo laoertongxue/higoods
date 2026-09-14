@@ -1497,7 +1497,7 @@ function seedWorkOrders(): void {
   const seededExecutionProjections = [
     { taskId: 'TASK-DYE-000727', productionOrderId: 'PO-20260328-414', qty: 1100, createdAt: '2026-03-28 10:10:00' },
     { taskId: 'TASK-DYE-000728', productionOrderId: 'PO-20260328-415', qty: 910, createdAt: '2026-03-28 10:50:00' },
-    { taskId: partialTaskId, productionOrderId: 'PO-20260328-416', qty: 980, createdAt: '2026-03-27 14:50:00' },
+    { taskId: partialTaskId, productionOrderId: 'PO-20260328-416', qty: 980, createdAt: '2026-06-03 14:50:00' },
     { taskId: 'TASK-DYE-000730', productionOrderId: 'PO-20260328-417', qty: 860, createdAt: '2026-03-27 15:00:00' },
     { taskId: 'TASK-DYE-000731', productionOrderId: 'PO-20260328-418', qty: 1180, createdAt: '2026-03-28 07:00:00' },
   ]
@@ -1546,7 +1546,7 @@ function seedWorkOrders(): void {
   syncLinkedTaskState(partialTaskId, {
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
-    startedAt: '2026-03-27 15:00:00',
+    startedAt: '2026-06-03 15:00:00',
     finishedAt: undefined,
     blockReason: undefined,
     blockRemark: undefined,
@@ -1570,8 +1570,8 @@ function seedWorkOrders(): void {
     taskId: partialTaskId,
     submittedQty: partialSubmittedQty,
     receiverWrittenQty: partialReceivedQty,
-    submittedAt: '2026-03-28 18:10:00',
-    receiverWrittenAt: '2026-03-28 20:40:00',
+    submittedAt: '2026-06-04 18:10:00',
+    receiverWrittenAt: '2026-06-04 20:40:00',
     diffReason: `接收方复核少 ${Number((partialSubmittedQty - partialReceivedQty).toFixed(2))} 米`,
   })
   const orderRejected = ensureSeededHandoverRecord({
@@ -1664,10 +1664,10 @@ function seedWorkOrders(): void {
     isFirstOrder: true,
     sampleWaitType: 'WAIT_COLOR_CARD',
     sampleStatus: 'TESTING',
-    sampleWaitStartedAt: '2026-03-28 08:00:00',
-    sampleWaitFinishedAt: '2026-03-28 09:10:00',
-    materialWaitStartedAt: '2026-03-28 08:30:00',
-    materialWaitFinishedAt: '2026-03-28 09:00:00',
+    sampleWaitStartedAt: '2026-06-04 08:00:00',
+    sampleWaitFinishedAt: '2026-06-04 09:10:00',
+    materialWaitStartedAt: '2026-06-04 08:30:00',
+    materialWaitFinishedAt: '2026-06-04 09:00:00',
     colorNo: 'C-815',
     rawMaterialSku: 'FAB-DYE-003',
     composition: '人棉 100%',
@@ -1683,8 +1683,8 @@ function seedWorkOrders(): void {
     taskId: 'TASK-DYE-000723',
     taskNo: 'TASK-DYE-000723',
     waitingReason: '打样执行中',
-    createdAt: '2026-03-28 07:40:00',
-    updatedAt: '2026-03-28 10:20:00',
+    createdAt: '2026-06-04 07:40:00',
+    updatedAt: '2026-06-04 10:20:00',
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[2], [
     {
@@ -1695,7 +1695,7 @@ function seedWorkOrders(): void {
       nodeName: DYE_NODE_LABEL.SAMPLE,
       operatorUserId: 'USR-DYE-01',
       operatorName: '染色工厂',
-      startedAt: '2026-03-28 09:20:00',
+      startedAt: '2026-06-04 09:20:00',
       qtyUnit: '米',
       remark: '色号确认中',
     },
@@ -1703,7 +1703,7 @@ function seedWorkOrders(): void {
   const acceptedWaitingTask = getDyeingTaskById('TASK-DYE-000723')
   if (acceptedWaitingTask) {
     acceptedWaitingTask.acceptanceStatus = 'ACCEPTED'
-    acceptedWaitingTask.acceptedAt = '2026-03-28 09:10:00'
+    acceptedWaitingTask.acceptedAt = '2026-06-04 09:10:00'
     acceptedWaitingTask.acceptedBy = 'PDA 接单员'
     acceptedWaitingTask.mockReceiveSummary = '染厂已接单，等待色卡确认后开工。'
     registerPdaGenericProcessTask(acceptedWaitingTask)
@@ -2152,8 +2152,8 @@ function seedWorkOrders(): void {
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
-    materialWaitStartedAt: '2026-03-28 09:00:00',
-    materialWaitFinishedAt: '2026-03-28 09:25:00',
+    materialWaitStartedAt: '2026-06-04 09:00:00',
+    materialWaitFinishedAt: '2026-06-04 09:25:00',
     colorNo: 'C-330',
     rawMaterialSku: 'FAB-DYE-009',
     composition: '毛织棉',
@@ -2170,8 +2170,8 @@ function seedWorkOrders(): void {
     taskNo: partialTaskId,
     handoverOrderId: orderWaitReview.handoverOrderId,
     waitingReason: '已部分入库，剩余数量不再继续染色',
-    createdAt: '2026-03-27 14:50:00',
-    updatedAt: '2026-03-28 20:40:00',
+    createdAt: '2026-06-03 14:50:00',
+    updatedAt: '2026-06-04 20:40:00',
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[8], [
     {
@@ -2182,8 +2182,8 @@ function seedWorkOrders(): void {
       nodeName: DYE_NODE_LABEL.PACK,
       operatorUserId: 'USR-DYE-05',
       operatorName: '染色工厂',
-      startedAt: '2026-03-28 13:20:00',
-      finishedAt: '2026-03-28 14:50:00',
+      startedAt: '2026-06-04 13:20:00',
+      finishedAt: '2026-06-04 14:50:00',
       outputQty: 980,
       qtyUnit: '米',
       remark: '包装完成',
@@ -2553,7 +2553,7 @@ function seedWorkOrders(): void {
       diffQty: Number((partialReceivedQty - partialSubmittedQty).toFixed(2)),
       reviewStatus: 'PARTIAL_HANDOVER',
       reviewedBy: '中转仓管',
-      reviewedAt: '2026-03-28 17:30:00',
+      reviewedAt: '2026-06-04 20:45:00',
       remark: '本次按实收数量部分入库，剩余数量终止',
     })
   }
@@ -2941,8 +2941,8 @@ function seedDomain(): void {
     const nodes = nodeRecordStore.get(id)!
     if (!nodes.some(node => node.nodeCode === 'DYE')) nodes.unshift({
       nodeRecordId: `${id}-DYE`, dyeOrderId: id, taskId: order.taskId, nodeCode: 'DYE', nodeName: '染色',
-      operatorUserId: 'USR-DYE-01', operatorName: '染色工厂', startedAt: '2026-03-28 11:30:00',
-      finishedAt: '2026-03-28 15:00:00', inputQty, outputQty: inputQty, lossQty: 0, qtyUnit: order.qtyUnit,
+      operatorUserId: 'USR-DYE-01', operatorName: '染色工厂', startedAt: id === 'DWO-009' ? '2026-06-04 11:30:00' : '2026-03-28 11:30:00',
+      finishedAt: { 'DWO-008': '2026-03-28 15:00:00', 'DWO-009': '2026-06-04 13:00:00', 'DWO-010': '2026-03-28 12:30:00' }[id], inputQty, outputQty: inputQty, lossQty: 0, qtyUnit: order.qtyUnit,
       remark: '预设演示批次：按实领数量投入，染色工序无损耗',
     })
   }
