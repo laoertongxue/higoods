@@ -1,4 +1,6 @@
 // @page-pattern: list
+import { listEffectiveTaskAssignments } from '../../data/fcs/effective-task-assignments.ts'
+import { getProductionOrderTechPackSnapshot } from '../../data/fcs/production-order-tech-pack-runtime.ts'
 
 import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
@@ -61,7 +63,13 @@ function syncSituationFromUrl(): void {
 }
 
 function allTasks(): SewingCutPieceResponsibilityProjection[] {
-  return ensureSewingCutPieceResponsibilityOverviewDemos()
+  const demos = ensureSewingCutPieceResponsibilityOverviewDemos()
+  const ids = new Set(demos.map((item) => item.context.assignmentId))
+  for (const assignment of listEffectiveTaskAssignments()) {
+    if (ids.has(assignment.assignmentId)) continue
+    try { demos.push(getSewingCutPieceResponsibilityProjection(assignment.assignmentId)) } catch { /* Not yet a cut-piece responsibility. */ }
+  }
+  return demos
 }
 
 function filteredTasks(tasks: SewingCutPieceResponsibilityProjection[]): SewingCutPieceResponsibilityProjection[] {
@@ -91,8 +99,10 @@ function shortageLabel(shape: string): { text: string; tone: string } {
 
 function renderImageButton(projection: SewingCutPieceResponsibilityProjection, classes = 'h-16 w-14'): string {
   const label = `${projection.context.taskNo || projection.context.runtimeTaskId}款式`
-  const imageUrl = '/shirt-sample.jpg'
-  return `<button type="button" class="relative ${classes} shrink-0 overflow-hidden rounded border bg-slate-50" data-sewing-cut-piece-action="preview-image" data-image-url="${imageUrl}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}高清图"><img class="h-full w-full object-cover" src="${imageUrl}" alt="${escapeHtml(label)}实拍图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+  const snapshot = getProductionOrderTechPackSnapshot(projection.context.productionOrderId)
+  const imageUrl = snapshot?.imageSnapshot.productImages[0] || snapshot?.imageSnapshot.styleImages[0] || ''
+  if (!imageUrl) return `<span class="${classes} shrink-0 rounded border bg-amber-50 p-1 text-xs">款式图片未维护</span>`
+  return `<button type="button" class="relative ${classes} shrink-0 overflow-hidden rounded border bg-slate-50" data-pda-image-preview-url="${imageUrl}" data-pda-image-preview-title="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}高清图"><img class="h-full w-full object-cover" src="${imageUrl}" alt="${escapeHtml(label)}图片" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-1 text-center text-[10px] text-red-700">图片加载失败，点击重试</span></button>`
 }
 
 function taskNextAction(projection: SewingCutPieceResponsibilityProjection): string {

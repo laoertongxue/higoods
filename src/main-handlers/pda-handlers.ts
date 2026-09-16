@@ -15,6 +15,7 @@ const exact = (path: string) => (pathname: string) => pathname === path
 const startsWith = (path: string) => (pathname: string) => pathname.startsWith(path)
 
 const pdaRouteHandlers: PdaRouteHandler[] = [
+  { matches: exact('/fcs/pda/cutting/simple-cut-piece-handover'), load: () => import('../pages/pda-cutting-simple-cut-piece-handover'), exportName: 'handlePdaCuttingSimpleCutPieceHandoverEvent' },
   { matches: exact('/fcs/pda/auth/login'), load: () => import('../pages/pda-login'), exportName: 'handlePdaLoginEvent' },
   { matches: exact('/fcs/pda/auth/onboarding'), load: () => import('../pages/pda-onboarding'), exportName: 'handlePdaOnboardingEvent' },
   { matches: exact('/fcs/pda/notify/due-soon'), load: () => import('../pages/pda-notify-due-soon'), exportName: 'handlePdaNotifyDueSoonEvent' },

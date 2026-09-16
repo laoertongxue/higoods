@@ -1,14 +1,11 @@
-import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { renderCode128Barcode } from '../../../components/real-barcode.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
-  buildPrintBarcodePayload,
   buildPrintQrPayload,
   createPrintDocumentId,
-  formatPrintQty,
   getPrintGeneratedAt,
   type PrintDocument,
   type PrintDocumentBuildInput,
-  type PrintField,
   type PrintImageBlock,
 } from '../../../data/fcs/print-service.ts'
 import {
@@ -18,86 +15,31 @@ import {
   getProductionConfirmationSnapshotById,
   isProductionConfirmationPrintable,
   productionConfirmationStatusLabels,
-  type ProductionConfirmation,
-  type ProductionConfirmationBomSnapshotRow,
   type ProductionConfirmationImage,
   type ProductionConfirmationSnapshot,
+  type ProductionConfirmationBomSnapshotRow,
 } from '../../../data/fcs/production-confirmation.ts'
-import {
-  productionOrders,
-  productionOrderStatusConfig,
-  type ProductionOrder,
-} from '../../../data/fcs/production-orders.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
 
 export const ProductionMaterialConfirmationTemplate = 'ProductionMaterialConfirmationTemplate'
 export const ProductionConfirmationTemplate = 'ProductionConfirmationTemplate'
 
-interface ProductionPrintContext {
-  order: ProductionOrder
-  snapshot: ProductionConfirmationSnapshot
-  confirmation?: ProductionConfirmation
-  statusLabel: string
-  confirmationNo: string
-  confirmationVersion: number
-  printVersionNo: string
-  printedAt: string
-  printedBy: string
-  historyCount: number
+/** The frozen business snapshot travels with this document; rendering never silently reads a later version. */
+export interface ProductionConfirmationPrintDocument extends PrintDocument {
+  confirmationSnapshot: ProductionConfirmationSnapshot
 }
 
-function text(value: string | number | undefined | null, fallback = '暂无数据'): string {
-  if (value === undefined || value === null) return fallback
-  const normalized = String(value).trim()
-  return normalized || fallback
+function text(value: string | number | undefined | null, fallback = '未维护'): string {
+  return value === undefined || value === null || !String(value).trim() ? fallback : String(value)
 }
 
-function mapFields(rows: Array<{ label: string; value: string | number | undefined | null; emphasis?: boolean }>): PrintField[] {
-  return rows.map((row) => ({ label: row.label, value: text(row.value), emphasis: row.emphasis }))
+export function formatProductionConfirmationQuantity(value: number | null | undefined, unit = ''): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '未维护'
+  return `${Number(value.toFixed(8))}${unit ? ` ${unit}` : ''}`
 }
 
-function formatPercent(value: number | null): string {
-  return value === null || value === undefined ? '暂无数据' : `${value}%`
-}
-
-function materialUnitLabel(row: ProductionConfirmationBomSnapshotRow): string {
-  return row.usageUnit || (row.materialType === '面料' ? '米' : '件')
-}
-
-function calcLossQty(row: ProductionConfirmationBomSnapshotRow): string {
-  if (row.plannedUsageQty === null || row.lossRate === null) return '暂无数据'
-  const divisor = 1 + row.lossRate / 100
-  if (divisor <= 0) return '暂无数据'
-  const baseUsage = row.plannedUsageQty / divisor
-  const lossQty = Math.max(0, row.plannedUsageQty - baseUsage)
-  return formatPrintQty(lossQty, materialUnitLabel(row))
-}
-
-function objectizedUnitConsumption(row: ProductionConfirmationBomSnapshotRow): string {
-  if (row.unitConsumption === null) return '暂无数据'
-  return row.materialType === '面料'
-    ? `${row.unitConsumption} 米 / 件`
-    : `${row.unitConsumption} ${materialUnitLabel(row)} / 件`
-}
-
-function objectizedPlannedUsage(row: ProductionConfirmationBomSnapshotRow): string {
-  if (row.plannedUsageQty === null) return '暂无数据'
-  return row.materialType === '面料'
-    ? formatPrintQty(row.plannedUsageQty, '米')
-    : formatPrintQty(row.plannedUsageQty, materialUnitLabel(row))
-}
-
-function firstImage(images: ProductionConfirmationImage[]): string | undefined {
-  return images[0]?.url
-}
-
-function imageBlock(title: string, images: ProductionConfirmationImage[], fallbackLabel = '暂无图片'): PrintImageBlock {
-  return {
-    title,
-    imageUrl: firstImage(images),
-    imageLabel: images[0]?.label || fallbackLabel,
-    sourceLabel: images[0] ? '生产资料图片' : '无业务图片',
-    fallbackLabel,
-  }
+function imageBlock(title: string, images: ProductionConfirmationImage[]): PrintImageBlock {
+  return { title, imageUrl: images[0]?.url, imageLabel: images[0]?.label || title, sourceLabel: '生产资料图片', fallbackLabel: '图片未维护' }
 }
 
 export function resolveProductionPrintImages(productionOrderId: string): PrintImageBlock[] {
@@ -116,467 +58,168 @@ export function resolveProductionPrintImages(productionOrderId: string): PrintIm
 
 export function resolveMaterialPrintImages(productionOrderId: string): PrintImageBlock[] {
   const snapshot = buildProductionConfirmationSnapshot(productionOrderId)
-  return [
-    imageBlock('面料图', snapshot.imageSnapshot.materialImages),
-    imageBlock('辅料图', snapshot.imageSnapshot.accessoryImages),
-  ]
+  return [imageBlock('面料图', snapshot.imageSnapshot.materialImages), imageBlock('辅料图', snapshot.imageSnapshot.accessoryImages)]
 }
 
 export function resolvePrintProductImage(_sourceType: string, sourceId: string): PrintImageBlock {
-  const snapshot = buildProductionConfirmationSnapshot(sourceId)
-  return imageBlock('商品主图', snapshot.imageSnapshot.productImages)
+  return imageBlock('商品主图', buildProductionConfirmationSnapshot(sourceId).imageSnapshot.productImages)
 }
 
-function getProductionOrder(sourceId: string): ProductionOrder {
-  const order = productionOrders.find((item) => item.productionOrderId === sourceId || item.productionOrderNo === sourceId)
-  if (!order) throw new Error(`未找到生产单：${sourceId}`)
-  return order
-}
-
-function resolveProductionPrintContext(productionOrderId: string): ProductionPrintContext {
-  const order = getProductionOrder(productionOrderId)
+function buildDocument(input: PrintDocumentBuildInput): ProductionConfirmationPrintDocument {
+  const order = productionOrders.find((row) => row.productionOrderId === input.sourceId || row.productionOrderNo === input.sourceId)
+  if (!order) throw new Error(`未找到生产单：${input.sourceId}`)
   const existing = getProductionConfirmationByOrderId(order.productionOrderId)
   const printable = isProductionConfirmationPrintable(order.productionOrderId)
-  let confirmation: ProductionConfirmation | undefined = existing
-
-  if (!confirmation && printable.printable) {
-    confirmation = getOrCreateProductionConfirmation(order.productionOrderId)
-  }
-
-  const snapshot = confirmation
-    ? getProductionConfirmationSnapshotById(confirmation.snapshotId) || buildProductionConfirmationSnapshot(order.productionOrderId)
-    : buildProductionConfirmationSnapshot(order.productionOrderId)
-  const statusLabel = confirmation
-    ? productionConfirmationStatusLabels[confirmation.status]
-    : printable.printable ? '可打印' : printable.reason || '资料待完善'
-  const confirmationNo = confirmation?.confirmationNo || snapshot.confirmationNo
-  const confirmationVersion = confirmation?.confirmationVersion || snapshot.confirmationVersion
+  if (!existing && !printable.printable) throw new Error(printable.reason || '生产单尚不可打印')
+  const confirmation = existing || getOrCreateProductionConfirmation(order.productionOrderId)
+  const snapshot = (confirmation ? getProductionConfirmationSnapshotById(confirmation.snapshotId) : undefined)
+    || buildProductionConfirmationSnapshot(order.productionOrderId)
+  const printVersionNo = `V${snapshot.confirmationVersion}`
   const generatedAt = getPrintGeneratedAt()
-
-  return {
-    order,
-    snapshot,
-    confirmation,
-    statusLabel,
-    confirmationNo,
-    confirmationVersion,
-    printVersionNo: `V${confirmationVersion}`,
-    printedAt: confirmation?.printedAt || generatedAt,
-    printedBy: confirmation?.printedBy || '系统',
-    historyCount: confirmation ? Math.max(1, confirmation.confirmationVersion) : 0,
-  }
-}
-
-function buildSkuMatrixTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  const sizes = snapshot.sizeQtySnapshot.sizes
-  return {
-    tableId: 'sku-size-qty',
-    title: '规格数量矩阵（SKU / 颜色 / 尺码数量）',
-    headers: ['颜色', ...sizes, '计划生产成衣件数合计', '备注'],
-    rows: snapshot.sizeQtySnapshot.rows.map((row) => [
-      row.color,
-      ...sizes.map((size) => formatPrintQty(row.sizeQtyMap[size] || 0, '件')),
-      formatPrintQty(row.totalQty, '件'),
-      '按生产单执行',
-    ]),
-    minRows: 3,
-  }
-}
-
-function buildMaterialTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'bom-materials',
-    title: '面辅料信息区',
-    headers: ['物料类型', '物料 SKU', '物料名称', '颜色', '规格', '单件面料用量 / 单件辅料用量', '损耗率', '计划面料米数 / 计划辅料数量', '损耗面料米数 / 损耗辅料数量', '物料图片', '备注'],
-    rows: snapshot.bomSnapshot.map((row) => [
-      row.materialType,
-      row.materialSku,
-      row.materialName,
-      row.materialColor,
-      row.spec,
-      objectizedUnitConsumption(row),
-      formatPercent(row.lossRate),
-      objectizedPlannedUsage(row),
-      calcLossQty(row),
-      row.materialImageUrl ? '已关联物料图' : '暂无图片',
-      [row.printRequirement, row.dyeRequirement].filter(Boolean).join('；') || '按技术包要求',
-    ]),
-    minRows: 4,
-  }
-}
-
-function buildProcessTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'process-route',
-    title: '工序工艺任务分配',
-    headers: ['工序名称', '工艺名称', '作用对象', '裁片部位', '颜色', '尺码', '工艺要求', '执行工厂类型', '分配状态', '是否特殊工艺', '质检点', '计划完成节点', '备注'],
-    rows: snapshot.taskAssignmentSnapshot.map((row) => [
-      row.processName,
-      row.craftName || row.taskDisplayName,
-      row.targetObject || '整单',
-      row.partName || '全部部位',
-      row.colorName || '全部颜色',
-      row.sizeCode || '全部尺码',
-      row.remark || '按生产资料执行',
-      row.assignedFactoryName,
-      row.assignmentStatus || '待分配',
-      row.processName.includes('特殊工艺') || row.stageName.includes('特殊工艺') ? '是' : '否',
-      `${row.processName}完成后按质检标准复核`,
-      row.taskDeadline || '随生产计划',
-      `${row.targetObject || '任务对象'}：${formatPrintQty(row.taskQty, row.qtyUnit)}`,
-    ]),
-    minRows: 5,
-  }
-}
-
-function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  const rows = snapshot.patternSnapshot.rows.flatMap((pattern) =>
-    pattern.pieceRows.length
-      ? pattern.pieceRows.map((piece) => [
-          pattern.patternMaterialTypeLabel || '暂无数据',
-          pattern.patternCategory || '暂无数据',
-          pattern.patternFileName || '暂无数据',
-          pattern.patternSoftwareName || '暂无数据',
-          pattern.patternVersion || '暂无数据',
-          pattern.sizeRange || pattern.selectedSizeCodes.join(' / ') || '暂无数据',
-          piece.name,
-          formatPrintQty(piece.count, '片 / 件'),
-          piece.colorAllocations.map((item) => `${item.colorName} ${formatPrintQty(item.pieceCount, '片')}`).join('；') || '按颜色矩阵',
-          piece.specialCrafts.map((item) => item.displayName || item.craftName).join('、') || '无',
-          '菲票归属裁片单，唛架方案只作为执行上下文',
-        ])
-      : [[
-          pattern.patternMaterialTypeLabel || '暂无数据',
-          pattern.patternCategory || '暂无数据',
-          pattern.patternFileName || '暂无数据',
-          pattern.patternSoftwareName || '暂无数据',
-          pattern.patternVersion || '暂无数据',
-          pattern.sizeRange || pattern.selectedSizeCodes.join(' / ') || '暂无数据',
-          '暂无裁片部位',
-          '暂无数据',
-          '暂无数据',
-          '无',
-          '菲票归属裁片单，唛架方案只作为执行上下文',
-        ]],
-  )
-
-  return {
-    tableId: 'pattern-cutting',
-    title: '纸样和尺寸 / 唛架 / 裁片信息区',
-    headers: ['纸样类型', '纸样分类', '纸样文件', '打版软件', '纸样和尺寸', '尺码范围', '裁片部位', '每种颜色的片数', '适用颜色', '特殊工艺', '裁片口径'],
-    rows,
-    minRows: 3,
-  }
-}
-
-function buildQcTable(): PrintDocument['tables'][number] {
-  return {
-    tableId: 'qc-standard',
-    title: '质检标准区',
-    headers: ['检查项', '检查标准', '抽检方式', '不合格处理方式', '备注'],
-    rows: [
-      ['尺寸复核', '按纸样 / 尺码表公差执行', '首件 + 抽检', '返修或平台确认', '只展示质检标准，不直接生成返工扣款流水'],
-      ['外观与污渍', '无明显污渍、破洞、线头异常', '随机抽检', '隔离异常件', '异常进入差异处理'],
-      ['工艺一致性', '印花、染色、特殊工艺、后道按确认资料执行', '过程抽检', '暂停并复核工艺资料', '不得直接生成返工扣款流水'],
-    ],
-    minRows: 4,
-  }
-}
-
-function buildHeaderFields(context: ProductionPrintContext): PrintField[] {
-  const { order, snapshot } = context
-
-  return mapFields([
-    { label: '生产确认单号', value: context.confirmationNo, emphasis: true },
-    { label: '生产单号', value: order.productionOrderNo, emphasis: true },
-    { label: '来源需求单号', value: snapshot.productionOrderSnapshot.sourceDemandNos.join('、') },
-    { label: '确认单状态', value: context.statusLabel },
-    { label: '生产单状态', value: productionOrderStatusConfig[order.status]?.label || order.status },
-    { label: '当前版本', value: context.printVersionNo },
-    { label: '打印版本', value: context.printVersionNo },
-    { label: '打印时间', value: context.printedAt },
-    { label: '打印人', value: context.printedBy },
-  ])
-}
-
-function buildProductionSections(context: ProductionPrintContext): PrintDocument['sections'] {
-  const { order, snapshot } = context
-  return [
-    {
-      sectionId: 'base',
-      title: '基础信息区',
-      fields: mapFields([
-        { label: '款号', value: snapshot.styleSnapshot.styleCode },
-        { label: '款式名称', value: snapshot.styleSnapshot.styleName },
-        { label: 'SPU', value: snapshot.styleSnapshot.spuCode },
-        { label: '商品名称', value: snapshot.styleSnapshot.spuName },
-        { label: '首单 / 翻单', value: snapshot.productionOrderSnapshot.orderType },
-        { label: '生产类型', value: snapshot.productionOrderSnapshot.orderType },
-        { label: '生产工厂或主工厂', value: order.mainFactorySnapshot.name },
-        { label: '要求交期', value: snapshot.productionOrderSnapshot.requiredDeliveryDate || '暂无数据' },
-        { label: '计划开始日期', value: snapshot.productionOrderSnapshot.plannedStartDate },
-        { label: '计划完成日期', value: snapshot.productionOrderSnapshot.plannedFinishDate },
-        { label: '计划生产成衣件数', value: formatPrintQty(snapshot.productionOrderSnapshot.plannedQty, '件'), emphasis: true },
-        { label: '生产备注', value: snapshot.productionOrderSnapshot.productionRemark },
-      ]),
-    },
-    {
-      sectionId: 'delivery',
-      title: '包装要求区',
-      fields: mapFields([
-        { label: '包装方式', value: '按订单包装标准执行' },
-        { label: '吊牌 / 洗护唛 / 贴标要求', value: '按技术包和商品档案要求执行' },
-        { label: '外箱要求', value: '按订单包装标准执行' },
-        { label: '备注', value: snapshot.productionOrderSnapshot.productionRemark || '暂无数据' },
-      ]),
-    },
-  ]
-}
-
-function buildProductionTables(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'] {
-  return [
-    buildSkuMatrixTable(snapshot),
-    buildMaterialTable(snapshot),
-    buildProcessTable(snapshot),
-    buildPatternTable(snapshot),
-    buildQcTable(),
-  ]
-}
-
-function buildDocument(input: PrintDocumentBuildInput): PrintDocument {
-  const context = resolveProductionPrintContext(input.sourceId)
-  const { order, snapshot } = context
-  const generatedAt = getPrintGeneratedAt()
-  const documentType = 'PRODUCTION_CONFIRMATION'
-  const templateCode = 'PRODUCTION_CONFIRMATION'
-  const title = '生产确认单'
-  const targetRoute = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
-  const businessNo = context.confirmationNo
   const qrPayload = buildPrintQrPayload({
-    documentType,
-    sourceType: 'PRODUCTION_ORDER',
-    sourceId: order.productionOrderId,
-    businessNo,
-    targetRoute,
-    printVersionNo: context.printVersionNo,
-    extra: {
-      productionOrderNo: order.productionOrderNo,
-      sourceType: 'PRODUCTION_ORDER',
-    },
+    documentType: 'PRODUCTION_CONFIRMATION', sourceType: 'PRODUCTION_ORDER', sourceId: order.productionOrderId,
+    businessNo: order.productionOrderNo, printVersionNo,
+    targetRoute: `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`,
   })
-
   return {
-    printDocumentId: createPrintDocumentId({ ...input, sourceId: order.productionOrderId, documentType }, templateCode),
-    documentType,
-    documentTitle: title,
-    sourceType: 'PRODUCTION_ORDER',
-    sourceId: order.productionOrderId,
-    templateCode,
-    paperType: 'A4',
-    orientation: 'portrait',
-    printTitle: title,
-    printSubtitle: '生产单正式确认与工厂现场做货的统一依据，覆盖 SKU 数量、面辅料、工序工艺、纸样唛架、图片资料、交付和签收。',
-    headerFields: buildHeaderFields(context),
-    imageBlocks: resolveProductionPrintImages(order.productionOrderId),
-    qrCodes: [
-      {
-        title: `${title}二维码`,
-        value: qrPayload,
-        description: '扫码查看生产资料',
-        sizeMm: 30,
-      },
-    ],
-    barcodes: [
-      {
-        title: `${title}条码`,
-        value: buildPrintBarcodePayload({
-          documentType,
-          sourceType: 'PRODUCTION_ORDER',
-          sourceId: order.productionOrderId,
-          businessNo,
-          printVersionNo: context.printVersionNo,
-        }),
-        description: '生产资料条码',
-      },
-    ],
-    sections: buildProductionSections(context),
-    tables: buildProductionTables(snapshot),
-    signatureBlocks: [
-      { label: '跟单确认', signerRole: '跟单' },
-      { label: '生产负责人确认', signerRole: '生产负责人' },
-      { label: '工厂确认', signerRole: '工厂负责人' },
-      { label: '现场做货确认', signerRole: '现场负责人' },
-      { label: '质检确认', signerRole: '质检负责人' },
-      { label: '日期', signerRole: '确认日期' },
-    ],
-    differenceBlocks: [],
-    footerFields: [
+    printDocumentId: createPrintDocumentId({ ...input, sourceId: order.productionOrderId, documentType: 'PRODUCTION_CONFIRMATION' }, 'PRODUCTION_CONFIRMATION'),
+    documentType: 'PRODUCTION_CONFIRMATION', documentTitle: '生产确认单', sourceType: 'PRODUCTION_ORDER', sourceId: order.productionOrderId,
+    templateCode: 'PRODUCTION_CONFIRMATION', paperType: 'A4', orientation: 'portrait',
+    printTitle: '生产确认单（Formula Konfirmasi Barang）', printSubtitle: '',
+    headerFields: [
       { label: '生产单号', value: order.productionOrderNo },
-      { label: '打印时间', value: generatedAt },
-      { label: '页码', value: '第 1 页 / 共 N 页' },
-      { label: '统一打印服务', value: 'PrintDocument' },
+      { label: '生产确认单号', value: snapshot.confirmationNo },
+      { label: '打印版本', value: printVersionNo },
+      { label: '确认单状态', value: confirmation ? productionConfirmationStatusLabels[confirmation.status] : '预览' },
     ],
+    imageBlocks: [imageBlock('商品主图', snapshot.imageSnapshot.productImages)],
+    qrCodes: [{ title: '生产单二维码', value: qrPayload, description: '扫码查看生产资料', sizeMm: 24 }],
+    barcodes: [{ title: '生产单条码', value: order.productionOrderNo, description: '生产单号' }],
+    sections: [],
+    tables: [{
+      tableId: 'sku-size-qty', title: 'Daftar SK', headers: ['颜色', ...snapshot.sizeQtySnapshot.sizes, '合计'],
+      rows: snapshot.sizeQtySnapshot.rows.map((row) => [row.color, ...snapshot.sizeQtySnapshot.sizes.map((size) => String(row.sizeQtyMap[size] || 0)), String(row.totalQty)]),
+    }],
+    signatureBlocks: [], differenceBlocks: [], footerFields: [],
     printMeta: {
-      generatedAt,
-      generatedBy: '系统自动生成',
-      printNotice: '打印前请在浏览器打印设置中关闭页眉和页脚',
+      generatedAt, generatedBy: '系统', printNotice: 'A4 纵向打印；关闭浏览器页眉和页脚。图片未就绪时请先补齐或重试。',
       returnHref: `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}`,
     },
-    qrPayload,
-    barcodePayload: buildPrintBarcodePayload({
-      documentType,
-      sourceType: 'PRODUCTION_ORDER',
-      sourceId: order.productionOrderId,
-      businessNo,
-      printVersionNo: context.printVersionNo,
-    }),
-    printVersionNo: context.printVersionNo,
+    qrPayload, barcodePayload: order.productionOrderNo, printVersionNo, confirmationSnapshot: snapshot,
   }
 }
 
-export function buildProductionMaterialConfirmationPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
+export function buildProductionMaterialConfirmationPrintDocument(input: PrintDocumentBuildInput): ProductionConfirmationPrintDocument {
   return buildDocument(input)
 }
 
-export function buildProductionConfirmationPrintDocument(input: PrintDocumentBuildInput | string): PrintDocument {
-  const resolved = typeof input === 'string'
-    ? { documentType: 'PRODUCTION_CONFIRMATION', sourceType: 'PRODUCTION_ORDER', sourceId: input } as PrintDocumentBuildInput
-    : input
-  return buildDocument(resolved)
+export function buildProductionConfirmationPrintDocument(input: PrintDocumentBuildInput | string): ProductionConfirmationPrintDocument {
+  return buildDocument(typeof input === 'string'
+    ? { documentType: 'PRODUCTION_CONFIRMATION', sourceType: 'PRODUCTION_ORDER', sourceId: input }
+    : input)
 }
 
-function renderFieldGrid(fields: PrintField[], columns = 4): string {
-  return `
-    <div class="print-field-grid print-field-grid-${columns}">
-      ${fields.map((field) => `
-        <div class="print-field ${field.emphasis ? 'print-field-emphasis' : ''}">
-          <div class="print-field-label">${escapeHtml(field.label)}</div>
-          <div class="print-field-value">${escapeHtml(field.value || '—')}</div>
-        </div>
-      `).join('')}
+function renderImage(url: string | undefined, label: string, className = ''): string {
+  if (!url) return `<div class="confirmation-image-missing" data-print-image-missing>${escapeHtml(label)}：图片未维护</div>`
+  return `<figure class="confirmation-image ${className}" data-print-image-frame>
+    <button type="button" data-print-image-url="${escapeHtml(url)}" data-print-image-title="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}大图">
+      <img data-print-image src="${escapeHtml(url)}" alt="${escapeHtml(label)}" loading="eager" />
+    </button>
+    <span data-print-image-loading class="print-hidden">图片加载中…</span><span data-print-image-error hidden class="print-hidden">图片加载失败：${escapeHtml(label)} <button type="button" data-print-image-retry>重试图片</button></span>
+    <figcaption>${escapeHtml(label)}</figcaption>
+  </figure>`
+}
+
+function milestone(snapshot: ProductionConfirmationSnapshot, key: 'cuttingCompleted' | 'factoryArrived' | 'firstDelivery' | 'productionCompleted'): string {
+  const row = snapshot.onlineDisplaySnapshot.milestones.find((item) => item.key === key)
+  if (row?.actualAt) return escapeHtml(row.actualAt)
+  if (row?.plannedAt) return `未发生<br><span class="confirmation-muted">计划：${escapeHtml(row.plannedAt)}</span>`
+  return '未发生'
+}
+
+function renderMainTable(snapshot: ProductionConfirmationSnapshot): string {
+  const display = snapshot.onlineDisplaySnapshot
+  const price = display.retailTagPrice
+  const priceLabel = price ? `${price.amount.toFixed(2)} ${price.currency}` : '未维护'
+  const original = (label: string) => escapeHtml(display.originalLabelFields.find((row) => row.label === label)?.value || '未维护')
+  const source = display.purchaseOrderNos.length ? display.purchaseOrderNos.join('，') : `采购单未维护；来源需求：${snapshot.productionOrderSnapshot.sourceDemandNos.join('，')}`
+  return `<table class="confirmation-table confirmation-main" aria-label="生产单基本资料">
+    <colgroup><col style="width:21%"><col style="width:14%"><col style="width:20%"><col style="width:23%"><col style="width:22%"></colgroup>
+    <tbody>
+      <tr class="confirmation-labels"><td>款号SPU(Satuan Pembelian)</td><td>做货难度（Gaya penilaian）</td><td>Nomor produksi tunggal<br>生产单号</td><td>Nomor pembelian tunggal<br>采购单号</td><td>Gambar Produk</td></tr>
+      <tr><td>${escapeHtml(snapshot.styleSnapshot.spuCode)}</td><td>${escapeHtml(text(display.garmentDifficultyGrade))}</td><td>${escapeHtml(snapshot.productionOrderNo)}</td><td>${escapeHtml(source)}<br>${escapeHtml(display.saleType)}</td><td rowspan="9">${renderImage(snapshot.styleSnapshot.productMainImageUrl, `${snapshot.styleSnapshot.spuCode} ${snapshot.styleSnapshot.spuName}`, 'confirmation-product-image')}<div>吊牌价：${escapeHtml(priceLabel)}</div></td></tr>
+      <tr class="confirmation-labels"><td colspan="2">Nama pabrik<br>承接工厂</td><td>jenis<br>订单类型</td><td>Waktu Perintah Pembelian<br>下单日期</td></tr>
+      <tr><td colspan="2">${escapeHtml(display.factoryNames.join('、') || '未分配')}</td><td>${escapeHtml(snapshot.productionOrderSnapshot.orderType)}</td><td>${escapeHtml(display.orderDate.slice(0, 10))}</td></tr>
+      <tr class="confirmation-labels"><td colspan="2">Waktu selesai cutting<br>裁剪完成</td><td>Waktu Kedatangan ke Pabrik<br>到厂</td><td>Waktu pengiriman pertama<br>首次交付</td></tr>
+      <tr><td colspan="2">${milestone(snapshot, 'cuttingCompleted')}</td><td>${milestone(snapshot, 'factoryArrived')}</td><td>${milestone(snapshot, 'firstDelivery')}</td></tr>
+      <tr class="confirmation-labels"><td colspan="2">Waktu penyelesaian produksi<br>生产完成</td><td>Gulungan kain<br>布卷数</td><td>Perkiraan total potongan<br>预计总件数</td></tr>
+      <tr><td colspan="2">${milestone(snapshot, 'productionCompleted')}</td><td>${display.fabricRollIds === null ? '未维护' : `${display.fabricRollIds.length} 卷`}</td><td>${formatProductionConfirmationQuantity(snapshot.productionOrderSnapshot.plannedQty, '件')}</td></tr>
+      <tr class="confirmation-labels"><td colspan="2">Proses Tambahan<br>额外工艺</td><td>Apakah itu undang-undang dasar<br><span class="text-xs">直译：那是宪法吗？</span></td><td>Yang sama<br><span class="text-xs">相同的</span></td></tr>
+      <tr><td colspan="2">${escapeHtml(display.additionalProcesses.join('、') || '无额外工艺')}</td><td>${original('Apakah itu undang-undang dasar')}</td><td>${original('Yang sama')}</td></tr>
+    </tbody>
+  </table>`
+}
+
+function renderColorsAndPatterns(snapshot: ProductionConfirmationSnapshot): string {
+  const colors = snapshot.sizeQtySnapshot.colors.map((color) => {
+    const image = snapshot.onlineDisplaySnapshot.colorImages.find((row) => row.color === color)
+    return `<tr><td>${escapeHtml(color)}${image?.skuCodes?.length ? `<div class="confirmation-muted">SKU：${escapeHtml(image.skuCodes.join('、'))}</div>` : ''}</td><td>${renderImage(image?.imageUrl, `${snapshot.styleSnapshot.spuCode} · ${color}`, 'confirmation-color-image')}</td></tr>`
+  }).join('')
+  const patterns = snapshot.patternSnapshot.rows.map((row) => `<tr><td>${escapeHtml(row.materialLabel)}<div class="confirmation-muted">${escapeHtml(row.patternFileName || row.patternId)}</div></td><td>
+    ${renderImage(row.imageUrl, row.materialLabel, 'confirmation-pattern-image')}
+    <div class="confirmation-file-links">${row.attachments.length ? row.attachments.map((file) => `<a href="${escapeHtml(file.url)}" download="${escapeHtml(file.fileName)}" title="${escapeHtml(file.fileName)}">${escapeHtml(file.kind)}</a>`).join(' ') : '<span class="confirmation-muted">附件未维护</span>'}</div>
+  </td></tr>`).join('')
+  return `<section class="confirmation-section"><h2>warna &amp; gambar</h2><table class="confirmation-table confirmation-colors" aria-label="颜色与纸样"><colgroup><col style="width:50%"><col style="width:50%"></colgroup><thead><tr><th>warna</th><th>gambar</th></tr></thead><tbody>${colors}<tr class="confirmation-labels"><td colspan="2">纸样（Pola kertas）</td></tr>${patterns || '<tr><td colspan="2">纸样资料未维护</td></tr>'}</tbody></table></section>`
+}
+
+function renderMaterialRow(row: ProductionConfirmationBomSnapshotRow, fabric: boolean): string {
+  const unit = row.usageUnit || '单位未维护'
+  const net = formatProductionConfirmationQuantity(row.netUsageQty, unit)
+  const prepared = formatProductionConfirmationQuantity(row.plannedUsageQty, unit)
+  const single = formatProductionConfirmationQuantity(row.unitConsumption, unit)
+  const hasLoss = row.lossRate !== null && row.lossRate > 0
+  const process = [row.dyeRequirement ? `Dyeing 染色：${row.dyeRequirement}` : '', row.printRequirement ? `Printing 印花：${row.printRequirement}` : '', row.embroideryRequirement || '', fabric ? 'Cutting 裁剪' : ''].filter(Boolean).join(' / ')
+  return `<tr><td>${escapeHtml(row.materialName)}<div class="confirmation-muted">${escapeHtml(row.materialColor)} ${escapeHtml(row.spec)}</div></td><td>${escapeHtml(row.materialCode || row.materialSku)}</td><td>${fabric ? escapeHtml(row.partNames.join('、') || '按纸样') : escapeHtml(single)}</td><td>${fabric ? `<div>${escapeHtml(single)} / 件</div>` : ''}<div>${escapeHtml(net)}</div>${hasLoss ? `<div class="confirmation-muted">净用量；含损耗备料 ${escapeHtml(prepared)}（${row.lossRate}%）</div>` : ''}</td><td>${renderImage(row.materialImageUrl, `${row.materialName} · ${row.materialCode || row.materialSku}`, 'confirmation-material-image')}</td><td>${escapeHtml(fabric ? process : row.preparedLabel || '未维护')}</td><td>${escapeHtml(row.warehouseLabel || '未维护')}</td></tr>`
+}
+
+function renderMaterials(snapshot: ProductionConfirmationSnapshot): string {
+  const fabrics = snapshot.bomSnapshot.filter((row) => row.materialType === '面料')
+  const accessories = snapshot.bomSnapshot.filter((row) => !['面料', '成衣'].includes(row.materialType))
+  return `<section class="confirmation-section"><h2>Kain &amp; aksesoris</h2><table class="confirmation-table confirmation-materials" aria-label="面辅料信息"><colgroup><col style="width:15%"><col style="width:17%"><col style="width:12%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:9%"></colgroup>
+    <thead><tr><th>Nama Fabric</th><th>Bahan SKU</th><th>Jumlah potongan</th><th>Total/Material yang digunakan</th><th>(Gambar)</th><th>(Jenis Printing)</th><th>Informasi Gudang</th></tr></thead>
+    <tbody>${fabrics.map((row) => renderMaterialRow(row, true)).join('') || '<tr><td colspan="7">无面料项目</td></tr>'}
+    </tbody></table><table class="confirmation-table confirmation-materials" aria-label="辅料信息"><colgroup><col style="width:15%"><col style="width:17%"><col style="width:12%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:9%"></colgroup><thead><tr class="confirmation-labels"><th>Nama aksesori</th><th>Kode aksesori</th><th>jumlah</th><th>Material yang digunakan</th><th>Gambar</th><th>Siap</th><th>Informasi Gudang</th></tr></thead><tbody>
+    ${accessories.map((row) => renderMaterialRow(row, false)).join('') || '<tr><td colspan="7">无辅料项目</td></tr>'}</tbody>
+  </table></section>`
+}
+
+function renderSizeQuantities(snapshot: ProductionConfirmationSnapshot): string {
+  const { sizes, rows } = snapshot.sizeQtySnapshot
+  const binding = (color: string) => snapshot.onlineDisplaySnapshot.bindingStrips.filter((row) => row.color === color).map((row) => formatProductionConfirmationQuantity(row.length, row.unit)).join(' / ') || '未维护'
+  return `<section class="confirmation-section"><h2>Daftar SK</h2><table class="confirmation-table" aria-label="规格数量矩阵"><thead><tr><th rowspan="2">颜色</th><th colspan="${sizes.length + 1}">尺码明细（件）</th><th rowspan="2">捆条pinping</th></tr><tr>${sizes.map((size) => `<th>${escapeHtml(size)}</th>`).join('')}<th>合计</th></tr></thead><tbody>
+    ${rows.map((row) => `<tr><td>${escapeHtml(row.color)}</td>${sizes.map((size) => `<td>${row.sizeQtyMap[size] || 0}</td>`).join('')}<td>${row.totalQty}</td><td>${escapeHtml(binding(row.color))}</td></tr>`).join('')}
+    <tr class="confirmation-total"><td>合计</td>${sizes.map((size) => `<td>${rows.reduce((sum, row) => sum + (row.sizeQtyMap[size] || 0), 0)}</td>`).join('')}<td>${rows.reduce((sum, row) => sum + row.totalQty, 0)}</td><td>—</td></tr>
+  </tbody></table></section>`
+}
+
+function renderMeasurements(snapshot: ProductionConfirmationSnapshot): string {
+  const labels: Record<string, string> = { 后中长: 'Panjang punggung tengah(后中长)', 肩宽: 'Lingkar Bahu(肩宽)', 胸围: 'Lingkar Dada(胸围)', 袖长: 'Panjang Lengan(袖长)', 袖口: 'Cuff Tangan(袖口)', 脚围: 'Lingkar kaki(脚围)' }
+  const measures = snapshot.patternSnapshot.sizeMeasurements
+  const parts = Array.from(new Set(measures.map((row) => row.measurementPart)))
+  const preferred = Object.keys(labels)
+  parts.sort((a, b) => (preferred.includes(a) ? preferred.indexOf(a) : 99) - (preferred.includes(b) ? preferred.indexOf(b) : 99))
+  const sizes = snapshot.sizeQtySnapshot.sizes
+  return `<section class="confirmation-section"><h2>Graf ukura</h2><table class="confirmation-table confirmation-measurements" aria-label="成衣尺寸"><thead><tr><th>成衣尺寸</th>${parts.map((part) => `<th>${escapeHtml(labels[part] || part)}</th>`).join('')}</tr></thead><tbody>${sizes.map((size) => `<tr><td>${escapeHtml(size)}</td>${parts.map((part) => { const row = measures.find((item) => item.sizeCode === size && item.measurementPart === part); return `<td>${row ? escapeHtml(`${row.measurementValue}${row.measurementUnit}`) : '未维护'}</td>` }).join('')}</tr>`).join('') || '<tr><td>尺寸资料未维护</td></tr>'}</tbody></table></section>`
+}
+
+export function renderProductionMaterialConfirmationTemplate(doc: PrintDocument & { confirmationSnapshot?: ProductionConfirmationSnapshot }): string {
+  const snapshot = doc.confirmationSnapshot || buildProductionConfirmationSnapshot(doc.sourceId)
+  return `<article class="print-paper-a4 print-production-confirmation" data-production-confirmation="${escapeHtml(snapshot.productionOrderId)}">
+    <div class="confirmation-sheet">
+      <header class="confirmation-header"><h1>生产确认单（Formula Konfirmasi Barang）</h1><div class="confirmation-barcode">${renderCode128Barcode(snapshot.productionOrderNo, '生产单条码')}<span>${escapeHtml(snapshot.productionOrderNo)}</span></div></header>
+      ${renderMainTable(snapshot)}${renderColorsAndPatterns(snapshot)}${renderMaterials(snapshot)}${renderSizeQuantities(snapshot)}${renderMeasurements(snapshot)}
     </div>
-  `
-}
-
-function renderImageBlocks(blocks: PrintImageBlock[], prominent: boolean): string {
-  return `
-    <section class="print-section print-avoid-break">
-      <div class="print-section-title">图片资料区</div>
-      <div class="${prominent ? 'print-production-image-grid print-production-image-grid-prominent' : 'print-production-image-grid'}">
-        ${blocks.map((image) => `
-          <figure class="print-production-image-card">
-            <figcaption>${escapeHtml(image.title)}</figcaption>
-            ${
-              image.imageUrl
-                ? `<div class="print-production-image-frame"><img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageLabel)}"></div>`
-                : `<div class="print-image-placeholder">${escapeHtml(image.fallbackLabel || '暂无图片')}</div>`
-            }
-            <div class="print-note">${escapeHtml(image.sourceLabel || '图片资料')}</div>
-          </figure>
-        `).join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderQrBox(doc: PrintDocument): string {
-  const qr = doc.qrCodes[0]
-  const barcode = doc.barcodes[0]
-  return `
-    <section class="print-qr-box">
-      <div class="print-section-title">${escapeHtml(qr?.title || '二维码')}</div>
-      <div class="print-qr-inner">
-        ${qr ? renderRealQrPlaceholder({
-          value: qr.value,
-          size: 112,
-          title: qr.title,
-          label: qr.title,
-        }) : ''}
-      </div>
-      <div class="print-note">${escapeHtml(qr?.description || '扫码查看生产资料')}</div>
-      ${barcode ? `<div class="print-production-barcode">${escapeHtml(barcode.value)}</div>` : ''}
-    </section>
-  `
-}
-
-function renderTable(table: PrintDocument['tables'][number]): string {
-  const rows = [...table.rows]
-  while (rows.length < (table.minRows || 0)) {
-    rows.push(Array.from({ length: table.headers.length }, () => ''))
-  }
-  return `
-    <section class="print-section">
-      <div class="print-section-title">${escapeHtml(table.title)}</div>
-      <table class="print-table print-production-table">
-        <thead>
-          <tr>${table.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>${table.headers.map((_, index) => `<td>${escapeHtml(row[index] || '')}</td>`).join('')}</tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </section>
-  `
-}
-
-function renderSignatureBlocks(blocks: PrintDocument['signatureBlocks']): string {
-  const title = blocks.some((item) => item.label.includes('跟单'))
-    ? '确认与签字区'
-    : '工厂确认区'
-  return `
-    <section class="print-section print-avoid-break">
-      <div class="print-section-title">${title}</div>
-      <div class="print-signature-grid">
-        ${blocks.map((block) => `
-          <div class="print-signature-cell">
-            <div class="print-signature-label">${escapeHtml(block.label)}</div>
-            <div class="print-signature-role">${escapeHtml(block.signerRole)}</div>
-          </div>
-        `).join('')}
-      </div>
-    </section>
-  `
-}
-
-export function renderProductionMaterialConfirmationTemplate(doc: PrintDocument): string {
-  return `
-    <article class="print-paper-a4 print-production-confirmation">
-      <div class="print-card-sheet">
-        <header class="print-production-header">
-          <div>
-            <div class="print-card-title">${escapeHtml(doc.printTitle)}</div>
-            <div class="print-card-subtitle">${escapeHtml(doc.printSubtitle)}</div>
-          </div>
-          ${renderQrBox(doc)}
-        </header>
-
-        <section class="print-section">
-          <div class="print-section-title">页头区</div>
-          ${renderFieldGrid(doc.headerFields)}
-        </section>
-
-        ${renderImageBlocks(doc.imageBlocks, true)}
-
-        ${doc.sections.map((section) => `
-          <section class="print-section">
-            <div class="print-section-title">${escapeHtml(section.title)}</div>
-            ${renderFieldGrid(section.fields)}
-            ${section.note ? `<div class="print-note">${escapeHtml(section.note)}</div>` : ''}
-          </section>
-        `).join('')}
-
-        ${doc.tables.map(renderTable).join('')}
-
-        ${renderSignatureBlocks(doc.signatureBlocks)}
-
-        <footer class="print-footer-fields">
-          ${doc.footerFields.map((field) => `<span>${escapeHtml(field.label)}：${escapeHtml(field.value || '—')}</span>`).join('')}
-        </footer>
-      </div>
-    </article>
-  `
+  </article>`
 }
 
 export const renderProductionConfirmationTemplate = renderProductionMaterialConfirmationTemplate

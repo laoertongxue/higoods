@@ -29,6 +29,7 @@ import {
 import type { CuttingMaterialIdentity, CuttingPatternIdentity } from './types.ts'
 import {
   listSpreadingDifferencesBySpreadingOrder,
+  listSpreadingDifferences,
   type SpreadingDifference,
 } from './spreading-differences.ts'
 import {
@@ -438,10 +439,10 @@ function hasPendingBlockingDifference(differences: SpreadingDifference[]): boole
   )
 }
 
-function resolveDifferenceHandlingStatusForSession(session: SpreadingSession): CuttingActualOutput['differenceHandlingStatus'] {
-  const differences = listSpreadingDifferencesBySpreadingOrder(session.spreadingSessionId, {
+function resolveDifferenceHandlingStatusForSession(session: SpreadingSession, snapshot?: SpreadingDifference[]): CuttingActualOutput['differenceHandlingStatus'] {
+  const differences = (snapshot ? snapshot.filter((difference) => difference.spreadingOrderId === session.spreadingSessionId || difference.spreadingOrderNo === session.spreadingSessionId || difference.sourceObjectId === session.spreadingSessionId) : listSpreadingDifferencesBySpreadingOrder(session.spreadingSessionId, {
     sessions: [session],
-  }).filter((difference) => {
+  })).filter((difference) => {
     if (difference.differenceId.includes('pda-feedback')) return false
     if (difference.differenceId.includes('-seed-') && session.sessionNo !== 'PB-2440') return false
     return true
@@ -452,8 +453,8 @@ function resolveDifferenceHandlingStatusForSession(session: SpreadingSession): C
   return '继续排唛架'
 }
 
-function hasBlockingDifferenceForFeiGeneration(session: SpreadingSession): boolean {
-  return resolveDifferenceHandlingStatusForSession(session) === '待处理'
+function hasBlockingDifferenceForFeiGeneration(session: SpreadingSession, snapshot?: SpreadingDifference[]): boolean {
+  return resolveDifferenceHandlingStatusForSession(session, snapshot) === '待处理'
 }
 
 export function evaluateFeiTicketGenerationEligibility(
@@ -754,11 +755,11 @@ function hasActualCutOutput(session: SpreadingSession): boolean {
   )
 }
 
-function isReadyForFeiGeneration(session: SpreadingSession): boolean {
+function isReadyForFeiGeneration(session: SpreadingSession, snapshot?: SpreadingDifference[]): boolean {
   if (session.status !== 'DONE') return false
   if (session.cuttingStatus !== 'CUTTING_DONE') return false
   if (!hasActualCutOutput(session)) return false
-  if (hasBlockingDifferenceForFeiGeneration(session)) return false
+  if (hasBlockingDifferenceForFeiGeneration(session, snapshot)) return false
   const warning = session.varianceWarning
   if (!warning) return true
   if (warning.suggestedAction === '无需处理') return true
@@ -1562,9 +1563,11 @@ function buildSpreadingPieceOutputLinesFromSessions(
 ): SpreadingPieceOutputLine[] {
   const store = readMarkerSpreadingStoreForFeiTickets(sourceRecords)
   const outputLines: SpreadingPieceOutputLine[] = []
-
+  // One current difference snapshot per generation pass; each session used to rebuild all material projections.
+  const completedSessions = store.sessions.filter((session) => session.status === 'DONE' && session.cuttingStatus === 'CUTTING_DONE' && hasActualCutOutput(session))
+  const differences = completedSessions.length ? listSpreadingDifferences({ sessions: completedSessions }) : []
   store.sessions
-    .filter(isReadyForFeiGeneration)
+    .filter((session) => isReadyForFeiGeneration(session, differences))
     .forEach((session) => {
       const outputSourceLines = listOutputSourceLinesForSession(session, sourceRecords)
       outputSourceLines.forEach((line, lineIndex) => {

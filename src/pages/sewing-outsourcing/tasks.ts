@@ -7,6 +7,7 @@ import { renderTablePagination } from '../../components/ui/pagination.ts'
 import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../../data/fcs/factory-onboarding-ppic.ts'
 import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
+import { buildDispatchTaskSheetData, ensureDispatchTaskSheetAssignments } from '../../data/fcs/dispatch-task-sheet.ts'
 import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sla.ts'
 import {
   getCurrentSewingPickupSlip,
@@ -72,7 +73,7 @@ function rows(): SewingOutsourcingWorkbenchTaskRow[] {
 
 function imageButton(row: SewingOutsourcingWorkbenchTaskRow): string {
   const label = `${row.styleCode} ${row.styleName}`
-  return `<button type="button" class="relative h-16 w-14 shrink-0 overflow-hidden rounded border bg-slate-50" data-ppic-task-action="preview-image" data-image-url="${escapeHtml(row.styleImageUrl)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(row.styleCode)}款式高清图"><img class="h-full w-full object-cover" src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleImageAlt)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
+  return `<button type="button" class="relative h-16 w-14 shrink-0 overflow-hidden rounded border bg-slate-50" data-pda-image-preview-url="${escapeHtml(row.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(label)}" aria-label="查看${escapeHtml(row.styleCode)}款式高清图"><img class="h-full w-full object-cover" src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleImageAlt)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 px-1 text-center text-[10px] text-red-700">图片加载失败，点击重试</span></button>`
 }
 
 function pickupAction(row: SewingOutsourcingWorkbenchTaskRow, kind: SewingPickupObjectKind, label: string): string {
@@ -89,7 +90,7 @@ function pickupActions(row: SewingOutsourcingWorkbenchTaskRow): string {
     return pickupAction(row, 'FABRIC_ACCESSORY', '面辅料领料单')
   }
   return [
-    pickupAction(row, 'CUT_PIECE', '裁片领料单'),
+    `<button type="button" class="text-xs font-semibold text-blue-700 hover:underline" data-ppic-task-action="print-task-sheet" data-row-id="${escapeHtml(row.rowId)}">打印任务单</button>`,
     pickupAction(row, 'ACCESSORY', '辅料领料单'),
   ].join('')
 }
@@ -122,6 +123,7 @@ function renderDialog(): string {
 }
 
 export function renderSewingOutsourcingTasksPage(): string {
+  ensureDispatchTaskSheetAssignments()
   const completeRows = baseRows()
   const allRows = rows()
   const totalPages = Math.max(1, Math.ceil(allRows.length / state.pageSize))
@@ -198,13 +200,25 @@ export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean 
     state.draftKeyword = ''
     state.page = 1
   }
+  else if (action === 'print-task-sheet') {
+    const row = getSewingOutsourcingWorkbenchRow(node.dataset.rowId || '', {
+      viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
+      leaderView: false,
+    })
+    if (!row) return false
+    try {
+      buildDispatchTaskSheetData(row.assignmentId)
+      appStore.navigate(buildUnifiedPrintPreviewLink({ documentType: 'DISPATCH_TASK_SHEET', sourceType: 'EFFECTIVE_TASK_ASSIGNMENT', sourceId: row.assignmentId }))
+      return true
+    } catch (error) { state.feedback = error instanceof Error ? error.message : '任务单读取失败，请重试。' }
+  }
   else if (action === 'print-pickup') {
     const row = getSewingOutsourcingWorkbenchRow(node.dataset.rowId || '', {
       viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
       leaderView: false,
     })
     const objectKind = node.dataset.pickupKind as SewingPickupObjectKind
-    if (!row || !['CUT_PIECE', 'ACCESSORY', 'FABRIC_ACCESSORY'].includes(objectKind)) return false
+    if (!row || !['ACCESSORY', 'FABRIC_ACCESSORY'].includes(objectKind)) return false
     try {
       const version = issueSewingPickupSlip({
         assignmentId: row.assignmentId,

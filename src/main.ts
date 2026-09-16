@@ -243,6 +243,27 @@ window.addEventListener('error', (event) => {
 async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/sewing-outsourcing/cut-piece-handover') {
+    const page = await import('./pages/sewing-outsourcing/cut-piece-handover.ts')
+    return page.handleSewingCutPieceHandoverEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/tasks') {
+    const page = await import('./pages/sewing-outsourcing/tasks.ts')
+    return page.handleSewingOutsourcingTasksEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/dispatch/workbench') {
+    const page = await import('./pages/unified-dispatch-workbench.ts')
+    return page.handleUnifiedDispatchWorkbenchEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/print/preview' || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print$/.test(pagePath)) {
+    const page = await getPrintPreviewPageModule()
+    return page.handleUnifiedPrintPreviewEvent(eventTarget)
+  }
+  if (['/fcs/craft/cutting/handover-orders', '/fcs/craft/cutting/handover-records'].includes(pathname.split('?')[0])) {
+    const page = await import('./pages/process-factory/cutting/handover-orders.ts')
+    return page.handleCraftCuttingHandoverOrdersEvent(eventTarget)
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     try {
       const factoryProfilePage = await getFactoryProfilePageModule()
@@ -709,6 +730,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
         return (await getPrintingSheetPreviewModule()).renderPrintingSheetPreview()
       }
       const printPreviewPage = await getPrintPreviewPageModule()
+      if (documentType === 'DISPATCH_TASK_SHEET' || documentType === 'PRODUCTION_CONFIRMATION') {
+        const { ensureSimpleCutPieceHandoverFixtures } = await import('./data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+        ensureSimpleCutPieceHandoverFixtures()
+      }
       return printPreviewPage.renderPrintPreviewPage()
     }
     return resolvePage(pathname)
@@ -1618,7 +1643,7 @@ root.addEventListener('click', async (event) => {
     // Checkbox/radio actions read the browser's already-toggled state. Cancelling
     // that click would roll the native control back after the local handler ran.
     if (!preserveNativeClick) event.preventDefault()
-    if (skipPageRerender) {
+    if (skipPageRerender && appStore.getState().pathname === previousPathname) {
       return
     }
     const nextPathname = appStore.getState().pathname

@@ -1,3 +1,4 @@
+import { getBrowserLocalStorage } from '../browser-storage.ts'
 import {
   listCurrentEffectiveTaskAssignments,
   listEffectiveTaskAssignments,
@@ -54,6 +55,39 @@ const transfersByRuntimeTaskId = new Map<string, StoredTransfer[]>()
 const transferByCommandId = new Map<string, StoredTransfer>()
 let transferSequence = 0
 
+const RESPONSIBILITY_STORAGE_KEY = 'higood.sewing-task-responsibility-transfers.v1'
+let lastStoredTransfers: string | null = null
+function refreshStoredTransfers(): void {
+  const storage = getBrowserLocalStorage()
+  if (!storage) return
+  const raw = storage.getItem(RESPONSIBILITY_STORAGE_KEY) || null
+  if (raw === lastStoredTransfers) return
+  if (!raw) {
+    transfersByRuntimeTaskId.clear(); transferByCommandId.clear(); transferSequence = 0; lastStoredTransfers = null
+    return
+  }
+  let saved: { version: number; sequence: number; records: StoredTransfer[] }
+  try {
+    saved = JSON.parse(raw)
+    if (saved.version !== 1 || !Array.isArray(saved.records) || !Number.isInteger(saved.sequence)
+      || saved.records.some((row) => !row.assignmentId || !row.runtimeTaskId || !row.commandId || !row.ppicId || !row.effectiveAt)) throw new Error()
+  } catch { throw new Error('已保存的 PPIC 责任记录无法读取，请保留记录并联系负责人。') }
+  transfersByRuntimeTaskId.clear(); transferByCommandId.clear()
+  for (const record of saved.records) {
+    transfersByRuntimeTaskId.set(record.runtimeTaskId, [...(transfersByRuntimeTaskId.get(record.runtimeTaskId) || []), record])
+    transferByCommandId.set(record.commandId!, record)
+  }
+  transferSequence = saved.sequence
+  lastStoredTransfers = raw
+}
+function persistTransfer(record: StoredTransfer): void {
+  const storage = getBrowserLocalStorage()
+  const raw = JSON.stringify({ version: 1, sequence: transferSequence, records: [...transferByCommandId.values(), record] })
+  if (typeof window !== 'undefined' && !storage?.setItem) throw new Error('责任移交未保存，请恢复浏览器存储后重试。')
+  storage?.setItem?.(RESPONSIBILITY_STORAGE_KEY, raw)
+  lastStoredTransfers = raw
+}
+
 function cloneVersion(version: SewingTaskResponsibilityVersion): SewingTaskResponsibilityVersion {
   return {
     ...version,
@@ -107,6 +141,7 @@ function transferFingerprint(input: TransferSewingTaskResponsibilityInput): stri
 }
 
 export function getCurrentSewingTaskResponsibility(runtimeTaskId: string): SewingTaskResponsibilityVersion | null {
+  refreshStoredTransfers()
   const assignment = getSingleCurrentSewingAssignment(runtimeTaskId)
   if (!assignment) return null
   const transfers = (transfersByRuntimeTaskId.get(runtimeTaskId) ?? [])
@@ -118,6 +153,7 @@ export function getCurrentSewingTaskResponsibility(runtimeTaskId: string): Sewin
 }
 
 export function listSewingTaskResponsibilityVersions(runtimeTaskId: string): SewingTaskResponsibilityVersion[] {
+  refreshStoredTransfers()
   const assignments = listEffectiveTaskAssignments(runtimeTaskId).filter((item) => item.ppicId)
   const currentAssignmentIds = new Set(listCurrentEffectiveTaskAssignments(runtimeTaskId).map((item) => item.assignmentId))
   const transfers = transfersByRuntimeTaskId.get(runtimeTaskId) ?? []
@@ -142,6 +178,7 @@ export function listSewingTaskResponsibilityVersions(runtimeTaskId: string): Sew
 export function transferSewingTaskResponsibility(
   rawInput: TransferSewingTaskResponsibilityInput,
 ): SewingTaskResponsibilityVersion {
+  refreshStoredTransfers()
   const input = normalizedTransferInput(rawInput)
   if (!input.commandId) throw new Error('责任移交命令ID不能为空')
   const fingerprint = transferFingerprint(input)
@@ -196,6 +233,7 @@ export function transferSewingTaskResponsibility(
     commandId: input.commandId,
     inputFingerprint: fingerprint,
   }
+  persistTransfer(record)
   transfersByRuntimeTaskId.set(input.runtimeTaskId, [
     ...(transfersByRuntimeTaskId.get(input.runtimeTaskId) ?? []),
     record,
@@ -210,6 +248,8 @@ export function transferSewingTaskResponsibility(
 }
 
 export function resetSewingTaskResponsibilityTransfersForTests(): void {
+  getBrowserLocalStorage()?.removeItem?.(RESPONSIBILITY_STORAGE_KEY)
+  lastStoredTransfers = null
   transfersByRuntimeTaskId.clear()
   transferByCommandId.clear()
   transferSequence = 0

@@ -4,6 +4,7 @@ import {
 } from '../src/data/fcs/effective-task-assignments.ts'
 import {
   ensureSewingCutPieceResponsibilityDemo,
+  getSewingCutPieceResponsibilityProjection,
   listSewingCutPieceHandoverEvents,
   resetSewingCutPieceResponsibilityForTests,
   SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID,
@@ -16,99 +17,62 @@ import {
   getSewingPickupAvailability,
   issueSewingPickupSlip,
   recordSewingPickupHandover,
-  resetSewingPickupSlipsForTests,
+  getSewingPickupSlipVersion,
+  listSewingPickupHandoverResults,
+  type SewingPickupSlipVersion,
 } from '../src/data/fcs/sewing-pickup-slips.ts'
 import { buildPickupSlipPrintDocument } from '../src/pages/print/templates/material-slip-template.ts'
 
+// HIST-008/009: new CUT_PIECE issuance is retired; persisted historical facts remain readable.
+const memory = new Map<string,string>()
+const storage = {getItem:(k:string)=>memory.get(k)||null,setItem:(k:string,v:string)=>memory.set(k,v),removeItem:(k:string)=>memory.delete(k)}
+;(globalThis as any).window = {localStorage:storage,sessionStorage:storage}
 resetEffectiveTaskAssignmentsForTests()
 resetSewingCutPieceResponsibilityForTests()
-resetSewingPickupSlipsForTests()
-
 ensureSewingCutPieceResponsibilityDemo()
-assert.equal(getSewingPickupAvailability(SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID, 'CUT_PIECE').available, true)
-
-const first = issueSewingPickupSlip({
-  assignmentId: SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID,
-  objectKind: 'CUT_PIECE',
-  printedAt: '2026-09-08 09:00:00',
-  printedByPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
-  printedByPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-})
-assert.equal(first.versionLabel, 'V1')
-assert.ok(first.lines.length > 0)
-
-const second = issueSewingPickupSlip({
-  assignmentId: SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID,
-  objectKind: 'CUT_PIECE',
-  printedAt: '2026-09-08 09:05:00',
-  printedByPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
-  printedByPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-  reprintReason: '原纸张污损',
-})
-assert.equal(second.versionLabel, 'V2')
-assert.equal(getCurrentSewingPickupSlip(SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID, 'CUT_PIECE')?.versionId, second.versionId)
-assert.throws(() => recordSewingPickupHandover({
-  commandId: 'CMD-PICKUP-OLD-QR',
-  versionId: first.versionId,
-  recordedAt: '2026-09-08 09:10:00',
-  recordedBy: '裁床待交出仓 陈敏',
-  actorFactoryId: DEDICATED_CUTTING_FACTORY_ID,
-  recordedByRole: 'CUTTING_WAREHOUSE',
-  quantities: [{ lineId: first.lines[0]!.lineId, actualQty: 1 }],
-}), /已失效/)
-assert.throws(() => recordSewingPickupHandover({
-  commandId: 'CMD-PICKUP-PPIC-BLOCK',
-  versionId: second.versionId,
-  recordedAt: '2026-09-08 09:10:00',
-  recordedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-  actorFactoryId: '',
-  recordedByRole: 'PPIC',
-  quantities: [{ lineId: second.lines[0]!.lineId, actualQty: 1 }],
-}), /PPIC不能代替交出仓/)
-assert.throws(() => recordSewingPickupHandover({
-  commandId: 'CMD-PICKUP-WRONG-WAREHOUSE',
-  versionId: second.versionId,
-  recordedAt: '2026-09-08 09:12:00',
-  recordedBy: '非裁床仓账号',
-  actorFactoryId: 'ID-F021',
-  recordedByRole: 'CUTTING_WAREHOUSE',
-  quantities: [{ lineId: second.lines[0]!.lineId, actualQty: 1 }],
-}), /不属于裁床待交出仓/)
-
-const beforeCount = listSewingCutPieceHandoverEvents(SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID).length
-const handover = recordSewingPickupHandover({
-  commandId: 'CMD-PICKUP-CUT-BATCH-001',
-  versionId: second.versionId,
-  recordedAt: '2026-09-08 09:15:00',
-  recordedBy: '裁床待交出仓 陈敏',
-  actorFactoryId: DEDICATED_CUTTING_FACTORY_ID,
-  recordedByRole: 'CUTTING_WAREHOUSE',
-  quantities: [{ lineId: second.lines[0]!.lineId, actualQty: 1 }],
-})
-assert.equal(recordSewingPickupHandover({
-  commandId: 'CMD-PICKUP-CUT-BATCH-001',
-  versionId: second.versionId,
-  recordedAt: '2026-09-08 09:15:00',
-  recordedBy: '裁床待交出仓 陈敏',
-  actorFactoryId: DEDICATED_CUTTING_FACTORY_ID,
-  recordedByRole: 'CUTTING_WAREHOUSE',
-  quantities: [{ lineId: second.lines[0]!.lineId, actualQty: 1 }],
-}).sourceRecordId, handover.sourceRecordId)
-assert.equal(listSewingCutPieceHandoverEvents(SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID).length, beforeCount + 1)
-
-const printDocument = buildPickupSlipPrintDocument({
-  documentType: 'PICKUP_SLIP',
-  sourceType: 'PICKUP_SLIP_RECORD',
-  sourceId: second.versionId,
-})
-assert.equal(printDocument.printTitle, '裁片领料单')
-assert.equal(printDocument.imageBlocks[0]?.imageUrl, '/tshirt-sample.jpg')
+const assignmentId = SEWING_CUT_PIECE_RESPONSIBILITY_DEMO_ASSIGNMENT_ID
+const before = getSewingCutPieceResponsibilityProjection(assignmentId)
+const historical: SewingPickupSlipVersion = {
+  ...before.context, slipId:`PPIC-PICKUP-${assignmentId}-CUT_PIECE`,slipNo:'LEGACY-CUT',versionId:'LEGACY-CUT-V2',versionNo:2,versionLabel:'V2',status:'CURRENT',
+  taskNo:before.context.taskNo!,productionOrderNo:before.context.productionOrderNo!,taskKindLabel:'车缝',warehouseName:'裁床待交出仓',objectKind:'CUT_PIECE',
+  styleCode:'LEGACY-STYLE',styleName:'历史款式',styleImageUrl:'/tshirt-sample.jpg',printedAt:'2026-09-08 09:05:00',printedByPpicId:before.context.ppicId,printedByPpicName:before.context.ppicName,
+  lines:before.lines.map(line=>({lineId:`PICKUP-LINE-${line.requirementLineId}`,sourceLineId:line.requirementLineId,sourcePartCode:line.partCode,piecesPerGarment:line.piecesPerGarment,allocatedGarmentQty:line.allocatedGarmentQty,objectType:'裁片',objectCode:line.skuCode,objectName:line.partName,color:line.color,size:line.size,part:line.partName,unit:'片',requiredQty:line.requiredPieceQty,previouslyHandedOverQty:line.handedOverPieceQty,availableQty:line.debtPieceQty,imageUrl:'/tshirt-sample.jpg'})),
+}
+const historicalResult = {commandId:'LEGACY-CUT-CONFIRM',versionId:historical.versionId,sourceRecordId:'LEGACY-CUT-RECORD',sourceRecordNo:'LEGACY-CUT-RECORD',recordedAt:'2026-09-08 09:15:00',recordedBy:'历史仓管',actorFactoryId:DEDICATED_CUTTING_FACTORY_ID,objectKind:'CUT_PIECE',recordedByRole:'CUTTING_WAREHOUSE' as const,quantities:[{lineId:historical.lines[0].lineId,actualQty:1}]}
+storage.setItem('higood:ppic:sewing-pickup-slips:v1',JSON.stringify({version:1,versions:[{...historical,versionId:'LEGACY-CUT-V1',versionNo:1,versionLabel:'V1',status:'VOIDED'},historical],handoverResults:[historicalResult]}))
+assert.equal(getSewingPickupAvailability(assignmentId,'CUT_PIECE').available,false)
+assert.throws(()=>issueSewingPickupSlip({assignmentId,objectKind:'CUT_PIECE',printedAt:'2026-09-16 10:00:00',printedByPpicId:before.context.ppicId,printedByPpicName:before.context.ppicName}),/改用任务单/)
+assert.equal(getCurrentSewingPickupSlip(assignmentId,'CUT_PIECE')?.versionId,historical.versionId)
+assert.equal(getSewingPickupSlipVersion('LEGACY-CUT-V1')?.status,'VOIDED')
+assert.deepEqual(listSewingPickupHandoverResults(historical.versionId),[historicalResult])
+assert.equal(getSewingCutPieceResponsibilityProjection(assignmentId).totalHandedOverPieceQty,before.totalHandedOverPieceQty+1,'historical quantities survive loading')
+const eventCount=listSewingCutPieceHandoverEvents(assignmentId).length
+assert.equal(recordSewingPickupHandover(historicalResult).sourceRecordId,historicalResult.sourceRecordId,'historical command replay remains idempotent')
+for(const versionId of ['LEGACY-CUT-V1',historical.versionId]) {
+  assert.throws(()=>recordSewingPickupHandover({...historicalResult,commandId:`NEW-${versionId}`,versionId}),/仅供历史查看/)
+}
+assert.equal(listSewingCutPieceHandoverEvents(assignmentId).length,eventCount,'blocked old codes never add a receipt')
+assert.equal(getSewingCutPieceResponsibilityProjection(assignmentId).totalHandedOverPieceQty,before.totalHandedOverPieceQty+1)
+const printDocument=buildPickupSlipPrintDocument({documentType:'PICKUP_SLIP',sourceType:'PICKUP_SLIP_RECORD',sourceId:historical.versionId})
+assert.equal(printDocument.printTitle,'裁片领料单')
+assert.equal(printDocument.imageBlocks[0]?.imageUrl,'/tshirt-sample.jpg')
 assert.ok(printDocument.tables[0]?.headers.includes('本次可领'))
-assert.ok(printDocument.qrCodes[0]?.value.includes(encodeURIComponent(second.versionId)) || printDocument.qrCodes[0]?.value.includes(second.versionId))
-
+assert.ok(printDocument.qrCodes[0]?.value.includes(historical.versionId))
 ensureSewingOutsourcingSampleDemo()
-const independentAvailability = getSewingPickupAvailability(SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS.independent, 'ACCESSORY')
-assert.equal(independentAvailability.available, true, independentAvailability.reason)
-assert.equal(getSewingPickupAvailability(SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS.cuttingSewingIronPack, 'CUT_PIECE').available, false)
-
-console.log('PPIC领料单首次打印、补打版本、旧码阻断、仓库实交、重复扫码和打印模板检查通过')
+for(const [id,kind] of [[SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS.independent,'ACCESSORY'],[SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS.cuttingSewingIronPack,'FABRIC_ACCESSORY']] as const) {
+  const availability=getSewingPickupAvailability(id,kind)
+  assert.equal(availability.available,true,availability.reason)
+  const issue={assignmentId:id,objectKind:kind,printedAt:'2026-09-16 10:00:00',printedByPpicId:SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,printedByPpicName:SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName}
+  const first=issueSewingPickupSlip(issue)
+  const second=issueSewingPickupSlip({...issue,reprintReason:'原纸张污损'})
+  assert.equal(first.versionLabel,'V1');assert.equal(second.versionLabel,'V2')
+  assert.ok(second.lines.length>0);assert.ok(second.lines.every(line=>line.imageUrl))
+  const command={commandId:`NEW-${kind}`,versionId:second.versionId,recordedAt:'2026-09-16 10:05:00',recordedBy:'辅料仓管',actorFactoryId:'MATERIAL-WAREHOUSE',recordedByRole:'MATERIAL_WAREHOUSE' as const,quantities:[{lineId:second.lines[0].lineId,actualQty:1}]}
+  assert.throws(()=>recordSewingPickupHandover({...command,versionId:first.versionId}),/已失效/)
+  assert.throws(()=>recordSewingPickupHandover({...command,recordedByRole:'PPIC'}),/PPIC不能代替交出仓/)
+  assert.throws(()=>recordSewingPickupHandover({...command,recordedByRole:'CUTTING_WAREHOUSE'}),/只能由辅料仓确认/)
+  const result=recordSewingPickupHandover(command)
+  assert.equal(recordSewingPickupHandover(command).sourceRecordId,result.sourceRecordId)
+  assert.equal(listSewingPickupHandoverResults(second.versionId).length,1)
+}
+console.log('历史裁片领料单读取、历史数量与重复命令保留，新签发与新实交阻断，辅料及面辅料签发补打和实交检查通过')

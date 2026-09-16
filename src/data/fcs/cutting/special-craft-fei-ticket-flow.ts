@@ -1,3 +1,4 @@
+import { listRuntimeProcessTasks } from '../runtime-process-tasks.ts'
 import { TEST_FACTORY_ID, mockFactories } from '../factory-mock-data.ts'
 import type {
   FactoryInternalWarehouse,
@@ -63,6 +64,9 @@ import {
 } from '../task-qr.ts'
 
 export interface CuttingSpecialCraftFeiTicketBinding {
+  /** Actual-cutting source factory for dynamically generated tickets; legacy bindings retain their original factory. */
+  cuttingFactoryId?: string
+
   bindingId: string
   productionOrderId: string
   productionOrderNo: string
@@ -435,7 +439,12 @@ function createQtyDifferenceReport(
   return report
 }
 
-function getCuttingFactory() {
+function getCuttingFactory(binding?: CuttingSpecialCraftFeiTicketBinding) {
+  if (binding?.cuttingFactoryId) {
+    const factory = mockFactories.find(item => item.id === binding.cuttingFactoryId)
+    if (!factory) throw new Error(`未找到菲票来源裁床：${binding.cuttingFactoryId}`)
+    return factory
+  }
   return (
     mockFactories.find((factory) => factory.id === PROMPT7_CUTTING_FACTORY_ID)
     || mockFactories.find((factory) => factory.factoryType === 'CENTRAL_CUTTING')
@@ -466,8 +475,8 @@ function resolveSpecialCraftFactory(operationName: string) {
   )
 }
 
-function getCuttingWaitHandoverWarehouse(): FactoryInternalWarehouse {
-  const warehouse = findFactoryInternalWarehouseByFactoryAndKind(getCuttingFactory().id, 'WAIT_HANDOVER')
+function getCuttingWaitHandoverWarehouse(binding?: CuttingSpecialCraftFeiTicketBinding): FactoryInternalWarehouse {
+  const warehouse = findFactoryInternalWarehouseByFactoryAndKind(getCuttingFactory(binding).id, 'WAIT_HANDOVER')
   if (!warehouse) {
     throw new Error('未找到裁床厂待交出仓')
   }
@@ -534,10 +543,10 @@ function ensureDispatchHead(
   binding: CuttingSpecialCraftFeiTicketBinding,
   selectedBindings: CuttingSpecialCraftFeiTicketBinding[],
 ): PdaHandoverHead {
-  const headId = buildDispatchHeadId(binding.operationId, binding.targetFactoryId)
+  const headId = buildDispatchHeadId(binding.operationId, binding.targetFactoryId) + (binding.cuttingFactoryId ? `-${binding.cuttingFactoryId}` : '')
   const existed = findPdaHandoverHead(headId)
   if (existed) return existed
-  const cuttingFactory = getCuttingFactory()
+  const cuttingFactory = getCuttingFactory(binding)
   const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0))
   return upsertPdaHandoverHeadMock({
     handoverId: headId,
@@ -589,7 +598,7 @@ function ensurePickupHead(
   binding: CuttingSpecialCraftFeiTicketBinding,
   selectedBindings: CuttingSpecialCraftFeiTicketBinding[],
 ): PdaHandoverHead {
-  const headId = buildPickupHeadId(binding.operationId, binding.targetFactoryId)
+  const headId = buildPickupHeadId(binding.operationId, binding.targetFactoryId) + (binding.cuttingFactoryId ? `-${binding.cuttingFactoryId}` : '')
   const existed = findPdaHandoverHead(headId)
   if (existed) return existed
   const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0))
@@ -605,8 +614,8 @@ function ensurePickupHead(
     sourceTaskNo: binding.taskOrderNo,
     productionOrderNo: binding.productionOrderNo,
     processName: `${binding.operationName}待来料`,
-    sourceFactoryName: getCuttingFactory().name,
-    sourceFactoryId: getCuttingFactory().id,
+    sourceFactoryName: getCuttingFactory(binding).name,
+    sourceFactoryId: getCuttingFactory(binding).id,
     targetName: binding.targetFactoryName,
     targetKind: 'FACTORY',
     receiverKind: 'MANAGED_POST_FACTORY',
@@ -640,7 +649,7 @@ function ensureReturnHead(
   binding: CuttingSpecialCraftFeiTicketBinding,
   selectedBindings: CuttingSpecialCraftFeiTicketBinding[],
 ): PdaHandoverHead {
-  const headId = buildReturnHeadId(binding.operationId, binding.targetFactoryId)
+  const headId = buildReturnHeadId(binding.operationId, binding.targetFactoryId) + (binding.cuttingFactoryId ? `-${binding.cuttingFactoryId}` : '')
   const existed = findPdaHandoverHead(headId)
   if (existed) return existed
   const qtyExpectedTotal = roundQty(selectedBindings.reduce((total, item) => total + item.qty, 0))
@@ -659,11 +668,11 @@ function ensureReturnHead(
     processName: `${binding.operationName}回仓`,
     sourceFactoryName: binding.targetFactoryName,
     sourceFactoryId: binding.targetFactoryId,
-    targetName: getCuttingFactory().name,
+    targetName: getCuttingFactory(binding).name,
     targetKind: 'FACTORY',
     receiverKind: 'MANAGED_POST_FACTORY',
-    receiverId: getCuttingFactory().id,
-    receiverName: getCuttingFactory().name,
+    receiverId: getCuttingFactory(binding).id,
+    receiverName: getCuttingFactory(binding).name,
     qtyUnit: binding.unit,
     factoryId: binding.targetFactoryId,
     taskStatus: 'DONE',
@@ -1254,7 +1263,7 @@ export function assertSpecialCraftReturnAllowed(input: {
   if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺加工单。`)
   if (binding.specialCraftFlowStatus !== '待回仓') throw new Error(`当前菲票状态为 ${binding.specialCraftFlowStatus}，暂不可回仓。`)
   if (binding.currentLocation !== '特殊工艺厂待交出仓') throw new Error('当前菲票不在特殊工艺厂待交出仓。')
-  if (input.receiverFactoryId !== getCuttingFactory().id) throw new Error('特殊工艺回仓对象必须是裁床厂。')
+  if (input.receiverFactoryId !== getCuttingFactory(binding).id) throw new Error('特殊工艺回仓对象必须是裁床厂。')
   return binding
 }
 
@@ -1350,6 +1359,9 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
   )
   if (!selectedBindings.length) {
     throw new Error('本次未选择可发料菲票。')
+  }
+  if (selectedBindings.some(binding => getCuttingFactory(binding).id !== input.cuttingFactoryId)) {
+    throw new Error('所选菲票必须全部属于当前交出裁床，请核对来源裁床。')
   }
   const handoverOrder = ensureDispatchHead(selectedBindings[0], selectedBindings)
   const pickupHead = ensurePickupHead(selectedBindings[0], selectedBindings)
@@ -1702,7 +1714,7 @@ export function markSpecialCraftFactoryReceivedFromHandover(input: {
       factoryName: binding.targetFactoryName,
       taskId: binding.taskOrderId,
       taskNo: binding.taskOrderNo,
-      sourceObjectName: getCuttingFactory().name,
+      sourceObjectName: getCuttingFactory(binding).name,
       itemKind: '裁片',
       itemName: `${binding.operationName}裁片`,
       partName: binding.partName,
@@ -2007,7 +2019,7 @@ export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
       lossQty: scrapQty + damageQty,
       unit: binding.unit,
       receiverKind: '裁床厂',
-      receiverName: getCuttingFactory().name,
+      receiverName: getCuttingFactory(binding).name,
       completedAt: input.completedAt,
     })
     waitHandoverStockItems.push(result.waitHandoverStockItem)
@@ -2208,12 +2220,12 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
     receiverWrittenBy: input.receiverName,
     differenceQty: targetBindings.length === 1 ? roundQty(input.receiverWrittenQty - getBindingCompletionQty(targetBindings[0])) : 0,
   })
-  const cuttingWarehouse = getCuttingWaitHandoverWarehouse()
   const cuttingWaitHandoverStockItems: FactoryWaitHandoverStockItem[] = []
   const inboundOrReturnRecords: FactoryWarehouseInboundRecord[] = []
   const updatedBindings: CuttingSpecialCraftFeiTicketBinding[] = []
 
   targetBindings.forEach((binding) => {
+    const cuttingWarehouse = getCuttingWaitHandoverWarehouse(binding)
     const expectedQty = getBindingCompletionQty(binding)
     const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : expectedQty
     const differenceQty = roundQty(receivedQty - expectedQty)
@@ -2223,9 +2235,9 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       inboundRecordNo: `RK-${binding.feiTicketNo}`,
       warehouseId: cuttingWarehouse.warehouseId,
       warehouseName: cuttingWarehouse.warehouseName,
-      factoryId: getCuttingFactory().id,
-      factoryName: getCuttingFactory().name,
-      factoryKind: getCuttingFactory().factoryType,
+      factoryId: getCuttingFactory(binding).id,
+      factoryName: getCuttingFactory(binding).name,
+      factoryKind: getCuttingFactory(binding).factoryType,
       processCode: binding.processCode,
       processName: binding.processName,
       craftCode: binding.craftCode,
@@ -2260,9 +2272,9 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
     const waitHandoverStockItem = upsertFactoryWaitHandoverStockItem({
       stockItemId: `SC-RET-WHS-${binding.bindingId}`,
       warehouseId: cuttingWarehouse.warehouseId,
-      factoryId: getCuttingFactory().id,
-      factoryName: getCuttingFactory().name,
-      factoryKind: getCuttingFactory().factoryType,
+      factoryId: getCuttingFactory(binding).id,
+      factoryName: getCuttingFactory(binding).name,
+      factoryKind: getCuttingFactory(binding).factoryType,
       warehouseName: cuttingWarehouse.warehouseName,
       processCode: binding.processCode,
       processName: binding.processName,
@@ -2739,7 +2751,7 @@ export function listCuttingSpecialCraftReturnViews(): CuttingSpecialCraftReturnV
                 : binding.specialCraftFlowStatus === '待回仓'
                   ? '待回仓'
                   : '未回仓',
-      cuttingWarehouseName: getCuttingWaitHandoverWarehouse().warehouseName,
+      cuttingWarehouseName: getCuttingWaitHandoverWarehouse(binding).warehouseName,
       currentLocation: binding.currentLocation,
     }))
 }
@@ -3067,4 +3079,28 @@ export function markSpecialCraftFeiTicketBindingCompleted(input: {
     )
     recomputeSequenceGate(flowStore!, binding.productionOrderId, binding.feiTicketNo)
   })
+}
+
+/** Add legitimate newly generated ticket/task relationships without replaying or resetting historical movements. */
+export function refreshGeneratedSpecialCraftFeiTicketBindings(): number {
+  const store = ensureFlowStore()
+  const actualTickets = listSpreadingResultGeneratedFeiTickets().filter(ticket => ticket.sourceBasisType === 'ACTUAL_CUTTING_OUTPUT')
+  const actualNos = new Set(actualTickets.map(ticket => ticket.feiTicketNo))
+  const existing = new Set(store.bindings.map(binding => binding.bindingId))
+  const tasks = listRuntimeProcessTasks()
+  const built = buildInternalBindings()
+  let appended = 0
+  for (const binding of built.bindings) {
+    if (existing.has(binding.bindingId) || !actualNos.has(binding.feiTicketNo)) continue
+    const cuttingTasks = tasks.filter(task => task.productionOrderId === binding.productionOrderId && task.processCode === 'PROC_CUT' && task.assignedFactoryId && task.executionEnabled !== false && !task.mergedIntoTaskId)
+    const factoryIds = [...new Set(cuttingTasks.map(task => task.assignedFactoryId!))]
+    if (factoryIds.length !== 1) continue
+    const next = {...binding, cuttingFactoryId:factoryIds[0]}
+    store.bindings.push(next)
+    appendFlowEvent(store, next, makeFlowEvent(next, {eventType:'绑定',beforeQty:next.originalQty,changedQty:0,afterQty:next.currentQty,operatorName:'系统',occurredAt:next.createdAt,remark:'实际完裁菲票关联已生成的特殊工艺加工任务'}))
+    existing.add(next.bindingId)
+    recomputeSequenceGate(store, next.productionOrderId, next.feiTicketNo)
+    appended++
+  }
+  return appended
 }

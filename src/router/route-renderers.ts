@@ -15,6 +15,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    if (["renderPdaCuttingSimpleCutPieceHandoverPage", "renderPdaWarehouseWaitHandoverPage"].includes(exportName)) {
+      const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+      ensureSimpleCutPieceHandoverFixtures()
+    }
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {
@@ -655,3 +659,5 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
 
 export const renderWlsInboundPage = createAsyncRenderer(() => import('../pages/wls-inbound'), 'renderWlsInboundPage')
 export const renderWlsFinishedInboundPage = createAsyncRenderer(() => import('../pages/wls-finished-inbound'), 'renderWlsFinishedInboundPage')
+
+export const renderPdaCuttingSimpleCutPieceHandoverPage = createAsyncRenderer(() => import('../pages/pda-cutting-simple-cut-piece-handover'), 'renderPdaCuttingSimpleCutPieceHandoverPage')

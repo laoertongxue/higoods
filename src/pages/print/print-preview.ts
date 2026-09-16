@@ -59,6 +59,7 @@ function hasMatchedManualFeiTicket(sourceId: string): boolean {
 }
 
 function inferSourceType(documentType: PrintDocumentType, handoverRecordId: string): PrintSourceType | '' {
+  if (documentType === 'DISPATCH_TASK_SHEET') return 'EFFECTIVE_TASK_ASSIGNMENT'
   if (documentType === 'PRINTING_INFO_SHEET' || documentType === 'PRINTING_CONFIRMATION') return 'PRINTING_WORK_ORDER'
   if (documentType === 'PRINTING_ROLL_LABEL') return 'PRINTING_ROLL_RECORD'
   if (documentType === 'TASK_DELIVERY_CARD' && handoverRecordId) return 'HANDOVER_RECORD'
@@ -104,13 +105,70 @@ function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBu
   }
 }
 
+function updatePrintImageState(img: HTMLImageElement, state: 'loading' | 'loaded' | 'error'): void {
+  const frame = img.closest<HTMLElement>('[data-print-image-frame]')
+  if (!frame) return
+  frame.dataset.printImageState = state
+  const loading = frame.querySelector<HTMLElement>('[data-print-image-loading]')
+  const error = frame.querySelector<HTMLElement>('[data-print-image-error]')
+  if (loading) loading.hidden = state !== 'loading'
+  if (error) error.hidden = state !== 'error'
+  img.style.visibility = state === 'error' ? 'hidden' : 'visible'
+}
+function bindPrintImages(): void {
+  document.querySelectorAll<HTMLImageElement>('.print-preview-root img[data-print-image]').forEach(img => {
+    if (!img.dataset.printImageBound) {
+      img.dataset.printImageBound = 'true'
+      img.addEventListener('load', () => updatePrintImageState(img, 'loaded'))
+      img.addEventListener('error', () => updatePrintImageState(img, 'error'))
+    }
+    updatePrintImageState(img, img.complete ? (img.naturalWidth > 0 ? 'loaded' : 'error') : 'loading')
+  })
+}
+
 export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
+  const retry = target.closest<HTMLElement>('[data-print-image-retry]')
+  if (retry) {
+    const img = retry.closest('[data-print-image-frame]')?.querySelector<HTMLImageElement>('img[data-print-image]')
+    if (img) { updatePrintImageState(img, 'loading'); const src = img.src; img.removeAttribute('src'); img.src = src }
+    return true
+  }
+
+  const imageButton = target.closest<HTMLElement>('[data-print-image-url]')
+  if (imageButton) {
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 print-hidden'
+    overlay.setAttribute('role', 'dialog')
+    overlay.setAttribute('aria-modal', 'true')
+    overlay.setAttribute('aria-label', imageButton.dataset.printImageTitle || '图片预览')
+    overlay.innerHTML = `<div class="relative max-h-[90vh] max-w-[90vw] rounded-lg bg-white p-3"><button class="absolute right-3 top-3 rounded border bg-white px-3 py-2" data-print-image-close>关闭</button><img class="max-h-[80vh] max-w-full object-contain" src="${escapeHtml(imageButton.dataset.printImageUrl || '')}" alt="${escapeHtml(imageButton.dataset.printImageTitle || '资料图片')}" /><p role="status" data-print-large-image-status>图片加载中…</p><button type="button" data-print-large-retry hidden>重试图片</button></div>`
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); imageButton.focus() }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
+    overlay.addEventListener('click', (event) => { if (event.target === overlay || (event.target as HTMLElement).closest('[data-print-image-close]')) close() })
+    document.addEventListener('keydown', onKey)
+    const largeImage = overlay.querySelector<HTMLImageElement>('img')!
+    const largeStatus = overlay.querySelector<HTMLElement>('[data-print-large-image-status]')!
+    const largeRetry = overlay.querySelector<HTMLButtonElement>('[data-print-large-retry]')!
+    const loaded = () => { largeStatus.textContent = ''; largeRetry.hidden = true; largeImage.style.visibility = 'visible' }
+    const failed = () => { largeStatus.textContent = `${largeImage.alt}图片加载失败，请重试。`; largeRetry.hidden = false; largeImage.style.visibility = 'hidden' }
+    largeImage.addEventListener('load', loaded)
+    largeImage.addEventListener('error', failed)
+    largeRetry.addEventListener('click', () => { largeStatus.textContent = '图片加载中…'; largeRetry.hidden = true; const src = largeImage.src; largeImage.removeAttribute('src'); largeImage.src = src })
+    document.body.append(overlay)
+    overlay.querySelector<HTMLButtonElement>('[data-print-image-close]')?.focus()
+    if (largeImage.complete) largeImage.naturalWidth ? loaded() : failed()
+    return true
+  }
   const actionNode = target.closest<HTMLElement>('[data-print-preview-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
+  const input = resolveInput()
+  if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION'].includes(input.documentType)) {
+    void prepareVerifiedDocumentPrint(actionNode)
+    return true
+  }
   if (action === 'print') {
-    const input = resolveInput()
     if (input.documentType === 'FEI_TICKET_LABEL' || input.documentType === 'FEI_TICKET_REPRINT_LABEL') {
       const document = buildPrintDocument(input)
       if (input.documentType === 'FEI_TICKET_LABEL') {
@@ -132,6 +190,44 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
   }
   window.print()
   return true
+}
+
+async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> {
+  const root = button.closest<HTMLElement>('.print-preview-root')
+  if (!root || root.dataset.preparingPrint === 'true') return
+  root.dataset.preparingPrint = 'true'
+  const feedback = root.querySelector<HTMLElement>('[data-print-ready-feedback]')
+  const controls = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-print-preview-action]'))
+  controls.forEach((control) => { control.disabled = true })
+  if (feedback) feedback.textContent = '正在准备图片和条码…'
+  try {
+    if (root.querySelector('[data-print-image-missing]')) throw new Error('资料图片尚未维护，请补齐对应图片后再打印。')
+    const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[data-print-image]'))
+    await Promise.all(images.map(async (img) => {
+      try {
+        if (img.complete && !img.naturalWidth) { const src = img.src; img.removeAttribute('src'); img.src = src }
+        await Promise.race([img.decode(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error('图片加载超时')), 10000))])
+        if (!img.naturalWidth) throw new Error()
+        updatePrintImageState(img, 'loaded')
+      } catch {
+        updatePrintImageState(img, 'error')
+        throw new Error(`${img.alt || '资料图片'}尚未加载，打印未开始；请检查图片后重试。`)
+      }
+    }))
+    const deadline = Date.now() + 5000
+    while (Array.from(root.querySelectorAll('[data-real-qr]')).some((node) => !node.querySelector('svg'))) {
+      if (Date.now() > deadline) throw new Error('二维码尚未生成，请稍后重试。')
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    }
+    if (!root.querySelector('[data-real-barcode] rect')) throw new Error('条码尚未生成，请重新打开任务单。')
+    if (feedback) feedback.textContent = '图片和条码已就绪。'
+    window.print()
+  } catch (error) {
+    if (feedback) feedback.textContent = error instanceof Error ? error.message : String(error)
+  } finally {
+    controls.forEach((control) => { control.disabled = false })
+    delete root.dataset.preparingPrint
+  }
 }
 
 function renderPreviewFailure(message: string, backHref = '/fcs/progress/board'): string {
@@ -177,9 +273,10 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       skuData: resolved.skuData,
     } as PrintDocumentBuildInput)
 
+    if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') window.setTimeout(bindPrintImages, 0)
     return `
       ${renderUnifiedPrintStyles()}
-      <div class="print-preview-root">
+      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
         <div class="print-preview-toolbar print-hidden">
           <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 shadow-sm">
             <div>
@@ -196,6 +293,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             </div>
           </div>
         </div>
+        <p class="print-hidden px-3 text-sm" role="status" data-print-ready-feedback></p>
         ${renderPrintDocument(document)}
       </div>
     `

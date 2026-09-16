@@ -1,3 +1,4 @@
+import { handleSimpleCutPieceUiEvent } from '../../simple-cut-piece-handover-ui.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
 import { listEffectiveTaskAssignments } from '../../../data/fcs/effective-task-assignments.ts'
 import { listAvailableFeiTicketsForSewingDispatch } from '../../../data/fcs/cutting/sewing-dispatch.ts'
@@ -83,9 +84,14 @@ export interface WaitHandoverActionAdapter {
 
 const submitLocks = new WeakSet<HTMLElement>()
 let actionAdapter: WaitHandoverActionAdapter | null = null
+let simpleHandoverRefreshBound = false
 
 export function configureWaitHandoverActionAdapter(adapter: WaitHandoverActionAdapter): void {
   actionAdapter = adapter
+  if (typeof document !== 'undefined' && !simpleHandoverRefreshBound) {
+    document.addEventListener('simple-cut-piece-handover-saved', refreshWorkbenchData)
+    simpleHandoverRefreshBound = true
+  }
 }
 
 function unique(values: string[]): string[] {
@@ -1144,6 +1150,7 @@ function refreshBagEligibility(dialog: HTMLElement): void {
 }
 
 export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
+  if (handleSimpleCutPieceUiEvent(target)) return true
   const fieldNode = target.closest<HTMLElement>('[data-wait-handover-field]')
   const bagDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal]')
   const localEligibilityFields = [

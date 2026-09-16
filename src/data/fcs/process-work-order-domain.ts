@@ -265,6 +265,11 @@ export interface ProcessWorkOrder {
  * 评审和染色配方等完整详情。完整加工单页面仍继续使用 `listProcessWorkOrders`。
  */
 export interface ProcessWorkOrderRelationSource {
+  taskId: string
+  taskNo?: string
+  factoryId: string
+  factoryName: string
+  sourceArtifactIds?: string[]
   workOrderId: string
   workOrderNo: string
   processType: ProcessWorkOrderType
@@ -555,6 +560,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder, related?: {
 
 export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationSource[] {
   const printOrders = listPrintWorkOrders().map((order): ProcessWorkOrderRelationSource => ({
+    taskId: order.taskId, taskNo: order.taskNo, factoryId: order.printFactoryId, factoryName: order.printFactoryName,
+    sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     workOrderId: order.printOrderId,
     workOrderNo: order.printOrderNo,
     processType: 'PRINT',
@@ -576,6 +583,8 @@ export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationS
     )]
     return {
       workOrderId: order.dyeOrderId,
+      taskId: order.taskId, taskNo: order.taskNo, factoryId: order.dyeFactoryId, factoryName: order.dyeFactoryName,
+      sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
       workOrderNo: order.dyeOrderNo,
       processType: 'DYE',
       sourceType: order.sourceType,
@@ -590,6 +599,8 @@ export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationS
     }
   })
   const waterSolubleOrders = listWaterSolubleWorkOrders().map((order): ProcessWorkOrderRelationSource => ({
+    taskId: order.taskId, taskNo: order.taskNo, factoryId: order.factoryId || '', factoryName: order.factoryName || '待分配染厂',
+    sourceArtifactIds: [order.sourceArtifactId],
     workOrderId: order.waterOrderId,
     workOrderNo: order.waterOrderNo,
     processType: 'WATER_SOLUBLE',

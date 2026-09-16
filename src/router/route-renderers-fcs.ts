@@ -15,6 +15,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    if (["renderUnifiedDispatchWorkbenchPage", "renderSewingOutsourcingTasksPage", "renderCraftCuttingWarehouseManagementWaitHandoverPage", "renderPrintPreviewPage", "renderProductionConfirmationPrintPage"].includes(exportName)) {
+      const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+      ensureSimpleCutPieceHandoverFixtures()
+    }
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {

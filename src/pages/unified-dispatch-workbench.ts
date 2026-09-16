@@ -4,6 +4,10 @@ import { renderStandardListPage, renderStandardListStats } from '../components/u
 import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
 import type { StandardListColumnPreferences } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
+import { renderDialog } from '../components/ui/dialog.ts'
+import { appStore } from '../state/store.ts'
+import { buildUnifiedPrintPreviewLink } from '../data/fcs/print-service.ts'
+import { ensureDispatchTaskSheetAssignments, listDispatchTaskSheetAssignments } from '../data/fcs/dispatch-task-sheet.ts'
 import {
   allocateRuntimeSkuTaskScope,
   applyRuntimeDirectDispatchMeta,
@@ -179,6 +183,7 @@ interface WorkbenchState {
   keyword: string
   page: number
   detailTaskId: string | null
+  printTaskId: string | null
   detailMode: 'DETAIL' | 'LOG'
   dispatch: DispatchDialogState | null
   merge: MergeDialogState | null
@@ -202,6 +207,7 @@ const state: WorkbenchState = {
   keyword: '',
   page: 1,
   detailTaskId: null,
+  printTaskId: null,
   detailMode: 'DETAIL',
   dispatch: null,
   merge: null,
@@ -660,8 +666,10 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
     render: (task) => {
       const contract = currentContract(task.taskId)
       const kolGotoWholeOrder = isKolGotoWholeOrderTask(task)
+      const canPrintTaskSheet = listCurrentEffectiveTaskAssignments(task.taskId).length > 0
       return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
         <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button>
+        <button type="button" class="${canPrintTaskSheet ? 'text-blue-600 hover:underline' : 'cursor-not-allowed text-slate-400'}" data-skip-page-rerender="true" data-unified-action="print-task-sheet" data-task-id="${escapeHtml(task.taskId)}" ${canPrintTaskSheet ? '' : 'disabled aria-disabled="true" title="分配任务后可打印"'}>打印任务单</button>
         ${!kolGotoWholeOrder && task.assignmentStatus === 'UNASSIGNED' && getSewingAssignmentReadiness(task).ready ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
         ${!kolGotoWholeOrder && task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
         ${!kolGotoWholeOrder && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).involvesSewingOutsourcing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
@@ -1154,7 +1162,30 @@ function executeAutomaticDispatch(): { succeeded: number; failed: string[] } {
 
 function renderImagePreview(): string { return '<div data-unified-image-preview></div>' }
 
+function renderTaskSheetSelection(): string {
+  if (!state.printTaskId) return ''
+  const assignments = listCurrentEffectiveTaskAssignments(state.printTaskId)
+  const content = assignments.length
+    ? `<div class="max-h-[60vh] space-y-3 overflow-y-auto">${assignments.map((assignment) => `<section class="rounded border p-3"><b>${escapeHtml(assignment.factoryName)}</b><p class="mt-1 text-xs text-slate-500">${assignment.skuLines.map((line) => `${escapeHtml(line.skuCode)} · ${escapeHtml(line.color)} ${escapeHtml(line.size)} · ${line.qty}`).join('<br>')}</p><button type="button" class="mt-3 rounded bg-blue-600 px-3 py-2 text-sm text-white" data-skip-page-rerender="true" data-unified-action="print-selected-task-sheet" data-task-id="${escapeHtml(assignment.runtimeTaskId)}" data-assignment-id="${escapeHtml(assignment.assignmentId)}">打印本工厂任务单</button></section>`).join('')}</div>`
+    : '<p>当前已无有效分配，请关闭后重新分配任务。</p>'
+  return `<div role="dialog" aria-modal="true" aria-label="选择任务单承接工厂" data-skip-page-rerender="true">${renderDialog({ title: '选择任务单承接工厂', description: '每张任务单只包含一家工厂的实际分配范围。', width: 'lg', closeAction: { prefix: 'unified', action: 'close-task-sheet-selection' } }, content, '<button type="button" class="rounded border px-3 py-2 text-sm" data-skip-page-rerender="true" data-unified-action="close-task-sheet-selection">关闭</button>')}</div>`
+}
+
+function refreshTaskSheetSelection(): void {
+  const host = document.querySelector<HTMLElement>('[data-unified-task-sheet-overlay]')
+  if (host) host.innerHTML = renderTaskSheetSelection()
+}
+
+function openTaskSheetPreview(assignmentId: string): void {
+  state.printTaskId = null
+  appStore.navigate(buildUnifiedPrintPreviewLink({ documentType: 'DISPATCH_TASK_SHEET', sourceType: 'EFFECTIVE_TASK_ASSIGNMENT', sourceId: assignmentId }))
+}
+
 export function renderUnifiedDispatchWorkbenchPage(): string {
+  // Backfill only real existing runtime assignment identities once per list render.
+  // Printing never waits for contract, acceptance, sewing start or stock readiness.
+  try { ensureDispatchTaskSheetAssignments() }
+  catch (error) { state.feedback = error instanceof Error ? error.message : '任务分配资料读取失败，请重试。' }
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
     const querySignature = `${window.location.pathname}?${params.toString()}`
@@ -1193,7 +1224,7 @@ export function renderUnifiedDispatchWorkbenchPage(): string {
     listActionsHtml: '<span class="text-xs text-muted-foreground">直接派单与竞价共用同一任务口径；价格在直接派单提交或竞价定标时二次确认并冻结</span>',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences, sort: null, eventPrefix: 'unified-dispatch', emptyText: '当前筛选下暂无任务' }),
     paginationHtml: renderTablePagination({ total: rows.length, from: rows.length ? (state.page - 1) * pageSize + 1 : 0, to: Math.min(state.page * pageSize, rows.length), currentPage: state.page, totalPages: pageCount, pageSize, actionPrefix: 'unified', fieldPrefix: 'unified', pageSizeOptions: [20] }),
-    overlaysHtml: `${renderTaskDetailDialog()}${renderDispatchDialog()}${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}`,
+    overlaysHtml: `${renderTaskDetailDialog()}${renderDispatchDialog()}${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}<div data-unified-task-sheet-overlay>${renderTaskSheetSelection()}</div>`,
   })
   return `<div data-unified-dispatch-page data-skip-page-rerender="true">${content}</div>`
 }
@@ -1597,7 +1628,26 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   if (!actionNode) return false
   const action = actionNode.dataset.unifiedAction
   const taskId = actionNode.dataset.taskId || ''
+  if (action === 'print-task-sheet' || action === 'print-selected-task-sheet') {
+    if (actionNode.hasAttribute('disabled')) return true
+    try {
+      const assignments = listDispatchTaskSheetAssignments(taskId)
+      if (action === 'print-selected-task-sheet') {
+        const assignment = assignments.find((item) => item.assignmentId === actionNode.dataset.assignmentId)
+        if (!assignment) throw new Error('该分配已失效，请重新选择当前承接工厂。')
+        openTaskSheetPreview(assignment.assignmentId)
+      } else if (assignments.length === 1) openTaskSheetPreview(assignments[0].assignmentId)
+      else if (assignments.length > 1) { state.printTaskId = taskId; refreshTaskSheetSelection() }
+      else throw new Error('分配任务后可打印，请先确认承接工厂。')
+    } catch (error) {
+      state.feedback = error instanceof Error ? error.message : '任务单读取失败，请重试。'
+      refreshRoot()
+    }
+    return true
+  }
+  if (action === 'close-task-sheet-selection') { state.printTaskId = null; refreshTaskSheetSelection(); return true }
   if (action === 'close-all') {
+    if (state.printTaskId) { state.printTaskId = null; refreshTaskSheetSelection(); return true }
     const imagePreview = document.querySelector<HTMLElement>('[data-unified-image-preview]')
     if (imagePreview?.innerHTML.trim()) {
       imagePreview.innerHTML = ''
@@ -1948,7 +1998,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
 
 export function isUnifiedDispatchWorkbenchDialogOpen(): boolean {
   const imagePreviewOpen = Boolean(document.querySelector<HTMLElement>('[data-unified-image-preview]')?.firstElementChild)
-  return Boolean(state.detailTaskId || state.dispatch || state.merge || state.autoDispatch || state.contractPromptId || state.uploadContractId || imagePreviewOpen)
+  return Boolean(state.detailTaskId || state.printTaskId || state.dispatch || state.merge || state.autoDispatch || state.contractPromptId || state.uploadContractId || imagePreviewOpen)
 }
 
 export function listUnifiedDispatchCurrentAssignments(taskId: string) {

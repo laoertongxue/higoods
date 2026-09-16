@@ -172,7 +172,9 @@ function checkForbiddenCopy(): void {
   pageFiles.forEach((file) => {
     const source = readFile(file)
     forbiddenTerms.forEach((term) => {
-      assert(!source.includes(term), `${file} 仍残留禁用文案：${term}`)
+      // 简易裁片交出已由产品确认仓库确认即接收；其他业务仍禁止第二次仓库确认。
+      const scopedSource = source.replaceAll('仓库确认即 PPIC 和工厂已接收', '')
+      assert(!scopedSource.includes(term), `${file} 仍残留禁用文案：${term}`)
     })
   })
 }

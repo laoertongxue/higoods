@@ -1,6 +1,7 @@
 import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
 import {
+  renderPdaCuttingSimpleCutPieceHandoverPage,
   renderPdaLoginPage,
   renderPdaOnboardingPage,
   renderPdaNotifyDetailPage,
@@ -53,6 +54,7 @@ function decodeRouteSegment(value: string): string {
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/pda/cutting/simple-cut-piece-handover': () => renderPdaCuttingSimpleCutPieceHandoverPage(),
     '/fcs/pda/factory-receipts': () => renderFactoryPendingReceiptsPage(true),
     '/fcs/pda': () =>
       renderRouteRedirect(

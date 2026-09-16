@@ -24,6 +24,8 @@ export interface EffectiveTaskAssignmentSkuLine {
 
 export interface EffectiveTaskAssignment {
   assignmentId: string
+  /** 已存在的运行任务分配索引；不是重新派单或重新冻结报价。 */
+  indexedRuntimeSnapshot?: boolean
   runtimeTaskId: string
   productionOrderId: string
   productionOrderNo?: string
@@ -47,7 +49,7 @@ export interface EffectiveTaskAssignment {
   ppicName?: string
   ppicPhone?: string
   ppicSnapshotAt?: string
-  ppicSnapshotSource?: 'FACTORY_MASTER_AT_ASSIGNMENT'
+  ppicSnapshotSource?: 'FACTORY_MASTER_AT_ASSIGNMENT' | 'EXISTING_ASSIGNMENT_INDEX'
   status: EffectiveAssignmentStatus
   supersededAt?: string
   supersededByAssignmentId?: string
@@ -106,7 +108,7 @@ function readEffectiveTaskAssignmentState(): void {
       || !Number.isInteger(saved.assignmentSeq) || saved.assignmentSeq < 0 || !Number.isInteger(saved.auditSeq) || saved.auditSeq < 0
       || saved.assignments.some((row: [string, EffectiveTaskAssignment]) => !Array.isArray(row) || row.length !== 2 || !row[1] || row[0] !== row[1].assignmentId
         || !row[1].runtimeTaskId || !row[1].productionOrderId || !row[1].factoryId || !['EFFECTIVE', 'SUPERSEDED', 'CANCELLED'].includes(row[1].status)
-        || !Number.isFinite(row[1].assignedQty) || row[1].assignedQty <= 0 || !Number.isFinite(row[1].frozenPrice) || row[1].frozenPrice <= 0
+        || !Number.isFinite(row[1].assignedQty) || row[1].assignedQty <= 0 || !Number.isFinite(row[1].frozenPrice) || (row[1].frozenPrice <= 0 && !row[1].indexedRuntimeSnapshot)
         || !Array.isArray(row[1].processCodes) || !Array.isArray(row[1].skuLines) || row[1].skuLines.some(line => !line.skuCode || !Number.isFinite(line.qty) || line.qty <= 0))) throw new Error('有效分配格式不完整')
     const byId = new Map<string, EffectiveTaskAssignment>(saved.assignments)
     if (byId.size !== saved.assignments.length || saved.current.some((row: [string, string[]]) => !Array.isArray(row) || row.length !== 2 || !Array.isArray(row[1])
@@ -327,6 +329,24 @@ export function listEffectiveTaskAssignments(runtimeTaskId?: string): EffectiveT
   return [...assignments.values()]
     .filter((item) => !runtimeTaskId || item.runtimeTaskId === runtimeTaskId)
     .map(cloneAssignment)
+}
+
+/** 只为早于有效分配台账的已有派单补索引；有任何分配历史时不复活旧任务。 */
+export function indexExistingRuntimeTaskAssignment(input: EffectiveTaskAssignment): EffectiveTaskAssignment | undefined {
+  const existing = listEffectiveTaskAssignments(input.runtimeTaskId)
+  if (existing.length) return existing.find((item) => item.status === 'EFFECTIVE')
+  if (!input.indexedRuntimeSnapshot || !input.factoryId || !input.runtimeTaskId || input.assignedQty <= 0) return undefined
+  return runEffectiveTaskAssignmentAction(() => {
+    const record = cloneAssignment({ ...input, status: 'EFFECTIVE', indexedRuntimeSnapshot: true })
+    assignments.set(record.assignmentId, record)
+    currentAssignmentIdsByTask.set(record.runtimeTaskId, [record.assignmentId])
+    return cloneAssignment(record)
+  })
+}
+
+/** 提交前重读其他标签页已经保存的分配，避免使用旧工厂或旧状态。 */
+export function refreshEffectiveTaskAssignments(): void {
+  readEffectiveTaskAssignmentState()
 }
 
 export function listCurrentEffectiveTaskAssignments(runtimeTaskId: string): EffectiveTaskAssignment[] {

@@ -600,6 +600,9 @@ export function cloneProductionOrderTechPackSnapshot(
     colorMaterialMappings: cloneSnapshotColorMappings(snapshot.colorMaterialMappings),
     cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
     imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
+    onlineConfirmationFacts: snapshot.onlineConfirmationFacts
+      ? JSON.parse(JSON.stringify(snapshot.onlineConfirmationFacts))
+      : undefined,
     patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
     linkedDesignRevisionTaskIds: [...snapshot.linkedDesignRevisionTaskIds],
     linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
@@ -1066,6 +1069,59 @@ export function getDemandCurrentTechPackInfo(
   }
 }
 
+/** Explicit prototype source matching the authored grey hoodie CAD and product image. */
+export function applyGreyHoodieConfirmationFixture(snapshot: ProductionOrderTechPackSnapshot): ProductionOrderTechPackSnapshot {
+  if (snapshot.styleCode !== 'SPU-HOODIE-082') return snapshot
+  const base = '/production-confirmation-demo/grey-zip-hoodie'
+  const sourceRef = '/production-confirmation-demo/sources.json'
+  const codes = snapshot.bomItems[0]?.applicableSkuCodes ?? []
+  const bom = snapshot.bomItems[0]
+  if (!bom) return snapshot
+  snapshot.styleName = '连帽拉链卫衣'
+  bom.name = '雾霾灰卫衣抓绒面料'
+  bom.spec = '雾霾灰 / 卫衣抓绒'
+  bom.unit = 'Yard'
+  bom.materialImageUrl = '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png'
+  const accessories: TechPackBomItemSnapshot[] = [
+    {id:'HG-DEMO-ZIPPER-GRY-60',materialCode:'HG-DEMO-ZIPPER-GRY-60',type:'辅料',name:'雾霾灰开尾拉链',spec:'60cm / 银色细齿 / 雾霾灰布带',colorLabel:'雾霾灰',unit:'PCS',unitConsumption:1,lossRate:0,supplier:'原型演示物料',materialImageUrl:'/production-confirmation-demo/fog-grey-open-end-zipper.png',applicableSkuCodes:[...codes],usageProcessCodes:['SEW']},
+    {id:'HG-DEMO-RIB-GRY',materialCode:'HG-DEMO-RIB-GRY',type:'辅料',name:'雾霾灰罗纹袖口与下摆用料',spec:'棉氨纶 2×2 罗纹 / 雾霾灰',colorLabel:'雾霾灰',unit:'米',unitConsumption:0.35,lossRate:0.03,supplier:'原型演示物料',materialImageUrl:'/production-confirmation-demo/fog-grey-rib-knit.png',applicableSkuCodes:[...codes],usageProcessCodes:['SEW']},
+  ]
+  snapshot.bomItems = [bom, ...accessories]
+  snapshot.imageSnapshot.materialImages = [bom.materialImageUrl!]
+  snapshot.imageSnapshot.accessoryImages = accessories.map(item=>item.materialImageUrl!)
+  const parts = [['FRONT-L', '左前片', 1], ['FRONT-R', '右前片', 1], ['BACK', '后片', 1], ['SLEEVE', '袖片', 2], ['HOOD', '帽片', 2], ['POCKET', '口袋片', 2]] as const
+  snapshot.cutPieceParts = parts.map(([partCode, partNameCn, count]) => ({partCode, partNameCn, pieceCountPerGarment:count, materialSku:bom.id, materialName:bom.name, fabricColor:'雾霾灰', applicableColorList:['雾霾灰'], applicableSizeList:['S','M','L','XL'], manualConfirmRequired:false}))
+  snapshot.patternFiles.forEach(pattern => {
+    pattern.patternName = '雾霾灰拉链连帽卫衣演示纸样'
+    pattern.imageUrl = base + '-pattern.svg'
+    pattern.fileUrl = base + '.dxf'
+    pattern.dxfFileName = 'grey-zip-hoodie.dxf'
+    pattern.rulFileName = 'grey-zip-hoodie.rul'
+    pattern.rulSizeList = ['S','M','L','XL']
+    for (const kind of ['dxf','rul','prj'] as const) pattern[`${kind}File`] = {fileName:`grey-zip-hoodie.${kind}`,fileType:kind.toUpperCase(),fileSize:0,uploadedAt:'2026-09-16 09:00:00',uploadedBy:'原型演示资料',dataUrl:`${base}.${kind}`}
+    pattern.pieceRows = parts.map(([id,name,count]) => ({id,name,count,specialCrafts:[],applicableSkuCodes:[...codes],colorAllocations:[],sourceType:'PARSED_PATTERN',candidatePartNames:[],rawTextLabels:[]}))
+    pattern.totalPieceCount = 9
+    pattern.bindingStrips = []
+    pattern.remark = '原型演示 CAD；与本款效果图对应，不作为生产裁剪文件。'
+  })
+  snapshot.colorMaterialMappings.forEach(mapping => {
+    const original = mapping.lines[0]
+    if (original) mapping.lines = parts.map(([pieceId,pieceName,pieceCountPerUnit]) => ({...original,id:`${mapping.id}-${pieceId}`,pieceId,pieceName,pieceCountPerUnit,materialName:bom.name,applicableSkuCodes:[...codes]}))
+  })
+  // Same numerical grading source as the downloadable RUL/PRJ; do not invent unprovided measures.
+  snapshot.sizeTable = [
+    {id:'HG-HOODIE-BODY-LENGTH',part:'后中长',S:58,M:59,L:60,XL:61,tolerance:1},
+    {id:'HG-HOODIE-BODY-WIDTH',part:'胸围',S:104,M:108,L:112,XL:116,tolerance:1},
+    {id:'HG-HOODIE-SLEEVE-LENGTH',part:'袖长',S:55,M:56,L:57,XL:58,tolerance:1},
+  ]
+  snapshot.sizeMeasurements = snapshot.sizeTable.flatMap(row => (['S','M','L','XL'] as const).map(sizeCode => ({sizeCode,measurementPart:row.part,measurementValue:row[sizeCode],measurementUnit:'cm',tolerance:row.tolerance})))
+  snapshot.imageSnapshot.productImages = [base + '.png']
+  snapshot.imageSnapshot.styleImages = [base + '.png']
+  snapshot.imageSnapshot.patternImages = [base + '-pattern.svg']
+  snapshot.onlineConfirmationFacts = {sourceRef,purchaseOrderNos:['26030982'],retailTagPrice:{amount:319000,currency:'IDR',sourceRef},orderDate:{value:'2026-03-09',sourceRef},colorImages:[{color:'雾霾灰',skuCodes:[...codes],imageUrl:base+'.png',sourceRef}],originalLabelFields:[{label:'Apakah itu undang-undang dasar',value:'否',sourceRef},{label:'Yang sama',value:'Dyeing / Cutting',sourceRef}]}
+  return snapshot
+}
+
 export function buildProductionOrderTechPackSnapshot(input: {
   productionOrderId: string
   productionOrderNo: string
@@ -1092,7 +1148,7 @@ export function buildProductionOrderTechPackSnapshot(input: {
     throw new Error('所选技术包版本工艺路线未确认')
   }
 
-  return alignSnapshotWithDemandSkuLines(buildSnapshotFromSource({
+  return applyGreyHoodieConfirmationFixture(alignSnapshotWithDemandSkuLines(buildSnapshotFromSource({
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     style: source.style,
@@ -1100,5 +1156,5 @@ export function buildProductionOrderTechPackSnapshot(input: {
     content: source.content,
     snapshotAt: input.snapshotAt,
     snapshotBy: input.snapshotBy,
-  }), input.demand)
+  }), input.demand))
 }

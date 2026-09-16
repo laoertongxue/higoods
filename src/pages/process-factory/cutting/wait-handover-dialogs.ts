@@ -1,3 +1,4 @@
+import { bindSimpleCutPieceWebEntry } from '../../simple-cut-piece-handover-ui.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 export type WaitHandoverWebAction =
@@ -74,9 +75,11 @@ const SUBMIT: Record<WaitHandoverWebAction, string> = {
 }
 
 export function renderWaitHandoverActionButtons(): string {
+  bindSimpleCutPieceWebEntry()
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto" data-wait-handover-six-actions>
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-wait-handover-action="open-simple-cut-piece" data-simple-cut-open>简易裁片交出</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm font-medium" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm font-medium text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm font-medium text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">中转袋交出</button>
       <button type="button" class="h-10 shrink-0 rounded-md border border-violet-200 bg-violet-50 px-4 text-sm font-medium text-violet-700 hover:bg-violet-100" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>

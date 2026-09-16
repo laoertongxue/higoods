@@ -5,6 +5,10 @@ import type {
   PrintSourceType,
 } from './print-service.ts'
 import {
+  buildDispatchTaskSheetPrintDocument,
+  renderDispatchTaskSheetTemplate,
+} from '../../pages/print/templates/dispatch-task-sheet-template.ts'
+import {
   buildCuttingMarkerPlanSourceRouteCardPrintDocument,
   buildCuttingCutOrderRouteCardPrintDocument,
   buildBindingProcessOrderRouteCardPrintDocument,
@@ -92,6 +96,14 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'DISPATCH_TASK_SHEET_V1',
+    templateName: '任务单',
+    documentType: 'DISPATCH_TASK_SHEET',
+    supportedSourceTypes: ['EFFECTIVE_TASK_ASSIGNMENT'],
+    buildDocument: buildDispatchTaskSheetPrintDocument,
+    render: renderDispatchTaskSheetTemplate,
+  },
   {
     templateCode: 'POST_FINISHING_OUTBOUND_ORDER_V1',
     templateName: '后道出货单',
@@ -431,6 +443,7 @@ export function renderPrintDocument(document: PrintDocument): string {
 }
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'DISPATCH_TASK_SHEET',
   'POST_FINISHING_OUTBOUND_ORDER',
   'POST_FINISHING_OUTBOUND_BARCODE',
   'GARMENT_SKU_BARCODE',

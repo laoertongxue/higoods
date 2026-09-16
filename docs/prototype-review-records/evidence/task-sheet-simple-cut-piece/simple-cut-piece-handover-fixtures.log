@@ -1,0 +1,21 @@
+关联演示通过：两工厂不同 PPIC/SKU，首批1260片，第二批360片，不重复生成。
+{
+  "bagDemo": {
+    "orderId": "PO-DEMO-SIMPLE-BAG-0916",
+    "bagCode": "TB-SIMPLE-MOCK005-0916",
+    "feiTicketNo": "FT-CUT-260916-916-01-058",
+    "eventId": "cutting-event:BAGGING:SPREAD-PO-DEMO-SIMPLE-BAG-0916-1-SPREAD-PO-DEMO-SIMPLE-BAG-0916-1-cut-order:po-demo-simple-bag-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm-CUT-260916-916-01-TB-SIMPLE-MOCK005-0916-cycle:TB-SIMPLE-MOCK005-0916:20260916090000-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-BAG-0916-1-M-BACK:20260916090000",
+    "taskSheetNo": "RW-1V3G1AJ-0RMOAK2",
+    "automaticCuttingTaskSheetNo": "RW-00HNF9T-0YVL0XT",
+    "warehousePath": "/fcs/craft/cutting/warehouse-management/wait-handover"
+  },
+  "craft": {
+    "bindingId": "SCB-AUX-TASK-PO2026030003-KING-03-4932e735-AUX-TASK-PO2026030003-KING-03-4932e735-LINE-01-AUX-OP-FLOWER-MAKING-FT-202603-0003-725fd7f1",
+    "productionOrderId": "PO-202603-0003",
+    "feiTicketNo": "FT-202603-0003-725fd7f1",
+    "outside": "已发料",
+    "returned": "已回仓",
+    "limitation": "既有测试裁床特殊工艺场景，仅验证真实在外/回仓命令；不代表专用裁床简易交出可用"
+  }
+}
+专用裁床动态工艺菲票：实际完裁→在外阻断→真实回仓可交；重复刷新不覆写旧状态。

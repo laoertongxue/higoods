@@ -1,0 +1,3 @@
+[check-task-print-cards-foundation] 任务交货卡 / 任务流转卡打印底座通过
+(node:61540) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

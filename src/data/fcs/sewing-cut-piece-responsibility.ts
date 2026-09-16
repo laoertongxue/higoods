@@ -1,3 +1,4 @@
+import { listSimpleCutPieceHandoverEvents } from './cutting/cutting-runtime-event-ledger.ts'
 import {
   createEffectiveTaskAssignment,
   getEffectiveTaskAssignment,
@@ -216,7 +217,24 @@ function requireAssignment(assignmentId: string): EffectiveTaskAssignment {
 }
 
 function requireContext(assignmentId: string): SewingCutPieceResponsibilityContext {
-  const context = contexts.get(assignmentId)
+  let context = contexts.get(assignmentId)
+  if (!context) {
+    const event = listSimpleCutPieceHandoverEvents().find((item) => item.payload.assignmentId === assignmentId)
+    if (event) {
+      const p = event.payload
+      context = {
+        assignmentId, runtimeTaskId: p.runtimeTaskId, productionOrderId: p.productionOrderId,
+        productionOrderNo: p.productionOrderNo, taskNo: p.taskNo, factoryId: p.factoryId,
+        factoryName: p.factoryName, ppicId: p.ppicId, ppicName: p.ppicName,
+        requirementSnapshotId: p.requirementSnapshotId, requirementSnapshotAt: p.requirementSnapshotAt,
+        requirementSnapshotBy: event.operatorName,
+        requirementLines: p.requirements.map((line, index) => ({ ...line,
+          requirementLineId: `REQ-${assignmentId}-${index + 1}`,
+          requiredPieceQty: line.allocatedGarmentQty * line.piecesPerGarment })),
+      }
+      contexts.set(assignmentId, context)
+    }
+  }
   if (!context) throw new Error(`分配${assignmentId}尚未冻结必需裁片部位`)
   return context
 }
@@ -304,7 +322,7 @@ export function initializeSewingCutPieceResponsibility(input: {
 
 function handoverTotals(assignmentId: string): Map<string, number> {
   const totals = new Map<string, number>()
-  for (const event of handoverEvents.values()) {
+  for (const event of listSewingCutPieceHandoverEvents(assignmentId)) {
     if (event.assignmentId !== assignmentId || event.status !== 'CONFIRMED') continue
     for (const line of event.lines) {
       const key = requirementKey(line)
@@ -326,7 +344,7 @@ function kitQty(lines: SewingCutPieceProjectionLine[], useExclusions: boolean): 
 function buildProjection(assignmentId: string): SewingCutPieceResponsibilityProjection {
   const context = requireContext(assignmentId)
   const totals = handoverTotals(assignmentId)
-  const hasConfirmedHandover = [...handoverEvents.values()].some((event) => (
+  const hasConfirmedHandover = listSewingCutPieceHandoverEvents(assignmentId).some((event) => (
     event.assignmentId === assignmentId && event.status === 'CONFIRMED'
   ))
   const exclusionByKey = new Map(activeExclusions(assignmentId).map((item) => [requirementKey(item), item]))
@@ -590,7 +608,21 @@ export function getSewingCutPieceResponsibilityProjection(assignmentId: string):
 }
 
 export function listSewingCutPieceHandoverEvents(assignmentId: string): SewingCutPieceHandoverEvent[] {
-  return [...handoverEvents.values()].filter((item) => item.assignmentId === assignmentId).map(clone)
+  const derived: SewingCutPieceHandoverEvent[] = listSimpleCutPieceHandoverEvents()
+    .filter((item) => item.payload.assignmentId === assignmentId).map((event) => {
+      const p = event.payload
+      return {
+        handoverEventId: event.eventId, commandId: event.idempotencyKey || event.eventId,
+        assignmentId, runtimeTaskId: p.runtimeTaskId, handoverRecordId: p.handoverRecordId,
+        handoverRecordNo: p.handoverRecordNo, dispatchBatchId: p.handoverRecordId,
+        handedOverAt: event.occurredAt, handedOverBy: event.operatorName, status: 'CONFIRMED',
+        lines: p.tickets.map((ticket) => ({ ...ticket, handoverLineId: `${event.eventId}:${ticket.feiTicketId}`,
+          piecesPerGarment: p.requirements.find((line) => requirementKey(line) === requirementKey(ticket))?.piecesPerGarment || 1 })),
+      }
+    })
+  const ids = new Set(derived.map((item) => item.handoverRecordId))
+  return [...derived, ...handoverEvents.values()].filter((item) => item.assignmentId === assignmentId
+    && (derived.includes(item) || !ids.has(item.handoverRecordId))).map(clone)
 }
 
 export function listSewingCutPiecePartExclusionVersions(assignmentId: string): SewingCutPiecePartExclusionVersion[] {

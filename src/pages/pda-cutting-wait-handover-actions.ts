@@ -2,6 +2,7 @@ import { listPdaCuttingTaskSourceRecords } from '../data/fcs/cutting/pda-cutting
 
 export interface PdaCuttingWaitHandoverAction {
   key:
+    | 'simple-cut-piece-handover'
     | 'fei-ticket-bagging'
     | 'transfer-bag-inbound'
     | 'transfer-bag-handover'
@@ -17,6 +18,7 @@ export function getPdaCuttingWaitHandoverActions(): PdaCuttingWaitHandoverAction
   const firstTaskId = listPdaCuttingTaskSourceRecords()[0]?.taskId || 'CUTTING-DEMO'
 
   return [
+    { key: 'simple-cut-piece-handover', title: '简易裁片交出', route: '/fcs/pda/cutting/simple-cut-piece-handover' },
     {
       key: 'fei-ticket-bagging',
       title: '菲票装袋',

@@ -1,0 +1,21 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 印花/染色仓库视图未复用工厂内部仓底座：listFactoryWaitHandoverStockItems
+    at assertContains (/Users/laoer/.codex/worktrees/ec9a/higoods/scripts/check-factory-internal-warehouse-model.ts:67:3)
+    at <anonymous> (/Users/laoer/.codex/worktrees/ec9a/higoods/scripts/check-factory-internal-warehouse-model.ts:182:3)
+    at Array.forEach (<anonymous>)
+    at <anonymous> (/Users/laoer/.codex/worktrees/ec9a/higoods/scripts/check-factory-internal-warehouse-model.ts:181:3)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

@@ -1,0 +1,3 @@
+[check-production-confirmation-online-parity] PASS: sourced fields, precision, roll identity, keyed images, real barcode, six-section layout and honest missing values
+(node:61094) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

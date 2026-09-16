@@ -13,6 +13,8 @@ import {
   getPdaPostFinishingHandoutHeads,
   getPdaPostFinishingPickupHeads,
   getPdaPickupHeads,
+  getPdaCompletedHeads,
+  buildSimpleCutPieceFactoryReceipts,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
 import {
@@ -80,7 +82,7 @@ function isPostFinishingFactoryId(factoryId: string): boolean {
   return factoryId === DEDICATED_POST_FACTORY_ID || factoryId === 'ID-F002'
 }
 
-type HandoverTab = 'pickup' | 'handout' | 'shipped'
+type HandoverTab = 'pickup' | 'handout' | 'shipped' | 'received'
 
 interface PdaHandoverState {
   selectedFactoryId: string
@@ -142,12 +144,13 @@ function renderSewingPickupScanPage(versionId: string, runtime: NonNullable<Retu
   if (!slip) {
     return renderPdaFrame(`<main class="min-h-[760px] bg-slate-100 p-4"><section class="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800"><h1 class="font-semibold">无法识别领料单</h1><p class="mt-2 text-sm">二维码对应的领料单不存在，请回到PPIC任务页重新打印。</p></section></main>`, 'handover', { disableTodoAutoOpen: true })
   }
+  if (slip.objectKind === 'CUT_PIECE') return renderPdaFrame(`<main class="p-4"><section class="rounded-xl border bg-amber-50 p-4"><h1 class="font-semibold">旧裁片领料单仅供历史查询</h1><p class="mt-2 text-sm">请由 PPIC 打印当前任务单，在裁床“简易裁片交出”扫描任务码办理。此旧单不能新增交出。</p></section></main>`, 'handover', { disableTodoAutoOpen: true })
   const current = getCurrentSewingPickupSlip(slip.assignmentId, slip.objectKind)
   const isCurrent = slip.status === 'CURRENT' && current?.versionId === slip.versionId
   const records = listSewingPickupHandoverResults(slip.versionId)
   const displayLines = getSewingPickupSlipCurrentLines(slip.versionId)
-  const objectLabel = slip.objectKind === 'CUT_PIECE' ? '裁片' : slip.objectKind === 'ACCESSORY' ? '辅料' : '面辅料'
-  const actorCanConfirm = slip.objectKind !== 'CUT_PIECE' || runtime.factoryId === DEDICATED_CUTTING_FACTORY_ID
+  const objectLabel = slip.objectKind === 'ACCESSORY' ? '辅料' : '面辅料'
+  const actorCanConfirm = true
   ensureSewingPickupCommandId(slip.versionId)
   const content = `<div class="flex min-h-[760px] flex-col bg-slate-100" data-sewing-pickup-scan-page><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="text-[11px] text-slate-500">${escapeHtml(runtime.userName)} · ${escapeHtml(runtime.factoryName)}</div><h1 class="mt-1 font-semibold">${escapeHtml(objectLabel)}领料扫码确认</h1></header><main class="flex-1 space-y-3 p-4">${!isCurrent ? `<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>${escapeHtml(slip.versionLabel)}已失效，禁止登记</b><p class="mt-2 text-sm">请扫描当前${escapeHtml(current?.versionLabel || '有效版本')}，不能继续使用旧二维码。</p></section>` : ''}${!actorCanConfirm ? '<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>当前账号不属于裁床待交出仓</b><p class="mt-2 text-sm">请由 HiGood 裁床厂已登录仓库账号扫描并确认，本账号只能查看。</p></section>' : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex gap-3"><img class="h-20 w-16 rounded-lg border object-cover" src="${escapeHtml(slip.styleImageUrl)}" alt="${escapeHtml(`${slip.styleCode} ${slip.styleName}款式图`)}"><div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(slip.slipNo)} · ${escapeHtml(slip.versionLabel)}</div><div class="mt-1 text-sm">${escapeHtml(slip.styleCode)} · ${escapeHtml(slip.styleName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(slip.productionOrderNo)} · ${escapeHtml(slip.taskNo)}</div></div></div><div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div>交出仓：<b>${escapeHtml(slip.warehouseName)}</b></div><div>领取PPIC：<b>${escapeHtml(slip.ppicName)}</b></div><div>承接工厂：<b>${escapeHtml(slip.factoryName)}</b></div><div>任务类型：<b>${escapeHtml(slip.taskKindLabel)}</b></div></div></section>${records.length ? `<section class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><b>已确认 ${records.length} 个交出批次</b><p class="mt-1">最近记录：${escapeHtml(records.at(-1)!.sourceRecordNo)} · ${escapeHtml(records.at(-1)!.recordedAt)}</p></section>` : ''}<section class="overflow-hidden rounded-2xl border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">逐项填写本次实交</h2><p class="mt-1 text-xs text-slate-500">允许分批和差异；相同扫描提交不会重复累计。</p></header>${displayLines.map((line) => `<article class="border-b p-4 last:border-b-0"><div class="flex items-start gap-3">${line.imageUrl ? `<img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.objectCode} ${line.objectName}物料图`)}">` : ''}<div class="min-w-0 flex-1"><b>${escapeHtml(line.objectName)}</b><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(line.objectCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)} · ${escapeHtml(line.part)}</p><p class="mt-2 text-xs">应领 ${line.requiredQty} ${escapeHtml(line.unit)} · 此前已领 ${line.previouslyHandedOverQty} ${escapeHtml(line.unit)} · 本次可领 <b>${line.availableQty} ${escapeHtml(line.unit)}</b></p></div></div><label class="mt-3 block text-xs font-medium">本次实交（${escapeHtml(line.unit)}）<input type="number" min="0" step="${line.unit === '片' ? '1' : '0.001'}" value="0" class="mt-1 h-11 w-full rounded-xl border px-3 text-base" data-sewing-pickup-line-id="${escapeHtml(line.lineId)}" ${isCurrent && actorCanConfirm ? '' : 'disabled'}></label></article>`).join('')}</section>${isCurrent && actorCanConfirm ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-sewing-pickup">确认本次实交并保存</button>` : '<a class="flex h-12 items-center justify-center rounded-2xl border bg-white text-sm font-semibold" data-nav="/fcs/pda/handover?tab=handout">返回交接工作台</a>'}</main></div>`
   return renderPdaFrame(content, 'handover', { disableTodoAutoOpen: true })
@@ -163,8 +166,9 @@ const POST_FINISHING_TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'shipped', label: '已交出' },
 ]
 
-function getTabConfig(isPostFinishingFactory: boolean): Array<{ key: HandoverTab; label: string }> {
-  return isPostFinishingFactory ? POST_FINISHING_TAB_CONFIG : DEFAULT_TAB_CONFIG
+function getTabConfig(isPostFinishingFactory: boolean, hasSimpleReceipts = false): Array<{ key: HandoverTab; label: string }> {
+  const tabs = isPostFinishingFactory ? POST_FINISHING_TAB_CONFIG : DEFAULT_TAB_CONFIG
+  return hasSimpleReceipts ? [...tabs, { key: 'received', label: '接收记录' }] : tabs
 }
 
 function getCurrentQueryString(): string {
@@ -177,10 +181,10 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
-function syncTabWithQuery(isPostFinishingFactory: boolean): void {
+function syncTabWithQuery(isPostFinishingFactory: boolean, hasSimpleReceipts = false): void {
   const previousTab = state.activeTab
   const tab = getCurrentSearchParams().get('tab')
-  const tabConfig = getTabConfig(isPostFinishingFactory)
+  const tabConfig = getTabConfig(isPostFinishingFactory, hasSimpleReceipts)
   if (!tab || !tabConfig.some((item) => item.key === tab)) {
     state.activeTab = 'pickup'
   } else {
@@ -1011,7 +1015,13 @@ export function renderPdaHandoverPage(): string {
 
   const selectedFactoryId = getCurrentFactoryId()
   const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
-  syncTabWithQuery(isPostFinishingFactory)
+  const simpleReceiptReadError = buildSimpleCutPieceFactoryReceipts().readError
+  if (simpleReceiptReadError) {
+    // The normal PDA shell also reads the same ledger for its todo count. Do not render false zero counts.
+    return `<main class="min-h-screen bg-slate-100 p-4"><section class="rounded-xl border border-amber-300 bg-amber-50 p-4"><h1 class="text-base font-semibold">接收记录</h1><p role="alert" class="mt-3 text-sm">${escapeHtml(simpleReceiptReadError)}</p><a href="/fcs/pda/handover?tab=pickup" class="mt-4 inline-flex min-h-11 items-center rounded-lg border bg-white px-4 text-sm font-medium">恢复存储后重新加载</a></section></main>`
+  }
+  const simpleReceiptHeads = getPdaCompletedHeads(selectedFactoryId).filter((head) => head.simpleCutPieceReceipt)
+  syncTabWithQuery(isPostFinishingFactory, simpleReceiptHeads.length > 0)
   const materialOrderNo = getCurrentSearchParams().get('materialOrderNo') || ''
   const selectedMaterialOrder = materialOrderNo ? getPostFinishingMaterialTransferOrder(materialOrderNo) : undefined
   if (isPostFinishingFactory && selectedMaterialOrder) return renderPostFinishingMaterialTransferDetail(selectedMaterialOrder)
@@ -1042,12 +1052,13 @@ export function renderPdaHandoverPage(): string {
         || listPostFinishingWaitHandoverWarehouseRecords().some((record) => record.outboundOrderId === order.outboundOrderId && record.status === '已交出')
       ))
     : []
-  const tabConfig = getTabConfig(isPostFinishingFactory)
+  const tabConfig = getTabConfig(isPostFinishingFactory, simpleReceiptHeads.length > 0)
 
   const tabCounts: Record<HandoverTab, number> = {
     pickup: visiblePickupHeads.length + (isPostFinishingFactory ? listPostFinishingMaterialTransferOrders().filter((order) => order.status === '待入库').length : 0),
     handout: visibleHandoutHeads.length,
     shipped: shippedOrders.length,
+    received: simpleReceiptHeads.length,
   }
 
 // 裁床中转袋交接状态：待装袋 / 待收中转袋
@@ -1078,10 +1089,11 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
-        ${hasBindingOrders ? renderBindingHandoverScanPanel() : ''}
-        ${hasWoolOrders ? renderWoolHandoverScanPanel() : ''}
-        ${hasWoolOrders ? renderSelectedWoolHandoverOrder() : ''}
-        ${hasSpecialCraftOrders ? renderSpecialCraftHandoverScanPanel() : ''}
+        ${state.activeTab === 'received' && simpleReceiptHeads.length ? `<section class="rounded-xl border bg-white p-3"><h2 class="font-semibold">裁片接收记录</h2><p class="mt-1 text-xs text-muted-foreground">仓库已确认，PPIC 与工厂已接收，无需再次确认。</p>${simpleReceiptHeads.map((h) => `<a data-nav="/fcs/pda/handover/${encodeURIComponent(h.handoverId)}" class="mt-3 block rounded-lg border p-3 text-sm"><b>${escapeHtml(h.handoverOrderNo || '')} · 已接收</b><p>${escapeHtml(h.productionOrderNo || '')} / ${escapeHtml(h.taskNo)}</p><p>${h.qtyActualTotal} 片 · ${escapeHtml(h.lastRecordAt || '')}</p></a>`).join('')}</section>` : ''}
+        ${hasBindingOrders && state.activeTab !== 'received' ? renderBindingHandoverScanPanel() : ''}
+        ${hasWoolOrders && state.activeTab !== 'received' ? renderWoolHandoverScanPanel() : ''}
+        ${hasWoolOrders && state.activeTab !== 'received' ? renderSelectedWoolHandoverOrder() : ''}
+        ${hasSpecialCraftOrders && state.activeTab !== 'received' ? renderSpecialCraftHandoverScanPanel() : ''}
         ${isPostFinishingFactory && state.activeTab === 'pickup' ? renderPostFinishingReturnReceivingPanel(canManageSewingSelfReturnMode) : ''}
         ${isPostFinishingFactory && state.activeTab === 'pickup' ? renderPostFinishingMaterialTransfersPanel() : ''}
         ${
@@ -1138,6 +1150,7 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
     const versionId = getCurrentSearchParams().get('sewingPickupVersionId') || ''
     const slip = getSewingPickupSlipVersion(versionId)
     if (!runtime || !slip) return true
+    if (slip.objectKind === 'CUT_PIECE') { window.alert('请使用当前任务单办理简易裁片交出，旧裁片领料单不能新增交出。'); return true }
     const quantities = [...document.querySelectorAll<HTMLInputElement>('[data-sewing-pickup-line-id]')]
       .map((input) => ({ lineId: input.dataset.sewingPickupLineId || '', actualQty: Number(input.value) }))
       .filter((line) => line.lineId && Number.isFinite(line.actualQty) && line.actualQty > 0)
@@ -1152,7 +1165,7 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
         recordedAt: formatOperationLocalWallClock(),
         recordedBy: runtime.userName,
         actorFactoryId: runtime.factoryId,
-        recordedByRole: slip.objectKind === 'CUT_PIECE' ? 'CUTTING_WAREHOUSE' : 'MATERIAL_WAREHOUSE',
+        recordedByRole: 'MATERIAL_WAREHOUSE',
         quantities,
       })
       sewingPickupCommandId = ''
@@ -1323,7 +1336,7 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as HandoverTab | undefined
     if (isKolGotoFactory(getCurrentFactoryId()) && tab === 'pickup') return true
-    const tabConfig = getTabConfig(isPostFinishingFactoryId(getCurrentFactoryId()))
+    const tabConfig = getTabConfig(isPostFinishingFactoryId(getCurrentFactoryId()), getPdaCompletedHeads(getCurrentFactoryId()).some((h) => h.simpleCutPieceReceipt))
     if (tab && tabConfig.some((item) => item.key === tab)) {
       state.activeTab = tab
       state.woolScanKeyword = ''

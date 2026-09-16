@@ -96,6 +96,32 @@ export interface TechPackImageSnapshot {
   artworkImages: string[]
 }
 
+/** Explicit source fields for the online production confirmation layout.
+ * These values are optional: an absent source is printed as 未维护 / 未发生.
+ * Original Indonesian labels are retained verbatim rather than guessed translations.
+ */
+export interface ProductionConfirmationOnlineFacts {
+  sourceRef: string
+  purchaseOrderNos?: string[]
+  retailTagPrice?: { amount: number; currency: string; sourceRef: string }
+  orderDate?: { value: string; sourceRef: string }
+  milestones?: Array<{
+    key: 'cuttingCompleted' | 'factoryArrived' | 'firstDelivery' | 'productionCompleted'
+    actualAt?: string
+    plannedAt?: string
+    sourceRef: string
+  }>
+  fabricRolls?: Array<{ rollId: string; sourceRef: string }>
+  originalLabelFields?: Array<{
+    label: 'Apakah itu undang-undang dasar' | 'Yang sama'
+    value: string
+    sourceRef: string
+  }>
+  colorImages?: Array<{ color: string; skuCodes?: string[]; imageUrl: string; sourceRef: string }>
+  materialInfo?: Array<{ materialSku: string; warehouseLabel?: string; preparedLabel?: string }>
+  bindingStrips?: Array<{ color: string; length: number; unit: string }>
+}
+
 export type TechnicalColorMaterialMappingOrigin = 'TECH_PACK' | 'DEMAND_FALLBACK'
 
 export interface ProductionTechPackColorMaterialMapping extends TechnicalColorMaterialMapping {
@@ -128,6 +154,7 @@ export interface ProductionOrderTechPackSnapshot {
   colorMaterialMappings: ProductionTechPackColorMaterialMapping[]
   cutPieceParts: TechPackCutPiecePartSnapshot[]
   imageSnapshot: TechPackImageSnapshot
+  onlineConfirmationFacts?: ProductionConfirmationOnlineFacts
   patternDesigns: TechnicalPatternDesign[]
   linkedDesignRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]

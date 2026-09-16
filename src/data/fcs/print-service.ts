@@ -1,6 +1,7 @@
 import type { TaskRouteCardSourceType } from './task-print-cards.ts'
 
 export type PrintDocumentType =
+  | 'DISPATCH_TASK_SHEET'
   | 'TASK_ROUTE_CARD'
   | 'PRINTING_INFO_SHEET'
   | 'PRINTING_CONFIRMATION'
@@ -31,6 +32,7 @@ export type PrintDocumentType =
   | 'POST_FINISHING_OUTBOUND_BARCODE'
 
 export type PrintSourceType =
+  | 'EFFECTIVE_TASK_ASSIGNMENT'
   | TaskRouteCardSourceType
   | 'PRINTING_ROLL_RECORD'
   | 'POST_FINISHING_WORK_ORDER'

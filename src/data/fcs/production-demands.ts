@@ -463,7 +463,7 @@ const seedProductionDemands: ProductionDemand[] = [
   }),
   createDemandSeed({
     demandId: 'DEM-202603-0082', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26030982', sourceSystem: 'NEW',
-    spuCode: 'SPU-HOODIE-082', spuName: '连帽拉链卫衣套装', imageUrl: '/placeholder.svg?height=80&width=80',
+    spuCode: 'SPU-HOODIE-082', spuName: '连帽拉链卫衣', imageUrl: '/production-confirmation-demo/grey-zip-hoodie.png',
     category: 'Outerwear', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
     requiredDeliveryDate: '2026-03-28', constraintsNote: '主布与侧缝里布需同步染配。',
     skuLines: [

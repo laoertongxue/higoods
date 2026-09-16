@@ -1,0 +1,3 @@
+简易裁片完整事务通过：存储失败、重复确认、两批领取、即时接收、冷读责任、袋互斥、旧码失效和历史责任。
+(node:50658) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

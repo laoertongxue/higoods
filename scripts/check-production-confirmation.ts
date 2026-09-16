@@ -12,6 +12,7 @@ import {
   isProductionConfirmationPrintable,
 } from '../src/data/fcs/production-confirmation.ts'
 import { getSpecialCraftTasksByProductionOrder } from '../src/data/fcs/special-craft-task-orders.ts'
+import { buildProductionConfirmationPrintDocument, renderProductionConfirmationTemplate } from '../src/pages/print/templates/production-material-confirmation-template.ts'
 import { renderProductionConfirmationPrintPage } from '../src/pages/production/confirmation-print.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -124,12 +125,12 @@ assert(previewHtml.includes('生产确认单'), '预览页必须输出生产确�
 assert(previewHtml.includes('生产单号'), '预览页必须展示生产单基本信息')
 assert(previewHtml.includes('规格数量'), '预览页必须展示规格数量矩阵')
 assert(previewHtml.includes('面辅料信息'), '预览页必须展示面辅料信息')
-assert(previewHtml.includes('工序工艺任务分配'), '预览页必须展示任务分配信息')
-assert(previewHtml.includes('纸样和尺寸'), '预览页必须展示纸样和尺寸')
-assert(previewHtml.includes('纸样分类'), '预览页必须展示纸样分类')
-assert(previewHtml.includes('适用颜色'), '预览页必须展示适用颜色')
-assert(previewHtml.includes('每种颜色的片数'), '预览页必须展示每种颜色的片数')
-assert(previewHtml.includes('特殊工艺'), '预览页必须展示特殊工艺')
+assert(previewHtml.includes('Nama pabrik'), '预览页必须展示线上工厂区块')
+assert(previewHtml.includes('Pola kertas') && previewHtml.includes('Graf ukura'), '预览页必须展示纸样和成衣尺寸')
+assert(previewHtml.includes('warna &amp; gambar'), '预览页必须展示对应颜色与图片')
+assert(previewHtml.includes('颜色'), '预览页必须展示颜色身份')
+assert(previewHtml.includes('Daftar SK') && previewHtml.includes('尺码明细'), '预览页必须展示颜色尺码数量矩阵')
+assert(previewHtml.includes('Proses Tambahan'), '预览页必须保留额外工艺资料位置')
 assert(previewHtml.includes('暂无图片') || previewHtml.includes('<img '), '预览页必须处理图片展示或缺图兜底')
 assert(!previewHtml.includes('POST_FINISHING'), '预览页不得显示 POST_FINISHING')
 assert(!previewHtml.includes('BUTTONHOLE'), '预览页不得显示 BUTTONHOLE')
@@ -141,16 +142,16 @@ assert(!previewHtml.includes('techPackSnapshot'), '预览页不得显示 techPac
 assert(!previewHtml.includes('patternMaterialType'), '预览页不得显示 patternMaterialType')
 assert(!previewHtml.includes('colorAllocations'), '预览页不得显示 colorAllocations')
 assert(!previewHtml.includes('specialCrafts'), '预览页不得显示 specialCrafts')
-assert(previewHtml.includes('分配状态'), '预览页必须展示分配状态列')
+assert(!previewHtml.includes('PrintDocument'), '纸张不能暴露实现元信息')
 
-const specialCraftPreviewHtml = renderProductionConfirmationPrintPage(specialCraftOrder.productionOrderId)
-assert(specialCraftPreviewHtml.includes('工序工艺任务分配'), '含特殊工艺任务的确认单页面必须展示任务分配区块')
-assert(specialCraftPreviewHtml.includes('待分配'), '未分配特殊工艺任务必须显示待分配')
-assert(specialCraftPreviewHtml.includes(specialCraftTask.operationName), '确认单页面必须展示特殊工艺名称')
-assert(specialCraftPreviewHtml.includes(specialCraftTask.productionOrderNo), '确认单页面必须展示特殊工艺所属生产单号')
-;['作用对象', '裁片部位', '颜色', '尺码', '分配状态'].forEach((token) => {
-  assert(specialCraftPreviewHtml.includes(token), `确认单页面缺少特殊工艺字段：${token}`)
-})
+// The special-craft example is not assigned yet: keep the route gate, and inspect its actual snapshot through the paper renderer.
+const specialRouteState = isProductionConfirmationPrintable(specialCraftOrder.productionOrderId)
+if (!specialRouteState.printable) assert(renderProductionConfirmationPrintPage(specialCraftOrder.productionOrderId).includes(specialRouteState.reason!), '未分配特殊工艺生产单仍受打印门禁约束')
+const specialCraftPreviewHtml = renderProductionConfirmationTemplate({ ...buildProductionConfirmationPrintDocument(printableOrder.productionOrderId), confirmationSnapshot: specialCraftSnapshot })
+for (const craft of specialCraftSnapshot.onlineDisplaySnapshot.additionalProcesses) assert(specialCraftPreviewHtml.includes(craft), `额外工艺栏目必须保留实际工艺：${craft}`)
+assert(specialCraftPreviewHtml.includes('Proses Tambahan'), '含特殊工艺的确认单保留额外工艺栏目')
+assert(specialCraftPreviewHtml.includes(specialCraftTask.productionOrderNo), '确认单展示对应生产单号')
+assert(specialCraftSnapshot.taskAssignmentSnapshot.some((row) => row.taskNo === specialCraftTask.taskOrderNo), '完整任务事实保留在快照中，纸张按线上六区排版')
 
 const blockedHtml = renderProductionConfirmationPrintPage(nonPrintableOrder.productionOrderId)
 assert(blockedHtml.includes(nonPrintableState.reason || '未完成工厂分配'), '不可打印页面必须显示短中文原因')

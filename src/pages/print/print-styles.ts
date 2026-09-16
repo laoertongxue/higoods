@@ -1003,7 +1003,66 @@ export function renderUnifiedPrintStyles(): string {
         font-weight: 900;
       }
 
+      /* Production confirmation follows the online grid; other document templates retain their layouts. */
+      .print-production-confirmation .confirmation-sheet {
+        padding: 8mm;
+        font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        font-size: 10px;
+        line-height: 1.3;
+        color: #000;
+      }
+      .print-production-confirmation .confirmation-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4mm;
+        margin-bottom: 2mm;
+        break-inside: avoid;
+      }
+      .print-production-confirmation .confirmation-header h1 {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 700;
+      }
+      .print-production-confirmation .confirmation-barcode { width: 48mm; text-align: center; flex-shrink: 0; }
+      .print-production-confirmation .confirmation-barcode svg { width: 100%; height: 11mm; }
+      .print-production-confirmation .confirmation-barcode span { display: block; font-size: 9px; }
+      .print-production-confirmation .confirmation-table { width: 100%; table-layout: fixed; border-collapse: collapse; color: #000; }
+      .print-production-confirmation .confirmation-table th,
+      .print-production-confirmation .confirmation-table td {
+        border: 1px solid #000;
+        padding: 1.2mm 1mm;
+        text-align: center;
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+      }
+      .print-production-confirmation .confirmation-table th { font-weight: 500; }
+      .print-production-confirmation .confirmation-labels { font-weight: 500; }
+      .print-production-confirmation .confirmation-table thead { display: table-header-group; }
+      .print-production-confirmation .confirmation-table tr { break-inside: avoid; page-break-inside: avoid; }
+      .print-production-confirmation .confirmation-section { margin-top: 2mm; }
+      .print-production-confirmation .confirmation-section h2 { margin: 0 0 1.4mm; font-size: 11px; font-weight: 600; text-align: center; break-after: avoid; }
+      .print-production-confirmation .confirmation-main { break-inside: avoid; }
+      .print-production-confirmation .confirmation-image { margin: 0; }
+      .print-production-confirmation .confirmation-image button { display: inline-block; padding: 0; border: 0; background: transparent; cursor: zoom-in; max-width: 100%; }
+      .print-production-confirmation .confirmation-image img { display: block; height: 17mm; max-width: 100%; object-fit: contain; margin: auto; }
+      .print-production-confirmation .confirmation-image figcaption { margin-top: .7mm; font-size: 8px; line-height: 1.15; overflow-wrap: anywhere; }
+      .print-production-confirmation .confirmation-product-image img { height: 43mm; }
+      .print-production-confirmation .confirmation-color-image img { height: 22mm; }
+      .print-production-confirmation .confirmation-pattern-image img { height: 26mm; }
+      .print-production-confirmation .confirmation-image-missing,
+      .print-production-confirmation [data-print-image-error] { color: #b91c1c; border: 1px dashed #b91c1c; padding: 2mm; font-size: 9px; }
+      .print-production-confirmation .confirmation-muted { color: #4b5563; font-size: 8px; line-height: 1.25; margin-top: .6mm; }
+      .print-production-confirmation .confirmation-file-links { display: flex; justify-content: center; gap: 3mm; margin-top: 1mm; }
+      .print-production-confirmation .confirmation-file-links a { color: #176ca4; text-decoration: underline; }
+      .print-production-confirmation .confirmation-total { font-weight: 700; }
+      .print-production-confirmation .confirmation-measurements { font-size: 9px; }
+
       @media print {
+        .print-production-confirmation .confirmation-sheet { padding: 0; }
+        .print-production-confirmation .confirmation-image button { cursor: default; }
+        .print-production-confirmation .confirmation-file-links a { color: #000; }
         html,
         body {
           background: #fff !important;

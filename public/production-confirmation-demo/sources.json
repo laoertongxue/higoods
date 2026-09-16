@@ -1,0 +1,68 @@
+{
+  "fixtureId": "HG-DEMO-HOODIE-082-M-V1",
+  "object": "PO-202603-082 / SPU-HOODIE-082 / 雾霾灰拉链连帽卫衣",
+  "source": "原型演示素材；产品图由 imagegen 正式生成，纸样为本仓库按明确演示尺寸制作的 CAD 几何，SVG 从 DXF 同一坐标生成。不是线上 PO18901 的生产事实。",
+  "sourceData": "grey-zip-hoodie.prj",
+  "imageGeneration": {
+    "tool": "imagegen",
+    "at": "2026-09-16",
+    "originalPath": "/Users/laoer/.codex/generated_images/01a0a974-0690-7910-8946-3127a0924b26/exec-a006a3c9-6886-4ac4-b677-d617074ac946.png",
+    "description": "雾霾灰拉链连帽卫衣正式效果图，白底，前视；图上不包含裤装。"
+  },
+  "displayFacts": {
+    "tagPrice": {
+      "amount": 319000,
+      "currency": "IDR",
+      "source": "演示商品吊牌价格资料，不是加工单价"
+    },
+    "originalLabelFields": {
+      "Apakah itu undang-undang dasar": "否",
+      "Yang sama": "Dyeing / Cutting"
+    },
+    "originalLabelMeaning": "保留线上原始标签和值形态的原型字段，不对中文业务含义作猜译。"
+  },
+  "limitations": "仅用于原型打印下载与资料对应验收；RUL/PRJ 为带格式声明的演示规则/项目数据，不声称兼容真实 CAD 厂商。",
+  "assets": [
+    {
+      "path": "/production-confirmation-demo/grey-zip-hoodie.png",
+      "kind": "imagegen 正式产品效果图"
+    },
+    {
+      "path": "/production-confirmation-demo/grey-zip-hoodie-pattern.svg",
+      "kind": "纸样 CAD 预览"
+    },
+    {
+      "path": "/production-confirmation-demo/grey-zip-hoodie.dxf",
+      "kind": "AutoCAD R12 DXF"
+    },
+    {
+      "path": "/production-confirmation-demo/grey-zip-hoodie.rul",
+      "kind": "显式演示尺寸规则"
+    },
+    {
+      "path": "/production-confirmation-demo/grey-zip-hoodie.prj",
+      "kind": "显式演示项目及原始几何"
+    }
+  ],
+  "accessoryMaterials": [
+    {
+      "materialCode": "HG-DEMO-ZIPPER-GRY-60",
+      "name": "雾霾灰开尾拉链",
+      "image": "/production-confirmation-demo/fog-grey-open-end-zipper.png",
+      "unitConsumption": 1,
+      "unit": "PCS",
+      "source": "imagegen正式原型效果图 / 2026-09-16",
+      "originalFile": "/Users/laoer/.codex/generated_images/01a0a986-0788-71e3-8ce8-4d3770112c8f/exec-db19a4fa-59d1-4cd3-93c0-4048eae02a88.png"
+    },
+    {
+      "materialCode": "HG-DEMO-RIB-GRY",
+      "name": "雾霾灰罗纹袖口与下摆用料",
+      "image": "/production-confirmation-demo/fog-grey-rib-knit.png",
+      "unitConsumption": 0.35,
+      "unit": "米",
+      "source": "imagegen正式原型效果图 / 2026-09-16",
+      "originalFile": "/Users/laoer/.codex/generated_images/01a0a986-0788-71e3-8ce8-4d3770112c8f/exec-63c09996-20ba-4da6-b169-b46dfb4c72e8.png"
+    }
+  ],
+  "quantitySource": "原型演示BOM用量：拉链1PCS/件，罗纹0.35米/件加3%损耗；不代表实际打样核算。"
+}

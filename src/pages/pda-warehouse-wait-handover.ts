@@ -79,7 +79,7 @@ function renderCuttingWaitHandoverActionCards(actions: PdaCuttingWaitHandoverAct
       ${actions.map((item) => `
         <button
           type="button"
-          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          class="rounded-2xl border ${item.key === 'simple-cut-piece-handover' ? 'border-blue-300 bg-blue-50' : 'bg-card'} px-4 py-4 text-left shadow-sm"
           data-nav="${escapeAttr(item.route)}"
           data-pda-cutting-wait-handover-entry="${escapeAttr(item.key)}"
         >

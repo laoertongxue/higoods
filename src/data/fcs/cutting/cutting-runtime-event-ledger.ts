@@ -35,6 +35,7 @@ export type CuttingRuntimeEventType =
   | '中转袋拆袋重装'
   | '交出装袋确认'
   | '新增交出记录'
+  | '简易裁片交出'
   | '特殊工艺交出'
   | '特殊工艺回仓'
   | '中转袋回收'
@@ -600,7 +601,67 @@ export interface SpecialCraftReturnPayload {
   idempotencyKey?: string
 }
 
+/** One persisted warehouse confirmation is also the PPIC and factory receipt. */
+export interface SimpleCutPieceTicketSnapshot {
+  feiTicketId: string
+  feiTicketNo: string
+  sourceOutputLineId: string
+  cutOrderId: string
+  cutOrderNo: string
+  skuCode: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  pieceRange: string
+  pieceQty: number
+  unit: '片'
+}
+export interface SimpleCutPieceRequirementSnapshot {
+  skuCode: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  piecesPerGarment: number
+  allocatedGarmentQty: number
+}
+export interface SimpleCutPieceHandoverPayload {
+  schemaVersion: 1
+  assignmentId: string
+  runtimeTaskId: string
+  taskNo: string
+  taskSheetNo: string
+  taskSheetVersion: string
+  taskTypeLabel: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleCode: string
+  styleName: string
+  styleImageUrl: string
+  factoryId: string
+  factoryName: string
+  ppicId: string
+  ppicName: string
+  warehouseFactoryId: string
+  handoverOrderId: string
+  handoverOrderNo: string
+  handoverRecordId: string
+  handoverRecordNo: string
+  requirementSnapshotId: string
+  requirementSnapshotAt: string
+  skuLines: Array<{ skuCode: string; color: string; size: string; qty: number }>
+  requirements: SimpleCutPieceRequirementSnapshot[]
+  /** Confirmed quantities before this batch, frozen so historical records do not drift. */
+  previousHandedOverLines?: Array<{ skuCode: string; color: string; size: string; partCode: string; partName: string; pieceQty: number }>
+  tickets: SimpleCutPieceTicketSnapshot[]
+  totalPieceQty: number
+  receiptStatus: 'RECEIVED'
+  confirmationBasis: 'WAREHOUSE_CONFIRMATION'
+}
+
 export type CuttingRuntimeEventPayload =
+  | SimpleCutPieceHandoverPayload
   | TransferPrepReadyPayload
   | TransferPickupPayload
   | WaitProcessInboundPayload
@@ -635,7 +696,7 @@ type StrictTransferBagRuntimePayloadByType = {
 
 export type CuttingRuntimeEventPayloadFor<
   T extends CuttingRuntimeEventType,
-> = T extends StrictTransferBagRuntimeEventType
+> = T extends '简易裁片交出' ? SimpleCutPieceHandoverPayload : T extends StrictTransferBagRuntimeEventType
   ? StrictTransferBagRuntimePayloadByType[T]
   : CuttingRuntimeEventPayload
 
@@ -855,6 +916,7 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '中转袋拆袋重装',
     '交出装袋确认',
     '新增交出记录',
+    '简易裁片交出',
     '特殊工艺交出',
     '特殊工艺回仓',
     '中转袋回收',
@@ -937,6 +999,7 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     中转袋拆袋重装: 'BAG-REPACK',
     交出装袋确认: 'BAG-CONFIRM',
     新增交出记录: 'HANDOVER',
+    简易裁片交出: 'SIMPLE-HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',
     中转袋回收: 'BAG-RETURN',
@@ -1012,6 +1075,13 @@ function buildCuttingRuntimeEventFromStore<T extends CuttingRuntimeEventType>(
     input.refs,
     input.payload,
   )
+  if (['菲票装袋', '交出装袋确认', '新增交出记录', '中转袋拆袋重装', '特殊工艺交出'].includes(input.eventType)) {
+    const consumed = store.events.filter((event) => event.eventType === '简易裁片交出' && event.eventStatus !== '已取消')
+      .flatMap((event) => (event.payload as SimpleCutPieceHandoverPayload).tickets || [])
+    if (consumed.some((ticket) => refs.feiTicketIds?.includes(ticket.feiTicketId) || refs.feiTicketNos?.includes(ticket.feiTicketNo))) {
+      throw new Error('菲票已经通过简易裁片交出，不可再次装袋或交出。')
+    }
+  }
   const ledgerSequence = store.events.reduce(
     (maximum, event) => Math.max(
       maximum,
@@ -1431,4 +1501,21 @@ export function listRuntimePdaExecutionEventProjections(
     inboundEvents: listPdaInboundEvents(storage),
     handoverEvents: listPdaHandoverEvents(storage),
   }
+}
+
+/** Read-only views use this fact; they must never copy it into another receipt store. */
+export function listSimpleCutPieceHandoverEvents(
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<'简易裁片交出'>[] {
+  return listCuttingRuntimeEvents(storage).filter((event): event is CuttingRuntimeEvent<'简易裁片交出'> => {
+    if (event.eventType !== '简易裁片交出' || event.eventStatus === '已取消') return false
+    const payload = event.payload as SimpleCutPieceHandoverPayload
+    return payload.schemaVersion === 1 && !!payload.assignmentId && !!payload.handoverRecordId
+      && payload.receiptStatus === 'RECEIVED' && Array.isArray(payload.tickets)
+  })
+}
+
+export function isFeiTicketSimplyHandedOver(feiTicketId: string, feiTicketNo?: string): boolean {
+  return listSimpleCutPieceHandoverEvents().some((event) => event.payload.tickets.some((ticket) =>
+    ticket.feiTicketId === feiTicketId || (!!feiTicketNo && ticket.feiTicketNo === feiTicketNo)))
 }

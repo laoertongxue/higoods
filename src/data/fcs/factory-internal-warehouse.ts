@@ -1,4 +1,4 @@
-import {getReceiptMaterialUsed} from './factory-receiving.ts'
+import {getReceiptMaterialUsed, getFactoryReceivingRevision} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { factoryTypeConfig } from './factory-types.ts'
@@ -2511,11 +2511,15 @@ function hydrateCompletedStocktakeAdjustmentFlows(store: FactoryInternalWarehous
     })
 }
 
+let synchronizedReceivingRevision = -1
 function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
   if (!internalWarehouseStore) {
+    synchronizedReceivingRevision = -1
     internalWarehouseStore = seedFactoryWarehouseStore()
     hydrateCompletedStocktakeAdjustmentFlows(internalWarehouseStore)
   }
+  const receivingRevision = getFactoryReceivingRevision()
+  if (synchronizedReceivingRevision === receivingRevision) return internalWarehouseStore
   for (const inbound of buildFactoryReceiptInboundRecords()) {
     const fresh = buildWaitProcessStockItemFromInbound(inbound)
     let stock = internalWarehouseStore.waitProcessStockItems.find(item => item.stockItemId === fresh.stockItemId)
@@ -2528,6 +2532,7 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
     stock.issuedQty = getReceiptMaterialUsed(receiptLineId, inbound.fabricRollNo)
     stock.availableQty = Math.max(0, inbound.receivedQty - stock.issuedQty)
   }
+  synchronizedReceivingRevision = receivingRevision
   return internalWarehouseStore
 }
 
@@ -2607,6 +2612,7 @@ export function restoreFactoryInternalWarehouseMutationSnapshot(snapshot: Factor
   store.waitHandoverStockItems.splice(0, store.waitHandoverStockItems.length, ...cloneValue(snapshot.waitHandoverStockItems))
   store.inboundRecords.splice(0, store.inboundRecords.length, ...cloneValue(snapshot.inboundRecords))
   store.outboundRecords.splice(0, store.outboundRecords.length, ...cloneValue(snapshot.outboundRecords))
+  synchronizedReceivingRevision = -1
 }
 
 export function listFactoryWarehouseStocktakeOrders(): FactoryWarehouseStocktakeOrder[] {

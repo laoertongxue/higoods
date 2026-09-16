@@ -1,0 +1,2 @@
+PASS factory receiving: eligible sources, real image fields, mixed delivery, short/over/zero, rolls, positions, incremental stock, allocation, grams, idempotence, failed save, reload
+PASS S01 2 originals / 8 rolls / 800 Yard; S05 600+400 delivery, 400+200+400 receipts exactly once; changed-confirmation and blank/source mismatch blocked

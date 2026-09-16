@@ -1,3 +1,4 @@
+import { getSpecialCraftTasksByProductionOrder } from './special-craft-task-orders.ts'
 import { productionDemands } from './production-demands.ts'
 import {
   productionOrders,
@@ -15,12 +16,12 @@ import {
   type TechPackImageSnapshot,
   type TechPackPatternFileSnapshot,
   type TechPackSizeMeasurementSnapshot,
+  type ProductionConfirmationOnlineFacts,
 } from './production-tech-pack-snapshot-types.ts'
 import {
   listRuntimeExecutionTasksByOrder,
   type RuntimeProcessTask,
 } from './runtime-process-tasks.ts'
-import { getSpecialCraftTasksByProductionOrder } from './special-craft-task-orders.ts'
 
 export type ProductionConfirmationStatus = 'PRINTABLE' | 'PRINTED' | 'VOIDED'
 
@@ -62,6 +63,8 @@ export interface ProductionConfirmationBomSnapshotRow {
   unitConsumption: number | null
   lossRate: number | null
   plannedUsageQty: number | null
+  netUsageQty: number | null
+  applicableGarmentQty: number
   usageUnit: string
   materialImageUrl?: string
   printRequirement?: string
@@ -69,9 +72,16 @@ export interface ProductionConfirmationBomSnapshotRow {
   dyeRequirement?: string
   embroideryRequirement?: string
   applicableSkuCodes: string[]
+  partNames: string[]
+  warehouseLabel?: string
+  preparedLabel?: string
 }
 
 export interface ProductionConfirmationPatternFileSnapshot {
+  patternId: string
+  materialLabel: string
+  imageUrl?: string
+  attachments: Array<{ kind: 'DXF' | 'RUL' | 'PRJ' | '纸样'; fileName: string; url: string }>
   patternMaterialType: PatternMaterialType
   patternMaterialTypeLabel: string
   patternCategory?: string
@@ -139,6 +149,22 @@ export interface ProductionConfirmationSnapshot {
   confirmationVersion: number
   createdAt: string
   createdBy: string
+  onlineDisplaySnapshot: {
+    sourceRef?: string
+    garmentDifficultyGrade?: string
+    purchaseOrderNos: string[]
+    saleType: string
+    factoryNames: string[]
+    orderDate: string
+    orderDateSource: string
+    retailTagPrice?: ProductionConfirmationOnlineFacts['retailTagPrice']
+    milestones: NonNullable<ProductionConfirmationOnlineFacts['milestones']>
+    fabricRollIds: string[] | null
+    originalLabelFields: NonNullable<ProductionConfirmationOnlineFacts['originalLabelFields']>
+    colorImages: NonNullable<ProductionConfirmationOnlineFacts['colorImages']>
+    additionalProcesses: string[]
+    bindingStrips: NonNullable<ProductionConfirmationOnlineFacts['bindingStrips']>
+  }
   productionOrderSnapshot: {
     productionOrderNo: string
     legacyOrderNo?: string
@@ -245,7 +271,7 @@ function toLossRatePercent(value: number | undefined): number | null {
 }
 
 function roundNumber(value: number): number {
-  return Math.round(value * 100) / 100
+  return Number(value.toFixed(8))
 }
 
 function sumProductionOrderDemandQty(order: ProductionOrder): number {
@@ -468,11 +494,15 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
   const techPackSnapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPackSnapshot) return []
 
-  const plannedQty = sumProductionOrderDemandQty(order)
-
   return techPackSnapshot.bomItems.map((item) => {
+    const applicableSkuCodes = item.applicableSkuCodes ?? []
+    const plannedQty = applicableSkuCodes.length
+      ? order.demandSnapshot.skuLines.filter((line) => applicableSkuCodes.includes(line.skuCode)).reduce((sum, line) => sum + line.qty, 0)
+      : sumProductionOrderDemandQty(order)
     const lossRate = normalizeLossRate(item.lossRate)
+    const netUsageQty = roundNumber(plannedQty * item.unitConsumption)
     const plannedUsageQty = roundNumber(plannedQty * item.unitConsumption * (1 + lossRate))
+    const materialInfo = techPackSnapshot.onlineConfirmationFacts?.materialInfo?.find((row) => row.materialSku === item.id || row.materialSku === item.materialCode)
 
     return {
       materialType: item.type || '暂无数据',
@@ -484,6 +514,8 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
       unitConsumption: Number.isFinite(item.unitConsumption) ? item.unitConsumption : null,
       lossRate: toLossRatePercent(item.lossRate),
       plannedUsageQty: Number.isFinite(plannedUsageQty) ? plannedUsageQty : null,
+      netUsageQty: Number.isFinite(netUsageQty) ? netUsageQty : null,
+      applicableGarmentQty: plannedQty,
       usageUnit: item.unit || resolveUsageUnit(item.type),
       materialImageUrl: isAllowedLocalImage(item.materialImageUrl) ? item.materialImageUrl : undefined,
       printRequirement: item.printRequirement,
@@ -491,6 +523,9 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
       dyeRequirement: item.dyeRequirement,
       embroideryRequirement: item.embroideryRequirement,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+      partNames: Array.from(new Set(techPackSnapshot.patternFiles.filter((pattern) => pattern.linkedBomItemId === item.id || pattern.linkedMaterialId === item.id || pattern.linkedMaterialSku === item.materialCode).flatMap((pattern) => pattern.pieceRows?.map((row) => row.name) ?? []))),
+      warehouseLabel: materialInfo?.warehouseLabel,
+      preparedLabel: materialInfo?.preparedLabel,
     }
   })
 }
@@ -498,7 +533,12 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
 function buildSizeQtySnapshot(order: ProductionOrder): ProductionConfirmationSnapshot['sizeQtySnapshot'] {
   const skuLines = order.demandSnapshot.skuLines ?? []
   const colors = Array.from(new Set(skuLines.map((line) => line.color))).sort()
-  const sizes = Array.from(new Set(skuLines.map((line) => line.size))).sort((a, b) => a.localeCompare(b))
+  const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', '5XL']
+  const sizes = Array.from(new Set(skuLines.map((line) => line.size))).sort((a, b) => {
+    const left = sizeOrder.indexOf(a.toUpperCase())
+    const right = sizeOrder.indexOf(b.toUpperCase())
+    return left < 0 || right < 0 ? a.localeCompare(b, undefined, { numeric: true }) : left - right
+  })
 
   const rows = colors.map<ProductionConfirmationSizeQtyRow>((color) => {
     const sizeQtyMap: Record<string, number> = {}
@@ -523,6 +563,50 @@ function buildSizeQtySnapshot(order: ProductionOrder): ProductionConfirmationSna
     colors,
     sizes,
     rows,
+  }
+}
+
+function buildPatternAttachments(item: TechPackPatternFileSnapshot): ProductionConfirmationPatternFileSnapshot['attachments'] {
+  const rows: ProductionConfirmationPatternFileSnapshot['attachments'] = []
+  const validUrl = (url: string | undefined): url is string => Boolean(url && (/^\/(?!\/)/.test(url) || /^https:\/\//.test(url) || /^data:(?:application|text)\//.test(url)))
+  for (const [kind, file] of [['DXF', item.dxfFile], ['RUL', item.rulFile], ['PRJ', item.prjFile]] as const) {
+    const url = file?.dataUrl || file?.previewUrl
+    if (file && validUrl(url)) rows.push({ kind, fileName: file.fileName, url })
+  }
+  if (!rows.length && validUrl(item.fileUrl)) {
+    const fileName = item.patternFileName || item.fileName
+    const extension = fileName.split('.').pop()?.toUpperCase()
+    rows.push({ kind: extension === 'DXF' || extension === 'RUL' || extension === 'PRJ' ? extension : '纸样', fileName, url: item.fileUrl })
+  }
+  return rows
+}
+
+function buildOnlineDisplaySnapshot(order: ProductionOrder, assignments: ProductionConfirmationTaskAssignmentSnapshot[]): ProductionConfirmationSnapshot['onlineDisplaySnapshot'] {
+  const pack = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  const facts = pack?.onlineConfirmationFacts
+  const sourced = Boolean(facts?.sourceRef.trim())
+  const originalLabelFields = sourced ? (facts?.originalLabelFields ?? []).filter((row) => row.sourceRef.trim() && row.value.trim()) : []
+  const sourceDemandIds = order.sourceDemandIds?.length ? order.sourceDemandIds : [order.demandId]
+  const price = sourced && facts?.retailTagPrice?.sourceRef.trim() && facts.retailTagPrice.currency.trim() && Number.isFinite(facts.retailTagPrice.amount)
+    ? { ...facts.retailTagPrice }
+    : undefined
+  return {
+    sourceRef: sourced ? facts?.sourceRef : undefined,
+    garmentDifficultyGrade: pack?.garmentDifficultyGrade,
+    purchaseOrderNos: sourced && facts?.purchaseOrderNos?.length
+      ? [...facts.purchaseOrderNos]
+      : Array.from(new Set(productionDemands.filter((demand) => sourceDemandIds.includes(demand.demandId)).map((demand) => demand.legacyOrderNo).filter(Boolean))),
+    saleType: order.demandSnapshot.saleType,
+    factoryNames: Array.from(new Set(assignments.filter((row) => row.assignedFactoryId).map((row) => row.assignedFactoryName).filter((name) => name && !['暂无数据', '待分配'].includes(name)))),
+    orderDate: sourced && facts?.orderDate?.sourceRef.trim() ? facts.orderDate.value : order.createdAt,
+    orderDateSource: sourced && facts?.orderDate?.sourceRef.trim() ? facts.orderDate.sourceRef : `production-order:${order.productionOrderId}:createdAt`,
+    retailTagPrice: price,
+    milestones: sourced ? (facts?.milestones ?? []).filter((row) => row.sourceRef.trim()).map((row) => ({ ...row })) : [],
+    fabricRollIds: sourced && facts?.fabricRolls ? Array.from(new Set(facts.fabricRolls.filter((row) => row.sourceRef.trim() && row.rollId.trim()).map((row) => row.rollId))) : null,
+    originalLabelFields: originalLabelFields.map((row) => ({ ...row })),
+    colorImages: sourced ? (facts?.colorImages ?? []).filter((row) => row.sourceRef.trim() && isAllowedLocalImage(row.imageUrl)).map((row) => ({ ...row, skuCodes: row.skuCodes ? [...row.skuCodes] : undefined })) : [],
+    additionalProcesses: Array.from(new Set((pack?.processEntries ?? []).map((row) => row.craftName || row.processName).filter((name): name is string => Boolean(name?.trim())))),
+    bindingStrips: sourced ? (facts?.bindingStrips ?? []).filter((row) => Number.isFinite(row.length) && row.length >= 0 && row.unit.trim()).map((row) => ({ ...row })) : [],
   }
 }
 
@@ -570,6 +654,12 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
 
   return {
     rows: patternRows.map((item) => ({
+      patternId: item.patternFileId || item.id || '',
+      materialLabel: item.linkedMaterialAlias || item.linkedMaterialName || item.patternName || item.patternFileName || '纸样资料未维护',
+      imageUrl: isAllowedLocalImage(item.markerImage?.previewUrl || item.markerImage?.dataUrl || item.imageUrl)
+        ? item.markerImage?.previewUrl || item.markerImage?.dataUrl || item.imageUrl
+        : undefined,
+      attachments: buildPatternAttachments(item),
       patternMaterialType: item.patternMaterialType || inferPatternMaterialType(order),
       patternMaterialTypeLabel: item.patternMaterialTypeLabel || resolvePatternMaterialTypeLabel(item.patternMaterialType || inferPatternMaterialType(order)),
       patternCategory: item.patternCategory,
@@ -709,6 +799,7 @@ function buildProductionConfirmationSnapshotInternal(
   const demand = resolveDemand(order)
   const sizeQtySnapshot = buildSizeQtySnapshot(order)
   const imageSnapshot = buildImageSnapshot(order)
+  const taskAssignmentSnapshot = buildTaskAssignmentSnapshot(order)
 
   return {
     snapshotId: buildSnapshotId(order.productionOrderNo, confirmationVersion),
@@ -718,10 +809,11 @@ function buildProductionConfirmationSnapshotInternal(
     confirmationVersion,
     createdAt,
     createdBy,
+    onlineDisplaySnapshot: buildOnlineDisplaySnapshot(order, taskAssignmentSnapshot),
     productionOrderSnapshot: {
       productionOrderNo: order.productionOrderNo,
       legacyOrderNo: order.legacyOrderNo,
-      sourceDemandNos: [order.demandId],
+      sourceDemandNos: [...(order.sourceDemandIds?.length ? order.sourceDemandIds : [order.demandId])],
       orderType: inferOrderType(order),
       plannedQty: sizeQtySnapshot.rows.reduce((sum, row) => sum + row.totalQty, 0),
       qtyUnit: '件',
@@ -741,7 +833,7 @@ function buildProductionConfirmationSnapshotInternal(
       sampleImageUrls: buildSampleImageUrls(imageSnapshot.sampleImages),
     },
     bomSnapshot: buildBomSnapshot(order),
-    taskAssignmentSnapshot: buildTaskAssignmentSnapshot(order),
+    taskAssignmentSnapshot,
     sizeQtySnapshot,
     patternSnapshot: buildPatternSnapshot(order),
     imageSnapshot,

@@ -1,0 +1,29 @@
+{
+  "format": "HIGOOD_PROTOTYPE_RULES_V1",
+  "sourceProject": "grey-zip-hoodie.prj",
+  "purpose": "Downloadable mock grading rules; not vendor RUL interchange",
+  "unit": "cm",
+  "baseSize": "M",
+  "sizes": {
+    "S": {
+      "bodyWidth": 52,
+      "bodyLength": 58,
+      "sleeveLength": 55
+    },
+    "M": {
+      "bodyWidth": 54,
+      "bodyLength": 59,
+      "sleeveLength": 56
+    },
+    "L": {
+      "bodyWidth": 56,
+      "bodyLength": 60,
+      "sleeveLength": 57
+    },
+    "XL": {
+      "bodyWidth": 58,
+      "bodyLength": 61,
+      "sleeveLength": 58
+    }
+  }
+}

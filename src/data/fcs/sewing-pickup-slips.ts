@@ -292,13 +292,14 @@ export function getSewingPickupAvailability(
   assignmentId: string,
   objectKind: SewingPickupObjectKind,
 ): { available: boolean; reason: string } {
+  if (objectKind === 'CUT_PIECE') return { available: false, reason: '请打印任务单，并在裁床待交出仓使用简易裁片交出。' }
   try {
     const assignment = requireAssignment(assignmentId)
     const snapshot = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
     const styleImageUrl = snapshot?.imageSnapshot.productImages[0] || snapshot?.imageSnapshot.styleImages[0] || ''
     if (!styleImageUrl) return { available: false, reason: '缺少对应款式图' }
     const lines = buildLines(assignment, objectKind)
-    if (objectKind !== 'CUT_PIECE' && lines.some((line) => !line.imageUrl)) {
+    if (lines.some((line) => !line.imageUrl)) {
       return { available: false, reason: '存在缺少正式图片的物料' }
     }
     return { available: true, reason: '' }
@@ -315,6 +316,7 @@ export function issueSewingPickupSlip(input: {
   printedByPpicName: string
   reprintReason?: string
 }): SewingPickupSlipVersion {
+  if (input.objectKind === 'CUT_PIECE') throw new Error('裁片改用任务单，请从任务打印入口打印。')
   load()
   const assignment = requireAssignment(input.assignmentId)
   if (assignment.ppicId !== input.printedByPpicId || assignment.ppicName !== input.printedByPpicName) {
@@ -325,7 +327,7 @@ export function issueSewingPickupSlip(input: {
   const snapshot = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
   const styleImageUrl = snapshot?.imageSnapshot.productImages[0] || snapshot?.imageSnapshot.styleImages[0] || ''
   if (!styleImageUrl) throw new Error('缺少对应款式图，不能打印领料单')
-  if (input.objectKind !== 'CUT_PIECE' && lines.some((line) => !line.imageUrl)) {
+  if (lines.some((line) => !line.imageUrl)) {
     throw new Error('存在缺少正式图片的物料，不能打印领料单')
   }
   const id = slipId(assignment.assignmentId, input.objectKind)
@@ -335,7 +337,7 @@ export function issueSewingPickupSlip(input: {
   if (current) {
     versions.set(current.versionId, { ...current, status: 'VOIDED', voidedAt: input.printedAt })
   }
-  const objectLabel = input.objectKind === 'CUT_PIECE' ? 'CP' : input.objectKind === 'ACCESSORY' ? 'ACC' : 'MAT'
+  const objectLabel = input.objectKind === 'ACCESSORY' ? 'ACC' : 'MAT'
   const version: SewingPickupSlipVersion = {
     slipId: id,
     slipNo: `LL-${assignment.taskNo || assignment.runtimeTaskId}-${objectLabel}`,
@@ -353,7 +355,7 @@ export function issueSewingPickupSlip(input: {
     factoryName: assignment.factoryName,
     ppicId: assignment.ppicId!,
     ppicName: assignment.ppicName!,
-    warehouseName: input.objectKind === 'CUT_PIECE' ? '裁床待交出仓' : '辅料仓',
+    warehouseName: '辅料仓',
     objectKind: input.objectKind,
     styleCode: snapshot?.styleCode || assignment.productionOrderNo || assignment.productionOrderId,
     styleName: snapshot?.styleName || '款式资料待补充',
@@ -383,7 +385,8 @@ export function getCurrentSewingPickupSlip(
 export function getSewingPickupSlipVersion(versionId: string): SewingPickupSlipVersion | null {
   load()
   const version = versions.get(versionId)
-  if (version) ensureSourceContext(version)
+  // Retired cut-piece papers are historical snapshots, even after their assignment expires.
+  if (version && version.objectKind !== 'CUT_PIECE') ensureSourceContext(version)
   return version ? clone(version) : null
 }
 
@@ -399,6 +402,7 @@ export function getSewingPickupSlipCurrentLines(versionId: string): SewingPickup
   const version = getSewingPickupSlipVersion(versionId)
   if (!version) return []
   if (version.objectKind === 'CUT_PIECE') {
+    if (getEffectiveTaskAssignment(version.assignmentId)?.status !== 'EFFECTIVE') return clone(version.lines)
     const currentById = new Map(getSewingCutPieceResponsibilityProjection(version.assignmentId).lines.map((line) => [line.requirementLineId, line]))
     return version.lines.map((line) => {
       const current = currentById.get(line.sourceLineId)
@@ -426,20 +430,13 @@ export function recordSewingPickupHandover(input: {
   if (prior) return clone(prior)
   const version = versions.get(input.versionId)
   if (!version) throw new Error('未找到领料单版本，请核对二维码')
+  if (version.objectKind === 'CUT_PIECE') throw new Error('该裁片领料单仅供历史查看；请使用当前任务单办理简易裁片交出。')
   const currentVersionId = currentVersionIdBySlip.get(version.slipId)
   if (version.status !== 'CURRENT' || currentVersionId !== version.versionId) {
     throw new Error(`该二维码对应${version.versionLabel}已失效，请扫描当前${versions.get(currentVersionId || '')?.versionLabel || '有效版本'}`)
   }
   if (input.recordedByRole === 'PPIC') throw new Error('PPIC不能代替交出仓确认实交数量')
-  if (version.objectKind === 'CUT_PIECE' && input.recordedByRole !== 'CUTTING_WAREHOUSE') {
-    throw new Error('裁片领料单只能由裁床待交出仓确认')
-  }
-  if (version.objectKind === 'CUT_PIECE' && input.actorFactoryId !== DEDICATED_CUTTING_FACTORY_ID) {
-    throw new Error('当前登录账号不属于裁床待交出仓，不能确认裁片实交')
-  }
-  if (version.objectKind !== 'CUT_PIECE' && input.recordedByRole !== 'MATERIAL_WAREHOUSE') {
-    throw new Error('物料领料单只能由辅料仓确认')
-  }
+  if (input.recordedByRole !== 'MATERIAL_WAREHOUSE') throw new Error('物料领料单只能由辅料仓确认')
   if (!input.quantities.length) throw new Error('本次实交明细不能为空')
   const lineById = new Map(version.lines.map((line) => [line.lineId, line]))
   input.quantities.forEach((item) => {

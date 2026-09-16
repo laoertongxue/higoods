@@ -1,5 +1,5 @@
 import { generatePreparationOrderArtifactsForOrder } from '../production-artifact-generation.ts'
-import { listProcessWorkOrders } from '../process-work-order-domain.ts'
+import { listProcessWorkOrderRelationSources } from '../process-work-order-domain.ts'
 import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { getProductionOrderChangeCurrentFacts } from '../production-tech-pack-change-domain.ts'
@@ -1699,7 +1699,7 @@ function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): 
     reserved.set(key, (reserved.get(key) || 0) + item.preparedQty)
   }
   const tasks = listRuntimeProcessTasks()
-  const preparationOrders = listProcessWorkOrders()
+  let preparationOrders: ReturnType<typeof listProcessWorkOrderRelationSources> | undefined
   let cutSources: ReturnType<typeof listGeneratedCutOrderSourceRecords> | undefined
   return [...materialPrepSeedOrders, ...liveOrders.map(order => {
     const snapshot = order.techPackSnapshot!
@@ -1758,7 +1758,7 @@ function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): 
       const materialArtifacts = prepArtifacts.filter(artifact => artifact.bomItemId === bom.id || artifact.linkedBomItemIds?.includes(bom.id))
       const materialEntryIds = new Set(materialArtifacts.map(artifact => artifact.sourceEntryId))
       const firstPrepArtifacts = materialArtifacts.filter(artifact => !(artifact.predecessorEntryIds ?? []).some(id => materialEntryIds.has(id)))
-      const prepLinks: MaterialPrepTaskLink[] = firstPrepArtifacts.flatMap(artifact => preparationOrders.filter(document => {
+      const prepLinks: MaterialPrepTaskLink[] = firstPrepArtifacts.flatMap(artifact => (preparationOrders ??= listProcessWorkOrderRelationSources()).filter(document => {
         const source = document.sourceSnapshot
         return document.sourceType === 'PRODUCTION_ORDER' && document.processType === artifact.processCode
           && source.productionOrderId === order.productionOrderId && source.techPackVersionId === snapshot.sourceTechPackVersionId

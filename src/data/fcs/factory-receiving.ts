@@ -8,6 +8,9 @@ export type * from './factory-receiving-types.ts'
 export const FACTORY_RECEIVING_KEY='higood-factory-material-receiving-v1'
 interface ReceivingData {version:1;sources:FactoryReceivingSource[];deliveries:FactoryDeliveryNote[];receipts:FactoryReceipt[];allocations:ReceivingAllocation[];defaults:Record<string,ReceiptPosition>;materialUses?:FactoryMaterialUse[]}
 let cache:ReceivingData|undefined
+let receivingRevision = 0
+/** Changes only when the receipt/material-use fact source is replaced. */
+export function getFactoryReceivingRevision(): number { read(); return receivingRevision }
 const clone=<T>(v:T):T=>structuredClone(v)
 function validateStoredReceiving(data:ReceivingData){
  const sourceIds=new Set<string>(),lineIds=new Set<string>(),receiptIds=new Set<string>(),rolls=new Set<string>()
@@ -25,17 +28,18 @@ function read():ReceivingData {
    const corrected=clone(old),line=corrected.lines[0]
    if(line?.dyeOrderId==='DWO-001'){delete line.dyeOrderId;delete line.productionOrderNo;delete line.taskNo;if(JSON.stringify(corrected)===JSON.stringify(seed))saved.sources[saved.sources.indexOf(old)]=corrected}
   }
-  cache=saved}
- else cache={version:1,sources:buildFactoryReceivingDemoSources(),deliveries:[],receipts:[],allocations:[],defaults:{}}
+  cache=saved; receivingRevision += 1}
+ else { cache={version:1,sources:buildFactoryReceivingDemoSources(),deliveries:[],receipts:[],allocations:[],defaults:{}}; receivingRevision += 1 }
  return cache
 }
-function save(next:ReceivingData){validateStoredReceiving(next);const storage=getBrowserLocalStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next}
-export function clearFactoryReceivingCache(){cache=undefined}
+function save(next:ReceivingData){validateStoredReceiving(next);const storage=getBrowserLocalStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next;receivingRevision += 1}
+export function clearFactoryReceivingCache(){cache=undefined;receivingRevision += 1}
 export function captureFactoryReceivingData(){return clone(read())}
 export function restoreFactoryReceivingData(value:ReturnType<typeof captureFactoryReceivingData>){save(clone(value))}
 export function eligibleReceivingSource(s:FactoryReceivingSource):boolean {return !s.voidedAt&&s.lines.length>0&&(s.type==='HANDOUT'?Boolean(s.handedOutAt)&&s.lines.some(l=>l.sentQty>0):Boolean(s.approvedAt))}
 export function listFactoryReceivingSources(factoryId?:string, includeIneligible=false){return clone(read().sources.filter(s=>(!factoryId||s.targetFactoryId===factoryId)&&(includeIneligible||eligibleReceivingSource(s))))}
 export function getFactoryReceivingSource(id:string){return clone(read().sources.find(s=>s.id===id))}
+export function getFactoryReceivingSourceByOriginalRecordId(id:string){return clone(read().sources.find(s=>s.originalRecordId===id))}
 /** A dye order may receive several batches of its one material from its one supplier. */
 export function getDyeReceivingConflict(orderId:string,sku:string,origin:DyePartner):string|undefined {
  const data=read(),demo=DYE_DEMO_DETAILS[orderId],partner=DYE_DEMO_PARTNER_SCENARIOS[orderId]?.upstream

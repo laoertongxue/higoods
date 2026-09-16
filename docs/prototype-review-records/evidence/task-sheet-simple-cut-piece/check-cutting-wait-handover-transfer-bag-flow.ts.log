@@ -1,0 +1,8 @@
+
+===== 裁床待交出仓与中转袋流转治理检查 =====
+通过: 266
+失败: 0
+
+全部断言通过 ✅
+(node:47264) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

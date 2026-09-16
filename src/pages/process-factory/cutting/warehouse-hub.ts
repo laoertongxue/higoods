@@ -5582,6 +5582,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
+  configureWaitHandoverWebActionBridge()
   if (getWarehouseSearchParams().get('inventoryType') === 'binding') {
     return renderBindingInventoryQueryPage()
   }

@@ -1,3 +1,4 @@
+import { isFeiTicketSimplyHandedOver } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { runRuntimeTaskAction } from '../../../data/fcs/runtime-process-tasks.ts'
 import { localDateTimeText } from '../../../utils.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
@@ -1393,7 +1394,7 @@ export function buildWaitHandoverRuntimeProjection(
     generatedTickets,
     inboundTempBags,
     inboundInventoryRecords,
-    ticketCandidates: generatedTickets.filter((ticket) => !currentTicketIds.has(ticket.feiTicketId)),
+    ticketCandidates: generatedTickets.filter((ticket) => !currentTicketIds.has(ticket.feiTicketId) && !isFeiTicketSimplyHandedOver(ticket.feiTicketId, ticket.feiTicketNo)),
     baggingConfirmEvents: runtimeEvents.filter((event) => event.eventType === '交出装袋确认'),
     handoverRecordEvents: runtimeEvents.filter((event) => event.eventType === '新增交出记录'),
   }

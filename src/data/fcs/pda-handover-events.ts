@@ -1,6 +1,7 @@
+import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
 import { PRINTING_FACTORIES } from './printing-factories.ts'
-import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
+import {getFactoryReceivingSourceByOriginalRecordId,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
 import { isRuntimeTaskExecutionTask } from './runtime-process-tasks.ts'
@@ -367,6 +368,7 @@ export interface HandoverProofFile {
 }
 
 export interface PdaHandoverHead {
+  simpleCutPieceReceipt?: boolean
   handoverId: string
   handoverOrderId?: string
   handoverOrderNo?: string
@@ -597,6 +599,10 @@ export type PdaPickupRecordStatus =
   | 'OBJECTION_RESOLVED'
 
 export interface PdaPickupRecord {
+  simpleCutPiece?: SimpleCutPieceHandoverPayload
+  sourceChannel?: string
+  warehouseOperatorId?: string
+  confirmationBasis?: 'WAREHOUSE_CONFIRMATION'
   recordId: string
   handoverId: string
   taskId: string
@@ -3340,6 +3346,7 @@ function getHeadCompletionOverride(handoverId: string): {
 }
 
 function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord[] {
+  if (head.simpleCutPieceReceipt) return buildSimpleCutPieceFactoryReceipts().records.filter((r) => r.handoverId === head.handoverId)
   const mockRecords = PDA_MOCK_PICKUP_RECORDS[head.handoverId]?.map(clonePickupRecord) ?? []
   const taskBoardSeedRecords = buildTaskBoardPickupRecordSeeds(head)
   const doc = head.sourceDocId ? (getCachedWarehouseExecutionDocById(head.sourceDocId) as WarehouseIssueOrder | null) : null
@@ -3432,7 +3439,7 @@ export function linkHandoutToPostReturn(handoverRecordId: string, deliveryId: st
 }
 
 function projectFactoryActualReceipt(record:PdaHandoverRecord):PdaHandoverRecord {
- const source=listFactoryReceivingSources(undefined,true).find(s=>s.originalRecordId===(record.handoverRecordId||record.recordId))
+ const source=getFactoryReceivingSourceByOriginalRecordId(record.handoverRecordId||record.recordId)
  if(!source)return record
  const receipts=getSourceActualReceipts(source.id),latest=receipts.at(-1)
  if(!latest)return record
@@ -3723,7 +3730,7 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
 }
 
 function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
-  return buildHeadsInternal()
+  return [...buildHeadsInternal(), ...buildSimpleCutPieceFactoryReceipts().heads]
     .filter((head) => !factoryId || canPdaFactoryAccessHandoverHead(head, factoryId))
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
@@ -3749,6 +3756,8 @@ function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
 }
 
 function findHead(handoverId: string): PdaHandoverHead | undefined {
+  const simple = buildSimpleCutPieceFactoryReceipts().heads.find((h) => h.handoverId === handoverId)
+  if (simple) return simple
   const nonWoolHead = buildNonWoolHeadsInternal().find((item) => item.handoverId === handoverId)
   if (nonWoolHead) return nonWoolHead
   return listWoolFactHandoverHeads().find((item) => item.handoverId === handoverId)
@@ -3773,6 +3782,8 @@ function findRecord(recordId: string): PdaHandoverRecord | undefined {
 }
 
 function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
+  const simple = buildSimpleCutPieceFactoryReceipts().records.find((r) => r.recordId === recordId)
+  if (simple) return simple
   const issueMatch = /^PKR-(ISSUE-.+)-([0-9]{3})$/.exec(recordId)
   if (issueMatch) {
     const head = buildNonWoolHeadsInternal().find(item => item.headType === 'PICKUP' && item.sourceDocId === issueMatch[1])
@@ -5367,3 +5378,21 @@ export function getOriginalHandoutQuantities(handoverId: string, unit: string): 
 
 // 正常模块加载读取原动作存储，不导入验收归档、不推断已完成数量。
 readFormalHandoutActions()
+
+/** Each warehouse confirmation is an already-received batch, including partial task receipts. */
+export function buildSimpleCutPieceFactoryReceipts(): { heads: PdaHandoverHead[]; records: PdaPickupRecord[]; readError?: string } {
+  const heads: PdaHandoverHead[] = []
+  const records: PdaPickupRecord[] = []
+  let events: ReturnType<typeof listSimpleCutPieceHandoverEvents>
+  try { events = listSimpleCutPieceHandoverEvents() } catch {
+    // This optional receipt read must not break unrelated factory pages. Strict stock/confirmation reads remain unchanged.
+    return { heads, records, readError: '裁片接收记录暂时无法读取，请恢复浏览器存储后刷新；不能据此判断尚未接收。' }
+  }
+  for (const event of events) {
+    const p = event.payload
+    const handoverId = `RECEIPT-${p.handoverRecordId}`
+    heads.push({ simpleCutPieceReceipt: true, handoverId, handoverOrderId: p.handoverOrderId, handoverOrderNo: p.handoverRecordNo, headType: 'PICKUP', qrCodeValue: p.taskSheetNo, taskId: p.runtimeTaskId, runtimeTaskId: p.runtimeTaskId, taskNo: p.taskNo, productionOrderId: p.productionOrderId, productionOrderNo: p.productionOrderNo, processName: p.taskTypeLabel, sourceFactoryId: p.warehouseFactoryId, sourceFactoryName: '裁床待交出仓', targetName: p.factoryName, targetKind: 'FACTORY', receiverId: p.factoryId, receiverName: p.factoryName, qtyUnit: '片', factoryId: p.factoryId, taskStatus: 'IN_PROGRESS', summaryStatus: 'WRITTEN_BACK', handoverOrderStatus: 'WRITTEN_BACK', recordCount: 1, pendingWritebackCount: 0, submittedQtyTotal: p.totalPieceQty, writtenBackQtyTotal: p.totalPieceQty, objectionCount: 0, lastRecordAt: event.occurredAt, plannedQty: p.totalPieceQty, completionStatus: 'COMPLETED', factoryCompletionRequired: false, completedByWarehouseAt: event.occurredAt, qtyExpectedTotal: p.totalPieceQty, qtyActualTotal: p.totalPieceQty, qtyDiffTotal: 0, objectSummary: `简易裁片交出 / ${p.tickets.length} 张菲票`, factoryName: p.factoryName, createdAt: event.createdAt })
+    records.push({ simpleCutPiece: p, confirmationBasis: 'WAREHOUSE_CONFIRMATION', sourceChannel: event.eventSource, warehouseOperatorId: event.operatorId, recordId: p.handoverRecordId, handoverId, taskId: p.runtimeTaskId, sequenceNo: 1, pickupMode: 'FACTORY_PICKUP', pickupModeLabel: '工厂到仓自提', materialSummary: `${p.styleCode} / ${p.tickets.length} 张菲票`, qtyExpected: p.totalPieceQty, qtyActual: p.totalPieceQty, qtyUnit: '片', submittedAt: event.occurredAt, status: 'RECEIVED', receivedAt: event.occurredAt, qrCodeValue: p.taskSheetNo, warehouseHandedQty: p.totalPieceQty, warehouseHandedAt: event.occurredAt, warehouseHandedBy: event.operatorName, factoryConfirmedQty: p.totalPieceQty, factoryConfirmedAt: event.occurredAt, remark: `仓库确认即 PPIC ${p.ppicName} 与 ${p.factoryName} 已接收；实际操作人：${event.operatorName}` })
+  }
+  return { heads, records }
+}

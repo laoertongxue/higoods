@@ -1,3 +1,8 @@
+// @page-pattern: list
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import {
   buildHandoverAfterRecordResult,
   buildUniversalHandoverProjection,
@@ -16,6 +21,9 @@ interface HandoverListFilters {
   keyword: string
   status: string
   receiverType: string
+  method: string
+  dateFrom: string
+  dateTo: string
 }
 
 function getSearchParams(): URLSearchParams {
@@ -89,6 +97,7 @@ function getHandoverListFilters(params = getSearchParams()): HandoverListFilters
     keyword: (params.get('q') || '').trim(),
     status: params.get('status') || '全部',
     receiverType: params.get('receiverType') || '全部',
+    method: params.get('method') || '全部', dateFrom: params.get('dateFrom') || '', dateTo: params.get('dateTo') || '',
   }
 }
 
@@ -115,8 +124,8 @@ function renderHandoverFilters(filters: HandoverListFilters, projection: ReturnT
             ${receiverTypeOptions.map((item) => `<option value="${escapeHtml(item)}"${filters.receiverType === item ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
-        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-handover-filter-action="apply">查询</button>
-        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-handover-filter-action="reset">重置</button>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-handover-filter-action="apply">查询</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-handover-filter-action="reset">重置</button>
       </div>
     </section>
   `
@@ -128,6 +137,9 @@ function recordMatchesKeyword(record: HandoverRecord, keyword: string): boolean 
     record.handoverRecordNo,
     record.handoverOrderNo,
     record.receiverName,
+    record.simpleCutPiece?.taskSheetNo,
+    record.simpleCutPiece?.taskNo,
+    record.simpleCutPiece?.ppicName,
     record.receiverType,
     record.recordStatus,
     record.receiverWritebackStatus,
@@ -148,6 +160,10 @@ function recordMatchesKeyword(record: HandoverRecord, keyword: string): boolean 
 function orderMatchesFilters(order: HandoverOrder, records: HandoverRecord[], filters: HandoverListFilters): boolean {
   if (filters.status !== '全部' && order.status !== filters.status) return false
   if (filters.receiverType !== '全部' && order.receiverType !== filters.receiverType) return false
+  if (filters.method !== '全部' && (order.handoverMethod || '中转袋交出') !== filters.method) return false
+  const date = (order.latestRecordAt || order.createdAt).slice(0, 10)
+  if (filters.dateFrom && date < filters.dateFrom) return false
+  if (filters.dateTo && date > filters.dateTo) return false
   const keyword = filters.keyword.toLowerCase()
   if (!keyword) return true
   const orderText = [
@@ -237,7 +253,7 @@ function renderRecordCompactCard(record: HandoverRecord): string {
       <div class="mt-4 grid gap-3 md:grid-cols-4">
         <div class="rounded-md border bg-background px-3 py-2"><div class="text-xs text-muted-foreground">本次交出</div><div class="mt-1 font-semibold">${formatNumber(currentQty)} 片</div></div>
         <div class="rounded-md border bg-background px-3 py-2"><div class="text-xs text-muted-foreground">累计交出</div><div class="mt-1 font-semibold">${formatNumber(cumulativeQty)} 片</div></div>
-        <div class="rounded-md border bg-background px-3 py-2"><div class="text-xs text-muted-foreground">中转袋</div><div class="mt-1 font-semibold">${formatNumber(record.transferBagUses.length)} 个</div></div>
+        <div class="rounded-md border bg-background px-3 py-2"><div class="text-xs text-muted-foreground">中转袋</div><div class="mt-1 font-semibold">${record.simpleCutPiece ? '不使用中转袋' : `${formatNumber(record.transferBagUses.length)} 个`}</div></div>
         <div class="rounded-md border bg-background px-3 py-2"><div class="text-xs text-muted-foreground">差异 / 异议</div><div class="mt-1 font-semibold">${formatNumber(record.discrepancyItems.length)} / ${formatNumber(record.objectionItems.length)}</div></div>
       </div>
       <div class="mt-3 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
@@ -275,8 +291,9 @@ function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], reco
               </div>
               <div class="mt-4 grid gap-3 md:grid-cols-4">
                 ${renderCompactKpiCard('交出记录', `${order.totalRecordCount} 条`, '一个交出单下可多次交出', 'text-slate-700')}
-                ${renderCompactKpiCard('已交出数量', `${formatNumber(order.totalHandedOverPieceQty)} 片`, '按交出记录累计', 'text-blue-600')}
-                ${renderCompactKpiCard('已接收数量', `${formatNumber(order.totalReceivedPieceQty)} 片`, '接收方回写结果', 'text-emerald-600')}
+                ${renderCompactKpiCard('本单已交出数量', `${formatNumber(order.totalHandedOverPieceQty)} 片`, '按交出记录累计', 'text-blue-600')}
+                ${renderCompactKpiCard('本单已接收数量', `${formatNumber(order.totalReceivedPieceQty)} 片`, '接收方回写结果', 'text-emerald-600')}
+                ${order.taskCumulativeHandedOverPieceQty === undefined ? '' : renderCompactKpiCard('任务累计已交', `${formatNumber(order.taskCumulativeHandedOverPieceQty)} 片`, '包含此前历史交出', 'text-blue-600')}
                 ${renderCompactKpiCard('最新缺口', `${formatNumber(order.shortageAfterLatestRecord)} 片`, '交出后计算结果', order.shortageAfterLatestRecord ? 'text-amber-600' : 'text-slate-700')}
               </div>
             </section>
@@ -355,7 +372,7 @@ function renderRecordDetail(record: HandoverRecord): string {
             <div class="flex flex-wrap items-center gap-2">
               <h1 class="text-lg font-semibold">交出记录详情 ${escapeHtml(record.handoverRecordNo)}</h1>
               ${renderStatusPill(record.recordStatus)}
-              ${renderStatusPill(record.receiverWritebackStatus)}
+              ${renderStatusPill(record.simpleCutPiece ? '仓库确认即接收' : record.receiverWritebackStatus)}
             </div>
             <div class="mt-2 text-sm text-muted-foreground">交出记录号：${escapeHtml(record.handoverRecordNo)} / 交出单：${escapeHtml(record.handoverOrderNo)} / 接收对象：${escapeHtml(record.receiverType)} ${escapeHtml(record.receiverName)}</div>
             <div class="mt-1 text-xs text-muted-foreground">交出人：${escapeHtml(record.handedOverBy)} / ${escapeHtml(record.handedOverAt)}</div>
@@ -364,6 +381,7 @@ function renderRecordDetail(record: HandoverRecord): string {
         </div>
       </section>
 
+      ${record.simpleCutPiece ? `<section class="rounded-lg border bg-card p-4"><h2 class="font-semibold">任务与接收信息</h2><div class="mt-3 flex items-center gap-3"><button data-pda-image-preview-url="${escapeHtml(record.simpleCutPiece.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(record.simpleCutPiece.styleName)}"><img class="h-20 w-20 object-contain" src="${escapeHtml(record.simpleCutPiece.styleImageUrl)}" alt="${escapeHtml(record.simpleCutPiece.styleName)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=false;this.nextElementSibling.textContent='图片加载失败，点击重试预览'"><span>图片加载中</span></button><span>${escapeHtml(record.simpleCutPiece.styleCode)} / ${escapeHtml(record.simpleCutPiece.styleName)}</span></div><p class="mt-2 text-sm">任务单：${escapeHtml(record.simpleCutPiece.taskSheetNo)} / 任务：${escapeHtml(record.simpleCutPiece.taskNo)} / ${escapeHtml(record.simpleCutPiece.taskTypeLabel)}</p><p class="mt-2 text-sm">领取 PPIC：${escapeHtml(record.simpleCutPiece.ppicName)} / 接收工厂：${escapeHtml(record.receiverName)}</p><p class="mt-2 text-sm">方式：简易裁片交出 / 不使用中转袋 / 来源：${escapeHtml(record.sourceChannel || '')}</p><p class="mt-2 text-sm">仓库操作人：${escapeHtml(record.handedOverBy)} / ${escapeHtml(record.warehouseOperatorId || '')} / ${escapeHtml(record.handedOverAt)}</p><p class="mt-2 text-emerald-700">本批已交出、工厂已接收；确认依据：仓库确认即 PPIC 与工厂接收。</p></section>` : ''}
       <section class="grid gap-4 xl:grid-cols-3">
         <article class="rounded-lg border bg-card p-4">
           <h2 class="text-base font-semibold">之前已交</h2>
@@ -489,7 +507,7 @@ function renderRecordDetail(record: HandoverRecord): string {
                   <div class="text-right text-xs text-muted-foreground">${formatNumber(item.pieceQty)} 片</div>
                 </div>
                 <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(`${item.spuCode} / ${item.color} / ${item.size} / ${item.partName} / 编号范围 ${item.pieceSequenceLabel}`)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">中转袋：${escapeHtml(item.targetTransferBagCode)} / 特殊工艺：${escapeHtml(item.specialCraftDisplay)} / 承接工厂：${escapeHtml(item.receiverFactoryDisplay)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${record.simpleCutPiece ? '不使用中转袋' : `中转袋：${escapeHtml(item.targetTransferBagCode)}`} / 特殊工艺：${escapeHtml(item.specialCraftDisplay)} / 承接工厂：${escapeHtml(item.receiverFactoryDisplay)}</div>
               </div>
             `)
             .join('')}
@@ -499,26 +517,37 @@ function renderRecordDetail(record: HandoverRecord): string {
   `
 }
 
+let handoverTicketCounts: Record<string, number> = {}
+const handoverListState = { page: 1, sort: null as StandardListSortState | null, settings: false }
+const handoverColumns: StandardListColumn<HandoverOrder>[] = [
+  { key: 'handoverOrderNo', title: '交出单号', width: 205, required: true, freezeable: true, sortable: true, render: (r) => escapeHtml(r.handoverOrderNo) },
+  { key: 'taskSheetNo', title: '任务单 / 任务', width: 220, required: true, freezeable: true, render: (r) => `${escapeHtml(r.taskSheetNo || '历史单据')}<br>${escapeHtml(r.relatedSewingTaskId || '—')}` },
+  { key: 'production', title: '生产单', width: 160, freezeable: true, render: (r) => escapeHtml(r.relatedProductionOrderIds.join(' / ')) },
+  { key: 'receiverName', title: '接收工厂 / PPIC', width: 190, required: true, freezeable: true, sortable: true, render: (r) => `${escapeHtml(r.receiverName)}<br>${escapeHtml(r.ppicName || '见历史记录')}` },
+  { key: 'handoverMethod', title: '交出方式', width: 145, freezeable: true, render: (r) => escapeHtml(r.handoverMethod || '中转袋交出') },
+  { key: 'tickets', title: '菲票张数', width: 110, freezeable: true, render: (r) => `${handoverTicketCounts[r.handoverOrderId] || 0} 张` },
+  { key: 'totalHandedOverPieceQty', title: '本单已交 / 已收', width: 180, freezeable: true, sortable: true, render: (r) => `${r.totalHandedOverPieceQty} / ${r.totalReceivedPieceQty} 片${r.taskCumulativeHandedOverPieceQty === undefined ? '' : `<div class="mt-1 text-xs text-muted-foreground">任务累计 ${r.taskCumulativeHandedOverPieceQty} 片</div>`}` },
+  { key: 'status', title: '任务累计状态', width: 130, freezeable: true, render: (r) => renderStatusPill(r.status) },
+  { key: 'latestRecordAt', title: '最近交出时间', width: 175, freezeable: true, sortable: true, render: (r) => escapeHtml(r.latestRecordAt || '—') },
+  { key: 'actions', title: '操作', width: 130, required: true, actionColumn: true, render: (r) => `<a class="text-blue-700" data-nav="${orderDetailHref(r.handoverOrderId)}">详情</a> <a class="text-blue-700" data-nav="${orderRecordsHref(r.handoverOrderId)}">交出记录</a>` },
+]
+const handoverPreferenceKey = 'list:/fcs/craft/cutting/handover-orders'
+const handoverDefaults = { order: handoverColumns.map((c) => c.key), visibleKeys: handoverColumns.map((c) => c.key), frozenKeys: ['handoverOrderNo'], pageSize: 20 }
+let handoverPreferences = typeof localStorage === 'undefined' ? handoverDefaults : loadListColumnPreferences(localStorage, handoverPreferenceKey, handoverColumns, handoverDefaults, [10, 20, 50])
+function renderHandoverColumnSettings(): string {
+  if (!handoverListState.settings) return ''
+  return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30"><section class="h-full w-96 max-w-full overflow-auto bg-white p-4"><h2 class="font-semibold">列设置</h2>${handoverPreferences.order.map((key, i) => { const c = handoverColumns.find((x) => x.key === key)!; return `<div class="my-3 flex items-center gap-2 text-sm"><span class="flex-1">${escapeHtml(c.title)}</span><button data-skip-page-rerender="true" data-handover-list-action="visible" data-key="${key}" ${c.required ? 'disabled' : ''}>${handoverPreferences.visibleKeys.includes(key) ? '隐藏' : '显示'}</button>${!c.actionColumn ? `<button data-skip-page-rerender="true" data-handover-list-action="freeze" data-key="${key}">${handoverPreferences.frozenKeys.includes(key) ? '取消冻结' : '冻结'}</button><button data-skip-page-rerender="true" data-handover-list-action="up" data-key="${key}" ${i === 0 ? 'disabled' : ''}>上移</button>` : ''}</div>` }).join('')}<button data-skip-page-rerender="true" data-handover-list-action="close-settings" class="rounded border px-3 py-2">关闭</button></section></div>`
+}
 export function renderCraftCuttingHandoverOrdersPage(): string {
+  if (typeof document !== 'undefined' && !document.querySelector('[data-handover-list-root]')) { handoverListState.page = 1; handoverListState.sort = null }
   const projection = buildUniversalHandoverProjection()
   const filters = getHandoverListFilters()
-  const meta = getCanonicalCuttingMeta('handover-orders')
-  const recordsByOrderId = projection.recordsByOrderId
-  const orders = projection.orders.filter((order) => orderMatchesFilters(order, recordsByOrderId[order.handoverOrderId] || [], filters))
-  const orderIds = new Set(orders.map((order) => order.handoverOrderId))
-  const records = projection.records.filter((record) => orderIds.has(record.handoverOrderId))
-  return `
-    ${renderCuttingPageHeader(meta)}
-    <main class="space-y-4">
-      ${renderHandoverFilters(filters, projection)}
-      ${renderHandoverStats(orders, records)}
-      <section class="grid gap-4">
-        ${orders.length
-          ? orders.map((order) => renderOrderCard(order, recordsByOrderId[order.handoverOrderId] || [])).join('')
-          : '<div class="rounded-lg border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">暂无符合筛选条件的交出单。</div>'}
-      </section>
-    </main>
-  `
+  const orders = projection.orders.filter((o) => orderMatchesFilters(o, projection.recordsByOrderId[o.handoverOrderId] || [], filters))
+  handoverTicketCounts = Object.fromEntries(Object.entries(projection.recordsByOrderId).map(([id, records]) => [id, records.reduce((n, r) => n + r.feiTicketItems.length, 0)]))
+  const sorted = sortStandardListRows(orders, handoverListState.sort, (r, key) => (r as unknown as Record<string, unknown>)[key])
+  const paging = paginateStandardListRows(sorted, handoverListState.page, handoverPreferences.pageSize)
+  handoverListState.page = paging.currentPage
+  return `<div data-handover-list-root>${renderStandardListPage({ title: '裁床交出单', filtersHtml: `<div class="rounded-lg border bg-card p-3"><div class="flex flex-wrap gap-3"><label>任务单 / 任务 / 生产单 / 工厂<input data-handover-filter-field="keyword" class="mt-1 block h-9 rounded border px-2" value="${escapeHtml(filters.keyword)}"></label>${[['status', '状态', ['全部', ...new Set(projection.orders.map((r) => r.status))]], ['receiverType', '接收对象', ['全部', ...projection.receiverTypes]], ['method', '交出方式', ['全部', '简易裁片交出', '中转袋交出']]].map(([key, label, options]) => `<label>${label}<select class="mt-1 block h-9 rounded border" data-handover-filter-field="${key}">${(options as string[]).map((v) => `<option ${v === filters[key as keyof HandoverListFilters] ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select></label>`).join('')}<label>开始日期<input type="date" class="mt-1 block h-9 rounded border" data-handover-filter-field="dateFrom" value="${filters.dateFrom}"></label><label>结束日期<input type="date" class="mt-1 block h-9 rounded border" data-handover-filter-field="dateTo" value="${filters.dateTo}"></label></div><div class="mt-3 flex gap-2"><button class="rounded bg-blue-600 px-4 py-2 text-white" data-skip-page-rerender="true" data-handover-filter-action="apply">查询</button><button class="rounded border px-4 py-2" data-skip-page-rerender="true" data-handover-filter-action="reset">重置</button><button class="rounded border px-4 py-2" data-skip-page-rerender="true" data-handover-list-action="export">导出</button></div></div>`, statsHtml: renderStandardListStats([{label: '交出单', value: orders.length}, {label: '交出批次', value: orders.reduce((n, r) => n + r.totalRecordCount, 0)}, {label: '已交裁片', value: `${orders.reduce((n, r) => n + r.totalHandedOverPieceQty, 0)} 片`}, {label: '已收裁片', value: `${orders.reduce((n, r) => n + r.totalReceivedPieceQty, 0)} 片`}]), listTitle: `交出单列表 · ${orders.length} 条`, listActionsHtml: '<button class="rounded border px-3 py-2" data-skip-page-rerender="true" data-handover-list-action="settings">列设置</button>', tableHtml: renderStandardListTable({columns: handoverColumns, rows: paging.rows, preferences: handoverPreferences, sort: handoverListState.sort, eventPrefix: 'handover-list', skipPageRerender: true}), paginationHtml: renderTablePagination({...paging, actionPrefix: 'handover-list', skipPageRerender: true}), overlaysHtml: renderHandoverColumnSettings() })}</div>`
 }
 
 export function renderCraftCuttingHandoverOrderDetailPage(handoverOrderId?: string): string {
@@ -540,6 +569,32 @@ export function renderCraftCuttingHandoverRecordDetailPage(handoverRecordId?: st
 }
 
 export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean {
+  const listNode = target.closest<HTMLElement>('[data-handover-list-action]')
+  const pageSizeNode = target.closest<HTMLSelectElement>('[data-handover-list-field="pageSize"]')
+  if (listNode || pageSizeNode) {
+    const action = listNode?.dataset.handoverListAction, key = listNode?.dataset.key || listNode?.dataset.columnKey || ''
+    if (pageSizeNode) { handoverPreferences.pageSize = Number(pageSizeNode.value); handoverListState.page = 1 }
+    if (action === 'settings') handoverListState.settings = true
+    if (action === 'close-settings') handoverListState.settings = false
+    if (action === 'prev-page') handoverListState.page--
+    if (action === 'next-page') handoverListState.page++
+    if (action === 'sort-column') handoverListState.sort = handoverListState.sort?.key !== key ? {key, direction: 'asc'} : handoverListState.sort.direction === 'asc' ? {key, direction: 'desc'} : null
+    if (action === 'visible') handoverPreferences.visibleKeys = handoverPreferences.visibleKeys.includes(key) ? handoverPreferences.visibleKeys.filter((x) => x !== key) : [...handoverPreferences.visibleKeys, key]
+    if (action === 'freeze' && !handoverPreferences.frozenKeys.includes(key) && handoverColumns.filter((c) => handoverPreferences.frozenKeys.includes(c.key) || c.key === key).reduce((n, c) => n + c.width, 0) > 480) { window.alert('冻结列总宽度不能超过 480 像素，请先取消其他列冻结。'); return true }
+    if (action === 'freeze') handoverPreferences.frozenKeys = handoverPreferences.frozenKeys.includes(key) ? handoverPreferences.frozenKeys.filter((x) => x !== key) : [...handoverPreferences.frozenKeys, key]
+    if (action === 'up') { const i = handoverPreferences.order.indexOf(key); if (i > 0) [handoverPreferences.order[i - 1], handoverPreferences.order[i]] = [handoverPreferences.order[i], handoverPreferences.order[i - 1]] }
+    if (action === 'export') {
+      const p = buildUniversalHandoverProjection(), f = getHandoverListFilters(), rows = p.orders.filter((o) => orderMatchesFilters(o, p.recordsByOrderId[o.handoverOrderId] || [], f))
+      if (!rows.length) { window.alert('当前查询没有可导出记录'); return true }
+      const csv = [['交出单', '任务单', '工厂', 'PPIC', '交出方式', '本单已交片数', '本单已收片数', '状态'], ...rows.map((r) => [r.handoverOrderNo, r.taskSheetNo || '', r.receiverName, r.ppicName || '', r.handoverMethod || '中转袋交出', r.totalHandedOverPieceQty, r.totalReceivedPieceQty, r.status])].map((row) => row.map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(',')).join('\n')
+      const url = URL.createObjectURL(new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'})), a = document.createElement('a'); a.href = url; a.download = '裁床交出单.csv'; a.click(); URL.revokeObjectURL(url); return true
+    }
+    handoverPreferences = normalizeListColumnPreferences(handoverColumns, handoverPreferences, [10, 20, 50])
+    try { localStorage.setItem(handoverPreferenceKey, JSON.stringify(handoverPreferences)) } catch {}
+    document.querySelector('[data-handover-list-root]')?.setAttribute('data-skip-page-rerender', 'true')
+    const root = document.querySelector('[data-handover-list-root]'); if (root) root.outerHTML = renderCraftCuttingHandoverOrdersPage()
+    return true
+  }
   const actionNode = target.closest<HTMLElement>('[data-handover-filter-action]')
   const action = actionNode?.dataset.handoverFilterAction
   if (!actionNode || !action) return false
@@ -549,6 +604,8 @@ export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean 
     const keyword = document.querySelector<HTMLInputElement>('[data-handover-filter-field="keyword"]')?.value.trim() || ''
     const status = document.querySelector<HTMLSelectElement>('[data-handover-filter-field="status"]')?.value || '全部'
     const receiverType = document.querySelector<HTMLSelectElement>('[data-handover-filter-field="receiverType"]')?.value || '全部'
+    handoverListState.page = 1
+    for (const field of ['method', 'dateFrom', 'dateTo']) { const value = document.querySelector<HTMLInputElement>(`[data-handover-filter-field="${field}"]`)?.value || ''; if (value && value !== '全部') params.set(field, value); else params.delete(field) }
     if (keyword) params.set('q', keyword)
     else params.delete('q')
     if (status !== '全部') params.set('status', status)
@@ -556,6 +613,8 @@ export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean 
     if (receiverType !== '全部') params.set('receiverType', receiverType)
     else params.delete('receiverType')
   } else {
+    handoverListState.page = 1
+    for (const field of ['method', 'dateFrom', 'dateTo']) params.delete(field)
     params.delete('q')
     params.delete('status')
     params.delete('receiverType')
@@ -564,6 +623,7 @@ export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean 
   const suffix = params.toString()
   const href = suffix ? `${window.location.pathname}?${suffix}` : window.location.pathname
   window.history.pushState({}, '', href)
-  window.dispatchEvent(new PopStateEvent('popstate'))
+  const listRoot = document.querySelector('[data-handover-list-root]')
+  if (listRoot) listRoot.outerHTML = renderCraftCuttingHandoverOrdersPage()
   return true
 }

@@ -6,6 +6,7 @@ import {
   appendCuttingRuntimeEventIdempotentValidated,
   buildCuttingRuntimeEventId,
   listCuttingRuntimeEvents,
+  listSimpleCutPieceHandoverEvents,
   type AppendCuttingRuntimeEventInput,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
@@ -434,6 +435,10 @@ export function resolveWholeBagHandoverEligibility(
   }
   if (!currentUse.tickets.length) {
     return failedWholeBagHandover('当前中转袋没有菲票，不能整袋交出。')
+  }
+  const simplyHandedOver = new Set(listSimpleCutPieceHandoverEvents().flatMap((event) => event.payload.tickets.map((ticket) => ticket.feiTicketId)))
+  if (currentUse.tickets.some((ticket) => simplyHandedOver.has(ticket.feiTicketId))) {
+    return failedWholeBagHandover('袋内菲票已经通过简易裁片交出，请重新核对袋内裁片。')
   }
 
   if (handoverContext) {

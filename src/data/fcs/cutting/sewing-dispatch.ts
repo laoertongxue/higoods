@@ -1,3 +1,4 @@
+import { listSimpleCutPieceHandoverEvents, isFeiTicketSimplyHandedOver } from './cutting-runtime-event-ledger.ts'
 import { listCuttingRuntimeEventsByType } from './cutting-runtime-event-ledger.ts'
 import { listWoolPanelCuttingReceiptSources } from '../wool-domain/cutting-receipts.ts'
 import { buildStableWoolPartCode } from '../wool-domain/tech-pack-source.ts'
@@ -1200,7 +1201,7 @@ function findDispatchOrderById(storeRef: CuttingSewingDispatchStore, dispatchOrd
 
 function getOccupiedFeiTicketNos(options?: { excludeBagId?: string }): Set<string> {
   const storeRef = ensureCuttingSewingDispatchSeeded()
-  const occupied = new Set<string>()
+  const occupied = new Set<string>(listSimpleCutPieceHandoverEvents().flatMap((event) => event.payload.tickets.map((ticket) => ticket.feiTicketNo)))
   storeRef.transferBags.forEach((bag) => {
     if (options?.excludeBagId && bag.transferBagId === options.excludeBagId) return
     if (bag.status === '已回写' || bag.status === '差异' || bag.status === '异议中') {
@@ -2948,6 +2949,7 @@ export function submitCuttingSewingDispatchBatch(input: {
   if (blocking) throw new Error(blocking.validationMessage)
   const batch = findDispatchBatchById(storeRef, input.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
+  if (batch.feiTicketNos.some((no) => isFeiTicketSimplyHandedOver('', no))) throw new Error('本批菲票已经通过简易裁片交出，请重新核对。')
   const submittedPieceQty = getDispatchBatchPieceQty(storeRef, batch)
   if (submittedPieceQty <= 0) throw new Error('当前没有可交出裁片，不能新增交出记录')
   const gapSummary = buildDispatchGapSummary(validation.validationResults)
