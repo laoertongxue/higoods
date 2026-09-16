@@ -213,7 +213,7 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
     galleryImageUrls: buildStyleFixture('SPU-2026-018', '设计款印花阔腿连体裤').galleryImageUrls,
     imageSource: '历史初始化',
     sellingPointText: '设计改款任务关联的正式演示款式档案。',
-    detailDescription: '用于串联设计改款来源、工程主单、后续技术包版本和渠道店铺商品的正式主档。',
+    detailDescription: '用于串联设计改款来源、生产准备单、后续技术包版本和渠道店铺商品的正式主档。',
     packagingInfo: '独立包装袋 + 吊牌，常规折叠入箱',
     remark: '补充的设计改款任务演示款式档案。',
     generatedAt: '2026-04-01 18:20',

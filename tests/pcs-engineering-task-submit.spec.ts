@@ -109,7 +109,7 @@ for (const [index, status] of (['技术包审核中', '待关闭'] as const).ent
   setEngineeringMasterStatus(blockedPublished.masterOrderId, status)
   assert.throws(
     () => submitEngineeringTaskResult(blockedPublished.masterOrderId, `${blockedPublished.masterOrderId}-BASE_PATTERN_WOVEN`),
-    /仅进行中的工程主单/,
+    /仅进行中的生产准备单/,
     `${status}主单不得继续提交任务成果`,
   )
   setEngineeringMasterStatus(blockedPublished.masterOrderId, '已终止')

@@ -345,36 +345,35 @@ function normalizeSourceTaskType(
   value: string | null | undefined,
 ): StoredTechPackSourceTaskType {
   if (value !== 'ENGINEERING_MASTER') {
-    throw new Error('技术包版本必须来源于工程主单。')
+    throw new Error('技术包版本必须来源于生产准备单。')
   }
   return value
 }
 
 function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
   if (record.createdFromTaskType !== 'ENGINEERING_MASTER') {
-    throw new Error('技术包新版本只能由工程主单生成。')
+    throw new Error('技术包新版本只能由生产准备单生成。')
   }
   if (!record.sourceProjectId.trim() || !record.createdFromTaskId.trim()) {
     throw new Error('技术包必须同时记录来源对象和来源任务。')
   }
 
   const master = getEngineeringMasterOrderById(record.sourceProjectId)
-  if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
+  if (!master) throw new Error(`生产准备单不存在：${record.sourceProjectId}`)
   const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
   if (!sourceTask) {
-    throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
+    throw new Error(`生产准备单任务不存在：${record.createdFromTaskId}`)
   }
   if (sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
-    throw new Error('工程主单来源任务必须是技术包确认任务。')
+    throw new Error('生产准备单来源任务必须是技术包确认任务。')
   }
   if (master.styleId !== record.styleId) {
-    throw new Error('技术包款式与工程主单款式不一致。')
+    throw new Error('技术包款式与生产准备单款式不一致。')
   }
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
-  void value
-  return '工程主单生成'
+  return '生产准备单生成'
 }
 
 function normalizeGarmentDifficultyGrade(value: unknown): TechnicalGarmentDifficultyGrade {

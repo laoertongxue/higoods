@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
@@ -8,6 +8,10 @@ import {
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import type { EngineeringTaskMaterialLine } from '../src/data/pcs-engineering-master-types.ts'
+import {
+  listEngineeringIndependentSamplingRecords,
+  resetEngineeringIndependentSamplingRepository,
+} from '../src/data/pcs-engineering-master-sampling.ts'
 import { renderProductionPreparationTimingPage } from '../src/pages/production/preparation-timing.ts'
 
 function dyeLine(materialLineId: string): EngineeringTaskMaterialLine {
@@ -30,10 +34,19 @@ function dyeLine(materialLineId: string): EngineeringTaskMaterialLine {
 }
 
 resetStyleArchiveRepository()
+resetEngineeringIndependentSamplingRepository(true)
 resetEngineeringMasterRepository()
 
-const style = listStyleArchives()[0]
-assert.ok(style)
+const completedDesignRevision = listEngineeringIndependentSamplingRecords().find((record) =>
+  record.status === 'COMPLETED'
+  && record.professionalTasks.some((task) =>
+    task.taskType === 'BASE_PATTERN'
+    && task.results.some((result) => result.status === 'APPROVED' && result.files.some((file) => file.extension === 'prj')),
+  ),
+)
+assert.ok(completedDesignRevision, '应存在已完成且带真实基码纸样的设计改款演示数据')
+const style = getStyleArchiveById(completedDesignRevision.targetStyleId)
+assert.ok(style, '设计改款目标款应已建档')
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
@@ -64,7 +77,7 @@ assert.match(html, /确认染色要求（面料）/)
 assert.match(html, /2026-08-01 10:15/, '生产准备时效必须读取跟单确认染色要求完成时间')
 assert.match(html, /染色调色（面料）/)
 assert.match(html, /2026-08-01 14:30/, '生产准备时效必须读取买手最终审核通过时间')
-assert.match(html, new RegExp(master.masterOrderCode), '工程来源准备项必须展示工程主单来源')
-assert.doesNotMatch(html, /证据缺失/, '工程主单节点时间本身就是生产准备只读完成证据')
+assert.match(html, new RegExp(master.masterOrderCode), '工程来源准备项必须展示生产准备单来源')
+assert.doesNotMatch(html, /证据缺失/, '生产准备单节点时间本身就是生产准备只读完成证据')
 
 console.log('PCS 调色节点已接入生产准备时效只读视图链路')

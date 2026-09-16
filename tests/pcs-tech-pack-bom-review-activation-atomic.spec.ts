@@ -27,7 +27,6 @@ import { listProjectRelationsByProject } from '../src/data/pcs-project-relation-
 import { getProjectById } from '../src/data/pcs-project-repository.ts'
 import {
   getStyleArchiveById,
-  listStyleArchives,
 } from '../src/data/pcs-style-archive-repository.ts'
 import {
   listTechPackVersionLogs,
@@ -60,6 +59,7 @@ import { getEngineeringTaskDefinition } from '../src/data/pcs-engineering-depend
 import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
 import { resolveEngineeringLinkedPartTemplateVersions } from '../src/data/pcs-engineering-bom-snapshot-source.ts'
 import * as snapshotSourcePublicApi from '../src/data/pcs-engineering-bom-snapshot-source.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 function createMaterial(input: {
   costPrice: number
@@ -124,9 +124,8 @@ function changePrice(materialSkuId: string, costPrice: number): void {
 }
 
 const baseRecord = listTechnicalDataVersions()[0]
-const style = listStyleArchives()[0]
+const style = resetAndGetProductionPreparationStyle()
 assert.ok(baseRecord)
-assert.ok(style)
 const productProjectId = style.sourceProjectId
 assert.ok(productProjectId, '技术包启用原子性测试需要款式关联的商品项目')
 assert.ok(getProjectById(productProjectId), '款式来源商品项目必须真实存在')
@@ -389,7 +388,7 @@ for (const failureStep of activationFailureSteps) {
   assert.deepEqual(
     listProjectRelationsByProject(engineeringMaster.masterOrderId),
     masterRelationBefore,
-    `${failureStep} 失败后不得残留以工程主单 ID 冒充商品项目 ID 的关系`,
+    `${failureStep} 失败后不得残留以生产准备单 ID 冒充商品项目 ID 的关系`,
   )
   assert.deepEqual(getProjectArchiveFacts(productProjectId), archiveBefore, `${failureStep} 失败后项目归档仓必须恢复`)
   assert.deepEqual(listTechPackVersionLogs(), logsBefore, `${failureStep} 失败后启用日志仓必须恢复`)
@@ -454,7 +453,7 @@ assert.ok(
 assert.equal(
   listProjectRelationsByProject(engineeringMaster.masterOrderId).some((item) => item.sourceObjectId === successVersionId),
   false,
-  '不得生成以工程主单 ID 冒充商品项目 ID 的孤立关系',
+  '不得生成以生产准备单 ID 冒充商品项目 ID 的孤立关系',
 )
 
 // 快照 BOM 必须与普通 BOM 使用同等级深克隆，读取结果的嵌套数组变异不得污染仓储。

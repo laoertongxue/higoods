@@ -80,10 +80,10 @@ function completeSourceEngineeringTechPackTask(
 ): void {
   if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
   const master = getEngineeringMasterOrderById(record.sourceProjectId)
-  if (!master) throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  if (!master) throw new Error(`技术包来源生产准备单不存在：${record.sourceProjectId}`)
   const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
   if (!sourceTask || sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
-    throw new Error('技术包来源任务不是同一工程主单的技术包确认任务，不能正式启用。')
+    throw new Error('技术包来源任务不是同一生产准备单的技术包确认任务，不能正式启用。')
   }
   assertEngineeringTaskCanComplete(master, sourceTask)
   updateEngineeringTaskRecord(master.masterOrderId, sourceTask.taskId, (task) => {

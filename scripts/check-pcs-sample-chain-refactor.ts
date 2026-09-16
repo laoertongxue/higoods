@@ -6,9 +6,9 @@ const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), 
 const dispatcher = read('src/pages/pcs-engineering-tasks.ts')
 const page = read('src/pages/pcs-engineering-tasks/first-sample-task.ts')
 
-assert.match(page, /PRE_PRODUCTION_SAMPLE/, '首单样衣必须绑定工程主单任务类型')
-assert.match(page, /listEngineeringTasksByType/, '首单样衣必须从工程主单任务读取')
-assert.match(page, /submitEngineeringTaskResult/, '首单样衣成果必须写入工程主单任务')
+assert.match(page, /PRE_PRODUCTION_SAMPLE/, '首单样衣必须绑定生产准备单任务类型')
+assert.match(page, /listEngineeringTasksByType/, '首单样衣必须从生产准备单任务读取')
+assert.match(page, /submitEngineeringTaskResult/, '首单样衣成果必须写入生产准备单任务')
 assert.match(page, /resultImageIds/, '首单样衣成果必须维护结果图片')
 assert.match(page, /resultQuantity/, '首单样衣成果必须维护制作数量')
 assert.match(dispatcher, /renderPcsFirstOrderSampleTaskPage\s*=\s*renderPcsFirstSampleTaskPage/, '旧路由入口只能别名到首单样衣')

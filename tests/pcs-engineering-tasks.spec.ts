@@ -57,7 +57,7 @@ resetPcsEngineeringTaskRepositories()
 resetPcsEngineeringTaskState()
 
 const style = listStyleArchives()[0]
-assert.ok(style, '应存在用于工程主单的款式档案')
+assert.ok(style, '应存在用于生产准备单的款式档案')
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
@@ -93,7 +93,7 @@ const knitPlateTaskId = masterTaskId(master.masterOrderId, 'BASE_PATTERN_KNIT')
 const patternTaskId = masterTaskId(master.masterOrderId, 'PATTERN_ARTWORK')
 const sampleTaskId = masterTaskId(master.masterOrderId, 'PRE_PRODUCTION_SAMPLE')
 
-// 三个专业页只读取同一工程主单生成的任务 ID 和状态，不能再各自读取旧仓库。
+// 三个专业页只读取同一生产准备单生成的任务 ID 和状态，不能再各自读取旧仓库。
 const plateListHtml = renderPcsPlateMakingTaskPage()
 const patternListHtml = renderPcsPatternTaskPage()
 const sampleListHtml = renderPcsFirstSampleTaskPage()
@@ -103,8 +103,8 @@ for (const [html, taskId, title] of [
   [sampleListHtml, sampleTaskId, '首单样衣任务'],
 ] as const) {
   assert.match(html, new RegExp(title), `${title}页面应使用当前业务名称`)
-  assert.ok(html.includes(taskId), `${title}页面应展示工程主单任务 ID`)
-  assert.ok(html.includes(master.masterOrderCode), `${title}页面应展示所属工程主单`)
+  assert.ok(html.includes(taskId), `${title}页面应展示生产准备单任务 ID`)
+  assert.ok(html.includes(master.masterOrderCode), `${title}页面应展示所属生产准备单`)
 }
 assert.match(patternListHtml, /未启用/, '未带入印花物料时花型任务应保持未启用')
 assert.doesNotMatch(sampleListHtml, /首版样衣|首单确认|验收与结论/, '首单样衣页面不应保留旧样衣事实或验收')
@@ -122,7 +122,7 @@ const patternVersion = submitEngineeringPatternResult({
 })
 assert.equal(getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === plateTaskId)?.status, '已完成', '制版任务提交真实纸样成果即完成')
 const plateDetailHtml = renderPcsPlateMakingTaskDetailPage(plateTaskId)
-assert.match(plateDetailHtml, /已完成/, '制版详情应读取工程主单完成状态')
+assert.match(plateDetailHtml, /已完成/, '制版详情应读取生产准备单完成状态')
 
 // 花型任务的提交目标为待审核；当前未带入印花物料时，提交必须被真实门禁阻止。
 assert.throws(
@@ -131,7 +131,7 @@ assert.throws(
   '未满足 BOM 印花条件的花型任务不得伪造为已提交',
 )
 const patternDetailHtml = renderPcsPatternTaskDetailPage(patternTaskId)
-assert.match(patternDetailHtml, /未启用/, '花型详情应读取工程主单任务状态')
+assert.match(patternDetailHtml, /未启用/, '花型详情应读取生产准备单任务状态')
 
 // 首单样衣只接受完整成果；制作团队提交后即完成，无任务级验收。
 startEngineeringTaskFromDetail(sampleTaskId)
@@ -181,5 +181,5 @@ assert.equal(handlePcsEngineeringTaskEvent(quickFilterTarget), true, '统一事�
 assert.match(renderPcsFirstSampleTaskPage(), /已完成/, '快捷筛选后的列表应仍显示当前工程任务状态')
 
 const storedMaster = getEngineeringMasterOrderById(master.masterOrderId)
-assert.equal(storedMaster?.tasks.find((task) => task.taskId === sampleTaskId)?.status, '已完成', '专业页面提交必须写回工程主单唯一事实源')
+assert.equal(storedMaster?.tasks.find((task) => task.taskId === sampleTaskId)?.status, '已完成', '专业页面提交必须写回生产准备单唯一事实源')
 console.log('pcs-engineering-tasks.spec.ts PASS')

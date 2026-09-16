@@ -298,7 +298,7 @@ export function buildSewingOutsourcingMigrationAuditReport(): SewingMigrationAud
     quantityUnit: '',
     detail: '内部旧编码只用于兼容历史读取；PCS用户可见名称为“首单样衣”。三方车缝工厂制作的实物才是“产前版样衣”，核查业务动作叫“批版建议”。',
     recoveryAction: '不把历史泛化“首件确认”自动迁成批版建议；新记录分别使用产前版样衣身份和批版建议业务记录。',
-    sourceHref: '/pcs/samples/first-sample',
+    sourceHref: '/pcs/production-preparation/first-sample',
   }))
 
   const statusCounts: Record<SewingMigrationAuditStatus, number> = { PASS: 0, BLOCKED: 0, MANUAL_REVIEW: 0, READ_ONLY: 0 }

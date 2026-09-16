@@ -9,8 +9,6 @@ import {
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import {
-  listStyleArchives,
-  resetStyleArchiveRepository,
   updateStyleArchive,
 } from '../src/data/pcs-style-archive-repository.ts'
 import {
@@ -20,6 +18,7 @@ import {
   resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 function read(relativePath: string) {
   return readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
@@ -80,13 +79,11 @@ function buildOrderSeed(orderId: string, demandId: string): ProductionOrderSeed 
   }
 }
 
-resetStyleArchiveRepository()
+const style = resetAndGetProductionPreparationStyle()
 resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
 
-const style = listStyleArchives()[0]
 const baseVersion = listTechnicalDataVersions()[0]
-assert.ok(style, '必须存在款式档案演示数据')
 assert.ok(baseVersion, '必须存在技术包结构演示数据')
 const baseContent = getTechnicalDataVersionContent(baseVersion.technicalVersionId)
 assert.ok(baseContent, '必须存在技术包内容演示数据')
@@ -118,7 +115,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     reason: '专项测试已满足做大货要求',
     uniqueTriggerKey: 'CURRENT-TECH-PACK-DEMAND',
   },
-  creationReason: '验证需求转单只读取工程主单正式技术包',
+  creationReason: '验证需求转单只读取生产准备单正式技术包',
 }).masterOrderId)
 
 const releasedSeedTechPack = getDemandCurrentTechPackInfo({ spuCode: 'SPU-2024-001' })
@@ -235,7 +232,7 @@ const order = buildProductionOrderFromDemand(
 )
 
 assert.equal(order.techPackSnapshot!.sourceTechPackVersionId, published.technicalVersionId, '需求转生产单时必须使用当前生效技术包版本')
-assert.equal(published.createdFromTaskType, 'ENGINEERING_MASTER', '当前生效正式技术包必须来自工程主单')
+assert.equal(published.createdFromTaskType, 'ENGINEERING_MASTER', '当前生效正式技术包必须来自生产准备单')
 
 const demandPageSource = read('src/pages/production/demand-domain.ts')
 const contextSource = read('src/pages/production/context.ts')

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
@@ -11,12 +11,25 @@ import {
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { renderPcsPlateMakingTaskDetailPage } from '../src/pages/pcs-engineering-tasks/plate-making-task.ts'
 import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
+import {
+  listEngineeringIndependentSamplingRecords,
+  resetEngineeringIndependentSamplingRepository,
+} from '../src/data/pcs-engineering-master-sampling.ts'
 
 resetStyleArchiveRepository()
+resetEngineeringIndependentSamplingRepository(true)
 resetEngineeringMasterRepository()
 
-const style = listStyleArchives().find((item) => item.mainImageUrl)
-assert.ok(style, '应存在带真实主图的款式档案')
+const completedDesignRevision = listEngineeringIndependentSamplingRecords().find((record) =>
+  record.status === 'COMPLETED'
+  && record.professionalTasks.some((task) =>
+    task.taskType === 'BASE_PATTERN'
+    && task.results.some((result) => result.status === 'APPROVED' && result.files.some((file) => file.extension === 'prj')),
+  ),
+)
+assert.ok(completedDesignRevision, '应存在已完成且带真实基码纸样的设计改款演示数据')
+const style = getStyleArchiveById(completedDesignRevision.targetStyleId)
+assert.ok(style?.mainImageUrl, '设计改款目标款应有真实主图')
 
 const master = createEngineeringMasterOrder({
   styleId: style.styleId,
@@ -48,8 +61,8 @@ const master = createEngineeringMasterOrder({
   creationReason: '验证专业任务工作台',
 })
 const published = publishEngineeringMasterOrder(master.masterOrderId)
-const plateTask = published.tasks.find((task) => task.taskType === 'BASE_PATTERN_WOVEN')
-assert.ok(plateTask, '纯梭织主单应生成梭织基码纸样任务')
+const plateTask = published.tasks.find((task) => task.taskType === 'SIZE_PATTERN_WOVEN')
+assert.ok(plateTask, '纯梭织生产准备应生成梭织齐码纸样任务')
 
 const beforeStartHtml = renderPcsPlateMakingTaskDetailPage(plateTask.taskId)
 assert.match(beforeStartHtml, /当前动作/)

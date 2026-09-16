@@ -42,12 +42,13 @@ import { cloneFormalProductionOrderMaterialItems } from './formal-production-ord
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
-export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'
+export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
 
 export const PROCESS_WORK_ORDER_SOURCE_LABEL: Record<ProcessWorkOrderSourceType, string> = {
   PRODUCTION_ORDER: '生产单自动生成',
   STOCK: '备货手动创建',
   CUT_PIECE_SUPPLEMENT: '裁片补料生成',
+  DESIGN_REVISION: '设计改款生成',
 }
 
 export interface ProcessWorkOrderSourceSnapshot {
@@ -60,12 +61,51 @@ export interface ProcessWorkOrderSourceSnapshot {
   routeObjectKey?: string
   bomItemId?: string
   bomItemIds?: string[]
+  materialSkuCode?: string
+  materialName?: string
+  materialReceivingKind?: 'FABRIC' | 'ACCESSORY' | 'YARN'
+  materialImageUrl?: string
+  materialColor?: string
+  materialComposition?: string
+  materialSpecification?: string
   supplementRecordId?: string
   supplementRecordNo?: string
   originalCutOrderId?: string
   originalCutOrderNo?: string
   stockMaterialId?: string
   stockMaterialName?: string
+  designRevisionTaskId?: string
+  designRevisionTaskNo?: string
+  professionalTaskId?: string
+  professionalTaskNo?: string
+  professionalResultId?: string
+  professionalResultVersion?: string
+  professionalResultApprovedAt?: string
+  professionalResultApprovedBy?: string
+  professionalResultAttachments?: Array<{
+    fileId: string
+    fileName: string
+    mimeType: string
+    sizeBytes: number
+    dataUrl: string
+  }>
+  targetSpuCode?: string
+  targetSpuName?: string
+  targetSpuImageUrl?: string
+  targetColorId?: string
+  targetColorName?: string
+  bomVersionId?: string
+  bomVersionLabel?: string
+  receivingTeamId?: string
+  receivingTeamName?: string
+  receivingFactoryId?: string
+  receivingFactoryName?: string
+  receivingLocationId?: string
+  receivingLocationName?: string
+  upstreamWorkOrderId?: string
+  upstreamWorkOrderNo?: string
+  downstreamWorkOrderId?: string
+  downstreamWorkOrderNo?: string
 }
 
 export type FormalProductionProcessCode = 'DYE' | 'PRINT'
@@ -260,6 +300,7 @@ function deriveLegacySourceSnapshot(input: {
       stockMaterialName: input.stockMaterialName,
     }
   }
+  if (input.sourceType === 'DESIGN_REVISION') return { sourceType: 'DESIGN_REVISION' }
   return {
     sourceType: input.sourceType,
     productionOrderId: input.sourceProductionOrderId,

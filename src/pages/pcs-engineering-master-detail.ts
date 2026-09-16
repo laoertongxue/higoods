@@ -1,6 +1,6 @@
 // @page-pattern: detail
 
-// 工程主单详情：按任务逐行展示的执行表格。
+// 生产准备单详情：按任务逐行展示的执行表格。
 // 表格只展示业务执行所需的团队、动作、先后关系、去向、计划/实际与状态。
 
 import {
@@ -136,7 +136,7 @@ function renderMasterHeader(model: EngineeringMasterDetailModel): string {
             type="button"
             class="inline-flex h-8 items-center justify-center rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"
             data-${DETAIL_EVENT_PREFIX}-action="close-master-order"
-          >关闭工程主单</button>
+          >关闭生产准备单</button>
         ` : ''}
       </div>
     </header>
@@ -215,11 +215,12 @@ function applyTaskPlanState(model: EngineeringMasterDetailModel): void {
     : []
   detailUiState.priorResultSelections = Object.fromEntries(model.priorResultCandidateGroups.map((group) => {
     const recommended = group.candidates.find((candidate) => candidate.recommended) || group.candidates[0]
+    const isBasePattern = group.engineeringTaskType === 'BASE_PATTERN_WOVEN' || group.engineeringTaskType === 'BASE_PATTERN_KNIT'
     return [group.engineeringTaskType, {
       sourceSamplingTaskId: recommended?.sourceSamplingTaskId || '',
       sourceProfessionalTaskId: recommended?.sourceProfessionalTaskId || '',
       sourceResultVersion: recommended?.sourceResultVersion || '',
-      decision: '',
+      decision: isBasePattern ? '复用' : '',
     }]
   }))
 }
@@ -231,15 +232,19 @@ function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
 }
 
 function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
-  if (model.priorResultCandidateGroups.length === 0) return ''
+  if (!model.preparationType) return ''
+  if (model.priorResultCandidateGroups.length === 0) {
+    return '<section class="border-b bg-amber-50 px-4 py-3 text-sm text-amber-800">尚无设计改款已确认的可用基码纸样，暂不能生成生产准备任务。</section>'
+  }
   return `
     <section class="border-b bg-blue-50/30 px-4 py-3" data-prior-result-plan>
       <div class="mb-3 flex items-center justify-between gap-3">
-        <div><h3 class="text-sm font-semibold text-slate-800">前期成果</h3><p class="mt-0.5 text-xs text-slate-500">默认推荐最近确认版本，可改选历史版本；每项选择复用、重新执行或不采用。</p></div>
+        <div><h3 class="text-sm font-semibold text-slate-800">前期资料</h3><p class="mt-0.5 text-xs text-slate-500">基码纸样必须选择设计改款已确认版本；其他成果可按需采用。</p></div>
       </div>
       <div class="space-y-2">
         ${model.priorResultCandidateGroups.map((group) => {
           const selection = detailUiState.priorResultSelections[group.engineeringTaskType]
+          const isBasePattern = group.engineeringTaskType === 'BASE_PATTERN_WOVEN' || group.engineeringTaskType === 'BASE_PATTERN_KNIT'
           return `
             <div class="grid grid-cols-[minmax(140px,.7fr)_minmax(260px,1.5fr)_minmax(150px,.7fr)] items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
               <span class="text-sm font-medium text-slate-800">${escapeHtml(group.taskName)}</span>
@@ -247,10 +252,9 @@ function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
                 ${group.candidates.map((candidate) => `<option value="${escapeHtml(candidate.sourceProfessionalTaskId)}" ${selection?.sourceProfessionalTaskId === candidate.sourceProfessionalTaskId ? 'selected' : ''}>${escapeHtml(candidate.sourceSamplingTaskCode)} · ${escapeHtml(candidate.sourceResultVersion)} · ${escapeHtml(candidate.confirmedAt)}${candidate.recommended ? '（推荐）' : ''}</option>`).join('')}
               </select>
               <select class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" data-${DETAIL_EVENT_PREFIX}-action="select-prior-result-decision" data-task-type="${escapeHtml(group.engineeringTaskType)}">
-                <option value="" ${!selection?.decision ? 'selected' : ''}>请选择</option>
-                <option value="复用" ${selection?.decision === '复用' ? 'selected' : ''}>复用</option>
-                <option value="重新执行" ${selection?.decision === '重新执行' ? 'selected' : ''}>重新执行</option>
-                <option value="不采用" ${selection?.decision === '不采用' ? 'selected' : ''}>不采用</option>
+                ${isBasePattern
+                  ? '<option value="复用" selected>关联已确认纸样</option>'
+                  : `<option value="" ${!selection?.decision ? 'selected' : ''}>本次不采用</option><option value="复用" ${selection?.decision === '复用' ? 'selected' : ''}>复用</option><option value="重新执行" ${selection?.decision === '重新执行' ? 'selected' : ''}>重新执行</option>`}
               </select>
             </div>
           `
@@ -358,7 +362,7 @@ function renderBomSummary(model: EngineeringMasterDetailModel): string {
   ].filter(Boolean)
   return `<section class="rounded-lg border bg-card p-4" data-engineering-bom-summary>
     <div class="flex flex-wrap items-start justify-between gap-3">
-      <div><div class="flex items-center gap-2"><h2 class="font-semibold">工程 BOM 与价格</h2><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(summary.statusText)}</span></div><p class="mt-1 text-xs text-slate-500">${escapeHtml(summary.versionCodes.join('、') || '随工程主单自动建立')}</p></div>
+      <div><div class="flex items-center gap-2"><h2 class="font-semibold">工程 BOM 与价格</h2><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(summary.statusText)}</span></div><p class="mt-1 text-xs text-slate-500">${escapeHtml(summary.versionCodes.join('、') || '随生产准备单自动建立')}</p></div>
       <div class="flex flex-wrap items-center gap-2">
         <a class="rounded border px-3 py-2 text-sm text-blue-700" href="${summary.pricingPlanId ? `/pcs/technical-data/bom-pricing/owner/ENGINEERING_MASTER/${escapeHtml(model.masterOrderId)}` : '/pcs/technical-data/bom-pricing'}">${summary.pricingPlanId ? '查看／维护整款方案' : '查看 BOM 列表'}</a>
         ${summary.planStatus === 'DRAFT' ? `<button type="button" class="rounded bg-blue-600 px-3 py-2 text-sm text-white" data-${DETAIL_EVENT_PREFIX}-action="confirm-bom-pricing-plan">确认工程 BOM 与价格</button>` : ''}
@@ -409,7 +413,7 @@ function renderTaskTable(model: EngineeringMasterDetailModel): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-card" data-engineering-task-table>
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-        <div><h2 class="text-base font-semibold text-slate-900">工程任务</h2><p class="mt-0.5 text-xs text-slate-500">共 ${rows.length} 项，按执行阶段排列</p></div>
+        <div><h2 class="text-base font-semibold text-slate-900">生产准备任务</h2><p class="mt-0.5 text-xs text-slate-500">共 ${rows.length} 项，按执行阶段排列</p></div>
         <p class="text-xs text-slate-500">并行工作分行展示；完成后由系统自动交给下一团队</p>
       </header>
       <div class="overflow-x-auto">
@@ -418,7 +422,14 @@ function renderTaskTable(model: EngineeringMasterDetailModel): string {
             <tr><th class="w-12 px-3 py-3 text-center">序号</th><th class="min-w-44 px-3 py-3">任务</th><th class="min-w-28 px-3 py-3">阶段</th><th class="min-w-32 px-3 py-3">当前处理团队</th><th class="min-w-52 px-3 py-3">当前动作</th><th class="min-w-44 px-3 py-3">需要先完成</th><th class="min-w-56 px-3 py-3">完成后去向</th><th class="min-w-44 px-3 py-3">计划／实际</th><th class="min-w-24 px-3 py-3">状态</th></tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            ${rows.map(({ task, phaseName }, index) => `<tr class="align-top hover:bg-slate-50/70" data-engineering-task-row="${escapeHtml(task.taskId)}"><td class="px-3 py-3 text-center text-slate-400">${index + 1}</td><td class="px-3 py-3">${renderTaskNameButton(task)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(phaseName)}</td><td class="px-3 py-3 font-medium text-slate-700">${escapeHtml(task.currentTeamName)}</td><td class="px-3 py-3 text-slate-700">${escapeHtml(task.currentActionText)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.dependsOnLabels.join('、') || '无')}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.completionDestinationText)}</td><td class="px-3 py-3 text-xs text-slate-600"><p>${escapeHtml(task.plannedTimeText)}</p><p class="mt-1">${escapeHtml(task.actualTimeText)}</p></td><td class="px-3 py-3">${renderTaskStatusBadge(task.status)}</td></tr>`).join('')}
+            ${rows.map(({ task, phaseName }, index) => {
+              const preparationInput = task.taskType === 'PRE_PRODUCTION_SAMPLE'
+                ? '设计改款已确认基码纸样'
+                : task.taskType === 'SIZE_PATTERN_WOVEN' || task.taskType === 'SIZE_PATTERN_KNIT'
+                  ? '设计改款已确认基码纸样；建议先做首单样衣，可并行'
+                  : task.dependsOnLabels.join('、') || '无'
+              return `<tr class="align-top hover:bg-slate-50/70" data-engineering-task-row="${escapeHtml(task.taskId)}"><td class="px-3 py-3 text-center text-slate-400">${index + 1}</td><td class="px-3 py-3">${renderTaskNameButton(task)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(phaseName)}</td><td class="px-3 py-3 font-medium text-slate-700">${escapeHtml(task.currentTeamName)}</td><td class="px-3 py-3 text-slate-700">${escapeHtml(task.currentActionText)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(preparationInput)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.completionDestinationText)}</td><td class="px-3 py-3 text-xs text-slate-600"><p>${escapeHtml(task.plannedTimeText)}</p><p class="mt-1">${escapeHtml(task.actualTimeText)}</p></td><td class="px-3 py-3">${renderTaskStatusBadge(task.status)}</td></tr>`
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -431,7 +442,7 @@ function renderTaskTable(model: EngineeringMasterDetailModel): string {
 export function renderPcsEngineeringMasterDetailPage(key: string): string {
   let model = buildEngineeringMasterDetailModel(key)
   if (!model) {
-    return '<div class="p-6 text-sm text-slate-500">未找到工程主单。</div>'
+    return '<div class="p-6 text-sm text-slate-500">未找到生产准备单。</div>'
   }
   ensureTaskPlanState(model)
   if (model.status === '草稿' && detailUiState.selectedPreparationType && model.preparationType !== detailUiState.selectedPreparationType) {
@@ -585,17 +596,21 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     if (!model) return true
     try {
       const master = getEngineeringMasterOrderById(masterKey)
-      if (!master) throw new Error('工程主单不存在。')
-      const priorResultDecisions: EngineeringMasterPriorResultDecisionInput[] = model.priorResultCandidateGroups.map((group) => {
+      if (!master) throw new Error('生产准备单不存在。')
+      const priorResultDecisions: EngineeringMasterPriorResultDecisionInput[] = model.priorResultCandidateGroups.flatMap((group) => {
         const selection = detailUiState.priorResultSelections[group.engineeringTaskType]
-        if (!selection?.decision) throw new Error(`请选择${group.taskName}成果的复用方式。`)
-        return {
+        const isBasePattern = group.engineeringTaskType === 'BASE_PATTERN_WOVEN' || group.engineeringTaskType === 'BASE_PATTERN_KNIT'
+        if (!selection?.decision) {
+          if (isBasePattern) throw new Error(`请选择${group.taskName}。`)
+          return []
+        }
+        return [{
           engineeringTaskType: group.engineeringTaskType,
           sourceSamplingTaskId: selection.sourceSamplingTaskId,
           sourceProfessionalTaskId: selection.sourceProfessionalTaskId,
           sourceResultVersion: selection.sourceResultVersion,
           decision: selection.decision,
-        }
+        }]
       })
       syncPreProductionSampleRequirementsFromDom()
       confirmEngineeringMasterTaskPlan(masterKey, {
@@ -628,7 +643,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     const masterKey = currentMasterKey()
     try {
       const model = buildEngineeringMasterDetailModel(masterKey)
-      if (!model) throw new Error('工程主单不存在。')
+      if (!model) throw new Error('生产准备单不存在。')
       if (!model.bomSummary.buyerId || !model.bomSummary.buyerName) throw new Error('请先为工程 BOM 与价格分配买手。')
       confirmEngineeringMasterBomPricingPlan({
         masterOrderId: masterKey,
@@ -651,12 +666,12 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     let ok = false
     try {
       const currentModel = buildEngineeringMasterDetailModel(masterKey)
-      if (!currentModel) throw new Error('未找到工程主单，无法关闭。')
+      if (!currentModel) throw new Error('未找到生产准备单，无法关闭。')
       closeEngineeringMasterOrder(masterKey, resolveEngineeringMasterDemoOperatorName(currentModel))
-      message = '工程主单已关闭。'
+      message = '生产准备单已关闭。'
       ok = true
     } catch (error) {
-      message = error instanceof Error ? error.message : '关闭工程主单失败。'
+      message = error instanceof Error ? error.message : '关闭生产准备单失败。'
     }
     const model = buildEngineeringMasterDetailModel(masterKey)
     if (model) refreshMasterHeader(model)
@@ -675,7 +690,7 @@ export function handlePcsEngineeringMasterDetailInput(target: HTMLInputElement |
 
 function currentMasterKey(): string {
   if (typeof window === 'undefined') return ''
-  const match = /^\/pcs\/engineering\/masters\/([^/]+)$/.exec(window.location.pathname)
+  const match = /^\/pcs\/production-preparation\/orders\/([^/]+)$/.exec(window.location.pathname)
   return match?.[1] ?? ''
 }
 

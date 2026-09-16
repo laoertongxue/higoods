@@ -1,18 +1,22 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   confirmEngineeringMasterTaskPlan,
   getEngineeringMasterOrderById,
+  listEngineeringMasterPriorResultCandidates,
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  listEngineeringIndependentSamplingRecords,
+  resetEngineeringIndependentSamplingRepository,
+} from '../src/data/pcs-engineering-master-sampling.ts'
 import {
   renderPcsFirstSampleTaskDetailPage,
   submitEngineeringFirstSampleResult,
 } from '../src/pages/pcs-engineering-tasks/first-sample-task.ts'
 import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
-import { submitEngineeringPatternResult } from '../src/data/pcs-engineering-pattern-result.ts'
 
 const storage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
@@ -26,10 +30,16 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 resetStyleArchiveRepository()
+resetEngineeringIndependentSamplingRepository(true)
 resetEngineeringMasterRepository()
 
-const style = listStyleArchives().find((item) => item.mainImageUrl)
-assert.ok(style, '应存在带真实图片的正式款式档案')
+const designRevision = listEngineeringIndependentSamplingRecords().find((record) =>
+  record.status === 'COMPLETED' && record.targetMode === 'ARCHIVED_STYLE'
+  && (record.patternHandling === 'REUSE' || record.professionalTasks.some((task) => task.taskType === 'BASE_PATTERN' && task.status === 'COMPLETED')),
+)
+assert.ok(designRevision, '应存在已完成且含真实基码纸样的设计改款')
+const style = getStyleArchiveById(designRevision.targetStyleId)
+assert.ok(style?.mainImageUrl, '设计改款目标款应有真实图片')
 
 const master = createEngineeringMasterOrder({
   styleId: style.styleId,
@@ -51,7 +61,7 @@ const master = createEngineeringMasterOrder({
   bulkProductionQualification: {
     basisType: 'TEST_APPROVED',
     triggerBusinessObjectType: '测款结果',
-    triggerBusinessObjectId: `TEST-SAMPLE-${style.styleCode}`,
+    triggerBusinessObjectId: designRevision.samplingTaskId,
     thresholdQuantity: 300,
     reachedQuantity: 320,
     reachedAt: '2026-08-04 09:00:00',
@@ -60,36 +70,34 @@ const master = createEngineeringMasterOrder({
   },
   creationReason: '验证首单样衣专业任务',
 })
+const baseCandidate = listEngineeringMasterPriorResultCandidates(style.styleCode, 'PURE_WOVEN', designRevision.samplingTaskId)
+  .find((candidate) => candidate.engineeringTaskType === 'BASE_PATTERN_WOVEN')
+assert.ok(baseCandidate, '生产准备必须承接同一张设计改款的基码纸样')
 const published = confirmEngineeringMasterTaskPlan(master.masterOrderId, {
   confirmedBy: '跟单-林晓',
   confirmedById: 'USER-MERCHANDISER',
   confirmedByRole: '跟单',
   selectedConditionalTaskTypes: [],
+  priorResultDecisions: [{
+    engineeringTaskType: 'BASE_PATTERN_WOVEN',
+    sourceSamplingTaskId: baseCandidate.source.samplingTaskId,
+    sourceProfessionalTaskId: baseCandidate.source.professionalTaskId,
+    sourceResultVersion: baseCandidate.source.resultVersion,
+    decision: '复用',
+  }],
   preProductionSampleRequirements: [
     { targetColor: 'Black', targetSize: 'M', requiredQuantity: 2, requirementNote: '产前确认主色，制作 2 件' },
     { targetColor: 'White', targetSize: 'L', requiredQuantity: 1, requirementNote: '产前确认辅助色，制作 1 件' },
   ],
 })
-const basePattern = published.tasks.find((task) => task.taskType === 'BASE_PATTERN_WOVEN')
 const sampleTask = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
-assert.ok(basePattern)
 assert.ok(sampleTask)
-
-startEngineeringTaskFromDetail(basePattern.taskId)
-const patternVersion = submitEngineeringPatternResult({
-  masterOrderId: master.masterOrderId,
-  taskId: basePattern.taskId,
-  applicableSizes: ['M', 'L'],
-  sourceFiles: [{ fileId: `${basePattern.taskId}-PRJ`, purpose: 'PATTERN_SOURCE', fileName: '产前版基码纸样.prj', extension: 'prj', mimeType: 'application/octet-stream', sizeBytes: 8, dataUrl: 'data:application/octet-stream;base64,SElHT09E', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-04 10:00:00', roundNo: 1, errorMessage: '' }],
-  previewFiles: [{ fileId: `${basePattern.taskId}-IMAGE`, purpose: 'PATTERN_PREVIEW', fileName: '产前版基码纸样.jpg', extension: 'jpg', mimeType: 'image/jpeg', sizeBytes: 4, dataUrl: 'data:image/jpeg;base64,/9j/2Q==', status: '已保存', uploadedById: 'PATTERN-01', uploadedByName: '版师负责人', uploadedByTeam: '版师', uploadedAt: '2026-08-04 10:00:00', roundNo: 1, errorMessage: '' }],
-  note: '首单样衣使用的基码纸样',
-  submittedBy: basePattern.assigneeName || '版师负责人',
-})
-const sourcePatternVersion = `${patternVersion.materialKind}${patternVersion.patternKind} ${patternVersion.versionLabel}`
+assert.equal(published.tasks.some((task) => task.taskType === 'BASE_PATTERN_WOVEN' && task.status !== '未启用'), false)
+const sourcePatternVersion = `梭织基码纸样 ${baseCandidate.source.resultVersion}`
 
 let html = renderPcsFirstSampleTaskDetailPage(sampleTask.taskId)
 assert.match(html, /开始任务/, '前置完成后必须从专业任务详情开始执行')
-assert.doesNotMatch(html, /open-task-drawer|submit-pre-production-sample-result/, '不得恢复工程主单旧抽屉提交入口')
+assert.doesNotMatch(html, /open-task-drawer|submit-pre-production-sample-result/, '不得恢复生产准备单旧抽屉提交入口')
 
 startEngineeringTaskFromDetail(sampleTask.taskId)
 html = renderPcsFirstSampleTaskDetailPage(sampleTask.taskId)

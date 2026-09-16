@@ -1,4 +1,4 @@
-// 工程专业任务标准页工厂：任务骨架字段统一读取工程主单任务事实。
+// 工程专业任务标准页工厂：任务骨架字段统一读取生产准备单任务事实。
 
 import type { EngineeringTaskRecord, EngineeringTaskType } from '../../data/pcs-engineering-master-types.ts'
 import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
@@ -82,7 +82,7 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
     return {
       cells: {
         task: `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(definition.taskName)}</button><p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>`,
-        master: task.sourceType === 'ENGINEERING_MASTER' && master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>` : `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`,
+        master: task.sourceType === 'ENGINEERING_MASTER' && master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>` : `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`,
         style: escapeHtml(master ? `${master.styleCode} · ${master.styleName}` : `${task.targetStyleCode} · ${task.targetStyleName}`),
         status: renderStatusBadge(task.status),
         team: escapeHtml(task.status === '已完成' ? '-' : task.ownerTeamName || '-'),
@@ -112,7 +112,7 @@ export function createMasterTaskPage(config: MasterTaskPageConfig): {
   const renderList = (): string => renderEngineeringStandardListPage({
     module: config.module,
     title: config.title,
-    createLabel: '查看工程主单', createAction: 'nav:/pcs/engineering/masters',
+    createLabel: '查看生产准备单', createAction: 'nav:/pcs/production-preparation/orders',
     filtersHtml: renderListFilters({
       searchPlaceholder: '搜索任务编号 / 任务来源 / 款式 / 当前团队', listState: config.listState,
       searchField: `${config.module}-search`, statusField: `${config.module}-status`, ownerField: `${config.module}-owner`, sourceField: `${config.module}-source`,

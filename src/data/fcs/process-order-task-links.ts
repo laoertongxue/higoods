@@ -366,7 +366,33 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
   const formalCuttingTaskIds = new Set(generatedCutOrders.map((order) => order.cuttingTaskId))
   const formalSpecialCraftTaskIds = new Set(specialCraftOrders.map((order) => order.sourceTaskId).filter(Boolean))
   const woolTaskIds = new Set(woolWorkOrders.map((order) => order.taskId))
-  const preparationDocuments = listProcessWorkOrderRelationSources().map((order): ProcessOrderTaskDocumentRef => {
+  const relationSources = listProcessWorkOrderRelationSources()
+  const designRevisionSourceDocuments = [...new Map(relationSources
+    .filter((order) => order.sourceType === 'DESIGN_REVISION' && order.sourceSnapshot.professionalTaskId)
+    .map((order): [string, ProcessOrderTaskDocumentRef] => {
+      const source = order.sourceSnapshot
+      const professionalTaskId = source.professionalTaskId!
+      return [professionalTaskId, {
+        documentId: professionalTaskId,
+        documentNo: source.professionalTaskNo || professionalTaskId,
+        documentKind: 'SOURCE_DOCUMENT',
+        documentTypeLabel: '设计改款专业任务',
+        processCode: 'DESIGN_REVISION',
+        processName: '设计改款',
+        sourceEntryIds: [],
+        bomItemIds: unique([...(source.bomItemIds ?? []), source.bomItemId]),
+        sourceLabel: `设计改款任务 ${source.designRevisionTaskNo || source.designRevisionTaskId}`,
+        objectLabel: [source.targetSpuCode, source.targetSpuName, source.targetColorName || source.targetColorId].filter(Boolean).join(' / '),
+        quantityLabel: `结果版本 ${source.professionalResultVersion || '待确认'}`,
+        href: source.designRevisionTaskId ? `/pcs/production-preparation/design-revision/${encodeURIComponent(source.designRevisionTaskId)}` : undefined,
+        detailRefs: [buildDetailRef({
+          detailId: source.professionalResultId || `${professionalTaskId}:RESULT`,
+          label: [source.professionalResultId, source.professionalResultVersion, source.bomVersionLabel || source.bomVersionId].filter(Boolean).join(' / '),
+          bomItemIds: unique([...(source.bomItemIds ?? []), source.bomItemId]),
+        })],
+      }]
+    })).values()]
+  const preparationDocuments = relationSources.map((order): ProcessOrderTaskDocumentRef => {
     const bomItemIds = unique([
       ...(order.sourceSnapshot.bomItemIds ?? []),
       order.sourceSnapshot.bomItemId,
@@ -411,6 +437,11 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
         routeObjectKeys,
         bomItemIds,
       })],
+      predecessorDocumentIds: unique([
+        order.sourceSnapshot.professionalTaskId,
+        order.sourceSnapshot.upstreamWorkOrderId,
+      ]),
+      successorDocumentIds: unique([order.sourceSnapshot.downstreamWorkOrderId]),
     }
   })
 
@@ -672,6 +703,7 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
   )
 
   return [
+    ...designRevisionSourceDocuments,
     ...preparationDocuments,
     ...productionDocuments,
     ...woolDocuments,

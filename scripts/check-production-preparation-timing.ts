@@ -3033,7 +3033,7 @@ const productionEventsSource = source('src/pages/production/events.ts')
 const projectionSource = source('src/data/pcs-engineering-preparation-projection.ts')
 const runtimeSource = source('src/data/fcs/production-preparation-timing-runtime.ts')
 assert.equal(existsSync('src/data/pcs-engineering-preparation-timing-view.ts'), false, '两调色节点过渡投影必须删除')
-assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '台账必须直接读取完整工程主单投影')
+assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '台账必须直接读取完整生产准备单投影')
 assert.ok(!pageSource.includes('mergeEngineeringColorPreparationTimes'), '台账不得继续叠加两调色节点过渡投影')
 assert.ok(projectionSource.includes('listPreparationProjectionItems'), '11 项结构必须读取固定投影策略')
 assert.ok(projectionSource.includes("`${masterOrderId}:${task.taskId}:${roundNo}`"), '事件必须按 masterOrderId + taskId + roundNo 幂等')
@@ -3056,7 +3056,7 @@ assert.ok(
 )
 assert.ok(runtimeSource.includes('if (isEngineeringPreparationRecord(record)) return record'), 'runtime 合并必须忽略工程来源记录')
 assert.deepEqual(
-  getPreparationRecordCapabilities({ sourceKind: '工程主单', masterOrderId: 'EM-CHECK-001' }),
+  getPreparationRecordCapabilities({ sourceKind: '生产准备单', masterOrderId: 'EM-CHECK-001' }),
   { confirmItems: false, modifyItems: false, uploadResult: false, maintainDyeRequirement: false, reviewResult: false },
   '工程来源记录不得开放任何准备项编辑能力',
 )

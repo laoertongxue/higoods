@@ -1,3 +1,4 @@
+import '../data/fcs/design-revision-process-work-order-adapter.ts'
 import { listEngineeringIndependentSamplingRecords } from '../data/pcs-engineering-master-sampling'
 
 type HandlerModule = Record<string, unknown>
@@ -28,7 +29,7 @@ function isAnyExactOrNestedPath(pathname: string, basePaths: string[]): boolean 
 }
 
 function independentProfessionalTaskIdFromPath(pathname: string): string {
-  const match = pathname.match(/^\/pcs\/(?:patterns\/(?:plate-making|artwork)|engineering\/color|samples\/display-sample)\/([^/]+)$/)
+  const match = pathname.match(/^\/pcs\/production-preparation\/(?:plate-making|artwork|color|display-sample)\/([^/]+)$/)
   return match ? decodeURIComponent(match[1]) : ''
 }
 
@@ -204,9 +205,7 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     matches: (pathname) =>
       isExactOrNestedPath(pathname, '/pcs/samples') &&
       !isAnyExactOrNestedPath(pathname, [
-        '/pcs/samples/first-sample',
         '/pcs/samples/first-order',
-        '/pcs/samples/display-sample',
       ]),
     importModule: () => import('../pages/pcs-sample-management'),
     eventExport: 'handlePcsSampleManagementEvent',
@@ -215,8 +214,8 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsSampleAction', value: 'close-drawers' }],
   },
   {
-    cacheKey: 'pcs-engineering-master-list',
-    matches: (pathname) => pathname === '/pcs/engineering/masters',
+    cacheKey: 'pcs-production-preparation-order-list',
+    matches: (pathname) => pathname === '/pcs/production-preparation/orders',
     importModule: () => import('../pages/pcs-engineering-master-list'),
     eventExport: 'handlePcsEngineeringMasterListEvent',
     inputExport: 'handlePcsEngineeringMasterListInput',
@@ -228,8 +227,8 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ],
   },
   {
-    cacheKey: 'pcs-engineering-master-detail',
-    matches: (pathname) => /^\/pcs\/engineering\/masters\/[^/]+$/.test(pathname),
+    cacheKey: 'pcs-production-preparation-order-detail',
+    matches: (pathname) => /^\/pcs\/production-preparation\/orders\/[^/]+$/.test(pathname),
     importModule: () => import('../pages/pcs-engineering-master-detail'),
     eventExport: 'handlePcsEngineeringMasterDetailEvent',
     inputExport: 'handlePcsEngineeringMasterDetailInput',
@@ -239,11 +238,10 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ],
   },
   {
-    cacheKey: 'pcs-independent-sampling',
+    cacheKey: 'pcs-design-revision',
     matches: (pathname) => isAnyExactOrNestedPath(pathname, [
-      '/pcs/engineering/design-revision',
-      '/pcs/engineering/sampling-professional',
-      '/pcs/samples/display-sample',
+      '/pcs/production-preparation/design-revision',
+      '/pcs/production-preparation/display-sample',
     ]) || isIndependentProfessionalTaskPath(pathname),
     importModule: () => import('../pages/pcs-independent-sampling'),
     eventExport: 'handlePcsIndependentSamplingEvent',
@@ -264,15 +262,15 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'techDataAction', value: 'close-image' }],
   },
   {
-    cacheKey: 'pcs-engineering-tasks',
+    cacheKey: 'pcs-production-preparation-tasks',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
-        '/pcs/engineering/color',
-        '/pcs/engineering/purchase',
-        '/pcs/engineering/tech-pack',
-        '/pcs/patterns/plate-making',
-        '/pcs/patterns/artwork',
-        '/pcs/samples/first-sample',
+        '/pcs/production-preparation/color',
+        '/pcs/production-preparation/purchase',
+        '/pcs/production-preparation/tech-pack',
+        '/pcs/production-preparation/plate-making',
+        '/pcs/production-preparation/artwork',
+        '/pcs/production-preparation/first-sample',
         '/pcs/samples/first-order',
       ]),
     importModule: () => import('../pages/pcs-engineering-tasks'),

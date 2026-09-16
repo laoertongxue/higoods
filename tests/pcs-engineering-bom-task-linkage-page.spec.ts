@@ -52,7 +52,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   preparationType: 'PURE_WOVEN',
   qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
   bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `BOM-LINK-${style.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `BOM-LINK-${style.styleCode}` },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 
 const baseVersion = listTechnicalDataVersions()[0]
@@ -116,7 +116,7 @@ assert.equal(linked?.masterOrder.masterOrderId, master.masterOrderId)
 assert.equal(
   linked?.masterOrder.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')?.materialLines[0]?.bomItemId,
   'BOM-PAGE-PRINT',
-  '技术包 BOM 适配层必须把真实 BOM 行写入工程主单任务',
+  '技术包 BOM 适配层必须把真实 BOM 行写入生产准备单任务',
 )
 
 const contextSource = readFileSync(new URL('../src/pages/tech-pack/context.ts', import.meta.url), 'utf8')
@@ -147,7 +147,7 @@ assert.throws(
     publishedAt: '',
     publishedBy: '',
   }),
-  /必须同时记录来源对象和来源任务|只能由工程主单生成/,
+  /必须同时记录来源对象和来源任务|只能由生产准备单生成/,
   '无工程权威来源的技术包不得先写入再尝试联动',
 )
 
@@ -164,7 +164,7 @@ const secondMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder(
   preparationType: 'PURE_WOVEN',
   qualificationFact: { styleCode: secondStyle.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
   bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `BOM-LINK-${secondStyle.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `BOM-LINK-${secondStyle.styleCode}` },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 
 function createSourceVersion(
@@ -257,7 +257,7 @@ assert.throws(
     createdFromTaskType: 'ENGINEERING_MASTER',
     createdFromTaskId: `${secondMaster.masterOrderId}-TECH_PACK_CONFIRMATION`,
   }),
-  /工程主单任务不存在/,
+  /生产准备单任务不存在/,
   '来源主单与任务不一致时必须在创建阶段阻断',
 )
 
@@ -292,7 +292,7 @@ function captureAtomicStores() {
 
 function assertAtomicStoresEqual(expected: ReturnType<typeof captureAtomicStores>, message: string) {
   assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), expected.technical, `${message}：技术版本仓`)
-  assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), expected.engineering, `${message}：工程主单仓`)
+  assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), expected.engineering, `${message}：生产准备单仓`)
   assert.deepEqual(getProjectRelationStoreSnapshot(), expected.relation, `${message}：项目关系仓`)
   assert.deepEqual(captureStyleArchiveRepositoryState(), expected.style, `${message}：款式档案仓`)
   assert.deepEqual(getProjectStoreSnapshot(), expected.project, `${message}：商品项目仓`)

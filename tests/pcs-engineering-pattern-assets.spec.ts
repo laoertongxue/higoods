@@ -77,7 +77,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     reason: '专项测试已满足做大货要求',
     uniqueTriggerKey: 'PATTERN-ASSET-PRIMARY',
   },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 const taskId = `${master.masterOrderId}-PATTERN_ARTWORK`
 
@@ -211,7 +211,7 @@ const atomicMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder(
     reason: '专项测试已满足做大货要求',
     uniqueTriggerKey: 'PATTERN-ASSET-ATOMIC',
   },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 const atomicTaskId = `${atomicMaster.masterOrderId}-PATTERN_ARTWORK`
 
@@ -247,7 +247,7 @@ assert.throws(
 assert.deepEqual(
   getEngineeringMasterOrderById(atomicMaster.masterOrderId),
   masterBeforeRejectedReview,
-  '整单审核失败时，工程主单、任务、物料行和审核轮次必须保持不变',
+  '整单审核失败时，生产准备单、任务、物料行和审核轮次必须保持不变',
 )
 assert.deepEqual(
   listPatternAssets(),

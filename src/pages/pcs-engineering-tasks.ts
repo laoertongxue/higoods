@@ -1,4 +1,4 @@
-// 工程专业任务入口：只负责路由兼容和列表轻交互；任务事实由各专业页或工程主单读取。
+// 工程专业任务入口：只负责路由兼容和列表轻交互；任务事实由各专业页或生产准备单读取。
 
 import { clearListColumnPreferences } from '../components/ui/list-table-model.ts'
 import { escapeHtml } from '../utils.ts'
@@ -257,5 +257,5 @@ export function resetPcsEngineeringTaskState(): void {
 }
 
 export function resetPcsEngineeringTaskRepositories(): void {
-  // 各专业任务的共享事实由工程主单和设计改款任务仓库重置。
+  // 各专业任务的共享事实由生产准备单和设计改款任务仓库重置。
 }

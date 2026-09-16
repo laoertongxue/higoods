@@ -23,7 +23,7 @@ resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 
 const initialHtml = renderPcsEngineeringMasterListPage()
-assert.match(initialHtml, /新建工程主单/, '工程主单列表必须提供主动新建入口')
+assert.match(initialHtml, /新建生产准备单/, '生产准备单列表必须提供主动新建入口')
 
 const originalDocument = globalThis.document
 Object.defineProperty(globalThis, 'document', {
@@ -42,12 +42,12 @@ const opened = handlePcsEngineeringMasterListEvent({
     }
   },
 } as unknown as HTMLElement)
-assert.equal(opened, true, '点击新建入口必须由工程主单列表处理')
+assert.equal(opened, true, '点击新建入口必须由生产准备单列表处理')
 
 const dialogHtml = renderPcsEngineeringMasterListPage()
 assert.match(dialogHtml, /选择商品／款式档案/, '新建弹窗必须选择已有商品／款式档案')
 assert.match(dialogHtml, /搜索 SPU／款式名称/, '款式较多时必须支持搜索')
-assert.match(dialogHtml, /跟单负责人/, '新建时必须明确工程主单跟单')
+assert.match(dialogHtml, /跟单负责人/, '新建时必须明确生产准备单跟单')
 assert.match(dialogHtml, /<img[^>]+src=/, '款式候选必须展示对应款式图片')
 assert.match(dialogHtml, /创建草稿/, '新建动作必须明确只创建草稿')
 
@@ -59,7 +59,7 @@ const candidate = listStyleArchives().find((style) =>
   && style.archiveStatus !== 'ARCHIVED'
   && Boolean(style.mainImageUrl || style.galleryImageUrls[0]),
 )
-assert.ok(candidate, '默认 Mock 必须存在可创建工程主单的款式')
+assert.ok(candidate, '默认 Mock 必须存在可创建生产准备单的款式')
 
 const selected = handlePcsEngineeringMasterListEvent({
   closest(selector: string) {
@@ -72,7 +72,7 @@ const selected = handlePcsEngineeringMasterListEvent({
     }
   },
 } as unknown as HTMLElement)
-assert.equal(selected, true, '选择可创建款式必须由工程主单列表处理')
+assert.equal(selected, true, '选择可创建款式必须由生产准备单列表处理')
 
 const created = handlePcsEngineeringMasterListEvent({
   closest(selector: string) {
@@ -82,10 +82,10 @@ const created = handlePcsEngineeringMasterListEvent({
     }
   },
 } as unknown as HTMLElement)
-assert.equal(created, true, '点击创建草稿必须由工程主单列表处理')
+assert.equal(created, true, '点击创建草稿必须由生产准备单列表处理')
 const createdMaster = listEngineeringMasterOrders().find((master) => master.styleId === candidate.styleId)
-assert.ok(createdMaster, '选择标记为可创建的款式后必须真正生成工程主单')
-assert.equal(createdMaster.status, '草稿', '主动新建的工程主单必须先进入草稿')
+assert.ok(createdMaster, '选择标记为可创建的款式后必须真正生成生产准备单')
+assert.equal(createdMaster.status, '草稿', '主动新建的生产准备单必须先进入草稿')
 const createdDetailHtml = renderPcsEngineeringMasterDetailPage(createdMaster.masterOrderId)
 assert.match(createdDetailHtml, /请选择生产准备类型/, '缺少结构化准备类型时必须让跟单选择')
 assert.doesNotMatch(createdDetailHtml, /已选 0\/0 项/, '新建草稿不得展示没有任务的假方案')
@@ -94,7 +94,7 @@ const originalWindow = globalThis.window
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
-    location: { pathname: `/pcs/engineering/masters/${createdMaster.masterOrderId}` },
+    location: { pathname: `/pcs/production-preparation/orders/${createdMaster.masterOrderId}` },
     dispatchEvent() { return true },
   },
 })

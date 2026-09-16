@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import '../src/data/fcs/design-revision-process-work-order-adapter.ts'
 import {
+  DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS,
   completeEngineeringIndependentBuyerPreparation,
   confirmEngineeringIndependentColorMappings,
   confirmEngineeringIndependentMaterialConversions,
@@ -14,6 +16,7 @@ import {
   getEngineeringIndependentSamplingStep,
   listReusableEngineeringIndependentSamplingResults,
   replaceEngineeringIndependentDesignFiles,
+  regenerateEngineeringIndependentBomFromReference,
   resetEngineeringIndependentSamplingRepository,
   startEngineeringIndependentProfessionalTask,
   submitEngineeringIndependentProfessionalTask,
@@ -32,6 +35,7 @@ import { captureEngineeringUploadedFiles, validateEngineeringUploadFile } from '
 import { listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../src/data/pcs-material-archive-repository.ts'
 import { listSkuArchivesByStyleId, resetSkuArchiveRepository } from '../src/data/pcs-sku-archive-repository.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { renderPcsIndependentSamplingDetailPage } from '../src/pages/pcs-independent-sampling.ts'
 
 const root = process.cwd()
 const merchandiser = { role: '跟单', userId: 'MERCH-TEST-01', userName: '跟单-测试' }
@@ -39,7 +43,7 @@ const buyer = { role: '买手', userId: 'BUYER-TEST-01', userName: '买手-测�
 const patternMaker = { role: '版师', userId: 'PATTERN-TEST-01', userName: '版师-测试' }
 const sampleTeam = { role: '制作团队', userId: 'SAMPLE-TEST-01', userName: '制作团队-测试' }
 
-async function upload(name: string, type: string, purpose: Parameters<typeof captureEngineeringUploadedFiles>[0]['purpose'], teamName: string, actor = merchandiser) {
+async function upload(name: string, type: string, purpose: Parameters<typeof captureEngineeringUploadedFiles>[0]['purpose'], teamName: string, actor = buyer) {
   return captureEngineeringUploadedFiles({
     files: [new File([`real-file:${name}`], name, { type })],
     purpose,
@@ -137,9 +141,9 @@ const latestSourceVersionId = createConfirmedSourceBom('SOURCE-BOM-LATEST', '202
 assert.ok(olderSourceVersionId && latestSourceVersionId)
 assert.equal(listEngineeringBomHistory(sourceStyle.styleCode, sourceColor)[0]?.bomDraftVersionId, latestSourceVersionId, '多个有效来源 BOM 必须优先使用最近确认版本')
 
-const firstDesign = await upload('design-v1.png', 'image/png', 'DESIGN_IMAGE', '跟单')
-const secondDesign = await upload('design-v2.jpg', 'image/jpeg', 'DESIGN_IMAGE', '跟单')
-const wrongTeamDesign = await upload('design-wrong.png', 'image/png', 'DESIGN_IMAGE', '买手', buyer)
+const firstDesign = await upload('design-v1.png', 'image/png', 'DESIGN_IMAGE', '买手')
+const secondDesign = await upload('design-v2.jpg', 'image/jpeg', 'DESIGN_IMAGE', '买手')
+const wrongTeamDesign = await upload('design-wrong.png', 'image/png', 'DESIGN_IMAGE', '跟单', merchandiser)
 
 assertThrowsMessage(() => validateEngineeringUploadFile(
   new File(['not-an-image'], 'design.pdf', { type: 'application/pdf' }),
@@ -154,7 +158,7 @@ assertThrowsMessage(() => createEngineeringIndependentSampling({
   targetStyleId: targetStyle.styleId,
   creationReason: '参照款不存在错误案例',
   designFiles: firstDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
 }), /参照商品／款式档案不存在/, '参照款必须提前建档')
 assertThrowsMessage(() => createEngineeringIndependentSampling({
@@ -162,7 +166,7 @@ assertThrowsMessage(() => createEngineeringIndependentSampling({
   targetStyleId: 'STYLE-NOT-FOUND',
   creationReason: '目标款不存在错误案例',
   designFiles: firstDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
 }), /目标商品／款式档案不存在/, '目标款必须提前建档')
 assertThrowsMessage(() => createEngineeringIndependentSampling({
@@ -170,7 +174,7 @@ assertThrowsMessage(() => createEngineeringIndependentSampling({
   targetStyleId: sourceStyle.styleId,
   creationReason: '同款错误案例',
   designFiles: firstDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
 }), /不能相同/, '参照款与目标款相同必须阻断')
 assertThrowsMessage(() => createEngineeringIndependentSampling({
@@ -178,7 +182,7 @@ assertThrowsMessage(() => createEngineeringIndependentSampling({
   targetStyleId: targetStyle.styleId,
   creationReason: '缺少设计稿错误案例',
   designFiles: [],
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
 }), /设计稿/, '缺少真实设计稿必须阻断')
 assertThrowsMessage(() => createEngineeringIndependentSampling({
@@ -186,15 +190,15 @@ assertThrowsMessage(() => createEngineeringIndependentSampling({
   targetStyleId: targetStyle.styleId,
   creationReason: '错误团队上传案例',
   designFiles: wrongTeamDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
-}), /当前跟单上传/, '设计稿不是当前跟单上传必须阻断')
+}), /当前买手上传/, '设计稿不是当前买手上传必须阻断')
 assertThrowsMessage(() => createEngineeringIndependentSampling({
   sourceStyleId: sourceStyle.styleId,
   targetStyleId: targetStyle.styleId,
   creationReason: '   ',
   designFiles: firstDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:05:00',
 }), /请填写本次设计改款要求/, '本次设计改款要求必须填写')
 
@@ -203,58 +207,53 @@ let record = createEngineeringIndependentSampling({
   targetStyleId: targetStyle.styleId,
   creationReason: '调整版型并制作销售展示样衣',
   designFiles: firstDesign,
-  merchandiser,
+  buyer,
   createdAt: '2026-08-27 09:10:00',
 })
 assert.match(record.samplingTaskCode, /^ES-DR-/, '统一任务编号必须使用 ES-DR')
 assert.equal(record.samplingType, 'DESIGN_REVISION')
 assert.equal(record.status, 'DRAFT')
 assert.equal(record.professionalTasks.length, 0, '创建时不得提前生成专业任务')
-assert.equal(record.bomVersionIds.length, 0, '创建时不得提前生成 BOM')
-assert.equal(getEngineeringIndependentSamplingStep(record), 'BUYER_PREPARATION')
+assert.equal(record.bomVersionIds.length, 1, '创建时必须直接建立一份空白物料与费用方案')
+assert.equal(record.colorMappings.length, 1, '领域内部只保留整款范围，不要求买手维护新款颜色')
+assert.equal(getEngineeringIndependentSamplingStep(record), 'SCHEME_CONFIRMATION')
 assert.deepEqual(getEngineeringIndependentCurrentTeams(record), ['买手'])
+assertThrowsMessage(() => confirmEngineeringIndependentColorMappings({
+  samplingTaskId: record.samplingTaskId,
+  actor: buyer,
+  mappings: [],
+}), /不再维护新款颜色或参考色/, '旧的新款颜色确认入口必须被领域层阻断')
+assertThrowsMessage(() => confirmEngineeringIndependentMaterialConversions({
+  samplingTaskId: record.samplingTaskId,
+  actor: buyer,
+  decisions: [],
+}), /不再处理参考物料/, '旧的参考物料处理入口必须被领域层阻断')
+assertThrowsMessage(() => regenerateEngineeringIndependentBomFromReference({
+  samplingTaskId: record.samplingTaskId,
+  targetColor: '任意颜色',
+  actor: buyer,
+}), /不再支持按参考色生成 BOM/, '旧的参考色带料入口必须被领域层阻断')
+const draftDetailHtml = renderPcsIndependentSamplingDetailPage(record.samplingTaskId)
 
 record = replaceEngineeringIndependentDesignFiles({
   samplingTaskId: record.samplingTaskId,
   designFiles: secondDesign,
-  actor: merchandiser,
+  actor: buyer,
   replacedAt: '2026-08-27 09:15:00',
 })
 assert.equal(record.designFiles.length, 2, '替换设计稿必须保留历史文件')
 assert.ok(record.operationLogs.some((item) => item.action === '替换设计稿'), '替换设计稿必须保留操作记录')
 
-record = confirmEngineeringIndependentColorMappings({
-  samplingTaskId: record.samplingTaskId,
-  actor: buyer,
-  mappings: [
-    { targetColor: '测试墨绿', sourceColor, targetSizeNames: targetSizes, mappingType: '参考 A 款颜色' },
-    { targetColor: '测试米白', sourceColor: '', targetSizeNames: [targetSizes[0]], mappingType: '无参考颜色' },
-  ],
-  confirmedAt: '2026-08-27 09:20:00',
-})
-assert.equal(record.colorMappings.length, 2, '目标颜色数量可独立于参照款定义')
-assert.equal(record.bomVersionIds.length, 2, '每个目标颜色必须生成一个颜色物料方案')
-const referencedBom = record.bomVersionIds.map(getEngineeringBomVersionById).find((item) => item?.productColor === '测试墨绿')
-assert.equal(referencedBom?.sourceVersionId, latestSourceVersionId, '参照颜色必须承接最近已完成确认的来源 BOM')
-
-record = confirmEngineeringIndependentMaterialConversions({
-  samplingTaskId: record.samplingTaskId,
-  actor: buyer,
-  decisions: record.materialConversionLines.map((line) => ({
-    conversionLineId: line.conversionLineId,
-    decision: '沿用' as const,
-    targetMaterialSkuId: line.sourceMaterialSkuId,
-  })),
-  confirmedAt: '2026-08-27 09:25:00',
-})
-const noReferenceBom = record.bomVersionIds.map(getEngineeringBomVersionById).find((item) => item?.productColor === '测试米白')
-assert.ok(noReferenceBom)
+const manualBom = getEngineeringBomVersionById(record.bomVersionIds[0])
+assert.ok(manualBom)
+assert.equal(manualBom.sourceVersionId, '', '新任务不得自动带入参照款物料')
+assert.equal(manualBom.materialLines.length, 0, '新任务的物料必须由买手手工添加')
 saveEngineeringBomVersion({
-  versionId: noReferenceBom.bomDraftVersionId,
+  versionId: manualBom.bomDraftVersionId,
   role: '买手',
   userId: buyer.userId,
   userName: buyer.userName,
-  materialLines: [sourceLine(noReferenceBom.applicableSkuIds, 1.5)],
+  materialLines: [sourceLine(manualBom.applicableSkuIds, 1.5)],
   updatedAt: '2026-08-27 09:27:00',
 })
 saveEngineeringBomPricingPlan({
@@ -276,33 +275,42 @@ record = completeEngineeringIndependentBuyerPreparation({
   actor: buyer,
   completedAt: '2026-08-27 09:30:00',
 })
-assert.equal(getEngineeringIndependentSamplingStep(record), 'WORK_PLAN')
-assert.deepEqual(getEngineeringIndependentCurrentTeams(record), ['跟单'])
-assert.ok(record.bomVersionIds.every((id) => Boolean(getEngineeringBomVersionById(id)?.editingLockedAt)), '买手完成资料准备后全部目标颜色 BOM 必须锁定')
+assert.equal(getEngineeringIndependentSamplingStep(record), 'SCHEME_CONFIRMATION')
+assert.deepEqual(getEngineeringIndependentCurrentTeams(record), ['买手'])
+assert.ok(record.bomVersionIds.every((id) => Boolean(getEngineeringBomVersionById(id)?.editingLockedAt)), '买手完成方案后物料与费用必须锁定')
 const repeatedCompletion = completeEngineeringIndependentBuyerPreparation({ samplingTaskId: record.samplingTaskId, actor: buyer })
 assert.equal(repeatedCompletion.operationLogs.length, record.operationLogs.length, '重复点击完成资料准备必须幂等')
 
 record = confirmEngineeringIndependentSamplingPlan({
   samplingTaskId: record.samplingTaskId,
-  actor: merchandiser,
-  selectedTaskTypes: ['DISPLAY_SAMPLE'],
+  actor: buyer,
+  selectedTaskTypes: ['BASE_PATTERN', 'DISPLAY_SAMPLE'],
+  displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] },
   sampleRequirements: [
-    { targetColor: '测试墨绿', targetSize: targetSizes[0], requiredQuantity: 2, requirementNote: '直播展示' },
-    { targetColor: '测试米白', targetSize: targetSizes[0], requiredQuantity: 1, requirementNote: '陈列展示' },
+    { targetColor: '页面不采集颜色', targetSize: 'XL', requiredQuantity: 3, requirementNote: '注意领口平整' },
   ],
   confirmedAt: '2026-08-27 09:35:00',
 })
-assert.equal(record.professionalTasks.length, 2, '销售展示样衣必须自动补齐基码纸样前置任务')
+assert.equal(record.professionalTasks.length, 2, '重新制版时方案必须同时包含基码纸样与销售展示样衣')
+assert.equal(getEngineeringIndependentSamplingStep(record), 'PROFESSIONAL_WORK')
+assert.deepEqual(
+  [record.displaySampleTeamId, record.displaySampleTeamName, record.displaySampleReceivingLocationId, record.displaySampleReceivingLocationName],
+  ['PCS-DISPLAY-SAMPLE-TEAM', '制作团队', 'PCS-DISPLAY-SAMPLE-AREA', '销售展示样衣制作区'],
+  '方案确认必须保存销售展示样衣的承接团队和接收位置',
+)
 const basePattern = record.professionalTasks.find((item) => item.taskType === 'BASE_PATTERN')
 const displaySample = record.professionalTasks.find((item) => item.taskType === 'DISPLAY_SAMPLE')
 assert.ok(basePattern && displaySample)
 assert.deepEqual(displaySample.dependsOnTaskIds, [basePattern.taskId])
-assert.deepEqual(displaySample.sampleRequirements?.map((item) => item.requiredQuantity), [2, 1], '跟单必须按颜色、尺码、数量下达制作要求')
+assert.equal(displaySample.sampleRequirements?.length, 1, '销售展示样衣制作安排必须只保存一项总数量')
+assert.equal(displaySample.sampleRequirements?.[0]?.targetSize, 'M', '销售展示样衣默认尺码必须固定为 M')
+assert.equal(displaySample.sampleRequirements?.[0]?.requiredQuantity, 3, '销售展示样衣必须保存买手填写的总件数')
+assert.equal(displaySample.sampleRequirements?.[0]?.requirementNote, '注意领口平整', '销售展示样衣必须保留制作要求')
 assertThrowsMessage(() => replaceEngineeringIndependentDesignFiles({
   samplingTaskId: record.samplingTaskId,
   designFiles: secondDesign,
-  actor: merchandiser,
-}), /工作安排确认后不能替换/, '工作安排确认后不得静默替换设计稿')
+  actor: buyer,
+}), /方案确认后不能替换/, '方案确认后不得静默替换设计稿')
 
 record = startEngineeringIndependentProfessionalTask({
   taskId: basePattern.taskId,
@@ -339,7 +347,7 @@ record = submitEngineeringIndependentProfessionalTask({
   actor: sampleTeam,
   results: (refreshedDisplay.sampleRequirements || []).map((line, index) => ({
     title: `${line.targetColor}-${line.targetSize}销售展示样衣`,
-    description: '按跟单要求制作',
+    description: '按买手确认要求制作',
     requirementLineId: line.requirementLineId,
     sampleQuantity: line.requiredQuantity,
     sampleColor: line.targetColor,
@@ -351,18 +359,46 @@ record = submitEngineeringIndependentProfessionalTask({
 })
 assert.equal(record.status, 'WAIT_CONFIRMATION')
 assert.equal(getEngineeringIndependentSamplingStep(record), 'RESULT_CONFIRMATION')
-assert.deepEqual(getEngineeringIndependentCurrentTeams(record), ['跟单'])
+assert.deepEqual(getEngineeringIndependentCurrentTeams(record), ['买手'])
 
 record = confirmEngineeringIndependentSamplingResult({
   samplingTaskId: record.samplingTaskId,
-  actor: merchandiser,
+  actor: buyer,
   resultVersion: 'DR-v1.0',
-  resultSummary: '设计改款成果已确认，可供工程主单判断是否复用。',
+  resultSummary: '设计改款成果已确认，可供生产准备单判断是否复用。',
   confirmedAt: '2026-08-27 12:10:00',
 })
 assert.equal(record.status, 'COMPLETED')
 assert.equal(getEngineeringIndependentSamplingStep(record), 'COMPLETED')
-assert.ok(listReusableEngineeringIndependentSamplingResults(targetStyle.styleCode).some((item) => item.samplingTaskId === record.samplingTaskId), '整单完成后才可作为工程主单复用输入')
+assert.ok(listReusableEngineeringIndependentSamplingResults(targetStyle.styleCode).some((item) => item.samplingTaskId === record.samplingTaskId), '整单完成后才可作为生产准备单复用输入')
+
+const detailHtml = renderPcsIndependentSamplingDetailPage(record.samplingTaskId)
+assert.match(detailHtml, /data-design-revision-basic-info/, '详情页必须以一张大卡片归纳设计改款基本信息')
+assert.match(detailHtml, new RegExp(record.samplingTaskCode), '基本信息大卡片必须以任务号作为主标题')
+assert.match(detailHtml, /data-design-revision-basic-columns/, '基本信息与设计稿必须使用左右两列布局')
+assert.match(detailHtml, /data-design-revision-objective/, '设计改款目标必须使用独立的重点信息区')
+assert.match(detailHtml, new RegExp(record.creationReason), '基本信息大卡片必须完整展示设计改款目标')
+assert.match(detailHtml, /data-design-revision-design-files/, '设计稿必须归入基本信息大卡片')
+assert.ok(
+  detailHtml.indexOf('data-design-revision-objective') < detailHtml.indexOf('data-design-revision-design-files')
+    && detailHtml.indexOf('data-design-revision-design-files') < detailHtml.indexOf('aria-label="设计改款任务步骤"'),
+  '基本信息大卡片内必须先突出目标，再展示设计稿，之后才进入任务步骤',
+)
+assert.match(draftDetailHtml, /data-design-revision-material-pricing/, '物料与加工要求、整款费用和综合成本必须归入同一张大卡片')
+assert.doesNotMatch(draftDetailHtml, /<h3[^>]*>物料与费用<\/h3>/, '合并卡片不得重复显示“物料与费用”外层标题')
+assert.match(draftDetailHtml, /space-y-4 rounded-lg border bg-white p-4/, '物料表与费用表之间必须保留卡片间距')
+assert.doesNotMatch(draftDetailHtml, /customCostDecision|>其他费用<\/span>/, '费用维护不得保留“其他费用”选择器')
+assert.doesNotMatch(draftDetailHtml, /待校验/, '物料、费用和汇率必须直接展示可计算值')
+assert.match(draftDetailHtml, /1 CNY = 2[.,]200 IDR/, '未单独维护汇率时必须展示系统默认汇率')
+assert.match(detailHtml, /data-image-url=/, '已选物料必须展示可点击的真实缩略图')
+assert.match(draftDetailHtml, /data-design-revision-display-sample-arrangement/, '详情页必须展示精简后的销售展示样衣制作安排')
+assert.match(draftDetailHtml, /默认尺码/, '销售展示样衣制作安排必须展示默认尺码')
+assert.match(draftDetailHtml, />M</, '销售展示样衣默认尺码必须展示为 M')
+assert.match(draftDetailHtml, /样衣数量（件）/, '销售展示样衣制作安排必须只采集样衣总件数')
+assert.match(draftDetailHtml, /制作要求/, '销售展示样衣制作安排必须保留制作要求')
+assert.doesNotMatch(draftDetailHtml, />新款颜色</, '详情页不得保留新款颜色模块')
+assert.doesNotMatch(draftDetailHtml, /参考物料处理|重新带入参考物料/, '详情页不得保留任何参考物料处理入口')
+assert.doesNotMatch(draftDetailHtml, /add-sample-requirement|remove-sample-requirement/, '销售展示样衣制作安排不得保留多行增删入口')
 
 const appShell = readFileSync(join(root, 'src/data/app-shell-config.ts'), 'utf8')
 const routes = readFileSync(join(root, 'src/router/routes-pcs.ts'), 'utf8')
@@ -380,7 +416,7 @@ const techPackVersionLogTypes = readFileSync(join(root, 'src/data/pcs-tech-pack-
 const allCurrentSource = [appShell, routes, handlers, independentPage, masterRepository, preparationProjection, techPackWorkspace, techPackTaskGeneration, technicalDataWriteback, projectDomainContract, engineeringTaskFieldPolicy, taskSourceNormalizer, techPackVersionLogTypes].join('\n')
 
 assert.match(appShell, /设计改款任务/)
-assert.match(routes, /\/pcs\/engineering\/design-revision/)
+assert.match(routes, /\/pcs\/production-preparation\/design-revision/)
 assert.doesNotMatch(allCurrentSource, /改款打样任务|设计打样任务|工程变更/)
 assert.ok(!existsSync(join(root, 'src/pages/pcs-engineering-change.ts')))
 assert.ok(!existsSync(join(root, 'src/data/pcs-engineering-change-workspace.ts')))
@@ -397,7 +433,7 @@ assert.doesNotMatch(technicalDataWriteback, /generateTechPackVersionFromPlateTas
 assert.doesNotMatch(
   allCurrentSource,
   /技术包主挂载入口|制版生成技术包|花型生成新版本|改版生成新版本|primaryTechPackGenerated|已生成技术包/,
-  '专业任务不得保留绕过工程主单生成正式技术包的旧字段、状态或文案',
+  '专业任务不得保留绕过生产准备单生成正式技术包的旧字段、状态或文案',
 )
 assert.doesNotMatch(
   engineeringTaskFieldPolicy,

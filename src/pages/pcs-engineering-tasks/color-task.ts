@@ -1,6 +1,6 @@
 // @page-pattern: list
 // 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
-// 调色任务模块：列表沿用标准任务页，详情通过工程主单事实服务完成三阶段操作。
+// 调色任务模块：列表沿用标准任务页，详情通过生产准备单事实服务完成三阶段操作。
 
 import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types.ts'
 import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
@@ -58,7 +58,7 @@ import {
 } from './material-review-task-ui.ts'
 
 const COLOR_TASK_TYPES = ['COLOR_YARN', 'COLOR_FABRIC'] as const
-const COLOR_LIST_PATH = '/pcs/engineering/color'
+const COLOR_LIST_PATH = '/pcs/production-preparation/color'
 
 function getColorTasksFiltered(): EngineeringTaskRecord[] {
   const tasks = listEngineeringTasksByType(COLOR_TASK_TYPES)
@@ -114,7 +114,7 @@ function getColorListRows(): EngineeringListRow[] {
           <p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>
         </div>`,
         master: master
-          ? `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`
+          ? `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`
           : `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`,
         status: renderStatusBadge(task.status),
         team: escapeHtml(task.status === '已完成' ? '-' : task.ownerTeamName || '-'),
@@ -158,8 +158,8 @@ function renderColorListPage(): string {
   return renderEngineeringStandardListPage({
     module: 'color',
     title: '调色任务',
-    createLabel: '查看工程主单',
-    createAction: 'nav:/pcs/engineering/masters',
+    createLabel: '查看生产准备单',
+    createAction: 'nav:/pcs/production-preparation/orders',
     filtersHtml: renderListFilters({
       searchPlaceholder: '搜索任务编号 / 任务名称 / 主单编号 / 款式编码 / 当前团队',
       listState: state.colorList,

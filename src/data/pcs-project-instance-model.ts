@@ -394,7 +394,7 @@ function resolveDesignRevisionTaskRelationObject(relation: ProjectRelationRecord
     businessDate: relation.businessDate,
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: task ? `/pcs/engineering/design-revision/${encodeURIComponent(task.samplingTaskId)}` : '/pcs/engineering/design-revision',
+    targetRoute: task ? `/pcs/production-preparation/design-revision/${encodeURIComponent(task.samplingTaskId)}` : '/pcs/production-preparation/design-revision',
     fields,
   }
 }
@@ -415,7 +415,7 @@ function resolvePlateTaskRelationObject(relation: ProjectRelationRecord): Resolv
     businessDate: relation.businessDate,
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: task ? `/pcs/patterns/plate-making/${encodeURIComponent(task.plateTaskId)}` : '/pcs/patterns/plate-making',
+    targetRoute: task ? `/pcs/production-preparation/plate-making/${encodeURIComponent(task.plateTaskId)}` : '/pcs/production-preparation/plate-making',
     fields,
   }
 }
@@ -484,7 +484,7 @@ function resolveFirstSampleRelationObject(relation: ProjectRelationRecord): Reso
     businessDate: relation.businessDate,
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: task ? `/pcs/samples/first-sample/${encodeURIComponent(task.firstSampleTaskId)}` : '/pcs/samples/first-sample',
+    targetRoute: task ? `/pcs/production-preparation/first-sample/${encodeURIComponent(task.firstSampleTaskId)}` : '/pcs/production-preparation/first-sample',
     fields,
   }
 }

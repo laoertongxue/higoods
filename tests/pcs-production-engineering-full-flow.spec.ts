@@ -3,17 +3,45 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+import '../src/data/fcs/design-revision-process-work-order-adapter.ts'
 import {
+  acceptDyeWorkOrderPdaTask,
+  assignDyeWorkOrderFactory,
+  completeDyeInputReceipt,
+  completeDyeNode,
+  completeDyeWorkOrderDocument,
+  completeDyeing,
+  completeDyeMaterialWait,
+  createDyeDispatchDocument,
+  finishDyeDispatchDocument,
+  getDyeOrderHandoverRecords,
+  getDyeWorkOrderById,
+  listDyeVatOptions,
+  markDyeOutputRolls,
+  planDyeVat,
+  saveDyeDispatchTransport,
+  saveDyeOutputRolls,
+  scanDyeDispatchRoll,
+  startDyeMaterialWait,
+  startDyeNode,
+  startDyeing,
+} from '../src/data/fcs/dyeing-task-domain.ts'
+import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import { writeBackHandoverRecord } from '../src/data/fcs/pda-handover-events.ts'
+import { readDesignRevisionProcessWorkOrderStatuses } from '../src/data/pcs-design-revision-process-work-order-port.ts'
+import {
+  DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS,
   completeEngineeringIndependentBuyerPreparation,
-  confirmEngineeringIndependentColorMappings,
-  confirmEngineeringIndependentMaterialConversions,
+  confirmEngineeringIndependentColorRequirement,
   confirmEngineeringIndependentSamplingPlan,
   confirmEngineeringIndependentSamplingResult,
   createEngineeringIndependentSampling,
   getEngineeringIndependentCurrentTeams,
   getEngineeringIndependentSamplingRecord,
+  getEngineeringIndependentSamplingStep,
   replaceEngineeringIndependentDesignFiles,
   resetEngineeringIndependentSamplingRepository,
+  reviewEngineeringIndependentProfessionalTask,
   startEngineeringIndependentProfessionalTask,
   submitEngineeringIndependentProfessionalTask,
 } from '../src/data/pcs-engineering-master-sampling.ts'
@@ -66,17 +94,25 @@ import { resetTechPackReviewNotificationRepository } from '../src/data/pcs-tech-
 import { resetTechPackVersionLogRepository } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   approveTechPackReview,
+  getTechnicalProcessRouteGate,
   startTechPackReview,
   submitTechPackFirstStageReview,
 } from '../src/data/pcs-tech-pack-review.ts'
+import { validateProcessRouteGraph } from '../src/data/tech-pack-process-route.ts'
 import { getLegacyTechPackReviewer } from '../src/data/pcs-tech-pack-reviewer-directory.ts'
 import { publishTechnicalDataVersion } from '../src/data/pcs-project-technical-data-writeback.ts'
 import { activateTechPackVersionForStyle } from '../src/data/pcs-tech-pack-version-activation.ts'
 import { getPreparationRecordCapabilities } from '../src/data/fcs/production-preparation-timing-runtime.ts'
 import { buildProductionOrderFromDemand, type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
 import type { ProductionDemand } from '../src/data/fcs/production-demands.ts'
-import type { EngineeringMasterOrderRecord, EngineeringTaskRecord, EngineeringTaskType } from '../src/data/pcs-engineering-master-types.ts'
-import type { TechnicalDataVersionContent, TechnicalReviewNodeKey } from '../src/data/pcs-technical-data-version-types.ts'
+import type {
+  EngineeringIndependentProfessionalTaskType,
+  EngineeringIndependentSamplingRecord,
+  EngineeringMasterOrderRecord,
+  EngineeringTaskRecord,
+  EngineeringTaskType,
+} from '../src/data/pcs-engineering-master-types.ts'
+import type { TechnicalDataVersionContent, TechnicalProcessEntry, TechnicalReviewNodeKey } from '../src/data/pcs-technical-data-version-types.ts'
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>()
@@ -94,7 +130,7 @@ Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
     localStorage: storage,
-    location: { pathname: '/pcs/engineering/masters' },
+    location: { pathname: '/pcs/production-preparation/orders' },
     dispatchEvent: () => true,
   },
 })
@@ -157,7 +193,7 @@ function recordStep(input: Omit<FlowStepRecord, 'sequence' | 'result' | 'error' 
 function persistRecord(overallResult: '通过' | '失败', error = ''): void {
   mkdirSync(dirname(recordPath), { recursive: true })
   writeFileSync(recordPath, JSON.stringify({
-    title: 'PCS 生产工程管理双案例全流程模拟测试记录',
+    title: 'PCS 生产准备管理双案例全流程模拟测试记录',
     passId,
     branch: execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).trim(),
     head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
@@ -233,6 +269,108 @@ function resetAll(): void {
   resetEngineeringTaskUploadRepository()
 }
 
+function completeDesignRevisionDyeProcessOrders(
+  chainId: string,
+  record: EngineeringIndependentSamplingRecord,
+): void {
+  const refs = record.professionalTasks
+    .flatMap((task) => task.processWorkOrderRefs)
+    .filter((ref) => ref.processType === 'DYEING')
+  if (!refs.length) return
+
+  const factory = listFactoryMasterRecords().find((candidate) => (
+    candidate.status === 'active'
+    && candidate.eligibility.allowDispatch
+    && candidate.processAbilities.some((ability) => (
+      ability.processCode === 'DYE'
+      && (ability.status ?? 'ACTIVE') === 'ACTIVE'
+      && ability.canReceiveTask !== false
+    ))
+    && listDyeVatOptions(candidate.id).length > 0
+  ))
+  assert.ok(factory, '设计改款染色加工单必须有可派单且已维护染缸的染厂')
+
+  refs.forEach((ref, index) => {
+    assignDyeWorkOrderFactory(ref.processOrderId, {
+      factoryId: factory.id,
+      factoryName: factory.name,
+      assignedAt: fixedNow,
+      assignedBy: merchandiser.userName,
+    })
+    let order = getDyeWorkOrderById(ref.processOrderId)
+    assert.ok(order, `设计改款染色加工单 ${ref.processOrderId} 必须存在`)
+    acceptDyeWorkOrderPdaTask(order.taskId, dyeFactory.userName, fixedNow)
+
+    startDyeMaterialWait(order.dyeOrderId, dyeFactory.userName)
+    completeDyeMaterialWait(order.dyeOrderId, dyeFactory.userName)
+    completeDyeInputReceipt(order.dyeOrderId, {
+      outputQty: order.plannedQty,
+      operatorName: dyeFactory.userName,
+      receiptId: `${chainId}-DYE-RECEIPT-${index + 1}`,
+      upstreamRecordId: `${chainId}-DYE-SOURCE-${index + 1}`,
+    })
+    const vat = listDyeVatOptions(factory.id)[0]
+    assert.ok(vat, `${factory.name} 必须存在可用染缸`)
+    planDyeVat(order.dyeOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: dyeFactory.userName })
+    startDyeing(order.dyeOrderId, {
+      dyeVatNo: vat.dyeVatNo,
+      inputQty: order.plannedQty,
+      operatorName: dyeFactory.userName,
+    })
+    completeDyeing(order.dyeOrderId, { outputQty: order.plannedQty, operatorName: dyeFactory.userName })
+    for (const nodeCode of ['DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'] as const) {
+      startDyeNode(order.dyeOrderId, nodeCode, dyeFactory.userName)
+      completeDyeNode(order.dyeOrderId, nodeCode, { outputQty: order.plannedQty, operatorName: dyeFactory.userName })
+    }
+
+    const rolls = saveDyeOutputRolls(order.dyeOrderId, [{
+      qty: order.plannedQty,
+      weightKg: order.plannedQty,
+      widthCm: 150,
+      gsm: 180,
+      vatNo: vat.dyeVatNo,
+      remark: `${chainId} 设计改款染色全流程卷`,
+    }])
+    assert.equal(rolls.length, 1)
+    markDyeOutputRolls(order.dyeOrderId, [rolls[0].id], 'print')
+    const dispatch = createDyeDispatchDocument(
+      [{ orderId: order.dyeOrderId, rollIds: [rolls[0].id] }],
+      dyeFactory.userName,
+    )
+    scanDyeDispatchRoll(dispatch.id, rolls[0].barcode, dyeFactory.userName)
+    saveDyeDispatchTransport(dispatch.id, {
+      driver: '全流程测试司机',
+      vehicle: '厢式货车',
+      plate: 'TEST-001',
+      note: `${chainId} 送往销售展示样衣制作区`,
+    })
+    const handedOver = finishDyeDispatchDocument(dispatch.id, 'confirm')
+    assert.equal(handedOver.status, '已交出')
+
+    const handoverRecords = getDyeOrderHandoverRecords(order.dyeOrderId)
+    assert.ok(handoverRecords.length > 0, '染色加工完成后必须产生交出记录')
+    handoverRecords.forEach((handoverRecord) => {
+      writeBackHandoverRecord({
+        handoverRecordId: handoverRecord.handoverRecordId || handoverRecord.recordId,
+        receiverWrittenQty: handoverRecord.submittedQty ?? handoverRecord.plannedQty ?? 0,
+        receiverWrittenAt: handoverRecord.factorySubmittedAt,
+        receiverWrittenBy: '销售展示样衣制作区收料员',
+      })
+    })
+    order = getDyeWorkOrderById(order.dyeOrderId)
+    assert.equal(order?.status, 'WAIT_MANUAL_COMPLETION', '全部染色产出由接收方确认后必须等待具名完单')
+    completeDyeWorkOrderDocument(ref.processOrderId, {
+      completedBy: merchandiser.userName,
+      completedAt: fixedNow,
+      remark: `${chainId} 设计改款染色加工单已核对完结`,
+    })
+    assert.equal(getDyeWorkOrderById(ref.processOrderId)?.status, 'COMPLETED')
+  })
+
+  const statuses = readDesignRevisionProcessWorkOrderStatuses(refs)
+  assert.ok(statuses.every((status) => status.status === 'COMPLETED'), '销售展示样衣开始前，相关染色加工单必须全部完成')
+}
+
 function materialFixture() {
   const material = listMaterialArchives().find((item) =>
     item.status === 'ACTIVE' && item.mainImageUrl && item.materialId.includes('fabric'),
@@ -301,15 +439,68 @@ function completeTechnicalContent(
 ): void {
   const current = getTechnicalDataVersionContent(technicalVersionId)
   assert.ok(current, '技术包草稿必须有内容')
-  const processEntries = template.processEntries.slice(0, 1).map((item, index) => ({
-    ...structuredClone(item),
-    id: `${technicalVersionId}-PROCESS-${index + 1}`,
-    routeStepNo: index + 1,
-    routeLaneNo: 1,
-    linkedBomItemIds: current.bomItems.map((row) => row.id),
-    linkedPatternIds: current.patternFiles.map((row) => row.id),
+  const processTemplate = template.processEntries[0]
+  assert.ok(processTemplate, '技术包测试模板必须包含一条可复用工艺资料')
+  const processEntries: TechnicalProcessEntry[] = []
+  const hasProcessRequirement = (value: string | undefined): boolean => {
+    const normalized = String(value || '').trim().toUpperCase()
+    return Boolean(normalized) && !['否', '无', '不需要', 'NO', 'NONE', 'N/A'].includes(normalized)
+  }
+  const bomItems = current.bomItems.map((item) => ({
+    ...item,
+    printRequirement: hasProcessRequirement(item.printRequirement) ? item.printRequirement : '无',
+    dyeRequirement: hasProcessRequirement(item.dyeRequirement) ? item.dyeRequirement : '无',
   }))
-  const colorMaterialMappings = [...new Set(current.bomItems.map((item) => item.colorLabel?.trim() || '默认颜色'))]
+  bomItems.forEach((item, itemIndex) => {
+    const requirements = [
+      ...(hasProcessRequirement(item.dyeRequirement) ? [{ code: 'DYE', name: '染色' }] : []),
+      ...(hasProcessRequirement(item.printRequirement) ? [{ code: 'PRINT', name: '印花' }] : []),
+    ]
+    requirements.forEach((requirement, requirementIndex) => {
+      const predecessor = requirement.code === 'PRINT'
+        ? processEntries.find((entry) => entry.routeObjectKey === `BOM:${item.id}` && entry.processCode === 'DYE')
+        : undefined
+      processEntries.push({
+        ...structuredClone(processTemplate),
+        id: `${technicalVersionId}-${requirement.code}-${itemIndex + 1}`,
+        entryType: 'PROCESS_BASELINE',
+        stageCode: 'PREP',
+        stageName: '生产准备',
+        processCode: requirement.code,
+        processName: requirement.name,
+        isSpecialCraft: false,
+        routeStepNo: requirementIndex + 1,
+        routeLaneNo: itemIndex + 1,
+        routeObjectKey: `BOM:${item.id}`,
+        inputObjectType: 'BOM_MATERIAL',
+        outputObjectType: 'BOM_MATERIAL',
+        linkedBomItemIds: [item.id],
+        linkedPatternIds: current.patternFiles.map((row) => row.id),
+        predecessorEntryIds: predecessor ? [predecessor.id] : [],
+      })
+    })
+  })
+  if (!processEntries.length) {
+    processEntries.push({
+      ...structuredClone(processTemplate),
+      id: `${technicalVersionId}-PREP-1`,
+      entryType: 'PROCESS_BASELINE',
+      stageCode: 'PREP',
+      stageName: '生产准备',
+      processCode: 'PREP',
+      processName: '生产准备核对',
+      isSpecialCraft: false,
+      routeStepNo: 1,
+      routeLaneNo: 1,
+      routeObjectKey: bomItems[0] ? `BOM:${bomItems[0].id}` : 'GARMENT:MAIN',
+      inputObjectType: 'BOM_MATERIAL',
+      outputObjectType: 'BOM_MATERIAL',
+      linkedBomItemIds: bomItems.map((row) => row.id),
+      linkedPatternIds: current.patternFiles.map((row) => row.id),
+      predecessorEntryIds: [],
+    })
+  }
+  const colorMaterialMappings = [...new Set(bomItems.map((item) => item.colorLabel?.trim() || '默认颜色'))]
     .map((colorName, mappingIndex) => ({
       id: `${technicalVersionId}-MAPPING-${mappingIndex + 1}`,
       spuCode: getTechnicalDataVersionById(technicalVersionId)?.styleCode || '',
@@ -320,7 +511,7 @@ function completeTechnicalContent(
       confirmedBy: merchandiser.userName,
       confirmedAt: fixedNow,
       remark: '由工程 BOM 与纸样成果生成。',
-      lines: current.bomItems
+      lines: bomItems
         .filter((item) => (item.colorLabel?.trim() || '默认颜色') === colorName)
         .map((item, lineIndex) => ({
           id: `${technicalVersionId}-MAPPING-${mappingIndex + 1}-LINE-${lineIndex + 1}`,
@@ -331,10 +522,11 @@ function completeTechnicalContent(
           unit: item.unit || 'PCS',
           applicableSkuCodes: [...(item.applicableSkuCodes || [])],
           sourceMode: 'AUTO' as const,
-          note: '工程主单自动汇总。',
+          note: '生产准备单自动汇总。',
         })),
     }))
   updateTechnicalDataVersionContent(technicalVersionId, {
+    bomItems,
     processEntries,
     processRouteStatus: 'CONFIRMED',
     processRouteConfirmedBy: merchandiser.userName,
@@ -347,6 +539,9 @@ function completeTechnicalContent(
   })
   const refreshed = getTechnicalDataVersionById(technicalVersionId)
   assert.deepEqual(refreshed?.missingItemCodes, [], '技术包草稿核心域必须全部补齐')
+  const completedContent = getTechnicalDataVersionContent(technicalVersionId)!
+  assert.deepEqual(validateProcessRouteGraph(completedContent.processEntries, { requireComplete: true }), [], '技术包工艺路线必须形成完整、可确认的业务链')
+  assert.equal(getTechnicalProcessRouteGate(technicalVersionId, completedContent).confirmed, true, '技术包工艺路线必须保持已确认')
 }
 
 function reviewNode(technicalVersionId: string, nodeKey: TechnicalReviewNodeKey): void {
@@ -373,7 +568,7 @@ function reviewNode(technicalVersionId: string, nodeKey: TechnicalReviewNodeKey)
 
 function latestTask(masterOrderId: string, taskType: EngineeringTaskType): EngineeringTaskRecord {
   const task = getEngineeringMasterOrderById(masterOrderId)?.tasks.find((item) => item.taskType === taskType)
-  assert.ok(task, `工程主单必须存在任务 ${taskType}`)
+  assert.ok(task, `生产准备单必须存在任务 ${taskType}`)
   return task
 }
 
@@ -427,7 +622,7 @@ async function runChain(input: {
   const sourceColor = sourceSkus[0]?.colorName
   const sizes = [...new Set(targetSkus.map((sku) => sku.sizeName).filter(Boolean))].slice(0, 2)
   assert.ok(sourceColor && sizes.length, `${chainId} 必须有参照颜色和目标尺码`)
-  const { material, sku: materialSku } = materialFixture()
+  const { sku: materialSku } = materialFixture()
   const targetColors = [`${chainId}深蓝`, `${chainId}米白`]
 
   const sourceLine = (applicableSkuIds: string[], usage: number) => ({
@@ -486,68 +681,41 @@ async function runChain(input: {
     assertions: ['物料有真实图片', '物料有标准单价', '最近确认版本排序正确'],
   })
 
-  const designFiles = await upload(`${chainId}-design.png`, 'image/png', 'DESIGN_IMAGE', '跟单')
+  const designFiles = await upload(`${chainId}-design.png`, 'image/png', 'DESIGN_IMAGE', '买手', buyer)
   let sampling = createEngineeringIndependentSampling({
     sourceStyleId: sourceStyle.styleId,
     targetStyleId: targetStyle.styleId,
     creationReason: `${chainId} 设计改款并制作销售展示样衣`,
     designFiles,
-    merchandiser,
+    buyer,
     createdAt: fixedNow,
   })
   const samplingId = sampling.samplingTaskId
   assert.equal(sampling.status, 'DRAFT')
+  assert.equal(getEngineeringIndependentSamplingStep(sampling), 'SCHEME_CONFIRMATION')
   recordStep({
-    chainId, stage: '设计改款创建', objectId: samplingId, actorTeam: '跟单', actorName: merchandiser.userName,
-    action: '选择参照款与目标款并上传真实图片设计稿', before: { status: '未创建', currentTeams: ['跟单'] },
+    chainId, stage: '设计改款创建', objectId: samplingId, actorTeam: '买手', actorName: buyer.userName,
+    action: '选择参照款与目标款并上传真实图片设计稿', before: { status: '未创建', currentTeams: ['买手'] },
     inputSummary: `${sourceStyle.styleCode} → ${targetStyle.styleCode}；${designFiles[0].fileName}`,
     after: independentState(samplingId), outputIds: [samplingId, designFiles[0].fileId],
-    assertions: ['参照款与目标款不同', '两款均已建档', '设计稿由跟单真实上传', '创建后进入买手资料准备'],
+    assertions: ['参照款与目标款不同', '两款均已建档', '设计稿由买手真实上传', '创建后进入方案确认'],
   })
 
-  const replacementDesign = await upload(`${chainId}-design-v2.jpg`, 'image/jpeg', 'DESIGN_IMAGE', '跟单')
+  const replacementDesign = await upload(`${chainId}-design-v2.jpg`, 'image/jpeg', 'DESIGN_IMAGE', '买手', buyer)
   sampling = replaceEngineeringIndependentDesignFiles({
-    samplingTaskId: samplingId, designFiles: replacementDesign, actor: merchandiser, replacedAt: fixedNow,
+    samplingTaskId: samplingId, designFiles: replacementDesign, actor: buyer, replacedAt: fixedNow,
   })
-  assert.equal(sampling.designFiles.length, 2, '跟单替换设计稿后必须保留原设计稿和新设计稿的历史')
+  assert.equal(sampling.designFiles.length, 2, '买手替换设计稿后必须保留原设计稿和新设计稿的历史')
   assert.equal(sampling.designFiles.at(-1)?.fileId, replacementDesign[0].fileId, '最新上传的设计稿必须成为本次工作使用的最后一版')
   const beforeBuyer = independentState(samplingId)
-  sampling = confirmEngineeringIndependentColorMappings({
-    samplingTaskId: samplingId,
-    actor: buyer,
-    mappings: [
-      { targetColor: targetColors[0], sourceColor, targetSizeNames: sizes, mappingType: '参考 A 款颜色' },
-      { targetColor: targetColors[1], sourceColor: '', targetSizeNames: [sizes[0]], mappingType: '无参考颜色' },
-    ],
-    confirmedAt: fixedNow,
-  })
-  assert.equal(sampling.colorMappings.length, 2)
-  assert.equal(sampling.bomVersionIds.length, 2)
-  const referencedBom = sampling.bomVersionIds.map(getEngineeringBomVersionById).find((item) => item?.productColor === targetColors[0])
-  assert.equal(referencedBom?.sourceVersionId, latestId)
-  sampling = confirmEngineeringIndependentMaterialConversions({
-    samplingTaskId: samplingId,
-    actor: buyer,
-    decisions: sampling.materialConversionLines.map((line) => ({
-      conversionLineId: line.conversionLineId,
-      decision: '不使用' as const,
-      targetMaterialSkuId: '',
-    })),
-    confirmedAt: fixedNow,
-  })
-  const refreshedReferencedBom = sampling.bomVersionIds
-    .map(getEngineeringBomVersionById)
-    .find((item) => item?.productColor === targetColors[0])
-  assert.ok(refreshedReferencedBom)
+  assert.equal(sampling.bomVersionIds.length, 1, '设计改款只建立一份整款物料与费用方案')
+  const wholeStyleBom = getEngineeringBomVersionById(sampling.bomVersionIds[0])
+  assert.ok(wholeStyleBom)
+  assert.equal(wholeStyleBom.sourceVersionId, '', '即使参照款存在多版 BOM，新任务也不得自动带入')
+  assert.equal(wholeStyleBom.materialLines.length, 0, '新任务必须从空白物料表开始')
   saveEngineeringBomVersion({
-    versionId: refreshedReferencedBom.bomDraftVersionId, role: '买手', userId: buyer.userId, userName: buyer.userName,
-    materialLines: [sourceLine(refreshedReferencedBom.applicableSkuIds, 1.2)], updatedAt: fixedNow,
-  })
-  const blankBom = sampling.bomVersionIds.map(getEngineeringBomVersionById).find((item) => item?.productColor === targetColors[1])
-  assert.ok(blankBom)
-  saveEngineeringBomVersion({
-    versionId: blankBom.bomDraftVersionId, role: '买手', userId: buyer.userId, userName: buyer.userName,
-    materialLines: [sourceLine(blankBom.applicableSkuIds, 1.5)], updatedAt: fixedNow,
+    versionId: wholeStyleBom.bomDraftVersionId, role: '买手', userId: buyer.userId, userName: buyer.userName,
+    materialLines: [sourceLine(wholeStyleBom.applicableSkuIds, 1.2)], updatedAt: fixedNow,
   })
   saveEngineeringBomPricingPlan({
     ownerStage: 'INDEPENDENT_SAMPLING', ownerId: samplingId, role: '买手', userId: buyer.userId, userName: buyer.userName,
@@ -560,16 +728,22 @@ async function runChain(input: {
   assert.equal(independentPricingPlan?.customCosts[0]?.amountIdr, 25000)
   recordStep({
     chainId, stage: '设计改款资料准备', objectId: samplingId, actorTeam: '买手', actorName: buyer.userName,
-    action: '定义目标颜色、建立颜色对照并统一确认物料与整款费用', before: beforeBuyer,
-    inputSummary: `${targetColors.join('、')}；车位费 Rp25,000`, after: independentState(samplingId),
-    outputIds: sampling.bomVersionIds, assertions: ['目标颜色可独立定义', '参照色承接最新 BOM', '无参照色可重新维护', '物料与费用一次确认', '完成后交给跟单'],
+    action: '从空白整款方案手工新增物料并统一确认加工要求与整款费用', before: beforeBuyer,
+    inputSummary: `手工新增 ${materialSku.materialSkuCode}；车位费 Rp25,000`, after: independentState(samplingId),
+    outputIds: sampling.bomVersionIds, assertions: ['参照款物料未自动带入', '整款只有一份物料方案', '物料与费用一次确认', '仍由买手完成工作方案确认'],
   })
 
   const beforePlan = independentState(samplingId)
+  const selectedIndependentTaskTypes: EngineeringIndependentProfessionalTaskType[] = [
+    'BASE_PATTERN',
+    ...(withDye ? ['COLOR_FABRIC' as const] : []),
+    'DISPLAY_SAMPLE',
+  ]
   sampling = confirmEngineeringIndependentSamplingPlan({
     samplingTaskId: samplingId,
-    actor: merchandiser,
-    selectedTaskTypes: ['DISPLAY_SAMPLE'],
+    actor: buyer,
+    selectedTaskTypes: selectedIndependentTaskTypes,
+    displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] },
     sampleRequirements: [
       { targetColor: targetColors[0], targetSize: sizes[0], requiredQuantity: 2, requirementNote: '直播展示' },
       { targetColor: targetColors[1], targetSize: sizes[0], requiredQuantity: 1, requirementNote: '陈列展示' },
@@ -579,12 +753,23 @@ async function runChain(input: {
   const independentBase = sampling.professionalTasks.find((task) => task.taskType === 'BASE_PATTERN')!
   const displaySample = sampling.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')!
   assert.ok(independentBase && displaySample)
+  assert.deepEqual(
+    displaySample.sampleRequirements.map((line) => ({ size: line.targetSize, quantity: line.requiredQuantity })),
+    [{ size: 'M', quantity: 3 }],
+    '历史两行销售展示要求必须汇总为一条 M 码总件数',
+  )
+  assert.equal(getEngineeringIndependentSamplingStep(sampling), 'PROFESSIONAL_WORK')
+  assert.deepEqual(
+    [sampling.displaySampleTeamId, sampling.displaySampleTeamName, sampling.displaySampleReceivingLocationId, sampling.displaySampleReceivingLocationName],
+    ['PCS-DISPLAY-SAMPLE-TEAM', '制作团队', 'PCS-DISPLAY-SAMPLE-AREA', '销售展示样衣制作区'],
+    '方案确认必须保存销售展示样衣的承接团队和接收位置',
+  )
   recordStep({
-    chainId, stage: '设计改款工作安排', objectId: samplingId, actorTeam: '跟单', actorName: merchandiser.userName,
-    action: '按颜色、尺码和数量下达销售展示样衣要求并生成固定前置任务', before: beforePlan,
-    inputSummary: `${targetColors[0]}/${sizes[0]}/2件；${targetColors[1]}/${sizes[0]}/1件`, after: independentState(samplingId),
+    chainId, stage: '设计改款方案确认', objectId: samplingId, actorTeam: '买手', actorName: buyer.userName,
+    action: '确认 M 码销售展示样衣总件数并生成所需专业任务', before: beforePlan,
+    inputSummary: `历史两行合计 3 件，系统保存为 M 码总件数`, after: independentState(samplingId),
     outputIds: sampling.professionalTasks.map((task) => task.taskId),
-    assertions: ['销售展示样衣自动补齐基码纸样前置', '数量按颜色尺码逐行下达', '固定依赖不可跳过'],
+    assertions: ['销售展示样衣自动补齐基码纸样前置', '历史数量完整汇总为 M 码总件数', '固定依赖不可跳过'],
   })
 
   sampling = startEngineeringIndependentProfessionalTask({ taskId: independentBase.taskId, actor: patternMaker, startedAt: fixedNow })
@@ -594,6 +779,54 @@ async function runChain(input: {
     results: [{ title: '设计改款基码纸样', version: 'v1.0', description: '真实 PRJ 源文件', applicablePartOrSize: sizes[0], files: independentPattern }],
     submittedAt: fixedNow,
   })
+  if (withDye) {
+    const independentColor = sampling.professionalTasks.find((task) => task.taskType === 'COLOR_FABRIC')
+    assert.ok(independentColor, '物料存在染色要求时必须生成面料调色任务')
+    sampling = confirmEngineeringIndependentColorRequirement({
+      taskId: independentColor.taskId,
+      actor: buyer,
+      pantoneColorCode: '19-4052 TCX',
+      colorName: targetColors[0],
+      confirmedAt: fixedNow,
+    })
+    sampling = startEngineeringIndependentProfessionalTask({ taskId: independentColor.taskId, actor: dyeFactory, startedAt: fixedNow })
+    const independentColorFiles = await upload(`${chainId}-independent-color.jpg`, 'image/jpeg', 'COLOR_RESULT', '染厂', dyeFactory)
+    sampling = submitEngineeringIndependentProfessionalTask({
+      taskId: independentColor.taskId,
+      actor: dyeFactory,
+      dyeColorCode: `${chainId}-DYE-DESIGN-01`,
+      results: [{
+        title: `${targetColors[0]}调色成果`,
+        version: 'v1.0',
+        description: '染厂按买手确认的潘通色号完成实际色样。',
+        files: independentColorFiles,
+      }],
+      submittedAt: fixedNow,
+    })
+    const submittedColor = sampling.professionalTasks.find((task) => task.taskId === independentColor.taskId)!
+    assert.equal(submittedColor.status, 'WAIT_REVIEW')
+    sampling = reviewEngineeringIndependentProfessionalTask({
+      taskId: independentColor.taskId,
+      actor: buyer,
+      decisions: submittedColor.results.map((result) => ({ resultId: result.resultId, approved: true })),
+      reviewedAt: fixedNow,
+    })
+    assert.equal(sampling.professionalTasks.find((task) => task.taskId === independentColor.taskId)?.status, 'COMPLETED')
+    recordStep({
+      chainId,
+      stage: '设计改款调色',
+      objectId: independentColor.taskId,
+      actorTeam: '买手、染厂',
+      actorName: `${buyer.userName}、${dyeFactory.userName}`,
+      action: '买手确认颜色要求，染厂提交真实色样，买手审核通过',
+      before: { status: '待开始', currentTeams: ['买手'] },
+      inputSummary: `19-4052 TCX / ${targetColors[0]}`,
+      after: { status: 'COMPLETED', currentTeams: [] },
+      outputIds: [independentColor.taskId, independentColorFiles[0].fileId],
+      assertions: ['颜色要求由买手确认', '调色成果由染厂真实上传', '调色成果经买手审核'],
+    })
+    completeDesignRevisionDyeProcessOrders(chainId, sampling)
+  }
   sampling = startEngineeringIndependentProfessionalTask({ taskId: displaySample.taskId, actor: sampleTeam, startedAt: fixedNow })
   const sampleFiles = await Promise.all((displaySample.sampleRequirements || []).map((line, index) =>
     upload(`${chainId}-display-${index + 1}.jpg`, 'image/jpeg', 'SAMPLE_RESULT', '制作团队', sampleTeam),
@@ -602,7 +835,7 @@ async function runChain(input: {
     taskId: displaySample.taskId,
     actor: sampleTeam,
     results: (displaySample.sampleRequirements || []).map((line, index) => ({
-      title: `${line.targetColor}-${line.targetSize}销售展示样衣`, description: '按跟单要求制作',
+      title: `${line.targetColor}-${line.targetSize}销售展示样衣`, description: '按买手确认要求制作',
       requirementLineId: line.requirementLineId, sampleQuantity: line.requiredQuantity,
       sampleColor: line.targetColor, sampleSize: line.targetSize, sourcePatternVersion: 'v1.0', files: sampleFiles[index],
     })),
@@ -613,17 +846,19 @@ async function runChain(input: {
     action: '版师提交真实纸样，制作团队按逐行要求提交真实销售展示样衣图片',
     before: { status: '专业工作处理中', currentTeams: ['版师', '制作团队'] }, inputSummary: '真实 PRJ + 每行样衣图片',
     after: independentState(samplingId), outputIds: [independentPattern[0].fileId, ...sampleFiles.flatMap((files) => files.map((file) => file.fileId))],
-    assertions: ['专业任务按前后依赖执行', '样衣实际数量与要求一致', '成果提交后交给跟单整单确认'],
+    assertions: ['专业任务按前后依赖执行', '样衣实际数量与要求一致', '成果提交后交给买手整单确认'],
   })
+  assert.equal(getEngineeringIndependentSamplingStep(sampling), 'RESULT_CONFIRMATION')
   sampling = confirmEngineeringIndependentSamplingResult({
-    samplingTaskId: samplingId, actor: merchandiser, resultVersion: `${chainId}-DR-v1.0`,
+    samplingTaskId: samplingId, actor: buyer, resultVersion: `${chainId}-DR-v1.0`,
     resultSummary: `${chainId} 设计改款成果确认，可进入做大货工程准备。`, confirmedAt: fixedNow,
   })
   assert.equal(sampling.status, 'COMPLETED')
+  assert.equal(getEngineeringIndependentSamplingStep(sampling), 'COMPLETED')
   recordStep({
-    chainId, stage: '设计改款整单确认', objectId: samplingId, actorTeam: '跟单', actorName: merchandiser.userName,
-    action: '确认设计改款整单成果', before: { status: 'WAIT_CONFIRMATION', currentTeams: ['跟单'] }, inputSummary: `${chainId}-DR-v1.0`,
-    after: independentState(samplingId), outputIds: [samplingId], assertions: ['整单完成', '可作为工程主单前期成果输入'],
+    chainId, stage: '设计改款整单确认', objectId: samplingId, actorTeam: '买手', actorName: buyer.userName,
+    action: '确认设计改款整单成果', before: { status: 'WAIT_CONFIRMATION', currentTeams: ['买手'] }, inputSummary: `${chainId}-DR-v1.0`,
+    after: independentState(samplingId), outputIds: [samplingId], assertions: ['整单完成', '可作为生产准备单前期成果输入'],
   })
 
   const beforeMaster = { status: '未创建', currentTeams: ['跟单'] }
@@ -644,10 +879,10 @@ async function runChain(input: {
   })
   const masterOrderId = master.masterOrderId
   recordStep({
-    chainId, stage: '工程主单创建', objectId: masterOrderId, actorTeam: '跟单', actorName: merchandiser.userName,
-    action: '基于已完成设计改款成果人工创建首单工程主单', before: beforeMaster,
+    chainId, stage: '生产准备单创建', objectId: masterOrderId, actorTeam: '跟单', actorName: merchandiser.userName,
+    action: '基于已完成设计改款成果人工创建首单生产准备单', before: beforeMaster,
     inputSummary: `${targetStyle.styleCode}；来源 ${samplingId}`, after: masterState(masterOrderId), outputIds: [masterOrderId],
-    assertions: ['目标款有款式档案', '首单资格已核实', '同款只存在一张未关闭工程主单', '设计改款 BOM 与价格已承接'],
+    assertions: ['目标款有款式档案', '首单资格已核实', '同款只存在一张未关闭生产准备单', '设计改款 BOM 与价格已承接'],
   })
 
   const candidates = listEngineeringMasterPriorResultCandidates(targetStyle.styleCode, 'PURE_WOVEN')
@@ -660,7 +895,7 @@ async function runChain(input: {
       sourceSamplingTaskId: candidate.source.samplingTaskId,
       sourceProfessionalTaskId: candidate.source.professionalTaskId,
       sourceResultVersion: candidate.source.resultVersion,
-      decision: '重新执行' as const,
+      decision: candidate.engineeringTaskType === 'BASE_PATTERN_WOVEN' ? '复用' as const : '重新执行' as const,
     })),
     preProductionSampleRequirements: [
       { targetColor: targetColors[0], targetSize: sizes[0], requiredQuantity: 2, requirementNote: '产前确认' },
@@ -671,13 +906,13 @@ async function runChain(input: {
   recordStep({
     chainId, stage: '工程任务方案', objectId: masterOrderId, actorTeam: '跟单', actorName: merchandiser.userName,
     action: '结合系统建议确认生产准备类型、固定任务、条件任务及前期成果处置',
-    before: { status: '草稿', currentTeams: ['跟单'] }, inputSummary: `纯梭织；${withDye ? '启用面料调色' : '无调色'}；前期纸样重新执行`,
+    before: { status: '草稿', currentTeams: ['跟单'] }, inputSummary: `纯梭织；${withDye ? '启用面料调色' : '无调色'}；关联设计改款已确认基码纸样`,
     after: masterState(masterOrderId), outputIds: master.tasks.filter((task) => task.status !== '未启用').map((task) => task.taskId),
-    assertions: ['固定任务一次生成', '固定依赖由系统生成', '首单样衣要求包含颜色尺码数量', '跟单不能调整依赖'],
+    assertions: ['固定任务一次生成', '生产准备不重复生成基码纸样任务', '首单样衣要求包含颜色尺码数量', '跟单不能调整依赖'],
   })
 
   const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', masterOrderId)
-  assert.ok(engineeringBomVersions.length >= 2)
+  assert.equal(engineeringBomVersions.length, 1, '生产准备单应承接设计改款的一份整款物料与费用方案')
   confirmEngineeringMasterBomPricingPlan({ masterOrderId, role: '买手', userId: buyer.userId, userName: buyer.userName })
   const engineeringPricingPlan = getEngineeringBomPricingPlan('ENGINEERING_MASTER', masterOrderId)
   assert.equal(engineeringPricingPlan?.status, 'COMPLETED_CONFIRMED')
@@ -685,12 +920,12 @@ async function runChain(input: {
   recordStep({
     chainId, stage: '工程 BOM 与价格确认', objectId: masterOrderId, actorTeam: '买手', actorName: buyer.userName,
     action: '确认工程整款物料与费用方案', before: { status: '待买手确认', currentTeams: ['买手'] },
-    inputSummary: `${engineeringBomVersions.length} 个颜色版本`, after: { status: '工程 BOM 与价格已确认', currentTeams: [] },
+    inputSummary: `${engineeringBomVersions.length} 份整款方案`, after: { status: '工程 BOM 与价格已确认', currentTeams: [] },
     outputIds: engineeringBomVersions.map((version) => version.bomDraftVersionId),
     assertions: ['物料与费用同一次确认', '条件任务从已确认 BOM 读取', '确认动作有领域结果'],
   })
 
-  await executePatternTask(chainId, masterOrderId, 'BASE_PATTERN_WOVEN', sizes)
+  assert.equal(master.tasks.some((task) => task.taskType === 'BASE_PATTERN_WOVEN'), false, '生产准备阶段不得重复生成基码纸样任务')
 
   if (withDye) {
     let colorTask = latestTask(masterOrderId, 'COLOR_FABRIC')
@@ -756,9 +991,9 @@ async function runChain(input: {
   assert.ok(getTechnicalDataVersionById(draft.technicalVersionId)?.linkedDesignRevisionTaskIds.includes(samplingId), '技术包必须追溯设计改款任务')
   recordStep({
     chainId, stage: '技术包草稿', objectId: draft.technicalVersionId, actorTeam: '跟单', actorName: merchandiser.userName,
-    action: '从工程主单汇总 BOM、纸样、工艺、尺码和质量要求生成技术包草稿', before: { status: '未生成', currentTeams: ['跟单'] },
-    inputSummary: `来源工程主单 ${masterOrderId}`, after: techPackState(draft.technicalVersionId), outputIds: [draft.technicalVersionId],
-    assertions: ['唯一生成入口为工程主单', '技术包包含设计改款追溯', '核心域完整', '工艺路线已确认'],
+    action: '从生产准备单汇总 BOM、纸样、工艺、尺码和质量要求生成技术包草稿', before: { status: '未生成', currentTeams: ['跟单'] },
+    inputSummary: `来源生产准备单 ${masterOrderId}`, after: techPackState(draft.technicalVersionId), outputIds: [draft.technicalVersionId],
+    assertions: ['唯一生成入口为生产准备单', '技术包包含设计改款追溯', '核心域完整', '工艺路线已确认'],
   })
 
   const buyerReviewer = getLegacyTechPackReviewer('买手')
@@ -815,7 +1050,7 @@ async function runChain(input: {
   master = closeEngineeringMasterOrder(masterOrderId, merchandiser.userName)
   assert.equal(master.status, '已关闭')
   recordStep({
-    chainId, stage: '工程主单关闭', objectId: masterOrderId, actorTeam: '跟单', actorName: merchandiser.userName,
+    chainId, stage: '生产准备单关闭', objectId: masterOrderId, actorTeam: '跟单', actorName: merchandiser.userName,
     action: '系统校验全部有效任务及正式技术包后由跟单人工关闭', before: { status: '待关闭', currentTeams: ['跟单'] },
     inputSummary: `正式技术包 ${formal.technicalVersionId}`, after: masterState(masterOrderId), outputIds: [masterOrderId],
     assertions: ['全部有效任务已完成', '正式技术包已发布并启用', '正式 BOM 与价格快照有效', '主单已关闭'],
@@ -837,16 +1072,16 @@ async function runChain(input: {
     masterOrderId, technicalVersionId: formal.technicalVersionId, versionLabel: formal.versionLabel, publishedAt: formal.publishedAt,
   })
   const capabilities = getPreparationRecordCapabilities(preparation)
-  assert.equal(preparation.sourceKind, '工程主单')
+  assert.equal(preparation.sourceKind, '生产准备单')
   assert.equal(preparation.masterOrderId, masterOrderId)
   assert.equal(preparation.status, '已关闭')
   assert.equal(preparation.outputReady, true)
   assert.deepEqual(capabilities, { confirmItems: false, modifyItems: false, uploadResult: false, maintainDyeRequirement: false, reviewResult: false })
   recordStep({
     chainId, stage: '生产准备时效只读投影', objectId: preparation.recordId, actorTeam: '跟单及管理团队', actorName: '系统投影',
-    action: '从工程主单任务事实投影准备项、时效和正式技术包产出', before: { status: '待投影', currentTeams: [] },
+    action: '从生产准备单任务事实投影准备项、时效和正式技术包产出', before: { status: '待投影', currentTeams: [] },
     inputSummary: masterOrderId, after: { status: preparation.status, currentTeams: [] }, outputIds: [preparation.recordId, formal.technicalVersionId],
-    assertions: ['数据来源仅为工程主单', '设计改款任务不直接进入时效', '准备项不可新增修改或上传', '正式技术包作为主单产出展示'],
+    assertions: ['数据来源仅为生产准备单', '设计改款任务不直接进入时效', '准备项不可新增修改或上传', '正式技术包作为主单产出展示'],
   })
 
   chainResults.push({
@@ -877,7 +1112,7 @@ async function main(): Promise<void> {
     !openMasterStyleIds.has(style.styleId) && !hasFormalProductionFact(style.styleCode),
   ).slice(0, 2)
   const sources = styles.filter((style) => !targets.some((target) => target.styleId === style.styleId)).slice(0, 2)
-  assert.equal(targets.length, 2, '必须找到两张没有未关闭工程主单的目标款式')
+  assert.equal(targets.length, 2, '必须找到两张没有未关闭生产准备单的目标款式')
   assert.equal(sources.length, 2, '必须找到两张不同的参照款式')
 
   await runChain({ chainId: 'CASE-A', sourceStyle: sources[0], targetStyle: targets[0], withDye: false, template })
@@ -898,7 +1133,7 @@ async function main(): Promise<void> {
     assertions: ['真实文件均已读取并保存', '全部文件编号唯一', '纸样、设计稿、样衣图片和调色成果可逐文件追溯'],
   })
   persistRecord('通过')
-  console.log(`PCS 生产工程管理双案例全流程模拟：${passId} 通过；${chainResults.length} 条链；${steps.length} 个步骤；记录 ${recordPath}`)
+  console.log(`PCS 生产准备管理双案例全流程模拟：${passId} 通过；${chainResults.length} 条链；${steps.length} 个步骤；记录 ${recordPath}`)
 }
 
 main().catch((error) => {

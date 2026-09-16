@@ -1,4 +1,4 @@
-// 生产准备时效只读投影：工程主单是唯一执行事实源，本模块只做确定性读取与统计映射。
+// 生产准备时效只读投影：生产准备单是唯一执行事实源，本模块只做确定性读取与统计映射。
 
 import {
   getEngineeringTaskDefinition,
@@ -44,18 +44,18 @@ function projectedItemId(masterOrderId: string, definition: PreparationProjectio
 
 export function engineeringTaskHref(taskType: EngineeringTaskType, taskId: string): string {
   const encoded = encodeURIComponent(taskId)
-  if (taskType === 'COLOR_YARN' || taskType === 'COLOR_FABRIC') return `/pcs/engineering/color/${encoded}`
-  if (taskType === 'ACCESSORY_PURCHASE') return `/pcs/engineering/purchase/${encoded}`
-  if (taskType === 'TECH_PACK_CONFIRMATION') return `/pcs/engineering/tech-pack/${encoded}`
-  if (taskType === 'PRE_PRODUCTION_SAMPLE') return `/pcs/samples/first-order/${encoded}`
-  if (taskType === 'PATTERN_ARTWORK') return `/pcs/patterns/artwork/${encoded}`
-  return `/pcs/patterns/plate-making/${encoded}`
+  if (taskType === 'COLOR_YARN' || taskType === 'COLOR_FABRIC') return `/pcs/production-preparation/color/${encoded}`
+  if (taskType === 'ACCESSORY_PURCHASE') return `/pcs/production-preparation/purchase/${encoded}`
+  if (taskType === 'TECH_PACK_CONFIRMATION') return `/pcs/production-preparation/tech-pack/${encoded}`
+  if (taskType === 'PRE_PRODUCTION_SAMPLE') return `/pcs/production-preparation/first-sample/${encoded}`
+  if (taskType === 'PATTERN_ARTWORK') return `/pcs/production-preparation/artwork/${encoded}`
+  return `/pcs/production-preparation/plate-making/${encoded}`
 }
 
 function taskByType(master: EngineeringMasterOrderRecord): Map<EngineeringTaskType, EngineeringTaskRecord> {
   const result = new Map<EngineeringTaskType, EngineeringTaskRecord>()
   for (const task of master.tasks) {
-    // 生产准备时效只读取工程主单生成的专业任务。
+    // 生产准备时效只读取生产准备单生成的专业任务。
     // 设计改款任务即使被错误塞入 tasks 也不得进入时效投影。
     if (task.sourceType !== 'ENGINEERING_MASTER') continue
     const current = result.get(task.taskType)
@@ -216,9 +216,9 @@ function createProjectedItem(
     evidenceSummary: reusedPriorResult
       ? `复用${reuse?.sourceTaskLabel || definition.itemLabel}`
       : task
-        ? `${definition.itemLabel}时间取自工程主单专业任务事件`
+        ? `${definition.itemLabel}时间取自生产准备单专业任务事件`
         : `${definition.itemLabel}未生成专业任务，不计入本次准备时效`,
-    sourceObjectType: '工程主单',
+    sourceObjectType: '生产准备单',
     sourceObjectNo: taskId,
     sourceHref: taskId ? engineeringTaskHref(definition.taskType, taskId) : '',
     overdueHours: 0,
@@ -414,9 +414,9 @@ export function projectEngineeringMasterToPreparation(
       outputGeneratedAt: formalTechPack.publishedAt || '',
     }] : [],
     items,
-    sourceKind: '工程主单',
+    sourceKind: '生产准备单',
     masterOrderId: master.masterOrderId,
-    masterOrderHref: `/pcs/engineering/masters/${encodeURIComponent(master.masterOrderId)}`,
+    masterOrderHref: `/pcs/production-preparation/orders/${encodeURIComponent(master.masterOrderId)}`,
     formalTechPackHref: formalTechPack
       ? `/pcs/products/styles/${encodeURIComponent(master.styleId)}/technical-data/${encodeURIComponent(formalTechPack.technicalVersionId)}`
       : '',

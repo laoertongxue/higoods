@@ -15,6 +15,7 @@ import type {
   EngineeringBomVersionRecord,
   EngineeringBomVersionStoreSnapshot,
   EngineeringBomOwnerStage,
+  EngineeringBomOwnerStyleSnapshot,
 } from './pcs-engineering-bom-types.ts'
 import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
 import { resolveEngineeringBomDraft } from './pcs-engineering-bom-pricing.ts'
@@ -100,17 +101,17 @@ function nextIdentity(records: EngineeringBomVersionRecord[]): { id: string; cod
 }
 
 function assertBuyer(role: EngineeringBomOperatorRole, userId: string, userName: string): void {
-  if (role !== '买手' || !userId.trim() || !userName.trim()) throw new Error('只有买手可以维护 BOM 与价格。')
+  if ((role !== '买手' && role !== '管理员') || !userId.trim() || !userName.trim()) throw new Error('只有买手或管理员可以维护 BOM 与价格。')
 }
 
 function assertBomEditable(record: EngineeringBomVersionRecord): void {
   if (record.versionStatus !== 'DRAFT') throw new Error('只有资料准备中的颜色物料方案可以修改。')
-  if (record.editingLockedAt) throw new Error(`新款资料准备已完成，BOM 与价格已锁定。请先由跟单退回买手修改。`)
+  if (record.editingLockedAt) throw new Error(`本次方案已确认，BOM 与价格已锁定。`)
 }
 
 function assertPlanEditable(plan: EngineeringBomPricingPlanRecord): void {
   if (plan.status !== 'DRAFT') throw new Error('当前整款 BOM 与价格方案已交接或确认，不能修改。')
-  if (plan.editingLockedAt) throw new Error('新款资料准备已完成，整款 BOM 与价格已锁定。请先由跟单退回买手修改。')
+  if (plan.editingLockedAt) throw new Error('本次方案已确认，整款 BOM 与价格已锁定。')
 }
 
 function assertPricingPlanCustomCostsComplete(plan: EngineeringBomPricingPlanRecord): void {
@@ -133,7 +134,7 @@ function assertPricingPlanCustomCostsComplete(plan: EngineeringBomPricingPlanRec
 
 function buildPricingPlan(
   input: CreateEngineeringBomVersionsForOwnerInput,
-  style: NonNullable<ReturnType<typeof getStyleArchiveById>>,
+  style: EngineeringBomOwnerStyleSnapshot,
   createdAt: string,
 ): EngineeringBomPricingPlanRecord {
   return {
@@ -144,7 +145,7 @@ function buildPricingPlan(
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
-    styleImageUrl: style.mainImageUrl || style.galleryImageUrls[0] || '',
+    styleImageUrl: style.styleImageUrl,
     status: 'DRAFT',
     customCostDecision: 'UNDECIDED',
     customCosts: [],
@@ -160,7 +161,7 @@ function buildPricingPlan(
 function ensurePricingPlan(
   snapshot: EngineeringBomVersionStoreSnapshot,
   input: CreateEngineeringBomVersionsForOwnerInput,
-  style: NonNullable<ReturnType<typeof getStyleArchiveById>>,
+  style: EngineeringBomOwnerStyleSnapshot,
   createdAt: string,
 ): EngineeringBomPricingPlanRecord {
   const existing = snapshot.plans.find((item) => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId)
@@ -190,6 +191,43 @@ export function captureEngineeringBomRepositoryState(): EngineeringBomVersionSto
 }
 
 export function restoreEngineeringBomRepositoryState(snapshot: EngineeringBomVersionStoreSnapshot): void {
+  writeSnapshot(snapshot)
+}
+
+export function rebindEngineeringBomOwnerStyle(input: {
+  ownerStage: EngineeringBomOwnerStage
+  ownerId: string
+  styleId: string
+  updatedBy: string
+  updatedAt?: string
+}): void {
+  const style = getStyleArchiveById(input.styleId)
+  if (!style) throw new Error('未找到需要承接临时 SPU 资料的正式款式档案。')
+  const snapshot = readSnapshot()
+  const versions = snapshot.records.filter((item) => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId)
+  const plan = snapshot.plans.find((item) => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId)
+  if (!versions.length || !plan) throw new Error('设计改款任务没有可承接的 BOM 与价格方案。')
+  const updatedAt = input.updatedAt || nowText()
+  const skuGroups = new Map<string, string[]>()
+  listSkuArchivesByStyleId(style.styleId).filter((sku) => sku.archiveStatus === 'ACTIVE').forEach((sku) => {
+    skuGroups.set(sku.colorName.trim(), [...(skuGroups.get(sku.colorName.trim()) || []), sku.skuId])
+  })
+  versions.forEach((version) => {
+    version.styleId = style.styleId
+    version.styleCode = style.styleCode
+    version.styleName = style.styleName
+    version.styleImageUrl = style.mainImageUrl || style.galleryImageUrls[0] || version.styleImageUrl
+    version.applicableSkuIds = [...(skuGroups.get(version.productColor) || [])]
+    version.materialLines = remapCopiedMaterialLines(version.materialLines, style.styleCode, version.productColor, version.applicableSkuIds)
+    version.updatedAt = updatedAt
+    version.updatedBy = input.updatedBy
+  })
+  plan.styleId = style.styleId
+  plan.styleCode = style.styleCode
+  plan.styleName = style.styleName
+  plan.styleImageUrl = style.mainImageUrl || style.galleryImageUrls[0] || plan.styleImageUrl
+  plan.updatedAt = updatedAt
+  plan.updatedBy = input.updatedBy
   writeSnapshot(snapshot)
 }
 
@@ -238,17 +276,34 @@ export interface CreateEngineeringBomVersionsForOwnerInput {
   ownerId: string
   ownerCode: string
   styleId: string
+  ownerStyle?: EngineeringBomOwnerStyleSnapshot
   buyerId?: string
   buyerName?: string
   createdBy: string
   createdAt?: string
 }
 
+function resolveOwnerStyle(input: Pick<CreateEngineeringBomVersionsForOwnerInput, 'styleId' | 'ownerStyle'>): EngineeringBomOwnerStyleSnapshot {
+  const archived = input.styleId ? getStyleArchiveById(input.styleId) : null
+  if (archived) {
+    return {
+      styleId: archived.styleId,
+      styleCode: archived.styleCode,
+      styleName: archived.styleName,
+      styleImageUrl: archived.mainImageUrl || archived.galleryImageUrls[0] || '',
+    }
+  }
+  const snapshot = input.ownerStyle
+  if (!snapshot || snapshot.styleId || snapshot.styleCode || !snapshot.styleName.trim() || !snapshot.styleImageUrl.trim()) {
+    throw new Error('未找到 BOM 所属商品／款式档案，临时 SPU 必须提供名称和真实设计图。')
+  }
+  return { ...snapshot, styleName: snapshot.styleName.trim(), styleImageUrl: snapshot.styleImageUrl.trim() }
+}
+
 export function createEngineeringBomVersionsForOwner(
   input: CreateEngineeringBomVersionsForOwnerInput,
 ): EngineeringBomVersionRecord[] {
-  const style = getStyleArchiveById(input.styleId)
-  if (!style) throw new Error('未找到 BOM 所属商品／款式档案。')
+  const style = resolveOwnerStyle(input)
   if (!input.ownerId.trim() || !input.ownerCode.trim()) throw new Error('BOM 与价格缺少所属业务对象。')
   const snapshot = readSnapshot()
   const createdAt = input.createdAt || nowText()
@@ -289,7 +344,7 @@ export function createEngineeringBomVersionsForOwner(
       styleId: style.styleId,
       styleCode: style.styleCode,
       styleName: style.styleName,
-      styleImageUrl: style.mainImageUrl || style.galleryImageUrls[0] || '',
+      styleImageUrl: style.styleImageUrl,
       productColor,
       applicableSkuIds: [...skuIds],
       customCosts: [],
@@ -317,6 +372,7 @@ export interface ReconcileEngineeringBomVersionsForTargetColorsInput {
   ownerId: string
   ownerCode: string
   styleId: string
+  ownerStyle?: EngineeringBomOwnerStyleSnapshot
   colors: ReconcileEngineeringBomTargetColorInput[]
   buyerId?: string
   buyerName?: string
@@ -329,8 +385,7 @@ export interface ReconcileEngineeringBomVersionsForTargetColorsInput {
 export function reconcileEngineeringBomVersionsForTargetColors(
   input: ReconcileEngineeringBomVersionsForTargetColorsInput,
 ): EngineeringBomVersionRecord[] {
-  const style = getStyleArchiveById(input.styleId)
-  if (!style) throw new Error('未找到 BOM 所属商品／款式档案。')
+  const style = resolveOwnerStyle(input)
   if (!input.ownerId.trim() || !input.ownerCode.trim()) throw new Error('BOM 与价格缺少所属业务对象。')
   if (!input.colors.length) throw new Error('请至少确认一个目标颜色。')
 
@@ -340,7 +395,7 @@ export function reconcileEngineeringBomVersionsForTargetColors(
     sourceVersionId: item.sourceVersionId?.trim() || '',
   }))
   if (normalizedColors.some((item) => !item.productColor)) throw new Error('目标颜色名称不能为空。')
-  if (normalizedColors.some((item) => item.applicableSkuIds.length === 0)) throw new Error('每个目标颜色必须至少包含一个目标 SKU。')
+  if (style.styleId && normalizedColors.some((item) => item.applicableSkuIds.length === 0)) throw new Error('每个目标颜色必须至少包含一个目标 SKU。')
   const colorKeys = normalizedColors.map((item) => item.productColor.toLocaleLowerCase())
   if (new Set(colorKeys).size !== colorKeys.length) throw new Error('目标颜色不能重复。')
 
@@ -359,7 +414,7 @@ export function reconcileEngineeringBomVersionsForTargetColors(
     const current = existing.find((item) => item.productColor.trim().toLocaleLowerCase() === color.productColor.toLocaleLowerCase())
     if (current) {
       if (current.versionStatus !== 'DRAFT') throw new Error(`目标颜色“${color.productColor}”的 BOM 已生效，不能再修改颜色方案。`)
-      if (current.editingLockedAt) throw new Error('新款资料准备已完成，目标颜色与 BOM 已锁定。请先由跟单退回买手修改。')
+      if (current.editingLockedAt) throw new Error('本次方案已确认，目标颜色与 BOM 已锁定。')
       nextOwnerRecords.push({
         ...current,
         productColor: color.productColor,
@@ -393,7 +448,7 @@ export function reconcileEngineeringBomVersionsForTargetColors(
       styleId: style.styleId,
       styleCode: style.styleCode,
       styleName: style.styleName,
-      styleImageUrl: style.mainImageUrl || style.galleryImageUrls[0] || '',
+      styleImageUrl: style.styleImageUrl,
       productColor: color.productColor,
       applicableSkuIds: [...color.applicableSkuIds],
       materialLines: remapCopiedMaterialLines(

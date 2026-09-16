@@ -1,5 +1,5 @@
-// 工程主单领域类型：主单、专业任务、任务物料行、返工轮次与前期成果复用。
-// 工程主单是 PCS 生产工程管理的唯一任务编排事实源。
+// 生产准备单领域类型：主单、专业任务、任务物料行、返工轮次与前期成果复用。
+// 生产准备单是 PCS 生产准备管理的唯一任务编排事实源。
 
 import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 
@@ -151,7 +151,7 @@ export interface EngineeringTaskReworkRound {
   passedAt: string
 }
 
-// 样衣制作要求由跟单在生成任务前下达；实际制作结果由制作团队逐行提交。
+// 销售展示样衣的颜色、尺码和数量由买手在确认方案时一次确认；实际制作结果由制作团队逐行提交。
 // 两者必须分开保存，不能用一个“制作数量”同时表达要求和实际。
 export interface EngineeringSampleRequirementLine {
   requirementLineId: string
@@ -228,7 +228,7 @@ export interface EngineeringTaskRecord {
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
   colorResultCompletedAt: string
-  // 统一专业任务列表的只读导航信息。工程主单任务不填写；设计改款任务投影时填写。
+  // 统一专业任务列表的只读导航信息。生产准备单任务不填写；设计改款任务投影时填写。
   detailPath?: string
   sourceBusinessCode?: string
   sourceBusinessName?: string
@@ -255,6 +255,10 @@ export interface EngineeringMasterOrderRecord {
   styleId: string
   styleCode: string
   styleName: string
+  // 一张生产准备主单只承接一张已完成设计改款的整套资料，避免 BOM、设计稿和基码纸样跨单混用。
+  sourceDesignRevisionTaskId?: string
+  sourceDesignRevisionTaskCode?: string
+  sourceDesignFileIds?: string[]
   status: EngineeringMasterStatus
   preparationType: EngineeringPreparationType | ''
   creationMode: EngineeringMasterCreationMode
@@ -327,7 +331,20 @@ export interface EngineeringIndependentProfessionalTask {
   colorRequirementConfirmedBy: string
   colorRequirementConfirmedAt: string
   sampleRequirements?: EngineeringSampleRequirementLine[]
+  processWorkOrderRefs: EngineeringIndependentProcessWorkOrderRef[]
   results: EngineeringIndependentProfessionalResult[]
+}
+
+export interface EngineeringIndependentProcessWorkOrderRef {
+  processType: 'PRINTING' | 'DYEING'
+  processOrderId: string
+  processOrderCode: string
+  sourceKey: string
+  targetColor: string
+  bomVersionId: string
+  bomItemId: string
+  materialSkuId: string
+  prerequisiteProcessOrderId: string
 }
 
 export interface EngineeringIndependentSamplingLog {
@@ -351,11 +368,13 @@ export interface EngineeringIndependentColorMapping {
 }
 
 export type EngineeringIndependentSamplingStep =
-  | 'BUYER_PREPARATION'
-  | 'WORK_PLAN'
+  | 'SCHEME_CONFIRMATION'
   | 'PROFESSIONAL_WORK'
   | 'RESULT_CONFIRMATION'
   | 'COMPLETED'
+
+export type EngineeringIndependentTargetMode = 'ARCHIVED_STYLE' | 'TEMPORARY_SPU'
+export type EngineeringIndependentPatternHandling = 'REUSE' | 'REMAKE'
 
 export type EngineeringIndependentMaterialDecision =
   | '沿用'
@@ -397,14 +416,29 @@ export interface EngineeringIndependentSamplingRecord {
   samplingType: EngineeringIndependentSamplingType
   sourceStyleId: string
   sourceStyleCode: string
+  targetMode: EngineeringIndependentTargetMode
   targetStyleId: string
   targetStyleCode: string
   targetStyleName: string
+  temporarySpuName: string
+  linkedFormalStyleId: string
+  linkedFormalStyleCode: string
+  linkedFormalStyleName: string
+  linkedAt: string
+  linkedBy: string
   status: EngineeringIndependentSamplingStatus
   creationReason: string
   designFiles: EngineeringUploadedFile[]
+  patternHandling: EngineeringIndependentPatternHandling
+  reusedPatternFiles: EngineeringUploadedFile[]
+  buyerId: string
+  buyerName: string
   merchandiserId: string
   merchandiserName: string
+  displaySampleTeamId: string
+  displaySampleTeamName: string
+  displaySampleReceivingLocationId: string
+  displaySampleReceivingLocationName: string
   relatedProfessionalTaskIds: string[]
   professionalTasks: EngineeringIndependentProfessionalTask[]
   bomDraftVersionId: string

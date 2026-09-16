@@ -456,7 +456,7 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       linkedTechPackVersionCode: 'TDV-PLATE-20260414',
       linkedTechPackVersionLabel: 'V1.0 已发布',
       linkedTechPackVersionStatus: '已发布',
-      note: '制版成果已纳入工程主单生成的正式技术包。',
+      note: '制版成果已纳入生产准备单生成的正式技术包。',
     },
     {
       projectCode: 'PRJ-202604-014',

@@ -46,9 +46,11 @@ function unique(values: Array<string | undefined>): string[] {
 
 function deriveReceiverView(input: {
   documentId: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'
+  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
   productionOrderNo?: string
   bomItemIds?: readonly string[]
+  receivingTeamName?: string
+  receivingLocationName?: string
 }): ProcessOrderReceiverView {
   const relation = getProcessOrderTaskRelationView(input.documentId)
   if (!relation) return {
@@ -105,6 +107,19 @@ function deriveReceiverView(input: {
     receiverName: '补料需求方',
     receiverWarehouseName: '补料指定接收位置',
   }
+  if (input.sourceType === 'DESIGN_REVISION') {
+    if (!input.receivingTeamName || !input.receivingLocationName) return {
+      ready: false,
+      receiverName: '设计改款收料团队待确认',
+      receiverWarehouseName: '暂不能交出',
+      blockReason: '未确认销售展示样衣用料的最终收料团队和位置。',
+    }
+    return {
+      ready: true,
+      receiverName: input.receivingTeamName,
+      receiverWarehouseName: input.receivingLocationName,
+    }
+  }
   const orderNo = input.productionOrderNo || relation.current.productionOrderNo || relation.current.productionOrderId || '生产单'
   return {
     ready: true,
@@ -153,6 +168,8 @@ export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder): ProcessOrderT
       sourceType: order.sourceType,
       productionOrderNo: order.sourceProductionOrderNo,
       bomItemIds: [order.sourceSnapshot?.bomItemId, ...(order.sourceSnapshot?.bomItemIds ?? [])].filter((value): value is string => Boolean(value)),
+      receivingTeamName: order.sourceSnapshot?.receivingTeamName,
+      receivingLocationName: order.sourceSnapshot?.receivingLocationName,
     }),
   }
 }

@@ -28,7 +28,7 @@ assert.ok(pageSource.includes("file.extension === 'prj'"), '纸样源文件必�
 assert.ok(pageSource.includes('submitEngineeringPatternResult'), '页面必须把真实文件写入纸样成果版本')
 assert.ok(resultSource.includes("if (prjFiles.length === 0) throw new Error('请上传纸样 PRJ 源文件。')"), '领域提交必须阻断缺少 PRJ 的成果')
 assert.ok(resultSource.includes("if (imageUrls.length === 0) throw new Error('请上传纸样预览图。')"), '领域提交必须阻断缺少真实预览图的成果')
-assert.ok(!generationSource.includes('generateTechPackVersionFromPlateTask'), '制版任务不得绕过工程主单直接生成技术包')
-assert.ok(!generationSource.includes('generateTechPackVersionFromPatternTask'), '花型任务不得绕过工程主单直接生成技术包')
+assert.ok(!generationSource.includes('generateTechPackVersionFromPlateTask'), '制版任务不得绕过生产准备单直接生成技术包')
+assert.ok(!generationSource.includes('generateTechPackVersionFromPatternTask'), '花型任务不得绕过生产准备单直接生成技术包')
 
 console.log('pcs-plate-making-pattern-files.spec.ts PASS')

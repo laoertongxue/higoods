@@ -21,6 +21,7 @@ export type ProcessOrderReceivingTargetType =
   | 'CUTTING_TRANSFER_WAREHOUSE'
   | 'CENTRAL_WAREHOUSE'
   | 'SUPPLEMENT_CONSUMER'
+  | 'DESIGN_REVISION_CONSUMER'
 
 export const PROCESS_ORDER_RECEIPT_STATUS_LABEL: Record<ProcessOrderReceiptStatus, string> = {
   WAIT_SOURCE: '待来源',

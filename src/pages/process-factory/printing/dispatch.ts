@@ -5,7 +5,8 @@ import { printingMaterialCode } from './relations.ts'
 import {
   createPrintingDispatch, confirmPrintingDispatch, voidPrintingDispatch,
   scanPrintingDispatchRoll, removePrintingDispatchRoll, receivePrintingHandover,
-  listPrintingDispatchDocuments, listPrintingWorkOrders, isPrintablePrintingRoll, getPrintingWorkOrderById,
+  listPrintingDispatchDocuments, listPrintingWorkOrders, isPrintablePrintingRoll, isPrintingRollReadyForDispatch,
+  getPrintingRollDispatchBlockReason, getPrintingWorkOrderById,
   type PrintingDispatchDocument, type PrintingRollBarcode, type PrintingWorkOrderBusinessRecord,
 } from '../../../data/fcs/printing-task-domain.ts'
 import { findPdaHandoverRecord } from '../../../data/fcs/pda-handover-events.ts'
@@ -98,8 +99,9 @@ export function getPrintingPendingDispatchRows(): PrintingPendingDispatchRow[] {
     const rolls = order.barcodes.filter(roll => !roll.handoverRecordId && roll.status !== '已交出' && roll.status !== '已入库' && !reserved.has(roll.id))
     const reservedQty = round(order.barcodes.filter(roll => reserved.has(roll.id)).reduce((sum, roll) => sum + roll.lengthY, 0))
     const availableQty = round(Math.max(order.output.completedQty - order.handover.handedOverQty - reservedQty, 0))
-    const validRolls = rolls.filter(roll => isPrintablePrintingRoll(order, roll))
-    const reason = order.processingStatus === 'CANCELLED' || order.manuallyCompletedAt ? '加工单已结束' : order.output.completedQty <= 0 ? '尚未形成合格产出，可先维护卷码' : !order.printFactoryId ? '请先确定加工厂' : !order.receivingTargetId || !order.receivingTargetName || !order.receivingTargetWarehouseName ? '请先补齐下游组织与目标仓库' : availableQty <= 0 ? reservedQty > 0 ? '在厂产出已占用，请查看已有草稿' : '产出已实际交出' : !validRolls.length ? '请维护实际卷码及数量' : ''
+    const readyRolls = rolls.filter(roll => isPrintingRollReadyForDispatch(order, roll))
+    const firstRollReason = rolls.map(roll => getPrintingRollDispatchBlockReason(order, roll)).find(Boolean) || ''
+    const reason = order.processingStatus === 'CANCELLED' || order.manuallyCompletedAt ? '加工单已结束' : order.output.completedQty <= 0 ? '尚未形成合格产出，可先维护卷码' : !order.printFactoryId ? '请先确定加工厂' : !order.receivingTargetId || !order.receivingTargetName || !order.receivingTargetWarehouseName ? '请先补齐下游组织与目标仓库' : availableQty <= 0 ? reservedQty > 0 ? '在厂产出已占用，请查看已有草稿' : '产出已实际交出' : !readyRolls.length ? firstRollReason || '请维护实际卷码、规格并打印标签' : ''
     const docStatus = order.handover.handedOverQty >= order.output.completedQty && order.output.completedQty > 0 ? '已全部交出' : related.length ? availableQty > 0 ? '部分已建单' : '可用产出已建单' : '未建单'
     return { order, rolls, reservedQty, documentIds: related.map(doc => doc.id), availableQty, reason, docStatus }
   })
@@ -113,7 +115,7 @@ export function groupPrintingDispatchSelection(values: Iterable<string>): Printi
     const [orderId, rollId] = value.split('|')
     const row = rows.find(item => item.order.workOrderId === orderId)
     const roll = row?.rolls.find(item => item.id === rollId)
-    if (!row || !roll || row.reason || !isPrintablePrintingRoll(row.order, roll)) throw new Error('所选产出已变化或不可建单，请重新选择')
+    if (!row || !roll || row.reason || !isPrintingRollReadyForDispatch(row.order, roll)) throw new Error('所选产出已变化或不可建单，请重新选择')
     const order = row.order
     const key = JSON.stringify([order.printFactoryId, order.receivingTargetId, order.receivingTargetName, order.receivingTargetWarehouseName, order.output.qtyUnit])
     const group = groups.get(key) || { key, factory: order.printFactoryName, receiver: order.receivingTargetName, warehouse: order.receivingTargetWarehouseName, unit: order.output.qtyUnit, lines: [], rollCount: 0, qty: 0 }
@@ -132,7 +134,7 @@ function matches(order: Order, state: ListState): boolean {
 }
 function filteredPendingRows() {
   const state = states.pending
-  return getPrintingPendingDispatchRows().filter(row => matches(row.order, state) && (state.status ? row.docStatus === state.status : row.docStatus !== '已全部交出') && (!state.creatable || (state.creatable === '可创建' ? !row.reason : !!row.reason)) && (!state.preparation || (state.preparation === '待维护' ? row.rolls.some(roll => !isPrintablePrintingRoll(row.order, roll)) || !row.rolls.length : state.preparation === '已打印' ? row.rolls.some(roll => roll.status === '已打印') : row.rolls.some(roll => isPrintablePrintingRoll(row.order, roll)))))
+  return getPrintingPendingDispatchRows().filter(row => matches(row.order, state) && (state.status ? row.docStatus === state.status : row.docStatus !== '已全部交出') && (!state.creatable || (state.creatable === '可创建' ? !row.reason : !!row.reason)) && (!state.preparation || (state.preparation === '待维护' ? row.rolls.some(roll => !isPrintablePrintingRoll(row.order, roll)) || !row.rolls.length : state.preparation === '已打印' ? row.rolls.some(roll => isPrintingRollReadyForDispatch(row.order, roll)) : row.rolls.some(roll => isPrintablePrintingRoll(row.order, roll)))))
 }
 function filteredDocuments() {
   const state = states.documents
@@ -158,8 +160,9 @@ function rollChoice(row: PrintingPendingDispatchRow): string {
   const rolls = row.rolls.slice((currentPage - 1) * 15, currentPage * 15)
   return `<div class="space-y-1 text-xs">${row.reason ? `<p class="text-amber-800">${e(row.reason)}</p>` : badge('资料齐备，可选择建单', true)}<div class="max-h-36 space-y-1 overflow-y-auto" aria-label="${e(row.order.printOrderNo)} 产出卷选择">${rolls.map(roll => {
     const key = keyOf(row.order.workOrderId, roll.id)
-    const disabled = !!row.reason || !isPrintablePrintingRoll(row.order, roll)
-    return `<label class="flex items-start gap-1.5 rounded py-1 hover:bg-slate-50"><input class="mt-0.5" type="checkbox" data-dispatch-roll value="${e(key)}" aria-label="选择卷 ${e(roll.barcode)}" ${selected.has(key) ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span>${e(roll.rollNo)} · ${quantity(roll.lengthY)} ${e(row.order.output.qtyUnit)}<span class="block break-all text-slate-500">${e(roll.barcode)} · ${e(roll.status)}</span></span></label>`
+    const rollReason = getPrintingRollDispatchBlockReason(row.order, roll)
+    const disabled = !!row.reason || !!rollReason
+    return `<label class="flex items-start gap-1.5 rounded py-1 hover:bg-slate-50"><input class="mt-0.5" type="checkbox" data-dispatch-roll value="${e(key)}" aria-label="选择卷 ${e(roll.barcode)}" ${selected.has(key) ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span>${e(roll.rollNo)} · ${quantity(roll.lengthY)} ${e(row.order.output.qtyUnit)}<span class="block break-all text-slate-500">${e(roll.barcode)} · ${e(roll.status)}</span>${rollReason ? `<span class="block text-amber-700">${e(rollReason)}</span>` : ''}</span></label>`
   }).join('') || '<p class="text-slate-500">尚无未占用的卷码</p>'}</div>${totalPages > 1 ? `<div class="flex items-center gap-1 border-t pt-1">${button('上批', 'roll-prev', row.order.workOrderId, currentPage <= 1)}<span>${currentPage}/${totalPages} · 每批15卷</span>${button('下批', 'roll-next', row.order.workOrderId, currentPage >= totalPages)}</div>` : ''}</div>`
 }
 const pendingColumns: StandardListColumn<PrintingPendingDispatchRow>[] = [
@@ -225,7 +228,7 @@ function selectionActions() {
 function renderWorkspace() {
   const count = mode === 'pending' ? filteredPendingRows().length : filteredDocuments().length
   const view = controllers[mode].getView()
-  return renderStandardListPage({ title: mode === 'pending' ? '印花待交出列表' : '印花交出单据', primaryActionsHtml: button(mode === 'pending' ? '交出单据' : '待交出列表', mode === 'pending' ? 'documents' : 'pending'), statusTabsHtml: factoryTabs(), filtersHtml: filters(), feedbackHtml: `<div data-dispatch-feedback role="status" class="text-sm text-blue-700">${e(feedback)}</div>`, statsHtml: renderStandardListStats(mode === 'pending' ? [{ label: '加工单数', value: count }, { label: '可创建加工单', value: filteredPendingRows().filter(row => !row.reason).length }, { label: '可建单数量', value: unitText(filteredPendingRows().filter(row=>!row.reason).map(row => ({ qty: row.rolls.filter(roll=>isPrintablePrintingRoll(row.order,roll)).reduce((sum,roll)=>sum+roll.lengthY,0), unit: row.order.output.qtyUnit }))) }] : [{ label: '交出单数', value: count }, { label: '待实际交出', value: filteredDocuments().filter(doc => doc.status === '草稿').length }, { label: '已实际交出', value: filteredDocuments().filter(doc => doc.status === '已交出').length }], { compact: true }), listTitle: `共 ${count} 条`, listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${mode === 'pending' ? selectionActions() : ''}${renderSecondaryButton('列设置', { prefix: prefixes[mode], action: 'open-column-settings', skipPageRerender: true }, 'settings-2')}</div>`, tableHtml: `<div data-dispatch-table>${view.tableHtml}</div>`, paginationHtml: `<div data-dispatch-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-dispatch-columns>${controllers[mode].renderColumnSettings()}</div>` })
+  return renderStandardListPage({ title: mode === 'pending' ? '印花待交出列表' : '印花交出单据', primaryActionsHtml: button(mode === 'pending' ? '交出单据' : '待交出列表', mode === 'pending' ? 'documents' : 'pending'), statusTabsHtml: factoryTabs(), filtersHtml: filters(), feedbackHtml: `<div data-dispatch-feedback role="status" class="text-sm text-blue-700">${e(feedback)}</div>`, statsHtml: renderStandardListStats(mode === 'pending' ? [{ label: '加工单数', value: count }, { label: '可创建加工单', value: filteredPendingRows().filter(row => !row.reason).length }, { label: '可建单数量', value: unitText(filteredPendingRows().filter(row=>!row.reason).map(row => ({ qty: row.rolls.filter(roll=>isPrintingRollReadyForDispatch(row.order,roll)).reduce((sum,roll)=>sum+roll.lengthY,0), unit: row.order.output.qtyUnit }))) }] : [{ label: '交出单数', value: count }, { label: '待实际交出', value: filteredDocuments().filter(doc => doc.status === '草稿').length }, { label: '已实际交出', value: filteredDocuments().filter(doc => doc.status === '已交出').length }], { compact: true }), listTitle: `共 ${count} 条`, listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${mode === 'pending' ? selectionActions() : ''}${renderSecondaryButton('列设置', { prefix: prefixes[mode], action: 'open-column-settings', skipPageRerender: true }, 'settings-2')}</div>`, tableHtml: `<div data-dispatch-table>${view.tableHtml}</div>`, paginationHtml: `<div data-dispatch-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-dispatch-columns>${controllers[mode].renderColumnSettings()}</div>` })
 }
 
 function documentHeader(doc: PrintingDispatchDocument) {
@@ -406,7 +409,7 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
     } else if (action === 'select-order') {
       const row = getPrintingPendingDispatchRows().find(item => item.order.workOrderId === id)
       if (!row || row.reason) throw new Error(row?.reason || '未找到加工单')
-      row.rolls.filter(roll => isPrintablePrintingRoll(row.order, roll)).forEach(roll => selected.add(keyOf(id, roll.id)))
+      row.rolls.filter(roll => isPrintingRollReadyForDispatch(row.order, roll)).forEach(roll => selected.add(keyOf(id, roll.id)))
     } else if (action === 'barcodes') { openPrintingDialog({ type: 'barcodes', workOrderId: id }); return true }
     else if (action === 'order-documents') { appStore.navigate(`${paths.documents}?workOrderId=${encodeURIComponent(id)}`); return true }
     else if (action === 'create' || action === 'merge') {

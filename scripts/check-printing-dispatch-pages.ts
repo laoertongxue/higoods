@@ -13,7 +13,7 @@ import {
 } from '../src/pages/process-factory/printing/dispatch.ts'
 import {
   listPrintingWorkOrders, createPrintingDispatch, listPrintingDispatchDocuments,
-  scanPrintingDispatchRoll, confirmPrintingDispatch, receivePrintingHandover, getPrintingWorkOrderById, isPrintablePrintingRoll,
+  scanPrintingDispatchRoll, confirmPrintingDispatch, receivePrintingHandover, getPrintingWorkOrderById, isPrintingRollReadyForDispatch,
   type PrintingDispatchDocument,
 } from '../src/data/fcs/printing-task-domain.ts'
 
@@ -30,10 +30,10 @@ assert.ok(pending.includes('是否可创建') && pending.includes('卷码准备'
 assert.ok(pending.includes('data-printing-dialog-surface'), '独立页必须保留卷码维护弹窗宿主')
 assert.ok(documents.includes('扫卷与交出') && documents.includes('下游实收'), '单据列表必须区分核对、实际交出和实收')
 
-const waiting = getPrintingPendingDispatchRows().filter(row => !row.reason && row.rolls.some(roll => isPrintablePrintingRoll(row.order, roll)))
+const waiting = getPrintingPendingDispatchRows().filter(row => !row.reason && row.rolls.some(roll => isPrintingRollReadyForDispatch(row.order, roll)))
 assert.ok(waiting.length > 0, '至少有一张真实资料齐备、可创建的印花产出演示单')
 const row = waiting[0]
-const roll = row.rolls.find(roll => isPrintablePrintingRoll(row.order, roll))!
+const roll = row.rolls.find(roll => isPrintingRollReadyForDispatch(row.order, roll))!
 const key = `${row.order.workOrderId}|${roll.id}`
 const groups = groupPrintingDispatchSelection([key, key])
 assert.equal(groups.length, 1)

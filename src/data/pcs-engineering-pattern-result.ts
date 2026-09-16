@@ -98,24 +98,25 @@ export function submitEngineeringPatternResult(input: {
   submittedBy: string
 }): EngineeringPatternResultVersion {
   const master = getEngineeringMasterOrderById(input.masterOrderId)
-  if (!master) throw new Error('未找到来源工程主单。')
+  if (!master) throw new Error('未找到来源生产准备单。')
   const task = master.tasks.find((item) => item.taskId === input.taskId)
   if (!task || !PATTERN_TASK_TYPES.includes(task.taskType)) throw new Error('未找到制版任务。')
+  const isFullSizePattern = task.taskType === 'SIZE_PATTERN_WOVEN' || task.taskType === 'SIZE_PATTERN_KNIT'
   const submittedBy = input.submittedBy.trim()
   if (!submittedBy) throw new Error('请填写成果提交人。')
   const applicableSizes = splitValues(input.applicableSizes)
-  if (applicableSizes.length === 0) throw new Error('请至少填写一个适用尺码。')
+  if (!isFullSizePattern && applicableSizes.length === 0) throw new Error('请至少填写一个适用尺码。')
   const sourceFiles = input.sourceFiles.map((file) => ({ ...file }))
   const previewFiles = input.previewFiles.map((file) => ({ ...file }))
   assertEngineeringUploadedFilesReady(sourceFiles, '纸样源文件')
-  assertEngineeringUploadedFilesReady(previewFiles, '纸样预览图')
+  if (!isFullSizePattern) assertEngineeringUploadedFilesReady(previewFiles, '纸样预览图')
   const imageUrls = previewFiles.map((file) => file.dataUrl)
   const prjFiles = sourceFiles.filter((file) => file.extension === 'prj').map((file) => file.fileName)
   const pdfFiles = sourceFiles.filter((file) => file.extension === 'pdf').map((file) => file.fileName)
   const dxfFiles = sourceFiles.filter((file) => file.extension === 'dxf').map((file) => file.fileName)
   const rulFiles = sourceFiles.filter((file) => file.extension === 'rul').map((file) => file.fileName)
   if (prjFiles.length === 0) throw new Error('请上传纸样 PRJ 源文件。')
-  if (imageUrls.length === 0) throw new Error('请上传纸样预览图。')
+  if (!isFullSizePattern && imageUrls.length === 0) throw new Error('请上传纸样预览图。')
   const existing = listEngineeringPatternResultVersions(task.taskId)
   if (task.status !== '已完成') {
     submitEngineeringTaskResult(master.masterOrderId, task.taskId, {

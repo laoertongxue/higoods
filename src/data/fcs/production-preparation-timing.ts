@@ -258,7 +258,7 @@ export interface ProductionPreparationItem {
   accessoryPurchaseUpdatedAt?: string
   uploads?: PreparationUploadRecord[]
   downloads?: PreparationDownloadRecord[]
-  /** 工程主单只读投影字段；旧生产准备记录不使用。 */
+  /** 生产准备单只读投影字段；旧生产准备记录不使用。 */
   masterOrderId?: string
   taskId?: string
   latestRoundNo?: number
@@ -322,8 +322,8 @@ export interface ProductionPreparationRecord {
   outputPublishedAt: string
   outputs: ProductionPreparationOutput[]
   items: ProductionPreparationItem[]
-  /** 工程主单来源记录从生成起只读，旧记录保持原有运行态。 */
-  sourceKind?: '工程主单'
+  /** 生产准备单来源记录从生成起只读，旧记录保持原有运行态。 */
+  sourceKind?: '生产准备单'
   masterOrderId?: string
   masterOrderHref?: string
   formalTechPackHref?: string
@@ -1631,7 +1631,7 @@ export function hasValidPreparationCompletionEvidence(
   >,
 ): boolean {
   if (item.status !== '已完成') return false
-  if (item.sourceObjectType === '工程主单') {
+  if (item.sourceObjectType === '生产准备单') {
     if (item.reusedPriorResult) return false
     return Boolean(item.effectiveFinishedAt || item.actualFinishAt)
   }
@@ -1680,7 +1680,7 @@ export function canWritePreparationItemRuntime(
   record: Pick<ProductionPreparationRecord, 'status' | 'workItemsConfirmedBy' | 'workItemsConfirmedAt' | 'items'>,
   item: ProductionPreparationItem,
 ): boolean {
-  if (item.sourceObjectType === '工程主单') return false
+  if (item.sourceObjectType === '生产准备单') return false
   if (record.status === '已关闭' || !record.workItemsConfirmedBy || !record.workItemsConfirmedAt) return false
   if (item.selectedByMerchandiser === false || item.status === '无需') return false
   return item.dependsOnItemIds.every((dependencyId) => {

@@ -1,6 +1,6 @@
 // @page-pattern: list
 // 标准列表契约由 createMasterTaskPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
-// 花型任务：列表沿用标准任务页；详情只读工程主单任务事实，并调用统一成果提交 / 审核服务。
+// 花型任务：列表沿用标准任务页；详情只读生产准备单任务事实，并调用统一成果提交 / 审核服务。
 import {
   reviewEngineeringMaterialResults,
   submitEngineeringMaterialResults,
@@ -38,7 +38,7 @@ import {
 import { renderEmptyDetail, state } from './shared.ts'
 
 const MODULE = 'pattern'
-const PATH = '/pcs/patterns/artwork'
+const PATH = '/pcs/production-preparation/artwork'
 
 const page = createMasterTaskPage({
   module: MODULE,

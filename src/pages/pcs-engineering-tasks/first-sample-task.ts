@@ -1,6 +1,6 @@
 // @page-pattern: list
 // 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
-// 首单样衣任务：任务骨架、状态、依赖、负责人和时间只读工程主单任务事实。
+// 首单样衣任务：任务骨架、状态、依赖、负责人和时间只读生产准备单任务事实。
 // 跟单在工作安排中下达多行制作要求；制作团队逐行提交真实图片、实际数量和制作事实后完成，不设置二次审核。
 
 import type { EngineeringSampleActualLine, EngineeringTaskRecord } from '../../data/pcs-engineering-master-types'
@@ -16,7 +16,7 @@ import {
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
 } from '../../data/pcs-engineering-master-repository'
-import { listEngineeringPatternResultVersions } from '../../data/pcs-engineering-pattern-result'
+import { getEngineeringIndependentSamplingRecord } from '../../data/pcs-engineering-master-sampling'
 import { escapeHtml, formatDateTime } from '../../utils'
 import {
   type EngineeringListRow,
@@ -43,7 +43,7 @@ import {
 } from './master-task-common'
 
 const TASK_TYPES = ['PRE_PRODUCTION_SAMPLE'] as const
-const LIST_PATH = '/pcs/samples/first-sample'
+const LIST_PATH = '/pcs/production-preparation/first-sample'
 interface SampleResultDraft {
   draftId: string
   requirementLineId: string
@@ -103,7 +103,7 @@ function filteredTasks(): EngineeringTaskRecord[] {
 
 const COLUMNS = createEngineeringListColumns([
   { key: 'task', title: '首单样衣任务', width: 240, required: true, freezeable: true, sortable: true },
-  { key: 'master', title: '工程主单', width: 150, required: true, freezeable: true, sortable: true },
+  { key: 'master', title: '生产准备单', width: 150, required: true, freezeable: true, sortable: true },
   { key: 'style', title: '款式', width: 180, required: true, sortable: true },
   { key: 'status', title: '状态', width: 120, required: true, sortable: true },
   { key: 'team', title: '当前需处理的团队', width: 150, sortable: true },
@@ -121,7 +121,7 @@ function rows(): EngineeringListRow[] {
     return {
       cells: {
         task: `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${LIST_PATH}/${escapeHtml(task.taskId)}">${escapeHtml(task.taskName)}</button><p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>`,
-        master: master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>` : '-',
+        master: master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>` : '-',
         style: escapeHtml(master ? `${master.styleCode} · ${master.styleName}` : '-'),
         status: renderStatusBadge(task.status),
         team: escapeHtml(task.ownerTeamName || '-'),
@@ -167,12 +167,25 @@ function renderCompletedActuals(task: EngineeringTaskRecord): string {
 
 function availablePatternVersions(task: EngineeringTaskRecord): Array<{ value: string; label: string }> {
   const master = getEngineeringMasterOrderById(task.masterOrderId)
-  return task.dependsOnTaskIds.flatMap((dependencyId) => {
-    const dependency = master?.tasks.find((item) => item.taskId === dependencyId)
-    return listEngineeringPatternResultVersions(dependencyId).map((version) => ({
-      value: `${version.materialKind}${version.patternKind} ${version.versionLabel}`,
-      label: `${dependency?.taskName || `${version.materialKind}${version.patternKind}`} · ${version.versionLabel}`,
-    }))
+  if (!master) return []
+  return master.priorResultReuseLines.flatMap((line) => {
+    if (line.decision !== '复用' || !['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'].includes(line.resultType)) return []
+    const sampling = line.sourceSamplingTaskId
+      ? getEngineeringIndependentSamplingRecord(line.sourceSamplingTaskId)
+      : null
+    if (!sampling || sampling.status !== 'COMPLETED') return []
+    const hasSavedPrj = line.sourceTaskId.endsWith('-REUSED-BASE_PATTERN')
+      ? sampling.patternHandling === 'REUSE' && sampling.reusedPatternFiles.some((file) =>
+          file.purpose === 'PATTERN_SOURCE' && file.status === '已保存' && file.extension === 'prj' && Boolean(file.dataUrl))
+      : sampling.professionalTasks.find((candidate) => candidate.taskId === line.sourceTaskId)?.results.some((result) =>
+          result.status === 'APPROVED' && result.files.some((file) =>
+            file.purpose === 'PATTERN_SOURCE' && file.status === '已保存' && file.extension === 'prj' && Boolean(file.dataUrl)))
+    if (!hasSavedPrj) return []
+    const materialKind = line.resultType === 'BASE_PATTERN_KNIT' ? '毛织' : '梭织'
+    return [{
+      value: `${materialKind}基码纸样 ${line.sourceResultVersion}`,
+      label: `${line.resultLabel} · ${line.sourceResultVersion} · ${line.sourceSamplingTaskCode || sampling.samplingTaskCode}`,
+    }]
   })
 }
 
@@ -202,8 +215,8 @@ export function renderPcsFirstSampleTaskPage(): string {
   return renderEngineeringStandardListPage({
     module: 'firstSample',
     title: '首单样衣任务',
-    createLabel: '查看工程主单',
-    createAction: 'nav:/pcs/engineering/masters',
+    createLabel: '查看生产准备单',
+    createAction: 'nav:/pcs/production-preparation/orders',
     filtersHtml: renderListFilters({
       searchPlaceholder: '搜索任务编号 / 主单编号 / 款式 / 负责团队',
       listState: state.firstSampleList,

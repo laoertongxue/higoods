@@ -173,6 +173,15 @@ export interface EngineeringBomSkuScopeCatalog {
   }>
 }
 
+// 线下临时 SPU 在正式建档前没有款式 ID、SPU 编码和 SKU。
+// BOM 仅保存设计改款任务确认的目标款快照，不借用或伪造正式款式档案。
+export interface EngineeringBomOwnerStyleSnapshot {
+  styleId: string
+  styleCode: string
+  styleName: string
+  styleImageUrl: string
+}
+
 export interface EngineeringBomResolvedMaterialLine extends EngineeringBomMaterialLineDraft {
   materialCode: string
   materialSkuCode: string

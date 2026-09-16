@@ -24,7 +24,7 @@ import {
 import { createMasterTaskPage } from './master-task-page'
 import { renderEmptyDetail, state } from './shared'
 
-const PATH = '/pcs/patterns/plate-making'
+const PATH = '/pcs/production-preparation/plate-making'
 const TASK_TYPES = ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] as const
 const drafts = new Map<string, Record<string, string>>()
 
@@ -46,25 +46,25 @@ function renderVersions(taskId: string): string {
   const versions = listEngineeringPatternResultVersions(taskId)
   if (versions.length === 0) return '<p class="px-5 py-8 text-center text-sm text-slate-500">尚未提交纸样成果</p>'
   return `<div class="divide-y divide-slate-100">${versions.map((version) => `<article class="p-5">
-    <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-medium text-slate-900">${escapeHtml(version.versionLabel)} · ${escapeHtml(version.patternKind)} · ${escapeHtml(version.materialKind)}</h3><p class="mt-1 text-xs text-slate-500">${escapeHtml(version.submittedBy)} · ${escapeHtml(version.submittedAt)}${version.replacedVersionId ? ` · 替换 ${escapeHtml(version.replacedVersionId)}` : ''}</p></div><span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">适用尺码 ${escapeHtml(version.applicableSizes.join(' / '))}</span></div>
+    <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-medium text-slate-900">${escapeHtml(version.versionLabel)} · ${escapeHtml(version.patternKind)} · ${escapeHtml(version.materialKind)}</h3><p class="mt-1 text-xs text-slate-500">${escapeHtml(version.submittedBy)} · ${escapeHtml(version.submittedAt)}${version.replacedVersionId ? ` · 替换 ${escapeHtml(version.replacedVersionId)}` : ''}</p></div><span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">${version.patternKind === '齐码纸样' ? '已上传齐码纸样文件' : `适用尺码 ${escapeHtml(version.applicableSizes.join(' / '))}`}</span></div>
     <div class="mt-4 grid gap-4 md:grid-cols-5">${renderFiles('PRJ', version.prjFiles || [])}${renderFiles('PDF', version.pdfFiles)}${renderFiles('DXF', version.dxfFiles)}${renderFiles('RUL', version.rulFiles)}${renderFiles('说明', version.note ? [version.note] : [])}</div>
     ${version.imageUrls.length ? `<div class="mt-4 grid gap-3 sm:grid-cols-4">${version.imageUrls.map((url, index) => `<button type="button" class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-plate-action="preview-image" data-image-url="${escapeHtml(url)}" data-image-alt="${escapeHtml(`${version.versionLabel} 纸样图 ${index + 1}`)}" aria-label="${escapeHtml(`查看 ${version.versionLabel} 纸样图 ${index + 1} 大图`)}"><img src="${escapeHtml(url)}" alt="${escapeHtml(`${version.versionLabel} 纸样图 ${index + 1}`)}" class="h-32 w-full object-contain" loading="lazy"><span class="block px-2 py-1 text-xs text-slate-500">查看大图</span></button>`).join('')}</div>` : ''}
   </article>`).join('')}</div>`
 }
 
-function renderResultEditor(taskId: string, status: string): string {
+function renderResultEditor(taskId: string, status: string, taskType: string): string {
   if (!['进行中', '已完成', '返工中'].includes(status)) return ''
   const replaceMode = status === '已完成'
+  const isFullSizePattern = taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT'
   const sourceFiles = listEngineeringTaskUploadedFiles(taskId, 'PATTERN-SOURCE', 'PATTERN_SOURCE')
-  const previewFiles = listEngineeringTaskUploadedFiles(taskId, 'PATTERN-PREVIEW', 'PATTERN_PREVIEW')
   return `<section class="rounded-lg border border-slate-200 bg-white" data-plate-form="${escapeHtml(taskId)}">
     <div class="border-b border-slate-100 px-5 py-4"><h2 class="font-semibold text-slate-900">${replaceMode ? '提交替换版本' : '提交纸样成果'}</h2><p class="mt-1 text-xs text-slate-500">替换只新增版本，旧版本继续保留。</p></div>
     <div data-plate-feedback class="mx-5 mt-4 hidden rounded-md px-3 py-2 text-sm" role="alert"></div>
     <div class="space-y-4 p-5">
       ${renderEngineeringFileUpload({ taskId, itemId: 'PATTERN-SOURCE', purpose: 'PATTERN_SOURCE', files: sourceFiles, eventPrefix: 'plate', label: '纸样源文件', requiredHint: '必须从本地选择至少 1 个 .prj 文件；可同时上传 DXF、RUL 或 PDF。' })}
-      ${renderEngineeringFileUpload({ taskId, itemId: 'PATTERN-PREVIEW', purpose: 'PATTERN_PREVIEW', files: previewFiles, eventPrefix: 'plate', label: '纸样预览图', requiredHint: '必须从本地选择至少 1 张 JPG、PNG 或 WebP 预览图。' })}
+      ${isFullSizePattern ? '' : renderEngineeringFileUpload({ taskId, itemId: 'PATTERN-PREVIEW', purpose: 'PATTERN_PREVIEW', files: listEngineeringTaskUploadedFiles(taskId, 'PATTERN-PREVIEW', 'PATTERN_PREVIEW'), eventPrefix: 'plate', label: '纸样预览图', requiredHint: '必须从本地选择至少 1 张 JPG、PNG 或 WebP 预览图。' })}
       <div class="grid gap-4 md:grid-cols-2">
-      ${[['sizes','适用尺码','S, M, L']].map(([field,label,placeholder]) => `<label class="text-sm text-slate-600">${label}<input class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draftValue(taskId, field))}" data-plate-field="${field}" data-task-id="${escapeHtml(taskId)}" placeholder="${placeholder}"></label>`).join('')}
+      ${isFullSizePattern ? '' : [['sizes','适用尺码','S, M, L']].map(([field,label,placeholder]) => `<label class="text-sm text-slate-600">${label}<input class="mt-1 h-10 w-full rounded-md border border-slate-200 px-3" value="${escapeHtml(draftValue(taskId, field))}" data-plate-field="${field}" data-task-id="${escapeHtml(taskId)}" placeholder="${placeholder}"></label>`).join('')}
       <label class="text-sm text-slate-600 md:col-span-2">成果说明<textarea class="mt-1 min-h-20 w-full rounded-md border border-slate-200 px-3 py-2" data-plate-field="note" data-task-id="${escapeHtml(taskId)}">${escapeHtml(draftValue(taskId, 'note'))}</textarea></label>
       </div>
     </div>
@@ -81,7 +81,7 @@ export function renderPcsPlateMakingTaskDetailPage(taskId: string): string {
   return `<div class="space-y-5 p-4" data-plate-detail="${escapeHtml(task.taskId)}" data-engineering-task-detail="plate:${escapeHtml(task.taskId)}">
     ${renderTaskWorkbenchHeader(task, master, 'plate', PATH)}
     <section class="overflow-hidden rounded-lg border border-slate-200 bg-white"><div class="border-b border-slate-100 px-5 py-4"><h2 class="font-semibold text-slate-900">成果版本</h2></div>${renderVersions(task.taskId)}</section>
-    ${renderResultEditor(task.taskId, task.status)}${renderTaskReworkRoundsCard(task)}${renderTaskDependencyCard(task)}${renderTaskLogsCard(task, master, 'plate')}
+    ${renderResultEditor(task.taskId, task.status, task.taskType)}${renderTaskReworkRoundsCard(task)}${renderTaskDependencyCard(task)}${renderTaskLogsCard(task, master, 'plate')}
   </div>`
 }
 
@@ -157,16 +157,17 @@ export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
     if (!detail) throw new Error('未找到制版任务。')
     const current = drafts.get(taskId) || {}
     const sourceFiles = listEngineeringTaskUploadedFiles(taskId, 'PATTERN-SOURCE', 'PATTERN_SOURCE')
-    const previewFiles = listEngineeringTaskUploadedFiles(taskId, 'PATTERN-PREVIEW', 'PATTERN_PREVIEW')
+    const isFullSizePattern = detail.task.taskType === 'SIZE_PATTERN_WOVEN' || detail.task.taskType === 'SIZE_PATTERN_KNIT'
+    const previewFiles = isFullSizePattern ? [] : listEngineeringTaskUploadedFiles(taskId, 'PATTERN-PREVIEW', 'PATTERN_PREVIEW')
     assertEngineeringUploadedFilesReady(sourceFiles, '纸样源文件')
-    assertEngineeringUploadedFilesReady(previewFiles, '纸样预览图')
+    if (!isFullSizePattern) assertEngineeringUploadedFilesReady(previewFiles, '纸样预览图')
     if (!sourceFiles.some((file) => file.extension === 'prj')) throw new Error('纸样源文件必须包含 .prj 文件。')
-    if (!previewFiles.some((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension))) throw new Error('纸样预览必须包含真实图片。')
+    if (!isFullSizePattern && !previewFiles.some((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension))) throw new Error('纸样预览必须包含真实图片。')
     const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
     submitEngineeringPatternResult({
       masterOrderId: detail.master.masterOrderId,
       taskId,
-      applicableSizes: split(current.sizes || ''),
+      applicableSizes: isFullSizePattern ? [] : split(current.sizes || ''),
       sourceFiles,
       previewFiles,
       note: current.note || '',

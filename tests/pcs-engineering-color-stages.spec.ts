@@ -72,7 +72,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     reason: '专项测试已满足做大货要求',
     uniqueTriggerKey: 'COLOR-STAGES',
   },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 const taskId = `${master.masterOrderId}-COLOR_FABRIC`
 const otherTaskId = `${master.masterOrderId}-COLOR_YARN`

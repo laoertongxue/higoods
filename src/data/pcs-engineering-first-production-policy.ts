@@ -4,16 +4,16 @@ import { hasFormalProductionOrderFact } from './fcs/production-order-formal-fact
 import type { EngineeringFirstProductionQualificationFact } from './pcs-engineering-master-types.ts'
 
 // 正式生产事实：该 SPU 存在已转单需求，或存在非草稿、取消、挂起的正式生产单。
-// 轻量索引不加载技术包快照，避免工程主单反向依赖自己的下游产物。
+// 轻量索引不加载技术包快照，避免生产准备单反向依赖自己的下游产物。
 export function hasFormalProductionFact(styleCode: string): boolean {
   return hasFormalProductionOrderFact(styleCode)
 }
 
 // 首次工程准备属于款式级事实：该 SPU 此前从未形成过正式生产。
-// 已正式生产过的款式禁止创建工程主单。
+// 已正式生产过的款式禁止创建生产准备单。
 export function assertFirstFormalProduction(styleCode: string): void {
   if (hasFormalProductionFact(styleCode)) {
-    throw new Error('该款式已经正式生产过，不属于首次工程准备，不能创建工程主单。')
+    throw new Error('该款式已经正式生产过，不属于首次工程准备，不能创建生产准备单。')
   }
 }
 
@@ -51,7 +51,7 @@ export function assertFirstProductionQualification(
     throw new Error('首单资格事实与目标 SPU 不一致，请跟单核实。')
   }
   if (!fact.checkedAt.trim() || !fact.formalSaleSource.trim() || !fact.formalProductionSource.trim()) {
-    throw new Error('首单资格缺少权威来源或核查时间，禁止创建工程主单。')
+    throw new Error('首单资格缺少权威来源或核查时间，禁止创建生产准备单。')
   }
   if (fact.formalSaleStatus === 'UNAVAILABLE' || fact.formalProductionStatus === 'UNAVAILABLE') {
     throw new Error('首单资格权威来源暂不可用，请跟单核实后再创建。')
@@ -60,9 +60,9 @@ export function assertFirstProductionQualification(
     throw new Error('首单资格权威事实存在冲突，请跟单核实后再创建。')
   }
   if (fact.formalSaleStatus === 'HAS_FORMAL_SALE') {
-    throw new Error('该款式已正式售卖过，不属于首单，不能创建工程主单。')
+    throw new Error('该款式已正式售卖过，不属于首单，不能创建生产准备单。')
   }
   if (fact.formalProductionStatus === 'HAS_FORMAL_PRODUCTION' || hasFormalProductionFact(normalizedStyleCode)) {
-    throw new Error('该款式已正式生产过，不属于首单，不能创建工程主单。')
+    throw new Error('该款式已正式生产过，不属于首单，不能创建生产准备单。')
   }
 }

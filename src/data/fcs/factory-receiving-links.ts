@@ -23,7 +23,7 @@ export function confirmFactoryMaterialReceipt(input:FactoryReceiptInput){
   for(const line of receipt.lines){if(line.material.kind!=='YARN'||!line.yarn)throw new Error('毛织接收来纱必须有 pcs、毛重和净重。');if(line.woolOrderId){const order=store.workOrders[line.woolOrderId];if(!order||order.factoryId!==input.factoryId||!order.outputPlanLines.some(l=>l.requiredYarnSkus.includes(line.material.sku)))throw new Error('纱线与毛织加工单不匹配，请核对来源关联。')}}
  }
  for(const line of receipt.lines)if(line.printingOrderId){const order=listPrintingWorkOrders().find(o=>o.workOrderId===line.printingOrderId);if(!order||order.printFactoryId!==input.factoryId||order.plannedInput.sku!==line.material.sku||order.manuallyCompletedAt||order.processingStatus==='CANCELLED')throw new Error('来货与本厂印花加工单、投入 SKU 或当前状态不匹配，请核对来源。')}
- const linked=[...new Set(receipt.lines.filter(l=>l.printingOrderId||getFactoryReceivingSource(l.sourceId)?.processCode==='PRINT').map(l=>l.sourceId))].flatMap(id=>{const source=getFactoryReceivingSource(id);return source?.originalRecordId?[source]:[]})
+ const linked=[...new Set(receipt.lines.map(l=>l.sourceId))].flatMap(id=>{const source=getFactoryReceivingSource(id);return source?.originalRecordId?[source]:[]})
  const snapshot=linked.length?{factory:captureFactoryReceivingData(),pda:capturePdaHandoverState()}:undefined
  try{
   for(const source of linked){

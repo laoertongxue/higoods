@@ -25,7 +25,7 @@ function targetToken(value: string): string {
  * `freezeProcessOrderReceivingTarget()` 负责。
  */
 export function resolveTerminalProcessOrderReceivingTarget(input: {
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'
+  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
   productionOrderNo?: string
   supplementRecordId?: string
   supplementRecordNo?: string
@@ -33,6 +33,10 @@ export function resolveTerminalProcessOrderReceivingTarget(input: {
   supplementConsumerName?: string
   supplementWarehouseId?: string
   supplementWarehouseName?: string
+  receivingTeamId?: string
+  receivingTeamName?: string
+  receivingLocationId?: string
+  receivingLocationName?: string
 }): ProcessOrderTerminalReceivingTarget {
   if (input.sourceType === 'STOCK') {
     return {
@@ -57,6 +61,18 @@ export function resolveTerminalProcessOrderReceivingTarget(input: {
       resolvedFrom: '补料单指定消费位置',
     }
   }
+  if (input.sourceType === 'DESIGN_REVISION') {
+    const targetName = input.receivingTeamName?.trim()
+    const targetWarehouseName = input.receivingLocationName?.trim()
+    if (!targetName || !targetWarehouseName) throw new Error('设计改款加工单缺少最终收料团队或收料位置，暂不能交出')
+    return {
+      targetBusinessId: input.receivingTeamId?.trim() || `DESIGN-REVISION-${targetToken(targetName)}`,
+      targetName,
+      targetWarehouseId: input.receivingLocationId?.trim() || `DESIGN-REVISION-LOCATION-${targetToken(targetWarehouseName)}`,
+      targetWarehouseName,
+      resolvedFrom: '设计改款销售展示样衣用料',
+    }
+  }
 
   const productionOrderNo = input.productionOrderNo?.trim()
   if (!productionOrderNo) throw new Error('生产来源末道加工单缺少生产单号，暂不能解析裁床配套中转仓')
@@ -77,7 +93,7 @@ function nowText(): string {
 export function resolveProcessOrderReceivingTarget(input: {
   relation: ProcessOrderTaskRelationView
   downstreamTargets: Array<ProcessOrderTerminalReceivingTarget & { downstreamOrderId: string; downstreamOrderNo: string; downstreamOccurrenceId?: string }>
-  demandSourceType: 'PRODUCTION' | 'PURCHASE_STOCK' | 'SUPPLEMENT'
+  demandSourceType: 'PRODUCTION' | 'PURCHASE_STOCK' | 'SUPPLEMENT' | 'DESIGN_REVISION'
   terminalTarget?: ProcessOrderTerminalReceivingTarget
   resolvedAt?: string
 }): ProcessOrderReceivingTargetSnapshot {
@@ -108,7 +124,9 @@ export function resolveProcessOrderReceivingTarget(input: {
     ? 'CUTTING_TRANSFER_WAREHOUSE'
     : input.demandSourceType === 'PURCHASE_STOCK'
       ? 'CENTRAL_WAREHOUSE'
-      : 'SUPPLEMENT_CONSUMER'
+      : input.demandSourceType === 'SUPPLEMENT'
+        ? 'SUPPLEMENT_CONSUMER'
+        : 'DESIGN_REVISION_CONSUMER'
   return {
     targetType,
     targetBusinessId: input.terminalTarget.targetBusinessId,

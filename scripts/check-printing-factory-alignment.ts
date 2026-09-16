@@ -15,7 +15,7 @@ console.log('印花接收、开工与工序基础契约通过')
 
 import { getFactoryReceivingSource, getDefaultFactoryReceiptPosition, listFactoryMaterialUses, listFactoryReceipts, getPrintingReceivingConflict, registerFactoryReceivingSource } from '../src/data/fcs/factory-receiving.ts'
 import { confirmFactoryMaterialReceipt, allocateReceivedMaterialToOrder } from '../src/data/fcs/factory-receiving-links.ts'
-import { getPrintingWorkOrderById, completePrintingWorkOrder, updatePrintingRollBarcode, createPrintingDispatch, scanPrintingDispatchRoll, confirmPrintingDispatch, listPrintingDispatchDocuments, removePrintingDispatchRoll, receivePrintingHandover } from '../src/data/fcs/printing-task-domain.ts'
+import { getPrintingWorkOrderById, completePrintingWorkOrder, updatePrintingRollBarcode, markPrintingRollBarcodesPrinted, createPrintingDispatch, scanPrintingDispatchRoll, confirmPrintingDispatch, listPrintingDispatchDocuments, removePrintingDispatchRoll, receivePrintingHandover } from '../src/data/fcs/printing-task-domain.ts'
 const id='PWO-PRINT-001',first=getFactoryReceivingSource('PRINT-SRC-001')!,position=getDefaultFactoryReceiptPosition(first.targetFactoryId)
 const receipt=(sourceId:string,qty:number,key:string)=>{
  const source=getFactoryReceivingSource(sourceId)!,line=source.lines[0]
@@ -40,6 +40,7 @@ completePrintingWorkOrder(id,{usedQty:100,usedRollCount:2,completedQty:98,comple
 const rolls=getPrintingWorkOrderById(id)!.barcodes
 assert(rolls.every(r=>r.lengthY===0&&r.quantityConfirmed===false),'平均拆分不能视为实测')
 for(const [index,roll] of rolls.entries())updatePrintingRollBarcode(id,roll.id,{lengthY:[32,33,33][index],gsm:200,widthCm:160,vatNo:'B-001',warehouseName:'本厂待交出仓',remark:'逐卷实测'})
+markPrintingRollBarcodesPrinted(id, rolls.map(roll => roll.id), '标签打印员')
 const doc=createPrintingDispatch([{workOrderId:id,barcodeIds:rolls.slice(0,2).map(r=>r.id)}],'建单员')
 assert.equal(getPrintingWorkflowFacts(id).reservedOutputQty,65)
 assert.equal(getPrintingWorkOrderById(id)!.handover.handedOverQty,0)

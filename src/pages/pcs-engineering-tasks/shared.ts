@@ -64,12 +64,12 @@ export interface EngineeringListUiState {
 export const ENGINEERING_LIST_PAGE_SIZES = [8, 20, 50]
 export const ENGINEERING_LIST_MAX_FROZEN_WIDTH = 520
 export const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
-  plate: 'higood:list-page:/pcs/patterns/plate-making',
-  pattern: 'higood:list-page:/pcs/patterns/artwork',
-  firstSample: 'higood:list-page:/pcs/samples/first-sample',
-  color: 'higood:list-page:/pcs/engineering/color',
-  purchase: 'higood:list-page:/pcs/engineering/purchase',
-  techPack: 'higood:list-page:/pcs/engineering/tech-pack',
+  plate: 'higood:list-page:/pcs/production-preparation/plate-making',
+  pattern: 'higood:list-page:/pcs/production-preparation/artwork',
+  firstSample: 'higood:list-page:/pcs/production-preparation/first-sample',
+  color: 'higood:list-page:/pcs/production-preparation/color',
+  purchase: 'higood:list-page:/pcs/production-preparation/purchase',
+  techPack: 'higood:list-page:/pcs/production-preparation/tech-pack',
 }
 export const ENGINEERING_LIST_COLUMN_RULES: Record<ModuleKey, StandardListColumnRule[]> = {
   plate: [
@@ -657,21 +657,9 @@ export function renderListFilters(input: {
   siteOptions?: readonly string[]
 }): string {
   const listState = input.listState
-  const isSample = 'site' in listState
   return `
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <div class="grid gap-4 ${isSample ? 'xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]' : 'xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]'}">
-        <label class="flex flex-col gap-2 text-sm text-slate-600">
-          <span>搜索</span>
-          <input type="search" class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" placeholder="${escapeHtml(input.searchPlaceholder)}" value="${escapeHtml(listState.search)}" data-pcs-engineering-field="${escapeHtml(input.searchField)}" />
-        </label>
-        <label class="flex flex-col gap-2 text-sm text-slate-600">
-          <span>状态</span>
-          <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.statusField)}">
-            <option value="all" ${listState.status === 'all' ? 'selected' : ''}>全部</option>
-            ${input.statusOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.status === option ? 'selected' : ''}>${escapeHtml(getStatusFilterLabel(option))}</option>`).join('')}
-          </select>
-        </label>
+      <div class="max-w-sm">
         <label class="flex flex-col gap-2 text-sm text-slate-600">
           <span>当前需处理的团队</span>
           <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.ownerField)}">
@@ -679,25 +667,6 @@ export function renderListFilters(input: {
             ${input.ownerOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.owner === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
           </select>
         </label>
-        <label class="flex flex-col gap-2 text-sm text-slate-600">
-          <span>来源</span>
-          <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.sourceField)}">
-            <option value="all" ${listState.source === 'all' ? 'selected' : ''}>全部</option>
-            ${input.sourceOptions.map((option) => `<option value="${escapeHtml(option)}" ${listState.source === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
-          </select>
-        </label>
-        ${
-          isSample && input.siteField && input.siteOptions
-            ? `
-              <label class="flex flex-col gap-2 text-sm text-slate-600">
-                <span>目标站点</span>
-                <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-field="${escapeHtml(input.siteField)}">
-                  ${input.siteOptions.map((option) => `<option value="${escapeHtml(option)}" ${String((listState as SampleListState).site) === option ? 'selected' : ''}>${escapeHtml(option === 'all' ? '全部' : option)}</option>`).join('')}
-                </select>
-              </label>
-            `
-            : ''
-        }
       </div>
     </section>
   `

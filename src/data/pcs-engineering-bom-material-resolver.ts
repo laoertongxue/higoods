@@ -57,6 +57,7 @@ export function resolveEngineeringBomMaterialLine(
 ): EngineeringBomResolvedMaterialLine {
   const sku = getMaterialSkuRecordById(line.materialSkuId)
   if (!sku) throw new Error('未找到 BOM 中的物料 SKU。')
+  const archive = getMaterialArchiveById(sku.materialId)
   const priceValid = sku.status === 'ACTIVE' && Number.isFinite(sku.costPrice) && sku.costPrice > 0
   let conversion = 0
   try {
@@ -74,6 +75,7 @@ export function resolveEngineeringBomMaterialLine(
     materialCode: sku.materialCode,
     materialSkuCode: sku.materialSkuCode,
     materialName: sku.materialName,
+    materialImageUrl: line.materialImageUrl || sku.skuImageUrl || archive?.mainImageUrl || '',
     pricingUnit: sku.pricingUnit,
     conversionToPricingUnit: conversion,
     standardUnitPriceCny: priceValid ? Number(sku.costPrice.toFixed(4)) : null,

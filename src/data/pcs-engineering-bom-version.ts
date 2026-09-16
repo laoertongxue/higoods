@@ -114,7 +114,7 @@ export function copyEngineeringBomDraftVersion(input: {
   targetVersionId: string
   copiedAt: string
   copiedBy: string
-  /** 仅供已完成的设计改款整款方案承接到工程主单。 */
+  /** 仅供已完成的设计改款整款方案承接到生产准备单。 */
   allowHandedOffSource?: boolean
 }): EngineeringBomDraft {
   const sourceIsReusable = input.source.versionStatus === 'COMPLETED_CONFIRMED'

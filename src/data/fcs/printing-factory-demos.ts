@@ -3,6 +3,7 @@ import {
   type PrintWorkOrder, getPrintingWorkOrderById, startPrintingProduction,
   recordPrintingProductionStage, completePrintingWorkOrder, updatePrintingRollBarcode,
   createPrintingDispatch, scanPrintingDispatchRoll, confirmPrintingDispatch, receivePrintingHandover,
+  markPrintingRollBarcodesPrinted,
 } from './printing-task-domain.ts'
 import { getFactoryReceivingSource, registerFactoryReceivingSource, getDefaultFactoryReceiptPosition, listFactoryReceipts, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryMaterialUses, recordFactoryMaterialUsage } from './factory-receiving.ts'
 import { confirmFactoryMaterialReceipt } from './factory-receiving-links.ts'
@@ -84,6 +85,7 @@ export function initializePrintingFactoryDemoProgress(orders: PrintWorkOrder[]):
       const rolls=getPrintingWorkOrderById(id)!.barcodes
       for (const [index,roll] of rolls.entries()) updatePrintingRollBarcode(id,roll.id,{lengthY:index===0?Math.floor(finished*.45):finished-Math.floor(finished*.45),gsm:m.gsm,widthCm:m.widthCm,vatNo:`TEST-${code}`,warehouseName:`${order.printFactoryName} · 待交出仓`,remark:'原型测试逐卷测量'})
       if (stage === 4) {
+        markPrintingRollBarcodesPrinted(id, rolls.map((roll) => roll.id), '原型测试标签打印员')
         const doc=createPrintingDispatch([{workOrderId:id,barcodeIds:rolls.map(roll=>roll.id)}],'原型测试建单员')
         for (const roll of rolls) scanPrintingDispatchRoll(doc,roll.barcode,'原型测试交出员')
         confirmPrintingDispatch(doc,'原型测试交出员')

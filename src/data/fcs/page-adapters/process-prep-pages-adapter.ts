@@ -20,7 +20,7 @@ import { getProcessObjectType, getQuantityLabel, type ProcessObjectType } from '
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
-type CreateModeZh = (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['PRODUCTION_ORDER'] | '按备货创建' | '补料确认生成'
+type CreateModeZh = (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['PRODUCTION_ORDER'] | '按备货创建' | '补料确认生成' | '设计改款生成'
 type OrderStatusZh = PlatformProcessStatus
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
 type BatchStatusZh = '待关联' | '部分关联' | '已关联'
@@ -240,7 +240,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       ? '按备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? '补料确认生成'
-        : PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_ORDER,
+        : order.sourceType === 'DESIGN_REVISION'
+          ? '设计改款生成'
+          : PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_ORDER,
     sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType],
     factoryName: order.factoryName,
     plannedFeedQty: order.plannedQty,
@@ -261,6 +263,8 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：${order.stockMaterialName || order.materialName}`
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
+        : order.sourceType === 'DESIGN_REVISION'
+          ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：${order.sourceSnapshot.designRevisionTaskNo || '-'} / ${order.sourceSnapshot.professionalTaskNo || order.sourceSnapshot.professionalTaskId || '-'} / ${order.sourceSnapshot.professionalResultVersion || '-'}`
         : `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'}`,
     materialSku: order.materialSku,
     materialName: order.materialName,
@@ -304,6 +308,8 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
                 ? (order.stockMaterialName || order.materialName)
                 : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
                   ? (order.sourceSnapshot.supplementRecordNo || order.sourceSnapshot.supplementRecordId || '-')
+                  : order.sourceType === 'DESIGN_REVISION'
+                    ? (order.sourceSnapshot.designRevisionTaskNo || order.sourceSnapshot.designRevisionTaskId || '-')
                   : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
               fulfilledQty: satisfiedQty,
               linkedAt: order.handoverRecords[0]?.receiverWrittenAt || order.updatedAt,

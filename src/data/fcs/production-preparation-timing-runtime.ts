@@ -74,7 +74,7 @@ export interface PreparationRecordCapabilities {
 export function isEngineeringPreparationRecord(
   record: Pick<ProductionPreparationRecord, 'sourceKind' | 'masterOrderId'>,
 ): boolean {
-  return record.sourceKind === '工程主单' && Boolean(record.masterOrderId)
+  return record.sourceKind === '生产准备单' && Boolean(record.masterOrderId)
 }
 
 export function getPreparationRecordCapabilities(

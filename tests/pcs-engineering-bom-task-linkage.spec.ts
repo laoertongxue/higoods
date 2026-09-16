@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
@@ -10,12 +9,11 @@ import {
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import type { EngineeringBomTaskLinkageRow } from '../src/data/pcs-engineering-bom-types.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 function createPublishedMaster() {
-  resetStyleArchiveRepository()
+  const style = resetAndGetProductionPreparationStyle()
   resetEngineeringMasterRepository()
-  const style = listStyleArchives()[0]
-  assert.ok(style, '应存在款式档案演示数据')
   return publishEngineeringMasterOrder(createEngineeringMasterOrder({
     styleId: style.styleId,
     styleCode: style.styleCode,

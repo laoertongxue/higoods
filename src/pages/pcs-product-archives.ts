@@ -52,6 +52,11 @@ import {
   listProjectWorkspaceColors,
   listProjectWorkspaceSizes,
 } from '../data/pcs-project-config-workspace-adapter.ts'
+import {
+  getEngineeringIndependentSamplingRecord,
+  linkCompletedTemporarySpuToStyleArchive,
+  listCompletedTemporarySpuDesignRevisions,
+} from '../data/pcs-engineering-master-sampling.ts'
 
 type StyleVersionFilter = 'all' | 'has' | 'none'
 type StyleReviewFilter = 'all' | 'needsReview' | 'waitingPublish' | 'published'
@@ -102,6 +107,7 @@ interface ProductArchivePageState {
   styleCompletion: {
     open: boolean
     styleId: string
+    designRevisionTaskId: string
     styleName: string
     styleNumber: string
     productType: string
@@ -239,6 +245,7 @@ function createDefaultStyleCompletionState(): ProductArchivePageState['styleComp
   return {
     open: false,
     styleId: '',
+    designRevisionTaskId: '',
     styleName: '',
     styleNumber: '',
     productType: '',
@@ -1103,6 +1110,7 @@ function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
   state.styleCompletion = {
     open: true,
     styleId: style.styleId,
+    designRevisionTaskId: '',
     styleName: style.styleName,
     styleNumber: style.styleNumber,
     productType: style.productType,
@@ -1181,6 +1189,7 @@ function renderStyleCompletionDrawer(): string {
   if (!state.styleCompletion.open) return ''
   const currentStyle = state.styleCompletion.styleId ? getStyleArchiveById(state.styleCompletion.styleId) : null
   const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
+  const temporaryDesignRevisions = alreadyFormalized ? [] : listCompletedTemporarySpuDesignRevisions()
   const renderControlledTextField = (label: string, field: string, value: string, placeholder: string, required = false) =>
     renderFormField(
       label,
@@ -1228,6 +1237,19 @@ function renderStyleCompletionDrawer(): string {
               当前款式已完成正式建档。以下核心建档字段改为只读，当前仅允许补充包装信息与备注。
             </div>
           `
+          : ''
+      }
+      ${
+        temporaryDesignRevisions.length
+          ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <label class="block space-y-2 text-sm">
+                <span class="font-medium text-slate-900">承接线下设计改款</span>
+                <select class="h-10 w-full rounded-md border border-blue-200 bg-white px-3" data-pcs-product-archive-field="style-completion-design-revision">
+                  <option value="">不关联</option>
+                  ${temporaryDesignRevisions.map((record) => `<option value="${escapeHtml(record.samplingTaskId)}" ${state.styleCompletion.designRevisionTaskId === record.samplingTaskId ? 'selected' : ''}>${escapeHtml(record.temporarySpuName)} · ${escapeHtml(record.samplingTaskCode)}</option>`).join('')}
+                </select>
+              </label>
+            </section>`
           : ''
       }
       <div class="grid gap-4 md:grid-cols-2">
@@ -1305,6 +1327,7 @@ function submitStyleCompletion(): void {
   const currentStyle = getStyleArchiveById(state.styleCompletion.styleId)
   const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
   const imageUrls = getStyleCompletionImageUrls()
+  const designRevisionTaskId = state.styleCompletion.designRevisionTaskId
   const updated = updateStyleArchive(state.styleCompletion.styleId, {
     ...(alreadyFormalized
       ? {}
@@ -1335,18 +1358,31 @@ function submitStyleCompletion(): void {
     updatedBy: '当前用户',
   })
 
-  resetStyleCompletionState()
-
   if (!updated) {
     state.notice = '保存款式资料失败。'
     return
   }
 
+  if (designRevisionTaskId) {
+    try {
+      linkCompletedTemporarySpuToStyleArchive({
+        samplingTaskId: designRevisionTaskId,
+        styleId: updated.styleId,
+        actor: { userId: 'PRODUCT-ARCHIVE-CURRENT', userName: '当前用户' },
+      })
+    } catch (error) {
+      state.notice = error instanceof Error ? error.message : '承接线下设计改款资料失败。'
+      return
+    }
+  }
+
+  resetStyleCompletionState()
+
   const check = getStyleArchiveFormalizationCheck(updated.styleId)
   state.notice = alreadyFormalized
     ? `已保存 ${updated.styleCode} 的受控补充信息，核心建档字段保持只读。`
     : check.ready
-      ? `已保存 ${updated.styleCode} 的款式资料，当前可以正式建档。`
+      ? `已保存 ${updated.styleCode} 的款式资料${designRevisionTaskId ? '，并承接线下设计改款资料' : ''}，当前可以正式建档。`
       : `已保存 ${updated.styleCode} 的款式资料，仍需补齐：${check.missingFields.map((item) => item.label).join('、')}。`
 }
 
@@ -2513,6 +2549,22 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'style-list-mapping':
       state.styleList.mapping = (value || 'all') as ProductArchivePageState['styleList']['mapping']
       return true
+    case 'style-completion-design-revision': {
+      state.styleCompletion.designRevisionTaskId = value
+      const revision = value ? getEngineeringIndependentSamplingRecord(value) : null
+      if (revision) {
+        const designImages = revision.designFiles
+          .filter((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension) && Boolean(file.dataUrl))
+          .map((file) => file.dataUrl)
+        state.styleCompletion.styleName = revision.temporarySpuName || state.styleCompletion.styleName
+        state.styleCompletion.mainImageId = revision.designFiles.find((file) => file.dataUrl === designImages[0])?.fileId || state.styleCompletion.mainImageId
+        state.styleCompletion.mainImageUrl = designImages[0] || state.styleCompletion.mainImageUrl
+        state.styleCompletion.galleryImageUrls = uniqueImageUrls([...designImages, ...state.styleCompletion.galleryImageUrls])
+        state.styleCompletion.imageSource = `承接自设计改款 ${revision.samplingTaskCode}`
+        state.styleCompletion.detailDescription = state.styleCompletion.detailDescription || revision.creationReason
+      }
+      return true
+    }
     case 'sku-list-search':
       state.skuList.search = value
       return true

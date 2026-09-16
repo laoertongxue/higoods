@@ -53,6 +53,47 @@ export function normalizeProcessWorkOrderSourceSnapshot(source: ProcessWorkOrder
       stockMaterialName: requireField(source.stockMaterialName, '备货来源必须携带库存物料名称'),
     }
   }
+  if (source.sourceType === 'DESIGN_REVISION') {
+    if (bomItemIds.length === 0) throw new Error('设计改款加工单必须携带 BOM 行 ID')
+    if (!source.materialReceivingKind || !['FABRIC', 'ACCESSORY', 'YARN'].includes(source.materialReceivingKind)) throw new Error('设计改款加工单必须携带投入物料收货类型')
+    return {
+      sourceType: 'DESIGN_REVISION',
+      designRevisionTaskId: requireField(source.designRevisionTaskId, '设计改款来源必须携带任务 ID'),
+      designRevisionTaskNo: requireField(source.designRevisionTaskNo, '设计改款来源必须携带任务号'),
+      professionalTaskId: requireField(source.professionalTaskId, '设计改款来源必须携带专业任务 ID'),
+      professionalTaskNo: optionalField(source.professionalTaskNo),
+      // 加工单与专业任务同时建立，此时专业结果尚未产生。
+      // 结果 ID 与版本在买手审核通过后再绑定，不能为了建单伪造结果。
+      professionalResultId: optionalField(source.professionalResultId),
+      professionalResultVersion: optionalField(source.professionalResultVersion),
+      targetSpuImageUrl: requireField(source.targetSpuImageUrl, '设计改款来源必须携带真实设计稿'),
+      targetSpuCode: requireField(source.targetSpuCode, '设计改款来源必须携带目标 SPU'),
+      targetSpuName: optionalField(source.targetSpuName),
+      targetColorId: requireField(source.targetColorId, '设计改款来源必须携带目标颜色 ID'),
+      targetColorName: optionalField(source.targetColorName),
+      bomVersionId: requireField(source.bomVersionId, '设计改款来源必须携带 BOM 版本 ID'),
+      bomVersionLabel: optionalField(source.bomVersionLabel),
+      bomItemId: bomItemIds[0],
+      bomItemIds,
+      materialSkuCode: requireField(source.materialSkuCode, '设计改款加工单必须携带投入物料 SKU'),
+      materialName: requireField(source.materialName, '设计改款加工单必须携带投入物料名称'),
+      materialReceivingKind: source.materialReceivingKind,
+      materialImageUrl: requireField(source.materialImageUrl, '设计改款加工单必须携带投入物料真实图片'),
+      materialColor: requireField(source.materialColor, '设计改款加工单必须携带投入物料颜色'),
+      materialComposition: requireField(source.materialComposition, '设计改款加工单必须携带投入物料成分'),
+      materialSpecification: requireField(source.materialSpecification, '设计改款加工单必须携带投入物料规格'),
+      receivingTeamId: requireField(source.receivingTeamId, '设计改款加工单必须携带最终收料团队 ID'),
+      receivingTeamName: requireField(source.receivingTeamName, '设计改款加工单必须携带最终收料团队'),
+      receivingFactoryId: requireField(source.receivingFactoryId, '设计改款加工单必须携带销售展示样衣实际接收工厂 ID'),
+      receivingFactoryName: requireField(source.receivingFactoryName, '设计改款加工单必须携带销售展示样衣实际接收工厂'),
+      receivingLocationId: requireField(source.receivingLocationId, '设计改款加工单必须携带最终收料位置 ID'),
+      receivingLocationName: requireField(source.receivingLocationName, '设计改款加工单必须携带最终收料位置'),
+      upstreamWorkOrderId: optionalField(source.upstreamWorkOrderId),
+      upstreamWorkOrderNo: optionalField(source.upstreamWorkOrderNo),
+      downstreamWorkOrderId: optionalField(source.downstreamWorkOrderId),
+      downstreamWorkOrderNo: optionalField(source.downstreamWorkOrderNo),
+    }
+  }
   if (source.sourceType !== 'PRODUCTION_ORDER' && source.sourceType !== 'CUT_PIECE_SUPPLEMENT') {
     throw new Error('加工单来源类型无效')
   }
@@ -88,6 +129,14 @@ export function buildProcessWorkOrderSourceKey(input: ProcessWorkOrderGeneration
   ]
   if (source.sourceType === 'STOCK') {
     keyFields.push(['stockMaterialId', source.stockMaterialId!], ['orderedAt', requireField(input.orderedAt, '备货来源必须携带创建时间')])
+  } else if (source.sourceType === 'DESIGN_REVISION') {
+    keyFields.push(
+      ['designRevisionTaskId', source.designRevisionTaskId!],
+      ['professionalTaskId', source.professionalTaskId!],
+      ['targetColorId', source.targetColorId!],
+      ['bomVersionId', source.bomVersionId!],
+      ['bomItemIds', source.bomItemIds!],
+    )
   } else if (source.sourceType === 'CUT_PIECE_SUPPLEMENT') {
     keyFields.push(
       ['supplementRecordId', source.supplementRecordId!],

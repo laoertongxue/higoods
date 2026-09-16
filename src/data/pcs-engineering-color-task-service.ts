@@ -1,4 +1,4 @@
-// 调色任务三阶段服务：仅通过工程主单任务及物料行读写，不建立第二套调色任务事实。
+// 调色任务三阶段服务：仅通过生产准备单任务及物料行读写，不建立第二套调色任务事实。
 
 import { listPreparationProjectionItems } from './pcs-engineering-dependency-policy.ts'
 import {
@@ -20,7 +20,7 @@ function getColorTask(masterOrderId: string, taskId: string): {
   task: EngineeringTaskRecord
 } {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
   if (task.taskType !== 'COLOR_YARN' && task.taskType !== 'COLOR_FABRIC') {

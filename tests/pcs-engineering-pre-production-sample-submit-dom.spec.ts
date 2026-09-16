@@ -47,7 +47,7 @@ test('首单样衣必须在专业任务详情开始、真实上传并提交完�
     })
     const published = engineeringRepository.publishEngineeringMasterOrder(master.masterOrderId)
     const sample = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
-    if (!sample) throw new Error('工程主单未生成首单样衣任务')
+    if (!sample) throw new Error('生产准备单未生成首单样衣任务')
     for (const dependencyId of sample.dependsOnTaskIds) {
       const dependency = published.tasks.find((item) => item.taskId === dependencyId)
       if (!dependency) continue
@@ -69,7 +69,7 @@ test('首单样衣必须在专业任务详情开始、真实上传并提交完�
     }
   })
 
-  await page.goto(`/pcs/samples/first-sample/${scenario.taskId}`)
+  await page.goto(`/pcs/production-preparation/first-sample/${scenario.taskId}`)
   await expect(page.getByRole('button', { name: '开始任务' })).toBeVisible()
   await page.getByRole('button', { name: '开始任务' }).click()
 

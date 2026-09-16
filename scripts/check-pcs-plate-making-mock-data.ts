@@ -51,9 +51,9 @@ const totalPlateTaskCount = listEngineeringMasterOrders()
   .flatMap((item) => item.tasks)
   .filter((task) => plateTypes.has(task.taskType)).length
 
-assert.equal(tasks.length, 4, '工程主单发布后必须一次生成 4 类制版任务')
+assert.equal(tasks.length, 4, '生产准备单发布后必须一次生成 4 类制版任务')
 for (const task of tasks) {
-  assert.equal(task.masterOrderId, master.masterOrderId, `${task.taskId} 必须关联当前工程主单`)
+  assert.equal(task.masterOrderId, master.masterOrderId, `${task.taskId} 必须关联当前生产准备单`)
   assert.ok(task.taskName, `${task.taskId} 必须带任务名称`)
   assert.ok(task.ownerTeamName, `${task.taskId} 必须带负责团队`)
   assert.ok(['未启用', '待前置', '待开始'].includes(task.status), `${task.taskId} 必须使用工程任务初始状态`)
@@ -63,10 +63,10 @@ for (const task of tasks) {
 }
 
 const pageHtml = renderPcsPlateMakingTaskPage()
-assert.match(pageHtml, new RegExp(master.masterOrderCode), '制版任务列表必须展示工程主单编号')
-assert.match(pageHtml, new RegExp(master.styleCode), '制版任务列表必须展示工程主单款式')
+assert.match(pageHtml, new RegExp(master.masterOrderCode), '制版任务列表必须展示生产准备单编号')
+assert.match(pageHtml, new RegExp(master.styleCode), '制版任务列表必须展示生产准备单款式')
 for (const task of tasks as EngineeringTaskRecord[]) {
-  assert.match(pageHtml, new RegExp(task.taskId), `${task.taskId} 必须由工程主单任务渲染`)
+  assert.match(pageHtml, new RegExp(task.taskId), `${task.taskId} 必须由生产准备单任务渲染`)
 }
 for (const status of ['未启用', '待前置', '待开始', '进行中', '待审核', '返工中', '已完成', '因需求变更结束']) {
   assert.match(pageHtml, new RegExp(`<option value="${status}"`), `制版状态筛选缺少工程任务状态：${status}`)

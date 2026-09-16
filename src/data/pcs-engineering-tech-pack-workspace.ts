@@ -29,6 +29,7 @@ import {
 } from './pcs-engineering-bom-repository.ts'
 import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
 import type { EngineeringBomVersionRecord } from './pcs-engineering-bom-types.ts'
+import { getEngineeringIndependentSamplingRecord } from './pcs-engineering-master-sampling.ts'
 
 export const TECH_PACK_MODULE_LABELS: Record<TechnicalModuleKey, string> = {
   BOM: 'BOM',
@@ -56,9 +57,12 @@ function toManagedPatternFile(file?: EngineeringUploadedFile): TechnicalPatternM
   }
 }
 
-function buildPatternFilesFromResult(
-  result: ReturnType<typeof listEngineeringPatternResultVersions>[number],
-): TechnicalPatternFile[] {
+type EngineeringPatternResultSource = Pick<
+  ReturnType<typeof listEngineeringPatternResultVersions>[number],
+  'resultVersionId' | 'materialKind' | 'patternKind' | 'applicableSizes' | 'sourceFiles' | 'previewFiles' | 'submittedAt' | 'submittedBy' | 'note'
+>
+
+function buildPatternFilesFromResult(result: EngineeringPatternResultSource): TechnicalPatternFile[] {
   const sourceFiles = (result.sourceFiles || []).filter((file) => file.status === '已保存' && Boolean(file.dataUrl))
   if (sourceFiles.length === 0) return []
   const preview = (result.previewFiles || []).find((file) => file.status === '已保存' && Boolean(file.dataUrl))
@@ -122,11 +126,50 @@ function collectEngineeringOutputs(
   technicalVersionId: string,
   bomVersions: EngineeringBomVersionRecord[],
 ): TechnicalDataVersionContent {
-  const patternFiles = master.tasks.flatMap((task) => {
+  const currentPatternFiles = master.tasks.flatMap((task) => {
     const result = listEngineeringPatternResultVersions(task.taskId)[0]
     if (!result) return []
     return buildPatternFilesFromResult(result)
   })
+  const priorBasePatternFiles = master.priorResultReuseLines
+    .filter((line) => line.decision === '复用' && line.resultType.startsWith('BASE_PATTERN'))
+    .flatMap((line) => {
+      const sampling = getEngineeringIndependentSamplingRecord(line.sourceSamplingTaskId || '')
+      if (line.sourceTaskId.endsWith('-REUSED-BASE_PATTERN') && sampling?.patternHandling === 'REUSE') {
+        const sourceFiles = sampling.reusedPatternFiles.filter((file) => file.purpose === 'PATTERN_SOURCE')
+        const previewFiles = sampling.reusedPatternFiles.filter((file) => file.purpose === 'PATTERN_PREVIEW')
+        if (!sourceFiles.length) return []
+        return buildPatternFilesFromResult({
+          resultVersionId: line.sourceTaskId,
+          materialKind: line.resultType === 'BASE_PATTERN_KNIT' ? '毛织' : '梭织',
+          patternKind: '基码纸样',
+          applicableSizes: [],
+          sourceFiles,
+          previewFiles,
+          submittedAt: sampling.confirmedAt || line.confirmedAt,
+          submittedBy: sampling.confirmedBy || line.confirmedBy,
+          note: '设计改款阶段确认纸样不变，直接复用。',
+        })
+      }
+      const task = sampling?.professionalTasks.find((item) => item.taskId === line.sourceTaskId && item.taskType === 'BASE_PATTERN')
+      if (!task) return []
+      return task.results.filter((result) => result.status === 'APPROVED').flatMap((result) => {
+        const sourceFiles = result.files.filter((file) => file.purpose === 'PATTERN_SOURCE')
+        const previewFiles = result.files.filter((file) => file.purpose === 'PATTERN_PREVIEW')
+        return buildPatternFilesFromResult({
+          resultVersionId: result.resultId,
+          materialKind: line.resultType === 'BASE_PATTERN_KNIT' ? '毛织' : '梭织',
+          patternKind: '基码纸样',
+          applicableSizes: result.applicablePartOrSize ? [result.applicablePartOrSize] : [],
+          sourceFiles,
+          previewFiles,
+          submittedAt: task.submittedAt || sampling?.confirmedAt || line.confirmedAt,
+          submittedBy: line.confirmedBy,
+          note: result.description,
+        })
+      })
+    })
+  const patternFiles = [...priorBasePatternFiles, ...currentPatternFiles]
   const artworkLines = master.tasks
     .filter((task) => task.taskType === 'PATTERN_ARTWORK')
     .flatMap((task) => task.materialLines.filter((line) => line.reviewStatus === '通过'))
@@ -167,7 +210,7 @@ function collectEngineeringOutputs(
   return {
     technicalVersionId,
     patternFiles,
-    patternDesc: patternFiles.length ? '由工程主单已完成制版成果自动汇总。' : '',
+    patternDesc: patternFiles.length ? '由设计改款基码纸样与生产准备齐码纸样自动汇总。' : '',
     processEntries: [],
     sizeTable: [],
     bomItems,
@@ -243,7 +286,7 @@ export function listEngineeringTechnicalVersions(): TechnicalDataVersionRecord[]
 
 export function getEngineeringTechPackTaskView(masterOrderId: string): EngineeringTechPackTaskView {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error('未找到来源工程主单。')
+  if (!master) throw new Error('未找到来源生产准备单。')
   const versions = listTechnicalDataVersionsByProjectId(master.masterOrderId)
     .filter((record) => record.createdFromTaskType === 'ENGINEERING_MASTER')
     .sort((left, right) => right.versionNo - left.versionNo)
@@ -267,7 +310,10 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
     missingModules: latestVersion?.missingItemNames || [],
     moduleSources: [
       { module: 'BOM 与价格', source: master.masterOrderCode, status: content?.bomItems.length ? '已汇总' : '待补齐' },
-      { module: '纸样', source: master.tasks.filter((task) => task.taskType.startsWith('BASE_PATTERN') || task.taskType.startsWith('SIZE_PATTERN')).map((task) => task.taskId).join('、') || '-', status: content?.patternFiles.length ? '已汇总' : '待补齐' },
+      { module: '纸样', source: [
+        ...master.priorResultReuseLines.filter((line) => line.decision === '复用' && line.resultType.startsWith('BASE_PATTERN')).map((line) => line.sourceTaskId),
+        ...master.tasks.filter((task) => task.taskType.startsWith('SIZE_PATTERN')).map((task) => task.taskId),
+      ].filter(Boolean).join('、') || '-', status: content?.patternFiles.length ? '已汇总' : '待补齐' },
       { module: '首单样衣', source: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.taskId || '-', status: master.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')?.status || '不适用' },
       { module: '花型', source: master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')?.taskId || '-', status: content?.patternDesigns.length ? '已汇总' : '待补齐' },
       { module: '调色／物料颜色', source: master.tasks.filter((task) => task.taskType.startsWith('COLOR_')).map((task) => task.taskId).join('、') || '-', status: content?.colorMaterialMappings.length ? '已汇总' : '待补齐' },
@@ -281,11 +327,11 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
     returnedModules: (latestVersion?.reviewUnlockedModuleKeys || []).map((key) => TECH_PACK_MODULE_LABELS[key]),
     canGenerate,
     generateBlockedReason: latestVersion
-      ? '当前工程主单已存在技术包版本。'
+      ? '当前生产准备单已存在技术包版本。'
       : pendingTasks.length > 0
         ? `以下任务尚未完成：${pendingTasks.map((task) => task.taskName).join('、')}`
         : engineeringBomVersions.length === 0
-          ? '工程主单尚未建立 BOM 与价格版本。'
+          ? '生产准备单尚未建立 BOM 与价格版本。'
           : !hasCompleteBomPricing
             ? '工程整款 BOM 与价格尚未由买手确认。'
         : '',
@@ -297,7 +343,7 @@ export function createEngineeringMasterTechPackDraft(
   operatorName: string,
 ): TechnicalDataVersionRecord {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error('未找到来源工程主单。')
+  if (!master) throw new Error('未找到来源生产准备单。')
   const operator = operatorName.trim()
   if (!operator) throw new Error('请填写操作人。')
   const view = getEngineeringTechPackTaskView(masterOrderId)
@@ -307,7 +353,7 @@ export function createEngineeringMasterTechPackDraft(
   const identity = getNextTechnicalVersionIdentity()
   const version = getNextStyleVersionMeta(style.styleId)
   const confirmationTask = master.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
-  if (!confirmationTask) throw new Error('工程主单缺少技术包确认任务。')
+  if (!confirmationTask) throw new Error('生产准备单缺少技术包确认任务。')
   const bomSnapshot = captureEngineeringBomRepositoryState()
   const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
   const confirmedBuyer = engineeringBomVersions.find((item) => item.buyerId && item.buyerName)
@@ -345,10 +391,10 @@ export function createEngineeringMasterTechPackDraft(
     styleName: style.styleName,
     sourceProjectId: master.masterOrderId,
     sourceProjectCode: master.masterOrderCode,
-    sourceProjectName: `${master.styleName}生产工程主单`,
+    sourceProjectName: `${master.styleName}生产准备主单`,
     sourceProjectNodeId: '',
-    primaryPlateTaskId: master.tasks.find((task) => task.taskType.startsWith('BASE_PATTERN'))?.taskId || '',
-    primaryPlateTaskCode: master.tasks.find((task) => task.taskType.startsWith('BASE_PATTERN'))?.taskId || '',
+    primaryPlateTaskId: master.priorResultReuseLines.find((line) => line.decision === '复用' && line.resultType.startsWith('BASE_PATTERN'))?.sourceTaskId || '',
+    primaryPlateTaskCode: master.priorResultReuseLines.find((line) => line.decision === '复用' && line.resultType.startsWith('BASE_PATTERN'))?.sourceTaskId || '',
     primaryPlateTaskVersion: '',
     linkedDesignRevisionTaskIds: [...new Set(
       master.priorResultReuseLines
@@ -362,8 +408,8 @@ export function createEngineeringMasterTechPackDraft(
     createdFromTaskCode: confirmationTask.taskId,
     baseTechnicalVersionId: style.currentTechPackVersionId || '',
     baseTechnicalVersionCode: style.currentTechPackVersionCode || '',
-    changeScope: '工程主单生成',
-    changeSummary: '工程主单专业任务成果汇总',
+    changeScope: '生产准备单生成',
+    changeSummary: '生产准备单专业任务成果汇总',
     garmentDifficultyGrade: 'B',
     linkedPartTemplateIds: [],
     linkedPatternLibraryVersionIds: [],

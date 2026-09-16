@@ -44,10 +44,10 @@ const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterO
   preparationType: 'PURE_WOVEN',
   qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
   bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `VERSION-LOG-${style.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `VERSION-LOG-${style.styleCode}` },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 const techPackConfirmationTask = engineeringMaster.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
-assert.ok(techPackConfirmationTask, '工程主单必须包含技术包确认任务')
+assert.ok(techPackConfirmationTask, '生产准备单必须包含技术包确认任务')
 const baseRecord = listTechnicalDataVersions()[0]
 assert.ok(baseRecord, '技术资料仓必须提供版本结构演示数据')
 const version = createTechnicalDataVersionDraft({
@@ -95,7 +95,7 @@ appendTechPackVersionLog({
   sourceTaskId: techPackConfirmationTask.taskId,
   sourceTaskCode: techPackConfirmationTask.taskId,
   sourceTaskName: techPackConfirmationTask.taskName,
-  changeScope: '工程主单生成',
+  changeScope: '生产准备单生成',
   changeText: '验证技术包版本日志进入项目资料归档。',
   beforeVersionId: '',
   beforeVersionCode: '',

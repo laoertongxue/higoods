@@ -95,9 +95,14 @@ function master(patch: Partial<EngineeringMasterOrderRecord> = {}): EngineeringM
 const first = projectEngineeringMasterToPreparation(master())
 const second = projectEngineeringMasterToPreparation(master())
 
-assert.equal(first.items.length, 11, '工程主单必须完整投影 11 个固定准备项')
+assert.equal(first.items.length, 9, '生产准备单必须完整投影 9 个生产准备阶段项目')
 assert.deepEqual(second, first, '重复投影必须幂等')
-assert.equal(new Set(first.items.map((item) => item.itemType)).size, 11, '重复任务事件不能重复累计准备项')
+assert.equal(new Set(first.items.map((item) => item.itemType)).size, 9, '重复任务事件不能重复累计准备项')
+assert.equal(
+  first.items.find((item) => item.itemType === '版衣制作')?.taskHref,
+  '/pcs/production-preparation/first-sample/EM-TEST-PRE_PRODUCTION_SAMPLE',
+  '首单样衣时效入口必须指向当前首单样衣详情路由',
+)
 const independentTaskContamination = projectEngineeringMasterToPreparation(master({
   tasks: [
     task('BASE_PATTERN_WOVEN', { sourceType: 'INDEPENDENT_DESIGN_REVISION', sourceId: 'ES-DR-001' }),
@@ -105,27 +110,28 @@ const independentTaskContamination = projectEngineeringMasterToPreparation(maste
   ],
 }))
 assert.equal(
-  independentTaskContamination.items.find((item) => item.itemType === '梭织基码纸样')?.taskId,
-  'EM-TEST-BASE-PATTERN-AUTHORITY',
-  '设计改款任务不得进入生产准备时效投影',
+  independentTaskContamination.items.some((item) => item.taskType === 'BASE_PATTERN_WOVEN'),
+  false,
+  '基码纸样无论来自设计改款或旧生产准备单，都不得进入生产准备时效投影',
 )
 assert.ok(first.items.every((item) => item.plannedStartAt && item.plannedFinishAt), '适用准备项必须按固定依赖生成计划起止时间')
 assert.ok(first.expectedFinishAt, '准备记录必须汇总预计完成时间')
 assert.equal(
-  first.items.find((item) => item.itemType === '梭织基码纸样')?.plannedStartAt,
-  first.items.find((item) => item.itemType === '毛织基码纸样')?.plannedStartAt,
-  '混合款梭织与毛织基码必须并行开始',
+  first.items.find((item) => item.itemType === '版衣制作')?.plannedStartAt,
+  first.items.find((item) => item.itemType === '梭织齐码纸样')?.plannedStartAt,
+  '首单样衣与齐码纸样必须并行开始',
 )
 
 const missingPredecessors = master({
   tasks: [task('SIZE_PATTERN_WOVEN')],
 })
 const completedProjection = projectEngineeringMasterToPreparation(missingPredecessors)
-assert.equal(completedProjection.items.length, 11, '缺少事件时也必须自动补齐固定准备项')
+assert.equal(completedProjection.items.length, 9, '缺少事件时也必须自动补齐本阶段固定准备项')
 const wovenSize = completedProjection.items.find((item) => item.itemType === '梭织齐码纸样')!
 const sample = completedProjection.items.find((item) => item.itemType === '版衣制作')!
-assert.deepEqual(wovenSize.dependsOnItemIds, [sample.itemId], '固定依赖必须由策略生成，不能读取可变输入')
-const missingTaskItem = completedProjection.items.find((item) => item.itemType === '毛织基码纸样')!
+assert.deepEqual(wovenSize.dependsOnItemIds, [], '首单样衣与齐码纸样之间不得生成阻断依赖')
+assert.ok(sample)
+const missingTaskItem = completedProjection.items.find((item) => item.itemType === '染色调色（纱线）')!
 assert.equal(missingTaskItem.taskId, '', '缺少真实专业任务时不得合成 taskId')
 assert.equal(missingTaskItem.taskHref, '', '缺少真实专业任务时不得生成可点击链接')
 
@@ -145,7 +151,7 @@ assert.equal(reusedItem.actualFinishAt, '')
 assert.equal(reusedItem.includedInDurationStats, false)
 
 const reworked = projectEngineeringMasterToPreparation(master({
-  tasks: TASK_TYPES.map((type) => type === 'BASE_PATTERN_WOVEN'
+  tasks: TASK_TYPES.map((type) => type === 'PRE_PRODUCTION_SAMPLE'
     ? task(type, {
         firstCompletedAt: '2026-07-30 10:00',
         effectiveCompletedAt: '2026-07-30 14:30',
@@ -156,21 +162,21 @@ const reworked = projectEngineeringMasterToPreparation(master({
       })
     : task(type)),
 }))
-const reworkedItem = reworked.items.find((item) => item.itemType === '梭织基码纸样')!
+const reworkedItem = reworked.items.find((item) => item.itemType === '版衣制作')!
 assert.equal(reworkedItem.firstFinishedAt, '2026-07-30 10:00')
 assert.equal(reworkedItem.effectiveFinishedAt, '2026-07-30 14:30')
 assert.equal(reworkedItem.latestRoundNo, 2)
 assert.equal(reworkedItem.eventKeys.length, 2, '重复轮次事件必须按 masterOrderId + taskId + roundNo 去重')
 
 const completedWithMissingStart = projectEngineeringMasterToPreparation(master({
-  tasks: TASK_TYPES.map((type) => type === 'BASE_PATTERN_WOVEN'
+  tasks: TASK_TYPES.map((type) => type === 'PRE_PRODUCTION_SAMPLE'
     ? task(type, { startedAt: '' })
     : task(type)),
 }))
 const missingStartKpis = buildProductionPreparationKpis([completedWithMissingStart])
 assert.equal(
   missingStartKpis.find((kpi) => kpi.key === 'required-items')?.value,
-  11,
+  9,
   '非复用完成项缺开始时间时仍必须计入已选准备项',
 )
 assert.equal(
@@ -183,8 +189,8 @@ const missingStartDetails = buildMonthlyPreparationCompletionDetails(
   {},
   [completedWithMissingStart],
 )
-assert.equal(missingStartDetails.length, 11, '缺开始时间的普通完成项仍必须保留在完成数量明细')
-const missingStartDetail = missingStartDetails.find((item) => item.itemType === '梭织基码纸样')!
+assert.equal(missingStartDetails.length, 9, '缺开始时间的普通完成项仍必须保留在完成数量明细')
+const missingStartDetail = missingStartDetails.find((item) => item.itemType === '版衣制作')!
 assert.equal(
   (missingStartDetail as typeof missingStartDetail & { timingDataComplete?: boolean }).timingDataComplete,
   false,
@@ -217,7 +223,7 @@ const illegalLaterActiveMaster = master({
 const uniqueFirstOrderRecords = projectEngineeringMastersToPreparation(
   [illegalLaterActiveMaster, originalClosedMaster],
 )
-assert.equal(uniqueFirstOrderRecords.length, 1, '新生产准备时效只允许投影工程主单，不得混入任何旧准备记录')
+assert.equal(uniqueFirstOrderRecords.length, 1, '新生产准备时效只允许投影生产准备单，不得混入任何旧准备记录')
 assert.equal(uniqueFirstOrderRecords[0].masterOrderId, originalClosedMaster.masterOrderId, '后来非法 active 主单不得覆盖原始首单事实')
 assert.equal(uniqueFirstOrderRecords[0].status, '已关闭', '已关闭首单必须投影为已关闭记录')
 assert.equal(
@@ -226,10 +232,10 @@ assert.equal(
   '已关闭首单不得进入 active KPI',
 )
 
-assert.equal(first.masterOrderHref, '/pcs/engineering/masters/EM-TEST')
+assert.equal(first.masterOrderHref, '/pcs/production-preparation/orders/EM-TEST')
 assert.ok(first.items.every((item) => item.taskHref), '每个准备项必须保留专业任务查看链接')
 assert.equal(first.items.find((item) => item.itemType === '辅料下单')?.purchaseOrderHref, '/pms/purchase-order?purchaseOrderNo=CG-TEST-001')
-assert.equal(first.techPackHref, '/pcs/engineering/tech-pack/EM-TEST-TECH_PACK_CONFIRMATION')
+assert.equal(first.techPackHref, '/pcs/production-preparation/tech-pack/EM-TEST-TECH_PACK_CONFIRMATION')
 
 const capabilities = getPreparationRecordCapabilities(first)
 assert.deepEqual(capabilities, {
@@ -262,13 +268,13 @@ assert.deepEqual(mergePreparationRuntimeRecords([first], maliciousRuntime), [fir
 
 const pageSource = readFileSync('src/pages/production/preparation-timing.ts', 'utf8')
 assert.ok(pageSource.includes('getPreparationRecordCapabilities'), '页面必须按记录能力阻断工程来源编辑入口')
-assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '页面必须直接读取工程主单投影')
+assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '页面必须直接读取生产准备单投影')
 assert.ok(
   pageSource.includes('projectEngineeringMastersToPreparation(masters, formalTechPacks)'),
-  '页面必须明确忽略旧生产准备记录，只读投影新工程主单',
+  '页面必须明确忽略旧生产准备记录，只读投影新生产准备单',
 )
 assert.ok(
-  pageSource.includes('只读 · 数据来源：工程主单'),
+  pageSource.includes('只读 · 数据来源：生产准备单'),
   '页面必须明确展示只读来源，不得继续展示旧维护入口',
 )
 assert.ok(

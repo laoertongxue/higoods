@@ -1,4 +1,4 @@
-// 工程主单 LocalStorage 仓库：主单及任务骨架的唯一事实源。
+// 生产准备单 LocalStorage 仓库：主单及任务骨架的唯一事实源。
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
 import {
@@ -29,6 +29,7 @@ import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft, En
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import { assertFirstProductionQualification } from './pcs-engineering-first-production-policy.ts'
 import {
+  getEngineeringIndependentSamplingRecord,
   listReusableEngineeringIndependentProfessionalResults,
   listReusableEngineeringIndependentSamplingResults,
 } from './pcs-engineering-master-sampling.ts'
@@ -40,6 +41,7 @@ import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import type {
   EngineeringMasterOrderRecord,
   EngineeringMasterOrderSnapshot,
+  EngineeringTaskMaterialLine,
   EngineeringTaskRecord,
   EngineeringTaskType,
   EngineeringBulkProductionQualification,
@@ -104,6 +106,7 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
 function cloneRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrderRecord {
   return {
     ...record,
+    sourceDesignFileIds: [...(record.sourceDesignFileIds || [])],
     bomVersionIds: [...(record.bomVersionIds || [])],
     tasks: record.tasks.map(cloneTask),
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
@@ -170,6 +173,9 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
   }
   return cloneRecord({
     ...record,
+    sourceDesignRevisionTaskId: record.sourceDesignRevisionTaskId || '',
+    sourceDesignRevisionTaskCode: record.sourceDesignRevisionTaskCode || '',
+    sourceDesignFileIds: Array.isArray(record.sourceDesignFileIds) ? record.sourceDesignFileIds : [],
     preparationType: isEngineeringPreparationType(record.preparationType) ? record.preparationType : '',
     creationMode: record.creationMode === 'SYSTEM' ? 'SYSTEM' : 'MANUAL',
     creationReason: record.creationReason || '',
@@ -284,6 +290,18 @@ function resolveStyleArchive(styleId: string, styleCode: string) {
   return null
 }
 
+function selectCompletedDesignRevisionSource(
+  styleCode: string,
+  qualification: EngineeringBulkProductionQualification,
+) {
+  const sources = listReusableEngineeringIndependentSamplingResults(styleCode)
+  const explicitSource = sources.find((source) =>
+    source.samplingTaskId === qualification.triggerBusinessObjectId
+    || source.samplingTaskCode === qualification.triggerBusinessObjectId,
+  )
+  return explicitSource || sources[0] || null
+}
+
 export interface CreateEngineeringMasterOrderInput {
   styleId: string
   styleCode: string
@@ -302,20 +320,20 @@ export interface CreateEngineeringMasterOrderInput {
 export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrderInput): EngineeringMasterOrderRecord {
   const snapshot = readSnapshot()
 
-  // 无商品／款式档案：禁止创建工程主单。
+  // 无商品／款式档案：禁止创建生产准备单。
   const style = resolveStyleArchive(input.styleId, input.styleCode)
   if (!style) {
-    throw new Error('无商品／款式档案，禁止创建工程主单。请先创建商品／款式档案。')
+    throw new Error('无商品／款式档案，禁止创建生产准备单。请先创建商品／款式档案。')
   }
 
   assertFirstProductionQualification(style.styleCode, input.qualificationFact)
   if (!input.merchandiserId.trim() || !input.merchandiserName.trim()) {
-    throw new Error('工程主单必须选择跟单负责人。')
+    throw new Error('生产准备单必须选择跟单负责人。')
   }
-  if (!input.createdById.trim() || !input.createdBy.trim()) throw new Error('工程主单缺少创建身份。')
+  if (!input.createdById.trim() || !input.createdBy.trim()) throw new Error('生产准备单缺少创建身份。')
   const creationMode = input.creationMode === 'SYSTEM' ? 'SYSTEM' : 'MANUAL'
-  if (creationMode === 'MANUAL' && input.createdByRole !== '跟单') throw new Error('只有当前登录的跟单可以人工创建工程主单。')
-  if (creationMode === 'SYSTEM' && input.createdByRole !== '系统') throw new Error('自动创建工程主单必须使用系统身份。')
+  if (creationMode === 'MANUAL' && input.createdByRole !== '跟单') throw new Error('只有当前登录的跟单可以人工创建生产准备单。')
+  if (creationMode === 'SYSTEM' && input.createdByRole !== '系统') throw new Error('自动创建生产准备单必须使用系统身份。')
   if (!input.creationReason.trim() || !input.bulkProductionQualification.reason.trim()) {
     throw new Error('请填写做大货依据和创建原因。')
   }
@@ -327,20 +345,21 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   )
   if (duplicateTrigger && creationMode === 'SYSTEM') return cloneRecord(duplicateTrigger)
 
-  // 同一款式只允许存在一张未关闭的工程主单。
+  // 同一款式只允许存在一张未关闭的生产准备单。
   const hasOpenMaster = snapshot.records.some(
     (record) =>
       record.styleId === style.styleId && record.status !== '已关闭' && record.status !== '已终止',
   )
   if (hasOpenMaster) {
-    throw new Error('该款式已存在未关闭的工程主单，禁止重复创建。')
+    throw new Error('该款式已存在未关闭的生产准备单，禁止重复创建。')
   }
   if (duplicateTrigger) {
-    throw new Error('该做大货资格已经创建过工程主单，禁止重复使用。')
+    throw new Error('该做大货资格已经创建过生产准备单，禁止重复使用。')
   }
 
   const masterOrderId = `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`
   const masterOrderCode = nextMasterOrderCode(snapshot.records)
+  const reusableSampling = selectCompletedDesignRevisionSource(style.styleCode, input.bulkProductionQualification)
   const bomRepositoryState = captureEngineeringBomRepositoryState()
   let bomVersions: ReturnType<typeof listEngineeringBomVersionsByOwner>
   try {
@@ -351,7 +370,6 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
       styleId: style.styleId,
       createdBy: input.createdBy,
     })
-    const reusableSampling = listReusableEngineeringIndependentSamplingResults(style.styleCode)[0]
     if (reusableSampling) {
       copyEngineeringBomPricingPlan({
         sourceOwnerStage: 'INDEPENDENT_SAMPLING',
@@ -374,6 +392,9 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
+    sourceDesignRevisionTaskId: reusableSampling?.samplingTaskId || '',
+    sourceDesignRevisionTaskCode: reusableSampling?.samplingTaskCode || '',
+    sourceDesignFileIds: reusableSampling?.designFiles.map((file) => file.fileId) || [],
     status: '草稿',
     preparationType: input.preparationType || '',
     creationMode,
@@ -423,8 +444,6 @@ export function createSystemEngineeringMasterOrder(
 }
 
 const ENGINEERING_MASTER_TASK_TYPES: EngineeringTaskType[] = [
-  'BASE_PATTERN_WOVEN',
-  'BASE_PATTERN_KNIT',
   'PRE_PRODUCTION_SAMPLE',
   'SIZE_PATTERN_WOVEN',
   'SIZE_PATTERN_KNIT',
@@ -531,6 +550,36 @@ const INDEPENDENT_TO_ENGINEERING_TASK: Partial<Record<
   COLOR_FABRIC: 'COLOR_FABRIC',
 }
 
+const BASE_PATTERN_TASK_TYPES: readonly EngineeringTaskType[] = ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
+
+function isBasePatternTaskType(taskType: EngineeringTaskType): boolean {
+  return BASE_PATTERN_TASK_TYPES.includes(taskType)
+}
+
+function requiredBasePatternTaskTypes(preparationType: EngineeringPreparationType): EngineeringTaskType[] {
+  if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
+  if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
+  return ['BASE_PATTERN_WOVEN']
+}
+
+function hasUsableBasePatternFile(candidate: EngineeringIndependentReusableProfessionalResult): boolean {
+  if (candidate.professionalTaskType !== 'BASE_PATTERN') return true
+  const sampling = getEngineeringIndependentSamplingRecord(candidate.samplingTaskId)
+  if (candidate.professionalTaskId.endsWith('-REUSED-BASE_PATTERN')) {
+    return Boolean(sampling?.patternHandling === 'REUSE' && sampling.reusedPatternFiles.some((file) =>
+      file.purpose === 'PATTERN_SOURCE'
+      && file.status === '已保存'
+      && file.extension === 'prj'
+      && Boolean(file.dataUrl),
+    ))
+  }
+  const task = sampling?.professionalTasks.find((item) => item.taskId === candidate.professionalTaskId)
+  return Boolean(task?.results.some((result) =>
+    result.status === 'APPROVED'
+    && result.files.some((file) => file.purpose === 'PATTERN_SOURCE' && file.status === '已保存' && file.extension === 'prj' && Boolean(file.dataUrl)),
+  ))
+}
+
 function candidateEngineeringTaskTypes(
   candidate: EngineeringIndependentReusableProfessionalResult,
   preparationType: EngineeringPreparationType,
@@ -540,6 +589,7 @@ function candidateEngineeringTaskTypes(
     return engineeringTaskType ? [engineeringTaskType] : []
   }
   if (preparationType === 'PURE_WOVEN') return ['BASE_PATTERN_WOVEN']
+  if (preparationType === 'HEAT_TRANSFER_DIRECT_PRINT') return ['BASE_PATTERN_WOVEN']
   if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
   if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
   return []
@@ -554,11 +604,17 @@ export interface EngineeringMasterPriorResultCandidate {
 export function listEngineeringMasterPriorResultCandidates(
   targetStyleCode: string,
   preparationType: EngineeringPreparationType,
+  sourceSamplingTaskId = '',
 ): EngineeringMasterPriorResultCandidate[] {
   const seenRecommended = new Set<EngineeringTaskType>()
-  return listReusableEngineeringIndependentProfessionalResults(targetStyleCode).flatMap((source) =>
+  return listReusableEngineeringIndependentProfessionalResults(targetStyleCode)
+    .filter((source) => !sourceSamplingTaskId || source.samplingTaskId === sourceSamplingTaskId)
+    .filter(hasUsableBasePatternFile).flatMap((source) =>
     candidateEngineeringTaskTypes(source, preparationType)
-      .filter((engineeringTaskType) => getEngineeringTaskApplicability(preparationType, engineeringTaskType) !== 'NOT_APPLICABLE')
+      .filter((engineeringTaskType) =>
+        isBasePatternTaskType(engineeringTaskType)
+        || getEngineeringTaskApplicability(preparationType, engineeringTaskType) !== 'NOT_APPLICABLE',
+      )
       .map((engineeringTaskType) => {
       const recommended = !seenRecommended.has(engineeringTaskType)
       seenRecommended.add(engineeringTaskType)
@@ -567,22 +623,54 @@ export function listEngineeringMasterPriorResultCandidates(
   )
 }
 
+function bindEngineeringMasterDesignRevisionSource(record: EngineeringMasterOrderRecord): string {
+  let sourceId = record.sourceDesignRevisionTaskId || ''
+  if (!sourceId) {
+    const priorIds = [...new Set(record.priorResultReuseLines.map((line) => line.sourceSamplingTaskId).filter(Boolean))]
+    if (priorIds.length === 1) sourceId = priorIds[0] || ''
+  }
+  if (!sourceId) {
+    const bomSourceIds = [...new Set(record.bomVersionIds.flatMap((versionId) => {
+      const sourceVersionId = getEngineeringBomVersionById(versionId)?.sourceVersionId
+      const sourceVersion = sourceVersionId ? getEngineeringBomVersionById(sourceVersionId) : null
+      return sourceVersion?.ownerStage === 'INDEPENDENT_SAMPLING' ? [sourceVersion.ownerId] : []
+    }))]
+    if (bomSourceIds.length === 1) sourceId = bomSourceIds[0] || ''
+  }
+  const source = sourceId
+    ? getEngineeringIndependentSamplingRecord(sourceId)
+    : selectCompletedDesignRevisionSource(record.styleCode, record.bulkProductionQualification)
+  if (!source || source.status !== 'COMPLETED') {
+    throw new Error('生产准备单发布前必须绑定同一张已完成设计改款的 BOM、设计稿和基码纸样。')
+  }
+  record.sourceDesignRevisionTaskId = source.samplingTaskId
+  record.sourceDesignRevisionTaskCode = source.samplingTaskCode
+  record.sourceDesignFileIds = source.designFiles.map((file) => file.fileId)
+  return source.samplingTaskId
+}
+
 function resolvePriorResultDecisions(
   record: EngineeringMasterOrderRecord,
   preparationType: EngineeringPreparationType,
   input: ConfirmEngineeringMasterTaskPlanInput,
 ): Array<{ input: EngineeringMasterPriorResultDecisionInput; source: EngineeringIndependentReusableProfessionalResult }> {
-  if (!input.priorResultDecisions) return []
-  const candidates = listEngineeringMasterPriorResultCandidates(record.styleCode, preparationType)
-  const relevantTaskTypes = [...new Set(candidates.map((candidate) => candidate.engineeringTaskType))]
-  const decisions = input.priorResultDecisions
-  if (new Set(decisions.map((decision) => decision.engineeringTaskType)).size !== decisions.length) {
-    throw new Error('同一工程任务只能选择一项前期成果。')
+  const sourceSamplingTaskId = bindEngineeringMasterDesignRevisionSource(record)
+  const candidates = listEngineeringMasterPriorResultCandidates(record.styleCode, preparationType, sourceSamplingTaskId)
+  const requiredBaseTypes = requiredBasePatternTaskTypes(preparationType)
+  const missingBaseResult = requiredBaseTypes.find((taskType) =>
+    !candidates.some((candidate) => candidate.engineeringTaskType === taskType),
+  )
+  if (missingBaseResult) {
+    throw new Error(`生产准备单发布前必须关联设计改款已确认的可用${getEngineeringTaskDefinition(missingBaseResult).taskName}。`)
   }
-  const missingDecision = relevantTaskTypes.find((taskType) =>
+  const decisions = input.priorResultDecisions || []
+  if (new Set(decisions.map((decision) => decision.engineeringTaskType)).size !== decisions.length) {
+    throw new Error('同一前期资料只能选择一个版本。')
+  }
+  const missingDecision = requiredBaseTypes.find((taskType) =>
     !decisions.some((decision) => decision.engineeringTaskType === taskType),
   )
-  if (missingDecision) throw new Error(`请逐项选择${getEngineeringTaskDefinition(missingDecision).taskName}成果的复用方式。`)
+  if (missingDecision) throw new Error(`请选择可用的${getEngineeringTaskDefinition(missingDecision).taskName}。`)
   return decisions.map((decision) => {
     const matched = candidates.find((candidate) =>
       candidate.engineeringTaskType === decision.engineeringTaskType
@@ -591,6 +679,9 @@ function resolvePriorResultDecisions(
       && candidate.source.resultVersion === decision.sourceResultVersion,
     )
     if (!matched) throw new Error('所选前期成果未完成整单确认、专业任务未完成，或版本已失效，不能采用。')
+    if (isBasePatternTaskType(decision.engineeringTaskType) && decision.decision !== '复用') {
+      throw new Error('生产准备阶段不再新增基码纸样任务，请选择复用已确认纸样。')
+    }
     return { input: decision, source: matched.source }
   })
 }
@@ -620,6 +711,7 @@ function applyPriorResultDecisions(
   const reusedTaskTypes = new Set<EngineeringTaskType>()
   decisions.forEach(({ input, source }) => {
     const task = record.tasks.find((item) => item.taskType === input.engineeringTaskType)
+    if (isBasePatternTaskType(input.engineeringTaskType)) return
     if (!task) throw new Error(`工程任务不存在：${input.engineeringTaskType}`)
     if (input.decision === '不采用') {
       if (task.status !== '未启用') throw new Error(`${task.taskName}属于本次工程任务，不能选择不采用；请选择复用或重新执行。`)
@@ -709,9 +801,9 @@ export function confirmEngineeringMasterTaskPlan(
 ): EngineeringMasterOrderRecord {
   const snapshot = readSnapshot()
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
   if (record.status !== '草稿' || record.tasks.length > 0) {
-    throw new Error('仅未生成任务的草稿工程主单可以确认任务方案。')
+    throw new Error('仅未生成任务的草稿生产准备单可以确认任务方案。')
   }
   const confirmedBy = input.confirmedBy.trim()
   if (
@@ -720,7 +812,7 @@ export function confirmEngineeringMasterTaskPlan(
     || confirmedBy !== record.merchandiserName
     || input.confirmedById.trim() !== record.merchandiserId
   ) {
-    throw new Error('只有工程主单跟单本人可以确认任务方案。')
+    throw new Error('只有生产准备单跟单本人可以确认任务方案。')
   }
   const preparationType = input.preparationType || record.preparationType
   if (!isEngineeringPreparationType(preparationType)) {
@@ -770,12 +862,30 @@ export function confirmEngineeringMasterTaskPlan(
 // 兼容既有领域调用与演示种子；真实页面必须走“跟单确认任务方案”入口。
 export function publishEngineeringMasterOrder(masterOrderId: string): EngineeringMasterOrderRecord {
   const record = getEngineeringMasterOrderById(masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
+  const preparationType = record.preparationType
+  if (!isEngineeringPreparationType(preparationType)) throw new Error('请跟单选择已确认的生产准备类型。')
+  const sourceSamplingTaskId = bindEngineeringMasterDesignRevisionSource(record)
+  const priorResultDecisions = requiredBasePatternTaskTypes(preparationType).map((engineeringTaskType) => {
+    const candidate = listEngineeringMasterPriorResultCandidates(record.styleCode, preparationType, sourceSamplingTaskId)
+      .find((item) => item.engineeringTaskType === engineeringTaskType && item.recommended)
+    if (!candidate) {
+      throw new Error(`生产准备单发布前必须关联设计改款已确认的可用${getEngineeringTaskDefinition(engineeringTaskType).taskName}。`)
+    }
+    return {
+      engineeringTaskType,
+      sourceSamplingTaskId: candidate.source.samplingTaskId,
+      sourceProfessionalTaskId: candidate.source.professionalTaskId,
+      sourceResultVersion: candidate.source.resultVersion,
+      decision: '复用' as const,
+    }
+  })
   return confirmEngineeringMasterTaskPlan(masterOrderId, {
     confirmedBy: record.merchandiserName,
     confirmedById: record.merchandiserId,
     confirmedByRole: '跟单',
     selectedConditionalTaskTypes: [],
+    priorResultDecisions,
   })
 }
 
@@ -807,14 +917,14 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
   operation: Operation & (ReturnType<Operation> extends PromiseLike<unknown> ? never : unknown),
 ): ReturnType<Operation> {
   if (isAsyncFunction(operation)) {
-    throw new Error('工程主单仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
+    throw new Error('生产准备单仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
   }
   const snapshotBeforeOperation = readSnapshot()
   repositoryTransactionDepth += 1
   try {
     const result = operation()
     if (isThenable(result)) {
-      throw new Error('工程主单仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
+      throw new Error('生产准备单仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
     }
     return result as ReturnType<Operation>
   } catch (error) {
@@ -848,11 +958,11 @@ export function setEngineeringMasterStatus(
   status: EngineeringMasterOrderRecord['status'],
 ): EngineeringMasterOrderRecord {
   if (status === '已关闭') {
-    throw new Error('工程主单不能直接设为已关闭，请使用关闭工程主单领域入口。')
+    throw new Error('生产准备单不能直接设为已关闭，请使用关闭生产准备单领域入口。')
   }
   const snapshot = readSnapshot()
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
   record.status = status
   writeSnapshot(snapshot)
   return cloneRecord(record)
@@ -865,9 +975,9 @@ export function seedEngineeringMasterDemoLifecycleStatus(
 ): EngineeringMasterOrderRecord {
   const snapshot = readSnapshot()
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
   if (!record.bulkProductionQualification.uniqueTriggerKey.startsWith('BULK-DEMO-')) {
-    throw new Error('只能设置本地演示工程主单。')
+    throw new Error('只能设置本地演示生产准备单。')
   }
   const at = nowText()
   for (const task of record.tasks) {
@@ -920,7 +1030,7 @@ export function assertEngineeringTaskCanComplete(
   task: EngineeringTaskRecord,
 ): void {
   if (task.masterOrderId !== master.masterOrderId || !master.tasks.some((candidate) => candidate.taskId === task.taskId)) {
-    throw new Error('工程任务不属于当前工程主单，不能完成。')
+    throw new Error('工程任务不属于当前生产准备单，不能完成。')
   }
   if (!['待前置', '待开始', '进行中'].includes(task.status)) {
     throw new Error(`工程任务当前为${task.status}，不处于可完成状态。`)
@@ -932,22 +1042,22 @@ export function validateEngineeringMasterOrderClose(
   masterOrderId: string,
 ): EngineeringMasterOrderCloseValidation {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
-  if (master.status === '已关闭') throw new Error('工程主单已关闭，不能重复关闭。')
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
+  if (master.status === '已关闭') throw new Error('生产准备单已关闭，不能重复关闭。')
   if (master.status === '草稿' || master.status === '已终止') {
-    throw new Error(`工程主单当前为${master.status}，不能关闭。`)
+    throw new Error(`生产准备单当前为${master.status}，不能关闭。`)
   }
 
   const effectiveTasks = master.tasks.filter(
     (task) => task.status !== '未启用' && task.status !== '因需求变更结束',
   )
   for (const task of effectiveTasks) {
-    if (task.status !== '已完成') throw new Error(`有效任务「${task.taskName}」未完成，不能关闭工程主单。`)
+    if (task.status !== '已完成') throw new Error(`有效任务「${task.taskName}」未完成，不能关闭生产准备单。`)
     assertFixedTaskDependenciesSatisfied(master, task)
   }
 
   const style = getStyleArchiveById(master.styleId)
-  if (!style?.currentTechPackVersionId) throw new Error('主单款式尚未启用正式技术包，不能关闭工程主单。')
+  if (!style?.currentTechPackVersionId) throw new Error('主单款式尚未启用正式技术包，不能关闭生产准备单。')
   const version = getTechnicalDataVersionById(style.currentTechPackVersionId)
   if (
     !version
@@ -958,10 +1068,10 @@ export function validateEngineeringMasterOrderClose(
     || version.versionStatus !== 'PUBLISHED'
     || version.reviewStage !== '已发布'
   ) {
-    throw new Error('主单来源技术包未完成审核发布并启用，不能关闭工程主单。')
+    throw new Error('主单来源技术包未完成审核发布并启用，不能关闭生产准备单。')
   }
   const content = getTechnicalDataVersionContent(version.technicalVersionId)
-  if (!content?.bomPricingSnapshot) throw new Error('正式技术包缺少 BOM 与价格正式快照，不能关闭工程主单。')
+  if (!content?.bomPricingSnapshot) throw new Error('正式技术包缺少 BOM 与价格正式快照，不能关闭生产准备单。')
   assertEngineeringBomPricingSnapshotValid(content.bomPricingSnapshot)
   return {
     canClose: true,
@@ -978,9 +1088,9 @@ export function closeEngineeringMasterOrder(
     const validation = validateEngineeringMasterOrderClose(masterOrderId)
     const snapshot = readSnapshot()
     const master = snapshot.records.find((record) => record.masterOrderId === validation.masterOrderId)
-    if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+    if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
     if (!operatorName.trim() || operatorName.trim() !== master.merchandiserName) {
-      throw new Error('只有主单跟单本人可以关闭工程主单。')
+      throw new Error('只有主单跟单本人可以关闭生产准备单。')
     }
     master.status = '已关闭'
     master.closedAt = nowText()
@@ -989,7 +1099,7 @@ export function closeEngineeringMasterOrder(
   })
 }
 
-// 工程任务事实只允许通过工程主单仓储改写；专业服务用此入口保持单一事实源。
+// 工程任务事实只允许通过生产准备单仓储改写；专业服务用此入口保持单一事实源。
 export function updateEngineeringTaskRecord(
   masterOrderId: string,
   taskId: string,
@@ -997,7 +1107,7 @@ export function updateEngineeringTaskRecord(
 ): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
   const snapshot = readSnapshot()
   const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
   update(task, master)
@@ -1071,9 +1181,9 @@ export function validateBomRequirementsForEngineeringTasks(
 ): void {
   const snapshot = readSnapshot()
   const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
   if (master.status !== '已发布' && master.status !== '进行中') {
-    throw new Error('仅已发布或进行中的工程主单可以同步 BOM 工艺要求。')
+    throw new Error('仅已发布或进行中的生产准备单可以同步 BOM 工艺要求。')
   }
   const requiredTaskTypes: EngineeringTaskType[] = []
   if (rows.some((row) => hasBomRequirement(row.printRequirement))) requiredTaskTypes.push('PATTERN_ARTWORK')
@@ -1099,7 +1209,7 @@ function listTechPackOnlyProcesses(rows: EngineeringBomTaskLinkageRow[]): Engine
 function resolveDependencyPreparationType(master: EngineeringMasterOrderRecord): EngineeringPreparationType {
   if (isEngineeringPreparationType(master.preparationType)) return master.preparationType
 
-  // 兼容当前原型中已持久化、但早于“生产准备类型”字段生成的工程主单。
+  // 兼容当前原型中已持久化、但早于“生产准备类型”字段生成的生产准备单。
   // 这些主单已经保存了跟单确认后的任务结构，按已启用的基码任务还原原来的固定类型，
   // 避免任务明明已发布却无法点击开始；新建主单仍必须在发布前由跟单明确确认类型。
   const activeTaskTypes = new Set(master.tasks
@@ -1128,7 +1238,7 @@ function assertTaskSkeletonsExist(
   for (const taskType of buildDependencyClosure(taskTypes)) {
     if (master.tasks.some((task) => task.taskType === taskType)) continue
     const taskName = getEngineeringTaskDefinition(taskType).taskName
-    throw new Error(`工程主单缺少${taskName}骨架，无法根据 BOM 启用。`)
+    throw new Error(`生产准备单缺少${taskName}骨架，无法根据 BOM 启用。`)
   }
 }
 
@@ -1142,7 +1252,7 @@ function enableTaskAndFixedPrerequisites(
   }
   const task = master.tasks.find((item) => item.taskType === taskType)
   if (!task) {
-    throw new Error(`工程主单缺少${definition.taskName}骨架，无法根据 BOM 启用。`)
+    throw new Error(`生产准备单缺少${definition.taskName}骨架，无法根据 BOM 启用。`)
   }
   task.dependsOnTaskIds = canonicalDependencyIds(master, taskType)
   if (task.status !== '未启用' && task.status !== '因需求变更结束') return task
@@ -1158,7 +1268,7 @@ function createBomMaterialLine(
   task: EngineeringTaskRecord,
   row: EngineeringBomTaskLinkageRow,
   requirementType: '印花' | '染色' | '辅料',
-) {
+): EngineeringTaskMaterialLine {
   const materialSkuId = row.materialSkuId || row.bomItemId
   return {
     materialLineId: `${task.taskId}-${row.bomItemId}`,
@@ -1194,7 +1304,7 @@ function syncTaskMaterialLines(
   const taskBeforeSync = master.tasks.find((item) => item.taskType === taskType)
   if (!taskBeforeSync) {
     const taskName = getEngineeringTaskDefinition(taskType).taskName
-    throw new Error(`工程主单缺少${taskName}骨架，无法根据 BOM 启用。`)
+    throw new Error(`生产准备单缺少${taskName}骨架，无法根据 BOM 启用。`)
   }
   const task = enableTaskAndFixedPrerequisites(master, taskType)
   const activeBomItemIds = new Set(rows.map((row) => row.bomItemId))
@@ -1206,6 +1316,11 @@ function syncTaskMaterialLines(
     || task.status === '进行中'
     || task.status === '返工中'
     || Boolean(task.startedAt)
+  const reusedResultLine = master.priorResultReuseLines.find((line) =>
+    line.resultType === taskType && line.decision === '复用',
+  )
+  const isInitialReusedResultBinding = Boolean(reusedResultLine)
+    && !task.materialLines.some((line) => line.requirementType === requirementType && Boolean(line.bomItemId))
   let addedOrReactivated = false
 
   for (const line of task.materialLines) {
@@ -1218,7 +1333,16 @@ function syncTaskMaterialLines(
       (line) => line.requirementType === requirementType && line.bomItemId === row.bomItemId,
     )
     if (!existing) {
-      task.materialLines.push(createBomMaterialLine(task, row, requirementType))
+      const createdLine = createBomMaterialLine(task, row, requirementType)
+      if (isInitialReusedResultBinding && reusedResultLine) {
+        createdLine.effectImageIds = [...task.resultImageIds]
+        createdLine.resultSubmittedBy = reusedResultLine.confirmedBy
+        createdLine.resultSubmittedAt = reusedResultLine.confirmedAt
+        createdLine.reviewStatus = '通过'
+        createdLine.reviewedBy = reusedResultLine.confirmedBy
+        createdLine.reviewedAt = reusedResultLine.confirmedAt
+      }
+      task.materialLines.push(createdLine)
       addedOrReactivated = true
       continue
     }
@@ -1254,7 +1378,7 @@ function syncTaskMaterialLines(
     })
     return
   }
-  if (hadSubmittedResult && addedOrReactivated) {
+  if (hadSubmittedResult && addedOrReactivated && !isInitialReusedResultBinding) {
     if (taskType === 'ACCESSORY_PURCHASE') {
       task.status = '进行中'
       task.submittedAt = ''
@@ -1274,7 +1398,7 @@ function syncTaskMaterialLines(
   }
 }
 
-// BOM 只启用工程主单发布时已有的条件任务骨架，并按 BOM 行维护任务物料事实。
+// BOM 只启用生产准备单发布时已有的条件任务骨架，并按 BOM 行维护任务物料事实。
 // 水溶留在技术包工艺，不生成工程任务或生产准备时效项。
 export function applyBomRequirementsToEngineeringTasks(
   masterOrderId: string,
@@ -1283,7 +1407,7 @@ export function applyBomRequirementsToEngineeringTasks(
   validateBomRequirementsForEngineeringTasks(masterOrderId, rows)
   const snapshot = readSnapshot()
   const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
 
   const printRows = rows.filter((row) => hasBomRequirement(row.printRequirement))
   const yarnDyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement) && row.materialType === '纱线')
@@ -1334,7 +1458,7 @@ export function confirmEngineeringMasterBomPricingPlan(input: {
   userName: string
 }): ReturnType<typeof confirmEngineeringBomPricingPlan> {
   const master = getEngineeringMasterOrderById(input.masterOrderId)
-  if (!master) throw new Error('工程主单不存在。')
+  if (!master) throw new Error('生产准备单不存在。')
   const beforeBom = captureEngineeringBomRepositoryState()
   const beforeMaster = readSnapshot()
   try {
@@ -1362,7 +1486,7 @@ export function confirmEngineeringMasterBomVersion(input: {
   userName: string
 }): ReturnType<typeof confirmEngineeringBomVersion> {
   const version = getEngineeringBomVersionById(input.versionId)
-  if (!version || version.ownerStage !== 'ENGINEERING_MASTER') throw new Error('工程主单 BOM 与价格版本不存在。')
+  if (!version || version.ownerStage !== 'ENGINEERING_MASTER') throw new Error('生产准备单 BOM 与价格版本不存在。')
   confirmEngineeringMasterBomPricingPlan({
     masterOrderId: version.ownerId,
     role: input.role,
@@ -1388,9 +1512,9 @@ export function submitEngineeringTaskResult(
 ): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
   const snapshot = readSnapshot()
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
   if (record.status !== '已发布' && record.status !== '进行中') {
-    throw new Error('仅进行中的工程主单可以提交任务成果。')
+    throw new Error('仅进行中的生产准备单可以提交任务成果。')
   }
 
   const task = record.tasks.find((item) => item.taskId === taskId)

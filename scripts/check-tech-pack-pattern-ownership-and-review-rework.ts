@@ -83,7 +83,7 @@ function buildRecord(input: {
     createdFromTaskCode: '',
     baseTechnicalVersionId: input.baseTechnicalVersionId || '',
     baseTechnicalVersionCode: input.baseTechnicalVersionCode || '',
-    changeScope: '工程主单生成',
+    changeScope: '生产准备单生成',
     changeSummary: '验证纸样池、物料关联和审核重审',
     garmentDifficultyGrade: 'B',
     linkedPartTemplateIds: [],

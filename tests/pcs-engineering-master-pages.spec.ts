@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 
 import { renderPcsEngineeringMasterListPage } from '../src/pages/pcs-engineering-master-list.ts'
 import { renderPcsEngineeringMasterDetailPage } from '../src/pages/pcs-engineering-master-detail.ts'
+import { listEngineeringMasterOrders } from '../src/data/pcs-engineering-master-repository.ts'
 
 // 标准列表页骨架：页面容器与分页容器必须存在
 const listHtml = renderPcsEngineeringMasterListPage()
@@ -9,7 +10,9 @@ assert.match(listHtml, /data-standard-list-page/)
 assert.match(listHtml, /data-table-pagination/)
 
 // 任务执行表格：按任务逐行展示阶段、当前团队、当前动作、业务依赖、去向、时间和状态。
-const detailHtml = renderPcsEngineeringMasterDetailPage('EM-001')
+const taskMaster = listEngineeringMasterOrders().find((record) => record.tasks.some((task) => task.status !== '未启用'))
+assert.ok(taskMaster, '演示数据必须包含已生成专业任务的生产准备单')
+const detailHtml = renderPcsEngineeringMasterDetailPage(taskMaster.masterOrderId)
 assert.match(detailHtml, /制版|首单样衣|花型|调色|辅料下单|技术包确认/)
 assert.match(detailHtml, /data-engineering-task-table/)
 for (const column of ['序号', '任务', '阶段', '当前处理团队', '当前动作', '需要先完成', '完成后去向', '计划／实际', '状态']) {
@@ -19,7 +22,7 @@ assert.doesNotMatch(detailHtml, /专业类型|负责人|固定前置|当前节�
 assert.match(detailHtml, /data-engineering-task-card/)
 
 // 主单只做任务总览；点击名称直接进入对应专业任务详情，不再使用旧抽屉推进。
-assert.match(detailHtml, /data-nav="\/pcs\/(patterns\/plate-making|samples\/first-order|patterns\/artwork|engineering\/color|engineering\/purchase|engineering\/tech-pack)\//)
+assert.match(detailHtml, /data-nav="\/pcs\/production-preparation\/(plate-making|first-sample|artwork|color|purchase|tech-pack)\//)
 assert.doesNotMatch(detailHtml, /open-task-drawer|close-task-drawer|data-engineering-master-region="drawer"/)
 
 // 依赖只读：不允许出现人工调整依赖或删除依赖入口

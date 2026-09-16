@@ -32,6 +32,7 @@ import {
   createEngineeringMasterOrder,
   listEngineeringMasterOrders,
 } from '../data/pcs-engineering-master-repository.ts'
+import { listReusableEngineeringIndependentSamplingResults } from '../data/pcs-engineering-master-sampling.ts'
 import {
   buildEngineeringMasterListRows,
   ensureEngineeringMasterDemoData,
@@ -132,7 +133,7 @@ const MASTER_LIST_COLUMNS: StandardListColumn<EngineeringMasterListRow>[] = [
     freezeable: true,
     sortable: true,
     render: (row) => `
-      <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(row.masterOrderId)}">${escapeHtml(row.masterOrderCode)}</button>
+      <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}">${escapeHtml(row.masterOrderCode)}</button>
     `,
     sortValue: (row) => row.masterOrderCode,
   },
@@ -209,7 +210,7 @@ const MASTER_LIST_COLUMNS: StandardListColumn<EngineeringMasterListRow>[] = [
     align: 'right',
     render: (row) => `
       <div class="flex justify-end">
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/engineering/masters/${escapeHtml(row.masterOrderId)}">查看详情</button>
+        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}">查看详情</button>
       </div>
     `,
   },
@@ -325,7 +326,7 @@ function renderMasterListStats(): string {
   const closed = rows.filter((row) => row.status === '已关闭').length
   const draft = rows.filter((row) => row.status === '草稿').length
   return renderStandardListStats([
-    { label: '工程主单', value: rows.length },
+    { label: '生产准备单', value: rows.length },
     { label: '草稿', value: draft },
     { label: '执行中', value: executing },
     { label: '已关闭', value: closed },
@@ -371,7 +372,7 @@ function renderMasterListTable(paging: StandardListPageSlice<EngineeringMasterLi
     preferences: masterListUiState.preferences,
     sort: masterListUiState.sort,
     eventPrefix: MASTER_EVENT_PREFIX,
-    emptyText: '暂无匹配的工程主单，请调整筛选条件后重试。',
+    emptyText: '暂无匹配的生产准备单，请调整筛选条件后重试。',
   }))
 }
 
@@ -409,11 +410,14 @@ interface CreateStyleCandidate {
 function getCreateStyleCandidate(style: StyleArchiveShellRecord): CreateStyleCandidate {
   const hasOpenMaster = listEngineeringMasterOrders().some((master) =>
     master.styleId === style.styleId && master.status !== '已关闭' && master.status !== '已终止')
-  if (hasOpenMaster) return { style, available: false, reason: '已有未关闭工程主单' }
+  if (hasOpenMaster) return { style, available: false, reason: '已有未关闭生产准备单' }
   if (hasFormalProductionFact(style.styleCode)) return { style, available: false, reason: '已有正式生产记录' }
   if (style.archiveStatus === 'ARCHIVED') return { style, available: false, reason: '款式档案已归档' }
   if (!style.mainImageUrl && style.galleryImageUrls.length === 0) {
     return { style, available: false, reason: '请先维护款式主图' }
+  }
+  if (listReusableEngineeringIndependentSamplingResults(style.styleCode).length === 0) {
+    return { style, available: false, reason: '请先完成设计改款' }
   }
   return { style, available: true, reason: '可创建' }
 }
@@ -510,7 +514,7 @@ function renderCreateMasterDialog(): string {
     </div>
   `
   return withMasterListLocalInteractions(renderFormDialog({
-    title: '新建工程主单',
+    title: '新建生产准备单',
     description: '选择已有商品／款式档案，创建后进入草稿详情。',
     closeAction: { prefix: MASTER_EVENT_PREFIX, action: 'close-create-dialog' },
     submitAction: { prefix: MASTER_EVENT_PREFIX, action: 'create-master', label: '创建草稿' },
@@ -622,16 +626,16 @@ export function renderPcsEngineeringMasterListPage(): string {
   masterListUiState.sort = transient.sort
   const paging = getPagedMasterRows()
   const page = renderStandardListPage({
-    title: '工程主单',
+    title: '生产准备单',
     primaryActionsHtml: withMasterListLocalInteractions(renderPrimaryButton(
-      '新建工程主单',
+      '新建生产准备单',
       { prefix: MASTER_EVENT_PREFIX, action: 'open-create-dialog' },
       'plus',
     )),
     feedbackHtml: '',
     filtersHtml: `<div data-pcs-engineering-master-region="filters">${withMasterListLocalInteractions(renderMasterListFilters())}</div>`,
     statsHtml: `<div data-pcs-engineering-master-region="stats">${withMasterListLocalInteractions(renderMasterListStats())}</div>`,
-    listTitle: '工程主单列表',
+    listTitle: '生产准备单列表',
     listActionsHtml: withMasterListLocalInteractions(
       renderSecondaryButton(
         '列设置',
@@ -729,7 +733,7 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
   if (action === 'create-master') {
     const style = listStyleArchives().find((item) => item.styleId === masterListUiState.selectedStyleId)
     if (!style) {
-      masterListUiState.createError = '请选择可以创建工程主单的商品／款式档案。'
+      masterListUiState.createError = '请选择可以创建生产准备单的商品／款式档案。'
       refreshCreateMasterDialog()
       return true
     }
@@ -742,11 +746,11 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
       const master = createManualMasterForStyle(style)
       masterListUiState.createDialogOpen = false
       if (typeof window !== 'undefined') {
-        window.history.pushState(window.history.state, '', `/pcs/engineering/masters/${master.masterOrderId}`)
+        window.history.pushState(window.history.state, '', `/pcs/production-preparation/orders/${master.masterOrderId}`)
         window.dispatchEvent(new PopStateEvent('popstate'))
       }
     } catch (error) {
-      masterListUiState.createError = error instanceof Error ? error.message : '创建工程主单失败。'
+      masterListUiState.createError = error instanceof Error ? error.message : '创建生产准备单失败。'
       refreshCreateMasterDialog()
     }
     return true

@@ -1287,7 +1287,7 @@ function assertEngineeringTaskCanReopen(input: {
 }): EngineeringTaskReworkTarget {
   const masterOrder = getEngineeringMasterOrderById(input.record.sourceProjectId)
   if (!masterOrder) {
-    throw new Error(`技术包来源工程主单不存在：${input.record.sourceProjectId}`)
+    throw new Error(`技术包来源生产准备单不存在：${input.record.sourceProjectId}`)
   }
   const task = masterOrder.tasks.find((item) => item.taskId === input.taskId)
   if (!task || !input.expectedTaskTypes.includes(task.taskType as typeof input.expectedTaskTypes[number])) {
@@ -1305,7 +1305,7 @@ function assertEngineeringTaskCanReopen(input: {
 
 function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
   if (!record.sourceProjectId.trim()) {
-    throw new Error('技术包缺少来源工程主单，无法重开原花型任务。')
+    throw new Error('技术包缺少来源生产准备单，无法重开原花型任务。')
   }
   if (record.linkedArtworkTaskIds.length === 0) {
     throw new Error('技术包未绑定原花型任务，无法发起返工。')
@@ -1315,7 +1315,7 @@ function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord
     const patternTask = getPatternTaskById(patternTaskId)
     if (!patternTask) throw new Error(`技术包绑定的原花型任务不存在：${patternTaskId}`)
     if (!patternTask.upstreamObjectId.trim()) {
-      throw new Error(`原花型任务未绑定工程主单专业任务：${patternTaskId}`)
+      throw new Error(`原花型任务未绑定生产准备单专业任务：${patternTaskId}`)
     }
     engineeringTaskIds.add(patternTask.upstreamObjectId)
   }
@@ -1329,11 +1329,11 @@ function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord
 
 function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
   if (!record.sourceProjectId.trim()) {
-    throw new Error('技术包缺少来源工程主单，无法重开原调色任务。')
+    throw new Error('技术包缺少来源生产准备单，无法重开原调色任务。')
   }
   const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
   if (!masterOrder) {
-    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+    throw new Error(`技术包来源生产准备单不存在：${record.sourceProjectId}`)
   }
   const taskIds = masterOrder.tasks
     .filter((task) =>
@@ -1343,7 +1343,7 @@ function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord):
     )
     .map((task) => task.taskId)
   if (taskIds.length === 0) {
-    throw new Error('技术包来源工程主单没有可返工的有效原调色任务。')
+    throw new Error('技术包来源生产准备单没有可返工的有效原调色任务。')
   }
   return taskIds.map((taskId) => assertEngineeringTaskCanReopen({
     record,
@@ -1355,18 +1355,18 @@ function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord):
 
 function assertAllValidColorTasksCompletedForTechPackReview(record: TechnicalDataVersionRecord): void {
   if (!record.sourceProjectId.trim()) {
-    throw new Error('技术包缺少来源工程主单，无法检查原调色任务。')
+    throw new Error('技术包缺少来源生产准备单，无法检查原调色任务。')
   }
   const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
   if (!masterOrder) {
-    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+    throw new Error(`技术包来源生产准备单不存在：${record.sourceProjectId}`)
   }
   const tasks = masterOrder.tasks.filter((task) =>
     (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') &&
     task.materialLines.some((line) => line.status === '正常' && line.requirementType === '染色'),
   )
   if (tasks.length === 0) {
-    throw new Error('技术包来源工程主单没有可复审的有效原调色任务。')
+    throw new Error('技术包来源生产准备单没有可复审的有效原调色任务。')
   }
   tasks.forEach((task) => assertEngineeringTaskCanReopen({
     record,
@@ -1381,7 +1381,7 @@ function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: Tech
   const returnedTaskIds = [...new Set((record.reviewReturnTargets ?? []).map((target) => target.sourceTaskId).filter(Boolean))]
   if (returnedTaskIds.length > 0) {
     const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
-    if (!masterOrder) throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+    if (!masterOrder) throw new Error(`技术包来源生产准备单不存在：${record.sourceProjectId}`)
     returnedTaskIds.forEach((taskId) => {
       const task = masterOrder.tasks.find((item) => item.taskId === taskId)
       if (!task || task.status !== '已完成') throw new Error(`被退回的专业任务尚未重新完成：${taskId}`)

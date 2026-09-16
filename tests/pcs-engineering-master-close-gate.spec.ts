@@ -18,10 +18,6 @@ import {
   createMaterialSkuRecord,
 } from '../src/data/pcs-material-archive-repository.ts'
 import {
-  listStyleArchives,
-  resetStyleArchiveRepository,
-} from '../src/data/pcs-style-archive-repository.ts'
-import {
   createTechnicalDataVersionDraft,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
@@ -38,13 +34,12 @@ import {
   handlePcsEngineeringMasterDetailEvent,
   renderPcsEngineeringMasterDetailPage,
 } from '../src/pages/pcs-engineering-master-detail.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
-resetStyleArchiveRepository()
+const style = resetAndGetProductionPreparationStyle()
 resetEngineeringMasterRepository()
 
-const style = listStyleArchives()[0]
 const baseRecord = listTechnicalDataVersions()[0]
-assert.ok(style)
 assert.ok(baseRecord)
 
 const materialArchive = createMaterialArchive({
@@ -192,7 +187,7 @@ function createReadyMaster(withPricingBom: boolean) {
   return { masterOrderId: master.masterOrderId, versionId, confirmationTaskId }
 }
 
-// 新工程来源技术包缺少 BOM 与价格字段时，正式启用本身就必须失败，且工程主单与技术包事实不变。
+// 新工程来源技术包缺少 BOM 与价格字段时，正式启用本身就必须失败，且生产准备单与技术包事实不变。
 resetEngineeringMasterRepository()
 const missingSnapshotMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
@@ -292,14 +287,14 @@ assert.equal(validation.canClose, true)
 // 旧的任意状态投影入口不得绕过关闭领域门禁。
 assert.throws(() => setEngineeringMasterStatus(ready.masterOrderId, '已关闭'), /关闭.*领域入口|不能直接/)
 
-// 只有该工程主单跟单可以执行人工关闭。
+// 只有该生产准备单跟单可以执行人工关闭。
 assert.throws(() => closeEngineeringMasterOrder(ready.masterOrderId, '其他跟单'), /只有.*跟单|主单跟单/)
 const closableHtml = renderPcsEngineeringMasterDetailPage(ready.masterOrderId)
 assert.match(closableHtml, /data-skip-page-rerender="true" data-pcs-engineering-master-action="close-master-order"/)
 
 Object.assign(globalThis, {
   window: {
-    location: { pathname: `/pcs/engineering/masters/${ready.masterOrderId}` },
+    location: { pathname: `/pcs/production-preparation/orders/${ready.masterOrderId}` },
     dispatchEvent: () => true,
   },
   document: { querySelector: () => null },

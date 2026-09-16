@@ -48,7 +48,7 @@ function assertLossRate(value: number): void {
 }
 
 function requireBuyer(role: EngineeringBomOperatorRole): void {
-  if (role !== '买手') throw new Error('只有买手可以维护 BOM 与价格。')
+  if (role !== '买手' && role !== '管理员') throw new Error('只有买手或管理员可以维护 BOM 与价格。')
 }
 
 function requireEditableTechnicalVersion(technicalVersionId: string): void {

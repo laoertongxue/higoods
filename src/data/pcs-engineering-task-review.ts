@@ -1,4 +1,4 @@
-// 工程专业任务逐项审核：只读写工程主单任务及其物料行，不维护第二套专业任务事实。
+// 工程专业任务逐项审核：只读写生产准备单任务及其物料行，不维护第二套专业任务事实。
 
 import {
   getEngineeringMasterOrderById,
@@ -26,7 +26,7 @@ function nowText(): string {
 
 function getReviewableTask(masterOrderId: string, taskId: string): EngineeringTaskRecord {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
   if (!REVIEWABLE_TASK_TYPES.includes(task.taskType)) {
@@ -213,7 +213,7 @@ export function reopenEngineeringDirectResultTaskForTechPackReview(input: {
   reason: string
 }): EngineeringTaskRecord {
   const master = getEngineeringMasterOrderById(input.masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${input.masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${input.masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === input.taskId)
   if (!task) throw new Error(`工程任务不存在：${input.taskId}`)
   if (!DIRECT_RESULT_TASK_TYPES.includes(task.taskType)) throw new Error('当前任务不是可由技术包退回的纸样或首单样衣任务。')

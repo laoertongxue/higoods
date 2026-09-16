@@ -8,7 +8,7 @@ export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'ENGINEERING_MASTER'
 export type StoredTechPackSourceTaskType = TechPackSourceTaskType
-export type TechPackVersionChangeScope = '工程主单生成'
+export type TechPackVersionChangeScope = '生产准备单生成'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
 

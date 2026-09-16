@@ -9,7 +9,6 @@ import {
 } from '../src/data/pcs-engineering-master-repository.ts'
 import {
   getStyleArchiveById,
-  listStyleArchives,
   updateStyleArchive,
 } from '../src/data/pcs-style-archive-repository.ts'
 import {
@@ -22,6 +21,7 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-types.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 function buildDemand(input: {
   demandId: string
@@ -81,9 +81,8 @@ function buildSeed(orderId: string, demandId: string, snapshotAt: string): Produ
 resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
 
-const style = listStyleArchives()[0]
+const style = resetAndGetProductionPreparationStyle()
 const baseRecord = listTechnicalDataVersions()[0]
-assert.ok(style, '必须存在款式档案演示数据')
 assert.ok(baseRecord, '必须存在技术包结构演示数据')
 const baseContent = getTechnicalDataVersionContent(baseRecord.technicalVersionId)
 assert.ok(baseContent, '必须存在技术包内容演示数据')

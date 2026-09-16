@@ -111,7 +111,7 @@ const record = {
   createdFromTaskCode: '',
   baseTechnicalVersionId: '',
   baseTechnicalVersionCode: '',
-  changeScope: '工程主单生成',
+  changeScope: '生产准备单生成',
   changeSummary: '款式档案审核提示验证',
   garmentDifficultyGrade: 'B',
   linkedPartTemplateIds: [],

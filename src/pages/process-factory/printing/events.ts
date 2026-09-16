@@ -136,7 +136,7 @@ function submitDialog(): void {
       receivePrintingHandover(dialog.workOrderId, { receivedQty: numberValue('receiveQty'), receiverName: fieldValue('outputReceiver'), objectionQty: numberValue('objectionQty'), differenceReason: fieldValue('differenceReason') })
       showPrintingToast('下游接收事实已保存；单据仍需人工完成')
     } else if (dialog.type === 'complete-document') {
-      completePrintWorkOrderDocument(dialog.workOrderId, { operatorName: fieldValue('documentCompleter') || '印花主管' })
+      completePrintWorkOrderDocument(dialog.workOrderId, { operatorName: fieldValue('documentCompleter') })
       showPrintingToast('印花加工单已由现场负责人确认完成')
     } else if (dialog.type === 'cancel') {
       cancelPrintingWorkOrder(dialog.workOrderId, { operatorName: '印花主管', reason: fieldValue('cancelReason') })

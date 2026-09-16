@@ -1,9 +1,23 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 const menuSource = readFileSync('src/data/app-shell-config.ts', 'utf8')
 const routeSource = readFileSync('src/router/routes-pcs.ts', 'utf8')
 const handlerSource = readFileSync('src/main-handlers/pcs-handlers.ts', 'utf8')
+
+function listTypeScriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) return listTypeScriptFiles(path)
+    return entry.isFile() && /\.tsx?$/.test(entry.name) ? [path] : []
+  })
+}
+
+const currentSource = listTypeScriptFiles('src')
+  .map((path) => readFileSync(path, 'utf8'))
+  .join('\n')
+  .replaceAll('\\/', '/')
 
 assert.doesNotMatch(menuSource, /我的工程任务/, '生产工程菜单必须彻底删除“我的工程任务”')
 assert.doesNotMatch(routeSource, /['"]\/pcs\/patterns['"]\s*:/, '不得保留 /pcs/patterns 制版别名')
@@ -11,15 +25,32 @@ assert.doesNotMatch(routeSource, /\^\\\/pcs\\\/patterns\\\/\(\[\^\/\]\+\)/, '不
 assert.doesNotMatch(handlerSource, /['"]\/pcs\/patterns['"]\s*,/, '事件处理不得继续使用 /pcs/patterns 泛入口')
 
 for (const required of [
-  ['设计改款任务', '/pcs/engineering/design-revision'],
-  ['制版任务', '/pcs/patterns/plate-making'],
-  ['花型任务', '/pcs/patterns/artwork'],
-  ['调色任务', '/pcs/engineering/color'],
-  ['辅料下单任务', '/pcs/engineering/purchase'],
-  ['技术包确认任务', '/pcs/engineering/tech-pack'],
-  ['首单样衣任务', '/pcs/samples/first-sample'],
+  ['生产准备单', '/pcs/production-preparation/orders'],
+  ['设计改款任务', '/pcs/production-preparation/design-revision'],
+  ['制版任务', '/pcs/production-preparation/plate-making'],
+  ['花型任务', '/pcs/production-preparation/artwork'],
+  ['调色任务', '/pcs/production-preparation/color'],
+  ['辅料下单任务', '/pcs/production-preparation/purchase'],
+  ['技术包确认任务', '/pcs/production-preparation/tech-pack'],
+  ['销售展示样衣任务', '/pcs/production-preparation/display-sample'],
+  ['首单样衣任务', '/pcs/production-preparation/first-sample'],
 ]) {
-  assert.ok(menuSource.includes(required[0]) && menuSource.includes(required[1]), `生产工程菜单缺少 ${required[0]} 规范入口`)
+  assert.ok(menuSource.includes(required[0]) && menuSource.includes(required[1]), `生产准备菜单缺少 ${required[0]} 规范入口`)
+  assert.ok(routeSource.includes(required[1]), `PCS 路由缺少 ${required[0]} 正式地址`)
+}
+
+for (const oldRoute of [
+  ['/pcs', 'engineering', 'masters'].join('/'),
+  ['/pcs', 'engineering', 'design-revision'].join('/'),
+  ['/pcs', 'patterns', 'plate-making'].join('/'),
+  ['/pcs', 'patterns', 'artwork'].join('/'),
+  ['/pcs', 'engineering', 'color'].join('/'),
+  ['/pcs', 'engineering', 'purchase'].join('/'),
+  ['/pcs', 'engineering', 'tech-pack'].join('/'),
+  ['/pcs', 'samples', 'display-sample'].join('/'),
+  ['/pcs', 'samples', 'first-sample'].join('/'),
+]) {
+  assert.ok(!currentSource.includes(oldRoute), `源码不得保留旧地址或兼容跳转：${oldRoute}`)
 }
 
 assert.doesNotMatch(menuSource, /工程变更|改款打样任务|设计打样任务/, '生产工程菜单不得保留已删除入口')

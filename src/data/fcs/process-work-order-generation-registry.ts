@@ -1,5 +1,5 @@
 import type {
-  FormalProductionOrderProcessSnapshot,
+  FormalProductionOrderMaterialItem,
   ProcessWorkOrderSourceSnapshot,
 } from './process-work-order-domain.ts'
 import {
@@ -10,16 +10,37 @@ import {
 
 export type GeneratedProcessCode = 'DYE' | 'PRINT'
 
-export interface ProcessWorkOrderRegistrationInput extends FormalProductionOrderProcessSnapshot {
+export interface ProcessWorkOrderRegistrationInput {
   workOrderId: string
   workOrderNo: string
   processName: string
   sourceSnapshot: ProcessWorkOrderSourceSnapshot
-  sourceKey: string
+  sourceKey?: string
   plannedFinishAt?: string
   createdBy?: string
   requiresWaterSoluble?: boolean
   sampleWaitType?: 'NONE' | 'WAIT_SAMPLE_GARMENT' | 'WAIT_COLOR_CARD'
+  productionOrderId?: string
+  productionOrderNo?: string
+  orderedAt: string
+  techPackVersionId?: string
+  techPackVersionLabel?: string
+  processEntryId?: string
+  routeObjectKey?: string
+  materialId: string
+  materialName: string
+  materialItems?: FormalProductionOrderMaterialItem[]
+  targetColor: string
+  plannedQty: number
+  qtyUnit: string
+  processCodes: GeneratedProcessCode[]
+  dyeProcessName?: string
+  printProcessName?: string
+  factoryId?: string
+  factoryName?: string
+  spuCode: string
+  spuName: string
+  requiredDeliveryDate: string
 }
 
 export interface PreparedProcessWorkOrderRegistration {
@@ -91,6 +112,16 @@ export interface PreparedProcessWorkOrderBatch {
   rollback: () => void
 }
 
+interface ResolvedProcessIdentity {
+  processCode: GeneratedProcessCode
+  registrar: ProcessWorkOrderGenerationRegistrar
+  sourceKey: string
+  batchSourceKey: string
+  workOrderId: string
+  workOrderNo?: string
+  shouldPrepare: boolean
+}
+
 function aggregateTransactionFailure(original: unknown, rollbackErrors: unknown[]): Error {
   const originalError = original instanceof Error ? original : new Error(String(original))
   if (!rollbackErrors.length) return originalError
@@ -142,64 +173,84 @@ export function prepareProcessWorkOrderBatch(
 
   try {
     normalizedInputs.forEach((normalized, inputIndex) => {
-    const processCodes = new Set(normalized.processCodes)
-    const sourceSnapshot = structuredClone(normalized.source)
-    const common = {
-      productionOrderId: sourceSnapshot.productionOrderId || '',
-      productionOrderNo: sourceSnapshot.productionOrderNo || '',
-      orderedAt: normalized.orderedAt,
-      techPackVersionId: sourceSnapshot.techPackVersionId || '',
-      techPackVersionLabel: sourceSnapshot.techPackVersionLabel || (sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : ''),
-      materialId: normalized.materialId,
-      materialName: normalized.materialName,
-      materialItems: structuredClone(normalized.materialItems),
-      targetColor: normalized.targetColor,
-      plannedQty: normalized.plannedQty,
-      qtyUnit: normalized.qtyUnit,
-      processCodes: [...normalized.processCodes],
-      factoryId: normalized.factoryId,
-      factoryName: normalized.factoryName,
-      spuCode: normalized.spuCode,
-      spuName: normalized.spuName,
-      requiredDeliveryDate: normalized.requiredDeliveryDate,
-      plannedFinishAt: normalized.plannedFinishAt,
-      createdBy: normalized.createdBy,
-      sourceSnapshot,
-    }
-    for (const processCode of ['DYE', 'PRINT'] as const) {
-      if (!processCodes.has(processCode)) continue
-      const registrar = getProcessWorkOrderGenerationRegistrar(processCode)
-      const sourceKey = buildProcessWorkOrderSourceKey(normalized, processCode)
-      const batchSourceKey = `${processCode}\u0000${sourceKey}`
-      const existingId = registrar.findBySourceKey(sourceKey) || plannedIdsBySourceKey.get(batchSourceKey)
-      if (existingId) {
-        if (processCode === 'DYE') results[inputIndex].dyeWorkOrderId = existingId
-        else results[inputIndex].printWorkOrderId = existingId
-        continue
+      const processCodes = new Set(normalized.processCodes)
+      const sourceSnapshot = structuredClone(normalized.source)
+      const common = {
+        productionOrderId: sourceSnapshot.productionOrderId,
+        productionOrderNo: sourceSnapshot.productionOrderNo,
+        orderedAt: normalized.orderedAt,
+        techPackVersionId: sourceSnapshot.techPackVersionId,
+        techPackVersionLabel: sourceSnapshot.techPackVersionLabel || (sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : undefined),
+        materialId: normalized.materialId,
+        materialName: normalized.materialName,
+        materialItems: structuredClone(normalized.materialItems),
+        targetColor: normalized.targetColor,
+        plannedQty: normalized.plannedQty,
+        qtyUnit: normalized.qtyUnit,
+        processCodes: [...normalized.processCodes],
+        factoryId: normalized.factoryId,
+        factoryName: normalized.factoryName,
+        spuCode: normalized.spuCode,
+        spuName: normalized.spuName,
+        requiredDeliveryDate: normalized.requiredDeliveryDate,
+        plannedFinishAt: normalized.plannedFinishAt,
+        createdBy: normalized.createdBy,
       }
-      const identity = registrar.issueIdentity(normalized.orderedAt, reserved)
-      reserved.workOrderIds.add(identity.workOrderId)
-      reserved.workOrderNos.add(identity.workOrderNo)
-      const registrationInput: ProcessWorkOrderRegistrationInput = {
-        ...common,
-        ...identity,
-        sourceKey,
-        processName: processCode === 'DYE' ? normalized.dyeProcessName || '染色' : normalized.printProcessName || '印花',
-        requiresWaterSoluble: processCode === 'DYE' && normalized.requiresWaterSoluble === true,
-        sampleWaitType: processCode === 'DYE' ? normalized.dyeSampleWaitType : undefined,
-      }
-      if (prepareFailureForTest?.processCode === processCode) {
-        prepareFailureForTest.seen += 1
-        if (prepareFailureForTest.seen === prepareFailureForTest.occurrence) {
-          throw new Error(`模拟${processCode === 'DYE' ? '染色' : '印花'}加工单准备失败`)
+      const identities: ResolvedProcessIdentity[] = (['DYE', 'PRINT'] as const).flatMap((processCode): ResolvedProcessIdentity[] => {
+        if (!processCodes.has(processCode)) return []
+        const registrar = getProcessWorkOrderGenerationRegistrar(processCode)
+        const sourceKey = buildProcessWorkOrderSourceKey(normalized, processCode)
+        const batchSourceKey = `${processCode}\u0000${sourceKey}`
+        const existingId = registrar.findBySourceKey(sourceKey) || plannedIdsBySourceKey.get(batchSourceKey)
+        if (existingId) {
+          if (processCode === 'DYE') results[inputIndex].dyeWorkOrderId = existingId
+          else results[inputIndex].printWorkOrderId = existingId
+          return [{ processCode, registrar, sourceKey, batchSourceKey, workOrderId: existingId, workOrderNo: undefined, shouldPrepare: false }]
         }
+        const identity = registrar.issueIdentity(normalized.orderedAt, reserved)
+        reserved.workOrderIds.add(identity.workOrderId)
+        reserved.workOrderNos.add(identity.workOrderNo)
+        return [{ processCode, registrar, sourceKey, batchSourceKey, ...identity, shouldPrepare: true }]
+      })
+      const dyeIdentity = identities.find((item) => item.processCode === 'DYE')
+      const printIdentity = identities.find((item) => item.processCode === 'PRINT')
+      for (const identity of identities) {
+        if (!identity.shouldPrepare) continue
+        const linkedSourceSnapshot: ProcessWorkOrderSourceSnapshot = sourceSnapshot.sourceType === 'DESIGN_REVISION'
+          ? {
+              ...sourceSnapshot,
+              ...(identity.processCode === 'PRINT' && dyeIdentity ? {
+                upstreamWorkOrderId: dyeIdentity.workOrderId,
+                upstreamWorkOrderNo: dyeIdentity.workOrderNo,
+              } : {}),
+              ...(identity.processCode === 'DYE' && printIdentity ? {
+                downstreamWorkOrderId: printIdentity.workOrderId,
+                downstreamWorkOrderNo: printIdentity.workOrderNo,
+              } : {}),
+            }
+          : sourceSnapshot
+        const registrationInput: ProcessWorkOrderRegistrationInput = {
+          ...common,
+          workOrderId: identity.workOrderId,
+          workOrderNo: identity.workOrderNo!,
+          sourceSnapshot: linkedSourceSnapshot,
+          sourceKey: identity.sourceKey,
+          processName: identity.processCode === 'DYE' ? normalized.dyeProcessName || '染色' : normalized.printProcessName || '印花',
+          requiresWaterSoluble: identity.processCode === 'DYE' && normalized.requiresWaterSoluble === true,
+          sampleWaitType: identity.processCode === 'DYE' ? normalized.dyeSampleWaitType : undefined,
+        }
+        if (prepareFailureForTest?.processCode === identity.processCode) {
+          prepareFailureForTest.seen += 1
+          if (prepareFailureForTest.seen === prepareFailureForTest.occurrence) {
+            throw new Error(`模拟${identity.processCode === 'DYE' ? '染色' : '印花'}加工单准备失败`)
+          }
+        }
+        const plan = identity.registrar.prepare(registrationInput)
+        prepared.push({ processCode: identity.processCode, plan })
+        plannedIdsBySourceKey.set(identity.batchSourceKey, plan.workOrderId)
+        if (identity.processCode === 'DYE') results[inputIndex].dyeWorkOrderId = plan.workOrderId
+        else results[inputIndex].printWorkOrderId = plan.workOrderId
       }
-      const plan = registrar.prepare(registrationInput)
-      prepared.push({ processCode, plan })
-      plannedIdsBySourceKey.set(batchSourceKey, plan.workOrderId)
-      if (processCode === 'DYE') results[inputIndex].dyeWorkOrderId = plan.workOrderId
-      else results[inputIndex].printWorkOrderId = plan.workOrderId
-    }
     })
   } catch (error) {
     throw aggregateTransactionFailure(error, rollbackPreparedPlans(prepared))

@@ -204,7 +204,7 @@ function renderCancel(order: PrintingWorkOrderBusinessRecord): string {
 function renderCompleteDocument(order: PrintingWorkOrderBusinessRecord): string {
   return dialogShell({
     title: '人工完成印花加工单', order, confirmLabel: '确认完成单据',
-    body: `<div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">下游已经全部接收且无差异。此动作由现场负责人确认本加工单结束，不会因下游接收自动触发。</div><div class="mt-4">${field('完成人', inputControl('documentCompleter', '印花主管'))}</div>`,
+    body: `<div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">下游已经全部接收且无差异。此动作由现场负责人确认本加工单结束，不会因下游接收自动触发。</div><div class="mt-4">${field('完成人', inputControl('documentCompleter', '', { placeholder: '请填写实际完成人姓名' }))}</div>`,
   })
 }
 

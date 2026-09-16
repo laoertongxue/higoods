@@ -103,7 +103,7 @@ async function seedReviewTasks(page: Page): Promise<{
 test('制版任务必须真实上传 PRJ 和预览图后才能提交成果', async ({ page }) => {
   await page.goto('/')
   const seeded = await seedReviewTasks(page)
-  await page.goto(`/pcs/patterns/plate-making/${seeded.plateTaskId}`)
+  await page.goto(`/pcs/production-preparation/plate-making/${seeded.plateTaskId}`)
 
   const form = page.locator(`[data-plate-form="${seeded.plateTaskId}"]`)
   await expect(form).toBeVisible()
@@ -146,7 +146,7 @@ test('制版任务必须真实上传 PRJ 和预览图后才能提交成果', asy
 test('调色任务按 BOM、跟单确认、染厂真实成果、买手审核四段衔接', async ({ page }) => {
   await page.goto('/')
   const seeded = await seedReviewTasks(page)
-  await page.goto(`/pcs/engineering/color/${seeded.colorTaskId}`)
+  await page.goto(`/pcs/production-preparation/color/${seeded.colorTaskId}`)
 
   await expect(page.getByRole('heading', { name: '1 BOM 染色物料' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '2 跟单确认' })).toBeVisible()
@@ -182,7 +182,7 @@ test('调色任务按 BOM、跟单确认、染厂真实成果、买手审核四�
 test('花型任务真实上传、逐项审核、失败原因和返工锁定均有效', async ({ page }) => {
   await page.goto('/')
   const seeded = await seedReviewTasks(page)
-  await page.goto(`/pcs/patterns/artwork/${seeded.patternTaskId}`)
+  await page.goto(`/pcs/production-preparation/artwork/${seeded.patternTaskId}`)
 
   for (const [index, lineId] of ['PATTERN-LINE-1', 'PATTERN-LINE-2'].entries()) {
     const row = page.locator(`[data-pattern-result-row="${lineId}"]`)

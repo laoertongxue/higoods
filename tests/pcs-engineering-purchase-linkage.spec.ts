@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   applyBomRequirementsToEngineeringTasks,
@@ -25,6 +24,7 @@ import {
   reconcileAndRefreshPurchaseTaskRegions,
   renderPcsPurchaseTaskDetailPage,
 } from '../src/pages/pcs-engineering-tasks/purchase-task.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 const facts = [
   {
@@ -81,11 +81,9 @@ for (const [order, expected] of [
   assert.match(result.blockReason, expected)
 }
 
-resetStyleArchiveRepository()
+const style = resetAndGetProductionPreparationStyle()
 resetEngineeringMasterRepository()
 resetEngineeringPurchaseOrderFacts()
-const style = listStyleArchives()[0]
-assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,

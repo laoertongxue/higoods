@@ -1,0 +1,138 @@
+{
+  "title": "PCS 设计改款至生产准备正式技术包五组全流程测试记录",
+  "branch": "codex/pcs-design-revision-preparation",
+  "head": "deeac5bfc224d5e15d0874756400b21f8a6a4293",
+  "executedAt": "2026-09-14T19:30:37.122Z",
+  "overallResult": "通过",
+  "scenarioCount": 5,
+  "records": [
+    {
+      "id": "FLOW-01",
+      "name": "已建档目标款、纸样复用、无需印染",
+      "result": "通过",
+      "designRevisionTaskId": "ES-ID-DR-001",
+      "targetStyleCode": "STYLE-FIVE-FLOW-01",
+      "masterOrderId": "EM-mu1n0ifi-001",
+      "technicalVersionId": "tdv_20260915_001",
+      "processOrderIds": [],
+      "checkpoints": [
+        "参照款 BOM 与价格已确认",
+        "买手上传真实设计稿并创建设计改款",
+        "目标颜色、物料、费用、印染要求和销售展示数量一次确认",
+        "专业任务成果全部通过",
+        "工程主单承接设计改款 BOM、纸样与专业成果并发布",
+        "首单样衣先完成，齐码纸样后完成",
+        "技术包三段审核、正式发布、启用并关闭生产准备主单"
+      ],
+      "error": ""
+    },
+    {
+      "id": "FLOW-02",
+      "name": "线下临时 SPU、纸样复用、目标颜色可增可减",
+      "result": "通过",
+      "designRevisionTaskId": "ES-ID-DR-002",
+      "targetStyleCode": "STYLE-FIVE-FLOW-02",
+      "masterOrderId": "EM-mu1n0ilk-002",
+      "technicalVersionId": "tdv_20260915_002",
+      "processOrderIds": [],
+      "checkpoints": [
+        "参照款 BOM 与价格已确认",
+        "买手上传真实设计稿并创建设计改款",
+        "目标颜色先新增三色，再删除一色并新增新色",
+        "目标颜色、物料、费用、印染要求和销售展示数量一次确认",
+        "专业任务成果全部通过",
+        "线下临时 SPU 建档关联并承接设计稿、纸样和 BOM",
+        "工程主单承接设计改款 BOM、纸样与专业成果并发布",
+        "齐码纸样先完成，验证两项允许并行且不互相阻断",
+        "技术包三段审核、正式发布、启用并关闭生产准备主单"
+      ],
+      "error": ""
+    },
+    {
+      "id": "FLOW-03",
+      "name": "线下临时 SPU、重新制版、创建印花加工单",
+      "result": "通过",
+      "designRevisionTaskId": "ES-ID-DR-003",
+      "targetStyleCode": "STYLE-FIVE-FLOW-03",
+      "masterOrderId": "EM-mu1n0prf-003",
+      "technicalVersionId": "tdv_20260915_003",
+      "processOrderIds": [
+        "PWO-PRINT-AUTO-000001"
+      ],
+      "checkpoints": [
+        "参照款 BOM 与价格已确认",
+        "买手上传真实设计稿并创建设计改款",
+        "目标颜色、物料、费用、印染要求和销售展示数量一次确认",
+        "方案确认时同步创建印花／染色加工单",
+        "专业成果退回后完成第二轮重提并通过",
+        "加工单未完成时销售展示样衣被真实门禁阻断",
+        "专业成果绑定加工单，完成分厂、接单、实际收料、加工、交出、实收和具名完单",
+        "全部印染加工单完成后销售展示样衣解除门禁并完成",
+        "线下临时 SPU 建档关联并承接设计稿、纸样和 BOM",
+        "工程主单承接设计改款 BOM、纸样与专业成果并发布",
+        "首单样衣先完成，齐码纸样后完成",
+        "技术包三段审核、正式发布、启用并关闭生产准备主单"
+      ],
+      "error": ""
+    },
+    {
+      "id": "FLOW-04",
+      "name": "已建档目标款、纱线染色",
+      "result": "通过",
+      "designRevisionTaskId": "ES-ID-DR-004",
+      "targetStyleCode": "STYLE-FIVE-FLOW-04",
+      "masterOrderId": "EM-mu1n0s33-004",
+      "technicalVersionId": "tdv_20260915_004",
+      "processOrderIds": [
+        "DWO-AUTO-000001",
+        "DWO-AUTO-000002"
+      ],
+      "checkpoints": [
+        "参照款 BOM 与价格已确认",
+        "买手上传真实设计稿并创建设计改款",
+        "目标颜色、物料、费用、印染要求和销售展示数量一次确认",
+        "方案确认时同步创建印花／染色加工单",
+        "专业任务成果全部通过",
+        "加工单未完成时销售展示样衣被真实门禁阻断",
+        "专业成果绑定加工单，完成分厂、接单、实际收料、加工、交出、实收和具名完单",
+        "全部印染加工单完成后销售展示样衣解除门禁并完成",
+        "工程主单承接设计改款 BOM、纸样与专业成果并发布",
+        "齐码纸样先完成，验证两项允许并行且不互相阻断",
+        "技术包三段审核、正式发布、启用并关闭生产准备主单"
+      ],
+      "error": ""
+    },
+    {
+      "id": "FLOW-05",
+      "name": "同一物料先染后印、多颜色多尺码",
+      "result": "通过",
+      "designRevisionTaskId": "ES-ID-DR-005",
+      "targetStyleCode": "STYLE-FIVE-FLOW-05",
+      "masterOrderId": "EM-mu1n19wq-005",
+      "technicalVersionId": "tdv_20260915_005",
+      "processOrderIds": [
+        "PWO-PRINT-AUTO-000002",
+        "PWO-PRINT-AUTO-000003",
+        "PWO-PRINT-AUTO-000004",
+        "DWO-AUTO-000003",
+        "DWO-AUTO-000004",
+        "DWO-AUTO-000005"
+      ],
+      "checkpoints": [
+        "参照款 BOM 与价格已确认",
+        "买手上传真实设计稿并创建设计改款",
+        "目标颜色、物料、费用、印染要求和销售展示数量一次确认",
+        "同物料染色加工单是印花加工单的前置",
+        "方案确认时同步创建印花／染色加工单",
+        "专业任务成果全部通过",
+        "加工单未完成时销售展示样衣被真实门禁阻断",
+        "专业成果绑定加工单，完成分厂、接单、实际收料、加工、交出、实收和具名完单",
+        "全部印染加工单完成后销售展示样衣解除门禁并完成",
+        "工程主单承接设计改款 BOM、纸样与专业成果并发布",
+        "首单样衣先完成，齐码纸样后完成",
+        "技术包三段审核、正式发布、启用并关闭生产准备主单"
+      ],
+      "error": ""
+    }
+  ]
+}

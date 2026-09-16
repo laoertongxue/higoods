@@ -514,7 +514,7 @@ Object.defineProperty(globalThis, 'localStorage', {
     removeItem(key: string) { engineeringStorageValues.delete(key) },
     setItem(key: string, value: string) {
       if (key === 'higood-pcs-engineering-master-store-v1' && failEngineeringStorageWrites) {
-        throw new Error('模拟工程主单仓储持续写入失败')
+        throw new Error('模拟生产准备单仓储持续写入失败')
       }
       engineeringStorageValues.set(key, value)
     },
@@ -531,7 +531,7 @@ try {
       '工程仓储失败时必须整体回滚',
       '跟单C',
     ),
-    /模拟工程主单仓储持续写入失败/,
+    /模拟生产准备单仓储持续写入失败/,
     '工程仓储事务写失败必须向内层技术版本事务传播',
   )
   assert.deepEqual(
@@ -567,8 +567,8 @@ assert.throws(
     technicalVersionCode: 'TP-WRONG-SOURCE',
     sourceProjectId: 'EMO-NOT-EXISTS',
   }, { ...seedContent, technicalVersionId: wrongSourceVersionId }),
-  /工程主单不存在/,
-  '即使款式相同也不得绕过 sourceProjectId 猜测其他工程主单建立技术包',
+  /生产准备单不存在/,
+  '即使款式相同也不得绕过 sourceProjectId 猜测其他生产准备单建立技术包',
 )
 
 console.log('pcs-tech-pack-engineering-task-rework-bridge.spec.ts PASS')

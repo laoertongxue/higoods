@@ -532,7 +532,9 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
     workOrderNo: order.workOrderNo,
     productionOrderNo: order.sourceType === 'STOCK'
       ? (order.stockMaterialName || '按备货创建')
-      : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '暂无生产单'),
+      : order.sourceType === 'DESIGN_REVISION'
+        ? (order.sourceSnapshot.designRevisionTaskNo || order.sourceSnapshot.designRevisionTaskId || '设计改款')
+        : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '暂无生产单'),
     factoryId: order.factoryId,
     factoryName: order.factoryName,
     assignmentMode: order.assignmentMode,

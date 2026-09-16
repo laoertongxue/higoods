@@ -1,4 +1,4 @@
-// 工程主单视图模型：为列表页与泳道工作台派生只读展示数据。
+// 生产准备单视图模型：为列表页与泳道工作台派生只读展示数据。
 // 演示种子只在本模块内部维护，页面渲染前调用 ensureEngineeringMasterDemoData()。
 
 import {
@@ -92,6 +92,16 @@ const PLAN_OFFSET_DAYS: Record<EngineeringTaskType, number> = {
   TECH_PACK_CONFIRMATION: 22,
 }
 
+function isBasePatternTaskType(taskType: EngineeringTaskType): boolean {
+  return taskType === 'BASE_PATTERN_WOVEN' || taskType === 'BASE_PATTERN_KNIT'
+}
+
+function requiredBasePatternTaskTypes(preparationType: EngineeringPreparationType): EngineeringTaskType[] {
+  if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
+  if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
+  return ['BASE_PATTERN_WOVEN']
+}
+
 // ============ 演示种子 ============
 
 // 仓库为空时创建演示主单：首张发布为 EM-001，第二张保持草稿，用于展示不同状态。
@@ -155,6 +165,19 @@ export function ensureEngineeringMasterDemoData(): void {
       hasFabricDyeRequirement: scenarioNo % 4 === 2,
       hasAccessoryPurchaseRequirement: scenarioNo % 2 === 0,
     }
+    const priorCandidates = listEngineeringMasterPriorResultCandidates(record.styleCode, preparationType)
+    const priorResultDecisions = requiredBasePatternTaskTypes(preparationType).map((engineeringTaskType) => {
+      const candidate = priorCandidates.find((item) => item.engineeringTaskType === engineeringTaskType && item.recommended)
+      return candidate ? {
+        engineeringTaskType,
+        sourceSamplingTaskId: candidate.source.samplingTaskId,
+        sourceProfessionalTaskId: candidate.source.professionalTaskId,
+        sourceResultVersion: candidate.source.resultVersion,
+        decision: '复用' as const,
+      } : null
+    })
+    // 没有设计改款已确认基码纸样时保留草稿，避免用演示数据绕过发布门禁。
+    if (priorResultDecisions.some((item) => item === null)) continue
     const published = confirmEngineeringMasterTaskPlan(record.masterOrderId, {
       confirmedBy: record.merchandiserName,
       confirmedById: record.merchandiserId,
@@ -162,6 +185,7 @@ export function ensureEngineeringMasterDemoData(): void {
       preparationType,
       bomConditions,
       selectedConditionalTaskTypes: [],
+      priorResultDecisions: priorResultDecisions.filter((item): item is NonNullable<typeof item> => item !== null),
     })
     ensureEngineeringDemoBomVersions(published, bomConditions)
     ensureEngineeringDemoTaskMaterials([published])
@@ -379,15 +403,21 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
     })
   })
   if (scenarioNo >= 2) setEngineeringMasterStatus(masterOrderId, scenarioNo >= 10 ? '技术包审核中' : '进行中')
-  if (seedTechPackDraft) createEngineeringMasterTechPackDraft(masterOrderId, master.merchandiserName)
+  if (seedTechPackDraft && getEngineeringBomPricingPlan('ENGINEERING_MASTER', masterOrderId)?.status === 'COMPLETED_CONFIRMED') {
+    createEngineeringMasterTechPackDraft(masterOrderId, master.merchandiserName)
+  }
 }
 
 function ensureEngineeringLifecycleDemoData(): void {
   // 只允许初始化内置 BULK-DEMO 主单；人工新建草稿不得因追加到仓库末尾而被改写生命周期。
   const records = listEngineeringMasterOrders().filter((record) =>
     record.bulkProductionQualification.triggerBusinessObjectId.startsWith('BULK-DEMO-'))
-  const closingMaster = records.at(-2)
-  const closedMaster = records.at(-1)
+  const lifecycleCandidates = records.filter((record) =>
+    record.status !== '草稿'
+    && Boolean(record.taskPlanConfirmedAt)
+    && getEngineeringBomPricingPlan('ENGINEERING_MASTER', record.masterOrderId)?.status === 'COMPLETED_CONFIRMED')
+  const closingMaster = lifecycleCandidates.at(-2)
+  const closedMaster = lifecycleCandidates.at(-1)
   if (closingMaster && closingMaster.status !== '待关闭' && closingMaster.status !== '已关闭') {
     seedEngineeringMasterDemoLifecycleStatus(closingMaster.masterOrderId, '待关闭')
   }
@@ -395,6 +425,7 @@ function ensureEngineeringLifecycleDemoData(): void {
   let versions = listTechnicalDataVersionsByStyleId(closedMaster.styleId)
     .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
   if (versions.length === 0) {
+    if (getEngineeringBomPricingPlan('ENGINEERING_MASTER', closedMaster.masterOrderId)?.status !== 'COMPLETED_CONFIRMED') return
     for (const task of closedMaster.tasks) {
       if (task.status === '未启用') continue
       updateEngineeringTaskRecord(closedMaster.masterOrderId, task.taskId, (stored) => {
@@ -637,7 +668,7 @@ function buildTaskPlanSuggestions(
     hasAccessoryPurchaseRequirement: bomRows.some((line) => line.purchaseRequirement === '是'),
   }
   const plan = new Map(buildEngineeringTaskPlan(preparationType, conditions).map((line) => [line.taskType, line]))
-  return listEngineeringTaskDefinitions().map((definition) => {
+  return listEngineeringTaskDefinitions().filter((definition) => !isBasePatternTaskType(definition.taskType)).map((definition) => {
     const planLine = plan.get(definition.taskType)
     const required = planLine?.applicability === 'REQUIRED'
     const notApplicable = planLine?.applicability === 'NOT_APPLICABLE'
@@ -651,11 +682,17 @@ function buildTaskPlanSuggestions(
       ownerTeamName: definition.ownerTeamName,
       dependencyText: planLine && planLine.dependsOn.length > 0
         ? planLine.dependsOn.map((taskType) => getEngineeringTaskDefinition(taskType).taskName).join('、')
-        : '无',
+        : definition.taskType === 'PRE_PRODUCTION_SAMPLE' || definition.taskType === 'SIZE_PATTERN_WOVEN' || definition.taskType === 'SIZE_PATTERN_KNIT'
+          ? '设计改款已确认基码纸样'
+          : '无',
       required,
       notApplicable,
       suggestedSelected,
-      suggestionReason: required ? '首单工程固定任务' : conditionalReason,
+      suggestionReason: required
+        ? definition.taskType === 'SIZE_PATTERN_WOVEN' || definition.taskType === 'SIZE_PATTERN_KNIT'
+          ? '必做；建议先做首单样衣，但可并行开始'
+          : '首单工程固定任务'
+        : conditionalReason,
     }
   })
 }
@@ -780,12 +817,14 @@ export function buildEngineeringMasterDetailModel(
   const effectivePreparationType = preparationTypeOverride || record.preparationType
   const priorResultCandidateGroups = record.status === '草稿' && effectivePreparationType
     ? [...new Set(
-        listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType)
+        listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType, record.sourceDesignRevisionTaskId)
           .map((candidate) => candidate.engineeringTaskType),
       )].map((engineeringTaskType) => ({
         engineeringTaskType,
-        taskName: getEngineeringTaskDefinition(engineeringTaskType).taskName,
-        candidates: listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType)
+        taskName: isBasePatternTaskType(engineeringTaskType)
+          ? `${getEngineeringTaskDefinition(engineeringTaskType).taskName}（前期资料）`
+          : getEngineeringTaskDefinition(engineeringTaskType).taskName,
+        candidates: listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType, record.sourceDesignRevisionTaskId)
           .filter((candidate) => candidate.engineeringTaskType === engineeringTaskType)
           .map((candidate) => ({
             engineeringTaskType,

@@ -587,6 +587,18 @@ function buildWorkOrderSourcePrintRows(input: {
     return rows
   }
   const snapshot = input.sourceSnapshot
+  if (input.sourceType === 'DESIGN_REVISION') {
+    rows.push(
+      { label: '设计改款任务', value: snapshot?.designRevisionTaskNo || snapshot?.designRevisionTaskId || '待确认' },
+      { label: '目标款式', value: [snapshot?.targetSpuCode, snapshot?.targetSpuName].filter(Boolean).join(' / ') || '待确认' },
+      { label: '专业任务', value: snapshot?.professionalTaskNo || snapshot?.professionalTaskId || '待确认' },
+      { label: '专业结果', value: [snapshot?.professionalResultId, snapshot?.professionalResultVersion].filter(Boolean).join(' / ') || '待确认' },
+      { label: '目标颜色', value: snapshot?.targetColorName || snapshot?.targetColorId || '待确认' },
+      { label: 'BOM 版本', value: snapshot?.bomVersionLabel || snapshot?.bomVersionId || '待确认' },
+      { label: 'BOM 物料', value: [input.materialName, input.materialSku].filter(Boolean).join(' / ') || '待确认' },
+    )
+    return rows
+  }
   if (input.sourceType === 'CUT_PIECE_SUPPLEMENT') {
     rows.push(
       { label: '补料单', value: snapshot?.supplementRecordNo || '待确认' },

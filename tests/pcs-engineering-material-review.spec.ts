@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 
 import { listPatternAssets, resetPatternLibraryStore } from '../src/data/pcs-pattern-library.ts'
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
@@ -14,6 +13,7 @@ import {
   reviewEngineeringMaterialResults,
   submitEngineeringMaterialResults,
 } from '../src/data/pcs-engineering-task-review.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
 function materialLine(materialLineId: string, materialName: string): EngineeringTaskMaterialLine {
   return {
@@ -36,12 +36,10 @@ function materialLine(materialLineId: string, materialName: string): Engineering
   }
 }
 
-resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 resetPatternLibraryStore()
 
-const style = listStyleArchives()[0]
-assert.ok(style, '应存在款式档案演示数据')
+const style = resetAndGetProductionPreparationStyle()
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
@@ -81,7 +79,7 @@ assert.throws(
 assert.deepEqual(
   getEngineeringMasterOrderById(master.masterOrderId),
   beforeUnauthorizedPatternReview,
-  '非买手审核失败后不得修改工程主单、任务或物料行',
+  '非买手审核失败后不得修改生产准备单、任务或物料行',
 )
 assert.deepEqual(
   listPatternAssets(),

@@ -61,7 +61,7 @@ if (missingFromMatrix.length || missingFromAdjustment.length) {
   throw new Error(`调整方案与矩阵编号不一致：矩阵缺少 ${missingFromMatrix.join('、') || '无'}；方案缺少 ${missingFromAdjustment.join('、') || '无'}`)
 }
 
-const requiredPhrases = ['设计改款任务', '设计稿', '工程主单', '生产准备时效', '技术包']
+const requiredPhrases = ['设计改款任务', '设计稿', '生产准备单', '生产准备时效', '技术包']
 for (const [name, content] of Object.entries({ design, plan, prd, scenarios })) {
   for (const phrase of requiredPhrases) {
     if (!content.includes(phrase)) throw new Error(`${name} 缺少当前业务口径：${phrase}`)
@@ -105,7 +105,7 @@ for (const forbidden of [
 ]) {
   if (sourceText.includes(forbidden)) throw new Error(`当前入口或核心类型仍残留旧口径：${forbidden}`)
 }
-for (const required of ['/pcs/engineering/design-revision', 'INDEPENDENT_DESIGN_REVISION', 'linkedDesignRevisionTaskIds']) {
+for (const required of ['/pcs/production-preparation/design-revision', 'INDEPENDENT_DESIGN_REVISION', 'linkedDesignRevisionTaskIds']) {
   if (!sourceText.includes(required)) throw new Error(`当前入口或核心类型缺少新口径：${required}`)
 }
 

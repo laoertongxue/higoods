@@ -35,6 +35,10 @@ function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
     targetChannelCodes: Array.isArray(record.targetChannelCodes) ? [...record.targetChannelCodes] : [],
     galleryImageIds: Array.isArray(record.galleryImageIds) ? [...record.galleryImageIds] : [],
     galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
+    linkedDesignRevisionTaskIds: Array.isArray(record.linkedDesignRevisionTaskIds) ? [...record.linkedDesignRevisionTaskIds] : [],
+    inheritedDesignFileIds: Array.isArray(record.inheritedDesignFileIds) ? [...record.inheritedDesignFileIds] : [],
+    inheritedPatternFileIds: Array.isArray(record.inheritedPatternFileIds) ? [...record.inheritedPatternFileIds] : [],
+    inheritedBomVersionIds: Array.isArray(record.inheritedBomVersionIds) ? [...record.inheritedBomVersionIds] : [],
     currentTechPackVersionId: record.currentTechPackVersionId || '',
     currentTechPackVersionCode: record.currentTechPackVersionCode || '',
     currentTechPackVersionLabel: record.currentTechPackVersionLabel || '',
@@ -100,6 +104,11 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     updatedAt: record.updatedAt || record.generatedAt || '',
     updatedBy: record.updatedBy || '系统初始化',
     legacyOriginProject: record.legacyOriginProject || '',
+    temporarySpuName: record.temporarySpuName || '',
+    linkedDesignRevisionTaskIds: Array.isArray(record.linkedDesignRevisionTaskIds) ? [...record.linkedDesignRevisionTaskIds] : [],
+    inheritedDesignFileIds: Array.isArray(record.inheritedDesignFileIds) ? [...record.inheritedDesignFileIds] : [],
+    inheritedPatternFileIds: Array.isArray(record.inheritedPatternFileIds) ? [...record.inheritedPatternFileIds] : [],
+    inheritedBomVersionIds: Array.isArray(record.inheritedBomVersionIds) ? [...record.inheritedBomVersionIds] : [],
   }
 }
 

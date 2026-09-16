@@ -599,7 +599,7 @@ function buildRouteGateRecord(
     createdFromTaskCode: '',
     baseTechnicalVersionId: '',
     baseTechnicalVersionCode: '',
-    changeScope: '工程主单生成',
+    changeScope: '生产准备单生成',
     changeSummary: '路线门禁验证',
     garmentDifficultyGrade: 'B',
     linkedPartTemplateIds: [],

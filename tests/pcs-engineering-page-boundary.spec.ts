@@ -17,7 +17,7 @@ const engineeringMenu = menusBySystem.pcs
 assert.ok(engineeringMenu?.children)
 
 const menuText = engineeringMenu.children.map((item) => `${item.title}:${item.href}`).join('\n')
-assert.match(menuText, /首单样衣任务:\/pcs\/samples\/first-sample/)
+assert.match(menuText, /首单样衣任务:\/pcs\/production-preparation\/first-sample/)
 assert.doesNotMatch(menuText, /首版样衣|产前版样衣|\/pcs\/samples\/first-order/)
 
 const preProductionSampleHtml = renderPcsFirstSampleTaskPage()

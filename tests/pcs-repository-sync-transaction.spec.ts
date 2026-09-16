@@ -69,13 +69,13 @@ const asyncEngineeringOperation = (async () => {
 assert.throws(
   () => runEngineeringMasterRepositoryTransaction(asyncEngineeringOperation),
   /仅支持同步操作.*AsyncFunction/,
-  '工程主单仓储必须立即拒绝异步回调',
+  '生产准备单仓储必须立即拒绝异步回调',
 )
 await Promise.resolve()
 assert.deepEqual(
   getEngineeringMasterOrderStoreSnapshot(),
   engineeringBeforeAsync,
-  '异步回调必须在执行前被拒绝，await 后不得留下任何工程主单写入',
+  '异步回调必须在执行前被拒绝，await 后不得留下任何生产准备单写入',
 )
 
 const engineeringBeforeThenable = getEngineeringMasterOrderStoreSnapshot()
@@ -96,14 +96,14 @@ const engineeringThenableOperation = (() => {
 assert.throws(
   () => runEngineeringMasterRepositoryTransaction(engineeringThenableOperation),
   /仅支持同步操作.*Promise 或 thenable/,
-  '工程主单仓储必须拒绝自定义 thenable',
+  '生产准备单仓储必须拒绝自定义 thenable',
 )
 await Promise.resolve()
-assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringBeforeThenable, 'thenable 回调不得留下工程主单写入')
+assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringBeforeThenable, 'thenable 回调不得留下生产准备单写入')
 assert.equal(
   engineeringStorage.getSetCount() - engineeringWritesBeforeThenable,
   1,
-  '工程主单 thenable 事务只需回滚一次，不得重复恢复同一快照',
+  '生产准备单 thenable 事务只需回滚一次，不得重复恢复同一快照',
 )
 engineeringStorage.restore()
 

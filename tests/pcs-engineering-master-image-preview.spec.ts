@@ -21,7 +21,7 @@ const listHtml = renderPcsEngineeringMasterListPage()
 assert.match(listHtml, /data-pcs-engineering-master-action="open-style-image-preview"/, '列表款式缩略图必须可打开大图')
 
 const master = listEngineeringMasterOrders()[0]
-assert.ok(master, '演示工程主单必须存在')
+assert.ok(master, '演示生产准备单必须存在')
 const detailHtml = renderPcsEngineeringMasterDetailPage(master.masterOrderId)
 assert.match(detailHtml, /data-pcs-engineering-master-action="open-style-image-preview"/, '详情款式缩略图必须可打开大图')
 

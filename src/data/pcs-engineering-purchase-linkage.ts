@@ -167,7 +167,7 @@ function requiredMaterialSkuIds(task: EngineeringTaskRecord): string[] {
 
 function assertPurchaseTask(masterOrderId: string, taskId: string) {
   const master = getEngineeringMasterOrderById(masterOrderId)
-  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!master) throw new Error(`生产准备单不存在：${masterOrderId}`)
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task || task.taskType !== 'ACCESSORY_PURCHASE') throw new Error('仅辅料下单任务可以绑定采购单。')
   return { master, task }
@@ -279,7 +279,7 @@ export function unbindAccessoryPurchaseOrder(input: {
     throw new Error('只有采购人员可以解除采购单绑定。')
   }
   if (!reason) throw new Error('请填写解除绑定原因。')
-  if (master.status === '已关闭') throw new Error('工程主单已关闭，不能解除采购单绑定。')
+  if (master.status === '已关闭') throw new Error('生产准备单已关闭，不能解除采购单绑定。')
   if (listTechnicalDataVersionsByProjectId(master.masterOrderId).some((version) => version.versionStatus === 'PUBLISHED')) {
     throw new Error('正式技术包已发布，不能解除采购单绑定。')
   }

@@ -1,5 +1,5 @@
 // 工程专业任务公共读取、办理入口与渲染。
-// 数据源为工程主单任务记录；公共区只负责开始任务，专业成果仍由各专业页面维护。
+// 数据源为生产准备单任务记录；公共区只负责开始任务，专业成果仍由各专业页面维护。
 
 import type {
   EngineeringMasterOrderRecord,
@@ -57,10 +57,10 @@ const INDEPENDENT_TASK_STATUS_MAP = {
 } as const
 
 function independentProfessionalTaskDetailPath(task: EngineeringIndependentProfessionalTask): string {
-  if (task.taskType === 'BASE_PATTERN') return `/pcs/patterns/plate-making/${encodeURIComponent(task.taskId)}`
-  if (task.taskType === 'PATTERN_ARTWORK') return `/pcs/patterns/artwork/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'BASE_PATTERN') return `/pcs/production-preparation/plate-making/${encodeURIComponent(task.taskId)}`
+  if (task.taskType === 'PATTERN_ARTWORK') return `/pcs/production-preparation/artwork/${encodeURIComponent(task.taskId)}`
   if (task.taskType === 'DISPLAY_SAMPLE') return `/pcs/sampling/design-revision/${encodeURIComponent(task.taskId)}`
-  return `/pcs/engineering/color/${encodeURIComponent(task.taskId)}`
+  return `/pcs/production-preparation/color/${encodeURIComponent(task.taskId)}`
 }
 
 function listIndependentProfessionalTaskProjections(): EngineeringTaskRecord[] {
@@ -163,7 +163,7 @@ export function getEngineeringTaskDetail(
 
 function taskSourceLabel(task: EngineeringTaskRecord): string {
   if (task.sourceType === 'INDEPENDENT_DESIGN_REVISION') return '设计改款任务'
-  return '工程主单'
+  return '生产准备单'
 }
 
 function taskNextAction(task: EngineeringTaskRecord): string {
@@ -213,7 +213,7 @@ export function renderTaskWorkbenchHeader(
       <div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(task.ownerTeamName || '-')}</p>${task.assigneeName ? `<p class="text-xs text-slate-400">实际操作：${escapeHtml(task.assigneeName)}</p>` : '<p class="text-xs text-slate-400">开始处理后记录实际操作人</p>'}</div>
       <div><p class="text-xs text-slate-500">任务来源</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(taskSourceLabel(task))}</p><p class="text-xs text-slate-400">${escapeHtml(task.sourceId || master.masterOrderCode)}</p></div>
       <div><p class="text-xs text-slate-500">计划完成</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(task.plannedCompleteAt || '-')}</p><p class="text-xs text-slate-400">第 ${task.currentRoundNo || 1} 轮</p></div>
-      <div><p class="text-xs text-slate-500">所属主单</p><a class="mt-1 block text-sm font-medium text-blue-700 hover:underline" href="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</a><p class="text-xs text-slate-400">跟单：${escapeHtml(master.merchandiserName || '-')}</p></div>
+      <div><p class="text-xs text-slate-500">所属主单</p><a class="mt-1 block text-sm font-medium text-blue-700 hover:underline" href="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</a><p class="text-xs text-slate-400">跟单：${escapeHtml(master.merchandiserName || '-')}</p></div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
       <div><p class="text-xs font-medium text-slate-500">当前动作</p><p class="mt-1 text-sm text-slate-800">${escapeHtml(taskNextAction(task))}</p>${pendingDependencies.length ? `<p class="mt-1 text-xs text-amber-700">等待：${escapeHtml(pendingDependencies.map((item) => item.taskName).join('、'))}</p>` : ''}</div>
@@ -241,7 +241,7 @@ export function getEngineeringTaskTeamOptions(items: EngineeringTaskRecord[]): s
   return [...new Set(items.filter((item) => item.status !== '已完成').map((item) => item.ownerTeamName).filter(Boolean))].sort()
 }
 
-// 来源下拉选项：工程主单或设计改款任务。
+// 来源下拉选项：生产准备单或设计改款任务。
 export function getEngineeringTaskSourceOptions(items: EngineeringTaskRecord[]): string[] {
   return [...new Set(items.map((item) => getEngineeringTaskSourceSummary(item).label))].sort()
 }
@@ -250,7 +250,7 @@ export function getEngineeringTaskSourceOptions(items: EngineeringTaskRecord[]):
 export function buildEngineeringTaskLogs(task: EngineeringTaskRecord, master: EngineeringMasterOrderRecord): EngineeringLog[] {
   const definition = getEngineeringTaskDefinition(task.taskType)
   const logs: EngineeringLog[] = [
-    { time: master.publishedAt, action: '任务生成', user: master.createdBy, detail: `工程主单 ${master.masterOrderCode} 发布时生成任务：${task.taskName}。` },
+    { time: master.publishedAt, action: '任务生成', user: master.createdBy, detail: `生产准备单 ${master.masterOrderCode} 发布时生成任务：${task.taskName}。` },
   ]
   if (task.startedAt) logs.push({ time: task.startedAt, action: '开始执行', user: task.assigneeName || '未记录实际操作人', detail: `${task.taskName} 开始执行。` })
   if (task.submittedAt) logs.push({ time: task.submittedAt, action: definition.reviewRequired ? '提交审核' : '提交成果', user: task.submittedByName || task.resultSubmittedBy || task.assigneeName || '未记录实际操作人', detail: `${task.taskName}${definition.reviewRequired ? '已提交审核' : '已提交成果'}。` })
@@ -278,9 +278,9 @@ export function renderTaskSummaryCard(task: EngineeringTaskRecord, master: Engin
 
 export function renderTaskMasterCard(master: EngineeringMasterOrderRecord): string {
   return renderSectionCard(
-    '所属工程主单',
+    '所属生产准备单',
     renderKeyValueGrid([
-      { label: '主单编号', value: `<a class="font-medium text-blue-700 hover:underline" href="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}" target="_blank" rel="noreferrer">${escapeHtml(master.masterOrderCode)}</a>` },
+      { label: '主单编号', value: `<a class="font-medium text-blue-700 hover:underline" href="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}" target="_blank" rel="noreferrer">${escapeHtml(master.masterOrderCode)}</a>` },
       { label: '款式档案', value: styleArchiveLink(master.styleId, master.styleCode, master.styleName) },
       { label: '主单状态', value: renderStatusBadge(master.status) },
       { label: '跟单', value: escapeHtml(master.merchandiserName || '-') },
@@ -358,6 +358,12 @@ export function renderTaskReworkRoundsCard(task: EngineeringTaskRecord): string 
 
 export function renderTaskDependencyCard(task: EngineeringTaskRecord): string {
   if (task.dependsOnTaskIds.length === 0) {
+    if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
+      return renderSectionCard('前期资料', '<p class="text-sm text-slate-600">设计改款已确认基码纸样，可以开始首单样衣。</p>')
+    }
+    if (task.taskType === 'SIZE_PATTERN_WOVEN' || task.taskType === 'SIZE_PATTERN_KNIT') {
+      return renderSectionCard('前期资料', '<p class="text-sm text-slate-600">设计改款已确认基码纸样。建议先做首单样衣，也可以并行开始齐码纸样。</p>')
+    }
     return renderSectionCard('需要先完成', '<p class="text-sm text-slate-500">无需先完成其他任务。</p>')
   }
   const body = `

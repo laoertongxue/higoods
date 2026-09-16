@@ -19,15 +19,19 @@ import {
   renderPcsTechnicalDataBomPricingPlanPage,
   renderPcsTechnicalDataBomPricingPage,
 } from '../src/pages/pcs-technical-data.ts'
-import { listTechnicalDataVersions } from '../src/data/pcs-technical-data-version-repository.ts'
+import {
+  listTechnicalDataVersions,
+  resetTechnicalDataVersionRepository,
+} from '../src/data/pcs-technical-data-version-repository.ts'
 
 resetStyleArchiveRepository()
 resetEngineeringBomRepository()
 resetEngineeringMasterRepository()
+resetTechnicalDataVersionRepository()
 ensureEngineeringMasterDemoData()
 
 const masters = listEngineeringMasterOrders()
-assert.ok(masters.length >= 10, 'Mock 数据必须覆盖足够多的工程主单场景')
+assert.ok(masters.length >= 10, 'Mock 数据必须覆盖足够多的生产准备单场景')
 masters.forEach((master) => {
   const versions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
   assert.ok(versions.length >= 1, `${master.masterOrderCode} 创建时必须自动生成按颜色管理的 BOM 草稿`)
@@ -72,7 +76,7 @@ const generatedTechPackIds = new Set(generatedTechPacks.map((version) => version
 const technicalVersions = allVersions.filter((version) =>
   version.ownerStage === 'TECH_PACK_DRAFT' && generatedTechPackIds.has(version.ownerId),
 )
-assert.ok(technicalVersions.length >= 1, '工程主单生成技术包草稿时必须复制 BOM 版本')
+assert.ok(technicalVersions.length >= 1, '生产准备单生成技术包草稿时必须复制 BOM 版本')
 assert.ok(technicalVersions.every((version) => version.sourceVersionId), '技术包 BOM 必须保留来源版本')
 generatedTechPacks.forEach((techPack) => {
   const linkedVersions = technicalVersions.filter((version) => version.ownerId === techPack.technicalVersionId)
@@ -88,7 +92,7 @@ assert.ok(technicalVersions.some((version) => version.versionStatus === 'PUBLISH
 const editableMaster = masters.find((master) =>
   getEngineeringBomPricingPlan('ENGINEERING_MASTER', master.masterOrderId)?.status === 'DRAFT',
 )
-assert.ok(editableMaster, 'Mock 数据必须保留一张可验证整款确认门禁的工程主单')
+assert.ok(editableMaster, 'Mock 数据必须保留一张可验证整款确认门禁的生产准备单')
 const editablePlan = getEngineeringBomPricingPlan('ENGINEERING_MASTER', editableMaster.masterOrderId)!
 saveEngineeringBomPricingPlan({
   ownerStage: 'ENGINEERING_MASTER',
@@ -108,17 +112,17 @@ assert.throws(
     userName: editablePlan.buyerName || '门禁测试买手',
   }),
   /至少填写一项费用/,
-  '工程主单整款确认必须阻断“选择有费用但没有费用明细”',
+  '生产准备单整款确认必须阻断“选择有费用但没有费用明细”',
 )
-assert.equal(getEngineeringBomPricingPlan('ENGINEERING_MASTER', editableMaster.masterOrderId)?.status, 'DRAFT', '工程主单确认失败后整款方案必须保持可编辑')
+assert.equal(getEngineeringBomPricingPlan('ENGINEERING_MASTER', editableMaster.masterOrderId)?.status, 'DRAFT', '生产准备单确认失败后整款方案必须保持可编辑')
 assert.ok(
   listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', editableMaster.masterOrderId).every((version) => version.versionStatus === 'DRAFT'),
-  '工程主单确认失败后所有颜色物料方案不得部分确认',
+  '生产准备单确认失败后所有颜色物料方案不得部分确认',
 )
 assert.deepEqual(
   listEngineeringMasterOrders().find((master) => master.masterOrderId === editableMaster.masterOrderId),
   masterBeforeRejectedConfirmation,
-  '工程主单 BOM 与价格确认失败不得启用或改写任何专业任务',
+  '生产准备单 BOM 与价格确认失败不得启用或改写任何专业任务',
 )
 
 console.log('pcs-engineering-bom-version-workflow.spec.ts PASS')

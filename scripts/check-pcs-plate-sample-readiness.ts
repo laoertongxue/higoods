@@ -117,7 +117,7 @@ try {
   assert.equal('projectNodeId' in createdResult.task!, false, '真实制版入口创建的首版样衣不得绑定专业项目节点')
   assert.equal(createdResult.task?.sourceType, '制版任务')
   assert.equal(createdResult.task?.upstreamObjectId, 'PT-20260407-018')
-  assert.equal(createdResult.task?.sourceTechPackVersionId, '', '首版样衣可以在工程主单生成正式技术包前创建')
+  assert.equal(createdResult.task?.sourceTechPackVersionId, '', '首版样衣可以在生产准备单生成正式技术包前创建')
   assert.deepEqual(
     listProjectNodes(plateWithExistingSample.projectId),
     projectNodesBeforeCreate,

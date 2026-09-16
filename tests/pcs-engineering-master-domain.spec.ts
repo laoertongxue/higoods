@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { productionDemands } from '../src/data/fcs/production-demands.ts'
@@ -11,12 +11,25 @@ import {
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  listEngineeringIndependentSamplingRecords,
+  resetEngineeringIndependentSamplingRepository,
+} from '../src/data/pcs-engineering-master-sampling.ts'
 
 resetStyleArchiveRepository()
+resetEngineeringIndependentSamplingRepository(true)
 resetEngineeringMasterRepository()
 
-const freshStyle = listStyleArchives()[0]
-assert.ok(freshStyle, '应存在正式款式档案演示数据')
+const completedDesignRevision = listEngineeringIndependentSamplingRecords().find((record) =>
+  record.status === 'COMPLETED'
+  && record.professionalTasks.some((task) =>
+    task.taskType === 'BASE_PATTERN'
+    && task.results.some((result) => result.status === 'APPROVED' && result.files.some((file) => file.extension === 'prj')),
+  ),
+)
+assert.ok(completedDesignRevision, '应存在已完成且带真实基码纸样的设计改款演示数据')
+const freshStyle = getStyleArchiveById(completedDesignRevision.targetStyleId)
+assert.ok(freshStyle, '设计改款目标款应已建档')
 
 function buildCreateInput(style: typeof freshStyle) {
   return {
@@ -125,7 +138,7 @@ assert.throws(
 productionDemands.pop()
 assert.doesNotThrow(() => assertFirstFormalProduction(freshStyle.styleCode))
 
-// 无商品／款式档案禁止创建工程主单
+// 无商品／款式档案禁止创建生产准备单
 assert.throws(
   () =>
     createEngineeringMasterOrder({
@@ -151,7 +164,7 @@ const repeatedSystemMaster = createSystemEngineeringMasterOrder({
 assert.equal(repeatedSystemMaster.masterOrderId, systemMaster.masterOrderId, '同一系统触发标识必须幂等复用原主单')
 resetEngineeringMasterRepository()
 
-// 创建工程主单：初始为草稿，不生成任务骨架
+// 创建生产准备单：初始为草稿，不生成任务骨架
 const master = createEngineeringMasterOrder(buildCreateInput(freshStyle))
 assert.equal(master.status, '草稿')
 assert.equal(master.tasks.length, 0, '草稿阶段不生成任务骨架')
@@ -160,36 +173,37 @@ assert.equal(master.tasks.length, 0, '草稿阶段不生成任务骨架')
 assert.throws(
   () =>
     createEngineeringMasterOrder(buildCreateInput(freshStyle)),
-  /未关闭的工程主单/,
+  /未关闭的生产准备单/,
   '同一款式已存在未关闭主单必须阻断',
 )
 
-// 发布主单：一次性生成 10 张专业任务骨架
+// 发布主单：一次性生成生产准备任务骨架；两类基码纸样来自设计改款，不在这里重复生成。
 const published = publishEngineeringMasterOrder(master.masterOrderId)
 assert.equal(published.status, '已发布')
-assert.equal(published.tasks.length, 10, '发布时一次性生成 10 类专业任务')
+assert.equal(published.tasks.length, 8, '发布时只生成 8 类生产准备任务，不再生成两类基码纸样任务')
 
 const statusByType = Object.fromEntries(published.tasks.map((task) => [task.taskType, task.status]))
-assert.equal(statusByType.BASE_PATTERN_WOVEN, '待开始', '基码无前置，初始待开始')
-assert.equal(statusByType.BASE_PATTERN_KNIT, '未启用', '纯梭织不启用毛织基码')
-assert.equal(statusByType.PRE_PRODUCTION_SAMPLE, '待前置', '首单样衣等待梭织基码')
-assert.equal(statusByType.SIZE_PATTERN_WOVEN, '待前置', '齐码等待首单样衣')
-assert.equal(statusByType.PATTERN_ARTWORK, '未启用', '花型为条件任务，初始未启用')
-assert.equal(statusByType.COLOR_YARN, '未启用', '纱线调色为条件任务，初始未启用')
-assert.equal(statusByType.COLOR_FABRIC, '未启用', '面料调色为条件任务，初始未启用')
-assert.equal(statusByType.ACCESSORY_PURCHASE, '未启用', '无 BOM 采购需求时辅料下单不启用')
+assert.equal(statusByType.BASE_PATTERN_WOVEN, undefined, '梭织基码已在设计改款完成，生产准备不得重复生成')
+assert.equal(statusByType.BASE_PATTERN_KNIT, undefined, '毛织基码已在设计改款完成，生产准备不得重复生成')
+assert.equal(statusByType.PRE_PRODUCTION_SAMPLE, '待开始', '首单样衣发布后可直接开始')
+assert.equal(statusByType.SIZE_PATTERN_WOVEN, '待开始', '齐码纸样与首单样衣并行，不互相阻断')
 assert.equal(statusByType.TECH_PACK_CONFIRMATION, '待前置', '技术包确认有前置，初始待前置')
 
 // 任务依赖必须指向同主单内任务，且只从固定策略复制
 const sampleTask = published.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
 assert.ok(sampleTask, '应存在首单样衣任务')
-assert.deepEqual(sampleTask.dependsOnTaskIds, [
-  `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
-])
+assert.deepEqual(sampleTask.dependsOnTaskIds, [], '首单样衣不再等待生产准备阶段的基码纸样')
+
+const sizePatternTask = published.tasks.find((task) => task.taskType === 'SIZE_PATTERN_WOVEN')
+assert.ok(sizePatternTask, '应存在梭织齐码纸样任务')
+assert.deepEqual(sizePatternTask.dependsOnTaskIds, [], '齐码纸样与首单样衣并行')
 
 const techPackTask = published.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
 assert.ok(techPackTask, '应存在技术包确认任务')
-assert.equal(techPackTask.dependsOnTaskIds.length, 3, '技术包确认只依赖纯梭织已启用的三张专业任务')
+const enabledBeforeTechPack = published.tasks
+  .filter((task) => task.taskType !== 'TECH_PACK_CONFIRMATION' && task.status !== '未启用')
+  .map((task) => task.taskId)
+assert.deepEqual(techPackTask.dependsOnTaskIds, enabledBeforeTechPack, '技术包确认等待本主单全部已启用准备任务')
 
 // 重复发布阻断
 assert.throws(() => publishEngineeringMasterOrder(master.masterOrderId), /草稿/)

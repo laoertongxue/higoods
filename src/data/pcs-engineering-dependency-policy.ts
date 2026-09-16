@@ -1,4 +1,4 @@
-// 工程主单固定依赖策略：10 类专业任务、11 个生产准备投影节点、固定依赖与自动补齐规则。
+// 生产准备单固定依赖策略：保留历史任务定义，新建主单只生成生产准备任务，并投影 9 个时效节点。
 // 依赖结构沿用与业务确认的固定规则，不允许人工调整；本模块不提供任何更新接口。
 
 import type {
@@ -79,7 +79,7 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     taskType: 'PRE_PRODUCTION_SAMPLE',
     taskName: '首单样衣',
     ownerTeamName: '制作团队',
-    dependsOn: ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT'],
+    dependsOn: [],
     conditionType: 'ALWAYS',
     reviewRequired: false,
     stages: [],
@@ -88,7 +88,7 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     taskType: 'SIZE_PATTERN_WOVEN',
     taskName: '梭织齐码纸样',
     ownerTeamName: '版师',
-    dependsOn: ['PRE_PRODUCTION_SAMPLE'],
+    dependsOn: [],
     conditionType: 'ALWAYS',
     reviewRequired: false,
     stages: [],
@@ -97,7 +97,7 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     taskType: 'SIZE_PATTERN_KNIT',
     taskName: '毛织齐码纸样',
     ownerTeamName: '毛织团队',
-    dependsOn: ['PRE_PRODUCTION_SAMPLE'],
+    dependsOn: [],
     conditionType: 'ALWAYS',
     reviewRequired: false,
     stages: [],
@@ -153,8 +153,6 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     taskName: '技术包确认任务',
     ownerTeamName: '跟单',
     dependsOn: [
-      'BASE_PATTERN_WOVEN',
-      'BASE_PATTERN_KNIT',
       'PRE_PRODUCTION_SAMPLE',
       'SIZE_PATTERN_WOVEN',
       'SIZE_PATTERN_KNIT',
@@ -174,7 +172,7 @@ const PREPARATION_TASK_APPLICABILITY: Record<
   Record<EngineeringTaskType, EngineeringTaskApplicability>
 > = {
   PURE_WOVEN: {
-    BASE_PATTERN_WOVEN: 'REQUIRED',
+    BASE_PATTERN_WOVEN: 'NOT_APPLICABLE',
     BASE_PATTERN_KNIT: 'NOT_APPLICABLE',
     PRE_PRODUCTION_SAMPLE: 'REQUIRED',
     SIZE_PATTERN_WOVEN: 'REQUIRED',
@@ -199,7 +197,7 @@ const PREPARATION_TASK_APPLICABILITY: Record<
   },
   KNIT: {
     BASE_PATTERN_WOVEN: 'NOT_APPLICABLE',
-    BASE_PATTERN_KNIT: 'REQUIRED',
+    BASE_PATTERN_KNIT: 'NOT_APPLICABLE',
     PRE_PRODUCTION_SAMPLE: 'REQUIRED',
     SIZE_PATTERN_WOVEN: 'NOT_APPLICABLE',
     SIZE_PATTERN_KNIT: 'REQUIRED',
@@ -210,8 +208,8 @@ const PREPARATION_TASK_APPLICABILITY: Record<
     TECH_PACK_CONFIRMATION: 'REQUIRED',
   },
   KNIT_WOVEN: {
-    BASE_PATTERN_WOVEN: 'REQUIRED',
-    BASE_PATTERN_KNIT: 'REQUIRED',
+    BASE_PATTERN_WOVEN: 'NOT_APPLICABLE',
+    BASE_PATTERN_KNIT: 'NOT_APPLICABLE',
     PRE_PRODUCTION_SAMPLE: 'REQUIRED',
     SIZE_PATTERN_WOVEN: 'REQUIRED',
     SIZE_PATTERN_KNIT: 'REQUIRED',
@@ -264,15 +262,9 @@ export function getEngineeringTaskDependencies(
   taskType: EngineeringTaskType,
   enabledTaskTypes: readonly EngineeringTaskType[] = [],
 ): EngineeringTaskType[] {
-  if (taskType === 'PRE_PRODUCTION_SAMPLE') {
-    if (preparationType === 'PURE_WOVEN') return ['BASE_PATTERN_WOVEN']
-    if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
-    if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
-    return []
-  }
-  if (taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT') {
-    return ['PRE_PRODUCTION_SAMPLE']
-  }
+  // 基码纸样属于设计改款阶段的前期资料，不再作为生产准备任务。
+  // 首单样衣与齐码纸样发布后可并行；页面只提示先做首单样衣，不形成阻断依赖。
+  if (taskType === 'PRE_PRODUCTION_SAMPLE' || taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT') return []
   if (taskType === 'TECH_PACK_CONFIRMATION') {
     return enabledTaskTypes.filter((candidate) => candidate !== 'TECH_PACK_CONFIRMATION')
   }
@@ -305,8 +297,6 @@ export function buildEngineeringTaskPlan(
 }
 
 const PREPARATION_PROJECTION_ITEMS: PreparationProjectionItem[] = [
-  { itemType: '梭织基码纸样', itemLabel: '梭织基码纸样', taskType: 'BASE_PATTERN_WOVEN', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '版师' },
-  { itemType: '毛织基码纸样', itemLabel: '毛织基码纸样', taskType: 'BASE_PATTERN_KNIT', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '毛织团队' },
   { itemType: '版衣制作', itemLabel: '版衣制作', taskType: 'PRE_PRODUCTION_SAMPLE', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '制作团队' },
   { itemType: '梭织齐码纸样', itemLabel: '梭织齐码纸样', taskType: 'SIZE_PATTERN_WOVEN', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '版师' },
   { itemType: '毛织齐码纸样', itemLabel: '毛织齐码纸样', taskType: 'SIZE_PATTERN_KNIT', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '毛织团队' },

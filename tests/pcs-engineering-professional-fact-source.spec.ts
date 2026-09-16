@@ -42,7 +42,7 @@ const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     reason: '专项测试已满足做大货要求',
     uniqueTriggerKey: 'PROFESSIONAL-FACT-SOURCE',
   },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 
 const pages = [
@@ -52,8 +52,8 @@ const pages = [
 ]
 
 for (const html of pages) {
-  assert.match(html, new RegExp(master.masterOrderCode), '专业任务页必须展示工程主单编号')
-  assert.match(html, new RegExp(master.styleCode), '专业任务页必须展示工程主单款式')
+  assert.match(html, new RegExp(master.masterOrderCode), '专业任务页必须展示生产准备单编号')
+  assert.match(html, new RegExp(master.styleCode), '专业任务页必须展示生产准备单款式')
   assert.doesNotMatch(html, /异常待处理|已取消|待确认|已确认|待样板确认|样板已通过|样板已驳回/, '专业任务页不得暴露旧任务状态')
 }
 

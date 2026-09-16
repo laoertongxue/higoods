@@ -9,11 +9,10 @@ import {
   resetEngineeringMasterRepository,
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
-import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
+const style = resetAndGetProductionPreparationStyle()
 resetEngineeringMasterRepository()
-const style = listStyleArchives()[0]
-assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
@@ -44,12 +43,12 @@ if (typeof lowLevelClose === 'function') {
 assert.notEqual(
   getEngineeringMasterOrderById(master.masterOrderId)?.status,
   '已关闭',
-  '没有正式技术包时，直接调用任何公开仓储关闭 API 都不能把工程主单关闭',
+  '没有正式技术包时，直接调用任何公开仓储关闭 API 都不能把生产准备单关闭',
 )
 assert.equal(
   typeof lowLevelClose,
   'undefined',
-  '工程主单仓储公开 API 不得暴露绕过正式技术包与快照门禁的低层关闭写入口',
+  '生产准备单仓储公开 API 不得暴露绕过正式技术包与快照门禁的低层关闭写入口',
 )
 
 console.log('pcs-engineering-master-close-public-api-boundary.spec.ts PASS')

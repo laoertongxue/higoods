@@ -96,10 +96,10 @@ const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterO
   preparationType: 'PURE_WOVEN',
   qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '专项测试固定事实', formalProductionSource: '专项测试固定事实', checkedAt: '2026-08-27 09:00:00' },
   bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '专项测试', triggerBusinessObjectId: `BOM-PAGE-${style.styleCode}`, thresholdQuantity: 1, reachedQuantity: 1, reachedAt: '2026-08-27 09:00:00', reason: '专项测试已满足做大货要求', uniqueTriggerKey: `BOM-PAGE-${style.styleCode}` },
-  creationReason: '专项测试创建工程主单',
+  creationReason: '专项测试创建生产准备单',
 }).masterOrderId)
 const techPackConfirmationTask = engineeringMaster.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
-assert.ok(techPackConfirmationTask, '工程主单必须包含技术包确认任务')
+assert.ok(techPackConfirmationTask, '生产准备单必须包含技术包确认任务')
 const versionId = `task7_page_${Date.now()}`
 const bomItems: TechnicalBomItem[] = Array.from({ length: 6 }, (_, index) => ({
   id: `BOM-PAGE-${index + 1}`,
@@ -162,7 +162,7 @@ assert.throws(
     usageUnit: '米',
     lossRate: 0.05,
   }, '跟单'),
-  /只有买手可以维护 BOM 与价格/,
+  /只有买手或管理员可以维护 BOM 与价格/,
   '非买手不能绕过页面直接修改 BOM',
 )
 saveTechnicalDataVersionBomMaterialLine(versionId, 'BOM-PAGE-1', {
@@ -174,7 +174,7 @@ saveTechnicalDataVersionBomMaterialLine(versionId, 'BOM-PAGE-1', {
 saveTechnicalDataVersionBomCustomCosts(versionId, [{ title: '车位费', amountIdr: 44000 }], '买手')
 assert.throws(
   () => saveTechnicalDataVersionBomCustomCosts(versionId, [{ title: '错误费用', amountIdr: 1 }], '版师'),
-  /只有买手可以维护 BOM 与价格/,
+  /只有买手或管理员可以维护 BOM 与价格/,
 )
 
 const saved = getTechnicalDataVersionContent(versionId)

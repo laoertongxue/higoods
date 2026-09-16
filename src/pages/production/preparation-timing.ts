@@ -471,7 +471,7 @@ function hasConfirmedWorkItems(record: ProductionPreparationRecord): boolean {
 }
 
 function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
-  if (item.sourceObjectType === '工程主单') {
+  if (item.sourceObjectType === '生产准备单') {
     return item.reusedPriorResult === true || Boolean(item.effectiveFinishedAt || item.actualFinishAt)
   }
   return hasValidPreparationCompletionEvidence(item)
@@ -522,7 +522,7 @@ export function buildProductionPreparationCsvDataUri(rows: string[][]): string {
 }
 
 function renderHeaderActions(): string {
-  return '<span class="inline-flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">只读 · 数据来源：工程主单</span>'
+  return '<span class="inline-flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">只读 · 数据来源：生产准备单</span>'
 }
 
 function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string, params: URLSearchParams): string {
@@ -989,7 +989,7 @@ function renderLedgerActions(
     return `
       <div class="flex min-w-[180px] flex-col items-start gap-2">
         <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
-        ${record.masterOrderHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(record.masterOrderHref)}">查看工程主单</button>` : ''}
+        ${record.masterOrderHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(record.masterOrderHref)}">查看生产准备单</button>` : ''}
         ${record.formalTechPackHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(record.formalTechPackHref)}">查看正式技术包</button>` : ''}
       </div>
     `
@@ -1312,7 +1312,7 @@ function renderEngineeringSourceLinks(record: ProductionPreparationRecord): stri
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.merchandiserName)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          ${record.masterOrderHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.masterOrderHref)}">查看工程主单</button>` : ''}
+          ${record.masterOrderHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.masterOrderHref)}">查看生产准备单</button>` : ''}
           ${record.formalTechPackHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.formalTechPackHref)}">查看正式技术包</button>` : ''}
           ${!record.formalTechPackHref && record.techPackHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.techPackHref)}">查看技术包任务</button>` : ''}
         </div>
@@ -1447,7 +1447,7 @@ function renderPreparationSelection(record: ProductionPreparationRecord): string
   `
   return `
     <section class="rounded-xl border bg-card p-4">
-      <h3 class="mb-3 font-semibold">${record.sourceKind === '工程主单' ? '固定准备项' : '准备项确认'}</h3>
+      <h3 class="mb-3 font-semibold">${record.sourceKind === '生产准备单' ? '固定准备项' : '准备项确认'}</h3>
       <div class="grid gap-4 md:grid-cols-2">
         <div>
           <div class="mb-2 text-sm font-medium">必做项</div>
@@ -2045,7 +2045,6 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
     : 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
-    ['完成基码', getGroupedCompletedCount(stats, ['梭织基码纸样', '毛织基码纸样']), '项'],
     ['完成齐码', getGroupedCompletedCount(stats, ['梭织齐码纸样', '毛织齐码纸样']), '项'],
     ['完成花型', getGroupedCompletedCount(stats, ['数码印/DTF/DTG花型']), '项'],
     ['完成染色', getGroupedCompletedCount(stats, ['染色调色（纱线）', '染色调色（面料）']), '项'],
@@ -2214,12 +2213,11 @@ function renderStatsColumnSettings(kind: StatsListKind, month: string, params: U
 }
 
 function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
-  const baseCodeCount = getGroupedCompletedCount(rows, ['梭织基码纸样', '毛织基码纸样'])
   const fullSizeCount = getGroupedCompletedCount(rows, ['梭织齐码纸样', '毛织齐码纸样'])
   const patternCount = getGroupedCompletedCount(rows, ['数码印/DTF/DTG花型'])
   const dyeCount = getGroupedCompletedCount(rows, ['染色调色（纱线）', '染色调色（面料）'])
   return [
-    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明', '完成基码', '完成齐码', '完成花型', '完成染色'],
+    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明', '完成齐码', '完成花型', '完成染色'],
     ...rows.map((row) => [
       month,
       row.itemType,
@@ -2230,7 +2228,6 @@ function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
       row.ownerTeamText,
       row.latestFinishedAt,
       row.basisText,
-      String(baseCodeCount),
       String(fullSizeCount),
       String(patternCount),
       String(dyeCount),

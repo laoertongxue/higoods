@@ -118,7 +118,7 @@ assert.throws(() => createEngineeringMasterOrder({
     reason: '已满足做大货条件', uniqueTriggerKey: 'TEST-1-SPU',
   },
   creationReason: '重复创建',
-}), /未关闭的工程主单/)
+}), /未关闭的生产准备单/)
 const published = confirmEngineeringMasterTaskPlan(master.masterOrderId, {
   confirmedBy: '跟单A',
   confirmedById: 'USER-M-1',

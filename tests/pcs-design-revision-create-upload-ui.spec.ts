@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test'
 const REAL_DESIGN_IMAGE = path.resolve('public/dress-sample-1.jpg')
 
 test('设计改款新建页阻断非图片且保留表单，真实设计稿保存后可以建单', async ({ page }) => {
-  await page.goto('/pcs/engineering/design-revision')
+  await page.goto('/pcs/production-preparation/design-revision')
   await page.locator('[data-pcs-independent-sampling-action="open-create"]').click()
 
   const source = page.locator('[data-pcs-independent-sampling-field="sourceStyleId"]')
@@ -36,7 +36,7 @@ test('设计改款新建页阻断非图片且保留表单，真实设计稿保�
   await expect(page.getByText('dress-sample-1.jpg', { exact: true })).toBeVisible()
   await page.locator('[data-pcs-independent-sampling-action="create"]').click()
 
-  await expect(page).toHaveURL(/\/pcs\/engineering\/design-revision\/ES-ID-DR-/)
+  await expect(page).toHaveURL(/\/pcs\/production-preparation\/design-revision\/ES-ID-DR-/)
   await expect(page.getByText('新款资料准备', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('买手', { exact: true }).first()).toBeVisible()
 })

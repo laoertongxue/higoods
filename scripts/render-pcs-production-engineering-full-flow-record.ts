@@ -61,18 +61,18 @@ const atomicRequirements: AtomicRequirement[] = [
   { id: 'FLOW-003', requirement: '买手必须完成目标颜色、参照颜色、目标 BOM、整款费用和综合成本准备。', stages: ['设计改款资料准备'] },
   { id: 'FLOW-004', requirement: '跟单必须确认制作数量、颜色尺码组合和专业工作安排。', stages: ['设计改款工作安排'] },
   { id: 'FLOW-005', requirement: '设计改款专业任务必须通过开始、真实文件提交和整单确认推进，不得直接改状态。', stages: ['设计改款专业工作', '设计改款整单确认'] },
-  { id: 'FLOW-006', requirement: '目标款满足首单规则后才能创建唯一未关闭工程主单，并关联设计改款成果。', stages: ['工程主单创建'] },
+  { id: 'FLOW-006', requirement: '目标款满足首单规则后才能创建唯一未关闭生产准备单，并关联设计改款成果。', stages: ['生产准备单创建'] },
   { id: 'FLOW-007', requirement: '跟单结合系统建议一次确认固定任务、条件任务、前期成果处置和固定依赖。', stages: ['工程任务方案'] },
   { id: 'FLOW-008', requirement: '买手必须一次确认工程整款物料与费用，条件任务只读取确认后的 BOM。', stages: ['工程 BOM 与价格确认'] },
   { id: 'FLOW-009', requirement: '纸样任务必须真实上传源文件和预览文件，制作方提交即完成。', stages: ['工程基码纸样', '工程齐码纸样'] },
   { id: 'FLOW-010', requirement: '存在染色物料时，跟单维护色号、染厂提交成果、买手逐行审核；无染色物料时不得虚构调色任务。', stages: ['工程调色'] },
   { id: 'FLOW-011', requirement: '首单样衣必须按颜色、尺码、要求数量提交真实图片并记录实际数量。', stages: ['工程首单样衣'] },
-  { id: 'FLOW-012', requirement: '工程主单只能生成完整技术包草稿，且正式技术包关联设计改款来源。', stages: ['技术包草稿'] },
+  { id: 'FLOW-012', requirement: '生产准备单只能生成完整技术包草稿，且正式技术包关联设计改款来源。', stages: ['技术包草稿'] },
   { id: 'FLOW-013', requirement: '技术包必须依次完成买手、版师、跟单三段现行审核。', stages: ['技术包提交审核', '技术包买手审核', '技术包版师审核', '技术包跟单审核'] },
   { id: 'FLOW-014', requirement: '审核通过的技术包发布并启用后形成正式版本和 BOM 与价格快照。', stages: ['技术包发布启用'] },
-  { id: 'FLOW-015', requirement: '全部有效任务完成且正式技术包生效后，只能由跟单人工关闭工程主单。', stages: ['工程主单关闭'] },
+  { id: 'FLOW-015', requirement: '全部有效任务完成且正式技术包生效后，只能由跟单人工关闭生产准备单。', stages: ['生产准备单关闭'] },
   { id: 'FLOW-016', requirement: 'FCS 生产单必须冻结创建当时的正式技术包，并可追溯设计改款任务。', stages: ['FCS 生产单技术包快照'] },
-  { id: 'FLOW-017', requirement: '生产准备时效只读工程主单事实，不允许新增、修改准备项或上传成果。', stages: ['生产准备时效只读投影'] },
+  { id: 'FLOW-017', requirement: '生产准备时效只读生产准备单事实，不允许新增、修改准备项或上传成果。', stages: ['生产准备时效只读投影'] },
   { id: 'FLOW-018', requirement: '至少两条完整业务链必须在两个互相独立的干净进程中各执行一次且全部通过。', stages: [] },
   { id: 'FLOW-019', requirement: '设计稿、纸样、样衣图片和调色成果等真实上传文件必须逐文件保存且编号唯一。', stages: ['上传文件唯一性核验'] },
 ]
@@ -132,7 +132,7 @@ function renderPass(record: PassRecord): string[] {
   lines.push('')
   lines.push('### 案例对象')
   lines.push('')
-  lines.push('| 案例 | 参照款 | 目标款 | 设计改款任务 | 工程主单 | 正式技术包 | FCS 生产单 | 生产准备时效记录 | 结果 |')
+  lines.push('| 案例 | 参照款 | 目标款 | 设计改款任务 | 生产准备单 | 正式技术包 | FCS 生产单 | 生产准备时效记录 | 结果 |')
   lines.push('|---|---|---|---|---|---|---|---|---|')
   record.chainResults.forEach((chain) => {
     lines.push(`| ${escapeCell(chain.chainId)} | ${escapeCell(chain.sourceStyleCode)} | ${escapeCell(chain.targetStyleCode)} | ${escapeCell(chain.designRevisionTaskId)} | ${escapeCell(chain.masterOrderId)} | ${escapeCell(chain.technicalVersionId)} | ${escapeCell(chain.productionOrderId)} | ${escapeCell(chain.preparationRecordId)} | ${chain.result} |`)
@@ -170,7 +170,7 @@ const lines: string[] = [
   '',
   '- 每轮从空白内存状态重新初始化全部相关事实源。',
   '- 每轮连续执行 2 条同对象业务链，且不得通过直接修改状态推进。',
-  '- 每条链必须从设计改款开始，经工程主单、专业任务、技术包审核与发布，直到 FCS 快照和生产准备时效只读投影。',
+  '- 每条链必须从设计改款开始，经生产准备单、专业任务、技术包审核与发布，直到 FCS 快照和生产准备时效只读投影。',
   '- 两轮均通过，且原子需求正向、反向追踪无缺口，才允许给出“验收通过”。',
   '',
   `**本次结论：${allPassed ? '验收通过' : '验收未通过'}。**`,
@@ -184,10 +184,10 @@ const lines: string[] = [
   '### 已覆盖',
   '',
   '- 设计改款统一入口：参照款、目标款、真实设计稿、颜色、BOM 与价格、工作安排、专业任务和整单确认。',
-  '- 工程主单：首单校验、任务方案、工程 BOM 与价格确认、纸样、首单样衣、条件调色和技术包确认。',
+  '- 生产准备单：首单校验、任务方案、工程 BOM 与价格确认、纸样、首单样衣、条件调色和技术包确认。',
   '- 技术包：完整度、买手审核、版师审核、跟单审核、发布、当前正式版本启用和正式快照。',
   '- FCS：生产单读取并冻结正式技术包。',
-  '- 生产准备时效：只读工程主单任务事实和正式产出。',
+  '- 生产准备时效：只读生产准备单任务事实和正式产出。',
   '',
   '### 不以本记录代替',
   '',
@@ -221,12 +221,12 @@ lines.push('## 6. 正向追踪结果')
 lines.push('')
 lines.push('从业务需求逐条追到两轮执行步骤：FLOW-001 至 FLOW-019 均存在实现动作、状态结果和断言证据；不存在未说明的待实施、实施中、已实现待验证或已阻塞项。')
 lines.push('')
-lines.push('| 业务链 | 设计改款 | 工程主单 | 专业任务 | 技术包审核发布 | FCS 快照 | 时效投影 | 结果 |')
+lines.push('| 业务链 | 设计改款 | 生产准备单 | 专业任务 | 技术包审核发布 | FCS 快照 | 时效投影 | 结果 |')
 lines.push('|---|---|---|---|---|---|---|---|')
 passes.forEach((record) => record.chainResults.forEach((chain) => {
   const stages = record.steps.filter((step) => step.chainId === chain.chainId).map((step) => step.stage)
   const yes = (wanted: string[]) => wanted.every((item) => stages.includes(item)) ? '有证据' : '缺失'
-  lines.push(`| ${record.passId}/${chain.chainId} | ${yes(['设计改款创建', '设计改款资料准备', '设计改款工作安排', '设计改款整单确认'])} | ${yes(['工程主单创建', '工程任务方案', '工程 BOM 与价格确认', '工程主单关闭'])} | ${yes(['工程基码纸样', '工程首单样衣', '工程齐码纸样'])} | ${yes(['技术包草稿', '技术包买手审核', '技术包版师审核', '技术包跟单审核', '技术包发布启用'])} | ${yes(['FCS 生产单技术包快照'])} | ${yes(['生产准备时效只读投影'])} | 通过 |`)
+  lines.push(`| ${record.passId}/${chain.chainId} | ${yes(['设计改款创建', '设计改款资料准备', '设计改款工作安排', '设计改款整单确认'])} | ${yes(['生产准备单创建', '工程任务方案', '工程 BOM 与价格确认', '生产准备单关闭'])} | ${yes(['工程基码纸样', '工程首单样衣', '工程齐码纸样'])} | ${yes(['技术包草稿', '技术包买手审核', '技术包版师审核', '技术包跟单审核', '技术包发布启用'])} | ${yes(['FCS 生产单技术包快照'])} | ${yes(['生产准备时效只读投影'])} | 通过 |`)
 }))
 lines.push('')
 
@@ -237,10 +237,10 @@ lines.push('')
 lines.push('| 检查对象 | 反查结论 | 结果 |')
 lines.push('|---|---|---|')
 lines.push('| 设计改款动作 | 所有动作归入统一设计改款任务；设计稿由跟单上传，买手准备资料，跟单安排工作。 | 通过 |')
-lines.push('| 工程主单动作 | 任务由主单一次生成并按依赖推进；无直接状态覆写。 | 通过 |')
+lines.push('| 生产准备单动作 | 任务由主单一次生成并按依赖推进；无直接状态覆写。 | 通过 |')
 lines.push('| 专业任务动作 | 通过开始、真实文件提交、要求确认、成果审核等领域动作推进。 | 通过 |')
 lines.push('| BOM 与价格动作 | 物料和整款费用作为同一整款方案确认；技术包发布时形成正式快照。 | 通过 |')
-lines.push('| FCS 与时效 | FCS 冻结正式版本；时效只读工程主单，不产生第二执行入口。 | 通过 |')
+lines.push('| FCS 与时效 | FCS 冻结正式版本；时效只读生产准备单，不产生第二执行入口。 | 通过 |')
 lines.push('')
 
 lines.push('## 8. 最终判定')

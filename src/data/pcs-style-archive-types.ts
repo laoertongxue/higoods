@@ -52,6 +52,11 @@ export interface StyleArchiveShellRecord {
   updatedAt: string
   updatedBy: string
   legacyOriginProject: string
+  temporarySpuName?: string
+  linkedDesignRevisionTaskIds?: string[]
+  inheritedDesignFileIds?: string[]
+  inheritedPatternFileIds?: string[]
+  inheritedBomVersionIds?: string[]
 }
 
 export interface StyleArchivePendingItem {

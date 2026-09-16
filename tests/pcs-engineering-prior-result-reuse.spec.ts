@@ -1,19 +1,23 @@
 import assert from 'node:assert/strict'
 
+import '../src/data/fcs/design-revision-process-work-order-adapter.ts'
 import {
+  DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS,
   confirmEngineeringIndependentSamplingPlan,
   confirmEngineeringIndependentSamplingResult,
-  confirmEngineeringIndependentColorMappings,
   completeEngineeringIndependentBuyerPreparation,
   createEngineeringIndependentSampling,
+  getEngineeringIndependentSamplingStep,
   listReusableEngineeringIndependentProfessionalResults,
   resetEngineeringIndependentSamplingRepository,
   reviewEngineeringIndependentProfessionalTask,
   startEngineeringIndependentProfessionalTask,
   submitEngineeringIndependentProfessionalTask,
+  suggestEngineeringIndependentTaskTypes,
 } from '../src/data/pcs-engineering-master-sampling.ts'
 import {
   getEngineeringBomVersionById,
+  listEngineeringBomVersionsByOwner,
   resetEngineeringBomRepository,
   saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
@@ -34,7 +38,6 @@ import type {
   EngineeringIndependentSamplingRecord,
 } from '../src/data/pcs-engineering-master-types.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
-import { listSkuArchivesByStyleId } from '../src/data/pcs-sku-archive-repository.ts'
 import { renderPcsEngineeringMasterDetailPage } from '../src/pages/pcs-engineering-master-detail.ts'
 
 const merchandiser = { role: '跟单', userId: 'MERCH-A6', userName: '跟单-A6' }
@@ -86,10 +89,10 @@ function confirmSamplingBom(record: EngineeringIndependentSamplingRecord): void 
         usageUnit: materialWithSku!.sku!.pricingUnit,
         lossRate: 0,
         applicableSkuIds: version.applicableSkuIds,
-        printRequirement: '是',
+        printRequirement: '否',
         dyeRequirement: '否',
         purchaseRequirement: '否',
-        remark: '前期成果复用专项 BOM',
+        remark: '前期成果复用专项 BOM；本场景不创建印花加工单，花型任务由买手明确选用',
       }],
       customCosts: [],
     })
@@ -119,35 +122,35 @@ async function createSampling(
   const designFiles = await uploaded(
     [realFile(`${marker}-design.png`, 'image/png')],
     'DESIGN_IMAGE',
-    { userId: merchandiser.userId, userName: merchandiser.userName, teamName: '跟单' },
+    { userId: buyer.userId, userName: buyer.userName, teamName: '买手' },
   )
   const created = createEngineeringIndependentSampling({
     sourceStyleId: sourceStyle.styleId,
     targetStyleId: targetStyle.styleId,
     creationReason: `${marker} 前期成果复用专项`,
     designFiles,
-    merchandiser,
+    buyer,
     createdAt: `2026-07-${marker === 'OLD' ? '01' : marker === 'NEW' ? '10' : '20'} 09:00:00`,
   })
-  const targetSkus = listSkuArchivesByStyleId(targetStyle.styleId).filter((sku) => sku.archiveStatus === 'ACTIVE')
-  const targetSizes = [...new Set(targetSkus.map((sku) => sku.sizeName))]
-  const prepared = confirmEngineeringIndependentColorMappings({
-    samplingTaskId: created.samplingTaskId,
-    actor: buyer,
-    mappings: [...new Set(targetSkus.map((sku) => sku.colorName))].map((targetColor) => ({
-      targetColor,
-      sourceColor: '',
-      targetSizeNames: targetSizes,
-    })),
-  })
-  confirmSamplingBom(prepared)
+  assert.equal(getEngineeringIndependentSamplingStep(created), 'SCHEME_CONFIRMATION')
+  confirmSamplingBom(created)
+  const requiredTaskTypes = [...new Set([
+    ...taskTypes,
+    ...suggestEngineeringIndependentTaskTypes(created.samplingTaskId),
+  ])]
   let current = confirmEngineeringIndependentSamplingPlan({
     samplingTaskId: created.samplingTaskId,
-    actor: merchandiser,
-    selectedTaskTypes: taskTypes,
+    actor: buyer,
+    selectedTaskTypes: requiredTaskTypes,
+    displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] },
     confirmedAt: created.createdAt,
   })
-  for (const taskType of ['BASE_PATTERN', 'DISPLAY_SAMPLE', 'PATTERN_ARTWORK'] as const) {
+  assert.equal(getEngineeringIndependentSamplingStep(current), 'PROFESSIONAL_WORK')
+  assert.deepEqual(
+    [current.displaySampleTeamId, current.displaySampleTeamName, current.displaySampleReceivingLocationId, current.displaySampleReceivingLocationName],
+    ['PCS-DISPLAY-SAMPLE-TEAM', '制作团队', 'PCS-DISPLAY-SAMPLE-AREA', '销售展示样衣制作区'],
+  )
+  for (const taskType of ['BASE_PATTERN', 'PATTERN_ARTWORK', 'DISPLAY_SAMPLE'] as const) {
     const task = current.professionalTasks.find((item) => item.taskType === taskType)
     if (!task) continue
     const executor = {
@@ -196,10 +199,11 @@ async function createSampling(
       })
     }
   }
+  assert.equal(getEngineeringIndependentSamplingStep(current), 'RESULT_CONFIRMATION')
   if (!confirmedAt) return current
   return confirmEngineeringIndependentSamplingResult({
     samplingTaskId: created.samplingTaskId,
-    actor: merchandiser,
+    actor: buyer,
     resultVersion: `v-${marker}`,
     resultSummary: `${marker} 整单成果`,
     confirmedAt,
@@ -211,7 +215,7 @@ const newResult = await createSampling('NEW', ['DISPLAY_SAMPLE', 'PATTERN_ARTWOR
 const unconfirmed = await createSampling('PENDING', ['DISPLAY_SAMPLE'])
 
 const reusable = listReusableEngineeringIndependentProfessionalResults(targetStyle.styleCode)
-assert.ok(reusable.length >= 6, '两份已确认成果的专业任务必须可供工程主单逐项选择')
+assert.ok(reusable.length >= 6, '两份已确认成果的专业任务必须可供生产准备单逐项选择')
 assert.ok(reusable.every((item) => item.samplingTaskId !== unconfirmed.samplingTaskId), '未整单确认成果不得进入候选')
 assert.ok(reusable.every((item) => item.completedAt), '专业任务自身未完成不得进入候选')
 
@@ -271,42 +275,53 @@ function decision(
 }
 
 const draft = createDraft('A6-NORMAL')
-const confirmed = confirmEngineeringMasterTaskPlan(draft.masterOrderId, {
+assert.equal(draft.sourceDesignRevisionTaskId, newResult.samplingTaskId, '生产准备单创建时必须锁定最近一张已完成设计改款')
+assert.deepEqual(draft.sourceDesignFileIds, newResult.designFiles.map((file) => file.fileId), '设计稿必须与锁定的设计改款来源一致')
+assert.throws(() => confirmEngineeringMasterTaskPlan(draft.masterOrderId, {
   confirmedBy: merchandiser.userName,
   confirmedById: merchandiser.userId,
   confirmedByRole: merchandiser.role,
   selectedConditionalTaskTypes: [],
   priorResultDecisions: [
     decision('BASE_PATTERN_WOVEN', oldResult, 'BASE_PATTERN', '复用'),
+  ],
+}), /版本已失效|不能采用/, '发布时不得改选另一张设计改款的基码纸样')
+const confirmed = confirmEngineeringMasterTaskPlan(draft.masterOrderId, {
+  confirmedBy: merchandiser.userName,
+  confirmedById: merchandiser.userId,
+  confirmedByRole: merchandiser.role,
+  selectedConditionalTaskTypes: [],
+  priorResultDecisions: [
+    decision('BASE_PATTERN_WOVEN', newResult, 'BASE_PATTERN', '复用'),
     decision('PATTERN_ARTWORK', newResult, 'PATTERN_ARTWORK', '不采用'),
   ],
 })
 assert.equal(confirmed.priorResultReuseLines.length, 2)
 const reusedLine = confirmed.priorResultReuseLines.find((line) => line.resultType === 'BASE_PATTERN_WOVEN')!
-assert.equal(reusedLine.sourceSamplingTaskId, oldResult.samplingTaskId, '必须保留跟单改选的历史来源')
-assert.equal(reusedLine.sourceResultVersion, oldResult.resultVersion)
+assert.equal(reusedLine.sourceSamplingTaskId, newResult.samplingTaskId, '基码纸样必须来自主单锁定的同一张设计改款')
+assert.equal(reusedLine.sourceResultVersion, newResult.resultVersion)
+assert.ok(confirmed.priorResultReuseLines.every((line) => line.sourceSamplingTaskId === newResult.samplingTaskId), '所有前期资料必须来自同一张设计改款')
 assert.equal(reusedLine.confirmedById, merchandiser.userId)
 assert.ok(reusedLine.confirmedAt)
-const reusedBase = confirmed.tasks.find((task) => task.taskType === 'BASE_PATTERN_WOVEN')!
-assert.equal(reusedBase.status, '已完成')
-assert.equal(reusedBase.currentRoundNo, 0, '复用不得生成重复执行轮次')
-assert.equal(reusedBase.startedAt, '', '复用不得伪造本次执行开始时间')
-assert.equal(reusedBase.effectiveCompletedAt, '', '复用不得计入本次执行完成时间')
+assert.equal(confirmed.tasks.some((task) => task.taskType === 'BASE_PATTERN_WOVEN'), false, '生产准备阶段不得重复生成梭织基码纸样任务')
 const redoneSample = confirmed.tasks.find((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')!
-assert.equal(redoneSample.status, '待开始', '前置复用后，重做任务必须解锁为工程主单来源的新任务')
+assert.equal(redoneSample.status, '待开始', '首单样衣必须作为生产准备单来源的新任务直接解锁')
 assert.equal(redoneSample.sourceType, 'ENGINEERING_MASTER')
-assert.deepEqual(redoneSample.dependencySatisfaction, [{
-  dependencyTaskType: 'BASE_PATTERN_WOVEN',
-  satisfactionType: 'PRIOR_RESULT_REUSED',
-  sourceId: reusedLine.sourceTaskId,
-}])
+assert.deepEqual(redoneSample.dependencySatisfaction, [], '设计改款基码纸样以输入资料承接，不伪装成生产准备任务依赖')
+assert.equal(confirmed.tasks.find((task) => task.taskType === 'SIZE_PATTERN_WOVEN')?.status, '待开始', '齐码纸样应与首单样衣并行解锁')
 assert.equal(confirmed.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')?.status, '未启用', '不采用不得启用任务或满足依赖')
+const inheritedBomSources = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', confirmed.masterOrderId)
+  .map((version) => version.sourceVersionId ? getEngineeringBomVersionById(version.sourceVersionId) : null)
+assert.ok(inheritedBomSources.length > 0)
+assert.ok(inheritedBomSources.every((version) => version?.ownerStage === 'INDEPENDENT_SAMPLING' && version.ownerId === newResult.samplingTaskId), 'BOM 必须与设计稿、基码纸样来自同一张设计改款')
 
 const detailHtml = renderPcsEngineeringMasterDetailPage(createDraft('A6-UI').masterOrderId)
-assert.match(detailHtml, /前期成果/)
+assert.match(detailHtml, /前期资料/)
 assert.match(detailHtml, /推荐/)
 assert.match(detailHtml, /重新执行/)
 assert.match(detailHtml, /不采用/)
+assert.match(detailHtml, new RegExp(newResult.samplingTaskCode))
+assert.doesNotMatch(detailHtml, new RegExp(oldResult.samplingTaskCode), '发布页面不得出现其他设计改款来源')
 
 const blockedDraft = createDraft('A6-UNCONFIRMED')
 assert.throws(() => confirmEngineeringMasterTaskPlan(blockedDraft.masterOrderId, {
@@ -331,6 +346,6 @@ assert.throws(() => confirmEngineeringMasterTaskPlan(dependencyDraft.masterOrder
     decision('BASE_PATTERN_WOVEN', newResult, 'BASE_PATTERN', '不采用'),
     decision('PATTERN_ARTWORK', newResult, 'PATTERN_ARTWORK', '不采用'),
   ],
-}), /不能选择不采用/, '不采用不能满足必做任务或下游依赖')
+}), /生产准备阶段不再新增基码纸样任务|请选择复用/, '生产准备必须承接设计改款基码纸样，不能选择不采用或重新生成')
 
 console.log('pcs-engineering-prior-result-reuse.spec PASS')

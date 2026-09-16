@@ -359,11 +359,13 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     : undefined
   const productCode = presentation.productCode
     || snapshot?.spuCode
+    || order.sourceSnapshot?.targetSpuCode
     || sourceProductionOrder?.demandSnapshot.spuCode
     || order.stockMaterialId
     || '—'
   const productName = presentation.productName
     || snapshot?.spuName
+    || order.sourceSnapshot?.targetSpuName
     || sourceProductionOrder?.demandSnapshot.spuName
     || (order.sourceType === 'STOCK' ? order.stockMaterialName || '备货物料' : '')
     || (order.sourceType === 'CUT_PIECE_SUPPLEMENT' ? '生产补料' : '')
@@ -427,7 +429,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     workOrderNo: order.dyeOrderNo,
     platformWorkOrderNo: order.dyeOrderNo,
     taskNo: order.taskNo,
-    productionOrderNo: order.sourceProductionOrderNo || '',
+    productionOrderNo: order.sourceType === 'DESIGN_REVISION' ? order.sourceSnapshot?.designRevisionTaskNo || '' : order.sourceProductionOrderNo || '',
     productCode,
     productName,
     productImageUrl: images?.product || presentation.productImageUrl || '',
@@ -435,13 +437,17 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
       ? '备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? (order.sourceSnapshot?.supplementRecordNo || '补料创建')
+        : order.sourceType === 'DESIGN_REVISION'
+          ? (order.sourceSnapshot?.designRevisionTaskNo || '设计改款')
         : '关联需求单未记录'),
     purchaseType: presentation.purchaseType || sourceProductionOrder?.demandSnapshot.saleType || (order.sourceType === 'STOCK'
       ? '备货'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? '补料'
+        : order.sourceType === 'DESIGN_REVISION'
+          ? '设计改款'
         : '—'),
-    salesType: presentation.salesType || sourceProductionOrder?.demandSnapshot.saleType || demo?.salesType || (order.sourceType === 'STOCK' ? '采购备货' : '尚未指定'),
+    salesType: presentation.salesType || sourceProductionOrder?.demandSnapshot.saleType || demo?.salesType || (order.sourceType === 'STOCK' ? '采购备货' : order.sourceType === 'DESIGN_REVISION' ? '设计改款' : '尚未指定'),
     receiverInventoryQty: 0,
     gtgInventoryQty: 0,
     materialName,

@@ -1,7 +1,7 @@
 // @page-pattern: list
 // 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
-// 辅料下单任务模块：读取工程主单任务记录，列表 / 详情渲染与列表分派注册。
-// 页面只读展示任务记录，任务状态推进在工程主单详情完成。
+// 辅料下单任务模块：读取生产准备单任务记录，列表 / 详情渲染与列表分派注册。
+// 页面只读展示任务记录，任务状态推进在生产准备单详情完成。
 
 import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types.ts'
 import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
@@ -38,7 +38,7 @@ import {
 } from './master-task-common.ts'
 
 const PURCHASE_TASK_TYPES = ['ACCESSORY_PURCHASE'] as const
-const PURCHASE_LIST_PATH = '/pcs/engineering/purchase'
+const PURCHASE_LIST_PATH = '/pcs/production-preparation/purchase'
 const PURCHASE_DETAIL_PAGE_SIZE = 5
 const PURCHASE_FILTER_STATUS_OPTIONS = ['待开始', '进行中', '已完成']
 const purchaseDetailPages = new Map<string, number>()
@@ -203,7 +203,7 @@ function getPurchaseTasksFiltered(): EngineeringTaskRecord[] {
 
 const PURCHASE_LIST_COLUMNS = createEngineeringListColumns([
   { key: 'task', title: '辅料下单任务', width: 210, required: true, freezeable: true, sortable: true },
-  { key: 'master', title: '工程主单', width: 160, required: true, freezeable: true, sortable: true },
+  { key: 'master', title: '生产准备单', width: 160, required: true, freezeable: true, sortable: true },
   { key: 'status', title: '状态', width: 130, required: true, freezeable: true, sortable: true },
   { key: 'team', title: '负责团队', width: 120, sortable: true },
   { key: 'material', title: '物料需求', width: 230, sortable: true },
@@ -222,7 +222,7 @@ function getPurchaseListRows(): EngineeringListRow[] {
           <p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>
         </div>`,
         master: master
-          ? `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/engineering/masters/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>`
+          ? `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>`
           : escapeHtml(task.masterOrderId),
         status: renderStatusBadge(task.status),
         team: escapeHtml(task.ownerTeamName || '-'),
@@ -260,8 +260,8 @@ function renderPurchaseListPage(): string {
   return renderEngineeringStandardListPage({
     module: 'purchase',
     title: '辅料下单任务',
-    createLabel: '查看工程主单',
-    createAction: 'nav:/pcs/engineering/masters',
+    createLabel: '查看生产准备单',
+    createAction: 'nav:/pcs/production-preparation/orders',
     filtersHtml: renderListFilters({
       searchPlaceholder: '搜索任务编号 / 任务名称 / 主单编号 / 款式编码 / 负责团队',
       listState: state.purchaseList,

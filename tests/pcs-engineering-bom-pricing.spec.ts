@@ -31,16 +31,11 @@ import {
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
-import {
-  listStyleArchives,
-  resetStyleArchiveRepository,
-} from '../src/data/pcs-style-archive-repository.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 
-resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
-const technicalVersionStyle = listStyleArchives()[0]
-assert.ok(technicalVersionStyle)
+const technicalVersionStyle = resetAndGetProductionPreparationStyle()
 const technicalVersionMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: technicalVersionStyle.styleId,
   styleCode: technicalVersionStyle.styleCode,
@@ -202,7 +197,7 @@ assert.throws(
       },
       '跟单',
     ),
-  /只有买手可以维护 BOM 与价格/,
+  /只有买手或管理员可以维护 BOM 与价格/,
 )
 
 const draftLine = buildEngineeringBomMaterialLine(
@@ -296,7 +291,7 @@ changeSkuCost(pricedSku.materialSkuId, 0)
 const invalidDraft = resolveEngineeringBomDraft({ materialLines: [draftLine], customCosts: [] })
 assert.equal(invalidDraft.materialLines[0]?.priceStatus, '标准单价失效')
 assert.throws(() => assertEngineeringBomCanSubmitForReview(invalidDraft, '买手'), /标准单价失效/)
-assert.throws(() => assertEngineeringBomCanSubmitForReview(invalidDraft, '跟单'), /只有买手可以维护 BOM 与价格/)
+assert.throws(() => assertEngineeringBomCanSubmitForReview(invalidDraft, '跟单'), /只有买手或管理员可以维护 BOM 与价格/)
 
 const formalSku = createPricedMaterial({ costPrice: 8.7654, pricingUnit: '米', usageUnit: '米', factor: 1 })
 const baseVersion = listTechnicalDataVersions()[0]
