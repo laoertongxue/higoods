@@ -1,5 +1,5 @@
 import {getFactoryReceivingSource} from './factory-receiving.ts'
-import {convertReceiptQuantity,listFactoryReceipts,getHistoricalReceiptPosition,listReceivingAllocations} from './factory-receiving.ts'
+import {convertReceiptQuantity,listFactoryReceipts,getHistoricalReceiptPosition,getProcessOrderReceivingFacts} from './factory-receiving.ts'
 import type {FactoryWarehouseInboundRecord} from './factory-internal-warehouse.ts'
 /** Actual receipt lines are the only inbound source; scans and deliveries never enter here. */
 export function buildFactoryReceiptInboundRecords():FactoryWarehouseInboundRecord[]{
@@ -14,8 +14,9 @@ export function buildFactoryReceiptInboundRecords():FactoryWarehouseInboundRecor
  }))
 }
 export function getDyeFactoryReceiptProjection(orderId:string,unit:string,kind:'dye'|'water'|'print'='dye'){
- const allocations=listReceivingAllocations(),key=kind==='print'?'printingOrderId':kind==='water'?'waterOrderId':'dyeOrderId'
- return listFactoryReceipts().flatMap(r=>r.lines.flatMap(l=>{
+ const { allocations, receipts } = getProcessOrderReceivingFacts(orderId, kind)
+ const key=kind==='print'?'printingOrderId':kind==='water'?'waterOrderId':'dyeOrderId'
+ return receipts.flatMap(r=>r.lines.flatMap(l=>{
   const qty=l[key]===orderId?l.qty:allocations.filter(a=>a.receiptLineId===l.id&&a[key]===orderId).reduce((n,a)=>n+a.qty,0)
   const associated=l[key]===orderId||allocations.some(a=>a.receiptLineId===l.id&&a[key]===orderId)
   const converted=convertReceiptQuantity(qty,l.unit,unit)??(l.businessUnit===unit&&l.businessQty!==undefined&&l.qty>0?qty/l.qty*l.businessQty:l.qty===0?0:undefined)

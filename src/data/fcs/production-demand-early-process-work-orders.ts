@@ -3,6 +3,7 @@ import {
   cancelProductionDemandDyeWorkOrder,
   linkProductionDemandDyeReplacement,
   listDyeWorkOrders,
+  runDyeProcessMutation,
   prepareProductionDemandDyeMatch,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
@@ -10,6 +11,7 @@ import {
   cancelProductionDemandPrintWorkOrder,
   linkProductionDemandPrintReplacement,
   listPrintWorkOrders,
+  runPrintProcessMutation,
   prepareProductionDemandPrintMatch,
   type PrintWorkOrder,
 } from './printing-task-domain.ts'
@@ -300,23 +302,26 @@ export function createProductionDemandEarlyProcessWorkOrder(
     createdBy: input.operatorName,
     dyeSampleWaitType: 'NONE',
   }
-  const result = ensureProcessWorkOrders(generation)
-  const workOrder = input.processCode === 'DYE'
-    ? listDyeWorkOrders().find((order) => order.dyeOrderId === result.dyeWorkOrderId)
-    : listPrintWorkOrders().find((order) => order.printOrderId === result.printWorkOrderId)
-  if (!workOrder) throw new Error('提前加工单创建后未能读取')
-  const workOrderId = input.processCode === 'DYE' ? (workOrder as DyeWorkOrder).dyeOrderId : (workOrder as PrintWorkOrder).printOrderId
-  if (input.replacesWorkOrderId) {
-    if (input.processCode === 'DYE') linkProductionDemandDyeReplacement(input.replacesWorkOrderId, workOrderId, createdAt)
-    else linkProductionDemandPrintReplacement(input.replacesWorkOrderId, workOrderId, createdAt)
-  }
-  return {
-    processCode: input.processCode,
-    workOrderId,
-    workOrderNo: input.processCode === 'DYE' ? (workOrder as DyeWorkOrder).dyeOrderNo : (workOrder as PrintWorkOrder).printOrderNo,
-    plannedQty,
-    qtyUnit: input.qtyUnit,
-  }
+  const mutate = input.processCode === 'DYE' ? runDyeProcessMutation : runPrintProcessMutation
+  return mutate(() => {
+    const result = ensureProcessWorkOrders(generation)
+    const workOrder = input.processCode === 'DYE'
+      ? listDyeWorkOrders().find((order) => order.dyeOrderId === result.dyeWorkOrderId)
+      : listPrintWorkOrders().find((order) => order.printOrderId === result.printWorkOrderId)
+    if (!workOrder) throw new Error('提前加工单创建后未能读取')
+    const workOrderId = input.processCode === 'DYE' ? (workOrder as DyeWorkOrder).dyeOrderId : (workOrder as PrintWorkOrder).printOrderId
+    if (input.replacesWorkOrderId) {
+      if (input.processCode === 'DYE') linkProductionDemandDyeReplacement(input.replacesWorkOrderId, workOrderId, createdAt)
+      else linkProductionDemandPrintReplacement(input.replacesWorkOrderId, workOrderId, createdAt)
+    }
+    return {
+      processCode: input.processCode,
+      workOrderId,
+      workOrderNo: input.processCode === 'DYE' ? (workOrder as DyeWorkOrder).dyeOrderNo : (workOrder as PrintWorkOrder).printOrderNo,
+      plannedQty,
+      qtyUnit: input.qtyUnit,
+    }
+  })
 }
 
 function applyAcceptanceState(row: EarlyProcessAcceptanceRow, result: EarlyProcessCreatedResult, replacementByScenario: Map<string, string>): void {

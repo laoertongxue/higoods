@@ -1,16 +1,16 @@
 import {prepareFactoryReceipt,savePreparedFactoryReceipt,type FactoryReceiptInput} from './factory-receiving.ts'
 import { localDateTimeText } from '../../utils.ts'
-import { runDyeProcessMutation, completeDyeInputReceipt, getDyeWorkOrderById } from './dyeing-task-domain.ts'
-import { getPreparationMaterialReceiptSources } from './preparation-material-receipt-sources.ts'
+import { runDyeProcessMutation, completeDyeInputReceipt, getDyeWorkOrderById, type DyeWorkOrder } from './dyeing-task-domain.ts'
+import { getPreparationMaterialReceiptSources, type CentralTransferDocument } from './preparation-material-receipt-sources.ts'
 import { receivePreparationHandoverForTask } from './pda-handover-events.ts'
 
-export function getDyeMaterialReceiptOptions(orderId: string) {
-  const order = getDyeWorkOrderById(orderId)
+export function getDyeMaterialReceiptOptions(orderId: string, order: DyeWorkOrder | undefined = getDyeWorkOrderById(orderId), warehouseDocuments?: readonly CentralTransferDocument[]) {
   return order ? getPreparationMaterialReceiptSources(
     orderId,
     order.qtyUnit,
     (order.materialReceipts ?? []).map((item) => ({ sourceRecordId: item.upstreamRecordId, qty: item.qty })),
     { targetFactoryId: order.dyeFactoryId, targetTaskId: order.taskId, materialCodes: [order.rawMaterialSku, order.materialId], bomItemIds: [order.sourceSnapshot?.bomItemId, ...(order.sourceSnapshot?.bomItemIds ?? [])].filter((value): value is string => Boolean(value)) },
+    warehouseDocuments,
   ) : { requiresSource: true as const, requiresUpstream: false, sourceMode: 'UNRESOLVED' as const, options: [], blockReason: '未找到染色加工单。' }
 }
 /** Compatibility entry: scalar quantities cannot describe rolls, actual weights or positions. */

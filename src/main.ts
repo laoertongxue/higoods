@@ -288,6 +288,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await getProcessWaterSolubleOrdersPageModule()
     return page.handleProcessWaterSolubleOrdersEvent(eventTarget)
   }
+  if (pagePath === '/fcs/process/dye-orders') {
+    const page = await import('./pages/process-dye-orders.ts')
+    return page.handleProcessDyeOrdersEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/process/print-orders') {
+    const page = await import('./pages/process-print-orders.ts')
+    return page.handleProcessPrintOrdersEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
     const page = await getCraftDyeingWaterSolubleOrdersPageModule()
     return page.handleCraftDyeingWaterSolubleOrdersEvent(eventTarget)
@@ -466,6 +474,13 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/process/dye-orders') {
+    return (await import('./pages/process-dye-orders.ts')).closeProcessDyeOrdersOverlays()
+  }
+  if (pagePath === '/fcs/process/print-orders') {
+    return (await import('./pages/process-print-orders.ts')).closeProcessPrintOrdersOverlays()
+  }
   if (
     pathname.startsWith('/fcs/progress/production-orders') ||
     pathname.startsWith('/fcs/production_order_track/index')
@@ -1805,10 +1820,10 @@ document.addEventListener('keydown', async (event) => {
   }
 
   const shouldUseScopedRender = isTechPackPageMounted()
-  const waterSolubleClosesLocally = Boolean(document.querySelector('[data-testid="water-soluble-orders-page"]'))
+  const closesLocally = Boolean(document.querySelector('[data-testid="water-soluble-orders-page"], [data-process-dye-orders-root], [data-process-print-orders-root]'))
   if (await closeDialogsOnEscape()) {
-    // 水溶页面的关闭处理器已更新抽屉与列设置区域，保留列表、焦点和滚动位置。
-    if (waterSolubleClosesLocally) return
+    // These handlers already update their overlays; retain the list and scroll position.
+    if (closesLocally) return
     if (shouldUseScopedRender) {
       await renderPageContentOnly()
     } else {

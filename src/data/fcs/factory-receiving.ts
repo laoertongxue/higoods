@@ -85,7 +85,24 @@ export function assertReceiptPosition(factoryId:string,p:ReceiptPosition){const 
 export function getHistoricalReceiptPosition(factoryId:string,p:ReceiptPosition){const resolved=resolveFactoryWarehouseLocation(p.warehouseId,p.locationId);if(!resolved||resolved.warehouse.factoryId!==factoryId)throw new Error('原入库位置不存在，请保留原单并联系主管核查。');return displayPosition(resolved)}
 export function setDefaultFactoryReceiptPosition(factoryId:string,p:ReceiptPosition){assertReceiptPosition(factoryId,p);const next=clone(read());next.defaults[factoryId]=p;save(next)}
 export function listFactoryReceipts(factoryId?:string){return clone(read().receipts.filter(r=>!factoryId||r.factoryId===factoryId))}
-export function getSourceActualReceipts(sourceId:string){return listFactoryReceipts().flatMap(r=>r.lines.filter(l=>l.sourceId===sourceId).map(l=>({receiptId:r.id,receivedAt:r.receivedAt,receivedBy:r.operatorName,factoryId:r.factoryId,...l})))}
+
+/** Filter before cloning: list projections must not copy every factory's facts for every order. */
+export function getProcessOrderReceivingFacts(orderId: string, kind: 'dye' | 'water' | 'print', factoryId?: string) {
+ const data = read()
+ const key = kind === 'print' ? 'printingOrderId' : kind === 'water' ? 'waterOrderId' : 'dyeOrderId'
+ const allocations = data.allocations.filter(allocation => allocation[key] === orderId)
+ const allocatedLineIds = new Set(allocations.map(allocation => allocation.receiptLineId))
+ const receipts = data.receipts.flatMap(receipt => {
+  const lines = receipt.lines.filter(line => line[key] === orderId || allocatedLineIds.has(line.id))
+  return lines.length ? [{ ...receipt, lines }] : []
+ })
+ const allocatedSourceIds = new Set(receipts.flatMap(receipt => receipt.lines.filter(line => allocatedLineIds.has(line.id)).map(line => line.sourceId)))
+ const sources = data.sources.filter(source => (!factoryId || source.targetFactoryId === factoryId)
+  && eligibleReceivingSource(source)
+  && (source.lines.some(line => line[key] === orderId) || allocatedSourceIds.has(source.id)))
+ return clone({ sources, receipts, allocations })
+}
+export function getSourceActualReceipts(sourceId:string){return clone(read().receipts.flatMap(r=>r.lines.filter(l=>l.sourceId===sourceId).map(l=>({receiptId:r.id,receivedAt:r.receivedAt,receivedBy:r.operatorName,factoryId:r.factoryId,...l}))))}
 export function listFactoryDeliveryNotes(){return clone(read().deliveries)}
 export function createFactoryDeliveryNote(input:{id:string;deliveredAt:string;createdBy:string;lines:Omit<FactoryDeliveryLine,'id'>[]}):FactoryDeliveryNote {
  const existing=read().deliveries.find(d=>d.id===input.id)
@@ -157,7 +174,7 @@ export interface FactoryMaterialUse {
  id:string; printingOrderId?:string;dyeOrderId?:string; waterOrderId?:string; factoryId:string; operatorName:string; at:string;
  lines:Array<{receiptLineId:string;barcode?:string;qty:number;unit:'Yard'|'kg'}>
 }
-export function listFactoryMaterialUses(){return clone(read().materialUses ?? [])}
+export function listFactoryMaterialUses(orderId?: string){return clone((read().materialUses ?? []).filter(use => !orderId || use.printingOrderId === orderId || use.dyeOrderId === orderId || use.waterOrderId === orderId))}
 export function convertReceiptQuantity(qty:number,from:string,to:string):number|undefined {
  const canonical=(u:string)=>['米','m'].includes(u)?'m':['Yard','yard','YARD','y'].includes(u)?'Yard':['kg','公斤'].includes(u)?'kg':u
  const a=canonical(from),b=canonical(to)

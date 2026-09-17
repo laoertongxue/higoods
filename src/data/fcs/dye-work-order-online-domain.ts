@@ -225,10 +225,10 @@ function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord
   record.updatedAt = order.updatedAt
 }
 
-function getMutableRecord(dyeOrderId: string): DyeWorkOrderOnlineRecord {
+function getMutableRecord(dyeOrderId: string, snapshot?: DyeWorkOrder): DyeWorkOrderOnlineRecord {
   const existing = records.get(dyeOrderId)
   if (existing) return existing
-  const order = getDyeWorkOrderById(dyeOrderId)
+  const order = snapshot ?? getDyeWorkOrderById(dyeOrderId)
   if (!order) throw new Error('染色加工单不存在')
   const created = makeInitialRecord(order)
   records.set(dyeOrderId, created)
@@ -272,9 +272,8 @@ function statusChange(before: DyeWorkOrderOnlineStatus, after: DyeWorkOrderOnlin
   return before === after ? [] : [{ field: 'status', label: '状态', before, after }]
 }
 
-export function getDyeWorkOrderOnlineRecord(dyeOrderId: string): DyeWorkOrderOnlineRecord {
-  const record = getMutableRecord(dyeOrderId)
-  const order = getDyeWorkOrderById(dyeOrderId)
+export function getDyeWorkOrderOnlineRecord(dyeOrderId: string, order = getDyeWorkOrderById(dyeOrderId)): DyeWorkOrderOnlineRecord {
+  const record = getMutableRecord(dyeOrderId, order)
   if (order) syncOnlineRecordFromCanonicalWorkOrder(record, order)
   return cloneRecord(record)
 }

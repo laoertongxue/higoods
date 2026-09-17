@@ -8,7 +8,7 @@ import { DYE_DEMO_DETAILS, DYE_DEMO_PARTNER_SCENARIOS, DYE_PARTNERS, dyePartnerF
 import { listWarehouseIssueOrders, listWarehouseInternalTransferOrders } from './warehouse-material-execution.ts'
 import { listPdaHandoverHeads, getPdaHandoverRecordsByHead } from './pda-handover-events.ts'
 import { getDyeMaterialReceiptOptions } from './dyeing-material-receipts.ts'
-import { getProcessOrderTaskRelationView } from './process-order-task-links.ts'
+import { getProcessOrderTaskRelationView, withProcessOrderTaskRelationRead, type ProcessOrderTaskRelationView } from './process-order-task-links.ts'
 import {
   listDyeWorkOrders,
   listDyeDispatchDocuments,
@@ -208,7 +208,7 @@ function factoryPartner(id: string, name: string, processName: string): DyePartn
 }
 
 /** 来源状态与发出量属于上游单据，不能从染色接收量推导。 */
-function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof getDyeMaterialReceiptOptions>, relation: ReturnType<typeof getProcessOrderTaskRelationView>): DyeUpstreamDocument[] {
+function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof getDyeMaterialReceiptOptions>, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>): DyeUpstreamDocument[] {
   const recordIds = new Set([...source.options.map(item => item.recordId), ...(order.materialReceipts ?? []).map(item => item.upstreamRecordId)])
   const documents: DyeUpstreamDocument[] = []
   if (order.initialYarnTransfer) {
@@ -217,7 +217,7 @@ function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof g
     documents.push({name:partner.name,partner,documentNo:transfer.documentNo,documentType:'调拨单',status:transfer.status,plannedQty:transfer.plannedNetKg,sentQty:transfer.sentNetKg,unit:'kg'})
   }
   const warehouseStatus: Record<string, string> = {PLANNED:'待备料', PREPARING:'备料中', PARTIALLY_PREPARED:'部分备料', READY:'待调拨', ISSUED:'已调拨', IN_TRANSIT:'调拨在途', RECEIVED:'已收货', CLOSED:'已关闭', PARTIALLY_RETURNED:'部分退回', RETURNED:'已退回'}
-  for (const doc of [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()]) {
+  for (const doc of warehouseDocs) {
     const lines = doc.lines.filter(line => recordIds.has(line.lineId) || (doc.runtimeTaskId === order.taskId && [order.rawMaterialSku, order.materialId].includes(line.materialCode || '')))
     if (!lines.length) continue
     for (const unit of new Set(lines.map(line => line.unit))) {
@@ -226,9 +226,9 @@ function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof g
       documents.push({name: partner.name, partner, documentNo: doc.docNo, documentType:doc.docType==='ISSUE'?'出库单':'调拨单', status: doc.docType==='ISSUE'?(doc.status==='ISSUED'?'已出库':doc.status==='READY'?'待出库':warehouseStatus[doc.status]||'出库处理中'):warehouseStatus[doc.status]||'调拨处理中', plannedQty: round(sameUnit.reduce((sum,line)=>sum+line.plannedQty,0)), sentQty: round(sameUnit.reduce((sum,line)=>sum+(doc.docType === 'ISSUE' ? line.issuedQty : line.transferredQty),0)), unit})
     }
   }
-  const heads = listPdaHandoverHeads()
-  for (const predecessor of relation?.predecessors ?? []) {
-    if (predecessor.documentKind === 'SOURCE_DOCUMENT') continue
+  const predecessors = (relation?.predecessors ?? []).filter(item => item.documentKind !== 'SOURCE_DOCUMENT')
+  const heads = predecessors.length ? listPdaHandoverHeads() : []
+  for (const predecessor of predecessors) {
     const upstream = getProcessWorkOrderById(predecessor.documentId)
     if (!upstream) continue
     const records = heads.filter(head => [head.taskId,head.sourceTaskId].includes(upstream.taskId)).flatMap(head=>getPdaHandoverRecordsByHead(head.handoverId)).filter(record=>recordIds.has(record.handoverRecordId || record.recordId) && record.handoverRecordStatus !== 'VOIDED' && record.qtyUnit === order.qtyUnit)
@@ -343,9 +343,10 @@ export function getDyePendingReceiptQty(records: ReturnType<typeof getDyeOrderHa
   }, 0))
 }
 
-function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrderOnlineRow {
-  const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
-  const axes = getDyeWorkOrderThreeAxisView(order)
+function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>): DyeWorkOrderOnlineRow {
+  const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId, order)
+  const source = getDyeMaterialReceiptOptions(order.dyeOrderId, order, warehouseDocs)
+  const axes = getDyeWorkOrderThreeAxisView(order, source, warehouseDocs)
   const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
   const demo = DYE_DEMO_DETAILS[order.dyeOrderId]
   const images = getDyeOrderImageManifest(order.dyeOrderId)
@@ -358,8 +359,6 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
   const confirmedLossNodes = executionRecords.filter(node => node.finishedAt && node.qtyUnit === order.qtyUnit && typeof node.lossQty === 'number')
   const lossQty = round(confirmedLossNodes.reduce((sum, node) => sum + (node.lossQty ?? 0), 0))
   const receiptKnown = order.yarnOrderedWeightKg!==undefined || Boolean(order.materialReceipts?.length) || (!rawMaterialQty && !completedQty && axes.processingStatus !== 'PROCESSING')
-  const source = getDyeMaterialReceiptOptions(order.dyeOrderId)
-  const relation = getProcessOrderTaskRelationView(order.dyeOrderId)
   const upstreamLinks = (relation?.predecessors ?? []).filter(item => item.documentKind !== 'SOURCE_DOCUMENT').map(item => ({label: `${item.processName} · ${item.documentNo}`, href: item.href}))
   const downstreamLinks = (relation?.successors ?? []).filter(item => item.documentKind !== 'SOURCE_DOCUMENT').map(item => ({label: `${item.processName} · ${item.documentNo}`, href: item.href}))
   const orderedAt = order.createdAt
@@ -396,7 +395,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     ? snapshotMaterialTypes[0]
     : /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`) ? '纱线' : '面料'
   const isYarn = materialType === '纱线' || /纱|yarn/i.test(materialType)
-  const upstreamDocuments = buildUpstreamDocuments(order, source, relation)
+  const upstreamDocuments = buildUpstreamDocuments(order, source, relation, warehouseDocs)
   const downstreamPartner = DYE_DEMO_PARTNER_SCENARIOS[order.dyeOrderId]?.downstream
   const outputRolls = getDyeOutputRolls(order.dyeOrderId)
   const composition = demo?.composition || (order.composition && ![snapshot?.materialName, ...(snapshot?.materialItems ?? []).map(item => item.materialName)].includes(order.composition) && !/主面料|放行|补料|净色/.test(order.composition) ? order.composition : '成分待补充')
@@ -544,7 +543,7 @@ export function listDyeWorkOrderOnlineRows(): DyeWorkOrderOnlineRow[] {
       sentAt: DYE_INPUT_TRANSFER_FIXTURES.find(fixture => fixture.taskId === doc.runtimeTaskId && doc.lines.some(line => line.lineId === `ISSUE-DYE-${fixture.workOrderId}-L001`))?.issuedAt})),
     upstreamHandovers: listPdaHandoverHeads().flatMap(head => getPdaHandoverRecordsByHead(head.handoverId)),
   }
-  return orders.map(order => makeRow(order, timeContext))
+  return withProcessOrderTaskRelationRead(() => orders.map(order => makeRow(order, timeContext, getProcessOrderTaskRelationView(order.dyeOrderId), warehouseDocs)))
 }
 
 function matchesBooleanFilter(value: boolean, filter: '全部' | '是' | '否'): boolean {

@@ -50,7 +50,7 @@ export interface PreparationMaterialReceiptSourceConstraints {
   bomItemIds?: readonly string[]
 }
 
-type CentralTransferDocument = WarehouseIssueOrder | WarehouseInternalTransferOrder
+export type CentralTransferDocument = WarehouseIssueOrder | WarehouseInternalTransferOrder
 
 function normalizeProcessCode(processCode: string): string {
   return processCode.trim().toUpperCase().replace(/^PROC_/, '').replaceAll('-', '_')
@@ -115,9 +115,9 @@ export function normalizeCentralTransferReceiptSources(input: {
     .filter(record => record.unit === input.qtyUnit && record.availableQty > 0)
 }
 
-export function getPreparationMaterialSourceDocumentNo(sourceRecordId: string | undefined): string | undefined {
+export function getPreparationMaterialSourceDocumentNo(sourceRecordId: string | undefined, documents?: readonly CentralTransferDocument[]): string | undefined {
   if (!sourceRecordId) return undefined
-  const centralDocument = [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()]
+  const centralDocument = (documents ?? [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()])
     .find(document => document.lines.some(line => line.lineId === sourceRecordId))
   if (centralDocument) return centralDocument.docNo
   const handoverHead = listPdaHandoverHeads().find(head => (
@@ -133,6 +133,7 @@ export function getPreparationMaterialReceiptSources(
   qtyUnit: string,
   consumed: readonly PreparationConsumedSourceQuantity[] = [],
   constraints: PreparationMaterialReceiptSourceConstraints = {},
+  warehouseDocuments?: readonly CentralTransferDocument[],
 ): PreparationMaterialReceiptSourceResult {
   const relation = getProcessOrderTaskRelationView(orderId)
   if (!relation) {
@@ -167,7 +168,9 @@ export function getPreparationMaterialReceiptSources(
   })
   const hasRoutePredecessor = predecessors.length > 0 || pendingPredecessors.length > 0
   if (!hasRoutePredecessor) {
-    const documents = relation.current.productionOrderId
+    const documents = warehouseDocuments
+      ? warehouseDocuments.filter(document => document.productionOrderId === relation.current.productionOrderId)
+      : relation.current.productionOrderId
       ? [
           ...listWarehouseIssueOrdersByOrder(relation.current.productionOrderId),
           ...listWarehouseInternalTransferOrdersByOrder(relation.current.productionOrderId),

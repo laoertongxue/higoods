@@ -981,6 +981,19 @@ export function buildProcessOrderTaskRelationViewFromDocuments(
 }
 
 export function getProcessOrderTaskRelationView(documentId: string): ProcessOrderTaskRelationView | undefined {
+  if (relationReadDepth > 0) {
+    if (!relationReadScope) {
+      const documents = buildDocumentRefs()
+      const entriesByOrder = listEntriesByProductionOrder(documents)
+      relationReadScope = { documents, entriesByOrder, links: buildProcessOrderTaskLinks(documents, entriesByOrder), views: new Map() }
+    }
+    const scope = relationReadScope
+    if (!scope.views.has(documentId)) {
+      const current = scope.documents.find(document => document.documentId === documentId || document.documentNo === documentId)
+      scope.views.set(documentId, current ? buildRelationView({ current, ...scope }) : undefined)
+    }
+    return scope.views.get(documentId)
+  }
   const preparationSource = listProcessWorkOrderRelationSources().find(order =>
     order.workOrderId === documentId || order.workOrderNo === documentId,
   )
@@ -988,6 +1001,21 @@ export function getProcessOrderTaskRelationView(documentId: string): ProcessOrde
   const documents = buildDocumentRefs(productionOrderId)
   const entriesByOrder = listEntriesByProductionOrder(documents)
   return buildProcessOrderTaskRelationViewFromDocuments(documentId, documents, entriesByOrder)
+}
+
+// Read scopes are synchronous and discarded in finally; later mutations always get fresh facts.
+let relationReadScope: {
+  documents: ProcessOrderTaskDocumentRef[]
+  entriesByOrder: Map<string, TechnicalProcessEntry[]>
+  links: ProcessOrderTaskLink[]
+  views: Map<string, ProcessOrderTaskRelationView | undefined>
+} | undefined
+let relationReadDepth = 0
+
+export function withProcessOrderTaskRelationRead<T>(read: () => T): T {
+  relationReadDepth += 1
+  try { return read() }
+  finally { if (--relationReadDepth === 0) relationReadScope = undefined }
 }
 
 export function getProcessOrderTaskRelationViewByDetail(

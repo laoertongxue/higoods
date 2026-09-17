@@ -1635,6 +1635,13 @@ export function listPdaGenericProcessTasks(): PdaGenericTaskMock[] {
   return [...PDA_GENERIC_PROCESS_TASKS, ...buildKolGotoPdaTasks(), ...PDA_TEST_FACTORY_PROCESS_TASKS]
 }
 
+/** Point reads of registered dye/print tasks need no unrelated KOL task clones. */
+export function getPdaGenericProcessTaskById(taskId: string): PdaGenericTaskMock | undefined {
+  return PDA_GENERIC_PROCESS_TASKS.find(task => task.taskId === taskId)
+    || buildKolGotoPdaTasks().find(task => task.taskId === taskId)
+    || PDA_TEST_FACTORY_PROCESS_TASKS.find(task => task.taskId === taskId)
+}
+
 export function registerPdaGenericProcessTask(task: PdaGenericTaskMock): void {
   const index = PDA_GENERIC_PROCESS_TASKS.findIndex((item) => item.taskId === task.taskId)
   if (index >= 0) {

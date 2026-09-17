@@ -9,7 +9,7 @@ import {
 } from './process-order-flow-contract.ts'
 import { getProcessOrderTaskRelationView } from './process-order-task-links.ts'
 import { getDyeMaterialReceiptOptions } from './dyeing-material-receipts.ts'
-import { getPreparationMaterialSourceDocumentNo } from './preparation-material-receipt-sources.ts'
+import { getPreparationMaterialSourceDocumentNo, type CentralTransferDocument } from './preparation-material-receipt-sources.ts'
 import {
   getDyeOrderHandoverSummary,
   listDyeExecutionNodeRecords,
@@ -46,7 +46,7 @@ function unique(values: Array<string | undefined>): string[] {
 
 function deriveReceiverView(input: {
   documentId: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
+  sourceType: 'PRODUCTION_ORDER' | 'PRODUCTION_DEMAND' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
   productionOrderNo?: string
   bomItemIds?: readonly string[]
   receivingTeamName?: string
@@ -128,8 +128,7 @@ function deriveReceiverView(input: {
   }
 }
 
-export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder): ProcessOrderThreeAxisView {
-  const source = getDyeMaterialReceiptOptions(order.dyeOrderId)
+export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder, source = getDyeMaterialReceiptOptions(order.dyeOrderId, order), warehouseDocuments?: readonly CentralTransferDocument[]): ProcessOrderThreeAxisView {
   const receivedInputQty = (order.materialReceipts ?? []).reduce((sum, item) => sum + item.qty, 0)
   const sourceAvailableQty = source.options.reduce((sum, item) => sum + item.availableQty, 0)
   const currentNodes = listDyeExecutionNodeRecords(order.dyeOrderId)
@@ -157,7 +156,7 @@ export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder): ProcessOrderT
     sourceMode: source.sourceMode,
     sourceDocumentNos: unique([
       ...source.options.map(item => item.documentNo),
-      ...(order.materialReceipts ?? []).map(item => getPreparationMaterialSourceDocumentNo(item.upstreamRecordId) || item.upstreamRecordId),
+      ...(order.materialReceipts ?? []).map(item => getPreparationMaterialSourceDocumentNo(item.upstreamRecordId, warehouseDocuments) || item.upstreamRecordId),
     ]),
     receivedInputQty,
     completedQty,

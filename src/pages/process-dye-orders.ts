@@ -1,5 +1,10 @@
 // @page-pattern: list
 
+import { DYE_FACTORY_TABS } from '../data/fcs/dye-work-order-demo-details.ts'
+import { createDyeOrderDisplayColumns } from './process-work-orders/order-list-columns.ts'
+import { listDyeWorkOrderOnlineRows, getDyeWorkOrderOnlineSummary, type DyeWorkOrderOnlineRow } from '../data/fcs/dye-work-order-online-view.ts'
+import { renderProcessOrderStats } from '../components/ui/process-order-list-presentation.ts'
+
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { listPrepProcessOrders, type PrepProcessOrderFact } from '../data/fcs/page-adapters/process-prep-pages-adapter'
@@ -7,7 +12,6 @@ import { createDyeWorkOrderFromStock } from '../data/fcs/dyeing-task-domain.ts'
 import { listFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import { listProcessWorkOrderStockMaterials } from '../data/fcs/process-work-order-stock.ts'
 import {
-  PLATFORM_PROCESS_STATUS_CLASS,
   listPlatformStatusOptions,
   type PlatformProcessStatus,
 } from '../data/fcs/process-platform-status-adapter.ts'
@@ -19,16 +23,20 @@ import {
   type StandardListColumnPreferences,
   type StandardListSortState,
 } from '../components/ui/list-table-model.ts'
-import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
 import { createProcessOrderListController } from '../components/ui/process-order-list-controller.ts'
 import { getProcessWorkOrderSourceDetailRows } from './process-work-orders/process-work-order-source-view.ts'
 import { renderProcessOrderTaskRelations } from './process-order-task-relations.ts'
+import { ensureProductionDemandEarlyProcessAcceptanceData } from '../data/fcs/production-demand-early-process-work-orders.ts'
+import { createEarlyProcessManagementState, renderEarlyProcessMatchTabs, renderEarlyProcessCreateDialog, handleEarlyProcessManagementEvent, renderEarlyProcessDetail, renderEarlyProcessCancel } from './process-work-orders/early-process-management.ts'
+import { PRODUCTION_DEMAND_PROCESS_MATCH_LABEL } from '../data/fcs/process-work-order-domain.ts'
 
 // 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
 
 type SourceFilter = '' | ProcessWorkOrderSourceType
 const LIST_EVENT_PREFIX = 'dye-order-list'
-const LIST_PREFERENCE_KEY = '/fcs/process/dye-orders:list-columns'
+// The migrated seven-column layout has different keys from the former prep table.
+const LIST_PREFERENCE_KEY = '/fcs/process/dye-orders:list-columns:rich-v1'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 interface DyeCreateForm {
@@ -65,11 +73,12 @@ const defaultForm = (): DyeCreateForm => ({
 
 const state = {
   keyword: '',
+  receiptStatus: '', processingStatus: '', handoverStatus: '', factoryName: '',
   statusFilter: '全部' as '全部' | PlatformProcessStatus,
   sourceFilter: '' as SourceFilter,
   currentPage: 1,
   sort: null as StandardListSortState | null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: ['orderNo'], pageSize: 10 } as StandardListColumnPreferences,
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['dyeInfo'], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
   showColumnSettings: false,
   selectedWorkOrderId: null as string | null,
@@ -87,21 +96,40 @@ export function formatDyeOrderQuantity(qty: number, unit: string): string {
   return `${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(qty)} ${unit}`
 }
 
+const earlyState = createEarlyProcessManagementState()
+let ordersSnapshot: PrepProcessOrderFact[] | undefined
+let displayRows = new Map<string, DyeWorkOrderOnlineRow>()
+
 function getOrders(): PrepProcessOrderFact[] {
-  return listPrepProcessOrders('DYE')
+  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData(); ordersSnapshot = listPrepProcessOrders('DYE', { includeExecutionDetails: false }); displayRows = new Map(listDyeWorkOrderOnlineRows().map(row => [row.dyeOrderId, row])) }
+  return ordersSnapshot
 }
 
-function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
+function getBaseFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
   const keyword = state.keyword.trim().toLowerCase()
   const sourceFilter = sourceOverride ?? state.sourceFilter
   return getOrders().filter((order) => {
+    const row = displayRows.get(order.workOrderId || '')
+    if (state.factoryName && order.factoryName !== state.factoryName) return false
+    if (state.receiptStatus && row?.receiptStatus !== state.receiptStatus) return false
+    if (state.processingStatus && row?.processingStatus !== state.processingStatus) return false
+    if (state.handoverStatus && row?.handoverStatus !== state.handoverStatus) return false
     if (state.statusFilter !== '全部' && order.platformStatusLabel !== state.statusFilter) return false
     if (sourceFilter && order.sourceType !== sourceFilter) return false
     if (!keyword) return true
     return [
       order.workOrderNo,
       order.orderNo,
+      order.sourceSnapshot?.productionDemandId,
+      order.sourceSnapshot?.matchedProductionOrderNo,
+      order.sourceSnapshot?.professionalTaskNo,
       order.factoryName,
+      order.materialSku,
+      order.materialName,
+      order.sourceSnapshot?.targetSpuCode,
+      order.sourceSnapshot?.targetSpuName,
+      order.sourceSnapshot?.inputMaterialSkuCode,
+      order.sourceSnapshot?.outputMaterialSkuCode,
       order.sourceProductionOrderNo,
       order.sourceProductionOrderId,
       order.stockMaterial?.materialCode,
@@ -111,33 +139,8 @@ function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[
   })
 }
 
-function renderStatus(order: PrepProcessOrderFact): string {
-  const label = order.platformStatusLabel || order.status
-  return `<span class="inline-flex rounded-full px-2 py-1 text-xs ${PLATFORM_PROCESS_STATUS_CLASS[label]}">${escapeHtml(label)}</span>`
-}
-
-function renderSource(order: PrepProcessOrderFact): string {
-  if (order.sourceType === 'STOCK') {
-    return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.stockMaterial?.materialName || '-')}</div>`
-  }
-  if (order.sourceType === 'CUT_PIECE_SUPPLEMENT') return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">补料单 ${escapeHtml(order.sourceSnapshot?.supplementRecordNo || '-')}</div>`
-  return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '-')}</div>`
-}
-
-function renderPlatformSyncSection(order: PrepProcessOrderFact): string {
-  const followUpActionLabel = order.followUpActionLabel || '查看详情'
-  return `
-    <section class="rounded-lg border bg-muted/20 p-4">
-      <h3 class="font-medium">平台同步结果</h3>
-      <div class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-        <div><span class="text-muted-foreground">平台状态：</span>${escapeHtml(order.platformStatusLabel || order.status)}</div>
-        <div><span class="text-muted-foreground">工厂内部状态：</span>${escapeHtml(order.factoryInternalStatusLabel || '-')}</div>
-        <div><span class="text-muted-foreground">风险提示：</span>${escapeHtml(order.platformRiskLabel || '暂无风险')}</div>
-        <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(followUpActionLabel)}</div>
-        <div class="sm:col-span-2"><span class="text-muted-foreground">最近同步：</span>${escapeHtml(order.latestOperationAt || order.updatedAt)} · ${escapeHtml(order.latestOperationBy || '系统')}</div>
-      </div>
-    </section>
-  `
+function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
+  return getBaseFilteredOrders(sourceOverride).filter(order => !earlyState.matchStatus || order.sourceSnapshot?.matchStatus === earlyState.matchStatus)
 }
 
 function renderSourceDetail(order: PrepProcessOrderFact): string {
@@ -167,7 +170,7 @@ function renderDetail(selectedWorkOrderId = state.selectedWorkOrderId): string {
         <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(order.plannedFinishAt)}</div>
         <div><span class="text-muted-foreground">平台加工单号：</span>${escapeHtml(order.workOrderNo || order.orderNo)}</div>
       </div>
-      <div class="mt-4">${renderPlatformSyncSection(order)}</div>
+      ${renderEarlyProcessDetail(order.sourceSnapshot)}
       <div class="mt-4">${renderProcessOrderTaskRelations(order.workOrderId || order.orderNo)}</div>
       <button class="mt-6 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-dye-order-action="navigate-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">打开工厂端详情</button>
     </aside>
@@ -211,18 +214,10 @@ function renderSelect(field: keyof DyeCreateForm, label: string, options: Array<
   return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" ${skipPageRerender ? 'data-skip-page-rerender="true"' : ''} data-dye-create-field="${field}">${placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}${options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>`
 }
 
+const displayColumns = createDyeOrderDisplayColumns(row => `<button class="text-left text-xs font-semibold text-blue-700 hover:underline" data-dye-order-action="open-detail" data-work-order-id="${escapeHtml(row.dyeOrderId)}">${escapeHtml(row.workOrderNo)}</button>`)
 const listColumns: StandardListColumn<PrepProcessOrderFact>[] = [
-  { key: 'orderNo', title: '平台加工单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: (order) => order.workOrderNo || order.orderNo, render: (order) => `<span class="font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</span>` },
-  { key: 'source', title: '来源', width: 210, required: true, freezeable: true, sortable: true, sortValue: (order) => order.sourceLabel, render: renderSource },
-  { key: 'factory', title: '工厂', width: 180, sortable: true, sortValue: (order) => order.factoryName, render: (order) => escapeHtml(order.factoryName) },
-  { key: 'assignmentMode', title: '分配方式', width: 110, sortable: true, sortValue: (order) => order.assignmentMode || '派单', render: (order) => escapeHtml(order.assignmentMode || '派单') },
-  { key: 'dispatchPrice', title: '派单价格', width: 150, sortable: true, sortValue: (order) => order.dispatchPriceDisplay || '1500 IDR/Yard', render: (order) => escapeHtml(order.dispatchPriceDisplay || '1500 IDR/Yard') },
-  { key: 'qty', title: '计划数量', width: 145, sortable: true, align: 'right', sortValue: (order) => order.plannedFeedQty, render: (order) => escapeHtml(formatDyeOrderQuantity(order.plannedFeedQty, order.unit)) },
-  { key: 'finishAt', title: '计划完成', width: 165, sortable: true, sortValue: (order) => order.plannedFinishAt, render: (order) => escapeHtml(order.plannedFinishAt) },
-  { key: 'status', title: '平台状态', width: 135, sortable: true, sortValue: (order) => order.platformStatusLabel, render: renderStatus },
-  { key: 'risk', title: '风险提示', width: 180, render: (order) => escapeHtml(order.platformRiskLabel || '-') },
-  { key: 'next', title: '下一步动作', width: 170, render: (order) => escapeHtml(order.followUpActionLabel || '查看详情') },
-  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true, render: (order) => `<button class="text-primary hover:underline" data-dye-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button>` },
+  ...displayColumns.map(column => ({ ...column, renderHeader: undefined, sortValue: column.sortValue ? (order: PrepProcessOrderFact) => { const row = displayRows.get(order.workOrderId || ''); return row ? column.sortValue!(row) : '' } : undefined, render: (order: PrepProcessOrderFact, index: number) => { const row = displayRows.get(order.workOrderId || ''); return row ? column.render(row, index) : '<span class="text-amber-700">加工事实待补充</span>' } })),
+  { key: 'actions', title: '操作', width: 110, required: true, actionColumn: true, render: order => `<button class="text-primary hover:underline" data-dye-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button>${renderEarlyProcessCancel(order.workOrderId, order.sourceSnapshot)}` },
 ]
 const listController = createProcessOrderListController({
   state,
@@ -234,7 +229,7 @@ const listController = createProcessOrderListController({
   tableSurfaceSelector: '[data-process-dye-orders-table-surface]',
   paginationSurfaceSelector: '[data-process-dye-orders-pagination-surface]',
   overlaysSurfaceSelector: '[data-process-dye-orders-overlays]',
-  defaultFrozenKeys: ['orderNo'],
+  defaultFrozenKeys: ['dyeInfo'],
   columnSettingsTitle: '染色加工单列设置',
   emptyText: '暂无加工单',
   getRows: getFilteredOrders,
@@ -267,30 +262,62 @@ function refreshFeedbackLocally(): void {
   if (node) node.innerHTML = state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''
 }
 
+function renderFilters(): string {
+  const orders = getOrders()
+  const rows = [...displayRows.values()]
+  const select = (label: string, key: string, value: string, options: Array<[string, string]>) => `<label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select aria-label="${label}" class="h-9 w-full rounded-md border bg-white px-2 text-sm" data-dye-order-field="${key}"><option value="">全部</option>${options.map(([id, text]) => `<option value="${escapeHtml(id)}" ${value === id ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
+  return `<div data-process-dye-orders-match-tabs>${renderEarlyProcessMatchTabs(earlyState, getBaseFilteredOrders())}</div><section class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"><label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="单号、商品、物料或生产需求单" value="${escapeHtml(state.keyword)}" data-dye-order-field="keyword" /></label>${select('接收状态','receiptStatus',state.receiptStatus,[...new Map(rows.map(row => [row.receiptStatus, row.receiptStatusLabel])).entries()])}${select('加工状态','processingStatus',state.processingStatus,[...new Map(rows.map(row => [row.processingStatus, row.processingStatusLabel])).entries()])}${select('交出状态','handoverStatus',state.handoverStatus,[...new Map(rows.map(row => [row.handoverStatus, row.handoverStatusLabel])).entries()])}${select('加工厂','factoryName',state.factoryName,[...new Set(orders.map(row => row.factoryName))].map(name => [name,name]))}</div><details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">更多筛选</summary><div class="mt-3 grid gap-2 sm:grid-cols-3">${select('来源','sourceFilter',state.sourceFilter,Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL))}${select('平台状态','statusFilter',state.statusFilter === '全部' ? '' : state.statusFilter,listPlatformStatusOptions().map(label => [label,label]))}</div></details><div class="mt-3 flex gap-2">${renderPrimaryButton('查询', { prefix: 'dye-order', action: 'query' }, 'search')}${renderSecondaryButton('重置', { prefix: 'dye-order', action: 'reset' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: 'dye-order', action: 'export' }, 'download')}</div></section>`
+}
+function renderStats(): string {
+  const rows = getFilteredOrders().map(order => displayRows.get(order.workOrderId || '')).filter((row): row is DyeWorkOrderOnlineRow => Boolean(row))
+  const summary = getDyeWorkOrderOnlineSummary(rows)
+  const qty = (values: Array<{ unit: string; qty: number }>) => values.filter(item => item.qty !== 0).map(item => `${item.qty.toLocaleString('zh-CN')} ${item.unit}`).join(' / ') || '0'
+  return renderProcessOrderStats([{ label: '加工单数', value: rows.length }, { label: '计划投入', value: qty(summary.plannedQtyByUnit) }, { label: '已接收', value: qty(summary.receivedQtyByUnit) }, { label: '实际使用', value: qty(summary.rawMaterialQtyByUnit) }, { label: '完成数量', value: qty(summary.completedQtyByUnit) }, { label: '下游待接收', value: qty(summary.pendingQtyByUnit) }])
+}
+function getEarlyFactories() { return DYE_FACTORY_TABS.filter(item => item.id && item.id !== 'unassigned').map(item => ({ id: item.id, name: item.label })) }
+function refreshEarlyDialog(): void {
+  const host = document.querySelector<HTMLElement>('[data-process-dye-orders-early-create]')
+  if (host) { host.innerHTML = renderEarlyProcessCreateDialog('DYE', earlyState, getEarlyFactories()); hydrateInsertedIcons(host) }
+}
+function refreshListSummary(): void {
+  const tabs = document.querySelector<HTMLElement>('[data-process-dye-orders-match-tabs]')
+  if (tabs) tabs.innerHTML = renderEarlyProcessMatchTabs(earlyState, getBaseFilteredOrders())
+  const stats = document.querySelector<HTMLElement>('[data-process-dye-orders-stats]')
+  if (stats) stats.innerHTML = renderStats()
+  const count = document.querySelector<HTMLElement>('[data-process-dye-orders-count]')
+  if (count) count.textContent = `共 ${getFilteredOrders().length} 条`
+}
+function exportOrders(): void {
+  const rows = getFilteredOrders()
+  if (!rows.length) { state.notice = '当前查询无可导出加工单'; refreshFeedbackLocally(); return }
+  const csv = [['加工单号', '来源', '生产需求单', '生产单', '生产单匹配', '工厂', '计划数量', '单位', '计划完成', '平台状态'], ...rows.map(row => [row.workOrderNo || row.orderNo, row.sourceLabel, row.sourceSnapshot?.productionDemandNo || row.sourceSnapshot?.productionDemandId || '', row.sourceSnapshot?.matchedProductionOrderNo || row.sourceProductionOrderNo || '', row.sourceSnapshot?.matchStatus ? PRODUCTION_DEMAND_PROCESS_MATCH_LABEL[row.sourceSnapshot.matchStatus] : '不适用', row.factoryName, row.plannedFeedQty, row.unit, row.plannedFinishAt, row.platformStatusLabel])].map(cells => cells.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a'); link.href = url; link.download = '染色加工单.csv'; link.click(); URL.revokeObjectURL(url)
+  state.notice = `已导出当前查询的 ${rows.length} 条加工单`; refreshFeedbackLocally()
+}
+
 export function renderProcessDyeOrdersPage(options: { sourceType?: SourceFilter; selectedWorkOrderId?: string | null } = {}): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, typeof document !== 'undefined' && Boolean(document.querySelector('[data-process-dye-orders-root]')))
+  ordersSnapshot = undefined
+  if (options.sourceType !== undefined) state.sourceFilter = options.sourceType
   listController.installColumnDragEvents()
   listController.ensurePreferencesLoaded()
   const view = listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType))
-  const statusOptions = listPlatformStatusOptions()
-  const sourceFilter = options.sourceType ?? state.sourceFilter
-  return `<div data-process-dye-orders-root data-skip-page-rerender="true">${renderStandardListPage({
+  return `<div data-process-dye-orders-root data-early-process-management="DYE" data-skip-page-rerender="true"><style>[data-process-dye-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-dye-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-dye-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-dye-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderStandardListPage({
     title: '染色加工单',
-    primaryActionsHtml: '<button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-dye-order-action="create-new">按备货创建</button>',
+    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-dye-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增染色加工单</button></div>',
     feedbackHtml: `<div data-process-dye-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
-    filtersHtml: `<section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
-        <input class="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="加工单号 / 生产单号 / 备货物料 / 工厂" value="${escapeHtml(state.keyword)}" data-dye-order-field="keyword" />
-        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-dye-order-field="statusFilter"><option>全部</option>${statusOptions.map((status) => `<option ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}</select>
-        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-dye-order-field="sourceFilter"><option value="">全部来源</option>${Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL).map(([value, label]) => `<option value="${value}" ${sourceFilter === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>
-      </section>`,
+    filtersHtml: `<div data-process-dye-orders-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-process-dye-orders-stats>${renderStats()}</div>`,
     listTitle: '染色加工单',
-    listActionsHtml: renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    listActionsHtml: `<span class="mr-3 text-sm text-muted-foreground" data-process-dye-orders-count>共 ${getFilteredOrders().length} 条</span>${renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}`,
     tableHtml: `<div data-process-dye-orders-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-process-dye-orders-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-process-dye-orders-overlays>${listController.renderColumnSettings()}</div>`,
   })}
     <div data-process-dye-orders-detail>${renderDetail(options.selectedWorkOrderId === undefined ? state.selectedWorkOrderId : options.selectedWorkOrderId)}</div>
     <div data-process-dye-orders-create>${renderCreate()}</div>
+    <div data-process-dye-orders-early-create>${renderEarlyProcessCreateDialog('DYE', earlyState, getEarlyFactories())}</div>
   </div>`
 }
 
@@ -321,7 +348,11 @@ function submitCreate(): void {
   state.currentPage = 1
 }
 
-export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
+export function handleProcessDyeOrdersEvent(target: HTMLElement, event?: Event): boolean {
+  // Focusing a field must not rebuild its select/options or redraw the list.
+  if (event?.type === 'click' && target.closest('[data-dye-order-field], [data-dye-create-field], [data-dye-order-list-field], [data-early-process-field]')) return true
+  if (event?.type === 'input' && target instanceof HTMLSelectElement) return true
+  if (handleEarlyProcessManagementEvent(target, { code: 'DYE', state: earlyState, factories: getEarlyFactories(), refreshDialog: refreshEarlyDialog, refreshRows: reloadFacts => { if (reloadFacts) ordersSnapshot = undefined; state.currentPage = 1; listController.refresh(); refreshListSummary(); if (reloadFacts) { const filters = document.querySelector<HTMLElement>('[data-process-dye-orders-filters]'); if (filters) filters.innerHTML = renderFilters() } }, setNotice: message => { state.notice = message; refreshFeedbackLocally() }, onCreated: result => { state.receiptStatus = ''; state.processingStatus = ''; state.handoverStatus = ''; state.factoryName = ''; state.keyword = result.workOrderNo; state.sourceFilter = ''; state.statusFilter = '全部'; earlyState.matchStatus = ''; const input = document.querySelector<HTMLInputElement>('[data-dye-order-field="keyword"]'); if (input) input.value = state.keyword } })) return true
   const createField = target.closest<HTMLInputElement | HTMLSelectElement>('[data-dye-create-field]')
   if (createField) {
     const field = createField.dataset.dyeCreateField as keyof DyeCreateForm
@@ -357,10 +388,12 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-dye-order-field]')
   if (field) {
     if (field.dataset.dyeOrderField === 'keyword') state.keyword = field.value
-    if (field.dataset.dyeOrderField === 'statusFilter') state.statusFilter = field.value as typeof state.statusFilter
+    const filterKey = field.dataset.dyeOrderField
+    if (filterKey === 'receiptStatus' || filterKey === 'processingStatus' || filterKey === 'handoverStatus' || filterKey === 'factoryName') state[filterKey] = field.value
+    if (field.dataset.dyeOrderField === 'statusFilter') state.statusFilter = (field.value || '全部') as typeof state.statusFilter
     if (field.dataset.dyeOrderField === 'sourceFilter') state.sourceFilter = field.value as SourceFilter
     state.currentPage = 1
-    listController.refresh()
+    listController.refresh(); refreshListSummary()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-dye-order-action]')
@@ -389,7 +422,7 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
     if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
       const key = listAction.dataset.dyeOrderListColumnKey || listAction.closest<HTMLElement>('[data-dye-order-list-column-key]')?.dataset.dyeOrderListColumnKey || ''
       listController.updateColumnPreference(action, key, target instanceof HTMLInputElement ? target.checked : undefined)
-      listController.refresh()
+      listController.refresh({ overlays: true })
       return true
     }
     if (action === 'restore-column-settings') listController.restorePreferences()
@@ -398,6 +431,9 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   }
   if (!actionNode) return Boolean(listField)
   const action = actionNode.dataset.dyeOrderAction
+  if (action === 'query') { state.currentPage = 1; listController.refresh(); refreshListSummary(); return true }
+  if (action === 'reset') { state.receiptStatus = ''; state.processingStatus = ''; state.handoverStatus = ''; state.factoryName = ''; state.keyword = ''; state.sourceFilter = ''; state.statusFilter = '全部'; earlyState.matchStatus = ''; state.currentPage = 1; const filters = document.querySelector<HTMLElement>('[data-process-dye-orders-filters]'); if (filters) filters.innerHTML = renderFilters(); listController.refresh(); refreshListSummary(); return true }
+  if (action === 'export') { exportOrders(); return true }
   if (action === 'navigate-detail') {
     const workOrderId = actionNode.dataset.workOrderId
     if (workOrderId) appStore.navigate(`/fcs/craft/dyeing/work-orders/${encodeURIComponent(workOrderId)}`)
@@ -407,13 +443,25 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   if (action === 'close-detail') { state.selectedWorkOrderId = null; refreshDetailLocally() }
   if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null; refreshCreateLocally(); refreshFeedbackLocally() }
   if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null; refreshCreateLocally() }
-  if (action === 'submit-create') { submitCreate(); refreshCreateLocally(); refreshFeedbackLocally(); listController.refresh() }
+  if (action === 'submit-create') { submitCreate(); ordersSnapshot = undefined; refreshListSummary(); refreshCreateLocally(); refreshFeedbackLocally(); listController.refresh() }
   if (action === 'page-prev') { listController.stepPage(-1); listController.refresh() }
   if (action === 'page-next') { listController.stepPage(1); listController.refresh() }
-  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null; refreshDetailLocally(); refreshCreateLocally() }
+  if (action === 'close-all') closeProcessDyeOrdersOverlays()
   return true
 }
 
 export function isProcessDyeOrdersDialogOpen(): boolean {
-  return Boolean(state.selectedWorkOrderId || state.createOpen)
+  return Boolean(state.selectedWorkOrderId || state.createOpen || earlyState.createOpen)
+}
+
+export function closeProcessDyeOrdersOverlays(): boolean {
+  if (!isProcessDyeOrdersDialogOpen() && !state.showColumnSettings) return false
+  earlyState.createOpen = false
+  state.selectedWorkOrderId = null
+  state.createOpen = false
+  state.formError = null
+  state.showColumnSettings = false
+  refreshEarlyDialog(); refreshDetailLocally(); refreshCreateLocally()
+  listController.refresh({ table: false, pagination: false, overlays: true })
+  return true
 }

@@ -5,6 +5,7 @@ import {
   getPrintWorkOrderStatusLabel,
   listPrintExecutionNodeRecords,
   listPrintWorkOrders,
+  listPrintWorkOrderListRecords,
   type PrintExecutionNodeRecord,
   type PrintReviewRecord,
   type PrintWorkOrder,
@@ -452,10 +453,13 @@ function cloneHandoverRecords(records: PdaHandoverRecord[]): PdaHandoverRecord[]
   return records.map((record) => ({ ...record, recordLines: record.recordLines?.map((line) => ({ ...line })) }))
 }
 
-function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
+function mapPrintWorkOrder(order: PrintWorkOrder, related?: {
+  review: PrintReviewRecord | undefined
+  handoverRecords: PdaHandoverRecord[]
+}): ProcessWorkOrder {
   const workOrderId = order.printOrderId
   const workOrderNo = order.printOrderNo
-  const review = getPrintReviewRecordByOrderId(order.printOrderId)
+  const review = related ? related.review : getPrintReviewRecordByOrderId(order.printOrderId)
   const quantityContext = {
     processType: 'PRINT',
     sourceType: 'PRINT_WORK_ORDER',
@@ -514,7 +518,7 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     },
     executionNodes: listPrintExecutionNodeRecords(order.printOrderId),
     reviewRecords: review ? [review] : [],
-    handoverRecords: cloneHandoverRecords(getPrintOrderHandoverRecords(order.printOrderId)),
+    handoverRecords: cloneHandoverRecords(related?.handoverRecords ?? getPrintOrderHandoverRecords(order.printOrderId)),
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? {
           ...order.formalProductionOrderSnapshot,
@@ -694,7 +698,7 @@ export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationS
 }
 
 export function listProcessWorkOrders(processType?: ProcessWorkOrderType): ProcessWorkOrder[] {
-  const printOrders = processType && processType !== 'PRINT' ? [] : listPrintWorkOrders().map(mapPrintWorkOrder)
+  const printOrders = processType && processType !== 'PRINT' ? [] : listPrintWorkOrderListRecords().map(record => mapPrintWorkOrder(record.order, record))
   const dyeOrders = processType && processType !== 'DYE' ? [] : listDyeWorkOrderListRecords().map(record => mapDyeWorkOrder(record.order, record))
   const waterSolubleOrders = processType && processType !== 'WATER_SOLUBLE'
     ? []

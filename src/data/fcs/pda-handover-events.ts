@@ -3729,9 +3729,9 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
   return cachedPostFinishingBuiltHeads
 }
 
-function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
-  return [...buildHeadsInternal(), ...buildSimpleCutPieceFactoryReceipts().heads]
-    .filter((head) => !factoryId || canPdaFactoryAccessHandoverHead(head, factoryId))
+function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: ReadonlySet<string>): PdaHandoverHead[] {
+  return [...(includeWool ? buildHeadsInternal() : buildNonWoolHeadsInternal()), ...buildSimpleCutPieceFactoryReceipts().heads]
+    .filter((head) => (!factoryId || canPdaFactoryAccessHandoverHead(head, factoryId)) && (!taskIds || taskIds.has(head.taskId)))
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -3995,8 +3995,8 @@ export function updatePdaHandoverEvent(
   return next
 }
 
-export function listPdaHandoverHeads(): PdaHandoverHead[] {
-  return listHeadsSorted()
+export function listPdaHandoverHeads(options: { includeWool?: boolean; taskIds?: ReadonlySet<string> } = {}): PdaHandoverHead[] {
+  return listHeadsSorted(undefined, options.includeWool !== false, options.taskIds)
 }
 
 export function listPdaHandoverHeadsByType(type: PdaHandoverHeadType): PdaHandoverHead[] {

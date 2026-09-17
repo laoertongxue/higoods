@@ -24,7 +24,7 @@ import {
   type PdaHandoverRecord,
   type HandoverReceiverKind,
 } from './pda-handover-events.ts'
-import { listPdaGenericProcessTasks, registerPdaGenericProcessTask, unregisterPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
+import { listPdaGenericProcessTasks, getPdaGenericProcessTaskById, registerPdaGenericProcessTask, unregisterPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
 import { type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
@@ -480,7 +480,7 @@ function immutableDesignRevisionDyeSource(source: ProcessWorkOrderSourceSnapshot
 
 function saveFormalDyeExecution(): void {
   if (typeof localStorage === 'undefined') return
-  const ids = new Set([...formalDyeIds(), ...initialDyeOrderIds])
+  const ids = new Set([...formalDyeIds(), ...initialDyeOrderIds, ...[...workOrderStore.values()].filter(order => order.sourceSnapshot?.sourceType === 'PRODUCTION_DEMAND').map(order => order.dyeOrderId)])
   const state = captureDyeProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
   state.nodeRecords = state.workOrders.map(([id]) => [id, structuredClone(nodeRecordStore.get(id) ?? [])])
@@ -537,28 +537,46 @@ function restoreFormalDyeExecution(): void {
   for (const entry of saved.state.workOrders) {
     if (!Array.isArray(entry) || entry.length !== 2) continue
     const [id, order] = entry
-    if (!ids.has(id)) continue
     const current = workOrderStore.get(id)
-    if ( !current || !order || order.dyeOrderId !== id || order.taskId !== current.taskId || (!initialDyeOrderIds.has(id) && !order.sourceKey) || order.sourceKey !== current.sourceKey || immutableDesignRevisionDyeSource(order.sourceSnapshot) !== immutableDesignRevisionDyeSource(current.sourceSnapshot) || order.qtyUnit !== current.qtyUnit || !Number.isFinite(order.plannedQty) || !(order.status in DYE_WORK_ORDER_STATUS_LABEL)) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 1），请保留记录并联系主管。`; continue }
+    const restorableEarlyOrder = !current && order.sourceSnapshot?.sourceType === 'PRODUCTION_DEMAND'
+      && Boolean(order.sourceKey && order.sourceSnapshot.productionDemandId && order.sourceSnapshot.professionalTaskId
+        && order.sourceSnapshot.inputMaterialSkuCode && order.sourceSnapshot.outputMaterialSkuCode)
+    if (!ids.has(id) && !restorableEarlyOrder) continue
+    if ((!current && !restorableEarlyOrder) || order.dyeOrderId !== id
+      || (current && (order.taskId !== current.taskId || order.sourceKey !== current.sourceKey
+        || immutableDesignRevisionDyeSource(order.sourceSnapshot) !== immutableDesignRevisionDyeSource(current.sourceSnapshot) || order.qtyUnit !== current.qtyUnit))
+      || (!initialDyeOrderIds.has(id) && !order.sourceKey) || !Number.isFinite(order.plannedQty) || order.plannedQty <= 0 || !(order.status in DYE_WORK_ORDER_STATUS_LABEL)) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 1），请保留记录并联系主管。`; continue }
     const nodes = saved.state.nodeRecords.find(item => Array.isArray(item) && item[0] === id)?.[1]
     if (!Array.isArray(nodes) || nodes.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || typeof node.nodeCode !== 'string' || [node.inputQty, node.outputQty, node.lossQty].some(qty => qty !== undefined && (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0)))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 2），请保留记录并联系主管。`; continue }
     if (order.completedWaterSolubleBatches !== undefined && (!Array.isArray(order.completedWaterSolubleBatches) || order.completedWaterSolubleBatches.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || !node.finishedAt || !Number.isFinite(node.inputQty) || !Number.isFinite(node.outputQty)))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 3），请保留记录并联系主管。`; continue }
     if (order.completedExecutionBatches !== undefined && (!Array.isArray(order.completedExecutionBatches) || order.completedExecutionBatches.some(batch => !Array.isArray(batch) || batch.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId)))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 4），请保留记录并联系主管。`; continue }
     if (order.materialReceipts !== undefined && (!Array.isArray(order.materialReceipts) || order.materialReceipts.some(item => !item.receiptId || !Number.isFinite(item.qty) || item.qty < 0))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 5），请保留记录并联系主管。`; continue }
-    const task = saved.tasks.find(item => item && item.taskId === order.taskId && JSON.stringify(item.sourceSnapshot) === JSON.stringify(order.sourceSnapshot) && item.assignedFactoryId === (order.dyeFactoryId || undefined))
-    if (!task) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 6），请保留记录并联系主管。`; continue }
+    const task = saved.tasks.find(item => item && item.taskId === order.taskId && item.assignedFactoryId === (order.dyeFactoryId || undefined))
+    const sourceMatches = restorableEarlyOrder
+      ? task?.sourceSnapshot?.sourceType === 'PRODUCTION_DEMAND'
+        && task.sourceSnapshot.productionDemandId === order.sourceSnapshot?.productionDemandId
+        && task.sourceSnapshot.professionalTaskId === order.sourceSnapshot?.professionalTaskId
+        && task.sourceSnapshot.inputMaterialSkuCode === order.sourceSnapshot?.inputMaterialSkuCode
+        && task.sourceSnapshot.outputMaterialSkuCode === order.sourceSnapshot?.outputMaterialSkuCode
+        && (task.sourceSnapshot.generationRevision || 1) === (order.sourceSnapshot?.generationRevision || 1)
+      : JSON.stringify(task?.sourceSnapshot) === JSON.stringify(order.sourceSnapshot)
+    if (!task || !sourceMatches) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 6），请保留记录并联系主管。`; continue }
     // Upgrade only untouched legacy yarn fixtures; actual shipment/receipt history is never rewritten.
     const untouchedOldYarn = id.startsWith('DYE-YARN-DEMO-') && order.initialYarnReceipt?.netGrams===30000
       && order.materialReceipts?.length===1 && order.materialReceipts[0].receiptId===`YARN-SEED-RECEIPT-${id}`
       && !order.completedExecutionBatches?.length && nodes.every(n=>n.inputQty===30&&n.outputQty===30)
       && !(saved.demoHandovers??[]).some(h=>h.orderId===id&&h.records.length)
       && !listFactoryReceivingSources(undefined,true).some(s=>s.workOrderNo===order.dyeOrderNo&&s.type==='HANDOUT')
-    if(untouchedOldYarn && current.initialYarnReceipt){
+    if(untouchedOldYarn && current?.initialYarnReceipt){
       order.initialYarnReceipt=structuredClone(current.initialYarnReceipt)
       order.initialYarnTransfer=structuredClone(current.initialYarnTransfer)
       order.materialReceipts=structuredClone(current.materialReceipts)
       order.remark=current.remark
       nodes.forEach(n=>{n.inputQty=current.initialYarnReceipt!.netGrams/1000;n.outputQty=n.inputQty})
+    }
+    if (restorableEarlyOrder) {
+      task.sourceSnapshot = structuredClone(order.sourceSnapshot)
+      createdDyeOrderIds.add(id)
     }
     workOrderStore.set(id, structuredClone(order))
     nodeRecordStore.set(id, structuredClone(nodes))
@@ -884,7 +902,8 @@ function getDyeingTasks(): PdaGenericTaskMock[] {
 }
 
 function getDyeingTaskById(taskId: string): PdaGenericTaskMock | undefined {
-  return getDyeingTasks().find((task) => task.taskId === taskId)
+  const task = getPdaGenericProcessTaskById(taskId)
+  return task && isDyeingTask(task) ? task : undefined
 }
 
 function syncLinkedTaskState(
@@ -1301,11 +1320,13 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
   order.status = 'WAIT_MATERIAL'
 }
 
-function syncDerivedWorkflow(): void {
+function syncDerivedWorkflow(dyeOrderId?: string): void {
   seedDomain()
 
-  const handoutHeads = listPdaHandoverHeads().filter(head => head.headType === 'HANDOUT')
+  const scopedOrders = dyeOrderId ? [workOrderStore.get(dyeOrderId)].filter((order): order is MutableDyeWorkOrder => Boolean(order)) : [...workOrderStore.values()]
+  const handoutHeads = listPdaHandoverHeads({ includeWool: false, taskIds: new Set(scopedOrders.map(order => order.taskId)) }).filter(head => head.headType === 'HANDOUT')
   for (const order of workOrderStore.values()) {
+    if (dyeOrderId && order.dyeOrderId !== dyeOrderId) continue
     const receipts = getDyeFactoryReceiptProjection(order.dyeOrderId, order.qtyUnit)
     if (receipts.length) {
       order.materialReceipts = [...(order.materialReceipts ?? []).filter(r => !r.receiptId.startsWith('FRP-')), ...receipts]
@@ -3039,7 +3060,7 @@ function seedDomain(): void {
 }
 
 function getMutableWorkOrder(dyeOrderId: string): MutableDyeWorkOrder {
-  syncDerivedWorkflow()
+  syncDerivedWorkflow(dyeOrderId)
   const order = workOrderStore.get(dyeOrderId)
   if (!order) {
     throw new Error(`未找到染色加工单：${dyeOrderId}`)
@@ -3391,7 +3412,7 @@ export function linkProductionDemandDyeReplacement(
 registerCreatedDyeWorkOrderReader(listCreatedDyeWorkOrders)
 
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
-  syncDerivedWorkflow()
+  syncDerivedWorkflow(dyeOrderId)
   const canonical = workOrderStore.get(dyeOrderId)
   if (canonical) ensureDyeAcceptanceFact(canonical)
   const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === dyeOrderId)
@@ -4098,7 +4119,7 @@ export function listDyeWorkOrderListRecords() {
 }
 
 export function getDyeReviewRecordByOrderId(dyeOrderId: string): DyeReviewRecord | undefined {
-  syncDerivedWorkflow()
+  syncDerivedWorkflow(dyeOrderId)
   if (!getVisibleDyeWorkOrderIds().has(dyeOrderId)) return undefined
   const review = reviewRecordStore.get(dyeOrderId)
   return review ? cloneReviewRecord(review) : undefined
@@ -4127,7 +4148,7 @@ export function listDyeFormulaRecords(): DyeFormulaRecord[] {
 }
 
 export function getDyeOrderHandoverHead(dyeOrderId: string): PdaHandoverHead | undefined {
-  syncDerivedWorkflow()
+  syncDerivedWorkflow(dyeOrderId)
   const order = workOrderStore.get(dyeOrderId)
   if (!order?.handoverOrderId) return undefined
   return getHandoverOrderById(order.handoverOrderId) ?? undefined

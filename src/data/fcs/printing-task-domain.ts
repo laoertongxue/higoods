@@ -1,6 +1,6 @@
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
 import {ensurePrintingReceivingExamples} from './printing-material-receipts.ts'
-import { captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource } from './factory-receiving.ts'
+import { captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource, getProcessOrderReceivingFacts } from './factory-receiving.ts'
 import { getDyeFactoryReceiptProjection } from './factory-receiving-warehouse.ts'
 import { productionDemands } from './production-demands.ts'
 import { listFactoryPrintMachineCapacities } from './factory-capacity-profile-mock.ts'
@@ -24,6 +24,7 @@ import {
 } from './pda-handover-events.ts'
 import {
   listPdaGenericProcessTasks,
+  getPdaGenericProcessTaskById,
   registerPdaGenericProcessTask,
   unregisterPdaGenericProcessTask,
   type PdaGenericTaskMock,
@@ -1198,7 +1199,9 @@ function getPrintingTasks(): PdaGenericTaskMock[] {
 }
 
 function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
-  return getPrintingTasks().find((task) => task.taskId === taskId)
+  ensurePrintingTaskCloneSeedData()
+  const task = getPdaGenericProcessTaskById(taskId)
+  return task && isPrintingTask(task) ? task : undefined
 }
 
 function buildFreshPrintMobileTask(input: {
@@ -2781,7 +2784,8 @@ function syncDerivedWorkflow(workOrderId?: string): void {
 
   // One current handover read per projection, instead of copying the entire wool
   // store once for every print order. No snapshot survives this synchronous call.
-  const handoutHeads = listPdaHandoverHeads().filter(head => head.headType === 'HANDOUT')
+  const scopedOrders = workOrderId ? [workOrderStore.get(workOrderId)].filter((order): order is MutablePrintWorkOrder => Boolean(order)) : [...workOrderStore.values()]
+  const handoutHeads = listPdaHandoverHeads({ includeWool: false, taskIds: new Set(scopedOrders.map(order => order.taskId)) }).filter(head => head.headType === 'HANDOUT')
   for (const order of workOrderStore.values()) {
     if (workOrderId && order.printOrderId !== workOrderId) continue
     syncPrintingMaterialReceipts(order)
@@ -2956,6 +2960,18 @@ export function listPrintWorkOrders(): PrintWorkOrder[] {
   return listGeneratedPrintWorkOrders().map((order) => {
     ensurePrintAcceptanceFact(order)
     return cloneWorkOrder(order)
+  })
+}
+
+export function listPrintWorkOrderListRecords() {
+  return listPrintWorkOrders().map(order => {
+    const review = reviewRecordStore.get(order.printOrderId)
+    const head = order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : undefined
+    return {
+      order,
+      review: review ? cloneReviewRecord(review) : undefined,
+      handoverRecords: head ? getPdaHandoverRecordsByHead(head.handoverId) : [],
+    }
   })
 }
 
@@ -5058,19 +5074,17 @@ function syncPrintingMaterialReceipts(order:MutablePrintWorkOrder):void {
  view.actualInput.receipts=[...(view.actualInput.receipts??[]).filter(r=>!r.receiptId.startsWith('FRP-')),...projected]
  view.actualInput.receivedQty=roundPrintingValue(historicalQty+projected.reduce((n,r)=>n+r.qty,0),2)
  view.actualInput.receivedRollCount=historicalRolls+projected.reduce((n,r)=>n+r.rollCount,0)
- const usedRolls=listFactoryMaterialUses().filter(use=>use.printingOrderId===order.printOrderId).flatMap(use=>use.lines).map(line=>line.barcode).filter(Boolean)
+ const usedRolls=listFactoryMaterialUses(order.printOrderId).filter(use=>use.printingOrderId===order.printOrderId).flatMap(use=>use.lines).map(line=>line.barcode).filter(Boolean)
  if(usedRolls.length)view.actualInput.usedRollCount=new Set(usedRolls).size
  const last=[...projected].sort((a,b)=>a.receivedAt.localeCompare(b.receivedAt)).at(-1)
  if(last){view.actualInput.actualSku=last.actualSku;view.actualInput.receiverName=last.receiverName;view.actualInput.receivedAt=last.receivedAt;view.inputReceivedAt=last.receivedAt}
 }
 function printingSourceFacts(order:MutablePrintWorkOrder){
  const view=order.businessView!
- const sources=listFactoryReceivingSources(order.printFactoryId).filter(s=>s.lines.some(l=>l.printingOrderId===order.printOrderId))
- const allocations=listReceivingAllocations().filter(a=>a.printingOrderId===order.printOrderId)
- const sourceIds=new Set(listFactoryReceipts().flatMap(r=>r.lines.filter(l=>allocations.some(a=>a.receiptLineId===l.id)).map(l=>l.sourceId)))
- sources.push(...listFactoryReceivingSources(order.printFactoryId).filter(s=>sourceIds.has(s.id)&&!sources.some(x=>x.id===s.id)))
+ const { sources, allocations, receipts } = getProcessOrderReceivingFacts(order.printOrderId, 'print', order.printFactoryId)
+ const receiptLines = new Map(receipts.flatMap(receipt => receipt.lines).map(line => [line.id, line]))
  const sourceQty=sources.reduce((n,s)=>n+s.lines.filter(l=>l.printingOrderId===order.printOrderId).reduce((a,l)=>a+(convertReceiptQuantity(l.sentQty,l.unit,view.plannedInput.qtyUnit)??0),0),0)
- return {sources,sourceQty:roundPrintingValue(sourceQty+allocations.reduce((n,a)=>{const l=listFactoryReceipts().flatMap(r=>r.lines).find(l=>l.id===a.receiptLineId);return n+(l?convertReceiptQuantity(a.qty,l.unit,view.plannedInput.qtyUnit)??0:0)},0),2)}
+ return {sources,sourceQty:roundPrintingValue(sourceQty+allocations.reduce((n,a)=>{const l=receiptLines.get(a.receiptLineId);return n+(l?convertReceiptQuantity(a.qty,l.unit,view.plannedInput.qtyUnit)??0:0)},0),2)}
 }
 function stageCompletedQty(order:MutablePrintWorkOrder,stage:'PRINT'|'TRANSFER'):number {
  const actions=order.businessView?.productionActions?.filter(a=>a.stage===stage&&a.action==='FINISH'&&(a.requirementVersion||1)===(order.businessView?.requirementVersion||1))??[]

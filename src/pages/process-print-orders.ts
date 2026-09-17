@@ -1,5 +1,12 @@
 // @page-pattern: list
 
+import { withProcessOrderTaskRelationRead } from '../data/fcs/process-order-task-links.ts'
+import { listPrintingFactoryOptions } from '../data/fcs/printing-factories.ts'
+import { PRINTING_RECEIPT_STATUS_LABEL, PRINTING_PROCESSING_STATUS_LABEL, PRINTING_HANDOVER_STATUS_LABEL } from '../data/fcs/printing-work-order-business.ts'
+import { createPrintingOrderDisplayColumns } from './process-work-orders/order-list-columns.ts'
+import { listPrintingWorkOrders, getPrintingWorkOrderSummary, formatPrintingSummaryMetric, type PrintingWorkOrderBusinessRecord } from '../data/fcs/printing-work-order-business.ts'
+import { renderProcessOrderStats } from '../components/ui/process-order-list-presentation.ts'
+
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { listPrepProcessOrders, type PrepProcessOrderFact } from '../data/fcs/page-adapters/process-prep-pages-adapter'
@@ -7,7 +14,6 @@ import { createPrintWorkOrderFromStock } from '../data/fcs/printing-task-domain.
 import { listFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import { listProcessWorkOrderStockMaterials } from '../data/fcs/process-work-order-stock.ts'
 import {
-  PLATFORM_PROCESS_STATUS_CLASS,
   listPlatformStatusOptions,
   type PlatformProcessStatus,
 } from '../data/fcs/process-platform-status-adapter.ts'
@@ -22,17 +28,21 @@ import {
   type StandardListColumnPreferences,
   type StandardListSortState,
 } from '../components/ui/list-table-model.ts'
-import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
 import { createProcessOrderListController } from '../components/ui/process-order-list-controller.ts'
 import { getProcessWorkOrderSourceDetailRows } from './process-work-orders/process-work-order-source-view.ts'
 import { renderProcessOrderTaskRelations } from './process-order-task-relations.ts'
+import { ensureProductionDemandEarlyProcessAcceptanceData } from '../data/fcs/production-demand-early-process-work-orders.ts'
+import { createEarlyProcessManagementState, renderEarlyProcessMatchTabs, renderEarlyProcessCreateDialog, handleEarlyProcessManagementEvent, renderEarlyProcessDetail, renderEarlyProcessCancel } from './process-work-orders/early-process-management.ts'
+import { PRODUCTION_DEMAND_PROCESS_MATCH_LABEL } from '../data/fcs/process-work-order-domain.ts'
 
 // 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
 
 type SourceFilter = '' | ProcessWorkOrderSourceType
 
 const LIST_EVENT_PREFIX = 'print-order-list'
-const LIST_PREFERENCE_KEY = '/fcs/process/print-orders:list-columns'
+// The migrated seven-column layout has different keys from the former prep table.
+const LIST_PREFERENCE_KEY = '/fcs/process/print-orders:list-columns:rich-v1'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 interface PrintCreateForm {
@@ -67,11 +77,12 @@ const defaultForm = (): PrintCreateForm => ({
 
 const state = {
   keyword: '',
+  receiptStatus: '', processingStatus: '', handoverStatus: '', factoryName: '',
   statusFilter: '全部' as '全部' | PlatformProcessStatus,
   sourceFilter: '' as SourceFilter,
   currentPage: 1,
   sort: null as StandardListSortState | null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: ['orderNo'], pageSize: 10 } as StandardListColumnPreferences,
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['order'], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
   showColumnSettings: false,
   selectedWorkOrderId: null as string | null,
@@ -89,20 +100,39 @@ function formatQty(qty: number, unit: string): string {
   return `${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(qty)} ${unit}`
 }
 
+const earlyState = createEarlyProcessManagementState()
+let ordersSnapshot: PrepProcessOrderFact[] | undefined
+let displayRows = new Map<string, PrintingWorkOrderBusinessRecord>()
+
 function getOrders(): PrepProcessOrderFact[] {
-  return listPrepProcessOrders('PRINT')
+  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData(); ordersSnapshot = listPrepProcessOrders('PRINT', { includeExecutionDetails: false }); displayRows = new Map(listPrintingWorkOrders().map(row => [row.workOrderId, row])) }
+  return ordersSnapshot
 }
 
-function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
+function getBaseFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
   const keyword = state.keyword.trim().toLowerCase()
   const sourceFilter = sourceOverride ?? state.sourceFilter
   return getOrders().filter((order) => {
+    const row = displayRows.get(order.workOrderId || '')
+    if (state.factoryName && order.factoryName !== state.factoryName) return false
+    if (state.receiptStatus && row?.receiptStatus !== state.receiptStatus) return false
+    if (state.processingStatus && row?.processingStatus !== state.processingStatus) return false
+    if (state.handoverStatus && row?.handoverStatus !== state.handoverStatus) return false
     if (state.statusFilter !== '全部' && order.platformStatusLabel !== state.statusFilter) return false
     if (sourceFilter && order.sourceType !== sourceFilter) return false
     if (!keyword) return true
     return [
       order.orderNo,
+      order.sourceSnapshot?.productionDemandId,
+      order.sourceSnapshot?.matchedProductionOrderNo,
+      order.sourceSnapshot?.professionalTaskNo,
       order.factoryName,
+      order.materialSku,
+      order.materialName,
+      order.sourceSnapshot?.targetSpuCode,
+      order.sourceSnapshot?.targetSpuName,
+      order.sourceSnapshot?.inputMaterialSkuCode,
+      order.sourceSnapshot?.outputMaterialSkuCode,
       order.sourceProductionOrderNo,
       order.sourceProductionOrderId,
       order.stockMaterial?.materialCode,
@@ -112,35 +142,8 @@ function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[
   })
 }
 
-function renderStatus(order: PrepProcessOrderFact): string {
-  const label = order.platformStatusLabel || order.status
-  return `<span class="inline-flex rounded-full px-2 py-1 text-xs ${PLATFORM_PROCESS_STATUS_CLASS[label]}">${escapeHtml(label)}</span>`
-}
-
-function renderSource(order: PrepProcessOrderFact): string {
-  if (order.sourceType === 'STOCK') {
-    return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.stockMaterial?.materialName || '-')}</div>`
-  }
-  if (order.sourceType === 'CUT_PIECE_SUPPLEMENT') {
-    return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">补料单 ${escapeHtml(order.sourceSnapshot?.supplementRecordNo || '-')}</div>`
-  }
-  return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '-')}</div>`
-}
-
-function renderPlatformSyncSection(order: PrepProcessOrderFact): string {
-  const followUpActionLabel = order.followUpActionLabel || '查看详情'
-  return `
-    <section class="rounded-lg border bg-muted/20 p-4">
-      <h3 class="font-medium">平台同步结果</h3>
-      <div class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-        <div><span class="text-muted-foreground">平台状态：</span>${escapeHtml(order.platformStatusLabel || order.status)}</div>
-        <div><span class="text-muted-foreground">工厂内部状态：</span>${escapeHtml(order.factoryInternalStatusLabel || '-')}</div>
-        <div><span class="text-muted-foreground">风险提示：</span>${escapeHtml(order.platformRiskLabel || '暂无风险')}</div>
-        <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(followUpActionLabel)}</div>
-        <div class="sm:col-span-2"><span class="text-muted-foreground">最近同步：</span>${escapeHtml(order.latestOperationAt || order.updatedAt)} · ${escapeHtml(order.latestOperationBy || '系统')}</div>
-      </div>
-    </section>
-  `
+function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
+  return getBaseFilteredOrders(sourceOverride).filter(order => !earlyState.matchStatus || order.sourceSnapshot?.matchStatus === earlyState.matchStatus)
 }
 
 function renderSourceDetail(order: PrepProcessOrderFact): string {
@@ -170,7 +173,7 @@ function renderDetail(selectedWorkOrderId = state.selectedWorkOrderId): string {
         <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(order.plannedFinishAt)}</div>
         <div><span class="text-muted-foreground">平台加工单号：</span>${escapeHtml(order.workOrderNo || order.orderNo)}</div>
       </div>
-      <div class="mt-4">${renderPlatformSyncSection(order)}</div>
+      ${renderEarlyProcessDetail(order.sourceSnapshot)}
       <div class="mt-4">${renderProcessOrderTaskRelations(order.workOrderId || order.orderNo)}</div>
       <button class="mt-6 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-print-order-action="navigate-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">打开工厂端详情</button>
     </aside>
@@ -213,18 +216,10 @@ function renderCreate(): string {
   `
 }
 
+const displayColumns = createPrintingOrderDisplayColumns(row => `<button class="text-left text-xs font-semibold text-blue-700 hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(row.workOrderId)}">${escapeHtml(row.printOrderNo)}</button>`)
 const listColumns: StandardListColumn<PrepProcessOrderFact>[] = [
-  { key: 'orderNo', title: '平台加工单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: (order) => order.workOrderNo || order.orderNo, render: (order) => `<span class="font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</span>` },
-  { key: 'source', title: '来源', width: 210, required: true, freezeable: true, sortable: true, sortValue: (order) => order.sourceLabel, render: renderSource },
-  { key: 'factory', title: '工厂', width: 180, sortable: true, sortValue: (order) => order.factoryName, render: (order) => escapeHtml(order.factoryName) },
-  { key: 'assignmentMode', title: '分配方式', width: 110, sortable: true, sortValue: (order) => order.assignmentMode || '派单', render: (order) => escapeHtml(order.assignmentMode || '派单') },
-  { key: 'dispatchPrice', title: '派单价格', width: 150, sortable: true, sortValue: (order) => order.dispatchPriceDisplay || '1200 IDR/Yard', render: (order) => escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard') },
-  { key: 'qty', title: '计划数量', width: 145, sortable: true, align: 'right', sortValue: (order) => order.plannedFeedQty, render: (order) => escapeHtml(formatQty(order.plannedFeedQty, order.unit)) },
-  { key: 'finishAt', title: '计划完成', width: 165, sortable: true, sortValue: (order) => order.plannedFinishAt, render: (order) => escapeHtml(order.plannedFinishAt) },
-  { key: 'status', title: '平台状态', width: 135, sortable: true, sortValue: (order) => order.platformStatusLabel, render: renderStatus },
-  { key: 'risk', title: '风险提示', width: 180, render: (order) => escapeHtml(order.platformRiskLabel || '-') },
-  { key: 'next', title: '下一步动作', width: 170, render: (order) => escapeHtml(order.followUpActionLabel || '查看详情') },
-  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true, render: (order) => `<button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button>` },
+  ...displayColumns.map(column => ({ ...column, renderHeader: undefined, sortValue: column.sortValue ? (order: PrepProcessOrderFact) => { const row = displayRows.get(order.workOrderId || ''); return row ? column.sortValue!(row) : '' } : undefined, render: (order: PrepProcessOrderFact, index: number) => { const row = displayRows.get(order.workOrderId || ''); return row ? column.render(row, index) : '<span class="text-amber-700">加工事实待补充</span>' } })),
+  { key: 'actions', title: '操作', width: 110, required: true, actionColumn: true, render: order => `<button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button>${renderEarlyProcessCancel(order.workOrderId, order.sourceSnapshot)}` },
 ]
 const listController = createProcessOrderListController({
   state,
@@ -236,12 +231,17 @@ const listController = createProcessOrderListController({
   tableSurfaceSelector: '[data-process-print-orders-table-surface]',
   paginationSurfaceSelector: '[data-process-print-orders-pagination-surface]',
   overlaysSurfaceSelector: '[data-process-print-orders-overlays]',
-  defaultFrozenKeys: ['orderNo'],
+  defaultFrozenKeys: ['order'],
   columnSettingsTitle: '印花加工单列设置',
   emptyText: '暂无加工单',
   getRows: getFilteredOrders,
   locallyManagedEvents: true,
 })
+
+function refreshList(options?: Parameters<typeof listController.refresh>[0]): boolean {
+  return withProcessOrderTaskRelationRead(() => listController.refresh(options))
+}
+
 
 function hydrateInsertedIcons(root: ParentNode): void {
   void import('../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(root)).catch(() => undefined)
@@ -269,30 +269,61 @@ function refreshFeedbackLocally(): void {
   if (node) node.innerHTML = state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''
 }
 
+function renderFilters(): string {
+  const orders = getOrders()
+  const rows = [...displayRows.values()]
+  const select = (label: string, key: string, value: string, options: Array<[string, string]>) => `<label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select aria-label="${label}" class="h-9 w-full rounded-md border bg-white px-2 text-sm" data-print-order-field="${key}"><option value="">全部</option>${options.map(([id, text]) => `<option value="${escapeHtml(id)}" ${value === id ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
+  return `<div data-process-print-orders-match-tabs>${renderEarlyProcessMatchTabs(earlyState, getBaseFilteredOrders())}</div><section class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"><label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="单号、商品、物料或生产需求单" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" /></label>${select('接收状态','receiptStatus',state.receiptStatus,[...new Map(rows.map(row => [row.receiptStatus, PRINTING_RECEIPT_STATUS_LABEL[row.receiptStatus]])).entries()])}${select('加工状态','processingStatus',state.processingStatus,[...new Map(rows.map(row => [row.processingStatus, PRINTING_PROCESSING_STATUS_LABEL[row.processingStatus]])).entries()])}${select('交出状态','handoverStatus',state.handoverStatus,[...new Map(rows.map(row => [row.handoverStatus, PRINTING_HANDOVER_STATUS_LABEL[row.handoverStatus]])).entries()])}${select('加工厂','factoryName',state.factoryName,[...new Set(orders.map(row => row.factoryName))].map(name => [name,name]))}</div><details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">更多筛选</summary><div class="mt-3 grid gap-2 sm:grid-cols-3">${select('来源','sourceFilter',state.sourceFilter,Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL))}${select('平台状态','statusFilter',state.statusFilter === '全部' ? '' : state.statusFilter,listPlatformStatusOptions().map(label => [label,label]))}</div></details><div class="mt-3 flex gap-2">${renderPrimaryButton('查询', { prefix: 'print-order', action: 'query' }, 'search')}${renderSecondaryButton('重置', { prefix: 'print-order', action: 'reset' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: 'print-order', action: 'export' }, 'download')}</div></section>`
+}
+function renderStats(): string {
+  const rows = getFilteredOrders().map(order => displayRows.get(order.workOrderId || '')).filter((row): row is PrintingWorkOrderBusinessRecord => Boolean(row))
+  const summary = getPrintingWorkOrderSummary(rows)
+  return renderProcessOrderStats([{ label: '加工单数', value: summary.orderCount }, { label: '计划投入', value: formatPrintingSummaryMetric(summary, 'plannedInputQty') }, { label: '本厂实收', value: formatPrintingSummaryMetric(summary, 'receivedInputQty') }, { label: '实际使用', value: formatPrintingSummaryMetric(summary, 'usedInputQty') }, { label: '完成数量', value: formatPrintingSummaryMetric(summary, 'completedOutputQty') }, { label: '下游待接收', value: formatPrintingSummaryMetric(summary, 'pendingReceiptQty') }])
+}
+function getEarlyFactories() { getOrders(); return listPrintingFactoryOptions([...displayRows.values()]) }
+function refreshEarlyDialog(): void {
+  const host = document.querySelector<HTMLElement>('[data-process-print-orders-early-create]')
+  if (host) { host.innerHTML = renderEarlyProcessCreateDialog('PRINT', earlyState, getEarlyFactories()); hydrateInsertedIcons(host) }
+}
+function refreshListSummary(): void {
+  const tabs = document.querySelector<HTMLElement>('[data-process-print-orders-match-tabs]')
+  if (tabs) tabs.innerHTML = renderEarlyProcessMatchTabs(earlyState, getBaseFilteredOrders())
+  const stats = document.querySelector<HTMLElement>('[data-process-print-orders-stats]')
+  if (stats) stats.innerHTML = renderStats()
+  const count = document.querySelector<HTMLElement>('[data-process-print-orders-count]')
+  if (count) count.textContent = `共 ${getFilteredOrders().length} 条`
+}
+function exportOrders(): void {
+  const rows = getFilteredOrders()
+  if (!rows.length) { state.notice = '当前查询无可导出加工单'; refreshFeedbackLocally(); return }
+  const csv = [['加工单号', '来源', '生产需求单', '生产单', '生产单匹配', '工厂', '计划数量', '单位', '计划完成', '平台状态'], ...rows.map(row => [row.workOrderNo || row.orderNo, row.sourceLabel, row.sourceSnapshot?.productionDemandNo || row.sourceSnapshot?.productionDemandId || '', row.sourceSnapshot?.matchedProductionOrderNo || row.sourceProductionOrderNo || '', row.sourceSnapshot?.matchStatus ? PRODUCTION_DEMAND_PROCESS_MATCH_LABEL[row.sourceSnapshot.matchStatus] : '不适用', row.factoryName, row.plannedFeedQty, row.unit, row.plannedFinishAt, row.platformStatusLabel])].map(cells => cells.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a'); link.href = url; link.download = '印花加工单.csv'; link.click(); URL.revokeObjectURL(url)
+  state.notice = `已导出当前查询的 ${rows.length} 条加工单`; refreshFeedbackLocally()
+}
+
 export function renderProcessPrintOrdersPage(options: { sourceType?: SourceFilter; selectedWorkOrderId?: string | null } = {}): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, typeof document !== 'undefined' && Boolean(document.querySelector('[data-process-print-orders-root]')))
+  ordersSnapshot = undefined
+  if (options.sourceType !== undefined) state.sourceFilter = options.sourceType
   listController.installColumnDragEvents()
   listController.ensurePreferencesLoaded()
-  const view = listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType))
-  const statusOptions = listPlatformStatusOptions()
-  const sourceFilter = options.sourceType ?? state.sourceFilter
-  return `<div data-process-print-orders-root data-skip-page-rerender="true">${renderStandardListPage({
+  const view = withProcessOrderTaskRelationRead(() => listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType)))
+  return `<div data-process-print-orders-root data-early-process-management="PRINT" data-skip-page-rerender="true"><style>[data-process-print-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-print-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-print-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-print-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderStandardListPage({
     title: '印花加工单',
-    primaryActionsHtml: '<button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-print-order-action="create-new">按备货创建</button>',
+    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-print-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增印花加工单</button></div>',
     feedbackHtml: `<div data-process-print-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
-    filtersHtml: `<section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
-        <input class="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="加工单号 / 生产单号 / 备货物料 / 工厂" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" />
-        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="statusFilter"><option>全部</option>${statusOptions.map((status) => `<option ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}</select>
-        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="sourceFilter"><option value="">全部来源</option>${Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL).map(([value, label]) => `<option value="${value}" ${sourceFilter === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>
-      </section>`,
+    filtersHtml: `<div data-process-print-orders-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-process-print-orders-stats>${renderStats()}</div>`,
     listTitle: '印花加工单',
-    listActionsHtml: renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    listActionsHtml: `<span class="mr-3 text-sm text-muted-foreground" data-process-print-orders-count>共 ${getFilteredOrders().length} 条</span>${renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}`,
     tableHtml: `<div data-process-print-orders-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-process-print-orders-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-process-print-orders-overlays>${listController.renderColumnSettings()}</div>`,
   })}
     <div data-process-print-orders-detail>${renderDetail(options.selectedWorkOrderId === undefined ? state.selectedWorkOrderId : options.selectedWorkOrderId)}</div>
     <div data-process-print-orders-create>${renderCreate()}</div>
+    <div data-process-print-orders-early-create>${renderEarlyProcessCreateDialog('PRINT', earlyState, getEarlyFactories())}</div>
   </div>`
 }
 
@@ -322,7 +353,11 @@ function submitCreate(): void {
   state.currentPage = 1
 }
 
-export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
+export function handleProcessPrintOrdersEvent(target: HTMLElement, event?: Event): boolean {
+  // Focusing a field must not rebuild its select/options or redraw the list.
+  if (event?.type === 'click' && target.closest('[data-print-order-field], [data-print-create-field], [data-print-order-list-field], [data-early-process-field]')) return true
+  if (event?.type === 'input' && target instanceof HTMLSelectElement) return true
+  if (handleEarlyProcessManagementEvent(target, { code: 'PRINT', state: earlyState, factories: getEarlyFactories(), refreshDialog: refreshEarlyDialog, refreshRows: reloadFacts => { if (reloadFacts) ordersSnapshot = undefined; state.currentPage = 1; refreshList(); refreshListSummary(); if (reloadFacts) { const filters = document.querySelector<HTMLElement>('[data-process-print-orders-filters]'); if (filters) filters.innerHTML = renderFilters() } }, setNotice: message => { state.notice = message; refreshFeedbackLocally() }, onCreated: result => { state.receiptStatus = ''; state.processingStatus = ''; state.handoverStatus = ''; state.factoryName = ''; state.keyword = result.workOrderNo; state.sourceFilter = ''; state.statusFilter = '全部'; earlyState.matchStatus = ''; const input = document.querySelector<HTMLInputElement>('[data-print-order-field="keyword"]'); if (input) input.value = state.keyword } })) return true
   const createField = target.closest<HTMLInputElement | HTMLSelectElement>('[data-print-create-field]')
   if (createField) {
     const field = createField.dataset.printCreateField as keyof PrintCreateForm
@@ -358,10 +393,12 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-print-order-field]')
   if (field) {
     if (field.dataset.printOrderField === 'keyword') state.keyword = field.value
-    if (field.dataset.printOrderField === 'statusFilter') state.statusFilter = field.value as typeof state.statusFilter
+    const filterKey = field.dataset.printOrderField
+    if (filterKey === 'receiptStatus' || filterKey === 'processingStatus' || filterKey === 'handoverStatus' || filterKey === 'factoryName') state[filterKey] = field.value
+    if (field.dataset.printOrderField === 'statusFilter') state.statusFilter = (field.value || '全部') as typeof state.statusFilter
     if (field.dataset.printOrderField === 'sourceFilter') state.sourceFilter = field.value as SourceFilter
     state.currentPage = 1
-    listController.refresh()
+    refreshList(); refreshListSummary()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-print-order-action]')
@@ -369,7 +406,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   if (listField?.dataset.printOrderListField === 'pageSize') {
     const pageSize = Number(listField.value)
     listController.setPageSize(pageSize)
-    listController.refresh()
+    refreshList()
     return true
   }
   const listAction = target.closest<HTMLElement>('[data-print-order-list-action]')
@@ -379,26 +416,29 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     if (action === 'sort-column') listController.cycleSort(listAction.dataset.columnKey || '')
     if (action === 'open-column-settings') {
       state.showColumnSettings = true
-      listController.refresh({ table: false, pagination: false, overlays: true })
+      refreshList({ table: false, pagination: false, overlays: true })
       return true
     }
     if (action === 'close-column-settings') {
       state.showColumnSettings = false
-      listController.refresh({ table: false, pagination: false, overlays: true })
+      refreshList({ table: false, pagination: false, overlays: true })
       return true
     }
     if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
       const key = listAction.dataset.printOrderListColumnKey || listAction.closest<HTMLElement>('[data-print-order-list-column-key]')?.dataset.printOrderListColumnKey || ''
       listController.updateColumnPreference(action, key, target instanceof HTMLInputElement ? target.checked : undefined)
-      listController.refresh()
+      refreshList({ overlays: true })
       return true
     }
     if (action === 'restore-column-settings') listController.restorePreferences()
-    listController.refresh({ overlays: state.showColumnSettings })
+    refreshList({ overlays: state.showColumnSettings })
     return true
   }
   if (!actionNode) return Boolean(listField)
   const action = actionNode.dataset.printOrderAction
+  if (action === 'query') { state.currentPage = 1; refreshList(); refreshListSummary(); return true }
+  if (action === 'reset') { state.receiptStatus = ''; state.processingStatus = ''; state.handoverStatus = ''; state.factoryName = ''; state.keyword = ''; state.sourceFilter = ''; state.statusFilter = '全部'; earlyState.matchStatus = ''; state.currentPage = 1; const filters = document.querySelector<HTMLElement>('[data-process-print-orders-filters]'); if (filters) filters.innerHTML = renderFilters(); refreshList(); refreshListSummary(); return true }
+  if (action === 'export') { exportOrders(); return true }
   if (action === 'navigate-detail') {
     const workOrderId = actionNode.dataset.workOrderId
     if (workOrderId) appStore.navigate(`/fcs/craft/printing/work-orders/${encodeURIComponent(workOrderId)}`)
@@ -408,13 +448,25 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   if (action === 'close-detail') { state.selectedWorkOrderId = null; refreshDetailLocally() }
   if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null; refreshCreateLocally(); refreshFeedbackLocally() }
   if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null; refreshCreateLocally() }
-  if (action === 'submit-create') { submitCreate(); refreshCreateLocally(); refreshFeedbackLocally(); listController.refresh() }
-  if (action === 'page-prev') { listController.stepPage(-1); listController.refresh() }
-  if (action === 'page-next') { listController.stepPage(1); listController.refresh() }
-  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null; refreshDetailLocally(); refreshCreateLocally() }
+  if (action === 'submit-create') { submitCreate(); ordersSnapshot = undefined; refreshListSummary(); refreshCreateLocally(); refreshFeedbackLocally(); refreshList() }
+  if (action === 'page-prev') { listController.stepPage(-1); refreshList() }
+  if (action === 'page-next') { listController.stepPage(1); refreshList() }
+  if (action === 'close-all') closeProcessPrintOrdersOverlays()
   return true
 }
 
 export function isProcessPrintOrdersDialogOpen(): boolean {
-  return Boolean(state.selectedWorkOrderId || state.createOpen)
+  return Boolean(state.selectedWorkOrderId || state.createOpen || earlyState.createOpen)
+}
+
+export function closeProcessPrintOrdersOverlays(): boolean {
+  if (!isProcessPrintOrdersDialogOpen() && !state.showColumnSettings) return false
+  earlyState.createOpen = false
+  state.selectedWorkOrderId = null
+  state.createOpen = false
+  state.formError = null
+  state.showColumnSettings = false
+  refreshEarlyDialog(); refreshDetailLocally(); refreshCreateLocally()
+  refreshList({ table: false, pagination: false, overlays: true })
+  return true
 }

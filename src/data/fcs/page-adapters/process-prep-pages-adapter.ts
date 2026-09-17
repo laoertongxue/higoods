@@ -15,12 +15,12 @@ import {
   type PlatformProcessStatusCode,
   type PlatformRiskLevel,
 } from '../process-platform-status-adapter.ts'
-import { getPlatformProcessResultView } from '../platform-process-result-view.ts'
+import { listPlatformDyeResultViews, listPlatformPrintResultViews, type PlatformProcessResultView } from '../platform-process-result-view.ts'
 import { getProcessObjectType, getQuantityLabel, type ProcessObjectType } from '../process-quantity-labels.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
-type CreateModeZh = (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['PRODUCTION_ORDER'] | '按备货创建' | '补料确认生成' | '设计改款生成'
+type CreateModeZh = (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['PRODUCTION_ORDER' | 'PRODUCTION_DEMAND'] | '按备货创建' | '补料确认生成' | '设计改款生成'
 type OrderStatusZh = PlatformProcessStatus
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
 type BatchStatusZh = '待关联' | '部分关联' | '已关联'
@@ -159,15 +159,14 @@ function toReceiptStatusFromOrder(order: ProcessWorkOrder): ReceiptStatusZh {
   return '部分接收'
 }
 
-function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrderFact {
+function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder, platformResultView?: PlatformProcessResultView, includeExecutionDetails = true): PrepProcessOrderFact {
   if (order.processType !== 'PRINT' && order.processType !== 'DYE') {
     throw new Error(`备料页不支持工序类型：${order.processType}`)
   }
-  const mobileBinding = order.processType === 'PRINT'
+  const mobileBinding = !includeExecutionDetails ? undefined : order.processType === 'PRINT'
     ? validatePrintWorkOrderMobileTaskBinding(order.workOrderId)
     : validateDyeWorkOrderMobileTaskBinding(order.workOrderId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
-  const platformResultView = getPlatformProcessResultView(order.processType, order.workOrderId)
   const unit = order.plannedUnit || (order.processType === 'PRINT' ? '个' : '米')
   const quantityContext = {
     processType: order.processType,
@@ -210,10 +209,10 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     dispatchPriceDisplay: order.dispatchPriceDisplay,
     taskId: order.taskId,
     taskNo: order.taskNo,
-    mobileBindingTaskNo: mobileBinding.actualTaskNo || mobileBinding.expectedTaskNo,
-    mobileBindingStatusLabel: mobileBinding.canOpenMobileExecution ? '有效' : '不可执行',
-    mobileBindingReasonLabel: mobileBinding.reasonLabel,
-    canOpenMobileExecution: mobileBinding.canOpenMobileExecution,
+    mobileBindingTaskNo: mobileBinding?.actualTaskNo || mobileBinding?.expectedTaskNo,
+    mobileBindingStatusLabel: mobileBinding?.canOpenMobileExecution ? '有效' : '不可执行',
+    mobileBindingReasonLabel: mobileBinding?.reasonLabel,
+    canOpenMobileExecution: mobileBinding?.canOpenMobileExecution,
     handoverOrderId: order.handoverOrderId,
     handoverOrderNo: order.handoverOrderNo,
     reviewRecordId: order.reviewRecordId,
@@ -236,7 +235,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     detailLink: platformResultView?.detailLink,
     craftDetailLink: platformResultView?.craftDetailLink,
     mobileTaskLink: platformResultView?.mobileTaskLink,
-    createMode: order.sourceType === 'STOCK'
+    createMode: order.sourceType === 'PRODUCTION_DEMAND'
+      ? PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_DEMAND
+      : order.sourceType === 'STOCK'
       ? '按备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? '补料确认生成'
@@ -259,7 +260,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     receivedQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '实收' }),
     diffQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '差异' }),
     plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate || order.updatedAt,
-    sourceSummary: order.sourceType === 'STOCK'
+    sourceSummary: order.sourceType === 'PRODUCTION_DEMAND'
+      ? `${PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_DEMAND}：${order.sourceSnapshot.productionDemandNo || order.sourceSnapshot.productionDemandId || '-'} / ${order.sourceSnapshot.professionalTaskNo || '-'} / ${order.sourceSnapshot.matchedProductionOrderNo || '待匹配生产单'}`
+      : order.sourceType === 'STOCK'
       ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：${order.stockMaterialName || order.materialName}`
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
@@ -319,6 +322,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
   }
 }
 
-export function listPrepProcessOrders(processCode: PrepProcessCode): PrepProcessOrderFact[] {
-  return cloneOrders(listProcessWorkOrders(processCode).map(mapUnifiedWorkOrderToPrepOrder))
+export function listPrepProcessOrders(processCode: PrepProcessCode, options: { includeExecutionDetails?: boolean } = {}): PrepProcessOrderFact[] {
+  const includeExecutionDetails = options.includeExecutionDetails !== false
+  const views = !includeExecutionDetails ? [] : processCode === 'DYE' ? listPlatformDyeResultViews() : listPlatformPrintResultViews()
+  const byId = new Map(views.map(view => [view.sourceId, view]))
+  return cloneOrders(listProcessWorkOrders(processCode).map(order => mapUnifiedWorkOrderToPrepOrder(order, byId.get(order.workOrderId), includeExecutionDetails)))
 }
