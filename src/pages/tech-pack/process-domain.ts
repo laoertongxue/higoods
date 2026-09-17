@@ -17,6 +17,11 @@ import {
   resolveProcessRouteLaneOrder,
   sortProcessRouteEntries,
 } from '../../data/tech-pack-process-route.ts'
+import {
+  getMaterialSkuRecordById,
+  listMaterialSkuRecordsByMaterialId,
+} from '../../data/pcs-material-archive-repository.ts'
+import type { MaterialSkuRecord } from '../../data/pcs-material-archive-types.ts'
 
 type PatternRouteLane = {
   key: string
@@ -89,10 +94,97 @@ function renderRouteNode(
   `
 }
 
+function resolvePreparationSkuCandidates(item: TechniqueItem, bom: (typeof state.bomItems)[number]): MaterialSkuRecord[] {
+  const inputSkuId = item.inputMaterialSkuId || bom.materialSkuId || ''
+  const inputSku = inputSkuId ? getMaterialSkuRecordById(inputSkuId) : null
+  const outputSku = item.outputMaterialSkuId ? getMaterialSkuRecordById(item.outputMaterialSkuId) : null
+  const candidates = inputSku ? listMaterialSkuRecordsByMaterialId(inputSku.materialId) : []
+  const byId = new Map(candidates.map((sku) => [sku.materialSkuId, sku]))
+  if (inputSku) byId.set(inputSku.materialSkuId, inputSku)
+  if (outputSku) byId.set(outputSku.materialSkuId, outputSku)
+  return [...byId.values()].filter((sku) => (
+    (sku.status === 'ACTIVE' || sku.materialSkuId === item.outputMaterialSkuId)
+    && (!(item.processCode === 'DYE' || item.processCode === 'PRINT') || sku.materialSkuId !== inputSkuId)
+  ))
+}
+
+function renderPreparationSkuIdentity(
+  sku: MaterialSkuRecord | null,
+  fallback: { code?: string; name?: string; imageUrl?: string },
+  label: string,
+): string {
+  const code = sku?.materialSkuCode || fallback.code || '未维护 SKU'
+  const name = sku?.materialName || fallback.name || '物料'
+  const imageUrl = sku?.skuImageUrl || fallback.imageUrl || ''
+  return `
+    <span class="flex min-w-0 items-center gap-2">
+      ${imageUrl ? `
+        <button type="button" class="shrink-0" data-tech-action="open-material-image-preview" data-image-url="${escapeHtml(imageUrl)}" data-image-label="${escapeHtml(`${code} ${name}`)}">
+          <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${code} ${name}`)}" class="h-8 w-8 rounded border object-cover" />
+        </button>
+      ` : '<span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border bg-slate-50 text-[10px] text-slate-400">无图</span>'}
+      <span class="min-w-0">
+        <span class="block text-[10px] text-slate-500">${escapeHtml(label)}</span>
+        <span class="block truncate text-xs font-medium text-slate-800" title="${escapeHtml(`${code} · ${name}`)}">${escapeHtml(code)}</span>
+      </span>
+    </span>
+  `
+}
+
+function renderPreparationRouteNode(
+  item: TechniqueItem,
+  bom: (typeof state.bomItems)[number],
+  index: number,
+  ordered: boolean,
+  options: { editable?: boolean; laneSize?: number } = {},
+): string {
+  const requiresSkuChange = item.processCode === 'DYE' || item.processCode === 'PRINT'
+  const mustKeepSku = item.processCode === 'WATER_SOLUBLE'
+  const fallbackInputSkuId = index === 0 ? (item.inputMaterialSkuId || bom.materialSkuId || '') : (item.inputMaterialSkuId || '')
+  const inputSku = getMaterialSkuRecordById(fallbackInputSkuId)
+  const outputSku = getMaterialSkuRecordById(item.outputMaterialSkuId || (mustKeepSku ? fallbackInputSkuId : ''))
+  const candidates = resolvePreparationSkuCandidates(item, bom)
+  const inputCode = inputSku?.materialSkuCode || item.inputMaterialSkuCode || (index === 0 ? bom.materialCode : '等待上道产出')
+  const outputCode = outputSku?.materialSkuCode || item.outputMaterialSkuCode || (requiresSkuChange ? '待选择' : inputCode)
+  const selectedOutputSkuId = item.outputMaterialSkuId || (mustKeepSku ? fallbackInputSkuId : '')
+  const hasSelectedOutputOption = candidates.some((sku) => sku.materialSkuId === selectedOutputSkuId)
+  const unchanged = mustKeepSku
+  const canSelectOutput = options.editable && requiresSkuChange
+  const canReorder = options.editable && (options.laneSize ?? 0) > 1
+  return `
+    <div class="min-w-[290px] rounded-lg border px-3 py-2 ${ordered ? 'border-emerald-200 bg-emerald-50' : 'border-amber-300 bg-amber-50'}">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-[11px] font-medium ${ordered ? 'text-emerald-700' : 'text-amber-700'}">第 ${index + 1} 道${ordered ? '' : ' · 待确认'}</span>
+        ${canReorder ? `
+          <span class="inline-flex overflow-hidden rounded border border-slate-200 bg-white">
+            <button type="button" class="inline-flex h-6 items-center px-1.5 text-[11px] text-slate-700 hover:bg-slate-50 disabled:text-slate-300" data-tech-action="move-prep-route-entry" data-tech-id="${escapeHtml(item.id)}" data-direction="up" ${index === 0 ? 'disabled' : ''}>前移</button>
+            <button type="button" class="inline-flex h-6 items-center border-l px-1.5 text-[11px] text-slate-700 hover:bg-slate-50 disabled:text-slate-300" data-tech-action="move-prep-route-entry" data-tech-id="${escapeHtml(item.id)}" data-direction="down" ${index === (options.laneSize ?? 0) - 1 ? 'disabled' : ''}>后移</button>
+          </span>
+        ` : ''}
+      </div>
+      <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(item.technique)}</div>
+      <div class="mt-2 grid gap-2 rounded-md border border-white/80 bg-white/80 p-2">
+        ${renderPreparationSkuIdentity(inputSku, { code: item.inputMaterialSkuCode || bom.materialCode, name: item.inputMaterialName || bom.materialName, imageUrl: item.inputMaterialImageUrl }, '加工投入')}
+        <div class="border-t pt-2">
+          <div class="mb-1 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>加工产出</span><span>${unchanged ? 'SKU 不变' : selectedOutputSkuId ? `转为 ${escapeHtml(outputCode)}` : '必须更换 SKU'}</span></div>
+          ${canSelectOutput ? `
+            <select class="h-8 w-full rounded border bg-white px-2 text-xs" data-tech-field="prep-output-material-sku" data-tech-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.technique)}加工产出 SKU">
+              <option value="" ${selectedOutputSkuId ? '' : 'selected'} disabled>请选择加工后的新 SKU</option>
+              ${selectedOutputSkuId && !hasSelectedOutputOption ? `<option value="${escapeHtml(selectedOutputSkuId)}" selected>${escapeHtml(`${outputCode} · ${item.outputMaterialName || bom.materialName}`)}</option>` : ''}
+              ${candidates.map((sku) => `<option value="${escapeHtml(sku.materialSkuId)}" ${sku.materialSkuId === selectedOutputSkuId ? 'selected' : ''}>${escapeHtml(`${sku.materialSkuCode} · ${sku.colorName || sku.specName || sku.materialName}`)}</option>`).join('')}
+            </select>
+            ${candidates.length === 0 ? '<div class="mt-1 text-[10px] text-red-600">当前物料没有可选的新 SKU，请先在物料档案新增。</div>' : ''}
+          ` : renderPreparationSkuIdentity(outputSku, { code: item.outputMaterialSkuCode || (unchanged ? inputCode : '待选择新 SKU'), name: item.outputMaterialName || (unchanged ? item.inputMaterialName : '') || bom.materialName, imageUrl: item.outputMaterialImageUrl || (unchanged ? item.inputMaterialImageUrl : undefined) }, unchanged ? '标准产出' : '加工产出')}
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderLaneProcess(
   items: TechniqueItem[],
   emptyLabel: string,
-  options: { editable?: boolean } = {},
+  options: { editable?: boolean; bom?: (typeof state.bomItems)[number] } = {},
 ): string {
   if (items.length === 0) {
     return `<span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">${escapeHtml(emptyLabel)}</span>`
@@ -100,7 +192,7 @@ function renderLaneProcess(
   const lane = resolveProcessRouteLaneOrder(items)
   return `
     <div class="flex min-w-max items-center gap-2">
-      ${lane.entries.map((item, index) => `${index > 0 ? '<i data-lucide="arrow-right" class="h-4 w-4 shrink-0 text-slate-400"></i>' : ''}${renderRouteNode(item, index, lane.ordered, { editable: options.editable, laneSize: lane.entries.length })}`).join('')}
+      ${lane.entries.map((item, index) => `${index > 0 ? '<i data-lucide="arrow-right" class="h-4 w-4 shrink-0 text-slate-400"></i>' : ''}${options.bom ? renderPreparationRouteNode(item, options.bom, index, lane.ordered, { editable: options.editable, laneSize: lane.entries.length }) : renderRouteNode(item, index, lane.ordered, { editable: options.editable, laneSize: lane.entries.length })}`).join('')}
     </div>
   `
 }
@@ -156,7 +248,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
                     <div class="text-sm font-medium text-slate-900">${escapeHtml(getBomDisplayName(bom))}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bom.type || '物料')}</div>
                   </div>
-                  <div class="overflow-x-auto pb-1">${renderLaneProcess(items, '无需准备加工', { editable: !readonly })}</div>
+                  <div class="overflow-x-auto pb-1">${renderLaneProcess(items, '无需准备加工', { editable: !readonly, bom })}</div>
                 </div>
               `).join('')}
         </div>

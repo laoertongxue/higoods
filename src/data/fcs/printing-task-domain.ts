@@ -36,7 +36,11 @@ import type {
   ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
+  ProductionDemandProcessMatchDecision,
+  ProductionDemandProcessMatchStatus,
 } from './process-work-order-domain.ts'
+import { PRODUCTION_DEMAND_PROCESS_MATCH_LABEL } from './process-work-order-domain.ts'
+import { compactEngineeringTaskUploadedFile, hydrateEngineeringTaskUploadedFile } from '../pcs-engineering-task-upload-repository.ts'
 import {
   deriveFormalProductionOrderMaterialFields,
   normalizeFormalProductionOrderMaterialItems,
@@ -100,7 +104,7 @@ export type PrintReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HAN
 export type PrintReviewStatus = PrintReceiptStatus
 export type PrintMaterialObjectType = '面料' | '纱线' | '花边' | '织带' | '拉链' | '辅料' | '包装材料' | '其他' | 'BOM原物料'
 
-export type PrintingDemandSourceType = 'PRODUCTION' | 'PURCHASE' | 'STOCK' | 'SUPPLEMENT' | 'DESIGN_REVISION'
+export type PrintingDemandSourceType = 'PRODUCTION' | 'PRODUCTION_DEMAND' | 'PURCHASE' | 'STOCK' | 'SUPPLEMENT' | 'DESIGN_REVISION'
 export type PrintingProcessingStatus = 'WAIT_ASSIGN' | 'WAIT_INPUT_RECEIPT' | 'WAIT_START' | 'PROCESSING' | 'PROCESS_COMPLETED' | 'CANCELLED'
 export type PrintingReceiptStatus = ProcessOrderReceiptStatus
 export type PrintingHandoverStatus = ProcessOrderHandoverStatus
@@ -108,6 +112,7 @@ export type PrintingQtyUnit = string
 
 export const PRINTING_DEMAND_SOURCE_LABEL: Record<PrintingDemandSourceType, string> = {
   PRODUCTION: '生产',
+  PRODUCTION_DEMAND: '生产需求提前创建',
   PURCHASE: '采购',
   STOCK: '备货',
   SUPPLEMENT: '补料',
@@ -335,6 +340,17 @@ export interface PrintingBusinessViewFacts {
 }
 
 export interface PrintingWorkOrderBusinessRecord extends PrintingBusinessViewFacts {
+  productionDemandId: string
+  matchStatus?: ProductionDemandProcessMatchStatus
+  matchStatusLabel: string
+  matchFailureReason: string
+  matchedProductionOrderNo: string
+  professionalTaskNo: string
+  professionalResultId: string
+  professionalResultVersion: string
+  professionalResultAttachments: NonNullable<ProcessWorkOrderSourceSnapshot['professionalResultAttachments']>
+  estimatedUnitConsumption?: number
+  estimatedLossRate?: number
   workOrderId: string
   printOrderNo: string
   taskNo: string
@@ -419,6 +435,9 @@ export interface PrintWorkOrder {
   patternNo: string
   patternVersion: string
   materialSku: string
+  outputMaterialSku?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
   materialColor?: string
   objectType?: PrintMaterialObjectType
   plannedQty: number
@@ -629,6 +648,58 @@ let printPersistenceReadError: string | null = null
 function formalPrintIds(): Set<string> {
   return new Set(productionOrders.filter(order => !initialProductionOrderIds.has(order.productionOrderId)).flatMap(order => (order.processWorkOrderDefinitions ?? []).filter(definition => definition.processCode === 'PRINT').map(definition => definition.workOrderId)))
 }
+
+function compactDesignRevisionPrintSource(source: ProcessWorkOrderSourceSnapshot | undefined): ProcessWorkOrderSourceSnapshot | undefined {
+  if (source?.sourceType !== 'DESIGN_REVISION') return source ? structuredClone(source) : undefined
+  const compacted = {
+    ...structuredClone(source),
+    professionalResultAttachments: source.professionalResultAttachments?.map(compactEngineeringTaskUploadedFile),
+  }
+  if ((source.professionalResultAttachments || []).some((file) => file.dataUrl && file.dataUrl === source.targetSpuImageUrl)) compacted.targetSpuImageUrl = ''
+  return compacted
+}
+
+function hydrateDesignRevisionPrintSource(source: ProcessWorkOrderSourceSnapshot | undefined): ProcessWorkOrderSourceSnapshot | undefined {
+  if (source?.sourceType !== 'DESIGN_REVISION') return source ? structuredClone(source) : undefined
+  const hydrated = {
+    ...structuredClone(source),
+    professionalResultAttachments: source.professionalResultAttachments?.map(hydrateEngineeringTaskUploadedFile),
+  }
+  if (!hydrated.targetSpuImageUrl) hydrated.targetSpuImageUrl = hydrated.professionalResultAttachments?.find((file) => file.mimeType.startsWith('image/'))?.dataUrl || ''
+  return hydrated
+}
+
+function immutableDesignRevisionPrintSource(source: ProcessWorkOrderSourceSnapshot | undefined): string {
+  if (!source) return ''
+  const snapshot = structuredClone(source)
+  delete snapshot.professionalResultId
+  delete snapshot.professionalResultVersion
+  delete snapshot.professionalResultApprovedAt
+  delete snapshot.professionalResultApprovedBy
+  delete snapshot.professionalResultAttachments
+  return JSON.stringify(snapshot)
+}
+
+function compactDesignRevisionPrintPreview(order: PrintWorkOrder): void {
+  if (order.sourceSnapshot?.sourceType !== 'DESIGN_REVISION' || !order.businessView) return
+  const payloads = new Set((order.sourceSnapshot.professionalResultAttachments || []).map((file) => file.dataUrl).filter(Boolean))
+  const requirement = order.businessView.requirement
+  if (payloads.has(order.businessView.product.imageUrl)) order.businessView.product.imageUrl = ''
+  if (payloads.has(requirement.frontPattern.imageUrl)) requirement.frontPattern.imageUrl = ''
+  if (requirement.insidePattern && payloads.has(requirement.insidePattern.imageUrl)) requirement.insidePattern.imageUrl = ''
+  if (payloads.has(order.businessView.output.imageUrl)) order.businessView.output.imageUrl = ''
+}
+
+function hydrateDesignRevisionPrintPreview(order: PrintWorkOrder): void {
+  if (order.sourceSnapshot?.sourceType !== 'DESIGN_REVISION' || !order.businessView) return
+  const preview = order.sourceSnapshot.professionalResultAttachments?.find((file) => file.mimeType.startsWith('image/'))?.dataUrl || ''
+  if (!preview) return
+  if (!order.businessView.product.imageUrl) order.businessView.product.imageUrl = preview
+  if (!order.businessView.requirement.frontPattern.imageUrl) order.businessView.requirement.frontPattern.imageUrl = preview
+  if (order.businessView.requirement.insidePattern && !order.businessView.requirement.insidePattern.imageUrl) order.businessView.requirement.insidePattern.imageUrl = preview
+  if (!order.businessView.output.imageUrl) order.businessView.output.imageUrl = preview
+}
+
 function saveFormalPrintExecution(): void {
   if (typeof localStorage === 'undefined') return
   const ids = new Set(workOrderStore.keys()), state = capturePrintProcessMutationState()
@@ -636,6 +707,11 @@ function saveFormalPrintExecution(): void {
   state.nodeRecords = state.nodeRecords.filter(([id]) => ids.has(id))
   state.reviewRecords = state.reviewRecords.filter(([id]) => ids.has(id))
   const tasks = state.workOrders.flatMap(([, order]) => { const task = getPrintingTaskById(order.taskId); return task ? [structuredClone(task)] : [] })
+  state.workOrders.forEach(([, order]) => {
+    compactDesignRevisionPrintPreview(order)
+    order.sourceSnapshot = compactDesignRevisionPrintSource(order.sourceSnapshot)
+  })
+  tasks.forEach((task) => { task.sourceSnapshot = compactDesignRevisionPrintSource(task.sourceSnapshot) })
   const raw = JSON.stringify({ version: 1, state, tasks })
   localStorage.setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
   if (localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
@@ -648,17 +724,41 @@ function restoreFormalPrintExecution(): void {
     const saved = JSON.parse(raw) as { version: number; state: PrintProcessMutationSnapshot; tasks: PdaGenericTaskMock[] }
     if (saved.version !== 1 || !Array.isArray(saved.tasks) || !saved.state || !['workOrders', 'nodeRecords', 'reviewRecords'].every(key => Array.isArray(saved.state[key as keyof PrintProcessMutationSnapshot]) && saved.state[key as keyof PrintProcessMutationSnapshot].every(row => Array.isArray(row) && row.length === 2 && typeof row[0] === 'string' && row[1] && typeof row[1] === 'object'))) throw new Error('记录格式不完整')
     // Previous prototype generated empty placeholder rolls before any production. They have no physical quantity or print/handover fact.
+    saved.state.workOrders.forEach(([, order]) => {
+      order.sourceSnapshot = hydrateDesignRevisionPrintSource(order.sourceSnapshot)
+      hydrateDesignRevisionPrintPreview(order)
+    })
+    saved.tasks.forEach((task) => { task.sourceSnapshot = hydrateDesignRevisionPrintSource(task.sourceSnapshot) })
     for(const [,order] of saved.state.workOrders){const v=order.businessView;if(v?.output.completedQty===0&&Array.isArray(v.barcodes))v.barcodes=v.barcodes.filter(b=>!(b.status==='草稿'&&b.lengthY===0&&!b.handoverRecordId&&!b.printedAt&&b.sku!==v.output.sku))}
     const ids = new Set(workOrderStore.keys()), seen = new Set<string>()
     for (const [id, order] of saved.state.workOrders) {
       const current = workOrderStore.get(id)
       const nodes = saved.state.nodeRecords.find(([key]) => key === id)?.[1]
       const task = saved.tasks.find(item => item.taskId === order.taskId)
-      if (!ids.has(id) || seen.has(id) || !current || order.printOrderId !== id || order.taskId !== current.taskId || order.sourceKey !== current.sourceKey || JSON.stringify(order.sourceSnapshot) !== JSON.stringify(current.sourceSnapshot) || !Number.isFinite(order.plannedQty) || order.plannedQty<=0 || (formalPrintIds().has(id)&&(order.qtyUnit !== current.qtyUnit || order.plannedQty !== current.plannedQty)) || !(order.status in PRINT_WORK_ORDER_STATUS_LABEL)
-        || !Array.isArray(nodes) || nodes.some(node => node.printOrderId !== id || node.taskId !== order.taskId)
-        || !task || JSON.stringify(task.sourceSnapshot) !== JSON.stringify(order.sourceSnapshot) || task.assignedFactoryId !== (order.printFactoryId || undefined)
+      const restorableProductionDemandOrder = !current
+        && order.sourceSnapshot?.sourceType === 'PRODUCTION_DEMAND'
+        && Boolean(order.sourceKey)
+        && Boolean(order.sourceSnapshot.productionDemandId)
+        && Boolean(order.sourceSnapshot.professionalTaskId)
+        && Boolean(order.sourceSnapshot.inputMaterialSkuCode)
+        && Boolean(order.sourceSnapshot.outputMaterialSkuCode)
+      const restorableTaskSourceMatches = restorableProductionDemandOrder
+        && task?.sourceSnapshot?.sourceType === 'PRODUCTION_DEMAND'
+        && task.sourceSnapshot.productionDemandId === order.sourceSnapshot?.productionDemandId
+        && task.sourceSnapshot.professionalTaskId === order.sourceSnapshot?.professionalTaskId
+        && task.sourceSnapshot.inputMaterialSkuCode === order.sourceSnapshot?.inputMaterialSkuCode
+        && task.sourceSnapshot.outputMaterialSkuCode === order.sourceSnapshot?.outputMaterialSkuCode
+        && (task.sourceSnapshot.generationRevision || 1) === (order.sourceSnapshot?.generationRevision || 1)
+      if ((!ids.has(id) && !restorableProductionDemandOrder) || seen.has(id) || order.printOrderId !== id
+        || (!current && !restorableProductionDemandOrder)
+        || (current && (order.taskId !== current.taskId || order.sourceKey !== current.sourceKey || immutableDesignRevisionPrintSource(order.sourceSnapshot) !== immutableDesignRevisionPrintSource(current.sourceSnapshot)))
+        || !Number.isFinite(order.plannedQty) || order.plannedQty<=0 || (current && formalPrintIds().has(id)&&(order.qtyUnit !== current.qtyUnit || order.plannedQty !== current.plannedQty)) || !(order.status in PRINT_WORK_ORDER_STATUS_LABEL)
+        || (!Array.isArray(nodes) && !restorableProductionDemandOrder)
+        || (Array.isArray(nodes) && nodes.some(node => node.printOrderId !== id || node.taskId !== order.taskId))
+        || !task || (!restorableProductionDemandOrder && JSON.stringify(task.sourceSnapshot) !== JSON.stringify(order.sourceSnapshot)) || (restorableProductionDemandOrder && !restorableTaskSourceMatches) || task.assignedFactoryId !== (order.printFactoryId || undefined)
         || !order.businessView || !Array.isArray(order.businessView.barcodes) || order.businessView.barcodes.some(barcode => barcode.sku !== order.businessView!.output.sku || !Number.isFinite(barcode.lengthY) || barcode.lengthY < 0)
         || [order.businessView.actualInput.receivedQty, order.businessView.actualInput.usedQty, order.businessView.output.completedQty, order.businessView.output.completedRollCount].some(qty => !Number.isFinite(qty) || qty < 0)) throw new Error('原加工单、卷或冻结来源不一致')
+      if (restorableProductionDemandOrder && task) task.sourceSnapshot = structuredClone(order.sourceSnapshot)
       seen.add(id)
     }
     if (saved.state.nodeRecords.some(([id]) => !seen.has(id)) || saved.state.reviewRecords.some(([id, review]) => !seen.has(id) || review.printOrderId !== id) || saved.tasks.some(task => !saved.state.workOrders.some(([, order]) => order.taskId === task.taskId))) throw new Error('记录越出原加工单范围')
@@ -1127,6 +1227,7 @@ function buildFreshPrintMobileTask(input: {
   const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
     sourceType,
     productionOrderNo: input.productionOrderNo || input.productionOrderId,
+    productionDemandNo: input.sourceSnapshot?.productionDemandNo || input.sourceSnapshot?.productionDemandId,
     supplementRecordId: input.sourceSnapshot?.supplementRecordId,
     supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
     receivingTeamId: input.sourceSnapshot?.receivingTeamId,
@@ -1168,7 +1269,7 @@ function buildFreshPrintMobileTask(input: {
     attachments: [],
     status: 'NOT_STARTED',
     acceptanceStatus: 'PENDING',
-    dispatchRemark: hasFactory ? '印花加工单已分配，待工厂接收。' : `${sourceType === 'DESIGN_REVISION' ? '设计改款已生成印花加工单' : sourceType === 'STOCK' ? '备货已生成印花加工单' : sourceType === 'CUT_PIECE_SUPPLEMENT' ? '补料已生成印花加工单' : '正式生产单已生成印花加工单'}，待分配工厂。`,
+    dispatchRemark: hasFactory ? '印花加工单已分配，待工厂接收。' : `${sourceType === 'DESIGN_REVISION' ? '设计改款已生成印花加工单' : sourceType === 'PRODUCTION_DEMAND' ? '生产需求已生成大货提前印花加工单' : sourceType === 'STOCK' ? '备货已生成印花加工单' : sourceType === 'CUT_PIECE_SUPPLEMENT' ? '补料已生成印花加工单' : '正式生产单已生成印花加工单'}，待分配工厂。`,
     dispatchedAt: hasFactory ? input.createdAt : undefined,
     dispatchedBy: hasFactory ? '平台自动生成' : undefined,
     taskQrValue: buildTaskQrValue(input.taskId),
@@ -1395,6 +1496,7 @@ function addSeedWorkOrder(input: Omit<
   const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
     sourceType: input.sourceType,
     productionOrderNo: input.sourceProductionOrderNo || input.productionOrderIds[0],
+    productionDemandNo: input.sourceSnapshot?.productionDemandNo || input.sourceSnapshot?.productionDemandId,
     supplementRecordId: input.sourceSnapshot?.supplementRecordId,
     supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
     receivingTeamId: input.sourceSnapshot?.receivingTeamId,
@@ -2360,6 +2462,8 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
   const productionNo = source?.productionOrderNo || order.sourceProductionOrderNo || ''
   const demandSource: PrintingDemandSource = order.sourceType === 'DESIGN_REVISION'
     ? { type: 'DESIGN_REVISION', sourceNo: source?.designRevisionTaskNo || source?.designRevisionTaskId || order.printOrderNo, sourceLabel: `设计改款任务 ${source?.designRevisionTaskNo || source?.designRevisionTaskId || '来源待补齐'}` }
+    : order.sourceType === 'PRODUCTION_DEMAND'
+      ? { type: 'PRODUCTION_DEMAND', sourceNo: source?.productionDemandNo || source?.productionDemandId || order.printOrderNo, sourceLabel: `生产需求单 ${source?.productionDemandNo || source?.productionDemandId || '来源待补齐'}`, demandNo: source?.productionDemandNo || source?.productionDemandId, productionOrderNo: source?.matchedProductionOrderNo || source?.productionOrderNo }
     : order.sourceType === 'STOCK'
     ? { type: 'STOCK', sourceNo: order.stockMaterialId || source?.stockMaterialId || order.printOrderNo, sourceLabel: `备货物料 ${order.stockMaterialId || source?.stockMaterialId || order.stockMaterialName || order.materialSku}` }
     : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
@@ -2367,12 +2471,14 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
       : { type: 'PRODUCTION', sourceNo: productionNo, sourceLabel: `生产单 ${productionNo}`, productionOrderNo: productionNo, demandNo: sourceOrder?.demandSnapshot.demandId }
   const imageManifest = getPrintingOrderImageManifest(order.printOrderId)
   const usableImage = (url?: string) => url && !/data:image\/svg|placeholder/i.test(url) ? url : ''
-  const spu = source?.sourceType === 'DESIGN_REVISION' ? source.targetSpuCode || '' : sourceOrder?.demandSnapshot.spuCode || order.formalProductionOrderSnapshot?.spuCode || ''
-  const productName = source?.sourceType === 'DESIGN_REVISION' ? source.targetSpuName || '设计改款目标款式' : sourceOrder?.demandSnapshot.spuName || order.formalProductionOrderSnapshot?.spuName || '备货物料（未绑定款式）'
+  const isTaskSource = source?.sourceType === 'DESIGN_REVISION' || source?.sourceType === 'PRODUCTION_DEMAND'
+  const spu = isTaskSource ? source?.targetSpuCode || '' : sourceOrder?.demandSnapshot.spuCode || order.formalProductionOrderSnapshot?.spuCode || ''
+  const productName = isTaskSource ? source?.targetSpuName || '目标款式' : sourceOrder?.demandSnapshot.spuName || order.formalProductionOrderSnapshot?.spuName || '备货物料（未绑定款式）'
   const product: PrintingProductIdentity = { spu, productName, imageUrl: usableImage(source?.targetSpuImageUrl) || [...(snapshot?.imageSnapshot.productImages || []), ...(snapshot?.imageSnapshot.styleImages || [])].map(usableImage).find(Boolean) || imageManifest?.product || '', imageAlt: `${spu || order.stockMaterialId || order.materialSku} ${productName}对应图片` }
   const sourceBomId = source?.bomItemId || order.formalProductionOrderSnapshot?.materialItems?.[0]?.sourceBomItemId
   const bom = sourceBomId ? snapshot?.bomItems.find((item) => item.id === sourceBomId) : snapshot ? selectPrimaryProductionMaterialBomItem(snapshot.bomItems) : undefined
   const frontDesign = snapshot?.patternDesigns.find((design) => design.id === order.patternNo)
+  const approvedArtworkImages = (source?.professionalResultAttachments || []).filter((file) => file.mimeType.startsWith('image/'))
     const plannedQty = order.plannedQty
     const objectType = normalizePrintMaterialObjectType(order.objectType)
     const qtyUnit = order.qtyUnit || normalizePrintQuantityUnit(objectType, undefined)
@@ -2381,11 +2487,11 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
       : { calculationMode: 'BY_USAGE', demandBaseQty: 100, demandBaseUnit: '件', standardUnitUsage: roundPrintingValue(plannedQty / 100, 4), orderUnitUsage: roundPrintingValue(plannedQty / 100, 4), usageUnit: `${qtyUnit}/件`, formulaLabel: `100 件 × ${roundPrintingValue(plannedQty / 100, 4).toFixed(4)} ${qtyUnit}/件` }
     const materialSpu = bom?.materialCode || bom?.id || order.stockMaterialId || order.materialSku
     const inputSku = order.materialSku
-    const outputSku = `${materialSpu}-${order.patternNo.toLowerCase()}`
+    const outputSku = order.outputMaterialSku || `${materialSpu}-${order.patternNo.toLowerCase()}`
     const isFabricLike = objectType === '面料' || objectType === '花边' || objectType === '织带'
     const matchesBomMaterial = bom && (!order.formalProductionOrderSnapshot || order.formalProductionOrderSnapshot.materialId === (bom.materialCode || bom.id))
-    const materialImage = usableImage(source?.materialImageUrl) || (matchesBomMaterial ? usableImage(bom.materialImageUrl) || resolveProductionMaterialImageUrl({ materialSku: bom.materialCode || bom.id, materialName: bom.name, materialColor: order.materialColor }) : '') || imageManifest?.input || ''
-    const outputImage = imageManifest?.output || ''
+    const materialImage = usableImage(order.formalProductionOrderSnapshot?.inputMaterialImageUrl) || usableImage(source?.materialImageUrl) || (matchesBomMaterial ? usableImage(bom.materialImageUrl) || resolveProductionMaterialImageUrl({ materialSku: bom.materialCode || bom.id, materialName: bom.name, materialColor: order.materialColor }) : '') || imageManifest?.input || ''
+    const outputImage = usableImage(order.outputMaterialImageUrl) || usableImage(order.formalProductionOrderSnapshot?.outputMaterialImageUrl) || imageManifest?.output || ''
     const plannedInput: PrintingPlannedInput = {
       objectType, materialName: `${order.materialSku} 待印${objectType}`, spu: materialSpu, sku: inputSku,
       imageUrl: materialImage, imageAlt: `${order.materialSku} ${objectType}实拍图`, gsm: isFabricLike && index >= 0 ? 120 + index * 20 : 0, widthCm: isFabricLike && index >= 0 ? 152 + index : 0,
@@ -2394,15 +2500,15 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
       currentStockQty: index >= 0 && config.actualReceivedQty <= 0 ? plannedQty : 0, pendingPrintQty: Math.max(plannedQty - config.actualUsedQty, 0),
     }
     const output: PrintingOutput = {
-      objectType, materialName: `${order.materialSku} 印花成品${objectType}`, spu: materialSpu, sku: outputSku,
+      objectType, materialName: order.outputMaterialName || `${order.materialSku} 印花成品${objectType}`, spu: materialSpu, sku: outputSku,
       imageUrl: outputImage, imageAlt: `${order.materialSku} 印花成品${objectType}实拍图`,
       gsm: plannedInput.gsm, widthCm: plannedInput.widthCm, plannedQty, completedQty: config.completedQty,
       completedRollCount: config.completedRollCount, qtyUnit,
     }
     const receivedAll = config.receivedQty >= config.completedQty && config.completedQty > 0
     order.businessView = {
-      salesType: sourceOrder?.demandSnapshot.saleType || (order.sourceType === 'STOCK' ? '备货' : order.sourceType === 'DESIGN_REVISION' ? '打样' : '生产'),
-      creationMethod: order.sourceType === 'STOCK' ? '备货手动创建' : order.sourceType === 'CUT_PIECE_SUPPLEMENT' ? '裁片补料生成' : order.sourceType === 'DESIGN_REVISION' ? '设计改款生成' : '生产单自动生成',
+      salesType: sourceOrder?.demandSnapshot.saleType || (order.sourceType === 'STOCK' ? '备货' : order.sourceType === 'DESIGN_REVISION' ? '销售展示样衣' : order.sourceType === 'PRODUCTION_DEMAND' ? '大货提前准备' : '生产'),
+      creationMethod: order.sourceType === 'STOCK' ? '备货手动创建' : order.sourceType === 'CUT_PIECE_SUPPLEMENT' ? '裁片补料生成' : order.sourceType === 'DESIGN_REVISION' ? '设计改款样衣创建' : order.sourceType === 'PRODUCTION_DEMAND' ? '生产需求提前创建' : '生产单自动生成',
       materialType: objectType,
       historicalSupplement: order.sourceType === 'CUT_PIECE_SUPPLEMENT',
       legacyProgressHint: PRINT_WORK_ORDER_STATUS_LABEL[order.status],
@@ -2418,8 +2524,8 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
       requirement: {
         craftName: '印花', type: index === 4 ? '热转印' : '数码印花', shade: index === 4 ? '跟图' : '标准',
         temperature: index === 4 ? '200℃' : '按工艺卡', printSide: index === 0 ? '双面' : '单面',
-        frontPattern: { patternNo: order.patternNo, patternVersion: order.patternVersion, patternName: '正面花型', imageUrl: usableImage(frontDesign?.imageUrl) || imageManifest?.frontPattern || '', imageAlt: `${order.patternNo} 正面花型图` },
-        ...(index === 0 ? { insidePattern: { patternNo: `${order.patternNo}-B`, patternVersion: order.patternVersion, patternName: '里面花型', imageUrl: imageManifest?.insidePattern || '', imageAlt: `${order.patternNo} 里面花型图` } } : {}),
+        frontPattern: { patternNo: order.patternNo, patternVersion: order.patternVersion, patternName: '正面花型', imageUrl: usableImage(frontDesign?.imageUrl) || usableImage(approvedArtworkImages[0]?.dataUrl) || imageManifest?.frontPattern || '', imageAlt: `${order.patternNo} 正面花型图` },
+        ...(approvedArtworkImages[1] ? { insidePattern: { patternNo: `${order.patternNo}-B`, patternVersion: order.patternVersion, patternName: '第二张花型图', imageUrl: usableImage(approvedArtworkImages[1]?.dataUrl) || '', imageAlt: `${order.patternNo} 第二张花型图` } } : index === 0 ? { insidePattern: { patternNo: `${order.patternNo}-B`, patternVersion: order.patternVersion, patternName: '里面花型', imageUrl: imageManifest?.insidePattern || '', imageAlt: `${order.patternNo} 里面花型图` } } : {}),
       },
       output,
       handover: {
@@ -2853,6 +2959,139 @@ export function listPrintWorkOrders(): PrintWorkOrder[] {
   })
 }
 
+export interface PreparedProductionDemandPrintMatch {
+  workOrderId: string
+  commit: () => void
+  rollback: () => void
+}
+
+export function prepareProductionDemandPrintMatch(
+  printOrderId: string,
+  decision: ProductionDemandProcessMatchDecision,
+): PreparedProductionDemandPrintMatch {
+  seedDomain()
+  const current = workOrderStore.get(printOrderId)
+  if (!current || current.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') {
+    throw new Error('未找到对应的生产需求提前印花加工单')
+  }
+  const before = cloneWorkOrder(current)
+  const next = cloneWorkOrder(current) as MutablePrintWorkOrder
+  const action = decision.matchStatus === 'MATCHED' ? 'MATCH' : decision.matchStatus === 'MATCH_FAILED' ? 'MATCH_FAILED' : 'RETRY'
+  next.sourceSnapshot = {
+    ...structuredClone(current.sourceSnapshot),
+    matchStatus: decision.matchStatus,
+    matchCheckedAt: decision.checkedAt,
+    matchFailureReason: decision.failureReason,
+    ...(decision.productionOrderId ? {
+      productionOrderId: decision.productionOrderId,
+      matchedProductionOrderId: decision.productionOrderId,
+    } : {}),
+    ...(decision.productionOrderNo ? {
+      productionOrderNo: decision.productionOrderNo,
+      matchedProductionOrderNo: decision.productionOrderNo,
+    } : {}),
+    ...(decision.techPackVersionId ? {
+      techPackVersionId: decision.techPackVersionId,
+      matchedTechPackVersionId: decision.techPackVersionId,
+    } : {}),
+    ...(decision.techPackVersionLabel ? {
+      techPackVersionLabel: decision.techPackVersionLabel,
+      matchedTechPackVersionLabel: decision.techPackVersionLabel,
+    } : {}),
+    operationFacts: [...(current.sourceSnapshot.operationFacts || []), {
+      operationId: `OP-${printOrderId}-${decision.checkedAt}-${action}`,
+      action,
+      operatedAt: decision.checkedAt,
+      operatorName: decision.operatorName,
+      operatorRole: decision.operatorRole || '系统',
+      detail: decision.failureReason || (decision.matchStatus === 'MATCHED'
+        ? `已自动匹配生产单 ${decision.productionOrderNo || decision.productionOrderId}`
+        : '等待技术包完成后自动重试'),
+    }],
+  }
+  if (decision.matchStatus === 'MATCHED' && decision.formalSnapshot) {
+    next.sourceProductionOrderId = decision.formalSnapshot.productionOrderId
+    next.sourceProductionOrderNo = decision.formalSnapshot.productionOrderNo
+    next.productionOrderIds = [decision.formalSnapshot.productionOrderId]
+    next.formalProductionOrderSnapshot = toPrintSnapshotRecord(decision.formalSnapshot)
+    if (next.businessView) {
+      next.businessView.demandSource.productionOrderNo = decision.formalSnapshot.productionOrderNo
+    }
+  }
+  next.updatedAt = decision.checkedAt
+  let committed = false
+  return {
+    workOrderId: printOrderId,
+    commit: () => {
+      if (committed) return
+      runPrintProcessMutation(() => { workOrderStore.set(printOrderId, cloneWorkOrder(next) as MutablePrintWorkOrder) })
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      runPrintProcessMutation(() => { workOrderStore.set(printOrderId, cloneWorkOrder(before) as MutablePrintWorkOrder) })
+      committed = false
+    },
+  }
+}
+
+export function cancelProductionDemandPrintWorkOrder(
+  printOrderId: string,
+  input: { operatorName: string; operatorRole?: string; reason: string; cancelledAt?: string; replacementWorkOrderId?: string },
+): PrintWorkOrder {
+  return runPrintProcessMutation(() => {
+    const order = workOrderStore.get(printOrderId)
+    if (!order || order.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') throw new Error('未找到对应的生产需求提前印花加工单')
+    const view = order.businessView
+    if (!view) throw new Error('印花加工单缺少业务视图')
+    if (!input.reason.trim()) throw new Error('取消原因必填')
+    if (order.manuallyCompletedAt || order.status === 'COMPLETED'
+      || view.actualInput.receivedQty > 0 || view.actualInput.usedQty > 0 || view.output.completedQty > 0 || view.handover.handedOverQty > 0) {
+      throw new Error('加工单已经执行或完成，不能取消覆盖，请创建纠正单')
+    }
+    const cancelledAt = input.cancelledAt || nowTimestamp()
+    order.status = 'CANCELLED'
+    order.sourceSnapshot = {
+      ...order.sourceSnapshot,
+      matchStatus: 'CANCELLED',
+      cancelledAt,
+      cancelledBy: input.operatorName,
+      cancelReason: input.reason.trim(),
+      replacementWorkOrderId: input.replacementWorkOrderId,
+      operationFacts: [...(order.sourceSnapshot.operationFacts || []), {
+        operationId: `OP-${printOrderId}-${cancelledAt}-CANCEL`, action: 'CANCEL', operatedAt: cancelledAt,
+        operatorName: input.operatorName, operatorRole: input.operatorRole || '业务人员', detail: input.reason.trim(),
+      }],
+    }
+    updateOrderTimestamp(order, cancelledAt)
+    syncLinkedTaskState(order.taskId, { status: 'CANCELLED' })
+    addPrintingBusinessOperation(order, '取消印花加工单', input.operatorName, input.reason.trim())
+    return cloneWorkOrder(order)
+  })
+}
+
+export function linkProductionDemandPrintReplacement(
+  printOrderId: string,
+  replacementWorkOrderId: string,
+  linkedAt = nowTimestamp(),
+): PrintWorkOrder {
+  return runPrintProcessMutation(() => {
+    const order = workOrderStore.get(printOrderId)
+    if (!order || order.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') throw new Error('未找到对应的生产需求提前印花加工单')
+    if (order.sourceSnapshot.matchStatus !== 'CANCELLED') throw new Error('只有已取消的提前印花加工单可以关联替代单')
+    order.sourceSnapshot = {
+      ...order.sourceSnapshot,
+      replacementWorkOrderId,
+      operationFacts: [...(order.sourceSnapshot.operationFacts || []), {
+        operationId: `OP-${printOrderId}-${linkedAt}-REPLACED`, action: 'REBUILD', operatedAt: linkedAt,
+        operatorName: '系统', operatorRole: '系统', detail: `替代单已创建：${replacementWorkOrderId}`,
+      }],
+    }
+    updateOrderTimestamp(order, linkedAt)
+    return cloneWorkOrder(order)
+  })
+}
+
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
   const canonical = workOrderStore.get(printOrderId)
@@ -3073,9 +3312,12 @@ export function registerFormalProductionOrderPrintWorkOrder(input: ProcessWorkOr
     stockMaterialName: sourceSnapshot.stockMaterialName,
     productionOrderIds: sourceSnapshot.productionOrderId ? [sourceSnapshot.productionOrderId] : [],
     isFirstOrder: false,
-    patternNo: sourceSnapshot.sourceType === 'STOCK' ? input.processName : sourceSnapshot.sourceType === 'DESIGN_REVISION' ? sourceSnapshot.professionalResultId || sourceSnapshot.professionalTaskNo || sourceSnapshot.professionalTaskId! : input.techPackVersionId!,
-    patternVersion: sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : sourceSnapshot.sourceType === 'DESIGN_REVISION' ? sourceSnapshot.professionalResultVersion || '待专业成果' : input.techPackVersionLabel!,
-    materialSku: materialFields.materialId,
+    patternNo: sourceSnapshot.sourceType === 'STOCK' ? input.processName : sourceSnapshot.sourceType === 'DESIGN_REVISION' || sourceSnapshot.sourceType === 'PRODUCTION_DEMAND' ? sourceSnapshot.professionalResultId || sourceSnapshot.professionalTaskNo || sourceSnapshot.professionalTaskId! : input.techPackVersionId!,
+    patternVersion: sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : sourceSnapshot.sourceType === 'DESIGN_REVISION' || sourceSnapshot.sourceType === 'PRODUCTION_DEMAND' ? sourceSnapshot.professionalResultVersion || '待专业成果' : input.techPackVersionLabel!,
+    materialSku: input.inputMaterialSkuCode || materialFields.materialId,
+    outputMaterialSku: input.outputMaterialSkuCode || input.inputMaterialSkuCode || materialFields.materialId,
+    outputMaterialName: input.outputMaterialName || input.inputMaterialName || materialFields.materialName,
+    outputMaterialImageUrl: input.outputMaterialImageUrl,
     materialColor: input.targetColor,
     objectType: printMaterialObjectType,
     plannedQty: input.plannedQty,
@@ -3093,6 +3335,8 @@ export function registerFormalProductionOrderPrintWorkOrder(input: ProcessWorkOr
       ? `${input.processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt || input.requiredDeliveryDate}`
       : sourceSnapshot.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? `${input.processName}；来源补料单 ${sourceSnapshot.supplementRecordNo}；原裁片单 ${sourceSnapshot.originalCutOrderNo}。`
+        : sourceSnapshot.sourceType === 'PRODUCTION_DEMAND'
+          ? `${input.processName}；大货提前加工；来源生产需求单 ${sourceSnapshot.productionDemandNo || sourceSnapshot.productionDemandId}；专业成果 ${sourceSnapshot.professionalResultVersion}；计划数量已含损耗。`
         : sourceSnapshot.sourceType === 'DESIGN_REVISION'
           ? `${input.processName}；来源设计改款任务 ${sourceSnapshot.designRevisionTaskNo}；专业任务 ${sourceSnapshot.professionalTaskNo || sourceSnapshot.professionalTaskId}；${sourceSnapshot.professionalResultVersion ? `结果版本 ${sourceSnapshot.professionalResultVersion}` : '待专业成果'}。`
         : `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
@@ -3107,6 +3351,14 @@ export function registerFormalProductionOrderPrintWorkOrder(input: ProcessWorkOr
       materialId: materialFields.materialId,
       materialName: materialFields.materialName,
       materialItems,
+      inputMaterialSkuId: input.inputMaterialSkuId,
+      inputMaterialSkuCode: input.inputMaterialSkuCode,
+      inputMaterialName: input.inputMaterialName,
+      inputMaterialImageUrl: input.inputMaterialImageUrl,
+      outputMaterialSkuId: input.outputMaterialSkuId,
+      outputMaterialSkuCode: input.outputMaterialSkuCode,
+      outputMaterialName: input.outputMaterialName,
+      outputMaterialImageUrl: input.outputMaterialImageUrl,
       targetColor: input.targetColor,
       plannedQty: input.plannedQty,
       qtyUnit: input.qtyUnit,
@@ -3205,6 +3457,14 @@ function toPrintSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): 
     materialId: materialFields.materialId,
     materialName: materialFields.materialName,
     materialItems,
+    inputMaterialSkuId: snapshot.inputMaterialSkuId,
+    inputMaterialSkuCode: snapshot.inputMaterialSkuCode,
+    inputMaterialName: snapshot.inputMaterialName,
+    inputMaterialImageUrl: snapshot.inputMaterialImageUrl,
+    outputMaterialSkuId: snapshot.outputMaterialSkuId,
+    outputMaterialSkuCode: snapshot.outputMaterialSkuCode,
+    outputMaterialName: snapshot.outputMaterialName,
+    outputMaterialImageUrl: snapshot.outputMaterialImageUrl,
     targetColor: snapshot.targetColor,
     plannedQty: snapshot.plannedQty,
     qtyUnit: snapshot.qtyUnit,
@@ -3303,7 +3563,11 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
   next.productionOrderIds = [snapshot.productionOrderId]
   next.patternNo = snapshot.techPackVersionId
   next.patternVersion = snapshot.techPackVersionLabel
-  next.materialSku = after.materialId
+  next.materialSku = after.inputMaterialSkuCode || after.materialId
+  next.outputMaterialSku = after.outputMaterialSkuCode || after.inputMaterialSkuCode || after.materialId
+  next.outputMaterialName = after.outputMaterialName || after.inputMaterialName || after.materialName
+  next.outputMaterialImageUrl = after.outputMaterialImageUrl
+  next.businessView = undefined
   next.materialColor = snapshot.targetColor
   next.objectType = resolvePrintMaterialObjectType(after.materialItems ?? [])
   next.plannedQty = snapshot.plannedQty
@@ -4006,6 +4270,17 @@ function projectPrintingBusinessRecord(order: MutablePrintWorkOrder): PrintingWo
   if (!order.businessView) throw new Error('印花加工单缺少当前页面视图事实')
   return {
     ...structuredClone(order.businessView),
+    productionDemandId: order.sourceSnapshot?.productionDemandNo || order.sourceSnapshot?.productionDemandId || order.businessView.demandSource.demandNo || '',
+    matchStatus: order.sourceSnapshot?.matchStatus,
+    matchStatusLabel: order.sourceSnapshot?.matchStatus ? PRODUCTION_DEMAND_PROCESS_MATCH_LABEL[order.sourceSnapshot.matchStatus] : '不适用',
+    matchFailureReason: order.sourceSnapshot?.matchFailureReason || '',
+    matchedProductionOrderNo: order.sourceSnapshot?.matchedProductionOrderNo || order.sourceSnapshot?.productionOrderNo || order.sourceProductionOrderNo || '',
+    professionalTaskNo: order.sourceSnapshot?.professionalTaskNo || '',
+    professionalResultId: order.sourceSnapshot?.professionalResultId || '',
+    professionalResultVersion: order.sourceSnapshot?.professionalResultVersion || '',
+    professionalResultAttachments: structuredClone(order.sourceSnapshot?.professionalResultAttachments || []),
+    estimatedUnitConsumption: order.sourceSnapshot?.estimatedUnitConsumption,
+    estimatedLossRate: order.sourceSnapshot?.estimatedLossRate,
     pendingWritebackQty: printingPendingReceiptQty(order.handoverOrderId ? getPdaHandoverRecordsByHead(order.handoverOrderId) : [], order.businessView.pendingWritebackQty),
     workOrderId: order.printOrderId,
     printOrderNo: order.printOrderNo,

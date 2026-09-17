@@ -150,8 +150,21 @@ function validateResultBinding(input: DesignRevisionApprovedProfessionalResultIn
     const key = `${ref.processType}:${ref.processOrderId}`
     if (seen.has(key)) throw new Error('专业任务的加工单引用重复，请刷新后重试。')
     seen.add(key)
+    const processLabel = ref.processType === 'PRINTING' ? '印花加工单' : '染色加工单'
     const order = ref.processType === 'PRINTING' ? getPrintWorkOrderById(ref.processOrderId) : getDyeWorkOrderById(ref.processOrderId)
-    if (!order || order.sourceType !== 'DESIGN_REVISION' || order.sourceKey !== ref.sourceKey || order.sourceSnapshot?.designRevisionTaskId !== input.designRevisionTaskId || order.sourceSnapshot?.professionalTaskId !== input.professionalTaskId) throw new Error('专业成果与加工单来源不一致，不能绑定。')
+    if (!order) throw new Error(`未找到${processLabel} ${ref.processOrderId}，请返回设计改款任务重新生成加工单关联。`)
+    if (order.sourceType !== 'DESIGN_REVISION' || order.sourceSnapshot?.sourceType !== 'DESIGN_REVISION') {
+      throw new Error(`${processLabel} ${ref.processOrderId} 不是设计改款来源，不能绑定本次专业成果。`)
+    }
+    const actualDesignRevisionTaskId = order.sourceSnapshot.designRevisionTaskId || ''
+    if (actualDesignRevisionTaskId !== input.designRevisionTaskId) {
+      throw new Error(`${processLabel} ${ref.processOrderId} 所属设计改款任务为 ${actualDesignRevisionTaskId || '未记录'}，与当前任务 ${input.designRevisionTaskId} 不一致。`)
+    }
+    const actualProfessionalTaskId = order.sourceSnapshot.professionalTaskId || ''
+    if (actualProfessionalTaskId !== input.professionalTaskId) {
+      throw new Error(`${processLabel} ${ref.processOrderId} 所属专业任务为 ${actualProfessionalTaskId || '未记录'}，与当前任务 ${input.professionalTaskId} 不一致。`)
+    }
+    if (order.sourceKey !== ref.sourceKey) ref.sourceKey = order.sourceKey
   })
 }
 

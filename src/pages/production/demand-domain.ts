@@ -46,6 +46,7 @@ import {
   buildFormalProductionOrderProcessSnapshots,
   prepareProcessWorkOrdersForFormalProductionOrders,
 } from '../../data/fcs/production-process-work-order-service.ts'
+import { prepareProductionDemandEarlyMatches } from '../../data/fcs/production-demand-early-process-work-orders.ts'
 import {
   captureProcessTaskStore,
   restoreProcessTaskStore,
@@ -1277,8 +1278,21 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
     }
   }
 
-  const preparedSnapshots = created.flatMap((item) => buildFormalProductionOrderProcessSnapshots(item.order))
-  const preparedWorkOrders = prepareProcessWorkOrdersForFormalProductionOrders(preparedSnapshots)
+  const earlyMatchBatches = created.map((item) => {
+    const snapshots = buildFormalProductionOrderProcessSnapshots(item.order)
+    return prepareProductionDemandEarlyMatches({
+      demands: item.demands.map((demand) => ({
+        demandId: demand.demandId,
+        requiredQtyTotal: demand.requiredQtyTotal,
+        techPackStatus: demand.techPackStatus,
+      })),
+      productionOrderId: item.order.productionOrderId,
+      productionOrderNo: item.order.productionOrderNo,
+    }, snapshots, now)
+  })
+  const preparedWorkOrders = prepareProcessWorkOrdersForFormalProductionOrders(
+    earlyMatchBatches.flatMap((batch) => batch.remainingSnapshots),
+  )
   const previousOrders = structuredClone(state.orders)
   const previousDemands = state.demands
   const previousTasks = captureProcessTaskStore()
@@ -1327,6 +1341,7 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
         : []
     })
 
+    earlyMatchBatches.forEach((batch) => batch.commit())
     preparedWorkOrders.commit()
     autoBreakdownResults.forEach(({ order, task }) => {
       order.auditLogs.push({
@@ -1340,6 +1355,7 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
     persistCreatedProductionOrders([...newlyAddedOrderIds])
   } catch (error) {
     preparedWorkOrders.rollback()
+    earlyMatchBatches.slice().reverse().forEach((batch) => batch.rollback())
     state.orders.splice(0, state.orders.length, ...previousOrders)
     state.demands = previousDemands
     restoreProcessTaskStore(previousTasks)

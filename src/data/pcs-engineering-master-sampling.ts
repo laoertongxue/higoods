@@ -61,6 +61,7 @@ import {
 } from './pcs-engineering-bom-repository.ts'
 import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 import { assertEngineeringUploadedFilesReady } from './pcs-engineering-file-upload.ts'
+import { getEngineeringTaskUploadedFile } from './pcs-engineering-task-upload-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 
 const STORAGE_KEY = 'higood-pcs-design-revision-v1'
@@ -157,7 +158,7 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
 }
 
 function normalizeRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
-  return {
+  const normalized = {
     ...record,
     samplingType: 'DESIGN_REVISION',
     designFiles: Array.isArray(record.designFiles) ? record.designFiles.map((file) => ({ ...file })) : [],
@@ -200,6 +201,30 @@ function normalizeRecord(record: EngineeringIndependentSamplingRecord): Engineer
       : record.bomDraftVersionId ? [record.bomDraftVersionId] : [],
     operationLogs: Array.isArray(record.operationLogs) ? record.operationLogs.map((log) => ({ ...log })) : [],
   }
+  normalized.professionalTasks.forEach((task) => {
+    task.results.forEach((result) => {
+      result.files = result.files.map((file) => {
+        if (file.dataUrl) return file
+        return getEngineeringTaskUploadedFile(file.fileId) || file
+      })
+      if (!result.imageUrl) result.imageUrl = result.files.find((file) => file.mimeType.startsWith('image/'))?.dataUrl || ''
+    })
+  })
+  return normalized
+}
+
+function createPersistedRecords(records: EngineeringIndependentSamplingRecord[]): EngineeringIndependentSamplingRecord[] {
+  return records.map((record) => {
+    const persisted = cloneRecord(record)
+    persisted.professionalTasks.forEach((task) => {
+      task.results.forEach((result) => {
+        const uploadedIds = new Set(result.files.filter((file) => getEngineeringTaskUploadedFile(file.fileId)?.dataUrl).map((file) => file.fileId))
+        if (result.files.some((file) => uploadedIds.has(file.fileId) && file.dataUrl === result.imageUrl)) result.imageUrl = ''
+        result.files = result.files.map((file) => uploadedIds.has(file.fileId) ? { ...file, dataUrl: '' } : file)
+      })
+    })
+    return persisted
+  })
 }
 
 function createDefaultBomLines(styleCode: string): EngineeringBomMaterialLineDraft[] {
@@ -493,21 +518,31 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
 }
 
 function readRecords(): EngineeringIndependentSamplingRecord[] {
-  if (memoryRecords) return memoryRecords
+  if (memoryRecords) return memoryRecords.map(cloneRecord)
   if (canUseStorage()) {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as EngineeringIndependentSamplingRecord[]
-      if (Array.isArray(parsed) && parsed.length) return (memoryRecords = parsed.map(normalizeRecord))
+      if (Array.isArray(parsed) && parsed.length) {
+        memoryRecords = parsed.map(normalizeRecord)
+        return memoryRecords.map(cloneRecord)
+      }
     } catch { /* 使用演示种子 */ }
   }
   memoryRecords = seedRecords()
   writeRecords(memoryRecords)
-  return memoryRecords
+  return memoryRecords.map(cloneRecord)
 }
 
 function writeRecords(records: EngineeringIndependentSamplingRecord[]): void {
-  memoryRecords = records.map(cloneRecord)
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryRecords))
+  const nextRecords = records.map(cloneRecord)
+  if (canUseStorage()) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(createPersistedRecords(nextRecords)))
+    } catch {
+      throw new Error('浏览器存储空间不足，本次操作未保存。请删除不需要的草稿文件后重试。')
+    }
+  }
+  memoryRecords = nextRecords
 }
 
 function requireMerchandiser(actor: { role: string; userId: string; userName: string }): void {
@@ -1626,6 +1661,51 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
   }
 }
 
+export function repairEngineeringIndependentProfessionalTaskProcessOrders(input: {
+  taskId: string
+  actor: { role: string; userId: string; userName: string }
+  repairedAt?: string
+}): EngineeringIndependentSamplingRecord {
+  requireBuyer(input.actor)
+  const records = readRecords()
+  const { record, task } = findTask(records, input.taskId)
+  if (!isTaskBuyerOrAdministrator(record, input.actor)) throw new Error('只有任务买手本人或管理员可以修复加工单关联。')
+  if (!['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(task.taskType)) throw new Error('当前任务不需要印花／染色加工单。')
+  const sampleRequirements = record.professionalTasks.find((item) => item.taskType === 'DISPLAY_SAMPLE')?.sampleRequirements || []
+  const targetSpu = targetSpuIdentity(record)
+  const transaction = prepareDesignRevisionProcessWorkOrders({
+    designRevisionTaskId: record.samplingTaskId,
+    designRevisionTaskNo: record.samplingTaskCode,
+    targetSpuCode: targetSpu.code,
+    targetSpuName: targetSpu.name,
+    createdAt: input.repairedAt || nowText(),
+    createdBy: input.actor.userName,
+    receivingTeamId: record.displaySampleTeamId,
+    receivingTeamName: record.displaySampleTeamName,
+    receivingFactoryId: DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0].receivingFactoryId,
+    receivingFactoryName: DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0].receivingFactoryName,
+    receivingLocationId: record.displaySampleReceivingLocationId,
+    receivingLocationName: record.displaySampleReceivingLocationName,
+    lines: buildDesignRevisionProcessEntries({ record, tasks: record.professionalTasks, sampleRequirements }),
+  })
+  try {
+    const committedRefs = transaction.commit()
+    record.professionalTasks.forEach((item) => { item.processWorkOrderRefs = [] })
+    committedRefs.forEach(({ professionalTaskId, ...ref }) => {
+      const ownerTask = record.professionalTasks.find((item) => item.taskId === professionalTaskId)
+      if (!ownerTask) throw new Error(`加工单对应的专业任务 ${professionalTaskId} 不存在。`)
+      ownerTask.processWorkOrderRefs.push(ref)
+    })
+    const at = input.repairedAt || nowText()
+    addLog(record, '修复加工单关联', input.actor, `已按当前物料与加工要求重新核对并建立 ${committedRefs.length} 张印染加工单关联。`, at)
+    writeRecords(records)
+    return cloneRecord(record)
+  } catch (error) {
+    try { transaction.rollback() } catch { /* 保留原始失败 */ }
+    throw error
+  }
+}
+
 export function confirmEngineeringIndependentSamplingScheme(input: {
   samplingTaskId: string
   actor: { role: string; userId: string; userName: string }
@@ -1851,10 +1931,11 @@ export function reviewEngineeringIndependentProfessionalTask(input: { taskId: st
   const records = readRecords(); const { record, task } = findTask(records, input.taskId)
   if (task.status !== 'WAIT_REVIEW') throw new Error('当前任务没有待审核成果。')
   const at = input.reviewedAt || nowText()
-  task.results.forEach((result) => { const decision = input.decisions.find((item) => item.resultId === result.resultId); if (!decision) throw new Error(`请审核成果：${result.title}`); if (!decision.approved && !decision.reason?.trim()) throw new Error(`请填写未通过原因：${result.title}`); result.status = decision.approved ? 'APPROVED' : 'REJECTED'; result.rejectReason = decision.approved ? '' : decision.reason!.trim() })
-  const allApproved = task.results.every((result) => result.status === 'APPROVED')
+  const reviewedResults = task.results.map(cloneResult)
+  reviewedResults.forEach((result) => { const decision = input.decisions.find((item) => item.resultId === result.resultId); if (!decision) throw new Error(`请审核成果：${result.title}`); if (!decision.approved && !decision.reason?.trim()) throw new Error(`请填写未通过原因：${result.title}`); result.status = decision.approved ? 'APPROVED' : 'REJECTED'; result.rejectReason = decision.approved ? '' : decision.reason!.trim() })
+  const allApproved = reviewedResults.every((result) => result.status === 'APPROVED')
   if (allApproved && task.processWorkOrderRefs.length) {
-    const approvedResult = task.results[0]
+    const approvedResult = reviewedResults[0]
     if (!approvedResult) throw new Error('专业成果不存在，不能开放加工单。')
     const version = approvedResult.version.trim() || task.dyeColorCode.trim() || approvedResult.resultId
     bindDesignRevisionApprovedProfessionalResult({
@@ -1864,16 +1945,14 @@ export function reviewEngineeringIndependentProfessionalTask(input: { taskId: st
       professionalResultVersion: version,
       approvedAt: at,
       approvedBy: input.actor.userName,
-      attachments: task.results.flatMap((result) => result.files.map((file) => ({
-        fileId: file.fileId,
-        fileName: file.fileName,
-        mimeType: file.mimeType,
-        sizeBytes: file.sizeBytes,
-        dataUrl: file.dataUrl,
-      }))),
+      attachments: reviewedResults.flatMap((result) => result.files.map((file) => {
+        const stored = getEngineeringTaskUploadedFile(file.fileId) || file
+        return { fileId: stored.fileId, fileName: stored.fileName, mimeType: stored.mimeType, sizeBytes: stored.sizeBytes, dataUrl: stored.dataUrl }
+      })),
       processWorkOrderRefs: task.processWorkOrderRefs,
     })
   }
+  task.results = reviewedResults
   task.status = allApproved ? 'COMPLETED' : 'REWORK'; if (allApproved) { task.completedAt = at; unlockDependents(record, task.taskId) }
   addLog(record, allApproved ? '买手审核通过' : '买手退回返工', input.actor, allApproved ? `${task.taskName}全部成果通过。` : `${task.taskName}未通过项需要返工。`, at); refreshParentStatus(record); writeRecords(records); return cloneRecord(record)
 }
@@ -2049,6 +2128,5 @@ export function restoreEngineeringIndependentSamplingRepositoryState(state: Engi
 }
 
 export function resetEngineeringIndependentSamplingRepository(seed = true): void {
-  memoryRecords = seed ? seedRecords() : []
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryRecords))
+  writeRecords(seed ? seedRecords() : [])
 }

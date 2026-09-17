@@ -56,6 +56,36 @@ export function deriveFormalProductionOrderProcessSnapshots(
       if (!materialCode) {
         throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺 BOM ${bomItem.id} 缺少稳定物料编码，无法生成加工单`)
       }
+      type MaterialSkuIdentity = { id: string; code: string; name: string; imageUrl: string }
+      const identityMemo = new Map<string, { input: MaterialSkuIdentity; output: MaterialSkuIdentity }>()
+      const resolveIdentity = (candidate: (typeof entries)[number], stack = new Set<string>()): { input: MaterialSkuIdentity; output: MaterialSkuIdentity } => {
+        const cached = identityMemo.get(candidate.id)
+        if (cached) return cached
+        if (stack.has(candidate.id)) throw new Error(`准备工序 ${candidate.id} 的物料 SKU 链存在循环`)
+        const nextStack = new Set(stack).add(candidate.id)
+        const predecessor = (candidate.predecessorEntryIds ?? [])
+          .map((id) => entries.find((item) => item.id === id))
+          .find((item) => item?.stageCode === 'PREP' && item.routeObjectKey === candidate.routeObjectKey)
+        const rootInput: MaterialSkuIdentity = {
+          id: replacement?.materialId || candidate.inputMaterialSkuId || bomItem.materialSkuId || materialCode,
+          code: replacement?.materialCode || candidate.inputMaterialSkuCode || materialCode,
+          name: replacement?.materialName || candidate.inputMaterialName || `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}`,
+          imageUrl: candidate.inputMaterialImageUrl || bomItem.materialImageUrl || '',
+        }
+        const input = predecessor ? resolveIdentity(predecessor, nextStack).output : rootInput
+        const output = candidate.outputMaterialSkuMode === 'CHANGED'
+          ? {
+              id: candidate.outputMaterialSkuId || input.id,
+              code: candidate.outputMaterialSkuCode || input.code,
+              name: candidate.outputMaterialName || input.name,
+              imageUrl: candidate.outputMaterialImageUrl || input.imageUrl,
+            }
+          : input
+        const resolved = { input, output }
+        identityMemo.set(candidate.id, resolved)
+        return resolved
+      }
+      const materialIdentity = resolveIdentity(entry)
       const qtyUnit = bomItem.unit?.trim()
       if (!qtyUnit) {
         throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺 BOM ${bomItem.id} 缺少数量单位`)
@@ -73,8 +103,8 @@ export function deriveFormalProductionOrderProcessSnapshots(
       }
       const materialItems = [{
         sourceBomItemId: bomItem.id,
-        materialId: materialCode,
-        materialName: replacement?.materialName || `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}`,
+        materialId: materialIdentity.input.code,
+        materialName: materialIdentity.input.name,
         materialType: bomItem.type,
       }]
       const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
@@ -91,6 +121,14 @@ export function deriveFormalProductionOrderProcessSnapshots(
         materialId: materialFields.materialId,
         materialName: materialFields.materialName,
         materialItems,
+        inputMaterialSkuId: materialIdentity.input.id,
+        inputMaterialSkuCode: materialIdentity.input.code,
+        inputMaterialName: materialIdentity.input.name,
+        inputMaterialImageUrl: materialIdentity.input.imageUrl,
+        outputMaterialSkuId: materialIdentity.output.id,
+        outputMaterialSkuCode: materialIdentity.output.code,
+        outputMaterialName: materialIdentity.output.name,
+        outputMaterialImageUrl: materialIdentity.output.imageUrl,
         targetColor: bomItem.colorLabel || order.demandSnapshot.skuLines[0]?.color || '按技术包配色',
         plannedQty,
         qtyUnit,

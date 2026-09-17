@@ -42,10 +42,48 @@ import { cloneFormalProductionOrderMaterialItems } from './formal-production-ord
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
-export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
+export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'PRODUCTION_DEMAND' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
+
+export type ProductionDemandProcessMatchStatus =
+  | 'WAIT_PRODUCTION_ORDER'
+  | 'WAIT_TECH_PACK'
+  | 'MATCHED'
+  | 'MATCH_FAILED'
+  | 'CANCELLED'
+
+export const PRODUCTION_DEMAND_PROCESS_MATCH_LABEL: Record<ProductionDemandProcessMatchStatus, string> = {
+  WAIT_PRODUCTION_ORDER: '待匹配生产单',
+  WAIT_TECH_PACK: '待技术包核验',
+  MATCHED: '已匹配生产单',
+  MATCH_FAILED: '匹配异常',
+  CANCELLED: '已取消',
+}
+
+export interface ProcessWorkOrderOperationFact {
+  operationId: string
+  action: 'CREATE' | 'MATCH' | 'MATCH_FAILED' | 'RETRY' | 'CANCEL' | 'REBUILD'
+  operatedAt: string
+  operatorName: string
+  operatorRole: string
+  detail: string
+}
+
+export interface ProductionDemandProcessMatchDecision {
+  matchStatus: ProductionDemandProcessMatchStatus
+  checkedAt: string
+  operatorName: string
+  operatorRole?: string
+  failureReason?: string
+  productionOrderId?: string
+  productionOrderNo?: string
+  techPackVersionId?: string
+  techPackVersionLabel?: string
+  formalSnapshot?: FormalProductionOrderProcessSnapshot
+}
 
 export const PROCESS_WORK_ORDER_SOURCE_LABEL: Record<ProcessWorkOrderSourceType, string> = {
   PRODUCTION_ORDER: '生产单自动生成',
+  PRODUCTION_DEMAND: '生产需求单提前创建',
   STOCK: '备货手动创建',
   CUT_PIECE_SUPPLEMENT: '裁片补料生成',
   DESIGN_REVISION: '设计改款生成',
@@ -53,6 +91,29 @@ export const PROCESS_WORK_ORDER_SOURCE_LABEL: Record<ProcessWorkOrderSourceType,
 
 export interface ProcessWorkOrderSourceSnapshot {
   sourceType: ProcessWorkOrderSourceType
+  productionDemandId?: string
+  productionDemandNo?: string
+  demandQty?: number
+  demandQtyUnit?: string
+  estimatedUnitConsumption?: number
+  estimatedLossRate?: number
+  estimatedProcessQty?: number
+  matchStatus?: ProductionDemandProcessMatchStatus
+  matchCheckedAt?: string
+  matchFailureReason?: string
+  matchedProductionOrderId?: string
+  matchedProductionOrderNo?: string
+  matchedTechPackVersionId?: string
+  matchedTechPackVersionLabel?: string
+  cancelledAt?: string
+  cancelledBy?: string
+  cancelReason?: string
+  replacesWorkOrderId?: string
+  replacementWorkOrderId?: string
+  generationRevision?: number
+  inputMaterialSkuCode?: string
+  outputMaterialSkuCode?: string
+  operationFacts?: ProcessWorkOrderOperationFact[]
   productionOrderId?: string
   productionOrderNo?: string
   techPackVersionId?: string
@@ -130,6 +191,14 @@ export interface FormalProductionOrderProcessSnapshot {
   materialId: string
   materialName: string
   materialItems?: FormalProductionOrderMaterialItem[]
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
   targetColor: string
   plannedQty: number
   qtyUnit: string

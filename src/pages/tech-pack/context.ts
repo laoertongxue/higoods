@@ -149,6 +149,15 @@ type RouteFields = {
   routeObjectKey?: string
   inputObjectType?: TechnicalProcessObjectType
   outputObjectType?: TechnicalProcessObjectType
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
+  outputMaterialSkuMode?: 'UNCHANGED' | 'CHANGED'
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   routeUpdatedBy?: string
@@ -184,6 +193,15 @@ type TechniqueItem = {
   routeObjectKey?: string
   inputObjectType?: TechnicalProcessObjectType
   outputObjectType?: TechnicalProcessObjectType
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
+  outputMaterialSkuMode?: 'UNCHANGED' | 'CHANGED'
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   triggerSource: string
@@ -2233,6 +2251,9 @@ function getProcessRouteSignature(items: TechniqueItem[]): string {
       item.routeObjectKey || '',
       item.inputObjectType || '',
       item.outputObjectType || '',
+      item.inputMaterialSkuId || '',
+      item.outputMaterialSkuId || '',
+      item.outputMaterialSkuMode || '',
       [...(item.predecessorEntryIds ?? [])].sort().join(','),
     ].join('|'))
     .join('||')
@@ -4791,6 +4812,15 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     routeObjectKey: normalizedEntry.routeObjectKey || routeObjectDefaults.routeObjectKey,
     inputObjectType: normalizedEntry.inputObjectType || routeObjectDefaults.inputObjectType,
     outputObjectType: normalizedEntry.outputObjectType || routeObjectDefaults.outputObjectType,
+    inputMaterialSkuId: normalizedEntry.inputMaterialSkuId,
+    inputMaterialSkuCode: normalizedEntry.inputMaterialSkuCode,
+    inputMaterialName: normalizedEntry.inputMaterialName,
+    inputMaterialImageUrl: normalizedEntry.inputMaterialImageUrl,
+    outputMaterialSkuId: normalizedEntry.outputMaterialSkuId,
+    outputMaterialSkuCode: normalizedEntry.outputMaterialSkuCode,
+    outputMaterialName: normalizedEntry.outputMaterialName,
+    outputMaterialImageUrl: normalizedEntry.outputMaterialImageUrl,
+    outputMaterialSkuMode: normalizedEntry.outputMaterialSkuMode,
     consumedBomItemIds: normalizedEntry.consumedBomItemIds ? [...normalizedEntry.consumedBomItemIds] : undefined,
     predecessorEntryIds: normalizedEntry.predecessorEntryIds ? [...normalizedEntry.predecessorEntryIds] : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
@@ -5319,6 +5349,15 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       routeObjectKey: item.routeObjectKey,
       inputObjectType: item.inputObjectType,
       outputObjectType: item.outputObjectType,
+      inputMaterialSkuId: item.inputMaterialSkuId,
+      inputMaterialSkuCode: item.inputMaterialSkuCode,
+      inputMaterialName: item.inputMaterialName,
+      inputMaterialImageUrl: item.inputMaterialImageUrl,
+      outputMaterialSkuId: item.outputMaterialSkuId,
+      outputMaterialSkuCode: item.outputMaterialSkuCode,
+      outputMaterialName: item.outputMaterialName,
+      outputMaterialImageUrl: item.outputMaterialImageUrl,
+      outputMaterialSkuMode: item.outputMaterialSkuMode,
       consumedBomItemIds: item.consumedBomItemIds ? [...item.consumedBomItemIds] : undefined,
       predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
       supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,

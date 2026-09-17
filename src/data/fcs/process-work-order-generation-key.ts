@@ -10,6 +10,14 @@ export interface ProcessWorkOrderGenerationInput {
   materialId: string
   materialName: string
   materialItems: FormalProductionOrderMaterialItem[]
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
   targetColor: string
   plannedQty: number
   qtyUnit: string
@@ -51,6 +59,53 @@ export function normalizeProcessWorkOrderSourceSnapshot(source: ProcessWorkOrder
       sourceType: 'STOCK',
       stockMaterialId: requireField(source.stockMaterialId, '备货来源必须携带库存物料 ID'),
       stockMaterialName: requireField(source.stockMaterialName, '备货来源必须携带库存物料名称'),
+    }
+  }
+  if (source.sourceType === 'PRODUCTION_DEMAND') {
+    if (bomItemIds.length === 0) throw new Error('生产需求提前加工单必须携带预计 BOM 行 ID')
+    const demandQty = Number(source.demandQty)
+    const unitConsumption = Number(source.estimatedUnitConsumption)
+    const lossRate = Number(source.estimatedLossRate)
+    const processQty = Number(source.estimatedProcessQty)
+    if (![demandQty, unitConsumption, lossRate, processQty].every(Number.isFinite)
+      || demandQty <= 0 || unitConsumption <= 0 || lossRate < 0 || processQty <= 0) {
+      throw new Error('生产需求提前加工单的需求数量、预估单耗、损耗率和计划加工数量必须有效')
+    }
+    if (source.professionalResultVersion == null || !String(source.professionalResultVersion).trim()) {
+      throw new Error('只有专业成果审核通过后才能创建提前加工单')
+    }
+    const inputSku = requireField(source.inputMaterialSkuCode || source.materialSkuCode, '提前加工单必须携带投入物料 SKU')
+    const outputSku = requireField(source.outputMaterialSkuCode, '染色或印花加工必须维护产出物料 SKU')
+    if (inputSku === outputSku) throw new Error('染色或印花加工必然生成新的物料 SKU，投入与产出 SKU 不能相同')
+    return {
+      ...structuredClone(source),
+      sourceType: 'PRODUCTION_DEMAND',
+      productionDemandId: requireField(source.productionDemandId, '提前加工单必须携带生产需求单 ID'),
+      productionDemandNo: optionalField(source.productionDemandNo) || requireField(source.productionDemandId, '提前加工单必须携带生产需求单号'),
+      professionalTaskId: requireField(source.professionalTaskId, '提前加工单必须携带专业任务 ID'),
+      professionalTaskNo: optionalField(source.professionalTaskNo),
+      professionalResultId: requireField(source.professionalResultId, '提前加工单必须携带审核通过的专业成果 ID'),
+      professionalResultVersion: requireField(source.professionalResultVersion, '提前加工单必须携带审核通过的专业成果版本'),
+      professionalResultApprovedAt: requireField(source.professionalResultApprovedAt, '提前加工单必须携带专业成果审核通过时间'),
+      professionalResultApprovedBy: requireField(source.professionalResultApprovedBy, '提前加工单必须携带专业成果审核人'),
+      targetSpuCode: requireField(source.targetSpuCode, '提前加工单必须携带目标 SPU'),
+      targetSpuName: requireField(source.targetSpuName, '提前加工单必须携带目标款式名称'),
+      targetSpuImageUrl: requireField(source.targetSpuImageUrl, '提前加工单必须携带款式真实图片'),
+      bomItemId: bomItemIds[0],
+      bomItemIds,
+      materialSkuCode: requireField(source.materialSkuCode, '提前加工单必须携带投入物料 SKU'),
+      inputMaterialSkuCode: inputSku,
+      outputMaterialSkuCode: outputSku,
+      materialName: requireField(source.materialName, '提前加工单必须携带投入物料名称'),
+      materialImageUrl: requireField(source.materialImageUrl, '提前加工单必须携带投入物料真实图片'),
+      demandQty,
+      demandQtyUnit: requireField(source.demandQtyUnit, '提前加工单必须携带需求数量单位'),
+      estimatedUnitConsumption: unitConsumption,
+      estimatedLossRate: lossRate,
+      estimatedProcessQty: processQty,
+      matchStatus: source.matchStatus || 'WAIT_PRODUCTION_ORDER',
+      generationRevision: Math.max(1, Number(source.generationRevision) || 1),
+      operationFacts: structuredClone(source.operationFacts || []),
     }
   }
   if (source.sourceType === 'DESIGN_REVISION') {
@@ -129,6 +184,16 @@ export function buildProcessWorkOrderSourceKey(input: ProcessWorkOrderGeneration
   ]
   if (source.sourceType === 'STOCK') {
     keyFields.push(['stockMaterialId', source.stockMaterialId!], ['orderedAt', requireField(input.orderedAt, '备货来源必须携带创建时间')])
+  } else if (source.sourceType === 'PRODUCTION_DEMAND') {
+    keyFields.push(
+      ['productionDemandId', source.productionDemandId!],
+      ['professionalTaskId', source.professionalTaskId!],
+      ['professionalResultVersion', source.professionalResultVersion!],
+      ['bomItemIds', source.bomItemIds!],
+      ['inputMaterialSkuCode', source.inputMaterialSkuCode!],
+      ['outputMaterialSkuCode', source.outputMaterialSkuCode!],
+      ['generationRevision', String(source.generationRevision || 1)],
+    )
   } else if (source.sourceType === 'DESIGN_REVISION') {
     keyFields.push(
       ['designRevisionTaskId', source.designRevisionTaskId!],
@@ -167,5 +232,21 @@ export function normalizeProcessWorkOrderGenerationInput(input: ProcessWorkOrder
   if (input.processCodes.length === 0 || input.processCodes.some((code) => code !== 'DYE' && code !== 'PRINT')) {
     throw new Error('印染加工工艺必须为染色或印花')
   }
-  return { ...input, source, orderedAt, materialId, materialName, qtyUnit, processCodes: [...input.processCodes] }
+  return {
+    ...input,
+    source,
+    orderedAt,
+    materialId,
+    materialName,
+    qtyUnit,
+    inputMaterialSkuId: optionalField(input.inputMaterialSkuId),
+    inputMaterialSkuCode: optionalField(input.inputMaterialSkuCode) || materialId,
+    inputMaterialName: optionalField(input.inputMaterialName) || materialName,
+    inputMaterialImageUrl: optionalField(input.inputMaterialImageUrl),
+    outputMaterialSkuId: optionalField(input.outputMaterialSkuId),
+    outputMaterialSkuCode: optionalField(input.outputMaterialSkuCode) || optionalField(input.inputMaterialSkuCode) || materialId,
+    outputMaterialName: optionalField(input.outputMaterialName) || optionalField(input.inputMaterialName) || materialName,
+    outputMaterialImageUrl: optionalField(input.outputMaterialImageUrl),
+    processCodes: [...input.processCodes],
+  }
 }

@@ -33,7 +33,9 @@ import type {
   ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
+  ProductionDemandProcessMatchDecision,
 } from './process-work-order-domain.ts'
+import { compactEngineeringTaskUploadedFile, hydrateEngineeringTaskUploadedFile } from '../pcs-engineering-task-upload-repository.ts'
 import {
   deriveFormalProductionOrderMaterialFields,
   normalizeFormalProductionOrderMaterialItems,
@@ -94,6 +96,7 @@ export type DyeWorkOrderStatus =
   | 'WAIT_MANUAL_COMPLETION'
   | 'COMPLETED'
   | 'REJECTED'
+  | 'CANCELLED'
 
 export type SampleWaitType = 'NONE' | 'WAIT_SAMPLE_GARMENT' | 'WAIT_COLOR_CARD'
 export type SampleStatus = 'NOT_REQUIRED' | 'WAITING' | 'TESTING' | 'DONE'
@@ -339,6 +342,7 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   WAIT_MANUAL_COMPLETION: '待人工完成单据',
   COMPLETED: '已完成',
   REJECTED: '已驳回',
+  CANCELLED: '已取消',
 }
 
 export const SAMPLE_WAIT_TYPE_LABEL: Record<SampleWaitType, string> = {
@@ -447,6 +451,33 @@ function formalDyeIds(): Set<string> {
     .filter(definition => definition.processCode === 'DYE' && !initialDyeOrderIds.has(definition.workOrderId)).map(definition => definition.workOrderId)))
 }
 
+function compactDesignRevisionDyeSource(source: ProcessWorkOrderSourceSnapshot | undefined): ProcessWorkOrderSourceSnapshot | undefined {
+  if (source?.sourceType !== 'DESIGN_REVISION') return source ? structuredClone(source) : undefined
+  return {
+    ...structuredClone(source),
+    professionalResultAttachments: source.professionalResultAttachments?.map(compactEngineeringTaskUploadedFile),
+  }
+}
+
+function hydrateDesignRevisionDyeSource(source: ProcessWorkOrderSourceSnapshot | undefined): ProcessWorkOrderSourceSnapshot | undefined {
+  if (source?.sourceType !== 'DESIGN_REVISION') return source ? structuredClone(source) : undefined
+  return {
+    ...structuredClone(source),
+    professionalResultAttachments: source.professionalResultAttachments?.map(hydrateEngineeringTaskUploadedFile),
+  }
+}
+
+function immutableDesignRevisionDyeSource(source: ProcessWorkOrderSourceSnapshot | undefined): string {
+  if (!source) return ''
+  const snapshot = structuredClone(source)
+  delete snapshot.professionalResultId
+  delete snapshot.professionalResultVersion
+  delete snapshot.professionalResultApprovedAt
+  delete snapshot.professionalResultApprovedBy
+  delete snapshot.professionalResultAttachments
+  return JSON.stringify(snapshot)
+}
+
 function saveFormalDyeExecution(): void {
   if (typeof localStorage === 'undefined') return
   const ids = new Set([...formalDyeIds(), ...initialDyeOrderIds])
@@ -460,6 +491,8 @@ function saveFormalDyeExecution(): void {
     const task = getDyeingTaskById(order.taskId)
     return task ? [structuredClone(task)] : []
   })
+  state.workOrders.forEach(([, order]) => { order.sourceSnapshot = compactDesignRevisionDyeSource(order.sourceSnapshot) })
+  tasks.forEach((task) => { task.sourceSnapshot = compactDesignRevisionDyeSource(task.sourceSnapshot) })
   const demoOutput = [...workOrderStore.values()].filter(order => initialDyeOrderIds.has(order.dyeOrderId)).map(order => ({id: order.dyeOrderId, outputRolls: order.outputRolls, nextOutputRollNo: order.nextOutputRollNo, dispatchDocuments: order.dispatchDocuments ?? []}))
   const demoHandovers = [...workOrderStore.values()].filter(order => initialDyeOrderIds.has(order.dyeOrderId) && listHandoverOrdersByTaskId(order.taskId).some(head => getPdaHandoverRecordsByHead(head.handoverId).length > 0)).flatMap(order => listHandoverOrdersByTaskId(order.taskId).map(head => ({orderId: order.dyeOrderId, head, records: getPdaHandoverRecordsByHead(head.handoverId)})))
   const value = JSON.stringify({ version: 1, state, tasks, demoOutput, demoHandovers })
@@ -476,6 +509,8 @@ function restoreFormalDyeExecution(): void {
     saved = JSON.parse(raw)
     if (saved.version !== 1 || !Array.isArray(saved.tasks) || !saved.state || !['workOrders', 'nodeRecords', 'reviewRecords', 'vatSchedules', 'formulas'].every(key => Array.isArray(saved.state[key as keyof DyeProcessMutationSnapshot]))) throw new Error('染色记录格式不完整')
   } catch { dyePersistenceReadError = '已保存的染色记录无法读取，本次操作已阻断；请保留原数据并联系主管。'; return }
+  saved.state.workOrders.forEach(([, order]) => { order.sourceSnapshot = hydrateDesignRevisionDyeSource(order.sourceSnapshot) })
+  saved.tasks.forEach((task) => { task.sourceSnapshot = hydrateDesignRevisionDyeSource(task.sourceSnapshot) })
   if (['workOrders', 'nodeRecords', 'reviewRecords', 'vatSchedules', 'formulas'].some(key => saved.state[key as keyof DyeProcessMutationSnapshot].some((entry: unknown) => !Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string' || !entry[1] || typeof entry[1] !== 'object'))) { dyePersistenceReadError = '已保存的染色记录格式不完整，不能覆盖，请联系主管。'; return }
   if (saved.demoOutput !== undefined) {
     if (!Array.isArray(saved.demoOutput)) { dyePersistenceReadError = '条码记录格式有误，请保留记录并联系主管。'; return }
@@ -504,7 +539,7 @@ function restoreFormalDyeExecution(): void {
     const [id, order] = entry
     if (!ids.has(id)) continue
     const current = workOrderStore.get(id)
-    if ( !current || !order || order.dyeOrderId !== id || order.taskId !== current.taskId || (!initialDyeOrderIds.has(id) && !order.sourceKey) || order.sourceKey !== current.sourceKey || JSON.stringify(order.sourceSnapshot) !== JSON.stringify(current.sourceSnapshot) || order.qtyUnit !== current.qtyUnit || !Number.isFinite(order.plannedQty) || !(order.status in DYE_WORK_ORDER_STATUS_LABEL)) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 1），请保留记录并联系主管。`; continue }
+    if ( !current || !order || order.dyeOrderId !== id || order.taskId !== current.taskId || (!initialDyeOrderIds.has(id) && !order.sourceKey) || order.sourceKey !== current.sourceKey || immutableDesignRevisionDyeSource(order.sourceSnapshot) !== immutableDesignRevisionDyeSource(current.sourceSnapshot) || order.qtyUnit !== current.qtyUnit || !Number.isFinite(order.plannedQty) || !(order.status in DYE_WORK_ORDER_STATUS_LABEL)) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 1），请保留记录并联系主管。`; continue }
     const nodes = saved.state.nodeRecords.find(item => Array.isArray(item) && item[0] === id)?.[1]
     if (!Array.isArray(nodes) || nodes.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || typeof node.nodeCode !== 'string' || [node.inputQty, node.outputQty, node.lossQty].some(qty => qty !== undefined && (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0)))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 2），请保留记录并联系主管。`; continue }
     if (order.completedWaterSolubleBatches !== undefined && (!Array.isArray(order.completedWaterSolubleBatches) || order.completedWaterSolubleBatches.some(node => !node || node.dyeOrderId !== id || node.taskId !== order.taskId || !node.finishedAt || !Number.isFinite(node.inputQty) || !Number.isFinite(node.outputQty)))) { dyePersistenceReadError = `加工单 ${id} 的已保存记录与当前原单不一致（校验 3），请保留记录并联系主管。`; continue }
@@ -1361,6 +1396,7 @@ function addSeedWorkOrder(input: Omit<
     : resolveTerminalProcessOrderReceivingTarget({
         sourceType: input.sourceType,
         productionOrderNo: input.sourceProductionOrderNo || input.productionOrderIds?.[0],
+        productionDemandNo: input.sourceSnapshot?.productionDemandNo || input.sourceSnapshot?.productionDemandId,
         supplementRecordId: input.sourceSnapshot?.supplementRecordId,
         supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
         receivingTeamId: input.sourceSnapshot?.receivingTeamId,
@@ -2717,6 +2753,7 @@ function buildFreshDyeMobileTask(input: {
     : resolveTerminalProcessOrderReceivingTarget({
         sourceType,
         productionOrderNo: input.productionOrderNo || sourceOrder?.productionOrderNo || input.productionOrderId,
+        productionDemandNo: input.sourceSnapshot?.productionDemandNo || input.sourceSnapshot?.productionDemandId,
         supplementRecordId: input.sourceSnapshot?.supplementRecordId,
         supplementRecordNo: input.sourceSnapshot?.supplementRecordNo,
         receivingTeamId: input.sourceSnapshot?.receivingTeamId,
@@ -2759,7 +2796,7 @@ function buildFreshDyeMobileTask(input: {
     qcPoints: [],
     attachments: [],
     status: 'NOT_STARTED',
-    dispatchRemark: hasFactory ? '染色加工单已分配，待工厂接收。' : `${sourceType === 'DESIGN_REVISION' ? '设计改款已生成染色加工单' : sourceType === 'STOCK' ? '备货已生成染色加工单' : sourceType === 'CUT_PIECE_SUPPLEMENT' ? '补料已生成染色加工单' : '正式生产单已生成染色加工单'}，待分配工厂。`,
+    dispatchRemark: hasFactory ? '染色加工单已分配，待工厂接收。' : `${sourceType === 'DESIGN_REVISION' ? '设计改款已生成染色加工单' : sourceType === 'PRODUCTION_DEMAND' ? '生产需求已生成大货提前染色加工单' : sourceType === 'STOCK' ? '备货已生成染色加工单' : sourceType === 'CUT_PIECE_SUPPLEMENT' ? '补料已生成染色加工单' : '正式生产单已生成染色加工单'}，待分配工厂。`,
     dispatchedAt: hasFactory ? input.createdAt : undefined,
     dispatchedBy: hasFactory ? input.dispatchedBy : undefined,
     acceptanceStatus: 'PENDING',
@@ -3228,6 +3265,129 @@ export function listCreatedDyeWorkOrders(): DyeWorkOrder[] {
     .map(cloneWorkOrder)
 }
 
+export interface PreparedProductionDemandDyeMatch {
+  workOrderId: string
+  commit: () => void
+  rollback: () => void
+}
+
+export function prepareProductionDemandDyeMatch(
+  dyeOrderId: string,
+  decision: ProductionDemandProcessMatchDecision,
+): PreparedProductionDemandDyeMatch {
+  seedDomain()
+  const current = workOrderStore.get(dyeOrderId)
+  if (!current || current.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') {
+    throw new Error('未找到对应的生产需求提前染色加工单')
+  }
+  const before = cloneWorkOrder(current)
+  const next = cloneWorkOrder(current) as MutableDyeWorkOrder
+  const action = decision.matchStatus === 'MATCHED' ? 'MATCH' : decision.matchStatus === 'MATCH_FAILED' ? 'MATCH_FAILED' : 'RETRY'
+  next.sourceSnapshot = {
+    ...structuredClone(current.sourceSnapshot),
+    matchStatus: decision.matchStatus,
+    matchCheckedAt: decision.checkedAt,
+    matchFailureReason: decision.failureReason,
+    ...(decision.productionOrderId ? {
+      productionOrderId: decision.productionOrderId,
+      matchedProductionOrderId: decision.productionOrderId,
+    } : {}),
+    ...(decision.productionOrderNo ? {
+      productionOrderNo: decision.productionOrderNo,
+      matchedProductionOrderNo: decision.productionOrderNo,
+    } : {}),
+    ...(decision.techPackVersionId ? {
+      techPackVersionId: decision.techPackVersionId,
+      matchedTechPackVersionId: decision.techPackVersionId,
+    } : {}),
+    ...(decision.techPackVersionLabel ? {
+      techPackVersionLabel: decision.techPackVersionLabel,
+      matchedTechPackVersionLabel: decision.techPackVersionLabel,
+    } : {}),
+    operationFacts: [...(current.sourceSnapshot.operationFacts || []), {
+      operationId: `OP-${dyeOrderId}-${decision.checkedAt}-${action}`,
+      action,
+      operatedAt: decision.checkedAt,
+      operatorName: decision.operatorName,
+      operatorRole: decision.operatorRole || '系统',
+      detail: decision.failureReason || (decision.matchStatus === 'MATCHED'
+        ? `已自动匹配生产单 ${decision.productionOrderNo || decision.productionOrderId}`
+        : '等待技术包完成后自动重试'),
+    }],
+  }
+  if (decision.matchStatus === 'MATCHED' && decision.formalSnapshot) {
+    next.sourceProductionOrderId = decision.formalSnapshot.productionOrderId
+    next.sourceProductionOrderNo = decision.formalSnapshot.productionOrderNo
+    next.productionOrderIds = [decision.formalSnapshot.productionOrderId]
+    next.formalProductionOrderSnapshot = toDyeSnapshotRecord(decision.formalSnapshot)
+  }
+  next.updatedAt = decision.checkedAt
+  let committed = false
+  return {
+    workOrderId: dyeOrderId,
+    commit: () => {
+      if (committed) return
+      runDyeProcessMutation(() => { workOrderStore.set(dyeOrderId, cloneWorkOrder(next) as MutableDyeWorkOrder) })
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      runDyeProcessMutation(() => { workOrderStore.set(dyeOrderId, cloneWorkOrder(before) as MutableDyeWorkOrder) })
+      committed = false
+    },
+  }
+}
+
+export function cancelProductionDemandDyeWorkOrder(
+  dyeOrderId: string,
+  input: { operatorName: string; operatorRole?: string; reason: string; cancelledAt?: string; replacementWorkOrderId?: string },
+): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
+    const order = workOrderStore.get(dyeOrderId)
+    if (!order || order.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') throw new Error('未找到对应的生产需求提前染色加工单')
+    if (!input.reason.trim()) throw new Error('取消原因必填')
+    if (hasActualDyeExecution(order) || order.status === 'COMPLETED') throw new Error('加工单已经执行或完成，不能取消覆盖，请创建纠正单')
+    const cancelledAt = input.cancelledAt || nowTimestamp()
+    order.status = 'CANCELLED'
+    order.sourceSnapshot = {
+      ...order.sourceSnapshot,
+      matchStatus: 'CANCELLED',
+      cancelledAt,
+      cancelledBy: input.operatorName,
+      cancelReason: input.reason.trim(),
+      replacementWorkOrderId: input.replacementWorkOrderId,
+      operationFacts: [...(order.sourceSnapshot.operationFacts || []), {
+        operationId: `OP-${dyeOrderId}-${cancelledAt}-CANCEL`, action: 'CANCEL', operatedAt: cancelledAt,
+        operatorName: input.operatorName, operatorRole: input.operatorRole || '业务人员', detail: input.reason.trim(),
+      }],
+    }
+    order.updatedAt = cancelledAt
+    return cloneWorkOrder(order)
+  })
+}
+
+export function linkProductionDemandDyeReplacement(
+  dyeOrderId: string,
+  replacementWorkOrderId: string,
+  linkedAt = nowTimestamp(),
+): DyeWorkOrder {
+  return runDyeProcessMutation(() => {
+    const order = workOrderStore.get(dyeOrderId)
+    if (!order || order.sourceSnapshot?.sourceType !== 'PRODUCTION_DEMAND') throw new Error('未找到对应的生产需求提前染色加工单')
+    if (order.sourceSnapshot.matchStatus !== 'CANCELLED') throw new Error('只有已取消的提前染色加工单可以关联替代单')
+    order.sourceSnapshot = {
+      ...order.sourceSnapshot,
+      replacementWorkOrderId,
+      operationFacts: [...(order.sourceSnapshot.operationFacts || []), {
+        operationId: `OP-${dyeOrderId}-${linkedAt}-REPLACED`, action: 'REBUILD', operatedAt: linkedAt,
+        operatorName: '系统', operatorRole: '系统', detail: `替代单已创建：${replacementWorkOrderId}`,
+      }],
+    }
+    order.updatedAt = linkedAt
+    return cloneWorkOrder(order)
+  })
+}
+
 registerCreatedDyeWorkOrderReader(listCreatedDyeWorkOrders)
 
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
@@ -3293,6 +3453,7 @@ function ensureDyeAcceptanceFact(order: MutableDyeWorkOrder): void {
 }
 
 function deriveDyeMobileStatus(order: DyeWorkOrder): PdaGenericTaskMock['status'] {
+  if (order.status === 'CANCELLED') return 'CANCELLED'
   if (order.status === 'REJECTED' || order.status === 'HANDOVER_DIFFERENCE' || order.status === 'PRODUCTION_PAUSED') return 'BLOCKED'
   if (order.status === 'COMPLETED') return 'DONE'
   const hasStarted = (nodeRecordStore.get(order.dyeOrderId) ?? []).some((node) => Boolean(node.startedAt))
@@ -3499,10 +3660,22 @@ export function registerFormalProductionOrderDyeWorkOrder(input: ProcessWorkOrde
     sampleWaitType: input.sampleWaitType ?? 'NONE',
     sampleStatus: (input.sampleWaitType ?? 'NONE') === 'NONE' ? 'NOT_REQUIRED' : 'WAITING',
     sampleWaitStartedAt: (input.sampleWaitType ?? 'NONE') === 'NONE' ? undefined : input.orderedAt,
-    rawMaterialSku: materialFields.materialId,
+    rawMaterialSku: input.inputMaterialSkuCode || materialFields.materialId,
     composition: materialFields.materialName,
     targetColor: input.targetColor,
     materialId: materialFields.materialId,
+    outputMaterial: input.outputMaterialSkuCode ? {
+      sku: input.outputMaterialSkuCode,
+      name: input.outputMaterialName || input.inputMaterialName || materialFields.materialName,
+      kind: materialItems[0]?.materialType === '纱线'
+        ? 'YARN'
+        : /辅料|花边|织带/.test(materialItems[0]?.materialType || '') ? 'ACCESSORY' : 'FABRIC',
+      imageUrl: input.outputMaterialImageUrl || input.inputMaterialImageUrl || '',
+      color: input.targetColor,
+      composition: input.outputMaterialName || input.inputMaterialName || materialFields.materialName,
+      specification: input.outputMaterialSkuCode,
+      batchNo: '待加工生成',
+    } : undefined,
     dyeProcessCode: 'DYE',
     dyeProcessName: input.processName,
     plannedQty: input.plannedQty,
@@ -3523,6 +3696,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: ProcessWorkOrde
       ? `${input.processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt || input.requiredDeliveryDate}`
       : sourceSnapshot.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? `${input.processName}；来源补料单 ${sourceSnapshot.supplementRecordNo}；原裁片单 ${sourceSnapshot.originalCutOrderNo}。`
+        : sourceSnapshot.sourceType === 'PRODUCTION_DEMAND'
+          ? `${input.processName}；大货提前加工；来源生产需求单 ${sourceSnapshot.productionDemandNo || sourceSnapshot.productionDemandId}；专业成果 ${sourceSnapshot.professionalResultVersion}；计划数量已含损耗。`
         : sourceSnapshot.sourceType === 'DESIGN_REVISION'
           ? `${input.processName}；来源设计改款任务 ${sourceSnapshot.designRevisionTaskNo}；专业任务 ${sourceSnapshot.professionalTaskNo || sourceSnapshot.professionalTaskId}；${sourceSnapshot.professionalResultVersion ? `结果版本 ${sourceSnapshot.professionalResultVersion}` : '待专业成果'}。`
         : `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
@@ -3537,6 +3712,14 @@ export function registerFormalProductionOrderDyeWorkOrder(input: ProcessWorkOrde
       materialId: materialFields.materialId,
       materialName: materialFields.materialName,
       materialItems,
+      inputMaterialSkuId: input.inputMaterialSkuId,
+      inputMaterialSkuCode: input.inputMaterialSkuCode,
+      inputMaterialName: input.inputMaterialName,
+      inputMaterialImageUrl: input.inputMaterialImageUrl,
+      outputMaterialSkuId: input.outputMaterialSkuId,
+      outputMaterialSkuCode: input.outputMaterialSkuCode,
+      outputMaterialName: input.outputMaterialName,
+      outputMaterialImageUrl: input.outputMaterialImageUrl,
       targetColor: input.targetColor,
       plannedQty: input.plannedQty,
       qtyUnit: input.qtyUnit,
@@ -3686,6 +3869,14 @@ function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): Fo
     materialId: materialFields.materialId,
     materialName: materialFields.materialName,
     materialItems,
+    inputMaterialSkuId: snapshot.inputMaterialSkuId,
+    inputMaterialSkuCode: snapshot.inputMaterialSkuCode,
+    inputMaterialName: snapshot.inputMaterialName,
+    inputMaterialImageUrl: snapshot.inputMaterialImageUrl,
+    outputMaterialSkuId: snapshot.outputMaterialSkuId,
+    outputMaterialSkuCode: snapshot.outputMaterialSkuCode,
+    outputMaterialName: snapshot.outputMaterialName,
+    outputMaterialImageUrl: snapshot.outputMaterialImageUrl,
     targetColor: snapshot.targetColor,
     plannedQty: snapshot.plannedQty,
     qtyUnit: snapshot.qtyUnit,
@@ -3786,9 +3977,21 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
   next.sourceProductionOrderNo = snapshot.productionOrderNo
   next.productionOrderOrderedAt = snapshot.orderedAt
   next.productionOrderIds = [snapshot.productionOrderId]
-  next.rawMaterialSku = after.materialId
+  next.rawMaterialSku = after.inputMaterialSkuCode || after.materialId
   next.materialId = after.materialId
   next.composition = after.materialName
+  next.outputMaterial = after.outputMaterialSkuCode ? {
+    sku: after.outputMaterialSkuCode,
+    name: after.outputMaterialName || after.inputMaterialName || after.materialName,
+    kind: (after.materialItems?.[0]?.materialType === '纱线')
+      ? 'YARN'
+      : /辅料|花边|织带/.test(after.materialItems?.[0]?.materialType || '') ? 'ACCESSORY' : 'FABRIC',
+    imageUrl: after.outputMaterialImageUrl || after.inputMaterialImageUrl || '',
+    color: snapshot.targetColor,
+    composition: after.outputMaterialName || after.inputMaterialName || after.materialName,
+    specification: after.outputMaterialSkuCode,
+    batchNo: '待加工生成',
+  } : undefined
   next.targetColor = snapshot.targetColor
   next.dyeProcessName = snapshot.dyeProcessName || '染色'
   next.plannedQty = snapshot.plannedQty

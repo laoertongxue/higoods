@@ -19,6 +19,8 @@ export type ProcessRouteGraphEntry = RouteEntryBase & {
   linkedBomItemIds?: string[]
   inputObjectType?: TechnicalProcessObjectType
   outputObjectType?: TechnicalProcessObjectType
+  inputMaterialSkuId?: string
+  outputMaterialSkuId?: string
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   routeParallelGroupId?: string
@@ -36,6 +38,10 @@ export type ProcessRouteValidationIssueCode =
   | 'BACKWARD_STAGE'
   | 'OBJECT_TYPE_MISMATCH'
   | 'OBJECT_BRANCH_MISMATCH'
+  | 'MISSING_MATERIAL_SKU_IDENTITY'
+  | 'MATERIAL_SKU_CHANGE_REQUIRED'
+  | 'MATERIAL_SKU_MUST_REMAIN'
+  | 'MATERIAL_SKU_MISMATCH'
   | 'FABRIC_PRINT_OBJECT_INVALID'
   | 'POST_PROCESS_NOT_STATIC_ROUTE'
   | 'CYCLE'
@@ -283,6 +289,46 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
       })
     }
     if (
+      options.requireComplete
+      && entry.stageCode === 'PREP'
+      && Boolean(entry.inputMaterialSkuId || entry.outputMaterialSkuId)
+      && (!entry.inputMaterialSkuId || !entry.outputMaterialSkuId)
+    ) {
+      issues.push({
+        code: 'MISSING_MATERIAL_SKU_IDENTITY',
+        entryId: entry.id,
+        message: `准备工序 ${entry.id} 缺少加工投入或加工产出 SKU，不能确认路线。`,
+      })
+    }
+    if (
+      options.requireComplete
+      && entry.stageCode === 'PREP'
+      && (entry.processCode === 'DYE' || entry.processCode === 'PRINT')
+      && entry.inputMaterialSkuId
+      && entry.outputMaterialSkuId
+      && entry.inputMaterialSkuId === entry.outputMaterialSkuId
+    ) {
+      issues.push({
+        code: 'MATERIAL_SKU_CHANGE_REQUIRED',
+        entryId: entry.id,
+        message: `${entry.processCode === 'DYE' ? '染色' : '印花'}加工后必须选择新的产出 SKU，不能沿用投入 SKU。`,
+      })
+    }
+    if (
+      options.requireComplete
+      && entry.stageCode === 'PREP'
+      && entry.processCode === 'WATER_SOLUBLE'
+      && entry.inputMaterialSkuId
+      && entry.outputMaterialSkuId
+      && entry.inputMaterialSkuId !== entry.outputMaterialSkuId
+    ) {
+      issues.push({
+        code: 'MATERIAL_SKU_MUST_REMAIN',
+        entryId: entry.id,
+        message: '单独水溶加工不改变 SKU，产出必须与投入一致。',
+      })
+    }
+    if (
       entry.processCode === 'PRINT'
       && (entry.inputObjectType === 'CUT_PIECE' || entry.inputObjectType === 'GARMENT')
     ) {
@@ -348,6 +394,20 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
           entryId: entry.id,
           predecessorEntryId: predecessorId,
           message: `对象分支不能承接：${predecessor.routeObjectKey || '未定义'} → ${entry.routeObjectKey || '未定义'}`,
+        })
+      } else if (
+        predecessor.stageCode === 'PREP'
+        && entry.stageCode === 'PREP'
+        && predecessor.routeObjectKey === entry.routeObjectKey
+        && predecessor.outputMaterialSkuId
+        && entry.inputMaterialSkuId
+        && predecessor.outputMaterialSkuId !== entry.inputMaterialSkuId
+      ) {
+        issues.push({
+          code: 'MATERIAL_SKU_MISMATCH',
+          entryId: entry.id,
+          predecessorEntryId: predecessorId,
+          message: `物料 SKU 不能承接：${predecessor.outputMaterialSkuId} → ${entry.inputMaterialSkuId}`,
         })
       }
     }
