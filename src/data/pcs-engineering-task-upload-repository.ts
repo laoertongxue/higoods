@@ -32,14 +32,15 @@ function readGroups(): EngineeringTaskUploadGroup[] {
 }
 
 function writeGroups(groups: EngineeringTaskUploadGroup[]): void {
-  memoryGroups = groups.map(cloneGroup)
+  const nextGroups = groups.map(cloneGroup)
   if (canUseStorage()) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryGroups))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextGroups))
     } catch {
       throw new Error('文件已读取，但浏览器存储空间不足。请删除不需要的草稿文件后重试。')
     }
   }
+  memoryGroups = nextGroups
 }
 
 export function listEngineeringTaskUploadedFiles(
@@ -51,6 +52,23 @@ export function listEngineeringTaskUploadedFiles(
     .filter((group) => group.taskId === taskId && group.itemId === itemId && (!purpose || group.purpose === purpose))
     .flatMap((group) => group.files)
     .map((file) => ({ ...file }))
+}
+
+export function getEngineeringTaskUploadedFile(fileId: string): EngineeringUploadedFile | undefined {
+  const normalizedId = fileId.trim()
+  if (!normalizedId) return undefined
+  const file = readGroups().flatMap((group) => group.files).find((item) => item.fileId === normalizedId)
+  return file ? { ...file } : undefined
+}
+
+export function compactEngineeringTaskUploadedFile<T extends Pick<EngineeringUploadedFile, 'fileId' | 'dataUrl'>>(file: T): T {
+  return getEngineeringTaskUploadedFile(file.fileId)?.dataUrl ? { ...file, dataUrl: '' } : { ...file }
+}
+
+export function hydrateEngineeringTaskUploadedFile<T extends Pick<EngineeringUploadedFile, 'fileId' | 'dataUrl'>>(file: T): T {
+  if (file.dataUrl) return { ...file }
+  const stored = getEngineeringTaskUploadedFile(file.fileId)
+  return stored?.dataUrl ? { ...file, dataUrl: stored.dataUrl } : { ...file }
 }
 
 export async function uploadEngineeringTaskFiles(input: {
@@ -69,7 +87,7 @@ export async function uploadEngineeringTaskFiles(input: {
     actor: input.actor,
     roundNo: input.roundNo,
   })
-  const groups = readGroups()
+  const groups = readGroups().map(cloneGroup)
   const existing = groups.find((group) => group.taskId === input.taskId && group.itemId === itemId && group.purpose === input.purpose)
   if (existing) existing.files.push(...uploaded)
   else groups.push({ taskId: input.taskId, itemId, purpose: input.purpose, files: uploaded })
@@ -84,7 +102,7 @@ export function removeEngineeringTaskUploadedFile(input: {
   locked?: boolean
 }): void {
   if (input.locked) throw new Error('成果已经提交，不能删除本轮文件。返工时请上传新一轮成果。')
-  const groups = readGroups()
+  const groups = readGroups().map(cloneGroup)
   const itemId = input.itemId || 'TASK'
   groups.forEach((group) => {
     if (group.taskId === input.taskId && group.itemId === itemId) {

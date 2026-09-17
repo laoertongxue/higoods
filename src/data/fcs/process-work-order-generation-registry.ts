@@ -30,6 +30,14 @@ export interface ProcessWorkOrderRegistrationInput {
   materialId: string
   materialName: string
   materialItems?: FormalProductionOrderMaterialItem[]
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
   targetColor: string
   plannedQty: number
   qtyUnit: string
@@ -184,6 +192,14 @@ export function prepareProcessWorkOrderBatch(
         materialId: normalized.materialId,
         materialName: normalized.materialName,
         materialItems: structuredClone(normalized.materialItems),
+        inputMaterialSkuId: normalized.inputMaterialSkuId,
+        inputMaterialSkuCode: normalized.inputMaterialSkuCode,
+        inputMaterialName: normalized.inputMaterialName,
+        inputMaterialImageUrl: normalized.inputMaterialImageUrl,
+        outputMaterialSkuId: normalized.outputMaterialSkuId,
+        outputMaterialSkuCode: normalized.outputMaterialSkuCode,
+        outputMaterialName: normalized.outputMaterialName,
+        outputMaterialImageUrl: normalized.outputMaterialImageUrl,
         targetColor: normalized.targetColor,
         plannedQty: normalized.plannedQty,
         qtyUnit: normalized.qtyUnit,
@@ -216,7 +232,7 @@ export function prepareProcessWorkOrderBatch(
       const printIdentity = identities.find((item) => item.processCode === 'PRINT')
       for (const identity of identities) {
         if (!identity.shouldPrepare) continue
-        const linkedSourceSnapshot: ProcessWorkOrderSourceSnapshot = sourceSnapshot.sourceType === 'DESIGN_REVISION'
+        const linkedSourceSnapshot: ProcessWorkOrderSourceSnapshot = sourceSnapshot.sourceType === 'DESIGN_REVISION' || sourceSnapshot.sourceType === 'PRODUCTION_DEMAND'
           ? {
               ...sourceSnapshot,
               ...(identity.processCode === 'PRINT' && dyeIdentity ? {

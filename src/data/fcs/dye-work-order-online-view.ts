@@ -18,6 +18,11 @@ import {
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
 import {
+  PRODUCTION_DEMAND_PROCESS_MATCH_LABEL,
+  type ProductionDemandProcessMatchStatus,
+  type ProcessWorkOrderSourceSnapshot,
+} from './process-work-order-domain.ts'
+import {
   getDyeWorkOrderOnlineRecord,
   type DyeWorkOrderOnlineStatus,
 } from './dye-work-order-online-domain.ts'
@@ -75,6 +80,17 @@ export interface DyeWorkOrderOnlineFilters {
 }
 
 export interface DyeWorkOrderOnlineRow {
+  productionDemandId: string
+  matchStatus?: ProductionDemandProcessMatchStatus
+  matchStatusLabel: string
+  matchFailureReason: string
+  matchedProductionOrderNo: string
+  professionalTaskNo: string
+  professionalResultId: string
+  professionalResultVersion: string
+  professionalResultAttachments: NonNullable<ProcessWorkOrderSourceSnapshot['professionalResultAttachments']>
+  estimatedUnitConsumption?: number
+  estimatedLossRate?: number
   timeSections: DyeTimeSection[]
   yarnQuantities?: {upstream:YarnWeight[];received:YarnWeight[];shipped:YarnWeight[];downstream:YarnWeight[]}
   inputMaterials: Array<{name: string; sku: string; imageUrl: string; materialType: string; composition: string; width: string; weightGsm: number | null}>
@@ -352,7 +368,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
   const handoverRecords = getDyeOrderHandoverRecords(order.dyeOrderId)
   const pendingInboundQty = getDyePendingReceiptQty(handoverRecords)
   const snapshot = order.formalProductionOrderSnapshot
-  const sourceProductionOrder = order.sourceType === 'PRODUCTION_ORDER'
+  const sourceProductionOrder = order.sourceType === 'PRODUCTION_ORDER' || order.sourceType === 'PRODUCTION_DEMAND'
     ? productionOrders.find((item) => item.productionOrderId === order.sourceProductionOrderId
       || item.productionOrderId === order.productionOrderIds?.[0]
       || item.productionOrderNo === order.sourceProductionOrderNo)
@@ -370,7 +386,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     || (order.sourceType === 'STOCK' ? order.stockMaterialName || '备货物料' : '')
     || (order.sourceType === 'CUT_PIECE_SUPPLEMENT' ? '生产补料' : '')
     || '商品名称待补齐'
-  const materialName = demo?.materialName || presentation.materialName || snapshot?.materialName || order.stockMaterialName || order.rawMaterialSku
+  const materialName = demo?.materialName || presentation.materialName || snapshot?.materialName || order.sourceSnapshot?.materialName || order.stockMaterialName || order.rawMaterialSku
   const snapshotMaterialTypes = [...new Set(
     (snapshot?.materialItems ?? [])
       .map((item) => item.materialType?.trim())
@@ -406,16 +422,28 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     completedQty, handedOverQty: axes.handedOverQty, downstreamReceivedQty: axes.downstreamReceivedQty, context: timeContext,
   })
   const timeValue = (key: DyeTimeKey) => latestDyeEventTime(timeSections.flatMap(section => section.items).find(item => item.key === key)?.events.map(event => event.at) || [])
+  const outputMaterial = order.outputMaterial
   return {
+    productionDemandId: order.sourceSnapshot?.productionDemandNo || order.sourceSnapshot?.productionDemandId || demandIds[0] || '',
+    matchStatus: order.sourceSnapshot?.matchStatus,
+    matchStatusLabel: order.sourceSnapshot?.matchStatus ? PRODUCTION_DEMAND_PROCESS_MATCH_LABEL[order.sourceSnapshot.matchStatus] : '不适用',
+    matchFailureReason: order.sourceSnapshot?.matchFailureReason || '',
+    matchedProductionOrderNo: order.sourceSnapshot?.matchedProductionOrderNo || order.sourceSnapshot?.productionOrderNo || order.sourceProductionOrderNo || '',
+    professionalTaskNo: order.sourceSnapshot?.professionalTaskNo || '',
+    professionalResultId: order.sourceSnapshot?.professionalResultId || '',
+    professionalResultVersion: order.sourceSnapshot?.professionalResultVersion || '',
+    professionalResultAttachments: structuredClone(order.sourceSnapshot?.professionalResultAttachments || []),
+    estimatedUnitConsumption: order.sourceSnapshot?.estimatedUnitConsumption,
+    estimatedLossRate: order.sourceSnapshot?.estimatedLossRate,
     timeSections,
-    inputMaterials: [{name: materialName, sku: demo?.rawSku || order.rawMaterialSku, imageUrl: images?.material || presentation.materialImageUrl || '', materialType, composition, width, weightGsm}],
+    inputMaterials: [{name: snapshot?.inputMaterialName || order.sourceSnapshot?.materialName || materialName, sku: demo?.rawSku || order.rawMaterialSku, imageUrl: snapshot?.inputMaterialImageUrl || order.sourceSnapshot?.materialImageUrl || images?.material || presentation.materialImageUrl || '', materialType, composition, width, weightGsm}],
     upstreamDocuments,
     upstreamPartners: [...new Map(upstreamDocuments.map(doc=>[`${doc.partner.kind}|${doc.partner.id}`,doc.partner])).values()],
     downstreamPartner,
     preparedRollCount: demo?.preparedRollCount ?? (axes.receivedInputQty > 0 ? online.rawMaterialRollCount : 0),
     completedRollCount: outputRolls.length ? outputRolls.filter(roll => roll.qty > 0).length : (demo?.completedRollCount ?? 0),
     handedOverRollCount: outputRolls.length ? outputRolls.filter(roll=>roll.dispatchId).length : (demo?.handedOverRollCount ?? 0),
-    outputImageUrl: demo?.outputImage || '', sampleImageUrl: demo?.sampleImage || '',
+    outputImageUrl: demo?.outputImage || outputMaterial?.imageUrl || snapshot?.outputMaterialImageUrl || '', sampleImageUrl: demo?.sampleImage || '',
     sampleNote: demo?.sampleNote || order.remark || '', supplierName: demo?.supplier || '供应商待确认',
     fabricReceiver: demo?.fabricReceiver || online.receiverName, targetColorName: demo?.colorName || order.targetColor,
     requiresWaterSoluble: order.requiresWaterSoluble,
@@ -429,14 +457,16 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
     workOrderNo: order.dyeOrderNo,
     platformWorkOrderNo: order.dyeOrderNo,
     taskNo: order.taskNo,
-    productionOrderNo: order.sourceType === 'DESIGN_REVISION' ? order.sourceSnapshot?.designRevisionTaskNo || '' : order.sourceProductionOrderNo || '',
+    productionOrderNo: order.sourceType === 'DESIGN_REVISION' ? order.sourceSnapshot?.designRevisionTaskNo || '' : order.sourceSnapshot?.matchedProductionOrderNo || order.sourceProductionOrderNo || '',
     productCode,
     productName,
-    productImageUrl: images?.product || presentation.productImageUrl || '',
-    purchaseOrderNo: demandIds.join(' / ') || (order.sourceType === 'STOCK'
+    productImageUrl: order.sourceSnapshot?.targetSpuImageUrl || images?.product || presentation.productImageUrl || '',
+    purchaseOrderNo: order.sourceSnapshot?.productionDemandNo || order.sourceSnapshot?.productionDemandId || demandIds.join(' / ') || (order.sourceType === 'STOCK'
       ? '备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? (order.sourceSnapshot?.supplementRecordNo || '补料创建')
+        : order.sourceType === 'PRODUCTION_DEMAND'
+          ? '生产需求提前创建'
         : order.sourceType === 'DESIGN_REVISION'
           ? (order.sourceSnapshot?.designRevisionTaskNo || '设计改款')
         : '关联需求单未记录'),
@@ -447,13 +477,13 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext): DyeWorkOrder
         : order.sourceType === 'DESIGN_REVISION'
           ? '设计改款'
         : '—'),
-    salesType: presentation.salesType || sourceProductionOrder?.demandSnapshot.saleType || demo?.salesType || (order.sourceType === 'STOCK' ? '采购备货' : order.sourceType === 'DESIGN_REVISION' ? '设计改款' : '尚未指定'),
+    salesType: presentation.salesType || sourceProductionOrder?.demandSnapshot.saleType || demo?.salesType || (order.sourceType === 'STOCK' ? '采购备货' : order.sourceType === 'PRODUCTION_DEMAND' ? '大货提前准备' : order.sourceType === 'DESIGN_REVISION' ? '销售展示样衣' : '尚未指定'),
     receiverInventoryQty: 0,
     gtgInventoryQty: 0,
     materialName,
-    materialImageUrl: images?.material || presentation.materialImageUrl || '',
+    materialImageUrl: snapshot?.inputMaterialImageUrl || images?.material || presentation.materialImageUrl || '',
     rawMaterialSku: demo?.rawSku || order.rawMaterialSku,
-    colorSku: demo?.outputSku || '',
+    colorSku: demo?.outputSku || outputMaterial?.sku || snapshot?.outputMaterialSkuCode || '',
     colorNo: demo?.colorNo || [order.colorNo, order.targetColor].find(value => value && !/^(TDV|tdv)[-_]/.test(value)) || '目标色号待补充',
     composition, width, weightGsm,
     processName: order.dyeProcessName || '匹染',

@@ -408,11 +408,22 @@ export interface TechnicalProcessEntry {
   routeParallelGroupId?: string
   routeParallelGroupName?: string
   routeSourceKind?: 'DICT_REFERENCE' | 'GARMENT_CATEGORY' | 'BOM_REQUIREMENT' | 'PATTERN_PACKAGE' | 'PIECE_CRAFT' | 'MANUAL'
-  /** 技术包内的逻辑对象分支，不保存生产单实际物料 SKU、批次或数量。 */
+  /** 技术包内的逻辑对象分支，不保存生产单批次、数量或执行换料。 */
   routeObjectKey?: string
   /** 仅描述本节点加工前后的对象类型，不作为生产执行物料锁定条件。 */
   inputObjectType?: TechnicalProcessObjectType
   outputObjectType?: TechnicalProcessObjectType
+  /** 准备工序的标准投入 SKU；首道来自 BOM，后续节点承接直接前置节点的标准产出。 */
+  inputMaterialSkuId?: string
+  inputMaterialSkuCode?: string
+  inputMaterialName?: string
+  inputMaterialImageUrl?: string
+  /** 准备工序的标准产出 SKU；不变时与投入相同，变更时由技术包维护。 */
+  outputMaterialSkuId?: string
+  outputMaterialSkuCode?: string
+  outputMaterialName?: string
+  outputMaterialImageUrl?: string
+  outputMaterialSkuMode?: 'UNCHANGED' | 'CHANGED'
   /** 主对象之外会被本节点消耗的 BOM 物料，例如装扣子所消耗的扣子。 */
   consumedBomItemIds?: string[]
   /** 本 occurrence 的直接前置 occurrence；后置关系由该字段反向计算。 */

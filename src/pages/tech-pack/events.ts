@@ -479,6 +479,9 @@ function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
       item.routeStepNo,
       item.routeLaneNo,
       item.routeParallelGroupId || '',
+      item.inputMaterialSkuId || '',
+      item.outputMaterialSkuId || '',
+      item.outputMaterialSkuMode || '',
       (item.predecessorEntryIds ?? []).join(','),
     ].join('|')).join('||'),
   ].join('::')
@@ -506,6 +509,73 @@ function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
   )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
   saveProcessRouteDraft(nextDraft)
+}
+
+function toRouteMaterialSkuIdentity(materialSkuId: string): {
+  id?: string
+  code?: string
+  name?: string
+  imageUrl?: string
+} {
+  const record = materialSkuId ? getMaterialSkuRecordById(materialSkuId) : null
+  return record ? {
+    id: record.materialSkuId,
+    code: record.materialSkuCode,
+    name: record.materialName,
+    imageUrl: record.skuImageUrl,
+  } : {}
+}
+
+function materializePreparationSkuLane(routeObjectKey: string): void {
+  const lane = resolveProcessRouteLaneOrder(state.techniques.filter((item) => (
+    item.stageCode === 'PREP' && item.routeObjectKey === routeObjectKey
+  ))).entries
+  if (lane.length === 0) return
+  const bomItemId = lane[0].linkedBomItemIds?.[0] || (routeObjectKey.startsWith('BOM:') ? routeObjectKey.slice(4) : '')
+  const bom = state.bomItems.find((item) => item.id === bomItemId)
+  let inputIdentity = toRouteMaterialSkuIdentity(bom?.materialSkuId || lane[0].inputMaterialSkuId || '')
+  if (!inputIdentity.id) {
+    inputIdentity = {
+      id: bom?.materialSkuId || lane[0].inputMaterialSkuId,
+      code: lane[0].inputMaterialSkuCode || bom?.materialCode,
+      name: lane[0].inputMaterialName || bom?.materialName,
+      imageUrl: lane[0].inputMaterialImageUrl,
+    }
+  }
+  const updatedById = new Map<string, TechniqueItem>()
+  lane.forEach((item) => {
+    const requiresSkuChange = item.processCode === 'DYE' || item.processCode === 'PRINT'
+    const mustKeepSku = item.processCode === 'WATER_SOLUBLE'
+    const outputMode = mustKeepSku ? 'UNCHANGED' : item.outputMaterialSkuMode || (
+      item.outputMaterialSkuId && item.outputMaterialSkuId !== item.inputMaterialSkuId ? 'CHANGED' : 'UNCHANGED'
+    )
+    let outputIdentity = outputMode === 'UNCHANGED'
+      ? inputIdentity
+      : toRouteMaterialSkuIdentity(item.outputMaterialSkuId || '')
+    if (requiresSkuChange && (!outputIdentity.id || outputIdentity.id === inputIdentity.id)) outputIdentity = {}
+    if (!requiresSkuChange && !outputIdentity.id) outputIdentity = inputIdentity
+    updatedById.set(item.id, {
+      ...item,
+      inputMaterialSkuId: inputIdentity.id,
+      inputMaterialSkuCode: inputIdentity.code,
+      inputMaterialName: inputIdentity.name,
+      inputMaterialImageUrl: inputIdentity.imageUrl,
+      outputMaterialSkuId: outputIdentity.id,
+      outputMaterialSkuCode: outputIdentity.code,
+      outputMaterialName: outputIdentity.name,
+      outputMaterialImageUrl: outputIdentity.imageUrl,
+      outputMaterialSkuMode: requiresSkuChange ? 'CHANGED' : 'UNCHANGED',
+    })
+    inputIdentity = outputIdentity
+  })
+  state.techniques = state.techniques.map((item) => updatedById.get(item.id) ?? item)
+}
+
+function materializeAllPreparationSkuLanes(): void {
+  ;[...new Set(state.techniques
+    .filter((item) => item.stageCode === 'PREP' && item.routeObjectKey)
+    .map((item) => item.routeObjectKey as string))]
+    .forEach(materializePreparationSkuLane)
 }
 
 function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftState {
@@ -637,6 +707,7 @@ export function applyProcessRouteDraftAction(
 }
 
 function confirmProcessRoute(): void {
+  materializeAllPreparationSkuLanes()
   applyProcessRouteActionToState({ type: 'confirm' })
 }
 
@@ -1920,6 +1991,43 @@ function handleTechPackField(
       { garmentDifficultyGrade: nextGrade },
       currentUser.name,
     )
+    return true
+  }
+
+  if (field === 'prep-output-material-sku') {
+    const techId = node.dataset.techId || ''
+    const technique = state.techniques.find((item) => item.id === techId)
+    const selectedSku = getMaterialSkuRecordById(value)
+    const inputSku = getMaterialSkuRecordById(technique?.inputMaterialSkuId || '')
+    if (!technique || technique.stageCode !== 'PREP' || !technique.routeObjectKey || !selectedSku) {
+      window.alert('未找到准备工序或物料 SKU，请刷新后重试。')
+      return true
+    }
+    if (inputSku && selectedSku.materialId !== inputSku.materialId) {
+      window.alert('加工产出必须选择当前物料档案下的 SKU。')
+      return true
+    }
+    if ((technique.processCode === 'DYE' || technique.processCode === 'PRINT')
+      && selectedSku.materialSkuId === technique.inputMaterialSkuId) {
+      window.alert(`${technique.processCode === 'DYE' ? '染色' : '印花'}加工后必须选择新的产出 SKU。`)
+      return true
+    }
+    if (technique.processCode === 'WATER_SOLUBLE'
+      && selectedSku.materialSkuId !== technique.inputMaterialSkuId) {
+      window.alert('单独水溶加工不改变 SKU。')
+      return true
+    }
+    state.techniques = state.techniques.map((item) => item.id === techId ? {
+      ...item,
+      outputMaterialSkuId: selectedSku.materialSkuId,
+      outputMaterialSkuCode: selectedSku.materialSkuCode,
+      outputMaterialName: selectedSku.materialName,
+      outputMaterialImageUrl: selectedSku.skuImageUrl,
+      outputMaterialSkuMode: selectedSku.materialSkuId === technique.inputMaterialSkuId ? 'UNCHANGED' : 'CHANGED',
+    } : item)
+    materializePreparationSkuLane(technique.routeObjectKey)
+    markProcessRouteUnconfirmed()
+    syncTechPackToStore()
     return true
   }
 
@@ -4631,6 +4739,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedEntryIds.length) return true
     ;[orderedEntryIds[currentIndex], orderedEntryIds[targetIndex]] = [orderedEntryIds[targetIndex], orderedEntryIds[currentIndex]]
     applyProcessRouteActionToState({ type: 'reorder-prep-lane', orderedEntryIds })
+    materializePreparationSkuLane(current.routeObjectKey)
+    syncTechPackToStore()
     return true
   }
   if (action === 'save-technique') {

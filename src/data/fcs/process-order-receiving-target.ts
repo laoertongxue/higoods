@@ -25,8 +25,9 @@ function targetToken(value: string): string {
  * `freezeProcessOrderReceivingTarget()` 负责。
  */
 export function resolveTerminalProcessOrderReceivingTarget(input: {
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
+  sourceType: 'PRODUCTION_ORDER' | 'PRODUCTION_DEMAND' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT' | 'DESIGN_REVISION'
   productionOrderNo?: string
+  productionDemandNo?: string
   supplementRecordId?: string
   supplementRecordNo?: string
   supplementConsumerId?: string
@@ -71,6 +72,19 @@ export function resolveTerminalProcessOrderReceivingTarget(input: {
       targetWarehouseId: input.receivingLocationId?.trim() || `DESIGN-REVISION-LOCATION-${targetToken(targetWarehouseName)}`,
       targetWarehouseName,
       resolvedFrom: '设计改款销售展示样衣用料',
+    }
+  }
+
+  if (input.sourceType === 'PRODUCTION_DEMAND') {
+    const demandNo = input.productionDemandNo?.trim()
+    if (!demandNo) throw new Error('生产需求提前加工单缺少生产需求单号，暂不能确定待匹配去向')
+    const token = targetToken(demandNo)
+    return {
+      targetBusinessId: `EARLY-PROCESS-${token}`,
+      targetName: `${demandNo} 大货准备`,
+      targetWarehouseId: `EARLY-PROCESS-WAIT-${token}`,
+      targetWarehouseName: '大货提前加工待匹配仓',
+      resolvedFrom: '生产需求提前加工待匹配规则',
     }
   }
 
