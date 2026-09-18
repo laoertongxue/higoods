@@ -171,6 +171,15 @@ function parseSizeRangeText(sizeRange?: string): string[] {
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
+    prjFile: item.prjFile ? { ...item.prjFile } : undefined,
+    markerImage: item.markerImage ? { ...item.markerImage } : undefined,
+    dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
+    rulFile: item.rulFile ? { ...item.rulFile } : undefined,
+    duplicateWarningReasons: item.duplicateWarningReasons ? [...item.duplicateWarningReasons] : undefined,
+    pieceInstances: item.pieceInstances?.map((instance) => ({
+      ...instance,
+      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+    })),
     rulSizeList: [...(item.rulSizeList ?? [])],
     selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
     bindingStrips: item.bindingStrips?.map((strip) => ({
@@ -197,6 +206,7 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
       bundleWidthCm: row.bundleWidthCm,
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
+      colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
     })),
   }))
 }
@@ -440,6 +450,10 @@ function normalizePatternFiles(
           supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
+      })),
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
       })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
@@ -853,6 +867,10 @@ function alignSnapshotWithDemandSkuLines(
       ...item,
       selectedSizeCodes: sizes,
       sizeRange: sizes.join(' / ') || item.sizeRange,
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+      })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         applicableSkuCodes: allSkuCodes,

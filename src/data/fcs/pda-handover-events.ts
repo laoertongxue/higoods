@@ -34,6 +34,7 @@ import {
   handoutRecordOverrides,
   handoutRecordVersionHistory,
   installCompleteHandoutReaders,
+  installPdaHandoverStateAccess,
 } from './pda-handover-handout-registry.ts'
 import {
   PROCESS_WORK_ORDER_SOURCE_LABEL,
@@ -64,7 +65,7 @@ import {
   confirmWoolDownstreamReceipt,
   getWoolHandoverEffectiveQty,
   listWoolMobileProcessTasks,
-  readWoolStore,
+  readWoolQuerySnapshot,
   type WoolHandoverRecord,
   type WoolOutputPlanLine,
   type WoolWorkOrder,
@@ -1212,9 +1213,9 @@ function getWoolFactHandoverContext(
   effectiveQty: number
   completed: boolean
 } | null {
-  const store = readWoolStore()
+  const store = readWoolQuerySnapshot()
   const handover = store.handovers.find((item) => item.handoverId === handoverId)
-  if (!handover) return null
+  if (!handover || handover.automatic || handover.pieceKey) return null
   const order = store.workOrders[handover.woolOrderId]
   const output = order?.outputPlanLines.find((item) => item.outputSkuCode === handover.outputSkuCode)
   if (!order || !output) return null
@@ -1419,8 +1420,9 @@ function buildWoolFactHandoverRecord(
 }
 
 function listWoolFactHandoverHeads(): PdaHandoverHead[] {
-  const store = readWoolStore()
+  const store = readWoolQuerySnapshot()
   return store.handovers.flatMap((handover): PdaHandoverHead[] => {
+    if(handover.automatic || handover.pieceKey)return []
     const order = store.workOrders[handover.woolOrderId]
     const output = order?.outputPlanLines.find((item) => item.outputSkuCode === handover.outputSkuCode)
     if (!order || !output) return []
@@ -2597,6 +2599,8 @@ export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
     else localStorage.setItem(FORMAL_HANDOUT_STORAGE_KEY, restored.persistedActionsRaw)
   }
 }
+
+installPdaHandoverStateAccess(capturePdaHandoverState, restorePdaHandoverState)
 
 function sumBy<T>(rows: T[], picker: (row: T) => number): number {
   return rows.reduce((sum, row) => sum + picker(row), 0)
@@ -4238,11 +4242,11 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
   return { ...rangeResult, basisQty, effectiveQty }
 }
 
-export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
+export function listHandoverOrdersByTaskId(taskId: string, options: { includeWool?: boolean } = {}): PdaHandoverHead[] {
   const matches = [
     ...buildNonWoolHeadsInternal()
       .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
-    ...listWoolFactHandoverHeads()
+    ...(options.includeWool === false ? [] : listWoolFactHandoverHeads())
       .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
   ]
   return matches
@@ -4347,13 +4351,13 @@ export function listQuantityObjections(): QuantityObjection[] {
     )
 }
 
-export function ensureHandoverOrderForStartedTask(taskId: string): {
+export function ensureHandoverOrderForStartedTask(taskId: string, options: { includeWool?: boolean } = {}): {
   taskId: string
   handoverOrderId: string
   created: boolean
 } {
   const waterOrder = getWaterSolubleWorkOrderByTaskId(taskId)
-  const existing = listHandoverOrdersByTaskId(taskId)[0]
+  const existing = listHandoverOrdersByTaskId(taskId, options)[0]
   if (existing) {
     if (waterOrder && waterOrder.status !== 'DONE' && (
       (waterOrder.handoverQty ?? 0) + 0.000001 < waterOrder.completedQty

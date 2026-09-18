@@ -1,5 +1,7 @@
+import {linkingCapacity} from './stage-rules.ts'
 import type { ProcessTask } from '../process-tasks.ts'
 import {
+  readWoolQuerySnapshot,
   getWoolAllowedActionsFromStore,
   getWoolHandoverEffectiveQty,
   getWoolOutputHandoverAvailableQtyFromStore,
@@ -34,7 +36,7 @@ export interface WoolMobileQtyChangeFact {
 }
 
 export interface WoolMobileFactRecord {
-  recordType: 'YARN_RECEIPT' | 'PROCESS_REPORT' | 'HANDOVER' | 'QTY_CHANGE' | 'WAREHOUSE_FLOW'
+  recordType: 'PIECE_RECEIPT' | 'INTERNAL_RECEIPT' | 'YARN_RECEIPT' | 'PROCESS_REPORT' | 'HANDOVER' | 'QTY_CHANGE' | 'WAREHOUSE_FLOW'
   recordId: string
   recordLineId?: string
   objectSkuCode: string
@@ -78,7 +80,7 @@ export interface WoolMobileCompletionFacts {
     outputSkuCode: string
     originalQty: number
     effectiveQty: number
-    qtyUnit: '件'
+    qtyUnit: '件' | '片'
     receiverName: string
     downstreamActualReceivedQty?: number
     downstreamDifferenceQty?: number
@@ -107,8 +109,8 @@ export interface WoolMobileTaskProjection {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
-  processingStatus: 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
-  processingStatusLabel: '未加工' | '加工中' | '已完成'
+  processingStatus: 'UNPROCESSED' | 'READY' | 'PROCESSING' | 'PROCESS_COMPLETE' | 'COMPLETED'
+  processingStatusLabel: '未加工' | '待开工' | '加工中' | '加工完成' | '已完成'
   allowedActions: WoolAllowedAction[]
   requiredYarnSkus: string[]
   confirmedYarnSkus: string[]
@@ -119,7 +121,7 @@ export interface WoolMobileTaskProjection {
 }
 
 const STATUS_LABELS: Record<WoolMobileTaskProjection['processingStatus'], WoolMobileTaskProjection['processingStatusLabel']> = {
-  UNPROCESSED: '未加工',
+  UNPROCESSED: '未加工', READY: '待开工', PROCESS_COMPLETE: '加工完成',
   PROCESSING: '加工中',
   COMPLETED: '已完成',
 }
@@ -287,7 +289,18 @@ function buildFactRecords(
       qtyChanges: [],
       flow: { ...flow },
     }))
+  const pieceFacts: WoolMobileFactRecord[] = store.pieceReceipts.filter(r => r.woolOrderId === order.woolOrderId).map(r => ({
+    recordType: 'PIECE_RECEIPT', recordId: r.receiptId, objectSkuCode: r.pieceKey,
+    originalQty: r.qty, effectiveQty: r.qty, qtyUnit: '片', occurredAt: r.receivedAt, operatedBy: r.receivedBy,
+    batchNo: r.sourceHandoverId, proofFiles: [], warehouseFlowIds: [`WF-${r.receiptId}`], qtyChanges: [],
+  }))
+  const internalFacts: WoolMobileFactRecord[] = store.internalReceipts.filter(r => r.woolOrderId === order.woolOrderId).map(r => ({
+    recordType: 'INTERNAL_RECEIPT', recordId: r.receiptId, objectSkuCode: r.outputSkuCode,
+    originalQty: r.qty, effectiveQty: r.qty, qtyUnit: '件', occurredAt: r.receivedAt, operatedBy: r.receivedBy,
+    remark: `不外发片对应进度；横机填报 ${r.sourceReportId}`, proofFiles: [], warehouseFlowIds: [], qtyChanges: [],
+  }))
   return [
+    ...pieceFacts, ...internalFacts,
     ...receiptFacts,
     ...reportFacts,
     ...handoverFacts,
@@ -302,7 +315,7 @@ function buildCompletionFacts(
   store: ReturnType<typeof readWoolStore>,
   order: WoolWorkOrder,
 ): WoolMobileCompletionFacts {
-  const requiredYarnSkus = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
+  const requiredYarnSkus = order.stage === 'KNITTING' ? [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))] : []
   const yarnReceipts = requiredYarnSkus.map((yarnSkuCode) => {
     const effectiveLines = store.yarnReceipts
       .filter((receipt) => receipt.woolOrderId === order.woolOrderId)
@@ -333,7 +346,7 @@ function buildCompletionFacts(
     return {
       outputSkuCode: line.outputSkuCode,
       plannedQty: line.plannedQty,
-      reportLimitQty: Math.floor(line.plannedQty * 1.5),
+      reportLimitQty: order.stage === 'LINKING' ? linkingCapacity(store,order,line.outputSkuCode) : Math.floor(line.plannedQty * 1.5),
       effectiveReportedQty,
       differenceFromPlanQty: effectiveReportedQty - line.plannedQty,
       qtyUnit: line.qtyUnit,
@@ -436,7 +449,7 @@ export function buildWoolMobileTaskProjectionFromStore(
 export function buildWoolMobileTaskProjection(
   woolOrderId: string,
 ): WoolMobileTaskProjection {
-  return buildWoolMobileTaskProjectionFromStore(readWoolStore(), woolOrderId)
+  return buildWoolMobileTaskProjectionFromStore(readWoolQuerySnapshot(), woolOrderId)
 }
 
 function buildWoolMobileTaskFromStore(
@@ -449,7 +462,7 @@ function buildWoolMobileTaskFromStore(
   const qtyUnit = order.outputPlanLines[0]?.qtyUnit || '件'
   const status: ProcessTask['status'] = projection.processingStatus === 'COMPLETED'
     ? 'DONE'
-    : projection.processingStatus === 'PROCESSING'
+    : ['PROCESSING', 'PROCESS_COMPLETE'].includes(projection.processingStatus)
       ? 'IN_PROGRESS'
       : 'NOT_STARTED'
   return {
@@ -460,9 +473,9 @@ function buildWoolMobileTaskFromStore(
     productionOrderNo: order.productionOrderNo,
     seq: index + 1,
     processCode: 'PROC_WOOL',
-    processNameZh: '毛织',
+    processNameZh: order.stage === 'KNITTING' ? '横机' : '缝盘',
     processBusinessCode: 'WOOL',
-    processBusinessName: '毛织',
+    processBusinessName: order.stage === 'KNITTING' ? '横机加工' : '缝盘加工',
     stage: 'SPECIAL',
     qty: totalPlannedQty,
     qtyUnit: qtyUnit as ProcessTask['qtyUnit'],
@@ -505,7 +518,7 @@ function buildWoolMobileTaskFromStore(
 }
 
 export function listWoolMobileProcessTasks(): ProcessTask[] {
-  const store = readWoolStore()
+  const store = readWoolQuerySnapshot()
   return Object.values(store.workOrders)
     .sort((left, right) => left.woolOrderNo.localeCompare(right.woolOrderNo))
     .map((order, index) => buildWoolMobileTaskFromStore(store, order, index))

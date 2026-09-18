@@ -1,0 +1,189 @@
+{
+  "at": "2026-09-18T14:38:31.698Z",
+  "base": "http://127.0.0.1:5186",
+  "cwd": "/Users/laoer/Documents/higoods/.worktrees/work-20260918",
+  "browser": "Chromium / Playwright",
+  "scope": "Functional screenshots only; performance is measured separately by check-wool-route-performance.mjs",
+  "routes": [
+    {
+      "name": "knitting",
+      "route": "/fcs/craft/wool/knitting-orders",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": true,
+      "imagesDecoded": true
+    },
+    {
+      "name": "linking",
+      "route": "/fcs/craft/wool/linking-orders",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "pass": true,
+      "imagesDecoded": true
+    },
+    {
+      "name": "knitting-detail",
+      "route": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-008%3AKNITTING",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": true,
+      "imagesDecoded": true
+    },
+    {
+      "name": "linking-detail",
+      "route": "/fcs/craft/wool/linking-orders/WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": true,
+      "imagesDecoded": true
+    },
+    {
+      "name": "pending",
+      "route": "/fcs/craft/wool/pending-receipts",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "pass": true,
+      "imagesDecoded": true
+    },
+    {
+      "name": "pda-receive",
+      "route": "/fcs/pda/wool/pending-receipts?workOrderId=WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "pass": true,
+      "imagesDecoded": true
+    }
+  ],
+  "actions": [
+    {
+      "name": "横机查询",
+      "diagnosticDriverInclusiveMs": 47.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "diagnosticDriverInclusiveMs": 65.59999999403954,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "diagnosticDriverInclusiveMs": 46.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机查询",
+      "diagnosticDriverInclusiveMs": 33,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "diagnosticDriverInclusiveMs": 64.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "diagnosticDriverInclusiveMs": 48.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "横机查询",
+      "diagnosticDriverInclusiveMs": 33.29999998211861,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "diagnosticDriverInclusiveMs": 64.19999998807907,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "diagnosticDriverInclusiveMs": 50.10000002384186,
+      "pass": true
+    },
+    {
+      "name": "横机查询",
+      "diagnosticDriverInclusiveMs": 31.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "diagnosticDriverInclusiveMs": 64.7999999821186,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "diagnosticDriverInclusiveMs": 49.70000001788139,
+      "pass": true
+    },
+    {
+      "name": "横机查询",
+      "diagnosticDriverInclusiveMs": 32.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "diagnosticDriverInclusiveMs": 65.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "diagnosticDriverInclusiveMs": 49.70000001788139,
+      "pass": true
+    },
+    {
+      "name": "横机填报保存及自动缝盘",
+      "diagnosticDriverInclusiveMs": 63.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "纱线接收弹窗",
+      "diagnosticDriverInclusiveMs": 49,
+      "pass": true
+    },
+    {
+      "name": "纱线实收保存",
+      "diagnosticDriverInclusiveMs": 48.89999997615814,
+      "pass": true
+    },
+    {
+      "name": "PDA回货片实收保存",
+      "diagnosticDriverInclusiveMs": 49.39999997615814,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "name": "横机六状态与八列",
+      "pass": true
+    },
+    {
+      "name": "真实按钮无外加工四事实同步保存",
+      "pass": true
+    },
+    {
+      "name": "真实接收净重1kg",
+      "pass": true
+    },
+    {
+      "name": "PDA独立外壳及无页面横溢",
+      "pass": true
+    },
+    {
+      "name": "PDA实际回货片保存5片",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

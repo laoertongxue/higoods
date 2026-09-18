@@ -1,0 +1,10 @@
+✓ 已计划、已交出但未实收不能生成工艺库存或伪造交出记录
+✓ 加工填报以片消耗待加工库存并等量形成待交出；跨仓守恒
+✓ 在途按下游分批实收递减；下道工艺使用真实路线工厂，不返裁厂
+✓ 末道工艺回缝盘，最终片实收只进缝盘事实，不重复计入工艺待加工仓
+✓ 刷新、重复读取不重复库存；非毛织仓储和工艺记录不变
+✓ 修改查询副本的记录、图片、关联数组及集合不能污染下次仓储读取
+✓ 仓储页面显示实际0库存、片单位、真实库位和真实流水，毛织片配图可放大
+PASS 7 wool craft warehouse checks
+INDEPENDENT PASS: all 8 collections populated; 110 recursively inspected objects/arrays/sets independent and mutable across both returns; exact nested-field whitelist matches every generated row; caller delete/add/array/set mutation cannot change facts or warehouse snapshot.
+{"waitProcessStockItems":2,"waitHandoverStockItems":2,"inboundRecords":4,"outboundRecords":4,"warehouseRecords":4,"handoverRecords":2,"genericPieceInboundIds":3,"taskOrderIds":3}

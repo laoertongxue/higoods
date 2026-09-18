@@ -1,0 +1,5 @@
+PASS integration: original scalar entry blocked, receipt projection does not start dyeing, 12kg gross -> 9.58kg dispatch, wool actual 9.101kg once, refresh and retry, cumulative gross limit
+PASS cold restart: original batch IDs, actual upstream receipt, wool net balance, no repeated inbound
+PASS physical stock: receipt positions separated, allocation conserves net stock, issue/return keep actual position, wrong-factory/SKU allocation blocked
+PASS physical transfer: own-location 1kg move, net conserved, replay once, source balance protected
+PASS yarn list three measurements and 0.001kg precision; original ISSUE preserved in warehouse book

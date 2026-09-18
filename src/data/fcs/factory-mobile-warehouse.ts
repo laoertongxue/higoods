@@ -11,7 +11,6 @@ import { listCuttingSewingDispatchBatches, listCuttingSewingDispatchOrders, list
 import { listPdaHandoverHeads } from './pda-handover-events.ts'
 import {
   getWoolHandoverEffectiveQty,
-  getWoolProcessReportEffectiveQty,
   listWoolWarehouseStocksFromStore,
   listWoolYarnReceiptLineTracesFromStore,
   readWoolStore,
@@ -25,8 +24,12 @@ import {
 } from './post-finishing-full-flow.ts'
 import { FULL_CAPABILITY_FACTORY_ID } from './post-finishing-current-read-model.ts'
 import { isIndonesiaBusinessDateToday } from './indonesia-business-time.ts'
+import { listWoolFactoryWarehouseFlows, summarizeWoolQuantities } from './wool-domain/queries.ts'
+import { woolWarehouseFlowSignedQty } from './wool-domain/warehouse-ledger.ts'
 
 export interface FactoryMobileWarehouseOverview {
+  waitProcessQtyText?: string
+  waitHandoverQtyText?: string
   factoryId: string
   factoryName: string
   waitProcessCount: number
@@ -99,47 +102,45 @@ export function getFactoryMobileWarehouseOverview(
   factoryName: string,
   now: Date = new Date(),
 ): FactoryMobileWarehouseOverview {
-  if (factoryId === OWN_WOOL_FACTORY_ID) {
+  if (factoryId === OWN_WOOL_FACTORY_ID || mockFactories.some(factory => factory.id === factoryId && factory.factoryType === 'CENTRAL_WOOL')) {
     const store = readWoolStore()
-    const waitProcessInventory = listWoolWarehouseStocksFromStore(store, 'WAIT_PROCESS')
+    const factoryFlows = listWoolFactoryWarehouseFlows(store, factoryId)
+    const factoryOrderIds = new Set(Object.values(store.workOrders).filter(order => order.factoryId === factoryId).map(order => order.woolOrderId))
+    // Filter facts before aggregation: unassigned preparation stock has no order id.
+    const factoryStore = { ...store, warehouseFlows: factoryFlows }
+    const waitProcessInventory = listWoolWarehouseStocksFromStore(factoryStore, 'WAIT_PROCESS')
       .filter((item) => item.currentQty > 0)
-    const waitHandoverInventory = listWoolWarehouseStocksFromStore(store, 'WAIT_HANDOVER')
+    const waitHandoverInventory = listWoolWarehouseStocksFromStore(factoryStore, 'WAIT_HANDOVER')
       .filter((item) => item.currentQty > 0)
-    const receiptLines = Object.keys(store.workOrders)
+    const receiptLines = [...factoryOrderIds]
       .flatMap((woolOrderId) => listWoolYarnReceiptLineTracesFromStore(store, {
         woolOrderId,
         batchMatch: 'ANY',
       }))
-    const processReports = store.processReports.map((record) => ({
-      record,
-      effectiveQty: getWoolProcessReportEffectiveQty(store, record),
-    }))
-    const handovers = store.handovers.map((record) => ({
+    const handovers = store.handovers.filter(record => factoryOrderIds.has(record.woolOrderId)).map((record) => ({
       record,
       effectiveQty: getWoolHandoverEffectiveQty(store, record),
     }))
-    const todayReceiptLines = receiptLines.filter((item) =>
-      isIndonesiaBusinessDateToday(item.receivedAt, now),
-    )
-    const todayProcessReports = processReports.filter(({ record }) =>
-      isIndonesiaBusinessDateToday(record.reportedAt, now),
-    )
-    const todayHandovers = handovers.filter(({ record }) =>
-      isIndonesiaBusinessDateToday(record.handedOverAt, now),
-    )
+    const todayFlows = factoryFlows.filter(flow => isIndonesiaBusinessDateToday(flow.operatedAt, now))
+    const inbounds = todayFlows.filter(flow => woolWarehouseFlowSignedQty(flow) > 0)
+    const outbounds = todayFlows.filter(flow => woolWarehouseFlowSignedQty(flow) < 0)
+    // A scalar is meaningful only within one unit; the UI uses the explicit grouped text.
+    const oneUnitTotal = (rows: Array<{ qty: number; unit: string }>) => new Set(rows.map(row => row.unit)).size > 1 ? 0 : rows.reduce((sum, row) => sum + row.qty, 0)
+    const processQty = waitProcessInventory.map(row => ({ qty: row.currentQty, unit: row.unit }))
+    const handoverQty = waitHandoverInventory.map(row => ({ qty: row.currentQty, unit: row.unit }))
     return {
       factoryId,
       factoryName,
       waitProcessCount: waitProcessInventory.length,
-      waitProcessQty: waitProcessInventory.reduce((sum, item) => sum + item.currentQty, 0),
+      waitProcessQty: oneUnitTotal(processQty),
+      waitProcessQtyText: summarizeWoolQuantities(processQty),
       waitHandoverCount: waitHandoverInventory.length,
-      waitHandoverQty: waitHandoverInventory.reduce((sum, item) => sum + item.currentQty, 0),
-      todayInboundCount: todayReceiptLines.length + todayProcessReports.length,
-      todayInboundQty:
-        todayReceiptLines.reduce((sum, item) => sum + item.effectiveQty, 0)
-        + todayProcessReports.reduce((sum, item) => sum + item.effectiveQty, 0),
-      todayOutboundCount: todayHandovers.length,
-      todayOutboundQty: todayHandovers.reduce((sum, item) => sum + item.effectiveQty, 0),
+      waitHandoverQty: oneUnitTotal(handoverQty),
+      waitHandoverQtyText: summarizeWoolQuantities(handoverQty),
+      todayInboundCount: inbounds.length,
+      todayInboundQty: oneUnitTotal(inbounds.map(flow => ({ ...flow, qty: Math.abs(woolWarehouseFlowSignedQty(flow)) }))),
+      todayOutboundCount: outbounds.length,
+      todayOutboundQty: oneUnitTotal(outbounds.map(flow => ({ ...flow, qty: Math.abs(woolWarehouseFlowSignedQty(flow)) }))),
       stocktakeCount: 0,
       differenceCount: receiptLines.filter((item) => Boolean(item.differenceNote?.trim())).length,
       objectionCount: handovers.filter(({ record, effectiveQty }) =>

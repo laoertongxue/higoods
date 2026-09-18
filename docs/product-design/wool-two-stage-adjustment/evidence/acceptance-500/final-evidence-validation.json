@@ -1,0 +1,51 @@
+{
+  "buildSha256": "5628743d94d6f72e96d1c30a866fccfeb4be8850ef8479c4ea077d6daad89266",
+  "sourceFiles": 26,
+  "reports": [
+    {
+      "name": "routes",
+      "samples": 555,
+      "normalMaxMs": 448.60000002384186,
+      "exceptionMaxMs": 697.9000000059605
+    },
+    {
+      "name": "action-performance",
+      "actions": 71,
+      "samples": 355,
+      "maxMs": 75.90000000596046
+    },
+    {
+      "name": "extra-action-performance",
+      "actions": 18,
+      "samples": 90,
+      "maxMs": 65.30000001192093
+    },
+    {
+      "name": "remaining-action-performance",
+      "actions": 375,
+      "samples": 1875,
+      "maxMs": 395
+    },
+    {
+      "name": "downstream-detail-loads",
+      "samples": 15,
+      "maxMs": 277.40000000596046
+    },
+    {
+      "name": "remaining-action-performance-1024",
+      "actions": 158,
+      "samples": 790,
+      "maxMs": 213.5
+    },
+    {
+      "name": "four-batch-print",
+      "samples": 15,
+      "maxMs": 196
+    }
+  ],
+  "requirements": 126,
+  "statuses": {
+    "已验证": 126
+  },
+  "pass": true
+}

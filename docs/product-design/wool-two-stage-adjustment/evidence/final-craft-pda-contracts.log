@@ -1,0 +1,25 @@
+PASS FLOW005 实际裁厂隔离、未知接收仓阻断、按件来源
+PASS FLOW006 真实批次可在工艺 Web 接收，超计划但未超交出合法，同一次确认不重复
+PASS FLOW006 超交出、变更重试、伪来源、旧逐SKU直接接收均阻断且不留半数据
+PASS 实收→加工守恒：12 实收 = 7 待加工 + 5 待交出，未交出不造出库
+PASS 同一最终实收事实回读 Web 和两类仓储；20 实收 = 15 待加工 + 5 待交出
+PASS 错厂会话、错目标厂及错路线节点不能接收本批成衣
+PASS 同厂多后继节点不重复认领；明确节点才得到其批次
+7 final downstream contracts passed
+(node:73664) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS 最终接收跨全新模块初始化仍由原交出事实恢复；款图与SKU一致，未收批次仍待接收
+✓ 缝盘数量展示指定下游实际接收件数
+✓ 已完单数量与处理进度的可填报数量均为零
+✓ 详情拒绝错误阶段，正常阶段仍可渲染
+✓ 打印拒绝错误阶段且不暴露打印按钮
+✓ 阶段页面完成文件迁移，路由捕获并传入阶段
+✓ 待接收毛织片明确显示款式参考图及非片实拍
+✓ 缝盘回货扫码匹配新接收动作
+✓ 缝盘PDA不再索要纱线，并保留实际片接收记录
+✓ 横机PDA存在可用外发片时能够提交交出
+✓ 演示待收纱线通过正常统一接收入口
+✓ PDA接收使用独立PDA路由并有返回入口
+✓ PDA真实分发器打开片接收弹窗且未提前保存
+✓ PDA真实分发器处理输入且接收事实未改变
+毛织阶段页面对抗审查修复：13 项通过；此检查不替代浏览器与性能验收。

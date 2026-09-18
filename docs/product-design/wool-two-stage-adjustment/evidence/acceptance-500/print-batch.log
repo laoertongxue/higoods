@@ -1,0 +1,1 @@
+PASS 50 demos equal old commands; fewer writes; repeat/fresh reload; failure restores storage and memory

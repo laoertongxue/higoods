@@ -5,6 +5,7 @@ import {
   getPrintWorkOrderStatusLabel,
   listPrintExecutionNodeRecords,
   listPrintWorkOrders,
+  readPrintWorkOrdersWithoutInitialization,
   listPrintWorkOrderListRecords,
   type PrintExecutionNodeRecord,
   type PrintReviewRecord,
@@ -19,6 +20,7 @@ import {
   listDyeExecutionNodeRecords,
   listDyeFormulaRecords,
   listDyeWorkOrders,
+  readDyeWorkOrdersWithoutInitialization,
   listDyeWorkOrderListRecords,
   type DyeExecutionNodeRecord,
   type DyeFormulaRecord,
@@ -631,8 +633,15 @@ function mapDyeWorkOrder(order: DyeWorkOrder, related?: {
   }
 }
 
-export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationSource[] {
-  const printOrders = listPrintWorkOrders().map((order): ProcessWorkOrderRelationSource => ({
+export function listProcessWorkOrderRelationSources(executionRouteCodes?: ReadonlySet<string>): ProcessWorkOrderRelationSource[] {
+  // For an execution task, uninitialized demo orders without a corresponding route
+  // occurrence cannot form a route edge. Existing/manual references are still read,
+  // and saved execution always goes through the original validated restoration path.
+  const printRead = executionRouteCodes && !executionRouteCodes.has('PRINT')
+    ? readPrintWorkOrdersWithoutInitialization() : undefined
+  const dyeRead = executionRouteCodes && !executionRouteCodes.has('DYE')
+    ? readDyeWorkOrdersWithoutInitialization() : undefined
+  const printOrders = (printRead && !printRead.needsRestoration ? printRead.orders : listPrintWorkOrders()).map((order): ProcessWorkOrderRelationSource => ({
     taskId: order.taskId, taskNo: order.taskNo, factoryId: order.printFactoryId, factoryName: order.printFactoryName,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     workOrderId: order.printOrderId,
@@ -648,7 +657,7 @@ export function listProcessWorkOrderRelationSources(): ProcessWorkOrderRelationS
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
   }))
-  const dyeOrders = listDyeWorkOrders().map((order): ProcessWorkOrderRelationSource => {
+  const dyeOrders = (dyeRead && !dyeRead.needsRestoration ? dyeRead.orders : listDyeWorkOrders()).map((order): ProcessWorkOrderRelationSource => {
     const materialTypes = [...new Set(
       (order.formalProductionOrderSnapshot?.materialItems ?? [])
         .map((item) => item.materialType?.trim())

@@ -1,3 +1,4 @@
+import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from './wool-domain/craft-warehouse.ts'
 import {getReceiptMaterialUsed, getFactoryReceivingRevision} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
@@ -59,6 +60,7 @@ export type FactoryWarehouseSourceRecordType =
   | 'HANDOVER_RECEIVE'
   | 'TRANSFER_RECEIVE'
   | 'STOCKTAKE_ADJUSTMENT'
+  | 'PROCESS_REPORT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
   | '成衣仓'
@@ -163,6 +165,7 @@ export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
   completedQty: number
   lossQty: number
   waitHandoverQty: number
+  inTransitQty?: number
   receiverKind: FactoryWarehouseReceiverKind
   receiverName: string
   handoverOrderId?: string
@@ -270,6 +273,7 @@ export interface FactoryWarehouseOutboundRecord {
   transferBagNo?: string
   fabricRollNo?: string
   outboundQty: number
+  inTransitQty?: number
   receiverWrittenQty?: number
   differenceQty?: number
   unit: string
@@ -2512,15 +2516,18 @@ function hydrateCompletedStocktakeAdjustmentFlows(store: FactoryInternalWarehous
 }
 
 let synchronizedReceivingRevision = -1
-function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
+function ensureFactoryInternalWarehouseStore(refreshWoolProjection = true): FactoryInternalWarehouseStore {
   if (!internalWarehouseStore) {
     synchronizedReceivingRevision = -1
     internalWarehouseStore = seedFactoryWarehouseStore()
     hydrateCompletedStocktakeAdjustmentFlows(internalWarehouseStore)
   }
   const receivingRevision = getFactoryReceivingRevision()
-  if (synchronizedReceivingRevision === receivingRevision) return internalWarehouseStore
-  for (const inbound of buildFactoryReceiptInboundRecords()) {
+  // Generic upserts do not read wool stock. The next public read still refreshes
+  // that projection, including after generic corrections to a derived row.
+  if (!refreshWoolProjection && synchronizedReceivingRevision === receivingRevision) return internalWarehouseStore
+  const wool = buildWoolCraftWarehouseProjection()
+  if (synchronizedReceivingRevision !== receivingRevision) for (const inbound of buildFactoryReceiptInboundRecords().filter(record => !wool.genericPieceInboundIds.has(record.inboundRecordId))) {
     const fresh = buildWaitProcessStockItemFromInbound(inbound)
     let stock = internalWarehouseStore.waitProcessStockItems.find(item => item.stockItemId === fresh.stockItemId)
     if (!stock) {
@@ -2533,6 +2540,11 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
     stock.availableQty = Math.max(0, inbound.receivedQty - stock.issuedQty)
   }
   synchronizedReceivingRevision = receivingRevision
+  // Replace only this read projection; generic receipts must not duplicate毛织片 as染色辅料.
+  internalWarehouseStore.waitProcessStockItems = [...internalWarehouseStore.waitProcessStockItems.filter(item => !isWoolCraftWarehouseProjectionId(item.stockItemId) && !wool.genericPieceInboundIds.has(item.stockItemId.replace(/^WPS-/, ''))), ...wool.waitProcessStockItems]
+  internalWarehouseStore.waitHandoverStockItems = [...internalWarehouseStore.waitHandoverStockItems.filter(item => !isWoolCraftWarehouseProjectionId(item.stockItemId)), ...wool.waitHandoverStockItems]
+  internalWarehouseStore.inboundRecords = [...internalWarehouseStore.inboundRecords.filter(item => !isWoolCraftWarehouseProjectionId(item.inboundRecordId) && !wool.genericPieceInboundIds.has(item.inboundRecordId)), ...wool.inboundRecords]
+  internalWarehouseStore.outboundRecords = [...internalWarehouseStore.outboundRecords.filter(item => !isWoolCraftWarehouseProjectionId(item.outboundRecordId)), ...wool.outboundRecords]
   return internalWarehouseStore
 }
 
@@ -2540,7 +2552,8 @@ function findWarehouseByFactoryAndKindInternal(
   factoryId: string,
   warehouseKind: FactoryInternalWarehouseKind,
 ): FactoryInternalWarehouse | undefined {
-  return ensureFactoryInternalWarehouseStore().warehouses.find(
+  // Warehouse identity and locations belong to the registry, not stock projections.
+  return getFactoryInternalWarehouseRegistryReference().find(
     (warehouse) => warehouse.factoryId === factoryId && warehouse.warehouseKind === warehouseKind,
   )
 }
@@ -2777,7 +2790,7 @@ export function syncFactoryWarehouseHandoverSourceByTaskId(taskId: string): void
 export function upsertFactoryWarehouseInboundRecord(
   record: FactoryWarehouseInboundRecord,
 ): FactoryWarehouseInboundRecord {
-  const store = ensureFactoryInternalWarehouseStore()
+  const store = ensureFactoryInternalWarehouseStore(isWoolCraftWarehouseProjectionId(record.inboundRecordId))
   const index = store.inboundRecords.findIndex(
     (item) => item.inboundRecordId === record.inboundRecordId || item.sourceRecordId === record.sourceRecordId,
   )
@@ -2793,7 +2806,7 @@ export function upsertFactoryWarehouseInboundRecord(
 export function upsertFactoryWaitProcessStockItem(
   item: FactoryWaitProcessStockItem,
 ): FactoryWaitProcessStockItem {
-  const store = ensureFactoryInternalWarehouseStore()
+  const store = ensureFactoryInternalWarehouseStore(isWoolCraftWarehouseProjectionId(item.stockItemId))
   const index = store.waitProcessStockItems.findIndex(
     (stockItem) => stockItem.stockItemId === item.stockItemId || stockItem.sourceRecordId === item.sourceRecordId,
   )
@@ -2809,7 +2822,7 @@ export function upsertFactoryWaitProcessStockItem(
 export function upsertFactoryWarehouseOutboundRecord(
   record: FactoryWarehouseOutboundRecord,
 ): FactoryWarehouseOutboundRecord {
-  const store = ensureFactoryInternalWarehouseStore()
+  const store = ensureFactoryInternalWarehouseStore(isWoolCraftWarehouseProjectionId(record.outboundRecordId))
   const index = store.outboundRecords.findIndex(
     (item) =>
       item.outboundRecordId === record.outboundRecordId
@@ -2827,7 +2840,7 @@ export function upsertFactoryWarehouseOutboundRecord(
 export function upsertFactoryWaitHandoverStockItem(
   item: FactoryWaitHandoverStockItem,
 ): FactoryWaitHandoverStockItem {
-  const store = ensureFactoryInternalWarehouseStore()
+  const store = ensureFactoryInternalWarehouseStore(isWoolCraftWarehouseProjectionId(item.stockItemId))
   let index = store.waitHandoverStockItems.findIndex((stockItem) => stockItem.stockItemId === item.stockItemId)
   if (index < 0 && item.handoverRecordId) {
     index = store.waitHandoverStockItems.findIndex((stockItem) => (

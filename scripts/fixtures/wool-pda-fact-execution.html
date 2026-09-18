@@ -8,12 +8,13 @@
   <body>
     <main id="root"></main>
     <script type="module">
+      import { clearWoolStoreMemoryCache } from '/src/data/fcs/wool-domain/store.ts'
       import {
         capturePdaWoolExecutionStateForDiagnostics,
         handlePdaWoolExecutionEvent,
         renderPdaWoolExecutionContent,
       } from '/src/pages/pda-wool-fact-execution.ts'
-      import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-domain/mock-data.ts'
+      import { resetWoolFactWorkflowMockStore } from '/src/data/fcs/wool-domain/mock-data.ts'
       import {
         getWoolWorkOrderByTaskId,
         addWoolHandover,
@@ -30,10 +31,11 @@
         setPdaSession,
       } from '/src/data/fcs/store-domain-pda.ts'
 
-      const taskId = new URLSearchParams(location.search).get('taskId') || 'TASK-WOOL-MOCK-01'
-      resetWoolFactWorkflowMock('TASK12_BROWSER_DOM')
+      const taskId = new URLSearchParams(location.search).get('taskId') || 'TASK-WOOL-STAGE-001:KNITTING'
+      resetWoolFactWorkflowMockStore()
+      clearWoolStoreMemoryCache()
       const initialOrder = getWoolWorkOrderByTaskId(taskId)
-      if (taskId === 'TASK-WOOL-MOCK-08' && initialOrder) {
+      if (taskId === 'TASK-WOOL-STAGE-008:KNITTING' && initialOrder) {
         const machine = listWoolMachineViews().find((item) => item.status === 'IDLE')
         if (machine) {
           replaceWoolMachineAssociations(initialOrder.woolOrderId, [machine.machineId], {

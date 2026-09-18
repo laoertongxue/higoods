@@ -1,0 +1,75 @@
+src/data/fcs/design-revision-process-work-order-adapter.ts(167,44): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/data/fcs/production-process-snapshot-derivation.ts(70,28): error TS2551: Property 'materialId' does not exist on type '{ materialCode: string; materialName: string; changeRecordId: string; }'. Did you mean 'materialCode'?
+src/data/pcs-engineering-master-sampling.ts(213,3): error TS2322: Type '{ samplingType: string; designFiles: { fileId: string; purpose: EngineeringUploadPurpose; fileName: string; extension: string; ... 9 more ...; errorMessage: string; }[]; ... 53 more ...; updatedAt: string; }' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+  Types of property 'samplingType' are incompatible.
+    Type 'string' is not assignable to type '"DESIGN_REVISION"'.
+src/data/pcs-engineering-master-sampling.ts(969,7): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(969,36): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(970,7): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(974,38): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(976,48): error TS2322: Type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(977,12): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(977,50): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(979,24): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(983,77): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1009,7): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1010,7): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1011,34): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1014,38): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1015,3): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1047,28): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1050,25): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1055,54): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1059,27): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1061,24): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1066,59): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1075,53): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1091,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1092,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1093,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1094,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1094,72): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'string | EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'string | EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1095,12): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1095,64): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1097,24): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1100,77): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1250,7): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1250,36): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1250,66): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1254,19): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1256,8): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1257,51): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1257,75): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1259,25): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1261,97): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1265,38): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1268,24): error TS18049: 'targetVersion' is possibly 'null' or 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1275,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1275,38): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1275,114): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1276,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1279,30): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1279,63): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1282,29): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1286,29): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1298,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1299,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1300,5): error TS18048: 'record' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1301,12): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1301,52): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1301,81): error TS18048: 'mapping' is possibly 'undefined'.
+src/data/pcs-engineering-master-sampling.ts(1303,24): error TS2345: Argument of type 'EngineeringIndependentSamplingRecord | undefined' is not assignable to parameter of type 'EngineeringIndependentSamplingRecord'.
+  Type 'undefined' is not assignable to type 'EngineeringIndependentSamplingRecord'.
+src/data/pcs-engineering-master-sampling.ts(1306,77): error TS18048: 'record' is possibly 'undefined'.
+src/pages/simple-cut-piece-handover-ui.ts(51,607): error TS2367: This comparison appears to be unintentional because the types '"WEB"' and '"PDA"' have no overlap.

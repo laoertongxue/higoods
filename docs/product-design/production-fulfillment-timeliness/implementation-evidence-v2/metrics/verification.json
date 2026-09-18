@@ -1,0 +1,286 @@
+{
+  "server": "http://192.168.5.2:4179",
+  "browser": "149.0.7827.55",
+  "viewport": "1366×768;1280×720;1024×768;1920×1080",
+  "checks": [
+    "当前逾期与预测可判率分别计算并随查询更新"
+  ],
+  "samples": [
+    {
+      "label": "navigation",
+      "ms": 110.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:reset",
+      "ms": 34.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:query",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:query",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:query",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 27.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "metric-denominators"
+    },
+    {
+      "label": "click:query",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:query",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:query",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "metric-denominators"
+    },
+    {
+      "label": "click:query",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:query",
+      "ms": 30.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:query",
+      "ms": 28.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 27.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "metric-denominators"
+    },
+    {
+      "label": "click:query",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:query",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:query",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "metric-denominators"
+    },
+    {
+      "label": "click:query",
+      "ms": 30.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:query",
+      "ms": 28.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:query",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "metric-denominators"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select",
+      "case": "delivery-performance"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select",
+      "case": "delivery-performance"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 29.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select",
+      "case": "delivery-performance"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select",
+      "case": "delivery-performance"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:analysis-view",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"analysis-view\"]",
+      "kind": "select",
+      "case": "delivery-performance"
+    }
+  ],
+  "errors": [],
+  "performancePass": true,
+  "capturedAt": "2026-09-17T14:25:08.210Z"
+}

@@ -1,0 +1,1253 @@
+{
+  "buildIndexSha256": "a2055fb5b136a4d37a77effb92b55b08662b9dc4c754bab157f06fb1d34641d7",
+  "at": "2026-09-18T15:20:10.791Z",
+  "base": "http://127.0.0.1:4186",
+  "branch": "codex/work-20260918",
+  "head": "4804328a822eec3c77eee1ffa5b10911bb77c9fe",
+  "cwd": "/Users/laoer/Documents/higoods/.worktrees/work-20260918",
+  "scope": "Four named real-UI flows only. Interaction measurements, not route-load measurements or overall performance acceptance.",
+  "measurement": "Capture click/input/change before application handlers; end only after the named real result, visible image decode, and two animation frames. Every raw sample must be <200ms.",
+  "conditions": "Five independent new contexts per flow; normal full prototype data; no request stubs, source-module imports, fact injection, module prewarming, or application-data clearing. Only the real PDA factory session is initialized. Initial navigation is setup outside interaction timing.",
+  "uncovered": [
+    "Route cold-load/refresh timings",
+    "Other resolutions",
+    "Equipment transfer/release and unavailable-device submission",
+    "Invalid/already-completed order completion",
+    "Quantity correction after downstream consumption"
+  ],
+  "definitions": {
+    "Web完单打开": {
+      "finish": "004 完单核对弹窗、可保存按钮、备注字段均出现；无完单事实。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-business-dialog]\") && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().height > 0) && document.querySelector(\"[data-wool-business-dialog] h2\")?.textContent === '横机加工单完单确认' && document.querySelector(\"[data-wool-business-dialog]\")?.textContent.includes('HJ260918-004') && document.querySelector(\"[data-wool-dialog-field=\\\"remark\\\"]\") && (document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\") && document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").disabled && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "Web完单取消": {
+      "finish": "取消后弹窗消失，004 完单入口仍在；完整毛织事实与取消前完全一致。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-wool-business-dialog]\") && (document.querySelector(\"[data-wool-work-orders-action=\\\"open-complete\\\"][data-wool-order-id=\\\"WOOL-STAGE-004:KNITTING\\\"]\") && document.querySelector(\"[data-wool-work-orders-action=\\\"open-complete\\\"][data-wool-order-id=\\\"WOOL-STAGE-004:KNITTING\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-work-orders-action=\\\"open-complete\\\"][data-wool-order-id=\\\"WOOL-STAGE-004:KNITTING\\\"]\").getBoundingClientRect().height > 0) && localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") === ctx.storeBefore && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "Web完单重新打开": {
+      "finish": "再次出现同一 004 完单核对弹窗；仍无完单事实。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-business-dialog]\") && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().height > 0) && document.querySelector(\"[data-wool-business-dialog] h2\")?.textContent === '横机加工单完单确认' && document.querySelector(\"[data-wool-business-dialog]\")?.textContent.includes('HJ260918-004') && document.querySelector(\"[data-wool-dialog-field=\\\"remark\\\"]\") && (document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\") && document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-wool-work-orders-action=\\\"save-complete\\\"]\").disabled && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "Web完单备注输入": {
+      "finish": "备注字段显示本次输入；最终保存另核对持久化备注。",
+      "event": "input",
+      "predicate": "document.querySelector(\"[data-wool-dialog-field=\\\"remark\\\"]\")?.value === \"Web 完单性能核对 5\""
+    },
+    "Web完单保存": {
+      "finish": "弹窗关闭、004 行显示已完成、完单入口消失；唯一完单事实的备注与输入相同。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-wool-business-dialog]\") && !document.querySelector(\"[data-wool-work-orders-action=\\\"open-complete\\\"][data-wool-order-id=\\\"WOOL-STAGE-004:KNITTING\\\"]\") && [...document.querySelectorAll('tbody tr')].find(row => row.textContent.includes(\"HJ260918-004\"))?.textContent?.includes('已完成') && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 1 && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.[0].remark === \"Web 完单性能核对 5\""
+    },
+    "PDA完单打开": {
+      "finish": "004 完成加工单二次确认出现且可保存；无完单事实。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\") && document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").disabled && document.querySelector(\"[data-pda-wool-overlay-root] h2\")?.textContent === '完成加工单二次确认' && document.querySelector(\"[data-pda-wool-root]\")?.dataset.woolOrderId === \"WOOL-STAGE-004:KNITTING\" && document.querySelector(\"[data-draft-field=\\\"remark\\\"]\") && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "PDA完单取消": {
+      "finish": "二次确认关闭，004 完单入口仍在；完整毛织事实与取消前完全一致。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\") && !document.querySelector(\"[data-pda-wool-overlay-root]\")?.firstElementChild && (document.querySelector(\"[data-wool-fact-action=\\\"COMPLETE\\\"]\") && document.querySelector(\"[data-wool-fact-action=\\\"COMPLETE\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-fact-action=\\\"COMPLETE\\\"]\").getBoundingClientRect().height > 0) && localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") === ctx.storeBefore && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "PDA完单重新打开": {
+      "finish": "再次出现同一 004 二次确认；仍无完单事实。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\") && document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\").disabled && document.querySelector(\"[data-pda-wool-overlay-root] h2\")?.textContent === '完成加工单二次确认' && document.querySelector(\"[data-pda-wool-root]\")?.dataset.woolOrderId === \"WOOL-STAGE-004:KNITTING\" && document.querySelector(\"[data-draft-field=\\\"remark\\\"]\") && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 0"
+    },
+    "PDA完单备注输入": {
+      "finish": "备注字段显示本次输入；最终保存另核对持久化备注。",
+      "event": "input",
+      "predicate": "document.querySelector(\"[data-draft-field=\\\"remark\\\"]\")?.value === \"PDA 完单性能核对 5\""
+    },
+    "PDA完单保存": {
+      "finish": "二次确认关闭、004 页面显示已完成、完单入口消失；唯一完单事实含备注及当前操作人。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-pda-wool-action=\\\"save-fact\\\"]\") && !document.querySelector(\"[data-pda-wool-overlay-root]\")?.firstElementChild && !document.querySelector(\"[data-wool-fact-action=\\\"COMPLETE\\\"]\") && document.querySelector(\"[data-pda-wool-root]\")?.textContent.includes('已完成') && document.querySelector(\"[data-pda-wool-root]\")?.dataset.woolOrderId === \"WOOL-STAGE-004:KNITTING\" && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.length === 1 && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.[0].remark === \"PDA 完单性能核对 5\" && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.completions.filter(row => row.woolOrderId === \"WOOL-STAGE-004:KNITTING\")?.[0].completedBy === \"周哥毛织厂_操作工\""
+    },
+    "Web设备关联打开": {
+      "finish": "从 002 列表真实设备入口切换页面，关联弹窗锁定 002；WM-003 未选、WM-007 维修禁选。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-machine-association-dialog]\") && document.querySelector(\"[data-wool-machine-association-dialog]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-machine-association-dialog]\").getBoundingClientRect().height > 0) && document.querySelector(\"[data-wool-machine-associations-dialog-field=\\\"woolOrderId\\\"]\")?.value === \"WOOL-STAGE-002:KNITTING\" && document.querySelector(\"[data-wool-machine-associations-machine-id=\\\"WM-007\\\"]\")?.disabled && (document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\") && document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").disabled && document.querySelector(\"[data-wool-machine-associations-machine-id=\\\"WM-003\\\"]\") && !document.querySelector(\"[data-wool-machine-associations-machine-id=\\\"WM-003\\\"]\").checked && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.machineAssociations.filter(row => row.woolOrderId === \"WOOL-STAGE-002:KNITTING\" && row.machineId === 'WM-003')?.length === 0"
+    },
+    "Web设备关联选择": {
+      "finish": "选择 WM-003 后实际对话框替换完毕并保持勾选；事实尚未写入，WM-007 仍禁选。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-machine-association-dialog]\") && document.querySelector(\"[data-wool-machine-association-dialog]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-machine-association-dialog]\").getBoundingClientRect().height > 0) && document.querySelector(\"[data-wool-machine-associations-dialog-field=\\\"woolOrderId\\\"]\")?.value === \"WOOL-STAGE-002:KNITTING\" && document.querySelector(\"[data-wool-machine-associations-machine-id=\\\"WM-007\\\"]\")?.disabled && (document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\") && document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").getBoundingClientRect().height > 0) && !document.querySelector(\"[data-wool-machine-associations-action=\\\"save-association\\\"]\").disabled && document.querySelector(\"[data-wool-machine-association-dialog]\") !== ctx.dialog && document.querySelector(\"[data-wool-machine-associations-machine-id=\\\"WM-003\\\"]\")?.checked && localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") === ctx.storeBefore && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.machineAssociations.filter(row => row.woolOrderId === \"WOOL-STAGE-002:KNITTING\" && row.machineId === 'WM-003')?.length === 0"
+    },
+    "Web设备关联保存": {
+      "finish": "关联弹窗关闭、保存成功反馈可读；002 与 WM-003 唯一关联已持久化。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-wool-machine-association-dialog]\") && (document.querySelector(\"[data-wool-machine-associations-root]\") && document.querySelector(\"[data-wool-machine-associations-root]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-machine-associations-root]\").getBoundingClientRect().height > 0) && document.querySelector(\"[data-wool-machine-associations-feedback]\")?.textContent.includes('横机整组关联已保存') && JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null')?.machineAssociations.filter(row => row.woolOrderId === \"WOOL-STAGE-002:KNITTING\" && row.machineId === 'WM-003')?.length === 1"
+    },
+    "Web数量记录打开": {
+      "finish": "003 数量记录弹窗打开，真实加工填报记录修改入口可见。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-business-dialog]\") && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-business-dialog]\").getBoundingClientRect().height > 0) && (document.querySelector(\"[data-wool-work-orders-action=\\\"open-qty-edit\\\"][data-record-type=\\\"PROCESS_REPORT\\\"]\") && document.querySelector(\"[data-wool-work-orders-action=\\\"open-qty-edit\\\"][data-record-type=\\\"PROCESS_REPORT\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-work-orders-action=\\\"open-qty-edit\\\"][data-record-type=\\\"PROCESS_REPORT\\\"]\").getBoundingClientRect().height > 0)"
+    },
+    "Web数量编辑打开": {
+      "finish": "真实填报记录的数量、原因及保存控件出现。",
+      "event": "click",
+      "predicate": "(document.querySelector(\"[data-wool-dialog-field=\\\"qty\\\"]\") && document.querySelector(\"[data-wool-dialog-field=\\\"qty\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-dialog-field=\\\"qty\\\"]\").getBoundingClientRect().height > 0) && (document.querySelector(\"[data-wool-dialog-field=\\\"reason\\\"]\") && document.querySelector(\"[data-wool-dialog-field=\\\"reason\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-dialog-field=\\\"reason\\\"]\").getBoundingClientRect().height > 0) && (document.querySelector(\"[data-wool-work-orders-action=\\\"save-qty\\\"]\") && document.querySelector(\"[data-wool-work-orders-action=\\\"save-qty\\\"]\").getBoundingClientRect().width > 0 && document.querySelector(\"[data-wool-work-orders-action=\\\"save-qty\\\"]\").getBoundingClientRect().height > 0)"
+    },
+    "Web数量更正输入": {
+      "finish": "数量字段实际变为 35。",
+      "event": "input",
+      "predicate": "document.querySelector(\"[data-wool-dialog-field=\\\"qty\\\"]\")?.value === \"35\""
+    },
+    "Web数量更正原因输入": {
+      "finish": "原因字段显示本次输入；最终保存另核对日志原因。",
+      "event": "input",
+      "predicate": "document.querySelector(\"[data-wool-dialog-field=\\\"reason\\\"]\")?.value === \"核对实际件数，性能测量 5\""
+    },
+    "Web数量更正保存": {
+      "finish": "弹窗关闭、成功反馈及 003 行数量 35 可读；横机/缝盘有效填报、内部接收、自动交出均为 35，修改原因已保存。",
+      "event": "click",
+      "predicate": "!document.querySelector(\"[data-wool-business-dialog]\") && document.querySelector(\"[data-wool-work-orders-feedback]\")?.textContent.includes('记录数量已修改') && [...document.querySelectorAll('tbody tr')].find(row => row.textContent.includes(\"HJ260918-003\"))?.textContent?.includes('35') && (() => {\n    const store = JSON.parse(localStorage.getItem(\"higood-fcs-wool-stage-store-v3\") || 'null'); if (!store) return false;\n    const effective = (type, id, baseQty) => store.qtyChangeLogs.filter(log => log.recordType === type && log.recordId === id).reduce((_, log) => log.afterQty, baseQty);\n    const reports = store.processReports.filter(row => row.woolOrderId.startsWith('WOOL-STAGE-003:'));\n    const internal = store.internalReceipts.filter(row => row.woolOrderId === 'WOOL-STAGE-003:LINKING');\n    const handovers = store.handovers.filter(row => row.woolOrderId === \"WOOL-STAGE-003:KNITTING\");\n    return reports.length === 2 && reports.every(row => effective('PROCESS_REPORT', row.reportId, row.reportedQty) === 35)\n      && internal.length === 1 && internal[0].qty === 35\n      && handovers.length === 1 && effective('HANDOVER', handovers[0].handoverId, handovers[0].handoverQty) === 35\n      && store.qtyChangeLogs.some(log => log.recordType === 'PROCESS_REPORT' && reports.some(row => row.woolOrderId === \"WOOL-STAGE-003:KNITTING\" && row.reportId === log.recordId) && log.afterQty === 35 && log.reason === \"核对实际件数，性能测量 5\");\n  })()"
+    }
+  },
+  "actions": {
+    "Web完单打开": [
+      {
+        "flow": "Web横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 64.59999999403954,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 64.69999998807907,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65.30000001192093,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 61.400000005960464,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65.2000000178814,
+        "pass": true,
+        "imageCount": 12
+      }
+    ],
+    "Web完单取消": [
+      {
+        "flow": "Web横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.80000001192093,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.79999998211861,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.099999994039536,
+        "pass": true,
+        "imageCount": 10
+      }
+    ],
+    "Web完单重新打开": [
+      {
+        "flow": "Web横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.29999998211861,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.80000001192093,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.599999994039536,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.099999994039536,
+        "pass": true,
+        "imageCount": 12
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.400000005960464,
+        "pass": true,
+        "imageCount": 12
+      }
+    ],
+    "Web完单备注输入": [
+      {
+        "flow": "Web横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 24.19999998807907,
+        "pass": true,
+        "imageCount": 11
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 29.69999998807907,
+        "pass": true,
+        "imageCount": 11
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 28.599999994039536,
+        "pass": true,
+        "imageCount": 11
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 29,
+        "pass": true,
+        "imageCount": 11
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 28.30000001192093,
+        "pass": true,
+        "imageCount": 11
+      }
+    ],
+    "Web完单保存": [
+      {
+        "flow": "Web横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.39999997615814,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 63.900000005960464,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.900000005960464,
+        "pass": true,
+        "imageCount": 10
+      },
+      {
+        "flow": "Web横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 64.80000001192093,
+        "pass": true,
+        "imageCount": 10
+      }
+    ],
+    "PDA完单打开": [
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 54.10000002384186,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 51.400000005960464,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 54.10000002384186,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 51.70000001788139,
+        "pass": true,
+        "imageCount": 1
+      }
+    ],
+    "PDA完单取消": [
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 49.400000005960464,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 48.79999998211861,
+        "pass": true,
+        "imageCount": 1
+      }
+    ],
+    "PDA完单重新打开": [
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 49,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 49.400000005960464,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 49.39999997615814,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 49,
+        "pass": true,
+        "imageCount": 1
+      }
+    ],
+    "PDA完单备注输入": [
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 26.5,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 27.5,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 26.80000001192093,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 28.19999998807907,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 28.600000023841858,
+        "pass": true,
+        "imageCount": 1
+      }
+    ],
+    "PDA完单保存": [
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 1,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 65.19999998807907,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 2,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 65.59999999403954,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 3,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 65.5,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 4,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 65.69999998807907,
+        "pass": true,
+        "imageCount": 1
+      },
+      {
+        "flow": "PDA横机004完单",
+        "iteration": 5,
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "ms": 64.5,
+        "pass": true,
+        "imageCount": 1
+      }
+    ],
+    "Web设备关联打开": [
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 64.90000000596046,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 63.900000005960464,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65.30000001192093,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 65.40000000596046,
+        "pass": true,
+        "imageCount": 0
+      }
+    ],
+    "Web设备关联选择": [
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.60000002384186,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.400000005960464,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 49.20000001788139,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.89999997615814,
+        "pass": true,
+        "imageCount": 0
+      }
+    ],
+    "Web设备关联保存": [
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.69999998807907,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.20000001788139,
+        "pass": true,
+        "imageCount": 0
+      },
+      {
+        "flow": "Web横机002设备关联",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 48.900000005960464,
+        "pass": true,
+        "imageCount": 0
+      }
+    ],
+    "Web数量记录打开": [
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 1,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.80000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 2,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.80000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 3,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.7000000178814,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 4,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.7999999821186,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 5,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.80000001192093,
+        "pass": true,
+        "imageCount": 8
+      }
+    ],
+    "Web数量编辑打开": [
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 1,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 49,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 2,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 49.099999994039536,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 3,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 49,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 4,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 48.900000005960464,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 5,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 8
+      }
+    ],
+    "Web数量更正输入": [
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 1,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 28.30000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 2,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 27.900000005960464,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 3,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 29.30000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 4,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 27.599999994039536,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 5,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 29,
+        "pass": true,
+        "imageCount": 8
+      }
+    ],
+    "Web数量更正原因输入": [
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 1,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 30.80000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 2,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 28.900000005960464,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 3,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 29.69999998807907,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 4,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 29.30000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 5,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 29.400000005960464,
+        "pass": true,
+        "imageCount": 8
+      }
+    ],
+    "Web数量更正保存": [
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 1,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.09999999403954,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 2,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.30000001192093,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 3,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.2999999821186,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 4,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64,
+        "pass": true,
+        "imageCount": 8
+      },
+      {
+        "flow": "Web横机003数量更正",
+        "iteration": 5,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "ms": 64.30000001192093,
+        "pass": true,
+        "imageCount": 8
+      }
+    ]
+  },
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "finishedAt": "2026-09-18T15:20:24.207Z",
+  "buildIndexSha256After": "a2055fb5b136a4d37a77effb92b55b08662b9dc4c754bab157f06fb1d34641d7",
+  "summary": [
+    {
+      "name": "Web完单打开",
+      "samples": 5,
+      "maxMs": 65.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web完单取消",
+      "samples": 5,
+      "maxMs": 49.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "Web完单重新打开",
+      "samples": 5,
+      "maxMs": 49.599999994039536,
+      "pass": true
+    },
+    {
+      "name": "Web完单备注输入",
+      "samples": 5,
+      "maxMs": 29.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "Web完单保存",
+      "samples": 5,
+      "maxMs": 65,
+      "pass": true
+    },
+    {
+      "name": "PDA完单打开",
+      "samples": 5,
+      "maxMs": 54.10000002384186,
+      "pass": true
+    },
+    {
+      "name": "PDA完单取消",
+      "samples": 5,
+      "maxMs": 49.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "PDA完单重新打开",
+      "samples": 5,
+      "maxMs": 49.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "PDA完单备注输入",
+      "samples": 5,
+      "maxMs": 28.600000023841858,
+      "pass": true
+    },
+    {
+      "name": "PDA完单保存",
+      "samples": 5,
+      "maxMs": 65.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "Web设备关联打开",
+      "samples": 5,
+      "maxMs": 65.40000000596046,
+      "pass": true
+    },
+    {
+      "name": "Web设备关联选择",
+      "samples": 5,
+      "maxMs": 49.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "Web设备关联保存",
+      "samples": 5,
+      "maxMs": 48.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "Web数量记录打开",
+      "samples": 5,
+      "maxMs": 64.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web数量编辑打开",
+      "samples": 5,
+      "maxMs": 49.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "Web数量更正输入",
+      "samples": 5,
+      "maxMs": 29.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web数量更正原因输入",
+      "samples": 5,
+      "maxMs": 30.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web数量更正保存",
+      "samples": 5,
+      "maxMs": 64.30000001192093,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

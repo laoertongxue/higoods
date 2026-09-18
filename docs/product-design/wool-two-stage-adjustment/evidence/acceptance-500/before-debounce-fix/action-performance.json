@@ -1,0 +1,2714 @@
+{
+  "buildIndexSha256": "be9ff830e5966191c053760d2aab07defa02c51eb6968ac2089045dd2f9a36e5",
+  "at": "2026-09-18T17:19:18.908Z",
+  "base": "http://127.0.0.1:4198",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "scope": "Named actions below only; does not claim all affected-entry coverage.",
+  "measurement": "Captured click/input/change/keydown until explicit result predicate, all visible images decoded, and two animation frames. Raw five samples; no driver waiting counted.",
+  "actions": {
+    "横机状态UNPROCESSED": [
+      {
+        "ms": 52.400000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 55.19999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 93.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 146.2000000178814,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机状态READY": [
+      {
+        "ms": 48.79999998211861,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.70000001788139,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 41.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机状态PROCESSING": [
+      {
+        "ms": 48.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.400000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机状态PROCESS_COMPLETE": [
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 43.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机状态COMPLETED": [
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.30000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机状态ALL": [
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 62.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 64.40000000596046,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 38.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.19999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机关键词输入": [
+      {
+        "ms": 62.80000001192093,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 59.099999994039536,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 61,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 62.70000001788139,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 62.60000002384186,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机查询空结果": [
+      {
+        "ms": 28.399999976158142,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.700000017881393,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.30000001192093,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.599999994039536,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机重置": [
+      {
+        "ms": 61.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 41.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 61.29999998211861,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机下一页": [
+      {
+        "ms": 45.400000005960464,
+        "pass": true,
+        "imageCount": 6,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.19999998807907,
+        "pass": true,
+        "imageCount": 6,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 6,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.099999994039536,
+        "pass": true,
+        "imageCount": 6,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 6,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机上一页": [
+      {
+        "ms": 48.69999998807907,
+        "pass": true,
+        "imageCount": 8,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.60000002384186,
+        "pass": true,
+        "imageCount": 8,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.20000001788139,
+        "pass": true,
+        "imageCount": 8,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 8,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 54.29999998211861,
+        "pass": true,
+        "imageCount": 8,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机排序": [
+      {
+        "ms": 64.2000000178814,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.400000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.30000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机列设置打开": [
+      {
+        "ms": 47.20000001788139,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.10000002384186,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机隐藏列": [
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 60.80000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.10000002384186,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机列设置恢复": [
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 64.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 66.90000000596046,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机列设置关闭": [
+      {
+        "ms": 46,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.19999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.89999997615814,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 34.79999998211861,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.5,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机图片打开": [
+      {
+        "ms": 30.69999998807907,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.900000005960464,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.299999982118607,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 34.39999997615814,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机图片Esc关闭": [
+      {
+        "ms": 30.400000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.599999994039536,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.30000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.399999976158142,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 23,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机填报打开": [
+      {
+        "ms": 45.80000001192093,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.30000001192093,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.29999998211861,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.099999994039536,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.900000005960464,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机超量输入": [
+      {
+        "ms": 27.899999976158142,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.099999994039536,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.19999998807907,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 21,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 21.69999998807907,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机超量阻断": [
+      {
+        "ms": 43.19999998807907,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.599999994039536,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.099999994039536,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.5,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 41.69999998807907,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机填报数量": [
+      {
+        "ms": 26.5,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 25.900000005960464,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.099999994039536,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 21.80000001192093,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.30000001192093,
+        "pass": true,
+        "imageCount": 5,
+        "visibleImageFailures": 0
+      }
+    ],
+    "横机填报保存": [
+      {
+        "ms": 65,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63.80000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63.29999998211861,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 59.69999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 64,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态UNPROCESSED": [
+      {
+        "ms": 57.20000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 52.5,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 50.79999998211861,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 56.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 54.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态READY": [
+      {
+        "ms": 46.10000002384186,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.30000001192093,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态PROCESSING": [
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.20000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态PROCESS_COMPLETE": [
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.5,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态COMPLETED": [
+      {
+        "ms": 44.099999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.099999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.70000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘状态ALL": [
+      {
+        "ms": 46.70000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.70000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 61.900000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘关键词输入": [
+      {
+        "ms": 58.30000001192093,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 60.79999998211861,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 60,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 62,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 59.599999994039536,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘查询空结果": [
+      {
+        "ms": 30.100000023841858,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.599999994039536,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.200000017881393,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.099999994039536,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.5,
+        "pass": true,
+        "imageCount": 0,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘重置": [
+      {
+        "ms": 46.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.900000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.20000001788139,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘下一页": [
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.89999997615814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘上一页": [
+      {
+        "ms": 46.80000001192093,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.900000005960464,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.60000002384186,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 65.19999998807907,
+        "pass": true,
+        "imageCount": 4,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘排序": [
+      {
+        "ms": 44.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 65.09999999403954,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘列设置打开": [
+      {
+        "ms": 45.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘隐藏列": [
+      {
+        "ms": 45.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘列设置恢复": [
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 62.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘列设置关闭": [
+      {
+        "ms": 45.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 42.79999998211861,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘图片打开": [
+      {
+        "ms": 30.400000005960464,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.5,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.5,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.5,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 22.80000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘图片Esc关闭": [
+      {
+        "ms": 28.600000023841858,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.399999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.399999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 31.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘填报打开": [
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.69999998807907,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 39.19999998807907,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘超量输入": [
+      {
+        "ms": 28.400000005960464,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.700000017881393,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.5,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.799999982118607,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 26.099999994039536,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘超量阻断": [
+      {
+        "ms": 46.79999998211861,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.19999998807907,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘填报数量": [
+      {
+        "ms": 28.69999998807907,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 26.5,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.099999994039536,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.80000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.200000017881393,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "缝盘填报保存": [
+      {
+        "ms": 64.7999999821186,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 63.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 64.7000000178814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收打开": [
+      {
+        "ms": 50.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 54.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收pcs输入": [
+      {
+        "ms": 30,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收grossKg输入": [
+      {
+        "ms": 30.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 32.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收PAPER输入": [
+      {
+        "ms": 28.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.899999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收复核": [
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web纱线接收保存": [
+      {
+        "ms": 46.80000001192093,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.5,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web片接收打开": [
+      {
+        "ms": 50,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 52.79999998211861,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 50.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 60.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 51,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web片接收数量输入": [
+      {
+        "ms": 27.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.100000023841858,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 18.19999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 27.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web片接收复核": [
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "Web片接收保存": [
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.5,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收打开": [
+      {
+        "ms": 49.20000001788139,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 52,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 51.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 51.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 55.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收pcs输入": [
+      {
+        "ms": 30.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.700000017881393,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收grossKg输入": [
+      {
+        "ms": 30.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.700000017881393,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.399999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.700000017881393,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收PAPER输入": [
+      {
+        "ms": 30.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.900000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.19999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收复核": [
+      {
+        "ms": 47.099999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.39999997615814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.19999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.39999997615814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA纱线接收保存": [
+      {
+        "ms": 47,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 45.5,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 44.19999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA片接收打开": [
+      {
+        "ms": 51.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 49.79999998211861,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 43.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 51.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 50.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA片接收数量输入": [
+      {
+        "ms": 29.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.80000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 23.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA片接收复核": [
+      {
+        "ms": 48.29999998211861,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.39999997615814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.30000001192093,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.39999997615814,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "PDA片接收保存": [
+      {
+        "ms": 42.599999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.19999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.099999994039536,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ],
+    "备料分配打开": [
+      {
+        "ms": 50.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.599999994039536,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 51.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 46.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 64.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "备料选择横机": [
+      {
+        "ms": 29.899999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.400000005960464,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.69999998807907,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.5,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.399999976158142,
+        "pass": true,
+        "imageCount": 2,
+        "visibleImageFailures": 0
+      }
+    ],
+    "备料分配数量": [
+      {
+        "ms": 29.400000005960464,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.30000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 28.400000005960464,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 30.200000017881393,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 29.900000005960464,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "备料分配复核": [
+      {
+        "ms": 47.10000002384186,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.70000001788139,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.599999994039536,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 3,
+        "visibleImageFailures": 0
+      }
+    ],
+    "备料分配保存": [
+      {
+        "ms": 47.400000005960464,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 48.10000002384186,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.69999998807907,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      },
+      {
+        "ms": 47.80000001192093,
+        "pass": true,
+        "imageCount": 1,
+        "visibleImageFailures": 0
+      }
+    ]
+  },
+  "errors": [],
+  "pass": true,
+  "summary": [
+    {
+      "name": "横机状态UNPROCESSED",
+      "samples": 5,
+      "maxMs": 146.2000000178814,
+      "pass": true
+    },
+    {
+      "name": "横机状态READY",
+      "samples": 5,
+      "maxMs": 48.79999998211861,
+      "pass": true
+    },
+    {
+      "name": "横机状态PROCESSING",
+      "samples": 5,
+      "maxMs": 48.599999994039536,
+      "pass": true
+    },
+    {
+      "name": "横机状态PROCESS_COMPLETE",
+      "samples": 5,
+      "maxMs": 47.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "横机状态COMPLETED",
+      "samples": 5,
+      "maxMs": 47.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "横机状态ALL",
+      "samples": 5,
+      "maxMs": 64.40000000596046,
+      "pass": true
+    },
+    {
+      "name": "横机关键词输入",
+      "samples": 5,
+      "maxMs": 62.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机查询空结果",
+      "samples": 5,
+      "maxMs": 31.599999994039536,
+      "pass": true
+    },
+    {
+      "name": "横机重置",
+      "samples": 5,
+      "maxMs": 61.5,
+      "pass": true
+    },
+    {
+      "name": "横机下一页",
+      "samples": 5,
+      "maxMs": 47.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "横机上一页",
+      "samples": 5,
+      "maxMs": 54.29999998211861,
+      "pass": true
+    },
+    {
+      "name": "横机排序",
+      "samples": 5,
+      "maxMs": 64.2000000178814,
+      "pass": true
+    },
+    {
+      "name": "横机列设置打开",
+      "samples": 5,
+      "maxMs": 47.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "横机隐藏列",
+      "samples": 5,
+      "maxMs": 60.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机列设置恢复",
+      "samples": 5,
+      "maxMs": 66.90000000596046,
+      "pass": true
+    },
+    {
+      "name": "横机列设置关闭",
+      "samples": 5,
+      "maxMs": 46.89999997615814,
+      "pass": true
+    },
+    {
+      "name": "横机图片打开",
+      "samples": 5,
+      "maxMs": 34.39999997615814,
+      "pass": true
+    },
+    {
+      "name": "横机图片Esc关闭",
+      "samples": 5,
+      "maxMs": 31.399999976158142,
+      "pass": true
+    },
+    {
+      "name": "横机填报打开",
+      "samples": 5,
+      "maxMs": 47.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "横机超量输入",
+      "samples": 5,
+      "maxMs": 29.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "横机超量阻断",
+      "samples": 5,
+      "maxMs": 47.5,
+      "pass": true
+    },
+    {
+      "name": "横机填报数量",
+      "samples": 5,
+      "maxMs": 30.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机填报保存",
+      "samples": 5,
+      "maxMs": 65,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态UNPROCESSED",
+      "samples": 5,
+      "maxMs": 57.20000001788139,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态READY",
+      "samples": 5,
+      "maxMs": 48.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态PROCESSING",
+      "samples": 5,
+      "maxMs": 48.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态PROCESS_COMPLETE",
+      "samples": 5,
+      "maxMs": 48.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态COMPLETED",
+      "samples": 5,
+      "maxMs": 48.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "缝盘状态ALL",
+      "samples": 5,
+      "maxMs": 63,
+      "pass": true
+    },
+    {
+      "name": "缝盘关键词输入",
+      "samples": 5,
+      "maxMs": 62,
+      "pass": true
+    },
+    {
+      "name": "缝盘查询空结果",
+      "samples": 5,
+      "maxMs": 30.100000023841858,
+      "pass": true
+    },
+    {
+      "name": "缝盘重置",
+      "samples": 5,
+      "maxMs": 46.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "缝盘下一页",
+      "samples": 5,
+      "maxMs": 48.599999994039536,
+      "pass": true
+    },
+    {
+      "name": "缝盘上一页",
+      "samples": 5,
+      "maxMs": 65.19999998807907,
+      "pass": true
+    },
+    {
+      "name": "缝盘排序",
+      "samples": 5,
+      "maxMs": 65.09999999403954,
+      "pass": true
+    },
+    {
+      "name": "缝盘列设置打开",
+      "samples": 5,
+      "maxMs": 48.19999998807907,
+      "pass": true
+    },
+    {
+      "name": "缝盘隐藏列",
+      "samples": 5,
+      "maxMs": 48.400000005960464,
+      "pass": true
+    },
+    {
+      "name": "缝盘列设置恢复",
+      "samples": 5,
+      "maxMs": 62.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "缝盘列设置关闭",
+      "samples": 5,
+      "maxMs": 46.5,
+      "pass": true
+    },
+    {
+      "name": "缝盘图片打开",
+      "samples": 5,
+      "maxMs": 30.5,
+      "pass": true
+    },
+    {
+      "name": "缝盘图片Esc关闭",
+      "samples": 5,
+      "maxMs": 31.399999976158142,
+      "pass": true
+    },
+    {
+      "name": "缝盘填报打开",
+      "samples": 5,
+      "maxMs": 47.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "缝盘超量输入",
+      "samples": 5,
+      "maxMs": 28.700000017881393,
+      "pass": true
+    },
+    {
+      "name": "缝盘超量阻断",
+      "samples": 5,
+      "maxMs": 47.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "缝盘填报数量",
+      "samples": 5,
+      "maxMs": 29.200000017881393,
+      "pass": true
+    },
+    {
+      "name": "缝盘填报保存",
+      "samples": 5,
+      "maxMs": 64.7999999821186,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收打开",
+      "samples": 5,
+      "maxMs": 54.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收pcs输入",
+      "samples": 5,
+      "maxMs": 30.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收grossKg输入",
+      "samples": 5,
+      "maxMs": 32.5,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收PAPER输入",
+      "samples": 5,
+      "maxMs": 30.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收复核",
+      "samples": 5,
+      "maxMs": 48.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web纱线接收保存",
+      "samples": 5,
+      "maxMs": 48.19999998807907,
+      "pass": true
+    },
+    {
+      "name": "Web片接收打开",
+      "samples": 5,
+      "maxMs": 60.5,
+      "pass": true
+    },
+    {
+      "name": "Web片接收数量输入",
+      "samples": 5,
+      "maxMs": 29.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "Web片接收复核",
+      "samples": 5,
+      "maxMs": 48.10000002384186,
+      "pass": true
+    },
+    {
+      "name": "Web片接收保存",
+      "samples": 5,
+      "maxMs": 48.5,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收打开",
+      "samples": 5,
+      "maxMs": 55.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收pcs输入",
+      "samples": 5,
+      "maxMs": 30.5,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收grossKg输入",
+      "samples": 5,
+      "maxMs": 30.700000017881393,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收PAPER输入",
+      "samples": 5,
+      "maxMs": 30.900000005960464,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收复核",
+      "samples": 5,
+      "maxMs": 48.599999994039536,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收保存",
+      "samples": 5,
+      "maxMs": 47,
+      "pass": true
+    },
+    {
+      "name": "PDA片接收打开",
+      "samples": 5,
+      "maxMs": 51.5,
+      "pass": true
+    },
+    {
+      "name": "PDA片接收数量输入",
+      "samples": 5,
+      "maxMs": 30,
+      "pass": true
+    },
+    {
+      "name": "PDA片接收复核",
+      "samples": 5,
+      "maxMs": 48.39999997615814,
+      "pass": true
+    },
+    {
+      "name": "PDA片接收保存",
+      "samples": 5,
+      "maxMs": 48.099999994039536,
+      "pass": true
+    },
+    {
+      "name": "备料分配打开",
+      "samples": 5,
+      "maxMs": 64.5,
+      "pass": true
+    },
+    {
+      "name": "备料选择横机",
+      "samples": 5,
+      "maxMs": 30.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "备料分配数量",
+      "samples": 5,
+      "maxMs": 30.200000017881393,
+      "pass": true
+    },
+    {
+      "name": "备料分配复核",
+      "samples": 5,
+      "maxMs": 48.10000002384186,
+      "pass": true
+    },
+    {
+      "name": "备料分配保存",
+      "samples": 5,
+      "maxMs": 48.10000002384186,
+      "pass": true
+    }
+  ]
+}

@@ -8,9 +8,20 @@
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/placeholder.svg" />
     <title>HiGood - Vanilla TypeScript Clone</title>
+    <script type="module">
+      // Load the requested DDS page concurrently with the shell, within the same cold navigation.
+      if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(location.pathname)) {
+        import('/src/pages/production-fulfillment/index.ts');
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>
+    <script type="module">
+      if (/^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(window.location.pathname)) {
+        void import('/src/pages/tech-pack/core.ts')
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

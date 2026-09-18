@@ -1,0 +1,138 @@
+{
+  "buildIndexSha256": "771b880a4944b0c5c23651d088240d3bdc8a1330318c3f398ba5ec849f1b67bf",
+  "scope": "diagnostic subset",
+  "at": "2026-09-18T17:04:30.314Z",
+  "base": "http://127.0.0.1:4198",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "browser": "149.0.7827.55",
+  "gate": "Every raw sample < 500ms. Failure/missing content/image is failure.",
+  "cache": "Cold: new empty browser context (PDA login only); reload: same context persisted facts/cache; route switch: real data-nav dispatch after different stage page.",
+  "measurement": "Browser navigation origin or captured click to target content, visible real images decoded and 2 requestAnimationFrames. No driver polling time included.",
+  "routes": [
+    {
+      "name": "PDA任务队列",
+      "url": "/fcs/pda/exec",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 658.5,
+          "contentMs": 629.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 674.0999999940395,
+          "contentMs": 643.5999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 676,
+          "contentMs": 634.1999999880791,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 629.8000000119209,
+          "contentMs": 592.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 659,
+          "contentMs": 616.4000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 398.19999998807907,
+          "contentMs": 367.7999999821186,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 415.19999998807907,
+          "contentMs": 384.40000000596046,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 398.7000000178814,
+          "contentMs": 367.80000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 382,
+          "contentMs": 366.80000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 398.80000001192093,
+          "contentMs": 366.69999998807907,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 347.40000000596046,
+          "contentMs": 318.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 356,
+          "contentMs": 321.30000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 338.2000000178814,
+          "contentMs": 308.59999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 324.59999999403954,
+          "contentMs": 295.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 342.59999999403954,
+          "contentMs": 310,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 676,
+      "pass": false
+    }
+  ],
+  "errors": [],
+  "pass": false
+}

@@ -1,0 +1,62 @@
+import {chromium} from '/Users/laoer/Documents/higoods/node_modules/playwright/index.mjs';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';import{createHash}from'node:crypto';import assert from'node:assert/strict';
+const root='/Users/laoer/Documents/higoods',source=await readFile(root+'/scripts/check-dds-production-fulfillment-v4.mjs','utf8');
+const begin=source.indexOf('await context.addInitScript(')+'await context.addInitScript('.length,end=source.indexOf('\n  page=await context.newPage()',begin),pfInstrumentation=source.slice(begin,end).trim().replace(/,navigationExpectations\)$/, '');
+const output=process.env.PF_BRIDGE_OUTPUT||'/tmp/pf-final5-material-bridge',host='http://192.168.0.10:4179',pf='/dds/supply-chain/production-fulfillment/',md='/dds/supply-chain/materials/';await mkdir(output,{recursive:true});
+const executedScript=await readFile(new URL(import.meta.url)),measurementScriptSha256=createHash('sha256').update(executedScript).digest('hex'),dependencySha256=createHash('sha256').update(source).digest('hex');await writeFile(output+'/measurement.mjs',executedScript);await writeFile(output+'/dds-helper.mjs',source);
+let browser=await chromium.launch({headless:true}),context,page,cdp,errors=[],samples=[],iteration=0;
+async function fresh(kind){if(context)await context.close();context=await browser.newContext({viewport:{width:1366,height:768},serviceWorkers:'block'});
+ if(kind==='pf')await context.addInitScript({content:`(${pfInstrumentation})([])`});
+ else await context.addInitScript(()=>{
+  window.mdExpected=[];window.mdRecords=[];
+  const ready=expect=>{const root=document.querySelector('#md-page');return root?.querySelector('h1')&&root.children.length>1&&expect.every(x=>x.path?location.pathname===x.path:x.absent?!document.querySelector(x.selector):[...document.querySelectorAll(x.selector)].some(el=>(!x.text||el.textContent.includes(x.text))&&(x.value===undefined||el.value===x.value)))&&[...root.querySelectorAll('img')].filter(img=>img.getClientRects().length&&getComputedStyle(img).visibility!=='hidden').every(img=>img.complete&&img.naturalWidth>0)};
+  window.mdSettle=(start,label,expected=[])=>new Promise(resolve=>{const finish=error=>resolve({label,ms:performance.now()-start,route:location.pathname,viewport:innerWidth+'×'+innerHeight,...(error?{error}:{})});const tick=()=>{if(performance.now()-start>10000)return finish('target content not ready');if(!ready(expected))return requestAnimationFrame(tick);requestAnimationFrame(()=>{if(!ready(expected))requestAnimationFrame(tick);else finish()})};requestAnimationFrame(tick)});
+  window.mdNavigation=window.mdSettle(0,'navigation');
+  for(const type of ['click','input','change','keydown'])document.addEventListener(type,event=>{if(!document.querySelector('#md-page')||type==='keydown'&&event.key!=='Escape')return;const start=event.timeStamp>1e12?event.timeStamp-performance.timeOrigin:event.timeStamp;window.mdRecords.push(window.mdSettle(start,type,window.mdExpected.slice()))},true);
+ });
+ page=await context.newPage();page.setDefaultTimeout(10000);errors=[];page.on('pageerror',e=>errors.push(String(e)));cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.clearBrowserCache');}
+async function save(result,label){result={...result,label,iteration,errors:[...errors]};samples.push(result);await writeFile(output+'/samples.json',JSON.stringify(samples,null,2));console.log(JSON.stringify({label,iteration,ms:result.ms,error:result.error,errors}));return result}
+async function nav(kind,path,label,reload=false){if(reload)await page.reload();else await page.goto(host+path);await page.waitForSelector(kind==='pf'?'#pf-content':'#md-page h1');const result=await page.evaluate(async kind=>({...await (kind==='pf'?window.pfV4Navigation:window.mdNavigation),resources:performance.getEntriesByType('resource').map(r=>({file:r.name.split('/').at(-1),start:r.startTime,end:r.responseEnd,bytes:r.encodedBodySize})),images:[...document.querySelectorAll(kind==='pf'?'#pf-app img':'#md-page img')].filter(img=>img.getClientRects().length&&getComputedStyle(img).visibility!=='hidden').length}),kind);return save(result,label)}
+async function act(kind,selector,label,expect=[],method='click',value){const loc=page.locator(selector).first();await loc.scrollIntoViewIfNeeded();const index=await page.evaluate(({kind,expect})=>{if(kind==='pf'){window.pfV4Expected=expect;return window.pfV4EventRecords.length}window.mdExpected=expect;return window.mdRecords.length},{kind,expect});if(method==='fill')await loc.fill(value);else if(method==='select')await loc.selectOption(value);else await loc.click();const results=await page.evaluate(async({kind,index})=>Promise.all((kind==='pf'?window.pfV4EventRecords:window.mdRecords).slice(index)),{kind,index});assert(results.length,'missing event '+label);for(const result of results)await save(result,label);}
+async function esc(){const index=await page.evaluate(()=>{window.mdExpected=[{selector:'#md-overlay',absent:true}];return window.mdRecords.length});await page.keyboard.press('Escape');for(const r of await page.evaluate(async i=>Promise.all(window.mdRecords.slice(i)),index))await save(r,'material-escape')}
+try{
+ for(iteration=1;iteration<=5;iteration++){
+  await fresh('md');await nav('md',md+'overview','material-first-cold');
+  await act('md','[data-md-field="query"]','material-input',[{selector:'[data-md-field="query"]',value:'NO-MATCH-BRIDGE'}],'fill','NO-MATCH-BRIDGE');
+  await act('md','[data-md-action="query"]','material-query',[{selector:'#md-page table',text:'当前筛选没有匹配物料'}]);
+  await act('md','[data-md-action="reset"]','material-reset',[{selector:'[data-md-action="detail"]'},{selector:'[data-md-field="query"]',value:''}]);
+  await act('md','[data-md-action="more"]','material-more',[{selector:'[data-md-field="riskOnly"]'}]);
+  await act('md','[data-md-field="role"]','material-role',[{selector:'#md-notice',text:'只读查看者'}],'select','只读查看者');
+  await act('md','[data-md-action="detail"]','material-detail',[{selector:'#md-overlay [role="dialog"]'}]);await esc();
+ }
+ for(const section of ['preparation','health','warnings','daily','planning','consumption','quality'])for(iteration=1;iteration<=5;iteration++){
+  await fresh('md');await nav('md',md+section,'material-'+section+'-cold');
+  if(section==='preparation'){
+   await act('md','[data-md-field="role"]','preparation-readonly-role',[{selector:'#md-notice',text:'只读查看者'}],'select','只读查看者');
+   await act('md','[data-md-prep-action="add"]','material-readonly-guard',[{selector:'#md-notice',text:'只读查看者不能修改备料记录'},{selector:'[aria-label="备料规则编辑"]',absent:true}]);
+   await act('md','[data-md-field="role"]','preparation-role-restore',[{selector:'#md-notice',text:'物料计划员'}],'select','物料计划员');
+   await act('md','[data-md-prep-action="add"]','material-add-first',[{selector:'[aria-label="备料规则编辑"]'}]);
+   await act('md','[data-md-prep-action="cancel-edit"]','material-add-cancel',[{selector:'[aria-label="备料规则编辑"]',absent:true}]);
+   await act('md','[data-md-prep-field="pageSize"]','material-preparation-change',[{selector:'[data-md-prep-field="pageSize"]',value:'20'}],'select','20');
+  }else if(section==='health'){
+   await act('md','[data-md-health-action="group"][data-group="立即补单"]','material-health-group',[{selector:'#md-health',text:'动作组明细 · 立即补单'}]);
+   await act('md','[data-md-health-action="reset"]','material-health-reset',[{selector:'#md-health',text:'动作组明细 · 全部'}]);
+  }else if(section==='warnings'){
+   await act('md','[data-md-warning-action="lens"]','material-warning-lens',[{selector:'#md-warnings',text:'当前：合格库存对照'}]);
+   await act('md','[data-md-warning-field="pageSize"]','material-warning-change',[{selector:'[data-md-warning-field="pageSize"]',value:'20'}],'select','20');
+  }else if(section==='daily'){
+   await act('md','[data-md-daily-action="query"]','material-daily-query',[{selector:'#md-daily [role="status"]',text:'已按当前条件查询'}]);
+   await act('md','[data-md-daily-action="expand"]','material-daily-expand',[{selector:'#md-daily',text:'逐日需求与商品关联'}]);
+  }else if(section==='planning'){
+   await act('md','#md-page summary','material-processing-expand',[{selector:'#md-processing'}]);
+   await act('md','[data-md-processing-action="missing-unit"]','material-processing-boundary',[{selector:'#md-processing [role="status"]',text:'单位换算缺失或无效'}]);
+   await act('md','[data-md-processing-action="normal"]','material-processing-restore',[{selector:'#md-processing',text:'未接收未来供给 60 Yard'}]);
+  }else if(section==='consumption'){
+   await act('md','[data-md-packaging-action="conflict"]','material-packaging-conflict',[{selector:'#md-packaging',text:'冲突阻断'}]);
+   await act('md','[data-md-packaging-action="reset"]','material-packaging-reset',[{selector:'#md-packaging [role="status"]',text:'已恢复固定演示情景'}]);
+  }else if(section==='quality'){
+   await act('md','[data-md-action="stale"]','material-stale-on',[{selector:'#md-page',text:'数据已过期，禁止执行建议'}]);
+   await act('md','[data-md-action="stale"]','material-stale-off',[{selector:'#md-page',text:'固定演示快照'}]);
+  }
+ }
+}finally{const result={server:host,browser:browser.version(),measurementScript:'measurement.mjs',measurementScriptSha256,dependencies:[{script:'dds-helper.mjs',sourcePath:'scripts/check-dds-production-fulfillment-v4.mjs',sha256:dependencySha256}],samples,pass:samples.every(s=>s.ms<200&&!s.error&&!s.errors.length),maxMs:Math.max(...samples.map(s=>s.ms))};await writeFile(output+'/verification.json',JSON.stringify(result,null,2));await browser.close();console.log(JSON.stringify({pass:result.pass,maxMs:result.maxMs,output}));}

@@ -1,7 +1,46 @@
 import type {YarnWeight} from '../yarn-weight.ts'
-export type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
+export type WoolProcessingStatus = 'UNPROCESSED' | 'READY' | 'PROCESSING' | 'PROCESS_COMPLETE' | 'COMPLETED'
+export type WoolStage = 'KNITTING' | 'LINKING'
+export interface WoolPieceRouteNode {
+  sourceEntryId: string
+  predecessorEntryIds: string[]
+  craftCode: string
+  craftName: string
+  factoryId: string
+  factoryName: string
+  taskOrderId?: string
+}
+export interface WoolExternalPiece {
+  pieceKey: string
+  patternPackageId: string
+  pieceInstanceId: string
+  pieceName: string
+  skuCode: string
+  pieceCountPerGarment: number
+  routeNodes: WoolPieceRouteNode[]
+  issues: string[]
+}
+export interface WoolInternalReceipt {
+  receiptId: string
+  woolOrderId: string
+  sourceReportId: string
+  sourceHandoverId: string
+  outputSkuCode: string
+  qty: number
+  receivedAt: string
+  receivedBy: string
+}
+export interface WoolPieceReceipt {
+  receiptId: string
+  woolOrderId: string
+  pieceKey: string
+  sourceHandoverId: string
+  qty: number
+  receivedAt: string
+  receivedBy: string
+}
 export type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
-export type WoolQtyUnit = '件' | 'kg'
+export type WoolQtyUnit = '件' | 'kg' | '片'
 export type WoolWorkOrderKind = 'WHOLE_GARMENT' | 'PART_PANEL'
 
 export interface WoolOutputPlanLine {
@@ -29,6 +68,17 @@ export interface WoolDownstreamTarget {
 }
 
 export interface WoolWorkOrder {
+  demoSource?: { demandNo: string; demandCreatedAt: string; productionOrderCreatedAt: string; label: string }
+  yarnMaterials?: Array<{ sku: string; name: string; imageUrl: string }>
+  stage: WoolStage
+  pairId: string
+  sourceTaskId: string
+  sourceEntryId?: string
+  pairedWorkOrderId: string
+  externalPieces: WoolExternalPiece[]
+  /** Unscoped source errors block the whole order; SKU and piece errors stay local. */
+  generationIssues: string[]
+  generationIssuesBySku?: Record<string, string[]>
   woolOrderId: string
   woolOrderNo: string
   taskId: string
@@ -114,6 +164,7 @@ export interface WoolYarnReturnRecord {
 }
 
 export interface WoolProcessReportRecord {
+  sourceReportId?: string
   reportId: string
   woolOrderId: string
   outputSkuCode: string
@@ -137,11 +188,16 @@ export interface WoolDownstreamReceipt {
 }
 
 export interface WoolHandoverRecord {
+  pieceKey?: string
+  routeNodeId?: string
+  targetWorkOrderId?: string
+  sourceReportId?: string
+  automatic?: boolean
   handoverId: string
   woolOrderId: string
   outputSkuCode: string
   handoverQty: number
-  qtyUnit: '件'
+  qtyUnit: '件' | '片'
   receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
@@ -176,6 +232,7 @@ export interface WoolQtyChangeLog {
 
 export type WoolWarehouseFlowType = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER'
 export type WoolWarehouseBusinessType =
+  | 'PIECE_RECEIPT'
   | 'YARN_RECEIPT'
   | 'YARN_ISSUE'
   | 'YARN_RETURN'
@@ -255,7 +312,7 @@ export interface WoolCompletionSnapshot {
     handoverId: string
     outputSkuCode: string
     handoverQty: number
-    qtyUnit: '件'
+    qtyUnit: '件' | '片'
     downstreamActualReceivedQty?: number
     downstreamDifferenceQty?: number
     downstreamReceivedAt?: string
@@ -374,4 +431,19 @@ export interface WoolCommandReceiptValue {
   canonicalPayload: unknown
   resultType: WoolCommandResultType
   resultId: string
+}
+
+export interface WoolCraftRecord {
+  recordId: string
+  taskOrderId: string
+  action: 'PROCESS_REPORT' | 'HANDOVER' | 'COMPLETE'
+  qty: number
+  pieceKey: string
+  routeNodeId: string
+  woolOrderId: string
+  operatedAt: string
+  operatedBy: string
+  targetFactoryId?: string
+  targetOrderId?: string
+  commandId: string
 }

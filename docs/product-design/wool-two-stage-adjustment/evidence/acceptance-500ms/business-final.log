@@ -1,0 +1,20 @@
+
+Running 12 tests using 1 worker
+
+
+(node:15939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/12] tests/wool-acceptance-gaps.spec.ts:33:3 › A04 A10 PDA 360 多 SKU 选择不借用另一尺码的可填量
+[2/12] tests/wool-acceptance-gaps.spec.ts:33:3 › A04 A10 PDA 400 多 SKU 选择不借用另一尺码的可填量
+[3/12] tests/wool-acceptance-gaps.spec.ts:80:1 › A09 路线环、后继歧义、缺工厂的页面保留明确阻断且不伪造自动衔接
+[4/12] tests/wool-acceptance-gaps.spec.ts:108:1 › A06 工艺片第二厂真实接收加工交出后，缝盘才登记末工艺回货
+[5/12] tests/wool-acceptance-gaps.spec.ts:149:1 › A07 同名工艺三节点页面分别保留工序身份与下一站
+[6/12] tests/wool-acceptance-gaps.spec.ts:167:1 › A19 1024x768 主管毛织页面查询、详情各区及填报可操作
+[7/12] tests/wool-acceptance-gaps.spec.ts:193:1 › A18 旧单据路径不可恢复旧毛织模型
+[8/12] tests/wool-acceptance-gaps.spec.ts:202:1 › A19 多批交出打印实际 A4 分页、完整备注、图片及 QR 就绪
+[9/12] tests/wool-acceptance-gaps.spec.ts:217:1 › A17 部位缝盘交出经指定裁厂 PDA 实收后才进入裁厂待装袋来源
+[10/12] tests/wool-acceptance-gaps.spec.ts:245:1 › A17 整件缝盘实际交出只在指定后道生产任务呈现，横机不成为后道来源
+[11/12] tests/wool-acceptance-gaps.spec.ts:270:1 › A11 存储失败显示未保存，原输入保留；恢复后重试只产生一组自动衔接
+[12/12] tests/wool-acceptance-gaps.spec.ts:297:1 › A15 PCS 真实启用新版后正式生产单绑定版本及既有毛织片路线数量保持原快照
+  12 passed (46.3s)

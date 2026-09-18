@@ -1,0 +1,3042 @@
+{
+  "buildIndexSha256": "a62d0d47986e110df1b62d73e5ae2ab1f4697af82ea7e790001e2c07261b7b98",
+  "scope": "all named routes",
+  "at": "2026-09-18T15:51:09.749Z",
+  "base": "http://127.0.0.1:4198",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "browser": "149.0.7827.55",
+  "gate": "Every raw sample < 200ms. Failure/missing content/image is failure.",
+  "cache": "Cold: new empty browser context (PDA login only); reload: same context persisted facts/cache; route switch: real data-nav dispatch after different stage page.",
+  "measurement": "Browser navigation origin or captured click to target content, visible real images decoded and 2 requestAnimationFrames. No driver polling time included.",
+  "routes": [
+    {
+      "name": "横机列表",
+      "url": "/fcs/craft/wool/knitting-orders",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 232.7000000178814,
+          "contentMs": 187.09999999403954,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 175.09999999403954,
+          "contentMs": 133.7999999821186,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 163.59999999403954,
+          "contentMs": 122.09999999403954,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 178.5,
+          "contentMs": 132.2000000178814,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 165.5,
+          "contentMs": 121,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 125,
+          "contentMs": 101.19999998807907,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 114.90000000596046,
+          "contentMs": 84.40000000596046,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.2999999821186,
+          "contentMs": 85,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 114.80000001192093,
+          "contentMs": 89,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 78.5,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 38.599999994039536,
+          "contentMs": 6.800000011920929,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 49.099999994039536,
+          "contentMs": 9.5,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 46.70000001788139,
+          "contentMs": 5.700000017881393,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 39.10000002384186,
+          "contentMs": 5.5,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 35.900000005960464,
+          "contentMs": 10.100000023841858,
+          "imageCount": 4,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 232.7000000178814,
+      "pass": true
+    },
+    {
+      "name": "缝盘列表",
+      "url": "/fcs/craft/wool/linking-orders",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "cold": [
+        {
+          "ms": 161.5,
+          "contentMs": 129.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 163.59999999403954,
+          "contentMs": 123.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 175.80000001192093,
+          "contentMs": 131.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 163.60000002384186,
+          "contentMs": 125.60000002384186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 161.2000000178814,
+          "contentMs": 129,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 111.09999999403954,
+          "contentMs": 83.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.09999999403954,
+          "contentMs": 90,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.2000000178814,
+          "contentMs": 85.10000002384186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 100,
+          "contentMs": 83.39999997615814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 94.90000000596046,
+          "contentMs": 79.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 30.400000005960464,
+          "contentMs": 5.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 40.099999994039536,
+          "contentMs": 5.699999988079071,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 31.400000005960464,
+          "contentMs": 6.200000017881393,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 45.10000002384186,
+          "contentMs": 5.300000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 36.80000001192093,
+          "contentMs": 5.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 175.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "横机详情",
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-008%3AKNITTING",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 145.80000001192093,
+          "contentMs": 117,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 147.2000000178814,
+          "contentMs": 119.2000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 162.2999999821186,
+          "contentMs": 127.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 159.7999999821186,
+          "contentMs": 134.2999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.09999999403954,
+          "contentMs": 120.19999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 82.90000000596046,
+          "contentMs": 75.80000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 82.10000002384186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.59999999403954,
+          "contentMs": 82.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 96.40000000596046,
+          "contentMs": 88.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 96.09999999403954,
+          "contentMs": 81.80000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 33.20000001788139,
+          "contentMs": 8.400000005960464,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 27.900000005960464,
+          "contentMs": 9.099999994039536,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 42.19999998807907,
+          "contentMs": 9.299999982118607,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 31.5,
+          "contentMs": 8.900000005960464,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 31.5,
+          "contentMs": 8.900000005960464,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 162.2999999821186,
+      "pass": true
+    },
+    {
+      "name": "缝盘详情",
+      "url": "/fcs/craft/wool/linking-orders/WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "cold": [
+        {
+          "ms": 149.5,
+          "contentMs": 122.2999999821186,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.19999998807907,
+          "contentMs": 117.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 143.69999998807907,
+          "contentMs": 118.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 143.90000000596046,
+          "contentMs": 115.59999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.59999999403954,
+          "contentMs": 121.59999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 80.60000002384186,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.89999997615814,
+          "contentMs": 78.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 95.09999999403954,
+          "contentMs": 77.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 77.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 110.30000001192093,
+          "contentMs": 89.30000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 29.400000005960464,
+          "contentMs": 9.400000005960464,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.5,
+          "contentMs": 8.400000005960464,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.900000005960464,
+          "contentMs": 9.099999994039536,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 31.5,
+          "contentMs": 8.099999994039536,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 41.79999998211861,
+          "contentMs": 12.900000005960464,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 149.5,
+      "pass": true
+    },
+    {
+      "name": "纱线待接收",
+      "url": "/fcs/craft/wool/pending-receipts",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 177.5,
+          "contentMs": 137.39999997615814,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 160.7999999821186,
+          "contentMs": 126.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.40000000596046,
+          "contentMs": 120.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 147.40000000596046,
+          "contentMs": 118.30000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 149.2000000178814,
+          "contentMs": 120.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 98.59999999403954,
+          "contentMs": 86,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 80.30000001192093,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 96.09999999403954,
+          "contentMs": 79.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.69999998807907,
+          "contentMs": 79.09999999403954,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 128.89999997615814,
+          "contentMs": 107.89999997615814,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 43.900000005960464,
+          "contentMs": 11.099999994039536,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.80000001192093,
+          "contentMs": 10.800000011920929,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 35.599999994039536,
+          "contentMs": 12,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.29999998211861,
+          "contentMs": 11.199999988079071,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 47.19999998807907,
+          "contentMs": 10.199999988079071,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 177.5,
+      "pass": true
+    },
+    {
+      "name": "外工艺片待接收",
+      "url": "/fcs/craft/wool/pending-receipts?workOrderId=WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "cold": [
+        {
+          "ms": 164.80000001192093,
+          "contentMs": 134.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.2000000178814,
+          "contentMs": 120.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 159.80000001192093,
+          "contentMs": 127.2000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 157.69999998807907,
+          "contentMs": 127,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 159.40000000596046,
+          "contentMs": 125.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 98.60000002384186,
+          "contentMs": 86.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.90000000596046,
+          "contentMs": 82.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.39999997615814,
+          "contentMs": 86.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.09999999403954,
+          "contentMs": 86.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.7000000178814,
+          "contentMs": 79.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 40.400000005960464,
+          "contentMs": 8.699999988079071,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 40,
+          "contentMs": 17.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 44.60000002384186,
+          "contentMs": 11.100000023841858,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 40.70000001788139,
+          "contentMs": 9.200000017881393,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 34.400000005960464,
+          "contentMs": 11.800000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 164.80000001192093,
+      "pass": true
+    },
+    {
+      "name": "备料分配",
+      "url": "/fcs/craft/wool/pending-receipts?view=stock",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "cold": [
+        {
+          "ms": 148.5,
+          "contentMs": 116.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.69999998807907,
+          "contentMs": 118,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.40000000596046,
+          "contentMs": 116.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.69999998807907,
+          "contentMs": 115.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 147.59999999403954,
+          "contentMs": 123.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 98.7999999821186,
+          "contentMs": 76.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 76.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.80000001192093,
+          "contentMs": 78.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.7999999821186,
+          "contentMs": 75.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 95.09999999403954,
+          "contentMs": 82.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 35.69999998807907,
+          "contentMs": 8.599999994039536,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 36.30000001192093,
+          "contentMs": 9.300000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 36.69999998807907,
+          "contentMs": 8.299999982118607,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 32,
+          "contentMs": 10.400000005960464,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 36.5,
+          "contentMs": 10.200000017881393,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 148.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "待加工仓",
+      "url": "/fcs/craft/wool/wait-process-warehouse",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 178.09999999403954,
+          "contentMs": 142.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 169,
+          "contentMs": 139.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 172.5,
+          "contentMs": 134,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 159.2000000178814,
+          "contentMs": 129.2000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 170.80000001192093,
+          "contentMs": 135.5,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 113.09999999403954,
+          "contentMs": 100.2999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 112.5,
+          "contentMs": 90.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.40000000596046,
+          "contentMs": 93.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 111.90000000596046,
+          "contentMs": 92.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 112.30000001192093,
+          "contentMs": 97.10000002384186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 48.10000002384186,
+          "contentMs": 16,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 42.20000001788139,
+          "contentMs": 16.5,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 38.099999994039536,
+          "contentMs": 13.099999994039536,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 38.099999994039536,
+          "contentMs": 16.400000005960464,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 41.69999998807907,
+          "contentMs": 18.69999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 178.09999999403954,
+      "pass": true
+    },
+    {
+      "name": "待交出仓",
+      "url": "/fcs/craft/wool/wait-handover-warehouse",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "cold": [
+        {
+          "ms": 196.80000001192093,
+          "contentMs": 153.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 172.2000000178814,
+          "contentMs": 138.30000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 168.2999999821186,
+          "contentMs": 135.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 171.7999999821186,
+          "contentMs": 141.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 171.7000000178814,
+          "contentMs": 135.80000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 240.7999999821186,
+          "contentMs": 212.2999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 113.69999998807907,
+          "contentMs": 92.80000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 111.39999997615814,
+          "contentMs": 89.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 113.5,
+          "contentMs": 99.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 115.2000000178814,
+          "contentMs": 89,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 41.099999994039536,
+          "contentMs": 10.800000011920929,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 45.099999994039536,
+          "contentMs": 10.699999988079071,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 48.70000001788139,
+          "contentMs": 13.300000011920929,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 35.39999997615814,
+          "contentMs": 13.399999976158142,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.900000005960464,
+          "contentMs": 12.600000023841858,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 240.7999999821186,
+      "pass": true
+    },
+    {
+      "name": "横机设备",
+      "url": "/fcs/craft/wool/machines",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 179.09999999403954,
+          "contentMs": 146.40000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 170.7999999821186,
+          "contentMs": 141.2999999821186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 154,
+          "contentMs": 127.59999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 150.40000000596046,
+          "contentMs": 124.59999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 154.69999998807907,
+          "contentMs": 128.90000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 92.5,
+          "contentMs": 84.5,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 97,
+          "contentMs": 87.90000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 91.90000000596046,
+          "contentMs": 82.60000002384186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 88.09999999403954,
+          "contentMs": 80.2000000178814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 90.09999999403954,
+          "contentMs": 82,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 35.900000005960464,
+          "contentMs": 7.800000011920929,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 27.5,
+          "contentMs": 8,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 38.400000005960464,
+          "contentMs": 8.699999988079071,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 37.5,
+          "contentMs": 8.400000005960464,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 39.80000001192093,
+          "contentMs": 9.099999994039536,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 179.09999999403954,
+      "pass": true
+    },
+    {
+      "name": "设备关联",
+      "url": "/fcs/process-factory/wool/machine-associations",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 148,
+          "contentMs": 122.09999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 144.2999999821186,
+          "contentMs": 119.2999999821186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 143.40000000596046,
+          "contentMs": 118.90000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.59999999403954,
+          "contentMs": 121.59999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 163.09999999403954,
+          "contentMs": 130.7999999821186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 83.90000000596046,
+          "contentMs": 76.2000000178814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 88.7000000178814,
+          "contentMs": 80.40000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 85,
+          "contentMs": 77,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 84.5,
+          "contentMs": 76.7000000178814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.89999997615814,
+          "contentMs": 90.39999997615814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 21.700000017881393,
+          "contentMs": 5.800000011920929,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 22.69999998807907,
+          "contentMs": 7.199999988079071,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 38.10000002384186,
+          "contentMs": 6.800000011920929,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 22,
+          "contentMs": 6.4000000059604645,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 38.80000001192093,
+          "contentMs": 7.300000011920929,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 163.09999999403954,
+      "pass": true
+    },
+    {
+      "name": "横机打印",
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 223.39999997615814,
+          "contentMs": 193.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 241.90000000596046,
+          "contentMs": 212.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 219.40000000596046,
+          "contentMs": 190.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 221.30000001192093,
+          "contentMs": 192.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 209.2999999821186,
+          "contentMs": 179.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 147.89999997615814,
+          "contentMs": 119.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 165.09999999403954,
+          "contentMs": 135.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.5,
+          "contentMs": 119.2999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.59999999403954,
+          "contentMs": 120.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 147.90000000596046,
+          "contentMs": 118.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 78.09999999403954,
+          "contentMs": 49.29999998211861,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 71.69999998807907,
+          "contentMs": 42.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 78.2000000178814,
+          "contentMs": 49.10000002384186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 73.09999999403954,
+          "contentMs": 43.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 74.5,
+          "contentMs": 45.20000001788139,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 241.90000000596046,
+      "pass": true
+    },
+    {
+      "name": "缝盘打印",
+      "url": "/fcs/craft/wool/linking-orders/WOOL-STAGE-005%3ALINKING/handover-print",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 193.09999999403954,
+          "contentMs": 167.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 208.2999999821186,
+          "contentMs": 182.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 197.19999998807907,
+          "contentMs": 170.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 193.89999997615814,
+          "contentMs": 168.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 180.5,
+          "contentMs": 155,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 131.90000000596046,
+          "contentMs": 103.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148,
+          "contentMs": 119.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 132,
+          "contentMs": 103,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.39999997615814,
+          "contentMs": 119.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 132,
+          "contentMs": 103,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 53.20000001788139,
+          "contentMs": 27.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 46.29999998211861,
+          "contentMs": 19.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 54,
+          "contentMs": 27.599999994039536,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 59.69999998807907,
+          "contentMs": 32.599999994039536,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 46.69999998807907,
+          "contentMs": 20.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 208.2999999821186,
+      "pass": true
+    },
+    {
+      "name": "PDA纱线接收",
+      "url": "/fcs/pda/wool/pending-receipts?workOrderId=WOOL-STAGE-001%3AKNITTING",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 131.5,
+          "contentMs": 115.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 130,
+          "contentMs": 114.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 130,
+          "contentMs": 118.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 131,
+          "contentMs": 119.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 129.19999998807907,
+          "contentMs": 120.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 82.09999999403954,
+          "contentMs": 74.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 81.40000000596046,
+          "contentMs": 74.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.09999999403954,
+          "contentMs": 77.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.40000000596046,
+          "contentMs": 88,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 96.40000000596046,
+          "contentMs": 86,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 36.30000001192093,
+          "contentMs": 10.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 36.69999998807907,
+          "contentMs": 10.300000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 31.400000005960464,
+          "contentMs": 6.300000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 30.80000001192093,
+          "contentMs": 6.600000023841858,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 26.5,
+          "contentMs": 6.9000000059604645,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 131.5,
+      "pass": true
+    },
+    {
+      "name": "PDA回货片接收",
+      "url": "/fcs/pda/wool/pending-receipts?workOrderId=WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 131.80000001192093,
+          "contentMs": 114.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 133,
+          "contentMs": 115.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 131.60000002384186,
+          "contentMs": 119,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 128,
+          "contentMs": 114.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 132.2999999821186,
+          "contentMs": 115,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 81.90000000596046,
+          "contentMs": 74.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.19999998807907,
+          "contentMs": 75.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82,
+          "contentMs": 78.2000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.09999999403954,
+          "contentMs": 74.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.2999999821186,
+          "contentMs": 75.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 34.30000001192093,
+          "contentMs": 9,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 34.79999998211861,
+          "contentMs": 5.9000000059604645,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 35.900000005960464,
+          "contentMs": 6.0999999940395355,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.5,
+          "contentMs": 5.5999999940395355,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 32.099999994039536,
+          "contentMs": 5.800000011920929,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 133,
+      "pass": true
+    },
+    {
+      "name": "PDA备料分配",
+      "url": "/fcs/pda/wool/pending-receipts?view=stock",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 132.30000001192093,
+          "contentMs": 117.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 132.30000001192093,
+          "contentMs": 114.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 201.40000000596046,
+          "contentMs": 189.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 154.19999998807907,
+          "contentMs": 141.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 128.40000000596046,
+          "contentMs": 117.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 82.40000000596046,
+          "contentMs": 76.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.09999999403954,
+          "contentMs": 76.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 111,
+          "contentMs": 104.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 83.19999998807907,
+          "contentMs": 78.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 82.19999998807907,
+          "contentMs": 74.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 36.80000001192093,
+          "contentMs": 6.199999988079071,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 29.5,
+          "contentMs": 5.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 81.19999998807907,
+          "contentMs": 13.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 29.599999994039536,
+          "contentMs": 5.399999976158142,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 33.69999998807907,
+          "contentMs": 5.0999999940395355,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 201.40000000596046,
+      "pass": true
+    },
+    {
+      "name": "PDA仓管摘要",
+      "url": "/fcs/pda/warehouse",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 244.19999998807907,
+          "contentMs": 232.19999998807907,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 228.19999998807907,
+          "contentMs": 217.7999999821186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 228.40000000596046,
+          "contentMs": 218.2000000178814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 232,
+          "contentMs": 223,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 232.89999997615814,
+          "contentMs": 223.5,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 311.30000001192093,
+          "contentMs": 307.40000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 161,
+          "contentMs": 156.59999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 160.5,
+          "contentMs": 156.2999999821186,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 177.89999997615814,
+          "contentMs": 164.89999997615814,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 295.7999999821186,
+          "contentMs": 291.69999998807907,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 99.09999999403954,
+          "contentMs": 95.80000001192093,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 102,
+          "contentMs": 98.90000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 103.89999997615814,
+          "contentMs": 100.19999998807907,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 101,
+          "contentMs": 97.59999999403954,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 98.60000002384186,
+          "contentMs": 95.40000000596046,
+          "imageCount": 0,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 311.30000001192093,
+      "pass": true
+    },
+    {
+      "name": "PDA任务队列",
+      "url": "/fcs/pda/exec",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 1264,
+          "contentMs": 1230.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1219.2000000178814,
+          "contentMs": 1178.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1226.5999999940395,
+          "contentMs": 1200.7999999821186,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1218.5,
+          "contentMs": 1192.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1209.2999999821186,
+          "contentMs": 1172.5999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 656.1000000238419,
+          "contentMs": 617.3000000119209,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 614.2000000178814,
+          "contentMs": 582.9000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 611.5999999940395,
+          "contentMs": 580.1999999880791,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 605.3999999761581,
+          "contentMs": 579,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 598.6999999880791,
+          "contentMs": 571.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 559.7999999821186,
+          "contentMs": 526.3999999761581,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 544.5999999940395,
+          "contentMs": 521.1999999880791,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 530.6999999880791,
+          "contentMs": 511.69999998807907,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 533,
+          "contentMs": 516.7999999821186,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 547.2000000178814,
+          "contentMs": 517.7000000178814,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "max": 1264,
+      "pass": false
+    },
+    {
+      "name": "PDA横机交出",
+      "url": "/fcs/pda/handover?tab=handout&taskId=TASK-WOOL-STAGE-008%3AKNITTING",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 406.69999998807907,
+          "contentMs": 366.2999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 397.5,
+          "contentMs": 355.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 381.30000001192093,
+          "contentMs": 353.2000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 381,
+          "contentMs": 350.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 380.90000000596046,
+          "contentMs": 352.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 298.19999998807907,
+          "contentMs": 276.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 298.80000001192093,
+          "contentMs": 284.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 282.2000000178814,
+          "contentMs": 277.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 298.80000001192093,
+          "contentMs": 278.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 281.09999999403954,
+          "contentMs": 276.2999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 252.09999999403954,
+          "contentMs": 222,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 239.80000001192093,
+          "contentMs": 212.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 235.59999999403954,
+          "contentMs": 212,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 252.69999998807907,
+          "contentMs": 221.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 235.10000002384186,
+          "contentMs": 211.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 406.69999998807907,
+      "pass": true
+    },
+    {
+      "name": "PDA缝盘交出",
+      "url": "/fcs/pda/handover?tab=handout&taskId=TASK-WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 364.19999998807907,
+          "contentMs": 348.39999997615814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 381.10000002384186,
+          "contentMs": 348.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 381.30000001192093,
+          "contentMs": 348.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 396.19999998807907,
+          "contentMs": 366.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 381.7999999821186,
+          "contentMs": 368.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 310.90000000596046,
+          "contentMs": 275.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 297.90000000596046,
+          "contentMs": 283.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 282.19999998807907,
+          "contentMs": 275.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 298.80000001192093,
+          "contentMs": 280.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 310.59999999403954,
+          "contentMs": 278.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 239.40000000596046,
+          "contentMs": 212.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 237.80000001192093,
+          "contentMs": 214.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 236.69999998807907,
+          "contentMs": 217.09999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 238.2000000178814,
+          "contentMs": 218.2000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 238.90000000596046,
+          "contentMs": 214.60000002384186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 396.19999998807907,
+      "pass": true
+    },
+    {
+      "name": "PDA横机执行",
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-002%3AKNITTING",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 209.90000000596046,
+          "contentMs": 189.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 213.40000000596046,
+          "contentMs": 187.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 210.2000000178814,
+          "contentMs": 196.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 197.7999999821186,
+          "contentMs": 185.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 197.90000000596046,
+          "contentMs": 184.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 133,
+          "contentMs": 127.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.5,
+          "contentMs": 129.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.2000000178814,
+          "contentMs": 139.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.80000001192093,
+          "contentMs": 140.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 143.40000000596046,
+          "contentMs": 133.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 86.60000002384186,
+          "contentMs": 67.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 72.19999998807907,
+          "contentMs": 62.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 71.09999999403954,
+          "contentMs": 61.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 81.40000000596046,
+          "contentMs": 66.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 68.40000000596046,
+          "contentMs": 63.400000005960464,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 213.40000000596046,
+      "pass": true
+    },
+    {
+      "name": "PDA缝盘执行",
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-010%3ALINKING",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 212.40000000596046,
+          "contentMs": 189.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 197.2000000178814,
+          "contentMs": 185.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 211.40000000596046,
+          "contentMs": 192.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 198.30000001192093,
+          "contentMs": 184.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 197.2000000178814,
+          "contentMs": 183.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 148.69999998807907,
+          "contentMs": 132.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 143.09999999403954,
+          "contentMs": 132,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 149.09999999403954,
+          "contentMs": 134,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 148.7999999821186,
+          "contentMs": 131.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 146.89999997615814,
+          "contentMs": 136.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 66.30000001192093,
+          "contentMs": 62.69999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 72.69999998807907,
+          "contentMs": 63.099999994039536,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 71.5,
+          "contentMs": 61.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 71.19999998807907,
+          "contentMs": 60.099999994039536,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 72,
+          "contentMs": 60.900000005960464,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 212.40000000596046,
+      "pass": true
+    },
+    {
+      "name": "PDA入库记录",
+      "url": "/fcs/pda/warehouse/inbound-records",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 498.09999999403954,
+          "contentMs": 460.90000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 501.09999999403954,
+          "contentMs": 459.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 495.40000000596046,
+          "contentMs": 460.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 512.6999999880791,
+          "contentMs": 469.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 513.1000000238419,
+          "contentMs": 478.90000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 415.5,
+          "contentMs": 392.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 415.5,
+          "contentMs": 381.69999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 415.5,
+          "contentMs": 384.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 415.5,
+          "contentMs": 385.69999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 481.40000000596046,
+          "contentMs": 452.40000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 356,
+          "contentMs": 342.5,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 337.80000001192093,
+          "contentMs": 328.10000002384186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 338.40000000596046,
+          "contentMs": 328.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 353.80000001192093,
+          "contentMs": 334.30000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 369.89999997615814,
+          "contentMs": 364.39999997615814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 513.1000000238419,
+      "pass": false
+    },
+    {
+      "name": "PDA出库记录",
+      "url": "/fcs/pda/warehouse/outbound-records",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 544.4000000059605,
+          "contentMs": 507.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 555.5999999940395,
+          "contentMs": 511.5,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 554.9000000059605,
+          "contentMs": 513,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 538.2000000178814,
+          "contentMs": 508.09999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 559.1999999880791,
+          "contentMs": 517.1999999880791,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 465.09999999403954,
+          "contentMs": 435.80000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 448.40000000596046,
+          "contentMs": 423.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 465.40000000596046,
+          "contentMs": 436.40000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 481.59999999403954,
+          "contentMs": 450.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 448.7999999821186,
+          "contentMs": 421.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 372.09999999403954,
+          "contentMs": 360.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 377.30000001192093,
+          "contentMs": 371,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 379.30000001192093,
+          "contentMs": 369.2000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 378.90000000596046,
+          "contentMs": 362.30000001192093,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 365.90000000596046,
+          "contentMs": 358,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 559.1999999880791,
+      "pass": false
+    },
+    {
+      "name": "工艺片详情",
+      "url": "/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/WSC%3AWOOL-STAGE-009%3AWOOL-STAGE-009%3AQ1%3ACARDIGAN-CREAM-M%3AWOOL-STAGE-009%3AQ1%3Astep1",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "cold": [
+        {
+          "ms": 389.7000000178814,
+          "contentMs": 344.5,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 375,
+          "contentMs": 333.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 375.80000001192093,
+          "contentMs": 328.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 364.7000000178814,
+          "contentMs": 313.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 348,
+          "contentMs": 312.90000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 298.59999999403954,
+          "contentMs": 268.40000000596046,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 298.59999999403954,
+          "contentMs": 272.7999999821186,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 298.7000000178814,
+          "contentMs": 266.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 282.09999999403954,
+          "contentMs": 249.59999999403954,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 282.09999999403954,
+          "contentMs": 247.7000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 223.5,
+          "contentMs": 210.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 212.30000001192093,
+          "contentMs": 202.30000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 193.40000000596046,
+          "contentMs": 188.80000001192093,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 187,
+          "contentMs": 183.19999998807907,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 202.80000001192093,
+          "contentMs": 184.2000000178814,
+          "imageCount": 1,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 389.7000000178814,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "pass": false
+}

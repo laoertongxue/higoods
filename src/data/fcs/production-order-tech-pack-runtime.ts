@@ -1,6 +1,3 @@
-import {
-  cloneProductionOrderTechPackSnapshot,
-} from './production-tech-pack-snapshot-builder.ts'
 import type {
   ProductionOrderTechPackSnapshot,
   ProductionTechPackColorMaterialMapping,
@@ -9,7 +6,7 @@ import type {
   TechPackPatternFileSnapshot,
   TechPackSizeMeasurementSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
-import { getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
+import { productionOrders, getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
 import type {
   TechnicalBomItem,
   TechnicalPatternDesign,
@@ -29,6 +26,23 @@ function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
+    prjFile: item.prjFile ? { ...item.prjFile } : undefined,
+    markerImage: item.markerImage ? { ...item.markerImage } : undefined,
+    dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
+    rulFile: item.rulFile ? { ...item.rulFile } : undefined,
+    duplicateWarningReasons: item.duplicateWarningReasons ? [...item.duplicateWarningReasons] : undefined,
+    pieceInstances: item.pieceInstances?.map((instance) => ({
+      ...instance,
+      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+    })),
+    bindingStrips: item.bindingStrips?.map((strip) => ({
+      ...strip,
+      specialCrafts: strip.specialCrafts?.map((craft) => ({
+        ...craft,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
+    })),
     selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
     rulSizeList: [...(item.rulSizeList ?? [])],
     pieceRows: item.pieceRows?.map((row) => ({
@@ -36,6 +50,7 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
+      colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
       colorAllocations: row.colorAllocations?.map((allocation) => ({
         ...allocation,
         skuCodes: [...(allocation.skuCodes ?? [])],
@@ -131,58 +146,65 @@ function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnaps
 export function getProductionOrderTechPackSnapshot(
   productionOrderId: string,
 ): ProductionOrderTechPackSnapshot | null {
-  return cloneProductionOrderTechPackSnapshot(getOrderSnapshot(productionOrderId))
+  // The order accessor already returns an isolated snapshot; do not clone it twice.
+  return getOrderSnapshot(productionOrderId)
+}
+
+// Only these private reads use the stored reference. Each public subset accessor
+// clones its own section, and every call resolves the current binding without a cache.
+function findStoredSnapshot(productionOrderId: string): ProductionOrderTechPackSnapshot | null {
+  return productionOrders.find((order) => order.productionOrderId === productionOrderId)?.techPackSnapshot ?? null
 }
 
 export function getProductionOrderBomItems(productionOrderId: string): TechnicalBomItem[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneBomItems(snapshot.bomItems) : []
 }
 
 export function getProductionOrderPatternFiles(productionOrderId: string): TechPackPatternFileSnapshot[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? clonePatternFiles(snapshot.patternFiles) : []
 }
 
 export function getProductionOrderProcessEntries(productionOrderId: string): TechnicalProcessEntry[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneProcessEntries(snapshot.processEntries) : []
 }
 
 export function getProductionOrderSizeTable(productionOrderId: string): TechnicalSizeRow[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneSizeTable(snapshot.sizeTable) : []
 }
 
 export function getProductionOrderColorMaterialMappings(
   productionOrderId: string,
 ): ProductionTechPackColorMaterialMapping[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneColorMappings(snapshot.colorMaterialMappings) : []
 }
 
 export function getProductionOrderPatternDesigns(productionOrderId: string): TechnicalPatternDesign[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? clonePatternDesigns(snapshot.patternDesigns) : []
 }
 
 export function getProductionOrderSizeMeasurements(
   productionOrderId: string,
 ): TechPackSizeMeasurementSnapshot[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneSizeMeasurements(snapshot.sizeMeasurements) : []
 }
 
 export function getProductionOrderCutPieceParts(
   productionOrderId: string,
 ): TechPackCutPiecePartSnapshot[] {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneCutPieceParts(snapshot.cutPieceParts) : []
 }
 
 export function getProductionOrderTechPackImageSnapshot(
   productionOrderId: string,
 ): TechPackImageSnapshot | null {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const snapshot = findStoredSnapshot(productionOrderId)
   return snapshot ? cloneImageSnapshot(snapshot.imageSnapshot) : null
 }

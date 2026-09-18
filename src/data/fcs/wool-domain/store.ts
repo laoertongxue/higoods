@@ -1,3 +1,6 @@
+import { resetLegacyWoolFacts } from './legacy-reset.ts'
+import { captureFactoryReceivingData, restoreFactoryReceivingData, getFactoryReceivingRevision } from '../factory-receiving.ts'
+import {ensureWoolStageDemoReceivingFacts} from './mock-receiving.ts'
 import {listReceivingAllocations} from '../factory-receiving.ts'
 import {projectFactoryReceiptsIntoWool} from '../factory-receiving-wool.ts'
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
@@ -7,6 +10,9 @@ import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
 import { normalizeWoolBatchNo, validateWoolWarehouseLedger } from './warehouse-ledger.ts'
 import type {
+  WoolCraftRecord,
+  WoolInternalReceipt,
+  WoolPieceReceipt,
   WoolCommandReceiptValue,
   WoolCommandResultType,
   WoolCommandType,
@@ -26,9 +32,12 @@ import type {
   WoolYarnReturnRecord,
 } from './types.ts'
 
-export const WOOL_DOMAIN_STORE_KEY = 'higood-fcs-wool-domain-store-v2'
+export const WOOL_DOMAIN_STORE_KEY = 'higood-fcs-wool-stage-store-v3'
 
 export interface WoolDomainStore {
+  craftRecords: WoolCraftRecord[]
+  internalReceipts: WoolInternalReceipt[]
+  pieceReceipts: WoolPieceReceipt[]
   workOrders: Record<string, WoolWorkOrder>
   yarnReceipts: WoolYarnReceiptRecord[]
   yarnIssues: WoolYarnIssueRecord[]
@@ -48,8 +57,14 @@ type WoolStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 let memoryStore: WoolDomainStore | undefined
 let woolStoreReadCount = 0
+let woolRevision = 0
+let projectedReceivingRevision = -1
+export function getWoolStoreRevision(): string { return `${woolRevision}:${getFactoryReceivingRevision()}` }
 
-const WOOL_V2_ARRAY_FIELDS = [
+const WOOL_STAGE_ARRAY_FIELDS = [
+  'craftRecords',
+  'internalReceipts',
+  'pieceReceipts',
   'yarnReceipts',
   'yarnIssues',
   'yarnReturns',
@@ -75,45 +90,15 @@ function getStorage(): WoolStorage | null {
     : null
 }
 
-function isWoolV2StoreStructure(value: unknown): value is WoolDomainStore {
+function isWoolStageStoreStructure(value: unknown): value is WoolDomainStore {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const candidate = value as Partial<Record<keyof WoolDomainStore, unknown>>
   return Boolean(
     candidate.workOrders
     && typeof candidate.workOrders === 'object'
     && !Array.isArray(candidate.workOrders)
-    && WOOL_V2_ARRAY_FIELDS.every((field) => Array.isArray(candidate[field])),
+    && WOOL_STAGE_ARRAY_FIELDS.every((field) => Array.isArray(candidate[field])),
   )
-}
-
-function migrateWoolV2MachineSpecifications(
-  value: unknown,
-): { store: unknown; migrated: boolean } {
-  if (!isWoolV2StoreStructure(value)) return { store: value, migrated: false }
-  const needsMigration = value.machines.some((machine) => {
-    if (!machine || typeof machine !== 'object' || Array.isArray(machine)) return false
-    const candidate = machine as Partial<WoolMachine>
-    return !candidate.machineModel?.trim() || !candidate.needleType?.trim()
-  })
-  if (!needsMigration) return { store: value, migrated: false }
-
-  const profiles = buildWoolFactWorkflowMockStore().machines
-  const profileById = new Map(profiles.map((machine) => [machine.machineId, machine]))
-  const profileByNo = new Map(profiles.map((machine) => [machine.machineNo, machine]))
-  const migrated = structuredClone(value)
-  for (const machine of migrated.machines) {
-    if (!machine || typeof machine !== 'object' || Array.isArray(machine)) continue
-    const candidate = machine as Partial<WoolMachine>
-    const profile = profileById.get(candidate.machineId ?? '')
-      ?? profileByNo.get(candidate.machineNo ?? '')
-    if (!candidate.machineModel?.trim()) {
-      candidate.machineModel = profile?.machineModel ?? '通用横机'
-    }
-    if (!candidate.needleType?.trim()) {
-      candidate.needleType = profile?.needleType ?? '常规针型'
-    }
-  }
-  return { store: migrated, migrated: true }
 }
 
 function validateRecordArray(store: WoolDomainStore, field: keyof WoolDomainStore): void {
@@ -244,11 +229,37 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
     assertUniqueIds(order.outputPlanLines, (line) => line.outputSkuCode, `加工单 ${woolOrderId} 加工后 SKU`)
   }
-  assertUniqueIds(Object.values(store.workOrders), (order) => order.taskId, '加工单任务')
-  for (const field of WOOL_V2_ARRAY_FIELDS) {
+  assertUniqueIds(Object.values(store.workOrders), (order) => `${order.sourceTaskId}:${order.stage}`, '来源任务阶段')
+  for (const order of Object.values(store.workOrders)) {
+    const paired = store.workOrders[order.pairedWorkOrderId]
+    if (!['KNITTING', 'LINKING'].includes(order.stage) || !paired || paired.pairId !== order.pairId || paired.stage === order.stage || paired.pairedWorkOrderId !== order.woolOrderId || paired.sourceTaskId !== order.sourceTaskId) throw new Error('阶段加工单配对关系无效')
+  }
+  for (const field of WOOL_STAGE_ARRAY_FIELDS) {
     validateRecordArray(store, field)
   }
 
+  assertUniqueIds(store.internalReceipts, item => item.receiptId, '内部接收记录')
+  assertUniqueIds(store.pieceReceipts, item => item.receiptId, '末工艺片接收记录')
+  assertUniqueIds(store.craftRecords, item => item.recordId, '片工艺记录')
+  assertUniqueIds(store.craftRecords, item => item.commandId, '片工艺命令')
+  for (const record of store.internalReceipts) {
+    const order = store.workOrders[record.woolOrderId]
+    const report = store.processReports.find(r => r.reportId === record.sourceReportId)
+    const handover = store.handovers.find(r => r.handoverId === record.sourceHandoverId)
+    if (order?.stage !== 'LINKING' || report?.woolOrderId !== order.pairedWorkOrderId || !handover?.automatic || handover.sourceReportId !== record.sourceReportId || report.outputSkuCode !== record.outputSkuCode || !Number.isSafeInteger(record.qty) || record.qty < 0) throw new Error('内部接收必须来自配对横机填报，数量为对应件数')
+  }
+  for (const record of store.pieceReceipts) {
+    const order = store.workOrders[record.woolOrderId]
+    const piece = order?.externalPieces.find(p => p.pieceKey === record.pieceKey)
+    const handover = store.craftRecords.find(r => r.recordId === record.sourceHandoverId)
+    if (order?.stage !== 'LINKING' || !piece || handover?.action !== 'HANDOVER' || handover.targetOrderId !== order.woolOrderId || handover.pieceKey !== record.pieceKey || handover.routeNodeId !== piece.routeNodes.at(-1)?.sourceEntryId || !Number.isSafeInteger(record.qty) || record.qty <= 0) throw new Error('回货片必须对应末工艺实际交出及配对缝盘单')
+  }
+  for (const record of store.craftRecords) {
+    const order = store.workOrders[record.woolOrderId]
+    const piece = order?.externalPieces.find(p => p.pieceKey === record.pieceKey)
+    const node = piece?.routeNodes.find(n => n.sourceEntryId === record.routeNodeId)
+    if (order?.stage !== 'KNITTING' || !node || node.taskOrderId !== record.taskOrderId || !record.operatedAt || !record.operatedBy || !Number.isSafeInteger(record.qty) || (record.action === 'COMPLETE' ? record.qty !== 0 : record.qty <= 0)) throw new Error('毛织片工艺事实身份、数量或操作记录无效')
+  }
   assertUniqueIds(store.yarnReceipts, (item) => item.receiptId, '纱线接收记录')
   assertUniqueIds(store.yarnReceipts.flatMap((item) => item.lines), (item) => item.lineId, '纱线接收明细')
   assertUniqueIds(
@@ -268,7 +279,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
   assertUniqueIds(store.warehouseFlows, (item) => item.flowId, '仓库流水')
   assertUniqueIds(
     store.warehouseFlows,
-    (item) => `${item.sourceRecordType}\u0000${item.sourceRecordId}`,
+    (item) => `${item.sourceRecordType}\u0000${item.sourceRecordId}\u0000${item.objectSkuCode}`,
     '仓库流水来源事实',
   )
   assertUniqueIds(store.completions, (item) => item.woolOrderId, '完成记录')
@@ -333,7 +344,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
   }
 
   for (const receipt of store.yarnReceipts) {
-    const preparation = Boolean(receipt.factoryReceiptId && receipt.factoryId === 'OWN_WOOL_FACTORY' && !receipt.woolOrderId)
+    const preparation = Boolean(receipt.factoryReceiptId && receipt.factoryId && !receipt.woolOrderId)
     const order = preparation ? undefined : requireOrder(receipt.woolOrderId, `接收记录 ${receipt.receiptId}`)
     const yarns = order ? requiredYarns(order) : new Set(receipt.lines.map(l => l.yarnSkuCode))
     for (const line of receipt.lines) {
@@ -436,9 +447,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
       || flow.businessType !== 'HANDOVER'
       || flow.sourceRecordId !== handover.handoverId
       || flow.woolOrderId !== handover.woolOrderId
-      || flow.objectSkuCode !== handover.outputSkuCode
+      || flow.objectSkuCode !== (handover.pieceKey || handover.outputSkuCode)
       || flow.qty !== handover.handoverQty
-      || handover.qtyUnit !== outputLine.qtyUnit
+      || handover.qtyUnit !== (handover.pieceKey ? '片' : outputLine.qtyUnit)
       || flow.unit !== handover.qtyUnit
     ) {
       throw new Error(`毛织存储校验失败：交出记录 ${handover.handoverId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
@@ -536,7 +547,14 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
   }
   for (const flow of store.warehouseFlows) {
-    const preparation = Boolean(flow.factoryReceiptId && flow.factoryId === 'OWN_WOOL_FACTORY' && !flow.woolOrderId && store.yarnReceipts.some(r => r.factoryReceiptId === flow.factoryReceiptId && r.lines.some(l => l.lineId === flow.sourceRecordId || listReceivingAllocations().some(a=>a.id===flow.receivingAllocationId&&a.receiptLineId===l.lineId))))
+    if (flow.unit === '片') {
+      const order = store.workOrders[flow.woolOrderId]
+      const piece = order?.externalPieces.find(p => p.pieceKey === flow.objectSkuCode)
+      const source = store.processReports.some(r => r.reportId === flow.sourceRecordId) || store.handovers.some(h => h.handoverId === flow.sourceRecordId && h.pieceKey === piece?.pieceKey) || store.pieceReceipts.some(r => r.receiptId === flow.sourceRecordId && r.pieceKey === piece?.pieceKey)
+      if (!piece || !source || !Number.isInteger(flow.qty) || flow.qty <= 0) throw new Error('毛织片库存来源或数量无效')
+      continue
+    }
+    const preparation = Boolean(flow.factoryReceiptId && flow.factoryId && !flow.woolOrderId && store.yarnReceipts.some(r => r.factoryReceiptId === flow.factoryReceiptId && r.lines.some(l => l.lineId === flow.sourceRecordId || listReceivingAllocations().some(a=>a.id===flow.receivingAllocationId&&a.receiptLineId===l.lineId))))
     const order = preparation ? undefined : requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
     const outputLine = order?.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
     const isRequiredYarn = preparation || Boolean(order && requiredYarns(order).has(flow.objectSkuCode))
@@ -570,6 +588,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
     const requiredFlowType = {
       YARN_RECEIPT: 'INBOUND',
+      PIECE_RECEIPT: 'INBOUND',
       YARN_ISSUE: 'OUTBOUND',
       YARN_RETURN: 'INBOUND',
       PROCESS_REPORT: 'INBOUND',
@@ -842,33 +861,39 @@ export function validateWoolStore(store: WoolDomainStore): void {
 }
 
 function readPersistedStore(): WoolDomainStore | undefined {
-  try {
-    const storage = getStorage()
-    const raw = storage?.getItem(WOOL_DOMAIN_STORE_KEY)
-    if (!raw) return undefined
-    const parsed = JSON.parse(raw) as unknown
-    const migration = migrateWoolV2MachineSpecifications(parsed)
-    validateWoolStore(migration.store as WoolDomainStore)
-    if (migration.migrated && storage) {
-      try {
-        storage.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(migration.store))
-      } catch {
-        // 读取到的合法旧 v2 事实仍可在当前会话使用；存储恢复后会再次尝试迁移回写。
-      }
-    }
-    return migration.store as WoolDomainStore
-  } catch {
-    return undefined
-  }
+  const raw = getStorage()?.getItem(WOOL_DOMAIN_STORE_KEY)
+  if (!raw) return undefined
+  let parsed: unknown
+  try { parsed = JSON.parse(raw) } catch { throw new Error('阶段加工数据无法读取，请保留本机记录并联系主管。') }
+  if (!isWoolStageStoreStructure(parsed)) throw new Error('阶段加工数据结构不完整，不能用演示数据覆盖。')
+  validateWoolStore(parsed)
+  return parsed
 }
 
 export function readWoolStore(): WoolDomainStore {
   woolStoreReadCount += 1
   if (!memoryStore) {
-    memoryStore = readPersistedStore() ?? buildWoolFactWorkflowMockStore()
-    validateWoolStore(memoryStore)
+    // Publish memory only after every initialization write succeeds. A failed
+    // receipt batch must not leave projected demo facts or its marker readable.
+    const draft = readPersistedStore() ?? buildWoolFactWorkflowMockStore()
+    resetLegacyWoolFacts(draft)
+    const receivingBefore = captureFactoryReceivingData()
+    const receivingRevisionBefore = getFactoryReceivingRevision()
+    try {
+      ensureWoolStageDemoReceivingFacts(draft)
+      validateWoolStore(draft)
+      getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(draft))
+      memoryStore = draft
+    } catch (error) {
+      if (getFactoryReceivingRevision() !== receivingRevisionBefore) restoreFactoryReceivingData(receivingBefore)
+      throw error
+    }
   }
-  projectFactoryReceiptsIntoWool(memoryStore)
+  const receivingRevision = getFactoryReceivingRevision()
+  if (projectedReceivingRevision !== receivingRevision) {
+    projectFactoryReceiptsIntoWool(memoryStore)
+    projectedReceivingRevision = receivingRevision
+  }
   return cloneStore(memoryStore)
 }
 
@@ -882,6 +907,8 @@ export function getWoolStoreReadCountForDiagnostics(): number {
 
 export function clearWoolStoreMemoryCache(): void {
   memoryStore = undefined
+  projectedReceivingRevision = -1
+  woolRevision += 1
 }
 
 export function replaceWoolStore(nextStore: WoolDomainStore): WoolDomainStore {
@@ -890,19 +917,30 @@ export function replaceWoolStore(nextStore: WoolDomainStore): WoolDomainStore {
   const serialized = JSON.stringify(draft)
   getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, serialized)
   memoryStore = draft
+  projectedReceivingRevision = -1
+  woolRevision += 1
   return cloneStore(draft)
 }
 
 export function commitWoolStore(
   mutator: (draft: WoolDomainStore) => void,
+  publishReceiving?: (draft: WoolDomainStore) => void,
 ): WoolDomainStore {
   const draft = readWoolStore()
   mutator(draft)
   validateWoolStore(draft)
-  const serialized = JSON.stringify(draft)
-  getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, serialized)
-  memoryStore = draft
-  return cloneStore(draft)
+  const receivingBefore = publishReceiving ? captureFactoryReceivingData() : undefined
+  try {
+    publishReceiving?.(draft)
+    getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(draft))
+    memoryStore = draft
+  projectedReceivingRevision = -1
+  woolRevision += 1
+    return cloneStore(draft)
+  } catch (error) {
+    if (receivingBefore) restoreFactoryReceivingData(receivingBefore)
+    throw error
+  }
 }
 
 const disposePostFinishingWoolSourceResolver = installPostFinishingWoolSourceResolver(readWoolStore)

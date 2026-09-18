@@ -9,12 +9,13 @@ export const FACTORY_RECEIVING_KEY='higood-factory-material-receiving-v1'
 interface ReceivingData {version:1;sources:FactoryReceivingSource[];deliveries:FactoryDeliveryNote[];receipts:FactoryReceipt[];allocations:ReceivingAllocation[];defaults:Record<string,ReceiptPosition>;materialUses?:FactoryMaterialUse[]}
 let cache:ReceivingData|undefined
 let receivingRevision = 0
+let initializingDemoBatch = false
 /** Changes only when the receipt/material-use fact source is replaced. */
 export function getFactoryReceivingRevision(): number { read(); return receivingRevision }
 const clone=<T>(v:T):T=>structuredClone(v)
 function validateStoredReceiving(data:ReceivingData){
  const sourceIds=new Set<string>(),lineIds=new Set<string>(),receiptIds=new Set<string>(),rolls=new Set<string>()
- for(const s of data.sources){if(!s.id||sourceIds.has(s.id)||!s.documentNo||!s.targetFactoryId||!s.targetFactoryName||!s.origin?.id||!s.origin.name||!s.createdAt||!s.createdBy||!Array.isArray(s.lines))throw new Error('来源单据缺少必需值或编号重复，请核对保存记录。');sourceIds.add(s.id);for(const l of s.lines){if(!l.id||lineIds.has(l.id)||!l.material||!l.unit||!l.label||!Array.isArray(l.rolls)||!['sku','name','kind','imageUrl','color','composition','specification','batchNo'].every(k=>String(l.material[k as keyof typeof l.material]||'').trim())||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0))throw new Error('来源物料必需字段不完整。');lineIds.add(l.id)}}
+ for(const s of data.sources){assertWoolPieceSource(s);if(!s.id||sourceIds.has(s.id)||!s.documentNo||!s.targetFactoryId||!s.targetFactoryName||!s.origin?.id||!s.origin.name||!s.createdAt||!s.createdBy||!Array.isArray(s.lines))throw new Error('来源单据缺少必需值或编号重复，请核对保存记录。');sourceIds.add(s.id);for(const l of s.lines){if(!l.id||lineIds.has(l.id)||!l.material||!l.unit||!l.label||!Array.isArray(l.rolls)||!['sku','name','kind','imageUrl','color','composition','specification','batchNo'].every(k=>String(l.material[k as keyof typeof l.material]||'').trim())||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0))throw new Error('来源物料必需字段不完整。');lineIds.add(l.id)}}
  for(const u of data.materialUses??[]){if(!u.id||!(u.printingOrderId||u.dyeOrderId||u.waterOrderId)||!u.factoryId||!u.operatorName||!u.at||!Array.isArray(u.lines)||u.lines.some(l=>!l.receiptLineId||!Number.isFinite(l.qty)||l.qty<=0))throw new Error('用料记录不完整，请保留记录并联系主管。')}
  for(const r of data.receipts){if(!r.id||receiptIds.has(r.id)||!r.factoryId||!r.operatorId||!r.operatorName||!r.receivedAt||!r.fingerprint||!r.lines?.length)throw new Error('接收记录缺少必需值或确认号重复。');receiptIds.add(r.id);for(const l of r.lines){if(!sourceIds.has(l.sourceId)||!lineIds.has(l.sourceLineId)||!Number.isFinite(l.qty)||l.qty<0||!l.locationId||!l.warehouseId||!l.material?.sku)throw new Error('接收明细的来源、数量或库位不完整。');for(const roll of l.rolls||[]){const key=l.sourceId+'|'+roll.barcode;if(rolls.has(key)||!roll.barcode||!(roll.yard>0))throw new Error('已保存的原卷码重复或数量无效。');rolls.add(key)}}}
 }
@@ -32,12 +33,25 @@ function read():ReceivingData {
  else { cache={version:1,sources:buildFactoryReceivingDemoSources(),deliveries:[],receipts:[],allocations:[],defaults:{}}; receivingRevision += 1 }
  return cache
 }
-function save(next:ReceivingData){validateStoredReceiving(next);const storage=getBrowserLocalStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next;receivingRevision += 1}
+function save(next:ReceivingData){if(initializingDemoBatch){cache=next;receivingRevision+=1;return}validateStoredReceiving(next);const storage=getBrowserLocalStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next;receivingRevision += 1}
+/** Synchronous demo initialization only: every receipt is prepared normally; publish the entire batch once. */
+export function initializeFactoryReceivingDemoBatch(run:()=>void):void {
+ if(initializingDemoBatch)throw new Error('接收演示初始化不能嵌套。')
+ const previous=read(),revision=receivingRevision
+ cache=clone(previous);initializingDemoBatch=true
+ try{run();initializingDemoBatch=false;save(cache!)}
+ catch(error){cache=previous;receivingRevision=revision;throw error}
+ finally{initializingDemoBatch=false}
+}
+function receiptWriteCopy(){return initializingDemoBatch?read():clone(read())}
 export function clearFactoryReceivingCache(){cache=undefined;receivingRevision += 1}
 export function captureFactoryReceivingData(){return clone(read())}
 export function restoreFactoryReceivingData(value:ReturnType<typeof captureFactoryReceivingData>){save(clone(value))}
 export function eligibleReceivingSource(s:FactoryReceivingSource):boolean {return !s.voidedAt&&s.lines.length>0&&(s.type==='HANDOUT'?Boolean(s.handedOutAt)&&s.lines.some(l=>l.sentQty>0):Boolean(s.approvedAt))}
 export function listFactoryReceivingSources(factoryId?:string, includeIneligible=false){return clone(read().sources.filter(s=>(!factoryId||s.targetFactoryId===factoryId)&&(includeIneligible||eligibleReceivingSource(s))))}
+/** Include pending handovers: water-order receipt reconciliation needs only its own batches. */
+export function listWaterHandoverReceivingSources(){return clone(read().sources.filter(s=>s.waterBatchId))}
+export function listWarehouseReceivingSources(){return clone(read().sources.filter(s=>s.type!=='HANDOUT'&&s.origin.kind==='WAREHOUSE'))}
 export function getFactoryReceivingSource(id:string){return clone(read().sources.find(s=>s.id===id))}
 export function getFactoryReceivingSourceByOriginalRecordId(id:string){return clone(read().sources.find(s=>s.originalRecordId===id))}
 /** A dye order may receive several batches of its one material from its one supplier. */
@@ -56,18 +70,25 @@ export function getPrintingReceivingConflict(orderId:string,sku:string,origin:Dy
  if(assigned.some(l=>l.sku!==sku))return '一张印花加工单只能关联同一个投入 SKU。'
  if(assigned.some(l=>l.origin.kind!==origin.kind||l.origin.id!==origin.id))return '一张印花加工单只能关联同一上游组织，其他来货请保留为备料。'
 }
+function assertWoolPieceSource(source:FactoryReceivingSource){
+ for(const line of source.lines.filter(line=>line.material.kind==='WOOL_PIECE')){
+  if(source.type!=='HANDOUT'||!source.handedOutAt||!source.originalRecordId||line.unit!=='片'||!line.woolPieceKey||!line.woolRouteNodeId||[line.woolOrderId,line.woolCraftOrderId].filter(Boolean).length!==1||!Number.isSafeInteger(line.sentQty)||line.sentQty<=0)throw new Error('毛织片须来自已交出的真实批次，保留片标识、工艺节点、唯一接收单与整数片数。')
+ }
+}
 export function registerFactoryReceivingSource(source:FactoryReceivingSource){
+ assertWoolPieceSource(source)
+ if(source.lines.some(line=>line.material.kind==='WOOL_PIECE')&&read().sources.some(existing=>existing.id!==source.id&&existing.originalRecordId===source.originalRecordId))throw new Error('同一毛织片交出批次已经登记来源，不能换单号重复接收。')
  if(!source.id.trim()||!source.documentNo.trim()||!source.targetFactoryId||!source.origin.id||!source.createdBy||!source.createdAt)throw new Error('来源单据、来源组织、收货工厂和建单信息必须完整。')
  for(const l of source.lines){if(!l.id||!l.unit||!l.label||![l.plannedQty,l.sentQty].every(n=>Number.isFinite(n)&&n>=0)||['sku','name','kind','imageUrl','color','composition','specification','batchNo'].some(k=>!String(l.material[k as keyof typeof l.material]||'').trim()))throw new Error('原单物料的标识、图片、规格、批次和数量必须完整。');if(l.material.kind==='FABRIC'&&((source.type==='HANDOUT'&&!l.rolls.length)||l.rolls.some(r=>!r.barcode||!Number.isFinite(r.yard)||r.yard<=0)))throw new Error('面料原单必须有具体卷码和 Yard。')}
- const previous=read().sources.find(s=>s.id===source.id);if(previous&&(previous.type!==source.type||previous.targetFactoryId!==source.targetFactoryId||previous.origin.id!==source.origin.id))throw new Error('已存在的原单身份、收货工厂与上游不可替换。')
+ const previous=read().sources.find(s=>s.id===source.id);if(previous&&(previous.type!==source.type||previous.targetFactoryId!==source.targetFactoryId||previous.origin.id!==source.origin.id||(source.lines.some(line=>line.material.kind==='WOOL_PIECE')&&previous.originalRecordId!==source.originalRecordId)))throw new Error('已存在的原单身份、收货工厂与上游不可替换。')
  if(previous&&(read().receipts.some(r=>r.lines.some(l=>l.sourceId===source.id))||read().deliveries.some(d=>d.lines.some(l=>l.sourceId===source.id)))){
   for(const old of previous.lines){const next=source.lines.find(l=>l.id===old.id)
-   if(!next||JSON.stringify(old.material)!==JSON.stringify(next.material)||old.unit!==next.unit||old.dyeOrderId!==next.dyeOrderId||old.woolOrderId!==next.woolOrderId||old.waterOrderId!==next.waterOrderId||old.printingOrderId!==next.printingOrderId||old.sentQty>next.sentQty||old.plannedQty>next.plannedQty||old.rolls.some(r=>!next.rolls.some(n=>n.barcode===r.barcode&&n.yard===r.yard)))throw new Error('已送货或接收的原单不能覆盖物料、归属和已有数量；可追加后续发出数量及新卷码。')
+   if(!next||JSON.stringify(old.material)!==JSON.stringify(next.material)||old.unit!==next.unit||old.dyeOrderId!==next.dyeOrderId||old.woolOrderId!==next.woolOrderId||old.woolPieceKey!==next.woolPieceKey||old.woolRouteNodeId!==next.woolRouteNodeId||old.woolCraftOrderId!==next.woolCraftOrderId||old.waterOrderId!==next.waterOrderId||old.printingOrderId!==next.printingOrderId||old.sentQty>next.sentQty||old.plannedQty>next.plannedQty||old.rolls.some(r=>!next.rolls.some(n=>n.barcode===r.barcode&&n.yard===r.yard)))throw new Error('已送货或接收的原单不能覆盖物料、归属和已有数量；可追加后续发出数量及新卷码。')
   }
  }
  for(const line of source.lines)if(line.dyeOrderId){const error=getDyeReceivingConflict(line.dyeOrderId,line.material.sku,source.origin);if(error)throw new Error(error);if(source.lines.some(other=>other.dyeOrderId===line.dyeOrderId&&other.material.sku!==line.material.sku))throw new Error('一张染色加工单只能关联一种投入物料。')}
  for(const line of source.lines)if(line.printingOrderId){const error=getPrintingReceivingConflict(line.printingOrderId,line.material.sku,source.origin);if(error)throw new Error(error);if(source.lines.some(l=>l.printingOrderId===line.printingOrderId&&l.material.sku!==line.material.sku))throw new Error('同一印花加工单不能关联多个投入 SKU。')}
- const next=clone(read());const index=next.sources.findIndex(s=>s.id===source.id)
+ const next=receiptWriteCopy();const index=next.sources.findIndex(s=>s.id===source.id)
  if(index>=0){if(JSON.stringify(next.sources[index])===JSON.stringify(source))return;next.sources[index]=clone(source)}else next.sources.push(clone(source))
  save(next)
 }
@@ -77,9 +98,15 @@ function displayPosition(p:ResolvedFactoryWarehouseLocation){const name=({'ID-F0
 export function getFactoryReceiptLocations(factoryId:string):ResolvedFactoryWarehouseLocation[]{return listFactoryInternalWarehouses(factoryId).filter(w=>w.warehouseKind==='WAIT_PROCESS'&&w.isEnabled).flatMap(w=>w.areaList.flatMap(a=>a.shelfList.flatMap(s=>s.locationList.map(l=>resolveEnabledFactoryWarehouseLocation(w.warehouseId,l.locationId)).filter((l):l is ResolvedFactoryWarehouseLocation=>Boolean(l))))).map(displayPosition)}
 export function getDefaultFactoryReceiptPosition(factoryId:string):ReceiptPosition {
  const saved=read().defaults[factoryId];if(saved){assertReceiptPosition(factoryId,saved);return clone(saved)}
- const first=getFactoryReceiptLocations(factoryId).find(p=>p.warehouse.isDefault&&!['异常区','待确认区'].includes(p.area.areaName))
- if(!first)throw new Error('本厂没有启用的待加工仓库位，请主管先维护库位。')
- return {warehouseId:first.warehouse.warehouseId,locationId:first.location.locationId}
+ for(const warehouse of listFactoryInternalWarehouses(factoryId).filter(w=>w.warehouseKind==='WAIT_PROCESS'&&w.isEnabled&&w.isDefault)) {
+  for(const area of warehouse.areaList.filter(a=>a.status==='AVAILABLE'&&!['异常区','待确认区'].includes(a.areaName))) {
+   for(const shelf of area.shelfList.filter(s=>s.status==='AVAILABLE')) {
+    const location=shelf.locationList.find(l=>l.status==='AVAILABLE')
+    if(location)return {warehouseId:warehouse.warehouseId,locationId:location.locationId}
+   }
+  }
+ }
+ throw new Error('本厂没有启用的待加工仓库位，请主管先维护库位。')
 }
 export function assertReceiptPosition(factoryId:string,p:ReceiptPosition){const resolved=resolveEnabledFactoryWarehouseLocation(p.warehouseId,p.locationId);if(!resolved||resolved.warehouse.factoryId!==factoryId||resolved.warehouse.warehouseKind!=='WAIT_PROCESS')throw new Error('请选择本厂已启用的待加工仓库位。');return displayPosition(resolved)}
 export function getHistoricalReceiptPosition(factoryId:string,p:ReceiptPosition){const resolved=resolveFactoryWarehouseLocation(p.warehouseId,p.locationId);if(!resolved||resolved.warehouse.factoryId!==factoryId)throw new Error('原入库位置不存在，请保留原单并联系主管核查。');return displayPosition(resolved)}
@@ -143,24 +170,36 @@ export function prepareFactoryReceipt(input:FactoryReceiptInput):FactoryReceipt 
   if(delivery&&!dl)throw new Error('本次物料不属于所扫送货单。')
   const lineKey=`${l.sourceId}|${l.sourceLineId}`;if(usedLines.has(lineKey))throw new Error('同一来源行请合并填写一次，各卷可分别选库位。');usedLines.add(lineKey)
   assertReceiptPosition(input.factoryId,l)
-  let qty:number,unit:'Yard'|'kg',yarn:FactoryReceiptLine['yarn']
-  if(line.material.kind==='FABRIC'){
+  let qty:number,unit:'Yard'|'kg'|'片',yarn:FactoryReceiptLine['yarn']
+  if(line.material.kind==='WOOL_PIECE'){
+   assertWoolPieceSource(s)
+   if(l.businessUnit!=='片'||!Number.isSafeInteger(l.businessQty)||l.businessQty!<=0)throw new Error('请填写大于 0 的整数实收片数。')
+   if(l.grossKg!==undefined||l.weightKg!==undefined||l.tubes!==undefined||l.pcs!==undefined)throw new Error('毛织片按片接收，不填写纱线称重字段。')
+   qty=l.businessQty!;unit='片'
+   const received=read().receipts.flatMap(r=>r.lines).filter(r=>r.sourceId===s.id&&r.sourceLineId===line.id).reduce((sum,r)=>sum+r.qty,0)
+   if(received+qty>line.sentQty)throw new Error(`本次实收不能超过该批尚未接收的 ${Math.max(0,line.sentQty-received)} 片。`)
+  }else if(line.material.kind==='FABRIC'){
    if(!Array.isArray(l.rolls))throw new Error('请填写原卷码和实收 Yard，未收到请明确选择零接收。')
    for(const roll of l.rolls){const key=`${s.id}|${roll.barcode}`;if(!line.rolls.some(r=>r.barcode===roll.barcode)||(dl&&!dl.rollBarcodes.includes(roll.barcode)))throw new Error('卷码不属于本次来货，请核对原单和物料。');if(used.has(key)||read().receipts.some(r=>r.lines.some(x=>x.sourceId===s.id&&x.rolls?.some(y=>y.barcode===roll.barcode))))throw new Error('本段来货的卷码已经接收，不能重复入库。');used.add(key);if(!Number.isFinite(roll.yard)||roll.yard<=0)throw new Error('实收卷的 Yard 必须大于 0。');assertReceiptPosition(input.factoryId,roll)}
    qty=l.rolls.reduce((sum,r)=>sum+r.yard,0);unit='Yard'
   }else if(line.material.kind==='ACCESSORY'){if(l.weightKg===undefined)throw new Error('请填写实收重量，未收到请明确填写 0。');qty=weightGrams(l.weightKg)/1000;unit='kg'}
   else{if(l.grossKg===undefined||!l.tubes||l.pcs===undefined)throw new Error('请填写筒数、毛重和各管型数量。');yarn=calculateYarnWeight(l.grossKg,l.tubes,l.pcs);qty=yarn.netGrams/1000;unit='kg'}
+  if(line.material.kind==='YARN'&&line.woolOrderId){
+   const sent=line.yarn?line.yarn.netGrams/1000:convertReceiptQuantity(line.sentQty,line.unit,'kg')
+   const received=read().receipts.flatMap(r=>r.lines).filter(r=>r.sourceId===s.id&&r.sourceLineId===line.id).reduce((sum,r)=>sum+r.qty,0)
+   if(sent===undefined||qty+received>sent+.000001)throw new Error('本次纱线净重超过来源尚未接收数量，请核对本次称重和交出批次。')
+  }
   if(line.material.kind==='ACCESSORY'&&convertReceiptQuantity(qty,'kg',line.unit)===undefined){if(l.businessUnit!==line.unit||!Number.isFinite(l.businessQty)||l.businessQty!<0||((qty===0)!==(l.businessQty===0)))throw new Error('请同时填写实收重量和原单单位的实测数量，零接收两项均填 0。')}
-  return {...clone(l),id:`${input.id}-L${i+1}`,material:clone(line.material),qty,unit,yarn,sourceDocumentNo:s.documentNo,sourceType:s.type,origin:clone(s.origin),printingOrderId:line.printingOrderId,dyeOrderId:line.dyeOrderId,waterOrderId:line.waterOrderId,woolOrderId:line.woolOrderId,productionOrderNo:line.productionOrderNo,taskNo:line.taskNo}
+  return {...clone(l),id:`${input.id}-L${i+1}`,material:clone(line.material),qty,unit,yarn,sourceDocumentNo:s.documentNo,sourceType:s.type,origin:clone(s.origin),printingOrderId:line.printingOrderId,dyeOrderId:line.dyeOrderId,waterOrderId:line.waterOrderId,woolOrderId:line.woolOrderId,woolPieceKey:line.woolPieceKey,woolRouteNodeId:line.woolRouteNodeId,woolCraftOrderId:line.woolCraftOrderId,productionOrderNo:line.productionOrderNo,taskNo:line.taskNo}
  });return {...clone(input),lines,fingerprint}
 }
 /** One persisted receipt is the source of the warehouse and order views. */
-export function savePreparedFactoryReceipt(receipt:FactoryReceipt){const checked=prepareFactoryReceipt(JSON.parse(receipt.fingerprint));if(JSON.stringify(checked)!==JSON.stringify(receipt))throw new Error('复核内容已变化，请重新核对本次接收。');const next=clone(read());if(next.receipts.some(r=>r.id===receipt.id))return;next.receipts.push(clone(checked));save(next)}
+export function savePreparedFactoryReceipt(receipt:FactoryReceipt){const checked=prepareFactoryReceipt(JSON.parse(receipt.fingerprint));if(JSON.stringify(checked)!==JSON.stringify(receipt))throw new Error('复核内容已变化，请重新核对本次接收。');const next=receiptWriteCopy();if(next.receipts.some(r=>r.id===receipt.id))return;next.receipts.push(clone(checked));save(next)}
 export function listReceivingAllocations(){return clone(read().allocations)}
 export function allocateFactoryReceivedMaterial(input:ReceivingAllocation){
  const existing=read().allocations.find(a=>a.id===input.id);if(existing){if(JSON.stringify(existing)!==JSON.stringify(input))throw new Error('分配确认号已使用。');return}
  const line=read().receipts.flatMap(r=>r.lines).find(l=>l.id===input.receiptLineId)
- if(!line||line.printingOrderId||line.dyeOrderId||line.waterOrderId||line.woolOrderId)throw new Error('请选择尚未直接关联加工单的备料实收明细。')
+ if(!line||line.material.kind==='WOOL_PIECE'||line.printingOrderId||line.dyeOrderId||line.waterOrderId||line.woolOrderId)throw new Error('请选择尚未直接关联加工单的备料实收明细。')
  if(!Number.isFinite(input.qty)||input.qty<=0||!input.operatorName.trim()||!input.at||[input.printingOrderId,input.dyeOrderId,input.waterOrderId,input.woolOrderId].filter(Boolean).length!==1)throw new Error('请填写分配数量并选择一个加工单。')
  const allocated=read().allocations.filter(a=>a.receiptLineId===line.id).reduce((n,a)=>n+a.qty,0)
  if(allocated+input.qty>line.qty+.000001)throw new Error('分配数量不能超过该明细尚未分配的实收量。')
@@ -197,6 +236,7 @@ export function recordFactoryMaterialUsage(input:{id:string;printingOrderId?:str
  const lines:FactoryMaterialUse['lines']=[]
  let remaining=input.qty
  for(const {line,quota} of candidates.filter(x=>!input.materialSku||x.line.material.sku===input.materialSku)){
+  if(line.unit==='片')continue
   const orderUsed=uses.filter(u=>belongs(u)).flatMap(u=>u.lines).filter(l=>l.receiptLineId===line.id).reduce((n,l)=>n+l.qty,0)
   let availableQuota=Math.max(0,quota-orderUsed)
   const splits=line.rolls?.length?line.rolls.map(r=>({barcode:r.barcode,qty:r.yard})):[{barcode:undefined,qty:line.qty}]
@@ -207,5 +247,5 @@ export function recordFactoryMaterialUsage(input:{id:string;printingOrderId?:str
   }
  }
  if(remaining>Math.max(0,input.materialSku?0:input.legacyAvailableQty)+.000001)throw new Error('本批投入超过本单所选物料的可用实收库存，请核对接收和已用数量。')
- const next=clone(data);next.materialUses=[...uses,{id:input.id,printingOrderId:input.printingOrderId,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
+ const next=receiptWriteCopy();next.materialUses=[...uses,{id:input.id,printingOrderId:input.printingOrderId,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
 }

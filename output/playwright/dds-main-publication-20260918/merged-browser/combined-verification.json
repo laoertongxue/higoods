@@ -1,0 +1,192 @@
+{
+  "server": "http://192.168.0.10:4188",
+  "worktree": "/private/tmp/higoods-dds-release-20260918",
+  "head": "bbde0ffd1be5624dfdf388462e4fe3f52ce380bb",
+  "checks": 9,
+  "primarySamples": 230,
+  "primaryMax": 204,
+  "primaryFailures": [
+    {
+      "label": "navigation",
+      "ms": 204,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "kind": "cold",
+      "case": "configuration-cold",
+      "iteration": 2,
+      "context": 33,
+      "cache": "new isolated context + browser HTTP cache cleared"
+    }
+  ],
+  "primaryErrors": [
+    {
+      "check": "merged-material-first-entry-no-dds-bundle",
+      "type": "functional",
+      "message": "Error: locator.waitFor: Error: strict mode violation: locator('#md-page h1') resolved to 2 elements:\n    1) <h1 class=\"text-xl font-semibold\">决策总览</h1> aka getByRole('heading', { name: '决策总览' }).first()\n    2) <h1 class=\"text-xl font-semibold\">决策总览</h1> aka locator('header').filter({ hasText: '决策总览' }).getByRole('heading')\n\nCall log:\n\u001b[2m  - waiting for locator('#md-page h1') to be visible\u001b[22m\n"
+    }
+  ],
+  "sourceSamples": 15,
+  "sourceFailures": [
+    {
+      "kind": "execution",
+      "taskId": "DEM-202603-0005",
+      "documentNo": "TASKGEN-202603-0002-001",
+      "iteration": 2,
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "linkLabel": "查看来源页面",
+      "url": "http://192.168.0.10:4188/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "pageErrors": [],
+      "ms": 215.69999998807907,
+      "start": 259.09999999403954,
+      "targetReached": true,
+      "identity": true,
+      "core": true,
+      "contentReady": true,
+      "error": false,
+      "images": [],
+      "text": "\n    \n    \n      \n    \n      \n        \n          \n        \n        \n          HG\n          HiGood\n        \n      \n\n      \n        \n          \n                \n                  商品中心系统\n                  (PCS)\n                  \n                \n              \n                \n                  采购管理系统\n                  (PMS)\n                  \n                \n              \n                \n                  工厂生产协同系统\n                  (FCS)\n                  \n                \n              \n                \n                  工艺工厂运营系统\n                  (PFOS)\n                  \n                \n              \n                \n                  仓储物流系统\n                  (WLS)\n                  \n                \n              \n                \n                  直播运营系统\n                  (LOS)\n                  \n                \n              \n                \n                  订单管理系统\n                  (OMS)\n                  \n                \n              \n                \n                  业财一体化系统\n                  (BFIS)\n                  \n                \n              \n                \n                  数据决策系统\n                  (DDS)\n                  \n                \n              \n        \n      \n\n      \n        \n          \n          \n        \n\n        \n          \n          管理员\n          \n        \n      \n    \n  \n\n      \n        \n          \n    \n      \n    \n      \n        \n              \n                工厂生产协同系统\n                FCS\n              \n            \n        \n              \n                \n              \n            \n      \n\n      \n        \n          \n    \n      \n        \n        平台运营系统\n        \n      \n      \n    \n      \n        \n        \n              工作台\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              工厂池管理\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              生产单管理\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              任务编排与执行准备\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              任务分配\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              任务进度与异常\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              质量与扣款\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              对账与结算\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              成本溯源管理\n              \n            \n      \n\n      \n    \n  \n    \n  \n    \n      \n        \n        车缝外发协同\n        \n      \n      \n    \n      \n        \n        \n              我的工作台\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              生成单全流程耗时\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              车缝任务\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              交出与欠片\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              批版建议\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              回货跟进\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              补料跟进\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              裁片退仓\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              责任移交\n              \n            \n      \n\n      \n    \n  \n    \n  \n    \n      \n        \n        配料管理\n        \n      \n      \n    \n      \n        \n        \n              配料列表\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              染色配料\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              印花配料\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              裁片配料\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              车缝配料\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              其他配料\n              \n            \n      \n\n      \n    \n  \n    \n  \n    \n      \n        \n        工厂入驻&登录\n        \n      \n      \n    \n      \n        \n        \n              登录\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              入驻\n              \n            \n      \n\n      \n    \n  \n    \n  \n    \n      \n        \n        工厂端移动应用\n        \n      \n      \n    \n      \n        \n        \n              接单\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              执行\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              交接\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              仓管\n              \n            \n      \n\n      \n    \n  \n    \n      \n        \n        \n              结算\n              \n            \n      \n\n      \n    \n  \n    \n  \n        \n      \n    \n  \n    \n  \n        \n\n        \n          \n          \n            \n              \n    \n      \n        \n          \n            返回任务列表\n          \n          \n            任务详情\n            待开工\n          \n          TASKGEN-202603-0002-001__ORDER · 裁片\n        \n        \n          \n            生产单生命周期\n          \n          \n            打印任务流转卡\n          \n        \n      \n      \n    \n      \n        \n    \n      需求来源\n      生产单 PO-202603-0002PO-202603-0002\n    \n  \n        \n    \n      任务明细\n      Grey / SPU-2024-005-正式纸样.dxf / 主面料Grey / SPU-2024-005-正式纸样.dxf / 主面料\n    \n  \n        \n    \n      前置任务项\n      当前加工单是该实物分支的路线起点，暂无前置任务项。\n    \n  \n        \n    \n      后置任务项\n      \n    车缝 TASKGEN-202603-0002-002\n    车缝 · 对象按加工单明细 · 2500 件\n  \n    捆条加工单 BT-260303-002-01-11\n    捆条 · 主面料 / 前片、后片、袖片 · 1050 米\n  \n    捆条加工单 BT-260303-007-01-35\n    捆条 · PDA 异常同步主面料 / 前片、后片、袖片 · 450000 米\n  \n    \n  \n      \n    \n  \n      \n      \n    \n      基本信息\n      分配信息进度操作接收情况\n      交出情况\n      \n      审计日志\n    \n  \n      \n        \n          \n                \n                  \n                    任务ID\n                    TASKGEN-202603-0002-001__ORDER\n                  \n                  \n                    生产单号\n                    \n                      PO-202603-0002\n                      \n                    \n                  \n                  \n                    工序\n                    裁片 (PROC_CUT)\n                  \n                  \n                    阶段\n                    生产阶段\n                  \n                  \n                    平台状态\n                    待开工\n                  \n                  \n                    工厂内部状态\n                    待开始\n                  \n                  \n                    风险提示\n                    工厂已接单，等待开工\n                  \n                  \n                    下一步动作\n                    跟进工厂开工\n                  \n                  \n                    任务对象与单位\n                    2500 件\n                  \n                  \n                    分配方式\n                    派单\n                  \n                  难度中等\n                \n                \n                  交接情况\n                  当前状态：暂无事件\n                  下一步：当前任务暂无交接记录，请先查看接收与交出\n                  \n                    查看交接链路\n                  \n                \n                \n                \n              \n\n          \n\n          \n\n          \n\n          \n\n          \n\n          \n        \n      \n      \n    \n  \n            \n          \n        \n      \n      \n    \n      \n      查生产\n    \n    \n  \n    \n  \n  \n\n"
+    }
+  ],
+  "pcsSamples": [
+    {
+      "kind": "navigation",
+      "iteration": 1,
+      "ms": 241.4
+    },
+    {
+      "kind": "navigation",
+      "iteration": 2,
+      "ms": 215.4
+    },
+    {
+      "kind": "navigation",
+      "iteration": 3,
+      "ms": 190.8
+    },
+    {
+      "kind": "navigation",
+      "iteration": 4,
+      "ms": 208.4
+    },
+    {
+      "kind": "navigation",
+      "iteration": 5,
+      "ms": 220.2
+    },
+    {
+      "kind": "reload",
+      "iteration": 1,
+      "ms": 104
+    },
+    {
+      "kind": "reload",
+      "iteration": 2,
+      "ms": 100.4
+    },
+    {
+      "kind": "reload",
+      "iteration": 3,
+      "ms": 96.4
+    },
+    {
+      "kind": "reload",
+      "iteration": 4,
+      "ms": 98.3
+    },
+    {
+      "kind": "reload",
+      "iteration": 5,
+      "ms": 107.3
+    },
+    {
+      "kind": "tab",
+      "iteration": 1,
+      "ms": 40.5
+    },
+    {
+      "kind": "tab",
+      "iteration": 2,
+      "ms": 30.2
+    },
+    {
+      "kind": "tab",
+      "iteration": 3,
+      "ms": 37.6
+    },
+    {
+      "kind": "tab",
+      "iteration": 4,
+      "ms": 36.1
+    },
+    {
+      "kind": "tab",
+      "iteration": 5,
+      "ms": 40.9
+    },
+    {
+      "kind": "scroll",
+      "iteration": 1,
+      "ms": 32.6
+    },
+    {
+      "kind": "scroll",
+      "iteration": 2,
+      "ms": 32.4
+    },
+    {
+      "kind": "scroll",
+      "iteration": 3,
+      "ms": 32.5
+    },
+    {
+      "kind": "scroll",
+      "iteration": 4,
+      "ms": 32.6
+    },
+    {
+      "kind": "scroll",
+      "iteration": 5,
+      "ms": 32.1
+    },
+    {
+      "kind": "preview",
+      "iteration": 1,
+      "ms": 32.3
+    },
+    {
+      "kind": "preview",
+      "iteration": 2,
+      "ms": 32.4
+    },
+    {
+      "kind": "preview",
+      "iteration": 3,
+      "ms": 32.8
+    },
+    {
+      "kind": "preview",
+      "iteration": 4,
+      "ms": 32.7
+    },
+    {
+      "kind": "preview",
+      "iteration": 5,
+      "ms": 32
+    }
+  ],
+  "subsidiary": [
+    {
+      "name": "source-entry",
+      "script": "scripts/check-dds-production-fulfillment-source-entry.mjs",
+      "status": 1
+    },
+    {
+      "name": "pcs-bom",
+      "script": "scripts/check-tech-pack-bom-table-layout-performance.mjs",
+      "status": 1
+    }
+  ],
+  "pass": false,
+  "completeBusinessAcceptance": false,
+  "scope": "Bounded merged shared-entry regression; not full business acceptance; physical printing excluded; missing image evidence remains open."
+}

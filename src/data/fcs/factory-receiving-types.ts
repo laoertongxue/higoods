@@ -1,6 +1,6 @@
 import type {DyePartner} from './dye-work-order-demo-details.ts'
 import type {YarnWeight, YarnTubeCounts} from './yarn-weight.ts'
-export type ReceivingMaterialKind = 'FABRIC' | 'ACCESSORY' | 'YARN'
+export type ReceivingMaterialKind = 'FABRIC' | 'ACCESSORY' | 'YARN' | 'WOOL_PIECE'
 export interface ReceivingMaterial {
   sku: string; name: string; kind: ReceivingMaterialKind; imageUrl: string; color: string
   composition: string; specification: string; batchNo: string
@@ -9,7 +9,7 @@ export interface SourceRoll {barcode:string; yard:number}
 export interface FactoryReceivingSourceLine {
   id:string; material:ReceivingMaterial; plannedQty:number; unit:string; sentQty:number
   rolls:SourceRoll[]; label:string; yarn?:YarnWeight
-  printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
 }
 export interface FactoryReceivingSource {
   id:string; documentNo:string; type:'TRANSFER'|'ISSUE'|'HANDOUT'; origin:DyePartner
@@ -34,9 +34,9 @@ export interface FactoryReceiptInput {
   deliveryId?:string;remark:string;lines:FactoryReceiptLineInput[]
 }
 export interface FactoryReceiptLine extends FactoryReceiptLineInput {
-  id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg';yarn?:YarnWeight
+  id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg'|'片';yarn?:YarnWeight
   sourceDocumentNo:string; sourceType:FactoryReceivingSource['type']; origin:DyePartner
-  printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
 }
 export interface FactoryReceipt extends Omit<FactoryReceiptInput,'lines'> {lines:FactoryReceiptLine[]; fingerprint:string}
 export interface ReceivingAllocation {id:string;receiptLineId:string;printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}

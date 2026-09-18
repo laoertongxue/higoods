@@ -1,0 +1,115 @@
+{
+  "pass": true,
+  "samples": [
+    {
+      "iteration": 1,
+      "imageFailure": {
+        "ms": 125.59999999403954,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.5,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 100.90000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495130
+      }
+    },
+    {
+      "iteration": 2,
+      "imageFailure": {
+        "ms": 109.59999999403954,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.59999999403954,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 104.40000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495074
+      }
+    },
+    {
+      "iteration": 3,
+      "imageFailure": {
+        "ms": 140.69999998807907,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.7999999821186,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 99.90000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495096
+      }
+    },
+    {
+      "iteration": 4,
+      "imageFailure": {
+        "ms": 125.30000001192093,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 196,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 100.80000001192093,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495199
+      }
+    },
+    {
+      "iteration": 5,
+      "imageFailure": {
+        "ms": 124.90000000596046,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 194.7000000178814,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 116.19999998807907,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495163
+      }
+    }
+  ]
+}

@@ -3261,6 +3261,16 @@ export function getDyeReviewStatusLabel(status: DyeReviewStatus): string {
   return DYE_REVIEW_STATUS_LABEL[status]
 }
 
+/** Read only facts that already exist; never seed receipts, production, or handovers. */
+export function readDyeWorkOrdersWithoutInitialization(): { orders: DyeWorkOrder[]; needsRestoration: boolean } {
+  if (dyePersistenceReadError) throw new Error(dyePersistenceReadError)
+  return {
+    orders: seeded ? listGeneratedDyeWorkOrders().map(cloneWorkOrder) : [],
+    needsRestoration: !seeded && typeof localStorage !== 'undefined'
+      && localStorage.getItem(DYE_EXECUTION_STORAGE_KEY) !== null,
+  }
+}
+
 export function listDyeWorkOrders(): DyeWorkOrder[] {
   syncDerivedWorkflow()
   return listGeneratedDyeWorkOrders().map((order) => {

@@ -276,7 +276,7 @@ for (const woolOrder of woolOrders) {
     `${woolOrder.woolOrderNo} 的投入产出对象类型错误`,
   )
 }
-const woolDetailSource = readFileSync(join(root, 'src/pages/process-factory/wool/work-order-detail.ts'), 'utf8')
+const woolDetailSource = readFileSync(join(root, 'src/pages/process-factory/wool/stage-order-detail.ts'), 'utf8')
 assert(woolDetailSource.includes('renderProcessOrderTaskRelations(order.taskId)'), '毛织加工单详情必须以生产任务身份展示统一任务项关系')
 
 const specialCraftOrders = listSpecialCraftTaskOrders().filter((order) => Boolean(order.sourceEntryId))

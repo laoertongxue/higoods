@@ -1,0 +1,8 @@
+✓ 7工厂及不存在工厂：提前限定工厂与全量投影后筛选逐字段相等
+✓ 精准加载仍校验实际阶段任务与当前工厂，无权及不存在任务阻断
+✓ PDA交接查询的返回副本可独立修改，新增交出及实际接收后立即读取新事实
+✓ PDA待办按横机/缝盘和实际允许动作提示，回货片与纱线不混淆，自动衔接不指引重复接收
+✓ 缺逐片资料的缝盘待办提示核对技术包，不冒称正常自动同步
+INDEPENDENT PASS: deeply frozen read snapshots stay unchanged, actual PDA writeBackHandoverRecord succeeds through current receiving factory, revision changes twice, post-save head/record immediately read 7, returned record remains independently mutable, non-wool heads equal baseline.
+BOUNDARY TODO: {"title":"缝盘加工单资料不完整，请核对技术包","type":"异常待处理","actions":["DETAIL"],"issues":["技术包存在工艺但缺少逐片实例，先维护技术包"]}
+INDEPENDENT PASS: both order-level and SKU-specific missing-piece issues show actionable technical-package correction, not automatic-sync waiting.

@@ -8,10 +8,11 @@
   <body>
     <main id="app"></main>
     <script type="module">
+      import { clearWoolStoreMemoryCache } from '/src/data/fcs/wool-domain/store.ts'
       import { appStore } from '/src/state/store.ts'
       import {
         commitWoolStore,
-        resetWoolFactWorkflowMock,
+        resetWoolFactWorkflowMockStore,
       } from '/src/data/fcs/wool-task-domain.ts'
       import {
         handleCraftWoolMachineAssociationsEvent,
@@ -25,7 +26,8 @@
       const fixturePage = new URLSearchParams(location.search).get('page') === 'machines'
         ? 'machines'
         : 'associations'
-      resetWoolFactWorkflowMock(`BROWSER_TASK_10_${fixturePage}`)
+      resetWoolFactWorkflowMockStore()
+      clearWoolStoreMemoryCache()
       commitWoolStore((draft) => {
         const template = draft.machines[0]
         for (let index = draft.machines.length; index < 14; index += 1) {
@@ -34,7 +36,7 @@
             machineId: `WM-BROWSER-${String(index + 1).padStart(2, '0')}`,
             machineNo: `横机-浏览器-${String(index + 1).padStart(2, '0')}`,
             machineName: `浏览器检查横机 ${index + 1} 号`,
-            updatedAt: `2026-07-31 10:${String(index).padStart(2, '0')}:00`,
+            updatedAt: `2026-09-18 10:${String(index).padStart(2, '0')}:00`,
           })
         }
       })

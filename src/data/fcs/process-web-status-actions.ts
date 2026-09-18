@@ -108,6 +108,7 @@ export interface ProcessWebActionPayload {
   remark?: string
   evidenceUrls?: string[]
   fields?: Record<string, string | number | undefined>
+  woolFinalReceipts?: Array<{ handoverId: string; actualReceivedQty: number }>
   skuQtyBySkuCode?: Record<string, number>
   skuScrapQtyBySkuCode?: Record<string, number>
   skuDamageQtyBySkuCode?: Record<string, number>
@@ -903,6 +904,7 @@ export function executeProcessWebAction(payload: ProcessWebActionPayload): Proce
     formData: hydratedPayload.fields,
     remark: hydratedPayload.remark,
     evidenceUrls: hydratedPayload.evidenceUrls,
+    woolFinalReceipts: hydratedPayload.woolFinalReceipts,
     skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
     skuScrapQtyBySkuCode: hydratedPayload.skuScrapQtyBySkuCode,
     skuDamageQtyBySkuCode: hydratedPayload.skuDamageQtyBySkuCode,

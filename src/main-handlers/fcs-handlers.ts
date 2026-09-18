@@ -1,3 +1,4 @@
+import { handleWoolPendingReceiptsClick, handleWoolPendingReceiptsInput } from '../pages/process-factory/wool/pending-receipts'
 import {handleDyeYarnShipmentEvent} from '../pages/process-factory/dyeing/yarn-shipments.ts'
 import {handleFactoryReceivingEvent} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import { handleSewingProductionOrderDurationEvent, closeSewingProductionOrderDurationDialog } from '../pages/sewing-outsourcing/production-order-duration'
@@ -251,8 +252,8 @@ import {
 } from '../pages/process-factory/dyeing/water-soluble-orders'
 import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
-import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
-import { handleCraftWoolDetailEvent } from '../pages/process-factory/wool/work-order-detail'
+import { handleCraftWoolStageOrdersEvent } from '../pages/process-factory/wool/stage-orders'
+import { handleCraftWoolStageOrderDetailEvent } from '../pages/process-factory/wool/stage-order-detail'
 import { handleCraftWoolMachineAssociationsEvent } from '../pages/process-factory/wool/machine-associations'
 import { handleCraftWoolMachinesEvent } from '../pages/process-factory/wool/machines'
 import { handleCraftWoolWarehouseEvent } from '../pages/process-factory/wool/warehouse'
@@ -292,6 +293,19 @@ import {
   closeWlsGarmentRelabelTaskOverlays,
   handleWlsGarmentRelabelTasksEvent,
 } from '../pages/wls-garment-relabel-tasks.ts'
+import { handleFinishedOutboundOrdersEvent } from '../pages/wls/finished/outbound-orders'
+import { handleFinishedPreInboundEvent } from '../pages/wls/finished/pre-inbound'
+import { handleFinishedPreOutboundEvent } from '../pages/wls/finished/pre-outbound'
+import { handleFinishedPutawayEvent } from '../pages/wls/finished/putaway'
+import { handleCollectionOrdersEvent } from '../pages/wls/finished/collection-orders'
+import { handleCollectionPickingEvent } from '../pages/wls/finished/collection-picking'
+import { handleCollectionSortingEvent } from '../pages/wls/finished/collection-sorting'
+import { handleCollectionRemovalEvent } from '../pages/wls/finished/collection-removal'
+import { handleCollectionRecordsEvent } from '../pages/wls/finished/collection-records'
+import { handleReturnOrdersEvent } from '../pages/wls/finished/return-orders'
+import { handleReturnQualityEvent } from '../pages/wls/finished/return-quality'
+import { handleReturnInboundEvent } from '../pages/wls/finished/return-inbound'
+import { handleFinishedInventoryCountEvent } from '../pages/wls/finished/inventory-count'
 
 const CUTTING_PICKUP_LIST_PATHS = new Set([
   '/fcs/craft/cutting/pickup-management/ready',
@@ -511,13 +525,35 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     return handleProgressBoardEvent(target)
   }
 
+  if (pathname.startsWith('/wls/finished/')) {
+    const wlsFinishedHandlers: Array<(target: HTMLElement, event?: Event) => boolean> = [
+      handleFinishedOutboundOrdersEvent,
+      handleFinishedPreInboundEvent,
+      handleFinishedPreOutboundEvent,
+      handleFinishedPutawayEvent,
+      handleCollectionOrdersEvent,
+      handleCollectionPickingEvent,
+      handleCollectionSortingEvent,
+      handleCollectionRemovalEvent,
+      handleCollectionRecordsEvent,
+      handleReturnOrdersEvent,
+      handleReturnQualityEvent,
+      handleReturnInboundEvent,
+      handleFinishedInventoryCountEvent,
+    ]
+    for (const handler of wlsFinishedHandlers) {
+      if (handler(target, event)) return true
+    }
+  }
+
   return (
+    handleWoolPendingReceiptsClick(target) ||
     await handleCraftPrintingEvent(target) ||
     await handleCraftDyeingEvent(target) ||
     await handleFactoryWarehouseSharedEvent(target) ||
     await handleCraftWoolMachineAssociationsEvent(target) ||
-    await handleCraftWoolDetailEvent(target) ||
-    await handleCraftWoolEvent(target) ||
+    await handleCraftWoolStageOrderDetailEvent(target) ||
+    await handleCraftWoolStageOrdersEvent(target) ||
     await handleCraftWoolWarehouseEvent(target, event) ||
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target, event) ||
@@ -557,6 +593,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleProgressCuttingOverviewEvent(target) ||
     await handleProgressCuttingDetailEvent(target) ||
     await handleProgressCuttingExceptionCenterEvent(target) ||
+    handleWoolPendingReceiptsInput(target) ||
     await handleCuttingSettlementInputEvent(target) ||
     await handleCraftCuttingProductionProgressEvent(target) ||
     await handleCraftCuttingMarkerPlanEvent(target) ||

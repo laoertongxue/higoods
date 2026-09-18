@@ -132,6 +132,7 @@ let fcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pdaRoutesPromise: Promise<RouteRegistry> | null = null
 let pmsRoutesPromise: Promise<RouteRegistry> | null = null
+let wlsRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
@@ -181,6 +182,18 @@ function getPmsRoutes(): Promise<RouteRegistry> {
   return pmsRoutesPromise
 }
 
+function getWlsRoutes(): Promise<RouteRegistry> {
+  if (!wlsRoutesPromise) {
+    wlsRoutesPromise = import('./routes-wls')
+      .then((module) => module.routes)
+      .catch((error) => {
+        wlsRoutesPromise = null
+        throw error
+      })
+  }
+  return wlsRoutesPromise
+}
+
 function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry | null> {
   if (normalizedPathname.startsWith('/fcs/pda')) {
     return getPdaRoutes()
@@ -196,6 +209,10 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
 
   if (normalizedPathname.startsWith('/pms')) {
     return getPmsRoutes()
+  }
+
+  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic')) {
+    return getWlsRoutes()
   }
 
   return Promise.resolve(null)
@@ -248,6 +265,11 @@ function resolveFromRegistry(
 
 export async function resolvePage(pathname: string): Promise<string> {
   const normalizedPathname = normalizePathname(pathname)
+
+  if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) {
+    const { renderProductionFulfillmentPage } = await import('../pages/production-fulfillment')
+    return renderProductionFulfillmentPage(normalizedPathname)
+  }
 
   if (/^\/dds\/supply-chain\/materials\/(overview|panorama|planning|consumption|risks|quality|configuration|health|warnings|daily|goods|preparation)$/.test(normalizedPathname)) {
     const { renderMaterialDecisionPage } = await import('../pages/material-decision')

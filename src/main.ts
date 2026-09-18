@@ -1,14 +1,8 @@
-import { ui as materialDecisionUi } from './pages/material-decision/events'
-import { handleHealthClick } from './pages/material-decision/health'
-import { handleWarningsClick, handleWarningsChange } from './pages/material-decision/warnings'
-import { handleDailyClick } from './pages/material-decision/daily'
-import { handlePreparationClick, handlePreparationChange } from './pages/material-decision/preparation'
-import { handleProcessingClick } from './pages/material-decision/processing'
-import { handlePackagingClick } from './pages/material-decision/packaging'
-import { handleMaterialDecisionClick, handleMaterialDecisionInput, handleMaterialDecisionChange, handleMaterialDecisionKey } from './pages/material-decision'
+import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchMaterialDecisionChange, dispatchMaterialDecisionKey } from './pages/material-decision/events-bridge'
+import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey } from './pages/production-fulfillment/events'
 import './styles.css'
+import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
 import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
-import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
 import {
@@ -38,6 +32,14 @@ const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-ha
 const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
 const getPmsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pms-handlers'))
 const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
+const getRealQrModule = createRetryableModuleLoader(() => import('./components/real-qr'))
+
+function hydrateRealQRCodes(host: ParentNode): void {
+  if (!host.querySelector('[data-real-qr]')) return
+  void getRealQrModule().then(module => module.hydrateRealQRCodes(host)).catch(error => {
+    console.error('二维码模块加载失败', error)
+  })
+}
 const getProcessWaterSolubleOrdersPageModule = createRetryableModuleLoader(
   () => import('./pages/process-water-soluble-orders'),
 )
@@ -71,6 +73,7 @@ const getPrintingSheetPreviewModule = createRetryableModuleLoader(() => import('
 const getPdaTaskReceivePageModule = createRetryableModuleLoader(() => import('./pages/pda-task-receive'))
 const getPdaExecPageModule = createRetryableModuleLoader(() => import('./pages/pda-exec'))
 const getPdaHandoverPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover'))
+const getPdaHandoverDetailPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover-detail'))
 const getPdaWarehousePageModule = createRetryableModuleLoader(() => import('./pages/pda-warehouse'))
 const getPdaSettlementPageModule = createRetryableModuleLoader(() => import('./pages/pda-settlement'))
 const getProductionOrderProgressTrackingPageModule = createRetryableModuleLoader(
@@ -251,6 +254,9 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  // DDS owns its local controls. Native details and column drags must not fall
+  // through to lazy-load every unrelated business system's event handlers.
+  if (pagePath.startsWith('/dds/supply-chain/production-fulfillment/') && target.closest('#pf-app')) return false
   if (pagePath === '/fcs/sewing-outsourcing/cut-piece-handover') {
     const page = await import('./pages/sewing-outsourcing/cut-piece-handover.ts')
     return page.handleSewingCutPieceHandoverEvent(eventTarget, event)
@@ -376,6 +382,63 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       console.error('面料需求看板事件处理器加载失败，已降级为不处理', error)
       return false
     }
+  }
+  if (
+    /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pagePath)
+    && target.closest('[data-tech-pack-page-root="true"]')
+  ) {
+    const techPackPage = await import('./pages/tech-pack/events')
+    return techPackPage.handleTechPackEvent(eventTarget)
+  }
+  // Wool stage pages own their local rendering and already loaded their handlers.
+  // Keep the first action independent of the unrelated FCS/PDA handler bundles.
+  if (target.closest('[data-pda-wool-root], [data-pda-wool-access-blocked]')) {
+    if (target.closest('[data-pda-execd-action="back"]')) {
+      const params = new URLSearchParams(pathname.split('?')[1] || '')
+      const returnTo = params.get('returnTo')
+      if (returnTo && (returnTo.startsWith('/fcs/pda/exec') || returnTo.startsWith('/fcs/pda/handover'))) {
+        appStore.navigate(returnTo)
+        return true
+      }
+      if (!params.get('sourceType') || !params.get('sourceId')) {
+        appStore.navigate('/fcs/pda/exec')
+        return true
+      }
+      const detail = await import('./pages/pda-exec-detail.ts')
+      return detail.handlePdaExecDetailEvent(eventTarget, event)
+    }
+    const page = await import('./pages/pda-wool-fact-execution.ts')
+    return page.handlePdaWoolExecutionEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-warehouse-root]')) {
+    const page = await import('./pages/process-factory/wool/warehouse.ts')
+    return page.handleCraftWoolWarehouseEvent(eventTarget, event)
+  }
+  if (target.closest('[data-wool-machine-associations-root]')) {
+    const page = await import('./pages/process-factory/wool/machine-associations.ts')
+    return page.handleCraftWoolMachineAssociationsEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-machines-root]')) {
+    const page = await import('./pages/process-factory/wool/machines.ts')
+    return page.handleCraftWoolMachinesEvent(eventTarget)
+  }
+  if (target.closest<HTMLElement>('[data-special-craft-web-action]')?.dataset.sourceId?.startsWith('WSC:')) {
+    const page = await import('./pages/process-factory/wool/craft-actions.ts')
+    return page.handleWoolCraftActionUi(eventTarget)
+  }
+  if (target.closest('[data-wool-receiving-page], [data-wool-stock-page]')) {
+    const page = await import('./pages/process-factory/wool/pending-receipts.ts')
+    return event?.type === 'input' || event?.type === 'change'
+      ? page.handleWoolPendingReceiptsInput(eventTarget)
+      : page.handleWoolPendingReceiptsClick(eventTarget)
+  }
+  if (target.closest('[data-wool-work-orders-root]')) {
+    const page = await import('./pages/process-factory/wool/stage-orders.ts')
+    return page.handleCraftWoolStageOrdersEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-detail-root]')) {
+    const page = await import('./pages/process-factory/wool/stage-order-detail.ts')
+    return page.handleCraftWoolStageOrderDetailEvent(eventTarget)
   }
   if (target.closest('[data-factory-receiving-root]')) {
     const page = await import('./pages/process-factory/dyeing/pending-receipts.ts')
@@ -677,7 +740,70 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    const woolExecution = normalizedPathname.match(/^\/fcs\/pda\/exec\/([^/]+)$/)
+    const woolTaskId = woolExecution ? decodeURIComponent(woolExecution[1]) : ''
+    const isWoolStageExecution = /:(KNITTING|LINKING)$/.test(woolTaskId)
+    // Start the actual first-screen image requests during this navigation, alongside the page module.
+    if (normalizedPathname.startsWith('/fcs/craft/wool/') || normalizedPathname.startsWith('/fcs/pda/wool/') || isWoolStageExecution) {
+      for (const src of [WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE]) {
+        const image = new Image()
+        image.src = src
+        void image.decode().catch(() => { /* The visible image retains its normal failure feedback. */ })
+      }
+    }
     await preparePageRouteEntry(normalizedPathname)
+    if (isWoolStageExecution) {
+      const [page, shell] = await Promise.all([
+        import('./pages/pda-wool-fact-execution.ts'),
+        import('./pages/pda-shell.ts'),
+      ])
+      // The wool renderer validates the exact stage task and current factory.
+      // Generic water/cutting detail initialization is unrelated to this task.
+      return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
+    }
+    if (normalizedPathname === '/fcs/pda/warehouse/inbound-records' || normalizedPathname === '/fcs/pda/warehouse/outbound-records') {
+      const [page, session] = await Promise.all([
+        import('./pages/pda-wool-warehouse-flows.ts'),
+        import('./pages/pda-runtime.ts'),
+      ])
+      const identity = session.getPdaRuntimeContext()
+      if (identity) {
+        const wool = page.renderPdaWoolWarehouseFlows(identity.factoryId, identity.factoryName, normalizedPathname.endsWith('inbound-records') ? 'IN' : 'OUT')
+        if (wool) return wool
+      }
+      // Other factories retain the generic warehouse route and its permissions.
+    }
+    if (normalizedPathname === '/fcs/craft/wool/machines') {
+      const page = await import('./pages/process-factory/wool/machines.ts')
+      return page.renderCraftWoolMachinesPage()
+    }
+    if (normalizedPathname === '/fcs/process-factory/wool/machine-associations') {
+      const page = await import('./pages/process-factory/wool/machine-associations.ts')
+      return page.renderCraftWoolMachineAssociationsPage()
+    }
+    if (normalizedPathname === '/fcs/craft/wool/wait-process-warehouse' || normalizedPathname === '/fcs/craft/wool/wait-handover-warehouse') {
+      const page = await import('./pages/process-factory/wool/warehouse.ts')
+      return normalizedPathname.endsWith('wait-process-warehouse') ? page.renderCraftWoolWaitProcessWarehousePage() : page.renderCraftWoolWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/wool/pending-receipts' || normalizedPathname === '/fcs/pda/wool/pending-receipts') {
+      const page = await import('./pages/process-factory/wool/pending-receipts.ts')
+      return page.renderWoolPendingReceiptsPage()
+    }
+    const woolStagePath = normalizedPathname.match(/^\/fcs\/craft\/wool\/(knitting-orders|linking-orders)(?:\/([^/]+)(?:\/(handover-print)(?:\/([^/]+))?)?)?$/)
+    if (woolStagePath) {
+      const stage = woolStagePath[1] === 'knitting-orders' ? 'KNITTING' : 'LINKING'
+      if (!woolStagePath[2]) {
+        const page = await import('./pages/process-factory/wool/stage-orders.ts')
+        return page.renderCraftWoolStageOrdersPage(stage)
+      }
+      const orderId = decodeURIComponent(woolStagePath[2])
+      if (woolStagePath[3]) {
+        const page = await import('./pages/process-factory/wool/handover-print.ts')
+        return page.renderCraftWoolHandoverPrintPage(orderId, woolStagePath[4] ? decodeURIComponent(woolStagePath[4]) : undefined, stage)
+      }
+      const page = await import('./pages/process-factory/wool/stage-order-detail.ts')
+      return page.renderCraftWoolStageOrderDetailPage(orderId, stage)
+    }
     if (normalizedPathname === '/fcs/production/demand-inbox') {
       const productionDemandPage = await getProductionDemandPageModule()
       const page = productionDemandPage.renderProductionDemandInboxPage()
@@ -697,6 +823,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     if (normalizedPathname === '/fcs/pda/exec') {
       const pdaExecPage = await getPdaExecPageModule()
       return pdaExecPage.renderPdaExecPage()
+    }
+    if (normalizedPathname.startsWith('/fcs/pda/handover/HOH-WOOL-')) {
+      const page = await getPdaHandoverDetailPageModule()
+      return page.renderPdaHandoverDetailPage(decodeURIComponent(normalizedPathname.slice('/fcs/pda/handover/'.length)))
     }
     if (normalizedPathname === '/fcs/pda/handover') {
       const pdaHandoverPage = await getPdaHandoverPageModule()
@@ -782,7 +912,9 @@ async function render(): Promise<void> {
 
   ensureInitialPdaLoadingShell(state)
   const pageContentPromise = renderCurrentPageContent(state.pathname)
-  const pageContent = isPdaPath(state.pathname)
+  const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
+    || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
+  const pageContent = isPdaPath(state.pathname) && !isDirectWoolPda
     ? (await Promise.all([pageContentPromise, getPdaHandlersModule()]))[0]
     : await pageContentPromise
   if (currentSerial !== renderSerial) {
@@ -791,7 +923,9 @@ async function render(): Promise<void> {
 
   root.innerHTML = renderAppShell(state, pageContent)
   if (isPdaPath(state.pathname)) {
-    schedulePdaMainTabPreload()
+    if (!root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+      schedulePdaMainTabPreload()
+    }
     queueMicrotask(() => hydrateIcons(root))
   } else {
     hydrateIcons(root)
@@ -855,6 +989,17 @@ function shouldUseTechPackScopedRender(
   if (action === 'tech-back') return false
 
   return true
+}
+
+function shouldUseTechPackTabOnlyRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
+  const actionNode = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')
+  return Boolean(actionNode?.dataset.tab && target.closest('[data-tech-pack-page-root="true"]'))
 }
 
 function shouldUseProductionScopedRender(previousPathname: string, nextPathname: string): boolean {
@@ -1109,6 +1254,28 @@ async function renderWithFocusRestore(snapshot: FocusSnapshot | null): Promise<v
 async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
   await renderPageContentOnly()
   restoreFocusSnapshot(snapshot)
+}
+
+async function renderTechPackTabOnly(target: HTMLElement): Promise<void> {
+  const headerHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-header-root="true"]')
+  const contentHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-content-root="true"]')
+  if (!headerHost || !contentHost) {
+    await renderPageContentOnly()
+    return
+  }
+
+  const activeTab = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')?.dataset.tab || ''
+  const techPackPage = await import('./pages/tech-pack/core')
+  headerHost.innerHTML = techPackPage.renderTabHeader()
+  contentHost.innerHTML = techPackPage.renderCurrentTabContent()
+  hydrateRealQRCodes(contentHost)
+  queueMicrotask(() => {
+    hydrateIcons(headerHost)
+    hydrateIcons(contentHost)
+    if (activeTab) {
+      headerHost.querySelector<HTMLElement>(`[data-tech-action="switch-tab"][data-tab="${escapeCssValue(activeTab)}"]`)?.focus()
+    }
+  })
 }
 
 async function renderProductionOrdersOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
@@ -1394,6 +1561,10 @@ async function renderAfterHandledPageEvent(
     await renderProductionOrdersOverlayOnly(focusSnapshot)
     return
   }
+  if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+    await renderTechPackTabOnly(target)
+    return
+  }
   if (
     target.closest<HTMLElement>('[data-fast-page-render]') ||
     shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
@@ -1559,15 +1730,9 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
-  const prepAction=target.closest<HTMLElement>('[data-md-prep-action]')?.dataset.mdPrepAction
-  if (prepAction && ['add','edit','save','generate','raw-receive','produce','receive','cancel-record'].includes(prepAction) && (materialDecisionUi.role==='只读查看者'||materialDecisionUi.stale)) {
-    const feedback=document.querySelector('#md-notice'); if(feedback) feedback.textContent=materialDecisionUi.stale?'数据已过期，禁止执行备料建议':'只读查看者不能修改备料记录'
-    event.preventDefault(); return
-  }
-  if (handleHealthClick(target) || handleWarningsClick(target) || handleDailyClick(target) || handlePreparationClick(target)) { event.preventDefault(); return }
-  if (target.closest('[data-md-processing-action]') && handleProcessingClick(target)) { event.preventDefault(); return }
-  if (target.closest('[data-md-packaging-action]') && handlePackagingClick(target)) { event.preventDefault(); return }
-  if (target.closest('[data-md-action]') && handleMaterialDecisionClick(target)) { event.preventDefault(); return }
+  if (dispatchMaterialDecisionClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-pf-action]') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
+  if (target.closest('#pf-app [data-pf-field], #pf-app .pf-form')) return
   const skipPageRerender = Boolean(
     target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'),
   )
@@ -1689,6 +1854,10 @@ root.addEventListener('click', async (event) => {
       await renderProductionOrdersOverlayOnly(focusSnapshot)
       return
     }
+    if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+      await renderTechPackTabOnly(target)
+      return
+    }
     if (
       target.closest<HTMLElement>('[data-fast-page-render]') ||
       shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
@@ -1718,7 +1887,8 @@ root.addEventListener('click', async (event) => {
 
 root.addEventListener('input', async (event) => {
   const mdTarget = resolveEventElementTarget(event.target)
-  if (mdTarget?.closest('[data-md-field]') && handleMaterialDecisionInput(mdTarget)) return
+  if (mdTarget && dispatchMaterialDecisionInput(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
@@ -1754,6 +1924,7 @@ root.addEventListener('input', async (event) => {
 root.addEventListener('compositionend', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (target.closest('[data-pf-field]') && handleProductionFulfillmentField(target)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
@@ -1771,8 +1942,8 @@ root.addEventListener('compositionend', async (event) => {
 
 root.addEventListener('change', async (event) => {
   const mdTarget = resolveEventElementTarget(event.target)
-  if (mdTarget && (handlePreparationChange(mdTarget)||handleWarningsChange(mdTarget))) return
-  if (mdTarget?.closest('[data-md-field]') && handleMaterialDecisionChange(mdTarget)) return
+  if (mdTarget && dispatchMaterialDecisionChange(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const skipChangeRerender = shouldSkipChangeRerender(target)
@@ -1803,7 +1974,8 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
-  if (handleMaterialDecisionKey(event)) return
+  if (handleProductionFulfillmentKey(event)) return
+  if (dispatchMaterialDecisionKey(event)) return
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
   if (cuttingScanTarget) {

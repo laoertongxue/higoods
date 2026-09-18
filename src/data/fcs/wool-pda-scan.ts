@@ -19,7 +19,7 @@ export type WoolPdaScanResolution =
 
 const PURPOSE_ACTIONS: Record<WoolPdaScanPurpose, WoolAllowedAction[]> = {
   EXECUTION: ['REPORT_PROCESS', 'ASSOCIATE_MACHINE', 'COMPLETE'],
-  RECEIVE: ['RECEIVE_YARN'],
+  RECEIVE: ['RECEIVE_YARN', 'RECEIVE_PIECES'],
   HANDOVER: ['HANDOVER'],
 }
 

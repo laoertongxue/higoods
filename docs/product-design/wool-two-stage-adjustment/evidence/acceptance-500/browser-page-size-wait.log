@@ -1,0 +1,9 @@
+
+Running 1 test using 1 worker
+
+
+(node:61983) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留
+  1 passed (3.1s)

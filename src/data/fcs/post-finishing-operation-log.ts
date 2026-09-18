@@ -68,7 +68,24 @@ function readPersistedLogs(): PostFinishingOperationLogEntry[] {
 
 let logs = readPersistedLogs()
 
+// 仅固定演示数据的同步初始化暂缓保存；普通业务操作仍即时保存。
+let demoPersistence: 'idle' | 'save' | 'remove' | undefined
+
+export function beginPostFinishingOperationLogDemoBatch() {
+  const before = logs
+  demoPersistence = 'idle'
+  return {
+    commit(): void {
+      if (demoPersistence === 'save') globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
+      if (demoPersistence === 'remove') globalThis.localStorage?.removeItem(STORAGE_KEY)
+    },
+    rollback(): void { logs = before },
+    finish(): void { demoPersistence = undefined },
+  }
+}
+
 function persist(): void {
+  if (demoPersistence !== undefined) { demoPersistence = 'save'; return }
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
   } catch {
@@ -127,6 +144,7 @@ export function listPostFinishingOperationLogs(
 
 export function resetPostFinishingOperationLogs(): void {
   logs = []
+  if (demoPersistence !== undefined) { demoPersistence = 'remove'; return }
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY)
   } catch {

@@ -1,0 +1,31 @@
+{
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "branch": "codex/wool-main-release-20260918",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "buildSha256": "be9ff830e5966191c053760d2aab07defa02c51eb6968ac2089045dd2f9a36e5",
+  "files": {
+    "scripts/check-printing-demo-receiving-batch.ts": "3fcd01d16375d626ab411566f782cf8dde92e448ffcdc3a106095d166d109fdf",
+    "scripts/check-wool-action-performance.mjs": "ca469b8bfb8ad3a231bce1437557706693fb719033020c20070fbc25048a6cb9",
+    "scripts/check-wool-extra-action-performance.mjs": "5070791e88f66a2a30cd876dab0988b0c85935d31957025066612d6f1cc21b0f",
+    "scripts/check-wool-performance-fact-equivalence.ts": "f4ca440efc1fce083de055f3757a2ac901b9e5d10fba95a9177ec478e77e8831",
+    "scripts/check-wool-print-extra-performance.mjs": "7d203f5bff148f1208b11735149d7887bfa31af924b96bc4ed58a54368d845df",
+    "scripts/check-wool-remaining-action-performance.mjs": "8be29b0c734a3665ad32b973864ce75c4b435182a4024b34a943eef9c284ab05",
+    "scripts/check-wool-route-performance.mjs": "cff3d48dde34ef423bf2589bada5dedfea4a90aaf9a89cd03e1afc4ff760c5a8",
+    "scripts/diagnose-wool-queue-performance.mjs": "88b518067a9dd5bb0c36f943b5fd194071994e9fb7cf5f38361cde2b98cc3943",
+    "src/data/fcs/factory-internal-warehouse.ts": "f1e291e821ef8c631da58e2344a160b67e3d7e75a0bc962e91d20b15f29ba555",
+    "src/data/fcs/factory-receiving.ts": "e77655588965d4cc3d4c94dfdecf2de97c5861dbdd8dbdc469d34a09734f7cc5",
+    "src/data/fcs/pda-handover-events.ts": "b48d4561cdcbace36ad4a4334f08ae6296f832fc6b2fd2e7baa85c26d2358229",
+    "src/data/fcs/printing-factory-demos.ts": "27ba71fc8a18f2600b187cef7c9137f292dbb7d5112e9b23f6b255c39f8e5df9",
+    "src/data/fcs/printing-task-domain.ts": "60797e32ba080818bc56f102b2bb7f46b980e596451136831f410266011a4ace",
+    "src/data/fcs/store-domain-progress.ts": "f5093f24cdaaa668f9b79fa87f1edb76111cea11ea10e8bec95a3840d732d7ad",
+    "src/data/fcs/warehouse-material-execution.ts": "259f7d8e749e429ed5c0e9b973f9c5af9f84d7c470f10936c5795959c03271e4",
+    "src/data/fcs/water-soluble-task-domain.ts": "4b903c04bb019cd49f5483a6ba9a86a9049bc00fe411b330e45b453fef73a92a",
+    "src/main.ts": "30970df8543a6b53255c41a873adfce50eb983c09c754868bf1cd34dffc036d9",
+    "src/pages/pda-handover-detail.ts": "3a266c130f9f9acd614bb66d92afaf8a86dfc27a1f562b06bc5bcf546e1f466c",
+    "src/pages/process-factory/wool/handover-print.ts": "264295c9803413f92f4b0b15218b1d25e867b1e7189d7963de18f9dc13b92490",
+    "tests/unit/printing-dispatch-read.test.ts": "dfcb54dfe0c1641de66cb49f21c46c40a30d82a099b902bb745bd9337784b704",
+    "tests/unit/receiving-scoped-reads.test.ts": "71d881e98ff6c616e5d881c7e08568302bfb7d7a3fc773b70e39f99417f8b204",
+    "tests/wool-acceptance-extra.spec.ts": "4c88eee642a03fa30d93112ea52f18c6eb323c3f5f86e75eff8849003f55e61c",
+    "tests/wool-acceptance-gaps.spec.ts": "d36a45bb4a6d2594fbe912c88cc8a1177587d73c173ef0a048738d8fcb86fa9a"
+  }
+}

@@ -1,0 +1,54 @@
+
+Running 1 test using 1 worker
+
+
+(node:56045) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数
+  1) tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数 ────────────────────────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+      Object {
+        "rows": 13,
+    -   "samePager": true,
+    -   "sameTable": true,
+    +   "samePager": false,
+    +   "sameTable": false,
+      }
+
+       97 |    const before=(window as any).__woolDebounceNodes
+       98 |    return {sameTable:before.table===document.querySelector('[data-wool-warehouse-table-surface]')!.firstElementChild,samePager:before.pager===document.querySelector('[data-wool-warehouse-field="pageSize"]'),rows:document.querySelectorAll('[data-wool-warehouse-table-surface] tbody tr').length}
+    >  99 |   })).toEqual({sameTable:true,samePager:true,rows:13})
+          |       ^
+      100 |   await expect(page.locator('[data-wool-warehouse-field="pageSize"]')).toHaveValue('20')
+      101 |  }
+      102 |  for(const kind of ['change','reset','select-after-change'] as const)await run(kind)
+        at run (/private/tmp/higoods-wool-main-release-20260918/tests/wool-acceptance-extra.spec.ts:99:7)
+        at /private/tmp/higoods-wool-main-release-20260918/tests/wool-acceptance-extra.spec.ts:102:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数 ─────────────────────────

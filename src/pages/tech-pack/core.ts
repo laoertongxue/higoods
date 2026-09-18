@@ -46,7 +46,26 @@ import {
 import { renderAddTechniqueDialog, renderProcessTab } from './process-domain.ts'
 import { renderAddSizeDialog, renderSizeTab } from './size-domain.ts'
 
-function renderCurrentTabContent(): string {
+export { renderTabHeader }
+
+let eventHandlersPreloadScheduled = false
+
+function scheduleEventHandlersPreload(): void {
+  if (
+    eventHandlersPreloadScheduled
+    || typeof window === 'undefined'
+    || typeof window.setTimeout !== 'function'
+    || typeof document === 'undefined'
+    || typeof document.querySelector !== 'function'
+  ) return
+
+  eventHandlersPreloadScheduled = true
+  window.setTimeout(() => {
+    void import('./events')
+  }, 250)
+}
+
+export function renderCurrentTabContent(): string {
   if (state.activeTab === 'pattern') return renderPatternTab()
   if (state.activeTab === 'bom') return renderBomTab()
   if (state.activeTab === 'process') return renderProcessTab()
@@ -772,6 +791,7 @@ export function renderTechPackPage(
     technicalVersionId?: string
   },
 ): string {
+  scheduleEventHandlersPreload()
   ensureTechPackPageState(rawSpuCode, {
     spuName: options?.spuName,
     skuCatalog: options?.skuCatalog,
@@ -830,8 +850,12 @@ export function renderTechPackPage(
         </div>
       </header>
 
-      ${renderTabHeader()}
-      ${renderCurrentTabContent()}
+      <div data-tech-pack-tab-header-root="true">
+        ${renderTabHeader()}
+      </div>
+      <div data-tech-pack-tab-content-root="true">
+        ${renderCurrentTabContent()}
+      </div>
 
       ${renderPatternDialog()}
       ${renderPatternTemplateDialog()}

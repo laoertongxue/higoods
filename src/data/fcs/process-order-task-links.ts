@@ -1,6 +1,8 @@
 import { getProductionOrderProcessEntries } from './production-order-tech-pack-runtime.ts'
 import { listProcessWorkOrderRelationSources, PROCESS_WORK_ORDER_SOURCE_LABEL } from './process-work-order-domain.ts'
-import { processTasks } from './process-tasks.ts'
+import { processTasks, type ProcessTask } from './process-tasks.ts'
+import { readRuntimeTaskById, readRuntimeTasks } from './runtime-task-read-bridge.ts'
+import type { RuntimeProcessTask } from './runtime-process-tasks.ts'
 import {
   listLaceProductionOrders,
   PLATFORM_ADMIN,
@@ -354,7 +356,7 @@ function inferWorkOrderEntryIds(input: {
     .map((entry) => entry.id)
 }
 
-function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocumentRef[] {
+function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessTask[], sourceTaskId?: string): ProcessOrderTaskDocumentRef[] {
   const generatedCutOrders = listGeneratedCutOrderSourceRecords()
   const specialCraftOrders = listSpecialCraftTaskOrders()
   const scopedEntries = productionOrderId ? getProductionOrderProcessEntries(productionOrderId) : []
@@ -366,7 +368,9 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
   const formalCuttingTaskIds = new Set(generatedCutOrders.map((order) => order.cuttingTaskId))
   const formalSpecialCraftTaskIds = new Set(specialCraftOrders.map((order) => order.sourceTaskId).filter(Boolean))
   const woolTaskIds = new Set(woolWorkOrders.map((order) => order.taskId))
-  const relationSources = listProcessWorkOrderRelationSources()
+  const relationSources = listProcessWorkOrderRelationSources(
+    executionTasks && scopedEntries.length ? new Set(scopedEntries.map(entry => entry.processCode)) : undefined,
+  )
   const designRevisionSourceDocuments = [...new Map(relationSources
     .filter((order) => order.sourceType === 'DESIGN_REVISION' && order.sourceSnapshot.professionalTaskId)
     .map((order): [string, ProcessOrderTaskDocumentRef] => {
@@ -445,7 +449,9 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
     }
   })
 
-  const productionDocuments = processTasks
+  const productionDocuments = (executionTasks
+    ? [...processTasks.filter(task => task.taskId !== sourceTaskId && !executionTasks.some(runtime => runtime.taskId === task.taskId)), ...executionTasks]
+    : processTasks)
     .filter((task): task is typeof task & { productionOrderId: string } => Boolean(task.productionOrderId))
     .filter((task) => !formalCuttingTaskIds.has(task.taskId))
     .filter((task) => !formalSpecialCraftTaskIds.has(task.taskId))
@@ -526,7 +532,7 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
       documentId: order.taskId,
       documentNo: order.woolOrderNo,
       documentKind: 'PRODUCTION_TASK',
-      documentTypeLabel: order.kind === 'PART_PANEL' ? '部位毛织加工单' : '整件毛织加工单',
+      documentTypeLabel: order.stage === 'KNITTING' ? '横机加工单' : '缝盘加工单',
       productionOrderId: order.productionOrderId,
       productionOrderNo: order.productionOrderNo,
       techPackVersionId: order.sourceTechPackVersionId,
@@ -539,9 +545,9 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
       bomItemIds,
       formalRouteLinkStatus: formalSnapshot && sourceEntryIds.length > 0 && bomItemIds.length > 0 ? 'LINKED' : 'UNLINKED',
       sourceLabel: `生产单 ${order.productionOrderNo} / 技术包 ${order.sourceTechPackVersionCode}`,
-      objectLabel: `纱线 → ${outputObjectLabel}`,
+      objectLabel: order.stage === 'KNITTING' ? `纱线 → 毛织片` : `毛织片 → ${outputObjectLabel}`,
       quantityLabel: `${totalOutputQty} 件`,
-      href: `/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}`,
+      href: `/fcs/craft/wool/${order.stage === 'KNITTING' ? 'knitting-orders' : 'linking-orders'}/${encodeURIComponent(order.woolOrderId)}`,
       detailRefs: order.outputPlanLines.map((line) => {
         const lineEntryIds = buildLineEntryIds(line)
         return buildDetailRef({
@@ -702,7 +708,7 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
     laceFormalSnapshots,
   )
 
-  return [
+  const documents: ProcessOrderTaskDocumentRef[] = [
     ...designRevisionSourceDocuments,
     ...preparationDocuments,
     ...productionDocuments,
@@ -711,7 +717,29 @@ function buildDocumentRefs(productionOrderId?: string): ProcessOrderTaskDocument
     ...specialCraftDocuments,
     ...bindingDocuments,
     ...new Map(laceDocuments.map((document) => [document.documentId, document])).values(),
-  ].filter(document => !productionOrderId || document.productionOrderId === productionOrderId)
+  ].map(document => executionTasks && sourceTaskId ? {
+    ...document,
+    // A source reference covers its actual runtime instances. An explicit runtime
+    // reference (including a cancelled historical split) keeps its own identity.
+    predecessorDocumentIds: document.predecessorDocumentIds?.flatMap(id => id === sourceTaskId ? executionTasks.map(task => task.taskId) : [id]),
+    successorDocumentIds: document.successorDocumentIds?.flatMap(id => id === sourceTaskId ? executionTasks.map(task => task.taskId) : [id]),
+  } : document)
+  if (!productionOrderId) return documents
+  // Explicit references may cross the production-order boundary (e.g. preparation
+  // from a design revision). Retain both ends instead of dropping them by order ID.
+  const selected = new Set(documents.filter(document => document.productionOrderId === productionOrderId).map(document => document.documentId))
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const document of documents) {
+      const references = [...(document.predecessorDocumentIds ?? []), ...(document.successorDocumentIds ?? [])]
+      if (!selected.has(document.documentId) && !references.some(id => selected.has(id))) continue
+      for (const id of [document.documentId, ...references]) {
+        if (!selected.has(id)) { selected.add(id); changed = true }
+      }
+    }
+  }
+  return documents.filter(document => selected.has(document.documentId))
 }
 
 function listEntriesByProductionOrder(documentRefs: ProcessOrderTaskDocumentRef[]): Map<string, TechnicalProcessEntry[]> {
@@ -981,6 +1009,19 @@ export function buildProcessOrderTaskRelationViewFromDocuments(
 }
 
 export function getProcessOrderTaskRelationView(documentId: string): ProcessOrderTaskRelationView | undefined {
+  // Runtime instances (including split/merged instances) must be resolved by the
+  // existing reader, never by stripping an ID suffix. Their source route is the
+  // original task's route; quantities/details remain the current runtime scope.
+  const runtimeTask = readRuntimeTaskById<RuntimeProcessTask>(documentId)
+  const sourceTask = runtimeTask && processTasks.find(task => task.taskId === runtimeTask.baseTaskId)
+  if (runtimeTask && sourceTask && runtimeTask.productionOrderId === sourceTask.productionOrderId) {
+    const instances = readRuntimeTasks<RuntimeProcessTask>().filter(task => task.baseTaskId === sourceTask.taskId
+      && task.productionOrderId === runtimeTask.productionOrderId)
+    if (!instances.some(task => task.taskId === runtimeTask.taskId)) instances.push(runtimeTask)
+    const executionTasks: ProcessTask[] = instances.map(task => ({ ...task, qty: task.scopeQty, detailRows: task.scopeDetailRows }))
+    const documents = buildDocumentRefs(runtimeTask.productionOrderId, executionTasks, sourceTask.taskId)
+    return buildProcessOrderTaskRelationViewFromDocuments(documentId, documents)
+  }
   if (relationReadDepth > 0) {
     if (!relationReadScope) {
       const documents = buildDocumentRefs()

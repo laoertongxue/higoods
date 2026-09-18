@@ -32,9 +32,9 @@ import {
   listWarehouseExecutionDocsByOrder,
   listWarehouseExecutionDocsByRuntimeTaskId,
   listWarehouseExecutionDocsByMaterialRequestNo,
-  listWarehouseInternalTransferOrdersByRuntimeTaskId,
-  listWarehouseIssueOrdersByRuntimeTaskId,
-  listWarehouseReturnOrdersByRuntimeTaskId,
+  listWarehouseInternalTransferOrders,
+  listWarehouseIssueOrders,
+  type WarehouseExecutionDocumentSnapshot,
   getWarehouseExecutionSummaryByOrder,
   type WarehouseExecutionDoc,
   type WarehouseExecutionStatus,
@@ -1128,9 +1128,9 @@ function getRequestsByRuntimeTask(task: RuntimeProcessTask): MaterialRequestReco
   })
 }
 
-function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['startReadiness'] {
+function evaluateRuntimeStartReadiness(task: RuntimeProcessTask, docs: WarehouseExecutionDocumentSnapshot): ProgressFact['startReadiness'] {
   if (task.executorKind === 'WAREHOUSE_WORKSHOP') {
-    const transferDocs = listWarehouseInternalTransferOrdersByRuntimeTaskId(task.taskId)
+    const transferDocs = docs.internalTransferOrders.filter(order => order.runtimeTaskId === task.taskId)
     const ready = transferDocs.some((doc) =>
       doc.status === 'IN_TRANSIT' ||
       doc.status === 'RECEIVED' ||
@@ -1147,14 +1147,14 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['
       const upstream = getRuntimeTaskById(upstreamTaskId)
       if (!upstream) return false
       if (upstream.status === 'DONE') return true
-      return listWarehouseReturnOrdersByRuntimeTaskId(upstream.taskId).some((doc) => isDocClosed(doc.status))
+      return docs.returnOrders.filter(order => order.runtimeTaskId === upstream.taskId).some((doc) => isDocClosed(doc.status))
     })
     return ready
       ? { canStart: true, reasonCode: 'READY', reasonText: '同厂连续流转已就绪' }
       : { canStart: false, reasonCode: 'WAIT_PREV_DONE', reasonText: '上一工序尚未完成连续流转' }
   }
 
-  const issueDocs = listWarehouseIssueOrdersByRuntimeTaskId(task.taskId)
+  const issueDocs = docs.issueOrders.filter(order => order.runtimeTaskId === task.taskId)
   if (!issueDocs.length) {
     return { canStart: false, reasonCode: 'WAIT_EXECUTION_DOC', reasonText: '尚未生成仓库发料单' }
   }
@@ -1175,6 +1175,12 @@ export function listProgressFacts(): ProgressFact[] {
   const handoutHeads = getPdaHandoutHeads()
   const runtimeTasks = listRuntimeExecutionTasks()
   const warehouseExecutionSnapshot = buildWarehouseExecutionDocumentSnapshot(runtimeTasks)
+  // One synchronous read of all receipt-backed documents, shared by every task.
+  const readinessSnapshot = {
+    issueOrders: listWarehouseIssueOrders(),
+    internalTransferOrders: listWarehouseInternalTransferOrders(),
+    returnOrders: warehouseExecutionSnapshot.returnOrders,
+  }
   const sewingDeliverySlaByTaskId = new Map(
     listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view] as const),
   )
@@ -1217,7 +1223,7 @@ export function listProgressFacts(): ProgressFact[] {
       pickupHeadIds: pickupHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
       handoutHeadIds: handoutHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
       ...(sewingDeliverySla ? { sewingDeliverySla } : {}),
-      startReadiness: evaluateRuntimeStartReadiness(task),
+      startReadiness: evaluateRuntimeStartReadiness(task, readinessSnapshot),
     }
   })
 }

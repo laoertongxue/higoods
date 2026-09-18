@@ -1,0 +1,47 @@
+
+Running 2 tests using 1 worker
+
+
+(node:22077) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/2] tests/wool-acceptance-extra.spec.ts:7:1 › A13 计划80实际100的合法外发片经过各工艺真实接收加工交出并缝盘最终交出
+[2/2] tests/wool-acceptance-extra.spec.ts:37:1 › A19 1024仓库领退移库与设备关联释放及状态修改可操作
+  1) tests/wool-acceptance-extra.spec.ts:37:1 › A19 1024仓库领退移库与设备关联释放及状态修改可操作 ──────────────────────
+
+    TimeoutError: locator.fill: Timeout 12000ms exceeded.
+    Call log:
+      - waiting for locator('[data-wool-warehouse-dialog-field="qty"]')
+
+
+      49 |    await expect(page.locator('tbody')).toContainText('HJ260918-001')
+      50 |    const row=await page.locator(w('open-issue')).first().getAttribute('data-row-id'),by=(n:string)=>w(n)+`[data-row-id="${row}"]`
+    > 51 |    for(const n of ['issue','return']){await page.locator(by('open-'+n)).click();await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('1');await page.locator(w('save-'+n)).click();await expect(page.locator('[data-wool-warehouse-dialog]')).toHaveCount(0)}
+         |                                                                                                                                                ^
+      52 |    await page.locator(by('open-transfer-out')).click();const target='[data-wool-warehouse-dialog-field="target"]';const options=await page.locator(target+' option').evaluateAll(es=>es.map(e=>(e as HTMLOptionElement).value).filter(Boolean));await page.locator(target).selectOption(options.at(-1)!);await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('1');await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('1024库位整理');await page.locator(w('save-transfer-out')).click();await expect(page.locator('[data-wool-warehouse-dialog]')).toHaveCount(0)
+      53 |   }
+      54 |   await page.screenshot({path:info.outputPath(`warehouse-${mode}-1024.png`),fullPage:true})
+        at /private/tmp/higoods-wool-main-release-20260918/tests/wool-acceptance-extra.spec.ts:51:144
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../wool-business-extra-final/wool-acceptance-extra-A19-1024仓库领退移库与设备关联释放及状态修改可操作/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../wool-business-extra-final/wool-acceptance-extra-A19-1024仓库领退移库与设备关联释放及状态修改可操作/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../wool-business-extra-final/wool-acceptance-extra-A19-1024仓库领退移库与设备关联释放及状态修改可操作/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../wool-business-extra-final/wool-acceptance-extra-A19-1024仓库领退移库与设备关联释放及状态修改可操作/trace.zip
+    Usage:
+
+        npx playwright show-trace ../wool-business-extra-final/wool-acceptance-extra-A19-1024仓库领退移库与设备关联释放及状态修改可操作/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/wool-acceptance-extra.spec.ts:37:1 › A19 1024仓库领退移库与设备关联释放及状态修改可操作 ───────────────────────
+  1 passed (20.5s)

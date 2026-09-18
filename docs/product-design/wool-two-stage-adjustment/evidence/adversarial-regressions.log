@@ -1,0 +1,8 @@
+✓ 初始化写入 higood-factory-material-receiving-v1 失败不发布任一半成事实，重试仍执行初始化
+✓ 存储恢复后只初始化一次，共享实收与毛织事实同时可读
+✓ 初始化写入 higood-fcs-wool-stage-store-v3 失败不发布任一半成事实，重试仍执行初始化
+✓ 存储恢复后只初始化一次，共享实收与毛织事实同时可读
+✓ 异厂真实未绑定备料123kg不会进入本厂库存、今日流水或接收数量
+✓ 真实领用10kg与备料转出4kg相加为14kg，不被负调整抵消
+✓ PDA方向卡片与汇总使用绝对数量，保留原始账本负数
+PASS 7 adversarial regression checks; no browser/performance claim.

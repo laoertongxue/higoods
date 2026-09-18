@@ -207,26 +207,20 @@ export function buildDictionaryCraftMockDocumentNo(
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
 }
 
-function listTechPackSourceOrders() {
-  return productionOrders
-    .map((order) => ({
-      order,
-      snapshot: getProductionOrderTechPackSnapshot(order.productionOrderId),
-    }))
-    .filter((item): item is { order: typeof productionOrders[number]; snapshot: NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>> } => Boolean(item.snapshot))
-}
-
-function listDictionaryCoverageSourceOrders() {
-  return listTechPackSourceOrders().filter(({ order }) =>
-    initialProductionOrderIds.has(order.productionOrderId)
-    && order.taskBreakdownSummary.isBrokenDown && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
-  )
-}
-
 function getMockSourceForCraft(craftIndex: number, mockIndex: number) {
-  const sourceOrders = listDictionaryCoverageSourceOrders()
-  if (!sourceOrders.length) return null
-  return sourceOrders[(craftIndex * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION + mockIndex) % sourceOrders.length]
+  // Select the eligible order before cloning its snapshot. A dictionary traversal
+  // asks for one source at a time; cloning every order here multiplied cold-start
+  // work by the number of craft samples without changing the selected result.
+  const orders = productionOrders.filter((order) =>
+    Boolean(order.techPackSnapshot)
+    && initialProductionOrderIds.has(order.productionOrderId)
+    && order.taskBreakdownSummary.isBrokenDown
+    && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
+  )
+  if (!orders.length) return null
+  const order = orders[(craftIndex * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION + mockIndex) % orders.length]
+  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  return snapshot ? { order, snapshot } : null
 }
 
 export function getDictionaryCraftMockSource(craftCode: string, mockIndex: number) {

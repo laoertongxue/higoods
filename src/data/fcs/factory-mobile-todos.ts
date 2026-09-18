@@ -29,6 +29,8 @@ import {
 import { getSpecialCraftPdaCandidateByTaskId } from './special-craft-pda-scan.ts'
 import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
 import { isKolGotoFactory, isKolGotoWholeOrderTask } from './kol-goto-special-flow.ts'
+import { readWoolQuerySnapshot } from './wool-domain/queries.ts'
+import { woolOrderGenerationIssues } from './wool-domain/stage-rules.ts'
 
 export type FactoryMobileTodoType =
   | '待报价'
@@ -159,14 +161,22 @@ function isWoolTask(task: PdaTaskFlowMock): boolean {
 }
 
 function getWoolTodoMeta(task: PdaTaskFlowMock): {
-  todoType: '待确认接收' | '待加工填报' | '待交出' | '待完工'
+  todoType: '待确认接收' | '待加工填报' | '待交出' | '待完工' | '待开工' | '异常待处理'
   title: string
 } {
-  const actions = (task as PdaTaskFlowMock & { woolAllowedActions?: string[] }).woolAllowedActions || []
-  if (actions.includes('COMPLETE')) return { todoType: '待完工', title: '毛织加工单待业务确认完成' }
-  if (actions.includes('HANDOVER')) return { todoType: '待交出', title: '毛织加工单待发起交出' }
-  if (actions.includes('REPORT_PROCESS')) return { todoType: '待加工填报', title: '毛织加工单可加工填报' }
-  return { todoType: '待确认接收', title: '毛织加工单待确认接收纱线' }
+  const woolTask = task as PdaTaskFlowMock & { woolAllowedActions?: string[]; woolOrderId?: string }
+  const actions = woolTask.woolAllowedActions || []
+  const order = readWoolQuerySnapshot().workOrders[woolTask.woolOrderId || '']
+  const label = order?.stage === 'LINKING' ? '缝盘加工单' : '横机加工单'
+  if (order && actions.every(action => action === 'DETAIL') && woolOrderGenerationIssues(order).length) {
+    return { todoType: '异常待处理', title: `${label}资料不完整，请核对技术包` }
+  }
+  if (actions.includes('COMPLETE')) return { todoType: '待完工', title: `${label}待确认完单` }
+  if (actions.includes('HANDOVER')) return { todoType: '待交出', title: `${label}待发起交出` }
+  if (actions.includes('REPORT_PROCESS')) return { todoType: '待加工填报', title: `${label}可加工填报` }
+  if (actions.includes('RECEIVE_PIECES')) return { todoType: '待确认接收', title: `${label}待确认接收外加工回货片` }
+  if (actions.includes('RECEIVE_YARN')) return { todoType: '待确认接收', title: `${label}待确认接收纱线` }
+  return { todoType: '待开工', title: order?.stage === 'LINKING' && !order.externalPieces.length ? `${label}等待横机填报同步` : `${label}等待上游准备` }
 }
 
 function getSpecialCraftTodoMeta(task: PdaTaskFlowMock): {
@@ -193,7 +203,7 @@ function getSpecialCraftTodoMeta(task: PdaTaskFlowMock): {
 
 function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
   applyPendingDispatchAutoAcceptance()
-  return listPdaTaskFlowTasks()
+  return listPdaTaskFlowTasks(undefined, factoryId)
     .filter(
       (task) =>
         task.assignedFactoryId === factoryId
@@ -243,7 +253,7 @@ function buildPostFinishingTaskReceiveTodos(factoryId: string): FactoryMobileTod
 }
 
 function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
-  const acceptedTasks = listPdaTaskFlowTasks().filter(
+  const acceptedTasks = listPdaTaskFlowTasks(undefined, factoryId).filter(
     (task) =>
       task.assignedFactoryId === factoryId
       && (isWoolTask(task) || task.acceptanceStatus === 'ACCEPTED'),

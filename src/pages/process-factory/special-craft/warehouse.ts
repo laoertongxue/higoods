@@ -1,3 +1,5 @@
+import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from '../../../data/fcs/wool-domain/craft-warehouse.ts'
+import { renderWoolObjectImage } from '../wool/stage-display.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   getSpecialCraftManagementDomainBySlug,
@@ -28,6 +30,7 @@ import {
   listWaitProcessWarehouseRecords,
 } from '../../../data/fcs/process-warehouse-domain.ts'
 import {
+  getSpecialCraftTaskOrderById,
   listAuxiliaryCraftTaskOrders,
   listSpecialTypeCraftTaskOrders,
 } from '../../../data/fcs/special-craft-task-orders.ts'
@@ -175,6 +178,37 @@ function filterUnifiedRecordsByDomain<T extends { craftName?: string }>(
   return records.filter((record) => Boolean(record.craftName && craftNames.has(record.craftName)))
 }
 
+function isWoolWarehouseRecord(record: WarehouseFilterRecord): boolean {
+  const ids = ['warehouseRecordId', 'stockItemId', 'inboundRecordId', 'outboundRecordId'] as const
+  return ids.some(key => key in record && isWoolCraftWarehouseProjectionId(String((record as unknown as Record<string, unknown>)[key])))
+}
+
+function hasActualWoolQuantity(record: WarehouseFilterRecord): boolean {
+  if (isWoolWarehouseRecord(record)) return true
+  const taskId = 'sourceTaskOrderId' in record ? record.sourceTaskOrderId : 'taskId' in record ? record.taskId : 'sourceTaskId' in record ? record.sourceTaskId : undefined
+  return Boolean(taskId && getSpecialCraftTaskOrderById(taskId)?.woolFinalInputOrderIds?.length)
+}
+
+function actualWoolArea(record: WarehouseFilterRecord): string {
+  return ('areaName' in record ? record.areaName : 'targetWarehouseName' in record ? record.targetWarehouseName : 'receiveWarehouseName' in record ? record.receiveWarehouseName : '') || ''
+}
+
+function renderWoolWarehouseObject(record: UnifiedWarehouseRecord): string {
+  const name = record.partName || record.itemName
+  return `<div class="flex items-center gap-2">${renderWoolObjectImage(record.photoList[0], `${name}款式参考图`)}<div>${escapeHtml(name)}<div class="text-xs text-muted-foreground">${escapeHtml(record.fabricColor || '')} / ${escapeHtml(record.sizeCode || '')}</div></div></div>`
+}
+
+function buildActualWoolFlowLines(taskId: string, kind: 'WAIT_PROCESS' | 'WAIT_HANDOVER', stockId?: string): FactoryWarehouseFlowLine[] {
+  const inputId = stockId?.startsWith('WCR:WP:') ? stockId.slice('WCR:WP:'.length) : ''
+  const projection = buildWoolCraftWarehouseProjection()
+  const inbound = projection.inboundRecords.filter(row => row.taskId === taskId && (kind === 'WAIT_HANDOVER' ? row.sourceRecordType === 'PROCESS_REPORT' : row.sourceRecordType !== 'PROCESS_REPORT') && (!inputId || row.generatedStockItemId === stockId))
+  const outbound = projection.outboundRecords.filter(row => row.sourceTaskId === taskId && (kind === 'WAIT_PROCESS' ? row.receiverKind === '加工任务' : row.receiverKind !== '加工任务') && (!inputId || row.outboundRecordId.endsWith(`:${inputId}`)))
+  return [
+    ...inbound.map(row => ({ flowType: row.sourceRecordType === 'PROCESS_REPORT' ? '加工入仓' : '接收入仓', qtyText: `${formatQty(row.receivedQty)} 片`, sourceNo: row.sourceRecordNo, operatedAt: row.receivedAt, operatorName: row.receiverName, statusText: row.status })),
+    ...outbound.map(row => ({ flowType: row.receiverKind === '加工任务' ? '加工投入' : '交出出仓', qtyText: `-${formatQty(row.outboundQty)} 片`, sourceNo: row.handoverRecordNo || row.outboundRecordNo, operatedAt: row.outboundAt, operatorName: row.operatorName, statusText: row.status })),
+  ].sort((a, b) => a.operatedAt.localeCompare(b.operatedAt))
+}
+
 function resolvePhysicalAreaMeta(craftName: string): PhysicalAreaMeta {
   if (craftName.includes('直喷') || craftName.includes('烫画')) return PHYSICAL_AREA_OPTIONS[0]
   if (craftName.includes('绣') || craftName.includes('贝壳') || craftName.includes('曲牙绣')) return PHYSICAL_AREA_OPTIONS[1]
@@ -191,7 +225,7 @@ function buildLocationText(craftName: string, locationSeed: string): string {
 function recordMatchesKeyword(record: ProcessWarehouseRecord | ProcessHandoverRecord, keyword: string): boolean {
   const normalized = keyword.trim().toLowerCase()
   if (!normalized) return true
-  const area = resolvePhysicalAreaMeta(record.craftName).areaName
+  const area = isWoolWarehouseRecord(record) ? actualWoolArea(record) : resolvePhysicalAreaMeta(record.craftName).areaName
   const tokens = [
     record.craftName,
     record.sourceWorkOrderNo,
@@ -206,7 +240,7 @@ function recordMatchesKeyword(record: ProcessWarehouseRecord | ProcessHandoverRe
 }
 
 function getFilterRecordFactory(record: WarehouseFilterRecord): { factoryId: string; factoryName: string } {
-  if ('targetFactoryId' in record) return { factoryId: record.targetFactoryId, factoryName: record.targetFactoryName }
+  if ('targetFactoryId' in record) return isWoolWarehouseRecord(record) ? { factoryId: record.sourceFactoryId, factoryName: record.sourceFactoryName } : { factoryId: record.targetFactoryId, factoryName: record.targetFactoryName }
   if ('handoverFactoryId' in record) return { factoryId: record.handoverFactoryId, factoryName: record.handoverFactoryName }
   return { factoryId: record.factoryId || '', factoryName: record.factoryName || '' }
 }
@@ -238,7 +272,7 @@ function unifiedRecordMatchesKeyword(record: UnifiedWarehouseRecord, keyword: st
     record.areaName,
     record.shelfNo,
     record.locationNo,
-    craftName ? resolvePhysicalAreaMeta(craftName).areaName : '',
+    isWoolWarehouseRecord(record) ? actualWoolArea(record) : craftName ? resolvePhysicalAreaMeta(craftName).areaName : '',
   ]
   return tokens.some((token) => token?.toLowerCase().includes(normalized))
 }
@@ -248,7 +282,7 @@ function unifiedRecordMatchesWarehouseState(record: UnifiedWarehouseRecord, stat
   if (state.operationName !== '全部' && craftName !== state.operationName) return false
   if (state.factoryId !== '全部' && getFilterRecordFactory(record).factoryId !== state.factoryId) return false
   if (state.physicalAreaName !== '全部') {
-    const physicalAreaName = craftName ? resolvePhysicalAreaMeta(craftName).areaName : record.areaName
+    const physicalAreaName = isWoolWarehouseRecord(record) ? actualWoolArea(record) : craftName ? resolvePhysicalAreaMeta(craftName).areaName : record.areaName
     if (physicalAreaName !== state.physicalAreaName) return false
   }
   return unifiedRecordMatchesKeyword(record, state.keyword)
@@ -260,10 +294,10 @@ function recordMatchesWarehouseState(
 ): boolean {
   if (state.operationName !== '全部' && record.craftName !== state.operationName) return false
   if (state.factoryId !== '全部') {
-    const factoryId = 'targetFactoryId' in record ? record.targetFactoryId : record.handoverFactoryId
+    const factoryId = getFilterRecordFactory(record).factoryId
     if (factoryId !== state.factoryId) return false
   }
-  if (state.physicalAreaName !== '全部' && resolvePhysicalAreaMeta(record.craftName).areaName !== state.physicalAreaName) return false
+  if (state.physicalAreaName !== '全部' && (isWoolWarehouseRecord(record) ? actualWoolArea(record) : resolvePhysicalAreaMeta(record.craftName).areaName) !== state.physicalAreaName) return false
   return recordMatchesKeyword(record, state.keyword)
 }
 
@@ -338,7 +372,7 @@ function renderWarehouseFilters(
         '物理库区',
         'physicalAreaName',
         state.physicalAreaName,
-        [{ value: '全部', label: '全部' }, ...PHYSICAL_AREA_OPTIONS.map((item) => ({ value: item.areaName, label: item.areaName }))],
+        [{ value: '全部', label: '全部' }, ...[...new Set([...PHYSICAL_AREA_OPTIONS.map(item => item.areaName), ...activeRecords.filter(isWoolWarehouseRecord).map(actualWoolArea)])].map(value => ({ value, label: value }))],
         domainSlug,
         mode,
       )}
@@ -370,6 +404,7 @@ function renderDomainWorkOrderAction(
 }
 
 function buildSpecialWarehouseFlowLines(record: ProcessWarehouseRecord): FactoryWarehouseFlowLine[] {
+  if (isWoolWarehouseRecord(record)) return buildActualWoolFlowLines(record.sourceTaskOrderId, record.recordType)
   if (record.recordType === 'WAIT_PROCESS') {
     return [
       {
@@ -418,7 +453,7 @@ function renderWaitProcessRows(records: ProcessWarehouseRecord[], operations: Sp
   if (!records.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待加工库存。</td></tr>`
   return records
     .map((record) => {
-      const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
+      const locationText = isWoolWarehouseRecord(record) ? record.warehouseLocation : buildLocationText(record.craftName, record.warehouseRecordNo)
       return `
         <tr class="align-top hover:bg-muted/20">
           <td class="px-3 py-3">
@@ -429,11 +464,11 @@ function renderWaitProcessRows(records: ProcessWarehouseRecord[], operations: Sp
             <div>${escapeHtml(record.sourceWorkOrderNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)}</div>
           </td>
-          <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(isWoolWarehouseRecord(record) ? record.sourceFactoryName : record.targetFactoryName)}</td>
           <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
-          <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty || record.receivedObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+          <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(hasActualWoolQuantity(record) ? record.availableObjectQty : record.availableObjectQty || record.receivedObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
           <td class="px-3 py-3">
-            <div>${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
+            <div>${escapeHtml(isWoolWarehouseRecord(record) ? actualWoolArea(record) : resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(locationText)}</div>
           </td>
           <td class="px-3 py-3">${renderStatusBadge(record.currentActionName || record.status || '待处理')}</td>
@@ -453,7 +488,7 @@ function renderWaitHandoverRows(records: ProcessWarehouseRecord[], operations: S
   if (!records.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待交出库存。</td></tr>`
   return records
     .map((record) => {
-      const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
+      const locationText = isWoolWarehouseRecord(record) ? record.warehouseLocation : buildLocationText(record.craftName, record.warehouseRecordNo)
       return `
         <tr class="align-top hover:bg-muted/20">
           <td class="px-3 py-3">
@@ -464,11 +499,11 @@ function renderWaitHandoverRows(records: ProcessWarehouseRecord[], operations: S
             <div>${escapeHtml(record.sourceWorkOrderNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)}</div>
           </td>
-          <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(isWoolWarehouseRecord(record) ? record.sourceFactoryName : record.targetFactoryName)}</td>
           <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
           <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
           <td class="px-3 py-3">
-            <div>${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
+            <div>${escapeHtml(isWoolWarehouseRecord(record) ? actualWoolArea(record) : resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(locationText)}</div>
           </td>
           <td class="px-3 py-3">${renderStatusBadge(record.status || '待交出')}</td>
@@ -500,7 +535,7 @@ function renderHandoverRows(records: ProcessHandoverRecord[]): string {
         <td class="px-3 py-3">${escapeHtml(record.handoverFactoryName)}</td>
         <td class="px-3 py-3">${escapeHtml(record.receiveFactoryName || record.receiveWarehouseName || '—')}</td>
         <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.handoverObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
-        <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
+        <td class="px-3 py-3">${escapeHtml(isWoolWarehouseRecord(record) ? actualWoolArea(record) : resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
         <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
         <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
       </tr>
@@ -509,6 +544,7 @@ function renderHandoverRows(records: ProcessHandoverRecord[]): string {
 }
 
 function buildUnifiedWaitProcessFlowLines(item: FactoryWaitProcessStockItem): FactoryWarehouseFlowLine[] {
+  if (isWoolWarehouseRecord(item)) return buildActualWoolFlowLines(item.taskId || '', 'WAIT_PROCESS', item.stockItemId)
   const lines: FactoryWarehouseFlowLine[] = [
     {
       flowType: item.sourceRecordType === 'HANDOVER_RECEIVE' ? '接收入仓' : '接收入仓',
@@ -543,6 +579,7 @@ function buildUnifiedWaitProcessFlowLines(item: FactoryWaitProcessStockItem): Fa
 }
 
 function buildUnifiedWaitHandoverFlowLines(item: FactoryWaitHandoverStockItem): FactoryWarehouseFlowLine[] {
+  if (isWoolWarehouseRecord(item)) return buildActualWoolFlowLines(item.taskId || '', 'WAIT_HANDOVER')
   const lines: FactoryWarehouseFlowLine[] = [
     {
       flowType: '完工入仓',
@@ -709,7 +746,7 @@ function renderAuxiliaryWarehouseActionDialog(input: {
   }))
   const waitHandoverOptions = input.waitHandoverItems.slice(0, 24).map((item) => ({
     value: item.stockItemId,
-    label: `${item.taskNo || item.stockItemId} / ${item.craftName || input.domainTitlePrefix} / ${formatNumber(item.waitHandoverQty || item.completedQty)} ${item.unit}`,
+    label: `${item.taskNo || item.stockItemId} / ${item.craftName || input.domainTitlePrefix} / ${formatNumber(hasActualWoolQuantity(item) ? item.waitHandoverQty : item.waitHandoverQty || item.completedQty)} ${item.unit}`,
   }))
   const areaOptions = Array.from(
     new Set([
@@ -854,8 +891,8 @@ function renderWaitProcessStockRows(items: FactoryWaitProcessStockItem[], operat
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.productionOrderNo || '-')}</div>
       </td>
       <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
-      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(item.receivedQty)} ${escapeHtml(item.unit)}</td>
+      <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(hasActualWoolQuantity(item) ? item.availableQty ?? 0 : item.receivedQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">
         <div>${escapeHtml(item.areaName)}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</div>
@@ -880,7 +917,7 @@ function renderInboundRecordRows(records: FactoryWarehouseInboundRecord[]): stri
       <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
       <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
       <td class="px-3 py-3">${escapeHtml(item.taskNo || '-')}</td>
-      <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+      <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
       <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(item.receivedQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
       <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
@@ -890,14 +927,14 @@ function renderInboundRecordRows(records: FactoryWarehouseInboundRecord[]): stri
 
 function renderIssueRecordRows(items: FactoryWaitProcessStockItem[]): string {
   if (!items.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">暂无加工接收记录。</td></tr>`
-  return items.map((item) => {
-    const issueQty = Math.max(item.receivedQty - Math.abs(item.differenceQty || 0), 0)
+  return items.filter(item => !hasActualWoolQuantity(item) || (item.issuedQty ?? 0) > 0).map((item) => {
+    const issueQty = hasActualWoolQuantity(item) ? item.issuedQty ?? 0 : Math.max(item.receivedQty - Math.abs(item.differenceQty || 0), 0)
     return `
       <tr class="align-top hover:bg-muted/20">
         <td class="px-3 py-3 font-medium text-slate-900">JGL-${escapeHtml(item.sourceRecordNo)}</td>
         <td class="px-3 py-3">${escapeHtml(item.craftName || '-')}</td>
         <td class="px-3 py-3">${escapeHtml(item.taskNo || '-')}</td>
-        <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+        <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
         <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(issueQty)} ${escapeHtml(item.unit)}</td>
         <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
         <td class="px-3 py-3">${renderStatusBadge(item.status === '差异待处理' ? '待复核' : '已领用')}</td>
@@ -916,7 +953,7 @@ function renderReturnRecordRows(items: FactoryWaitProcessStockItem[]): string {
         <td class="px-3 py-3 font-medium text-slate-900">HSH-${escapeHtml(item.sourceRecordNo)}</td>
         <td class="px-3 py-3">${escapeHtml(item.craftName || '-')}</td>
         <td class="px-3 py-3">${escapeHtml(item.taskNo || '-')}</td>
-        <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+        <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
         <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(returnQty)} ${escapeHtml(item.unit)}</td>
         <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
         <td class="px-3 py-3">${renderStatusBadge(item.status === '差异待处理' ? '待复核' : '已回收入仓')}</td>
@@ -943,14 +980,14 @@ function renderWaitHandoverStockRows(
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.productionOrderNo || '-')}</div>
       </td>
       <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
-      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(item.waitHandoverQty || item.completedQty)} ${escapeHtml(item.unit)}</td>
+      <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(hasActualWoolQuantity(item) ? item.waitHandoverQty : item.waitHandoverQty || item.completedQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
       <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
           ${renderDomainWorkOrderAction(operations, { craftName: item.craftName || '', sourceTaskOrderId: item.taskId || item.stockItemId })}
-          ${item.status === '待交出' ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildAuxiliaryWarehouseHref(domainSlug, 'wait-handover', { action: 'handover-confirm' }))}">交出确认</button>` : ''}
+          ${item.status === '待交出' ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(isWoolWarehouseRecord(item) ? buildSpecialCraftTaskDetailPath(findOperationByCraftName(operations, item.craftName || '')!, item.taskId!) : buildAuxiliaryWarehouseHref(domainSlug, 'wait-handover', { action: 'handover-confirm' }))}">交出确认</button>` : ''}
           ${renderWarehouseFlowButton(`${item.stockItemId} 库存流水`, buildUnifiedWaitHandoverFlowLines(item))}
         </div>
       </td>
@@ -965,7 +1002,7 @@ function renderFinishInboundRows(items: FactoryWaitHandoverStockItem[]): string 
       <td class="px-3 py-3 font-medium text-slate-900">WG-${escapeHtml(item.taskNo || item.stockItemId)}</td>
       <td class="px-3 py-3">${escapeHtml(item.craftName || '-')}</td>
       <td class="px-3 py-3">${escapeHtml(item.taskNo || '-')}</td>
-      <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
+      <td class="px-3 py-3">${hasActualWoolQuantity(item) ? renderWoolWarehouseObject(item) : escapeHtml(item.materialSku || item.partName || item.itemName)}</td>
       <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(item.completedQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">${formatNumber(item.lossQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
@@ -974,7 +1011,7 @@ function renderFinishInboundRows(items: FactoryWaitHandoverStockItem[]): string 
   `).join('')
 }
 
-function renderHandoverConfirmRows(items: FactoryWaitHandoverStockItem[], domainSlug: string): string {
+function renderHandoverConfirmRows(items: FactoryWaitHandoverStockItem[], domainSlug: string, operations: SpecialCraftOperationDefinition[]): string {
   if (!items.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">暂无可交出确认记录。</td></tr>`
   return items.map((item) => `
     <tr class="align-top hover:bg-muted/20">
@@ -982,10 +1019,10 @@ function renderHandoverConfirmRows(items: FactoryWaitHandoverStockItem[], domain
       <td class="px-3 py-3">${escapeHtml(item.craftName || '-')}</td>
       <td class="px-3 py-3">${escapeHtml(item.taskNo || '-')}</td>
       <td class="px-3 py-3">${escapeHtml(item.receiverName || '-')}</td>
-      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(item.waitHandoverQty || item.completedQty)} ${escapeHtml(item.unit)}</td>
+      <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(hasActualWoolQuantity(item) ? item.waitHandoverQty : item.waitHandoverQty || item.completedQty)} ${escapeHtml(item.unit)}</td>
       <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
       <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
-      <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildAuxiliaryWarehouseHref(domainSlug, 'wait-handover', { action: 'handover-confirm' }))}">交出确认</button></td>
+      <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(isWoolWarehouseRecord(item) ? buildSpecialCraftTaskDetailPath(findOperationByCraftName(operations, item.craftName || '')!, item.taskId!) : buildAuxiliaryWarehouseHref(domainSlug, 'wait-handover', { action: 'handover-confirm' }))}">交出确认</button></td>
     </tr>
   `).join('')
 }
@@ -1190,8 +1227,8 @@ function renderSpecialCraftDomainWarehousePageByMode(
     : []
   const auxiliaryWaitProcessItems = auxiliaryAllWaitProcessItems.filter((record) => unifiedRecordMatchesWarehouseState(record, state))
   const auxiliaryWaitHandoverItems = auxiliaryAllWaitHandoverItems.filter((record) => unifiedRecordMatchesWarehouseState(record, state))
-  const auxiliaryInboundRecords = auxiliaryAllInboundRecords.filter((record) => unifiedRecordMatchesWarehouseState(record, state))
-  const auxiliaryOutboundRecords = auxiliaryAllOutboundRecords.filter((record) => unifiedRecordMatchesWarehouseState(record, state))
+  const auxiliaryInboundRecords = auxiliaryAllInboundRecords.filter((record) => unifiedRecordMatchesWarehouseState(record, state) && (!isWoolWarehouseRecord(record) || (mode === 'wait-process' ? record.sourceRecordType !== 'PROCESS_REPORT' : record.sourceRecordType === 'PROCESS_REPORT')))
+  const auxiliaryOutboundRecords = auxiliaryAllOutboundRecords.filter((record) => unifiedRecordMatchesWarehouseState(record, state) && (!isWoolWarehouseRecord(record) || (mode === 'wait-process' ? record.receiverKind === '加工任务' : record.receiverKind !== '加工任务')))
   const auxiliaryAllFilterRecords: WarehouseFilterRecord[] = mode === 'wait-process'
     ? [...auxiliaryAllWaitProcessItems, ...auxiliaryAllInboundRecords]
     : [...auxiliaryAllWaitHandoverItems, ...auxiliaryAllOutboundRecords]
@@ -1225,6 +1262,13 @@ function renderSpecialCraftDomainWarehousePageByMode(
   const totalQty = isUnifiedCraftWarehouseDomain
     ? auxiliaryActiveRecords.reduce((sum, record) => sum + ('receivedQty' in record ? record.receivedQty : record.waitHandoverQty || record.completedQty), 0)
     : activeRecords.reduce((sum, record) => sum + record.availableObjectQty, 0)
+  const woolItems = auxiliaryActiveRecords.filter(isWoolWarehouseRecord)
+  const qtyByUnit = new Map<string, number>()
+  for (const record of auxiliaryActiveRecords) {
+    const qty = hasActualWoolQuantity(record) ? ('receivedQty' in record ? record.availableQty ?? 0 : record.waitHandoverQty) : ('receivedQty' in record ? record.receivedQty : record.waitHandoverQty || record.completedQty)
+    qtyByUnit.set(record.unit, (qtyByUnit.get(record.unit) ?? 0) + qty)
+  }
+  const totalQtyText = woolItems.length ? [...qtyByUnit].map(([unit, qty]) => `${formatNumber(qty)} ${unit}`).join(' / ') : `${formatNumber(totalQty)} 件`
   const factoryCount = isUnifiedCraftWarehouseDomain
     ? new Set(auxiliaryActiveRecords.map((record) => record.factoryId).filter(Boolean)).size
     : new Set(activeRecords.map((record) => record.targetFactoryId).filter(Boolean)).size
@@ -1238,7 +1282,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
 
   const metrics = `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      ${renderCompactKpiCard(mode === 'wait-process' ? '待加工库存' : '待交出库存', `${formatNumber(totalQty)} 件`, `${metricRecordLength} 条库存记录`, mode === 'wait-process' ? 'text-amber-600' : 'text-blue-600')}
+      ${renderCompactKpiCard(mode === 'wait-process' ? '待加工库存' : '待交出库存', totalQtyText, `${metricRecordLength} 条库存记录`, mode === 'wait-process' ? 'text-amber-600' : 'text-blue-600')}
       ${renderCompactKpiCard('覆盖工艺', operations.length, operations.map((operation) => operation.operationName).slice(0, 4).join(' / '), 'text-slate-900')}
       ${renderCompactKpiCard('生产单', productionOrderCount, '按生产单聚合', 'text-blue-600')}
       ${renderCompactKpiCard('工厂', factoryCount, '当前筛选结果', 'text-emerald-600')}
@@ -1381,7 +1425,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
       domainSlug,
       mode,
       headers: ['交出单', '工艺', '加工任务', '接收方', '交出数量', '库区库位', '状态', '操作'],
-      rowHtml: (items) => renderHandoverConfirmRows(items, domainSlug),
+      rowHtml: (items) => renderHandoverConfirmRows(items, domainSlug, operations),
     }))
     const handoverContent = renderFilteredTable(renderPaginatedTable({
       title: '交出记录',
@@ -1404,7 +1448,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
               : inventoryContent
     const waitHandoverKpis = `
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        ${renderCompactKpiCard('待交出库存', `${formatNumber(totalQty)} 件`, `${auxiliaryWaitHandoverItems.length} 条库存`, 'text-blue-600')}
+        ${renderCompactKpiCard('待交出库存', totalQtyText, `${auxiliaryWaitHandoverItems.length} 条库存`, 'text-blue-600')}
         ${renderCompactKpiCard('完工入仓', auxiliaryWaitHandoverItems.length, '已形成待交出库存', 'text-emerald-600')}
         ${renderCompactKpiCard('可交出确认', auxiliaryHandoverConfirmRecords.length, '待生成交出记录', 'text-amber-600')}
         ${renderCompactKpiCard('交出记录', auxiliaryOutboundRecords.length, '已确认交出', 'text-violet-600')}

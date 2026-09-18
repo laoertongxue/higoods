@@ -1,0 +1,15 @@
+{"kind":"execution","taskId":"DEM-202603-0005","documentNo":"TASKGEN-202603-0002-001","iteration":1,"href":"/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER","ms":154.30000001192093,"contentReady":true,"pageErrors":[]}
+{"kind":"execution","taskId":"DEM-202603-0005","documentNo":"TASKGEN-202603-0002-001","iteration":2,"href":"/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER","ms":215.69999998807907,"contentReady":true,"pageErrors":[]}
+{"kind":"execution","taskId":"DEM-202603-0005","documentNo":"TASKGEN-202603-0002-001","iteration":3,"href":"/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER","ms":173.09999999403954,"contentReady":true,"pageErrors":[]}
+{"kind":"execution","taskId":"DEM-202603-0005","documentNo":"TASKGEN-202603-0002-001","iteration":4,"href":"/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER","ms":151.5,"contentReady":true,"pageErrors":[]}
+{"kind":"execution","taskId":"DEM-202603-0005","documentNo":"TASKGEN-202603-0002-001","iteration":5,"href":"/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER","ms":151.69999998807907,"contentReady":true,"pageErrors":[]}
+{"kind":"qc","taskId":"DEM-202603-0005","documentNo":"QC-RIB-202603-0002","iteration":1,"href":"/fcs/quality/qc-records/QC-RIB-202603-0002","ms":99,"contentReady":true,"pageErrors":[]}
+{"kind":"qc","taskId":"DEM-202603-0005","documentNo":"QC-RIB-202603-0002","iteration":2,"href":"/fcs/quality/qc-records/QC-RIB-202603-0002","ms":99,"contentReady":true,"pageErrors":[]}
+{"kind":"qc","taskId":"DEM-202603-0005","documentNo":"QC-RIB-202603-0002","iteration":3,"href":"/fcs/quality/qc-records/QC-RIB-202603-0002","ms":99.30000001192093,"contentReady":true,"pageErrors":[]}
+{"kind":"qc","taskId":"DEM-202603-0005","documentNo":"QC-RIB-202603-0002","iteration":4,"href":"/fcs/quality/qc-records/QC-RIB-202603-0002","ms":99,"contentReady":true,"pageErrors":[]}
+{"kind":"qc","taskId":"DEM-202603-0005","documentNo":"QC-RIB-202603-0002","iteration":5,"href":"/fcs/quality/qc-records/QC-RIB-202603-0002","ms":98.69999998807907,"contentReady":true,"pageErrors":[]}
+{"kind":"demand-list","taskId":"DEM-202603-0005","documentNo":"DEM-202603-0005","iteration":1,"href":"/fcs/production/demand-inbox","ms":140.7999999821186,"contentReady":true,"pageErrors":[]}
+{"kind":"demand-list","taskId":"DEM-202603-0005","documentNo":"DEM-202603-0005","iteration":2,"href":"/fcs/production/demand-inbox","ms":126.69999998807907,"contentReady":true,"pageErrors":[]}
+{"kind":"demand-list","taskId":"DEM-202603-0005","documentNo":"DEM-202603-0005","iteration":3,"href":"/fcs/production/demand-inbox","ms":122.2000000178814,"contentReady":true,"pageErrors":[]}
+{"kind":"demand-list","taskId":"DEM-202603-0005","documentNo":"DEM-202603-0005","iteration":4,"href":"/fcs/production/demand-inbox","ms":153.5,"contentReady":true,"pageErrors":[]}
+{"kind":"demand-list","taskId":"DEM-202603-0005","documentNo":"DEM-202603-0005","iteration":5,"href":"/fcs/production/demand-inbox","ms":159.30000001192093,"contentReady":true,"pageErrors":[]}

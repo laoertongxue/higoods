@@ -484,7 +484,14 @@ function findMenuItemByPath(pathname: string): MenuItem | null {
   const systemId = getCurrentSystemId(normalizedPathname)
   const groups = menusBySystem[systemId] ?? []
   const item = flattenMenus(groups).find((menu) => menu.href === normalizedPathname)
-  return item ?? null
+  if (item) return item
+  if (normalizedPathname === '/dds/supply-chain/production-fulfillment/examples') return { key: 'production-fulfillment-examples', title: '规则验证示例', href: normalizedPathname }
+  const timingDetail = /^\/dds\/supply-chain\/production-fulfillment\/(tasks|teams)\/([^/]+)$/.exec(normalizedPathname)
+  if (timingDetail) {
+    const id = decodeURIComponent(timingDetail[2])
+    return { key: `production-fulfillment-${timingDetail[1]}-${id}`, title: `${timingDetail[1] === 'tasks' ? '任务' : '团队'} · ${id}`, href: normalizedPathname }
+  }
+  return null
 }
 
 function readSidebarCollapsed(): boolean {
