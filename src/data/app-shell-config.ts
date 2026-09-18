@@ -595,10 +595,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'wls-accessory-receipts', title: '中央辅料仓收货', icon: 'PackageCheck', href: '/wls/accessory-receipts' },
         { key: 'wls-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCw', href: '/wls/garment-spu-replacements' },
         { key: 'wls-garment-relabel-tasks', title: '成衣仓换码任务', icon: 'Tags', href: '/wls/garment-relabel-tasks' },
-        { key: 'inventory', title: '库存管理', icon: 'Archive', href: '/wls/inventory' },
         { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },
         { key: 'finished-inbound', title: '成衣仓收货', icon: 'ArrowDownToLine', href: '/wls/finished-inbound' },
-        { key: 'outbound', title: '出库管理', icon: 'ArrowUpFromLine', href: '/wls/outbound' },
       ],
     },
     {

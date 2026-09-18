@@ -6,6 +6,7 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type InventoryCountRow = {
   countNo: string; warehouseName: string; countType: string; scope: string
@@ -47,6 +48,7 @@ const INVENTORY_COUNT_SEED: InventoryCountRow[] = (() => {
 })()
 
 const EVENT_PREFIX = 'wls-inventory-count'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/stock/inventory-count:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -85,7 +87,7 @@ const columnRules = columns.map(c => ({ key: c.key, required: c.required, freeze
 function defaultPreferences(): StandardListColumnPreferences {
   return normalizeListColumnPreferences(columnRules, {
     order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['countNo'] as string[],
   pageSize: 10,
   }, PAGE_SIZE_OPTIONS)
@@ -157,7 +159,7 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -170,7 +172,7 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -205,7 +207,7 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -216,11 +218,11 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
     return true
   }
   if (action === 'view-detail') {
-    const id = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Id`] || ''
+    const id = actionNode.dataset[`${DATASET_PREFIX}Id`] || ''
     console.log('Open inventory count detail:', id)
     return true
   }
   if (action === 'create') { console.log('Open create inventory count'); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '库存盘点', columns, rows: filteredRows() }); return true }
   return false
 }

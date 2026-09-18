@@ -2,10 +2,11 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type InventoryRow = {
   locationCode: string; zone: string; sku: string; name: string
@@ -31,6 +32,7 @@ const seedRows: InventoryRow[] = [
 ]
 
 const EVENT_PREFIX = 'wls-transit-inventory'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/inventory-manage:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -39,6 +41,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -60,13 +63,13 @@ const columns: StandardListColumn<InventoryRow>[] = [
   { key: 'lastMoveTime', title: '最近变动', width: 140, sortable: true, sortValue: r => r.lastMoveTime,
     render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.lastMoveTime)}</span>` },
   { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: () => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看明细</button>` },
+    render: (r) => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedRows.indexOf(r) }">查看明细</button>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['locationCode'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -112,7 +115,7 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无库存记录' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '库存列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '库存列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedRows[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓库存管理详情', columns, row: seedRows[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
   })
 }
 
@@ -137,7 +140,7 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -150,7 +153,7 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -185,7 +188,7 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -195,6 +198,8 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
+  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓库存管理', columns, rows: filteredRows() }); return true }
   return false
 }

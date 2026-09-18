@@ -6,6 +6,9 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type OutboundRow = {
   outboundNo: string; taskNo: string; productionNo: string; sku: string; name: string
@@ -26,6 +29,7 @@ const seedRows: OutboundRow[] = [
 ]
 
 const EVENT_PREFIX = 'wls-transit-outbound'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/outbound-manage:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -34,6 +38,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -72,7 +77,7 @@ const columns: StandardListColumn<OutboundRow>[] = [
     render: r => {
       const canConfirm = r.cutterReceived && r.allocationDone && r.outboundStatus === '待出库'
       return `<div class="flex items-center gap-1">${canConfirm
-        ? `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm">确认出库</button>`
+        ? `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm" data-${EVENT_PREFIX}-idx="${ seedRows.indexOf(r) }">确认出库</button>`
         : r.outboundStatus === '已完成'
           ? '<span class="text-xs text-slate-400">已完成</span>'
           : `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white opacity-40 cursor-not-allowed" disabled>确认出库</button>`}</div>`
@@ -82,7 +87,7 @@ const columns: StandardListColumn<OutboundRow>[] = [
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['outboundNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -127,7 +132,14 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无出库记录' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.confirmIdx >= 0 && seedRows[state.confirmIdx] ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: '确认出库',
+      description: `确认出库单 ${seedRows[state.confirmIdx].outboundNo} 已把 ${seedRows[state.confirmIdx].allocatedQty} 件 ${seedRows[state.confirmIdx].name} 交给 ${seedRows[state.confirmIdx].processorName}？出库后库存扣减，不可撤销。`,
+      confirmLabel: '确认出库',
+    }) : ''].join(''),
   })
 }
 
@@ -152,7 +164,7 @@ export function handleTransitOutboundManageEvent(target: HTMLElement, event?: Ev
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -165,7 +177,7 @@ export function handleTransitOutboundManageEvent(target: HTMLElement, event?: Ev
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -200,7 +212,7 @@ export function handleTransitOutboundManageEvent(target: HTMLElement, event?: Ev
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -210,6 +222,28 @@ export function handleTransitOutboundManageEvent(target: HTMLElement, event?: Ev
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'confirm') {
+    state.confirmIdx = Number(actionNode.dataset['wlsTransitOutboundIdx'])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = seedRows[state.confirmIdx]
+    if (row && row.outboundStatus === '待出库') {
+      row.outboundStatus = '已完成'
+      row.actualOutboundQty = row.allocatedQty
+      row.cutterReceived = true
+      showListFeedback(`出库单 ${row.outboundNo} 已出库 ${row.actualOutboundQty} 件，交由 ${row.processorName}`)
+    }
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓出库单管理', columns, rows: filteredRows() }); return true }
   return false
 }

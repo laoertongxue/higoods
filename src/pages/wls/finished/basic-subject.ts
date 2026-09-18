@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Subject = { id: string; name: string; type: string; taxNo: string; bankAccount: string; contact: string; phone: string }
 
@@ -186,7 +187,7 @@ export function handleBasicSubjectEvent(target: HTMLElement, event?: Event): boo
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '主体管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

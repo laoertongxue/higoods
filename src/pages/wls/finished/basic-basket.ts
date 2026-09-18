@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Basket = { code: string; qrCode: string; name: string; type: string; warehouse: string; status: 'IDLE' | 'DISABLED' | 'IN_USE'; currentWave?: string; currentOutbound?: string; currentTask?: string; lastBind?: string; lastRelease?: string }
 
@@ -207,7 +208,7 @@ export function handleBasicBasketEvent(target: HTMLElement, event?: Event): bool
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '拣货篮管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

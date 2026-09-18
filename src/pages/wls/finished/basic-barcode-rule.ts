@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type BarcodeRule = { id: string; name: string; objectType: string; prefix: string; dateFormat: string; serialLength: number; enabled: boolean; example: string }
 
@@ -191,7 +192,7 @@ export function handleBasicBarcodeRuleEvent(target: HTMLElement, event?: Event):
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '条码规则管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

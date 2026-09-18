@@ -2,10 +2,13 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type AllocationOrder = {
   taskNo: string; productionNo: string; receiveNo: string; inboundNo: string
@@ -26,6 +29,7 @@ const seedOrders: AllocationOrder[] = [
 const typeClass: Record<string, string> = { '已收齐配料': 'bg-emerald-50 text-emerald-700', '未收齐配料': 'bg-amber-50 text-amber-700' }
 
 const EVENT_PREFIX = 'wls-transit-allocation'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/allocation-manage:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -37,6 +41,8 @@ const state = {
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
+  detailId: '',
+  confirmId: '',
 }
 
 const columns: StandardListColumn<AllocationOrder>[] = [
@@ -73,13 +79,13 @@ const columns: StandardListColumn<AllocationOrder>[] = [
   { key: 'generatedTime', title: '生成时间', width: 140, sortable: true, sortValue: r => r.generatedTime,
     render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.generatedTime)}</span>` },
   { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: r => `<div class="flex items-center gap-1">${r.cutterReceiveStatus === '未接收' ? '<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-' + EVENT_PREFIX + '-action="accept">裁厂接收</button>' : ''}<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看详情</button></div>` },
+    render: r => `<div class="flex items-center gap-1">${r.cutterReceiveStatus === '未接收' ? `<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="accept" data-${EVENT_PREFIX}-id="${escapeHtml(r.taskNo)}">裁厂接收</button>` : ''}<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-id="${escapeHtml(r.taskNo)}">查看详情</button></div>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['taskNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -112,6 +118,8 @@ function renderWorkspace(): string {
   const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
+  const detailRow = seedOrders.find((order) => order.taskNo === state.detailId)
+  const confirmRow = seedOrders.find((order) => order.taskNo === state.confirmId)
   return renderStandardListPage({
     title: '中转仓配料任务管理',
     filtersHtml: renderFilters(),
@@ -125,7 +133,22 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无配料任务' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '配料任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: `${state.showColumnSettings ? renderStandardListColumnSettings({ title: '配料任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : ''}${
+      detailRow
+        ? renderStandardRowDetailDialog({ title: `配料任务详情 · ${detailRow.taskNo}`, columns, row: detailRow, eventPrefix: EVENT_PREFIX })
+        : ''
+    }${
+      confirmRow
+        ? renderSimpleConfirmDialog({
+            prefix: EVENT_PREFIX,
+            closeAction: 'cancel-accept',
+            confirmAction: 'confirm-accept',
+            title: '确认裁厂接收',
+            description: `确认 ${confirmRow.processorName} 已收到配料任务 ${confirmRow.taskNo} 的 ${confirmRow.needQty} 件物料？接收后不可撤销。`,
+            confirmLabel: '确认接收',
+          })
+        : ''
+    }`,
   })
 }
 
@@ -150,7 +173,7 @@ export function handleTransitAllocationManageEvent(target: HTMLElement, event?: 
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -163,7 +186,7 @@ export function handleTransitAllocationManageEvent(target: HTMLElement, event?: 
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -198,7 +221,7 @@ export function handleTransitAllocationManageEvent(target: HTMLElement, event?: 
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -208,6 +231,36 @@ export function handleTransitAllocationManageEvent(target: HTMLElement, event?: 
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'accept') {
+    state.confirmId = actionNode.dataset[`${DATASET_PREFIX}Id`] || ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'confirm-accept') {
+    const row = seedOrders.find((order) => order.taskNo === state.confirmId)
+    if (row) {
+      row.cutterReceiveStatus = '已接收'
+      showListFeedback(`裁厂已接收配料任务 ${row.taskNo}`)
+    }
+    state.confirmId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-accept') {
+    state.confirmId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'view') {
+    state.detailId = actionNode.dataset[`${DATASET_PREFIX}Id`] || ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'close-detail') {
+    state.detailId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓配料任务', columns, rows: filteredRows() }); return true }
   return false
 }

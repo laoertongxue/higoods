@@ -1,11 +1,14 @@
 // @page-pattern: list
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type WaveLine = { location: string; zone: string; sku: string; name: string; available: number; qty: number; picked: number; short: number; status: string }
 type Wave = { id: string; zone: string; orderIds: string[]; status: string; operator?: string; receiveTime?: string; creator: string; created: string; frame?: string; lines: WaveLine[] }
@@ -42,6 +45,7 @@ const seedWaves: Wave[] = [
 ]
 
 const EVENT_PREFIX = 'wls-collection-picking'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/collection-picking:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -50,6 +54,9 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmKind: '',
+  confirmIdx: -1,
+  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -80,10 +87,10 @@ const columns: StandardListColumn<Wave>[] = [
     render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.created)}</span>` },
   { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true,
     render: r => {
-      const btns = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看详情</button>`]
-      btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="print">打印</button>`)
-      if (r.status === 'WAIT_RECEIVE') btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400" data-${EVENT_PREFIX}-action="void">作废</button>`)
-      if (r.status === 'WAIT_HANDOVER') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="handover">确认交接</button>`)
+      const btns = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedWaves.indexOf(r) }">查看详情</button>`]
+      btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="print" data-${EVENT_PREFIX}-idx="${ seedWaves.indexOf(r) }">打印</button>`)
+      if (r.status === 'WAIT_RECEIVE') btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400" data-${EVENT_PREFIX}-action="void" data-${EVENT_PREFIX}-idx="${ seedWaves.indexOf(r) }">作废</button>`)
+      if (r.status === 'WAIT_HANDOVER') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="handover" data-${EVENT_PREFIX}-idx="${ seedWaves.indexOf(r) }">确认交接</button>`)
       return `<div class="flex items-center gap-1">${btns.join('')}</div>`
     } },
 ]
@@ -92,7 +99,7 @@ const columnRules = columns.map(c => ({ key: c.key, required: c.required, freeze
 function defaultPreferences(): StandardListColumnPreferences {
   return normalizeListColumnPreferences(columnRules, {
     order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['id'],
   pageSize: 10,
   }, PAGE_SIZE_OPTIONS)
@@ -139,7 +146,22 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无波次' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '波次列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '波次列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedWaves[state.detailIdx] ? renderStandardRowDetailDialog({ title: '集货拣货波次详情', columns, row: seedWaves[state.detailIdx], eventPrefix: EVENT_PREFIX }) : '', state.confirmIdx >= 0 && seedWaves[state.confirmIdx] ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: state.confirmKind === 'void' ? '确认作废波次' : '确认交接拣货结果',
+      description: (() => {
+        const row = seedWaves[state.confirmIdx]
+        if (!row) return ''
+        if (state.confirmKind === 'void') return `作废后波次 ${row.id} 不可恢复，已占用的库存会被释放。确认作废？`
+        const picked = row.lines.reduce((sum, line) => sum + line.picked, 0)
+        const shortage = row.lines.reduce((sum, line) => sum + line.short, 0)
+        return `波次 ${row.id} 已拣 ${picked} 件${shortage ? `，缺 ${shortage} 件` : ''}。确认交接给集货区？交接后责任转移，不可撤销。`
+      })(),
+      confirmLabel: state.confirmKind === 'void' ? '确认作废' : '确认交接',
+      danger: state.confirmKind === 'void',
+    }) : ''].join(''),
   })
 }
 
@@ -164,7 +186,7 @@ export function handleCollectionPickingEvent(target: HTMLElement, event?: Event)
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -177,7 +199,7 @@ export function handleCollectionPickingEvent(target: HTMLElement, event?: Event)
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -212,7 +234,7 @@ export function handleCollectionPickingEvent(target: HTMLElement, event?: Event)
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -222,6 +244,43 @@ export function handleCollectionPickingEvent(target: HTMLElement, event?: Event)
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
+  if (action === 'print') {
+    showListFeedback('已调起浏览器打印，请在打印窗口选择打印机')
+    window.print()
+    return true
+  }
+  if (action === 'void' || action === 'handover') {
+    state.confirmKind = action
+    state.confirmIdx = Number(actionNode.dataset['wlsCollectionPickingIdx'])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmKind = ''
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = seedWaves[state.confirmIdx]
+    if (row) {
+      if (state.confirmKind === 'void' && row.status === 'WAIT_RECEIVE') {
+        row.status = 'CANCELLED'
+        showListFeedback(`拣货波次 ${row.id} 已作废，占用库存已释放`)
+      } else if (state.confirmKind === 'handover' && row.status === 'WAIT_HANDOVER') {
+        row.status = 'COMPLETED'
+        row.receiveTime = localDateTimeText()
+        const handed = row.lines.reduce((sum, line) => sum + line.picked, 0)
+        showListFeedback(`拣货波次 ${row.id} 已交接给集货区，共 ${handed} 件`)
+      }
+    }
+    state.confirmKind = ''
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '集货拣货波次', columns, rows: filteredRows() }); return true }
   return false
 }

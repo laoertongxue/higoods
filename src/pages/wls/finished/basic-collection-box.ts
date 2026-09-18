@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type CollectionBox = { code: string; name: string; qrCode: string; warehouse: string; type: string; businessStatus: string; creator: string; created: string; updated: string; enabled: boolean }
 
@@ -201,7 +202,7 @@ export function handleBasicCollectionBoxEvent(target: HTMLElement, event?: Event
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '集货箱管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

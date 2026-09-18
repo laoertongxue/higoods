@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Processor = { code: string; name: string; processTypes: string[]; address: string; contact: string; phone: string; capacity: string; enabled: boolean; cooperationSince: string }
 
@@ -195,7 +196,7 @@ export function handleBasicProcessorEvent(target: HTMLElement, event?: Event): b
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '加工方管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

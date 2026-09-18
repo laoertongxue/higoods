@@ -6,6 +6,9 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type PutawayTask = {
   taskNo: string; productionNo: string; receiveNo: string; inboundNo: string
@@ -21,6 +24,7 @@ const seedTasks: PutawayTask[] = [
 ]
 
 const EVENT_PREFIX = 'wls-transit-putaway'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/putaway-manage:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -29,6 +33,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -55,14 +60,14 @@ const columns: StandardListColumn<PutawayTask>[] = [
     render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.taskStatus === '已上架' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}">${escapeHtml(r.taskStatus)}</span>` },
   { key: 'actions', title: '操作', width: 140, required: true, actionColumn: true,
     render: r => `<div class="flex items-center gap-1">${r.taskStatus === '待上架'
-      ? `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="putaway">一键完成上架</button>`
+      ? `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="putaway" data-${EVENT_PREFIX}-idx="${ seedTasks.indexOf(r) }">一键完成上架</button>`
       : '<span class="text-xs text-slate-400">已完成</span>'}</div>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['taskNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -107,7 +112,14 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无上架任务' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '上架任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '上架任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.confirmIdx >= 0 && seedTasks[state.confirmIdx] ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: '确认完成上架',
+      description: `确认将上架任务 ${seedTasks[state.confirmIdx].taskNo} 的 ${seedTasks[state.confirmIdx].pendingQty} 件 ${seedTasks[state.confirmIdx].sku} 上架到 ${seedTasks[state.confirmIdx].recommendedLocation}？`,
+      confirmLabel: '确认上架',
+    }) : ''].join(''),
   })
 }
 
@@ -132,7 +144,7 @@ export function handleTransitPutawayManageEvent(target: HTMLElement, event?: Eve
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -145,7 +157,7 @@ export function handleTransitPutawayManageEvent(target: HTMLElement, event?: Eve
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -180,7 +192,7 @@ export function handleTransitPutawayManageEvent(target: HTMLElement, event?: Eve
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -190,6 +202,27 @@ export function handleTransitPutawayManageEvent(target: HTMLElement, event?: Eve
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'putaway') {
+    state.confirmIdx = Number(actionNode.dataset['wlsTransitPutawayIdx'])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = seedTasks[state.confirmIdx]
+    if (row && row.taskStatus === '待上架') {
+      row.taskStatus = '已上架'
+      row.pendingQty = 0
+      showListFeedback(`上架任务 ${row.taskNo} 已完成，${row.sku} 已入位 ${row.recommendedLocation}`)
+    }
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓上架任务管理', columns, rows: filteredRows() }); return true }
   return false
 }

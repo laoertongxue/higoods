@@ -7,6 +7,8 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type Line = { sku: string; name: string; need: number; collected: number; stock: number; occupied: number; productionNo: string; cutStatus: string; location: string; zone: string }
 type Order = { id: string; preNo: string; shipNo: string; platform: string; status: string; box?: string; created: string; deadline: string; lines: Line[] }
@@ -51,6 +53,7 @@ const seedRetryCandidates: RetryCandidate[] = [
 ]
 
 const EVENT_PREFIX = 'wls-collection-orders'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/collection-orders:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -104,7 +107,7 @@ const columnRules = columns.map(c => ({ key: c.key, required: c.required, freeze
 function defaultPreferences(): StandardListColumnPreferences {
   return normalizeListColumnPreferences(columnRules, {
     order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['id'] as string[],
   pageSize: 10,
   }, PAGE_SIZE_OPTIONS)
@@ -197,7 +200,7 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -210,7 +213,7 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -245,7 +248,7 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -256,7 +259,7 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
     return true
   }
   if (action === 'view-detail') {
-    const id = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}OrderId`] || ''
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
     console.log('查看集货订单详情', id)
     return true
   }
@@ -272,6 +275,21 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
     console.log('跳转多件打包')
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'build-wave') {
+    window.history.pushState(window.history.state, '', '/wls/finished/collection/picking')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+  if (action === 'go-packing') {
+    window.history.pushState(window.history.state, '', '/wls/finished/multi-item-packing')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+  if (action === 'run-rule') {
+    const waiting = seedRetryCandidates.filter((item) => item.status === 'WAIT_RETRY').length
+    showListFeedback(`规则已执行：扫描 ${waiting} 个待重试候选，本轮生成 0 单（库存与裁剪条件仍未满足）`, 'info')
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '集货订单', columns, rows: filteredRows() }); return true }
   return false
 }

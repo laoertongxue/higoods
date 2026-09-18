@@ -1,5 +1,6 @@
 import { escapeHtml } from '../../utils.ts'
 import { renderSecondaryButton } from './button.ts'
+import { renderDialog, renderFormDialog } from './dialog.ts'
 import { renderDrawer } from './drawer.ts'
 import type { StandardListColumnPreferences, StandardListSortState } from './list-table-model.ts'
 import { toActionAttr, toDataPrefix } from './types.ts'
@@ -465,5 +466,71 @@ export function renderStandardListColumnSettings<T>(
         skipPageRerender: config.skipPageRerender,
       },
     },
+  )
+}
+
+export interface StandardRowDetailDialogConfig<T> {
+  title: string
+  columns: readonly StandardListColumn<T>[]
+  row: T
+  eventPrefix: string
+}
+
+export function renderStandardRowDetailDialog<T>(config: StandardRowDetailDialogConfig<T>): string {
+  const detailColumns = config.columns.filter(
+    (column) => !column.actionColumn && !column.leadingControlColumn,
+  )
+  const content = `<div class="grid max-h-[60vh] grid-cols-2 gap-x-6 gap-y-3 overflow-y-auto">${detailColumns
+    .map(
+      (column) => `
+        <div class="flex min-w-0 flex-col gap-1">
+          <span class="text-xs text-muted-foreground">${escapeHtml(column.title)}</span>
+          <div class="min-w-0 text-sm text-foreground">${column.render(config.row, 0)}</div>
+        </div>
+      `,
+    )
+    .join('')}</div>`
+  return renderDialog(
+    {
+      title: config.title,
+      closeAction: { prefix: config.eventPrefix, action: 'close-detail' },
+      width: 'lg',
+    },
+    content,
+  )
+}
+
+export interface StandardRowEditField {
+  key: string
+  label: string
+  value: string
+  input?: 'text' | 'number'
+}
+
+export function renderStandardRowEditDialog(config: {
+  title: string
+  description?: string
+  fields: readonly StandardRowEditField[]
+  eventPrefix: string
+}): string {
+  const content = `<div class="grid grid-cols-2 gap-x-6 gap-y-3">${config.fields
+    .map(
+      (field) => `
+        <label class="flex min-w-0 flex-col gap-1">
+          <span class="text-xs text-muted-foreground">${escapeHtml(field.label)}</span>
+          <input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" type="${field.input ?? 'text'}" value="${escapeHtml(field.value)}" data-${config.eventPrefix}-edit="${escapeHtml(field.key)}" data-skip-page-rerender="true">
+        </label>
+      `,
+    )
+    .join('')}</div>`
+  return renderFormDialog(
+    {
+      title: config.title,
+      description: config.description,
+      closeAction: { prefix: config.eventPrefix, action: 'cancel-edit' },
+      submitAction: { prefix: config.eventPrefix, action: 'save-edit', label: '保存' },
+      width: 'lg',
+    },
+    content,
   )
 }

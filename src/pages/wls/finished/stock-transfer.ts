@@ -7,6 +7,9 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type StockTransferRecord = {
   id: string;
@@ -64,6 +67,7 @@ function statusBadgeClass(status: string): string {
 }
 
 const EVENT_PREFIX = 'wls-stock-transfer'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/stock-transfer:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -72,6 +76,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmId: '',
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -108,7 +113,7 @@ const columns: StandardListColumn<StockTransferRecord>[] = [
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['transferNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -155,7 +160,17 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无移货任务' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '移货操作列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '移货操作列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.confirmId ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: '确认执行移货',
+      description: (() => {
+        const row = TRANSFER_SEED.find((item: StockTransferRecord) => item.id === state.confirmId)
+        return row ? `确认将 ${row.sku} 共 ${row.quantity} 件从 ${row.sourceLocation} 移到 ${row.targetLocation}？执行后库位库存立即变更。` : ''
+      })(),
+      confirmLabel: '确认执行',
+    }) : ''].join(''),
   })
 }
 
@@ -180,7 +195,7 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -193,7 +208,7 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -228,7 +243,7 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -238,6 +253,26 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'execute') {
+    state.confirmId = actionNode.dataset.recordId || ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = TRANSFER_SEED.find((item: StockTransferRecord) => item.id === state.confirmId)
+    if (row && row.status === '待执行') {
+      row.status = '移货中'
+      showListFeedback(`移货单 ${row.transferNo} 已开始执行，共 ${row.quantity} 件`)
+    }
+    state.confirmId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '移货操作', columns, rows: filteredRows() }); return true }
   return false
 }
