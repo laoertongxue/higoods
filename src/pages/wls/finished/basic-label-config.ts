@@ -86,7 +86,7 @@ function filteredRows(): LabelTemplate[] {
 }
 
 function renderFilters(): string {
-  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索模板名称" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">来源系统</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="source"><option value="">全部来源系统</option><option value="WMS" ${state.sourceFilter === 'WMS' ? 'selected' : ''}>WMS</option><option value="WMS-TRANSIT" ${state.sourceFilter === 'WMS-TRANSIT' ? 'selected' : ''}>WMS-TRANSIT</option><option value="WMS-RAW" ${state.sourceFilter === 'WMS-RAW' ? 'selected' : ''}>WMS-RAW</option></select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">业务场景</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="scene"><option value="">全部业务场景</option><option value="出库" ${state.sceneFilter === '出库' ? 'selected' : ''}>出库</option><option value="入库" ${state.sceneFilter === '入库' ? 'selected' : ''}>入库</option><option value="退货" ${state.sceneFilter === '退货' ? 'selected' : ''}>退货</option><option value="领料" ${state.sceneFilter === '领料' ? 'selected' : ''}>领料</option></select></label>
