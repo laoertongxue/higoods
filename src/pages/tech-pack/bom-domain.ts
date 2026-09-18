@@ -168,9 +168,9 @@ export function renderBomTab(): string {
 
   const renderGroupControls = (group: BomColorGroup): string => readonly
     ? ''
-    : `<div class="mt-1.5 flex items-center gap-1 whitespace-nowrap">
-        <button type="button" class="inline-flex h-6 items-center rounded bg-blue-600 px-2 text-[11px] text-white hover:bg-blue-700" data-tech-action="open-add-bom" data-color-label="${escapeHtml(group.colorLabel)}" data-sku-codes="${escapeHtml(group.skuCodes.join(','))}">添加</button>
-        <button type="button" class="inline-flex h-6 items-center rounded border px-2 text-[11px] hover:bg-muted" data-tech-action="open-copy-bom-color" data-color-label="${escapeHtml(group.colorLabel)}" data-bom-ids="${escapeHtml(group.rows.map((item) => item.id).join(','))}" ${group.rows.length === 0 || groups.length <= 1 ? 'disabled' : ''}>整色复制</button>
+    : `<div class="mt-1.5 flex flex-wrap items-center gap-1">
+        <button type="button" class="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded bg-blue-600 px-2 text-[11px] text-white hover:bg-blue-700" data-tech-action="open-add-bom" data-color-label="${escapeHtml(group.colorLabel)}" data-sku-codes="${escapeHtml(group.skuCodes.join(','))}">添加</button>
+        <button type="button" class="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded border px-2 text-[11px] hover:bg-muted" data-tech-action="open-copy-bom-color" data-color-label="${escapeHtml(group.colorLabel)}" data-bom-ids="${escapeHtml(group.rows.map((item) => item.id).join(','))}" ${group.rows.length === 0 || groups.length <= 1 ? 'disabled' : ''}>整色复制</button>
       </div>`
 
   const renderGroupCost = (group: BomColorGroup): string => {
@@ -204,27 +204,27 @@ export function renderBomTab(): string {
         ${groups.length === 0
           ? `<div class="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无款色和常规物料${readonly ? '' : '，请先维护款色'}</div>`
           : `
-              <div class="max-w-full overflow-x-auto rounded-md border" data-testid="tech-pack-regular-bom-table">
-              <table class="w-[1840px] table-fixed border-collapse text-xs">
+              <div class="relative max-w-full overflow-x-auto rounded-md border bg-background" data-testid="tech-pack-regular-bom-table">
+              <table class="w-full min-w-[2180px] table-fixed border-collapse text-xs">
                 <colgroup>
-                  <col class="w-[108px]" />
+                  <col class="w-[180px]" />
+                  <col class="w-[156px]" />
+                  <col class="w-[132px]" />
+                  <col class="w-[56px]" />
+                  <col class="w-[76px]" />
+                  <col class="w-[168px]" />
+                  <col class="w-[180px]" />
+                  <col class="w-[80px]" />
+                  <col class="w-[120px]" />
                   <col class="w-[118px]" />
-                  <col class="w-[112px]" />
-                  <col class="w-[48px]" />
-                  <col class="w-[64px]" />
-                  <col class="w-[150px]" />
-                  <col class="w-[140px]" />
-                  <col class="w-[62px]" />
-                  <col class="w-[112px]" />
                   <col class="w-[96px]" />
-                  <col class="w-[88px]" />
-                  <col class="w-[96px]" />
-                  <col class="w-[96px]" />
-                  <col class="w-[96px]" />
-                  <col class="w-[88px]" />
-                  <col class="w-[88px]" />
-                  <col class="w-[124px]" />
-                  <col class="w-[104px]" />
+                  <col class="w-[118px]" />
+                  <col class="w-[108px]" />
+                  <col class="w-[108px]" />
+                  <col class="w-[108px]" />
+                  <col class="w-[108px]" />
+                  <col class="w-[142px]" />
+                  <col class="w-[108px]" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -256,7 +256,7 @@ export function renderBomTab(): string {
                           return `
                             <tr class="bg-muted/10">
                               <td class="${cellClass} whitespace-nowrap font-medium">${escapeHtml(spuLabel)}</td>
-                              <td class="${cellClass} min-w-[118px]">
+                              <td class="${cellClass}">
                                 <div class="font-medium">${escapeHtml(group.colorLabel)}</div>
                                 ${renderGroupControls(group)}
                               </td>

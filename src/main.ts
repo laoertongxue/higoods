@@ -370,6 +370,13 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return false
     }
   }
+  if (
+    /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pagePath)
+    && target.closest('[data-tech-pack-page-root="true"]')
+  ) {
+    const techPackPage = await import('./pages/tech-pack/events')
+    return techPackPage.handleTechPackEvent(eventTarget)
+  }
   if (target.closest('[data-factory-receiving-root]')) {
     const page = await import('./pages/process-factory/dyeing/pending-receipts.ts')
     return page.handleFactoryReceivingEvent(eventTarget, event)
@@ -842,6 +849,17 @@ function shouldUseTechPackScopedRender(
   return true
 }
 
+function shouldUseTechPackTabOnlyRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
+  const actionNode = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')
+  return Boolean(actionNode?.dataset.tab && target.closest('[data-tech-pack-page-root="true"]'))
+}
+
 function shouldUseProductionScopedRender(previousPathname: string, nextPathname: string): boolean {
   const previous = normalizePathname(previousPathname)
   const next = normalizePathname(nextPathname)
@@ -1094,6 +1112,28 @@ async function renderWithFocusRestore(snapshot: FocusSnapshot | null): Promise<v
 async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
   await renderPageContentOnly()
   restoreFocusSnapshot(snapshot)
+}
+
+async function renderTechPackTabOnly(target: HTMLElement): Promise<void> {
+  const headerHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-header-root="true"]')
+  const contentHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-content-root="true"]')
+  if (!headerHost || !contentHost) {
+    await renderPageContentOnly()
+    return
+  }
+
+  const activeTab = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')?.dataset.tab || ''
+  const techPackPage = await import('./pages/tech-pack/core')
+  headerHost.innerHTML = techPackPage.renderTabHeader()
+  contentHost.innerHTML = techPackPage.renderCurrentTabContent()
+  hydrateRealQRCodes(contentHost)
+  queueMicrotask(() => {
+    hydrateIcons(headerHost)
+    hydrateIcons(contentHost)
+    if (activeTab) {
+      headerHost.querySelector<HTMLElement>(`[data-tech-action="switch-tab"][data-tab="${escapeCssValue(activeTab)}"]`)?.focus()
+    }
+  })
 }
 
 async function renderProductionOrdersOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
@@ -1377,6 +1417,10 @@ async function renderAfterHandledPageEvent(
   }
   if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
     await renderProductionOrdersOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+    await renderTechPackTabOnly(target)
     return
   }
   if (
@@ -1672,6 +1716,10 @@ root.addEventListener('click', async (event) => {
     }
     if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
       await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+      await renderTechPackTabOnly(target)
       return
     }
     if (

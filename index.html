@@ -11,6 +11,11 @@
   </head>
   <body>
     <div id="app"></div>
+    <script type="module">
+      if (/^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(window.location.pathname)) {
+        void import('/src/pages/tech-pack/core.ts')
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
