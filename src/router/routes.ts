@@ -134,6 +134,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pdaRoutesPromise: Promise<RouteRegistry> | null = null
+let wlsRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
@@ -171,6 +172,18 @@ function getPdaRoutes(): Promise<RouteRegistry> {
   return pdaRoutesPromise
 }
 
+function getWlsRoutes(): Promise<RouteRegistry> {
+  if (!wlsRoutesPromise) {
+    wlsRoutesPromise = import('./routes-wls')
+      .then((module) => module.routes)
+      .catch((error) => {
+        wlsRoutesPromise = null
+        throw error
+      })
+  }
+  return wlsRoutesPromise
+}
+
 function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry | null> {
   if (normalizedPathname.startsWith('/fcs/pda')) {
     return getPdaRoutes()
@@ -182,6 +195,10 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
 
   if (normalizedPathname.startsWith('/pcs')) {
     return getPcsRoutes()
+  }
+
+  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic')) {
+    return getWlsRoutes()
   }
 
   return Promise.resolve(null)
