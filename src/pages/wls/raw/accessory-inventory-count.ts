@@ -29,7 +29,7 @@ const statusClass: Record<string, string> = {
 
 const EVENT_PREFIX = 'wls-raw-accessory-inventory-count'
 const PREFERENCE_KEY = '/wls/raw/accessory-inventory-count:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -158,7 +158,7 @@ export function handleRawAccessoryInventoryCountEvent(target: HTMLElement, event
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -194,5 +194,6 @@ export function handleRawAccessoryInventoryCountEvent(target: HTMLElement, event
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

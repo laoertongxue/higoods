@@ -29,7 +29,7 @@ const seedRecords: ExceptionRecord[] = [
 
 const EVENT_PREFIX = 'wls-sorter-records'
 const PREFERENCE_KEY = '/wls/finished/sorter-records:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -216,5 +216,6 @@ export function handleSorterRecordsEvent(target: HTMLElement, event?: Event): bo
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

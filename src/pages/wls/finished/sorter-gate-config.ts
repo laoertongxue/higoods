@@ -29,7 +29,7 @@ const MACHINE_OPTIONS = [
 
 const EVENT_PREFIX = 'wls-sorter-gate-config'
 const PREFERENCE_KEY = '/wls/finished/sorter-gate-config:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -180,5 +180,6 @@ export function handleSorterGateConfigEvent(target: HTMLElement, event?: Event):
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

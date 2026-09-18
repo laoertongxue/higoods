@@ -24,7 +24,7 @@ const seedMachines: SorterMachine[] = [
 
 const EVENT_PREFIX = 'wls-sorter-machine-config'
 const PREFERENCE_KEY = '/wls/finished/sorter-machine-config:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -180,5 +180,6 @@ export function handleSorterMachineConfigEvent(target: HTMLElement, event?: Even
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

@@ -1,4 +1,3 @@
-import type { AppState } from '../../../state/store'
 
 const alertCards = [
   { label: '待收货', count: 3, color: 'amber', sub: '到货单' },
@@ -34,7 +33,7 @@ const recentActivities = [
   { time: '2026-05-28 09:15', action: '入库收货完成', target: 'YRK-CON-20260528-101', detail: '耗材 1440 个已收货，等待上架' },
 ]
 
-export function renderRawDashboard(_state: AppState): string {
+export function renderRawDashboard(): string {
   return `
   <div class="space-y-5">
     <div>

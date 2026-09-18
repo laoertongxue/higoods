@@ -4,7 +4,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
-import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
@@ -55,7 +55,7 @@ const seedOrders: ReturnOrder[] = [
 
 const EVENT_PREFIX = 'wls-return-orders'
 const PREFERENCE_KEY = '/wls/finished/return-orders:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -95,12 +95,14 @@ const columns: StandardListColumn<ReturnOrder>[] = [
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
-const defaultPreferences = (): StandardListColumnPreferences => ({
-  order: columns.map(c => c.key),
+function defaultPreferences(): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, {
+    order: columns.map(c => c.key),
   visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
   frozenKeys: ['returnNo'] as string[],
-  pageSize: PAGE_SIZE_OPTIONS[0],
-})
+  pageSize: 10,
+  }, PAGE_SIZE_OPTIONS)
+}
 
 function ensurePreferencesLoaded(): void {
   if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
@@ -233,5 +235,6 @@ export function handleReturnOrdersEvent(target: HTMLElement, event?: Event): boo
     console.log('view return order detail:', id)
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

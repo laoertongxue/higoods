@@ -47,7 +47,7 @@ const seedOutbounds: RawOutboundOrder[] = [
 
 const EVENT_PREFIX = 'wls-raw-outbound-list'
 const PREFERENCE_KEY = '/wls/raw/outbound-list:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -186,7 +186,7 @@ export function handleRawOutboundListEvent(target: HTMLElement, event?: Event): 
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -222,5 +222,6 @@ export function handleRawOutboundListEvent(target: HTMLElement, event?: Event): 
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

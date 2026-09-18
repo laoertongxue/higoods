@@ -1,6 +1,4 @@
-import type { AppState } from '../../../state/store'
-
-export function renderRawPda(_state: AppState): string {
+export function renderRawPda(): string {
   const menuGroups = [
     {
       title: '入库作业',
