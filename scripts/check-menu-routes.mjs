@@ -11,10 +11,11 @@ const routeModulePaths = [
   path.join(repoRoot, 'src/router/routes-fcs.ts'),
   path.join(repoRoot, 'src/router/routes-pcs.ts'),
   path.join(repoRoot, 'src/router/routes-pda.ts'),
+  path.join(repoRoot, 'src/router/routes-pms.ts'),
 ]
 
-const DEFAULT_SYSTEMS = ['fcs', 'pfos', 'pcs']
-const EXACT_ROUTE_SYSTEMS = new Set(['fcs', 'pfos', 'pcs'])
+const DEFAULT_SYSTEMS = ['fcs', 'pfos', 'pcs', 'pms']
+const EXACT_ROUTE_SYSTEMS = new Set(['fcs', 'pfos', 'pcs', 'pms'])
 const PFOS_ROUTE_PREFIXES = ['/fcs/craft', '/fcs/process-factory/special-craft']
 
 function parseArgs(argv) {

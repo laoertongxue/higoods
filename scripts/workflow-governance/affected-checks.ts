@@ -40,6 +40,52 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       add(governanceChecks, 'npm run check:list-page-governance')
     }
 
+    if (
+      path.startsWith('src/pages/pms/')
+      || path.startsWith('src/data/pms/')
+      || path === 'src/router/routes-pms.ts'
+      || path === 'src/router/route-renderers-pms.ts'
+      || path === 'src/main-handlers/pms-handlers.ts'
+      || path === 'src/utils/pms-export.ts'
+      || path === 'src/utils/pms-excel-import.ts'
+    ) {
+      add(fastChecks, 'npm run check:pms-purchase-chain')
+      handled = true
+    }
+
+    if (path === 'scripts/check-pms-purchase-chain.ts' || path.startsWith('tests/unit/pms-')) {
+      add(fastChecks, path.startsWith('tests/unit/pms-') ? 'npm test' : 'npm run check:pms-purchase-chain')
+      handled = true
+    }
+
+    if (
+      path === 'tests/pms-purchase-chain.spec.ts'
+      || path === 'tests/pms-material-flow.spec.ts'
+      || path === 'tests/pms-master-data.spec.ts'
+      || path === 'tests/pms-settlement-flow.spec.ts'
+      || path === 'tests/pms-peripheral.spec.ts'
+    ) {
+      add(fullChecks, 'CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/pms-cold-load.spec.ts tests/pms-purchase-chain.spec.ts tests/pms-material-flow.spec.ts tests/pms-master-data.spec.ts tests/pms-settlement-flow.spec.ts tests/pms-peripheral.spec.ts --workers=1 --reporter=line')
+      handled = true
+    }
+
+    if (path === 'scripts/check-menu-routes.mjs' || path === 'src/main.ts') {
+      add(fastChecks, path === 'src/main.ts' ? 'npm run check:fcs-end-to-end' : 'npm run check:menu-routes')
+      add(fullChecks, 'npm run build')
+      escalationReasons.add(path === 'src/main.ts' ? '主入口变化需要端到端检查和构建' : '菜单路由检查脚本变化需要检查和构建')
+      handled = true
+    }
+
+    if (path === 'scripts/check-lace-factory-management.ts') {
+      add(fastChecks, 'npm run check:lace-factory-management')
+      handled = true
+    }
+
+    if (path === 'src/router/routes-pms.ts' || path === 'src/router/route-renderers-pms.ts') {
+      add(fastChecks, 'npm run check:menu-routes')
+      handled = true
+    }
+
     if (/supplement|补料/i.test(path)) {
       add(fastChecks, 'npm run check:cutting-supplement-process-work-orders')
       handled = true

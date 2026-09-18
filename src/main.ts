@@ -36,6 +36,7 @@ const getPdaCuttingInboundModule = createRetryableModuleLoader(() => import('./p
 const getPdaCuttingHandoverModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-handover'))
 const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/fcs-handlers'))
 const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
+const getPmsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pms-handlers'))
 const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
 const getProcessWaterSolubleOrdersPageModule = createRetryableModuleLoader(
   () => import('./pages/process-water-soluble-orders'),
@@ -149,11 +150,17 @@ function schedulePdaMainTabPreload(): void {
   }, 0)
 }
 
-function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'all' {
+function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'pms' | 'all' {
   if (pathname.startsWith('/pcs')) return 'pcs'
   if (pathname.startsWith('/fcs/pda')) return 'pda'
   if (pathname.startsWith('/fcs')) return 'fcs'
+  // 花边辅料采购订单仍由 FCS 处理器认领，其余 PMS 路由走 PMS 处理器。
+  if (pathname.startsWith('/pms/') && !isPmsLegacyPurchaseOrderPath(pathname)) return 'pms'
   return 'all'
+}
+
+function isPmsLegacyPurchaseOrderPath(pathname: string): boolean {
+  return pathname === '/pms/purchase-order' || pathname.startsWith('/pms/purchase-order/')
 }
 
 const rootNode = document.querySelector('#app')
@@ -406,6 +413,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       const pdaHandlers = await getPdaHandlersModule()
       return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
     }
+    if (handlerSystem === 'pms') {
+      const pmsHandlers = await getPmsHandlersModule()
+      return pmsHandlers.dispatchPmsPageEvent(eventTarget, event)
+    }
 
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
       getFcsHandlersModule(),
@@ -530,6 +541,10 @@ async function closeDialogsOnEscape(): Promise<boolean> {
     if (handlerSystem === 'pda') {
       const pdaHandlers = await getPdaHandlersModule()
       return pdaHandlers.closePdaDialogsOnEscape()
+    }
+    if (handlerSystem === 'pms') {
+      const pmsHandlers = await getPmsHandlersModule()
+      return pmsHandlers.closePmsDialogsOnEscape()
     }
 
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([

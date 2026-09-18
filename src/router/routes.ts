@@ -46,10 +46,6 @@ const renderWlsAccessoryReceiptsPage = createAsyncRenderer(
   () => import('../pages/wls-accessory-receipts'),
   'renderWlsAccessoryReceiptsPage',
 )
-const renderPmsPurchaseOrdersPage = createAsyncRenderer(
-  () => import('../pages/pms-purchase-orders'),
-  'renderPmsPurchaseOrdersPage',
-)
 const renderWlsGarmentSpuReplacementsPage = createAsyncRenderer(
   () => import('../pages/garment-spu-replacements'),
   'renderWlsGarmentSpuReplacementsPage',
@@ -109,7 +105,8 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
   '/fcs/workspace': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
   '/fcs': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
-  '/pms/purchase-order': () => renderPmsPurchaseOrdersPage(),
+  '/pms': () => renderRouteRedirect('/pms/workbench/overview', '正在跳转到采购管理工作台'),
+  '/pms/': () => renderRouteRedirect('/pms/workbench/overview', '正在跳转到采购管理工作台'),
   '/wls': () => renderRouteRedirect('/wls/fabric-demand-board', '正在跳转到面料需求看板'),
   '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
   '/wls/inbound': () => renderWlsInboundPage(),
@@ -134,6 +131,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pdaRoutesPromise: Promise<RouteRegistry> | null = null
+let pmsRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
@@ -171,6 +169,18 @@ function getPdaRoutes(): Promise<RouteRegistry> {
   return pdaRoutesPromise
 }
 
+function getPmsRoutes(): Promise<RouteRegistry> {
+  if (!pmsRoutesPromise) {
+    pmsRoutesPromise = import('./routes-pms')
+      .then((module) => module.routes)
+      .catch((error) => {
+        pmsRoutesPromise = null
+        throw error
+      })
+  }
+  return pmsRoutesPromise
+}
+
 function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry | null> {
   if (normalizedPathname.startsWith('/fcs/pda')) {
     return getPdaRoutes()
@@ -182,6 +192,10 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
 
   if (normalizedPathname.startsWith('/pcs')) {
     return getPcsRoutes()
+  }
+
+  if (normalizedPathname.startsWith('/pms')) {
+    return getPmsRoutes()
   }
 
   return Promise.resolve(null)

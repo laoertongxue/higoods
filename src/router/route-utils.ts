@@ -38,3 +38,25 @@ export function renderRouteRedirect(targetPath: string, title: string): string {
 export function normalizePathname(pathname: string): string {
   return pathname.split('#')[0].split('?')[0] || '/'
 }
+
+export function createLazyRenderer<TArgs extends unknown[]>(
+  importModule: () => Promise<Record<string, unknown>>,
+  exportName: string,
+): (...args: TArgs) => Promise<string> {
+  let modulePromise: Promise<Record<string, unknown>> | null = null
+
+  return async (...args: TArgs): Promise<string> => {
+    if (!modulePromise) {
+      modulePromise = importModule().catch((error) => {
+        modulePromise = null
+        throw error
+      })
+    }
+    const module = await modulePromise
+    const renderer = module[exportName]
+    if (typeof renderer !== 'function') {
+      throw new Error(`页面渲染函数不存在: ${exportName}`)
+    }
+    return (renderer as (...rendererArgs: unknown[]) => Promise<string>)(...args)
+  }
+}

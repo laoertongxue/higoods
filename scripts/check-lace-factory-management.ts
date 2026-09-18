@@ -872,7 +872,7 @@ assert.ok(!JSON.stringify(accessoryGroup).includes('Renda Jaya'))
 assert.ok(!JSON.stringify(accessoryGroup).includes('拉链厂管理'))
 assert.ok(menusBySystem.wls.some((group) => group.items.some((item) => item.href === '/wls/accessory-receipts')))
 
-const routesText = `${readFileSync(new URL('../src/router/routes-fcs.ts', import.meta.url), 'utf8')}\n${readFileSync(new URL('../src/router/routes.ts', import.meta.url), 'utf8')}`
+const routesText = `${readFileSync(new URL('../src/router/routes-fcs.ts', import.meta.url), 'utf8')}\n${readFileSync(new URL('../src/router/routes.ts', import.meta.url), 'utf8')}\n${readFileSync(new URL('../src/router/routes-pms.ts', import.meta.url), 'utf8')}`
 for (const route of [
   '/fcs/craft/accessory/lace/purchase-demands',
   '/fcs/craft/accessory/lace/work-orders',

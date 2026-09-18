@@ -30,6 +30,7 @@
     "check:retained-contracts": "node --import tsx scripts/check-retained-contracts.ts",
     "check:dyeing-dispatch": "node --import tsx scripts/check-dyeing-online-gap.ts",
     "check:menu-routes": "tsx scripts/check-menu-routes.mjs",
+    "check:pms-purchase-chain": "tsx scripts/check-pms-purchase-chain.ts",
     "check:production-object-overview": "tsx scripts/check-production-object-overview.ts",
     "check:kol-goto-special-flow": "tsx scripts/check-kol-goto-special-flow.ts",
     "check:production-preparation-timing": "tsx scripts/check-production-preparation-timing-readonly.ts",

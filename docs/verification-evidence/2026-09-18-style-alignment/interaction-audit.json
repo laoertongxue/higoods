@@ -1,0 +1,78 @@
+{
+  "totalActions": 220,
+  "findings": [
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "采购单 / 状态 sort-column",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "供应商 / 仓库 sort-column",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "采购专员 sort-column",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "下单 / 期望交期 sort-column",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "数量 / 金额 sort-column",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "kind": "button",
+      "label": "下一页 next-page",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/suppliers",
+      "kind": "button",
+      "label": "编辑 open-edit",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/suppliers",
+      "kind": "button",
+      "label": "下一页 next-page",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "kind": "button",
+      "label": "下一页 next-page",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/material-archives",
+      "kind": "button",
+      "label": "下一页 next-page",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/warehouses",
+      "kind": "button",
+      "label": "下一页 next-page",
+      "reason": "点击后无任何可见响应"
+    },
+    {
+      "route": "/pms/purchase-order",
+      "kind": "button",
+      "label": "查询 apply-filters",
+      "reason": "点击后无任何可见响应"
+    }
+  ],
+  "consoleErrors": []
+}
