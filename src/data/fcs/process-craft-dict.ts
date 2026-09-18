@@ -1,3 +1,6 @@
+// 复用中文排序器，保持相同字典顺序，避免比较每两项时重复创建排序配置。
+const chineseNameCollator = new Intl.Collator('zh-CN')
+
 export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
 export type ProcessDocType = 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
@@ -1551,7 +1554,7 @@ export function listProcessDefinitions(): ProcessDefinition[] {
       const stageA = stageDefinitionByCode.get(a.stageCode)?.sort ?? 999
       const stageB = stageDefinitionByCode.get(b.stageCode)?.sort ?? 999
       if (stageA !== stageB) return stageA - stageB
-      const nameCompare = a.processName.localeCompare(b.processName, 'zh-CN')
+      const nameCompare = chineseNameCollator.compare(a.processName, b.processName)
       if (nameCompare !== 0) return nameCompare
       return a.processCode.localeCompare(b.processCode)
     })
@@ -1811,9 +1814,9 @@ function dedupeProcessCraftOptions(options: ProcessCraftOption[]): ProcessCraftO
     const stageCompare = listProcessStages().findIndex((item) => item.stageCode === left.stageCode)
       - listProcessStages().findIndex((item) => item.stageCode === right.stageCode)
     if (stageCompare !== 0) return stageCompare
-    const processCompare = left.processName.localeCompare(right.processName, 'zh-CN')
+    const processCompare = chineseNameCollator.compare(left.processName, right.processName)
     if (processCompare !== 0) return processCompare
-    return left.craftName.localeCompare(right.craftName, 'zh-CN')
+    return chineseNameCollator.compare(left.craftName, right.craftName)
   })
 }
 
@@ -2015,9 +2018,9 @@ function sortActiveProcessCraftRows(left: ActiveProcessCraftRow, right: ActivePr
   const leftStageSort = getProcessStageByCode(left.stageCode)?.sort ?? Number.MAX_SAFE_INTEGER
   const rightStageSort = getProcessStageByCode(right.stageCode)?.sort ?? Number.MAX_SAFE_INTEGER
   if (leftStageSort !== rightStageSort) return leftStageSort - rightStageSort
-  const processCompare = left.processName.localeCompare(right.processName, 'zh-CN')
+  const processCompare = chineseNameCollator.compare(left.processName, right.processName)
   if (processCompare !== 0) return processCompare
-  return left.craftName.localeCompare(right.craftName, 'zh-CN')
+  return chineseNameCollator.compare(left.craftName, right.craftName)
 }
 
 const activeProcessCraftRows = (() => {
@@ -2049,7 +2052,7 @@ export function getActiveProcessOptions(): ActiveProcessOption[] {
     }
   }
 
-  return [...optionMap.values()].sort((left, right) => left.processName.localeCompare(right.processName, 'zh-CN'))
+  return [...optionMap.values()].sort((left, right) => chineseNameCollator.compare(left.processName, right.processName))
 }
 
 export function getActiveCraftOptionsByProcess(processCode?: string): ActiveProcessCraftRow[] {

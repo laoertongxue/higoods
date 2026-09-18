@@ -1,0 +1,621 @@
+{
+  "server": "http://192.168.0.10:4188",
+  "worktree": "/private/tmp/higoods-dds-release-20260918",
+  "mode": "configuration-diagnostic",
+  "diagnosticTarget": "pcs",
+  "purpose": "Diagnosis only; never replaces earlier 204ms failure.",
+  "scriptSha256": "557130aadbdfa0d8994aa08e8d2acb85400f6369ee4667e072c9d072853761e9",
+  "browser": "149.0.7827.55",
+  "rows": [
+    {
+      "iteration": 1,
+      "route": "/pcs/products/styles/style_seed_project_018/technical-data/tdv_seed_project_018_review_skip_demo",
+      "errors": [],
+      "requests": [
+        "http://192.168.0.10:4188/pcs/products/styles/style_seed_project_018/technical-data/tdv_seed_project_018_review_skip_demo",
+        "http://192.168.0.10:4188/assets/index-8p7SJpPd.js",
+        "http://192.168.0.10:4188/assets/app-shared-BQANSJSR.js",
+        "http://192.168.0.10:4188/assets/index-CXz7ymB2.css",
+        "http://192.168.0.10:4188/assets/core-1iGmmVOe.js",
+        "http://192.168.0.10:4188/assets/context-BPwz29dU.js",
+        "http://192.168.0.10:4188/assets/pcs-project-technical-data-writeback-CCrdSnUz.js",
+        "http://192.168.0.10:4188/assets/production-timeliness-BSa2YHRO.js",
+        "http://192.168.0.10:4188/assets/source-views-23Nr_RHD.css",
+        "http://192.168.0.10:4188/assets/process-domain-Jtb4S1jg.js",
+        "http://192.168.0.10:4188/assets/routes-pcs-DaTEMbUs.js"
+      ],
+      "ms": 175.90000000596046,
+      "longTasks": [
+        {
+          "name": "self",
+          "startTime": 65.7999999821186,
+          "duration": 72
+        }
+      ],
+      "milestones": {
+        "domContentLoaded": 33.099999994039536,
+        "rootInserted": 155.2999999821186,
+        "targetInserted": 155.2999999821186,
+        "imagesReady": 155.2999999821186,
+        "finalPaintChecked": 175.90000000596046
+      },
+      "heaps": [
+        {
+          "at": 5.5,
+          "used": 10000000,
+          "total": 10000000
+        },
+        {
+          "at": 175.90000000596046,
+          "used": 10000000,
+          "total": 10000000
+        }
+      ],
+      "navigation": [
+        {
+          "name": "http://192.168.0.10:4188/pcs/products/styles/style_seed_project_018/technical-data/tdv_seed_project_018_review_skip_demo",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 34.69999998807907,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0,
+          "domainLookupStart": 1.199999988079071,
+          "domainLookupEnd": 1.4000000059604645,
+          "connectStart": 1.4000000059604645,
+          "secureConnectionStart": 0,
+          "connectEnd": 1.699999988079071,
+          "requestStart": 1.699999988079071,
+          "responseStart": 2.2999999821186066,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 2.2999999821186066,
+          "responseEnd": 2.5999999940395355,
+          "transferSize": 891,
+          "encodedBodySize": 591,
+          "decodedBodySize": 1078,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 7.5,
+          "domContentLoadedEventStart": 33.099999994039536,
+          "domContentLoadedEventEnd": 33.29999998211861,
+          "domComplete": 34.69999998807907,
+          "loadEventStart": 34.69999998807907,
+          "loadEventEnd": 34.69999998807907,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {
+            "randomizedTriggerRate": 0.4994798,
+            "value": "high"
+          }
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://192.168.0.10:4188/assets/index-8p7SJpPd.js",
+          "entryType": "resource",
+          "startTime": 4.0999999940395355,
+          "duration": 3.5999999940395355,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 4.0999999940395355,
+          "domainLookupStart": 4.0999999940395355,
+          "domainLookupEnd": 4.0999999940395355,
+          "connectStart": 4.0999999940395355,
+          "secureConnectionStart": 0,
+          "connectEnd": 4.0999999940395355,
+          "requestStart": 4.799999982118607,
+          "responseStart": 5.5,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 5.5,
+          "responseEnd": 7.699999988079071,
+          "transferSize": 115259,
+          "encodedBodySize": 114959,
+          "decodedBodySize": 416113,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/index-CXz7ymB2.css",
+          "entryType": "resource",
+          "startTime": 4.199999988079071,
+          "duration": 2,
+          "initiatorType": "link",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "blocking",
+          "contentType": "text/css",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 4.199999988079071,
+          "domainLookupStart": 4.699999988079071,
+          "domainLookupEnd": 4.699999988079071,
+          "connectStart": 4.699999988079071,
+          "secureConnectionStart": 0,
+          "connectEnd": 4.799999982118607,
+          "requestStart": 4.9000000059604645,
+          "responseStart": 5.5999999940395355,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 5.5999999940395355,
+          "responseEnd": 6.199999988079071,
+          "transferSize": 24580,
+          "encodedBodySize": 24280,
+          "decodedBodySize": 146334,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/app-shared-BQANSJSR.js",
+          "entryType": "resource",
+          "startTime": 4.199999988079071,
+          "duration": 2.9000000059604645,
+          "initiatorType": "other",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 4.199999988079071,
+          "domainLookupStart": 4.699999988079071,
+          "domainLookupEnd": 4.799999982118607,
+          "connectStart": 4.799999982118607,
+          "secureConnectionStart": 0,
+          "connectEnd": 4.9000000059604645,
+          "requestStart": 4.9000000059604645,
+          "responseStart": 5.9000000059604645,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 5.9000000059604645,
+          "responseEnd": 7.0999999940395355,
+          "transferSize": 25748,
+          "encodedBodySize": 25448,
+          "decodedBodySize": 103275,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/core-1iGmmVOe.js",
+          "entryType": "resource",
+          "startTime": 27,
+          "duration": 5.5999999940395355,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27,
+          "domainLookupStart": 27,
+          "domainLookupEnd": 27,
+          "connectStart": 27,
+          "secureConnectionStart": 0,
+          "connectEnd": 27,
+          "requestStart": 27.5,
+          "responseStart": 31.799999982118607,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 31.799999982118607,
+          "responseEnd": 32.599999994039536,
+          "transferSize": 12896,
+          "encodedBodySize": 12596,
+          "decodedBodySize": 67608,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/pcs-project-technical-data-writeback-CCrdSnUz.js",
+          "entryType": "resource",
+          "startTime": 27.099999994039536,
+          "duration": 3.800000011920929,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27.099999994039536,
+          "domainLookupStart": 27.099999994039536,
+          "domainLookupEnd": 27.099999994039536,
+          "connectStart": 27.099999994039536,
+          "secureConnectionStart": 0,
+          "connectEnd": 27.099999994039536,
+          "requestStart": 28.299999982118607,
+          "responseStart": 30.400000005960464,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 30.400000005960464,
+          "responseEnd": 30.900000005960464,
+          "transferSize": 2705,
+          "encodedBodySize": 2405,
+          "decodedBodySize": 6243,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/context-BPwz29dU.js",
+          "entryType": "resource",
+          "startTime": 27.099999994039536,
+          "duration": 10.5,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27.099999994039536,
+          "domainLookupStart": 27.099999994039536,
+          "domainLookupEnd": 27.099999994039536,
+          "connectStart": 27.099999994039536,
+          "secureConnectionStart": 0,
+          "connectEnd": 27.099999994039536,
+          "requestStart": 28.099999994039536,
+          "responseStart": 32.19999998807907,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 32.19999998807907,
+          "responseEnd": 37.599999994039536,
+          "transferSize": 34595,
+          "encodedBodySize": 34295,
+          "decodedBodySize": 132621,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/production-timeliness-BSa2YHRO.js",
+          "entryType": "resource",
+          "startTime": 27.099999994039536,
+          "duration": 14.199999988079071,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27.099999994039536,
+          "domainLookupStart": 28,
+          "domainLookupEnd": 28.099999994039536,
+          "connectStart": 28.099999994039536,
+          "secureConnectionStart": 0,
+          "connectEnd": 28.299999982118607,
+          "requestStart": 28.5,
+          "responseStart": 30.69999998807907,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 30.69999998807907,
+          "responseEnd": 41.29999998211861,
+          "transferSize": 822503,
+          "encodedBodySize": 822203,
+          "decodedBodySize": 3324821,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/source-views-23Nr_RHD.css",
+          "entryType": "resource",
+          "startTime": 27.19999998807907,
+          "duration": 3,
+          "initiatorType": "link",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/css",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27.19999998807907,
+          "domainLookupStart": 28,
+          "domainLookupEnd": 28,
+          "connectStart": 28,
+          "secureConnectionStart": 0,
+          "connectEnd": 28.299999982118607,
+          "requestStart": 28.299999982118607,
+          "responseStart": 30,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 30,
+          "responseEnd": 30.19999998807907,
+          "transferSize": 7344,
+          "encodedBodySize": 7044,
+          "decodedBodySize": 34634,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/process-domain-Jtb4S1jg.js",
+          "entryType": "resource",
+          "startTime": 27.299999982118607,
+          "duration": 10.600000023841858,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 27.299999982118607,
+          "domainLookupStart": 28.19999998807907,
+          "domainLookupEnd": 28.19999998807907,
+          "connectStart": 28.19999998807907,
+          "secureConnectionStart": 0,
+          "connectEnd": 28.400000005960464,
+          "requestStart": 28.5,
+          "responseStart": 33.19999998807907,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 33.19999998807907,
+          "responseEnd": 37.900000005960464,
+          "transferSize": 26099,
+          "encodedBodySize": 25799,
+          "decodedBodySize": 138593,
+          "responseStatus": 200,
+          "serverTiming": []
+        },
+        {
+          "name": "http://192.168.0.10:4188/assets/routes-pcs-DaTEMbUs.js",
+          "entryType": "resource",
+          "startTime": 33,
+          "duration": 5,
+          "initiatorType": "script",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/javascript",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 33,
+          "domainLookupStart": 33,
+          "domainLookupEnd": 33,
+          "connectStart": 33,
+          "secureConnectionStart": 0,
+          "connectEnd": 33,
+          "requestStart": 33.79999998211861,
+          "responseStart": 37.5,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 37.5,
+          "responseEnd": 38,
+          "transferSize": 1935,
+          "encodedBodySize": 1635,
+          "decodedBodySize": 5651,
+          "responseStatus": 200,
+          "serverTiming": []
+        }
+      ],
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 84,
+          "duration": 0,
+          "paintTime": 57.400000005960464,
+          "presentationTime": 84
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Timestamp",
+          "value": 143556.266837
+        },
+        {
+          "name": "AudioHandlers",
+          "value": 0
+        },
+        {
+          "name": "AudioWorkletProcessors",
+          "value": 0
+        },
+        {
+          "name": "Documents",
+          "value": 3
+        },
+        {
+          "name": "Frames",
+          "value": 1
+        },
+        {
+          "name": "JSEventListeners",
+          "value": 36
+        },
+        {
+          "name": "LayoutObjects",
+          "value": 1634
+        },
+        {
+          "name": "MediaKeySessions",
+          "value": 0
+        },
+        {
+          "name": "MediaKeys",
+          "value": 0
+        },
+        {
+          "name": "Nodes",
+          "value": 2932
+        },
+        {
+          "name": "Resources",
+          "value": 10
+        },
+        {
+          "name": "ContextLifecycleStateObservers",
+          "value": 5
+        },
+        {
+          "name": "V8PerContextDatas",
+          "value": 4
+        },
+        {
+          "name": "WorkerGlobalScopes",
+          "value": 0
+        },
+        {
+          "name": "UACSSResources",
+          "value": 0
+        },
+        {
+          "name": "RTCPeerConnections",
+          "value": 0
+        },
+        {
+          "name": "ResourceFetchers",
+          "value": 3
+        },
+        {
+          "name": "AdSubframes",
+          "value": 0
+        },
+        {
+          "name": "DetachedScriptStates",
+          "value": 2
+        },
+        {
+          "name": "ArrayBufferContents",
+          "value": 0
+        },
+        {
+          "name": "LayoutCount",
+          "value": 3
+        },
+        {
+          "name": "RecalcStyleCount",
+          "value": 4
+        },
+        {
+          "name": "LayoutDuration",
+          "value": 0.015611
+        },
+        {
+          "name": "RecalcStyleDuration",
+          "value": 0.004881
+        },
+        {
+          "name": "DevToolsCommandDuration",
+          "value": 0.000553
+        },
+        {
+          "name": "ScriptDuration",
+          "value": 0.093848
+        },
+        {
+          "name": "V8CompileDuration",
+          "value": 0.000029
+        },
+        {
+          "name": "TaskDuration",
+          "value": 0.148639
+        },
+        {
+          "name": "TaskOtherDuration",
+          "value": 0.033717
+        },
+        {
+          "name": "ThreadTime",
+          "value": 0.132145
+        },
+        {
+          "name": "ProcessTime",
+          "value": 0.265909
+        },
+        {
+          "name": "JSHeapUsedSize",
+          "value": 13433452
+        },
+        {
+          "name": "JSHeapTotalSize",
+          "value": 20611072
+        },
+        {
+          "name": "FirstMeaningfulPaint",
+          "value": 0
+        },
+        {
+          "name": "DomContentLoaded",
+          "value": 143556.113545
+        },
+        {
+          "name": "NavigationStart",
+          "value": 143556.080422
+        }
+      ],
+      "misloadedDds": false
+    }
+  ],
+  "pass": true,
+  "completeBusinessAcceptance": false
+}

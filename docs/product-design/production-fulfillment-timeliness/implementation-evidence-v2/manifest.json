@@ -1,0 +1,179 @@
+{
+  "capturedAt": "2026-09-17T14:17:41.647Z",
+  "files": [
+    {
+      "file": "verification.json",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/verification.json",
+      "bytes": 354079,
+      "sha256": "239580d5c3f1fe53c60c0223f38a0e1cd1f8fa980c181bc70cc2766e96387ce3"
+    },
+    {
+      "file": "config-select-dependency-dialog.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/config-select-dependency-dialog.png",
+      "bytes": 135841,
+      "sha256": "062ea3da36772959f2d3a2bb6bcb102feb6964019d5e1147caa01a6e973d8ecf"
+    },
+    {
+      "file": "config-select-mapping-dialog.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/config-select-mapping-dialog.png",
+      "bytes": 143357,
+      "sha256": "592068f38765c273e480aaa6632959fdadcbd3df36b60a12e4af1802f533c113"
+    },
+    {
+      "file": "config-select-owner-dialog.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/config-select-owner-dialog.png",
+      "bytes": 163912,
+      "sha256": "0a3847b8319f48b3019fab1d495df714ebee08ec40fdc1f4b1933a3de43b9fac"
+    },
+    {
+      "file": "config-select-rule-dialog.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/config-select-rule-dialog.png",
+      "bytes": 139892,
+      "sha256": "c0b6a1e4d3b12a48236832e4e124e527a4b113f4f69078c8888507fe39acbc4b"
+    },
+    {
+      "file": "configuration-v2-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/configuration-v2-1366.png",
+      "bytes": 196002,
+      "sha256": "16a6a9d60de2e0471c0fce4b5c1b646f9a86031d8d24520d5bc2073e0bc75931"
+    },
+    {
+      "file": "follow-up-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/follow-up-filters-1366.png",
+      "bytes": 163243,
+      "sha256": "21c57e857196fdc27436c61d35ae3600dbc97c464dcec2121207b6e1e5ab0ef5"
+    },
+    {
+      "file": "fulfillment-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/fulfillment-filters-1366.png",
+      "bytes": 179940,
+      "sha256": "d99c8886e1e5e3d44605d7839c803a6d39ade2b9eb49a90bd3a32750bd38dcc7"
+    },
+    {
+      "file": "overview-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/overview-filters-1366.png",
+      "bytes": 168551,
+      "sha256": "bcb3eb820e22d0ae4fcb0ea06877d58605f447d07e77d8e651ed2146b5465283"
+    },
+    {
+      "file": "overview-v2-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/overview-v2-1366.png",
+      "bytes": 189553,
+      "sha256": "fcf6d26be97fb71aca8f8bc84c956a65bd7e8ee169a7186bcc61364eaea3e23e"
+    },
+    {
+      "file": "task-v2-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/task-v2-1366.png",
+      "bytes": 201125,
+      "sha256": "6c823e77d5e2a7cd04e4c74819435a9b2735064c0b264e0719901095097f1dde"
+    },
+    {
+      "file": "tasks-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/tasks-filters-1366.png",
+      "bytes": 160904,
+      "sha256": "9975be5005320802bf89c575c8c8bc45d6633af7d27a4ab197ea40cf887fd2f5"
+    },
+    {
+      "file": "teams-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/teams-filters-1366.png",
+      "bytes": 151580,
+      "sha256": "e4439661a9b1564f6b76f7daa6b1386692ae385c12836b39d8cae61025782e8c"
+    },
+    {
+      "file": "work-drawer-v2.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/work-drawer-v2.png",
+      "bytes": 227213,
+      "sha256": "4db48eebecf927e54335a9954ce0488a761e2a0a398946208ad09e2ddf26fc68"
+    },
+    {
+      "file": "work-items-filters-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2/work-items-filters-1366.png",
+      "bytes": 170678,
+      "sha256": "9319c06069a42a6e60aca88e79f4841486ff9886faffdfc8e388ae6dd25bbf67"
+    },
+    {
+      "file": "pf-v2-full-build.log",
+      "source": "/tmp/pf-v2-full-build.log",
+      "bytes": 72173,
+      "sha256": "d3f8bac0529f9c3ebda7d4f21bc09e0b4b998bb7fc9b04f0fed2d929fc1a8be7"
+    },
+    {
+      "file": "pf-v2-scope.log",
+      "source": "/tmp/pf-v2-scope.log",
+      "bytes": 277,
+      "sha256": "889ed175b36f4f303462377a2486d039dd8b0997bab1e9de9d64d015fd72b656"
+    },
+    {
+      "file": "pf-v2-template.log",
+      "source": "/tmp/pf-v2-template.log",
+      "bytes": 743,
+      "sha256": "94d6c8753be20a0b991594d456b445548c8bcd4c323893114a3b8bbb3fe703df"
+    },
+    {
+      "file": "regression/configuration-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/configuration-1366.png",
+      "bytes": 175315,
+      "sha256": "b77f4f349d2d419c9a7e7c30d08bad7863e6b26823b1ac210859226b4ef41555"
+    },
+    {
+      "file": "regression/gantt-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/gantt-1366.png",
+      "bytes": 202562,
+      "sha256": "7c3ef5dcef234c1f66a7abb021df92fa1d26540241c02b357aa1126de24946ef"
+    },
+    {
+      "file": "regression/orders-export.csv",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/orders-export.csv",
+      "bytes": 1183,
+      "sha256": "a2b9ef26b705966cfb4b3b3c83e86db03c4e1a980e7c53916520baf8c88a9526"
+    },
+    {
+      "file": "regression/overview-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/overview-1366.png",
+      "bytes": 190285,
+      "sha256": "48c99b93c0d2daaeb1451c0bdcdb6746ca3be27a95d4899cc743f80b9facb13d"
+    },
+    {
+      "file": "regression/overview-1920.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/overview-1920.png",
+      "bytes": 170429,
+      "sha256": "e9600b0c2ddc42e0d64f274c4330ee1e77f8f6c5df1f6250faac6e8c09588a00"
+    },
+    {
+      "file": "regression/quantities-1366.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/quantities-1366.png",
+      "bytes": 149860,
+      "sha256": "44204302ce4b0120e47e0fe4eb91190c54cc18b83513b7571097870fbba36af0"
+    },
+    {
+      "file": "regression/task-1280.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/task-1280.png",
+      "bytes": 185045,
+      "sha256": "2fd2723cb1c9081af14c1afb8b34a69ff3cce0e53f9aa05401c19b5e17452d90"
+    },
+    {
+      "file": "regression/task-report.pdf",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/task-report.pdf",
+      "bytes": 119659,
+      "sha256": "5e137d555dc66e7f7b930e7f7e5c3c80c6809da5f83254e07aa84da2e756d39e"
+    },
+    {
+      "file": "regression/team-1024.png",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/team-1024.png",
+      "bytes": 135673,
+      "sha256": "adce3071268cca456a70f70007bd45eb6ace14ca4841659b15a0591fbc7a2731"
+    },
+    {
+      "file": "regression/verification.json",
+      "source": "/Users/laoer/Documents/higoods/output/playwright/dds-pf-v2-regression/verification.json",
+      "bytes": 190869,
+      "sha256": "9b1a53fb9b4bdc2644b2779da9921511ac3d60738d51a209ebc043e4829c7e72"
+    },
+    {
+      "file": "pf-v2-governance-all.log",
+      "source": "/tmp/pf-v2-governance-all.log",
+      "bytes": 315,
+      "sha256": "f65caea75078d73e4b81d42e1290bde08772f0cc96149ec2449bd696391370b5"
+    }
+  ]
+}

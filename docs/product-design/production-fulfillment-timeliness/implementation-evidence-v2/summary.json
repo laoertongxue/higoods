@@ -1,0 +1,77 @@
+{
+  "capturedAt": "2026-09-17T14:17:41.647Z",
+  "source": "verification.json",
+  "checks": [
+    "七个菜单紧凑筛选与一致列宽",
+    "总览互斥页签及带筛选下钻返回",
+    "任务详情、工作抽屉和示例分层",
+    "团队与履约互斥内容",
+    "配置目录→编辑→试算→校验→发布各5次",
+    "最终版本10路由冷进入/刷新/站内切换各5次"
+  ],
+  "sampleCount": 1214,
+  "maxMs": 184.69999998807907,
+  "overLimitCount": 0,
+  "errors": [],
+  "sampleViewports": {
+    "1366×768": 1068,
+    "1280×720": 73,
+    "1024×768": 73
+  },
+  "sampleKinds": {
+    "load": 27,
+    "click": 689,
+    "select": 123,
+    "fill": 275,
+    "cold": 50,
+    "reload": 50
+  },
+  "scope": "Original six layout-v2 groups plus separate 21 retained-operation regression groups; not a full product-requirement verification.",
+  "regression": {
+    "source": "regression/verification.json",
+    "capturedAt": "2026-09-17T14:24:35.567Z",
+    "checks": [
+      "总览8在途/7000/400/6600",
+      "查询与重置共同范围",
+      "跟单甲仅001/005",
+      "任务31工作/21子动作/九阶段",
+      "工作抽屉及大图",
+      "完整计算公式及数量曲线",
+      "工作项状态独立于任务/共享去重",
+      "实际发货订单60%及64.29%",
+      "角色读取及编辑权限",
+      "配置7区和目录",
+      "查询/输入/筛选/空结果/日期/导出5次",
+      "列显示/顺序/冻结/拖拽/排序/分页5次",
+      "六个详情页签和甘特交互5次",
+      "跟进/人工预计写入及空值防错5次",
+      "未知路线有界/无界收敛5次",
+      "配置全部页签/校验/发布/只读5次",
+      "图表筛选/甘特折叠/关闭恢复/图片失败5次",
+      "选定在途本地重算/原始基线保留/缺映射阻断5次",
+      "主管本团队预计权限/外团队保存阻断5次",
+      "时区/大屏/履约模式5次",
+      "1024主管工作台/1280甘特/1920大屏"
+    ],
+    "sampleCount": 698,
+    "maxMs": 168.90000000596046,
+    "overLimitCount": 0,
+    "errors": []
+  },
+  "combined": {
+    "checkGroups": 28,
+    "sampleCount": 1945,
+    "maxMs": 184.69999998807907,
+    "overLimitCount": 0
+  },
+  "metrics": {
+    "source": "metrics/verification.json",
+    "capturedAt": "2026-09-17T14:25:08.210Z",
+    "checks": [
+      "当前逾期与预测可判率分别计算并随查询更新"
+    ],
+    "sampleCount": 33,
+    "maxMs": 110.09999999403954,
+    "errors": []
+  }
+}

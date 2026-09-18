@@ -67,12 +67,26 @@ function readPersistedLogs(): PostFinishingOperationLogEntry[] {
 }
 
 let logs = readPersistedLogs()
+let initializingDemoLogs = false
 
 function persist(): void {
+  if (initializingDemoLogs) return
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
   } catch {
     // 原型无 localStorage 时保留当前运行期内存事实。
+  }
+}
+
+/** 仅演示初始化合并持久化；实际业务操作仍在 append 时同步保存。 */
+export function initializePostFinishingDemoOperationLogs(initialize: () => void): void {
+  const alreadyInitializing = initializingDemoLogs
+  initializingDemoLogs = true
+  try {
+    initialize()
+  } finally {
+    initializingDemoLogs = alreadyInitializing
+    if (!alreadyInitializing) persist()
   }
 }
 

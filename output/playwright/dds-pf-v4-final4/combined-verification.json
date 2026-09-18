@@ -1,0 +1,665 @@
+{
+  "build": "final4 index-Ba2d7CYP.js / production-timeliness-Cb-RVR_7.js / app-shared-CNb0BgIn.js",
+  "head": "4804328a822eec3c77eee1ffa5b10911bb77c9fe",
+  "branch": "codex/dds-production-fulfillment",
+  "server": "http://192.168.0.10:4179",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "sourceFiles": [
+    "output/playwright/dds-pf-v4-final4/verification.json",
+    "output/playwright/dds-pf-v4-final4-source-entry/verification.json"
+  ],
+  "rawSampleCounts": {
+    "full": 7215,
+    "sourceClicks": 15,
+    "total": 7230
+  },
+  "functional": {
+    "groups": [
+      "七菜单冷进入与刷新、筛选结构：overview",
+      "七菜单冷进入与刷新、筛选结构：tasks",
+      "七菜单冷进入与刷新、筛选结构：follow-up",
+      "七菜单冷进入与刷新、筛选结构：work-items",
+      "七菜单冷进入与刷新、筛选结构：teams",
+      "七菜单冷进入与刷新、筛选结构：fulfillment",
+      "七菜单冷进入与刷新、筛选结构：configuration",
+      "七菜单站内切换及筛选范围",
+      "总览各视图及团队队列",
+      "真实依赖箭头、卡点定位与单据摘要",
+      "任务来源、准备与工艺路线、工作明细",
+      "规则配置分区及弹窗层级",
+      "配置事件匹配、规则试算与发布边界",
+      "真实来源任务单项映射与发布、不伪造整体截止",
+      "明确执行任务来源与工厂",
+      "列设置、分页、排序与低分辨率",
+      "统计卡片、到期分布和阶段下钻",
+      "各命名路由的通用可操作入口",
+      "任务数量、阶段展开、来源选择和预测登记",
+      "配置表单全部字段与维护动作",
+      "独立规则示例及往返入口",
+      "空查询履约列表及匹配试算入口覆盖",
+      "数据事项责任期限、筛选导出与持久化",
+      "数据事项查询层级与多分辨率",
+      "键盘查询、日期边界与列偏好刷新",
+      "专属款图在各列表和团队的大图入口",
+      "图片失败明确反馈与重新打开恢复"
+    ],
+    "errors": [],
+    "sourceRows": [
+      {
+        "kind": "execution",
+        "iteration": 1,
+        "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "execution",
+        "iteration": 2,
+        "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "execution",
+        "iteration": 3,
+        "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "execution",
+        "iteration": 4,
+        "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "execution",
+        "iteration": 5,
+        "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "qc",
+        "iteration": 1,
+        "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "qc",
+        "iteration": 2,
+        "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "qc",
+        "iteration": 3,
+        "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "qc",
+        "iteration": 4,
+        "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "qc",
+        "iteration": 5,
+        "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "demand-list",
+        "iteration": 1,
+        "href": "/fcs/production/demand-inbox",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "demand-list",
+        "iteration": 2,
+        "href": "/fcs/production/demand-inbox",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "demand-list",
+        "iteration": 3,
+        "href": "/fcs/production/demand-inbox",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "demand-list",
+        "iteration": 4,
+        "href": "/fcs/production/demand-inbox",
+        "contentReady": true,
+        "pageErrors": []
+      },
+      {
+        "kind": "demand-list",
+        "iteration": 5,
+        "href": "/fcs/production/demand-inbox",
+        "contentReady": true,
+        "pageErrors": []
+      }
+    ]
+  },
+  "controlCounts": {
+    "observed": 485,
+    "uncovered": 0
+  },
+  "uncoveredControls": [],
+  "performanceFailures": [
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4/verification.json",
+      "label": "navigation",
+      "ms": 229.8999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "cold",
+      "case": "overview-cold",
+      "iteration": 1,
+      "context": 2,
+      "cache": "new isolated context + browser HTTP cache cleared"
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4/verification.json",
+      "label": "navigation",
+      "ms": 310.5,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "kind": "refresh",
+      "case": "setup",
+      "iteration": 5,
+      "context": 41,
+      "cache": "same isolated context; browser cache retained"
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4/verification.json",
+      "label": "navigation",
+      "ms": 228.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1024×768",
+      "kind": "refresh",
+      "case": "responsive-1024-overview",
+      "iteration": 2,
+      "context": 51,
+      "cache": "same isolated context; browser cache retained"
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "execution",
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "iteration": 1,
+      "ms": 1611.1000000089407
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "execution",
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "iteration": 2,
+      "ms": 1589.7000000029802
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "execution",
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "iteration": 3,
+      "ms": 1609.4000000059605
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "execution",
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "iteration": 4,
+      "ms": 1629.7000000029802
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "execution",
+      "href": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "iteration": 5,
+      "ms": 1599.2000000029802
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "qc",
+      "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+      "iteration": 1,
+      "ms": 466.80000001192093
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "qc",
+      "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+      "iteration": 2,
+      "ms": 433.6000000089407
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "qc",
+      "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+      "iteration": 3,
+      "ms": 450.20000000298023
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "qc",
+      "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+      "iteration": 4,
+      "ms": 416.20000000298023
+    },
+    {
+      "evidence": "output/playwright/dds-pf-v4-final4-source-entry/verification.json",
+      "kind": "qc",
+      "href": "/fcs/quality/qc-records/QC-RIB-202603-0002",
+      "iteration": 5,
+      "ms": 433
+    }
+  ],
+  "failureContext": [
+    {
+      "failure": {
+        "label": "navigation",
+        "ms": 229.8999999910593,
+        "route": "/dds/supply-chain/production-fulfillment/overview",
+        "viewport": "1366×768",
+        "kind": "cold",
+        "case": "overview-cold",
+        "iteration": 1,
+        "context": 2,
+        "cache": "new isolated context + browser HTTP cache cleared"
+      },
+      "previous": [],
+      "next": [
+        {
+          "case": "overview-cold",
+          "kind": "cold",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 178.59999999403954
+        },
+        {
+          "case": "overview-cold",
+          "kind": "cold",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 184.20000000298023
+        },
+        {
+          "case": "overview-cold",
+          "kind": "cold",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 174.59999999403954
+        }
+      ]
+    },
+    {
+      "failure": {
+        "label": "navigation",
+        "ms": 310.5,
+        "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+        "viewport": "1366×768",
+        "kind": "refresh",
+        "case": "setup",
+        "iteration": 5,
+        "context": 41,
+        "cache": "same isolated context; browser cache retained"
+      },
+      "previous": [
+        {
+          "case": "team-交付记录",
+          "kind": "click",
+          "selector": "[data-pf-action=\"team-tab\"][data-value=\"交付记录\"]",
+          "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+          "ms": 31.700000002980232
+        },
+        {
+          "case": "team-交付记录",
+          "kind": "click",
+          "selector": "[data-pf-action=\"team-tab\"][data-value=\"交付记录\"]",
+          "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+          "ms": 28.5
+        },
+        {
+          "case": "team-交付记录",
+          "kind": "click",
+          "selector": "[data-pf-action=\"team-tab\"][data-value=\"交付记录\"]",
+          "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+          "ms": 29.799999997019768
+        }
+      ],
+      "next": [
+        {
+          "case": "fulfillment-发货行",
+          "kind": "click",
+          "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+          "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+          "ms": 51
+        },
+        {
+          "case": "fulfillment-发货行",
+          "kind": "click",
+          "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+          "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+          "ms": 27.5
+        },
+        {
+          "case": "fulfillment-发货行",
+          "kind": "click",
+          "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+          "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+          "ms": 30.599999994039536
+        }
+      ]
+    },
+    {
+      "failure": {
+        "label": "navigation",
+        "ms": 228.29999999701977,
+        "route": "/dds/supply-chain/production-fulfillment/overview",
+        "viewport": "1024×768",
+        "kind": "refresh",
+        "case": "responsive-1024-overview",
+        "iteration": 2,
+        "context": 51,
+        "cache": "same isolated context; browser cache retained"
+      },
+      "previous": [
+        {
+          "case": "responsive-image-1280",
+          "kind": "click",
+          "selector": "[data-pf-action=\"image\"]",
+          "route": "/dds/supply-chain/production-fulfillment/tasks/DEM-202603-0082",
+          "ms": 25.399999991059303
+        },
+        {
+          "case": "responsive-image-1280",
+          "kind": "click",
+          "selector": "#pf-overlays [data-pf-action=\"close\"]",
+          "route": "/dds/supply-chain/production-fulfillment/tasks/DEM-202603-0082",
+          "ms": 30.200000002980232
+        },
+        {
+          "case": "responsive-1024-overview",
+          "kind": "refresh",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 119
+        }
+      ],
+      "next": [
+        {
+          "case": "responsive-1024-overview",
+          "kind": "refresh",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 106.40000000596046
+        },
+        {
+          "case": "responsive-1024-overview",
+          "kind": "refresh",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 93.40000000596046
+        },
+        {
+          "case": "responsive-1024-overview",
+          "kind": "refresh",
+          "route": "/dds/supply-chain/production-fulfillment/overview",
+          "ms": 98.80000001192093
+        }
+      ]
+    }
+  ],
+  "missingImageObjects": [
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Kemeja Batik Pria Modern",
+      "code": "SPU-2024-001",
+      "label": "对应实图待补Kemeja Batik Pria ModernSPU-2024-001",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Dress Wanita Casual",
+      "code": "SPU-2024-002",
+      "label": "对应实图待补Dress Wanita CasualSPU-2024-002",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Celana Panjang Formal",
+      "code": "SPU-2024-003",
+      "label": "对应实图待补Celana Panjang FormalSPU-2024-003",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Kaos Polos Premium",
+      "code": "SPU-2024-004",
+      "label": "对应实图待补Kaos Polos PremiumSPU-2024-004",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Celana Jogger Pria",
+      "code": "SPU-2024-010",
+      "label": "对应实图待补Celana Jogger PriaSPU-2024-010",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "春季休闲T恤",
+      "code": "SPU-2024-001",
+      "label": "对应实图待补春季休闲T恤SPU-2024-001",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "春季定位印花连衣裙",
+      "code": "SPU-DRESS-083",
+      "label": "对应实图待补春季定位印花连衣裙SPU-DRESS-083",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Jaket Hoodie Unisex",
+      "code": "SPU-2024-005",
+      "label": "对应实图待补Jaket Hoodie UnisexSPU-2024-005",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Rok Mini Plisket",
+      "code": "SPU-2024-006",
+      "label": "对应实图待补Rok Mini PlisketSPU-2024-006",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Kemeja Flanel Pria",
+      "code": "SPU-2024-008",
+      "label": "对应实图待补Kemeja Flanel PriaSPU-2024-008",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "春季休闲印花短袖 T 恤",
+      "code": "SPU-TSHIRT-081",
+      "label": "对应实图待补春季休闲印花短袖 T 恤SPU-TSHIRT-081",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Polo Shirt Pique",
+      "code": "SPU-2024-009",
+      "label": "对应实图待补Polo Shirt PiqueSPU-2024-009",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Sweater Rajut Wanita",
+      "code": "SPU-2024-011",
+      "label": "对应实图待补Sweater Rajut WanitaSPU-2024-011",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Cardigan Wanita",
+      "code": "SPU-2024-012",
+      "label": "对应实图待补Cardigan WanitaSPU-2024-012",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Jas Pria Formal",
+      "code": "SPU-2024-013",
+      "label": "对应实图待补Jas Pria FormalSPU-2024-013",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Rompi Pria Casual",
+      "code": "SPU-2024-014",
+      "label": "对应实图待补Rompi Pria CasualSPU-2024-014",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Kemeja Linen Pria",
+      "code": "SPU-2024-015",
+      "label": "对应实图待补Kemeja Linen PriaSPU-2024-015",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "name": "Blus Wanita Satin",
+      "code": "SPU-2024-016",
+      "label": "对应实图待补Blus Wanita SatinSPU-2024-016",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "name": "Blazer Wanita Formal",
+      "code": "SPU-2024-007",
+      "label": "对应实图待补Blazer Wanita FormalSPU-2024-007",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+      "name": "女式基础圆领短袖",
+      "code": "ASYSA26060310",
+      "label": "对应实图待补女式基础圆领短袖ASYSA26060310",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+      "name": "商务修身长袖衬衫",
+      "code": "SPU-SHIRT-086",
+      "label": "对应实图待补商务修身长袖衬衫SPU-SHIRT-086",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+      "name": "户外轻量夹克",
+      "code": "SPU-JACKET-085",
+      "label": "对应实图待补户外轻量夹克SPU-JACKET-085",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%B7%9F%E5%8D%95%E5%9B%A2%E9%98%9F",
+      "name": "毛织撞色短袖上衣",
+      "code": "SPU-TEE-084",
+      "label": "对应实图待补毛织撞色短袖上衣SPU-TEE-084",
+      "reason": "对应实图待补"
+    },
+    {
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "name": "Celana Pendek Pria",
+      "code": "SPU-2024-017",
+      "label": "对应实图待补Celana Pendek PriaSPU-2024-017",
+      "reason": "对应实图待补"
+    }
+  ],
+  "sourceImageIssues": [
+    {
+      "kind": "qc",
+      "iteration": 1,
+      "documentNo": "QC-RIB-202603-0002",
+      "images": [
+        {
+          "src": "https://placehold.co/96x96?text=SKU",
+          "alt": "PO-202603-0002",
+          "complete": true,
+          "width": 96
+        }
+      ]
+    },
+    {
+      "kind": "qc",
+      "iteration": 2,
+      "documentNo": "QC-RIB-202603-0002",
+      "images": [
+        {
+          "src": "https://placehold.co/96x96?text=SKU",
+          "alt": "PO-202603-0002",
+          "complete": true,
+          "width": 96
+        }
+      ]
+    },
+    {
+      "kind": "qc",
+      "iteration": 3,
+      "documentNo": "QC-RIB-202603-0002",
+      "images": [
+        {
+          "src": "https://placehold.co/96x96?text=SKU",
+          "alt": "PO-202603-0002",
+          "complete": true,
+          "width": 96
+        }
+      ]
+    },
+    {
+      "kind": "qc",
+      "iteration": 4,
+      "documentNo": "QC-RIB-202603-0002",
+      "images": [
+        {
+          "src": "https://placehold.co/96x96?text=SKU",
+          "alt": "PO-202603-0002",
+          "complete": true,
+          "width": 96
+        }
+      ]
+    },
+    {
+      "kind": "qc",
+      "iteration": 5,
+      "documentNo": "QC-RIB-202603-0002",
+      "images": [
+        {
+          "src": "https://placehold.co/96x96?text=SKU",
+          "alt": "PO-202603-0002",
+          "complete": true,
+          "width": 96
+        }
+      ]
+    }
+  ],
+  "coveragePass": true,
+  "performancePass": false,
+  "imageCompletenessPass": false,
+  "completePass": false,
+  "notes": [
+    "真实来源目标核心内容可读不等于源页面全部交互完成验收。",
+    "QC外部placehold.co为不合规占位图；加载成功仅证明可用，不证明对象对应。",
+    "没有预热浏览器，没有复跑覆盖首次慢样本。",
+    "物理打印未验收，仅预览与取消有证据。"
+  ]
+}

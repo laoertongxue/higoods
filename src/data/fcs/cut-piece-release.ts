@@ -400,9 +400,18 @@ function saveGeneratedRelease(): void {
   loadedGeneratedReleaseRaw = raw
 }
 
-function withSavedRelease<T>(operation: () => T, failure: (message: string) => T): T {
+function withSavedRelease<T>(operation: () => T, failure: (message: string) => T, productionOrderId?: string): T {
   try { syncGeneratedCutPieceRelease() } catch (error) { return failure(error instanceof Error ? error.message : String(error)) }
-  const before = structuredClone({ releaseRepository, targetSnapshots, releaseVersionRepository, lateEvents })
+  // 单生产单确认只会修改该单的事实；其余记录保留引用及 Map 顺序即可回滚。
+  // 跨对象操作仍保留完整快照，避免扩大本次性能调整的业务范围。
+  const capture = <V>(repository: Map<string, V>, belongsToOrder: (value: V, key: string) => boolean): Map<string, V> =>
+    new Map([...repository].map(([key, value]) => [key, belongsToOrder(value, key) ? structuredClone(value) : value]))
+  const before = productionOrderId ? {
+    releaseRepository: capture(releaseRepository, item => item.input.productionOrderId === productionOrderId),
+    targetSnapshots: capture(targetSnapshots, item => item.productionOrderId === productionOrderId),
+    releaseVersionRepository: capture(releaseVersionRepository, (_item, key) => key === productionOrderId),
+    lateEvents: capture(lateEvents, item => item.productionOrderId === productionOrderId),
+  } : structuredClone({ releaseRepository, targetSnapshots, releaseVersionRepository, lateEvents })
   try {
     const result = operation()
     if ([...releaseRepository.values()].some(item => item.generatedSkuCodes)) saveGeneratedRelease()
@@ -1989,10 +1998,10 @@ export function saveCutPieceReleaseDecision(input: SaveCutPieceReleaseDecisionIn
 }
 
 export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
-  return withSavedRelease(() => confirmCutPieceReleaseTargetInMemory(input), message => ({ ok: false, message, snapshot: null }))
+  return withSavedRelease(() => confirmCutPieceReleaseTargetInMemory(input), message => ({ ok: false, message, snapshot: null }), input.productionOrderId)
 }
 export function confirmCutPieceReleaseAvailableQty(input: ConfirmCutPieceReleaseAvailableQtyInput): ConfirmCutPieceReleaseAvailableQtyResult {
-  return withSavedRelease(() => confirmCutPieceReleaseAvailableQtyInMemory(input), message => ({ ok: false, message, version: null }))
+  return withSavedRelease(() => confirmCutPieceReleaseAvailableQtyInMemory(input), message => ({ ok: false, message, version: null }), input.productionOrderId)
 }
 export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): CutOrderReleaseWriteResult {
   return withSavedRelease(() => recordCutOrderReleaseStatusChangeInMemory(input), reason => ({ status: 'rejected', reason }))

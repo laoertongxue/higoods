@@ -2955,6 +2955,16 @@ export function getPrintReviewStatusLabel(status: PrintReviewStatus): string {
   return PRINT_REVIEW_STATUS_LABEL[status]
 }
 
+/** Relation readers need current source references, not simulated factory execution. */
+export function readPrintWorkOrdersWithoutInitialization(): { orders: PrintWorkOrder[]; needsRestoration: boolean } {
+  if (printPersistenceReadError) throw new Error(printPersistenceReadError)
+  return {
+    orders: seeded ? listGeneratedPrintWorkOrders().map(cloneWorkOrder) : [],
+    needsRestoration: !seeded && typeof localStorage !== 'undefined'
+      && localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== null,
+  }
+}
+
 export function listPrintWorkOrders(): PrintWorkOrder[] {
   syncDerivedWorkflow()
   return listGeneratedPrintWorkOrders().map((order) => {

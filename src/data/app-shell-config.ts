@@ -640,6 +640,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       { key: 'material-risks', title: '风险与决策', icon: 'BarChart3', href: '/dds/supply-chain/materials/risks' },
       { key: 'material-quality', title: '数据质量', icon: 'BarChart3', href: '/dds/supply-chain/materials/quality' },
       { key: 'material-configuration', title: '规则与配置', icon: 'BarChart3', href: '/dds/supply-chain/materials/configuration' },
+    ] }, { key: 'production-fulfillment', title: '生产与履约时效', icon: 'Timer', children: [
+      { key: 'production-fulfillment-overview', title: '时效总览', icon: 'BarChart3', href: '/dds/supply-chain/production-fulfillment/overview' },
+      { key: 'production-fulfillment-tasks', title: '生产任务', icon: 'ListChecks', href: '/dds/supply-chain/production-fulfillment/tasks' },
+      { key: 'production-fulfillment-follow-up', title: '我的跟单', icon: 'UserRound', href: '/dds/supply-chain/production-fulfillment/follow-up' },
+      { key: 'production-fulfillment-work-items', title: '工作项监控', icon: 'Activity', href: '/dds/supply-chain/production-fulfillment/work-items' },
+      { key: 'production-fulfillment-teams', title: '团队与工厂', icon: 'Factory', href: '/dds/supply-chain/production-fulfillment/teams' },
+      { key: 'production-fulfillment-fulfillment', title: '订单履约分析', icon: 'Truck', href: '/dds/supply-chain/production-fulfillment/fulfillment' },
+      { key: 'production-fulfillment-configuration', title: '规则与配置', icon: 'Settings', href: '/dds/supply-chain/production-fulfillment/configuration' },
     ] }] },
     {
       title: '数据分析',

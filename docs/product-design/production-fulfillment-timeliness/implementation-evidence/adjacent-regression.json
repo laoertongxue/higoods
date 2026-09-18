@@ -1,0 +1,16 @@
+{
+  "server": "http://127.0.0.1:4179",
+  "route": "/dds/supply-chain/materials/overview",
+  "browser": "149.0.7827.55",
+  "viewport": "1366×768",
+  "checks": [
+    "现有决策总览内容正常",
+    "新旧菜单并列",
+    "非本模块不预载服装图",
+    "无PF页面容器污染",
+    "无页面错误"
+  ],
+  "passed": true,
+  "errors": [],
+  "capturedAt": "2026-09-17T13:28:42.509Z"
+}

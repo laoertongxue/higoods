@@ -1,0 +1,211 @@
+{
+  "server": "http://192.168.0.10:4188",
+  "worktree": "/private/tmp/higoods-dds-release-20260918",
+  "head": "bbde0ffd1be5624dfdf388462e4fe3f52ce380bb",
+  "checks": 12,
+  "primarySamples": 255,
+  "primaryMax": 336.09999999403954,
+  "primaryFailures": [
+    {
+      "label": "navigation",
+      "ms": 336.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "cold",
+      "case": "overview-cold",
+      "iteration": 1,
+      "context": 2,
+      "cache": "new isolated context + browser HTTP cache cleared"
+    },
+    {
+      "ms": 279,
+      "label": "execution-cold",
+      "case": "execution-cold",
+      "iteration": 1,
+      "route": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "context": 53,
+      "cache": "new context + HTTP cache cleared"
+    },
+    {
+      "ms": 259.5,
+      "label": "execution-cold",
+      "case": "execution-cold",
+      "iteration": 2,
+      "route": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "context": 54,
+      "cache": "new context + HTTP cache cleared"
+    },
+    {
+      "ms": 254.40000000596046,
+      "label": "execution-cold",
+      "case": "execution-cold",
+      "iteration": 3,
+      "route": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "context": 55,
+      "cache": "new context + HTTP cache cleared"
+    },
+    {
+      "ms": 253.5,
+      "label": "execution-cold",
+      "case": "execution-cold",
+      "iteration": 4,
+      "route": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "context": 56,
+      "cache": "new context + HTTP cache cleared"
+    },
+    {
+      "ms": 259.19999998807907,
+      "label": "execution-cold",
+      "case": "execution-cold",
+      "iteration": 5,
+      "route": "/fcs/progress/board/tasks/TASKGEN-202603-0002-001__ORDER",
+      "context": 57,
+      "cache": "new context + HTTP cache cleared"
+    }
+  ],
+  "primaryErrors": [],
+  "sourceSamples": 15,
+  "sourceFailures": [],
+  "pcsSamples": [
+    {
+      "kind": "navigation",
+      "iteration": 1,
+      "ms": 233.8
+    },
+    {
+      "kind": "navigation",
+      "iteration": 2,
+      "ms": 192.3
+    },
+    {
+      "kind": "navigation",
+      "iteration": 3,
+      "ms": 219
+    },
+    {
+      "kind": "navigation",
+      "iteration": 4,
+      "ms": 221.2
+    },
+    {
+      "kind": "navigation",
+      "iteration": 5,
+      "ms": 186.8
+    },
+    {
+      "kind": "reload",
+      "iteration": 1,
+      "ms": 118.4
+    },
+    {
+      "kind": "reload",
+      "iteration": 2,
+      "ms": 102.2
+    },
+    {
+      "kind": "reload",
+      "iteration": 3,
+      "ms": 132.9
+    },
+    {
+      "kind": "reload",
+      "iteration": 4,
+      "ms": 113
+    },
+    {
+      "kind": "reload",
+      "iteration": 5,
+      "ms": 132.2
+    },
+    {
+      "kind": "tab",
+      "iteration": 1,
+      "ms": 51.9
+    },
+    {
+      "kind": "tab",
+      "iteration": 2,
+      "ms": 46
+    },
+    {
+      "kind": "tab",
+      "iteration": 3,
+      "ms": 42.7
+    },
+    {
+      "kind": "tab",
+      "iteration": 4,
+      "ms": 44.8
+    },
+    {
+      "kind": "tab",
+      "iteration": 5,
+      "ms": 43
+    },
+    {
+      "kind": "scroll",
+      "iteration": 1,
+      "ms": 32.5
+    },
+    {
+      "kind": "scroll",
+      "iteration": 2,
+      "ms": 32
+    },
+    {
+      "kind": "scroll",
+      "iteration": 3,
+      "ms": 32.6
+    },
+    {
+      "kind": "scroll",
+      "iteration": 4,
+      "ms": 32.7
+    },
+    {
+      "kind": "scroll",
+      "iteration": 5,
+      "ms": 32.6
+    },
+    {
+      "kind": "preview",
+      "iteration": 1,
+      "ms": 32.3
+    },
+    {
+      "kind": "preview",
+      "iteration": 2,
+      "ms": 32.6
+    },
+    {
+      "kind": "preview",
+      "iteration": 3,
+      "ms": 32.6
+    },
+    {
+      "kind": "preview",
+      "iteration": 4,
+      "ms": 32.6
+    },
+    {
+      "kind": "preview",
+      "iteration": 5,
+      "ms": 32.5
+    }
+  ],
+  "subsidiary": [
+    {
+      "name": "source-entry",
+      "script": "scripts/check-dds-production-fulfillment-source-entry.mjs",
+      "status": 0
+    },
+    {
+      "name": "pcs-bom",
+      "script": "scripts/check-tech-pack-bom-table-layout-performance.mjs",
+      "status": 1
+    }
+  ],
+  "pass": false,
+  "completeBusinessAcceptance": false,
+  "scope": "Bounded merged shared-entry regression; not full business acceptance; physical printing excluded; missing image evidence remains open."
+}

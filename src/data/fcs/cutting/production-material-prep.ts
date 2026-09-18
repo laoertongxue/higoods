@@ -945,6 +945,8 @@ function resolveSeedOrderDemandQty(order: MaterialPrepSeedOrder): number {
   return Number.isFinite(resolvedDemandQty) && resolvedDemandQty > 0 ? resolvedDemandQty : 0
 }
 
+const materialQuantityFormatter = new Intl.NumberFormat('zh-CN')
+
 function buildGeneratedMaterialLine(
   order: MaterialPrepSeedOrder,
   type: MaterialPrepMaterialType,
@@ -1022,7 +1024,7 @@ function buildGeneratedMaterialLine(
       : progressStatus === '待到仓' && availableStockQty <= 0
         ? `${template.name} 尚未到仓，需跟进上游单据后再配料。`
       : availableStockQty > 0
-        ? `${template.name} 当前有 ${availableStockQty.toLocaleString('zh-CN')} ${template.unit} 可配。`
+        ? `${template.name} 当前有 ${materialQuantityFormatter.format(availableStockQty)} ${template.unit} 可配。`
         : template.progressDetail,
     ...upstreamDocumentInfo,
     releaseQty: type === '辅料' || type === '纱线' ? Math.round(demandQty * 0.8) : 0,

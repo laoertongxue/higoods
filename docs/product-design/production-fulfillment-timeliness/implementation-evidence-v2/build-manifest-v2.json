@@ -1,0 +1,63 @@
+{
+  "branch": "codex/dds-production-fulfillment",
+  "head": "4804328a822eec3c77eee1ffa5b10911bb77c9fe",
+  "workspace": "/Users/laoer/Documents/higoods",
+  "state": "uncommitted worktree; user AGENTS.md excluded",
+  "preview": "http://192.168.5.2:4179",
+  "previewBuild": "/tmp/higoods-dds-pf-build",
+  "suites": [
+    {
+      "suite": "dds-pf-v2",
+      "groups": 6,
+      "samples": 1214,
+      "maxMs": 184.69999998807907,
+      "capturedAt": "2026-09-17T14:17:41.647Z",
+      "server": "http://127.0.0.1:4179"
+    },
+    {
+      "suite": "dds-pf-v2-regression",
+      "groups": 21,
+      "samples": 698,
+      "maxMs": 168.90000000596046,
+      "capturedAt": "2026-09-17T14:24:35.567Z",
+      "server": "http://127.0.0.1:4179"
+    },
+    {
+      "suite": "dds-pf-v2-metrics",
+      "groups": 1,
+      "samples": 33,
+      "maxMs": 110.09999999403954,
+      "capturedAt": "2026-09-17T14:25:08.210Z",
+      "server": "http://192.168.5.2:4179"
+    }
+  ],
+  "hashes": {
+    "src/pages/production-fulfillment/task-detail.ts": "7732310a1428a1db7d6d5ed541b23218e2e4569af6a48b790551b61a377a3e05",
+    "src/pages/production-fulfillment/fixtures.ts": "326a2648c4a21d220774e1a2f4b61d8b9b8042cd35dc626930b25409edf0afcb",
+    "src/pages/production-fulfillment/boundary-evidence.ts": "c2d3dd900149432a4d0f9d85319f722eae9f088339b31708e6e7b800c139c8c3",
+    "src/pages/production-fulfillment/evidence.ts": "81f144ee7686df594c9d3e0ce5caf50804763fdca12225bb43524a6ba05f6ece",
+    "src/pages/production-fulfillment/styles.css": "adb3f089492272be2b63c962b2db1c0adfbb245a1a588a84de92de3d075b116a",
+    "src/pages/production-fulfillment/examples.ts": "0125239d854efee17ca813fc915cfa38fd9588c2c2dd5e670913f9ae1f910bbc",
+    "src/pages/production-fulfillment/common.ts": "6f157807fac4c3a80a9659b9e22ae213f639e2aeeec326915a3f421201a27da9",
+    "src/pages/production-fulfillment/ui-state.ts": "e0a8c49cd01fc77ed610fa998902fb90fa8dfa746eeed0ee66a9567666c0a836",
+    "src/pages/production-fulfillment/model.ts": "bef947b805cc18a0af7a8eea6239ce9501c17c91f2e15fc1f3aa1e0ebe2dab61",
+    "src/pages/production-fulfillment/calculations.ts": "e1dd11ed6dcc6fa40da77aa7ce40a47869527b3f0d3ca67909d385d73c180dc4",
+    "src/pages/production-fulfillment/config-model.ts": "c906a260a85b7e91a7faed815921630c5f2a6d133402387efcbc04577ce77aa1",
+    "src/pages/production-fulfillment/events.ts": "c8a605e6e11e4dc4b1f97b3b18918fd79b7b6e6330fea7f4e666d5e50e72706b",
+    "src/pages/production-fulfillment/dashboards.ts": "02f6fd19adb68dcef43c8dc0b586a61651854face530a08f9b3b2183849032bd",
+    "src/pages/production-fulfillment/index.ts": "846701b0fa1874c3a1317fdf4b69810dfa6a96cd5f9b366d0be47989906f817c",
+    "src/pages/production-fulfillment/timeline.ts": "6bbc729147da5e933d6917d5ecb118d0317b0fc991597b325f9d642f0ca5affd",
+    "src/pages/production-fulfillment/tasks.ts": "5a755dc5ad084c19566beef7a3e38c7ee0f9629cbe67c532cd8fbcd5e93bcb0e",
+    "src/pages/production-fulfillment/configuration.ts": "d7bc08f727a6aff477a16db21731264ced81164a5566d94dd5d2a8a51098b91e",
+    "src/pages/production-fulfillment/mock-data.json": "9226c6e433a105142ea3d661158da1f753ea09f6de1382fa6d8a90ebaac135ab",
+    "src/pages/production-fulfillment/catalog.ts": "46cf4940266cc594b7b411ea3b738bbeb61ee0b41fcf7d01546916453d2bf639",
+    "src/pages/production-fulfillment/scenarios.ts": "f234512abaa1417cf3ec80aeee512abacb4f133278d69c3056ed8f21d2ed87d2",
+    "src/pages/production-fulfillment/rule-recalculation.ts": "19c13e66df9fb4be876be462007c8864d52c02a6d412d2ded998f0b20ec1da82",
+    "src/state/store.ts": "cb8a6099924eb3f38899f307499d49044cccdd59bcbc17cf8dfb172e09d3bef4",
+    "src/data/app-shell-config.ts": "9dbc0ad48539b8483d8efa733f914865a4bd724bfaf7c3b98c9cae227cee4649",
+    "src/router/routes.ts": "68d8ea1243bb9cd9c1a40298d6c021ed6d04d2b4f8e2a315295ba21ea58a1712",
+    "src/main.ts": "5283eede369e22d2429eaf368cf21bf4e636becb4e17fd092c1d23bc0c37e52e",
+    "index.html": "779982f648d3b3578ee757584cc53379105bdbd597e1cb04276d2f955a9fe6ff",
+    "scripts/check-dds-production-fulfillment.mjs": "24efd53d0e49ea7f188fca8618fa088fee34cf1554a3d93209475767a0f3d554"
+  }
+}

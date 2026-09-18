@@ -2537,8 +2537,8 @@ export function getProjectFlowStageContractByPhaseCode(phaseCode: PcsProjectPhas
   return found
 }
 
-export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
-  return PCS_PROJECT_STEP_DEFINITIONS.map((item) => ({
+function copyProjectStepDefinition(item: PcsProjectStepDefinition): PcsProjectStepDefinition {
+  return {
     ...item,
     multiInstanceDefinition: resolveProjectStepMultiInstanceDefinition(item),
     roleNames: [...item.roleNames],
@@ -2563,7 +2563,11 @@ export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
     downstreamChanges: [...item.downstreamChanges],
     businessRules: [...item.businessRules],
     systemConstraints: [...item.systemConstraints],
-  }))
+  }
+}
+
+export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
+  return PCS_PROJECT_STEP_DEFINITIONS.map(copyProjectStepDefinition)
 }
 
 export function getProjectStepDefinition(stepCode: ProjectStepCode): PcsProjectStepDefinition {
@@ -2571,7 +2575,7 @@ export function getProjectStepDefinition(stepCode: ProjectStepCode): PcsProjectS
   if (!found) {
     throw new Error(`未找到商品项目定义：${stepCode}`)
   }
-  return listProjectStepDefinitions().find((item) => item.stepCode === stepCode) as PcsProjectStepDefinition
+  return copyProjectStepDefinition(found)
 }
 
 export function getProjectStepMultiInstanceDefinition(

@@ -12,6 +12,7 @@ import {
 } from './post-finishing-document-numbering.ts'
 import {
   appendPostFinishingOperationLog,
+  initializePostFinishingDemoOperationLogs,
   resetPostFinishingOperationLogs,
   type PostFinishingFullFlowStage,
 } from './post-finishing-operation-log.ts'
@@ -1125,8 +1126,11 @@ function readPersistedState(): PostFinishingFullFlowState {
 }
 
 let state = readPersistedState()
+let initializingDemo = false
 
 function persist(): void {
+  // 演示初始化同步创建完整链路，期间不反复序列化同一个逐步增长的状态。
+  if (initializingDemo) return
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
@@ -3798,6 +3802,17 @@ function shouldBootstrapPostFinishingDemo(): boolean {
 }
 
 export function loadPostFinishingDemoData(): void {
+  initializingDemo = true
+  try {
+    initializePostFinishingDemoOperationLogs(initializePostFinishingDemoData)
+  } finally {
+    initializingDemo = false
+    // 即使某条演示链路构造失败，已产生的事实也与普通同步操作一样保留。
+    persist()
+  }
+}
+
+function initializePostFinishingDemoData(): void {
   resetPostFinishingFullFlow()
   setPostFinishingDemoBootstrapEnabled(true)
   const baseTime = Date.UTC(2026, 7, 25, 1, 0, 0)

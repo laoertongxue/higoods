@@ -940,12 +940,12 @@ export function listTechnicalDataVersions(): TechnicalDataVersionRecord[] {
 }
 
 export function getTechnicalDataVersionById(technicalVersionId: string): TechnicalDataVersionRecord | null {
-  const record = loadSnapshot().records.find((item) => item.technicalVersionId === technicalVersionId)
+  const record = (memorySnapshot ?? loadSnapshot()).records.find((item) => item.technicalVersionId === technicalVersionId)
   return record ? cloneRecord(record) : null
 }
 
 export function getTechnicalDataVersionContent(technicalVersionId: string): TechnicalDataVersionContent | null {
-  const content = loadSnapshot().contents.find((item) => item.technicalVersionId === technicalVersionId)
+  const content = (memorySnapshot ?? loadSnapshot()).contents.find((item) => item.technicalVersionId === technicalVersionId)
   return content ? cloneContent(content) : null
 }
 
@@ -954,7 +954,7 @@ export function getTechnicalDataVersionContentById(technicalVersionId: string): 
 }
 
 export function listTechnicalDataVersionsByStyleId(styleId: string): TechnicalDataVersionRecord[] {
-  return loadSnapshot()
+  return (memorySnapshot ?? loadSnapshot())
     .records
     .filter((item) => item.styleId === styleId)
     .sort((a, b) => b.versionNo - a.versionNo || b.updatedAt.localeCompare(a.updatedAt))

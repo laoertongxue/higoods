@@ -558,10 +558,14 @@ function renderFactSkuCard(item: QcFactSkuResult): string {
     ? [{ label: '返工扣款金额', value: escapeHtml(item.reworkChargebackAmountText) }]
     : []
 
+  const imageUrl = item.imageUrl?.trim()
+  const hasSourceImage = imageUrl && !/^https?:\/\/(?:[^/]+\.)?placehold\.co(?:\/|$)/i.test(imageUrl)
   return `
     <article class="rounded-md border bg-background px-4 py-3">
       <div class="flex min-w-0 items-center gap-3">
-        <img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(item.imageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
+        ${hasSourceImage
+          ? `<img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.skuCode)} 原单款式图" />`
+          : `<span class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800" data-qc-image-missing="${escapeHtml(item.skuCode)}">对应实图待补</span>`}
         <div class="min-w-0">
           <div class="truncate text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
           <div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>

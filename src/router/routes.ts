@@ -235,6 +235,11 @@ function resolveFromRegistry(
 export async function resolvePage(pathname: string): Promise<string> {
   const normalizedPathname = normalizePathname(pathname)
 
+  if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) {
+    const { renderProductionFulfillmentPage } = await import('../pages/production-fulfillment')
+    return renderProductionFulfillmentPage(normalizedPathname)
+  }
+
   if (/^\/dds\/supply-chain\/materials\/(overview|panorama|planning|consumption|risks|quality|configuration|health|warnings|daily|goods|preparation)$/.test(normalizedPathname)) {
     const { renderMaterialDecisionPage } = await import('../pages/material-decision')
     return renderMaterialDecisionPage(normalizedPathname)

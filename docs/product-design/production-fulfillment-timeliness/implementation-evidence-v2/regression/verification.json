@@ -1,0 +1,5902 @@
+{
+  "server": "http://127.0.0.1:4179",
+  "browser": "149.0.7827.55",
+  "viewport": "1366×768;1280×720;1024×768;1920×1080",
+  "checks": [
+    "总览8在途/7000/400/6600",
+    "查询与重置共同范围",
+    "跟单甲仅001/005",
+    "任务31工作/21子动作/九阶段",
+    "工作抽屉及大图",
+    "完整计算公式及数量曲线",
+    "工作项状态独立于任务/共享去重",
+    "实际发货订单60%及64.29%",
+    "角色读取及编辑权限",
+    "配置7区和目录",
+    "查询/输入/筛选/空结果/日期/导出5次",
+    "列显示/顺序/冻结/拖拽/排序/分页5次",
+    "六个详情页签和甘特交互5次",
+    "跟进/人工预计写入及空值防错5次",
+    "未知路线有界/无界收敛5次",
+    "配置全部页签/校验/发布/只读5次",
+    "图表筛选/甘特折叠/关闭恢复/图片失败5次",
+    "选定在途本地重算/原始基线保留/缺映射阻断5次",
+    "主管本团队预计权限/外团队保存阻断5次",
+    "时区/大屏/履约模式5次",
+    "1024主管工作台/1280甘特/1920大屏"
+  ],
+  "samples": [
+    {
+      "label": "navigation",
+      "ms": 168.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 66.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 80.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 63.5,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 63.5,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 45.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"][data-value=\"预计逾期\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 63.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 30.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:image",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 32.1000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 72.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "change:scope",
+      "ms": 30.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select"
+    },
+    {
+      "label": "click:query",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "change:health",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select"
+    },
+    {
+      "label": "click:query",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 80.40000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 31.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"完整订单\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:export",
+      "ms": 30.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 81,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "change:role",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select"
+    },
+    {
+      "label": "navigation",
+      "ms": 65,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-002",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "change:role",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-002",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.59999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 70.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "input:query",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill",
+      "case": "query-input"
+    },
+    {
+      "label": "input:query",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill",
+      "case": "query-input"
+    },
+    {
+      "label": "input:query",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill",
+      "case": "query-input"
+    },
+    {
+      "label": "input:query",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill",
+      "case": "query-input"
+    },
+    {
+      "label": "input:query",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"query\"]",
+      "kind": "fill",
+      "case": "query-input"
+    },
+    {
+      "label": "click:query",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click",
+      "case": "query"
+    },
+    {
+      "label": "click:query",
+      "ms": 26.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click",
+      "case": "query"
+    },
+    {
+      "label": "click:query",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click",
+      "case": "query"
+    },
+    {
+      "label": "click:query",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click",
+      "case": "query"
+    },
+    {
+      "label": "click:query",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"query\"]",
+      "kind": "click",
+      "case": "query"
+    },
+    {
+      "label": "click:reset",
+      "ms": 24.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 28.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:more",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"more\"]",
+      "kind": "click",
+      "case": "more"
+    },
+    {
+      "label": "click:more",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"more\"]",
+      "kind": "click",
+      "case": "more"
+    },
+    {
+      "label": "click:more",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"more\"]",
+      "kind": "click",
+      "case": "more"
+    },
+    {
+      "label": "click:more",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"more\"]",
+      "kind": "click",
+      "case": "more"
+    },
+    {
+      "label": "click:more",
+      "ms": 27.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"more\"]",
+      "kind": "click",
+      "case": "more"
+    },
+    {
+      "label": "change:health",
+      "ms": 30.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select",
+      "case": "field-health"
+    },
+    {
+      "label": "change:health",
+      "ms": 31.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select",
+      "case": "field-health"
+    },
+    {
+      "label": "change:health",
+      "ms": 24.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select",
+      "case": "field-health"
+    },
+    {
+      "label": "change:health",
+      "ms": 26.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select",
+      "case": "field-health"
+    },
+    {
+      "label": "change:health",
+      "ms": 24.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"health\"]",
+      "kind": "select",
+      "case": "field-health"
+    },
+    {
+      "label": "change:follower",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"follower\"]",
+      "kind": "select",
+      "case": "field-follower"
+    },
+    {
+      "label": "change:follower",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"follower\"]",
+      "kind": "select",
+      "case": "field-follower"
+    },
+    {
+      "label": "change:follower",
+      "ms": 26.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"follower\"]",
+      "kind": "select",
+      "case": "field-follower"
+    },
+    {
+      "label": "change:follower",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"follower\"]",
+      "kind": "select",
+      "case": "field-follower"
+    },
+    {
+      "label": "change:follower",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"follower\"]",
+      "kind": "select",
+      "case": "field-follower"
+    },
+    {
+      "label": "change:scope",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select",
+      "case": "field-scope"
+    },
+    {
+      "label": "change:scope",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select",
+      "case": "field-scope"
+    },
+    {
+      "label": "change:scope",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select",
+      "case": "field-scope"
+    },
+    {
+      "label": "change:scope",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select",
+      "case": "field-scope"
+    },
+    {
+      "label": "change:scope",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"scope\"]",
+      "kind": "select",
+      "case": "field-scope"
+    },
+    {
+      "label": "change:stage",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"stage\"]",
+      "kind": "select",
+      "case": "field-stage"
+    },
+    {
+      "label": "change:stage",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"stage\"]",
+      "kind": "select",
+      "case": "field-stage"
+    },
+    {
+      "label": "change:stage",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"stage\"]",
+      "kind": "select",
+      "case": "field-stage"
+    },
+    {
+      "label": "change:stage",
+      "ms": 27.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"stage\"]",
+      "kind": "select",
+      "case": "field-stage"
+    },
+    {
+      "label": "change:stage",
+      "ms": 26.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"stage\"]",
+      "kind": "select",
+      "case": "field-stage"
+    },
+    {
+      "label": "change:team",
+      "ms": 26.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"team\"]",
+      "kind": "select",
+      "case": "field-team"
+    },
+    {
+      "label": "change:team",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"team\"]",
+      "kind": "select",
+      "case": "field-team"
+    },
+    {
+      "label": "change:team",
+      "ms": 25.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"team\"]",
+      "kind": "select",
+      "case": "field-team"
+    },
+    {
+      "label": "change:team",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"team\"]",
+      "kind": "select",
+      "case": "field-team"
+    },
+    {
+      "label": "change:team",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"team\"]",
+      "kind": "select",
+      "case": "field-team"
+    },
+    {
+      "label": "change:region",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"region\"]",
+      "kind": "select",
+      "case": "field-region"
+    },
+    {
+      "label": "change:region",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"region\"]",
+      "kind": "select",
+      "case": "field-region"
+    },
+    {
+      "label": "change:region",
+      "ms": 25.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"region\"]",
+      "kind": "select",
+      "case": "field-region"
+    },
+    {
+      "label": "change:region",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"region\"]",
+      "kind": "select",
+      "case": "field-region"
+    },
+    {
+      "label": "change:region",
+      "ms": 26.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"region\"]",
+      "kind": "select",
+      "case": "field-region"
+    },
+    {
+      "label": "change:supplyMode",
+      "ms": 26.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"supplyMode\"]",
+      "kind": "select",
+      "case": "field-supplyMode"
+    },
+    {
+      "label": "change:supplyMode",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"supplyMode\"]",
+      "kind": "select",
+      "case": "field-supplyMode"
+    },
+    {
+      "label": "change:supplyMode",
+      "ms": 25.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"supplyMode\"]",
+      "kind": "select",
+      "case": "field-supplyMode"
+    },
+    {
+      "label": "change:supplyMode",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"supplyMode\"]",
+      "kind": "select",
+      "case": "field-supplyMode"
+    },
+    {
+      "label": "change:supplyMode",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"supplyMode\"]",
+      "kind": "select",
+      "case": "field-supplyMode"
+    },
+    {
+      "label": "change:dateField",
+      "ms": 25.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateField\"]",
+      "kind": "select",
+      "case": "field-dateField"
+    },
+    {
+      "label": "change:dateField",
+      "ms": 26.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateField\"]",
+      "kind": "select",
+      "case": "field-dateField"
+    },
+    {
+      "label": "change:dateField",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateField\"]",
+      "kind": "select",
+      "case": "field-dateField"
+    },
+    {
+      "label": "change:dateField",
+      "ms": 25.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateField\"]",
+      "kind": "select",
+      "case": "field-dateField"
+    },
+    {
+      "label": "change:dateField",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateField\"]",
+      "kind": "select",
+      "case": "field-dateField"
+    },
+    {
+      "label": "change:dateFrom",
+      "ms": 23.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateFrom\"]",
+      "kind": "fill",
+      "case": "field-dateFrom"
+    },
+    {
+      "label": "change:dateFrom",
+      "ms": 27.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateFrom\"]",
+      "kind": "fill",
+      "case": "field-dateFrom"
+    },
+    {
+      "label": "change:dateFrom",
+      "ms": 27.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateFrom\"]",
+      "kind": "fill",
+      "case": "field-dateFrom"
+    },
+    {
+      "label": "change:dateFrom",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateFrom\"]",
+      "kind": "fill",
+      "case": "field-dateFrom"
+    },
+    {
+      "label": "change:dateFrom",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateFrom\"]",
+      "kind": "fill",
+      "case": "field-dateFrom"
+    },
+    {
+      "label": "change:dateTo",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateTo\"]",
+      "kind": "fill",
+      "case": "field-dateTo"
+    },
+    {
+      "label": "change:dateTo",
+      "ms": 25.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateTo\"]",
+      "kind": "fill",
+      "case": "field-dateTo"
+    },
+    {
+      "label": "change:dateTo",
+      "ms": 25,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateTo\"]",
+      "kind": "fill",
+      "case": "field-dateTo"
+    },
+    {
+      "label": "change:dateTo",
+      "ms": 26.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateTo\"]",
+      "kind": "fill",
+      "case": "field-dateTo"
+    },
+    {
+      "label": "change:dateTo",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"dateTo\"]",
+      "kind": "fill",
+      "case": "field-dateTo"
+    },
+    {
+      "label": "click:reset",
+      "ms": 24.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:reset",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "reset"
+    },
+    {
+      "label": "click:export",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click",
+      "case": "export"
+    },
+    {
+      "label": "click:export",
+      "ms": 28.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click",
+      "case": "export"
+    },
+    {
+      "label": "click:export",
+      "ms": 28.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click",
+      "case": "export"
+    },
+    {
+      "label": "click:export",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click",
+      "case": "export"
+    },
+    {
+      "label": "click:export",
+      "ms": 19.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"export\"]",
+      "kind": "click",
+      "case": "export"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "input:pageSize",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"pageSize\"]",
+      "kind": "select",
+      "case": "page-size"
+    },
+    {
+      "label": "input:pageSize",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"pageSize\"]",
+      "kind": "select",
+      "case": "page-size"
+    },
+    {
+      "label": "input:pageSize",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"pageSize\"]",
+      "kind": "select",
+      "case": "page-size"
+    },
+    {
+      "label": "input:pageSize",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"pageSize\"]",
+      "kind": "select",
+      "case": "page-size"
+    },
+    {
+      "label": "input:pageSize",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"pageSize\"]",
+      "kind": "select",
+      "case": "page-size"
+    },
+    {
+      "label": "click:next-page",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"next-page\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:prev-page",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"prev-page\"]",
+      "kind": "click",
+      "case": "pagination-next-prev"
+    },
+    {
+      "label": "click:next-page",
+      "ms": 29.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"next-page\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:prev-page",
+      "ms": 30.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"prev-page\"]",
+      "kind": "click",
+      "case": "pagination-next-prev"
+    },
+    {
+      "label": "click:next-page",
+      "ms": 29.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"next-page\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:prev-page",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"prev-page\"]",
+      "kind": "click",
+      "case": "pagination-next-prev"
+    },
+    {
+      "label": "click:next-page",
+      "ms": 29.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"next-page\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:prev-page",
+      "ms": 30.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"prev-page\"]",
+      "kind": "click",
+      "case": "pagination-next-prev"
+    },
+    {
+      "label": "click:next-page",
+      "ms": 29.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"next-page\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:prev-page",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"prev-page\"]",
+      "kind": "click",
+      "case": "pagination-next-prev"
+    },
+    {
+      "label": "click:sort-column",
+      "ms": 31.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"sort-column\"][data-column-key=\"team\"]",
+      "kind": "click",
+      "case": "sort"
+    },
+    {
+      "label": "click:sort-column",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"sort-column\"][data-column-key=\"team\"]",
+      "kind": "click",
+      "case": "sort"
+    },
+    {
+      "label": "click:sort-column",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"sort-column\"][data-column-key=\"team\"]",
+      "kind": "click",
+      "case": "sort"
+    },
+    {
+      "label": "click:sort-column",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"sort-column\"][data-column-key=\"team\"]",
+      "kind": "click",
+      "case": "sort"
+    },
+    {
+      "label": "click:sort-column",
+      "ms": 32.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"sort-column\"][data-column-key=\"team\"]",
+      "kind": "click",
+      "case": "sort"
+    },
+    {
+      "label": "click:columns",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click",
+      "case": "columns-open-close"
+    },
+    {
+      "label": "click:columns",
+      "ms": 29.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 28.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click",
+      "case": "columns-open-close"
+    },
+    {
+      "label": "click:columns",
+      "ms": 30.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click",
+      "case": "columns-open-close"
+    },
+    {
+      "label": "click:columns",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click",
+      "case": "columns-open-close"
+    },
+    {
+      "label": "click:columns",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click",
+      "case": "columns-open-close"
+    },
+    {
+      "label": "click:columns",
+      "ms": 27.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"columns\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:toggle-column-visibility",
+      "ms": 27.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-visibility\"][data-pf-column-key=\"team\"]",
+      "kind": "click",
+      "case": "column-visible"
+    },
+    {
+      "label": "click:toggle-column-visibility",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-visibility\"][data-pf-column-key=\"team\"]",
+      "kind": "click",
+      "case": "column-visible"
+    },
+    {
+      "label": "click:toggle-column-visibility",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-visibility\"][data-pf-column-key=\"team\"]",
+      "kind": "click",
+      "case": "column-visible"
+    },
+    {
+      "label": "click:toggle-column-visibility",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-visibility\"][data-pf-column-key=\"team\"]",
+      "kind": "click",
+      "case": "column-visible"
+    },
+    {
+      "label": "click:toggle-column-visibility",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-visibility\"][data-pf-column-key=\"team\"]",
+      "kind": "click",
+      "case": "column-visible"
+    },
+    {
+      "label": "click:toggle-column-freeze",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-freeze\"][data-pf-column-key=\"id\"]",
+      "kind": "click",
+      "case": "column-freeze"
+    },
+    {
+      "label": "click:toggle-column-freeze",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-freeze\"][data-pf-column-key=\"id\"]",
+      "kind": "click",
+      "case": "column-freeze"
+    },
+    {
+      "label": "click:toggle-column-freeze",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-freeze\"][data-pf-column-key=\"id\"]",
+      "kind": "click",
+      "case": "column-freeze"
+    },
+    {
+      "label": "click:toggle-column-freeze",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-freeze\"][data-pf-column-key=\"id\"]",
+      "kind": "click",
+      "case": "column-freeze"
+    },
+    {
+      "label": "click:toggle-column-freeze",
+      "ms": 30.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-column-freeze\"][data-pf-column-key=\"id\"]",
+      "kind": "click",
+      "case": "column-freeze"
+    },
+    {
+      "label": "click:column-up",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"column-up\"][data-key=\"quantity\"]",
+      "kind": "click",
+      "case": "column-order"
+    },
+    {
+      "label": "click:column-up",
+      "ms": 31.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"column-up\"][data-key=\"quantity\"]",
+      "kind": "click",
+      "case": "column-order"
+    },
+    {
+      "label": "click:column-up",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"column-up\"][data-key=\"quantity\"]",
+      "kind": "click",
+      "case": "column-order"
+    },
+    {
+      "label": "click:column-up",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"column-up\"][data-key=\"quantity\"]",
+      "kind": "click",
+      "case": "column-order"
+    },
+    {
+      "label": "click:column-up",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"column-up\"][data-key=\"quantity\"]",
+      "kind": "click",
+      "case": "column-order"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click",
+      "case": "column-restore"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click",
+      "case": "column-restore"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click",
+      "case": "column-restore"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click",
+      "case": "column-restore"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click",
+      "case": "column-restore"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "drop:SPAN",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "drop",
+      "case": "column-drag-drop"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "drop:SPAN",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "drop",
+      "case": "column-drag-drop"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 36.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "drop:SPAN",
+      "ms": 32.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "drop",
+      "case": "column-drag-drop"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 30.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "drop:SPAN",
+      "ms": 32.3999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "drop",
+      "case": "column-drag-drop"
+    },
+    {
+      "label": "click:restore-column-settings",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"restore-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "drop:SPAN",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "kind": "drop",
+      "case": "column-drag-drop"
+    },
+    {
+      "label": "click:close-column-settings",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close-column-settings\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 82.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"工作明细\"]",
+      "kind": "click",
+      "case": "tab-工作明细"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"工作明细\"]",
+      "kind": "click",
+      "case": "tab-工作明细"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"工作明细\"]",
+      "kind": "click",
+      "case": "tab-工作明细"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"工作明细\"]",
+      "kind": "click",
+      "case": "tab-工作明细"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 30.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"工作明细\"]",
+      "kind": "click",
+      "case": "tab-工作明细"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click",
+      "case": "tab-数量批次"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click",
+      "case": "tab-数量批次"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click",
+      "case": "tab-数量批次"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click",
+      "case": "tab-数量批次"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"数量批次\"]",
+      "kind": "click",
+      "case": "tab-数量批次"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"实际发货与订单\"]",
+      "kind": "click",
+      "case": "tab-实际发货与订单"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 30.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"实际发货与订单\"]",
+      "kind": "click",
+      "case": "tab-实际发货与订单"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"实际发货与订单\"]",
+      "kind": "click",
+      "case": "tab-实际发货与订单"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"实际发货与订单\"]",
+      "kind": "click",
+      "case": "tab-实际发货与订单"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"实际发货与订单\"]",
+      "kind": "click",
+      "case": "tab-实际发货与订单"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click",
+      "case": "tab-计算与版本"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click",
+      "case": "tab-计算与版本"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click",
+      "case": "tab-计算与版本"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click",
+      "case": "tab-计算与版本"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click",
+      "case": "tab-计算与版本"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 26.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click",
+      "case": "tab-跟进记录"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click",
+      "case": "tab-跟进记录"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click",
+      "case": "tab-跟进记录"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click",
+      "case": "tab-跟进记录"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click",
+      "case": "tab-跟进记录"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"全程时效\"]",
+      "kind": "click",
+      "case": "tab-全程时效"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"全程时效\"]",
+      "kind": "click",
+      "case": "tab-全程时效"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"全程时效\"]",
+      "kind": "click",
+      "case": "tab-全程时效"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 29.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"全程时效\"]",
+      "kind": "click",
+      "case": "tab-全程时效"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"全程时效\"]",
+      "kind": "click",
+      "case": "tab-全程时效"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 28.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click",
+      "case": "toggle-children"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 29.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click",
+      "case": "toggle-children"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click",
+      "case": "toggle-children"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click",
+      "case": "toggle-children"
+    },
+    {
+      "label": "click:toggle-children",
+      "ms": 28.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-children\"]",
+      "kind": "click",
+      "case": "toggle-children"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 28.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click",
+      "case": "toggle-dependencies"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click",
+      "case": "toggle-dependencies"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click",
+      "case": "toggle-dependencies"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click",
+      "case": "toggle-dependencies"
+    },
+    {
+      "label": "click:toggle-dependencies",
+      "ms": 29.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-dependencies\"]",
+      "kind": "click",
+      "case": "toggle-dependencies"
+    },
+    {
+      "label": "click:collapse-all",
+      "ms": 28.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"collapse-all\"]",
+      "kind": "click",
+      "case": "collapse-all"
+    },
+    {
+      "label": "click:collapse-all",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"collapse-all\"]",
+      "kind": "click",
+      "case": "collapse-all"
+    },
+    {
+      "label": "click:collapse-all",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"collapse-all\"]",
+      "kind": "click",
+      "case": "collapse-all"
+    },
+    {
+      "label": "click:collapse-all",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"collapse-all\"]",
+      "kind": "click",
+      "case": "collapse-all"
+    },
+    {
+      "label": "click:collapse-all",
+      "ms": 29.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"collapse-all\"]",
+      "kind": "click",
+      "case": "collapse-all"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click",
+      "case": "expand-all"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 28.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click",
+      "case": "expand-all"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click",
+      "case": "expand-all"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click",
+      "case": "expand-all"
+    },
+    {
+      "label": "click:expand-all",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"expand-all\"]",
+      "kind": "click",
+      "case": "expand-all"
+    },
+    {
+      "label": "click:fit-timeline",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fit-timeline\"]",
+      "kind": "click",
+      "case": "fit-timeline"
+    },
+    {
+      "label": "click:fit-timeline",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fit-timeline\"]",
+      "kind": "click",
+      "case": "fit-timeline"
+    },
+    {
+      "label": "click:fit-timeline",
+      "ms": 31.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fit-timeline\"]",
+      "kind": "click",
+      "case": "fit-timeline"
+    },
+    {
+      "label": "click:fit-timeline",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fit-timeline\"]",
+      "kind": "click",
+      "case": "fit-timeline"
+    },
+    {
+      "label": "click:fit-timeline",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fit-timeline\"]",
+      "kind": "click",
+      "case": "fit-timeline"
+    },
+    {
+      "label": "input:timeline-mode",
+      "ms": 30.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-mode\"]",
+      "kind": "select",
+      "case": "timeline-mode"
+    },
+    {
+      "label": "input:timeline-mode",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-mode\"]",
+      "kind": "select",
+      "case": "timeline-mode"
+    },
+    {
+      "label": "input:timeline-mode",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-mode\"]",
+      "kind": "select",
+      "case": "timeline-mode"
+    },
+    {
+      "label": "input:timeline-mode",
+      "ms": 39.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-mode\"]",
+      "kind": "select",
+      "case": "timeline-mode"
+    },
+    {
+      "label": "input:timeline-mode",
+      "ms": 31.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-mode\"]",
+      "kind": "select",
+      "case": "timeline-mode"
+    },
+    {
+      "label": "input:timeline-scale",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-scale\"]",
+      "kind": "select",
+      "case": "timeline-scale"
+    },
+    {
+      "label": "input:timeline-scale",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-scale\"]",
+      "kind": "select",
+      "case": "timeline-scale"
+    },
+    {
+      "label": "input:timeline-scale",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-scale\"]",
+      "kind": "select",
+      "case": "timeline-scale"
+    },
+    {
+      "label": "input:timeline-scale",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-scale\"]",
+      "kind": "select",
+      "case": "timeline-scale"
+    },
+    {
+      "label": "input:timeline-scale",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timeline-scale\"]",
+      "kind": "select",
+      "case": "timeline-scale"
+    },
+    {
+      "label": "click:focus-stage",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"focus-stage\"][data-stage=\"S07\"]",
+      "kind": "click",
+      "case": "focus-stage"
+    },
+    {
+      "label": "click:focus-stage",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"focus-stage\"][data-stage=\"S07\"]",
+      "kind": "click",
+      "case": "focus-stage"
+    },
+    {
+      "label": "click:focus-stage",
+      "ms": 31.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"focus-stage\"][data-stage=\"S07\"]",
+      "kind": "click",
+      "case": "focus-stage"
+    },
+    {
+      "label": "click:focus-stage",
+      "ms": 32.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"focus-stage\"][data-stage=\"S07\"]",
+      "kind": "click",
+      "case": "focus-stage"
+    },
+    {
+      "label": "click:focus-stage",
+      "ms": 32.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"focus-stage\"][data-stage=\"S07\"]",
+      "kind": "click",
+      "case": "focus-stage"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "open-node-close"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 26.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "open-node-close"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 28.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "open-node-close"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 27.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 31.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "open-node-close"
+    },
+    {
+      "label": "click:open-node",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"open-node\"][data-node-id=\"W29\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 27.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "open-node-close"
+    },
+    {
+      "label": "click:image",
+      "ms": 30.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "image-close"
+    },
+    {
+      "label": "click:image",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "image-close"
+    },
+    {
+      "label": "click:image",
+      "ms": 27.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "image-close"
+    },
+    {
+      "label": "click:image",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 30.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "image-close"
+    },
+    {
+      "label": "click:image",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 28.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "image-close"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 25.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:followup",
+      "ms": 26.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 25.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "followup-submit"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:followup",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 25.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "followup-submit"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:followup",
+      "ms": 26.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 25.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "followup-submit"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:followup",
+      "ms": 27.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 24.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 24.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "followup-submit"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 27.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:followup",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 24.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "followup-submit"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 27.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 31.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "estimate-submit"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 25.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 25.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "estimate-submit"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 28.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 25.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 25.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "estimate-submit"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 29.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 27.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "estimate-submit"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click",
+      "case": "estimate-submit"
+    },
+    {
+      "label": "click:print-task",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-task\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:print-confirm",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-confirm\"]",
+      "kind": "click"
+    },
+    {
+      "label": "print-ready-pdf",
+      "ms": 39.679832999998325,
+      "kind": "print",
+      "route": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001"
+    },
+    {
+      "label": "click:close",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "print-preview"
+    },
+    {
+      "label": "click:print-task",
+      "ms": 30.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-task\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:print-confirm",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-confirm\"]",
+      "kind": "click"
+    },
+    {
+      "label": "print-ready-pdf",
+      "ms": 34.18174999999974,
+      "kind": "print",
+      "route": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001"
+    },
+    {
+      "label": "click:close",
+      "ms": 31.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "print-preview"
+    },
+    {
+      "label": "click:print-task",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-task\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:print-confirm",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-confirm\"]",
+      "kind": "click"
+    },
+    {
+      "label": "print-ready-pdf",
+      "ms": 34.53829200000109,
+      "kind": "print",
+      "route": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001"
+    },
+    {
+      "label": "click:close",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "print-preview"
+    },
+    {
+      "label": "click:print-task",
+      "ms": 31.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-task\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:print-confirm",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-confirm\"]",
+      "kind": "click"
+    },
+    {
+      "label": "print-ready-pdf",
+      "ms": 32.81100000000151,
+      "kind": "print",
+      "route": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001"
+    },
+    {
+      "label": "click:close",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "print-preview"
+    },
+    {
+      "label": "click:print-task",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-task\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:print-confirm",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"print-confirm\"]",
+      "kind": "click"
+    },
+    {
+      "label": "print-ready-pdf",
+      "ms": 35.22775000000183,
+      "kind": "print",
+      "route": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001"
+    },
+    {
+      "label": "click:close",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "print-preview"
+    },
+    {
+      "label": "navigation",
+      "ms": 82.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:detail-subtab",
+      "ms": 32.3999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-subtab\"][data-value=\"路线判断\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-reset",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-craft",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-craft\"][data-value=\"有特殊工艺\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-region",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-region\"][data-value=\"CN\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-unbounded",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-unbounded\"]",
+      "kind": "click",
+      "case": "scenario-converge"
+    },
+    {
+      "label": "click:scenario-reset",
+      "ms": 31.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-craft",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-craft\"][data-value=\"有特殊工艺\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-region",
+      "ms": 27.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-region\"][data-value=\"CN\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-unbounded",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-unbounded\"]",
+      "kind": "click",
+      "case": "scenario-converge"
+    },
+    {
+      "label": "click:scenario-reset",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-craft",
+      "ms": 26.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-craft\"][data-value=\"有特殊工艺\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-region",
+      "ms": 29.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-region\"][data-value=\"CN\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-unbounded",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-unbounded\"]",
+      "kind": "click",
+      "case": "scenario-converge"
+    },
+    {
+      "label": "click:scenario-reset",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-craft",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-craft\"][data-value=\"有特殊工艺\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-region",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-region\"][data-value=\"CN\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-unbounded",
+      "ms": 25,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-unbounded\"]",
+      "kind": "click",
+      "case": "scenario-converge"
+    },
+    {
+      "label": "click:scenario-reset",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-reset\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-craft",
+      "ms": 28.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-craft\"][data-value=\"有特殊工艺\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-region",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-region\"][data-value=\"CN\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:scenario-unbounded",
+      "ms": 23.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-004",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"scenario-unbounded\"]",
+      "kind": "click",
+      "case": "scenario-converge"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"阶段与工作\"]",
+      "kind": "click",
+      "case": "config-tab-阶段与工作"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"阶段与工作\"]",
+      "kind": "click",
+      "case": "config-tab-阶段与工作"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 29.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"阶段与工作\"]",
+      "kind": "click",
+      "case": "config-tab-阶段与工作"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 31.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"阶段与工作\"]",
+      "kind": "click",
+      "case": "config-tab-阶段与工作"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 29.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"阶段与工作\"]",
+      "kind": "click",
+      "case": "config-tab-阶段与工作"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"单据与事件\"]",
+      "kind": "click",
+      "case": "config-tab-单据与事件"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"单据与事件\"]",
+      "kind": "click",
+      "case": "config-tab-单据与事件"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 29.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"单据与事件\"]",
+      "kind": "click",
+      "case": "config-tab-单据与事件"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"单据与事件\"]",
+      "kind": "click",
+      "case": "config-tab-单据与事件"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"单据与事件\"]",
+      "kind": "click",
+      "case": "config-tab-单据与事件"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click",
+      "case": "config-tab-时效要求"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click",
+      "case": "config-tab-时效要求"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click",
+      "case": "config-tab-时效要求"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click",
+      "case": "config-tab-时效要求"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click",
+      "case": "config-tab-时效要求"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"组上限与依赖\"]",
+      "kind": "click",
+      "case": "config-tab-组上限与依赖"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"组上限与依赖\"]",
+      "kind": "click",
+      "case": "config-tab-组上限与依赖"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"组上限与依赖\"]",
+      "kind": "click",
+      "case": "config-tab-组上限与依赖"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"组上限与依赖\"]",
+      "kind": "click",
+      "case": "config-tab-组上限与依赖"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"组上限与依赖\"]",
+      "kind": "click",
+      "case": "config-tab-组上限与依赖"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 22.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"责任规则\"]",
+      "kind": "click",
+      "case": "config-tab-责任规则"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"责任规则\"]",
+      "kind": "click",
+      "case": "config-tab-责任规则"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"责任规则\"]",
+      "kind": "click",
+      "case": "config-tab-责任规则"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"责任规则\"]",
+      "kind": "click",
+      "case": "config-tab-责任规则"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"责任规则\"]",
+      "kind": "click",
+      "case": "config-tab-责任规则"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"风险与数据\"]",
+      "kind": "click",
+      "case": "config-tab-风险与数据"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"风险与数据\"]",
+      "kind": "click",
+      "case": "config-tab-风险与数据"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 29.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"风险与数据\"]",
+      "kind": "click",
+      "case": "config-tab-风险与数据"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"风险与数据\"]",
+      "kind": "click",
+      "case": "config-tab-风险与数据"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"风险与数据\"]",
+      "kind": "click",
+      "case": "config-tab-风险与数据"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click",
+      "case": "config-tab-版本与发布"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click",
+      "case": "config-tab-版本与发布"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click",
+      "case": "config-tab-版本与发布"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click",
+      "case": "config-tab-版本与发布"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click",
+      "case": "config-tab-版本与发布"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-validate"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 28.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-validate"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 24.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-validate"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-validate"
+    },
+    {
+      "label": "click:config-validate",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-validate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-validate"
+    },
+    {
+      "label": "click:config-save",
+      "ms": 26.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-save\"]",
+      "kind": "click",
+      "case": "config-save"
+    },
+    {
+      "label": "click:config-save",
+      "ms": 28.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-save\"]",
+      "kind": "click",
+      "case": "config-save"
+    },
+    {
+      "label": "click:config-save",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-save\"]",
+      "kind": "click",
+      "case": "config-save"
+    },
+    {
+      "label": "click:config-save",
+      "ms": 28.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-save\"]",
+      "kind": "click",
+      "case": "config-save"
+    },
+    {
+      "label": "click:config-save",
+      "ms": 27.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-save\"]",
+      "kind": "click",
+      "case": "config-save"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 26.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 28.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-preview"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 25.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-preview"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 27.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-preview"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-preview"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 27.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 27,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-preview"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-publish"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-publish"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 31.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-publish"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-publish"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 30.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "config-publish"
+    },
+    {
+      "label": "change:role",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select",
+      "case": "role-select"
+    },
+    {
+      "label": "change:role",
+      "ms": 29.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select",
+      "case": "role-select"
+    },
+    {
+      "label": "change:role",
+      "ms": 30.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select",
+      "case": "role-select"
+    },
+    {
+      "label": "change:role",
+      "ms": 29.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select",
+      "case": "role-select"
+    },
+    {
+      "label": "change:role",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select",
+      "case": "role-select"
+    },
+    {
+      "label": "change:role",
+      "ms": 30.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 64.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32.1000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "health-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "health-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.59999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "health-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 31.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "health-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.5,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:health-filter",
+      "ms": 32.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"health-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "health-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:due-filter",
+      "ms": 31.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"due-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "due-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:due-filter",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"due-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 29.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "due-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.40000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32.1000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:due-filter",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"due-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "due-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.40000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:due-filter",
+      "ms": 31.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"due-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "due-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.59999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"运行概况\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:due-filter",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"due-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "due-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:stage-filter",
+      "ms": 33,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"stage-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "stage-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:stage-filter",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"stage-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "stage-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:stage-filter",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"stage-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "stage-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:stage-filter",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"stage-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "stage-filter"
+    },
+    {
+      "label": "navigation",
+      "ms": 65.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:overview-tab",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"overview-tab\"][data-value=\"分布分析\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:stage-filter",
+      "ms": 33.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"stage-filter\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:reset",
+      "ms": 30.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"reset\"]",
+      "kind": "click",
+      "case": "stage-filter"
+    },
+    {
+      "label": "change:issuesOnly",
+      "ms": 29.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"issuesOnly\"]",
+      "kind": "click",
+      "case": "issues-only"
+    },
+    {
+      "label": "change:issuesOnly",
+      "ms": 28.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"issuesOnly\"]",
+      "kind": "click",
+      "case": "issues-only"
+    },
+    {
+      "label": "change:issuesOnly",
+      "ms": 28.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"issuesOnly\"]",
+      "kind": "click",
+      "case": "issues-only"
+    },
+    {
+      "label": "change:issuesOnly",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"issuesOnly\"]",
+      "kind": "click",
+      "case": "issues-only"
+    },
+    {
+      "label": "change:issuesOnly",
+      "ms": 27.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"issuesOnly\"]",
+      "kind": "click",
+      "case": "issues-only"
+    },
+    {
+      "label": "navigation",
+      "ms": 81,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:toggle-stage",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-stage\"]",
+      "kind": "click",
+      "case": "toggle-stage"
+    },
+    {
+      "label": "click:toggle-stage",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-stage\"]",
+      "kind": "click",
+      "case": "toggle-stage"
+    },
+    {
+      "label": "click:toggle-stage",
+      "ms": 31.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-stage\"]",
+      "kind": "click",
+      "case": "toggle-stage"
+    },
+    {
+      "label": "click:toggle-stage",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-stage\"]",
+      "kind": "click",
+      "case": "toggle-stage"
+    },
+    {
+      "label": "click:toggle-stage",
+      "ms": 31.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"toggle-stage\"]",
+      "kind": "click",
+      "case": "toggle-stage"
+    },
+    {
+      "label": "click:image",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "keydown:close",
+      "ms": 32.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "key",
+      "case": "image-Escape"
+    },
+    {
+      "label": "click:image",
+      "ms": 32.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "keydown:close",
+      "ms": 32.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "key",
+      "case": "image-Escape"
+    },
+    {
+      "label": "click:image",
+      "ms": 30.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "keydown:close",
+      "ms": 32.3999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "key",
+      "case": "image-Escape"
+    },
+    {
+      "label": "click:image",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "keydown:close",
+      "ms": 32.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "key",
+      "case": "image-Escape"
+    },
+    {
+      "label": "click:image",
+      "ms": 27.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "keydown:close",
+      "ms": 33.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "key",
+      "case": "image-Escape"
+    },
+    {
+      "label": "click:image",
+      "ms": 28.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:backdrop",
+      "ms": 27.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "backdrop",
+      "case": "image-backdrop"
+    },
+    {
+      "label": "click:image",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:backdrop",
+      "ms": 30.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "backdrop",
+      "case": "image-backdrop"
+    },
+    {
+      "label": "click:image",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:backdrop",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "backdrop",
+      "case": "image-backdrop"
+    },
+    {
+      "label": "click:image",
+      "ms": 29.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:backdrop",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "backdrop",
+      "case": "image-backdrop"
+    },
+    {
+      "label": "click:image",
+      "ms": 32.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"image\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:backdrop",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "backdrop",
+      "case": "image-backdrop"
+    },
+    {
+      "label": "navigation",
+      "ms": 86.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"时效要求\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-select-rule",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-select-rule\"][data-config-id=\"MOCK-SLA-CN-TRANSFER-01\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:config-dialog",
+      "ms": 30.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-rule-days\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": ".pf-config-dialog header [data-pf-action=\"config-close\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-tab",
+      "ms": 29.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-tab\"][data-config-tab=\"版本与发布\"]",
+      "kind": "click"
+    },
+    {
+      "label": "change:config-publish-scope",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-scope\"]",
+      "kind": "select"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 30,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 28.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-unmapped"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 25.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-unmapped"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 27.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 25.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 31.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-unmapped"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 28.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 28.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-unmapped"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 31.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 27.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 28.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-unmapped"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 26.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 30.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-publish"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 30.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 27.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 30.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-publish"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 24.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 31,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-publish"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 31.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 31.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 29.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-publish"
+    },
+    {
+      "label": "input:config-publish-taskIds",
+      "ms": 27.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"config-publish-taskIds\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:config-preview",
+      "ms": 26.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-preview\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-publish",
+      "ms": 30.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"config-publish\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:config-close",
+      "ms": 30.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1366×768",
+      "selector": "button[data-pf-action=\"config-close\"]",
+      "kind": "click",
+      "case": "recalc-publish"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 31.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"计算与版本\"]",
+      "kind": "click"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "change:role",
+      "ms": 44,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select"
+    },
+    {
+      "label": "click:detail-tab",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"detail-tab\"][data-value=\"跟进记录\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 31.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 24.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 24,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 26.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "supervisor-estimate-scope"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 25.899999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 27.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 27.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "supervisor-estimate-scope"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 29.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 26.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 25.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 26.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "supervisor-estimate-scope"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 27.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 26.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 27.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "supervisor-estimate-scope"
+    },
+    {
+      "label": "click:estimate",
+      "ms": 25.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"estimate\"]",
+      "kind": "click"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 30.600000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"reason\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "input:backdrop",
+      "ms": 28,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"action\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "change:backdrop",
+      "ms": 26.200000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[name=\"expectedAt\"]",
+      "kind": "fill"
+    },
+    {
+      "label": "click:save-followup",
+      "ms": 26.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"save-followup\"]",
+      "kind": "click"
+    },
+    {
+      "label": "click:close",
+      "ms": 25.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "#pf-overlays [data-pf-action=\"close\"]",
+      "kind": "click",
+      "case": "supervisor-estimate-scope"
+    },
+    {
+      "label": "change:role",
+      "ms": 52.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"role\"]",
+      "kind": "select"
+    },
+    {
+      "label": "navigation",
+      "ms": 99.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "kind": "load"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 32.19999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+      "kind": "click",
+      "case": "fulfillment-mode"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 32,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"完整订单\"]",
+      "kind": "click",
+      "case": "fulfillment-mode"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 30.400000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+      "kind": "click",
+      "case": "fulfillment-mode"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 28.299999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"完整订单\"]",
+      "kind": "click",
+      "case": "fulfillment-mode"
+    },
+    {
+      "label": "click:fulfillment-mode",
+      "ms": 29.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fulfillment-mode\"][data-value=\"发货行\"]",
+      "kind": "click",
+      "case": "fulfillment-mode"
+    },
+    {
+      "label": "change:timezone",
+      "ms": 21.5,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timezone\"]",
+      "kind": "select",
+      "case": "timezone"
+    },
+    {
+      "label": "change:timezone",
+      "ms": 25.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timezone\"]",
+      "kind": "select",
+      "case": "timezone"
+    },
+    {
+      "label": "change:timezone",
+      "ms": 25.399999991059303,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timezone\"]",
+      "kind": "select",
+      "case": "timezone"
+    },
+    {
+      "label": "change:timezone",
+      "ms": 26,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timezone\"]",
+      "kind": "select",
+      "case": "timezone"
+    },
+    {
+      "label": "change:timezone",
+      "ms": 25.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-field=\"timezone\"]",
+      "kind": "select",
+      "case": "timezone"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 29,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 27.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 27.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 26.900000005960464,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 28.099999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1366×768",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "fullscreen"
+    },
+    {
+      "label": "navigation",
+      "ms": 103,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1024×768",
+      "kind": "load",
+      "case": "team-1024-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1024×768",
+      "kind": "load",
+      "case": "team-1024-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1024×768",
+      "kind": "load",
+      "case": "team-1024-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1024×768",
+      "kind": "load",
+      "case": "team-1024-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1024×768",
+      "kind": "load",
+      "case": "team-1024-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 94.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-overview"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-overview"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-overview"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-overview"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.79999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-overview"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.5,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.40000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.8999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks"
+    },
+    {
+      "label": "navigation",
+      "ms": 98,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks"
+    },
+    {
+      "label": "navigation",
+      "ms": 98,
+      "route": "/dds/supply-chain/production-fulfillment/tasks",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.1000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-follow-up"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-follow-up"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.59999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-follow-up"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-follow-up"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/follow-up",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-follow-up"
+    },
+    {
+      "label": "navigation",
+      "ms": 98,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-work-items"
+    },
+    {
+      "label": "navigation",
+      "ms": 98,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-work-items"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-work-items"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.5,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-work-items"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/work-items",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-work-items"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.1000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.5,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.80000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.5,
+      "route": "/dds/supply-chain/production-fulfillment/teams",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-fulfillment"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-fulfillment"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-fulfillment"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-fulfillment"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/fulfillment",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-fulfillment"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-configuration"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-configuration"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-configuration"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.5,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-configuration"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.70000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/configuration",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-configuration"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks/MOCK-PT-001"
+    },
+    {
+      "label": "navigation",
+      "ms": 84.30000001192093,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks/MOCK-PT-001"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.6000000089407,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks/MOCK-PT-001"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.59999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks/MOCK-PT-001"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.3999999910593,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-tasks/MOCK-PT-001"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.5,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.09999999403954,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A"
+    },
+    {
+      "label": "navigation",
+      "ms": 98.20000000298023,
+      "route": "/dds/supply-chain/production-fulfillment/teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A",
+      "viewport": "1280×720",
+      "kind": "load",
+      "case": "1280-teams/%E8%BD%A6%E7%BC%9D%E5%8E%82A"
+    },
+    {
+      "label": "navigation",
+      "ms": 81.40000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/tasks/MOCK-PT-001",
+      "viewport": "1280×720",
+      "kind": "load"
+    },
+    {
+      "label": "navigation",
+      "ms": 89,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "kind": "load",
+      "case": "overview-1920-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 98,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "kind": "load",
+      "case": "overview-1920-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "kind": "load",
+      "case": "overview-1920-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.90000000596046,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "kind": "load",
+      "case": "overview-1920-load"
+    },
+    {
+      "label": "navigation",
+      "ms": 97.29999999701977,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "kind": "load",
+      "case": "overview-1920-load"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 31.69999998807907,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "overview-1920-fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 31.799999997019768,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "overview-1920-fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 27.599999994039536,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "overview-1920-fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 26.100000008940697,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "overview-1920-fullscreen"
+    },
+    {
+      "label": "click:fullscreen",
+      "ms": 28.700000002980232,
+      "route": "/dds/supply-chain/production-fulfillment/overview",
+      "viewport": "1920×1080",
+      "selector": "[data-pf-action=\"fullscreen\"]",
+      "kind": "click",
+      "case": "overview-1920-fullscreen"
+    }
+  ],
+  "errors": [],
+  "performancePass": true,
+  "capturedAt": "2026-09-17T14:24:35.567Z"
+}

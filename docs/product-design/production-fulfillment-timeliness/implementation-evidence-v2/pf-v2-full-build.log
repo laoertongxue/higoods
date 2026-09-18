@@ -1,0 +1,647 @@
+
+> higoods-vanilla-clone@1.0.0 build
+> npm run typecheck:engineering && npm test && vite build --outDir /tmp/higoods-dds-pf-build
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:engineering
+> npm run typecheck:entrypoints && npm run typecheck:scopes
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:entrypoints
+> tsc --project tsconfig.engineering.json
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:scopes
+> node scripts/check-typescript-scope.mjs src/domain/ src/components/ui/ src/state/
+
+TypeScript 全量既有错误：61
+本次渐进检查范围：src/domain/、src/components/ui/、src/state/
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。
+
+> higoods-vanilla-clone@1.0.0 test
+> npm run test:unit
+
+
+> higoods-vanilla-clone@1.0.0 test:unit
+> node --import tsx --test tests/unit/*.test.ts
+
+✔ 浏览器存储封装保持读写删除语义 (0.400834ms)
+✔ 浏览器存储不可用或抛错时保持静默降级 (0.107708ms)
+(node:88774) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ MIG-001/002/006: management entry and handlers belong to FCS; PFOS keeps execution (0.911875ms)
+✔ MIG-003/007: prep and execution read the same early order identities, quantities and match status (4779.582334ms)
+✔ MIG-004/009: migrated dialogs retain candidate fields, actual material image and task outputs (0.743417ms)
+✔ MIG-011: management and execution use the same seven business display columns (6.609167ms)
+✔ MIG-007: early dye/print creation and cancellation survive reload (6036.194792ms)
+✔ 解析带标签、小数和空格的长度数量 (0.578583ms)
+✔ 解析卷数并对不合法文本返回 0 (0.152083ms)
+✔ 证据文件标识把连续空白收口为单个连字符 (0.161167ms)
+(node:88777) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款可成批生成染色和印花加工单，且完整投影来源与上下游 (3027.925375ms)
+✔ 设计改款加工单生成幂等，重复请求不增加单据 (11.520708ms)
+✔ 同一设计改款任务的不同颜色和 BOM 行分别生成加工单 (5.287958ms)
+✔ 成批提交失败时染色与印花加工单一起回滚 (5.000333ms)
+✔ 设计改款来源缺关键引用或来源未知时必须阻断 (0.166084ms)
+(node:88778) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款加工单等待买手审核成果，绑定真实附件后才可安排，先染后印继续受前序交出约束 (1994.928292ms)
+✔ 专业成果没有真实附件时保持未绑定 (5.439792ms)
+(node:88779) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可打印不等于可建交出单，必须完成真实标签打印 (0.476708ms)
+✔ 卷规格无效时不可建交出单，且不改变原可打印判定语义 (0.079208ms)
+✔ 人工完成印花加工单不再自动填充操作人 (1526.681208ms)
+✔ 日报窗口含截止日7天，重点日均独立使用前6天 (1.179125ms)
+✔ 未知采购不填0，未BOM不输出完整确定订单需求 (0.140083ms)
+✔ 突变必须绝对量与比例同时达到阈值 (0.070875ms)
+✔ 截止日突变示例与未完结日不判定 (0.05525ms)
+✔ 共享商品按SPU去重而不按关联行累加销量 (0.095333ms)
+✔ 预选不产生确定用料；BOM需求保留物料归属 (0.131416ms)
+✔ 同料BOM优先于预选，不重复关系及需量 (0.061ms)
+✔ 两个业务页具有独立容器、标准分页与证据边界 (23.045125ms)
+✔ health groups are exhaustive and mutually exclusive in demo (4.522333ms)
+✔ coverage and baseline use same inventory plus transit but distinct demand windows (0.092583ms)
+✔ zero demand is unavailable rather than infinity and huge finite quotient stays finite (0.489708ms)
+✔ date selects different consistent snapshot (0.219417ms)
+✔ threshold changes alter classification without changing facts (0.179375ms)
+✔ health view carries core P1 business sections and mock caveat (19.963166ms)
+✔ AT16 rules do not substitute brand, size or packaging method (0.436334ms)
+✔ AT24 equal priority conflict blocks resolution and identifies rules (0.352209ms)
+✔ higher explicit priority resolves a lower priority overlap (0.05325ms)
+✔ plans distinguish garments and parcels and add loss once (0.136208ms)
+✔ AT18 white pendant stock only allocated once (0.070333ms)
+✔ event duplicate and old revision do not add consumption; reprints are activity only (0.103416ms)
+✔ conflicting same revision fails instead of silently choosing a payload (0.049459ms)
+✔ AT17/19/20 panel states unresolved ASAYA, independent kit80 and unknown ribbon (0.235125ms)
+✔ trigger distinct from target, existing supply produces explainable zero (1.246792ms)
+✔ missing mapping or usage and incompatible raw unit block unsafe generation (1.190875ms)
+✔ generation reserves remaining once and shared raw pool across target rules (0.880041ms)
+✔ production does not increase stock; actual SKU and output bound partial receipts (0.373833ms)
+✔ cancelled suggestion releases commitment and raw allocation (0.149875ms)
+✔ AT05 committed greige is not available for a second allocation (0.477916ms)
+✔ AT06 partial receipt reduces expected supply; checking and qualified never duplicate (0.329709ms)
+✔ AT07 unmapped target preserves quantities but gives no target coverage (0.080125ms)
+✔ §7.2 loss reduces future supply; rejected receipts never become usable (0.054916ms)
+✔ §7.3 unit/yield/route and conservation gaps block deterministic supply (0.099875ms)
+✔ §7.3 candidate comparison reports remaining shortage and respects arrival deadline (0.127958ms)
+✔ §7.3 zero gap stays zero and nonfinite inputs cannot produce advice (0.047125ms)
+✔ panel uses owned local handlers and discloses mock and missing images (1.62ms)
+✔ P2 coefficients and coverage exclude transit (7.10875ms)
+✔ P2 coverage buckets have exclusive shared boundaries (0.460917ms)
+✔ P2 partial receipts and completed batches count remaining only (0.057666ms)
+✔ P2 latest overdue selected only if no future batch; today included (0.054417ms)
+✔ P2 search transit and ETA filters compose (0.1205ms)
+✔ P2 zero demand and missing BOM preserve distinct nulls; micro demand excluded (0.061125ms)
+✔ P2 standard table renders and limits initial rows to first page (5.579375ms)
+✔ AT01/02 internal reservation stays in coverage while external reservation is deducted (13.682542ms)
+✔ AT03 quality segments are not usable (0.152625ms)
+✔ AT04 partial receipt leaves remaining supply only (0.178791ms)
+✔ AT08/38 late supply never erases earlier shortage (0.143916ms)
+✔ AT09 intermediate deficit determines net need rather than positive closing balance (0.123083ms)
+✔ AT10 MOQ and pack rounding, zero stays zero (0.101125ms)
+✔ AT11 horizon begins at cutoff and is not expanded by lead time (0.143625ms)
+✔ AT12 forecast covered by confirmed demand is excluded before coefficient (0.112917ms)
+✔ AT13 no demand has no numeric coverage (0.092833ms)
+✔ AT14 cancelling demand does not change stock (0.135791ms)
+✔ AT15 latest event revision only (0.383208ms)
+✔ AT16/17 directory preserves bag sizes and ASAYA duplicated input is one unresolved SKU (0.089958ms)
+✔ AT18 three brands draw from one shared pool (0.105083ms)
+✔ AT19/20 kit capacity respects minimum and missing conversion (0.052041ms)
+✔ AT21 inactive/unusable stock remains physically visible (0.082375ms)
+✔ AT23 affected order identifiers are unique (0.093334ms)
+✔ AT25/26 draft does not mutate active and invalidates trial (0.054583ms)
+✔ AT26/28 publish requires role and exact trial; history retained (0.174ms)
+✔ AT31 risk cannot close with remaining shortage or skip verification (0.15925ms)
+✔ AT37 invalid dates, unknown timezone, bad numeric values rejected (0.098083ms)
+✔ duplicate supply chain does not double count and blocks deterministic advice (0.083791ms)
+✔ warehouse catalogue includes 17 locations and two garment warehouses (0.036875ms)
+✔ candidate comparison retains pre-arrival risk (0.295417ms)
+✔ SKU-specific policy wins and duplicate rules block publish (0.11575ms)
+✔ 路由标准化移除 query 与 hash，但不改动路径 (0.388041ms)
+✔ 只匹配路由根或其子路径，不误匹配相似前缀 (0.116333ms)
+✔ 可在多个合法根路径中匹配一个 (0.069875ms)
+✔ 只把完整生产确认单打印路由识别为命中 (0.105208ms)
+(node:88791) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ RETURN-010: only the acceptance week Sunday is skipped, for every starting weekday (1.568ms)
+✔ RETURN-004—010: both projections share counting dates and ceil targets (0.381792ms)
+(node:88792) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 实际耗时跨周日仍按真实时间差；没有可靠时间不造耗时 (0.422666ms)
+✔ 每任务都达成才结束；同一来源去重，作废明细不影响主表 (0.139666ms)
+✔ 耗时页 Mock 至少覆盖九张生产单和全部节点，且下游事实不会越过未完成的前置节点 (1876.111292ms)
+✔ 裁片放行按一张放行单内的多次放行展示并选取节点起止时间 (62.83325ms)
+(node:88793) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ EXC-001—004: a reference mark cannot change debt, strict kits or final task responsibility (8.279417ms)
+(node:88794) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 派单新增主档工厂可登记承接关系，未知工厂仍阻断 (1.408416ms)
+✔ 专属任务保留整单身份、数量和接收方，工艺分支保留全部前置关系 (1.423458ms)
+✔ 原生产单车缝任务仍可被 PPIC 分配与责任移交识别，SKU 总量完整 (2.477042ms)
+(node:88795) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PERF-002/004: scoped receiving reads preserve direct receipts and allocations, without exposing mutable facts (7.494666ms)
+✔ PERF-002/004: a synchronous relation read matches independent reads and releases its scope after errors (718.986167ms)
+✔ PERF-004: batched print list reviews and handovers equal independently read facts (175.865625ms)
+✔ PERF-004: scoped handovers keep canonical sorting and task point reads preserve identity (5.608709ms)
+✔ PERF-004: reusing warehouse documents preserves each dye order source, quantity and receiver (173.969333ms)
+(node:88799) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 验收数据至少包含 5 张染色和 5 张印花提前加工单，并覆盖全部匹配状态 (2344.744042ms)
+✔ 印花专业成果把多张图片和多个文件统一保存在同一附件集合 (0.145417ms)
+✔ 同一生产需求可手动选择具体专业任务，创建结果保存所选任务与全部成果附件 (105.940125ms)
+✔ 创建提前加工单必须选择所属专业任务并明确加工厂 (0.509291ms)
+✔ 计划加工数量包含损耗率，且染色印花投入与产出 SKU 必须不同 (0.144166ms)
+✔ 专业成果未审核通过时不可创建提前加工单 (0.11975ms)
+✔ 多个生产需求合并为一张生产单时，可匹配多张提前染色加工单 (23.598958ms)
+✔ 等待技术包的提前单在技术包就绪后可由同一匹配服务自动重试 (10.421041ms)
+✔ 合并生产单中只有部分需求有提前单时，只为未覆盖需求补建剩余数量 (109.186167ms)
+✔ 已有提前单但正式 BOM 或 SKU 不一致时进入异常，且不重复补建同一工艺单 (115.546125ms)
+✔ 取消后重建保留旧单，并建立双向替代关系 (1.617959ms)
+✔ 没有提前加工单的需求仍保留正式加工单快照 (4.195875ms)
+✔ BOM uses formally reduced quantity and leaves unsupported conversion unknown (1.371375ms)
+✔ reuse retains one shared source instance and adds no duplicate processing duration (0.238041ms)
+✔ a new rework/recheck round extends the dependency path two days and conserves qualified pieces (0.111042ms)
+✔ date-only source is not coerced to a precise instant or exact deadline (0.110708ms)
+✔ known order shipment can be timed without crediting an unknown production source (0.070583ms)
+✔ waiting for actual fulfillment can be overall late while factory completion stays on time (0.067167ms)
+✔ all six named cards render directly checkable evidence without changing production task facts (10.245958ms)
+✔ all ten tasks have independent drill-down networks and one frozen aggregate snapshot (2.725541ms)
+✔ 31-item dependency recursion proves 24 natural days and shows the actual sum/max formula (0.992959ms)
+✔ improving procurement by ten days only improves whole-task timing by one day (0.165667ms)
+✔ network rejects circular/missing dependencies and unknown is never zero time (0.276875ms)
+✔ each complete standard mock network and live forecast agrees with the task summary (2.840709ms)
+✔ quantity forecast finds a one-day risk before any actual deadline is missed (0.418125ms)
+✔ all-natural-day clock includes Sundays, preserves timezones, equality is on time and one second is late (0.096542ms)
+✔ already-overdue outranks forecast missing; historical completion stops the clock (0.079334ms)
+✔ upstream two-day delay and local catch-up pressure are distinct from current-team fault (0.072916ms)
+✔ manual forecast is local, propagates both earlier and later dates, and never relaxes baseline (0.724542ms)
+✔ saving a manual forecast refreshes all affected node labels without pretending capacity was increased (0.600417ms)
+✔ zero capacity and stale progress never forecast zero remaining duration (0.1285ms)
+✔ stock and purchase coverage do not imply factory readiness or a new purchase gap (0.134625ms)
+✔ stock-only task still has transfer; purchased material must move beyond warehouse entry (0.0525ms)
+✔ batch schedule conserves shared capacity and 90 percent occurs at a real batch event (0.132292ms)
+✔ customer cancellation without production allocation does not reduce any task (1.026625ms)
+✔ excess shipment of one SKU cannot hide shortage of another (0.244959ms)
+✔ duplicate, out-of-order and corrected quantity events conserve the effective sum (0.2815ms)
+✔ shared work is counted once while merged source tasks preserve independent T0 and deadlines (0.269583ms)
+✔ orders enter analysis only from actual shipment and have their own clock (0.352292ms)
+✔ region and supply mode select rules together, unpublished candidate rules never apply (0.321791ms)
+✔ filters share exact aggregate scope and date windows are left-closed right-open (0.777916ms)
+✔ Chinese UI defaults and all scope options filter the intended task population (0.399709ms)
+✔ Chinese risk shortcut agrees with risk KPI and does not accidentally select completed or overdue tasks (1.545208ms)
+✔ Chinese date-field labels use due date, start date and predicted completion respectively (0.666541ms)
+✔ team and stage filters match applicable work nodes rather than only current task responsibility (0.141666ms)
+✔ 同一调拨动作按国家和供给方式命中不同预算，候选规则不参与匹配 (0.674667ms)
+✔ 同优先级重叠命中必须冲突，明确更高优先级例外才可覆盖 (1.000542ms)
+✔ 数量档边界不得跨档或用默认预算掩盖无规则 (0.218459ms)
+✔ 子项七天而组上限五天阻断，网络不被截短也不在组外重复加预算 (0.293417ms)
+✔ 并行分支取最大值，循环和缺失前置不得算成零天 (0.285375ms)
+✔ 工厂实收映射须有明细与物流批次，入库不冒充到厂，重复事件不累加 (0.200333ms)
+✔ 投入产出、单位或质量门槛不合规，不能放行下游 (0.103916ms)
+✔ 新版本仅记录显式重算范围，不能顺延旧基线或考核截止 (0.46475ms)
+✔ 默认演示配置没有阻断，会议候选必须以提示保留 (0.097916ms)
+✔ 选定在途W19规则从1改3，本地路线24改26而原始/生效截止与实际事实不变 (3.773916ms)
+✔ 在途发布同层冲突、缺规则、缺映射或事件边界变化都不生成覆盖 (0.186ms)
+✔ 发布覆盖可从初始快照恢复且重复应用幂等，未选任务不受影响 (1.002333ms)
+✔ 未完成调拨预算增加后，预测沿下游传播；已完成上游事实仍原样 (0.836333ms)
+✔ 查生产入口只在合法系统路由显示，并在打印与 PDA 路由隐藏 (0.507708ms)
+✔ 相似前缀和相似打印段不会被当成合法路由 (0.068ms)
+✔ 并发调用复用同一个模块加载 Promise，成功后继续复用结果 (0.681042ms)
+✔ 模块加载失败后清空缓存，下一次调用可以重试 (0.261959ms)
+✔ 独立打印外壳只命中完整生产确认单打印路由 (0.481417ms)
+✔ 既有固定打印路由仍使用独立打印外壳 (0.075292ms)
+ℹ tests 169
+ℹ suites 0
+ℹ pass 169
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6143.160291
+vite v6.4.3 building for production...
+
+(!) outDir /tmp/higoods-dds-pf-build is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 2482 modules transformed.
+rendering chunks...
+[plugin vite:reporter]
+(!) /Users/laoer/Documents/higoods/src/data/app-shell-config.ts is dynamically imported by /Users/laoer/Documents/higoods/src/router/routes.ts but also statically imported by /Users/laoer/Documents/higoods/src/components/shell.ts, /Users/laoer/Documents/higoods/src/state/store.ts, dynamic import will not move module into another chunk.
+
+computing gzip size...
+../../../../tmp/higoods-dds-pf-build/index.html                                                         1.36 kB │ gzip:   0.71 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-parse.worker-B3_rAVMB.js                       18.52 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-COPey2Bu.css                                         23.65 kB │ gzip:   5.26 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-CNH9meDu.css                                        146.41 kB │ gzip:  24.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-project-demo-seed-service-COOi2Kbg.js                   0.06 kB │ gzip:   0.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/sample-warehouse-projection-DELoGvXw.js                     0.39 kB │ gzip:   0.25 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-bom-snapshot-source-Br6ncQy_.js             0.41 kB │ gzip:   0.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-C73BMBVg.js                                           0.48 kB │ gzip:   0.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-channel-options-CXt7B8Zd.js                             0.63 kB │ gzip:   0.36 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bag-handover-mock-Co62aEyC.js                      0.63 kB │ gzip:   0.41 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-reset-placeholder-B0CBKsOs.js                           0.75 kB │ gzip:   0.48 kB
+../../../../tmp/higoods-dds-pf-build/assets/badge-CTbkt3xD.js                                           0.77 kB │ gzip:   0.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/placeholder-DcMycWY2.js                                     0.85 kB │ gzip:   0.47 kB
+../../../../tmp/higoods-dds-pf-build/assets/trace-BTaLJRfE.js                                           0.89 kB │ gzip:   0.51 kB
+../../../../tmp/higoods-dds-pf-build/assets/execution-prep-projection-helpers-KIMiBIkZ.js               0.90 kB │ gzip:   0.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/history-BuGnVrOm.js                                         0.94 kB │ gzip:   0.61 kB
+../../../../tmp/higoods-dds-pf-build/assets/payment-sync-NJOS3p8O.js                                    0.97 kB │ gzip:   0.62 kB
+../../../../tmp/higoods-dds-pf-build/assets/print-service-Cb4Z7TQ8.js                                   1.00 kB │ gzip:   0.50 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-runtime-DcAWpaNj.js                                     1.01 kB │ gzip:   0.56 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-sewing-self-return-mode-CVT5AEl1.js                     1.07 kB │ gzip:   0.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-work-order-generation-service-D6rEz9vN.js           1.07 kB │ gzip:   0.65 kB
+../../../../tmp/higoods-dds-pf-build/assets/detail.adapter-BYEfm0_q.js                                  1.08 kB │ gzip:   0.68 kB
+../../../../tmp/higoods-dds-pf-build/assets/dyeing-material-receipts-ynbF4KuV.js                        1.14 kB │ gzip:   0.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/tech-pack-CEVwlvHD.js                                       1.28 kB │ gzip:   0.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/overview-CjAZGqNd.js                                        1.28 kB │ gzip:   0.71 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-work-order-source-view-D6pSZKae.js                  1.30 kB │ gzip:   0.58 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-action-policy-4O75zwZC.js                        1.34 kB │ gzip:   0.68 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-tech-pack-review-notification-repository-33uxOHJx.js    1.38 kB │ gzip:   0.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-types-BOTMwIwS.js                                   1.47 kB │ gzip:   0.64 kB
+../../../../tmp/higoods-dds-pf-build/assets/filter-bar-DhtOMDcu.js                                      1.49 kB │ gzip:   0.80 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-channel-store-master-CGULJ23o.js                        1.53 kB │ gzip:   0.61 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-identity-CtBQr2N6.js                               1.53 kB │ gzip:   0.84 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-handover-domain-DOqsvruK.js                            1.56 kB │ gzip:   0.76 kB
+../../../../tmp/higoods-dds-pf-build/assets/supplement-material-prep-demand-registry-DI-N3DvB.js        1.56 kB │ gzip:   0.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-shared-CxNHzTj2.js                                1.57 kB │ gzip:   0.51 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-wait-handover-actions-CUsDysd7.js               1.58 kB │ gzip:   0.62 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-chain-pages-adapter-C_TV5mpZ.js                        1.71 kB │ gzip:   0.84 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialog-DLV5Lj6D.js                                          1.73 kB │ gzip:   0.82 kB
+../../../../tmp/higoods-dds-pf-build/assets/real-barcode-DXs_5lDY.js                                    1.80 kB │ gzip:   0.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/toast-B5iuvJIY.js                                           1.87 kB │ gzip:   0.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/kol-goto-fixed-total-ledger-Bb_vV68l.js                     1.93 kB │ gzip:   0.92 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-tech-pack-version-log-repository-Bh4Vu-er.js            1.97 kB │ gzip:   0.77 kB
+../../../../tmp/higoods-dds-pf-build/assets/table-DIsaokmF.js                                           2.04 kB │ gzip:   1.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/wool-pda-scan-Dg652A7D.js                                   2.13 kB │ gzip:   1.15 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-C7CFplYQ.js                                          2.14 kB │ gzip:   1.01 kB
+../../../../tmp/higoods-dds-pf-build/assets/binding-process-pda-scan-C_hIwvhJ.js                        2.18 kB │ gzip:   1.13 kB
+../../../../tmp/higoods-dds-pf-build/assets/special-craft-pda-scope-CWNhafvv.js                         2.21 kB │ gzip:   1.01 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialogs-BfNheee1.js                                         2.33 kB │ gzip:   0.98 kB
+../../../../tmp/higoods-dds-pf-build/assets/helpers-BFKa6pUf.js                                         2.42 kB │ gzip:   1.21 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-contract-print-Bg5MsEsP.js                       2.43 kB │ gzip:   1.34 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-capacity-profile-mock-Dv5YtZGT.js                   2.64 kB │ gzip:   1.15 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-Coj8TD3n.js                                          2.69 kB │ gzip:   1.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-order-list-presentation-COs5JINd.js                 2.70 kB │ gzip:   1.26 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-rDdaEabZ.js                               2.70 kB │ gzip:   1.17 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-plan-projection-CQT5JvwW.js                          2.75 kB │ gzip:   1.18 kB
+../../../../tmp/higoods-dds-pf-build/assets/post-finishing-spu-technical-parameters-BvCJmF-F.js         2.79 kB │ gzip:   1.28 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-order-task-relations-BOk2a1Me.js                    2.97 kB │ gzip:   1.29 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-receipts-C7uLBfXL.js                                2.98 kB │ gzip:   1.38 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-order-identity-CLmCJi9u.js                       3.04 kB │ gzip:   1.26 kB
+../../../../tmp/higoods-dds-pf-build/assets/printing-sheet-preview-TdGXtzEH.js                          3.07 kB │ gzip:   1.50 kB
+../../../../tmp/higoods-dds-pf-build/assets/tabs-CwWi52Og.js                                            3.08 kB │ gzip:   0.92 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-runtime-action-inputs-B8HwZkxy.js               3.13 kB │ gzip:   1.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-simple-cut-piece-handover-UQKnVEP5.js           3.38 kB │ gzip:   1.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-mainline-BeF95iHo.js                                3.41 kB │ gzip:   1.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bags-projection-DUKubCxB.js                        3.52 kB │ gzip:   1.48 kB
+../../../../tmp/higoods-dds-pf-build/assets/fcs-route-links-Dl-VJ-4c.js                                 3.57 kB │ gzip:   1.16 kB
+../../../../tmp/higoods-dds-pf-build/assets/authorization-code-B3CT8DaZ.js                              3.59 kB │ gzip:   1.72 kB
+../../../../tmp/higoods-dds-pf-build/assets/binding-process-warehouse-linkage-service-VMdexRQ2.js       3.63 kB │ gzip:   1.38 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-DF3C4ROx.js                                          3.72 kB │ gzip:   1.69 kB
+../../../../tmp/higoods-dds-pf-build/assets/quality-chain-adapter-DtV9REyn.js                           3.73 kB │ gzip:   1.66 kB
+../../../../tmp/higoods-dds-pf-build/assets/engineering-file-upload-mMiSeXWy.js                         3.78 kB │ gzip:   1.71 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-DLHJwK79.js                                          3.87 kB │ gzip:   1.62 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-outsourcing-demo-CXXuicCT.js                         3.99 kB │ gzip:   1.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bag-repack-mock-Be-mP5AT.js                        4.00 kB │ gzip:   1.84 kB
+../../../../tmp/higoods-dds-pf-build/assets/confirmation-print-B7TmS7IY.js                              4.28 kB │ gzip:   1.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-board-BUfs68Wy.js                                  4.30 kB │ gzip:   1.93 kB
+../../../../tmp/higoods-dds-pf-build/assets/form-Ce_jca1f.js                                            4.36 kB │ gzip:   1.38 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-outsourcing-responsibility-BJofXwaC.js               4.46 kB │ gzip:   1.97 kB
+../../../../tmp/higoods-dds-pf-build/assets/supplement-order-registry-CHnc7juB.js                       4.49 kB │ gzip:   1.76 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-route-card-DTBy9mcV.js                                 4.54 kB │ gzip:   1.89 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-delivery-card-CettgNgE.js                              4.60 kB │ gzip:   1.97 kB
+../../../../tmp/higoods-dds-pf-build/assets/preparation-material-receipt-sources-CdEH_zkT.js            4.73 kB │ gzip:   1.98 kB
+../../../../tmp/higoods-dds-pf-build/assets/layout.helpers-DdZut5mZ.js                                  4.76 kB │ gzip:   1.73 kB
+../../../../tmp/higoods-dds-pf-build/assets/runtime-task-tenders-YGz6fHpq.js                            4.76 kB │ gzip:   1.94 kB
+../../../../tmp/higoods-dds-pf-build/assets/relations-ivZDQjoA.js                                       4.79 kB │ gzip:   2.18 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-order-list-controller-CBOBch5T.js                   4.80 kB │ gzip:   1.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-dispatch-process-GpeO9gsK.js                   5.00 kB │ gzip:   1.94 kB
+../../../../tmp/higoods-dds-pf-build/assets/dashboards-Bv_y_x4D.js                                      5.29 kB │ gzip:   2.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-work-order-quality-settlement-BgAxUPoD.js           5.33 kB │ gzip:   2.20 kB
+../../../../tmp/higoods-dds-pf-build/assets/routes-pda-Bo_nrdoT.js                                      5.58 kB │ gzip:   2.14 kB
+../../../../tmp/higoods-dds-pf-build/assets/dispatch-task-sheet-DllhWDkc.js                             5.64 kB │ gzip:   2.68 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-order-three-axis-view-DY60Mxb9.js                   5.77 kB │ gzip:   2.33 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-nav-context-BqAWNq8a.js                         5.95 kB │ gzip:   1.40 kB
+../../../../tmp/higoods-dds-pf-build/assets/fcs-pda-pickup-dispute-C1jMmEbd.js                          6.18 kB │ gzip:   2.19 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-standard-DkA-Lgp_.js                              6.30 kB │ gzip:   2.10 kB
+../../../../tmp/higoods-dds-pf-build/assets/routes-pcs-kPhB78CW.js                                      6.31 kB │ gzip:   1.89 kB
+../../../../tmp/higoods-dds-pf-build/assets/fact-view-BxfV61i0.js                                       6.35 kB │ gzip:   2.11 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-contract-center-D46LFgWu.js                      6.53 kB │ gzip:   2.80 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-project-technical-data-writeback-BjhRKOXV.js            6.58 kB │ gzip:   2.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-outsourcing-supplement-tracking-CKBeMRmB.js          6.63 kB │ gzip:   2.89 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-B4IUxq8i.js                                          6.79 kB │ gzip:   2.50 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-contract-master-template-Jn3lFuX3.js             6.84 kB │ gzip:   2.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-handover-C-H3TAOr.js                               6.96 kB │ gzip:   2.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/dye-work-order-times-CxLziefL.js                            7.12 kB │ gzip:   2.52 kB
+../../../../tmp/higoods-dds-pf-build/assets/overview.helpers-BP2F5Yu8.js                                7.36 kB │ gzip:   2.88 kB
+../../../../tmp/higoods-dds-pf-build/assets/settlement-flow-boundaries-DbkSNas3.js                      7.43 kB │ gzip:   2.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-craft-dict-C51xYH7x.js                           7.51 kB │ gzip:   2.81 kB
+../../../../tmp/higoods-dds-pf-build/assets/statistics-BkkQVabV.js                                      7.53 kB │ gzip:   2.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-outsourcing-return-tracking-Du7-lB8r.js              7.65 kB │ gzip:   2.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-notify-DY8MP0Bp.js                                      7.66 kB │ gzip:   2.83 kB
+../../../../tmp/higoods-dds-pf-build/assets/supplement-node-facts-eRd-LO7Q.js                           7.76 kB │ gzip:   2.84 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-transfer-bag-detail-h0LEDzwY.js                         7.77 kB │ gzip:   2.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-contracts-CrugOl3h.js                            8.05 kB │ gzip:   2.73 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-exception-lifecycle-BJx0gSBY.js                    8.09 kB │ gzip:   2.70 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-material-archive-detail-Ckt2vOT1.js                     8.40 kB │ gzip:   2.97 kB
+../../../../tmp/higoods-dds-pf-build/assets/milestone-configs-QZVRTA3C.js                               8.40 kB │ gzip:   2.93 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-execution-unit-Dv5DMjNS.js                      8.44 kB │ gzip:   3.20 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-notify-detail-YV0v9-iw.js                               8.55 kB │ gzip:   2.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-fei-ticket-numbering-C6o4_ESv.js                8.65 kB │ gzip:   2.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-eWiXiv8i.js                                   8.76 kB │ gzip:   3.49 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-library-config-B7pQOhJj.js                      8.78 kB │ gzip:   2.40 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-shared-BKff4Ook.js                              8.79 kB │ gzip:   2.69 kB
+../../../../tmp/higoods-dds-pf-build/assets/fei-ticket-numbering-BhLi2y4z.js                            8.81 kB │ gzip:   3.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/pre-settlement-ledger-repository-CNIHYV4q.js                8.83 kB │ gzip:   3.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/workbench-3hhIN3PE.js                                       8.84 kB │ gzip:   3.66 kB
+../../../../tmp/higoods-dds-pf-build/assets/navigation-context-dfALgwZ0.js                              8.87 kB │ gzip:   2.46 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-transfer-bag-recovery-C0G7FKTj.js               8.98 kB │ gzip:   3.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-transfer-bag-scrap-CXIapy1w.js                  9.36 kB │ gzip:   3.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/dye-work-order-online-domain-BWUoNjwV.js                    9.52 kB │ gzip:   3.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-pickup-slips-DEmAwIJz.js                             9.55 kB │ gzip:   3.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/statistics-Ox4WZABs.js                                      9.60 kB │ gzip:   4.18 kB
+../../../../tmp/higoods-dds-pf-build/assets/tech-pack-process-route-CQNgdWhS.js                         9.62 kB │ gzip:   3.49 kB
+../../../../tmp/higoods-dds-pf-build/assets/yarn-shipments-Cy_ELKm6.js                                 10.15 kB │ gzip:   4.57 kB
+../../../../tmp/higoods-dds-pf-build/assets/list-CKw8pI3_.js                                           10.26 kB │ gzip:   3.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-login-CbjtKPAo.js                                      10.31 kB │ gzip:   3.98 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-return-fulfillment-iBRzp-I9.js                  10.38 kB │ gzip:   3.99 kB
+../../../../tmp/higoods-dds-pf-build/assets/presentation-Du21O_IC.js                                   11.04 kB │ gzip:   4.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-exec-link-DbmhDrf4.js                                  11.31 kB │ gzip:   3.69 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-prep-BXJJmOYQ.js                                  11.39 kB │ gzip:   2.67 kB
+../../../../tmp/higoods-dds-pf-build/assets/dyeing-warehouse-view-Ck41HiqM.js                          11.49 kB │ gzip:   3.95 kB
+../../../../tmp/higoods-dds-pf-build/assets/handover-print-BFBIP4pr.js                                 11.50 kB │ gzip:   4.29 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-preparation-projection-DrA7wNRX.js         11.63 kB │ gzip:   4.32 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-breakdown-BYxtmFqp.js                                 11.94 kB │ gzip:   4.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-transfers-BhPDdzqa.js                             12.00 kB │ gzip:   4.20 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-execution-adapter-BfeSX0oF.js                         12.24 kB │ gzip:   3.66 kB
+../../../../tmp/higoods-dds-pf-build/assets/pickup-management-runtime-CF86M-zF.js                      12.24 kB │ gzip:   4.72 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-statistics-domain-DVFRPNxY.js                      12.33 kB │ gzip:   4.03 kB
+../../../../tmp/higoods-dds-pf-build/assets/tasks-CPvzjUzn.js                                          12.43 kB │ gzip:   4.80 kB
+../../../../tmp/higoods-dds-pf-build/assets/meta-DZ0yrjlR.js                                           12.79 kB │ gzip:   2.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/handover-records-UcbvbPA6.js                               13.15 kB │ gzip:   4.13 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-runtime-event-ledger-DcqWVfnc.js                   13.19 kB │ gzip:   4.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/context-BvZKr1_z.js                                        13.28 kB │ gzip:   4.71 kB
+../../../../tmp/higoods-dds-pf-build/assets/returns-DjB5wvUN.js                                        13.38 kB │ gzip:   4.98 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-start-link-Bi0GP3u6.js                                 13.46 kB │ gzip:   4.77 kB
+../../../../tmp/higoods-dds-pf-build/assets/wls-inbound-DayZb0KG.js                                    13.58 kB │ gzip:   5.28 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-piece-return-warehouse-DYHVQ_xT.js                     13.65 kB │ gzip:   4.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/wls-finished-inbound-C8gMwiqn.js                           13.96 kB │ gzip:   5.32 kB
+../../../../tmp/higoods-dds-pf-build/assets/supplements-BPUOF-XG.js                                    14.12 kB │ gzip:   5.16 kB
+../../../../tmp/higoods-dds-pf-build/assets/responsibility-transfers-DFFQ3xa_.js                       14.25 kB │ gzip:   5.38 kB
+../../../../tmp/higoods-dds-pf-build/assets/mobile-execution-task-index-_NNVrLyk.js                    14.40 kB │ gzip:   3.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/post-finishing-qc-print-template-CgFNBzoO.js               14.50 kB │ gzip:   4.47 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-orders-C2pwp0ER.js                                    14.56 kB │ gzip:   4.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-orders-BgRKOcnu.js                                    14.71 kB │ gzip:   4.77 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-DvFDUJ6n.js                              14.85 kB │ gzip:   4.77 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-tech-pack-workspace-DEnTShgP.js            15.25 kB │ gzip:   5.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/workbench-iUFH1FoO.js                                      15.25 kB │ gzip:   4.58 kB
+../../../../tmp/higoods-dds-pf-build/assets/reports-STmUQg0_.js                                        15.94 kB │ gzip:   4.04 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-order-supplement-fixture-YqA59cCo.js                   15.96 kB │ gzip:   4.83 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-web-status-actions-8iAS4f6q.js                     15.97 kB │ gzip:   4.24 kB
+../../../../tmp/higoods-dds-pf-build/assets/full-flow-print-BX06-Kb9.js                                16.02 kB │ gzip:   5.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/outbound-orders-D1F24fu2.js                                16.06 kB │ gzip:   5.21 kB
+../../../../tmp/higoods-dds-pf-build/assets/garment-spu-replacement-Dt85EfjY.js                        16.06 kB │ gzip:   4.88 kB
+../../../../tmp/higoods-dds-pf-build/assets/handover-ledger-view-Dnt0KXew.js                           16.19 kB │ gzip:   4.45 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-handover-order-BNNa3OPE.js                        16.35 kB │ gzip:   4.82 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-order-release-integration-CnL27d2I.js                  16.44 kB │ gzip:   5.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/machines-C6UObZaW.js                                       16.50 kB │ gzip:   5.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-task-detail-DArjOsrS.js                        16.75 kB │ gzip:   5.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/wls-garment-relabel-tasks-BVY9MIqS.js                      16.88 kB │ gzip:   5.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-sewing-self-return-grZhKj9J.js                         17.14 kB │ gzip:   5.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-cut-piece-return-workflow-Bd8vOgSU.js               17.17 kB │ gzip:   6.07 kB
+../../../../tmp/higoods-dds-pf-build/assets/simple-cut-piece-handover-fixtures-CEuwxbNQ.js             17.17 kB │ gzip:   5.80 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-cutting-detail-CUN5z9Ys.js                        17.18 kB │ gzip:   4.27 kB
+../../../../tmp/higoods-dds-pf-build/assets/dispatch-acceptance-sla-CLPekyNa.js                        17.19 kB │ gzip:   5.15 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-confirmation-BPFM_hLI.js                        17.39 kB │ gzip:   5.94 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-spreading-projection-C5_1Tnkr.js                    17.47 kB │ gzip:   5.52 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-cut-piece-responsibility-GEEYRZoa.js                17.58 kB │ gzip:   5.28 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-notify-due-soon-rzqkE_r-.js                            17.72 kB │ gzip:   5.99 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-mobile-task-binding-BdzD8Jb0.js                    18.05 kB │ gzip:   6.37 kB
+../../../../tmp/higoods-dds-pf-build/assets/events-CTE4-kYV.js                                         18.11 kB │ gzip:   7.13 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-pda-C2pwwuNn.js                               18.17 kB │ gzip:   6.39 kB
+../../../../tmp/higoods-dds-pf-build/assets/purchase-demands-Bw9gHdOt.js                               18.28 kB │ gzip:   5.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-C-FOBp58.js                                      18.44 kB │ gzip:   5.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/platform-process-result-view-CEJf9riY.js                   18.56 kB │ gzip:   5.34 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-outsourcing-workbench-DtAq56CG.js                   18.64 kB │ gzip:   6.45 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-statement-source-adapter-BczuXPkB.js          18.70 kB │ gzip:   5.37 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-demand-early-process-work-orders-Bw9UlRkH.js    18.86 kB │ gzip:   5.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-shared-BsT4EmO9.js                           18.91 kB │ gzip:   5.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-inbound-records-B_x-MIbj.js                  19.19 kB │ gzip:   5.47 kB
+../../../../tmp/higoods-dds-pf-build/assets/platform.adapter-DMH7mLav.js                               19.25 kB │ gzip:   6.09 kB
+../../../../tmp/higoods-dds-pf-build/assets/kol-goto-pda-domain-DN7eTLUz.js                            19.28 kB │ gzip:   6.56 kB
+../../../../tmp/higoods-dds-pf-build/assets/adjustments-JFF1gMax.js                                    19.39 kB │ gzip:   5.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/shared-CsPqUNWN.js                                         19.43 kB │ gzip:   5.25 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-orders-DdBGXEuK.js                                    19.67 kB │ gzip:   6.70 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-outbound-records-CpqC-w2R.js                 19.69 kB │ gzip:   5.69 kB
+../../../../tmp/higoods-dds-pf-build/assets/post-finishing-current-read-model-BE0LsVbY.js              19.76 kB │ gzip:   5.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-sample-verification-flow-ngerFb0M.js               19.86 kB │ gzip:   4.88 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-water-soluble-orders-U8fUJeuh.js                   19.99 kB │ gzip:   6.21 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-BTe2uC1D.js                                          20.17 kB │ gzip:   5.21 kB
+../../../../tmp/higoods-dds-pf-build/assets/audit-records-D1WcutAf.js                                  20.37 kB │ gzip:   6.65 kB
+../../../../tmp/higoods-dds-pf-build/assets/order-list-columns-Ce16tm9c.js                             20.64 kB │ gzip:   6.47 kB
+../../../../tmp/higoods-dds-pf-build/assets/overview.adapter-CK7w2pLM.js                               20.65 kB │ gzip:   6.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-master-list-gVcA2ffH.js                    21.04 kB │ gzip:   7.17 kB
+../../../../tmp/higoods-dds-pf-build/assets/events-CcMgEFfx.js                                         21.16 kB │ gzip:   6.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-master-view-model-pAvqtHXx.js              21.22 kB │ gzip:   7.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-projects-list-eJUOonRf.js                              21.68 kB │ gzip:   6.61 kB
+../../../../tmp/higoods-dds-pf-build/assets/fei-ticket-numbering-Cb5i0XpU.js                           21.83 kB │ gzip:   6.22 kB
+../../../../tmp/higoods-dds-pf-build/assets/deduction-analysis-BsU-FstH.js                             21.85 kB │ gzip:   6.32 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-handlers-CKsIuEPd.js                                   22.00 kB │ gzip:   5.26 kB
+../../../../tmp/higoods-dds-pf-build/assets/pms-purchase-orders-2vFfTbVr.js                            22.07 kB │ gzip:   6.46 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-Ck0euwvr.js                              22.32 kB │ gzip:   7.14 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-location-map-model-CSr1QMoa.js                   22.51 kB │ gzip:   7.14 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-order-task-links-fpHnZhqi.js                       22.54 kB │ gzip:   6.07 kB
+../../../../tmp/higoods-dds-pf-build/assets/dye-work-order-online-view-NVKRMYma.js                     22.60 kB │ gzip:   7.78 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-piece-handover-CCBWXcUA.js                             22.72 kB │ gzip:   7.34 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-piece-returns-CifcHGZT.js                              22.76 kB │ gzip:   6.99 kB
+../../../../tmp/higoods-dds-pf-build/assets/tasks-BaFxv9hV.js                                          22.81 kB │ gzip:   7.29 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-statistics-linkage-BfswRVV8.js                    22.86 kB │ gzip:   6.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/qc-workbench-uijqDit_.js                                   23.04 kB │ gzip:   7.17 kB
+../../../../tmp/higoods-dds-pf-build/assets/simple-cut-piece-handover-ui-DbXoGsW4.js                   23.08 kB │ gzip:   8.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-cutting-overview-BxrAo9Hs.js                      23.20 kB │ gzip:   5.48 kB
+../../../../tmp/higoods-dds-pf-build/assets/recheck-orders-AsHuDnig.js                                 23.21 kB │ gzip:   7.35 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-issue-B0Bo983u.js                                 23.30 kB │ gzip:   5.70 kB
+../../../../tmp/higoods-dds-pf-build/assets/wls-accessory-receipts-CADvMxA9.js                         23.33 kB │ gzip:   7.18 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-order-duration-DdBpLyya.js                      23.73 kB │ gzip:   9.05 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-statements-DuEyKNQK.js                            23.94 kB │ gzip:   6.51 kB
+../../../../tmp/higoods-dds-pf-build/assets/quality-deduction-selectors-BFlirjRL.js                    24.26 kB │ gzip:   6.28 kB
+../../../../tmp/higoods-dds-pf-build/assets/qc-orders-60IiRLPa.js                                      24.33 kB │ gzip:   7.60 kB
+../../../../tmp/higoods-dds-pf-build/assets/retired-process-history-C0JdoBqJ.js                        24.75 kB │ gzip:   6.41 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-print-orders-BtL1rZnJ.js                           24.78 kB │ gzip:   8.19 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialogs-orf9I1g5.js                                        24.86 kB │ gzip:   6.13 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-dye-orders-BN3t36gn.js                             24.96 kB │ gzip:   8.27 kB
+../../../../tmp/higoods-dds-pf-build/assets/wls-fabric-demand-board-BOboIqCY.js                        25.09 kB │ gzip:   6.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/fcs-production-tech-pack-snapshot-18GL6VLy.js              25.32 kB │ gzip:   6.46 kB
+../../../../tmp/higoods-dds-pf-build/assets/machine-associations--LpQOSpx.js                           25.62 kB │ gzip:   7.78 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-wool-fact-execution-BqM_fWn-.js                        25.83 kB │ gzip:   8.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-handlers-Dh0P9H6w.js                                   26.11 kB │ gzip:   6.70 kB
+../../../../tmp/higoods-dds-pf-build/assets/sample-approval-suggestions-BiUduHpZ.js                    26.68 kB │ gzip:   8.28 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-wait-handover-DXsBD-Cl.js                    26.89 kB │ gzip:   6.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-spreading-utils-D5rlxFg6.js                         27.03 kB │ gzip:   7.97 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-location-map-C_z5mQwK.js                         27.05 kB │ gzip:   7.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-milestone-config-DJXp163A.js                      27.36 kB │ gzip:   6.06 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-library-detail-BvnkxXh4.js                     27.61 kB │ gzip:   6.56 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-channel-products-Bm9wVx1h.js                           27.75 kB │ gzip:   7.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/sample-warehouse-BENuX2tn.js                               27.85 kB │ gzip:   7.11 kB
+../../../../tmp/higoods-dds-pf-build/assets/third-party-factory-rating-SgBIt0GX.js                     27.91 kB │ gzip:   7.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-status-B7szQA6i.js                                 28.42 kB │ gzip:   6.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/task-detail-Crfu6j9C.js                                    28.60 kB │ gzip:   8.29 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-plan-source-model-Bj0008xn.js                       28.86 kB │ gzip:   8.46 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-order-progress-tracking-CMBdGt7b.js             28.97 kB │ gzip:   9.53 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-master-detail-Dt3rFdfd.js                  29.22 kB │ gzip:   8.61 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-DoiX7b7X.js                                      29.27 kB │ gzip:   9.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/early-process-management-CySyDy41.js                       30.05 kB │ gzip:   7.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-cutting-exception-center-DpJUG-oM.js              30.27 kB │ gzip:   6.94 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-warehouse-domain-DDcHBiy2.js                       31.17 kB │ gzip:   7.03 kB
+../../../../tmp/higoods-dds-pf-build/assets/effective-task-assignments-ViMmZa37.js                     31.25 kB │ gzip:  10.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/handover-orders-DeMRVyLJ.js                                31.25 kB │ gzip:   8.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-config-workspace-D_9GqjgW.js                           31.38 kB │ gzip:   7.03 kB
+../../../../tmp/higoods-dds-pf-build/assets/capability-B4rlj-7-.js                                     31.68 kB │ gzip:   6.71 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-performance-DSZzuD33.js                            32.31 kB │ gzip:   6.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-shell-BUh4Ct0M.js                                      32.48 kB │ gzip:   8.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-tech-pack-bootstrap-DspXvwts.js                        32.79 kB │ gzip:   8.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialogs-8xVo1cty.js                                        32.94 kB │ gzip:   9.95 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-piece-return-domain-Bxj40t3Y.js                        33.08 kB │ gzip:   9.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/garment-spu-replacements-DN0xQEQM.js                       33.10 kB │ gzip:   9.39 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-library-Dm6QjVcC.js                            33.67 kB │ gzip:   7.62 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-settlement-seeds-BlLYPC3g.js                  33.72 kB │ gzip:   9.00 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-runtime-D-0DLqLd.js                              33.73 kB │ gzip:   8.64 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-CUqTFAs9.js                              34.52 kB │ gzip:   9.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-inbound-BFc2l_9I.js                            34.72 kB │ gzip:  10.54 kB
+../../../../tmp/higoods-dds-pf-build/assets/dispatch-acceptance-sla-Crqrpobf.js                        34.98 kB │ gzip:   7.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-post-finishing-flow-oY8i-Z6f.js                        35.55 kB │ gzip:   9.60 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-orders-x6KS51Er.js                                    35.71 kB │ gzip:  12.02 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-stocktake-BU_opgc3.js                        35.74 kB │ gzip:   9.15 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-0apMKPxq.js                              35.76 kB │ gzip:   9.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-orders-Bk95BIV6.js                                    36.00 kB │ gzip:  10.67 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-task-receive-detail-D6ff1DK4.js                        36.41 kB │ gzip:   8.88 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-library-create-BkmU4r4s.js                     36.93 kB │ gzip:   8.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/water-soluble-orders-CB-mkQoj.js                           37.05 kB │ gzip:  11.25 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-transfer-bag-repack-B14-p6mw.js                37.18 kB │ gzip:  10.60 kB
+../../../../tmp/higoods-dds-pf-build/assets/work-order-detail-0vuhK7O5.js                              37.30 kB │ gzip:  10.18 kB
+../../../../tmp/higoods-dds-pf-build/assets/third-party-factory-comprehensive-assessment-Dca97hS5.js   37.40 kB │ gzip:  11.03 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-technical-data-CtaKNp7V.js                             37.45 kB │ gzip:  10.04 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-part-template-library-DGbX_aKB.js                      38.06 kB │ gzip:  13.43 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-statistics-ab-material-DD09QRc4.js                 38.13 kB │ gzip:   8.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-quality-bootstrap-CUAMBmTX.js                 38.24 kB │ gzip:   5.39 kB
+../../../../tmp/higoods-dds-pf-build/assets/special-processes-0REtctU3.js                              38.41 kB │ gzip:  10.01 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-quality-D0LVP2Go.js                                    38.62 kB │ gzip:  10.23 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-craft-dict-B1Rp5d0b.js                             39.02 kB │ gzip:   7.49 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-D9RbEPTl.js                                      39.21 kB │ gzip:  11.31 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-handover-D-e29e0M.js                           40.24 kB │ gzip:  11.56 kB
+../../../../tmp/higoods-dds-pf-build/assets/fcs-handlers-_Y_U7dNi.js                                   40.26 kB │ gzip:  11.97 kB
+../../../../tmp/higoods-dds-pf-build/assets/wait-handover-runtime-CYf1yKXv.js                          41.70 kB │ gzip:  11.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/print-styles-Dj7gIte6.js                                   41.80 kB │ gzip:   8.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/handover-orders-CQqIGjwS.js                                44.18 kB │ gzip:   8.80 kB
+../../../../tmp/higoods-dds-pf-build/assets/pending-receipts-Cb3x_lBk.js                               44.33 kB │ gzip:  15.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-D3dKu_dJ.js                                      44.35 kB │ gzip:  10.30 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-material-archives-Cto8vlv_.js                          44.53 kB │ gzip:   9.87 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-DmOycHua.js                                      44.82 kB │ gzip:  11.47 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-summary-zg--d7lc.js                                45.27 kB │ gzip:  11.99 kB
+../../../../tmp/higoods-dds-pf-build/assets/demand-domain-DfG94y8x.js                                  45.79 kB │ gzip:  10.38 kB
+../../../../tmp/higoods-dds-pf-build/assets/batches-CyM1ZQcK.js                                        47.35 kB │ gzip:  10.26 kB
+../../../../tmp/higoods-dds-pf-build/assets/settlement-linked-mock-factory-i2lqBuRM.js                 47.82 kB │ gzip:  14.52 kB
+../../../../tmp/higoods-dds-pf-build/assets/dispatch-tenders-CshIboUX.js                               48.15 kB │ gzip:  12.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/dyeing-BNM9Oj5A.js                                         48.66 kB │ gzip:  10.72 kB
+../../../../tmp/higoods-dds-pf-build/assets/printing-bsrePTGM.js                                       48.67 kB │ gzip:  10.73 kB
+../../../../tmp/higoods-dds-pf-build/assets/other-DcxSvaiU.js                                          48.67 kB │ gzip:  10.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-task-receive-BE8HuWXC.js                               49.21 kB │ gzip:  12.24 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-C07dweKN.js                                         49.69 kB │ gzip:  11.07 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-material-CcC8QJed.js                              49.91 kB │ gzip:   9.88 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-execution-source-DGGLXIGr.js                   50.22 kB │ gzip:  13.67 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-onboarding-wh8Igz2v.js                                 50.54 kB │ gzip:  10.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-pattern-library-YXRLF2WW.js                            50.59 kB │ gzip:  14.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-plan-model-DKa1_6Td.js                              51.65 kB │ gzip:  14.78 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-handover-i2dCWAgu.js                                   52.73 kB │ gzip:  13.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/store-domain-progress-CEIQrDYo.js                          52.98 kB │ gzip:  11.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/lace-factory-domain-BTkNWwGS.js                            53.70 kB │ gzip:  13.35 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-part-template-library-BtLZCrqW.js                      53.79 kB │ gzip:  11.06 kB
+../../../../tmp/higoods-dds-pf-build/assets/settlement-cutting-input-BRyONdem.js                       54.74 kB │ gzip:  11.52 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-location-map-di1daPU0.js                         56.82 kB │ gzip:  16.84 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-plan-occupancy-BCoD6ofC.js                          57.48 kB │ gzip:  16.19 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-urge-h83p9_X2.js                                  57.54 kB │ gzip:  11.89 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-cutting-spreading-CzR9uov_.js                          57.78 kB │ gzip:  13.55 kB
+../../../../tmp/higoods-dds-pf-build/assets/domain-snapshot-BdG98xFD.js                                59.76 kB │ gzip:  16.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-profile-tbkkmxDU.js                                61.20 kB │ gzip:  14.05 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-piece-release-C80354wE.js                              61.24 kB │ gzip:  16.31 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-settlement-CfJpuYmb.js                                 61.30 kB │ gzip:  14.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-project-inline-node-record-repository-C0NK-vOz.js      61.84 kB │ gzip:  17.13 kB
+../../../../tmp/higoods-dds-pf-build/assets/pickup-management-list-CxqjL64a.js                         62.58 kB │ gzip:  17.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-live-testing-6NNKcwlq.js                               63.27 kB │ gzip:  16.03 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-BRbO2z4J.js                                        64.01 kB │ gzip:  13.48 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-handover-s_GITsSS.js                              65.07 kB │ gzip:  14.07 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-video-testing-DHPvp0Rh.js                              65.44 kB │ gzip:  16.46 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-object-overview-CYYOi4K2.js                     65.45 kB │ gzip:  15.39 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-object-overview-CG8tA82m.js                     65.91 kB │ gzip:  13.65 kB
+../../../../tmp/higoods-dds-pf-build/assets/output-documents-8Jn6EqDQ.js                               67.11 kB │ gzip:  23.06 kB
+../../../../tmp/higoods-dds-pf-build/assets/core-gLuGfGDK.js                                           67.41 kB │ gzip:  12.49 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-sample-management-DnXhDPnG.js                          67.66 kB │ gzip:  15.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-exec-eJ7_CnM1.js                                       68.06 kB │ gzip:  15.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-channel-stores-QNPRvZVy.js                             69.26 kB │ gzip:  14.31 kB
+../../../../tmp/higoods-dds-pf-build/assets/sewing-dispatch-CL784xRe.js                                69.28 kB │ gzip:  18.08 kB
+../../../../tmp/higoods-dds-pf-build/assets/cutting-daily-production-report-Cz5GG1od.js                69.29 kB │ gzip:  19.56 kB
+../../../../tmp/higoods-dds-pf-build/assets/context-DJfA7Chk.js                                        69.73 kB │ gzip:  21.45 kB
+../../../../tmp/higoods-dds-pf-build/assets/progress-exceptions-DP7JnyLT.js                            71.54 kB │ gzip:  13.76 kB
+../../../../tmp/higoods-dds-pf-build/assets/wait-handover-actions-aI1fwLW0.js                          71.92 kB │ gzip:  18.19 kB
+../../../../tmp/higoods-dds-pf-build/assets/qc-records-H9lQBlpb.js                                     72.06 kB │ gzip:  16.32 kB
+../../../../tmp/higoods-dds-pf-build/assets/special-craft-fei-ticket-flow-BlTdvE5B.js                  72.45 kB │ gzip:  16.44 kB
+../../../../tmp/higoods-dds-pf-build/assets/routes-fcs-kYNZu3ps.js                                     72.82 kB │ gzip:  13.92 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bags-XzZhO6Fw.js                                  73.91 kB │ gzip:  18.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-onboarding-BnTf4k5j.js                             75.29 kB │ gzip:  12.70 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-action-writeback-service-B9gBcKyB.js               75.60 kB │ gzip:  17.20 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-handover-detail-DZqBLjS6.js                            75.81 kB │ gzip:  18.63 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialogs-B4FYy_Q-.js                                        76.10 kB │ gzip:  18.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/orders-domain-BOpkH3VP.js                                  76.40 kB │ gzip:  16.92 kB
+../../../../tmp/higoods-dds-pf-build/assets/settlement-BcNqJFO6.js                                     76.49 kB │ gzip:  11.95 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-independent-sampling-DCCf8G5z.js                       77.57 kB │ gzip:  19.81 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bag-operations-MTCWzyyR.js                        77.98 kB │ gzip:  19.24 kB
+../../../../tmp/higoods-dds-pf-build/assets/runtime-projections-BzkrLfFW.js                            78.01 kB │ gzip:  18.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-progress-CdwzQWY6.js                            81.81 kB │ gzip:  20.82 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-warehouse-wait-process-BBcjvnIq.js                     88.49 kB │ gzip:  21.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-orders-Cv1i84h8.js                              89.46 kB │ gzip:  20.99 kB
+../../../../tmp/higoods-dds-pf-build/assets/events-BxXhHvsm.js                                         90.15 kB │ gzip:  22.24 kB
+../../../../tmp/higoods-dds-pf-build/assets/factory-onboarding-flow-7Ekzg5pP.js                        90.67 kB │ gzip:  23.36 kB
+../../../../tmp/higoods-dds-pf-build/assets/dispatch-B3QZzFZR.js                                       91.33 kB │ gzip:  27.75 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-tech-pack-change-domain-BXSykvEJ.js             91.54 kB │ gzip:  24.04 kB
+../../../../tmp/higoods-dds-pf-build/assets/cut-orders-C6LhModt.js                                     95.87 kB │ gzip:  24.86 kB
+../../../../tmp/higoods-dds-pf-build/assets/post-finishing-full-flow-CVLy6Flt.js                      104.11 kB │ gzip:  26.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-product-archives-BKkBEmnr.js                          106.88 kB │ gzip:  21.74 kB
+../../../../tmp/higoods-dds-pf-build/assets/dialogs-ClasNF3m.js                                       108.94 kB │ gzip:  26.82 kB
+../../../../tmp/higoods-dds-pf-build/assets/transfer-bag-return-model-GJeuo1Sm.js                     112.98 kB │ gzip:  26.64 kB
+../../../../tmp/higoods-dds-pf-build/assets/supplement-management-b3utqbFD.js                         114.40 kB │ gzip:  30.42 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-project-repository-DDPG26B7.js                        116.14 kB │ gzip:  27.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/special-craft-task-orders-aZMsQbZ1.js                     116.29 kB │ gzip:  30.23 kB
+../../../../tmp/higoods-dds-pf-build/assets/unified-dispatch-workbench-DnNB-xZ8.js                    119.21 kB │ gzip:  33.59 kB
+../../../../tmp/higoods-dds-pf-build/assets/statements-D9i1qkQ4.js                                    120.80 kB │ gzip:  24.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-engineering-tasks-JuGGNNMv.js                         128.39 kB │ gzip:  29.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/context-B2tf43x5.js                                       132.83 kB │ gzip:  34.36 kB
+../../../../tmp/higoods-dds-pf-build/assets/production-9YkSuTeK.js                                    135.20 kB │ gzip:  27.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/quality-deduction-repository-ceD-eel-.js                  136.79 kB │ gzip:  26.66 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-domain-CI-2Ii38.js                                138.63 kB │ gzip:  25.83 kB
+../../../../tmp/higoods-dds-pf-build/assets/generated-fei-tickets-CUwnIqSJ.js                         143.18 kB │ gzip:  36.24 kB
+../../../../tmp/higoods-dds-pf-build/assets/preparation-timing-a5C1yyjX.js                            146.62 kB │ gzip:  34.66 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-plan-Bsgoc4rn.js                                   151.31 kB │ gzip:  35.90 kB
+../../../../tmp/higoods-dds-pf-build/assets/warehouse-hub-kEPArc_n.js                                 153.86 kB │ gzip:  38.39 kB
+../../../../tmp/higoods-dds-pf-build/assets/marker-spreading-BVQZOi-J.js                              155.27 kB │ gzip:  38.22 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-project-config-workspace-adapter-CQBzwYZZ.js          174.43 kB │ gzip:  37.96 kB
+../../../../tmp/higoods-dds-pf-build/assets/fei-tickets-AqT-mQ9f.js                                   196.40 kB │ gzip:  43.79 kB
+../../../../tmp/higoods-dds-pf-build/assets/pda-exec-detail-BP8403gj.js                               233.51 kB │ gzip:  54.17 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-projects-DU-GJ6OC.js                                  233.95 kB │ gzip:  51.07 kB
+../../../../tmp/higoods-dds-pf-build/assets/print-preview-DuL7NdP0.js                                 258.97 kB │ gzip:  67.14 kB
+../../../../tmp/higoods-dds-pf-build/assets/process-tasks-BdVurZB-.js                                 313.91 kB │ gzip:  86.11 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-DbqYqHDq.js                                         363.88 kB │ gzip:  83.89 kB
+../../../../tmp/higoods-dds-pf-build/assets/pcs-technical-data-version-repository-i3rUEwvv.js         560.87 kB │ gzip: 133.76 kB
+../../../../tmp/higoods-dds-pf-build/assets/index-C-2JeWtB.js                                         597.95 kB │ gzip: 172.85 kB
+../../../../tmp/higoods-dds-pf-build/assets/material-ledger-CBYy61Je.js                               861.84 kB │ gzip: 216.16 kB
+
+(!) Some chunks are larger than 550 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.79s

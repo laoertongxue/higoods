@@ -1,0 +1,16 @@
+{
+  "publicationType": "User-requested progress publication, not product acceptance",
+  "technicalCommands": {
+    "state": "verified",
+    "receipt": "technical/task-receipt-locked.json"
+  },
+  "browserPerformance": {
+    "pass": false,
+    "failedSamples": 9,
+    "report": "merged-browser-split/combined-verification.json"
+  },
+  "businessAcceptance": false,
+  "moduleComplete": false,
+  "runtimeHashesUnchanged": true,
+  "scopeNote": "Final receipt covers fixed application and existing evidence. Only command-result artifacts appended afterward; runtime hashes verified unchanged."
+}
