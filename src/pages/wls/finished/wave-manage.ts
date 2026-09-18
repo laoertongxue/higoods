@@ -74,7 +74,7 @@ function waveTypeLabel(type: WaveType): string {
 
 const EVENT_PREFIX = 'wls-wave-manage'
 const PREFERENCE_KEY = '/wls/finished/wave-manage:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -234,5 +234,6 @@ export function handleWaveManageEvent(target: HTMLElement, event?: Event): boole
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

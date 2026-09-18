@@ -30,7 +30,7 @@ const seedProcessors: Processor[] = [
 
 const EVENT_PREFIX = 'wls-basic-processor'
 const PREFERENCE_KEY = '/wls/finished/basic-processor:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state: {
   currentPage: number
@@ -120,7 +120,6 @@ function renderWorkspace(): string {
 
   return renderStandardListPage({
     title: '加工方管理',
-    showHeader: false,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
@@ -178,7 +177,7 @@ export function handleBasicProcessorEvent(target: HTMLElement, event?: Event): b
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') { state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1)); refreshWorkspace(); return true }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key !== key ? { key, direction: 'asc' } : state.sort.direction === 'asc' ? { key, direction: 'desc' } : null
     state.currentPage = 1
     refreshWorkspace()

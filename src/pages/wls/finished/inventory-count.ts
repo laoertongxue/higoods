@@ -3,7 +3,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
-import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
@@ -48,7 +48,7 @@ const INVENTORY_COUNT_SEED: InventoryCountRow[] = (() => {
 
 const EVENT_PREFIX = 'wls-inventory-count'
 const PREFERENCE_KEY = '/wls/finished/stock/inventory-count:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -82,12 +82,14 @@ const columns: StandardListColumn<InventoryCountRow>[] = [
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
-const defaultPreferences = (): StandardListColumnPreferences => ({
-  order: columns.map(c => c.key),
+function defaultPreferences(): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, {
+    order: columns.map(c => c.key),
   visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
   frozenKeys: ['countNo'] as string[],
-  pageSize: PAGE_SIZE_OPTIONS[0],
-})
+  pageSize: 10,
+  }, PAGE_SIZE_OPTIONS)
+}
 
 function ensurePreferencesLoaded(): void {
   if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
@@ -177,7 +179,7 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -219,5 +221,6 @@ export function handleFinishedInventoryCountEvent(target: HTMLElement, event?: E
     return true
   }
   if (action === 'create') { console.log('Open create inventory count'); return true }
+  if (action === 'export') { return true }
   return false
 }

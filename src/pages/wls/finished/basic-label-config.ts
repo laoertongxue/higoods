@@ -1,7 +1,6 @@
 // @page-pattern: list
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
-import type { AppState } from '../../../state/store'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
@@ -19,7 +18,7 @@ const seedTemplates: LabelTemplate[] = [
 
 const EVENT_PREFIX = 'wls-basic-label-config'
 const PREFERENCE_KEY = '/wls/finished/basic-label-config:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -61,12 +60,14 @@ const columns: StandardListColumn<LabelTemplate>[] = [
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
-const defaultPreferences = (): StandardListColumnPreferences => ({
-  order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
-  frozenKeys: ['name'],
-  pageSize: PAGE_SIZE_OPTIONS[0],
-})
+function defaultPreferences(): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, {
+    order: columns.map(c => c.key),
+    visibleKeys: columns.map(c => c.key),
+    frozenKeys: ['name'],
+    pageSize: 10,
+  }, PAGE_SIZE_OPTIONS)
+}
 
 function ensurePreferencesLoaded(): void {
   if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
@@ -86,12 +87,12 @@ function filteredRows(): LabelTemplate[] {
 }
 
 function renderFilters(): string {
-  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索模板名称" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">来源系统</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="source"><option value="">全部来源系统</option><option value="WMS" ${state.sourceFilter === 'WMS' ? 'selected' : ''}>WMS</option><option value="WMS-TRANSIT" ${state.sourceFilter === 'WMS-TRANSIT' ? 'selected' : ''}>WMS-TRANSIT</option><option value="WMS-RAW" ${state.sourceFilter === 'WMS-RAW' ? 'selected' : ''}>WMS-RAW</option></select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">业务场景</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="scene"><option value="">全部业务场景</option><option value="出库" ${state.sceneFilter === '出库' ? 'selected' : ''}>出库</option><option value="入库" ${state.sceneFilter === '入库' ? 'selected' : ''}>入库</option><option value="退货" ${state.sceneFilter === '退货' ? 'selected' : ''}>退货</option><option value="领料" ${state.sceneFilter === '领料' ? 'selected' : ''}>领料</option></select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option><option value="ENABLED" ${state.statusFilter === 'ENABLED' ? 'selected' : ''}>启用</option><option value="DISABLED" ${state.statusFilter === 'DISABLED' ? 'selected' : ''}>停用</option></select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -108,11 +109,11 @@ function renderWorkspace(): string {
       { label: '启用', value: `${seedTemplates.filter(t => t.status === 'ENABLED').length} 条` },
       { label: '停用', value: `${seedTemplates.filter(t => t.status === 'DISABLED').length} 条` },
     ]),
-    listTitle: '标签模板列表',
+    listTitle: `共 ${all.length} 条`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增模板', { prefix: EVENT_PREFIX, action: 'add' }, 'plus')}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无标签模板' }),
-    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '标签配置列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '标签配置列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 520 }) : '',
   })
 }
 
@@ -161,7 +162,7 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -191,7 +192,7 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
   }
   if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
-  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { localStorage.removeItem(PREFERENCE_KEY); state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
     const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
@@ -203,5 +204,6 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

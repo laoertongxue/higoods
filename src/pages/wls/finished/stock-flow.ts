@@ -81,7 +81,7 @@ const STOCK_FLOW_SEED: StockFlowRecord[] = (() => {
 
 const EVENT_PREFIX = 'wls-stock-flow'
 const PREFERENCE_KEY = '/wls/finished/stock-flow:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -210,7 +210,7 @@ function renderFilters(): string {
     <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">单据类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="docType"><option value="">全部单据类型</option>${docTypes.map(d => `<option value="${escapeHtml(d)}" ${state.docTypeFilter === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}</select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">动作类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="actionType"><option value="">全部动作类型</option>${actionTypes.map(a => `<option value="${escapeHtml(a)}" ${state.actionTypeFilter === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出Excel', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -323,5 +323,6 @@ export function handleStockFlowEvent(target: HTMLElement, event?: Event): boolea
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

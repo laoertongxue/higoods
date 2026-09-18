@@ -42,7 +42,7 @@ const statusClass: Record<string, string> = {
 
 const EVENT_PREFIX = 'wls-raw-arrival-list'
 const PREFERENCE_KEY = '/wls/raw/arrival/list:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -175,7 +175,7 @@ export function handleRawArrivalListEvent(target: HTMLElement, event?: Event): b
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -211,5 +211,6 @@ export function handleRawArrivalListEvent(target: HTMLElement, event?: Event): b
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

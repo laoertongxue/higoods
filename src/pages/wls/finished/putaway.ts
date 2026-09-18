@@ -3,7 +3,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
-import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
@@ -98,7 +98,7 @@ function flattenOrders(orders: PutawayOrder[]): PutawayRow[] {
 
 const EVENT_PREFIX = 'wls-putaway'
 const PREFERENCE_KEY = '/wls/finished/putaway:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -151,12 +151,14 @@ const columns: StandardListColumn<PutawayRow>[] = [
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
-const defaultPreferences = (): StandardListColumnPreferences => ({
-  order: columns.map(c => c.key),
+function defaultPreferences(): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, {
+    order: columns.map(c => c.key),
   visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
   frozenKeys: ['orderNos'] as string[],
-  pageSize: PAGE_SIZE_OPTIONS[0],
-})
+  pageSize: 10,
+  }, PAGE_SIZE_OPTIONS)
+}
 
 function ensurePreferencesLoaded(): void {
   if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
@@ -179,7 +181,7 @@ function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="单号 / 关联单号（ASN） / SPU / SKU / 批次号 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option>${statusOptions.map(s => `<option value="${escapeHtml(s)}" ${state.statusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出Excel', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -289,5 +291,6 @@ export function handleFinishedPutawayEvent(target: HTMLElement, event?: Event): 
     console.log('putaway order:', id)
     return true
   }
+  if (action === 'export') { return true }
   return false
 }

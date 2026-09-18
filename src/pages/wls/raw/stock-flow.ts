@@ -40,7 +40,7 @@ const seedFlows: FlowRecord[] = [
 
 const EVENT_PREFIX = 'wls-raw-stock-flow'
 const PREFERENCE_KEY = '/wls/raw/stock-flow:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state = {
   currentPage: 1,
@@ -114,7 +114,7 @@ function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="单号 / SPU / SKU / 商品名称 / 操作人" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">动作类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="actionType"><option value="">全部</option><option value="收货入库" ${state.actionTypeFilter === '收货入库' ? 'selected' : ''}>收货入库</option><option value="上架入库" ${state.actionTypeFilter === '上架入库' ? 'selected' : ''}>上架入库</option><option value="销售出库" ${state.actionTypeFilter === '销售出库' ? 'selected' : ''}>销售出库</option><option value="盘盈" ${state.actionTypeFilter === '盘盈' ? 'selected' : ''}>盘盈</option><option value="移货" ${state.actionTypeFilter === '移货' ? 'selected' : ''}>移货</option><option value="手工调整" ${state.actionTypeFilter === '手工调整' ? 'selected' : ''}>手工调整</option><option value="退货入库" ${state.actionTypeFilter === '退货入库' ? 'selected' : ''}>退货入库</option></select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出Excel', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -183,7 +183,7 @@ export function handleRawStockFlowEvent(target: HTMLElement, event?: Event): boo
     return true
   }
   if (action === 'sort-column') {
-    const key = actionNode.dataset.columnKey || ''
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
     state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
     state.currentPage = 1
     refreshWorkspace()
@@ -219,5 +219,6 @@ export function handleRawStockFlowEvent(target: HTMLElement, event?: Event): boo
     refreshWorkspace()
     return true
   }
+  if (action === 'export') { return true }
   return false
 }
