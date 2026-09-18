@@ -67,26 +67,29 @@ function readPersistedLogs(): PostFinishingOperationLogEntry[] {
 }
 
 let logs = readPersistedLogs()
-let initializingDemoLogs = false
+
+// 仅固定演示数据的同步初始化暂缓保存；普通业务操作仍即时保存。
+let demoPersistence: 'idle' | 'save' | 'remove' | undefined
+
+export function beginPostFinishingOperationLogDemoBatch() {
+  const before = logs
+  demoPersistence = 'idle'
+  return {
+    commit(): void {
+      if (demoPersistence === 'save') globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
+      if (demoPersistence === 'remove') globalThis.localStorage?.removeItem(STORAGE_KEY)
+    },
+    rollback(): void { logs = before },
+    finish(): void { demoPersistence = undefined },
+  }
+}
 
 function persist(): void {
-  if (initializingDemoLogs) return
+  if (demoPersistence !== undefined) { demoPersistence = 'save'; return }
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
   } catch {
     // 原型无 localStorage 时保留当前运行期内存事实。
-  }
-}
-
-/** 仅演示初始化合并持久化；实际业务操作仍在 append 时同步保存。 */
-export function initializePostFinishingDemoOperationLogs(initialize: () => void): void {
-  const alreadyInitializing = initializingDemoLogs
-  initializingDemoLogs = true
-  try {
-    initialize()
-  } finally {
-    initializingDemoLogs = alreadyInitializing
-    if (!alreadyInitializing) persist()
   }
 }
 
@@ -141,6 +144,7 @@ export function listPostFinishingOperationLogs(
 
 export function resetPostFinishingOperationLogs(): void {
   logs = []
+  if (demoPersistence !== undefined) { demoPersistence = 'remove'; return }
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY)
   } catch {

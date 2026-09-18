@@ -1,3 +1,4 @@
+import {renderWoolPendingReceiptsPage} from '../pages/process-factory/wool/pending-receipts.ts'
 import {renderFactoryPendingReceiptsPage} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import type { RouteRegistry } from './route-types'
 import {
@@ -54,6 +55,7 @@ function decodeRouteSegment(value: string): string {
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/pda/wool/pending-receipts': () => renderWoolPendingReceiptsPage(),
     '/fcs/pda/cutting/simple-cut-piece-handover': () => renderPdaCuttingSimpleCutPieceHandoverPage(),
     '/fcs/pda/factory-receipts': () => renderFactoryPendingReceiptsPage(true),
     '/fcs/pda': () =>

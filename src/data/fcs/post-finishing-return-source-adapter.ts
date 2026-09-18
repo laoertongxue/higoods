@@ -311,9 +311,9 @@ function buildWholeGarmentWoolSources(facts: PostFinishingFormalReturnSourceFact
   const store = facts.woolStore
   if (!store) return []
   return store.handovers.flatMap((handover) => {
-    if (handover.receiverType !== 'DOWNSTREAM_FACTORY' || handover.downstreamReceipt?.status === 'CONFIRMED') return []
+    if (handover.receiverId !== MANAGED_POST_FACTORY_ID || handover.receiverType !== 'DOWNSTREAM_FACTORY' || handover.downstreamReceipt?.status === 'CONFIRMED') return []
     const workOrder = store.workOrders[handover.woolOrderId]
-    if (!workOrder || workOrder.kind !== 'WHOLE_GARMENT' || KOL_FACTORY_IDS.has(workOrder.factoryId)) return []
+    if (!workOrder || workOrder.stage !== 'LINKING' || handover.automatic || handover.pieceKey || workOrder.kind !== 'WHOLE_GARMENT' || KOL_FACTORY_IDS.has(workOrder.factoryId)) return []
     const formalOrder = findFormalOrder(facts.productionOrders, workOrder.productionOrderId, workOrder.productionOrderNo)
     if (isExcludedKolOrder(formalOrder, workOrder.factoryId)) return []
     const outputLine = workOrder.outputPlanLines.find((line) => line.outputSkuCode === handover.outputSkuCode)

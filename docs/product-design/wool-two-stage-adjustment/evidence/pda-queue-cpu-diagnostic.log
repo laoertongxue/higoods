@@ -1,0 +1,258 @@
+[
+  {
+    functionName: '(idle)',
+    scriptId: '0',
+    url: '',
+    lineNumber: -1,
+    columnNumber: -1,
+    ms: 506.83
+  },
+  {
+    functionName: '(program)',
+    scriptId: '0',
+    url: '',
+    lineNumber: -1,
+    columnNumber: -1,
+    ms: 154.868
+  },
+  {
+    functionName: '(garbage collector)',
+    scriptId: '0',
+    url: '',
+    lineNumber: -1,
+    columnNumber: -1,
+    ms: 44.801
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 38.937
+  },
+  {
+    functionName: 'projectPrintingBusinessRecord',
+    scriptId: '70',
+    url: 'http://127.0.0.1:5186/src/data/fcs/printing-task-domain.ts?t=1789743929193',
+    lineNumber: 3434,
+    columnNumber: 38,
+    ms: 38.124
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 30.902
+  },
+  {
+    functionName: 'save',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 66,
+    columnNumber: 13,
+    ms: 25.569
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 22.88
+  },
+  {
+    functionName: 'projectPrintingBusinessRecord',
+    scriptId: '70',
+    url: 'http://127.0.0.1:5186/src/data/fcs/printing-task-domain.ts?t=1789743929193',
+    lineNumber: 3434,
+    columnNumber: 38,
+    ms: 20.483
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 17.767
+  },
+  {
+    functionName: 'save',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 66,
+    columnNumber: 13,
+    ms: 17.759
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 17.137
+  },
+  {
+    functionName: 'save',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 66,
+    columnNumber: 13,
+    ms: 15.765
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 15.499
+  },
+  {
+    functionName: 'sortActiveProcessCraftRows',
+    scriptId: '48',
+    url: 'http://127.0.0.1:5186/src/data/fcs/process-craft-dict.ts',
+    lineNumber: 1536,
+    columnNumber: 35,
+    ms: 14.396
+  },
+  {
+    functionName: 'listWoolCraftTaskOrders',
+    scriptId: '162',
+    url: 'http://127.0.0.1:5186/src/data/fcs/wool-domain/craft-flow.ts?t=1789741617751',
+    lineNumber: 75,
+    columnNumber: 39,
+    ms: 13.728
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 13.637
+  },
+  {
+    functionName: 'withPhotos',
+    scriptId: '187',
+    url: 'http://127.0.0.1:5186/src/data/fcs/wool-domain/craft-warehouse.ts?t=1789743784940',
+    lineNumber: 19,
+    columnNumber: 21,
+    ms: 12.372
+  },
+  {
+    functionName: 'loadNextPdaExecBatchNearViewport',
+    scriptId: '56',
+    url: 'http://127.0.0.1:5186/src/pages/pda-exec.ts?t=1789744290497',
+    lineNumber: 819,
+    columnNumber: 41,
+    ms: 11.862
+  },
+  {
+    functionName: '',
+    scriptId: '100',
+    url: 'http://127.0.0.1:5186/src/data/fcs/pda-handover-events.ts?t=1789743929193',
+    lineNumber: 2547,
+    columnNumber: 54,
+    ms: 10.492
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 10.255
+  },
+  {
+    functionName: 'projectPrintingBusinessRecord',
+    scriptId: '70',
+    url: 'http://127.0.0.1:5186/src/data/fcs/printing-task-domain.ts?t=1789743929193',
+    lineNumber: 3434,
+    columnNumber: 38,
+    ms: 10.197
+  },
+  {
+    functionName: 'withPhotos',
+    scriptId: '187',
+    url: 'http://127.0.0.1:5186/src/data/fcs/wool-domain/craft-warehouse.ts?t=1789743784940',
+    lineNumber: 19,
+    columnNumber: 21,
+    ms: 10.06
+  },
+  {
+    functionName: 'projectPrintingBusinessRecord',
+    scriptId: '70',
+    url: 'http://127.0.0.1:5186/src/data/fcs/printing-task-domain.ts?t=1789743929193',
+    lineNumber: 3434,
+    columnNumber: 38,
+    ms: 9.896
+  },
+  {
+    functionName: 'withPhotos',
+    scriptId: '187',
+    url: 'http://127.0.0.1:5186/src/data/fcs/wool-domain/craft-warehouse.ts?t=1789743784940',
+    lineNumber: 19,
+    columnNumber: 21,
+    ms: 9.829
+  },
+  {
+    functionName: 'structuredClone',
+    scriptId: '0',
+    url: '',
+    lineNumber: -1,
+    columnNumber: -1,
+    ms: 9.269
+  },
+  {
+    functionName: 'clone',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 13,
+    columnNumber: 14,
+    ms: 9.216
+  },
+  {
+    functionName: 'getProcessOrderReceivingFacts',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 222,
+    columnNumber: 45,
+    ms: 8.863
+  },
+  {
+    functionName: 'getProcessOrderReceivingFacts',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 222,
+    columnNumber: 45,
+    ms: 8.844
+  },
+  {
+    functionName: 'getProcessOrderReceivingFacts',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 222,
+    columnNumber: 45,
+    ms: 8.776
+  },
+  {
+    functionName: 'withSavedRelease',
+    scriptId: '195',
+    url: 'http://127.0.0.1:5186/src/data/fcs/cut-piece-release.ts',
+    lineNumber: 55,
+    columnNumber: 25,
+    ms: 8.723
+  },
+  {
+    functionName: '',
+    scriptId: '129',
+    url: 'http://127.0.0.1:5186/src/data/fcs/factory-receiving.ts?t=1789737539226',
+    lineNumber: 236,
+    columnNumber: 39,
+    ms: 7.746
+  }
+]

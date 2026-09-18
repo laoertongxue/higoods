@@ -1,4 +1,5 @@
 import {
+  beginPostFinishingAuthorizationDemoBatch,
   buildPostFinishingDifferenceFingerprint,
   consumePostFinishingAuthorization,
   PostFinishingAuthorizationError,
@@ -6,17 +7,19 @@ import {
   type PostFinishingAuthorizationStage,
 } from './post-finishing-authorization.ts'
 import {
+  beginPostFinishingNumberingDemoBatch,
   issuePostFinishingDocumentNumber,
   resetPostFinishingDocumentNumbering,
   type PostFinishingDeliveryTrigger,
 } from './post-finishing-document-numbering.ts'
 import {
+  beginPostFinishingOperationLogDemoBatch,
   appendPostFinishingOperationLog,
-  initializePostFinishingDemoOperationLogs,
   resetPostFinishingOperationLogs,
   type PostFinishingFullFlowStage,
 } from './post-finishing-operation-log.ts'
 import {
+  beginPostFinishingQcReferenceDemoBatch,
   bindPostFinishingQcReferences,
   listPostFinishingQcReferences,
   resetPostFinishingQcReferences,
@@ -1126,11 +1129,10 @@ function readPersistedState(): PostFinishingFullFlowState {
 }
 
 let state = readPersistedState()
-let initializingDemo = false
+let buildingDemoData = false
 
 function persist(): void {
-  // 演示初始化同步创建完整链路，期间不反复序列化同一个逐步增长的状态。
-  if (initializingDemo) return
+  if (buildingDemoData) return
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
@@ -3774,7 +3776,7 @@ export function getPostFinishingReturnToleranceRate(): number {
 export function resetPostFinishingFullFlow(): void {
   state = emptyState()
   try {
-    globalThis.localStorage?.removeItem(STORAGE_KEY)
+    if (!buildingDemoData) globalThis.localStorage?.removeItem(STORAGE_KEY)
   } catch {
     // 忽略原型存储不可用。
   }
@@ -3802,19 +3804,51 @@ function shouldBootstrapPostFinishingDemo(): boolean {
 }
 
 export function loadPostFinishingDemoData(): void {
-  initializingDemo = true
+  if (buildingDemoData) throw new Error('后道演示数据正在初始化，请稍后重试。')
+  const storage = globalThis.localStorage
+  const storageKeys = [
+    STORAGE_KEY, POST_FINISHING_DEMO_MODE_STORAGE_KEY,
+    'higood-fcs-post-finishing-full-flow-operation-logs-v1',
+    'higood-fcs-post-finishing-document-numbering-v1',
+    'higood-fcs-post-finishing-authorization-consumptions-v1',
+    'higood-fcs-post-finishing-qc-reference-v1',
+  ]
+  const saved = storageKeys.map((key) => [key, storage?.getItem(key) ?? null] as const)
+  const beforeState = state
+  const batches = [
+    beginPostFinishingOperationLogDemoBatch(),
+    beginPostFinishingNumberingDemoBatch(),
+    beginPostFinishingAuthorizationDemoBatch(),
+    beginPostFinishingQcReferenceDemoBatch(),
+  ]
+  buildingDemoData = true
   try {
-    initializePostFinishingDemoOperationLogs(initializePostFinishingDemoData)
+    resetPostFinishingFullFlow()
+    populatePostFinishingDemoData()
+    // 全部命令成功后才写入；任一保存失败都恢复五组内存事实及原存储。
+    for (const batch of batches) batch.commit()
+    storage?.setItem(STORAGE_KEY, JSON.stringify(state))
+    storage?.setItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY, 'demo')
+  } catch (error) {
+    state = beforeState
+    for (const batch of batches) batch.rollback()
+    const restoreErrors: unknown[] = []
+    for (const [key, raw] of saved) {
+      try {
+        if ((storage?.getItem(key) ?? null) === raw) continue
+        if (raw === null) storage?.removeItem(key)
+        else storage?.setItem(key, raw)
+      } catch (restoreError) { restoreErrors.push(restoreError) }
+    }
+    if (restoreErrors.length) throw new AggregateError([error, ...restoreErrors], '后道演示初始化未保存，恢复存储失败；请保留现场并重试。')
+    throw error
   } finally {
-    initializingDemo = false
-    // 即使某条演示链路构造失败，已产生的事实也与普通同步操作一样保留。
-    persist()
+    buildingDemoData = false
+    for (const batch of batches) batch.finish()
   }
 }
 
-function initializePostFinishingDemoData(): void {
-  resetPostFinishingFullFlow()
-  setPostFinishingDemoBootstrapEnabled(true)
+function populatePostFinishingDemoData(): void {
   const baseTime = Date.UTC(2026, 7, 25, 1, 0, 0)
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.forEach((order, orderIndex) => {
     for (let returnIndex = 1; returnIndex <= 5; returnIndex += 1) {

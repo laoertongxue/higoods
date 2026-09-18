@@ -1,6 +1,6 @@
 import { localDateTimeText } from '../../../utils.ts'
 import { getRuntimeTaskById, isRuntimeSewingTask, autoStartRuntimeSewingTaskFromCutPieceHandover } from '../runtime-process-tasks.ts'
-import { listWoolPanelCuttingReceiptSources } from '../wool-domain/cutting-receipts.ts'
+import { listWoolPanelCuttingReceiptSources, WOOL_DEFAULT_CUTTING_FACTORY_ID } from '../wool-domain/cutting-receipts.ts'
 import {
   appendCuttingRuntimeEventIdempotent,
   appendCuttingRuntimeEventIdempotentValidated,
@@ -3999,7 +3999,8 @@ export function submitWholeBagHandover(
   const woolSources = listWoolPanelCuttingReceiptSources()
   for (const ticket of eligibility.ticketSnapshot.filter((item) => item.feiTicketNo.startsWith('WOOL-PANEL:'))) {
     const source = woolSources.find((item) => item.feiTicketNo === ticket.feiTicketNo)
-    if (!source || source.feiTicketId !== ticket.feiTicketId || Boolean(ticket.cutOrderId || ticket.cutOrderNo) || source.productionOrderId !== ticket.productionOrderId || source.partCode !== ticket.partCode || source.skuColor !== ticket.color || source.skuSize !== ticket.size || source.qty !== ticket.pieceQty) throw new Error(`毛织片票 ${ticket.feiTicketNo} 与裁床实收事实不一致`)
+    if (!source || source.receivingFactoryId !== (sourceLocation.locationRef?.factoryId || WOOL_DEFAULT_CUTTING_FACTORY_ID)
+      || (sourceLocation.locationRef && source.receivingWarehouseId !== sourceLocation.locationRef.warehouseId) || source.feiTicketId !== ticket.feiTicketId || Boolean(ticket.cutOrderId || ticket.cutOrderNo) || source.productionOrderId !== ticket.productionOrderId || source.partCode !== ticket.partCode || source.skuColor !== ticket.color || source.skuSize !== ticket.size || source.qty !== ticket.pieceQty) throw new Error(`毛织片票 ${ticket.feiTicketNo} 与裁床实收事实不一致`)
   }
   const automaticSewingReceipts = buildWholeBagAutomaticSewingReceipts(eligibility.ticketSnapshot, occurredAt, eligibility.receiverFactoryName)
   const ticketSnapshot = eligibility.ticketSnapshot.map((ticket) => ({ ...ticket }))

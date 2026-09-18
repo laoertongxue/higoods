@@ -1,3 +1,5 @@
+import { confirmWoolFinalCraftBatches } from './wool-domain/final-craft.ts'
+import { executeWoolCraftAction } from './wool-domain/craft-flow.ts'
 import { receiveDyeMaterial } from './dyeing-material-receipts.ts'
 import {
   PRINT_WORK_ORDER_STATUS_LABEL,
@@ -100,6 +102,7 @@ export interface ProcessActionPayload {
   objectQty?: number
   qtyUnit?: string
   qtyLabel?: string
+  woolFinalReceipts?: Array<{ handoverId: string; actualReceivedQty: number }>
   skuQtyBySkuCode?: Record<string, number>
   skuScrapQtyBySkuCode?: Record<string, number>
   skuDamageQtyBySkuCode?: Record<string, number>
@@ -112,6 +115,8 @@ export interface ProcessActionPayload {
 }
 
 export interface ProcessActionWritebackResult {
+  /** Used only to reject a changed final-receipt payload on the same confirmation key. */
+  woolFinalReceiptIntent?: string
   success: boolean
   sourceChannel: ProcessActionSourceChannel
   sourceType: ProcessActionSourceType
@@ -752,6 +757,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
 
   const workOrder = getSpecialCraftTaskOrderById(sourceId)
   if (!workOrder) throw new Error('特殊工艺加工单不存在')
+
   const binding = validateSpecialCraftMobileTaskBinding(sourceId)
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder)
   return {
@@ -1175,6 +1181,19 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (!definition) throw new Error('特殊工艺动作未注册')
   const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
   if (!workOrder) throw new Error('特殊工艺加工单不存在')
+  if (workOrder.woolPieceKey) {
+    executeWoolCraftAction({taskOrderId: workOrder.taskOrderId, actionCode: payload.actionCode, qty: payload.objectQty,
+      operatorName: payload.operatorName || '工艺操作员', operatedAt: payload.operatedAt || nowText(),
+      commandId: `${payload.sourceChannel}:${payload.sourceId}:${payload.actionCode}:${payload.operatedAt || nowText()}`})
+    return {updatedWorkOrderId: workOrder.taskOrderId}
+  }
+  if (workOrder.woolFinalInputOrderIds?.length && definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+    if (!payload.woolFinalReceipts?.length) throw new Error('请选择实际交出批次并填写实收件数')
+    if (payload.objectQty !== (payload.woolFinalReceipts || []).reduce((sum, row) => sum + row.actualReceivedQty, 0)) throw new Error('接收批次实收合计与本次数量不一致')
+    confirmWoolFinalCraftBatches(workOrder, { receipts: payload.woolFinalReceipts || [], operatorName: payload.operatorName || '', operatedAt: payload.operatedAt || nowText(), sourceChannel: payload.sourceChannel })
+    const updated = getSpecialCraftTaskOrderById(workOrder.taskOrderId)!
+    return { updatedWorkOrderId: updated.taskOrderId, nextStatus: updated.status }
+  }
   if (workOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
     const feiTicketNos = Object.entries(payload.feiQtyByTicketNo || {})
       .filter(([, qty]) => Number(qty) > 0)
@@ -1401,7 +1420,12 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     ? `${canonicalPayload.sourceType}:${canonicalPayload.sourceId}:${normalizeActionCode(canonicalPayload.actionCode)}:${confirmationKey}`
     : ''
   const existingResult = idempotencyKey ? processActionResultsByConfirmationKey.get(idempotencyKey) : undefined
-  if (existingResult) return structuredClone(existingResult)
+  const woolFinalReceiptIntent = authoritativeSpecialCraftOrder?.woolFinalInputOrderIds?.length && canonicalPayload.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+    ? JSON.stringify([canonicalPayload.operatorName, canonicalPayload.operatedAt, canonicalPayload.objectQty, [...(canonicalPayload.woolFinalReceipts || [])].sort((a,b)=>a.handoverId.localeCompare(b.handoverId))]) : undefined
+  if (existingResult) {
+    if (woolFinalReceiptIntent && existingResult.woolFinalReceiptIntent !== woolFinalReceiptIntent) throw new Error('本次确认号已用于不同的接收批次或数量，请勿重复修改提交')
+    return structuredClone(existingResult)
+  }
   if (canonicalPayload.sourceChannel === '移动端' && canonicalPayload.sourceType === 'DYE') {
     const onlineAction = canonicalPayload.actionCode === 'DYE_START_DYEING'
       ? getDyeWorkOrderOnlineRecord(canonicalPayload.sourceId).status === '染色中' ? null : '开工'
@@ -1442,6 +1466,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
   const warehouseFirstAction = hydratedPayload.sourceType === 'SPECIAL_CRAFT' && (
     definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
     && resolveSpecialCraftObjectMeta(specialCraftWorkOrder).objectType === '成衣'
+    && !specialCraftWorkOrder?.woolFinalInputOrderIds?.length
   )
   const runAction = (): Partial<ProcessActionWritebackResult> => (
     hydratedPayload.sourceType === 'PRINT'
@@ -1595,6 +1620,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     platformStatusAfter,
     message: `${definition.actionLabel}已由${hydratedPayload.sourceChannel}写回，${linkage.message}，平台聚合状态为${platformStatusAfter}`,
   }
+  if (woolFinalReceiptIntent) result.woolFinalReceiptIntent = woolFinalReceiptIntent
   if (idempotencyKey) processActionResultsByConfirmationKey.set(idempotencyKey, structuredClone(result))
   return result
   } catch (error) {

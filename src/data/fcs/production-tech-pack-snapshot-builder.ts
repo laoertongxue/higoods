@@ -451,6 +451,10 @@ function normalizePatternFiles(
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
       })),
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+      })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         bundleLengthCm: row.bundleLengthCm,
@@ -863,6 +867,10 @@ function alignSnapshotWithDemandSkuLines(
       ...item,
       selectedSizeCodes: sizes,
       sizeRange: sizes.join(' / ') || item.sizeRange,
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+      })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         applicableSkuCodes: allSkuCodes,

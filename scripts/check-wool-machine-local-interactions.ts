@@ -28,7 +28,7 @@ async function assertAssociationPage(localUrl: string): Promise<void> {
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
   const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('pageerror', (error) => { pageErrors.push(error.message); console.error('FIXTURE PAGE ERROR:', error.message) })
   try {
     await page.goto(new URL(
       '/scripts/fixtures/wool-machine-local-interactions.html?page=associations',
@@ -97,6 +97,8 @@ async function assertAssociationPage(localUrl: string): Promise<void> {
     const orderSelect = page.locator(
       '[data-wool-machine-associations-dialog-field="woolOrderId"]',
     )
+    const eligibleOrderIds = await orderSelect.locator('option').evaluateAll(nodes => nodes.map(node => (node as HTMLOptionElement).value).filter(Boolean))
+    assert(eligibleOrderIds.length > 0 && eligibleOrderIds.every(id => id.endsWith(':KNITTING')), '设备候选必须仅含横机阶段，不含缝盘单')
     if (await orderSelect.locator('option').count() > 1 && await orderSelect.isEnabled()) {
       await orderSelect.selectOption({ index: 1 })
     }
@@ -162,7 +164,7 @@ async function assertMachinesPage(localUrl: string): Promise<void> {
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
   const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('pageerror', (error) => { pageErrors.push(error.message); console.error('FIXTURE PAGE ERROR:', error.message) })
   try {
     await page.goto(new URL(
       '/scripts/fixtures/wool-machine-local-interactions.html?page=machines',
@@ -255,10 +257,10 @@ async function assertPdaWoolStateCleanup(localUrl: string): Promise<void> {
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
   const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('pageerror', (error) => { pageErrors.push(error.message); console.error('FIXTURE PAGE ERROR:', error.message) })
   try {
     await page.goto(new URL(
-      '/scripts/fixtures/wool-pda-fact-execution.html?taskId=TASK-WOOL-MOCK-03',
+      '/scripts/fixtures/wool-pda-fact-execution.html?taskId=TASK-WOOL-STAGE-003:KNITTING',
       localUrl,
     ).toString())
     const openProcessReport = async (): Promise<void> => {
@@ -275,6 +277,7 @@ async function assertPdaWoolStateCleanup(localUrl: string): Promise<void> {
       0,
       '所有由毛织处理器局部更新的按钮都必须显式跳过主入口整页重绘',
     )
+    assert.equal(await page.locator('[data-pda-wool-root]').count(), 1, `PDA 应可访问：${await page.locator('body').innerText()}`)
     await openProcessReport()
     assert.equal(
       await page.locator('[data-pda-wool-draft]:not([data-skip-page-rerender="true"])').count(),

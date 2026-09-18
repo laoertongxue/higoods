@@ -6,7 +6,6 @@ import {
   markPrintingRollBarcodesPrinted,
 } from './printing-task-domain.ts'
 import { getFactoryReceivingSource, registerFactoryReceivingSource, getDefaultFactoryReceiptPosition, listFactoryReceipts, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryMaterialUses, recordFactoryMaterialUsage } from './factory-receiving.ts'
-import { confirmFactoryMaterialReceipt } from './factory-receiving-links.ts'
 import { ensureHandoverOrderForStartedTask, getHandoverOrderById, getPdaHandoverRecordsByHead, createFactoryHandoverRecord, writeBackHandoverRecord } from './pda-handover-events.ts'
 
 const scenarios = ['待接收', '已收待开工', '加工中', '待交出', '已交出'] as const
@@ -58,10 +57,9 @@ export function initializePrintingFactoryDemoProgress(orders: PrintWorkOrder[]):
     if (stage >= 1 && !listFactoryReceipts(order.printFactoryId).some(receipt=>receipt.lines.some(line=>line.sourceId===sourceId))) {
       const position=getDefaultFactoryReceiptPosition(order.printFactoryId)
       const source=getFactoryReceivingSource(sourceId)!,line=source.lines[0]
-      const receipt: Parameters<typeof confirmFactoryMaterialReceipt>[0] = {id:`DEMO-PRINT-RCV-${code}`,factoryId:order.printFactoryId,operatorId:`DEMO-RCV-${order.printFactoryId}`,operatorName:`${order.printFactoryName} 测试仓管`,receivedAt:'2026-09-14 08:30:00',remark:'原型测试实收：按两卷模拟入仓',lines:[{sourceId,sourceLineId:line.id,...position,rolls:line.rolls.map(roll=>({...roll,...position}))}]}
-      // Recover a missing initial demo fact without replaying production/user actions.
-      if (order.factoryDemoInitialized) savePreparedFactoryReceipt(prepareFactoryReceipt(receipt))
-      else confirmFactoryMaterialReceipt(receipt)
+      const receipt: Parameters<typeof prepareFactoryReceipt>[0] = {id:`DEMO-PRINT-RCV-${code}`,factoryId:order.printFactoryId,operatorId:`DEMO-RCV-${order.printFactoryId}`,operatorName:`${order.printFactoryName} 测试仓管`,receivedAt:'2026-09-14 08:30:00',remark:'原型测试实收：按两卷模拟入仓',lines:[{sourceId,sourceLineId:line.id,...position,rolls:line.rolls.map(roll=>({...roll,...position}))}]}
+      // Seed fixed demo facts independently of the factory currently logged into PDA.
+      savePreparedFactoryReceipt(prepareFactoryReceipt(receipt))
     }
     if (order.factoryDemoInitialized) {
       const start=view.operationLogs?.find(log=>log.action==='领料开工'&&log.remark.includes(`确认号 ${id}-START`))

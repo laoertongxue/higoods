@@ -1,3 +1,6 @@
+import { projectWoolFinalCraftTask, type WoolFinalCraftBatch } from './wool-domain/final-craft.ts'
+import { readWoolStore, getWoolStoreRevision } from './wool-domain/store.ts'
+import { listWoolCraftTaskOrders } from './wool-domain/craft-flow.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME, mockFactories } from './factory-mock-data.ts'
 import { installPostFinishingSpecialCraftSourceResolver } from './post-finishing-return-source-fact-bridge.ts'
 import type { Factory } from './factory-types.ts'
@@ -25,6 +28,8 @@ import {
   upsertFactoryWaitProcessStockItem,
   upsertFactoryWarehouseInboundRecord,
   upsertFactoryWarehouseOutboundRecord,
+  createFactoryInternalWarehouseMutationSnapshot,
+  restoreFactoryInternalWarehouseMutationSnapshot,
 } from './factory-internal-warehouse.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import { initialProductionOrderIds, productionOrders, type ProductionOrder } from './production-orders.ts'
@@ -45,6 +50,7 @@ import {
 import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
   getSpecialCraftGenerationBatchByProductionOrder,
+  isLegacyWoolPieceCraftTask,
 } from './special-craft-task-generation.ts'
 import {
   BUTTON_LOOP_INPUT_UNIT,
@@ -224,6 +230,11 @@ export interface SpecialCraftTaskLineProgress {
 }
 
 export interface SpecialCraftTaskOrder {
+  woolFinalInputOrderIds?: string[]
+  woolFinalReceipts?: WoolFinalCraftBatch[]
+  woolPieceKey?: string
+  woolOrderId?: string
+  woolRouteNodeId?: string
   taskOrderId: string
   taskOrderNo: string
   operationId: string
@@ -458,6 +469,51 @@ const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
   '无异常',
 ]
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
+const retiredWoolPieceTaskOrderIds = new Set<string>()
+let cleanRetiredProcessWarehouseFacts: ((ids: ReadonlySet<string>) => void) | undefined
+
+export function installRetiredWoolPieceTaskCleanup(cleanup: (ids: ReadonlySet<string>) => void): void {
+  cleanRetiredProcessWarehouseFacts = cleanup
+  cleanup(retiredWoolPieceTaskOrderIds)
+}
+
+function retireLegacyWoolPieceTasks(store: SpecialCraftTaskStore): void {
+  const snapshots = new Map<string, ProductionOrderTechPackSnapshot | null>()
+  const removed = store.taskOrders.filter(task => {
+    if (!snapshots.has(task.productionOrderId)) snapshots.set(task.productionOrderId, getProductionOrderTechPackSnapshot(task.productionOrderId))
+    const snapshot = snapshots.get(task.productionOrderId)
+    return snapshot ? isLegacyWoolPieceCraftTask(task, snapshot) : false
+  })
+  if (!removed.length) return
+  const ids = new Set(removed.map(task => task.taskOrderId))
+  removed.forEach(task => retiredWoolPieceTaskOrderIds.add(task.taskOrderId))
+  store.taskOrders = store.taskOrders.filter(task => !ids.has(task.taskOrderId))
+  const isRemovedError = (error: SpecialCraftTaskGenerationError) => removed.some(task =>
+    task.productionOrderId === error.productionOrderId
+    && [...(task.sourcePatternFileIds ?? []), ...(task.demandLines?.map(line => line.patternFileId) ?? [])].includes(error.patternFileId),
+  )
+  store.generationErrors = store.generationErrors.filter(error => !isRemovedError(error))
+  store.generationBatches = store.generationBatches.map(batch => {
+    if (!batch.generatedTaskOrderIds.some(id => ids.has(id))) return batch
+    const generatedTaskOrderIds = batch.generatedTaskOrderIds.filter(id => !ids.has(id))
+    const errorList = batch.errorList.filter(error => !isRemovedError(error))
+    return { ...batch, generatedTaskOrderIds, errorList,
+      generatedLineCount: store.taskOrders.filter(task => generatedTaskOrderIds.includes(task.taskOrderId)).reduce((sum, task) => sum + (task.demandLines?.length ?? 0), 0),
+      status: !generatedTaskOrderIds.length && !errorList.length ? '已跳过' : batch.status,
+    }
+  })
+  const warehouse = createFactoryInternalWarehouseMutationSnapshot()
+  const ownIds = (field: 'inboundRecordIds' | 'outboundRecordIds' | 'waitProcessStockItemIds' | 'waitHandoverStockItemIds', prefix: string) =>
+    new Set(removed.flatMap(task => [...(task[field] ?? []), `${prefix}${task.taskOrderId}`]))
+  const inbound = ownIds('inboundRecordIds', 'SC-INB-'), outbound = ownIds('outboundRecordIds', 'SC-OUT-')
+  const waitProcess = ownIds('waitProcessStockItemIds', 'SC-WPS-'), waitHandover = ownIds('waitHandoverStockItemIds', 'SC-WHS-')
+  warehouse.inboundRecords = warehouse.inboundRecords.filter(record => !inbound.has(record.inboundRecordId))
+  warehouse.outboundRecords = warehouse.outboundRecords.filter(record => !outbound.has(record.outboundRecordId))
+  warehouse.waitProcessStockItems = warehouse.waitProcessStockItems.filter(record => !waitProcess.has(record.stockItemId))
+  warehouse.waitHandoverStockItems = warehouse.waitHandoverStockItems.filter(record => !waitHandover.has(record.stockItemId))
+  restoreFactoryInternalWarehouseMutationSnapshot(warehouse)
+  cleanRetiredProcessWarehouseFacts?.(retiredWoolPieceTaskOrderIds)
+}
 const invalidatedMergedTaskOrderLogs: Array<{
   taskOrderId: string
   productionOrderId: string
@@ -604,7 +660,7 @@ function normalizeSpecialCraftLineProgress(taskOrder: SpecialCraftTaskOrder): Sp
   return (taskOrder.lineProgress?.length ? taskOrder.lineProgress : buildSpecialCraftTaskLineProgress(taskOrder)).map((row) => ({
     ...row,
     planQty: roundQty(row.planQty),
-    receivedQty: clampQty(row.receivedQty, 0, row.planQty),
+    receivedQty: clampQty(row.receivedQty, 0, taskOrder.woolFinalInputOrderIds?.length ? Math.max(row.planQty, row.receivedQty) : row.planQty),
     completedQty: clampQty(row.completedQty, 0, row.receivedQty),
     returnedQty: clampQty(row.returnedQty, 0, row.completedQty),
   }))
@@ -1795,7 +1851,7 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
     let linkedWaitHandoverItem: FactoryWaitHandoverStockItem | undefined
     let linkedOutboundRecord: FactoryWarehouseOutboundRecord | undefined
 
-    if (shouldCreateInboundRecord(taskOrder.status)) {
+    if (taskOrder.woolFinalInputOrderIds?.length ? inputReceivedQty > 0 : shouldCreateInboundRecord(taskOrder.status)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_PROCESS')
       const position = pickWarehousePosition(
         warehouse,
@@ -1817,11 +1873,11 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         processName: taskOrder.processName,
         craftCode: taskOrder.craftCode,
         craftName: taskOrder.craftName,
-        sourceRecordId: `SPC-SRC-${taskOrder.taskOrderId}`,
+        sourceRecordId: taskOrder.woolFinalReceipts?.filter(batch => batch.receivedQty !== undefined).map(batch => batch.handoverId).join(',') || `SPC-SRC-${taskOrder.taskOrderId}`,
         sourceRecordNo: `LL-${taskOrder.taskOrderNo}`,
         sourceRecordType: profile.inputItemKind === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
         sourceObjectName: profile.sourceObjectName,
-        taskId: taskOrder.sourceTaskId,
+        taskId: taskOrder.woolFinalInputOrderIds?.length ? taskOrder.taskOrderId : taskOrder.sourceTaskId,
         taskNo: taskOrder.sourceTaskNo,
         itemKind: profile.inputItemKind,
         itemName: profile.inputItemName,
@@ -1837,32 +1893,33 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         differenceQty,
         unit: profile.inputUnit,
         receiverName: factory.contact || '特种工艺仓管',
-        receivedAt: taskOrder.createdAt,
+        receivedAt: taskOrder.woolFinalReceipts?.filter(batch => batch.receivedQty !== undefined).at(-1)?.receivedAt || taskOrder.createdAt,
         areaName: position.areaName,
         shelfNo: position.shelfNo,
         locationNo: position.locationNo,
         status: differenceQty !== 0 ? '差异待处理' : '已入库',
         abnormalReason: differenceQty !== 0 ? '数量不符' : undefined,
-        photoList: differenceQty !== 0 ? ['special-craft-diff-proof.jpg'] : [],
+        photoList: taskOrder.woolFinalInputOrderIds?.length ? taskOrder.woolFinalReceipts?.map(batch => batch.styleImageUrl).filter((url): url is string => Boolean(url)).slice(0, 1) || [] : differenceQty !== 0 ? ['special-craft-diff-proof.jpg'] : [],
         remark: isButtonLoop ? '盘扣捆条菲票确认接收入待加工仓' : '工艺接收入仓',
       })
       linkedInboundRecord = inboundRecord
 
-      if (shouldCreateWaitProcessRecord(taskOrder.status)) {
+      if (taskOrder.woolFinalInputOrderIds?.length || shouldCreateWaitProcessRecord(taskOrder.status)) {
         linkedWaitProcessItem = upsertFactoryWaitProcessStockItem({
           ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
           stockItemId: `SC-WPS-${taskOrder.taskOrderId}`,
           productionOrderId: taskOrder.productionOrderId,
           productionOrderNo: taskOrder.productionOrderNo,
-          taskId: taskOrder.sourceTaskId,
+          taskId: taskOrder.woolFinalInputOrderIds?.length ? taskOrder.taskOrderId : taskOrder.sourceTaskId,
           taskNo: taskOrder.sourceTaskNo,
+          ...(taskOrder.woolFinalInputOrderIds?.length ? { availableQty: Math.max(0, taskOrder.receivedQty - taskOrder.completedQty), issuedQty: taskOrder.completedQty } : {}),
           status: differenceQty !== 0 ? '差异待处理' : '已入待加工仓',
           remark: isButtonLoop ? '已接收盘扣捆条菲票，待加工填报盘扣产出' : taskOrder.status === '加工中' ? '加工接收中' : '工艺待加工库存',
         })
       }
     }
 
-    if (shouldCreatePendingWaitHandoverRecord(taskOrder.status) || (isButtonLoop && (taskOrder.waitHandoverQty || 0) > 0)) {
+    if (taskOrder.woolFinalInputOrderIds?.length ? taskOrder.completedQty > 0 : shouldCreatePendingWaitHandoverRecord(taskOrder.status) || (isButtonLoop && (taskOrder.waitHandoverQty || 0) > 0)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
       const position = pickWarehousePosition(
         warehouse,
@@ -1881,7 +1938,7 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         processName: taskOrder.processName,
         craftCode: taskOrder.craftCode,
         craftName: taskOrder.craftName,
-        taskId: taskOrder.sourceTaskId,
+        taskId: taskOrder.woolFinalInputOrderIds?.length ? taskOrder.taskOrderId : taskOrder.sourceTaskId,
         taskNo: taskOrder.sourceTaskNo,
         productionOrderId: taskOrder.productionOrderId,
         productionOrderNo: taskOrder.productionOrderNo,
@@ -1896,7 +1953,7 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         fabricRollNo: taskOrder.fabricRollNos[0],
         completedQty: roundQty(isButtonLoop ? taskOrder.outputQty || 0 : taskOrder.completedQty),
         lossQty: roundQty(taskOrder.lossQty),
-        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty),
+        waitHandoverQty: roundQty(taskOrder.woolFinalInputOrderIds?.length ? taskOrder.waitHandoverQty : taskOrder.waitHandoverQty || taskOrder.completedQty),
         unit: profile.outputUnit,
         receiverKind: profile.receiverKind,
         receiverName: profile.receiverName,
@@ -1907,12 +1964,12 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         locationNo: position.locationNo,
         locationText: position.locationText,
         status: '待交出',
-        photoList: [],
+        photoList: taskOrder.woolFinalReceipts?.map(batch => batch.styleImageUrl).filter((url): url is string => Boolean(url)).slice(0, 1) || [],
         remark: isButtonLoop ? `盘扣成品待交${taskOrder.receiverWarehouseName || '中央辅料仓'}` : '工艺完工入仓',
       })
     }
 
-    if (shouldCreateOutboundRecord(taskOrder.status) || (isButtonLoop && (taskOrder.handedOverQty || 0) > 0)) {
+    if (taskOrder.woolFinalInputOrderIds?.length ? (taskOrder.returnedQty || 0) > 0 : shouldCreateOutboundRecord(taskOrder.status) || (isButtonLoop && (taskOrder.handedOverQty || 0) > 0)) {
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
       const position = pickWarehousePosition(
         warehouse,
@@ -1920,8 +1977,8 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         index + 5,
         '待确认区',
       )
-      const outboundQty = roundQty(isButtonLoop ? taskOrder.handedOverQty || 0 : taskOrder.waitHandoverQty || taskOrder.completedQty)
-      const receiverWrittenQty = taskOrder.status === '已完结'
+      const outboundQty = roundQty(taskOrder.woolFinalInputOrderIds?.length ? taskOrder.returnedQty || 0 : isButtonLoop ? taskOrder.handedOverQty || 0 : taskOrder.waitHandoverQty || taskOrder.completedQty)
+      const receiverWrittenQty = !taskOrder.woolFinalInputOrderIds?.length && taskOrder.status === '已完结'
         ? outboundQty
         : undefined
       const differenceQty = typeof receiverWrittenQty === 'number' ? roundQty(receiverWrittenQty - outboundQty) : undefined
@@ -1937,7 +1994,7 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         processName: taskOrder.processName,
         craftCode: taskOrder.craftCode,
         craftName: taskOrder.craftName,
-        sourceTaskId: taskOrder.sourceTaskId,
+        sourceTaskId: taskOrder.woolFinalInputOrderIds?.length ? taskOrder.taskOrderId : taskOrder.sourceTaskId,
         sourceTaskNo: taskOrder.sourceTaskNo,
         handoverOrderId: taskOrder.taskOrderId,
         handoverOrderNo: `JCD-${taskOrder.taskOrderNo}`,
@@ -1961,12 +2018,12 @@ function ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTas
         unit: profile.outputUnit,
         operatorName: factory.contact || '特种工艺仓管',
         outboundAt: taskOrder.updatedAt || taskOrder.createdAt,
-        status: isButtonLoop ? '已出库' : '已回写',
-        photoList: [],
+        status: isButtonLoop || taskOrder.woolFinalInputOrderIds?.length ? '已出库' : '已回写',
+        photoList: taskOrder.woolFinalReceipts?.map(batch => batch.styleImageUrl).filter((url): url is string => Boolean(url)).slice(0, 1) || [],
         remark: isButtonLoop ? `盘扣成品交至${taskOrder.receiverWarehouseName || '中央辅料仓'}` : '工艺交出确认',
       })
       linkedOutboundRecord = outboundRecord
-      if (!hasPendingButtonLoopOutput) {
+      if (!hasPendingButtonLoopOutput && !taskOrder.woolFinalInputOrderIds?.length) {
         linkedWaitHandoverItem = upsertFactoryWaitHandoverStockItem({
           ...buildFactoryWaitHandoverStockItemFromOutboundRecord(outboundRecord),
           stockItemId: `SC-WHS-${taskOrder.taskOrderId}`,
@@ -2424,11 +2481,12 @@ function ensureStore(): SpecialCraftTaskStore {
       generationBatches,
       generationErrors,
     }
-    const taskIds = new Set(taskOrders.map((order) => order.sourceTaskId).filter(Boolean) as string[])
+    retireLegacyWoolPieceTasks(specialCraftTaskStore)
+    const taskIds = new Set(specialCraftTaskStore.taskOrders.map((order) => order.sourceTaskId).filter(Boolean) as string[])
     taskIds.forEach((taskId) => {
       reconcileSpecialCraftSourceTask(
         taskId,
-        taskOrders
+        specialCraftTaskStore!.taskOrders
           .filter((order) => order.sourceTaskId === taskId)
           .map((order) => ({ workOrderId: order.taskOrderId, status: order.status, updatedAt: order.updatedAt })),
       )
@@ -2484,18 +2542,41 @@ export function assertSpecialCraftTaskOrderValid(taskOrder: SpecialCraftTaskOrde
   if (operation.managementDomain !== taskOrder.managementDomain) {
     throw new Error(`工艺加工单管理域不匹配：${taskOrder.taskOrderNo}`)
   }
-  const requiresFeiTicket = getSpecialCraftFlowRule(taskOrder.targetObject).requiresFeiTicketScan
+  const requiresFeiTicket = !taskOrder.woolPieceKey && getSpecialCraftFlowRule(taskOrder.targetObject).requiresFeiTicketScan
     && taskOrder.quantityMode !== 'TICKET_INPUT_OUTPUT'
   if (requiresFeiTicket && (taskOrder.feiTicketNos.length === 0 || taskOrder.feiTicketNos.some((ticketNo) => !ticketNo || ticketNo === '无菲票'))) {
     throw new Error(`工艺加工单包含非法菲票：${taskOrder.taskOrderNo}`)
   }
 }
 
+let finalWoolProjectionRevision = ''
+function projectFinalWoolReceipts(): SpecialCraftTaskOrder[] {
+  const store = ensureStore()
+  if (finalWoolProjectionRevision === getWoolStoreRevision()) return store.taskOrders
+  const wool = readWoolStore(), changed: SpecialCraftTaskOrder[] = []
+  store.taskOrders = store.taskOrders.map(task => {
+    const next = projectWoolFinalCraftTask(task, wool, store.taskOrders)
+    if (next !== task && JSON.stringify(next) !== JSON.stringify(task)) changed.push(next)
+    return next
+  })
+  if (changed.length) {
+    const ids = new Set(changed.map(task => task.taskOrderId)), snapshot = createFactoryInternalWarehouseMutationSnapshot()
+    snapshot.inboundRecords = snapshot.inboundRecords.filter(row => ![...ids].some(id => row.inboundRecordId === `SC-INB-${id}`))
+    snapshot.outboundRecords = snapshot.outboundRecords.filter(row => ![...ids].some(id => row.outboundRecordId === `SC-OUT-${id}`))
+    snapshot.waitProcessStockItems = snapshot.waitProcessStockItems.filter(row => ![...ids].some(id => row.stockItemId === `SC-WPS-${id}` || row.stockItemId.startsWith(`SC-WPS-${id}-`)))
+    snapshot.waitHandoverStockItems = snapshot.waitHandoverStockItems.filter(row => ![...ids].some(id => row.stockItemId === `SC-WHS-${id}` || row.stockItemId.startsWith(`AUX-WHS-${id}-`)))
+    restoreFactoryInternalWarehouseMutationSnapshot(snapshot)
+    ensureSpecialCraftUnifiedWarehouseArtifacts(changed)
+  }
+  finalWoolProjectionRevision = getWoolStoreRevision()
+  return store.taskOrders
+}
+
 export function getSpecialCraftTaskOrders(
   operationId: string,
   filters: SpecialCraftTaskFilters = {},
 ): SpecialCraftTaskOrder[] {
-  return ensureStore().taskOrders.filter((taskOrder) => {
+  return [...projectFinalWoolReceipts(), ...listWoolCraftTaskOrders()].filter((taskOrder) => {
     if (taskOrder.operationId !== operationId) return false
     if (filters.managementDomain && taskOrder.managementDomain !== filters.managementDomain) return false
     if (filters.factoryId && taskOrder.factoryId !== filters.factoryId) return false
@@ -2508,7 +2589,7 @@ export function getSpecialCraftTaskOrders(
 }
 
 export function getSpecialCraftTaskOrderById(taskOrderId: string): SpecialCraftTaskOrder | undefined {
-  return ensureStore().taskOrders.find((taskOrder) => taskOrder.taskOrderId === taskOrderId)
+  return (taskOrderId.startsWith('WSC:') ? listWoolCraftTaskOrders() : projectFinalWoolReceipts()).find((taskOrder) => taskOrder.taskOrderId === taskOrderId)
 }
 
 export function confirmSpecialCraftTaskOrderReceiptBySku(input: {
@@ -2612,7 +2693,8 @@ export function updateSpecialCraftTaskOrderWebStatus(
   const store = ensureStore()
   const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === taskOrderId)
   if (taskOrderIndex < 0) return undefined
-  const current = store.taskOrders[taskOrderIndex]
+  const current = getSpecialCraftTaskOrderById(taskOrderId)!
+  if (current.woolFinalInputOrderIds?.length && ((payload.receivedQty !== undefined && payload.receivedQty !== current.receivedQty) || (payload.inputReceivedQty !== undefined && payload.inputReceivedQty !== current.receivedQty) || payload.lineProgress?.some(row => row.receivedQty !== current.lineProgress?.find(line => line.lineProgressKey === row.lineProgressKey)?.receivedQty))) throw new Error('缝盘成衣来货只能按实际交出批次确认接收，不能直接修改接收数量')
   const lineProgress = payload.lineProgress ? normalizeSpecialCraftLineProgress({ ...current, lineProgress: payload.lineProgress }) : current.lineProgress
   const progressSummary = payload.lineProgress ? summarizeLineProgress(lineProgress || []) : null
   const next: SpecialCraftTaskOrder = {
@@ -2638,6 +2720,7 @@ export function updateSpecialCraftTaskOrderWebStatus(
     remark: payload.remark?.trim() || current.remark,
   }
   store.taskOrders[taskOrderIndex] = next
+  finalWoolProjectionRevision = ''
   ensureSpecialCraftUnifiedWarehouseArtifacts([next])
   if (next.sourceTaskId) {
     reconcileSpecialCraftSourceTask(
@@ -2659,6 +2742,7 @@ export function getSpecialCraftActionRevision(taskOrder: SpecialCraftTaskOrder |
     taskOrder.completedQty || 0,
     taskOrder.returnedQty || 0,
     taskOrder.nodeRecords?.length || 0,
+    taskOrder.woolFinalReceipts?.map(batch => `${batch.handoverId}=${batch.receivedQty ?? 'pending'}`).join(',') || '',
   ].join(':')
 }
 
@@ -2787,6 +2871,7 @@ export function executeButtonLoopSpecialCraftAction(input: {
       : current.nodeRecords,
   }
   store.taskOrders[taskOrderIndex] = next
+  finalWoolProjectionRevision = ''
   ensureSpecialCraftUnifiedWarehouseArtifacts([next])
   if (next.sourceTaskId) {
     reconcileSpecialCraftSourceTask(
@@ -2879,7 +2964,7 @@ export function getSpecialCraftWarehouseView(
 
 export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
   const invalidatedIds = new Set(invalidatedMergedTaskOrderLogs.filter((item) => !item.restoredAt).map((item) => item.taskOrderId))
-  return ensureStore().taskOrders.filter((item) => !invalidatedIds.has(item.taskOrderId))
+  return [...projectFinalWoolReceipts(), ...listWoolCraftTaskOrders()].filter((item) => !invalidatedIds.has(item.taskOrderId))
 }
 
 export type SpecialCraftTaskStoreSnapshot = SpecialCraftTaskStore
@@ -2892,6 +2977,7 @@ export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnap
   const currentOrders = specialCraftTaskStore?.taskOrders ?? []
   const currentById = new Map(currentOrders.map((order) => [order.taskOrderId, order]))
   const restored = structuredClone(snapshot)
+  retireLegacyWoolPieceTasks(restored)
   const restoredIds = new Set(restored.taskOrders.map((order) => order.taskOrderId))
   const changedOrders = restored.taskOrders.filter((order) => {
     const current = currentById.get(order.taskOrderId)
@@ -2900,6 +2986,7 @@ export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnap
   const removedOrders = currentOrders.filter((order) => !restoredIds.has(order.taskOrderId))
 
   specialCraftTaskStore = restored
+  finalWoolProjectionRevision = ''
   // 状态快照通常只回退一张正在验收的加工单。只重建实际变化的仓库事实，
   // 避免每次回退都把全部加工单、库位与来源任务重复投影一遍。
   ensureSpecialCraftUnifiedWarehouseArtifacts(changedOrders)
@@ -2920,6 +3007,8 @@ export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnap
 
 export function resetSpecialCraftTaskStore(): void {
   specialCraftTaskStore = null
+  finalWoolProjectionRevision = ''
+  retiredWoolPieceTaskOrderIds.clear()
 }
 
 export function listBlockingSpecialCraftTaskOrdersForMergedTask(productionOrderId: string): SpecialCraftTaskOrder[] {

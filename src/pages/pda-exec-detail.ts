@@ -1,3 +1,4 @@
+import { renderWoolCraftDetail, handleWoolCraftActionUi } from './process-factory/wool/craft-actions.ts'
 import { recordRuntimeTaskExecution } from '../data/fcs/runtime-process-tasks.ts'
 import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
 import { getDyeMaterialReceiptOptions, receiveDyeMaterial } from '../data/fcs/dyeing-material-receipts.ts'
@@ -1663,7 +1664,7 @@ function getReportedQtyLabel(unitLabel: string | undefined): string {
 function getMilestoneDisplayUnitLabel(task: ProcessTask, fallback: string): string {
   if (task.processBusinessCode !== 'WOOL' && task.processCode !== 'WOOL') return fallback
   const woolOrder = getWoolWorkOrderByTaskId(task.taskId)
-  if (woolOrder?.kind === 'PART_PANEL') return '片'
+  if (woolOrder?.kind === 'PART_PANEL') return '件'
   if (woolOrder?.kind === 'WHOLE_GARMENT') return '件'
   return fallback
 }
@@ -2574,18 +2575,23 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
       const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
       const receivedQty = inboundBySkuCode.get(skuCode) ?? 0
       const progress = progressBySkuCode.get(skuCode)
+      const isWoolFinal = Boolean(taskOrder?.woolFinalInputOrderIds?.length)
+      const expectedQty = isWoolFinal
+        ? (taskOrder?.woolFinalReceipts || []).filter(batch => batch.skuCode === skuCode).reduce((sum, batch) => sum + batch.sentQty, 0)
+        : line.planPieceQty
       return {
         ...line,
         skuCode,
         draftKey: buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, skuCode),
-        expectedQty: line.planPieceQty,
-        warehouseReceivedQty: receivedQty,
-        warehouseAvailableQty: availableBySkuCode.get(line.skuCode) ?? receivedQty,
+        expectedQty,
+        warehouseReceivedQty: isWoolFinal ? progress?.receivedQty || 0 : receivedQty,
+        warehouseAvailableQty: isWoolFinal ? Math.max((progress?.receivedQty || 0) - (progress?.completedQty || 0), 0) : availableBySkuCode.get(line.skuCode) ?? receivedQty,
         progressReceivedQty: progress?.receivedQty ?? receivedQty,
         progressCompletedQty: progress?.completedQty ?? 0,
         progressReturnedQty: progress?.returnedQty ?? 0,
         hasWarehouseReceipt: inboundBySkuCode.has(line.skuCode),
-        receiptDifferenceQty: line.planPieceQty - receivedQty,
+        receiptDifferenceQty: expectedQty - (isWoolFinal ? progress?.receivedQty || 0 : receivedQty),
+        isWoolFinal,
       }
     }),
     drafts: detailState.specialCraftSkuDrafts,
@@ -2625,7 +2631,7 @@ function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: stri
                 <label>货损数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" data-pda-execd-sku-field="damageQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.damageQty)}" /></label>` : ''}
               ${canHandover ? `<label class="col-span-3 rounded-md border border-blue-200 bg-white px-2 py-2 text-sm">本次交出：<span class="mt-1 flex items-center gap-2"><input class="h-10 min-w-0 flex-1 rounded border px-2 text-base" type="number" min="0" max="${Math.max(line.progressCompletedQty - line.progressReturnedQty, 0)}" step="1" inputmode="numeric" data-pda-execd-sku-field="handoverQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.handoverQty)}" /><strong>件</strong></span></label>` : ''}
             </div>
-            <div class="mt-1 text-muted-foreground">应收来自成衣仓实出；已收和可加工来自辅助工艺仓记录；汇总不允许单独填写。</div>
+            <div class="mt-1 text-muted-foreground">${line.isWoolFinal ? '应收来自缝盘实际交出批次；按到货批次确认实收，可加工为实收减已加工。' : '应收来自成衣仓实出；已收和可加工来自辅助工艺仓记录；汇总不允许单独填写。'}</div>
           </section>
         `
       }).join('')}
@@ -2698,6 +2704,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   if (!isSpecialCraftExecutionTask(task, displayProcessName) && bindings.length === 0) return ''
 
   const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings, requestedWorkOrderId)
+  if (workOrder?.woolPieceKey) return renderWoolCraftDetail(workOrder, getSpecialCraftPdaSurface())
   const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
   const isButtonLoop = workOrder?.quantityMode === 'TICKET_INPUT_OUTPUT'
   const firstBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined
@@ -2711,7 +2718,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       : workOrder?.status === '加工中' && objectMeta.requiresFeiTicket && !isButtonLoop
         ? 'PROCESS_REPORT'
         : null
-  const physicalScanContext = physicalScanAction && workOrderId
+  const physicalScanContext = physicalScanAction && workOrderId && !(workOrder?.woolFinalInputOrderIds?.length && physicalScanAction === 'RECEIVE')
     ? getPdaPhysicalScanContext('SPECIAL_CRAFT', workOrderId, physicalScanAction)
     : null
   const physicalScanLines = physicalScanContext ? listPdaPhysicalScanDraftLines(physicalScanContext) : []
@@ -2726,6 +2733,10 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     canGarmentWarehouseOutbound,
     surface,
   })
+  if (workOrder?.woolFinalInputOrderIds?.length && workOrder.woolFinalReceipts?.some(batch => batch.receivedQty === undefined)
+    && (surface === 'EXECUTION' || surface === 'HANDOVER_RECEIVE') && !allowedActions.some(action => action.action === 'special-confirm-receive')) {
+    allowedActions.unshift({ action: 'special-confirm-receive', label: '确认接收缝盘成衣', primary: allowedActions.length === 0 })
+  }
   const garmentSkuExecution = objectMeta.objectType === '成衣' && workOrderId && surface === 'EXECUTION'
     ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status, canGarmentWarehouseOutbound)
     : ''
@@ -4197,6 +4208,7 @@ function requireDyeNodeCompletionActor(order: DyeWorkOrder, expectedUserId?: str
 }
 
 export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): boolean {
+  if (handleWoolCraftActionUi(target)) return true
   if (handleKolGotoPdaExecEvent(target)) return true
   if (handlePdaWoolExecutionEvent(target)) return true
   syncWaterActionScope(getCurrentExecDetailTaskId())
@@ -5645,7 +5657,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
         throw new Error('当前账号无权执行该特殊工艺加工单。')
       }
       if (!actionTask) throw new Error('来源任务不存在，已阻断加工单操作。')
-      if (!isSpecialCraftActionAllowedOnCurrentSurface(action, canGarmentWarehouseOperate)) {
+      const isWoolFinalReceiptNavigation = action === 'special-confirm-receive' && Boolean(strictWorkOrder.woolFinalInputOrderIds?.length)
+        && getSpecialCraftPdaSurface() === 'EXECUTION'
+      if (!isWoolFinalReceiptNavigation && !isSpecialCraftActionAllowedOnCurrentSurface(action, canGarmentWarehouseOperate)) {
         throw new Error('该动作不属于当前页，请从“执行”或“交接”对应入口操作。')
       }
       const actionAudit = getCurrentPdaProcessActionAudit()
@@ -5657,6 +5671,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
         showPdaExecDetailToast('特殊工艺加工单未关联，不能执行')
         return true
       }
+      if(workOrder.woolFinalInputOrderIds?.length && action === 'special-confirm-receive'){appStore.navigate(`/fcs/pda/handover?tab=pickup&woolFinalCraftOrderId=${encodeURIComponent(workOrder.taskOrderId)}`);return true}
+      if(workOrder.woolPieceKey && action === 'special-confirm-receive'){appStore.navigate(`/fcs/craft/wool/pending-receipts?craftOrderId=${encodeURIComponent(workOrder.taskOrderId)}&pda=1`);return true}
       const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
       const isButtonLoop = workOrder.quantityMode === 'TICKET_INPUT_OUTPUT'
       const sourceId = workOrder.taskOrderId

@@ -220,6 +220,9 @@ export interface SpreadingPieceOutputLine {
 }
 
 export interface GeneratedFeiTicketSourceRecord {
+  /** Present for external finished-part receipts; never infer the receiving factory from style/PO. */
+  receivingFactoryId?: string
+  receivingWarehouseId?: string
   feiTicketId: string
   feiTicketNo: string
   sourceOutputLineId: string

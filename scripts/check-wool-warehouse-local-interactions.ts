@@ -95,7 +95,7 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
   const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('pageerror', (error) => { pageErrors.push(error.message); console.error('FIXTURE PAGE ERROR:', error.message) })
   try {
     await page.goto(new URL(
       `/scripts/fixtures/wool-warehouse-local-interactions.html?mode=${mode}`,
@@ -121,49 +121,53 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     const objectFilter = page.locator('[data-wool-warehouse-filter="objectSkuCode"]')
     let selectedTransferTarget = ''
     if (mode === 'process') {
-      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('WMO-024')
-      await objectFilter.fill('YARN-A')
+      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('HJ260918-003')
+      await objectFilter.fill('YARN-COTTON-MIXED')
       await page.waitForTimeout(220)
       assert.equal(
         await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').inputValue(),
-        'WMO-024',
+        'HJ260918-003',
       )
-      assert.equal(await objectFilter.inputValue(), 'YARN-A')
+      assert.equal(await objectFilter.inputValue(), 'YARN-COTTON-MIXED')
       const combinedFilterTableText = await page.locator('[data-wool-warehouse-table-surface]').innerText()
-      assert(combinedFilterTableText.includes('WMO-024'), '快速跨字段输入必须同时保留加工单条件')
-      assert(!combinedFilterTableText.includes('WMO-023'), '快速跨字段输入不得丢失先输入的加工单条件')
+      assert(combinedFilterTableText.includes('HJ260918-003'), '快速跨字段输入必须同时保留加工单条件')
+      assert(!combinedFilterTableText.includes('HJ260918-002'), '快速跨字段输入不得丢失先输入的加工单条件')
       await clickWithinBudget(page, '[data-wool-warehouse-action="reset-filters"]', '重置跨字段筛选')
     }
+    if (mode === 'handover') {
+      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('FP260918-003')
+      await page.waitForTimeout(220)
+    }
     const filterStartedAt = await page.evaluate(() => performance.now())
-    await objectFilter.fill(mode === 'process' ? 'YARN-A' : 'HG-WOOL')
+    await objectFilter.fill(mode === 'process' ? 'YARN-COTTON-MIXED' : 'CARDIGAN-CREAM')
     const filterDispatchElapsed = await page.evaluate((startedAt) => performance.now() - startedAt, filterStartedAt)
     assert(filterDispatchElapsed < 200, `筛选输入派发必须低于 200ms，实际 ${filterDispatchElapsed.toFixed(1)}ms`)
     await page.waitForTimeout(220)
     await assertRootStable(page, '筛选输入')
     if (mode === 'process') {
-      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('WMO-024')
+      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('HJ260918-003')
       await page.waitForTimeout(220)
       const batchCases = [
         {
-          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A||WOOL-WP-YARN-DEFAULT"]',
-          expectedReceipt: 'BROWSER-DELIVERY-NO-BATCH',
-          expectedChange: '浏览器无批次修改历史',
-          expectedFlow: 'TRACE-NO-BATCH',
-          excluded: ['BROWSER-DELIVERY-BATCH-X', 'BROWSER-DELIVERY-01', 'DN-AB', 'TRACE-BATCH-X'],
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-COTTON-MIXED|BATCH-N|WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'BROWSER-RECEIPT-BATCH-N',
+          expectedChange: '浏览器 N 批次备注',
+          expectedFlow: 'BROWSER-RECEIPT-BATCH-N',
+          excluded: ['BROWSER-RECEIPT-BATCH-X', 'BROWSER-RECEIPT-01', 'WDEMO-YARN-R:WOOL-STAGE-003', 'BROWSER-RECEIPT-BATCH-X'],
         },
         {
-          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A|BATCH-AB|WOOL-WP-YARN-DEFAULT"]',
-          expectedReceipt: 'DN-AB',
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-COTTON-MIXED|MZ-YARN-3|WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'WDEMO-YARN-R:WOOL-STAGE-003',
           expectedChange: '',
-          expectedFlow: 'WOOL-MOCK-24-AB',
-          excluded: ['BROWSER-DELIVERY-NO-BATCH', 'BROWSER-DELIVERY-BATCH-X', 'BROWSER-DELIVERY-01'],
+          expectedFlow: 'WDEMO-YARN-R:WOOL-STAGE-003',
+          excluded: ['BROWSER-RECEIPT-BATCH-N', 'BROWSER-RECEIPT-BATCH-X', 'BROWSER-RECEIPT-01'],
         },
         {
-          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A|BATCH-X|WOOL-WP-YARN-DEFAULT"]',
-          expectedReceipt: 'BROWSER-DELIVERY-BATCH-X',
-          expectedChange: '浏览器 BATCH-X 修改历史',
-          expectedFlow: 'TRACE-BATCH-X',
-          excluded: ['BROWSER-DELIVERY-NO-BATCH', 'BROWSER-DELIVERY-01', 'DN-AB', 'TRACE-NO-BATCH'],
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-COTTON-MIXED|BATCH-X|WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'BROWSER-RECEIPT-BATCH-X',
+          expectedChange: '浏览器 BATCH-X 备注',
+          expectedFlow: 'BROWSER-RECEIPT-BATCH-X',
+          excluded: ['BROWSER-RECEIPT-BATCH-N', 'BROWSER-RECEIPT-01', 'WDEMO-YARN-R:WOOL-STAGE-003', 'BROWSER-RECEIPT-BATCH-N'],
         },
       ]
       for (const batchCase of batchCases) {
@@ -253,14 +257,8 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       assert.equal(await receiptPager.getAttribute('data-current-page'), '1')
       assert.equal(await flowPager.getAttribute('data-current-page'), '1')
       assert.equal(await changePager.getAttribute('data-current-page'), '1')
-      await clickWithinBudget(
-        page,
-        '[data-wool-warehouse-detail-kind="changes"] [data-wool-warehouse-detail-action="next-page"]',
-        '接收修改历史分页',
-      )
-      assert.equal(await page.locator('[data-wool-warehouse-detail-kind="changes"]').first().getAttribute('data-current-page'), '2')
-      assert.equal(await receiptPager.getAttribute('data-current-page'), '1')
-      assert.equal(await flowPager.getAttribute('data-current-page'), '1')
+      assert.equal(await changePager.locator('[data-wool-warehouse-detail-action="next-page"]').isDisabled(), true,
+        '统一接收的原始实收不得通过旧毛织数量修改流程造出历史')
       await clickWithinBudget(
         page,
         '[data-wool-warehouse-detail-kind="receipts"] [data-wool-warehouse-detail-action="next-page"]',
@@ -300,7 +298,31 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-return"]', '保存纱线退回')
 
-      await clickWithinBudget(page, traceRowAction('open-adjust'), '打开库存调整')
+      assert.equal(await page.locator(traceRowAction('open-adjust')).count(), 0,
+        '统一接收的实际库位库存不得显示旧虚拟库存调整入口')
+      const beforeTransfer = JSON.parse((await fixtureSnapshot(page))!)
+      const originalLine = beforeTransfer.yarnReceipts.find((receipt: { factoryReceiptId?: string }) => receipt.factoryReceiptId === 'BROWSER-RECEIPT-01').lines[0]
+      const originalTarget = `${originalLine.physicalWarehouseId}|${originalLine.physicalLocationId}`
+      await clickWithinBudget(page, traceRowAction('open-transfer-out'), '打开本厂实际库位移库')
+      const targetSelect = page.locator('[data-wool-warehouse-dialog-field="target"]')
+      const options = await targetSelect.locator('option').evaluateAll((nodes) => nodes.map(node => (node as HTMLOptionElement).value))
+      selectedTransferTarget = options.find(value => value !== originalTarget) || ''
+      assert(selectedTransferTarget, '测试工厂必须提供两个真实库位验证移库')
+      await targetSelect.selectOption(selectedTransferTarget)
+      await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
+      await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('浏览器实际库位移库')
+      await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-out"]', '保存本厂实际库位移库')
+      assert.equal(await page.locator('[data-wool-warehouse-dialog]').count(), 0, '有效移库保存后应关闭弹窗')
+      const moved = JSON.parse((await fixtureSnapshot(page))!).warehouseFlows.filter((flow: {reason?:string}) => flow.reason === '浏览器实际库位移库')
+      assert.equal(moved.length, 2, '实际移库同时生成一出一入')
+      assert.deepEqual(moved.map((flow: {physicalTransferDirection:string}) => flow.physicalTransferDirection).sort(), ['IN', 'OUT'])
+      assert(moved.every((flow: {qty:number;fromLocationId:string;toLocationId:string}) => flow.qty === .001 && flow.fromLocationId === originalLine.physicalLocationId && flow.toLocationId === selectedTransferTarget.split('|')[1]))
+      await clickWithinBudget(page, '[data-wool-warehouse-action="tab:transfers"]', '查看真实库位转移记录')
+      const transfers = await page.locator('[data-wool-warehouse-table-surface]').innerText()
+      assert(transfers.includes(originalLine.physicalLocationId) && transfers.includes(selectedTransferTarget.split('|')[1]), '转移列表显示本厂实际来源和目标库位')
+      await assertRootStable(page, '实际库位移库及记录')
+    } else {
+      await clickWithinBudget(page, '[data-wool-warehouse-action="open-adjust"]', '打开待交出仓调整')
       const beforeEmptyAdjust = await fixtureSnapshot(page)
       const storageBeforeEmptyAdjust = await fixtureSnapshot(page, true)
       await page.locator('[data-wool-warehouse-dialog-field="afterQty"]').fill('')
@@ -308,27 +330,9 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-adjust"]', '空调整数量校验')
       await page.locator('[data-wool-warehouse-field-error]').getByText('调整后数量不能为空', { exact: true }).waitFor()
       assert.equal(await page.locator('[data-wool-warehouse-dialog-field="afterQty"]').inputValue(), '')
-      assert.equal(
-        await page.locator('[data-wool-warehouse-dialog-field="reason"]').inputValue(),
-        '盘点原因草稿不得清零',
-      )
+      assert.equal(await page.locator('[data-wool-warehouse-dialog-field="reason"]').inputValue(), '盘点原因草稿不得清零')
       assert.equal(await fixtureSnapshot(page), beforeEmptyAdjust, '空调整数量不得写 store')
       assert.equal(await fixtureSnapshot(page, true), storageBeforeEmptyAdjust, '空调整数量不得写 storage')
-      await page.locator('[data-wool-warehouse-dialog-field="afterQty"]').fill('1')
-      await clickWithinBudget(page, '[data-wool-warehouse-action="save-adjust"]', '保存库存调整')
-
-      await clickWithinBudget(page, traceRowAction('open-transfer-out'), '打开库存转出')
-      await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
-      await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('浏览器转出')
-      selectedTransferTarget = await page.locator('[data-wool-warehouse-dialog-field="target"]').inputValue()
-      await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-out"]', '保存库存转出')
-      await clickWithinBudget(page, '[data-wool-warehouse-action="tab:transfers"]', '打开转移 Tab')
-      await clickRowActionWithinBudget(page, '浏览器转出', 'open-transfer-back', '打开本次库存转回')
-      await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
-      await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('浏览器转回')
-      await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-back"]', '保存库存转回')
-    } else {
-      await clickWithinBudget(page, '[data-wool-warehouse-action="open-adjust"]', '打开待交出仓调整')
       await page.locator('[data-wool-warehouse-dialog-field="afterQty"]').fill('1')
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('待交出仓盘点')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-adjust"]', '保存待交出仓调整')
@@ -343,6 +347,7 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       await page.locator('[data-wool-warehouse-dialog-field="reason"]').fill('待交出仓转回')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-transfer-back"]', '保存待交出仓转回')
     }
+    if (mode === 'handover') {
     const transferTableText = await page.locator('[data-wool-warehouse-table-surface]').innerText()
     const [selectedTransferWarehouseId = '', selectedTransferLocationId = ''] = selectedTransferTarget.split('|')
     assert(selectedTransferWarehouseId && selectedTransferLocationId, '库存转移必须选择完整的公共仓库与库位')
@@ -374,6 +379,7 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     assert(transferDetailText.includes(selectedTransferWarehouseId), '转移详情必须展示实际选择的目标仓库 ID')
     assert(transferDetailText.includes(selectedTransferLocationId), '转移详情必须展示实际选择的目标库位 ID')
     await clickWithinBudget(page, '[data-wool-warehouse-action="close-overlay"]', '关闭转移详情')
+    }
     await assertRootStable(page, '全部仓库关键交互')
     await page.locator('[data-wool-warehouse-filter="productionOrderNo"]').fill('LEAVE-PAGE-DEBOUNCE')
     await root.evaluate((node) => node.remove())
@@ -386,7 +392,7 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
 }
 
 const browserPort = await findFreeLoopbackPort()
-process.stdout.write('RUN task 11 browser: wool warehouse local interactions\n')
+process.stdout.write('RUN wool warehouse local DOM regression; handler timings are not full page/performance acceptance\n')
 const server = await createServer({
   logLevel: 'error',
   optimizeDeps: { noDiscovery: true },

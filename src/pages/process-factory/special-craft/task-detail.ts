@@ -1,3 +1,8 @@
+import { renderDialog } from '../../../components/ui/dialog.ts'
+import { renderButton } from '../../../components/ui/button.ts'
+import { renderWoolObjectImage } from '../wool/stage-display.ts'
+import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
+import { renderWoolCraftDetail,handleWoolCraftActionUi } from '../wool/craft-actions.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
@@ -131,6 +136,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     })
   }
 
+  if (taskOrder.woolPieceKey) return renderWoolCraftDetail(taskOrder)
   const objectMeta = getSpecialCraftWorkObjectMeta(taskOrder)
   const webActions = getFastSpecialCraftWebActions(taskOrder)
   const taskOrderQty = taskOrder.currentQty || taskOrder.planQty || 1
@@ -440,7 +446,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     title: `${operation.operationName}加工单详情`,
     description: '',
     activeSubNav: 'tasks',
-    content,
+    content: taskOrder.woolFinalInputOrderIds?.length ? `<div data-wool-final-craft-content>${content}</div>` : content,
   })
 }
 
@@ -454,7 +460,43 @@ function showToast(message: string): void {
   window.setTimeout(() => toast.remove(), 2400)
 }
 
+export function renderWoolFinalCraftReceiptDialog(task: SpecialCraftTaskOrder): string {
+  const batches = (task.woolFinalReceipts || []).filter(batch => batch.receivedQty === undefined)
+  const rows = batches.map(batch => `<label class="flex gap-3 rounded border p-3"><input type="checkbox" data-wool-final-select="${escapeHtml(batch.handoverId)}" aria-label="接收批次 ${escapeHtml(batch.handoverId)}"><div class="min-w-0 flex-1 text-sm"><div class="flex gap-2">${renderWoolObjectImage(batch.styleImageUrl, `${batch.styleNo} 款式图`)}<div class="min-w-0 break-words"><strong>${escapeHtml(batch.skuCode)}</strong><p>${escapeHtml(batch.woolOrderNo)} · ${escapeHtml(batch.handoverId)}</p></div></div><p class="mt-2">${escapeHtml(batch.sourceFactoryName)} → ${escapeHtml(task.factoryName)}</p><p>${escapeHtml(batch.handedOverAt)} · 交出 ${batch.sentQty} 件</p><span class="mt-2 block">本批实收（件）<input type="number" min="0" max="${batch.sentQty}" step="1" class="ml-2 w-24 rounded border px-2 py-1" data-wool-final-handover-id="${escapeHtml(batch.handoverId)}" value="${batch.sentQty}" aria-label="${escapeHtml(batch.handoverId)} 实收件数"></span></div></label>`).join('')
+  const footer = renderButton({ label: '取消', action: {prefix:'wool-final',action:'close'} }) + renderButton({ label: '确认接收', variant:'primary', disabled:!batches.length, action: {prefix:'wool-final',action:'receive'} })
+  return `<div id="wool-final-receipt-dialog" data-task-id="${escapeHtml(task.taskOrderId)}" data-command="${escapeHtml(getSpecialCraftActionRevision(task))}" data-skip-page-rerender="true">${renderDialog({title:'接收缝盘成衣',description:'勾选本次到货批次，按实际到货填写件数。未勾选的批次继续待接收。',closeAction:{prefix:'wool-final',action:'close'},width:'lg'}, `<div class="max-h-[55vh] space-y-3 overflow-y-auto">${rows || '<p>暂无本厂、本工艺节点待接收的缝盘交出批次。</p>'}</div><p data-wool-final-error class="mt-2 text-sm text-red-700" role="alert"></p>`, footer)}</div>`
+}
+
+function handleWoolFinalReceipt(target: HTMLElement): boolean {
+  const action = target.closest<HTMLElement>('[data-wool-final-action]')?.dataset.woolFinalAction
+  if (!action) return false
+  const dialog = document.getElementById('wool-final-receipt-dialog')!
+  if (action === 'close') { dialog?.remove(); return true }
+  if (action !== 'receive' || !dialog) return false
+  try {
+    const task = getSpecialCraftTaskOrderById(dialog.dataset.taskId!)!
+    const receipts = Array.from(dialog.querySelectorAll<HTMLInputElement>('[data-wool-final-select]')).filter(input => input.checked).map(input => {
+      const handoverId = input.dataset.woolFinalSelect!
+      const qty = Array.from(dialog.querySelectorAll<HTMLInputElement>('[data-wool-final-handover-id]')).find(field => field.dataset.woolFinalHandoverId === handoverId)!
+      if (!qty.value.trim()) throw new Error('请填写已勾选批次的实收件数')
+      return {handoverId,actualReceivedQty:Number(qty.value)}
+    })
+    const result = executeProcessWebAction({sourceType:'SPECIAL_CRAFT',sourceId:task.taskOrderId,actionCode:'SPECIAL_CRAFT_CONFIRM_RECEIVE',operatorName:'Web 端操作员',operatedAt:new Date().toLocaleString('sv-SE'),objectType:'成衣',qtyUnit:'件',objectQty:receipts.reduce((sum,row)=>sum+row.actualReceivedQty,0),woolFinalReceipts:receipts,confirmationKey:`WEB-FINAL:${task.taskOrderId}:${dialog.dataset.command}`})
+    dialog.remove(); showToast(result.message)
+    const content = document.querySelector<HTMLElement>('[data-wool-final-craft-content]')
+    if (content) {
+      const template = document.createElement('template')
+      template.innerHTML = renderSpecialCraftTaskDetailPage(task.operationId, task.taskOrderId)
+      const fresh = template.content.querySelector('[data-wool-final-craft-content]')
+      if (fresh) content.replaceWith(fresh)
+    }
+  } catch (error) { dialog.querySelector('[data-wool-final-error]')!.textContent = error instanceof Error ? error.message : String(error) }
+  return true
+}
+
 export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean {
+  if (handleWoolFinalReceipt(target)) return true
+  if(handleWoolCraftActionUi(target))return true
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showToast,
     refresh: () => {
@@ -499,6 +541,14 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       || actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
     if (isCustomDialog) {
+      if (taskOrder.woolFinalInputOrderIds?.length && actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+        document.getElementById('wool-final-receipt-dialog')?.remove()
+        ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWoolFinalCraftReceiptDialog(taskOrder))
+        const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { document.getElementById('wool-final-receipt-dialog')?.remove(); document.removeEventListener('keydown', closeOnEscape) } }
+        document.addEventListener('keydown', closeOnEscape)
+        return true
+      }
+
       if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
         ;(document.getElementById('app') || document.body).insertAdjacentHTML(
           'beforeend',

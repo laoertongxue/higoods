@@ -2,12 +2,15 @@
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   getWoolWorkOrderById,
+  getWoolHandoverEffectiveQty,
+  readWoolStore,
   listWoolFactRecords,
   type WoolHandoverRecord,
   type WoolOutputPlanLine,
   type WoolWorkOrder,
 } from '../../../data/fcs/wool-task-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { woolStagePath, woolStageLabel, type WoolPageStage } from './stage-display.ts'
 
 function formatQty(value: number, unit = '件'): string {
   return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
@@ -45,19 +48,18 @@ function receiverLabel(record: WoolHandoverRecord): string {
 function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pageNo: number): string {
   const line = findOutputLine(order, record.outputSkuCode)
   const receiver = receiverLabel(record)
-  const payload = [
-    'WOOL_HANDOVER',
-    record.handoverId,
-    order.productionOrderNo,
-    order.woolOrderNo,
-    record.receiverId,
-  ].join('|')
+  const piece = order.externalPieces.find(item => item.pieceKey === record.pieceKey)
+  const title = order.stage === 'KNITTING' ? '横机加工交出单' : '缝盘加工交出单'
+  const paired = readWoolStore().workOrders[order.pairedWorkOrderId]
+  const effectiveQty = getWoolHandoverEffectiveQty(readWoolStore(), record)
+  const path = `${woolStagePath(order.stage)}/${encodeURIComponent(order.woolOrderId)}/handover-print/${encodeURIComponent(record.handoverId)}`
+  const payload = typeof window === 'undefined' ? path : `${window.location.origin}${path}`
 
   return `<section class="a4-page" data-wool-handover-print-page data-handover-id="${escapeHtml(record.handoverId)}">
     <header class="flex items-start justify-between border-b-2 border-slate-900 pb-4">
       <div>
         <div class="text-3xl font-bold tracking-wide">SURAT JALAN</div>
-        <div class="mt-1 text-xl font-semibold">毛织交出单</div>
+        <div class="mt-1 text-xl font-semibold">${title}</div>
         <div class="mt-2 text-xs text-slate-500">每次发起交出形成一张独立交出单，随货流转。</div>
       </div>
       <div class="flex items-start gap-3 text-right text-xs">
@@ -69,22 +71,23 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
         ${renderRealQrPlaceholder({
           value: payload,
           size: 88,
-          title: `毛织交出单 ${record.handoverId}`,
-          label: `扫描查看毛织交出单 ${record.handoverId}`,
+          title: `${title} ${record.handoverId}`,
+          label: `扫描查看${title} ${record.handoverId}`,
           className: 'shrink-0',
         })}
       </div>
     </header>
 
     <section class="mt-4 flex gap-4 rounded-md border p-3" data-wool-print-spu-info>
-      ${renderStyleImage(order.styleImageUrl)}
+      <figure>${renderStyleImage(order.styleImageUrl)}<figcaption class="mt-1 text-center text-xs text-slate-500">款式图${piece ? '，非片实拍' : ''}</figcaption></figure>
       <div class="min-w-0 flex-1 text-sm">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">SPU 款式信息</div>
         <div class="grid grid-cols-2 gap-x-4 gap-y-2">
           <div><span class="text-slate-500">款号：</span><span class="font-semibold">${escapeHtml(order.styleNo)}</span></div>
           <div><span class="text-slate-500">款名：</span>${escapeHtml(order.styleName)}</div>
           <div><span class="text-slate-500">生产单：</span><span class="font-semibold">${escapeHtml(order.productionOrderNo)}</span></div>
-          <div><span class="text-slate-500">毛织加工单：</span><span class="font-semibold">${escapeHtml(order.woolOrderNo)}</span></div>
+          <div><span class="text-slate-500">${order.stage === 'KNITTING' ? '横机加工单' : '缝盘加工单'}：</span><span class="font-semibold">${escapeHtml(order.woolOrderNo)}</span></div>
+          <div><span class="text-slate-500">配对加工单：</span>${escapeHtml(paired?.woolOrderNo || order.pairedWorkOrderId)}</div><div><span class="text-slate-500">技术包版本：</span>${escapeHtml(order.sourceTechPackVersionCode)}</div><div><span class="text-slate-500">交出工厂：</span>${escapeHtml(order.factoryName)}</div>
           <div><span class="text-slate-500">加工类型：</span>${order.kind === 'PART_PANEL' ? '部位毛织' : '整件毛织'}</div>
           <div><span class="text-slate-500">下游接收工厂：</span><span class="font-semibold">${escapeHtml(receiver)}</span></div>
           <div class="col-span-2"><span class="text-slate-500">接收方标识：</span>${escapeHtml(record.receiverId)} / ${escapeHtml(record.receiverName)}</div>
@@ -92,7 +95,7 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
       </div>
     </section>
 
-    ${order.kind === 'PART_PANEL' && line?.outputObjectType === 'WOOL_PANEL' && record.receiverType === 'CUTTING_WAIT_HANDOVER_WAREHOUSE' && record.downstreamReceipt?.status === 'CONFIRMED' && typeof record.downstreamReceipt.actualReceivedQty === 'number' && record.downstreamReceipt.actualReceivedQty > 0 && record.downstreamReceipt.receivedAt?.trim() ? `<section class="mt-4 flex gap-4 rounded-md border p-3" data-wool-panel-receipt-print>${renderRealQrPlaceholder({ value: `WOOL-PANEL:${record.handoverId}`, size: 100, title: '裁床毛织片票', label: `WOOL-PANEL:${record.handoverId}` })}<div><h3 class="font-semibold">毛织片票 · 裁床实收</h3><p class="break-all text-xs">WOOL-PANEL:${escapeHtml(record.handoverId)}</p><p>${escapeHtml(line.woolPartName || '')} / ${escapeHtml(line.garmentSkuCode)} / ${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}</p><p class="font-semibold">裁床实收 ${formatQty(record.downstreamReceipt.actualReceivedQty, '片')}</p><p class="text-xs">${escapeHtml(record.downstreamReceipt.receivedAt)} / ${escapeHtml(record.downstreamReceipt.receivedBy)}</p><p class="text-xs">来源为毛织接收，无铺布及裁剪记录。上方交出单保留原交出数量。</p><p class="text-xs text-amber-700">部位实物图缺失，待补素材；此页仅供预览核对。</p></div></section>` : ''}
+
 
     <section class="mt-4 overflow-hidden rounded-md border">
       <table class="w-full text-left text-sm">
@@ -102,7 +105,7 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
             <th class="px-3 py-2">尺码</th>
             <th class="px-3 py-2">部位/对象</th>
             <th class="px-3 py-2">加工后 SKU</th>
-            <th class="px-3 py-2 text-right">本次交出件数</th>
+            <th class="px-3 py-2 text-right">本次交出数量</th>
             <th class="px-3 py-2">备注</th>
           </tr>
         </thead>
@@ -110,9 +113,9 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
           <tr>
             <td class="px-3 py-3 font-medium">${escapeHtml(line?.colorName || '—')}</td>
             <td class="px-3 py-3">${escapeHtml(line?.sizeCode || '—')}</td>
-            <td class="px-3 py-3">${escapeHtml(line?.woolPartName || (line?.outputObjectType === 'GARMENT' ? '整件' : '毛织部位'))}</td>
+            <td class="px-3 py-3">${escapeHtml(piece?.pieceName || (line?.outputObjectType === 'GARMENT' ? '整件毛织产物' : line?.woolPartName || '缝盘后毛织部件'))}${piece ? `<div class="mt-1 text-xs">片身份：${escapeHtml(piece.pieceInstanceId)}<br>纸样包：${escapeHtml(piece.patternPackageId)}<br>首工艺：${escapeHtml(piece.routeNodes[0]?.craftName || '未配置')}</div>` : ''}</td>
             <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.outputSkuCode)}</td>
-            <td class="px-3 py-3 text-right text-lg font-bold">${escapeHtml(formatQty(record.handoverQty, record.qtyUnit))}</td>
+            <td class="px-3 py-3 text-right text-lg font-bold">${escapeHtml(formatQty(effectiveQty, record.qtyUnit))}</td>
             <td class="px-3 py-3">${escapeHtml(record.remark || '')}</td>
           </tr>
         </tbody>
@@ -127,33 +130,36 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
   </section>`
 }
 
-export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId?: string): string {
+export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId?: string, expectedStage?: WoolPageStage): string {
   const order = getWoolWorkOrderById(woolOrderId)
   if (!order) {
     return `<main class="p-6" data-wool-handover-print-root><div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-700">未找到毛织加工单：${escapeHtml(woolOrderId)}</div></main>`
   }
+  if (expectedStage && order.stage !== expectedStage) {
+    return `<section class="m-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-wool-stage-mismatch>交出单阶段与当前地址不一致，不能在此打印。<a class="mt-2 block underline" href="${woolStagePath(order.stage)}/${encodeURIComponent(order.woolOrderId)}/handover-print${handoverId ? '/' + encodeURIComponent(handoverId) : ''}">进入${woolStageLabel(order.stage)}交出打印</a></section>`
+  }
   const allHandovers = listWoolFactRecords({
     woolOrderId,
     recordType: 'HANDOVER',
-  }).map((item) => item.record as WoolHandoverRecord)
+  }).map((item) => item.record as WoolHandoverRecord).filter(record => !record.automatic)
   const handovers = handoverId
     ? allHandovers.filter((record) => record.handoverId === handoverId)
     : allHandovers
   const emptyMessage = handoverId
     ? `未找到对应的交出记录：${escapeHtml(handoverId)}`
-    : '该毛织加工单还没有交出记录，暂无可打印交出单。'
+    : '该阶段暂无可打印的实际交出记录；内部自动衔接不生成外发纸单。'
 
-  return `<main class="fixed inset-0 z-[9999] min-h-screen overflow-auto bg-slate-100 p-6 text-slate-900" data-wool-handover-print-root data-wool-panel-images-missing="${handovers.some((record) => order.kind === 'PART_PANEL' && record.downstreamReceipt?.status === 'CONFIRMED')}">
+  return `<main class="fixed inset-0 z-[9999] min-h-screen overflow-auto bg-slate-100 p-6 text-slate-900" data-wool-handover-print-root data-wool-panel-images-missing="false">
     <style>
       @media print { body { background: #fff; } [data-wool-handover-print-root] { position: static; overflow: visible; padding: 0; background: #fff; } .print-toolbar { display: none; } .a4-page { margin: 0; box-shadow: none; page-break-after: always; } }
       .a4-page { width: 210mm; min-height: 297mm; margin: 0 auto 24px; background: #fff; padding: 18mm; box-shadow: 0 8px 24px rgba(15,23,42,.16); }
     </style>
     <div class="print-toolbar mx-auto mb-4 flex w-[210mm] items-center justify-between rounded-md border bg-white p-3">
       <div>
-        <div class="font-semibold">毛织交出单打印</div>
+        <div class="font-semibold">${order.stage === 'KNITTING' ? '横机加工交出单打印' : '缝盘加工交出单打印'}</div>
         <div class="text-xs font-medium text-red-700" data-wool-print-readiness-message>${PRINT_IMAGE_INCOMPLETE_MESSAGE}</div>
       </div>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" data-wool-print-button disabled aria-disabled="true" ${handovers.length > 0 && isRealPrintImage(order.styleImageUrl) && !handovers.some((record) => order.kind === 'PART_PANEL' && record.downstreamReceipt?.status === 'CONFIRMED') ? `onclick="const root=this.closest('[data-wool-handover-print-root]'); const pages=[...root.querySelectorAll('[data-wool-handover-print-page][data-handover-id]')]; const images=pages.map((page)=>page.querySelector('[data-wool-print-style-image]')); if(!pages.length||images.some((image)=>!image||!image.complete||image.naturalWidth<=0)){this.disabled=true;this.setAttribute('aria-disabled','true');const message=root.querySelector('[data-wool-print-readiness-message]');if(message){message.textContent='${PRINT_IMAGE_INCOMPLETE_MESSAGE}';message.classList.remove('text-slate-500');message.classList.add('font-medium','text-red-700');}return;} const qrNodes=pages.map((page)=>page.querySelector('[data-real-qr]')); if(qrNodes.some((node)=>!node||!node.querySelector('svg'))){window.alert('二维码正在生成，请稍后再打印。');return;} window.print()"` : ''}>打印</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" data-wool-print-button disabled aria-disabled="true" ${handovers.length > 0 && isRealPrintImage(order.styleImageUrl) ? `onclick="const root=this.closest('[data-wool-handover-print-root]'); const pages=[...root.querySelectorAll('[data-wool-handover-print-page][data-handover-id]')]; const images=pages.map((page)=>page.querySelector('[data-wool-print-style-image]')); if(!pages.length||images.some((image)=>!image||!image.complete||image.naturalWidth<=0)){this.disabled=true;this.setAttribute('aria-disabled','true');const message=root.querySelector('[data-wool-print-readiness-message]');if(message){message.textContent='${PRINT_IMAGE_INCOMPLETE_MESSAGE}';message.classList.remove('text-slate-500');message.classList.add('font-medium','text-red-700');}return;} const qrNodes=pages.map((page)=>page.querySelector('[data-real-qr]')); if(qrNodes.some((node)=>!node||!node.querySelector('svg'))){window.alert('二维码正在生成，请稍后再打印。');return;} window.print()"` : ''}>打印</button>
     </div>
     ${handovers.length > 0
       ? handovers.map((record, index) => renderHandoverPage(order, record, index + 1)).join('')

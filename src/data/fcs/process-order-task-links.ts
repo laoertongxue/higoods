@@ -532,7 +532,7 @@ function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessT
       documentId: order.taskId,
       documentNo: order.woolOrderNo,
       documentKind: 'PRODUCTION_TASK',
-      documentTypeLabel: order.kind === 'PART_PANEL' ? '部位毛织加工单' : '整件毛织加工单',
+      documentTypeLabel: order.stage === 'KNITTING' ? '横机加工单' : '缝盘加工单',
       productionOrderId: order.productionOrderId,
       productionOrderNo: order.productionOrderNo,
       techPackVersionId: order.sourceTechPackVersionId,
@@ -545,9 +545,9 @@ function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessT
       bomItemIds,
       formalRouteLinkStatus: formalSnapshot && sourceEntryIds.length > 0 && bomItemIds.length > 0 ? 'LINKED' : 'UNLINKED',
       sourceLabel: `生产单 ${order.productionOrderNo} / 技术包 ${order.sourceTechPackVersionCode}`,
-      objectLabel: `纱线 → ${outputObjectLabel}`,
+      objectLabel: order.stage === 'KNITTING' ? `纱线 → 毛织片` : `毛织片 → ${outputObjectLabel}`,
       quantityLabel: `${totalOutputQty} 件`,
-      href: `/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}`,
+      href: `/fcs/craft/wool/${order.stage === 'KNITTING' ? 'knitting-orders' : 'linking-orders'}/${encodeURIComponent(order.woolOrderId)}`,
       detailRefs: order.outputPlanLines.map((line) => {
         const lineEntryIds = buildLineEntryIds(line)
         return buildDetailRef({

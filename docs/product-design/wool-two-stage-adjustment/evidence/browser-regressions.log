@@ -1,0 +1,39 @@
+
+Running 31 tests using 1 worker
+
+
+(node:41476) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/31] tests/wool-final-craft-pda.spec.ts:15:3 › 最终成衣工艺 PDA 360x800 按实际批次接收、刷新与工厂隔离
+[2/31] tests/wool-final-craft-pda.spec.ts:15:3 › 最终成衣工艺 PDA 400x806 按实际批次接收、刷新与工厂隔离
+[3/31] tests/wool-management-fact-workflow.spec.ts:10:1 › 两阶段保留六状态、八列、分页与路由独立筛选
+[4/31] tests/wool-management-fact-workflow.spec.ts:12:1 › 缺纱线不能填报，统一实收1kg后对应横机可开工
+[5/31] tests/wool-management-fact-workflow.spec.ts:14:1 › 无外加工填报一次保存四事实，缝盘没有重复手工填报或横机设备
+[6/31] tests/wool-management-fact-workflow.spec.ts:16:1 › 横机150%超量保存被阻断且无任何事实增量
+[7/31] tests/wool-management-fact-workflow.spec.ts:18:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大
+[8/31] tests/wool-management-fact-workflow.spec.ts:20:1 › 横机仅交出选中外发片，固定首工艺厂并生成待接收来源
+[9/31] tests/wool-management-fact-workflow.spec.ts:22:1 › 最终工艺回货按片实收，刷新后仍保留同一记录
+[10/31] tests/wool-management-fact-workflow.spec.ts:24:1 › 实收备料分配到横机，同一receipt保留且余量变化
+[11/31] tests/wool-management-fact-workflow.spec.ts:26:1 › 阶段错配详情和打印地址被拒绝
+[12/31] tests/wool-management-fact-workflow.spec.ts:28:1 › 真实片交出打印必须等款式图及QR就绪；内部自动交出不打印
+[13/31] tests/wool-management-fact-workflow.spec.ts:30:1 › 1280视口列表无主体横溢，操作与数量输入保持根节点
+[14/31] tests/wool-management-fact-workflow.spec.ts:32:1 › 片工艺真实页面加工交出后下一厂才有待接收，实收前不虚增
+[15/31] tests/wool-management-fact-workflow.spec.ts:42:1 › 整件缝盘最终交出按真实批次在后续成衣工艺接收，未选批次仍待接收
+[16/31] tests/wool-management-fact-workflow.spec.ts:64:1 › 管理端款式与纱线大图可按钮遮罩及Esc关闭，图片失败明确反馈
+[17/31] tests/wool-management-fact-workflow.spec.ts:87:1 › 毛织PDA接收与仓储在两种小屏下无横溢且真实图片可读
+[18/31] tests/wool-management-fact-workflow.spec.ts:102:1 › 导出全部匹配行而非当前页，无操作列且空结果有明确反馈
+[19/31] tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留
+[20/31] tests/wool-pda-main-local-rerender.spec.ts:19:1 › 毛织输入和弹窗动作经过真实 main.ts 分发链且不替换整页根节点
+[21/31] tests/wool-pda-main-local-rerender.spec.ts:42:1 › 执行任务卡滑到底部自动追加，搜索后重置首批并局部刷新
+[22/31] tests/wool-pda-main-local-rerender.spec.ts:67:1 › 横机 PDA 执行页保留返回指定任务列表入口
+[23/31] tests/wool-stage-actions.spec.ts:48:1 › Web 完单先核对再确认：未交出、未实收均阻断，闭合后刷新持久化
+[24/31] tests/wool-stage-actions.spec.ts:74:3 › PDA 360x800 完单二次确认与未闭合阻断
+[25/31] tests/wool-stage-actions.spec.ts:74:3 › PDA 400x806 完单二次确认与未闭合阻断
+[26/31] tests/wool-stage-actions.spec.ts:114:1 › 横机设备关联通过真实入口保存刷新，缝盘无设备入口
+[27/31] tests/wool-stage-actions.spec.ts:132:1 › Web 修正未消费横机数量同步自动衔接，最终交出后修正阻断且无写入
+[28/31] tests/wool-stage-actions.spec.ts:168:1 › PDA 加工单扫码直达、生产单双阶段候选以及错厂阻断
+[29/31] tests/wool-stage-actions.spec.ts:199:1 › 待接收和备料导出全部匹配记录，列偏好按各自路由保存
+[30/31] tests/wool-stage-actions.spec.ts:254:1 › 工艺厂毛织片待接收导出保留工艺单身份，不误写为纱线备料
+[31/31] tests/wool-stage-actions.spec.ts:275:1 › PDA待办将缺逐片资料的缝盘标为异常，不引导横机填报或接收纱线
+  31 passed (1.8m)

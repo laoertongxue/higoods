@@ -1,6 +1,7 @@
-import {listFactoryReceipts,listReceivingAllocations} from '../factory-receiving.ts'
+import { woolSkuGenerationIssues, woolOrderGenerationIssues, linkingCapacity, pieceAvailableQty, stageCompletionBlock, stageReportedQty } from './stage-rules.ts'
+import { getFactoryReceivingRevision, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations } from '../factory-receiving.ts'
 import { ensureRuntimeWoolWorkOrders } from './tech-pack-source.ts'
-import { readWoolStore, type WoolDomainStore } from './store.ts'
+import { readWoolStore, getWoolStoreRevision, type WoolDomainStore } from './store.ts'
 import {
   getWoolWarehouseLedgerBalance,
   normalizeWoolBatchNo,
@@ -24,10 +25,54 @@ import type {
   WoolYarnReturnRecord,
 } from './types.ts'
 
-export type WoolWorkOrderTab = 'READY' | 'NOT_READY' | 'COMPLETED'
+// Reuse a defensive, immutable read snapshot while facts are unchanged.
+let queryRevision = ''
+let queryStore: WoolDomainStore | undefined
+const readinessByOrder = new Map<string, WoolWorkOrderReadinessProjection>()
+let receivingRevision = -1
+let receivingSnapshot: {
+  sources: ReturnType<typeof listFactoryReceivingSources>
+  receipts: ReturnType<typeof listFactoryReceipts>
+  allocations: ReturnType<typeof listReceivingAllocations>
+} | undefined
+function freezeFacts(value: unknown): void {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return
+  Object.values(value).forEach(freezeFacts)
+  Object.freeze(value)
+}
+function readQueryStore(): WoolDomainStore {
+  if (!queryStore || queryRevision !== getWoolStoreRevision()) {
+    queryStore = readWoolStore()
+    queryRevision = getWoolStoreRevision()
+    freezeFacts(queryStore)
+    readinessByOrder.clear()
+  }
+  return queryStore
+}
+
+/** Frozen projection for templates; commands must continue using readWoolStore. */
+export function readWoolQuerySnapshot(): WoolDomainStore { return readQueryStore() }
+
+/** Receiving facts are shared with stock allocation; cache only unchanged read copies. */
+export function readWoolReceivingQuerySnapshot() {
+  if (!receivingSnapshot || receivingRevision !== getFactoryReceivingRevision()) {
+    receivingSnapshot = { sources: listFactoryReceivingSources(), receipts: listFactoryReceipts(), allocations: listReceivingAllocations() }
+    receivingRevision = getFactoryReceivingRevision()
+    freezeFacts(receivingSnapshot)
+  }
+  return receivingSnapshot
+}
+
+function copyReadinessMaps(projection: WoolWorkOrderReadinessProjection): WoolWorkOrderReadinessProjection {
+  // A caller may edit its map without changing the cached projection for other views.
+  return { yarnReceiptsBySku: new Map(projection.yarnReceiptsBySku), outputsBySku: new Map(projection.outputsBySku) }
+}
+
+export type WoolWorkOrderTab = 'ALL' | WoolProcessingStatus
 export type WoolAllowedAction =
   | 'DETAIL'
   | 'RECEIVE_YARN'
+  | 'RECEIVE_PIECES'
   | 'REPORT_PROCESS'
   | 'HANDOVER'
   | 'ASSOCIATE_MACHINE'
@@ -69,6 +114,7 @@ export interface WoolWorkOrderReadinessProjection {
 }
 
 export interface WoolWorkOrderFilters {
+  stage?: 'KNITTING' | 'LINKING'
   productionOrderId?: string
   keyword?: string
   kind?: WoolWorkOrderKind
@@ -177,7 +223,7 @@ export interface WoolYarnReceiptLineTraceQuery {
 }
 
 function requireOrder(woolOrderId: string): WoolWorkOrder {
-  const order = readWoolStore().workOrders[woolOrderId]
+  const order = readQueryStore().workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   return order
 }
@@ -224,7 +270,7 @@ export function getWoolYarnReceiptLineEffectiveQty(
 export function listWoolYarnReceiptLineTraces(
   query: WoolYarnReceiptLineTraceQuery,
 ): WoolYarnReceiptLineTrace[] {
-  return listWoolYarnReceiptLineTracesFromStore(readWoolStore(), query)
+  return listWoolYarnReceiptLineTracesFromStore(readQueryStore(), query)
 }
 
 export function listWoolYarnReceiptLineTracesFromStore(
@@ -309,7 +355,7 @@ export function getWoolHandoverEffectiveQty(
 export function getWoolWorkOrderReadinessProjection(
   woolOrderId: string,
 ): WoolWorkOrderReadinessProjection {
-  const store = readWoolStore()
+  const store = readQueryStore()
   return getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId)
 }
 
@@ -317,6 +363,10 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
   store: WoolDomainStore,
   woolOrderId: string,
 ): WoolWorkOrderReadinessProjection {
+  // Commands and tests pass mutable drafts: never cache those by object identity.
+  const cacheable = store === queryStore && queryRevision === getWoolStoreRevision()
+  const cached = cacheable ? readinessByOrder.get(woolOrderId) : undefined
+  if (cached) return copyReadinessMaps(cached)
   const order = store.workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
 
@@ -355,9 +405,18 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
       yarnWorking.set(line.yarnSkuCode, current)
     }
   }
-  for(const a of listReceivingAllocations().filter(a=>a.woolOrderId===woolOrderId)){
-    const receipt=listFactoryReceipts().find(r=>r.lines.some(l=>l.id===a.receiptLineId)),line=receipt?.lines.find(l=>l.id===a.receiptLineId);if(!receipt||!line)continue;
-    const current=yarnWorking.get(line.material.sku)||{receivedQty:0,receiptIds:new Set<string>(),batchNos:new Set<string>(),latestReceivedAt:receipt.receivedAt};current.receivedQty+=a.qty;current.receiptIds.add(receipt.id);current.batchNos.add(line.material.batchNo);yarnWorking.set(line.material.sku,current)
+  const receiving = readWoolReceivingQuerySnapshot()
+  for (const allocation of receiving.allocations) {
+    if (allocation.woolOrderId !== woolOrderId) continue
+    const receipt = receiving.receipts.find(item => item.lines.some(line => line.id === allocation.receiptLineId))
+    const line = receipt?.lines.find(item => item.id === allocation.receiptLineId)
+    if (!receipt || !line) continue
+    const current = yarnWorking.get(line.material.sku) || { receivedQty: 0, receiptIds: new Set<string>(), batchNos: new Set<string>(), latestReceivedAt: undefined }
+    current.receivedQty += allocation.qty
+    current.receiptIds.add(receipt.id)
+    if (line.material.batchNo) current.batchNos.add(line.material.batchNo)
+    if (!current.latestReceivedAt || receipt.receivedAt.replace('T', ' ') > current.latestReceivedAt.replace('T', ' ')) current.latestReceivedAt = receipt.receivedAt
+    yarnWorking.set(line.material.sku, current)
   }
   const yarnReceiptsBySku = new Map<string, WoolYarnReceiptAggregate>()
   for (const [yarnSkuCode, aggregate] of yarnWorking) {
@@ -384,7 +443,7 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
   }
   const handedOverBySku = new Map<string, number>()
   for (const handover of store.handovers) {
-    if (handover.woolOrderId !== woolOrderId) continue
+    if (handover.woolOrderId !== woolOrderId || handover.pieceKey) continue
     const effectiveQty = changedQtyByTarget.get(`HANDOVER\u0000${handover.handoverId}\u0000`)
       ?? handover.handoverQty
     handedOverBySku.set(
@@ -404,9 +463,10 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
     )
     const reportedQty = reportedBySku.get(line.outputSkuCode) ?? 0
     const handedOverQty = handedOverBySku.get(line.outputSkuCode) ?? 0
-    const reportLimitQty = Math.floor(line.plannedQty * 1.5)
+    const reportLimitQty = order.stage === 'LINKING' ? linkingCapacity(store, order, line.outputSkuCode) : Math.floor(line.plannedQty * 1.5)
     const remainingReportQty = Math.max(reportLimitQty - reportedQty, 0)
-    const isReady = requiredYarnSkus.length > 0 && missingYarnSkus.length === 0
+    const manualLinking = order.externalPieces.some(p => p.skuCode === line.outputSkuCode)
+    const isReady = !woolSkuGenerationIssues(order, line.outputSkuCode).length && (order.stage === 'LINKING' ? reportLimitQty > 0 : requiredYarnSkus.length > 0 && missingYarnSkus.length === 0)
     const stockQty = getWoolWarehouseStockFromStore(store, {
       woolOrderId,
       objectSkuCode: line.outputSkuCode,
@@ -425,27 +485,34 @@ export function getWoolWorkOrderReadinessProjectionFromStore(
         reportLimitQty,
         reportedQty,
         remainingReportQty,
-        canReport: isReady && remainingReportQty > 0,
+        canReport: isReady && remainingReportQty > 0 && (order.stage === 'KNITTING' || manualLinking),
       },
       handedOverQty,
       stockQty,
       handoverAvailableQty: Math.max(0, Math.min(stockQty, reportedQty - handedOverQty)),
     })
   }
-  return { yarnReceiptsBySku, outputsBySku }
+  const projection = { yarnReceiptsBySku, outputsBySku }
+  if (cacheable) {
+    for (const value of yarnReceiptsBySku.values()) freezeFacts(value)
+    for (const value of outputsBySku.values()) freezeFacts(value)
+    readinessByOrder.set(woolOrderId, projection)
+    return copyReadinessMaps(projection)
+  }
+  return projection
 }
 
 export function getWoolOutputReportedQty(woolOrderId: string, outputSkuCode: string): number {
-  const store = readWoolStore()
+  const store = readQueryStore()
   return store.processReports
     .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
     .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
 }
 
 export function getWoolOutputHandedOverQty(woolOrderId: string, outputSkuCode: string): number {
-  const store = readWoolStore()
+  const store = readQueryStore()
   return store.handovers
-    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
+    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode && !record.pieceKey)
     .reduce((sum, record) => sum + getWoolHandoverEffectiveQty(store, record), 0)
 }
 
@@ -459,7 +526,7 @@ export function getWoolOutputReadiness(
 }
 
 export function getWoolProcessingStatus(woolOrderId: string): WoolProcessingStatus {
-  const store = readWoolStore()
+  const store = readQueryStore()
   return getWoolProcessingStatusFromStore(store, woolOrderId)
 }
 
@@ -469,36 +536,28 @@ export function getWoolProcessingStatusFromStore(
 ): WoolProcessingStatus {
   if (!store.workOrders[woolOrderId]) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   if (store.completions.some((record) => record.woolOrderId === woolOrderId)) return 'COMPLETED'
-  if (
-    store.processReports.some((record) =>
-      record.woolOrderId === woolOrderId && getWoolProcessReportEffectiveQty(store, record) > 0,
-    )
-    || store.handovers.some((record) =>
-      record.woolOrderId === woolOrderId && getWoolHandoverEffectiveQty(store, record) > 0,
-    )
-  ) {
-    return 'PROCESSING'
-  }
-  return 'UNPROCESSED'
+  const order = store.workOrders[woolOrderId]
+  if (order.outputPlanLines.every(l => stageReportedQty(store, woolOrderId, l.outputSkuCode) >= l.plannedQty)) return 'PROCESS_COMPLETE'
+  if (store.processReports.some(r => r.woolOrderId === woolOrderId && getWoolProcessReportEffectiveQty(store, r) > 0)) return 'PROCESSING'
+  return [...getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId).outputsBySku.values()].some(v => v.readiness.canReport) ? 'READY' : 'UNPROCESSED'
 }
 
 export function getWoolWorkOrderTab(woolOrderId: string): WoolWorkOrderTab {
-  const order = requireOrder(woolOrderId)
-  if (getWoolProcessingStatus(woolOrderId) === 'COMPLETED') return 'COMPLETED'
-  return order.outputPlanLines.some((line) =>
-    getWoolOutputReadiness(woolOrderId, line.outputSkuCode).canReport,
-  )
-    ? 'READY'
-    : 'NOT_READY'
+  return getWoolProcessingStatus(woolOrderId)
 }
 
 export function getWoolWorkOrderBlockReason(woolOrderId: string): string {
-  const order = requireOrder(woolOrderId)
+  const store = readQueryStore()
+  const order = store.workOrders[woolOrderId]
+  if (!order) throw new Error('找不到阶段加工单')
   if (getWoolProcessingStatus(woolOrderId) === 'COMPLETED') return '加工单已完成'
+  const sourceIssues = woolOrderGenerationIssues(order)
+  if(order.stage==='LINKING'){const ready=order.outputPlanLines.some(l=>linkingCapacity(store,order,l.outputSkuCode)>stageReportedQty(store,woolOrderId,l.outputSkuCode));return ready?'':sourceIssues.join('；')||'等待横机对应进度与最后工艺回货片配齐'}
   const readiness = order.outputPlanLines.map((line) =>
     getWoolOutputReadiness(woolOrderId, line.outputSkuCode),
   )
   if (readiness.some((item) => item.canReport)) return ''
+  if (sourceIssues.length) return sourceIssues.join('；')
   if (
     readiness.length > 0
     && readiness.every((item) => item.isReady && item.remainingReportQty === 0)
@@ -513,7 +572,7 @@ export function getWoolWorkOrderBlockReason(woolOrderId: string): string {
 }
 
 export function getWoolAllowedActions(woolOrderId: string): WoolAllowedAction[] {
-  const store = readWoolStore()
+  const store = readQueryStore()
   return getWoolAllowedActionsFromStore(store, woolOrderId)
 }
 
@@ -525,7 +584,8 @@ export function getWoolAllowedActionsFromStore(
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   const actions: WoolAllowedAction[] = ['DETAIL']
   if (getWoolProcessingStatusFromStore(store, woolOrderId) === 'COMPLETED') return actions
-  actions.push('RECEIVE_YARN')
+  if (order.stage === 'KNITTING') actions.push('RECEIVE_YARN')
+  else if (order.externalPieces.length) actions.push('RECEIVE_PIECES')
   const readinessProjection = getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId)
   const readiness = order.outputPlanLines.map((line) => {
     const output = readinessProjection.outputsBySku.get(line.outputSkuCode)
@@ -533,22 +593,18 @@ export function getWoolAllowedActionsFromStore(
     return output.readiness
   })
   if (readiness.some((item) => item.canReport)) actions.push('REPORT_PROCESS')
-  if (order.outputPlanLines.some((line) =>
+  if (order.stage === 'KNITTING' ? order.externalPieces.some(p => pieceAvailableQty(store, order, p.pieceKey) > 0) : order.outputPlanLines.some((line) =>
     getWoolOutputHandoverAvailableQtyFromStore(store, woolOrderId, line.outputSkuCode) > 0,
   )) {
     actions.push('HANDOVER')
   }
   if (
-    readiness.some((item) => item.canReport)
-    || store.machineAssociations.some((association) => association.woolOrderId === woolOrderId)
+    order.stage === 'KNITTING' && (readiness.some((item) => item.canReport)
+    || store.machineAssociations.some((association) => association.woolOrderId === woolOrderId))
   ) {
     actions.push('ASSOCIATE_MACHINE')
   }
-  if (store.handovers.some((record) =>
-    record.woolOrderId === woolOrderId && getWoolHandoverEffectiveQty(store, record) > 0,
-  )) {
-    actions.push('COMPLETE')
-  }
+  if (!stageCompletionBlock(store, order)) actions.push('COMPLETE')
   return actions
 }
 
@@ -567,7 +623,7 @@ function parseStockKey(stockKey: string): WoolWarehouseStockKey {
 
 export function getWoolWarehouseStock(stockKey: WoolWarehouseStockKey | string): number {
   const key = typeof stockKey === 'string' ? parseStockKey(stockKey) : stockKey
-  return getWoolWarehouseStockFromStore(readWoolStore(), key)
+  return getWoolWarehouseStockFromStore(readQueryStore(), key)
 }
 
 function getWoolWarehouseStockFromStore(
@@ -592,7 +648,7 @@ export function getWoolOutputHandoverAvailableQtyFromStore(
     .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
     .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
   const handedOverQty = store.handovers
-    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
+    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode && !record.pieceKey)
     .reduce((sum, record) => sum + getWoolHandoverEffectiveQty(store, record), 0)
   const stockQty = getWoolWarehouseStockFromStore(store, {
     woolOrderId,
@@ -608,7 +664,7 @@ export function getWoolOutputHandoverAvailableQty(
   woolOrderId: string,
   outputSkuCode: string,
 ): number {
-  return getWoolOutputHandoverAvailableQtyFromStore(readWoolStore(), woolOrderId, outputSkuCode)
+  return getWoolOutputHandoverAvailableQtyFromStore(readQueryStore(), woolOrderId, outputSkuCode)
 }
 
 export function getWoolOutputStockQty(woolOrderId: string, outputSkuCode: string): number {
@@ -624,7 +680,7 @@ export function getWoolOutputStockQty(woolOrderId: string, outputSkuCode: string
 }
 
 export function listWoolWarehouseFlows(query: WoolWarehouseFlowQuery = {}): WoolWarehouseFlow[] {
-  return readWoolStore().warehouseFlows
+  return readQueryStore().warehouseFlows
     .filter((flow) => !query.woolOrderId || flow.woolOrderId === query.woolOrderId)
     .filter((flow) => !query.objectSkuCode || flow.objectSkuCode === query.objectSkuCode)
     .filter((flow) => !query.sourceRecordType || flow.sourceRecordType === query.sourceRecordType)
@@ -638,7 +694,7 @@ export function listWoolWarehouseFlows(query: WoolWarehouseFlowQuery = {}): Wool
 export function listWoolWarehouseStocks(
   warehouseMode?: WoolWarehouseFlow['warehouseMode'],
 ): WoolWarehouseStockRow[] {
-  return listWoolWarehouseStocksFromStore(readWoolStore(), warehouseMode)
+  return listWoolWarehouseStocksFromStore(readQueryStore(), warehouseMode)
 }
 
 export function listWoolWarehouseStocksFromStore(
@@ -666,12 +722,14 @@ export function listWoolWarehouseStocksFromStore(
         : flow.defaultLocationType === 'CUT_PIECE'
           ? 'CUT_PIECE'
           : 'GARMENT'
+      const piece = order?.externalPieces.find(p=>p.pieceKey===flow.objectSkuCode)
       const objectName = objectType === 'YARN'
         ? store.yarnReceipts
-          .filter((receipt) => receipt.woolOrderId === flow.woolOrderId || Boolean(flow.receivingAllocationId || flow.physicalTransferId))
+          .filter((receipt) => (receipt.woolOrderId === flow.woolOrderId || Boolean(flow.receivingAllocationId || flow.physicalTransferId))
+            && normalizeWoolBatchNo(receipt.batchNo) === normalizeWoolBatchNo(flow.batchNo))
           .flatMap((receipt) => receipt.lines)
           .find((line) => line.yarnSkuCode === flow.objectSkuCode)?.yarnName ?? flow.objectSkuCode
-        : [
+        : piece ? `${piece.pieceName} / ${piece.skuCode}` : [
             outputLine?.colorName,
             outputLine?.sizeCode,
             outputLine?.woolPartName,
@@ -708,14 +766,26 @@ export function listWoolWarehouseStocksFromStore(
     )
 }
 
+/** The factory owns the source order, or the explicitly unallocated receipt. */
+export function listWoolFactoryWarehouseFlows(store: WoolDomainStore, factoryId: string): WoolWarehouseFlow[] {
+  return store.warehouseFlows.filter(flow => (flow.factoryId || store.workOrders[flow.woolOrderId]?.factoryId) === factoryId)
+}
+
+export function summarizeWoolQuantities(rows: Array<{ qty: number; unit: string }>): string {
+  const totals = new Map<string, number>()
+  for (const row of rows) totals.set(row.unit, (totals.get(row.unit) || 0) + row.qty)
+  return [...totals].filter(([, qty]) => Math.abs(qty) > .000001)
+    .map(([unit, qty]) => `${Number(qty.toFixed(3))} ${unit}`).join(' / ') || '0'
+}
+
 export function getWoolCompletion(woolOrderId: string): WoolCompletionRecord | undefined {
   requireOrder(woolOrderId)
-  return readWoolStore().completions.find((record) => record.woolOrderId === woolOrderId)
+  return readQueryStore().completions.find((record) => record.woolOrderId === woolOrderId)
 }
 
 export function listWoolMachineAssociations(woolOrderId?: string): WoolMachineAssociation[] {
   if (woolOrderId) requireOrder(woolOrderId)
-  return readWoolStore().machineAssociations
+  return readQueryStore().machineAssociations
     .filter((association) => !woolOrderId || association.woolOrderId === woolOrderId)
     .sort((left, right) => left.machineId.localeCompare(right.machineId))
 }
@@ -743,7 +813,8 @@ function includesKeyword(order: WoolWorkOrder, keyword: string): boolean {
 
 export function listWoolWorkOrders(filters: WoolWorkOrderFilters = {}): WoolWorkOrder[] {
   ensureRuntimeWoolWorkOrders(filters.productionOrderId)
-  const candidates = Object.values(readWoolStore().workOrders)
+  const candidates = Object.values(readQueryStore().workOrders)
+    .filter(order => !filters.stage || order.stage === filters.stage)
     .filter(order => !filters.productionOrderId || order.productionOrderId === filters.productionOrderId)
     .filter((order) => includesKeyword(order, filters.keyword ?? ''))
     .filter((order) => !filters.kind || order.kind === filters.kind)
@@ -756,7 +827,7 @@ export function listWoolWorkOrders(filters: WoolWorkOrderFilters = {}): WoolWork
       || order.woolOrderNo.includes(filters.woolOrderNo.trim()),
     )
   return candidates
-    .filter((order) => !filters.tab || getWoolWorkOrderTab(order.woolOrderId) === filters.tab)
+    .filter((order) => !filters.tab || filters.tab === 'ALL' || getWoolWorkOrderTab(order.woolOrderId) === filters.tab)
     .sort((left, right) => left.woolOrderNo.localeCompare(right.woolOrderNo))
 }
 
@@ -764,7 +835,7 @@ export function getWoolWorkOrderById(woolOrderId: string): WoolWorkOrder | undef
   ensureRuntimeWoolWorkOrders()
   const normalizedId = woolOrderId.trim()
   if (!normalizedId) return undefined
-  return Object.values(readWoolStore().workOrders).find((order) =>
+  return Object.values(readQueryStore().workOrders).find((order) =>
     order.woolOrderId === normalizedId,
   )
 }
@@ -773,7 +844,7 @@ export function getWoolWorkOrderByTaskId(taskId: string): WoolWorkOrder | undefi
   ensureRuntimeWoolWorkOrders()
   const normalizedId = taskId.trim()
   if (!normalizedId) return undefined
-  const matches = Object.values(readWoolStore().workOrders).filter((order) =>
+  const matches = Object.values(readQueryStore().workOrders).filter((order) =>
     order.taskId === normalizedId,
   )
   if (matches.length > 1) {
@@ -788,10 +859,11 @@ export function getWoolWorkOrderTabCounts(
   const filtered = listWoolWorkOrders(filters)
   return filtered.reduce<Record<WoolWorkOrderTab, number>>(
     (counts, order) => {
+      counts.ALL += 1
       counts[getWoolWorkOrderTab(order.woolOrderId)] += 1
       return counts
     },
-    { READY: 0, NOT_READY: 0, COMPLETED: 0 },
+    { ALL: 0, UNPROCESSED: 0, READY: 0, PROCESSING: 0, PROCESS_COMPLETE: 0, COMPLETED: 0 },
   )
 }
 
@@ -872,7 +944,7 @@ function factRecordMatchesObjectSku(
 }
 
 export function listWoolFactRecords(query: WoolFactRecordQuery = {}): WoolFactRecordItem[] {
-  const store = readWoolStore()
+  const store = readQueryStore()
   const groups: Array<[WoolFactRecordType, WoolFactRecord[]]> = [
     ['YARN_RECEIPT', store.yarnReceipts],
     ['YARN_ISSUE', store.yarnIssues],

@@ -1,3 +1,8 @@
+import { woolSkuGenerationIssues } from './stage-rules.ts'
+import { syncStageReportCorrection } from './stage-correction.ts'
+import { registerWoolPieceHandover } from './craft-flow.ts'
+import { appendStageReport } from './stage-facts.ts'
+import { linkingCapacity, pieceAvailableQty, stageCompletionBlock } from './stage-rules.ts'
 import {assertReceiptPosition} from '../factory-receiving.ts'
 import {
   getWoolHandoverEffectiveQty,
@@ -63,6 +68,7 @@ export interface AddWoolProcessReportInput extends CommandInput {
 }
 
 export interface AddWoolHandoverInput extends CommandInput {
+  pieceKey?: string
   outputSkuCode: string
   handoverQty: number
   handedOverAt: string
@@ -452,81 +458,6 @@ function externalTransferredQty(
     }, 0)
 }
 
-export function addWoolYarnReceipt(
-  woolOrderId: string,
-  input: AddWoolYarnReceiptInput,
-): WoolYarnReceiptRecord {
-  const descriptor = describeCommand('ADD_WOOL_YARN_RECEIPT', woolOrderId, input)
-  const receiptId = commandRecordId('WR', input.commandId)
-  const existing = resolveCommandRetry<WoolYarnReceiptRecord>(descriptor)
-  if (existing) return existing
-  if (!Array.isArray(input.lines) || input.lines.length === 0) {
-    throw new Error('确认接收至少一条纱线明细')
-  }
-  input.lines.forEach((line) => requirePositive(line.receivedQty, '接收数量'))
-  const receivedBy = requireText(input.receivedBy, '接收人')
-  const committed = commitWoolStore((draft) => {
-    const order = requireUncompleted(draft, woolOrderId)
-    const allowedYarns = requiredYarnSkus(order)
-    for (const line of input.lines) {
-      if (!allowedYarns.has(line.yarnSkuCode)) {
-        throw new Error(`纱线 SKU ${line.yarnSkuCode} 不属于加工单冻结必需纱线`)
-      }
-    }
-    const receipt: WoolYarnReceiptRecord = {
-      receiptId,
-      receiptNo: commandRecordId('WR-NO', input.commandId),
-      woolOrderId,
-      deliveryNo: input.deliveryNo?.trim() || undefined,
-      batchNo: input.batchNo?.trim() || undefined,
-      receivedAt: input.receivedAt,
-      receivedBy,
-      proofFiles: normalizeProofFiles(input.proofFiles),
-      remark: normalizeOptionalText(input.remark),
-      lines: input.lines.map((line, index): WoolYarnReceiptLine => {
-        const lineId = `${receiptId}-LINE-${index + 1}`
-        return {
-          lineId,
-          yarnSkuCode: line.yarnSkuCode,
-          yarnName: line.yarnName?.trim() || `${line.yarnSkuCode} 纱线`,
-          receivedQty: line.receivedQty,
-          qtyUnit: 'kg',
-          differenceNote: normalizeOptionalText(line.differenceNote),
-          warehouseInboundFlowId: `WF-${lineId}`,
-        }
-      }),
-      createdAt: input.receivedAt,
-      updatedAt: input.receivedAt,
-    }
-    draft.yarnReceipts.push(receipt)
-    draft.warehouseFlows.push(...receipt.lines.map((line): WoolWarehouseFlow => ({
-      flowId: line.warehouseInboundFlowId,
-      woolOrderId,
-      flowType: 'INBOUND',
-      businessType: 'YARN_RECEIPT',
-      warehouseMode: 'WAIT_PROCESS',
-      defaultLocationType: 'YARN',
-      defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
-      objectSkuCode: line.yarnSkuCode,
-      batchNo: receipt.batchNo,
-      qty: line.receivedQty,
-      unit: 'kg',
-      sourceRecordType: 'YARN_RECEIPT',
-      sourceRecordId: line.lineId,
-      operatedAt: input.receivedAt,
-      operatedBy: receivedBy,
-    })))
-    appendCommandReceipt(draft, descriptor, {
-      woolOrderId,
-      resultType: 'WOOL_YARN_RECEIPT',
-      resultId: receiptId,
-      operatedAt: input.receivedAt,
-      operatedBy: receivedBy,
-    })
-  })
-  return committed.yarnReceipts.find((record) => record.receiptId === receiptId)!
-}
-
 export function addWoolProcessReport(
   woolOrderId: string,
   input: AddWoolProcessReportInput,
@@ -540,17 +471,20 @@ export function addWoolProcessReport(
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
     const line = requireOutputLine(order, input.outputSkuCode)
+    const sourceIssues = woolSkuGenerationIssues(order, line.outputSkuCode)
+    if (sourceIssues.length) throw new Error(sourceIssues.join('；'))
+    if (order.stage === 'LINKING' && !order.externalPieces.some(p => p.skuCode === line.outputSkuCode)) throw new Error('无外加工的缝盘数量由横机填报自动生成')
     const confirmed = confirmedYarnSkus(draft, woolOrderId)
-    const missing = [...new Set(line.requiredYarnSkus)].filter((sku) => !confirmed.has(sku))
+    const missing = order.stage === 'LINKING' ? [] : [...new Set(line.requiredYarnSkus)].filter((sku) => !confirmed.has(sku))
     if (missing.length > 0) throw new Error(`必需纱线未齐：${missing.join('、')}`)
     const reportedQty = draft.processReports
       .filter((record) =>
         record.woolOrderId === woolOrderId && record.outputSkuCode === input.outputSkuCode,
       )
       .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(draft, record), 0)
-    const limit = Math.floor(line.plannedQty * 1.5)
+    const limit = order.stage === 'LINKING' ? linkingCapacity(draft, order, line.outputSkuCode) : Math.floor(line.plannedQty * 1.5)
     if (reportedQty + input.reportedQty > limit) {
-      throw new Error(`累计加工填报不能超过计划数量的 150%（${limit}${line.qtyUnit}）`)
+      throw new Error(`累计加工填报不能超过当前上限 ${limit}${line.qtyUnit}（横机最高为计划150%，缝盘按实际回货）`)
     }
     const warehouseInboundFlowId = `WF-${reportId}`
     const report: WoolProcessReportRecord = {
@@ -566,21 +500,7 @@ export function addWoolProcessReport(
       createdAt: input.reportedAt,
       updatedAt: input.reportedAt,
     }
-    draft.processReports.push(report)
-    draft.warehouseFlows.push({
-      flowId: warehouseInboundFlowId,
-      woolOrderId,
-      flowType: 'INBOUND',
-      businessType: 'PROCESS_REPORT',
-      ...outputLocation(line),
-      objectSkuCode: line.outputSkuCode,
-      qty: input.reportedQty,
-      unit: line.qtyUnit,
-      sourceRecordType: 'PROCESS_REPORT',
-      sourceRecordId: reportId,
-      operatedAt: input.reportedAt,
-      operatedBy: reportedBy,
-    })
+    appendStageReport(draft, order, report)
     appendCommandReceipt(draft, descriptor, {
       woolOrderId,
       resultType: 'WOOL_PROCESS_REPORT',
@@ -599,12 +519,33 @@ export function addWoolHandover(
   const descriptor = describeCommand('ADD_WOOL_HANDOVER', woolOrderId, input)
   const handoverId = commandRecordId('WHO', input.commandId)
   const existing = resolveCommandRetry<WoolHandoverRecord>(descriptor)
-  if (existing) return existing
+  if (existing) { registerWoolPieceHandover(existing.handoverId); return existing }
   requirePositiveInteger(input.handoverQty, '交出数量')
   const handedOverBy = requireText(input.handedOverBy, '交出人')
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
     const line = requireOutputLine(order, input.outputSkuCode)
+    if (order.stage === 'KNITTING') {
+      const piece = order.externalPieces.find(p => p.pieceKey === input.pieceKey && p.skuCode === input.outputSkuCode)
+      if (!piece) throw new Error('横机仅交出已维护工艺的外发片；请选择具体片')
+      const node = piece.routeNodes[0]
+      if (!node?.factoryId || !node.factoryName || piece.issues.length) throw new Error(piece.issues.join('；') || '该片首工艺尚未分配加工厂')
+      const available = pieceAvailableQty(draft, order, piece.pieceKey)
+      if (input.handoverQty > available) throw new Error(`本片最多可交出 ${available} 片`)
+      const record: WoolHandoverRecord = {
+        handoverId, woolOrderId, outputSkuCode: line.outputSkuCode, pieceKey: piece.pieceKey,
+        routeNodeId: node.sourceEntryId, targetWorkOrderId: node.taskOrderId,
+        handoverQty: input.handoverQty, qtyUnit: '片', receiverType: 'DOWNSTREAM_FACTORY', receiverId: node.factoryId, receiverName: node.factoryName,
+        handedOverAt: input.handedOverAt, handedOverBy, warehouseOutboundFlowId: `WF-${handoverId}`,
+        downstreamReceipt: {receiptConfirmationId: `DRC-${handoverId}`, status: 'PENDING'}, createdAt: input.handedOverAt, updatedAt: input.handedOverAt,
+      }
+      draft.handovers.push(record)
+      draft.warehouseFlows.push({flowId: record.warehouseOutboundFlowId, woolOrderId, flowType: 'OUTBOUND', businessType: 'HANDOVER',
+        warehouseMode: 'WAIT_HANDOVER', defaultLocationType: 'CUT_PIECE', defaultLocationId: 'WOOL-WH-CUT-DEFAULT', objectSkuCode: piece.pieceKey,
+        qty: input.handoverQty, unit: '片', sourceRecordType: 'HANDOVER', sourceRecordId: handoverId, operatedAt: input.handedOverAt, operatedBy: handedOverBy})
+      appendCommandReceipt(draft, descriptor, {woolOrderId, resultType:'WOOL_HANDOVER', resultId: handoverId, operatedAt: input.handedOverAt, operatedBy: handedOverBy})
+      return
+    }
     const reportedQty = draft.processReports
       .filter((record) =>
         record.woolOrderId === woolOrderId
@@ -677,7 +618,7 @@ export function addWoolHandover(
       operatedAt: input.handedOverAt,
       operatedBy: handedOverBy,
     })
-  })
+  }, draft => registerWoolPieceHandover(handoverId, draft))
   return committed.handovers.find((record) => record.handoverId === handoverId)!
 }
 
@@ -692,10 +633,12 @@ export function confirmWoolDownstreamReceipt(
   const current = readWoolStore()
   const existing = current.handovers.find((record) => record.handoverId === handoverId)
   if (!existing) throw new Error(`找不到交出记录 ${handoverId}`)
+  if(existing.automatic || existing.pieceKey)throw new Error('内部衔接自动接收；外发片必须通过实际来源批次确认接收')
   if (existing.downstreamReceipt?.status === 'CONFIRMED') throw new Error('下游已经确认接收')
   if (!Number.isInteger(input.actualReceivedQty) || input.actualReceivedQty < 0) {
     throw new Error('实际接收数量必须为非负整数')
   }
+  if (input.actualReceivedQty > getWoolHandoverEffectiveQty(current, existing)) throw new Error('实收不能超过交出件数')
   const receivedBy = requireText(input.receivedBy, '接收人')
   const committed = commitWoolStore((draft) => {
     const record = draft.handovers.find((item) => item.handoverId === handoverId)!
@@ -1101,6 +1044,7 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
       if (input.recordLineId) throw new Error('加工填报数量修改不得指定接收明细')
       const report = draft.processReports.find((record) => record.reportId === input.recordId)
       if (!report) throw new Error(`找不到加工填报 ${input.recordId}`)
+      if (report.sourceReportId) throw new Error('自动缝盘填报须通过对应横机填报同步修正')
       const order = requireUncompleted(draft, report.woolOrderId)
       const line = requireOutputLine(order, report.outputSkuCode)
       requirePositiveInteger(input.afterQty, '修改后数量')
@@ -1115,11 +1059,11 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
           && record.reportId !== report.reportId,
         )
         .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(draft, record), 0)
-      if (otherReportedQty + input.afterQty > Math.floor(line.plannedQty * 1.5)) {
+      if (otherReportedQty + input.afterQty > (order.stage === 'LINKING' ? linkingCapacity(draft, order, line.outputSkuCode) : Math.floor(line.plannedQty * 1.5))) {
         throw new Error('累计加工填报不能超过计划数量的 150%')
       }
       const handedOverQty = draft.handovers
-        .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === objectSkuCode)
+        .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === objectSkuCode && !record.pieceKey && !record.automatic)
         .reduce((sum, record) => sum + getWoolHandoverEffectiveQty(draft, record), 0)
       if (otherReportedQty + input.afterQty < handedOverQty) {
         throw new Error('累计加工填报不能低于累计交出')
@@ -1130,13 +1074,15 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
         objectSkuCode,
         defaultLocationId: outputLocation(line).defaultLocationId,
       })
-      if (currentStock + input.afterQty - beforeQty < 0) {
+      if (order.stage === 'LINKING' && currentStock + input.afterQty - beforeQty < 0) {
         throw new Error('调减后默认库位库存不能小于零')
       }
     } else {
       if (input.recordLineId) throw new Error('交出数量修改不得指定接收明细')
       const handover = draft.handovers.find((record) => record.handoverId === input.recordId)
       if (!handover) throw new Error(`找不到交出记录 ${input.recordId}`)
+      if (handover.automatic) throw new Error('自动内部交出须通过横机填报同步修正')
+      if (handover.pieceKey) throw new Error('该片已生成外厂接收批次，不能覆盖交出数量')
       const order = requireUncompleted(draft, handover.woolOrderId)
       const line = requireOutputLine(order, handover.outputSkuCode)
       requirePositiveInteger(input.afterQty, '修改后数量')
@@ -1186,6 +1132,7 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
       changedBy,
     }
     draft.qtyChangeLogs.push(change)
+    if (input.recordType === 'PROCESS_REPORT') syncStageReportCorrection(draft, draft.processReports.find(r=>r.reportId===input.recordId)!, change)
     draft.warehouseFlows.push({
       ...originalFlow,
       flowId: `WF-${changeId}`,
@@ -1297,12 +1244,9 @@ export function completeWoolWorkOrder(
   const completedBy = requireText(input.completedBy, '完成人')
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
-    if (!draft.handovers.some((record) =>
-      record.woolOrderId === woolOrderId && getWoolHandoverEffectiveQty(draft, record) > 0,
-    )) {
-      throw new Error('至少有一条交出记录后才能完成加工单')
-    }
-    const releasedMachineIds = releaseWoolMachineAssociationsInDraft(draft, order.woolOrderId, {
+    const block = stageCompletionBlock(draft, order)
+    if (block) throw new Error(block)
+    const releasedMachineIds = order.stage === 'KNITTING' ? releaseWoolMachineAssociationsInDraft(draft, order.woolOrderId, {
       reason: 'ORDER_COMPLETED',
       operatedAt: input.completedAt,
       operatedBy: completedBy,
@@ -1310,7 +1254,7 @@ export function completeWoolWorkOrder(
       operationLogId: commandRecordId('WOOP-RELEASE-MACHINES', input.commandId),
       operationAction: 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
       operationRemark: '完成加工单，批量解除当前横机关联',
-    })
+    }) : []
     const completion: WoolCompletionRecord = {
       completionId,
       woolOrderId,

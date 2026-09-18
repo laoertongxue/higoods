@@ -852,11 +852,12 @@ export function buildKolGotoWholeOrderTask(
   productionOrder: (typeof productionOrders)[number],
   createdAt = productionOrder.createdAt,
   createdBy = '系统',
+  generatedOrderArtifacts?: GeneratedTaskArtifact[],
 ): ProcessTask {
   if (!isKolGotoProductionOrder(productionOrder)) {
     throw new Error(`生产单 ${productionOrder.productionOrderId} 不是 KOL 样衣/样品小单，不能生成 KOL 整单任务`)
   }
-  const orderArtifacts = generateTaskArtifactsForAllOrders()
+  const orderArtifacts = generatedOrderArtifacts ?? generateTaskArtifactsForAllOrders()
     .filter((artifact) => artifact.orderId === productionOrder.productionOrderId)
   const wholeOrderArtifacts = orderArtifacts.filter(
     (artifact) => artifact.processCode !== 'PRINT' && artifact.processCode !== 'DYE',
@@ -989,7 +990,7 @@ export function buildGeneratedProcessTasksFromArtifacts(
     const productionOrder = productionOrders.find((order) => order.productionOrderId === orderId)
     if (!productionOrder) continue
     if (isKolGotoProductionOrder(productionOrder)) {
-      tasks.push(buildKolGotoWholeOrderTask(productionOrder, productionOrder.createdAt, '系统'))
+      tasks.push(buildKolGotoWholeOrderTask(productionOrder, productionOrder.createdAt, '系统', orderArtifacts))
       continue
     }
 

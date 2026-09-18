@@ -1,0 +1,495 @@
+{
+  "at": "2026-09-18T15:27:46.475468+00:00",
+  "branch": "codex/work-20260918",
+  "baseHead": "4804328a822eec3c77eee1ffa5b10911bb77c9fe",
+  "workingTree": "/Users/laoer/Documents/higoods/.worktrees/work-20260918",
+  "uncommitted": true,
+  "buildIndexSha256": "a2055fb5b136a4d37a77effb92b55b08662b9dc4c754bab157f06fb1d34641d7",
+  "scope": "Changed or new implementation, scripts and tests. Documentation and evidence excluded to avoid self-referential hashes. No commit or publication is claimed.",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "0ed40f199ccfabb349d8f4ff9da1c9460801a3dd02349242eb6f0153ff77f3ef"
+    },
+    {
+      "path": "scripts/check-factory-receiving-integration.ts",
+      "sha256": "c17554d146a964295a12f281bb58e217083ee6ab4fc797d954416c6eb5dea41e"
+    },
+    {
+      "path": "scripts/check-post-finishing-demo-batch.ts",
+      "sha256": "b7a92857b3d959324f8cdbc5fa8eb7b01a721b3572f27f08d5edb07974c0d858"
+    },
+    {
+      "path": "scripts/check-process-order-task-relations.ts",
+      "sha256": "36e5c3f294d9e338d29b91d9fc4067a06da9a67bcb1c186387ae2a21a1ec2d41"
+    },
+    {
+      "path": "scripts/check-process-route-full-stage-delivery.ts",
+      "sha256": "2f59da5d3b75382442f9c5489e0e77c014c899a04522f1113732993af22a9ad1"
+    },
+    {
+      "path": "scripts/check-wool-action-performance.mjs",
+      "sha256": "e0d574652b5814bebf1d8fdcba3ef3239965ff03bdd2fe502e5186e8b2c4778c"
+    },
+    {
+      "path": "scripts/check-wool-adversarial-regressions.ts",
+      "sha256": "af69aafc89864ea36f7d036dfea818ffc9a4a7abeae31752ef96eb042b34b72a"
+    },
+    {
+      "path": "scripts/check-wool-craft-generation-boundary.ts",
+      "sha256": "e3e71ecfed0f14c45ccd12454691d435f4116fd874b97be7b2f69a7c854abd5b"
+    },
+    {
+      "path": "scripts/check-wool-craft-warehouse.ts",
+      "sha256": "c08016f75e4328ad68c5e88c282bf6955d982c2810eac99b70b731c3a66a4cbf"
+    },
+    {
+      "path": "scripts/check-wool-extra-action-performance.mjs",
+      "sha256": "03bf61a588b8a1566d47e67d3f642b62fb63d1feaa7a1f5305ea52ffae352e86"
+    },
+    {
+      "path": "scripts/check-wool-fact-workflow.ts",
+      "sha256": "e257110dc372389d9065e598453dec52a66609ef711cfd9f7441a1822ae296df"
+    },
+    {
+      "path": "scripts/check-wool-final-downstream.ts",
+      "sha256": "7e68f87ef5c2e09246e72b6a13f4252bd7dd0d28e6be7c6dfdbc72f62b87770b"
+    },
+    {
+      "path": "scripts/check-wool-final-refresh.ts",
+      "sha256": "f0a16429329fb426df5ba97a7014405d7ca18c8fd50e7704f7c5fa0ffd95639d"
+    },
+    {
+      "path": "scripts/check-wool-handover-printing.ts",
+      "sha256": "650abad93f86e09745ad97ddb7a87938963778f82bd77771a771b5943a87116a"
+    },
+    {
+      "path": "scripts/check-wool-internal-style-code.ts",
+      "sha256": "d00473498916ddd0623dae78d4eb5ee08aa805901a741841432e50f29a804d2a"
+    },
+    {
+      "path": "scripts/check-wool-legacy-reset.ts",
+      "sha256": "a7840c9144675938d22b67c281469821996dc3d33a23958d043cc32bb99c27b5"
+    },
+    {
+      "path": "scripts/check-wool-machine-local-interactions.ts",
+      "sha256": "59e30706d5c651f47c5f452ea7cebf6aec666b628e549bb8ae693c8d7a5eb8a4"
+    },
+    {
+      "path": "scripts/check-wool-pda-factory-projection.ts",
+      "sha256": "c904202e1132862fdf798f6b0956182b3b6be771269c5114b39cfcb1bdd7a6cb"
+    },
+    {
+      "path": "scripts/check-wool-pda-single-execution.ts",
+      "sha256": "f18c92f68f85ee97f02ff620e0438020e19831233ee16de8bc7cfe2ae1a771de"
+    },
+    {
+      "path": "scripts/check-wool-piece-source.ts",
+      "sha256": "e6ab2b5e835a193d5a8f4869fecc0ac25481309708c1bdb4098ce05016d40ce2"
+    },
+    {
+      "path": "scripts/check-wool-receiving-demo-batch.ts",
+      "sha256": "7da6997f7d04c1f78117c29d5c7313616238399617fc7ed633acf0a2a06f2735"
+    },
+    {
+      "path": "scripts/check-wool-route-isolation.ts",
+      "sha256": "4124d1776b8a912bed183dbe15da5ade6cfef35d2b853ff5ec09d84783265744"
+    },
+    {
+      "path": "scripts/check-wool-route-performance.mjs",
+      "sha256": "06ddf12b0d9da2c07e826c39c5d27aec0ba61acb0b7847580d6940f5a7a9283f"
+    },
+    {
+      "path": "scripts/check-wool-stage-boundaries.ts",
+      "sha256": "636cf956729367a6c5f52bb06d0c2413072ccee8c8fc17bf6b40dd90d1b47450"
+    },
+    {
+      "path": "scripts/check-wool-stage-browser.mjs",
+      "sha256": "d630166edc6bdc3d806c09fbfe0e82da01f173b18a29f827d2627bfd635499dc"
+    },
+    {
+      "path": "scripts/check-wool-stage-receiving.ts",
+      "sha256": "7ec1258aa8f5cebfb0c228ac8d2e46f7db0d4dcd594a0ba4d03bac67b8300710"
+    },
+    {
+      "path": "scripts/check-wool-stage-stock-machine.ts",
+      "sha256": "7044dbf84e5bdf8abbb56940f44ac4b113dd8504dd68a1f530e992255f2eb956"
+    },
+    {
+      "path": "scripts/check-wool-stage-ui.ts",
+      "sha256": "d3ab44d9e8341d567aa297efe2554ca176faea480813c8278956fa30c52fdfc4"
+    },
+    {
+      "path": "scripts/check-wool-stock-allocations.ts",
+      "sha256": "57938d893d6adabd2e9039867bc1e32eccf6107abe3f0431137d4c69e2514cf7"
+    },
+    {
+      "path": "scripts/check-wool-two-stage-flow.ts",
+      "sha256": "9270e76937b76d7c6cd992bb6888d4ae55c5e86f2c9e6bb7ef60a030b13b28d9"
+    },
+    {
+      "path": "scripts/check-wool-warehouse-local-interactions.ts",
+      "sha256": "702b47bdd45002e991f57d6159c966b247efd960740a070282bafd851246a453"
+    },
+    {
+      "path": "scripts/check-wool-warehouse-unified-model.ts",
+      "sha256": "80dd4a499407c0f36f5f815dc751114b04a384086a9f74a62f977da6299b50d3"
+    },
+    {
+      "path": "scripts/fixtures/wool-final-downstream-review.ts",
+      "sha256": "9b96f29743fb255290f733d133ace9690fdd97b0aa23db7af07c2371f09a05f5"
+    },
+    {
+      "path": "scripts/fixtures/wool-machine-local-interactions.html",
+      "sha256": "e115027222e35fb691c8c574b4c04a3afcb124de4ebeeba38ce19bf48d347c28"
+    },
+    {
+      "path": "scripts/fixtures/wool-pda-fact-execution.html",
+      "sha256": "9e625366116f3c7e3679105832ad6e610f94dbc64a19ad118748820583fb2241"
+    },
+    {
+      "path": "scripts/fixtures/wool-warehouse-local-interactions.html",
+      "sha256": "68679ed43b8019a188ab3bf833675ac785679ada9cfa727ce4d25576a2eee4de"
+    },
+    {
+      "path": "src/data/app-shell-config.ts",
+      "sha256": "e3c34d7e526aa23b208dad81b2fafc5adef5d98b3ceef1d10fb468d3de003e71"
+    },
+    {
+      "path": "src/data/fcs/cutting/generated-fei-tickets.ts",
+      "sha256": "8dafbf636aebf50e5d4f5c6a6f2a5eddbaa4dcf12bf6da36d4d143cacc6ab2c1"
+    },
+    {
+      "path": "src/data/fcs/cutting/sewing-dispatch.ts",
+      "sha256": "f2844167bfa93ad27a25a0de5f5d7d9a6be634cd3a2764d89860160bce85bbd5"
+    },
+    {
+      "path": "src/data/fcs/cutting/transfer-bag-operations.ts",
+      "sha256": "327d78dd24e52e522553f68eb71ee319995b4bd2889460b9f532d87dd6516994"
+    },
+    {
+      "path": "src/data/fcs/factory-internal-warehouse.ts",
+      "sha256": "a7909a8337e4fc93195fa5260555695739d16833c9f6e0a343bcefaf31199dc2"
+    },
+    {
+      "path": "src/data/fcs/factory-mobile-todos.ts",
+      "sha256": "0a6e0e33f8a22f32712958d098d582e2555bde9ec45b1ecac7e2fafaec2315ce"
+    },
+    {
+      "path": "src/data/fcs/factory-mobile-warehouse.ts",
+      "sha256": "d51f96e5c03b3c6e18d23ca512155649697fb8466014cdede90021da7547d482"
+    },
+    {
+      "path": "src/data/fcs/factory-receiving-links.ts",
+      "sha256": "25d46af3709f260796e031f263b89e641d31a42e82bfbde010c60b58b8aee88a"
+    },
+    {
+      "path": "src/data/fcs/factory-receiving-types.ts",
+      "sha256": "9f97beb4fb7985acd483d16e7f75f74906f70a66232ef881b4777a4169330897"
+    },
+    {
+      "path": "src/data/fcs/factory-receiving-wool.ts",
+      "sha256": "7476088d8851d272638b231ec94ed62db44e41ccbd055e4550618af89f15cff7"
+    },
+    {
+      "path": "src/data/fcs/factory-receiving.ts",
+      "sha256": "798fc105be2288d08e38c854a58b12ec67a0b5eba1991e01d6d95cd7f276ccab"
+    },
+    {
+      "path": "src/data/fcs/fcs-route-links.ts",
+      "sha256": "1d180b4b5f31cf17e2d475aa38f05f79eae1a5652b494f82aa28e8873a66c3be"
+    },
+    {
+      "path": "src/data/fcs/page-adapters/task-execution-adapter.ts",
+      "sha256": "82f45e60020b465d3e9450d6a888f7ff8ca0893be5558b46dd5fe13f5ed28e9f"
+    },
+    {
+      "path": "src/data/fcs/pda-cutting-execution-source.ts",
+      "sha256": "c38336e734acf4224a5b3ddb2d0a18b3304a0cab915d10421259897c852c63bb"
+    },
+    {
+      "path": "src/data/fcs/pda-handover-events.ts",
+      "sha256": "a35eec47d298edb701e51666f8bd6d3e1f193b81675f801a5d7230cb1936f5f4"
+    },
+    {
+      "path": "src/data/fcs/pda-handover-handout-registry.ts",
+      "sha256": "aaa9f68dfe428b00726e30b824f3067d335bc222fb8f8903b69255777fb6908c"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-authorization.ts",
+      "sha256": "7cbdd303f1a2c750ce0328a51ce06602dfb68205943a3d5d6e0e57c3d056bbe3"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-document-numbering.ts",
+      "sha256": "22e045a8b8f67ea3978e4807f75b4f90012c2573c4a1c5b4bbfebbad45af62db"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-full-flow.ts",
+      "sha256": "9b425c900a6363fcbfeb294fc481f6ef52ae2919d0996f1d8898630d43e724d2"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-operation-log.ts",
+      "sha256": "453e2142912e54818858da0dc899f6668b5ac2a65b438c7669a93fb6ff2d462c"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-qc-reference.ts",
+      "sha256": "1c20dc6534c3bec8a0de13b3fe40629e8eed1aee57c2d52c1dad0b5db9c23185"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-return-source-adapter.ts",
+      "sha256": "a3cf1c36713a4c9af072074689804ecb6f0a108080ee79fc81e76b99ad9319c2"
+    },
+    {
+      "path": "src/data/fcs/printing-factory-demos.ts",
+      "sha256": "80ec138838061723dd181ad5400f66e2e8f303c2cd70cbb7712a6bd269612c50"
+    },
+    {
+      "path": "src/data/fcs/process-action-writeback-service.ts",
+      "sha256": "baf41ec996c8986c14fa60dafe6ec165902fa5e472d5623bed23c7537f54a994"
+    },
+    {
+      "path": "src/data/fcs/process-order-task-links.ts",
+      "sha256": "65433f36746cd07290dc666573ae62d0c3ca29d8f8132449247102accb1c2230"
+    },
+    {
+      "path": "src/data/fcs/process-tasks.ts",
+      "sha256": "aa2ff55b47b765040de6b79189b675925571013f58479a892ea46219ae9febd7"
+    },
+    {
+      "path": "src/data/fcs/process-warehouse-domain.ts",
+      "sha256": "d245e5b92453e6f09133aef40c4825f10070b4d4a3d8aea686ba4bb671e4f6ad"
+    },
+    {
+      "path": "src/data/fcs/process-warehouse-linkage-service.ts",
+      "sha256": "8dac9635942c665fb981c06ffaee2f615591e1994b45010028214bf9c8ebac1b"
+    },
+    {
+      "path": "src/data/fcs/process-web-status-actions.ts",
+      "sha256": "f999669a8a04a48ee626963933a24a92f997b0813a0d478d3bce88b38075bed2"
+    },
+    {
+      "path": "src/data/fcs/production-order-tech-pack-runtime.ts",
+      "sha256": "72bfb09de8785d298dc8fb8e06754ab2eee1b5c3ac4601a4aa583d8f15f1c026"
+    },
+    {
+      "path": "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+      "sha256": "44f9c4eb38c07fd3dde1ee6c131401667f98cd67815c073de254bbaed1c0fb78"
+    },
+    {
+      "path": "src/data/fcs/special-craft-task-generation.ts",
+      "sha256": "c4d2a3eb3351cd5585f83237f41d26f16eabddf57a817786f221fbb16bee88aa"
+    },
+    {
+      "path": "src/data/fcs/special-craft-task-orders.ts",
+      "sha256": "bef9786e04b41abe164900d659ee8f475eff1bcbea8d7e756a59e7e56a88ff2b"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/commands.ts",
+      "sha256": "42667075b39895330579c59cd17d4abd29abc9cddb715dfdd75187ac283e1979"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/craft-flow.ts",
+      "sha256": "aa0605d2645449e6f92b069e12534bd3943f16ba45b52d1c5da739c0e88cb433"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/craft-warehouse.ts",
+      "sha256": "aff642886b2e486279b254857a5964dc8ab8025e3580c6e4daaf4b62a782fbb4"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/cutting-receipts.ts",
+      "sha256": "bc94a7a65b7b0077d13459d12f2f8d4579df203691d9aa6cc2acbd5bf79c0ec7"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/demo-assets.ts",
+      "sha256": "4bcfdd168012612bc2d2ab2adf0f3327b4bec3d8f09b2119730f6a301b3bc85e"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/final-craft.ts",
+      "sha256": "a52bdf7ddeaefec8ad6c64e32042f6c1f892ccf788b42199fced41f4b693cff9"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/legacy-reset.ts",
+      "sha256": "96faf727b03a669d9bcb69f068135a04d364965b9452f30dd1af3f95999fb6f0"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/machine-associations.ts",
+      "sha256": "059b399804a007f76c6eb5981f56f06afc215448b9524f696a84e90d71f0817b"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/mobile.ts",
+      "sha256": "7d06be47a4972c3e3d479da1db2da632eb92fa38aaa53efebe2375f08bc6adb3"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/mock-data.ts",
+      "sha256": "2ee1e20e7d77a332cf7654e391b5dd5d28ee39254b8b6ff9564a6013df89c425"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/mock-receiving.ts",
+      "sha256": "34ae528f3ead5db1c43522575f781e3bc92ecf4c63e53b23fe23981080482e6c"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/piece-source.ts",
+      "sha256": "86687b4d4cc53dfcf57645d5f07d184590fb5d8be45ed4b3f82b9393bea25c37"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/queries.ts",
+      "sha256": "02128c959ce83d0c4f4ec95e32f521705e60949427256e50f9012db74f7bc0fc"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/stage-correction.ts",
+      "sha256": "92cc20fc4b2794f13cb2578f983123799b0fc65e9227de2b79c3f63b81e9104b"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/stage-facts.ts",
+      "sha256": "06650beb51ec54a8150f4f53b996e536ced6e7905a028deb8aab86d963c4d7a8"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/stage-rules.ts",
+      "sha256": "74abddd23e4cd9a0b79c81b7ea64402d5b3b31fa641eeea6335546c4f8542484"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/store.ts",
+      "sha256": "538426d882d42ce2961d311d75fe3830b79264aaa6b76cae0df90dcee404ee05"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/tech-pack-source.ts",
+      "sha256": "fe4074b9a7b5ef6726fd66adc772e916dc4c7e46c541b97d4b4a65c42c14af7e"
+    },
+    {
+      "path": "src/data/fcs/wool-domain/types.ts",
+      "sha256": "252d90359f7d4e950ed3bf201152f2c2f145734625346eb37f68258770683010"
+    },
+    {
+      "path": "src/data/fcs/wool-pda-scan.ts",
+      "sha256": "027a0325119243d86f4535d441c627489b226f9e8d693e590500ebeb2f52cfa2"
+    },
+    {
+      "path": "src/main-handlers/fcs-handlers.ts",
+      "sha256": "9702c681ad6e06dd26e7839c604d69fb5d886bfe673e3f871330cc49b3fba904"
+    },
+    {
+      "path": "src/main-handlers/pda-handlers.ts",
+      "sha256": "321b2900974fc06c64b4a0a864b4376e6c9cf0436457cd12da722daaad87f14f"
+    },
+    {
+      "path": "src/main.ts",
+      "sha256": "e3da99ba8b4583d59186bd8796bd0cb742acffdeb1ef5e592163fb8bb07faa33"
+    },
+    {
+      "path": "src/pages/pda-exec-detail.ts",
+      "sha256": "7dacb4c1ef509397e491c94873123c02c9d29abdafde2acf385e9b2b34a7b692"
+    },
+    {
+      "path": "src/pages/pda-handover.ts",
+      "sha256": "bd2be35496d53117d8c5318e947ec00921bd2744dacc53bc195e809bfef3105f"
+    },
+    {
+      "path": "src/pages/pda-warehouse-inbound-records.ts",
+      "sha256": "2af6e55e7fe70652f44fe550ee595c0a597ef4feefddd029bc2ce2673e2dc770"
+    },
+    {
+      "path": "src/pages/pda-warehouse-outbound-records.ts",
+      "sha256": "c916d260a32d6e8ce2378636c1f324eb6fcd2795434decbc404bebd2bd523ee8"
+    },
+    {
+      "path": "src/pages/pda-warehouse-shared.ts",
+      "sha256": "293a6f7dea7e7c1ff5850640f0c0ef9aa546284d863d40f521e7caf5b46e8a5c"
+    },
+    {
+      "path": "src/pages/pda-wool-fact-execution.ts",
+      "sha256": "6d839f1397ae96a1be7076c6a3eb0b8f673e0e25aac4ace37f663d7f521a7a55"
+    },
+    {
+      "path": "src/pages/pda-wool-warehouse-flows.ts",
+      "sha256": "c19a3f8afafca1b7490ae0da11b217ea11e98f92548260671068f114a61ef605"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/warehouse-hub.ts",
+      "sha256": "38fe32e58e84be5b54b567bfcd01fb8f49ffd3b08d08d0a7771efae1f14c02f0"
+    },
+    {
+      "path": "src/pages/process-factory/special-craft/task-detail.ts",
+      "sha256": "a843d01c5f1a7f59a6117d9be18f9fd3252f922d233941dfe24b6aed52ca11ae"
+    },
+    {
+      "path": "src/pages/process-factory/special-craft/task-orders.ts",
+      "sha256": "b7016be94a4967e47bb654ec42c4fd8e17345545f5dbfdad0c29ed6ccdf893d0"
+    },
+    {
+      "path": "src/pages/process-factory/special-craft/warehouse.ts",
+      "sha256": "e187ec47a29ea87aae6df7777939392def8353fae25addd5864d86c8177ab35d"
+    },
+    {
+      "path": "src/pages/process-factory/wool/craft-actions.ts",
+      "sha256": "35060d99e6450a977f5dc1b59edd2663c75273bc859ca9d97fbf7ad106ab8b19"
+    },
+    {
+      "path": "src/pages/process-factory/wool/handover-print.ts",
+      "sha256": "6094f17e906aebd04f716c409fe389992b1b4035d89aa323561b0634b8c08bbb"
+    },
+    {
+      "path": "src/pages/process-factory/wool/pending-receipts.ts",
+      "sha256": "1604d8f9262ccd21b37ab4aa7795ddbbc446be60401f8c510e08c0d80f99ffc2"
+    },
+    {
+      "path": "src/pages/process-factory/wool/shared.ts",
+      "sha256": "b15de2e6b507ca18474cbd892323e6ecb5a98f40900317740977b04fa2ae9729"
+    },
+    {
+      "path": "src/pages/process-factory/wool/stage-display.ts",
+      "sha256": "09ad35138a1e684e89d0b2d98231916fddd21749f344c39f0ff030797cdc3deb"
+    },
+    {
+      "path": "src/pages/process-factory/wool/stage-order-detail.ts",
+      "sha256": "8d40a4c600d2b2b2a8c6c9c9198e4f63631c14e43d6d7c162b0cc2c008625db8"
+    },
+    {
+      "path": "src/pages/process-factory/wool/stage-orders.ts",
+      "sha256": "254aefeec82f0a24829c0bd289bbbe9029a0dd8fcc5501b3e45b487a4348b625"
+    },
+    {
+      "path": "src/pages/process-factory/wool/stock-allocations.ts",
+      "sha256": "84993158011db5d09dcdeae14c83c98087edd0d3cd0e79e4e9f45f19baf92917"
+    },
+    {
+      "path": "src/pages/process-factory/wool/warehouse.ts",
+      "sha256": "db34fa6bc22dd044d1eb2f04bf22b12086ae4f82adbeff2631df41f9f0034497"
+    },
+    {
+      "path": "src/pages/process-factory/wool/work-order-detail.ts",
+      "deleted": true
+    },
+    {
+      "path": "src/pages/process-factory/wool/work-orders.ts",
+      "deleted": true
+    },
+    {
+      "path": "src/router/route-renderers-fcs.ts",
+      "sha256": "8fbc9f4e58b7ce471ef8b2c2ec9db7fb0a9435537347672c1d14d3613b9094dd"
+    },
+    {
+      "path": "src/router/routes-fcs.ts",
+      "sha256": "caa485fc3e93a08af5d5fcbfc320de2731682142895ca62a0e1bcddc8d823eda"
+    },
+    {
+      "path": "src/router/routes-pda.ts",
+      "sha256": "052bec2377cebbff1b38772eb654cf06d576ee3f282e880854c646afb249a0be"
+    },
+    {
+      "path": "tests/wool-final-craft-pda.spec.ts",
+      "sha256": "c92b30643b2c89ea473788174e9983d55df671c269db9d09e25526d08af4be93"
+    },
+    {
+      "path": "tests/wool-management-fact-workflow.spec.ts",
+      "sha256": "392bd3ebdf65336c67396896d6f5cea335642fa2752e79267ad82a892068e8f6"
+    },
+    {
+      "path": "tests/wool-pda-main-local-rerender.spec.ts",
+      "sha256": "97608f56d3ec46b6d09714cc812d4f8e7f997beb099a4df3afe48e4455508bf0"
+    },
+    {
+      "path": "tests/wool-stage-actions.spec.ts",
+      "sha256": "c8d32c6e9915a9517a12a385d03b933a924f94258d60bc483a835d7ccc22c6bf"
+    }
+  ]
+}

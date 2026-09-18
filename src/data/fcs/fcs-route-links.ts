@@ -215,17 +215,17 @@ export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
 }
 
 export function buildWoolWorkOrdersLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/work-orders'
+  const base = `/fcs/craft/wool/${woolOrderId?.endsWith(':LINKING') ? 'linking-orders' : 'knitting-orders'}`
   return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
 export function buildWoolWorkOrderDetailLink(woolOrderId: string, tab?: string): string {
-  const base = `/fcs/craft/wool/work-orders/${encodeSegment(woolOrderId)}`
+  const base = `/fcs/craft/wool/${woolOrderId.endsWith(':LINKING') ? 'linking-orders' : 'knitting-orders'}/${encodeSegment(woolOrderId)}`
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
 }
 
 export function buildWoolHandoverPrintLink(woolOrderId: string, handoverId?: string): string {
-  const base = `/fcs/craft/wool/work-orders/${encodeSegment(woolOrderId)}/handover-print`
+  const base = `/fcs/craft/wool/${woolOrderId.endsWith(':LINKING') ? 'linking-orders' : 'knitting-orders'}/${encodeSegment(woolOrderId)}/handover-print`
   return handoverId ? `${base}/${encodeSegment(handoverId)}` : base
 }
 

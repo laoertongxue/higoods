@@ -110,14 +110,13 @@ function syncWoolExecutionFact(task: ProcessTask, runtimeTask: RuntimeProcessTas
   try {
     const store = readWoolStore()
     const order = Object.values(store.workOrders).find((item) =>
-      item.taskId === runtimeTask.taskId
-      || item.woolOrderId === runtimeTask.woolOrderId,
+      item.sourceTaskId === runtimeTask.taskId && item.stage === 'LINKING',
     )
     if (!order) throw new Error(`找不到运行时任务 ${runtimeTask.taskId} 对应的毛织加工单`)
     const processingStatus = getWoolProcessingStatus(order.woolOrderId)
     task.status = processingStatus === 'COMPLETED'
       ? 'DONE'
-      : processingStatus === 'PROCESSING'
+      : ['PROCESSING', 'PROCESS_COMPLETE'].includes(processingStatus)
         ? 'IN_PROGRESS'
         : 'NOT_STARTED'
     task.woolAllowedActions = [...getWoolAllowedActions(order.woolOrderId)]

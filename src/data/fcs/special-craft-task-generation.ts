@@ -431,6 +431,23 @@ function listPhysicalPatternFiles(patternFiles: TechPackPatternFileSnapshot[]): 
   })
 }
 
+function woolPatternIds(snapshot: ProductionOrderTechPackSnapshot): Set<string> {
+  return new Set(snapshot.patternFiles.filter(pattern => pattern.patternMaterialType === 'WOOL')
+    .flatMap(pattern => [pattern.id, pattern.patternFileId, pattern.sourcePatternPackageId].filter(Boolean) as string[]))
+}
+
+/** Wool panels are executed by their paired wool stage and piece route, never the generic cut-piece lane. */
+export function isLegacyWoolPieceCraftTask(task: SpecialCraftTaskOrder, snapshot: ProductionOrderTechPackSnapshot): boolean {
+  if (task.woolPieceKey || task.targetObject === '成衣' || task.inputObjectType === 'GARMENT') return false
+  const ids = woolPatternIds(snapshot)
+  const isWoolPattern = (id: string) => ids.has(id)
+  if (task.demandLines?.length) return task.demandLines.every(line => isWoolPattern(line.patternFileId))
+  if (task.sourcePatternFileIds?.length) return task.sourcePatternFileIds.every(isWoolPattern)
+  const entry = snapshot.processEntries.find(entry => entry.id === task.sourceEntryId)
+  const key = entry?.routeObjectKey || task.routeObjectKey
+  return [...ids].some(id => key?.startsWith(`PATTERN:${id}:PIECE:`) || key?.startsWith(`PATTERN:${id}:PIECE_INSTANCE:`))
+}
+
 export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   productionOrder: ProductionOrder
   techPackSnapshot?: ProductionOrderTechPackSnapshot | null
@@ -469,7 +486,10 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
     }))
   })
 
-  listPhysicalPatternFiles(techPackSnapshot.patternFiles).forEach((patternFile) => {
+  const woolIds = woolPatternIds(techPackSnapshot)
+  listPhysicalPatternFiles(techPackSnapshot.patternFiles).filter(patternFile =>
+    ![patternFile.id, patternFile.patternFileId, patternFile.sourcePatternPackageId].some(id => id && woolIds.has(id)),
+  ).forEach((patternFile) => {
     const patternFileId = patternFile.patternFileId || patternFile.id
     const patternFileName = patternFile.patternFileName || patternFile.fileName || patternFileId
     const pieceRows = patternFile.pieceRows ?? []

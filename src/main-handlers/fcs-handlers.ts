@@ -1,3 +1,4 @@
+import { handleWoolPendingReceiptsClick, handleWoolPendingReceiptsInput } from '../pages/process-factory/wool/pending-receipts'
 import {handleDyeYarnShipmentEvent} from '../pages/process-factory/dyeing/yarn-shipments.ts'
 import {handleFactoryReceivingEvent} from '../pages/process-factory/dyeing/pending-receipts.ts'
 import { handleSewingProductionOrderDurationEvent, closeSewingProductionOrderDurationDialog } from '../pages/sewing-outsourcing/production-order-duration'
@@ -251,8 +252,8 @@ import {
 } from '../pages/process-factory/dyeing/water-soluble-orders'
 import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
-import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
-import { handleCraftWoolDetailEvent } from '../pages/process-factory/wool/work-order-detail'
+import { handleCraftWoolStageOrdersEvent } from '../pages/process-factory/wool/stage-orders'
+import { handleCraftWoolStageOrderDetailEvent } from '../pages/process-factory/wool/stage-order-detail'
 import { handleCraftWoolMachineAssociationsEvent } from '../pages/process-factory/wool/machine-associations'
 import { handleCraftWoolMachinesEvent } from '../pages/process-factory/wool/machines'
 import { handleCraftWoolWarehouseEvent } from '../pages/process-factory/wool/warehouse'
@@ -512,12 +513,13 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
 
   return (
+    handleWoolPendingReceiptsClick(target) ||
     await handleCraftPrintingEvent(target) ||
     await handleCraftDyeingEvent(target) ||
     await handleFactoryWarehouseSharedEvent(target) ||
     await handleCraftWoolMachineAssociationsEvent(target) ||
-    await handleCraftWoolDetailEvent(target) ||
-    await handleCraftWoolEvent(target) ||
+    await handleCraftWoolStageOrderDetailEvent(target) ||
+    await handleCraftWoolStageOrdersEvent(target) ||
     await handleCraftWoolWarehouseEvent(target, event) ||
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target, event) ||
@@ -557,6 +559,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleProgressCuttingOverviewEvent(target) ||
     await handleProgressCuttingDetailEvent(target) ||
     await handleProgressCuttingExceptionCenterEvent(target) ||
+    handleWoolPendingReceiptsInput(target) ||
     await handleCuttingSettlementInputEvent(target) ||
     await handleCraftCuttingProductionProgressEvent(target) ||
     await handleCraftCuttingMarkerPlanEvent(target) ||

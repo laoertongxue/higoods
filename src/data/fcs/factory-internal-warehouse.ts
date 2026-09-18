@@ -1,3 +1,4 @@
+import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from './wool-domain/craft-warehouse.ts'
 import {getReceiptMaterialUsed, getFactoryReceivingRevision} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
@@ -59,6 +60,7 @@ export type FactoryWarehouseSourceRecordType =
   | 'HANDOVER_RECEIVE'
   | 'TRANSFER_RECEIVE'
   | 'STOCKTAKE_ADJUSTMENT'
+  | 'PROCESS_REPORT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
   | '成衣仓'
@@ -163,6 +165,7 @@ export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
   completedQty: number
   lossQty: number
   waitHandoverQty: number
+  inTransitQty?: number
   receiverKind: FactoryWarehouseReceiverKind
   receiverName: string
   handoverOrderId?: string
@@ -270,6 +273,7 @@ export interface FactoryWarehouseOutboundRecord {
   transferBagNo?: string
   fabricRollNo?: string
   outboundQty: number
+  inTransitQty?: number
   receiverWrittenQty?: number
   differenceQty?: number
   unit: string
@@ -2519,8 +2523,8 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
     hydrateCompletedStocktakeAdjustmentFlows(internalWarehouseStore)
   }
   const receivingRevision = getFactoryReceivingRevision()
-  if (synchronizedReceivingRevision === receivingRevision) return internalWarehouseStore
-  for (const inbound of buildFactoryReceiptInboundRecords()) {
+  const wool = buildWoolCraftWarehouseProjection()
+  if (synchronizedReceivingRevision !== receivingRevision) for (const inbound of buildFactoryReceiptInboundRecords().filter(record => !wool.genericPieceInboundIds.has(record.inboundRecordId))) {
     const fresh = buildWaitProcessStockItemFromInbound(inbound)
     let stock = internalWarehouseStore.waitProcessStockItems.find(item => item.stockItemId === fresh.stockItemId)
     if (!stock) {
@@ -2533,6 +2537,11 @@ function ensureFactoryInternalWarehouseStore(): FactoryInternalWarehouseStore {
     stock.availableQty = Math.max(0, inbound.receivedQty - stock.issuedQty)
   }
   synchronizedReceivingRevision = receivingRevision
+  // Replace only this read projection; generic receipts must not duplicate毛织片 as染色辅料.
+  internalWarehouseStore.waitProcessStockItems = [...internalWarehouseStore.waitProcessStockItems.filter(item => !isWoolCraftWarehouseProjectionId(item.stockItemId) && !wool.genericPieceInboundIds.has(item.stockItemId.replace(/^WPS-/, ''))), ...wool.waitProcessStockItems]
+  internalWarehouseStore.waitHandoverStockItems = [...internalWarehouseStore.waitHandoverStockItems.filter(item => !isWoolCraftWarehouseProjectionId(item.stockItemId)), ...wool.waitHandoverStockItems]
+  internalWarehouseStore.inboundRecords = [...internalWarehouseStore.inboundRecords.filter(item => !isWoolCraftWarehouseProjectionId(item.inboundRecordId) && !wool.genericPieceInboundIds.has(item.inboundRecordId)), ...wool.inboundRecords]
+  internalWarehouseStore.outboundRecords = [...internalWarehouseStore.outboundRecords.filter(item => !isWoolCraftWarehouseProjectionId(item.outboundRecordId)), ...wool.outboundRecords]
   return internalWarehouseStore
 }
 
