@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Product = { spu: string; sku: string; name: string; productType: 'FINISHED_GOODS' | 'MATERIAL'; materialCategory: string; baseUnit: string; packagingUnit: string; sourceSystem: string; syncTime: string; syncStatus: '同步成功' | '同步中' | '同步失败' }
 
@@ -205,7 +206,7 @@ export function handleBasicProductCenterEvent(target: HTMLElement, event?: Event
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '商品中心', columns, rows: filteredRows() }); return true }
   return false
 }
 

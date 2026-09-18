@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Warehouse = { code: string; name: string; type: '自建' | '合作'; businessType: string; contact: string; country: string; timezone: string; manager: string; enabled: boolean; subjects: string[] }
 
@@ -194,7 +195,7 @@ export function handleBasicWarehouseEvent(target: HTMLElement, event?: Event): b
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '仓库管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

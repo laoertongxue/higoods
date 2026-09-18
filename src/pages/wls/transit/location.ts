@@ -1,11 +1,13 @@
 // @page-pattern: list
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type LocationRecord = {
   locationCode: string; zone: string; status: string; bindProductionNo: string
@@ -32,6 +34,7 @@ const seedLocations: LocationRecord[] = [
 ]
 
 const EVENT_PREFIX = 'wls-transit-location'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/location:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -65,13 +68,13 @@ const columns: StandardListColumn<LocationRecord>[] = [
   { key: 'lastReleaseTime', title: '最后释放', width: 140, sortable: true, sortValue: r => r.lastReleaseTime,
     render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.lastReleaseTime)}</span>` },
   { key: 'actions', title: '操作', width: 140, required: true, actionColumn: true,
-    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 ${r.materialQty > 0 ? 'opacity-40 cursor-not-allowed' : ''}" ${r.materialQty > 0 ? 'disabled' : ''} data-${EVENT_PREFIX}-action="release">释放</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="disable">禁用</button></div>` },
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 ${r.materialQty > 0 ? 'opacity-40 cursor-not-allowed' : ''}" ${r.materialQty > 0 ? 'disabled' : ''} data-${EVENT_PREFIX}-action="release" data-${EVENT_PREFIX}-idx="${ seedLocations.indexOf(r) }">释放</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="disable" data-${EVENT_PREFIX}-idx="${ seedLocations.indexOf(r) }">禁用</button></div>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['locationCode'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -142,7 +145,7 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -155,7 +158,7 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -190,7 +193,7 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -200,6 +203,30 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'disable') {
+    const row = seedLocations[Number(actionNode.dataset['wlsTransitLocationIdx'])]
+    if (row && row.status !== '禁用') {
+      row.status = '禁用'
+      showListFeedback(`库位 ${row.locationCode} 已禁用，不再参与上架与拣货`)
+    }
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'release') {
+    const row = seedLocations[Number(actionNode.dataset['wlsTransitLocationIdx'])]
+    if (row) {
+      if (row.materialQty > 0) {
+        showListFeedback(`库位 ${row.locationCode} 仍有 ${row.materialQty} 件物料，不能释放`, 'warning')
+      } else {
+        row.status = '已释放'
+        row.bindProductionNo = '-'
+        row.lastReleaseTime = localDateTimeText()
+        showListFeedback(`库位 ${row.locationCode} 已释放`)
+      }
+    }
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓库位管理', columns, rows: filteredRows() }); return true }
   return false
 }

@@ -2,10 +2,13 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type TransferOrder = {
   transferNo: string; fromWarehouse: string; toWarehouse: string
@@ -32,6 +35,7 @@ const seedOrders: TransferOrder[] = [
 ]
 
 const EVENT_PREFIX = 'wls-transit-warehouse-transfer'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/transit/warehouse-transfer:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -40,6 +44,9 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmKind: '',
+  confirmIdx: -1,
+  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -70,11 +77,11 @@ const columns: StandardListColumn<TransferOrder>[] = [
     render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.createTime)}</span>` },
   { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true,
     render: r => {
-      const btns: string[] = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看</button>`]
-      if (r.status === '草稿') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="submit">提交</button>`)
-      if (r.status === '待发出') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm-send">确认发出</button>`)
-      if (r.status === '运输中') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm-receive">确认收货</button>`)
-      if (['草稿', '待拣货'].includes(r.status)) btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="cancel">取消</button>`)
+      const btns: string[] = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">查看</button>`]
+      if (r.status === '草稿') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="submit" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">提交</button>`)
+      if (r.status === '待发出') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm-send" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">确认发出</button>`)
+      if (r.status === '运输中') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm-receive" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">确认收货</button>`)
+      if (['草稿', '待拣货'].includes(r.status)) btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="cancel" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">取消</button>`)
       return `<div class="flex items-center gap-1">${btns.join('')}</div>`
     } },
 ]
@@ -82,7 +89,7 @@ const columns: StandardListColumn<TransferOrder>[] = [
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['transferNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
@@ -131,7 +138,21 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无调拨单' }) + renderFlowDescription(),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '调拨单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '调拨单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedOrders[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓 · 调拨管理详情', columns, row: seedOrders[state.detailIdx], eventPrefix: EVENT_PREFIX }) : '', state.confirmIdx >= 0 && seedOrders[state.confirmIdx] ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: state.confirmKind === 'confirm-send' ? '确认发出调拨' : state.confirmKind === 'confirm-receive' ? '确认签收调拨' : '确认取消调拨单',
+      description: (() => {
+        const row = seedOrders[state.confirmIdx]
+        if (!row) return ''
+        if (state.confirmKind === 'confirm-send') return `确认从 ${row.fromWarehouse} 发出 ${row.pickedQty} 件调拨物料？发出后进入运输中。`
+        if (state.confirmKind === 'confirm-receive') return `确认 ${row.toWarehouse} 已收到 ${row.sentQty} 件调拨物料？签收后调入方库存增加。`
+        return `取消后调拨单 ${row.transferNo} 不可恢复，需要重新创建。确认取消？`
+      })(),
+      confirmLabel: state.confirmKind === 'confirm-send' ? '确认发出' : state.confirmKind === 'confirm-receive' ? '确认签收' : '确认取消',
+      danger: state.confirmKind === 'cancel',
+    }) : ''].join(''),
   })
 }
 
@@ -156,7 +177,7 @@ export function handleTransitWarehouseTransferEvent(target: HTMLElement, event?:
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -169,7 +190,7 @@ export function handleTransitWarehouseTransferEvent(target: HTMLElement, event?:
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -204,7 +225,7 @@ export function handleTransitWarehouseTransferEvent(target: HTMLElement, event?:
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -214,6 +235,50 @@ export function handleTransitWarehouseTransferEvent(target: HTMLElement, event?:
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
+  if (action === 'submit') {
+    const row = seedOrders[Number(actionNode.dataset['wlsTransitWarehouseTransferIdx'])]
+    if (row && row.status === '草稿') {
+      row.status = '待拣货'
+      showListFeedback(`调拨单 ${row.transferNo} 已提交，等待 ${row.toWarehouse} 拣货`)
+    }
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'confirm-send' || action === 'confirm-receive' || action === 'cancel') {
+    state.confirmKind = action
+    state.confirmIdx = Number(actionNode.dataset['wlsTransitWarehouseTransferIdx'])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmKind = ''
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = seedOrders[state.confirmIdx]
+    if (row) {
+      if (state.confirmKind === 'confirm-send' && row.status === '待发出') {
+        row.status = '运输中'
+        row.sentQty = row.pickedQty
+        showListFeedback(`调拨单 ${row.transferNo} 已发出 ${row.sentQty} 件，运往 ${row.toWarehouse}`)
+      } else if (state.confirmKind === 'confirm-receive' && row.status === '运输中') {
+        row.status = '已签收'
+        row.signedQty = row.sentQty
+        showListFeedback(`调拨单 ${row.transferNo} 已由 ${row.toWarehouse} 签收 ${row.signedQty} 件`)
+      } else if (state.confirmKind === 'cancel' && ['草稿', '待拣货'].includes(row.status)) {
+        row.status = '已取消'
+        showListFeedback(`调拨单 ${row.transferNo} 已取消`)
+      }
+    }
+    state.confirmKind = ''
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓 · 调拨管理', columns, rows: filteredRows() }); return true }
   return false
 }

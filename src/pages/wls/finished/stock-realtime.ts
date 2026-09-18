@@ -7,6 +7,7 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed'
 import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config'
 import type { StockRealtimeItem, MaterialInventorySummary, MaterialCategory } from '../../../data/wls/types'
@@ -74,6 +75,7 @@ function categoryBadgeClass(cat: MaterialCategory): string {
 }
 
 const EVENT_PREFIX = 'wls-stock-realtime'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY_BASE = '/wls/finished/stock-realtime:list-columns:'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -183,7 +185,7 @@ function defaultPreferences(): StandardListColumnPreferences {
   const cols = activeColumns()
   return {
     order: cols.map(c => c.key),
-    visibleKeys: cols.filter(c => c.required || c.actionColumn).map(c => c.key),
+    visibleKeys: cols.map(c => c.key),
     frozenKeys: cols.filter(c => c.freezeable && c.required).map(c => c.key).slice(0, 2),
     pageSize: PAGE_SIZE_OPTIONS[1],
   }
@@ -254,28 +256,29 @@ function titleForVariant(v: Variant): string {
   return v === 'raw' ? '即时库存查询 — 原料' : v === 'transit' ? '即时库存查询 — 在途' : '即时库存查询 — 成衣'
 }
 
-function renderWorkspace(): string {
-  ensurePreferencesLoaded()
-  const variant = state.activeVariant
-  const cols = activeColumns()
-  const total = filteredRowCount()
+function filteredRows(): unknown[] {
   const kw = state.keyword.trim().toLowerCase()
-
-  let rows: unknown[]
-  if (variant === 'raw') {
-    rows = getRawItems().filter(item => {
+  if (state.activeVariant === 'raw') {
+    return getRawItems().filter(item => {
       if (state.categoryFilter && item.material_category !== state.categoryFilter) return false
       if (state.warehouseFilter && item.warehouse_name !== state.warehouseFilter) return false
       if (!kw) return true
       return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
     })
-  } else {
-    rows = getFinishedItems().filter(item => {
-      if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
-      if (!kw) return true
-      return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
-    })
   }
+  return getFinishedItems().filter(item => {
+    if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
+    if (!kw) return true
+    return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const variant = state.activeVariant
+  const cols = activeColumns()
+  const total = filteredRowCount()
+  const rows = filteredRows()
 
   const sorted = sortStandardListRows(rows, state.sort, (row, key) => {
     const col = cols.find(c => c.key === key)
@@ -348,7 +351,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'category') { state.categoryFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
@@ -362,7 +365,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -400,7 +403,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, preferenceKey(), state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const cols = activeColumns()
     const col = cols.find(c => c.key === key)
     if (!col || col.actionColumn) return true
@@ -411,6 +414,6 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: titleForVariant(state.activeVariant), columns: activeColumns(), rows: filteredRows() }); return true }
   return false
 }

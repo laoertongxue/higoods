@@ -7,6 +7,7 @@ import { renderStandardListTable, renderStandardListColumnSettings, type Standar
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type WaveStatus = '待拣货' | '部分拣货' | '拣货完成';
 type WaveType = 'MULTI_ITEM_BASKET' | 'SINGLE_SKU';
@@ -73,6 +74,7 @@ function waveTypeLabel(type: WaveType): string {
 }
 
 const EVENT_PREFIX = 'wls-wave-manage'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/wave-manage:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -113,7 +115,7 @@ const columns: StandardListColumn<WaveRecord>[] = [
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn, leadingControlColumn: c.leadingControlColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
-  visibleKeys: columns.filter(c => c.required || c.actionColumn || c.leadingControlColumn).map(c => c.key),
+  visibleKeys: columns.map(c => c.key),
   frozenKeys: ['waveNo'],
   pageSize: PAGE_SIZE_OPTIONS[1],
 })
@@ -180,7 +182,7 @@ export function handleWaveManageEvent(target: HTMLElement, event?: Event): boole
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
@@ -192,7 +194,7 @@ export function handleWaveManageEvent(target: HTMLElement, event?: Event): boole
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -224,7 +226,7 @@ export function handleWaveManageEvent(target: HTMLElement, event?: Event): boole
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -234,6 +236,6 @@ export function handleWaveManageEvent(target: HTMLElement, event?: Event): boole
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '波次管理', columns, rows: filteredRows() }); return true }
   return false
 }

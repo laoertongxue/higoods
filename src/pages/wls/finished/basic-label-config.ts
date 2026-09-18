@@ -1,11 +1,13 @@
 // @page-pattern: list
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardRowEditDialog, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type LabelTemplate = { name: string; sourceSystem: string; scene: string; processType: string; materialType: string; factoryType: string; size: string; qrRule: string; packageRule: string; status: 'ENABLED' | 'DISABLED'; updated: string }
 
@@ -17,6 +19,7 @@ const seedTemplates: LabelTemplate[] = [
 ]
 
 const EVENT_PREFIX = 'wls-basic-label-config'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/basic-label-config:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
@@ -25,6 +28,8 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  editIdx: -1,
+  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
   sourceFilter: '' as string,
@@ -56,7 +61,7 @@ const columns: StandardListColumn<LabelTemplate>[] = [
   { key: 'updated', title: '更新时间', width: 150, sortable: true, sortValue: r => r.updated,
     render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.updated)}</span>` },
   { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="edit">编辑</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="preview">预览</button></div>` },
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="edit" data-${EVENT_PREFIX}-idx="${ seedTemplates.indexOf(r) }">编辑</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="preview" data-${EVENT_PREFIX}-idx="${ seedTemplates.indexOf(r) }">预览</button></div>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -113,7 +118,16 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增模板', { prefix: EVENT_PREFIX, action: 'add' }, 'plus')}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无标签模板' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '标签配置列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 520 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '标签配置列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 520 }) : '', state.detailIdx >= 0 && seedTemplates[state.detailIdx] ? renderStandardRowDetailDialog({ title: '标签配置详情', columns, row: seedTemplates[state.detailIdx], eventPrefix: EVENT_PREFIX }) : '', state.editIdx >= 0 && seedTemplates[state.editIdx] ? renderStandardRowEditDialog({
+      title: `编辑标签模板 ${seedTemplates[state.editIdx].name}`,
+      description: '打印尺寸、二维码规则和箱号规则将用于该模板生成的标签。',
+      fields: [
+        { key: 'size', label: '打印尺寸', value: seedTemplates[state.editIdx].size },
+        { key: 'qrRule', label: '二维码规则', value: seedTemplates[state.editIdx].qrRule },
+        { key: 'packageRule', label: '箱号规则', value: seedTemplates[state.editIdx].packageRule },
+      ],
+      eventPrefix: EVENT_PREFIX,
+    }) : ''].join(''),
   })
 }
 
@@ -138,7 +152,7 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
   if (!rootElement()) return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
-    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'source') { state.sourceFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'scene') { state.sceneFilter = (field as HTMLSelectElement).value; return true }
@@ -153,7 +167,7 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
     return true
   }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
@@ -194,7 +208,7 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
   if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
   if (action === 'restore-column-settings') { localStorage.removeItem(PREFERENCE_KEY); state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const key = actionNode.dataset[`${DATASET_PREFIX}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${DATASET_PREFIX}ColumnKey`] || ''
     const col = columns.find(c => c.key === key)
     if (!col || col.actionColumn) return true
     if (action === 'toggle-column-visibility' && col.required) return true
@@ -204,6 +218,39 @@ export function handleBasicLabelConfigEvent(target: HTMLElement, event?: Event):
     refreshWorkspace()
     return true
   }
-  if (action === 'export') { return true }
+  if (action === 'preview') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
+  if (action === 'edit') {
+    state.editIdx = Number(actionNode.dataset['wlsBasicLabelConfigIdx'])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-edit') {
+    state.editIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'save-edit') {
+    const row = seedTemplates[state.editIdx]
+    const root = rootElement()
+    if (row && root) {
+      const sizeInput = root.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit="size"]`)
+      const qrInput = root.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit="qrRule"]`)
+      const pkgInput = root.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit="packageRule"]`)
+      if (!sizeInput?.value.trim() || !qrInput?.value.trim()) {
+        showListFeedback('打印尺寸和二维码规则不能为空，请填写后保存', 'warning')
+        return true
+      }
+      row.size = sizeInput.value.trim()
+      row.qrRule = qrInput.value.trim()
+      if (pkgInput?.value.trim()) row.packageRule = pkgInput.value.trim()
+      row.updated = localDateTimeText()
+      showListFeedback(`标签模板 ${row.name} 已保存`)
+    }
+    state.editIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '标签配置', columns, rows: filteredRows() }); return true }
   return false
 }

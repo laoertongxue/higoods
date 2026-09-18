@@ -49,6 +49,7 @@ const getCraftDyeingWaterSolubleOrdersPageModule = createRetryableModuleLoader(
 const getDispatchAcceptanceSlaPageModule = createRetryableModuleLoader(() => import('./pages/dispatch-acceptance-sla'))
 const getTaskBreakdownPageModule = createRetryableModuleLoader(() => import('./pages/task-breakdown'))
 const getWlsFabricDemandBoardPageModule = createRetryableModuleLoader(() => import('./pages/wls-fabric-demand-board'))
+const getWlsPageHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/wls-page-handlers'))
 const getFactoryProfilePageModule = createRetryableModuleLoader(() => import('./pages/factory-profile'))
 const getCraftCuttingMarkerPlanPageModule = createRetryableModuleLoader(
   () => import('./pages/process-factory/cutting/marker-plan'),
@@ -372,6 +373,11 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pathname.startsWith('/fcs/craft/cutting/cut-piece-return-processing')) {
     const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
     return cutPieceReturnPage.handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/wls/')) {
+    const wlsPageHandlers = await getWlsPageHandlersModule()
+    const handled = wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
+    if (handled) return true
   }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {

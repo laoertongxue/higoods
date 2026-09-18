@@ -16,6 +16,7 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type Supplier = { code: string; name: string; category: '面料' | '辅料' | '纱线' | '包材' | '耗材'; contact: string; phone: string; country: string; rating: 'A' | 'B' | 'C'; enabled: boolean; cooperationSince: string }
 
@@ -201,7 +202,7 @@ export function handleBasicSupplierEvent(target: HTMLElement, event?: Event): bo
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '供应商管理', columns, rows: filteredRows() }); return true }
   return false
 }
 
