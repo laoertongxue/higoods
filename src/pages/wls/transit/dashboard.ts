@@ -24,7 +24,7 @@ const recentActivities = [
   { time: '2026-07-16 09:43', action: '收货完成', target: 'TR-RC-20260716-001', detail: 'PO14954/PO14957/PO14958 收货完成' },
 ]
 
-export function renderTransitDashboard(_state: AppState): string {
+export function renderTransitDashboard(): string {
   return `
   <div class="space-y-5">
     <div>

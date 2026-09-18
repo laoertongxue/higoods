@@ -249,7 +249,7 @@ function renderScanBar(): string {
 /*  Page entry                                                         */
 /* ------------------------------------------------------------------ */
 
-export function renderTransitPda(_state: AppState): string {
+export function renderTransitPda(): string {
   return `
   <div class="max-w-[470px] mx-auto min-h-screen bg-slate-100 flex flex-col">
     ${renderTopBar()}

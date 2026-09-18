@@ -1,9 +1,12 @@
-// Auto-extracted from Higood-wms App.tsx line 31842-31977
-// 波次管理 — finished warehouse wave management
-
-import type { AppState } from '../../../state/store';
-
-const PAGE_SIZE = 20;
+// @page-pattern: list
+import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type WaveStatus = '待拣货' | '部分拣货' | '拣货完成';
 type WaveType = 'MULTI_ITEM_BASKET' | 'SINGLE_SKU';
@@ -59,9 +62,9 @@ const WAVE_SEED: WaveRecord[] = (() => {
 
 function statusBadgeClass(status: WaveStatus): string {
   switch (status) {
-    case '拣货完成': return 'bg-[#D1FADF] text-[#067647]';
-    case '部分拣货': return 'bg-[#FEF0C7] text-[#B54708]';
-    default: return 'bg-[#F2F4F7] text-[#475467]';
+    case '拣货完成': return 'bg-emerald-50 text-emerald-700';
+    case '部分拣货': return 'bg-amber-50 text-amber-700';
+    default: return 'bg-slate-100 text-slate-500';
   }
 }
 
@@ -69,97 +72,167 @@ function waveTypeLabel(type: WaveType): string {
   return type === 'MULTI_ITEM_BASKET' ? '一单多件篮分播' : '单 SKU 波次';
 }
 
-function renderPagination(total: number, page: number, totalPages: number): string {
-  if (totalPages <= 1) return '';
-  return `<div class="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] px-1 pt-3">
-    <span class="text-[12px] text-[var(--text-muted)]">共 ${total} 条记录，第 ${page}/${totalPages} 页</span>
-    <div class="flex items-center gap-1">
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page <= 1 ? 'disabled' : ''} onclick="window.__wlsWaveManage?.goPage(${page - 1})">上一页</button>
-      <button type="button" class="rounded-[6px] border border-[var(--primary)] bg-[var(--primary)] px-2 py-1 text-[12px] text-white">${page}</button>
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page >= totalPages ? 'disabled' : ''} onclick="window.__wlsWaveManage?.goPage(${page + 1})">下一页</button>
-    </div>
-  </div>`;
+const EVENT_PREFIX = 'wls-wave-manage'
+const PREFERENCE_KEY = '/wls/finished/wave-manage:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 20 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
 }
 
-export function renderFinishedWaveManage(state: AppState): string {
-  const allItems = WAVE_SEED;
-  const totalItems = allItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const pageItems = allItems.slice(0, PAGE_SIZE);
+const columns: StandardListColumn<WaveRecord>[] = [
+  { key: 'selection', title: '', width: 44, leadingControlColumn: true,
+    render: r => `<input type="checkbox" class="h-4 w-4 cursor-pointer accent-blue-600" data-${EVENT_PREFIX}-field="row-select" data-wave-id="${escapeHtml(r.id)}">` },
+  { key: 'waveNo', title: '波次号', width: 170, required: true, freezeable: true, sortable: true, sortValue: r => r.waveNo,
+    render: r => `<span class="font-mono text-xs text-blue-600" title="${escapeHtml(r.waveNo)}">${escapeHtml(r.waveNo)}</span>` },
+  { key: 'warehouseName', title: '出库仓库', width: 170, sortable: true, sortValue: r => r.warehouseName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseName)}</span>` },
+  { key: 'waveType', title: '波次类型', width: 140, sortable: true, sortValue: r => r.waveType,
+    render: r => `<span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">${escapeHtml(waveTypeLabel(r.waveType))}</span>` },
+  { key: 'orderCount', title: '订单数', width: 90, align: 'right', sortable: true, sortValue: r => r.orderCount,
+    render: r => `<span class="text-slate-600">${r.orderCount}</span>` },
+  { key: 'skuCount', title: 'SKU数', width: 90, align: 'right', sortable: true, sortValue: r => r.skuCount,
+    render: r => `<span class="text-slate-600">${r.skuCount}</span>` },
+  { key: 'outboundQuantity', title: '计划出库数量', width: 120, align: 'right', sortable: true, sortValue: r => r.outboundQuantity,
+    render: r => `<span class="text-slate-700 font-medium">${r.outboundQuantity}</span>` },
+  { key: 'pickedQuantity', title: '已拣货数量', width: 110, align: 'right', sortable: true, sortValue: r => r.pickedQuantity,
+    render: r => `<span class="text-slate-600">${r.pickedQuantity}</span>` },
+  { key: 'operatorName', title: '操作人员', width: 100, sortable: true, sortValue: r => r.operatorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.operatorName || '-')}</span>` },
+  { key: 'status', title: '状态', width: 110, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(r.status)}">${escapeHtml(r.status)}</span>` },
+  { key: 'createdAt', title: '创建时间', width: 150, sortable: true, sortValue: r => r.createdAt,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.createdAt)}</span>` },
+]
 
-  return `<section>
-    <div class="mb-4">
-      <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">波次管理</h2>
-      <p class="mt-1 text-[13px] text-[var(--text-muted)]">用于按仓库与日期查看出库波次汇总与处理进度。</p>
-    </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn, leadingControlColumn: c.leadingControlColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn || c.leadingControlColumn).map(c => c.key),
+  frozenKeys: ['waveNo'],
+  pageSize: PAGE_SIZE_OPTIONS[1],
+})
 
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <input id="wls-wm-search" value="" placeholder="搜索波次号 / 仓库 / 状态" class="w-[360px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50" disabled>删除波次</button>
-        <span class="text-[12px] text-[var(--text-muted)]">已选 0 条</span>
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsWaveManage?.clear()">清除</button>
-      </div>
-    </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-    <div class="rounded-[12px] border border-[var(--border-default)] bg-white">
-      <div class="overflow-x-auto rounded-[10px] border border-[var(--border-default)]">
-        <table class="w-full min-w-[1040px] text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="min-w-[44px] w-[44px] border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-2 text-center text-[12px] font-medium">
-                <input type="checkbox" class="h-4 w-4 cursor-pointer accent-[var(--primary)]" />
-              </th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">波次号</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">出库仓库</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">波次类型</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">订单数</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">SKU数</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">计划出库数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">已拣货数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">操作人员</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">状态</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">创建时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pageItems.map((item) => `<tr class="hover:bg-[var(--bg-hover)]">
-              <td class="border-b border-[var(--border-subtle)] px-2 py-2 text-center">
-                <input type="checkbox" class="h-4 w-4 cursor-pointer accent-[var(--primary)]" />
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <button type="button" class="text-[var(--link)] hover:underline">${item.waveNo}</button>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.warehouseName}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <span class="inline-flex rounded-[999px] bg-[#E0F2FE] px-2 py-0.5 text-[12px] font-medium text-[#026AA2]">${waveTypeLabel(item.waveType)}</span>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.orderCount}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.skuCount}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.outboundQuantity}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.pickedQuantity}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.operatorName || '-'}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <span class="inline-flex rounded-[999px] px-2 py-0.5 text-[12px] font-medium ${statusBadgeClass(item.status)}">${item.status}</span>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.createdAt}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      ${renderPagination(totalItems, 1, totalPages)}
-    </div>
+function filteredRows(): WaveRecord[] {
+  const kw = state.keyword.trim().toLowerCase()
+  if (!kw) return WAVE_SEED
+  return WAVE_SEED.filter(w => `${w.waveNo} ${w.warehouseName} ${w.status} ${w.operatorName}`.toLowerCase().includes(kw))
+}
 
-    <script>
-    (function() {
-      window.__wlsWaveManage = {
-        goPage: function(page) { console.log('Go to page:', page); },
-        clear: function() {
-          var search = document.getElementById('wls-wm-search');
-          if (search) search.value = '';
-        }
-      };
-    })();
-    </script>
-  </section>`;
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-3"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="波次号 / 仓库 / 状态 / 操作人员" data-${EVENT_PREFIX}-field="keyword"></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderSecondaryButton('删除波次', { prefix: EVENT_PREFIX, action: 'delete-wave' }, 'trash-2')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '波次管理',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '总波次数', value: `${WAVE_SEED.length} 条` },
+      { label: '待拣货', value: `${WAVE_SEED.filter(w => w.status === '待拣货').length} 条` },
+      { label: '部分拣货', value: `${WAVE_SEED.filter(w => w.status === '部分拣货').length} 条` },
+      { label: '拣货完成', value: `${WAVE_SEED.filter(w => w.status === '拣货完成').length} 条` },
+    ]),
+    listTitle: '波次列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无波次' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '波次管理列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderFinishedWaveManage(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleWaveManageEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

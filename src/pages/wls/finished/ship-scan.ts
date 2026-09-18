@@ -1,4 +1,12 @@
+// @page-pattern: list
 import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type DetailRecord = { scanTime: string; packageNo: string; shipNo: string; orderNo: string; sku: string; name: string; qty: number; result: '成功' | '异常'; exceptionReason?: string }
 type ScanBatch = {
@@ -48,122 +56,200 @@ const seedBatches: ScanBatch[] = [
   { id: 'SB-005', batchNo: 'SCAN-20260828-011', warehouse: '成衣仓', express: '韵达快递', operator: '李娜', status: 'COMPLETED', created: '2026-08-28 17:00', completed: '2026-08-28 17:10', totalQty: 6, successQty: 6, exceptionQty: 0, details: [] },
 ]
 
-export function renderShipScan(_state: AppState): string {
+const EVENT_PREFIX = 'wls-ship-scan'
+const PREFERENCE_KEY = '/wls/finished/ship-scan:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  warehouseFilter: '' as string,
+  expressFilter: '' as string,
+  statusFilter: '' as string,
+}
+
+const columns: StandardListColumn<ScanBatch>[] = [
+  { key: 'batchNo', title: '批次号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.batchNo,
+    render: r => `<span class="font-mono text-xs text-blue-600" title="${escapeHtml(r.batchNo)}">${escapeHtml(r.batchNo)}</span>` },
+  { key: 'warehouse', title: '仓库', width: 120, sortable: true, sortValue: r => r.warehouse,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouse)}</span>` },
+  { key: 'express', title: '快递公司', width: 130, sortable: true, sortValue: r => r.express,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.express)}</span>` },
+  { key: 'operator', title: '操作人', width: 100, sortable: true, sortValue: r => r.operator,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.operator)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(r.status)}">${escapeHtml(statusLabel[r.status] || r.status)}</span>` },
+  { key: 'totalQty', title: '总件数', width: 90, align: 'right', sortable: true, sortValue: r => r.totalQty,
+    render: r => `<span class="text-slate-600">${r.totalQty}</span>` },
+  { key: 'successQty', title: '成功', width: 80, align: 'right', sortable: true, sortValue: r => r.successQty,
+    render: r => `<span class="text-emerald-600">${r.successQty}</span>` },
+  { key: 'exceptionQty', title: '异常', width: 80, align: 'right', sortable: true, sortValue: r => r.exceptionQty,
+    render: r => `<span class="${r.exceptionQty > 0 ? 'text-orange-600 font-medium' : 'text-slate-600'}">${r.exceptionQty}</span>` },
+  { key: 'created', title: '创建时间', width: 150, sortable: true, sortValue: r => r.created,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.created)}</span>` },
+  { key: 'completed', title: '完成时间', width: 150, sortable: true, sortValue: r => r.completed,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.completed)}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50" data-${EVENT_PREFIX}-action="view-detail" data-batch-id="${escapeHtml(r.id)}">查看详情</button></div>` },
+]
+
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['batchNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): ScanBatch[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedBatches.filter(b => {
+    if (state.warehouseFilter && b.warehouse !== state.warehouseFilter) return false
+    if (state.expressFilter && b.express !== state.expressFilter) return false
+    if (state.statusFilter && b.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${b.batchNo} ${b.warehouse} ${b.express} ${b.operator}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  const warehouses = [...new Set(seedBatches.map(b => b.warehouse))]
+  const expresses = [...new Set(seedBatches.map(b => b.express))]
+  const statuses = Object.entries(statusLabel)
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="批次号 / 运单号 / 包裹号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">快递公司</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="express"><option value="">全部快递</option>${expresses.map(e => `<option value="${escapeHtml(e)}" ${state.expressFilter === e ? 'selected' : ''}>${escapeHtml(e)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option>${statuses.map(([k, v]) => `<option value="${escapeHtml(k)}" ${state.statusFilter === k ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+
   const todayBatches = seedBatches.length
   const todayQty = seedBatches.reduce((s, b) => s + b.totalQty, 0)
   const successQty = seedBatches.reduce((s, b) => s + b.successQty, 0)
   const exceptionQty = seedBatches.reduce((s, b) => s + b.exceptionQty, 0)
 
-  const rows = seedBatches.map(b => `<tr class="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
-    <td class="px-3 py-2 text-xs font-medium text-[var(--link)]">${b.batchNo}</td>
-    <td class="px-3 py-2 text-xs text-slate-600">${b.warehouse}</td>
-    <td class="px-3 py-2 text-xs text-slate-600">${b.express}</td>
-    <td class="px-3 py-2 text-xs text-slate-600">${b.operator}</td>
-    <td class="px-3 py-2 text-xs"><span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(b.status)}">${statusLabel[b.status] || b.status}</span></td>
-    <td class="px-3 py-2 text-xs text-right text-slate-600">${b.totalQty}</td>
-    <td class="px-3 py-2 text-xs text-right text-emerald-600">${b.successQty}</td>
-    <td class="px-3 py-2 text-xs text-right ${b.exceptionQty > 0 ? 'text-orange-600 font-medium' : 'text-slate-600'}">${b.exceptionQty}</td>
-    <td class="px-3 py-2 text-xs text-slate-500">${b.created}</td>
-    <td class="px-3 py-2 text-xs text-slate-500">${b.completed}</td>
-    <td class="px-3 py-2 text-xs">
-      <button onclick="window.__wlsShipScan?.viewDetail('${b.id}')" class="rounded border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--link)] hover:bg-[var(--bg-hover)]">查看详情</button>
-    </td>
-  </tr>`).join('')
-
-  return `<div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-base font-semibold text-slate-800">扫码出库</h1>
-      <div class="flex gap-2">
-        <button class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600 hover:bg-[var(--bg-hover)]">新建扫码批次</button>
-        <button class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600 hover:bg-[var(--bg-hover)]">导出</button>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-4 gap-3">
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">今日扫码批次</div>
-        <div class="mt-1 text-xl font-semibold text-slate-700">${todayBatches}</div>
-      </div>
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">今日扫码件数</div>
-        <div class="mt-1 text-xl font-semibold text-blue-600">${todayQty}</div>
-      </div>
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">成功出库</div>
-        <div class="mt-1 text-xl font-semibold text-emerald-600">${successQty}</div>
-      </div>
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">异常数量</div>
-        <div class="mt-1 text-xl font-semibold text-orange-600">${exceptionQty}</div>
-      </div>
-    </div>
-
-    <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input type="text" placeholder="搜索批次号 / 运单号 / 包裹号…" class="w-[360px] rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs" />
-        <select class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600">
-          <option>全部仓库</option><option>成衣仓</option>
-        </select>
-        <select class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600">
-          <option>全部快递</option><option>顺丰速运</option><option>中通快递</option><option>圆通速递</option><option>韵达快递</option>
-        </select>
-        <select class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600">
-          <option>全部状态</option><option>已完成</option><option>有异常</option><option>扫码中</option>
-        </select>
-        <button class="rounded-md bg-[var(--link)] px-3 py-1.5 text-xs text-white">查询</button>
-        <button class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600 hover:bg-[var(--bg-hover)]">重置</button>
-      </div>
-    </div>
-
-    <div class="rounded-lg border border-[var(--border-subtle)] bg-white">
-      <div class="border-b border-[var(--border-subtle)] px-4 py-2 text-xs text-slate-500">共 ${seedBatches.length} 条记录</div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1320px] text-left">
-          <thead class="bg-slate-50 text-xs text-slate-500">
-            <tr>
-              <th class="px-3 py-2">批次号</th>
-              <th class="px-3 py-2">仓库</th>
-              <th class="px-3 py-2">快递公司</th>
-              <th class="px-3 py-2">操作人</th>
-              <th class="px-3 py-2">状态</th>
-              <th class="px-3 py-2 text-right">总件数</th>
-              <th class="px-3 py-2 text-right">成功</th>
-              <th class="px-3 py-2 text-right">异常</th>
-              <th class="px-3 py-2">创建时间</th>
-              <th class="px-3 py-2">完成时间</th>
-              <th class="px-3 py-2">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-4">
-      <h3 class="mb-2 text-sm font-semibold text-slate-700">异常类型说明</h3>
-      <div class="grid grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-600">
-        ${Object.entries(exceptionLabels).map(([k, v]) => `<div><span class="font-medium text-slate-700">${v}</span>：${exceptionDesc(k)}</div>`).join('')}
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsShipScan = {
-      viewDetail(id) { console.log('view ship scan batch detail:', id); },
-    };
-  </script>`
+  return renderStandardListPage({
+    title: '扫码出库',
+    primaryActionsHtml: `<div class="flex gap-2">${renderSecondaryButton('新建扫码批次', { prefix: EVENT_PREFIX, action: 'new-batch' })}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div>`,
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '今日扫码批次', value: `${todayBatches}` },
+      { label: '今日扫码件数', value: `${todayQty}` },
+      { label: '成功出库', value: `${successQty}` },
+      { label: '异常数量', value: `${exceptionQty}` },
+    ]),
+    listTitle: '扫码批次列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无扫码批次' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '扫码出库列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
 }
 
-function exceptionDesc(key: string): string {
-  const map: Record<string, string> = {
-    NOT_FOUND: '扫码面单号在系统中不存在',
-    WRONG_WAREHOUSE: '该包裹不属于当前仓库',
-    STATUS_DENIED: '订单状态不允许出库操作',
-    ALREADY_SHIPPED: '该包裹已经完成出库',
-    DUPLICATE: '同一包裹在本批次中重复扫描',
-    EXPRESS_MISMATCH: '包裹快递公司与选择的不一致',
-    ORDER_CANCELLED: '对应订单已被取消',
-    NON_FINISHED: '非成衣仓出库的包裹',
-    OTHER: '其他未分类异常',
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderShipScan(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleShipScanEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'express') { state.expressFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
   }
-  return map[key] || ''
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    const express = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="express"]`)
+    if (express) state.expressFilter = express.value
+    const status = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (status) state.statusFilter = status.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.warehouseFilter = ''
+    state.expressFilter = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

@@ -1,52 +1,63 @@
-// Auto-extracted from Higood-wms App.tsx line 30639-31400
-// 预出库管理 — finished warehouse pre-outbound
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
-import type { AppState } from '../../../state/store';
-
-const PAGE_SIZE = 20;
-
-type PreOutboundStatus = '待处理' | '待拣货' | '拣货中' | '待出库' | '部分出库' | '已出库' | '已取消';
+type PreOutboundStatus = '待处理' | '待拣货' | '拣货中' | '待出库' | '部分出库' | '已出库' | '已取消'
 
 type PreOutboundItem = {
-  id: string;
-  outboundOrderNo: string;
-  pickOrderNo: string;
-  relatedOrderNo: string;
-  trackingNo: string;
-  spu: string;
-  sku: string;
-  skuCount: number;
-  outboundWarehouse: string;
-  outboundType: string;
-  receivingUnit: string;
-  outboundQuantity: number;
-  pickedQuantity: number;
-  stockStatus: '库存充足' | '库存部分充足' | '库存不足';
-  ownerName: string;
-  status: PreOutboundStatus;
-  createTime: string;
-  payTime: string;
-  shipDeadline: string;
-};
+  id: string; outboundOrderNo: string; pickOrderNo: string; relatedOrderNo: string; trackingNo: string
+  spu: string; sku: string; skuCount: number
+  outboundWarehouse: string; outboundType: string; receivingUnit: string
+  outboundQuantity: number; pickedQuantity: number
+  stockStatus: '库存充足' | '库存部分充足' | '库存不足'
+  ownerName: string; status: PreOutboundStatus
+  createTime: string; payTime: string; shipDeadline: string
+}
+
+function statusBadgeClass(status: PreOutboundStatus): string {
+  switch (status) {
+    case '待处理': return 'bg-amber-50 text-amber-700'
+    case '待拣货': return 'bg-blue-50 text-blue-700'
+    case '拣货中': return 'bg-purple-50 text-purple-700'
+    case '待出库': return 'bg-cyan-50 text-cyan-700'
+    case '部分出库': return 'bg-indigo-50 text-indigo-700'
+    case '已出库': return 'bg-emerald-50 text-emerald-700'
+    case '已取消': return 'bg-slate-100 text-slate-600'
+    default: return 'bg-slate-100 text-slate-600'
+  }
+}
+
+function stockStatusBadgeClass(status: string): string {
+  switch (status) {
+    case '库存不足': return 'bg-red-50 text-red-700'
+    case '库存部分充足': return 'bg-orange-50 text-orange-700'
+    default: return 'bg-emerald-50 text-emerald-700'
+  }
+}
 
 const PRE_OUTBOUND_SEED: PreOutboundItem[] = (() => {
-  const statuses: PreOutboundStatus[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库'];
-  const stockStatuses: Array<'库存充足' | '库存部分充足' | '库存不足'> = ['库存充足', '库存部分充足', '库存不足'];
-  const outboundTypes = ['现货出库', '预售出库', '调拨出库', '退货出库'];
-  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01'];
-  const owners = ['广州总店', '深圳分店', '武汉分店', '杭州分店', '成都分店'];
-  const items: PreOutboundItem[] = [];
+  const statuses: PreOutboundStatus[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库']
+  const stockStatuses: Array<'库存充足' | '库存部分充足' | '库存不足'> = ['库存充足', '库存部分充足', '库存不足']
+  const outboundTypes = ['现货出库', '预售出库', '调拨出库', '退货出库']
+  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01']
+  const owners = ['广州总店', '深圳分店', '武汉分店', '杭州分店', '成都分店']
+  const items: PreOutboundItem[] = []
 
   for (let i = 0; i < 48; i++) {
-    const status = statuses[i % statuses.length];
-    const stockStatus = stockStatuses[i % 3];
-    const outboundQty = 10 + (i * 3) % 50;
-    const pickedQty = status === '已出库' ? outboundQty : status === '部分出库' ? Math.floor(outboundQty * 0.6) : status === '拣货中' ? Math.floor(outboundQty * 0.3) : 0;
-    const dayOffset = Math.floor(i / 8);
-    const baseDate = new Date(2026, 8, 18 - dayOffset);
-    const createDate = baseDate.toISOString().slice(0, 16).replace('T', ' ');
-    const payDate = new Date(baseDate.getTime() - 3600000).toISOString().slice(0, 16).replace('T', ' ');
-    const deadlineDate = new Date(baseDate.getTime() + 86400000 * 2).toISOString().slice(0, 16).replace('T', ' ');
+    const status = statuses[i % statuses.length]
+    const stockStatus = stockStatuses[i % 3]
+    const outboundQty = 10 + (i * 3) % 50
+    const pickedQty = status === '已出库' ? outboundQty : status === '部分出库' ? Math.floor(outboundQty * 0.6) : status === '拣货中' ? Math.floor(outboundQty * 0.3) : 0
+    const dayOffset = Math.floor(i / 8)
+    const baseDate = new Date(2026, 8, 18 - dayOffset)
+    const createDate = baseDate.toISOString().slice(0, 16).replace('T', ' ')
+    const payDate = new Date(baseDate.getTime() - 3600000).toISOString().slice(0, 16).replace('T', ' ')
+    const deadlineDate = new Date(baseDate.getTime() + 86400000 * 2).toISOString().slice(0, 16).replace('T', ' ')
 
     items.push({
       id: `PO-${String(i + 1).padStart(5, '0')}`,
@@ -68,200 +79,216 @@ const PRE_OUTBOUND_SEED: PreOutboundItem[] = (() => {
       createTime: createDate,
       payTime: payDate,
       shipDeadline: deadlineDate,
-    });
+    })
   }
-  return items;
-})();
+  return items
+})()
 
-function statusBadgeClass(status: PreOutboundStatus): string {
-  switch (status) {
-    case '待处理': return 'bg-[#FEF0C7] text-[#B54708]';
-    case '待拣货': return 'bg-[#EEF4FF] text-[#175CD3]';
-    case '拣货中': return 'bg-[#F4EBFF] text-[#6941C6]';
-    case '待出库': return 'bg-[#CFF9FE] text-[#155B75]';
-    case '部分出库': return 'bg-[#E0EAFF] text-[#3538CD]';
-    case '已出库': return 'bg-[#D1FADF] text-[#067647]';
-    case '已取消': return 'bg-[#F2F4F7] text-[#475467]';
-    default: return 'bg-[#F2F4F7] text-[#475467]';
-  }
+const EVENT_PREFIX = 'wls-pre-outbound'
+const PREFERENCE_KEY = '/wls/finished/pre-outbound:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
 }
 
-function stockStatusBadgeClass(status: string): string {
-  switch (status) {
-    case '库存不足': return 'bg-[#FEE4E2] text-[#B42318]';
-    case '库存部分充足': return 'bg-[#FFF4E5] text-[#B54708]';
-    default: return 'bg-[#D1FADF] text-[#067647]';
-  }
+const columns: StandardListColumn<PreOutboundItem>[] = [
+  { key: 'orderNos', title: '单号', width: 220, required: true, freezeable: true,
+    render: r => `<div class="space-y-0.5 text-xs">
+      <div><span class="text-slate-400">出库单号：</span><span class="text-slate-700">${escapeHtml(r.outboundOrderNo)}</span></div>
+      <div><span class="text-slate-400">拣货单号：</span><span class="text-slate-700">${escapeHtml(r.pickOrderNo)}</span></div>
+      <div><span class="text-slate-400">关联单号：</span><span class="text-slate-700">${escapeHtml(r.relatedOrderNo)}</span></div>
+      <div><span class="text-slate-400">跟踪单号：</span><span class="text-slate-700">${escapeHtml(r.trackingNo)}</span></div>
+    </div>` },
+  { key: 'spu', title: '商品SPU', width: 160, sortable: true, sortValue: r => r.spu,
+    render: r => `<span class="text-blue-600">${escapeHtml(r.spu)}（${r.skuCount}个SKU）</span>` },
+  { key: 'sku', title: '商品SKU', width: 150, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
+  { key: 'outboundWarehouse', title: '出库仓库', width: 160, sortable: true, sortValue: r => r.outboundWarehouse,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.outboundWarehouse)}</span>` },
+  { key: 'outboundType', title: '出库类型', width: 100, sortable: true, sortValue: r => r.outboundType,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.outboundType)}</span>` },
+  { key: 'receivingUnit', title: '收货单位', width: 120, sortable: true, sortValue: r => r.receivingUnit,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.receivingUnit)}</span>` },
+  { key: 'outboundQuantity', title: '计划出库数量', width: 110, align: 'right', sortable: true, sortValue: r => r.outboundQuantity,
+    render: r => `<span class="text-slate-600">${r.outboundQuantity}</span>` },
+  { key: 'stockStatus', title: '库存状态', width: 110, sortable: true, sortValue: r => r.stockStatus,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${stockStatusBadgeClass(r.stockStatus)}">${escapeHtml(r.stockStatus)}</span>` },
+  { key: 'pickedQuantity', title: '已拣货数量', width: 100, align: 'right', sortable: true, sortValue: r => r.pickedQuantity,
+    render: r => `<span class="text-slate-600">${r.pickedQuantity}</span>` },
+  { key: 'ownerName', title: '货主', width: 100, sortable: true, sortValue: r => r.ownerName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.ownerName)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusBadgeClass(r.status)}">${escapeHtml(r.status)}</span>` },
+  { key: 'time', title: '时间', width: 180,
+    render: r => `<div class="space-y-0.5 text-xs text-slate-500">
+      <div><span class="text-slate-400">创建时间：</span><span>${escapeHtml(r.createTime)}</span></div>
+      <div><span class="text-slate-400">支付时间：</span><span>${escapeHtml(r.payTime)}</span></div>
+      <div><span class="text-slate-400">发货截止：</span><span>${escapeHtml(r.shipDeadline)}</span></div>
+    </div>` },
+  { key: 'actions', title: '操作', width: 160, required: true, actionColumn: true,
+    render: r => {
+      const buttons: string[] = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-order-id="${escapeHtml(r.id)}">查看</button>`]
+      if (r.status === '待处理') {
+        buttons.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="generate-pick" data-order-id="${escapeHtml(r.id)}">生成拣货单</button>`)
+      }
+      if (r.status === '待拣货' || r.status === '拣货中') {
+        buttons.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="print-pick" data-order-id="${escapeHtml(r.id)}">打印拣货单</button>`)
+      }
+      return `<div class="flex flex-wrap items-center gap-1">${buttons.join('')}</div>`
+    } },
+]
+
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['orderNos'] as string[],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
 }
 
-function renderPagination(total: number, page: number, totalPages: number): string {
-  if (totalPages <= 1) return '';
-  return `<div class="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] px-1 pt-3">
-    <span class="text-[12px] text-[var(--text-muted)]">共 ${total} 条记录，第 ${page}/${totalPages} 页</span>
-    <div class="flex items-center gap-1">
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page <= 1 ? 'disabled' : ''} onclick="window.__wlsPreOutbound?.goPage(${page - 1})">上一页</button>
-      <button type="button" class="rounded-[6px] border border-[var(--primary)] bg-[var(--primary)] px-2 py-1 text-[12px] text-white">${page}</button>
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page >= totalPages ? 'disabled' : ''} onclick="window.__wlsPreOutbound?.goPage(${page + 1})">下一页</button>
-    </div>
-  </div>`;
+function filteredRows(): PreOutboundItem[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return PRE_OUTBOUND_SEED.filter(o => {
+    if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${o.outboundOrderNo} ${o.pickOrderNo} ${o.relatedOrderNo} ${o.trackingNo} ${o.spu} ${o.sku} ${o.outboundWarehouse} ${o.ownerName}`.toLowerCase().includes(kw)
+  })
 }
 
-export function renderFinishedPreOutbound(state: AppState): string {
-  const allItems = PRE_OUTBOUND_SEED;
-  const totalItems = allItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const pageItems = allItems.slice(0, PAGE_SIZE);
+function renderFilters(): string {
+  const statusOptions: PreOutboundStatus[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库', '已取消']
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="出库单号 / 拣货单号 / 关联单号 / 跟踪单号 / SPU / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option>${statusOptions.map(s => `<option value="${escapeHtml(s)}" ${state.statusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderPrimaryButton('生成波次', { prefix: EVENT_PREFIX, action: 'generate-wave' })}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
 
   const timeoutStats = {
     todayTimeoutCount: 8,
     tomorrowTimeoutCount: 15,
     threeDaysTimeoutCount: 42,
-  };
+  }
 
-  const statusOptions: PreOutboundStatus[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库', '已取消'];
+  return renderStandardListPage({
+    title: '预出库管理',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '总预出库单', value: `${PRE_OUTBOUND_SEED.length} 条` },
+      { label: '今日超时', value: `${timeoutStats.todayTimeoutCount}` },
+      { label: '明日超时', value: `${timeoutStats.tomorrowTimeoutCount}` },
+      { label: '3天内超时', value: `${timeoutStats.threeDaysTimeoutCount}` },
+    ]),
+    listTitle: '预出库单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无预出库单' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '预出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
 
-  return `<section>
-    <div class="mb-4">
-      <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">预出库管理</h2>
-      <p class="mt-1 text-[13px] text-[var(--text-muted)]">用于查看出库前置单据，包含单号、商品、收货单位、货主与时间等信息。</p>
-    </div>
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
 
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <input id="wls-po-search" value="" placeholder="搜索出库单号 / 拣货单号 / 关联单号 / 出库类型 / 跟踪单号 / SPU / SKU / 出库仓库 / 收货单位 / 货主 / 状态" class="w-[480px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <div class="inline-flex items-center rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1">
-          ${statusOptions.map((s) => `<button type="button" class="rounded-[6px] px-3 py-1 text-[12px] transition text-[var(--text-secondary)] hover:text-[var(--text-primary)]" onclick="window.__wlsPreOutbound?.toggleStatus('${s}')">${s}</button>`).join('')}
-        </div>
-        <select id="wls-po-item-type" class="w-[150px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-          <option value="ALL">订单件数：全部</option>
-          <option value="SINGLE_SKU">一单一件</option>
-          <option value="MULTI_SKU">一单多件</option>
-        </select>
-        <select id="wls-po-time-type" class="w-[170px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-          <option value="">时间类型：默认创建时间</option>
-          <option value="CREATE_TIME">创建时间</option>
-          <option value="PAY_TIME">支付时间</option>
-          <option value="SHIP_DEADLINE">发货截止时间</option>
-        </select>
-        <input type="datetime-local" class="w-[190px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <span class="text-[12px] text-[var(--text-muted)]">至</span>
-        <input type="datetime-local" class="w-[190px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-[7px] text-[13px] font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50" disabled>生成波次</button>
-        <span class="text-[12px] text-[var(--text-muted)]">已选 0 条</span>
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsPreOutbound?.reset()">重置</button>
-      </div>
-    </div>
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
 
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="mb-2 text-[13px] font-medium text-[var(--text-primary)]">超时发货统计</div>
-      <div class="grid gap-3 md:grid-cols-3">
-        <div class="rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-subtle)] px-3 py-2">
-          <div class="text-[12px] text-[var(--text-muted)]">今日超时</div>
-          <div class="mt-1 text-[20px] font-semibold leading-6 text-[#D92D20]">${timeoutStats.todayTimeoutCount}</div>
-        </div>
-        <div class="rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-subtle)] px-3 py-2">
-          <div class="text-[12px] text-[var(--text-muted)]">明日超时</div>
-          <div class="mt-1 text-[20px] font-semibold leading-6 text-[#B54708]">${timeoutStats.tomorrowTimeoutCount}</div>
-        </div>
-        <div class="rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-subtle)] px-3 py-2">
-          <div class="text-[12px] text-[var(--text-muted)]">3天内超时</div>
-          <div class="mt-1 text-[20px] font-semibold leading-6 text-[#175CD3]">${timeoutStats.threeDaysTimeoutCount}</div>
-        </div>
-      </div>
-    </div>
+export function renderFinishedPreOutbound(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
 
-    <div class="rounded-[12px] border border-[var(--border-default)] bg-white">
-      <div class="overflow-x-auto rounded-[10px] border border-[var(--border-default)]">
-        <table class="w-full min-w-[1580px] text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="min-w-[44px] w-[44px] border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-2 text-center text-[12px] font-medium">
-                <input type="checkbox" class="h-4 w-4 cursor-pointer accent-[var(--primary)]" />
-              </th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">单号</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">商品SPU</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">商品SKU</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">出库仓库</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">出库类型</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">收货单位</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">计划出库数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">库存状态</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">已拣货数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">货主</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">状态</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium">时间</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium sticky right-0 z-20 border-l border-[var(--border-default)] bg-[var(--bg-subtle)]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pageItems.map((item) => `<tr class="hover:bg-[var(--bg-hover)]">
-              <td class="border-b border-[var(--border-subtle)] px-2 py-2 text-center">
-                <input type="checkbox" class="h-4 w-4 cursor-pointer accent-[var(--primary)]" ${item.status !== '待处理' ? 'disabled' : ''} />
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <div class="space-y-1">
-                  <div><span class="text-[var(--text-muted)]">出库单号：</span><span class="text-[var(--text-primary)]">${item.outboundOrderNo}</span></div>
-                  <div><span class="text-[var(--text-muted)]">拣货单号：</span><span class="text-[var(--text-primary)]">${item.pickOrderNo}</span></div>
-                  <div><span class="text-[var(--text-muted)]">关联单号：</span><span class="text-[var(--text-primary)]">${item.relatedOrderNo}</span></div>
-                  <div><span class="text-[var(--text-muted)]">跟踪单号：</span><span class="text-[var(--text-primary)]">${item.trackingNo}</span></div>
-                </div>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <div class="text-[var(--link)]">${item.spu}（${item.skuCount}个SKU）</div>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.sku}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.outboundWarehouse}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.outboundType}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.receivingUnit}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.outboundQuantity}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <span class="inline-flex rounded-[999px] px-2 py-0.5 text-[12px] font-medium ${stockStatusBadgeClass(item.stockStatus)}">${item.stockStatus}</span>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.pickedQuantity}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.ownerName}</td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <span class="inline-flex rounded-[999px] px-2 py-0.5 text-[12px] font-medium ${statusBadgeClass(item.status)}">${item.status}</span>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                <div class="min-w-[150px] space-y-1 text-[12px] text-[var(--text-secondary)]">
-                  <div><span class="text-[var(--text-muted)]">创建时间：</span><span>${item.createTime}</span></div>
-                  <div><span class="text-[var(--text-muted)]">支付时间：</span><span>${item.payTime}</span></div>
-                  <div><span class="text-[var(--text-muted)]">发货截止：</span><span>${item.shipDeadline}</span></div>
-                </div>
-              </td>
-              <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] sticky right-0 z-10 border-l border-[var(--border-default)] bg-white">
-                <div class="flex items-center gap-2">
-                  <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">查看</button>
-                  ${item.status === '待处理' ? '<button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-1 text-[12px] font-medium text-white transition hover:opacity-90">生成拣货单</button>' : ''}
-                  ${item.status === '待拣货' || item.status === '拣货中' ? '<button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">打印拣货单</button>' : ''}
-                </div>
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      ${renderPagination(totalItems, 1, totalPages)}
-    </div>
-
-    <script>
-    (function() {
-      window.__wlsPreOutbound = {
-        toggleStatus: function(status) {
-          console.log('Toggle status filter:', status);
-        },
-        goPage: function(page) {
-          console.log('Go to page:', page);
-        },
-        reset: function() {
-          var search = document.getElementById('wls-po-search');
-          if (search) search.value = '';
-          var itemType = document.getElementById('wls-po-item-type');
-          if (itemType) itemType.value = 'ALL';
-          var timeType = document.getElementById('wls-po-time-type');
-          if (timeType) timeType.value = '';
-        }
-      };
-    })();
-    </script>
-  </section>`;
+export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'view' || action === 'generate-pick' || action === 'print-pick' || action === 'generate-wave') {
+    const id = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}OrderId`] || ''
+    console.log(`${action} pre-outbound order:`, id)
+    return true
+  }
+  return false
 }

@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type DistributionLine = { sku: string; name: string; handover: number; distributed: number; exception: number }
 type DistributionAllocation = { sku: string; order: string; ship: string; box: string; qty: number; operator: string; time: string }
@@ -41,132 +48,186 @@ const seedTasks: DistributionTask[] = [
   ], exceptionNote: '剩余 2 件暂无有效集货订单可匹配' },
 ]
 
-export function renderCollectionSorting(_state: AppState): string {
-  const stats = [
-    { label: '待二次分拨', count: seedTasks.filter(t => t.status === 'WAIT_DISTRIBUTION').length, color: 'bg-amber-50 text-amber-700' },
-    { label: '分拨中', count: seedTasks.filter(t => t.status === 'DISTRIBUTING').length, color: 'bg-blue-50 text-blue-700' },
-    { label: '已完成', count: seedTasks.filter(t => t.status === 'COMPLETED').length, color: 'bg-emerald-50 text-emerald-700' },
-    { label: '异常', count: seedTasks.filter(t => t.status === 'EXCEPTION').length, color: 'bg-red-50 text-red-700' },
-  ]
+const EVENT_PREFIX = 'wls-collection-sorting'
+const PREFERENCE_KEY = '/wls/finished/collection-sorting:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-  const statsHtml = stats.map(s => `
-    <div class="rounded-lg border border-[var(--border-default)] bg-white p-4">
-      <div class="text-xs text-[var(--text-muted)]">${s.label}</div>
-      <div class="mt-1 text-2xl font-semibold ${s.color.split(' ')[1]}">${s.count}</div>
-    </div>
-  `).join('')
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-  const rows = seedTasks.map(t => {
-    const handover = t.lines.reduce((s, l) => s + l.handover, 0)
-    const distributed = t.lines.reduce((s, l) => s + l.distributed, 0)
-    const exception = t.lines.reduce((s, l) => s + l.exception, 0)
-    const pending = Math.max(0, handover - distributed - exception)
-    const orderCount = new Set(t.allocations.map(a => a.order)).size
-    const boxCount = new Set(t.allocations.map(a => a.box)).size
-    const label = statusLabel[t.status] || t.status
-    const cls = badgeClass(t.status)
-    return `
-      <tr class="border-t border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
-        <td class="px-3 py-4 font-medium text-[var(--link)]">${t.id}</td>
-        <td class="px-3 py-3">${t.wave}</td>
-        <td class="px-3 py-3 font-medium text-blue-700">${t.frame}</td>
-        <td class="px-3 py-3 text-center">${t.lines.length}</td>
-        <td class="px-3 py-3 text-center">${handover}</td>
-        <td class="px-3 py-3 text-center">${distributed}</td>
-        <td class="px-3 py-3 text-center">${pending}</td>
-        <td class="px-3 py-3 text-center">${exception}</td>
-        <td class="px-3 py-3 text-center">${orderCount}</td>
-        <td class="px-3 py-3 text-center">${boxCount}</td>
-        <td class="px-3 py-3"><span class="rounded-full px-2 py-0.5 text-xs ${cls}">${label}</span></td>
-        <td class="px-3 py-3">${t.operator}</td>
-        <td class="px-3 py-3 whitespace-nowrap">${t.started}</td>
-        <td class="px-3 py-3 whitespace-nowrap">${t.completed}</td>
-        <td class="px-3 py-3 whitespace-nowrap">${t.created}</td>
-        <td class="px-3 py-3">
-          <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onclick="window.__wlsCollectionSorting?.viewDetail('${t.id}')">查看详情</button>
-        </td>
-      </tr>
-    `
-  }).join('')
+const columns: StandardListColumn<DistributionTask>[] = [
+  { key: 'id', title: '二次分拨任务号', width: 190, required: true, freezeable: true, sortable: true, sortValue: r => r.id,
+    render: r => `<span class="font-mono text-xs text-blue-600 font-medium">${escapeHtml(r.id)}</span>` },
+  { key: 'wave', title: '关联拣货波次', width: 200, sortable: true, sortValue: r => r.wave,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.wave)}</span>` },
+  { key: 'frame', title: '拣货框', width: 100, sortable: true, sortValue: r => r.frame,
+    render: r => `<span class="font-medium text-blue-700">${escapeHtml(r.frame)}</span>` },
+  { key: 'skuCount', title: 'SKU数', width: 80, align: 'center', sortable: true, sortValue: r => r.lines.length,
+    render: r => `<span class="text-slate-600">${r.lines.length}</span>` },
+  { key: 'handover', title: '交接总数量', width: 100, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.handover, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.handover, 0)}</span>` },
+  { key: 'distributed', title: '已分拨数量', width: 100, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.distributed, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.distributed, 0)}</span>` },
+  { key: 'pending', title: '待分拨数量', width: 100, align: 'center', sortable: true, sortValue: r => { const h = r.lines.reduce((s, l) => s + l.handover, 0); const d = r.lines.reduce((s, l) => s + l.distributed, 0); const e = r.lines.reduce((s, l) => s + l.exception, 0); return Math.max(0, h - d - e) },
+    render: r => { const h = r.lines.reduce((s, l) => s + l.handover, 0); const d = r.lines.reduce((s, l) => s + l.distributed, 0); const e = r.lines.reduce((s, l) => s + l.exception, 0); return `<span class="text-slate-600">${Math.max(0, h - d - e)}</span>` } },
+  { key: 'exception', title: '异常数量', width: 90, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.exception, 0),
+    render: r => `<span class="${r.lines.reduce((s, l) => s + l.exception, 0) > 0 ? 'text-red-600 font-medium' : 'text-slate-600'}">${r.lines.reduce((s, l) => s + l.exception, 0)}</span>` },
+  { key: 'orderCount', title: '涉及订单数', width: 100, align: 'center', sortable: true, sortValue: r => new Set(r.allocations.map(a => a.order)).size,
+    render: r => `<span class="text-slate-600">${new Set(r.allocations.map(a => a.order)).size}</span>` },
+  { key: 'boxCount', title: '涉及集货箱数', width: 110, align: 'center', sortable: true, sortValue: r => new Set(r.allocations.map(a => a.box)).size,
+    render: r => `<span class="text-slate-600">${new Set(r.allocations.map(a => a.box)).size}</span>` },
+  { key: 'status', title: '分拨状态', width: 120, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(r.status)}">${escapeHtml(statusLabel[r.status] || r.status)}</span>` },
+  { key: 'operator', title: '操作人', width: 100, sortable: true, sortValue: r => r.operator,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.operator)}</span>` },
+  { key: 'started', title: '开始时间', width: 150, sortable: true, sortValue: r => r.started,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.started)}</span>` },
+  { key: 'completed', title: '完成时间', width: 150, sortable: true, sortValue: r => r.completed,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.completed)}</span>` },
+  { key: 'created', title: '创建时间', width: 150, sortable: true, sortValue: r => r.created,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.created)}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看详情</button></div>` },
+]
 
-  return `
-    <div class="space-y-4">
-      <div>
-        <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">二次分拨列表</h2>
-        <p class="mt-1 text-[13px] text-[var(--text-muted)]">成衣仓预售订单提前集货流程 · 集货拣货波次交接后的二次分拨管理</p>
-      </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['id'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-      <div class="grid grid-cols-4 gap-3">
-        ${statsHtml}
-      </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-      <div class="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-default)] bg-white p-4">
-        <input placeholder="二次分拨任务号" class="h-9 w-44 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <input placeholder="集货拣货波次号" class="h-9 w-44 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <select class="h-9 rounded-md border border-[var(--border-default)] px-3 text-sm">
-          <option>全部来源库区</option><option>A区</option><option>B区</option><option>C区</option>
-        </select>
-        <input placeholder="SKU / 操作人" class="h-9 w-36 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <select class="h-9 rounded-md border border-[var(--border-default)] px-3 text-sm">
-          <option>全部分拨状态</option><option>待二次分拨</option><option>分拨中</option><option>已完成</option><option>异常</option>
-        </select>
-        <input type="date" class="h-9 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <input type="date" class="h-9 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <button class="rounded-md border border-[var(--link)] bg-[var(--link)] px-3 py-1.5 text-xs font-medium text-white">查询</button>
-        <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">重置</button>
-      </div>
+function filteredRows(): DistributionTask[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedTasks.filter(t => {
+    if (state.statusFilter && t.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${t.id} ${t.wave} ${t.operator}`.toLowerCase().includes(kw)
+  })
+}
 
-      <div class="overflow-auto rounded-lg border border-[var(--border-default)] bg-white">
-        <table class="min-w-[1750px] w-full text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="px-3 py-3 text-left font-medium">二次分拨任务号</th>
-              <th class="px-3 py-3 text-left font-medium">关联拣货波次</th>
-              <th class="px-3 py-3 text-left font-medium">拣货框</th>
-              <th class="px-3 py-3 text-center font-medium">SKU数</th>
-              <th class="px-3 py-3 text-center font-medium">交接总数量</th>
-              <th class="px-3 py-3 text-center font-medium">已分拨数量</th>
-              <th class="px-3 py-3 text-center font-medium">待分拨数量</th>
-              <th class="px-3 py-3 text-center font-medium">异常数量</th>
-              <th class="px-3 py-3 text-center font-medium">涉及订单数</th>
-              <th class="px-3 py-3 text-center font-medium">涉及集货箱数</th>
-              <th class="px-3 py-3 text-left font-medium">分拨状态</th>
-              <th class="px-3 py-3 text-left font-medium">操作人</th>
-              <th class="px-3 py-3 text-left font-medium">开始时间</th>
-              <th class="px-3 py-3 text-left font-medium">完成时间</th>
-              <th class="px-3 py-3 text-left font-medium">创建时间</th>
-              <th class="px-3 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-      </div>
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="分拨任务号 / 波次号 / 操作人" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">分拨状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option>${Object.entries(statusLabel).map(([k, v]) => `<option value="${k}" ${state.statusFilter === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
 
-      <div class="rounded-lg border border-[var(--border-default)] bg-white p-5 text-sm">
-        <h3 class="font-semibold text-[var(--text-primary)]">功能逻辑说明</h3>
-        <div class="mt-4 space-y-4 text-[var(--text-muted)]">
-          <section>
-            <b class="text-[var(--text-secondary)]">1. 页面说明</b>
-            <p class="mt-1">用于查看集货拣货波次完成交接后的二次分拨任务及进度；Web 仅查询管理，现场操作由 PDA【二次分拨】完成。</p>
-          </section>
-          <section>
-            <b class="text-[var(--text-secondary)]">2. 任务生成</b>
-            <p class="mt-1 rounded bg-blue-50 px-3 py-2 text-blue-700">拣货波次确认交接 → 自动生成任务 → 待二次分拨 → PDA 分拨中 → 全部处理完成</p>
-          </section>
-          <section>
-            <b class="text-[var(--text-secondary)]">3. 页面联动</b>
-            <p class="mt-1">任务与完成交接的拣货波次 1:1；PDA 更新分拨数量，集货订单和集货箱同步更新，订单集齐后进入多件打包。</p>
-          </section>
-        </div>
-      </div>
-    </div>
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '二次分拨列表',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '待二次分拨', value: `${seedTasks.filter(t => t.status === 'WAIT_DISTRIBUTION').length} 个` },
+      { label: '分拨中', value: `${seedTasks.filter(t => t.status === 'DISTRIBUTING').length} 个` },
+      { label: '已完成', value: `${seedTasks.filter(t => t.status === 'COMPLETED').length} 个` },
+      { label: '异常', value: `${seedTasks.filter(t => t.status === 'EXCEPTION').length} 个` },
+    ]),
+    listTitle: '分拨任务列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无分拨任务' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '分拨任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
 
-    <script>
-      window.__wlsCollectionSorting = {
-        viewDetail(id) { console.log('查看分拨任务详情', id) }
-      }
-    </script>
-  `
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderCollectionSorting(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleCollectionSortingEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const statusSelect = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (statusSelect) state.statusFilter = statusSelect.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

@@ -1,23 +1,25 @@
-// Auto-extracted from Higood-wms App.tsx line 32775-33053
-// 即时库存查询 — supports finished / raw / transit variants
+// @page-pattern: list
+import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed'
+import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config'
+import type { StockRealtimeItem, MaterialInventorySummary, MaterialCategory } from '../../../data/wls/types'
 
-import type { AppState } from '../../../state/store';
-import { stockRealtimeSeed } from '../../../data/wls/seed/stock-seed';
-import { materialCategoryLabelMap } from '../../../data/wls/shared/warehouse-config';
-import type { StockRealtimeItem, MaterialInventorySummary, MaterialCategory } from '../../../data/wls/types';
-
-type Variant = 'finished' | 'raw' | 'transit';
-
-const PAGE_SIZE = 20;
+type Variant = 'finished' | 'raw' | 'transit'
 
 function formatDualQty(pkgQty: number, pkgUnit: string, baseQty: number, baseUnit: string): string {
-  return `${pkgQty} ${pkgUnit} / ${baseQty} ${baseUnit}`;
+  return `${pkgQty} ${pkgUnit} / ${baseQty} ${baseUnit}`
 }
 
 const RAW_MATERIAL_INVENTORY: MaterialInventorySummary[] = (() => {
-  const categories: MaterialCategory[] = ['FABRIC', 'ACCESSORY', 'YARN', 'CONSUMABLE', 'PACKAGING'];
-  const warehouses = ['中央总仓-面料仓', '中央总仓-辅料仓', '中央总仓-纱线仓', '中央总仓-耗材仓', '中央总仓-包材仓'];
-  const items: MaterialInventorySummary[] = [];
+  const warehouses = ['中央总仓-面料仓', '中央总仓-辅料仓', '中央总仓-纱线仓', '中央总仓-耗材仓', '中央总仓-包材仓']
+  const items: MaterialInventorySummary[] = []
   const sampleData = [
     { cat: 'FABRIC' as MaterialCategory, name: '全棉平纹布 32S', spu: 'SPU-MF-10001', sku: 'SKU-MF-10001', wh: '中央总仓-面料仓', pkgU: '卷', baseU: '米', pkg: 120, base: 9600, availPkg: 98, availBase: 7840, reqPkg: 12, reqBase: 960, pendPkg: 10, pendBase: 800 },
     { cat: 'FABRIC' as MaterialCategory, name: '涤纶针织面料 40D', spu: 'SPU-MF-10002', sku: 'SKU-MF-10002', wh: '中央总仓-面料仓', pkgU: '卷', baseU: '米', pkg: 85, base: 6800, availPkg: 70, availBase: 5600, reqPkg: 8, reqBase: 640, pendPkg: 7, pendBase: 560 },
@@ -31,7 +33,7 @@ const RAW_MATERIAL_INVENTORY: MaterialInventorySummary[] = (() => {
     { cat: 'PACKAGING' as MaterialCategory, name: '瓦楞纸箱 5层 60×40×30cm', spu: 'SPU-MP-50002', sku: 'SKU-MP-50002', wh: '中央总仓-包材仓', pkgU: '箱', baseU: '个', pkg: 45, base: 5400, availPkg: 38, availBase: 4560, reqPkg: 4, reqBase: 480, pendPkg: 3, pendBase: 360 },
     { cat: 'FABRIC' as MaterialCategory, name: '亚麻棉混纺 20×16', spu: 'SPU-MF-10004', sku: 'SKU-MF-10004', wh: '中央总仓-面料仓', pkgU: '卷', baseU: '米', pkg: 0, base: 0, availPkg: 0, availBase: 0, reqPkg: 0, reqBase: 0, pendPkg: 0, pendBase: 0 },
     { cat: 'ACCESSORY' as MaterialCategory, name: '热转印标码 S码', spu: 'SPU-MA-20003', sku: 'SKU-MA-20003', wh: '中央总仓-辅料仓', pkgU: '包', baseU: '颗', pkg: 300, base: 60000, availPkg: 280, availBase: 56000, reqPkg: 10, reqBase: 2000, pendPkg: 10, pendBase: 2000 },
-  ];
+  ]
   for (const d of sampleData) {
     items.push({
       id: `MI-${d.sku}`,
@@ -56,320 +58,358 @@ const RAW_MATERIAL_INVENTORY: MaterialInventorySummary[] = (() => {
       supplier_name: '默认供应商',
       batch_no: `B2026${String(items.length + 1).padStart(4, '0')}`,
       stock_status: d.pkg > 0 ? '正常' : '待上架',
-    });
+    })
   }
   return items;
-})();
-
-function renderFinishedColumns(variant: Variant): string {
-  const columns: Array<{ label: string; tip: string }> = [
-    { label: '商品图片', tip: '商品主图，用于快速识别商品。' },
-    { label: '商品名称', tip: '商品在系统中的标准名称。' },
-    { label: '商品SPU', tip: '商品SPU（款级编码），用于标识商品款。' },
-    { label: '商品SKU', tip: '商品SKU（规格编码），用于标识具体规格。' },
-  ];
-  if (variant === 'transit') {
-    columns.push({ label: '单位', tip: '按SKU主数据展示单位。' });
-  }
-  columns.push(
-    { label: '仓库名称', tip: '当前库存所属仓库。' },
-    { label: '总库存', tip: '总库存 = 现货库存 + 在途库存（不含瑕疵品库存、破损库存）。' },
-    { label: '现货库存', tip: '仓库内库存。' },
-    { label: '在途库存', tip: '已发运但未正式入库的库存数量。' },
-    { label: '退货待检库存', tip: '按需质检数统计的退货待检库存。' },
-    { label: '瑕疵品库存', tip: '质检结果为瑕疵且完成上架的库存数量。' },
-    { label: '破损库存', tip: '质检结果为报废的库存数量。' },
-    { label: '预售订单占用库存', tip: '出库类型为预售出库的订单占用库存。' },
-    { label: '现货订单占用库存', tip: '除预售出库外，其他出库类型的订单占用库存。' },
-    { label: '可售库存', tip: '可售库存 = 现货库存 - 预售订单占用库存 - 现货订单占用库存。' },
-  );
-  return columns
-    .map(
-      (col) => `<th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium text-[var(--text-secondary)]">
-      <span class="inline-flex items-center gap-1">
-        <span>${col.label}</span>
-        <button type="button"
-          class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-default)] bg-white text-[10px] leading-none text-[var(--text-muted)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
-          aria-label="${col.label} 字段说明：${col.tip}"
-          data-tip="${col.tip}"
-          onclick="window.__wlsStockRealtime?.showTip(event, this)"
-          onmouseenter="window.__wlsStockRealtime?.showTip(event, this)"
-          onmouseleave="window.__wlsStockRealtime?.hideTip()"
-          onfocus="window.__wlsStockRealtime?.showTip(event, this)"
-          onblur="window.__wlsStockRealtime?.hideTip()">?</button>
-      </span>
-    </th>`,
-    )
-    .join('');
-}
-
-function renderRawHeader(): string {
-  const heads = ['物料分类', '物料名称', '物料 SPU', '物料 SKU', '仓库', '总库存', '现货库存', '在途库存', '领料单占用库存', '可用库存', '待上架库存'];
-  return heads
-    .map((h) => `<th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium text-[var(--text-secondary)]">${h}</th>`)
-    .join('');
-}
+})()
 
 function categoryBadgeClass(cat: MaterialCategory): string {
   switch (cat) {
-    case 'FABRIC': return 'bg-[#DBEAFE] text-[#1D4ED8]';
-    case 'ACCESSORY': return 'bg-[#DCFCE7] text-[#166534]';
-    case 'CONSUMABLE': return 'bg-[#FFEDD5] text-[#C2410C]';
-    case 'PACKAGING': return 'bg-[#F3E8FF] text-[#7E22CE]';
-    default: return 'bg-[#CFFAFE] text-[#0E7490]';
+    case 'FABRIC': return 'bg-blue-100 text-blue-800'
+    case 'ACCESSORY': return 'bg-emerald-100 text-emerald-800'
+    case 'CONSUMABLE': return 'bg-orange-100 text-orange-800'
+    case 'PACKAGING': return 'bg-purple-100 text-purple-800'
+    default: return 'bg-cyan-100 text-cyan-800'
   }
 }
 
-function renderFinishedRows(items: StockRealtimeItem[], variant: Variant): string {
-  return items
-    .map((item) => {
-      const totalStock = item.spotStock + item.transitStock;
-      const availableStock = item.spotStock <= 0 ? 0 : Math.max(0, item.spotStock - item.preSaleOrderOccupiedQuantity - item.spotOrderOccupiedQuantity);
-      const unitCol = variant === 'transit' ? `<td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.unit || '-'}</td>` : '';
-      return `<tr class="hover:bg-[var(--bg-hover)]">
-        <td class="min-w-[10rem] border-b border-[var(--border-subtle)] px-3 py-2">
-          <img src="${item.image}" alt="${item.productName}" class="h-12 w-12 rounded-[7px] border border-[var(--border-default)] object-cover" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2248%22 height=%2248%22><rect width=%2248%22 height=%2248%22 fill=%22%23f1f5f9%22/><text x=%2224%22 y=%2228%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2210%22>图片</text></svg>'"/>
-        </td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.productName}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] text-[var(--link)]">${item.spu}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.sku}</td>
-        ${unitCol}
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.warehouseName}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-medium text-[var(--text-primary)]">${totalStock}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.spotStock}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.transitStock}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#B54708]">${item.pendingReturnQualityQuantity}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#C4320A]">${item.defectiveStock}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#B42318]">${item.damagedStock}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#B42318]">${item.preSaleOrderOccupiedQuantity}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#B42318]">${item.spotOrderOccupiedQuantity}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#067647]">${availableStock}</td>
-      </tr>`;
+const EVENT_PREFIX = 'wls-stock-realtime'
+const PREFERENCE_KEY_BASE = '/wls/finished/stock-realtime:list-columns:'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  activeVariant: 'finished' as Variant,
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 20 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  categoryFilter: '' as string,
+  warehouseFilter: '' as string,
+}
+
+function preferenceKey(): string {
+  return PREFERENCE_KEY_BASE + state.activeVariant
+}
+
+/* ---------- Finished / Transit columns ---------- */
+
+const finishedColumns: StandardListColumn<StockRealtimeItem>[] = [
+  { key: 'image', title: '商品图片', width: 100, required: true,
+    render: r => `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.productName)}" class="h-12 w-12 rounded-md border border-slate-200 object-cover" onerror="this.style.display='none'">` },
+  { key: 'productName', title: '商品名称', width: 180, sortable: true, sortValue: r => r.productName,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.productName)}</span>` },
+  { key: 'spu', title: '商品SPU', width: 160, sortable: true, sortValue: r => r.spu,
+    render: r => `<span class="font-mono text-xs text-blue-600">${escapeHtml(r.spu)}</span>` },
+  { key: 'sku', title: '商品SKU', width: 160, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
+  { key: 'warehouseName', title: '仓库名称', width: 160, sortable: true, sortValue: r => r.warehouseName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseName)}</span>` },
+  { key: 'totalStock', title: '总库存', width: 90, align: 'right', sortable: true, sortValue: r => r.spotStock + r.transitStock,
+    render: r => `<span class="font-medium text-slate-700">${r.spotStock + r.transitStock}</span>` },
+  { key: 'spotStock', title: '现货库存', width: 100, align: 'right', sortable: true, sortValue: r => r.spotStock,
+    render: r => `<span class="text-slate-600">${r.spotStock}</span>` },
+  { key: 'transitStock', title: '在途库存', width: 100, align: 'right', sortable: true, sortValue: r => r.transitStock,
+    render: r => `<span class="text-slate-600">${r.transitStock}</span>` },
+  { key: 'pendingReturnQualityQuantity', title: '退货待检库存', width: 120, align: 'right', sortable: true, sortValue: r => r.pendingReturnQualityQuantity,
+    render: r => `<span class="font-semibold text-orange-700">${r.pendingReturnQualityQuantity}</span>` },
+  { key: 'defectiveStock', title: '瑕疵品库存', width: 100, align: 'right', sortable: true, sortValue: r => r.defectiveStock,
+    render: r => `<span class="font-semibold text-red-700">${r.defectiveStock}</span>` },
+  { key: 'damagedStock', title: '破损库存', width: 100, align: 'right', sortable: true, sortValue: r => r.damagedStock,
+    render: r => `<span class="font-semibold text-red-800">${r.damagedStock}</span>` },
+  { key: 'preSaleOrderOccupiedQuantity', title: '预售订单占用', width: 120, align: 'right', sortable: true, sortValue: r => r.preSaleOrderOccupiedQuantity,
+    render: r => `<span class="font-semibold text-red-700">${r.preSaleOrderOccupiedQuantity}</span>` },
+  { key: 'spotOrderOccupiedQuantity', title: '现货订单占用', width: 120, align: 'right', sortable: true, sortValue: r => r.spotOrderOccupiedQuantity,
+    render: r => `<span class="font-semibold text-red-700">${r.spotOrderOccupiedQuantity}</span>` },
+  { key: 'availableStock', title: '可售库存', width: 100, align: 'right', sortable: true,
+    sortValue: r => r.spotStock <= 0 ? 0 : Math.max(0, r.spotStock - r.preSaleOrderOccupiedQuantity - r.spotOrderOccupiedQuantity),
+    render: r => {
+      const avail = r.spotStock <= 0 ? 0 : Math.max(0, r.spotStock - r.preSaleOrderOccupiedQuantity - r.spotOrderOccupiedQuantity)
+      return `<span class="font-semibold text-emerald-700">${avail}</span>`
+    } },
+]
+
+/* ---------- Transit columns (adds unit) ---------- */
+
+const transitColumns: StandardListColumn<StockRealtimeItem>[] = [
+  ...finishedColumns.slice(0, 4),
+  { key: 'unit', title: '单位', width: 70, sortable: true, sortValue: r => r.unit || '',
+    render: r => `<span class="text-slate-600">${escapeHtml(r.unit || '-')}</span>` },
+  ...finishedColumns.slice(4),
+]
+
+/* ---------- Raw material columns ---------- */
+
+const rawColumns: StandardListColumn<MaterialInventorySummary>[] = [
+  { key: 'category', title: '物料分类', width: 110, sortable: true, sortValue: r => r.material_category,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${categoryBadgeClass(r.material_category)}">${escapeHtml(materialCategoryLabelMap[r.material_category] || r.material_category)}</span>` },
+  { key: 'materialName', title: '物料名称', width: 200, sortable: true, sortValue: r => r.material_name,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.material_name)}</span>` },
+  { key: 'spuCode', title: '物料SPU', width: 160, sortable: true, sortValue: r => r.spu_code,
+    render: r => `<span class="font-mono text-xs text-blue-600">${escapeHtml(r.spu_code)}</span>` },
+  { key: 'skuCode', title: '物料SKU', width: 160, sortable: true, sortValue: r => r.sku_code,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku_code)}</span>` },
+  { key: 'warehouseName', title: '仓库', width: 160, sortable: true, sortValue: r => r.warehouse_name,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouse_name)}</span>` },
+  { key: 'totalStock', title: '总库存', width: 140, align: 'right', sortable: true, sortValue: r => r.package_qty,
+    render: r => `<span class="font-medium text-slate-700">${escapeHtml(formatDualQty(r.package_qty, r.package_unit, r.base_qty, r.base_unit))}</span>` },
+  { key: 'spotStock', title: '现货库存', width: 140, align: 'right', sortable: true,
+    sortValue: r => Math.max(0, r.package_qty - r.pending_putaway_package_qty),
+    render: r => `<span class="text-slate-600">${escapeHtml(formatDualQty(Math.max(0, r.package_qty - r.pending_putaway_package_qty), r.package_unit, Math.max(0, r.base_qty - r.pending_putaway_base_qty), r.base_unit))}</span>` },
+  { key: 'transitStock', title: '在途库存', width: 140, align: 'right', sortable: true, sortValue: r => r.pending_putaway_package_qty,
+    render: r => `<span class="text-slate-600">${escapeHtml(formatDualQty(r.pending_putaway_package_qty, r.package_unit, r.pending_putaway_base_qty, r.base_unit))}</span>` },
+  { key: 'requisitionOccupied', title: '领料单占用', width: 140, align: 'right', sortable: true, sortValue: r => r.requisition_occupied_base_qty,
+    render: r => `<span class="text-red-700">${r.requisition_occupied_base_qty > 0 ? escapeHtml(formatDualQty(r.requisition_occupied_package_qty, r.package_unit, r.requisition_occupied_base_qty, r.base_unit)) : '0'}</span>` },
+  { key: 'availableStock', title: '可用库存', width: 140, align: 'right', sortable: true, sortValue: r => r.available_package_qty,
+    render: r => `<span class="font-semibold text-emerald-700">${escapeHtml(formatDualQty(r.available_package_qty, r.package_unit, r.available_base_qty, r.base_unit))}</span>` },
+  { key: 'pendingPutaway', title: '待上架库存', width: 140, align: 'right', sortable: true, sortValue: r => r.pending_putaway_package_qty,
+    render: r => `<span class="text-orange-700">${escapeHtml(formatDualQty(r.pending_putaway_package_qty, r.package_unit, r.pending_putaway_base_qty, r.base_unit))}</span>` },
+]
+
+/* ---------- Column rules & preferences ---------- */
+
+function activeColumns(): StandardListColumn<unknown>[] {
+  if (state.activeVariant === 'raw') return rawColumns as StandardListColumn<unknown>[]
+  if (state.activeVariant === 'transit') return transitColumns as StandardListColumn<unknown>[]
+  return finishedColumns as StandardListColumn<unknown>[]
+}
+
+function columnRules() {
+  return activeColumns().map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+}
+
+function defaultPreferences(): StandardListColumnPreferences {
+  const cols = activeColumns()
+  return {
+    order: cols.map(c => c.key),
+    visibleKeys: cols.filter(c => c.required || c.actionColumn).map(c => c.key),
+    frozenKeys: cols.filter(c => c.freezeable && c.required).map(c => c.key).slice(0, 2),
+    pageSize: PAGE_SIZE_OPTIONS[1],
+  }
+}
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, preferenceKey(), columnRules(), defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+/* ---------- Data accessors ---------- */
+
+function getFinishedItems(): StockRealtimeItem[] {
+  return stockRealtimeSeed.filter(item => {
+    if (state.activeVariant === 'transit') return item.warehouse_type === 'TRANSIT'
+    return item.warehouse_type !== 'TRANSIT' && item.warehouse_type !== 'FABRIC' && item.warehouse_type !== 'ACCESSORY' && item.warehouse_type !== 'YARN' && item.warehouse_type !== 'CONSUMABLE' && item.warehouse_type !== 'PACKAGING'
+  })
+}
+
+function getRawItems(): MaterialInventorySummary[] {
+  return RAW_MATERIAL_INVENTORY
+}
+
+function filteredRowCount(): number {
+  const kw = state.keyword.trim().toLowerCase()
+  if (state.activeVariant === 'raw') {
+    return getRawItems().filter(item => {
+      if (state.categoryFilter && item.material_category !== state.categoryFilter) return false
+      if (state.warehouseFilter && item.warehouse_name !== state.warehouseFilter) return false
+      if (!kw) return true
+      return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
+    }).length
+  }
+  return getFinishedItems().filter(item => {
+    if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
+    if (!kw) return true
+    return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
+  }).length
+}
+
+/* ---------- Filters ---------- */
+
+function renderFilters(): string {
+  if (state.activeVariant === 'raw') {
+    const rawWarehouseOptions = [...new Set(RAW_MATERIAL_INVENTORY.map(i => i.warehouse_name))]
+    const categories: Array<{ value: MaterialCategory; label: string }> = [
+      { value: 'FABRIC', label: '面料' }, { value: 'ACCESSORY', label: '辅料' },
+      { value: 'CONSUMABLE', label: '耗材' }, { value: 'PACKAGING', label: '包材' }, { value: 'YARN', label: '纱线' },
+    ]
+    return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="物料名称 / SPU / SKU / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">物料分类</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="category"><option value="">全部</option>${categories.map(c => `<option value="${c.value}" ${state.categoryFilter === c.value ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部</option>${rawWarehouseOptions.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+  }
+
+  const warehouses = [...new Set(getFinishedItems().map(i => i.warehouseName))]
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-3"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="商品名称 / SPU / SKU / 仓库名称" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+/* ---------- Workspace ---------- */
+
+function titleForVariant(v: Variant): string {
+  return v === 'raw' ? '即时库存查询 — 原料' : v === 'transit' ? '即时库存查询 — 在途' : '即时库存查询 — 成衣'
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const variant = state.activeVariant
+  const cols = activeColumns()
+  const total = filteredRowCount()
+  const kw = state.keyword.trim().toLowerCase()
+
+  let rows: unknown[]
+  if (variant === 'raw') {
+    rows = getRawItems().filter(item => {
+      if (state.categoryFilter && item.material_category !== state.categoryFilter) return false
+      if (state.warehouseFilter && item.warehouse_name !== state.warehouseFilter) return false
+      if (!kw) return true
+      return `${item.material_name} ${item.spu_code} ${item.sku_code} ${item.warehouse_name}`.toLowerCase().includes(kw)
     })
-    .join('');
+  } else {
+    rows = getFinishedItems().filter(item => {
+      if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
+      if (!kw) return true
+      return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
+    })
+  }
+
+  const sorted = sortStandardListRows(rows, state.sort, (row, key) => {
+    const col = cols.find(c => c.key === key)
+    return col?.sortValue?.(row as never)
+  })
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+
+  const statsItems = variant === 'raw'
+    ? [
+        { label: '物料总数', value: `${RAW_MATERIAL_INVENTORY.length} 条` },
+        { label: '面料', value: `${RAW_MATERIAL_INVENTORY.filter(i => i.material_category === 'FABRIC').length} 条` },
+        { label: '辅料', value: `${RAW_MATERIAL_INVENTORY.filter(i => i.material_category === 'ACCESSORY').length} 条` },
+      ]
+    : [
+        { label: '商品总数', value: `${getFinishedItems().length} 条` },
+        { label: '现货充足', value: `${getFinishedItems().filter(i => i.spotStock > 10).length} 条` },
+        { label: '低库存', value: `${getFinishedItems().filter(i => i.spotStock <= 10 && i.spotStock > 0).length} 条` },
+      ]
+
+  return renderStandardListPage({
+    title: titleForVariant(variant),
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats(statsItems),
+    listTitle: variant === 'raw' ? '原料库存列表' : '商品库存列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns: cols, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无库存数据' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: `${titleForVariant(variant)} 列设置`, columns: cols, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
 }
 
-function renderRawRows(items: MaterialInventorySummary[]): string {
-  return items
-    .map(
-      (item) => `<tr class="hover:bg-[var(--bg-hover)]">
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-          <span class="inline-flex rounded-full px-2 py-[2px] text-[11px] ${categoryBadgeClass(item.material_category)}">${materialCategoryLabelMap[item.material_category]}</span>
-        </td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.material_name}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] text-[var(--link)]">${item.spu_code}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.sku_code}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${item.warehouse_name}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${formatDualQty(item.package_qty, item.package_unit, item.base_qty, item.base_unit)}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${formatDualQty(Math.max(0, item.package_qty - item.pending_putaway_package_qty), item.package_unit, Math.max(0, item.base_qty - item.pending_putaway_base_qty), item.base_unit)}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${formatDualQty(item.pending_putaway_package_qty, item.package_unit, item.pending_putaway_base_qty, item.base_unit)}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] text-[#B42318]">${item.requisition_occupied_base_qty > 0 ? formatDualQty(item.requisition_occupied_package_qty, item.package_unit, item.requisition_occupied_base_qty, item.base_unit) : '0'}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] font-semibold text-[#067647]">${formatDualQty(item.available_package_qty, item.package_unit, item.available_base_qty, item.base_unit)}</td>
-        <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] text-[#B54708]">${formatDualQty(item.pending_putaway_package_qty, item.package_unit, item.pending_putaway_base_qty, item.base_unit)}</td>
-      </tr>`,
-    )
-    .join('');
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
 }
 
-function renderPagination(total: number, page: number, totalPages: number): string {
-  if (totalPages <= 1) return '';
-  const pages: number[] = [];
-  for (let i = 1; i <= totalPages; i++) pages.push(i);
-  return `<div class="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] px-1 pt-3">
-    <span class="text-[12px] text-[var(--text-muted)]">共 ${total} 条记录，第 ${page}/${totalPages} 页</span>
-    <div class="flex items-center gap-1">
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page <= 1 ? 'disabled' : ''} onclick="window.__wlsStockRealtime?.goPage(${page - 1})">上一页</button>
-      ${pages.map((p) => `<button type="button" class="rounded-[6px] border px-2 py-1 text-[12px] transition ${p === page ? 'border-[var(--primary)] bg-[var(--primary)] text-white' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]'}" onclick="window.__wlsStockRealtime?.goPage(${p})">${p}</button>`).join('')}
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page >= totalPages ? 'disabled' : ''} onclick="window.__wlsStockRealtime?.goPage(${page + 1})">下一页</button>
-    </div>
-  </div>`;
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
 }
 
-export function renderStockRealtime(state: AppState, variant: Variant = 'finished'): string {
-  const isRaw = variant === 'raw';
-  const isTransit = variant === 'transit';
-  const title = isRaw ? '即时库存查询' : '即时库存查询';
-  const subtitle = isRaw ? '用于查询原料仓库当前SKU库存数量。' : '用于查看当前各库位库存实时分布。';
-  const searchPlaceholder = isRaw ? '搜索物料名称 / SPU / SKU / 库位' : '搜索商品名称 / SPU / SKU / 仓库名称';
-  const tableMinWidth = isRaw ? '1720px' : '2140px';
-
-  const allFinishedItems = stockRealtimeSeed.filter((item) => {
-    if (variant === 'raw') return false;
-    if (variant === 'transit') return item.warehouse_type === 'TRANSIT';
-    return item.warehouse_type !== 'TRANSIT' && item.warehouse_type !== 'FABRIC' && item.warehouse_type !== 'ACCESSORY' && item.warehouse_type !== 'YARN' && item.warehouse_type !== 'CONSUMABLE' && item.warehouse_type !== 'PACKAGING';
-  });
-
-  const rawItems = isRaw ? RAW_MATERIAL_INVENTORY : [];
-  const finishedItems = isRaw ? [] : allFinishedItems;
-  const totalItems = isRaw ? rawItems.length : finishedItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const pageItems = isRaw ? rawItems.slice(0, PAGE_SIZE) : finishedItems.slice(0, PAGE_SIZE);
-
-  const rawWarehouseOptions = [...new Set(RAW_MATERIAL_INVENTORY.map((i) => i.warehouse_name))];
-  const rawPackageUnitOptions = [...new Set(RAW_MATERIAL_INVENTORY.map((i) => i.package_unit))];
-
-  return `<section>
-    <div class="mb-4">
-      <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">${title}</h2>
-      <p class="mt-1 text-[13px] text-[var(--text-muted)]">${subtitle}</p>
-    </div>
-
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="space-y-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <input id="wls-stock-rt-search" value="" placeholder="${searchPlaceholder}" class="w-[360px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-          ${isRaw ? `<select id="wls-stock-rt-cat" class="w-[150px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option value="全部">物料分类：全部</option>
-            <option value="FABRIC">物料分类：面料</option>
-            <option value="ACCESSORY">物料分类：辅料</option>
-            <option value="CONSUMABLE">物料分类：耗材</option>
-            <option value="PACKAGING">物料分类：包材</option>
-            <option value="YARN">物料分类：纱线</option>
-          </select>
-          <select id="wls-stock-rt-wh" class="w-[150px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option value="全部">仓库：全部</option>
-            ${rawWarehouseOptions.map((w) => `<option value="${w}">仓库：${w}</option>`).join('')}
-          </select>
-          <select id="wls-stock-rt-pkg" class="w-[150px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option value="全部">包装单位：全部</option>
-            ${rawPackageUnitOptions.map((u) => `<option value="${u}">包装单位：${u}</option>`).join('')}
-          </select>` : ''}
-          <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsStockRealtime?.clear()">清除</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="rounded-[12px] border border-[var(--border-default)] bg-white">
-      <div class="overflow-x-auto rounded-[10px] border border-[var(--border-default)]">
-        <table class="w-full text-[13px]" style="min-width:${tableMinWidth}">
-          <thead>${isRaw ? `<tr>${renderRawHeader()}</tr>` : `<tr>${renderFinishedColumns(variant)}</tr>`}</thead>
-          <tbody>${isRaw ? renderRawRows(pageItems as MaterialInventorySummary[]) : renderFinishedRows(pageItems as StockRealtimeItem[], variant)}</tbody>
-        </table>
-      </div>
-      ${renderPagination(totalItems, 1, totalPages)}
-    </div>
-
-    <div id="wls-stock-rt-tooltip" class="pointer-events-none fixed z-[9999] hidden w-max max-w-[280px] whitespace-normal rounded-[12px] border border-[var(--border-default)] bg-white px-3 py-2 text-left text-[12px] font-normal leading-[1.4] text-[var(--text-primary)] shadow-[0_12px_32px_rgba(16,24,40,0.16)]" style="transform:translate(-50%,-100%)">
-      <span id="wls-stock-rt-tooltip-text"></span>
-      <span class="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-[var(--border-default)] bg-white"></span>
-    </div>
-
-    <script>
-    (function() {
-      var variant = ${JSON.stringify(variant)};
-      var allFinished = ${JSON.stringify(finishedItems.map((i) => ({ ...i, image: i.image || '' })))};
-      var allRaw = ${JSON.stringify(rawItems)};
-      var pageSize = ${PAGE_SIZE};
-      var currentPage = 1;
-      var keyword = '';
-      var catFilter = '全部';
-      var whFilter = '全部';
-      var pkgFilter = '全部';
-
-      function getFiltered() {
-        var items = variant === 'raw' ? allRaw : allFinished;
-        if (!keyword && catFilter === '全部' && whFilter === '全部' && pkgFilter === '全部') return items;
-        return items.filter(function(item) {
-          if (variant === 'raw') {
-            if (catFilter !== '全部' && item.material_category !== catFilter) return false;
-            if (whFilter !== '全部' && item.warehouse_name !== whFilter) return false;
-            if (pkgFilter !== '全部' && item.package_unit !== pkgFilter) return false;
-            if (keyword) {
-              var kw = keyword.toLowerCase();
-              return (item.material_name || '').toLowerCase().includes(kw) || (item.spu_code || '').toLowerCase().includes(kw) || (item.sku_code || '').toLowerCase().includes(kw) || (item.warehouse_name || '').toLowerCase().includes(kw);
-            }
-            return true;
-          } else {
-            if (keyword) {
-              var kw = keyword.toLowerCase();
-              return (item.productName || '').toLowerCase().includes(kw) || (item.spu || '').toLowerCase().includes(kw) || (item.sku || '').toLowerCase().includes(kw) || (item.warehouseName || '').toLowerCase().includes(kw);
-            }
-            return true;
-          }
-        });
-      }
-
-      function render() {
-        var filtered = getFiltered();
-        var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-        if (currentPage > totalPages) currentPage = totalPages;
-        var start = (currentPage - 1) * pageSize;
-        var pageItems = filtered.slice(start, start + pageSize);
-        var tbody = document.querySelector('#wls-stock-rt-table-body');
-        if (!tbody) return;
-        /* Re-render is handled by full page re-render via navigation; for prototype we update inline */
-      }
-
-      window.__wlsStockRealtime = {
-        showTip: function(event, el) {
-          var tip = el.getAttribute('data-tip');
-          if (!tip) return;
-          var rect = el.getBoundingClientRect();
-          var tooltip = document.getElementById('wls-stock-rt-tooltip');
-          var text = document.getElementById('wls-stock-rt-tooltip-text');
-          if (!tooltip || !text) return;
-          text.textContent = tip;
-          tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-          tooltip.style.top = rect.top + 'px';
-          tooltip.classList.remove('hidden');
-        },
-        hideTip: function() {
-          var tooltip = document.getElementById('wls-stock-rt-tooltip');
-          if (tooltip) tooltip.classList.add('hidden');
-        },
-        goPage: function(page) {
-          currentPage = page;
-          render();
-        },
-        clear: function() {
-          var search = document.getElementById('wls-stock-rt-search');
-          if (search) search.value = '';
-          keyword = '';
-          if (variant === 'raw') {
-            var cat = document.getElementById('wls-stock-rt-cat');
-            var wh = document.getElementById('wls-stock-rt-wh');
-            var pkg = document.getElementById('wls-stock-rt-pkg');
-            if (cat) cat.value = '全部';
-            if (wh) wh.value = '全部';
-            if (pkg) pkg.value = '全部';
-            catFilter = '全部';
-            whFilter = '全部';
-            pkgFilter = '全部';
-          }
-          currentPage = 1;
-          render();
-        }
-      };
-
-      var searchInput = document.getElementById('wls-stock-rt-search');
-      if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-          keyword = e.target.value;
-          currentPage = 1;
-          render();
-        });
-      }
-      if (variant === 'raw') {
-        var catSel = document.getElementById('wls-stock-rt-cat');
-        var whSel = document.getElementById('wls-stock-rt-wh');
-        var pkgSel = document.getElementById('wls-stock-rt-pkg');
-        if (catSel) catSel.addEventListener('change', function(e) { catFilter = e.target.value; currentPage = 1; render(); });
-        if (whSel) whSel.addEventListener('change', function(e) { whFilter = e.target.value; currentPage = 1; render(); });
-        if (pkgSel) pkgSel.addEventListener('change', function(e) { pkgFilter = e.target.value; currentPage = 1; render(); });
-      }
-    })();
-    </script>
-  </section>`;
+function renderVariant(variant: Variant): string {
+  state.activeVariant = variant
+  state.preferencesLoaded = false
+  state.currentPage = 1
+  state.keyword = ''
+  state.categoryFilter = ''
+  state.warehouseFilter = ''
+  state.sort = null
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
 }
 
-export function renderFinishedStockRealtime(state: AppState): string {
-  return renderStockRealtime(state, 'finished');
+export function renderFinishedStockRealtime(): string {
+  return renderVariant('finished')
 }
 
-export function renderRawStockRealtime(state: AppState): string {
-  return renderStockRealtime(state, 'raw');
+export function renderRawStockRealtime(): string {
+  return renderVariant('raw')
 }
 
-export function renderTransitStockRealtime(state: AppState): string {
-  return renderStockRealtime(state, 'transit');
+export function renderTransitStockRealtime(): string {
+  return renderVariant('transit')
+}
+
+export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'category') { state.categoryFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, preferenceKey(), state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const category = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="category"]`)
+    if (category) state.categoryFilter = category.value
+    const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.categoryFilter = ''
+    state.warehouseFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, preferenceKey(), state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const cols = activeColumns()
+    const col = cols.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, preferenceKey(), state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

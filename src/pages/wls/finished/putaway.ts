@@ -1,50 +1,57 @@
-// Auto-extracted from Higood-wms App.tsx line 34327-34726
-// 入库单列表 — finished warehouse putaway orders
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
-import type { AppState } from '../../../state/store';
-
-const PAGE_SIZE = 20;
-
-type PutawayStatus = '待上架' | '上架中' | '部分上架' | '上架完成';
+type PutawayStatus = '待上架' | '上架中' | '部分上架' | '上架完成'
 
 type PutawayItemLine = {
-  spuCode: string;
-  skuCode: string;
-  inboundQuantity: number;
-  putawayQuantity?: number;
-  sourceLocation?: string;
-  targetLocation?: string;
-};
+  spuCode: string; skuCode: string; inboundQuantity: number
+  putawayQuantity?: number; sourceLocation?: string; targetLocation?: string
+}
 
 type PutawayOrder = {
-  id: string;
-  orderNo: string;
-  inboundOrderNo: string;
-  paNo: string;
-  relatedOrderNo: string;
-  batchNo: string;
-  inboundWarehouse: string;
-  status: PutawayStatus;
-  itemLines: PutawayItemLine[];
-  receivedTime: string;
-  putawayTime: string;
-  operatorName: string;
-};
+  id: string; orderNo: string; inboundOrderNo: string; paNo: string; relatedOrderNo: string; batchNo: string
+  inboundWarehouse: string; status: PutawayStatus; itemLines: PutawayItemLine[]
+  receivedTime: string; putawayTime: string; operatorName: string
+}
+
+/** Flattened row: one per item line, with order-level data repeated */
+type PutawayRow = {
+  order: PutawayOrder
+  line: PutawayItemLine
+  lineIndex: number
+  lineCount: number
+}
+
+function statusBadgeClass(status: PutawayStatus): string {
+  switch (status) {
+    case '待上架': return 'bg-orange-50 text-orange-700'
+    case '部分上架': return 'bg-amber-50 text-amber-700'
+    case '上架中': return 'bg-blue-50 text-blue-700'
+    case '上架完成': return 'bg-emerald-50 text-emerald-700'
+    default: return 'bg-slate-100 text-slate-600'
+  }
+}
 
 const PUTAWAY_SEED: PutawayOrder[] = (() => {
-  const statuses: PutawayStatus[] = ['待上架', '上架中', '部分上架', '上架完成'];
-  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01'];
-  const operators = ['张伟', '李娜', '王强', '刘洋', '陈静'];
-  const zones = ['A区', 'B区', 'C区', 'D区'];
-  const items: PutawayOrder[] = [];
+  const statuses: PutawayStatus[] = ['待上架', '上架中', '部分上架', '上架完成']
+  const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01']
+  const operators = ['张伟', '李娜', '王强', '刘洋', '陈静']
+  const zones = ['A区', 'B区', 'C区', 'D区']
+  const items: PutawayOrder[] = []
 
   for (let i = 0; i < 38; i++) {
-    const status = statuses[i % 4];
-    const lineCount = 1 + (i % 3);
-    const lines: PutawayItemLine[] = [];
+    const status = statuses[i % 4]
+    const lineCount = 1 + (i % 3)
+    const lines: PutawayItemLine[] = []
     for (let j = 0; j < lineCount; j++) {
-      const inboundQty = 50 + ((i + j) * 7) % 200;
-      const putawayQty = status === '上架完成' ? inboundQty : status === '部分上架' ? Math.floor(inboundQty * 0.6) : status === '上架中' ? Math.floor(inboundQty * 0.3) : 0;
+      const inboundQty = 50 + ((i + j) * 7) % 200
+      const putawayQty = status === '上架完成' ? inboundQty : status === '部分上架' ? Math.floor(inboundQty * 0.6) : status === '上架中' ? Math.floor(inboundQty * 0.3) : 0
       lines.push({
         spuCode: `SPU-GC-${String(10001 + ((i + j) % 20)).padStart(5, '0')}`,
         skuCode: `SKU-GC-${String(40001 + i * 3 + j).padStart(5, '0')}`,
@@ -52,13 +59,13 @@ const PUTAWAY_SEED: PutawayOrder[] = (() => {
         putawayQuantity: putawayQty > 0 ? putawayQty : undefined,
         sourceLocation: status !== '待上架' ? `${zones[(i + j) % zones.length]}-${String((i % 12) + 1).padStart(2, '0')}-${String((j % 4) + 1).padStart(2, '0')}` : undefined,
         targetLocation: status !== '待上架' ? `${zones[(i + j + 1) % zones.length]}-${String(((i + 1) % 12) + 1).padStart(2, '0')}-${String(((j + 1) % 4) + 1).padStart(2, '0')}` : undefined,
-      });
+      })
     }
 
-    const dayOffset = Math.floor(i / 8);
-    const baseDate = new Date(2026, 8, 18 - dayOffset, 7 + (i % 10), (i * 13) % 60);
-    const receivedTime = baseDate.toISOString().slice(0, 16).replace('T', ' ');
-    const putawayTime = status !== '待上架' ? new Date(baseDate.getTime() + 3600000 * (1 + (i % 3))).toISOString().slice(0, 16).replace('T', ' ') : '-';
+    const dayOffset = Math.floor(i / 8)
+    const baseDate = new Date(2026, 8, 18 - dayOffset, 7 + (i % 10), (i * 13) % 60)
+    const receivedTime = baseDate.toISOString().slice(0, 16).replace('T', ' ')
+    const putawayTime = status !== '待上架' ? new Date(baseDate.getTime() + 3600000 * (1 + (i % 3))).toISOString().slice(0, 16).replace('T', ' ') : '-'
 
     items.push({
       id: `PA-${String(i + 1).padStart(5, '0')}`,
@@ -73,155 +80,214 @@ const PUTAWAY_SEED: PutawayOrder[] = (() => {
       receivedTime,
       putawayTime,
       operatorName: operators[i % operators.length],
-    });
+    })
   }
-  return items;
-})();
+  return items
+})()
 
-function statusBadgeClass(status: PutawayStatus): string {
-  switch (status) {
-    case '待上架': return 'bg-[#FFEAD5] text-[#B54708]';
-    case '部分上架': return 'bg-[#FEF0C7] text-[#B54708]';
-    case '上架中': return 'bg-[#EEF4FF] text-[#175CD3]';
-    case '上架完成': return 'bg-[#D1FADF] text-[#067647]';
-    default: return 'bg-[#F2F4F7] text-[#475467]';
+function flattenOrders(orders: PutawayOrder[]): PutawayRow[] {
+  const rows: PutawayRow[] = []
+  for (const order of orders) {
+    const lines = order.itemLines.length > 0 ? order.itemLines : [{ spuCode: 'SPU-GC-10001', skuCode: 'SKU-GC-40001', inboundQuantity: 0 }]
+    lines.forEach((line, lineIndex) => {
+      rows.push({ order, line, lineIndex, lineCount: lines.length })
+    })
   }
+  return rows
 }
 
-function renderPagination(total: number, page: number, totalPages: number): string {
-  if (totalPages <= 1) return '';
-  return `<div class="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] px-1 pt-3">
-    <span class="text-[12px] text-[var(--text-muted)]">共 ${total} 条记录，第 ${page}/${totalPages} 页</span>
-    <div class="flex items-center gap-1">
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page <= 1 ? 'disabled' : ''} onclick="window.__wlsPutaway?.goPage(${page - 1})">上一页</button>
-      <button type="button" class="rounded-[6px] border border-[var(--primary)] bg-[var(--primary)] px-2 py-1 text-[12px] text-white">${page}</button>
-      <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" ${page >= totalPages ? 'disabled' : ''} onclick="window.__wlsPutaway?.goPage(${page + 1})">下一页</button>
-    </div>
-  </div>`;
+const EVENT_PREFIX = 'wls-putaway'
+const PREFERENCE_KEY = '/wls/finished/putaway:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
 }
 
-export function renderFinishedPutaway(state: AppState): string {
-  const allItems = PUTAWAY_SEED;
-  const totalItems = allItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const pageItems = allItems.slice(0, PAGE_SIZE);
+const columns: StandardListColumn<PutawayRow>[] = [
+  { key: 'orderNos', title: '单号', width: 220, required: true, freezeable: true,
+    render: r => `<div class="space-y-0.5 text-xs">
+      <div><span class="text-slate-400">入库单号：</span><span class="text-slate-700">${escapeHtml(r.order.inboundOrderNo || r.order.orderNo)}</span></div>
+      <div><span class="text-slate-400">上架单号：</span><span class="text-slate-700">${escapeHtml(r.order.paNo)}</span></div>
+      <div><span class="text-slate-400">关联单号（ASN）：</span><span class="text-slate-700">${escapeHtml(r.order.relatedOrderNo || r.order.orderNo)}</span></div>
+      <div><span class="text-slate-400">批次号：</span><span class="text-slate-700">${escapeHtml(r.order.batchNo)}</span></div>
+    </div>` },
+  { key: 'inboundWarehouse', title: '入库仓库', width: 160, sortable: true, sortValue: r => r.order.inboundWarehouse,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.order.inboundWarehouse || '暂无')}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.order.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusBadgeClass(r.order.status)}">${escapeHtml(r.order.status)}</span>` },
+  { key: 'putawayMethod', title: '上架方式', width: 100,
+    render: () => `<span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">手动上架</span>` },
+  { key: 'inboundQuantity', title: '入库数量', width: 90, align: 'right', sortable: true, sortValue: r => r.line.inboundQuantity,
+    render: r => `<span class="text-slate-600">${r.line.inboundQuantity > 0 ? r.line.inboundQuantity : '-'}</span>` },
+  { key: 'spuCode', title: 'SPU编码', width: 150, sortable: true, sortValue: r => r.line.spuCode,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.line.spuCode)}</span>` },
+  { key: 'skuCode', title: 'SKU 编码', width: 150, sortable: true, sortValue: r => r.line.skuCode,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.line.skuCode)}</span>` },
+  { key: 'sourceLocation', title: '库区', width: 100,
+    render: r => `<span class="text-slate-600">${r.order.status !== '待上架' ? escapeHtml(r.line.sourceLocation || '暂无') : '暂无'}</span>` },
+  { key: 'targetLocation', title: '目标库位', width: 100,
+    render: r => `<span class="text-slate-600">${r.order.status !== '待上架' ? escapeHtml(r.line.targetLocation || '暂无') : '暂无'}</span>` },
+  { key: 'putawayQuantity', title: '上架数量', width: 90, align: 'right', sortable: true, sortValue: r => r.line.putawayQuantity || 0,
+    render: r => `<span class="text-slate-600">${r.line.putawayQuantity && r.line.putawayQuantity > 0 ? r.line.putawayQuantity : '暂无'}</span>` },
+  { key: 'time', title: '时间', width: 180,
+    render: r => `<div class="space-y-0.5 text-xs text-slate-500">
+      <div><span class="text-slate-400">收货：</span><span>${escapeHtml(r.order.receivedTime)}</span></div>
+      <div><span class="text-slate-400">上架：</span><span>${escapeHtml(r.order.putawayTime)}</span></div>
+    </div>` },
+  { key: 'operatorName', title: '操作人员', width: 100, sortable: true, sortValue: r => r.order.operatorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.order.operatorName || '-')}</span>` },
+  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
+    render: r => {
+      const done = r.order.status === '上架完成'
+      return `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 ${done ? 'cursor-not-allowed text-slate-400' : ''}" data-${EVENT_PREFIX}-action="putaway" data-order-id="${escapeHtml(r.order.id)}" ${done ? 'disabled' : ''}>上架</button>`
+    } },
+]
 
-  const statusOptions: Array<'全部' | PutawayStatus> = ['全部', '待上架', '上架中', '部分上架', '上架完成'];
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['orderNos'] as string[],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-  return `<section>
-    <div class="mb-4">
-      <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">入库单列表</h2>
-      <p class="mt-1 text-[13px] text-[var(--text-muted)]">用于查看入库任务执行信息，包含单号与状态等字段。</p>
-    </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <input id="wls-pw-search" value="" placeholder="搜索单号 / 关联单号（ASN） / SPU / SKU / 批次号 / 库位" class="w-[420px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <select id="wls-pw-status" class="w-[160px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-          ${statusOptions.map((s) => `<option value="${s}">${s}</option>`).join('')}
-        </select>
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsPutaway?.clear()">清除</button>
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">导出Excel</button>
-      </div>
-    </div>
+function filteredRows(): PutawayRow[] {
+  const kw = state.keyword.trim().toLowerCase()
+  const filtered = PUTAWAY_SEED.filter(o => {
+    if (state.statusFilter && state.statusFilter !== '全部' && o.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${o.orderNo} ${o.inboundOrderNo} ${o.paNo} ${o.relatedOrderNo} ${o.batchNo} ${o.itemLines.map(l => `${l.spuCode} ${l.skuCode}`).join(' ')}`.toLowerCase().includes(kw)
+  })
+  return flattenOrders(filtered)
+}
 
-    <div class="rounded-[12px] border border-[var(--border-default)] bg-white">
-      <div class="overflow-x-auto rounded-[10px] border border-[var(--border-default)]">
-        <table class="w-full min-w-[2200px] text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">单号</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">入库仓库</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">状态</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">上架方式</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">入库数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">SPU编码</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">SKU 编码</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">库区</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">目标库位</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">上架数量</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">时间</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem]">操作人员</th>
-              <th class="whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-left text-[12px] font-medium min-w-[10rem] sticky right-0 z-20 border-l border-[var(--border-default)] bg-[var(--bg-subtle)]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pageItems.map((item) => {
-              const lines = item.itemLines.length > 0 ? item.itemLines : [{ spuCode: 'SPU-GC-10001', skuCode: 'SKU-GC-40001', inboundQuantity: 0 }];
-              const lineRows = lines.map((line, lineIndex) => {
-                const isFirst = lineIndex === 0;
-                const rowSpan = lines.length;
-                const qty = line.inboundQuantity > 0 ? line.inboundQuantity : '-';
-                const putawayQty = line.putawayQuantity && line.putawayQuantity > 0 ? line.putawayQuantity : '暂无';
-                const sourceLoc = item.status !== '待上架' ? (line.sourceLocation || '暂无') : '暂无';
-                const targetLoc = item.status !== '待上架' ? (line.targetLocation || '暂无') : '暂无';
+function renderFilters(): string {
+  const statusOptions = ['全部', '待上架', '上架中', '部分上架', '上架完成']
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="单号 / 关联单号（ASN） / SPU / SKU / 批次号 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option>${statusOptions.map(s => `<option value="${escapeHtml(s)}" ${state.statusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出Excel', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
 
-                if (isFirst) {
-                  return `<tr class="hover:bg-[var(--bg-hover)]">
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">
-                      <div class="space-y-1">
-                        <div><span class="text-[var(--text-muted)]">入库单号：</span><span class="text-[var(--text-primary)]">${item.inboundOrderNo || item.orderNo}</span></div>
-                        <div><span class="text-[var(--text-muted)]">上架单号：</span><span class="text-[var(--text-primary)]">${item.paNo}</span></div>
-                        <div><span class="text-[var(--text-muted)]">关联单号（ASN）：</span><span class="text-[var(--text-primary)]">${item.relatedOrderNo || item.orderNo}</span></div>
-                        <div><span class="text-[var(--text-muted)]">批次号：</span><span class="text-[var(--text-primary)]">${item.batchNo}</span></div>
-                      </div>
-                    </td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">${item.inboundWarehouse || '暂无'}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">
-                      <span class="inline-flex rounded-[999px] px-2 py-0.5 text-[12px] font-medium ${statusBadgeClass(item.status)}">${item.status}</span>
-                    </td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">
-                      <span class="inline-flex rounded-[999px] bg-[#EFF8FF] px-2 py-0.5 text-[12px] font-medium text-[#175CD3]">手动上架</span>
-                    </td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${qty}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${line.spuCode}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${line.skuCode}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${sourceLoc}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${targetLoc}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${putawayQty}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">
-                      <div class="space-y-1">
-                        <div><span class="text-[var(--text-muted)]">收货：</span><span class="text-[var(--text-primary)]">${item.receivedTime}</span></div>
-                        <div><span class="text-[var(--text-muted)]">上架：</span><span class="text-[var(--text-primary)]">${item.putawayTime}</span></div>
-                      </div>
-                    </td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]" rowspan="${rowSpan}">${item.operatorName || '-'}</td>
-                    <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px] sticky right-0 z-10 border-l border-[var(--border-default)] bg-white whitespace-nowrap" rowspan="${rowSpan}">
-                      <div class="flex items-center gap-2">
-                        <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-primary)] transition hover:bg-[var(--bg-hover)] ${item.status === '上架完成' ? 'cursor-not-allowed text-[var(--text-disabled)]' : ''}" ${item.status === '上架完成' ? 'disabled' : ''}>上架</button>
-                      </div>
-                    </td>
-                  </tr>`;
-                }
-                return `<tr class="hover:bg-[var(--bg-hover)]">
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${qty}</td>
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${line.spuCode}</td>
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${line.skuCode}</td>
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${sourceLoc}</td>
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${targetLoc}</td>
-                  <td class="border-b border-[var(--border-subtle)] px-3 py-2 text-[13px]">${putawayQty}</td>
-                </tr>`;
-              }).join('');
-              return lineRows;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      ${renderPagination(totalItems, 1, totalPages)}
-    </div>
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '入库单列表',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '总入库单', value: `${PUTAWAY_SEED.length} 条` },
+      { label: '待上架', value: `${PUTAWAY_SEED.filter(o => o.status === '待上架').length} 条` },
+      { label: '上架中', value: `${PUTAWAY_SEED.filter(o => o.status === '上架中').length} 条` },
+      { label: '上架完成', value: `${PUTAWAY_SEED.filter(o => o.status === '上架完成').length} 条` },
+    ]),
+    listTitle: '入库单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无入库单' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '入库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
 
-    <script>
-    (function() {
-      window.__wlsPutaway = {
-        goPage: function(page) { console.log('Go to page:', page); },
-        clear: function() {
-          var search = document.getElementById('wls-pw-search');
-          if (search) search.value = '';
-          var status = document.getElementById('wls-pw-status');
-          if (status) status.value = '全部';
-        }
-      };
-    })();
-    </script>
-  </section>`;
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderFinishedPutaway(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleFinishedPutawayEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'putaway') {
+    const id = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}OrderId`] || ''
+    console.log('putaway order:', id)
+    return true
+  }
+  return false
 }

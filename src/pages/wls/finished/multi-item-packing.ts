@@ -41,7 +41,7 @@ const MOCK_BASKET = {
   binding_status: '已绑定订单',
 };
 
-export function renderFinishedMultiItemPacking(_state: AppState): string {
+export function renderFinishedMultiItemPacking(): string {
   const basket = MOCK_BASKET;
   const order = MOCK_PACKING_ORDER;
 

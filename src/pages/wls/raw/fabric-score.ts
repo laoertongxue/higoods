@@ -1,174 +1,224 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
-type ScoreReason = { reason: string; count: number; ratio: string }
-
-type ScoreDetail = {
-  spu: string; productName: string; styleCode: string
-  salesCount: number; score: number; totalBadReviews: number
-  fabricBadReviews: number; fabricRatio: string; reasons: ScoreReason[]
-}
-
+type ScoreReason = { reason: string; deduction: number }
+type ScoreDetail = { item: string; score: number; maxScore: number; reasons: ScoreReason[] }
 type ScoreItem = {
-  id: string; image: string; spu: string; fabricName: string
-  relatedSpuCount: number; totalSales: number; totalBadReviews: number
-  fabricBadReviews: number; badReviewRatio: string; ratioLevel: string
-  reasons: ScoreReason[]; details: ScoreDetail[]
+  fabricNo: string; fabricName: string; supplier: string; batchNo: string
+  totalScore: number; scoreLevel: 'A' | 'B' | 'C' | 'D'
+  details: ScoreDetail[]
 }
 
-const seedScores: ScoreItem[] = [
-  { id: 'FS-001', image: '', spu: 'SPU-ML-1001', fabricName: '莫代尔基础打底面料', relatedSpuCount: 6, totalSales: 12480, totalBadReviews: 186, fabricBadReviews: 142, badReviewRatio: '1.14%', ratioLevel: 'low', reasons: [{ reason: '起球', count: 52, ratio: '36.6%' }, { reason: '掉色', count: 38, ratio: '26.8%' }, { reason: '缩水', count: 32, ratio: '22.5%' }, { reason: '其他', count: 20, ratio: '14.1%' }], details: [
-    { spu: 'SPU-FS-1001-A', productName: '基础打底长袖衫', styleCode: '36-基础服装-基础打底', salesCount: 3200, score: 4.6, totalBadReviews: 72, fabricBadReviews: 48, fabricRatio: '0.67%', reasons: [{ reason: '起球', count: 18, ratio: '37.5%' }, { reason: '掉色', count: 14, ratio: '29.2%' }, { reason: '缩水', count: 10, ratio: '20.8%' }, { reason: '其他', count: 6, ratio: '12.5%' }] },
-    { spu: 'SPU-FS-1001-B', productName: '圆领轻薄短袖', styleCode: '42-基础服装-基础T恤', salesCount: 2800, score: 4.7, totalBadReviews: 54, fabricBadReviews: 38, fabricRatio: '0.57%', reasons: [{ reason: '起球', count: 14, ratio: '36.8%' }, { reason: '掉色', count: 10, ratio: '26.3%' }, { reason: '缩水', count: 8, ratio: '21.1%' }, { reason: '其他', count: 6, ratio: '15.8%' }] },
-    { spu: 'SPU-FS-1001-C', productName: '基础修身内搭', styleCode: '51-基础服装-基础衬衫', salesCount: 1600, score: 4.8, totalBadReviews: 28, fabricBadReviews: 18, fabricRatio: '0.45%', reasons: [{ reason: '起球', count: 6, ratio: '33.3%' }, { reason: '掉色', count: 5, ratio: '27.8%' }, { reason: '缩水', count: 4, ratio: '22.2%' }, { reason: '其他', count: 3, ratio: '16.7%' }] },
-  ]},
-  { id: 'FS-002', image: '', spu: 'SPU-ML-1012', fabricName: '精梳棉轻薄T恤面料', relatedSpuCount: 4, totalSales: 8640, totalBadReviews: 128, fabricBadReviews: 96, badReviewRatio: '1.11%', ratioLevel: 'low', reasons: [{ reason: '扎肤', count: 36, ratio: '37.5%' }, { reason: '透气性差', count: 24, ratio: '25.0%' }, { reason: '色差', count: 20, ratio: '20.8%' }, { reason: '其他', count: 16, ratio: '16.7%' }], details: [
-    { spu: 'SPU-FS-1012-A', productName: '亲肤弹力针织衫', styleCode: '63-基础服装-基础卫衣', salesCount: 2400, score: 4.5, totalBadReviews: 48, fabricBadReviews: 32, fabricRatio: '0.53%', reasons: [{ reason: '扎肤', count: 12, ratio: '37.5%' }, { reason: '透气性差', count: 8, ratio: '25.0%' }, { reason: '色差', count: 7, ratio: '21.9%' }, { reason: '其他', count: 5, ratio: '15.6%' }] },
-    { spu: 'SPU-FS-1012-B', productName: '轻暖磨毛打底衫', styleCode: '74-基础服装-基础针织', salesCount: 1800, score: 4.6, totalBadReviews: 36, fabricBadReviews: 24, fabricRatio: '0.44%', reasons: [{ reason: '扎肤', count: 9, ratio: '37.5%' }, { reason: '透气性差', count: 6, ratio: '25.0%' }, { reason: '色差', count: 5, ratio: '20.8%' }, { reason: '其他', count: 4, ratio: '16.7%' }] },
-  ]},
-  { id: 'FS-003', image: '', spu: 'SPU-ML-1038', fabricName: '弹力罗纹针织面料', relatedSpuCount: 5, totalSales: 9200, totalBadReviews: 248, fabricBadReviews: 198, badReviewRatio: '2.15%', ratioLevel: 'medium', reasons: [{ reason: '起球', count: 72, ratio: '36.4%' }, { reason: '变形', count: 48, ratio: '24.2%' }, { reason: '掉色', count: 42, ratio: '21.2%' }, { reason: '其他', count: 36, ratio: '18.2%' }], details: [
-    { spu: 'SPU-FS-1038-A', productName: '简约百搭上衣', styleCode: '86-基础服装-基础外套', salesCount: 2200, score: 4.3, totalBadReviews: 66, fabricBadReviews: 48, fabricRatio: '0.87%', reasons: [{ reason: '起球', count: 18, ratio: '37.5%' }, { reason: '变形', count: 12, ratio: '25.0%' }, { reason: '掉色', count: 10, ratio: '20.8%' }, { reason: '其他', count: 8, ratio: '16.7%' }] },
-  ]},
-  { id: 'FS-004', image: '', spu: 'SPU-ML-1060', fabricName: '磨毛保暖内搭面料', relatedSpuCount: 3, totalSales: 5400, totalBadReviews: 92, fabricBadReviews: 68, badReviewRatio: '1.26%', ratioLevel: 'low', reasons: [{ reason: '掉毛', count: 24, ratio: '35.3%' }, { reason: '缩水', count: 18, ratio: '26.5%' }, { reason: '色差', count: 14, ratio: '20.6%' }, { reason: '其他', count: 12, ratio: '17.6%' }], details: [] },
-  { id: 'FS-005', image: '', spu: 'SPU-ML-1061', fabricName: '棉氨弹力打底面料', relatedSpuCount: 4, totalSales: 7800, totalBadReviews: 312, fabricBadReviews: 256, badReviewRatio: '3.28%', ratioLevel: 'high', reasons: [{ reason: '起球', count: 96, ratio: '37.5%' }, { reason: '掉色', count: 64, ratio: '25.0%' }, { reason: '缩水', count: 52, ratio: '20.3%' }, { reason: '其他', count: 44, ratio: '17.2%' }], details: [] },
-  { id: 'FS-006', image: '', spu: 'SPU-ML-1062', fabricName: '莱赛尔垂感衬衫面料', relatedSpuCount: 3, totalSales: 6200, totalBadReviews: 78, fabricBadReviews: 52, badReviewRatio: '0.84%', ratioLevel: 'low', reasons: [{ reason: '勾丝', count: 18, ratio: '34.6%' }, { reason: '缩水', count: 14, ratio: '26.9%' }, { reason: '色差', count: 10, ratio: '19.2%' }, { reason: '其他', count: 10, ratio: '19.2%' }], details: [] },
-  { id: 'FS-007', image: '', spu: 'SPU-ML-1063', fabricName: '空气层卫衣面料', relatedSpuCount: 5, totalSales: 10800, totalBadReviews: 216, fabricBadReviews: 168, badReviewRatio: '1.56%', ratioLevel: 'medium', reasons: [{ reason: '起球', count: 60, ratio: '35.7%' }, { reason: '变形', count: 42, ratio: '25.0%' }, { reason: '掉色', count: 36, ratio: '21.4%' }, { reason: '其他', count: 30, ratio: '17.9%' }], details: [] },
-  { id: 'FS-008', image: '', spu: 'SPU-ML-1064', fabricName: '亲肤针织家居面料', relatedSpuCount: 2, totalSales: 4200, totalBadReviews: 56, fabricBadReviews: 38, badReviewRatio: '0.90%', ratioLevel: 'low', reasons: [{ reason: '扎肤', count: 14, ratio: '36.8%' }, { reason: '起球', count: 10, ratio: '26.3%' }, { reason: '缩水', count: 8, ratio: '21.1%' }, { reason: '其他', count: 6, ratio: '15.8%' }], details: [] },
+const seedItems: ScoreItem[] = [
+  { fabricNo: 'FAB-20260716-001', fabricName: '主身面料-白色', supplier: '东莞纺织供应链', batchNo: 'B-20260710-01', totalScore: 95, scoreLevel: 'A', details: [{ item: '色差', score: 28, maxScore: 30, reasons: [{ reason: '轻微色差(L*偏差0.5)', deduction: 2 }] }, { item: '克重', score: 20, maxScore: 20, reasons: [] }, { item: '幅宽', score: 18, maxScore: 20, reasons: [{ reason: '幅宽偏窄0.5cm', deduction: 2 }] }, { item: '外观', score: 29, maxScore: 30, reasons: [{ reason: '1处轻微织疵', deduction: 1 }] }] },
+  { fabricNo: 'FAB-20260716-002', fabricName: '里料-黑色', supplier: '广州面料厂', batchNo: 'B-20260710-02', totalScore: 82, scoreLevel: 'B', details: [{ item: '色差', score: 25, maxScore: 30, reasons: [{ reason: '色差明显(L*偏差1.2)', deduction: 5 }] }, { item: '克重', score: 18, maxScore: 20, reasons: [{ reason: '克重偏低3%', deduction: 2 }] }, { item: '幅宽', score: 20, maxScore: 20, reasons: [] }, { item: '外观', score: 19, maxScore: 30, reasons: [{ reason: '3处织疵', deduction: 6 }, { reason: '1处油污', deduction: 5 }] }] },
+  { fabricNo: 'FAB-20260716-003', fabricName: '口袋布-灰色', supplier: '深圳纺织有限公司', batchNo: 'B-20260710-03', totalScore: 68, scoreLevel: 'C', details: [{ item: '色差', score: 20, maxScore: 30, reasons: [{ reason: '色差严重(L*偏差2.0)', deduction: 10 }] }, { item: '克重', score: 15, maxScore: 20, reasons: [{ reason: '克重偏低8%', deduction: 5 }] }, { item: '幅宽', score: 18, maxScore: 20, reasons: [{ reason: '幅宽偏窄1cm', deduction: 2 }] }, { item: '外观', score: 15, maxScore: 30, reasons: [{ reason: '5处织疵', deduction: 10 }, { reason: '2处破洞', deduction: 5 }] }] },
+  { fabricNo: 'FAB-20260716-004', fabricName: '袖里面料-蓝色', supplier: '东莞纺织供应链', batchNo: 'B-20260710-04', totalScore: 91, scoreLevel: 'A', details: [{ item: '色差', score: 27, maxScore: 30, reasons: [{ reason: '轻微色差', deduction: 3 }] }, { item: '克重', score: 20, maxScore: 20, reasons: [] }, { item: '幅宽', score: 20, maxScore: 20, reasons: [] }, { item: '外观', score: 24, maxScore: 30, reasons: [{ reason: '2处轻微织疵', deduction: 6 }] }] },
+  { fabricNo: 'FAB-20260716-005', fabricName: '领衬面料', supplier: '佛山辅料厂', batchNo: 'B-20260710-05', totalScore: 55, scoreLevel: 'D', details: [{ item: '色差', score: 15, maxScore: 30, reasons: [{ reason: '色差严重', deduction: 15 }] }, { item: '克重', score: 12, maxScore: 20, reasons: [{ reason: '克重偏低15%', deduction: 8 }] }, { item: '幅宽', score: 15, maxScore: 20, reasons: [{ reason: '幅宽偏窄2cm', deduction: 5 }] }, { item: '外观', score: 13, maxScore: 30, reasons: [{ reason: '多处破洞', deduction: 17 }] }] },
+  { fabricNo: 'FAB-20260716-006', fabricName: '面料-条纹', supplier: '广州面料厂', batchNo: 'B-20260710-06', totalScore: 88, scoreLevel: 'B', details: [{ item: '色差', score: 26, maxScore: 30, reasons: [{ reason: '轻微色差', deduction: 4 }] }, { item: '克重', score: 20, maxScore: 20, reasons: [] }, { item: '幅宽', score: 19, maxScore: 20, reasons: [{ reason: '偏窄0.3cm', deduction: 1 }] }, { item: '外观', score: 23, maxScore: 30, reasons: [{ reason: '2处织疵', deduction: 7 }] }] },
+  { fabricNo: 'FAB-20260716-007', fabricName: '面料-格子', supplier: '深圳纺织有限公司', batchNo: 'B-20260710-07', totalScore: 76, scoreLevel: 'B', details: [{ item: '色差', score: 22, maxScore: 30, reasons: [{ reason: '色差偏大', deduction: 8 }] }, { item: '克重', score: 19, maxScore: 20, reasons: [{ reason: '克重偏低1%', deduction: 1 }] }, { item: '幅宽', score: 20, maxScore: 20, reasons: [] }, { item: '外观', score: 15, maxScore: 30, reasons: [{ reason: '4处织疵', deduction: 8 }, { reason: '1处污渍', deduction: 7 }] }] },
+  { fabricNo: 'FAB-20260716-008', fabricName: '面料-纯色蓝', supplier: '东莞纺织供应链', batchNo: 'B-20260710-08', totalScore: 93, scoreLevel: 'A', details: [{ item: '色差', score: 28, maxScore: 30, reasons: [{ reason: '轻微色差', deduction: 2 }] }, { item: '克重', score: 20, maxScore: 20, reasons: [] }, { item: '幅宽', score: 20, maxScore: 20, reasons: [] }, { item: '外观', score: 25, maxScore: 30, reasons: [{ reason: '1处轻微织疵', deduction: 5 }] }] },
 ]
 
-function ratioBadge(level: string): string {
-  if (level === 'high') return 'bg-red-50 text-red-700 border border-red-200'
-  if (level === 'medium') return 'bg-orange-50 text-orange-700 border border-orange-200'
-  return 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+const scoreLevelClass: Record<string, string> = {
+  'A': 'bg-emerald-50 text-emerald-700', 'B': 'bg-blue-50 text-blue-700',
+  'C': 'bg-orange-50 text-orange-700', 'D': 'bg-red-50 text-red-700',
 }
 
-function renderReasons(reasons: ScoreReason[]): string {
-  return reasons.map(r => `<div class="text-xs text-slate-600">${r.reason}（${r.ratio}）</div>`).join('')
+const EVENT_PREFIX = 'wls-raw-fabric-score'
+const PREFERENCE_KEY = '/wls/raw/fabric-score:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  levelFilter: '' as string,
+  expandedKeys: new Set<string>(),
 }
 
-function renderDetailSubRow(d: ScoreDetail): string {
-  const initial = d.productName.charAt(0)
-  return `
-    <tr class="border-t border-slate-50 hover:bg-slate-50 bg-slate-50/50">
-      <td class="px-3 py-2"><div class="w-8 h-8 rounded bg-slate-200 flex items-center justify-center text-xs text-slate-500 font-medium">${initial}</div></td>
-      <td class="px-3 py-2 font-mono text-xs text-blue-600">${d.spu}</td>
-      <td class="px-3 py-2 text-slate-700 text-xs">${d.productName}</td>
-      <td class="px-3 py-2 text-slate-500 text-xs font-mono">${d.styleCode}</td>
-      <td class="px-3 py-2 text-right text-slate-600 text-xs">${d.salesCount.toLocaleString()}</td>
-      <td class="px-3 py-2 text-right text-slate-700 text-xs font-medium">${d.score}</td>
-      <td class="px-3 py-2 text-right text-slate-600 text-xs">${d.totalBadReviews}</td>
-      <td class="px-3 py-2 text-right text-slate-600 text-xs">${d.fabricBadReviews}</td>
-      <td class="px-3 py-2 text-right text-xs font-medium text-slate-700">${d.fabricRatio}</td>
-      <td class="px-3 py-2 text-xs" style="min-width:16rem">${renderReasons(d.reasons)}</td>
-    </tr>`
+const columns: StandardListColumn<ScoreItem>[] = [
+  { key: 'fabricNo', title: '面料编号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.fabricNo,
+    render: r => `<span class="font-mono text-xs text-blue-600" title="${escapeHtml(r.fabricNo)}">${escapeHtml(r.fabricNo)}</span>` },
+  { key: 'fabricName', title: '面料名称', width: 150, sortable: true, sortValue: r => r.fabricName,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.fabricName)}</span>` },
+  { key: 'supplier', title: '供应商', width: 150, sortable: true, sortValue: r => r.supplier,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.supplier)}</span>` },
+  { key: 'batchNo', title: '批次号', width: 150, sortable: true, sortValue: r => r.batchNo,
+    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.batchNo)}</span>` },
+  { key: 'totalScore', title: '综合评分', width: 100, align: 'right', sortable: true, sortValue: r => r.totalScore,
+    render: r => `<span class="text-slate-700 font-semibold">${r.totalScore}</span>` },
+  { key: 'scoreLevel', title: '等级', width: 80, sortable: true, sortValue: r => r.scoreLevel,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${scoreLevelClass[r.scoreLevel]}">${r.scoreLevel}</span>` },
+  { key: 'details', title: '评分明细', width: 300,
+    render: r => `<div class="flex flex-wrap gap-1">${r.details.map(d => `<span class="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">${escapeHtml(d.item)}: ${d.score}/${d.maxScore}</span>`).join('')}</div>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => {
+      const expanded = state.expandedKeys.has(r.fabricNo)
+      return `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="toggle-detail" data-row-key="${escapeHtml(r.fabricNo)}">${expanded ? '收起' : '展开'}</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看</button></div>`
+    } },
+]
+
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['fabricNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
 }
 
-export function renderRawFabricScore(_state: AppState): string {
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-semibold text-slate-800">面料评分</h1>
-        <p class="text-sm text-slate-500 mt-0.5">用于查看面料维度差评表现，聚焦差评数量和原因占比分布。</p>
-      </div>
-    </div>
+function filteredRows(): ScoreItem[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedItems.filter(o => {
+    if (state.levelFilter && o.scoreLevel !== state.levelFilter) return false
+    if (!kw) return true
+    return `${o.fabricNo} ${o.fabricName} ${o.supplier} ${o.batchNo}`.toLowerCase().includes(kw)
+  })
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input id="wlsRawFSSearch" type="text" placeholder="输入面料SPU（多个用中文逗号分隔）" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-80 focus:border-blue-400 focus:outline-none">
-        <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">查询</button>
-      </div>
-    </div>
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="面料编号 / 名称 / 供应商 / 批次号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">等级</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="level"><option value="">全部</option><option value="A" ${state.levelFilter === 'A' ? 'selected' : ''}>A</option><option value="B" ${state.levelFilter === 'B' ? 'selected' : ''}>B</option><option value="C" ${state.levelFilter === 'C' ? 'selected' : ''}>C</option><option value="D" ${state.levelFilter === 'D' ? 'selected' : ''}>D</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <span class="text-sm text-slate-500">共 ${seedScores.length} 条记录</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1500px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-3 py-2 text-left font-medium">面料图片</th>
-            <th class="px-3 py-2 text-left font-medium">面料SPU</th>
-            <th class="px-3 py-2 text-left font-medium">面料名称</th>
-            <th class="px-3 py-2 text-right font-medium">关联商品SPU数量</th>
-            <th class="px-3 py-2 text-right font-medium">总销量</th>
-            <th class="px-3 py-2 text-right font-medium">总差评数</th>
-            <th class="px-3 py-2 text-right font-medium">面料总差评数</th>
-            <th class="px-3 py-2 text-right font-medium cursor-pointer select-none">面料总差评数占比 <span class="text-slate-400">⇅</span></th>
-            <th class="px-3 py-2 text-left font-medium" style="min-width:16rem">总差评原因占比</th>
-            <th class="px-3 py-2 text-center font-medium">详情</th>
-          </tr></thead>
-          <tbody id="wlsRawFSBody">
-            ${seedScores.map(s => `
-              <tr class="border-t border-slate-100 hover:bg-slate-50 wls-fs-row" data-id="${s.id}">
-                <td class="px-3 py-2">
-                  <div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-sm text-slate-400 font-medium">${s.fabricName.charAt(0)}</div>
-                </td>
-                <td class="px-3 py-2"><a href="javascript:void(0)" class="text-blue-600 hover:underline text-xs font-mono">${s.spu}</a></td>
-                <td class="px-3 py-2 text-slate-700">${s.fabricName}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${s.relatedSpuCount}</td>
-                <td class="px-3 py-2 text-right text-slate-700 font-medium">${s.totalSales.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${s.totalBadReviews}</td>
-                <td class="px-3 py-2 text-right text-slate-700 font-medium">${s.fabricBadReviews}</td>
-                <td class="px-3 py-2 text-right"><span class="rounded-full px-2 py-0.5 text-xs font-medium ${ratioBadge(s.ratioLevel)}">${s.badReviewRatio}</span></td>
-                <td class="px-3 py-2" style="min-width:16rem">${renderReasons(s.reasons)}</td>
-                <td class="px-3 py-2 text-center">
-                  <button class="wls-fs-toggle rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50" data-id="${s.id}" data-expanded="false">
-                    展开
-                  </button>
-                </td>
-              </tr>
-              ${s.details.length > 0 ? `
-              <tr class="wls-fs-detail hidden" data-detail-for="${s.id}">
-                <td colspan="10" class="px-0 py-0">
-                  <div class="bg-white border-t border-slate-100">
-                    <table class="w-full text-sm">
-                      <thead><tr class="bg-slate-50/80 text-slate-400 text-xs">
-                        <th class="px-3 py-1.5 text-left font-medium">商品图片</th>
-                        <th class="px-3 py-1.5 text-left font-medium">商品SPU</th>
-                        <th class="px-3 py-1.5 text-left font-medium">商品名称</th>
-                        <th class="px-3 py-1.5 text-left font-medium">款式编号</th>
-                        <th class="px-3 py-1.5 text-right font-medium">商品SPU销量</th>
-                        <th class="px-3 py-1.5 text-right font-medium">评分</th>
-                        <th class="px-3 py-1.5 text-right font-medium">差评数</th>
-                        <th class="px-3 py-1.5 text-right font-medium">面料差评数</th>
-                        <th class="px-3 py-1.5 text-right font-medium">面料差评数占比</th>
-                        <th class="px-3 py-1.5 text-left font-medium">差评原因占比</th>
-                      </tr></thead>
-                      <tbody>
-                        ${s.details.map(d => renderDetailSubRow(d)).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                </td>
-              </tr>` : ''}
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsRawFabricScore = {
-      init() {
-        document.querySelectorAll('.wls-fs-toggle').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-id');
-            const detailRow = document.querySelector('.wls-fs-detail[data-detail-for="' + id + '"]');
-            if (!detailRow) return;
-            const expanded = btn.getAttribute('data-expanded') === 'true';
-            if (expanded) {
-              detailRow.classList.add('hidden');
-              btn.textContent = '展开';
-              btn.setAttribute('data-expanded', 'false');
-            } else {
-              detailRow.classList.remove('hidden');
-              btn.textContent = '收起';
-              btn.setAttribute('data-expanded', 'true');
-            }
-          });
-        });
-      }
-    };
-    window.__wlsRawFabricScore.init();
-  </script>`
+function renderDetailSubRow(item: ScoreItem): string {
+  return `<tr class="border-b bg-slate-50/50"><td colspan="${columns.length}" class="px-6 py-3"><div class="space-y-2 text-xs"><div class="font-medium text-slate-700">${escapeHtml(item.fabricName)} 评分明细</div><div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">${item.details.map(d => `<div class="rounded border bg-white p-2"><div class="flex items-center justify-between"><span class="font-medium text-slate-700">${escapeHtml(d.item)}</span><span class="text-slate-500">${d.score}/${d.maxScore}</span></div>${d.reasons.length > 0 ? `<div class="mt-1 space-y-0.5 text-slate-500">${d.reasons.map(r => `<div>- ${escapeHtml(r.reason)} (-${r.deduction})</div>`).join('')}</div>` : '<div class="mt-1 text-emerald-600">无扣分</div>'}</div>`).join('')}</div></div></td></tr>`
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+
+  const tableHtml = renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无评分记录' })
+
+  let expandedHtml = ''
+  if (state.expandedKeys.size > 0) {
+    const rowsWithDetails = paging.rows.filter(r => state.expandedKeys.has(r.fabricNo))
+    expandedHtml = rowsWithDetails.map(r => renderDetailSubRow(r)).join('')
+  }
+
+  return renderStandardListPage({
+    title: '原料仓面料评分',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: 'A级', value: `${seedItems.filter(o => o.scoreLevel === 'A').length} 条` },
+      { label: 'B级', value: `${seedItems.filter(o => o.scoreLevel === 'B').length} 条` },
+      { label: 'C/D级', value: `${seedItems.filter(o => o.scoreLevel === 'C' || o.scoreLevel === 'D').length} 条` },
+    ]),
+    listTitle: '面料评分列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: tableHtml + (expandedHtml ? `<div class="border-t border-slate-100"><table class="w-full table-fixed border-collapse" style="min-width:0"><tbody>${expandedHtml}</tbody></table></div>` : ''),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '面料评分列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderRawFabricScore(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleRawFabricScoreEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'level') { state.levelFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="level"]`)
+    if (select) state.levelFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.levelFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'toggle-detail') {
+    const key = actionNode.dataset.rowKey || ''
+    if (state.expandedKeys.has(key)) state.expandedKeys.delete(key)
+    else state.expandedKeys.add(key)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

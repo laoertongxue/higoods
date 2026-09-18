@@ -62,7 +62,7 @@ function expressTag(company: string): string {
 }
 
 /* ── render ── */
-export function renderFinishedPdaShipScan(_state: AppState): string {
+export function renderFinishedPdaShipScan(): string {
   const scanListHtml = MOCK_SCANS.map((s) => {
     const exceptionTag = s.exceptionReason
       ? `<span class="mt-1 inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">${s.exceptionReason}</span>`

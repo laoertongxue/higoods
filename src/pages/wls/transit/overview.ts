@@ -44,7 +44,7 @@ const anomalyRows = [
 
 const maxRolls = Math.max(...trendData.map(d => d.rolls), 1)
 
-export function renderTransitOverview(_state: AppState): string {
+export function renderTransitOverview(): string {
   return `
   <div class="space-y-5">
     <div class="flex items-center justify-between">

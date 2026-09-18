@@ -292,6 +292,19 @@ import {
   closeWlsGarmentRelabelTaskOverlays,
   handleWlsGarmentRelabelTasksEvent,
 } from '../pages/wls-garment-relabel-tasks.ts'
+import { handleFinishedOutboundOrdersEvent } from '../pages/wls/finished/outbound-orders'
+import { handleFinishedPreInboundEvent } from '../pages/wls/finished/pre-inbound'
+import { handleFinishedPreOutboundEvent } from '../pages/wls/finished/pre-outbound'
+import { handleFinishedPutawayEvent } from '../pages/wls/finished/putaway'
+import { handleCollectionOrdersEvent } from '../pages/wls/finished/collection-orders'
+import { handleCollectionPickingEvent } from '../pages/wls/finished/collection-picking'
+import { handleCollectionSortingEvent } from '../pages/wls/finished/collection-sorting'
+import { handleCollectionRemovalEvent } from '../pages/wls/finished/collection-removal'
+import { handleCollectionRecordsEvent } from '../pages/wls/finished/collection-records'
+import { handleReturnOrdersEvent } from '../pages/wls/finished/return-orders'
+import { handleReturnQualityEvent } from '../pages/wls/finished/return-quality'
+import { handleReturnInboundEvent } from '../pages/wls/finished/return-inbound'
+import { handleFinishedInventoryCountEvent } from '../pages/wls/finished/inventory-count'
 
 const CUTTING_PICKUP_LIST_PATHS = new Set([
   '/fcs/craft/cutting/pickup-management/ready',
@@ -509,6 +522,27 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     && target.closest('[data-progress-action], [data-progress-field]')
   ) {
     return handleProgressBoardEvent(target)
+  }
+
+  if (pathname.startsWith('/wls/finished/')) {
+    const wlsFinishedHandlers: Array<(target: HTMLElement, event?: Event) => boolean> = [
+      handleFinishedOutboundOrdersEvent,
+      handleFinishedPreInboundEvent,
+      handleFinishedPreOutboundEvent,
+      handleFinishedPutawayEvent,
+      handleCollectionOrdersEvent,
+      handleCollectionPickingEvent,
+      handleCollectionSortingEvent,
+      handleCollectionRemovalEvent,
+      handleCollectionRecordsEvent,
+      handleReturnOrdersEvent,
+      handleReturnQualityEvent,
+      handleReturnInboundEvent,
+      handleFinishedInventoryCountEvent,
+    ]
+    for (const handler of wlsFinishedHandlers) {
+      if (handler(target, event)) return true
+    }
   }
 
   return (

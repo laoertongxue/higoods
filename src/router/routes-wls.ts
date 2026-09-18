@@ -1,5 +1,4 @@
 import type { RouteRegistry } from './route-types'
-import { appStore } from '../state/store'
 import { renderFinishedDashboard } from '../pages/wls/finished/dashboard'
 import { renderFinishedPreInbound } from '../pages/wls/finished/pre-inbound'
 import { renderFinishedStockRealtime, renderRawStockRealtime, renderTransitStockRealtime } from '../pages/wls/finished/stock-realtime'
@@ -70,122 +69,121 @@ function placeholder(title: string) {
 export const routes: RouteRegistry = {
   exactRoutes: {
     // ── 成衣仓 · 工作台 ──
-    '/wls/finished/dashboard': () => renderFinishedDashboard(appStore.getState()),
-    '/wls/finished/pda': () => renderFinishedPda(appStore.getState()),
-    '/wls/finished/pda-ship-scan': () => renderFinishedPdaShipScan(appStore.getState()),
-    '/wls/finished/ship-scan': () => renderShipScan(appStore.getState()),
+    '/wls/finished/dashboard': () => renderFinishedDashboard(),
+    '/wls/finished/pda': () => renderFinishedPda(),
+    '/wls/finished/pda-ship-scan': () => renderFinishedPdaShipScan(),
+    '/wls/finished/ship-scan': () => renderShipScan(),
 
     // ── 成衣仓 · 入库管理 ──
-    '/wls/finished/pre-inbound': () => renderFinishedPreInbound(appStore.getState()),
-    '/wls/finished/putaway': () => renderFinishedPutaway(appStore.getState()),
-    '/wls/finished/return-orders': () => renderReturnOrders(appStore.getState()),
-    '/wls/finished/return-quality': () => renderReturnQuality(appStore.getState()),
-    '/wls/finished/return-inbound': () => renderReturnInbound(appStore.getState()),
+    '/wls/finished/pre-inbound': () => renderFinishedPreInbound(),
+    '/wls/finished/putaway': () => renderFinishedPutaway(),
+    '/wls/finished/return-orders': () => renderReturnOrders(),
+    '/wls/finished/return-quality': () => renderReturnQuality(),
+    '/wls/finished/return-inbound': () => renderReturnInbound(),
 
     // ── 成衣仓 · 出库管理 ──
-    '/wls/finished/pre-outbound': () => renderFinishedPreOutbound(appStore.getState()),
-    '/wls/finished/outbound-orders': () => renderFinishedOutboundOrders(appStore.getState()),
-    '/wls/finished/wave-manage': () => renderFinishedWaveManage(appStore.getState()),
-    '/wls/finished/multi-item-packing': () => renderFinishedMultiItemPacking(appStore.getState()),
+    '/wls/finished/pre-outbound': () => renderFinishedPreOutbound(),
+    '/wls/finished/outbound-orders': () => renderFinishedOutboundOrders(),
+    '/wls/finished/wave-manage': () => renderFinishedWaveManage(),
+    '/wls/finished/multi-item-packing': () => renderFinishedMultiItemPacking(),
 
     // ── 成衣仓 · 集货管理 ──
-    '/wls/finished/collection/orders': () => renderCollectionOrders(appStore.getState()),
-    '/wls/finished/collection/picking': () => renderCollectionPicking(appStore.getState()),
-    '/wls/finished/collection/sorting': () => renderCollectionSorting(appStore.getState()),
-    '/wls/finished/collection/removal': () => renderCollectionRemoval(appStore.getState()),
-    '/wls/finished/collection/records': () => renderCollectionRecords(appStore.getState()),
+    '/wls/finished/collection/orders': () => renderCollectionOrders(),
+    '/wls/finished/collection/picking': () => renderCollectionPicking(),
+    '/wls/finished/collection/sorting': () => renderCollectionSorting(),
+    '/wls/finished/collection/removal': () => renderCollectionRemoval(),
+    '/wls/finished/collection/records': () => renderCollectionRecords(),
 
     // ── 成衣仓 · 库存管理 ──
-    '/wls/finished/stock/realtime': () => renderFinishedStockRealtime(appStore.getState()),
-    '/wls/finished/stock/location': () => renderFinishedStockLocation(appStore.getState()),
-    '/wls/finished/stock/flow': () => renderFinishedStockFlow(appStore.getState()),
-    '/wls/finished/stock/transfer': () => renderFinishedStockTransfer(appStore.getState()),
-    '/wls/finished/stock/inventory-count': () => renderFinishedInventoryCount(appStore.getState()),
+    '/wls/finished/stock/realtime': () => renderFinishedStockRealtime(),
+    '/wls/finished/stock/location': () => renderFinishedStockLocation(),
+    '/wls/finished/stock/flow': () => renderFinishedStockFlow(),
+    '/wls/finished/stock/transfer': () => renderFinishedStockTransfer(),
+    '/wls/finished/stock/inventory-count': () => renderFinishedInventoryCount(),
 
     // ── 成衣仓 · 智能分拣 ──
-    '/wls/finished/sorter/machine-config': () => renderSorterMachineConfig(appStore.getState()),
-    '/wls/finished/sorter/gate-config': () => renderSorterGateConfig(appStore.getState()),
-    '/wls/finished/sorter/records': () => renderSorterRecords(appStore.getState()),
-
+    '/wls/finished/sorter/machine-config': () => renderSorterMachineConfig(),
+    '/wls/finished/sorter/gate-config': () => renderSorterGateConfig(),
+    '/wls/finished/sorter/records': () => renderSorterRecords(),
     // ── 成衣仓 · 基础管理 ──
-    '/wls/finished/basic/warehouse': () => renderBasicWarehouse(appStore.getState()),
-    '/wls/finished/basic/subject': () => renderBasicSubject(appStore.getState()),
-    '/wls/finished/basic/zone-location': () => renderBasicZoneLocation(appStore.getState()),
-    '/wls/finished/basic/basket': () => renderBasicBasket(appStore.getState()),
-    '/wls/finished/basic/collection-box': () => renderBasicCollectionBox(appStore.getState()),
-    '/wls/finished/basic/barcode-rule': () => renderBasicBarcodeRule(appStore.getState()),
-    '/wls/finished/basic/label-config': () => renderBasicLabelConfig(appStore.getState()),
-    '/wls/finished/basic/product-center': () => renderBasicProductCenter(appStore.getState()),
+    '/wls/finished/basic/warehouse': () => renderBasicWarehouse(),
+    '/wls/finished/basic/subject': () => renderBasicSubject(),
+    '/wls/finished/basic/zone-location': () => renderBasicZoneLocation(),
+    '/wls/finished/basic/basket': () => renderBasicBasket(),
+    '/wls/finished/basic/collection-box': () => renderBasicCollectionBox(),
+    '/wls/finished/basic/barcode-rule': () => renderBasicBarcodeRule(),
+    '/wls/finished/basic/label-config': () => renderBasicLabelConfig(),
+    '/wls/finished/basic/product-center': () => renderBasicProductCenter(),
 
     // ── 中转仓 · 工作台 ──
-    '/wls/transit/dashboard': () => renderTransitDashboard(appStore.getState()),
-    '/wls/transit/overview': () => renderTransitOverview(appStore.getState()),
-    '/wls/transit/pda': () => renderTransitPda(appStore.getState()),
+    '/wls/transit/dashboard': () => renderTransitDashboard(),
+    '/wls/transit/overview': () => renderTransitOverview(),
+    '/wls/transit/pda': () => renderTransitPda(),
 
     // ── 中转仓 · 作业 ──
-    '/wls/transit/receive-manage': () => renderTransitReceiveManage(appStore.getState()),
-    '/wls/transit/inbound-manage': () => renderTransitInboundManage(appStore.getState()),
-    '/wls/transit/kit-center': () => renderTransitKitCenter(appStore.getState()),
-    '/wls/transit/allocation-manage': () => renderTransitAllocationManage(appStore.getState()),
-    '/wls/transit/putaway-manage': () => renderTransitPutawayManage(appStore.getState()),
-    '/wls/transit/work-area-manage': () => renderTransitWorkAreaManage(appStore.getState()),
-    '/wls/transit/outbound-manage': () => renderTransitOutboundManage(appStore.getState()),
-    '/wls/transit/inventory': () => renderTransitStockRealtime(appStore.getState()),
-    '/wls/transit/location': () => renderTransitLocation(appStore.getState()),
-    '/wls/transit/warehouse-transfer': () => renderTransitWarehouseTransfer(appStore.getState()),
+    '/wls/transit/receive-manage': () => renderTransitReceiveManage(),
+    '/wls/transit/inbound-manage': () => renderTransitInboundManage(),
+    '/wls/transit/kit-center': () => renderTransitKitCenter(),
+    '/wls/transit/allocation-manage': () => renderTransitAllocationManage(),
+    '/wls/transit/putaway-manage': () => renderTransitPutawayManage(),
+    '/wls/transit/work-area-manage': () => renderTransitWorkAreaManage(),
+    '/wls/transit/outbound-manage': () => renderTransitOutboundManage(),
+    '/wls/transit/inventory': () => renderTransitStockRealtime(),
+    '/wls/transit/location': () => renderTransitLocation(),
+    '/wls/transit/warehouse-transfer': () => renderTransitWarehouseTransfer(),
 
     // ── 中转仓 · 基础管理 ──
-    '/wls/transit/basic/warehouse': () => renderBasicWarehouse(appStore.getState()),
-    '/wls/transit/basic/subject': () => renderBasicSubject(appStore.getState()),
-    '/wls/transit/basic/zone-location': () => renderBasicZoneLocation(appStore.getState()),
-    '/wls/transit/basic/processor': () => renderBasicProcessor(appStore.getState()),
-    '/wls/transit/basic/barcode-rule': () => renderBasicBarcodeRule(appStore.getState()),
-    '/wls/transit/basic/label-config': () => renderBasicLabelConfig(appStore.getState()),
+    '/wls/transit/basic/warehouse': () => renderBasicWarehouse(),
+    '/wls/transit/basic/subject': () => renderBasicSubject(),
+    '/wls/transit/basic/zone-location': () => renderBasicZoneLocation(),
+    '/wls/transit/basic/processor': () => renderBasicProcessor(),
+    '/wls/transit/basic/barcode-rule': () => renderBasicBarcodeRule(),
+    '/wls/transit/basic/label-config': () => renderBasicLabelConfig(),
 
     // ── 原料仓 · 工作台 ──
-    '/wls/raw/dashboard': () => renderRawDashboard(appStore.getState()),
-    '/wls/raw/pda': () => renderRawPda(appStore.getState()),
+    '/wls/raw/dashboard': () => renderRawDashboard(),
+    '/wls/raw/pda': () => renderRawPda(),
 
     // ── 原料仓 · 入库 ──
-    '/wls/raw/arrival-list': () => renderRawArrivalList(appStore.getState()),
-    '/wls/raw/inbound-list': () => renderRawInboundList(appStore.getState()),
+    '/wls/raw/arrival-list': () => renderRawArrivalList(),
+    '/wls/raw/inbound-list': () => renderRawInboundList(),
 
     // ── 原料仓 · 出库 ──
-    '/wls/raw/requisition-list': () => renderRawRequisitionList(appStore.getState()),
-    '/wls/raw/issue-list': () => renderRawIssueList(appStore.getState()),
-    '/wls/raw/outbound-list': () => renderRawOutboundList(appStore.getState()),
+    '/wls/raw/requisition-list': () => renderRawRequisitionList(),
+    '/wls/raw/issue-list': () => renderRawIssueList(),
+    '/wls/raw/outbound-list': () => renderRawOutboundList(),
 
     // ── 原料仓 · 库存管理 ──
-    '/wls/raw/stock/realtime': () => renderRawStockRealtime(appStore.getState()),
-    '/wls/raw/stock/location': () => renderRawStockLocation(appStore.getState()),
-    '/wls/raw/stock/flow': () => renderRawStockFlow(appStore.getState()),
-    '/wls/raw/stock/fabric-inventory-count': () => renderRawFabricInventoryCount(appStore.getState()),
-    '/wls/raw/stock/accessory-inventory-count': () => renderRawAccessoryInventoryCount(appStore.getState()),
-    '/wls/raw/stock/fabric-transfer': () => renderRawFabricTransfer(appStore.getState()),
-    '/wls/raw/stock/accessory-transfer': () => renderRawAccessoryTransfer(appStore.getState()),
+    '/wls/raw/stock/realtime': () => renderRawStockRealtime(),
+    '/wls/raw/stock/location': () => renderRawStockLocation(),
+    '/wls/raw/stock/flow': () => renderRawStockFlow(),
+    '/wls/raw/stock/fabric-inventory-count': () => renderRawFabricInventoryCount(),
+    '/wls/raw/stock/accessory-inventory-count': () => renderRawAccessoryInventoryCount(),
+    '/wls/raw/stock/fabric-transfer': () => renderRawFabricTransfer(),
+    '/wls/raw/stock/accessory-transfer': () => renderRawAccessoryTransfer(),
 
     // ── 原料仓 · 数据分析 ──
-    '/wls/raw/fabric-score': () => renderRawFabricScore(appStore.getState()),
+    '/wls/raw/fabric-score': () => renderRawFabricScore(),
 
     // ── 原料仓 · 基础管理 ──
-    '/wls/raw/basic/warehouse': () => renderBasicWarehouse(appStore.getState()),
-    '/wls/raw/basic/subject': () => renderBasicSubject(appStore.getState()),
-    '/wls/raw/basic/zone-location': () => renderBasicZoneLocation(appStore.getState()),
-    '/wls/raw/basic/barcode-rule': () => renderBasicBarcodeRule(appStore.getState()),
-    '/wls/raw/basic/label-config': () => renderBasicLabelConfig(appStore.getState()),
-    '/wls/raw/basic/product-center': () => renderBasicProductCenter(appStore.getState()),
-    '/wls/raw/basic/supplier': () => renderBasicSupplier(appStore.getState()),
-    '/wls/raw/basic/processor': () => renderBasicProcessor(appStore.getState()),
+    '/wls/raw/basic/warehouse': () => renderBasicWarehouse(),
+    '/wls/raw/basic/subject': () => renderBasicSubject(),
+    '/wls/raw/basic/zone-location': () => renderBasicZoneLocation(),
+    '/wls/raw/basic/barcode-rule': () => renderBasicBarcodeRule(),
+    '/wls/raw/basic/label-config': () => renderBasicLabelConfig(),
+    '/wls/raw/basic/product-center': () => renderBasicProductCenter(),
+    '/wls/raw/basic/supplier': () => renderBasicSupplier(),
+    '/wls/raw/basic/processor': () => renderBasicProcessor(),
 
     // ── 共享基础管理 ──
-    '/wls/basic/warehouse': () => renderBasicWarehouse(appStore.getState()),
-    '/wls/basic/subject': () => renderBasicSubject(appStore.getState()),
-    '/wls/basic/zone-location': () => renderBasicZoneLocation(appStore.getState()),
-    '/wls/basic/barcode-rule': () => renderBasicBarcodeRule(appStore.getState()),
-    '/wls/basic/label-config': () => renderBasicLabelConfig(appStore.getState()),
-    '/wls/basic/product-center': () => renderBasicProductCenter(appStore.getState()),
-    '/wls/basic/supplier': () => renderBasicSupplier(appStore.getState()),
-    '/wls/basic/processor': () => renderBasicProcessor(appStore.getState()),
+    '/wls/basic/warehouse': () => renderBasicWarehouse(),
+    '/wls/basic/subject': () => renderBasicSubject(),
+    '/wls/basic/zone-location': () => renderBasicZoneLocation(),
+    '/wls/basic/barcode-rule': () => renderBasicBarcodeRule(),
+    '/wls/basic/label-config': () => renderBasicLabelConfig(),
+    '/wls/basic/product-center': () => renderBasicProductCenter(),
+    '/wls/basic/supplier': () => renderBasicSupplier(),
+    '/wls/basic/processor': () => renderBasicProcessor(),
   },
   dynamicRoutes: [],
 }

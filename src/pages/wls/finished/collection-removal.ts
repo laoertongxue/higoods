@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type RemovalLine = { sku: string; name: string; qty: number; removed: number; origin: string; recommend: string }
 type RemovalTask = { id: string; orderId: string; box: string; reason: string; status: '待移出' | '移出中' | '已完成'; created: string; lines: RemovalLine[] }
@@ -26,99 +33,175 @@ function badgeClass(s: string): string {
   return 'bg-amber-50 text-amber-700'
 }
 
-export function renderCollectionRemoval(_state: AppState): string {
-  const stats = (['待移出', '移出中', '已完成'] as const).map(s => {
-    const count = seedTasks.filter(t => t.status === s).length
-    return `
-      <div class="rounded-lg border border-[var(--border-default)] bg-white p-4">
-        <div class="text-xs text-[var(--text-muted)]">${s}</div>
-        <div class="mt-1 text-2xl font-semibold">${count}</div>
-      </div>
-    `
-  }).join('')
+const EVENT_PREFIX = 'wls-collection-removal'
+const PREFERENCE_KEY = '/wls/finished/collection-removal:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-  const rows = seedTasks.map(t => {
-    const total = t.lines.reduce((s, l) => s + l.qty, 0)
-    const removed = t.lines.reduce((s, l) => s + l.removed, 0)
-    const cls = badgeClass(t.status)
-    return `
-      <tr class="border-t border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
-        <td class="px-3 py-4 font-medium text-[var(--link)]">${t.id}</td>
-        <td class="px-3 py-3">${t.orderId}</td>
-        <td class="px-3 py-3">${t.orderId.replace('JH-', 'SO-')}</td>
-        <td class="px-3 py-3 font-medium text-blue-700">${t.box}</td>
-        <td class="px-3 py-3 text-center">${t.lines.length}</td>
-        <td class="px-3 py-3 text-center">${total}</td>
-        <td class="px-3 py-3 text-center">${removed}</td>
-        <td class="px-3 py-3">${t.reason}</td>
-        <td class="px-3 py-3"><span class="rounded-full px-2 py-0.5 text-xs ${cls}">${t.status}</span></td>
-        <td class="px-3 py-3 whitespace-nowrap">${t.created}</td>
-        <td class="px-3 py-3">
-          <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onclick="window.__wlsCollectionRemoval?.viewDetail('${t.id}')">查看详情</button>
-        </td>
-      </tr>
-    `
-  }).join('')
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-  return `
-    <div class="space-y-4">
-      <div>
-        <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">移出集货</h2>
-        <p class="mt-1 text-[13px] text-[var(--text-muted)]">成衣仓预售订单提前集货流程 · 集货箱商品移出回库管理</p>
-      </div>
+const columns: StandardListColumn<RemovalTask>[] = [
+  { key: 'id', title: '移出任务号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.id,
+    render: r => `<span class="font-mono text-xs text-blue-600 font-medium">${escapeHtml(r.id)}</span>` },
+  { key: 'orderId', title: '订单号', width: 160, sortable: true, sortValue: r => r.orderId,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.orderId)}</span>` },
+  { key: 'shipNo', title: '发货单号', width: 160, sortable: true, sortValue: r => r.orderId.replace('JH-', 'SO-'),
+    render: r => `<span class="text-slate-600">${escapeHtml(r.orderId.replace('JH-', 'SO-'))}</span>` },
+  { key: 'box', title: '集货箱号', width: 110, sortable: true, sortValue: r => r.box,
+    render: r => `<span class="font-medium text-blue-700">${escapeHtml(r.box)}</span>` },
+  { key: 'skuCount', title: '箱内SKU', width: 80, align: 'center', sortable: true, sortValue: r => r.lines.length,
+    render: r => `<span class="text-slate-600">${r.lines.length}</span>` },
+  { key: 'totalQty', title: '箱内商品', width: 90, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.qty, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.qty, 0)}</span>` },
+  { key: 'removedQty', title: '已回库', width: 80, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.removed, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.removed, 0)}</span>` },
+  { key: 'reason', title: '移出原因', width: 120, sortable: true, sortValue: r => r.reason,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.reason)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(r.status)}">${escapeHtml(r.status)}</span>` },
+  { key: 'created', title: '创建时间', width: 150, sortable: true, sortValue: r => r.created,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.created)}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看详情</button></div>` },
+]
 
-      <div class="grid grid-cols-3 gap-3">
-        ${stats}
-      </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['id'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-      <div class="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-default)] bg-white p-4">
-        <input placeholder="移出任务号 / 订单号 / 集货箱号" class="h-9 w-72 rounded-md border border-[var(--border-default)] px-3 text-sm" />
-        <select class="h-9 rounded-md border border-[var(--border-default)] px-3 text-sm">
-          <option>全部移出状态</option><option>待移出</option><option>移出中</option><option>已完成</option>
-        </select>
-        <button class="rounded-md border border-[var(--link)] bg-[var(--link)] px-3 py-1.5 text-xs font-medium text-white">查询</button>
-        <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">重置</button>
-      </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-      <div class="overflow-auto rounded-lg border border-[var(--border-default)] bg-white">
-        <table class="min-w-[1200px] w-full text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="px-3 py-3 text-left font-medium">移出任务号</th>
-              <th class="px-3 py-3 text-left font-medium">订单号</th>
-              <th class="px-3 py-3 text-left font-medium">发货单号</th>
-              <th class="px-3 py-3 text-left font-medium">集货箱号</th>
-              <th class="px-3 py-3 text-center font-medium">箱内 SKU</th>
-              <th class="px-3 py-3 text-center font-medium">箱内商品</th>
-              <th class="px-3 py-3 text-center font-medium">已回库</th>
-              <th class="px-3 py-3 text-left font-medium">移出原因</th>
-              <th class="px-3 py-3 text-left font-medium">状态</th>
-              <th class="px-3 py-3 text-left font-medium">创建时间</th>
-              <th class="px-3 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-      </div>
+function filteredRows(): RemovalTask[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedTasks.filter(t => {
+    if (state.statusFilter && t.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${t.id} ${t.orderId} ${t.box}`.toLowerCase().includes(kw)
+  })
+}
 
-      <div class="rounded-lg border border-[var(--border-default)] bg-white p-5 text-sm">
-        <h3 class="font-semibold text-[var(--text-primary)]">功能逻辑说明</h3>
-        <table class="mt-3 w-full text-[13px]">
-          <tbody>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="w-36 py-3 font-medium text-[var(--text-primary)]">页面定位</td><td class="py-3 text-[var(--text-muted)]">管理集货箱内商品的移出回库任务，支持订单取消、集货超时、商品破损等场景。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">作业流程</td><td class="py-3 text-[var(--text-muted)]">选择 Web 移出任务 → PDA 扫集货箱 → 逐件扫 SKU → 扫推荐库位 → 确认回库。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">释放规则</td><td class="py-3 text-[var(--text-muted)]">箱内实际库存清零后才解除订单绑定并释放集货箱。</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="移出任务号 / 订单号 / 集货箱号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">移出状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待移出" ${state.statusFilter === '待移出' ? 'selected' : ''}>待移出</option><option value="移出中" ${state.statusFilter === '移出中' ? 'selected' : ''}>移出中</option><option value="已完成" ${state.statusFilter === '已完成' ? 'selected' : ''}>已完成</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
 
-    <script>
-      window.__wlsCollectionRemoval = {
-        viewDetail(id) { console.log('查看移出任务详情', id) }
-      }
-    </script>
-  `
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '移出集货',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '待移出', value: `${seedTasks.filter(t => t.status === '待移出').length} 个` },
+      { label: '移出中', value: `${seedTasks.filter(t => t.status === '移出中').length} 个` },
+      { label: '已完成', value: `${seedTasks.filter(t => t.status === '已完成').length} 个` },
+    ]),
+    listTitle: '移出任务列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无移出任务' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '移出任务列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderCollectionRemoval(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleCollectionRemovalEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const statusSelect = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (statusSelect) state.statusFilter = statusSelect.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

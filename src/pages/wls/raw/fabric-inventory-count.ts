@@ -1,109 +1,199 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type CountOrder = {
   countNo: string; warehouse: string; countType: string; scope: string
-  detailCount: number; status: string; creator: string; updatedAt: string
+  detailCount: number; status: '已完成' | '待审核' | '盘点中' | '待盘点' | '已取消'
+  creator: string; updatedAt: string
 }
 
+const seedOrders: CountOrder[] = [
+  { countNo: 'TR-FC-20260716-001', warehouse: '原料仓', countType: '全盘', scope: 'A区面料库位', detailCount: 60, status: '已完成', creator: '原料仓文员-小陈', updatedAt: '2026-07-16 14:00' },
+  { countNo: 'TR-FC-20260716-002', warehouse: '原料仓', countType: '抽盘', scope: 'B区高频面料', detailCount: 24, status: '待审核', creator: '原料仓文员-小刘', updatedAt: '2026-07-16 14:30' },
+  { countNo: 'TR-FC-20260716-003', warehouse: '原料仓', countType: '动态盘', scope: 'C区异动物料', detailCount: 10, status: '盘点中', creator: '原料仓文员-小陈', updatedAt: '2026-07-16 15:00' },
+  { countNo: 'TR-FC-20260716-004', warehouse: '原料仓', countType: '全盘', scope: 'D区面料库位', detailCount: 48, status: '待盘点', creator: '原料仓文员-小刘', updatedAt: '2026-07-16 15:20' },
+  { countNo: 'TR-FC-20260716-005', warehouse: '原料仓', countType: '抽盘', scope: 'E区里料区', detailCount: 18, status: '盘点中', creator: '原料仓文员-小陈', updatedAt: '2026-07-16 15:40' },
+  { countNo: 'TR-FC-20260715-001', warehouse: '原料仓', countType: '全盘', scope: 'A区全部库位', detailCount: 56, status: '已取消', creator: '原料仓文员-小刘', updatedAt: '2026-07-15 17:00' },
+]
+
 const statusClass: Record<string, string> = {
-  '已完成': 'bg-emerald-50 text-emerald-700',
-  '待审核': 'bg-blue-50 text-blue-700',
-  '盘点中': 'bg-orange-50 text-orange-700',
-  '待盘点': 'bg-orange-50 text-orange-700',
+  '已完成': 'bg-emerald-50 text-emerald-700', '待审核': 'bg-blue-50 text-blue-700',
+  '盘点中': 'bg-amber-50 text-amber-700', '待盘点': 'bg-orange-50 text-orange-700',
   '已取消': 'bg-slate-100 text-slate-400',
 }
 
-const seedCounts: CountOrder[] = [
-  { countNo: 'PD-20260530-001', warehouse: '中央总仓-面料仓', countType: '全仓', scope: '全仓盘点', detailCount: 24, status: '已完成', creator: 'VM', updatedAt: '2026-05-30 09:20' },
-  { countNo: 'PD-20260530-002', warehouse: '中央总仓-辅料仓', countType: 'SKU', scope: '重点SKU盘点', detailCount: 12, status: '待审核', creator: 'Rina', updatedAt: '2026-05-30 10:20' },
-  { countNo: 'PD-20260530-003', warehouse: '中央总仓-耗材仓', countType: '全仓', scope: '全仓盘点', detailCount: 8, status: '盘点中', creator: 'VM', updatedAt: '2026-05-30 11:20' },
-  { countNo: 'PD-20260530-004', warehouse: '中央总仓-包材仓', countType: 'SKU', scope: '重点SKU盘点', detailCount: 15, status: '待盘点', creator: 'Rina', updatedAt: '2026-05-30 12:20' },
-  { countNo: 'PD-20260530-005', warehouse: '中央总仓-纱线仓', countType: '全仓', scope: '全仓盘点', detailCount: 6, status: '已完成', creator: 'VM', updatedAt: '2026-05-30 13:20' },
-  { countNo: 'PD-20260530-006', warehouse: '中央总仓-面料仓', countType: '库区', scope: '面料区A盘点', detailCount: 10, status: '已取消', creator: 'Rina', updatedAt: '2026-05-30 14:20' },
+const EVENT_PREFIX = 'wls-raw-fabric-inventory-count'
+const PREFERENCE_KEY = '/wls/raw/fabric-inventory-count:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
+
+const columns: StandardListColumn<CountOrder>[] = [
+  { key: 'countNo', title: '盘点单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.countNo,
+    render: r => `<span class="font-mono text-xs text-blue-600" title="${escapeHtml(r.countNo)}">${escapeHtml(r.countNo)}</span>` },
+  { key: 'warehouse', title: '仓库', width: 120, sortable: true, sortValue: r => r.warehouse,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.warehouse)}</span>` },
+  { key: 'countType', title: '盘点类型', width: 100, sortable: true, sortValue: r => r.countType,
+    render: r => `<span class="text-xs text-slate-600">${escapeHtml(r.countType)}</span>` },
+  { key: 'scope', title: '盘点范围', width: 160, sortable: true, sortValue: r => r.scope,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.scope)}</span>` },
+  { key: 'detailCount', title: '明细行数', width: 90, align: 'right', sortable: true, sortValue: r => r.detailCount,
+    render: r => `<span class="text-slate-700 font-medium">${r.detailCount}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status]}">${escapeHtml(r.status)}</span>` },
+  { key: 'creator', title: '创建人', width: 130, sortable: true, sortValue: r => r.creator,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.creator)}</span>` },
+  { key: 'updatedAt', title: '更新时间', width: 150, sortable: true, sortValue: r => r.updatedAt,
+    render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.updatedAt)}</span>` },
+  { key: 'actions', title: '操作', width: 140, required: true, actionColumn: true,
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看</button>${r.status === '待盘点' ? `<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="start">开始盘点</button>` : ''}</div>` },
 ]
 
-export function renderRawFabricInventoryCount(_state: AppState): string {
-  const statusCounts: Record<string, number> = {}
-  seedCounts.forEach(c => { statusCounts[c.status] = (statusCounts[c.status] || 0) + 1 })
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['countNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-semibold text-slate-800">面料盘点</h1>
-        <p class="text-sm text-slate-500 mt-0.5">以包装单位为主、基础单位为辅，记录账面数量、实盘数量和差异数量。</p>
-      </div>
-      <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">新建盘点单</button>
-    </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input id="wlsRawFCSearch" type="text" placeholder="搜索盘点单号 / 仓库 / 创建人" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-72 focus:border-blue-400 focus:outline-none">
-        <select id="wlsRawFCStatus" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
-          <option value="">全部</option>
-          <option value="待盘点">待盘点 (${statusCounts['待盘点'] || 0})</option>
-          <option value="盘点中">盘点中 (${statusCounts['盘点中'] || 0})</option>
-          <option value="待审核">待审核 (${statusCounts['待审核'] || 0})</option>
-          <option value="已完成">已完成 (${statusCounts['已完成'] || 0})</option>
-          <option value="已取消">已取消 (${statusCounts['已取消'] || 0})</option>
-        </select>
-        <button id="wlsRawFCReset" class="rounded-lg bg-slate-100 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-200">重置</button>
-      </div>
-    </div>
+function filteredRows(): CountOrder[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedOrders.filter(o => {
+    if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${o.countNo} ${o.warehouse} ${o.countType} ${o.scope} ${o.creator}`.toLowerCase().includes(kw)
+  })
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <span class="text-sm text-slate-500">共 ${seedCounts.length} 条记录</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1180px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-3 py-2 text-left font-medium">盘点单号</th>
-            <th class="px-3 py-2 text-left font-medium">盘点仓库</th>
-            <th class="px-3 py-2 text-left font-medium">盘点类型</th>
-            <th class="px-3 py-2 text-left font-medium">盘点范围</th>
-            <th class="px-3 py-2 text-right font-medium">明细行数</th>
-            <th class="px-3 py-2 text-left font-medium">状态</th>
-            <th class="px-3 py-2 text-left font-medium">创建人</th>
-            <th class="px-3 py-2 text-left font-medium">更新时间</th>
-            <th class="px-3 py-2 text-left font-medium sticky right-0 bg-slate-50">操作</th>
-          </tr></thead>
-          <tbody>
-            ${seedCounts.map(c => `
-              <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-3 py-2"><a href="javascript:void(0)" class="text-blue-600 hover:underline text-xs font-mono">${c.countNo}</a></td>
-                <td class="px-3 py-2 text-slate-600">${c.warehouse}</td>
-                <td class="px-3 py-2 text-slate-600">${c.countType}</td>
-                <td class="px-3 py-2 text-slate-500">${c.scope}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${c.detailCount}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${statusClass[c.status] || 'bg-slate-100 text-slate-500'}">${c.status}</span></td>
-                <td class="px-3 py-2 text-slate-600 text-xs">${c.creator}</td>
-                <td class="px-3 py-2 text-slate-400 text-xs">${c.updatedAt}</td>
-                <td class="px-3 py-2 sticky right-0 bg-white">
-                  <button class="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">查看</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsRawFabricCount = {
-      init() {
-        const select = document.getElementById('wlsRawFCStatus');
-        const resetBtn = document.getElementById('wlsRawFCReset');
-        const searchInput = document.getElementById('wlsRawFCSearch');
-        if (select) select.addEventListener('change', () => {});
-        if (resetBtn) {
-          resetBtn.addEventListener('click', () => {
-            if (searchInput) searchInput.value = '';
-            if (select) select.value = '';
-          });
-        }
-      }
-    };
-    window.__wlsRawFabricCount.init();
-  </script>`
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="盘点单号 / 仓库 / 盘点范围" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="已完成" ${state.statusFilter === '已完成' ? 'selected' : ''}>已完成</option><option value="待审核" ${state.statusFilter === '待审核' ? 'selected' : ''}>待审核</option><option value="盘点中" ${state.statusFilter === '盘点中' ? 'selected' : ''}>盘点中</option><option value="待盘点" ${state.statusFilter === '待盘点' ? 'selected' : ''}>待盘点</option><option value="已取消" ${state.statusFilter === '已取消' ? 'selected' : ''}>已取消</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '原料仓面料盘点单',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '待盘点', value: `${seedOrders.filter(o => o.status === '待盘点').length} 条` },
+      { label: '盘点中', value: `${seedOrders.filter(o => o.status === '盘点中').length} 条` },
+      { label: '已完成', value: `${seedOrders.filter(o => o.status === '已完成').length} 条` },
+    ]),
+    listTitle: '盘点单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无盘点单' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '面料盘点单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderRawFabricInventoryCount(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleRawFabricInventoryCountEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

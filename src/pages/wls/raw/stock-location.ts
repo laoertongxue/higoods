@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type StockLocationRow = {
   warehouse: string; zone: string; location: string
@@ -20,115 +27,160 @@ const seedRows: StockLocationRow[] = [
   { warehouse: '中央总仓-纱线仓', zone: '纱线区', location: 'YRN-A-02', spu: 'SPU-YRN-1002', sku: 'SKU-YRN-50002', qty: '8 卷 / 640 米', updatedAt: '2026-05-30 10:45' },
 ]
 
-export function renderRawStockLocation(_state: AppState): string {
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-semibold text-slate-800">仓位库存查询</h1>
-        <p class="text-sm text-slate-500 mt-0.5">用于按仓库、库区、库位维度查看库存分布。</p>
-      </div>
-    </div>
+const EVENT_PREFIX = 'wls-raw-stock-location'
+const PREFERENCE_KEY = '/wls/raw/stock-location:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input id="wlsRawSLSearch" type="text" placeholder="搜索仓库名称 / 仓库库区 / 仓库库位 / 商品SPU / 商品SKU" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-96 focus:border-blue-400 focus:outline-none">
-        <button id="wlsRawSLClear" class="rounded-lg bg-slate-100 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-200">清除</button>
-      </div>
-    </div>
-
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <span class="text-sm text-slate-500">共 ${seedRows.length} 条记录</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1200px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-3 py-2 text-left font-medium">仓库名称</th>
-            <th class="px-3 py-2 text-left font-medium">仓库库区</th>
-            <th class="px-3 py-2 text-left font-medium">仓库库位</th>
-            <th class="px-3 py-2 text-left font-medium">商品SPU</th>
-            <th class="px-3 py-2 text-left font-medium">商品SKU</th>
-            <th class="px-3 py-2 text-right font-medium">库存数量</th>
-            <th class="px-3 py-2 text-left font-medium">更新时间</th>
-          </tr></thead>
-          <tbody id="wlsRawSLBody">
-            ${buildStockLocationRows(seedRows)}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsRawStockLocation = {
-      allRows: ${JSON.stringify(seedRows)},
-      init() {
-        const input = document.getElementById('wlsRawSLSearch');
-        const clearBtn = document.getElementById('wlsRawSLClear');
-        if (input) {
-          input.addEventListener('input', () => {
-            const kw = input.value.trim().toLowerCase();
-            const filtered = kw ? this.allRows.filter(r =>
-              r.warehouse.toLowerCase().includes(kw) ||
-              r.zone.toLowerCase().includes(kw) ||
-              r.location.toLowerCase().includes(kw) ||
-              r.spu.toLowerCase().includes(kw) ||
-              r.sku.toLowerCase().includes(kw)
-            ) : this.allRows;
-            document.getElementById('wlsRawSLBody').innerHTML = this.renderRows(filtered);
-          });
-        }
-        if (clearBtn) {
-          clearBtn.addEventListener('click', () => {
-            if (input) input.value = '';
-            document.getElementById('wlsRawSLBody').innerHTML = this.renderRows(this.allRows);
-          });
-        }
-      },
-      renderRows(rows) {
-        return ${buildStockLocationRows.toString().replace('seedRows', 'rows')};
-      }
-    };
-    window.__wlsRawStockLocation.init();
-  </script>`
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
 }
 
-function buildStockLocationRows(rows: StockLocationRow[]): string {
-  /* Compute rowSpan groups for warehouse and zone */
-  const whGroups: Record<string, number> = {}
-  const zoneGroups: Record<string, number> = {}
-  rows.forEach(r => {
-    whGroups[r.warehouse] = (whGroups[r.warehouse] || 0) + 1
-    const zk = r.warehouse + '|' + r.zone
-    zoneGroups[zk] = (zoneGroups[zk] || 0) + 1
+const columns: StandardListColumn<StockLocationRow>[] = [
+  { key: 'warehouse', title: '仓库名称', width: 150, required: true, freezeable: true, sortable: true, sortValue: r => r.warehouse,
+    render: r => `<span class="text-slate-700 font-medium">${escapeHtml(r.warehouse)}</span>` },
+  { key: 'zone', title: '仓库库区', width: 120, sortable: true, sortValue: r => r.zone,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.zone)}</span>` },
+  { key: 'location', title: '仓库库位', width: 110, sortable: true, sortValue: r => r.location,
+    render: r => `<span class="font-mono text-xs text-slate-700">${escapeHtml(r.location)}</span>` },
+  { key: 'spu', title: '商品SPU', width: 130, sortable: true, sortValue: r => r.spu,
+    render: r => `<span class="text-blue-600 text-xs font-mono">${escapeHtml(r.spu)}</span>` },
+  { key: 'sku', title: '商品SKU', width: 130, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="text-slate-600 text-xs font-mono">${escapeHtml(r.sku)}</span>` },
+  { key: 'qty', title: '库存数量', width: 140, align: 'right', sortable: true, sortValue: r => r.qty,
+    render: r => `<span class="text-slate-700 font-medium whitespace-nowrap">${escapeHtml(r.qty)}</span>` },
+  { key: 'updatedAt', title: '更新时间', width: 140, sortable: true, sortValue: r => r.updatedAt,
+    render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.updatedAt)}</span>` },
+]
+
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['warehouse'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): StockLocationRow[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedRows.filter(r => {
+    if (!kw) return true
+    return `${r.warehouse} ${r.zone} ${r.location} ${r.spu} ${r.sku}`.toLowerCase().includes(kw)
   })
+}
 
-  const whSeen: Record<string, boolean> = {}
-  const zoneSeen: Record<string, boolean> = {}
-  let html = ''
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="仓库名称 / 库区 / 库位 / 商品SPU / 商品SKU" data-${EVENT_PREFIX}-field="keyword"></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
 
-  rows.forEach(r => {
-    const zk = r.warehouse + '|' + r.zone
-    const isFirstWh = !whSeen[r.warehouse]
-    const isFirstZone = !zoneSeen[zk]
-    whSeen[r.warehouse] = true
-    zoneSeen[zk] = true
-
-    html += `<tr class="border-t border-slate-100 hover:bg-slate-50">`
-    if (isFirstWh) {
-      html += `<td class="px-3 py-2 text-slate-700 font-medium" rowspan="${whGroups[r.warehouse]}">${r.warehouse}</td>`
-    }
-    if (isFirstZone) {
-      html += `<td class="px-3 py-2 text-slate-600" rowspan="${zoneGroups[zk]}">${r.zone}</td>`
-    }
-    html += `
-      <td class="px-3 py-2 font-mono text-xs text-slate-700">${r.location}</td>
-      <td class="px-3 py-2"><a href="javascript:void(0)" class="text-blue-600 hover:underline text-xs font-mono">${r.spu}</a></td>
-      <td class="px-3 py-2 text-slate-600 text-xs font-mono">${r.sku}</td>
-      <td class="px-3 py-2 text-right text-slate-700 font-medium whitespace-nowrap">${r.qty}</td>
-      <td class="px-3 py-2 text-slate-400 text-xs">${r.updatedAt}</td>
-    </tr>`
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '仓位库存查询',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '仓库数', value: `${new Set(seedRows.map(r => r.warehouse)).size} 个` },
+      { label: '库区数', value: `${new Set(seedRows.map(r => r.zone)).size} 个` },
+    ]),
+    listTitle: '库存分布',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无仓位库存记录' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '仓位库存列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
   })
+}
 
-  return html
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderRawStockLocation(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleRawStockLocationEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

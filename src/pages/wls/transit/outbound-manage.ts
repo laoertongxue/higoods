@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type OutboundRow = {
   outboundNo: string; taskNo: string; productionNo: string; sku: string; name: string
@@ -18,88 +25,190 @@ const seedRows: OutboundRow[] = [
   { outboundNo: '—', taskNo: 'TR-AL-20260716-010', productionNo: 'PO14963', sku: 'FAB-PO14963-A', name: '主身面料', processorName: '自有工厂D组', outboundType: '自有工厂部分出库', cutterReceived: false, allocationDone: false, plannedQty: 7, allocatedQty: 0, actualOutboundQty: 0, sourceArea: '待领料区/隔离区', outboundStatus: '待出库' },
 ]
 
-export function renderTransitOutboundManage(_state: AppState): string {
-  const completed = seedRows.filter(r => r.outboundStatus === '已完成').length
-  const pending = seedRows.filter(r => r.outboundStatus === '待出库').length
+const EVENT_PREFIX = 'wls-transit-outbound'
+const PREFERENCE_KEY = '/wls/transit/outbound-manage:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-800">中转仓 · 出库单管理</h1>
-      <div class="flex items-center gap-3 text-xs text-slate-500">
-        <span>已完成: <strong class="text-emerald-600">${completed}</strong></span>
-        <span>待出库: <strong class="text-orange-600">${pending}</strong></span>
-      </div>
-    </div>
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <span class="text-sm text-slate-500">共 ${seedRows.length} 条出库记录</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1540px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-3 py-2 text-left font-medium">出库单号</th>
-            <th class="px-3 py-2 text-left font-medium">配料单</th>
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
-            <th class="px-3 py-2 text-left font-medium">SKU</th>
-            <th class="px-3 py-2 text-left font-medium">物料名称</th>
-            <th class="px-3 py-2 text-left font-medium">加工方</th>
-            <th class="px-3 py-2 text-left font-medium">出库类型</th>
-            <th class="px-3 py-2 text-left font-medium">裁厂接收</th>
-            <th class="px-3 py-2 text-left font-medium">配料状态</th>
-            <th class="px-3 py-2 text-right font-medium">计划出库</th>
-            <th class="px-3 py-2 text-right font-medium">配料数量</th>
-            <th class="px-3 py-2 text-right font-medium">实际出库</th>
-            <th class="px-3 py-2 text-left font-medium">来源区域</th>
-            <th class="px-3 py-2 text-left font-medium">出库状态</th>
-            <th class="px-3 py-2 text-left font-medium sticky right-0 bg-slate-50">操作</th>
-          </tr></thead>
-          <tbody>
-            ${seedRows.map(r => {
-              const canConfirm = r.cutterReceived && r.allocationDone && r.outboundStatus === '待出库'
-              return `
-              <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-3 py-2 font-mono text-xs ${r.outboundNo !== '—' ? 'text-blue-600' : 'text-slate-400'}">${r.outboundNo}</td>
-                <td class="px-3 py-2 font-mono text-xs text-slate-500">${r.taskNo}</td>
-                <td class="px-3 py-2 text-slate-700">${r.productionNo}</td>
-                <td class="px-3 py-2 font-mono text-xs text-slate-600">${r.sku}</td>
-                <td class="px-3 py-2 text-slate-600">${r.name}</td>
-                <td class="px-3 py-2 text-slate-600">${r.processorName}</td>
-                <td class="px-3 py-2 text-xs text-slate-500">${r.outboundType}</td>
-                <td class="px-3 py-2 text-xs ${r.cutterReceived ? 'text-emerald-600' : 'text-slate-400'}">${r.cutterReceived ? '已接收' : '未接收'}</td>
-                <td class="px-3 py-2 text-xs ${r.allocationDone ? 'text-emerald-600' : 'text-orange-600'}">${r.allocationDone ? '已配料' : '待配料'}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${r.plannedQty}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${r.allocatedQty}</td>
-                <td class="px-3 py-2 text-right font-medium ${r.actualOutboundQty > 0 ? 'text-emerald-600' : 'text-slate-400'}">${r.actualOutboundQty}</td>
-                <td class="px-3 py-2 text-xs text-slate-500">${r.sourceArea}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${r.outboundStatus === '已完成' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}">${r.outboundStatus}</span></td>
-                <td class="px-3 py-2 sticky right-0 bg-white">
-                  ${canConfirm
-                    ? '<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700">确认出库</button>'
-                    : r.outboundStatus === '已完成'
-                      ? '<span class="text-xs text-slate-400">已完成</span>'
-                      : '<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white opacity-40 cursor-not-allowed" disabled>确认出库</button>'}
-                </td>
-              </tr>`
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
+const columns: StandardListColumn<OutboundRow>[] = [
+  { key: 'outboundNo', title: '出库单号', width: 200, required: true, freezeable: true, sortable: true, sortValue: r => r.outboundNo,
+    render: r => `<span class="font-mono text-xs ${r.outboundNo !== '—' ? 'text-blue-600' : 'text-slate-400'}">${escapeHtml(r.outboundNo)}</span>` },
+  { key: 'taskNo', title: '配料单', width: 180, sortable: true, sortValue: r => r.taskNo,
+    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.taskNo)}</span>` },
+  { key: 'productionNo', title: '生产单号', width: 120, sortable: true, sortValue: r => r.productionNo,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.productionNo)}</span>` },
+  { key: 'sku', title: 'SKU', width: 160, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
+  { key: 'name', title: '物料名称', width: 120, sortable: true, sortValue: r => r.name,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
+  { key: 'processorName', title: '加工方', width: 150, sortable: true, sortValue: r => r.processorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.processorName)}</span>` },
+  { key: 'outboundType', title: '出库类型', width: 140, sortable: true, sortValue: r => r.outboundType,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.outboundType)}</span>` },
+  { key: 'cutterReceived', title: '裁厂接收', width: 100, sortable: true, sortValue: r => r.cutterReceived ? '已接收' : '未接收',
+    render: r => `<span class="text-xs ${r.cutterReceived ? 'text-emerald-600' : 'text-slate-400'}">${r.cutterReceived ? '已接收' : '未接收'}</span>` },
+  { key: 'allocationDone', title: '配料状态', width: 100, sortable: true, sortValue: r => r.allocationDone ? '已配料' : '待配料',
+    render: r => `<span class="text-xs ${r.allocationDone ? 'text-emerald-600' : 'text-orange-600'}">${r.allocationDone ? '已配料' : '待配料'}</span>` },
+  { key: 'plannedQty', title: '计划出库', width: 90, align: 'right', sortable: true, sortValue: r => r.plannedQty,
+    render: r => `<span class="text-slate-600">${r.plannedQty}</span>` },
+  { key: 'allocatedQty', title: '配料数量', width: 90, align: 'right', sortable: true, sortValue: r => r.allocatedQty,
+    render: r => `<span class="text-slate-600">${r.allocatedQty}</span>` },
+  { key: 'actualOutboundQty', title: '实际出库', width: 90, align: 'right', sortable: true, sortValue: r => r.actualOutboundQty,
+    render: r => `<span class="text-right font-medium ${r.actualOutboundQty > 0 ? 'text-emerald-600' : 'text-slate-400'}">${r.actualOutboundQty}</span>` },
+  { key: 'sourceArea', title: '来源区域', width: 140, sortable: true, sortValue: r => r.sourceArea,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.sourceArea)}</span>` },
+  { key: 'outboundStatus', title: '出库状态', width: 100, sortable: true, sortValue: r => r.outboundStatus,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.outboundStatus === '已完成' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}">${escapeHtml(r.outboundStatus)}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => {
+      const canConfirm = r.cutterReceived && r.allocationDone && r.outboundStatus === '待出库'
+      return `<div class="flex items-center gap-1">${canConfirm
+        ? `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="confirm">确认出库</button>`
+        : r.outboundStatus === '已完成'
+          ? '<span class="text-xs text-slate-400">已完成</span>'
+          : `<button class="rounded bg-blue-600 px-3 py-1 text-xs text-white opacity-40 cursor-not-allowed" disabled>确认出库</button>`}</div>`
+    } },
+]
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 class="text-sm font-semibold text-slate-700 mb-2">出库条件说明</h3>
-      <table class="w-full text-xs text-slate-600">
-        <thead><tr class="bg-slate-50"><th class="px-3 py-2 text-left font-medium">条件</th><th class="px-3 py-2 text-left font-medium">要求</th></tr></thead>
-        <tbody>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">裁厂接收</td><td class="px-3 py-2">裁床工厂已确认接收，方可执行出库</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">配料完成</td><td class="px-3 py-2">配料任务已完成，物料已备齐到作业区</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">齐套出库</td><td class="px-3 py-2">全部物料齐套后一次性出库给加工方</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">部分出库</td><td class="px-3 py-2">自有工厂允许部分物料先出库，需主管确认</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <script>window.__wlsTransitOutbound = { init() {} }; window.__wlsTransitOutbound.init();</script>`
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['outboundNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): OutboundRow[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedRows.filter(r => {
+    if (state.statusFilter && r.outboundStatus !== state.statusFilter) return false
+    if (!kw) return true
+    return `${r.outboundNo} ${r.taskNo} ${r.productionNo} ${r.sku} ${r.name} ${r.processorName}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="出库单号 / 配料单 / 生产单 / SKU / 加工方" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">出库状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="已完成" ${state.statusFilter === '已完成' ? 'selected' : ''}>已完成</option><option value="待出库" ${state.statusFilter === '待出库' ? 'selected' : ''}>待出库</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '中转仓出库单管理',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '已完成', value: `${seedRows.filter(r => r.outboundStatus === '已完成').length} 条` },
+      { label: '待出库', value: `${seedRows.filter(r => r.outboundStatus === '待出库').length} 条` },
+    ]),
+    listTitle: '出库单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无出库记录' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderTransitOutboundManage(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleTransitOutboundManageEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

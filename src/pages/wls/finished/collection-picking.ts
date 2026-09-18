@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type WaveLine = { location: string; zone: string; sku: string; name: string; available: number; qty: number; picked: number; short: number; status: string }
 type Wave = { id: string; zone: string; orderIds: string[]; status: string; operator?: string; receiveTime?: string; creator: string; created: string; frame?: string; lines: WaveLine[] }
@@ -34,89 +41,184 @@ const seedWaves: Wave[] = [
   ]},
 ]
 
-export function renderCollectionPicking(_state: AppState): string {
-  const rows = seedWaves.map(w => {
-    const totalQty = w.lines.reduce((s, l) => s + l.qty, 0)
-    const totalPicked = w.lines.reduce((s, l) => s + l.picked, 0)
-    const statusCls = badgeClass(w.status)
-    const label = statusLabel[w.status] || w.status
-    const canVoid = w.status === 'WAIT_RECEIVE'
-    const canHandover = w.status === 'WAIT_HANDOVER'
-    return `
-      <tr class="border-t border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
-        <td class="px-3 py-4 font-medium text-[var(--link)]">${w.id}</td>
-        <td class="px-3 py-3">${w.zone}</td>
-        <td class="px-3 py-3 font-medium text-blue-700">${w.frame || '-'}</td>
-        <td class="px-3 py-3 text-center">${w.orderIds.length}</td>
-        <td class="px-3 py-3 text-center">${w.lines.length}</td>
-        <td class="px-3 py-3 text-center">${totalQty}</td>
-        <td class="px-3 py-3 text-center">${totalPicked}</td>
-        <td class="px-3 py-3">${w.operator || '-'}</td>
-        <td class="px-3 py-3"><span class="rounded-full px-2 py-0.5 text-xs ${statusCls}">${label}</span></td>
-        <td class="px-3 py-3">${w.creator}</td>
-        <td class="px-3 py-3 whitespace-nowrap">${w.created}</td>
-        <td class="px-3 py-3">
-          <div class="flex gap-1.5">
-            <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onclick="window.__wlsCollectionPicking?.viewDetail('${w.id}')">查看详情</button>
-            <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">打印</button>
-            <button class="rounded-md border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40" ${canVoid ? '' : 'disabled'}>作废</button>
-            ${canHandover ? `<button class="rounded-md border border-[var(--link)] bg-[var(--link)] px-3 py-1.5 text-xs font-medium text-white" onclick="window.__wlsCollectionPicking?.handover('${w.id}')">确认交接</button>` : ''}
-          </div>
-        </td>
-      </tr>
-    `
-  }).join('')
+const EVENT_PREFIX = 'wls-collection-picking'
+const PREFERENCE_KEY = '/wls/finished/collection-picking:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-  return `
-    <div class="space-y-4">
-      <div>
-        <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">集货拣货波次</h2>
-        <p class="mt-1 text-[13px] text-[var(--text-muted)]">成衣仓预售订单提前集货流程 · 管理拣货波次与交接</p>
-      </div>
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-      <div class="overflow-auto rounded-lg border border-[var(--border-default)] bg-white">
-        <table class="min-w-[1200px] w-full text-[13px]">
-          <thead class="bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="px-3 py-3 text-left font-medium">波次号</th>
-              <th class="px-3 py-3 text-left font-medium">库区</th>
-              <th class="px-3 py-3 text-left font-medium">拣货框</th>
-              <th class="px-3 py-3 text-center font-medium">关联订单数</th>
-              <th class="px-3 py-3 text-center font-medium">SKU数</th>
-              <th class="px-3 py-3 text-center font-medium">应拣数量</th>
-              <th class="px-3 py-3 text-center font-medium">已拣数量</th>
-              <th class="px-3 py-3 text-left font-medium">领取人</th>
-              <th class="px-3 py-3 text-left font-medium">状态</th>
-              <th class="px-3 py-3 text-left font-medium">创建人</th>
-              <th class="px-3 py-3 text-left font-medium">创建时间</th>
-              <th class="px-3 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-      </div>
+const columns: StandardListColumn<Wave>[] = [
+  { key: 'id', title: '波次号', width: 200, required: true, freezeable: true, sortable: true, sortValue: r => r.id,
+    render: r => `<span class="font-mono text-xs text-blue-600 font-medium">${escapeHtml(r.id)}</span>` },
+  { key: 'zone', title: '库区', width: 80, sortable: true, sortValue: r => r.zone,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.zone)}</span>` },
+  { key: 'frame', title: '拣货框', width: 100, sortable: true, sortValue: r => r.frame || '',
+    render: r => `<span class="font-medium text-blue-700">${r.frame ? escapeHtml(r.frame) : '-'}</span>` },
+  { key: 'orderCount', title: '关联订单数', width: 100, align: 'center', sortable: true, sortValue: r => r.orderIds.length,
+    render: r => `<span class="text-slate-600">${r.orderIds.length}</span>` },
+  { key: 'skuCount', title: 'SKU数', width: 80, align: 'center', sortable: true, sortValue: r => r.lines.length,
+    render: r => `<span class="text-slate-600">${r.lines.length}</span>` },
+  { key: 'totalQty', title: '应拣数量', width: 90, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.qty, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.qty, 0)}</span>` },
+  { key: 'totalPicked', title: '已拣数量', width: 90, align: 'center', sortable: true, sortValue: r => r.lines.reduce((s, l) => s + l.picked, 0),
+    render: r => `<span class="text-slate-600">${r.lines.reduce((s, l) => s + l.picked, 0)}</span>` },
+  { key: 'operator', title: '领取人', width: 140, sortable: true, sortValue: r => r.operator || '',
+    render: r => `<span class="text-slate-600">${r.operator ? escapeHtml(r.operator) : '-'}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(r.status)}">${escapeHtml(statusLabel[r.status] || r.status)}</span>` },
+  { key: 'creator', title: '创建人', width: 140, sortable: true, sortValue: r => r.creator,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.creator)}</span>` },
+  { key: 'created', title: '创建时间', width: 150, sortable: true, sortValue: r => r.created,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.created)}</span>` },
+  { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true,
+    render: r => {
+      const btns = [`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看详情</button>`]
+      btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="print">打印</button>`)
+      if (r.status === 'WAIT_RECEIVE') btns.push(`<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400" data-${EVENT_PREFIX}-action="void">作废</button>`)
+      if (r.status === 'WAIT_HANDOVER') btns.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="handover">确认交接</button>`)
+      return `<div class="flex items-center gap-1">${btns.join('')}</div>`
+    } },
+]
 
-      <div class="rounded-lg border border-[var(--border-default)] bg-white p-5 text-sm">
-        <h3 class="font-semibold text-[var(--text-primary)]">功能逻辑说明</h3>
-        <table class="mt-3 w-full text-[13px]">
-          <tbody>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="w-36 py-3 font-medium text-[var(--text-primary)]">页面定位</td><td class="py-3 text-[var(--text-muted)]">管理由集货订单人工创建的拣货波次，跟踪PDA领取、拣货、短拣、交接和完成状态。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">波次拆分</td><td class="py-3 text-[var(--text-muted)]">波次唯一拆分维度为库区。同库区、同SKU合并应拣数量，PDA无需按订单拣货。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">PDA领取</td><td class="py-3 text-[var(--text-muted)]">待领取波次可由一名主要操作员领取，重复领取会被阻止。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">待交接</td><td class="py-3 text-[var(--text-muted)]">完成拣货后进入待交接，此时现场货物虽离架，系统仍不增加集货区可分配库存。</td></tr>
-            <tr class="border-t border-[var(--border-subtle)]"><td class="py-3 font-medium text-[var(--text-primary)]">确认交接</td><td class="py-3 text-[var(--text-muted)]">确认后减少来源库存、释放实际交接数量的波次占用、增加集货区待分配库存，并保证重复提交幂等。</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['id'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-    <script>
-      window.__wlsCollectionPicking = {
-        viewDetail(id) { console.log('查看波次详情', id) },
-        handover(id) { console.log('确认交接', id) }
-      }
-    </script>
-  `
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): Wave[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedWaves.filter(w => {
+    if (state.statusFilter && w.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${w.id} ${w.zone} ${w.creator}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="波次号 / 库区 / 创建人" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option>${Object.entries(statusLabel).map(([k, v]) => `<option value="${k}" ${state.statusFilter === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '集货拣货波次',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '总波次', value: `${seedWaves.length} 个` },
+      { label: '待领取', value: `${seedWaves.filter(w => w.status === 'WAIT_RECEIVE').length} 个` },
+      { label: '拣货中', value: `${seedWaves.filter(w => w.status === 'PICKING').length} 个` },
+      { label: '已完成', value: `${seedWaves.filter(w => w.status === 'COMPLETED').length} 个` },
+    ]),
+    listTitle: '波次列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无波次' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '波次列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderCollectionPicking(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleCollectionPickingEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const statusSelect = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (statusSelect) state.statusFilter = statusSelect.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

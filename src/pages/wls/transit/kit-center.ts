@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type KitLine = {
   productionNo: string; receiveNo: string; inboundNo: string; sku: string; name: string
@@ -26,99 +33,184 @@ const seedLines: KitLine[] = [
   { productionNo: 'PO14962', receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-009', sku: 'ACC-PO14962-B', name: '辅料包', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, outboundQty: 2, remainNeed: 0, receiveStatus: '已收齐', pickupStatus: '已领料' },
 ]
 
-const productionNos = [...new Set(seedLines.map(l => l.productionNo))]
+const EVENT_PREFIX = 'wls-transit-kit'
+const PREFERENCE_KEY = '/wls/transit/kit-center:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-export function renderTransitKitCenter(_state: AppState): string {
-  const statusCounts = { '缺货': 0, '未收齐': 0, '已收齐': 0 }
-  seedLines.forEach(l => { statusCounts[l.receiveStatus as keyof typeof statusCounts]++ })
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-800">中转仓 · 齐套校验中心</h1>
-      <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-40" disabled>批量确认已收齐</button>
-    </div>
+const columns: StandardListColumn<KitLine>[] = [
+  { key: 'productionNo', title: '生产单号', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.productionNo,
+    render: r => `<span class="text-slate-700 font-medium">${escapeHtml(r.productionNo)}</span>` },
+  { key: 'receiveNo', title: '收货单号', width: 180, sortable: true, sortValue: r => r.receiveNo,
+    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.receiveNo)}</span>` },
+  { key: 'inboundNo', title: '预入库单号', width: 180, sortable: true, sortValue: r => r.inboundNo,
+    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.inboundNo)}</span>` },
+  { key: 'sku', title: 'SKU', width: 160, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
+  { key: 'name', title: '物料信息', width: 100, sortable: true, sortValue: r => r.name,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
+  { key: 'requiredQty', title: '原始需求', width: 90, align: 'right', sortable: true, sortValue: r => r.requiredQty,
+    render: r => `<span class="text-slate-600">${r.requiredQty}</span>` },
+  { key: 'workQty', title: '本批作业区', width: 100, align: 'right', sortable: true, sortValue: r => r.workQty,
+    render: r => `<span class="text-slate-600">${r.workQty}</span>` },
+  { key: 'shelfQty', title: '货架可用', width: 90, align: 'right', sortable: true, sortValue: r => r.shelfQty,
+    render: r => `<span class="text-slate-600">${r.shelfQty}</span>` },
+  { key: 'availableQty', title: '合计可用', width: 90, align: 'right', sortable: true, sortValue: r => r.availableQty,
+    render: r => `<span class="text-slate-700 font-medium">${r.availableQty}</span>` },
+  { key: 'missingQty', title: '缺口数量', width: 90, align: 'right', sortable: true, sortValue: r => r.missingQty,
+    render: r => `<span class="${r.missingQty > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}">${r.missingQty > 0 ? r.missingQty : '—'}</span>` },
+  { key: 'outboundQty', title: '已出库', width: 80, align: 'right', sortable: true, sortValue: r => r.outboundQty,
+    render: r => `<span class="text-slate-600">${r.outboundQty}</span>` },
+  { key: 'remainNeed', title: '未出库', width: 80, align: 'right', sortable: true, sortValue: r => r.remainNeed,
+    render: r => `<span class="text-slate-600">${r.remainNeed}</span>` },
+  { key: 'receiveStatus', title: '收货状态', width: 100, sortable: true, sortValue: r => r.receiveStatus,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${receiveStatusClass[r.receiveStatus]}">${escapeHtml(r.receiveStatus)}</span>` },
+  { key: 'pickupStatus', title: '领料状态', width: 90, sortable: true, sortValue: r => r.pickupStatus,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.pickupStatus)}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: () => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">出入库详情</button>` },
+]
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input type="text" placeholder="生产单号 / 收货单号 / SKU" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-72 focus:border-blue-400 focus:outline-none">
-        <select class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
-          <option value="">全部收货状态</option>
-          <option value="SHORTAGE">缺货 (${statusCounts['缺货']})</option>
-          <option value="PARTIAL">未收齐 (${statusCounts['未收齐']})</option>
-          <option value="COMPLETE">已收齐 (${statusCounts['已收齐']})</option>
-        </select>
-        <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">查询</button>
-      </div>
-    </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['productionNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <label class="flex items-center gap-1.5 text-xs text-slate-500"><input type="checkbox" class="rounded"> 全选</label>
-          <span class="text-sm text-slate-500">共 ${productionNos.length} 个生产单 / ${seedLines.length} 条物料</span>
-        </div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1480px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-2 py-2 w-8"></th>
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
-            <th class="px-3 py-2 text-left font-medium">收货单号</th>
-            <th class="px-3 py-2 text-left font-medium">预入库单号</th>
-            <th class="px-3 py-2 text-left font-medium">SKU</th>
-            <th class="px-3 py-2 text-left font-medium">物料信息</th>
-            <th class="px-3 py-2 text-right font-medium">原始需求</th>
-            <th class="px-3 py-2 text-right font-medium">本批作业区</th>
-            <th class="px-3 py-2 text-right font-medium">货架可用</th>
-            <th class="px-3 py-2 text-right font-medium">合计可用</th>
-            <th class="px-3 py-2 text-right font-medium">缺口数量</th>
-            <th class="px-3 py-2 text-right font-medium">已出库</th>
-            <th class="px-3 py-2 text-right font-medium">未出库</th>
-            <th class="px-3 py-2 text-left font-medium">收货状态</th>
-            <th class="px-3 py-2 text-left font-medium">领料状态</th>
-            <th class="px-3 py-2 text-left font-medium sticky right-0 bg-slate-50">操作</th>
-          </tr></thead>
-          <tbody>
-            ${seedLines.map(l => `
-              <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-2 py-2 text-center"><input type="checkbox" class="rounded"></td>
-                <td class="px-3 py-2 text-slate-700 font-medium">${l.productionNo}</td>
-                <td class="px-3 py-2 font-mono text-xs text-slate-500">${l.receiveNo}</td>
-                <td class="px-3 py-2 font-mono text-xs text-slate-500">${l.inboundNo}</td>
-                <td class="px-3 py-2 font-mono text-xs text-slate-600">${l.sku}</td>
-                <td class="px-3 py-2 text-slate-600">${l.name}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${l.requiredQty}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${l.workQty}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${l.shelfQty}</td>
-                <td class="px-3 py-2 text-right text-slate-700 font-medium">${l.availableQty}</td>
-                <td class="px-3 py-2 text-right ${l.missingQty > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}">${l.missingQty > 0 ? l.missingQty : '—'}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${l.outboundQty}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${l.remainNeed}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${receiveStatusClass[l.receiveStatus]}">${l.receiveStatus}</span></td>
-                <td class="px-3 py-2 text-xs text-slate-500">${l.pickupStatus}</td>
-                <td class="px-3 py-2 sticky right-0 bg-white">
-                  <button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50">出入库详情</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 class="text-sm font-semibold text-slate-700 mb-2">齐套校验逻辑</h3>
-      <table class="w-full text-xs text-slate-600">
-        <thead><tr class="bg-slate-50"><th class="px-3 py-2 text-left font-medium">场景</th><th class="px-3 py-2 text-left font-medium">判定规则</th></tr></thead>
-        <tbody>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">已配齐（DIRECT_KITTED）</td><td class="px-3 py-2">作业区数量已满足全部物料需求，可直接生成配料任务</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">已配齐需配货（COMBINABLE）</td><td class="px-3 py-2">本批+货架可用满足需求，但需从货架库位拣取补充</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">未配齐（NOT_KITTED）</td><td class="px-3 py-2">可用数量不足，先生成上架任务，等待后续到货补齐</td></tr>
-          <tr class="border-t border-slate-100"><td class="px-3 py-2">缺货（SHORTAGE）</td><td class="px-3 py-2">实收数量为0，物料完全未到</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <script>window.__wlsTransitKit = { init() {} }; window.__wlsTransitKit.init();</script>`
+function filteredRows(): KitLine[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedLines.filter(l => {
+    if (state.statusFilter && l.receiveStatus !== state.statusFilter) return false
+    if (!kw) return true
+    return `${l.productionNo} ${l.receiveNo} ${l.sku} ${l.name}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="生产单号 / 收货单号 / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">收货状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="缺货" ${state.statusFilter === '缺货' ? 'selected' : ''}>缺货</option><option value="未收齐" ${state.statusFilter === '未收齐' ? 'selected' : ''}>未收齐</option><option value="已收齐" ${state.statusFilter === '已收齐' ? 'selected' : ''}>已收齐</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '中转仓齐套校验中心',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '缺货', value: `${seedLines.filter(l => l.receiveStatus === '缺货').length} 条` },
+      { label: '未收齐', value: `${seedLines.filter(l => l.receiveStatus === '未收齐').length} 条` },
+      { label: '已收齐', value: `${seedLines.filter(l => l.receiveStatus === '已收齐').length} 条` },
+    ]),
+    listTitle: '齐套校验列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无齐套校验记录' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '齐套校验列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderTransitKitCenter(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleTransitKitCenterEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

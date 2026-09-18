@@ -1,6 +1,12 @@
-import type { AppState } from '../../../state/store';
-
-const PAGE_SIZE = 20;
+// @page-pattern: list
+import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn, type StandardListHeaderGroup } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type StockFlowRecord = {
   id: string;
@@ -73,153 +79,249 @@ const STOCK_FLOW_SEED: StockFlowRecord[] = (() => {
   return records;
 })();
 
-const METRIC_COLUMNS = [
-  { label: '入库', changeKey: 'inboundChange', beforeKey: 'inboundBefore' },
-  { label: '上架', changeKey: 'putawayChange', beforeKey: 'putawayBefore' },
-  { label: '库内调拨', changeKey: 'transferChange', beforeKey: 'transferBefore' },
-  { label: '拣货', changeKey: 'pickChange', beforeKey: 'pickBefore' },
-  { label: '出库', changeKey: 'outboundChange', beforeKey: 'outboundBefore' },
-];
+const EVENT_PREFIX = 'wls-stock-flow'
+const PREFERENCE_KEY = '/wls/finished/stock-flow:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-function renderMetricCells(record: StockFlowRecord): string {
-  return METRIC_COLUMNS.map((col, index) => {
-    const change = record[col.changeKey as keyof StockFlowRecord] as number;
-    const before = record[col.beforeKey as keyof StockFlowRecord] as number;
-    const after = before + change;
-    const changeClass = change > 0 ? 'text-[#067647]' : change < 0 ? 'text-[#B42318]' : 'text-[var(--text-secondary)]';
-    const borderLeft = index > 0 ? 'border-l-2 border-[#D0D5DD]' : '';
-    return `<td class="min-w-[5.5rem] whitespace-nowrap border-b border-[var(--border-subtle)] px-2 font-semibold ${changeClass} ${borderLeft}">${change > 0 ? `+${change}` : change}</td>
-      <td class="min-w-[5.5rem] whitespace-nowrap border-b border-[var(--border-subtle)] px-2">${before}</td>
-      <td class="min-w-[5.5rem] whitespace-nowrap border-b border-[var(--border-subtle)] px-2">${after}</td>`;
-  }).join('');
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 20 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  warehouseFilter: '' as string,
+  docTypeFilter: '' as string,
+  actionTypeFilter: '' as string,
 }
 
-export function renderFinishedStockFlow(_state: AppState): string {
-  const allRecords = STOCK_FLOW_SEED;
-  const pageRecords = allRecords.slice(0, PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(allRecords.length / PAGE_SIZE));
+function metricChangeClass(v: number): string {
+  return v > 0 ? 'text-emerald-700 font-semibold' : v < 0 ? 'text-red-700 font-semibold' : 'text-slate-500'
+}
 
-  return `<section>
-    <div class="mb-4">
-      <h2 class="text-[20px] font-semibold text-[var(--text-primary)]">库存流水查询</h2>
-      <p class="mt-1 text-[13px] text-[var(--text-muted)]">用于追溯每次库存变动来源、前后数量及即时库存快照。</p>
-    </div>
+function formatChange(v: number): string {
+  return v > 0 ? `+${v}` : `${v}`
+}
 
-    <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
-      <div class="flex flex-col gap-2">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <input value="" placeholder="搜索业务单号 / SPU / SKU / 商品 / 仓库 / 库位" class="w-[380px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-            <div class="inline-flex items-center rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1">
-              ${['全部', '入库', '上架', '库内调拨', '拣货', '出库'].map((type) => `<button type="button" class="rounded-[6px] px-3 py-1 text-[12px] transition text-[var(--text-secondary)] hover:text-[var(--text-primary)]" onclick="window.__wlsStockFlow?.toggleType('${type}')">${type}</button>`).join('')}
-            </div>
-            <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-1 text-[12px] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)]">仅看报废上架</button>
-          </div>
-          <div class="flex items-center gap-2">
-            <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">导出Excel</button>
-            <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsStockFlow?.toggleFilter()">收起筛选</button>
-          </div>
-        </div>
+const columns: StandardListColumn<StockFlowRecord>[] = [
+  { key: 'operateTime', title: '发生时间', width: 150, required: true, freezeable: true, sortable: true, sortValue: r => r.operateTime,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.operateTime)}</span>` },
+  { key: 'warehouseName', title: '仓库名称', width: 160, required: true, freezeable: true, sortable: true, sortValue: r => r.warehouseName,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.warehouseName)}</span>` },
+  { key: 'spu', title: '商品SPU', width: 160, required: true, freezeable: true, sortable: true, sortValue: r => r.spu,
+    render: r => `<span class="text-blue-600 font-mono text-xs">${escapeHtml(r.spu)}</span>` },
+  { key: 'sku', title: '商品SKU', width: 160, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="text-blue-600 font-mono text-xs">${escapeHtml(r.sku)}</span>` },
+  { key: 'productName', title: '商品名称', width: 150, sortable: true, sortValue: r => r.productName,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.productName)}</span>` },
+  { key: 'businessNo', title: '业务单号', width: 150, sortable: true, sortValue: r => r.businessNo,
+    render: r => `<span class="text-blue-600 font-mono text-xs">${escapeHtml(r.businessNo)}</span>` },
+  { key: 'docType', title: '单据类型', width: 100, sortable: true, sortValue: r => r.docType,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.docType)}</span>` },
+  { key: 'actionType', title: '动作类型', width: 100, sortable: true, sortValue: r => r.actionType,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.actionType)}</span>` },
+  // Metric columns: 入库
+  { key: 'inboundChange', title: '入库变动', width: 100, align: 'right', sortable: true, sortValue: r => r.inboundChange,
+    render: r => `<span class="${metricChangeClass(r.inboundChange)}">${formatChange(r.inboundChange)}</span>` },
+  { key: 'inboundBefore', title: '入库变动前', width: 100, align: 'right', sortable: true, sortValue: r => r.inboundBefore,
+    render: r => `<span class="text-slate-600">${r.inboundBefore}</span>` },
+  { key: 'inboundAfter', title: '入库变动后', width: 100, align: 'right',
+    render: r => `<span class="text-slate-700">${r.inboundBefore + r.inboundChange}</span>` },
+  // Metric columns: 上架
+  { key: 'putawayChange', title: '上架变动', width: 100, align: 'right', sortable: true, sortValue: r => r.putawayChange,
+    render: r => `<span class="${metricChangeClass(r.putawayChange)}">${formatChange(r.putawayChange)}</span>` },
+  { key: 'putawayBefore', title: '上架变动前', width: 100, align: 'right', sortable: true, sortValue: r => r.putawayBefore,
+    render: r => `<span class="text-slate-600">${r.putawayBefore}</span>` },
+  { key: 'putawayAfter', title: '上架变动后', width: 100, align: 'right',
+    render: r => `<span class="text-slate-700">${r.putawayBefore + r.putawayChange}</span>` },
+  // Metric columns: 库内调拨
+  { key: 'transferChange', title: '调拨变动', width: 100, align: 'right', sortable: true, sortValue: r => r.transferChange,
+    render: r => `<span class="${metricChangeClass(r.transferChange)}">${formatChange(r.transferChange)}</span>` },
+  { key: 'transferBefore', title: '调拨变动前', width: 100, align: 'right', sortable: true, sortValue: r => r.transferBefore,
+    render: r => `<span class="text-slate-600">${r.transferBefore}</span>` },
+  { key: 'transferAfter', title: '调拨变动后', width: 100, align: 'right',
+    render: r => `<span class="text-slate-700">${r.transferBefore + r.transferChange}</span>` },
+  // Metric columns: 拣货
+  { key: 'pickChange', title: '拣货变动', width: 100, align: 'right', sortable: true, sortValue: r => r.pickChange,
+    render: r => `<span class="${metricChangeClass(r.pickChange)}">${formatChange(r.pickChange)}</span>` },
+  { key: 'pickBefore', title: '拣货变动前', width: 100, align: 'right', sortable: true, sortValue: r => r.pickBefore,
+    render: r => `<span class="text-slate-600">${r.pickBefore}</span>` },
+  { key: 'pickAfter', title: '拣货变动后', width: 100, align: 'right',
+    render: r => `<span class="text-slate-700">${r.pickBefore + r.pickChange}</span>` },
+  // Metric columns: 出库
+  { key: 'outboundChange', title: '出库变动', width: 100, align: 'right', sortable: true, sortValue: r => r.outboundChange,
+    render: r => `<span class="${metricChangeClass(r.outboundChange)}">${formatChange(r.outboundChange)}</span>` },
+  { key: 'outboundBefore', title: '出库变动前', width: 100, align: 'right', sortable: true, sortValue: r => r.outboundBefore,
+    render: r => `<span class="text-slate-600">${r.outboundBefore}</span>` },
+  { key: 'outboundAfter', title: '出库变动后', width: 100, align: 'right',
+    render: r => `<span class="text-slate-700">${r.outboundBefore + r.outboundChange}</span>` },
+  // Tail columns
+  { key: 'locationCode', title: '库位', width: 100, sortable: true, sortValue: r => r.locationCode,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.locationCode)}</span>` },
+  { key: 'operatorName', title: '操作人', width: 100, sortable: true, sortValue: r => r.operatorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.operatorName)}</span>` },
+  { key: 'operationTime', title: '操作时间', width: 150, sortable: true, sortValue: r => r.operationTime,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.operationTime)}</span>` },
+  { key: 'remark', title: '备注', width: 140, sortable: true, sortValue: r => r.remark,
+    render: r => r.remark.includes('质检区')
+      ? `<span class="inline-flex items-center gap-1"><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">退货质检入区</span><span class="text-slate-500 text-xs">${escapeHtml(r.remark)}</span></span>`
+      : `<span class="text-slate-500 text-xs">${escapeHtml(r.remark)}</span>` },
+]
 
-        <div id="wls-sf-extra-filters" class="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-4">
-          <select class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option>中央总仓-成衣仓</option>
-            <option>成衣仓-深圳仓01</option>
-            <option>成衣仓-武汉仓01</option>
-          </select>
-          <input class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" placeholder="SPU编码" />
-          <input class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" placeholder="SKU编码" />
-          <input class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" placeholder="商品名称" />
-          <input class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" placeholder="业务单号" />
-          <select class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option>全部单据类型</option>
-            <option>入库单</option><option>上架单</option><option>调拨单</option><option>拣货单</option><option>出库单</option>
-          </select>
-          <select class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20">
-            <option>全部动作类型</option>
-            <option>入库</option><option>上架</option><option>库内调拨</option><option>拣货</option><option>出库</option>
-          </select>
-          <input class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" placeholder="操作人" />
-          <input type="date" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-          <input type="date" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-          <div class="flex items-center gap-2">
-            <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsStockFlow?.reset()">重置</button>
-          </div>
-        </div>
-      </div>
-    </div>
+const headerGroups: StandardListHeaderGroup[] = [
+  { key: 'inbound', title: '入库', columnKeys: ['inboundChange', 'inboundBefore', 'inboundAfter'] },
+  { key: 'putaway', title: '上架', columnKeys: ['putawayChange', 'putawayBefore', 'putawayAfter'] },
+  { key: 'transfer', title: '库内调拨', columnKeys: ['transferChange', 'transferBefore', 'transferAfter'] },
+  { key: 'pick', title: '拣货', columnKeys: ['pickChange', 'pickBefore', 'pickAfter'] },
+  { key: 'outbound', title: '出库', columnKeys: ['outboundChange', 'outboundBefore', 'outboundAfter'] },
+]
 
-    <div class="rounded-[12px] border border-[var(--border-default)] bg-white">
-      <div class="max-h-[560px] overflow-auto rounded-[10px] border border-[var(--border-default)]">
-        <table class="w-full min-w-[4200px] text-[13px]">
-          <thead class="sticky top-0 z-10 bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
-            <tr>
-              <th class="w-[7rem] min-w-[7rem] sticky z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap" style="left:0">发生时间</th>
-              <th class="w-[7rem] min-w-[7rem] sticky z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap" style="left:7rem">仓库名称</th>
-              <th class="w-[7rem] min-w-[7rem] sticky z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap" style="left:14rem">商品SPU</th>
-              <th class="w-[7rem] min-w-[7rem] sticky z-20 border-b border-[var(--border-subtle)] border-r-2 border-[#D0D5DD] bg-[var(--bg-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap" style="left:21rem">商品SKU</th>
-              <th class="min-w-[9rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">商品名称</th>
-              <th class="min-w-[9rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">业务单号</th>
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">单据类型</th>
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">动作类型</th>
-              ${METRIC_COLUMNS.map((col, index) => `<th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-center text-[12px] font-medium whitespace-nowrap ${index > 0 ? 'border-l-2 border-[#D0D5DD]' : ''}" colspan="3">${col.label}</th>`).join('')}
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">库位</th>
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">操作人</th>
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">操作时间</th>
-              <th class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 text-left text-[12px] font-medium whitespace-nowrap">备注</th>
-            </tr>
-            <tr>
-              ${METRIC_COLUMNS.map((col, index) => `<th class="min-w-[5.5rem] border-b border-[var(--border-subtle)] px-2 py-1 text-left text-[12px] font-medium whitespace-nowrap ${index > 0 ? 'border-l-2 border-[#D0D5DD]' : ''}">变动</th>
-              <th class="min-w-[5.5rem] border-b border-[var(--border-subtle)] px-2 py-1 text-left text-[12px] font-medium whitespace-nowrap">变动前</th>
-              <th class="min-w-[5.5rem] border-b border-[var(--border-subtle)] px-2 py-1 text-left text-[12px] font-medium whitespace-nowrap">变动后</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${pageRecords.map((record) => `<tr class="hover:bg-[var(--bg-hover)]">
-              <td class="w-[7rem] min-w-[7rem] sticky z-[2] border-b border-[var(--border-subtle)] bg-white px-2 py-2 whitespace-nowrap" style="left:0">${record.operateTime}</td>
-              <td class="w-[7rem] min-w-[7rem] sticky z-[2] border-b border-[var(--border-subtle)] bg-white px-2 py-2 whitespace-nowrap" style="left:7rem">${record.warehouseName}</td>
-              <td class="w-[7rem] min-w-[7rem] sticky z-[2] border-b border-[var(--border-subtle)] bg-white px-2 py-2 whitespace-nowrap" style="left:14rem">${record.spu}</td>
-              <td class="w-[7rem] min-w-[7rem] sticky z-[2] border-b border-[var(--border-subtle)] border-r-2 border-[#D0D5DD] bg-white px-2 py-2 whitespace-nowrap text-[var(--link)]" style="left:21rem">${record.sku}</td>
-              <td class="min-w-[9rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.productName}</td>
-              <td class="min-w-[9rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap text-[var(--link)]">${record.businessNo}</td>
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.docType}</td>
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.actionType}</td>
-              ${renderMetricCells(record)}
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.locationCode}</td>
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.operatorName}</td>
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">${record.operationTime}</td>
-              <td class="min-w-[7rem] border-b border-[var(--border-subtle)] px-2 py-2 whitespace-nowrap">
-                <div class="inline-flex items-center gap-2">
-                  ${record.remark.includes('质检区') ? '<span class="inline-flex rounded-[999px] border border-[#B2DDFF] bg-[#EFF8FF] px-2 py-0.5 text-[12px] font-medium text-[#175CD3]">退货质检入区</span>' : ''}
-                  <span>${record.remark}</span>
-                </div>
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] px-3 pt-3">
-        <span class="text-[12px] text-[var(--text-muted)]">共 ${allRecords.length} 条记录，第 1/${totalPages} 页</span>
-        <div class="flex items-center gap-1">
-          <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40" disabled>上一页</button>
-          <button type="button" class="rounded-[6px] border border-[var(--primary)] bg-[var(--primary)] px-2 py-1 text-[12px] text-white">1</button>
-          <button type="button" class="rounded-[6px] border border-[var(--border-default)] px-2 py-1 text-[12px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" onclick="window.__wlsStockFlow?.goPage(2)">下一页</button>
-        </div>
-      </div>
-    </div>
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['operateTime', 'warehouseName', 'spu'],
+  pageSize: PAGE_SIZE_OPTIONS[1],
+})
 
-    <script>
-    (function() {
-      window.__wlsStockFlow = {
-        toggleType: function(type) { console.log('Toggle type:', type); },
-        toggleFilter: function() {
-          var el = document.getElementById('wls-sf-extra-filters');
-          if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
-        },
-        goPage: function(page) { console.log('Go to page:', page); },
-        reset: function() { console.log('Reset filters'); }
-      };
-    })();
-    </script>
-  </section>`;
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): StockFlowRecord[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return STOCK_FLOW_SEED.filter(r => {
+    if (state.warehouseFilter && r.warehouseName !== state.warehouseFilter) return false
+    if (state.docTypeFilter && r.docType !== state.docTypeFilter) return false
+    if (state.actionTypeFilter && r.actionType !== state.actionTypeFilter) return false
+    if (!kw) return true
+    return `${r.businessNo} ${r.spu} ${r.sku} ${r.productName} ${r.warehouseName} ${r.locationCode}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  const warehouses = [...new Set(STOCK_FLOW_SEED.map(r => r.warehouseName))]
+  const docTypes = [...new Set(STOCK_FLOW_SEED.map(r => r.docType))]
+  const actionTypes = [...new Set(STOCK_FLOW_SEED.map(r => r.actionType))]
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="业务单号 / SPU / SKU / 商品 / 仓库 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">单据类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="docType"><option value="">全部单据类型</option>${docTypes.map(d => `<option value="${escapeHtml(d)}" ${state.docTypeFilter === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">动作类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="actionType"><option value="">全部动作类型</option>${actionTypes.map(a => `<option value="${escapeHtml(a)}" ${state.actionTypeFilter === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出Excel', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '库存流水查询',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '总记录数', value: `${STOCK_FLOW_SEED.length} 条` },
+      { label: '入库', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '入库').length} 条` },
+      { label: '出库', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '出库').length} 条` },
+      { label: '拣货', value: `${STOCK_FLOW_SEED.filter(r => r.actionType === '拣货').length} 条` },
+    ]),
+    listTitle: '流水记录列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, headerGroups, emptyText: '暂无库存流水' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '库存流水列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 600 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderFinishedStockFlow(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleStockFlowEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'docType') { state.docTypeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'actionType') { state.actionTypeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    const docType = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="docType"]`)
+    if (docType) state.docTypeFilter = docType.value
+    const actionType = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="actionType"]`)
+    if (actionType) state.actionTypeFilter = actionType.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.warehouseFilter = ''
+    state.docTypeFilter = ''
+    state.actionTypeFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

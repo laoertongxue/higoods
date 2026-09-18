@@ -1,5 +1,11 @@
 // @page-pattern: list
-import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type RawRequisitionOrder = {
   id: string; outboundOrderNo: string; pickOrderNo: string; relatedOrderNo: string
@@ -51,127 +57,182 @@ const seedOrders: RawRequisitionOrder[] = [
   { id: 'PO-MAT-REQ-902', outboundOrderNo: 'YCK-MAT-REQ-20260528-902', pickOrderNo: 'JHD-MAT-REQ-20260528-902', relatedOrderNo: 'YL-MAT-REQ-20260528-902', outboundType: '原料领料出库', outboundWarehouse: '中央总仓-面料仓', receivingUnit: '生产车间A', requisitionMethod: '仓库配送到厂', materialCategory: '面料', unit: '米', plannedQty: '160 米', stockStatus: '库存充足', availableRatio: '100%', factoryConfirm: '工厂确认领取', pickingStatus: '配料完成', pdVisible: '是', hasOutbound: '是', pickedQty: '80 米', owner: '印尼万隆主体', status: '部分出库', time: '2026-05-28 10:40' },
 ]
 
-export function renderRawRequisitionList(_state: AppState): string {
-  const statusCounts: Record<string, number> = {}
-  seedOrders.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1 })
+const EVENT_PREFIX = 'wls-raw-requisition-list'
+const PREFERENCE_KEY = '/wls/raw/requisition-list:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-semibold text-slate-800">原料领料单列表</h1>
-        <p class="text-sm text-slate-500 mt-0.5">用于查看出库前置单据，包含单号、商品、收货单位、货主与时间的信息。</p>
-      </div>
-    </div>
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <input id="wlsRawReqKeyword" type="text" placeholder="搜索出库单号 / 复核单号 / 配料单号 / 关联单号 / 状态" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-96 focus:border-blue-400 focus:outline-none">
-        <div id="wlsRawReqPills" class="flex items-center gap-1.5">
-          <button data-status="待配料" class="wls-req-pill rounded-full px-3 py-1 text-xs bg-orange-50 text-orange-700 border border-orange-200">待配料(${statusCounts['待配料'] || 0})</button>
-          <button data-status="配料中" class="wls-req-pill rounded-full px-3 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200">配料中(${statusCounts['配料中'] || 0})</button>
-          <button data-status="待出库" class="wls-req-pill rounded-full px-3 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200">待出库(${statusCounts['待出库'] || 0})</button>
-          <button data-status="部分出库" class="wls-req-pill rounded-full px-3 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200">部分出库(${statusCounts['部分出库'] || 0})</button>
-          <button data-status="已出库" class="wls-req-pill rounded-full px-3 py-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">已出库(${statusCounts['已出库'] || 0})</button>
-        </div>
-        <button id="wlsRawReqReset" class="rounded-lg bg-slate-100 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-200">重置</button>
-      </div>
-    </div>
+const columns: StandardListColumn<RawRequisitionOrder>[] = [
+  { key: 'numbers', title: '单号', width: 210, required: true, freezeable: true, sortable: true, sortValue: r => r.outboundOrderNo,
+    render: r => `<div class="flex flex-col gap-0.5"><span class="text-slate-700 font-mono text-xs" title="${escapeHtml(r.outboundOrderNo)}">${escapeHtml(r.outboundOrderNo)}</span><span class="text-slate-400 font-mono text-[10px]" title="${escapeHtml(r.pickOrderNo)}">${escapeHtml(r.pickOrderNo)}</span><span class="text-slate-400 font-mono text-[10px]" title="${escapeHtml(r.relatedOrderNo)}">${escapeHtml(r.relatedOrderNo)}</span></div>` },
+  { key: 'materialCategory', title: '领料单类型', width: 100, sortable: true, sortValue: r => r.materialCategory,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${categoryClass[r.materialCategory] || 'bg-slate-100 text-slate-600'}">${escapeHtml(r.materialCategory)}</span>` },
+  { key: 'outboundWarehouse', title: '出库仓库', width: 140, sortable: true, sortValue: r => r.outboundWarehouse,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.outboundWarehouse)}</span>` },
+  { key: 'receivingUnit', title: '收货单位', width: 120, sortable: true, sortValue: r => r.receivingUnit,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.receivingUnit)}</span>` },
+  { key: 'requisitionMethod', title: '领料方式', width: 120, sortable: true, sortValue: r => r.requisitionMethod,
+    render: r => `<span class="text-slate-500">${escapeHtml(r.requisitionMethod)}</span>` },
+  { key: 'plannedQty', title: '计划领料数量', width: 120, align: 'right', sortable: true, sortValue: r => r.plannedQty,
+    render: r => `<span class="text-slate-700 font-medium">${escapeHtml(r.plannedQty)}</span>` },
+  { key: 'stockStatus', title: '库存状态', width: 110, sortable: true, sortValue: r => r.stockStatus,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${stockStatusClass[r.stockStatus] || 'bg-slate-100 text-slate-500'}">${escapeHtml(r.stockStatus)}</span>` },
+  { key: 'availableRatio', title: '整单可配比例', width: 110, align: 'right', sortable: true, sortValue: r => r.availableRatio,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.availableRatio)}</span>` },
+  { key: 'factoryConfirm', title: '工厂确认状态', width: 130, sortable: true, sortValue: r => r.factoryConfirm,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${factoryConfirmClass[r.factoryConfirm] || 'bg-slate-100 text-slate-500'}">${escapeHtml(r.factoryConfirm)}</span>` },
+  { key: 'pickingStatus', title: '配料单状态', width: 100, sortable: true, sortValue: r => r.pickingStatus,
+    render: r => `<span class="text-slate-500">${escapeHtml(r.pickingStatus)}</span>` },
+  { key: 'pickedQty', title: '已配料数量', width: 110, align: 'right', sortable: true, sortValue: r => r.pickedQty,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.pickedQty)}</span>` },
+  { key: 'owner', title: '货主', width: 120, sortable: true, sortValue: r => r.owner,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.owner)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status] || 'bg-slate-100 text-slate-500'}">${escapeHtml(r.status)}</span>` },
+  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
+    render: () => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看</button></div>` },
+]
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <span class="text-sm text-slate-500">共 ${seedOrders.length} 条记录</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1680px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-3 py-2 text-left font-medium">单号</th>
-            <th class="px-3 py-2 text-left font-medium">领料单类型</th>
-            <th class="px-3 py-2 text-left font-medium">出库仓库</th>
-            <th class="px-3 py-2 text-left font-medium">收货单位</th>
-            <th class="px-3 py-2 text-left font-medium">领料方式</th>
-            <th class="px-3 py-2 text-right font-medium">计划领料数量</th>
-            <th class="px-3 py-2 text-left font-medium">库存状态</th>
-            <th class="px-3 py-2 text-right font-medium">整单可配比例</th>
-            <th class="px-3 py-2 text-left font-medium">工厂确认状态</th>
-            <th class="px-3 py-2 text-left font-medium">配料单状态</th>
-            <th class="px-3 py-2 text-right font-medium">已配料数量</th>
-            <th class="px-3 py-2 text-left font-medium">货主</th>
-            <th class="px-3 py-2 text-left font-medium">状态</th>
-            <th class="px-3 py-2 text-left font-medium sticky right-0 bg-slate-50">操作</th>
-          </tr></thead>
-          <tbody id="wlsRawReqTbody">
-            ${seedOrders.map(o => `
-              <tr class="border-t border-slate-100 hover:bg-slate-50 wls-req-row" data-status="${o.status}">
-                <td class="px-3 py-2">
-                  <div class="text-slate-700 font-mono text-xs">${o.outboundOrderNo}</div>
-                  <div class="text-slate-400 font-mono text-xs">${o.pickOrderNo}</div>
-                  <div class="text-slate-400 font-mono text-xs">${o.relatedOrderNo}</div>
-                </td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${categoryClass[o.materialCategory] || 'bg-slate-100 text-slate-600'}">${o.materialCategory}</span></td>
-                <td class="px-3 py-2 text-slate-600">${o.outboundWarehouse}</td>
-                <td class="px-3 py-2 text-slate-600">${o.receivingUnit}</td>
-                <td class="px-3 py-2 text-slate-500">${o.requisitionMethod}</td>
-                <td class="px-3 py-2 text-right text-slate-700 font-medium">${o.plannedQty}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${stockStatusClass[o.stockStatus] || 'bg-slate-100 text-slate-500'}">${o.stockStatus}</span></td>
-                <td class="px-3 py-2 text-right text-slate-600">${o.availableRatio}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${factoryConfirmClass[o.factoryConfirm] || 'bg-slate-100 text-slate-500'}">${o.factoryConfirm}</span></td>
-                <td class="px-3 py-2 text-slate-500">${o.pickingStatus}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${o.pickedQty}</td>
-                <td class="px-3 py-2 text-slate-600">${o.owner}</td>
-                <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs ${statusClass[o.status] || 'bg-slate-100 text-slate-500'}">${o.status}</span></td>
-                <td class="px-3 py-2 sticky right-0 bg-white">
-                  <button class="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">查看</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsRawRequisition = {
-      activeStatus: null,
-      init() {
-        const self = this;
-        document.querySelectorAll('.wls-req-pill').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            var st = btn.getAttribute('data-status');
-            if (self.activeStatus === st) {
-              self.activeStatus = null;
-              btn.classList.remove('ring-2', 'ring-blue-400');
-            } else {
-              self.activeStatus = st;
-              document.querySelectorAll('.wls-req-pill').forEach(function(b) { b.classList.remove('ring-2', 'ring-blue-400'); });
-              btn.classList.add('ring-2', 'ring-blue-400');
-            }
-            self.filter();
-          });
-        });
-        var resetBtn = document.getElementById('wlsRawReqReset');
-        if (resetBtn) resetBtn.addEventListener('click', function() {
-          self.activeStatus = null;
-          document.querySelectorAll('.wls-req-pill').forEach(function(b) { b.classList.remove('ring-2', 'ring-blue-400'); });
-          var kw = document.getElementById('wlsRawReqKeyword');
-          if (kw) kw.value = '';
-          self.filter();
-        });
-        var kwInput = document.getElementById('wlsRawReqKeyword');
-        if (kwInput) kwInput.addEventListener('input', function() { self.filter(); });
-      },
-      filter() {
-        var keyword = (document.getElementById('wlsRawReqKeyword') || {}).value || '';
-        var kw = keyword.toLowerCase();
-        var active = this.activeStatus;
-        document.querySelectorAll('.wls-req-row').forEach(function(row) {
-          var text = row.textContent.toLowerCase();
-          var matchKw = !kw || text.indexOf(kw) !== -1;
-          var matchSt = !active || row.getAttribute('data-status') === active;
-          row.style.display = matchKw && matchSt ? '' : 'none';
-        });
-      }
-    };
-    window.__wlsRawRequisition.init();
-  </script>`
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['numbers'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): RawRequisitionOrder[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedOrders.filter(o => {
+    if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (!kw) return true
+    return `${o.outboundOrderNo} ${o.pickOrderNo} ${o.relatedOrderNo} ${o.materialCategory} ${o.receivingUnit} ${o.owner}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="出库单号 / 复核单号 / 配料单号 / 关联单号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待配料" ${state.statusFilter === '待配料' ? 'selected' : ''}>待配料</option><option value="配料中" ${state.statusFilter === '配料中' ? 'selected' : ''}>配料中</option><option value="待出库" ${state.statusFilter === '待出库' ? 'selected' : ''}>待出库</option><option value="部分出库" ${state.statusFilter === '部分出库' ? 'selected' : ''}>部分出库</option><option value="已出库" ${state.statusFilter === '已出库' ? 'selected' : ''}>已出库</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '原料领料单列表',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '待配料', value: `${seedOrders.filter(o => o.status === '待配料').length} 条` },
+      { label: '配料中', value: `${seedOrders.filter(o => o.status === '配料中').length} 条` },
+      { label: '已出库', value: `${seedOrders.filter(o => o.status === '已出库').length} 条` },
+    ]),
+    listTitle: '领料单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无领料单' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '领料单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderRawRequisitionList(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleRawRequisitionListEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }

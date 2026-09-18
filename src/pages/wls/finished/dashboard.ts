@@ -5,7 +5,7 @@ import type { AppState } from '../../../state/store';
 import { warehouseSeed } from '../../../data/wls/seed/shared-seed';
 import { isWarehouseInSystem } from '../../../data/wls/shared/warehouse-config';
 
-export function renderFinishedDashboard(state: AppState): string {
+export function renderFinishedDashboard(): string {
   const activeWarehouseSystem = 'finished';
   const activeWarehouseSystemLabel = '成衣仓';
   const activeSystemWarehouses = warehouseSeed.filter((wh) => isWarehouseInSystem(wh.businessType || 'FINISHED', activeWarehouseSystem));

@@ -51,7 +51,7 @@ const PENDING_SUMMARY = [
   { label: '待收货', count: 2, tone: 'bg-rose-500' },
 ];
 
-export function renderFinishedPda(_state: AppState): string {
+export function renderFinishedPda(): string {
   const pendingTotal = PENDING_SUMMARY.reduce((s, p) => s + p.count, 0);
 
   const pendingBanner = `

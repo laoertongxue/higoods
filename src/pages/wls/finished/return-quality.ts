@@ -1,4 +1,11 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
 type QcLine = { sku: string; name: string; spec: string; receivedQty: number; qualityResult: '可售' | '瑕疵' | '报废' | null }
 type QcOrder = {
@@ -6,11 +13,18 @@ type QcOrder = {
   created: string; receivedTime: string; totalQty: number; qcDone: number; lines: QcLine[]
 }
 
-function qualityBadge(r: string | null): string {
-  if (r === '可售') return '<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">可售</span>'
-  if (r === '瑕疵') return '<span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">瑕疵</span>'
-  if (r === '报废') return '<span class="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">报废</span>'
-  return '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-400">待选择</span>'
+function qualityBadgeText(r: string | null): string {
+  if (r === '可售') return '可售'
+  if (r === '瑕疵') return '瑕疵'
+  if (r === '报废') return '报废'
+  return '待选择'
+}
+
+function qualityBadgeClass(r: string | null): string {
+  if (r === '可售') return 'bg-emerald-50 text-emerald-700'
+  if (r === '瑕疵') return 'bg-amber-50 text-amber-700'
+  if (r === '报废') return 'bg-red-50 text-red-700'
+  return 'bg-slate-100 text-slate-400'
 }
 
 const seedOrders: QcOrder[] = [
@@ -35,89 +49,172 @@ const seedOrders: QcOrder[] = [
   ]},
 ]
 
-export function renderReturnQuality(_state: AppState): string {
-  const rows = seedOrders.map(o => {
-    const lineResults = o.lines.map(l => qualityBadge(l.qualityResult)).join(' ')
-    return `<tr class="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]">
-      <td class="px-3 py-2 text-xs text-slate-500"><input type="checkbox" class="rounded" data-id="${o.id}"/></td>
-      <td class="px-3 py-2 text-xs font-medium text-[var(--link)]">${o.returnNo}</td>
-      <td class="px-3 py-2 text-xs text-slate-600">${o.orderNo}</td>
-      <td class="px-3 py-2 text-xs text-slate-600">${o.customer}</td>
-      <td class="px-3 py-2 text-xs text-slate-600">${o.reason}</td>
-      <td class="px-3 py-2 text-xs text-slate-600">${o.totalQty}</td>
-      <td class="px-3 py-2 text-xs text-slate-600">${o.qcDone} / ${o.lines.length}</td>
-      <td class="px-3 py-2 text-xs">${lineResults}</td>
-      <td class="px-3 py-2 text-xs text-slate-500">${o.receivedTime}</td>
-      <td class="px-3 py-2 text-xs">
-        <button onclick="window.__wlsReturnQuality?.submitQc('${o.id}')" class="rounded border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--link)] hover:bg-[var(--bg-hover)]">提交质检</button>
-      </td>
-    </tr>`
-  }).join('')
+const EVENT_PREFIX = 'wls-return-quality'
+const PREFERENCE_KEY = '/wls/finished/return-quality:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
+
+const columns: StandardListColumn<QcOrder>[] = [
+  { key: 'returnNo', title: '退货单号', width: 170, required: true, freezeable: true, sortable: true, sortValue: r => r.returnNo,
+    render: r => `<span class="font-mono text-xs text-blue-600 font-medium">${escapeHtml(r.returnNo)}</span>` },
+  { key: 'orderNo', title: '原订单号', width: 160, sortable: true, sortValue: r => r.orderNo,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.orderNo)}</span>` },
+  { key: 'customer', title: '客户', width: 100, sortable: true, sortValue: r => r.customer,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.customer)}</span>` },
+  { key: 'reason', title: '退货原因', width: 120, sortable: true, sortValue: r => r.reason,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.reason)}</span>` },
+  { key: 'totalQty', title: '退货数量', width: 90, align: 'right', sortable: true, sortValue: r => r.totalQty,
+    render: r => `<span class="text-slate-600">${r.totalQty}</span>` },
+  { key: 'qcDone', title: '质检进度', width: 100, align: 'center', sortable: true, sortValue: r => r.qcDone,
+    render: r => `<span class="text-slate-600">${r.qcDone} / ${r.lines.length}</span>` },
+  { key: 'qualityResult', title: '质检结果', width: 200, sortable: false,
+    render: r => r.lines.map(l => `<span class="rounded-full px-2 py-0.5 text-xs ${qualityBadgeClass(l.qualityResult)}">${qualityBadgeText(l.qualityResult)}</span>`).join(' ') },
+  { key: 'receivedTime', title: '收货时间', width: 150, sortable: true, sortValue: r => r.receivedTime,
+    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.receivedTime)}</span>` },
+  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
+    render: r => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="submit-qc" data-${EVENT_PREFIX}-id="${escapeHtml(r.id)}">提交质检</button>` },
+]
+
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['returnNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
+
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
+
+function filteredRows(): QcOrder[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedOrders.filter(o => {
+    if (!kw) return true
+    return `${o.returnNo} ${o.orderNo} ${o.customer} ${o.reason}`.toLowerCase().includes(kw)
+  })
+}
+
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="退货单号 / 原订单号 / 客户" data-${EVENT_PREFIX}-field="keyword"></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
   const pending = seedOrders.filter(o => o.qcDone < o.lines.length).length
   const done = seedOrders.filter(o => o.qcDone >= o.lines.length).length
+  return renderStandardListPage({
+    title: '退货质检列表',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '待质检', value: `${pending} 条` },
+      { label: '已完成质检', value: `${done} 条` },
+      { label: '总退货单', value: `${seedOrders.length} 条` },
+    ]),
+    listTitle: '质检单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无质检记录' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '退货质检列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
 
-  return `<div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-base font-semibold text-slate-800">退货质检列表</h1>
-      <div class="flex gap-2">
-        <button class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-slate-600 hover:bg-[var(--bg-hover)]">导出</button>
-      </div>
-    </div>
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
 
-    <div class="grid grid-cols-3 gap-3">
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">待质检</div>
-        <div class="mt-1 text-xl font-semibold text-blue-600">${pending}</div>
-      </div>
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">已完成质检</div>
-        <div class="mt-1 text-xl font-semibold text-emerald-600">${done}</div>
-      </div>
-      <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-3">
-        <div class="text-xs text-slate-500">总退货单</div>
-        <div class="mt-1 text-xl font-semibold text-slate-700">${seedOrders.length}</div>
-      </div>
-    </div>
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
 
-    <div class="rounded-lg border border-[var(--border-subtle)] bg-white">
-      <div class="border-b border-[var(--border-subtle)] px-4 py-2 text-xs text-slate-500">共 ${seedOrders.length} 条记录</div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1220px] text-left">
-          <thead class="bg-slate-50 text-xs text-slate-500">
-            <tr>
-              <th class="px-3 py-2 w-8"></th>
-              <th class="px-3 py-2">退货单号</th>
-              <th class="px-3 py-2">原订单号</th>
-              <th class="px-3 py-2">客户</th>
-              <th class="px-3 py-2">退货原因</th>
-              <th class="px-3 py-2 text-right">退货数量</th>
-              <th class="px-3 py-2 text-right">质检进度</th>
-              <th class="px-3 py-2">质检结果</th>
-              <th class="px-3 py-2">收货时间</th>
-              <th class="px-3 py-2">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
+export function renderReturnQuality(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
 
-    <div class="rounded-lg border border-[var(--border-subtle)] bg-white p-4">
-      <h3 class="mb-2 text-sm font-semibold text-slate-700">质检规则说明</h3>
-      <table class="w-full text-xs text-slate-600">
-        <thead class="bg-slate-50"><tr><th class="px-3 py-1.5 text-left">结果</th><th class="px-3 py-1.5 text-left">库存去向</th><th class="px-3 py-1.5 text-left">说明</th></tr></thead>
-        <tbody>
-          <tr class="border-t border-[var(--border-subtle)]"><td class="px-3 py-1.5"><span class="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">可售</span></td><td class="px-3 py-1.5">可售库存</td><td class="px-3 py-1.5">商品完好，可直接重新入库销售</td></tr>
-          <tr class="border-t border-[var(--border-subtle)]"><td class="px-3 py-1.5"><span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">瑕疵</span></td><td class="px-3 py-1.5">瑕疵库存</td><td class="px-3 py-1.5">存在轻微瑕疵，进入瑕疵库存单独管理</td></tr>
-          <tr class="border-t border-[var(--border-subtle)]"><td class="px-3 py-1.5"><span class="rounded-full bg-red-50 px-2 py-0.5 text-red-700">报废</span></td><td class="px-3 py-1.5">破损库存</td><td class="px-3 py-1.5">严重损坏无法销售，进入报损流程</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <script>
-    window.__wlsReturnQuality = {
-      submitQc(id) { console.log('submit quality check:', id); },
-    };
-  </script>`
+export function handleReturnQualityEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'submit-qc') {
+    const id = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Id`] || ''
+    console.log('submit quality check:', id)
+    return true
+  }
+  return false
 }

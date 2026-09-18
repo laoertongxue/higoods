@@ -1,152 +1,210 @@
-import type { AppState } from '../../../state/store'
+// @page-pattern: list
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 
-type InboundGroup = {
-  receiveNo: string; processorType: '自有工厂' | '第三方工厂'; processorName: string
-  receiveStatus: '待收货' | '收货中' | '已收货'
-  orders: { inboundNo: string; productionNo: string; skuCount: number; expectedQty: number; receivedQty: number; kitType: string; taskStatus: string; workAreaQty: number }[]
+type InboundRow = {
+  receiveNo: string; inboundNo: string; productionNo: string
+  processorType: string; processorName: string
+  skuCount: number; expectedQty: number; receivedQty: number
+  receiveStatus: string; kitType: string; taskStatus: string; workAreaQty: number
 }
 
 const receiveStatusClass: Record<string, string> = {
   '待收货': 'bg-orange-50 text-orange-700', '收货中': 'bg-blue-50 text-blue-700', '已收货': 'bg-emerald-50 text-emerald-700',
 }
 
-const seedGroups: InboundGroup[] = [
-  { receiveNo: 'TR-RC-20260716-001', processorType: '自有工厂', processorName: '自有工厂A组', receiveStatus: '已收货', orders: [
-    { inboundNo: 'TR-IN-20260716-001', productionNo: 'PO14954', skuCount: 2, expectedQty: 8, receivedQty: 8, kitType: '已配齐', taskStatus: '待配齐', workAreaQty: 8 },
-    { inboundNo: 'TR-IN-20260716-004', productionNo: 'PO14957', skuCount: 2, expectedQty: 7, receivedQty: 7, kitType: '已配齐', taskStatus: '已配齐', workAreaQty: 0 },
-  ]},
-  { receiveNo: 'TR-RC-20260716-002', processorType: '第三方工厂', processorName: '第三方工厂-恒盛', receiveStatus: '已收货', orders: [
-    { inboundNo: 'TR-IN-20260716-002', productionNo: 'PO14955', skuCount: 2, expectedQty: 11, receivedQty: 8, kitType: '未配齐', taskStatus: '待上架', workAreaQty: 8 },
-  ]},
-  { receiveNo: 'TR-RC-20260716-003', processorType: '自有工厂', processorName: '自有工厂B组', receiveStatus: '收货中', orders: [
-    { inboundNo: 'TR-IN-20260716-003', productionNo: 'PO14956', skuCount: 3, expectedQty: 13, receivedQty: 5, kitType: '未配齐', taskStatus: '待上架', workAreaQty: 5 },
-  ]},
-  { receiveNo: 'TR-RC-20260716-004', processorType: '自有工厂', processorName: '自有工厂C组', receiveStatus: '待收货', orders: [
-    { inboundNo: 'TR-IN-20260716-006', productionNo: 'PO14959', skuCount: 2, expectedQty: 8, receivedQty: 0, kitType: '—', taskStatus: '—', workAreaQty: 0 },
-    { inboundNo: 'TR-IN-20260716-007', productionNo: 'PO14960', skuCount: 2, expectedQty: 10, receivedQty: 0, kitType: '—', taskStatus: '—', workAreaQty: 0 },
-    { inboundNo: 'TR-IN-20260716-008', productionNo: 'PO14961', skuCount: 2, expectedQty: 6, receivedQty: 0, kitType: '—', taskStatus: '—', workAreaQty: 0 },
-  ]},
-  { receiveNo: 'TR-RC-20260716-005', processorType: '自有工厂', processorName: '自有工厂D组', receiveStatus: '已收货', orders: [
-    { inboundNo: 'TR-IN-20260716-009', productionNo: 'PO14962', skuCount: 2, expectedQty: 8, receivedQty: 8, kitType: '已配齐', taskStatus: '已配齐', workAreaQty: 0 },
-    { inboundNo: 'TR-IN-20260716-010', productionNo: 'PO14963', skuCount: 2, expectedQty: 9, receivedQty: 8, kitType: '已配齐（需配货）', taskStatus: '待配齐', workAreaQty: 6 },
-    { inboundNo: 'TR-IN-20260716-011', productionNo: 'PO14964', skuCount: 2, expectedQty: 13, receivedQty: 5, kitType: '未配齐', taskStatus: '待上架', workAreaQty: 5 },
-  ]},
+const seedRows: InboundRow[] = [
+  { receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-001', productionNo: 'PO14954', processorType: '自有工厂', processorName: '自有工厂A组', skuCount: 2, expectedQty: 8, receivedQty: 8, receiveStatus: '已收货', kitType: '已配齐', taskStatus: '待配齐', workAreaQty: 8 },
+  { receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-004', productionNo: 'PO14957', processorType: '自有工厂', processorName: '自有工厂A组', skuCount: 2, expectedQty: 7, receivedQty: 7, receiveStatus: '已收货', kitType: '已配齐', taskStatus: '已配齐', workAreaQty: 0 },
+  { receiveNo: 'TR-RC-20260716-002', inboundNo: 'TR-IN-20260716-002', productionNo: 'PO14955', processorType: '第三方工厂', processorName: '第三方工厂-恒盛', skuCount: 2, expectedQty: 11, receivedQty: 8, receiveStatus: '已收货', kitType: '未配齐', taskStatus: '待上架', workAreaQty: 8 },
+  { receiveNo: 'TR-RC-20260716-003', inboundNo: 'TR-IN-20260716-003', productionNo: 'PO14956', processorType: '自有工厂', processorName: '自有工厂B组', skuCount: 3, expectedQty: 13, receivedQty: 5, receiveStatus: '收货中', kitType: '未配齐', taskStatus: '待上架', workAreaQty: 5 },
+  { receiveNo: 'TR-RC-20260716-004', inboundNo: 'TR-IN-20260716-006', productionNo: 'PO14959', processorType: '自有工厂', processorName: '自有工厂C组', skuCount: 2, expectedQty: 8, receivedQty: 0, receiveStatus: '待收货', kitType: '—', taskStatus: '—', workAreaQty: 0 },
+  { receiveNo: 'TR-RC-20260716-004', inboundNo: 'TR-IN-20260716-007', productionNo: 'PO14960', processorType: '自有工厂', processorName: '自有工厂C组', skuCount: 2, expectedQty: 10, receivedQty: 0, receiveStatus: '待收货', kitType: '—', taskStatus: '—', workAreaQty: 0 },
+  { receiveNo: 'TR-RC-20260716-004', inboundNo: 'TR-IN-20260716-008', productionNo: 'PO14961', processorType: '自有工厂', processorName: '自有工厂C组', skuCount: 2, expectedQty: 6, receivedQty: 0, receiveStatus: '待收货', kitType: '—', taskStatus: '—', workAreaQty: 0 },
+  { receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-009', productionNo: 'PO14962', processorType: '自有工厂', processorName: '自有工厂D组', skuCount: 2, expectedQty: 8, receivedQty: 8, receiveStatus: '已收货', kitType: '已配齐', taskStatus: '已配齐', workAreaQty: 0 },
+  { receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-010', productionNo: 'PO14963', processorType: '自有工厂', processorName: '自有工厂D组', skuCount: 2, expectedQty: 9, receivedQty: 8, receiveStatus: '已收货', kitType: '已配齐（需配货）', taskStatus: '待配齐', workAreaQty: 6 },
+  { receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-011', productionNo: 'PO14964', processorType: '自有工厂', processorName: '自有工厂D组', skuCount: 2, expectedQty: 13, receivedQty: 5, receiveStatus: '已收货', kitType: '未配齐', taskStatus: '待上架', workAreaQty: 5 },
 ]
 
-const boardCards = [
-  { label: '待收货', value: 1, scope: '实时', scopeClass: 'bg-orange-50 text-orange-600' },
-  { label: '收货中', value: 1, scope: '实时', scopeClass: 'bg-orange-50 text-orange-600' },
-  { label: '期间已收货', value: 3, scope: '期间', scopeClass: 'bg-emerald-50 text-emerald-600' },
-  { label: '待上架任务数', value: 3, scope: '实时', scopeClass: 'bg-orange-50 text-orange-600' },
-  { label: '待配齐任务数', value: 2, scope: '实时', scopeClass: 'bg-orange-50 text-orange-600' },
-  { label: '期间已上架任务数', value: 2, scope: '期间', scopeClass: 'bg-emerald-50 text-emerald-600' },
-  { label: '期间已配齐任务数', value: 3, scope: '期间', scopeClass: 'bg-emerald-50 text-emerald-600' },
+const EVENT_PREFIX = 'wls-transit-inbound'
+const PREFERENCE_KEY = '/wls/transit/inbound-manage:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
+const state = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  keyword: '',
+  statusFilter: '' as string,
+}
+
+const columns: StandardListColumn<InboundRow>[] = [
+  { key: 'receiveNo', title: '收货单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.receiveNo,
+    render: r => `<span class="font-mono text-xs text-blue-600" title="${escapeHtml(r.receiveNo)}">${escapeHtml(r.receiveNo)}</span>` },
+  { key: 'inboundNo', title: '预入库单号', width: 180, sortable: true, sortValue: r => r.inboundNo,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.inboundNo)}</span>` },
+  { key: 'productionNo', title: '生产单号', width: 120, sortable: true, sortValue: r => r.productionNo,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.productionNo)}</span>` },
+  { key: 'processorType', title: '加工方类型', width: 100, sortable: true, sortValue: r => r.processorType,
+    render: r => `<span class="text-slate-500">${escapeHtml(r.processorType)}</span>` },
+  { key: 'processorName', title: '加工方名称', width: 150, sortable: true, sortValue: r => r.processorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.processorName)}</span>` },
+  { key: 'skuCount', title: '应收SKU数', width: 100, align: 'right', sortable: true, sortValue: r => r.skuCount,
+    render: r => `<span class="text-slate-600">${r.skuCount}</span>` },
+  { key: 'expectedQty', title: '应收数量', width: 90, align: 'right', sortable: true, sortValue: r => r.expectedQty,
+    render: r => `<span class="text-slate-600">${r.expectedQty}</span>` },
+  { key: 'receivedQty', title: '累计实收', width: 90, align: 'right', sortable: true, sortValue: r => r.receivedQty,
+    render: r => `<span class="text-slate-700 font-medium">${r.receivedQty}</span>` },
+  { key: 'receiveStatus', title: '收货状态', width: 100, sortable: true, sortValue: r => r.receiveStatus,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${receiveStatusClass[r.receiveStatus] || ''}">${escapeHtml(r.receiveStatus)}</span>` },
+  { key: 'kitType', title: '齐套类型', width: 120, sortable: true, sortValue: r => r.kitType,
+    render: r => `<span class="text-xs text-slate-600">${escapeHtml(r.kitType)}</span>` },
+  { key: 'taskStatus', title: '任务状态', width: 100, sortable: true, sortValue: r => r.taskStatus,
+    render: r => `<span class="text-xs text-slate-600">${escapeHtml(r.taskStatus)}</span>` },
+  { key: 'workAreaQty', title: '作业区剩余', width: 100, align: 'right', sortable: true, sortValue: r => r.workAreaQty,
+    render: r => `<span class="text-slate-600">${r.workAreaQty}</span>` },
+  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
+    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view">查看明细</button>${r.receiveStatus !== '已收货' ? `<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="receive">收货</button>` : ''}</div>` },
 ]
 
-export function renderTransitInboundManage(_state: AppState): string {
-  const totalOrders = seedGroups.reduce((s, g) => s + g.orders.length, 0)
+const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
+const defaultPreferences = (): StandardListColumnPreferences => ({
+  order: columns.map(c => c.key),
+  visibleKeys: columns.filter(c => c.required || c.actionColumn).map(c => c.key),
+  frozenKeys: ['receiveNo'],
+  pageSize: PAGE_SIZE_OPTIONS[0],
+})
 
-  return `
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-800">中转仓 · 收货单管理</h1>
-      <div class="flex items-center gap-2">
-        <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">手动创建收货单</button>
-        <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">批量收货</button>
-        <button class="rounded-lg border border-slate-200 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50">打印收货单</button>
-        <button class="rounded-lg border border-slate-200 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50">打印收货后任务单</button>
-      </div>
-    </div>
+function ensurePreferencesLoaded(): void {
+  if (state.preferencesLoaded || typeof window === 'undefined') { state.preferencesLoaded = true; return }
+  state.preferences = loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences(), [...PAGE_SIZE_OPTIONS])
+  state.preferencesLoaded = true
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-4">
-      <div class="flex flex-wrap items-center gap-3 mb-3">
-        <input type="text" placeholder="收货单号 / 预入库单号 / 生产单号" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-72 focus:border-blue-400 focus:outline-none">
-        <select class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
-          <option value="">全部状态</option><option>待收货</option><option>收货中</option><option>已收货</option>
-        </select>
-        <input type="date" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
-        <input type="date" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
-        <button class="rounded-lg bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">查询</button>
-        <button class="rounded-lg bg-slate-100 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-200">重置</button>
-      </div>
-      <div class="grid grid-cols-4 md:grid-cols-7 gap-2">
-        ${boardCards.map(c => `
-          <div class="rounded-lg border border-slate-200 p-2.5 cursor-pointer hover:border-blue-400 transition-colors">
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-slate-500">${c.label}</span>
-              <span class="rounded-full px-1.5 py-0.5 text-[10px] ${c.scopeClass}">${c.scope}</span>
-            </div>
-            <div class="text-xl font-bold text-slate-800 mt-1">${c.value}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
+function filteredRows(): InboundRow[] {
+  const kw = state.keyword.trim().toLowerCase()
+  return seedRows.filter(r => {
+    if (state.statusFilter && r.receiveStatus !== state.statusFilter) return false
+    if (!kw) return true
+    return `${r.receiveNo} ${r.inboundNo} ${r.productionNo} ${r.processorName}`.toLowerCase().includes(kw)
+  })
+}
 
-    <div class="rounded-xl border border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <label class="flex items-center gap-1.5 text-xs text-slate-500"><input type="checkbox" class="rounded"> 全选</label>
-          <span class="text-sm text-slate-500">共 ${seedGroups.length} 组收货单 / ${totalOrders} 条预入库单</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="rounded-lg bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-40" disabled>上架完成</button>
-          <button class="rounded-lg bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-40" disabled>配料完成</button>
-        </div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" style="min-width:1540px">
-          <thead><tr class="bg-slate-50 text-slate-500 text-xs">
-            <th class="px-2 py-2 w-8"></th>
-            <th class="px-3 py-2 text-left font-medium">收货单号</th>
-            <th class="px-3 py-2 text-left font-medium">预入库单号</th>
-            <th class="px-3 py-2 text-left font-medium">生产单号</th>
-            <th class="px-3 py-2 text-left font-medium">加工方类型</th>
-            <th class="px-3 py-2 text-left font-medium">加工方名称</th>
-            <th class="px-3 py-2 text-right font-medium">应收SKU数</th>
-            <th class="px-3 py-2 text-right font-medium">应收数量</th>
-            <th class="px-3 py-2 text-right font-medium">累计实收</th>
-            <th class="px-3 py-2 text-left font-medium">收货状态</th>
-            <th class="px-3 py-2 text-left font-medium">齐套类型</th>
-            <th class="px-3 py-2 text-left font-medium">任务状态</th>
-            <th class="px-3 py-2 text-right font-medium">作业区剩余</th>
-            <th class="px-3 py-2 text-left font-medium sticky right-0 bg-slate-50">操作</th>
-          </tr></thead>
-          <tbody>
-            ${seedGroups.map(g => g.orders.map((o, i) => `
-              <tr class="border-t border-slate-100 hover:bg-slate-50">
-                ${i === 0 ? `<td class="px-2 py-2 text-center" rowspan="${g.orders.length}"><input type="checkbox" class="rounded"></td>
-                <td class="px-3 py-2 font-mono text-xs text-blue-600" rowspan="${g.orders.length}" title="${g.receiveNo}">${g.receiveNo}</td>` : ''}
-                <td class="px-3 py-2 font-mono text-xs text-slate-600">${o.inboundNo}</td>
-                <td class="px-3 py-2 text-slate-700">${o.productionNo}</td>
-                ${i === 0 ? `<td class="px-3 py-2 text-slate-500" rowspan="${g.orders.length}">${g.processorType}</td>
-                <td class="px-3 py-2 text-slate-600" rowspan="${g.orders.length}">${g.processorName}</td>` : ''}
-                <td class="px-3 py-2 text-right text-slate-600">${o.skuCount}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${o.expectedQty}</td>
-                <td class="px-3 py-2 text-right text-slate-700 font-medium">${o.receivedQty}</td>
-                ${i === 0 ? `<td class="px-3 py-2" rowspan="${g.orders.length}"><span class="rounded-full px-2 py-0.5 text-xs ${receiveStatusClass[g.receiveStatus]}">${g.receiveStatus}</span></td>` : ''}
-                <td class="px-3 py-2 text-slate-600 text-xs">${o.kitType}</td>
-                <td class="px-3 py-2 text-slate-600 text-xs">${o.taskStatus}</td>
-                <td class="px-3 py-2 text-right text-slate-600">${o.workAreaQty}</td>
-                <td class="px-3 py-2 sticky right-0 bg-white">
-                  <div class="flex items-center gap-1">
-                    <button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50">查看明细</button>
-                    ${g.receiveStatus !== '已收货' ? '<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700">收货</button>' : ''}
-                  </div>
-                </td>
-              </tr>
-            `).join('')).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.__wlsTransitInbound = {
-      init() {
-        const cards = document.querySelectorAll('[data-board-card]');
-        cards.forEach(c => c.addEventListener('click', () => {}));
-      }
-    };
-    window.__wlsTransitInbound.init();
-  </script>`
+function renderFilters(): string {
+  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="收货单号 / 预入库单号 / 生产单号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">收货状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待收货" ${state.statusFilter === '待收货' ? 'selected' : ''}>待收货</option><option value="收货中" ${state.statusFilter === '收货中' ? 'selected' : ''}>收货中</option><option value="已收货" ${state.statusFilter === '已收货' ? 'selected' : ''}>已收货</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderWorkspace(): string {
+  ensurePreferencesLoaded()
+  const all = filteredRows()
+  const sorted = sortStandardListRows(all, state.sort, (row, key) => columns.find(c => c.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
+  state.currentPage = paging.currentPage
+  return renderStandardListPage({
+    title: '中转仓收货单管理',
+    filtersHtml: renderFilters(),
+    statsHtml: renderStandardListStats([
+      { label: '记录数', value: `${all.length} 条` },
+      { label: '待收货', value: `${seedRows.filter(r => r.receiveStatus === '待收货').length} 条` },
+      { label: '收货中', value: `${seedRows.filter(r => r.receiveStatus === '收货中').length} 条` },
+      { label: '已收货', value: `${seedRows.filter(r => r.receiveStatus === '已收货').length} 条` },
+    ]),
+    listTitle: '收货单列表',
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无收货记录' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '收货单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+  })
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshWorkspace(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderTransitInboundManage(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  ensurePreferencesLoaded()
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+}
+
+export function handleTransitInboundManageEvent(target: HTMLElement, event?: Event): boolean {
+  if (!rootElement()) return false
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (field) {
+    const name = field.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Field`]
+    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pageSize' && event?.type === 'change') {
+      state.preferences.pageSize = Number((field as HTMLSelectElement).value)
+      state.currentPage = 1
+      saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+      refreshWorkspace()
+      return true
+    }
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}Action`]
+  if (!actionNode || !action) return false
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'prev-page' || action === 'next-page') {
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || ''
+    state.sort = state.sort?.key === key ? (state.sort.direction === 'asc' ? { key, direction: 'desc' } : null) : { key, direction: 'asc' }
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'apply-filter') {
+    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    if (input) state.keyword = input.value
+    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (select) state.statusFilter = select.value
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'reset-filter') {
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
+  if (action === 'close-column-settings') { state.showColumnSettings = false; refreshWorkspace(); return true }
+  if (action === 'restore-column-settings') { state.preferences = defaultPreferences(); saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences); refreshWorkspace(); return true }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const key = actionNode.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || actionNode.closest<HTMLElement>(`[data-${EVENT_PREFIX}-column-key]`)?.dataset[`${EVENT_PREFIX.replace(/-/g, '')}ColumnKey`] || ''
+    const col = columns.find(c => c.key === key)
+    if (!col || col.actionColumn) return true
+    if (action === 'toggle-column-visibility' && col.required) return true
+    const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
+    state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
+    saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+    refreshWorkspace()
+    return true
+  }
+  return false
 }
