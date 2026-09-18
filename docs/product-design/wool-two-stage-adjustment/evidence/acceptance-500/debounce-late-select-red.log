@@ -1,0 +1,153 @@
+
+Running 1 test using 1 worker
+
+
+(node:58862) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数
+  1) tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数 ────────────────────────
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected substring: "当前筛选条件下暂无仓库事实"
+    Received string:    "WOOL-STAGE-002:KNITTING|YARN-COTTON-MIXED|MZ-YARN-2|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-002
+    PO-MZ-002··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-2	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-003:KNITTING|YARN-COTTON-MIXED|MZ-YARN-3|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-003
+    PO-MZ-003··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-3	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-004:KNITTING|YARN-COTTON-MIXED|MZ-YARN-4|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-004
+    PO-MZ-004··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-4	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-007:KNITTING|YARN-COTTON-MIXED|MZ-YARN-7|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-007
+    PO-MZ-007··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-7	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-008:KNITTING|YARN-COTTON-MIXED|MZ-YARN-8|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-008
+    PO-MZ-008··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-8	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-012:KNITTING|YARN-COTTON-MIXED|MZ-YARN-12|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-012
+    PO-MZ-012··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-12	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    WOOL-STAGE-014:KNITTING|YARN-COTTON-MIXED|MZ-YARN-14|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    HJ260918-014
+    PO-MZ-014··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-YARN-14	25 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	加工单未完成·
+    查看明细
+    纱线领用
+    库位移库
+    查看加工单··
+    |YARN-COTTON-MIXED|MZ-PREPARATION-10KG|WOOL-WP-YARN-DEFAULT|FIW-OWN_WOOL_FACTORY-WAIT_PROCESS|LOC-A-01-01
+    当前有效库存··
+    备料（未关联加工单）
+    未关联生产单··
+    YARN-COTTON-MIXED
+    纱线 / 段染棉纱
+    	MZ-PREPARATION-10KG	10 kg·
+    周哥毛织厂 · 待加工仓 / A区 / A-01 / A-01-01
+    FIW-OWN_WOOL_FACTORY-WAIT_PROCESS / LOC-A-01-01
+    	当前汇总	备料，可关联加工单·
+    查看明细查看备料 / 关联加工单"
+
+      113 |  })
+      114 |  await page.clock.runFor(181)
+    > 115 |  expect(await page.locator('[data-wool-warehouse-table-surface] tbody').innerText()).toContain('当前筛选条件下暂无仓库事实')
+          |                                                                                      ^
+      116 |  await expect(page.locator('[data-wool-warehouse-filter="woolOrderNo"]')).toHaveValue('NO-MATCH')
+      117 | })
+      118 |
+        at /private/tmp/higoods-wool-main-release-20260918/tests/wool-acceptance-extra.spec.ts:115:86
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/wool-acceptance-extra-A19-仓库筛选切换和重置取消迟到刷新且不覆盖每页条数/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数 ─────────────────────────

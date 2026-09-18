@@ -2,7 +2,7 @@ import type { ProcessOutputRoll, ProcessDispatchDocument } from './process-outpu
 import { addWaterOutputDemoOrders } from './water-soluble-output-demos.ts'
 import {getPdaSession} from './store-domain-pda.ts'
 import {getDyeFactoryReceiptProjection} from './factory-receiving-warehouse.ts'
-import {listFactoryReceivingSources,getSourceActualReceipts,recordFactoryMaterialUsage,captureFactoryReceivingData,restoreFactoryReceivingData,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
+import {listWaterHandoverReceivingSources,getSourceActualReceipts,recordFactoryMaterialUsage,captureFactoryReceivingData,restoreFactoryReceivingData,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
@@ -464,13 +464,14 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
 
 function ensureStore(): Map<string, WaterSolubleWorkOrder> {
   syncWaterSolubleOrderStoreWithArtifacts()
+  const handoverSources = listWaterHandoverReceivingSources()
   for(const order of orderStore!.values()){
     const receipts=getDyeFactoryReceiptProjection(order.waterOrderId,order.qtyUnit,'water')
     const legacy=(order.materialReceipts??[]).filter(r=>!r.receiptId.startsWith('FRP-'))
     if(order.inputQty===undefined&&!['WAIT_MATERIAL','WAIT_WATER_SOLUBLE'].includes(order.status))order.inputQty=legacy.reduce((n,r)=>n+r.qty,0)
     order.materialReceipts=[...legacy,...receipts]
     if(order.status==='WAIT_MATERIAL'&&order.materialReceipts.some(r=>r.qty>0))order.status='WAIT_WATER_SOLUBLE'
-    for(const source of listFactoryReceivingSources(undefined,true).filter(s=>s.workOrderNo===order.waterOrderNo&&s.waterBatchId)){const batch=order.handoverBatches?.find(b=>b.batchId===source.waterBatchId),actual=getSourceActualReceipts(source.id);if(batch&&actual.length){batch.receivedQty=actual.reduce((n,r)=>n+(convertReceiptQuantity(r.qty,r.unit,order.qtyUnit)??(r.businessUnit===order.qtyUnit?r.businessQty??0:0)),0);order.receivedQty=(order.handoverBatches??[]).reduce((n,b)=>n+(b.receivedQty??0),0)}}
+    for(const source of handoverSources.filter(s=>s.workOrderNo===order.waterOrderNo)){const batch=order.handoverBatches?.find(b=>b.batchId===source.waterBatchId),actual=getSourceActualReceipts(source.id);if(batch&&actual.length){batch.receivedQty=actual.reduce((n,r)=>n+(convertReceiptQuantity(r.qty,r.unit,order.qtyUnit)??(r.businessUnit===order.qtyUnit?r.businessQty??0:0)),0);order.receivedQty=(order.handoverBatches??[]).reduce((n,b)=>n+(b.receivedQty??0),0)}}
   }
   return orderStore!
 }

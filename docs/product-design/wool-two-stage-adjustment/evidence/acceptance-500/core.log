@@ -1,0 +1,150 @@
+✓ 绑定版本与逐片配置、工艺前置关系均深复制；读取后修改不污染原版本
+✓ 部位毛织和整件毛织读取相同逐片模型；两片各 100 片且不制造不外发片
+✓ 多纱线关联同一纸样片仅产生一份逐片需求
+✓ 同名工艺多个节点不合并，前置关系决定顺序而非数组或序号
+✓ 没有逐片也没有工艺是合法无外发；不要求补齐不外发片
+✓ 其他颜色、尺码与布料工艺不污染当前任务
+✓ 有工艺缺实例、缺路线、缺范围不能当成无外发
+✓ 环路、分叉、缺前置节点返回具体阻断
+✓ 明确实例路线允许同一片行的两个物理片采用不同路线
+✓ 纸样包持有实例而两条纱线关联只引用该包，不重复或丢失实例
+✓ 已配置逐片工艺缺片行、空路线前置字段以及跨片前置均明确阻断
+✓ 坏路线问题精确落到该片；缺实例落到该 SKU，不升级为全单阻断
+毛织逐片来源检查通过：12 个场景
+(node:47169) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ Q2 坏路线只阻断 Q2；Q1 可填报和真实交出，工艺单保留；本 SKU 未配齐且整单不能完结
+✓ 同单无外加工的另一 SKU 仍自动衔接横机交出、缝盘接收及填报
+✓ 缺实例按 SKU 阻断，不误走自动链，不影响其他 SKU 的填报和数量
+✓ 缺颜色物料关系同样按 SKU 保留，正常 SKU 的资料不受牵连
+PASS 4 route isolation checks
+(node:47181) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS 演示收货批次单次持久化、普通数量验证、中途及存储失败均原子回退
+PASS A01 整件100件四类事实同量且最终交出仍人工
+PASS A01/02 无外加工按件自动衔接且幂等
+PASS A10 无料阻断及150%上限
+PASS A12 合法横机修正同步四类事实
+PASS A12 最终交出后不能反向修正自动链
+PASS A05/08 横机片按首厂独立交出及分批实收
+PASS A03/04/06 回货取最短板且末工艺才进缝盘
+PASS A09 未派工不能外发/误走自动链
+PASS A11/14 阶段完成独立且缝盘不能关联设备
+9 two-stage contracts passed
+(node:47185) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ 横机实际外发片进入首工艺厂，收货不误用纱线称重也不提前入缝盘
+✓ 不同工艺厂分两次接收，数量依据实际交出且不能重复或超收
+✓ 末工艺分批回货形成唯一缝盘片实收和库存，重读与重启不重复
+✓ 错误工厂、错误末节点、伪造交出均阻断
+✓ 横机纱线保留毛重、管型、筒数、净重，和片收货分开投影
+✓ 接收命令核验当前 PDA 工厂，不能改请求参数越厂收货
+毛织两阶段统一接收检查通过：6 个场景
+PASS FLOW005 实际裁厂隔离、未知接收仓阻断、按件来源
+PASS FLOW006 真实批次可在工艺 Web 接收，超计划但未超交出合法，同一次确认不重复
+PASS FLOW006 超交出、变更重试、伪来源、旧逐SKU直接接收均阻断且不留半数据
+PASS 实收→加工守恒：12 实收 = 7 待加工 + 5 待交出，未交出不造出库
+PASS 同一最终实收事实回读 Web 和两类仓储；20 实收 = 15 待加工 + 5 待交出
+PASS 错厂会话、错目标厂及错路线节点不能接收本批成衣
+PASS 同厂多后继节点不重复认领；明确节点才得到其批次
+7 final downstream contracts passed
+(node:47188) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS 最终接收跨全新模块初始化仍由原交出事实恢复；款图与SKU一致，未收批次仍待接收
+PASS A16 演示待收纱线通过正常接收入口开工
+PASS A11 自动四事实保存失败不留下半组记录
+PASS A11 横机交出与待接收跨存储失败一并回退
+PASS 工艺重复确认载荷不同不接受，重试不重复加工
+PASS A17 后道仅接指定后道厂的缝盘最终产物
+PASS 保存边界拒绝跨片伪造回货与断开的配对
+6 boundary contracts passed
+(node:47219) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS kg领料退料守恒、实收保持、重复提交及超量阻断
+PASS 横机独占设备、缝盘无设备、完单释放关联但保留设备档案
+PASS 缝盘实交与实收闭合后可完单，不调用横机设备命令，重复提交不增单
+(node:47220) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ PDA 尚未加载时清理共享与持久化旧记录，后续加载不复活，非毛织领料和完成记录保留
+✓ 按真实旧 ID 清理混合接收、送货、分配行，保留新阶段和非毛织事实
+✓ 旧设备档案及维护状态保留，旧设备占用和旧单不迁入新存储
+✓ PDA 持久化及运行态交接、领料、覆盖和历史只移除旧毛织
+✓ 重启和重复初始化不复活旧单；没有 v2 时也清除明确旧演示引用
+✓ 损坏旧数据不覆盖；保存失败回退原接收、PDA、设备及存储
+✓ 合格旧来源任务只生成新配对身份，不继承旧数量和记录；旧演示任务仍排除
+PASS 7 legacy wool reset checks
+PASS A20 阶段扫码候选、回货识别、错厂/无会话阻断、缝盘无设备、移动实际接收记录
+(node:47223) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS KNITTING 打印含真实阶段、批次、接收厂、图片、二维码及单位
+PASS LINKING 打印含真实阶段、批次、接收厂、图片、二维码及单位
+PASS 内部自动衔接无外发打印单
+(node:47224) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ 缝盘数量展示指定下游实际接收件数
+✓ 已完单数量与处理进度的可填报数量均为零
+✓ 详情拒绝错误阶段，正常阶段仍可渲染
+✓ 打印拒绝错误阶段且不暴露打印按钮
+✓ 阶段页面完成文件迁移，路由捕获并传入阶段
+✓ 待接收毛织片明确显示款式参考图及非片实拍
+✓ 缝盘回货扫码匹配新接收动作
+✓ 缝盘PDA不再索要纱线，并保留实际片接收记录
+✓ 横机PDA存在可用外发片时能够提交交出
+✓ 演示待收纱线通过正常统一接收入口
+✓ PDA接收使用独立PDA路由并有返回入口
+✓ PDA真实分发器打开片接收弹窗且未提前保存
+✓ PDA真实分发器处理输入且接收事实未改变
+毛织阶段页面对抗审查修复：13 项通过；此检查不替代浏览器与性能验收。
+✓ 已计划、已交出但未实收不能生成工艺库存或伪造交出记录
+✓ 加工填报以片消耗待加工库存并等量形成待交出；跨仓守恒
+✓ 在途按下游分批实收递减；下道工艺使用真实路线工厂，不返裁厂
+✓ 末道工艺回缝盘，最终片实收只进缝盘事实，不重复计入工艺待加工仓
+✓ 刷新、重复读取不重复库存；非毛织仓储和工艺记录不变
+✓ 修改查询副本的记录、图片、关联数组及集合不能污染下次仓储读取
+✓ 仓储页面显示实际0库存、片单位、真实库位和真实流水，毛织片配图可放大
+PASS 7 wool craft warehouse checks
+✓ 毛织逐片需求只有 WSC 链；旧工艺生成器不再生成同源加工单
+✓ 普通布料裁片工艺生成保持
+✓ 缝盘后的成衣工艺仍正常生成
+✓ 旧同源工艺单、批次引用、两套仓储及差异复核实际移除；非毛织与成衣单保留
+✓ 恢复旧快照及旧写入口不能复活旧工艺库存或交出
+PASS 5 wool craft generation boundary checks
+(node:47240) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ view=stock进入备料库存，真实图片与实际余量可读
+✓ 库存视图只包含YARN备料实际接收，不包含片或已直接绑定来纱
+✓ 候选仅本厂需要该SKU且未完单的横机单
+✓ 分配前未收纱线不能填报
+✓ 打开分配仅展示选择和复核，未写入接收或分配事实
+✓ 超过实收备料余量阻断
+✓ 缝盘单不可接受任意备料分配
+✓ 二次确认明确目标和数量，确认前事实不变
+✓ 确认分配复用共享命令，减少备料而不重复实际接收
+✓ 横机投入栏与接收时间读取相同分配事实
+✓ 重复点击保存不会重复分配
+✓ 缓存重读保留既有分配，独立10kg演示备料不重复接收
+✓ 查询实际缩小范围
+✓ 重置恢复全部备料结果
+✓ PDA库存只显示会话工厂并保留图片与分配动作
+✓ PDA已分配单跳转本单执行页，不跳桌面详情
+✓ 实际PDA事件分发可打开分配并处理输入，未提前写分配
+✓ 切换其他厂会话后原备料和候选不可见，不可分配
+✓ PDA无身份时不显示库存
+✓ 仅备料分配的横机单归入已具备接收条件
+✓ 已分配实收纱线的横机单不再归入尚未接收
+✓ 接收时间筛选包含备料原实际接收日期
+✓ 先新后旧分配仍取最晚实收时间，数量不会重复
+✓ 接收筛选随新增事实失效重算，不继续命中旧日期
+✓ 接收筛选与列表最近实收日期一致
+✓ 直接实收与备料分配共同汇总，旧分配不覆盖最新日期
+✓ 同一可变草稿连续修改数量仍即时重算，不命中只读缓存
+✓ 同日T与空格时间格式的汇总和列表排序一致
+✓ 自动内部交出与列表时间一致，可按最近交出筛选
+毛织备料分配：29 项通过；不替代真实浏览器及性能验收。
+PASS 最终产物件数整数、移库扣减与转回守恒、同命令防重及未知库位阻断
+PASS 库存调整不伪改加工实绩与配对单，负数及重复调整受控
+PASS 错批次领纱零写，不挪用另一批实收
+PASS PDA与Web使用同一阶段仓储流水，片件kg分组，错厂不可见且不外发片不造物理片库存
+(node:47244) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS 毛织两阶段已登记业务契约；浏览器及性能结果另行验收

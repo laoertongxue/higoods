@@ -1,0 +1,15 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: BOM 水溶要求必须自动生成 WATER_SOLUBLE 准备工序
+    at <anonymous> (/private/tmp/wool-final-head-baseline/scripts/check-water-soluble-process.ts:193:1) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

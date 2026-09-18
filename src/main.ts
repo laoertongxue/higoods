@@ -72,6 +72,7 @@ const getPrintingSheetPreviewModule = createRetryableModuleLoader(() => import('
 const getPdaTaskReceivePageModule = createRetryableModuleLoader(() => import('./pages/pda-task-receive'))
 const getPdaExecPageModule = createRetryableModuleLoader(() => import('./pages/pda-exec'))
 const getPdaHandoverPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover'))
+const getPdaHandoverDetailPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover-detail'))
 const getPdaWarehousePageModule = createRetryableModuleLoader(() => import('./pages/pda-warehouse'))
 const getPdaSettlementPageModule = createRetryableModuleLoader(() => import('./pages/pda-settlement'))
 const getProductionOrderProgressTrackingPageModule = createRetryableModuleLoader(
@@ -745,6 +746,18 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       // Generic water/cutting detail initialization is unrelated to this task.
       return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
     }
+    if (normalizedPathname === '/fcs/pda/warehouse/inbound-records' || normalizedPathname === '/fcs/pda/warehouse/outbound-records') {
+      const [page, session] = await Promise.all([
+        import('./pages/pda-wool-warehouse-flows.ts'),
+        import('./pages/pda-runtime.ts'),
+      ])
+      const identity = session.getPdaRuntimeContext()
+      if (identity) {
+        const wool = page.renderPdaWoolWarehouseFlows(identity.factoryId, identity.factoryName, normalizedPathname.endsWith('inbound-records') ? 'IN' : 'OUT')
+        if (wool) return wool
+      }
+      // Other factories retain the generic warehouse route and its permissions.
+    }
     if (normalizedPathname === '/fcs/craft/wool/machines') {
       const page = await import('./pages/process-factory/wool/machines.ts')
       return page.renderCraftWoolMachinesPage()
@@ -795,6 +808,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     if (normalizedPathname === '/fcs/pda/exec') {
       const pdaExecPage = await getPdaExecPageModule()
       return pdaExecPage.renderPdaExecPage()
+    }
+    if (normalizedPathname.startsWith('/fcs/pda/handover/HOH-WOOL-')) {
+      const page = await getPdaHandoverDetailPageModule()
+      return page.renderPdaHandoverDetailPage(decodeURIComponent(normalizedPathname.slice('/fcs/pda/handover/'.length)))
     }
     if (normalizedPathname === '/fcs/pda/handover') {
       const pdaHandoverPage = await getPdaHandoverPageModule()

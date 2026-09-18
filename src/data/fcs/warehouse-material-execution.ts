@@ -1,4 +1,4 @@
-import {listFactoryReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
+import {listWarehouseReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { getOriginalPickupWarehouseHandedQty, getOriginalHandoutQuantities } from './pda-handover-events.ts'
 import { initialProductionOrderIds } from './production-orders.ts'
 import { listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './cutting/production-material-prep.ts'
@@ -971,7 +971,7 @@ export function getWarehouseExecutionSummaryByOrder(productionOrderId: string): 
 
 /** Original factory-receiving transfer book. Approval is explicit, not inferred from READY. */
 function factoryReceivingWarehouseDocuments():Array<WarehouseInternalTransferOrder | WarehouseIssueOrder>{
- return listFactoryReceivingSources(undefined,true).filter(s=>s.type!=='HANDOUT'&&s.origin.kind==='WAREHOUSE').map(s=>({
+ return listWarehouseReceivingSources().map(s=>({
   id:s.id,docNo:s.documentNo,docType:s.type==='ISSUE'?'ISSUE':'INTERNAL_TRANSFER',receivingSourceId:s.id,status:s.voidedAt?'CLOSED':s.approvedAt?s.lines.some(l=>l.sentQty>0)?'ISSUED':'PLANNED':'PREPARING',approvedAt:s.approvedAt,approvedBy:s.approvedBy,actualReceipts:getSourceActualReceipts(s.id),productionOrderId:s.lines[0]?.productionOrderNo||'',baseTaskId:s.lines[0]?.dyeOrderId||'',runtimeTaskId:s.lines[0]?.dyeOrderId||'',taskNo:s.lines[0]?.taskNo||'备料（未关联任务）',processCode:'DYE',processNameZh:'染色',scopeType:'SKU',scopeKey:s.id,scopeLabel:'按原单物料行接收',targetType:'EXTERNAL_FACTORY',targetFactoryId:s.targetFactoryId,targetFactoryName:s.targetFactoryName,executorKind:'EXTERNAL_FACTORY',warehouseId:s.origin.id,warehouseName:s.origin.name,createdAt:s.createdAt,updatedAt:s.approvedAt||s.createdAt,remark:s.approvedAt?'审核已通过；实收按接收记录累计':'等待上游审核',lines:s.lines.map(l=>({lineId:l.id,docId:s.id,materialCode:l.material.sku,materialName:l.material.name,materialSpec:l.material.specification,unit:l.unit,plannedQty:l.plannedQty,preparedQty:l.sentQty,shortQty:Math.max(0,l.plannedQty-l.sentQty),skuCode:l.material.sku,skuColor:l.material.color,issuedQty:l.sentQty,returnedQty:0,transferredQty:l.sentQty}))
  }))
 }

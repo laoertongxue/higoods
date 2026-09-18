@@ -1,3 +1,6 @@
+import { productionOrders } from '../data/fcs/production-orders.ts'
+import { readWoolQuerySnapshot } from '../data/fcs/wool-domain/queries.ts'
+import { renderWoolObjectImage } from './process-factory/wool/stage-display.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderRealQrPlaceholder } from '../components/real-qr'
@@ -523,6 +526,13 @@ function renderPdaHandoverSourceIdentity(head: PdaHandoverHead): string {
       : ''
   const businessTypeRow = businessTypeLabel ? renderFieldRow('加工单类型', businessTypeLabel) : ''
   const typeRow = renderFieldRow('需求来源', getPdaHandoverSourceTypeLabel(head))
+  // Wool demo sources are explicit prototype documents, with no production-object overview.
+  // Keep their existing plain-text identity without building the unrelated global overview index.
+  if (head.processBusinessCode === 'WOOL' && head.scopeKey
+    && readWoolQuerySnapshot().workOrders[head.scopeKey]?.demoSource
+    && !productionOrders.some(order => order.productionOrderNo === source.value || order.productionOrderId === source.value)) {
+    return `${businessTypeRow}${typeRow}${renderFieldRow(source.label, source.value)}`
+  }
   if (head.sourceType === 'CUT_PIECE_SUPPLEMENT') {
     return `${businessTypeRow}${typeRow}${renderFieldRow(source.label, source.value)}${renderFieldRow('原始裁片单', head.sourceSnapshot?.originalCutOrderNo || '—')}`
   }
@@ -2187,6 +2197,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
 function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
   const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
   const isWoolHandover = head.processBusinessCode === 'WOOL'
+  const woolOrder = isWoolHandover && head.scopeKey ? readWoolQuerySnapshot().workOrders[head.scopeKey] : undefined
   const linkOnly = isPostReturnLinkOnlyView(head)
   const canCreateRecord = !linkOnly && !isWoolHandover
     && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
@@ -2219,6 +2230,7 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
         <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}">${isCompleted ? '已完成' : factoryFinished ? '已交完，待实收' : '待交出'}</span>
       </div>
       <div class="mt-3 flex items-center gap-2 text-xs"><span class="truncate">${escapeHtml(head.sourceFactoryName)}</span><i data-lucide="arrow-right" class="h-3.5 w-3.5 shrink-0 text-muted-foreground"></i><span class="truncate font-medium text-primary">${escapeHtml(getReceiverDisplayName(head))}</span></div>
+      ${woolOrder ? `<div class="mt-3 flex items-center gap-3" data-wool-handover-object>${renderWoolObjectImage(woolOrder.styleImageUrl, `${woolOrder.styleNo} 款式图`)}<div class="min-w-0 break-words text-xs"><div class="font-medium">${escapeHtml(woolOrder.styleName)}</div><div>${escapeHtml(woolOrder.styleNo)}</div><div>${escapeHtml(head.materialCode || '')} · ${escapeHtml(head.materialName || '')}</div></div></div>` : ''}
       <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border bg-muted/15 px-2 py-2 text-xs">
         ${renderPdaHandoverSourceIdentity(head)}
         ${head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
@@ -2851,7 +2863,8 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     detailState.writebackSyncWarning = ''
 
     const handoverRecordId = updated.handoverRecordId || updated.recordId
-    const isPrompt7ReturnFlow = isSpecialCraftReturnHandoverRecord(handoverRecordId)
+    // A wool fact receipt cannot also be a special-craft Fei-ticket return.
+    const isPrompt7ReturnFlow = !updated.sourceWoolHandoverId && isSpecialCraftReturnHandoverRecord(handoverRecordId)
     const isPostFinishingReturnFlow = isPostFinishingHandoutRecord(updated)
     try {
       receiverWritebackLinkageProbe?.()

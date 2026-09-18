@@ -1,6 +1,6 @@
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
 import {ensurePrintingReceivingExamples} from './printing-material-receipts.ts'
-import { captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource, getProcessOrderReceivingFacts } from './factory-receiving.ts'
+import { initializeFactoryReceivingDemoBatch, captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource, getProcessOrderReceivingFacts } from './factory-receiving.ts'
 import { getDyeFactoryReceiptProjection } from './factory-receiving-warehouse.ts'
 import { productionDemands } from './production-demands.ts'
 import { listFactoryPrintMachineCapacities } from './factory-capacity-profile-mock.ts'
@@ -974,7 +974,7 @@ function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
     registerPdaGenericProcessTask(task)
   }
 
-  listHandoverOrdersByTaskId(order.taskId).forEach((head) => {
+  listHandoverOrdersByTaskId(order.taskId, { includeWool: false }).forEach((head) => {
     const records = getPdaHandoverRecordsByHead(head.handoverId)
     const sourceFields = order.sourceType === 'STOCK'
       ? {
@@ -1367,7 +1367,7 @@ function getMachineSeed(factoryId: string, index = 0) {
 }
 
 function getPrimaryHandoverOrder(taskId: string): PdaHandoverHead | null {
-  const existing = listHandoverOrdersByTaskId(taskId)
+  const existing = listHandoverOrdersByTaskId(taskId, { includeWool: false })
   return existing[0] ?? null
 }
 
@@ -1389,7 +1389,7 @@ function ensureStartedTaskHandover(taskId: string): string | undefined {
   const task = getPrintingTaskById(taskId)
   if (!task?.startedAt) return undefined
 
-  const ensured = ensureHandoverOrderForStartedTask(taskId)
+  const ensured = ensureHandoverOrderForStartedTask(taskId, { includeWool: false })
   syncTaskHandoverFields(taskId, ensured.handoverOrderId)
   return ensured.handoverOrderId
 }
@@ -2691,7 +2691,7 @@ function seedDomain(): void {
       || (Number(code.split('-')[1]) > 2 && order.businessView!.actualInput.usedQty > 0 && !usedDemoOrderIds.has(order.printOrderId))
       || order.businessView?.barcodes.some(roll => roll.handoverRecordId && !findPdaHandoverRecord(roll.handoverRecordId))
   })
-  if (pendingDemos.length) runPrintProcessMutation(() => initializePrintingFactoryDemoProgress(pendingDemos))
+  if (pendingDemos.length) runPrintProcessMutation(() => initializeFactoryReceivingDemoBatch(() => initializePrintingFactoryDemoProgress(pendingDemos)))
 }
 
 function syncOrderFromReview(order: MutablePrintWorkOrder, review?: MutableReviewRecord): boolean {
@@ -4005,7 +4005,7 @@ export function submitPrintHandover(
     throw new Error(`当前状态为“${PRINT_WORK_ORDER_STATUS_LABEL[order.status]}”，不能重复交出。`)
   }
   const completedQty = getPrintCompletedQty(order)
-  const submittedQty = listHandoverOrdersByTaskId(order.taskId).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0)
+  const submittedQty = listHandoverOrdersByTaskId(order.taskId, { includeWool: false }).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0)
   const requestedQty = Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : completedQty
   const availableQty = Math.max(completedQty - submittedQty, 0)
   if (!Number.isFinite(requestedQty) || requestedQty <= 0) throw new Error('交出数量必须大于 0。')
@@ -4892,7 +4892,11 @@ export function recordPrintingDocumentAction(workOrderId: string, input: { docum
 
 // 交出单保存于原加工单事实中；多单单据仅组合实际卷，不另建数量账。
 export function listPrintingDispatchDocuments(): PrintingDispatchDocument[] {
-  return listPrintingWorkOrders().flatMap(order => order.dispatchDocuments || [])
+  // Dispatch documents are stored facts, independent of receipt/status projections.
+  // Read only their leaves: projecting every order here repeats the full workflow
+  // for every roll inspected during initialization and dispatch editing.
+  seedDomain()
+  return structuredClone([...workOrderStore.values()].flatMap(order => order.businessView?.dispatchDocuments || []))
 }
 
 export function printingRollReserved(workOrderId: string, barcodeId: string): boolean {
@@ -5232,7 +5236,7 @@ function unresolvedPrintingTarget(order:MutablePrintWorkOrder):boolean {
 function bindPrintingDemoReceivingTargets():void {
  for(const id of ['PWO-PRINT-001','PWO-PRINT-002']){
   const order=workOrderStore.get(id);if(!order||!unresolvedPrintingTarget(order))continue
-  const heads=listHandoverOrdersByTaskId(order.taskId)
+  const heads=listHandoverOrdersByTaskId(order.taskId, { includeWool: false })
   if(order.businessView?.handover.handedOverQty || heads.some(h=>getPdaHandoverRecordsByHead(h.handoverId).length) || order.businessView?.dispatchDocuments?.some(d=>d.status!=='已作废'))continue
   const target={id:'WH-FABRIC-001',name:'面料中央仓(GKP)'}
   order.receiverKind='WAREHOUSE';order.receiverName=target.name;order.targetTransferWarehouseId=target.id;order.targetTransferWarehouseName=target.name

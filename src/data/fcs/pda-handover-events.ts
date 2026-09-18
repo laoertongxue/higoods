@@ -4242,11 +4242,11 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
   return { ...rangeResult, basisQty, effectiveQty }
 }
 
-export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
+export function listHandoverOrdersByTaskId(taskId: string, options: { includeWool?: boolean } = {}): PdaHandoverHead[] {
   const matches = [
     ...buildNonWoolHeadsInternal()
       .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
-    ...listWoolFactHandoverHeads()
+    ...(options.includeWool === false ? [] : listWoolFactHandoverHeads())
       .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
   ]
   return matches
@@ -4351,13 +4351,13 @@ export function listQuantityObjections(): QuantityObjection[] {
     )
 }
 
-export function ensureHandoverOrderForStartedTask(taskId: string): {
+export function ensureHandoverOrderForStartedTask(taskId: string, options: { includeWool?: boolean } = {}): {
   taskId: string
   handoverOrderId: string
   created: boolean
 } {
   const waterOrder = getWaterSolubleWorkOrderByTaskId(taskId)
-  const existing = listHandoverOrdersByTaskId(taskId)[0]
+  const existing = listHandoverOrdersByTaskId(taskId, options)[0]
   if (existing) {
     if (waterOrder && waterOrder.status !== 'DONE' && (
       (waterOrder.handoverQty ?? 0) + 0.000001 < waterOrder.completedQty

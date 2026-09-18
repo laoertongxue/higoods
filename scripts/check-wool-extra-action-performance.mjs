@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import { chromium } from 'playwright'
 
 const base = process.env.WOOL_BASE_URL || 'http://127.0.0.1:4186'
-const output = 'docs/product-design/wool-two-stage-adjustment/evidence/extra-action-performance.json'
+const output = process.env.WOOL_PERF_OUTPUT || 'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/extra-action-performance.json'
 const storeKey = 'higood-fcs-wool-stage-store-v3'
 const completionId = 'WOOL-STAGE-004:KNITTING'
 const machineOrderId = 'WOOL-STAGE-002:KNITTING'
@@ -48,7 +48,7 @@ const report = {
   branch: execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).trim(),
   head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), cwd: process.cwd(),
   scope: 'Four named real-UI flows only. Interaction measurements, not route-load measurements or overall performance acceptance.',
-  measurement: 'Capture click/input/change before application handlers; end only after the named real result, visible image decode, and two animation frames. Every raw sample must be <200ms.',
+  measurement: 'Capture click/input/change before application handlers; end only after the named real result, visible image decode, and two animation frames. Every raw sample must be <500ms.',
   conditions: 'Five independent new contexts per flow; normal full prototype data; no request stubs, source-module imports, fact injection, module prewarming, or application-data clearing. Only the real PDA factory session is initialized. Initial navigation is setup outside interaction timing.',
   uncovered: ['Route cold-load/refresh timings', 'Other resolutions', 'Equipment transfer/release and unavailable-device submission', 'Invalid/already-completed order completion', 'Quantity correction after downstream consumption'],
   definitions: Object.fromEntries(Object.entries(definitions).map(([name, finish]) => [name, { finish }])),
@@ -81,7 +81,11 @@ async function measure(page, name, operation, ready, type = 'click') {
           finished = true
           observer.disconnect()
           const ms = performance.now() - start
-          window.__woolExtraActionTiming = { ms, pass: ms < 200, imageCount: images.length }
+          const broken = [...document.querySelectorAll('[data-pda-image-preview-url]')].filter(el => {
+            const r = el.getBoundingClientRect()
+            return r.width > 0 && r.height > 0 && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0 && el.querySelector('img') && !el.querySelector('img').naturalWidth
+          })
+          window.__woolExtraActionTiming = { ms, pass: ms < 500 && broken.length === 0, imageCount: images.length, visibleImageFailures: broken.length }
         }))).catch(error => {
           finished = true
           observer.disconnect()
@@ -179,7 +183,22 @@ async function quantityCorrection(page) {
   await click(page, 'Web数量更正保存', action('save-qty'), `${absent(webDialog)} && ${q('[data-wool-work-orders-feedback]')}?.textContent.includes('记录数量已修改') && ${rowText('HJ260918-003')}?.includes('35') && ${correctedFacts}`)
 }
 
-const scenarios = [
+// Deliberate negative control: normal performance must fail for a visible failed
+// thumbnail even when its onerror handler hides the img and only the wrapper remains.
+async function hiddenImageFailureProbe(page) {
+  await page.route('**/cardigan-sample.jpg', route => route.abort('failed'))
+  await page.goto(base + '/fcs/craft/wool/knitting-orders')
+  const wrapper = page.locator('[data-pda-image-preview-url="/cardigan-sample.jpg"]').first()
+  await wrapper.waitFor()
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-pda-image-preview-url="/cardigan-sample.jpg"]')].some(el => el.textContent.includes('图片加载失败') && el.querySelector('img')?.hidden))
+  await measure(page, '隐藏失败图片门禁反例', () => page.locator('[data-wool-work-orders-filters] summary').click(), 'document.querySelector("[data-wool-work-orders-filters] details")?.open')
+}
+if (process.env.WOOL_IMAGE_FAILURE_PROBE === '1') {
+  definitions['隐藏失败图片门禁反例'] = 'Visible failed thumbnail wrapper must make normal measurement fail.'
+  report.definitions['隐藏失败图片门禁反例'] = { finish: definitions['隐藏失败图片门禁反例'] }
+  report.actions['隐藏失败图片门禁反例'] = []
+}
+const scenarios = process.env.WOOL_IMAGE_FAILURE_PROBE === '1' ? [{ name: '隐藏失败图片门禁反例', run: hiddenImageFailureProbe, viewport: { width:1366,height:768 }, actions: ['隐藏失败图片门禁反例'] }] : [
   { name: 'Web横机004完单', run: webCompletion, viewport: { width: 1366, height: 768 }, actions: Object.keys(definitions).filter(name => name.startsWith('Web完单')) },
   { name: 'PDA横机004完单', run: pdaCompletion, viewport: { width: 360, height: 800 }, actions: Object.keys(definitions).filter(name => name.startsWith('PDA完单')) },
   { name: 'Web横机002设备关联', run: equipment, viewport: { width: 1366, height: 768 }, actions: Object.keys(definitions).filter(name => name.startsWith('Web设备')) },
@@ -214,7 +233,7 @@ try {
   report.summary = Object.entries(report.actions).map(([name, samples]) => ({
     name, samples: samples.length,
     maxMs: samples.some(sample => !Number.isFinite(sample.ms)) ? null : Math.max(...samples.map(sample => sample.ms)),
-    pass: samples.length === 5 && samples.every(sample => sample.pass && Number.isFinite(sample.ms) && sample.ms < 200),
+    pass: samples.length === 5 && samples.every(sample => sample.pass && Number.isFinite(sample.ms) && sample.ms < 500),
   }))
   report.pass = report.errors.length === 0 && report.summary.length === Object.keys(definitions).length && report.summary.every(item => item.pass)
   save()

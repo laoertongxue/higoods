@@ -3,7 +3,7 @@ import { chromium } from 'playwright'
 import fs from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const base = process.env.WOOL_BASE_URL || 'http://127.0.0.1:4186'
-const output = 'docs/product-design/wool-two-stage-adjustment/evidence/action-performance.json'
+const output = process.env.WOOL_PERF_OUTPUT || 'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/action-performance.json'
 const key = 'higood-fcs-wool-stage-store-v3'
 const session = { userId: 'OWN_WOOL_FACTORY_operator', loginId: 'OWN_WOOL_FACTORY_operator', userName: '周哥毛织厂_操作工', roleId: 'ROLE_OPERATOR', factoryId: 'OWN_WOOL_FACTORY', factoryName: '周哥毛织厂', loggedAt: '2026-09-18 10:00:00' }
 const report = { buildIndexSha256: createHash('sha256').update(fs.readFileSync('dist/index.html')).digest('hex'), at: new Date().toISOString(), base, branch: execFileSync('git',['branch','--show-current'],{encoding:'utf8'}).trim(), head: execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), cwd: process.cwd(), scope: 'Named actions below only; does not claim all affected-entry coverage.', measurement: 'Captured click/input/change/keydown until explicit result predicate, all visible images decoded, and two animation frames. Raw five samples; no driver waiting counted.', actions: {}, errors: [] }
@@ -27,7 +27,8 @@ async function measure(page,name,operation,ready,type='click') {
         Promise.all(images.map(img=>img.decode())).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
           if(!test(ctx)){pending=false;check();return}
           finished=true;observer.disconnect();const ms=performance.now()-start
-          window.__woolActionTiming={ms,pass:ms<200,imageCount:images.length}
+          const broken=[...document.querySelectorAll('[data-pda-image-preview-url]')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&r.top<innerHeight&&r.bottom>0&&r.left<innerWidth&&r.right>0&&el.querySelector('img')&&!el.querySelector('img').naturalWidth})
+          window.__woolActionTiming={ms,pass:ms<500&&broken.length===0,imageCount:images.length,visibleImageFailures:broken.length}
         }))).catch(error=>{finished=true;observer.disconnect();window.__woolActionTiming={error:String(error),pass:false}})
       }
       observer.observe(document,{subtree:true,childList:true,attributes:true,characterData:true})
@@ -43,7 +44,7 @@ async function measure(page,name,operation,ready,type='click') {
   } catch(error) { (report.actions[name] ||= []).push({error:String(error),pass:false});throw error }
 }
 async function click(page,name,selector,ready){await measure(page,name,()=>page.locator(selector).first().click(),ready)}
-async function fill(page,name,selector,value){await measure(page,name,()=>page.locator(selector).fill(value),`${q(selector)}?.value===${JSON.stringify(value)}`,'input')}
+async function fill(page,name,selector,value){await measure(page,name,()=>page.locator(selector).fill(value),`${q(selector)}?.value===${JSON.stringify(value)} ${selector.includes('data-wool-work-orders-field="keyword"')?'&& document.querySelector("[data-wool-work-orders-table-surface]")?.firstElementChild!==ctx.body && document.querySelector("[data-wool-work-orders-total]")?.textContent.includes("共 0 条")':''}`,'input')}
 async function imageActions(page,prefix){
   await click(page,prefix+'图片打开','[data-pda-image-preview-url]',visible('[data-pda-image-preview-root] img'))
   await measure(page,prefix+'图片Esc关闭',()=>page.keyboard.press('Escape'),absent('[data-pda-image-preview-root]'),'keydown')
@@ -94,7 +95,17 @@ async function stockActions(page){
  await click(page,'备料分配复核',action('review'),visible(action('save')))
  await click(page,'备料分配保存',action('save'),`${q('[data-wool-stock-table]')}?.textContent.includes('8 kg')`)
 }
-const scenarios=[['横机列表',p=>listActions(p,'knitting'),1366,768],['缝盘列表',p=>listActions(p,'linking'),1280,720],['Web纱线接收',p=>receivingActions(p,false,false),1366,768],['Web片接收',p=>receivingActions(p,false,true),1280,720],['PDA纱线接收',p=>receivingActions(p,true,false),360,800],['PDA片接收',p=>receivingActions(p,true,true),400,806],['备料分配',stockActions,1280,720]]
+// Deliberate negative control: normal performance must fail for a visible failed
+// thumbnail even when its onerror handler hides the img and only the wrapper remains.
+async function hiddenImageFailureProbe(page) {
+  await page.route('**/cardigan-sample.jpg', route => route.abort('failed'))
+  await page.goto(base + '/fcs/craft/wool/knitting-orders')
+  const wrapper = page.locator('[data-pda-image-preview-url="/cardigan-sample.jpg"]').first()
+  await wrapper.waitFor()
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-pda-image-preview-url="/cardigan-sample.jpg"]')].some(el => el.textContent.includes('图片加载失败') && el.querySelector('img')?.hidden))
+  await measure(page, '隐藏失败图片门禁反例', () => page.locator('[data-wool-work-orders-filters] summary').click(), 'document.querySelector("[data-wool-work-orders-filters] details")?.open')
+}
+const scenarios=process.env.WOOL_IMAGE_FAILURE_PROBE === '1' ? [['隐藏失败图片门禁反例',hiddenImageFailureProbe,1366,768]] : [['横机列表',p=>listActions(p,'knitting'),1366,768],['缝盘列表',p=>listActions(p,'linking'),1280,720],['Web纱线接收',p=>receivingActions(p,false,false),1366,768],['Web片接收',p=>receivingActions(p,false,true),1280,720],['PDA纱线接收',p=>receivingActions(p,true,false),360,800],['PDA片接收',p=>receivingActions(p,true,true),400,806],['备料分配',stockActions,1280,720]]
 try {
  for(const[name,run,width,height]of scenarios){
   for(let n=0;n<5;n++){

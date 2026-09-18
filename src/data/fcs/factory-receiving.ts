@@ -49,6 +49,9 @@ export function captureFactoryReceivingData(){return clone(read())}
 export function restoreFactoryReceivingData(value:ReturnType<typeof captureFactoryReceivingData>){save(clone(value))}
 export function eligibleReceivingSource(s:FactoryReceivingSource):boolean {return !s.voidedAt&&s.lines.length>0&&(s.type==='HANDOUT'?Boolean(s.handedOutAt)&&s.lines.some(l=>l.sentQty>0):Boolean(s.approvedAt))}
 export function listFactoryReceivingSources(factoryId?:string, includeIneligible=false){return clone(read().sources.filter(s=>(!factoryId||s.targetFactoryId===factoryId)&&(includeIneligible||eligibleReceivingSource(s))))}
+/** Include pending handovers: water-order receipt reconciliation needs only its own batches. */
+export function listWaterHandoverReceivingSources(){return clone(read().sources.filter(s=>s.waterBatchId))}
+export function listWarehouseReceivingSources(){return clone(read().sources.filter(s=>s.type!=='HANDOUT'&&s.origin.kind==='WAREHOUSE'))}
 export function getFactoryReceivingSource(id:string){return clone(read().sources.find(s=>s.id===id))}
 export function getFactoryReceivingSourceByOriginalRecordId(id:string){return clone(read().sources.find(s=>s.originalRecordId===id))}
 /** A dye order may receive several batches of its one material from its one supplier. */
@@ -95,9 +98,15 @@ function displayPosition(p:ResolvedFactoryWarehouseLocation){const name=({'ID-F0
 export function getFactoryReceiptLocations(factoryId:string):ResolvedFactoryWarehouseLocation[]{return listFactoryInternalWarehouses(factoryId).filter(w=>w.warehouseKind==='WAIT_PROCESS'&&w.isEnabled).flatMap(w=>w.areaList.flatMap(a=>a.shelfList.flatMap(s=>s.locationList.map(l=>resolveEnabledFactoryWarehouseLocation(w.warehouseId,l.locationId)).filter((l):l is ResolvedFactoryWarehouseLocation=>Boolean(l))))).map(displayPosition)}
 export function getDefaultFactoryReceiptPosition(factoryId:string):ReceiptPosition {
  const saved=read().defaults[factoryId];if(saved){assertReceiptPosition(factoryId,saved);return clone(saved)}
- const first=getFactoryReceiptLocations(factoryId).find(p=>p.warehouse.isDefault&&!['异常区','待确认区'].includes(p.area.areaName))
- if(!first)throw new Error('本厂没有启用的待加工仓库位，请主管先维护库位。')
- return {warehouseId:first.warehouse.warehouseId,locationId:first.location.locationId}
+ for(const warehouse of listFactoryInternalWarehouses(factoryId).filter(w=>w.warehouseKind==='WAIT_PROCESS'&&w.isEnabled&&w.isDefault)) {
+  for(const area of warehouse.areaList.filter(a=>a.status==='AVAILABLE'&&!['异常区','待确认区'].includes(a.areaName))) {
+   for(const shelf of area.shelfList.filter(s=>s.status==='AVAILABLE')) {
+    const location=shelf.locationList.find(l=>l.status==='AVAILABLE')
+    if(location)return {warehouseId:warehouse.warehouseId,locationId:location.locationId}
+   }
+  }
+ }
+ throw new Error('本厂没有启用的待加工仓库位，请主管先维护库位。')
 }
 export function assertReceiptPosition(factoryId:string,p:ReceiptPosition){const resolved=resolveEnabledFactoryWarehouseLocation(p.warehouseId,p.locationId);if(!resolved||resolved.warehouse.factoryId!==factoryId||resolved.warehouse.warehouseKind!=='WAIT_PROCESS')throw new Error('请选择本厂已启用的待加工仓库位。');return displayPosition(resolved)}
 export function getHistoricalReceiptPosition(factoryId:string,p:ReceiptPosition){const resolved=resolveFactoryWarehouseLocation(p.warehouseId,p.locationId);if(!resolved||resolved.warehouse.factoryId!==factoryId)throw new Error('原入库位置不存在，请保留原单并联系主管核查。');return displayPosition(resolved)}
@@ -238,5 +247,5 @@ export function recordFactoryMaterialUsage(input:{id:string;printingOrderId?:str
   }
  }
  if(remaining>Math.max(0,input.materialSku?0:input.legacyAvailableQty)+.000001)throw new Error('本批投入超过本单所选物料的可用实收库存，请核对接收和已用数量。')
- const next=clone(data);next.materialUses=[...uses,{id:input.id,printingOrderId:input.printingOrderId,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
+ const next=receiptWriteCopy();next.materialUses=[...uses,{id:input.id,printingOrderId:input.printingOrderId,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
 }

@@ -1,0 +1,54 @@
+{
+  "buildIndexSha256": "92f5366d416d6a23e80bd1c7548bc87667aeff35d1c6c60f6e1dfb9def727011",
+  "at": "2026-09-18T16:58:26.485Z",
+  "base": "http://127.0.0.1:4198",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "scope": "Named actions below only; does not claim all affected-entry coverage.",
+  "measurement": "Captured click/input/change/keydown until explicit result predicate, all visible images decoded, and two animation frames. Raw five samples; no driver waiting counted.",
+  "actions": {
+    "隐藏失败图片门禁反例": [
+      {
+        "ms": 35.80000001192093,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "ms": 32.39999997615814,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "ms": 47.30000001192093,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "ms": 32.89999997615814,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "ms": 32.599999994039536,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      }
+    ]
+  },
+  "errors": [],
+  "pass": false,
+  "summary": [
+    {
+      "name": "隐藏失败图片门禁反例",
+      "samples": 5,
+      "maxMs": 47.30000001192093,
+      "pass": false
+    }
+  ]
+}

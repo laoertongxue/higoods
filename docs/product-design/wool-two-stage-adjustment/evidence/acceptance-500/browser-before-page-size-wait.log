@@ -1,0 +1,95 @@
+
+Running 46 tests using 1 worker
+
+
+(node:59420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/46] tests/wool-acceptance-extra.spec.ts:7:1 › A13 计划80实际100的合法外发片经过各工艺真实接收加工交出并缝盘最终交出
+[2/46] tests/wool-acceptance-extra.spec.ts:37:1 › A19 1024仓库领退移库与设备关联释放及状态修改可操作
+[3/46] tests/wool-acceptance-extra.spec.ts:64:1 › A19 仓库筛选切换和重置取消迟到刷新且不覆盖每页条数
+[4/46] tests/wool-acceptance-gaps.spec.ts:33:3 › A04 A10 PDA 360 多 SKU 选择不借用另一尺码的可填量
+[5/46] tests/wool-acceptance-gaps.spec.ts:33:3 › A04 A10 PDA 400 多 SKU 选择不借用另一尺码的可填量
+[6/46] tests/wool-acceptance-gaps.spec.ts:80:1 › A09 路线环、后继歧义、缺工厂的页面保留明确阻断且不伪造自动衔接
+[7/46] tests/wool-acceptance-gaps.spec.ts:108:1 › A06 工艺片第二厂真实接收加工交出后，缝盘才登记末工艺回货
+[8/46] tests/wool-acceptance-gaps.spec.ts:149:1 › A07 同名工艺三节点页面分别保留工序身份与下一站
+[9/46] tests/wool-acceptance-gaps.spec.ts:167:1 › A19 1024x768 主管毛织页面查询、详情各区及填报可操作
+[10/46] tests/wool-acceptance-gaps.spec.ts:193:1 › A18 旧单据路径不可恢复旧毛织模型
+[11/46] tests/wool-acceptance-gaps.spec.ts:202:1 › A19 多批交出打印实际 A4 分页、完整备注、图片及 QR 就绪
+[12/46] tests/wool-acceptance-gaps.spec.ts:217:1 › A17 部位缝盘交出经指定裁厂 PDA 实收后才进入裁厂待装袋来源
+[13/46] tests/wool-acceptance-gaps.spec.ts:245:1 › A17 整件缝盘实际交出只在指定后道生产任务呈现，横机不成为后道来源
+[14/46] tests/wool-acceptance-gaps.spec.ts:270:1 › A11 存储失败显示未保存，原输入保留；恢复后重试只产生一组自动衔接
+[15/46] tests/wool-acceptance-gaps.spec.ts:297:1 › A15 PCS 真实启用新版后正式生产单绑定版本及既有毛织片路线数量保持原快照
+[16/46] tests/wool-final-craft-pda.spec.ts:15:3 › 最终成衣工艺 PDA 360x800 按实际批次接收、刷新与工厂隔离
+[17/46] tests/wool-final-craft-pda.spec.ts:15:3 › 最终成衣工艺 PDA 400x806 按实际批次接收、刷新与工厂隔离
+[18/46] tests/wool-management-fact-workflow.spec.ts:10:1 › 两阶段保留六状态、八列、分页与路由独立筛选
+[19/46] tests/wool-management-fact-workflow.spec.ts:12:1 › 缺纱线不能填报，统一实收1kg后对应横机可开工
+[20/46] tests/wool-management-fact-workflow.spec.ts:14:1 › 无外加工填报一次保存四事实，缝盘没有重复手工填报或横机设备
+[21/46] tests/wool-management-fact-workflow.spec.ts:16:1 › 横机150%超量保存被阻断且无任何事实增量
+[22/46] tests/wool-management-fact-workflow.spec.ts:18:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大
+[23/46] tests/wool-management-fact-workflow.spec.ts:20:1 › 横机仅交出选中外发片，固定首工艺厂并生成待接收来源
+[24/46] tests/wool-management-fact-workflow.spec.ts:22:1 › 最终工艺回货按片实收，刷新后仍保留同一记录
+[25/46] tests/wool-management-fact-workflow.spec.ts:24:1 › 实收备料分配到横机，同一receipt保留且余量变化
+[26/46] tests/wool-management-fact-workflow.spec.ts:26:1 › 阶段错配详情和打印地址被拒绝
+[27/46] tests/wool-management-fact-workflow.spec.ts:28:1 › 真实片交出打印必须等款式图及QR就绪；内部自动交出不打印
+[28/46] tests/wool-management-fact-workflow.spec.ts:30:1 › 1280视口列表无主体横溢，操作与数量输入保持根节点
+[29/46] tests/wool-management-fact-workflow.spec.ts:32:1 › 片工艺真实页面加工交出后下一厂才有待接收，实收前不虚增
+[30/46] tests/wool-management-fact-workflow.spec.ts:42:1 › 整件缝盘最终交出按真实批次在后续成衣工艺接收，未选批次仍待接收
+[31/46] tests/wool-management-fact-workflow.spec.ts:64:1 › 管理端款式与纱线大图可按钮遮罩及Esc关闭，图片失败明确反馈
+[32/46] tests/wool-management-fact-workflow.spec.ts:87:1 › 毛织PDA接收与仓储在两种小屏下无横溢且真实图片可读
+[33/46] tests/wool-management-fact-workflow.spec.ts:102:1 › 导出全部匹配行而非当前页，无操作列且空结果有明确反馈
+[34/46] tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留
+  1) tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留 ───────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 20
+    Received: 10
+
+      128 |  await page.locator('[data-wool-work-orders-field="pageSize"]').selectOption('20')
+      129 |  const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('/fcs/craft/wool/knitting-orders:list-columns')!))
+    > 130 |  expect(prefs.visibleKeys).not.toContain('requirements');expect(prefs.frozenKeys).toContain('quantities');expect(prefs.order.indexOf('times')).toBeLessThan(prefs.order.indexOf('inputs'));expect(prefs.pageSize).toBe(20)
+          |                                                                                                                                                                                                                   ^
+      131 |  expect(prefs).not.toHaveProperty('sort');expect(prefs).not.toHaveProperty('currentPage')
+      132 |  await open(page,'linking');await expect(page.locator('th[data-column-key="requirements"]')).toBeVisible();await expect(page.locator('[data-wool-work-orders-field="pageSize"]')).toHaveValue('10')
+      133 |  await open(page);await expect(page.locator('th[data-column-key="requirements"]')).toHaveCount(0);await expect(page.locator('[data-wool-work-orders-field="pageSize"]')).toHaveValue('20')
+        at /private/tmp/higoods-wool-main-release-20260918/tests/wool-management-fact-workflow.spec.ts:130:211
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/wool-management-fact-workflow-列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/wool-management-fact-workflow-列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:61079) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[35/46] tests/wool-pda-main-local-rerender.spec.ts:19:1 › 毛织输入和弹窗动作经过真实 main.ts 分发链且不替换整页根节点
+[36/46] tests/wool-pda-main-local-rerender.spec.ts:42:1 › 执行任务卡滑到底部自动追加，搜索后重置首批并局部刷新
+[37/46] tests/wool-pda-main-local-rerender.spec.ts:67:1 › 横机 PDA 执行页保留返回指定任务列表入口
+[38/46] tests/wool-stage-actions.spec.ts:48:1 › Web 完单先核对再确认：未交出、未实收均阻断，闭合后刷新持久化
+[39/46] tests/wool-stage-actions.spec.ts:74:3 › PDA 360x800 完单二次确认与未闭合阻断
+[40/46] tests/wool-stage-actions.spec.ts:74:3 › PDA 400x806 完单二次确认与未闭合阻断
+[41/46] tests/wool-stage-actions.spec.ts:114:1 › 横机设备关联通过真实入口保存刷新，缝盘无设备入口
+[42/46] tests/wool-stage-actions.spec.ts:132:1 › Web 修正未消费横机数量同步自动衔接，最终交出后修正阻断且无写入
+[43/46] tests/wool-stage-actions.spec.ts:168:1 › PDA 加工单扫码直达、生产单双阶段候选以及错厂阻断
+[44/46] tests/wool-stage-actions.spec.ts:199:1 › 待接收和备料导出全部匹配记录，列偏好按各自路由保存
+[45/46] tests/wool-stage-actions.spec.ts:254:1 › 工艺厂毛织片待接收导出保留工艺单身份，不误写为纱线备料
+[46/46] tests/wool-stage-actions.spec.ts:275:1 › PDA待办将缺逐片资料的缝盘标为异常，不引导横机填报或接收纱线
+  1 failed
+    tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留 ────────────────
+  45 passed (2.3m)

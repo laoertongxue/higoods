@@ -102,7 +102,7 @@ function restoreDemoHandoverRecord(order: PrintWorkOrder): void {
   const rolls=view.barcodes.filter(roll=>roll.handoverRecordId)
   const ids=[...new Set(rolls.map(roll=>roll.handoverRecordId!))]
   if(docs.length!==1 || ids.length!==1 || !view.handover.handedOverAt || Math.abs(rolls.reduce((n,roll)=>n+roll.lengthY,0)-view.handover.handedOverQty)>.001)return
-  const ensured=ensureHandoverOrderForStartedTask(order.taskId)
+  const ensured=ensureHandoverOrderForStartedTask(order.taskId, { includeWool: false })
   const head=getHandoverOrderById(ensured.handoverOrderId)
   if(!head || head.handoverId!==order.handoverOrderId || getPdaHandoverRecordsByHead(head.handoverId).length)return
   const record=createFactoryHandoverRecord({handoverOrderId:head.handoverId,submittedQty:view.handover.handedOverQty,qtyUnit:view.output.qtyUnit,

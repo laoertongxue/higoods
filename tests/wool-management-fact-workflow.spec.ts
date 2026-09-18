@@ -126,6 +126,7 @@ test('列显隐顺序冻结和页大小按阶段保存，页码和排序刷新�
  await page.locator('[data-drag-source="times"]').dragTo(page.locator('[data-drop-target="inputs"]'))
  await page.locator(action('close-column-settings')).first().click()
  await page.locator('[data-wool-work-orders-field="pageSize"]').selectOption('20')
+ await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(14)
  const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('/fcs/craft/wool/knitting-orders:list-columns')!))
  expect(prefs.visibleKeys).not.toContain('requirements');expect(prefs.frozenKeys).toContain('quantities');expect(prefs.order.indexOf('times')).toBeLessThan(prefs.order.indexOf('inputs'));expect(prefs.pageSize).toBe(20)
  expect(prefs).not.toHaveProperty('sort');expect(prefs).not.toHaveProperty('currentPage')

@@ -151,8 +151,30 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId
 
   return `<main class="fixed inset-0 z-[9999] min-h-screen overflow-auto bg-slate-100 p-6 text-slate-900" data-wool-handover-print-root data-wool-panel-images-missing="false">
     <style>
-      @media print { body { background: #fff; } [data-wool-handover-print-root] { position: static; overflow: visible; padding: 0; background: #fff; } .print-toolbar { display: none; } .a4-page { margin: 0; box-shadow: none; page-break-after: always; } }
+      @page { size: A4 portrait; margin: 0; }
+      @media print {
+        /* The desktop shell is a fixed-height flex scroller. Release only ancestors
+           of this print surface so later handover sheets cannot be clipped. */
+        body:has([data-wool-handover-print-root]),
+        body:has([data-wool-handover-print-root]) *:has([data-wool-handover-print-root]) {
+          display: block !important; position: static !important; height: auto !important;
+          min-height: 0 !important; max-height: none !important; overflow: visible !important;
+          margin: 0 !important; padding: 0 !important; background: #fff !important;
+        }
+        body:has([data-wool-handover-print-root]) :not(:has([data-wool-handover-print-root]), [data-wool-handover-print-root], [data-wool-handover-print-root] *) { display: none !important; }
+        [data-wool-handover-print-root] { position: static !important; overflow: visible !important; padding: 0 !important; min-height: 0; background: #fff; }
+        [data-wool-handover-print-root] .print-toolbar { display: none; }
+        [data-wool-handover-print-root] .a4-page { margin: 0; box-shadow: none; break-after: page; }
+        [data-wool-handover-print-root] .a4-page:last-child { break-after: auto; }
+      }
       .a4-page { width: 210mm; min-height: 297mm; margin: 0 auto 24px; background: #fff; padding: 18mm; box-shadow: 0 8px 24px rgba(15,23,42,.16); }
+      [data-wool-handover-print-root] table { table-layout: fixed; }
+      [data-wool-handover-print-root] th, [data-wool-handover-print-root] td { overflow-wrap: anywhere; }
+      [data-wool-handover-print-root] th:nth-child(1), [data-wool-handover-print-root] th:nth-child(2) { width: 7%; }
+      [data-wool-handover-print-root] th:nth-child(3) { width: 14%; }
+      [data-wool-handover-print-root] th:nth-child(4) { width: 22%; }
+      [data-wool-handover-print-root] th:nth-child(5) { width: 14%; }
+      [data-wool-handover-print-root] th:nth-child(6) { width: 36%; }
     </style>
     <div class="print-toolbar mx-auto mb-4 flex w-[210mm] items-center justify-between rounded-md border bg-white p-3">
       <div>

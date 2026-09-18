@@ -1108,16 +1108,21 @@ export async function handleCraftWoolWarehouseEvent(
   const state = states[mode]
   const filter = target.closest<HTMLInputElement | HTMLSelectElement>('[data-wool-warehouse-filter]')
   if (filter) {
+    // Selects emit input and change. Ignore input before touching a timer that
+    // may already belong to a newer text edit when async dispatch arrives late.
+    if (filter instanceof HTMLSelectElement && event?.type === 'input') return true
+    if (filterDebounce) clearTimeout(filterDebounce)
+    filterDebounce = undefined
     const field = filter.dataset.woolWarehouseFilter as keyof WarehouseFilters
     state.filters[field] = filter.value as never
     const apply = () => {
+      if (filterDebounce) clearTimeout(filterDebounce)
       filterDebounce = undefined
       if (!root.isConnected) return
       state.currentPage = 1
       refresh(mode, { table: true, tabs: true })
     }
     if (event?.type === 'input') {
-      if (filterDebounce) clearTimeout(filterDebounce)
       filterDebounce = setTimeout(apply, 180)
     } else apply()
     return true
@@ -1198,6 +1203,8 @@ export async function handleCraftWoolWarehouseEvent(
     return true
   }
   if (action === 'reset-filters') {
+    if (filterDebounce) clearTimeout(filterDebounce)
+    filterDebounce = undefined
     state.filters = { ...DEFAULT_FILTERS }
     state.currentPage = 1
     const filters = root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-wool-warehouse-filter]')

@@ -1,0 +1,380 @@
+{
+  "buildIndexSha256": "61d8698306f46d73bcaf37dba65fa9130c99788c87ef82961393a96230f3ad66",
+  "scope": "diagnostic subset",
+  "at": "2026-09-18T15:58:45.526Z",
+  "base": "http://127.0.0.1:4198",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "browser": "149.0.7827.55",
+  "gate": "Every raw sample < 200ms. Failure/missing content/image is failure.",
+  "cache": "Cold: new empty browser context (PDA login only); reload: same context persisted facts/cache; route switch: real data-nav dispatch after different stage page.",
+  "measurement": "Browser navigation origin or captured click to target content, visible real images decoded and 2 requestAnimationFrames. No driver polling time included.",
+  "routes": [
+    {
+      "name": "PDA任务队列",
+      "url": "/fcs/pda/exec",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 1095,
+          "contentMs": 1057.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1223.300000011921,
+          "contentMs": 1190.5999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1348,
+          "contentMs": 1277.9000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1374.5,
+          "contentMs": 1310.199999988079,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1347.5,
+          "contentMs": 1280.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 697.4000000059605,
+          "contentMs": 674,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 787.8000000119209,
+          "contentMs": 741.1000000238419,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 859.4000000059605,
+          "contentMs": 819.9000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 863.1999999880791,
+          "contentMs": 837,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 839.2999999821186,
+          "contentMs": 811.5,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 676.6999999880791,
+          "contentMs": 654.9000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 718.1000000238419,
+          "contentMs": 683,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 731.9000000059605,
+          "contentMs": 708.9000000059605,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 737.5,
+          "contentMs": 717.7000000178814,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 955.4000000059605,
+          "contentMs": 933.0999999940395,
+          "imageCount": 2,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "max": 1374.5,
+      "pass": false
+    },
+    {
+      "name": "PDA入库记录",
+      "url": "/fcs/pda/warehouse/inbound-records",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "cold": [
+        {
+          "ms": 641.3000000119209,
+          "contentMs": 621.4000000059605,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 868.9000000059605,
+          "contentMs": 810.3000000119209,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 1136.2000000178814,
+          "contentMs": 1028.7000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 656,
+          "contentMs": 631.3999999761581,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 669.2000000178814,
+          "contentMs": 623.6000000238419,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 569.0999999940395,
+          "contentMs": 534.2000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 678.8000000119209,
+          "contentMs": 644.4000000059605,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 724.3000000119209,
+          "contentMs": 692.4000000059605,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 580.6999999880791,
+          "contentMs": 553.8000000119209,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 548.0999999940395,
+          "contentMs": 507.2999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 475.19999998807907,
+          "contentMs": 463.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 516.5999999940395,
+          "contentMs": 499.40000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 474.09999999403954,
+          "contentMs": 455.19999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 459.30000001192093,
+          "contentMs": 447.69999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 457.5,
+          "contentMs": 449.40000000596046,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 1136.2000000178814,
+      "pass": false
+    },
+    {
+      "name": "PDA出库记录",
+      "url": "/fcs/pda/warehouse/outbound-records",
+      "viewport": {
+        "width": 400,
+        "height": 806
+      },
+      "cold": [
+        {
+          "ms": 657,
+          "contentMs": 618.8000000119209,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 639.4000000059605,
+          "contentMs": 609.2000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 588.8000000119209,
+          "contentMs": 548.0999999940395,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 627.4000000059605,
+          "contentMs": 583.1000000238419,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 668.6999999880791,
+          "contentMs": 626.5,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "ms": 563.5,
+          "contentMs": 537.7000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 548.0999999940395,
+          "contentMs": 520.6999999880791,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 481.7999999821186,
+          "contentMs": 447.89999997615814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 575.8999999761581,
+          "contentMs": 535.7999999821186,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 531.9000000059605,
+          "contentMs": 498.7000000178814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        }
+      ],
+      "routeSwitch": [
+        {
+          "ms": 454.69999998807907,
+          "contentMs": 447.89999997615814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 450.7999999821186,
+          "contentMs": 430.39999997615814,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 364.80000001192093,
+          "contentMs": 352.59999999403954,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        },
+        {
+          "ms": 533,
+          "contentMs": 518.6999999880791,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": false
+        },
+        {
+          "ms": 452.59999999403954,
+          "contentMs": 439.19999998807907,
+          "imageCount": 3,
+          "visibleImageFailures": 0,
+          "pass": true
+        }
+      ],
+      "max": 668.6999999880791,
+      "pass": false
+    }
+  ],
+  "errors": [],
+  "pass": false
+}

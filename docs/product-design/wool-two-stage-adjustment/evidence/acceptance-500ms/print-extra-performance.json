@@ -1,0 +1,128 @@
+{
+  "base": "http://127.0.0.1:4198",
+  "at": "2026-09-18T17:45:43.584Z",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "buildSha256": "5628743d94d6f72e96d1c30a866fccfeb4be8850ef8479c4ea077d6daad89266",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "thresholdMs": 500,
+  "conditions": "Five independent contexts. Four final handovers created through visible UI, full normal prototype data. Image request abort only in the explicitly failing scenario; successful recovery removes it. PDF timing begins at actual print-button click, uses Chromium Page.printToPDF instead of native OS print dialog, ends once the complete PDF buffer is available; OS printer queue is outside prototype scope.",
+  "samples": [
+    {
+      "iteration": 1,
+      "imageFailure": {
+        "ms": 125.59999999403954,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.5,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 100.90000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495130
+      }
+    },
+    {
+      "iteration": 2,
+      "imageFailure": {
+        "ms": 109.59999999403954,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.59999999403954,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 104.40000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495074
+      }
+    },
+    {
+      "iteration": 3,
+      "imageFailure": {
+        "ms": 140.69999998807907,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 195.7999999821186,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 99.90000000596046,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495096
+      }
+    },
+    {
+      "iteration": 4,
+      "imageFailure": {
+        "ms": 125.30000001192093,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 196,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 100.80000001192093,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495199
+      }
+    },
+    {
+      "iteration": 5,
+      "imageFailure": {
+        "ms": 124.90000000596046,
+        "pass": true,
+        "images": 4,
+        "printBlocked": true
+      },
+      "imageRecovery": {
+        "ms": 194.7000000178814,
+        "pass": true,
+        "images": 4,
+        "qrs": 4,
+        "printEnabled": true
+      },
+      "pdf": {
+        "ms": 116.19999998807907,
+        "pass": true,
+        "pages": 4,
+        "bytes": 495163
+      }
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "pass": true
+}

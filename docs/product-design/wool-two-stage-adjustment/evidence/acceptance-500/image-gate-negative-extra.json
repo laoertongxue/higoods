@@ -1,0 +1,282 @@
+{
+  "buildIndexSha256": "92f5366d416d6a23e80bd1c7548bc87667aeff35d1c6c60f6e1dfb9def727011",
+  "at": "2026-09-18T16:58:46.944Z",
+  "base": "http://127.0.0.1:4198",
+  "branch": "codex/wool-main-release-20260918",
+  "head": "4ea0f03d81035608e3c9f4afe7933013ab28a57b",
+  "cwd": "/private/tmp/higoods-wool-main-release-20260918",
+  "scope": "Four named real-UI flows only. Interaction measurements, not route-load measurements or overall performance acceptance.",
+  "measurement": "Capture click/input/change before application handlers; end only after the named real result, visible image decode, and two animation frames. Every raw sample must be <500ms.",
+  "conditions": "Five independent new contexts per flow; normal full prototype data; no request stubs, source-module imports, fact injection, module prewarming, or application-data clearing. Only the real PDA factory session is initialized. Initial navigation is setup outside interaction timing.",
+  "uncovered": [
+    "Route cold-load/refresh timings",
+    "Other resolutions",
+    "Equipment transfer/release and unavailable-device submission",
+    "Invalid/already-completed order completion",
+    "Quantity correction after downstream consumption"
+  ],
+  "definitions": {
+    "Web完单打开": {
+      "finish": "004 完单核对弹窗、可保存按钮、备注字段均出现；无完单事实。"
+    },
+    "Web完单取消": {
+      "finish": "取消后弹窗消失，004 完单入口仍在；完整毛织事实与取消前完全一致。"
+    },
+    "Web完单重新打开": {
+      "finish": "再次出现同一 004 完单核对弹窗；仍无完单事实。"
+    },
+    "Web完单备注输入": {
+      "finish": "备注字段显示本次输入；最终保存另核对持久化备注。"
+    },
+    "Web完单保存": {
+      "finish": "弹窗关闭、004 行显示已完成、完单入口消失；唯一完单事实的备注与输入相同。"
+    },
+    "PDA完单打开": {
+      "finish": "004 完成加工单二次确认出现且可保存；无完单事实。"
+    },
+    "PDA完单取消": {
+      "finish": "二次确认关闭，004 完单入口仍在；完整毛织事实与取消前完全一致。"
+    },
+    "PDA完单重新打开": {
+      "finish": "再次出现同一 004 二次确认；仍无完单事实。"
+    },
+    "PDA完单备注输入": {
+      "finish": "备注字段显示本次输入；最终保存另核对持久化备注。"
+    },
+    "PDA完单保存": {
+      "finish": "二次确认关闭、004 页面显示已完成、完单入口消失；唯一完单事实含备注及当前操作人。"
+    },
+    "Web设备关联打开": {
+      "finish": "从 002 列表真实设备入口切换页面，关联弹窗锁定 002；WM-003 未选、WM-007 维修禁选。"
+    },
+    "Web设备关联选择": {
+      "finish": "选择 WM-003 后实际对话框替换完毕并保持勾选；事实尚未写入，WM-007 仍禁选。"
+    },
+    "Web设备关联保存": {
+      "finish": "关联弹窗关闭、保存成功反馈可读；002 与 WM-003 唯一关联已持久化。"
+    },
+    "Web数量记录打开": {
+      "finish": "003 数量记录弹窗打开，真实加工填报记录修改入口可见。"
+    },
+    "Web数量编辑打开": {
+      "finish": "真实填报记录的数量、原因及保存控件出现。"
+    },
+    "Web数量更正输入": {
+      "finish": "数量字段实际变为 35。"
+    },
+    "Web数量更正原因输入": {
+      "finish": "原因字段显示本次输入；最终保存另核对日志原因。"
+    },
+    "Web数量更正保存": {
+      "finish": "弹窗关闭、成功反馈及 003 行数量 35 可读；横机/缝盘有效填报、内部接收、自动交出均为 35，修改原因已保存。"
+    },
+    "隐藏失败图片门禁反例": {
+      "finish": "Visible failed thumbnail wrapper must make normal measurement fail.",
+      "event": "click",
+      "predicate": "document.querySelector(\"[data-wool-work-orders-filters] details\")?.open"
+    }
+  },
+  "actions": {
+    "Web完单打开": [],
+    "Web完单取消": [],
+    "Web完单重新打开": [],
+    "Web完单备注输入": [],
+    "Web完单保存": [],
+    "PDA完单打开": [],
+    "PDA完单取消": [],
+    "PDA完单重新打开": [],
+    "PDA完单备注输入": [],
+    "PDA完单保存": [],
+    "Web设备关联打开": [],
+    "Web设备关联选择": [],
+    "Web设备关联保存": [],
+    "Web数量记录打开": [],
+    "Web数量编辑打开": [],
+    "Web数量更正输入": [],
+    "Web数量更正原因输入": [],
+    "Web数量更正保存": [],
+    "隐藏失败图片门禁反例": [
+      {
+        "flow": "隐藏失败图片门禁反例",
+        "iteration": 1,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 31.700000017881393,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "flow": "隐藏失败图片门禁反例",
+        "iteration": 2,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.5,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "flow": "隐藏失败图片门禁反例",
+        "iteration": 3,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 35,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "flow": "隐藏失败图片门禁反例",
+        "iteration": 4,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 47.900000005960464,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      },
+      {
+        "flow": "隐藏失败图片门禁反例",
+        "iteration": 5,
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "ms": 46.80000001192093,
+        "pass": false,
+        "imageCount": 1,
+        "visibleImageFailures": 1
+      }
+    ]
+  },
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "finishedAt": "2026-09-18T16:58:48.678Z",
+  "buildIndexSha256After": "92f5366d416d6a23e80bd1c7548bc87667aeff35d1c6c60f6e1dfb9def727011",
+  "summary": [
+    {
+      "name": "Web完单打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web完单取消",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web完单重新打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web完单备注输入",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web完单保存",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "PDA完单打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "PDA完单取消",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "PDA完单重新打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "PDA完单备注输入",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "PDA完单保存",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web设备关联打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web设备关联选择",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web设备关联保存",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web数量记录打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web数量编辑打开",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web数量更正输入",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web数量更正原因输入",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "Web数量更正保存",
+      "samples": 0,
+      "maxMs": null,
+      "pass": false
+    },
+    {
+      "name": "隐藏失败图片门禁反例",
+      "samples": 5,
+      "maxMs": 47.900000005960464,
+      "pass": false
+    }
+  ],
+  "pass": false
+}
