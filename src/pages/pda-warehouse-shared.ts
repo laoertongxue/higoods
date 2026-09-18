@@ -119,8 +119,8 @@ export function renderWarehouseSummaryHeader(
       </div>
       <div class="mt-4 grid grid-cols-3 gap-2">
         ${[
-          { label: '待加工数量', value: `${overview.waitProcessQty}` },
-          { label: '待交出数量', value: `${overview.waitHandoverQty}` },
+          { label: '待加工数量', value: overview.waitProcessQtyText || `${overview.waitProcessQty}` },
+          { label: '待交出数量', value: overview.waitHandoverQtyText || `${overview.waitHandoverQty}` },
           { label: '今日入库', value: `${overview.todayInboundCount}` },
           { label: '今日出库', value: `${overview.todayOutboundCount}` },
           { label: '差异', value: `${overview.differenceCount}` },

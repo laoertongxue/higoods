@@ -1,0 +1,15 @@
+{
+  "at": "2026-09-18T15:27:46.475468+00:00",
+  "requirementCount": 126,
+  "uniqueIds": 126,
+  "nonemptyFieldsPerRow": 10,
+  "states": {
+    "已实现待验证": 119,
+    "实施中": 7
+  },
+  "brokenLocalMarkdownLinks": [],
+  "implementationManifestFiles": 121,
+  "buildIndexSha256": "a2055fb5b136a4d37a77effb92b55b08662b9dc4c754bab157f06fb1d34641d7",
+  "performanceReportsUseSameBuild": true,
+  "scope": "Metadata and link consistency only. Not semantic acceptance or performance completion."
+}

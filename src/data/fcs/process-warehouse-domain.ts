@@ -1,5 +1,7 @@
+import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from './wool-domain/craft-warehouse.ts'
 import {
   listSpecialCraftTaskOrders,
+  installRetiredWoolPieceTaskCleanup,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
 import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
@@ -12,6 +14,8 @@ import {
 } from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from './factory-mock-data.ts'
+
+let retiredWoolPieceTaskIds: ReadonlySet<string> = new Set()
 
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'BINDING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
@@ -60,6 +64,7 @@ export interface ProcessWarehouseRecord {
   receivedObjectQty: number
   availableObjectQty: number
   handedOverObjectQty: number
+  inTransitObjectQty?: number
   writtenBackObjectQty: number
   diffObjectQty: number
   qtyUnit: string
@@ -338,6 +343,8 @@ function buildWarehouseRecord(
   const createdAt = payload.createdAt || nowText()
   const recordNoPrefix = recordType === 'WAIT_PROCESS' ? 'GC-RK' : 'GC-CK'
   const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
+  if (retiredWoolPieceTaskIds.has(sourceTaskOrderId)) throw new Error('旧毛织片工艺单已清除，请从横机逐片工艺单操作。')
+  if (buildWoolCraftWarehouseProjection().taskOrderIds.has(sourceTaskOrderId)) throw new Error('毛织片仓储由实际接收、加工填报和交出记录生成，请在毛织工艺加工单操作。')
   return {
     warehouseRecordId: payload.warehouseRecordId || `PWH-${recordType}-${payload.craftType}-${index}`,
     warehouseRecordNo: payload.warehouseRecordNo || createRecordNo(recordNoPrefix, index),
@@ -695,6 +702,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
     }
   }
   taskOrders.forEach((taskOrder) => {
+    if (taskOrder.woolPieceKey) return
     const flow = resolveAuxiliaryWarehouseFlow(taskOrder.targetObject)
     const hasDistinctMaterialInput = taskOrder.targetObject === '辅料'
     const inputPlannedQty = hasDistinctMaterialInput ? taskOrder.inputPlannedQty ?? taskOrder.planQty : taskOrder.planQty
@@ -724,14 +732,14 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       objectType: flow.objectType,
       plannedObjectQty: inputPlannedQty,
       receivedObjectQty: inputReceivedQty,
-      availableObjectQty: inputReceivedQty,
+      availableObjectQty: taskOrder.woolFinalInputOrderIds?.length ? Math.max(inputReceivedQty - taskOrder.completedQty, 0) : inputReceivedQty,
       qtyUnit: inputQtyUnit,
       relatedFeiTicketIds: flow.objectType === '裁片' ? taskOrder.feiTicketNos : [],
       inboundAt: taskOrder.createdAt,
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     }
     if (
-      ['待接收', '已入待加工仓', '加工中'].includes(taskOrder.status)
+      (taskOrder.woolFinalInputOrderIds?.length || ['待接收', '已入待加工仓', '加工中'].includes(taskOrder.status))
       && (flow.objectType !== '成衣' || taskOrder.receivedQty > 0)
     ) {
       const location = resolveLocation(taskOrder.operationName, 'WAIT_PROCESS', taskOrder.taskOrderNo)
@@ -1023,6 +1031,17 @@ const processWarehouseRecords: ProcessWarehouseRecord[] = buildInitialWarehouseR
 const processHandoverRecords: ProcessHandoverRecord[] = buildInitialHandoverRecords(processWarehouseRecords)
 const processHandoverDifferenceRecords: ProcessHandoverDifferenceRecord[] = buildInitialDifferenceRecords(processHandoverRecords)
 const processWarehouseReviewRecords: ProcessWarehouseReviewRecord[] = buildInitialReviewRecords(processHandoverRecords)
+function removeRetiredWoolPieceWarehouseFacts(): void {
+  const keep = (row: { sourceTaskOrderId: string }) => !retiredWoolPieceTaskIds.has(row.sourceTaskOrderId)
+  processWarehouseRecords.splice(0, processWarehouseRecords.length, ...processWarehouseRecords.filter(keep))
+  processHandoverRecords.splice(0, processHandoverRecords.length, ...processHandoverRecords.filter(keep))
+  processHandoverDifferenceRecords.splice(0, processHandoverDifferenceRecords.length, ...processHandoverDifferenceRecords.filter(keep))
+  processWarehouseReviewRecords.splice(0, processWarehouseReviewRecords.length, ...processWarehouseReviewRecords.filter(keep))
+}
+installRetiredWoolPieceTaskCleanup(ids => {
+  retiredWoolPieceTaskIds = ids
+  removeRetiredWoolPieceWarehouseFacts()
+})
 
 export interface ProcessWarehouseMutationSnapshot {
   warehouseRecords: ProcessWarehouseRecord[]
@@ -1046,6 +1065,7 @@ export function restoreProcessWarehouseMutationState(snapshot: ProcessWarehouseM
   processHandoverRecords.splice(0, processHandoverRecords.length, ...restored.handoverRecords)
   processHandoverDifferenceRecords.splice(0, processHandoverDifferenceRecords.length, ...restored.differenceRecords)
   processWarehouseReviewRecords.splice(0, processWarehouseReviewRecords.length, ...restored.reviewRecords)
+  removeRetiredWoolPieceWarehouseFacts()
 }
 
 processHandoverDifferenceRecords.forEach((difference) => {
@@ -1111,8 +1131,19 @@ function matchesDifferenceFilter(record: ProcessHandoverDifferenceRecord, filter
   return true
 }
 
+function liveProcessWarehouseRecords(): ProcessWarehouseRecord[] {
+  const finalTasks = listSpecialCraftTaskOrders().filter(task => task.woolFinalInputOrderIds?.length)
+  const finalIds = new Set(finalTasks.map(task => task.taskOrderId))
+  const projected = buildSpecialCraftWarehouseRecords(finalTasks).map(record => {
+    const current = processWarehouseRecords.find(existing => existing.sourceTaskOrderId === record.sourceTaskOrderId && existing.recordType === record.recordType)
+    return { ...record, warehouseRecordId: current?.warehouseRecordId || `WFINAL-${record.recordType}-${record.sourceTaskOrderId}`,
+      warehouseRecordNo: current?.warehouseRecordNo || `WFINAL-${record.recordType}-${record.sourceWorkOrderNo}` }
+  })
+  return [...processWarehouseRecords.filter(record => !finalIds.has(record.sourceTaskOrderId)), ...projected, ...buildWoolCraftWarehouseProjection().warehouseRecords]
+}
+
 export function listProcessWarehouseRecords(filter: ProcessWarehouseRecordFilter = {}): ProcessWarehouseRecord[] {
-  return processWarehouseRecords.filter((record) => matchesWarehouseFilter(record, filter)).map(cloneWarehouseRecord)
+  return liveProcessWarehouseRecords().filter((record) => matchesWarehouseFilter(record, filter)).map(cloneWarehouseRecord)
 }
 
 export function listWaitProcessWarehouseRecords(filter: Omit<ProcessWarehouseRecordFilter, 'recordType'> = {}): ProcessWarehouseRecord[] {
@@ -1124,7 +1155,7 @@ export function listWaitHandoverWarehouseRecords(filter: Omit<ProcessWarehouseRe
 }
 
 export function listProcessHandoverRecords(filter: ProcessHandoverRecordFilter = {}): ProcessHandoverRecord[] {
-  return processHandoverRecords.filter((record) => matchesHandoverFilter(record, filter)).map(cloneHandoverRecord)
+  return [...processHandoverRecords, ...buildWoolCraftWarehouseProjection().handoverRecords].filter((record) => matchesHandoverFilter(record, filter)).map(cloneHandoverRecord)
 }
 
 export function listProcessWarehouseReviewRecords(filter: ProcessWarehouseReviewRecordFilter = {}): ProcessWarehouseReviewRecord[] {
@@ -1136,12 +1167,12 @@ export function listProcessHandoverDifferenceRecords(filter: ProcessHandoverDiff
 }
 
 export function getProcessWarehouseRecordById(recordId: string): ProcessWarehouseRecord | undefined {
-  const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
+  const record = liveProcessWarehouseRecords().find((item) => item.warehouseRecordId === recordId)
   return record ? cloneWarehouseRecord(record) : undefined
 }
 
 export function getProcessHandoverRecordById(recordId: string): ProcessHandoverRecord | undefined {
-  const record = processHandoverRecords.find((item) => item.handoverRecordId === recordId)
+  const record = [...processHandoverRecords, ...buildWoolCraftWarehouseProjection().handoverRecords].find((item) => item.handoverRecordId === recordId)
   return record ? cloneHandoverRecord(record) : undefined
 }
 
@@ -1197,6 +1228,7 @@ function upsertWarehouseRecord(payload: WarehouseRecordPayload, recordType: Proc
   }
 
   const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
+  if (buildWoolCraftWarehouseProjection().taskOrderIds.has(sourceTaskOrderId)) throw new Error('毛织片仓储由实际接收、加工填报和交出记录生成，请在毛织工艺加工单操作。')
   const existed = processWarehouseRecords.find((record) =>
     record.recordType === recordType
     && record.craftType === payload.craftType
@@ -1232,6 +1264,7 @@ export function updateWarehouseRecordQty(
   recordId: string,
   payload: Partial<Pick<ProcessWarehouseRecord, 'plannedObjectQty' | 'receivedObjectQty' | 'availableObjectQty' | 'handedOverObjectQty' | 'writtenBackObjectQty' | 'diffObjectQty' | 'status' | 'updatedAt'>>,
 ): ProcessWarehouseRecord | undefined {
+  if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
   Object.assign(record, {
@@ -1248,6 +1281,7 @@ export function updateWarehouseRecordQty(
 }
 
 export function markWarehouseRecordInProcess(recordId: string, payload: { operatorName?: string; operatedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
   record.status = '加工中'
@@ -1257,6 +1291,7 @@ export function markWarehouseRecordInProcess(recordId: string, payload: { operat
 }
 
 export function markWarehouseRecordReadyToHandover(recordId: string, payload: { operatedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
   record.status = '待交出'
@@ -1266,6 +1301,7 @@ export function markWarehouseRecordReadyToHandover(recordId: string, payload: { 
 }
 
 export function closeWarehouseRecord(recordId: string, payload: { closedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
   record.status = '已关闭'
@@ -1276,6 +1312,8 @@ export function closeWarehouseRecord(recordId: string, payload: { closedAt?: str
 
 export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayload): ProcessHandoverRecord {
   const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
+  if (retiredWoolPieceTaskIds.has(sourceTaskOrderId)) throw new Error('旧毛织片工艺单已清除，请从横机逐片工艺单操作。')
+  if (buildWoolCraftWarehouseProjection().taskOrderIds.has(sourceTaskOrderId)) throw new Error('毛织片仓储由实际接收、加工填报和交出记录生成，请在毛织工艺加工单操作。')
   const warehouse = payload.warehouseRecordId
     ? processWarehouseRecords.find((record) => record.warehouseRecordId === payload.warehouseRecordId)
     : processWarehouseRecords.find((record) =>

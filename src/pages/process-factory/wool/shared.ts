@@ -13,8 +13,14 @@ import type {
 
 export type BadgeTone = 'muted' | 'info' | 'warning' | 'success' | 'danger'
 
+const numberFormats = new Map<number, Intl.NumberFormat>()
 export function formatNumber(value: number, maximumFractionDigits = 2): string {
-  return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits })
+  let formatter = numberFormats.get(maximumFractionDigits)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits })
+    numberFormats.set(maximumFractionDigits, formatter)
+  }
+  return formatter.format(Number(value || 0))
 }
 
 export function formatQty(value: number | undefined, unit: string | undefined): string {
@@ -48,13 +54,17 @@ export function renderKindBadge(kind: WoolWorkOrderKind): string {
 export function renderStatusBadge(status: WoolProcessingStatus | string): string {
   const label = status === 'COMPLETED'
     ? '已完成'
-    : status === 'PROCESSING'
-      ? '加工中'
+    : status === 'PROCESS_COMPLETE'
+      ? '加工完成'
+      : status === 'READY'
+        ? '待开工'
+        : status === 'PROCESSING'
+          ? '加工中'
       : status === 'UNPROCESSED'
         ? '未加工'
         : status
   const tone: BadgeTone =
-    status === 'COMPLETED'
+    status === 'COMPLETED' || status === 'PROCESS_COMPLETE'
       ? 'success'
       : status === 'PROCESSING'
         ? 'info'
@@ -123,7 +133,7 @@ function getCurrentPathParts(): { path: string; params: URLSearchParams } {
   const statePath = appStore.getState().pathname || (typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`)
   const [path = '', query = ''] = statePath.split('?')
   return {
-    path: path || '/fcs/craft/wool/work-orders',
+    path: path || '/fcs/craft/wool/knitting-orders',
     params: new URLSearchParams(query),
   }
 }

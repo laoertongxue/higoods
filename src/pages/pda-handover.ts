@@ -1,3 +1,5 @@
+import { getSpecialCraftTaskOrderById } from '../data/fcs/special-craft-task-orders.ts'
+import { renderWoolObjectImage } from './process-factory/wool/stage-display.ts'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { renderRealQrPlaceholder } from '../components/real-qr'
@@ -1014,6 +1016,18 @@ export function renderPdaHandoverPage(): string {
   if (sewingPickupVersionId) return renderSewingPickupScanPage(sewingPickupVersionId, runtime)
 
   const selectedFactoryId = getCurrentFactoryId()
+  const woolFinalCraftOrderId = getCurrentSearchParams().get('woolFinalCraftOrderId')
+  if (woolFinalCraftOrderId) {
+    const task = getSpecialCraftTaskOrderById(woolFinalCraftOrderId)
+    if (!task?.woolFinalInputOrderIds?.length || task.factoryId !== selectedFactoryId) return renderPdaFrame('<main class="p-4"><p class="rounded border border-red-200 bg-red-50 p-4 text-red-700">此成衣加工单不属于当前工厂，请返回核对。</p></main>', 'handover', {disableTodoAutoOpen:true})
+    const heads = getPdaHandoutHeads(selectedFactoryId)
+    const batches = (task.woolFinalReceipts || []).filter(batch => batch.receivedQty === undefined)
+    return renderPdaFrame(`<main class="space-y-3 p-4"><h1 class="font-semibold">接收缝盘成衣</h1><p class="break-all text-sm">${escapeHtml(task.taskOrderNo)} · ${escapeHtml(task.factoryName)}</p><p class="text-xs text-muted-foreground">选择实际到货批次，确认本批实收件数。</p>${batches.map(batch => {
+      const head = heads.find(head => head.sourceDocId === batch.handoverId)
+      return `<article class="rounded-xl border bg-white p-3"><div class="flex gap-2">${renderWoolObjectImage(batch.styleImageUrl, `${batch.styleNo} 款式图`)}<div class="min-w-0 break-words text-sm"><strong>${escapeHtml(batch.skuCode)}</strong><p>${escapeHtml(batch.woolOrderNo)}</p><p>${escapeHtml(batch.handoverId)}</p></div></div><p class="mt-2 text-xs">${escapeHtml(batch.sourceFactoryName)} → ${escapeHtml(task.factoryName)}</p><p class="mt-1 text-xs">${escapeHtml(batch.handedOverAt)} · 交出 ${batch.sentQty} 件</p>${head ? `<button class="mt-3 h-11 w-full rounded bg-blue-600 text-white" data-nav="/fcs/pda/handover/${encodeURIComponent(head.handoverId)}">接收本批</button>` : '<p class="mt-2 text-sm text-amber-700">交出批次暂不可接收，请返回刷新。</p>'}</article>`
+    }).join('') || '<p class="rounded border p-4">暂无本加工单待接收批次。</p>'}<a class="block rounded border p-3 text-center text-sm" data-nav="/fcs/pda/handover?tab=pickup">返回待接收</a></main>`, 'handover', {disableTodoAutoOpen:true})
+  }
+
   const isPostFinishingFactory = isPostFinishingFactoryId(selectedFactoryId)
   const simpleReceiptReadError = buildSimpleCutPieceFactoryReceipts().readError
   if (simpleReceiptReadError) {

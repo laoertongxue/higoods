@@ -559,13 +559,13 @@ export const renderCraftDyeingWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),
   'renderCraftDyeingWaitHandoverWarehousePage',
 )
-export const renderCraftWoolWorkOrdersPage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/work-orders'),
-  'renderCraftWoolWorkOrdersPage',
+export const renderCraftWoolStageOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/stage-orders'),
+  'renderCraftWoolStageOrdersPage',
 )
-export const renderCraftWoolWorkOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/work-order-detail'),
-  'renderCraftWoolWorkOrderDetailPage',
+export const renderCraftWoolStageOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/stage-order-detail'),
+  'renderCraftWoolStageOrderDetailPage',
 )
 export const renderCraftWoolHandoverPrintPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/handover-print'),

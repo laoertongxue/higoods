@@ -85,6 +85,7 @@ function requireText(value: string | undefined, label: string): string {
 function requireOrder(store: WoolDomainStore, woolOrderId: string) {
   const order = store.workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
+  if (order.stage !== 'KNITTING') throw new Error('仅横机加工单可以关联横机设备')
   return order
 }
 
@@ -172,7 +173,7 @@ export function buildWoolMachineWorkbenchProjectionFromStore(
       })
       const completed = completedOrderIds.has(order.woolOrderId)
       const canMaintainAssociation = !completed
-        && (canReport || associatedOrderIds.has(order.woolOrderId))
+        && order.stage === 'KNITTING' && (canReport || associatedOrderIds.has(order.woolOrderId))
       const currentMachineCount = machineCountByOrder.get(order.woolOrderId) ?? 0
       return {
         order,

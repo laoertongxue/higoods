@@ -13,7 +13,6 @@ import { renderTabs } from '../../../components/ui/tabs.ts'
 import {
   addWoolHandover,
   addWoolProcessReport,
-  addWoolYarnReceipt,
   changeWoolFactQty,
   completeWoolWorkOrder,
   getWoolAllowedActions,
@@ -23,12 +22,9 @@ import {
   getWoolOutputReportedQty,
   getWoolOutputStockQty,
   getWoolProcessingStatus,
-  getWoolMachineById,
   getWoolWorkOrderBlockReason,
   getWoolWorkOrderTab,
-  getWoolWorkOrderTabCounts,
   listWoolFactRecords,
-  listWoolMachineAssociations,
   listWoolWorkOrders,
   type WoolHandoverRecord,
   type WoolProcessReportRecord,
@@ -39,18 +35,21 @@ import {
   type WoolWorkOrderTab,
   type WoolYarnReceiptRecord,
 } from '../../../data/fcs/wool-task-domain.ts'
+import { getWoolWorkOrderReadinessProjection, readWoolQuerySnapshot as readWoolStore } from '../../../data/fcs/wool-domain/queries.ts'
 import {
   buildWoolHandoverPrintLink,
   buildWoolMachineAssociationsLink,
   buildWoolWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
+import { pieceAvailableQty } from '../../../data/fcs/wool-domain/stage-rules.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { formatNumber, formatQty, renderKindBadge, renderStatusBadge } from './shared.ts'
+import { formatNumber, formatQty } from './shared.ts'
+import { woolStageLabel, woolStagePath, renderWoolOrderIdentity, renderWoolStageInputs, renderWoolStageRequirements, renderWoolStageProgress, renderWoolStageOutputs, renderWoolStageTimes, renderWoolStageQuantities, renderWoolObjectImage, type WoolPageStage } from './stage-display.ts'
 
 // 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
 
 const EVENT_PREFIX = 'wool-work-orders'
-const PREFERENCE_KEY = '/fcs/craft/wool/work-orders:list-columns'
+let currentStage: WoolPageStage = 'KNITTING'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 interface WoolListFilters {
@@ -59,14 +58,18 @@ interface WoolListFilters {
   woolOrderNo: string
   kind: '' | WoolWorkOrder['kind']
   factory: string
-  processingStatus: '' | 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
+  processingStatus: '' | Exclude<WoolWorkOrderTab, 'ALL'>
   yarnSku: string
+  outputSku: string
+  sourceCraft: string
+  external: '' | 'YES' | 'NO'
+  receiptState: '' | 'NONE' | 'PARTIAL' | 'RECEIVED'
+  timeField: 'CREATED' | 'PLANNED_START' | 'PLANNED_COMPLETE' | 'REPORTED' | 'RECEIVED' | 'HANDOVER'
   plannedFrom: string
   plannedTo: string
 }
 
 type BusinessOverlay =
-  | { kind: 'receipt'; woolOrderId: string }
   | { kind: 'report'; woolOrderId: string }
   | { kind: 'handover'; woolOrderId: string }
   | { kind: 'complete'; woolOrderId: string }
@@ -100,6 +103,11 @@ const DEFAULT_FILTERS: WoolListFilters = {
   factory: '',
   processingStatus: '',
   yarnSku: '',
+  outputSku: '',
+  sourceCraft: '',
+  external: '',
+  receiptState: '',
+  timeField: 'PLANNED_COMPLETE',
   plannedFrom: '',
   plannedTo: '',
 }
@@ -117,7 +125,7 @@ const state: {
   feedback: string
 } = {
   filters: { ...DEFAULT_FILTERS },
-  activeTab: 'READY',
+  activeTab: 'ALL',
   currentPage: 1,
   sort: null,
   preferences: { order: [], visibleKeys: [], frozenKeys: ['order'], pageSize: 10 },
@@ -156,7 +164,7 @@ function includes(value: string, keyword: string): boolean {
   return !keyword.trim() || value.toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase())
 }
 
-export function filterWoolWorkOrderRowsByKeyword(
+export function filterWoolStageOrderRowsByKeyword(
   orders: WoolWorkOrder[],
   keyword: string,
 ): WoolListRow[] {
@@ -175,43 +183,65 @@ export function filterWoolWorkOrderRowsByKeyword(
 
 function currentDomainFilters(): WoolWorkOrderFilters {
   return {
+    stage: currentStage,
     productionOrderNo: state.filters.productionOrderNo,
     woolOrderNo: state.filters.woolOrderNo,
     ...(state.filters.kind ? { kind: state.filters.kind } : {}),
   }
 }
 
+function receiptFilterState(order: WoolWorkOrder): 'NONE' | 'PARTIAL' | 'RECEIVED' {
+  const store = readWoolStore()
+  if (order.stage === 'KNITTING') {
+    const projection = getWoolWorkOrderReadinessProjection(order.woolOrderId)
+    if (![...projection.yarnReceiptsBySku.values()].some(item => item.isReceived)) return 'NONE'
+    return [...projection.outputsBySku.values()].every(item => item.readiness.requiredYarnSkus.length > 0 && item.readiness.missingYarnSkus.length === 0) ? 'RECEIVED' : 'PARTIAL'
+  }
+  const received = store.pieceReceipts.filter(item => item.woolOrderId === order.woolOrderId)
+  const internal = store.internalReceipts.filter(item => item.woolOrderId === order.woolOrderId)
+  if (!received.length && !internal.length) return 'NONE'
+  return order.outputPlanLines.every(line => getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode).reportLimitQty >= line.plannedQty) ? 'RECEIVED' : 'PARTIAL'
+}
+
+function filterTime(order: WoolWorkOrder): string {
+  if (state.filters.timeField === 'CREATED') return order.createdAt
+  if (state.filters.timeField === 'PLANNED_START') return order.plannedStartAt || ''
+  if (state.filters.timeField === 'PLANNED_COMPLETE') return order.plannedCompletionAt
+  const store = readWoolStore()
+  if (state.filters.timeField === 'REPORTED') return store.processReports.filter(item => item.woolOrderId === order.woolOrderId).map(item => item.reportedAt).sort().at(-1) || ''
+  if (state.filters.timeField === 'HANDOVER') return store.handovers.filter(item => item.woolOrderId === order.woolOrderId).map(item => item.handedOverAt).sort((a, b) => a.replace('T', ' ').localeCompare(b.replace('T', ' '))).at(-1) || ''
+  const receivedTimes = order.stage === 'KNITTING'
+    ? [...getWoolWorkOrderReadinessProjection(order.woolOrderId).yarnReceiptsBySku.values()].map(item => item.latestReceivedAt || '')
+    : [...store.internalReceipts, ...store.pieceReceipts].filter(item => item.woolOrderId === order.woolOrderId).map(item => item.receivedAt)
+  return receivedTimes.sort((a, b) => a.replace('T', ' ').localeCompare(b.replace('T', ' '))).at(-1) || ''
+}
+
 function baseRows(): WoolListRow[] {
   const domainFilters = currentDomainFilters()
   // 先由领域过滤加工单身份，再补页面展示元数据筛选；Tab 数量随后基于同一结果计算。
-  return filterWoolWorkOrderRowsByKeyword(listWoolWorkOrders(domainFilters), state.filters.keyword)
+  return filterWoolStageOrderRowsByKeyword(listWoolWorkOrders(domainFilters), state.filters.keyword)
     .filter((row) => includes(row.factoryName, state.filters.factory))
-    .filter((row) => !state.filters.processingStatus || getWoolProcessingStatus(row.order.woolOrderId) === state.filters.processingStatus)
     .filter((row) => !state.filters.yarnSku || row.order.outputPlanLines.some((line) =>
       line.requiredYarnSkus.some((sku) => includes(sku, state.filters.yarnSku)),
     ))
-    .filter((row) => state.filters.plannedFrom === '' || row.plannedCompletionAt >= state.filters.plannedFrom)
-    .filter((row) => state.filters.plannedTo === '' || row.plannedCompletionAt <= state.filters.plannedTo)
+    .filter(row => !state.filters.outputSku || row.order.outputPlanLines.some(line => includes(line.outputSkuCode, state.filters.outputSku)))
+    .filter(row => !state.filters.sourceCraft || row.order.externalPieces.some(piece => piece.routeNodes.some(node => includes(`${node.craftName} ${node.factoryName}`, state.filters.sourceCraft))))
+    .filter(row => !state.filters.external || (row.order.externalPieces.length > 0) === (state.filters.external === 'YES'))
+    .filter(row => !state.filters.receiptState || receiptFilterState(row.order) === state.filters.receiptState)
+    .filter(row => !state.filters.plannedFrom || filterTime(row.order).slice(0, 10) >= state.filters.plannedFrom)
+    .filter(row => !state.filters.plannedTo || (Boolean(filterTime(row.order)) && filterTime(row.order).slice(0, 10) <= state.filters.plannedTo))
 }
 
 function rowsForActiveTab(): WoolListRow[] {
-  return baseRows().filter((row) => row.tab === state.activeTab)
+  return baseRows().filter((row) => state.activeTab === 'ALL' || row.tab === state.activeTab)
 }
 
 function tabCounts(rows = baseRows()): Record<WoolWorkOrderTab, number> {
-  const hasPageOnlyFilter = Boolean(
-    state.filters.keyword
-    || state.filters.factory
-    || state.filters.processingStatus
-    || state.filters.yarnSku
-    || state.filters.plannedFrom
-    || state.filters.plannedTo,
-  )
-  if (!hasPageOnlyFilter) return getWoolWorkOrderTabCounts(currentDomainFilters())
   return rows.reduce<Record<WoolWorkOrderTab, number>>((counts, row) => {
+    counts.ALL += 1
     counts[row.tab] += 1
     return counts
-  }, { READY: 0, NOT_READY: 0, COMPLETED: 0 })
+  }, { ALL: 0, UNPROCESSED: 0, READY: 0, PROCESSING: 0, PROCESS_COMPLETE: 0, COMPLETED: 0 })
 }
 
 function requiredYarnSummary(order: WoolWorkOrder): string {
@@ -250,13 +280,13 @@ function renderActions(row: WoolListRow): string {
   const handoverCount = listWoolFactRecords({
     woolOrderId: order.woolOrderId,
     recordType: 'HANDOVER',
-  }).length
+  }).filter(item => !(item.record as WoolHandoverRecord).automatic).length
   return `<div class="flex max-w-[360px] flex-wrap justify-end gap-1.5">
     <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId))}">查看详情</button>
-    ${actions.includes('RECEIVE_YARN') ? renderActionButton('确认接收', 'open-receipt', order) : ''}
+    ${actions.includes('RECEIVE_YARN') || actions.includes('RECEIVE_PIECES') ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/craft/wool/pending-receipts?workOrderId=${encodeURIComponent(order.woolOrderId)}">${order.stage === 'KNITTING' ? '确认纱线接收' : '确认外加工片回货'}</button>` : ''}
     ${actions.includes('REPORT_PROCESS') ? renderActionButton('加工填报', 'open-report', order, 'border-blue-200 text-blue-700') : ''}
     ${actions.includes('HANDOVER') ? renderActionButton('发起交出', 'open-handover', order, 'border-emerald-200 text-emerald-700') : ''}
-    ${actions.includes('ASSOCIATE_MACHINE') ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineAssociationsLink(order.woolOrderId))}">关联横机设备</button>` : ''}
+    ${order.stage === 'KNITTING' && actions.includes('ASSOCIATE_MACHINE') ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineAssociationsLink(order.woolOrderId))}">关联横机设备</button>` : ''}
     ${factCount > 0 && row.tab !== 'COMPLETED' ? renderActionButton('修改记录数量', 'open-qty-list', order) : ''}
     ${handoverCount > 0 ? `<button type="button" class="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolHandoverPrintLink(order.woolOrderId))}">打印交出单</button>` : ''}
     ${actions.includes('COMPLETE') ? renderActionButton('完成加工单', 'open-complete', order, 'border-amber-200 text-amber-700') : ''}
@@ -264,69 +294,20 @@ function renderActions(row: WoolListRow): string {
 }
 
 const columns: StandardListColumn<WoolListRow>[] = [
-  {
-    key: 'order', title: '毛织加工单号', width: 185, required: true, freezeable: true, sortable: true,
-    sortValue: (row) => row.order.woolOrderNo,
-    render: (row) => `<div><div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(row.order.woolOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.order.taskNo)}</div></div>`,
-  },
-  {
-    key: 'productionOrder', title: '生产单号', width: 155, sortable: true,
-    sortValue: (row) => row.order.productionOrderNo,
-    render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.order.productionOrderNo)}</span>`,
-  },
-  {
-    key: 'style', title: '款式 / 内部货号', width: 210, required: true, freezeable: true, sortable: true,
-    sortValue: (row) => `${row.styleNo} ${row.internalStyleCode}`,
-    render: (row) => `<div><div class="font-medium">${escapeHtml(row.styleName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleNo)}${row.internalStyleCode ? ` / 内部货号：${escapeHtml(row.internalStyleCode)}` : ''}</div></div>`,
-  },
-  { key: 'kind', title: '类型', width: 110, sortable: true, sortValue: (row) => row.order.kind, render: (row) => renderKindBadge(row.order.kind) },
-  {
-    key: 'outputCount', title: '加工后 SKU 数', width: 125, sortable: true, align: 'right',
-    sortValue: (row) => row.order.outputPlanLines.length,
-    render: (row) => `${row.order.outputPlanLines.length} 个`,
-  },
-  {
-    key: 'plan', title: '计划数量摘要', width: 200,
-    render: (row) => row.order.outputPlanLines.map((line) => `${escapeHtml(line.outputSkuCode)}：${formatQty(line.plannedQty, line.qtyUnit)}`).join('<br>'),
-  },
-  {
-    key: 'yarn', title: '纱线接收摘要', width: 300, required: true,
-    render: (row) => `<span class="text-xs">${escapeHtml(requiredYarnSummary(row.order))}</span>`,
-  },
-  {
-    key: 'reportable', title: '可填报 SKU 摘要', width: 300, required: true,
-    render: (row) => `<span class="text-xs">${escapeHtml(reportableSummary(row.order))}</span>`,
-  },
-  {
-    key: 'facts', title: '累计加工 / 累计交出', width: 210,
-    render: (row) => row.order.outputPlanLines.map((line) =>
-      `<div class="text-xs">${escapeHtml(line.outputSkuCode)}：${formatNumber(getWoolOutputReportedQty(row.order.woolOrderId, line.outputSkuCode))} / ${formatNumber(getWoolOutputHandedOverQty(row.order.woolOrderId, line.outputSkuCode))} ${escapeHtml(line.qtyUnit)}</div>`,
-    ).join(''),
-  },
-  {
-    key: 'machines', title: '当前关联横机', width: 150,
-    render: (row) => {
-      const machineIds = listWoolMachineAssociations(row.order.woolOrderId).map((item) => item.machineId)
-      return escapeHtml(machineIds.length > 0 ? machineIds.join('、') : '未关联')
-    },
-  },
-  {
-    key: 'status', title: '加工状态', width: 110, sortable: true,
-    sortValue: (row) => getWoolProcessingStatus(row.order.woolOrderId),
-    render: (row) => renderStatusBadge(getWoolProcessingStatus(row.order.woolOrderId)),
-  },
-  {
-    key: 'plannedCompletion', title: '计划完成时间', width: 145, sortable: true,
-    sortValue: (row) => row.plannedCompletionAt,
-    render: (row) => escapeHtml(row.plannedCompletionAt),
-  },
-  { key: 'actions', title: '操作', width: 380, required: true, actionColumn: true, render: renderActions },
+  { key: 'order', title: '加工单／商品与需求来源', width: 280, required: true, freezeable: true, sortable: true, sortValue: row => row.order.woolOrderNo, render: row => renderWoolOrderIdentity(row.order) },
+  { key: 'inputs', title: '加工投入／上游', width: 275, required: true, freezeable: true, render: row => renderWoolStageInputs(row.order) },
+  { key: 'requirements', title: '加工要求', width: 230, freezeable: true, render: row => renderWoolStageRequirements(row.order) },
+  { key: 'progress', title: '处理进度', width: 220, required: true, freezeable: true, sortable: true, sortValue: row => getWoolProcessingStatus(row.order.woolOrderId), render: row => renderWoolStageProgress(row.order) },
+  { key: 'outputs', title: '加工产出／下游', width: 245, freezeable: true, render: row => renderWoolStageOutputs(row.order) },
+  { key: 'times', title: '时间', width: 270, freezeable: true, sortable: true, sortValue: row => row.plannedCompletionAt, render: row => renderWoolStageTimes(row.order) },
+  { key: 'quantities', title: '数量', width: 205, required: true, freezeable: true, sortable: true, sortValue: row => row.order.outputPlanLines.reduce((sum, line) => sum + line.plannedQty, 0), render: row => renderWoolStageQuantities(row.order) },
+  { key: 'actions', title: '操作', width: 225, required: true, actionColumn: true, render: renderActions },
 ]
 
 const listController = createProcessOrderListController({
   state,
   columns,
-  preferenceKey: PREFERENCE_KEY,
+  get preferenceKey() { return `${woolStagePath(currentStage)}:list-columns` },
   pageSizeOptions: PAGE_SIZE_OPTIONS,
   eventPrefix: EVENT_PREFIX,
   rootSelector: '[data-wool-work-orders-root]',
@@ -334,7 +315,7 @@ const listController = createProcessOrderListController({
   paginationSurfaceSelector: '[data-wool-work-orders-pagination-surface]',
   overlaysSurfaceSelector: '[data-wool-work-orders-column-overlays]',
   defaultFrozenKeys: ['order'],
-  columnSettingsTitle: '毛织加工单列设置',
+  get columnSettingsTitle() { return `${woolStageLabel(currentStage)}列设置` },
   emptyText: '当前条件下暂无毛织加工单',
   getRows: rowsForActiveTab,
   locallyManagedEvents: true,
@@ -345,17 +326,26 @@ function filterInput(label: string, field: keyof WoolListFilters, placeholder: s
 }
 
 function renderFilters(): string {
-  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
+  return `<div class="space-y-3 rounded-lg border bg-card p-3">
+    <div class="flex flex-wrap items-end gap-3">
     ${filterInput('加工单号 / 任务号 / 款号 / 款名 / 内部货号', 'keyword', '输入关键字')}
-    ${filterInput('生产单号', 'productionOrderNo', '输入生产单号')}
-    ${filterInput('毛织加工单号', 'woolOrderNo', '输入毛织加工单号')}
     ${filterInput('承接工厂', 'factory', '输入工厂名称')}
-    ${filterInput('必需纱线 SKU', 'yarnSku', '输入纱线 SKU')}
-    ${filterInput('计划日期从', 'plannedFrom', '', 'date')}
-    ${filterInput('计划日期至', 'plannedTo', '', 'date')}
     <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">类型</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-work-orders-field="kind" data-skip-page-rerender="true"><option value="">全部类型</option><option value="WHOLE_GARMENT" ${state.filters.kind === 'WHOLE_GARMENT' ? 'selected' : ''}>整件毛织</option><option value="PART_PANEL" ${state.filters.kind === 'PART_PANEL' ? 'selected' : ''}>部位毛织</option></select></label>
-    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">加工状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-work-orders-field="processingStatus" data-skip-page-rerender="true"><option value="">全部状态</option><option value="UNPROCESSED" ${state.filters.processingStatus === 'UNPROCESSED' ? 'selected' : ''}>未加工</option><option value="PROCESSING" ${state.filters.processingStatus === 'PROCESSING' ? 'selected' : ''}>加工中</option><option value="COMPLETED" ${state.filters.processingStatus === 'COMPLETED' ? 'selected' : ''}>已完成</option></select></label>
-    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filters' }, 'rotate-ccw')}
+    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">加工状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-work-orders-field="processingStatus" data-skip-page-rerender="true"><option value="">全部状态</option>${[['UNPROCESSED', '未加工'], ['READY', '待开工'], ['PROCESSING', '加工中'], ['PROCESS_COMPLETE', '加工完成'], ['COMPLETED', '已完成']].map(([key, label]) => `<option value="${key}" ${state.filters.processingStatus === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+    </div>
+    <div class="flex items-center gap-2 border-t pt-3">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'query' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filters' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div>
+    <details class="text-sm"><summary class="cursor-pointer text-blue-700">更多筛选</summary><div class="mt-3 flex flex-wrap items-end gap-3">
+    ${filterInput('生产单号', 'productionOrderNo', '输入生产单号')}
+    ${filterInput(woolStageLabel(currentStage) + '号', 'woolOrderNo', '输入加工单号')}
+    ${currentStage === 'KNITTING' ? filterInput('必需纱线 SKU', 'yarnSku', '输入纱线 SKU') : ''}
+    ${filterInput('产出 SKU', 'outputSku', '输入颜色尺码 SKU')}
+    ${currentStage === 'LINKING' ? filterInput('来源工艺／工厂', 'sourceCraft', '输入工艺或工厂名称') : ''}
+    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">是否外加工</span><select class="h-9 w-full rounded border px-3 text-sm" data-wool-work-orders-field="external" data-skip-page-rerender="true">${[['', '全部'], ['YES', '需要外加工'], ['NO', '无外加工']].map(([key, label]) => `<option value="${key}" ${state.filters.external === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+    <label class="min-w-[12rem]"><span class="mb-1 block text-xs text-muted-foreground">投入接收情况</span><select class="h-9 w-full rounded border px-3 text-sm" data-wool-work-orders-field="receiptState" data-skip-page-rerender="true">${[['', '全部'], ['NONE', '尚未接收'], ['PARTIAL', '已部分接收'], ['RECEIVED', currentStage === 'KNITTING' ? '必需纱线种类已具备' : '回货可支撑计划数量']].map(([key, label]) => `<option value="${key}" ${state.filters.receiptState === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">时间字段</span><select class="h-9 w-full rounded border px-3 text-sm" data-wool-work-orders-field="timeField" data-skip-page-rerender="true">${[['CREATED', '单据创建'], ['PLANNED_START', '计划开始'], ['PLANNED_COMPLETE', '计划完成'], ['REPORTED', '最近加工'], ['RECEIVED', '最近接收'], ['HANDOVER', '最近交出']].map(([key, label]) => `<option value="${key}" ${state.filters.timeField === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+    ${filterInput('时间从', 'plannedFrom', '', 'date')}
+    ${filterInput('时间至', 'plannedTo', '', 'date')}
+    </div></details>
   </div>`
 }
 
@@ -363,8 +353,11 @@ function renderTabBar(): string {
   const counts = tabCounts()
   return renderTabs({
     tabs: [
-      { key: 'READY', label: '可以开工', count: counts.READY },
-      { key: 'NOT_READY', label: '不可以开工', count: counts.NOT_READY },
+      { key: 'ALL', label: '全部加工单', count: counts.ALL },
+      { key: 'UNPROCESSED', label: '未加工', count: counts.UNPROCESSED },
+      { key: 'READY', label: '待开工', count: counts.READY },
+      { key: 'PROCESSING', label: '加工中', count: counts.PROCESSING },
+      { key: 'PROCESS_COMPLETE', label: '加工完成', count: counts.PROCESS_COMPLETE },
       { key: 'COMPLETED', label: '已完成', count: counts.COMPLETED },
     ],
     activeKey: state.activeTab,
@@ -384,20 +377,30 @@ function renderWorkspace(): string {
   listController.ensurePreferencesLoaded()
   const view = listController.getView()
   return renderStandardListPage({
-    title: '毛织加工单',
+    title: woolStageLabel(currentStage),
     primaryActionsHtml: '',
     feedbackHtml: `<div data-wool-work-orders-feedback>${renderFeedback()}</div>`,
     filtersHtml: `<div data-wool-work-orders-filters>${renderFilters()}</div>`,
     statsHtml: `<div data-wool-work-orders-tabs>${renderTabBar()}</div>`,
-    listTitle: '毛织加工单',
-    listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    listTitle: woolStageLabel(currentStage),
+    listActionsHtml: `<span class="text-xs text-muted-foreground" data-wool-work-orders-total>共 ${rowsForActiveTab().length} 条</span>` + renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
     tableHtml: `<div data-wool-work-orders-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-wool-work-orders-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-wool-work-orders-column-overlays>${listController.renderColumnSettings()}</div><div data-wool-work-orders-business-overlay>${renderBusinessOverlay()}</div>`,
   })
 }
 
-export function renderCraftWoolWorkOrdersPage(): string {
+export function renderCraftWoolStageOrdersPage(stage: WoolPageStage = 'KNITTING'): string {
+  const nextStage = typeof window !== 'undefined' && window.location.pathname.includes('/linking-orders') ? 'LINKING' : stage
+  if (nextStage !== currentStage) {
+    currentStage = nextStage
+    state.filters = { ...DEFAULT_FILTERS }
+    state.activeTab = 'ALL'
+    state.preferencesLoaded = false
+    state.currentPage = 1
+    state.overlay = null
+    state.feedback = ''
+  }
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   listController.installColumnDragEvents()
   return `<div data-wool-work-orders-root data-wool-work-orders-results data-skip-page-rerender="true">${renderWorkspace()}</div>`
@@ -418,6 +421,8 @@ function refreshResults(): void {
   const root = rootElement()
   if (!root) return
   const rows = rowsForActiveTab()
+  const total = root.querySelector<HTMLElement>('[data-wool-work-orders-total]')
+  if (total) total.textContent = `共 ${rows.length} 条`
   if (state.currentPage > Math.max(1, Math.ceil(rows.length / state.preferences.pageSize))) state.currentPage = 1
   const view = listController.getView(rows)
   const table = root.querySelector<HTMLElement>('[data-wool-work-orders-table-surface]')
@@ -473,9 +478,9 @@ function renderOverlayError(): string {
 }
 
 function renderOrderContext(order: WoolWorkOrder): string {
-  return `<section class="mb-4 rounded-md border bg-muted/20 p-3 text-xs">
+  return `<section class="mb-4 flex gap-3 rounded-md border bg-muted/20 p-3 text-xs">${renderWoolObjectImage(order.styleImageUrl, order.styleNo + ' 款式图')}<div>
     <div class="font-medium text-foreground">${escapeHtml(order.woolOrderNo)}｜${escapeHtml(order.productionOrderNo)}</div>
-    <div class="mt-1 text-muted-foreground">款式：${escapeHtml(order.styleNo)} ${escapeHtml(order.styleName)}${order.internalStyleCode ? `｜内部货号：${escapeHtml(order.internalStyleCode)}` : ''}｜承接工厂：${escapeHtml(order.factoryName)}</div>
+    <div class="mt-1 text-muted-foreground">款式：${escapeHtml(order.styleNo)} ${escapeHtml(order.styleName)}${order.internalStyleCode ? `｜内部货号：${escapeHtml(order.internalStyleCode)}` : ''}｜承接工厂：${escapeHtml(order.factoryName)}</div></div>
   </section>`
 }
 
@@ -490,31 +495,6 @@ function proofAndRemarkFields(): string {
   return `<div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">凭证</span><textarea class="min-h-20 w-full rounded-md border p-3" placeholder="每行填写一个凭证文件名或链接" data-wool-dialog-field="proofFiles"></textarea></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="factRemark"></textarea></label></div>`
 }
 
-export function renderWoolReceiptDialog(order: WoolWorkOrder): string {
-  const yarns = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
-  const receiptRecords = listWoolFactRecords({
-    woolOrderId: order.woolOrderId,
-    recordType: 'YARN_RECEIPT',
-  }).map((item) => item.record as WoolYarnReceiptRecord)
-  return dialog('确认接收纱线', `
-    ${renderOrderContext(order)}
-    <div class="grid gap-3 md:grid-cols-3"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">送货单号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="deliveryNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">批次号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="batchNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">接收人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>
-    <div class="mt-4 overflow-hidden rounded-md border"><div class="grid grid-cols-[40px_1.4fr_140px_1fr] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium"><span>选择</span><span>本单必需纱线 SKU / 接收事实</span><span>实收数量（kg）</span><span>差异说明</span></div>${yarns.map((sku) => {
-      const matched = receiptRecords
-        .flatMap((record) => record.lines
-          .filter((line) => line.yarnSkuCode === sku)
-          .map((line) => ({ record, line, qty: effectiveReceiptQty(record, line.lineId) })))
-        .filter((item) => item.qty > 0)
-      const receivedQty = matched.reduce((sum, item) => sum + item.qty, 0)
-      const batches = [...new Set(matched.map((item) => item.record.batchNo).filter(Boolean))]
-      const latestAt = matched.map((item) => item.record.receivedAt).sort().at(-1) || '—'
-      return `<label class="grid grid-cols-[40px_1.4fr_140px_1fr] items-center gap-3 border-b px-3 py-2 last:border-b-0"><input type="checkbox" data-wool-receipt-yarn="${escapeHtml(sku)}"><span><span class="font-medium">${escapeHtml(sku)}</span><span class="mt-1 block text-xs text-muted-foreground">累计有效接收 ${formatQty(receivedQty, 'kg')}｜批次 ${escapeHtml(batches.join('、') || '—')}｜最近接收时间 ${escapeHtml(latestAt)}</span></span><input type="number" min="0.01" step="0.01" class="h-9 rounded-md border px-3" data-wool-receipt-qty="${escapeHtml(sku)}"><input class="h-9 rounded-md border px-3" placeholder="选填" data-wool-receipt-difference="${escapeHtml(sku)}"></label>`
-    }).join('') || '<div class="p-4 text-sm text-red-700">技术包未配置本单必需纱线，不能确认接收。</div>'}</div>
-    ${proofAndRemarkFields()}
-    ${renderHistorySummary(order)}
-  `, yarns.length > 0 ? dialogFooter('save-receipt', '保存确认接收') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
-}
-
 export function renderWoolReportDialog(order: WoolWorkOrder): string {
   const readiness = order.outputPlanLines.map((line) => ({ line, readiness: getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode) }))
   const available = readiness.filter((item) => item.readiness.canReport)
@@ -523,13 +503,18 @@ export function renderWoolReportDialog(order: WoolWorkOrder): string {
     ${renderOrderContext(order)}
     <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">可填报加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, readiness: item }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜计划 ${line.plannedQty}${line.qtyUnit}｜上限 ${item.reportLimitQty}${line.qtyUnit}｜累计有效加工填报 ${item.reportedQty}${line.qtyUnit}｜本次最多 ${item.remainingReportQty}${line.qtyUnit}</option>`).join('')}</select></label>
     <div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">本次填报数量</span><input type="number" min="1" step="1" class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="qty"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">填报人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织主管" data-wool-dialog-field="operator"></label></div>
-    <section class="mt-4 rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">暂不可填报</h3><div class="space-y-2 p-3 text-xs">${unavailable.map(({ line, readiness: item }) => `<div><span class="font-medium">${escapeHtml(line.outputSkuCode)}</span>：累计有效加工填报 ${item.reportedQty}${line.qtyUnit}；${escapeHtml(item.missingYarnSkus.length ? `缺少 ${item.missingYarnSkus.join('、')}` : item.remainingReportQty === 0 ? '已达到计划数量的 150%' : '技术包缺少必需纱线关系')}</div>`).join('') || '<div class="text-muted-foreground">无</div>'}</div></section>
+    <section class="mt-4 rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">暂不可填报</h3><div class="space-y-2 p-3 text-xs">${unavailable.map(({ line, readiness: item }) => `<div><span class="font-medium">${escapeHtml(line.outputSkuCode)}</span>：累计有效加工填报 ${item.reportedQty}${line.qtyUnit}；${escapeHtml(item.missingYarnSkus.length ? `缺少 ${item.missingYarnSkus.join('、')}` : item.remainingReportQty === 0 ? (order.stage === 'KNITTING' ? '已达到横机填报上限' : '暂无可缝盘余额') : (order.stage === 'LINKING' ? '未具备可缝盘数量，或由横机自动填报' : '技术包缺少必需纱线关系'))}</div>`).join('') || '<div class="text-muted-foreground">无</div>'}</div></section>
     ${proofAndRemarkFields()}
     ${renderHistorySummary(order)}
   `, available.length > 0 ? dialogFooter('save-report', '保存加工填报') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
 export function renderWoolHandoverDialog(order: WoolWorkOrder): string {
+  if (order.stage === 'KNITTING') {
+    const store = readWoolStore()
+    const available = order.externalPieces.filter(piece => pieceAvailableQty(store, order, piece.pieceKey) > 0 && piece.routeNodes[0]?.factoryId)
+    return dialog('横机外发片交出', `${renderOrderContext(order)}<p class="mb-3 text-sm text-muted-foreground">仅交出需要辅助／特种工艺的片。接收厂由该片技术包路线的首工艺派工决定。</p><label class="block text-sm">外发片与首工艺厂<select class="mt-1 h-10 w-full rounded border px-3" data-wool-dialog-field="pieceKey">${available.map(piece => `<option value="${escapeHtml(piece.pieceKey)}">${escapeHtml(piece.pieceName)} · ${escapeHtml(piece.skuCode)} · ${escapeHtml(piece.routeNodes[0].craftName)} → ${escapeHtml(piece.routeNodes[0].factoryName)} · 可交 ${pieceAvailableQty(store, order, piece.pieceKey)} 片</option>`).join('')}</select></label><div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm">本次交出片数<input type="number" min="1" step="1" class="mt-1 h-9 w-full rounded border px-3" data-wool-dialog-field="qty"></label><label class="text-sm">交出人<input class="mt-1 h-9 w-full rounded border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>${proofAndRemarkFields()}${renderHistorySummary(order)}`, available.length ? dialogFooter('save-handover', '确认交出外发片') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+  }
   const available = order.outputPlanLines
     .map((line) => ({
       line,
@@ -551,64 +536,12 @@ export function renderWoolHandoverDialog(order: WoolWorkOrder): string {
 }
 
 function renderCompleteDialog(order: WoolWorkOrder): string {
-  const receiptFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'YARN_RECEIPT' })
-  const reportFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'PROCESS_REPORT' })
-  const handoverFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'HANDOVER' })
-  const machineFacts = listWoolMachineAssociations(order.woolOrderId).map((association) => {
-    const machine = getWoolMachineById(association.machineId)
-    return machine
-      ? `${machine.machineNo}｜${machine.machineName}｜生产中｜关联时间 ${association.associatedAt}`
-      : `${association.machineId}｜设备资料缺失｜关联时间 ${association.associatedAt}`
-  })
-  const yarnSummary = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))].map((sku) => {
-    const matchedReceipts = receiptFacts
-      .map((item) => item.record as WoolYarnReceiptRecord)
-      .filter((record) => record.lines.some((line) => line.yarnSkuCode === sku))
-    const received = matchedReceipts.reduce((sum, record) => {
-      return sum + record.lines
-        .filter((line) => line.yarnSkuCode === sku)
-        .reduce((lineSum, line) => lineSum + effectiveReceiptQty(record, line.lineId), 0)
-    }, 0)
-    const batches = [...new Set(matchedReceipts.map((record) => record.batchNo).filter(Boolean))]
-    const latest = matchedReceipts.map((record) => record.receivedAt).sort().at(-1) || '—'
-    return `${sku}：${received > 0 ? '已确认' : '未接收'}，累计 ${formatNumber(received)} kg，批次 ${batches.join('、') || '—'}，最近 ${latest}`
-  })
-  const readinessSummary = order.outputPlanLines.map((line) => {
-    const readiness = getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode)
-    return `${line.outputSkuCode}：${readiness.isReady ? '纱线已齐' : `缺少 ${readiness.missingYarnSkus.join('、') || '技术包必需纱线关系'}`}`
-  })
-  const factBlock = (title: string, body: string) => `<section class="rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">${escapeHtml(title)}</h3><div class="space-y-1 p-3 text-xs">${body}</div></section>`
-  return dialog('完成加工单二次确认', `
-    <div class="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-900">系统仅展示当前业务事实，不判断该加工单是否应该完成。请业务人员核对后确认。</div>
-    <div class="grid gap-3 md:grid-cols-2">
-      ${factBlock('确认接收情况', yarnSummary.length ? `${yarnSummary.map((text) => `<div>${escapeHtml(text)}</div>`).join('')}<div class="mt-2 border-t pt-2">${readinessSummary.map((text) => `<div>${escapeHtml(text)}</div>`).join('')}</div>` : '<div>暂无有效确认接收</div>')}
-      ${factBlock('加工填报情况', order.outputPlanLines.map((line) => {
-        const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
-        return `<div>${escapeHtml(line.outputSkuCode)}：计划 ${line.plannedQty}${line.qtyUnit} / 上限 ${Math.floor(line.plannedQty * 1.5)}${line.qtyUnit} / 累计 ${reported}${line.qtyUnit} / 与计划差异 ${reported - line.plannedQty}${line.qtyUnit}</div>`
-      }).join(''))}
-      ${factBlock('发起交出情况', order.outputPlanLines.map((line) => {
-        const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
-        const handedOver = getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode)
-        return `<div>${escapeHtml(line.outputSkuCode)}：累计加工 ${reported}${line.qtyUnit} / 累计交出 ${handedOver}${line.qtyUnit} / 尚未交出 ${Math.max(reported - handedOver, 0)}${line.qtyUnit}</div>`
-      }).join('') + `<div class="mt-2 border-t pt-2">${handoverFacts.map((item) => {
-        const record = item.record as WoolHandoverRecord
-        const downstream = record.downstreamReceipt?.status === 'CONFIRMED'
-          ? `下游已收 ${record.downstreamReceipt.actualReceivedQty ?? 0}${record.qtyUnit}，差异 ${record.downstreamReceipt.differenceQty ?? 0}${record.qtyUnit}`
-          : '下游待确认'
-        return `<div>${escapeHtml(record.handoverId)}：${effectiveHandoverQty(record)}${record.qtyUnit}，${escapeHtml(downstream)}</div>`
-      }).join('') || '<div>暂无交出记录</div>'}</div>`)}
-      ${factBlock('待交出仓情况', order.outputPlanLines.map((line) => {
-        const fixedLocationId = line.outputObjectType === 'GARMENT'
-          ? 'WOOL-WH-GARMENT-DEFAULT'
-          : 'WOOL-WH-CUT-DEFAULT'
-        return `<div>${escapeHtml(line.outputSkuCode)}：固定库位 ${fixedLocationId}，现存 ${getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)}${line.qtyUnit}</div>`
-      }).join(''))}
-      ${factBlock('当前横机关联', machineFacts.length
-        ? machineFacts.map((text) => `<div>${escapeHtml(text)}</div>`).join('')
-        : '<div>当前未关联横机；确认完成后无需解除设备关系。</div>')}
-    </div>
+  const stageLabel = woolStageLabel(order.stage)
+  return dialog(`${stageLabel}完单确认`, `
+    ${renderOrderContext(order)}
+    <div class="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">请核对全部 SKU 达到计划量，实际产出已交出且下游接收／差异已闭合。确认后该阶段不可继续填报。${order.stage === 'KNITTING' ? '横机完单只核对首工艺厂接收，不等待外加工回货或缝盘完单，并解除本单设备关联。' : ''}</div>
+    <div class="grid gap-3 md:grid-cols-2"><section class="rounded border p-3"><h3 class="mb-3 font-medium">阶段数量</h3>${renderWoolStageQuantities(order)}</section><section class="rounded border p-3"><h3 class="mb-3 font-medium">投入与上游</h3>${renderWoolStageInputs(order)}</section><section class="rounded border p-3"><h3 class="mb-3 font-medium">加工与交接</h3>${renderWoolStageProgress(order)}${renderWoolStageOutputs(order)}</section><section class="rounded border p-3"><h3 class="mb-3 font-medium">时间核对</h3>${renderWoolStageTimes(order)}</section></div>
     <label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">完成确认备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="remark"></textarea></label>
-    <div class="mt-3 text-xs text-muted-foreground">当前共有 ${receiptFacts.length} 次接收、${reportFacts.length} 次加工填报、${handoverFacts.length} 次发起交出。确认后系统自动解除本加工单全部横机关联。</div>
   `, dialogFooter('save-complete', '确认完成加工单'))
 }
 
@@ -629,18 +562,7 @@ function editableFacts(order: WoolWorkOrder): EditableFact[] {
   })
   const result: EditableFact[] = []
   for (const item of records) {
-    if (item.recordType === 'YARN_RECEIPT') {
-      const record = item.record as WoolYarnReceiptRecord
-      result.push(...record.lines.map((line) => ({
-        recordType: 'YARN_RECEIPT' as const,
-        recordId: record.receiptId,
-        recordLineId: line.lineId,
-        objectSkuCode: line.yarnSkuCode,
-        currentQty: effectiveReceiptQty(record, line.lineId),
-        unit: line.qtyUnit,
-      })))
-      continue
-    }
+    if (item.recordType === 'YARN_RECEIPT') continue // 人工收货只从统一收货入口修正。
     if (item.recordType === 'PROCESS_REPORT') {
       const record = item.record as WoolProcessReportRecord
       result.push({
@@ -649,6 +571,7 @@ function editableFacts(order: WoolWorkOrder): EditableFact[] {
         objectSkuCode: record.outputSkuCode,
         currentQty: effectiveReportQty(record),
         unit: order.outputPlanLines.find((line) => line.outputSkuCode === record.outputSkuCode)?.qtyUnit || '件',
+        locked: Boolean(record.sourceReportId),
       })
       continue
     }
@@ -659,7 +582,7 @@ function editableFacts(order: WoolWorkOrder): EditableFact[] {
       objectSkuCode: record.outputSkuCode,
       currentQty: effectiveHandoverQty(record),
       unit: record.qtyUnit,
-      locked: record.downstreamReceipt?.status === 'CONFIRMED',
+      locked: record.automatic || record.downstreamReceipt?.status === 'CONFIRMED',
     })
   }
   return result
@@ -689,8 +612,8 @@ function effectiveHandoverQty(record: WoolHandoverRecord): number {
 
 function renderQtyListDialog(order: WoolWorkOrder): string {
   const rows = editableFacts(order)
-  const labels: Record<WoolQtyChangeRecordType, string> = { YARN_RECEIPT: '确认接收', PROCESS_REPORT: '加工填报', HANDOVER: '发起交出' }
-  return dialog('修改记录数量', `<div class="overflow-hidden rounded-md border">${rows.map((row) => `<div class="grid grid-cols-[110px_1fr_120px_90px] items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0"><span>${labels[row.recordType]}</span><span>${escapeHtml(row.objectSkuCode)}<span class="ml-2 text-xs text-muted-foreground">${escapeHtml(row.recordId)}</span></span><span>${formatQty(row.currentQty, row.unit)}</span>${row.locked ? '<span class="text-xs text-muted-foreground">下游已确认</span>' : `<button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-work-orders-action="open-qty-edit" data-record-type="${row.recordType}" data-record-id="${escapeHtml(row.recordId)}" data-record-line-id="${escapeHtml(row.recordLineId || '')}" data-object-sku-code="${escapeHtml(row.objectSkuCode)}" data-current-qty="${row.currentQty}" data-unit="${escapeHtml(row.unit)}" data-skip-page-rerender="true">修改数量</button>`}</div>`).join('') || '<div class="p-4 text-sm text-muted-foreground">暂无可修改记录</div>'}</div>`, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+  const labels: Record<WoolQtyChangeRecordType, string> = { YARN_RECEIPT: '纱线接收', PROCESS_REPORT: '加工填报', HANDOVER: '发起交出' }
+  return dialog('修改记录数量', `<div class="overflow-hidden rounded-md border">${rows.map((row) => `<div class="grid grid-cols-[110px_1fr_120px_90px] items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0"><span>${labels[row.recordType]}</span><span>${escapeHtml(row.objectSkuCode)}<span class="ml-2 text-xs text-muted-foreground">${escapeHtml(row.recordId)}</span></span><span>${formatQty(row.currentQty, row.unit)}</span>${row.locked ? '<span class="text-xs text-muted-foreground">自动来源／下游已确认</span>' : `<button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-work-orders-action="open-qty-edit" data-record-type="${row.recordType}" data-record-id="${escapeHtml(row.recordId)}" data-record-line-id="${escapeHtml(row.recordLineId || '')}" data-object-sku-code="${escapeHtml(row.objectSkuCode)}" data-current-qty="${row.currentQty}" data-unit="${escapeHtml(row.unit)}" data-skip-page-rerender="true">修改数量</button>`}</div>`).join('') || '<div class="p-4 text-sm text-muted-foreground">暂无可修改记录</div>'}</div>`, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
 function resolveEditableFactMax(
@@ -707,9 +630,11 @@ function resolveEditableFactMax(
         && item.recordId !== overlay.recordId,
       )
       .reduce((sum, item) => sum + item.currentQty, 0)
-    return Math.max(0, Math.floor(line.plannedQty * 1.5) - otherReportedQty)
+    return Math.max(0, getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode).reportLimitQty - otherReportedQty)
   }
   if (overlay.recordType === 'HANDOVER') {
+    const handover = readWoolStore().handovers.find(item => item.handoverId === overlay.recordId)
+    if (handover?.pieceKey) return overlay.currentQty + pieceAvailableQty(readWoolStore(), order, handover.pieceKey)
     return overlay.currentQty
       + getWoolOutputHandoverAvailableQty(order.woolOrderId, overlay.objectSkuCode)
   }
@@ -725,7 +650,6 @@ function renderQtyEditDialog(overlay: Extract<BusinessOverlay, { kind: 'qty-edit
 function renderBusinessOverlay(): string {
   const order = requireOverlayOrder()
   if (!state.overlay || !order) return ''
-  if (state.overlay.kind === 'receipt') return renderWoolReceiptDialog(order)
   if (state.overlay.kind === 'report') return renderWoolReportDialog(order)
   if (state.overlay.kind === 'handover') return renderWoolHandoverDialog(order)
   if (state.overlay.kind === 'complete') return renderCompleteDialog(order)
@@ -775,29 +699,6 @@ function updateFilterField(field: keyof WoolListFilters, value: string): void {
   state.currentPage = 1
 }
 
-function saveReceipt(order: WoolWorkOrder): void {
-  const root = rootElement()
-  const selected = Array.from(root?.querySelectorAll<HTMLInputElement>('[data-wool-receipt-yarn]:checked') ?? [])
-  const lines = selected.map((checkbox) => {
-    const yarnSkuCode = checkbox.dataset.woolReceiptYarn || ''
-    const qty = Number(root?.querySelector<HTMLInputElement>(`[data-wool-receipt-qty="${CSS.escape(yarnSkuCode)}"]`)?.value || 0)
-    const differenceNote = root?.querySelector<HTMLInputElement>(
-      `[data-wool-receipt-difference="${CSS.escape(yarnSkuCode)}"]`,
-    )?.value.trim()
-    return { yarnSkuCode, receivedQty: qty, differenceNote }
-  })
-  runCommand(() => addWoolYarnReceipt(order.woolOrderId, {
-    commandId: nextCommandId('RECEIPT', order.woolOrderId),
-    deliveryNo: readDialogField('deliveryNo'),
-    batchNo: readDialogField('batchNo'),
-    proofFiles: readProofFiles(),
-    remark: readDialogField('factRemark'),
-    receivedAt: nowText(),
-    receivedBy: readDialogField('operator'),
-    lines,
-  }), '确认接收已保存，纱线已进入默认库位。')
-}
-
 function saveReport(order: WoolWorkOrder): void {
   const outputSkuCode = readDialogField('outputSkuCode')
   const qty = Number(readDialogField('qty'))
@@ -820,23 +721,16 @@ function saveReport(order: WoolWorkOrder): void {
 }
 
 function saveHandover(order: WoolWorkOrder): void {
-  const outputSkuCode = readDialogField('outputSkuCode')
+  const pieceKey = order.stage === 'KNITTING' ? readDialogField('pieceKey') : undefined
+  const piece = order.externalPieces.find(item => item.pieceKey === pieceKey)
+  const outputSkuCode = piece?.skuCode || readDialogField('outputSkuCode')
   const handoverQty = Number(readDialogField('qty'))
-  const line = order.outputPlanLines.find((item) => item.outputSkuCode === outputSkuCode)
-  const availableQty = getWoolOutputHandoverAvailableQty(order.woolOrderId, outputSkuCode)
-  if (handoverQty > availableQty) {
-    showOverlayError(`最多可交出 ${availableQty}${line?.qtyUnit || '件'}，请调整本次交出数量。`)
-    return
-  }
+  const availableQty = pieceKey ? pieceAvailableQty(readWoolStore(), order, pieceKey) : getWoolOutputHandoverAvailableQty(order.woolOrderId, outputSkuCode)
+  if (handoverQty > availableQty) { showOverlayError(`最多可交出 ${availableQty}${pieceKey ? '片' : '件'}，请调整本次交出数量。`); return }
   runCommand(() => addWoolHandover(order.woolOrderId, {
-    commandId: nextCommandId('HANDOVER', order.woolOrderId),
-    outputSkuCode,
-    handoverQty,
-    proofFiles: readProofFiles(),
-    remark: readDialogField('factRemark'),
-    handedOverAt: nowText(),
-    handedOverBy: readDialogField('operator'),
-  }), '发起交出已保存，库存已从对应默认库位扣减。')
+    commandId: nextCommandId('HANDOVER', order.woolOrderId), pieceKey, outputSkuCode, handoverQty,
+    proofFiles: readProofFiles(), remark: readDialogField('factRemark'), handedOverAt: nowText(), handedOverBy: readDialogField('operator'),
+  }), order.stage === 'KNITTING' ? '外发片已交出至对应首工艺厂，等待接收确认。' : '最终交出已保存，等待指定下游接收。')
 }
 
 function saveComplete(order: WoolWorkOrder): void {
@@ -845,7 +739,7 @@ function saveComplete(order: WoolWorkOrder): void {
     completedAt: nowText(),
     completedBy: 'Web 端毛织主管',
     remark: readDialogField('remark'),
-  }), '加工单已完成，当前横机关联已自动解除。')
+  }), order.stage === 'KNITTING' ? '横机加工单已完成，当前横机关联已解除。' : '缝盘加工单已完成。')
 }
 
 function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): void {
@@ -868,7 +762,19 @@ function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): void 
   }), '记录数量已修改，库存已按新旧差额同步。')
 }
 
-export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean> {
+function exportCurrentRows(): void {
+  const rows = rowsForActiveTab()
+  if (!rows.length) { state.feedback = '当前查询条件下没有可导出的加工单。'; refreshResults(); return }
+  const htmlText = (value: string) => { const node = document.createElement('div'); node.innerHTML = value.replace(/<\/(?:div|section)>/g, '</div>\n'); return node.textContent?.trim() || '' }
+  const csvCell = (value: string) => `"${value.replace(/"/g, '""')}"`
+  const exportColumns = columns.filter(column => column.key !== 'actions')
+  const csv = [exportColumns.map(column => csvCell(column.title)).join(','), ...rows.map(row => exportColumns.map(column => csvCell(htmlText(column.render(row, 0)))).join(','))].join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a'); link.href = url; link.download = `${woolStageLabel(currentStage)}-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url)
+  state.feedback = `已导出当前查询条件下全部 ${rows.length} 条加工单。`; refreshResults()
+}
+
+export async function handleCraftWoolStageOrdersEvent(target: HTMLElement): Promise<boolean> {
   const root = target.closest<HTMLElement>('[data-wool-work-orders-root]')
   if (!root) return false
 
@@ -881,9 +787,10 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
       return true
     }
     updateFilterField(name, field.value)
-    if (field instanceof HTMLInputElement && ['keyword', 'productionOrderNo', 'woolOrderNo', 'factory', 'yarnSku'].includes(name)) {
+    if (name === 'processingStatus') state.activeTab = (field.value || 'ALL') as WoolWorkOrderTab
+    if (field instanceof HTMLInputElement && ['keyword', 'productionOrderNo', 'woolOrderNo', 'factory', 'yarnSku', 'outputSku', 'sourceCraft'].includes(name)) {
       if (filterDebounce) clearTimeout(filterDebounce)
-      filterDebounce = setTimeout(refreshResults, 180)
+      filterDebounce = setTimeout(refreshResults, 40)
     } else {
       refreshResults()
     }
@@ -898,6 +805,9 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
 
   if (action.startsWith('tab:')) {
     state.activeTab = action.slice(4) as WoolWorkOrderTab
+    state.filters.processingStatus = state.activeTab === 'ALL' ? '' : state.activeTab
+    const statusField = root.querySelector<HTMLSelectElement>('[data-wool-work-orders-field="processingStatus"]')
+    if (statusField) statusField.value = state.filters.processingStatus
     state.currentPage = 1
     refreshResults()
     return true
@@ -941,20 +851,22 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
     listController.refresh()
     return true
   }
+  if (action === 'query') { state.currentPage = 1; refreshResults(); return true }
+  if (action === 'export') { exportCurrentRows(); return true }
   if (action === 'reset-filters') {
     state.filters = { ...DEFAULT_FILTERS }
+    state.activeTab = 'ALL'
     state.currentPage = 1
     const filters = root.querySelector<HTMLElement>('[data-wool-work-orders-filters]')
     if (filters) filters.innerHTML = renderFilters()
     refreshResults()
     return true
   }
-  if (action === 'open-receipt' && order) {window.location.href=`/fcs/craft/wool/pending-receipts?orderId=${encodeURIComponent(order.woolOrderId)}`;return true}
   if (action === 'open-report' && order) openOverlay('report', order.woolOrderId)
   if (action === 'open-handover' && order) openOverlay('handover', order.woolOrderId)
   if (action === 'open-complete' && order) openOverlay('complete', order.woolOrderId)
   if (action === 'open-qty-list' && order) openOverlay('qty-list', order.woolOrderId)
-  if (['open-receipt', 'open-report', 'open-handover', 'open-complete', 'open-qty-list'].includes(action)) return true
+  if (['open-report', 'open-handover', 'open-complete', 'open-qty-list'].includes(action)) return true
   if (action === 'open-qty-edit' && state.overlay) {
     state.overlay = {
       kind: 'qty-edit',
@@ -977,7 +889,6 @@ export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean
     return true
   }
   if (!order) return true
-  if (action === 'save-receipt') saveReceipt(order)
   if (action === 'save-report') saveReport(order)
   if (action === 'save-handover') saveHandover(order)
   if (action === 'save-complete') saveComplete(order)

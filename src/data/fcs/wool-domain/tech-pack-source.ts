@@ -1,8 +1,9 @@
+import { extractWoolPieceSources, type WoolPieceSourceResult } from './piece-source.ts'
 import { WOOL_DISPATCH_DEMO_ORDER_IDS } from '../process-tasks.ts'
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../production-orders.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks } from '../runtime-process-tasks.ts'
-import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
+import { commitWoolStore, readWoolStore, getWoolStoreRevision, type WoolDomainStore } from './store.ts'
 import type {
   WoolOutputPlanLine,
   WoolWorkOrder,
@@ -68,6 +69,7 @@ export interface WoolOrderSourceSnapshot {
   sourceTechPackVersionCode: string
   outputPlanLines: WoolOutputPlanLine[]
   generationIssues: string[]
+  generationIssuesBySku: Record<string, string[]>
 }
 
 function uniqueStable(values: string[]): string[] {
@@ -172,63 +174,25 @@ function validatePlannedQty(value: number, fieldName: string): number {
 
 export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): WoolOrderSourceSnapshot {
   if (input.skuLines.length === 0) throw new Error('毛织来源生成失败：生产单没有可生成计划行的 SKU')
-  if (input.kind === 'PART_PANEL' && input.woolParts.length === 0) {
-    throw new Error('毛织来源生成失败：部位毛织没有纸样部位')
-  }
+  // 未维护的片统称不外发片；两阶段均按成衣 SKU 对应件数计划。
+  const outputPlanLines: WoolOutputPlanLine[] = input.skuLines.map(sku => ({
+    ...buildBaseOutputLine(input, sku), outputSkuCode: sku.skuCode,
+    outputObjectType: input.kind === 'WHOLE_GARMENT' ? 'GARMENT' : 'WOOL_PANEL',
+    plannedQty: validatePlannedQty(sku.plannedQty, `SKU ${sku.skuCode} 的计划数量`), qtyUnit: '件',
+  }))
 
-  const outputPlanLines: WoolOutputPlanLine[] = []
-  for (const sku of input.skuLines) {
-    const plannedGarmentQty = validatePlannedQty(sku.plannedQty, `SKU ${sku.skuCode} 的计划数量`)
-    const baseLine = buildBaseOutputLine(input, sku)
-    if (input.kind === 'WHOLE_GARMENT') {
-      outputPlanLines.push({
-        ...baseLine,
-        outputSkuCode: sku.skuCode,
-        outputObjectType: 'GARMENT',
-        plannedQty: plannedGarmentQty,
-        qtyUnit: '件',
-      })
-      continue
-    }
-
-    const matchedParts = input.woolParts.filter((part) => {
-      const applicableSkuCodes = part.applicableSkuCodes ?? []
-      return applicableSkuCodes.length === 0 || applicableSkuCodes.includes(sku.skuCode)
-    })
-    if (matchedParts.length === 0) {
-      throw new Error(`毛织来源生成失败：SKU ${sku.skuCode} 没有适用的毛织纸样部位`)
-    }
-    for (const part of matchedParts) {
-      const woolPartCode = buildStableWoolPartCode(part.woolPartCode)
-      const woolPartName = assertSourceText(part.woolPartName, `部位 ${woolPartCode} 名称`)
-      validatePlannedQty(
-        part.pieceCountPerGarment,
-        `部位 ${woolPartCode} 的单件片数`,
-      )
-      outputPlanLines.push({
-        ...baseLine,
-        outputSkuCode: buildWoolPanelOutputSku(woolPartCode, sku.skuCode),
-        outputObjectType: 'WOOL_PANEL',
-        woolPartCode,
-        woolPartName,
-        plannedQty: plannedGarmentQty,
-        qtyUnit: '件',
-      })
-    }
-  }
-
-  const generationIssues = outputPlanLines.flatMap((line) => {
+  const generationIssuesBySku: Record<string, string[]> = {}
+  for (const line of outputPlanLines) {
+    let issue = ''
     if (line.sourceColorMappingIds.length === 0) {
-      return [`${line.outputSkuCode} 缺少技术包颜色物料关系，不可填报加工数量`]
+      issue = `${line.outputSkuCode} 缺少技术包颜色物料关系，不可填报加工数量`
+    } else if (line.sourceBomItemIds.length === 0) {
+      issue = `${line.outputSkuCode} 的技术包颜色物料关系没有关联有效的 PROC_WOOL 纱线 BOM`
+    } else if (line.requiredYarnSkus.length === 0) {
+      issue = `${line.outputSkuCode} 没有可冻结的毛织必需纱线，不可填报加工数量`
     }
-    if (line.sourceBomItemIds.length === 0) {
-      return [`${line.outputSkuCode} 的技术包颜色物料关系没有关联有效的 PROC_WOOL 纱线 BOM`]
-    }
-    if (line.requiredYarnSkus.length === 0) {
-      return [`${line.outputSkuCode} 没有可冻结的毛织必需纱线，不可填报加工数量`]
-    }
-    return []
-  })
+    if (issue) generationIssuesBySku[line.outputSkuCode] = [issue]
+  }
 
   return {
     taskId: assertSourceText(input.taskId, '任务 ID'),
@@ -238,55 +202,8 @@ export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): 
     sourceTechPackVersionId: input.sourceTechPackVersionId,
     sourceTechPackVersionCode: input.sourceTechPackVersionCode,
     outputPlanLines,
-    generationIssues,
+    generationIssues: [], generationIssuesBySku,
   }
-}
-
-function resolveRuntimeWoolParts(
-  taskSkuLines: WoolSourceSkuLineInput[],
-  patternFiles: NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>>['patternFiles'],
-  allowedOutputSkuCodes?: Set<string>,
-): WoolSourcePartInput[] {
-  const woolPartsByKey = new Map<string, WoolSourcePartInput>()
-  for (const pattern of patternFiles.filter((item) => item.patternMaterialType === 'WOOL')) {
-    for (const piece of pattern.pieceRows ?? []) {
-      const sourcePartCode = piece.partTemplateId || piece.id
-      const woolPartCode = buildStableWoolPartCode(sourcePartCode)
-      const woolPartName = piece.partTemplateName || piece.systemPieceName || piece.name
-      if (!woolPartName) throw new Error(`毛织来源生成失败：部位 ${woolPartCode} 缺少名称`)
-
-      for (const sku of taskSkuLines) {
-        const applicableSkuCodes = piece.applicableSkuCodes ?? []
-        if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(sku.skuCode)) continue
-        const allocation = piece.colorAllocations?.find((item) =>
-          item.skuCodes?.includes(sku.skuCode)
-          || (item.colorCode ? item.colorCode === sku.colorCode : item.colorName === sku.colorName),
-        )
-        const pieceCountPerGarment = allocation?.pieceCount ?? piece.count
-        const outputSkuCode = buildWoolPanelOutputSku(woolPartCode, sku.skuCode)
-        if (allowedOutputSkuCodes?.size && !allowedOutputSkuCodes.has(outputSkuCode)) continue
-        const woolPart: WoolSourcePartInput = {
-          woolPartCode,
-          woolPartName,
-          pieceCountPerGarment,
-          applicableSkuCodes: [sku.skuCode],
-        }
-        const woolPartKey = `${woolPartCode}::${sku.skuCode}`
-        const existing = woolPartsByKey.get(woolPartKey)
-        if (existing) {
-          if (
-            existing.woolPartName !== woolPart.woolPartName
-            || existing.pieceCountPerGarment !== woolPart.pieceCountPerGarment
-          ) {
-            throw new Error(`毛织来源生成失败：部位 ${woolPartCode} 在 SKU ${sku.skuCode} 下存在冲突定义`)
-          }
-          continue
-        }
-        woolPartsByKey.set(woolPartKey, woolPart)
-      }
-    }
-  }
-  return [...woolPartsByKey.values()]
 }
 
 export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): WoolOrderSourceSnapshot {
@@ -315,15 +232,6 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
     plannedQty: line.qty,
   }))
   const kind = task.woolTaskType === 'PART_PANEL' ? 'PART_PANEL' : 'WHOLE_GARMENT'
-  const scopedOutputSkuCodes = new Set(
-    task.scopeDetailRows
-      .map((row) => row.sourceRefs.outputSkuCode)
-      .filter((value): value is string => Boolean(value)),
-  )
-  if (task.isSplitResult && kind === 'PART_PANEL' && scopedOutputSkuCodes.size === 0) {
-    throw new Error(`毛织来源生成失败：拆分任务 ${taskId} 没有明确部位输出 SKU，禁止回退全部部位`)
-  }
-
   return buildWoolOrderSourceSnapshot({
     taskId: task.taskId,
     productionOrderId: order.productionOrderId,
@@ -350,13 +258,7 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
         applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
       })),
     })),
-    woolParts: kind === 'PART_PANEL'
-      ? resolveRuntimeWoolParts(
-        skuLines,
-        snapshot.patternFiles,
-        scopedOutputSkuCodes.size > 0 ? scopedOutputSkuCodes : undefined,
-      )
-      : [],
+    woolParts: [],
   })
 }
 
@@ -364,25 +266,24 @@ function resolveExistingRuntimeWoolOrder(
   workOrders: WoolDomainStore['workOrders'],
   taskId: string,
 ): WoolWorkOrder | undefined {
-  const keyedOrder = workOrders[taskId]
-  if (keyedOrder) {
-    if (keyedOrder.woolOrderId !== taskId || keyedOrder.taskId !== taskId) {
-      throw new Error(`毛织加工单生成失败：任务 ${taskId} 的加工单身份冲突`)
-    }
-    return keyedOrder
-  }
+  const matches = Object.values(workOrders).filter(order => order.sourceTaskId === taskId && order.stage === 'KNITTING')
+  if (matches.length > 1) throw new Error(`横机加工单生成失败：任务 ${taskId} 存在重复阶段`)
+  return matches[0]
+}
 
-  const sameTaskEntries = Object.entries(workOrders)
-    .filter(([, order]) => order.taskId === taskId)
-  if (sameTaskEntries.length > 1) {
-    throw new Error(`毛织加工单生成失败：任务 ${taskId} 存在多个加工单身份冲突`)
+/** Keep an identifiable route problem local; missing instances still block that SKU's automatic path. */
+export function scopeWoolPieceGenerationIssues(extraction: WoolPieceSourceResult): {
+  unscoped: string[]; bySku: Record<string, string[]>; byPiece: Record<string, string[]>
+} {
+  const unscoped: string[] = [], bySku: Record<string, string[]> = {}, byPiece: Record<string, string[]> = {}
+  for (const issue of extraction.issues) {
+    const piece = issue.pieceInstanceId && extraction.pieces.find(piece => piece.pieceInstanceId === issue.pieceInstanceId
+      && piece.patternPackageId === issue.patternPackageId && piece.skuCode === issue.skuCode)
+    if (piece) (byPiece[piece.pieceKey] ??= []).push(`${piece.displayName}：${issue.message}`)
+    else if (issue.skuCode) (bySku[issue.skuCode] ??= []).push(`${issue.skuCode}：${issue.message}`)
+    else unscoped.push(issue.message)
   }
-  if (sameTaskEntries.length === 0) return undefined
-  const [woolOrderId, order] = sameTaskEntries[0]
-  if (order.woolOrderId !== woolOrderId) {
-    throw new Error(`毛织加工单生成失败：任务 ${taskId} 的既有加工单身份冲突`)
-  }
-  return order
+  return { unscoped, bySku, byPiece }
 }
 
 let runtimeOrderCommitConflictForTest: WoolWorkOrder | null = null
@@ -410,9 +311,29 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
     throw new Error('毛织加工单缺少计划完成时间')
   }
   const source = buildWoolOrderSourceSnapshotFromRuntimeTask(taskId)
-  if (source.generationIssues.length > 0) {
-    throw new Error(`毛织加工单生成失败：${source.generationIssues.join('；')}`)
-  }
+  const extraction = extractWoolPieceSources({ snapshot: techPackSnapshot, sourceTaskId: taskId,
+    scopeSkuLines: source.outputPlanLines.map(line => ({skuCode: line.garmentSkuCode, color: line.colorName, size: line.sizeCode, qty: line.plannedQty})),
+    sourceEntryId: task.sourceEntryId })
+  const issueScope = scopeWoolPieceGenerationIssues(extraction)
+  const pairId = `WOOL-STAGE:${taskId}`
+  const runtimeTasks = listRuntimeProcessTasks()
+  const externalPieces = extraction.pieces.map(piece => {
+    const issues = [...(issueScope.byPiece[piece.pieceKey] ?? [])]
+    const routeNodes = piece.routeNodes.map(node => {
+      const candidates = runtimeTasks.filter(candidate => candidate.productionOrderId === task.productionOrderId
+        && (candidate.sourceEntryId === node.sourceEntryId || candidate.sourceEntryIds?.includes(node.sourceEntryId))
+        && candidate.status !== 'CANCELLED' && !candidate.isSplitSource
+        && (!candidate.scopeSkuLines.length || candidate.scopeSkuLines.some(line => line.skuCode === piece.skuCode)))
+      const factories = [...new Set(candidates.map(item => item.assignedFactoryId).filter(Boolean))]
+      const assigned = factories.length === 1 ? candidates.find(item => item.assignedFactoryId === factories[0]) : undefined
+      if (!assigned) issues.push(`${piece.displayName}：${node.craftName}未确定唯一承接工厂`)
+      return { sourceEntryId: node.sourceEntryId, predecessorEntryIds: node.predecessorEntryIds,
+        craftCode: node.craftCode, craftName: node.craftName, factoryId: assigned?.assignedFactoryId || '',
+        factoryName: assigned?.assignedFactoryName || '', taskOrderId: `WSC:${pairId}:${piece.pieceKey}:${node.sourceEntryId}` }
+    })
+    return { pieceKey: piece.pieceKey, patternPackageId: piece.patternPackageId, pieceInstanceId: piece.pieceInstanceId,
+      pieceName: piece.displayName, skuCode: piece.skuCode, pieceCountPerGarment: piece.pieceCountPerGarment, routeNodes, issues }
+  })
   const generatedAt = task.createdAt || task.updatedAt || '2026-07-31 00:00:00'
   const downstreamTarget = source.kind === 'PART_PANEL'
     ? {
@@ -426,9 +347,14 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
         receiverName: task.receiverName || '',
       }
   const order: WoolWorkOrder = {
-    woolOrderId: task.taskId,
-    woolOrderNo: task.woolOrderNo || `毛织单-${task.taskNo || task.taskId}`,
-    taskId: task.taskId,
+    stage: 'KNITTING', pairId, sourceTaskId: task.taskId, sourceEntryId: task.sourceEntryId,
+    pairedWorkOrderId: `${pairId}:LINKING`, externalPieces,
+    generationIssues: [...source.generationIssues, ...issueScope.unscoped],
+    generationIssuesBySku: Object.fromEntries([...new Set([...Object.keys(source.generationIssuesBySku), ...Object.keys(issueScope.bySku)])].map(sku =>
+      [sku, [...(source.generationIssuesBySku[sku] ?? []), ...(issueScope.bySku[sku] ?? [])]])),
+    woolOrderId: `${pairId}:KNITTING`,
+    woolOrderNo: `HJ-${task.taskNo || task.taskId}`,
+    taskId: `${task.taskId}:KNITTING`,
     taskNo: task.taskNo || task.taskId,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
@@ -468,7 +394,11 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
       committedOrder = generatedFromSameTask
       return
     }
+    const linking: WoolWorkOrder = { ...structuredClone(order), stage: 'LINKING',
+      woolOrderId: order.pairedWorkOrderId, woolOrderNo: `FP-${task.taskNo || task.taskId}`,
+      taskId: `${task.taskId}:LINKING`, pairedWorkOrderId: order.woolOrderId }
     draft.workOrders[order.woolOrderId] = order
+    draft.workOrders[linking.woolOrderId] = linking
     committedOrder = order
   })
   return committedOrder
@@ -478,12 +408,19 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
 
 // 正式新需求复用原加工单生成命令；已有加工单及其现场事实不重建。
 let syncingRuntimeWoolOrders = false
+let lastSynchronizationKey = ''
 export function ensureRuntimeWoolWorkOrders(productionOrderId?: string): void {
   if (syncingRuntimeWoolOrders) return
+  const tasks = listRuntimeProcessTasks().filter(task =>
+    (!productionOrderId || task.productionOrderId === productionOrderId)
+    && (task.processBusinessCode === 'WOOL' || task.processCode === 'WOOL'))
+  const sourceKey = `${productionOrderId || '*'}:${tasks.map(task => [task.taskId, task.status, task.executionEnabled, task.isSplitSource, productionOrders.find(order => order.productionOrderId === task.productionOrderId)?.taskBreakdownSummary.isBrokenDown].join(':')).join('|')}`
+  if (lastSynchronizationKey === `${getWoolStoreRevision()}:${sourceKey}`) return
   syncingRuntimeWoolOrders = true
   try {
-    const existingTaskIds = new Set(Object.values(readWoolStore().workOrders).map(order => order.taskId))
-    for (const task of listRuntimeProcessTasks()) {
+    const store = readWoolStore()
+    const existingTaskIds = new Set(Object.values(store.workOrders).map(order => order.sourceTaskId))
+    for (const task of tasks) {
       if (productionOrderId && task.productionOrderId !== productionOrderId) continue
       if (task.processBusinessCode !== 'WOOL' && task.processCode !== 'WOOL') continue
       if (WOOL_DISPATCH_DEMO_ORDER_IDS.has(task.productionOrderId) || existingTaskIds.has(task.taskId)) continue
@@ -492,6 +429,7 @@ export function ensureRuntimeWoolWorkOrders(productionOrderId?: string): void {
       buildWoolOrderFromRuntimeTask(task.taskId)
       existingTaskIds.add(task.taskId)
     }
+    lastSynchronizationKey = `${getWoolStoreRevision()}:${sourceKey}`
   } finally {
     syncingRuntimeWoolOrders = false
   }

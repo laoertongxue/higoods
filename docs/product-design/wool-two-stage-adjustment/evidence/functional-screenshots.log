@@ -1,0 +1,23 @@
+NAV /fcs/craft/wool/knitting-orders
+ACTION 横机查询
+ACTION 横机列设置打开
+ACTION 横机列设置关闭
+ACTION 横机查询
+ACTION 横机列设置打开
+ACTION 横机列设置关闭
+ACTION 横机查询
+ACTION 横机列设置打开
+ACTION 横机列设置关闭
+ACTION 横机查询
+ACTION 横机列设置打开
+ACTION 横机列设置关闭
+ACTION 横机查询
+ACTION 横机列设置打开
+ACTION 横机列设置关闭
+ACTION 横机填报保存及自动缝盘
+NAV /fcs/craft/wool/pending-receipts?workOrderId=WOOL-STAGE-001%3AKNITTING
+ACTION 纱线接收弹窗
+ACTION 纱线实收保存
+NAV /fcs/pda/wool/pending-receipts?workOrderId=WOOL-STAGE-010%3ALINKING
+ACTION PDA回货片实收保存
+{"checks":[{"name":"横机六状态与八列","pass":true},{"name":"真实按钮无外加工四事实同步保存","pass":true},{"name":"真实接收净重1kg","pass":true},{"name":"PDA独立外壳及无页面横溢","pass":true},{"name":"PDA实际回货片保存5片","pass":true}],"errors":[],"functionalPass":true,"performanceStatus":"NOT_ASSESSED_BY_THIS_SCRIPT"}

@@ -1,4 +1,5 @@
 import { listFactoryWarehouseOutboundRecords } from '../data/fcs/factory-internal-warehouse.ts'
+import { renderPdaWoolWarehouseFlows } from './pda-wool-warehouse-flows.ts'
 import { KOL_GOTO_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import { isKolGotoFactory } from '../data/fcs/kol-goto-special-flow.ts'
 import { ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
@@ -310,6 +311,8 @@ function renderPostFinishingOutboundRecordsPage(runtimeFactoryName: string): str
 export function renderPdaWarehouseOutboundRecordsPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
+  const wool = renderPdaWoolWarehouseFlows(runtime.factoryId, runtime.factoryName, 'OUT')
+  if (wool) return wool
   if (isKolGotoFactory(runtime.factoryId)) ensureKolGotoPdaScenarios()
   syncStateFromQuery()
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingOutboundRecordsPage(runtime.factoryName)

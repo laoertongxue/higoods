@@ -7,7 +7,7 @@ const WOOL_SESSION = {
   roleId: 'ROLE_OPERATOR',
   factoryId: 'OWN_WOOL_FACTORY',
   factoryName: '周哥毛织厂',
-  loggedAt: '2026-07-31 10:00:00',
+  loggedAt: '2026-09-18 10:00:00',
 }
 
 test.beforeEach(async ({ page }) => {
@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('毛织输入和弹窗动作经过真实 main.ts 分发链且不替换整页根节点', async ({ page }) => {
-  await page.goto('/fcs/pda/exec/TASK-WOOL-MOCK-01')
+  await page.goto('/fcs/pda/exec/TASK-WOOL-STAGE-002%3AKNITTING')
   const woolRoot = page.locator('[data-pda-wool-root]')
   await expect(woolRoot).toBeVisible()
   const originalRoot = await woolRoot.elementHandle()
@@ -27,7 +27,7 @@ test('毛织输入和弹窗动作经过真实 main.ts 分发链且不替换整�
   await expect(page.locator('[data-pda-wool-overlay-root] section')).toBeVisible()
   expect(await originalRoot!.evaluate((node) => node.isConnected)).toBe(true)
 
-  const draftInput = page.locator('[data-pda-wool-draft="sync-draft"]:visible').first()
+  const draftInput = page.locator('input[data-pda-wool-draft="sync-draft"]:visible').first()
   if (await draftInput.getAttribute('type') === 'checkbox') {
     await draftInput.check()
   } else {
@@ -61,4 +61,12 @@ test('执行任务卡滑到底部自动追加，搜索后重置首批并局部�
     expect(await listRoot.locator('[data-testid="pda-exec-task-card"]').count()).toBeLessThanOrEqual(10)
     expect(await originalList!.evaluate((node) => node.isConnected)).toBe(true)
   }
+})
+
+
+test('横机 PDA 执行页保留返回指定任务列表入口', async ({ page }) => {
+  await page.goto('/fcs/pda/exec/TASK-WOOL-STAGE-002%3AKNITTING?returnTo=%2Ffcs%2Fpda%2Fexec%3Ftab%3DNOT_STARTED')
+  await page.locator('[data-pda-wool-root] [data-pda-execd-action="back"]').click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec\?tab=NOT_STARTED$/)
+  await expect(page.locator('[data-testid="pda-exec-card-list"]')).toBeVisible()
 })

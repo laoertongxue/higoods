@@ -31,6 +31,10 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
     ...item,
     selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
     rulSizeList: [...(item.rulSizeList ?? [])],
+    pieceInstances: item.pieceInstances?.map((instance) => ({
+      ...instance,
+      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+    })),
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],

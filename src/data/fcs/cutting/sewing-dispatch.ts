@@ -1137,7 +1137,7 @@ function buildContentItemFromFeiTicket(
     rollNo: ticket.fabricRollNo,
     qty: getTicketDispatchQty(ticket),
     currentQty: getTicketDispatchQty(ticket),
-    unit: '片',
+    unit: ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' ? '件' : '片',
     completedSpecialCraftNames: summary.completedOperationNames,
   }
 }
@@ -1388,6 +1388,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
 }
 
 function listReadyFeiTicketSourcesForSewingDispatch(input: {
+  cuttingFactoryId?: string
   productionOrderId?: string
   colorName?: string
   sizeCode?: string
@@ -1395,6 +1396,7 @@ function listReadyFeiTicketSourcesForSewingDispatch(input: {
   excludeBagId?: string
 } = {}): GeneratedFeiTicketSourceRecord[] {
   return listSewingDispatchFeiTicketSources().filter((ticket) => {
+    if (ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' && ticket.receivingFactoryId !== (input.cuttingFactoryId || getCuttingFactory().id)) return false
     if (input.productionOrderId && ticket.productionOrderId !== input.productionOrderId) return false
     if (input.colorName && ticket.garmentColor !== input.colorName) return false
     if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
@@ -1406,6 +1408,7 @@ function listReadyFeiTicketSourcesForSewingDispatch(input: {
 }
 
 function listAvailableFeiTicketsForSewingDispatchInternal(input: {
+  cuttingFactoryId?: string
   productionOrderId?: string
   colorName?: string
   sizeCode?: string
@@ -1424,6 +1427,7 @@ function getAvailablePieceQtyForSkuLine(productionOrderId: string, colorName: st
 }
 
 export function getEligibleFeiTicketsForSewingDispatch(input: {
+  cuttingFactoryId?: string
   productionOrderId: string
   colorName?: string
   sizeCode?: string
@@ -1434,6 +1438,7 @@ export function getEligibleFeiTicketsForSewingDispatch(input: {
 }
 
 export function listAvailableFeiTicketsForSewingDispatch(input: {
+  cuttingFactoryId?: string
   productionOrderId?: string
   colorName?: string
   sizeCode?: string
@@ -1444,6 +1449,7 @@ export function listAvailableFeiTicketsForSewingDispatch(input: {
 }
 
 export function listAvailableCutPieceInventoryForSewingDispatch(input: {
+  cuttingFactoryId?: string
   productionOrderId?: string
   colorName?: string
   sizeCode?: string
@@ -2465,6 +2471,7 @@ export function scanFeiTicketIntoTransferBag(input: {
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
   }
+  if (ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' && ticket.receivingFactoryId !== order.cuttingFactoryId) throw new Error('毛织产物不属于当前裁厂实际接收，不能装袋')
   if (ticket.productionOrderId !== bag.productionOrderId) {
     const result: CuttingSewingDispatchValidationResult = {
       ...baseResult,
@@ -2781,6 +2788,7 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
     if (item.sourceKind !== 'FEI_TICKET') return
     const ticket = item.feiTicketNo ? resolveFeiTicketForSewingDispatch(item.feiTicketNo) : undefined
     const belongsToBatch = ticket && ticket.productionOrderId === batch.productionOrderId
+      && (ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT' || ticket.receivingFactoryId === findDispatchOrderById(storeRef, bag.dispatchOrderId).cuttingFactoryId)
     if (belongsToBatch) return
     results.push({
       validationId: `CSV-${bag.transferBagId}-CONTENT-${String(index + 1).padStart(3, '0')}`,

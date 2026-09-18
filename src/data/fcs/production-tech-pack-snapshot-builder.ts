@@ -181,6 +181,10 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
         supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
       })),
     })),
+    pieceInstances: item.pieceInstances?.map((instance) => ({
+      ...instance,
+      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+    })),
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
@@ -440,6 +444,10 @@ function normalizePatternFiles(
           supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
+      })),
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
       })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
@@ -853,6 +861,10 @@ function alignSnapshotWithDemandSkuLines(
       ...item,
       selectedSizeCodes: sizes,
       sizeRange: sizes.join(' / ') || item.sizeRange,
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
+      })),
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         applicableSkuCodes: allSkuCodes,

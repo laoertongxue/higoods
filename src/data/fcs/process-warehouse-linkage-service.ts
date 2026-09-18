@@ -114,6 +114,7 @@ export function validateWarehouseLinkageBeforeAction(
   ) {
     return { success: true, message: '无需仓事实预校验' }
   }
+  if (getSpecialCraftTaskOrderById(actionResult.sourceId)?.woolFinalInputOrderIds?.length) return { success: true, message: '缝盘成衣按实际批次实收和逐 SKU 进度校验' }
   const context = resolveSpecialCraftContext(actionResult)
   if (!context) return { success: false, message: '未找到特殊工艺单，不能校验成衣完工仓事实' }
   if (!actionResult.skuQtyBySkuCode) return { success: false, message: '成衣完工必须逐 SKU 确认完工件数' }
@@ -580,6 +581,21 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
   if (!context.sourceProductionOrderId || !context.sourceProductionOrderNo) {
     return mergeResult(base, { success: false, message: '特殊工艺单缺少来源生产单，不能执行仓联动' })
   }
+  const finalWoolTask = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)
+  if (finalWoolTask?.woolFinalInputOrderIds?.length) {
+    const waitProcess = createWaitProcessWarehouseRecord({
+      ...context, sourceFactoryName: finalWoolTask.woolFinalReceipts?.[0]?.sourceFactoryName || '毛织厂',
+      targetFactoryId: context.currentFactoryId, targetFactoryName: context.currentFactoryName,
+      targetWarehouseName: `${context.craftName}待加工仓`, currentActionName: `待${context.craftName}`,
+      receivedObjectQty: finalWoolTask.receivedQty, availableObjectQty: Math.max(finalWoolTask.receivedQty - finalWoolTask.completedQty, 0),
+      status: finalWoolTask.receivedQty > finalWoolTask.completedQty ? '加工中' : '全部出库',
+      inboundAt: finalWoolTask.woolFinalReceipts?.filter(batch => batch.receivedQty !== undefined).at(-1)?.receivedAt,
+      remark: '缝盘实际交出批次确认实收',
+    })
+    if (actionResult.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') return mergeResult(base, {
+      updatedWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId, message: '缝盘成衣已按实际交出批次接收，库存读取同一实收',
+    })
+  }
   if (context.objectType === '捆条') {
     const workOrder = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)
     if (!workOrder) return mergeResult(base, { success: false, message: '未找到盘扣加工单，不能执行专用仓联动' })
@@ -743,7 +759,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     targetWarehouseName: `${context.craftName}待交出仓`,
     warehouseLocation: `${context.craftName}待交出仓-B01`,
   }
-  if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') {
+  if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && !finalWoolTask?.woolFinalInputOrderIds?.length) {
     if (!actionResult.skuQtyBySkuCode) {
       return mergeResult(base, { success: false, message: '成衣完工必须逐 SKU 确认完工件数' })
     }

@@ -1,3 +1,4 @@
+import {renderWoolObjectImage} from './stage-display.ts'
 import {getFactoryReceiptLocations} from '../../../data/fcs/factory-receiving.ts'
 // @page-pattern: list
 
@@ -135,6 +136,7 @@ const TYPE_LABELS = {
 } as const
 const BUSINESS_LABELS: Record<WoolWarehouseFlow['businessType'], string> = {
   YARN_RECEIPT: '确认接收入库',
+  PIECE_RECEIPT: '外加工片接收入库',
   YARN_ISSUE: '纱线领用',
   YARN_RETURN: '纱线退回',
   PROCESS_REPORT: '加工填报入库',
@@ -302,7 +304,7 @@ function rowsForTab(mode: WarehouseMode, tab: WarehouseTab): WarehouseListRow[] 
       if (tab === 'receipts') return flow.businessType === 'YARN_RECEIPT'
       if (tab === 'issues') return flow.businessType === 'YARN_ISSUE'
       if (tab === 'returns') return flow.businessType === 'YARN_RETURN'
-      if (tab === 'inbounds') return flow.businessType === 'PROCESS_REPORT'
+      if (tab === 'inbounds') return (flow.businessType === 'PROCESS_REPORT' || flow.businessType === 'PIECE_RECEIPT')
       if (tab === 'outbounds') return flow.businessType === 'HANDOVER'
       if (tab === 'adjustments') return flow.flowType === 'ADJUSTMENT'
       return flow.flowType === 'TRANSFER'
@@ -327,7 +329,7 @@ function flowBelongsToTab(flow: WoolWarehouseFlow, tab: WarehouseTab): boolean {
   if (tab === 'receipts') return flow.businessType === 'YARN_RECEIPT'
   if (tab === 'issues') return flow.businessType === 'YARN_ISSUE'
   if (tab === 'returns') return flow.businessType === 'YARN_RETURN'
-  if (tab === 'inbounds') return flow.businessType === 'PROCESS_REPORT'
+  if (tab === 'inbounds') return (flow.businessType === 'PROCESS_REPORT' || flow.businessType === 'PIECE_RECEIPT')
   if (tab === 'outbounds') return flow.businessType === 'HANDOVER'
   if (tab === 'adjustments') return flow.flowType === 'ADJUSTMENT'
   return flow.flowType === 'TRANSFER'
@@ -500,14 +502,19 @@ const columns: StandardListColumn<WarehouseListRow>[] = [
     render: (row) => `<div><div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(row.recordNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.businessLabel)}</div></div>`,
   },
   {
-    key: 'order', title: '毛织加工单', width: 180, required: true, freezeable: true, sortable: true,
+    key: 'order', title: '阶段加工单', width: 180, required: true, freezeable: true, sortable: true,
     sortValue: (row) => row.woolOrderNo,
     render: (row) => `<div><div class="font-mono text-xs">${escapeHtml(row.woolOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.productionOrderNo)}</div></div>`,
   },
   {
     key: 'object', title: '库存对象', width: 230, required: true, sortable: true,
     sortValue: (row) => row.objectSkuCode,
-    render: (row) => `<div class="flex gap-2">${row.objectSkuCode==='YARN-COTTON-MIXED'?'<button data-skip-page-rerender="true" data-pda-image-preview-url="/materials/process-orders/cotton-yarn-cone.jpg" data-pda-image-preview-title="粉黑白段染棉纱"><img class="h-12 w-12 object-cover" src="/materials/process-orders/cotton-yarn-cone.jpg" alt="粉黑白段染棉纱实物图"></button>':''}<div class="font-mono text-xs font-medium">${escapeHtml(row.objectSkuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(TYPE_LABELS[row.objectType])} / ${escapeHtml(row.objectName)}</div></div>`,
+    render: (row) => {
+      const store=runtimeStore(),order=store.workOrders[row.woolOrderId]
+      const yarn=store.yarnReceipts.flatMap(r=>r.lines).find(l=>l.yarnSkuCode===row.objectSkuCode)
+      const image=row.objectType==='YARN'?yarn?.imageUrl||order?.yarnMaterials?.find(m=>m.sku===row.objectSkuCode)?.imageUrl:order?.styleImageUrl
+      return `<div class="flex gap-2">${renderWoolObjectImage(image,row.objectType==='YARN'?row.objectName:`${order?.styleNo||''} 款式参考图`)}<div class="min-w-0"><div class="break-all font-mono text-xs font-medium">${escapeHtml(row.objectSkuCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(TYPE_LABELS[row.objectType])} / ${escapeHtml(row.objectName)}${row.unit==='件'&&row.objectType==='CUT_PIECE'?'（对应件数）':''}</div></div></div>`
+    },
   },
   {
     key: 'batch', title: '批次', width: 130, sortable: true,

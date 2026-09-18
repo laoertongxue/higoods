@@ -2206,17 +2206,21 @@ export function isCuttingSpecialTask(task: Partial<PdaTaskFlowProjectedTask> | s
   return task.taskType === 'CUTTING' || task.supportsCuttingSpecialActions === true || Boolean(task.taskId && getPdaCuttingTaskSourceRecord(task.taskId))
 }
 
-export function listPdaTaskFlowProjectedTasks(snapshot?: CuttingDomainSnapshot): PdaTaskFlowProjectedTask[] {
+export function listPdaTaskFlowProjectedTasks(snapshot?: CuttingDomainSnapshot, factoryId?: string): PdaTaskFlowProjectedTask[] {
   const currentSnapshot = getSnapshot(snapshot)
   const tasks = listTaskFacts()
   const lookup = buildPdaTaskProjectionLookup(tasks)
   return tasks
+    // Preserve unassigned tasks until projection resolves the existing default factory.
+    // A factory's task list does not need other factories' detailed cutting projections.
+    .filter((task) => !factoryId || !task.assignedFactoryId || task.assignedFactoryId === factoryId)
     .map((task) => buildProjectedTask(task, currentSnapshot, lookup))
+    .filter((task) => !factoryId || task.assignedFactoryId === factoryId)
     .sort((left, right) => (left.taskNo || left.taskId).localeCompare(right.taskNo || right.taskId, 'zh-CN'))
 }
 
-export function listPdaTaskFlowTasks(snapshot?: CuttingDomainSnapshot): PdaTaskFlowProjectedTasks[] {
-  return listPdaTaskFlowProjectedTasks(snapshot) as PdaTaskFlowProjectedTasks[]
+export function listPdaTaskFlowTasks(snapshot?: CuttingDomainSnapshot, factoryId?: string): PdaTaskFlowProjectedTasks[] {
+  return listPdaTaskFlowProjectedTasks(snapshot, factoryId) as PdaTaskFlowProjectedTasks[]
 }
 
 type PdaTaskFlowProjectedTasks = PdaTaskFlowProjectedTask

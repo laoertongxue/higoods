@@ -32,6 +32,8 @@ import {
 } from '../../../data/fcs/wool-task-domain.ts'
 import { buildWoolHandoverPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { linkingCapacity, pieceAvailableQty, stageReportedQty } from '../../../data/fcs/wool-domain/stage-rules.ts'
+import { woolStageLabel, woolStagePath, renderWoolOrderIdentity, renderWoolStageInputs, renderWoolStageRequirements, renderWoolStageProgress, renderWoolStageOutputs, renderWoolStageTimes, renderWoolStageQuantities, renderWoolObjectImage, renderWoolPieceRoutes, type WoolPageStage } from './stage-display.ts'
 import {
   formatQty,
   renderBadge,
@@ -49,6 +51,7 @@ type WoolDetailTab =
   | 'receipts'
   | 'reports'
   | 'handovers'
+  | 'routes'
   | 'machines'
   | 'operations'
 
@@ -73,7 +76,8 @@ type DetailOverlay =
 const PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 const DETAIL_TABS: Array<{ key: WoolDetailTab; label: string }> = [
   { key: 'overview', label: '业务概览' },
-  { key: 'readiness', label: '款色用料与开工判断' },
+  { key: 'readiness', label: '投入与可加工数量' },
+  { key: 'routes', label: '片及工艺路线' },
   { key: 'receipts', label: '确认接收记录' },
   { key: 'reports', label: '加工填报记录' },
   { key: 'handovers', label: '发起交出记录' },
@@ -137,9 +141,10 @@ function renderFeedback(): string {
 }
 
 function renderTabs(): string {
+  const order = getOrder(state.woolOrderId)
   return `
     <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1" aria-label="毛织加工单详情页签">
-      ${DETAIL_TABS.map((item) => `
+      ${DETAIL_TABS.filter(item => item.key !== 'machines' || order?.stage === 'KNITTING').map((item) => `
         <button
           type="button"
           class="rounded-md px-3 py-2 text-sm ${item.key === state.activeTab ? 'bg-blue-600 font-medium text-white' : 'text-muted-foreground hover:bg-muted'}"
@@ -152,7 +157,7 @@ function renderTabs(): string {
   `
 }
 
-export function paginateWoolDetailItems<T>(
+export function paginateWoolStageDetailItems<T>(
   items: T[],
   pages: Record<string, number>,
   listKey: string,
@@ -182,7 +187,7 @@ export function paginateWoolDetailItems<T>(
   }
 }
 
-export function stepWoolDetailPage(
+export function stepWoolStageDetailPage(
   pages: Record<string, number>,
   listKey: string,
   delta: number,
@@ -202,7 +207,7 @@ function renderPaging<T>(
   defaultPageSize = 5,
 ): { rows: T[]; footer: string } {
   const pageSize = state.pageSizes[listKey] || defaultPageSize
-  const paging = paginateWoolDetailItems(items, state.pages, listKey, pageSize)
+  const paging = paginateWoolStageDetailItems(items, state.pages, listKey, pageSize)
   const footer = renderTablePagination({
     total: paging.total,
     from: paging.from,
@@ -280,59 +285,8 @@ function renderProofFiles(
 }
 
 function renderOverview(order: WoolWorkOrder): string {
-  const store = readWoolStore()
-  const receipts = store.yarnReceipts.filter((record) => record.woolOrderId === order.woolOrderId)
-  const receivedQty = receipts.reduce((sum, record) =>
-    sum + record.lines.reduce((lineSum, line) => lineSum + effectiveReceiptQty(record, line), 0), 0)
-  const reportedByUnit = order.outputPlanLines.reduce<Record<string, number>>((totals, line) => {
-    totals[line.qtyUnit] = (totals[line.qtyUnit] ?? 0)
-      + getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
-    return totals
-  }, {})
-  const handedByUnit = order.outputPlanLines.reduce<Record<string, number>>((totals, line) => {
-    totals[line.qtyUnit] = (totals[line.qtyUnit] ?? 0)
-      + getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode)
-    return totals
-  }, {})
-  const machines = listWoolMachineAssociations(order.woolOrderId)
-    .map((association) => getWoolMachineById(association.machineId)?.machineNo || association.machineId)
   const completion = getWoolCompletion(order.woolOrderId)
-  const qtySummary = (values: Record<string, number>) =>
-    Object.entries(values).map(([unit, qty]) => formatQty(qty, unit)).join('、') || '0'
-
-  return `
-    ${renderSection('计划与当前事实', `
-      <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-        ${renderField('毛织加工单', order.woolOrderNo)}
-        ${renderField('生产单', order.productionOrderNo)}
-        ${renderField('任务编号', order.taskNo)}
-        ${renderField('加工状态', getWoolProcessingStatus(order.woolOrderId) === 'COMPLETED' ? '已完成' : getWoolProcessingStatus(order.woolOrderId) === 'PROCESSING' ? '加工中' : '未加工')}
-        ${renderField('计划加工后 SKU', `${order.outputPlanLines.length} 个`)}
-        ${renderField('计划数量', Object.entries(order.outputPlanLines.reduce<Record<string, number>>((totals, line) => {
-          totals[line.qtyUnit] = (totals[line.qtyUnit] ?? 0) + line.plannedQty
-          return totals
-        }, {})).map(([unit, qty]) => formatQty(qty, unit)).join('、'))}
-        ${renderField('累计有效接收', formatQty(receivedQty, 'kg'))}
-        ${renderField('累计有效加工', qtySummary(reportedByUnit))}
-        ${renderField('累计有效交出', qtySummary(handedByUnit))}
-        ${renderField('结构化下游去向', `${order.downstreamTarget.receiverName || '未配置'}（${order.downstreamTarget.receiverId || '无稳定标识'}）`)}
-        ${renderField('当前横机', machines.join('、') || '未关联')}
-      </div>
-    `)}
-    ${renderSection('生成时冻结资料', `
-      <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-        ${renderField('款号', order.styleNo)}
-        ${renderField('款名', order.styleName)}
-        ${renderField('内部货号', order.internalStyleCode || '—')}
-        ${renderField('承接工厂', order.factoryName)}
-        ${renderField('计划开始', order.plannedStartAt || '—')}
-        ${renderField('计划完成', order.plannedCompletionAt)}
-        ${renderField('技术包版本', order.sourceTechPackVersionCode)}
-        ${renderField('加工类型', order.kind === 'PART_PANEL' ? '部位毛织' : '整件毛织')}
-      </div>
-    `)}
-    ${completion ? renderCompletionFacts(order, completion) : ''}
-  `
+  return `<div class="grid gap-4 lg:grid-cols-2">${renderSection('加工单、商品与需求来源', renderWoolOrderIdentity(order, true))}${renderSection('投入与上游', renderWoolStageInputs(order))}${renderSection('加工要求', renderWoolStageRequirements(order, true))}${renderSection('处理进度', renderWoolStageProgress(order))}${renderSection('产出与下游', renderWoolStageOutputs(order))}${renderSection('数量', renderWoolStageQuantities(order))}${renderSection('时间', renderWoolStageTimes(order, true))}</div>${completion ? renderCompletionFacts(order, completion) : ''}`
 }
 
 function renderCompletionFacts(
@@ -340,31 +294,12 @@ function renderCompletionFacts(
   completion: NonNullable<ReturnType<typeof getWoolCompletion>>,
 ): string {
   const snapshot = completion.confirmationSnapshot
-  const laterConfirmed = readWoolStore().handovers
-    .filter((record) => {
-      if (
-        record.woolOrderId !== order.woolOrderId
-        || record.downstreamReceipt?.status !== 'CONFIRMED'
-      ) {
-        return false
-      }
-      const frozenHandover = snapshot.handoverSummary.find((item) =>
-        item.handoverId === record.handoverId
-        && item.outputSkuCode === record.outputSkuCode,
-      )
-      if (!frozenHandover) return false
-      return (
-        frozenHandover.downstreamReceivedAt === undefined
-        && frozenHandover.downstreamActualReceivedQty === undefined
-        && frozenHandover.downstreamDifferenceQty === undefined
-      )
-    })
   const receiptFacts = [
     ...snapshot.yarnReceiptSummary.map((item) =>
       `纱线 ${item.yarnSkuCode}：${formatQty(item.receivedQty, item.qtyUnit)}`,
     ),
     ...snapshot.outputReadinessSummary.map((item) =>
-      `${item.outputSkuCode}：${item.missingYarnSkus.length ? `缺 ${item.missingYarnSkus.join('、')}` : '必需纱线已齐'}`,
+      `${item.outputSkuCode}：${order.stage === 'LINKING' ? '缝盘投入已按实收核对' : item.missingYarnSkus.length ? `缺 ${item.missingYarnSkus.join('、')}` : '具备必需纱线种类'}`,
     ),
   ]
   const reportFacts = snapshot.processReportSummary.map((item) =>
@@ -391,7 +326,7 @@ function renderCompletionFacts(
     ...snapshot.waitHandoverStockSummary.map((item) =>
       `待交出 ${item.outputSkuCode}：${formatQty(item.stockQty, item.qtyUnit)}`,
     ),
-    ...releasedMachineFacts,
+    ...(order.stage === 'KNITTING' ? releasedMachineFacts : []),
   ]
   const receiptPaging = renderPaging(
     receiptFacts,
@@ -409,10 +344,6 @@ function renderCompletionFacts(
     warehouseFacts,
     `completion-warehouse:${order.woolOrderId}:${completion.completionId}`,
   )
-  const downstreamPaging = renderPaging(
-    laterConfirmed,
-    `downstream-after-completion:${order.woolOrderId}:${completion.completionId}`,
-  )
   return `
     ${renderSection('完成加工单确认', `
       <div class="grid gap-3 text-sm md:grid-cols-3">
@@ -424,7 +355,7 @@ function renderCompletionFacts(
     ${renderSection('完成确认时冻结事实', `
       <div class="grid gap-3 lg:grid-cols-2">
         <article class="rounded-md border p-3">
-          <h3 class="text-sm font-medium">1. 确认接收与款色齐料</h3>
+          <h3 class="text-sm font-medium">1. 投入接收与加工条件</h3>
           <div class="mt-2 space-y-2 text-xs">
             ${receiptPaging.rows.map((fact) => `<div>${escapeHtml(fact)}</div>`).join('') || '<div class="text-muted-foreground">完成时无有效接收</div>'}
           </div>
@@ -445,7 +376,7 @@ function renderCompletionFacts(
           ${handoverPaging.footer}
         </article>
         <article class="rounded-md border p-3">
-          <h3 class="text-sm font-medium">4. 完成时仓库与解除横机</h3>
+          <h3 class="text-sm font-medium">4. 完成时库存核对</h3>
           <div class="mt-2 space-y-2 text-xs">
             ${warehousePaging.rows.map((fact) => `<div>${escapeHtml(fact)}</div>`).join('') || '<div class="text-muted-foreground">完成时无仓库库存或解除横机</div>'}
           </div>
@@ -453,24 +384,21 @@ function renderCompletionFacts(
         </article>
       </div>
     `)}
-    ${renderSection('完成后的下游确认', `
-      <div class="overflow-hidden rounded-md border">
-        ${downstreamPaging.rows.map((record) => `
-          <div class="grid gap-2 border-b px-3 py-2 text-sm last:border-b-0 md:grid-cols-5">
-            <span>${escapeHtml(record.handoverId)}</span>
-            <span>${escapeHtml(record.outputSkuCode)}</span>
-            <span>来源交出 ${formatQty(getWoolHandoverEffectiveQty(readWoolStore(), record), record.qtyUnit)}</span>
-            <span>实际接收 ${formatQty(record.downstreamReceipt?.actualReceivedQty, record.qtyUnit)}</span>
-            <span>差异 ${formatQty(record.downstreamReceipt?.differenceQty, record.qtyUnit)} / ${escapeHtml(record.downstreamReceipt?.receivedBy || '—')} / ${escapeHtml(record.downstreamReceipt?.receivedAt || '—')}</span>
-          </div>
-        `).join('') || '<div class="px-3 py-4 text-sm text-muted-foreground">完成后暂无下游确认回写</div>'}
-      </div>
-      ${downstreamPaging.footer}
-    `)}
+
   `
 }
 
 function renderReadiness(order: WoolWorkOrder): string {
+  if (order.stage === 'LINKING') {
+    const store = readWoolStore()
+    const paging = renderPaging(order.outputPlanLines, `readiness:${order.woolOrderId}`)
+    return renderSection('缝盘可加工数量', `<div class="mb-3 text-sm text-muted-foreground">按同一 SKU 的不外发片对应件数及各外加工片实际回货共同计算；不同颜色、尺码不混用。</div>${renderTable(['SKU／颜色尺码', '计划', '内部对应进度', '回货可支撑', '已填报', '本次可填报', '填报方式'], paging.rows.map(line => {
+      const manual = order.externalPieces.some(piece => piece.skuCode === line.outputSkuCode)
+      const internal = store.internalReceipts.filter(item => item.woolOrderId === order.woolOrderId && item.outputSkuCode === line.outputSkuCode).reduce((sum, item) => sum + item.qty, 0)
+      const readiness = getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode)
+      return `<tr class="border-b"><td class="p-3">${escapeHtml(line.outputSkuCode)}<div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)}／${escapeHtml(line.sizeCode)}</div></td><td class="p-3">${formatQty(line.plannedQty, '件')}</td><td class="p-3">对应 ${formatQty(internal, '件')}</td><td class="p-3">${formatQty(linkingCapacity(store, order, line.outputSkuCode), '件')}</td><td class="p-3">${formatQty(readiness.reportedQty, '件')}</td><td class="p-3">${formatQty(manual && readiness.canReport ? readiness.remainingReportQty : 0, '件')}</td><td class="p-3">${manual ? '按已知外加工片回货人工填报' : '横机填报自动衔接，不重复手填'}</td></tr>`
+    }).join(''), 'min-w-[980px]')}${paging.footer}`)
+  }
   const projection = getWoolWorkOrderReadinessProjection(order.woolOrderId)
   const paging = renderPaging(order.outputPlanLines, `readiness:${order.woolOrderId}`)
   const rows = paging.rows.map((line) => {
@@ -487,7 +415,8 @@ function renderReadiness(order: WoolWorkOrder): string {
           const summary = aggregate?.isReceived
             ? `${formatQty(aggregate.receivedQty, aggregate.qtyUnit)} / ${aggregate.effectiveRecordCount} 个有效接收记录 / ${aggregate.effectiveBatchCount} 个批次 / 最近接收 ${aggregate.latestReceivedAt || '—'}`
             : '未确认接收'
-          return `<div class="mb-2"><strong>${escapeHtml(sku)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(summary)}</div></div>`
+          const receiptLine = readWoolStore().yarnReceipts.filter(item => item.woolOrderId === order.woolOrderId).flatMap(item => item.lines).find(item => item.yarnSkuCode === sku)
+          return `<div class="mb-2 flex gap-2">${renderWoolObjectImage(receiptLine?.imageUrl || order.yarnMaterials?.find(item => item.sku === sku)?.imageUrl, sku)}<div><strong>${escapeHtml(sku)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(summary)}</div></div></div>`
         }).join('') || '<span class="text-red-600">技术包未配置必需纱线</span>'}</td>
         <td class="px-3 py-3">${escapeHtml(readiness.missingYarnSkus.join('、') || '无')}</td>
         <td class="px-3 py-3">${renderBadge(readiness.canReport ? '可以加工填报' : '不可加工填报', readiness.canReport ? 'success' : 'warning')}<div class="mt-1 text-xs text-muted-foreground">剩余可填 ${formatQty(readiness.remainingReportQty, line.qtyUnit)}</div></td>
@@ -527,7 +456,9 @@ function editButton(input: {
   downstreamReceipt?: WoolHandoverRecord['downstreamReceipt']
   maxQty?: number
 }): string {
-  const unlocked = canEditOrder(input.order)
+  const store = readWoolStore()
+  const automatic = input.recordType === 'PROCESS_REPORT' ? Boolean(store.processReports.find(item => item.reportId === input.recordId)?.sourceReportId) : input.recordType === 'HANDOVER' ? Boolean(store.handovers.find(item => item.handoverId === input.recordId)?.automatic) : true
+  const unlocked = canEditOrder(input.order) && !automatic
     && (input.recordType !== 'HANDOVER' || input.downstreamReceipt?.status !== 'CONFIRMED')
   if (!unlocked) return ''
   return `
@@ -548,6 +479,12 @@ function editButton(input: {
 }
 
 function renderReceipts(order: WoolWorkOrder): string {
+  if (order.stage === 'LINKING') {
+    const store = readWoolStore()
+    const records = [...store.internalReceipts.filter(item => item.woolOrderId === order.woolOrderId).map(item => ({ id: item.receiptId, object: item.outputSkuCode, qty: item.qty, unit: '对应件', source: item.sourceReportId, at: item.receivedAt, by: item.receivedBy, kind: '不外发片内部自动接收' })), ...store.pieceReceipts.filter(item => item.woolOrderId === order.woolOrderId).map(item => ({ id: item.receiptId, object: order.externalPieces.find(piece => piece.pieceKey === item.pieceKey)?.pieceName || item.pieceKey, qty: item.qty, unit: '片', source: item.sourceHandoverId, at: item.receivedAt, by: item.receivedBy, kind: '外加工片实际回货' }))].sort((a, b) => b.at.localeCompare(a.at))
+    const paging = renderPaging(records, `receipts:${order.woolOrderId}`)
+    return renderSection('投入接收记录', `${renderTable(['接收批次', '接收类型', '对象', '实际接收', '来源填报／交出', '操作人／时间'], paging.rows.map(item => `<tr class="border-b"><td class="p-3">${escapeHtml(item.id)}</td><td class="p-3">${escapeHtml(item.kind)}</td><td class="p-3">${escapeHtml(item.object)}</td><td class="p-3">${formatQty(item.qty, item.unit)}</td><td class="p-3">${escapeHtml(item.source)}</td><td class="p-3">${escapeHtml(item.by)}<div>${escapeHtml(item.at)}</div></td></tr>`).join(''), 'min-w-[980px]')}${paging.footer}`, `<button class="rounded border px-3 py-1 text-xs" data-nav="/fcs/craft/wool/pending-receipts?workOrderId=${encodeURIComponent(order.woolOrderId)}">查看待接收</button>`)
+  }
   const records = listWoolFactRecords({
     woolOrderId: order.woolOrderId,
     recordType: 'YARN_RECEIPT',
@@ -560,7 +497,7 @@ function renderReceipts(order: WoolWorkOrder): string {
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3 font-medium">${escapeHtml(record.receiptNo)}</td>
           <td class="px-3 py-3">${escapeHtml(record.deliveryNo || '—')} / ${escapeHtml(record.batchNo || '—')}</td>
-          <td class="px-3 py-3">${record.lines.map((line) => `${escapeHtml(line.yarnSkuCode)} ${line.yarnWeight?yarnWeightText(line.yarnWeight):formatQty(effectiveReceiptQty(record, line), line.qtyUnit)+'（历史记录仅存净重）'}`).join('<br>')}</td>
+          <td class="px-3 py-3">${record.lines.map((line) => `<div class="mb-2 flex gap-2">${renderWoolObjectImage(line.imageUrl, line.yarnName + ' ' + line.yarnSkuCode)}<div>${escapeHtml(line.yarnSkuCode)} ${line.yarnWeight?yarnWeightText(line.yarnWeight):formatQty(effectiveReceiptQty(record, line), line.qtyUnit)+'（仅记录净重）'}</div></div>`).join('')}</td>
           <td class="px-3 py-3">${escapeHtml(record.receivedBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.receivedAt)}</div></td>
           <td class="px-3 py-3">${record.proofFiles?.length || 0} 个凭证<div class="text-xs text-muted-foreground">${escapeHtml(record.remark || '无备注')}</div></td>
           <td class="px-3 py-3">${recordActionButton('YARN_RECEIPT', record.receiptId)}</td>
@@ -587,7 +524,7 @@ function renderReports(order: WoolWorkOrder): string {
         const currentQty = getWoolProcessReportEffectiveQty(store, record)
         return `
           <tr class="border-b align-top last:border-b-0">
-            <td class="px-3 py-3 font-medium">${escapeHtml(record.reportId)}</td>
+            <td class="px-3 py-3 font-medium">${escapeHtml(record.reportId)}${record.sourceReportId ? `<div class="text-xs text-blue-700">横机填报自动衔接 ${escapeHtml(record.sourceReportId)}</div>` : ''}</td>
             <td class="px-3 py-3">${escapeHtml(record.outputSkuCode)}</td>
             <td class="px-3 py-3">${formatQty(currentQty, line?.qtyUnit)}</td>
             <td class="px-3 py-3">${escapeHtml(record.reportedBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.reportedAt)}</div></td>
@@ -618,13 +555,13 @@ function renderHandovers(order: WoolWorkOrder): string {
         return `
           <tr class="border-b align-top last:border-b-0">
             <td class="px-3 py-3 font-medium">${escapeHtml(record.handoverId)}</td>
-            <td class="px-3 py-3">${escapeHtml(record.outputSkuCode)}</td>
+            <td class="px-3 py-3">${escapeHtml(record.outputSkuCode)}${record.pieceKey ? `<div>${escapeHtml(order.externalPieces.find(piece => piece.pieceKey === record.pieceKey)?.pieceName || record.pieceKey)}</div>` : ''}${record.automatic ? '<div class="text-xs text-blue-700">内部自动衔接</div>' : ''}</td>
             <td class="px-3 py-3">${formatQty(currentQty, record.qtyUnit)}</td>
             <td class="px-3 py-3">${escapeHtml(record.receiverName)}<div class="text-xs text-muted-foreground">${escapeHtml(record.receiverId)}</div></td>
             <td class="px-3 py-3">${escapeHtml(record.handedOverBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.handedOverAt)}</div></td>
             <td class="px-3 py-3">${escapeHtml(record.warehouseOutboundFlowId)}</td>
             <td class="px-3 py-3">${record.downstreamReceipt?.status === 'CONFIRMED' ? `已确认 ${formatQty(record.downstreamReceipt.actualReceivedQty, record.qtyUnit)} / 差异 ${formatQty(record.downstreamReceipt.differenceQty, record.qtyUnit)}` : '待下游确认'}</td>
-            <td class="px-3 py-3"><div class="flex flex-wrap gap-2">${recordActionButton('HANDOVER', record.handoverId)}${editButton({ order, recordType: 'HANDOVER', recordId: record.handoverId, objectSkuCode: record.outputSkuCode, currentQty, qtyUnit: record.qtyUnit, downstreamReceipt: record.downstreamReceipt, maxQty: currentQty + getWoolOutputHandoverAvailableQty(order.woolOrderId, record.outputSkuCode) })}<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolHandoverPrintLink(order.woolOrderId, record.handoverId))}">打印本次交出单</button></div></td>
+            <td class="px-3 py-3"><div class="flex flex-wrap gap-2">${recordActionButton('HANDOVER', record.handoverId)}${editButton({ order, recordType: 'HANDOVER', recordId: record.handoverId, objectSkuCode: record.outputSkuCode, currentQty, qtyUnit: record.qtyUnit, downstreamReceipt: record.downstreamReceipt, maxQty: currentQty + (record.pieceKey ? pieceAvailableQty(store, order, record.pieceKey) : getWoolOutputHandoverAvailableQty(order.woolOrderId, record.outputSkuCode)) })}${record.automatic ? '' : `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolHandoverPrintLink(order.woolOrderId, record.handoverId))}">打印本次交出单</button>`}</div></td>
           </tr>
         `
       }).join(''),
@@ -725,7 +662,8 @@ function renderActiveTab(order: WoolWorkOrder): string {
   if (state.activeTab === 'receipts') return renderReceipts(order)
   if (state.activeTab === 'reports') return renderReports(order)
   if (state.activeTab === 'handovers') return renderHandovers(order)
-  if (state.activeTab === 'machines') return renderMachines(order)
+  if (state.activeTab === 'routes') return renderWoolPieceRoutes(order)
+  if (state.activeTab === 'machines' && order.stage === 'KNITTING') return renderMachines(order)
   if (state.activeTab === 'operations') return renderOperations(order)
   return renderOverview(order)
 }
@@ -920,19 +858,22 @@ function renderOverlay(order: WoolWorkOrder): string {
   return state.overlay.kind === 'record' ? renderRecordDialog(order) : renderEditDialog()
 }
 
-export function renderCraftWoolWorkOrderDetailPage(woolOrderId: string): string {
+export function renderCraftWoolStageOrderDetailPage(woolOrderId: string, expectedStage?: WoolPageStage): string {
   resetDetailState(woolOrderId)
   const order = getOrder(woolOrderId)
   if (!order) {
-    return `<div class="space-y-4 p-4">${renderPageHeader('毛织加工单详情', '未找到对应的毛织加工单')}<button type="button" class="rounded-md border px-3 py-2 text-sm" data-nav="/fcs/craft/wool/work-orders">返回毛织加工单</button></div>`
+    return `<div class="space-y-4 p-4">${renderPageHeader('毛织加工单详情', '未找到对应的毛织加工单')}<button type="button" class="rounded-md border px-3 py-2 text-sm" data-nav="/fcs/craft/wool/knitting-orders">返回毛织加工单</button></div>`
+  }
+  if (expectedStage && order.stage !== expectedStage) {
+    return `<section class="m-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-wool-stage-mismatch>加工单阶段与当前地址不一致，请从正确阶段进入。<a class="mt-2 block underline" href="${woolStagePath(order.stage)}/${encodeURIComponent(order.woolOrderId)}">查看${woolStageLabel(order.stage)} ${escapeHtml(order.woolOrderNo)}</a></section>`
   }
   return `
     <div class="space-y-4 p-4" data-wool-detail-root data-wool-order-id="${escapeHtml(order.woolOrderId)}" data-skip-page-rerender="true">
-      ${renderPageHeader('毛织加工单详情', `${order.woolOrderNo} / ${order.productionOrderNo}`, '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/wool/work-orders">返回毛织加工单</button>')}
+      ${renderPageHeader(`${woolStageLabel(order.stage)}详情`, `${order.woolOrderNo} / ${order.productionOrderNo}`, `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${woolStagePath(order.stage)}">返回${woolStageLabel(order.stage)}</button>`)}
       <section class="rounded-lg border bg-card p-4">
-        <div class="flex flex-wrap items-center gap-2">${renderKindBadge(order.kind)}${renderStatusBadge(getWoolProcessingStatus(order.woolOrderId))}<span class="text-sm text-muted-foreground">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)} / ${escapeHtml(order.internalStyleCode || '无内部货号')}</span></div>
+        <div class="flex flex-wrap items-center gap-2">${renderWoolObjectImage(order.styleImageUrl, order.styleNo + " 款式图")}${renderKindBadge(order.kind)}${renderStatusBadge(getWoolProcessingStatus(order.woolOrderId))}<span class="text-sm text-muted-foreground">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)} / ${escapeHtml(order.internalStyleCode || '无内部货号')}</span></div>
       </section>
-      ${renderProcessOrderTaskRelations(order.taskId)}
+      ${order.demoSource ? '' : renderProcessOrderTaskRelations(order.sourceTaskId)}
       <div data-wool-detail-feedback>${renderFeedback()}</div>
       <div data-wool-detail-tabs>${renderTabs()}</div>
       <div data-wool-detail-content>${renderActiveTab(order)}</div>
@@ -975,7 +916,7 @@ function readField(name: string): string {
 function openRecord(actionNode: HTMLElement): void {
   state.overlay = {
     kind: 'record',
-    recordType: actionNode.dataset.recordType as DetailOverlay['recordType'],
+    recordType: actionNode.dataset.recordType as Extract<DetailOverlay, { kind: 'record' }>['recordType'],
     recordId: actionNode.dataset.recordId || '',
   }
   state.overlayError = ''
@@ -1039,7 +980,7 @@ function pagingContext(node: HTMLElement): {
   }
 }
 
-export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<boolean> {
+export async function handleCraftWoolStageOrderDetailEvent(target: HTMLElement): Promise<boolean> {
   const root = target.closest<HTMLElement>('[data-wool-detail-root]')
   if (!root) return false
   const order = getOrder(root.dataset.woolOrderId || '')
@@ -1067,7 +1008,7 @@ export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<b
       const pageSize = state.pageSizes[context.listKey] || 5
       const footer = paginationAction.closest<HTMLElement>('[data-wool-detail-list-key]')
       const total = Number(footer?.dataset.woolDetailTotal || 0)
-      stepWoolDetailPage(
+      stepWoolStageDetailPage(
         state.pages,
         context.listKey,
         action === 'prev-page' ? -1 : 1,

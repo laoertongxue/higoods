@@ -1,3 +1,4 @@
+import {handleWoolCraftActionUi} from '../wool/craft-actions.ts'
 // @page-pattern: list
 
 import {
@@ -549,6 +550,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
 }
 
 export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event): boolean {
+  if(handleWoolCraftActionUi(target as HTMLElement))return true
   const operationId = getActiveOperationId()
   if (!operationId) return false
 
