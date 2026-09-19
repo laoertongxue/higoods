@@ -1,14 +1,14 @@
 // @page-pattern: list
 import type { AppState } from '../../../state/store'
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowEditDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
-import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type StockTransferRecord = {
@@ -76,6 +76,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  creating: false,
   confirmId: '',
   showColumnSettings: false,
   keyword: '',
@@ -170,7 +171,12 @@ function renderWorkspace(): string {
         return row ? `确认将 ${row.sku} 共 ${row.quantity} 件从 ${row.sourceLocation} 移到 ${row.targetLocation}？执行后库位库存立即变更。` : ''
       })(),
       confirmLabel: '确认执行',
-    }) : ''].join(''),
+    }) : '', state.creating ? renderStandardRowEditDialog({ title: '新增移货任务', description: '创建后进入待执行队列，需在执行时二次确认。', fields: [
+        { key: 'sku', label: 'SKU', value: '' },
+        { key: 'quantity', label: '数量', value: '', input: 'number' },
+        { key: 'sourceLocation', label: '源库位', value: '' },
+        { key: 'targetLocation', label: '目标库位', value: '' },
+      ], eventPrefix: EVENT_PREFIX }) : ''].join(''),
   })
 }
 
@@ -270,6 +276,35 @@ export function handleStockTransferEvent(target: HTMLElement, event?: Event): bo
       showListFeedback(`移货单 ${row.transferNo} 已开始执行，共 ${row.quantity} 件`)
     }
     state.confirmId = ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'create') {
+    state.creating = true
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-edit') {
+    state.creating = false
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'save-edit') {
+    const root = rootElement()
+    const pick = (key: string) => root?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit="${key}"]`)?.value.trim() || ''
+    const sourceLocation = pick('sourceLocation')
+    const targetLocation = pick('targetLocation')
+    const sku = pick('sku')
+    const quantity = Number(pick('quantity'))
+    if (!sourceLocation || !targetLocation || !sku || !(quantity > 0)) {
+      showListFeedback('源库位、目标库位、SKU 和数量都必须填写，且数量要大于 0', 'warning')
+      return true
+    }
+    const seq = TRANSFER_SEED.length + 1
+    TRANSFER_SEED.unshift({ id: `ST-${String(seq).padStart(5, '0')}`, transferNo: `YH-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(seq).padStart(3, '0')}`, sourceWarehouse: '中央总仓-成衣仓', sourceZone: '', sourceLocation, targetWarehouse: '中央总仓-成衣仓', targetZone: '', targetLocation, spu: '', sku, quantity, createdTime: localDateTimeText(), status: '待执行' })
+    state.creating = false
+    state.currentPage = 1
+    showListFeedback(`已创建移货任务：${sku} ${quantity} 件，${sourceLocation} → ${targetLocation}`)
     refreshWorkspace()
     return true
   }

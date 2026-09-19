@@ -507,6 +507,40 @@ export interface StandardRowEditField {
   input?: 'text' | 'number'
 }
 
+/**
+ * 从已渲染的表格行反读“列标题 → 单元格内容”，用于没有稳定主键可回查的页面。
+ * 单元格 HTML 由页面自身的 render() 产出并已转义，这里按可信片段复用。
+ */
+export function renderCapturedRowDetailDialog(options: {
+  title: string
+  sourceRow: Element
+  eventPrefix: string
+}): string {
+  const heads = Array.from(options.sourceRow.closest('table')?.querySelectorAll('thead th') || [])
+    .map((th) => th.textContent?.trim() || '')
+  const pairs = Array.from(options.sourceRow.querySelectorAll('td'))
+    .map((cell, index) => ({ label: heads[index] || `第 ${index + 1} 列`, html: cell.innerHTML }))
+    .filter((pair) => pair.html.trim() !== '' && !/-action="/.test(pair.html))
+  const content = `<div class="grid max-h-[60vh] grid-cols-2 gap-x-6 gap-y-3 overflow-y-auto">${pairs
+    .map(
+      (pair) => `
+        <div class="flex min-w-0 flex-col gap-1">
+          <span class="text-xs text-muted-foreground">${escapeHtml(pair.label)}</span>
+          <div class="min-w-0 text-sm text-foreground">${pair.html}</div>
+        </div>
+      `,
+    )
+    .join('')}</div>`
+  return renderDialog(
+    {
+      title: options.title,
+      closeAction: { prefix: options.eventPrefix, action: 'close-detail' },
+      width: 'lg',
+    },
+    content,
+  )
+}
+
 export function renderStandardRowEditDialog(config: {
   title: string
   description?: string

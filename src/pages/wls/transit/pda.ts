@@ -1,4 +1,12 @@
 import type { AppState } from '../../../state/store'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+const EVENT_PREFIX = 'wls-transit-pda'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+const state: { scan: string } = { scan: '' }
 
 /* ------------------------------------------------------------------ */
 /*  Mock data                                                          */
@@ -207,8 +215,8 @@ function renderTaskCard(task: RecentTask): string {
       <div class="mt-1.5 text-xs text-slate-500 truncate">${task.subtitle}</div>
       <div class="mt-2 flex items-center justify-between">
         <span class="text-[10px] text-slate-400">${task.type} · ${task.id}</span>
-        ${task.status === '进行中' ? '<button type="button" class="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700">继续</button>' : ''}
-        ${task.status === '待处理' ? '<button type="button" class="rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-medium text-white hover:bg-amber-600">去处理</button>' : ''}
+        ${task.status === '进行中' ? `<button type="button" class="rounded-lg bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="open-task" data-${EVENT_PREFIX}-task="${escapeHtml(task.id)}" data-${EVENT_PREFIX}-title="${escapeHtml(task.title)}">继续</button>` : ''}
+        ${task.status === '待处理' ? `<button type="button" class="rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-medium text-white hover:bg-amber-600" data-${EVENT_PREFIX}-action="open-task" data-${EVENT_PREFIX}-task="${escapeHtml(task.id)}" data-${EVENT_PREFIX}-title="${escapeHtml(task.title)}">去处理</button>` : ''}
       </div>
     </div>
   `
@@ -223,15 +231,18 @@ function renderScanBar(): string {
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 7h10v10H7z"/>
           </svg>
           <input
-            id="wls-transit-scan-input"
             type="text"
             placeholder="扫码输入或手动输入编号..."
+            value="${escapeHtml(state.scan)}"
+            data-${EVENT_PREFIX}-field="scan"
+            data-scan-enter="true"
+            data-skip-page-rerender="true"
             class="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
           />
         </div>
         <button
-          id="wls-transit-scan-confirm"
           type="button"
+          data-${EVENT_PREFIX}-action="submit-scan"
           class="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 active:scale-[0.98] transition"
         >
           确认
@@ -249,7 +260,7 @@ function renderScanBar(): string {
 /*  Page entry                                                         */
 /* ------------------------------------------------------------------ */
 
-export function renderTransitPda(): string {
+function renderPdaWorkspace(): string {
   return `
   <div class="max-w-[470px] mx-auto min-h-screen bg-slate-100 flex flex-col">
     ${renderTopBar()}
@@ -262,39 +273,60 @@ export function renderTransitPda(): string {
 
     ${renderScanBar()}
 
-    <script>
-      (function () {
-        if (window.__wlsTransitPda) return;
-        window.__wlsTransitPda = {
-          scanInput: document.getElementById('wls-transit-scan-input'),
-          confirmBtn: document.getElementById('wls-transit-scan-confirm'),
-
-          init: function () {
-            var self = this;
-            if (self.confirmBtn) {
-              self.confirmBtn.addEventListener('click', function () {
-                var value = (self.scanInput && self.scanInput.value || '').trim();
-                if (!value) {
-                  alert('请先扫码或输入编号');
-                  return;
-                }
-                alert('已提交: ' + value);
-                if (self.scanInput) self.scanInput.value = '';
-              });
-            }
-            if (self.scanInput) {
-              self.scanInput.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (self.confirmBtn) self.confirmBtn.click();
-                }
-              });
-            }
-          }
-        };
-        window.__wlsTransitPda.init();
-      })();
-    </script>
   </div>
   `
+}
+
+function pdaRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshPda(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderPdaWorkspace()
+  hydrateIcons(host)
+}
+
+function readScanValue(): string {
+  const input = pdaRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  return input ? input.value.trim() : state.scan.trim()
+}
+
+function submitScan(): void {
+  const code = readScanValue()
+  if (!code) {
+    showListFeedback('请先扫码或输入编号', 'warning')
+    return
+  }
+  state.scan = ''
+  showListFeedback(`已提交编号 ${code}`)
+  refreshPda()
+}
+
+export function renderTransitPda(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderPdaWorkspace()}</div></div>`
+}
+
+export function handleTransitPdaEvent(target: HTMLElement, event?: Event): boolean {
+  if (!pdaRoot()) return false
+
+  const field = target.closest<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  if (field) {
+    if (event?.type === 'keydown') { submitScan(); return true }
+    state.scan = field.value
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'submit-scan') { submitScan(); return true }
+  if (action === 'open-task') {
+    const title = actionNode.dataset[`${DATASET_PREFIX}Title`] || actionNode.dataset[`${DATASET_PREFIX}Task`] || ''
+    showListFeedback(`已进入任务 ${title}，请按提示继续作业`, 'info')
+    return true
+  }
+  return false
 }

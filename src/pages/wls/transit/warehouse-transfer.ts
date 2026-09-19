@@ -1,13 +1,13 @@
 // @page-pattern: list
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowEditDialog, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
-import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
 
 type TransferOrder = {
@@ -44,6 +44,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  creating: false,
   confirmKind: '',
   confirmIdx: -1,
   detailIdx: -1,
@@ -152,7 +153,11 @@ function renderWorkspace(): string {
       })(),
       confirmLabel: state.confirmKind === 'confirm-send' ? '确认发出' : state.confirmKind === 'confirm-receive' ? '确认签收' : '确认取消',
       danger: state.confirmKind === 'cancel',
-    }) : ''].join(''),
+    }) : '', state.creating ? renderStandardRowEditDialog({ title: '新增调拨单', description: '创建后为草稿状态，需提交并确认发出、签收。', fields: [
+        { key: 'toWarehouse', label: '调入仓库', value: '' },
+        { key: 'materialCount', label: '物料种类数', value: '', input: 'number' },
+        { key: 'packageQty', label: '调拨件数', value: '', input: 'number' },
+      ], eventPrefix: EVENT_PREFIX }) : ''].join(''),
   })
 }
 
@@ -279,6 +284,34 @@ export function handleTransitWarehouseTransferEvent(target: HTMLElement, event?:
     return true
   }
   if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'create') {
+    state.creating = true
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-edit') {
+    state.creating = false
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'save-edit') {
+    const root = rootElement()
+    const pick = (key: string) => root?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit="${key}"]`)?.value.trim() || ''
+    const toWarehouse = pick('toWarehouse')
+    const materialCount = Number(pick('materialCount'))
+    const packageQty = Number(pick('packageQty'))
+    if (!toWarehouse || !(materialCount > 0) || !(packageQty > 0)) {
+      showListFeedback('调入仓库、物料种类数和件数都必须填写，且数量要大于 0', 'warning')
+      return true
+    }
+    const seq = seedOrders.length + 1
+    seedOrders.unshift({ transferNo: `TR-TF-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(seq).padStart(3, '0')}`, fromWarehouse: '中央总仓-中转仓', toWarehouse, materialCount, packageQty, pickedQty: 0, sentQty: 0, signedQty: 0, status: '草稿', creator: '当前用户', createTime: localDateTimeText() })
+    state.creating = false
+    state.currentPage = 1
+    showListFeedback(`已创建调拨单草稿，发往 ${toWarehouse}，共 ${packageQty} 件`)
+    refreshWorkspace()
+    return true
+  }
   if (action === 'export') { exportStandardListRows({ fileName: '中转仓 · 调拨管理', columns, rows: filteredRows() }); return true }
   return false
 }

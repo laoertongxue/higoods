@@ -1,5 +1,12 @@
 // WLS 列表页事件分发。页面模块已随 routes-wls 在渲染时加载，
 // 这里静态引用不会增加首屏成本；未注册的路径返回 false，交给通用外壳处理。
+import { handleRawPdaEvent } from '../pages/wls/raw/pda.ts'
+import { handleFinishedPdaShipScanEvent } from '../pages/wls/finished/pda-ship-scan.ts'
+import { handleFinishedPdaEvent } from '../pages/wls/finished/pda.ts'
+import { handleFinishedMultiItemPackingEvent } from '../pages/wls/finished/multi-item-packing.ts'
+import { handleFinishedDashboardEvent } from '../pages/wls/finished/dashboard.ts'
+import { handleTransitOverviewEvent } from '../pages/wls/transit/overview.ts'
+import { handleTransitPdaEvent } from '../pages/wls/transit/pda.ts'
 import { handleBasicBarcodeRuleEvent } from '../pages/wls/finished/basic-barcode-rule.ts'
 import { handleBasicBasketEvent } from '../pages/wls/finished/basic-basket.ts'
 import { handleBasicCollectionBoxEvent } from '../pages/wls/finished/basic-collection-box.ts'
@@ -57,6 +64,13 @@ import { handleWaveManageEvent } from '../pages/wls/finished/wave-manage.ts'
 type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
 
 const pageEventHandlers: Record<string, WlsPageEventHandler> = {
+  '/wls/finished/dashboard': handleFinishedDashboardEvent,
+  '/wls/raw/pda': handleRawPdaEvent,
+  '/wls/finished/pda': handleFinishedPdaEvent,
+  '/wls/transit/pda': handleTransitPdaEvent,
+  '/wls/transit/overview': handleTransitOverviewEvent,
+  '/wls/finished/pda-ship-scan': handleFinishedPdaShipScanEvent,
+  '/wls/finished/multi-item-packing': handleFinishedMultiItemPackingEvent,
   '/wls/basic/barcode-rule': handleBasicBarcodeRuleEvent,
   '/wls/basic/label-config': handleBasicLabelConfigEvent,
   '/wls/basic/processor': handleBasicProcessorEvent,

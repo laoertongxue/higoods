@@ -3,7 +3,7 @@ import type { AppState } from '../../../state/store'
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderCapturedRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -64,6 +64,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  detailHtml: '',
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -149,7 +150,7 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无退货收货记录' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '退货收货列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '退货收货列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml].join(''),
   })
 }
 
@@ -233,10 +234,12 @@ export function handleReturnOrdersEvent(target: HTMLElement, event?: Event): boo
     return true
   }
   if (action === 'view-detail') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
-    console.log('view return order detail:', id)
+    const sourceRow = actionNode.closest('tr')
+    state.detailHtml = sourceRow ? renderCapturedRowDetailDialog({ title: '退货收货单明细', sourceRow, eventPrefix: EVENT_PREFIX }) : ''
+    refreshWorkspace()
     return true
   }
+  if (action === 'close-detail') { state.detailHtml = ''; refreshWorkspace(); return true }
   if (action === 'export') { exportStandardListRows({ fileName: '退货收货列表', columns, rows: filteredRows() }); return true }
   return false
 }

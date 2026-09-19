@@ -1,12 +1,13 @@
 // @page-pattern: list
 import type { AppState } from '../../../state/store'
-import { escapeHtml } from '../../../utils.ts'
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 
 type DetailRecord = { scanTime: string; packageNo: string; shipNo: string; orderNo: string; sku: string; name: string; qty: number; result: '成功' | '异常'; exceptionReason?: string }
@@ -67,6 +68,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  batchSeq: 0,
   detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
@@ -256,6 +258,17 @@ export function handleShipScanEvent(target: HTMLElement, event?: Event): boolean
   }
   if (action === 'view-detail') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
   if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'new-batch') {
+    state.batchSeq += 1
+    const batchNo = `SHIP-SCAN-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(seedBatches.length + 1).padStart(3, '0')}`
+    seedBatches.unshift({ id: `nb-${state.batchSeq}`, batchNo, warehouse: '中央总仓-成衣仓', express: '顺丰', operator: '当前用户', status: '进行中', created: localDateTimeText(), completed: '', totalQty: 0, successQty: 0, exceptionQty: 0, details: [] })
+    state.keyword = ''
+    state.statusFilter = ''
+    state.currentPage = 1
+    showListFeedback(`已创建扫码批次 ${batchNo}，请扫描面单开始出库`)
+    refreshWorkspace()
+    return true
+  }
   if (action === 'export') { exportStandardListRows({ fileName: '扫码出库', columns, rows: filteredRows() }); return true }
   return false
 }

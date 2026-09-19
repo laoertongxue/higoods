@@ -3,7 +3,7 @@ import type { AppState } from '../../../state/store'
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -62,6 +62,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -175,7 +176,7 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无集货订单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: (state.showColumnSettings ? renderStandardListColumnSettings({ title: '集货订单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '') + renderRetrySection(),
+    overlaysHtml: [(state.showColumnSettings ? renderStandardListColumnSettings({ title: '集货订单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '') + renderRetrySection(), state.detailIdx >= 0 && seedOrders[state.detailIdx] ? renderStandardRowDetailDialog({ title: `集货订单详情 · ${seedOrders[state.detailIdx].id}`, columns, row: seedOrders[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
   })
 }
 
@@ -259,22 +260,11 @@ export function handleCollectionOrdersEvent(target: HTMLElement, event?: Event):
     return true
   }
   if (action === 'view-detail') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
-    console.log('查看集货订单详情', id)
+    state.detailIdx = seedOrders.findIndex((order) => order.id === (actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''))
+    refreshWorkspace()
     return true
   }
-  if (action === 'build-wave') {
-    console.log('创建拣货波次')
-    return true
-  }
-  if (action === 'run-rule') {
-    console.log('模拟规则执行')
-    return true
-  }
-  if (action === 'go-packing') {
-    console.log('跳转多件打包')
-    return true
-  }
+  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
   if (action === 'build-wave') {
     window.history.pushState(window.history.state, '', '/wls/finished/collection/picking')
     window.dispatchEvent(new PopStateEvent('popstate'))

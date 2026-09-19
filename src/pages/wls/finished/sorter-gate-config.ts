@@ -95,7 +95,7 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
   return renderStandardListPage({
     title: '格口配置',
-    primaryActionsHtml: renderPrimaryButton('新增格口', { prefix: EVENT_PREFIX, action: 'add-gate' }),
+    primaryActionsHtml: '',
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '格口数', value: `${all.length} 个` },

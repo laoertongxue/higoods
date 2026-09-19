@@ -1,5 +1,17 @@
 import type { AppState } from '../../../state/store'
 
+import { hydrateIcons } from '../../../components/shell.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+const EVENT_PREFIX = 'wls-transit-overview'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+type RangeKey = '今天' | '近7天' | '近30天' | '自定义'
+
+const RANGE_DAYS: Record<RangeKey, number> = { 今天: 1, 近7天: 7, 近30天: 30, 自定义: 14 }
+
+const state: { range: RangeKey } = { range: '今天' }
+
 type MetricCard = { label: string; value: number; unit: string; scope: string; scopeClass: string; target: string }
 
 const metrics: MetricCard[] = [
@@ -13,11 +25,18 @@ const metrics: MetricCard[] = [
   { label: '配料差异待处理数', value: 2, unit: '条', scope: '当前存量', scopeClass: 'bg-red-50 text-red-700', target: '/wls/transit/kit-center' },
 ]
 
-const trendData = [
-  { date: '2026-07-14', receipts: 2, rolls: 14 },
-  { date: '2026-07-15', receipts: 3, rolls: 22 },
-  { date: '2026-07-16', receipts: 5, rolls: 38 },
-]
+// 30 天确定性序列，最后 3 天保持原始 mock 数值，供时间范围切换汇总。
+const trendData = Array.from({ length: 30 }, (_, i) => {
+  const day = new Date('2026-07-16T00:00:00Z')
+  day.setUTCDate(day.getUTCDate() - (29 - i))
+  const receipts = i >= 27 ? [2, 3, 5][i - 27] : ((i * 7) % 4) + 1
+  const rolls = i >= 27 ? [14, 22, 38][i - 27] : receipts * 5 + ((i * 3) % 7)
+  return { date: day.toISOString().slice(0, 10), receipts, rolls }
+})
+
+function visibleTrend() {
+  return trendData.slice(-RANGE_DAYS[state.range])
+}
 
 const taskDistribution = [
   { label: '待上架', value: 3, color: 'bg-orange-100 text-orange-700' },
@@ -42,9 +61,19 @@ const anomalyRows = [
   { exceptionNo: 'EX-20260716-002', productionNo: 'PO14956', allocationNo: 'TR-PW-20260716-003', sku: 'FAB-PO14956-A', plannedQty: 10, actualQty: 4, diffQty: 6, unit: 'Y', status: '待处理', time: '2026-07-16 11:21' },
 ]
 
-const maxRolls = Math.max(...trendData.map(d => d.rolls), 1)
+function periodTotals() {
+  const rows = visibleTrend()
+  return {
+    receipts: rows.reduce((sum, row) => sum + row.receipts, 0),
+    rolls: rows.reduce((sum, row) => sum + row.rolls, 0),
+  }
+}
 
-export function renderTransitOverview(): string {
+function renderOverviewWorkspace(): string {
+  const totals = periodTotals()
+  const trend = visibleTrend()
+  const maxRolls = Math.max(...trend.map((d) => d.rolls), 1)
+  const cards = metrics.map((m) => (m.scope === '期间完成' ? { ...m, value: m.unit === '卷' ? totals.rolls : totals.receipts } : m))
   return `
   <div class="space-y-5">
     <div class="flex items-center justify-between">
@@ -54,18 +83,15 @@ export function renderTransitOverview(): string {
       </div>
       <div class="flex items-center gap-2">
         <div class="flex rounded-lg border border-slate-200 text-xs">
-          <button class="px-3 py-1.5 rounded-l-lg bg-blue-600 text-white">今天</button>
-          <button class="px-3 py-1.5 border-l border-slate-200 text-slate-600 hover:bg-slate-50">近7天</button>
-          <button class="px-3 py-1.5 border-l border-slate-200 text-slate-600 hover:bg-slate-50">近30天</button>
-          <button class="px-3 py-1.5 border-l border-slate-200 rounded-r-lg text-slate-600 hover:bg-slate-50">自定义</button>
+          ${(['今天', '近7天', '近30天', '自定义'] as RangeKey[]).map((r, i) => `<button type="button" class="px-3 py-1.5 ${i > 0 ? 'border-l border-slate-200' : ''} ${i === 0 ? 'rounded-l-lg' : ''} ${i === 3 ? 'rounded-r-lg' : ''} ${state.range === r ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}" data-${EVENT_PREFIX}-action="set-range" data-${EVENT_PREFIX}-range="${r}">${r}</button>`).join('')}
         </div>
-        <button class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200">重置</button>
+        <button type="button" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200" data-${EVENT_PREFIX}-action="reset-range">重置</button>
       </div>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      ${metrics.map(m => `
-        <a href="${m.target}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow cursor-pointer">
+      ${cards.map(m => `
+        <a href="${m.target}" data-nav="${m.target}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow cursor-pointer">
           <div class="flex items-center justify-between">
             <span class="text-xs text-slate-500">${m.label}</span>
             <span class="rounded-full px-2 py-0.5 text-[10px] ${m.scopeClass}">${m.scope}</span>
@@ -82,7 +108,7 @@ export function renderTransitOverview(): string {
       <div class="rounded-xl border border-slate-200 bg-white p-4">
         <h3 class="text-sm font-semibold text-slate-700 mb-3">收货趋势</h3>
         <div class="space-y-2">
-          ${trendData.map(d => `
+          ${trend.map(d => `
             <div class="flex items-center gap-3">
               <span class="w-20 text-xs text-slate-500 shrink-0">${d.date.slice(5)}</span>
               <div class="flex-1 space-y-1">
@@ -178,4 +204,40 @@ export function renderTransitOverview(): string {
       </div>
     </div>
   </div>`
+}
+
+function overviewRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshOverview(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderOverviewWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderTransitOverview(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderOverviewWorkspace()}</div></div>`
+}
+
+export function handleTransitOverviewEvent(target: HTMLElement): boolean {
+  if (!overviewRoot()) return false
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'set-range') {
+    state.range = (actionNode.dataset[`${DATASET_PREFIX}Range`] || '今天') as RangeKey
+    showListFeedback(`统计范围已切换为${state.range}（${RANGE_DAYS[state.range]} 天）`, 'info')
+    refreshOverview()
+    return true
+  }
+  if (action === 'reset-range') {
+    state.range = '今天'
+    showListFeedback('统计范围已重置为今天', 'info')
+    refreshOverview()
+    return true
+  }
+  return false
 }

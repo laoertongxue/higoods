@@ -115,7 +115,7 @@ function renderWorkspace(): string {
       { label: '停用', value: `${seedTemplates.filter(t => t.status === 'DISABLED').length} 条` },
     ]),
     listTitle: `共 ${all.length} 条`,
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增模板', { prefix: EVENT_PREFIX, action: 'add' }, 'plus')}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无标签模板' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS }),
     overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '标签配置列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 520 }) : '', state.detailIdx >= 0 && seedTemplates[state.detailIdx] ? renderStandardRowDetailDialog({ title: '标签配置详情', columns, row: seedTemplates[state.detailIdx], eventPrefix: EVENT_PREFIX }) : '', state.editIdx >= 0 && seedTemplates[state.editIdx] ? renderStandardRowEditDialog({
