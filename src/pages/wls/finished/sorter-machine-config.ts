@@ -94,7 +94,7 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
   return renderStandardListPage({
     title: '分拣机配置',
-    primaryActionsHtml: renderPrimaryButton('新增分拣机', { prefix: EVENT_PREFIX, action: 'add-machine' }),
+    primaryActionsHtml: '',
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '分拣机总数', value: `${seedMachines.length} 台` },

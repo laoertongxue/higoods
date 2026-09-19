@@ -1,5 +1,19 @@
 import type { AppState } from '../../../state/store';
 
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+const EVENT_PREFIX = 'wls-multi-item-packing'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+const state: { basketCode: string; started: boolean; released: boolean } = {
+  basketCode: 'BS-0012',
+  started: false,
+  released: false,
+}
+
 type PackingProduct = {
   id: string;
   spu: string;
@@ -41,7 +55,7 @@ const MOCK_BASKET = {
   binding_status: '已绑定订单',
 };
 
-export function renderFinishedMultiItemPacking(): string {
+function renderPackingWorkspace(): string {
   const basket = MOCK_BASKET;
   const order = MOCK_PACKING_ORDER;
 
@@ -53,9 +67,9 @@ export function renderFinishedMultiItemPacking(): string {
 
     <div class="mb-3 rounded-[12px] border border-[var(--border-default)] bg-white p-3">
       <div class="flex flex-wrap items-center gap-2">
-        <input id="wls-packing-basket-code" value="${basket.basket_code}" placeholder="扫描/输入拣货篮二维码" class="w-[320px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
-        <button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-[7px] text-[13px] font-medium text-white transition hover:opacity-90">开始打包</button>
-        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">返回拣货篮管理</button>
+        <input value="${escapeHtml(state.basketCode)}" placeholder="扫描/输入拣货篮二维码" data-${EVENT_PREFIX}-field="basket" data-scan-enter="true" data-skip-page-rerender="true" class="w-[320px] rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
+        <button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-[7px] text-[13px] font-medium text-white transition hover:opacity-90" data-${EVENT_PREFIX}-action="start-packing">${state.started ? '重新读取篮子' : '开始打包'}</button>
+        <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" data-${EVENT_PREFIX}-action="back-to-basket">返回拣货篮管理</button>
       </div>
     </div>
 
@@ -101,10 +115,103 @@ export function renderFinishedMultiItemPacking(): string {
           </table>
         </div>
         <div class="mt-3 flex flex-wrap justify-end gap-2 px-3 pb-3">
-          <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]">打印面单</button>
-          <button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-[7px] text-[13px] font-medium text-white transition hover:opacity-90">确认出库并释放篮子</button>
+          <button type="button" class="rounded-[8px] border border-[var(--border-default)] bg-white px-3 py-[7px] text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]" data-${EVENT_PREFIX}-action="print-waybill">打印面单</button>
+          <button type="button" class="rounded-[8px] bg-[var(--primary)] px-3 py-[7px] text-[13px] font-medium text-white transition hover:opacity-90" data-${EVENT_PREFIX}-action="confirm-outbound" ${state.released ? 'disabled' : ''}>${state.released ? '已出库并释放篮子' : '确认出库并释放篮子'}</button>
         </div>
       </div>
     </div>
-  </section>`;
+  ${state.released || !state.started ? '' : renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-outbound',
+      confirmAction: 'confirm-outbound-run',
+      title: '确认出库并释放拣货篮',
+      description: `确认拣货篮 ${state.basketCode} 的 ${MOCK_PACKING_ORDER.outboundQuantity} 件商品已全部复核？出库后篮子释放给下一个波次，本单不可撤销。`,
+      confirmLabel: '确认出库',
+    })}</section>`;
+}
+
+function packingRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshPacking(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderPackingWorkspace()
+  hydrateIcons(host)
+}
+
+function readBasketCode(): string {
+  const input = packingRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="basket"]`)
+  return input ? input.value.trim() : state.basketCode.trim()
+}
+
+function startPacking(): void {
+  const code = readBasketCode()
+  if (!code) {
+    showListFeedback('请先扫描或输入拣货篮二维码', 'warning')
+    return
+  }
+  state.basketCode = code
+  state.started = true
+  showListFeedback(`拣货篮 ${code} 已绑定出库单 ${MOCK_PACKING_ORDER.outboundOrderNo}，共 ${MOCK_PACKING_ORDER.outboundQuantity} 件`)
+  refreshPacking()
+}
+
+export function renderFinishedMultiItemPacking(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderPackingWorkspace()}</div></div>`
+}
+
+export function handleFinishedMultiItemPackingEvent(target: HTMLElement, event?: Event): boolean {
+  if (!packingRoot()) return false
+
+  const field = target.closest<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="basket"]`)
+  if (field) {
+    if (event?.type === 'keydown') { startPacking(); return true }
+    state.basketCode = field.value
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'start-packing') { startPacking(); return true }
+  if (action === 'back-to-basket') {
+    window.history.pushState(window.history.state, '', '/wls/finished/basic/basket')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    return true
+  }
+  if (action === 'print-waybill') {
+    if (!state.started) {
+      showListFeedback('请先扫描拣货篮开始打包，再打印面单', 'warning')
+      return true
+    }
+    showListFeedback(`已调起面单打印：${MOCK_PACKING_ORDER.trackingNo}`)
+    window.print()
+    return true
+  }
+  if (action === 'confirm-outbound') {
+    if (!state.started) {
+      showListFeedback('请先扫描拣货篮开始打包', 'warning')
+      return true
+    }
+    if (state.released) {
+      showListFeedback('本单已出库，篮子已释放', 'info')
+      return true
+    }
+    refreshPacking()
+    return true
+  }
+  if (action === 'cancel-outbound') {
+    refreshPacking()
+    return true
+  }
+  if (action === 'confirm-outbound-run') {
+    state.released = true
+    showListFeedback(`出库单 ${MOCK_PACKING_ORDER.outboundOrderNo} 已出库，拣货篮 ${state.basketCode} 已释放`)
+    refreshPacking()
+    return true
+  }
+  return false
 }

@@ -18,9 +18,9 @@ const quickLinks = [
   { label: '辅料到货列表', desc: '查看辅料类预入库单与收货进度', href: '/wls/raw/arrival-list', icon: '🪡', count: 2, countLabel: '待收货' },
   { label: '入库单管理', desc: '查看并执行上架任务', href: '/wls/raw/inbound-list', icon: '📦', count: 5, countLabel: '待上架' },
   { label: '领料单列表', desc: '生产领料单查看与出库确认', href: '/wls/raw/requisition-list', icon: '📋', count: 4, countLabel: '待出库' },
-  { label: '配料单列表', desc: '配料任务查看与执行', href: '/wls/raw/allocation-list', icon: '🔧', count: 3, countLabel: '待配齐' },
+  { label: '配料单列表', desc: '配料任务查看与执行', href: '/wls/raw/issue-list', icon: '🔧', count: 3, countLabel: '待配齐' },
   { label: '出库单列表', desc: '出库单查看与物流跟踪', href: '/wls/raw/outbound-list', icon: '🚚', count: 2, countLabel: '待出库' },
-  { label: '即时库存', desc: '面料、辅料、耗材、包材实时库存', href: '/wls/raw/inventory', icon: '📊', count: 15, countLabel: '库存记录' },
+  { label: '即时库存', desc: '面料、辅料、耗材、包材实时库存', href: '/wls/raw/stock/realtime', icon: '📊', count: 15, countLabel: '库存记录' },
   { label: '面料评分', desc: '面料质量评分与供应商评估', href: '/wls/raw/fabric-score', icon: '⭐', count: 8, countLabel: '待评分' },
 ]
 
@@ -55,7 +55,7 @@ export function renderRawDashboard(): string {
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       ${quickLinks.map(l => `
-        <a href="${l.href}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow">
+        <a href="${l.href}" data-nav="${l.href}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow">
           <div class="text-xl mb-2">${l.icon}</div>
           <div class="text-sm font-medium text-slate-700">${l.label}</div>
           <div class="text-[10px] text-slate-400 mt-0.5">${l.desc}</div>

@@ -2,11 +2,12 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderCapturedRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 import type { PreInboundOrder } from '../../../data/wls/types'
 import { preInboundSeed } from '../../../data/wls/seed/raw-seed'
 
@@ -27,6 +28,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  detailHtml: '',
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -141,7 +143,7 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无入库单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '入库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '入库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml].join(''),
   })
 }
 
@@ -224,9 +226,20 @@ export function handleFinishedPreInboundEvent(target: HTMLElement, event?: Event
     refreshWorkspace()
     return true
   }
-  if (action === 'view-detail' || action === 'start-receive') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
-    console.log(`${action} pre-inbound order:`, id)
+  if (action === 'view-detail') {
+    const sourceRow = actionNode.closest('tr')
+    state.detailHtml = sourceRow ? renderCapturedRowDetailDialog({ title: '入库单明细', sourceRow, eventPrefix: EVENT_PREFIX }) : ''
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'close-detail') { state.detailHtml = ''; refreshWorkspace(); return true }
+  if (action === 'start-receive') {
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || actionNode.dataset[`${DATASET_PREFIX}Id`] || actionNode.dataset.id || ''
+    const row = preInboundSeed.find((item) => Object.values(item as Record<string, unknown>).includes(id) || (item as { order?: { id?: string } }).order?.id === id) as object | undefined
+    if (!row) { showListFeedback('未找到该记录，请刷新后重试', 'warning'); return true }
+    const no = String((row as Record<string, unknown>).orderNo ?? (row as Record<string, unknown>).qcNo ?? id)
+    showListFeedback(`${no} 开始收货已受理`)
+    refreshWorkspace()
     return true
   }
   if (action === 'export') { exportStandardListRows({ fileName: '成衣入库单列表', columns, rows: filteredRows() }); return true }

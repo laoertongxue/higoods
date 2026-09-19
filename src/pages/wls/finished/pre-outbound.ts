@@ -2,11 +2,12 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, renderCapturedRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 
 type PreOutboundStatus = '待处理' | '待拣货' | '拣货中' | '待出库' | '部分出库' | '已出库' | '已取消'
 
@@ -85,6 +86,8 @@ const PRE_OUTBOUND_SEED: PreOutboundItem[] = (() => {
   return items
 })()
 
+const STATUS_ORDER: readonly string[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库']
+
 const EVENT_PREFIX = 'wls-pre-outbound'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/pre-outbound:list-columns'
@@ -95,6 +98,7 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  detailHtml: '',
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
@@ -206,7 +210,7 @@ function renderWorkspace(): string {
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无预出库单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '预出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '预出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml].join(''),
   })
 }
 
@@ -289,11 +293,28 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
     refreshWorkspace()
     return true
   }
-  if (action === 'view' || action === 'generate-pick' || action === 'print-pick' || action === 'generate-wave') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
-    console.log(`${action} pre-outbound order:`, id)
+  if (action === 'view') {
+    const sourceRow = actionNode.closest('tr')
+    state.detailHtml = sourceRow ? renderCapturedRowDetailDialog({ title: '预出库单明细', sourceRow, eventPrefix: EVENT_PREFIX }) : ''
+    refreshWorkspace()
     return true
   }
+  if (action === 'close-detail') { state.detailHtml = ''; refreshWorkspace(); return true }
+  if (action === 'generate-pick' || action === 'generate-wave') {
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || actionNode.dataset[`${DATASET_PREFIX}Id`] || actionNode.dataset.id || ''
+    const row = filteredRows().find((item) => Object.values(item as Record<string, unknown>).includes(id) || (item as { order?: { id?: string } }).order?.id === id) as object | undefined
+    if (!row) { showListFeedback('未找到该记录，请刷新后重试', 'warning'); return true }
+    const moved = advanceRowStatus(row, STATUS_ORDER)
+    if (!moved) {
+      showListFeedback('该单据已处于最终状态，无需重复已提交', 'info')
+      return true
+    }
+    const no = String((row as Record<string, unknown>).orderNo ?? (row as Record<string, unknown>).inboundOrderNo ?? (row as Record<string, unknown>).outboundOrderNo ?? (row as Record<string, unknown>).returnNo ?? (row as Record<string, unknown>).qcNo ?? id)
+    showListFeedback(`${no} 已提交完成，状态：${moved.from} → ${moved.to}`)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'print-pick') { showListFeedback('已调起浏览器打印，请在打印窗口选择打印机'); window.print(); return true }
   if (action === 'export') { exportStandardListRows({ fileName: '预出库管理', columns, rows: filteredRows() }); return true }
   return false
 }

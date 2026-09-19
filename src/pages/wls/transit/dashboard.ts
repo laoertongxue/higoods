@@ -57,7 +57,7 @@ export function renderTransitDashboard(): string {
 
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
       ${quickLinks.map(l => `
-        <a href="${l.href}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow">
+        <a href="${l.href}" data-nav="${l.href}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow">
           <div class="text-xl mb-2">${l.icon}</div>
           <div class="text-sm font-medium text-slate-700">${l.label}</div>
           <div class="text-[10px] text-slate-400 mt-0.5">${l.desc}</div>

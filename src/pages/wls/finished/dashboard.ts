@@ -2,17 +2,74 @@
 // 成衣仓首页 / Dashboard
 
 import type { AppState } from '../../../state/store';
+import { escapeHtml, localDateTimeText } from '../../../utils.ts';
+import { hydrateIcons } from '../../../components/shell.ts';
+import { showListFeedback } from '../../../components/ui/list-feedback.ts';
 import { warehouseSeed } from '../../../data/wls/seed/shared-seed';
 import { isWarehouseInSystem } from '../../../data/wls/shared/warehouse-config';
 
-export function renderFinishedDashboard(): string {
+const EVENT_PREFIX = 'wls-finished-dashboard'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+// 首页卡片与快捷入口指向的目标视图；未登记的目标一律不渲染成可点按钮。
+const TARGET_ROUTES: Record<string, string> = {
+  dashboard: '/wls/finished/dashboard',
+  preInbound: '/wls/finished/pre-inbound',
+  putaway: '/wls/finished/putaway',
+  returnOrders: '/wls/finished/return-orders',
+  returnQuality: '/wls/finished/return-quality',
+  preOutbound: '/wls/finished/pre-outbound',
+  outboundOrders: '/wls/finished/outbound-orders',
+  waveManage: '/wls/finished/wave-manage',
+  collectionOrders: '/wls/finished/collection/orders',
+  collectionPicking: '/wls/finished/collection/picking',
+  collectionSorting: '/wls/finished/collection/sorting',
+  stockRealtime: '/wls/finished/stock/realtime',
+  stockLocation: '/wls/finished/stock/location',
+  stockFlow: '/wls/finished/stock/flow',
+  stockTransfer: '/wls/finished/stock/transfer',
+  warehouse: '/wls/finished/basic/warehouse',
+  productCenter: '/wls/finished/basic/product-center',
+  supplier: '/wls/basic/supplier',
+}
+
+const state: { warehouseCode: string; emptyMode: boolean; initialized: boolean } = {
+  warehouseCode: '',
+  emptyMode: false,
+  initialized: false,
+}
+
+function activeWarehouses() {
+  return warehouseSeed.filter((wh) => isWarehouseInSystem(wh.businessType || 'FINISHED', 'finished'))
+}
+
+function currentWarehouse() {
+  const list = activeWarehouses()
+  return list.find((wh) => wh.code === state.warehouseCode) || list[0]
+}
+
+function navigateToTarget(target: string): boolean {
+  const route = TARGET_ROUTES[target]
+  if (!route || route === '/wls/finished/dashboard') return Boolean(route)
+  window.history.pushState(window.history.state, '', route)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+  return true
+}
+
+function renderDashboardWorkspace(): string {
   const activeWarehouseSystem = 'finished';
   const activeWarehouseSystemLabel = '成衣仓';
-  const activeSystemWarehouses = warehouseSeed.filter((wh) => isWarehouseInSystem(wh.businessType || 'FINISHED', activeWarehouseSystem));
-  const dashboardWarehouseCode = activeSystemWarehouses[0]?.code || '';
-  const dashboardWarehouseName = activeSystemWarehouses[0]?.name || '中央总仓-成衣仓';
+  const activeSystemWarehouses = activeWarehouses();
+  const selected = currentWarehouse();
+  if (!state.initialized) {
+    state.warehouseCode = selected?.code || ''
+    state.initialized = true
+  }
+  const dashboardWarehouseCode = selected?.code || ''
+  const dashboardWarehouseName = selected?.name || '中央总仓-成衣仓';
   const currentAccountName = '管理员';
   const dashboardDateLabel = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const empty = state.emptyMode;
 
   // Mock metrics data
   const dashboardMetrics = [
@@ -24,7 +81,7 @@ export function renderFinishedDashboard(): string {
     { key: 'location', title: '库位使用率', value: '78%', hint: '剩余 231 个', target: 'stockLocation' },
     { key: 'transfer', title: '调拨在途', value: '18', hint: '单', target: 'stockTransfer' },
     { key: 'exception', title: '异常待处理', value: '5', hint: '条', target: 'dashboard' },
-  ];
+  ].map((metric) => (empty ? { ...metric, value: '0', hint: '空数据模式' } : metric));
 
   // Mock progress groups
   const dashboardProgressGroups = [
@@ -64,13 +121,15 @@ export function renderFinishedDashboard(): string {
     { id: '3', type: '质检异常', orderNo: 'TH20260918003', warehouse: '中央总仓-成衣仓', owner: '王五', time: '2026-09-18 13:20', status: '处理中', viewTarget: 'returnQuality', processTarget: 'returnQuality' },
   ];
 
+  const visibleExceptionRows = empty ? [] : dashboardExceptionRows;
+
   // Mock inventory summary
   const dashboardInventorySummary = [
     { key: 'total', label: '总库存', value: '128,456 件' },
     { key: 'available', label: '可用库存', value: '115,234 件' },
     { key: 'locked', label: '锁定库存', value: '8,522 件' },
     { key: 'defective', label: '瑕疵品', value: '4,700 件' },
-  ];
+  ].map((item) => (empty ? { ...item, value: '0 件' } : item));
 
   // Mock quick groups
   const dashboardQuickGroups = [
@@ -132,22 +191,22 @@ export function renderFinishedDashboard(): string {
             <p class="mt-1 text-[13px] text-[var(--text-muted)]">今日：${dashboardDateLabel}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <select id="dashboard-warehouse-select" class="h-9 min-w-[220px] rounded-[8px] border border-[#B2CCFF] bg-white px-3 text-[13px]">
-              ${activeSystemWarehouses.map((wh) => `<option value="${wh.code}" ${wh.code === dashboardWarehouseCode ? 'selected' : ''}>${wh.name}</option>`).join('')}
+            <select id="dashboard-warehouse-select" class="h-9 min-w-[220px] rounded-[8px] border border-[#B2CCFF] bg-white px-3 text-[13px]" data-${EVENT_PREFIX}-field="warehouse">
+              ${activeSystemWarehouses.map((wh) => `<option value="${escapeHtml(wh.code)}" ${wh.code === dashboardWarehouseCode ? 'selected' : ''}>${escapeHtml(wh.name)}</option>`).join('')}
             </select>
-            <button id="dashboard-switch-warehouse" class="h-9 rounded-[8px] border border-[#B2CCFF] bg-white px-3 text-[13px] font-medium text-[#175CD3]">切换仓库</button>
-            <button id="dashboard-refresh" class="h-9 rounded-[8px] bg-[#175CD3] px-3 text-[13px] font-medium text-white">刷新数据</button>
-            <button id="dashboard-empty-mode" class="h-9 rounded-[8px] border border-[var(--border-default)] bg-white px-3 text-[13px] text-[var(--text-secondary)]">空数据模式</button>
+            <button type="button" class="h-9 rounded-[8px] border border-[#B2CCFF] bg-white px-3 text-[13px] font-medium text-[#175CD3]" data-${EVENT_PREFIX}-action="switch-warehouse">切换仓库</button>
+            <button type="button" class="h-9 rounded-[8px] bg-[#175CD3] px-3 text-[13px] font-medium text-white" data-${EVENT_PREFIX}-action="refresh">刷新数据</button>
+            <button type="button" class="h-9 rounded-[8px] border bg-white px-3 text-[13px] ${empty ? 'border-[#175CD3] text-[#175CD3]' : 'border-[var(--border-default)] text-[var(--text-secondary)]'}" data-${EVENT_PREFIX}-action="toggle-empty-mode">${empty ? '退出空数据模式' : '空数据模式'}</button>
           </div>
         </div>
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         ${dashboardMetrics.map((metric) => `
-          <button data-target="${metric.target}" class="dashboard-metric-btn rounded-[12px] border border-[var(--border-default)] bg-white p-3 text-left transition hover:border-[#B2CCFF] hover:shadow-[0_8px_18px_rgba(16,24,40,0.08)]">
+          <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="${escapeHtml(metric.target)}" class="dashboard-metric-btn rounded-[12px] border border-[var(--border-default)] bg-white p-3 text-left transition hover:border-[#B2CCFF] hover:shadow-[0_8px_18px_rgba(16,24,40,0.08)]">
             <div class="text-[12px] text-[var(--text-muted)]">${metric.title}</div>
-            <div class="mt-2 text-[26px] font-semibold leading-none text-[var(--text-primary)]">${metric.value}</div>
-            <div class="mt-2 text-[12px] text-[#175CD3]">${metric.hint}</div>
+            <div class="mt-2 text-[26px] font-semibold leading-none text-[var(--text-primary)]">${escapeHtml(metric.value)}</div>
+            <div class="mt-2 text-[12px] text-[#175CD3]">${escapeHtml(metric.hint)}</div>
           </button>
         `).join('')}
       </div>
@@ -158,12 +217,14 @@ export function renderFinishedDashboard(): string {
             <h3 class="mb-3 text-[16px] font-semibold text-[var(--text-primary)]">${group.title}</h3>
             <div class="space-y-3">
               ${group.items.map((item) => {
-                const percent = item.total > 0 ? Math.min(100, Math.round((item.done / item.total) * 100)) : 0;
+                const done = empty ? 0 : item.done;
+                const total = empty ? 0 : item.total;
+                const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
                 return `
                   <div>
                     <div class="mb-1 flex items-center justify-between text-[13px]">
                       <span class="text-[var(--text-secondary)]">${item.label}</span>
-                      <span class="text-[var(--text-primary)]">${item.done}/${item.total}</span>
+                      <span class="text-[var(--text-primary)]">${done}/${total}</span>
                     </div>
                     <div class="h-2 rounded-[999px] bg-[#EEF2F6]">
                       <div class="h-full rounded-[999px] bg-[#175CD3]" style="width: ${percent}%"></div>
@@ -179,7 +240,7 @@ export function renderFinishedDashboard(): string {
       <div class="rounded-[12px] border border-[var(--border-default)] bg-white p-4">
         <div class="mb-3 flex items-center justify-between">
           <h3 class="text-[16px] font-semibold text-[var(--text-primary)]">异常预警区</h3>
-          <span class="rounded-[999px] bg-[#FEF3F2] px-2 py-1 text-[12px] font-medium text-[#B42318]">${dashboardExceptionRows.length} 条待关注</span>
+          <span class="rounded-[999px] bg-[#FEF3F2] px-2 py-1 text-[12px] font-medium text-[#B42318]">${visibleExceptionRows.length} 条待关注</span>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[980px] text-[13px]">
@@ -195,7 +256,9 @@ export function renderFinishedDashboard(): string {
               </tr>
             </thead>
             <tbody>
-              ${dashboardExceptionRows.map((row) => `
+              ${visibleExceptionRows.length === 0
+                ? `<tr><td colspan="7" class="px-3 py-8 text-center text-[13px] text-[var(--text-muted)]">当前没有待关注异常</td></tr>`
+                : visibleExceptionRows.map((row) => `
                 <tr class="border-b border-[var(--border-light)] hover:bg-[var(--bg-hover)]">
                   <td class="px-3 py-2">${row.type}</td>
                   <td class="px-3 py-2 text-[var(--link)]">${row.orderNo}</td>
@@ -208,8 +271,8 @@ export function renderFinishedDashboard(): string {
                     </span>
                   </td>
                   <td class="px-3 py-2">
-                    <button data-target="${row.viewTarget}" class="dashboard-nav-btn mr-3 text-[var(--link)]">查看</button>
-                    <button data-target="${row.processTarget}" class="dashboard-nav-btn text-[#175CD3]">处理</button>
+                    <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="${escapeHtml(row.viewTarget)}" class="mr-3 text-[var(--link)]">查看</button>
+                    <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="${escapeHtml(row.processTarget)}" class="text-[#175CD3]">处理</button>
                   </td>
                 </tr>
               `).join('')}
@@ -222,9 +285,9 @@ export function renderFinishedDashboard(): string {
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-[16px] font-semibold text-[var(--text-primary)]">库存概览区</h3>
           <div class="flex items-center gap-2 text-[12px]">
-            <button data-target="stockRealtime" class="dashboard-nav-btn rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">即时库存查询</button>
-            <button data-target="stockLocation" class="dashboard-nav-btn rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">库位库存查询</button>
-            <button data-target="stockFlow" class="dashboard-nav-btn rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">库存流水查询</button>
+            <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="stockRealtime" class="rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">即时库存查询</button>
+            <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="stockLocation" class="rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">库位库存查询</button>
+            <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="stockFlow" class="rounded-[8px] border border-[var(--border-default)] px-2 py-1 text-[var(--link)]">库存流水查询</button>
           </div>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -245,7 +308,7 @@ export function renderFinishedDashboard(): string {
               <div class="mb-2 text-[14px] font-semibold text-[var(--text-primary)]">${group.title}</div>
               <div class="space-y-1.5">
                 ${group.items.map((item) => `
-                  <button data-target="${item.target}" class="dashboard-nav-btn flex w-full items-center justify-between rounded-[8px] bg-white px-2.5 py-2 text-left text-[12px] text-[var(--text-secondary)] hover:text-[var(--link)]">
+                  <button type="button" data-${EVENT_PREFIX}-action="open-view" data-${EVENT_PREFIX}-target="${escapeHtml(item.target)}" class="flex w-full items-center justify-between rounded-[8px] bg-white px-2.5 py-2 text-left text-[12px] text-[var(--text-secondary)] hover:text-[var(--link)]">
                     <span>${item.title}</span>
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -258,62 +321,71 @@ export function renderFinishedDashboard(): string {
         </div>
       </div>
     </section>
-
-    <script>
-      (function() {
-        // Metric buttons
-        document.querySelectorAll('.dashboard-metric-btn').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            const target = this.getAttribute('data-target');
-            if (target && window.navigateToMenu) window.navigateToMenu(target);
-          });
-        });
-
-        // Navigation buttons
-        document.querySelectorAll('.dashboard-nav-btn').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            const target = this.getAttribute('data-target');
-            if (target && window.navigateToMenu) window.navigateToMenu(target);
-          });
-        });
-
-        // Warehouse selector
-        const warehouseSelect = document.getElementById('dashboard-warehouse-select');
-        if (warehouseSelect) {
-          warehouseSelect.addEventListener('change', function() {
-            console.log('Warehouse changed:', this.value);
-          });
-        }
-
-        // Action buttons
-        const switchBtn = document.getElementById('dashboard-switch-warehouse');
-        if (switchBtn) {
-          switchBtn.addEventListener('click', function() {
-            const select = document.getElementById('dashboard-warehouse-select');
-            if (select && select.options.length > 1) {
-              const currentIndex = select.selectedIndex;
-              const nextIndex = (currentIndex + 1) % select.options.length;
-              select.selectedIndex = nextIndex;
-              select.dispatchEvent(new Event('change'));
-            }
-          });
-        }
-
-        const refreshBtn = document.getElementById('dashboard-refresh');
-        if (refreshBtn) {
-          refreshBtn.addEventListener('click', function() {
-            console.log('Refresh data');
-            window.location.reload();
-          });
-        }
-
-        const emptyModeBtn = document.getElementById('dashboard-empty-mode');
-        if (emptyModeBtn) {
-          emptyModeBtn.addEventListener('click', function() {
-            console.log('Toggle empty mode');
-          });
-        }
-      })();
-    </script>
   `;
+}
+
+function dashboardRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshDashboard(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderDashboardWorkspace()
+  hydrateIcons(host)
+}
+
+export function renderFinishedDashboard(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderDashboardWorkspace()}</div></div>`
+}
+
+export function handleFinishedDashboardEvent(target: HTMLElement, event?: Event): boolean {
+  if (!dashboardRoot()) return false
+
+  const select = target.closest<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+  if (select) {
+    if (event && event.type !== 'change') return true
+    state.warehouseCode = select.value
+    const name = select.selectedOptions[0]?.textContent || select.value
+    showListFeedback(`已切换到 ${name}`, 'info')
+    refreshDashboard()
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'open-view') {
+    const viewTarget = actionNode.dataset[`${DATASET_PREFIX}Target`] || ''
+    if (!navigateToTarget(viewTarget)) {
+      showListFeedback(`目标视图 ${viewTarget} 尚未迁移，无法跳转`, 'warning')
+    }
+    return true
+  }
+  if (action === 'switch-warehouse') {
+    const list = activeWarehouses()
+    if (list.length < 2) {
+      showListFeedback('当前账号只有一个可切换仓库', 'warning')
+      return true
+    }
+    const at = Math.max(0, list.findIndex((wh) => wh.code === state.warehouseCode))
+    const next = list[(at + 1) % list.length]
+    state.warehouseCode = next.code
+    showListFeedback(`已切换到 ${next.name}`, 'info')
+    refreshDashboard()
+    return true
+  }
+  if (action === 'refresh') {
+    showListFeedback(`数据已刷新 ${localDateTimeText()}`, 'success')
+    refreshDashboard()
+    return true
+  }
+  if (action === 'toggle-empty-mode') {
+    state.emptyMode = !state.emptyMode
+    showListFeedback(state.emptyMode ? '已进入空数据模式，用于核对无数据时的页面表现' : '已恢复正常数据', 'info')
+    refreshDashboard()
+    return true
+  }
+  return false
 }

@@ -1,6 +1,18 @@
 // 成衣仓 PDA — 手持终端作业主页
 
 import type { AppState } from '../../../state/store';
+import { escapeHtml, localDateTimeText } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+const EVENT_PREFIX = 'wls-finished-pda'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+const state: { scan: string; feedback: string; feedbackTone: 'ok' | 'error' } = {
+  scan: '',
+  feedback: '',
+  feedbackTone: 'ok',
+}
 
 interface PdaMenuItem {
   key: string;
@@ -51,7 +63,7 @@ const PENDING_SUMMARY = [
   { label: '待收货', count: 2, tone: 'bg-rose-500' },
 ];
 
-export function renderFinishedPda(): string {
+function renderPdaWorkspace(): string {
   const pendingTotal = PENDING_SUMMARY.reduce((s, p) => s + p.count, 0);
 
   const pendingBanner = `
@@ -77,7 +89,7 @@ export function renderFinishedPda(): string {
   const renderMenuItem = (item: PdaMenuItem): string => `
     <button
       class="pda-menu-card group flex flex-col items-center rounded-xl bg-white p-3 shadow-sm active:scale-[0.97] active:bg-slate-50 transition-all duration-100"
-      data-action="${item.key}"
+      data-${EVENT_PREFIX}-action="open-task" data-${EVENT_PREFIX}-task="${escapeHtml(item.key)}" data-${EVENT_PREFIX}-title="${escapeHtml(item.title)}"
     >
       <div class="relative mb-1.5 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-50 text-2xl">
         ${item.icon}
@@ -103,21 +115,24 @@ export function renderFinishedPda(): string {
         <div class="relative flex-1">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">⎚</span>
           <input
-            id="pda-scan-input"
             type="text"
             placeholder="扫码输入 — 请扫描条码或单据号"
+            value="${escapeHtml(state.scan)}"
+            data-${EVENT_PREFIX}-field="scan"
+            data-scan-enter="true"
+            data-skip-page-rerender="true"
             class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-300 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition"
             autocomplete="off"
           />
         </div>
         <button
-          id="pda-scan-confirm"
+          data-${EVENT_PREFIX}-action="submit-scan"
           class="flex h-[42px] items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white active:bg-blue-700 transition"
         >
           确认
         </button>
       </div>
-      <p id="pda-scan-feedback" class="mt-1.5 text-xs text-slate-400 text-center hidden"></p>
+      ${state.feedback ? `<p class="mt-1.5 text-xs text-center ${state.feedbackTone === 'error' ? 'text-rose-500' : 'text-emerald-600'}">${escapeHtml(state.feedback)}</p>` : ''}
     </div>`;
 
   const operatorBar = `
@@ -130,9 +145,9 @@ export function renderFinishedPda(): string {
         </div>
       </div>
       <div class="flex items-center gap-3 text-slate-400">
-        <button class="text-xs text-slate-500 active:text-slate-700" data-action="refresh">刷新</button>
+        <button type="button" class="text-xs text-slate-500 active:text-slate-700" data-${EVENT_PREFIX}-action="refresh">刷新</button>
         <span class="h-3 w-px bg-slate-200"></span>
-        <button class="text-xs text-slate-500 active:text-slate-700" data-action="logout">退出</button>
+        <button type="button" class="text-xs text-slate-500 active:text-slate-700" data-${EVENT_PREFIX}-action="logout">退出</button>
       </div>
     </div>`;
 
@@ -149,7 +164,7 @@ export function renderFinishedPda(): string {
               <p class="mt-0.5 text-[10px] text-slate-400">手持终端作业中心</p>
             </div>
           </div>
-          <button class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white active:bg-white/20 transition" data-action="scan-toggle" title="扫码">
+          <button class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white active:bg-white/20 transition" data-${EVENT_PREFIX}-action="focus-scan" title="扫码">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
               <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
@@ -180,76 +195,85 @@ export function renderFinishedPda(): string {
 
       </div>
 
-      <script>
-        (function() {
-          var ns = window.__wlsFinishedPda = window.__wlsFinishedPda || {};
-
-          var scanInput = document.getElementById('pda-scan-input');
-          var scanConfirm = document.getElementById('pda-scan-confirm');
-          var feedback = document.getElementById('pda-scan-feedback');
-
-          function showFeedback(msg, isError) {
-            if (!feedback) return;
-            feedback.textContent = msg;
-            feedback.className = 'mt-1.5 text-xs text-center ' + (isError ? 'text-rose-500' : 'text-emerald-600');
-            feedback.classList.remove('hidden');
-            clearTimeout(ns._feedbackTimer);
-            ns._feedbackTimer = setTimeout(function() {
-              feedback.classList.add('hidden');
-            }, 3000);
-          }
-
-          function handleScan() {
-            var val = (scanInput && scanInput.value || '').trim();
-            if (!val) {
-              showFeedback('请先扫描或输入条码号', true);
-              if (scanInput) scanInput.focus();
-              return;
-            }
-            showFeedback('已识别: ' + val + ' — 正在跳转...', false);
-            if (scanInput) scanInput.value = '';
-          }
-
-          if (scanConfirm) {
-            scanConfirm.addEventListener('click', handleScan);
-          }
-
-          if (scanInput) {
-            scanInput.addEventListener('keydown', function(e) {
-              if (e.key === 'Enter') handleScan();
-            });
-          }
-
-          // Menu card clicks
-          document.addEventListener('click', function(e) {
-            var card = e.target.closest('.pda-menu-card');
-            if (!card) return;
-            var action = card.getAttribute('data-action');
-            if (!action) return;
-            var title = card.querySelector('span')?.textContent || action;
-            showFeedback('进入: ' + title, false);
-          });
-
-          // Operator actions
-          document.addEventListener('click', function(e) {
-            var btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            var action = btn.getAttribute('data-action');
-            if (action === 'refresh') {
-              showFeedback('已刷新', false);
-            } else if (action === 'logout') {
-              showFeedback('已退出登录', false);
-            } else if (action === 'scan-toggle') {
-              if (scanInput) {
-                scanInput.focus();
-                showFeedback('请扫描条码', false);
-              }
-            }
-          });
-
-          ns.showFeedback = showFeedback;
-          ns.handleScan = handleScan;
-        })();
-      </script>
     </div>`;
+}
+
+function pdaRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshPda(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderPdaWorkspace()
+  hydrateIcons(host)
+}
+
+function readScanValue(): string {
+  const input = pdaRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  return input ? input.value.trim() : state.scan.trim()
+}
+
+function submitScan(): void {
+  const code = readScanValue()
+  if (!code) {
+    state.feedback = '请先扫描或输入条码号'
+    state.feedbackTone = 'error'
+    showListFeedback('请先扫描或输入条码号', 'warning')
+    refreshPda()
+    return
+  }
+  state.feedback = `已识别 ${code}，请进入对应作业继续处理`
+  state.feedbackTone = 'ok'
+  state.scan = ''
+  showListFeedback(`已识别 ${code}`)
+  refreshPda()
+}
+
+export function renderFinishedPda(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderPdaWorkspace()}</div></div>`
+}
+
+export function handleFinishedPdaEvent(target: HTMLElement, event?: Event): boolean {
+  if (!pdaRoot()) return false
+
+  const field = target.closest<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  if (field) {
+    if (event?.type === 'keydown') { submitScan(); return true }
+    state.scan = field.value
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'open-task') {
+    const title = actionNode.dataset[`${DATASET_PREFIX}Title`] || actionNode.dataset[`${DATASET_PREFIX}Task`] || ''
+    state.feedback = `已进入 ${title}，请扫描条码或单据号`
+    state.feedbackTone = 'ok'
+    showListFeedback(`已进入 ${title}`, 'info')
+    refreshPda()
+    return true
+  }
+  if (action === 'submit-scan') { submitScan(); return true }
+  if (action === 'focus-scan') {
+    state.feedback = '请扫描条码'
+    state.feedbackTone = 'ok'
+    refreshPda()
+    pdaRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)?.focus()
+    return true
+  }
+  if (action === 'refresh') {
+    state.feedback = `数据已刷新 ${localDateTimeText()}`
+    state.feedbackTone = 'ok'
+    showListFeedback('数据已刷新')
+    refreshPda()
+    return true
+  }
+  if (action === 'logout') {
+    showListFeedback('原型演示：退出登录不改变当前账号', 'info')
+    return true
+  }
+  return false
 }

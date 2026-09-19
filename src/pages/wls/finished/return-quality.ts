@@ -7,6 +7,7 @@ import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColu
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 
 type QcLine = { sku: string; name: string; spec: string; receivedQty: number; qualityResult: '可售' | '瑕疵' | '报废' | null }
 type QcOrder = {
@@ -214,8 +215,12 @@ export function handleReturnQualityEvent(target: HTMLElement, event?: Event): bo
     return true
   }
   if (action === 'submit-qc') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}Id`] || ''
-    console.log('submit quality check:', id)
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || actionNode.dataset[`${DATASET_PREFIX}Id`] || actionNode.dataset.id || ''
+    const row = seedOrders.find((item) => Object.values(item as Record<string, unknown>).includes(id) || (item as { order?: { id?: string } }).order?.id === id) as object | undefined
+    if (!row) { showListFeedback('未找到该记录，请刷新后重试', 'warning'); return true }
+    const no = String((row as Record<string, unknown>).orderNo ?? (row as Record<string, unknown>).qcNo ?? id)
+    showListFeedback(`${no} 提交质检已受理`)
+    refreshWorkspace()
     return true
   }
   if (action === 'export') { exportStandardListRows({ fileName: '退货质检列表', columns, rows: filteredRows() }); return true }

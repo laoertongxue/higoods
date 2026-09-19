@@ -1,8 +1,19 @@
 import type { AppState } from '../../../state/store'
+import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+const EVENT_PREFIX = 'wls-pda-ship-scan'
+const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+// 运单号前缀与快递公司的对应关系，用于扫码防错。
+const WAYBILL_PREFIX_TO_COMPANY: Record<string, string> = {
+  SF: '顺丰', ZT: '中通', YT: '圆通', YD: '韵达', ST: '申通', JT: '极兔',
+}
 
 /* ── types ── */
 type ScanResult = 'success' | 'exception'
-type ExceptionReason = '运单未找到' | '仓库不匹配' | '已出库' | '非成衣出库'
+type ExceptionReason = '运单未找到' | '仓库不匹配' | '已出库' | '非成衣出库' | '快递公司不匹配'
 
 interface ScanRecord {
   id: string
@@ -30,9 +41,23 @@ const MOCK_SCANS: ScanRecord[] = [
   { id: 's8', waybillNo: 'SF1098765432800', expressCompany: '顺丰', result: 'success', timestamp: '14:28:55' },
 ]
 
-const TOTAL_SCANNED = 24
-const TOTAL_SUCCESS = 22
-const TOTAL_EXCEPTION = 2
+const BASE_TOTAL = { scanned: 24, success: 22, exception: 2 }
+
+const state: { expressCompany: string; scan: string; scans: ScanRecord[] } = {
+  expressCompany: EXPRESS_COMPANIES[0],
+  scan: '',
+  scans: [...MOCK_SCANS],
+}
+
+function totals() {
+  const added = state.scans.filter((record) => !MOCK_SCANS.includes(record))
+  const addedSuccess = added.filter((record) => record.result === 'success').length
+  return {
+    scanned: BASE_TOTAL.scanned + added.length,
+    success: BASE_TOTAL.success + addedSuccess,
+    exception: BASE_TOTAL.exception + (added.length - addedSuccess),
+  }
+}
 
 /* ── helpers ── */
 function resultBadge(r: ScanRecord): string {
@@ -62,8 +87,9 @@ function expressTag(company: string): string {
 }
 
 /* ── render ── */
-export function renderFinishedPdaShipScan(): string {
-  const scanListHtml = MOCK_SCANS.map((s) => {
+function renderScanWorkspace(): string {
+  const totalsNow = totals()
+  const scanListHtml = state.scans.map((s) => {
     const exceptionTag = s.exceptionReason
       ? `<span class="mt-1 inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">${s.exceptionReason}</span>`
       : ''
@@ -99,8 +125,8 @@ export function renderFinishedPdaShipScan(): string {
     <div class="px-3 pt-3">
       <label class="mb-1 block text-[12px] font-medium text-slate-500">快递公司</label>
       <div class="relative">
-        <select id="pda-ship-express" class="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-[14px] text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-          ${EXPRESS_COMPANIES.map((c, i) => `<option value="${c}"${i === 0 ? ' selected' : ''}>${c}</option>`).join('')}
+        <select data-${EVENT_PREFIX}-field="express" class="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-[14px] text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+          ${EXPRESS_COMPANIES.map((c) => `<option value="${escapeHtml(c)}"${c === state.expressCompany ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}
         </select>
         <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
       </div>
@@ -111,13 +137,16 @@ export function renderFinishedPdaShipScan(): string {
       <label class="mb-1 block text-[12px] font-medium text-slate-500">扫描运单号</label>
       <div class="relative">
         <input
-          id="pda-ship-scan-input"
           type="text"
           placeholder="扫描或输入运单条码…"
           autocomplete="off"
+          value="${escapeHtml(state.scan)}"
+          data-${EVENT_PREFIX}-field="scan"
+          data-scan-enter="true"
+          data-skip-page-rerender="true"
           class="w-full rounded-lg border-2 border-blue-300 bg-white px-3 py-3 pr-11 font-mono text-[15px] text-slate-800 shadow-sm outline-none placeholder:text-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
-        <button type="button" class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-blue-400 active:bg-blue-50" title="扫码" onclick="window.__wlsPdaShipScan?.triggerScan()">
+        <button type="button" class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-blue-400 active:bg-blue-50" title="扫码" data-${EVENT_PREFIX}-action="focus-scan">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
             <circle cx="12" cy="13" r="4"/>
@@ -142,19 +171,19 @@ export function renderFinishedPdaShipScan(): string {
     <div class="mx-3 mt-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
       <div class="flex items-center gap-3">
         <span class="text-[12px] text-slate-500">已扫描</span>
-        <span class="text-[16px] font-bold text-slate-800">${TOTAL_SCANNED} <span class="text-[12px] font-normal text-slate-400">件</span></span>
+        <span class="text-[16px] font-bold text-slate-800">${totalsNow.scanned} <span class="text-[12px] font-normal text-slate-400">件</span></span>
       </div>
       <div class="h-4 w-px bg-slate-200"></div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
         <span class="text-[12px] text-slate-500">成功</span>
-        <span class="text-[14px] font-bold text-emerald-600">${TOTAL_SUCCESS}</span>
+        <span class="text-[14px] font-bold text-emerald-600">${totalsNow.success}</span>
       </div>
       <div class="h-4 w-px bg-slate-200"></div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
         <span class="text-[12px] text-slate-500">异常</span>
-        <span class="text-[14px] font-bold text-red-600">${TOTAL_EXCEPTION}</span>
+        <span class="text-[14px] font-bold text-red-600">${totalsNow.exception}</span>
       </div>
     </div>
 
@@ -162,7 +191,7 @@ export function renderFinishedPdaShipScan(): string {
     <div class="px-3 pt-3 pb-2">
       <div class="mb-2 flex items-center justify-between">
         <span class="text-[12px] font-medium text-slate-500">最近扫描</span>
-        <span class="text-[11px] text-slate-400">共 ${TOTAL_SCANNED} 条</span>
+        <span class="text-[11px] text-slate-400">共 ${totalsNow.scanned} 条</span>
       </div>
       <div class="space-y-2" id="pda-ship-scan-list">
         ${scanListHtml}
@@ -184,53 +213,97 @@ export function renderFinishedPdaShipScan(): string {
       </div>
     </div>
 
-    <script>
-    (function () {
-      var expressSelect = document.getElementById('pda-ship-express');
-      var scanInput = document.getElementById('pda-ship-scan-input');
-      var listEl = document.getElementById('pda-ship-scan-list');
-
-      /* focus scan input on load */
-      if (scanInput) scanInput.focus();
-
-      /* enter key triggers confirm */
-      if (scanInput) {
-        scanInput.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            window.__wlsPdaShipScan.confirmScan();
-          }
-        });
-      }
-
-      window.__wlsPdaShipScan = {
-        triggerScan: function () {
-          if (scanInput) {
-            scanInput.focus();
-            scanInput.select();
-          }
-        },
-
-        confirmScan: function () {
-          var val = (scanInput && scanInput.value || '').trim();
-          if (!val) {
-            scanInput && scanInput.focus();
-            return;
-          }
-          var company = expressSelect ? expressSelect.value : '';
-          console.log('[PDA-ShipScan] confirm:', val, 'company:', company);
-          /* prototype: clear input and re-focus for next scan */
-          if (scanInput) {
-            scanInput.value = '';
-            scanInput.focus();
-          }
-        },
-
-        setExpress: function (name) {
-          if (expressSelect) expressSelect.value = name;
-        }
-      };
-    })();
-    </script>
   </div>`
+}
+
+function scanRoot(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-root]`)
+}
+
+function refreshScanPage(): void {
+  const host = document.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-workspace]`)
+  if (!host) return
+  host.innerHTML = renderScanWorkspace()
+  hydrateIcons(host)
+}
+
+function readScanValue(): string {
+  const input = scanRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  return input ? input.value.trim() : state.scan.trim()
+}
+
+function readExpress(): string {
+  const select = scanRoot()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="express"]`)
+  return select ? select.value : state.expressCompany
+}
+
+function submitScan(): void {
+  const waybillNo = readScanValue()
+  if (!waybillNo) {
+    showListFeedback('请先扫描或输入运单号', 'warning')
+    return
+  }
+  if (state.scans.some((record) => record.waybillNo === waybillNo)) {
+    showListFeedback(`运单 ${waybillNo} 已扫描过，请勿重复提交`, 'warning')
+    state.scan = ''
+    refreshScanPage()
+    return
+  }
+  const company = readExpress()
+  state.expressCompany = company
+  const prefix = (waybillNo.match(/^[A-Za-z]+/) || [''])[0].toUpperCase()
+  const owner = WAYBILL_PREFIX_TO_COMPANY[prefix]
+  const now = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  let result: ScanResult = 'success'
+  let exceptionReason: ExceptionReason | undefined
+  if (!owner) {
+    result = 'exception'
+    exceptionReason = '运单未找到'
+  } else if (owner !== company) {
+    result = 'exception'
+    exceptionReason = '快递公司不匹配'
+  }
+  state.scans.unshift({ id: `s-${Date.now()}`, waybillNo, expressCompany: company, result, exceptionReason, timestamp: now })
+  state.scan = ''
+  if (result === 'exception') {
+    showListFeedback(`运单 ${waybillNo} 异常：${exceptionReason}`, 'danger')
+  } else {
+    showListFeedback(`${company} ${waybillNo} 扫描成功`)
+  }
+  refreshScanPage()
+}
+
+export function renderFinishedPdaShipScan(): string {
+  return `<div data-${EVENT_PREFIX}-root><div data-${EVENT_PREFIX}-workspace>${renderScanWorkspace()}</div></div>`
+}
+
+export function handleFinishedPdaShipScanEvent(target: HTMLElement, event?: Event): boolean {
+  if (!scanRoot()) return false
+
+  const scanField = target.closest<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)
+  if (scanField) {
+    if (event?.type === 'keydown') { submitScan(); return true }
+    state.scan = scanField.value
+    return true
+  }
+  const expressField = target.closest<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="express"]`)
+  if (expressField) {
+    if (event && event.type !== 'change') return true
+    state.expressCompany = expressField.value
+    showListFeedback(`快递公司已切换为 ${state.expressCompany}`, 'info')
+    refreshScanPage()
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
+  const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
+  if (!actionNode || !action) return false
+
+  if (action === 'focus-scan') {
+    refreshScanPage()
+    scanRoot()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="scan"]`)?.focus()
+    return true
+  }
+  if (action === 'submit-scan') { submitScan(); return true }
+  return false
 }

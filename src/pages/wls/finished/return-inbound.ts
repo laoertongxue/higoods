@@ -8,6 +8,7 @@ import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColu
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
 
 type InboundLine = { sku: string; name: string; spec: string; qty: number; qualityResult: '可售' | '瑕疵' | '报废'; stockDest: string; putawayQty: number; targetLocation: string }
 type InboundOrder = {
@@ -58,6 +59,8 @@ const seedOrders: InboundOrder[] = [
     { sku: 'SKU-SHIRT-BLU-L', name: '蓝色衬衫 L', spec: '蓝色/L', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 0, targetLocation: 'A04-02' },
   ]},
 ]
+
+const STATUS_ORDER: readonly string[] = ['WAIT_INBOUND', 'WAIT_PUTAWAY', 'PARTIAL_PUTAWAY', 'COMPLETED']
 
 const EVENT_PREFIX = 'wls-return-inbound'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
@@ -241,8 +244,17 @@ export function handleReturnInboundEvent(target: HTMLElement, event?: Event): bo
     return true
   }
   if (action === 'putaway') {
-    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || ''
-    console.log('putaway return inbound:', id)
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || actionNode.dataset[`${DATASET_PREFIX}Id`] || actionNode.dataset.id || ''
+    const row = seedOrders.find((item) => Object.values(item as Record<string, unknown>).includes(id) || (item as { order?: { id?: string } }).order?.id === id) as object | undefined
+    if (!row) { showListFeedback('未找到该记录，请刷新后重试', 'warning'); return true }
+    const moved = advanceRowStatus(row, STATUS_ORDER)
+    if (!moved) {
+      showListFeedback('该单据已处于最终状态，无需重复上架', 'info')
+      return true
+    }
+    const no = String((row as Record<string, unknown>).orderNo ?? (row as Record<string, unknown>).inboundOrderNo ?? (row as Record<string, unknown>).outboundOrderNo ?? (row as Record<string, unknown>).returnNo ?? (row as Record<string, unknown>).qcNo ?? id)
+    showListFeedback(`${no} 已执行上架，状态：${moved.from} → ${moved.to}`)
+    refreshWorkspace()
     return true
   }
   if (action === 'export') { exportStandardListRows({ fileName: '退货入库列表', columns, rows: filteredRows() }); return true }
