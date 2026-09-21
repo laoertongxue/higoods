@@ -1,0 +1,50 @@
+{
+  "scenarioId": "B20",
+  "scenarioType": "boundary",
+  "generatedAt": "2026-09-20T15:10:14.551Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "businessInput": {
+    "injectAt": "分配",
+    "mutation": "跨单抢占相同规格包",
+    "base": "N02",
+    "expected": "归属冲突阻断",
+    "numericalOracle": "正常基准终点不变；注入阶段按expected验证零副作用或差额在途",
+    "recoveryAndFinal": "使用正确分配包完成全链",
+    "replayFrom": "采购下达"
+  },
+  "checks": [
+    {
+      "id": "B20",
+      "check": "injection",
+      "ok": true,
+      "detail": "分配: 跨单抢占相同规格包"
+    },
+    {
+      "id": "B20",
+      "check": "recovery",
+      "ok": true,
+      "detail": "逐步数量/状态检查、阻断和恢复终点齐全"
+    },
+    {
+      "id": "B20",
+      "check": "oracle",
+      "ok": true,
+      "detail": "数量/库存/状态恢复算子已定义"
+    },
+    {
+      "id": "B20",
+      "check": "replay",
+      "ok": true,
+      "detail": "从 采购下达 重放"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

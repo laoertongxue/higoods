@@ -42,6 +42,19 @@ const renderPlaceholderPage = createAsyncRenderer(
   'renderPlaceholderPage',
 )
 const renderRouteNotFound = createAsyncRenderer(() => import('../pages/placeholder'), 'renderRouteNotFound')
+const renderTmfProductionReceiptsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/production-receipts'),
+  'renderTmfProductionReceiptsPage',
+)
+const renderTmfRawWarehousePage = createAsyncRenderer<['raw-warehouse']>(() => import('../pages/process-factory/accessory/webbing/base-orders'), 'renderTmfBasePage')
+const renderTmfMaterialPreparationPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/material-preparation'),
+  'renderTmfMaterialPreparationPage',
+)
+const renderTmfOutputStockPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/output-stock'),
+  'renderTmfOutputStockPage',
+)
 const renderWlsAccessoryReceiptsPage = createAsyncRenderer(
   () => import('../pages/wls-accessory-receipts'),
   'renderWlsAccessoryReceiptsPage',
@@ -111,6 +124,10 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
   '/wls/inbound': () => renderWlsInboundPage(),
   '/wls/finished-inbound': () => renderWlsFinishedInboundPage(),
+  '/wls/accessory-production-receipts': () => renderTmfProductionReceiptsPage(),
+  '/wls/accessory-base-materials': () => renderTmfRawWarehousePage('raw-warehouse'),
+  '/wls/accessory-material-preparation': () => renderTmfMaterialPreparationPage(),
+  '/wls/accessory-production-stock': () => renderTmfOutputStockPage(),
   '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
   '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
   '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),

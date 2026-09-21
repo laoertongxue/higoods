@@ -1,0 +1,21 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "server": "http://127.0.0.1:43188",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "route": "/pcs/products/styles/style_seed_project_018/technical-data/tdv_seed_project_018_review_skip_demo",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "browser": "Playwright Chromium headless isolated context",
+  "observed": "实际打开技术包工艺路线、BOM添加弹窗并切换辅料；物料候选仅橡筋、流苏和花边，没有织带或绳子半成品。",
+  "result": "未完成织带编辑器页面验收",
+  "script": "output/playwright/tmf-webbing/inspect-editor.mjs",
+  "missing": [
+    "织带/绳子物料档案及SKU",
+    "正确物料下的编辑、保存、刷新回读",
+    "全部入口5次性能样本",
+    "端头真实参考图"
+  ]
+}

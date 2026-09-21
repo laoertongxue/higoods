@@ -1,3 +1,5 @@
+import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
+import { tmfPrintFactsSignature } from './templates/tmf-process-sheet-template.ts'
 import { appStore } from '../../state/store.ts'
 import { recordActualFeiTicketFirstPrintFromPreview } from '../process-factory/cutting/fei-tickets.ts'
 import { escapeHtml } from '../../utils.ts'
@@ -102,6 +104,7 @@ function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBu
     handoverRecordId,
     paperColor,
     skuData,
+    labelSize: input?.labelSize || params.get('labelSize') as PrintDocumentBuildInput['labelSize'] || undefined,
   }
 }
 
@@ -164,7 +167,7 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
   const input = resolveInput()
-  if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION'].includes(input.documentType)) {
+  if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET'].includes(input.documentType)) {
     void prepareVerifiedDocumentPrint(actionNode)
     return true
   }
@@ -201,6 +204,11 @@ async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> 
   controls.forEach((control) => { control.disabled = true })
   if (feedback) feedback.textContent = '正在准备图片和条码…'
   try {
+    const verifyTmfFacts = () => {
+      const printed = root.querySelector<HTMLElement>('[data-tmf-print-signature]')
+      if (printed && printed.dataset.tmfPrintSignature !== tmfPrintFactsSignature(buildPrintDocument(resolveInput()))) throw new Error('加工要求、数量或生产状态已变化，请重新打开预览后核对。')
+    }
+    verifyTmfFacts()
     if (root.querySelector('[data-print-image-missing]')) throw new Error('资料图片尚未维护，请补齐对应图片后再打印。')
     const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[data-print-image]'))
     await Promise.all(images.map(async (img) => {
@@ -219,7 +227,11 @@ async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> 
       if (Date.now() > deadline) throw new Error('二维码尚未生成，请稍后重试。')
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
-    if (!root.querySelector('[data-real-barcode] rect')) throw new Error('条码尚未生成，请重新打开任务单。')
+    verifyTmfFacts()
+    for (const paper of root.querySelectorAll<HTMLElement>('[data-tmf-label-paper]')) {
+      if (paper.scrollHeight > paper.clientHeight + 1 || paper.scrollWidth > paper.clientWidth + 1) throw new Error('标签内容超出当前纸张，请切换A4预览并核对排版。')
+    }
+    if (!['TMF_PACKAGE_LABEL','TMF_HANDOVER_SHEET'].includes(resolveInput().documentType) && !root.querySelector('[data-real-barcode] rect')) throw new Error('条码尚未生成，请重新打开任务单。')
     if (feedback) feedback.textContent = '图片和条码已就绪。'
     window.print()
   } catch (error) {
@@ -267,16 +279,17 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
     const document = buildPrintDocument({
       documentType: resolved.documentType,
       sourceType: decodeParam(resolved.sourceType),
-      sourceId: decodeParam(resolved.sourceId),
+      sourceId: resolved.documentType.startsWith('TMF_') ? resolved.sourceId : decodeParam(resolved.sourceId),
       handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
       paperColor: resolved.paperColor,
       skuData: resolved.skuData,
+      labelSize: resolved.labelSize,
     } as PrintDocumentBuildInput)
 
     if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') window.setTimeout(bindPrintImages, 0)
     return `
       ${renderUnifiedPrintStyles()}
-      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
+      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
         <div class="print-preview-toolbar print-hidden">
           <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 shadow-sm">
             <div>
@@ -288,6 +301,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             </div>
             <div class="flex flex-wrap gap-2">
               ${document.printMeta.returnHref ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(document.printMeta.returnHref)}">返回业务单据</button>` : ''}
+              ${resolved.documentType === 'TMF_PACKAGE_LABEL' ? `<span class="text-xs">现场尺寸待确认 · 共 ${document.totalCopies} 包／张</span>${(['LABEL_150_100','A4'] as const).map(size => `<button class="rounded border px-3 py-2 text-sm" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({...resolved,labelSize:size}))}">${size==='A4'?'A4预览':'150×100mm预览'}</button>`).join('')}` : ''}
               <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-print-preview-action="download-pdf">下载 PDF</button>
               <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-print-preview-action="print">打印</button>
             </div>

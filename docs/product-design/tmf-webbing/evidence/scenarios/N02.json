@@ -1,0 +1,186 @@
+{
+  "scenarioId": "N02",
+  "scenarioType": "normal",
+  "generatedAt": "2026-09-20T15:10:14.549Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "businessInput": {
+    "references": {
+      "purchase": "N02-PO",
+      "purchaseLine": "N02-PO-L1",
+      "baseOrder": "N02-BASE",
+      "productionOrder": "N02-PROD",
+      "techPack": "N02-TP-V1",
+      "cutOrder": "N02-CUT"
+    },
+    "baseSku": "CORD-WHT",
+    "purchaseQuantityM": 1300,
+    "issuedM": 1280,
+    "processingStages": [],
+    "details": [
+      {
+        "id": "N02-D1",
+        "bomItemId": "N02-BOM1",
+        "garmentSize": "S",
+        "productionOrderId": "N02-PROD",
+        "techPackVersion": "N02-TP-V1",
+        "inputSku": "CORD-WHT",
+        "cutLengthMm": 1200,
+        "finishedLengthMm": 1200,
+        "finishedLengthIncludesTip": false,
+        "measurementCondition": "Mock：自然平放；实际工艺待确认",
+        "toleranceMm": 2,
+        "quantity": 400,
+        "unit": "根",
+        "endTreatment": "金属头",
+        "endCount": 2,
+        "outputId": "N02-OUT1",
+        "packageId": "N02-PKG1",
+        "skuCreatedByCutOrTip": false,
+        "tipSpecification": "Mock金属头M01；具体尺寸颜色及图待确认",
+        "productionGarmentQty": 400,
+        "piecesPerGarment": 1
+      },
+      {
+        "id": "N02-D2",
+        "bomItemId": "N02-BOM1",
+        "garmentSize": "M",
+        "productionOrderId": "N02-PROD",
+        "techPackVersion": "N02-TP-V1",
+        "inputSku": "CORD-WHT",
+        "cutLengthMm": 1300,
+        "finishedLengthMm": 1300,
+        "finishedLengthIncludesTip": false,
+        "measurementCondition": "Mock：自然平放；实际工艺待确认",
+        "toleranceMm": 2,
+        "quantity": 600,
+        "unit": "根",
+        "endTreatment": "金属头",
+        "endCount": 2,
+        "outputId": "N02-OUT2",
+        "packageId": "N02-PKG2",
+        "skuCreatedByCutOrTip": false,
+        "tipSpecification": "Mock金属头M01；具体尺寸颜色及图待确认",
+        "productionGarmentQty": 600,
+        "piecesPerGarment": 1
+      }
+    ],
+    "steps": [
+      {
+        "step": 1,
+        "action": "下达采购并生成基础单",
+        "purchaseLineId": "N02-PO-L1",
+        "expectedPurchaseReceivedM": 0,
+        "expectedWarehouseContinuousM": 0,
+        "plannedAt": "2026-09-22T09:00:00+07:00"
+      },
+      {
+        "step": 2,
+        "action": "基础完工、交出、仓库实收",
+        "quantityM": 1300,
+        "expectedPurchaseReceivedM": 1300,
+        "expectedWarehouseContinuousM": 1300,
+        "plannedAt": "2026-09-22T10:00:00+07:00"
+      },
+      {
+        "step": 3,
+        "action": "确认技术包、展开生产需求、占用",
+        "reservedM": 1280,
+        "physicalStockM": 1300,
+        "availableM": 20,
+        "plannedAt": "2026-09-22T11:00:00+07:00"
+      },
+      {
+        "step": 4,
+        "action": "基础仓发料并由首加工方实收",
+        "issuedM": 1280,
+        "warehouseBaseM": 20,
+        "inTransitAfterReceiptM": 0,
+        "plannedAt": "2026-09-22T12:00:00+07:00"
+      },
+      {
+        "step": 5,
+        "action": "TMF截断、按需打头、分类产出",
+        "receivedM": 1280,
+        "netCutM": 1260,
+        "returnContinuousM": 10,
+        "lossM": 10,
+        "outputs": [
+          "N02-OUT1",
+          "N02-OUT2"
+        ],
+        "plannedAt": "2026-09-22T13:00:00+07:00"
+      },
+      {
+        "step": 6,
+        "action": "余料退仓、分规格产出交仓实收",
+        "expectedWarehouseBaseM": 20,
+        "expectedReturnedProcessedM": 10,
+        "warehousePiecesByDemand": {
+          "N02-D1": 400,
+          "N02-D2": 600
+        },
+        "expectedPurchaseReceivedM": 1300,
+        "plannedAt": "2026-09-22T14:00:00+07:00"
+      },
+      {
+        "step": 7,
+        "action": "生产单分配、出库、领料方实收",
+        "receivedPiecesByDemand": {
+          "N02-D1": 400,
+          "N02-D2": 600
+        },
+        "warehousePieces": 0,
+        "pieceTransit": 0,
+        "expectedPurchaseReceivedM": 1300,
+        "plannedAt": "2026-09-22T15:00:00+07:00"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "N02",
+      "check": "references",
+      "ok": true,
+      "detail": "采购、生产单、技术包和加工单引用齐全"
+    },
+    {
+      "id": "N02",
+      "check": "purchase-issue",
+      "ok": true,
+      "detail": "1300m采购，1280m发料"
+    },
+    {
+      "id": "N02",
+      "check": "processing-stages",
+      "ok": true,
+      "detail": "无染印路线，直接进入TMF截断"
+    },
+    {
+      "id": "N02",
+      "check": "cut-output",
+      "ok": true,
+      "detail": "按尺码/用途分行 2 行，净截断 1260m"
+    },
+    {
+      "id": "N02",
+      "check": "final",
+      "ok": true,
+      "detail": "最终采购实收、连续余料、产出实收和损耗断言齐全"
+    },
+    {
+      "id": "N02",
+      "check": "steps",
+      "ok": true,
+      "detail": "7步流程含来源、时间、数量和交接"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

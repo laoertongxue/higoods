@@ -1,0 +1,7 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "a29ea31726308ea46883e2f50e51867976db49f41bd57e135f05f5d70ea1e92c",
+  "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "b775ca6b948091d1f64ed466ccaf652eb84f76b41c16a3a1769f6a37784e30e5",
+  "src/pages/process-factory/accessory/webbing/tipping-form.ts": "af58836ff4c2b795cf52ce177874c78dd5021b26f626bcabe19c6a89fb81360d",
+  "src/pages/process-factory/accessory/webbing/material-preparation.ts": "38a756e557e16ec75d1c6c716ec45137341243a406826270c15474b8c4c49854",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "e2a5a717b3aa2970746ac2732d94fff7743b7700fdce9cd9c18cd5c3d40d1c3d"
+}

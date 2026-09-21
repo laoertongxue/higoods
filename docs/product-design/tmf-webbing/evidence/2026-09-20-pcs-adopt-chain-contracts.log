@@ -1,0 +1,12 @@
+(node:45223) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TMF发布采用链：技术包发布门禁→审核发布→启用→生产单采用→生成织带加工需求 (265.733041ms)
+✔ TMF发布门禁：含织带截断工序但规格未补齐的采用版本不能发布 (10.221458ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 548.3355

@@ -1,0 +1,15 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "4b9e90335ebdba2329fed72656777decf0c2599c753865ea5f1ee544c6868fde",
+    "src/data/fcs/tmf-work-order-times.ts": "e6f2d4230bf222d27a91b747fc5bfe52ec13efc9d8a01d2aef5daa58f9486a6a",
+    "src/pages/process-factory/accessory/webbing/work-times.ts": "71ecbc5d81fe170515f6628d31a0c91333c45c8f9e035b459496966e4e5bcf10",
+    "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "a89ef4f9c48e217320ad8dfd6adabd26a9774add76bd7ecdeaaf345042e19325",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "c2c74900d943722b398199d5a8c12a86d05f39c4035b7102d1fbc304d61d7259",
+    "output/playwright/tmf-webbing/work-times-browser.mjs": "327b6dccab669f2b506a569ddc0c907b55fd168ea65a2b8bc6b3a1b1d334c549"
+  }
+}

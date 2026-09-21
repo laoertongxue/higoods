@@ -1,0 +1,6 @@
+{
+  "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "cfc7fb426185ce413e62626f11fccd83952d3df9a7058afdba01184fc5744ed5",
+  "src/pages/process-factory/accessory/webbing/continuous-return-receipts.ts": "e56e108dc062fc123d2d759e802284f480d9722e9437fc5e39834a74beaf7625",
+  "src/pages/wls-accessory-receipts.ts": "d114f2f27a8bc47a7e88b771c3d17c722d958119ccdf4c1dfed0c4a6342cc21d",
+  "src/data/pms/tmf-material-purchases.ts": "b966716dcf6934243be42c45265a9e265203809bb0e7524064d418466abe2d68"
+}

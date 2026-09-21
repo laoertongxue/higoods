@@ -1,0 +1,16 @@
+TMF route no-dye/no-print contract evidence
+branch: codex/tmf-webbing-management
+head: ed9daa9c1c75fccadd8eb0901ec1876bbee41928 + current uncommitted changes
+command: node --import tsx --test tests/unit/tmf-webbing-route-editor.test.ts
+result: 4 pass, 0 fail
+
+normal:
+- accessory BOM has a semi-finished SKU and one valid S-size cutting specification
+- applyWebbingRouteSpecifications([], bom, [specification], '') returns exactly WEBBING_CUT
+- no DYE or PRINT entry is generated
+- input/output SKU remains the BOM semi-finished SKU
+- complete route graph validation returns no issues
+
+boundary and scope:
+- this contract does not claim that an existing dye/print route is valid; those upstream nodes must still be selected from the technical package
+- the separate route editor test continues to reject skipping an existing preparation node and preserves the independent SPF elastic route

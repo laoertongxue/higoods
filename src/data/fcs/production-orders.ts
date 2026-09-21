@@ -20,7 +20,7 @@ import {
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import {
-  productionOrderRuntimeStore,
+  CREATED_PRODUCTION_ORDERS_STORAGE_KEY, productionOrderRuntimeStore,
   RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT,
   type ProductionOrderRuntimeStatus,
 } from './production-order-runtime-store.ts'
@@ -1336,9 +1336,9 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     productionOrderId: 'PO-202603-0014',
     demandId: 'DEM-202603-0017',
     status: 'ASSIGNING',
-    mainFactoryId: 'ID-F010',
+    mainFactoryId: 'FAC-TMF',
     ownerPartyType: 'FACTORY',
-    ownerPartyId: 'ID-F010',
+    ownerPartyId: 'FAC-TMF',
     assignmentSummary: { directCount: 4, biddingCount: 0, totalTasks: 4, unassignedCount: 1 },
     assignmentProgress: { status: 'IN_PROGRESS', directAssignedCount: 3, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1782,8 +1782,9 @@ export function findProductionOrderForDemand(demandId: string): ProductionOrder 
     || order.sourceDemandSnapshots?.some(snapshot => snapshot.demandId === demandId))
 }
 
-export const CREATED_PRODUCTION_ORDERS_STORAGE_KEY = 'higood.formal-created-production-orders.v1'
+export { CREATED_PRODUCTION_ORDERS_STORAGE_KEY } from './production-order-runtime-store.ts'
 const persistedCreatedProductionOrderIds = new Set<string>()
+const lastSavedCreatedProductionOrders = new Map<string, string>()
 
 // Only the formal demand-conversion command enrolls new orders. Initial demo rows
 // are never saved or replaced by this storage record.
@@ -1792,7 +1793,29 @@ export function persistCreatedProductionOrders(createdOrderIds: string[] = []): 
   const orders = productionOrders.filter(order => ids.has(order.productionOrderId)
     && !initialProductionOrderIds.has(order.productionOrderId))
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, JSON.stringify({ version: 1, orders }))
+    const raw = localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
+    const saved = raw ? JSON.parse(raw) : { version: 1, orders: [] }
+    if (saved?.version !== 1 || !Array.isArray(saved.orders)) throw new Error('已保存生产单无法读取，请重新核对，未覆盖原记录。')
+    const merged = new Map<string, ProductionOrder>(saved.orders.map((order: ProductionOrder) => [order.productionOrderId, order]))
+    for (const order of orders) {
+      const id = order.productionOrderId, before = lastSavedCreatedProductionOrders.get(id)
+      const latest = merged.get(id), local = JSON.stringify(order), remote = latest ? JSON.stringify(latest) : undefined
+      if (local === before && latest) continue
+      if (remote !== before && remote !== local && (before !== undefined || latest)) {
+        throw new Error(`生产单 ${order.productionOrderNo} 已在其他页面修改，请重新进入并核对后再保存；未覆盖已保存记录。`)
+      }
+      merged.set(id, order)
+    }
+    localStorage.setItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, JSON.stringify({ version: 1, orders: [...merged.values()] }))
+    // 保存成功后才更新本页；保持主单对象身份，未修改的旧页承接另一页最新事实。
+    for (const order of orders) {
+      const latest = merged.get(order.productionOrderId)!
+      if (latest !== order) {
+        for (const key of Object.keys(order)) delete (order as unknown as Record<string, unknown>)[key]
+        Object.assign(order, structuredClone(latest))
+      }
+      lastSavedCreatedProductionOrders.set(order.productionOrderId, JSON.stringify(order))
+    }
   }
   orders.forEach(order => persistedCreatedProductionOrderIds.add(order.productionOrderId))
 }
@@ -1813,6 +1836,7 @@ if (typeof localStorage !== 'undefined') {
           || typeof order.status !== 'string' || !order.demandId) continue
         productionOrders.push(order)
         persistedCreatedProductionOrderIds.add(order.productionOrderId)
+        lastSavedCreatedProductionOrders.set(order.productionOrderId, JSON.stringify(order))
       }
     }
   } catch (error) {

@@ -69,7 +69,7 @@ export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_V
 export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
 export type TaskQrStatus = 'ACTIVE' | 'VOIDED'
 export type TaskHandoverAutoCreatePolicy = 'CREATE_ON_START'
-export type TaskReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+export type TaskReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY' | 'FACTORY'
 export type TaskHandoverStatus =
   | 'NOT_CREATED'
   | 'AUTO_CREATED'

@@ -1,0 +1,858 @@
+{
+  "generatedAt": "2026-09-20T17:15:45.565Z",
+  "server": "http://127.0.0.1:43288",
+  "viewport": "1280x720",
+  "browser": "Chromium",
+  "samples": [
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 221.84,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 236.77,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 182.66,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 181.37,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 183,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 185.04,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 183.58,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 184.62,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 181.88,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 183.44,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 183.68,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 186.46,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 183.33,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 180.76,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 183.17,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 253.08,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 199.94,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 249.18,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 198.82,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 250.14,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 129.27,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 129,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 128.84,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 129.14,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 130.05,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 130.7,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 133.57,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 132.8,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 132.28,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 131.41,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 124.64,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 124.49,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 124.21,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 124.52,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 125.08,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 142.78,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 141.85,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 141.22,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 167.13,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 140.71,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 182.22,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 182.44,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 182.91,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 183.43,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 183.34,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 182.48,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 21.39,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 24.36,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 19.78,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 20.94,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 181.61,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 19.86,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 22.4,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 20.71,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 22.23,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 183.55,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 20.83,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 22.63,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 20.38,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 22.69,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 198.53,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 21.84,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 17.5,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 17.32,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 17.3,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 130.7,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 18.68,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 19.3,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 17.54,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 17.67,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 131.72,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 18.1,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 17,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 16.83,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 18.35,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 124.45,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 16.94,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 16.69,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 16.68,
+      "pass": true
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 16.29,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 165.1,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 18.31,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 16.78,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 16,
+      "pass": true
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 16.42,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 182.66,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 19.68,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 22.05,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 24,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 20.25,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch",
+      "run": 1,
+      "ms": 183.39,
+      "pass": true
+    },
+    {
+      "from": "/fcs/craft/accessory/webbing/purchase-demands",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch",
+      "run": 1,
+      "ms": 20.07,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch",
+      "run": 2,
+      "ms": 184.53,
+      "pass": true
+    },
+    {
+      "from": "/fcs/craft/accessory/webbing/purchase-demands",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch",
+      "run": 2,
+      "ms": 23.03,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch",
+      "run": 3,
+      "ms": 182.69,
+      "pass": true
+    },
+    {
+      "from": "/fcs/craft/accessory/webbing/purchase-demands",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch",
+      "run": 3,
+      "ms": 20.07,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch",
+      "run": 4,
+      "ms": 184.06,
+      "pass": true
+    },
+    {
+      "from": "/fcs/craft/accessory/webbing/purchase-demands",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch",
+      "run": 4,
+      "ms": 20.73,
+      "pass": true
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch",
+      "run": 5,
+      "ms": 183.51,
+      "pass": true
+    },
+    {
+      "from": "/fcs/craft/accessory/webbing/purchase-demands",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch",
+      "run": 5,
+      "ms": 20.82,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "notApplicableEntrypoints": [
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-receipts",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/wls/accessory-production-receipts",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/pms/material-purchase-orders",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "interaction:查询",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "interaction:重置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    },
+    {
+      "path": "/fcs/craft/accessory/webbing/continuous-return-receipts",
+      "kind": "interaction:列设置",
+      "reason": "当前页面没有该业务入口，不计为适用交互"
+    }
+  ],
+  "summary": {
+    "total": 100,
+    "failed": 0,
+    "maxMs": 253.08,
+    "notApplicableEntrypoints": 27,
+    "errors": 0
+  }
+}

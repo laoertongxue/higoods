@@ -1,0 +1,443 @@
+{
+  "server": "http://127.0.0.1:43189",
+  "viewport": "1024x768",
+  "browser": "Chromium",
+  "samples": [
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold",
+      "ms": 192.93,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 200.07,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 203.24,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 198.47,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 197.42,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 199.51,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold",
+      "ms": 196.93,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 196.28,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 197.47,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 196.25,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 197.12,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 197.26,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold",
+      "ms": 102.75,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 83.79,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 89.35,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 77.32,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 83.31,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 99.86,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold",
+      "ms": 83.45,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 83.32,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 83.38,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 83.3,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 83.36,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 83.29,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold",
+      "ms": 99.23,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 100.81,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 99.91,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 99.97,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 100.12,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 100.05,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "switch",
+      "run": 1,
+      "ms": 116.58,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "switch",
+      "run": 1,
+      "ms": 196.09,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "switch",
+      "run": 1,
+      "ms": 92.02,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "switch",
+      "run": 1,
+      "ms": 78.49,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "switch",
+      "run": 1,
+      "ms": 100.07,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "switch",
+      "run": 2,
+      "ms": 193.43,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "switch",
+      "run": 2,
+      "ms": 196.71,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "switch",
+      "run": 2,
+      "ms": 93.46,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "switch",
+      "run": 2,
+      "ms": 82.99,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "switch",
+      "run": 2,
+      "ms": 99.93,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "switch",
+      "run": 3,
+      "ms": 194.1,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "switch",
+      "run": 3,
+      "ms": 194.6,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "switch",
+      "run": 3,
+      "ms": 94.17,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "switch",
+      "run": 3,
+      "ms": 83.81,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "switch",
+      "run": 3,
+      "ms": 99.92,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "switch",
+      "run": 4,
+      "ms": 196.45,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "switch",
+      "run": 4,
+      "ms": 195.59,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "switch",
+      "run": 4,
+      "ms": 93.9,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "switch",
+      "run": 4,
+      "ms": 80.78,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "switch",
+      "run": 4,
+      "ms": 100.16,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "switch",
+      "run": 5,
+      "ms": 193.47,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "switch",
+      "run": 5,
+      "ms": 197.24,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "switch",
+      "run": 5,
+      "ms": 94.12,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "switch",
+      "run": 5,
+      "ms": 81.67,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "switch",
+      "run": 5,
+      "ms": 99.93,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

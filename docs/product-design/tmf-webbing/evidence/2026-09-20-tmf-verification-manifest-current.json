@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-09-20T13:28:56.979751+00:00",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "tests": "405/405 passed",
+  "build": "passed",
+  "designData": "351 checks passed",
+  "traceAudit": "127/127 source rows; 33/33 governed files",
+  "normativeScenarioAcceptance": "29/29",
+  "files": {
+    "docs/product-design/tmf-webbing/规范场景验收覆盖.json": "07728744d1e465da6fd49d9bcbcd54c0b901ca98fb948c2a6a613e000eed7eeb",
+    "docs/product-design/tmf-webbing/规范场景验收覆盖.md": "e0160aab301cf0640c3eedecea9db344e94c508fba293a5e8084ac6c7b001e62",
+    "docs/product-design/tmf-webbing/evidence/2026-09-20-normative-acceptance-current.json": "4f67ade842c5263b9ac204e612b864615b2c4dbf547a0b237453bc863dcf8b46",
+    "docs/product-design/tmf-webbing/evidence/2026-09-20-upstream-sources-full-flow.json": "4c538ba80c5eb943dcc408cdf4a8a209f615647834bd1861329333580f63d5ea",
+    "docs/product-design/tmf-webbing/evidence/2026-09-20-base-pages-browser-current.json": "57b79d1260c63e6ad03a74e765e29be2fd03b0f7080f29a95fb083cd3708a743",
+    "public/materials/tmf/webbing-real-roll.jpg": "e3548a3c896ec6e9e2d61fc8419af4c5ee7606360975600f66fefc7704521a4c",
+    "public/materials/tmf/rope-real-bundle.jpg": "2268d4cae8bb72b1f3fcf824ff06a4c5f467a438404d1f095b6bca41752e7559",
+    "public/materials/tmf/webbing-real-box.jpg": "3051bcf7c045fb7a931d56c629bf7dd63075e62beee371060264970e7d714e2b"
+  },
+  "matrix": "127/127 已验证",
+  "fullMatrixReceipt": "evidence/2026-09-20-full-matrix-verification-current.json",
+  "staticContract": "355 checks passed"
+}

@@ -1,0 +1,13 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "0487bb8518acac4d301ceec473812a01c2b054502843c94beb1b89c085d491e9",
+    "src/pages/process-factory/accessory/webbing/output-stock.ts": "2417b88c1a79f9abcaf45e892303378654d5316e0d1aa37f4e40de8520901783",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "d96c1a4a021a8966f6177e8d3172b1d412d2054340dca0a84f118841bb998435",
+    "output/playwright/tmf-webbing/b05-recovery-browser.mjs": "9c11b94fec764d328111d45cc0e229b56cd881866bc34ee1d2f987170f9ba9c5"
+  }
+}

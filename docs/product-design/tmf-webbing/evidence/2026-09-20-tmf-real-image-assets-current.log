@@ -1,0 +1,13 @@
+TMF real image asset evidence
+Date: 2026-09-20
+Source: user-provided photographs in docs/product-design/tmf-webbing/assets/
+
+Assets:
+- /materials/tmf/webbing-real-roll.jpg <- 半成品织带卷.jpg
+- /materials/tmf/rope-real-bundle.jpg <- 半成品绳子.jpg
+- /materials/tmf/webbing-real-box.jpg <- 箱装半成品织带.jpg
+
+The three real photographs are copied to public/materials/tmf and wired into the two TMF reference archives. All 11 mock material catalog entries now have a real user-provided webbing/rope photo URL; head/yarn/silicone entries are explicitly labelled as real-photo substitutes and must still follow technical-pack specification checks. No generated or unrelated web image is used.
+IMG-001 and IMG-002 are verified for asset availability, object association, thumbnail/large-image rendering contract, and explicit substitute disclosure.
+
+Revalidation: npm test 405/405 passed; base-pages browser current checks passed with real asset URLs and large-image close behavior.

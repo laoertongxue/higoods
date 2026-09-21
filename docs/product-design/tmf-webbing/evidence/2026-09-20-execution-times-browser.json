@@ -1,0 +1,41 @@
+{
+  "checks": [
+    "页面接单/分批到料后开工，缺确认/无实收/旧预览阻断；状态摘要局部更新",
+    "完工逐规格及连续余料门禁，另一页退料使旧确认失效；退料在途8米时加工可完工，但生产实收仍0",
+    "刷新保留三次真实动作时间，完工后独立仓收、分配发料和生产实收400/600；时间不改写，700=连续78+生产620+损耗2"
+  ],
+  "errors": [],
+  "scope": "直接截断白料700米自定义链；现场执行时间及正常完工门禁，后续仓收/生产实收；不是N01印染链或全入口性能证据",
+  "completion": {
+    "execution": {
+      "workOrderId": "[\"EXECUTION-UI-PROD\",\"EXECUTION-UI-PROD-SNAPSHOT-V1\",\"CUT\"]",
+      "acceptedAt": "2026-09-20T03:48:01.465Z",
+      "acceptedBy": "织带厂主管（演示）",
+      "startedAt": "2026-09-20T03:48:05.048Z",
+      "startedBy": "织带厂主管（演示）",
+      "finishedAt": "2026-09-20T03:48:05.798Z",
+      "finishedBy": "织带厂主管（演示）"
+    },
+    "received": 0,
+    "returns": [
+      4,
+      4
+    ]
+  },
+  "result": {
+    "execution": {
+      "workOrderId": "[\"EXECUTION-UI-PROD\",\"EXECUTION-UI-PROD-SNAPSHOT-V1\",\"CUT\"]",
+      "acceptedAt": "2026-09-20T03:48:01.465Z",
+      "acceptedBy": "织带厂主管（演示）",
+      "startedAt": "2026-09-20T03:48:05.048Z",
+      "startedBy": "织带厂主管（演示）",
+      "finishedAt": "2026-09-20T03:48:05.798Z",
+      "finishedBy": "织带厂主管（演示）"
+    },
+    "received": [
+      400,
+      600
+    ],
+    "continuous": 78
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "src/data/pcs-tmf-material-reference-seeds.ts": "0cc547aa709dda1ae57941de11d211c576a32387fddf9b0cc9e32657a69d7733",
+  "src/data/pcs-material-archive-repository.ts": "4b66342b8845fb56c40ba53cd3edd164d96e96914f1097aeb9eb1b6cc34295c5",
+  "src/pages/tech-pack/webbing-specification-dialog.ts": "a35854250d970c84d71d17f408a58703519e29fa05d3aa4be53fa5e1970e71cc",
+  "tests/unit/tmf-material-references.test.ts": "e50fa085925ae0842f37075611f77e4b54087852faff46ae194905f5b7896d96",
+  "public/materials/tmf/webbing-reference-white.jpg": "e3548a3c896ec6e9e2d61fc8419af4c5ee7606360975600f66fefc7704521a4c",
+  "public/materials/tmf/rope-reference-white.jpg": "2268d4cae8bb72b1f3fcf824ff06a4c5f467a438404d1f095b6bca41752e7559"
+}

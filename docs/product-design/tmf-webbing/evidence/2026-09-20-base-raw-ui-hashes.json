@@ -1,0 +1,9 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/pages/process-factory/accessory/webbing/base-orders.ts": "4e1089a2cc822473dd7b29b267d3d4944da62b52b0106d13d4afdc9c8fbcb50f",
+    "src/data/pms/tmf-material-purchases.ts": "7ce1ae75046af36cd1d83769debb4f7556ebf109ab190272633680a37cd281e7"
+  }
+}

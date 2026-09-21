@@ -1,0 +1,8 @@
+import { getTmfPurchaseReturnBalance, getTmfPurchaseState } from '../../../../data/pms/tmf-material-purchases.ts'
+import { escapeHtml as e } from '../../../../utils.ts'
+
+export function renderTmfPurchaseReturns(orderNo:string, receiving:boolean, action:(name:string,label:string,id?:string)=>string, rowId:string):string {
+ const data=getTmfPurchaseState(),rows=data.purchaseReturns.filter(r=>r.purchaseOrderNo===orderNo),balance=getTmfPurchaseReturnBalance(orderNo)
+ const base=data.baseOrders.find(b=>b.purchaseOrderNo===orderNo)
+ return `<section class="border-t pt-3 mt-3 text-sm"><h3 class="font-semibold">采购关联退货</h3><p>原累计收货 ${balance.grossReceivedMeters} 米；退货已交 ${balance.returnDispatchedMeters} 米；TMF已收 ${balance.returnReceivedMeters} 米；退货在途 ${balance.returnTransitMeters} 米；采购净实收 ${balance.netReceivedMeters} 米。</p><p class="text-xs text-amber-700">退回物由TMF单独保留，未重新计入可交出产出。先收齐退货，再由采购修订计划，主管核对处置。</p><div class="mt-2">${receiving?action('purchase-return','交出未用采购退货',rowId):base?.changePending?action('purchase-resolve','核对采购变更处置',rowId):''}</div>${rows.map(r=>`<article class="border rounded p-2 mt-2"><p>${e(r.id)} · 原批次 ${e(r.lotId)} · ${e(r.materialSkuId)}</p><p>已交 ${r.dispatchedMeters} 米；TMF实收 ${r.receivedMeters} 米；待收 ${Math.round((r.dispatchedMeters-r.receivedMeters)*1000)/1000} 米</p><p>${e(r.dispatchedBy.name)} · ${e(r.dispatchedAt)} · ${e(r.reason)}</p>${r.receipts.map(x=>`<p class="text-xs">本次实收 ${x.meters} 米 · ${e(x.receivedBy.name)} · ${e(x.receivedAt)}</p>`).join('')}${!receiving&&r.receivedMeters<r.dispatchedMeters?action('purchase-return-receive','登记退货实收',JSON.stringify([rowId,r.id])):''}</article>`).join('')}</section>`
+}

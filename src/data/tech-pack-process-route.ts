@@ -1,4 +1,9 @@
 import type { TechnicalProcessObjectType } from './pcs-technical-data-version-types.ts'
+import {
+  WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS, validateWebbingSpecifications,
+  getWebbingPhysicalSpecificationKey,
+  type WebbingInventoryForm, type WebbingSpecification,
+} from './fcs/webbing-specifications.ts'
 
 export const LEGACY_PROCESS_ROUTE_SCHEMA_VERSION = 1
 export const CURRENT_PROCESS_ROUTE_SCHEMA_VERSION = 2
@@ -21,6 +26,9 @@ export type ProcessRouteGraphEntry = RouteEntryBase & {
   outputObjectType?: TechnicalProcessObjectType
   inputMaterialSkuId?: string
   outputMaterialSkuId?: string
+  webbingSpecifications?: WebbingSpecification[]
+  inputInventoryForm?: WebbingInventoryForm
+  outputInventoryForm?: WebbingInventoryForm
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   routeParallelGroupId?: string
@@ -44,6 +52,9 @@ export type ProcessRouteValidationIssueCode =
   | 'MATERIAL_SKU_MISMATCH'
   | 'FABRIC_PRINT_OBJECT_INVALID'
   | 'POST_PROCESS_NOT_STATIC_ROUTE'
+  | 'WEBBING_SPECIFICATION_INVALID'
+  | 'WEBBING_INVENTORY_FORM_INVALID'
+  | 'WEBBING_PREDECESSOR_INVALID'
   | 'CYCLE'
 
 export type ProcessRouteValidationIssue = {
@@ -281,6 +292,55 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
   const outgoing = new Map<string, string[]>()
   entries.forEach((entry) => outgoing.set(entry.id, []))
   for (const entry of entries) {
+    const isWebbingCut = entry.processCode === WEBBING_CUT_PROCESS
+    const isWebbingTip = entry.processCode === WEBBING_TIP_PROCESS
+    if (options.requireComplete && (isWebbingCut || isWebbingTip)) {
+      for (const issue of validateWebbingSpecifications(entry.webbingSpecifications, entry.linkedBomItemIds ?? [])) {
+        issues.push({ code: 'WEBBING_SPECIFICATION_INVALID', entryId: entry.id, message: `${issue.specificationId || entry.id}：${issue.message}` })
+      }
+      if (!entry.inputMaterialSkuId || !entry.outputMaterialSkuId) {
+        issues.push({ code: 'MISSING_MATERIAL_SKU_IDENTITY', entryId: entry.id, message: '截断／打头必须保留来源半成品 SKU。' })
+      } else if (entry.inputMaterialSkuId !== entry.outputMaterialSkuId) {
+        issues.push({ code: 'MATERIAL_SKU_MUST_REMAIN', entryId: entry.id, message: '截断长度和端头要求不新增 SKU，请保持来源 SKU 并通过产出明细区分实物。' })
+      }
+      const requiresTip = entry.webbingSpecifications?.some((spec) => spec.tippingRequired === true)
+      const expectedInput = isWebbingCut ? 'CONTINUOUS' : 'CUT_PIECES'
+      const expectedOutput = isWebbingCut && requiresTip ? 'CUT_PIECES' : 'FINISHED_PIECES'
+      if (entry.inputInventoryForm !== expectedInput || entry.outputInventoryForm !== expectedOutput
+        || entry.inputObjectType !== 'ACCESSORY' || entry.outputObjectType !== 'ACCESSORY') {
+        issues.push({ code: 'WEBBING_INVENTORY_FORM_INVALID', entryId: entry.id, message: '请核对辅料的连续料、截断在制和完成产出形态；打头不能重新领用连续料。' })
+      }
+      if (isWebbingTip && (!requiresTip || entry.webbingSpecifications?.some((spec) => spec.tippingRequired !== true))) {
+        issues.push({ code: 'WEBBING_SPECIFICATION_INVALID', entryId: entry.id, message: '打头工序只能包含明确需要打头的规格。' })
+      }
+      if (isWebbingCut && requiresTip) {
+        const tippingEntries = entries.filter((candidate) => candidate.processCode === WEBBING_TIP_PROCESS && candidate.predecessorEntryIds?.includes(entry.id))
+        for (const spec of entry.webbingSpecifications ?? []) {
+          if (spec.tippingRequired && tippingEntries.flatMap((candidate) => candidate.webbingSpecifications ?? []).filter((target) => target.id === spec.id).length !== 1) {
+            issues.push({ code: 'WEBBING_PREDECESSOR_INVALID', entryId: entry.id, message: `规格 ${spec.id} 需要打头，必须且只能关联一个后续打头节点。` })
+          }
+        }
+      }
+      if (isWebbingTip) {
+        const predecessors = (entry.predecessorEntryIds ?? []).map((id) => entryById.get(id))
+        const cutting = predecessors.filter((item) => item?.processCode === WEBBING_CUT_PROCESS)
+        if (cutting.length !== 1 || predecessors.length !== 1) {
+          issues.push({ code: 'WEBBING_PREDECESSOR_INVALID', entryId: entry.id, message: '打头必须明确承接一个截断节点的条料产出。' })
+        } else {
+          const source = cutting[0]!
+          const sourceSpecs = source.webbingSpecifications ?? []
+          const targetSpecs = entry.webbingSpecifications ?? []
+          if (source.outputInventoryForm !== 'CUT_PIECES'
+            || source.outputMaterialSkuId !== entry.inputMaterialSkuId
+            || targetSpecs.some((spec) => !sourceSpecs.some((previous) => previous.id === spec.id
+              && previous.bomItemId === spec.bomItemId && previous.usage === spec.usage && previous.garmentSize === spec.garmentSize
+              && previous.piecesPerGarment === spec.piecesPerGarment
+              && getWebbingPhysicalSpecificationKey(previous) === getWebbingPhysicalSpecificationKey(spec)))) {
+            issues.push({ code: 'WEBBING_PREDECESSOR_INVALID', entryId: entry.id, message: '打头投入必须与前序截断的 SKU、规格行和实际形态一致。' })
+          }
+        }
+      }
+    }
     if (options.requireComplete && (!entry.routeObjectKey || !entry.inputObjectType || !entry.outputObjectType)) {
       issues.push({
         code: 'MISSING_OBJECT_IDENTITY',

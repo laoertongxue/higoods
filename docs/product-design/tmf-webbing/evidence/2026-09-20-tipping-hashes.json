@@ -1,0 +1,4 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "c523f03615215bf1e85d160cc192736cc3cb04c22e931adb29020393c8ff215b",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "96bc2438b9e45db1844937d3d75688f3fca33d94eeeb1d7faceab70f36547c13"
+}

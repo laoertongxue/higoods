@@ -1,0 +1,6 @@
+{
+  "src/data/fcs/factory-receiving.ts": "f381d59d0751d6d1d4ddaa2bac1cb8ec45f3c3b90488a643911b8500554ea1ef",
+  "src/data/fcs/factory-receiving-types.ts": "c32434ffdf28a52043a6bde7fea82e46954085a48e9db06143ad8105e502c92d",
+  "src/pages/process-factory/dyeing/pending-receipts.ts": "c095f50d37d9f194357e64fb4b7d82e6195390d34a20f7ae44c54763b54df673",
+  "tests/unit/tmf-continuous-factory-receipt.test.ts": "83eef998235b2932376a4a3b067e07c164bca86ef8fa143ca5d0f6b778afcd8d"
+}

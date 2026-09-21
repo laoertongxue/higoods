@@ -129,7 +129,7 @@ let snapshot = getLaceRuntimeEvidenceSnapshot()
 
 assert.equal(snapshot.factoryMappings.length, 1)
 assert.equal(snapshot.factoryMappings[0].supplierName, 'Renda Jaya')
-assert.equal(snapshot.factoryMappings[0].factoryOrgId, 'FAC-RJ-LACE')
+assert.equal(snapshot.factoryMappings[0].factoryOrgId, 'FAC-TMF')
 assert.equal(snapshot.demands.length, 5, 'all active internal lace purchase SKUs with formal inputs enter PFOS')
 assert.equal(snapshot.failures.length, 0, 'PO-338520 formal inputs are complete and must not remain in generation failures')
 assert.equal(snapshot.workOrders.length, 5, 'one work order per purchase order + SKU')

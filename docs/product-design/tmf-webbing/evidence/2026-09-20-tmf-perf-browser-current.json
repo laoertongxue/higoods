@@ -1,0 +1,208 @@
+{
+  "viewport": "1024x768",
+  "browser": "Chromium",
+  "server": "http://127.0.0.1:43188",
+  "samples": [
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 1398,
+      "pass": false
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 343,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 335,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 333,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 247,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 330,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 245,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 245,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 329,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 247,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 225,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 226,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 227,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 225,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 226,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 228,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 226,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 229,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 224,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 233,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 239,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 228,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 228,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 226,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 230,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

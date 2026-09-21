@@ -1,0 +1,8 @@
+{
+  "runAt": "2026-09-20T13:26:16.013Z",
+  "runner": "evidence/2026-09-20-normative-acceptance-current.mjs",
+  "fullFlowChecks": 17,
+  "fullFlowErrors": 0,
+  "allScenarioStatus": "已验证",
+  "missingScenarioIds": []
+}

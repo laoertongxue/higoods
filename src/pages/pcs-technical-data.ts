@@ -8,6 +8,7 @@ import { renderTablePagination } from '../components/ui/pagination.ts'
 import { listEngineeringMasterOrders } from '../data/pcs-engineering-master-repository.ts'
 import { ensureEngineeringMasterDemoData } from '../data/pcs-engineering-master-view-model.ts'
 import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
+import { resolveStableStyleImage } from '../data/pcs-style-demo-image.ts'
 import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
 import { getTechnicalDataVersionContent, listTechnicalDataVersions } from '../data/pcs-technical-data-version-repository.ts'
 import type { TechnicalDataVersionRecord } from '../data/pcs-technical-data-version-types.ts'
@@ -68,7 +69,7 @@ type TechPackRow = TechnicalDataVersionRecord & {
 
 const columns: StandardListColumn<TechPackRow>[] = [
   { key: 'id', title: '技术包 ID', width: 150, required: true, freezeable: true, render: (row) => escapeHtml(row.technicalVersionCode) },
-  { key: 'style', title: '商品信息', width: 260, required: true, freezeable: true, render: (row) => `<div class="flex items-center gap-3">${row.imageUrl ? `<button type="button" class="h-12 w-12 overflow-hidden rounded border" aria-label="查看${escapeHtml(row.styleName)}大图" data-tech-data-action="open-image" data-image-url="${escapeHtml(row.imageUrl)}" data-image-title="${escapeHtml(row.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(row.imageUrl)}" alt="${escapeHtml(row.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button>` : '<span class="flex h-12 w-12 items-center justify-center rounded border text-[10px] text-slate-400">暂无图片</span>'}<div><p class="font-medium">${escapeHtml(row.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(row.styleCode)} · ${escapeHtml(row.brandName || '未设置品牌')}</p></div></div>` },
+  { key: 'style', title: '商品信息', width: 260, required: true, freezeable: true, render: (row) => `<div class="flex items-center gap-3">${row.imageUrl ? `<button type="button" class="h-12 w-12 overflow-hidden rounded border" aria-label="查看${escapeHtml(row.styleName)}大图" data-tech-data-action="open-image" data-image-url="${escapeHtml(row.imageUrl)}" data-image-title="${escapeHtml(row.styleName)}"><img loading="lazy" class="h-full w-full object-cover" src="${escapeHtml(row.imageUrl)}" alt="${escapeHtml(row.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button>` : '<span class="flex h-12 w-12 items-center justify-center rounded border text-[10px] text-slate-400">暂无图片</span>'}<div><p class="font-medium">${escapeHtml(row.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(row.styleCode)} · ${escapeHtml(row.brandName || '未设置品牌')}</p></div></div>` },
   { key: 'status', title: '状态', width: 120, render: (row) => escapeHtml(row.versionStatus === 'PUBLISHED' ? '已发布' : row.versionStatus === 'ARCHIVED' ? '已归档' : '草稿') },
   { key: 'version', title: '版本', width: 100, render: (row) => escapeHtml(row.versionLabel) },
   { key: 'complete', title: '完整度', width: 100, render: (row) => `${row.completenessScore}%` },
@@ -88,7 +89,6 @@ const preferences: StandardListColumnPreferences = {
 }
 
 function engineeringVersions(): TechPackRow[] {
-  ensureEngineeringMasterDemoData()
   const masters = listEngineeringMasterOrders()
   return listTechnicalDataVersions()
     .filter((row) => row.createdFromTaskType === 'ENGINEERING_MASTER')
@@ -97,7 +97,7 @@ function engineeringVersions(): TechPackRow[] {
       const master = masters.find((item) => item.masterOrderId === row.sourceProjectId || item.styleId === row.styleId)
       return {
         ...row,
-        imageUrl: style?.mainImageUrl || style?.galleryImageUrls[0] || '',
+        imageUrl: resolveStableStyleImage(row.styleName, style?.mainImageUrl || style?.galleryImageUrls[0] || ''),
         brandName: style?.brandName || '',
         merchandiserName: master?.merchandiserName || row.merchandiserReview?.assignedReviewerName || '',
         patternMakerName: row.patternMakerReview?.assignedReviewerName || '',
@@ -129,8 +129,7 @@ function filteredRows(): TechPackRow[] {
   return rows
 }
 
-function renderFilters(): string {
-  const rows = engineeringVersions()
+function renderFilters(rows: TechPackRow[] = engineeringVersions()): string {
   const options = (values: string[]) => [...new Set(values.filter(Boolean))].map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')
   return `<div class="grid grid-cols-2 gap-2 xl:grid-cols-6"><input class="h-9 rounded border px-3 text-sm xl:col-span-2" placeholder="技术包 ID / SPU / 生产准备单" value="${escapeHtml(listState.keyword)}" data-tech-data-field="keyword"><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="status"><option value="">全部状态</option><option value="DRAFT" ${listState.status === 'DRAFT' ? 'selected' : ''}>草稿</option><option value="PUBLISHED" ${listState.status === 'PUBLISHED' ? 'selected' : ''}>已发布</option><option value="ARCHIVED" ${listState.status === 'ARCHIVED' ? 'selected' : ''}>已归档</option></select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="review"><option value="">全部审核阶段</option>${['未提交审核','第一阶段并行审核','跟单复核','待发布','已发布'].map((value) => `<option value="${value}" ${listState.review === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="brand"><option value="">全部品牌</option>${options(rows.map((row) => row.brandName))}</select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="completeness"><option value="">全部完整度</option><option value="COMPLETE" ${listState.completeness === 'COMPLETE' ? 'selected' : ''}>100%</option><option value="INCOMPLETE" ${listState.completeness === 'INCOMPLETE' ? 'selected' : ''}>未完整</option></select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="difficulty"><option value="">全部做货难度</option>${['A','A+','A++','B','C','D'].map((value) => `<option value="${value}" ${listState.difficulty === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="merchandiser"><option value="">全部跟单</option>${options(rows.map((row) => row.merchandiserName))}</select><select class="h-9 rounded border px-2 text-sm" data-tech-data-field="patternMaker"><option value="">全部版师</option>${options(rows.map((row) => row.patternMakerName))}</select><input type="date" aria-label="创建开始日期" class="h-9 rounded border px-2 text-sm" value="${listState.createdFrom}" data-tech-data-field="createdFrom"><input type="date" aria-label="创建结束日期" class="h-9 rounded border px-2 text-sm" value="${listState.createdTo}" data-tech-data-field="createdTo"><div class="flex items-center gap-2 xl:col-span-2"><label class="flex h-9 items-center gap-2 rounded border px-3 text-sm"><input type="checkbox" data-tech-data-field="needMyAudit" ${listState.needMyAudit ? 'checked' : ''}>待我审核</label><label class="flex h-9 items-center gap-2 rounded border px-3 text-sm"><input type="checkbox" data-tech-data-field="spuDistinct" ${listState.spuDistinct ? 'checked' : ''}>SPU 去重</label><button type="button" class="h-9 rounded bg-blue-600 px-4 text-sm text-white" data-tech-data-action="search">查询</button></div></div>`
 }
@@ -148,7 +147,7 @@ export function renderPcsTechnicalDataTechPackListPage(): string {
   return `<div data-pcs-technical-data-page>${renderStandardListPage({
     title: '技术包列表',
     primaryActionsHtml: '<span class="text-sm text-slate-500">技术包仅由生产准备单生成</span>',
-    filtersHtml: renderFilters(),
+    filtersHtml: renderFilters(rows),
     statsHtml: renderStandardListStats([{ label: '技术包数量', value: rows.length }, { label: 'SPU 数量', value: new Set(rows.map((row) => row.styleId)).size }, { label: '待审核', value: rows.filter((row) => row.versionStatus === 'DRAFT' && row.reviewStage !== '未提交审核').length }]),
     listTitle: '技术包',
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences, sort: null, eventPrefix: 'tech-data', emptyText: '暂无符合条件的技术包' }),

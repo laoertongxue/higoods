@@ -4,6 +4,7 @@ let imagePreview: { src: string; alt: string } | null = null
 let actionSequence = 0
 let activeImageRefresh: (() => void) | null = null
 let imageEscapeBound = false
+const boundPmsImages = new WeakSet<HTMLImageElement>()
 
 function closePmsImagePreview(): boolean {
   if (!imagePreview) return false
@@ -131,6 +132,25 @@ export function nextPmsClientActionId(prefix: string): string {
 export function hydratePmsSurface(surface: ParentNode | null | undefined): void {
   if (!surface) return
   ensurePmsImageEscapeBinding()
+  surface.querySelectorAll<HTMLImageElement>('[data-pms-common-action="open-image"] img, section:has([data-pms-preview-loading]) > img').forEach(image => {
+    if (boundPmsImages.has(image)) return
+    boundPmsImages.add(image)
+    const parent = image.parentElement!
+    const loading = parent.querySelector<HTMLElement>('[data-pms-image-loading], [data-pms-preview-loading]')
+    const error = parent.querySelector<HTMLElement>('[data-pms-image-error], [data-pms-preview-error]')
+    const settle = () => {
+      if (!image.complete) return
+      const failed = image.naturalWidth === 0
+      loading?.classList.add('hidden')
+      loading?.classList.remove('flex')
+      image.classList.toggle('hidden', failed)
+      error?.classList.toggle('hidden', !failed)
+      if (error?.hasAttribute('data-pms-image-error')) error.classList.toggle('flex', failed)
+    }
+    image.addEventListener('load', settle)
+    image.addEventListener('error', settle)
+    if (image.complete) settle()
+  })
   void import('../../components/shell.ts')
     .then(({ hydrateIcons }) => hydrateIcons(surface))
     .catch(() => undefined)

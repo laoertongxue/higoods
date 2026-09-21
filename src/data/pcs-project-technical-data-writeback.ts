@@ -30,6 +30,7 @@ import type {
   TechnicalDataVersionRecord,
 } from './pcs-technical-data-version-types.ts'
 import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
+import { collectWebbingPublishIssues } from './fcs/webbing-specifications.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -138,6 +139,10 @@ export function publishTechnicalDataVersion(
   }
   if (!getTechnicalProcessRouteGate(technicalVersionId, content).confirmed) {
     throw new Error('工艺路线未确认，不能发布正式技术包。')
+  }
+  const webbingIssues = collectWebbingPublishIssues(content.processEntries, content.bomItems.map((item) => item.id))
+  if (webbingIssues.length) {
+    throw new Error(`织带／绳子加工规格未补齐，暂不能发布：${webbingIssues.join('；')}`)
   }
   if (!canPublishTechnicalVersionByReview(record)) {
     throw new Error('跟单审核通过后才能发布正式版本。')

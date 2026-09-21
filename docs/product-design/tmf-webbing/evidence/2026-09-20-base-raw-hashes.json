@@ -1,0 +1,9 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "7ce1ae75046af36cd1d83769debb4f7556ebf109ab190272633680a37cd281e7",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "90b5910adf4c663822fe6730fdaad430795557bce6c21350d519aa77a667abb9"
+  }
+}

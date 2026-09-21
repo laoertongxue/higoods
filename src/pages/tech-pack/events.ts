@@ -1,3 +1,4 @@
+import { cloneWebbingSpecifications, WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS } from '../../data/fcs/webbing-specifications.ts'
 import { appStore } from '../../state/store.ts'
 import {
   parseFcsPatternFilePair,
@@ -21,6 +22,7 @@ import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicat
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
 import { renderBomFormDialog } from './bom-domain.ts'
 import { renderAddTechniqueDialog } from './process-domain.ts'
+import { openWebbingSpecificationDialog } from './webbing-specification-dialog.ts'
 import {
   getBomPricingPage,
   refreshBomPricingWorkspaceLocally,
@@ -482,6 +484,9 @@ function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
       item.inputMaterialSkuId || '',
       item.outputMaterialSkuId || '',
       item.outputMaterialSkuMode || '',
+      item.inputInventoryForm || '',
+      item.outputInventoryForm || '',
+      JSON.stringify(item.webbingSpecifications ?? []),
       (item.predecessorEntryIds ?? []).join(','),
     ].join('|')).join('||'),
   ].join('::')
@@ -545,7 +550,7 @@ function materializePreparationSkuLane(routeObjectKey: string): void {
   const updatedById = new Map<string, TechniqueItem>()
   lane.forEach((item) => {
     const requiresSkuChange = item.processCode === 'DYE' || item.processCode === 'PRINT'
-    const mustKeepSku = item.processCode === 'WATER_SOLUBLE'
+    const mustKeepSku = ['WATER_SOLUBLE', WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS].includes(item.processCode)
     const outputMode = mustKeepSku ? 'UNCHANGED' : item.outputMaterialSkuMode || (
       item.outputMaterialSkuId && item.outputMaterialSkuId !== item.inputMaterialSkuId ? 'CHANGED' : 'UNCHANGED'
     )
@@ -2012,9 +2017,9 @@ function handleTechPackField(
       window.alert(`${technique.processCode === 'DYE' ? '染色' : '印花'}加工后必须选择新的产出 SKU。`)
       return true
     }
-    if (technique.processCode === 'WATER_SOLUBLE'
+    if (['WATER_SOLUBLE', WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS].includes(technique.processCode)
       && selectedSku.materialSkuId !== technique.inputMaterialSkuId) {
-      window.alert('单独水溶加工不改变 SKU。')
+      window.alert('此工序不改变半成品 SKU。')
       return true
     }
     state.techniques = state.techniques.map((item) => item.id === techId ? {
@@ -3334,6 +3339,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.techAction
   if (!action) return false
+  if (action === 'open-webbing-specifications') {
+    openWebbingSpecificationDialog(actionNode.dataset.bomId || '')
+    return false
+  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TechPackTab | undefined
@@ -4846,6 +4855,20 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     })
     const nextItem: TechniqueItem = {
       id: nextItemId,
+      ...(editingTarget && [WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS].includes(editingTarget.processCode) ? {
+        inputMaterialSkuId: editingTarget.inputMaterialSkuId,
+        inputMaterialSkuCode: editingTarget.inputMaterialSkuCode,
+        inputMaterialName: editingTarget.inputMaterialName,
+        inputMaterialImageUrl: editingTarget.inputMaterialImageUrl,
+        outputMaterialSkuId: editingTarget.outputMaterialSkuId,
+        outputMaterialSkuCode: editingTarget.outputMaterialSkuCode,
+        outputMaterialName: editingTarget.outputMaterialName,
+        outputMaterialImageUrl: editingTarget.outputMaterialImageUrl,
+        outputMaterialSkuMode: editingTarget.outputMaterialSkuMode,
+        webbingSpecifications: cloneWebbingSpecifications(editingTarget.webbingSpecifications),
+        inputInventoryForm: editingTarget.inputInventoryForm,
+        outputInventoryForm: editingTarget.outputInventoryForm,
+      } : {}),
       entryType: effectiveMeta.entryType,
       stageCode: effectiveMeta.stageCode,
       stage: effectiveMeta.stageName,

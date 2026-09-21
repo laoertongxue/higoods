@@ -1,0 +1,231 @@
+{
+  "scenarioId": "N01",
+  "scenarioType": "normal",
+  "generatedAt": "2026-09-20T15:10:14.548Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "businessInput": {
+    "references": {
+      "purchase": "N01-PO",
+      "purchaseLine": "N01-PO-L1",
+      "baseOrder": "N01-BASE",
+      "productionOrder": "N01-PROD",
+      "techPack": "N01-TP-V1",
+      "cutOrder": "N01-CUT"
+    },
+    "baseSku": "WB30-WHT",
+    "purchaseQuantityM": 1000,
+    "issuedM": 650,
+    "processingStages": [
+      {
+        "id": "N01-DYE",
+        "operation": "染色",
+        "inputSku": "WB30-WHT",
+        "inputM": 650,
+        "outputSku": "WB30-CBL01",
+        "outputM": 640,
+        "lossM": 10
+      },
+      {
+        "id": "N01-PRINT",
+        "operation": "印花",
+        "inputSku": "WB30-CBL01",
+        "inputM": 640,
+        "outputSku": "WB30-CBL01-P001",
+        "outputM": 630,
+        "lossM": 10
+      }
+    ],
+    "details": [
+      {
+        "id": "N01-D1",
+        "bomItemId": "N01-BOM1",
+        "garmentSize": "S",
+        "productionOrderId": "N01-PROD",
+        "techPackVersion": "N01-TP-V1",
+        "inputSku": "WB30-CBL01-P001",
+        "cutLengthMm": 500,
+        "finishedLengthMm": 500,
+        "finishedLengthIncludesTip": false,
+        "measurementCondition": "Mock：自然平放；实际工艺待确认",
+        "toleranceMm": 2,
+        "quantity": 400,
+        "unit": "条",
+        "endTreatment": "无需打头",
+        "endCount": 0,
+        "outputId": "N01-OUT1",
+        "packageId": "N01-PKG1",
+        "skuCreatedByCutOrTip": false,
+        "tipSpecification": "不适用",
+        "productionGarmentQty": 400,
+        "piecesPerGarment": 1
+      },
+      {
+        "id": "N01-D2",
+        "bomItemId": "N01-BOM1",
+        "garmentSize": "M",
+        "productionOrderId": "N01-PROD",
+        "techPackVersion": "N01-TP-V1",
+        "inputSku": "WB30-CBL01-P001",
+        "cutLengthMm": 700,
+        "finishedLengthMm": 700,
+        "finishedLengthIncludesTip": false,
+        "measurementCondition": "Mock：自然平放；实际工艺待确认",
+        "toleranceMm": 2,
+        "quantity": 600,
+        "unit": "条",
+        "endTreatment": "无需打头",
+        "endCount": 0,
+        "outputId": "N01-OUT2",
+        "packageId": "N01-PKG2",
+        "skuCreatedByCutOrTip": false,
+        "tipSpecification": "不适用",
+        "productionGarmentQty": 600,
+        "piecesPerGarment": 1
+      }
+    ],
+    "steps": [
+      {
+        "step": 1,
+        "action": "下达采购并生成基础单",
+        "purchaseLineId": "N01-PO-L1",
+        "expectedPurchaseReceivedM": 0,
+        "expectedWarehouseContinuousM": 0,
+        "plannedAt": "2026-09-21T09:00:00+07:00"
+      },
+      {
+        "step": 2,
+        "action": "基础完工、交出、仓库实收",
+        "quantityM": 1000,
+        "expectedPurchaseReceivedM": 1000,
+        "expectedWarehouseContinuousM": 1000,
+        "plannedAt": "2026-09-21T10:00:00+07:00"
+      },
+      {
+        "step": 3,
+        "action": "确认技术包、展开生产需求、占用",
+        "reservedM": 650,
+        "physicalStockM": 1000,
+        "availableM": 350,
+        "plannedAt": "2026-09-21T11:00:00+07:00"
+      },
+      {
+        "step": 4,
+        "action": "基础仓发料并由首加工方实收",
+        "issuedM": 650,
+        "warehouseBaseM": 350,
+        "inTransitAfterReceiptM": 0,
+        "plannedAt": "2026-09-21T12:00:00+07:00"
+      },
+      {
+        "step": 5,
+        "action": "染色、交出及下游实收",
+        "id": "N01-DYE",
+        "operation": "染色",
+        "inputSku": "WB30-WHT",
+        "inputM": 650,
+        "outputSku": "WB30-CBL01",
+        "outputM": 640,
+        "lossM": 10,
+        "expectedPurchaseReceivedM": 1000,
+        "plannedAt": "2026-09-21T13:00:00+07:00"
+      },
+      {
+        "step": 6,
+        "action": "印花、交出及下游实收",
+        "id": "N01-PRINT",
+        "operation": "印花",
+        "inputSku": "WB30-CBL01",
+        "inputM": 640,
+        "outputSku": "WB30-CBL01-P001",
+        "outputM": 630,
+        "lossM": 10,
+        "expectedPurchaseReceivedM": 1000,
+        "plannedAt": "2026-09-21T14:00:00+07:00"
+      },
+      {
+        "step": 7,
+        "action": "TMF截断、按需打头、分类产出",
+        "receivedM": 630,
+        "netCutM": 620,
+        "returnContinuousM": 8,
+        "lossM": 2,
+        "outputs": [
+          "N01-OUT1",
+          "N01-OUT2"
+        ],
+        "plannedAt": "2026-09-21T15:00:00+07:00"
+      },
+      {
+        "step": 8,
+        "action": "余料退仓、分规格产出交仓实收",
+        "expectedWarehouseBaseM": 350,
+        "expectedReturnedProcessedM": 8,
+        "warehousePiecesByDemand": {
+          "N01-D1": 400,
+          "N01-D2": 600
+        },
+        "expectedPurchaseReceivedM": 1000,
+        "plannedAt": "2026-09-21T16:00:00+07:00"
+      },
+      {
+        "step": 9,
+        "action": "生产单分配、出库、领料方实收",
+        "receivedPiecesByDemand": {
+          "N01-D1": 400,
+          "N01-D2": 600
+        },
+        "warehousePieces": 0,
+        "pieceTransit": 0,
+        "expectedPurchaseReceivedM": 1000,
+        "plannedAt": "2026-09-21T17:00:00+07:00"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "N01",
+      "check": "references",
+      "ok": true,
+      "detail": "采购、生产单、技术包和加工单引用齐全"
+    },
+    {
+      "id": "N01",
+      "check": "purchase-issue",
+      "ok": true,
+      "detail": "1000m采购，650m发料"
+    },
+    {
+      "id": "N01",
+      "check": "processing-stages",
+      "ok": true,
+      "detail": "2道加工工序逐道保留投入、产出、损耗"
+    },
+    {
+      "id": "N01",
+      "check": "cut-output",
+      "ok": true,
+      "detail": "按尺码/用途分行 2 行，净截断 620m"
+    },
+    {
+      "id": "N01",
+      "check": "final",
+      "ok": true,
+      "detail": "最终采购实收、连续余料、产出实收和损耗断言齐全"
+    },
+    {
+      "id": "N01",
+      "check": "steps",
+      "ok": true,
+      "detail": "9步流程含来源、时间、数量和交接"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

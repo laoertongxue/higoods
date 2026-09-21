@@ -1,3 +1,4 @@
+import {assertTmfDyePrintContinuation} from './tmf-process-continuation.ts'
 import {recordFactoryMaterialUsage,listFactoryMaterialUses,convertReceiptQuantity} from './factory-receiving.ts'
 import {captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
 import {calculateYarnWeight,assertYarnShipment,type YarnTubeCounts,type YarnWeight} from './yarn-weight.ts'
@@ -119,6 +120,7 @@ import type { ProcessOutputRoll as DyeOutputRoll, ProcessDispatchDocument as Dye
 export type { ProcessOutputRoll as DyeOutputRoll, ProcessDispatchDocument as DyeDispatchDocument } from './process-output-types.ts'
 export interface DyeWorkOrder {
   outputMaterial?: ReceivingMaterial
+  productionPrintContinuation?: { orderId: string; orderNo: string }
   downstreamPartner?: DyePartner
   yarnOrderedWeightKg?: number
   initialYarnReceipt?: YarnWeight
@@ -3182,6 +3184,25 @@ export function bindDesignRevisionDyeOutputMaterial(dyeOrderId: string, input: {
   })
 }
 
+/** 正式生产单的连续辅料接续；与设计改款来源严格区分。 */
+export async function linkTmfDyePrintContinuation(dyeOrderId: string, printOrderId: string): Promise<DyeWorkOrder> {
+  const printing = await import('./printing-task-domain.ts')
+  return runDyeProcessMutation(() => {
+    const order = getMutableWorkOrder(dyeOrderId), print = printing.getPrintWorkOrderById(printOrderId)
+    const production = productionOrders.find(p => p.productionOrderId === order.sourceSnapshot?.productionOrderId)
+    const pack = production ? getProductionOrderTechPackSnapshot(production.productionOrderId) : undefined
+    if (!print || !pack || !production || ['CANCELLED', 'COMPLETED', 'ON_HOLD'].includes(production.status)) throw new Error('生产单或印花加工单不存在，或生产单当前不允许新增接续。')
+    assertTmfDyePrintContinuation(order, print, pack)
+    const next = { kind: 'FACTORY' as const, id: print.printFactoryId, name: print.printFactoryName, factoryType: '印花加工厂' }
+    if (order.downstreamPartner && order.downstreamPartner.id !== next.id && (order.dispatchDocuments?.some(d => d.status !== '已作废') || listHandoverOrdersByTaskId(order.taskId).some(h => (h.submittedQtyTotal ?? 0) > 0))) throw new Error('已经建交出单或实际交出，不能改换接收工厂。')
+    if (order.productionPrintContinuation && order.productionPrintContinuation.orderId !== print.printOrderId) throw new Error('已有其他印花接收单，不能覆盖。')
+    order.productionPrintContinuation = { orderId: print.printOrderId, orderNo: print.printOrderNo }
+    order.downstreamPartner = next
+    updateOrderTimestamp(order)
+    return cloneWorkOrder(order)
+  })
+}
+
 export function linkDesignRevisionDyeDownstreamWorkOrder(
   dyeOrderId: string,
   input: { printWorkOrderId: string; printWorkOrderNo: string },
@@ -3701,7 +3722,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: ProcessWorkOrde
       kind: materialItems[0]?.materialType === '纱线'
         ? 'YARN'
         : /辅料|花边|织带/.test(materialItems[0]?.materialType || '') ? 'ACCESSORY' : 'FABRIC',
-      imageUrl: input.outputMaterialImageUrl || input.inputMaterialImageUrl || '',
+      // V1 允许使用用户提供的真实织带/绳子实拍作为产出展示替代图；它不是白坯图，仍需在技术包确认后替换为对应颜色/花型实拍。
+      imageUrl: input.outputMaterialImageUrl || (/辅料|花边|织带|绳子/.test(materialItems[0]?.materialType || '') && ['米','m'].includes(input.qtyUnit) && input.outputMaterialSkuCode !== (input.inputMaterialSkuCode || materialFields.materialId) ? (/绳|CORD|RP/i.test(input.outputMaterialName || input.outputMaterialSkuCode || '') ? '/materials/tmf/rope-real-bundle.jpg' : '/materials/tmf/webbing-real-box.jpg') : input.inputMaterialImageUrl) || '',
       color: input.targetColor,
       composition: input.outputMaterialName || input.inputMaterialName || materialFields.materialName,
       specification: input.outputMaterialSkuCode,
@@ -4017,7 +4039,7 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
     kind: (after.materialItems?.[0]?.materialType === '纱线')
       ? 'YARN'
       : /辅料|花边|织带/.test(after.materialItems?.[0]?.materialType || '') ? 'ACCESSORY' : 'FABRIC',
-    imageUrl: after.outputMaterialImageUrl || after.inputMaterialImageUrl || '',
+    imageUrl: after.outputMaterialImageUrl || (/辅料|花边|织带|绳子/.test(after.materialItems?.[0]?.materialType || '') && ['米','m'].includes(snapshot.qtyUnit) && after.outputMaterialSkuCode !== (after.inputMaterialSkuCode || after.materialId) ? (/绳|CORD|RP/i.test(after.outputMaterialName || after.outputMaterialSkuCode || '') ? '/materials/tmf/rope-real-bundle.jpg' : '/materials/tmf/webbing-real-box.jpg') : after.inputMaterialImageUrl) || '',
     color: snapshot.targetColor,
     composition: after.outputMaterialName || after.inputMaterialName || after.materialName,
     specification: after.outputMaterialSkuCode,
@@ -5342,6 +5364,12 @@ export function saveDyeDispatchTransport(id: string, transport: DyeDispatchDocum
     doc.transport = {driver: transport.driver.trim(), vehicle: transport.vehicle.trim(), plate: transport.plate.trim(), note: transport.note.trim()}
   })
 }
+function assertTmfDyeOutputImage(order: DyeWorkOrder): void {
+  if (order.sourceSnapshot?.sourceType === 'PRODUCTION_ORDER' && ['米', 'm'].includes(order.qtyUnit)
+    && order.outputMaterial?.kind === 'ACCESSORY' && !order.outputMaterial.imageUrl.trim()) {
+    throw new Error(`缺少染色后辅料 ${order.outputMaterial.sku} 的对应实物图，请补齐产出资料后交出；不能使用白坯投入图代替。`)
+  }
+}
 export function createDyeDispatchDocument(selections: { orderId: string; rollIds: string[] }[], operator: string, mergeId?: string): DyeDispatchDocument {
   return runDyeProcessMutation(() => {
     if (!operator.trim()) throw new Error('请填写交出操作人。')
@@ -5352,6 +5380,7 @@ export function createDyeDispatchDocument(selections: { orderId: string; rollIds
     const doc: DyeDispatchDocument = existing ?? { id: `SJ-DYE-${Date.now()}-${listDyeDispatchDocuments().length + 1}`, status: '草稿', createdAt: nowTimestamp(), operator: operator.trim(), lines: [], scans: [], transport: {driver: '', vehicle: '', plate: '', note: ''} }
     for (const selection of selections) {
       const order = getMutableWorkOrder(selection.orderId)
+      assertTmfDyeOutputImage(order)
       if (isDyeYarnOrder(order)) throw new Error('纱线按一单一码交出，请使用纱线交出页面。')
       if (!order.dyeFactoryId) throw new Error('原加工单尚未分配工厂，不能建单。')
       if (doc.lines.length && doc.lines[0].factoryId !== order.dyeFactoryId) throw new Error('不同加工厂请分别建单。')
@@ -5377,6 +5406,7 @@ export function finishDyeDispatchDocument(id: string, action: 'confirm' | 'void'
     if (!doc.transport.driver || !doc.transport.vehicle || !doc.transport.plate) throw new Error('请先保存司机、车型和车牌。')
     for (const line of doc.lines) {
       const order = getMutableWorkOrder(line.orderId)
+      assertTmfDyeOutputImage(order)
       if (getDyeDispatchPartner(line.orderId).id !== line.partner.id || order.dyeFactoryId !== line.factoryId || order.qtyUnit !== line.unit) throw new Error('原单工厂、接收方或单位已变化，请作废后重新建单。')
       if (line.rolls.some(snapshot => !order.outputRolls?.some(roll => roll.id === snapshot.id && !roll.dispatchId && roll.qty === snapshot.qty))) throw new Error('卷记录已变化，请重新建单。')
     }
@@ -5401,9 +5431,10 @@ export function finishDyeDispatchDocument(id: string, action: 'confirm' | 'void'
         const id = `DYE-DISPATCH-${doc.id}-${line.orderId}`
         line.receivingSourceId = id
         const fabric = material.kind === 'FABRIC'
+        const continuous = material.kind === 'ACCESSORY' && ['米', 'm'].includes(line.unit) && listFactoryMaterialUses(line.orderId).some(use => use.lines.some(l => l.unit === '米'))
         const meterFactor = dyeLengthMeters(1, line.unit)
         if (fabric && meterFactor === null) throw new Error('面料交接必须维护米或 Yard 卷长，不能用重量代替。')
-        registerFactoryReceivingSource({id, documentNo: doc.id, type: 'HANDOUT', origin: {kind:'FACTORY',id:line.factoryId,name:line.factoryName,factoryType:'染色厂'},targetFactoryId:line.partner.id,targetFactoryName:line.partner.name,createdAt:at,createdBy:doc.operator,handedOutAt:at,workOrderNo:line.orderNo,originalRecordId:line.handoverRecordId,lines:[{id:`${id}-L1`,material:{...material,sku:line.sku},plannedQty:qty,sentQty:qty,unit:line.unit,rolls:fabric?line.rolls.map(roll=>({barcode:roll.barcode,yard:Number((roll.qty*meterFactor!/.9144).toFixed(2))})):[],label:doc.id,printingOrderId:order.sourceSnapshot?.downstreamWorkOrderId,productionOrderNo:order.sourceProductionOrderNo,taskNo:order.taskNo}]})
+        registerFactoryReceivingSource({id, documentNo: doc.id, type: 'HANDOUT', ...(order.productionPrintContinuation?.orderId||order.sourceSnapshot?.downstreamWorkOrderId?{processCode:'PRINT' as const}:{}), origin: {kind:'FACTORY',id:line.factoryId,name:line.factoryName,factoryType:'染色厂'},targetFactoryId:line.partner.id,targetFactoryName:line.partner.name,createdAt:at,createdBy:doc.operator,handedOutAt:at,workOrderNo:line.orderNo,originalRecordId:line.handoverRecordId,lines:[{id:`${id}-L1`,...(continuous?{measurementBasis:'CONTINUOUS_LENGTH' as const}:{}),material:{...material,sku:line.sku,...(continuous?{batchNo:doc.id}:{})},plannedQty:qty,sentQty:qty,unit:continuous?'米':line.unit,rolls:fabric?line.rolls.map(roll=>({barcode:roll.barcode,yard:Number((roll.qty*meterFactor!/.9144).toFixed(2))})):[],label:doc.id,printingOrderId:order.productionPrintContinuation?.orderId||order.sourceSnapshot?.downstreamWorkOrderId,productionOrderNo:order.sourceProductionOrderNo,taskNo:order.taskNo}]})
       }
       for (const roll of getMutableWorkOrder(line.orderId).outputRolls ?? []) if (line.rolls.some(item => item.id === roll.id)) roll.dispatchId = doc.id
     }

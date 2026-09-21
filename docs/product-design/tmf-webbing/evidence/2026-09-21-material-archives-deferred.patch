@@ -1,0 +1,188 @@
+diff --git a/src/pages/pcs-material-archives.ts b/src/pages/pcs-material-archives.ts
+index fb869fd3..704ab830 100644
+--- a/src/pages/pcs-material-archives.ts
++++ b/src/pages/pcs-material-archives.ts
+@@ -62,6 +62,8 @@ interface MaterialArchivePageState {
+     materialId: string
+     materialSkuId: string | null
+     colorName: string
++    pantoneCode: string
++    patternCode: string
+     specValue: string
+     costPrice: string
+     freightCost: string
+@@ -150,6 +152,8 @@ function createEmptySkuEditorState(): MaterialArchivePageState['skuEditor'] {
+     materialId: '',
+     materialSkuId: null,
+     colorName: '',
++    pantoneCode: '',
++    patternCode: '',
+     specValue: '',
+     costPrice: '',
+     freightCost: '',
+@@ -355,6 +359,8 @@ function openSkuEditor(materialId: string, materialSkuId: string | null = null):
+     materialId,
+     materialSkuId,
+     colorName: skuRecord.colorName || '',
++    pantoneCode: skuRecord.pantoneCode || '',
++    patternCode: skuRecord.patternCode || '',
+     specValue: buildSkuEditorSpecValue(material.kind, skuRecord),
+     costPrice: skuRecord.costPrice ? String(skuRecord.costPrice) : '',
+     freightCost: skuRecord.freightCost ? String(skuRecord.freightCost) : '',
+@@ -372,6 +378,8 @@ function buildSkuEditorInput(material: MaterialArchiveRecord): MaterialSkuDraftI
+   const specValue = state.skuEditor.specValue.trim()
+   return {
+     colorName: state.skuEditor.colorName.trim(),
++    pantoneCode: state.skuEditor.pantoneCode.trim(),
++    patternCode: state.skuEditor.patternCode.trim(),
+     specName: specValue || '-',
+     sizeName: material.kind === 'fabric' ? specValue || '-' : '-',
+     skuImageUrl: state.skuEditor.skuImageUrl.trim(),
+@@ -479,7 +487,7 @@ function renderListTable(kind: MaterialArchiveKind, records: MaterialArchiveReco
+         <tr class="border-t border-slate-100 align-top">
+           <td class="px-4 py-3">
+             <div class="flex items-start gap-3">
+-              ${renderArchiveImage(record.mainImageUrl, record.materialName, 'sm')}
++              ${!record.mainImageUrl&&['织带','绳子'].includes(record.categoryName)?'<span class="text-xs text-amber-700">缺对应规格实物图</span>':renderArchiveImage(record.mainImageUrl, record.materialName, 'sm')}
+               <div class="min-w-0">
+                 <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/materials/${escapeHtml(kind)}/${escapeHtml(record.materialId)}">${escapeHtml(record.materialCode)}</button>
+                 <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.materialName)}</div>
+@@ -570,7 +578,7 @@ function renderCreateDrawer(): string {
+         ${renderFormField('条码模板编码', renderTextInput('create-barcode-template-code', state.create.barcodeTemplateCode, '例如：FAB-COTTON-180-WHT'))}
+       </div>
+       <div class="grid gap-4 md:grid-cols-2">
+-        ${renderFormField('门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, '例如：180cm / 55×90mm / 10英寸'))}
++        ${renderFormField(state.create.categoryName==='织带'?'织带幅宽':state.create.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, ['织带','绳子'].includes(state.create.categoryName)?'例如：20mm 或 2cm，不填写截断长度':'例如：180cm / 55×90mm / 10英寸'))}
+         ${renderFormField('克重', renderTextInput('create-gram-weight-text', state.create.gramWeightText, '例如：180g/m²'))}
+       </div>
+       ${renderFormField('主图链接', renderTextInput('create-main-image-url', state.create.mainImageUrl, '输入图片 URL'))}
+@@ -594,6 +602,7 @@ function renderCreateDrawer(): string {
+     </div>
+   `
+   const footer = `
++    ${state.notice?`<p role="alert" class="text-sm text-red-700">${escapeHtml(state.notice)}</p>`:''}
+     <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">取消</button>
+     <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="submit-create">确认创建</button>
+   `
+@@ -605,6 +614,7 @@ function renderSkuEditorDrawer(): string {
+   const material = getMaterialArchiveById(state.skuEditor.materialId)
+   if (!material) return ''
+   const specMeta = getMaterialSkuSpecMeta(material.kind)
++  const isTmf = ['织带', '绳子'].includes(material.categoryName)
+   const body = `
+     <div class="space-y-4">
+       <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+@@ -619,9 +629,16 @@ function renderSkuEditorDrawer(): string {
+         ${renderFormField(
+           specMeta.secondaryLabel,
+           renderTextInput('sku-editor-spec-value', state.skuEditor.specValue, specMeta.secondaryPlaceholder),
+-          true,
++          !isTmf,
+         )}
+       </div>
++      ${isTmf ? `
++        <div class="grid gap-4 md:grid-cols-2">
++          ${renderFormField('潘通色号／色号', renderTextInput('sku-editor-pantone-code', state.skuEditor.pantoneCode, '例如：19-4052；本白可留空'))}
++          ${renderFormField('花型编号', renderTextInput('sku-editor-pattern-code', state.skuEditor.patternCode, '无印花可留空，例如：P001'))}
++        </div>
++        <p class="text-xs leading-5 text-slate-500">织带／绳子 SKU 只区分幅宽／绳径对应的 SPU、颜色和花型。生产单的截断长度、尺码用途及塑料包头／金属头／硅胶浸头，写入加工规格和批次／包装记录，不生成新的永久 SKU。</p>
++      ` : ''}
+       <div class="grid gap-4 md:grid-cols-2">
+         ${renderFormField('成本价', renderTextInput('sku-editor-cost-price', state.skuEditor.costPrice, '输入成本价', 'number'))}
+         ${renderFormField('运费', renderTextInput('sku-editor-freight-cost', state.skuEditor.freightCost, '输入运费', 'number'))}
+@@ -767,7 +784,7 @@ function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: Material
+       <div class="rounded-lg border bg-white p-5 shadow-sm">
+         <div class="flex flex-col gap-5 lg:flex-row">
+           <div class="w-full max-w-[280px] shrink-0 space-y-3">
+-            ${renderArchiveImage(material.mainImageUrl, material.materialName)}
++            ${!material.mainImageUrl&&['织带','绳子'].includes(material.categoryName)?'<p class="text-sm text-amber-700">缺对应规格实物图，请补充后再完成物料验收。</p>':renderArchiveImage(material.mainImageUrl, material.materialName)}
+             <div class="grid grid-cols-3 gap-2">
+               ${(material.galleryImageUrls || []).slice(0, 3).map((item) => renderArchiveImage(item, material.materialName, 'sm')).join('')}
+             </div>
+@@ -782,7 +799,7 @@ function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: Material
+               <div><div class="text-xs text-slate-500">主单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.mainUnit || '-')}</div></div>
+               <div><div class="text-xs text-slate-500">辅助单位</div><div class="mt-1 flex flex-wrap gap-1">${renderUnitTags(material.auxiliaryUnits || [])}</div></div>
+               <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.pricingUnit || '-')}</div></div>
+-              <div><div class="text-xs text-slate-500">门幅 / 尺寸</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
++              <div><div class="text-xs text-slate-500">${material.categoryName==='织带'?'织带幅宽':material.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸'}</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
+               <div><div class="text-xs text-slate-500">克重</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.gramWeightText || '-')}</div></div>
+               <div><div class="text-xs text-slate-500">条码模板编码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.barcodeTemplateCode || '-')}</div></div>
+               <div><div class="text-xs text-slate-500">SKU 成本区间</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(minCost === null ? '-' : minCost === maxCost ? formatCurrency(minCost) : `${formatCurrency(minCost)} ~ ${formatCurrency(maxCost || 0)}`)}</div></div>
+@@ -813,6 +830,13 @@ function renderSkuSpecText(kind: MaterialArchiveKind, item: MaterialSkuRecord):
+   return [item.specName, item.sizeName].filter((value) => value && value !== '-').join(' / ') || '-'
+ }
+ 
++function renderSkuColorText(kind: MaterialArchiveKind, item: MaterialSkuRecord): string {
++  if (kind === 'accessory' && (item.pantoneCode || item.patternCode)) {
++    return [item.colorName, item.pantoneCode, item.patternCode ? `花型 ${item.patternCode}` : ''].filter(Boolean).join(' / ') || '-'
++  }
++  return item.colorName || '-'
++}
++
+ function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]): string {
+   const specMeta = getMaterialSkuSpecMeta(kind)
+   const rows = skuRecords
+@@ -828,7 +852,7 @@ function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]
+               </div>
+             </div>
+           </td>
+-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName || '-')}</td>
++          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuColorText(kind, item))}</td>
+           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuSpecText(kind, item))}</td>
+           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice))}</td>
+           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice + item.freightCost))}</td>
+@@ -1046,7 +1070,8 @@ function submitCreate(): void {
+     state.notice = '请至少选择一个辅助单位。'
+     return
+   }
+-  const created = createMaterialArchive({
++  let created
++  try { created = createMaterialArchive({
+     kind: state.create.kind,
+     materialName: state.create.materialName.trim(),
+     materialNameEn: state.create.materialNameEn.trim(),
+@@ -1063,6 +1088,10 @@ function submitCreate(): void {
+     barcodeTemplateCode: state.create.barcodeTemplateCode.trim(),
+     remark: state.create.remark.trim(),
+   })
++  } catch (error) {
++    state.notice = error instanceof Error ? error.message : '创建未保存，请核对物料规格。'
++    return
++  }
+   const nextKind = state.create.kind
+   resetCreateState(nextKind)
+   state.notice = `已创建 ${created.materialCode}。`
+@@ -1079,9 +1108,10 @@ function submitSkuEditor(): void {
+     state.notice = '未找到对应物料主档。'
+     return
+   }
+-  if (!state.skuEditor.colorName.trim() || !state.skuEditor.specValue.trim()) {
++  const isTmf = ['织带', '绳子'].includes(material.categoryName)
++  if (!state.skuEditor.colorName.trim() || (!isTmf && !state.skuEditor.specValue.trim())) {
+     const specMeta = getMaterialSkuSpecMeta(material.kind)
+-    state.notice = `请先补齐 ${specMeta.primaryLabel} 与 ${specMeta.secondaryLabel}。`
++    state.notice = isTmf ? `请先补齐 ${specMeta.primaryLabel}。` : `请先补齐 ${specMeta.primaryLabel} 与 ${specMeta.secondaryLabel}。`
+     return
+   }
+ 
+@@ -1180,6 +1210,12 @@ export function handlePcsMaterialArchiveInput(target: Element): boolean {
+     case 'sku-editor-color-name':
+       state.skuEditor.colorName = value
+       return true
++    case 'sku-editor-pantone-code':
++      state.skuEditor.pantoneCode = value
++      return true
++    case 'sku-editor-pattern-code':
++      state.skuEditor.patternCode = value
++      return true
+     case 'sku-editor-spec-value':
+       state.skuEditor.specValue = value
+       return true
+@@ -1234,6 +1270,7 @@ export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
+     case 'open-create': {
+       const kind = (actionNode.dataset.kind as MaterialArchiveKind) || 'fabric'
+       resetCreateState(kind)
++      state.notice = null
+       state.create.open = true
+       return true
+     }

@@ -1,3 +1,4 @@
+import { cloneWebbingSpecifications } from './webbing-specifications.ts'
 import type {
   ProductionOrderTechPackSnapshot,
   ProductionTechPackColorMaterialMapping,
@@ -70,6 +71,7 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
 function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
   return items.map((item) => ({
     ...item,
+    webbingSpecifications: cloneWebbingSpecifications(item.webbingSpecifications),
     routeStepNo: item.routeStepNo,
     routeLaneNo: item.routeLaneNo,
     routeParallelGroupId: item.routeParallelGroupId,

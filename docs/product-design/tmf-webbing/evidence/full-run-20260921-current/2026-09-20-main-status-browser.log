@@ -1,0 +1,142 @@
+{
+  "route": "/fcs/craft/accessory/webbing/purchase-demands",
+  "checks": [
+    "载入36条采购，统计与分页总数一致",
+    "导出全部36条且不含操作列；分页及重置恢复首屏",
+    "填报期间预览实物图并Esc关闭，保留数量和原操作",
+    "生成、接单、开始、超量阻断、实际产出100米、交出100米；仓库实收仍0",
+    "跨页面保留同一交出数量；实物大图可打开关闭",
+    "1280×720和1024×768主体无横向溢出，大图完整显示及Esc关闭",
+    "WLS原入口分类接入；错SKU和超交出量阻断；90+10米分批实收；PMS实收100且只有一个100米库存批次；刷新保留并可回花边分类",
+    "正式生产单集合中的采用快照由页面核对并生成2条需求；不存在生产单/未核对/预览后暂停/数量变化阻断；相同来源重复生成不重复；图片关闭保留需求预览",
+    "主生产单暂停后仓库显示受限，整页刷新仍受限且PMS端头采购不能选该需求；主单恢复后继续完整链",
+    "PMS页面选采用BOM创建金属/硅胶采购，零量阻断保留表单且不写单；修正后创建、下达、刷新，低分辨率新表单不溢出",
+    "采用端头BOM生成PMS采购并下达，跨页面实际收金属头100个/硅胶0.3kg；用途锁定打头辅材，后续发料沿这些批次",
+    "仓库页面按实收批次发金属80个/硅胶0.2kg，错误计量单位、缺技术包辅材、未核实、错批次及超库存阻断；源仓已扣但工厂实收0，再接工厂实收/打头/生产领料",
+    "仓库页面两规格按实收批次占用22/44米，各释放1米后实际发21/43米；超库存、超理论无依据、未确认释放、超释放、错批次、超未发占用均阻断；发出后仓内36米/占用0/工厂实收0，刷新保留",
+    "同生产快照/路线两规格归为一张加工单；页面实收投入、截断、双端金属/单端硅胶实际打头、装包、交出；错SKU/超耗料/超装包/未核实阻断；刷新保留且交出未提前实收",
+    "实际动作从100米基础实收→40条500mm和60条700mm装包交出→产出分批实收；错生产单/错包/未核实/超收均阻断；米料36米、采购实收100米不随条料回仓增加；刷新后两包收齐",
+    "库存页两规格分配40/60条、释放10再分配、分配与发料超量及错包阻断；实际发100后仓内0且生产实收0/需求未满足；领料确认页面由两名指定领料人分别实收，短收10条保留待收后补齐，错包/未核实/超收阻断，库存详情回读满足",
+    "两投入各多领1米，截断打头62米/100条交付生产；工厂实际退连续余料各1米，交出不提前回库；仓库0.6+0.4及1米实收，错批次/错SKU/未核实/超量阻断；刷新后连续库存36+1+1=38米，采购实收100米，产出62米当量不变",
+    "辅材实收批次金属100个/硅胶0.3kg实际发80个/0.2kg，仓库余20个/0.1kg；工厂打头耗80个/0.15kg，仓内和工厂余额分账且生产实收100条"
+  ],
+  "errors": [],
+  "navigations": [
+    {
+      "at": "2026-09-21T02:26:46.812Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/purchase-demands"
+    },
+    {
+      "at": "2026-09-21T02:26:51.072Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/base-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:51.513Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:26:53.682Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:26:54.253Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:56.734Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+    },
+    {
+      "at": "2026-09-21T02:26:56.946Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+    },
+    {
+      "at": "2026-09-21T02:26:57.073Z",
+      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:57.318Z",
+      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:57.740Z",
+      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:58.157Z",
+      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+    },
+    {
+      "at": "2026-09-21T02:26:58.310Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:00.356Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+    },
+    {
+      "at": "2026-09-21T02:27:03.758Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+    },
+    {
+      "at": "2026-09-21T02:27:04.003Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+    },
+    {
+      "at": "2026-09-21T02:27:04.247Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+    },
+    {
+      "at": "2026-09-21T02:27:07.971Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+    },
+    {
+      "at": "2026-09-21T02:27:08.252Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:10.720Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:11.069Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+    },
+    {
+      "at": "2026-09-21T02:27:13.673Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+    },
+    {
+      "at": "2026-09-21T02:27:13.892Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:16.505Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:16.756Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+    },
+    {
+      "at": "2026-09-21T02:27:16.780Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+    },
+    {
+      "at": "2026-09-21T02:27:16.972Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:19.487Z",
+      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+    },
+    {
+      "at": "2026-09-21T02:27:19.934Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+    },
+    {
+      "at": "2026-09-21T02:27:20.196Z",
+      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+    }
+  ]
+}

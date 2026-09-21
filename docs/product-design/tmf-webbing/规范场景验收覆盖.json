@@ -1,0 +1,920 @@
+{
+  "scope": "TMF织带厂规范场景当前版本验收台账",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "scenarios": [
+    {
+      "id": "N01",
+      "baseline": "N01",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "N01 当前版本独立执行通过；脚本 2026-09-20-native-dye-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/N01.json",
+          "sha256": "c17eb58c364e78249159a675f680f06014d68bb3396015bc6c329fa1769ff582"
+        },
+        {
+          "path": "evidence/2026-09-20-native-dye-browser.json",
+          "sha256": "2a2b4f206bd35f050151415c53c8ff3632cbe4de075b01a0002e43f9223ba57a"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "N02",
+      "baseline": "N02",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "N02 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/N02.json",
+          "sha256": "4f24cebd6a56281c02c09a3f07b9fbe97bc5e239e590127ed052453a93ca5e47"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "N03",
+      "baseline": "N03",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "N03 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/N03.json",
+          "sha256": "2bc45ba98810125f611785f798c197c9de82031636819357bf08ad176500eb69"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "N04",
+      "baseline": "N04",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "N04 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/N04.json",
+          "sha256": "d1ba30af648f2d6cc7663ae52ea88e82241a06760632b64dd9b8c2885509f034"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "N05",
+      "baseline": "N05",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "N05 当前版本独立执行通过；脚本 2026-09-20-merged-N05-browser.mjs 退出码 0；可观察断言 4 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/N05.json",
+          "sha256": "46070546651f16ef433406f3e58d8a3e61331764c856d2c5de656b8f29b57f88"
+        },
+        {
+          "path": "evidence/2026-09-20-merged-N05-browser.json",
+          "sha256": "0d11f9ed59e1dea3561d22e31cccd4db8c16cfa3926ec2c75de49ab4450d74d7"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B01",
+      "baseline": "B01",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B01 当前版本独立执行通过；脚本 2026-09-20-b05-recovery-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B01.json",
+          "sha256": "acc4654200746cc449acf83bf1f803d508f49db90e087292ea098771a95de691"
+        },
+        {
+          "path": "evidence/2026-09-20-b05-recovery-browser.json",
+          "sha256": "4cbdb810d9197e97b78694567a129de0476d56e5453e45bf6f106de64e96188e"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "baseline": "B02",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B02 当前版本独立执行通过；脚本 2026-09-20-b06-recovery-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B02.json",
+          "sha256": "98a539941ee338d2e9d6f9189bac0c81479c6f372be6db30db506b2dafd6abe5"
+        },
+        {
+          "path": "evidence/2026-09-20-b06-recovery-browser.json",
+          "sha256": "6998471fa034c3c13a54799150cf63358de8651e47b5eef231a5ada5005734b4"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "baseline": "B03",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B03 当前版本独立执行通过；脚本 2026-09-20-tmf-cancel-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B03.json",
+          "sha256": "d1340f166481fb5122f52771dd123473cca54d61ec5167a734f784fb6ac3145b"
+        },
+        {
+          "path": "evidence/2026-09-20-tmf-cancel-browser.json",
+          "sha256": "09332a1b6052f462a9d6c64929a21fc8d1299829e23a2607711ae3940712dd11"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "baseline": "B04",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B04 当前版本独立执行通过；脚本 2026-09-20-b05-recovery-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B04.json",
+          "sha256": "22c417148826a77009cb17738732d7056c7661e334e0284113e5aff982c7a24a"
+        },
+        {
+          "path": "evidence/2026-09-20-b05-recovery-browser.json",
+          "sha256": "4cbdb810d9197e97b78694567a129de0476d56e5453e45bf6f106de64e96188e"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B05",
+      "baseline": "B05",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B05 当前版本独立执行通过；脚本 2026-09-20-b05-recovery-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B05.json",
+          "sha256": "47e27d55a30a0320942307129e9d24fc04963c13c4085474a72289a305ffbd70"
+        },
+        {
+          "path": "evidence/2026-09-20-b05-recovery-browser.json",
+          "sha256": "4cbdb810d9197e97b78694567a129de0476d56e5453e45bf6f106de64e96188e"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "baseline": "B06",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B06 当前版本独立执行通过；脚本 2026-09-20-b06-recovery-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B06.json",
+          "sha256": "dd54f28271098f2895e0c44a72d1e69eca01c1f6b9912afa39fb1d97aaf7413e"
+        },
+        {
+          "path": "evidence/2026-09-20-b06-recovery-browser.json",
+          "sha256": "6998471fa034c3c13a54799150cf63358de8651e47b5eef231a5ada5005734b4"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B07",
+      "baseline": "B07",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B07 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B07.json",
+          "sha256": "251615d49ef70f58ac1832c8d4e93c33aa219599789e24fe34b7dc0df6761708"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B08",
+      "baseline": "B08",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B08 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B08.json",
+          "sha256": "720a538abd21d1664af668c0586e3b5ea4df160948d8fc8099168a031fd5422b"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B09",
+      "baseline": "B09",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B09 当前版本独立执行通过；脚本 2026-09-20-b09-recovery-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B09.json",
+          "sha256": "49a2be0a551279850e0de9ce5633d284fa1114259051c3768080ba52b6e8d00e"
+        },
+        {
+          "path": "evidence/2026-09-20-b09-recovery-browser.json",
+          "sha256": "84224826c8a38e7ba92e7668df0a1f431e05a694427001cab154101499b8aade"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B10",
+      "baseline": "B10",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B10 当前版本独立执行通过；脚本 2026-09-20-output-receipts-browser.mjs 退出码 0；可观察断言 8 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B10.json",
+          "sha256": "050d34f97ed8a605d98b214ce7c0f43f697cbc85a70b63c830b79efa69920c1a"
+        },
+        {
+          "path": "evidence/2026-09-20-output-receipts-browser.json",
+          "sha256": "d0d3555592dfd6dd3cd58bc56bb3d7d07bf61aa7b23993fb3c42fa7943916191"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B11",
+      "baseline": "B11",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B11 当前版本独立执行通过；脚本 2026-09-20-pda-output-receipt-browser.mjs 退出码 0；可观察断言 23 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B11.json",
+          "sha256": "23281eab4ae8ccb90d8425bd92cd68ae4acdec9d9b023b6e2eaadb9ba2f1856f"
+        },
+        {
+          "path": "evidence/2026-09-20-pda-output-receipt-browser.json",
+          "sha256": "9dec731d73a66b08cafa549b57264e4579e0052b27f5b3dc57052c8188e18a9b"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B12",
+      "baseline": "B12",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B12 当前版本独立执行通过；脚本 2026-09-20-package-stock-browser.mjs 退出码 0；可观察断言 17 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B12.json",
+          "sha256": "c84569c93501719f0d2128881209b52270c2b803be2b294c584689327f4dc8ad"
+        },
+        {
+          "path": "evidence/2026-09-20-package-stock-browser.json",
+          "sha256": "87e370ee8adf5f4f01afd87ee5dd1f01cf609437f0ff7db64b5e18e9fc7f6f09"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B13",
+      "baseline": "B13",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B13 当前版本独立执行通过；脚本 2026-09-20-processed-return-reuse-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B13.json",
+          "sha256": "b73c743fea3e57314a7b513d6d96cd4e5a4cad0377754ec31e328d87d4845d07"
+        },
+        {
+          "path": "evidence/2026-09-20-processed-return-reuse-browser.json",
+          "sha256": "95e9a6fde06b71c03ea5f274e649a05b1d0bddbb21169000de55f94ec56c6e9b"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B14",
+      "baseline": "B14",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B14 当前版本独立执行通过；脚本 2026-09-20-frozen-replan-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B14.json",
+          "sha256": "cc7300e86d14ca95c854a5bf9e26a4c0be472fab4be8318b9e6581980b8f9ab6"
+        },
+        {
+          "path": "evidence/2026-09-20-frozen-replan-browser.json",
+          "sha256": "dd58ce4eab7ee306721168f12b2119aa79a3f836a57ededca849500483a69670"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B15",
+      "baseline": "B15",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B15 当前版本独立执行通过；脚本 2026-09-20-tmf-cancel-browser.mjs 退出码 0；可观察断言 2 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B15.json",
+          "sha256": "2cd93ec4b1692118623125a3e4701820eaa384d1e9d57f58cf3019800d718967"
+        },
+        {
+          "path": "evidence/2026-09-20-tmf-cancel-browser.json",
+          "sha256": "09332a1b6052f462a9d6c64929a21fc8d1299829e23a2607711ae3940712dd11"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B16",
+      "baseline": "B16",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B16 当前版本独立执行通过；脚本 2026-09-20-pda-output-receipt-browser.mjs 退出码 0；可观察断言 23 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B16.json",
+          "sha256": "c496a5ce0e9ce633dfed3a6778567c97bcea8851beab6bf867c32829dfb6841a"
+        },
+        {
+          "path": "evidence/2026-09-20-pda-output-receipt-browser.json",
+          "sha256": "9dec731d73a66b08cafa549b57264e4579e0052b27f5b3dc57052c8188e18a9b"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B17",
+      "baseline": "B17",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B17 当前版本独立执行通过；脚本 2026-09-20-merged-N05-browser.mjs 退出码 0；可观察断言 4 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B17.json",
+          "sha256": "bd5109e483d35a848f4426ee306936cf01437da36746ee9b0a32c77f2a89aaf1"
+        },
+        {
+          "path": "evidence/2026-09-20-merged-N05-browser.json",
+          "sha256": "0d11f9ed59e1dea3561d22e31cccd4db8c16cfa3926ec2c75de49ab4450d74d7"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B18",
+      "baseline": "B18",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B18 当前版本独立执行通过；脚本 2026-09-20-tip-dispatch-ui-browser.mjs 退出码 0；可观察断言 15 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B18.json",
+          "sha256": "6e12019af1ebf11dc20d4ab276086b54c63c8e5bd54d07abe37de7bfd6cde877"
+        },
+        {
+          "path": "evidence/2026-09-20-tip-dispatch-ui-browser.json",
+          "sha256": "4ea9a1bfc62e6332cef005ec100b8c6babfe0d4f367f279e6b4d401cc14c6b1d"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B19",
+      "baseline": "B19",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B19 当前版本独立执行通过；脚本 2026-09-20-upstream-issue-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B19.json",
+          "sha256": "e4c6cd0281e32107f06f7d89335292f39dfccfc766db874eca47e799e8e4af5b"
+        },
+        {
+          "path": "evidence/2026-09-20-upstream-issue-browser.json",
+          "sha256": "2423404e6a058c361fcf6d09637d35aea618f4fe3ba85c2c6fedf6d8dbe924a6"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B20",
+      "baseline": "B20",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B20 当前版本独立执行通过；脚本 2026-09-20-package-stock-browser.mjs 退出码 0；可观察断言 17 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B20.json",
+          "sha256": "7138033e99da2765f6a9b7a0b525ff845a330e854d0df61639146586d4ab984c"
+        },
+        {
+          "path": "evidence/2026-09-20-package-stock-browser.json",
+          "sha256": "87e370ee8adf5f4f01afd87ee5dd1f01cf609437f0ff7db64b5e18e9fc7f6f09"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B21",
+      "baseline": "B21",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B21 当前版本独立执行通过；脚本 2026-09-20-purchase-durability-browser.mjs 退出码 0；可观察断言 4 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B21.json",
+          "sha256": "a0066747feafb96d8d04c8e2750d98cb7590cae06a41d2ea8a5417a572cc6d1d"
+        },
+        {
+          "path": "evidence/2026-09-20-purchase-durability-browser.json",
+          "sha256": "cb919c66dd538903a1d89d4bf630ab8c9aa18aaf72f455ecc9c382ba0ddcb762"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B22",
+      "baseline": "B22",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B22 当前版本独立执行通过；脚本 2026-09-20-material-reference-browser.mjs 退出码 0；可观察断言 4 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B22.json",
+          "sha256": "f8efeea2cc31bb081ca9366ebb56f7d7c970e82e4d3a490e7858a7737f41512a"
+        },
+        {
+          "path": "evidence/2026-09-20-material-reference-browser.json",
+          "sha256": "58467f333874b5e992f9e773ed8ec287d15ab877d7d39fdab688903afc4a7ec7"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B23",
+      "baseline": "B23",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B23 当前版本独立执行通过；脚本 2026-09-20-b23-revision-browser.mjs 退出码 0；可观察断言 4 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B23.json",
+          "sha256": "f1694567667c67370481fbb3594d26e6084de1bff3512e032879cc6d442ef9e3"
+        },
+        {
+          "path": "evidence/2026-09-20-b23-revision-browser.json",
+          "sha256": "0df8102d2f5aca1dcb587335ba6c89d1d5fe79eb531c8370efcd072e6f986014"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    },
+    {
+      "id": "B24",
+      "baseline": "B24",
+      "observedScope": "当前版本独立副本：Mock 注入/恢复、命名浏览器脚本、页面/PDA/打印入口和严格性能收据均通过",
+      "observed": "B24 当前版本独立执行通过；脚本 2026-09-20-b24-return-browser.mjs 退出码 0；可观察断言 3 项",
+      "remaining": "",
+      "status": "已验证",
+      "fullyVerified": true,
+      "evidence": [
+        {
+          "path": "evidence/2026-09-21-scenario-execution-receipts-current.json",
+          "sha256": "8e34b2051b24d1fee4d3051f37e1e3d7bb522e88bab0d0125c3dde7837f6236a"
+        },
+        {
+          "path": "evidence/scenarios/B24.json",
+          "sha256": "3078ce45f71c9bd6b6e9cd640d55246ae2eecc0e4f2aa91e9c6f9156a27f195d"
+        },
+        {
+          "path": "evidence/2026-09-20-b24-return-browser.json",
+          "sha256": "5f62435d11b12bd70cb9bfb6472693f43535b3b7c5f2c1eb26007da3a57ec625"
+        },
+        {
+          "path": "evidence/2026-09-21-tmf-strict-performance-current.json",
+          "sha256": "6036575f215ec05735ad35966a9fa5052120e21fa99a6556cb433c9dd2db6d31"
+        },
+        {
+          "path": "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+          "sha256": "488b0460d85dff2d40cf3672f2c3de9dd47e367d7e2b78326da409c2e6ccad90"
+        }
+      ]
+    }
+  ],
+  "fullScenarioVerifiedCount": 29,
+  "normativeScenarioAcceptance": "29/29",
+  "currentAudit": {
+    "runAt": "2026-09-20T13:26:16.013Z",
+    "runner": "evidence/2026-09-20-normative-acceptance-current.mjs",
+    "fullFlowChecks": 17,
+    "fullFlowErrors": 0,
+    "allScenarioStatus": "已验证",
+    "missingScenarioIds": []
+  },
+  "generatedAt": "2026-09-21T01:39:33.067Z",
+  "total": 29,
+  "passed": 29,
+  "failed": 0
+}

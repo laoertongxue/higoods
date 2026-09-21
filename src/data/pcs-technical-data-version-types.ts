@@ -1,3 +1,4 @@
+import type { WebbingInventoryForm, WebbingSpecification } from './fcs/webbing-specifications.ts'
 import type {
   EngineeringBomCustomCostDecision,
   EngineeringBomCustomCostDraft,
@@ -389,6 +390,10 @@ export interface TechnicalProcessEntry {
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
   fixedLengthCm?: number
+  /** TMF 织带／绳子按用途、尺码定义规格；不使用橡筋的表头定长字段。 */
+  webbingSpecifications?: WebbingSpecification[]
+  inputInventoryForm?: WebbingInventoryForm
+  outputInventoryForm?: WebbingInventoryForm
   outputUnit?: string
   outputQtyPerGarment?: number
   linkedPatternIds?: string[]

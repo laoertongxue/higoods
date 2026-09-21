@@ -1,0 +1,1221 @@
+{
+  "generatedAt": "2026-09-20T15:08:31.474Z",
+  "source": "2026-09-20-adversarial-audit-rounds.mjs reverse scan",
+  "total": 154,
+  "entries": [
+    {
+      "path": "src/data/app-shell-config.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/central-craft-factories.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/cut-piece-release.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/cutting/qr-payload.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/dye-work-order-demo-details.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/dye-work-order-online-domain.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/dye-work-order-online-view.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/dyeing-task-domain.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/factory-master-store.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/factory-mock-data.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/factory-receiving-source-sync.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/factory-types.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/indonesia-factories.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/lace-factory-domain.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORG-001",
+        "ORG-002",
+        "ORG-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/lace-factory-purchase-projection.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "ORG-001",
+        "ORG-002",
+        "ORG-004",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/pda-cutting-execution-source.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/pda-handover-events.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/pda-handover-handout-registry.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-full-flow.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/print-service.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/print-template-registry.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/printing-task-domain.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/process-craft-dict.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/process-quantity-labels.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/process-work-order-domain.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/production-order-tech-pack-runtime.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/production-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/quality-deduction-shared-facts.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/runtime-process-tasks.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/special-craft-pda-scope.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/special-craft-task-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/tech-packs.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/fcs/tmf-base-demo.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-pda-output-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-process-continuation.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-product-policy.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "SCOPE-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-upstream-process-orders.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "ORDER-004",
+        "ORDER-005",
+        "PUR-001",
+        "PUR-004",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-upstream-receiving.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-work-order-times.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "ORDER-007",
+        "ORDER-009",
+        "STATE-002",
+        "STATE-003",
+        "TIME-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-work-order-view.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/webbing-production-demands.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/webbing-specifications.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ROUTE-004",
+        "ROUTE-006",
+        "ROUTE-010"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/pcs-material-archive-repository.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-material-archive-types.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-pattern-task-flow-service.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-pattern-task-repository.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-pattern-task-types.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-project-relation-repository.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-project-repository.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-project-technical-data-writeback.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-task-bootstrap.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-task-project-relation-writeback.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-technical-data-version-repository.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-technical-data-version-types.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-tmf-material-reference-seeds.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MAT-001",
+        "MAT-003",
+        "MAT-005",
+        "MAT-006"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/pms/material-purchase-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pms/tmf-material-purchases.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MAT-001",
+        "MAT-003",
+        "MAT-005",
+        "MAT-006",
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/tech-pack-process-route.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/wls/seed/shared-seed.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/wls/shared/packaging.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/wls/shared/warehouse-config.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/wls/types.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-channel-stores.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-live-testing.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-material-archives.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-part-template-library.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-pattern-library.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-product-archives.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pcs-video-testing.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pda-cutting-spreading.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pda-handover.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pms/material-purchase-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/pms/tmf-purchase-revision.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/pms/tmf-tip-purchase-form.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "ORDER-004",
+        "ORDER-005",
+        "PUR-001",
+        "PUR-004",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/print/print-preview.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/print/templates/printing-work-order-template.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/print/templates/tmf-package-print-template.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "PRINT-001",
+        "PRINT-002",
+        "PRINT-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/print/templates/tmf-process-sheet-template.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/lace/purchase-demands.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/base-orders.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/continuous-return-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/material-preparation.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MAT-001",
+        "MAT-003",
+        "MAT-005",
+        "MAT-006"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/output-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/production-control-dialog.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "SCOPE-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/production-demand-dialog.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/production-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/purchase-returns.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PAGE-004",
+        "PUR-001",
+        "PUR-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/supply-purchase-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-001",
+        "ORDER-003",
+        "PAGE-004",
+        "PUR-001",
+        "PUR-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/tip-material-dispatch-form.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MAT-001",
+        "MAT-003",
+        "MAT-005",
+        "MAT-006",
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/tipping-form.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/version-replan-dialog.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "SCOPE-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/work-orders.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/work-times.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ORDER-007",
+        "ORDER-009",
+        "TIME-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/cut-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/cutting-daily-production-report-model.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/fei-ticket-numbering.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/fei-tickets.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/marker-plan.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/marker-spreading-model.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/marker-spreading.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/supplement-management.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/warehouse-location-layout-store.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/printing/dialogs.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/printing/events.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/printing/presentation.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/printing/work-order-detail.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/special-craft/task-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/wool/stage-order-detail.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/process-factory/wool/warehouse.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production-fulfillment/configuration.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production-fulfillment/index.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production-fulfillment/source-tasks.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production-fulfillment/ui-state.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production/events.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/production/preparation-timing.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/progress-material.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/progress-urge.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/context.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/core.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/dialogs.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/events.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/process-domain.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/tech-pack/webbing-route-editor.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ROUTE-004",
+        "ROUTE-006",
+        "ROUTE-010"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/tech-pack/webbing-specification-dialog.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ROUTE-004",
+        "ROUTE-006",
+        "ROUTE-010"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/third-party-factory-comprehensive-assessment.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/third-party-factory-rating.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/wls-accessory-receipts.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/wls/finished/outbound-orders.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/wls/raw/accessory-transfer.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/wls/raw/pda.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/pages/wls/raw/tmf-output-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/router/route-renderers-fcs.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/router/routes-fcs.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/router/routes-wls.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/router/routes.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "tests/unit/production-fulfillment-source-entry-relations.test.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "tests/unit/production-fulfillment-sources.test.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "tests/unit/production-fulfillment-task-rule-mappings.test.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "tests/unit/production-order-tech-pack-runtime.test.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "tests/unit/tmf-base-demo.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-central-factories.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORG-001",
+        "ORG-002",
+        "ORG-004",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-continuous-factory-receipt.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORG-001",
+        "ORG-002",
+        "ORG-004",
+        "PAGE-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-material-references.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MAT-001",
+        "MAT-003",
+        "MAT-005",
+        "MAT-006",
+        "MOCK-001",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-pcs-publish-adopt.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-process-continuation.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORDER-004",
+        "ORDER-005",
+        "STATE-002",
+        "STATE-003",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-product-policy.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-purchase-base-flow.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORDER-001",
+        "ORDER-003",
+        "PUR-001",
+        "PUR-004",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-supply-purchase-receipts.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORDER-001",
+        "ORDER-003",
+        "PAGE-004",
+        "PUR-001",
+        "PUR-004",
+        "STOCK-001",
+        "STOCK-002",
+        "STOCK-014",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-upstream-process-orders.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ORDER-001",
+        "ORDER-003",
+        "ORDER-004",
+        "ORDER-005",
+        "PUR-001",
+        "PUR-004",
+        "STATE-002",
+        "STATE-003",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-webbing-route-editor.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ROUTE-004",
+        "ROUTE-006",
+        "ROUTE-010",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "tests/unit/tmf-webbing-specifications.test.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MOCK-001",
+        "ROUTE-004",
+        "ROUTE-006",
+        "ROUTE-010",
+        "VERIFY-001"
+      ],
+      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    }
+  ],
+  "inScope": 49,
+  "outOfScope": 105
+}

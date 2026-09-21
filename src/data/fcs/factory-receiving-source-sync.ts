@@ -1,3 +1,4 @@
+import {syncTmfUpstreamReceivingSources} from './tmf-upstream-receiving.ts'
 import {getPreparationMaterialReceiptSources} from './preparation-material-receipt-sources.ts'
 import {listFactoryReceivingSources,listFactoryReceipts,listFactoryDeliveryNotes,getPrintingReceivingConflict} from './factory-receiving.ts'
 import {listPrintingWorkOrders} from './printing-task-domain.ts'
@@ -9,6 +10,7 @@ import type {FactoryReceivingSource} from './factory-receiving-types.ts'
 
 /** Import the current upstream document snapshot. A plan or ready-to-pick row is never an approval. */
 export function syncFactoryReceivingWarehouseSources(docs?:WarehouseExecutionDoc[]):void {
+ syncTmfUpstreamReceivingSources()
  const dyes=listDyeWorkOrders(),waters=listWaterSolubleWorkOrders(),prints=listPrintingWorkOrders()
  const snapshot=docs?undefined:buildWarehouseExecutionDocumentSnapshot()
  // Bind only actual, already registered upstream dispatches on the same material route.

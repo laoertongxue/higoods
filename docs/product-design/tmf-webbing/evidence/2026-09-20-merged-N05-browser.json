@@ -1,0 +1,10 @@
+{
+  "route": "/wls/accessory-material-preparation",
+  "checks": [
+    "合并表单对应半成品图片可打开大图，Esc关闭保留输入",
+    "第二行超占用时整批未扣库、无发料",
+    "恢复后一次102米扣库，保留两需求归属、未自动实收；刷新保留；低分辨率无主体溢出"
+  ],
+  "errors": [],
+  "result": "PASS"
+}

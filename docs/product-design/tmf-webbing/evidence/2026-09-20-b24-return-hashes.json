@@ -1,0 +1,17 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "93344c4aae008162024d61d6e70646af99cabc6423fc3b988a5103b1359c6725",
+  "src/pages/process-factory/accessory/webbing/base-orders.ts": "0c804f2921d948cfe83859ebb7057fcdd4927ab2bb2ccb50d30e6be28bb1d800",
+  "src/pages/process-factory/accessory/webbing/purchase-returns.ts": "69977346445cc3d2ee16c74928f929aa20e05679bf9f38077656fb44ef26065c",
+  "src/pages/pms/tmf-purchase-revision.ts": "782fdccf96752d1283c7fa48ba0c5af1a92317af033ac7f1a9c77bd500c9eeef",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "fe6ef3fb5de2f87f78f8adaf69c17643f312984f75e7713adeafc9e003808650",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-types-final.log": "b6b228553061b6c4f559449744eb8f28b790cf9b89de63675700476297da1993",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-build-final.log": "70abd8daf3814f0385a4382c51309f2e29217996613ff971463f2d6c3b4bdc3f",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-page.png": "116a6f0afd60fb84a4acc424e40e668e7d3f38d628ffa41267423d813fe3b523",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-build.log": "2e95d4201e35207f725c4bcd293443a34c74cd762713673c79710b0baa5c3f04",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-governance.log": "75011b16bd732cdf9773c3c77b774e3744dd730170cf9c390b55f62aea7580e3",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-browser.mjs": "fdeedf82868b410ff735b106a5a63bfaf44edb44541ba1997ac5fe1f4e5f3f9b",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-types.log": "b6b228553061b6c4f559449744eb8f28b790cf9b89de63675700476297da1993",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-governance-final.log": "75011b16bd732cdf9773c3c77b774e3744dd730170cf9c390b55f62aea7580e3",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-browser.json": "5f62435d11b12bd70cb9bfb6472693f43535b3b7c5f2c1eb26007da3a57ec625",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b24-return-contracts.log": "9edf3e6811bce77a0f1cbc1eb81921f52c22397754e29e97673f1947f6ae9b3e"
+}

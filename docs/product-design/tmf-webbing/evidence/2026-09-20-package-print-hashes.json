@@ -1,0 +1,16 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "sourceHashes": {
+    "src/data/fcs/print-service.ts": "2d26353114947813ddc4726e121f8ac5d9ccf45b7667365a1c2d7a786c4d2d74",
+    "src/data/fcs/print-template-registry.ts": "2c3dcf29dc5c84edf44c23ecc24a5ed534cc255e99ddeb0685e1853ae8531653",
+    "src/data/fcs/tmf-work-order-view.ts": "96f77289de0a4af177e89cb5f4b5cfb74f56499de7144b8d1ee9e005c4747dfb",
+    "src/pages/print/print-preview.ts": "86ffe21a3d2016fc42626e4610221e830bcbba3021bf74360bf955c46b9edd17",
+    "src/pages/print/templates/tmf-process-sheet-template.ts": "64dbf588c633ad54c7c3b0dff2cfba51fd38e4123351505468809d0c0c8c5d5e",
+    "src/pages/print/templates/tmf-package-print-template.ts": "b5364b1e76cd3e97e04d33a011ca4e4f65208792c52c823119fb87c9684b652e",
+    "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "7b43ab7820cae2cd1ca6c1a4d6f2ed019c50a6a279be2c2cebb3e7c87fa388cf",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "34e1e9cf6be95383c078cf8d9497026d90d326ffaba33fa0ae99e972490e5bd2"
+  }
+}

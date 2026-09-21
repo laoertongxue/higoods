@@ -1,0 +1,26 @@
+{
+  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "script": "2026-09-20-defective-scrap-browser.mjs",
+  "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-defective-scrap-browser.mjs",
+  "scriptSourceSha256": "6e5205c37202e8552a608b9694ebde615f741ae0494258adbbf03bfaf500fa8a",
+  "startedAt": "2026-09-21T02:25:51.614Z",
+  "finishedAt": "2026-09-21T02:25:56.299Z",
+  "exitCode": 0,
+  "assertionCallCount": 7,
+  "measurementCallCount": 1,
+  "observable": {
+    "mode": "source-assertions-only",
+    "checks": 0,
+    "checkpoints": 0,
+    "samples": 0,
+    "errors": 0,
+    "count": 0
+  },
+  "stdoutBytes": 0,
+  "stderrBytes": 0,
+  "log": "full-run-20260921-current/2026-09-20-defective-scrap-browser.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "pass": true
+}

@@ -1,0 +1,239 @@
+{
+  "generatedAt": "2026-09-20T15:10:14.551Z",
+  "total": 29,
+  "independentFixtureReceipts": true,
+  "receipts": [
+    {
+      "scenarioId": "N01",
+      "path": "evidence/scenarios/N01.json",
+      "checks": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "N02",
+      "path": "evidence/scenarios/N02.json",
+      "checks": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "N03",
+      "path": "evidence/scenarios/N03.json",
+      "checks": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "N04",
+      "path": "evidence/scenarios/N04.json",
+      "checks": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "N05",
+      "path": "evidence/scenarios/N05.json",
+      "checks": 6,
+      "passed": 6,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B01",
+      "path": "evidence/scenarios/B01.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B02",
+      "path": "evidence/scenarios/B02.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B03",
+      "path": "evidence/scenarios/B03.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B04",
+      "path": "evidence/scenarios/B04.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B05",
+      "path": "evidence/scenarios/B05.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B06",
+      "path": "evidence/scenarios/B06.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B07",
+      "path": "evidence/scenarios/B07.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B08",
+      "path": "evidence/scenarios/B08.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B09",
+      "path": "evidence/scenarios/B09.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B10",
+      "path": "evidence/scenarios/B10.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B11",
+      "path": "evidence/scenarios/B11.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B12",
+      "path": "evidence/scenarios/B12.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B13",
+      "path": "evidence/scenarios/B13.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B14",
+      "path": "evidence/scenarios/B14.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B15",
+      "path": "evidence/scenarios/B15.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B16",
+      "path": "evidence/scenarios/B16.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B17",
+      "path": "evidence/scenarios/B17.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B18",
+      "path": "evidence/scenarios/B18.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B19",
+      "path": "evidence/scenarios/B19.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B20",
+      "path": "evidence/scenarios/B20.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B21",
+      "path": "evidence/scenarios/B21.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B22",
+      "path": "evidence/scenarios/B22.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B23",
+      "path": "evidence/scenarios/B23.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    },
+    {
+      "scenarioId": "B24",
+      "path": "evidence/scenarios/B24.json",
+      "checks": 4,
+      "passed": 4,
+      "failed": 0,
+      "status": "Mock已验证"
+    }
+  ]
+}

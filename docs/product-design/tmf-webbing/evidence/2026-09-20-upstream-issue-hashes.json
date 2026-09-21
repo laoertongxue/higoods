@@ -1,0 +1,7 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "ae0101a530c89eec30aa07cf8cb695511b04ff3cf00c20234f127187fb7021f7",
+  "src/data/fcs/tmf-upstream-receiving.ts": "e8b05b22b9fa2581cd763112a28e83c129ec210ad7a1e0c0bfa672779725770c",
+  "src/data/fcs/factory-receiving-source-sync.ts": "a35266ecb3588cf1c8b6a7e5240b971ecbf2c9c1b09529c73de8027f8663c3eb",
+  "src/data/fcs/tmf-work-order-view.ts": "db2d9b2b911be06a0c4d50c8f0bc8e2925e393fa93034215928225e10cbf3751",
+  "src/pages/process-factory/accessory/webbing/material-preparation.ts": "8d6e09d08c570b0062a75db685ee7f1e6725410e18ff959cb1272294610088c8"
+}

@@ -1,0 +1,24 @@
+{
+  "route": "/fcs/craft/accessory/webbing/purchase-demands",
+  "checks": [
+    "载入36条采购，统计与分页总数一致",
+    "导出全部36条且不含操作列；分页及重置恢复首屏",
+    "填报期间预览实物图并Esc关闭，保留数量和原操作",
+    "生成、接单、开始、超量阻断、实际产出100米、交出100米；仓库实收仍0",
+    "跨页面保留同一交出数量；实物大图可打开关闭",
+    "1280×720和1024×768主体无横向溢出，大图完整显示及Esc关闭",
+    "WLS原入口分类接入；错SKU和超交出量阻断；90+10米分批实收；PMS实收100且只有一个100米库存批次；刷新保留并可回花边分类",
+    "实际动作从100米基础实收→40条500mm和60条700mm装包交出→产出分批实收；错生产单/错包/未核实/超收均阻断；米料38米、采购实收100米不随条料回仓增加；刷新后两包收齐"
+  ],
+  "errors": [],
+  "debug": {
+    "debugDemands": 2,
+    "debugOutputs": 2,
+    "debugPackages": 2,
+    "debugHandovers": 2
+  },
+  "pageDebug": {
+    "state": 2,
+    "html": "\n    \n      \n        \n        \n          \n          \n      \n        \n    \n      包号 / 交出单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        生产单 / 需求用途\n      \n    \n      \n        半成品身份 / 实物识别\n      \n    \n      \n        实际长度 / 端头\n      \n    \n      \n        交出 / 实收 / 待收\n      \n    \n      \n        库位 / 仓内实存\n      \n    \n      \n        收货状态\n      \n    \n      \n        操作\n      \n    \n        \n        \n        \n          \n              OUTPUT-PKG-0OUTPUT-HO-0\n            \n              OUTPUT-BROWSER-PROD腰带 · S技术包 OUTPUT-BROWSER-PROD-TECH-V1\n            \n              tmf-webbing-reference-white半成品参考图；真实实拍替代图\n            \n              下料 500mm；成品 500mmA端：无端头B端：无端头\n            \n              40 / 0 / 40 条\n            \n              未上架实存 0 条；可发 0 条\n            \n              待实收\n            \n              详情登记实收\n            \n        \n      \n        \n          \n              OUTPUT-PKG-1OUTPUT-HO-1\n            \n              OUTPUT-BROWSER-PROD腰带 · M技术包 OUTPUT-BROWSER-PROD-TECH-V1\n            \n              tmf-webbing-reference-white半成品参考图；真实实拍替代图\n            \n              下料 700mm；成品 700mmA端：无端头B端：无端头\n            \n              60 / 0 / 60 条\n            \n              未上架实存 0 条；可发 0 条\n            \n              待实收\n            \n              详情登记实收\n            \n        \n      \n      \n    \n  "
+  }
+}

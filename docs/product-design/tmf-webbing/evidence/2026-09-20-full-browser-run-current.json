@@ -1,0 +1,1132 @@
+{
+  "generatedAt": "2026-09-21T02:36:28.478Z",
+  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "executionModel": "每个脚本由独立 Node child process 启动；每个 child 生成带 runId、当前 HEAD、源码 SHA、起止时间、退出码、当前日志 SHA 和断言计数的独立收据。",
+  "total": 56,
+  "passed": 56,
+  "failed": 0,
+  "results": [
+    {
+      "file": "2026-09-20-b05-recovery-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:23:55.939Z",
+      "finishedAt": "2026-09-21T02:23:59.200Z",
+      "log": "full-run-20260921-current/2026-09-20-b05-recovery-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-b05-recovery-browser.receipt.json",
+      "receiptSha256": "8a56f9eb1e07c16a84c8d4b13e7e3afc069808c5d03d5f8058e9e52102f55b1c",
+      "assertionCallCount": 12,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-b06-recovery-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:23:59.201Z",
+      "finishedAt": "2026-09-21T02:24:00.549Z",
+      "log": "full-run-20260921-current/2026-09-20-b06-recovery-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-b06-recovery-browser.receipt.json",
+      "receiptSha256": "9ea97d80e69815a179c19038d77c3ecd2b3333ef31854b9c7980829165e1ce06",
+      "assertionCallCount": 11,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-b09-recovery-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:00.549Z",
+      "finishedAt": "2026-09-21T02:24:05.933Z",
+      "log": "full-run-20260921-current/2026-09-20-b09-recovery-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-b09-recovery-browser.receipt.json",
+      "receiptSha256": "0fc8a38883f24bb472c837d0c2864b56e777d5863b162bd3920a5c78a9e830ee",
+      "assertionCallCount": 5,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-b23-revision-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:05.934Z",
+      "finishedAt": "2026-09-21T02:24:07.788Z",
+      "log": "full-run-20260921-current/2026-09-20-b23-revision-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-b23-revision-browser.receipt.json",
+      "receiptSha256": "277823c819b86e4e390ce60d4a85deeb09180b37aa4f3abacb9aa02380f9942c",
+      "assertionCallCount": 14,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-b24-return-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:07.789Z",
+      "finishedAt": "2026-09-21T02:24:17.020Z",
+      "log": "full-run-20260921-current/2026-09-20-b24-return-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-b24-return-browser.receipt.json",
+      "receiptSha256": "f65713be70f869541aa6a60c91e6f3b065d4e40824544bb58e87d0eaf8b7cf25",
+      "assertionCallCount": 12,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-base-pages-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:17.021Z",
+      "finishedAt": "2026-09-21T02:24:23.727Z",
+      "log": "full-run-20260921-current/2026-09-20-base-pages-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-base-pages-browser.receipt.json",
+      "receiptSha256": "c45c8d65718105ddabfefef160039be1b4a57ec79de7421d88bca70a7dc79d8a",
+      "assertionCallCount": 16,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 6,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 6
+      }
+    },
+    {
+      "file": "2026-09-20-base-raw-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:23.728Z",
+      "finishedAt": "2026-09-21T02:24:29.525Z",
+      "log": "full-run-20260921-current/2026-09-20-base-raw-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-base-raw-ui-browser.receipt.json",
+      "receiptSha256": "8211522f00bcb0e2a694487ea7f64e54c390f204a1c77f4324aaceab3604acf3",
+      "assertionCallCount": 22,
+      "measurementCallCount": 2,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 2,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 2
+      }
+    },
+    {
+      "file": "2026-09-20-base-raw-warehouse-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:29.526Z",
+      "finishedAt": "2026-09-21T02:24:38.038Z",
+      "log": "full-run-20260921-current/2026-09-20-base-raw-warehouse-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-base-raw-warehouse-browser.receipt.json",
+      "receiptSha256": "ce04a488740ebbabde7305fa36597e7a25cca6447ef44bbb69d0061b8b88afcd",
+      "assertionCallCount": 28,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 2,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 2
+      }
+    },
+    {
+      "file": "2026-09-20-base-receipts-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:38.039Z",
+      "finishedAt": "2026-09-21T02:24:46.227Z",
+      "log": "full-run-20260921-current/2026-09-20-base-receipts-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-base-receipts-browser.receipt.json",
+      "receiptSha256": "e7bc6675da7688aeb6eaa184ce90572c82664f753fc8bc8905aa52361a7e4d08",
+      "assertionCallCount": 30,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 7,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 7
+      }
+    },
+    {
+      "file": "2026-09-20-continuous-factory-receipt-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:46.228Z",
+      "finishedAt": "2026-09-21T02:24:50.223Z",
+      "log": "full-run-20260921-current/2026-09-20-continuous-factory-receipt-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-continuous-factory-receipt-browser.receipt.json",
+      "receiptSha256": "663dd24fe014a2fff299bd8cd521ee07b888a8d5a1b77ffc9dba79443b92c8e4",
+      "assertionCallCount": 10,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-continuous-return-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:24:50.224Z",
+      "finishedAt": "2026-09-21T02:25:14.963Z",
+      "log": "full-run-20260921-current/2026-09-20-continuous-return-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-continuous-return-ui-browser.receipt.json",
+      "receiptSha256": "3f99c373f2888ca26faaa28a5b82e7bd9b2c8b9e38ada381a220f32318e922c2",
+      "assertionCallCount": 103,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 11,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 11
+      }
+    },
+    {
+      "file": "2026-09-20-control-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:25:14.964Z",
+      "finishedAt": "2026-09-21T02:25:51.613Z",
+      "log": "full-run-20260921-current/2026-09-20-control-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-control-ui-browser.receipt.json",
+      "receiptSha256": "920052c6683a1aa0c08ce30520e410d65fd15e2a998ac558a15a6b049da189de",
+      "assertionCallCount": 159,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 19,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 19
+      }
+    },
+    {
+      "file": "2026-09-20-defective-scrap-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:25:51.614Z",
+      "finishedAt": "2026-09-21T02:25:56.299Z",
+      "log": "full-run-20260921-current/2026-09-20-defective-scrap-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-defective-scrap-browser.receipt.json",
+      "receiptSha256": "9712fa96438755ea463d25eff23d843d2636a332142cf2ac6a6bfa6a57fa1255",
+      "assertionCallCount": 7,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-dye-continuation-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:25:56.300Z",
+      "finishedAt": "2026-09-21T02:26:01.947Z",
+      "log": "full-run-20260921-current/2026-09-20-dye-continuation-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-dye-continuation-browser.receipt.json",
+      "receiptSha256": "bfeb668b8025be3e5b4f511dcb46fa504f9b03cb6bfaaf17dda4ef56bc47a1a4",
+      "assertionCallCount": 19,
+      "measurementCallCount": 13,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-execution-times-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:01.948Z",
+      "finishedAt": "2026-09-21T02:26:08.137Z",
+      "log": "full-run-20260921-current/2026-09-20-execution-times-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-execution-times-browser.receipt.json",
+      "receiptSha256": "a2e12b91c8d2fb256b44999555d70d1395f47ee4e90ed61665ff7e8a3510821d",
+      "assertionCallCount": 18,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-factory-work-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:08.137Z",
+      "finishedAt": "2026-09-21T02:26:27.545Z",
+      "log": "full-run-20260921-current/2026-09-20-factory-work-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-factory-work-browser.receipt.json",
+      "receiptSha256": "5ef2520a72eda6121598942af5e9583437ee644031b8d56210937e34c2784bcf",
+      "assertionCallCount": 76,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 10,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 10
+      }
+    },
+    {
+      "file": "2026-09-20-frozen-replan-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:27.546Z",
+      "finishedAt": "2026-09-21T02:26:32.713Z",
+      "log": "full-run-20260921-current/2026-09-20-frozen-replan-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-frozen-replan-browser.receipt.json",
+      "receiptSha256": "9998752440d601a749a68ae95dbe9d73885cc19c35baa3d370c4f82ab605db89",
+      "assertionCallCount": 14,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-frozen-replan-regression-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:32.713Z",
+      "finishedAt": "2026-09-21T02:26:37.893Z",
+      "log": "full-run-20260921-current/2026-09-20-frozen-replan-regression-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-frozen-replan-regression-browser.receipt.json",
+      "receiptSha256": "e19783678ddc4b5d96e798491da214785ea344d311524e125d7322f25664f559",
+      "assertionCallCount": 11,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-main-control-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:37.893Z",
+      "finishedAt": "2026-09-21T02:26:46.508Z",
+      "log": "full-run-20260921-current/2026-09-20-main-control-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-main-control-browser.receipt.json",
+      "receiptSha256": "50193403f99466df7dbb36511c562e568f2a263cbb407362480532a2af2a9b12",
+      "assertionCallCount": 7,
+      "measurementCallCount": 7,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-main-status-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:26:46.508Z",
+      "finishedAt": "2026-09-21T02:27:20.389Z",
+      "log": "full-run-20260921-current/2026-09-20-main-status-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-main-status-browser.receipt.json",
+      "receiptSha256": "bf4c14a08be818e2ee9b6649a9714f1972cd42c07b99874225aab9d888c9f8c4",
+      "assertionCallCount": 150,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 18,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 18
+      }
+    },
+    {
+      "file": "2026-09-20-material-preparation-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:27:20.389Z",
+      "finishedAt": "2026-09-21T02:27:49.986Z",
+      "log": "full-run-20260921-current/2026-09-20-material-preparation-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-material-preparation-ui-browser.receipt.json",
+      "receiptSha256": "20085610cf505c06449a57d3cdfd42f2929e1c2cdb9156f027e023f3fc3bf74f",
+      "assertionCallCount": 124,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 13,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 13
+      }
+    },
+    {
+      "file": "2026-09-20-material-reference-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:27:49.989Z",
+      "finishedAt": "2026-09-21T02:27:52.484Z",
+      "log": "full-run-20260921-current/2026-09-20-material-reference-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-material-reference-browser.receipt.json",
+      "receiptSha256": "dde2707398d4bef2b32ca3675c7ae5123d715c7a03d5c01b0a7617f3f0135ebe",
+      "assertionCallCount": 6,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 4,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 4
+      }
+    },
+    {
+      "file": "2026-09-20-material-spu-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:27:52.484Z",
+      "finishedAt": "2026-09-21T02:27:54.192Z",
+      "log": "full-run-20260921-current/2026-09-20-material-spu-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-material-spu-browser.receipt.json",
+      "receiptSha256": "3461cfd2b80f5d45ef2e09d3aaae2b629c5f8a23cca409414481adc043bb6b62",
+      "assertionCallCount": 5,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-merged-N05-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:27:54.192Z",
+      "finishedAt": "2026-09-21T02:27:59.107Z",
+      "log": "full-run-20260921-current/2026-09-20-merged-N05-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-merged-N05-browser.receipt.json",
+      "receiptSha256": "fbc95a75f130885e126e64ff623c18ed462a522878066ca71a48d6821e5a86c9",
+      "assertionCallCount": 16,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 3,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 3
+      }
+    },
+    {
+      "file": "2026-09-20-merged-factory-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:27:59.107Z",
+      "finishedAt": "2026-09-21T02:28:06.788Z",
+      "log": "full-run-20260921-current/2026-09-20-merged-factory-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-merged-factory-browser.receipt.json",
+      "receiptSha256": "43cb42f12da15190dd36e33b111f1bce8e88002e232ebf656bc7f3480588341d",
+      "assertionCallCount": 31,
+      "measurementCallCount": 2,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 5,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 5
+      }
+    },
+    {
+      "file": "2026-09-20-native-dye-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:28:06.789Z",
+      "finishedAt": "2026-09-21T02:28:08.504Z",
+      "log": "full-run-20260921-current/2026-09-20-native-dye-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-native-dye-browser.receipt.json",
+      "receiptSha256": "a05caf744307f92c56c7f97ead4e037e919b5772217a519ea217847a4b16770b",
+      "assertionCallCount": 8,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-output-receipts-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:28:08.505Z",
+      "finishedAt": "2026-09-21T02:28:19.007Z",
+      "log": "full-run-20260921-current/2026-09-20-output-receipts-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-output-receipts-browser.receipt.json",
+      "receiptSha256": "9b2d430b614dd24750613a5f798482de9064bb38b09d7f25a738a762dfa5c95f",
+      "assertionCallCount": 43,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 8,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 8
+      }
+    },
+    {
+      "file": "2026-09-20-output-stock-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:28:19.008Z",
+      "finishedAt": "2026-09-21T02:28:32.514Z",
+      "log": "full-run-20260921-current/2026-09-20-output-stock-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-output-stock-browser.receipt.json",
+      "receiptSha256": "34e425c70dba0073315c067c71512a3542498d674be92a91715bf73f6d452998",
+      "assertionCallCount": 55,
+      "measurementCallCount": 4,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 9,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 9
+      }
+    },
+    {
+      "file": "2026-09-20-package-print-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:28:32.515Z",
+      "finishedAt": "2026-09-21T02:29:16.343Z",
+      "log": "full-run-20260921-current/2026-09-20-package-print-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-package-print-browser.receipt.json",
+      "receiptSha256": "d513058fb9c7888e5c0de7740bde8b22de6292e960500a015e0f9b2bd00c3630",
+      "assertionCallCount": 188,
+      "measurementCallCount": 2,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 22,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 22
+      }
+    },
+    {
+      "file": "2026-09-20-package-stock-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:29:16.345Z",
+      "finishedAt": "2026-09-21T02:29:52.004Z",
+      "log": "full-run-20260921-current/2026-09-20-package-stock-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-package-stock-browser.receipt.json",
+      "receiptSha256": "8ac331fd6ea7712c28d2fab0bc39fe3cea925559df51a71c2a637572c4f42bcc",
+      "assertionCallCount": 156,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 17,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 17
+      }
+    },
+    {
+      "file": "2026-09-20-pda-output-entry-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:29:52.004Z",
+      "finishedAt": "2026-09-21T02:29:55.693Z",
+      "log": "full-run-20260921-current/2026-09-20-pda-output-entry-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-pda-output-entry-browser.receipt.json",
+      "receiptSha256": "7ea5cb14da03b6d6a2ba1bccce508ec25a3e477f3db0b2736fa17d78beaf5702",
+      "assertionCallCount": 5,
+      "measurementCallCount": 4,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-pda-output-receipt-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:29:55.693Z",
+      "finishedAt": "2026-09-21T02:30:47.526Z",
+      "log": "full-run-20260921-current/2026-09-20-pda-output-receipt-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-pda-output-receipt-browser.receipt.json",
+      "receiptSha256": "3a0b7f5a196b0faf7326e11e87c592132e6607a4d3def312eea4d46677af7db4",
+      "assertionCallCount": 205,
+      "measurementCallCount": 2,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 23,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 23
+      }
+    },
+    {
+      "file": "2026-09-20-print-cut-continuation-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:30:47.527Z",
+      "finishedAt": "2026-09-21T02:30:50.076Z",
+      "log": "full-run-20260921-current/2026-09-20-print-cut-continuation-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-print-cut-continuation-browser.receipt.json",
+      "receiptSha256": "950e7ca0fbb883d06a5e4f11511cff1e2251191e5bd0b29de82385d24e32cb7a",
+      "assertionCallCount": 16,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-print-return-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:30:50.076Z",
+      "finishedAt": "2026-09-21T02:30:58.240Z",
+      "log": "full-run-20260921-current/2026-09-20-print-return-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-print-return-browser.receipt.json",
+      "receiptSha256": "6abd1e51d96ba1d51e2c560afcd63758b2f9036672975981c540ad2295ff1531",
+      "assertionCallCount": 5,
+      "measurementCallCount": 6,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-process-sheet-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:30:58.240Z",
+      "finishedAt": "2026-09-21T02:31:32.650Z",
+      "log": "full-run-20260921-current/2026-09-20-process-sheet-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-process-sheet-browser.receipt.json",
+      "receiptSha256": "1755143c4f73a6c5dceac72fbd028ce1050a12196efa907fa7b3b24f51cc1f07",
+      "assertionCallCount": 162,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 20,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 20
+      }
+    },
+    {
+      "file": "2026-09-20-processed-return-reuse-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:31:32.650Z",
+      "finishedAt": "2026-09-21T02:31:38.596Z",
+      "log": "full-run-20260921-current/2026-09-20-processed-return-reuse-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-processed-return-reuse-browser.receipt.json",
+      "receiptSha256": "2f73740cbb52bca6fa29415e97bc2c1f0a354e93c90f3f6785fd9565ef59b7aa",
+      "assertionCallCount": 11,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-production-demand-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:31:38.596Z",
+      "finishedAt": "2026-09-21T02:32:03.529Z",
+      "log": "full-run-20260921-current/2026-09-20-production-demand-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-production-demand-ui-browser.receipt.json",
+      "receiptSha256": "df60de83c2f52048a93e4f7cc1248ddf9537f1fa629b8ebb3c129554a386c44b",
+      "assertionCallCount": 112,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 12,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 12
+      }
+    },
+    {
+      "file": "2026-09-20-production-receipts-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:32:03.531Z",
+      "finishedAt": "2026-09-21T02:32:20.563Z",
+      "log": "full-run-20260921-current/2026-09-20-production-receipts-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-production-receipts-browser.receipt.json",
+      "receiptSha256": "ba8963b28baa561de7bdf5b0ecfc00da5b7245b3d2908165dd3ea9b6e2a9d50a",
+      "assertionCallCount": 66,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 9,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 9
+      }
+    },
+    {
+      "file": "2026-09-20-purchase-durability-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:32:20.564Z",
+      "finishedAt": "2026-09-21T02:32:31.119Z",
+      "log": "full-run-20260921-current/2026-09-20-purchase-durability-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-purchase-durability-browser.receipt.json",
+      "receiptSha256": "a264f87db1abecb09c09f89ec70a822b10a532d9a5f7de1ea76bcfbbb56a8311",
+      "assertionCallCount": 33,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 3,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 3
+      }
+    },
+    {
+      "file": "2026-09-20-supply-purchase-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:32:31.119Z",
+      "finishedAt": "2026-09-21T02:32:41.357Z",
+      "log": "full-run-20260921-current/2026-09-20-supply-purchase-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-supply-purchase-ui-browser.receipt.json",
+      "receiptSha256": "cba61caeb161dea9ecfa1e0657e3a7ee7de26a1be970854ffadbd6151fdecda9",
+      "assertionCallCount": 32,
+      "measurementCallCount": 2,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 3,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 3
+      }
+    },
+    {
+      "file": "2026-09-20-tip-dispatch-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:32:41.357Z",
+      "finishedAt": "2026-09-21T02:33:11.494Z",
+      "log": "full-run-20260921-current/2026-09-20-tip-dispatch-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tip-dispatch-ui-browser.receipt.json",
+      "receiptSha256": "ee7060654161f9546811523b28c19a730e456c4769b8db4d4ead71caf60e6d86",
+      "assertionCallCount": 136,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 15,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 15
+      }
+    },
+    {
+      "file": "2026-09-20-tip-procurement-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:33:11.496Z",
+      "finishedAt": "2026-09-21T02:33:45.666Z",
+      "log": "full-run-20260921-current/2026-09-20-tip-procurement-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tip-procurement-browser.receipt.json",
+      "receiptSha256": "4534466121414cb60f82c9eed8dc10a998de9783b99d433d01e8e702a1f03efc",
+      "assertionCallCount": 138,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 16,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 16
+      }
+    },
+    {
+      "file": "2026-09-20-tip-purchase-form-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:33:45.667Z",
+      "finishedAt": "2026-09-21T02:34:20.624Z",
+      "log": "full-run-20260921-current/2026-09-20-tip-purchase-form-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tip-purchase-form-browser.receipt.json",
+      "receiptSha256": "4e21ea4d572a8e11d6e17d39979fea9398732a7993100b6265d77a512e5d2ea8",
+      "assertionCallCount": 146,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 17,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 17
+      }
+    },
+    {
+      "file": "2026-09-20-tip-return-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:34:20.626Z",
+      "finishedAt": "2026-09-21T02:34:54.902Z",
+      "log": "full-run-20260921-current/2026-09-20-tip-return-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tip-return-ui-browser.receipt.json",
+      "receiptSha256": "ac583406a2750200acc70018cf16615c8d837e386511dd3d7659e0fc9e198fd2",
+      "assertionCallCount": 147,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 16,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 16
+      }
+    },
+    {
+      "file": "2026-09-20-tip-stock-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:34:54.903Z",
+      "finishedAt": "2026-09-21T02:35:24.767Z",
+      "log": "full-run-20260921-current/2026-09-20-tip-stock-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tip-stock-browser.receipt.json",
+      "receiptSha256": "9e24b4f8ced65694f1952083a6ca117bc5c220aa453e50a7ad9ec829d273d421",
+      "assertionCallCount": 128,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 14,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 14
+      }
+    },
+    {
+      "file": "2026-09-20-tipping-ui-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:35:24.768Z",
+      "finishedAt": "2026-09-21T02:35:44.948Z",
+      "log": "full-run-20260921-current/2026-09-20-tipping-ui-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tipping-ui-browser.receipt.json",
+      "receiptSha256": "6ae9fc7adef00fd3472d173b8878c54648c5ff1c997a0329bff8c18be814b2cd",
+      "assertionCallCount": 83,
+      "measurementCallCount": 0,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 10,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 10
+      }
+    },
+    {
+      "file": "2026-09-20-tmf-cancel-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:35:44.948Z",
+      "finishedAt": "2026-09-21T02:35:46.098Z",
+      "log": "full-run-20260921-current/2026-09-20-tmf-cancel-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tmf-cancel-browser.receipt.json",
+      "receiptSha256": "5af2bc0e0b72912e0715f047367ff84b1a43c107bb780028520cb451d7a302bc",
+      "assertionCallCount": 5,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-tmf-perf-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:35:46.098Z",
+      "finishedAt": "2026-09-21T02:35:54.594Z",
+      "log": "full-run-20260921-current/2026-09-20-tmf-perf-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tmf-perf-browser.receipt.json",
+      "receiptSha256": "4643b49f9bf8af3654e65b25a3eebcc977c7f66d9674c6640b471220829ac27d",
+      "assertionCallCount": 0,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-tmf-perf-detail-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:35:54.594Z",
+      "finishedAt": "2026-09-21T02:35:55.672Z",
+      "log": "full-run-20260921-current/2026-09-20-tmf-perf-detail-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tmf-perf-detail-browser.receipt.json",
+      "receiptSha256": "16e308cc0b70b3e2d953c1921a7b2af4f669ea290df9477d530392a77c531d53",
+      "assertionCallCount": 0,
+      "measurementCallCount": 6,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-tmf-perf-interaction-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:35:55.672Z",
+      "finishedAt": "2026-09-21T02:36:00.055Z",
+      "log": "full-run-20260921-current/2026-09-20-tmf-perf-interaction-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-tmf-perf-interaction-browser.receipt.json",
+      "receiptSha256": "4fad7d0bd306aa854ce214000e390450ee657fe6d4cea5c647bee7c4a35b5ee3",
+      "assertionCallCount": 0,
+      "measurementCallCount": 8,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-upstream-issue-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:00.055Z",
+      "finishedAt": "2026-09-21T02:36:04.849Z",
+      "log": "full-run-20260921-current/2026-09-20-upstream-issue-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-upstream-issue-browser.receipt.json",
+      "receiptSha256": "b821e68d725fedb67e0a8565b7b063b47f87a210636a8e4bf8b1a52ba9583e68",
+      "assertionCallCount": 16,
+      "measurementCallCount": 11,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-upstream-sources-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:04.850Z",
+      "finishedAt": "2026-09-21T02:36:06.691Z",
+      "log": "full-run-20260921-current/2026-09-20-upstream-sources-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-upstream-sources-browser.receipt.json",
+      "receiptSha256": "8b084d96b97f7803eff218ad366012cdfce0bed636dcc76e69afe44a51c3e331",
+      "assertionCallCount": 7,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-version-hold-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:06.691Z",
+      "finishedAt": "2026-09-21T02:36:15.667Z",
+      "log": "full-run-20260921-current/2026-09-20-version-hold-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-version-hold-browser.receipt.json",
+      "receiptSha256": "636a44ea037afe55afcb44418b7271aa395339dbc81339273b3f7db2a29aa61e",
+      "assertionCallCount": 14,
+      "measurementCallCount": 9,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-version-replan-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:15.668Z",
+      "finishedAt": "2026-09-21T02:36:20.915Z",
+      "log": "full-run-20260921-current/2026-09-20-version-replan-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-version-replan-browser.receipt.json",
+      "receiptSha256": "04f9c33df4cb3bd32586dc18d2e050221f96b5ff6f2bd290509680c0d9bfd3d3",
+      "assertionCallCount": 11,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-20-work-times-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:20.915Z",
+      "finishedAt": "2026-09-21T02:36:26.041Z",
+      "log": "full-run-20260921-current/2026-09-20-work-times-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-20-work-times-browser.receipt.json",
+      "receiptSha256": "70274fb98b4c1c3cf0088f65d64ef69a5e8882efbdd0a6418585aab59ccb17ab",
+      "assertionCallCount": 20,
+      "measurementCallCount": 1,
+      "observable": {
+        "mode": "source-assertions-only",
+        "checks": 0,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 0
+      }
+    },
+    {
+      "file": "2026-09-21-tech-editor-browser.mjs",
+      "rc": 0,
+      "passed": true,
+      "startedAt": "2026-09-21T02:36:26.042Z",
+      "finishedAt": "2026-09-21T02:36:28.477Z",
+      "log": "full-run-20260921-current/2026-09-21-tech-editor-browser.log",
+      "receipt": "full-run-20260921-current/2026-09-21-tech-editor-browser.receipt.json",
+      "receiptSha256": "0a34697655b43c37be603d9f387bdea5633251134e77230b2107279ecb30b534",
+      "assertionCallCount": 6,
+      "measurementCallCount": 3,
+      "observable": {
+        "mode": "fresh-child-stdout-json",
+        "checks": 4,
+        "checkpoints": 0,
+        "samples": 0,
+        "errors": 0,
+        "count": 4
+      }
+    }
+  ]
+}

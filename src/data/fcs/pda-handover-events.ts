@@ -111,7 +111,7 @@ import { getFactoryInternalWarehouseRegistryReference } from './factory-internal
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
 export type HandoverPartyKind = 'WAREHOUSE' | 'FACTORY'
-export type HandoverReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+export type HandoverReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY' | 'FACTORY'
 export type PdaHandoverSourceType = ProcessWorkOrderSourceType
 export type HandoverOrderStatus =
   | 'AUTO_CREATED'
@@ -3827,7 +3827,7 @@ function isTaskEligibleForHandover(task: {
 }
 
 function resolveTaskReceiver(task: {
-  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverKind?: HandoverReceiverKind
   receiverId?: string
   receiverName?: string
   processBusinessCode?: string
@@ -4129,6 +4129,12 @@ export function getPdaHandoverRecordsByHead(handoverId: string): PdaHandoverReco
 export function findPdaHandoverRecord(recordId: string): PdaHandoverRecord | undefined {
   const found = findRecord(recordId)
   return found ? cloneRecord(projectFactoryActualReceipt(found)) : undefined
+}
+
+/** 跨端读取准备工艺原交出实收；不维护另一本接收数量账。 */
+export function readCurrentPreparationHandoverRecord(recordId:string):PdaHandoverRecord|undefined {
+  if(typeof window!=='undefined')readFormalHandoutActions()
+  return findPdaHandoverRecord(recordId)
 }
 
 export function getPdaPickupRecordsByHead(handoverId: string): PdaPickupRecord[] {
@@ -4438,7 +4444,7 @@ export function ensureHandoverOrderForStartedTask(taskId: string, options: { inc
       sourceFactoryName: task.assignedFactoryName || '待分配工厂',
       sourceFactoryId: task.assignedFactoryId,
       targetName: receiver.receiverName,
-      targetKind: receiver.receiverKind === 'MANAGED_POST_FACTORY' ? 'FACTORY' : 'WAREHOUSE',
+      targetKind: receiver.receiverKind === 'WAREHOUSE' ? 'WAREHOUSE' : 'FACTORY',
       receiverKind: receiver.receiverKind,
       receiverId: receiver.receiverId,
       receiverName: receiver.receiverName,

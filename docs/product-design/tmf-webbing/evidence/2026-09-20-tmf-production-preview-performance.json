@@ -1,0 +1,208 @@
+{
+  "server": "http://127.0.0.1:43189",
+  "viewport": "1024x768",
+  "browser": "Chromium",
+  "samples": [
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "production-cold",
+      "run": 1,
+      "ms": 241.52,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "production-cold",
+      "run": 2,
+      "ms": 181.36,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "production-cold",
+      "run": 3,
+      "ms": 192.26,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "production-cold",
+      "run": 4,
+      "ms": 235.27,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "production-cold",
+      "run": 5,
+      "ms": 181.23,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "production-cold",
+      "run": 1,
+      "ms": 191.08,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "production-cold",
+      "run": 2,
+      "ms": 232.12,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "production-cold",
+      "run": 3,
+      "ms": 237.3,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "production-cold",
+      "run": 4,
+      "ms": 181.84,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "production-cold",
+      "run": 5,
+      "ms": 191.9,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "production-cold",
+      "run": 1,
+      "ms": 136.65,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "production-cold",
+      "run": 2,
+      "ms": 134.91,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "production-cold",
+      "run": 3,
+      "ms": 135.25,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "production-cold",
+      "run": 4,
+      "ms": 135.9,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "production-cold",
+      "run": 5,
+      "ms": 135.08,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "production-cold",
+      "run": 1,
+      "ms": 135.3,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "production-cold",
+      "run": 2,
+      "ms": 134.26,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "production-cold",
+      "run": 3,
+      "ms": 135.43,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "production-cold",
+      "run": 4,
+      "ms": 135.04,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "production-cold",
+      "run": 5,
+      "ms": 135.51,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "production-cold",
+      "run": 1,
+      "ms": 152.46,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "production-cold",
+      "run": 2,
+      "ms": 140.89,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "production-cold",
+      "run": 3,
+      "ms": 146.38,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "production-cold",
+      "run": 4,
+      "ms": 140.62,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "production-cold",
+      "run": 5,
+      "ms": 147.31,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

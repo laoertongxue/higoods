@@ -1,4 +1,5 @@
 import type { RouteRegistry } from './route-types'
+import { renderTmfPdaOutputReceipts } from '../pages/wls/raw/tmf-output-receipts'
 import { renderFinishedDashboard } from '../pages/wls/finished/dashboard'
 import { renderFinishedPreInbound } from '../pages/wls/finished/pre-inbound'
 import { renderFinishedStockRealtime, renderRawStockRealtime, renderTransitStockRealtime } from '../pages/wls/finished/stock-realtime'
@@ -143,6 +144,7 @@ export const routes: RouteRegistry = {
     // ── 原料仓 · 工作台 ──
     '/wls/raw/dashboard': () => renderRawDashboard(),
     '/wls/raw/pda': () => renderRawPda(),
+    '/wls/raw/pda/tmf-output-receipts': () => renderTmfPdaOutputReceipts(),
 
     // ── 原料仓 · 入库 ──
     '/wls/raw/arrival-list': () => renderRawArrivalList(),

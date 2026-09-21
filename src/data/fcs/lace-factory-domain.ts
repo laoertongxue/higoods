@@ -1,3 +1,4 @@
+import { TMF_FACTORY_ID, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 import {
   ACCESSORY_FACTORY_MAPPINGS,
   LACE_INPUT_MATERIAL_CATALOG,
@@ -32,16 +33,16 @@ export interface LaceActor {
 
 export const LACE_FACTORY_OPERATOR: LaceActor = {
   actorId: 'USR-RJ-BUSINESS-01',
-  actorName: 'Ayu · Renda Jaya',
+  actorName: 'Ayu · TMF',
   role: '花边厂业务员',
-  factoryOrgId: 'FAC-RJ-LACE',
+  factoryOrgId: TMF_FACTORY_ID,
 }
 
 export const LACE_FACTORY_SUPERVISOR: LaceActor = {
   actorId: 'USR-RJ-SUPERVISOR-01',
-  actorName: 'Sari · Renda Jaya 主管',
+  actorName: 'Sari · TMF 主管',
   role: '花边厂主管',
-  factoryOrgId: 'FAC-RJ-LACE',
+  factoryOrgId: TMF_FACTORY_ID,
 }
 
 export const WLS_ACCESSORY_CLERK: LaceActor = {
@@ -325,7 +326,7 @@ function sourceForActor(actor: LaceActor): LaceOperationLog['source'] {
 
 function orgForLog(actorRole: LaceOperationLog['actorRole'], actorOrgId?: string): string {
   if (actorOrgId) return actorOrgId
-  if (actorRole === '花边厂业务员' || actorRole === '花边厂主管') return 'FAC-RJ-LACE'
+  if (actorRole === '花边厂业务员' || actorRole === '花边厂主管') return TMF_FACTORY_ID
   if (actorRole === '中央辅料仓管' || actorRole === '中央辅料仓主管') return 'WLS-CENTRAL-ACCESSORY'
   if (actorRole === 'PMS采购员') return 'PMS'
   if (actorRole === '平台主管') return 'PLATFORM'

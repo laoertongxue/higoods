@@ -1,0 +1,17 @@
+TMF current full build evidence
+Date: 2026-09-20
+Branch: codex/tmf-webbing-management
+HEAD: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+Command: npm run build
+- engineering typecheck: scope errors 0; full existing errors 62
+- unit tests: 397 pass, 0 fail, 0 skipped, 0 cancelled
+- Vite production build: pass, 8.75s
+- warnings: existing large chunk/dynamic import warnings only; no build failure
+
+Additional checks after build:
+- git diff --check: pass
+- validate-design-data.py: pass, 350 checks, 5 normal, 24 boundary, 127 atomic requirements
+- npm run check:prototype-design-governance: pass
+
+Boundary: this build and governance result do not close missing real output images, the N01 same-copy native dye->print->TMF downstream chain, all page/PDA/print acceptance, or the complete five-sample <500ms interaction gate.

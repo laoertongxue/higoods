@@ -1,0 +1,8 @@
+TMF mock isolation/shared-object evidence
+Date: 2026-09-20
+Branch: codex/tmf-webbing-management
+HEAD before this evidence freeze: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+MOCK-007: 35 tests passed in tests/unit/tmf-purchase-base-flow.test.ts. The new shared-reference assertions verified 5 normal + 24 boundary fixture identities are unique within each scenario; purchaseLine belongs to purchase; runtime purchase/base order is one-to-one and preserves purchaseLineId. B17 now replays an independent N05-derived split package: 100 -> 40 + 60, old package scan blocked, duplicate split has no effect, both child packages complete production receipt.
+MOCK-009: isolated localStorage Map test passed. User preference sentinel survives fixture creation and reloadTmfPurchaseRuntime; TMF runtime key is retained; restoring the original window does not delete unrelated user data. This proves the reset harness boundary only, not full 29-scenario browser reset.
+Boundary: this evidence does not close missing real output images or the full page/PDA/print/performance gate.

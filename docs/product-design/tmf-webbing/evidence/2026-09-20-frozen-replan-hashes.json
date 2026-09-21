@@ -1,0 +1,16 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "server": "http://127.0.0.1:43188",
+  "pid": 45770,
+  "viewport": "1024x768",
+  "browser": "Playwright Chromium isolated two-tab context",
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "675d58fdfa86766b5761718b3c3f7e5d36f3a6685fdc48d1bb1b02b736e674c4",
+    "src/pages/process-factory/accessory/webbing/version-replan-dialog.ts": "ca104ea065d571e68b8709a9b79d77f28c6d7ccbba6c04bef645fc638cc605d1",
+    "src/pages/process-factory/accessory/webbing/work-orders.ts": "a412a66e889e68be4b7bc1b7d21dc6db3f5e9846e6d6bce0d2a55557737826d4",
+    "src/data/fcs/webbing-production-demands.ts": "db4b3c99e375244838a55bf2419a0df3b22e7022a8230a5b0612429d23e9f955",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "54272d88ed47889f222c544efdf09a94e2489a52b55ce8e28d68faa680e2c96e"
+  }
+}

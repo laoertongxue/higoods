@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "checks": 344,
+  "normalScenarios": 5,
+  "boundaryScenarios": 24,
+  "atomicRequirements": 123,
+  "fixtureSha256": "2f9029c20dcf1f7986f01a572109d6c370763ad2ccd5e7c90a4d561d5ae3c93d",
+  "scope": "仅产品方案及静态数据合同校验；未执行应用动作/浏览器/打印/性能"
+}

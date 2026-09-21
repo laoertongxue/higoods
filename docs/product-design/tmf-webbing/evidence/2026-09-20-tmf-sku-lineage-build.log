@@ -1,0 +1,7 @@
+command: npm run build
+branch: codex/tmf-webbing-management
+head: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+engineering typecheck scope errors: 0
+unit tests: 396 pass, 0 fail
+vite: built in 8.82s
+targeted test: node --import tsx --test tests/unit/tmf-material-references.test.ts (3 pass, 0 fail)

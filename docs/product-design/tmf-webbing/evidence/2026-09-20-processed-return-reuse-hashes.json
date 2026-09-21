@@ -1,0 +1,13 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "server": "http://127.0.0.1:43188",
+  "viewport": "1024x768",
+  "browser": "Playwright Chromium isolated context",
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "18d94b50b6c9db134b46c3b52dace71f8ebd46bee3e92e1e7b54990b22c45ed6",
+    "src/pages/process-factory/accessory/webbing/material-preparation.ts": "fad6732b2417078472cd877d078e48795c6bdf545c36f4f1ab5350496b7ccacd",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "d6508558352269c479995a1eeb4f751417583819c2e793e2313ca4349f83afd4"
+  }
+}

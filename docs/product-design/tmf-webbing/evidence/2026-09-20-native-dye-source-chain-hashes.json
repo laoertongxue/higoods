@@ -1,0 +1,10 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "uncommitted": true,
+  "files": {
+    "src/data/fcs/dyeing-task-domain.ts": "96b4888c0651e742b3a4b7b50e6ea0249122f967033b40c92115c96194912ed0",
+    "src/pages/process-factory/dyeing/output-documents.ts": "7eff6aae3dbf2b9cfa0d95f0edd2d4bf3815cfe22b56e49a2a81bdf1b03b4416",
+    "output/playwright/tmf-webbing/native-dye-source-chain.mjs": "17d0412f1d6e5808b40afb865d4245c7235eeda07e0c9a43e4eca9ffc7982d93"
+  }
+}

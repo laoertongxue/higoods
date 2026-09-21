@@ -1,0 +1,26 @@
+{
+  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "script": "2026-09-20-pda-output-entry-browser.mjs",
+  "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-pda-output-entry-browser.mjs",
+  "scriptSourceSha256": "59630536a9e634db230dc9446e088fba8f0f6f097a9af9634bf36c6e9064453a",
+  "startedAt": "2026-09-21T02:29:52.004Z",
+  "finishedAt": "2026-09-21T02:29:55.693Z",
+  "exitCode": 0,
+  "assertionCallCount": 5,
+  "measurementCallCount": 4,
+  "observable": {
+    "mode": "fresh-child-stdout-json",
+    "checks": 0,
+    "checkpoints": 0,
+    "samples": 0,
+    "errors": 0,
+    "count": 0
+  },
+  "stdoutBytes": 719,
+  "stderrBytes": 0,
+  "log": "full-run-20260921-current/2026-09-20-pda-output-entry-browser.log",
+  "logSha256": "ed391bed5cc01c3da93b8fcb008032142a5089518b33b1bc0edaef9d3748e9a0",
+  "pass": true
+}

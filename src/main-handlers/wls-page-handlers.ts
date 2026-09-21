@@ -60,10 +60,12 @@ import { handleTransitReceiveManageEvent } from '../pages/wls/transit/receive-ma
 import { handleTransitWarehouseTransferEvent } from '../pages/wls/transit/warehouse-transfer.ts'
 import { handleTransitWorkAreaManageEvent } from '../pages/wls/transit/work-area-manage.ts'
 import { handleWaveManageEvent } from '../pages/wls/finished/wave-manage.ts'
+import { handleWlsAccessoryReceiptsEvent } from '../pages/wls-accessory-receipts.ts'
 
 type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
 
 const pageEventHandlers: Record<string, WlsPageEventHandler> = {
+  '/wls/accessory-receipts': handleWlsAccessoryReceiptsEvent,
   '/wls/finished/dashboard': handleFinishedDashboardEvent,
   '/wls/raw/pda': handleRawPdaEvent,
   '/wls/finished/pda': handleFinishedPdaEvent,

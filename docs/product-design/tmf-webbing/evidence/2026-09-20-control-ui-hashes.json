@@ -1,0 +1,11 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/pages/process-factory/accessory/webbing/work-orders.ts": "449aeeeed7fd3f4f038e0790940671a01d49764db9202cd82c33a03587b44f4e",
+    "src/pages/process-factory/accessory/webbing/production-control-dialog.ts": "1ff5a4557bec5190c32dd380901637c939ca6c043d7bb10651218416219d43f1",
+    "src/data/pms/tmf-material-purchases.ts": "bd650e5a5c235b976bd159afe1773d1763f347ea2133e91a4d7e3c39d4086a8f",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "7f70589b5a228e996cb22badbc4e9387e68d2aac7686684912623435d6db7053"
+  }
+}

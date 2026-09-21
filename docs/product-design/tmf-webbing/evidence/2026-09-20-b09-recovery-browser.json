@@ -1,0 +1,19 @@
+{
+  "checks": [
+    "页面释放50米须原因及再次确认",
+    "恢复后生产实收400/600，基础仓350米全部属于其他需求占用，连续回料8米",
+    "刷新后仍保留其他需求350米占用，不能再次抢占1米；1024px无主体溢出"
+  ],
+  "errors": [],
+  "scope": "B09释放占用UI及下游恢复；原生印染未执行，630米交出是明确外部夹具；不构成整链验收",
+  "final": {
+    "basePhysicalM": 350,
+    "otherReservedM": 350,
+    "baseAvailableM": 0,
+    "processedReturnM": 8,
+    "productionPieces": [
+      400,
+      600
+    ]
+  }
+}

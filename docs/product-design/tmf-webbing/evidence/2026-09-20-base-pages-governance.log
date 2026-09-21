@@ -1,0 +1,22 @@
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance
+> npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all
+
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance:static
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts
+
+list page governance passed: scanned 532 pages, baseline 17
+
+> higoods-vanilla-clone@1.0.0 check:standard-list-page-template
+> npm exec tsc -- --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions --lib ES2022,DOM src/components/ui/list-table.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-standard-list-page-template.ts
+
+(node:14315) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Chromium column drag passed on allocated port 64295: drop=1, DOM regions stable, order/storage updated, external text and cancelled drag ignored
+standard list page template check passed
+
+> higoods-vanilla-clone@1.0.0 check:prototype-design-governance
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts --all
+
+prototype design governance passed (all): 36 user-visible file(s), 0 technical-only file(s), 1 linked governance record(s)

@@ -693,6 +693,8 @@ function resolveProcessObjectFlow(
   processCode: string,
   craftName?: string,
 ): ProcessObjectFlowDefinition {
+  if (processCode === 'WEBBING_CUT') return sameObjectFlow('ACCESSORY')
+  if (processCode === 'WEBBING_TIP') return { ...sameObjectFlow('ACCESSORY'), consumedObjectTypes: ['ACCESSORY'] }
   if (processCode === 'PRINT' || processCode === 'DYE' || processCode === 'WATER_SOLUBLE') {
     return sameObjectFlow('BOM_MATERIAL')
   }
@@ -903,6 +905,8 @@ type ProcessDefaultRule = {
 }
 
 const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
+  WEBBING_CUT: { assignmentGranularity: 'DETAIL', detailSplitMode: 'COMPOSITE', detailSplitDimensions: ['MATERIAL_SKU', 'GARMENT_SKU'] },
+  WEBBING_TIP: { assignmentGranularity: 'DETAIL', detailSplitMode: 'COMPOSITE', detailSplitDimensions: ['MATERIAL_SKU', 'GARMENT_SKU'] },
   PRINT: {
     assignmentGranularity: 'COLOR',
     detailSplitMode: 'COMPOSITE',
@@ -1018,6 +1022,20 @@ const processDefinitionSeeds: Array<
     defaultDocument: string
   }
 > = [
+  {
+    processCode: 'WEBBING_CUT', processName: '织带／绳子截断', stageCode: 'PREP', processRole: 'PREPARATION_ORDER',
+    generatesExternalTask: false, requiresTaskQr: true, requiresHandoverOrder: true,
+    capacityEnabled: true, capacityRollupMode: 'SELF', factoryMobileExecutionMode: 'FULL_TASK', isActive: true,
+    defaultDocument: '加工单', description: 'TMF 按生产单的用途和尺码截断连续辅料，保留半成品 SKU，以产出明细区分长度。',
+    triggerSource: '技术包 BOM 织带／绳子加工规格',
+  },
+  {
+    processCode: 'WEBBING_TIP', processName: '织带／绳子打头', stageCode: 'PREP', processRole: 'PREPARATION_ORDER',
+    generatesExternalTask: false, requiresTaskQr: true, requiresHandoverOrder: true,
+    capacityEnabled: true, capacityRollupMode: 'SELF', factoryMobileExecutionMode: 'FULL_TASK', isActive: true,
+    defaultDocument: '加工单', description: '承接定长条料，按两端具体要求加工；不新增 SKU，不重复扣连续料。',
+    triggerSource: '技术包已明确需要打头的规格',
+  },
   {
     processCode: 'PRINT',
     processName: '印花',
@@ -1294,6 +1312,8 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
 ]
 
 const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
+  { legacyValue: 2000011, legacyCraftName: '织带／绳子截断', craftName: '织带／绳子截断', processCode: 'WEBBING_CUT', isSpecialCraft: false, defaultDocument: '加工单' },
+  { legacyValue: 2000012, legacyCraftName: '织带／绳子打头', craftName: '织带／绳子打头', processCode: 'WEBBING_TIP', isSpecialCraft: false, defaultDocument: '加工单' },
   { legacyValue: 2000001, legacyCraftName: '丝网印', craftName: '丝网印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '加工单' },
   { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '加工单' },
   { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '加工单' },
@@ -1414,6 +1434,9 @@ function resolveProcessCraftManagementDomain(
 function resolveProcessCraftTargetObject(
   item: Pick<LegacyCraftMappingDefinition, 'craftName' | 'processCode'>,
 ): { targetObject: ProcessTargetObject; targetObjectName: ProcessTargetObjectName } {
+  if (item.processCode === 'WEBBING_CUT' || item.processCode === 'WEBBING_TIP') {
+    return { targetObject: 'ACCESSORY', targetObjectName: '辅料' }
+  }
   const modernSpecialCraft = modernSpecialCraftDefinitions.find((craft) => craft.craftName === item.craftName)
   if (modernSpecialCraft) {
     return {

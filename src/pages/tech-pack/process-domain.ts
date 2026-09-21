@@ -139,7 +139,7 @@ function renderPreparationRouteNode(
   options: { editable?: boolean; laneSize?: number } = {},
 ): string {
   const requiresSkuChange = item.processCode === 'DYE' || item.processCode === 'PRINT'
-  const mustKeepSku = item.processCode === 'WATER_SOLUBLE'
+  const mustKeepSku = ['WATER_SOLUBLE', 'WEBBING_CUT', 'WEBBING_TIP'].includes(item.processCode)
   const fallbackInputSkuId = index === 0 ? (item.inputMaterialSkuId || bom.materialSkuId || '') : (item.inputMaterialSkuId || '')
   const inputSku = getMaterialSkuRecordById(fallbackInputSkuId)
   const outputSku = getMaterialSkuRecordById(item.outputMaterialSkuId || (mustKeepSku ? fallbackInputSkuId : ''))
@@ -247,6 +247,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
                   <div>
                     <div class="text-sm font-medium text-slate-900">${escapeHtml(getBomDisplayName(bom))}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bom.type || '物料')}</div>
+                    ${!readonly && bom.type === '辅料' ? `<button type="button" class="mt-2 rounded border px-2 py-1 text-xs text-blue-700 hover:bg-blue-50" data-tech-action="open-webbing-specifications" data-bom-id="${escapeHtml(bom.id)}" data-skip-page-rerender="true">织带 / 绳子加工规格</button>` : ''}
                   </div>
                   <div class="overflow-x-auto pb-1">${renderLaneProcess(items, '无需准备加工', { editable: !readonly, bom })}</div>
                 </div>
@@ -328,7 +329,7 @@ export function renderProcessTab(): string {
       ? `最近调整：${state.processRouteUpdatedBy || '-'}　${state.processRouteUpdatedAt}`
       : '路线待跟单确认'
   return `
-    <section class="space-y-4">
+    <section class="space-y-4" data-testid="tech-pack-process-tab">
       <header class="rounded-lg border bg-card px-4 py-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>

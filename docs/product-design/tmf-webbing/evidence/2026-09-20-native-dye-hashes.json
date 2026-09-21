@@ -1,0 +1,13 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "uncommitted": true,
+  "files": {
+    "src/data/fcs/dyeing-task-domain.ts": "96b4888c0651e742b3a4b7b50e6ea0249122f967033b40c92115c96194912ed0",
+    "src/pages/process-factory/dyeing/output-documents.ts": "7eff6aae3dbf2b9cfa0d95f0edd2d4bf3815cfe22b56e49a2a81bdf1b03b4416",
+    "tests/unit/tmf-continuous-factory-receipt.test.ts": "2082e763469b48014d3413ad2ac3ea96ce1c147588c6c06c7d684bdd2e133f0b",
+    "output/playwright/tmf-webbing/native-dye-browser.mjs": "72a5735b0e250b7c32ad18ad8b73b21ebd0fbe20100b2626e731f1edb918012b"
+  }
+}

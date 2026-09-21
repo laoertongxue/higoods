@@ -1,3 +1,4 @@
+import { cloneWebbingSpecifications } from '../../data/fcs/webbing-specifications.ts'
 import { appStore } from '../../state/store.ts'
 import { escapeHtml } from '../../utils.ts'
 import {
@@ -202,6 +203,9 @@ type TechniqueItem = {
   outputMaterialName?: string
   outputMaterialImageUrl?: string
   outputMaterialSkuMode?: 'UNCHANGED' | 'CHANGED'
+  webbingSpecifications?: TechnicalProcessEntry['webbingSpecifications']
+  inputInventoryForm?: TechnicalProcessEntry['inputInventoryForm']
+  outputInventoryForm?: TechnicalProcessEntry['outputInventoryForm']
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   triggerSource: string
@@ -2254,6 +2258,9 @@ function getProcessRouteSignature(items: TechniqueItem[]): string {
       item.inputMaterialSkuId || '',
       item.outputMaterialSkuId || '',
       item.outputMaterialSkuMode || '',
+      item.inputInventoryForm || '',
+      item.outputInventoryForm || '',
+      JSON.stringify(item.webbingSpecifications ?? []),
       [...(item.predecessorEntryIds ?? [])].sort().join(','),
     ].join('|'))
     .join('||')
@@ -4821,6 +4828,9 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     outputMaterialName: normalizedEntry.outputMaterialName,
     outputMaterialImageUrl: normalizedEntry.outputMaterialImageUrl,
     outputMaterialSkuMode: normalizedEntry.outputMaterialSkuMode,
+    webbingSpecifications: cloneWebbingSpecifications(normalizedEntry.webbingSpecifications),
+    inputInventoryForm: normalizedEntry.inputInventoryForm,
+    outputInventoryForm: normalizedEntry.outputInventoryForm,
     consumedBomItemIds: normalizedEntry.consumedBomItemIds ? [...normalizedEntry.consumedBomItemIds] : undefined,
     predecessorEntryIds: normalizedEntry.predecessorEntryIds ? [...normalizedEntry.predecessorEntryIds] : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
@@ -5358,6 +5368,9 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       outputMaterialName: item.outputMaterialName,
       outputMaterialImageUrl: item.outputMaterialImageUrl,
       outputMaterialSkuMode: item.outputMaterialSkuMode,
+      webbingSpecifications: cloneWebbingSpecifications(item.webbingSpecifications),
+      inputInventoryForm: item.inputInventoryForm,
+      outputInventoryForm: item.outputInventoryForm,
       consumedBomItemIds: item.consumedBomItemIds ? [...item.consumedBomItemIds] : undefined,
       predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
       supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
