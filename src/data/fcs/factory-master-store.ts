@@ -11,6 +11,7 @@ import {
 } from './factory-onboarding-ppic.ts'
 import type { Factory } from './factory-types.ts'
 import { isLegacySpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
+import { APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID } from './central-craft-factories.ts'
 
 const FACTORY_MASTER_STORE_KEY = 'fcs_factory_master_store_v1'
 
@@ -251,7 +252,26 @@ function createOnboardingOfficialSeedFactories(): Factory[] {
 }
 
 function mergeSeedFactories(factories: Factory[]): Factory[] {
-  const currentFactories = factories.filter((factory) => !isLegacySpecialCraftFactoryId(factory.id))
+  // One-time normalization of saved prototype records; no legacy lookup aliases remain.
+  const retiredIds: Record<string, string> = {
+    'ID-F010': TMF_FACTORY_ID,
+    'FAC-RJ-LACE': TMF_FACTORY_ID,
+    'ID-FAC-001197': TMF_FACTORY_ID,
+    'ID-FAC-001203': SPF_FACTORY_ID,
+  }
+  const centralIds = new Set([APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID])
+  const currentById = new Map<string, Factory>()
+  const ordered = [...factories].sort((a, b) => Number(!retiredIds[a.id]) - Number(!retiredIds[b.id]))
+  for (const factory of ordered) {
+    if (isLegacySpecialCraftFactoryId(factory.id)) continue
+    const id = retiredIds[factory.id] ?? factory.id
+    const seed = centralIds.has(id) ? mockFactories.find((item) => item.id === id) : undefined
+    currentById.set(id, seed ? {
+      ...factory, id, code: seed.code, name: seed.name, factoryShortName: seed.code,
+      factoryTier: seed.factoryTier, factoryType: seed.factoryType, pdaTenantId: id,
+    } : factory)
+  }
+  const currentFactories = [...currentById.values()]
   const existingIds = new Set(currentFactories.map((factory) => factory.id))
   const missingMockSeeds = mockFactories.filter((factory) => !existingIds.has(factory.id))
   missingMockSeeds.forEach((factory) => existingIds.add(factory.id))

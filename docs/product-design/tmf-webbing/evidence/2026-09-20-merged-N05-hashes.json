@@ -1,0 +1,10 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "3d9ddf443488b4c70f6c50b44e56877a5fa10d17e04b64a23669558ea434aa3a",
+    "src/pages/process-factory/accessory/webbing/material-preparation.ts": "01e4f71157f8493b94238b2d9136ea56bccc46ed1b0259f67a567a8ff2829d17",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "d5f632cf8e932d9ffbf5c8d1e778bf5ced5c112d5904f9f64a72b9873076e9c9"
+  }
+}

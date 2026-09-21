@@ -105,11 +105,12 @@ function requiredBasePatternTaskTypes(preparationType: EngineeringPreparationTyp
 // ============ 演示种子 ============
 
 // 仓库为空时创建演示主单：首张发布为 EM-001，第二张保持草稿，用于展示不同状态。
-export function ensureEngineeringMasterDemoData(): void {
+export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
+  const targetCount = Math.max(1, Math.min(12, Math.floor(targetRecordCount)))
   const records = listEngineeringMasterOrders()
-  if (records.length >= 12) {
+  if (records.length >= targetCount) {
     ensureEngineeringDemoTaskMaterials(records)
-    ensureEngineeringLifecycleDemoData()
+    if (targetCount >= 12) ensureEngineeringLifecycleDemoData()
     return
   }
   const styles = listStyleArchives()
@@ -118,7 +119,7 @@ export function ensureEngineeringMasterDemoData(): void {
     .filter((style) => !usedStyleIds.has(style.styleId))
     .filter((style) => !hasFormalProductionFact(style.styleCode))
     .filter((style) => Boolean(style.mainImageUrl || style.galleryImageUrls[0]))
-    .slice(0, Math.max(0, 12 - records.length))
+    .slice(0, Math.max(0, targetCount - records.length))
   if (candidates.length === 0) {
     ensureEngineeringDemoTaskMaterials(records)
     ensureEngineeringLifecycleDemoData()
@@ -191,7 +192,7 @@ export function ensureEngineeringMasterDemoData(): void {
     ensureEngineeringDemoTaskMaterials([published])
     seedEngineeringMasterScenario(published.masterOrderId, scenarioNo)
   }
-  ensureEngineeringLifecycleDemoData()
+  if (targetCount >= 12) ensureEngineeringLifecycleDemoData()
 }
 
 function ensureEngineeringDemoBomVersions(

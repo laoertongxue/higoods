@@ -1,0 +1,50 @@
+{
+  "scenarioId": "B09",
+  "scenarioType": "boundary",
+  "generatedAt": "2026-09-20T15:10:14.550Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "businessInput": {
+    "injectAt": "占用",
+    "mutation": "其他占用400再占650",
+    "base": "N01",
+    "expected": "可用600、缺50",
+    "numericalOracle": "recoveryOracles.B09",
+    "recoveryAndFinal": "原需求释放50后完成基准全链",
+    "replayFrom": "采购下达"
+  },
+  "checks": [
+    {
+      "id": "B09",
+      "check": "injection",
+      "ok": true,
+      "detail": "占用: 其他占用400再占650"
+    },
+    {
+      "id": "B09",
+      "check": "recovery",
+      "ok": true,
+      "detail": "逐步数量/状态检查、阻断和恢复终点齐全"
+    },
+    {
+      "id": "B09",
+      "check": "oracle",
+      "ok": true,
+      "detail": "数量/库存/状态恢复算子已定义"
+    },
+    {
+      "id": "B09",
+      "check": "replay",
+      "ok": true,
+      "detail": "从 采购下达 重放"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

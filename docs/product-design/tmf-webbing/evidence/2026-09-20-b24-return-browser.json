@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "仓库错误批次与未确认阻断；实际退货交出100只减仓库、不提前减采购净实收",
+    "TMF页面分次实收40/60，原1000收货保留，净实收960→900",
+    "采购未修订时结束处置阻断；PMS改900后主管核对处置，刷新后原产1000/净900/厂内退回100一致"
+  ],
+  "errors": [],
+  "scope": "B24原基础1000实收→实际退100→净900→采购及基础处置；未执行后续印染整链",
+  "final": {
+    "balance": {
+      "grossReceivedMeters": 1000,
+      "returnDispatchedMeters": 100,
+      "returnReceivedMeters": 100,
+      "returnTransitMeters": 0,
+      "netReceivedMeters": 900
+    },
+    "planned": 900,
+    "produced": 1000,
+    "pending": false,
+    "physical": 900,
+    "receipts": [
+      40,
+      60
+    ]
+  }
+}

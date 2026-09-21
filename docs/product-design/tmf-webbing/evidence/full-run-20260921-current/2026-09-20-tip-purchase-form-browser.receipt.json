@@ -1,0 +1,26 @@
+{
+  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "script": "2026-09-20-tip-purchase-form-browser.mjs",
+  "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-tip-purchase-form-browser.mjs",
+  "scriptSourceSha256": "088081ebc93fb242c9f82f3a7cbfe369c7502ce986dc84733476ca0365b299ab",
+  "startedAt": "2026-09-21T02:33:45.667Z",
+  "finishedAt": "2026-09-21T02:34:20.624Z",
+  "exitCode": 0,
+  "assertionCallCount": 146,
+  "measurementCallCount": 0,
+  "observable": {
+    "mode": "fresh-child-stdout-json",
+    "checks": 17,
+    "checkpoints": 0,
+    "samples": 0,
+    "errors": 0,
+    "count": 17
+  },
+  "stdoutBytes": 6431,
+  "stderrBytes": 0,
+  "log": "full-run-20260921-current/2026-09-20-tip-purchase-form-browser.log",
+  "logSha256": "a750aa9bb78ecc1d388c7e2fb6ed344ba6f554b551bdfaa1add0bbb31ec2515b",
+  "pass": true
+}

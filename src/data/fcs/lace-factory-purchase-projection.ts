@@ -1,3 +1,4 @@
+import { TMF_FACTORY_ID, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 import { buildLaceProductionGenerationKey } from './lace-production-generation-key.ts'
 
 export type LacePurchaseOrderStatus = '有效' | '已取消' | '已作废'
@@ -143,8 +144,8 @@ export interface LacePurchaseProjectionFailure {
 const RENDA_JAYA_MAPPING: AccessoryFactoryMapping = {
   supplierId: 'SUP-RJ-001',
   supplierName: 'Renda Jaya',
-  factoryOrgId: 'FAC-RJ-LACE',
-  factoryName: 'Renda Jaya 花边厂',
+  factoryOrgId: TMF_FACTORY_ID,
+  factoryName: TMF_FACTORY_NAME,
   factoryType: '花边厂',
   enabled: true,
 }

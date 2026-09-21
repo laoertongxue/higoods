@@ -313,7 +313,10 @@ function renderMaterialGroupedSearchResults(keyword: string, materialResources: 
 }
 
 function renderSearchResults(keyword: string): string {
-  const rows = withRelatedMainlineRows(searchProductionObjects(keyword))
+  // Keep the first response bounded for the shared overlay.  The index can
+  // contain hundreds of related records; rendering every card on each input
+  // event makes the first search response exceed the interaction budget.
+  const rows = withRelatedMainlineRows(searchProductionObjects(keyword)).slice(0, 8)
   const candidateMaterialResources = keyword.trim() ? searchMaterialResources(keyword) : []
   const materialResources = shouldUseMaterialResourceSearch(keyword, rows, candidateMaterialResources) ? candidateMaterialResources : []
   if (materialResources.length > 0) return renderMaterialGroupedSearchResults(keyword, materialResources, rows)
@@ -364,7 +367,7 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
             }
           </div>
           <div data-production-object-search-results="true">
-            ${renderSearchResults(keyword)}
+            ${keyword.trim() ? renderSearchResults(keyword) : '<p class="rounded border border-dashed p-4 text-sm text-muted-foreground">请输入关键词后查看匹配的生产对象、物料和单据。</p>'}
           </div>
         </div>
       </section>

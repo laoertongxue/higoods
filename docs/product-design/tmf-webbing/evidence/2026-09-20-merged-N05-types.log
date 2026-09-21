@@ -1,0 +1,4 @@
+TypeScript 全量既有错误：61
+本次渐进检查范围：src/pages/process-factory/accessory/webbing/、src/data/pms/tmf-material-purchases.ts
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。

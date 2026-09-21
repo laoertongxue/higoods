@@ -1,0 +1,299 @@
+{
+  "generatedAt": "2026-09-20T16:35:49.420Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "rounds": [
+    {
+      "name": "第一轮：正向追踪（方案/Mock→矩阵→实现/证据）",
+      "checks": [
+        {
+          "name": "R1-PLAN-EXISTS",
+          "ok": true,
+          "detail": "docs/product-design/tmf-webbing/织带厂管理产品方案.md"
+        },
+        {
+          "name": "R1-MATRIX-ATOMIC-127",
+          "ok": true,
+          "detail": "rows=127"
+        },
+        {
+          "name": "R1-MATRIX-UNIQUE",
+          "ok": true,
+          "detail": "duplicate atomic ids"
+        },
+        {
+          "name": "R1-MATRIX-STATUSES",
+          "ok": true,
+          "detail": "invalid status"
+        },
+        {
+          "name": "R1-MATRIX-EVIDENCE-PATHS",
+          "ok": true,
+          "detail": "missing referenced evidence"
+        },
+        {
+          "name": "R1-NO-STale-CLAIMS-IN-VERIFIED-ROWS",
+          "ok": true,
+          "detail": "0 verified rows still contain unfinished wording: "
+        },
+        {
+          "name": "R1-MOCK-NORMAL-5",
+          "ok": true,
+          "detail": "5"
+        },
+        {
+          "name": "R1-MOCK-BOUNDARY-24",
+          "ok": true,
+          "detail": "24"
+        },
+        {
+          "name": "R1-MOCK-IDS-UNIQUE",
+          "ok": true,
+          "detail": "scenario ids"
+        },
+        {
+          "name": "R1-MOCK-NORMAL-FINALS",
+          "ok": true,
+          "detail": "normal scenario shape"
+        },
+        {
+          "name": "R1-MOCK-BOUNDARY-ORACLES",
+          "ok": true,
+          "detail": "boundary oracle shape"
+        },
+        {
+          "name": "R1-COVERAGE-29-IDS",
+          "ok": true,
+          "detail": "coverage=29"
+        },
+        {
+          "name": "R1-COVERAGE-NONEMPTY",
+          "ok": true,
+          "detail": "0 scenarios lack evidence or have remaining work"
+        },
+        {
+          "name": "R1-FULLFLOW-NO-ERRORS",
+          "ok": true,
+          "detail": "errors=0"
+        },
+        {
+          "name": "R1-FULLFLOW-STEP-EVIDENCE",
+          "ok": true,
+          "detail": "checks=17"
+        },
+        {
+          "name": "R1-MOCK-SCENARIO-ORACLE-EXECUTION",
+          "ok": true,
+          "detail": "{\"scenarioCount\":29,\"checks\":126,\"passed\":126,\"failed\":0,\"byScenario\":{\"N01\":{\"passed\":6,\"failed\":0},\"N02\":{\"passed\":6,\"failed\":0},\"N03\":{\"passed\":6,\"failed\":0},\"N04\":{\"passed\":6,\"failed\":0},\"N05\":{\"passed\":6,\"failed\":0},\"B01\":{\"passed\":4,\"failed\":0},\"B02\":{\"passed\":4,\"failed\":0},\"B03\":{\"passed\":4,\"failed\":0},\"B04\":{\"passed\":4,\"failed\":0},\"B05\":{\"passed\":4,\"failed\":0},\"B06\":{\"passed\":4,\"failed\":0},\"B07\":{\"passed\":4,\"failed\":0},\"B08\":{\"passed\":4,\"failed\":0},\"B09\":{\"passed\":4,\"failed\":0},\"B10\":{\"passed\":4,\"failed\":0},\"B11\":{\"passed\":4,\"failed\":0},\"B12\":{\"passed\":4,\"failed\":0},\"B13\":{\"passed\":4,\"failed\":0},\"B14\":{\"passed\":4,\"failed\":0},\"B15\":{\"passed\":4,\"failed\":0},\"B16\":{\"passed\":4,\"failed\":0},\"B17\":{\"passed\":4,\"failed\":0},\"B18\":{\"passed\":4,\"failed\":0},\"B19\":{\"passed\":4,\"failed\":0},\"B20\":{\"passed\":4,\"failed\":0},\"B21\":{\"passed\":4,\"failed\":0},\"B22\":{\"passed\":4,\"failed\":0},\"B23\":{\"passed\":4,\"failed\":0},\"B24\":{\"passed\":4,\"failed\":0}}}"
+        },
+        {
+          "name": "R1-INDEPENDENT-SCENARIO-RECEIPTS",
+          "ok": true,
+          "detail": "receipts=29"
+        },
+        {
+          "name": "R1-FULL-PERFORMANCE-APPLICABLE",
+          "ok": true,
+          "detail": "{\"total\":100,\"failed\":0,\"maxMs\":256.19,\"notApplicableEntrypoints\":27,\"errors\":0}"
+        },
+        {
+          "name": "R1-SCENARIO-N01-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=500"
+        },
+        {
+          "name": "R1-SCENARIO-N02-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=227"
+        },
+        {
+          "name": "R1-SCENARIO-N03-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=219"
+        },
+        {
+          "name": "R1-SCENARIO-N04-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=408"
+        },
+        {
+          "name": "R1-SCENARIO-N05-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=565"
+        },
+        {
+          "name": "R1-SCENARIO-B01-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=129"
+        },
+        {
+          "name": "R1-SCENARIO-B02-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=123"
+        },
+        {
+          "name": "R1-SCENARIO-B03-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=123"
+        },
+        {
+          "name": "R1-SCENARIO-B04-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=123"
+        },
+        {
+          "name": "R1-SCENARIO-B05-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=81"
+        },
+        {
+          "name": "R1-SCENARIO-B06-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=94"
+        },
+        {
+          "name": "R1-SCENARIO-B07-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=86"
+        },
+        {
+          "name": "R1-SCENARIO-B08-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=87"
+        },
+        {
+          "name": "R1-SCENARIO-B09-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=170"
+        },
+        {
+          "name": "R1-SCENARIO-B10-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B11-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B12-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B13-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B14-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=92"
+        },
+        {
+          "name": "R1-SCENARIO-B15-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=114"
+        },
+        {
+          "name": "R1-SCENARIO-B16-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B17-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=41"
+        },
+        {
+          "name": "R1-SCENARIO-B18-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=88"
+        },
+        {
+          "name": "R1-SCENARIO-B19-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B20-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=12"
+        },
+        {
+          "name": "R1-SCENARIO-B21-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=124"
+        },
+        {
+          "name": "R1-SCENARIO-B22-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=10"
+        },
+        {
+          "name": "R1-SCENARIO-B23-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=136"
+        },
+        {
+          "name": "R1-SCENARIO-B24-EVIDENCE",
+          "ok": true,
+          "detail": "occurrences=166"
+        }
+      ]
+    },
+    {
+      "name": "第二轮：反向追踪（代码/证据→矩阵/方案）",
+      "checks": [
+        {
+          "name": "R2-REVERSE-GOVERNED-FILES",
+          "ok": true,
+          "detail": "0 governed files lack requirement IDs or explicit out-of-scope reason; matrix-only gaps=116"
+        },
+        {
+          "name": "R2-PLAN-ROUTE-TRACE",
+          "ok": true,
+          "detail": "unbound route tokens=0"
+        },
+        {
+          "name": "R2-CONTRACT-LOG",
+          "ok": true,
+          "detail": "scenario contract log missing or not pass"
+        },
+        {
+          "name": "R2-MOCK-AUDIT-LOG",
+          "ok": true,
+          "detail": "runtime mock audit log missing"
+        },
+        {
+          "name": "R2-BROWSER-EVIDENCE-ERRORS",
+          "ok": true,
+          "detail": "0 browser evidence files have errors: "
+        },
+        {
+          "name": "R2-SCENARIO-INDEPENDENT-EVIDENCE",
+          "ok": true,
+          "detail": "0 scenarios only point at shared receipts"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 53,
+    "passed": 53,
+    "failed": 0,
+    "matrixStatuses": {
+      "已验证": 29,
+      "已实现待验证": 98
+    }
+  },
+  "failures": [],
+  "warnings": [],
+  "scenarioCounts": {
+    "normal": 5,
+    "boundary": 24,
+    "total": 29
+  },
+  "verdict": "通过"
+}

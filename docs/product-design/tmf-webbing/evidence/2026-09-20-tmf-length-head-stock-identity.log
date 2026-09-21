@@ -1,0 +1,21 @@
+TMF 织带厂管理：长度／端头不进入永久 SKU，但在产出库存中可区分
+日期：2026-09-20
+分支：codex/tmf-webbing-management
+HEAD：ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+验证命令：
+node --import tsx --test tests/unit/tmf-webbing-specifications.test.ts tests/unit/tmf-purchase-base-flow.test.ts
+
+结果：
+- tmf-webbing-specifications.test.ts：4 pass，0 fail
+- tmf-purchase-base-flow.test.ts：32 pass，0 fail
+
+业务断言：
+1. N01 的 500mm 与 700mm 需求按规格行分别计算，getWebbingPhysicalSpecificationKey 不相同；两行仍可引用同一半成品 SKU。
+2. B15 的 1200mm 与 1300mm 绳子截断产出 materialSkuId 只有一个值，实际下料长度分别保存为 1200/1300mm，物理规格键分别保存，不能在加工、分配和包装库存中合并。
+3. B15 两个长度产出都保留技术包确认的 METAL 端头要求；端头方式留在规格和产出快照，不拼接进半成品 SKU。
+4. 已有全链 B18/N02/N03/N04 测试继续阻断换长度、换头型、重复打头和错误端头耗材；本证据不把缺少真实蓝色／花型产出实拍图的视觉门禁标记为通过。
+
+证据边界：
+- 这是代码级和业务动作级证据，证明库存识别采用“半成品 SKU + 加工规格键 + 来源批次／包装码”。
+- 技术包编辑、生产加工单、PDA、打印和全部交互性能的现场验收仍需另行完成。

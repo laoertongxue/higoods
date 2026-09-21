@@ -1,0 +1,8 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "files": {
+    "src/data/pcs-material-archive-repository.ts": "13f0165fee41ab53304d44893e1b5eaa28a2e469eaa0920bc8684dd185979318",
+    "src/pages/pcs-material-archives.ts": "22bc20917b21e60834d9f777269643a3ca0eb964b29b343446353ca11573e0de",
+    "tests/unit/tmf-material-references.test.ts": "fbcac65e1892660973f80412fd4bbe97501c1dc370f9dd502ec1594abb0833a3"
+  }
+}

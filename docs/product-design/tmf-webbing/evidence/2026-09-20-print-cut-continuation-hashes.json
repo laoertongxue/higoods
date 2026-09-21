@@ -1,0 +1,16 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "files": {
+    "src/data/fcs/tmf-process-continuation.ts": "b84d3afbbefabbba6bc6b4bdc9d0f8e662b7497703980ff8e55949341cc4ec54",
+    "src/data/fcs/printing-task-domain.ts": "fd5d32b08c712053c2572ceacca2481b66f0b94cf37080cb5bf82104ca4cc946",
+    "src/data/fcs/process-tasks.ts": "4b93858673aaa6d8c2ebe9a961f24b6508698a3f7d46063104a48bee86158774",
+    "src/data/fcs/pda-handover-events.ts": "376e4ea8cea14ccc0d88bf63a5b646b7fafa7497824e0c190bb0c73a04d7d60d",
+    "src/data/fcs/tmf-upstream-process-orders.ts": "32ee4d2822a75b5b264901921ce2fd9196e2e43c3099e5c0c59da265405bab72",
+    "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "6d53fe17b550a5757bf1f0c6e891b53b47bc96240b32912282ab79b162946b02",
+    "tests/unit/tmf-process-continuation.test.ts": "8ec44b0b673dd69e5d6727edec5dbb28300f5bef885982bfaeb9974ee4635cbc"
+  }
+}

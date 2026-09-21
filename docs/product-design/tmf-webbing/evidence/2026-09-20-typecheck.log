@@ -1,0 +1,4 @@
+TypeScript 全量既有错误：61
+本次渐进检查范围：src/data/pms/tmf-material-purchases.ts、src/data/pms/material-purchase-orders.ts、src/data/fcs/webbing-specifications.ts、src/data/tech-pack-process-route.ts、src/data/fcs/process-craft-dict.ts、src/data/fcs/factory-mock-data.ts、src/data/pcs-technical-data-version-repository.ts、src/data/fcs/production-tech-pack-snapshot-builder.ts、src/pages/tech-pack/context.ts、src/pages/tech-pack/events.ts、src/pages/tech-pack/process-domain.ts
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。

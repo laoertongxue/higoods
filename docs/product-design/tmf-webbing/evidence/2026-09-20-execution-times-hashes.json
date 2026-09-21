@@ -1,0 +1,14 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "branch": "codex/tmf-webbing-management",
+  "service": "http://127.0.0.1:43188",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "e5f866775876dd36567f3341f7b31655e07f49ed729e4afa3cbe17eafdc5d519",
+    "src/data/fcs/tmf-work-order-times.ts": "e31d74e4cfc33ddd2c3dfdc5cb15d8003b63bd4e47d7623bde931f729c94437a",
+    "src/data/fcs/tmf-work-order-view.ts": "f1c098ee03e6947b426b451c01a5ab6d47425662e3c7511fdcd64424334282ed",
+    "src/pages/process-factory/accessory/webbing/work-times.ts": "6678af90ff9ac7666577310d1cf003492692b41855bc120f346d7948554820e6",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "37d608d0bb9426509bf366742447a2b6caf8f51decadb0568370d63570470e52",
+    "output/playwright/tmf-webbing/execution-times-browser.mjs": "81f735410ca1e058d6caf893f3ebac301263cb629d1c69e31bb6f79b7d780fe4"
+  }
+}

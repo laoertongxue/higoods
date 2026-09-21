@@ -147,11 +147,11 @@ const MOCK_TENDERS: TenderRow[] = [
     currency: 'IDR',
     unit: '件',
     factoryPoolCount: 5,
-    factoryPoolNames: ['泗水裁片厂', '棉兰卫星工厂', '万隆裁片厂', '玛琅裁片厂', '三宝垄裁片厂'],
+    factoryPoolNames: ['HiGood 裁床厂', '棉兰卫星工厂', '万隆裁片厂', '玛琅裁片厂', '三宝垄裁片厂'],
     factoryQuotes: [
       {
-        factoryId: 'ID-F010',
-        factoryName: '泗水裁片厂',
+        factoryId: 'OWN-CUTTING-001',
+        factoryName: 'HiGood 裁床厂',
         hasQuoted: true,
         quotePrice: 12800,
         quoteTime: '2026-03-09 11:05',

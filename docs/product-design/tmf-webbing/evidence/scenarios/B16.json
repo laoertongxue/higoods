@@ -1,0 +1,50 @@
+{
+  "scenarioId": "B16",
+  "scenarioType": "boundary",
+  "generatedAt": "2026-09-20T15:10:14.550Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "businessInput": {
+    "injectAt": "最终实收",
+    "mutation": "70CM短收10条",
+    "base": "N01",
+    "expected": "需求缺10；出库不倒删",
+    "numericalOracle": "正常基准终点不变；注入阶段按expected验证零副作用或差额在途",
+    "recoveryAndFinal": "在途差异追回补交，不再扣原仓600条",
+    "replayFrom": "采购下达"
+  },
+  "checks": [
+    {
+      "id": "B16",
+      "check": "injection",
+      "ok": true,
+      "detail": "最终实收: 70CM短收10条"
+    },
+    {
+      "id": "B16",
+      "check": "recovery",
+      "ok": true,
+      "detail": "逐步数量/状态检查、阻断和恢复终点齐全"
+    },
+    {
+      "id": "B16",
+      "check": "oracle",
+      "ok": true,
+      "detail": "数量/库存/状态恢复算子已定义"
+    },
+    {
+      "id": "B16",
+      "check": "replay",
+      "ok": true,
+      "detail": "从 采购下达 重放"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

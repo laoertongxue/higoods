@@ -1,0 +1,17 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "8bc0e9aed32d27151dd72e63bb75b9054d7b91d9549a0fc95936658ccca9b258",
+  "src/pages/pms/material-purchase-orders.ts": "114d4171d464a6b04c6ca91acece7aaf3bad6e33b2c4acb320093e5c43bcf8d6",
+  "src/pages/pms/tmf-purchase-revision.ts": "b51bebe69d95673a4aaaf39c23dc65fc6ab027f1d1e52112464ffc1656cae8bb",
+  "src/pages/pms/shared.ts": "ad2d544ab21ab7322eac164958cb71f3b660c819bbb9ba3691b22ed4ba93dea1",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "f19b6057444bd586f67f26aaebc92a69ae6b6f0e87ea8f5824eab09386fed15d",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-page.png": "1b154a70e0f7c279d270f299859499301e4d64e5707d5bbb6071f6b99311c5a1",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-browser.mjs": "c2e614ae4adbec93a2321851c22016f43d7db0eebd86038ffc24b27c59c4df90",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-contracts.log": "5ed036b407923c14b8bec15ce4633d3f73368231bc50e3f1dcc2181429110475",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-governance.log": "a64d4349c82d07af3b827f899967dd47bef78e4ea59df8a860d76965f20e2938",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-types.log": "da5c2c4239e146428170feeb31fbeda80f100859adfe0904aa27ea9316fd17b0",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-browser.json": "0df8102d2f5aca1dcb587335ba6c89d1d5fe79eb531c8370efcd072e6f986014",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-tip-regression.log": "a9109d442e0aa9851759c30d17f2010b08b4e3c16e82a5a47fbb668504660d9a",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-build.log": "20c2785719a8ca57d9c2bcb2e9d122fb1ba679edfe813bbe7f4a0dfdc178d386",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-tip-regression.json": "7f16706f78cf5cad5d18f96ee99ea31d0941e3564c15809b237fe4fc707542fb",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b23-revision-tip-regression.mjs": "088081ebc93fb242c9f82f3a7cbfe369c7502ce986dc84733476ca0365b299ab"
+}

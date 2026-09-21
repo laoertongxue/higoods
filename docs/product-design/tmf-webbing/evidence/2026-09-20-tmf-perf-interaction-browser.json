@@ -1,0 +1,408 @@
+{
+  "viewport": "1024x768",
+  "browser": "Chromium",
+  "server": "http://127.0.0.1:43188",
+  "samples": [
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "query",
+      "run": 1,
+      "ms": 56,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "reset",
+      "run": 1,
+      "ms": 45.6,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "query",
+      "run": 2,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "reset",
+      "run": 2,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "query",
+      "run": 3,
+      "ms": 49.6,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "reset",
+      "run": 3,
+      "ms": 50.2,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "query",
+      "run": 4,
+      "ms": 49.1,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "reset",
+      "run": 4,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "query",
+      "run": 5,
+      "ms": 50.3,
+      "pass": true
+    },
+    {
+      "name": "base",
+      "path": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "reset",
+      "run": 5,
+      "ms": 48.5,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "query",
+      "run": 1,
+      "ms": 42.1,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "reset",
+      "run": 1,
+      "ms": 48.9,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "query",
+      "run": 2,
+      "ms": 49.9,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "reset",
+      "run": 2,
+      "ms": 49.5,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "query",
+      "run": 3,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "reset",
+      "run": 3,
+      "ms": 49.5,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "query",
+      "run": 4,
+      "ms": 49.5,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "reset",
+      "run": 4,
+      "ms": 49.6,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "query",
+      "run": 5,
+      "ms": 49.1,
+      "pass": true
+    },
+    {
+      "name": "work",
+      "path": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "reset",
+      "run": 5,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "query",
+      "run": 1,
+      "ms": 52.8,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "reset",
+      "run": 1,
+      "ms": 47.1,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "query",
+      "run": 2,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "reset",
+      "run": 2,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "query",
+      "run": 3,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "reset",
+      "run": 3,
+      "ms": 49.4,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "query",
+      "run": 4,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "reset",
+      "run": 4,
+      "ms": 50.7,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "query",
+      "run": 5,
+      "ms": 48,
+      "pass": true
+    },
+    {
+      "name": "prep",
+      "path": "/wls/accessory-material-preparation",
+      "kind": "reset",
+      "run": 5,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "query",
+      "run": 1,
+      "ms": 46.1,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "reset",
+      "run": 1,
+      "ms": 48.4,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "query",
+      "run": 2,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "reset",
+      "run": 2,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "query",
+      "run": 3,
+      "ms": 49.7,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "reset",
+      "run": 3,
+      "ms": 49.5,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "query",
+      "run": 4,
+      "ms": 49.6,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "reset",
+      "run": 4,
+      "ms": 49.4,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "query",
+      "run": 5,
+      "ms": 49,
+      "pass": true
+    },
+    {
+      "name": "stock",
+      "path": "/wls/accessory-production-stock",
+      "kind": "reset",
+      "run": 5,
+      "ms": 49.2,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "query",
+      "run": 1,
+      "ms": 36.2,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "reset",
+      "run": 1,
+      "ms": 100.2,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "query",
+      "run": 2,
+      "ms": 49.9,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "reset",
+      "run": 2,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "query",
+      "run": 3,
+      "ms": 49.6,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "reset",
+      "run": 3,
+      "ms": 48.2,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "query",
+      "run": 4,
+      "ms": 50.3,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "reset",
+      "run": 4,
+      "ms": 49.6,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "query",
+      "run": 5,
+      "ms": 49.8,
+      "pass": true
+    },
+    {
+      "name": "pms",
+      "path": "/pms/material-purchase-orders",
+      "kind": "reset",
+      "run": 5,
+      "ms": 48.8,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

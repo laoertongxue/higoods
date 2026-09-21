@@ -324,7 +324,7 @@ export function renderAppShell(state: AppState, pageContent: string): string {
     `
   }
 
-  if (state.pathname.startsWith('/fcs/pda')) {
+  if (state.pathname.startsWith('/fcs/pda') || state.pathname.split('?')[0] === '/wls/raw/pda/tmf-output-receipts') {
     return `
       <div class="min-h-screen bg-slate-100" data-pda-standalone-root="true">
         ${pageContent}

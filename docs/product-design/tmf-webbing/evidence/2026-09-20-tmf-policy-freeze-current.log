@@ -1,0 +1,24 @@
+TMF V1 policy freeze evidence
+Date: 2026-09-20
+Branch: codex/tmf-webbing-management
+HEAD: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+Frozen prototype defaults:
+- scope: PMS purchase -> base production -> upstream dye/print -> TMF cut/tip -> accessory warehouse -> production receipt
+- no long-term fixed-length finished-goods stocking
+- factories: FAC-SPF / FAC-TMF / FAC-APF
+- supplier identity remains separate from factory identity
+- ordinary warehouse receives; warehouse supervisor confirms over-receipt
+- TMF supervisor owns processing/disposition confirmation
+- production receiver confirms final production receipt
+- PDA: 360x640; supervisor Web: 1024x768
+- labels: 150x100mm and A4; default validity: 24 hours
+- over-receipt, scrap, freeze, return and version replan require role, reason and second confirmation
+- fixture reset is isolated and never clears user records
+
+Evidence:
+- src/data/fcs/tmf-product-policy.ts
+- tests/unit/tmf-product-policy.test.ts (2/2 pass)
+- tests/unit/tmf-purchase-base-flow.test.ts: base order retains purchaseLineId
+
+This freezes V1 prototype behavior only. Real photos and site-specific receiving/authorization records remain separate acceptance gates.

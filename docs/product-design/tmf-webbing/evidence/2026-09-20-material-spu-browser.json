@@ -1,0 +1,27 @@
+{
+  "checks": [
+    "新建页缺明确幅宽被阻断，错误在抽屉内可见，修正后创建",
+    "同名20mm、3cm织带和Φ5mm绳子分别新建并刷新，主档身份与编码不同，归属和尺寸保持"
+  ],
+  "errors": [],
+  "records": [
+    {
+      "id": "material_accessory_tmf_27debc75-cf4a-43cf-85dd-dda255382614",
+      "code": "ACC-TMF同名规格验-W20MM",
+      "width": "20mm",
+      "category": "织带"
+    },
+    {
+      "id": "material_accessory_tmf_d4a442e2-c59d-41e0-8753-6312678b8c26",
+      "code": "ACC-TMF同名规格验-W30MM",
+      "width": "30mm",
+      "category": "织带"
+    },
+    {
+      "id": "material_accessory_tmf_5576b4fa-e1bd-42cf-929d-11868f45b5b1",
+      "code": "ACC-TMF同名规格验-D5MM",
+      "width": "Φ5mm",
+      "category": "绳子"
+    }
+  ]
+}

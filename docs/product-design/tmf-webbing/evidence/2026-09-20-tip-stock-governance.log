@@ -1,0 +1,5 @@
+
+> higoods-vanilla-clone@1.0.0 check:prototype-design-governance
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts --all
+
+prototype design governance passed (all): 48 user-visible file(s), 0 technical-only file(s), 1 linked governance record(s)

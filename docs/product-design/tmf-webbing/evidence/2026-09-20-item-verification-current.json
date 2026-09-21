@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-09-21T00:22:37.959839",
+  "source": "逐条浏览器执行与严格性能执行",
+  "browserRun": {
+    "total": 55,
+    "passed": 55,
+    "failed": 0,
+    "failedScripts": [],
+    "receipt": "evidence/2026-09-20-full-browser-run-current.json"
+  },
+  "strictPerformance": {
+    "samples": 195,
+    "failed": 0,
+    "maxMs": 246.78320799999892,
+    "errors": 0,
+    "receipt": "evidence/ready-performance-current.json",
+    "verdict": "当前覆盖入口通过；详情/技术包发布/打印全部动作仍需单独绑定"
+  },
+  "verified": [
+    "受四个失败脚本影响的产出收货、产出库存、生产实收、印花回料浏览器场景已重放通过"
+  ],
+  "notVerified": [
+    "98条原子需求不整体升格；仍需逐条确认其业务门禁是否全部绑定"
+  ],
+  "failureEvidence": [],
+  "remaining": "55个浏览器脚本与195个严格性能样本已重跑通过，继续按矩阵逐条核对证据适用范围。"
+}

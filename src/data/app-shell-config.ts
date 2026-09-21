@@ -644,6 +644,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-accessory-lace-handovers', title: '交出记录', icon: 'ArrowLeftRight', href: '/fcs/craft/accessory/lace/handover-records' },
           ],
         },
+        {
+          key: 'pfos-accessory-webbing', title: '织带厂管理', icon: 'Paperclip',
+          children: [
+            { key: 'pfos-accessory-webbing-purchase-demands', title: '采购需求', icon: 'ShoppingCart', href: '/fcs/craft/accessory/webbing/purchase-demands' },
+            { key: 'pfos-accessory-webbing-base-orders', title: '基础生产单', icon: 'ClipboardList', href: '/fcs/craft/accessory/webbing/base-orders' },
+            { key: 'pfos-accessory-webbing-work-orders', title: '生产加工单', icon: 'Workflow', href: '/fcs/craft/accessory/webbing/work-orders' },
+          ],
+        },
       ],
     } as MenuGroup & { icon: string },
     {
@@ -678,6 +686,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       items: [
         { key: 'wls-fabric-demand-board', title: '面料需求看板', icon: 'PanelsTopLeft', href: '/wls/fabric-demand-board' },
         { key: 'wls-accessory-receipts', title: '中央辅料仓收货', icon: 'PackageCheck', href: '/wls/accessory-receipts' },
+        { key: 'wls-accessory-base-materials', title: '织带基础原料收发', icon: 'Boxes', href: '/wls/accessory-base-materials' },
+        { key: 'wls-accessory-material-preparation', title: '织带连续料备料', icon: 'Boxes', href: '/wls/accessory-material-preparation' },
+        { key: 'wls-accessory-production-stock', title: '辅料加工产出库存', icon: 'Boxes', href: '/wls/accessory-production-stock' },
+        { key: 'wls-accessory-production-receipts', title: '生产领料确认', icon: 'PackageCheck', href: '/wls/accessory-production-receipts' },
         { key: 'wls-garment-spu-replacements', title: '成衣 SPU 替换', icon: 'RefreshCw', href: '/wls/garment-spu-replacements' },
         { key: 'wls-garment-relabel-tasks', title: '成衣仓换码任务', icon: 'Tags', href: '/wls/garment-relabel-tasks' },
         { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },

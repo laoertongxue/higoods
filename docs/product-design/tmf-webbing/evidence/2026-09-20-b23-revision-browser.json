@@ -1,0 +1,34 @@
+{
+  "route": "/pms/material-purchase-orders",
+  "checks": [
+    "缩略图和大图真实可见；注入图片失败后显示错误，点击重试恢复原对象图片",
+    "无变化、缺原因确认阻断，存储失败保留输入原表重试成功",
+    "PMS详情和刷新可追溯1000→900、V1→V2及原因",
+    "原接单失效，重接单后实际生产和仓库实收900米，拒绝原1000米产出；采购、库存一致"
+  ],
+  "errors": [],
+  "scope": "B23采购减量、版本留痕和基础900米实收；印染下游及完整性能未验证",
+  "final": {
+    "purchase": 900,
+    "received": 900,
+    "physical": 900,
+    "history": [
+      {
+        "fromVersion": 1,
+        "toVersion": 2,
+        "beforeMeters": 1000,
+        "afterMeters": 900,
+        "producedMetersAtChange": 0,
+        "dueDateBefore": "2026-09-25",
+        "dueDateAfter": "2026-09-25",
+        "reason": "未开工基础备货减100米",
+        "confirmedBy": "USR-PMS-WANG",
+        "confirmedAt": "2026-09-20T04:05:44.248Z"
+      }
+    ]
+  },
+  "image": {
+    "html": "<button type=\"button\" class=\"relative shrink-0 overflow-hidden rounded-md border bg-slate-50 h-20 w-20\" data-pms-common-action=\"open-image\" data-image-src=\"/materials/tmf/webbing-reference-white.jpg\" data-image-alt=\"Mock WB30-WHT（WB30-WHT）实物图\" data-skip-page-rerender=\"true\" aria-label=\"查看Mock WB30-WHT（WB30-WHT）实物图大图\"><img class=\"h-full w-full object-cover\" src=\"/materials/tmf/webbing-reference-white.jpg\" alt=\"Mock WB30-WHT（WB30-WHT）实物图\" onload=\"this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden')\" onerror=\"this.classList.add('hidden');this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.remove('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.add('flex')\"><span class=\"absolute inset-0 items-center justify-center bg-slate-50 px-1 text-center text-[10px] leading-tight text-slate-500 hidden\" data-pms-image-loading=\"\">图片加载中…</span><span class=\"hidden h-full w-full items-center justify-center px-1 text-center text-[10px] leading-tight text-red-700\" data-pms-image-error=\"\">图片加载失败，点击重试</span></button>",
+    "display": "none"
+  }
+}

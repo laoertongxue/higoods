@@ -1,0 +1,17 @@
+TMF 技术包织带／绳子规格字段契约
+日期：2026-09-20
+分支：codex/tmf-webbing-management
+HEAD：ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+验证命令：node --import tsx --test tests/unit/tmf-webbing-specifications.test.ts
+结果：4 pass，0 fail。
+
+覆盖的业务边界：
+- tippingRequired 必须明确选择 true/false；需要打头时至少一端必须有具体方式。
+- 金属头、塑料包头和硅胶浸头均要求具体规格与辅材 BOM；硅胶浸头按 kg/g 并填写覆盖长度，独立端头按“个”。
+- A、B 两端可使用不同方式和不同辅材；两端要求进入规格键，不能被一行“打头”文字合并。
+- cutLengthMm、finishedLengthMm、lengthBasis、toleranceMm、measurementCondition 均为结构化字段；长度公差、测量条件缺失或非法时不允许确认。
+- 打头后的加工节点只能承接对应截断条料，不能改长度、换 SKU 或重新领连续料。
+
+证据边界：
+- 这是规格模型和路线图校验的自动化证据；技术包编辑页面、发布/采用全链、PDA、打印及性能仍待现场验收。

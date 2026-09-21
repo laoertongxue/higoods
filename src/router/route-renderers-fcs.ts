@@ -15,7 +15,7 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
-    if (["renderUnifiedDispatchWorkbenchPage", "renderSewingOutsourcingTasksPage", "renderCraftCuttingWarehouseManagementWaitHandoverPage", "renderPrintPreviewPage", "renderProductionConfirmationPrintPage"].includes(exportName)) {
+    if (["renderUnifiedDispatchWorkbenchPage", "renderSewingOutsourcingTasksPage", "renderCraftCuttingWarehouseManagementWaitHandoverPage", "renderProductionConfirmationPrintPage"].includes(exportName)) {
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
     }
@@ -41,6 +41,10 @@ export const renderRetiredProcessHistoryLegacyPage = createAsyncRenderer<['CUT_P
 export const renderLacePurchaseDemandsPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/lace/purchase-demands'),
   'renderLacePurchaseDemandsPage',
+)
+export const renderTmfBasePage = createAsyncRenderer<['purchase-demands' | 'base-orders']>(
+  () => import('../pages/process-factory/accessory/webbing/base-orders.ts'),
+  'renderTmfBasePage',
 )
 export const renderLaceWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/lace/work-orders'),
@@ -693,4 +697,13 @@ export const renderWaterSolublePendingHandoverPage = createAsyncRenderer(
 )
 export const renderWaterSolubleHandoverDocumentsPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/output-documents'), 'renderWaterSolubleHandoverDocumentsPage',
+)
+
+export const renderTmfWorkOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/work-orders.ts'),
+  'renderTmfWorkOrdersPage',
+)
+export const renderTmfWorkOrderDetailPage = createAsyncRenderer<[string]>(
+  () => import('../pages/process-factory/accessory/webbing/work-order-detail.ts'),
+  'renderTmfWorkOrderDetailPage',
 )

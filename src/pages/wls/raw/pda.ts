@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../../utils.ts'
+import { appStore } from '../../../state/store.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
@@ -12,6 +13,7 @@ const menuGroups = [
     title: '入库作业',
     items: [
       { name: '到货收货', desc: '扫描原料条码收货' },
+      { name: '织带产出收货', desc: '核对长度、端头及实收数量' },
       { name: '上架', desc: '扫码确认库位上架' },
     ],
   },
@@ -177,6 +179,10 @@ export function handleRawPdaEvent(target: HTMLElement, event?: Event): boolean {
   if (!actionNode || !action) return false
 
   if (action === 'select-task') {
+    if (actionNode.dataset[`${DATASET_PREFIX}Task`] === '织带产出收货') {
+      appStore.navigate('/wls/raw/pda/tmf-output-receipts')
+      return true
+    }
     state.activeTask = actionNode.dataset[`${DATASET_PREFIX}Task`] || ''
     showListFeedback(`已进入${state.activeTask}，请扫描条码`, 'info')
     refreshPda()

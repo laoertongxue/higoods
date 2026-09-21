@@ -1244,8 +1244,11 @@ function mapPrepLineStatus(requiredQty: number, preparedQty: number, pickedQty: 
   return pickedQty >= requiredQty ? 'RECEIVED' : 'ISSUED'
 }
 
-function buildMaterialPrepLines(order: ProductionOrder): ProductionMaterialLine[] {
-  return listMaterialPrepOrderProjections()
+function buildMaterialPrepLines(
+  order: ProductionOrder,
+  prepProjections: ReturnType<typeof listMaterialPrepOrderProjections> = listMaterialPrepOrderProjections(),
+): ProductionMaterialLine[] {
+  return prepProjections
     .filter((projection) => matchesProductionOrder(order, [projection.order.productionOrderNo, projection.order.productionOrderId]))
     .flatMap((projection) => projection.lines.map((line) => {
       const pickedQty = projection.pickupRecords
@@ -1302,11 +1305,14 @@ function getMaterialSearchStatus(line: ProductionMaterialLine): string {
   return warehouseExecutionStatusLabel[line.warehouseExecutionStatus]
 }
 
-function buildMaterialLines(order: ProductionOrder): ProductionMaterialLine[] {
+function buildMaterialLines(
+  order: ProductionOrder,
+  prepProjections: ReturnType<typeof listMaterialPrepOrderProjections> = listMaterialPrepOrderProjections(),
+): ProductionMaterialLine[] {
   const mockLines = purchaseArrivalMocks
     .filter((mock) => mock.productionOrderNo === order.productionOrderNo)
     .map(buildMockMaterialLine)
-  const prepLines = buildMaterialPrepLines(order)
+  const prepLines = buildMaterialPrepLines(order, prepProjections)
 
   const seen = new Set(mockLines.map((line) => line.materialSku))
   const uniquePrepLines = prepLines.filter((line) => {
@@ -1334,8 +1340,9 @@ let materialResourceRowsBySkuCache: Map<string, MaterialResourceBaseRow[]> | nul
 function getMaterialResourceRowsBySku(): Map<string, MaterialResourceBaseRow[]> {
   if (!materialResourceRowsBySkuCache) {
     materialResourceRowsBySkuCache = new Map()
+    const prepProjections = listMaterialPrepOrderProjections()
     for (const order of productionOrders) {
-      for (const line of buildMaterialLines(order)) {
+      for (const line of buildMaterialLines(order, prepProjections)) {
         const sku = normalizeMaterialSku(line.materialSku)
         if (!sku) continue
         const rows = materialResourceRowsBySkuCache.get(sku) ?? []
@@ -2473,8 +2480,11 @@ function buildDemandIndex(demand: ProductionDemand): ProductionObjectSearchIndex
   }
 }
 
-function buildMaterialIndexes(order: ProductionOrder): ProductionObjectSearchIndex[] {
-  return buildMaterialLines(order).map((line) => ({
+function buildMaterialIndexes(
+  order: ProductionOrder,
+  prepProjections: ReturnType<typeof listMaterialPrepOrderProjections> = listMaterialPrepOrderProjections(),
+): ProductionObjectSearchIndex[] {
+  return buildMaterialLines(order, prepProjections).map((line) => ({
     id: `MATERIAL-${order.productionOrderNo}-${line.materialSku}`,
     objectType: 'MATERIAL',
     primaryNo: line.materialSku,
@@ -2909,9 +2919,12 @@ function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
 
 function buildSearchIndex(): ProductionObjectSearchIndex[] {
   const rows: ProductionObjectSearchIndex[] = []
+  // One projection snapshot per build: each listMaterialPrepOrderProjections()
+  // call re-hydrates the prep store and re-stringifies its fingerprint.
+  const prepProjections = listMaterialPrepOrderProjections()
   for (const order of productionOrders) {
     rows.push(buildOrderIndex(order))
-    rows.push(...buildMaterialIndexes(order))
+    rows.push(...buildMaterialIndexes(order, prepProjections))
     rows.push(...buildWarehouseIndexes(order))
     rows.push(...buildProcessIndexes(order))
   }
@@ -2992,9 +3005,9 @@ export function searchProductionObjects(keyword: string): ProductionObjectSearch
 
 export function queryProductionObjectIssues(input: ProductionObjectIssueQueryInput = {}): ProductionObjectIssueQueryResult[] {
   const rows: ProductionObjectIssueQueryResult[] = []
-
+  const prepProjections = listMaterialPrepOrderProjections()
   for (const order of productionOrders) {
-    const materials = buildMaterialLines(order)
+    const materials = buildMaterialLines(order, prepProjections)
     const p1Docs = p1DocumentMocks.filter((doc) => doc.relatedProductionOrderNo === order.productionOrderNo)
     for (const line of materials) {
       if (line.shortageQty <= 0 && !line.estimatedWarehouseArrivalAt) continue

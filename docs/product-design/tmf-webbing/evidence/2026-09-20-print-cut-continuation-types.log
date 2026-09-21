@@ -1,0 +1,4 @@
+TypeScript 全量既有错误：61
+本次渐进检查范围：src/data/fcs/printing-task-domain.ts、src/data/fcs/tmf-process-continuation.ts、src/data/fcs/tmf-upstream-process-orders.ts、src/data/fcs/process-tasks.ts、src/data/fcs/pda-handover-events.ts、src/pages/process-factory/accessory/webbing/work-order-detail.ts
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。

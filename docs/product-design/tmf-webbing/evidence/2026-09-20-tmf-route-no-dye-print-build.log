@@ -1,0 +1,6 @@
+command: npm run build
+branch: codex/tmf-webbing-management
+head: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+unit tests: 397 pass, 0 fail
+engineering typecheck scope: 0 errors
+vite: built in 8.91s

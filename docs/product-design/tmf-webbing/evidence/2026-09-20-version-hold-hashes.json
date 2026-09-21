@@ -1,0 +1,11 @@
+{
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "d0d463f5fc14425df1fe9a3ba4057631255d966c66e6b4bff7a3e714ceb77259",
+    "src/data/fcs/production-order-runtime-store.ts": "6356efd412eb6dbfc0d92cb979d08855b5ff9141faa7cacadc4a57e22ac25b84",
+    "src/data/fcs/tmf-work-order-view.ts": "b44da83c242a2ddc9d0905af94a6fd2b1de1fbd697e027d76a7364a3a0399a51",
+    "src/data/fcs/tmf-pda-output-receipts.ts": "077cc68f808ce39ee5166f7bb31807b19a77a1380e1a86ff05de867b9331794d",
+    "src/pages/process-factory/accessory/webbing/output-stock.ts": "5ace8a091146b172ccd6d711d9a3420ac6776821e2c3c8ff1481c87cdca52ea4",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "4f9497374afc20512da0a5d0f2f1662b501627af0b143103728c2b334f79174d"
+  }
+}

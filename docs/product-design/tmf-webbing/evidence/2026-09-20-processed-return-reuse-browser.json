@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "已印花回仓批次可选，目标截断及TMF可见；误扫白坯SKU阻断，正确PATTERN发出后刷新仍为截断投入",
+    "新需求8条完成工厂实收、截断、回仓、生产实收；原退料实收4米历史保留，已用批次库存0，原采购/印花收货不重复增加"
+  ],
+  "errors": [],
+  "scope": "原采购及印花回料专项→两规格加工退料→另单8条从已印花回仓批次备料并实收；630米原印花交出为外部事实夹具，不替代N01/B14完整上游",
+  "issue": {
+    "sku": "PATTERN",
+    "entry": "CUT",
+    "factory": "FAC-TMF",
+    "received": 0,
+    "upstream": null
+  },
+  "result": {
+    "received": 8,
+    "sourceReturned": 4,
+    "remaining": 0
+  }
+}

@@ -320,6 +320,9 @@ export interface TechPackProcessEntry {
   outputMaterialName?: TechnicalProcessEntry['outputMaterialName']
   outputMaterialImageUrl?: TechnicalProcessEntry['outputMaterialImageUrl']
   outputMaterialSkuMode?: TechnicalProcessEntry['outputMaterialSkuMode']
+  webbingSpecifications?: TechnicalProcessEntry['webbingSpecifications']
+  inputInventoryForm?: TechnicalProcessEntry['inputInventoryForm']
+  outputInventoryForm?: TechnicalProcessEntry['outputInventoryForm']
   consumedBomItemIds?: string[]
   predecessorEntryIds?: string[]
   routeStepNo?: number

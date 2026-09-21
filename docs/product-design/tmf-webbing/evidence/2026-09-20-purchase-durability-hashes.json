@@ -1,0 +1,11 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/data/pms/material-purchase-orders.ts": "045006664cd59f8d29870648215cbb47273970da3f92fff40e3da64e8ab0ecc2",
+    "src/data/pms/tmf-material-purchases.ts": "23949f204d3302fa891744fed8188428a76d856b3467c9957bc3b8e2b83b4749",
+    "tests/unit/tmf-supply-purchase-receipts.test.ts": "9a2229c72ea63e319fe22484711847376b4fcb625548be89cdb84dafe5de7bfe",
+    "src/pages/process-factory/accessory/webbing/supply-purchase-receipts.ts": "cfa6beea65dd5c801b32e41f15dcbd0c478ab02593b2cb319ee96dd33a3be0e8"
+  }
+}

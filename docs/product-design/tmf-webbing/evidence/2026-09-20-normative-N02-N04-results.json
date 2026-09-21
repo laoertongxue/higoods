@@ -1,0 +1,43 @@
+{
+  "scope": "Node隔离进程内真实业务动作；不等于浏览器/PDA/打印/性能验收",
+  "scenarios": [
+    {
+      "scenario": "N02",
+      "scope": "业务动作完整链；不含PCS发布采用页面、纱线投入及辅材采购上游",
+      "purchaseReceived": 1300,
+      "productionReceived": 1000,
+      "warehouseContinuousM": 30,
+      "netCutM": 1260,
+      "lossM": 10,
+      "headUnit": "个",
+      "headReceived": 2020,
+      "headRemaining": 15
+    },
+    {
+      "scenario": "N03",
+      "scope": "业务动作完整链；不含PCS发布采用页面、纱线投入及辅材采购上游",
+      "purchaseReceived": 60,
+      "productionReceived": 100,
+      "warehouseContinuousM": 9,
+      "netCutM": 50,
+      "lossM": 1,
+      "headUnit": "个",
+      "headReceived": 202,
+      "headRemaining": 1
+    },
+    {
+      "scenario": "N04",
+      "scope": "业务动作完整链；不含PCS发布采用页面、纱线投入及辅材采购上游",
+      "purchaseReceived": 100,
+      "productionReceived": 50,
+      "warehouseContinuousM": 34,
+      "netCutM": 65,
+      "lossM": 1,
+      "headUnit": "kg",
+      "headReceived": 0.2,
+      "headRemaining": 0.04
+    }
+  ],
+  "testFile": "tests/unit/tmf-purchase-base-flow.test.ts",
+  "sha256": "e9c3df583782afd31538a64304387f4c6226ff5ffdfbed67762890d1d494c392"
+}

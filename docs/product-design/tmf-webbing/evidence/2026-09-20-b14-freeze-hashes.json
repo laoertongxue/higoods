@@ -1,0 +1,7 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "b0d1bfc2a2409d03ac2b0fa16f87052109e74229669a0a504cdebdfde481f9b3",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "9bd878ca112423c96ed28b00ffea2047770bf558159a10e721fac0c683a34b21",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b14-freeze-types.log": "d1f2936dbb3e5e2962e1c81537b87c5039c8fd4ffef776b768f43d94a34c6c58",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b14-freeze-contracts.log": "216404513807d9b1a9e83dd2a6ab31c0566b6aca60df7b49ac378d3c2ab7bf0a",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-b14-freeze-build.log": "a4b9d1f0415763736cdfdf98012fb9fa5b6652980af63548aab6e6c72fd5d83c"
+}

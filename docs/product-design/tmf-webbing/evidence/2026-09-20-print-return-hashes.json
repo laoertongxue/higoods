@@ -1,0 +1,11 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "e92f5ef0d917ed9615c14356be9764eaceb891eef452bc9219c22d99526b9c5a",
+    "src/data/fcs/printing-task-domain.ts": "097119ba26dcc77cb4f831e32754f57a4bf2e0a32f8cc83f0d5e323ebd920bcb",
+    "src/data/fcs/pda-handover-events.ts": "ed6c3b15a946b9e84ee5054e1215ce80fb334adf0c185b91a302e7ff2c346b52",
+    "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "a2eb88b7a7810400bf8c57620e10d6bc91e15e2672e54538dc179a00df88067c",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "171261b3361707df5206c4c7d9134c127eac864e36b29175a1736a57df074c0f"
+  }
+}

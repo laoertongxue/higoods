@@ -340,7 +340,7 @@ function renderInner(): string {
   const rows = allRows()
   return `${renderStandardListPage({
     title: '花边采购需求',
-    primaryActionsHtml: '<span class="text-sm text-slate-500">当前工厂：Renda Jaya 花边厂</span>',
+    primaryActionsHtml: '<span class="text-sm text-slate-500">当前工厂：TMF - 辅料厂</span>',
     feedbackHtml: `<div data-lace-demand-feedback>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([

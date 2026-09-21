@@ -164,6 +164,9 @@ import {
   renderCraftWoolWaitProcessWarehousePage,
   renderLaceHandoverRecordsPage,
   renderLacePurchaseDemandsPage,
+  renderTmfBasePage,
+  renderTmfWorkOrdersPage,
+  renderTmfWorkOrderDetailPage,
   renderLaceWorkOrderDetailPage,
   renderLaceWorkOrdersPage,
   renderPostFinishingQcOrdersPage,
@@ -429,6 +432,9 @@ export const routes: RouteRegistry = {
     '/fcs/craft/accessory/lace': () =>
       renderRouteRedirect('/fcs/craft/accessory/lace/purchase-demands', '正在跳转到花边采购需求'),
     '/fcs/craft/accessory/lace/purchase-demands': () => renderLacePurchaseDemandsPage(),
+    '/fcs/craft/accessory/webbing/purchase-demands': () => renderTmfBasePage('purchase-demands'),
+    '/fcs/craft/accessory/webbing/work-orders': () => renderTmfWorkOrdersPage(),
+    '/fcs/craft/accessory/webbing/base-orders': () => renderTmfBasePage('base-orders'),
     '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
     '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
     '/fcs/craft/post-finishing': () =>
@@ -481,6 +487,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/(?:history\/retired-process-records|craft\/cutting\/cut-piece-orders|dye-print-orders)\/([^/]+)$/,
       render: (match) => renderRetiredProcessHistoryPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/accessory\/webbing\/work-orders\/([^/?]+)(?:\?.*)?$/,
+      render: (match) => renderTmfWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/accessory\/lace\/work-orders\/([^/?]+)(?:\?.*)?$/,

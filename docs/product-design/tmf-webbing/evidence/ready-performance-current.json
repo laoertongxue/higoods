@@ -1,0 +1,1385 @@
+{
+  "startedAt": "2026-09-20T17:06:56.093Z",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "server": "http://127.0.0.1:43288",
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 197.062208,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 233.34875000000005,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "run": 1,
+      "ms": 64.9915830000001,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "run": 1,
+      "ms": 63.940875000000005,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "run": 1,
+      "ms": 65.4124579999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 232.56216700000004,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 264.61574999999993,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 265.77637500000014,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "run": 2,
+      "ms": 73.37695800000029,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "run": 2,
+      "ms": 54.456125000000156,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "run": 2,
+      "ms": 65.76558299999988,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 216.609958,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 212.3689999999997,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 216.12199999999984,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "run": 3,
+      "ms": 68.41737499999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "run": 3,
+      "ms": 63.028542000000016,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "run": 3,
+      "ms": 66.05416700000023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 216.1633750000001,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 214.30987499999992,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 232.96579100000008,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "run": 4,
+      "ms": 66.64866600000005,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "run": 4,
+      "ms": 64.4877919999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "run": 4,
+      "ms": 65.98637500000041,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 216.48750000000018,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 264.4844579999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 248.52791699999943,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:查询",
+      "run": 5,
+      "ms": 66.82416699999976,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:重置",
+      "run": 5,
+      "ms": 64.48166700000002,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "interaction:列设置",
+      "run": 5,
+      "ms": 66.07358299999942,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 217.05233400000088,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 224.89908300000025,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 216.43645799999922,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "run": 1,
+      "ms": 69.96341699999994,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "run": 1,
+      "ms": 61.116917000000285,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "run": 1,
+      "ms": 65.91341600000032,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 216.66666700000042,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 214.1088749999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 216.43525000000045,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "run": 2,
+      "ms": 71.39095799999996,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "run": 2,
+      "ms": 60.03687499999978,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "run": 2,
+      "ms": 65.82074999999986,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 200.17533300000105,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 214.6229170000006,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 216.48220799999945,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "run": 3,
+      "ms": 71.55824999999822,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "run": 3,
+      "ms": 59.7973750000001,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "run": 3,
+      "ms": 66.01037499999984,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 216.63337499999943,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 246.13670900000034,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 215.4614160000001,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "run": 4,
+      "ms": 70.90420900000026,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "run": 4,
+      "ms": 60.40387499999997,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "run": 4,
+      "ms": 65.82524999999987,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 216.64087500000096,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 246.94466699999975,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 216.47162500000013,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:查询",
+      "run": 5,
+      "ms": 71.7515000000003,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:重置",
+      "run": 5,
+      "ms": 58.93974999999955,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "interaction:列设置",
+      "run": 5,
+      "ms": 66.40020799999911,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/base-orders",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 216.73370799999975,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 212.47858300000007,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 216.47441600000093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "run": 1,
+      "ms": 71.15304099999958,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "run": 1,
+      "ms": 60.25029200000063,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "run": 1,
+      "ms": 65.7390000000014,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 216.6687499999989,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 213.5646250000009,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 216.38870900000074,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "run": 2,
+      "ms": 71.58162500000071,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "run": 2,
+      "ms": 59.64149999999972,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "run": 2,
+      "ms": 65.66104199999972,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 200.03679099999863,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 214.5045829999999,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 216.2741670000014,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "run": 3,
+      "ms": 71.31975000000057,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "run": 3,
+      "ms": 60.022249999999985,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "run": 3,
+      "ms": 65.73504199999843,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 216.62362500000017,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 212.77879199999916,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 216.37475000000086,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "run": 4,
+      "ms": 71.12495800000033,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "run": 4,
+      "ms": 60.31670900000063,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "run": 4,
+      "ms": 65.56879100000151,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 216.69966700000077,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 213.11595800000214,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 215.34083299999838,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:查询",
+      "run": 5,
+      "ms": 71.33687499999724,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:重置",
+      "run": 5,
+      "ms": 59.935457999999926,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "interaction:列设置",
+      "run": 5,
+      "ms": 65.7958749999998,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 216.63550000000032,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 145.30649999999878,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 99.83599999999933,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "run": 1,
+      "ms": 68.16854200000307,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "run": 1,
+      "ms": 63.15508300000147,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "run": 1,
+      "ms": 65.56004100000064,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 99.95941700000185,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 151.04595899999913,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 99.48125000000073,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "run": 2,
+      "ms": 67.31129200000214,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "run": 2,
+      "ms": 97.74833399999989,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "run": 2,
+      "ms": 65.68216599999869,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 100.13591599999927,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 151.04716700000063,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 99.56562499999927,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "run": 3,
+      "ms": 67.60691699999734,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "run": 3,
+      "ms": 63.932166999999026,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "run": 3,
+      "ms": 65.93137500000012,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 99.88900000000285,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 151.5361669999984,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 99.5432499999988,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "run": 4,
+      "ms": 67.02029100000073,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "run": 4,
+      "ms": 64.59745800000019,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "run": 4,
+      "ms": 65.92716600000131,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 99.70016600000235,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 184.62587500000154,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 99.37350000000151,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:查询",
+      "run": 5,
+      "ms": 67.62970800000039,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:重置",
+      "run": 5,
+      "ms": 63.76604099999895,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "interaction:列设置",
+      "run": 5,
+      "ms": 65.94666700000016,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-material-preparation",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 99.97654200000034,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 150.61537500000122,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 99.59537500000079,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "run": 1,
+      "ms": 67.43895799999882,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "run": 1,
+      "ms": 64.14341699999932,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "run": 1,
+      "ms": 65.97258300000249,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 99.93941600000107,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 149.91504200000054,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 99.58962499999689,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "run": 2,
+      "ms": 67.90545800000109,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "run": 2,
+      "ms": 63.52266700000109,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "run": 2,
+      "ms": 65.85949999999866,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 99.71387500000128,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 151.09749999999985,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 99.57858400000259,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "run": 3,
+      "ms": 66.74975000000268,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "run": 3,
+      "ms": 64.71970899999724,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "run": 3,
+      "ms": 65.99487500000032,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 100.11074999999983,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 151.12204199999906,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 100.56566700000258,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "run": 4,
+      "ms": 66.85650000000169,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "run": 4,
+      "ms": 63.81175000000076,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "run": 4,
+      "ms": 65.76674999999886,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 99.88025000000198,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 150.47829200000342,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 99.60970799999996,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:查询",
+      "run": 5,
+      "ms": 67.59250000000247,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:重置",
+      "run": 5,
+      "ms": 63.89704200000051,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "interaction:列设置",
+      "run": 5,
+      "ms": 65.90158399999927,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-stock",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 100.72470899999826,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 150.2527500000033,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 99.51654200000121,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 99.90229099999851,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 147.88591599999927,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 133.57787499999904,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 99.9732499999991,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 151.51324999999997,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 99.69599999999991,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 99.95987500000047,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 151.44279200000165,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 99.73070799999914,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 100.06254199999967,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 150.82474999999977,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 99.61291600000186,
+      "pass": true
+    },
+    {
+      "route": "/wls/accessory-production-receipts",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 99.96062499999971,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 152.44966699999713,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 98.56795799999963,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 99.99916700000176,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 151.35570799999914,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 99.52249999999913,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 99.96870899999703,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 135.5759169999983,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 99.01174999999785,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 99.95933400000285,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 134.95066600000064,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 99.65562499999942,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 100.00483399999939,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 150.61354199999914,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 99.61675000000105,
+      "pass": true
+    },
+    {
+      "route": "/wls/raw/pda/tmf-output-receipts",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 100.05137500000274,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 1,
+      "ms": 201.44270900000265,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 1,
+      "ms": 116.42224999999962,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "route-switch-navigation",
+      "run": 1,
+      "ms": 133.44525000000067,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 2,
+      "ms": 233.67420799999672,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 2,
+      "ms": 116.44579199999862,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "route-switch-navigation",
+      "run": 2,
+      "ms": 133.5477499999979,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 3,
+      "ms": 183.80783399999927,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 3,
+      "ms": 116.33333299999504,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "route-switch-navigation",
+      "run": 3,
+      "ms": 133.3928339999984,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 4,
+      "ms": 182.95195799999783,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 4,
+      "ms": 116.3467909999963,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "route-switch-navigation",
+      "run": 4,
+      "ms": 133.47945799999434,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "cold-navigation",
+      "run": 5,
+      "ms": 183.1414580000055,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "refresh",
+      "run": 5,
+      "ms": 116.46066599999904,
+      "pass": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "kind": "route-switch-navigation",
+      "run": 5,
+      "ms": 133.1165420000034,
+      "pass": true
+    }
+  ],
+  "coverageGaps": [
+    "未纳入本脚本的详情、技术包发布、打印、全部写入/异常动作仍需测量；本脚本不能证明全量性能通过"
+  ],
+  "errors": [],
+  "finishedAt": "2026-09-20T17:07:31.217Z",
+  "summary": {
+    "samples": 195,
+    "failed": 0,
+    "maxMs": 265.77637500000014,
+    "fullAcceptance": false
+  }
+}

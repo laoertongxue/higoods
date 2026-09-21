@@ -1,0 +1,49 @@
+{"scenario":"N02","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":1300,"productionReceived":1000,"warehouseContinuousM":30,"netCutM":1260,"lossM":10,"headUnit":"个","headReceived":2020,"headRemaining":15}
+{"scenario":"N03","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":60,"productionReceived":100,"warehouseContinuousM":9,"netCutM":50,"lossM":1,"headUnit":"个","headReceived":202,"headRemaining":1}
+{"scenario":"N04","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":100,"productionReceived":50,"warehouseContinuousM":34,"netCutM":65,"lossM":1,"headUnit":"kg","headReceived":0.2,"headRemaining":0.04}
+{"scenario":"B06","scope":"规范数量动作链；塑料头从仓库实收事实开始，补购基础生产未虚构纱线配方；不代表全部页面验收","continuous":9,"productionReceived":1000,"scrapped":100,"scrappedMeters":120,"loss":11,"metalRemaining":15,"plasticRemaining":2}
+{"scenario":"N05","mergedBatch":"FULL-N05-MERGED","purchaseReceivedM":120,"mergedIssuedM":102,"mergedProducedPieces":200,"productionReceivedByOrder":[100,100],"warehouseContinuousM":19,"lossM":1,"returnedM":1}
+{"scenario":"N01","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1000}
+{"scenario":"N02","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1300}
+{"scenario":"N03","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":60}
+{"scenario":"N04","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":100}
+{"scenario":"N05","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":120}
+{"scenario":"PRINTBACK-source-fixture","sourceDispatched":630,"actualReceived":630,"cutMeters":620,"lossMeters":2,"returnedMeters":8,"baseLeftMeters":350,"scope":"采购基础及回料后动作；印花已交出为专项夹具，不替代N01完整上游"}
+{"scenario":"B05-cut-recovery","received":[400,600],"frozenPieces":10,"frozenLengthMm":500,"continuous":2.5,"cutLoss":2.5,"upstreamScope":"印花630米已交出为外部专项夹具，不冒充原生印染20米损耗或全N01"}
+(node:56634) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N01～N05：通过现有 PMS 入口下达，每条采购链从零执行到仓库实收；交出不提前增加库存 (5.561542ms)
+✔ B01/B03：短收保留在途和采购缺口；重复扫描、生成和刷新不双记 (1.535125ms)
+✔ B02/B04：多收、错 SKU、错仓和无权限动作不改变任意下游数量；恢复后正常收齐 (2.279916ms)
+✔ B23/B24：未开始跟随采购版本，已执行保留原计划和实物、挂出变更待处理 (2.276583ms)
+✔ B21：保存失败不报成功、不留部分库存；成功后刷新读取同一采购和收货事实 (0.833875ms)
+✔ 采购→两种规格截断→拆包回仓→分配发料→生产实收：短收保留缺口，库存及采购不双记 (20.285333ms)
+✔ B09：其他需求占用400米时不能再占650；释放50后恢复，错误发料不改变库存 (4.16975ms)
+✔ 需求来源：同尺码不同成衣SKU分别保留，BOM适用范围生效，错误快照和重复工序阻断 (0.415083ms)
+✔ 待打头条料不计合格产出；超公差实物记不良且照实扣下料当量，未实收不可截断 (25.82825ms)
+✔ N04：采购100米→单端硅胶按kg实耗→回仓发料→生产实收50根，连续料剩34米 (20.59975ms)
+✔ B15：截断后取消保留1000根在制和1260米当量，释放未发占用并只退连续余料 (18.832333ms)
+✔ 已回仓部分发料后取消：释放未发分配，冻结实存，已发在途保留且实收不恢复需求 (13.098667ms)
+✔ N02规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (63.534708ms)
+✔ N03规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (46.795667ms)
+✔ N04规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (51.23825ms)
+✔ B06规范恢复：误装100根报废→补购100米并补做→生产实收1000根，三套实物账守恒 (106.948042ms)
+✔ N05合并批：120米采购→一次102米发料/实收→合并200条产出按两生产单分包→各实收100，剩19米 (73.260583ms)
+✔ N01～N05基础原料重量账：源仓实收→发出→工厂实收→耗用/余料→原仓实收，与米制产出独立 (204.584792ms)
+✔ 主生产单暂停/取消直接限制织带执行，已发实收保留且取消处置释放未发占用 (55.209833ms)
+✔ 冷启动及旧标签页均读取已保存主单限制，损坏来源不默许执行 (0.3385ms)
+✔ 印花交出按两种长度分配，原单分次实收唯一记账，随后截断/回仓/领料守恒 (662.89075ms)
+✔ 主单离页保存保留其他页取消及新增单，同单并发编辑和存储失败不覆盖 (1.811375ms)
+✔ 技术包换版后旧规格冻结，已交出的仓库及生产在途可实收且不改旧长度 (56.21225ms)
+✔ 未发料换版释放旧占用，新需求从备料至生产实收，旧预览和已执行重算阻断 (85.990292ms)
+✔ 已加工换版：旧200条冻结并释放未发分配，新550/700mm需求实收1000条，旧预览失效且库存守恒 (109.937125ms)
+✔ B05实际410/590错配：短条余量冻结，连续余料8米补10条700mm至两规格生产实收 (274.905833ms)
+✔ 加工计划时间独立保存：明确时区、并发版本阻断、实际节点不倒推开完工且库存不变 (30.097417ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2312.63825

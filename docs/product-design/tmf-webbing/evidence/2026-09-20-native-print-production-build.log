@@ -1,0 +1,7 @@
+命令：npm run build
+分支：codex/tmf-webbing-management
+HEAD：ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+工程类型检查：范围内错误 0；范围外既有错误 62
+单元测试：395 pass，0 fail
+Vite：built in 8.65s
+结果：通过；本证据只说明当前工作树构建与单元契约通过，不替代页面、打印、PDA、实物图片和全入口性能验收。

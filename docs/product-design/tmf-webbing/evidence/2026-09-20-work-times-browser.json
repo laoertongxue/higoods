@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "实际采购500/仓发收200/截断400条后，计划字段不冒充实际开完工；既有收料和产出填报可追溯",
+    "空表/倒置计划阻断，模拟保存失败后原表重试；另一页修改使旧版本保存被阻断",
+    "Esc关闭，刷新显示最新18点计划与9小时时长，UTC存储与雅加达展示一致；仓余300及合格400条未变，1024px无主体溢出"
+  ],
+  "errors": [],
+  "scope": "加工单计划时间及实际事件读取；未实现独立开完工登记，不设置SLA，无全入口5次性能证明",
+  "facts": {
+    "plan": {
+      "workOrderId": "[\"TIME-BROWSER-PROD\",\"TIME-BROWSER-PROD-SNAPSHOT-V1\",\"CUT\"]",
+      "responsibleName": "计划主管",
+      "plannedStartAt": "2026-09-20T02:00:00.000Z",
+      "plannedFinishAt": "2026-09-20T11:00:00.000Z",
+      "waitingReason": "确认M原料到仓后开后批",
+      "revision": 2,
+      "updatedAt": "2026-09-20T03:39:01.201Z",
+      "updatedBy": "生产计划"
+    },
+    "warehouse": 300,
+    "output": 400
+  }
+}

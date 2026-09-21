@@ -1,0 +1,16 @@
+TMF 长度／端头库存身份分层构建验证
+日期：2026-09-20
+分支：codex/tmf-webbing-management
+HEAD：ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+
+命令：npm run build
+结果：通过
+- engineering typecheck 渐进范围错误：0（全量既有错误仍为62）
+- 单元测试：397 pass，0 fail
+- Vite：built in 8.59s
+- 仅有既有 chunk size warning，无构建失败
+
+本次相关变更：
+- tests/unit/tmf-purchase-base-flow.test.ts：B15 增加同 SKU、不同实际长度及金属头快照断言。
+- docs/product-design/tmf-webbing/需求追踪矩阵.md：MAT-005/MAT-006 更新为已实现待验证并绑定证据。
+- docs/product-design/tmf-webbing/实施进度.md：新增第七十三段。

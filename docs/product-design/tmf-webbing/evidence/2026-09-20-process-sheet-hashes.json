@@ -1,0 +1,14 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "sourceHashes": {
+    "src/data/fcs/print-service.ts": "a5cfbcc2d3751957267b3cdf28abe3f7fe86b565ea62f15e3a2688a5858e6abb",
+    "src/data/fcs/print-template-registry.ts": "1365da7a9bd4519f09052f60a77e1a4dfb13a55295f5c3d45a2bf9eaebc0bbc4",
+    "src/pages/print/print-preview.ts": "ca40f1dde3a01038d5851bab6c2a9bde109a3ff73a3cd1a610dd2914c2bb06d5",
+    "src/pages/print/templates/tmf-process-sheet-template.ts": "7a0fc72f4ae942844a9dd746421ecf9f13d6ab37d4dff7daf816aabe5703db27",
+    "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "d8db6ac7eb4567ab4df42df6ae7701a6d60146b45d50ad9cff18a283ed1a3423",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "f6a83f4e098839e5fffb47347852533d5b2f4f137b1bf05d8e7749f10aeeab27"
+  }
+}

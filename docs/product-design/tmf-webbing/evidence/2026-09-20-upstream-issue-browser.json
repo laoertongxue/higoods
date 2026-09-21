@@ -1,0 +1,63 @@
+{
+  "checks": [
+    "采用快照生成两规格需求，按染色→印花→截断显示；未生成印染单时逐节点提示缺来源，无伪造上游数量",
+    "调用现有染色/印花注册动作建立源单；详情读取真实源单计划量及未分厂阻断，刷新保留，1024px无主体溢出，链接进入现有染色加工单",
+    "实际采购1000→基础生产1000→辅料仓实收1000→占用650→仓库页面核对正式染色工厂发650→源仓350→染厂页面实收648+2；仓库读取同一650实收事实，TMF截断投入仍为0"
+  ],
+  "errors": [],
+  "facts": {
+    "lot": {
+      "id": "BRIDGE-LOT",
+      "materialSkuId": "tmf-webbing-reference-white",
+      "sourcePurchaseOrderNo": "BRIDGE-PO",
+      "sourcePurchaseLineId": "BRIDGE-LINE",
+      "sourceHandoverId": "BRIDGE-HAND",
+      "warehouseId": "BRIDGE-WH",
+      "location": "A-01",
+      "receivedMeters": 1000,
+      "onHandMeters": 350,
+      "reservedMeters": 0,
+      "frozenMeters": 0
+    },
+    "issue": {
+      "id": "BRIDGE-ISSUE",
+      "reservationId": "BRIDGE-RES",
+      "demandId": "[\"UPSTREAM-BROWSER-PROD\",\"UPSTREAM-BROWSER-PROD-SNAPSHOT-V1\",\"CUT\",\"S-50\",\"UPSTREAM-BROWSER-PROD-S\"]",
+      "lotId": "BRIDGE-LOT",
+      "materialSkuId": "tmf-webbing-reference-white",
+      "targetRouteEntryId": "DYE",
+      "targetFactoryId": "F090",
+      "dispatchedMeters": 650,
+      "receivedMeters": 0,
+      "dispatchedAt": "2026-09-19T20:31:57.418Z",
+      "upstream": {
+        "processCode": "DYE",
+        "orderId": "UPSTREAM-DYE",
+        "orderNo": "UPSTREAM-DYE",
+        "factoryName": "测试专用工厂",
+        "inputCode": "tmf-webbing-reference-white"
+      }
+    },
+    "receipts": [
+      {
+        "receiptId": "FRP-FR-1789849918477-L1-UPSTREAM-DYE",
+        "upstreamRecordId": "TMF-ISSUE:BRIDGE-ISSUE",
+        "qty": 648,
+        "rollCount": 0,
+        "actualSku": "tmf-webbing-reference-white",
+        "receiverName": "测试仓管",
+        "receivedAt": "2026-09-20 04:31:58"
+      },
+      {
+        "receiptId": "FRP-FR-1789849919662-L1-UPSTREAM-DYE",
+        "upstreamRecordId": "TMF-ISSUE:BRIDGE-ISSUE",
+        "qty": 2,
+        "rollCount": 0,
+        "actualSku": "tmf-webbing-reference-white",
+        "receiverName": "测试仓管",
+        "receivedAt": "2026-09-20 04:31:59"
+      }
+    ],
+    "tmfInputs": []
+  }
+}

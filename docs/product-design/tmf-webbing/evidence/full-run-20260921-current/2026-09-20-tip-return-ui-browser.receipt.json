@@ -1,0 +1,26 @@
+{
+  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "script": "2026-09-20-tip-return-ui-browser.mjs",
+  "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-tip-return-ui-browser.mjs",
+  "scriptSourceSha256": "7803c59be211c83454c451ed95f4e8d14985c333489615a25c1a3c85ee9b44ea",
+  "startedAt": "2026-09-21T02:34:20.626Z",
+  "finishedAt": "2026-09-21T02:34:54.902Z",
+  "exitCode": 0,
+  "assertionCallCount": 147,
+  "measurementCallCount": 0,
+  "observable": {
+    "mode": "fresh-child-stdout-json",
+    "checks": 16,
+    "checkpoints": 0,
+    "samples": 0,
+    "errors": 0,
+    "count": 16
+  },
+  "stdoutBytes": 6275,
+  "stderrBytes": 0,
+  "log": "full-run-20260921-current/2026-09-20-tip-return-ui-browser.log",
+  "logSha256": "825fa1ba204d3897b244021158ff94d8d527127fe217d81f2176ec7f3bc2a5c2",
+  "pass": true
+}

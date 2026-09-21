@@ -26,6 +26,7 @@ export type FactoryType =
   | 'CENTRAL_CUTTING'     // 裁床厂
   | 'CENTRAL_SPECIAL'     // 特种工艺厂
   | 'CENTRAL_AUX'         // 辅助工艺厂
+  | 'CENTRAL_TRIMS'       // 辅料厂（花边、织带、绳子）
   | 'CENTRAL_LACE'        // 花边厂
   | 'CENTRAL_RIBBON'      // 织带厂
   | 'CENTRAL_WOOL'        // 毛织厂
@@ -280,6 +281,7 @@ export const factoryTypeConfig: Record<FactoryType, { label: string }> = {
   CENTRAL_CUTTING:     { label: '裁床厂' },
   CENTRAL_SPECIAL:     { label: '特种工艺厂' },
   CENTRAL_AUX:         { label: '辅助工艺厂' },
+  CENTRAL_TRIMS:       { label: '辅料厂' },
   CENTRAL_LACE:        { label: '花边厂' },
   CENTRAL_RIBBON:      { label: '织带厂' },
   CENTRAL_WOOL:        { label: '毛织厂' },
@@ -314,7 +316,7 @@ export const factoryEquipmentStatusLabel = factoryCapacityEquipmentStatusLabel
 export const typesByTier: Record<FactoryTier, FactoryType[]> = {
   CENTRAL: [
     'CENTRAL_GARMENT', 'CENTRAL_PRINT', 'CENTRAL_DYE', 'CENTRAL_CUTTING', 'CENTRAL_SPECIAL',
-    'CENTRAL_AUX', 'CENTRAL_LACE', 'CENTRAL_RIBBON', 'CENTRAL_WOOL',
+    'CENTRAL_AUX', 'CENTRAL_TRIMS', 'CENTRAL_LACE', 'CENTRAL_RIBBON', 'CENTRAL_WOOL',
     'CENTRAL_POD',
   ],
   SATELLITE: ['SATELLITE_SEWING', 'SATELLITE_FINISHING'],

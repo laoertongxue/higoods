@@ -1,0 +1,12 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "files": {
+    "src/data/pms/tmf-material-purchases.ts": "9fda87ecaaf204d90f526976d08039cd8bc9dac554bb92f757a8c062a41268af",
+    "src/data/fcs/tmf-work-order-times.ts": "ea16339e87d23fbdb82804edeb64861e60479528c3df1b09a7a7d40d64b81411",
+    "src/pages/process-factory/accessory/webbing/work-times.ts": "d7aac0b926108cfcd794347c330477bfc237e01737561d9c91d3f28a9cb9208c",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "e2ab8dfafc6d85a40e4ea4c6a63aaa7369590aab8aac0ddc64245352b92471e9",
+    "docs/product-design/tmf-webbing/需求追踪矩阵.md": "3b3503c5ae5b7c1e81dfbae969337c66c1036d15945ab704b69491717f634975",
+    "docs/product-design/tmf-webbing/实施进度.md": "64e0a6d20e8947f28f630c283095ab58264ade0118ef4844e019e7230883a4ef"
+  }
+}

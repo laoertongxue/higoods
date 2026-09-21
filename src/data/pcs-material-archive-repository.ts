@@ -1,4 +1,5 @@
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
+import { tmfReferenceMaterials, tmfReferenceSkus, tmfReferenceMaterialLogs } from './pcs-tmf-material-reference-seeds.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
 import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
 import { invalidateBomPriceReviewsForMaterialStandardPriceChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
@@ -19,7 +20,7 @@ const MATERIAL_ARCHIVE_STORE_VERSION = 4
 
 const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   fabric: ['毛织布', '梭织布', '经编布', '里布', '网布', '牛仔布'],
-  accessory: ['花边辅料', '纽扣', '拉链', '刺绣辅料', '松紧带', '装饰件'],
+  accessory: ['花边辅料', '纽扣', '拉链', '刺绣辅料', '松紧带', '织带', '绳子', '装饰件'],
   yarn: ['车缝线', '包缝线', '绣花线', '织带线'],
   consumable: ['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
   packaging: ['吊牌', '包装袋', '贴纸', '纸卡', '包装盒', '防潮包'],
@@ -99,7 +100,12 @@ function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
 }
 
 function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
-  return { ...record, unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [] }
+  return {
+    ...record,
+    pantoneCode: record.pantoneCode || '',
+    patternCode: record.patternCode || '',
+    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
+  }
 }
 
 function cloneUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord {
@@ -194,6 +200,8 @@ function normalizeSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
   return {
     ...cloneSkuRecord(record),
     status: normalizeStatus(record.status),
+    pantoneCode: record.pantoneCode || '',
+    patternCode: record.patternCode || '',
     specName: record.specName || '-',
     sizeName: record.sizeName || '-',
     pricingUnit: record.pricingUnit || 'PCS',
@@ -1020,10 +1028,10 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
 
   return {
     version: MATERIAL_ARCHIVE_STORE_VERSION,
-    records: records.map(normalizeRecord),
-    skuRecords: skuRecords.map(normalizeSkuRecord),
+    records: [...records, ...tmfReferenceMaterials].map(normalizeRecord),
+    skuRecords: [...skuRecords, ...tmfReferenceSkus].map(normalizeSkuRecord),
     usageRecords: usageRecords.map(normalizeUsageRecord),
-    logRecords: logRecords.map(normalizeLogRecord),
+    logRecords: [...logRecords, ...tmfReferenceMaterialLogs].map(normalizeLogRecord),
   }
 }
 
@@ -1116,16 +1124,37 @@ function buildSkuToken(value: string): string {
   return normalized || 'STD'
 }
 
-function buildMaterialSkuCode(materialCode: string, skuDraft: MaterialSkuDraftInput, index: number): string {
-  return `${materialCode}-${buildSkuToken(skuDraft.colorName)}-${buildSkuToken(skuDraft.specName || skuDraft.sizeName || `SKU${index + 1}`)}`
+export function buildTmfSemiFinishedSkuCode(input: {
+  spuCode: string
+  pantoneCode?: string
+  colorCode: string
+  patternCode?: string
+}): string {
+  const tokens = [input.spuCode, input.pantoneCode, input.colorCode, input.patternCode]
+    .map((value) => (value || '').trim())
+    .filter(Boolean)
+  if (tokens.length < 2) throw new Error('TMF 半成品 SKU 至少需要 SPU 和颜色编码。')
+  return tokens.map(buildSkuToken).join('-')
+}
+
+function buildMaterialSkuCode(material: Pick<MaterialArchiveRecord, 'materialCode' | 'categoryName'>, skuDraft: MaterialSkuDraftInput, index: number): string {
+  if (['织带', '绳子'].includes(material.categoryName)) {
+    return buildTmfSemiFinishedSkuCode({
+      spuCode: material.materialCode,
+      pantoneCode: skuDraft.pantoneCode,
+      colorCode: skuDraft.colorName,
+      patternCode: skuDraft.patternCode,
+    })
+  }
+  return `${material.materialCode}-${buildSkuToken(skuDraft.colorName)}-${buildSkuToken(skuDraft.specName || skuDraft.sizeName || `SKU${index + 1}`)}`
 }
 
 function buildNextMaterialSkuCode(
-  materialCode: string,
+  material: Pick<MaterialArchiveRecord, 'materialCode' | 'categoryName'>,
   skuDraft: MaterialSkuDraftInput,
   existingSkuRecords: MaterialSkuRecord[],
 ): string {
-  const baseCode = buildMaterialSkuCode(materialCode, skuDraft, existingSkuRecords.length)
+  const baseCode = buildMaterialSkuCode(material, skuDraft, existingSkuRecords.length)
   const duplicateCount = existingSkuRecords.filter(
     (item) => item.materialSkuCode === baseCode || item.materialSkuCode.startsWith(`${baseCode}-`),
   ).length
@@ -1287,8 +1316,23 @@ export function createMaterialArchive(input: {
 }): MaterialArchiveRecord {
   const snapshot = loadSnapshot()
   const timestamp = nowText()
-  const nextId = `material_${input.kind}_${timestamp.replace(/\D/g, '')}`
-  const materialCode = buildMaterialCode(input.kind, input.materialName)
+  const tmfKind = input.kind === 'accessory' && ['织带', '绳子'].includes(input.categoryName)
+  let dimensionMm: number | undefined
+  if (tmfKind) {
+    const dimensionText = input.categoryName === '绳子' ? input.widthText.trim().replace(/^(?:[ΦφØø⌀]|直径)\s*/, '') : input.widthText.trim()
+    const match = dimensionText.match(/^(\d+(?:\.\d+)?)\s*(mm|cm|毫米|厘米)$/i)
+    if (!match || !Number.isFinite(Number(match[1])) || Number(match[1]) <= 0) throw new Error(`请填写明确的${input.categoryName === '织带' ? '织带幅宽' : '绳子直径'}，例如 20mm 或 2cm；不能用生产截断长度或“待确认”创建正式规格。`)
+    dimensionMm = Number(match[1]) * (/^(cm|厘米)$/i.test(match[2]) ? 10 : 1)
+    if (!Number.isFinite(dimensionMm)) throw new Error('物料截面尺寸无效，请核对单位。')
+    if ((input.mainUnit || input.pricingUnit) !== '米' || input.pricingUnit !== '米') throw new Error('织带、绳子基础半成品请使用米作为主单位及计价单位；截断条数在生产加工中管理。')
+  }
+  const nextId = tmfKind ? `material_accessory_tmf_${crypto.randomUUID()}` : `material_${input.kind}_${timestamp.replace(/\D/g, '')}`
+  const baseCode = buildMaterialCode(input.kind, input.materialName) + (tmfKind ? `-${input.categoryName === '织带' ? 'W' : 'D'}${dimensionMm}MM` : '')
+  let materialCode = baseCode
+  if (tmfKind) {
+    let sequence = 2
+    while (snapshot.records.some(record => record.materialCode === materialCode)) materialCode = `${baseCode}-${String(sequence++).padStart(2, '0')}`
+  }
   const record = normalizeRecord({
     materialId: nextId,
     kind: input.kind,
@@ -1299,7 +1343,7 @@ export function createMaterialArchive(input: {
     specSummary: input.specSummary || '-',
     composition: input.composition || '-',
     processTags: input.processTags,
-    widthText: input.widthText || '-',
+    widthText: tmfKind ? `${input.categoryName === '绳子' ? 'Φ' : ''}${dimensionMm}mm` : input.widthText || '-',
     gramWeightText: input.gramWeightText || '-',
     pricingUnit: input.pricingUnit || 'PCS',
     mainUnit: input.mainUnit || input.pricingUnit || MATERIAL_UNIT_DEFAULTS[input.kind].mainUnit,
@@ -1342,6 +1386,8 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
   const timestamp = nowText()
   const normalizedInput: MaterialSkuDraftInput = {
     colorName: input.colorName.trim(),
+    pantoneCode: input.pantoneCode?.trim() || '',
+    patternCode: input.patternCode?.trim() || '',
     specName: input.specName.trim(),
     sizeName: input.sizeName.trim(),
     skuImageUrl: input.skuImageUrl.trim(),
@@ -1353,8 +1399,11 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
     heightCm: Number.isFinite(input.heightCm) ? input.heightCm : 0,
     barcode: input.barcode.trim(),
   }
+  if (['织带', '绳子'].includes(material.categoryName) && !normalizedInput.colorName) {
+    throw new Error('织带／绳子半成品 SKU 必须填写颜色编码；长度和端头不在 SKU 中。')
+  }
   const existingSkuRecords = snapshot.skuRecords.filter((item) => item.materialId === materialId)
-  const materialSkuCode = buildNextMaterialSkuCode(material.materialCode, normalizedInput, existingSkuRecords)
+  const materialSkuCode = buildNextMaterialSkuCode(material, normalizedInput, existingSkuRecords)
   const record = normalizeSkuRecord({
     materialSkuId: `${materialId}_materialLine_${String(existingSkuRecords.length + 1).padStart(3, '0')}`,
     materialId,
@@ -1362,6 +1411,8 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
     materialSkuCode,
     materialName: material.materialName,
     colorName: normalizedInput.colorName,
+    pantoneCode: normalizedInput.pantoneCode,
+    patternCode: normalizedInput.patternCode,
     specName: normalizedInput.specName || normalizedInput.sizeName || '-',
     sizeName: normalizedInput.sizeName || '-',
     skuImageUrl: normalizedInput.skuImageUrl || material.mainImageUrl || '',
@@ -1416,6 +1467,8 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
   const timestamp = nowText()
   const normalizedInput: MaterialSkuDraftInput = {
     colorName: input.colorName.trim(),
+    pantoneCode: input.pantoneCode?.trim() || '',
+    patternCode: input.patternCode?.trim() || '',
     specName: input.specName.trim(),
     sizeName: input.sizeName.trim(),
     skuImageUrl: input.skuImageUrl.trim(),
@@ -1427,9 +1480,12 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
     heightCm: Number.isFinite(input.heightCm) ? input.heightCm : 0,
     barcode: input.barcode.trim(),
   }
+  if (['织带', '绳子'].includes(material.categoryName) && !normalizedInput.colorName) {
+    throw new Error('织带／绳子半成品 SKU 必须填写颜色编码；长度和端头不在 SKU 中。')
+  }
   const existingSkuRecords = snapshot.skuRecords.filter((item) => item.materialId === material.materialId)
   const nextMaterialSkuCode = buildNextMaterialSkuCode(
-    material.materialCode,
+    material,
     normalizedInput,
     existingSkuRecords.filter((item) => item.materialSkuId !== materialSkuId),
   )
@@ -1437,6 +1493,8 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
     ...skuRecord,
     materialSkuCode: nextMaterialSkuCode,
     colorName: normalizedInput.colorName,
+    pantoneCode: normalizedInput.pantoneCode,
+    patternCode: normalizedInput.patternCode,
     specName: normalizedInput.specName || normalizedInput.sizeName || '-',
     sizeName: normalizedInput.sizeName || '-',
     skuImageUrl: normalizedInput.skuImageUrl || material.mainImageUrl || '',

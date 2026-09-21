@@ -7,6 +7,8 @@ export interface ReceivingMaterial {
 }
 export interface SourceRoll {barcode:string; yard:number}
 export interface FactoryReceivingSourceLine {
+  /** 仅已明确为连续长度库存的辅料使用；其他辅料沿用实际称重。 */
+  measurementBasis?: 'CONTINUOUS_LENGTH'
   id:string; material:ReceivingMaterial; plannedQty:number; unit:string; sentQty:number
   rolls:SourceRoll[]; label:string; yarn?:YarnWeight
   woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
@@ -34,7 +36,7 @@ export interface FactoryReceiptInput {
   deliveryId?:string;remark:string;lines:FactoryReceiptLineInput[]
 }
 export interface FactoryReceiptLine extends FactoryReceiptLineInput {
-  id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg'|'片';yarn?:YarnWeight
+  id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg'|'片'|'米';yarn?:YarnWeight
   sourceDocumentNo:string; sourceType:FactoryReceivingSource['type']; origin:DyePartner
   woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
 }

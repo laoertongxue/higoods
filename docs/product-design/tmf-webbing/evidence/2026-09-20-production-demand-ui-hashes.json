@@ -1,0 +1,6 @@
+{
+  "src/pages/process-factory/accessory/webbing/production-demand-dialog.ts": "0795695bbb759fb51d93778c7a192203b30caf108069fdc858a5ca270be5c930",
+  "src/pages/process-factory/accessory/webbing/work-orders.ts": "4895ae08dbf8ae1e74333b002cb663ff877749a95cd7ca92a0bbfdfea2492d21",
+  "src/data/fcs/webbing-production-demands.ts": "439d060ebc2f2cfa4e59c72915a6ac401bc9ca32ef3343bcba3136a952b944b7",
+  "src/data/pms/tmf-material-purchases.ts": "b966716dcf6934243be42c45265a9e265203809bb0e7524064d418466abe2d68"
+}

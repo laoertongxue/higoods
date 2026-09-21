@@ -1,0 +1,22 @@
+{
+  "checks": [
+    "规范1300+100米采购、100根误头报废、122米补发补做100根、全部1000根生产实收动作通过",
+    "刷新后实际报废及剩余金属15/塑料2保持，已报废不再出现报废入口，1024px无主体溢出"
+  ],
+  "errors": [],
+  "scope": "B06规范数量动作链在隔离浏览器运行并刷新核对；原纱线及误用塑料头从仓库实收事实起点，补购生产不虚构配方；不是所有采购/加工页面验收",
+  "facts": {
+    "key": "[\"FULL-B06-PROD\",\"FULL-B06-PROD-SNAPSHOT-V1\",\"CUT\"]",
+    "continuous": 9,
+    "productionReceived": 1000,
+    "scrapped": 100,
+    "scrappedMeters": 120,
+    "loss": 11
+  },
+  "saved": {
+    "received": 1000,
+    "scrapped": 100,
+    "metal": 15,
+    "plastic": 2
+  }
+}

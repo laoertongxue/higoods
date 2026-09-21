@@ -1,0 +1,4 @@
+TypeScript 全量既有错误：63
+本次渐进检查范围：tests/unit/tmf-pcs-publish-adopt.test.ts、tests/unit/tmf-purchase-base-flow.test.ts、tests/unit/tmf-webbing-specifications.test.ts、src/data/pcs-project-technical-data-writeback.ts、src/data/fcs/webbing-specifications.ts
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。

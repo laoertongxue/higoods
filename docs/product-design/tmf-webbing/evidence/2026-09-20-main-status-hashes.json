@@ -1,0 +1,11 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/data/fcs/production-order-runtime-store.ts": "901b71c0d4cf1c3e62e281b6b608181b1b92485f1de949917c8e478edbfbb3b7",
+    "src/data/fcs/production-orders.ts": "72f30fa5739ff3008369496901e5462bd32ac285a8b2ab8ee07f044b410bcfb5",
+    "src/data/pms/tmf-material-purchases.ts": "ad6ebf6e1ca00b26ee8457e2827058b58dbbd37d2f426a23d11cd97a9f8e7337",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "cc38b146ef87f10f95288085d2be369fb5a0c18b0af6d96e1e5ad10aafcde183"
+  }
+}

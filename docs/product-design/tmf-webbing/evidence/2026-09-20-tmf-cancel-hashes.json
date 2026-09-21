@@ -1,0 +1,12 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "cd116c8161b9c01e6b7ef8a2d729ff16439b20b7c921ba052d4971baef6f8867",
+  "src/data/pms/material-purchase-orders.ts": "f53066ad13894583ef6e7124c8f6ce3db3dd1493955192bd8449ebef4b1aa42c",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "7b78711e812d1c41451572fa431cbb6f2c9006738a184caeb2264af40fbc9a4d",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-governance.log": "75011b16bd732cdf9773c3c77b774e3744dd730170cf9c390b55f62aea7580e3",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-contracts.log": "62a8821bd33d005405412ed178942785e1304d97684c19fc61462205271e115f",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-types.log": "b4f9563ee4b0ddfa1e7a5ac3b7c0439ee814b0455fcc86b729cc5236e99359b3",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-browser.mjs": "f1628dbf6cc783a6273b02d4e820760e2e8617d2a10e973f856676c167056716",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-page.png": "36d536f44f111c79a6223ae97d3e016092e3f582a1e0118b23a90638c8332100",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-build.log": "32c852cd3f454c9bc1260b07896d91b759335a00e7193ae7a2765595f73628f4",
+  "docs/product-design/tmf-webbing/evidence/2026-09-20-tmf-cancel-browser.json": "09332a1b6052f462a9d6c64929a21fc8d1299829e23a2607711ae3940712dd11"
+}

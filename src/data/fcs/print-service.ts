@@ -1,6 +1,9 @@
 import type { TaskRouteCardSourceType } from './task-print-cards.ts'
 
 export type PrintDocumentType =
+  | 'TMF_PACKAGE_LABEL'
+  | 'TMF_HANDOVER_SHEET'
+  | 'TMF_PROCESS_SHEET'
   | 'DISPATCH_TASK_SHEET'
   | 'TASK_ROUTE_CARD'
   | 'PRINTING_INFO_SHEET'
@@ -32,6 +35,9 @@ export type PrintDocumentType =
   | 'POST_FINISHING_OUTBOUND_BARCODE'
 
 export type PrintSourceType =
+  | 'TMF_OUTPUT_PACKAGE'
+  | 'TMF_OUTPUT_HANDOVER'
+  | 'TMF_WORK_ORDER'
   | 'EFFECTIVE_TASK_ASSIGNMENT'
   | TaskRouteCardSourceType
   | 'PRINTING_ROLL_RECORD'
@@ -201,6 +207,7 @@ export interface PrintDocument {
 }
 
 export interface PrintDocumentBuildInput {
+  labelSize?: PrintPaperType
   documentType: PrintDocumentType
   sourceType: PrintSourceType
   sourceId: string
@@ -222,6 +229,7 @@ export function buildUnifiedPrintPreviewLink(input: PrintDocumentBuildInput): st
     sourceType: input.sourceType,
     sourceId: input.sourceId,
   })
+  if (input.labelSize) params.set('labelSize', input.labelSize)
   if (input.handoverRecordId) {
     params.set('handoverRecordId', input.handoverRecordId)
   }

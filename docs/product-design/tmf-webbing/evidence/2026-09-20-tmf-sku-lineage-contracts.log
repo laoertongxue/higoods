@@ -1,0 +1,18 @@
+TMF SKU lineage contract evidence
+branch: codex/tmf-webbing-management
+head: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+scope: MAT-003, MAT-004, MAT-007
+
+normal:
+- A + 19-4052 + blue + P001 => A-19-4052-BLUE-P001
+- A + 19-4052 + blue + empty pattern => A-19-4052-BLUE
+- TMF-W20MM + 本白 + empty pantone/pattern => TMF-W20MM-本白
+
+boundary:
+- empty color is rejected
+- length tokens 50CM/70CM and tip tokens METAL/PLASTIC/SILICONE are not accepted as SKU dimensions and do not appear in generated identity
+- different webbing widths or rope diameters remain separate material/SPU records before SKU creation
+
+inventory identity:
+- permanent SKU: SPU + color identity + optional pantone + optional pattern
+- production-specific length, garment-size usage, tip method/specification stay in WebbingSpecification, demand detail, output batch and package identity

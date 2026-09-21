@@ -1,3 +1,4 @@
+import { APF_FACTORY_ID, APF_FACTORY_CODE, APF_FACTORY_NAME, SPF_FACTORY_ID, SPF_FACTORY_CODE, SPF_FACTORY_NAME, TMF_FACTORY_ID, TMF_FACTORY_CODE, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 // 印尼工厂统一数据源 - 含 tier/type 组织口径
 // 所有页面的工厂数据均从此文件导入，确保一致性
 
@@ -42,7 +43,7 @@ export const typeLabels: Record<FactoryType, string> = {
   CUTTING:            '裁床厂',
   AUX_PROCESS:        '辅助工艺厂',
   SPECIAL_PROCESS:    '特种工艺厂',
-  TRIM_SUPPLIER:      '花边/织带厂',
+  TRIM_SUPPLIER:      '辅料厂',
   WOOL:               '毛织厂',
   POD:                'POD工厂',
   WAREHOUSE:          '原料仓库',
@@ -342,9 +343,9 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     performanceLevel: 'A',
   },
   {
-    id: 'ID-F010',
-    code: 'ID-FAC-0010',
-    name: 'PT Trim Supply Indo',
+    id: TMF_FACTORY_ID,
+    code: TMF_FACTORY_CODE,
+    name: TMF_FACTORY_NAME,
     tier: 'CENTRAL',
     type: 'TRIM_SUPPLIER',
     kpiTemplate: 'GENERAL',
@@ -918,6 +919,17 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     performanceLevel: 'B',
   },
 ]
+
+// These are the same identities used by craft execution, not separate display aliases.
+indonesiaFactories.push(...([
+  { id: APF_FACTORY_ID, code: APF_FACTORY_CODE, name: APF_FACTORY_NAME, type: 'AUX_PROCESS' },
+  { id: SPF_FACTORY_ID, code: SPF_FACTORY_CODE, name: SPF_FACTORY_NAME, type: 'SPECIAL_PROCESS' },
+] as const).map((factory): IndonesiaFactory => ({
+  ...factory, tier: 'CENTRAL', kpiTemplate: 'GENERAL', city: 'Jakarta', province: 'DKI Jakarta',
+  address: '中央工厂（原型）', contactName: '工厂主管', contactPhone: '', status: 'ACTIVE',
+  tags: [factory.type === 'AUX_PROCESS' ? '辅助工艺' : '特种工艺'], currency: 'IDR', timezone: 'Asia/Jakarta',
+  monthlyCapacity: 0, qualityScore: 0, deliveryScore: 0, createdAt: '2026-09-20', updatedAt: '2026-09-20',
+})))
 
 // 工具函数
 export function getFactoryById(id: string): IndonesiaFactory | undefined {

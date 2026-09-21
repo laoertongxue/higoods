@@ -1,0 +1,50 @@
+{
+  "scenarioId": "B06",
+  "scenarioType": "boundary",
+  "generatedAt": "2026-09-20T15:10:14.550Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "businessInput": {
+    "injectAt": "打头",
+    "mutation": "100根误装塑料头",
+    "base": "N02",
+    "expected": "100根冻结，不计金属合格",
+    "numericalOracle": "recoveryOracles.B06",
+    "recoveryAndFinal": "报废并补做；追加投入/耗材/报废账后终结",
+    "replayFrom": "采购下达"
+  },
+  "checks": [
+    {
+      "id": "B06",
+      "check": "injection",
+      "ok": true,
+      "detail": "打头: 100根误装塑料头"
+    },
+    {
+      "id": "B06",
+      "check": "recovery",
+      "ok": true,
+      "detail": "逐步数量/状态检查、阻断和恢复终点齐全"
+    },
+    {
+      "id": "B06",
+      "check": "oracle",
+      "ok": true,
+      "detail": "数量/库存/状态恢复算子已定义"
+    },
+    {
+      "id": "B06",
+      "check": "replay",
+      "ok": true,
+      "detail": "从 采购下达 重放"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

@@ -1,0 +1,33 @@
+TMF full-flow Mock audit (current working tree)
+Date: 2026-09-20
+Branch: codex/tmf-webbing-management
+HEAD: ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+Worktree: /Users/laoer/Documents/higoods
+
+Commands:
+- python3 docs/product-design/tmf-webbing/validate-design-data.py
+- node --import tsx --test tests/unit/tmf-*.test.ts
+
+Static Mock contract result:
+- result: PASS
+- checks: 350
+- normalScenarios: 5 (N01-N05)
+- boundaryScenarios: 24 (B01-B24)
+- atomicRequirements: 127
+- fixtureSha256: 2f9029c20dcf1f7986f01a572109d6c370763ad2ccd5e7c90a4d561d5ae3c93d
+- scope: fixture/schema/quantity/route/matrix consistency; does not replace browser/PDA/print/performance acceptance
+
+Runtime TMF unit result:
+- tests: 63
+- pass: 63
+- fail: 0
+- cancelled: 0
+- skipped: 0
+- duration: 3009.987834ms
+- covered: factory identity, PMS purchase/base production, N01-N05 quantity chains, raw material weight ledger, technical-pack route/specification gates, upstream dye/print source constraints, cut/tip/output/package/warehouse/production receipt, B01-B06/B08-B09/B14-B15/B18/B21/B23-B24 and version/status/time/cost/return/replan protections.
+
+Interpretation:
+- This is the current executable contract batch for the full-flow Mock and the runtime TMF unit surface.
+- It confirms 5 normal and 24 boundary Mock definitions are internally consistent and 63 current runtime assertions pass.
+- It does not make any of the 29 normative scenarios fully accepted: the N01 native dye->print->TMF chain, real blue/pattern output photos, all named pages/PDA/print entry points, and every interaction's five-sample <500ms gate are still incomplete or blocked.
+- No historical browser output is used as current evidence; current browser evidence remains separately recorded in tmf-pda-print-browser-current.log and tmf-performance-current.log.

@@ -1,0 +1,10 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/pages/process-factory/accessory/webbing/base-orders.ts": "b655cda3afb399182afdbd177ee2b479fa20a4315cf747c09657f02670d8b8a2",
+    "src/router/routes.ts": "6aa5379a228a797ae42e4d31cbca2dc897b90168267e6e126ac318623e02d2be",
+    "src/data/app-shell-config.ts": "4983c1534ea9fd300646757db30816d160eb100b0ba2f10465f24632c3122295"
+  }
+}

@@ -13,11 +13,13 @@ import {
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
   findPdaHandoverRecord,
+  readCurrentPreparationHandoverRecord,
   listHandoverOrdersByTaskId,
   listPdaHandoverHeads,
   upsertPdaHandoverHeadMock,
   upsertPdaHandoutRecordMock,
   writeBackHandoverRecord,
+  receivePreparationHandoverForTask,
   type PdaHandoverHead,
   type PdaHandoverRecord,
   type HandoverReceiverKind,
@@ -55,6 +57,8 @@ import { resolveProductionMaterialImageUrl } from './production-material-image-a
 import { getPrintingOrderImageManifest } from './process-order-image-manifest.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
 import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
+import { assertTmfPrintCutContinuation } from './tmf-process-continuation.ts'
+import { TMF_FACTORY_ID, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 import {
   ensureProcessWorkOrders,
   registerProcessWorkOrderGenerationRegistrar,
@@ -470,6 +474,7 @@ export interface PrintWorkOrder {
   handoverOrderId?: string
   handoverOrderNo?: string
   receiverKind: HandoverReceiverKind
+  productionTmfContinuation?: { cutEntryId: string; factoryId: string; factoryName: string }
   receiverName: string
   createdAt: string
   updatedAt: string
@@ -705,7 +710,8 @@ function saveFormalPrintExecution(): void {
   if (typeof localStorage === 'undefined') return
   const ids = new Set(workOrderStore.keys()), state = capturePrintProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
-  state.nodeRecords = state.nodeRecords.filter(([id]) => ids.has(id))
+  // 新建但未开工的加工单也保存空执行记录，刷新时可区分“尚未执行”和缺失记录。
+  state.nodeRecords = state.workOrders.map(([id]) => [id, structuredClone(nodeRecordStore.get(id) ?? [])])
   state.reviewRecords = state.reviewRecords.filter(([id]) => ids.has(id))
   const tasks = state.workOrders.flatMap(([, order]) => { const task = getPrintingTaskById(order.taskId); return task ? [structuredClone(task)] : [] })
   state.workOrders.forEach(([, order]) => {
@@ -937,6 +943,7 @@ function buildGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: numbe
 }
 
 function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
+  if(order.productionTmfContinuation){applyTmfPrintReceivingTarget(order);return}
   const receivingTarget = resolveTerminalProcessOrderReceivingTarget({
     sourceType: order.sourceType,
     productionOrderNo: order.sourceProductionOrderNo || order.productionOrderIds[0],
@@ -2494,7 +2501,8 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
     const isFabricLike = objectType === '面料' || objectType === '花边' || objectType === '织带'
     const matchesBomMaterial = bom && (!order.formalProductionOrderSnapshot || order.formalProductionOrderSnapshot.materialId === (bom.materialCode || bom.id))
     const materialImage = usableImage(order.formalProductionOrderSnapshot?.inputMaterialImageUrl) || usableImage(source?.materialImageUrl) || (matchesBomMaterial ? usableImage(bom.materialImageUrl) || resolveProductionMaterialImageUrl({ materialSku: bom.materialCode || bom.id, materialName: bom.name, materialColor: order.materialColor }) : '') || imageManifest?.input || ''
-    const outputImage = usableImage(order.outputMaterialImageUrl) || usableImage(order.formalProductionOrderSnapshot?.outputMaterialImageUrl) || imageManifest?.output || ''
+    // V1 使用用户提供的真实织带/绳子实拍作为颜色/花型产出替代图，避免用白坯投入图冒充产出；后续可在技术包中替换为对应实拍。
+    const outputImage = usableImage(order.outputMaterialImageUrl) || usableImage(order.formalProductionOrderSnapshot?.outputMaterialImageUrl) || imageManifest?.output || (objectType === '绳子' || /CORD|RP/i.test(outputSku) ? '/materials/tmf/rope-real-bundle.jpg' : objectType === '织带' || /WB/i.test(outputSku) ? '/materials/tmf/webbing-real-box.jpg' : '')
     const plannedInput: PrintingPlannedInput = {
       objectType, materialName: `${order.materialSku} 待印${objectType}`, spu: materialSpu, sku: inputSku,
       imageUrl: materialImage, imageAlt: `${order.materialSku} ${objectType}实拍图`, gsm: isFabricLike && index >= 0 ? 120 + index * 20 : 0, widthCm: isFabricLike && index >= 0 ? 152 + index : 0,
@@ -4280,6 +4288,24 @@ export function isPrintablePrintingRoll(view: Pick<PrintingBusinessViewFacts, 'o
     && view.barcodes.reduce((sum, item) => sum + Math.max(item.lengthY, 0), 0) <= view.output.completedQty + 0.01
 }
 
+/**
+ * 正式生产单的连续辅料印花产出必须有自己的实物图才能交给下一工序。
+ *
+ * 投入白坯图只能证明加工前物料，不能证明颜色/花型已经落到产出 SKU；
+ * 因此这里与染色交出保持同一门禁，只限制织带、绳子、花边等按米管理的辅料，
+ * 不影响历史面料演示单和已有完整产出图的记录。
+ */
+function assertTmfPrintOutputImage(order: MutablePrintWorkOrder): void {
+  const view = order.businessView
+  if (order.sourceSnapshot?.sourceType === 'PRODUCTION_ORDER'
+    && view
+    && ['米', 'm'].includes(view.output.qtyUnit)
+    && /^(织带|绳子|花边|辅料)$/.test(view.output.objectType)
+    && !view.output.imageUrl.trim()) {
+    throw new Error(`缺少印花后辅料 ${view.output.sku} 的对应实物图，请补齐产出资料后交出；不能使用白坯投入图代替。`)
+  }
+}
+
 export function getPrintingRollDispatchBlockReason(view: Pick<PrintingBusinessViewFacts, 'output' | 'barcodes'>, barcode: PrintingRollBarcode): string {
   if (!isPrintablePrintingRoll(view, barcode)) return '卷数量未确认或超过本单完成量'
   if (![barcode.meters, barcode.weightKg, barcode.gsm, barcode.widthCm].every((value) => Number.isFinite(value) && value >= 0)) return '卷规格不完整'
@@ -4294,8 +4320,16 @@ export function isPrintingRollReadyForDispatch(view: Pick<PrintingBusinessViewFa
 
 function projectPrintingBusinessRecord(order: MutablePrintWorkOrder): PrintingWorkOrderBusinessRecord {
   if (!order.businessView) throw new Error('印花加工单缺少当前页面视图事实')
+  const view=structuredClone(order.businessView)
+  if(order.productionTmfContinuation&&order.handoverOrderId){
+    const recordId=view.barcodes.find(b=>b.handoverRecordId)?.handoverRecordId
+    if(recordId)readCurrentPreparationHandoverRecord(recordId)
+    const records=getPdaHandoverRecordsByHead(order.handoverOrderId).filter(r=>r.handoverRecordStatus!=='VOIDED'&&view.barcodes.some(b=>b.handoverRecordId===(r.handoverRecordId||r.recordId)))
+    view.handover.receivedQty=Math.round(records.reduce((n,r)=>n+(r.receiverWrittenQty??r.warehouseWrittenQty??0),0)*1000)/1000
+    view.handover.diffQty=Math.round((view.handover.handedOverQty-view.handover.receivedQty)*1000)/1000
+  }
   return {
-    ...structuredClone(order.businessView),
+    ...view,
     productionDemandId: order.sourceSnapshot?.productionDemandNo || order.sourceSnapshot?.productionDemandId || order.businessView.demandSource.demandNo || '',
     matchStatus: order.sourceSnapshot?.matchStatus,
     matchStatusLabel: order.sourceSnapshot?.matchStatus ? PRODUCTION_DEMAND_PROCESS_MATCH_LABEL[order.sourceSnapshot.matchStatus] : '不适用',
@@ -4320,7 +4354,7 @@ function projectPrintingBusinessRecord(order: MutablePrintWorkOrder): PrintingWo
       const records = order.handoverOrderId ? getPdaHandoverRecordsByHead(order.handoverOrderId) : []
       return records.length ? records.some(record => record.handoverRecordStatus !== 'VOIDED' && Boolean(record.receiverWrittenAt || record.warehouseWrittenAt || record.factoryDiffDecision) && Math.abs((record.submittedQty ?? 0) - (record.receiverWrittenQty ?? record.warehouseWrittenQty ?? 0)) > 0.01) : Boolean(order.businessView.handover.receivedAt && order.businessView.handover.diffQty)
     })(),
-    receivingTargetId: unresolvedPrintingTarget(order) ? "" : order.targetTransferWarehouseId,
+    receivingTargetId: unresolvedPrintingTarget(order) ? "" : (order.productionTmfContinuation?.factoryId || order.targetTransferWarehouseId),
     receivingTargetName: unresolvedPrintingTarget(order) ? "接收方待核对（历史关联不完整）" : order.receiverName,
     receivingTargetWarehouseName: unresolvedPrintingTarget(order) ? "目标仓库待核对" : order.targetTransferWarehouseName,
     orderedAt: order.createdAt,
@@ -4642,8 +4676,16 @@ export function completePrintingWorkOrder(workOrderId: string, input: { usedQty:
 export function handoverPrintingOutput(workOrderId: string, input: { qty: number; barcodeIds: string[]; operatorName: string; receiverName: string; dispatchId?: string }): void {
   return runPrintProcessMutation(() => {
   const order = getMutablePrintingBusinessOrder(workOrderId)
+  if(order.productionTmfContinuation){
+    const production=productionOrders.find(p=>p.productionOrderId===order.sourceSnapshot?.productionOrderId)
+    if(!production||['DRAFT','WAIT_TECH_PACK_RELEASE','CANCELLED','COMPLETED','ON_HOLD'].includes(production.status))throw new Error('生产单当前不允许继续交给织带厂，请核对生产限制。')
+    const pack=getProductionOrderTechPackSnapshot(order.sourceSnapshot?.productionOrderId || '')
+    if(!pack)throw new Error('生产单采用版本不存在，请重新核对接续。')
+    assertTmfPrintCutContinuation(order,order.productionTmfContinuation.cutEntryId,pack)
+  }
   const view = order.businessView!
   if (order.manuallyCompletedAt || order.status === 'CANCELLED' || view.output.completedQty <= 0) throw new Error('当前没有可交出的加工产出')
+  assertTmfPrintOutputImage(order)
   const remainingQty = roundPrintingValue(view.output.completedQty - view.handover.handedOverQty, 2)
   if (!(input.qty > 0) || input.qty > remainingQty) throw new Error(`交出数量不能超过剩余可交 ${formatPrintingQty(remainingQty)} ${view.output.qtyUnit}`)
   if (input.barcodeIds.length === 0) throw new Error('至少选择一个产出卷条码')
@@ -4745,6 +4787,27 @@ export function receivePrintingHandover(workOrderId: string, input: { receivedQt
   addPrintingBusinessOperation(order, '接收加工产出', receiverName, `交出记录 ${record.handoverRecordId || record.recordId}；实收 ${formatPrintingQty(input.receivedQty)} ${view.output.qtyUnit}；差异 ${formatPrintingQty(view.handover.diffQty)} ${view.output.qtyUnit}；${input.differenceReason?.trim() || '数量一致'}`)
 
   })
+}
+
+/** TMF按投入明细分次实收，唯一数量事实保存在原交出记录。 */
+export function receivePrintingContinuationForTask(workOrderId:string,recordId:string,input:Parameters<typeof receivePreparationHandoverForTask>[1]):void {
+ return runPrintProcessMutation(()=>{
+  const order=getMutablePrintingBusinessOrder(workOrderId),view=order.businessView!
+  const head=order.handoverOrderId?getHandoverOrderById(order.handoverOrderId):undefined
+  const record=head?getPdaHandoverRecordsByHead(head.handoverId).find(r=>(r.handoverRecordId||r.recordId)===recordId):undefined
+  if(!order.productionTmfContinuation||head?.receiverId!==TMF_FACTORY_ID||head.receiverKind!=='FACTORY'||!record||!view.barcodes.some(b=>b.handoverRecordId===recordId))throw new Error('原交出不属于本次印花到TMF的接续。')
+  const repeated=record.taskReceipts?.some(r=>r.receiptId===input.receiptId)
+  receivePreparationHandoverForTask(recordId,input)
+  const records=getPdaHandoverRecordsByHead(head.handoverId).filter(r=>r.handoverRecordStatus!=='VOIDED'&&view.barcodes.some(b=>b.handoverRecordId===(r.handoverRecordId||r.recordId)))
+  view.handover.receivedQty=Math.round(records.reduce((n,r)=>n+(r.receiverWrittenQty??r.warehouseWrittenQty??0),0)*1000)/1000
+  view.handover.diffQty=Math.round((view.handover.handedOverQty-view.handover.receivedQty)*1000)/1000
+  view.handover.receivedAt=input.receivedAt;view.handover.receivedBy=input.receiverName
+  view.pendingWritebackQty=Math.max(0,view.handover.diffQty)
+  order.status=view.handover.receivedQty>=view.output.completedQty&&view.handover.diffQty===0?'FULL_HANDOVER':'PARTIAL_HANDOVER'
+  // 下游工厂收到不等于印花厂产出卷上架，保持已交出状态。
+  syncPrintingBusinessReview(order);updateOrderTimestamp(order,input.receivedAt)
+  if(!repeated)addPrintingBusinessOperation(order,'织带厂分次实收',input.receiverName,`${input.targetTaskOrderId} · ${input.qty} ${input.qtyUnit}`)
+ })
 }
 
 export function completePrintWorkOrderDocument(workOrderId: string, input: { operatorName: string }): PrintWorkOrder {
@@ -5231,7 +5294,37 @@ function seedPrintingCoherentExamples():void {
 
 // The two complete demonstrations use an observed warehouse identity; legacy PO-derived labels remain unverified.
 function unresolvedPrintingTarget(order:MutablePrintWorkOrder):boolean {
+ if(order.productionTmfContinuation?.factoryId===TMF_FACTORY_ID&&order.receiverKind==='FACTORY')return false
  return !order.targetTransferWarehouseId || /^(CUTTING-TRANSFER-WAREHOUSE-|SUPPLEMENT-WAREHOUSE-|CENTRAL-WAREHOUSE$)/.test(order.targetTransferWarehouseId)
+}
+
+function applyTmfPrintReceivingTarget(order: MutablePrintWorkOrder): void {
+ const target=order.productionTmfContinuation!
+ order.receiverKind='FACTORY';order.receiverName=target.factoryName
+ order.targetTransferWarehouseId='';order.targetTransferWarehouseName=''
+ if(order.businessView)order.businessView.handover.receiverName=target.factoryName
+ const task=getPrintingTaskById(order.taskId)
+ if(task){task.receiverKind='FACTORY';task.receiverId=target.factoryId;task.receiverName=target.factoryName;registerPdaGenericProcessTask(task)}
+ for(const head of listHandoverOrdersByTaskId(order.taskId,{includeWool:false}))upsertPdaHandoverHeadMock({...head,targetKind:'FACTORY',targetName:target.factoryName,receiverKind:'FACTORY',receiverId:target.factoryId,receiverName:target.factoryName})
+ syncFactoryWarehouseHandoverSourceByTaskId(order.taskId)
+}
+
+/** 只绑定下一加工方，不把计划数量转换成实物或实收。 */
+export function linkTmfPrintCutContinuation(printOrderId:string,cutEntryId:string):PrintWorkOrder {
+ return runPrintProcessMutation(()=>{
+  const order=getMutablePrintingBusinessOrder(printOrderId)
+  const production=productionOrders.find(p=>p.productionOrderId===order.sourceSnapshot?.productionOrderId)
+  const pack=production?getProductionOrderTechPackSnapshot(production.productionOrderId):undefined
+  if(!pack||!production||['DRAFT','WAIT_TECH_PACK_RELEASE','CANCELLED','COMPLETED','ON_HOLD'].includes(production.status))throw new Error('生产单尚未具备接续条件，或已暂停、取消、完成。')
+  assertTmfPrintCutContinuation(order,cutEntryId,pack)
+  if(order.productionTmfContinuation?.cutEntryId===cutEntryId&&order.receiverKind==='FACTORY')return cloneWorkOrder(order)
+  if(order.businessView?.dispatchDocuments?.some(d=>d.status!=='已作废')||listHandoverOrdersByTaskId(order.taskId,{includeWool:false}).some(h=>getPdaHandoverRecordsByHead(h.handoverId).some(r=>r.handoverRecordStatus!=='VOIDED')))throw new Error('已有交出草稿或实际交出，不能改换接收方。')
+  order.productionTmfContinuation={cutEntryId,factoryId:TMF_FACTORY_ID,factoryName:TMF_FACTORY_NAME}
+  applyTmfPrintReceivingTarget(order)
+  updateOrderTimestamp(order,nowTimestamp())
+  addPrintingBusinessOperation(order,'按路线确认织带厂接收','织带厂主管（演示）',`截断节点 ${cutEntryId}；实际交出和实收分别登记`)
+  return cloneWorkOrder(order)
+ })
 }
 function bindPrintingDemoReceivingTargets():void {
  for(const id of ['PWO-PRINT-001','PWO-PRINT-002']){

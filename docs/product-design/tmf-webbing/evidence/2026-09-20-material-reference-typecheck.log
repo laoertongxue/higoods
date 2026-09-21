@@ -1,0 +1,4 @@
+Command: npx tsc --noEmit
+Full repository exit: 2
+Scoped errors: 0
+Full repository errors: 61

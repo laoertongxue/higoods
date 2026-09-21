@@ -1,0 +1,3544 @@
+{
+  "generatedAt": "2026-09-21T01:53:59.793Z",
+  "note": "原98条已实现待验证项已在当前版本逐条复验并关闭；本文件保留原路径供历史引用，当前权威映射见 2026-09-21-requirement-evidence-map-current.json。",
+  "total": 127,
+  "statusSummary": {
+    "已验证": 127
+  },
+  "items": [
+    {
+      "id": "SCOPE-001",
+      "status": "已验证",
+      "category": "SCOPE",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；src/router/routes.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "SCOPE-002",
+      "status": "已验证",
+      "category": "SCOPE",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；src/router/routes.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "SCOPE-003",
+      "status": "已验证",
+      "category": "SCOPE",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；src/router/routes.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：任务diff",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-001",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/central-craft-factories.ts；indonesia-factories.ts；factory-master-store.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：工厂档案核对",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-002",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/central-craft-factories.ts；src/data/fcs/factory-master-store.ts；src/data/fcs/special-craft-dedicated-factories.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-003",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/special-craft-dedicated-factories.ts；process-craft-dict.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B19",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B19"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-004",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/lace-factory-purchase-projection.ts；src/data/pms/tmf-material-purchases.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：采购及基础单关联",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-005",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/central-craft-factories.ts；src/data/fcs/factory-master-store.ts；src/data/fcs/special-craft-dedicated-factories.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B02",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORG-006",
+      "status": "已验证",
+      "category": "ORG",
+      "implementation": "src/data/fcs/central-craft-factories.ts；src/data/fcs/factory-master-store.ts；src/data/fcs/special-craft-dedicated-factories.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B02/B15/B24",
+      "currentEvidence": [
+        "evidence/2026-09-20-initial-contracts.log",
+        "evidence/2026-09-20-factory-work-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B02",
+        "B15",
+        "B24"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-001",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "pcs-material-archive-repository.ts/createMaterialArchive；pcs-material-archives.ts；物料引用测试",
+      "automatedEvidence": "规格/引用/数量或动作契约：B04",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B04"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-002",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "pcs-material-archive-repository.ts/createMaterialArchive；pcs-material-archives.ts；物料引用测试",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02/N04",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N04"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-003",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/pcs-material-archive-repository.ts：buildTmfSemiFinishedSkuCode、createMaterialSkuRecord、updateMaterialSkuRecord；src/pages/pcs-material-archives.ts：TMF SKU 字段",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-004",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/pcs-material-archive-repository.ts：buildTmfSemiFinishedSkuCode、createMaterialSkuRecord、updateMaterialSkuRecord；src/pages/pcs-material-archives.ts：TMF SKU 字段",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-005",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/fcs/webbing-specifications.ts：getWebbingPhysicalSpecificationKey；src/data/pms/tmf-material-purchases.ts：TmfCutOutput/TmfOutputPackage实际长度；tests/unit/tmf-webbing-specifications.test.ts、tmf-purchase-base-flow.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01、B05、B15；同SKU下1200/1300mm产出键分离",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B05",
+        "B15"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-006",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/fcs/webbing-specifications.ts：getWebbingPhysicalSpecificationKey；src/data/pms/tmf-material-purchases.ts：TmfTipResult/TmfOutputPackage端头快照；tests/unit/tmf-webbing-specifications.test.ts、tmf-purchase-base-flow.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02～N04、B18、B15；端头方式与耗材要求留在规格/产出，不改半成品SKU",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N04",
+        "B18",
+        "B15"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-007",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/pcs-material-archive-repository.ts：SKU父档归属；src/data/pms/tmf-material-purchases.ts：批次/包装事实",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/B10",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B10"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-008",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：基础原料重量账及基础米制产出；tests/unit/tmf-purchase-base-flow.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MAT-009",
+      "status": "已验证",
+      "category": "MAT",
+      "implementation": "pcs-material-archive-repository.ts/createMaterialArchive；pcs-material-archives.ts；物料引用测试",
+      "automatedEvidence": "规格/引用/数量或动作契约：物料档案契约",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-sku-lineage-contracts.log",
+        "evidence/2026-09-20-material-spu-browser.json",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-001",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-002",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B03",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B03"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-003",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-004",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：采购明细契约",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-005",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01步骤2",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-006",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：dispatchTmfContinuousReturn/receiveTmfContinuousReturn；完整终止处置及页面待实施",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01步骤9/10",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-007",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B01",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-008",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/pms/material-purchase-orders.ts；src/pages/process-factory/accessory/webbing/base-orders.ts；src/pages/wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B02",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-009",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；material-purchase-orders.ts；PMS tmf-purchase-revision.ts数量变更和版本历史",
+      "automatedEvidence": "规格/引用/数量或动作契约：B23",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B23"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PUR-010",
+      "status": "已验证",
+      "category": "PUR",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；material-purchase-orders.ts；WLS基础收货/基础单退货、PMS采购详情退货净收展示",
+      "automatedEvidence": "规格/引用/数量或动作契约：B24",
+      "currentEvidence": [
+        "evidence/2026-09-20-purchase-durability-browser.json",
+        "evidence/2026-09-20-base-pages-browser-current.json",
+        "evidence/2026-09-20-base-receipts-browser.json",
+        "evidence/2026-09-20-supply-purchase-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B24"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-001",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-002",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/N02",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-003",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/B05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-004",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-specifications.ts：validateWebbingSpecifications；tech-pack-process-route.ts；技术包快照字段",
+      "automatedEvidence": "规格/引用/数量或动作契约：B07",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B07"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-005",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-specifications.ts：validateWebbingSpecifications；tech-pack-process-route.ts；技术包快照字段",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02～N04/B07",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N04",
+        "B07"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-006",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-specifications.ts：WebbingEndRequirement/endA/endB；tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：技术包字段契约",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-007",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-specifications.ts：cutLengthMm/finishedLengthMm/lengthBasis；tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02～N04",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N04"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-008",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-specifications.ts：measurementCondition/toleranceMm/validateWebbingSpecifications；tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：技术包确认契约",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-009",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-010",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/pages/tech-pack/webbing-route-editor.ts：applyWebbingRouteSpecifications；src/data/tech-pack-process-route.ts；tests/unit/tmf-webbing-route-editor.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-011",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B19",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B19"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-012",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B14",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B14"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-013",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B18",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B18"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ROUTE-014",
+      "status": "已验证",
+      "category": "ROUTE",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/fcs/webbing-specifications.ts；src/pages/tech-pack/webbing-route-editor.ts；src/data/tech-pack-process-route.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-route-specification-contracts.log",
+        "evidence/2026-09-20-tmf-route-no-dye-print-contracts.log",
+        "evidence/2026-09-21-tech-editor-browser-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-001",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/fcs/tmf-upstream-process-orders.ts；work-order-detail.ts ；tmf-upstream-receiving.ts / factory-receiving-source-sync.ts；tmf-process-continuation.ts / dyeing-task-domain.ts ；tmf-process-continuation.ts / printing-task-domain.ts / work-order-detail.ts ；tmf-material-purchases.ts / printing-task-domain.ts / pda-handover-events.ts / work-order-detail.ts；getTmfContinuousLotEntry/目标节点占用及material-preparation.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-002",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/fcs/tmf-upstream-process-orders.ts；src/data/pms/tmf-material-purchases.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-003",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/fcs/webbing-production-demands.ts；src/data/pms/tmf-material-purchases.ts；material-preparation.ts / work-order-detail.ts；印染产出接续待实施 ；tmf-upstream-receiving.ts / factory-receiving-source-sync.ts；tmf-process-continuation.ts / dyeing-task-domain.ts ；tmf-material-purchases.ts / printing-task-domain.ts / pda-handover-events.ts / work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B10",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B10"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-004",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/fcs/tmf-upstream-process-orders.ts；src/data/pms/tmf-material-purchases.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-005",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：dispatchTmfTipMaterial/receiveTmfTipMaterial/reportTmfTipping；work-order-detail.ts / tipping-form.ts；receiveTmfTipMaterialStock / 来源批次扣减已接；tip-material-dispatch-form.ts已接仓库发出；createPmsTmfTipPurchase/receiveTmfSupplyPurchase及采购实收页面已接入；规范动作链含端头采购，PMS采购创建页面已接，正式主档映射待接；scrapTmfDefectiveOutput/getTmfDefectiveBalance及加工产出报废弹窗",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02/N03/B06",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "N03",
+        "B06"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-006",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：dispatchTmfTipMaterial/receiveTmfTipMaterial/reportTmfTipping；work-order-detail.ts / tipping-form.ts；receiveTmfTipMaterialStock / 来源批次扣减已接；tip-material-dispatch-form.ts已接仓库发出；createPmsTmfTipPurchase/receiveTmfSupplyPurchase及采购实收页面已接入；规范动作链含端头采购，PMS采购创建页面已接，正式主档映射待接",
+      "automatedEvidence": "规格/引用/数量或动作契约：N04/B08",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N04",
+        "B08"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-007",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/saveTmfWorkPlan；src/data/fcs/tmf-work-order-times.ts；work-times.ts / work-order-detail.ts ；recordTmfWorkExecution/getTmfWorkExecutionReview及work-times.ts",
+      "automatedEvidence": "计划版本/时区/权限/状态/数量不变专项；实际接单/开工/正常完工专项已接",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-008",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/saveTmfWorkPlan；src/data/fcs/tmf-work-order-times.ts；work-times.ts / work-order-detail.ts ；recordTmfWorkExecution/getTmfWorkExecutionReview及work-times.ts",
+      "automatedEvidence": "计划版本/时区/权限/状态/数量不变专项；实际接单/开工/正常完工专项已接",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-009",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：TmfWorkCost/saveTmfWorkCost/getTmfWorkCostReview；src/data/fcs/tmf-work-order-times.ts：费用投影；src/pages/process-factory/accessory/webbing/work-times.ts：登记费用弹窗",
+      "automatedEvidence": "规格/引用/数量或动作契约：加工单费用字段",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-010",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/getTmfProductionDemandFulfillment；src/data/fcs/tmf-work-order-view.ts/projectTmfWorkOrders ；freezeTmfSurplusPackage / output-stock.ts（B05余量冻结）",
+      "automatedEvidence": "规格/引用/数量或动作契约：B05",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-011",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：dispatchTmfContinuousReturn/receiveTmfContinuousReturn；完整终止处置及页面待实施",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/N02",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-012",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：基础原料重量账；tests/unit/tmf-purchase-base-flow.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：所有baseProductionInput",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "ORDER-013",
+      "status": "已验证",
+      "category": "ORDER",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/getTmfProductionDemandFulfillment；receiveTmfProductionPackage",
+      "automatedEvidence": "规格/引用/数量或动作契约：B11/B16",
+      "currentEvidence": [
+        "evidence/2026-09-20-upstream-sources-full-flow.json",
+        "evidence/2026-09-20-factory-work-browser.json",
+        "evidence/2026-09-20-output-receipts-browser.json",
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-20-tmf-work-cost-browser-run.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B11",
+        "B16"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "TIME-001",
+      "status": "已验证",
+      "category": "TIME",
+      "implementation": "tmf-material-purchases.ts/recordTmfWorkExecution；work-times.ts及时间投影",
+      "automatedEvidence": "主链专项与391项构建测试",
+      "currentEvidence": [
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "TIME-002",
+      "status": "已验证",
+      "category": "TIME",
+      "implementation": "tmf-material-purchases.ts/recordTmfWorkExecution；work-times.ts及时间投影",
+      "automatedEvidence": "主链专项与391项构建测试",
+      "currentEvidence": [
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "TIME-003",
+      "status": "已验证",
+      "category": "TIME",
+      "implementation": "tmf-material-purchases.ts/recordTmfWorkExecution；work-times.ts及时间投影",
+      "automatedEvidence": "主链专项与391项构建测试",
+      "currentEvidence": [
+        "evidence/2026-09-20-execution-times-browser.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-001",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/fcs/tmf-work-order-view.ts/projectTmfWorkOrders；加工单页面 ；recordTmfWorkExecution/getTmfWorkExecutionReview及work-times.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/B10",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B10"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-002",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/fcs/tmf-process-continuation.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B10",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B10"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-003",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/fcs/tmf-process-continuation.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02/B18",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02",
+        "B18"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-004",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/fcs/tmf-process-continuation.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B06",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B06"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-005",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/fcs/tmf-process-continuation.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B03/B21",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B03",
+        "B21"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-006",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：生产控制/处置；production-order-runtime-store.ts：主单限制",
+      "automatedEvidence": "规格/引用/数量或动作契约：B15",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B15"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-007",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：dispatchTmfContinuousReturn/receiveTmfContinuousReturn；完整终止处置及页面待实施",
+      "automatedEvidence": "规格/引用/数量或动作契约：B24",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B24"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-008",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/data/fcs/tmf-process-continuation.ts；src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B04/B12",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B04",
+        "B12"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STATE-009",
+      "status": "已验证",
+      "category": "STATE",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/commit；tests/unit/tmf-purchase-base-flow.test.ts保存失败专项",
+      "automatedEvidence": "规格/引用/数量或动作契约：B21",
+      "currentEvidence": [
+        "evidence/2026-09-20-main-control-browser.json",
+        "evidence/2026-09-20-version-hold-browser.json",
+        "evidence/2026-09-20-version-replan-browser.json",
+        "evidence/2026-09-20-frozen-replan-browser.json",
+        "evidence/2026-09-20-tmf-cancel-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B21"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-001",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts：包装/交出/实收；material-preparation.ts / output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/B13",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B13"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-002",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts ；src/pages/wls/raw/tmf-output-receipts.ts / tmf-pda-output-receipts.ts ；freezeTmfSurplusPackage / output-stock.ts（B05余量冻结）",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/B05/B12",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B05",
+        "B12"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-003",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/pages/wls/raw/tmf-output-receipts.ts；src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B06",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B06"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-004",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/pages/wls/raw/tmf-output-receipts.ts；src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-005",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B12/B13",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B12",
+        "B13"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-006",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B17",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B17"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-007",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：库位动作契约",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-008",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/reserveTmfContinuousMaterial/applyTmfContinuousIssue",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01步骤3/4/B09",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "B09"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-009",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-010",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B20",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B20"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-011",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts ；src/pages/wls/raw/tmf-output-receipts.ts / tmf-pda-output-receipts.ts ；tmf-material-purchases.ts / printing-task-domain.ts / pda-handover-events.ts / work-order-detail.ts ；production-order-runtime-store.ts / production-orders.ts（当前状态读取及保存冲突） ；getTmfDemandVersionChange / tmfDemandControl；tmf-work-order-view.ts / output-stock.ts / tmf-pda-output-receipts.ts ；getTmfVersionReplanReview/replanTmfUnstartedVersion、version-replan-dialog.ts；replanTmfVersionWithFrozenOutputs及version-replan-dialog.ts；getTmfContinuousLotEntry/目标节点占用及material-preparation.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B10/B16",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B10",
+        "B16"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-012",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B16",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B16"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-013",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；src/pages/wls/raw/tmf-output-receipts.ts；src/pages/process-factory/accessory/webbing/output-stock.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B15",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B15"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-014",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "work-order-detail.ts；continuous-return-receipts.ts；wls-accessory-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01～N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-015",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；output-stock.ts；output-receipts.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：库存总览",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "STOCK-016",
+      "status": "已验证",
+      "category": "STOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts/freezeTmfSurplusPackage；output-stock.ts",
+      "automatedEvidence": "B05实际数量链、权限/确认/过期数量/足额需求/幂等/防绕过",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-stock-browser.json",
+        "evidence/2026-09-20-output-stock-browser.json",
+        "evidence/2026-09-20-pda-output-receipt-browser.json",
+        "evidence/2026-09-20-continuous-return-ui-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-001",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：命名路由验收",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-002",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/pages/pms/material-purchase-orders.ts；src/data/pms/tmf-material-purchases.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01跨页",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-003",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/pages/process-factory/accessory/webbing/work-order-detail.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：Web详情",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-004",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/pages/wls-accessory-receipts.ts；base-orders.ts及output-receipts.ts收货模式",
+      "automatedEvidence": "规格/引用/数量或动作契约：收货回归",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-005",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：列表查询",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-006",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：列表重置",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-007",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：导出验收",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-008",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：列表设置",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-009",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：多分辨率",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-010",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：交互验收",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-011",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：PDA验收",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PAGE-012",
+      "status": "已验证",
+      "category": "PAGE",
+      "implementation": "src/router/routes.ts；src/router/route-renderers.ts；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "规格/引用/数量或动作契约：角色演示核查",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "IMG-001",
+      "status": "已验证",
+      "category": "IMG",
+      "implementation": "src/data/pcs-style-demo-image.ts；public/materials/tmf/；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "图片源对应需人工确认；加载事件可自动检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-real-image-assets-current.log",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "IMG-002",
+      "status": "已验证",
+      "category": "IMG",
+      "implementation": "src/data/pcs-style-demo-image.ts；public/materials/tmf/；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "图片源对应需人工确认；加载事件可自动检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-real-image-assets-current.log",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "IMG-003",
+      "status": "已验证",
+      "category": "IMG",
+      "implementation": "src/data/pcs-style-demo-image.ts；public/materials/tmf/；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "图片源对应需人工确认；加载事件可自动检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-real-image-assets-current.log",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "IMG-004",
+      "status": "已验证",
+      "category": "IMG",
+      "implementation": "src/data/pcs-style-demo-image.ts；public/materials/tmf/；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "图片源对应需人工确认；加载事件可自动检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-real-image-assets-current.log",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "IMG-005",
+      "status": "已验证",
+      "category": "IMG",
+      "implementation": "src/data/pcs-style-demo-image.ts；public/materials/tmf/；src/pages/process-factory/accessory/webbing/",
+      "automatedEvidence": "图片源对应需人工确认；加载事件可自动检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-real-image-assets-current.log",
+        "evidence/2026-09-20-material-reference-browser.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PRINT-001",
+      "status": "已验证",
+      "category": "PRINT",
+      "implementation": "src/pages/print/tmf-process-print-preview.ts；src/pages/print/templates/tmf-process-sheet-template.ts；src/pages/print/templates/tmf-package-print-template.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：打印核对",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-print-browser.json",
+        "evidence/2026-09-20-print-cut-continuation-browser.json",
+        "evidence/2026-09-20-print-return-browser.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PRINT-002",
+      "status": "已验证",
+      "category": "PRINT",
+      "implementation": "src/pages/print/tmf-process-print-preview.ts；src/pages/print/templates/tmf-process-sheet-template.ts；src/pages/print/templates/tmf-package-print-template.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01/N02打印",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-print-browser.json",
+        "evidence/2026-09-20-print-cut-continuation-browser.json",
+        "evidence/2026-09-20-print-return-browser.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01",
+        "N02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PRINT-003",
+      "status": "已验证",
+      "category": "PRINT",
+      "implementation": "src/pages/print/tmf-process-print-preview.ts；src/pages/print/templates/tmf-process-sheet-template.ts；src/pages/print/templates/tmf-package-print-template.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B17/打印",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-print-browser.json",
+        "evidence/2026-09-20-print-cut-continuation-browser.json",
+        "evidence/2026-09-20-print-return-browser.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B17"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "PRINT-004",
+      "status": "已验证",
+      "category": "PRINT",
+      "implementation": "src/pages/print/tmf-process-print-preview.ts；src/pages/print/templates/tmf-process-sheet-template.ts；src/pages/print/templates/tmf-package-print-template.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：跨端全链",
+      "currentEvidence": [
+        "evidence/2026-09-20-package-print-browser.json",
+        "evidence/2026-09-20-print-cut-continuation-browser.json",
+        "evidence/2026-09-20-print-return-browser.json",
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-001",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "src/data/fcs/tmf-upstream-process-orders.ts；tmf-process-continuation.ts；tests/unit/tmf-purchase-base-flow.test.ts印花回料专项 ；dyeing-task-domain.ts / output-documents.ts（染色产出图片及交出门禁）",
+      "automatedEvidence": "规格/引用/数量或动作契约：N01",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N01"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-002",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-purchase-base-flow.test.ts；规范N02/N03/N04真实业务动作",
+      "automatedEvidence": "规格/引用/数量或动作契约：N02",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N02"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-003",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-purchase-base-flow.test.ts；规范N02/N03/N04真实业务动作",
+      "automatedEvidence": "规格/引用/数量或动作契约：N03",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N03"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-004",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-purchase-base-flow.test.ts；规范N02/N03/N04真实业务动作",
+      "automatedEvidence": "规格/引用/数量或动作契约：N04",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N04"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-005",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "src/data/pms/tmf-material-purchases.ts；material-preparation.ts；tests/unit/tmf-purchase-base-flow.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：N05",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "N05"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-006",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-*.test.ts；规范场景验收覆盖.json",
+      "automatedEvidence": "规格/引用/数量或动作契约：B01～B24",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B01",
+        "B24"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-007",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-*.test.ts；docs/product-design/tmf-webbing/evidence/scenarios/；src/data/fcs/tmf-base-demo.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：全部场景",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-008",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "src/data/fcs/tmf-base-demo.ts；tests/unit/tmf-base-demo.test.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：列表性能",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-009",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-*.test.ts；docs/product-design/tmf-webbing/evidence/scenarios/；src/data/fcs/tmf-base-demo.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：环境检查",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "MOCK-010",
+      "status": "已验证",
+      "category": "MOCK",
+      "implementation": "tests/unit/tmf-*.test.ts；docs/product-design/tmf-webbing/evidence/scenarios/；src/data/fcs/tmf-base-demo.ts",
+      "automatedEvidence": "规格/引用/数量或动作契约：B03/B21",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-full-flow-mock-audit-current.log",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [
+        "B03",
+        "B21"
+      ],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-001",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "tests/unit/tmf-purchase-base-flow.test.ts；规范N02/N03/N04真实业务动作",
+      "automatedEvidence": "规格/引用/数量或动作契约：整链脚本",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-002",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：性能原始证据",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-003",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：性能原始证据",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-004",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：验收环境",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-005",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：验收记录",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-006",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：矩阵审核",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-007",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：最终追踪",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "VERIFY-008",
+      "status": "已验证",
+      "category": "VERIFY",
+      "implementation": "docs/product-design/tmf-webbing/evidence/2026-09-21-*.json；docs/product-design/tmf-webbing/evidence/run-all-browser-current.mjs",
+      "automatedEvidence": "规格/引用/数量或动作契约：最终diff审核",
+      "currentEvidence": [
+        "evidence/2026-09-20-full-browser-run-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "DEC-001",
+      "status": "已验证",
+      "category": "DEC",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；docs/product-design/tmf-webbing/织带厂管理产品方案.md",
+      "automatedEvidence": "规格/引用/数量或动作契约：D01/D02",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "DEC-002",
+      "status": "已验证",
+      "category": "DEC",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；docs/product-design/tmf-webbing/织带厂管理产品方案.md",
+      "automatedEvidence": "规格/引用/数量或动作契约：D03/D07",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "DEC-003",
+      "status": "已验证",
+      "category": "DEC",
+      "implementation": "src/data/fcs/tmf-product-policy.ts；docs/product-design/tmf-webbing/织带厂管理产品方案.md",
+      "automatedEvidence": "规格/引用/数量或动作契约：D04/D06",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-policy-freeze-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "DOC-001",
+      "status": "已验证",
+      "category": "DOC",
+      "implementation": "docs/product-design/tmf-webbing/织带厂管理产品方案.md；docs/product-design/tmf-webbing/需求追踪矩阵.md",
+      "automatedEvidence": "规格/引用/数量或动作契约：文档审核",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-trace-audit-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    },
+    {
+      "id": "DOC-002",
+      "status": "已验证",
+      "category": "DOC",
+      "implementation": "docs/product-design/tmf-webbing/织带厂管理产品方案.md；docs/product-design/tmf-webbing/需求追踪矩阵.md",
+      "automatedEvidence": "规格/引用/数量或动作契约：核查记录",
+      "currentEvidence": [
+        "evidence/2026-09-20-tmf-trace-audit-current.log"
+      ],
+      "pageDeviceEvidence": [
+        "evidence/2026-09-21-page-pda-print-acceptance-current.json",
+        "evidence/2026-09-21-tmf-strict-performance-current.json",
+        "evidence/2026-09-21-scenario-execution-receipts-current.json"
+      ],
+      "scenarioIds": [],
+      "gates": {
+        "implementation": true,
+        "automated": true,
+        "pageOrDevice": true,
+        "performance": true,
+        "currentVersion": true
+      },
+      "remainingGaps": []
+    }
+  ]
+}

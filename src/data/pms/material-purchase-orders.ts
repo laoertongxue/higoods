@@ -8,10 +8,16 @@ import {
 import { markPmsProductPurchaseOrderMaterialPushed } from './product-purchase-orders.ts'
 import { appendPmsLog, listPmsLogs, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { PMS_MATERIAL_IMAGES, PMS_STYLE_IMAGES } from './images.ts'
+import {
+  getTmfPurchaseState, listTmfSupplyPurchaseProjections, listTmfMaterialPurchases, getTmfMaterialPurchase, releaseTmfMaterialPurchase,
+  confirmTmfPurchaseSupplier, reviseTmfMaterialPurchase, cancelTmfMaterialPurchaseAfterDisposition, type TmfPurchaseActor,
+} from './tmf-material-purchases.ts'
 
 export type PmsMaterialPurchaseOrderStatus = '待采购' | '已采购' | '部分到货' | '已到货' | '已入库' | '已关闭'
 
 export interface PmsMaterialPurchaseOrder {
+  tmfTipSource?: { demandId: string; materialBomItemId: string; productionOrderNo: string; snapshotId: string; versionId: string; operationId: string; signature: string }
+
   purchaseOrderNo: string
   requirementNo: string
   sourceRequirementLineNo: string
@@ -203,20 +209,93 @@ function buildInitialRuntime(): PmsMaterialPurchaseRuntime {
   return runtime
 }
 
+export const PMS_MATERIAL_PURCHASE_UPDATES_KEY = 'higood-pms-material-purchase-updates-v1'
+
+// Only saved native purchase changes are persisted here. TMF warehouse receipt
+// quantities remain projections of the actual receipt ledger.
+function readSavedPurchaseUpdates(): PmsMaterialPurchaseOrder[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
+    if (!raw) return []
+    const orders: unknown = JSON.parse(raw)
+    if (!Array.isArray(orders) || orders.some(order => !order || typeof order.purchaseOrderNo !== 'string'
+      || !['待采购','已采购','部分到货','已到货','已入库','已关闭'].includes(order.status)
+      || !Number.isFinite(order.orderedQty) || !Number.isFinite(order.receivedQty))) throw new Error('invalid purchases')
+    return orders
+  } catch {
+    throw new PmsDomainError('MPO_STORAGE_READ_FAILED', '无法读取已保存的采购变更，请恢复存储后重试；不会用演示初始状态覆盖。')
+  }
+}
+
+function savePurchaseUpdate(order: PmsMaterialPurchaseOrder, patch: Partial<PmsMaterialPurchaseOrder>): void {
+  const next = { ...order, ...patch }
+  if (typeof window !== 'undefined') {
+    const saved = readSavedPurchaseUpdates().filter(item => item.purchaseOrderNo !== order.purchaseOrderNo)
+    try { window.localStorage.setItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY, JSON.stringify([...saved, next])) }
+    catch { throw new PmsDomainError('MPO_STORAGE_SAVE_FAILED', '采购变更未保存，请恢复存储后重试；当前状态未改变。') }
+  }
+  Object.assign(order, next)
+}
+
 function getRuntime(): PmsMaterialPurchaseRuntime {
   if (!runtime) {
     listPmsMaterialRequirements()
     runtime = buildInitialRuntime()
   }
+  for (const saved of readSavedPurchaseUpdates()) {
+    const sequence = /^CGF-2026-(\d+)$/.exec(saved.purchaseOrderNo)
+    if (sequence) orderSequence = Math.max(orderSequence, Number(sequence[1]))
+    const existing = runtime.orders.find(order => order.purchaseOrderNo === saved.purchaseOrderNo)
+    if (existing) Object.assign(existing, saved)
+    else runtime.orders.push(saved)
+  }
   return runtime
 }
 
+/** 从生产单已采用的端头BOM生成普通PMS采购；不创建辅材SKU、不自动增加库存。 */
+export function createPmsTmfTipPurchase(
+  input: { demandId: string; materialBomItemId: string; quantity: number; supplierName: string; warehouse: string; unitPrice: number; expectedArrivalDate: string; reason: string },
+  actor: { id: string; name: string; role: PmsActorRole }, operationId: string,
+): PmsMaterialPurchaseOrder {
+  if (!['采购员','采购主管'].includes(actor.role) || !actor.id.trim() || !actor.name.trim()) throw new PmsDomainError('TMF_ROLE_BLOCKED','当前角色不能创建端头辅材采购。')
+  if (!operationId.trim()) throw new PmsDomainError('TMF_OPERATION_REQUIRED','缺少本次操作编号。')
+  const signature = JSON.stringify([input,actor.id,actor.role])
+  const previous = getRuntime().orders.find(order => order.tmfTipSource?.operationId === operationId)
+  if (previous) {
+    if (previous.tmfTipSource!.signature !== signature) throw new PmsDomainError('TMF_OPERATION_CONFLICT','此操作已保存其他采购内容，请查看原单。')
+    return getPmsMaterialPurchaseOrder(previous.purchaseOrderNo)!
+  }
+  const state = getTmfPurchaseState(), demand = state.demands.find(item => item.id === input.demandId)
+  if (!demand || !demand.specification.tippingRequired) throw new PmsDomainError('TMF_SOURCE_REQUIRED','请选择已生成且要求打头的生产加工需求。')
+  const control = state.productionControls.find(item => item.productionOrderId === demand.productionOrderId)
+  if (control && control.status !== 'ACTIVE') throw new PmsDomainError('TMF_SOURCE_BLOCKED','生产单暂停或取消，不能新增端头辅材采购。')
+  const material = demand.tipMaterialSources?.find(item => item.bomItemId === input.materialBomItemId)
+  const ends = [demand.specification.endA,demand.specification.endB].filter(end => end.method !== 'NONE' && end.materialBomItemId === input.materialBomItemId)
+  if (!material?.materialSkuId || !material.materialName?.trim() || !ends.length || ends.some(end => end.materialUnit !== material.unit)) throw new PmsDomainError('TMF_BOM_REQUIRED','采用版本缺少端头辅材SKU、名称或一致的计量单位，请先确认技术资料；不能按名称猜测物料。')
+  if (!['个','kg','g'].includes(material.unit) || !Number.isFinite(input.quantity) || input.quantity <= 0
+    || (material.unit === '个' ? !Number.isSafeInteger(input.quantity) : Math.abs(input.quantity*1000-Math.round(input.quantity*1000)) > 0.000001)) throw new PmsDomainError('TMF_QUANTITY_INVALID','采购数量须为有效正数；端头按整数个，重量最多三位小数。')
+  if (![input.supplierName,input.warehouse,input.reason].every(value => value.trim()) || !Number.isFinite(input.unitPrice) || input.unitPrice < 0) throw new PmsDomainError('TMF_PURCHASE_REQUIRED','请填写供应方、目标仓、采购依据和有效单价。')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedArrivalDate) || !Number.isFinite(Date.parse(input.expectedArrivalDate)) || new Date(input.expectedArrivalDate).toISOString().slice(0,10) !== input.expectedArrivalDate) throw new PmsDomainError('TMF_DATE_INVALID','请填写有效的预计到货日期。')
+  const sequence = orderSequence+1, no = `CGF-2026-${String(sequence).padStart(4,'0')}`
+  if (getPmsMaterialPurchaseOrder(no)) throw new PmsDomainError('TMF_NUMBER_CONFLICT','采购编号已存在，请刷新后重新生成。')
+  const order = buildOrder(no,{materialCode:material.materialSkuId,materialName:material.materialName,materialType:'辅料',materialImageUrl:material.imageUrl,unit:material.unit,styleCode:'',styleName:'',styleImageUrl:'',supplierName:input.supplierName.trim(),warehouse:input.warehouse.trim()},input.quantity,input.unitPrice,'待采购',{orderDate:new Date().toISOString().slice(0,10),expectedArrivalDate:input.expectedArrivalDate},{requirementNo:demand.productionOrderNo,sourceRequirementLineNo:demand.id,remark:input.reason.trim()})
+  order.buyerName=actor.name
+  order.tmfTipSource={demandId:demand.id,materialBomItemId:material.bomItemId,productionOrderNo:demand.productionOrderNo,snapshotId:demand.techPackSnapshotId,versionId:demand.techPackVersionId,operationId,signature}
+  savePurchaseUpdate(order,{})
+  if (!getRuntime().orders.some(item => item.purchaseOrderNo === no)) getRuntime().orders.unshift(order)
+  orderSequence=sequence
+  appendPmsLog({objectType:'material-purchase-order',objectId:no,action:'从端头辅材需求创建采购',beforeValue:'',afterValue:`${input.quantity} ${material.unit}`,reason:input.reason.trim(),actorId:actor.id,actorName:actor.name,actorRole:actor.role})
+  return order
+}
+
 export function listPmsMaterialPurchaseOrders(): PmsMaterialPurchaseOrder[] {
-  return getRuntime().orders
+  const supplies=listTmfSupplyPurchaseProjections(),ids=new Set(supplies.map(o=>o.purchaseOrderNo))
+  return [...getRuntime().orders.filter(o=>!ids.has(o.purchaseOrderNo)), ...listTmfMaterialPurchases(),...supplies]
 }
 
 export function getPmsMaterialPurchaseOrder(purchaseOrderNo: string): PmsMaterialPurchaseOrder | undefined {
-  return getRuntime().orders.find((order) => order.purchaseOrderNo === purchaseOrderNo)
+  return listTmfSupplyPurchaseProjections().find(o=>o.purchaseOrderNo===purchaseOrderNo) ?? getRuntime().orders.find((order) => order.purchaseOrderNo === purchaseOrderNo) ?? getTmfMaterialPurchase(purchaseOrderNo)
 }
 
 export function listPmsMaterialLogisticsRecords(): PmsMaterialLogisticsRecord[] {
@@ -455,15 +534,22 @@ export function signPmsMaterialLogisticsByBatch(batchNo: string, actor: { id: st
 }
 
 export function applyPmsSupplierConfirmation(purchaseOrderNo: string, actor: { id: string; name: string; role: PmsActorRole }): void {
+  if(listTmfSupplyPurchaseProjections().some(o=>o.purchaseOrderNo===purchaseOrderNo))throw new PmsDomainError('TMF_SUPPLY_RECEIPT_FACT_REQUIRED','该投入料采购已产生仓库实收；履约从实收记录回读，不能手改累计、关闭或覆盖来源，请先处理执行影响。')
+  const tmf = getTmfMaterialPurchase(purchaseOrderNo)
+  if (tmf) {
+    if (actor.role !== '采购员' && actor.role !== '采购主管') throw new PmsDomainError('TMF_ROLE_BLOCKED', '当前角色不能确认织带采购。')
+    confirmTmfPurchaseSupplier(purchaseOrderNo, actor as TmfPurchaseActor, `PMS-CONFIRM:${purchaseOrderNo}:${tmf.version}`)
+    return
+  }
   const order = getPmsMaterialPurchaseOrder(purchaseOrderNo)
   if (!order) throw new PmsDomainError('MPO_NOT_FOUND', `面辅料采购单 ${purchaseOrderNo} 不存在`)
-  order.supplierConfirmed = true
-  order.supplierConfirmedAt = new Date().toISOString()
+  const beforeConfirmed = order.supplierConfirmed
+  savePurchaseUpdate(order, { supplierConfirmed: true, supplierConfirmedAt: new Date().toISOString() })
   appendPmsLog({
     objectType: 'material-purchase-order',
     objectId: purchaseOrderNo,
     action: '供应商确认',
-    beforeValue: order.supplierConfirmed ? '已确认' : '未确认',
+    beforeValue: beforeConfirmed ? '已确认' : '未确认',
     afterValue: '已确认',
     reason: '供应商确认单同步采购单',
     actorId: actor.id,
@@ -477,15 +563,18 @@ export function registerPmsMaterialPurchaseArrival(
   receivedQty: number,
   actor: { id: string; name: string; role: PmsActorRole },
 ): PmsMaterialPurchaseOrder {
+  if(listTmfSupplyPurchaseProjections().some(o=>o.purchaseOrderNo===purchaseOrderNo))throw new PmsDomainError('TMF_SUPPLY_RECEIPT_FACT_REQUIRED','该投入料采购已产生仓库实收；履约从实收记录回读，不能手改累计、关闭或覆盖来源，请先处理执行影响。')
+  if (getTmfMaterialPurchase(purchaseOrderNo)) throw new PmsDomainError('TMF_WAREHOUSE_RECEIPT_REQUIRED', '织带厂基础采购请从辅料仓按上游交出批次实收，不能手改累计到货数量。')
   const order = getPmsMaterialPurchaseOrder(purchaseOrderNo)
   if (!order) throw new PmsDomainError('MPO_NOT_FOUND', `面辅料采购单 ${purchaseOrderNo} 不存在`)
+  if (order.tmfTipSource) throw new PmsDomainError('TMF_WAREHOUSE_RECEIPT_REQUIRED', '端头辅材采购须从辅料仓按实际收货登记，不能手改累计到货。')
   if (order.status === '已关闭') throw new PmsDomainError('MPO_CLOSED_BLOCKED', '已关闭的采购单不能登记到货')
   if (order.status === '待采购') throw new PmsDomainError('MPO_NOT_PURCHASED', '请先标记已采购后再登记到货')
   if (!Number.isFinite(receivedQty) || receivedQty <= 0) throw new PmsDomainError('MPO_RECEIVED_QTY_INVALID', '到货数量必须大于 0')
   if (receivedQty > order.orderedQty) throw new PmsDomainError('MPO_RECEIVED_OVER', `到货数量不能超过采购数量 ${order.orderedQty} ${order.unit}`)
   const before = `${order.receivedQty} ${order.unit} · ${order.status}`
-  order.receivedQty = roundPmsQty(receivedQty, 2)
-  order.status = order.receivedQty >= order.orderedQty ? '已到货' : '部分到货'
+  const actualQty = roundPmsQty(receivedQty, 2)
+  savePurchaseUpdate(order, { receivedQty: actualQty, status: actualQty >= order.orderedQty ? '已到货' : '部分到货' })
   appendPmsLog({
     objectType: 'material-purchase-order',
     objectId: purchaseOrderNo,
@@ -518,8 +607,17 @@ export function advancePmsMaterialPurchaseOrderStatus(
   nextStatus: PmsMaterialPurchaseOrderStatus,
   actor: { id: string; name: string; role: PmsActorRole },
 ): PmsMaterialPurchaseOrder {
+  if(listTmfSupplyPurchaseProjections().some(o=>o.purchaseOrderNo===purchaseOrderNo))throw new PmsDomainError('TMF_SUPPLY_RECEIPT_FACT_REQUIRED','该投入料采购已产生仓库实收；履约从实收记录回读，不能手改累计、关闭或覆盖来源，请先处理执行影响。')
+  const tmf = getTmfMaterialPurchase(purchaseOrderNo)
+  if (tmf) {
+    if (nextStatus !== '已采购') throw new PmsDomainError('TMF_FACT_REQUIRED', '织带采购的到货与入库由仓库实收形成；关闭请填写原因并确认。')
+    if (actor.role !== '采购员' && actor.role !== '采购主管') throw new PmsDomainError('TMF_ROLE_BLOCKED', '当前角色不能下达织带采购。')
+    releaseTmfMaterialPurchase(purchaseOrderNo, actor as TmfPurchaseActor, `PMS-RELEASE:${purchaseOrderNo}:${tmf.version}`)
+    return getTmfMaterialPurchase(purchaseOrderNo)!
+  }
   const order = getPmsMaterialPurchaseOrder(purchaseOrderNo)
   if (!order) throw new PmsDomainError('MPO_NOT_FOUND', `面辅料采购单 ${purchaseOrderNo} 不存在`)
+  if (order.tmfTipSource && nextStatus !== '已采购') throw new PmsDomainError('TMF_FACT_REQUIRED','端头采购到货和入库来自仓库实收；关闭请填写原因。')
   if (!MPO_STATUS_TRANSITIONS[order.status].includes(nextStatus)) {
     throw new PmsDomainError('MPO_TRANSITION_BLOCKED', `${order.status} 不能直接流转到 ${nextStatus}`)
   }
@@ -527,8 +625,7 @@ export function advancePmsMaterialPurchaseOrderStatus(
     throw new PmsDomainError('MPO_RECEIVE_REQUIRED', '请先登记到货数量再入库')
   }
   const before = order.status
-  order.status = nextStatus
-  if (nextStatus === '已到货' && order.receivedQty <= 0) order.receivedQty = order.orderedQty
+  savePurchaseUpdate(order, { status: nextStatus, receivedQty: nextStatus === '已到货' && order.receivedQty <= 0 ? order.orderedQty : order.receivedQty })
   appendPmsLog({
     objectType: 'material-purchase-order',
     objectId: purchaseOrderNo,
@@ -557,14 +654,20 @@ export function closePmsMaterialPurchaseOrder(
   reason: string,
   actor: { id: string; name: string; role: PmsActorRole },
 ): PmsMaterialPurchaseOrder {
+  if(listTmfSupplyPurchaseProjections().some(o=>o.purchaseOrderNo===purchaseOrderNo))throw new PmsDomainError('TMF_SUPPLY_RECEIPT_FACT_REQUIRED','该投入料采购已产生仓库实收；履约从实收记录回读，不能手改累计、关闭或覆盖来源，请先处理执行影响。')
+  const tmf = getTmfMaterialPurchase(purchaseOrderNo)
+  if (tmf) {
+    if (actor.role !== '采购员' && actor.role !== '采购主管') throw new PmsDomainError('TMF_ROLE_BLOCKED', '当前角色不能关闭织带采购。')
+    cancelTmfMaterialPurchaseAfterDisposition(purchaseOrderNo, { reason, confirmed: true }, actor as TmfPurchaseActor, `PMS-CLOSE:${purchaseOrderNo}:${tmf.version}`)
+    return getTmfMaterialPurchase(purchaseOrderNo)!
+  }
   const order = getPmsMaterialPurchaseOrder(purchaseOrderNo)
   if (!order) throw new PmsDomainError('MPO_NOT_FOUND', `面辅料采购单 ${purchaseOrderNo} 不存在`)
   if (!reason.trim()) throw new PmsDomainError('MPO_REASON_REQUIRED', '关闭采购单必须填写原因')
   if (order.status === '已关闭') throw new PmsDomainError('MPO_CLOSED_BLOCKED', '该采购单已经关闭')
   if (order.status === '已入库') throw new PmsDomainError('MPO_INBOUND_BLOCKED', '已入库的采购单不可关闭')
   const before = order.status
-  order.status = '已关闭'
-  order.remark = reason.trim()
+  savePurchaseUpdate(order, { status: '已关闭', remark: reason.trim() })
   appendPmsLog({
     objectType: 'material-purchase-order',
     objectId: purchaseOrderNo,

@@ -1,3 +1,4 @@
+import { cloneWebbingSpecifications } from './fcs/webbing-specifications.ts'
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
@@ -125,6 +126,7 @@ function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[
 function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
   return items.map((item) => ({
     ...item,
+    webbingSpecifications: cloneWebbingSpecifications(item.webbingSpecifications),
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
     supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],

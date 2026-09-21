@@ -1,0 +1,16 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "service": "http://127.0.0.1:43188",
+  "uncommitted": true,
+  "files": {
+    "src/data/fcs/tmf-pda-output-receipts.ts": "1ac09625e4f099e23339ecbcf9fce42ed7b94140ea835f89aa539dd68176ff21",
+    "src/pages/wls/raw/tmf-output-receipts.ts": "e28ce29acb287c97338cc310ee6bac21a5da1dd0acd3a8a2f5d3345a7656d9c6",
+    "src/pages/wls/raw/pda.ts": "611af1cbab02dc5cbe47d8ccbd02910b405eb8cacdf3fbabdbc83831abbd7ea0",
+    "src/router/routes-wls.ts": "5815f1293aff5b07c655fd4601a998117288402e3fa4f2f81e4dea8deb5908aa",
+    "src/components/shell.ts": "1340cfaed499726d2702b23117ee3b2b25143a87463c80204d069929970654c5",
+    "src/data/pms/tmf-material-purchases.ts": "8667baa29ffe1b3452da27f57ca6fb6f7ede5a782f3ea583221736743d22c480",
+    "tests/unit/tmf-purchase-base-flow.test.ts": "c46d5c1dce620afadd5841b1ae18717def26ff5bb93f5668c30cc2ed3bea9dc8"
+  }
+}

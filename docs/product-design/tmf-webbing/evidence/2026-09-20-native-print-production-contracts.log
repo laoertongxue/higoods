@@ -1,0 +1,21 @@
+TMF 原生印花生产数量链专项证据
+日期：2026-09-20
+分支：codex/tmf-webbing-management
+HEAD：ed9daa9c1c75fccadd8eb0901ec1876bbee41928
+测试：node --import tsx --test tests/unit/tmf-purchase-base-flow.test.ts --test-name-pattern='印花交出按两种长度分配'
+结果：32 tests / 32 pass / 0 fail
+
+正常执行事实（同一正式生产单 PRINTBACK-PROD）
+- 上游路线：白坯织带 WB30-WHT → PRINT → PATTERN → WEBBING_CUT；印花工厂 F090。
+- 辅料仓发出 650 米；F090 来源单实际收料 650 米；印花工单实际投入读取 650 米。
+- 完成花型确认、打样确认、领料开工、印制开始与完成。
+- 印花合格产出 630 米，损耗 20 米；生成 1 条产出卷，维护长度 630 米、克重 180、幅宽 3cm、批次 B05-NATIVE-BATCH，并标记为已打印。
+- 断言均来自 printing-task-domain 的工厂收料、生产动作、批次和条码事实；没有从 TMF 截断数量倒推。
+
+边界与阻断
+- PATTERN 产出实物图保持为空；最终交给 TMF 的动作返回缺少印花后辅料 PATTERN 对应实物图。
+- 缺图阻断不写入交出数量、条码状态或下游接续事实；前后印花状态快照一致。
+- 下游 630 米分配、截断、回料和生产实收使用独立交出事实夹具，不能作为缺图产出已正式交接的证明。
+
+范围边界
+- 本证据关闭原生印花投入/生产/产出数量链；不关闭真实蓝色/花型实物图片、正式印花交出、PDA/打印页面和全规范 N01/B14 整链。

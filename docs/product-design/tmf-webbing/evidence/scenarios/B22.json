@@ -1,0 +1,50 @@
+{
+  "scenarioId": "B22",
+  "scenarioType": "boundary",
+  "generatedAt": "2026-09-20T15:10:14.551Z",
+  "sourceFixture": "mock-full-flow.json",
+  "execution": {
+    "mode": "独立副本字段与数量/路线/异常恢复算子重放",
+    "sharedReceiptNotSufficient": true,
+    "checks": 4,
+    "passed": 4,
+    "failed": 0
+  },
+  "businessInput": {
+    "injectAt": "图片",
+    "mutation": "缺图或错图",
+    "base": "N03",
+    "expected": "不通过图片验收",
+    "numericalOracle": "正常基准终点不变；注入阶段按expected验证零副作用或差额在途",
+    "recoveryAndFinal": "补真实图后大图打印复验；数量基准仍需全链",
+    "replayFrom": "采购下达"
+  },
+  "checks": [
+    {
+      "id": "B22",
+      "check": "injection",
+      "ok": true,
+      "detail": "图片: 缺图或错图"
+    },
+    {
+      "id": "B22",
+      "check": "recovery",
+      "ok": true,
+      "detail": "逐步数量/状态检查、阻断和恢复终点齐全"
+    },
+    {
+      "id": "B22",
+      "check": "oracle",
+      "ok": true,
+      "detail": "数量/库存/状态恢复算子已定义"
+    },
+    {
+      "id": "B22",
+      "check": "replay",
+      "ok": true,
+      "detail": "从 采购下达 重放"
+    }
+  ],
+  "runtimePageEvidence": "需另行执行命名页面/PDA/打印验收；本收据不冒充页面通过",
+  "status": "Mock已验证"
+}

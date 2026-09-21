@@ -1,3 +1,5 @@
+import { APF_FACTORY_ID, APF_FACTORY_CODE, APF_FACTORY_NAME, SPF_FACTORY_ID, SPF_FACTORY_CODE, SPF_FACTORY_NAME } from './central-craft-factories.ts'
+export { APF_FACTORY_ID, APF_FACTORY_CODE, APF_FACTORY_NAME, SPF_FACTORY_ID, SPF_FACTORY_CODE, SPF_FACTORY_NAME } from './central-craft-factories.ts'
 import type { FactoryType } from './factory-types.ts'
 import type { ProcessCraftManagementDomain } from './process-craft-dict.ts'
 
@@ -15,12 +17,6 @@ export interface SpecialCraftDedicatedFactorySeed {
 export const FLOWER_FACTORY_ID = 'FAC-FLOWER'
 export const FLOWER_FACTORY_CODE = 'FLOWER'
 export const FLOWER_FACTORY_NAME = 'FLOWER'
-export const APF_FACTORY_ID = 'FAC-APF'
-export const APF_FACTORY_CODE = 'APF'
-export const APF_FACTORY_NAME = 'APF - 辅助工艺'
-export const SPF_FACTORY_ID = 'FAC-SPF'
-export const SPF_FACTORY_CODE = 'SPF'
-export const SPF_FACTORY_NAME = 'SPF - 特种工艺'
 export const LEGACY_SPECIAL_CRAFT_FACTORY_IDS = ['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'] as const
 
 export function isLegacySpecialCraftFactoryId(factoryId: string | null | undefined): boolean {

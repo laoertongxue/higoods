@@ -44,6 +44,10 @@ export interface MaterialSkuRecord {
   materialSkuCode: string
   materialName: string
   colorName: string
+  /** TMF 织带／绳子半成品的潘通或色号；长度和端头不属于 SKU 身份。 */
+  pantoneCode?: string
+  /** TMF 织带／绳子半成品的花型编号；无印花时为空。 */
+  patternCode?: string
   specName: string
   sizeName: string
   skuImageUrl: string
@@ -77,6 +81,8 @@ export interface MaterialUsageRecord {
 
 export interface MaterialSkuDraftInput {
   colorName: string
+  pantoneCode?: string
+  patternCode?: string
   specName: string
   sizeName: string
   skuImageUrl: string

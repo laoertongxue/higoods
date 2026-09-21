@@ -1,0 +1,110 @@
+{
+  "checks": [
+    "已交出650米来源→实际页面648+2分批实收，651及余量3米阻断；表单无需虚构重量，复核/保存/刷新按米显示；染色投入投影和待加工仓入库均650米"
+  ],
+  "errors": [],
+  "facts": {
+    "projection": [
+      {
+        "receiptId": "FRP-FR-1789849425058-L1-TMF-LENGTH-DYE",
+        "upstreamRecordId": "TMF-LENGTH-SOURCE",
+        "qty": 648,
+        "rollCount": 0,
+        "actualSku": "TMF-WHITE",
+        "receiverName": "hilon",
+        "receivedAt": "2026-09-20 04:23:45"
+      },
+      {
+        "receiptId": "FRP-FR-1789849426246-L1-TMF-LENGTH-DYE",
+        "upstreamRecordId": "TMF-LENGTH-SOURCE",
+        "qty": 2,
+        "rollCount": 0,
+        "actualSku": "TMF-WHITE",
+        "receiverName": "hilon",
+        "receivedAt": "2026-09-20 04:23:46"
+      }
+    ],
+    "inbound": [
+      {
+        "inboundRecordId": "FIN-FR-1789849425058-L1-1",
+        "inboundRecordNo": "FIN-FR-1789849425058-L1-1",
+        "warehouseId": "FIW-ID-F003-WAIT_PROCESS",
+        "warehouseName": "GTG · 待加工仓",
+        "factoryId": "ID-F003",
+        "factoryName": "GTG",
+        "factoryKind": "CENTRAL_DYE",
+        "processCode": "PROC_DYE",
+        "processName": "染色",
+        "craftCode": "DYE",
+        "craftName": "染色",
+        "sourceRecordId": "FIN-FR-1789849425058-L1-1",
+        "sourceRecordNo": "TMF-LENGTH-ISSUE",
+        "sourceRecordType": "TRANSFER_RECEIVE",
+        "sourceObjectName": "辅料仓",
+        "stockMaterialId": "TMF-WHITE",
+        "stockMaterialName": "白色织带",
+        "itemKind": "辅料",
+        "itemName": "白色织带",
+        "materialSku": "TMF-WHITE",
+        "fabricColor": "白",
+        "expectedQty": 648,
+        "receivedQty": 648,
+        "differenceQty": 0,
+        "unit": "米",
+        "receiverName": "hilon",
+        "operatorUserId": "RCV-HILON",
+        "operatorFactoryId": "ID-F003",
+        "receivedAt": "2026-09-20 04:23:45",
+        "areaName": "A区",
+        "shelfNo": "A-01",
+        "locationNo": "A-01-01",
+        "status": "已入库",
+        "photoList": [
+          "/materials/tmf/webbing-reference-white.jpg"
+        ],
+        "generatedStockItemId": "STK-FIN-FR-1789849425058-L1-1",
+        "remark": "接收 FR-1789849425058；批次 TMF-BATCH；已关联染色加工单；"
+      },
+      {
+        "inboundRecordId": "FIN-FR-1789849426246-L1-1",
+        "inboundRecordNo": "FIN-FR-1789849426246-L1-1",
+        "warehouseId": "FIW-ID-F003-WAIT_PROCESS",
+        "warehouseName": "GTG · 待加工仓",
+        "factoryId": "ID-F003",
+        "factoryName": "GTG",
+        "factoryKind": "CENTRAL_DYE",
+        "processCode": "PROC_DYE",
+        "processName": "染色",
+        "craftCode": "DYE",
+        "craftName": "染色",
+        "sourceRecordId": "FIN-FR-1789849426246-L1-1",
+        "sourceRecordNo": "TMF-LENGTH-ISSUE",
+        "sourceRecordType": "TRANSFER_RECEIVE",
+        "sourceObjectName": "辅料仓",
+        "stockMaterialId": "TMF-WHITE",
+        "stockMaterialName": "白色织带",
+        "itemKind": "辅料",
+        "itemName": "白色织带",
+        "materialSku": "TMF-WHITE",
+        "fabricColor": "白",
+        "expectedQty": 2,
+        "receivedQty": 2,
+        "differenceQty": 0,
+        "unit": "米",
+        "receiverName": "hilon",
+        "operatorUserId": "RCV-HILON",
+        "operatorFactoryId": "ID-F003",
+        "receivedAt": "2026-09-20 04:23:46",
+        "areaName": "A区",
+        "shelfNo": "A-01",
+        "locationNo": "A-01-01",
+        "status": "已入库",
+        "photoList": [
+          "/materials/tmf/webbing-reference-white.jpg"
+        ],
+        "generatedStockItemId": "STK-FIN-FR-1789849426246-L1-1",
+        "remark": "接收 FR-1789849426246；批次 TMF-BATCH；已关联染色加工单；"
+      }
+    ]
+  }
+}

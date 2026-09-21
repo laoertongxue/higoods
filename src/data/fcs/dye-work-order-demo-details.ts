@@ -1,3 +1,4 @@
+import { SPF_FACTORY_ID, SPF_FACTORY_NAME, TMF_FACTORY_ID, TMF_FACTORY_NAME } from './central-craft-factories.ts'
 /** Named prototype material records. These are demonstration specifications, not live factory records. */
 export interface DyeDemoDetails {
   materialName: string; rawSku: string; outputSku: string; colorName: string; colorNo: string
@@ -82,8 +83,8 @@ export const DYE_PARTNERS = {
   newCutting: {kind:'WAREHOUSE', id:'WH-BDG-009', name:'中转仓（新裁床）', warehouseAttribute:'中转仓'},
   berys: {kind:'FACTORY', id:'ID-FAC-001260', name:'berys konveksi', factoryType:'印花厂'},
   cik: {kind:'FACTORY', id:'ID-FAC-001183', name:'PT CIK INTERNUSA', factoryType:'印花厂'},
-  special: {kind:'FACTORY', id:'ID-FAC-001203', name:'SPF - 特种工艺', factoryType:'特种工艺厂'},
-  trims: {kind:'FACTORY', id:'ID-FAC-001197', name:'TMF - 辅料厂', factoryType:'辅料厂（花边、织带等）'},
+  special: {kind:'FACTORY', id:SPF_FACTORY_ID, name:SPF_FACTORY_NAME, factoryType:'特种工艺厂'},
+  trims: {kind:'FACTORY', id:TMF_FACTORY_ID, name:TMF_FACTORY_NAME, factoryType:'辅料厂（花边、织带等）'},
   sipatax: {kind:'FACTORY', id:'ID-FAC-001165', name:'sipatax', factoryType:'印花厂'},
 } as const satisfies Record<string, DyePartner>
 

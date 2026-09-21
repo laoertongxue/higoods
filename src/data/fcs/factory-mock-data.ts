@@ -79,6 +79,7 @@ const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
   CENTRAL_GARMENT: ['SEW'],
   CENTRAL_PRINT: ['PRINT'],
   CENTRAL_DYE: ['DYE'],
+  CENTRAL_TRIMS: ['WEBBING_CUT', 'WEBBING_TIP'],
   CENTRAL_CUTTING: ['CUT_PANEL'],
   CENTRAL_SPECIAL: ['SPECIAL_CRAFT'],
   CENTRAL_AUX: [...POST_STAGE_PROCESS_CODES, 'SPECIAL_CRAFT'],
@@ -178,7 +179,7 @@ function mapType(tier: string, type: string, index: number): FactoryType {
     CUTTING: 'CENTRAL_CUTTING',
     AUX_PROCESS: 'CENTRAL_AUX',
     SPECIAL_PROCESS: 'CENTRAL_SPECIAL',
-    TRIM_SUPPLIER: 'CENTRAL_LACE',
+    TRIM_SUPPLIER: 'CENTRAL_TRIMS',
     WOOL: 'CENTRAL_WOOL',
     POD: 'CENTRAL_POD',
     SATELLITE_CLUSTER: 'SATELLITE_SEWING',
@@ -194,7 +195,8 @@ function getDefaultParentId(tier: string): string | undefined {
   return undefined
 }
 
-const factoryPoolSourceRecords = indonesiaFactories.filter(isFactoryPoolOrganization)
+const dedicatedFactoryIds = new Set(specialCraftDedicatedFactorySeeds.map((factory) => factory.factoryId))
+const factoryPoolSourceRecords = indonesiaFactories.filter((factory) => isFactoryPoolOrganization(factory) && !dedicatedFactoryIds.has(factory.id))
 
 const generatedFactories: Factory[] = factoryPoolSourceRecords.map((factory, index) => {
   const factoryTier = mapTier(factory.tier)

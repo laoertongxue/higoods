@@ -3,6 +3,7 @@ import { handleProductionFulfillmentClick, handleProductionFulfillmentField, han
 import './styles.css'
 import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
 import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
+import * as productionObjectOverviewModule from './components/production-object-overview'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
 import {
@@ -23,9 +24,7 @@ let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
 
-const getProductionObjectOverviewModule = createRetryableModuleLoader(
-  () => import('./components/production-object-overview'),
-)
+const getProductionObjectOverviewModule = async () => productionObjectOverviewModule
 const getPdaCuttingInboundModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-inbound'))
 const getPdaCuttingHandoverModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-handover'))
 const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/fcs-handlers'))
@@ -271,6 +270,11 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return page.handleUnifiedDispatchWorkbenchEvent(eventTarget)
   }
   if (pagePath === '/fcs/print/preview' || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print$/.test(pagePath)) {
+    const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
+    if (pagePath === '/fcs/print/preview' && documentType === 'TMF_PROCESS_SHEET') {
+      const page = await import('./pages/print/tmf-process-print-preview.ts')
+      return page.handleTmfProcessPrintPreviewEvent(eventTarget)
+    }
     const page = await getPrintPreviewPageModule()
     return page.handleUnifiedPrintPreviewEvent(eventTarget)
   }
@@ -894,6 +898,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
       if (documentType === 'PRINTING_CONFIRMATION' || documentType === 'PRINTING_INFO_SHEET') {
         return (await getPrintingSheetPreviewModule()).renderPrintingSheetPreview()
+      }
+      if (documentType === 'TMF_PROCESS_SHEET') {
+        const page = await import('./pages/print/tmf-process-print-preview.ts')
+        return page.renderTmfProcessPrintPreviewPage()
       }
       const printPreviewPage = await getPrintPreviewPageModule()
       if (documentType === 'DISPATCH_TASK_SHEET' || documentType === 'PRODUCTION_CONFIRMATION') {

@@ -1,0 +1,229 @@
+// @page-pattern: list
+import { renderTmfPurchaseReturns } from './purchase-returns.ts'
+import { dispatchTmfPurchaseReturn, receiveTmfPurchaseReturn, resolveTmfBasePurchaseChange } from '../../../../data/pms/tmf-material-purchases.ts'
+
+import { renderStandardListPage, renderStandardListStats } from '../../../../components/ui/list-page.ts'
+import { createProcessOrderListController, type ProcessOrderListControllerState } from '../../../../components/ui/process-order-list-controller.ts'
+import type { StandardListColumn } from '../../../../components/ui/list-table.ts'
+import { exportStandardListRows } from '../../../../components/ui/list-export.ts'
+import { renderDialog } from '../../../../components/ui/dialog.ts'
+import { hydrateIcons } from '../../../../components/shell.ts'
+import { escapeHtml } from '../../../../utils.ts'
+import { getTmfPurchaseState, dispatchTmfBaseMaterial, receiveTmfBaseMaterialReturn, getTmfBaseMaterialBalance, receiveTmfBaseMaterial, consumeTmfBaseMaterial, dispatchTmfBaseMaterialReturn, generateTmfBaseOrder, acceptTmfBaseOrder, startTmfBaseOrder, reportTmfBaseProduction, dispatchTmfBaseProduction, receiveTmfBaseProduction, type TmfBaseHandover, type TmfPurchaseActor, type TmfMaterialPurchaseOrder, type TmfBaseProductionOrder } from '../../../../data/pms/tmf-material-purchases.ts'
+import { loadTmfBaseDemoPurchases, TMF_DEMO_SUPERVISOR } from '../../../../data/fcs/tmf-base-demo.ts'
+
+type Mode = 'purchase-demands' | 'base-orders' | 'base-receipts' | 'raw-warehouse'
+type Row = { purchase: TmfMaterialPurchaseOrder; base?: TmfBaseProductionOrder; handover?: TmfBaseHandover; dispatched: number; received: number; status: string }
+const pages = new Map<Mode, ReturnType<typeof createPage>>()
+
+function createPage(mode: Mode) {
+  const rawWarehouse=mode==='raw-warehouse'
+  const receiving = mode === 'base-receipts'
+  const actor: TmfPurchaseActor = receiving || rawWarehouse ? { id: 'TMF-DEMO-WAREHOUSE-CLERK', name: '辅料仓管（演示）', role: '仓管' } : TMF_DEMO_SUPERVISOR
+  const rowId = (row: Row) => row.handover?.id ?? row.purchase.purchaseOrderNo
+  const prefix = `tmf-${mode}`
+  const rootSelector = `[data-tmf-base-page="${mode}"]`
+  const state: ProcessOrderListControllerState & { keyword: string; status: string } = { currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false, keyword: '', status: '' }
+  const title = rawWarehouse?'织带基础原料收发':receiving ? '织带／绳子基础半成品收货' : mode === 'purchase-demands' ? '织带采购需求' : '织带基础生产单'
+  const action = (name: string, label: string, id = '') => `<button type="button" class="rounded border px-2 py-1.5 text-xs ${['query', 'confirm'].includes(name) ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-slate-50'}" data-${prefix}-action="${name}" data-id="${escapeHtml(id)}" data-skip-page-rerender="true">${label}</button>`
+  const allRows = (): Row[] => {
+    const data = getTmfPurchaseState()
+    if (receiving) return data.handovers.flatMap((handover) => {
+      const purchase = data.orders.find((item) => item.purchaseOrderNo === handover.purchaseOrderNo)
+      const base = data.baseOrders.find((item) => item.id === handover.baseOrderId)
+      if (!purchase || !base) return []
+      return [{ purchase, base, handover, dispatched: handover.dispatchedMeters, received: handover.receivedMeters,
+        status: handover.receivedMeters >= handover.dispatchedMeters ? '已收齐' : handover.receivedMeters > 0 ? '部分实收' : '待实收' }]
+    })
+    return data.orders.filter((purchase) => purchase.status !== '待采购').map((purchase) => {
+      const base = data.baseOrders.find((item) => item.purchaseLineId === purchase.purchaseLineId)
+      const handovers = data.handovers.filter((item) => item.baseOrderId === base?.id)
+      const dispatched = handovers.reduce((sum, item) => sum + item.dispatchedMeters, 0)
+      const received = handovers.reduce((sum, item) => sum + item.receivedMeters, 0)
+      const status = base?.cancelledAt || purchase.status === '已关闭' ? '已终止' : base?.changePending ? '变更待处理' : !base ? '待生成' : !base.acceptedAt ? '待接单' : !base.startedAt ? '待开始' : base.producedMeters < base.plannedMeters ? '生产中' : received < dispatched ? '交出待实收' : dispatched < base.producedMeters ? '待交出' : '已收齐'
+      return { purchase, base, dispatched, received, status }
+    }).filter((row) => mode === 'purchase-demands' || row.base)
+  }
+  const filteredRows = () => allRows().filter((row) => (!state.keyword || [row.purchase.purchaseOrderNo, row.purchase.materialCode, row.purchase.materialName, row.base?.id, row.handover?.id, row.handover?.batchId].join(' ').toLowerCase().includes(state.keyword.toLowerCase())) && (!state.status || row.status === state.status))
+  const columns: StandardListColumn<Row>[] = [
+    { key: 'source', title: receiving ? '交出 / 采购 / 批次' : '采购 / 基础单', width: 245, required: true, freezeable: true, sortable: true, sortValue: (r) => r.purchase.purchaseOrderNo, render: (r) => `<div class="font-medium">${escapeHtml(r.purchase.purchaseOrderNo)}</div>${r.handover ? `<div class="text-xs break-all">交出 ${escapeHtml(r.handover.id)}<br>批次 ${escapeHtml(r.handover.batchId)}</div>` : ''}<div class="mt-1 text-xs text-slate-500 break-all">${escapeHtml(r.base?.id ?? '尚未生成基础单')}</div>` },
+    { key: 'material', title: '半成品', width: 275, required: true, render: (r) => `<div class="flex gap-2 items-center">${r.purchase.materialImageUrl ? `<button type="button" data-${prefix}-action="image" data-id="${escapeHtml(rowId(r))}" data-skip-page-rerender="true"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(r.purchase.materialImageUrl)}" alt="${escapeHtml(r.purchase.materialName)}"></button>` : '<span class="text-amber-700">缺实物图</span>'}<div><div>${escapeHtml(r.purchase.materialName)}</div><div class="text-xs text-slate-500">${escapeHtml(r.purchase.materialCode)}</div></div></div>` },
+    { key: 'due', title: '交期', width: 120, sortable: true, sortValue: (r) => r.base?.dueDate ?? r.purchase.expectedArrivalDate, render: (r) => escapeHtml(r.base?.dueDate ?? r.purchase.expectedArrivalDate) },
+    { key: 'state', title: '当前进度', width: 115, render: (r) => `<span class="text-sm ${r.status === '变更待处理' ? 'text-amber-700' : ''}">${r.status}</span>` },
+    { key: 'quantities', title: receiving ? '交出 / 已实收 / 待实收' : '计划 / 产出 / 交出 / 实收', width: 265, required: true, render: (r) => receiving ? `<div>${r.dispatched} / ${r.received} / ${Math.round((r.dispatched - r.received) * 1000) / 1000} 米</div><div class="text-xs text-slate-500">${escapeHtml(r.purchase.warehouse)}</div>` : `<div>${r.base?.plannedMeters ?? r.purchase.orderedQty} / ${r.base?.producedMeters ?? 0} / ${r.dispatched} / ${r.received} 米</div><div class="text-xs text-slate-500">${escapeHtml(r.purchase.warehouse)}</div>` },
+    { key: 'actions', title: '操作', width: 205, required: true, actionColumn: true, render: (r) => rawWarehouse?`<div class="flex gap-1">${action('raw','原料收发',r.purchase.purchaseOrderNo)}</div>`:receiving ? `<div class="flex gap-1">${action('detail', '详情', rowId(r))}${r.received < r.dispatched ? action('receive', '登记实收', rowId(r)) : ''}</div>` : `<div class="flex flex-wrap gap-1">${action('detail', '详情', r.purchase.purchaseOrderNo)}${r.base?action('raw','基础原料',r.purchase.purchaseOrderNo):''}${r.status === '待生成' ? action('generate', '生成基础单', r.purchase.purchaseOrderNo) : ''}${r.status === '待接单' ? action('accept', '接单', r.purchase.purchaseOrderNo) : ''}${r.status === '待开始' ? action('start', '开始生产', r.purchase.purchaseOrderNo) : ''}${r.status === '生产中' ? action('report', '填报产出', r.purchase.purchaseOrderNo) : ''}${r.base && !r.base.changePending && !r.base.cancelledAt && r.base.producedMeters > r.dispatched ? action('dispatch', '交出', r.purchase.purchaseOrderNo) : ''}</div>` },
+  ]
+  const controller = createProcessOrderListController({ state, columns, preferenceKey: receiving ? 'higood:list:/wls/accessory-receipts:tmf-base' : `higood:list:/fcs/craft/accessory/webbing/${mode}`, pageSizeOptions: [10, 20, 50], eventPrefix: prefix, rootSelector,
+    tableSurfaceSelector: '[data-tmf-table]', paginationSurfaceSelector: '[data-tmf-pagination]', overlaysSurfaceSelector: '[data-tmf-columns]', defaultFrozenKeys: ['source'], columnSettingsTitle: `${title}列设置`, emptyText: receiving ? '暂无已实际交出的织带／绳子基础半成品。' : '暂无符合条件的 TMF 采购需求，请从 PMS 下达采购。', getRows: filteredRows, locallyManagedEvents: true })
+  const stats = () => { const rows = filteredRows(); return renderStandardListStats([{ label: '当前查询', value: `${rows.length} 单` }, { label: receiving ? '交出应收' : '计划', value: `${rows.reduce((n, r) => n + (receiving ? r.dispatched : (r.base?.plannedMeters ?? r.purchase.orderedQty)), 0)} 米` }, { label: receiving ? '待实收' : '已产出', value: `${rows.reduce((n, r) => n + (receiving ? Math.round((r.dispatched - r.received) * 1000) / 1000 : (r.base?.producedMeters ?? 0)), 0)} 米` }, { label: '仓库实收', value: `${rows.reduce((n, r) => n + r.received, 0)} 米` }]) }
+  let dialogAction = '', dialogId = '', operationId = '', rawIssueId = ''
+  const root = () => document.querySelector<HTMLElement>(rootSelector)
+  const feedback = (message: string) => { const el = root()?.querySelector('[data-tmf-feedback]'); if (el) el.textContent = message }
+  const refresh = () => { controller.refresh({ overlays: true }); const el = root()?.querySelector('[data-tmf-stats]'); if (el) el.innerHTML = stats(); const count = root()?.querySelector('[data-standard-list-table-section] > header h2'); if (count) count.textContent = `数据列表 · ${filteredRows().length} 条` }
+  const closeDialog = () => { const el = root()?.querySelector('[data-tmf-dialog]'); if (el) el.innerHTML = ''; dialogAction = ''; dialogId = ''; operationId = '' }
+  const previewImage = (id: string) => {
+    const row = allRows().find((r) => rowId(r) === id)
+    const surface = root()?.querySelector('[data-tmf-preview]')
+    if (!row || !surface) return
+    surface.innerHTML = `<div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="半成品实物图"><button type="button" class="absolute inset-0" data-${prefix}-action="close-image" aria-label="关闭大图" data-skip-page-rerender="true"></button><div class="relative max-w-[90vw] rounded bg-white p-3"><div class="flex items-center justify-between gap-4 mb-2"><span>${escapeHtml(row.purchase.materialName)}</span>${action('close-image', '关闭')}</div><img class="max-h-[75vh] max-w-full object-contain" src="${escapeHtml(row.purchase.materialImageUrl)}" alt="${escapeHtml(row.purchase.materialName)}"></div></div>`
+  }
+  const openDialog = (name: string, id: string, issueId = '') => {
+    const row = allRows().find((r) => rowId(r) === id)
+    if (!row) throw new Error('来源采购不存在，请刷新后重试。')
+    rawIssueId = issueId; dialogAction = name; dialogId = id; operationId = `tmf-ui:${crypto.randomUUID()}`
+    const headers: Record<string, string> = { 'purchase-return':'交出未用采购退货','purchase-return-receive':'TMF登记退货实收','purchase-resolve':'核对采购变更处置', 'raw-issue':'基础原料实际发出','raw-return-receive':'原料退回实收',raw:'基础生产原料账', 'raw-receive':'基础原料实际接收', 'raw-consume':'基础原料实际耗用', 'raw-return':'未用原料交回', detail: '采购及生产详情', generate: '生成基础生产单', accept: '确认接单', start: '开始基础生产', report: '本次产出填报', dispatch: '交回辅料仓', receive: '登记本次实际收货' }
+    // 弹窗字段只更新弹窗自身；若让全局输入处理器触发整页重绘，现场连续录入时确认按钮会脱离 DOM。
+    const input = (field: string, label: string, type = 'text') => `<label class="block text-sm mt-3">${label}<input name="${field}" type="${type}" data-skip-page-rerender="true" ${type === 'number' ? `min="${name==='raw-consume'?'0':'0.001'}" step="0.001"` : ''} class="mt-1 w-full rounded border p-2" required></label>`
+    let content = `<div class="text-sm space-y-2"><p>${escapeHtml(row.purchase.purchaseOrderNo)} · V${row.purchase.version}</p><div class="flex gap-2 items-center">${row.purchase.materialImageUrl ? `<button type="button" data-${prefix}-action="image" data-id="${escapeHtml(id)}" data-skip-page-rerender="true"><img class="h-12 w-12 rounded border object-cover" src="${escapeHtml(row.purchase.materialImageUrl)}" alt="${escapeHtml(row.purchase.materialName)}"></button>` : '缺实物图'}<span>${escapeHtml(row.purchase.materialName)} · ${escapeHtml(row.purchase.materialCode)}</span></div><p>计划 ${row.base?.plannedMeters ?? row.purchase.orderedQty} 米；已产出 ${row.base?.producedMeters ?? 0} 米；交出 ${row.dispatched} 米；实收 ${row.received} 米</p><p>${escapeHtml(row.purchase.productionStandard)}</p><p>操作身份：${escapeHtml(actor.name)}</p></div>`
+    if (name === 'raw' || name.startsWith('raw-')) {
+      const data=getTmfPurchaseState(),issues=data.baseMaterialIssues.filter(i=>i.baseOrderId===row.base?.id)
+      content=`<p class="text-sm">基础单 ${escapeHtml(row.base?.id??'')} · 来源采购 ${escapeHtml(row.purchase.purchaseOrderNo)}</p><p class="text-sm mt-2">原料重量独立核算，不能按半成品产出米数推算耗用。</p>`
+      if(name==='raw'&&rawWarehouse)content+=`<p class="mt-2 text-xs">接收工厂：TMF－辅料厂；生产标准 ${escapeHtml(row.purchase.productionStandard)}</p><div class="mt-3">${row.base?.acceptedAt&&!row.base.cancelledAt&&!row.base.changePending?action('raw-issue','按原料批次发出',JSON.stringify([id,''])):''}</div>`
+      if(name==='raw')content+=issues.map(i=>{const lot=data.baseMaterialLots.find(l=>l.id===i.lotId)!,balance=getTmfBaseMaterialBalance(i.id),key=JSON.stringify([id,i.id]);return `<article class="border rounded p-3 mt-3"><h3 class="font-medium">${escapeHtml(lot.materialSkuId)} · ${lot.unit}</h3><p class="text-xs text-amber-700">原料实物图待补，请核对实际物料，不以半成品图代替</p><p class="text-xs break-all">来源 ${escapeHtml(lot.sourceReceiptNo)} / ${escapeHtml(lot.sourceReceiptLineId)}；批次 ${escapeHtml(lot.id)}；${escapeHtml(lot.warehouseId)} / ${escapeHtml(lot.location)}</p><p class="text-sm mt-2">仓库发出 ${i.dispatchedQty}；本厂实收 ${i.receivedQty}；在途 ${balance.inboundTransitQty} ${lot.unit}</p><p class="text-sm">耗用 ${i.consumedQty}；损耗 ${i.scrapQty}；交回 ${balance.returnedQty}；厂内剩余 ${balance.availableQty} ${lot.unit}</p><p class="text-sm">原仓已收退料 ${balance.returnReceivedQty} ${lot.unit}</p><div class="flex flex-wrap gap-2 mt-2">${!rawWarehouse&&balance.inboundTransitQty>0?action('raw-receive','登记原料实收',key):''}${!rawWarehouse&&balance.availableQty>0?action('raw-consume','登记实际耗用',key)+action('raw-return','交回未用原料',key):''}</div>${data.baseMaterialReturns.filter(r=>r.issueId===i.id).map(r=>`<p class="text-xs mt-2">退料 ${escapeHtml(r.id)}：交出 ${r.dispatchedQty} / 原仓实收 ${r.receivedQty} ${lot.unit} · ${escapeHtml(r.reason)}${rawWarehouse&&r.receivedQty<r.dispatchedQty?action('raw-return-receive','登记退回实收',JSON.stringify([id,r.id])):''}</p>`).join('')}</article>`}).join('')||'<p class="mt-3 text-sm">暂无原料实际发出，请由原料仓按基础生产单发料；不能在此直接增加厂内库存。</p>'
+      else if(name==='raw-issue'){
+        if(!rawWarehouse)throw new Error('请由原料仓登记实际发出。')
+        content+=`<label class="block mt-3 text-sm">来源实收批次<select name="rawLot" class="border rounded p-2 w-full"><option value="">请选择实际原料批次</option>${data.baseMaterialLots.filter(l=>l.onHandQty>0).map(l=>`<option value="${escapeHtml(l.id)}">${escapeHtml(l.materialSkuId)} · ${escapeHtml(l.id)} · ${escapeHtml(l.warehouseId)} / ${escapeHtml(l.location)} · 可用 ${l.onHandQty} ${l.unit}</option>`).join('')}</select></label><p class="text-amber-700 text-xs mt-2">原料实物图及配方待确认，请按基础生产标准核对品种；不能用半成品图片替代。</p>`+input('rawSku','扫描原料SKU')+input('rawScan','扫描实收批次号')+input('rawIssue','本次发料单号')+input('quantity','本次实际发出（单位见所选批次，不自动换算）','number')+'<label class="flex gap-2 mt-3 text-sm"><input name="rawConfirmed" type="checkbox">确认原料符合本基础单生产标准，数量与交给TMF的实物一致</label>'
+      } else if(name==='raw-return-receive'){
+        const returned=data.baseMaterialReturns.find(r=>r.id===issueId),issue=issues.find(i=>i.id===returned?.issueId),lot=data.baseMaterialLots.find(l=>l.id===issue?.lotId)
+        if(!rawWarehouse||!returned||!issue||!lot)throw new Error('退料不属于当前基础单或当前不是原料仓操作。')
+        content+=`<p class="mt-3">${escapeHtml(lot.materialSkuId)} · 待收 ${returned.dispatchedQty-returned.receivedQty} ${lot.unit}</p><p class="text-xs">退回原仓 ${escapeHtml(lot.warehouseId)} / ${escapeHtml(lot.location)}；原批次 ${escapeHtml(lot.id)}</p><p class="text-xs text-amber-700">原料实物图待补</p>`+input('rawSku','扫描原料SKU')+input('rawScan','扫描退料交出单号')+input('quantity',`本次实收（${lot.unit}）`,'number')+'<label class="flex gap-2 mt-3 text-sm"><input name="rawConfirmed" type="checkbox">确认未用原料已实际回原仓原库位，规格与数量一致</label>'
+      } else {
+        const issue=issues.find(i=>i.id===issueId),lot=data.baseMaterialLots.find(l=>l.id===issue?.lotId)
+        if(!issue||!lot)throw new Error('原料发出不属于当前基础生产单。')
+        const balance=getTmfBaseMaterialBalance(issue.id)
+        content+=`<p class="mt-3">${escapeHtml(lot.materialSkuId)} · ${lot.unit}</p><p class="text-xs text-amber-700">原料实图待补</p><p class="text-xs break-all">发料 ${escapeHtml(issue.id)}；来源批次 ${escapeHtml(lot.id)}</p><p class="text-sm">在途 ${balance.inboundTransitQty}；厂内可用 ${balance.availableQty} ${lot.unit}</p>`+input('rawSku','扫描原料SKU')
+        if(name==='raw-receive')content+=input('rawScan','扫描原料发料单号')+input('quantity',`本次实收（${lot.unit}）`,'number')
+        if(name==='raw-consume')content+=input('quantity',`本次实际耗用（${lot.unit}，可填0）`,'number')+input('rawScrap',`本次实际损耗（${lot.unit}，可填0）`,'number')+input('rawReason','实际称量与耗用依据')
+        if(name==='raw-return')content+=input('rawReturn','退料交出单号')+input('quantity',`本次未用原料交回（${lot.unit}）`,'number')+input('rawReason','退料原因')
+        content+='<label class="flex gap-2 mt-3 text-sm"><input name="rawConfirmed" type="checkbox">已核对原料、来源及本次实际数量</label>'
+      }
+    }
+    if(name==='purchase-return'){
+      if(!receiving||!row.handover)throw new Error('请从仓库原基础实收批次办理退货。')
+      const lot=getTmfPurchaseState().lots.find(l=>l.sourceHandoverId===row.handover!.id)
+      if(!lot)throw new Error('尚未实际收货，没有可退库存。')
+      content+=`<p class="mt-3">原实收批次 ${escapeHtml(lot.id)}；当前可退 ${Math.round((lot.onHandMeters-lot.reservedMeters-lot.frozenMeters)*1000)/1000} 米；退至TMF－辅料厂。</p>`+input('returnId','退货交出单号')+input('scanBatch','扫描原实收批次')+input('scanSku','扫描半成品SKU')+input('quantity','本次实际退货（米）','number')+input('returnReason','退货原因')+'<label class="flex gap-2 mt-3 text-sm"><input name="returnConfirmed" type="checkbox">确认未用实物已交出；TMF实收前采购净实收不减少</label>'
+    }
+    if(name==='purchase-return-receive'){
+      const returned=getTmfPurchaseState().purchaseReturns.find(r=>r.id===issueId&&r.baseOrderId===row.base?.id)
+      if(receiving||!returned)throw new Error('请在TMF核对所属基础单的退货交出。')
+      content+=`<p class="mt-3">退货 ${escapeHtml(returned.id)} · ${escapeHtml(returned.materialSkuId)}；待收 ${Math.round((returned.dispatchedMeters-returned.receivedMeters)*1000)/1000} 米</p>`+input('returnId','扫描退货交出单号')+input('scanSku','扫描半成品SKU')+input('quantity','本次实际收到（米）','number')+'<label class="flex gap-2 mt-3 text-sm"><input name="returnConfirmed" type="checkbox">确认退回物已实际收到，由TMF单独保留</label>'
+    }
+    if(name==='purchase-resolve'){
+      if(receiving)throw new Error('请由织带厂主管核对处置。')
+      content+=renderTmfPurchaseReturns(row.purchase.purchaseOrderNo,false,()=>'',id)+`<p class="mt-3">采购当前 V${row.purchase.version}，计划 ${row.purchase.orderedQty} 米；基础原计划 V${row.base?.purchaseVersion}，${row.base?.plannedMeters} 米。</p>`+input('returnReason','处置依据')+'<label class="flex gap-2 mt-3 text-sm"><input name="returnConfirmed" type="checkbox">确认原实收及产出保留，已收退货与调整后的采购计划一致</label>'
+    }
+    if (name === 'report') content += input('quantity', '本次实际产出（米）', 'number')
+    if (name === 'dispatch') content += input('quantity', '本次实际交出（米）', 'number') + input('batch', '实物批次号') + '<p class="mt-2 text-xs text-slate-500">交出后等待辅料仓确认实收，不提前增加仓库库存。</p>'
+    if (name === 'receive') {
+      const lot = getTmfPurchaseState().lots.find((item) => item.sourceHandoverId === row.handover?.id)
+      content += `<p class="mt-3 text-sm">应收批次：${escapeHtml(row.handover!.batchId)}；尚未实收 ${Math.round((row.dispatched - row.received) * 1000) / 1000} 米</p>`
+        + input('scanBatch', '扫描或输入实物批次号') + input('scanSku', '扫描或输入实物 SKU 编码') + input('quantity', '本次清点实收（米）', 'number')
+        + `<label class="block text-sm mt-3">实收库位<input name="location" value="${escapeHtml(lot?.location ?? '')}" class="mt-1 w-full rounded border p-2" required></label><p class="mt-2 text-xs text-slate-500">分批实收只累计本次数量；未到部分保留在途。超出交出量请先由主管核实来源。</p>`
+    }
+    if (name === 'detail') content += `<p class="mt-3 text-sm">供应方：${escapeHtml(row.purchase.supplierName)}；目标仓：${escapeHtml(row.purchase.warehouse)}</p><p class="mt-2 text-xs">${escapeHtml(row.purchase.remark)}</p><div class="max-h-48 overflow-y-auto mt-3 text-xs space-y-2">${getTmfPurchaseState().operations.filter((op) => [row.purchase.purchaseOrderNo, row.base?.id, row.handover?.id].includes(op.objectId)).map((op) => `<p>${escapeHtml(op.occurredAt)} · ${escapeHtml(op.action)} · ${escapeHtml(op.actor.name)} ${op.quantity ?? ''} ${op.unit ?? ''}</p>`).join('')}</div>`
+    if (name === 'detail' && row.handover) {
+      const lot = getTmfPurchaseState().lots.find((item) => item.sourceHandoverId === row.handover!.id)
+      content += `<div class="mt-3 border-t pt-3 text-sm"><p>上游交出批次：${escapeHtml(row.handover.batchId)}</p><p>目标仓：${escapeHtml(row.purchase.warehouse)}</p>${lot ? `<p>实收库位：${escapeHtml(lot.location)}</p><p>该批次累计实收 ${lot.receivedMeters} 米；仓内实存 ${lot.onHandMeters} 米；已占用 ${lot.reservedMeters} 米</p>` : '<p>尚未实际收货，未形成仓库库存。</p>'}</div>`
+    }
+    if(name==='detail'&&!rawWarehouse)content+=renderTmfPurchaseReturns(row.purchase.purchaseOrderNo,receiving,action,id)
+    const el = root()?.querySelector('[data-tmf-dialog]')
+    if (el) { el.innerHTML = renderDialog({ title: headers[name], width: 'md', closeAction: { prefix, action: 'close-dialog', skipPageRerender: true } }, `<div role="alert" class="text-red-700 text-sm" data-tmf-dialog-error></div>${content}`, action('close-dialog', '关闭') + (['detail','raw'].includes(name) ? '' : action('confirm', '确认'))); hydrateIcons(el);el.setAttribute('tabindex','-1');(el as HTMLElement).focus({preventScroll:true}) }
+  }
+  const bind = () => {
+    const el = root(); if (!el || el.dataset.bound) return; el.dataset.bound = 'true'
+    controller.installColumnDragEvents()
+    el.addEventListener('error', (event) => { if (event.target instanceof HTMLImageElement) { const text = document.createElement('span'); text.textContent = '图片加载失败'; text.className = 'text-amber-700 text-xs'; event.target.replaceWith(text) } }, true)
+    el.addEventListener('change', (event) => { const field = event.target as HTMLSelectElement; if (field.getAttribute(`data-${prefix}-field`) === 'pageSize') { controller.setPageSize(Number(field.value)); refresh() } })
+    el.addEventListener('keydown', (event) => { if (event.key === 'Escape') { const preview = el.querySelector('[data-tmf-preview]'); if (preview?.innerHTML) { preview.innerHTML = ''; return }; closeDialog(); state.showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }) } })
+    el.addEventListener('click', (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
+      event.stopPropagation()
+      const name = target.getAttribute(`data-${prefix}-action`)!
+      try {
+        if (name === 'query') { state.keyword = el.querySelector<HTMLInputElement>('[name="keyword"]')!.value.trim(); state.status = el.querySelector<HTMLSelectElement>('[name="status"]')!.value; state.currentPage = 1; refresh() }
+        else if (name === 'reset') { state.keyword = state.status = ''; el.querySelector<HTMLInputElement>('[name="keyword"]')!.value = ''; el.querySelector<HTMLSelectElement>('[name="status"]')!.value = ''; state.currentPage = 1; state.sort = null; refresh() }
+        else if (name === 'export') exportStandardListRows({ fileName: title, columns, rows: filteredRows() })
+        else if (name === 'demo') { loadTmfBaseDemoPurchases(); refresh(); feedback('已载入36条参考采购场景；不代表真实采购，重复载入不会重置已有操作。') }
+        else if (name === 'prev-page' || name === 'next-page') { controller.stepPage(name === 'prev-page' ? -1 : 1); refresh() }
+        else if (name === 'sort-column') { controller.cycleSort(target.dataset.columnKey || ''); refresh() }
+        else if (name === 'open-column-settings' || name === 'close-column-settings') { state.showColumnSettings = name === 'open-column-settings'; controller.refresh({ table: false, pagination: false, overlays: true }) }
+        else if (name === 'restore-column-settings') { controller.restorePreferences(); refresh() }
+        else if (name === 'toggle-column-visibility' || name === 'toggle-column-freeze') { controller.updateColumnPreference(name, target.getAttribute(`data-${prefix}-column-key`) || target.closest(`[data-${prefix}-column-key]`)?.getAttribute(`data-${prefix}-column-key`) || '', target instanceof HTMLInputElement ? target.checked : undefined); refresh() }
+        else if (name === 'image') previewImage(target.dataset.id || '')
+        else if (name === 'close-image') { el.querySelector('[data-tmf-preview]')!.innerHTML = '' }
+        else if (name === 'close-dialog') closeDialog()
+        else if (name === 'confirm') {
+          const row = allRows().find((r) => rowId(r) === dialogId); if (!row) throw new Error('采购记录不存在。')
+          const quantity = Number(el.querySelector<HTMLInputElement>('[data-tmf-dialog] [name="quantity"]')?.value)
+          if(dialogAction.startsWith('purchase-')){
+            const value=(field:string)=>el.querySelector<HTMLInputElement>(`[data-tmf-dialog] [name="${field}"]`)!.value.trim()
+            const confirmed=!!el.querySelector<HTMLInputElement>('[name="returnConfirmed"]')?.checked
+            if(dialogAction==='purchase-return'){
+              const lot=getTmfPurchaseState().lots.find(l=>l.sourceHandoverId===row.handover?.id)
+              if(!receiving||!lot||value('scanBatch')!==lot.id)throw new Error('请在仓库扫描正确的原实收批次。')
+              dispatchTmfPurchaseReturn({returnId:value('returnId'),lotId:lot.id,warehouseId:lot.warehouseId,materialSkuId:value('scanSku'),dispatchedMeters:quantity,reason:value('returnReason'),confirmed},actor,operationId)
+            }else if(dialogAction==='purchase-return-receive'){
+              if(receiving||value('returnId')!==rawIssueId)throw new Error('请扫描当前TMF退货交出单号。')
+              receiveTmfPurchaseReturn({returnId:rawIssueId,factoryId:'FAC-TMF',materialSkuId:value('scanSku'),receivedMeters:quantity,confirmed},actor,operationId)
+            }else resolveTmfBasePurchaseChange(row.base!.id,{reason:value('returnReason'),confirmed},actor,operationId)
+            const id=dialogId;refresh();openDialog('detail',id);feedback('已保存采购关联退货或处置，原实收保留，采购净实收按实际退货核对。');return
+          }
+          if(dialogAction==='raw-issue'||dialogAction==='raw-return-receive'){
+            const data=getTmfPurchaseState(),value=(field:string)=>el.querySelector<HTMLInputElement|HTMLSelectElement>(`[data-tmf-dialog] [name="${field}"]`)!.value.trim()
+            if(!rawWarehouse||!row.base||!value('quantity')||!el.querySelector<HTMLInputElement>('[name="rawConfirmed"]')?.checked)throw new Error('请由仓库核对原料、实际数量及收发信息后确认。')
+            if(dialogAction==='raw-issue'){
+              const lot=data.baseMaterialLots.find(l=>l.id===value('rawLot'))
+              if(!lot||value('rawScan')!==lot.id||value('rawSku')!==lot.materialSkuId)throw new Error('所扫实收批次或原料SKU不符。')
+              dispatchTmfBaseMaterial({id:value('rawIssue'),baseOrderId:row.base.id,lotId:lot.id,quantity},actor,operationId)
+            }else{
+              const returned=data.baseMaterialReturns.find(r=>r.id===rawIssueId),issue=data.baseMaterialIssues.find(i=>i.id===returned?.issueId&&i.baseOrderId===row.base!.id),lot=data.baseMaterialLots.find(l=>l.id===issue?.lotId)
+              if(!returned||!issue||!lot||value('rawScan')!==returned.id||value('rawSku')!==lot.materialSkuId)throw new Error('所扫退料单或原料SKU与当前基础单不符。')
+              receiveTmfBaseMaterialReturn({returnId:returned.id,warehouseId:lot.warehouseId,materialSkuId:lot.materialSkuId,unit:lot.unit,quantity},actor,operationId)
+            }
+            const purchaseId=dialogId;refresh();openDialog('raw',purchaseId);feedback('已保存本次仓库实际收发；工厂实收与耗用独立登记。');return
+          }
+          if(dialogAction.startsWith('raw-')){
+            const data=getTmfPurchaseState(),issue=data.baseMaterialIssues.find(i=>i.id===rawIssueId&&i.baseOrderId===row.base?.id),lot=data.baseMaterialLots.find(l=>l.id===issue?.lotId)
+            const value=(field:string)=>el.querySelector<HTMLInputElement>(`[data-tmf-dialog] [name="${field}"]`)!.value.trim()
+            if(!value('quantity')||(dialogAction==='raw-consume'&&!value('rawScrap')))throw new Error('请填写本次实际数量；没有耗用或损耗时明确填0。')
+            if(receiving||!issue||!lot||value('rawSku')!==lot.materialSkuId||!el.querySelector<HTMLInputElement>('[name="rawConfirmed"]')?.checked)throw new Error('请核对原料SKU、所属基础单及实际数量后确认。')
+            if(dialogAction==='raw-receive'){
+              if(value('rawScan')!==issue.id)throw new Error('所扫发料单不符，请核对本次来料。')
+              receiveTmfBaseMaterial({issueId:issue.id,materialSkuId:lot.materialSkuId,unit:lot.unit,quantity},actor,operationId)
+            }
+            if(dialogAction==='raw-consume')consumeTmfBaseMaterial({issueId:issue.id,consumedQty:quantity,scrapQty:Number(value('rawScrap')),reason:value('rawReason')},actor,operationId)
+            if(dialogAction==='raw-return')dispatchTmfBaseMaterialReturn({id:value('rawReturn'),issueId:issue.id,quantity,reason:value('rawReason')},actor,operationId)
+            const purchaseId=dialogId;refresh();openDialog('raw',purchaseId);feedback('已保存原料实际记录；退回交出不代表原仓已实收。');return
+          }
+          if (dialogAction === 'receive') {
+            if (el.querySelector<HTMLInputElement>('[name="scanBatch"]')!.value.trim() !== row.handover!.batchId) throw new Error('实物批次不符，请扫描本次交出的正确批次。')
+            const scanned = el.querySelector<HTMLInputElement>('[name="scanSku"]')!.value.trim()
+            receiveTmfBaseProduction({ handoverId: row.handover!.id, materialSkuId: scanned === row.purchase.materialCode ? row.purchase.materialSkuId : scanned,
+              warehouseId: row.handover!.warehouseId, location: el.querySelector<HTMLInputElement>('[name="location"]')!.value.trim(), receivedMeters: quantity }, actor, operationId)
+          } else if (dialogAction === 'generate') generateTmfBaseOrder(dialogId, TMF_DEMO_SUPERVISOR, operationId)
+          else if (dialogAction === 'accept') acceptTmfBaseOrder(row.base!.id, TMF_DEMO_SUPERVISOR, operationId)
+          else if (dialogAction === 'start') startTmfBaseOrder(row.base!.id, TMF_DEMO_SUPERVISOR, operationId)
+          else if (dialogAction === 'report') reportTmfBaseProduction(row.base!.id, quantity, TMF_DEMO_SUPERVISOR, operationId)
+          else if (dialogAction === 'dispatch') dispatchTmfBaseProduction({ baseOrderId: row.base!.id, handoverId: `${operationId}:handover`, batchId: el.querySelector<HTMLInputElement>('[name="batch"]')!.value.trim(), dispatchedMeters: quantity }, TMF_DEMO_SUPERVISOR, operationId)
+          closeDialog(); refresh(); feedback(receiving ? '本次实收已保存，采购实收与连续料批次库存已同步。' : '已保存。交出与仓库实收分别记录，请按实物继续交接。')
+        } else if(name==='purchase-return-receive'){const [id,returnId]=JSON.parse(target.dataset.id!);openDialog(name,id,returnId)} else if(name.startsWith('raw-')){const [purchaseId,issueId]=JSON.parse(target.dataset.id!);openDialog(name,purchaseId,issueId)} else openDialog(name, target.dataset.id || '')
+      } catch (error) { const message = error instanceof Error ? error.message : '操作失败，请重试'; const errorEl = el.querySelector('[data-tmf-dialog-error]'); if (errorEl) errorEl.textContent = message; else feedback(message) }
+    })
+  }
+  return { render: () => {
+    state.currentPage = 1; state.sort = null
+    controller.ensurePreferencesLoaded(); const view = controller.getView()
+    if (typeof window !== 'undefined') requestAnimationFrame(bind)
+    return `<div data-tmf-base-page="${mode}">${renderStandardListPage({ title, primaryActionsHtml: `<div class="flex gap-2 items-center"><span class="text-xs text-slate-500">${receiving || rawWarehouse ? '原料／辅料仓 · 仓管演示身份' : 'TMF - 辅料厂 · 主管演示身份'}</span>${receiving || rawWarehouse ? '' : action('demo', '载入演示采购')}<button class="rounded border px-3 py-1.5 text-sm" data-nav="/pms/material-purchase-orders">PMS 面辅料采购</button></div>`,
+      feedbackHtml: '<p class="text-sm text-blue-700" role="status" data-tmf-feedback></p>',
+      filtersHtml: `<div class="rounded-lg border bg-white p-3"><div class="flex gap-3 flex-wrap"><label class="text-xs">采购单 / 物料 / 基础单 / 批次<input name="keyword" value="${escapeHtml(state.keyword)}" class="block rounded border p-2 mt-1 w-72 text-sm"></label><label class="text-xs">进度<select name="status" class="block rounded border p-2 mt-1 text-sm"><option value="">全部</option>${(receiving ? ['待实收','部分实收','已收齐'] : ['待生成','待接单','待开始','生产中','待交出','交出待实收','已收齐','变更待处理','已终止']).map((s) => `<option ${s === state.status ? 'selected' : ''}>${s}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2">${action('query','查询')}${action('reset','重置')}${action('export','导出')}</div></div>`,
+      statsHtml: `<div data-tmf-stats>${stats()}</div>`, listTitle: `数据列表 · ${filteredRows().length} 条`, listActionsHtml: action('open-column-settings', '列设置'),
+      tableHtml: `<div data-tmf-table>${view.tableHtml}</div>`, paginationHtml: `<div data-tmf-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-tmf-columns>${controller.renderColumnSettings()}</div><div data-tmf-dialog></div><div data-tmf-preview></div>`,
+    })}</div>`
+  } }
+}
+export function renderTmfBasePage(mode: Mode): string {
+  if (!pages.has(mode)) pages.set(mode, createPage(mode))
+  return pages.get(mode)!.render()
+}

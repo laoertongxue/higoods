@@ -1,0 +1,5 @@
+{
+  "src/data/pms/tmf-material-purchases.ts": "538e4b20f3a8f6eb7f79d562ab343d1a5cb6ac83d60134bcd219bfe114d17009",
+  "src/pages/process-factory/accessory/webbing/work-order-detail.ts": "9cb8852ca636e90c1789f43e1e047d79583effdbdc5a47d9bbf5fed35d28dde0",
+  "tests/unit/tmf-purchase-base-flow.test.ts": "c4e0f19c94df2400c2319dcf3e525f5e41b64309e970b52b6ddf0d3605f12f93"
+}

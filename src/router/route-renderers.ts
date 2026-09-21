@@ -191,7 +191,7 @@ export const renderPcsEngineeringMasterDetailPage = createAsyncRenderer(
   'renderPcsEngineeringMasterDetailPage',
 )
 export const renderPcsTechnicalDataTechPackListPage = createAsyncRenderer(
-  () => import('../pages/pcs-technical-data'),
+  () => import('../pages/pcs-technical-data-tech-pack-list'),
   'renderPcsTechnicalDataTechPackListPage',
 )
 export const renderPcsTechnicalDataBomPricingPage = createAsyncRenderer(

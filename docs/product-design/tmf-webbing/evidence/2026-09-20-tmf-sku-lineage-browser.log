@@ -1,0 +1,21 @@
+TMF SKU lineage browser smoke evidence
+branch: codex/tmf-webbing-management
+head: ed9daa9c1c75fccadd8eb0901ec1876bbee41928 + current uncommitted changes
+service: http://localhost:43188
+viewport: CUA in-app browser, desktop prototype
+route: /pcs/materials/accessory/tmf-webbing-reference
+
+normal:
+- opened “新增SKU” on the real TMF webbing material archive
+- drawer exposed 颜色, 潘通色号／色号, 花型编号 and the note that length/tip stay in processing facts
+- entered blue / 19-4052 / P001 and saved
+- visible result: TMF-WB-REF-19-4052-BLUE-P001
+- refreshed the same route and reopened “物料 SKU”; the row persisted as blue / 19-4052 / 花型 P001
+
+boundary:
+- opened a fresh TMF SKU drawer with empty color and submitted
+- save was blocked with “请先补齐 颜色。”; no second row was created by the failed action
+
+scope:
+- this is a browser smoke and persistence sample, not the required five-run performance evidence
+- the browser used local prototype storage only; no online/production data was changed

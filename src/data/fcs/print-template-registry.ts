@@ -1,3 +1,5 @@
+import { buildTmfPackageLabelsPrintDocument, buildTmfHandoverPrintDocument, renderTmfPackageLabelsTemplate, renderTmfHandoverTemplate } from '../../pages/print/templates/tmf-package-print-template.ts'
+import { buildTmfProcessSheetPrintDocument, renderTmfProcessSheetTemplate } from '../../pages/print/templates/tmf-process-sheet-template.ts'
 import type {
   PrintDocument,
   PrintDocumentBuildInput,
@@ -96,6 +98,9 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  { templateCode: 'TMF_PACKAGE_LABEL_V1', templateName: '织带包装标签', documentType: 'TMF_PACKAGE_LABEL', supportedSourceTypes: ['TMF_OUTPUT_PACKAGE'], buildDocument: buildTmfPackageLabelsPrintDocument, render: renderTmfPackageLabelsTemplate },
+  { templateCode: 'TMF_HANDOVER_SHEET_V1', templateName: '织带产出交出单', documentType: 'TMF_HANDOVER_SHEET', supportedSourceTypes: ['TMF_OUTPUT_HANDOVER'], buildDocument: buildTmfHandoverPrintDocument, render: renderTmfHandoverTemplate },
+  { templateCode: 'TMF_PROCESS_SHEET_V1', templateName: '织带加工明细单', documentType: 'TMF_PROCESS_SHEET', supportedSourceTypes: ['TMF_WORK_ORDER'], buildDocument: buildTmfProcessSheetPrintDocument, render: renderTmfProcessSheetTemplate },
   {
     templateCode: 'DISPATCH_TASK_SHEET_V1',
     templateName: '任务单',
@@ -443,6 +448,7 @@ export function renderPrintDocument(document: PrintDocument): string {
 }
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET',
   'DISPATCH_TASK_SHEET',
   'POST_FINISHING_OUTBOUND_ORDER',
   'POST_FINISHING_OUTBOUND_BARCODE',

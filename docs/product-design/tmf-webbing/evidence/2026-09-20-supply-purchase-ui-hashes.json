@@ -1,0 +1,11 @@
+{
+  "branch": "codex/tmf-webbing-management",
+  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "uncommitted": true,
+  "files": {
+    "src/pages/process-factory/accessory/webbing/supply-purchase-receipts.ts": "cfa6beea65dd5c801b32e41f15dcbd0c478ab02593b2cb319ee96dd33a3be0e8",
+    "src/pages/wls-accessory-receipts.ts": "77e7da501a45247f3df7559e0d42705fd39aabbb4e2486344371fdb4536f6de4",
+    "src/data/pms/tmf-material-purchases.ts": "23949f204d3302fa891744fed8188428a76d856b3467c9957bc3b8e2b83b4749",
+    "src/data/pms/material-purchase-orders.ts": "fad4ce190e9788ebc2ae05ad1dd108eb693a8dc9eeafa8b0afe3c0af8fec08e3"
+  }
+}
