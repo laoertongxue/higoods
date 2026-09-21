@@ -1,11 +1,17 @@
+// @page-pattern: list
 import { appStore } from '../state/store.ts'
+import { renderStandardListFilters, renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import type { StandardListColumn } from '../components/ui/list-table.ts'
+import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
+import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/ui/list-table-model.ts'
+// renderStandardListTable、renderTablePagination 与 list-export 均按需加载：
+// 它们经 list-feedback 静态引入 shell，会破坏以 Node 直载 TS 的专项检查。
 import {
   createMaterialArchive,
   createMaterialSkuRecord,
   getMaterialArchiveById,
   getMaterialArchiveCategoryOptions,
   getMaterialSkuRecordById,
-  getMaterialStats,
   getMaterialSkuSpecMeta,
   listMaterialArchives,
   listMaterialLogRecordsByMaterialId,
@@ -26,15 +32,16 @@ import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type MaterialDetailTabKey = 'overview' | 'skus' | 'usage' | 'logs'
 
+interface MaterialArchiveFilterState {
+  search: string
+  status: 'all' | MaterialArchiveStatus
+}
+
 interface MaterialArchivePageState {
   notice: string | null
-  filters: Record<
-    MaterialArchiveKind,
-    {
-      search: string
-      status: 'all' | MaterialArchiveStatus
-    }
-  >
+  activeKind: MaterialArchiveKind
+  filters: Record<MaterialArchiveKind, MaterialArchiveFilterState>
+  draftFilters: Record<MaterialArchiveKind, MaterialArchiveFilterState>
   detail: {
     materialId: string | null
     activeTab: MaterialDetailTabKey
@@ -62,6 +69,8 @@ interface MaterialArchivePageState {
     materialId: string
     materialSkuId: string | null
     colorName: string
+    pantoneCode: string
+    patternCode: string
     specValue: string
     costPrice: string
     freightCost: string
@@ -150,6 +159,8 @@ function createEmptySkuEditorState(): MaterialArchivePageState['skuEditor'] {
     materialId: '',
     materialSkuId: null,
     colorName: '',
+    pantoneCode: '',
+    patternCode: '',
     specValue: '',
     costPrice: '',
     freightCost: '',
@@ -162,17 +173,23 @@ function createEmptySkuEditorState(): MaterialArchivePageState['skuEditor'] {
   }
 }
 
+function createFilterMap(): Record<MaterialArchiveKind, MaterialArchiveFilterState> {
+  return {
+    fabric: { search: '', status: 'all' },
+    accessory: { search: '', status: 'all' },
+    yarn: { search: '', status: 'all' },
+    consumable: { search: '', status: 'all' },
+    packaging: { search: '', status: 'all' },
+    parts: { search: '', status: 'all' },
+  }
+}
+
 function createDefaultState(): MaterialArchivePageState {
   return {
     notice: null,
-    filters: {
-      fabric: { search: '', status: 'all' },
-      accessory: { search: '', status: 'all' },
-      yarn: { search: '', status: 'all' },
-      consumable: { search: '', status: 'all' },
-      packaging: { search: '', status: 'all' },
-      parts: { search: '', status: 'all' },
-    },
+    activeKind: 'fabric',
+    filters: createFilterMap(),
+    draftFilters: createFilterMap(),
     detail: {
       materialId: null,
       activeTab: 'overview',
@@ -235,7 +252,9 @@ function resetCreateState(kind: MaterialArchiveKind): void {
 export function resetPcsMaterialArchiveState(): void {
   const next = createDefaultState()
   state.notice = next.notice
+  state.activeKind = next.activeKind
   state.filters = next.filters
+  state.draftFilters = next.draftFilters
   state.detail = next.detail
   state.create = next.create
   state.skuEditor = next.skuEditor
@@ -355,6 +374,8 @@ function openSkuEditor(materialId: string, materialSkuId: string | null = null):
     materialId,
     materialSkuId,
     colorName: skuRecord.colorName || '',
+    pantoneCode: skuRecord.pantoneCode || '',
+    patternCode: skuRecord.patternCode || '',
     specValue: buildSkuEditorSpecValue(material.kind, skuRecord),
     costPrice: skuRecord.costPrice ? String(skuRecord.costPrice) : '',
     freightCost: skuRecord.freightCost ? String(skuRecord.freightCost) : '',
@@ -372,6 +393,8 @@ function buildSkuEditorInput(material: MaterialArchiveRecord): MaterialSkuDraftI
   const specValue = state.skuEditor.specValue.trim()
   return {
     colorName: state.skuEditor.colorName.trim(),
+    pantoneCode: state.skuEditor.pantoneCode.trim(),
+    patternCode: state.skuEditor.patternCode.trim(),
     specName: specValue || '-',
     sizeName: material.kind === 'fabric' ? specValue || '-' : '-',
     skuImageUrl: state.skuEditor.skuImageUrl.trim(),
@@ -443,104 +466,163 @@ function getFilteredRecords(kind: MaterialArchiveKind): MaterialArchiveRecord[] 
   })
 }
 
-function renderStats(kind: MaterialArchiveKind): string {
-  const stats = getMaterialStats(kind)
-  const items = [
-    { label: '主档数', value: stats.total, desc: '正式主档' },
-    { label: '启用中', value: stats.active, desc: '当前可引用' },
-    { label: '物料 SKU', value: stats.skuCount, desc: '颜色 / 规格' },
-    { label: '技术包引用', value: stats.usageCount, desc: '关联版本' },
-    { label: '关联款式', value: stats.linkedStyleCount, desc: '款式档案数' },
-  ]
-  return `
-    <section class="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-      ${items
-        .map(
-          (item) => `
-            <div class="rounded-lg border bg-white px-4 py-3 shadow-sm">
-              <div class="text-xs text-slate-500">${escapeHtml(item.label)}</div>
-              <div class="mt-2 text-2xl font-semibold text-slate-900">${escapeHtml(item.value)}</div>
-              <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.desc)}</div>
-            </div>
-          `,
-        )
-        .join('')}
-    </section>
-  `
+type ArchiveListRow = {
+  record: MaterialArchiveRecord
+  skus: MaterialSkuRecord[]
+  minCost: number | null
+  maxCost: number | null
 }
 
-function renderListTable(kind: MaterialArchiveKind, records: MaterialArchiveRecord[]): string {
-  const rows = records
-    .map((record) => {
-      const skus = listMaterialSkuRecordsByMaterialId(record.materialId)
-      const minCost = skus.length > 0 ? Math.min(...skus.map((item) => item.costPrice)) : null
-      const maxCost = skus.length > 0 ? Math.max(...skus.map((item) => item.costPrice)) : null
-      return `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="flex items-start gap-3">
-              ${renderArchiveImage(record.mainImageUrl, record.materialName, 'sm')}
-              <div class="min-w-0">
-                <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/materials/${escapeHtml(kind)}/${escapeHtml(record.materialId)}">${escapeHtml(record.materialCode)}</button>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.materialName)}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.materialNameEn || '-')}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(record.categoryName || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.specSummary || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.composition || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.processTags.join(' / ') || '-')}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(record.widthText || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(record.gramWeightText || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">主单位：${escapeHtml(record.mainUnit || '-')}</div>
-            <div class="mt-1 flex flex-wrap gap-1">辅助：${renderUnitTags(record.auxiliaryUnits || [])}</div>
-            <div class="mt-1 text-xs text-slate-500">计价：${escapeHtml(record.pricingUnit || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">条码模板：${escapeHtml(record.barcodeTemplateCode || '-')}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(record.skuCount)}</div>
-            <div class="mt-1 text-xs text-slate-500">款式 ${escapeHtml(record.usedStyleCount)}</div>
-            <div class="mt-1 text-xs text-slate-500">技术包 ${escapeHtml(record.usedTechPackCount)}</div>
-            <div class="mt-1 text-xs text-slate-500">成本 ${escapeHtml(minCost === null ? '-' : minCost === maxCost ? formatCurrency(minCost) : `${formatCurrency(minCost)} ~ ${formatCurrency(maxCost || 0)}`)}</div>
-          </td>
-          <td class="px-4 py-3">${renderStatusBadge(record.status)}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</td>
-          <td class="px-4 py-3">
-            <div class="flex items-center justify-end gap-2">
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/materials/${escapeHtml(kind)}/${escapeHtml(record.materialId)}">查看</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-log" data-material-id="${escapeHtml(record.materialId)}">日志</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-barcode" data-material-id="${escapeHtml(record.materialId)}" ${skus.length === 0 ? 'disabled' : ''}>打印条码</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
+// 5 条/页是档位首项，即列表默认值：当前真实记录量（面料 2 条、辅料 6 条）也能验证跨页与
+// 首屏渲染量；不为凑页数伪造缺少实拍图的物料对象。
+const ARCHIVE_LIST_PAGE_SIZES = [5, 10, 20, 50]
 
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">物料主档</th>
-              <th class="px-4 py-3 font-medium">分类 / 摘要</th>
-              <th class="px-4 py-3 font-medium">规格信息</th>
-              <th class="px-4 py-3 font-medium">SKU / 引用</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">更新时间</th>
-              <th class="px-4 py-3 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">暂无物料档案数据。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
+function getArchiveRows(kind: MaterialArchiveKind): ArchiveListRow[] {
+  return getFilteredRecords(kind).map((record) => {
+    const skus = listMaterialSkuRecordsByMaterialId(record.materialId)
+    const costs = skus.map((item) => item.costPrice)
+    return {
+      record,
+      skus,
+      minCost: costs.length > 0 ? Math.min(...costs) : null,
+      maxCost: costs.length > 0 ? Math.max(...costs) : null,
+    }
+  })
+}
+
+function isTmfArchiveRow(row: ArchiveListRow): boolean {
+  return ['织带', '绳子'].includes(row.record.categoryName)
+}
+
+function renderArchiveDimensionLabel(categoryName: string): string {
+  if (categoryName === '织带') return '织带幅宽'
+  if (categoryName === '绳子') return '绳子直径'
+  return '门幅 / 尺寸'
+}
+
+function renderArchiveThumb(row: ArchiveListRow): string {
+  const label = `${row.record.materialCode} ${row.record.materialName}`
+  if (!row.record.mainImageUrl) {
+    return isTmfArchiveRow(row)
+      ? '<span class="text-xs text-amber-700">缺对应规格实物图</span>'
+      : renderArchiveImage('', row.record.materialName, 'sm')
+  }
+  return `<button type="button" class="relative block h-12 w-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(row.record.mainImageUrl)}" data-pda-image-preview-title="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}大图"><img src="${escapeHtml(row.record.mainImageUrl)}" alt="${escapeHtml(label)}实物图" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false" /><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 flex items-center justify-center bg-slate-50 px-1 text-center text-[10px] leading-tight text-amber-700">图片加载失败</span></button>`
+}
+
+function buildArchiveColumns(kind: MaterialArchiveKind): StandardListColumn<ArchiveListRow>[] {
+  const detailPath = (row: ArchiveListRow) => `/pcs/materials/${kind}/${row.record.materialId}`
+  const costText = (row: ArchiveListRow) => row.minCost === null
+    ? '-'
+    : row.minCost === row.maxCost ? formatCurrency(row.minCost) : `${formatCurrency(row.minCost)} ~ ${formatCurrency(row.maxCost || 0)}`
+  return [
+    {
+      key: 'archive',
+      title: '物料主档',
+      width: 268,
+      required: true,
+      freezeable: true,
+      sortable: true,
+      sortValue: (row) => row.record.materialCode,
+      render: (row) => `<div class="flex items-start gap-3">${renderArchiveThumb(row)}<div class="min-w-0"><button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(detailPath(row))}">${escapeHtml(row.record.materialCode)}</button><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.materialName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.materialNameEn || '-')}</div></div></div>`,
+    },
+    {
+      key: 'category',
+      title: '分类 / 摘要',
+      width: 214,
+      sortable: true,
+      sortValue: (row) => row.record.categoryName,
+      render: (row) => `<div class="text-sm text-slate-700">${escapeHtml(row.record.categoryName || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.specSummary || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.composition || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.processTags.join(' / ') || '-')}</div>`,
+    },
+    {
+      key: 'spec',
+      title: '规格信息',
+      width: 236,
+      render: (row) => `<div class="text-sm text-slate-700"><div>${escapeHtml(row.record.widthText || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(renderArchiveDimensionLabel(row.record.categoryName))}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.gramWeightText || '-')}</div><div class="mt-1 text-xs text-slate-500">主单位：${escapeHtml(row.record.mainUnit || '-')}</div><div class="mt-1 flex flex-wrap gap-1">辅助：${renderUnitTags(row.record.auxiliaryUnits || [])}</div><div class="mt-1 text-xs text-slate-500">计价：${escapeHtml(row.record.pricingUnit || '-')}</div><div class="mt-1 text-xs text-slate-500">条码模板：${escapeHtml(row.record.barcodeTemplateCode || '-')}</div></div>`,
+    },
+    {
+      key: 'usage',
+      title: 'SKU / 引用',
+      width: 158,
+      sortable: true,
+      sortValue: (row) => row.record.skuCount,
+      render: (row) => `<div class="text-sm text-slate-700"><div>${escapeHtml(row.record.skuCount)}</div><div class="mt-1 text-xs text-slate-500">款式 ${escapeHtml(row.record.usedStyleCount)}</div><div class="mt-1 text-xs text-slate-500">技术包 ${escapeHtml(row.record.usedTechPackCount)}</div><div class="mt-1 text-xs text-slate-500">成本 ${escapeHtml(costText(row))}</div></div>`,
+    },
+    {
+      key: 'status',
+      title: '状态',
+      width: 104,
+      required: true,
+      sortable: true,
+      sortValue: (row) => row.record.status,
+      render: (row) => renderStatusBadge(row.record.status),
+    },
+    {
+      key: 'updatedAt',
+      title: '更新时间',
+      width: 168,
+      sortable: true,
+      sortValue: (row) => row.record.updatedAt,
+      render: (row) => `<span class="text-sm text-slate-500">${escapeHtml(formatDateTime(row.record.updatedAt))}</span>`,
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: 232,
+      required: true,
+      actionColumn: true,
+      render: (row) => `<div class="flex flex-wrap items-center gap-2"><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="${escapeHtml(detailPath(row))}">查看</button><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-log" data-material-id="${escapeHtml(row.record.materialId)}">日志</button><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-barcode" data-material-id="${escapeHtml(row.record.materialId)}" ${row.skus.length === 0 ? 'disabled' : ''}>打印条码</button></div>`,
+    },
+  ]
+}
+
+function createArchiveList(kind: MaterialArchiveKind) {
+  const listState: ProcessOrderListControllerState = {
+    currentPage: 1,
+    sort: null,
+    preferences: { order: [], visibleKeys: [], frozenKeys: ['archive'], pageSize: ARCHIVE_LIST_PAGE_SIZES[0] },
+    preferencesLoaded: false,
+    showColumnSettings: false,
+  }
+  const columns = buildArchiveColumns(kind)
+  const controller = createProcessOrderListController<ArchiveListRow>({
+    state: listState,
+    columns,
+    preferenceKey: `higood:list:/pcs/materials/${kind}`,
+    pageSizeOptions: ARCHIVE_LIST_PAGE_SIZES,
+    eventPrefix: 'pcs-material-archive',
+    rootSelector: `[data-pcs-material-archive-page="${kind}"]`,
+    tableSurfaceSelector: '[data-pcs-material-archive-list-region]',
+    paginationSurfaceSelector: '[data-pcs-material-archive-pagination-region]',
+    overlaysSurfaceSelector: '[data-pcs-material-archive-columns-region]',
+    defaultFrozenKeys: ['archive'],
+    columnSettingsTitle: `${KIND_META[kind].label}列设置`,
+    emptyText: '暂无物料档案数据。',
+    getRows: () => getArchiveRows(kind),
+    locallyManagedEvents: true,
+  })
+  return { listState, columns, controller }
+}
+
+const archiveLists = new Map<MaterialArchiveKind, ReturnType<typeof createArchiveList>>()
+
+function archiveList(kind: MaterialArchiveKind): ReturnType<typeof createArchiveList> {
+  const existing = archiveLists.get(kind)
+  if (existing) return existing
+  const created = createArchiveList(kind)
+  archiveLists.set(kind, created)
+  return created
+}
+
+function renderArchiveStats(kind: MaterialArchiveKind): string {
+  const rows = getArchiveRows(kind)
+  return renderStandardListStats([
+    { label: '当前查询主档', value: `${rows.length} 条` },
+    { label: '启用中', value: `${rows.filter((row) => row.record.status === 'ACTIVE').length} 条` },
+    { label: '物料 SKU', value: `${rows.reduce((sum, row) => sum + row.record.skuCount, 0)} 个` },
+    { label: '技术包引用', value: `${rows.reduce((sum, row) => sum + row.record.usedTechPackCount, 0)} 处` },
+    { label: '关联款式（按主档累计）', value: `${rows.reduce((sum, row) => sum + row.record.usedStyleCount, 0)} 处` },
+  ])
 }
 
 function renderCreateDrawer(): string {
@@ -570,7 +652,7 @@ function renderCreateDrawer(): string {
         ${renderFormField('条码模板编码', renderTextInput('create-barcode-template-code', state.create.barcodeTemplateCode, '例如：FAB-COTTON-180-WHT'))}
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, '例如：180cm / 55×90mm / 10英寸'))}
+        ${renderFormField(state.create.categoryName==='织带'?'织带幅宽':state.create.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, ['织带','绳子'].includes(state.create.categoryName)?'例如：20mm 或 2cm，不填写截断长度':'例如：180cm / 55×90mm / 10英寸'))}
         ${renderFormField('克重', renderTextInput('create-gram-weight-text', state.create.gramWeightText, '例如：180g/m²'))}
       </div>
       ${renderFormField('主图链接', renderTextInput('create-main-image-url', state.create.mainImageUrl, '输入图片 URL'))}
@@ -594,6 +676,7 @@ function renderCreateDrawer(): string {
     </div>
   `
   const footer = `
+    ${state.notice?`<p role="alert" class="text-sm text-red-700">${escapeHtml(state.notice)}</p>`:''}
     <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">取消</button>
     <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="submit-create">确认创建</button>
   `
@@ -605,6 +688,7 @@ function renderSkuEditorDrawer(): string {
   const material = getMaterialArchiveById(state.skuEditor.materialId)
   if (!material) return ''
   const specMeta = getMaterialSkuSpecMeta(material.kind)
+  const isTmf = ['织带', '绳子'].includes(material.categoryName)
   const body = `
     <div class="space-y-4">
       <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -619,9 +703,16 @@ function renderSkuEditorDrawer(): string {
         ${renderFormField(
           specMeta.secondaryLabel,
           renderTextInput('sku-editor-spec-value', state.skuEditor.specValue, specMeta.secondaryPlaceholder),
-          true,
+          !isTmf,
         )}
       </div>
+      ${isTmf ? `
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderFormField('潘通色号／色号', renderTextInput('sku-editor-pantone-code', state.skuEditor.pantoneCode, '例如：19-4052；本白可留空'))}
+          ${renderFormField('花型编号', renderTextInput('sku-editor-pattern-code', state.skuEditor.patternCode, '无印花可留空，例如：P001'))}
+        </div>
+        <p class="text-xs leading-5 text-slate-500">织带／绳子 SKU 只区分幅宽／绳径对应的 SPU、颜色和花型。生产单的截断长度、尺码用途及塑料包头／金属头／硅胶浸头，写入加工规格和批次／包装记录，不生成新的永久 SKU。</p>
+      ` : ''}
       <div class="grid gap-4 md:grid-cols-2">
         ${renderFormField('成本价', renderTextInput('sku-editor-cost-price', state.skuEditor.costPrice, '输入成本价', 'number'))}
         ${renderFormField('运费', renderTextInput('sku-editor-freight-cost', state.skuEditor.freightCost, '输入运费', 'number'))}
@@ -725,35 +816,90 @@ function renderLogDrawer(): string {
   return renderDrawerShell('物料日志', body, footer)
 }
 
+function renderArchiveDrawers(): string {
+  return `${renderCreateDrawer()}${renderSkuEditorDrawer()}${renderBarcodeDrawer()}${renderLogDrawer()}`
+}
+
+function refreshArchiveFeedback(kind: MaterialArchiveKind): void {
+  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="feedback"]`)
+  if (region) region.innerHTML = renderArchivePageIntro(kind)
+}
+
+function renderArchivePageIntro(kind: MaterialArchiveKind): string {
+  return `${renderNotice()}<p class="text-sm text-slate-500">${escapeHtml(KIND_META[kind].description)}</p>`
+}
+
+function refreshArchiveStats(kind: MaterialArchiveKind): void {
+  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="stats"]`)
+  if (region) region.innerHTML = renderArchiveStats(kind)
+}
+
+function refreshArchiveFilters(kind: MaterialArchiveKind): void {
+  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="filters"]`)
+  if (region) region.innerHTML = renderFilterCard(kind)
+}
+
+function refreshArchiveDrawers(kind: MaterialArchiveKind): void {
+  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="drawers"]`)
+  if (!region) return
+  region.innerHTML = renderArchiveDrawers()
+  void import('../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(region)).catch(() => undefined)
+}
+
+function refreshArchiveList(kind: MaterialArchiveKind): void {
+  archiveList(kind).controller.refresh()
+  refreshArchiveStats(kind)
+}
+
+function renderFilterFields(kind: MaterialArchiveKind): string {
+  const draft = state.draftFilters[kind]
+  const statusOptions: Array<{ value: MaterialArchiveStatus; label: string }> = [
+    { value: 'ACTIVE', label: '启用' },
+    { value: 'INACTIVE', label: '停用' },
+    { value: 'ARCHIVED', label: '已归档' },
+  ]
+  return `
+    <label class="min-w-[15rem] flex-1 space-y-1"><span class="block text-xs text-slate-500">编码 / 名称 / 分类 / 规格</span>${renderTextInput(`filter-search-${kind}`, draft.search, '搜索编码/名称/分类...')}</label>
+    <label class="w-full space-y-1 sm:w-40"><span class="block text-xs text-slate-500">状态</span>${renderSelect(`filter-status-${kind}`, draft.status === 'all' ? '' : draft.status, statusOptions.map((item) => ({ value: item.value, label: item.label })), '全部状态')}</label>
+  `
+}
+
+function renderFilterCard(kind: MaterialArchiveKind): string {
+  const exportButton = '<button type="button" class="h-9 rounded-md border bg-background px-4 text-sm font-semibold text-foreground hover:bg-muted" data-pcs-material-archive-action="export" data-skip-page-rerender="true">导出</button>'
+  return `<div data-pcs-material-archive-region="filters">${renderStandardListFilters({
+    fieldsHtml: renderFilterFields(kind),
+    actionPrefix: 'pcs-material-archive',
+    extraActionsHtml: exportButton,
+  })}</div>`
+}
+
 function renderListPage(kind: MaterialArchiveKind): string {
   const meta = KIND_META[kind]
-  const records = getFilteredRecords(kind)
-  const filter = state.filters[kind]
+  const { listState, controller } = archiveList(kind)
+  state.activeKind = kind
+  resetStandardListEntryTransientStateOnRouteEntry(
+    listState,
+    typeof document !== 'undefined' && Boolean(document.querySelector(`[data-pcs-material-archive-page="${kind}"]`)),
+  )
+  controller.installColumnDragEvents()
+  const view = controller.getView()
+  const createButton = `<button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" data-pcs-material-archive-action="open-create" data-kind="${escapeHtml(kind)}" data-skip-page-rerender="true"><i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(meta.createLabel)}</button>`
+  const columnSettingsButton = `<button type="button" class="inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted" data-pcs-material-archive-action="open-column-settings" data-skip-page-rerender="true"><i data-lucide="columns-3" class="h-4 w-4"></i>列设置</button>`
+
   return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      <section class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="text-xs text-slate-500">商品中心 / 物料档案</p>
-          <h1 class="mt-1 text-2xl font-semibold text-slate-900">${escapeHtml(meta.label)}</h1>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(meta.description)}</p>
-        </div>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="open-create" data-kind="${escapeHtml(kind)}">
-          <i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(meta.createLabel)}
-        </button>
-      </section>
-      ${renderStats(kind)}
-      <section class="rounded-lg border bg-white p-4 shadow-sm">
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="min-w-[240px] flex-1">${renderTextInput(`filter-search-${kind}`, filter.search, '搜索编码/名称/分类...')}</div>
-          <div class="w-full sm:w-40">${renderSelect(`filter-status-${kind}`, filter.status === 'all' ? '' : filter.status, [{ value: 'ACTIVE', label: '启用' }, { value: 'INACTIVE', label: '停用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
-        </div>
-      </section>
-      ${renderListTable(kind, records)}
-      ${renderCreateDrawer()}
-      ${renderSkuEditorDrawer()}
-      ${renderBarcodeDrawer()}
-      ${renderLogDrawer()}
+    <div data-pcs-material-archive-page="${escapeHtml(kind)}" data-skip-page-rerender="true">
+      ${renderStandardListPage({
+        title: meta.label,
+        primaryActionsHtml: `<div class="flex flex-wrap gap-2">${createButton}</div>`,
+        feedbackHtml: `<div data-pcs-material-archive-region="feedback">${renderArchivePageIntro(kind)}</div>`,
+        filtersHtml: renderFilterCard(kind),
+        statsHtml: `<div data-pcs-material-archive-region="stats">${renderArchiveStats(kind)}</div>`,
+        listTitle: `${meta.label}列表`,
+        listActionsHtml: columnSettingsButton,
+        tableHtml: `<div data-pcs-material-archive-list-region>${view.tableHtml}</div>`,
+        paginationHtml: `<div data-pcs-material-archive-pagination-region>${view.paginationHtml}</div>`,
+        overlaysHtml: `<div data-pcs-material-archive-columns-region>${controller.renderColumnSettings()}</div><div data-pcs-material-archive-region="drawers">${renderArchiveDrawers()}</div>`,
+      })}
     </div>
   `
 }
@@ -767,7 +913,7 @@ function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: Material
       <div class="rounded-lg border bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-5 lg:flex-row">
           <div class="w-full max-w-[280px] shrink-0 space-y-3">
-            ${renderArchiveImage(material.mainImageUrl, material.materialName)}
+            ${!material.mainImageUrl&&['织带','绳子'].includes(material.categoryName)?'<p class="text-sm text-amber-700">缺对应规格实物图，请补充后再完成物料验收。</p>':renderArchiveImage(material.mainImageUrl, material.materialName)}
             <div class="grid grid-cols-3 gap-2">
               ${(material.galleryImageUrls || []).slice(0, 3).map((item) => renderArchiveImage(item, material.materialName, 'sm')).join('')}
             </div>
@@ -782,7 +928,7 @@ function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: Material
               <div><div class="text-xs text-slate-500">主单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.mainUnit || '-')}</div></div>
               <div><div class="text-xs text-slate-500">辅助单位</div><div class="mt-1 flex flex-wrap gap-1">${renderUnitTags(material.auxiliaryUnits || [])}</div></div>
               <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.pricingUnit || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">门幅 / 尺寸</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">${material.categoryName==='织带'?'织带幅宽':material.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸'}</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
               <div><div class="text-xs text-slate-500">克重</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.gramWeightText || '-')}</div></div>
               <div><div class="text-xs text-slate-500">条码模板编码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.barcodeTemplateCode || '-')}</div></div>
               <div><div class="text-xs text-slate-500">SKU 成本区间</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(minCost === null ? '-' : minCost === maxCost ? formatCurrency(minCost) : `${formatCurrency(minCost)} ~ ${formatCurrency(maxCost || 0)}`)}</div></div>
@@ -813,6 +959,13 @@ function renderSkuSpecText(kind: MaterialArchiveKind, item: MaterialSkuRecord): 
   return [item.specName, item.sizeName].filter((value) => value && value !== '-').join(' / ') || '-'
 }
 
+function renderSkuColorText(kind: MaterialArchiveKind, item: MaterialSkuRecord): string {
+  if (kind === 'accessory' && (item.pantoneCode || item.patternCode)) {
+    return [item.colorName, item.pantoneCode, item.patternCode ? `花型 ${item.patternCode}` : ''].filter(Boolean).join(' / ') || '-'
+  }
+  return item.colorName || '-'
+}
+
 function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]): string {
   const specMeta = getMaterialSkuSpecMeta(kind)
   const rows = skuRecords
@@ -828,7 +981,7 @@ function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]
               </div>
             </div>
           </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName || '-')}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuColorText(kind, item))}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuSpecText(kind, item))}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice))}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice + item.freightCost))}</td>
@@ -1046,7 +1199,8 @@ function submitCreate(): void {
     state.notice = '请至少选择一个辅助单位。'
     return
   }
-  const created = createMaterialArchive({
+  let created
+  try { created = createMaterialArchive({
     kind: state.create.kind,
     materialName: state.create.materialName.trim(),
     materialNameEn: state.create.materialNameEn.trim(),
@@ -1063,6 +1217,10 @@ function submitCreate(): void {
     barcodeTemplateCode: state.create.barcodeTemplateCode.trim(),
     remark: state.create.remark.trim(),
   })
+  } catch (error) {
+    state.notice = error instanceof Error ? error.message : '创建未保存，请核对物料规格。'
+    return
+  }
   const nextKind = state.create.kind
   resetCreateState(nextKind)
   state.notice = `已创建 ${created.materialCode}。`
@@ -1079,9 +1237,10 @@ function submitSkuEditor(): void {
     state.notice = '未找到对应物料主档。'
     return
   }
-  if (!state.skuEditor.colorName.trim() || !state.skuEditor.specValue.trim()) {
+  const isTmf = ['织带', '绳子'].includes(material.categoryName)
+  if (!state.skuEditor.colorName.trim() || (!isTmf && !state.skuEditor.specValue.trim())) {
     const specMeta = getMaterialSkuSpecMeta(material.kind)
-    state.notice = `请先补齐 ${specMeta.primaryLabel} 与 ${specMeta.secondaryLabel}。`
+    state.notice = isTmf ? `请先补齐 ${specMeta.primaryLabel}。` : `请先补齐 ${specMeta.primaryLabel} 与 ${specMeta.secondaryLabel}。`
     return
   }
 
@@ -1105,14 +1264,84 @@ function submitSkuEditor(): void {
 function updateFilterField(field: string, value: string): boolean {
   const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable|packaging|parts)$/)
   if (searchMatch) {
-    const kind = searchMatch[1] as MaterialArchiveKind
-    state.filters[kind].search = value
+    state.draftFilters[searchMatch[1] as MaterialArchiveKind].search = value
     return true
   }
   const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable|packaging|parts)$/)
   if (statusMatch) {
-    const kind = statusMatch[1] as MaterialArchiveKind
-    state.filters[kind].status = (value || 'all') as 'all' | MaterialArchiveStatus
+    state.draftFilters[statusMatch[1] as MaterialArchiveKind].status = (value || 'all') as 'all' | MaterialArchiveStatus
+    return true
+  }
+  return false
+}
+
+function handleArchiveListAction(kind: MaterialArchiveKind, action: string, node: HTMLElement): boolean {
+  const { listState, columns, controller } = archiveList(kind)
+
+  if (action === 'query') {
+    state.filters[kind] = { ...state.draftFilters[kind] }
+    listState.currentPage = 1
+    state.notice = null
+    refreshArchiveFeedback(kind)
+    refreshArchiveList(kind)
+    return true
+  }
+  if (action === 'reset') {
+    state.filters[kind] = { search: '', status: 'all' }
+    state.draftFilters[kind] = { search: '', status: 'all' }
+    listState.currentPage = 1
+    listState.sort = null
+    state.notice = null
+    refreshArchiveFilters(kind)
+    refreshArchiveFeedback(kind)
+    refreshArchiveList(kind)
+    return true
+  }
+  if (action === 'export') {
+    // Deferred like the list controller's own shell import: list-export pulls the
+    // shell, which the type-stripped check runners cannot resolve statically.
+    const fileName = `${KIND_META[kind].label.replace(/[\\/:*?"<>|\s]/g, '_')}`
+    const rows = getArchiveRows(kind)
+    void import('../components/ui/list-export.ts').then(({ exportStandardListRows }) => {
+      exportStandardListRows({ fileName, columns, rows })
+    }).catch(() => {
+      state.notice = '导出组件加载失败，请检查网络后重试。'
+      refreshArchiveFeedback(kind)
+    })
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    controller.stepPage(action === 'prev-page' ? -1 : 1)
+    controller.refresh()
+    return true
+  }
+  if (action === 'sort-column') {
+    controller.cycleSort(node.dataset.columnKey || '')
+    controller.refresh()
+    return true
+  }
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    listState.showColumnSettings = action === 'open-column-settings'
+    controller.refresh({ table: false, pagination: false, overlays: true })
+    return true
+  }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const columnKey = node.dataset.pcsMaterialArchiveColumnKey
+      || node.closest<HTMLElement>('[data-pcs-material-archive-column-key]')?.dataset.pcsMaterialArchiveColumnKey
+      || ''
+    controller.updateColumnPreference(
+      action,
+      columnKey,
+      node instanceof HTMLInputElement ? node.checked : undefined,
+    )
+    controller.refresh({ table: false, pagination: false, overlays: true })
+    controller.refresh()
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    controller.restorePreferences()
+    controller.refresh({ table: false, pagination: false, overlays: true })
+    controller.refresh()
     return true
   }
   return false
@@ -1125,6 +1354,13 @@ export function handlePcsMaterialArchiveInput(target: Element): boolean {
   const { value, checked } = resolveFieldValue(target)
 
   if (updateFilterField(field, value)) return true
+
+  if (field === 'pageSize') {
+    const { controller } = archiveList(state.activeKind)
+    controller.setPageSize(Number(value))
+    controller.refresh()
+    return true
+  }
 
   switch (field) {
     case 'create-material-name':
@@ -1180,6 +1416,12 @@ export function handlePcsMaterialArchiveInput(target: Element): boolean {
     case 'sku-editor-color-name':
       state.skuEditor.colorName = value
       return true
+    case 'sku-editor-pantone-code':
+      state.skuEditor.pantoneCode = value
+      return true
+    case 'sku-editor-pattern-code':
+      state.skuEditor.patternCode = value
+      return true
     case 'sku-editor-spec-value':
       state.skuEditor.specValue = value
       return true
@@ -1222,10 +1464,11 @@ export function handlePcsMaterialArchiveInput(target: Element): boolean {
   }
 }
 
-export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
+function dispatchArchiveAction(target: HTMLElement): boolean {
   const actionNode = resolveClosestNode(target, '[data-pcs-material-archive-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsMaterialArchiveAction || ''
+  if (handleArchiveListAction(state.activeKind, action, actionNode)) return true
 
   switch (action) {
     case 'close-notice':
@@ -1234,6 +1477,7 @@ export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
     case 'open-create': {
       const kind = (actionNode.dataset.kind as MaterialArchiveKind) || 'fabric'
       resetCreateState(kind)
+      state.notice = null
       state.create.open = true
       return true
     }
@@ -1281,8 +1525,26 @@ export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
   }
 }
 
+const ARCHIVE_LIST_CHANGING_ACTIONS = new Set(['submit-sku-editor', 'confirm-barcode-print'])
+
+export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
+  const action = resolveClosestNode(target, '[data-pcs-material-archive-action]')?.dataset.pcsMaterialArchiveAction || ''
+  if (!dispatchArchiveAction(target)) return false
+
+  const kind = state.activeKind
+  // The list page opts out of whole-page rerenders, so its own regions refresh
+  // locally; the detail page has no such opt-out and rerenders as before.
+  if (typeof document !== 'undefined' && document.querySelector(`[data-pcs-material-archive-page="${kind}"]`)) {
+    refreshArchiveDrawers(kind)
+    refreshArchiveFeedback(kind)
+    if (ARCHIVE_LIST_CHANGING_ACTIONS.has(action)) refreshArchiveList(kind)
+  }
+  return true
+}
+
 export function isPcsMaterialArchiveDialogOpen(): boolean {
   return state.create.open || state.skuEditor.open || state.barcode.open || state.log.open
+    || archiveList(state.activeKind).listState.showColumnSettings
 }
 
 export function renderPcsFabricArchiveListPage(): string {
