@@ -1,7 +1,0 @@
-
-> higoods-vanilla-clone@1.0.0 check:process-order-task-relations
-> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-order-task-relations.ts
-
-加工单任务项关系专项检查通过：217 条显式关系，准备/生产可追溯，后道保持专用模型。
-(node:79719) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
