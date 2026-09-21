@@ -161,6 +161,7 @@
 - `src/pages/tech-pack/webbing-route-editor.ts`
 - `src/pages/tech-pack/webbing-specification-dialog.ts`
 - `src/components/production-object-overview.ts`
+- `src/components/ui/list-page.ts`
 - `src/data/fcs/production-object-overview.ts`
 - `src/data/fcs/tmf-product-policy.ts`
 - `src/data/pcs-engineering-master-view-model.ts`
@@ -628,3 +629,24 @@ production-order-runtime-store.ts新增受管登记；production-orders.ts与tmf
 - 交付范围裁决（用户确认）：`src/pages/pcs-material-archives.ts` 回退为与 main 逐字节一致，其6处织带厂改动（潘通色号与花型录入、幅宽/绳径标签、缺实物图提示、SKU颜色文本）存于 `evidence/2026-09-21-material-archives-deferred.patch`，标准列表骨架迁移开独立工作包，本段不宣称其完成；新增打印预览页声明 `@page-pattern: detail`，沿用 `src/pages/production-contract-print.ts` 先例；受管文件补登12项，含本次改动的共享搜索组件与其数据模块。
 - 预存在失败（非本任务引入）：`npm run check:production-object-overview` 的 `PH-20260328-007 (PRINT_WORK_ORDER) 必须能回溯生产单` 与 `npm run check:retained-contracts` 的“缺少带返工扣款金额的质检单样例”，已在 `main`（ed9daa9c）的分离工作树以相同错误信息复现。本任务不修改这两项，也不宣称其通过。
 - 第7.2节结论：本任务涉及的15条路由与共享生产对象搜索，在当前分支、当前工作树、生产预览 `http://127.0.0.1:43288`、1366×768 下加载与交互性能通过；这不替代逐条页面/PDA/打印产品验收，98条矩阵项仍保持各自门禁状态，本任务整体结论仍为不通过。
+
+### 第六十四段：物料档案标准列表页迁移与暂缓改动重放（2026-09-21）
+
+- 本段关闭第63段暂缓的工作包。`src/pages/pcs-material-archives.ts` 以 `git apply` 重放暂缓补丁（回退后 diff 为 +46/−9，与暂缓时记录逐字一致），随后迁移为标准管理列表：顶部声明 `@page-pattern: list`，使用 `renderStandardListPage`、`renderStandardListStats`、`renderStandardListFilters` 与 `createProcessOrderListController`（内部渲染 `renderStandardListTable`、`renderTablePagination`）。列显示、顺序、冻结与每页条数按路由持久化于 `higood:list:/pcs/materials/<kind>`，当前页与排序不持久化，物料主档列默认冻结左侧，操作列固定右侧，必需与防错列不可隐藏。原页面自行拼接的 `<table>` 与整段渲染被移除，交互改为局部区域刷新。
+- 能力补齐：`src/components/ui/list-page.ts` 的 `renderStandardListFilters` 增加可选 `extraActionsHtml`，用于在同一查询卡片第二行按“查询、重置、导出”顺序承载导出；未新增组件、未复制页面模板。
+- 真实缺陷修复三处，均为本段引入或本段负责的路径：缩略图 `onerror` 误用 `this.lastElementSibling`（img 无子元素）抛出 `Cannot set properties of undefined`；图片失败态误用 Tailwind `hidden` 类使 `hidden` 属性切换无效，改为 `hidden` 属性加 `flex`；物料档案 Mock 数据外链 `file.higood.id`、`pic.higood.live` 第三方图床，导致冷加载 516～2295ms 且部分资源在本机不可达，违反第5.3节“图片须在原型环境稳定可访问”。17 张资源已逐条取回并落在 `public/materials/archive/`（3.7MB，全部经 `file --mime-type` 校验为真实图片，无错误页冒充），`src/data/pcs-material-archive-repository.ts` 中 39 处引用改为本地路径，冷加载回落到 162～223ms。款式/SKU 档案的 `src/data/pcs-product-archive-fixtures.ts` 仍有 8 处外链，不属本工作包，未修改。
+- 分页档位改为 5/10/20/50，默认 5 条/页（控制器取档位首项为默认）。原因：当前真实记录为面料 2 条、辅料 6 条、其余分类各 1 条，5 条档位在 6 条记录上才能真实观察跨页与排序换序；不通过批量伪造缺少实拍图的物料对象来凑页数。
+- 浏览器功能验收：`evidence/2026-09-21-material-archives-list-browser.mjs` 与 `...-list-browser-current.json`，6 条分类列表加详情与抽屉，判定 0 失败。覆盖布局区段顺序、48px 单行统计且与查询同数据范围、查询/重置/导出三键、导出行数等于查询命中且不含操作列、5 条/页下翻页到第 2 页与排序首行换序、必需列不可隐藏、冻结列与操作列吸附、页面主体 0 横向溢出（表格容器内部滚动 336px）、大图弹窗与 Esc 关闭、图片加载中与失败可见文案、1280×720 无溢出。防错链实测：空幅宽织带主档被阻断并给出幅宽口径提示，PCS 单位织带被阻断并提示改用米，补 `20mm` 与 `米` 后创建成功并驱动列表与详情显示“缺对应规格实物图”，且未使用占位图冒充；普通面料 SKU 抽屉不出现潘通/花型字段且第二参数仍必填，对应 MAT-003、MAT-004、MAT-007。
+- 第7.2节性能门禁：`evidence/2026-09-21-material-archives-performance.mjs` 与 `...-performance-gate-pass.json`，8 条路由（6 分类列表 + 2 详情）× 冷启动/整页刷新/站内切换各 5 次，另有 70 个可交互入口每项 5 次，结果 465 样本 0 失败、峰值 343.52ms、0 页面错误、strictGate=true；冷 162～223ms、刷新 268～295ms、切换 100～135ms。5 项“每页条数”样本按不适用记录并写明理由：该路由真实记录不足一个分页，切换没有可观察结果；跨页与持久化在辅料档案出具实测。测量自身的一次中间运行曾出现 11 项“无可观察结果”超时，逐项定位为脚本前置条件不足（在已激活页签上点击页签、单记录分类无法收窄查询），修正前置构造后重跑为当前全量结果，未放宽阈值。
+- 与本段无关的预存在失败保持原状：`check:production-object-overview` 与 `check:retained-contracts` 仍在 clean main 同错误失败；`src/pages/pcs-product-archives.ts` 等其他未迁移列表页不在本包范围。
+- 本段结论：物料档案页迁移及其改动重放的实现与页面、性能证据闭环；其余 TMF 矩阵项状态不因本段升格，织带厂整体交付结论仍为不通过。
+
+#### 第64段验证补充（2026-09-21，交付时点）
+
+- `npm run build`：通过（含 `typecheck:engineering` 与全量单元测试）。
+- `npm run check:pcs-material-archive-units`：通过。中途曾因本包新增的静态导入链（页面 → list-export → list-feedback → shell → 无扩展名的 `../state/store`）在 Node 直载 TS 下解析失败，已改为按需加载并与控制器既有做法一致；该项在 clean main 上原本通过，属本包引入并已修复。
+- `npm run check:list-page-governance`：通过，含 `check:standard-list-page-template` 与 `check:prototype-design-governance -- --all`。
+- `npm run check:menu-routes`：通过。
+- 任务收据：`state=verified`、`blockers` 为空，绑定 HEAD `2b2d5f69` 与本包差异，3 项受影响检查全部 exit 0。
+- 第7.2节：本包 8 条路由与 70 个交互入口全部通过（峰值 343.52ms），证据 `evidence/2026-09-21-material-archives-performance-gate-pass.json`；功能验收 `evidence/2026-09-21-material-archives-list-browser-current.json` 判定 0 失败。
+- 本包不改变织带厂整体结论：98 条矩阵项仍逐条保留自身门禁状态，整体交付结论仍为不通过。

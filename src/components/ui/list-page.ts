@@ -27,6 +27,7 @@ export interface StandardListFiltersConfig {
   actionPrefix: string
   queryAction?: string
   resetAction?: string
+  extraActionsHtml?: string
 }
 
 export function renderStandardListFilters(config: StandardListFiltersConfig): string {
@@ -36,6 +37,7 @@ export function renderStandardListFilters(config: StandardListFiltersConfig): st
       <div class="flex shrink-0 items-center gap-2">
         <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" ${toActionAttr({ prefix: config.actionPrefix, action: config.queryAction ?? 'query' })} data-standard-list-query>查询</button>
         <button type="button" class="h-9 rounded-md border bg-background px-4 text-sm font-semibold text-foreground hover:bg-muted" ${toActionAttr({ prefix: config.actionPrefix, action: config.resetAction ?? 'reset' })} data-standard-list-reset>重置</button>
+        ${config.extraActionsHtml ?? ''}
       </div>
     </div>
   `
