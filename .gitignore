@@ -23,6 +23,7 @@ node_modules/
 .npm/
 .tmp*
 .superpowers/
+.qoder/
 .worktrees/
 Library/
 src/**/*.js
